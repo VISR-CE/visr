@@ -31,6 +31,79 @@ s3 = "ON"
 s0 = "ON"
 s1 = "OFF"
 
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_captures_to_win_spinner]
+s0 = "1"
+s1 = "3"
+s2 = "5"
+s3 = "10"
+s4 = "15"
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_help_strings]
+how_much_a_player_or_team_must_s_8d087a = "How much a player or team must score to win the game."
+how_long_the_game_lasts_before_t_7eaee6 = "How long the game lasts before the leader wins."
+whether_players_play_as_teams = "Whether players play as teams."
+team_colors_and_which_indicators_286a26 = "Team colors and which indicators show on the HUD."
+the_options_of_this_game_type = "The options of this game type."
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner]
+s0 = "5"
+s1 = "10"
+s2 = "15"
+s3 = "25"
+s4 = "50"
+s5 = "75"
+s6 = "100"
+s7 = "150"
+s8 = "200"
+s9 = "250"
+s10 = "500"
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_koth_score_to_win_spinner]
+s0 = "1 MINUTE"
+s1 = "2 MINUTES"
+s2 = "5 MINUTES"
+s3 = "10 MINUTES"
+s4 = "15 MINUTES"
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_koth_team_play_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_labels]
+score_to_win = "SCORE TO WIN:"
+time_limit = "TIME LIMIT:"
+team_play = "TEAM PLAY:"
+teams_amp_hud = "TEAMS & HUD"
+type_options = "TYPE OPTIONS"
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner]
+s0 = "1"
+s1 = "3"
+s2 = "5"
+s3 = "10"
+s4 = "15"
+s5 = "25"
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_score_to_win_spinner]
+s0 = "1"
+s1 = "2"
+s2 = "5"
+s3 = "10"
+s4 = "15"
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_team_play_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner]
+s0 = "NONE"
+s1 = "10 MINUTES"
+s2 = "15 MINUTES"
+s3 = "20 MINUTES"
+s4 = "25 MINUTES"
+s5 = "30 MINUTES"
+s6 = "45 MINUTES"
+
 [ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_button_clipboard]
 text = "ENTER CODE"
 
@@ -721,6 +794,79 @@ text = "CANCEL"
 [xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_server_port_label]
 text = "SERVER PORT"
 
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_captures_to_win_spinner]
+s0 = "1"
+s1 = "3"
+s2 = "5"
+s3 = "10"
+s4 = "15"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings]
+how_much_a_player_or_team_must_s_8d087a = "How much a player or team must score to win the game."
+how_long_the_game_lasts_before_t_7eaee6 = "How long the game lasts before the leader wins."
+whether_players_play_as_teams = "Whether players play as teams."
+team_colors_and_which_indicators_286a26 = "Team colors and which indicators show on the HUD."
+the_options_of_this_game_type = "The options of this game type."
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner]
+s0 = "5"
+s1 = "10"
+s2 = "15"
+s3 = "25"
+s4 = "50"
+s5 = "75"
+s6 = "100"
+s7 = "150"
+s8 = "200"
+s9 = "250"
+s10 = "500"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_score_to_win_spinner]
+s0 = "1 MINUTE"
+s1 = "2 MINUTES"
+s2 = "5 MINUTES"
+s3 = "10 MINUTES"
+s4 = "15 MINUTES"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_team_play_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_labels]
+score_to_win = "SCORE TO WIN:"
+time_limit = "TIME LIMIT:"
+team_play = "TEAM PLAY:"
+teams_amp_hud = "TEAMS & HUD"
+type_options = "TYPE OPTIONS"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner]
+s0 = "1"
+s1 = "3"
+s2 = "5"
+s3 = "10"
+s4 = "15"
+s5 = "25"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_score_to_win_spinner]
+s0 = "1"
+s1 = "2"
+s2 = "5"
+s3 = "10"
+s4 = "15"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_team_play_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner]
+s0 = "NONE"
+s1 = "10 MINUTES"
+s2 = "15 MINUTES"
+s3 = "20 MINUTES"
+s4 = "25 MINUTES"
+s5 = "30 MINUTES"
+s6 = "45 MINUTES"
+
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_create]
 text = "CREATE GAME"
 
@@ -1287,6 +1433,372 @@ empty_game_nsetting_slot = "Empty game\\nsetting slot"
 are_you_sure_you_wish_to_nexit_halo = "Are you sure you wish to\\nexit Halo?"
 quit = "Quit?"
 
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_cap_indicator_options]
+the_game_s_objectives_hills_flag_999404 = "The game's objectives (hills, flags, balls and the like)\\nwill appear in your Motion Tracker."
+the_game_s_objectives_will_have__dc6a6c = "The game's objectives will have special markers\\ndisplayed over them on screen."
+the_game_s_objectives_will_not_b_ff68d4 = "The game's objectives will not be visible in your\\nMotion Tracker or on screen."
+all_other_players_in_the_game_wi_2eed11 = "All other players in the game will show up on your \\nMotion Tracker when mobile."
+other_friendly_players_in_the_ga_568d12 = "Other friendly players in the game will show up on \\nyour Motion Tracker when mobile."
+other_players_in_the_game_will_n_93323d = "Other players in the game will never show up on your\\nMotion Tracker."
+green_triangles_will_appear_over_f13744 = "Green triangles will appear over the heads of your\\nteammates as a reminder that you should not shoot\\nthem."
+your_teammates_will_only_be_deno_5c8d39 = "Your teammates will only be denoted by the color of\\ntheir armor."
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_indicator_options_labels]
+objectives_indicator = "OBJECTIVES INDICATOR:"
+objectives_on_screen = "OBJECTIVES ON SCREEN:"
+other_players_on_radar = "OTHER PLAYERS ON RADAR:"
+friend_indicators_on_screen = "FRIEND INDICATORS ON SCREEN:"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_var_friends_on_screen]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_var_objectives_on_screen]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_var_others_on_radar]
+all = "ALL"
+friends = "FRIENDS"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_var_radar_display]
+motion_tracker = "MOTION TRACKER"
+nav_points = "NAV POINTS"
+none = "NONE"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf]
+you_must_carry_your_own_flag_int_0202d5 = "You must carry your own flag into the opposing\\nteam's base to score."
+you_must_capture_the_enemy_s_fla_c403cd = "You must capture the enemy's flag and return it to\\nyour own base."
+each_team_will_have_its_own_indi_208dab = "Each team will have its own individual flag."
+there_will_be_only_one_flag_on_t_74bc1d = "There will be only one flag on the map at any given\\ntime. It will appear in a team base. Each team alter-\\nnates offense and defense every minute."
+there_will_be_only_one_flag_on_t_894461 = "There will be only one flag on the map at any given\\ntime. It will appear in a team base. Each team alter-\\nnates offense and defense in 2 minute intervals."
+there_will_be_only_one_flag_on_t_0d4ddf = "There will be only one flag on the map at any given\\ntime. It will appear in a team base. Each team alter-\\nnates offense and defense in 3 minute intervals."
+there_will_be_only_one_flag_on_t_2de937 = "There will be only one flag on the map at any given\\ntime. It will appear in a team base. Each team alter-\\nnates offense and defense in 5 minute intervals."
+there_will_be_only_one_flag_on_t_9474b1 = "There will be only one flag on the map at any given\\ntime. It will appear in a team base. Each team alter-\\nnates offense and defense in 10 minute intervals."
+you_cannot_return_the_flag_to_yo_b1e022 = "You cannot return the flag to your base; it will return\\nitself after a set amount of time."
+the_flag_will_return_to_the_base_47322e = "The flag will return to the base if you walk over it."
+in_order_to_score_your_team_s_fl_726381 = "In order to score, your team's flag must be in its home\\nlocation. Use this option if you enjoy chasing\\nflag-bearing enemies before you can score."
+you_will_be_able_to_score_even_i_c6d032 = "You will be able to score even if your own flag is in\\nthe scurrilous hands of the enemy."
+the_first_team_to_capture_the_flag_wins = "The first team to capture the flag wins."
+you_ll_need_to_capture_three_fla_356386 = "You'll need to capture three flags to win the game."
+capture_the_flag_five_times_and__4674f8 = "Capture the flag five times and you'll win the game."
+you_ll_need_to_capture_ten_flags_9d9306 = "You'll need to capture ten flags if you want to win."
+grab_fifteen_flags_and_you_ll_ra_7c8925 = "Grab fifteen flags and you'll rack up a win - not to\\nmention an impressive flag collection."
+the_game_will_have_no_time_limit_a902cc = "The game will have no time limit.  It will only end\\nwhen someone wins."
+this_game_will_have_a_10_minute__51b442 = "This game will have a 10 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_15_minute__4ceb11 = "This game will have a 15 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_20_minute__e14abd = "This game will have a 20 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_25_minute__e4208c = "This game will have a 25 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_30_minute__fb5fe3 = "This game will have a 30 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_45_minute__75834e = "This game will have a 45 minute time limit.  It will\\nend after the time limit is up or someone wins."
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_ctf_labels]
+assault = "ASSAULT:"
+single_flag = "SINGLE FLAG:"
+flag_must_reset = "FLAG MUST RESET:"
+flag_at_home_to_score = "FLAG AT HOME TO SCORE:"
+captures_to_win = "CAPTURES TO WIN:"
+time_limit = "TIME LIMIT:"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_assault]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_captures_to_win]
+1 = "1"
+3 = "3"
+5 = "5"
+10 = "10"
+15 = "15"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_flag_at_home]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_flag_must_reset]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_single_flag]
+off = "OFF"
+1_minute = "1 MINUTE"
+2_minutes = "2 MINUTES"
+3_minutes = "3 MINUTES"
+5_minutes = "5 MINUTES"
+10_minutes = "10 MINUTES"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_time_limit]
+none = "NONE"
+10_minutes = "10 MINUTES"
+15_minutes = "15 MINUTES"
+20_minutes = "20 MINUTES"
+25_minutes = "25 MINUTES"
+30_minutes = "30 MINUTES"
+45_minutes = "45 MINUTES"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth]
+during_the_course_of_the_game_th_e2679f = "During the course of the game, the Hill will teleport to\\na random location."
+the_hill_will_always_be_in_the_same_spot = "The Hill will always be in the same spot."
+the_first_player_to_spend_sixty__34cf5a = "The first player to spend sixty seconds atop the hill\\nwins."
+you_ll_need_to_hold_the_hill_for_7d4b4b = "You'll need to hold the hill for a mere two minutes to \\nwin the crown."
+you_ll_need_to_hold_the_hill_for_f5e093 = "You'll need to hold the hill for five minutes to win."
+spend_a_full_ten_minutes_dominat_462147 = "Spend a full ten minutes dominating the hill and the\\ngame is yours."
+get_a_comfy_chair_because_you_ll_332bbd = "Get a comfy chair, because you'll need to control the\\nhill for a solid fifteen minutes in order to win."
+this_is_a_team_game = "This is a team game."
+it_s_every_man_for_himself = "It's every man for himself."
+the_game_will_have_no_time_limit_a902cc = "The game will have no time limit.  It will only end\\nwhen someone wins."
+this_game_will_have_a_10_minute__51b442 = "This game will have a 10 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_15_minute__4ceb11 = "This game will have a 15 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_20_minute__e14abd = "This game will have a 20 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_25_minute__e4208c = "This game will have a 25 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_30_minute__fb5fe3 = "This game will have a 30 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_45_minute__75834e = "This game will have a 45 minute time limit.  It will\\nend after the time limit is up or someone wins."
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_koth_labels]
+moving_hill = "MOVING HILL:"
+score_to_win = "SCORE TO WIN:"
+team_play = "TEAM PLAY:"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_var_moving_hill]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_var_score_to_win]
+1_minute = "1 MINUTE"
+2_minutes = "2 MINUTES"
+5_minutes = "5 MINUTES"
+10_minutes = "10 MINUTES"
+15_minutes = "15 MINUTES"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_var_team_play]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball]
+you_will_have_no_special_abiliti_4850df = "You will have no special abilities while carrying the\\nball."
+while_the_ball_is_in_your_posses_d989b0 = "While the ball is in your possession, you will be\\ninvisible to the other players."
+while_carrying_the_ball_you_will_3d7f49 = "While carrying the ball, you will do extra damage to\\nyour opponents."
+while_you_re_carrying_the_ball_y_d3a9ad = "While you're carrying the ball, you will be more\\nresistant to damage."
+you_will_have_no_special_abiliti_eb1bac = "You will have no special abilities when you are not\\ncarrying the ball."
+only_the_player_carrying_the_bal_9a183a = "Only the player carrying the ball is visible; all others\\nare invisible."
+players_who_are_not_carrying_the_103620 = "Players who are not carrying the ball do extra damage;\\nthis ability disappears while they have the ball."
+players_who_are_not_carrying_the_15d114 = "Players who are not carrying the ball are more\\nresistant to damage than the player who has the ball."
+you_will_run_at_the_same_speed_w_5b923a = "You will run at the same speed whether you have the\\nball or not."
+when_you_have_the_ball_you_will__054731 = "When you have the ball, you will run slower than the\\nother players."
+when_you_have_the_ball_you_ll_ru_072e3e = "When you have the ball, you'll run faster than the\\nother players."
+the_object_of_the_game_is_to_hol_144d80 = "The object of the game is to hold the ball for as long\\nas possible. The winner is the first player to hold the\\nball for the specified time."
+the_first_player_to_kill_another_27463b = "The first player to kill another becomes It. Others\\nbecome It by killing the player who is It. Be It for\\nthe specified time to win. There is no ball. Odd, eh?"
+the_first_player_to_kill_becomes_8c1be3 = "The first player to kill becomes the Juggernaut, and\\nscores for all kills. Others take his place by killing\\nhim. Once again there is no ball to speak of."
+the_ball_will_appear_in_random_l_48a0b9 = "The ball will appear in random locations on the map."
+the_ball_will_always_appear_in_t_3cb7d1 = "The ball will always appear in the same spot on\\nthe map."
+like_cinderella_you_will_concern_70e230 = "Like Cinderella, you will concern yourself with only\\none ball."
+you_probably_expected_a_crass_qu_504ca6 = "You probably expected a crass \"two balls\" joke in\\nthis space. Are you nuts? We'd get sacked!"
+three_balls_equals_thrice_the_fun = "Three balls equals thrice the fun."
+what_has_four_balls_and_thrills__669c31 = "What has four balls and thrills for all? This game!"
+five_balls_are_scattered_about_w_140cc4 = "Five balls are scattered about willy-nilly."
+six_balls_and_all_s_well = "Six balls, and all's well."
+what_is_the_hidden_significance__05ba86 = "What is the hidden significance of the seventh ball?"
+eight_balls_is_definitely_enough = "Eight balls is definitely enough."
+this_game_shall_henceforth_be_kn_978bd2 = "This game shall henceforth be known as the\\nGame O' Nine Balls."
+ten_ten_balls_in_this_game_ha_ha_41a91d = "Ten! Ten balls in this game! Ha ha ha ha ha ha ha!"
+this_game_goes_to_eleven_balls_that_is = "This game goes to eleven. Balls, that is."
+and_then_there_were_twelve_balls_33a1ad = "... and then there were twelve balls in the game."
+lucky_you_there_are_thirteen_bal_ca07e4 = "Lucky you - there are thirteen balls in this game."
+what_do_you_get_when_you_double__a07bf1 = "What do you get when you double the excitement and\\nmystery of seven balls? Fourteen balls, that's what!"
+be_the_first_on_your_block_to_co_fb3820 = "Be the first on your block to collect all fifteen balls!"
+you_ll_barely_be_able_to_walk_wi_493a4a = "You'll barely be able to walk without stepping over\\none of the sixteen balls in this game."
+you_ll_only_need_to_hang_onto_th_d30000 = "You'll only need to hang onto the ball or be It for a\\ntotal of one minute to win. Juggernauts only need\\none kill to win."
+control_the_ball_or_be_it_for_tw_bfe1b9 = "Control the ball or be It for two minutes and the\\ngame is yours. First Juggernaut with two kills wins."
+control_the_ball_or_be_it_for_fi_7a37aa = "Control the ball or be It for five minutes and the\\ngame is yours. First Juggernaut to five kills wins."
+first_person_to_carry_the_ball_o_0b6b28 = "First person to carry the ball or be It for ten minutes\\nwins the game. First Juggernaut to ten kills wins."
+you_ll_need_to_spend_fifteen_min_78bb73 = "You'll need to spend fifteen minutes of quality time\\nwith the ball or being It in order to win. Juggernauts\\nmust score an impressive fifteen kills."
+this_is_a_team_game = "This is a team game."
+it_s_every_man_for_himself = "It's every man for himself."
+the_game_will_have_no_time_limit_a902cc = "The game will have no time limit.  It will only end\\nwhen someone wins."
+this_game_will_have_a_10_minute__51b442 = "This game will have a 10 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_15_minute__4ceb11 = "This game will have a 15 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_20_minute__e14abd = "This game will have a 20 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_25_minute__e4208c = "This game will have a 25 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_30_minute__fb5fe3 = "This game will have a 30 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_45_minute__75834e = "This game will have a 45 minute time limit.  It will\\nend after the time limit is up or someone wins."
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels]
+trait_with_ball = "TRAIT WITH BALL:"
+trait_without_ball = "TRAIT WITHOUT BALL:"
+speed_with_ball = "SPEED WITH BALL:"
+ball_type = "BALL TYPE:"
+random_start = "RANDOM START:"
+ball_spawn_count = "BALL SPAWN COUNT:"
+minutes_points_to_win = "MINUTES/POINTS TO WIN:"
+team_play = "TEAM PLAY:"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count]
+1 = "1"
+2 = "2"
+3 = "3"
+4 = "4"
+5 = "5"
+6 = "6"
+7 = "7"
+8 = "8"
+9 = "9"
+10 = "10"
+11 = "11"
+12 = "12"
+13 = "13"
+14 = "14"
+15 = "15"
+16 = "16"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_type]
+normal = "NORMAL"
+reverse_tag = "REVERSE TAG"
+juggernaut = "JUGGERNAUT"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_random_start]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_score_to_win]
+1 = "1"
+2 = "2"
+5 = "5"
+10 = "10"
+15 = "15"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_speed_with_ball]
+normal = "NORMAL"
+slow = "SLOW"
+fast = "FAST"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_team_play]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_with_ball]
+none = "NONE"
+invisible = "INVISIBLE"
+extra_damage = "EXTRA DAMAGE"
+damage_resistant = "DAMAGE RESISTANT"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_without_ball]
+none = "NONE"
+invisible = "INVISIBLE"
+extra_damage = "EXTRA DAMAGE"
+damage_resistant = "DAMAGE RESISTANT"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race]
+when_the_game_ends_each_team_is__d61e4a = "When the game ends, each team is ranked by its\\nlowest-scoring member."
+each_team_s_score_is_equal_to_th_ba9a07 = "Each team's score is equal to that of the highest-\\nscoring team member."
+each_team_s_score_is_the_sum_tot_1820ce = "Each team's score is the sum total of its individual\\nmember's scores."
+to_complete_a_lap_you_must_reach_58be45 = "To complete a lap, you must reach all the flags in\\norder."
+you_complete_a_lap_by_touching_a_a76026 = "You complete a lap by touching all the flags, in\\nwhatever order you please."
+everyone_has_one_point_as_the_de_4f8acc = "Everyone has one point as the destination, and the\\nplayer who reaches it first scores a lap."
+a_single_lap_is_all_that_s_requi_11660d = "A single lap is all that's required to win the game. \\nUnless your pants are on fire, this should be quick \\nand easy."
+three_quick_laps_and_you_re_done_033c57 = "Three quick laps and you're done.  Just like a\\nlollipop."
+you_ll_need_to_use_all_the_finge_99d757 = "You'll need to use all the fingers on one of your hands\\nto count the laps in this game."
+to_win_you_ll_need_nerves_of_ste_d2b438 = "To win, you'll need nerves of steel, brass balls and\\nten laps."
+you_ll_need_fifteen_laps_and_may_07f86d = "You'll need fifteen laps (and maybe one pit stop) to \\ncomplete this race."
+you_ll_want_to_keep_a_barf_bag_h_4f8948 = "You'll want to keep a barf bag handy if you want to\\nfinish all 25 laps to win."
+this_is_a_team_game = "This is a team game."
+it_s_every_man_for_himself = "It's every man for himself."
+the_game_will_have_no_time_limit_a902cc = "The game will have no time limit.  It will only end\\nwhen someone wins."
+this_game_will_have_a_10_minute__51b442 = "This game will have a 10 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_15_minute__4ceb11 = "This game will have a 15 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_20_minute__e14abd = "This game will have a 20 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_25_minute__e4208c = "This game will have a 25 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_30_minute__fb5fe3 = "This game will have a 30 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_45_minute__75834e = "This game will have a 45 minute time limit.  It will\\nend after the time limit is up or someone wins."
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_race_labels]
+team_scoring = "TEAM SCORING:"
+race_type = "RACE TYPE:"
+laps_to_win = "LAPS TO WIN:"
+team_play = "TEAM PLAY:"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_laps_to_win]
+1 = "1"
+3 = "3"
+5 = "5"
+10 = "10"
+15 = "15"
+25 = "25"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_race_type]
+normal = "NORMAL"
+any_order = "ANY ORDER"
+rally = "RALLY"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_team_play]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_team_scoring]
+minimum = "MINIMUM"
+maximum = "MAXIMUM"
+sum = "SUM"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer]
+when_you_die_and_respawn_you_ll__6f5029 = "When you die and respawn you'll run a little faster.\\nGives new meaning to \"The Quick and the Dead.\" This \\nhelps balance play with newbies and experts."
+you_will_always_run_at_the_same__752266 = "You will always run at the same speed no matter how\\nmany times you die."
+you_will_only_score_when_you_kil_dc1844 = "You will only score when you kill your designated\\ntarget. The target will change each time you make\\na kill."
+each_kill_you_make_counts_toward_3231bd = "Each kill you make counts toward your score."
+every_time_you_kill_another_play_bd2a7d = "Every time you kill another player, you will run a\\nlittle slower. An entertaining handicap for the\\nsharp-eyed marksman."
+you_will_always_run_at_the_same__5a22cd = "You will always run at the same speed, no matter how\\nmany other players you kill."
+scoring_a_mere_five_kills_will_w_5a1269 = "Scoring a mere five kills will win the game for you."
+first_player_to_plug_ten_enemies_wins = "First player to plug ten enemies wins."
+at_the_end_of_this_game_there_wi_17db92 = "At the end of this game there will be fifteen angry\\nmen. Angry because the winning player killed them."
+you_ll_need_to_secure_twenty_fiv_c10b85 = "You'll need to secure twenty-five kills in order to\\nwin the game."
+we_hope_you_ve_got_plenty_of_tim_c40fd8 = "We hope you've got plenty of time, because you'll\\nneed to make a full fifty kills to win this one."
+seventy_five_kills_to_win_settle_268d7c = "Seventy-five kills to win. Settle in for a long\\nfight."
+a_hundred_kills_to_win_made_for__1565b8 = "A hundred kills to win. Made for big games."
+a_hundred_and_fifty_kills_to_win_fdc27e = "A hundred and fifty kills to win. Only a crowded\\nserver gets there."
+two_hundred_kills_to_win_bring_f_d77e98 = "Two hundred kills to win. Bring friends. Lots of\\nthem."
+two_hundred_and_fifty_kills_to_win = "Two hundred and fifty kills to win."
+five_hundred_kills_to_win_you_ll_21bf51 = "Five hundred kills to win. You'll be here a while."
+this_is_a_team_game = "This is a team game."
+it_s_every_man_for_himself = "It's every man for himself."
+the_game_will_have_no_time_limit_a902cc = "The game will have no time limit.  It will only end\\nwhen someone wins."
+this_game_will_have_a_10_minute__51b442 = "This game will have a 10 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_15_minute__4ceb11 = "This game will have a 15 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_20_minute__e14abd = "This game will have a 20 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_25_minute__e4208c = "This game will have a 25 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_30_minute__fb5fe3 = "This game will have a 30 minute time limit.  It will\\nend after the time limit is up or someone wins."
+this_game_will_have_a_45_minute__75834e = "This game will have a 45 minute time limit.  It will\\nend after the time limit is up or someone wins."
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_slayer_labels]
+death_bonus = "DEATH BONUS:"
+kill_penalty = "KILL PENALTY:"
+kill_in_order = "KILL IN ORDER:"
+kills_to_win = "KILLS TO WIN:"
+team_play = "TEAM PLAY:"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_death_bonus]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_kill_in_order]
+yes = "YES"
+no = "NO"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_kills_to_win]
+5 = "5"
+10 = "10"
+15 = "15"
+25 = "25"
+50 = "50"
+75 = "75"
+100 = "100"
+150 = "150"
+200 = "200"
+250 = "250"
+500 = "500"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_team_play]
+yes = "YES"
+no = "NO"
+
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options]
 players_can_not_be_hurt_by_weapo_f42723 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
 players_can_be_hurt_by_weapons_o_a40947 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
@@ -1503,6 +2015,14 @@ yes = "YES"
 [xbox.patches.gametype_item_delete]
 text = "DELETE GAMETYPE"
 description = "Delete this gametype."
+
+[xbox.patches.gametype_item_game]
+text = "GAME"
+description = "Score, time limit, and team rules."
+
+[xbox.patches.gametype_item_vehicles]
+text = "VEHICLES"
+description = "Which vehicles are on the map."
 
 [xbox.patches.multiplayer_type_internet]
 text = "INTERNET"

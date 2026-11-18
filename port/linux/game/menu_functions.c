@@ -6628,9 +6628,62 @@ static void gametype_option_row(struct widget_instance *row, boolean save)
 static void gametype_options_each(struct widget_instance *list, boolean save)
 {
 	struct widget_instance *row;
+	boolean game_screen = named(list, "op_teams_hud", 0) != NULL;
 
 	for (row = list->child; row; row = row->next)
+	{
+		/* the GAME screen carries every type's rows; only the shown ones are saved */
+		if (save && game_screen && !row->visible)
+			continue;
 		gametype_option_row(row, save);
+	}
+}
+
+/* the GAME screen of the gametype editor holds the rows of every type (the
+score to win in each one's unit, team play, the type's own options): the current
+type's are shown, packed to the first row's place */
+static void game_options_show(struct widget_instance *list)
+{
+	static char const *const order[] =
+	{
+		"op_captures_to_win", "op_koth_score_to_win", "op_score_to_win", "op_laps_to_win",
+		"op_kills_to_win", "op_time_limit", "op_team_play", "op_koth_team_play", "op_teams_hud",
+		"op_type_ctf", "op_type_slayer", "op_type_oddball", "op_type_koth", "op_type_race",
+	};
+	/* by engine (1 CTF, 2 Slayer, 3 Oddball, 4 King, 5 Race): the score row, team play row, type row */
+	static char const *const score[] = { NULL, "op_captures_to_win", "op_kills_to_win", "op_score_to_win",
+		"op_koth_score_to_win", "op_laps_to_win" };
+	static char const *const teams[] = { NULL, NULL, "op_team_play", "op_team_play", "op_koth_team_play",
+		"op_team_play" };
+	static char const *const type[] = { NULL, "op_type_ctf", "op_type_slayer", "op_type_oddball",
+		"op_type_koth", "op_type_race" };
+	struct widget_instance *first = named(list, order[0], 0);
+	struct widget_instance *second = named(list, "op_time_limit", 0);
+	long engine = PIN(edit_variant()->game_engine_index, 1, 5);
+	short slot = 0, row, pitch;
+
+	if (!first || !second || second->vertical_offset <= first->vertical_offset)
+		return;
+	pitch = second->vertical_offset - first->vertical_offset;
+	for (row = 0; row < NUMBEROF(order); row++)
+	{
+		struct widget_instance *widget = named(list, order[row], 0);
+		boolean wanted = FALSE;
+
+		if (!widget)
+			continue;
+		if (row < 5)
+			wanted = !strcmp(order[row], score[engine]);
+		else if (!strncmp(order[row], "op_type_", 8))
+			wanted = !strcmp(order[row], type[engine]);
+		else if (!strcmp(order[row], "op_team_play") || !strcmp(order[row], "op_koth_team_play"))
+			wanted = teams[engine] && !strcmp(order[row], teams[engine]);
+		else
+			wanted = TRUE;
+		widget->visible = wanted;
+		if (wanted)
+			widget->vertical_offset = first->vertical_offset + slot++ * pitch;
+	}
 }
 
 /* the options' list of a button of its bar (OK's): the one above it whose
@@ -6803,6 +6856,8 @@ static boolean gametype_options_init(struct widget_instance *list)
 	if (!edit_variant())
 		return campaign_fail();
 	gametype_options_each(list, FALSE);
+	if (named(list, "op_teams_hud", 0))
+		game_options_show(list);
 	if (named(list, "op_team", 0))
 		vehicles_show(list);
 	return TRUE;

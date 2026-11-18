@@ -122,6 +122,9 @@
 	<bitmap name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip">
 		<frame png="ce/shell/main_menu/multiplayer_type_select/direct_ip/header_direct_ip__0.png" width="512" height="64" />
 	</bitmap>
+	<bitmap name="xbox/main_menu/multiplayer_type_select/game_options_edit/header_game_options">
+		<frame png="ce/port/main_menu/multiplayer_type_select/game_options_edit/header_game_options.png" width="512" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/multiplayer_type_select/join_game/classic_icon">
 		<frame png="ce/shell/main_menu/multiplayer_type_select/join_game/classic_icon__0.png" width="16" height="16" />
 		<frame png="ce/shell/main_menu/multiplayer_type_select/join_game/classic_icon__1.png" width="16" height="16" />
@@ -169,6 +172,12 @@
 	</bitmap>
 	<bitmap name="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings">
 		<frame png="ce/shell/main_menu/multiplayer_type_select/server_settings/header_server_settings__0.png" width="512" height="64" />
+	</bitmap>
+	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/indicator_options_edit/header_indicator_options">
+		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/indicator_options_edit/header_indicator_options__0.png" width="512" height="64" />
+	</bitmap>
+	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options">
+		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options__0.png" width="512" height="64" />
 	</bitmap>
 	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit">
 		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit__0.png" width="512" height="64" />

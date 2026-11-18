@@ -879,6 +879,7 @@ TITLES = {
     f"{MT}/join_game/header_password": "PASSWORD",
     f"{MT}/lobby/header_lobby": "GAME LOBBY",
     f"{MT}/coop_options/header_coop_options": "CO-OP OPTIONS",
+    f"{MT}/game_options_edit/header_game_options": "GAME",
     f"{MT}/coop/header_player_2": "PLAYER 2 PROFILE",
     f"{MT}/lobby/header_add_player": "ADD PLAYER",
 }
@@ -1115,6 +1116,73 @@ def _coop_options() -> list:
     lines = [line.replace(f'string_list="{base}/labels"', f'string_list="{MT}/server_settings/labels"')
              .replace(f'string_list="{base}/help_strings"', f'string_list="{MT}/server_settings/help_strings"')
              for line in lines]
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
+def _game_options() -> list:
+    """the generic GAME screen of the gametype editor: the score to win (one row
+    per type, menu_functions.c's game_options_show keeping the current type's),
+    the time limit, team play, the teams and HUD, and the type's own options"""
+    base = f"{MT}/game_options_edit"
+    spec = {"screen": "game_options_screen", "spacing": 30,
+            "header": ("header_game_options", f"{base}/header_game_options")}
+    rows, extra = [], []
+    scores = [("captures_to_win", 0, ["1", "3", "5", "10", "15"]),
+              ("koth_score_to_win", 0, ["1 MINUTE", "2 MINUTES", "5 MINUTES", "10 MINUTES", "15 MINUTES"]),
+              ("score_to_win", 0, ["1", "2", "5", "10", "15"]),
+              ("laps_to_win", 0, ["1", "3", "5", "10", "15", "25"]),
+              ("kills_to_win", 0, ["5", "10", "15", "25", "50", "75", "100", "150", "200", "250", "500"])]
+    for key, place, strings in scores:
+        extra += _hosting_spinner(base, key, 0, strings, None, None)
+        rows.append((f"{base}/op_{key}", None, place))
+    extra += _hosting_spinner(base, "time_limit", 1, ["NONE", "10 MINUTES", "15 MINUTES", "20 MINUTES",
+                                                       "25 MINUTES", "30 MINUTES", "45 MINUTES"], None, None)
+    rows.append((f"{base}/op_time_limit", None, 1))
+    for key in ("team_play", "koth_team_play"):
+        extra += _hosting_spinner(base, key, 2, ["YES", "NO"], None, None)
+        rows.append((f"{base}/op_{key}", None, 2))
+    # the teams and HUD (the indicators and team screens, until their own screen)
+    extra += _widget(f"{base}/op_teams_hud", [("width", 512), ("height", 28),
+                                              ("flags", "pass_unhandled_to_focused_child"),
+                                              ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                     [f'<on event="a" open="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_screen"/>',
+                      f'<on event="start" open="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_screen"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>',
+                      f'<child widget="{base}/teams_hud_label"/>'])
+    extra += _widget(f"{base}/teams_hud_label", [("type", "text"), ("controller", 1), ("width", 512),
+                                                 ("height", 22), ("string_list", f"{base}/labels"),
+                                                 ("string_index", 3), ("font", "ui\\large_ui"),
+                                                 ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    rows.append((f"{base}/op_teams_hud", None, 3))
+    # the type's own options: one row per type, the current type's shown
+    for key, folder in (("ctf", "ctf_edit"), ("slayer", "slayer_edit"), ("oddball", "oddball_edit"),
+                        ("koth", "koth_edit"), ("race", "race_edit")):
+        screen = f"main_menu/settings_select/multiplayer_setup/playlist_edit/{folder}/{key}_options_screen"
+        extra += _widget(f"{base}/op_type_{key}", [("width", 512), ("height", 28),
+                                                   ("flags", "pass_unhandled_to_focused_child"),
+                                                   ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                         [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                          '<on event="left_mouse" run="mouse emit accept event"/>',
+                          f'<child widget="{base}/type_{key}_label"/>'])
+        extra += _widget(f"{base}/type_{key}_label", [("type", "text"), ("controller", 1), ("width", 512),
+                                                      ("height", 22), ("string_list", f"{base}/labels"),
+                                                      ("string_index", 4), ("font", "ui\\large_ui"),
+                                                      ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+        rows.append((f"{base}/op_type_{key}", None, 4))
+    extra += _strings(f"{base}/labels", ["SCORE TO WIN:", "TIME LIMIT:", "TEAM PLAY:", "TEAMS & HUD", "TYPE OPTIONS"])
+    extra += _strings(f"{base}/help_strings", [
+        "How much a player or team must score to win the game.",
+        "How long the game lasts before the leader wins.",
+        "Whether players play as teams.",
+        "Team colors and which indicators show on the HUD.",
+        "The options of this game type."])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp profile set game options" back="true"/>',
+                      '<on event="start" run="mp profile set game options" back="true"/>'])
+    lines = _screen(base, spec, rows, ["mp profile init game options"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/game_options_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init game options"/>')
     return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
             and 'event="deleted" run="port setting save"' not in line]
 
@@ -1579,6 +1647,7 @@ def multiplayer_files() -> dict:
         f"{MT}/join_game".replace("/", ".") + ".port.xml": head + _join_game_extras() + ["</menus>", ""],
         f"{MT}/server_settings".replace("/", ".") + ".xml": head + _server_settings() + ["</menus>", ""],
         f"{MT}/coop_options".replace("/", ".") + ".xml": head + _coop_options() + ["</menus>", ""],
+        f"{MT}/game_options_edit".replace("/", ".") + ".xml": head + _game_options() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],

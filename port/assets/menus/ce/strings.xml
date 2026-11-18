@@ -900,6 +900,7 @@
 		<string text="SAVE CHANGES"/>
 		<string text="VEHICLE OPTIONS"/>
 		<string text="TEAMPLAY OPTIONS"/>
+		<string text="GAME"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/cap_race">
 		<string text="When the game ends, each team is ranked by its\nlowest-scoring member."/>

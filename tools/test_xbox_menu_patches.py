@@ -124,8 +124,8 @@ def test_profile_edit_rows():
 
 def test_gametype_delete_is_tvos_only():
     patch = next(p for p in table() if p.get("screen").endswith("gametype_edit_screen"))
-    (row,) = rows(patch)
-    assert row.get("platform") == "tvos" and row.get("text") == "DELETE GAMETYPE"
+    (row,) = [r for r in rows(patch) if r.get("text") == "DELETE GAMETYPE"]
+    assert row.get("platform") == "tvos"
 
 
 def test_in_game_help_is_added_to_advanced_setup():
