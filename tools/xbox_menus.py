@@ -1874,7 +1874,7 @@ def dialog_document():
     root = ET.Element('menus')
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/dialog_touch_button')
     ET.SubElement(bitmap, 'frame', png='ce/shell/bitmaps/text_button_background__1.png',
-                  width=str(DIALOG_BUTTON[2]), height=str(round(DIALOG_BUTTON[3] * 128 / 88)))  # the art fills 88 of the png's 128 rows
+                  width='128', height='32')  # the png is 512x128; the widget scales it to the drawn pill
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS:
         base = 'xbox/error/' + name
         width = 320 if 'qtrscreen' in name else 640
