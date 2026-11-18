@@ -713,6 +713,8 @@ static void host_external_poll_main(void) {
         static struct host_audio_stall stall;
         static int was_interrupted;
         static double test_every=-1.0;
+        static int cycle_log=-1;
+        static unsigned long long cycle_logged=0;
         unsigned long long now=SDL_GetTicksNS();
         int interrupted=atomic_load(&audio_interrupted);
         /* (an interruption over: the 1.5 s starts now, not inside it) */
@@ -727,6 +729,15 @@ static void host_external_poll_main(void) {
                 test_reopened=now;
                 audio_reopen("debug.audio_reopen_test");
             }
+        }
+        /* (debug.audio_cycle: the sound streams and threads the app holds, every 2 s, beside the cycle's own log lines) */
+        if(cycle_log<0) {
+            const char *env=getenv("HALO_AUDIO_CYCLE");
+            cycle_log=(env && atoi(env)>0) || host_config_real("debug.audio_cycle",0.0)>0.0;
+        }
+        if(cycle_log && now-cycle_logged>=2*SDL_NS_PER_SECOND) {
+            cycle_logged=now;
+            host_logf(HOST_LOG_INFO,"audio cycle host: streams %d, threads %d",host_sdl_audio_open_count(),host_thread_count());
         }
         if(now-stall_checked>=250*SDL_NS_PER_MS) {
             stall_checked=now;
