@@ -1408,8 +1408,10 @@ static int effect_resolution_level(const char *value)
 the 128x128 R5G6B5 shadow maps (and their blur) at display.shadow_map_size,
 and with display.effect_resolution "half" or "full" the 320x240
 mirror-floor and active-camouflage target (and its depth) at the screen's scale. Their users address them in normalized or
-logical coordinates, so only the pixel count changes. */
-static void offscreen_target_scale(unsigned long width, unsigned long height, DWORD format, float scale[2])
+logical coordinates, so only the pixel count changes. Returns the effect
+target's factor over the screen's scale (1 "half", 2 "full") when it scaled
+one, which dynamic resolution's pool wants, and 0 otherwise. */
+static float offscreen_target_scale(unsigned long width, unsigned long height, DWORD format, float scale[2])
 {
 	static long shadow_size = -1;
 	static int effect_level = -1;
@@ -1455,7 +1457,9 @@ static void offscreen_target_scale(unsigned long width, unsigned long height, DW
 		screen_scale_dense(dense);
 		scale[0] = dense[1] * factor;
 		scale[1] = dense[1] * factor;
+		return factor;
 	}
+	return 0.0f;
 }
 
 /* the object shadows' atlas pages (rasterizer_xbox.c, rasterizer_shadow_atlas_*): R5G6B5 targets whose tiles
@@ -1676,7 +1680,21 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 	else if (shadow_atlas_page(surface->Data))
 		scale[0] = scale[1] = halo_shadow_target_scale();
 	else
-		offscreen_target_scale(width, height, format, scale);
+	{
+		float factor = offscreen_target_scale(width, height, format, scale);
+		unsigned long eye_width, eye_height;
+
+		/* dynamic resolution: an effect target is pooled like the screen's,
+		allocated once at the ceiling's size (what the scale above is) and
+		drawn at the level's, the size a fixed height of that level gives it */
+		if (factor > 0.0f && screen_dynamic && !head_eyes_frame() && !foveated_eye_allocation(&eye_width, &eye_height))
+		{
+			pooled = 1;
+			allocated_width = (unsigned long)(width * scale[0] + 0.5f);
+			allocated_height = (unsigned long)(height * scale[1] + 0.5f);
+			scale[0] = scale[1] = screen_scale[1] * factor;
+		}
+	}
 	for (entry = *render_target_bucket(surface->Data); entry; entry = entry->next_in_bucket)
 	{
 		if (entry->target.data != surface->Data || entry->target.width != width ||
@@ -1784,8 +1802,9 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 		{
 			gpu_texture_set_content(entry->target.texture, (uint32_t)entry->target.gl_width,
 				(uint32_t)entry->target.gl_height);
-			platform_log("dynamic resolution: the screen's %s target allocated at %lux%lu", depth ? "depth" : "color",
-				allocated_width, allocated_height);
+			platform_log("dynamic resolution: %s %s target allocated at %lux%lu",
+				entry->screen_buffer ? "the screen's" : "an effect", depth ? "depth" : "color", allocated_width,
+				allocated_height);
 		}
 		benchmark_observe_shadow_target(surface,entry);
 		/* the zoomed picture: its size against an eye's unfoveated one */
@@ -3715,6 +3734,8 @@ long halo_screen_commit(void)
 		screen_dynamic = dynamic;
 		screen_scale_ceiling[0] = ceiling[0];
 		screen_scale_ceiling[1] = ceiling[1];
+		/* (the effect targets pooled at the ceiling before are freed two seconds on, as the knob cycle's are) */
+		knob_release_frame = device.frame + 120;
 		recent_render_targets_forget();
 	}
 	if (width != screen_width || scale[0] != screen_scale[0] || scale[1] != screen_scale[1])
@@ -8025,9 +8046,14 @@ static void screen_targets_release(int pooled)
 	{
 		struct render_target_entry *entry = *link;
 
+		int screen = entry->target.height == SCREEN_HEIGHT &&
+			(entry->target.data == device.back_buffer.Data || entry->target.data == device.depth_buffer.Data);
+		/* (the effect targets, which the pool also holds) */
+		int effect = entry->target.width == 320 && entry->target.height == 240 &&
+			entry->target.data != device.back_buffer.Data && entry->target.data != device.depth_buffer.Data;
+
 		if (entry->layer != HALO_STEREO_LAYER_MONO || entry->target.foveated_eye || entry->target.pooled != pooled ||
-			entry->target.height != SCREEN_HEIGHT ||
-			(entry->target.data != device.back_buffer.Data && entry->target.data != device.depth_buffer.Data))
+			(!screen && !effect))
 		{
 			link = &entry->next;
 			continue;
@@ -8037,7 +8063,7 @@ static void screen_targets_release(int pooled)
 		freed++;
 	}
 	if (freed)
-		platform_log("dynamic resolution: freed %lu %s screen targets", freed, pooled ? "pooled" : "plain");
+		platform_log("dynamic resolution: freed %lu %s screen and effect targets", freed, pooled ? "pooled" : "plain");
 }
 
 /* debug.knob_cycle: the shadow, effect and mirror targets (128x128 and 320x240) whose size is not the one in force
@@ -8068,7 +8094,12 @@ static void knob_targets_release(void)
 			link = &entry->next;
 			continue;
 		}
-		if (entry->target.scale[0] == scale[0] && entry->target.scale[1] == scale[1])
+		/* (a pooled effect target's scale is its level's: its allocation is
+		what the ceiling's scale here decides) */
+		if (entry->target.pooled
+				? entry->target.allocated_width == (unsigned long)(entry->target.width * scale[0] + 0.5f) &&
+					entry->target.allocated_height == (unsigned long)(entry->target.height * scale[1] + 0.5f)
+				: entry->target.scale[0] == scale[0] && entry->target.scale[1] == scale[1])
 		{
 			link = &entry->next;
 			continue;
