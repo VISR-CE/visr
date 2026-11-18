@@ -704,7 +704,12 @@ static id<MTLCommandBuffer> command_buffer(void)
 ends (pass_finish) */
 static id<MTLTexture> pass_depth_texture;
 
-static void pass_attachment_traffic(id<MTLTexture> texture, MTLLoadAction load, MTLStoreAction store, double bytes_per_pixel);
+/* (the open pass's limit, as pass_traffic_count saw it: zero for a pass that
+covers its targets whole) */
+static NSUInteger pass_traffic_width, pass_traffic_height;
+
+static void pass_attachment_traffic(id<MTLTexture> texture, NSUInteger width, NSUInteger height, MTLLoadAction load,
+	MTLStoreAction store, double bytes_per_pixel);
 
 /* debug.gl_debug: one frame in every 600 has its render passes and blits
 listed, in the order the GPU runs them, and logged at its Present, so a GPU
@@ -886,8 +891,10 @@ static void pass_finish_open(BOOL frame_end)
 		[encoder setColorStoreAction:store atIndex:0];
 		pass_multisample_color->multisample_stale = drop;
 		if (!drop)
-			pass_attachment_traffic(pass_multisample_color->multisample, MTLLoadActionDontCare, MTLStoreActionStore, 4.0);
-		pass_attachment_traffic(pass_multisample_color->texture, MTLLoadActionDontCare, MTLStoreActionStore, 4.0);
+			pass_attachment_traffic(pass_multisample_color->multisample, pass_traffic_width, pass_traffic_height,
+				MTLLoadActionDontCare, MTLStoreActionStore, 4.0);
+		pass_attachment_traffic(pass_multisample_color->texture, pass_traffic_width, pass_traffic_height,
+			MTLLoadActionDontCare, MTLStoreActionStore, 4.0);
 		if (pass_log)
 			[pass_log appendFormat:@"; color %s", drop ? "resolve" : "store and resolve"];
 	}
@@ -908,7 +915,7 @@ static void pass_finish_open(BOOL frame_end)
 
 		[encoder setDepthStoreAction:store];
 		[encoder setStencilStoreAction:store];
-		pass_attachment_traffic(pass_depth_texture, MTLLoadActionDontCare, store, 5.0);
+		pass_attachment_traffic(pass_depth_texture, pass_traffic_width, pass_traffic_height, MTLLoadActionDontCare, store, 5.0);
 		if (pass_log)
 			[pass_log appendFormat:@"; depth-stencil %s", store_name(store)];
 	}
@@ -2237,14 +2244,21 @@ static struct
 	double loaded, stored;           /* bytes */
 } pass_traffic;
 
-static void pass_attachment_traffic(id<MTLTexture> texture, MTLLoadAction load, MTLStoreAction store, double bytes_per_pixel)
+static void pass_attachment_traffic(id<MTLTexture> texture, NSUInteger width, NSUInteger height, MTLLoadAction load,
+	MTLStoreAction store, double bytes_per_pixel)
 {
 	double bytes;
 
 	if (!texture)
 		return;
-	/* (a multisampled attachment's every sample) */
-	bytes = (double)texture.width * (double)texture.height * bytes_per_pixel * (double)texture.sampleCount;
+	/* (a pass limited to its targets' content loads and stores only that
+	much of them; a multisampled attachment's every sample) */
+	if (!width || !height)
+	{
+		width = texture.width;
+		height = texture.height;
+	}
+	bytes = (double)width * (double)height * bytes_per_pixel * (double)texture.sampleCount;
 	if (load == MTLLoadActionLoad)
 		pass_traffic.loaded += bytes;
 	if (store == MTLStoreActionStore)
@@ -2253,12 +2267,16 @@ static void pass_attachment_traffic(id<MTLTexture> texture, MTLLoadAction load, 
 
 static void pass_traffic_count(MTLRenderPassDescriptor *pass)
 {
+	NSUInteger width = pass.renderTargetWidth, height = pass.renderTargetHeight;
+
 	pass_traffic.passes++;
-	pass_attachment_traffic(pass.colorAttachments[0].texture, pass.colorAttachments[0].loadAction,
+	pass_traffic_width = width;
+	pass_traffic_height = height;
+	pass_attachment_traffic(pass.colorAttachments[0].texture, width, height, pass.colorAttachments[0].loadAction,
 		pass.colorAttachments[0].storeAction, 4.0);
-	pass_attachment_traffic(pass.depthAttachment.texture, pass.depthAttachment.loadAction,
+	pass_attachment_traffic(pass.depthAttachment.texture, width, height, pass.depthAttachment.loadAction,
 		pass.depthAttachment.storeAction, 4.0);
-	pass_attachment_traffic(pass.stencilAttachment.texture, pass.stencilAttachment.loadAction,
+	pass_attachment_traffic(pass.stencilAttachment.texture, width, height, pass.stencilAttachment.loadAction,
 		pass.stencilAttachment.storeAction, 1.0);
 }
 
@@ -2472,6 +2490,9 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 			[pass_log appendFormat:@", depth %u %lux%lu %s, stencil %s", depth, (unsigned long)depth_record->texture.width,
 				(unsigned long)depth_record->texture.height, load_name(pass.depthAttachment.loadAction),
 				load_name(pass.stencilAttachment.loadAction)];
+		if (pass.renderTargetWidth)
+			[pass_log appendFormat:@", limited to %lux%lu", (unsigned long)pass.renderTargetWidth,
+				(unsigned long)pass.renderTargetHeight];
 	}
 	/* (the fill's sources, copied before the pass: it resolves into the textures they come from) */
 	if (fill || fill_depth || fill_stencil)
@@ -2743,7 +2764,7 @@ static void multisample_sources(MetalTexture *color, MetalTexture *depth, BOOL s
 			sources->color = fill_copy(color->texture, @"color");
 			blit = [command_buffer() blitCommandEncoder];
 			[blit copyFromTexture:color->texture toTexture:sources->color];
-			pass_attachment_traffic(color->texture, MTLLoadActionLoad, MTLStoreActionDontCare, 4.0);
+			pass_attachment_traffic(color->texture, 0, 0, MTLLoadActionLoad, MTLStoreActionDontCare, 4.0);
 		}
 		if (depth)
 		{
@@ -2751,7 +2772,7 @@ static void multisample_sources(MetalTexture *color, MetalTexture *depth, BOOL s
 			if (!blit)
 				blit = [command_buffer() blitCommandEncoder];
 			[blit copyFromTexture:depth->texture toTexture:sources->depth];
-			pass_attachment_traffic(depth->texture, MTLLoadActionLoad, MTLStoreActionDontCare, 5.0);
+			pass_attachment_traffic(depth->texture, 0, 0, MTLLoadActionLoad, MTLStoreActionDontCare, 5.0);
 		}
 		if (blit)
 		{
