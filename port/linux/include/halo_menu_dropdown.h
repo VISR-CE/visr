@@ -13,6 +13,12 @@ struct halo_menu_dropdown
 	int open, x, width, y, rows, count, first, highlight;
 };
 
+/* The popup width for a widest measured label: the label's width plus an eighth
+(the measurement runs short of the drawn string in some fonts), the row's text
+inset (6), the checkmark column (22) and the border (4). */
+#define halo_menu_dropdown_panel_width(widest_label) \
+	((widest_label) + (widest_label) / 8 + 6 + 22 + 4)
+
 static void halo_menu_dropdown_scroll(struct halo_menu_dropdown *d, int steps)
 {
 	d->first += steps;

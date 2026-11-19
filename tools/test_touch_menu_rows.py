@@ -254,6 +254,9 @@ int main(void) {
  halo_menu_dropdown_open(&d, 10, 100, 128, 2, 0, 100, 154, 165, 0, 640);
  assert(!d.open && d.rows == 0);
  halo_menu_dropdown_open(&d, 10, 0, 28, 0, 0, 0, 414, 165, 0, 640); assert(!d.open);
+ /* The panel is wider than the label, its checkmark column and an eighth of slack. */
+ assert(halo_menu_dropdown_panel_width(100) == 100 + 12 + 32);
+ assert(halo_menu_dropdown_panel_width(0) == 32);
  /* A long label widens the popup; it stays inside the safe span. */
  halo_menu_dropdown_open(&d, 500, 100, 128, 3, 0, 0, 480, 230, 0, 640);
  assert(d.width == 230 && d.x == 410 && d.x + d.width <= 640);
@@ -530,7 +533,7 @@ wchar_t *spinner_string_list_get_string(int tag, short index) {
 void rasterizer_draw_unicode_string(rectangle2d *bounds, rectangle2d *clip, void *cursor,
  int flags, wchar_t const *text) {
  assert(bounds == clip && !cursor && !flags);
- assert(bounds->x0 == 108 && bounds->x1 == 241);
+ assert(bounds->x0 == 108 && bounds->x1 == 261);
  if (!strings) first_string = text[0];
  assert(text[0] == first_string + strings); strings++;
 }

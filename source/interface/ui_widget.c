@@ -8295,7 +8295,7 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 			target->value_bounds.y0, target->value_bounds.y1,
 			target->widget->parameters.list.number_of_items,
 			target->widget->parameters.list.selected_index, limit_top, limit_bottom,
-			widest + 6 + 22 + 4, min_x, 640 - 8);
+			halo_menu_dropdown_panel_width(widest), min_x, 640 - 8);
 	}
 }
 
@@ -8392,7 +8392,8 @@ static void ui_dropdown_draw(void)
 		if (option == ui_dropdown.highlight)
 			draw_quad(&bounds, (fast_ftol(color.alpha * 255.0f) << 24) | 0x001F4FA3);
 		text = bounds;
-		text.x0 += 6; text.x1 -= 22;
+		/* (the clip runs to the row's edge: a label measured a little short must not lose its last letter; the popup is sized with room for the checkmark) */
+		text.x0 += 6; text.x1 -= 2;
 		text.y0 += (HALO_DROPDOWN_PITCH - 26) / 2;
 		draw_string_set_draw_mode(definition->text_font.index, NONE, 0, 0, &color);
 		rasterizer_draw_unicode_string(&text, &text, NULL, 0,
