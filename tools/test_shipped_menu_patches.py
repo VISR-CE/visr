@@ -27,6 +27,8 @@ UNVERIFIABLE = {
 DISC_ONLY = {
     "main_menu/settings_select/player_setup/player_profile_edit/save_changes_profile_item",
     "main_menu/multiplayer_type_select/multiplayer_type_conn_item",
+    # (the Xbox SPLIT SCREEN row, which the PC menus never had; the need-controller row is inserted after it)
+    "main_menu/multiplayer_type_select/multiplayer_type_split_item",
     "main_menu/settings_select/multiplayer_setup/playlist_edit/save_settings_item",
     # (the PC list of ce/*.xml no longer has the INDICATORS row, which moved into TEAMS & HUD; the disc's list does,
     # and ui_map_tags.py --check-menus resolves the remove against it)
