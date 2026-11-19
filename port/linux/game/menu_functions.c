@@ -3185,20 +3185,14 @@ player: drawn gray, still focusable so its panel says why, and doing nothing whe
 iPad has touch split screen) and every phone with a controller connected plays as before. */
 boolean menu_split_screen_needs_controller(void)
 {
-	short controller;
-
 #ifdef HALO_IOS
 	if (!host_sdl_is_phone())
 		return FALSE;
-	/* port 0 always has a handle (keyboard and touch), so ask GameController for real pads */
+	/* SDL lists keyboards and key devices as gamepads, so ask GameController for real pads */
 	if (host_gamepad_physical_count() > 0)
 		return FALSE;
-	for (controller = 1; controller < 4; controller++)
-		if (input_has_gamepad(controller))
-			return FALSE;
 	return TRUE;
 #else
-	(void)controller;
 	return FALSE;
 #endif
 }
