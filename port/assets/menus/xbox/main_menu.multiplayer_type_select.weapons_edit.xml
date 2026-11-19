@@ -10,30 +10,30 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/main_menu/multiplayer_type_select/weapons_edit/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/main_menu/multiplayer_type_select/weapons_edit/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/options_menu" type="column_list" width="640" height="350" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/weapons_edit/help">
+	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/options_menu" type="column_list" width="640" height="335" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/weapons_edit/help">
 		<data input="game settings lists text update" />
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/op_primary_weapon" x="54" y="73" />
-		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/op_secondary_weapon" x="54" y="103" />
+		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/op_secondary_weapon" x="54" y="112" />
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar" y="414" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar/button_ok" x="471" y="0" />
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar/common_button_cancel" x="326" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/op_primary_weapon" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_spinner" x="286" y="1" />
+	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/op_primary_weapon" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_label" y="5" />
+		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_spinner" x="286" y="6" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/weapons_edit/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|RANDOM|ASSAULT RIFLE|PISTOL|SHOTGUN|SNIPER RIFLE|ROCKET LAUNCHER|PLASMA PISTOL|PLASMA RIFLE|NEEDLER" strings_ids="xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s0|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s1|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s2|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s3|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s4|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s5|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s6|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s7|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s8|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s9" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/op_secondary_weapon" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/secondary_weapon_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/secondary_weapon_spinner" x="286" y="1" />
+	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/op_secondary_weapon" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/secondary_weapon_label" y="5" />
+		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/secondary_weapon_spinner" x="286" y="6" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/secondary_weapon_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/weapons_edit/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>

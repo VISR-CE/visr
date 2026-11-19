@@ -1270,6 +1270,10 @@ def _teams_hud() -> list:
             ("indicator_options_friends_on_screen", ["YES", "NO"]))):
         extra += _hosting_spinner(base, key, index, strings, None, None)
         rows.append((f"{base}/op_{key}", None, index))
+    # (a row's name must not end in "_screen", which the layout checks read as a screen's)
+    row_name = f"{base}/op_indicator_options_friends_on_screen"
+    extra = [line.replace(f'"{row_name}"', f'"{row_name}_row"') for line in extra]
+    rows = [(f"{row_name}_row" if row == row_name else row, platform, *place) for row, platform, *place in rows]
     extra += _strings(f"{base}/labels", ["FRIENDLY FIRE:", "FRIENDLY FIRE PENALTY:", "AUTOBALANCE:", "RADAR DISPLAY:",
                                          "PLAYERS ON RADAR:", "FRIENDS ON SCREEN:"])
     extra += _strings(f"{base}/help_strings", [

@@ -19,7 +19,7 @@
 		<child widget="main_menu/multiplayer_type_select/teams_hud_edit/op_autobalance" x="54" y="133"/>
 		<child widget="main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_radar display" x="54" y="163"/>
 		<child widget="main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_players_on_radar" x="54" y="193"/>
-		<child widget="main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_friends_on_screen" x="54" y="223"/>
+		<child widget="main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_friends_on_screen_row" x="54" y="223"/>
 		<child widget="main_menu/multiplayer_type_select/teams_hud_edit/button_bar" y="414"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/teams_hud_edit/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
@@ -71,7 +71,7 @@
 	<widget name="main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_players_on_radar_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ALL|FRIENDS|NO" strings_ids="ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner.s0|ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner.s1|ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner.s2" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_friends_on_screen" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_friends_on_screen_row" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_friends_on_screen_label"/>
 		<child widget="main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_friends_on_screen_spinner" x="286" y="1"/>
 	</widget>

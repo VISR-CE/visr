@@ -1751,6 +1751,16 @@ SCREEN_LAYOUTS = {
         'kind': 'K1', 'options': f'xbox/{MP}/server_settings/options_menu',
         'legend_targets': {'x': 294, 'b': 421, 'a': 520},
         'legend_widths': {'x': 85, 'b': 57, 'a': 85}, 'invite_width': 238},
+    # The gametype editor's own screens: one settings list each (menu_functions.c fills the rows)
+    **{f'xbox/{MP}/{page}/{screen}': {'kind': 'K1', 'options': f'xbox/{MP}/{page}/options_menu'}
+       for page, screen in (('game_options_edit', 'game_options_screen'),
+                            ('respawn_options_edit', 'respawn_options_screen'),
+                            ('teams_hud_edit', 'teams_hud_screen'),
+                            ('vehicle_types_edit', 'vehicle_types_screen'),
+                            ('weapons_edit', 'weapons_screen'))},
+    # (the per-type screens keep the PC version's own lists, as the gametype editor's did)
+    **{f'xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/{kind}_edit/{kind}_options_screen':
+       {'kind': 'K1', 'legacy': True} for kind in ('ctf', 'koth', 'oddball', 'race', 'slayer')},
     # DIRECT IP and filters stay unchanged until their owning branches land.
     f'xbox/{MP}/direct_ip/direct_ip_screen': {'kind': 'K1', 'legacy': True},
     f'xbox/{MP}/join_game/filters/filters_screen': {'kind': 'K1', 'legacy': True},
@@ -1775,9 +1785,7 @@ SCREEN_LAYOUTS = {
     # SIDE's original spacer and vehicle positions are retained; this adapter moves only the bar.
     'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen': {
         'kind': 'K1', 'options': 'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu',
-        'side_spacer_rows': (73, 126, 152, 178, 204, 229, 255, 281, 307)},
-    'xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen': {
-        'kind': 'K1', 'options': 'xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu'},
+        'side_spacer_rows': (73, 126, 152, 178)},
 }
 # These settings parameters preserve supplemental content rather than moving it into help.
 SCREEN_LAYOUTS['xbox/settings/video_settings/video_settings_screen']['frame_rate_row'] = 307  # VIDEO's Mac frame-rate row.
