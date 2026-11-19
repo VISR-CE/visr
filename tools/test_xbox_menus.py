@@ -1343,6 +1343,10 @@ def test_hub_profiles_row_reaches_the_picker_without_looping():
     skip = body.index('if (from_hub && strcmp(name, target))')
     assert body.index('from_hub = menu_hub_open;') < body.index('menu_screen_equivalent(name, use_xbox)') < skip
     assert 'return tag_index;' in body[skip:skip + 120]
+    # the flow stays set across the picker and the edit screen, so a chosen profile opens the editor and back returns
+    assert 'menu_hub_open = TRUE;' in body[skip:skip + 120]
+    edit = 'ui/shell/' + module.PE + '/player_profile_edit_screen'
+    assert redirects[edit.replace('/', '\\')] == 'pc/xbox/settings/settings_screen'
 
 
 @pytest.mark.parametrize('name', ERROR_SCREENS + ABORT_SCREENS + WAIT_SCREENS)
