@@ -33,7 +33,7 @@ int main(void)
 ''')
     binary = tmp_path / "benchmark-import"
     subprocess.run([
-        "cc", "-std=c99", "-Werror=implicit-function-declaration",
+        "cc", "-std=c99", "-D_DEFAULT_SOURCE", "-Werror=implicit-function-declaration",
         "-I", str(ROOT / "port/ios/tests"), "-I", str(ROOT / "port/linux/src"),
         "-iquote", str(ROOT / "port/linux/include"), str(source), "-lm", "-o", str(binary),
     ], check=True)

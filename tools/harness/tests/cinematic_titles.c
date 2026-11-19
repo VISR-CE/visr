@@ -100,6 +100,7 @@ static void draw_string_set_draw_mode(long font_index, short style, short justif
 }
 static void rasterizer_text_set_shadow_color(pixel32 color) { shadow = color; }
 static short halo_screen_width(void) { return 640; }
+static real halo_cinematic_portrait_letterbox(real width, real height, real *bar_fraction) { (void)width; (void)height; *bar_fraction = 0.0f; return 0.0f; }
 #define rasterizer_draw_unicode_string(bounds, style, color, flags, string) \
 	(draws++, drawn_shadow = shadow, drawn_hud_group = active_hud_group)
 

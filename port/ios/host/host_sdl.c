@@ -132,7 +132,13 @@ int host_sdl_init(uint32_t flags)
 	return SDL_Init((SDL_InitFlags)flags);
 }
 
+#include <TargetConditionals.h>
+#if TARGET_OS_TV
+/* tvOS has no orientation host (host_orientation.m is not built there): always landscape */
+static int host_ios_portrait_allowed(void) { return 0; }
+#else
 int host_ios_portrait_allowed(void);
+#endif
 
 int host_sdl_set_hint(const char *name, const char *value)
 {
