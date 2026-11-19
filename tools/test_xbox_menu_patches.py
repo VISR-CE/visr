@@ -78,6 +78,10 @@ def test_multiplayer_type_has_six_rows_each_with_its_own_description_and_picture
             assert row.get("child") == MP + "multiplayer_type_conn_item" and not row.get("description")
             order[order.index("multiplayer_type_conn_item")] = row.get("name")
             descriptions[row.get("name")] = descriptions.pop("multiplayer_type_conn_item")
+        elif row.tag == "remove":
+            # the throwaway INTERNET (off) row only leaves its description and picture behind (internet-off panel)
+            order.remove(row.get("child").removeprefix(MP))
+            descriptions.pop(row.get("child").removeprefix(MP))
         else:
             anchor = row.get("after")
             anchor = anchor[len(MP):] if anchor.startswith(MP) else anchor

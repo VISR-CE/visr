@@ -2024,9 +2024,21 @@ def patch_document(names):
     patch_row(mp, after=MPT + 'multiplayer_type_conn_item', name='multiplayer_type_internet', text='INTERNET',
               run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
               description='Browse games on the Internet,\\njoin one, or host your own.')
+    # The panel for INTERNET while internet play is off: a row added only for its description and picture (the
+    # entry right after INTERNET's), then removed; ui_widget_game_data_input_functions.c shows it for INTERNET
+    patch_row(mp, after='multiplayer_type_internet', name='multiplayer_type_internet_off', text='INTERNET',
+              run='mp type set mode', open=browser, picture=f'png:{ART}/internet_off.png',
+              description='Internet play is off.\\nTurn it on in Network Settings.')
+    patch_row(mp, 'remove', child='multiplayer_type_internet_off')
     patch_row(mp, after='multiplayer_type_internet', name='multiplayer_type_join_direct', text='DIRECT LINK',
               run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
               description="Join a friend's game with\\nits join code or invite link.")
+    # The panel for SPLIT SCREEN on an iPhone with no game controller: added last, so its number follows
+    # DIRECT LINK's, then removed; ui_widget_game_data_input_functions.c shows it for the split row
+    patch_row(mp, after=MPT + 'multiplayer_type_split_item', name='multiplayer_type_split_need_pad', text='SPLIT SCREEN',
+              run='mp type set mode', open=browser, picture=1,
+              description='Split screen on iPhone needs a game\\ncontroller for each extra player.')
+    patch_row(mp, 'remove', child='multiplayer_type_split_need_pad')
     # Insert settings while the map's SAVE CHANGES anchor still exists, then remove it.
     # Apple TV keeps a DELETE PROFILE row because its remote has no X.
     edit = patch(root, PEP + 'profile_edit_select_list', PEP + 'player_profile_edit_screen')

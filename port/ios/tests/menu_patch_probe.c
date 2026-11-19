@@ -34,9 +34,16 @@ static char const patches_xml[] =
 	"  <row after=\"ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_conn_item\"\n"
 	"       name=\"multiplayer_type_internet\" text=\"INTERNET\" run=\"mp type set mode\" open=\"xbox/test_screen\"\n"
 	"       description=\"Browse and host games on the Internet.\" picture=\"3\"/>\n"
+	"  <row after=\"multiplayer_type_internet\" name=\"multiplayer_type_internet_off\" text=\"INTERNET\"\n"
+	"       run=\"mp type set mode\" description=\"Internet play is off.\" picture=\"3\"/>\n"
+	"  <remove child=\"multiplayer_type_internet_off\"/>\n"
 	"  <row after=\"multiplayer_type_internet\" name=\"multiplayer_type_join_direct\" text=\"DIRECT LINK\"\n"
 	"       run=\"mp type set mode\" open=\"xbox/test_screen\" description=\"Join a game by its code.\"\n"
 	"       picture=\"png:ce/port/blank__0.png\"/>\n"
+	"  <row after=\"ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_split_item\"\n"
+	"       name=\"multiplayer_type_split_need_pad\" text=\"SPLIT\" run=\"mp type set mode\"\n"
+	"       description=\"Split screen on iPhone needs a game\\ncontroller for each extra player.\" picture=\"1\"/>\n"
+	"  <remove child=\"multiplayer_type_split_need_pad\"/>\n"
 	"</patch>\n"
 	/* Insert settings and the Apple TV delete row before removing SAVE CHANGES. */
 	"<patch list=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_select_list\"\n"
@@ -767,7 +774,7 @@ static void check_apple(boolean tvos)
 	/* the multiplayer type list: SYSTEM LINK (replaced), INTERNET, DIRECT LINK, then EDIT GAMETYPES 66 lower */
 	{
 		short const tops[6] = { 78, 111, 144, 177, 210, 265 };
-		short const descriptions[6] = { 0, 1, 2, 4, 5, 3 };
+		short const descriptions[6] = { 0, 1, 2, 4, 6, 3 };
 		struct ui_widget_definition const *text = definition_of(children_of(
 			definition_of(mp_list)->extended_description_widget.index)[1].widget_tag.index);
 		struct ui_widget_definition const *picture = definition_of(children_of(
@@ -791,16 +798,28 @@ static void check_apple(boolean tvos)
 		check(child_top(mp_screen, 3) == 252, "the line below the rows moved to 252 (%d)", child_top(mp_screen, 3));
 		check(child_top(mp_screen, 2) == 414, "the legend stayed at 414 (%d)", child_top(mp_screen, 2));
 		check(child_top(mp_screen, 0) == 11, "the header stayed (%d)", child_top(mp_screen, 0));
-		check(strings->strings.count == 6 && string_is(strings, 3, "map 3") &&
-			string_is(strings, 4, "Browse and host games on the Internet.") &&
-			string_is(strings, 5, "Join a game by its code."), "the descriptions are added after the map's four");
-		check(group->bitmaps.count == 6 && sequence->bitmap_count == 6 && sequence->first_bitmap_index == 0,
-			"the picture has six frames in its sequence (%ld, %d)", group->bitmaps.count, sequence->bitmap_count);
+		check(strings->strings.count == 8, "the descriptions are added after the map's four (%ld)", (long)strings->strings.count);
+		check(string_is(strings, 3, "map 3"), "string 3 is the map's");
+		check(string_is(strings, 4, "Browse and host games on the Internet."), "string 4 is the internet description");
+		check(string_is(strings, 6, "Join a game by its code."), "string 6 is the direct description");
+		check(string_is(strings, 7, "Split screen on iPhone needs a game\\ncontroller for each extra player."), "string 7 is the split need-controller text");
+		check(group->bitmaps.count == 8 && sequence->bitmap_count == 8 && sequence->first_bitmap_index == 0,
+			"the picture has eight frames in its sequence (%ld, %d)", group->bitmaps.count, sequence->bitmap_count);
 		check(frames[4].pixels_offset == frames[3].pixels_offset && frames[4].width == frames[3].width &&
 			frames[4].cache_block_index == NONE, "INTERNET's picture is a copy of frame 3");
-		check(frames[5].width == frames[0].width && frames[5].height == frames[0].height &&
-			frames[5].tag_index == picture->background_bitmap.index && frames[5].signature == BITMAP_GROUP_TAG,
+		check(frames[6].width == frames[0].width && frames[6].height == frames[0].height &&
+			frames[6].tag_index == picture->background_bitmap.index && frames[6].signature == BITMAP_GROUP_TAG,
 			"DIRECT LINK's picture is a PNG of ours at the first frame's size");
+		check(frames[7].pixels_offset == frames[1].pixels_offset && frames[7].width == frames[1].width,
+			"the need-controller picture is a copy of frame 1");
+		{
+			long row_tags[8];
+			long n, row_count = child_count(mp_list);
+			for (n = 0; n < row_count; n++)
+				row_tags[n] = children_of(mp_list)[n].widget_tag.index;
+			check(pc_menu_patch_list_last_description(mp_list, row_tags, row_count) == 7,
+				"the need-controller description is the one after the highest surviving row");
+		}
 		check(frames[0].cache_block_index == NONE && frames[3].pixels_offset == 4000,
 			"the map's frames are kept, to be loaded from their new place");
 	}
@@ -951,8 +970,8 @@ static void check_apple(boolean tvos)
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
 	/* Six widgets, two bitmaps, spinner strings, the two PC description lists and the language file's two widgets and list (5 tags) precede patch tags. */
-	counted = 9 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2 + 5;
-	used = 9 + 2 * (3 + 4 + 1) + 2 + 5;
+	counted = 9 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 2) + 2 + 5;
+	used = 9 + 2 * (3 + 4 + 1 + 2) + 2 + 5;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)

@@ -341,6 +341,10 @@ void host_sdl_send_log_status(char *buffer, unsigned int size);
 /* the app's build description (numeric version for releases), copied into guest memory: the main menu shows it */
 void host_sdl_app_version(char *buffer, unsigned int size);
 void host_sdl_app_build(char *buffer, unsigned int size);
+/* 1 on an iPhone (the phone idiom), 0 on every other device: split screen needs a controller per extra player there */
+int host_sdl_is_phone(void);
+/* real game controllers connected, by GameController (no keyboard, virtual or snapshot devices) */
+int host_gamepad_physical_count(void);
 
 int host_astc_texture_key(const void *source, unsigned int format, unsigned int width, unsigned int height, unsigned int levels, unsigned int faces, unsigned int source_face_bytes, void *key);
 int host_astc_texture_read(const void *key, void *bytes, unsigned int size);

@@ -27,6 +27,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_frame_pacer.h"
 #include "host_game_thread.h"
 #include "host_main_thread.h"
+#include "host_startup.h"
 
 #include <SDL3/SDL.h>
 #include <assert.h>
@@ -2035,6 +2036,11 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size)
     if (!size) return;
     strncpy(buffer, host_cloud_saves_status(), size - 1);
     buffer[size - 1] = 0;
+}
+
+int host_sdl_is_phone(void)
+{
+    return host_startup_get()->phone ? 1 : 0;
 }
 
 void host_sdl_app_build(char *buffer, unsigned int size)

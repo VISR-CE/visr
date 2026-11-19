@@ -70,6 +70,10 @@ def test_browser_names_the_advertised_mode_before_join(tmp_path):
     declarations += "\n" + function(source, "static int server_kind_frame(")
     declarations += "\n" + function(source, "static void server_kind_icon_set(")
     declarations += "\n" + function(source, "static short browser_row_index(struct widget_instance *row)")
+    declarations += "\nstatic int config_boolean(char const *name) { (void)name; return 1; }\n"
+    declarations += "static boolean menu_split_screen_needs_controller(void) { return FALSE; }\n"
+    declarations += function(source, "static boolean internet_item_off(")
+    declarations += "\n" + function(source, "static boolean split_item_off(")
     declarations += "\n" + function(source, "boolean ui_widget_port_browser_row_unavailable(")
     renderer = (ROOT / "source/interface/ui_widget.c").read_text()
     start = renderer.index("\tif (ui_widget_port_browser_row_unavailable(widget))")
