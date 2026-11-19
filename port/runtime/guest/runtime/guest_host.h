@@ -26,6 +26,8 @@ layouts).
 int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long size);
 void host_device_profile_applied(int point, int networked, int changed, int metalfx, int frame_rate);
 int host_external_active(void);
+/* iOS/iPadOS only; other Apple hosts keep landscape display limits. */
+int host_display_supports_portrait(void);
 /* Fractions of the window: left, right, top, bottom; zero on an external display. */
 void host_external_safe_insets(float *insets);
 void host_external_commit(int allow_pause);
@@ -47,6 +49,14 @@ void host_touch_replay_active(int active);
 int host_development_hooks(void);
 int host_photo_mode_available(void);
 void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees);
+/* Map pictures: 1 holds off App Nap and idle display sleep until 0. */
+void host_map_pictures_keep_awake(int on);
+/* Persisted disc-import stage; progress and completion are posted from the game thread. */
+int host_map_pictures_import_stage(void);
+void host_map_pictures_import_progress(int done, int total, const char *name);
+void host_map_pictures_import_done(int rendered, int cached, int failed);
+/* The framings feed's verified map-framings.json for a custom map's "blake2b:" key: 1 with its path, else 0. */
+int host_map_framings_feed_path(const char *key, char *path, unsigned int size);
 
 /* performs a Linux system call on the guest's behalf, converting the
 structures whose layout differs; returns the raw result (-errno on failure) */

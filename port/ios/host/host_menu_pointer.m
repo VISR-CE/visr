@@ -6,6 +6,7 @@
 #include "ios_host.h"
 #include "host_main_thread.h"
 #include "host_menu_pointer.h"
+#include "host_posture_layout.h"
 
 #define pointer_state (*host_menu_pointer_shared())
 /* HALO_TOUCH_DEBUG=1 logs every touch the recognizer sees (debug only) */
@@ -38,11 +39,16 @@ static UIImpactFeedbackGenerator *medium_feedback;
     /* only the game's own view, or the controls' view where it claims every touch (controller in use); a button
        (the audio output picker, a control) keeps its touch */
     TOUCH_LOG("receive? view=%s type=%ld\n",NSStringFromClass(touch.view.class).UTF8String,(long)touch.type);
+    struct host_posture_layout layout;
+    host_posture_layout_snapshot(&layout);
+    if(layout.laptop)return NO;
     return touch.view==self.view || [NSStringFromClass(touch.view.class) isEqualToString:@"HaloControls"];
 }
 - (void)track {
     UIView *root=self.view;
-    host_menu_pointer_set_blocked(&pointer_state,host_ios_touch_blocked());
+    struct host_posture_layout layout;
+    host_posture_layout_snapshot(&layout);
+    host_menu_pointer_set_blocked(&pointer_state,host_ios_touch_blocked() || layout.laptop);
     host_menu_pointer_set_surface(&pointer_state,(float)root.bounds.size.width,(float)root.bounds.size.height);
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
@@ -126,10 +132,15 @@ void host_menu_pointer_attach(void *root_view) {
 static HaloMenuText *menu_text;
 
 int host_menu_text_active(void) {
+    if (!host_on_main_thread()) {
+        __block int active = 0;
+        host_main_sync(^{ active = host_menu_text_active(); });
+        return active;
+    }
     return menu_text.alert && !menu_text.result;
 }
 
-int host_menu_text_prompt(int on, const char *title, const char *text, int masked) {
+static int menu_text_prompt_main(int on, const char *title, const char *text, int masked) {
     if (!menu_text) menu_text = [HaloMenuText new];
     if (!on) {
         [menu_text.alert dismissViewControllerAnimated:NO completion:nil];
@@ -170,7 +181,20 @@ int host_menu_text_prompt(int on, const char *title, const char *text, int maske
     return 1;
 }
 
+/* The game thread calls these from host_sdl_poll_event; UIKit presentation and
+   the alert's state belong to the main thread. */
+int host_menu_text_prompt(int on, const char *title, const char *text, int masked) {
+    __block int presented = 0;
+    host_main_sync(^{ presented = menu_text_prompt_main(on, title, text, masked); });
+    return presented;
+}
+
 int host_menu_text_result(char *buffer, uint32_t size) {
+    if (!host_on_main_thread()) {
+        __block int out = 0;
+        host_main_sync(^{ out = host_menu_text_result(buffer, size); });
+        return out;
+    }
     int result = menu_text.result;
     if (result && size) SDL_strlcpy(buffer, menu_text.answer.UTF8String ?: "", size);
     menu_text.result = 0;

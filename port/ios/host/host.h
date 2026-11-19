@@ -15,6 +15,9 @@ port/runtime/include/halo_guest_abi.h for the guest contract.
 
 #include "halo_guest_abi.h"
 
+/* host_sdl.c: the iOS/iPadOS host supports portrait display shapes. */
+int host_display_supports_portrait(void);
+
 /* ---------- logging */
 
 void host_logf(int priority, const char *format, ...) __attribute__((format(printf, 2, 3)));

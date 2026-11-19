@@ -36,6 +36,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #include <stdatomic.h>
 #include <sys/statvfs.h>
 #include <sys/mman.h>
+#include <os/proc.h>
 #include <mach/mach.h>
 #include <malloc/malloc.h>
 #include <math.h>
@@ -121,6 +122,14 @@ static atomic_uint catalog_maps_done, catalog_maps, generators_made;
 static atomic_int import_shown=-1;
 static NSString *priority_name,*sorting_priority;
 static atomic_uint priority_serial;
+/* The map pictures import stage (host_map_pictures_import_stage): upscaling runs alongside the picture renders.
+   While one of the stage's maps is loaded, the GPU refinement of the next texture waits for the map to unload
+   (predictions on the Neural Engine go on); a map that starts with little free memory stops the work outright. */
+static atomic_bool stage_active, stage_map_loaded;
+static atomic_uint stage_made, stage_memory_pauses;
+static _Atomic double stage_hold_seconds;
+static double stage_began;
+#define STAGE_MEMORY_FLOOR (1536ull << 20)
 
 static NSString *key(uint64_t hash, uint32_t width, uint32_t height) {
     return [NSString stringWithFormat:@"%016llx-%ux%u",(unsigned long long)hash,width,height];
@@ -565,6 +574,13 @@ static int generate_source(void *opaque,const struct host_texture_source *source
         atomic_store(&work_hash,decision.hash);atomic_store(&work_stage,"refinement, measures and compression");
         /* gameplay began while the predictions ran: nothing more, the texture is made later */
         if(stop_flag){texture_upscale_generate_abandon(job);texture_upscale_big_free(owned);free(levels);finisher_estimate=0;return;}
+        if(atomic_load(&stage_map_loaded)) {
+            double held=now();
+            while(atomic_load(&stage_map_loaded)&&!stop_flag)usleep(5000);
+            double seconds=now()-held,total=atomic_load(&stage_hold_seconds);
+            while(!atomic_compare_exchange_weak(&stage_hold_seconds,&total,total+seconds));
+            if(stop_flag){texture_upscale_generate_abandon(job);texture_upscale_big_free(owned);free(levels);finisher_estimate=0;return;}
+        }
         struct texture_cache_record record=desired;
         struct texture_upscale_generate_input job_input=input;
         struct texture_upscale_generate_output output={0};char error[512]={0};
@@ -664,6 +680,7 @@ static int generate_source(void *opaque,const struct host_texture_source *source
             @"footprint_peak":@(MAX(stats.texture_peak,encoded_footprint)),@"footprint_steps":steps};
         host_logf(HOST_LOG_INFO,"Upscale %016llx: %s, damage %.4f in %.3fs, compression %.2f dB",(unsigned long long)d->hash,
             failed?"write failed":excluded?"kept original":"complete",output.damage_share,output.seconds.damage,metrics.rgb_psnr);
+        if(!failed&&atomic_load(&stage_active))atomic_fetch_add(&stage_made,1);
         free(bytes);texture_upscale_generate_free_output(&output);
         if(export_enabled&&job_input.wrap&&!failed) {
             double seam_start=now();NSArray *scores=half_offset_scores(&job_input,error,sizeof(error));
@@ -1082,13 +1099,52 @@ static void set_priority(const char *name) {
 }
 void host_texture_upscale_map_will_load(const char *name) {
     if(name){NSString *n=map_base([@(name) stringByReplacingOccurrencesOfString:@"\\" withString:@"/"]);snprintf(loading_name,sizeof(loading_name),"%s",n.UTF8String);}
+    atomic_store(&stage_map_loaded,false);
     if(!upscale_enabled)return;
-    if(name)set_priority(name);
+    /* (the stage loads every map in turn: following each would restart the walk at every load) */
+    if(name&&!atomic_load(&stage_active))set_priority(name);
     @synchronized(activity_token){texture_upscale_activity_map_will_load(&activity);}
     set_stop(NO);schedule_pump();
 }
+static uint64_t available_memory(void) {
+#if TARGET_OS_OSX
+    return UINT64_MAX;
+#else
+    return (uint64_t)os_proc_available_memory();
+#endif
+}
+void host_texture_upscale_stage_begin(const char *root) {
+    host_texture_upscale_init(root);
+    stage_began=now();atomic_store(&stage_made,0);atomic_store(&stage_memory_pauses,0);atomic_store(&stage_hold_seconds,0.0);
+    atomic_store(&stage_map_loaded,false);atomic_store(&stage_active,true);
+    if(!upscale_enabled)return;
+    host_texture_upscale_scan();
+    host_logf(HOST_LOG_INFO,"Upscale: running alongside the map pictures (pending work %d)",host_texture_upscale_busy());
+    set_stop(NO);schedule_pump();
+}
+void host_texture_upscale_stage_end(void) {
+    if(!atomic_exchange(&stage_active,false))return;
+    atomic_store(&stage_map_loaded,false);
+    if(!upscale_enabled)return;
+    host_logf(HOST_LOG_INFO,"Upscale overlap: %u textures made in %.1f s alongside the map pictures, refinement held %.1f s between maps, %u memory pauses, still busy %d",
+        atomic_load(&stage_made),now()-stage_began,atomic_load(&stage_hold_seconds),atomic_load(&stage_memory_pauses),host_texture_upscale_busy());
+    resume_if_allowed();
+}
 void host_texture_upscale_game_started(int is_game) {
     if(!upscale_enabled)return;
+    /* A map pictures stage map is not gameplay: the work goes on unless memory is short. */
+    if(is_game&&atomic_load(&stage_active)) {
+        @synchronized(activity_token){texture_upscale_activity_game_started(&activity,0);}
+        uint64_t available=available_memory();
+        if(available<STAGE_MEMORY_FLOOR) {
+            atomic_fetch_add(&stage_memory_pauses,1);
+            host_logf(HOST_LOG_INFO,"Upscale: map pictures map %s loaded with %llu MB available; paused for memory",loading_name,(unsigned long long)(available>>20));
+            stop_for_gameplay("low memory during the map pictures");
+            return;
+        }
+        atomic_store(&stage_map_loaded,true);set_stop(NO);schedule_pump();
+        return;
+    }
     @synchronized(activity_token){texture_upscale_activity_game_started(&activity,is_game);}
     /* Development only (HALO_TEXTURE_UPSCALE_STOP_TEST): hold the level's start until a texture is in hand, up to
        10 s, so a device test can show the stop interrupting one mid-texture and how long that takes. */

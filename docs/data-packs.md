@@ -31,12 +31,12 @@ Create one envelope from the repository profile sources:
 
 ```sh
 python3 tools/data_pack.py --kind profiles --channel tester \
-  --sequence 1 --compatibility device-profiles-4:ios/iPhone18,1/_ \
+  --sequence 1 --compatibility device-profiles-5:ios/iPhone18,1/_ \
   --input profiles --signing-key /private/path/signing-seed \
   --output iphone-profile.json
 ```
 
-Serve that envelope under `device-profiles-4/ios/iPhone18,1/_.json`. Each shard contains the target platform's class partitions, selected model, only the hardware catalog records and source profiles needed for conservative inheritance, and the profile set's revision. Runtime memory, GPU, pixel, and refresh checks still decide whether an inherited profile is suitable. User overrides keep their existing precedence. Debug profile selection uses the bundled profile set.
+Serve that envelope under `device-profiles-5/ios/iPhone18,1/_.json`. Each shard contains the target platform's class partitions, selected model, only the hardware catalog records and source profiles needed for conservative inheritance, and the profile set's revision. Runtime memory, GPU, pixel, and refresh checks still decide whether an inherited profile is suitable. User overrides keep their existing precedence. Debug profile selection uses the bundled profile set.
 
 An optional `capacity.toml` reserves schema 1 with optional `validated_maximum_players` from 2 through 128 and an `evidence` string of at most 2048 bytes. A supplied maximum requires evidence. Omit unknown capacity. This metadata does not change profile matching or display a warning.
 
@@ -49,13 +49,14 @@ A downloaded shard replaces all of the app's bundled profiles for that launch, a
 | `device-profiles-1` | `profiles/` | 0.2.2 to 0.5.1 |
 | `device-profiles-2` | `device-profiles-2/` | 0.6.0 to 0.6.3 (retired) |
 | `device-profiles-3` | `device-profiles-3/` | 0.6.4 to 0.6.7 |
-| `device-profiles-4` | `device-profiles-4/` | 0.6.8 and later |
+| `device-profiles-4` | `device-profiles-4/` | 0.6.8 to 0.6.14 |
+| `device-profiles-5` | `device-profiles-5/` | 0.6.15 and later |
 
 The `device-profiles-2/` shards are withdrawn: 0.6.0 to 0.6.3 quarantine a newly published sequence (two data-pack stores share one cache root, and the launch menu reads the other store's first trial as a crashed launch), then report the profile server unreachable. Without a shard the server answers 404 and those apps benchmark with their bundled profiles. `RETIRED_PROFILE_DIRECTORIES` in `tools/pages_asset_overlay.py` keeps the live shards off the site. Publish profile updates again only for a client with the fix, at a sequence above 1793231748.
 
 The generation is `HOST_PROFILE_FEED_GENERATION` in `port/ios/host/host_profile.h`, and `PROFILE_FEED_GENERATION` in `tools/data_pack.py`. Bump it, and give the new generation its own directory, whenever an app would accept a shard that an earlier app of the same generation refuses: a profile key added or removed, a range or choice changed, a new heading, catalog field or file. `tools/test_profile_feed.py` fails when `port/linux/src/port_profile_keys.h` changes without a bump. Bump it also when a release needs profile updates of its own, separate from earlier releases. A device that has no shard in its generation's directory uses its bundled profiles; it never falls back to an older generation.
 
-Before signing a device shard, `tools/data_pack.py` builds the profile validator of every release tag that reads the shard's generation and refuses the shard if any of them would. The `profiles/` directory is frozen: its shards stay as they were published, and a `device-profiles-1` shard signed from current sources is refused, because 0.5.0 and earlier refuse `network.player_capacity`. To update an older generation, sign from its release tag's sources. `device-profiles-3` is the exception: `tools/profile_pr.py` signs it and `device-profiles-4` together from one source, without the keys its released validators refuse (`GENERATIONS`). `tools/profile_pr.py --sign-all SEQUENCE --signing-key SEED --worktree WORKTREE` signs every published target in both generations at one sequence and updates the worktree's receipt, committing nothing.
+Before signing a device shard, `tools/data_pack.py` builds the profile validator of every release tag that reads the shard's generation and refuses the shard if any of them would. The `profiles/` directory is frozen: its shards stay as they were published, and a `device-profiles-1` shard signed from current sources is refused, because 0.5.0 and earlier refuse `network.player_capacity`. To update an older generation, sign from its release tag's sources. `device-profiles-3` and `device-profiles-4` are the exception: `tools/profile_pr.py` signs them and `device-profiles-5` together from one source, each without the keys its released validators refuse (`GENERATIONS`). `tools/profile_pr.py --sign-all SEQUENCE --signing-key SEED --worktree WORKTREE` signs every published target in all three generations at one sequence and updates the worktree's receipt, committing nothing.
 
 ### Profile revisions
 
@@ -150,6 +151,20 @@ python3 tools/data_pack.py --kind latest --channel tester --sequence SEQUENCE \
 ```
 
 `latest_release.py` reads the live record, sets the released platforms and never lowers a version. Use the Unix time as the sequence. Write the envelope to `tester/latest.json` in a `VISR-CE/visr-feeds` checkout with the updated `tester/publication.json` and merge it to that repository's `main` ("Feed hosts"); release policy does not pin it. The release job prints the first command after publishing.
+
+## Map framings
+
+A feed of kind `framings` (compatibility `map-framings-2`) carries the camera framings of maps the app does not bundle. It sits at `framings.json` beside the recording feed. The envelope holds one file, `map-framings.json`, at most 256 KiB, in the schema of the bundled framings file (schema 1 or 2) with these feed rules: every key is `blake2b:` followed by 64 lowercase hex characters (the hash of a custom map), every map has `revision` 1 or higher and one to eight shots, and `fov` is between 0.2 and 2.6. Keys for built-in maps (`stock:`) are bundled only and are refused.
+
+The app checks the feed once per launch menu, verifies it like any pack, and keeps the last valid one. A custom map looks its hash up with `host_data_updates_framings_path(key)`, which returns the cached file to read with `photo_fragment_read`. Built-in maps never consult the feed, and a downloaded record applies only when its sequence is higher than the bundled file's sequence (`host_data_updates_set_bundled_framings_sequence`).
+
+```sh
+python3 tools/data_pack.py --kind framings --channel tester --sequence SEQUENCE \
+  --compatibility map-framings-2 --input framings-input \
+  --signing-key /private/path/signing-seed --output framings.json
+```
+
+`framings-input` holds `map-framings.json`. Publish it as `tester/framings.json` in a `VISR-CE/visr-feeds` checkout, with the updated `tester/publication.json` ("Feed hosts"). Until one is published, the feed answers 404 and the app uses the bundled framings.
 
 ## Publication
 

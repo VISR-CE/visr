@@ -13,4 +13,13 @@ int photo_mode_active(void);
 /* facing is yaw, pitch, roll; translation is forward, left, up (struct camera_control). */
 void photo_mode_update(struct director *director, unsigned char *controls_active, float seconds, float facing[3], float translation[3]);
 void photo_mode_end(void);
+/* Scripted capture for map pictures: enters photo mode on the next director update without
+debug.photo_mode, places the camera from the map's saved framing or an automatic camera, settles
+and freezes. State: 1 frozen and ready (framed is 1 when a saved framing was used, revision is its
+revision), 0 still settling, -1 failed. photo_mode_end() leaves it. */
+void photo_mode_capture_begin(void);
+/* Sets the gametype the next map load starts with from the map's framing (see photo_mode.c). */
+void photo_mode_prepare_variant(const char *key);
+void photo_mode_clear_variant(void);
+int photo_mode_capture_state(int *framed, int *revision);
 #endif

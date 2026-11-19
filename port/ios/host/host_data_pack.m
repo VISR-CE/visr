@@ -256,7 +256,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
 - (BOOL)shaderIndex { return [_kind isEqual:@"shaders"] && [_compatibility isEqual:@"shader-lists-2"]; }
 - (BOOL)recordingIndex { return [_kind isEqual:@"recordings"] && [_compatibility hasPrefix:@"benchmark-catalog-2:"]; }
 - (BOOL)indexed { return self.shaderIndex || self.recordingIndex; }
-- (NSUInteger)envelopeLimit { if ([_kind isEqual:@"latest"]) return 16 * 1024; if (self.indexed) return HOST_SHADER_PACK_MAX_INDEX_BYTES; return [_kind isEqual:@"profiles"] ? 4 * 1024 * 1024 : [_kind isEqual:@"shaders"] ? HOST_SHADER_PACK_MAX_ENVELOPE_BYTES : HOST_RECORDING_PACK_MAX_ENVELOPE_BYTES; }
+- (NSUInteger)envelopeLimit { if ([_kind isEqual:@"latest"]) return 16 * 1024; if ([_kind isEqual:@"framings"]) return 384 * 1024; if (self.indexed) return HOST_SHADER_PACK_MAX_INDEX_BYTES; return [_kind isEqual:@"profiles"] ? 4 * 1024 * 1024 : [_kind isEqual:@"shaders"] ? HOST_SHADER_PACK_MAX_ENVELOPE_BYTES : HOST_RECORDING_PACK_MAX_ENVELOPE_BYTES; }
 - (NSDictionary *)bundledIdentity { return @{@"kind": _kind, @"channel": _channel, @"compatibility": _compatibility, @"sequence": @0, @"sha256": @"", @"bundled": @YES}; }
 - (NSString *)statePath { return [_root stringByAppendingPathComponent:@"state.json"]; }
 - (NSString *)generationPath:(NSString *)name { return [_root stringByAppendingPathComponent:name]; }
@@ -320,7 +320,7 @@ static BOOL PackStaleStage(NSString *name) { return [name hasPrefix:@".stage-"] 
     _root = [root copy]; _bundled = [bundled copy]; _kind = [kind copy]; _channel = [channel copy];
     _publicKey = [key copy]; _compatibility = [compatibility copy]; _validator = [validator copy];
     _identity = [self bundledIdentity]; _launchFolder = _bundled;
-    if (!([kind isEqual:@"profiles"] || [kind isEqual:@"recordings"] || [kind isEqual:@"shaders"] || [kind isEqual:@"latest"]) ||
+    if (!([kind isEqual:@"profiles"] || [kind isEqual:@"recordings"] || [kind isEqual:@"shaders"] || [kind isEqual:@"latest"] || [kind isEqual:@"framings"]) ||
         !([channel isEqual:@"stable"] || [channel isEqual:@"tester"]) || key.length != 32 || !validator || ![root isAbsolutePath]) return self;
     [self openStore];
     return self;
@@ -466,15 +466,15 @@ static BOOL PackStaleStage(NSString *name) { return [name hasPrefix:@".stage-"] 
         return @{@"manifest": manifest, @"assets": assets};
     }
     NSDictionary *encoded = payload[@"files"];
-    BOOL profiles = [_kind isEqual:@"profiles"], shaders = [_kind isEqual:@"shaders"], latest = [_kind isEqual:@"latest"];
-    NSUInteger fileLimit = latest ? 4096 : profiles ? 64 * 1024 : shaders ? HOST_SHADER_PACK_MAX_FILE_BYTES : HOST_RECORDING_PACK_MAX_FILE_BYTES;
-    NSUInteger totalLimit = latest ? 4096 : profiles ? 2 * 1024 * 1024 : shaders ? HOST_SHADER_PACK_MAX_TOTAL_BYTES : HOST_RECORDING_PACK_MAX_TOTAL_BYTES;
-    if (!encoded.count || encoded.count > (latest ? 1 : profiles ? 129 : shaders ? HOST_SHADER_PACK_MAX_MAPS : 160)) { PackError(error, @"Pack file count exceeds its limit"); return nil; }
+    BOOL profiles = [_kind isEqual:@"profiles"], shaders = [_kind isEqual:@"shaders"], latest = [_kind isEqual:@"latest"], framings = [_kind isEqual:@"framings"];
+    NSUInteger fileLimit = latest ? 4096 : framings ? 256 * 1024 : profiles ? 64 * 1024 : shaders ? HOST_SHADER_PACK_MAX_FILE_BYTES : HOST_RECORDING_PACK_MAX_FILE_BYTES;
+    NSUInteger totalLimit = latest ? 4096 : framings ? 256 * 1024 : profiles ? 2 * 1024 * 1024 : shaders ? HOST_SHADER_PACK_MAX_TOTAL_BYTES : HOST_RECORDING_PACK_MAX_TOTAL_BYTES;
+    if (!encoded.count || encoded.count > ((latest || framings) ? 1 : profiles ? 129 : shaders ? HOST_SHADER_PACK_MAX_MAPS : 160)) { PackError(error, @"Pack file count exceeds its limit"); return nil; }
     NSMutableDictionary *files = [NSMutableDictionary dictionary];
     NSUInteger total = 0;
     for (NSString *name in encoded) {
         BOOL catalogCompatibility = [_compatibility hasPrefix:@"benchmark-catalog-1:"];
-        BOOL allowed = latest ? [name isEqual:@"latest-release.json"] : shaders ? (PackMatches(name, @"^[a-z0-9][a-z0-9_-]{0,62}\\.txt\\z")) : profiles ? ([name isEqual:@"hardware/catalog.toml"] || [name isEqual:@"hardware/revision.toml"] || (name.length < 64 && PackMatches(name, @"^[a-z0-9]+(-[a-z0-9]+)*\\.toml\\z") && ![name isEqual:@"device-profile.toml"])) :
+        BOOL allowed = latest ? [name isEqual:@"latest-release.json"] : framings ? [name isEqual:@"map-framings.json"] : shaders ? (PackMatches(name, @"^[a-z0-9][a-z0-9_-]{0,62}\\.txt\\z")) : profiles ? ([name isEqual:@"hardware/catalog.toml"] || [name isEqual:@"hardware/revision.toml"] || (name.length < 64 && PackMatches(name, @"^[a-z0-9]+(-[a-z0-9]+)*\\.toml\\z") && ![name isEqual:@"device-profile.toml"])) :
             (PackMatches(name, @"^[a-z0-9][a-z0-9-]{0,47}\\.(input|actions|seeds|route|checks)\\z") ||
                 (catalogCompatibility && [name isEqual:@"benchmark-catalog.json"]));
         NSData *file = allowed ? PackBase64(encoded[name], fileLimit) : nil;

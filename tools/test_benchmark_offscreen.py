@@ -141,7 +141,7 @@ def test_offscreen_lead_in_skips_drawing_but_presents():
     assert "presented=%d offscreen=%d" in host
 
 
-@pytest.mark.parametrize("name", ["progress_format", "progress_visibility"])
+@pytest.mark.parametrize("name", ["progress_format", "progress_visibility", "map_pictures_import"])
 def test_native_progress(probe, name):
     run_case(probe, name)
 

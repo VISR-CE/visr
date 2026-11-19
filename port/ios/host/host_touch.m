@@ -10,8 +10,10 @@
 #include "host_touch_replay.h"
 #include "host_touch_latch.h"
 #include "host_touch_controller.h"
+#include "host_posture_layout.h"
 #include "host_menu_pointer.h"
 #include "host_audio_output.h"
+#include "host_config.h"
 
 static struct host_touch_replay_gate replay_gate;
 static void touch_replay_ui_update(void);
@@ -248,6 +250,11 @@ static void touch_latency_watch(void) {
 @property(nonatomic,strong) HaloStick *lookStick;
 @property(nonatomic,strong) NSMutableArray<HaloButton *> *buttons;
 @property(nonatomic,strong) UIButton *toggle;
+@property(nonatomic,strong) UIButton *fovButton;
+@property(nonatomic) BOOL laptop;
+@property(nonatomic) unsigned postureGeneration;
+@property(nonatomic,strong) UIView *postureBackdrop;
+@property(nonatomic,strong) UIButton *posturePause;
 /* the player's own Hide controls choice, and the overlay stepping aside for a hardware controller */
 @property(nonatomic) BOOL manuallyHidden;
 @property(nonatomic) BOOL controllerHidden;
@@ -285,6 +292,7 @@ static void touch_latency_watch(void) {
     [self.toggle setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];self.toggle.titleLabel.font=[UIFont systemFontOfSize:12];
     self.toggle.backgroundColor=[UIColor colorWithWhite:0 alpha:.3];self.toggle.layer.cornerRadius=12;
     [self.toggle addTarget:self action:@selector(toggleControls) forControlEvents:UIControlEventTouchUpInside];[self addSubview:self.toggle];
+    [self makeFovButton];
     [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(reset) name:UIApplicationWillResignActiveNotification object:nil];
     /* The overlay hides while a game controller is connected, and returns when the last one
        disconnects or on a touch of the screen, and goes again when the controller is used
@@ -304,16 +312,42 @@ static void touch_latency_watch(void) {
 }
 - (void)applyVisibility {
     [self reset];
-    BOOL hidden=self.manuallyHidden||self.controllerHidden;
+    BOOL hidden=self.laptop||self.manuallyHidden||self.controllerHidden;
     /* menus take touch themselves (host_menu_pointer.m): no controls, and no offer to show them */
     BOOL menu=atomic_load(&menu_up)!=0;
     self.moveStick.hidden=self.lookStick.hidden=hidden||menu;
     for(HaloButton *button in self.buttons)button.hidden=hidden||menu;
-    self.toggle.hidden=self.controllerHidden||menu;
-    atomic_store(&controls_showing,!self.controllerHidden);
+    self.toggle.hidden=self.laptop||self.controllerHidden||menu;
+    atomic_store(&controls_showing,!self.laptop&&!self.controllerHidden);
     [self.toggle setTitle:self.manuallyHidden?@"Show controls":@"Hide controls" forState:UIControlStateNormal];
+    [self updateFovButton];
     /* the guest pumps the run loop without letting it wait: commit now, not at the next touch */
     [CATransaction flush];
+}
+/* debug.portrait_fov_button: a "FOV" button that presses the Back + L1 chord (the guest's portrait field of view
+   cycle), for touch-only devices. Always drawn when enabled (menus, every posture). */
+- (void)makeFovButton {
+    char on[16];host_config_string("debug.portrait_fov_button","false",on,sizeof(on));
+    if(strcmp(on,"true"))return;
+    self.fovButton=[UIButton buttonWithType:UIButtonTypeCustom];
+    [self.fovButton setTitle:@"FOV" forState:UIControlStateNormal];
+    [self.fovButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    self.fovButton.titleLabel.font=[UIFont boldSystemFontOfSize:13];
+    self.fovButton.backgroundColor=[UIColor colorWithWhite:0 alpha:.45];self.fovButton.layer.cornerRadius=15;
+    [self.fovButton addTarget:self action:@selector(fovPressed) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:self.fovButton];
+}
+- (void)updateFovButton {
+    if(!self.fovButton)return;
+    /* a debug aid: drawn and hit-testable in every menu and posture, whatever the overlay's own visibility */
+    self.fovButton.hidden=NO;[self bringSubviewToFront:self.fovButton];
+}
+- (void)fovPressed {
+    if(host_touch_replay_blocked(&replay_gate))return;
+    fprintf(stderr,"halo-ios: portrait FOV button tapped\n");
+    button_state(SDL_GAMEPAD_BUTTON_BACK,YES);button_state(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,YES);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.12*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+        button_state(SDL_GAMEPAD_BUTTON_BACK,NO);button_state(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,NO);});
 }
 /* A hardware controller in use puts the overlay away again after a touch brought it back,
    and covers a controller connected before its notification could reach us. */
@@ -323,6 +357,7 @@ static void touch_latency_watch(void) {
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG")){CGPoint p=[touches.anyObject locationInView:self];fprintf(stderr,"halo-ios: host_touch began %.1f,%.1f menu_up=%d hidden=%d\n",p.x,p.y,(int)atomic_load(&menu_up),(int)self.controllerHidden);}
+    if(self.laptop)return;
     /* a tap on a menu is the menu's (host_menu_pointer.m); it does not bring the controls back */
     if(atomic_load(&menu_up))return;
     if(self.controllerHidden){self.controllerHidden=NO;self.manuallyHidden=NO;[self applyVisibility];return;}
@@ -332,6 +367,46 @@ static void touch_latency_watch(void) {
     host_ios_touch_reset();[self.moveStick cancelTrackingWithEvent:nil];[self.lookStick cancelTrackingWithEvent:nil];
     for(HaloButton *button in self.buttons)[button cancelTrackingWithEvent:nil];
     [self.toggle cancelTrackingWithEvent:nil];
+    [self.posturePause cancelTrackingWithEvent:nil];
+}
+/* Keep the temporary flat-half appearance in one place for screenshot review. */
+- (void)stylePostureBackdrop {
+    self.postureBackdrop.backgroundColor=[UIColor colorWithRed:0x08/255.0 green:0x12/255.0 blue:0x16/255.0 alpha:1];
+    [self.posturePause setTitle:@"Ⅱ" forState:UIControlStateNormal];
+    [self.posturePause setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    self.posturePause.titleLabel.font=[UIFont systemFontOfSize:22];
+    self.posturePause.accessibilityLabel=@"Pause";
+}
+- (void)posturePausePressed { host_ios_touch_pause(); }
+- (void)updatePosture {
+    struct host_posture_layout layout;
+    host_posture_layout_snapshot(&layout);
+    if((self.laptop || layout.laptop) &&
+        (self.postureGeneration!=layout.generation || self.laptop!=layout.laptop)) {
+        host_menu_pointer_set_blocked(host_menu_pointer_shared(),
+            host_touch_replay_blocked(&replay_gate) || layout.laptop);
+        host_menu_pointer_clear(host_menu_pointer_shared());
+        self.laptop=layout.laptop;
+        [self applyVisibility];
+    }
+    self.postureGeneration=layout.generation;
+    if(self.laptop && !self.postureBackdrop) {
+        self.postureBackdrop=[[UIView alloc]init];
+        self.postureBackdrop.userInteractionEnabled=NO;
+        [self addSubview:self.postureBackdrop];
+        self.posturePause=[UIButton buttonWithType:UIButtonTypeCustom];
+        [self.posturePause addTarget:self action:@selector(posturePausePressed) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:self.posturePause];
+        [self stylePostureBackdrop];
+    }
+    self.postureBackdrop.hidden=self.posturePause.hidden=!self.laptop;
+    struct host_posture_rect r=layout.backdrop, b=layout.pause_button;
+    self.postureBackdrop.frame=CGRectMake(r.x,r.y,r.width,r.height);
+    self.posturePause.frame=CGRectMake(b.x,b.y,b.width,b.height);
+    self.posturePause.hidden=!self.laptop || b.width<44 || b.height<44;
+    self.posturePause.enabled=!host_touch_replay_blocked(&replay_gate);
+    self.hidden=host_touch_replay_blocked(&replay_gate) && !self.laptop;
+    self.userInteractionEnabled=self.laptop || !host_touch_replay_blocked(&replay_gate);
 }
 - (void)toggleControls {
     if(host_touch_replay_blocked(&replay_gate))return;
@@ -360,9 +435,12 @@ static void touch_latency_watch(void) {
     self.buttons[14].frame=CGRectMake(left+104,top+55,80,36);
     for(UIButton *b in self.buttons){b.layer.cornerRadius=MIN(b.bounds.size.width,b.bounds.size.height)/2;b.titleLabel.adjustsFontSizeToFitWidth=YES;}
     self.toggle.frame=CGRectMake(right-108,top,108,32);
+    /* bottom center: clear of the sticks, the face buttons, the arrows and the pause and toggle corners */
+    self.fovButton.frame=CGRectMake(CGRectGetMidX(r)-30,bottom-30,60,30);
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG"))fprintf(stderr,"halo-ios: host_touch hittest %.1f,%.1f\n",point.x,point.y);
+    if(self.laptop)return YES; /* Swallow picture, fold and flat-half touches. */
     if(host_touch_replay_blocked(&replay_gate) || atomic_load(&menu_up))return NO;
     if(self.controllerHidden)return YES;   /* a touch brings the overlay back (touchesBegan:) */
     for(UIView *view in self.subviews)if(!view.hidden && [view pointInside:[self convertPoint:point toView:view] withEvent:event])return YES;
@@ -371,6 +449,9 @@ static void touch_latency_watch(void) {
 @end
 
 static NSHashTable<HaloControls *> *attached_controls;
+void host_ios_touch_posture_changed(void) {
+    for(HaloControls *controls in attached_controls)[controls updatePosture];
+}
 void host_ios_touch_menu_changed(int menus) {
     if(atomic_exchange(&menu_up,menus!=0)==(menus!=0))return;
     for(HaloControls *controls in attached_controls)[controls applyVisibility];
@@ -379,8 +460,9 @@ static void touch_replay_ui_update(void) {
     BOOL blocked=host_touch_replay_blocked(&replay_gate);
     for(HaloControls *controls in attached_controls) {
         [controls reset];
-        controls.hidden=blocked;
-        controls.userInteractionEnabled=!blocked;
+        controls.hidden=blocked && !controls.laptop;
+        controls.userInteractionEnabled=controls.laptop || !blocked;
+        controls.posturePause.enabled=!blocked;
     }
 }
 
@@ -416,6 +498,7 @@ void host_ios_touch_attach(SDL_Window *window) {
         touch_latency_watch();
         UIView *root=native.rootViewController.view;
         HaloControls *controls=[[HaloControls alloc]initWithFrame:root.bounds];
+        controls.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
         [root addSubview:controls];
         if(!attached_controls)attached_controls=[NSHashTable weakObjectsHashTable];
         [attached_controls addObject:controls];

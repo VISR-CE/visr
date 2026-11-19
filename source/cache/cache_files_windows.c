@@ -565,6 +565,36 @@ boolean cache_files_precache_in_progress(
 	return cache_file_globals.copy_in_progress;
 }
 
+/* port: the map picture render's warm-up counts the reads in flight and
+the reads started, so a picture is taken only after frames that asked for
+nothing new (port/linux/src/map_pictures_render.c) */
+static unsigned long cache_file_reads_started_count;
+
+short cache_file_requests_pending(
+	void)
+{
+	short pending = 0;
+	short request_index;
+
+	for (request_index = 0;
+		request_index < MAXIMUM_SIMULTANEOUS_CACHE_REQUESTS;
+		request_index++)
+	{
+		if (cache_file_globals.requests[request_index].pending)
+		{
+			pending++;
+		}
+	}
+
+	return pending;
+}
+
+unsigned long cache_file_reads_started(
+	void)
+{
+	return cache_file_reads_started_count;
+}
+
 boolean cache_files_precache_is_copying_map(
 	const char *map_name)
 {
@@ -897,6 +927,7 @@ short cache_file_read(
 		size = (size | (CACHE_FILE_SECTOR_SIZE - 1)) + 1;
 	}
 	*completion_flag_reference = FALSE;
+	cache_file_reads_started_count++;
 	memset(
 		&request->overlapped,
 		0,

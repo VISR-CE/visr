@@ -3,14 +3,14 @@
 #include <stdio.h>
 
 static void check(long dw,long dh,long logical,long aspect,long height,long limit,long w,long h) {
-    struct halo_display_size size=halo_display_render_size(dw,dh,logical,aspect,height,limit);
+    struct halo_display_size size=halo_display_render_size(dw,dh,logical,aspect,height,limit,0);
     assert(size.width==w && size.height==h);
 }
 /* display.native_hud: the size the HUD's back buffer gets (no render height)
    must be the picture's place in the drawable, as gpu_present letterboxes
    it (gpu_metal.m, gpu_gl.c), so that Present copies it pixel for pixel. */
 static void check_native_presents_whole(long dw,long dh,long logical,long aspect) {
-    struct halo_display_size size=halo_display_render_size(dw,dh,logical,aspect,0,16384);
+    struct halo_display_size size=halo_display_render_size(dw,dh,logical,aspect,0,16384,0);
     struct halo_display_size shown=halo_display_present_size(dw,dh,size.width,size.height);
     long width=shown.width, height=shown.height;
     if(width!=size.width || height!=size.height)
@@ -20,12 +20,12 @@ static void check_native_presents_whole(long dw,long dh,long logical,long aspect
 int main(void) {
     long dw,dh;
     /* Hot-plug shape changes and explicit aspect choices share one policy. */
-    assert(halo_display_layout_width(2560,1600,0,1042)==768);
-    assert(halo_display_layout_width(1920,1080,0,768)==852);
-    assert(halo_display_layout_width(2732,2048,0,852)==640);
-    assert(halo_display_layout_width(1920,1080,640,852)==640);
-    assert(halo_display_layout_width(0,0,0,1042)==1042);
-    assert(halo_display_layout_width(10000,480,0,640)==1600);
+    assert(halo_display_layout_width(2560,1600,0,1042,0)==768);
+    assert(halo_display_layout_width(1920,1080,0,768,0)==852);
+    assert(halo_display_layout_width(2732,2048,0,852,0)==640);
+    assert(halo_display_layout_width(1920,1080,640,852,0)==640);
+    assert(halo_display_layout_width(0,0,0,1042,0)==1042);
+    assert(halo_display_layout_width(10000,480,0,640,0)==1600);
     for(dw=640;dw<=7680;dw+=97) for(dh=480;dh<=4320;dh+=61){
         long logical=(480*dw+dh/2)/dh;
         logical=(logical<640?640:logical>1600?1600:logical)&~1L;
@@ -51,6 +51,31 @@ int main(void) {
     check(2752,2064,640,0,-1,16384,2752,2064);
     check(2752,2064,640,0,1,16384,320,240);
     check(0,0,640,0,0,16384,640,480);
-    puts("PASS: native pixels, aspect preservation, resolution presets, GPU size limits, and a native picture presented whole");
+    /* Portrait is opt-in; the same drawable otherwise keeps landscape limits. */
+    assert(halo_display_layout_width(1878,2669,0,640,1)==336);
+    assert(halo_display_layout_width(1000,1420,0,640,1)==338);
+    assert(halo_display_layout_width(1878,2669,0,640,0)==640);
+    assert(halo_display_layout_width(100,1000,0,640,1)==240);
+    assert(halo_display_layout_width(0,0,339,640,1)==338);
+    assert(halo_display_layout_width(10000,480,0,640,1)==1600);
+    for (int portrait=0;portrait<=1;portrait++) {
+        struct halo_display_size size=halo_display_render_size(1878,2669,338,0,0,16384,portrait);
+        assert(size.width==1878 && size.height==(portrait ? 2669 : 1409));
+    }
+    struct halo_display_size portrait=halo_display_render_size(1878,2669,338,0,1080,16384,1);
+    assert(portrait.width==760 && portrait.height==1080);
+    portrait=halo_display_render_size(100,1000,240,0,0,16384,1);
+    assert(portrait.width==100 && portrait.height==200);
+    portrait=halo_display_render_size(0,0,338,0,0,16384,1);
+    assert(portrait.width==338 && portrait.height==480);
+    portrait=halo_display_render_size(1878,2669,338,338,0,16384,1);
+    assert(portrait.width==1878 && portrait.height==2667);
+    struct halo_display_size landscape=halo_display_render_size(2868,1320,1042,0,720,16384,1);
+    assert(landscape.width==1564 && landscape.height==720);
+    portrait=halo_display_render_size(1878,2669,336,0,0,1024,1);
+    assert(portrait.width==721 && portrait.height==1024);
+    struct halo_display_size shown=halo_display_present_size(1878,2669,1878,2669);
+    assert(shown.width==1878 && shown.height==2669);
+    puts("PASS: native pixels, aspect preservation, resolution presets, GPU size limits, portrait opt-in, and a native picture presented whole");
     return 0;
 }

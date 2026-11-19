@@ -961,6 +961,32 @@ static long obstruction_cache_slot(
 		(unsigned long)local_player_index) % OBSTRUCTION_CACHE_SLOTS);
 }
 
+/* port: a sound or camera location that still names a cluster of the BSP
+   before a switch (photo mode and scripted captures switch BSPs outside the
+   game's own flow) would halt in structure_bsp_get_cluster_encoded_sound_distance.
+   Such a location is treated as having no cluster; said once per BSP. */
+static boolean sound_clusters_valid(
+	short from_cluster_index,
+	short to_cluster_index)
+{
+	static short reported_bsp_index = NONE;
+	struct structure_bsp *structure_bsp = global_structure_bsp_get();
+	short count = (short)structure_bsp->clusters.count;
+
+	if (from_cluster_index >= 0 && from_cluster_index < count &&
+		to_cluster_index >= 0 && to_cluster_index < count)
+	{
+		return TRUE;
+	}
+	if (reported_bsp_index != global_structure_bsp_index_get())
+	{
+		reported_bsp_index = global_structure_bsp_index_get();
+		error(_error_silent, "sound: cluster %d or %d is not in BSP %d (%d clusters); treated as none",
+			(int)from_cluster_index, (int)to_cluster_index, (int)reported_bsp_index, (int)count);
+	}
+	return FALSE;
+}
+
 void compute_sound_obstruction(
 	short local_player_index,
 	struct sound_source *source,
@@ -997,7 +1023,8 @@ void compute_sound_obstruction(
 		source->spatialization_mode==_sound_spatialization_mode_absolute);
 
 	if (source->location.game_location.cluster_index != NONE &&
-		camera->location.cluster_index != NONE)
+		camera->location.cluster_index != NONE &&
+		sound_clusters_valid(camera->location.cluster_index, source->location.game_location.cluster_index))
 	{
 		struct structure_bsp *structure_bsp = global_structure_bsp_get();
 		byte encoded_distance = structure_bsp_get_cluster_encoded_sound_distance(
@@ -1084,7 +1111,8 @@ static void compute_combined_pas(
 		{
 			struct observer_result const *camera = observer_get_camera(local_player_index);
 
-			if (camera->location.cluster_index != NONE)
+			if (camera->location.cluster_index != NONE &&
+				sound_clusters_valid(camera->location.cluster_index, camera->location.cluster_index))
 			{
 				short cluster_index;
 
@@ -1113,6 +1141,12 @@ static void compute_combined_pas(
 static boolean location_potentially_audible(
 	struct location *location)
 {
+	/* port: a location left from another BSP is not audible rather than a halt */
+	if (location->cluster_index != NONE &&
+		!sound_clusters_valid(location->cluster_index, location->cluster_index))
+	{
+		return FALSE;
+	}
 	match_assert(
 		"c:\\halo\\SOURCE\\sound\\game_sound.c",
 		870,

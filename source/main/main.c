@@ -420,6 +420,8 @@ player can fix: a message, not a crash (port/ios/host/host_crash.c) */
 void host_map_load_failed(const char *map_name, const char *messages);
 /* port: debug.crash_test "map" (port/runtime/guest/runtime/guest_crash_test.c) */
 int guest_crash_test_map_load(void);
+/* port: a map picture render's load stage times (port/linux/src/map_pictures_render.c) */
+void map_pictures_render_stage(int stage);
 #define MAIN_CPU_PHASE(phase, ticks) host_frame_cpu_phase((phase), (ticks))
 #else
 #define MAIN_CPU_PHASE(phase, ticks) ((void)0)
@@ -1222,6 +1224,45 @@ void set_window_camera_values(
 					1.0f);
 		}
 
+		/* port: a view narrower than 4:3 (portrait) keeps the vertical angle
+		and narrows the horizontal one; debug.portrait_field_of_view's
+		"horizontal_minimum", "horizontal_70" or "match_landscape" (or the live
+		chord through all four) widen it; see portrait_fov.h */
+		{
+			extern float halo_portrait_field_of_view_tangent(float aspect, float base_tangent);
+			extern real halo_cinematic_portrait_letterbox(real width, real height, real *bar_fraction);
+			rectangle2d const *view = &window->rasterizer_camera.viewport_bounds;
+			real width = (real)(view->x1 - view->x0);
+			real height = (real)(view->y1 - view->y0);
+			real base_vertical_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
+
+			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f)
+			{
+				/* the four modes are in portrait_fov.h; the widest passes 90 degrees, and nothing here clamps
+				it (the game's own 90-degree checks see the observer's angle, before this) */
+				window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(
+					halo_portrait_field_of_view_tangent(width / height, base_vertical_tangent), 1.0f);
+			}
+
+			/* port: a letterboxed cinematic in a portrait view keeps the landscape cinematic's picture: the
+			4:3 view's horizontal angle across the width, in the 16:9 band the bars leave (cinematics.c), blended
+			in and out with the bars */
+			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f)
+			{
+				real bar_fraction;
+				real blend = halo_cinematic_portrait_letterbox(width, height, &bar_fraction);
+
+				if (blend > 0.0f)
+				{
+					real portrait_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
+					real cinematic_tangent = base_vertical_tangent / 0.75f * (height / width);
+
+					window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(
+						portrait_tangent + (cinematic_tangent - portrait_tangent) * blend, 1.0f);
+				}
+			}
+		}
+
 		if (window->local_player_index != NONE &&
 			!console_is_active() &&
 			!game_time_get_paused() &&
@@ -1545,6 +1586,7 @@ static void main_new_map(
 	struct game_options *options)
 {
 #ifdef HALO_IOS
+	map_pictures_render_stage(0);
 	halo_perf_reports_map_begin(options->map_name);
 	host_perf_hooks_loading(1);
 #endif
@@ -1556,6 +1598,9 @@ static void main_new_map(
 #endif
 	{
 		game_initialize_for_new_map();
+#ifdef HALO_IOS
+		map_pictures_render_stage(1);
+#endif
 	}
 	else
 	{
@@ -1580,8 +1625,14 @@ static void main_new_map(
 		error(_error_immediate, "main_new_map() failed.");
 	}
 	game_initial_pulse();
+#ifdef HALO_IOS
+	map_pictures_render_stage(2);
+#endif
 	/* port: compile the map's shaders and pipelines before its first frame */
 	halo_shader_list_warm(options->map_name);
+#ifdef HALO_IOS
+	map_pictures_render_stage(3);
+#endif
 
 	main_globals.reset_map = FALSE;
 	main_globals.defer_map_change = FALSE;
@@ -2367,6 +2418,13 @@ static boolean main_steps_each_tick(
 boolean main_tick_end(
 	void)
 {
+#ifdef HALO_IOS
+	/* port: a launch map picture render's intro fast-forward stops on the tick its
+	cinematic ends (port/linux/game/map_pictures_scenario.c) */
+	extern boolean map_pictures_scenario_tick_end(void);
+	if (map_pictures_scenario_tick_end())
+		return TRUE;
+#endif
 	if (!main_steps_each_tick())
 		return FALSE;
 	if (main_globals.saving_map)
@@ -3875,6 +3933,9 @@ void main_loop(
 			/* port: debug.crash_test (port/runtime/guest/runtime/guest_crash_test.c) */
 			extern void guest_crash_test_update(void);
 			guest_crash_test_update();
+			/* port: debug.map_pictures_render (port/linux/src/map_pictures_render.c) */
+			extern void map_pictures_render_update(void);
+			map_pictures_render_update();
 		}
 #endif
 		profile_scope_enter(main_platform_events_section)

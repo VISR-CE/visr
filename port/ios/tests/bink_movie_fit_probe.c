@@ -35,9 +35,24 @@ int main(void)
 	bink_movie_fit_compute(640, 480, 711, 480, &fit);
 	assert(fit.covers);
 
-	/* a movie larger than the screen is never scaled up */
+	/* a movie wider than the screen scales down to fit, centered, with the leftover bars filled */
 	bink_movie_fit_compute(640, 480, 600, 480, &fit);
-	assert(!fit.covers && !fit.has_bars);
+	assert(!fit.covers && fit.has_bars);
+	assert(near(fit.x0, 0) && near(fit.x1, 600) && near(fit.y0, 15) && near(fit.y1, 465));
+	assert(near(fit.u0, 0) && near(fit.u1, 640) && near(fit.v0, 0) && near(fit.v1, 480));
+
+	/* portrait (a 1080x2340 screen, 466x1010 virtual): the width fills, letterbox bars above and below */
+	bink_movie_fit_compute(640, 480, 466, 1010, &fit);
+	assert(!fit.covers && fit.has_bars);
+	assert(near(fit.x0, 0) && near(fit.x1, 466));
+	assert(near(fit.y1 - fit.y0, 349.5f) || near(fit.y1 - fit.y0, 350) || near(fit.y1 - fit.y0, 349));
+	assert(near(fit.y0 + fit.y1, 1010) || fabsf(fit.y0 + fit.y1 - 1010) < 1.5f);
+	assert(fit.y0 > 300 && fit.u0 == 0 && near(fit.u1, 640) && near(fit.v1, 480));
+	bink_movie_fit_compute(640, 480, 1080, 2340, &fit);
+	assert(!fit.covers && fit.has_bars && near(fit.x0, 220) && near(fit.x1, 860) && near(fit.y0, 930) && near(fit.y1, 1410));
+	/* the Duo portrait screen at a 640-unit width: the fit is exact, bars above and below only */
+	bink_movie_fit_compute(640, 480, 640, 960, &fit);
+	assert(near(fit.x0, 0) && near(fit.x1, 640) && near(fit.y0, 240) && near(fit.y1, 720));
 
 	/* thin bars above and below cover too, cropping the sides of the movie */
 	bink_movie_fit_compute(640, 480, 640, 515, &fit);

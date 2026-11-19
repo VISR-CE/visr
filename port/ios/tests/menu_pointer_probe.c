@@ -136,20 +136,22 @@ static void devices(void) {
 
 /* the menus' point (mx, my) drawn by the display blit, and back */
 static void mapping(void) {
-    static const int pictures[][2] = { {640, 480}, {854, 480}, {1280, 720}, {1920, 1080}, {2560, 1080}, {3840, 1600} };
+    static const int pictures[][2] = { {330, 480}, {320, 480}, {640, 480}, {854, 480}, {1280, 720}, {1920, 1080}, {2560, 1080}, {3840, 1600} };
     static const int surfaces[][2] = { {874, 402}, {1366, 1024}, {2420, 1668}, {402, 874}, {1920, 1080} };
     for (unsigned p = 0; p < sizeof(pictures) / sizeof(pictures[0]); p++)
         for (unsigned s = 0; s < sizeof(surfaces) / sizeof(surfaces[0]); s++) {
             int pw = pictures[p][0], ph = pictures[p][1], sw = surfaces[s][0], sh = surfaces[s][1];
             int screen = (int)(480.0 * pw / ph);
-            if (screen < 640) screen = 640;
+
             struct halo_display_size fit = halo_display_present_size(sw, sh, pw, ph);
             /* (the target's size is in the game's screen units; the GL size is its pixels) */
             struct halo_ui_pointer_geometry g = { sw, sh, sw, sh, pw, ph, screen, 480, screen };
             for (int mx = 0; mx < 640; mx += 40)
                 for (int my = 0; my < 480; my += 40) {
-                    float picture_x = (mx + (screen - 640) / 2.0f) * (float)pw / screen;
-                    float picture_y = my * (float)ph / 480;
+                    /* Forward arithmetic is independent of the mapping helpers. */
+                    float menu_scale = screen < 640 ? screen / 640.0f : 1.0f;
+                    float picture_x = (mx * menu_scale + (screen < 640 ? 0 : (screen - 640) / 2.0f)) * (float)pw / screen;
+                    float picture_y = (my * menu_scale + (480 - 480 * menu_scale) / 2) * (float)ph / 480;
                     float x = (sw - fit.width) / 2.0f + picture_x * fit.width / pw;
                     float y = (sh - fit.height) / 2.0f + picture_y * fit.height / ph;
                     short rx, ry;
@@ -215,6 +217,38 @@ static void edge_swipe(void) {
     assert(take(&m).back_swipes == 0);
 }
 
+/* Missing portrait scale, vertical centering, or radius inversion breaks these
+   hand-derived fixtures: a 320-column picture puts menu y=0 at line 120. */
+static void portrait_mapping(void) {
+    struct halo_ui_pointer_geometry g = { 320, 480, 640, 960, 640, 960, 320, 480, 320 };
+    short x, y;
+    halo_ui_pointer_map(&g, 20, 150, &x, &y);
+    assert(x == 40 && y == 60);
+    halo_ui_pointer_map(&g, 300, 330, &x, &y);
+    assert(x == 600 && y == 420);
+    halo_ui_pointer_map(&g, 160, 119, &x, &y);
+    assert(x == 320 && y == -2);
+    halo_ui_pointer_map(&g, 160, 361, &x, &y);
+    assert(x == 320 && y == 482);
+    assert(fabsf(halo_ui_pointer_length(&g, 22) - 44) < 0.001f);
+    assert(fabsf(halo_ui_layout_scale(330) - 0.515625f) < 0.000001f);
+    assert(fabsf(halo_ui_layout_y_offset(330) - 116.25f) < 0.000001f);
+    assert(halo_ui_layout_scale(640) == 1 && halo_ui_layout_y_offset(640) == 0);
+    assert(halo_ui_layout_scale(853) == 1 && halo_ui_layout_y_offset(853) == 0);
+    assert(halo_ui_layout_scale(0) == 1 && halo_ui_layout_y_offset(0) == 0);
+    /* Transform before clipping: the menu's right half is still visible. */
+    const float rect[4] = { 320, 0, 640, 480 };
+    const float viewport[4] = { 0, 0, 320, 480 };
+    float fitted[4];
+    assert(halo_ui_layout_clip_rect(0.5f, 120, rect, viewport, fitted));
+    assert(fitted[0] == 160 && fitted[1] == 120 && fitted[2] == 320 && fitted[3] == 360);
+    const float beyond[4] = { -40, -400, 700, 800 };
+    assert(halo_ui_layout_clip_rect(0.5f, 120, beyond, viewport, fitted));
+    assert(fitted[0] == 0 && fitted[1] == 0 && fitted[2] == 320 && fitted[3] == 480);
+    const float outside[4] = { 650, 0, 700, 480 };
+    assert(!halo_ui_layout_clip_rect(0.5f, 120, outside, viewport, fitted));
+}
+
 int main(void) {
     edge_swipe();
     hold_down();
@@ -224,5 +258,6 @@ int main(void) {
     gates();
     devices();
     mapping();
+    portrait_mapping();
     puts("menu pointer: passed");
 }

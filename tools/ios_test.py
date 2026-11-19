@@ -45,7 +45,7 @@ run('python3', 'tools/test_astc_store.py')
 run('python3', 'tools/astc_worker_test.py')
 
 # Pure network probes also run in the portable pytest suite.
-for probe in ('network_version', 'network_join_wire', 'menu_gametype', 'bink_movie_fit', 'bink_edge_gradient'):
+for probe in ('network_version', 'network_join_wire', 'menu_gametype', 'bink_movie_fit', 'bink_edge_gradient', 'portrait_fov'):
     executable = BUILD / (probe.replace('_', '-') + '-probe')
     run('xcrun', 'clang', '-std=c11', '-Wall', '-Werror', '-O2', '-fsanitize=address,undefined',
         f'port/ios/tests/{probe}_probe.c', 'port/linux/src/delta_legacy_runtime.c', '-o', executable)
@@ -244,6 +244,14 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/display_probe.c', '-o', BUILD/'display-probe')
 run(BUILD/'display-probe')
 
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
+    'port/ios/tests/posture_probe.c', '-o', BUILD/'posture-probe')
+run(BUILD/'posture-probe')
+
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
+    'port/ios/tests/posture_layout_probe.c', '-o', BUILD/'posture-layout-probe')
+run(BUILD/'posture-layout-probe')
+
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/companion_probe.c', '-o', BUILD/'companion-probe')
 run(BUILD/'companion-probe')
@@ -347,12 +355,12 @@ latest_key = subprocess.run([str(BUILD / 'data-pack-sign'), '--public-key', str(
 run(BUILD / 'data-updates-probe', latest_key, BUILD / 'latest-record.json')
 # 0.6.0 profiles keep every bundled key (the iPhone 17 Pro's player capacity, the Apple TV 4K (3rd generation)'s
 # upscaled textures): with 0.5.1's live device-profiles-1 shard still cached, with a
-# device-profiles-4 shard signed here by the publisher, and once an update makes a cached shard older
+# device-profiles-5 shard signed here by the publisher, and once an update makes a cached shard older
 seed = BUILD / 'profile-feed-probe-seed'
 seed.write_bytes(bytes(range(32))); seed.chmod(0o600)
 for name, target in (('iphone', 'ios/iPhone18,1/_'), ('apple-tv', 'tvos/AppleTV14,1/_')):
     run('python3', 'tools/data_pack.py', '--kind', 'profiles', '--channel', 'tester', '--sequence', '1',
-        '--compatibility', 'device-profiles-4:' + target, '--input', 'profiles', '--signing-key', seed,
+        '--compatibility', 'device-profiles-5:' + target, '--input', 'profiles', '--signing-key', seed,
         '--output', BUILD / f'profile-feed-probe-{name}.json')
 probe_key = subprocess.run([str(BUILD / 'data-pack-sign'), '--public-key', str(seed)], check=True,
                            capture_output=True, text=True, cwd=ROOT).stdout.strip()
@@ -365,7 +373,7 @@ apple_tv = upscale_off / 'apple-tv-4k-3rd.toml'
 apple_tv.write_text(apple_tv.read_text().replace('[display]\nupscaled_textures = true\n', '[display]\nupscaled_textures = false\n', 1))
 run('python3', 'tools/profile_revision.py', '--bump', '--profiles', upscale_off)
 run('python3', 'tools/data_pack.py', '--kind', 'profiles', '--channel', 'tester', '--sequence', '2',
-    '--compatibility', 'device-profiles-4:tvos/AppleTV14,1/_', '--input', upscale_off, '--signing-key', seed,
+    '--compatibility', 'device-profiles-5:tvos/AppleTV14,1/_', '--input', upscale_off, '--signing-key', seed,
     '--output', BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation',
@@ -687,6 +695,10 @@ for perf_reports in (1, 0):
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/benchmark_offscreen_probe.c', '-o', BUILD/'benchmark-offscreen-probe')
 run(BUILD/'benchmark-offscreen-probe')
+# Disc-import picture progress uses the same clamped fraction on UIKit and AppKit.
+run('xcrun', 'clang', '-std=c99', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host',
+    'port/ios/tests/map_pictures_progress_probe.c', '-o', BUILD/'map-pictures-progress-probe')
+run(BUILD/'map-pictures-progress-probe')
 run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc',
     '-framework', 'Foundation', '-Iport/ios/host', 'port/ios/tests/benchmark_outbox_probe.m',
     'port/ios/host/host_benchmark_outbox.m', '-o', BUILD/'benchmark-outbox-probe')

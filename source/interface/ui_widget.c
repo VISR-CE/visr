@@ -9185,13 +9185,14 @@ static void widget_instance_render_recursive(
 			picture of the button settings, in the profile settings' smaller
 			box): drawn at their size, from where they place it, in units of
 			that size rather than one to a texel. A Custom Edition map's own
-			picture is stretched over the widget; a stock campaign level's is
-			laid out as the stock pictures are */
+			picture (or a stock map's rendered one) is stretched over the
+			widget; a stock campaign level's is laid out as the stock pictures are */
 			rectangle2d texels = bounds;
 			short frame_x, frame_y, frame_width, frame_height;
 			boolean shown = TRUE;
 			boolean stretched = custom_edition_picture &&
-				custom_edition_maps_campaign_level(widget->animation.current_frame_index) == NONE;
+				(custom_edition_maps_campaign_level(widget->animation.current_frame_index) == NONE ||
+				custom_edition_maps_picture_rendered(custom_edition_picture));
 
 			if (pc_menu_frame_placement(bitmap, &frame_x, &frame_y, &frame_width, &frame_height))
 			{
@@ -9264,6 +9265,26 @@ static void widget_instance_render_recursive(
 							&multitexture_params, FALSE);
 					}
 				}
+				/* port: full-screen bitmaps (gradients, dims, loading art)
+				cover portrait by height; their children keep the menu's fit.
+				Clip in design space before the GPU crops the covered picture. */
+				boolean portrait_backdrop = halo_screen_width() < 640 &&
+					bounds.x0 <= 0 && bounds.y0 <= 0 &&
+					bounds.x1 >= 640 && bounds.y1 >= 480;
+				/* port: the menu band (gradient.bitmap) carries its two rules at
+				rows 65 and 383 of the 480; it takes the menus' own fit so the
+				rules stay just outside the title and the legend, and the
+				untinted backdrop shows above and below it */
+				if (portrait_backdrop)
+				{
+					char const *backdrop_name = tag_get_name(definition->background_bitmap.index);
+
+					if (backdrop_name && (strstr(backdrop_name, "bitmaps\\gradient") || strstr(backdrop_name, "bitmaps/gradient")))
+						portrait_backdrop = FALSE;
+				}
+
+				if (portrait_backdrop)
+					halo_screen_ui_backdrop(TRUE);
 				draw_bitmap_in_rect(
 					bitmap,
 					&bounds,
@@ -9278,6 +9299,8 @@ static void widget_instance_render_recursive(
 						modulate_pixel32_by_real_alpha(0xFFFFFFFF, alpha * ui_hold_progress() * 0.5f),
 						&multitexture_params, FALSE);
 				}
+				if (portrait_backdrop)
+					halo_screen_ui_backdrop(FALSE);
 				if (!custom_edition_picture)
 					menu_title_icon_draw(definition->background_bitmap.index, bitmap, &bounds, clip, color);
 			}
@@ -9521,6 +9544,12 @@ void render_ui_widgets(
 				bounds.y0 = 0;
 				bounds.x1 = window_bounds->x1 - window_bounds->x0;
 				bounds.y1 = window_bounds->y1 - window_bounds->y0;
+				/* port: portrait fits the entire design after widget clipping. */
+				if (halo_screen_width() < 640)
+				{
+					bounds.x1 = 640;
+					bounds.y1 = 480;
+				}
 				offset.x = 0;
 				offset.y = 0;
 				/* the mouse drives the first player's menus */
@@ -9597,7 +9626,16 @@ void render_ui_widgets(
 			if (widget_globals.fade_to_black >= 0.95f)
 				widget_globals.fade_to_black = 1.0f;
 			alpha = widget_globals.fade_to_black * 255.0f;
+			/* port: a fade covers the portrait backdrop as well as the list. */
+			if (halo_screen_width() < 640)
+			{
+				bounds.x0 = 0;
+				bounds.x1 = 640;
+				halo_screen_ui_backdrop(TRUE);
+			}
 			draw_quad(&bounds, fast_ftol(alpha) << 24);
+			if (halo_screen_width() < 640)
+				halo_screen_ui_backdrop(FALSE);
 		}
 	}
 	else

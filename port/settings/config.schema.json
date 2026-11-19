@@ -343,6 +343,16 @@
             "apple"
           ]
         },
+        "allow_portrait": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, gameplay and menus follow the device into portrait. Device profiles turn it on where portrait play is supported (the iPhone Duo); on other devices set it in config.toml for testing. Read at launch.",
+          "x-environment": "HALO_ALLOW_PORTRAIT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "dynamic_resolution_floor": {
           "type": "integer",
           "default": 540,
@@ -1499,6 +1509,27 @@
             "desktop"
           ]
         },
+        "map_pictures_render": {
+          "type": "boolean",
+          "default": false,
+          "description": "At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. Development AppKit Mac host only.",
+          "x-environment": "HALO_MAP_PICTURES_RENDER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "orientation": {
+          "type": "string",
+          "default": "",
+          "description": "Request \"portrait\" or \"landscape\" once the first window scene is active; empty leaves the device's orientation alone. Portrait requires display.allow_portrait. For simulator captures. Read at launch.",
+          "x-environment": "HALO_ORIENTATION",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "test_controller": {
           "type": "string",
           "default": "",
@@ -2339,6 +2370,26 @@
           "default": true,
           "description": "With display.foveation: false renders the game's eyes unfoveated at the foveated view's full size, and only the last step that fills each view goes through the Compositor's rate map (composite-only foveation, the reference the full path is compared against).",
           "x-environment": "HALO_FOVEATION_EYE_PASSES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "portrait_field_of_view": {
+          "type": "string",
+          "default": "",
+          "description": "Field of view in a view narrower than 4:3 (portrait play): empty or \"horizontal_minimum\" widens the vertical angle so the horizontal one stays at least 60 degrees (the default); \"hold\" keeps the game's vertical angle and narrows the horizontal one; \"horizontal_70\" and \"match_landscape\" widen it to 70 and 73.5 degrees horizontal. Where portrait is allowed, hold Back and press L1 to cycle the four modes until the app quits.",
+          "x-environment": "HALO_PORTRAIT_FIELD_OF_VIEW",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "portrait_fov_button": {
+          "type": "boolean",
+          "default": false,
+          "description": "Shows a small FOV button at the bottom center of the touch controls in gameplay that cycles the portrait field of view like the Back + L1 chord (debug.portrait_field_of_view), for devices with no controller. Needs display.allow_portrait.",
+          "x-environment": "HALO_PORTRAIT_FOV_BUTTON",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"

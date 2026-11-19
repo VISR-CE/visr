@@ -30,6 +30,7 @@
 #include "renderer_build.h"
 #if !TARGET_OS_TV && !HALO_NATIVE_MAC
 #include "host_texture_settings.h"
+#include "host_orientation.h"
 #endif
 #include "host_astc_store.h"
 #include "host_data_updates.h"
@@ -475,6 +476,14 @@ int main(int argc,char **argv) {
             if(!list||![list writeToFile:@"brokers.txt" atomically:YES])
                 host_logf(HOST_LOG_ERROR,"cannot write brokers.txt from the app bundle");
         }
+        /* the stock maps' menu-picture framings (photo_framing_lookup): a copy of the app's file at each
+           start, so an update's framings replace the last; the player's own framings/ fragments still win */
+        {
+            NSString *framings=[NSBundle.mainBundle pathForResource:@"map-framings" ofType:@"json"];
+            NSData *data=framings?[NSData dataWithContentsOfFile:framings]:nil;
+            if(!data||![data writeToFile:@"map-framings.json" atomically:YES])
+                host_logf(HOST_LOG_ERROR,"cannot write map-framings.json from the app bundle");
+        }
         /* Tools (tools/mac_run.py) create stderr.log to keep the guest's own log, platform_log
            and debug.gpu_stats among it, which otherwise only a debugger's console shows; so does
            opening a join link (host_join_link.c). Past 4 MB it starts anew. */
@@ -596,7 +605,15 @@ int main(int argc,char **argv) {
            build the choice made on its first screen */
         const char *benchmark_suite=getenv("HALO_BENCHMARK_SUITE");
 #ifdef HALO_TESTER_BUILD
-        if(!benchmark_suite&&!getenv("HALO_RUNNER"))benchmark_suite=host_benchmark_menu();
+        if(host_map_pictures_import_stage()){
+            /* The import window must reach the guest without a second launch dialog. Freeze the same data-pack
+               selection as Play; initializeMenu commits it once its asynchronous setup finishes. */
+            if(!benchmark_suite&&!getenv("HALO_RUNNER")){
+                host_data_updates_menu_start();
+                host_data_updates_menu_finish();
+            }
+        }
+        else if(!benchmark_suite&&!getenv("HALO_RUNNER"))benchmark_suite=host_benchmark_menu();
 #endif
 #if !TARGET_OS_TV && !HALO_NATIVE_MAC
         /* the Settings app's texture pane: acted on now and at every return to the foreground */
@@ -658,7 +675,7 @@ int main(int argc,char **argv) {
             const char *launch_renderer=getenv("HALO_RENDERER");
             if(launch_renderer&&*launch_renderer)snprintf(renderer,sizeof(renderer),"%s",launch_renderer);
             else host_config_string("display.renderer","metal",renderer,sizeof(renderer));
-            if(HALO_METAL_ONLY)snprintf(renderer,sizeof(renderer),"metal");
+            if(HALO_METAL_ONLY||host_map_pictures_import_stage())snprintf(renderer,sizeof(renderer),"metal");
             int capped_width,capped_height;
             host_sdl_output_native(pixel_width,pixel_height,strcmp(renderer,"metal")?0:cap);
             if(cap&&strcmp(renderer,"metal"))
@@ -693,6 +710,9 @@ int main(int argc,char **argv) {
         static char env_profile[sizeof("HALO_DEVICE_PROFILE_VALUES=")+HOST_PROFILE_MAXIMUM_VALUES*216];
         snprintf(env_profile,sizeof(env_profile),"HALO_DEVICE_PROFILE_VALUES=%s",profile_values?profile_values:host_device_profile_install(data_root));
         env[env_count++]=env_profile;
+#if !TARGET_OS_TV && !HALO_NATIVE_MAC
+        host_ios_orientation_configure();
+#endif
         /* the build, for what the game writes beside a recording (input_replay.c), and the folder its automatic
            takes go to */
         static char env_build[96];
@@ -767,11 +787,12 @@ int main(int argc,char **argv) {
            from the first drawable it sees. */
         env[env_count++]="HALO_SCREEN_WIDTH=852";
 #endif
-        /* Choose the guest renderer before its environment snapshot and window creation. A Metal-only build overrides
-           the player's config and any launch-time OpenGL request. */
+        /* Choose the guest renderer before its environment snapshot and window creation. Import uses Metal's private
+           offscreen target even in a both-backend development build; the saved renderer setting stays unchanged. */
         static char env_renderer[32];
         const char *launch_renderer=getenv("HALO_RENDERER");
-        const char *guest_renderer=host_renderer_guest_value(TARGET_OS_VISION,TARGET_OS_TV,launch_renderer);
+        const char *guest_renderer=host_map_pictures_import_stage()?"metal":
+            host_renderer_guest_value(TARGET_OS_VISION,TARGET_OS_TV,launch_renderer);
         if(guest_renderer){
             snprintf(env_renderer,sizeof(env_renderer),"HALO_RENDERER=%s",guest_renderer);
             env[env_count++]=env_renderer;
@@ -814,6 +835,13 @@ int main(int argc,char **argv) {
         if(photo_mode&&*photo_mode){
             snprintf(env_photo,sizeof(env_photo),"HALO_PHOTO_MODE=%s",photo_mode);
             env[env_count++]=env_photo;
+        }
+        /* debug.map_pictures_render likewise: HALO_MAP_PICTURES_RENDER from the launch is passed on */
+        static char env_map_pictures[sizeof("HALO_MAP_PICTURES_RENDER=")+16];
+        const char *map_pictures=getenv("HALO_MAP_PICTURES_RENDER");
+        if(map_pictures&&*map_pictures){
+            snprintf(env_map_pictures,sizeof(env_map_pictures),"HALO_MAP_PICTURES_RENDER=%s",map_pictures);
+            env[env_count++]=env_map_pictures;
         }
 #endif
         static char env_external[sizeof("HALO_EXTERNAL_MODE=")+512];

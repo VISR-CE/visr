@@ -48,6 +48,9 @@ const char *custom_edition_cache_loaded_path(void);
 #include "posix.h"
 #include "zlib_prefixed.h"
 #include "png_write.h"
+#ifdef HALO_IOS
+#include "map_pictures_render.h"
+#endif
 
 #include <math.h>
 #include <stddef.h>
@@ -203,7 +206,8 @@ display.resolution), and 640 where display.resolution_scaling is "original".
 The game's camera derives its horizontal field of view from the viewport, so
 the 3D view simply widens. The menus and full-screen overlays are laid out
 for 640 columns; while they draw (halo_screen_ui_offset), everything shifts
-right to center them.
+right to center them. Portrait UI spans instead fit the full layout to the
+width and center it vertically; the HUD keeps its separate layout.
 
 The native ports also draw at the display's resolution: render
 targets the size of the screen get that many pixels (screen_scale), and
@@ -240,6 +244,7 @@ display's own size and the picture's size never toggles their path. */
 static float screen_scale_ceiling[2] = { 1.0f, 1.0f };
 static int screen_dynamic;
 static long ui_offset;
+static float ui_scale = 1.0f, ui_y_offset;
 static int32_t screen_maximum_texture_size = 8192;
 #define UI_OFFSET ((int32_t)ui_offset)
 
@@ -381,14 +386,16 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 	const char *pixels_x = getenv("HALO_DISPLAY_PIXEL_WIDTH");
 	const char *pixels_y = getenv("HALO_DISPLAY_PIXEL_HEIGHT");
 	long requested_width = config_integer("display.screen_width");
+	int allow_portrait = config_boolean("display.allow_portrait") && host_display_supports_portrait() && !host_external_active();
+	long minimum_width = allow_portrait ? 240 : 640;
 	int drawable_width = 0, drawable_height = 0;
 	struct halo_display_size pixels, native_pixels;
 
 	*width = requested_width;
 	if (*width <= 0)
 		*width = display ? atol(display) : 640;
-	if (*width < 640)
-		*width = 640;
+	if (*width < minimum_width)
+		*width = minimum_width;
 	if (*width > 1600)
 		*width = 1600;
 	*width &= ~1L;
@@ -399,9 +406,9 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 		drawable_width = pixels_x ? atoi(pixels_x) : (int)*width;
 		drawable_height = pixels_y ? atoi(pixels_y) : SCREEN_HEIGHT;
 	}
-	*width = halo_display_layout_width(drawable_width, drawable_height, requested_width, *width);
+	*width = halo_display_layout_width(drawable_width, drawable_height, requested_width, *width, allow_portrait);
 	native_pixels = halo_display_render_size(drawable_width, drawable_height, *width, requested_width, 0,
-		screen_maximum_texture_size);
+		screen_maximum_texture_size, allow_portrait);
 	{
 		/* display.render_scale: a fraction of the display's pixels each way
 		(display.upscaler scales the picture back up). Not for foveated eyes:
@@ -419,7 +426,7 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 	}
 	pixels = halo_display_render_size(drawable_width, drawable_height, *width,
 		requested_width, benchmark_render_lines > 0 ? benchmark_render_lines : knob_render_lines > 0 ? knob_render_lines :
-		config_scene_integer("display.render_height", halo_scene_class()), screen_maximum_texture_size);
+		config_scene_integer("display.render_height", halo_scene_class()), screen_maximum_texture_size, allow_portrait);
 	{
 		/* head-tracked stereo: the screen's targets are the eyes' pictures,
 		each view's size and shape times display.render_scale, which needn't
@@ -461,7 +468,7 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 		*dynamic = lines > 0 || refused == 1;
 		if (lines > 0 && lines < pixels.height)
 			pixels = halo_display_render_size(drawable_width, drawable_height, *width, requested_width, lines,
-				screen_maximum_texture_size);
+				screen_maximum_texture_size, allow_portrait);
 	}
 	scale[0] = (float)pixels.width / (float)*width;
 	scale[1] = (float)pixels.height / (float)SCREEN_HEIGHT;
@@ -592,7 +599,31 @@ float halo_screen_scale(void)
 
 void halo_screen_ui_offset(unsigned char centered)
 {
-	ui_offset = centered ? (halo_screen_width() - 640) / 2 : 0;
+	long width = halo_screen_width();
+
+	ui_scale = centered ? halo_ui_layout_scale(width) : 1.0f;
+	ui_y_offset = centered ? halo_ui_layout_y_offset(width) : 0.0f;
+	ui_offset = centered && width >= 640 ? (width - 640) / 2 : 0;
+}
+
+unsigned char halo_screen_ui_portrait(void)
+{
+	return ui_scale < 1.0f;
+}
+
+/* Full-screen widget backgrounds cover portrait by height, cropping their
+640 columns symmetrically. Called only around the bitmap, never its children;
+the UI span (and stereo's layer selection) stays in force. */
+void halo_screen_ui_backdrop(unsigned char cover)
+{
+	if (cover)
+	{
+		ui_scale = 1.0f;
+		ui_y_offset = 0.0f;
+		ui_offset = (halo_screen_width() - 640) / 2;
+	}
+	else
+		halo_screen_ui_offset(TRUE);
 }
 
 /* Only widget draws opt in; the world, HUD, console and loading screens
@@ -618,7 +649,7 @@ static void menu_window_geometry(float *top, float *zoom)
 	*top = 0.0f;
 	*zoom = 1.0f;
 	menu_height_points = 0.0f;
-	if (!config_boolean("debug.menu_min_scale") || (halo_scene_class() != CONFIG_SCENE_MENU && !menu_content_active))
+	if (halo_screen_ui_portrait() || !config_boolean("debug.menu_min_scale") || (halo_scene_class() != CONFIG_SCENE_MENU && !menu_content_active))
 		return;
 #ifdef HALO_ILP32
 	/* A spatial surface has its own apparent size, unrelated to window points. */
@@ -2524,6 +2555,55 @@ void halo_anti_aliasing_toggle(void)
 	knob_ab_changed();
 }
 
+/* Portrait field of view (source/main/main.c set_window_camera_values, modes in
+source/main/portrait_fov.h): a view narrower than 4:3 keeps the game's vertical
+angle ("hold") or widens it: "horizontal_minimum" (the default), "horizontal_70" or
+"match_landscape", set with debug.portrait_field_of_view. The live
+chord (xinput_sdl.c: hold Back and press L1, where portrait is allowed) cycles the
+four until the app quits, with the angles on the HUD's message line and in the log */
+#include <wchar.h>
+#include "../../../source/main/portrait_fov.h"
+
+static int portrait_field_of_view_mode = -1;
+static float portrait_field_of_view_aspect = 0.0f;
+
+static int portrait_field_of_view_current(void)
+{
+	if (portrait_field_of_view_mode < 0)
+	{
+		portrait_field_of_view_mode = portrait_fov_mode_from_name(config_string("debug.portrait_field_of_view"));
+		platform_log("portrait field of view: mode %d (debug.portrait_field_of_view)", portrait_field_of_view_mode);
+	}
+	return portrait_field_of_view_mode;
+}
+
+/* the half-vertical tangent for a portrait view of this width / height */
+float halo_portrait_field_of_view_tangent(float aspect, float base_tangent)
+{
+	portrait_field_of_view_aspect = aspect;
+	return portrait_fov_tangent(portrait_field_of_view_current(), aspect, base_tangent);
+}
+
+void halo_portrait_field_of_view_toggle(void)
+{
+	static const char *const names[PORTRAIT_FOV_MODE_COUNT] =
+		{ "keep vertical", "horizontal minimum", "horizontal 70", "match landscape" };
+	int mode = (portrait_field_of_view_current() + 1) % PORTRAIT_FOV_MODE_COUNT;
+	float aspect = portrait_field_of_view_aspect > 0.0f ? portrait_field_of_view_aspect : 0.705f;
+	float horizontal, vertical;
+	wchar_t message[48];
+
+	portrait_field_of_view_mode = mode;
+	portrait_fov_degrees(portrait_fov_tangent(mode, aspect, PORTRAIT_FOV_BASE_TANGENT), aspect, &horizontal, &vertical);
+	if (game_in_progress())
+	{
+		swprintf(message, L"FOV: %.0f H / %.0f V", horizontal, vertical);
+		hud_print_message(0, message);
+	}
+	platform_log("portrait field of view: %s, %.1f H / %.1f V at a %.3f view (the live chord, until the app quits)",
+		names[mode], horizontal, vertical, aspect);
+}
+
 /* debug.knob_cycle's anti-aliasing: the method named from the next frame, until the app quits */
 static void anti_aliasing_live_set(const char *method)
 {
@@ -3567,7 +3647,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 				screen_width, &pointer->click_x, &pointer->click_y);
 			if (host.radius > 0.0f)
 			{
-				float radius = host.radius * 480.0f / host.surface_height;
+				float radius = host.radius * 480.0f / host.surface_height / halo_ui_layout_scale(screen_width);
 
 				pointer->radius = (short)(radius < 1.0f ? 1 : radius > 64.0f ? 64 : radius);
 			}
@@ -4830,6 +4910,15 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 	shader_list_made(line);
 }
 
+/* the pipelines draws built, counted (map_pictures_render.c's warm-up waits
+for frames that build none) */
+static uint32_t shader_list_pipelines_built;
+
+uint32_t halo_pipelines_built(void)
+{
+	return shader_list_pipelines_built;
+}
+
 /* the pipelines draws made since the last frame, as list lines (called at
 Present) */
 static void shader_list_take_pipelines(void)
@@ -4842,6 +4931,8 @@ static void shader_list_take_pipelines(void)
 		struct shader_list_name *pixel = shader_list_name(built.pixel_shader);
 		char line[192], kinds[2 * GPU_ATTRIBUTE_COUNT + 1];
 		int index;
+
+		shader_list_pipelines_built++;
 
 		if (!vertex || !pixel || vertex->kind != 1 || pixel->kind != 2)
 			continue;
@@ -5120,6 +5211,15 @@ void halo_shader_list_warm(char const *map_name)
 #endif
 	snprintf(shader_list.map, sizeof(shader_list.map), "%s", base);
 	shader_list.alias_count = 0;
+#ifdef HALO_IOS
+	/* a map picture render compiles each pipeline at its first draw and
+	waits for the compiles before the picture */
+	if (map_pictures_render_active())
+	{
+		platform_log("shader list %s: not warmed: map picture render", shader_list.map);
+		return;
+	}
+#endif
 	if (!shader_list.map[0] || !device.gl_ready || !config_boolean("debug.shader_list_warm"))
 		return;
 	/* a run that dumps its shaders (debug.gpu_dump_shaders: check-metal's) compiles each at its first draw, as
@@ -5939,7 +6039,7 @@ static void raster_state_fill(BOOL has_depth, struct gpu_viewport *viewport, str
 
 /* the uniforms of the latest draws, converted from these inputs; the serial
 counts the conversions */
-#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 2 + 7 * D3DTSS_MAXSTAGES)
+#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 4 + 7 * D3DTSS_MAXSTAGES)
 
 static DWORD draw_uniform_inputs[DRAW_UNIFORM_INPUT_COUNT];
 static struct gpu_uniforms draw_uniforms;
@@ -6146,6 +6246,8 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		inputs[count++] = (DWORD)UI_OFFSET;
 		memcpy(&inputs[count++], &menu_top, sizeof(menu_top));
 		memcpy(&inputs[count++], &menu_zoom, sizeof(menu_zoom));
+		memcpy(&inputs[count++], &ui_scale, sizeof(ui_scale));
+		memcpy(&inputs[count++], &ui_y_offset, sizeof(ui_y_offset));
 		for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
 		{
 			DWORD *state = D3D__TextureState[stage];
@@ -6202,6 +6304,9 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 				converted->texture_lod_bias[0][stage] = dword_to_float(state[D3DTSS_MIPMAPLODBIAS]);
 			}
 			converted->screen_offset[0][0] = (float)UI_OFFSET;
+			converted->screen_ui_transform[0][0] = ui_scale;
+			converted->screen_ui_transform[0][1] = ui_y_offset;
+			converted->screen_ui_transform[0][2] = converted->screen_ui_transform[0][3] = 0.0f;
 		}
 	}
 	return TRUE;
@@ -7078,6 +7183,11 @@ static void hud_draw_extent(const float *vertices, unsigned long count)
 			(const float (*)[4])constant_store.c, (const float (*)[4])(vertices + index * floats), position);
 		x = position[0] + 0.5f + (float)UI_OFFSET;
 		y = position[1] + 0.5f;
+		if (ui_scale != 1.0f)
+		{
+			x *= ui_scale;
+			y = y * ui_scale + ui_y_offset;
+		}
 		if (!isfinite(x) || !isfinite(y))
 			continue;
 		extent[0] = fminf(extent[0], x);
@@ -7447,6 +7557,30 @@ void WINAPI D3DDevice_Clear(DWORD count, CONST D3DRECT *rectangles, DWORD flags,
 	{
 		for (index = 0; index < count; index++)
 		{
+			if (ui_scale != 1.0f)
+			{
+				float rect[4] = {rectangles[index].x1, rectangles[index].y1, rectangles[index].x2, rectangles[index].y2};
+				float viewport[4] = {device.viewport.X, device.viewport.Y,
+					device.viewport.X + device.viewport.Width, device.viewport.Y + device.viewport.Height};
+				float bounds[4];
+				int32_t x0, y0;
+
+				if (!halo_ui_layout_clip_rect(ui_scale, ui_y_offset, rect, viewport, bounds))
+					continue;
+				x0 = target_pixel(bounds[0], 0);
+				y0 = target_pixel(bounds[1], 1);
+				list[listed].x = x0;
+				list[listed].y = y0;
+				list[listed].width = target_pixel(bounds[2], 0) - x0;
+				list[listed].height = target_pixel(bounds[3], 1) - y0;
+				if (record_companion)
+				{
+					struct companion_record *item = companion_record_add(&companion_records, bounds);
+					if (item) { item->is_clear = 1; item->clear = clear; }
+				}
+				listed++;
+				continue;
+			}
 			INT left = rectangles[index].x1 > device.viewport.X ? rectangles[index].x1 : device.viewport.X;
 			INT top = rectangles[index].y1 > device.viewport.Y ? rectangles[index].y1 : device.viewport.Y;
 			INT right = rectangles[index].x2 < device.viewport.X + device.viewport.Width ?
@@ -8431,6 +8565,27 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		}
 
 		struct render_target_entry *companion = companion_reissue();
+
+#ifdef HALO_IOS
+		/* debug.map_pictures_render: the map picture is this frame (the scene as drawn, before a native stretch) */
+		if (map_pictures_render_wants_frame())
+		{
+			struct render_target_entry *picture = back_buffer;
+			unsigned char *pixels;
+			uint32_t picture_size;
+
+			if (back_buffer->layer == HALO_STEREO_LAYER_NATIVE && back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO))
+				picture = back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO);
+			picture_size = (uint32_t)(picture->target.gl_width * picture->target.gl_height * 4);
+			pixels = picture_size ? malloc(picture_size) : NULL;
+			if (pixels && target_read(picture, pixels, picture_size))
+				map_pictures_render_frame(pixels, (uint32_t)picture->target.gl_width,
+					(uint32_t)picture->target.gl_height, (size_t)picture->target.gl_width * 4);
+			else
+				map_pictures_render_frame(NULL, 0, 0, 0);
+			free(pixels);
+		}
+#endif
 
 		if (trace_frame())
 			platform_log("present back buffer %08lx texture %u", (unsigned long)device.back_buffer.Data,

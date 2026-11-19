@@ -111,4 +111,10 @@ struct bitmap_data *custom_edition_maps_picture(
 	long bitmap_tag_index,
 	short *frame_index);
 
+/* whether custom_edition_maps_picture's picture is a stock map's rendered one
+(debug.map_pictures_render), stretched over the widget like a CE map's even
+where it stands in for a co-op level's frame */
+boolean custom_edition_maps_picture_rendered(
+	struct bitmap_data const *picture);
+
 #endif

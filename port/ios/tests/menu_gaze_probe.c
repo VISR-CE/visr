@@ -245,6 +245,15 @@ static void picture(void) {
     assert(x == -107 && y == 0);
     halo_ui_pointer_map_picture(0.9999f, 0.9999f, 640, &x, &y);
     assert(x == 639 && y == 479);
+    /* Portrait: half-size menu centered between picture lines 120 and 360. */
+    halo_ui_pointer_map_picture(0.0625f, 0.3125f, 320, &x, &y);
+    assert(x == 40 && y == 60);
+    halo_ui_pointer_map_picture(0.9375f, 0.6875f, 320, &x, &y);
+    assert(x == 600 && y == 420);
+    halo_ui_pointer_map_picture(0.5f, 0.0f, 320, &x, &y);
+    assert(x == 320 && y == -240);
+    halo_ui_pointer_map_picture(0.5f, 1.0f, 320, &x, &y);
+    assert(x == 320 && y == 720);
     /* far off the picture, or no width: nothing */
     halo_ui_pointer_map_picture(2.0f, 0.5f, 640, &x, &y);
     assert(x == -1 && y == -1);

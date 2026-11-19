@@ -158,6 +158,15 @@ static struct sound_listener_state mixed_listener = { { 0, 0, 0 }, { 0, 0, 1 }, 
 
 static float master_volume = 1.0f;
 
+/* the map pictures import stage holds all output silent while it loads maps; master_volume itself is reread from
+config, so the hold is a separate switch */
+static volatile int capture_mute = 0;
+
+void dsound_set_capture_mute(int on)
+{
+	capture_mute = on;
+}
+
 static float gain_from_millibels(LONG millibels)
 {
 	if (millibels <= DSBVOLUME_MIN)
@@ -350,8 +359,12 @@ static void voice_gains(const struct sdl_stream *stream, float *left, float *rig
 		*left = stream->mix_left;
 		*right = stream->mix_right;
 	}
-	*left *= stream->volume * master_volume;
-	*right *= stream->volume * master_volume;
+	{
+		float volume = capture_mute ? 0.0f : master_volume;
+
+		*left *= stream->volume * volume;
+		*right *= stream->volume * volume;
+	}
 }
 
 /* ---------- resampling

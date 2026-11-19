@@ -249,6 +249,35 @@ int main(int argc, char **argv)
         });
         waitForMenuChecks();
         dispatch_sync(updatesQueue(), ^{ assert(!profileReady && menuRetryScheduled && menuRetryAttempt == 1); });
+        // The map-framings feed: only a custom map's blake2b key reaches it, a file must be well formed, and a downloaded
+        // envelope applies only above the bundled sequence.
+        {
+            NSString *hash = [@"blake2b:" stringByAppendingString:[@"ab" stringByPaddingToLength:64 withString:@"ab" startingAtIndex:0]];
+            NSString *good = [base stringByAppendingPathComponent:@"framings-good.json"];
+            NSString *json = [NSString stringWithFormat:@"{\"schema\":2,\"maps\":{\"%@\":{\"revision\":1,\"shots\":[{}]}}}", hash];
+            [json writeToFile:good atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+            assert(host_framings_validate_file(good));
+            NSString *bad = [base stringByAppendingPathComponent:@"framings-bad.json"];
+            for (NSString *text in @[@"nope", @"{\"schema\":3,\"maps\":{}}", @"{\"schema\":2,\"maps\":{\"stock:a10\":{\"revision\":1,\"shots\":[{}]}}}",
+                                     [NSString stringWithFormat:@"{\"schema\":2,\"maps\":{\"%@\":{\"revision\":0,\"shots\":[{}]}}}", hash],
+                                     [NSString stringWithFormat:@"{\"schema\":2,\"maps\":{\"%@\":{\"revision\":1,\"shots\":[]}}}", hash]]) {
+                [text writeToFile:bad atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+                assert(!host_framings_validate_file(bad));
+            }
+            NSMutableString *big = [NSMutableString stringWithString:@"{\"schema\":2,\"maps\":{},\"pad\":\""];
+            while (big.length < 260 * 1024) [big appendString:@"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"];
+            [big appendString:@"\"}"]; [big writeToFile:bad atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+            assert(!host_framings_validate_file(bad));
+            assert(!framingsKeyIsFeedKey("stock:a10") && !framingsKeyIsFeedKey("blake2b:ABCD") && framingsKeyIsFeedKey(hash.UTF8String));
+            @synchronized(selectionLock()) { framingsFolder = base; framingsSequence = 5; framingsBundledSequence = 5; }
+            assert(!host_data_updates_framings_path(hash.UTF8String));          // not newer than the bundled file
+            @synchronized(selectionLock()) { framingsSequence = 6; }
+            assert([host_data_updates_framings_path(hash.UTF8String) hasSuffix:@"map-framings.json"]);
+            assert(!host_data_updates_framings_path("stock:a10"));              // built-in maps never consult the feed
+            @synchronized(selectionLock()) { framingsFolder = nil; }
+            assert(!host_data_updates_framings_path(hash.UTF8String));
+            puts("PASS: map framings are validated, keyed by hash and gated by sequence");
+        }
         if (argc >= 3) {
             // A signed record from the publisher: staged, read back, and compared with the running version.
             NSMutableData *signer = [NSMutableData data];

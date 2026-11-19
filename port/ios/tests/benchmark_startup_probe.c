@@ -28,7 +28,8 @@ static int readiness_reads, timeline_reads, starts, requests, loads, unsafe_load
 static int mp_begins, proof_begins, proof_failed, mp_ends, mp_probe_enabled, mp_probe_resets, suite_suspends, suite_restores;
 static int suspension_allowed = 1;
 static int replay_suspended, replay_begins, replay_begins_before_suspend, recording_selected;
-static int finish_requested;
+static int finish_requested, map_pictures_import_pending;
+int host_map_pictures_import_stage(void) { return map_pictures_import_pending; }
 static int mp_request, window_opens, window_closes, run_ends;
 static int fatal_reports, arena_configures, arena_columns_override = 6;
 static struct benchmark_mp_arena_config configured_arena;
@@ -180,6 +181,7 @@ int halo_model_lod_override_state(void) { return override_lod; }
 int halo_model_lod_effective(void) { return override_lod > 0; }
 
 static void reset(void) {
+    map_pictures_import_pending = 0;
     graphics_window_open = 0; graphics_test_revision = 0;
     graphics_serializations = graphics_deliveries = graphics_window_active = 0;
     override_lines=override_shadow=override_anisotropy=0; override_lod=0;

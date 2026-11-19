@@ -60,6 +60,15 @@ static void ignored_on_stereo(void) {
     CHECK(!host_benchmark_offscreen_frame(decided, 1));
 }
 
+/* Import frames never acquire a drawable, including before a suite starts. */
+static void map_pictures_import(void) {
+    for (int benchmark = 0; benchmark <= 1; benchmark++)
+        for (int pending = 0; pending <= 1; pending++)
+            for (int stereo = 0; stereo <= 1; stereo++)
+                CHECK(host_render_offscreen_frame(benchmark, pending, stereo) ==
+                    (benchmark || (pending && !stereo)));
+}
+
 static void progress_format(void) {
     struct host_benchmark_progress p = { .mode = "cost:shadows", .number = 2, .total = 8,
         .elapsed = 125.9, .measured_fraction = -1, .offscreen = 1 };
@@ -117,7 +126,7 @@ int main(int argc, char **argv) {
     static const struct { const char *name; void (*run)(void); } cases[] = {
         { "ignored_outside_suite", ignored_outside_suite }, { "active_in_suite", active_in_suite },
         { "ignored_on_stereo", ignored_on_stereo }, { "pacing_kinds", pacing_kinds },
-        { "progress_format", progress_format }, { "progress_visibility", progress_visibility },
+        { "map_pictures_import", map_pictures_import }, { "progress_format", progress_format }, { "progress_visibility", progress_visibility },
     };
     size_t index, ran = 0;
 

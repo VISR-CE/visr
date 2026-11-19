@@ -11,6 +11,9 @@ void host_texture_upscale_scan(void);
 void host_texture_upscale_map_will_load(const char *name);
 void host_texture_upscale_game_started(int is_game);
 void host_texture_upscale_paused(int paused);
+/* the map pictures import stage: upscaling runs alongside it (begin), and logs the overlap (end) */
+void host_texture_upscale_stage_begin(const char *root);
+void host_texture_upscale_stage_end(void);
 /* The import phase: runs the whole game's work, calling progress about ten times a second until it is done or progress
    returns HOST_TEXTURE_UPSCALE_START_PLAYING (Skip: the work goes on in the background). fraction is the bar's fill over the setup and the whole set
    (texture_upscale_import_bar.h); it never goes back. tick is where the main menu's textures are all made, which is

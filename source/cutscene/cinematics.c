@@ -407,6 +407,22 @@ float halo_cinematic_title_bars(
 	return eased;
 }
 
+/* port: a portrait view (narrower than 4:3) keeps the landscape cinematic's picture, a 16:9 band across its
+width: returns how far the letterbox is in (0 to 1, the bars' own ease; 0 in a stereo frame) and the fraction of
+the view's height each fully in bar covers */
+real halo_cinematic_portrait_letterbox(
+	real width,
+	real height,
+	real *bar_fraction)
+{
+	*bar_fraction = 0.125f;
+	if (!cinematic_globals || halo_stereo_frame()->eye_count == 2 || width <= 0.0f || height <= 0.0f ||
+		width * 3.0f >= height * 4.0f)
+		return 0.0f;
+	*bar_fraction = 0.5f * (1.0f - width * 9.0f / (height * 16.0f));
+	return PIN(cinematic_globals->letterbox_amount, 0.0f, 1.0f);
+}
+
 void cinematic_render(
 	void)
 {
@@ -473,10 +489,17 @@ void cinematic_render(
 			real bar_height;
 			real viewport_height;
 
-			bar_height = bar_amount * 0.125f;
 			viewport_height = (real)(
 				render.camera.viewport_bounds.y1 -
 				render.camera.viewport_bounds.y0);
+			{
+				real bar_fraction;
+
+				halo_cinematic_portrait_letterbox(
+					(real)(render.camera.viewport_bounds.x1 - render.camera.viewport_bounds.x0),
+					viewport_height, &bar_fraction);
+				bar_height = bar_amount * bar_fraction;
+			}
 
 			bar.x0 = (short)fast_ftol((real)render.camera.viewport_bounds.x0);
 			bar.x1 = (short)fast_ftol((real)render.camera.viewport_bounds.x1);

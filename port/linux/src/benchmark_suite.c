@@ -36,6 +36,7 @@ are the iOS, tvOS, visionOS and Mac app's.
 #ifdef HALO_IOS
 
 /* port/runtime/guest/runtime/guest_host.h */
+int host_map_pictures_import_stage(void);
 int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, int anisotropy, int shadow_size,
 	int model_lod_max);
 /* 1: a run to carry out; 0: the suite is over and the game quits; 2: over, and the game goes back to its main menu */
@@ -836,6 +837,9 @@ void benchmark_suite_frame(long width, long height)
 	int menu = !*suite.map;
 
 	if (suite.state == suite_off)
+		return;
+	/* The import pass owns map loading until its pictures are ready. */
+	if (suite.state == suite_unasked && host_map_pictures_import_stage())
 		return;
 	if (suite.state == suite_unasked)
 	{

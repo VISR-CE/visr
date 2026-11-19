@@ -132,6 +132,14 @@ int host_sdl_init(uint32_t flags)
 	return SDL_Init((SDL_InitFlags)flags);
 }
 
+#include <TargetConditionals.h>
+#if TARGET_OS_TV
+/* tvOS has no orientation host (host_orientation.m is not built there): always landscape */
+static int host_ios_portrait_allowed(void) { return 0; }
+#else
+int host_ios_portrait_allowed(void);
+#endif
+
 int host_sdl_set_hint(const char *name, const char *value)
 {
 	/* the guest's music-off choice for the audio session; SDL has no hint for it (host_audio_session.m) */
@@ -140,6 +148,10 @@ int host_sdl_set_hint(const char *name, const char *value)
 		host_audio_session_set_mix_only(value && *value);
 		return 1;
 	}
+	/* The guest's platform start-up asks for landscape only; where portrait
+	   is allowed, the host's own orientation hint stands. */
+	if (name && !strcmp(name, SDL_HINT_ORIENTATIONS) && host_ios_portrait_allowed())
+		return 1;
 	/* an empty value puts the hint back to its default */
 	if(value && !*value)return SDL_ResetHint(name);
 	return SDL_SetHint(name, value);
@@ -505,6 +517,16 @@ int host_sdl_set_relative_mouse(uint32_t window, int enabled)
 	reroute their synthesized mouse events. */
 	(void)enabled;
 	return object ? 1 : 0;
+#endif
+}
+
+/* Guest display math must keep landscape limits on the other Apple hosts. */
+int host_display_supports_portrait(void)
+{
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION && !HALO_NATIVE_MAC
+    return 1;
+#else
+    return 0;
 #endif
 }
 

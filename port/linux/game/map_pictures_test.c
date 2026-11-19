@@ -134,12 +134,15 @@ static void test_staleness(void)
 #define STALE_CHANGE(change) do { wanted.metadata = cached; change; assert(map_pictures_is_stale(&cached, &wanted)); } while (0)
 	STALE_CHANGE(wanted.metadata.framing_revision++);
 	STALE_CHANGE(wanted.metadata.renderer_version++);
-	STALE_CHANGE(wanted.metadata.texture_set = MAP_PICTURES_UPSCALED);
 	STALE_CHANGE(wanted.metadata.map_hash[0] = 'b');
 	STALE_CHANGE(wanted.metadata.map_key[6] = 'x');
 	STALE_CHANGE(wanted.metadata.width++);
 	STALE_CHANGE(wanted.metadata.height++);
 #undef STALE_CHANGE
+	/* the texture set never makes a picture stale */
+	wanted.metadata = cached;
+	wanted.metadata.texture_set = cached.texture_set == MAP_PICTURES_ORIGINAL ? MAP_PICTURES_UPSCALED : MAP_PICTURES_ORIGINAL;
+	assert(!map_pictures_is_stale(&cached, &wanted));
 	wanted.metadata = cached;
 	wanted.settle_ticks = 30; wanted.erase_ai = 1;
 	assert(!map_pictures_is_stale(&cached, &wanted));
@@ -236,10 +239,39 @@ static void test_names(void)
 	assert(map_pictures_name_tile(text, sizeof(text), "a\xf4\x90\x80\x80", 99) == 1);
 }
 
+static void test_blocked_views(void)
+{
+	/* 2 of 8 rays hit within 1.5 units (one at 0.4, one at 1.2); misses are negative. */
+	const float c10_open[8] = {-1, 0.4f, 1.2f, 3.0f, -1, 1.5f, 9.0f, -1};
+	/* struts fill half the frame */
+	const float c10_struts[8] = {0.3f, 0.5f, 0.6f, 0.9f, -1, 4.0f, 0.2f, -1};
+	const float all_near[4] = {0.1f, 0.2f, 0.3f, 0.4f};
+	float fractions[4];
+	int all_rejected = -1;
+	assert(map_pictures_near_fraction(c10_open, 8, MAP_PICTURES_NEAR_DISTANCE) == 0.25f);
+	assert(map_pictures_near_fraction(c10_struts, 8, MAP_PICTURES_NEAR_DISTANCE) == 0.625f);
+	assert(map_pictures_near_fraction(all_near, 4, MAP_PICTURES_NEAR_DISTANCE) == 1.f);
+	assert(map_pictures_near_fraction(all_near, 0, MAP_PICTURES_NEAR_DISTANCE) == 0.f);
+	/* exactly at the threshold is accepted, above it is rejected */
+	assert(!map_pictures_view_blocked(0.25f));
+	assert(map_pictures_view_blocked(0.26f));
+	assert(!map_pictures_view_blocked(0.f));
+	/* first accepted candidate wins, even when a later one is clearer */
+	fractions[0] = 0.625f; fractions[1] = 0.2f; fractions[2] = 0.f;
+	assert(map_pictures_pick_view(fractions, 3, &all_rejected) == 1 && all_rejected == 0);
+	fractions[0] = 0.1f;
+	assert(map_pictures_pick_view(fractions, 3, &all_rejected) == 0 && all_rejected == 0);
+	/* every candidate blocked: the least blocked, earliest on ties */
+	fractions[0] = 0.9f; fractions[1] = 0.5f; fractions[2] = 0.5f; fractions[3] = 0.7f;
+	assert(map_pictures_pick_view(fractions, 4, &all_rejected) == 1 && all_rejected == 1);
+	assert(map_pictures_pick_view(fractions, 0, &all_rejected) == -1 && all_rejected == 0);
+	assert(map_pictures_pick_view(fractions, 1, NULL) == 0);
+}
+
 int main(void)
 {
-	test_metadata(); test_staleness(); test_paths(); test_lookup(); test_scheduler(); test_names();
-	puts("map_pictures_test: metadata, staleness, paths, 128 lookup combinations, scheduler, UTF-8 names passed");
+	test_metadata(); test_staleness(); test_paths(); test_lookup(); test_scheduler(); test_names(); test_blocked_views();
+	puts("map_pictures_test: metadata, staleness, paths, 128 lookup combinations, scheduler, UTF-8 names, blocked views passed");
 	return 0;
 }
 

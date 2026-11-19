@@ -36,11 +36,11 @@ The lock follows the game's scene, as host_orientation.m's follows a
 controller's, which only has a window once shown */
 static BOOL game_landscape(void)
 {
-	return UIInterfaceOrientationIsLandscape(game_scene().interfaceOrientation);
+	return !host_ios_allows_portrait() && UIInterfaceOrientationIsLandscape(game_scene().interfaceOrientation);
 }
 #define HOST_LANDSCAPE \
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; } \
-- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation { return UIInterfaceOrientationLandscapeRight; } \
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return host_ios_allows_portrait() ? UIInterfaceOrientationMaskAllButUpsideDown : UIInterfaceOrientationMaskLandscape; } \
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation { return host_ios_presentation_orientation(); } \
 - (BOOL)prefersInterfaceOrientationLocked { return game_landscape(); }
 @interface HostRoot : UIViewController
 @end

@@ -1556,21 +1556,87 @@ static void hud_full_layout_apply(
 	hud_full_layout_scale = scale;
 }
 
-/* FALSE, nothing changed: one player, or debug.split_screen_hud */
+/* port: a one-player view narrower than the Xbox's 4:3 (portrait, on a
+device whose profile allows it) lays its HUD out 640 columns wide and as many
+lines tall as the view's shape gives, scaled whole into the view: each
+corner's elements keep their corner (the motion sensor the bottom left, the
+health the top), with the one-player title-safe margins scaled the same way.
+The split screen's scope handling (hud_full_layout_zoom_begin) does not apply */
+static boolean hud_portrait_layout_held = FALSE;
+
+static real hud_portrait_layout_scale(
+	rectangle2d const *view)
+{
+	long width = view->x1 - view->x0;
+	long height = view->y1 - view->y0;
+
+	if (width <= 0 || height <= 0 || width * 480 >= 640 * height)
+		return 1.0f;
+	return (real)width / 640.0f;
+}
+
+static void hud_portrait_layout_apply(
+	real scale)
+{
+	rectangle2d view = hud_full_layout_saved.render_viewport_bounds;
+	rectangle2d saved_window = hud_full_layout_saved.render_window_bounds;
+	rectangle2d viewport;
+	rectangle2d window;
+
+	viewport.x0 = 0;
+	viewport.y0 = 0;
+	viewport.x1 = 640;
+	viewport.y1 = (short)fast_ftol((view.y1 - view.y0) / scale);
+	window.x0 = (short)fast_ftol((saved_window.x0 - view.x0) / scale);
+	window.x1 = (short)fast_ftol((saved_window.x1 - view.x0) / scale);
+	window.y0 = (short)fast_ftol((saved_window.y0 - view.y0) / scale);
+	window.y1 = (short)fast_ftol((saved_window.y1 - view.y0) / scale);
+	window.x0 = MAX(window.x0, viewport.x0);
+	window.x1 = MIN(window.x1, viewport.x1);
+	window.y0 = MAX(window.y0, viewport.y0);
+	window.y1 = MIN(window.y1, viewport.y1);
+	rasterizer_hud_layout_viewport(&hud_full_layout_saved.rasterizer_viewport_bounds);
+	render.camera.viewport_bounds = viewport;
+	render.camera.window_bounds = window;
+	global_window_parameters.camera.viewport_bounds = viewport;
+	global_window_parameters.camera.window_bounds = window;
+	hud_full_layout_scale = scale;
+}
+
+static void hud_full_layout_save(
+	void)
+{
+	hud_full_layout_saved.render_viewport_bounds = render.camera.viewport_bounds;
+	hud_full_layout_saved.render_window_bounds = render.camera.window_bounds;
+	hud_full_layout_saved.rasterizer_viewport_bounds = global_window_parameters.camera.viewport_bounds;
+	hud_full_layout_saved.rasterizer_window_bounds = global_window_parameters.camera.window_bounds;
+}
+
+/* FALSE, nothing changed: one player at 4:3 or wider, or
+debug.split_screen_hud */
 boolean hud_full_layout_begin(
 	void)
 {
 	rectangle2d view = render.camera.viewport_bounds;
 
+	if (local_player_count() <= 1 && !hud_full_layout_held)
+	{
+		real scale = hud_portrait_layout_scale(&view);
+
+		if (scale >= 1.0f)
+			return FALSE;
+		hud_full_layout_save();
+		hud_full_layout_held = TRUE;
+		hud_portrait_layout_held = TRUE;
+		hud_portrait_layout_apply(scale);
+		return TRUE;
+	}
 	if (local_player_count() <= 1 || hud_split_screen_layout() || hud_full_layout_held ||
 		view.x1 - view.x0 <= 2 * hud_split_view_inset(&view) || view.y1 - view.y0 <= 2 * hud_split_view_inset(&view))
 	{
 		return FALSE;
 	}
-	hud_full_layout_saved.render_viewport_bounds = render.camera.viewport_bounds;
-	hud_full_layout_saved.render_window_bounds = render.camera.window_bounds;
-	hud_full_layout_saved.rasterizer_viewport_bounds = global_window_parameters.camera.viewport_bounds;
-	hud_full_layout_saved.rasterizer_window_bounds = global_window_parameters.camera.window_bounds;
+	hud_full_layout_save();
 	hud_full_layout_held = TRUE;
 	hud_full_layout_apply(hud_split_hud_scale());
 	return TRUE;
@@ -1587,27 +1653,29 @@ void hud_full_layout_end(
 	global_window_parameters.camera.window_bounds = hud_full_layout_saved.rasterizer_window_bounds;
 	rasterizer_hud_layout_viewport(NULL);
 	hud_full_layout_held = FALSE;
+	hud_portrait_layout_held = FALSE;
 	hud_full_layout_scale = 1.0f;
 }
 
 void hud_full_layout_tracker_begin(
 	void)
 {
-	if (hud_full_layout_held && hud_split_tracker_scale() < 1.0f)
+	if (hud_full_layout_held && !hud_portrait_layout_held && hud_split_tracker_scale() < 1.0f)
 		hud_full_layout_apply(hud_split_hud_scale() * hud_split_tracker_scale());
 }
 
 void hud_full_layout_tracker_end(
 	void)
 {
-	if (hud_full_layout_held && hud_split_tracker_scale() < 1.0f)
+	if (hud_full_layout_held && !hud_portrait_layout_held && hud_split_tracker_scale() < 1.0f)
 		hud_full_layout_apply(hud_split_hud_scale());
 }
 
+/* TRUE while a split screen view's full HUD is held (not a portrait view's) */
 boolean hud_full_layout_active(
 	void)
 {
-	return hud_full_layout_held;
+	return hud_full_layout_held && !hud_portrait_layout_held;
 }
 
 /* port: a scope overlay of the full split screen HUD (hud_weapon.c) is drawn
@@ -1617,7 +1685,7 @@ element choices and scale. TRUE when the full layout was suspended for it */
 boolean hud_full_layout_zoom_begin(
 	void)
 {
-	if (!hud_full_layout_held)
+	if (!hud_full_layout_held || hud_portrait_layout_held)
 		return FALSE;
 	hud_full_layout_end();
 	hud_split_layout_forced = TRUE;
@@ -1643,7 +1711,9 @@ void hud_zoomed_layout_begin(
 
 	/* port: a split screen view's full HUD zooms over the one-player
 	window's 640 columns, as wide as one player's (none past the view) */
-	if (hud_full_layout_held)
+	if (hud_portrait_layout_held)
+		inset = 0; /* port: a portrait view's HUD is already 640 columns wide */
+	else if (hud_full_layout_held)
 	{
 		long one_player = rasterizer_globals.reserved04.frame_bounds.x1 - rasterizer_globals.reserved04.frame_bounds.x0;
 

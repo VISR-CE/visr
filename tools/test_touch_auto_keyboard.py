@@ -15,7 +15,7 @@ def run_probe(tmp_path, source):
     program = tmp_path / "keyboard.c"
     binary = tmp_path / "keyboard"
     program.write_text(source)
-    subprocess.run([shutil.which("cc"), "-std=c11", "-Wall", "-Werror",
+    subprocess.run([shutil.which("cc"), "-std=c11", "-D_DEFAULT_SOURCE", "-Wall", "-Werror",
                     "--include-directory=" + str(ROOT / "port/ios/host"),
                     "--include-directory=" + str(ROOT / "port/runtime/include"),
                     str(program), "--output=" + str(binary)], check=True)
