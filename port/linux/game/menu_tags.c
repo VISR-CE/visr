@@ -3523,6 +3523,27 @@ boolean pc_menu_patch_list_index(
 	return patched;
 }
 
+/* the number after the highest description number a row of the list has (the
+panel the patches add last, after the rows that survive); NONE when no row has one */
+short pc_menu_patch_list_last_description(
+	long list_tag,
+	long const *row_tags,
+	long row_count)
+{
+	short highest = NONE;
+	long index;
+
+	for (index = 0; index < row_count; index++)
+	{
+		short description = NONE;
+
+		if (pc_menu_patch_list_index(list_tag, row_tags[index], &description) &&
+			description != NONE && description > highest)
+			highest = description;
+	}
+	return highest == NONE ? NONE : highest + 1;
+}
+
 boolean pc_menu_tag(
 	long tag_index)
 {

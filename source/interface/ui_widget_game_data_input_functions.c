@@ -675,6 +675,11 @@ boolean pc_menu_patch_list_index(
 	long list_tag,
 	long row_tag,
 	short *description);
+short pc_menu_patch_list_last_description(
+	long list_tag,
+	long const *row_tags,
+	long row_count);
+void platform_log(char const *format, ...);
 
 /* port: menu_functions.c's */
 boolean menu_split_screen_needs_controller(void);
@@ -894,18 +899,22 @@ static void multiplayer_type_menu_update_extended_description(
 	if (list_widget->focused_child && !strncmp(list_widget->focused_child->name, "multiplayer_type_split", 22) &&
 		menu_split_screen_needs_controller())
 	{
-		short highest = NONE;
+		long row_tags[64];
+		long row_count = 0;
+		short last;
+		static boolean logged = FALSE;
 
-		for (child = list_widget->child; child; child = child->next)
+		for (child = list_widget->child; child && row_count < 64; child = child->next)
+			row_tags[row_count++] = child->definition_tag_index;
+		last = pc_menu_patch_list_last_description(list_widget->definition_tag_index, row_tags, row_count);
+		if (last != NONE)
+			index = last;
+		if (!logged)
 		{
-			short row_index = NONE;
-
-			if (pc_menu_patch_list_index(list_widget->definition_tag_index, child->definition_tag_index, &row_index) &&
-				row_index != NONE && row_index > highest)
-				highest = row_index;
+			logged = TRUE;
+			platform_log("split-screen panel: needs controller, rows %ld, last description %d, index %d",
+				row_count, (int)last, (int)index);
 		}
-		if (highest != NONE)
-			index = highest + 1;
 	}
 
 	if (index != NONE)
