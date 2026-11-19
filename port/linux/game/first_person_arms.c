@@ -37,6 +37,15 @@ node matrices the animation built (render-only: nothing the tick reads):
   grenade throw or the flashlight takes the hand away; then the left arm
   is solved the same way.
 
+With input.arms_level_mount the mounting is levelled first: the whole pose
+is turned rigidly onto the view with its pitch and roll taken out and its
+yaw kept, and everything below is measured against that levelled frame. The
+game's model was animated for a gun carried by the head, so the head's pitch
+otherwise swings the pose, and the grip with it, about the eyes, and a player
+who looks up without moving the arm sees the gun rise. It is levelled rather
+than moved, and before the base pose is taken, so the shoulders travel with
+the gun and the arms are still solved at their animated lengths.
+
 The limits are angles of the gun relative to the view, in degrees: the
 turn across the view, the elevation up and down, and the roll about the
 gun's forward, each exact to ARMS_LIMIT_KNEE of its limit and easing to
@@ -233,6 +242,30 @@ static int frame_from_vectors(const float forward_in[3], const float up_in[3], s
 		frame->r[i][2] = up[i];
 	}
 	return 1;
+}
+
+/* the frame with its pitch and roll taken out and its yaw kept: the
+forward's level part, world up. A yaw-pitch-roll forward is a function of
+the yaw and the pitch alone, so its level part names the yaw at any roll,
+and only a forward pointing exactly up or down has no level part at all;
+there the up carries the yaw instead, pointing behind the level forward
+looking up and along it looking down. 0 when neither does */
+static int level_frame(const struct arms_rotation *frame, struct arms_rotation *level)
+{
+	float forward[3] = { frame->r[0][0], frame->r[1][0], 0.0f };
+	static const float world_up[3] = { 0.0f, 0.0f, 1.0f };
+
+	if (!normalize3(forward))
+	{
+		float sign = frame->r[2][0] > 0.0f ? -1.0f : 1.0f;
+
+		forward[0] = sign * frame->r[0][2];
+		forward[1] = sign * frame->r[1][2];
+		forward[2] = 0.0f;
+		if (!normalize3(forward))
+			return 0;
+	}
+	return frame_from_vectors(forward, world_up, level);
 }
 
 /* a * b (b first) */
@@ -624,14 +657,14 @@ static float left_hand_share(const real_matrix4x3 *left_wrist, const float grip[
 int first_person_arms_solve(real_matrix4x3 *matrices, short node_count, const void *nodes, long node_stride,
 	const struct arms_input *input, const struct arms_limits *limits, struct arms_report *report)
 {
-	struct arms_rotation view, gun, turn, full;
+	struct arms_rotation view, gun, turn, full, remount;
 	float axis[3], angle, pivot[3], shift[3], left_grip[3], none[3] = { 0.0f, 0.0f, 0.0f };
 	short root, right_upper, right_forearm, right_wrist, gun_node, left_upper, left_forearm, left_wrist, index;
 	real_matrix4x3 base_right_upper, base_right_forearm, base_right_wrist, base_left_upper, base_left_forearm;
 	real_matrix4x3 base_left_wrist, base_gun;
-	float right_target[3], left_target[3], fallback_pole[3];
+	float right_target[3], left_target[3], fallback_pole[3], mounting[3], blend;
 	float left_share;
-	int i;
+	int remounted = 0, i;
 
 	memset(report, 0, sizeof(*report));
 	if (!matrices || node_count <= 0 || !nodes || node_stride < (long)sizeof(struct arms_node))
@@ -656,21 +689,57 @@ int first_person_arms_solve(real_matrix4x3 *matrices, short node_count, const vo
 		return 0;
 	if (!frame_from_vectors(input->view_forward, input->view_up, &view))
 		return 0;
+	blend = input->blend < 0.0f ? 0.0f : input->blend > 1.0f ? 1.0f : input->blend;
+	/* input.arms_level_mount: the mounting levelled. The engine builds every
+	node of this model in the view's frame (first_person_weapons.c calls
+	animation_graph_node_matrices_from_orientations with the camera), so the
+	head's pitch swings the whole pose, and the grip with it, about the eyes:
+	the player looks up, the arm holding the gun never moves, and the gun
+	rises anyway. Turn the pose rigidly onto a levelled copy of that frame
+	and solve against the levelled one, so the mounting keeps the head's yaw
+	and loses its pitch and roll, and the head pans over a gun the arm alone
+	places. About input->view_position, the point the pose was mounted at,
+	and not about the root node, whose own animated translation would leave
+	that much of the head's swing behind. Rigidly and before the base pose
+	below is taken, so the shoulders
+	travel with the gun: moving the grip on its own would leave the arms
+	reaching from head-mounted shoulders for a levelled wrist, and
+	wrist_reach_correction would pull the gun back toward the head, which is
+	the term being removed. Eased by the blend along its own axis, as the
+	gun's turn is, so a hand that stops aiming hands the mounting back rather
+	than snapping it */
+	if (input->level_mount)
+	{
+		struct arms_rotation level;
+
+		if (level_frame(&view, &level))
+		{
+			rotation_transpose(&view, &turn);
+			rotation_multiply(&level, &turn, &remount);
+			rotation_to_axis_angle(&remount, axis, &angle);
+			rotation_from_axis_angle(axis, angle * blend, &remount);
+			rotation_multiply(&remount, &view, &view);
+			remounted = 1;
+		}
+	}
+	/* (the limits first, so a refusal still leaves the pose untouched) */
 	if (!limit_gun_frame(&view, input->gun_forward, input->gun_up, limits, &gun, report))
 		return 0;
+	report->blend = blend;
+	if (remounted)
+	{
+		memcpy(mounting, input->view_position, sizeof(mounting));
+		for (index = 0; index < node_count; index++)
+			matrix_move(&matrices[index], &remount, mounting, none);
+	}
 	/* the turn from the view's frame to the gun's, eased in by the blend
 	along its own axis */
 	rotation_transpose(&view, &turn);
 	rotation_multiply(&gun, &turn, &full);
 	rotation_to_axis_angle(&full, axis, &angle);
-	{
-		float blend = input->blend < 0.0f ? 0.0f : input->blend > 1.0f ? 1.0f : input->blend;
-
-		rotation_from_axis_angle(axis, angle * blend, &full);
-		for (i = 0; i < 3; i++)
-			shift[i] = input->grip_shift[i] * blend;
-		report->blend = blend;
-	}
+	rotation_from_axis_angle(axis, angle * blend, &full);
+	for (i = 0; i < 3; i++)
+		shift[i] = input->grip_shift[i] * blend;
 	base_right_upper = matrices[right_upper];
 	base_right_forearm = matrices[right_forearm];
 	base_right_wrist = matrices[right_wrist];
@@ -679,9 +748,24 @@ int first_person_arms_solve(real_matrix4x3 *matrices, short node_count, const vo
 	base_left_wrist = matrices[left_wrist];
 	base_gun = matrices[gun_node];
 	matrix_position(&base_gun, pivot);
-	/* the left hand's place on the gun, from the base pose */
+	/* the left hand's place on the gun, from the base pose. The caller read
+	it off the pose as the engine built it, before the mounting was levelled,
+	so it travels with the model or left_hand_share would measure the left
+	wrist against a place the whole model has moved away from */
 	if (input->left_grip_valid)
+	{
 		memcpy(left_grip, input->left_grip, sizeof(left_grip));
+		if (remounted)
+		{
+			float offset[3], turned[3];
+
+			for (i = 0; i < 3; i++)
+				offset[i] = left_grip[i] - mounting[i];
+			rotate3(&remount, offset, turned);
+			for (i = 0; i < 3; i++)
+				left_grip[i] = mounting[i] + turned[i];
+		}
+	}
 	else
 		memcpy(left_grip, pivot, sizeof(left_grip));
 	left_share = left_hand_share(&base_left_wrist, left_grip);
@@ -865,7 +949,7 @@ int halo_first_person_arms_apply(short local_player_index, real_matrix4x3 *matri
 	if (halo_controller_arms_mode() != HALO_ARMS_SOLVED)
 		return 0;
 	if (!halo_controller_gun_frame(local_player_index, input.gun_forward, input.gun_up, &input.blend,
-		input.grip_shift))
+		input.grip_shift, &input.level_mount))
 		return 0;
 	input.view_forward[0] = render.camera.forward.i;
 	input.view_forward[1] = render.camera.forward.j;
@@ -873,6 +957,13 @@ int halo_first_person_arms_apply(short local_player_index, real_matrix4x3 *matri
 	input.view_up[0] = render.camera.up.i;
 	input.view_up[1] = render.camera.up.j;
 	input.view_up[2] = render.camera.up.k;
+	/* the point the pose hangs from: first_person_weapons.c passes this
+	camera's position to animation_graph_node_matrices_from_orientations and
+	render_interpolation_first_person blends in its frame, so every node is
+	this point plus the camera's frame times an animated offset */
+	input.view_position[0] = render.camera.position.x;
+	input.view_position[1] = render.camera.position.y;
+	input.view_position[2] = render.camera.position.z;
 	input.left_grip_valid = left_grip_valid;
 	if (left_grip_valid)
 		memcpy(input.left_grip, left_grip, sizeof(input.left_grip));

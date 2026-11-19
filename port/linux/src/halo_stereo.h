@@ -366,6 +366,10 @@ seat's own unit is the level's cryotube), whose look fade has its own angles
 and stops short of black (display.pod_look_fade_start, _end and _dim) */
 int halo_seat_cryo_pod(void);
 int halo_seat_first_person_passenger(void);
+/* cinematic_screen.c: 1 while local player 0 sits in a seat that steers the
+vehicle under it, which takes that rider's desired facing as its own, and
+which is not also a gunner's (the driving seat's head steer below) */
+int halo_seat_driving(void);
 int halo_zoom_ordinary_aim_ray(short local_player_index, float ray[3]);
 /* the fade's next value from its value now, how far the head is past the
 seat's limit (radians, 0 or more), the fade's start and black angles past

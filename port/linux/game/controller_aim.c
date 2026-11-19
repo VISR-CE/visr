@@ -368,6 +368,21 @@ int controller_weapon_frame(const float camera_forward[3], const float camera_up
 	return 1;
 }
 
+int controller_level_mount(const char *setting, int aim_hands)
+{
+	/* the idiom input.aim and input.hand_aim_loss use: a comparison against
+	the spellings that are not the default, so an unreadable value lands on
+	"auto" rather than on either answer outright */
+	if (setting)
+	{
+		if (!strcmp(setting, "on"))
+			return 1;
+		if (!strcmp(setting, "off"))
+			return 0;
+	}
+	return aim_hands != 0;
+}
+
 float controller_range_ease_clamp(float seconds)
 {
 	if (seconds != seconds)

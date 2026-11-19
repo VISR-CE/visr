@@ -49,7 +49,17 @@ anchored) and whether ARKit placed it; either pointer may be NULL */
 cp_drawable_t host_theater_drawable(size_t index, simd_float4x4 *origin_from_device, int *anchored);
 void host_theater_frame_end(void);
 ar_session_t host_theater_session(void);
-void host_theater_session_run(ar_data_provider_t accessory_tracking);
+/* one slot per source that adds a data provider to the session: accessory
+tracking (host_spatial.m) and, later, hand tracking. ar_session_run replaces
+the whole running set on every call, so two sources cannot each call it with
+only their own provider; this is the one entry point they share. */
+enum { HOST_THEATER_PROVIDER_ACCESSORY, HOST_THEATER_PROVIDER_HANDS, NUMBER_OF_HOST_THEATER_PROVIDERS };
+/* a source's provider for the current session, or nil to withdraw it; the
+session runs again with world tracking and every registered provider.
+Providers do not outlive a session: a restart or a reopened space clears
+every slot, and each source re-registers when it notices (host_spatial.m's
+ran_session) */
+void host_theater_session_set_provider(int slot, ar_data_provider_t provider);
 void host_theater_session_restart(void);
 void host_spatial_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from_device);
 /* ends the open frame with its drawables from first on presented empty,

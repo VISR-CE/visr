@@ -21,7 +21,7 @@ enum halo_spatial_state
 enum halo_spatial_reason
 {
 	HALO_SPATIAL_READY,          /* controller aim can run */
-	HALO_SPATIAL_OFF,            /* input.aim isn't "controller" */
+	HALO_SPATIAL_OFF,            /* input.aim isn't "controller" or "hands" */
 	HALO_SPATIAL_NO_CONTROLLERS,
 	HALO_SPATIAL_ONE_CONTROLLER,
 	HALO_SPATIAL_NEEDS_27,
@@ -30,7 +30,13 @@ enum halo_spatial_reason
 	/* the aiming controller reads well above the head for a while: its
 	position and the head's are not in one frame (host_spatial_pose.h's
 	misplaced test), so the hand can't aim until they agree */
-	HALO_SPATIAL_MISPLACED
+	HALO_SPATIAL_MISPLACED,
+	/* appended after HALO_SPATIAL_MISPLACED, never in the middle: the
+	guest's 1u << reason mask (controller_aim_game.c's can_not_start_shown)
+	has room while the enum stays under 32, and its order is part of the
+	recording format (debug.controller_record) */
+	HALO_SPATIAL_HANDS_DENIED,    /* input.aim = "hands": hand tracking permission denied */
+	HALO_SPATIAL_NO_HANDS         /* input.aim = "hands": hand tracking unsupported */
 };
 
 /* host_spatial_sample's kind */
@@ -80,8 +86,10 @@ struct halo_spatial_sample
 	struct halo_spatial_hand hands[2];   /* 0 left, 1 right */
 	/* the game sample only: 1 with both Sense controllers' buttons in
 	gamepad (host_spatial_gamepad.c's table), read at the aiming hand's
-	anchor timestamp (live while that anchor is stale); xinput_sdl.c merges
-	it into port 0 */
+	anchor timestamp (live while that anchor is stale); 2 with the hands'
+	gesture recognizer filling gamepad through that same table instead of
+	the controllers; xinput_sdl.c merges either into port 0, remapping the
+	menu buttons differently per source since only it knows a menu is up */
 	int32_t gamepad_valid;
 	struct halo_spatial_gamepad gamepad;
 };
