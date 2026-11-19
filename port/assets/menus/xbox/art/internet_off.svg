@@ -15,9 +15,11 @@
     </filter>
     <path id="cloud" d="M170 176C140 176 134 140 158 128C150 98 182 80 206 94C222 58 276 62 286 98C312 90 336 110 328 132C358 138 356 176 326 176Z"/>
   </defs>
+  <g transform="translate(-60.6 18.4) scale(0.8)">
   <use href="#cloud" fill="url(#surface)" fill-opacity="0.4"/>
-  <g fill="none" stroke="#298eef" stroke-opacity="0.87" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" filter="url(#halo)">
+  </g>
+  <g transform="translate(-60.6 18.4) scale(0.8)"><g fill="none" stroke="#298eef" stroke-opacity="0.87" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" filter="url(#halo)">
     <use href="#cloud"/>
     <path d="M132 206L360 52"/>
-  </g>
+  </g></g>
 </svg>

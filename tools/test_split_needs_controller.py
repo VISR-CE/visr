@@ -21,7 +21,7 @@ def test_phone_import_is_wired_through_host_and_guest():
 
 def test_needs_controller_only_on_a_phone_without_pads():
     helper = body(MENU_FUNCTIONS, "boolean menu_split_screen_needs_controller(void)")
-    assert "host_sdl_is_phone()" in helper and "input_has_gamepad" in helper
+    assert "host_sdl_is_phone()" in helper and "xinput_sdl_has_physical_gamepad()" in helper
 
 
 def test_row_is_grayed_but_focusable_and_cannot_start():

@@ -3187,9 +3187,14 @@ boolean menu_split_screen_needs_controller(void)
 	short controller;
 
 #ifdef HALO_IOS
+	extern int xinput_sdl_has_physical_gamepad(void);
+
 	if (!host_sdl_is_phone())
 		return FALSE;
-	for (controller = 0; controller < 4; controller++)
+	/* port 0 always has a handle (keyboard and touch), so ask SDL for real pads */
+	if (xinput_sdl_has_physical_gamepad())
+		return FALSE;
+	for (controller = 1; controller < 4; controller++)
 		if (input_has_gamepad(controller))
 			return FALSE;
 	return TRUE;

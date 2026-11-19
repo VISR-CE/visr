@@ -1361,6 +1361,15 @@ static SDL_Gamepad *port_gamepad(SDL_Gamepad *gamepads[PORT_COUNT], int count, i
 	return port < count ? gamepads[port] : NULL;
 }
 
+/* True when a real game controller is attached. Port 0 always has a handle
+for the keyboard and touch, so the menus cannot use input_has_gamepad(0). */
+int xinput_sdl_has_physical_gamepad(void)
+{
+	SDL_Gamepad *gamepads[PORT_COUNT];
+
+	return sdl_gamepads(gamepads) > 0;
+}
+
 /* Menu hints follow the last actual device event, including a second pad.
 The game's port assignment remains unchanged. */
 void halo_controller_glyph_input_event(union SDL_Event const *event)

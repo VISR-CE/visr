@@ -506,8 +506,9 @@ that says this: a join link's "Join this game over the internet?", or "Turn on
 Internet Play?", which INTERNET PLAY in Settings > Network Setup asks. With
 `network.online_ask = true` (off by default), the first of Create Game >
 Internet, Join Game > Server Browser or Direct Link you open with internet
-play off asks it too, once. Not Now leaves internet play off, and those
-screens then say "Internet play is off. Turn on INTERNET PLAY in NETWORK SETUP.".
+play off asks it too, once. Not Now leaves internet play off. The INTERNET row on the
+multiplayer screen is then grayed, and its panel reads "Internet play is off.
+Turn it on in Network Settings.".
 
 When no matchmaking server can be reached, the Server Browser, Direct Link and
 a host's lobby and Server Setup say so, and the game keeps trying each one
