@@ -1207,7 +1207,7 @@ def _game_options() -> list:
     extra += _button(f"{base}/button_ok", 1,
                      ['<on event="a" run="mp profile set game options" back="true"/>',
                       '<on event="start" run="mp profile set game options" back="true"/>'])
-    lines = _screen(base, spec, rows, ["mp profile init game options"], [], extra)
+    lines = _screen(base, spec, rows, [], [], extra)
     screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/game_options_screen"' in line)
     lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init game options"/>')
     return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line

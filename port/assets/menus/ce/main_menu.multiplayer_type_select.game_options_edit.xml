@@ -13,7 +13,6 @@
 	<widget name="main_menu/multiplayer_type_select/game_options_edit/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="main_menu/multiplayer_type_select/game_options_edit/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/game_options_edit/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/game_options_edit/help">
-		<data input="mp profile init game options"/>
 		<child widget="main_menu/multiplayer_type_select/game_options_edit/op_captures_to_win" x="54" y="73"/>
 		<child widget="main_menu/multiplayer_type_select/game_options_edit/op_koth_score_to_win" x="54" y="73"/>
 		<child widget="main_menu/multiplayer_type_select/game_options_edit/op_score_to_win" x="54" y="73"/>
