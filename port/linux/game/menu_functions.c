@@ -1531,15 +1531,11 @@ static boolean setting_changed_save(struct widget_instance *spinner, struct pc_m
 	}
 	platform_log("menus: %s = %s", setting->setting, setting->values[index]);
 #ifdef HALO_IOS
-	/* (Apple builds) internet play turned on starts now; turned off, it stops
-	at the next start (p2p has no stop) */
-	if (!strcmp(setting->setting, "network.online"))
-	{
-		if (!strcmp(setting->values[index], "true"))
-			xnet_start_internet_play();
-		else
-			platform_show_message("Internet Play", "Internet Play turns off the next time VISR starts.");
-	}
+	/* (Apple builds) internet play turned on starts now. Turned off, the menus act on the setting at once (the
+	rows go gray, hosting and joining refuse); p2p itself has no stop, but nothing the player does depends on it,
+	so no restart message */
+	if (!strcmp(setting->setting, "network.online") && !strcmp(setting->values[index], "true"))
+		xnet_start_internet_play();
 #endif
 #ifdef HALO_IOS
 	if (!strcmp(setting->setting, "host.cloud_saves"))
@@ -3202,6 +3198,21 @@ static boolean split_item_off(struct widget_instance const *widget)
 	char const *name = widget ? widget->name : NULL;
 
 	return name && strstr(name, "multiplayer_type_split") && menu_split_screen_needs_controller();
+}
+
+/* Whether an activation (A, or the custom activation touch and mouse taps send) lands on the grayed SPLIT SCREEN
+row, whether the handler sits on the row or on its list (the row in focus is the list's): the dispatcher then does
+nothing, so no handler, screen or sound runs. The panel text still shows, since focus is not an activation. */
+boolean ui_widget_port_split_activation_blocked(struct widget_instance const *widget, short event_type)
+{
+	if ((event_type != BUTTON_A && event_type != EVENT_CUSTOM_ACTIVATION) || !menu_split_screen_needs_controller())
+		return FALSE;
+	for (; widget; widget = widget->focused_child)
+	{
+		if (split_item_off(widget))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 /* "mp type set mode": the item's (by its name) */

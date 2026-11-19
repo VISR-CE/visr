@@ -1401,6 +1401,10 @@ boolean pc_menu_patch_list_index(
 (port/linux/game/menu_functions.c), and draw in gray. */
 boolean ui_widget_port_browser_row_unavailable(
 	struct widget_instance *widget);
+/* port: the grayed SPLIT SCREEN row ignores an activation (menu_functions.c) */
+boolean ui_widget_port_split_activation_blocked(
+	struct widget_instance const *widget,
+	short event_type);
 /* port: a graphics-mode override locks editing without disabling the row (menu_functions.c). */
 boolean ui_widget_port_graphics_locked(
 	struct widget_instance *widget);
@@ -3797,6 +3801,9 @@ static void event_handler_dispatch(
 	boolean close_current = FALSE;
 	boolean close_all = FALSE;
 
+	/* port: the grayed SPLIT SCREEN row of an iPhone with no controller does nothing when chosen */
+	if (ui_widget_port_split_activation_blocked(widget, handler->event_type))
+		return;
 	if (TEST_FLAG(handler->flags, _event_handler_run_scenario_script_bit) &&
 		handler->script[0])
 	{
