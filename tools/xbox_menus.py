@@ -77,6 +77,16 @@ HELP_TOP = {'comfortable': 335, 'compact': 350}
 RULE_Y = 409
 PANEL_A = {'list': (51, 78, 33), 'panel': (275, 78, 320, RULE_Y - 78)}
 PANEL_B = {'list': (48, 78, ROW_PITCH), 'panel': (323, 115, 254, RULE_Y - 115)}
+# list_field__0.png is a 2048 square whose visible panel outline fills only 1260x1288 of it, and a frame is drawn at
+# its own width and height: a panel's own frame size makes the outline fill the panel's bounds exactly (the stock
+# 512 frame leaves it 315x322 units, so the taller panels ended short of the rule and the narrower ones lost their
+# right and bottom edges). The leaf stays list_field for ui_redraw.
+FIELD_PNG, FIELD_ART = 2048, (1260, 1288)
+PANEL_BITMAPS = {'a': 'xbox/panel_a/list_field', 'b': 'xbox/panel_b/list_field'}
+
+
+def panel_frame_size(panel):
+    return (round(FIELD_PNG * panel[2] / FIELD_ART[0]), round(FIELD_PNG * panel[3] / FIELD_ART[1]))
 DIALOG_PANEL = (192, 176, 239, 159)
 DIALOG_HEADER = (9, 4)
 DIALOG_HEADER_POSITION = tuple(a + b for a, b in zip(DIALOG_PANEL[:2], DIALOG_HEADER))
@@ -110,7 +120,7 @@ def panel(spec):
 # Caption boxes for known legend labels, in small_ui units. The touch pill
 # runs from the glyph to the caption box's right edge plus 8 units each side,
 # so these widths decide how tightly a bar packs.
-LEGEND_CAPTION_WIDTHS = {'START NOW': 90, 'SWITCH TEAM': 100, 'ADD PLAYER': 100,
+LEGEND_CAPTION_WIDTHS = {'START NOW': 90, 'SWITCH TEAM': 100, 'ADD PLAYER': 108,
                          'LEAVE': 50, 'SHARE': 55}
 LEGEND_RIGHT = 608
 LEGEND_PILL_PAD, LEGEND_GAP = 8, 4
@@ -730,7 +740,7 @@ def settings_hub(bitmaps, assets=MENUS):
     # The panel: the frame, then (in this order, which the list's description update expects) the text and the
     # picture, at the Xbox's places
     description = widget(root, f'{base}/description', **panel(PANEL_A),
-                   bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+                   bitmap=PANEL_BITMAPS['a'])
     child(description, f'{base}/description_text')
     child(description, f'{base}/description_picture', x=4)
     widget(root, f'{base}/description_text', type='text', left=294, top=290, width=296, height=95,
@@ -772,6 +782,11 @@ def bitmap_document(assets, names):
                 frame.set('map', 'ui\\shell\\' + name.replace('/', '\\'))
                 frame.set('index', str(index))
         root.append(bitmap)
+    for key, panel_box in (('a', PANEL_A['panel']), ('b', PANEL_B['panel'])):
+        bitmap = ET.SubElement(root, 'bitmap', name=PANEL_BITMAPS[key])
+        width, height = panel_frame_size(panel_box)
+        ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\list_field', index='0',
+                      png='ce/shell/bitmaps/list_field__0.png', width=str(width), height=str(height))
     # Borrow the Multiplayer diagrams and gametype figure through single-frame bitmaps.
     for name, index in (('gametype', 3),):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
@@ -1432,10 +1447,10 @@ def selection_layout(widgets, bitmaps):
             w.set('width', '256')
         elif leaf in ('lobby_right_item', 'replay_level_right_item'):
             w.attrib.update({k: str(v) for k, v in panel(PANEL_B).items()},
-                            bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+                            bitmap=PANEL_BITMAPS['b'])
         elif leaf == 'sel_list_desc_bkd':
             w.attrib.update({k: str(v) for k, v in panel(PANEL_B).items()},
-                            bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+                            bitmap=PANEL_BITMAPS['b'])
         elif leaf in ('lobby_map_pic', 'replay_level_right_pic', 'mp_map_right_pic'):
             # connected_pregame remote column + xbox_graphic offset (12,27).
             w.attrib.update(left='335', top='142')
@@ -1510,7 +1525,7 @@ def gametype_select_layout(root, widgets, bitmaps):
     left, top, width, height = GT_PANEL
     description = widgets[GT + '/gametype_extended_desc']
     description.attrib.update(left=str(left), top=str(top), width=str(width), height=str(height),
-                              bitmap='xbox/bitmaps/list_field')
+                              bitmap=PANEL_BITMAPS['a'])
     for c in description.findall('child'):
         c.set('x', '0')
         c.set('y', '0')

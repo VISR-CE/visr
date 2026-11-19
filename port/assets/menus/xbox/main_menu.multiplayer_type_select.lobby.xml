@@ -97,7 +97,7 @@
 		<child widget="xbox/main_menu/current_profile_name" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_right_item" x="0" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_right_item" controller="1" left="323" top="115" width="254" height="294" bitmap="xbox/bitmaps/list_field">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_right_item" controller="1" left="323" top="115" width="254" height="294" bitmap="xbox/panel_b/list_field">
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_map_pic" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_map_name" />
 		<child widget="xbox/main_menu/solo_level_select/replay_level_right_pic" />
@@ -112,12 +112,12 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_bar" type="column_list" width="640" height="53" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_start" x="496" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_team" x="23" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add" x="165" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_team" x="15" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add" x="157" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_leave" x="404" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share" x="307" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add" type="container" width="122" height="53">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add" type="container" width="130" height="53">
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add/y_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add/caption" x="22" />
 		<on event="a" run="port lobby add player" />
@@ -202,7 +202,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_join" x="496" y="0" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_add" x="272" y="0" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_add" x="264" y="0" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_back" x="414" y="0" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_join" type="text" width="128" height="24" text="JOIN GAME" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_preview_button_join.text" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
@@ -229,7 +229,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_team/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_team/caption" type="text" text="SWITCH TEAM" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_team_caption.text" font="ui\small_ui" color="#FF2896FF" width="100" height="26" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add/y_butn" width="21" height="26" bitmap="xbox/browser/y_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add/caption" type="text" text="ADD PLAYER" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_add_caption.text" font="ui\small_ui" color="#FF2896FF" width="100" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add/caption" type="text" text="ADD PLAYER" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_add_caption.text" font="ui\small_ui" color="#FF2896FF" width="108" height="26" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_leave/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_leave/caption" type="text" text="LEAVE" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_leave_caption.text" font="ui\small_ui" color="#FF2896FF" width="50" height="26" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share" type="container" width="77" height="53">
@@ -253,9 +253,9 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_join/a_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_join/caption" x="22" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_add/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" text="ADD PLAYER" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_preview_button_bar_preview_button_add_caption.text" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_add/caption" type="text" width="108" height="26" font="ui\small_ui" color="#FF2896FF" text="ADD PLAYER" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_preview_button_bar_preview_button_add_caption.text" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_add/y_butn" width="21" height="26" bitmap="xbox/browser/y_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_add" type="container" width="122" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_add" type="container" width="130" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="port lobby add player" />
 		<on event="start" run="port lobby add player" />
 		<on event="left_mouse" run="mouse emit accept event" />

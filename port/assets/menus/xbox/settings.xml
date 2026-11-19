@@ -38,7 +38,7 @@
 	<widget name="xbox/settings/graphics_label" type="text" width="200" height="22" font="ui\large_ui" color="#FFFFFFFF">
 		<data input="port graphics state" />
 	</widget>
-	<widget name="xbox/settings/description" left="275" top="78" width="320" height="331" bitmap="xbox/bitmaps/list_field">
+	<widget name="xbox/settings/description" left="275" top="78" width="320" height="331" bitmap="xbox/panel_a/list_field">
 		<child widget="xbox/settings/description_text" />
 		<child widget="xbox/settings/description_picture" x="4" />
 	</widget>

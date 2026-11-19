@@ -988,7 +988,7 @@
 		<on event="start" run="mouse emit back event" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/main_menu/new_select/sel_list_desc_bkd" controller="1" left="323" top="115" width="254" height="294" bitmap="xbox/bitmaps/list_field">
+	<widget name="xbox/main_menu/new_select/sel_list_desc_bkd" controller="1" left="323" top="115" width="254" height="294" bitmap="xbox/panel_b/list_field">
 	</widget>
 	<widget name="xbox/main_menu/gametype_select/gametype_right_item" controller="1" left="275" top="78" width="320" height="331">
 		<child widget="xbox/main_menu/gametype_select/gametype_right_name" />

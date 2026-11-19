@@ -618,7 +618,7 @@ def test_hub_has_the_profile_editors_framed_panel():
     assert options.find('data').get('input') == 'plyr prof edit select menu upd8'
     panel = hub.find("widget[@name='xbox/settings/description']")
     assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('275', '78', '320', '331')
-    assert panel.get('bitmap') == 'xbox/bitmaps/list_field'
+    assert panel.get('bitmap') == 'xbox/panel_a/list_field'
     # the description update takes the first child for the text and the second for the picture
     assert [c.get('widget').rsplit('/', 1)[-1] for c in panel.findall('child')] == [
         'description_text', 'description_picture']
@@ -1673,7 +1673,7 @@ def test_layout_kinds_control_help_rows_and_panels(density):
         if spec['kind'] in ('K2-A', 'K2-B'):
             expected = tuple(kind['panel']['panel'])
             panels = [w for w, _, _ in screen_parts(screen, widgets)
-                      if w.get('bitmap') == 'xbox/bitmaps/list_field']
+                      if w.get('bitmap', '').endswith('/list_field')]
             assert panels, f'{name}: missing panel'
             for w in panels:
                 assert tuple(int(w.get(k)) for k in ('left', 'top', 'width', 'height')) == expected, name
@@ -1912,3 +1912,13 @@ def test_dialog_touch_buttons_sit_inside_their_dialog_box():
     screen = widgets['xbox/' + gen.MP + '/join_game/gamespy_error_fullscreen']
     assert screen.get('bitmap') != 'xbox/bitmaps/black'
     assert widgets['xbox/error/error_text_box'].get('bitmap') == 'xbox/bitmaps/alert_bkd'
+
+
+def test_panel_frames_fit_their_panels():
+    """A frame is drawn at its own size, so the panel art's 1260x1288 outline (of 2048) must fill the panel's bounds."""
+    module = generator()
+    for key, spec in (('a', module.PANEL_A), ('b', module.PANEL_B)):
+        width, height = module.panel_frame_size(spec['panel'])
+        assert abs(width * module.FIELD_ART[0] / module.FIELD_PNG - spec['panel'][2]) < 0.5
+        assert abs(height * module.FIELD_ART[1] / module.FIELD_PNG - spec['panel'][3]) < 0.5
+        assert module.PANEL_BITMAPS[key].endswith('/list_field')
