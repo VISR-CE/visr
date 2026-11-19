@@ -5482,9 +5482,10 @@ static boolean menu_touch_active(struct widget_instance *widget)
 /* Caption x inside a legend button, from the menu XML (the glyph sits at 0). */
 #define BROWSER_LEGEND_CAPTION_X 34
 
-/* A global legend button: its glyph hides on touch and its caption takes the glyph's place. */
-static void touch_legend_button(struct widget_instance *screen, char const *icon_name,
-	char const *caption_name, boolean touch)
+/* A global legend glyph and caption pair: the glyph hides on touch and the caption,
+normally caption_x past the glyph, takes the glyph's place. */
+static void touch_legend_pair(struct widget_instance *screen, char const *icon_name,
+	char const *caption_name, short caption_x, boolean touch)
 {
 	struct widget_instance *icon = named(screen, icon_name, 0);
 	struct widget_instance *caption = named(screen, caption_name, 0);
@@ -5492,7 +5493,13 @@ static void touch_legend_button(struct widget_instance *screen, char const *icon
 	if (!icon || !caption)
 		return;
 	icon->visible = !touch;
-	caption->horizontal_offset = (short)(icon->horizontal_offset + (touch ? 0 : BROWSER_LEGEND_CAPTION_X));
+	caption->horizontal_offset = (short)(icon->horizontal_offset + (touch ? 0 : caption_x));
+}
+
+static void touch_legend_button(struct widget_instance *screen, char const *icon_name,
+	char const *caption_name, boolean touch)
+{
+	touch_legend_pair(screen, icon_name, caption_name, BROWSER_LEGEND_CAPTION_X, touch);
 }
 
 static void browser_touch_legend_update(struct widget_instance *screen)
@@ -5528,6 +5535,36 @@ static void direct_ip_touch_legend_update(struct widget_instance *screen)
 		visible_set(named(screen, names[index], 0), !touch);
 }
 
+/* Filters: RESET is global and keeps its button; DONE is BACK, which the chevron does. */
+static void browser_filters_touch_legend_update(struct widget_instance *screen)
+{
+	boolean touch;
+
+	if (!screen)
+		return;
+	touch = menu_touch_active(screen);
+	touch_legend_button(screen, "browser_reset_icon", "browser_reset_caption", touch);
+	visible_set(named(screen, "browser_done", 0), !touch);
+}
+
+/* Password: HIDE/SHOW is global and keeps its caption; the A (accept) and B (back)
+legends go, since tapping the row and the chevron do them. */
+#define PASSWORD_LEGEND_CAPTION_X 22
+
+static void password_touch_legend_update(struct widget_instance *screen)
+{
+	char const *const names[] = { "a_butn", "accept", "b_butn", "cancel" };
+	boolean touch;
+	short index;
+
+	if (!screen)
+		return;
+	touch = menu_touch_active(screen);
+	for (index = 0; index < NUMBEROF(names); index++)
+		visible_set(named(screen, names[index], 0), !touch);
+	touch_legend_pair(screen, "x_butn", "x_hide", PASSWORD_LEGEND_CAPTION_X, touch);
+}
+
 static void browser_filters_update(struct widget_instance *widget)
 {
 	wchar_t text[ROW_TEXT_LENGTH];
@@ -5537,6 +5574,7 @@ static void browser_filters_update(struct widget_instance *widget)
 	usnprintf(text, NUMBEROF(text) - 1, L"SHOWING %d OF %d", lobby_browser.count,
 		lobby_browser.count + lobby_browser.hidden);
 	text_set(named(screen_of(widget), "browser_filter_status", 0), text);
+	browser_filters_touch_legend_update(screen_of(widget));
 }
 
 static boolean browser_filters_reset(struct widget_instance *widget)
@@ -6097,6 +6135,7 @@ static void password_screen_update(struct widget_instance *list)
 	if (help)
 		help->parameters.text_box.string_list_index = password_screen.help;
 	legend_accept_caption(list, join_row_focused(list));
+	password_touch_legend_update(screen_of(list));
 }
 
 /* "port password join" (JOIN GAME, and Enter: password_screen_edit) */

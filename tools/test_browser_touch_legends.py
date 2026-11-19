@@ -39,8 +39,8 @@ def test_browser_touch_hides_back_and_join_and_glyphs():
 
 
 def test_global_buttons_keep_their_captions_on_touch():
+    assert 'icon->visible = !touch' in function_body('touch_legend_pair')
     body = function_body('touch_legend_button')
-    assert 'icon->visible = !touch' in body
     assert 'BROWSER_LEGEND_CAPTION_X' in body
     assert re.search(r'#define BROWSER_LEGEND_CAPTION_X 34\b', SOURCE.read_text())
 
@@ -85,3 +85,44 @@ def test_direct_ip_widget_names_exist():
     text = (MENUS / DIRECT_IP_XML).read_text()
     for name in ('a_butn', 'accept', 'b_butn', 'cancel'):
         assert f'direct_ip_screen/legend/{name}"' in text, name
+
+
+FILTERS_XML = 'main_menu.multiplayer_type_select.join_game.filters.xml'
+PASSWORD_XML = 'main_menu.multiplayer_type_select.join_game.port.xml'
+
+
+def test_filters_touch_keeps_reset_and_hides_done():
+    body = function_body('browser_filters_touch_legend_update')
+    assert '"browser_reset_icon", "browser_reset_caption", touch' in body
+    assert 'visible_set(named(screen, "browser_done", 0), !touch)' in body
+    assert 'browser_filters_touch_legend_update(screen_of(widget));' in function_body('browser_filters_update')
+
+
+def test_password_touch_hides_accept_and_back_and_moves_hide_caption():
+    body = function_body('password_touch_legend_update')
+    for name in ('a_butn', 'accept', 'b_butn', 'cancel'):
+        assert f'"{name}"' in body
+    assert '"x_butn", "x_hide", PASSWORD_LEGEND_CAPTION_X, touch' in body
+    assert 'password_touch_legend_update(screen_of(list));' in function_body('password_screen_update')
+
+
+def test_filters_widget_names_exist():
+    text = (MENUS / FILTERS_XML).read_text()
+    for name in ('browser_reset_icon', 'browser_reset_caption', 'browser_done'):
+        assert f'/{name}"' in text, name
+    icon = re.search(r'widget="[^"]*/browser_reset_icon" x="(\d+)"', text)
+    caption = re.search(r'widget="[^"]*/browser_reset_caption" x="(\d+)"', text)
+    assert icon and caption
+    assert int(caption.group(1)) - int(icon.group(1)) == 34
+
+
+def test_password_widget_names_exist():
+    text = (MENUS / PASSWORD_XML).read_text()
+    for name in ('a_butn', 'accept', 'b_butn', 'cancel', 'x_butn', 'x_hide'):
+        assert f'password_screen/legend/{name}"' in text, name
+    icon = re.search(r'legend/x_butn" x="(\d+)"', text)
+    caption = re.search(r'legend/x_hide" x="(\d+)"', text)
+    assert icon and caption
+    source = SOURCE.read_text()
+    offset = re.search(r'#define PASSWORD_LEGEND_CAPTION_X (\d+)', source)
+    assert offset and int(caption.group(1)) - int(icon.group(1)) == int(offset.group(1))
