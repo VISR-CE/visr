@@ -2353,12 +2353,20 @@ description = "Which vehicles are on the map."
 text = "INTERNET"
 description = "Browse games on the Internet,\\njoin one, or host your own."
 
+[xbox.patches.multiplayer_type_internet_off]
+text = "INTERNET"
+description = "Internet play is off.\\nTurn it on in Network Settings."
+
 [xbox.patches.multiplayer_type_join_direct]
 text = "DIRECT LINK"
 description = "Join a friend's game with\\nits join code or invite link."
 
 [xbox.patches.multiplayer_type_join_lan]
 text = "SYSTEM LINK PLAY"
+
+[xbox.patches.multiplayer_type_split_need_pad]
+text = "SPLIT SCREEN"
+description = "Split screen on iPhone needs a game\\ncontroller for each extra player."
 
 [xbox.patches.op_choose_weapons]
 help0 = "Choose the primary and secondary weapons\\neveryone starts with."
