@@ -348,7 +348,8 @@ int main(void)
     struct widget_instance rows[6]={{.name="server_item_1"},{.name="server_item_2"},
         {.name="server_item_3"},{.name="server_item_4"},{.name="server_item_5"},{.name="server_item_6"}};
     struct widget_instance join={.name="join_game_button_join",.visible=TRUE};
-    struct widget_instance legend[3]={{.name="browser_ip_address"},{.name="browser_create_inter"},{.name="browser_back"}};
+    struct widget_instance legend[3]={{.name="browser_ip_address",.visible=TRUE},{.name="browser_create_inter",.visible=TRUE},
+        {.name="browser_back",.visible=TRUE}};
     children(&screen,sections,4); children(&sections[0],chips,4); children(&sections[1],rows,6);
     children(&sections[2],&join,1); children(&sections[3],legend,3);
     for (int i=0;i<6;i++) rows[i].visible=TRUE;
@@ -430,6 +431,12 @@ int main(void)
     browser_legend_navigation(&legend[2],&event); assert(sections[3].focused_child==&legend[0]);
     event.data.stick.x=-1;
     browser_legend_navigation(&legend[0],&event); assert(sections[3].focused_child==&legend[2]);
+    /* Touch hides BACK (the chevron does it), so the cycle steps past it. */
+    legend[2].visible=FALSE;
+    event.data.stick.x=1;
+    browser_legend_navigation(&legend[1],&event); assert(sections[3].focused_child==&legend[0]);
+    event.data.stick.x=-1;
+    browser_legend_navigation(&legend[0],&event); assert(sections[3].focused_child==&legend[1]);
 }
 '''
     _compile_probe(tmp_path, "browser_navigation", harness.replace("/* PRODUCTION */", production))
