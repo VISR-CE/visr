@@ -80,6 +80,8 @@ static int game_paused, returned_to_main, menu_source;
 static boolean graphics_locked;
 static int refusal_sounds;
 /* The graphics probe tests the real mode resolver. Here only the focused child is a locked row. */
+static boolean ui_widget_port_split_activation_blocked(struct widget_instance const *widget, short event_type)
+{ (void)widget; (void)event_type; return FALSE; }
 static boolean ui_widget_port_graphics_locked(struct widget_instance *widget)
 { return graphics_locked && widget == &instances[1]; }
 

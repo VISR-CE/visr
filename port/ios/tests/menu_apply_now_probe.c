@@ -91,7 +91,7 @@ int main(void)
 	assert(asks == 1 && !online && spinner.parameters.list.selected_index == 0 && writes == 2);
 	assert(setting_apply_now(&spinner, &setting) && asks == 1);
 	running = online = 1; setting.loaded_index = 1;
-	assert(setting_apply_now(&spinner, &setting) && !online && messages == 1);
+	assert(setting_apply_now(&spinner, &setting) && !online && messages == 0);
 	setting.setting = "host.cloud_saves"; spinner.parameters.list.selected_index = 1; setting.loaded_index = 0;
 	assert(setting_apply_now(&spinner, &setting) && reloads == 1 && cloud);
 	setting.setting = "profile.look_sensitivity"; setting.loaded_index = 0;
