@@ -5447,11 +5447,85 @@ static boolean browser_legend_navigation(struct widget_instance *widget, struct 
 	{
 		if (!strcmp(widget->name, names[index]))
 		{
-			browser_c_focus(named(screen, names[(index + (right ? 1 : 2)) % 3], 0));
+			short step;
+
+			/* step past targets touch hides (BACK is the chevron there) */
+			for (step = 1; step < NUMBEROF(names); step++)
+			{
+				struct widget_instance *target =
+					named(screen, names[(index + (right ? step : NUMBEROF(names) - step)) % NUMBEROF(names)], 0);
+				if (target && target->visible)
+				{
+					browser_c_focus(target);
+					break;
+				}
+			}
 			break;
 		}
 	}
 	return TRUE;
+}
+
+/* Touch follows the global-vs-contextual rule: global actions keep their own
+buttons without controller glyphs, BACK is only the top-left chevron, and the
+main contextual action has no button because tapping the item does it. */
+static boolean menu_touch_active(struct widget_instance *widget)
+{
+	extern int controller_glyph_hidden(short player, short physical);
+	extern short local_player_index_for_draw_string_and_hack_in_icons;
+	short owner = widget->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+
+	return controller_glyph_hidden(owner, BUTTON_A) ? TRUE : FALSE;
+}
+
+/* Caption x inside a legend button, from the menu XML (the glyph sits at 0). */
+#define BROWSER_LEGEND_CAPTION_X 34
+
+/* A global legend button: its glyph hides on touch and its caption takes the glyph's place. */
+static void touch_legend_button(struct widget_instance *screen, char const *icon_name,
+	char const *caption_name, boolean touch)
+{
+	struct widget_instance *icon = named(screen, icon_name, 0);
+	struct widget_instance *caption = named(screen, caption_name, 0);
+
+	if (!icon || !caption)
+		return;
+	icon->visible = !touch;
+	caption->horizontal_offset = (short)(icon->horizontal_offset + (touch ? 0 : BROWSER_LEGEND_CAPTION_X));
+}
+
+static void browser_touch_legend_update(struct widget_instance *screen)
+{
+	struct widget_instance *back = named(screen, "browser_back", 0);
+	struct widget_instance *join = named(screen, "join_game_button_join", 0);
+	struct widget_instance *focus;
+	boolean touch;
+
+	if (!screen || (!back && !join))
+		return;
+	touch = menu_touch_active(screen);
+	touch_legend_button(screen, "browser_ip_address_icon", "browser_ip_address_caption", touch);
+	touch_legend_button(screen, "browser_create_inter_icon", "browser_create_inter_caption", touch);
+	visible_set(back, !touch);
+	visible_set(join, !touch);
+	for (focus = screen; focus->focused_child; focus = focus->focused_child)
+		;
+	if (touch && focus && (focus == back || focus == join))
+		browser_c_focus(named(screen, "browser_ip_address", 0));
+}
+
+static void direct_ip_touch_legend_update(struct widget_instance *screen)
+{
+	char const *const names[] = { "a_butn", "accept", "b_butn", "cancel" };
+	boolean touch;
+	short index;
+
+	if (!screen)
+		return;
+	touch = menu_touch_active(screen);
+	for (index = 0; index < NUMBEROF(names); index++)
+		visible_set(named(screen, names[index], 0), !touch);
 }
 
 static void browser_filters_update(struct widget_instance *widget)
@@ -6114,6 +6188,7 @@ static void browser_update(struct widget_instance *list)
 
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
 	{
+		browser_touch_legend_update(screen_of(list));
 		lobby_browser_update(list);
 		return;
 	}
@@ -6425,6 +6500,7 @@ static void direct_ip_update(struct widget_instance *list)
 {
 	struct widget_instance *address = named(list, "op_server_address", 0);
 	struct widget_instance *port = named(list, "op_server_port", 0);
+	direct_ip_touch_legend_update(screen_of(list));
 	text_field_show(named(list, "server_address_value_label", 0), direct_address,
 		address && text_field_editing(address));
 	text_field_show(named(list, "server_port_value_label", 0), direct_port,
