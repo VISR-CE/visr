@@ -650,7 +650,7 @@ PICTURE_SOURCES = {
 
 # the rows whose picture ships as our own art (xbox/art/<name>.png, from tools/xbox_menu_art.py), by the name it has:
 # NETWORK shows the INTERNET picture
-REDRAW_NAMES = {'video': 'video', 'audio': 'audio', 'network': 'internet', 'graphics': 'none'}
+REDRAW_NAMES = {'video': 'video', 'audio': 'audio', 'network': 'internet', 'graphics': 'none', 'profiles': 'none'}
 
 
 def picture_frame(assets, key):
@@ -666,7 +666,11 @@ def picture_frame(assets, key):
 
 
 # the hub rows' places (a row filtered out by its platform leaves its slot to the row after)
-HUB_SLOTS = {'controls': 0, 'video': 1, 'graphics': 1, 'audio': 1, 'network': 2, 'keyboard': 3}
+HUB_SLOTS = {'controls': 0, 'video': 1, 'graphics': 1, 'audio': 2, 'network': 3, 'profiles': 4, 'keyboard': 5}
+# PROFILES is a hub-only row: it opens the profile picker (menu_tags.c leaves it unredirected while the hub is up), which keeps no row of its own for it
+PROFILES_ROW = ('profiles', 'PROFILES', None, None, None, 'Choose, create, and edit\\nplayer profiles.' + CURRENT)
+HUB_ROWS = PAGE_ROWS[:5] + (PROFILES_ROW,) + PAGE_ROWS[5:]
+PROFILES_OPEN = 'ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_select_screen'
 # a hub row whose panel text ends with another status line than "Current Profile:": GRAPHICS names its mode there
 # (menu_functions.c's "port hub status" shows the mode's word, in place of the profile's name, while it is chosen)
 HUB_DESCRIPTIONS = {'graphics': "The game's look.\\n\\n\\nGraphics:"}
@@ -678,7 +682,7 @@ def hub_documents(assets):
     leaves the strings and frames in the same places as the rows."""
     strings = ET.Element('strings', name='xbox/settings/hub_descriptions')
     bitmap = ET.Element('bitmap', name='xbox/settings/hub_pictures')
-    for key, _, _, _, platform, description in PAGE_ROWS:
+    for key, _, _, _, platform, description in HUB_ROWS:
         attrs = {'platform': platform} if platform else {}
         ET.SubElement(strings, 'string', text=HUB_DESCRIPTIONS.get(key, description), **attrs)
         ET.SubElement(bitmap, 'frame', **picture_frame(assets, key), **attrs)
@@ -728,18 +732,19 @@ def settings_hub(bitmaps, assets=MENUS):
     widget(root, f'{base}/description_picture', left=288, top=85, width=279, height=202,
            bitmap=f'{base}/hub_pictures')
     options = widget(root, f'{base}/settings_list', type='column_list', width=640, height=480,
-                     flags='pass_unhandled_to_focused_child up_down_tabs_children', visible_rows=5,
+                     flags='pass_unhandled_to_focused_child up_down_tabs_children', visible_rows=6,
                      description=f'{base}/description')
     ET.SubElement(options, 'data', input='plyr prof edit select menu upd8')
     ET.SubElement(options, 'data', input='port hub status')
-    for key, caption, folder, screen_name, platform, _ in PAGE_ROWS:
+    for key, caption, folder, screen_name, platform, _ in HUB_ROWS:
         attrs = {'platform': platform} if platform else {}
         # VIDEO, GRAPHICS and AUDIO share a slot so filtering them preserves the row pitch.
         child(options, f'{base}/{key}', x=PANEL_A['list'][0], y=PANEL_A['list'][1] + HUB_SLOTS[key] * PANEL_A['list'][2], **attrs)
         row = text_widget(root, f'{base}/{key}', caption, width=232, height=32,
                           bitmap=bitmap_ref('bitmaps/list_item_bkd', bitmaps), text_x=13, text_y=4)
         for event in ('a', 'start'):
-            ET.SubElement(row, 'on', event=event, open=f'xbox/settings/{folder}/{screen_name}')
+            ET.SubElement(row, 'on', event=event,
+                          open=PROFILES_OPEN if key == 'profiles' else f'xbox/settings/{folder}/{screen_name}')
     legend(root, screen, base, cancel='BACK')
     return root
 
@@ -2151,7 +2156,10 @@ SCREEN_REPLACED = (('ui/shell/main_menu/settings_select/multiplayer_setup/playli
 
 # (the game's own screens that ours replaces on every platform, the Apple TV too)
 SCREEN_ALWAYS = (('ui/shell/' + MP + '/connected/connected_map_select_wrapper',
-                  'pc/xbox/' + MP + '/connected/connected_map_select_wrapper'),) + tuple(
+                  'pc/xbox/' + MP + '/connected/connected_map_select_wrapper'),
+                ('ui/shell/' + PE + '/player_profile_edit_screen', 'pc/xbox/settings/settings_screen'),
+                ('ui/shell/main_menu/settings_select/player_setup/player_profile_select_screen',
+                 'pc/xbox/settings/settings_screen')) + tuple(
     (f'ui/shell/error/{name}', f'pc/xbox/error/{name}')
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS + ('confirm_delete_profile_modal_fullscreen',
                                                       'confirm_delete_gametype_modal_fullscreen'))

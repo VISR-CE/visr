@@ -2201,6 +2201,13 @@ static void get_editable_player_profile_display_name(
 		0x9FE,
 		widget->type == _ui_widget_type_text_box,
 		"expected a text box widget for profile display name");
+	/* port: main-menu SETTINGS opens the settings hub before any player is chosen; its editable profile label is then empty */
+	if (widget->local_player_index < 0)
+	{
+		if (widget->parameters.text_box.text)
+			widget->parameters.text_box.text[0] = 0;
+		return;
+	}
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget_game_data_input_functions.c",
 		0xA00,

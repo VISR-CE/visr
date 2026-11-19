@@ -38,6 +38,8 @@ static char const *const menu_screen_replaced[][2] = {
 };
 static char const *const menu_screen_always[][2] = {
 	{"ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper", "pc\\xbox\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"},
+	{"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen", "pc\\xbox\\settings\\settings_screen"},
+	{"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_select_screen", "pc\\xbox\\settings\\settings_screen"},
 	{"ui\\shell\\error\\error_modal_fullscreen", "pc\\xbox\\error\\error_modal_fullscreen"},
 	{"ui\\shell\\error\\error_modal_halfscreen", "pc\\xbox\\error\\error_modal_halfscreen"},
 	{"ui\\shell\\error\\error_modal_qtrscreen", "pc\\xbox\\error\\error_modal_qtrscreen"},

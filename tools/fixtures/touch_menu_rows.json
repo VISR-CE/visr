@@ -566,7 +566,7 @@
     "reference_kind": "toggle"
   },
   {
-    "file": "settings.video_settings.xml",
+    "file": "settings.mouse_settings.xml",
     "name": "direct_camera_spinner",
     "strings": [
       "ON",

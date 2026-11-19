@@ -22,6 +22,7 @@
 		<child widget="xbox/settings/mouse_settings/op_mouse_vertical_sensitivity" x="54" y="112" />
 		<child widget="xbox/settings/mouse_settings/op_invert_mouse" x="54" y="151" />
 		<child widget="xbox/settings/mouse_settings/op_mouse_aim_assist" x="54" y="190" />
+		<child widget="xbox/settings/mouse_settings/op_direct_camera" x="54" y="229" platform="desktop" />
 		<child widget="xbox/settings/mouse_settings/button_bar" y="414" />
 	</widget>
 	<widget name="xbox/settings/mouse_settings/op_mouse_sensitivity" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
@@ -76,11 +77,32 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
+	<widget name="xbox/settings/mouse_settings/op_direct_camera" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0">
+		<child widget="xbox/settings/mouse_settings/direct_camera_label" y="5" />
+		<child widget="xbox/settings/mouse_settings/direct_camera_spinner" x="320" y="6" />
+		<child widget="xbox/settings/mouse_settings/direct_camera_replaced" x="320" y="6" />
+	</widget>
+	<widget name="xbox/settings/mouse_settings/direct_camera_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/mouse_settings/direct_camera_shown">
+	</widget>
+	<strings name="xbox/settings/mouse_settings/direct_camera_shown">
+		<string text="ON" id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_shown.on" />
+		<string text="OFF" id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_shown.off" />
+	</strings>
+	<widget name="xbox/settings/mouse_settings/direct_camera_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/mouse_settings/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/settings/mouse_settings/direct_camera_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_spinner.s0|xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_spinner.s1" setting="display.direct_camera" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 57 19 63" footer_bounds="7 149 19 155">
+		<on event="created" run="port setting load" />
+		<on event="left" run="port setting changed" />
+		<on event="right" run="port setting changed" />
+		<on event="stick_left" run="port setting changed" />
+		<on event="stick_right" run="port setting changed" />
+	</widget>
 	<strings name="xbox/settings/mouse_settings/labels">
 		<string text="HORIZONTAL SENSITIVITY:" id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_labels.horizontal_sensitivity" />
 		<string text="VERTICAL SENSITIVITY:" id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_labels.vertical_sensitivity" />
 		<string text="INVERT VERTICAL AXIS:" id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_labels.invert_vertical_axis" />
 		<string text="AIM ASSIST:" id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_labels.aim_assist" />
+		<string text="INSTANT AIM:" id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_labels.instant_aim" />
 	</strings>
 	<strings name="xbox/settings/mouse_settings/help_strings">
 		<string text="" />
@@ -88,6 +110,7 @@
 		<string text="How fast the view turns up and down; Same\nturns it as fast as side to side." id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings.how_fast_the_view_turns_up_and_d_ce0a38" />
 		<string text="Moving the mouse forward looks down." id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings.moving_the_mouse_forward_looks_down" />
 		<string text="Slow and drag the view along with a target while\naiming with the mouse, as with a controller." id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings.slow_and_drag_the_view_along_wit_ccedca" />
+		<string text="In first person, turn the view the moment the\nmouse moves, not up to two ticks later." id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings.in_first_person_turn_the_view_th_17a6eb" />
 	</strings>
 	<widget name="xbox/settings/mouse_settings/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/settings/mouse_settings/button_defaults" x="40" />
