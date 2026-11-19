@@ -111,6 +111,7 @@ void host_sdl_app_build(char *buffer, unsigned int size);
 void host_sdl_send_log_start(void);
 void host_sdl_open_website(int page);
 int host_sdl_is_phone(void);
+int host_gamepad_physical_count(void);
 void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
 
@@ -3187,12 +3188,10 @@ boolean menu_split_screen_needs_controller(void)
 	short controller;
 
 #ifdef HALO_IOS
-	extern int xinput_sdl_has_physical_gamepad(void);
-
 	if (!host_sdl_is_phone())
 		return FALSE;
-	/* port 0 always has a handle (keyboard and touch), so ask SDL for real pads */
-	if (xinput_sdl_has_physical_gamepad())
+	/* port 0 always has a handle (keyboard and touch), so ask GameController for real pads */
+	if (host_gamepad_physical_count() > 0)
 		return FALSE;
 	for (controller = 1; controller < 4; controller++)
 		if (input_has_gamepad(controller))

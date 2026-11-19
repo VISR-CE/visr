@@ -3,6 +3,7 @@
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <dispatch/dispatch.h>
+#import <GameController/GameController.h>
 #if HALO_NATIVE_MAC
 #import <AppKit/AppKit.h>
 #define HostGlyphImage NSImage
@@ -177,4 +178,28 @@ int host_controller_glyph_raster(int kind, const char *label, int width, int hei
             pixels[index * 4] = pixels[index * 4 + 1] = pixels[index * 4 + 2] = 255;
         return 1;
     }
+}
+
+/* The number of real game controllers GameController reports: a pad with an extended gamepad (a micro gamepad on
+tvOS), not a snapshot, virtual or keyboard-mapped one. SDL also lists the simulator's keyboard and some phones' key
+devices as generic gamepads, so the menus ask GameController instead. */
+int host_gamepad_physical_count(void)
+{
+    int count = 0;
+
+    for (GCController *controller in GCController.controllers)
+    {
+        NSString *category = controller.productCategory ?: @"";
+#if TARGET_OS_TV
+        BOOL pad = controller.extendedGamepad != nil || controller.microGamepad != nil;
+#else
+        BOOL pad = controller.extendedGamepad != nil;
+#endif
+        if (!pad || [controller isSnapshot]) continue;
+        if ([category caseInsensitiveCompare:@"Keyboard"] == NSOrderedSame ||
+            [category rangeOfString:@"Virtual" options:NSCaseInsensitiveSearch].location != NSNotFound)
+            continue;
+        count++;
+    }
+    return count;
 }

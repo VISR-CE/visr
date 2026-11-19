@@ -106,7 +106,7 @@ static void widget_instance_set_focused_child_by_index(long tag, struct widget_i
 static struct ui_widget_definition *ui_widget_definition_get(long tag) { return &definitions[tag]; }
 static int widget_takes_events_of_controller(struct widget_instance *widget, short controller) { return controller == 0; }
 static int input_has_gamepad(short player) { return 1; }
-int xinput_sdl_has_physical_gamepad(void) { return 1; }
+int host_gamepad_physical_count(void) { return 1; }
 static void ui_play_audio_feedback_sound(long feedback)
 { if (feedback == _ui_audio_feedback_flag_failure) refusal_sounds++; }
 static void widget_instance_update_animation_parameters(struct widget_instance *widget) {}
