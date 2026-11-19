@@ -51,6 +51,7 @@ static char const *const menu_screen_always[][2] = {
 	{"ui\\shell\\error\\warning_creating_player_profile_screen", "pc\\xbox\\error\\warning_creating_player_profile_screen"},
 	{"ui\\shell\\error\\warning_saving_file_screen", "pc\\xbox\\error\\warning_saving_file_screen"},
 	{"ui\\shell\\error\\confirm_delete_profile_modal_fullscreen", "pc\\xbox\\error\\confirm_delete_profile_modal_fullscreen"},
+	{"ui\\shell\\error\\confirm_delete_gametype_modal_fullscreen", "pc\\xbox\\error\\confirm_delete_gametype_modal_fullscreen"},
 };
 static char const *menu_screen_equivalent(char const *name, int use_xbox)
 {
