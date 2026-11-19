@@ -33,6 +33,11 @@ DISC_ONLY = {
     "main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_indicators_item",
     # (the disc's STARTING EQUIPMENT row, which the port's combined row replaces; gone from the PC list of ce/*.xml)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/op_starting_equipment",
+    # (the four respawn rows of the disc's Player Options, which RESPAWN OPTIONS takes over; gone from the PC list)
+    "main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time",
+    "main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time_growth",
+    "main_menu/settings_select/multiplayer_setup/player_options_edit/op_odd_man_out",
+    "main_menu/settings_select/multiplayer_setup/player_options_edit/op_suicide_penalty",
 }
 
 

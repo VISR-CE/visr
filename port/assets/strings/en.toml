@@ -39,10 +39,10 @@ s3 = "10"
 s4 = "15"
 
 [ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_help_strings]
-how_much_a_player_or_team_must_s_8d087a = "How much a player or team must score to win the game."
-how_long_the_game_lasts_before_t_7eaee6 = "How long the game lasts before the leader wins."
+how_much_a_player_or_team_must_s_fbe60f = "How much a player or team must score\\nto win the game."
+how_long_the_game_lasts_before_t_e5e0fc = "How long the game lasts before the\\nleader wins."
 whether_players_play_as_teams = "Whether players play as teams."
-team_colors_and_which_indicators_286a26 = "Team colors and which indicators show on the HUD."
+team_colors_and_which_indicators_622cb4 = "Team colors and which indicators show\\non the HUD."
 the_options_of_this_game_type = "The options of this game type."
 
 [ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner]
@@ -1025,10 +1025,10 @@ s3 = "10"
 s4 = "15"
 
 [xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings]
-how_much_a_player_or_team_must_s_8d087a = "How much a player or team must score to win the game."
-how_long_the_game_lasts_before_t_7eaee6 = "How long the game lasts before the leader wins."
+how_much_a_player_or_team_must_s_fbe60f = "How much a player or team must score\\nto win the game."
+how_long_the_game_lasts_before_t_e5e0fc = "How long the game lasts before the\\nleader wins."
 whether_players_play_as_teams = "Whether players play as teams."
-team_colors_and_which_indicators_286a26 = "Team colors and which indicators show on the HUD."
+team_colors_and_which_indicators_622cb4 = "Team colors and which indicators show\\non the HUD."
 the_options_of_this_game_type = "The options of this game type."
 
 [xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner]
@@ -1601,6 +1601,9 @@ no = "NO"
 custom = "CUSTOM"
 generic = "GENERIC"
 as_specified = "AS SPECIFIED"
+
+[xbox.main_menu_settings_select_multiplayer_setup_player_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_player_options_edit_respawn_label]
+text = "RESPAWN"
 
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_legend_back]
 text = "BACK"
@@ -2367,6 +2370,9 @@ help1 = "The game does not show hints about its\\ncontrols."
 [xbox.patches.op_map_weapons]
 help0 = "Weapons are lying around the map\\nto pick up."
 help1 = "There are no weapons lying around\\nthe map."
+
+[xbox.patches.op_respawn]
+help0 = "The respawn time and how it grows, odd man out,\\nand the suicide penalty."
 
 [xbox.patches.op_spawn_weapons]
 help0 = "You will start the game with the weapon set that the\\nmap designers custom tailored for it."

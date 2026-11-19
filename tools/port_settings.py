@@ -1199,10 +1199,10 @@ def _game_options() -> list:
         rows.append((f"{base}/op_type_{key}", None, 4))
     extra += _strings(f"{base}/labels", ["SCORE TO WIN:", "TIME LIMIT:", "TEAM PLAY:", "TEAMS & HUD:", "TYPE OPTIONS"])
     extra += _strings(f"{base}/help_strings", [
-        "How much a player or team must score to win the game.",
-        "How long the game lasts before the leader wins.",
+        "How much a player or team must score\\nto win the game.",
+        "How long the game lasts before the\\nleader wins.",
         "Whether players play as teams.",
-        "Team colors and which indicators show on the HUD.",
+        "Team colors and which indicators show\\non the HUD.",
         "The options of this game type."])
     extra += _button(f"{base}/button_ok", 1,
                      ['<on event="a" run="mp profile set game options" back="true"/>',
@@ -1814,6 +1814,26 @@ def _weapons() -> list:
             and 'event="deleted" run="port setting save"' not in line]
 
 
+def _player_options_extras() -> list:
+    """Player Options' RESPAWN row of the port's: it opens RESPAWN OPTIONS, and shows the respawn time"""
+    base = "main_menu/settings_select/multiplayer_setup/player_options_edit"
+    screen = f"{MT}/respawn_options_edit/respawn_options_screen"
+    lines = _widget(f"{base}/op_respawn", [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
+                                           ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                    [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                     '<on event="left_mouse" run="mouse emit accept event"/>',
+                     f'<child widget="{base}/respawn_label"/>', f'<child widget="{base}/respawn_state" x="320" y="1"/>'])
+    lines += _widget(f"{base}/respawn_label", [("type", "text"), ("controller", 1), ("width", 320), ("height", 22),
+                                                 ("string_list", f"{base}/player_options_labels"),
+                                                 ("string_index", 8), ("font", "ui\\large_ui"),
+                                                 ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    lines += _widget(f"{base}/respawn_state", [("type", "text"), ("controller", 1), ("width", 148), ("height", 22),
+                                                 ("font", "ui\\large_ui"), ("color", "#FF2896FF"),
+                                                 ("align", "center"), ("text_y", 4)],
+                     ['<data input="port respawn state"/>'])
+    return lines
+
+
 def _map_kind() -> list:
     """the map lists' first row (New Game's and the Map screen's), as the
     gametype list's chooser: a spinner of SINGLEPLAYER or MULTIPLAYER maps,
@@ -1856,6 +1876,7 @@ def multiplayer_files() -> dict:
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],
         "main_menu/settings_select/multiplayer_setup/item_options_edit".replace("/", ".") + ".port.xml": head + _item_options_extras() + ["</menus>", ""],
+        "main_menu/settings_select/multiplayer_setup/player_options_edit".replace("/", ".") + ".port.xml": head + _player_options_extras() + ["</menus>", ""],
     }
 
 

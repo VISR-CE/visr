@@ -165,10 +165,10 @@
 		<string text="TYPE OPTIONS" id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_labels.type_options" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/game_options_edit/help_strings">
-		<string text="How much a player or team must score to win the game." id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings.how_much_a_player_or_team_must_s_8d087a" />
-		<string text="How long the game lasts before the leader wins." id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings.how_long_the_game_lasts_before_t_7eaee6" />
+		<string text="How much a player or team must score\nto win the game." id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings.how_much_a_player_or_team_must_s_fbe60f" />
+		<string text="How long the game lasts before the\nleader wins." id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings.how_long_the_game_lasts_before_t_e5e0fc" />
 		<string text="Whether players play as teams." id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings.whether_players_play_as_teams" />
-		<string text="Team colors and which indicators show on the HUD." id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings.team_colors_and_which_indicators_286a26" />
+		<string text="Team colors and which indicators show\non the HUD." id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings.team_colors_and_which_indicators_622cb4" />
 		<string text="The options of this game type." id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings.the_options_of_this_game_type" />
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">

@@ -564,6 +564,11 @@ IO_ROWS = (('op_spawn_weapons', 'spawn_weapons_label', 'STARTING EQUIPMENT:'),
            ('op_choose_weapons', 'choose_weapons_label', 'CHOOSE WEAPONS'))
 
 
+# the Player Options row the port adds (RESPAWN, opening RESPAWN OPTIONS: the four respawn rows moved there)
+PO = 'main_menu/settings_select/multiplayer_setup/player_options_edit'
+PO_ROWS = (('op_respawn', 'respawn_label', 'RESPAWN'),)
+PO_HELP = {'op_respawn': 'The respawn time and how it grows, odd man out,\\nand the suicide penalty.'}
+
 WEAPONS = ('no weapon', 'a random weapon', 'the assault rifle', 'the pistol', 'the shotgun', 'the sniper rifle',
            'the rocket launcher', 'the plasma pistol', 'the plasma rifle', 'the needler')
 # what the help text shows for each value of a row, in the order of its spinner's values
@@ -574,16 +579,17 @@ IO_HELP = {
 }
 
 
-def item_options_document(assets, bitmaps):
+def item_options_document(assets, bitmaps, folder=None, io_rows=None):
     """The PC port's extra Item Options rows as widgets of their own, which patch rows put in the Xbox's screen.
 
     The Xbox's functions for the screen know only its own rows, so each row sets and saves its spinners itself.
     """
-    root = deepcopy(ET.parse(assets / 'ce' / (IO.replace('/', '.') + '.port.xml')).getroot())
-    labels = {f'xbox/{IO}/{label}': caption for _, label, caption in IO_ROWS}
+    folder, io_rows = folder or IO, io_rows or IO_ROWS
+    root = deepcopy(ET.parse(assets / 'ce' / (folder.replace('/', '.') + '.port.xml')).getroot())
+    labels = {f'xbox/{folder}/{label}': caption for _, label, caption in io_rows}
     for element in root.iter():
         for key, value in list(element.attrib.items()):
-            if value.startswith(IO) or (key == 'open' and value.startswith(MP + '/weapons_edit')):
+            if value.startswith(folder) or (key == 'open' and value.startswith(MP + '/')):
                 element.set(key, 'xbox/' + value)
             elif key in ('bitmap', 'header_bitmap', 'footer_bitmap'):
                 element.set(key, bitmap_ref(value, bitmaps))
@@ -591,7 +597,7 @@ def item_options_document(assets, bitmaps):
             element.attrib.pop('string_list')
             element.attrib.pop('string_index')
             element.set('text', labels[element.get('name')])
-    rows = {f'xbox/{IO}/{name}' for name, _, _ in IO_ROWS}
+    rows = {f'xbox/{folder}/{name}' for name, _, _ in io_rows}
     for row in root.findall('widget'):
         if row.get('name') in rows:
             ET.SubElement(row, 'on', event='created', run='port option row init')
@@ -2054,6 +2060,15 @@ def patch_document(names):
     for name, _, _ in IO_ROWS:
         patch_row(options, after=anchor, name=name, widget=f'xbox/{IO}/{name}', help=IO_HELP[name])
         anchor = name
+    # Player Options: the four respawn rows leave for RESPAWN OPTIONS, whose row stands in their place
+    player = patch(root, MM + 'settings_select\\multiplayer_setup\\player_options_edit\\player_options_menu',
+                   MM + 'settings_select\\multiplayer_setup\\player_options_edit\\player_options_screen')
+    player.set('footer', '321')
+    poe = MM + 'settings_select\\multiplayer_setup\\player_options_edit\\'
+    patch_row(player, after=poe + 'op_invisible_players', name='op_respawn', widget=f'xbox/{PO}/op_respawn',
+              help=PO_HELP['op_respawn'])
+    for key in ('op_respawn_time', 'op_respawn_time_growth', 'op_odd_man_out', 'op_suicide_penalty'):
+        patch_row(player, 'remove', child=poe + key)
     # (STARTING EQUIPMENT's rows replace the Xbox's own)
     patch_row(options, 'remove', child=MM + 'settings_select\\multiplayer_setup\\item_options_edit\\op_starting_equipment')
     # Gametype edit: DELETE GAMETYPE on the Apple TV
@@ -2370,6 +2385,8 @@ def generate(assets=MENUS):
                 part.set('widget', 'xbox/error/browser_error_panel')
     documents['main_menu.settings_select.multiplayer_setup.item_options_edit.port.xml'] = item_options_document(
         assets, names)
+    documents['main_menu.settings_select.multiplayer_setup.player_options_edit.port.xml'] = item_options_document(
+        assets, names, PO, PO_ROWS)
     documents['patches.xml'] = patch_document(names)
     documents['bitmaps.xml'] = bitmap_document(assets, names)
     browser_error_layout(documents)
