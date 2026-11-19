@@ -5939,6 +5939,12 @@ static boolean ui_widget_port_text_wrap(
 	return fits;
 }
 
+/* port: text drawn in place of a text box's own for one render (the commit page's SAVE
+caption). The widget's text stays a widget_memory_pool block: a text box whose text comes
+from a string list resizes that block every render, and pool_resize_pointer halts on any
+other pointer. */
+static wchar_t *ui_text_box_render_override = NULL;
+
 static void widget_instance_render_text_box(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -5947,6 +5953,7 @@ static void widget_instance_render_text_box(
 	boolean focus)
 {
 	wchar_t **text;
+	wchar_t *override_text = ui_text_box_render_override;
 	long search_index;
 	long font_index;
 	short justification;
@@ -5992,11 +5999,12 @@ static void widget_instance_render_text_box(
 			widget->parameters.text_box.text = L"<out of memory>";
 		}
 	}
-	text = &widget->parameters.text_box.text;
+	text = override_text ? &override_text : &widget->parameters.text_box.text;
 	if (!*text || !**text)
 		return;
+	/* (an override is not a pool block: search and replace may resize its text) */
 	for (search_index = 0;
-		search_index < definition->search_and_replace_functions.count;
+		!override_text && search_index < definition->search_and_replace_functions.count;
 		search_index++)
 	{
 		struct ui_widget_search_and_replace_reference *reference =
@@ -9770,7 +9778,8 @@ static void widget_instance_render_recursive(
 					relabel = sibling != widget && ui_legend_save_caption(sibling) == widget &&
 						controller_glyph_hidden(owner, _gamepad_analog_button_a) != 0;
 			}
-			if (relabel) widget->parameters.text_box.text = save_text;
+			/* (drawn as an override: the caption's own text is a pool block its string list refreshes) */
+			if (relabel) ui_text_box_render_override = save_text;
 			short shift = ui_touch_legend_caption_shift(widget);
 			rectangle2d shifted_clip;
 
@@ -9789,7 +9798,7 @@ static void widget_instance_render_recursive(
 				clip_rect,
 				offset,
 				widget_instance_text_box_is_focused(widget));
-			if (relabel) widget->parameters.text_box.text = original_text;
+			ui_text_box_render_override = NULL;
 		}
 		break;
 
