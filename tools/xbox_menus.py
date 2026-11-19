@@ -937,7 +937,7 @@ def multiplayer_documents(assets, bitmaps):
                     desc.set('height', '60')
                 limit = int(desc.get('top'))
             w.set('height', str(limit))
-            if w.get('name') == 'xbox/' + MP + '/server_settings/options_menu':
+            if w.get('name') in ('xbox/' + MP + '/server_settings/options_menu', 'xbox/' + MP + '/coop_options/options_menu'):
                 for c in w.findall('child'):
                     if c.get('y') and 'button_bar' not in c.get('widget'):
                         # Preserve the co-op/competitive shared slots, using
