@@ -5515,16 +5515,22 @@ static void browser_touch_legend_update(struct widget_instance *screen)
 	touch_legend_button(screen, "browser_ip_address_icon", "browser_ip_address_caption", touch);
 	touch_legend_button(screen, "browser_create_inter_icon", "browser_create_inter_caption", touch);
 	visible_set(back, !touch);
-	visible_set(join, !touch);
+	/* JOIN GAME sits in the detail panel, whose update shows it with the panel each
+	   frame, so this runs after that update and only ever hides it */
+	if (touch)
+		visible_set(join, FALSE);
 	for (focus = screen; focus->focused_child; focus = focus->focused_child)
 		;
 	if (touch && focus && (focus == back || focus == join))
 		browser_c_focus(named(screen, "browser_ip_address", 0));
 }
 
+/* Direct IP: the A (accept) legend goes, since tapping JOIN GAME does it. The B (cancel)
+legend stays for the touch layer, which skips drawing it and draws the top-left BACK
+chevron in its place; this screen has no B handler of its own to give the chevron. */
 static void direct_ip_touch_legend_update(struct widget_instance *screen)
 {
-	char const *const names[] = { "a_butn", "accept", "b_butn", "cancel" };
+	char const *const names[] = { "a_butn", "accept" };
 	boolean touch;
 	short index;
 
@@ -6227,8 +6233,8 @@ static void browser_update(struct widget_instance *list)
 
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
 	{
-		browser_touch_legend_update(screen_of(list));
 		lobby_browser_update(list);
+		browser_touch_legend_update(screen_of(list));
 		return;
 	}
 	browser_games_read();

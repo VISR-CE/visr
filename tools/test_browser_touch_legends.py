@@ -31,7 +31,10 @@ def test_browser_touch_hides_back_and_join_and_glyphs():
     body = function_body('browser_touch_legend_update')
     assert 'menu_touch_active(screen)' in body
     assert 'visible_set(back, !touch)' in body
-    assert 'visible_set(join, !touch)' in body
+    # JOIN GAME lives in the detail panel, whose update re-shows it, so touch only hides it, after that update
+    assert 'if (touch)\n\t\tvisible_set(join, FALSE);' in body
+    browser = function_body('browser_update')
+    assert browser.index('lobby_browser_update(list);') < browser.index('browser_touch_legend_update(screen_of(list));')
     for name in ('browser_ip_address', 'browser_create_inter'):
         assert f'"{name}_icon", "{name}_caption", touch' in body
     # focus never stays on a widget touch hides
@@ -47,8 +50,11 @@ def test_global_buttons_keep_their_captions_on_touch():
 
 def test_direct_ip_touch_hides_glyph_legends():
     body = function_body('direct_ip_touch_legend_update')
-    for name in ('a_butn', 'accept', 'b_butn', 'cancel'):
+    for name in ('a_butn', 'accept'):
         assert f'"{name}"' in body
+    # the B legend stays: the touch layer reads it to draw the BACK chevron (the screen has no B handler)
+    for name in ('b_butn', 'cancel'):
+        assert f'"{name}"' not in body
     assert 'visible_set(named(screen, names[index], 0), !touch)' in body
 
 
