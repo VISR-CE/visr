@@ -592,10 +592,10 @@ def picture_frame(assets, key):
 
 # the hub rows' places (a row filtered out by its platform leaves its slot to the row after)
 HUB_SLOTS = {'controls': 0, 'video': 1, 'graphics': 1, 'audio': 2, 'network': 3, 'profiles': 4, 'keyboard': 5}
-# PROFILES is a hub-only row: it opens the profile editor (the per-profile rows), which keeps no row of its own for it
+# PROFILES is a hub-only row: it opens the profile picker (menu_tags.c leaves it unredirected while the hub is up), which keeps no row of its own for it
 PROFILES_ROW = ('profiles', 'PROFILES', None, None, None, 'Choose, create, and edit\\nplayer profiles.' + CURRENT)
 HUB_ROWS = PAGE_ROWS[:5] + (PROFILES_ROW,) + PAGE_ROWS[5:]
-PROFILES_OPEN = 'ui\\shell\\' + PE.replace('/', '\\') + '\\player_profile_edit_screen'
+PROFILES_OPEN = 'ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_select_screen'
 # a hub row whose panel text ends with another status line than "Current Profile:": GRAPHICS names its mode there
 # (menu_functions.c's "port hub status" shows the mode's word, in place of the profile's name, while it is chosen)
 HUB_DESCRIPTIONS = {'graphics': "The game's look.\\n\\n\\nGraphics:"}

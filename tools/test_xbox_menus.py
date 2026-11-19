@@ -1332,14 +1332,17 @@ def test_hub_profiles_row_reaches_the_picker_without_looping():
     module = generator()
     profiles = [r for r in module.HUB_ROWS if r[0] == 'profiles']
     assert len(profiles) == 1
-    # The row opens the edit-screen tag, which carries the picker list. Row opens
-    # always pass a parent, and only root opens consult menu_screen_always, so the
-    # SETTINGS redirect to the hub cannot send PROFILES back to the hub.
-    assert module.PROFILES_OPEN.endswith('player_profile_edit_screen')
-    assert module.PROFILES_OPEN.startswith('ui\\shell\\')
-    redirect_sources = {src.replace('/', '\\') for src, _ in module.SCREEN_ALWAYS}
-    assert module.PROFILES_OPEN in redirect_sources  # root-only; non-root row opens skip it
-    assert not module.PROFILES_OPEN.endswith('player_profile_select_screen')
+    # A row open is a root open (`ui_widget_launch_widget` passes no parent), so the always-redirect applies to it:
+    # the row must name the picker, and the game must skip the redirect while the hub is up.
+    assert module.PROFILES_OPEN.endswith('player_profile_select_screen')
+    redirects = {src.replace('/', '\\'): dst for src, dst in module.SCREEN_ALWAYS}
+    assert redirects[module.PROFILES_OPEN] == 'pc/xbox/settings/settings_screen'
+    source = (Path(__file__).parent.parent / 'port/linux/game/menu_tags.c').read_text()
+    body = source[source.index('long pc_menu_screen_open('):]
+    body = body[:body.index('\n}\n')]
+    skip = body.index('if (from_hub && strcmp(name, target))')
+    assert body.index('from_hub = menu_hub_open;') < body.index('menu_screen_equivalent(name, use_xbox)') < skip
+    assert 'return tag_index;' in body[skip:skip + 120]
 
 
 @pytest.mark.parametrize('name', ERROR_SCREENS + ABORT_SCREENS + WAIT_SCREENS)

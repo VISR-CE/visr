@@ -76,8 +76,8 @@
 		<on event="start" open="xbox/settings/network_setup/network_settings_screen" />
 	</widget>
 	<widget name="xbox/settings/profiles" type="text" text="PROFILES" text_id="xbox.settings.xbox_settings_profiles.text" font="ui\large_ui" color="#FF2896FF" width="232" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" text_x="13" text_y="8" top="0">
-		<on event="a" open="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\player_profile_edit_screen" />
-		<on event="start" open="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\player_profile_edit_screen" />
+		<on event="a" open="ui\shell\main_menu\settings_select\player_setup\player_profile_select_screen" />
+		<on event="start" open="ui\shell\main_menu\settings_select\player_setup\player_profile_select_screen" />
 	</widget>
 	<widget name="xbox/settings/keyboard" type="text" text="KEYBOARD &amp; MOUSE" text_id="xbox.settings.xbox_settings_keyboard.text" font="ui\large_ui" color="#FF2896FF" width="232" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" text_x="13" text_y="8" top="0">
 		<on event="a" open="xbox/settings/controls_setup/controls_settings_screen" />

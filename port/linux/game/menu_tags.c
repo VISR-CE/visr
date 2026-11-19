@@ -3355,8 +3355,11 @@ boolean pc_menu_delete_from_select(void)
 	return menu_delete_from_select;
 }
 
+static boolean menu_hub_open;
+
 long pc_menu_screen_open(long tag_index, char const *requested_name, boolean root)
 {
+	boolean from_hub;
 	extern int platform_menu_keyboard(void);
 	char const *name, *target;
 	long replacement;
@@ -3374,7 +3377,18 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 		menu_delete_from_select = !strcmp(name, "ui\\shell\\error\\confirm_delete_profile_modal_fullscreen");
 	if (root) menu_profile_description(platform_menu_keyboard());
 	use_xbox = menu_use_xbox();
+	/* The hub's PROFILES row opens the profile picker, which the main menu's SETTINGS entry redirects to the hub: a screen opened while the hub is up is not redirected back to it. */
+	from_hub = menu_hub_open;
+	menu_hub_open = FALSE;
 	target = menu_screen_equivalent(name, use_xbox);
+	if (target && !strcmp(target, "pc\\xbox\\settings\\settings_screen"))
+	{
+		if (from_hub && strcmp(name, target))
+			return tag_index;
+		menu_hub_open = TRUE;
+	}
+	if (!strcmp(name, "pc\\xbox\\settings\\settings_screen"))
+		menu_hub_open = TRUE;
 	/* The pause hub exists only in the Xbox look; PC pause settings edit the active profile. */
 	if (!use_xbox && !strcmp(name, "pc\\xbox\\settings\\settings_screen"))
 		target = "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen";
