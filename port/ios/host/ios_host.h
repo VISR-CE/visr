@@ -67,6 +67,9 @@ void host_menu_pointer_attach(void *root_view);
 /* host_touch.m: whether a replay holds the touch controls, and a menu coming up or going away */
 int host_ios_touch_blocked(void);
 void host_ios_touch_menu_changed(int menus);
+/* a map is running with no menu, movie, loading bar or cutscene over it: the only time the touch controls show
+(host_touch.m; the guest's VISR_TOUCH_GAMEPLAY hint, host_sdl.c) */
+void host_ios_touch_gameplay_changed(int gameplay);
 /* a replay holds the controls: the menus take no pointer (host_touch.m, the Mac host) */
 void host_menu_pointer_block(int blocked);
 void host_ui_pointer_install(void (*feedback)(int), void (*menus_changed)(int));

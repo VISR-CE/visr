@@ -27,6 +27,7 @@ void host_touch_replay_active(int active) { replay_holds_pointer=active!=0; host
 int host_ios_touch_blocked(void) { return replay_holds_pointer; }
 /* (no touch controls to shrink) */
 void host_ios_touch_menu_changed(int menus) { (void)menus; }
+void host_ios_touch_gameplay_changed(int gameplay) { (void)gameplay; }
 #else
 void host_touch_replay_active(int active) { (void)active; }
 #endif
