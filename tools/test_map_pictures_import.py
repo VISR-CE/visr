@@ -51,7 +51,7 @@ int main(void)
     for (bits = 0; bits < 16; bits++) {
         available = bits & 1; importing = (bits >> 1) & 1;
         scripted = (bits >> 2) & 1; debug = (bits >> 3) & 1;
-        assert(!refused() == (scripted ? (available || importing) : (available && debug)));
+        assert((!refused()) == (scripted ? (available || importing) : (available && debug)));
     }
     return 0;
 }

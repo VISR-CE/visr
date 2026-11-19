@@ -132,10 +132,15 @@ void host_menu_pointer_attach(void *root_view) {
 static HaloMenuText *menu_text;
 
 int host_menu_text_active(void) {
+    if (!host_on_main_thread()) {
+        __block int active = 0;
+        host_main_sync(^{ active = host_menu_text_active(); });
+        return active;
+    }
     return menu_text.alert && !menu_text.result;
 }
 
-int host_menu_text_prompt(int on, const char *title, const char *text, int masked) {
+static int menu_text_prompt_main(int on, const char *title, const char *text, int masked) {
     if (!menu_text) menu_text = [HaloMenuText new];
     if (!on) {
         [menu_text.alert dismissViewControllerAnimated:NO completion:nil];
@@ -176,7 +181,20 @@ int host_menu_text_prompt(int on, const char *title, const char *text, int maske
     return 1;
 }
 
+/* The game thread calls these from host_sdl_poll_event; UIKit presentation and
+   the alert's state belong to the main thread. */
+int host_menu_text_prompt(int on, const char *title, const char *text, int masked) {
+    __block int presented = 0;
+    host_main_sync(^{ presented = menu_text_prompt_main(on, title, text, masked); });
+    return presented;
+}
+
 int host_menu_text_result(char *buffer, uint32_t size) {
+    if (!host_on_main_thread()) {
+        __block int out = 0;
+        host_main_sync(^{ out = host_menu_text_result(buffer, size); });
+        return out;
+    }
     int result = menu_text.result;
     if (result && size) SDL_strlcpy(buffer, menu_text.answer.UTF8String ?: "", size);
     menu_text.result = 0;
