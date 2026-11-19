@@ -3667,12 +3667,12 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	menu_window_pointer(pointer);
 	pointer->held = host.held != 0;
 	pointer->moved = host.moved != 0;
+	pointer->down = host.down != 0;
 	pointer->left_clicks = (unsigned char)(host.left_clicks < 0 ? 0 : host.left_clicks < 255 ? host.left_clicks : 255);
 	pointer->right_clicks = (unsigned char)(host.right_clicks < 0 ? 0 : host.right_clicks < 255 ? host.right_clicks : 255);
 	/* (the host's steps are positive down the screen; the menus' are positive up the list) */
 	pointer->wheel_steps = (signed char)(host.wheel_steps < -8 ? 8 : host.wheel_steps > 8 ? -8 : -host.wheel_steps);
 	pointer->back_swipes = (unsigned char)(host.back_swipes < 0 ? 0 : host.back_swipes < 255 ? host.back_swipes : 255);
-	pointer->down = host.down != 0;
 	return 1;
 }
 

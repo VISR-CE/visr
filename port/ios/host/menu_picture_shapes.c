@@ -269,3 +269,76 @@ int menu_carousel_shapes(const uint8_t *source,unsigned width,unsigned height,ui
     if(stopped(cancel)) { free(result);return -1; }
     memcpy(rgba,result,size);free(result);return 1;
 }
+
+int menu_lock_shapes_source(const uint8_t *source,unsigned width,unsigned height)
+{
+    if(!source || width!=256 || height!=128) return -1;
+    uint64_t hash=UINT64_C(14695981039346656037);
+    for(size_t i=0;i<(size_t)width*height*4;i++) hash=(hash^source[i])*UINT64_C(1099511628211);
+    return hash==UINT64_C(0x3e7d2cf87ffffaf9)?0:-1;
+}
+
+/* Signed distance to a rectangle with rounded corners: negative inside. */
+static double rounded_rect(double x,double y,double x0,double y0,double x1,double y1,double r)
+{
+    double qx=fabs(x-(x0+x1)/2)-((x1-x0)/2-r),qy=fabs(y-(y0+y1)/2)-((y1-y0)/2-r);
+    return hypot(fmax(qx,0),fmax(qy,0))+fmin(fmax(qx,qy),0)-r;
+}
+/* Level-select lock (sp_levels frame 10): shackle, body and keyhole drawn as
+ * one thin outline with a soft glow, like the locked_icon and locked_gametype
+ * redraws. The backdrop is the picture's own vertical gradient, averaged per row
+ * away from the lock so the DXT blocks don't carry into the larger copy. */
+int menu_lock_shapes(const uint8_t *source,unsigned width,unsigned height,uint8_t *rgba,
+    unsigned scale,const volatile int *cancel)
+{
+    enum { PICTURE_W=140, PICTURE_H=114 };
+    if(menu_lock_shapes_source(source,width,height)<0 || !rgba || (scale!=2 && scale!=4)) return 0;
+    if(stopped(cancel)) return -1;
+    double band[PICTURE_H][3];
+    for(unsigned y=0;y<PICTURE_H;y++) {
+        double sum[3]={0};unsigned n=0;
+        for(unsigned x=2;x<PICTURE_W-2;x++) {
+            if(x>=26 && x<108) continue;
+            const uint8_t *p=source+((size_t)y*width+x)*4;
+            for(unsigned c=0;c<3;c++) sum[c]+=p[c]/255.0;
+            n++;
+        }
+        for(unsigned c=0;c<3;c++) band[y][c]=sum[c]/n;
+    }
+    static const Point stem[]={{64.8,69.5},{68.2,69.5},{72.5,87.5},{60.5,87.5}};
+    const double edge[3]={41.0/255,150.0/255,1},line=1.1,glow=.32,sigma=1.1;
+    size_t size=(size_t)width*height*scale*scale*4;
+    uint8_t *result=calloc(size,1);
+    if(!result) return 0;
+    for(unsigned y=0;y<height*scale;y++) {
+        if(stopped(cancel)) { free(result);return -1; }
+        for(unsigned x=0;x<width*scale;x++) {
+            double color[3]={0};
+            for(unsigned sy=0;sy<4;sy++) for(unsigned sx=0;sx<4;sx++) {
+                double xx=(x+(sx+.5)/4)/scale,yy=(y+(sy+.5)/4)/scale,px[3]={0};
+                if(xx<PICTURE_W && yy<PICTURE_H) {
+                    double t=fmin(fmax(yy-.5,0),PICTURE_H-1);
+                    unsigned r0=(unsigned)t,r1=r0+1<PICTURE_H?r0+1:r0;
+                    for(unsigned c=0;c<3;c++) px[c]=band[r0][c]+(band[r1][c]-band[r0][c])*(t-r0);
+                    double outer=fmax(rounded_rect(xx,yy,43.5,12.8,89.5,80,9.5),yy-41.5);
+                    double inner=rounded_rect(xx,yy,55.5,24.5,77.5,80,3);
+                    double shackle=fmax(outer,-inner);
+                    double body=rounded_rect(xx,yy,32.5,44.5,101.5,98.5,2.5);
+                    int in;double sd=distance_to((Polygon){stem,4},xx,yy,&in);
+                    double hole=fmin(hypot(xx-66.5,yy-63.5)-8.2,in?-sd:sd);
+                    double solid=fmin(shackle,fmax(body,-hole));
+                    double d=fmin(fmin(fabs(shackle),fabs(body)),fabs(hole));
+                    if(solid<0) px[0]=px[1]=px[2]=0;
+                    double a=clip(1-(1-(d<line/2))*(1-glow*exp(-.5*(d/sigma)*(d/sigma))));
+                    for(unsigned c=0;c<3;c++) px[c]=px[c]*(1-a)+edge[c]*a;
+                }
+                for(unsigned c=0;c<3;c++) color[c]+=px[c]/16;
+            }
+            uint8_t *p=result+((size_t)y*width*scale+x)*4;
+            for(unsigned c=0;c<3;c++) p[c]=(uint8_t)lround(clip(color[c])*255);
+            p[3]=255;
+        }
+    }
+    if(stopped(cancel)) { free(result);return -1; }
+    memcpy(rgba,result,size);free(result);return 1;
+}

@@ -36,7 +36,7 @@ static boolean ui_mouse_list_shows_several(struct widget_instance *w) {(void)w;r
 static long ui_mouse_child_index(struct widget_instance *w) {(void)w;return NONE;}
 static boolean widget_instance_can_receive_events(struct widget_instance *w) {(void)w;return 0;}
 static boolean ui_mouse_widget_is_item(struct widget_instance *w) {(void)w;return 0;}
-static void ui_mouse_note_carousel_arrows(struct widget_instance *w,point2d p) {(void)w;(void)p;}
+static void ui_mouse_note_carousel_peeks(struct widget_instance *w,point2d p) {(void)w;(void)p;}
 static long ui_redraw_touch_target_units(void) {return 0;}
 #define SPINNER_EXTRA_WIDTH 0
 #define HALO_MENU_SLIDER_WIDTH 0

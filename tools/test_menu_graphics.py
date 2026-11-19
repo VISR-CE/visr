@@ -131,6 +131,10 @@ static struct widget_instance *widget_instance_get_nth_child(struct widget_insta
 static struct ui_widget_definition definitions[64];
 static struct ui_widget_definition *ui_widget_definition_get(long tag) { return &definitions[tag]; }
 static boolean pc_menu_tag(long tag) { (void)tag; return TRUE; }
+/* the graphics rows are never a carousel */
+static boolean ui_widget_is_carousel(struct widget_instance *widget) { (void)widget; return FALSE; }
+static boolean ui_carousel_controller_move(struct widget_instance *widget, int direction)
+{ (void)widget; (void)direction; return FALSE; }
 static struct widget_instance *widget_instance_get_tail_child_widget(struct widget_instance *widget)
 {
     struct widget_instance *child = widget->child;

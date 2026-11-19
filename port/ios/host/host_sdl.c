@@ -1695,6 +1695,15 @@ static void menu_script_next(void)
 		if (sscanf(menu_script.cursor, " %d%n", &menu_script.hold, &used) < 1 || menu_script.hold < 0)
 			menu_script.hold = 0;
 	}
+	else if (!strcmp(kind, "hold"))
+	{
+		int hold = 0;
+
+		menu_script.kind = 8;
+		sscanf(menu_script.cursor, "%f %f %f %f %d%n", &menu_script.x0, &menu_script.y0, &menu_script.x1,
+			&menu_script.y1, &hold, &used);
+		menu_script.steps = 7 + (hold > 0 ? hold : 0);
+	}
 	else if (!strcmp(kind, "wheel"))
 	{
 		menu_script.kind = 5;
@@ -1795,16 +1804,18 @@ static void menu_script_run(void)
 	if (!menu_script.kind || !window || !window_size(window, &width, &height) ||
 		menu_script.frame < menu_script.start + (unsigned long)menu_script.step)
 		return;
-	if (menu_script.kind >= 6 && menu_script_pinch())
+	if ((menu_script.kind == 6 || menu_script.kind == 7) && menu_script_pinch())
 		return;
 	host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
-	t = menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
+	t = menu_script.kind == 8 ? fminf(1.0f, (float)menu_script.step / 6.0f) :
+		menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
 	x = (menu_script.x0 + (menu_script.x1 - menu_script.x0) * t) * (float)width;
 	y = (menu_script.y0 + (menu_script.y1 - menu_script.y0) * t) * (float)height;
 	switch (menu_script.kind)
 	{
 	case 1:
 	case 2:
+	case 8:
 		if (menu_script.step == 0)
 			host_menu_pointer_touch_begin(&menu_pointer, 9000, x, y);
 		else if (menu_script.step < menu_script.steps)
