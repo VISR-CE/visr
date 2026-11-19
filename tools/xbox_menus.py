@@ -121,9 +121,11 @@ def panel(spec):
 # runs from the glyph to the caption box's right edge plus 8 units each side,
 # so these widths decide how tightly a bar packs.
 LEGEND_CAPTION_WIDTHS = {'START NOW': 90, 'SWITCH TEAM': 100, 'ADD PLAYER': 108,
-                         'LEAVE': 50, 'SHARE': 55}
+                         'LEAVE': 50, 'SHARE': 45}
 LEGEND_RIGHT = 608
 LEGEND_PILL_PAD, LEGEND_GAP = 8, 4
+# Lobby SHARE glyph x: its caption text centers on touch's B slot (x 329..441).
+LOBBY_SHARE_X = 335
 # Touch pills run from y 397 (60 units centered on the glyph); boxes above
 # the legend end by here so a pill never touches their border.
 LEGEND_CLEAR_Y = 389
@@ -1266,6 +1268,11 @@ def lobby_action_layout(root):
     )
     widths = {button: legend_caption_width(caption) for _, button, caption, _ in actions}
     positions = legend_positions(('x', 'y', 'left_thumb', 'b', 'a'), widths)
+    # Touch draws A, B, Y and X in four fixed slots (`ui_touch_legend_slot_bounds`)
+    # and centers any other button's pill on its caption text. B's slot is empty
+    # on touch (the back chevron replaces it), so SHARE's caption is centered in
+    # it; packed from the right it sat on the Y slot and its pill overlapped ADD PLAYER's.
+    positions['left_thumb'] = LOBBY_SHARE_X
     for action, button, caption, run in actions:
         x, width = positions[button], widths[button]
         name = base + '/lobby_button_' + action
