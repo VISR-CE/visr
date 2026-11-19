@@ -39,8 +39,11 @@ def test_host_defaults_hidden_until_guest_says_gameplay():
     assert "BOOL menu=touch_overlay_off();" in touch
     begin = touch.index("touchesBegan")
     assert "touch_overlay_off()" in touch[begin:begin + 900]
-    point = touch.index("pointInside")
-    assert "touch_overlay_off()" in touch[point:point + 300]
+    point = touch.index("- (BOOL)pointInside:")
+    body = touch[point:touch.index("\n}\n", point)]
+    # (the laptop posture swallows every touch first; the overlay check follows it)
+    assert "if(self.laptop)return YES;" in body
+    assert "host_touch_replay_blocked(&replay_gate) || touch_overlay_off()" in body
     assert "void host_ios_touch_gameplay_changed(int gameplay)" in touch
 
 
