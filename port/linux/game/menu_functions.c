@@ -6404,7 +6404,8 @@ enum
 	_option_health,		/* the variant's health, tenths */
 	_option_short,		/* a short of the options */
 	_option_option_byte,	/* a byte of the options */
-	_option_radar		/* the options' radar players, and the variant's flag */
+	_option_radar,		/* the options' radar players, and the variant's flag */
+	_option_spawn		/* STARTING EQUIPMENT: 0 CUSTOM (the map's own), 1 GENERIC, 2 AS SPECIFIED (a loadout) */
 };
 
 struct gametype_option
@@ -6439,11 +6440,10 @@ static struct gametype_option const gametype_options[] =
 		{ 1, 0 } },
 	{ "item_options_weapon_set_spinner", _option_long, VARIANT_FIELD(universal_variant.weapon_set), 0, 14,
 		{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 10 } },
-	{ "item_options_starting_equipment_spinner", _option_flag, 0, FLAG(_game_variant_generic_starting_equipment_bit),
-		2, { 0, 1 } },
+	/* (the map's starting equipment, the generic one, or a custom loadout: Starting Equipment and Loadout in one) */
+	{ "spawn_weapons_spinner", _option_spawn, 0, 0, 3, { 0, 1, 2 } },
 	{ "map_weapons_spinner", _option_option_byte, OPTIONS_FIELD(no_map_weapons), 0, 2, { 0, 1 } },
-	/* (the loadout: the weapon set's, or each player's two weapons) */
-	{ "loadout_spinner", _option_option_byte, OPTIONS_FIELD(loadout), 0, 2, { _loadout_category, _loadout_custom } },
+	/* (a custom loadout's two weapons per player) */
 	{ "primary_weapon_spinner", _option_option_byte, OPTIONS_FIELD(primary_weapon), 0, NUMBER_OF_LOADOUT_WEAPONS,
 		{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 } },
 	{ "secondary_weapon_spinner", _option_option_byte, OPTIONS_FIELD(secondary_weapon), 0, NUMBER_OF_LOADOUT_WEAPONS,
@@ -6542,6 +6542,9 @@ static long gametype_option_value(struct gametype_option const *option, struct g
 	case _option_short: return *(short *)(o + option->offset);
 	case _option_option_byte: return o[option->offset];
 	case _option_radar: return options->radar_players;
+	case _option_spawn:
+		return options->loadout == _loadout_custom ? 2 :
+			(variant->universal_variant.flags & FLAG(_game_variant_generic_starting_equipment_bit)) != 0;
 	}
 	return 0;
 }
@@ -6565,6 +6568,14 @@ static void gametype_option_value_set(struct gametype_option const *option, long
 	case _option_health: variant->universal_variant.health = (real)value / 10.0f; break;
 	case _option_short: *(short *)(o + option->offset) = (short)value; break;
 	case _option_option_byte: o[option->offset] = (byte)value; break;
+	case _option_spawn:
+		/* (a custom loadout leaves the generic-equipment flag as it was) */
+		options->loadout = value == 2 ? _loadout_custom : _loadout_category;
+		if (value == 1)
+			variant->universal_variant.flags |= FLAG(_game_variant_generic_starting_equipment_bit);
+		else if (value == 0)
+			variant->universal_variant.flags &= ~FLAG(_game_variant_generic_starting_equipment_bit);
+		break;
 	case _option_radar:
 		/* (and the Xbox's flag: other players on the tracker or not) */
 		options->radar_players = (byte)value;
@@ -6628,9 +6639,62 @@ static void gametype_option_row(struct widget_instance *row, boolean save)
 static void gametype_options_each(struct widget_instance *list, boolean save)
 {
 	struct widget_instance *row;
+	boolean game_screen = named(list, "op_teams_hud", 0) != NULL;
 
 	for (row = list->child; row; row = row->next)
+	{
+		/* the GAME screen carries every type's rows; only the shown ones are saved */
+		if (save && game_screen && !row->visible)
+			continue;
 		gametype_option_row(row, save);
+	}
+}
+
+/* the GAME screen of the gametype editor holds the rows of every type (the
+score to win in each one's unit, team play, the type's own options): the current
+type's are shown, packed to the first row's place */
+static void game_options_show(struct widget_instance *list)
+{
+	static char const *const order[] =
+	{
+		"op_captures_to_win", "op_koth_score_to_win", "op_score_to_win", "op_laps_to_win",
+		"op_kills_to_win", "op_time_limit", "op_team_play", "op_koth_team_play", "op_teams_hud",
+		"op_type_ctf", "op_type_slayer", "op_type_oddball", "op_type_koth", "op_type_race",
+	};
+	/* by engine (1 CTF, 2 Slayer, 3 Oddball, 4 King, 5 Race): the score row, team play row, type row */
+	static char const *const score[] = { NULL, "op_captures_to_win", "op_kills_to_win", "op_score_to_win",
+		"op_koth_score_to_win", "op_laps_to_win" };
+	static char const *const teams[] = { NULL, NULL, "op_team_play", "op_team_play", "op_koth_team_play",
+		"op_team_play" };
+	static char const *const type[] = { NULL, "op_type_ctf", "op_type_slayer", "op_type_oddball",
+		"op_type_koth", "op_type_race" };
+	struct widget_instance *first = named(list, order[0], 0);
+	struct widget_instance *second = named(list, "op_time_limit", 0);
+	long engine = PIN(edit_variant()->game_engine_index, 1, 5);
+	short slot = 0, row, pitch;
+
+	if (!first || !second || second->vertical_offset <= first->vertical_offset)
+		return;
+	pitch = second->vertical_offset - first->vertical_offset;
+	for (row = 0; row < NUMBEROF(order); row++)
+	{
+		struct widget_instance *widget = named(list, order[row], 0);
+		boolean wanted = FALSE;
+
+		if (!widget)
+			continue;
+		if (row < 5)
+			wanted = !strcmp(order[row], score[engine]);
+		else if (!strncmp(order[row], "op_type_", 8))
+			wanted = !strcmp(order[row], type[engine]);
+		else if (!strcmp(order[row], "op_team_play") || !strcmp(order[row], "op_koth_team_play"))
+			wanted = teams[engine] && !strcmp(order[row], teams[engine]);
+		else
+			wanted = TRUE;
+		widget->visible = wanted;
+		if (wanted)
+			widget->vertical_offset = first->vertical_offset + slot++ * pitch;
+	}
 }
 
 /* the options' list of a button of its bar (OK's): the one above it whose
@@ -6685,6 +6749,9 @@ static short vehicles_preset_index(struct game_variant_options const *options, s
 		VEHICLE_PRESET_PC : (short)MIN(options->vehicle_set[side], VEHICLE_PRESET_PC - 1);
 }
 
+/* the preset the screen's spinner last showed (the VEHICLE TYPES screen makes the set CUSTOM behind it) */
+static short vehicle_preset_seen = NONE;
+
 static void vehicles_show(struct widget_instance *list)
 {
 	struct game_variant_options *options = edit_options();
@@ -6703,6 +6770,7 @@ static void vehicles_show(struct widget_instance *list)
 			spinner->parameters.list.selected_index =
 				(short)MIN(options->vehicle_counts[side][index], MAXIMUM_VARIANT_VEHICLE_COUNT);
 	}
+	vehicle_preset_seen = vehicles_preset_index(options, side);
 }
 
 /* the side shown's spinners kept (and the Xbox's vehicle set: red's, if it
@@ -6780,6 +6848,32 @@ static void vehicles_update(struct widget_instance *list)
 		vehicles_show(list);
 		return;
 	}
+	if (!preset && !team)
+	{
+		/* (the VEHICLE TYPES screen: its counts, and the side's set is CUSTOM once one changes) */
+		for (index = 0; index < NUMBER_OF_VARIANT_VEHICLES; index++)
+		{
+			struct widget_instance *spinner = vehicle_spinner(list, vehicle_spinners[index]);
+
+			if (spinner && spinner->parameters.list.selected_index !=
+				options->vehicle_counts[gametype_edit.vehicle_side][index])
+			{
+				options->vehicle_set[gametype_edit.vehicle_side] = VARIANT_VEHICLE_SET_CUSTOM;
+				changed = TRUE;
+			}
+		}
+		if (changed)
+			vehicles_keep(list);
+		return;
+	}
+	/* (back from VEHICLE TYPES: the preset it changed is shown, not overwritten) */
+	if (preset && preset->parameters.list.selected_index == vehicle_preset_seen &&
+		vehicles_preset_index(options, gametype_edit.vehicle_side) != vehicle_preset_seen)
+	{
+		preset->parameters.list.selected_index = vehicles_preset_index(options, gametype_edit.vehicle_side);
+		vehicle_preset_seen = preset->parameters.list.selected_index;
+		return;
+	}
 	for (index = 0; preset && index < NUMBER_OF_VARIANT_VEHICLES; index++)
 	{
 		struct widget_instance *spinner = vehicle_spinner(list, vehicle_spinners[index]);
@@ -6794,7 +6888,11 @@ static void vehicles_update(struct widget_instance *list)
 	}
 	if (changed || (preset && preset->parameters.list.selected_index !=
 		vehicles_preset_index(options, gametype_edit.vehicle_side)))
+	{
 		vehicles_keep(list);
+		if (preset)
+			vehicle_preset_seen = preset->parameters.list.selected_index;
+	}
 }
 
 /* "mp profile init X" (the list's creation): its spinners from the gametype */
@@ -6803,7 +6901,9 @@ static boolean gametype_options_init(struct widget_instance *list)
 	if (!edit_variant())
 		return campaign_fail();
 	gametype_options_each(list, FALSE);
-	if (named(list, "op_team", 0))
+	if (named(list, "op_teams_hud", 0))
+		game_options_show(list);
+	if (named(list, "op_team", 0) || named(list, "op_warthog", 0))
 		vehicles_show(list);
 	return TRUE;
 }
@@ -7068,13 +7168,11 @@ static void gametype_option_help(struct widget_instance *list)
 
 	/* (Item Options: the weapon set's row for a category loadout, the two
 	weapons' for a custom one) */
-	if (named(list, "loadout_spinner", 0))
+	if (named(list, "spawn_weapons_spinner", 0))
 	{
-		boolean custom = named(list, "loadout_spinner", 0)->parameters.list.selected_index == _loadout_custom;
+		boolean custom = named(list, "spawn_weapons_spinner", 0)->parameters.list.selected_index == 2;
 
-		visible_set(named(list, "op_weapon_set", 0), !custom);
-		visible_set(named(list, "op_primary_weapon", 0), custom);
-		visible_set(named(list, "op_secondary_weapon", 0), custom);
+		visible_set(named(list, "op_choose_weapons", 0), custom);
 	}
 	/* (the server browser's filters, hidden: their helps are fewer than
 	their values) */
@@ -7090,6 +7188,8 @@ static void gametype_option_help(struct widget_instance *list)
 		{
 			if (spinner)
 				description->parameters.text_box.string_list_index = (short)(index + spinner->parameters.list.selected_index);
+			else if (!strcmp(row->name, "op_respawn"))
+				description->parameters.text_box.string_list_index = index; /* (the line after the spinners') */
 			return;
 		}
 		if (spinner)
@@ -7153,6 +7253,42 @@ static void gametype_engine_name(struct widget_instance *text_box)
 
 	if (variant)
 		text_box->parameters.text_box.string_list_index = strings[PIN(variant->game_engine_index, 0, 5)];
+}
+
+/* "port respawn state": the PLAYER screen's RESPAWN row's state word, the respawn time (the rest of RESPAWN
+OPTIONS is behind the row) */
+static void respawn_state_show(struct widget_instance *text_box)
+{
+	struct game_variant *variant = edit_variant();
+	wchar_t text[16];
+	char word[16];
+	long seconds;
+
+	if (!variant)
+		return;
+	seconds = variant->universal_variant.respawn_time / 30;
+	if (seconds <= 0)
+		snprintf(word, sizeof(word), "INSTANT");
+	else
+		snprintf(word, sizeof(word), "%ld SEC", seconds);
+	halo_menus_utf16(word, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(text_box, text, NUMBEROF(text));
+}
+
+/* "port teams hud state": the GAME screen's TEAMS & HUD row's state word, the friendly-fire rule */
+static void teams_hud_state_show(struct widget_instance *text_box)
+{
+	struct game_variant_options *options = edit_options();
+	static char const *const words[] = { "OFF", "ON", "SHIELDS", "EXPLOSIVES" };
+	wchar_t text[16];
+	short index;
+
+	if (!options)
+		return;
+	index = options->friendly_fire == _friendly_fire_on ? 1 : options->friendly_fire == _friendly_fire_shields_only ? 2 :
+		options->friendly_fire == _friendly_fire_explosives_only ? 3 : 0;
+	halo_menus_utf16((char *)words[index], (unsigned short *)text, NUMBEROF(text));
+	text_set_length(text_box, text, NUMBEROF(text));
 }
 
 /* ---------- public code */
@@ -7720,6 +7856,10 @@ void pc_menu_game_data_function_invoke(
 		preview_update(widget);
 	else if (!strcmp(name, "port lobby update"))
 		lobby_update(widget);
+	else if (!strcmp(name, "port teams hud state"))
+		teams_hud_state_show(widget);
+	else if (!strcmp(name, "port respawn state"))
+		respawn_state_show(widget);
 	else if (!strcmp(name, "port cloud saves status"))
 		cloud_saves_status_show(widget);
 	else if (!strcmp(name, "port send log status"))

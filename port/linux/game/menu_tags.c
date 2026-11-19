@@ -420,6 +420,9 @@ static char const *const port_function_names[] =
 	/* (the gametype editor's: the Xbox's walk their rows by place, which the
 	PC version's screens changed) */
 	"mp profile begin editing", "mp profile save changes", "request del playlist profile", "final del playlist profile",
+	"mp profile init game options", "mp profile set game options", "mp profile init respawn options",
+	"mp profile set respawn options", "mp profile init teams hud", "mp profile set teams hud",
+	"mp profile init weapons", "mp profile set weapons",
 	"mp profile init game engine", "mp profile set game engine", "mp profile init ctf rules",
 	"mp profile init koth rules", "mp profile init slayer rules", "mp profile init oddball rules",
 	"mp profile init racing rules", "mp profile init player opts", "mp profile init item options",
@@ -467,7 +470,7 @@ static char const *const port_game_data_input_names[] =
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
 	"mp map list update", "gt select list update", "gt edit list update", "load game list update",
 	"direct ip connect update", "network settings update",
-	"port cloud saves status", "port graphics state", "port hub status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
+	"port respawn state", "port teams hud state", "port cloud saves status", "port graphics state", "port hub status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
 	"port lobby preview update",
 	/* (the gametype editor's: the Xbox's stops the game on the buttons'
 	row; the Xbox's read only player_ui's gametype, not Server Setup's) */
@@ -2504,11 +2507,43 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 	return TRUE;
 }
 
+/* a screen child (a button bar, say) that is not a list row: it is taken out of
+the screen's children, and the list's index and the saved offsets follow it.
+Returns FALSE if the screen has no such child. */
+static boolean patch_screen_child_remove(struct patch_work *work, char const *name)
+{
+	struct ui_widget_child_reference *children = work->screen->child_widgets.address;
+	long child, last, removed, wanted = strchr(name, '\\') ? tag_loaded(UI_WIDGET_DEFINITION_TAG, name) : NONE;
+
+	if (wanted == NONE)
+		return FALSE;
+	for (child = 0; child < work->screen->child_widgets.count; child++)
+	{
+		if (child != work->list_child && children[child].widget_tag.index == wanted)
+			break;
+	}
+	if (child >= work->screen->child_widgets.count)
+		return FALSE;
+	last = work->screen->child_widgets.count - 1;
+	removed = child;
+	for (; child < last; child++)
+	{
+		children[child] = children[child + 1];
+		work->screen_y[child] = work->screen_y[child + 1];
+	}
+	work->screen->child_widgets.count = last;
+	if (work->list_child > removed)
+		work->list_child--;
+	return TRUE;
+}
+
 static boolean patch_row_remove(struct patch_work *work, struct halo_menu_patch_row const *source)
 {
 	long removed = patch_row_find(work, source->child), row;
 	short pitch, y;
 
+	if (removed == NONE && patch_screen_child_remove(work, source->child))
+		return TRUE;
 	if (removed == NONE)
 		return patch_fail(work, source->file, source->line, "the list has no row", source->child);
 	pitch = patch_pitch(work, source, removed, work->definitions[removed]);

@@ -3,46 +3,19 @@
 <menus>
 	<widget name="xbox/error/header_saving" type="text" controller="1" width="150" height="20" string_list="xbox/error/error_headers" string_index="3" font="ui\large_ui" color="#FF2896FF">
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/banshee_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/banshee_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/cgturret_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/cgturret_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/ghost_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/ghost_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_banshee" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/banshee_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/banshee_spinner" x="285" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_cgturret" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/cgturret_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/cgturret_spinner" x="285" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_ghost" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/ghost_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/ghost_spinner" x="285" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_rwarthog" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/rwarthog_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/rwarthog_spinner" x="285" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_scorpion" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/scorpion_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/scorpion_spinner" x="285" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_team" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/team_label" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/team_spinner" x="286" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_types" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<on event="a" open="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/vehicle_types_screen" />
+		<on event="start" open="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/vehicle_types_screen" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_types_label" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_types_label" type="text" controller="1" width="480" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_presets" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_presets_label" />
@@ -51,20 +24,6 @@
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicles_respawn" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicles_respawn_label" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicles_respawn_spinner" x="285" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_warthog" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/warthog_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/warthog_spinner" x="285" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/rwarthog_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/rwarthog_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/scorpion_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/scorpion_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
-		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/team_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" string_index="8" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
@@ -89,12 +48,7 @@
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicles_respawn" x="54" y="73" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_team" x="54" y="126" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_presets" x="54" y="152" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_warthog" x="54" y="178" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_ghost" x="54" y="204" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_scorpion" x="54" y="229" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_rwarthog" x="54" y="255" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_banshee" x="54" y="281" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_cgturret" x="54" y="307" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_types" x="54" y="178" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar" y="414" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
@@ -111,63 +65,293 @@
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicles_respawn_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicles_respawn" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/warthog_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/assault_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/warthog_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/assault_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_assault" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/autobalance_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/captures_to_win_label" type="text" controller="1" width="320" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/autobalance_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/captures_to_win_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_captures_to_win" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_penalty_label" type="text" controller="1" width="320" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_penalty_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire_penalty" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 212 19 218">
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options">
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_autobalance" width="512" height="30" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" top="0">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/autobalance_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/autobalance_spinner" x="283" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire" width="512" height="30" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" top="0">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_spinner" x="285" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire_penalty" width="512" height="30" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" top="0">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_penalty_label" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_penalty_spinner" x="282" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<data input="common button bar update" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok" x="471" y="0" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel" x="326" y="0" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/ctf_button_ok" x="471" y="0" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/common_button_cancel" x="326" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
-		<on event="a" run="mp prof save teamplay options" back="true" />
-		<on event="start" back="true" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set ctf rules" back="true" />
+		<on event="start" run="mp profile set ctf rules" back="true" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/cap_teamplay_options" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_help" type="text" controller="1" left="68" top="311" width="482" height="99" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/cap_ctf" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" type="column_list" width="640" height="350" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_help">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_menu" type="column_list" width="640" height="311" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_help">
 		<data input="game settings lists text update" />
-		<on event="created" run="mp prof init teamplay options" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire" x="54" y="73" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire_penalty" x="54" y="103" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_autobalance" x="54" y="133" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" y="414" />
+		<on event="created" run="mp profile init ctf rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_assault" x="54" y="73" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_single_flag" x="54" y="103" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_flag_must_reset" x="54" y="133" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_flag_at_home" x="54" y="163" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_captures_to_win" x="54" y="193" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar" y="414" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
+		<on event="created" run="NULL" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_menu" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_at_home_label" type="text" controller="1" width="320" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_at_home_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_flag_at_home" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_must_reset_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_must_reset_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_flag_must_reset" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_assault" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/assault_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/assault_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_captures_to_win" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/captures_to_win_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/captures_to_win_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_flag_at_home" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_at_home_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_at_home_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_flag_must_reset" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_must_reset_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_must_reset_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_single_flag" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/single_flag_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/single_flag_spinner" x="282" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/single_flag_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/single_flag_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_single_flag" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 212 19 218">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<data input="common button bar update" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/koth_button_ok" x="471" y="0" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/common_button_cancel" x="326" y="0" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set koth rules" back="true" />
+		<on event="start" run="mp profile set koth rules" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_help" type="text" controller="1" left="68" top="321" width="482" height="79" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/cap_koth" font="ui\large_ui" color="#FFFFFFFF">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_moving_hill_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_moving_hill_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/var_moving_hill" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_options_menu" type="column_list" width="640" height="321" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_help">
+		<data input="game settings lists text update" />
+		<on event="created" run="mp profile init koth rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/op_moving_hill" x="54" y="73" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar" y="414" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
+		<on event="created" run="NULL" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_options_menu" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/op_moving_hill" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_moving_hill_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_moving_hill_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_spawn_count_label" type="text" controller="1" width="320" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_spawn_count_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_ball_spawn_count" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 57 19 63" footer_bounds="7 149 19 155">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_type_label" type="text" controller="1" width="320" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_type_spinner" type="spinner" left="2" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_ball_type" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -7 19 -1" footer_bounds="7 211 19 217">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<data input="common button bar update" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/oddball_button_ok" x="471" y="0" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/common_button_cancel" x="326" y="0" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set oddball rules" back="true" />
+		<on event="start" run="mp profile set oddball rules" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_help" type="text" controller="1" left="68" top="341" width="482" height="79" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/cap_oddball" font="ui\large_ui" color="#FFFFFFFF">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_menu" type="column_list" width="640" height="341" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_help">
+		<data input="game settings lists text update" />
+		<on event="created" run="mp profile init oddball rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_with_ball" x="54" y="73" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_without_ball" x="54" y="103" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_speed_with_ball" x="54" y="133" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_type" x="54" y="163" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_random_start" x="54" y="193" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_spawn_count" x="54" y="223" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar" y="414" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_menu" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_spawn_count" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_spawn_count_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_spawn_count_spinner" x="282" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_type" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_type_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_type_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_random_start" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_speed_with_ball" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_with_ball" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_spinner" x="281" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_without_ball" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_without_ball_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_without_ball_spinner" x="281" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_label" type="text" controller="1" width="320" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_random_start" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_speed_with_ball" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 45 19 51" footer_bounds="7 160 19 166">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_spinner" type="spinner" left="4" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_trait_with_ball" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -5 19 1" footer_bounds="7 213 19 219">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_without_ball_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_without_ball_spinner" type="spinner" left="4" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_trait_without_ball" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -5 19 1" footer_bounds="7 213 19 219">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/laps_to_win_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/laps_to_win_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_laps_to_win" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_laps_to_win" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/laps_to_win_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/laps_to_win_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_race_type" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_type_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_type_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_team_scoring" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_scoring_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_scoring_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<data input="common button bar update" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/race_button_ok" x="471" y="0" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/common_button_cancel" x="326" y="0" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set racing rules" back="true" />
+		<on event="start" run="mp profile set racing rules" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_help" type="text" controller="1" left="68" top="321" width="482" height="79" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/cap_race" font="ui\large_ui" color="#FFFFFFFF">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_menu" type="column_list" width="640" height="321" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_help">
+		<data input="game settings lists text update" />
+		<on event="created" run="mp profile init racing rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_team_scoring" x="54" y="73" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_race_type" x="54" y="103" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_laps_to_win" x="54" y="133" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar" y="414" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_menu" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_type_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_type_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_race_type" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 45 19 51" footer_bounds="7 160 19 166">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_scoring_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_scoring_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_team_scoring" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 45 19 51" footer_bounds="7 160 19 166">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/death_bonus_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/death_bonus_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_death_bonus" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_in_order_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_in_order_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_kill_in_order" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_penalty_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_penalty_spinner" type="spinner" left="65" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_kill_in_order" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 56 19 62" footer_bounds="7 148 19 154">
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_death_bonus" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/death_bonus_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/death_bonus_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kill_in_order" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_in_order_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_in_order_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kill_penalty" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_penalty_label" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_penalty_spinner" x="283" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<data input="common button bar update" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/slayer_button_ok" x="471" y="0" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/common_button_cancel" x="326" y="0" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set slayer rules" back="true" />
+		<on event="start" run="mp profile set slayer rules" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_help" type="text" controller="1" left="68" top="321" width="482" height="79" string_list="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/cap_slayer" font="ui\large_ui" color="#FFFFFFFF">
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_menu" type="column_list" width="640" height="321" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_help">
+		<data input="game settings lists text update" />
+		<on event="created" run="mp profile init slayer rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_death_bonus" x="54" y="73" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kill_penalty" x="54" y="103" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kill_in_order" x="54" y="133" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar" y="414" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
+		<on event="created" run="NULL" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_menu" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_profile_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port delete finish" sound="sound\sfx\ui\forward" />
@@ -292,17 +476,35 @@
 		<string text="OOPS!" id="xbox.multiplayer_shared.xbox_error_error_headers.oops" />
 		<string text="ALERT!" id="xbox.multiplayer_shared.xbox_error_error_headers.alert" />
 	</strings>
-	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/cap_teamplay_options">
-		<string text="Players can not be hurt by weapons and explosives\nfired by their teammates." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_not_be_hurt_by_weapo_f42723" />
-		<string text="Players can be hurt by weapons or explosives\nfired by their teammates." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_be_hurt_by_weapons_o_a40947" />
-		<string text="Damage from friendly fire will only reduce shields.\nHealth will be unaffected." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.damage_from_friendly_fire_will_o_d99200" />
-		<string text="Players can be hurt by damage from explosives \nfired by their teammates." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_be_hurt_by_damage_fr_2e04b2" />
-		<string text="No respawn time penalty will be assessed to players\nwho kill a teammate." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.no_respawn_time_penalty_will_be__49a8c9" />
-		<string text="Players who kill a teammate will be assessed a \nfive-second respawn penalty the next time they die." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_9888f4" />
-		<string text="Players who kill a teammate will be assessed a \nten-second respawn penalty the next time they die." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_551ffb" />
-		<string text="Players who kill a teammate will be assessed\na fifteen-second respawn penalty the next time\nthey die." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_c8e1b7" />
-		<string text="Team autobalancing will be disabled.  Players will\nbe free to change teams as they wish." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.team_autobalancing_will_be_disab_52927b" />
-		<string text="Team autobalancing will be enabled.  Players will\nnot be able to change to a more full team." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.team_autobalancing_will_be_enabl_62458a" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options">
+	</widget>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/cap_slayer">
+		<string text="When you die and respawn you'll run a little faster.\nGives new meaning to &quot;The Quick and the Dead.&quot; This \nhelps balance play with newbies and experts." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.when_you_die_and_respawn_you_ll__6f5029" />
+		<string text="You will always run at the same speed no matter how\nmany times you die." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.you_will_always_run_at_the_same__752266" />
+		<string text="You will only score when you kill your designated\ntarget. The target will change each time you make\na kill." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.you_will_only_score_when_you_kil_dc1844" />
+		<string text="Each kill you make counts toward your score." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.each_kill_you_make_counts_toward_3231bd" />
+		<string text="Every time you kill another player, you will run a\nlittle slower. An entertaining handicap for the\nsharp-eyed marksman." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.every_time_you_kill_another_play_bd2a7d" />
+		<string text="You will always run at the same speed, no matter how\nmany other players you kill." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.you_will_always_run_at_the_same__5a22cd" />
+		<string text="Scoring a mere five kills will win the game for you." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.scoring_a_mere_five_kills_will_w_5a1269" />
+		<string text="First player to plug ten enemies wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.first_player_to_plug_ten_enemies_wins" />
+		<string text="At the end of this game there will be fifteen angry\nmen. Angry because the winning player killed them." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.at_the_end_of_this_game_there_wi_17db92" />
+		<string text="You'll need to secure twenty-five kills in order to\nwin the game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.you_ll_need_to_secure_twenty_fiv_c10b85" />
+		<string text="We hope you've got plenty of time, because you'll\nneed to make a full fifty kills to win this one." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.we_hope_you_ve_got_plenty_of_tim_c40fd8" />
+		<string text="Seventy-five kills to win. Settle in for a long\nfight." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.seventy_five_kills_to_win_settle_268d7c" />
+		<string text="A hundred kills to win. Made for big games." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.a_hundred_kills_to_win_made_for__1565b8" />
+		<string text="A hundred and fifty kills to win. Only a crowded\nserver gets there." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.a_hundred_and_fifty_kills_to_win_fdc27e" />
+		<string text="Two hundred kills to win. Bring friends. Lots of\nthem." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.two_hundred_kills_to_win_bring_f_d77e98" />
+		<string text="Two hundred and fifty kills to win." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.two_hundred_and_fifty_kills_to_win" />
+		<string text="Five hundred kills to win. You'll be here a while." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.five_hundred_kills_to_win_you_ll_21bf51" />
+		<string text="This is a team game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.this_is_a_team_game" />
+		<string text="It's every man for himself." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.it_s_every_man_for_himself" />
+		<string text="The game will have no time limit.  It will only end\nwhen someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.the_game_will_have_no_time_limit_a902cc" />
+		<string text="This game will have a 10 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.this_game_will_have_a_10_minute__51b442" />
+		<string text="This game will have a 15 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.this_game_will_have_a_15_minute__4ceb11" />
+		<string text="This game will have a 20 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.this_game_will_have_a_20_minute__e14abd" />
+		<string text="This game will have a 25 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.this_game_will_have_a_25_minute__e4208c" />
+		<string text="This game will have a 30 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.this_game_will_have_a_30_minute__fb5fe3" />
+		<string text="This game will have a 45 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_cap_slayer.this_game_will_have_a_45_minute__75834e" />
 	</strings>
 	<strings name="xbox/strings/common_button_captions">
 		<string text="BACK" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.back" />
@@ -319,33 +521,266 @@
 		<on event="start" run="mouse emit back event" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire">
-		<string text="OFF" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.off" />
-		<string text="ON" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.on" />
-		<string text="SHIELD ONLY" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.shield_only" />
-		<string text="EXPLOSIVES ONLY" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.explosives_only" />
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_kill_in_order">
+		<string text="YES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_kill_in_order.yes" />
+		<string text="NO" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_kill_in_order.no" />
 	</strings>
-	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire_penalty">
-		<string text="NONE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.none" />
-		<string text="5 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.5_seconds" />
-		<string text="10 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.10_seconds" />
-		<string text="15 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.15_seconds" />
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels">
+		<string text="DEATH BONUS:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_slayer_labels.death_bonus" />
+		<string text="KILL PENALTY:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_slayer_labels.kill_penalty" />
+		<string text="KILL IN ORDER:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_slayer_labels.kill_in_order" />
+		<string text="KILLS TO WIN:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_slayer_labels.kills_to_win" />
+		<string text="TEAM PLAY:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_slayer_labels.team_play" />
 	</strings>
-	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels">
-		<string text="FRIENDLY FIRE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.friendly_fire" />
-		<string text="FRIENDLY FIRE PENALTY:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.friendly_fire_penalty" />
-		<string text="AUTO TEAM BALANCE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.auto_team_balance" />
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_death_bonus">
+		<string text="YES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_death_bonus.yes" />
+		<string text="NO" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_death_bonus.no" />
 	</strings>
-	<strings name="xbox/strings/var_boolean">
-		<string text="NO" id="xbox.multiplayer_shared.xbox_strings_var_boolean.no" />
-		<string text="YES" id="xbox.multiplayer_shared.xbox_strings_var_boolean.yes" />
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_team_scoring">
+		<string text="MINIMUM" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_team_scoring.minimum" />
+		<string text="MAXIMUM" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_team_scoring.maximum" />
+		<string text="SUM" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_team_scoring.sum" />
 	</strings>
-	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options">
-		<string text="NONE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.none" />
-		<string text="1" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.1" />
-		<string text="2" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.2" />
-		<string text="3" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.3" />
-		<string text="4" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.4" />
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_labels">
+		<string text="TEAM SCORING:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_race_labels.team_scoring" />
+		<string text="RACE TYPE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_race_labels.race_type" />
+		<string text="LAPS TO WIN:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_race_labels.laps_to_win" />
+		<string text="TEAM PLAY:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_race_labels.team_play" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_race_type">
+		<string text="NORMAL" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_race_type.normal" />
+		<string text="ANY ORDER" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_race_type.any_order" />
+		<string text="RALLY" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_race_type.rally" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/cap_race">
+		<string text="When the game ends, each team is ranked by its\nlowest-scoring member." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.when_the_game_ends_each_team_is__d61e4a" />
+		<string text="Each team's score is equal to that of the highest-\nscoring team member." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.each_team_s_score_is_equal_to_th_ba9a07" />
+		<string text="Each team's score is the sum total of its individual\nmember's scores." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.each_team_s_score_is_the_sum_tot_1820ce" />
+		<string text="To complete a lap, you must reach all the flags in\norder." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.to_complete_a_lap_you_must_reach_58be45" />
+		<string text="You complete a lap by touching all the flags, in\nwhatever order you please." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.you_complete_a_lap_by_touching_a_a76026" />
+		<string text="Everyone has one point as the destination, and the\nplayer who reaches it first scores a lap." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.everyone_has_one_point_as_the_de_4f8acc" />
+		<string text="A single lap is all that's required to win the game. \nUnless your pants are on fire, this should be quick \nand easy." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.a_single_lap_is_all_that_s_requi_11660d" />
+		<string text="Three quick laps and you're done.  Just like a\nlollipop." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.three_quick_laps_and_you_re_done_033c57" />
+		<string text="You'll need to use all the fingers on one of your hands\nto count the laps in this game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.you_ll_need_to_use_all_the_finge_99d757" />
+		<string text="To win, you'll need nerves of steel, brass balls and\nten laps." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.to_win_you_ll_need_nerves_of_ste_d2b438" />
+		<string text="You'll need fifteen laps (and maybe one pit stop) to \ncomplete this race." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.you_ll_need_fifteen_laps_and_may_07f86d" />
+		<string text="You'll want to keep a barf bag handy if you want to\nfinish all 25 laps to win." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.you_ll_want_to_keep_a_barf_bag_h_4f8948" />
+		<string text="This is a team game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.this_is_a_team_game" />
+		<string text="It's every man for himself." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.it_s_every_man_for_himself" />
+		<string text="The game will have no time limit.  It will only end\nwhen someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.the_game_will_have_no_time_limit_a902cc" />
+		<string text="This game will have a 10 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.this_game_will_have_a_10_minute__51b442" />
+		<string text="This game will have a 15 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.this_game_will_have_a_15_minute__4ceb11" />
+		<string text="This game will have a 20 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.this_game_will_have_a_20_minute__e14abd" />
+		<string text="This game will have a 25 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.this_game_will_have_a_25_minute__e4208c" />
+		<string text="This game will have a 30 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.this_game_will_have_a_30_minute__fb5fe3" />
+		<string text="This game will have a 45 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_cap_race.this_game_will_have_a_45_minute__75834e" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_laps_to_win">
+		<string text="1" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_laps_to_win.1" />
+		<string text="3" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_laps_to_win.3" />
+		<string text="5" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_laps_to_win.5" />
+		<string text="10" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_laps_to_win.10" />
+		<string text="15" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_laps_to_win.15" />
+		<string text="25" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_laps_to_win.25" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_trait_without_ball">
+		<string text="NONE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_without_ball.none" />
+		<string text="INVISIBLE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_without_ball.invisible" />
+		<string text="EXTRA DAMAGE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_without_ball.extra_damage" />
+		<string text="DAMAGE RESISTANT" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_without_ball.damage_resistant" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels">
+		<string text="TRAIT WITH BALL:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels.trait_with_ball" />
+		<string text="TRAIT WITHOUT BALL:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels.trait_without_ball" />
+		<string text="SPEED WITH BALL:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels.speed_with_ball" />
+		<string text="BALL TYPE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels.ball_type" />
+		<string text="RANDOM START:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels.random_start" />
+		<string text="BALL SPAWN COUNT:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels.ball_spawn_count" />
+		<string text="MINUTES/POINTS TO WIN:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels.minutes_points_to_win" />
+		<string text="TEAM PLAY:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_oddball_labels.team_play" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_trait_with_ball">
+		<string text="NONE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_with_ball.none" />
+		<string text="INVISIBLE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_with_ball.invisible" />
+		<string text="EXTRA DAMAGE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_with_ball.extra_damage" />
+		<string text="DAMAGE RESISTANT" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_with_ball.damage_resistant" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_speed_with_ball">
+		<string text="NORMAL" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_speed_with_ball.normal" />
+		<string text="SLOW" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_speed_with_ball.slow" />
+		<string text="FAST" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_speed_with_ball.fast" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_random_start">
+		<string text="YES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_random_start.yes" />
+		<string text="NO" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_random_start.no" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/cap_oddball">
+		<string text="You will have no special abilities while carrying the\nball." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.you_will_have_no_special_abiliti_4850df" />
+		<string text="While the ball is in your possession, you will be\ninvisible to the other players." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.while_the_ball_is_in_your_posses_d989b0" />
+		<string text="While carrying the ball, you will do extra damage to\nyour opponents." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.while_carrying_the_ball_you_will_3d7f49" />
+		<string text="While you're carrying the ball, you will be more\nresistant to damage." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.while_you_re_carrying_the_ball_y_d3a9ad" />
+		<string text="You will have no special abilities when you are not\ncarrying the ball." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.you_will_have_no_special_abiliti_eb1bac" />
+		<string text="Only the player carrying the ball is visible; all others\nare invisible." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.only_the_player_carrying_the_bal_9a183a" />
+		<string text="Players who are not carrying the ball do extra damage;\nthis ability disappears while they have the ball." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.players_who_are_not_carrying_the_103620" />
+		<string text="Players who are not carrying the ball are more\nresistant to damage than the player who has the ball." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.players_who_are_not_carrying_the_15d114" />
+		<string text="You will run at the same speed whether you have the\nball or not." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.you_will_run_at_the_same_speed_w_5b923a" />
+		<string text="When you have the ball, you will run slower than the\nother players." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.when_you_have_the_ball_you_will__054731" />
+		<string text="When you have the ball, you'll run faster than the\nother players." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.when_you_have_the_ball_you_ll_ru_072e3e" />
+		<string text="The object of the game is to hold the ball for as long\nas possible. The winner is the first player to hold the\nball for the specified time." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.the_object_of_the_game_is_to_hol_144d80" />
+		<string text="The first player to kill another becomes It. Others\nbecome It by killing the player who is It. Be It for\nthe specified time to win. There is no ball. Odd, eh?" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.the_first_player_to_kill_another_27463b" />
+		<string text="The first player to kill becomes the Juggernaut, and\nscores for all kills. Others take his place by killing\nhim. Once again there is no ball to speak of." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.the_first_player_to_kill_becomes_8c1be3" />
+		<string text="The ball will appear in random locations on the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.the_ball_will_appear_in_random_l_48a0b9" />
+		<string text="The ball will always appear in the same spot on\nthe map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.the_ball_will_always_appear_in_t_3cb7d1" />
+		<string text="Like Cinderella, you will concern yourself with only\none ball." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.like_cinderella_you_will_concern_70e230" />
+		<string text="You probably expected a crass &quot;two balls&quot; joke in\nthis space. Are you nuts? We'd get sacked!" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.you_probably_expected_a_crass_qu_504ca6" />
+		<string text="Three balls equals thrice the fun." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.three_balls_equals_thrice_the_fun" />
+		<string text="What has four balls and thrills for all? This game!" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.what_has_four_balls_and_thrills__669c31" />
+		<string text="Five balls are scattered about willy-nilly." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.five_balls_are_scattered_about_w_140cc4" />
+		<string text="Six balls, and all's well." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.six_balls_and_all_s_well" />
+		<string text="What is the hidden significance of the seventh ball?" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.what_is_the_hidden_significance__05ba86" />
+		<string text="Eight balls is definitely enough." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.eight_balls_is_definitely_enough" />
+		<string text="This game shall henceforth be known as the\nGame O' Nine Balls." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_game_shall_henceforth_be_kn_978bd2" />
+		<string text="Ten! Ten balls in this game! Ha ha ha ha ha ha ha!" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.ten_ten_balls_in_this_game_ha_ha_41a91d" />
+		<string text="This game goes to eleven. Balls, that is." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_game_goes_to_eleven_balls_that_is" />
+		<string text="... and then there were twelve balls in the game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.and_then_there_were_twelve_balls_33a1ad" />
+		<string text="Lucky you - there are thirteen balls in this game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.lucky_you_there_are_thirteen_bal_ca07e4" />
+		<string text="What do you get when you double the excitement and\nmystery of seven balls? Fourteen balls, that's what!" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.what_do_you_get_when_you_double__a07bf1" />
+		<string text="Be the first on your block to collect all fifteen balls!" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.be_the_first_on_your_block_to_co_fb3820" />
+		<string text="You'll barely be able to walk without stepping over\none of the sixteen balls in this game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.you_ll_barely_be_able_to_walk_wi_493a4a" />
+		<string text="You'll only need to hang onto the ball or be It for a\ntotal of one minute to win. Juggernauts only need\none kill to win." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.you_ll_only_need_to_hang_onto_th_d30000" />
+		<string text="Control the ball or be It for two minutes and the\ngame is yours. First Juggernaut with two kills wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.control_the_ball_or_be_it_for_tw_bfe1b9" />
+		<string text="Control the ball or be It for five minutes and the\ngame is yours. First Juggernaut to five kills wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.control_the_ball_or_be_it_for_fi_7a37aa" />
+		<string text="First person to carry the ball or be It for ten minutes\nwins the game. First Juggernaut to ten kills wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.first_person_to_carry_the_ball_o_0b6b28" />
+		<string text="You'll need to spend fifteen minutes of quality time\nwith the ball or being It in order to win. Juggernauts\nmust score an impressive fifteen kills." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.you_ll_need_to_spend_fifteen_min_78bb73" />
+		<string text="This is a team game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_is_a_team_game" />
+		<string text="It's every man for himself." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.it_s_every_man_for_himself" />
+		<string text="The game will have no time limit.  It will only end\nwhen someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.the_game_will_have_no_time_limit_a902cc" />
+		<string text="This game will have a 10 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_game_will_have_a_10_minute__51b442" />
+		<string text="This game will have a 15 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_game_will_have_a_15_minute__4ceb11" />
+		<string text="This game will have a 20 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_game_will_have_a_20_minute__e14abd" />
+		<string text="This game will have a 25 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_game_will_have_a_25_minute__e4208c" />
+		<string text="This game will have a 30 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_game_will_have_a_30_minute__fb5fe3" />
+		<string text="This game will have a 45 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_cap_oddball.this_game_will_have_a_45_minute__75834e" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_ball_type">
+		<string text="NORMAL" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_type.normal" />
+		<string text="REVERSE TAG" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_type.reverse_tag" />
+		<string text="JUGGERNAUT" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_type.juggernaut" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_ball_spawn_count">
+		<string text="1" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.1" />
+		<string text="2" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.2" />
+		<string text="3" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.3" />
+		<string text="4" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.4" />
+		<string text="5" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.5" />
+		<string text="6" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.6" />
+		<string text="7" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.7" />
+		<string text="8" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.8" />
+		<string text="9" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.9" />
+		<string text="10" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.10" />
+		<string text="11" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.11" />
+		<string text="12" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.12" />
+		<string text="13" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.13" />
+		<string text="14" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.14" />
+		<string text="15" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.15" />
+		<string text="16" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_ball_spawn_count.16" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/var_moving_hill">
+		<string text="YES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_var_moving_hill.yes" />
+		<string text="NO" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_var_moving_hill.no" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_labels">
+		<string text="MOVING HILL:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_koth_labels.moving_hill" />
+		<string text="SCORE TO WIN:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_koth_labels.score_to_win" />
+		<string text="TEAM PLAY:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_koth_labels.team_play" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/cap_koth">
+		<string text="During the course of the game, the Hill will teleport to\na random location." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.during_the_course_of_the_game_th_e2679f" />
+		<string text="The Hill will always be in the same spot." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.the_hill_will_always_be_in_the_same_spot" />
+		<string text="The first player to spend sixty seconds atop the hill\nwins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.the_first_player_to_spend_sixty__34cf5a" />
+		<string text="You'll need to hold the hill for a mere two minutes to \nwin the crown." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.you_ll_need_to_hold_the_hill_for_7d4b4b" />
+		<string text="You'll need to hold the hill for five minutes to win." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.you_ll_need_to_hold_the_hill_for_f5e093" />
+		<string text="Spend a full ten minutes dominating the hill and the\ngame is yours." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.spend_a_full_ten_minutes_dominat_462147" />
+		<string text="Get a comfy chair, because you'll need to control the\nhill for a solid fifteen minutes in order to win." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.get_a_comfy_chair_because_you_ll_332bbd" />
+		<string text="This is a team game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.this_is_a_team_game" />
+		<string text="It's every man for himself." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.it_s_every_man_for_himself" />
+		<string text="The game will have no time limit.  It will only end\nwhen someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.the_game_will_have_no_time_limit_a902cc" />
+		<string text="This game will have a 10 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.this_game_will_have_a_10_minute__51b442" />
+		<string text="This game will have a 15 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.this_game_will_have_a_15_minute__4ceb11" />
+		<string text="This game will have a 20 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.this_game_will_have_a_20_minute__e14abd" />
+		<string text="This game will have a 25 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.this_game_will_have_a_25_minute__e4208c" />
+		<string text="This game will have a 30 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.this_game_will_have_a_30_minute__fb5fe3" />
+		<string text="This game will have a 45 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth.this_game_will_have_a_45_minute__75834e" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_single_flag">
+		<string text="OFF" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_single_flag.off" />
+		<string text="1 MINUTE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_single_flag.1_minute" />
+		<string text="2 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_single_flag.2_minutes" />
+		<string text="3 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_single_flag.3_minutes" />
+		<string text="5 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_single_flag.5_minutes" />
+		<string text="10 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_single_flag.10_minutes" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels">
+		<string text="ASSAULT:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_ctf_labels.assault" />
+		<string text="SINGLE FLAG:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_ctf_labels.single_flag" />
+		<string text="FLAG MUST RESET:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_ctf_labels.flag_must_reset" />
+		<string text="FLAG AT HOME TO SCORE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_ctf_labels.flag_at_home_to_score" />
+		<string text="CAPTURES TO WIN:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_ctf_labels.captures_to_win" />
+		<string text="TIME LIMIT:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_ctf_labels.time_limit" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_flag_must_reset">
+		<string text="YES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_flag_must_reset.yes" />
+		<string text="NO" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_flag_must_reset.no" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_flag_at_home">
+		<string text="YES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_flag_at_home.yes" />
+		<string text="NO" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_flag_at_home.no" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/cap_ctf">
+		<string text="You must carry your own flag into the opposing\nteam's base to score." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.you_must_carry_your_own_flag_int_0202d5" />
+		<string text="You must capture the enemy's flag and return it to\nyour own base." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.you_must_capture_the_enemy_s_fla_c403cd" />
+		<string text="Each team will have its own individual flag." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.each_team_will_have_its_own_indi_208dab" />
+		<string text="There will be only one flag on the map at any given\ntime. It will appear in a team base. Each team alter-\nnates offense and defense every minute." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.there_will_be_only_one_flag_on_t_74bc1d" />
+		<string text="There will be only one flag on the map at any given\ntime. It will appear in a team base. Each team alter-\nnates offense and defense in 2 minute intervals." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.there_will_be_only_one_flag_on_t_894461" />
+		<string text="There will be only one flag on the map at any given\ntime. It will appear in a team base. Each team alter-\nnates offense and defense in 3 minute intervals." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.there_will_be_only_one_flag_on_t_0d4ddf" />
+		<string text="There will be only one flag on the map at any given\ntime. It will appear in a team base. Each team alter-\nnates offense and defense in 5 minute intervals." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.there_will_be_only_one_flag_on_t_2de937" />
+		<string text="There will be only one flag on the map at any given\ntime. It will appear in a team base. Each team alter-\nnates offense and defense in 10 minute intervals." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.there_will_be_only_one_flag_on_t_9474b1" />
+		<string text="You cannot return the flag to your base; it will return\nitself after a set amount of time." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.you_cannot_return_the_flag_to_yo_b1e022" />
+		<string text="The flag will return to the base if you walk over it." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.the_flag_will_return_to_the_base_47322e" />
+		<string text="In order to score, your team's flag must be in its home\nlocation. Use this option if you enjoy chasing\nflag-bearing enemies before you can score." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.in_order_to_score_your_team_s_fl_726381" />
+		<string text="You will be able to score even if your own flag is in\nthe scurrilous hands of the enemy." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.you_will_be_able_to_score_even_i_c6d032" />
+		<string text="The first team to capture the flag wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.the_first_team_to_capture_the_flag_wins" />
+		<string text="You'll need to capture three flags to win the game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.you_ll_need_to_capture_three_fla_356386" />
+		<string text="Capture the flag five times and you'll win the game." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.capture_the_flag_five_times_and__4674f8" />
+		<string text="You'll need to capture ten flags if you want to win." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.you_ll_need_to_capture_ten_flags_9d9306" />
+		<string text="Grab fifteen flags and you'll rack up a win - not to\nmention an impressive flag collection." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.grab_fifteen_flags_and_you_ll_ra_7c8925" />
+		<string text="The game will have no time limit.  It will only end\nwhen someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.the_game_will_have_no_time_limit_a902cc" />
+		<string text="This game will have a 10 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.this_game_will_have_a_10_minute__51b442" />
+		<string text="This game will have a 15 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.this_game_will_have_a_15_minute__4ceb11" />
+		<string text="This game will have a 20 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.this_game_will_have_a_20_minute__e14abd" />
+		<string text="This game will have a 25 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.this_game_will_have_a_25_minute__e4208c" />
+		<string text="This game will have a 30 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.this_game_will_have_a_30_minute__fb5fe3" />
+		<string text="This game will have a 45 minute time limit.  It will\nend after the time limit is up or someone wins." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf.this_game_will_have_a_45_minute__75834e" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_captures_to_win">
+		<string text="1" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_captures_to_win.1" />
+		<string text="3" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_captures_to_win.3" />
+		<string text="5" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_captures_to_win.5" />
+		<string text="10" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_captures_to_win.10" />
+		<string text="15" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_captures_to_win.15" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_assault">
+		<string text="YES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_assault.yes" />
+		<string text="NO" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_assault.no" />
+	</strings>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicles_respawn">
+		<string text="NEVER" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.never" />
+		<string text="30 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.30_seconds" />
+		<string text="60 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.60_seconds" />
+		<string text="90 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.90_seconds" />
+		<string text="2 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.2_minutes" />
+		<string text="3 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.3_minutes" />
+		<string text="5 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.5_minutes" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels">
 		<string text="VEHICLE SET:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.vehicle_set" />
@@ -357,15 +792,7 @@
 		<string text="GUN TURRET:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.gun_turret" />
 		<string text="VEHICLE RESPAWN TIME:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.vehicle_respawn_time" />
 		<string text="SIDE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.side" />
-	</strings>
-	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicles_respawn">
-		<string text="NEVER" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.never" />
-		<string text="30 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.30_seconds" />
-		<string text="60 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.60_seconds" />
-		<string text="90 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.90_seconds" />
-		<string text="2 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.2_minutes" />
-		<string text="3 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.3_minutes" />
-		<string text="5 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.5_minutes" />
+		<string text="VEHICLE TYPES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.vehicle_types" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_set">
 		<string text="DEFAULT" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.default" />
@@ -832,6 +1259,10 @@
 		<string text="TEAMPLAY OPTIONS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.teamplay_options" />
 		<string text="SHOW MISSING MAPS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.show_missing_maps" />
 	</strings>
+	<strings name="xbox/strings/var_boolean">
+		<string text="NO" id="xbox.multiplayer_shared.xbox_strings_var_boolean.no" />
+		<string text="YES" id="xbox.multiplayer_shared.xbox_strings_var_boolean.yes" />
+	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_gametype">
 		<string text="ANY" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.any" />
 		<string text="CTF" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.ctf" />
@@ -1041,22 +1472,94 @@
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/common_button_cancel/caption" x="22" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
-		<on event="a" run="mp prof save teamplay options" back="true" />
-		<on event="start" back="true" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/ctf_button_ok/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/ctf_button_ok/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/ctf_button_ok" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set ctf rules" back="true" />
+		<on event="start" run="mp profile set ctf rules" back="true" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok/a_butn" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok/caption" x="22" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/ctf_button_ok/a_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/ctf_button_ok/caption" x="22" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/common_button_cancel/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/common_button_cancel" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="mouse emit back event" />
 		<on event="start" run="mouse emit back event" />
 		<on event="left_mouse" run="mouse emit back event" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel/b_butn" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel/caption" x="22" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/common_button_cancel/b_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar/common_button_cancel/caption" x="22" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/koth_button_ok/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/koth_button_ok/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/koth_button_ok" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set koth rules" back="true" />
+		<on event="start" run="mp profile set koth rules" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/koth_button_ok/a_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/koth_button_ok/caption" x="22" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/common_button_cancel/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/common_button_cancel" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+		<on event="left_mouse" run="mouse emit back event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/common_button_cancel/b_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_button_bar/common_button_cancel/caption" x="22" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/oddball_button_ok/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/oddball_button_ok/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/oddball_button_ok" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set oddball rules" back="true" />
+		<on event="start" run="mp profile set oddball rules" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/oddball_button_ok/a_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/oddball_button_ok/caption" x="22" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/common_button_cancel/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/common_button_cancel" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+		<on event="left_mouse" run="mouse emit back event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/common_button_cancel/b_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar/common_button_cancel/caption" x="22" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/race_button_ok/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/race_button_ok/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/race_button_ok" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set racing rules" back="true" />
+		<on event="start" run="mp profile set racing rules" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/race_button_ok/a_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/race_button_ok/caption" x="22" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/common_button_cancel/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/common_button_cancel" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+		<on event="left_mouse" run="mouse emit back event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/common_button_cancel/b_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar/common_button_cancel/caption" x="22" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/slayer_button_ok/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/slayer_button_ok/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/slayer_button_ok" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp profile set slayer rules" back="true" />
+		<on event="start" run="mp profile set slayer rules" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/slayer_button_ok/a_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/slayer_button_ok/caption" x="22" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/common_button_cancel/caption" type="text" width="90" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/common_button_cancel" type="container" width="112" height="53" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+		<on event="left_mouse" run="mouse emit back event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/common_button_cancel/b_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar/common_button_cancel/caption" x="22" />
 	</widget>
 </menus>

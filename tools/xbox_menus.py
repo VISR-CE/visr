@@ -49,7 +49,7 @@ LOBBY_MAP_WIDGETS = ('main_menu/solo_level_select/replay_level_right_pic',
 MP = 'main_menu/multiplayer_type_select'
 MP_PAGES = tuple('main_menu.multiplayer_type_select.' + name for name in (
     'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options', 'lobby',
-    'mp_map_select')) + (
+    'mp_map_select', 'game_options_edit', 'respawn_options_edit', 'teams_hud_edit', 'weapons_edit', 'vehicle_types_edit')) + (
     'main_menu.quit_select', 'main_menu.new_select.port',
     'main_menu.settings_select.multiplayer_setup.playlist_select')
 # Bounds from tags/widgets.json: connected/server_list, advanced_controls,
@@ -559,32 +559,37 @@ def fit_window(options, widgets, help_top, root=None, bitmaps=None, always=False
 
 IO = 'main_menu/settings_select/multiplayer_setup/item_options_edit'
 # the Item Options rows the PC version's port added (map weapons, loadout and the two weapons) and their labels
-IO_ROWS = (('op_map_weapons', 'map_weapons_label', 'MAP WEAPONS:'), ('op_loadout', 'loadout_label', 'LOADOUT:'),
-           ('op_primary_weapon', 'primary_weapon_label', 'PRIMARY WEAPON:'),
-           ('op_secondary_weapon', 'secondary_weapon_label', 'SECONDARY WEAPON:'))
+IO_ROWS = (('op_spawn_weapons', 'spawn_weapons_label', 'STARTING EQUIPMENT:'),
+           ('op_map_weapons', 'map_weapons_label', 'MAP WEAPONS:'),
+           ('op_choose_weapons', 'choose_weapons_label', 'CHOOSE WEAPONS'))
 
+
+# the Player Options row the port adds (RESPAWN, opening RESPAWN OPTIONS: the four respawn rows moved there)
+PO = 'main_menu/settings_select/multiplayer_setup/player_options_edit'
+PO_ROWS = (('op_respawn', 'respawn_label', 'RESPAWN'),)
+PO_HELP = {'op_respawn': 'The respawn time and how it grows, odd man out,\\nand the suicide penalty.'}
 
 WEAPONS = ('no weapon', 'a random weapon', 'the assault rifle', 'the pistol', 'the shotgun', 'the sniper rifle',
            'the rocket launcher', 'the plasma pistol', 'the plasma rifle', 'the needler')
 # what the help text shows for each value of a row, in the order of its spinner's values
 IO_HELP = {
     'op_map_weapons': 'Weapons are lying around the map\\nto pick up.|There are no weapons lying around\\nthe map.',
-    'op_loadout': 'Everyone starts with the weapon set\\nabove.|Everyone starts with the primary and\\nsecondary weapons chosen here.',
-    'op_primary_weapon': '|'.join(f'Everyone starts with {w}\\nas a primary weapon.' for w in WEAPONS),
-    'op_secondary_weapon': '|'.join(f'Everyone starts with {w}\\nas a secondary weapon.' for w in WEAPONS),
+    'op_spawn_weapons': "You will start the game with the weapon set that the\\nmap designers custom tailored for it.|Use the generic starting weapons across\\nall maps.|Everyone starts with the primary and\\nsecondary weapons you choose.",
+    'op_choose_weapons': 'Choose the primary and secondary weapons\\neveryone starts with.',
 }
 
 
-def item_options_document(assets, bitmaps):
+def item_options_document(assets, bitmaps, folder=None, io_rows=None):
     """The PC port's extra Item Options rows as widgets of their own, which patch rows put in the Xbox's screen.
 
     The Xbox's functions for the screen know only its own rows, so each row sets and saves its spinners itself.
     """
-    root = deepcopy(ET.parse(assets / 'ce' / (IO.replace('/', '.') + '.port.xml')).getroot())
-    labels = {f'xbox/{IO}/{label}': caption for _, label, caption in IO_ROWS}
+    folder, io_rows = folder or IO, io_rows or IO_ROWS
+    root = deepcopy(ET.parse(assets / 'ce' / (folder.replace('/', '.') + '.port.xml')).getroot())
+    labels = {f'xbox/{folder}/{label}': caption for _, label, caption in io_rows}
     for element in root.iter():
         for key, value in list(element.attrib.items()):
-            if value.startswith(IO):
+            if value.startswith(folder) or (key == 'open' and value.startswith(MP + '/')):
                 element.set(key, 'xbox/' + value)
             elif key in ('bitmap', 'header_bitmap', 'footer_bitmap'):
                 element.set(key, bitmap_ref(value, bitmaps))
@@ -592,7 +597,7 @@ def item_options_document(assets, bitmaps):
             element.attrib.pop('string_list')
             element.attrib.pop('string_index')
             element.set('text', labels[element.get('name')])
-    rows = {f'xbox/{IO}/{name}' for name, _, _ in IO_ROWS}
+    rows = {f'xbox/{folder}/{name}' for name, _, _ in io_rows}
     for row in root.findall('widget'):
         if row.get('name') in rows:
             ET.SubElement(row, 'on', event='created', run='port option row init')
@@ -840,7 +845,9 @@ def multiplayer_documents(assets, bitmaps):
     documents['multiplayer.shared.xml'] = shared
     # Xbox item options combine vehicles with weapons; these two PC-only
     # editors still need their wired XML screens until routing is integrated.
-    for folder in ('vehicle_options_edit', 'teamplay_options_edit'):
+    for folder in ('vehicle_options_edit',
+                   'playlist_edit.ctf_edit', 'playlist_edit.koth_edit', 'playlist_edit.oddball_edit',
+                   'playlist_edit.race_edit', 'playlist_edit.slayer_edit'):
         filename = 'main_menu.settings_select.multiplayer_setup.' + folder + '.xml'
         for e in ET.parse(assets / 'ce' / filename).getroot():
             shared.append(deepcopy(e))
@@ -1749,6 +1756,16 @@ SCREEN_LAYOUTS = {
         'kind': 'K1', 'options': f'xbox/{MP}/server_settings/options_menu',
         'legend_targets': {'x': 294, 'b': 421, 'a': 520},
         'legend_widths': {'x': 85, 'b': 57, 'a': 85}, 'invite_width': 238},
+    # The gametype editor's own screens: one settings list each (menu_functions.c fills the rows)
+    **{f'xbox/{MP}/{page}/{screen}': {'kind': 'K1', 'options': f'xbox/{MP}/{page}/options_menu'}
+       for page, screen in (('game_options_edit', 'game_options_screen'),
+                            ('respawn_options_edit', 'respawn_options_screen'),
+                            ('teams_hud_edit', 'teams_hud_screen'),
+                            ('vehicle_types_edit', 'vehicle_types_screen'),
+                            ('weapons_edit', 'weapons_screen'))},
+    # (the per-type screens keep the PC version's own lists, as the gametype editor's did)
+    **{f'xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/{kind}_edit/{kind}_options_screen':
+       {'kind': 'K1', 'legacy': True} for kind in ('ctf', 'koth', 'oddball', 'race', 'slayer')},
     # DIRECT IP and filters stay unchanged until their owning branches land.
     f'xbox/{MP}/direct_ip/direct_ip_screen': {'kind': 'K1', 'legacy': True},
     f'xbox/{MP}/join_game/filters/filters_screen': {'kind': 'K1', 'legacy': True},
@@ -1773,9 +1790,7 @@ SCREEN_LAYOUTS = {
     # SIDE's original spacer and vehicle positions are retained; this adapter moves only the bar.
     'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen': {
         'kind': 'K1', 'options': 'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu',
-        'side_spacer_rows': (73, 126, 152, 178, 204, 229, 255, 281, 307)},
-    'xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen': {
-        'kind': 'K1', 'options': 'xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu'},
+        'side_spacer_rows': (73, 126, 152, 178)},
 }
 # These settings parameters preserve supplemental content rather than moving it into help.
 SCREEN_LAYOUTS['xbox/settings/video_settings/video_settings_screen']['frame_rate_row'] = 307  # VIDEO's Mac frame-rate row.
@@ -2058,12 +2073,34 @@ def patch_document(names):
     for name, _, _ in IO_ROWS:
         patch_row(options, after=anchor, name=name, widget=f'xbox/{IO}/{name}', help=IO_HELP[name])
         anchor = name
+    # Player Options: the four respawn rows leave for RESPAWN OPTIONS, whose row stands in their place
+    player = patch(root, MM + 'settings_select\\multiplayer_setup\\player_options_edit\\player_options_menu',
+                   MM + 'settings_select\\multiplayer_setup\\player_options_edit\\player_options_screen')
+    player.set('footer', '321')
+    poe = MM + 'settings_select\\multiplayer_setup\\player_options_edit\\'
+    patch_row(player, after=poe + 'op_invisible_players', name='op_respawn', widget=f'xbox/{PO}/op_respawn',
+              help=PO_HELP['op_respawn'])
+    for key in ('op_respawn_time', 'op_respawn_time_growth', 'op_odd_man_out', 'op_suicide_penalty'):
+        patch_row(player, 'remove', child=poe + key)
+    # (STARTING EQUIPMENT's rows replace the Xbox's own)
+    patch_row(options, 'remove', child=MM + 'settings_select\\multiplayer_setup\\item_options_edit\\op_starting_equipment')
     # Gametype edit: DELETE GAMETYPE on the Apple TV
     gametype = patch(root, GTE + 'edit_playlist_select_list', GTE + 'gametype_edit_screen')
     patch_row(gametype, after=GTE + 'save_settings_item', platform='tvos', pitch=COMFORTABLE_PITCH,
               name='gametype_item_delete', text='DELETE GAMETYPE', run='port delete request',
               open='xbox/error/confirm_delete_gametype_modal_fullscreen', picture='bitmap:xbox/pictures/gametype',
               description='Delete this gametype.')
+    # The GAME screen holds the rules the type-specific pages used to (score, time limit, teams); the indicators
+    # row moved into it as TEAMS HUD, and VEHICLES opens the vehicle options screen.
+    patch_row(gametype, after=GTE + 'playlist_edit_game_type_item', pitch=COMFORTABLE_PITCH,
+              name='gametype_item_game', text='GAME',
+              open='xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen',
+              picture='bitmap:xbox/pictures/gametype', description='Score, time limit, and team rules.')
+    patch_row(gametype, 'remove', child=GTE + 'playlist_edit_indicators_item')
+    patch_row(gametype, after=GTE + 'playlist_edit_items_list_item', pitch=COMFORTABLE_PITCH,
+              name='gametype_item_vehicles', text='VEHICLES',
+              open='xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen',
+              picture='bitmap:xbox/pictures/gametype', description='Which vehicles are on the map.')
     return root
 
 
@@ -2364,6 +2401,8 @@ def generate(assets=MENUS):
                 part.set('widget', 'xbox/error/browser_error_panel')
     documents['main_menu.settings_select.multiplayer_setup.item_options_edit.port.xml'] = item_options_document(
         assets, names)
+    documents['main_menu.settings_select.multiplayer_setup.player_options_edit.port.xml'] = item_options_document(
+        assets, names, PO, PO_ROWS)
     documents['patches.xml'] = patch_document(names)
     documents['bitmaps.xml'] = bitmap_document(assets, names)
     browser_error_layout(documents)
