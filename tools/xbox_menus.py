@@ -121,11 +121,12 @@ def panel(spec):
 # runs from the glyph to the caption box's right edge plus 8 units each side,
 # so these widths decide how tightly a bar packs.
 LEGEND_CAPTION_WIDTHS = {'START NOW': 90, 'SWITCH TEAM': 100, 'ADD PLAYER': 108,
-                         'LEAVE': 50, 'SHARE': 45}
+                         'LEAVE': 50, 'SHARE': 58}
 LEGEND_RIGHT = 608
 LEGEND_PILL_PAD, LEGEND_GAP = 8, 4
-# Lobby SHARE glyph x: its caption text centers on touch's B slot (x 329..441).
-LOBBY_SHARE_X = 335
+# Lobby SHARE glyph x: its caption box (58 wide: ADD PLAYER's 10.8 units per letter times five, plus a margin; the
+# generator cannot measure the disc font) centers on touch's B slot (x 329..441).
+LOBBY_SHARE_X = 334
 # Touch pills run from y 397 (60 units centered on the glyph); boxes above
 # the legend end by here so a pill never touches their border.
 LEGEND_CLEAR_Y = 389

@@ -112,10 +112,10 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_bar" type="column_list" width="640" height="53" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_start" x="496" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_team" x="25" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add" x="167" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_team" x="12" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add" x="154" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_leave" x="404" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share" x="335" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share" x="334" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add" type="container" width="130" height="53">
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add/y_butn" />
@@ -232,7 +232,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_add/caption" type="text" text="ADD PLAYER" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_add_caption.text" font="ui\small_ui" color="#FF2896FF" width="108" height="26" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_leave/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_leave/caption" type="text" text="LEAVE" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_leave_caption.text" font="ui\small_ui" color="#FF2896FF" width="50" height="26" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share" type="container" width="67" height="53">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share" type="container" width="80" height="53">
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share/left_thumb_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share/caption" x="22" />
 		<on event="a" run="port lobby share" platform="apple" />
@@ -240,7 +240,7 @@
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share/left_thumb_butn" width="21" height="26" bitmap="xbox/browser/left_thumb_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share/caption" type="text" text="SHARE" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_share_caption.text" font="ui\small_ui" color="#FF2896FF" width="45" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share/caption" type="text" text="SHARE" text_id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_share_caption.text" font="ui\small_ui" color="#FF2896FF" width="58" height="26" />
 	<bitmap name="xbox/browser/left_thumb_butn">
 		<frame png="xbox/art/none.png" width="512" height="256" />
 	</bitmap>
