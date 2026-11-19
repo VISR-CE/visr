@@ -1366,8 +1366,18 @@ for the keyboard and touch, so the menus cannot use input_has_gamepad(0). */
 int xinput_sdl_has_physical_gamepad(void)
 {
 	SDL_Gamepad *gamepads[PORT_COUNT];
+	int count = sdl_gamepads(gamepads), index;
 
-	return sdl_gamepads(gamepads) > 0;
+	/* iOS lists the simulator's keyboard and some phones' key devices as generic gamepads (sdl_gamepads
+	orders them last); only a recognized controller type counts as a real one */
+	for (index = 0; index < count; index++)
+	{
+		SDL_GamepadType type = SDL_GetGamepadType(gamepads[index]);
+
+		if (type != SDL_GAMEPAD_TYPE_UNKNOWN && type != SDL_GAMEPAD_TYPE_STANDARD)
+			return 1;
+	}
+	return 0;
 }
 
 /* Menu hints follow the last actual device event, including a second pad.
