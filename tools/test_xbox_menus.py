@@ -1503,7 +1503,10 @@ def test_profile_editor_removes_save_after_inserting_settings():
     assert operations[-1].get('child') == module.PEP + 'save_changes_profile_item'
     assert {r.get('text') for r in operations if r.tag == 'row'} >= {'AUDIO', 'VIDEO', 'NETWORK'}
     assert not any(r.get('text') == 'SAVE CHANGES' for r in operations)
-    assert not any(p.find('remove') is not None for p in root.findall('patch') if p is not edit)
+    # (other lists' patches may remove their own rows, e.g. the gametype editor's INDICATORS and the item screen's
+    # STARTING EQUIPMENT, but none removes the profile editor's SAVE CHANGES)
+    assert not any(r.get('child') == module.PEP + 'save_changes_profile_item'
+                   for p in root.findall('patch') if p is not edit for r in p.findall('remove'))
 
 @pytest.mark.parametrize('kind', ('password', 'code'))
 def test_password_and_code_legend_caption_follows_the_row(kind):
