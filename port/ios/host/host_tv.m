@@ -20,6 +20,8 @@
    consumed here: the game's keyboard mapping (xinput_sdl.c) would otherwise
    also read Back, which SDL reports as Escape, as Start. */
 void host_ios_touch_pause(void) {}
+/* (no touch controls to show or hide; host_sdl.c forwards VISR_TOUCH_GAMEPLAY on every platform) */
+void host_ios_touch_gameplay_changed(int gameplay) { (void)gameplay; }
 #if TARGET_OS_VISION
 /* the menus' pointer (host_menu_pointer.m on the window, host_menu_gaze.h in the room): a replay holds it */
 static int replay_holds_pointer;
@@ -27,7 +29,6 @@ void host_touch_replay_active(int active) { replay_holds_pointer=active!=0; host
 int host_ios_touch_blocked(void) { return replay_holds_pointer; }
 /* (no touch controls to shrink) */
 void host_ios_touch_menu_changed(int menus) { (void)menus; }
-void host_ios_touch_gameplay_changed(int gameplay) { (void)gameplay; }
 #else
 void host_touch_replay_active(int active) { (void)active; }
 #endif
