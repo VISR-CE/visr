@@ -9,7 +9,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_data" type="text" controller="1" left="336" top="253" width="260" height="136" string_list="xbox/main_menu/multiplayer_type_select/mp_map_select/player_counts" string_index="2" font="ui\small_ui" color="#FF2896FF">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_item" controller="1" left="323" top="115" width="254" height="274">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_item" controller="1" left="323" top="115" width="254" height="294">
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_name" />
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_pic" />
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_data" />

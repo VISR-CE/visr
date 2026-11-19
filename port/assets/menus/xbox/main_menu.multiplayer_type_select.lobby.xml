@@ -97,7 +97,7 @@
 		<child widget="xbox/main_menu/current_profile_name" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_right_item" x="0" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_right_item" controller="1" left="323" top="115" width="254" height="274" bitmap="xbox/bitmaps/list_field">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_right_item" controller="1" left="323" top="115" width="254" height="294" bitmap="xbox/bitmaps/list_field">
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_map_pic" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_map_name" />
 		<child widget="xbox/main_menu/solo_level_select/replay_level_right_pic" />

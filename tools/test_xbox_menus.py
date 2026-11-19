@@ -617,7 +617,7 @@ def test_hub_has_the_profile_editors_framed_panel():
     assert options.get('description') == 'xbox/settings/description'
     assert options.find('data').get('input') == 'plyr prof edit select menu upd8'
     panel = hub.find("widget[@name='xbox/settings/description']")
-    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('275', '78', '320', '311')
+    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('275', '78', '320', '331')
     assert panel.get('bitmap') == 'xbox/bitmaps/list_field'
     # the description update takes the first child for the text and the second for the picture
     assert [c.get('widget').rsplit('/', 1)[-1] for c in panel.findall('child')] == [
@@ -1824,7 +1824,7 @@ def test_generated_legend_pills_do_not_overlap(density):
 
 @pytest.mark.parametrize('density', ('comfortable', 'compact'))
 def test_legend_pills_clear_info_panels(density):
-    """A touch pill never touches or enters a list-field box (info panel, stats box)."""
+    """A list-field box ends at the bottom rule, not below it, where the touch pill sits (info panel, stats box)."""
     module = generator()
     widgets = layout_widgets(density)
     checked = 0
@@ -1842,13 +1842,14 @@ def test_legend_pills_clear_info_panels(density):
             if 'list_field' not in w.get('bitmap', '') or not w.get('height'):
                 continue
             right, bottom = x + int(w.get('width', 0)), y + int(w.get('height'))
-            if bottom <= pill_top:
+            if bottom <= module.RULE_Y:
                 checked += 1
             for left_edge, right_edge in spans:
                 if right_edge <= x or left_edge >= right:
                     continue
-                assert bottom <= module.LEGEND_CLEAR_Y, (
-                    f'{name}: {w.get("name")} ends at y {bottom}, touching the legend pill {left_edge}..{right_edge}')
+                # the panel runs to the bottom rule, as the disc's do; the pill straddles the rule
+                assert bottom <= module.RULE_Y, (
+                    f'{name}: {w.get("name")} ends at y {bottom}, below the rule and over the legend pill {left_edge}..{right_edge}')
     assert checked, 'no info panels found above any legend'
 
 

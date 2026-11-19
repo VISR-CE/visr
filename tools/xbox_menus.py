@@ -73,9 +73,10 @@ TITLE = (35, 11, 512, 64)
 LEGEND_Y, LEGEND_A_X, LEGEND_B_X = 414, 471, 326
 GLYPH_WIDTH, GLYPH_HEIGHT, CAPTION_OFFSET = 21, 26, 22
 HELP_TOP = {'comfortable': 335, 'compact': 350}
-# Both right panels end at y 389, 8 units above the touch legend pills (y 397).
-PANEL_A = {'list': (51, 78, 33), 'panel': (275, 78, 320, 311)}
-PANEL_B = {'list': (48, 78, ROW_PITCH), 'panel': (323, 115, 254, 274)}
+# Both right panels end at the bottom rule (y 409, drawn by the gradient art), as the disc's panels do.
+RULE_Y = 409
+PANEL_A = {'list': (51, 78, 33), 'panel': (275, 78, 320, RULE_Y - 78)}
+PANEL_B = {'list': (48, 78, ROW_PITCH), 'panel': (323, 115, 254, RULE_Y - 115)}
 DIALOG_PANEL = (192, 176, 239, 159)
 DIALOG_HEADER = (9, 4)
 DIALOG_HEADER_POSITION = tuple(a + b for a, b in zip(DIALOG_PANEL[:2], DIALOG_HEADER))
