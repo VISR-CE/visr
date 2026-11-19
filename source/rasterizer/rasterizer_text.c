@@ -957,13 +957,19 @@ static void rasterizer_draw_hires_glyph(
 	if (glyph.redraw)
 	{
 		/* (keep the game's advance, sharing its gap in the font's own
-		side-bearing proportions) */
+		side-bearing proportions; a glyph that overhangs its advance, like
+		j's tail, keeps its own bearing centered on the game's advance,
+		since a negative bearing makes the proportions run away: "j" in
+		Overpass has lsb + rsb near zero and drew several letters left) */
 		real ink = glyph.right - glyph.left;
 		real lsb = glyph.left;
 		real rsb = glyph.advance - glyph.right;
 		real gap = font_character->character_width - ink;
 
-		left = pen_x + (lsb + rsb > 0.0f ? gap * lsb / (lsb + rsb) : gap * 0.5f);
+		if (lsb < 0.0f || rsb < 0.0f)
+			left = pen_x + (font_character->character_width - glyph.advance) * 0.5f + lsb;
+		else
+			left = pen_x + (lsb + rsb > 0.0f ? gap * lsb / (lsb + rsb) : gap * 0.5f);
 	}
 	else
 	{
