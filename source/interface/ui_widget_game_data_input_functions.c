@@ -889,21 +889,23 @@ static void multiplayer_type_menu_update_extended_description(
 		!config_boolean("network.online"))
 		index += 1;
 
-	/* port: the split-screen row on an iPhone with no controller shows the panel added after DIRECT LINK's */
-	if (index != NONE && !strncmp(list_widget->focused_child->name, "multiplayer_type_split", 22) &&
+	/* port: the split-screen row on an iPhone with no controller shows the panel added last (after DIRECT LINK's):
+	the number after the highest one a surviving row has */
+	if (list_widget->focused_child && !strncmp(list_widget->focused_child->name, "multiplayer_type_split", 22) &&
 		menu_split_screen_needs_controller())
 	{
-		short direct_index;
+		short highest = NONE;
 
 		for (child = list_widget->child; child; child = child->next)
 		{
-			if (!strcmp(child->name, "multiplayer_type_join_direct") &&
-				pc_menu_patch_list_index(list_widget->definition_tag_index, child->definition_tag_index, &direct_index))
-			{
-				index = direct_index + 1;
-				break;
-			}
+			short row_index = NONE;
+
+			if (pc_menu_patch_list_index(list_widget->definition_tag_index, child->definition_tag_index, &row_index) &&
+				row_index != NONE && row_index > highest)
+				highest = row_index;
 		}
+		if (highest != NONE)
+			index = highest + 1;
 	}
 
 	if (index != NONE)
