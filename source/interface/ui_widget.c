@@ -7269,6 +7269,7 @@ Returns FALSE when the game should draw its own prompt (a controller, or keyboar
 side of its button */
 #define UI_POSTGAME_LEGEND_Y 414
 #define UI_POSTGAME_MINIMUM_PADDING 12
+static struct widget_instance *ui_mouse_menu(void);
 static short ui_postgame_pending = NONE;
 static short ui_postgame_pressed = NONE;
 static short ui_postgame_pressed_frames = 0;
@@ -7285,6 +7286,12 @@ boolean ui_widget_port_postgame_legend(
 
 	if (halo_menu_pointer_controls() != 2 || font_index == NONE)
 		return FALSE;
+	/* (a menu over the scores, a dialog or the pause menu, takes the pointer: no buttons under it) */
+	if (ui_mouse_menu())
+	{
+		ui_postgame_pending = NONE;
+		return FALSE;
+	}
 	color.alpha = alpha;
 	for (index = pick_game ? 0 : 1; index < 2; index++)
 	{
@@ -7329,8 +7336,10 @@ boolean ui_widget_port_postgame_legend(
 			target->bounds.x1 += UI_TOUCH_LEGEND_GAP / 2;
 		}
 	}
-	if (ui_postgame_pressed_frames > 0)
-		ui_postgame_pressed_frames--;
+	/* (a press the game did not take while its button showed pressed is dropped, so it cannot fire at the next
+	scores) */
+	if (ui_postgame_pressed_frames > 0 && --ui_postgame_pressed_frames == 0)
+		ui_postgame_pending = NONE;
 	return TRUE;
 }
 
@@ -8364,7 +8373,7 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 	2 units above that line so its border never touches it. */
 	for (index = 0; index < ui_mouse_target_count; index++)
 		if (ui_mouse_targets[index].kind == _ui_mouse_target_button &&
-			ui_mouse_key_button(ui_mouse_targets[index].widget) != NONE &&
+			ui_mouse_targets[index].widget && ui_mouse_key_button(ui_mouse_targets[index].widget) != NONE &&
 			ui_mouse_targets[index].bounds.y0 >= target->value_bounds.y1)
 			limit_bottom = MIN(limit_bottom,
 				ui_mouse_targets[index].bounds.y0 - UI_DROPDOWN_LEGEND_CLEARANCE);

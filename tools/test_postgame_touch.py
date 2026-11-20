@@ -45,6 +45,8 @@ struct ui_mouse_target { struct widget_instance *widget; rectangle2d bounds; sho
 static struct ui_mouse_target ui_mouse_targets[UI_MOUSE_MAXIMUM_TARGETS];
 static long ui_mouse_target_count;
 static int touch = 2, pills, texts;
+static struct widget_instance *menu_up;
+static struct widget_instance *ui_mouse_menu(void) { return menu_up; }
 static long font;
 int halo_menu_pointer_controls(void) { return touch; }
 static long draw_string_get_font(void) { return font; }
@@ -90,6 +92,23 @@ int main(void)
     assert(!ui_widget_port_postgame_pressed(_gamepad_analog_button_a));
     assert(ui_widget_port_postgame_pressed(_gamepad_analog_button_b));
     assert(!ui_widget_port_postgame_pressed(_gamepad_analog_button_b));
+    /* a menu over the scores (a dialog, the pause menu): no buttons, no targets, and a waiting press is dropped */
+    ui_mouse_target_count = pills = 0;
+    ui_postgame_pending = _gamepad_analog_button_b;
+    menu_up = (struct widget_instance *)&touch;
+    assert(!ui_widget_port_postgame_legend(1, 1.0f, TRUE) && !ui_mouse_target_count && !pills);
+    assert(!ui_widget_port_postgame_pressed(_gamepad_analog_button_b));
+    menu_up = 0;
+    /* a press the game never takes is dropped when its button stops showing pressed, not kept for the next scores */
+    ui_postgame_pending = ui_postgame_pressed = _gamepad_analog_button_a;
+    ui_postgame_pressed_frames = 3;
+    for (int frame = 0; frame < 2; frame++) {
+        ui_mouse_target_count = 0;
+        assert(ui_widget_port_postgame_legend(1, 1.0f, TRUE) && ui_postgame_pending == _gamepad_analog_button_a);
+    }
+    ui_mouse_target_count = 0;
+    assert(ui_widget_port_postgame_legend(1, 1.0f, TRUE) && ui_postgame_pending == NONE);
+    assert(!ui_widget_port_postgame_pressed(_gamepad_analog_button_a));
     return 0;
 }
 '''
