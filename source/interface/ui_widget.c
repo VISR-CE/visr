@@ -9696,12 +9696,25 @@ static void widget_instance_render_recursive(
 		 * widened symmetrically below, before the centering offset is
 		 * added. Only flat fills (the dims, and the menus' vertical
 		 * gradient, at most 16 texels wide): a picture is drawn texel for
-		 * texel, so wider bounds would shift it (the loading screen). */
-		boolean widen_to_screen =
+		 * texel, so wider bounds would shift it (the loading screen).
+		 * How far is the screen's reach in this draw
+		 * (halo_screen_menu_side_columns, halo_screen_menu_visible_rows),
+		 * which grows when the safe-area zoom shrinks the menus: the
+		 * margins alone would leave the screen's edges uncovered. Down
+		 * and up only for a fill flat both ways (a dim): the band's
+		 * rules sit at its picture's own rows. */
+		long side_columns = halo_screen_menu_side_columns();
+		long top_row, bottom_row;
+		boolean full_design =
 			bounds.x0 <= 0 && bounds.y0 <= 0 &&
 			bounds.x1 >= 640 && bounds.y1 >= 480 &&
-			bitmap->width <= 16 &&
-			halo_screen_width() > 640;
+			bitmap->width <= 16;
+		boolean widen_to_screen = full_design && side_columns > 0;
+		boolean heighten_to_screen = full_design && bitmap->height <= 16;
+
+		halo_screen_menu_visible_rows(&top_row, &bottom_row);
+		if (heighten_to_screen && top_row >= 0 && bottom_row <= 480)
+			heighten_to_screen = FALSE;
 
 		if (use_nifty_plasma_fx)
 		{
@@ -9712,9 +9725,13 @@ static void widget_instance_render_recursive(
 		}
 		if (widen_to_screen)
 		{
-			long extra = (halo_screen_width() - 640) / 2;
-			bounds.x0 -= (short)extra;
-			bounds.x1 = (short)(640 + extra);
+			bounds.x0 = (short)MIN(bounds.x0, -side_columns);
+			bounds.x1 = (short)MAX(bounds.x1, 640 + side_columns);
+		}
+		if (heighten_to_screen)
+		{
+			bounds.y0 = (short)MIN(bounds.y0, top_row);
+			bounds.y1 = (short)MAX(bounds.y1, bottom_row);
 		}
 		bounds.x0 += offset.x;
 		bounds.x1 += offset.x;
@@ -9729,16 +9746,19 @@ static void widget_instance_render_recursive(
 			clip->y0 += offset.y;
 			clip->y1 += offset.y;
 		}
-		if (widen_to_screen && clip)
+		if ((widen_to_screen || heighten_to_screen) && clip)
 		{
-			/* widen the clip by the same amount (it is offset-shifted but
-			 * still 640-wide at the edges) so the dim is not clipped back
-			 * to the centered columns */
-			long extra = (halo_screen_width() - 640) / 2;
-			if (clip->x0 <= 0)
-				clip->x0 -= (short)extra;
-			if (clip->x1 >= 640)
-				clip->x1 = (short)(clip->x1 + extra);
+			/* widen the clip as far (it is offset-shifted but still
+			 * 640-wide at the edges) so the dim is not clipped back to the
+			 * centered columns */
+			if (widen_to_screen && clip->x0 <= 0)
+				clip->x0 = (short)MIN(clip->x0, -side_columns);
+			if (widen_to_screen && clip->x1 >= 640)
+				clip->x1 = (short)MAX(clip->x1, 640 + side_columns);
+			if (heighten_to_screen && clip->y0 <= 0)
+				clip->y0 = (short)MIN(clip->y0, top_row);
+			if (heighten_to_screen && clip->y1 >= 480)
+				clip->y1 = (short)MAX(clip->y1, bottom_row);
 		}
 		if (TEST_FLAG(definition->flags, _widget_flash_background_bitmap_bit))
 		{
@@ -10200,8 +10220,8 @@ void render_ui_widgets(
 			real alpha;
 
 			/* the whole screen, around the centered 640 columns */
-			bounds.x0 = (short)(-(halo_screen_width() - 640) / 2);
-			bounds.x1 = (short)(640 + (halo_screen_width() - 640) / 2);
+			bounds.x0 = (short)-halo_screen_menu_side_columns();
+			bounds.x1 = (short)(640 + halo_screen_menu_side_columns());
 			bounds.y0 = 0;
 			bounds.y1 = 480;
 			if (widget_globals.fade_to_black >= 0.95f)

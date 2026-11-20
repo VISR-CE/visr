@@ -772,6 +772,45 @@ float halo_screen_menu_pixel_scale(void)
 	return halo_screen_pixel_scale() * zoom;
 }
 
+/* How far past the 640 design columns, on each side, the screen reaches in the menu draw going on now
+(menu units): the wide screen's margins, (width - 640) / 2 rounded up, and more while the safe-area zoom shrinks the
+menus below one (menu_window_geometry), whose content then leaves the screen's edges uncovered. A
+full-screen fill (a dim, the menus' band, a fade) reaches this far, so it meets the screen's edges in any
+size, orientation and safe area. Outside a menu draw, or zoomed in, the margins alone. */
+long halo_screen_menu_side_columns(void)
+{
+	long width = halo_screen_width();
+	long side = width > 640 ? (width - 640 + 1) / 2 : 0;
+	float zoom = menu_window_drawing ? menu_draw_zoom : 1.0f;
+
+	if (zoom > 0.0f && zoom < 1.0f && width >= 640)
+	{
+		long reach = (long)ceilf((float)width * 0.5f / zoom - 320.0f) + 1;
+
+		if (reach > side)
+			side = reach;
+	}
+	return side;
+}
+
+/* The menu rows the screen shows in the menu draw going on now: 0 to 480, or more while the safe-area zoom
+shrinks the menus below one (rounded outward) */
+void halo_screen_menu_visible_rows(long *top, long *bottom)
+{
+	float zoom = menu_window_drawing ? menu_draw_zoom : 1.0f;
+
+	*top = 0;
+	*bottom = 480;
+	if (zoom > 0.0f && zoom < 1.0f)
+	{
+		/* (both the zoom's span from its top and the same span centered: a fill a little past the
+		screen's edge costs nothing, a gap shows) */
+		float span = 480.0f / zoom;
+		*top = (long)floorf(fminf(menu_draw_top, 0.5f * (480.0f - span))) - 1;
+		*bottom = (long)ceilf(fmaxf(menu_draw_top + span, 0.5f * (480.0f + span))) + 1;
+	}
+}
+
 /* Menu-space limits of the widget viewport, including minimum-scale crop. */
 void halo_screen_menu_visible_bounds(float *top, float *bottom)
 {
