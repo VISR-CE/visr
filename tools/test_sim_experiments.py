@@ -77,12 +77,9 @@ int config_boolean(const char *name) {
     assert(0); return 0;
 }
 int main(void) {
-    /* (every combination while they are few; past four settings, every value against a spread of defaults and masks
-    that still has each bit both ways) */
-    unsigned const defaults_step = ALL > 15 ? 13 : 1, mask_step = ALL > 15 ? 11 : 1;
-    for (unsigned defaults = 0; defaults <= ALL; defaults += defaults_step) {
+    for (unsigned defaults = 0; defaults <= ALL; defaults++) {
         configured = defaults;
-        for (unsigned mask = 0; mask <= ALL; mask += mask_step) {
+        for (unsigned mask = 0; mask <= ALL; mask++) {
             for (unsigned values = 0; values <= ALL; values++) {
                 sim_experiment_override(values, mask);
                 unsigned expected = (defaults & ~mask) | (values & mask);
@@ -173,11 +170,9 @@ static double host_config_real(const char *name, double fallback) { (void)name; 
 ''' + function + r'''
 int main(void) {
     @autoreleasepool {
-        /* (every combination while they are few; past four settings, a spread that still has each bit both ways) */
-        unsigned const configured_step = ALL > 15 ? 13 : 1, mask_step = ALL > 15 ? 11 : 1, values_step = ALL > 15 ? 7 : 1;
-        for (configured = 0; configured <= ALL; configured += configured_step) {
-            for (unsigned mask = 0; mask <= ALL; mask += mask_step) {
-                for (unsigned values = 0; values <= ALL; values += values_step) {
+        for (configured = 0; configured <= ALL; configured++) {
+            for (unsigned mask = 0; mask <= ALL; mask++) {
+                for (unsigned values = 0; values <= ALL; values++) {
                     struct benchmark_scene scene = { .sim_experiments = values, .sim_experiments_mask = mask };
                     for (const char *stage = "AP"; *stage; stage++) {
                         NSMutableDictionary *record = [NSMutableDictionary dictionary];

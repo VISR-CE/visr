@@ -1,5 +1,5 @@
 """debug.verify_once_a_tick (port/linux/game/tick_verify.c) may put a cache's or pool's list walk off, never drop it:
-every subject that asked inside a tick or frame is walked exactly once when the outermost one ends, a subject going
+every subject that asked inside a tick or frame is walked exactly once when it ends, a subject going
 away is walked before it goes, and outside a tick, with the setting off or with no room left the caller walks at
 once. The class of bug is a verification asked for and never made."""
 import shutil
@@ -45,8 +45,9 @@ int main(void)
     expect(1, 0); expect(2, 0);
     tick_verify_end(); expect(1, 1); expect(2, 1);
     tick_verify_begin(); tick_verify_end(); expect(1, 0); expect(2, 0);
-    /* a frame inside a tick: made when the outer one ends */
-    tick_verify_begin(); tick_verify_begin(); verify(3); tick_verify_end(); expect(3, 0); tick_verify_end(); expect(3, 1);
+    /* an end missed (a tick or frame begun inside another): the walks owed are made at that begin, not dropped */
+    tick_verify_begin(); verify(3); tick_verify_begin(); expect(3, 1); verify(3); tick_verify_end(); expect(3, 1);
+    tick_verify_end(); expect(3, 0);
     /* a subject going away: its walk is made then, once, and it is free to ask again */
     tick_verify_begin(); verify(4); tick_verify_flush(&subjects[4]); expect(4, 1);
     tick_verify_flush(&subjects[4]); expect(4, 0);
@@ -57,7 +58,7 @@ int main(void)
     for (index = 0; index < 32; index++) assert(walks[index] == (index >= MAXIMUM_TICK_VERIFY_SUBJECTS));
     tick_verify_end();
     for (index = 0; index < 32; index++) expect(index, 1);
-    /* the setting read where the outermost tick begins holds to its end */
+    /* the setting read where the tick begins holds to its end */
     tick_verify_begin(); setting = FALSE; verify(5); expect(5, 0); tick_verify_end(); expect(5, 1);
     return 0;
 }
