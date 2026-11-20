@@ -43,6 +43,8 @@ no screen pauses the game (a network game's clock runs on).
 #include <stdlib.h>
 #include <string.h>
 
+extern int host_development_hooks(void);
+
 /* the platform layer's (port/linux/src) */
 void platform_log(char const *format, ...);
 char const *config_string(char const *name);
@@ -3011,6 +3013,10 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 
 		snprintf(detail, sizeof(detail), "%ld > %d", bottom, work->footer);
 		patch_fail(work, patch->file, patch->line, "the rows pass the footer:", detail);
+		/* (the generator's tests lay every patch out and fail on this, so it means a patch table that was not
+		checked: a development build stops at it, naming the list; a release leaves the list the map's, as logged) */
+		if (host_development_hooks())
+			match_vhalt("menu_tags.c", __LINE__, patch->list);
 		goto done;
 	}
 	/* written: the rows' tags first, which the list names */

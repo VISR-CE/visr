@@ -156,6 +156,12 @@ static char mode[32];
 static char folder[256];
 static long failures;
 
+/* (a development build halts on a patch that overflows its footer; the probe is not one, and checks the list stays the map's) */
+int host_development_hooks(void)
+{
+	return 0;
+}
+
 void platform_log(char const *format, ...)
 {
 	va_list arguments;
