@@ -39,26 +39,62 @@ BOOL host_ios_allows_portrait(void) {
 }
 
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION
-static char debug_orientation[16];
+/* debug.orientation: one orientation, or a timed sequence ("portrait,landscape@20"): the first is requested
+   once the first window scene is active, each later one at its seconds after that. */
+#define DEBUG_ORIENTATION_STEPS 4
+static char debug_orientation[64];
+static struct { BOOL portrait; double seconds; } debug_steps[DEBUG_ORIENTATION_STEPS];
+static int debug_step_count;
 static BOOL orientation_requested;
 
-static void request_debug_orientation(UIWindowScene *scene) {
-    if (orientation_requested || !debug_orientation[0] ||
-        scene.activationState != UISceneActivationStateForegroundActive ||
-        ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) return;
-    orientation_requested = YES;
-    BOOL portrait = !strcmp(debug_orientation, "portrait");
+static BOOL debug_orientation_parse(const char *text) {
+    char copy[sizeof(debug_orientation)];
+    snprintf(copy, sizeof(copy), "%s", text);
+    debug_step_count = 0;
+    for (char *save = NULL, *item = strtok_r(copy, ",", &save); item; item = strtok_r(NULL, ",", &save)) {
+        if (debug_step_count == DEBUG_ORIENTATION_STEPS) return NO;
+        char *at = strchr(item, '@');
+        double seconds = 0;
+        if (at) { *at = 0; seconds = atof(at + 1); }
+        if (strcmp(item, "portrait") && strcmp(item, "landscape")) return NO;
+        if (debug_step_count && seconds <= debug_steps[debug_step_count - 1].seconds) return NO;
+        debug_steps[debug_step_count].portrait = !strcmp(item, "portrait");
+        debug_steps[debug_step_count].seconds = seconds;
+        debug_step_count++;
+    }
+    return debug_step_count > 0 && debug_steps[0].seconds == 0;
+}
+
+static void request_debug_step(UIWindowScene *scene, int step) {
+    BOOL portrait = debug_steps[step].portrait;
     if (portrait && !allow_portrait) {
         host_logf(HOST_LOG_INFO, "orientation request: portrait requires display.allow_portrait");
         return;
     }
     UIInterfaceOrientationMask mask = portrait ? UIInterfaceOrientationMaskPortrait : UIInterfaceOrientationMaskLandscape;
-    host_logf(HOST_LOG_INFO, "orientation request: %s", debug_orientation);
+    host_logf(HOST_LOG_INFO, "orientation request: %s (step %d of %d)", portrait ? "portrait" : "landscape",
+        step + 1, debug_step_count);
     UIWindowSceneGeometryPreferencesIOS *geometry = [[UIWindowSceneGeometryPreferencesIOS alloc]
         initWithInterfaceOrientations:mask];
     [scene requestGeometryUpdateWithPreferences:geometry errorHandler:^(NSError *error) {
         host_logf(HOST_LOG_WARN, "orientation request: %s", error.localizedDescription.UTF8String);
     }];
+}
+
+static void request_debug_orientation(UIWindowScene *scene) {
+    if (orientation_requested || !debug_step_count ||
+        scene.activationState != UISceneActivationStateForegroundActive ||
+        ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) return;
+    orientation_requested = YES;
+    request_debug_step(scene, 0);
+    for (int step = 1; step < debug_step_count; step++) {
+        __weak UIWindowScene *weak_scene = scene;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(debug_steps[step].seconds * NSEC_PER_SEC)),
+            dispatch_get_main_queue(), ^{
+                UIWindowScene *target = weak_scene;
+                if (target) request_debug_step(target, step);
+            });
+    }
 }
 #endif
 
@@ -77,9 +113,10 @@ void host_ios_orientation_configure(void) {
     environment = getenv("HALO_ORIENTATION");
     host_config_string("debug.orientation", "", debug_orientation, sizeof(debug_orientation));
     if (environment) snprintf(debug_orientation, sizeof(debug_orientation), "%s", environment);
-    if (debug_orientation[0] && strcmp(debug_orientation, "portrait") && strcmp(debug_orientation, "landscape")) {
+    if (debug_orientation[0] && !debug_orientation_parse(debug_orientation)) {
         host_logf(HOST_LOG_WARN, "orientation request: unknown orientation %s", debug_orientation);
         debug_orientation[0] = 0;
+        debug_step_count = 0;
     }
     if (allow_portrait)
         SDL_SetHint(SDL_HINT_ORIENTATIONS, "Portrait PortraitUpsideDown LandscapeLeft LandscapeRight");

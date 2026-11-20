@@ -642,8 +642,10 @@ static const struct config_setting config_settings[] =
 		"At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. Development AppKit Mac host only." },
 	{ "debug.orientation", _config_string, "\"\"", "HALO_ORIENTATION", _environment_value, _platform_ios,
 		"Request \"portrait\" or \"landscape\" once the first window scene is active;\n"
-		"empty leaves the device's orientation alone. Portrait requires\n"
-		"display.allow_portrait. For simulator captures. Read at launch." },
+		"empty leaves the device's orientation alone. A comma list with seconds\n"
+		"(\"portrait,landscape@20\") requests each later one that long after the\n"
+		"first, to test a rotation. Portrait requires display.allow_portrait.\n"
+		"For simulator captures. Read at launch." },
 	{ "debug.test_controller", _config_string, "\"\"", "HALO_TEST_CONTROLLER", _environment_value, _platform_ios,
 		"A synthetic right Sense controller in place of the real ones, to check\n"
 		"controller aim on the Mac and in the simulator: \"fixed:<yaw>,<pitch>\"\n"
