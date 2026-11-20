@@ -2302,12 +2302,12 @@ static short profile_list_rows(void)
 	return (short)MIN(profile_list.count + 1, PROFILE_ROWS);
 }
 
-static void host_profile_visit(void);
+void ui_widget_port_host_profile_visit(void);
 
 /* "player profile list initialize": on player 1's profile */
 static boolean profile_list_initialize(struct widget_instance *list)
 {
-	host_profile_visit();
+	ui_widget_port_host_profile_visit();
 	long active = player_ui_get_active_player_profile_index(0);
 	short index;
 
@@ -2368,7 +2368,7 @@ static void dialog_legend_update(struct widget_instance *widget)
 
 /* "3wide player profile list update": the rows, and the profile chosen:
 its name, colour, current level, best difficulty and controls */
-static void host_profile_poll(struct widget_instance *list);
+void ui_widget_port_host_profile_poll(struct widget_instance *list);
 
 static void profile_list_update(struct widget_instance *list)
 {
@@ -2378,7 +2378,7 @@ static void profile_list_update(struct widget_instance *list)
 	boolean profile;
 
 	profile_list_read(FALSE);
-	host_profile_poll(list);
+	ui_widget_port_host_profile_poll(list);
 	item = list_scroll(list, &profile_list.first, (short)(profile_list.count + 1), profile_list_rows());
 	if (item != NONE)
 		profile_list.chosen = item;
@@ -3318,13 +3318,14 @@ static boolean multiplayer_player(short controller)
 	return ui_widget_port_multiplayer_player(controller, player_ui_get_active_player_profile_index(0));
 }
 
-#define HOST_PROFILE_NAME "pc\\main_menu\\profile_manager\\player_profile_manager"
+#define HOST_PROFILE_NAME "ui\\shell\\main_menu\\player_profiles_select\\solo_game_player_profile_select_screen"
 #define HOST_MAP_SELECT_NAME "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"
 
 /* Create Game with no profile (a fresh install): the game's own profile
-screen (the one the campaign and Settings open, with its Create New Player
-Profile row) asks for one first, and the controller that pressed it hosts.
-Hosting goes on to the map once the profile exists (host_profile_poll) */
+picker (the one the campaign opens, with its new-profile card) asks for one
+first, and the controller that pressed it hosts. Hosting goes on to the map
+once the profile exists (host_profile_poll, from the picker's list update),
+before the picker's own next step (the campaign's levels) can be chosen */
 static struct
 {
 	short controller;
@@ -3334,7 +3335,7 @@ static struct
 /* the profile screen's list opened: the first open is the host's own. The list
 opens again after the name keyboard and the saving screen, so later opens do
 not end the host's turn; host_profile_continue does, once the profile exists */
-static void host_profile_visit(void)
+void ui_widget_port_host_profile_visit(void)
 {
 	if (host_profile.controller != NONE)
 		host_profile.visited = TRUE;
@@ -3396,7 +3397,7 @@ static boolean host_profile_continue(struct widget_instance *widget, struct even
 /* (from the profile list's update) once the profile screen's New Player
 Profile made one (the game's own name keyboard and saving screens ran), the
 host goes on */
-static void host_profile_poll(struct widget_instance *list)
+void ui_widget_port_host_profile_poll(struct widget_instance *list)
 {
 	struct player_profile profile;
 	struct event_record event;
@@ -5418,6 +5419,9 @@ static void browser_update(struct widget_instance *list)
 	struct widget_instance *row;
 	struct widget_instance *stats = list->parameters.list.extended_description;
 	short focused = browser_row_index(list->focused_child);
+
+	/* (back on the list of games: a host that left the profile picker without a profile is not waiting any more) */
+	host_profile.controller = NONE;
 
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
 	{

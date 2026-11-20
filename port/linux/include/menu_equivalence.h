@@ -25,6 +25,7 @@ static char const *const menu_screen_pairs[][2] = {
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen", "pc\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\coop_options\\coop_options_screen", "pc\\main_menu\\multiplayer_type_select\\coop_options\\coop_options_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen", "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"},
+	{"pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\preview_screen", "pc\\main_menu\\multiplayer_type_select\\lobby\\preview_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper", "pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"},
 	{"pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen", "pc\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen"},
 	{"pc\\xbox\\main_menu\\quit_select\\quit_screen", "pc\\main_menu\\quit_select\\quit_screen"},

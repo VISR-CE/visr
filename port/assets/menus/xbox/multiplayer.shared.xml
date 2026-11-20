@@ -1370,6 +1370,12 @@
 		<string text="Unknown Level" id="xbox.multiplayer_shared.main_menu_mp_map_list.unknown_level" />
 		<string text=" " id="xbox.multiplayer_shared.main_menu_mp_map_list.x" />
 	</strings>
+	<strings name="main_menu/player_profiles_select/difficulty_names">
+		<string text="Easy" id="xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names.easy" />
+		<string text="Normal" id="xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names.normal" />
+		<string text="Heroic" id="xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names.heroic" />
+		<string text="Legendary" id="xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names.legendary" />
+	</strings>
 	<strings name="main_menu/multiplayer_type_select/join_game/join_game_ticker_labels">
 		<string text="Players" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players" />
 		<string text="Rules" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.rules" />

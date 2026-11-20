@@ -972,6 +972,7 @@ def multiplayer_documents(assets, bitmaps):
     # menu_functions.c looks up map names and browser stats by PC tag path,
     # independently of the widgets' string_list references.
     for name in ('main_menu/map_list', 'main_menu/mp_map_list',
+                 'main_menu/player_profiles_select/difficulty_names',
                  MP + '/join_game/join_game_ticker_labels'):
         shared.append(deepcopy(definitions['strings', name]))
     browser_layout(documents['main_menu.multiplayer_type_select.join_game.xml'], widgets, bitmaps)
@@ -2260,7 +2261,7 @@ def screen_pairs():
     for suffix in ('join_game/join_game_screen', 'join_game/filters/filters_screen',
                    'join_game/password/password_screen', 'join_game/code/code_screen',
                    'direct_ip/direct_ip_screen', 'server_settings/server_settings_screen',
-                   'coop_options/coop_options_screen', 'lobby/lobby_screen',
+                   'coop_options/coop_options_screen', 'lobby/lobby_screen', 'lobby/preview_screen',
                    'connected/connected_map_select_wrapper'):
         pairs.append(('pc/xbox/' + MP + '/' + suffix, MP + '/' + suffix))
     pairs.append(('pc/xbox/main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen',

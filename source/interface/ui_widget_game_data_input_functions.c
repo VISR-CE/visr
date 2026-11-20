@@ -618,6 +618,8 @@ static void mutliplayer_settings_select_list_update_displayed_items(
 	struct widget_instance *widget);
 static void player_profile_3wide_list_update(
 	struct widget_instance *widget);
+/* port: Create Game with no profile (menu_functions.c) */
+void ui_widget_port_host_profile_poll(struct widget_instance *list);
 static void player_profile_edit_select_menu_update_extended_description(
 	struct widget_instance *widget);
 static void player_profile_1wide_list_update(
@@ -3881,6 +3883,10 @@ static void player_profile_3wide_list_update(
 			controls_text->visible = FALSE;
 		}
 	}
+	/* port: a host waiting for its first profile goes on once it exists (menu_functions.c); last, since the
+	screen may be replaced */
+	ui_widget_port_host_profile_poll(list_widget);
+
 	return;
 }
 

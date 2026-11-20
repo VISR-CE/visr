@@ -1209,6 +1209,7 @@ static boolean netgame_join_player(
 	struct widget_instance *widget,
 	struct event_record *event,
 	boolean *widget_deleted);
+void ui_widget_port_host_profile_visit(void);
 static boolean player_profiles_list_initialize(
 	struct widget_instance *widget,
 	struct event_record *event,
@@ -4431,6 +4432,8 @@ static boolean player_profiles_list_initialize(
 	boolean include_default;
 	short required_profile_count;
 
+	/* port: Create Game with no profile shows this list first (menu_functions.c) */
+	ui_widget_port_host_profile_visit();
 	event_handler_functions.profile_index = NONE;
 	memset(cached_player_profile, NONE, 0x9C);
 	match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 1686,

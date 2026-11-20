@@ -1665,6 +1665,12 @@ players_2 = "PLAYERS:"
 page = "PAGE"
 todo_motd_url = "TODO: MOTD URL"
 
+[xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names]
+easy = "Easy"
+normal = "Normal"
+heroic = "Heroic"
+legendary = "Legendary"
+
 [xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_a_butn_touch_caption]
 text = "OK"
 
