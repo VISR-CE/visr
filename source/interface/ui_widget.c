@@ -1384,6 +1384,9 @@ static void event_handler_dispatch(
 static boolean ui_widget_load_children_recursive(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition);
+/* port: a standard tall row, as the menus' files or a patch said (menu_tags.c) */
+boolean pc_menu_row_tall(
+	long tag_index);
 /* port: whether the tag is one of the menus' (port/linux/game/menu_tags.c) */
 boolean pc_menu_tag(
 	long tag_index);
@@ -9876,10 +9879,8 @@ static void widget_instance_render_recursive(
 		/* port: generated comfortable row art draws 36 units inside the
 		39-unit tap band. Frame placement changes texture coordinates, so
 		the quad also needs its own bounds (tools/xbox_menus.py). */
-		const char *row_bitmap_name = tag_get_name(definition->background_bitmap.index);
-		if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
-			strstr(row_bitmap_name, "\\row_36\\")))
-			bounds.y1 = MIN(bounds.y1, bounds.y0 + 36);
+		if (pc_menu_row_tall(widget->definition_tag_index))
+			bounds.y1 = MIN(bounds.y1, bounds.y0 + MENU_COMFORTABLE_ROW_ART);
 
 		/* port: a widget whose bounds cover the whole 640x480 design space (the
 		 * pause menu's dim, for example) should cover the whole screen too,
@@ -9963,8 +9964,7 @@ static void widget_instance_render_recursive(
 				bounds.y0 += frame_y;
 				/* port: a taller row frame (tools/xbox_menus.py) is drawn at its
 				own height, over the clamp above, so its visible band fills the row */
-				if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
-					strstr(row_bitmap_name, "\\row_36\\")))
+				if (pc_menu_row_tall(widget->definition_tag_index))
 					bounds.y1 = bounds.y0 + frame_height;
 				texels.x0 = 0;
 				texels.y0 = 0;

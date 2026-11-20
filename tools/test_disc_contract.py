@@ -100,25 +100,33 @@ def test_every_disc_option_list_fits_above_its_help_with_every_row_tall():
     TALL_OVERFLOW with its numbers."""
     import menu_geometry
 
-    layout = ui_map_tags.load_layout()
-    ours = disc_contract.xbox_widgets()
-    patches = {patch.get('list'): patch for patch in ET.parse(disc_contract.XBOX / 'patches.xml').getroot().iter('patch')}
-    checked = {}
-    for path, widget in layout.items():
-        disc = widget['children']
-        # option lists: rows of the disc's option art, one under the other (the panel lists keep their own pitch)
-        if widget['type'] != 'column_list' or not disc or {
-                layout[child['widget']]['bitmap'].rsplit('\\', 1)[-1] for child in disc} != {'option_bkds'}:
-            continue
-        patch = patches.get(path)
-        rows = len(disc_contract.patched_rows(layout, ours, patch)) if patch is not None else len(disc)
-        # (bounds are left, top, right, bottom)
-        limit = int(patch.get('footer')) if patch is not None else layout[widget['description']]['bounds'][1]
-        bottom = min(child['y'] for child in disc) + rows * menu_geometry.COMFORTABLE_PITCH
-        checked[path.rsplit('\\', 1)[-1]] = (rows, bottom, limit)
+    assert disc_contract.TALL_PITCH == menu_geometry.COMFORTABLE_PITCH
+    root = ET.parse(disc_contract.XBOX / 'patches.xml').getroot()
+    # (the generator marks the lists that fit rows="tall"; laid out here from the patches without the marks' own
+    # empty patches, so the limit of an unpatched list is its help text's top)
+    for patch in list(root.iter('patch')):
+        if not len(patch):
+            root.remove(patch)
+    found = disc_contract.option_lists_tall(ui_map_tags.load_layout(), root, disc_contract.xbox_widgets())
+    checked = {path.rsplit('\\', 1)[-1]: fit[:3] for path, fit in found.items()}
     assert set(checked) == {
         'advanced_controls_menu', 'item_options_menu', 'player_options_menu', 'indicator_options_menu',
         'ctf_options_menu', 'koth_options_menu', 'oddball_options_menu', 'race_options_menu', 'slayer_options_menu',
         'controller_options_menu'}, sorted(checked)
     over = {name: fit for name, fit in checked.items() if fit[1] > fit[2]}
     assert over == TALL_OVERFLOW, over
+
+
+def test_the_patches_make_tall_exactly_the_option_lists_that_fit():
+    """rows="tall" is on every disc option list that fits and on no other, each with the tall art and its screen."""
+    root = ET.parse(disc_contract.XBOX / 'patches.xml').getroot()
+    marked = {patch.get('list').rsplit('\\', 1)[-1]: patch for patch in root.iter('patch') if patch.get('rows')}
+    assert all(patch.get('rows') == 'tall' and patch.get('tall_art') == 'xbox/bitmaps/row_36/option_bkds'
+               for patch in marked.values())
+    assert set(marked) == {
+        'advanced_controls_menu', 'item_options_menu', 'player_options_menu', 'indicator_options_menu',
+        'ctf_options_menu', 'koth_options_menu', 'race_options_menu', 'slayer_options_menu'}
+    assert not set(marked) & set(TALL_OVERFLOW)
+    layout = ui_map_tags.load_layout()
+    for patch in marked.values():
+        assert any(child['widget'] == patch.get('list') for child in layout[patch.get('screen')]['children'])

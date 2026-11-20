@@ -72,7 +72,8 @@ static char const patches_xml[] =
 	"  <row after=\"ui\\shell\\adopt\\adopt_item_1\" name=\"adopted\" widget=\"xbox/test_row\" help=\"Help A|Help B\"/>\n"
 	"</patch>\n"
 	/* a row with a spinner out of an option list: the rows after it keep their own help lines */
-	"<patch list=\"ui\\shell\\options\\options_list\" screen=\"ui\\shell\\options\\options_screen\">\n"
+	"<patch list=\"ui\\shell\\options\\options_list\" screen=\"ui\\shell\\options\\options_screen\""
+	" rows=\"tall\" tall_art=\"xbox/test_picture\">\n"
 	"  <remove child=\"ui\\shell\\options\\op_first\"/>\n"
 	"</patch>\n"
 	"<patch list=\"ui\\shell\\adopt\\adopt_other_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
@@ -662,7 +663,7 @@ static void adopt_build(void)
 	children_set(ad_screen, 4, children, screen_xs, screen_ys);
 }
 
-static long op_list;
+static long op_list, op_rows[3];
 
 /* an option list as the gametype editor's are: three rows, each with a spinner of 2, 3 and 2 values, and a
 description of one text whose seven strings are the rows' values' helps in turn */
@@ -689,6 +690,7 @@ static void options_build(void)
 	}
 	op_list = widget_add("ui\\shell\\options\\options_list", _widget_type_column_list, 0, 0, 640, 480);
 	children_set(op_list, 3, rows, xs, ys);
+	memcpy(op_rows, rows, sizeof(op_rows));
 	text = widget_add("ui\\shell\\options\\options_help", _widget_type_text_box, 68, 321, 550, 400);
 	reference_set(&definition_of(text)->text_label_string_list, UNICODE_STRING_LIST_TAG,
 		strings_add("ui\\shell\\options\\options_help_strings", 7));
@@ -979,6 +981,33 @@ static void check_apple(boolean tvos)
 			check(pc_menu_patch_row_help(op_list, children_of(op_list)[1].widget_tag.index, &help_line, &help_length) &&
 				help_line == 5 && help_length == 2, "the last row keeps its first help line and its two values (%d, %d)",
 				help_line, help_length);
+		}
+		{
+			/* rows="tall": the map's own rows are made tall where they are, so everything that finds a row by its
+			tag or its tag's name (the game's option handlers, the help numbering above) still finds it */
+			long art = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\test_picture");
+			long row;
+
+			for (row = 0; row < 2 && child_count(op_list) == 2; row++)
+			{
+				struct ui_widget_child_reference const *placed = &children_of(op_list)[row];
+				struct ui_widget_definition const *definition = definition_of(placed->widget_tag.index);
+				struct ui_widget_child_reference const *parts = definition->child_widgets.address;
+
+				check(placed->widget_tag.index == op_rows[row + 1], "a tall row keeps the map's tag (row %ld)", row);
+				check(!strcmp(strrchr(tag_get_name(placed->widget_tag.index), '\\') + 1, row ? "op_third" : "op_second"),
+					"a tall row keeps its tag's name (%s)", tag_get_name(placed->widget_tag.index));
+				check(placed->vertical_offset == 73 + row * 39, "tall rows stand a standard pitch apart from the first row's place (%d)",
+					placed->vertical_offset);
+				check(definition->bounds.y1 - definition->bounds.y0 == 39, "a tall row is the standard tap band tall (%d)",
+					definition->bounds.y1 - definition->bounds.y0);
+				check(art != NONE && definition->background_bitmap.index == art, "a tall row draws the tall art");
+				check(definition->child_widgets.count == 1 && parts[0].vertical_offset == 5,
+					"a tall row's value moves down with it (%d)", parts[0].vertical_offset);
+				check(pc_menu_row_tall(placed->widget_tag.index), "the engine is told the row is tall");
+			}
+			check(!pc_menu_row_tall(op_rows[0]), "a row the patch removed is not made tall");
+			check(!pc_menu_row_tall(children_of(ad_list)[0].widget_tag.index), "a list whose patch does not ask keeps its rows");
 		}
 		check(!pc_menu_patch_list_index(ad_other_list, NONE, &description) && child_count(ad_other_list) == 1,
 			"a row of a widget there is none of is not made");

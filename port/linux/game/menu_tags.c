@@ -71,6 +71,7 @@ char const *pc_menu_debug_screen_name(char const *open);
 char const *pc_menu_function_name(long function_index);
 char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
+boolean pc_menu_row_tall(long tag_index);
 /* whether the multiplayer mode chosen is system link (menu_functions.c) */
 boolean pc_menu_multiplayer_lan(void);
 short pc_menu_list_window(long tag_index);
@@ -512,6 +513,9 @@ static struct
 	/* the column lists that show a window of their rows (visible_rows=) */
 	struct { long tag_index; short rows; } *windows;
 	long window_count;
+	/* the widgets that are standard tall rows (row="tall", and the map's rows a patch made tall) */
+	long *tall_rows;
+	long tall_row_count;
 	boolean loaded;
 } menu_tags;
 
@@ -1295,6 +1299,20 @@ static void rows_pack(struct halo_menu_widget const *source, struct ui_widget_ch
 		children[placed].flags &= ~0x80000000UL;
 }
 
+/* a widget noted as a standard tall row (pc_menu_row_tall) */
+static void row_tall_note(long tag_index)
+{
+	long *grown;
+
+	if (pc_menu_row_tall(tag_index))
+		return;
+	grown = realloc(menu_tags.tall_rows, (menu_tags.tall_row_count + 1) * sizeof(*grown));
+	if (!grown)
+		return;
+	menu_tags.tall_rows = grown;
+	menu_tags.tall_rows[menu_tags.tall_row_count++] = tag_index;
+}
+
 static void *widget_build(long widget_index)
 {
 	struct halo_menus const *menus = build.menus;
@@ -1440,6 +1458,13 @@ static void *widget_build(long widget_index)
 			problem(source->file, source->line, "a setting needs strings and values:", source->name);
 		else
 			setting_add(source, build.widget_tags[widget_index]);
+	}
+	if (source->row)
+	{
+		if (strcmp(source->row, "tall"))
+			problem(source->file, source->line, "row is tall, or not given:", source->name);
+		else
+			row_tall_note(build.widget_tags[widget_index]);
 	}
 	if (source->visible_rows)
 	{
@@ -1695,6 +1720,8 @@ static void menu_tags_release(void)
 		free(menu_tags.patch_indices);
 	if (menu_tags.windows)
 		free(menu_tags.windows);
+	if (menu_tags.tall_rows)
+		free(menu_tags.tall_rows);
 	memset(&menu_tags, 0, sizeof(menu_tags));
 }
 
@@ -2854,6 +2881,56 @@ static void patch_remote_legends(void)
 /* one patch: worked out whole, then written (the list's rows, the
 screen's children's offsets, the rows' tags, the description's strings and
 frames), or not made at all */
+/* rows="tall": every row of the list becomes a standard tall row, in the order the patch left them. The rows
+are set at the standard pitch from the first row's place. A row of the map's own (28 units of the disc's art on
+a 30 pitch) is changed where it is, so its tag and its name stay what the game's handlers and the patch's own
+numbering look it up by: its height becomes the pitch, its background the tall art, and its label and value move
+down as a generated row's do. A row of ours is tall already. Done once for a row that several lists share. */
+static boolean patch_rows_tall(struct patch_work *work)
+{
+	struct halo_menu_patch const *patch = work->patch;
+	long art = NONE, row;
+	short first;
+
+	if (strcmp(patch->rows, "tall"))
+		return patch_fail(work, patch->file, patch->line, "rows is tall, or not given:", patch->rows);
+	if (patch->tall_art)
+	{
+		long index = find(patch->tall_art, build.menus->bitmap_count, bitmap_name);
+
+		art = index == NONE ? NONE : build.bitmap_tags[index];
+	}
+	if (art == NONE)
+		return patch_fail(work, patch->file, patch->line, "rows=\"tall\" needs tall_art, a bitmap of ours:",
+			patch->tall_art ? patch->tall_art : patch->list);
+	if (work->count < 1)
+		return TRUE;
+	for (row = 1, first = work->rows[0].vertical_offset; row < work->count; row++)
+	{
+		if (work->rows[row].vertical_offset < first)
+			first = work->rows[row].vertical_offset;
+	}
+	for (row = 0; row < work->count; row++)
+	{
+		long tag = work->rows[row].widget_tag.index;
+
+		work->rows[row].vertical_offset = (short)(first + row * MENU_COMFORTABLE_PITCH);
+		if (work->map_tags[row] != NONE && !pc_menu_row_tall(tag))
+		{
+			struct ui_widget_definition *definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+			struct ui_widget_child_reference *parts = definition->child_widgets.address;
+			long part;
+
+			definition->bounds.y1 = (short)(definition->bounds.y0 + MENU_COMFORTABLE_PITCH);
+			reference_set(&definition->background_bitmap, BITMAP_GROUP_TAG, art);
+			for (part = 0; part < definition->child_widgets.count; part++)
+				parts[part].vertical_offset = (short)(parts[part].vertical_offset + MENU_COMFORTABLE_ROW_SHIFT);
+		}
+		row_tall_note(tag);
+	}
+	return TRUE;
+}
+
 static void patch_apply(struct cache_file_tag_instance *instances, struct halo_menu_patch const *patch)
 {
 	struct halo_menus const *menus = build.menus;
@@ -2977,6 +3054,8 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 		if (!done)
 			goto done;
 	}
+	if (patch->rows && !patch_rows_tall(work))
+		goto done;
 	/* (the rows above the footer) */
 	for (row = 0, bottom = -32768; row < work->count; row++)
 	{
@@ -3699,6 +3778,22 @@ short pc_menu_list_window(
 			return menu_tags.windows[index].rows;
 	}
 	return 0;
+}
+
+/* whether the widget is a standard tall row: its art is drawn MENU_COMFORTABLE_ROW_ART units tall in its
+MENU_COMFORTABLE_PITCH tap band (ui_widget.c). Said by the menus' files (row="tall") and by the patches that make
+a list's rows tall, never guessed from a name. */
+boolean pc_menu_row_tall(
+	long tag_index)
+{
+	long index;
+
+	for (index = 0; tag_index != NONE && index < menu_tags.tall_row_count; index++)
+	{
+		if (menu_tags.tall_rows[index] == tag_index)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 /* where in its widget, and how large, a frame of ui.map's that a menu file

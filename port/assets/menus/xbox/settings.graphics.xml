@@ -24,7 +24,7 @@
 		<child widget="xbox/settings/graphics/op_crt_effect" x="54" y="112" platform="apple" />
 		<child widget="xbox/settings/graphics/button_bar" y="414" />
 	</widget>
-	<widget name="xbox/settings/graphics/op_graphics" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/graphics/op_graphics" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/graphics/graphics_label" y="5" />
 		<child widget="xbox/settings/graphics/graphics_spinner" x="320" y="6" />
 	</widget>
@@ -37,7 +37,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/graphics/op_crt_effect" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="apple" top="0">
+	<widget name="xbox/settings/graphics/op_crt_effect" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="apple" top="0" row="tall">
 		<child widget="xbox/settings/graphics/crt_effect_label" y="5" />
 		<child widget="xbox/settings/graphics/crt_effect_spinner" x="319" y="6" />
 	</widget>

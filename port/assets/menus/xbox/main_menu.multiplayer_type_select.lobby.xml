@@ -38,57 +38,57 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_list/scroll_up_arrow" x="574" y="78" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_list/scroll_down_arrow" x="574" y="357" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_0" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd_top" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_0" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd_top" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_2" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_2" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_3" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_3" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_4" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_4" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_5" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_5" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_6" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_6" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_7" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_7" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_8" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_8" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_9" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_9" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_10" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/list_item_10" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0" row="tall">
 		<on event="left right" run="swap player team" />
 		<child widget="xbox/main_menu/new_select/list_item_text" x="25" y="4" />
 		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />

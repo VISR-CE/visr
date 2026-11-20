@@ -191,7 +191,7 @@ MENU_ATTRIBUTES = {
                "color", "align", "description", "string_list", "list_flags", "text_flags", "header_bitmap",
                "footer_bitmap", "header_bounds", "footer_bounds", "child_controller", "x", "y", "left", "top",
                "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows",
-               "row_top", "row_pitch", "id", "text_id", "description_id", "strings_ids", "help_ids"},
+               "row_top", "row_pitch", "row", "id", "text_id", "description_id", "strings_ids", "help_ids"},
     "child": {"widget", "controller", "x", "y", "platform"},
     "on": {"event", "run", "script", "open", "replace", "close", "widget", "focus", "reload", "sound", "otherwise",
            "label", "back", "branch", "platform"},
@@ -201,7 +201,7 @@ MENU_ATTRIBUTES = {
     "replace": {"search", "function", "platform", "child", "model", "name", "text", "run", "open", "created",
                 "id", "text_id", "description_id"},
     # (a <patch>'s, port/assets/menus/README.md)
-    "patch": {"list", "screen", "footer"},
+    "patch": {"list", "screen", "footer", "rows", "tall_art"},
     "row": {"after", "before", "model", "name", "text", "run", "open", "created", "description", "picture", "pitch",
             "platform", "widget", "help", "bitmap", "id", "text_id", "description_id", "help_ids"},
     "remove": {"child", "pitch", "platform"},

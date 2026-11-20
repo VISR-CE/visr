@@ -117,6 +117,32 @@ def patched_rows(layout, ours, patch):
     return rows
 
 
+OPTION_ROW_ART = 'option_bkds'
+TALL_PITCH = 39
+
+
+def option_lists_tall(layout, patches_root, ours=None):
+    """Every disc option list (a column list whose rows all draw the disc's option row art), laid out with every
+    row a standard tall row at the standard pitch from its first row: {list path: (rows, where they end, the limit,
+    the screen that holds the list)}. The limit is the list's patch's footer, else the top of its help text."""
+    patches = {patch.get('list'): patch for patch in patches_root.iter('patch')}
+    found = {}
+    for path, widget in layout.items():
+        disc = widget['children']
+        if widget['type'] != 'column_list' or not disc or {
+                layout[child['widget']]['bitmap'].rsplit('\\', 1)[-1] for child in disc} != {OPTION_ROW_ART}:
+            continue
+        patch = patches.get(path)
+        rows = len(patched_rows(layout, ours or {}, patch)) if patch is not None else len(disc)
+        # (bounds are left, top, right, bottom)
+        limit = int(patch.get('footer')) if patch is not None else layout[widget['description']]['bounds'][1]
+        bottom = min(child['y'] for child in disc) + rows * TALL_PITCH
+        screen = next(parent for parent, other in layout.items()
+                      if any(child['widget'] == path for child in other['children']))
+        found[path] = (rows, bottom, limit, screen)
+    return found
+
+
 def violations(layout=None, patches=XBOX / 'patches.xml'):
     """(list, function, problem) for every requirement a patched list does not meet."""
     layout = layout or ui_map_tags.load_layout()

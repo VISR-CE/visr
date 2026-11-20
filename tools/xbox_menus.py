@@ -2210,7 +2210,31 @@ def patch_document(names):
               name='gametype_item_vehicles', text='VEHICLES',
               open='xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen',
               picture='bitmap:xbox/pictures/gametype', description='Which vehicles are on the map.')
+    tall_disc_rows(root)
     return root
+
+
+# the tall copy of the disc's option row art (written with the first generated row that uses it)
+TALL_ROW_ART = 'xbox/bitmaps/row_36/option_bkds'
+
+
+def tall_disc_rows(root):
+    """Every row of every screen is the standard tall row, the disc's own included: each disc option list that
+    fits with tall rows is marked rows="tall" (the game restacks it at the standard pitch and gives the disc's
+    rows the tall art, port/linux/game/menu_tags.c), on its patch, or on an empty patch where it had none. A list
+    that would pass its limit is left as the disc has it (tools/test_disc_contract.py lists those)."""
+    import disc_contract
+    import ui_map_tags
+
+    patches = {p.get('list'): p for p in root.iter('patch')}
+    for path, (_, bottom, limit, screen) in sorted(disc_contract.option_lists_tall(ui_map_tags.load_layout(), root).items()):
+        if bottom > limit:
+            continue
+        element = patches.get(path)
+        if element is None:
+            element = ET.SubElement(root, 'patch', {'list': path, 'screen': screen, 'footer': str(limit)})
+        element.set('rows', 'tall')
+        element.set('tall_art', TALL_ROW_ART)
 
 
 def header_frames(assets):
@@ -2633,6 +2657,9 @@ def generate(assets=MENUS):
                                 frame.set('height', str(drawn))
                         owner.append(bitmap)
                     row.set('bitmap', variant)
+                    if drawn == 36:
+                        # (said to the engine outright: it draws the art 36 units tall in the 39-unit band)
+                        row.set('row', 'tall')
     native_header_sizes(documents, assets)
     for root in documents.values():
         validate(root, assets)

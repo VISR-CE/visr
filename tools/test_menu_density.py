@@ -114,47 +114,40 @@ def test_runtime_draws_row_art_inside_the_tap_band(tmp_path):
     if not compiler:
         pytest.skip('A C compiler is required for the row drawing probe')
     source = (ROOT / 'source/interface/ui_widget.c').read_text()
-    start = source.index('const char *row_bitmap_name =')
-    end = source.index('\n\n', start)
-    clamp = source[start:end]
+    start = source.index('if (pc_menu_row_tall(widget->definition_tag_index))\n\t\t\tbounds.y1 = MIN(')
+    clamp = source[start:source.index('\n\n', start)]
     harness = r'''
 #include <assert.h>
-#include <string.h>
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#include "menu_geometry.h"
 typedef struct { short x0, y0, x1, y1; } rectangle2d;
-static const char *bitmap_name;
-const char *tag_get_name(int index) { (void)index; return bitmap_name; }
-static rectangle2d draw_bounds(const rectangle2d *tap) {
-    struct { struct { int index; } background_bitmap; } instance = {{0}};
-    const typeof(instance) *definition = &instance;
+/* the engine is told which widgets are tall rows (row="tall" in the menus' files, or a patch's rows="tall") */
+static int tall_tag = 7;
+static int pc_menu_row_tall(long tag) { return tag == tall_tag; }
+static rectangle2d draw_bounds(const rectangle2d *tap, long tag) {
+    struct { long definition_tag_index; } instance = { tag }, *widget = &instance;
     rectangle2d bounds = *tap;
     __CLAMP__
     return bounds;
 }
 int main(void) {
     rectangle2d tap = {0, 0, 512, 39};
-    bitmap_name = "xbox/bitmaps/row_36/option_bkds";
-    rectangle2d art = draw_bounds(&tap);
+    rectangle2d art = draw_bounds(&tap, 7);
     assert(art.y1 - art.y0 == 36 && tap.y1 - tap.y0 == 39);
-    bitmap_name = "xbox/browser/row_36/row";
-    assert(draw_bounds(&tap).y1 == 36);
-    bitmap_name = "ui\\port\\xbox\\bitmaps\\row_36\\list_item_bkd";
-    assert(draw_bounds(&tap).y1 == 36);
     tap.y0 = 73; tap.y1 = 112;
-    assert(draw_bounds(&tap).y1 == 109);
+    assert(draw_bounds(&tap, 7).y1 == 109);
     tap.y1 = 90;
-    assert(draw_bounds(&tap).y1 == 90);
-    bitmap_name = "xbox/bitmaps/option_bkds";
-    tap.y0 = 0; tap.y1 = 30;
-    assert(draw_bounds(&tap).y1 == 30);
-    bitmap_name = NULL;
-    assert(draw_bounds(&tap).y1 == 30);
+    assert(draw_bounds(&tap, 7).y1 == 90);
+    /* a widget nobody called a tall row keeps its bounds, whatever its picture is named */
+    tap.y0 = 0; tap.y1 = 39;
+    assert(draw_bounds(&tap, 8).y1 == 39);
     return 0;
 }
 '''.replace('__CLAMP__', clamp)
     path, binary = tmp_path / 'row.c', tmp_path / 'row'
     path.write_text(harness)
-    subprocess.run([compiler, '-Wall', '-Wextra', '-Werror', str(path), '-o', str(binary)], check=True)
+    subprocess.run([compiler, '-Wall', '-Wextra', '-Werror', '-iquote', str(ROOT / 'port/linux/include'), str(path),
+                    '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -199,3 +192,17 @@ def test_pause_buttons_are_comfortable_rows():
     # the pause box holds its 39-unit rows plus the stock 89 units of margin and legend
     import port_settings
     assert [port_settings.pause_box_height(n) for n in port_settings.PAUSE_BOX_BUTTONS] == [206, 245]
+
+
+def test_tall_rows_are_said_outright_and_never_guessed_from_a_name():
+    """Every generated row that draws the tall art says row="tall", and the engine has no name test left."""
+    tall, untold = 0, []
+    for path in sorted((MENUS / 'xbox').glob('*.xml')):
+        for widget in ET.parse(path).getroot().iter('widget'):
+            art = '/row_36/' in (widget.get('bitmap') or '')
+            tall += widget.get('row') == 'tall'
+            if art != (widget.get('row') == 'tall'):
+                untold.append((path.name, widget.get('name')))
+    assert tall > 100 and untold == []
+    for name in ('source/interface/ui_widget.c', 'port/linux/game/menu_tags.c', 'port/linux/game/menu_functions.c'):
+        assert 'row_36' not in (ROOT / name).read_text(errors='replace'), name

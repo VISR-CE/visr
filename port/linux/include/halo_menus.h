@@ -113,6 +113,9 @@ struct halo_menu_widget
 	char const *name, *type, *controller, *flags, *bitmap, *text, *strings, *values, *setting, *font, *color,
 		*align, *description, *string_list, *list_flags, *text_flags, *header_bitmap, *footer_bitmap,
 		*header_bounds, *footer_bounds;
+	/* what the widget is, for the engine: row="tall" is a standard tall row (36 units of row art in its 39-unit
+	tap band) */
+	char const *row;
 	long x, y, left, top, width, height, text_x, text_y, auto_close, auto_close_fade, string_index;
 	long has_width, has_height;
 	/* a column list's rows shown at once (0: all) */
@@ -132,6 +135,9 @@ first_row in the patch rows */
 struct halo_menu_patch
 {
 	char const *list, *screen;
+	/* rows="tall": every row of the list, the map's own included, becomes a standard tall row at the standard
+	pitch from the first row's place, in order; tall_art names the bitmap of ours the map's rows then draw */
+	char const *rows, *tall_art;
 	/* the y the rows stay above (footer=), else the screen's a_butn's */
 	long footer, has_footer;
 	long first_row, row_count;
