@@ -38,7 +38,7 @@ typedef unsigned char boolean; typedef float real;
 typedef struct { short y0, x0, y1, x1; } rectangle2d;
 typedef struct { real alpha, red, green, blue; } real_argb_color;
 enum { _gamepad_analog_button_a, _gamepad_analog_button_b, _gamepad_analog_button_x, _gamepad_analog_button_y };
-enum { _ui_mouse_target_item, _ui_mouse_target_button };
+enum { _ui_mouse_target_item, _ui_mouse_target_button, _ui_mouse_target_action };
 struct widget_instance;
 struct ui_mouse_target { struct widget_instance *widget; rectangle2d bounds; short kind, button_index; };
 #define UI_MOUSE_MAXIMUM_TARGETS 96
@@ -76,7 +76,8 @@ int main(void)
     assert(ui_mouse_targets[1].button_index == _gamepad_analog_button_b);
     for (int i = 0; i < 2; i++) {
         rectangle2d b = ui_mouse_targets[i].bounds;
-        assert(ui_mouse_targets[i].kind == _ui_mouse_target_button && !ui_mouse_targets[i].widget);
+        /* an action of its own kind, never a widget's button: nothing that walks the buttons reads its widget */
+        assert(ui_mouse_targets[i].kind == _ui_mouse_target_action && !ui_mouse_targets[i].widget);
         assert(b.x0 >= 0 && b.x1 <= 640 && b.y0 >= 0 && b.y1 <= 480 && b.y1 - b.y0 >= 60 && b.x1 - b.x0 >= 60);
     }
     /* B's slot is left of A's, and they do not overlap */

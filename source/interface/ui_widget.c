@@ -6657,7 +6657,10 @@ enum ui_mouse_target_kind
 	_ui_mouse_target_list_slot,
 	_ui_mouse_target_carousel_peek,
 	/* a button's icon and label in a screen's key: a click presses it */
-	_ui_mouse_target_button
+	_ui_mouse_target_button,
+	/* an action drawn outside the widget tree (the scores' QUIT and PICK GAME): it has no widget, and a click is
+	kept for the code that drew it (ui_widget_port_postgame_pressed) instead of posted as a button */
+	_ui_mouse_target_action
 };
 
 struct ui_mouse_target
@@ -7443,7 +7446,7 @@ boolean ui_widget_port_postgame_legend(
 
 			csmemset(target, 0, sizeof(*target));
 			target->widget = NULL;
-			target->kind = _ui_mouse_target_button;
+			target->kind = _ui_mouse_target_action;
 			target->button_index = buttons[index];
 			target->bounds = drawn;
 			/* (at least the 60 units a finger gets on the menus' buttons) */
@@ -8300,7 +8303,8 @@ static struct ui_mouse_target *ui_mouse_target_at(
 			long distance = ABS((long)y - center);
 
 			if ((ui_mouse_targets[index].kind != _ui_mouse_target_item &&
-					ui_mouse_targets[index].kind != _ui_mouse_target_button) ||
+					ui_mouse_targets[index].kind != _ui_mouse_target_button &&
+					ui_mouse_targets[index].kind != _ui_mouse_target_action) ||
 				x < bounds->x0 || x >= bounds->x1 || distance > half)
 			{
 				continue;
@@ -9245,14 +9249,13 @@ static void ui_widgets_process_mouse(
 					break;
 				case _ui_mouse_target_button:
 					halo_ui_pointer_feedback(2);
-					if (!target->widget)
-					{
-						/* (the scores' own buttons: the game takes them, ui_widget_port_postgame_pressed) */
-						ui_postgame_pending = ui_postgame_pressed = target->button_index;
-						ui_postgame_pressed_frames = 8;
-						break;
-					}
 					ui_mouse_press(target->button_index);
+					break;
+				case _ui_mouse_target_action:
+					/* (the scores' own buttons: the game takes them, ui_widget_port_postgame_pressed) */
+					halo_ui_pointer_feedback(2);
+					ui_postgame_pending = ui_postgame_pressed = target->button_index;
+					ui_postgame_pressed_frames = 8;
 					break;
 				}
 			}

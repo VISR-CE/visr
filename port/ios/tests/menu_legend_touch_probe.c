@@ -13,7 +13,7 @@ typedef struct {short x,y;} point2d;
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define ABS(a) ((a)<0?-(a):(a))
 #define UI_MOUSE_MAXIMUM_TARGETS 96
-enum {_ui_mouse_target_item,_ui_mouse_target_value,_ui_mouse_target_list_slot,_ui_mouse_target_button};
+enum {_ui_mouse_target_item,_ui_mouse_target_value,_ui_mouse_target_list_slot,_ui_mouse_target_button,_ui_mouse_target_action};
 enum {_ui_widget_type_text_box, _ui_widget_type_spinner_list, _widget_event_dpad_up=8, _widget_event_dpad_down};
 enum {_gamepad_analog_button_a,_gamepad_analog_button_b,_gamepad_analog_button_x,_gamepad_analog_button_y};
 struct string_list_ref {long index;};
