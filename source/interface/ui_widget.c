@@ -674,7 +674,6 @@ void halo_screen_menu_visible_bounds(float *top, float *bottom);
 static void ui_widget_menu_content(struct widget_instance *widget);
 void ui_redraw_note(char const *tag_name, void const *hardware_format, long width, long height);
 long ui_redraw_touch_target_units(void);
-long ui_redraw_safe_left_units(long width);
 #include "rasterizer/rasterizer.h"
 #include "saved games/player_profile.h"
 #include "saved games/playlist_profile.h"
@@ -7475,6 +7474,17 @@ static void ui_touch_screen_x_scan(
 			return;
 }
 
+/* port: the leftmost menu column a control at the left edge of a clip from
+column x0 may use: clear of a camera cutout or rounded corner, in the menu
+window's own units under its safe-area zoom (halo_screen_menu_screen_rect) */
+static long ui_widget_safe_left(long x0)
+{
+	struct halo_menu_screen screen;
+
+	halo_screen_menu_screen_rect(TRUE, &screen);
+	return MAX(x0, screen.safe_x0);
+}
+
 /* port: the touch BACK chevron: left of the title's helmet, or top left of the screen when it has none, in the HUD blue of the touch legend,
 with a tap target at least as tall as input.ui_touch_target */
 static void ui_touch_back_chevron_draw(
@@ -7484,7 +7494,7 @@ static void ui_touch_back_chevron_draw(
 	long arm = 10, thickness = 4, index;
 	long reach = MAX(ui_redraw_touch_target_units(), 2 * arm + 12);
 	long cy, cx;
-	long safe = ui_redraw_safe_left_units(clip->x1 - clip->x0);
+	long safe_left = ui_widget_safe_left(clip->x0);
 	rectangle2d hit;
 
 	if (!(ui_touch_back_seen || ui_touch_back_generic) || ui_mouse_radius <= 0 ||
@@ -7501,7 +7511,7 @@ static void ui_touch_back_chevron_draw(
 		cy = clip->y0 + reach / 2 + 4;
 		cx = clip->x0 + reach / 2 + 4;
 		/* never under a camera cutout or rounded corner: the menu clip can run wider than the screen's safe area */
-		cx = MAX(cx, clip->x0 + safe + reach / 2 + 2);
+		cx = MAX(cx, safe_left + reach / 2 + 2);
 	}
 	for (index = -arm; index <= arm; index++)
 	{
@@ -7513,7 +7523,7 @@ static void ui_touch_back_chevron_draw(
 		row.x1 = (short)(row.x0 + thickness);
 		draw_quad(&row, 0xff2996ff);
 	}
-	hit.x0 = (short)MAX(cx - reach / 2, clip->x0 + safe);
+	hit.x0 = (short)MAX(cx - reach / 2, safe_left);
 	hit.x1 = (short)(cx + reach / 2);
 	hit.y0 = (short)(cy - reach / 2);
 	hit.y1 = (short)(cy + reach / 2);
@@ -7792,7 +7802,7 @@ static void ui_hold_popup_draw(
 	if (row_font_index == NONE)
 		row_font_index = font_index;
 	anchor = ui_popup_anchor;
-	safe_left = (short)(clip->x0 + MAX(8, ui_redraw_safe_left_units(clip->x1 - clip->x0)));
+	safe_left = (short)MAX(clip->x0 + 8, ui_widget_safe_left(clip->x0));
 	top = 8;
 
 	name = ui_popup_widget_name(ui_popup_widget, 0);
@@ -7815,11 +7825,13 @@ static void ui_hold_popup_draw(
 		/* the rest of the screen dims around the lifted item: the whole screen, past the
 		menu clip into the backdrop margins and safe-area insets (draw_quad does not clip) */
 		rectangle2d screen = *clip;
+		struct halo_menu_screen reach;
 
-		screen.x0 = (short)(clip->x0 - 4000);
-		screen.y0 = (short)(clip->y0 - 4000);
-		screen.x1 = (short)(clip->x1 + 4000);
-		screen.y1 = (short)(clip->y1 + 4000);
+		halo_screen_menu_screen_rect(TRUE, &reach);
+		screen.x0 = (short)MIN(clip->x0, reach.x0);
+		screen.y0 = (short)MIN(clip->y0, reach.y0);
+		screen.x1 = (short)MAX(clip->x1, reach.x1);
+		screen.y1 = (short)MAX(clip->y1, reach.y1);
 		part = screen;
 		part.y1 = anchor.y0;
 		draw_quad(&part, 0x99000000);
@@ -8414,7 +8426,12 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 	{
 		/* port: size to the widest label in the font the rows draw in, plus the row's text insets (6 left, 22 right incl. the checkmark) and border */
 		struct ui_widget_definition *definition = ui_widget_definition_get(target->widget->definition_tag_index);
-		int widest = 0, min_x = MAX(8, (int)ui_redraw_safe_left_units(640));
+		struct halo_menu_screen screen;
+		int widest = 0, min_x, max_x;
+
+		halo_screen_menu_screen_rect(TRUE, &screen);
+		min_x = (int)MAX(8, screen.safe_x0);
+		max_x = (int)MIN(640 - 8, screen.safe_x1);
 		for (index = 0; index < target->widget->parameters.list.number_of_items; index++)
 		{
 			void const *label = spinner_string_list_get_string(definition->text_label_string_list.index, (short)index);
@@ -8425,7 +8442,7 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 			target->value_bounds.y0, target->value_bounds.y1,
 			target->widget->parameters.list.number_of_items,
 			target->widget->parameters.list.selected_index, limit_top, limit_bottom,
-			halo_menu_dropdown_panel_width(widest), min_x, 640 - 8);
+			halo_menu_dropdown_panel_width(widest), min_x, max_x);
 	}
 }
 
@@ -9338,17 +9355,17 @@ static short menu_title_touch_shift(
 	rectangle2d const *bounds,
 	rectangle2d const *clip)
 {
-	long reach, safe, scale_x = 1, helmet_left, needed;
+	long reach, safe_left, scale_x = 1, helmet_left, needed;
 
 	if (ui_mouse_radius <= 0 || !clip || !menu_title_icon(bitmap_tag, picture))
 		return 0;
 	reach = MAX(ui_redraw_touch_target_units(), 32);
-	safe = ui_redraw_safe_left_units(clip->x1 - clip->x0);
+	safe_left = ui_widget_safe_left(clip->x0);
 	if (bounds->x1 - bounds->x0 > picture->width)
 		scale_x = (bounds->x1 - bounds->x0) / picture->width;
 	helmet_left = bounds->x0 + (30 - 11 - 29) * scale_x - (36 - 29) * scale_x / 2;
 	/* the chevron's center is reach / 2 + 14 left of the helmet; its tap target must clear the inset by 2 */
-	needed = clip->x0 + safe + 2 + reach + 14 - helmet_left;
+	needed = safe_left + 2 + reach + 14 - helmet_left;
 	return (short)MAX(needed, 0);
 }
 
@@ -9516,6 +9533,50 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 	spinner_list_update(list);
 	ui_carousel_clip = saved_clip;
 	ui_mouse_noting_targets = noting;
+}
+
+/* port: whether a widget's background is a full-screen fill, which reaches the
+whole screen rather than the centered 640x480 design: bounds over the whole
+design and a flat picture (the dims and the menus' vertical gradient band, at
+most 16 texels wide; a picture is drawn texel for texel, so wider bounds would
+shift it, as on the loading screen). Across when the screen reaches past the
+design's columns; down and up only for a picture flat both ways (a dim), since
+the band's rules sit at its picture's own rows. Not in portrait, whose
+full-screen pictures cover the screen by height instead. */
+static void ui_widget_screen_fill_kind(
+	rectangle2d const *bounds,
+	long bitmap_width,
+	long bitmap_height,
+	struct halo_menu_screen const *screen,
+	boolean *wide,
+	boolean *tall)
+{
+	boolean full_design = bounds->x0 <= 0 && bounds->y0 <= 0 &&
+		bounds->x1 >= 640 && bounds->y1 >= 480 && bitmap_width <= 16 &&
+		halo_screen_width() >= 640;
+
+	*wide = full_design && (screen->x0 < 0 || screen->x1 > 640);
+	*tall = full_design && bitmap_height <= 16 && (screen->y0 < 0 || screen->y1 > 480);
+}
+
+/* port: a full-screen fill's rectangle (its bounds, or with at_edges its
+clip, only on the sides where the clip is at the design's edge) out to the
+screen's (halo_screen_menu_screen_rect) */
+static void ui_widget_screen_fill_extend(
+	rectangle2d *rect,
+	struct halo_menu_screen const *screen,
+	boolean wide,
+	boolean tall,
+	boolean at_edges)
+{
+	if (wide && (!at_edges || rect->x0 <= 0))
+		rect->x0 = (short)MIN(rect->x0, screen->x0);
+	if (wide && (!at_edges || rect->x1 >= 640))
+		rect->x1 = (short)MAX(rect->x1, screen->x1);
+	if (tall && (!at_edges || rect->y0 <= 0))
+		rect->y0 = (short)MIN(rect->y0, screen->y0);
+	if (tall && (!at_edges || rect->y1 >= 480))
+		rect->y1 = (short)MAX(rect->y1, screen->y1);
 }
 
 static void widget_instance_render_recursive(
@@ -9697,24 +9758,15 @@ static void widget_instance_render_recursive(
 		 * added. Only flat fills (the dims, and the menus' vertical
 		 * gradient, at most 16 texels wide): a picture is drawn texel for
 		 * texel, so wider bounds would shift it (the loading screen).
-		 * How far is the screen's reach in this draw
-		 * (halo_screen_menu_side_columns, halo_screen_menu_visible_rows),
-		 * which grows when the safe-area zoom shrinks the menus: the
-		 * margins alone would leave the screen's edges uncovered. Down
-		 * and up only for a fill flat both ways (a dim): the band's
-		 * rules sit at its picture's own rows. */
-		long side_columns = halo_screen_menu_side_columns();
-		long top_row, bottom_row;
-		boolean full_design =
-			bounds.x0 <= 0 && bounds.y0 <= 0 &&
-			bounds.x1 >= 640 && bounds.y1 >= 480 &&
-			bitmap->width <= 16;
-		boolean widen_to_screen = full_design && side_columns > 0;
-		boolean heighten_to_screen = full_design && bitmap->height <= 16;
+		 * How far is the screen's reach in this draw, which grows when the
+		 * safe-area zoom shrinks the menus: the margins alone would leave
+		 * the screen's edges uncovered (ui_widget_screen_fill_kind). */
+		struct halo_menu_screen screen;
+		boolean widen_to_screen, heighten_to_screen;
 
-		halo_screen_menu_visible_rows(&top_row, &bottom_row);
-		if (heighten_to_screen && top_row >= 0 && bottom_row <= 480)
-			heighten_to_screen = FALSE;
+		halo_screen_menu_screen_rect(TRUE, &screen);
+		ui_widget_screen_fill_kind(&bounds, bitmap->width, bitmap->height, &screen,
+			&widen_to_screen, &heighten_to_screen);
 
 		if (use_nifty_plasma_fx)
 		{
@@ -9723,16 +9775,7 @@ static void widget_instance_render_recursive(
 			ui_plasma_effect_color.green = 0.05f;
 			ui_plasma_effect_color.blue = 0.05f;
 		}
-		if (widen_to_screen)
-		{
-			bounds.x0 = (short)MIN(bounds.x0, -side_columns);
-			bounds.x1 = (short)MAX(bounds.x1, 640 + side_columns);
-		}
-		if (heighten_to_screen)
-		{
-			bounds.y0 = (short)MIN(bounds.y0, top_row);
-			bounds.y1 = (short)MAX(bounds.y1, bottom_row);
-		}
+		ui_widget_screen_fill_extend(&bounds, &screen, widen_to_screen, heighten_to_screen, FALSE);
 		bounds.x0 += offset.x;
 		bounds.x1 += offset.x;
 		bounds.y0 += offset.y;
@@ -9746,20 +9789,10 @@ static void widget_instance_render_recursive(
 			clip->y0 += offset.y;
 			clip->y1 += offset.y;
 		}
-		if ((widen_to_screen || heighten_to_screen) && clip)
-		{
-			/* widen the clip as far (it is offset-shifted but still
-			 * 640-wide at the edges) so the dim is not clipped back to the
-			 * centered columns */
-			if (widen_to_screen && clip->x0 <= 0)
-				clip->x0 = (short)MIN(clip->x0, -side_columns);
-			if (widen_to_screen && clip->x1 >= 640)
-				clip->x1 = (short)MAX(clip->x1, 640 + side_columns);
-			if (heighten_to_screen && clip->y0 <= 0)
-				clip->y0 = (short)MIN(clip->y0, top_row);
-			if (heighten_to_screen && clip->y1 >= 480)
-				clip->y1 = (short)MAX(clip->y1, bottom_row);
-		}
+		/* the clip as far (it is offset-shifted but still 640-wide at the
+		 * edges), so the dim is not clipped back to the centered columns */
+		if (clip)
+			ui_widget_screen_fill_extend(clip, &screen, widen_to_screen, heighten_to_screen, TRUE);
 		if (TEST_FLAG(definition->flags, _widget_flash_background_bitmap_bit))
 		{
 			alpha = (((real)cos(
@@ -10219,9 +10252,12 @@ void render_ui_widgets(
 		{
 			real alpha;
 
-			/* the whole screen, around the centered 640 columns */
-			bounds.x0 = (short)-halo_screen_menu_side_columns();
-			bounds.x1 = (short)(640 + halo_screen_menu_side_columns());
+			/* the whole screen, around the centered 640 columns (outside the menu window) */
+			struct halo_menu_screen screen;
+
+			halo_screen_menu_screen_rect(FALSE, &screen);
+			bounds.x0 = (short)MIN(0, screen.x0);
+			bounds.x1 = (short)MAX(640, screen.x1);
 			bounds.y0 = 0;
 			bounds.y1 = 480;
 			if (widget_globals.fade_to_black >= 0.95f)
@@ -10241,7 +10277,11 @@ void render_ui_widgets(
 	}
 	else
 	{
+		/* port: the in-game keyboard is a menu screen too: the safe-area zoom keeps it clear of
+		a camera cutout (halo_screen_menu_window) */
+		halo_screen_menu_window(1);
 		virtual_keyboard_render();
+		halo_screen_menu_window(0);
 	}
 
 	return;

@@ -30,6 +30,7 @@ Conventions carried over from the Xbox:
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
 #include "menu_scale.h"
+#include "halo_menu_screen.h"
 #include "port_config.h"
 #include "port_graphics_modes.h"
 #include "halo_display.h"
@@ -738,30 +739,6 @@ void halo_screen_menu_window(int active)
 	menu_window_drawing = active != 0;
 }
 
-/* The menu units the larger horizontal safe-area inset still covers inside a clip
-width units wide, after the window's own zoom shrink and its backdrop margin have
-absorbed part of it. */
-long halo_screen_menu_safe_units(long width)
-{
-	float insets[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-	float side, top, zoom, window_units, margin, residual;
-
-	platform_video_safe_insets(insets);
-	side = insets[0] > insets[1] ? insets[0] : insets[1];
-	if (side <= 0.0f)
-		return 0;
-	if (menu_window_drawing)
-		zoom = menu_draw_zoom;
-	else
-		menu_window_geometry(&top, &zoom);
-	window_units = halo_screen_width() / zoom;
-	margin = (window_units - (float)width) * 0.5f;
-	if (margin < 0.0f)
-		margin = 0.0f;
-	residual = side * window_units - margin;
-	return residual > 0.0f ? (long)ceilf(residual) : 0;
-}
-
 float halo_screen_menu_pixel_scale(void)
 {
 	float top, zoom;
@@ -772,43 +749,65 @@ float halo_screen_menu_pixel_scale(void)
 	return halo_screen_pixel_scale() * zoom;
 }
 
-/* How far past the 640 design columns, on each side, the screen reaches in the menu draw going on now
-(menu units): the wide screen's margins, (width - 640) / 2 rounded up, and more while the safe-area zoom shrinks the
-menus below one (menu_window_geometry), whose content then leaves the screen's edges uncovered. A
-full-screen fill (a dim, the menus' band, a fade) reaches this far, so it meets the screen's edges in any
-size, orientation and safe area. Outside a menu draw, or zoomed in, the margins alone. */
-long halo_screen_menu_side_columns(void)
+/* The screen in menu units (halo_menu_screen.h). The menus are 640 columns centered on the screen, scaled by
+the menu window's zoom about column 320 and from its top row (the drawing coefficients in this file and
+menu_window_pointer, which inverts them), or, in portrait, fitted to the width and centered down the screen
+(halo_ui_layout.h). A screen column s in the centered design's units, -(width - 640) / 2 at the left edge,
+is menu column 320 + (s - 320) / zoom; a screen row r is menu row top + r / zoom. The safe area takes the
+larger side inset on both sides, as the zoom does. */
+void halo_screen_menu_screen_rect(int zoomed, struct halo_menu_screen *screen)
 {
-	long width = halo_screen_width();
-	long side = width > 640 ? (width - 640 + 1) / 2 : 0;
-	float zoom = menu_window_drawing ? menu_draw_zoom : 1.0f;
+	float width = (float)halo_screen_width();
+	float insets[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	float side, margin, left, right, top_row = 0.0f, zoom = 1.0f, x[4], y[4];
 
-	if (zoom > 0.0f && zoom < 1.0f && width >= 640)
+	platform_video_safe_insets(insets);
+	side = insets[0] > insets[1] ? insets[0] : insets[1];
+	if (width < 640.0f)
 	{
-		long reach = (long)ceilf((float)width * 0.5f / zoom - 320.0f) + 1;
+		/* portrait: the design fits the width, centered down the screen; the screen is that tall in menu rows */
+		float fit = halo_ui_layout_scale((int)width), offset = halo_ui_layout_y_offset((int)width);
 
-		if (reach > side)
-			side = reach;
+		x[0] = 0.0f;
+		x[1] = 640.0f;
+		x[2] = side * width / fit;
+		x[3] = 640.0f - side * width / fit;
+		y[0] = -offset / fit;
+		y[1] = (480.0f - offset) / fit;
+		y[2] = (insets[2] * 480.0f - offset) / fit;
+		y[3] = ((1.0f - insets[3]) * 480.0f - offset) / fit;
 	}
-	return side;
-}
-
-/* The menu rows the screen shows in the menu draw going on now: 0 to 480, or more while the safe-area zoom
-shrinks the menus below one (rounded outward) */
-void halo_screen_menu_visible_rows(long *top, long *bottom)
-{
-	float zoom = menu_window_drawing ? menu_draw_zoom : 1.0f;
-
-	*top = 0;
-	*bottom = 480;
-	if (zoom > 0.0f && zoom < 1.0f)
+	else
 	{
-		/* (both the zoom's span from its top and the same span centered: a fill a little past the
-		screen's edge costs nothing, a gap shows) */
-		float span = 480.0f / zoom;
-		*top = (long)floorf(fminf(menu_draw_top, 0.5f * (480.0f - span))) - 1;
-		*bottom = (long)ceilf(fmaxf(menu_draw_top + span, 0.5f * (480.0f + span))) + 1;
+		if (zoomed && menu_window_drawing)
+		{
+			top_row = menu_draw_top;
+			zoom = menu_draw_zoom;
+		}
+		else if (zoomed)
+			menu_window_geometry(&top_row, &zoom);
+		if (zoom <= 0.0f)
+			zoom = 1.0f;
+		margin = (width - 640.0f) * 0.5f;
+		left = -margin;
+		right = 640.0f + margin;
+		x[0] = 320.0f + (left - 320.0f) / zoom;
+		x[1] = 320.0f + (right - 320.0f) / zoom;
+		x[2] = 320.0f + (left + side * width - 320.0f) / zoom;
+		x[3] = 320.0f + (right - side * width - 320.0f) / zoom;
+		y[0] = top_row;
+		y[1] = top_row + 480.0f / zoom;
+		y[2] = top_row + insets[2] * 480.0f / zoom;
+		y[3] = top_row + (1.0f - insets[3]) * 480.0f / zoom;
 	}
+	screen->x0 = (long)floorf(x[0]);
+	screen->x1 = (long)ceilf(x[1]);
+	screen->y0 = (long)floorf(y[0]);
+	screen->y1 = (long)ceilf(y[1]);
+	screen->safe_x0 = (long)ceilf(x[2]);
+	screen->safe_x1 = (long)floorf(x[3]);
+	screen->safe_y0 = (long)ceilf(y[2]);
+	screen->safe_y1 = (long)floorf(y[3]);
 }
 
 /* Menu-space limits of the widget viewport, including minimum-scale crop. */

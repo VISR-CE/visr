@@ -407,12 +407,3 @@ long ui_redraw_touch_target_units(void)
 		return 0;
 	return (long)ceilf(points * points_scale / pixels);
 }
-
-/* The menu units the display's left or right safe-area inset (a camera cutout or
-rounded corner) covers at the menu's left edge, for controls drawn there: the
-larger side, since the cutout can be on either side. */
-long halo_screen_menu_safe_units(long width);
-long ui_redraw_safe_left_units(long width)
-{
-	return halo_screen_menu_safe_units(width);
-}

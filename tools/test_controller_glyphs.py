@@ -31,9 +31,8 @@ def glyph_blends():
 
 def test_keyboard_backdrop_stretch_uses_the_picture_size_not_the_texture_size():
     source = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
-    start = source.index('static void virtual_keyboard_render_internal(\n\tvoid)\n{')
-    body = source[start:start + 6000]
-    body = body[:body.index('draw_string_set_draw_mode')]
+    start = source.index('static void virtual_keyboard_side_strips(')
+    body = source[start:source.index('\n}\n', start)]
     assert 'left_source = {0, 0, 480, 1}' in body
     assert 'right_source = {0, 639, 480, 640}' in body
 

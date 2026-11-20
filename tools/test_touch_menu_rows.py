@@ -293,7 +293,12 @@ struct widget_instance {
 struct ui_widget_definition { struct { int index; } text_font, text_label_string_list; };
 static struct ui_widget_definition test_definition;
 struct ui_widget_definition *ui_widget_definition_get(int tag) { (void)tag; return &test_definition; }
-float ui_redraw_safe_left_units(long width) { (void)width; return 0; }
+#define TRUE 1
+struct halo_menu_screen { long x0, y0, x1, y1, safe_x0, safe_y0, safe_x1, safe_y1; };
+void halo_screen_menu_screen_rect(int zoomed, struct halo_menu_screen *screen) {
+ struct halo_menu_screen whole = {-36, 0, 676, 480, 0, 0, 640, 480};
+ (void)zoomed; *screen = whole;
+}
 void const *spinner_string_list_get_string(int list, short index) { (void)list; (void)index; return 0; }
 int ui_widget_port_font_text_width(int font, void const *text) { (void)font; (void)text; return 0; }
 struct bounds { int x0, y0, x1, y1; };

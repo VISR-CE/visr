@@ -67,11 +67,7 @@ void halo_screen_hud_frame(long width, short *x0, short *y0, short *x1, short *y
 float halo_screen_scale(void);
 /* takes up a new width between frames (F11); returns the width */
 long halo_screen_commit(void);
-/* menu units past each side of the 640 columns the screen shows in the current menu draw (the wide screen's
-   margins, more while the safe-area zoom shrinks the menus), and the menu rows it shows: how far a full-screen
-   fill reaches (port/linux/src/d3d8_device.c) */
-long halo_screen_menu_side_columns(void);
-void halo_screen_menu_visible_rows(long *top, long *bottom);
+#include "halo_menu_screen.h" /* the screen in menu units, for full-screen fills and edge controls */
 /* while TRUE, center 640-column layouts; fit their width in portrait */
 void halo_screen_ui_offset(unsigned char centered);
 /* CPU text clipping uses design coordinates only while the portrait fit is on. */
