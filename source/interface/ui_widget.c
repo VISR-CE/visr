@@ -7383,10 +7383,6 @@ game draws "quit" and "pick game" as one string with button glyphs and reads the
 glyphs are hidden and nothing could be tapped, so the two actions are drawn here as the standard legend buttons, in
 B's and A's slots, and noted as pointer targets; a tap is handed to the game through ui_widget_port_postgame_pressed.
 Returns FALSE when the game should draw its own prompt (a controller, or keyboard and mouse). */
-/* the bottom bar's glyph line (414 in tools/xbox_menus.py's LEGEND_Y) and the least room a caption keeps on each
-side of its button */
-#define UI_POSTGAME_LEGEND_Y 414
-#define UI_POSTGAME_MINIMUM_PADDING 12
 static struct widget_instance *ui_mouse_menu(void);
 static short ui_postgame_pending = NONE;
 static short ui_postgame_pressed = NONE;
@@ -7423,14 +7419,14 @@ boolean ui_widget_port_postgame_legend(
 		draw_string_set_indents(0, 0);
 		text_width = ui_widget_port_text_width(captions[index]);
 		center_x = (short)((x0 + x1) / 2);
-		if (text_width + 2 * UI_POSTGAME_MINIMUM_PADDING > x1 - x0)
+		if (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING > x1 - x0)
 		{
-			x0 = (short)(center_x - (text_width + 2 * UI_POSTGAME_MINIMUM_PADDING) / 2);
-			x1 = (short)(x0 + text_width + 2 * UI_POSTGAME_MINIMUM_PADDING);
+			x0 = (short)(center_x - (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING) / 2);
+			x1 = (short)(x0 + text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING);
 		}
 		drawn.x0 = x0;
 		drawn.x1 = x1;
-		drawn.y0 = UI_POSTGAME_LEGEND_Y - 2;
+		drawn.y0 = MENU_LEGEND_Y - 2;
 		drawn.y1 = drawn.y0 + 40;
 		ui_widget_draw_touch_legend(&drawn, NULL, alpha, pressed);
 		text_bounds = drawn;

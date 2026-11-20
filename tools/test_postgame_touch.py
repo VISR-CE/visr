@@ -21,8 +21,7 @@ def test_postgame_buttons_are_targets_in_the_standard_slots(tmp_path):
     slots = source[source.index("/* port: the touch legend's four fixed slots."):
                    source.index('void halo_screen_menu_visible_bottom(')]
     slots += block(source, 'static void ui_touch_legend_slot_bounds(')
-    legend = source[source.index('#define UI_POSTGAME_LEGEND_Y'):source.index('static short ui_postgame_pending')]
-    legend += block(source, 'boolean ui_widget_port_postgame_legend(')
+    legend = block(source, 'boolean ui_widget_port_postgame_legend(')
     pressed = block(source, 'boolean ui_widget_port_postgame_pressed(')
     program = r'''
 #include <assert.h>
@@ -35,6 +34,7 @@ typedef unsigned char boolean; typedef float real;
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define csmemset memset
+#include "menu_geometry.h"
 typedef struct { short y0, x0, y1, x1; } rectangle2d;
 typedef struct { real alpha, red, green, blue; } real_argb_color;
 enum { _gamepad_analog_button_a, _gamepad_analog_button_b, _gamepad_analog_button_x, _gamepad_analog_button_y };
