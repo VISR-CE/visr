@@ -917,6 +917,7 @@ symbols in this file:
 #include "interface/marketing_and_strategic_business_development.h"
 #include "interface/player_ui.h"
 #include "interface/ui_widget.h"
+#include "tag_files/tag_files.h" /* port: option_list_row_spinner */
 #include "main/console.h"
 #include "main/main.h"
 #include "networking/network_game_globals.h"
@@ -1259,6 +1260,7 @@ static boolean playlist_profile_change_racing_rules(
 	struct widget_instance *widget,
 	struct event_record *event,
 	boolean *widget_deleted);
+static struct widget_instance *option_list_row_spinner(struct widget_instance *list, char const *row_name);
 static boolean playlist_profile_change_player_options(
 	struct widget_instance *widget,
 	struct event_record *event,
@@ -3643,19 +3645,13 @@ static boolean playlist_profile_change_item_options(
 	boolean *widget_deleted)
 {
 	byte *profile;
-	struct widget_instance *list_item;
 	struct widget_instance *option_spinner;
 
 	profile = (byte *)player_ui_get_edit_playlist_profile();
 	if (profile)
 	{
-		list_item = widget->child;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2608, list_item, "expected 'infinite grenades' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2610, option_spinner, "expected 'infinite grenades' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_infinite_grenades");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0:
 			*(long *)(profile + 0x20) |= 4;
@@ -3668,13 +3664,8 @@ static boolean playlist_profile_change_item_options(
 			break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2619, list_item, "expected 'vehicle set' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2621, option_spinner, "expected 'vehicle set' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_vehicle_set");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: *(long *)(profile + 0x48) = 0; break;
 		case 1: *(long *)(profile + 0x48) = 1; break;
@@ -3686,13 +3677,8 @@ static boolean playlist_profile_change_item_options(
 			break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2633, list_item, "expected 'weapon set' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2635, option_spinner, "expected 'weapon set' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_weapon_set");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: *(long *)(profile + 0x44) = 0; break;
 		case 1: *(long *)(profile + 0x44) = 1; break;
@@ -3710,13 +3696,8 @@ static boolean playlist_profile_change_item_options(
 			break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2654, list_item, "expected 'starting equipment' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2656, option_spinner, "expected 'starting equipment' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_starting_equipment");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0:
 			*(long *)(profile + 0x20) &= ~0x20;
@@ -3728,6 +3709,8 @@ static boolean playlist_profile_change_item_options(
 			error(2, "unknown option selected in 'starting equipment' option spinner list");
 			return TRUE;
 		}
+		/* port: the Xbox look's own STARTING EQUIPMENT row replaces this one */
+		return TRUE;
 	}
 
 	error(2, "failed to retrieve editable game variant");
@@ -4660,7 +4643,6 @@ static boolean playlist_profile_initialize_item_options(
 	boolean *widget_deleted)
 {
 	struct playlist_profile_item_options_prefix *profile;
-	struct widget_instance *list_item;
 	struct widget_instance *option_spinner;
 
 	profile = (struct playlist_profile_item_options_prefix *)player_ui_get_edit_playlist_profile();
@@ -4669,13 +4651,8 @@ static boolean playlist_profile_initialize_item_options(
 		"expected column list for multiplayer game settings widget");
 	if (profile)
 	{
-		list_item = widget->child;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3374, list_item, "expected 'infinite grenades' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3376, option_spinner, "expected 'infinite grenades' option spinner list");
-		switch ((profile->flags >> 2) & 1)
+		option_spinner = option_list_row_spinner(widget, "op_infinite_grenades");
+		if (option_spinner) switch ((profile->flags >> 2) & 1)
 		{
 		case 0:
 			option_spinner->data3C.selected_index = 1;
@@ -4688,13 +4665,8 @@ static boolean playlist_profile_initialize_item_options(
 			break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3386, list_item, "expected 'vehicle set' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3388, option_spinner, "expected 'vehicle set' option spinner list");
-		switch (profile->vehicle_set)
+		option_spinner = option_list_row_spinner(widget, "op_vehicle_set");
+		if (option_spinner) switch (profile->vehicle_set)
 		{
 		case 0: option_spinner->data3C.selected_index = 0; break;
 		case 1: option_spinner->data3C.selected_index = 1; break;
@@ -4704,13 +4676,8 @@ static boolean playlist_profile_initialize_item_options(
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3400, list_item, "expected 'weapon set' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3402, option_spinner, "expected 'weapon set' option spinner list");
-		switch (profile->weapon_set)
+		option_spinner = option_list_row_spinner(widget, "op_weapon_set");
+		if (option_spinner) switch (profile->weapon_set)
 		{
 		case 0: option_spinner->data3C.selected_index = 0; break;
 		case 1: option_spinner->data3C.selected_index = 1; break;
@@ -4726,18 +4693,15 @@ static boolean playlist_profile_initialize_item_options(
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3421, list_item, "expected 'starting equipment' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3423, option_spinner, "expected 'starting equpiment' option spinner list");
-		switch ((profile->flags >> 5) & 1)
+		option_spinner = option_list_row_spinner(widget, "op_starting_equipment");
+		if (option_spinner) switch ((profile->flags >> 5) & 1)
 		{
 		case 0: option_spinner->data3C.selected_index = 0; return TRUE;
 		case 1: option_spinner->data3C.selected_index = 1; return TRUE;
 		default: option_spinner->data3C.selected_index = 0; return TRUE;
 		}
+		/* port: the Xbox look's own STARTING EQUIPMENT row replaces this one */
+		return TRUE;
 	}
 	error(2, "failed to retrieve editable game variant");
 	return FALSE;
@@ -5319,13 +5283,36 @@ static boolean playlist_profile_initialize_oddball_rules(
 	error(2, "failed to retrieve editable game variant");
 	return FALSE;
 }
+/* port: an option list's spinner by its disc row's name. The Xbox look patches some of these
+lists (Player Options moves its four respawn rows to their own RESPAWN screen), so the rows are
+no longer where the disc's handlers count them; a row the patch removed is left to its
+replacement's own handlers. */
+static struct widget_instance *option_list_row_spinner(struct widget_instance *list, char const *row_name)
+{
+	struct widget_instance *row;
+
+	for (row = list->child; row; row = row->next)
+	{
+		char const *name = tag_get_name(row->definition_tag_index);
+		char const *leaf = name ? strrchr(name, '\\') : NULL;
+		struct widget_instance *spinner;
+
+		leaf = leaf ? leaf + 1 : name;
+		if (!leaf || strcmp(leaf, row_name))
+			continue;
+		for (spinner = row->child; spinner && spinner->type != 2; spinner = spinner->next)
+			;
+		return spinner;
+	}
+	return NULL;
+}
+
 static boolean playlist_profile_initialize_player_options(
 	struct widget_instance *widget,
 	struct event_record *event,
 	boolean *widget_deleted)
 {
 	byte *profile;
-	struct widget_instance *list_item;
 	struct widget_instance *option_spinner;
 	long maximum_health;
 
@@ -5333,13 +5320,8 @@ static boolean playlist_profile_initialize_player_options(
 	match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3237, widget->type == 3, "expected column list for multiplayer game settings widget");
 	if (profile)
 	{
-		list_item = widget->child;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3245, list_item, "expected 'number of lives' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3247, option_spinner, "expected 'number of lives' option spinner list");
-		switch (*(long *)(profile + 0x38))
+		option_spinner = option_list_row_spinner(widget, "op_number_of_lives");
+		if (option_spinner) switch (*(long *)(profile + 0x38))
 		{
 		case 0: option_spinner->data3C.selected_index = 0; break;
 		case 1: option_spinner->data3C.selected_index = 1; break;
@@ -5348,14 +5330,9 @@ static boolean playlist_profile_initialize_player_options(
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3258, list_item, "expected 'maximum health' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3260, option_spinner, "expected 'maximum health' option spinner list");
+		option_spinner = option_list_row_spinner(widget, "op_maximum_health");
 		maximum_health = -5 - (long)(*(float *)(profile + 0x3C) * -10.0f);
-		switch (maximum_health)
+		if (option_spinner) switch (maximum_health)
 		{
 		case 0: option_spinner->data3C.selected_index = 0; break;
 		case 5: option_spinner->data3C.selected_index = 1; break;
@@ -5366,26 +5343,16 @@ static boolean playlist_profile_initialize_player_options(
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3273, list_item, "expected 'shields' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3275, option_spinner, "expected 'shields' option spinner list");
-		switch ((*(unsigned long *)(profile + 0x20) >> 3) & 1)
+		option_spinner = option_list_row_spinner(widget, "op_shields");
+		if (option_spinner) switch ((*(unsigned long *)(profile + 0x20) >> 3) & 1)
 		{
 		case 0: option_spinner->data3C.selected_index = 0; break;
 		case 1: option_spinner->data3C.selected_index = 1; break;
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3285, list_item, "expected 'respawn time' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3287, option_spinner, "expected 'respawn time' option spinner list");
-		switch (*(long *)(profile + 0x30))
+		option_spinner = option_list_row_spinner(widget, "op_respawn_time");
+		if (option_spinner) switch (*(long *)(profile + 0x30))
 		{
 		case 0: option_spinner->data3C.selected_index = 0; break;
 		case 150: option_spinner->data3C.selected_index = 1; break;
@@ -5394,13 +5361,8 @@ static boolean playlist_profile_initialize_player_options(
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3298, list_item, "expected 'respawn time growth' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3300, option_spinner, "expected 'respawn time growth' option spinner list");
-		switch (*(long *)(profile + 0x2C))
+		option_spinner = option_list_row_spinner(widget, "op_respawn_time_growth");
+		if (option_spinner) switch (*(long *)(profile + 0x2C))
 		{
 		case 0: option_spinner->data3C.selected_index = 0; break;
 		case 150: option_spinner->data3C.selected_index = 1; break;
@@ -5409,38 +5371,24 @@ static boolean playlist_profile_initialize_player_options(
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3311, list_item, "expected 'odd man out' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3313, option_spinner, "expected 'odd man out' option spinner list");
-		switch (profile[0x28])
+		option_spinner = option_list_row_spinner(widget, "op_odd_man_out");
+		if (option_spinner) switch (profile[0x28])
 		{
 		case 0: option_spinner->data3C.selected_index = 1; break;
 		case 1: option_spinner->data3C.selected_index = 0; break;
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3322, list_item, "expected 'invisible players' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3324, option_spinner, "expected 'invisible players' option spinner list");
-		switch ((*(unsigned long *)(profile + 0x20) >> 4) & 1)
+		option_spinner = option_list_row_spinner(widget, "op_invisible_players");
+		if (option_spinner) switch ((*(unsigned long *)(profile + 0x20) >> 4) & 1)
 		{
 		case 0: option_spinner->data3C.selected_index = 1; break;
 		case 1: option_spinner->data3C.selected_index = 0; break;
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3335, list_item, "expected 'suicide penalty' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		switch (*(long *)(profile + 0x34))
+		option_spinner = option_list_row_spinner(widget, "op_suicide_penalty");
+		if (option_spinner) switch (*(long *)(profile + 0x34))
 		{
 		default: option_spinner->data3C.selected_index = 0; break;
 		case 0: option_spinner->data3C.selected_index = 0; break;
@@ -5596,16 +5544,10 @@ static boolean playlist_profile_change_player_options(
 	profile = (byte *)player_ui_get_edit_playlist_profile();
 	if (profile)
 	{
-		struct widget_instance *list_item;
 		struct widget_instance *option_spinner;
 
-		list_item = widget->child;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2483, list_item, "expected 'number of lives' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2485, option_spinner, "expected 'number of lives' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_number_of_lives");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: *(long *)(profile + 0x38) = 0; break;
 		case 1: *(long *)(profile + 0x38) = 1; break;
@@ -5614,13 +5556,8 @@ static boolean playlist_profile_change_player_options(
 		default: error(2, "unknown option selected in 'number of lives' option spinner list"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2496, list_item, "expected 'maximum health' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2498, option_spinner, "expected 'maximum health' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_maximum_health");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: *(float *)(profile + 0x3C) = 0.5f; break;
 		case 1: *(float *)(profile + 0x3C) = 1.0f; break;
@@ -5631,26 +5568,16 @@ static boolean playlist_profile_change_player_options(
 		default: error(2, "unknown option selected in 'maximum health' option spinner list"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2511, list_item, "expected 'shields' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2513, option_spinner, "expected 'shields' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_shields");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: *(unsigned long *)(profile + 0x20) &= ~8UL; break;
 		case 1: *(unsigned long *)(profile + 0x20) |= 8UL; break;
 		default: error(2, "unknown option selected in 'shields' option spinner list"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2522, list_item, "expected 'respawn time' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2524, option_spinner, "expected 'respawn time' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_respawn_time");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: *(long *)(profile + 0x30) = 0; break;
 		case 1: *(long *)(profile + 0x30) = 150; break;
@@ -5659,13 +5586,8 @@ static boolean playlist_profile_change_player_options(
 		default: error(2, "unknown option selected in 'respawn time' option spinner list"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2535, list_item, "expected 'respawn time growth' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2537, option_spinner, "expected 'respawn time growth' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_respawn_time_growth");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: *(long *)(profile + 0x2C) = 0; break;
 		case 1: *(long *)(profile + 0x2C) = 150; break;
@@ -5674,39 +5596,25 @@ static boolean playlist_profile_change_player_options(
 		default: error(2, "unknown option selected in 'respawn time growth' option spinner list"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2548, list_item, "expected 'odd man out' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2550, option_spinner, "expected 'odd man out' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_odd_man_out");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: profile[0x28] = TRUE; break;
 		case 1: profile[0x28] = FALSE; break;
 		default: error(2, "unknown option selected in 'odd man out' option spinner list"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2559, list_item, "expected 'invisible players' item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2561, option_spinner, "expected 'invisible players' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_invisible_players");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: *(unsigned long *)(profile + 0x20) |= 0x10UL; break;
 		case 1: *(unsigned long *)(profile + 0x20) &= ~0x10UL; break;
 		default: error(2, "unknown option selected in 'invisible players' option spinner list"); break;
 		}
 
-		list_item = list_item->next;
-		if (list_item)
+		option_spinner = option_list_row_spinner(widget, "op_suicide_penalty");
+		if (option_spinner)
 		{
-			option_spinner = list_item->child;
-			while (option_spinner && option_spinner->type != 2)
-				option_spinner = option_spinner->next;
-			match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 2574, option_spinner, "expected 'suicide penalty' option spinner list");
 			switch (option_spinner->data3C.selected_index)
 			{
 			case 0: *(long *)(profile + 0x34) = 0; break;
