@@ -183,6 +183,32 @@ def test_advanced_rows_are_standard_tall_rows():
         assert [c.get("y") for c in row.findall("child")] == [c.get("y") for c in original.findall("child")], key
 
 
+# Patch rows that are our widgets and still draw the 28-unit option pill: the item and player option lists take
+# their pitch from the disc's rows, which are not measured here (the patch's footer would drop the whole patch if
+# taller rows overflowed it), so they stay until a device check says their lists have room.
+SHORT_PATCH_WIDGETS = {"op_spawn_weapons", "op_map_weapons", "op_choose_weapons", "op_respawn"}
+
+
+def test_patch_rows_that_are_our_widgets_draw_the_standard_tall_row():
+    """A widget a patch row puts into a disc screen is copied at generation time; one copied before the density
+    pass keeps the 28-unit pill on the 39 pitch (ADVANCED CONTROLS drew short pills with gaps)."""
+    widgets = {w.get("name"): w for path in MENUS.glob("*.xml") if "compact" not in path.name
+               for w in ET.parse(path).getroot().iter("widget")}
+    checked = 0
+    for patch in table():
+        for row in rows(patch):
+            name = row.get("widget")
+            if not name or name.rsplit("/", 1)[1] in SHORT_PATCH_WIDGETS:
+                continue
+            widget = widgets[name]
+            assert widget.get("height") == "39" and "/row_36/" in widget.get("bitmap", ""), (
+                name, widget.get("height"), widget.get("bitmap"))
+            checked += 1
+    assert checked >= len(ADVANCED_HELP_WORD)
+    short = {n.rsplit("/", 1)[1] for n, w in widgets.items() if n.rsplit("/", 1)[1] in SHORT_PATCH_WIDGETS}
+    assert short == SHORT_PATCH_WIDGETS
+
+
 def test_item_options_rows_set_and_save_their_own_spinners():
     patch = next(p for p in table() if p.get("screen").endswith("item_options_screen"))
     # (and the Xbox's own STARTING EQUIPMENT row, removed: the combined row takes its place)
