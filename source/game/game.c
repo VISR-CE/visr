@@ -193,6 +193,9 @@ struct game_options;
 #include "profile_console.h"
 #endif
 #include "cseries/profile_sections.h"
+/* port: tick_verify.c's (debug.verify_once_a_tick) */
+void tick_verify_begin(void);
+void tick_verify_end(void);
 
 /* network_game_globals.c's */
 boolean network_game_distributed_client(void);
@@ -344,6 +347,9 @@ void game_tick(
 	collision_log_begin_period(0);
 	real_math_reset_precision();
 	profile_enter(game_update_section);
+	/* port: the caches' and pools' list walks asked for in the tick happen once each at its end
+	(debug.verify_once_a_tick, port/linux/game/tick_verify.c) */
+	tick_verify_begin();
 	/* port: debug.input_record and debug.input_replay take the tick's random seeds as the last tick left them, not as
 	the frames drawn since changed them (port/linux/src/input_replay.c) */
 	{
@@ -439,6 +445,7 @@ void game_tick(
 
 		input_replay_tick_end();
 	}
+	tick_verify_end();
 	profile_exit(game_update_section);
 	collision_log_end_period();
 	profile_tick_end();
@@ -1068,6 +1075,8 @@ void game_frame(
 		game_globals->active);
 
 	collision_log_begin_period(1);
+	/* port: (and those asked for in the frame's updates at their end) */
+	tick_verify_begin();
 	particles_update(frame_dt);
 	contrails_update(frame_dt);
 	particle_systems_update(frame_dt);
@@ -1076,6 +1085,7 @@ void game_frame(
 	scenario_frame_update(frame_dt);
 	rasterizer_frame_update(frame_dt);
 	numeric_countdown_timer_update();
+	tick_verify_end();
 	collision_log_end_period();
 
 	return;

@@ -129,6 +129,12 @@ struct lruv_cache_hole
 static void lruv_cache_verify(
 	struct lruv_cache *cache,
 	boolean verify_blocks);
+/* port: a game tick puts the walk of the blocks off to its end (debug.verify_once_a_tick,
+port/linux/game/tick_verify.c) */
+static void lruv_cache_verify_put_off(
+	void *cache);
+boolean tick_verify_put_off(void *subject, void (*verify)(void *subject));
+void tick_verify_flush(void *subject);
 
 static long lruv_cache_bytes_to_pages(
 	struct lruv_cache *cache,
@@ -211,6 +217,8 @@ void lruv_delete(
 	struct lruv_cache *cache)
 {
 	lruv_cache_verify(cache, TRUE);
+	/* port: (a walk put off happens here: the cache is gone after this) */
+	tick_verify_flush(cache);
 	data_dispose(cache->blocks);
 	csmemset(cache, 0, sizeof(*cache));
 	match_free("c:\\halo\\SOURCE\\memory\\lruv_cache.c", 163, cache);
@@ -760,6 +768,12 @@ static long lruv_cache_bytes_to_pages(
 	return page_count;
 }
 
+static void lruv_cache_verify_put_off(
+	void *cache)
+{
+	lruv_cache_verify((struct lruv_cache *)cache, TRUE);
+}
+
 static void lruv_cache_verify(
 	struct lruv_cache *cache,
 	boolean verify_blocks)
@@ -773,7 +787,7 @@ static void lruv_cache_verify(
 	match_assert("c:\\halo\\SOURCE\\memory\\lruv_cache.c", 755, cache->signature==LRUV_CACHE_SIGNATURE);
 	data_verify(cache->blocks);
 
-	if (verify_blocks)
+	if (verify_blocks && !tick_verify_put_off(cache, lruv_cache_verify_put_off))
 	{
 		block_index = cache->first_block_index;
 		while (block_index != NONE)

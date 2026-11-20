@@ -155,7 +155,7 @@ static BOOL route_matches(NSString *folder, struct benchmark_scene *scene, NSErr
    simulation values and explicit overrides as bits, the rest as the scene's knobs. NO for anything unsupported. */
 static BOOL case_settings(id raw, unsigned *sim_experiments, unsigned *sim_experiments_mask, struct benchmark_knobs *knobs) {
     NSArray *simulation = @[@"debug.collision_type_filter", @"debug.sphere_query_type_filter", @"debug.static_light_relink",
-        @"debug.collision_candidates"];
+        @"debug.collision_candidates", @"debug.verify_once_a_tick"];
     NSDictionary *settings = raw;
     if (![settings isKindOfClass:NSDictionary.class] || !settings.count) return NO;
     for (NSString *name in settings) {

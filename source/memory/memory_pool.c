@@ -92,6 +92,12 @@ static void *memory_pool_block_new(
 	long size);
 static void memory_pool_verify(
 	struct memory_pool *pool);
+/* port: a game tick puts the walk of the blocks off to its end (debug.verify_once_a_tick,
+port/linux/game/tick_verify.c) */
+static void memory_pool_verify_put_off(
+	void *pool);
+boolean tick_verify_put_off(void *subject, void (*verify)(void *subject));
+void tick_verify_flush(void *subject);
 static struct memory_pool_block *memory_pool_block_get(
 	struct memory_pool *pool,
 	void **reference);
@@ -142,6 +148,8 @@ void memory_pool_delete(
 	struct memory_pool *pool)
 {
 	memory_pool_verify(pool);
+	/* port: (a walk put off happens here: the pool is gone after this) */
+	tick_verify_flush(pool);
 	csmemset(pool, 0, sizeof(*pool));
 	match_free("c:\\halo\\SOURCE\\memory\\memory_pool.c", 85, pool);
 	return;
@@ -338,6 +346,12 @@ static void *memory_pool_block_new(
 		: NULL;
 }
 
+static void memory_pool_verify_put_off(
+	void *pool)
+{
+	memory_pool_verify((struct memory_pool *)pool);
+}
+
 static void memory_pool_verify(
 	struct memory_pool *pool)
 {
@@ -347,6 +361,10 @@ static void memory_pool_verify(
 	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 340, pool->signature==POOL_SIGNATURE);
 	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 341, pool->size>0);
 
+	if (tick_verify_put_off(pool, memory_pool_verify_put_off))
+	{
+		return;
+	}
 	previous_block = NULL;
 	for (block = pool->first_block; block; block = block->next_block)
 	{
