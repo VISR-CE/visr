@@ -64,3 +64,8 @@ def test_no_other_step_installs_homebrew_packages(workflow: dict) -> None:
         for step in job["steps"]:
             if step.get("name") != STEP_NAME:
                 assert "brew install" not in step.get("run", "")
+
+
+def test_formulas_already_on_the_runner_are_skipped_not_reinstalled(workflow: dict) -> None:
+    script = install_steps(workflow["jobs"]["probe"])[0]["run"]
+    assert 'brew list --formula --versions "$formula"' in script and 'brew install "$formula"' in script

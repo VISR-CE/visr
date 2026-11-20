@@ -86,7 +86,9 @@ jobs:
           git -C "$core" fetch --quiet --filter=blob:none origin main
           git -C "$core" checkout --quiet --force "$RELEASE_HOMEBREW_CORE_PIN"
           brew uninstall --force --ignore-dependencies llvm lld
-          brew install cmake ninja llvm lld sdl3 pkgconf
+          for formula in cmake ninja llvm lld sdl3 pkgconf; do
+            brew list --formula --versions "$formula" > /dev/null 2>&1 || brew install "$formula"
+          done
           actual="$("$(brew --prefix llvm)/bin/clang" --version | head -n 1)"
           test "$actual" = "$RELEASE_COMPILER_VERSION" || { echo "The toolchain is '$actual'; the release pins '$RELEASE_COMPILER_VERSION'" >&2; exit 1; }
       - name: Build unsigned optimized tester provenance without publishing
@@ -322,7 +324,9 @@ jobs:
           git -C "$core" fetch --quiet --filter=blob:none origin main
           git -C "$core" checkout --quiet --force "$RELEASE_HOMEBREW_CORE_PIN"
           brew uninstall --force --ignore-dependencies llvm lld
-          brew install cmake ninja llvm lld sdl3 pkgconf
+          for formula in cmake ninja llvm lld sdl3 pkgconf; do
+            brew list --formula --versions "$formula" > /dev/null 2>&1 || brew install "$formula"
+          done
           actual="$("$(brew --prefix llvm)/bin/clang" --version | head -n 1)"
           test "$actual" = "$RELEASE_COMPILER_VERSION" || { echo "The toolchain is '$actual'; the release pins '$RELEASE_COMPILER_VERSION'" >&2; exit 1; }
       - name: Select the reviewed release controller without changing the application tag
@@ -376,7 +380,9 @@ jobs:
           git -C "$core" fetch --quiet --filter=blob:none origin main
           git -C "$core" checkout --quiet --force "$RELEASE_HOMEBREW_CORE_PIN"
           brew uninstall --force --ignore-dependencies llvm lld
-          brew install cmake ninja llvm lld sdl3 pkgconf
+          for formula in cmake ninja llvm lld sdl3 pkgconf; do
+            brew list --formula --versions "$formula" > /dev/null 2>&1 || brew install "$formula"
+          done
           actual="$("$(brew --prefix llvm)/bin/clang" --version | head -n 1)"
           test "$actual" = "$RELEASE_COMPILER_VERSION" || { echo "The toolchain is '$actual'; the release pins '$RELEASE_COMPILER_VERSION'" >&2; exit 1; }
       - name: Select the reviewed release controller without changing the application tag
