@@ -7765,6 +7765,13 @@ static struct
 	unsigned long passes;
 } ssao;
 
+/* ssao_gather trades its neighbors' positions with simd_shuffle, a SIMD-scoped permute: Apple GPU family 6 (A13) and
+later, and Macs. Earlier GPUs draw without ambient occlusion (gpu_capabilities.ambient_occlusion). */
+static BOOL ssao_supported(void)
+{
+	return [device supportsFamily:MTLGPUFamilyApple6] || [device supportsFamily:MTLGPUFamilyMac2];
+}
+
 static BOOL ssao_programs(void)
 {
 	NSError *error = nil;
@@ -7777,9 +7784,7 @@ static BOOL ssao_programs(void)
 		return !ssao.failed;
 	ssao.tried = YES;
 	ssao.failed = YES;
-	/* ssao_gather trades its neighbors' positions with simd_shuffle, a SIMD-scoped permute: Apple GPU family 6 (A13)
-	and later, and Macs. Earlier GPUs draw without ambient occlusion. */
-	if (![device supportsFamily:MTLGPUFamilyApple6] && ![device supportsFamily:MTLGPUFamilyMac2])
+	if (!ssao_supported())
 	{
 		platform_log("ssao: this GPU has no SIMD-group permutes (Apple GPU family 6), so there is no ambient occlusion");
 		return NO;
@@ -9899,6 +9904,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		border_clamp, and a GL run and a Metal run report the same line */
 		border_colors = [device supportsFamily:MTLGPUFamilyApple7] || [device supportsFamily:MTLGPUFamilyMac2];
 		capabilities->border_clamp = 0;
+		capabilities->ambient_occlusion = ssao_supported() ? 1 : 0;
 		/* 8192 on an A8 (the Apple TV HD), the one Apple GPU family below Apple3 that still runs */
 		capabilities->max_texture_size = [device supportsFamily:MTLGPUFamilyApple3] ||
 			[device supportsFamily:MTLGPUFamilyMac2] ? 16384 : 8192;

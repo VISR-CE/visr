@@ -81,6 +81,9 @@ struct gpu_capabilities
 	/* the most samples a pixel a render target can be drawn with
 	(gpu_texture_multisample); 1 without multisampling */
 	uint8_t max_samples;
+	/* screen-space ambient occlusion can be drawn (host_ssao_apply: Metal on Apple GPU family 6 and later, and Macs);
+	otherwise display.ambient_occlusion and debug.ssao draw nothing and reports record it off */
+	uint8_t ambient_occlusion;
 	uint32_t max_texture_size;
 };
 

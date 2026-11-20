@@ -2974,12 +2974,24 @@ static int ssao_mode(void)
 {
 	long debug;
 
+	/* a GPU that cannot run it (gpu_capabilities.ambient_occlusion) has none, whatever the settings say */
+	if (!device_capabilities.ambient_occlusion)
+		return 0;
 	if (ssao_live >= 0)
 		return ssao_live;
 	/* debug.ssao (the spike's modes) wins; otherwise the player's setting, which the graphics mode turns off
 	outside Enhanced */
 	debug = config_integer("debug.ssao");
 	return debug ? (int)debug : config_boolean("display.ambient_occlusion") ? 1 : 0;
+}
+
+/* whether ambient occlusion is being drawn, as reports record it (benchmark_suite.c's renderer_state): off where the
+GPU cannot run it, outside Enhanced, without Metal, and in stereo */
+int halo_ambient_occlusion_effective(void)
+{
+	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+
+	return device.gl_ready && shader_dialect.msl && ssao_mode() > 0 && stereo->mode == HALO_STEREO_OFF;
 }
 
 /* whether the view being drawn takes AO: the same answer at the mark and at the pass */
@@ -5254,7 +5266,8 @@ static BOOL shader_list_warm_remember(struct shader_list_warm_record **records, 
 static void shader_list_host_prepare(BOOL soft)
 {
 #ifdef HALO_ILP32
-	if (shader_dialect.msl && config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED))
+	if (shader_dialect.msl && device_capabilities.ambient_occlusion &&
+		config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED))
 		host_ssao_apply(0, 0, NULL, 0);
 	if (soft)
 		(void)host_soft_depth_prepare(0, NULL, 0);
@@ -8601,6 +8614,13 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		{
 			if (config_graphics_settings_snapshot(scene, &perf_graphics))
 			{
+				uint32_t entry;
+
+				/* ambient occlusion as drawn: off where the GPU cannot run it, whatever the setting says */
+				for (entry = 0; entry < perf_graphics.count; entry++)
+					if (perf_graphics.entries[entry].type == GAME_PERF_GRAPHICS_BOOLEAN &&
+						!strcmp(perf_graphics.entries[entry].name, "display.ambient_occlusion"))
+						perf_graphics.entries[entry].value.boolean = halo_ambient_occlusion_effective();
 				host_perf_reports_graphics_snapshot(&perf_graphics);
 				perf_revision = revision; perf_scene = scene; perf_external = external;
 			}
