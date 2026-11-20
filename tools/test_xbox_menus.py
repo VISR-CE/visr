@@ -1645,8 +1645,6 @@ def test_layout_kinds_control_help_rows_and_panels(density):
         options = widgets.get(spec.get('options'))
         if options is not None:
             placed = module.density_rows(options, widgets)
-            if spec.get('side_spacer_rows'):
-                placed = [c for c in options.findall('child') if '/op_' in c.get('widget')]
             if spec['kind'] == 'K2-A':
                 placed = [c for c in options.findall('child') if '/scroll_' not in c.get('widget')
                           and c.get('widget') in widgets and (name == 'xbox/settings/settings_screen'
@@ -1659,8 +1657,7 @@ def test_layout_kinds_control_help_rows_and_panels(density):
                             and any(w.get('name') == name for w in ET.parse(p).iter('widget')))
                 compact_exists = path.with_name(path.stem + '.compact.xml').exists()
                 pitch = pitch[density if compact_exists else 'comfortable']
-            expected = list(spec['side_spacer_rows']) if 'side_spacer_rows' in spec else [
-                ys[0] + i * pitch for i in range(len(ys))]
+            expected = [ys[0] + i * pitch for i in range(len(ys))]
             assert ys == expected, f'{name}: {density} row pitch {ys}, expected {expected}'
             if spec['kind'] == 'K1':
                 base = spec['options'].rsplit('/', 1)[0]

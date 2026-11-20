@@ -1815,10 +1815,9 @@ SCREEN_LAYOUTS = {
        for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS},
     **{f'xbox/error/confirm_{name}_modal_fullscreen': {'kind': 'K8'}
        for name in ('delete_profile', 'delete_gametype', 'join_big')},
-    # SIDE's original spacer and vehicle positions are retained; this adapter moves only the bar.
+    # VEHICLE OPTIONS: its rows are the standard rows of an option list (the PC version's spacer before SIDE is gone).
     'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen': {
-        'kind': 'K1', 'options': 'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu',
-        'side_spacer_rows': (73, 126, 152, 178)},
+        'kind': 'K1', 'options': 'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu'},
 }
 # These settings parameters preserve supplemental content rather than moving it into help.
 SCREEN_LAYOUTS['xbox/settings/video_settings/video_settings_screen']['frame_rate_row'] = 307  # VIDEO's Mac frame-rate row.
@@ -1848,7 +1847,7 @@ for page in PAGES:
         next(spec for name, spec in SCREEN_LAYOUTS.items() if name.startswith(f'xbox/settings/{page}/'))['defaults_x'] = 40
 
 LIST_LAYOUTS = {spec['options']: spec for spec in SCREEN_LAYOUTS.values() if 'options' in spec}
-OPTION_LIST_LAYOUTS = {name: spec for name, spec in LIST_LAYOUTS.items() if spec['kind'] == 'K1' and 'side_spacer_rows' not in spec}
+OPTION_LIST_LAYOUTS = {name: spec for name, spec in LIST_LAYOUTS.items() if spec['kind'] == 'K1'}
 
 
 def layout_geometry(documents, density):
@@ -2334,13 +2333,43 @@ LIST_DOCUMENTS = (
 )
 
 
+# Generated option lists that keep their own row geometry, with the reason. Every other generated list whose
+# rows are option rows (the option_bkds row art) takes the density's standard row: tall (36 units of art on the
+# 39 pitch) when comfortable, so a row is tall because it is a generated row, never because its screen asked.
+# (The compact documents are the other density, not an exemption: their rows take the compact pitch.)
+OPTION_LIST_EXEMPTIONS = {
+    # the browser's server rows: its own row art, pitch and pager (browser_layout)
+    f'xbox/{MP}/join_game/join_game_items_list': 'server rows, laid out by browser_layout',
+    # the entry forms: their help sits right under the field rows; tall rows need the help moved first
+    f'xbox/{MP}/join_game/password/options_menu': 'entry form; help box at 156 needs moving',
+    f'xbox/{MP}/join_game/code/options_menu': 'entry form; help box at 156 needs moving',
+    f'xbox/{MP}/direct_ip/direct_ip_menu': 'entry form; help box needs moving',
+}
+
+
+def is_option_row(row):
+    """A list child drawn as an option row: the option_bkds art, or a comfortable copy of it."""
+    return row is not None and row.get('bitmap', '').rsplit('/', 1)[-1] in ('option_bkds', 'option_bkds_sm')
+
+
+def is_option_list(options, widgets):
+    """A generated column list of option rows, not exempted."""
+    # (a bar of buttons side by side, left_right_tabs_items, is not a list of rows)
+    return (options.get('type') == 'column_list' and options.get('name') not in OPTION_LIST_EXEMPTIONS
+            and 'left_right_tabs_items' not in options.get('flags', '')
+            and any(is_option_row(widgets.get(c.get('widget'))) for c in options.findall('child')
+                    if 'button_bar' not in c.get('widget', '') and '/scroll_' not in c.get('widget', '')))
+
+
 def density_rows(options, widgets):
+    option_list = is_option_list(options, widgets)
     return [c for c in options.findall('child')
             if c.get('y') is not None and c.get('widget') in widgets
             and (re.fullmatch(r'(?:list_item_|server_item_)\d+(?:_map_kind)?',
                               c.get('widget').rsplit('/', 1)[-1])
-                 or (options.get('name') in OPTION_LIST_LAYOUTS
-                     and '/scroll_' not in c.get('widget') and 'button_bar' not in c.get('widget'))
+                 or ((options.get('name') in OPTION_LIST_LAYOUTS or option_list)
+                     and '/scroll_' not in c.get('widget') and 'button_bar' not in c.get('widget')
+                     and int(c.get('y')) < LEGEND_Y)
                  or (options.get('name') == 'xbox/settings/settings_list'
                      and '/scroll_' not in c.get('widget'))
                  or (options.get('name', '').startswith('xbox/settings/')
@@ -2428,7 +2457,8 @@ def apply_density(documents, pitch, bitmaps, settings=False):
             if desc is None and is_settings:
                 # ABOUT's legal help is fixed text; its rows still stop above it.
                 desc = widgets.get(options.get('name').rsplit('/', 1)[0] + '/help')
-            if desc is not None and (is_settings or options.get('name') in OPTION_LIST_LAYOUTS):
+            if desc is not None and desc.get('top') is not None and (
+                    is_settings or options.get('name') in OPTION_LIST_LAYOUTS or is_option_list(options, widgets)):
                 limit = int(desc.get('top'))
             fit = max(1, (limit - first) // row_pitch)
             for c in list(options.findall('child')):
