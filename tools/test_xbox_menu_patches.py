@@ -148,6 +148,41 @@ def test_in_game_help_is_added_to_advanced_setup():
     assert all(r.get("pitch") == "39" for r in added)
 
 
+ADVANCED_HELP_WORD = {
+    "invert_look": "looks",
+    "look_sensitivity": "How fast",
+    "vibration": "vibrates",
+    "flight_inversion": "Flight",
+    "autocenter": "center",
+    "ingame_help": "hints",
+}
+
+
+def test_each_advanced_row_has_its_own_single_help_string():
+    patch = next(p for p in table() if p.get("screen").endswith("advanced_controls_screen"))
+    added = [r for r in rows(patch) if r.get("widget")]
+    assert len(added) == len(ADVANCED_HELP_WORD)
+    for row in added:
+        key = row.get("widget").rsplit("/", 1)[1].removeprefix("op_").removesuffix("_advanced")
+        help_text = row.get("help")
+        # (one string per row: the list shows a row's help by its description number, the first of its strings)
+        assert "|" not in help_text, key
+        assert ADVANCED_HELP_WORD[key] in help_text, (key, help_text)
+        others = [w for k, w in ADVANCED_HELP_WORD.items() if k != key and w in help_text]
+        assert not others, (key, others)
+
+
+def test_advanced_rows_are_standard_tall_rows():
+    widgets = {w.get("name"): w for path in MENUS.glob("settings.gamepad_setup.xml") for w in ET.parse(path).getroot().iter("widget")}
+    for key in ADVANCED_HELP_WORD:
+        row = widgets[f"xbox/settings/gamepad_setup/op_{key}_advanced"]
+        original = widgets[f"xbox/settings/gamepad_setup/op_{key}"]
+        assert row.get("height") == "39" and "/row_36/" in row.get("bitmap"), key
+        for attribute in ("height", "bitmap"):
+            assert row.get(attribute) == original.get(attribute), (key, attribute)
+        assert [c.get("y") for c in row.findall("child")] == [c.get("y") for c in original.findall("child")], key
+
+
 def test_item_options_rows_set_and_save_their_own_spinners():
     patch = next(p for p in table() if p.get("screen").endswith("item_options_screen"))
     # (and the Xbox's own STARTING EQUIPMENT row, removed: the combined row takes its place)

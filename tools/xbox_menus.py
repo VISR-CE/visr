@@ -2010,22 +2010,39 @@ def patch(root, list_path, screen_path):
 # The advanced controls page: (patch row name, the original's row tag, the controls page's key, help text)
 ADVANCED_ROWS = (
     ('op_invert_joystick', 'op_invert_joystick', 'invert_look',
-     'Pushing the thumbstick up looks down, and\\npulling it down looks up.|Pushing the thumbstick up looks up.'),
+     'Pushing the thumbstick up looks down, and\\npulling it down looks up.'),
     ('op_look_sensitivity', 'op_controller_sensitivity', 'look_sensitivity',
-     'How fast the thumbstick turns your view.|How fast the thumbstick turns your view.'),
+     'How fast the thumbstick turns your view.'),
     ('op_controller_vibration', 'op_controller_vibration', 'vibration',
-     'The controller vibrates during play.|The controller does not vibrate.'),
+     'The controller vibrates during play.'),
     ('op_flight_inversion', 'op_flight_stick_controls', 'flight_inversion',
-     'Flight controls are inverted in aircraft.|Flight controls are not inverted.'),
+     'Flight controls are inverted in aircraft.'),
     ('op_autocenter', 'op_auto_center', 'autocenter',
-     'The view returns to center when you let\\ngo of the thumbstick.|The view stays where you leave it.'),
+     'The view returns to center when you let\\ngo of the thumbstick.'),
     ('op_ingame_help', 'op_ingame_help', 'ingame_help',
-     'The game shows hints about its controls\\nas you play.|The game does not show hints about its\\ncontrols.'),
+     'The game shows hints about its controls\\nas you play.'),
 )
 
 
 def patch_row(parent, tag='row', **attributes):
     return ET.SubElement(parent, tag, {k: str(v) for k, v in attributes.items()})
+
+
+def add_advanced_clones(documents):
+    """IN-GAME HELP on the Xbox's advanced setup page (a patch row): the row of the controls page, its spinner where
+    the Xbox's advanced rows have theirs. Copied after the density pass so each clone has its original's row height
+    and art (a copy made earlier kept the 28-unit pill)."""
+    gamepad = documents['settings.gamepad_setup.xml']
+    for _, _, key, _ in ADVANCED_ROWS:
+        row = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/op_{key}'))
+        row.set('name', f'xbox/settings/gamepad_setup/op_{key}_advanced')
+        spinner = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/{key}_spinner'))
+        spinner.set('name', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
+        for part in row.findall('child'):
+            if part.get('widget', '').endswith(f'{key}_spinner'):
+                part.set('widget', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
+        gamepad.append(spinner)
+        gamepad.append(row)
 
 
 def patch_document(names):
@@ -2404,19 +2421,6 @@ def generate(assets=MENUS):
                         bitmap=bitmap_ref('bitmaps/option_bkds', names), text_x=13, text_y=4)
     for event in ('a', 'start'):
         ET.SubElement(mouse, 'on', event=event, open='xbox/settings/mouse_settings/mouse_settings_screen')
-    # IN-GAME HELP on the Xbox's advanced setup page (a patch row): the row of the controls page, its spinner where
-    # the Xbox's advanced rows have theirs
-    gamepad = documents['settings.gamepad_setup.xml']
-    for _, _, key, _ in ADVANCED_ROWS:
-        row = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/op_{key}'))
-        row.set('name', f'xbox/settings/gamepad_setup/op_{key}_advanced')
-        spinner = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/{key}_spinner'))
-        spinner.set('name', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
-        for part in row.findall('child'):
-            if part.get('widget', '').endswith(f'{key}_spinner'):
-                part.set('widget', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
-        gamepad.append(spinner)
-        gamepad.append(row)
     documents.update(multiplayer_documents(assets, names))
     documents['dialogs.xml'] = dialog_document()
     shared = documents['multiplayer.shared.xml']
@@ -2538,6 +2542,7 @@ def generate(assets=MENUS):
                                     frame.set('height', str(drawn))
                             owner.append(bitmap)
                         row.set('bitmap', variant)
+    add_advanced_clones(documents)
     native_header_sizes(documents, assets)
     for root in documents.values():
         validate(root, assets)
