@@ -7,6 +7,8 @@
 #include <pthread.h>
 #include <SDL3/SDL.h>
 #include <math.h>
+#include <stdatomic.h>
+#include "host_portrait_rule.h"
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -15,6 +17,9 @@
 /* UIKit may ask before host_main.m installs the profile. Only configure
    after that point; early queries keep the existing landscape policy. */
 static BOOL allow_portrait;
+/* whether the screen the game's scene is on fits portrait (host_portrait_rule.h): -1 before the first check,
+   which leaves the device's own answer */
+static _Atomic int screen_portrait = -1;
 static struct host_geometry_debounce geometry_debounce;
 static struct host_geometry settled_geometry;
 static unsigned settled_generation;
@@ -33,11 +38,53 @@ unsigned host_geometry_settled_size(double *width, double *height) {
     return generation;
 }
 
-int host_ios_portrait_allowed(void) { return allow_portrait ? 1 : 0; }
+int host_ios_portrait_allowed(void) { return allow_portrait && atomic_load(&screen_portrait) != 0 ? 1 : 0; }
 
 BOOL host_ios_allows_portrait(void) {
-    return allow_portrait;
+    return host_ios_portrait_allowed() != 0;
 }
+
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION
+static UIWindowScene *game_window_scene(void) {
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+        if ([scene isKindOfClass:UIWindowScene.class] &&
+            [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication])
+            return (UIWindowScene *)scene;
+    return nil;
+}
+
+static void update_orientation_preferences(UIWindowScene *windowScene) {
+    for (UIWindow *window in windowScene.windows) {
+        UIViewController *controller = window.rootViewController;
+        while (controller) {
+            [controller setNeedsUpdateOfSupportedInterfaceOrientations];
+            if (@available(iOS 26.0, *)) [controller setNeedsUpdateOfPrefersInterfaceOrientationLocked];
+            controller = controller.presentedViewController;
+        }
+    }
+}
+
+/* Main thread: take the portrait answer again for the screen the game's scene is on now (a move between the
+   cover and inner screens changes it), and when it changes, tell SDL and UIKit; a scene in portrait on a screen
+   that no longer allows it turns to landscape. */
+static void portrait_screen_check(void) {
+    if (!allow_portrait) return;
+    UIWindowScene *windowScene = game_window_scene();
+    UIScreen *screen = windowScene.screen;
+    if (!screen) return;
+    CGSize size = screen.bounds.size;
+    int fits = host_portrait_fits(allow_portrait, size.width, size.height);
+    if (atomic_exchange(&screen_portrait, fits) == fits) return;
+    host_logf(HOST_LOG_INFO, "portrait: %s on this %.0fx%.0f pt screen (at least %.0f pt wide in portrait)",
+        fits ? "allowed" : "not allowed", size.width, size.height, HOST_PORTRAIT_MINIMUM_POINTS);
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, fits ? "Portrait PortraitUpsideDown LandscapeLeft LandscapeRight" :
+        "LandscapeLeft LandscapeRight");
+    update_orientation_preferences(windowScene);
+    if (!fits && UIInterfaceOrientationIsPortrait(windowScene.effectiveGeometry.interfaceOrientation))
+        for (UIWindow *window in windowScene.windows)
+            if (!window.hidden && window.rootViewController) { host_ios_require_landscape(window); break; }
+}
+#endif
 
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION
 /* debug.orientation: one orientation, or a timed sequence ("portrait,landscape@20"): the first is requested
@@ -122,17 +169,11 @@ void host_ios_orientation_configure(void) {
     if (allow_portrait)
         SDL_SetHint(SDL_HINT_ORIENTATIONS, "Portrait PortraitUpsideDown LandscapeLeft LandscapeRight");
     dispatch_async(dispatch_get_main_queue(), ^{
+        portrait_screen_check();
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if (![scene isKindOfClass:UIWindowScene.class]) continue;
             UIWindowScene *windowScene = (UIWindowScene *)scene;
-            for (UIWindow *window in windowScene.windows) {
-                UIViewController *controller = window.rootViewController;
-                while (controller) {
-                    [controller setNeedsUpdateOfSupportedInterfaceOrientations];
-                    if (@available(iOS 26.0, *)) [controller setNeedsUpdateOfPrefersInterfaceOrientationLocked];
-                    controller = controller.presentedViewController;
-                }
-            }
+            update_orientation_preferences(windowScene);
             request_debug_orientation(windowScene);
         }
         [NSNotificationCenter.defaultCenter addObserverForName:UISceneDidActivateNotification object:nil
@@ -251,6 +292,9 @@ void host_geometry_poll(void) {
         settled_geometry = geometry;
         unsigned generation = ++settled_generation;
         pthread_mutex_unlock(&geometry_lock);
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION
+        portrait_screen_check();
+#endif
         relayout_to_scene();
         relayout_again_at = now + 0.4;    /* the display move and rotation can finish after the first settle */
         host_logf(HOST_LOG_INFO, "scene geometry settled %.0fx%.0f orientation=%d (%s) generation=%u",

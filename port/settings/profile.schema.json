@@ -206,7 +206,7 @@
         "allow_portrait": {
           "type": "boolean",
           "default": false,
-          "description": "When true, gameplay and menus follow the device into portrait. Device profiles turn it on where portrait play is supported (the iPhone Duo); on other devices set it in config.toml for testing. Read at launch. Profile values outside the accepted set are refused, not clamped."
+          "description": "When true, gameplay and menus follow the device into portrait on any of its screens at least 640 points wide in portrait, where a menu unit is at least a point; a narrower screen stays in landscape. Device profiles turn it on where portrait play is supported (the iPhone Duo); on other devices set it in config.toml for testing. Read at launch. Profile values outside the accepted set are refused, not clamped."
         },
         "dynamic_resolution": {
           "type": "boolean",

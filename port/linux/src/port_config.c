@@ -262,9 +262,11 @@ static const struct config_setting config_settings[] =
 		"display.render_height (the ceiling) down to display.dynamic_resolution_floor.\n"
 		"The HUD and menus stay at the display's resolution. Read at launch." },
 	{ "display.allow_portrait", _config_boolean, "false", "HALO_ALLOW_PORTRAIT", _environment_value, _platform_ios,
-		"When true, gameplay and menus follow the device into portrait. Device\n"
-		"profiles turn it on where portrait play is supported (the iPhone Duo);\n"
-		"on other devices set it in config.toml for testing. Read at launch." },
+		"When true, gameplay and menus follow the device into portrait on any of\n"
+		"its screens at least 640 points wide in portrait, where a menu unit is at\n"
+		"least a point; a narrower screen stays in landscape. Device profiles turn\n"
+		"it on where portrait play is supported (the iPhone Duo); on other devices\n"
+		"set it in config.toml for testing. Read at launch." },
 	{ "display.dynamic_resolution_floor", _config_integer, "540", "HALO_DYNAMIC_RESOLUTION_FLOOR", _environment_value, _platform_ios,
 		"The fewest lines display.dynamic_resolution draws the 3D view at; never\n"
 		"fewer than half the ceiling's. Read at launch." },

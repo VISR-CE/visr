@@ -458,6 +458,10 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host',
 run(BUILD / 'touch-controller-probe')
 # fingers and pointer devices on the menus: the state machine, the mapping to the menus' coordinates, and the
 # struct that crosses to the guest (its layout must hold under the guest's arm64_32 flags too)
+# portrait only on a screen at least 640 points wide in portrait (host_portrait_rule.h)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host', 'port/ios/tests/portrait_rule_probe.c',
+    '-o', BUILD / 'portrait-rule-probe')
+run(BUILD / 'portrait-rule-probe')
 run('python3', 'tools/test_menu_tap_targets.py')
 run('python3', 'tools/test_menu_carousel.py')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
