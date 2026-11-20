@@ -9029,23 +9029,22 @@ static void ui_widgets_process_mouse(
 			struct widget_instance *widget = ui_mouse_wheel_widget(ui_mouse_menu());
 			short back = _widget_event_dpad_up, forward = _widget_event_dpad_down;
 			long step;
-			boolean finger_list = FALSE;
-			long steps = ABS(pointer.wheel_steps);
+			boolean finger = pointer.radius > 0, over_row = FALSE;
+			long steps;
 
 			if (widget)
 				ui_mouse_list_directions(widget, &back, &forward);
-			if (pointer.radius > 0 && back == _widget_event_dpad_up)
+			if (finger && back == _widget_event_dpad_up)
 			{
-				/* a finger dragging a vertical list: hover highlights the row under the finger, and only once the
-				finger is past the rows does the list scroll, in the finger's direction */
 				struct ui_mouse_target *under = ui_mouse_target_at(pointer.x, pointer.y);
 
-				finger_list = TRUE;
-				if (under && (under->kind == _ui_mouse_target_item || under->kind == _ui_mouse_target_value))
-					steps = 0;
+				over_row = under && (under->kind == _ui_mouse_target_item || under->kind == _ui_mouse_target_value);
 			}
-			for (step = 0; step < steps && step < 4; step++)
-				ui_mouse_press((pointer.wheel_steps > 0) != finger_list ? back : forward);
+			else
+				finger = FALSE; /* a horizontal list keeps the wheel's direction */
+			steps = halo_ui_list_wheel_steps(pointer.wheel_steps, finger, over_row);
+			for (step = 0; step < ABS(steps) && step < 4; step++)
+				ui_mouse_press(steps < 0 ? back : forward);
 			if (steps)
 				halo_ui_pointer_feedback(1);
 		}
