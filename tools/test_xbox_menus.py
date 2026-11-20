@@ -74,7 +74,11 @@ def test_settings_keep_pc_values_and_handlers():
         expected = {w.get('setting'): (w.get('values'), w.get('strings'))
                     for w in source.iter('widget') if w.get('setting')
                     and w.get('name').rsplit('/', 1)[-1] not in module.XBOX_DROPPED_ROWS.get(folder, ())}
-        actual = {w.get('setting'): (w.get('values'), w.get('strings'))
+        # (the clones for the advanced page say ON|OFF where the controls page says YES|NO: a switch's state word)
+        actual = {w.get('setting'): (w.get('values'),
+                                     expected[w.get('setting')][1] if w.get('name').endswith('_spinner_advanced')
+                                     and w.get('strings') == 'ON|OFF' and expected.get(w.get('setting'), ('', ''))[1] == 'YES|NO'
+                                     else w.get('strings'))
                   for w in output.iter('widget') if w.get('setting')}
         assert actual == expected
         retained = {e.get('run') for e in source.iter('on') if e.get('run')} - {

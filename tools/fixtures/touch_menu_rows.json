@@ -1036,8 +1036,8 @@
     "file": "settings.gamepad_setup.xml",
     "name": "invert_look_spinner_advanced",
     "strings": [
-      "YES",
-      "NO"
+      "ON",
+      "OFF"
     ],
     "kind": 1,
     "on_index": 0,
@@ -1077,8 +1077,8 @@
     "file": "settings.gamepad_setup.xml",
     "name": "flight_inversion_spinner_advanced",
     "strings": [
-      "YES",
-      "NO"
+      "ON",
+      "OFF"
     ],
     "kind": 1,
     "on_index": 0,
@@ -1088,8 +1088,8 @@
     "file": "settings.gamepad_setup.xml",
     "name": "autocenter_spinner_advanced",
     "strings": [
-      "YES",
-      "NO"
+      "ON",
+      "OFF"
     ],
     "kind": 1,
     "on_index": 0,
