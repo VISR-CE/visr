@@ -2129,8 +2129,7 @@ def patch_document(names):
     options.set('footer', '321')
     anchor = MM + 'settings_select\\multiplayer_setup\\item_options_edit\\op_starting_equipment'
     for name, _, _ in IO_ROWS:
-        patch_row(options, after=anchor, name=name, widget=f'xbox/{IO}/{name}', pitch=COMFORTABLE_PITCH,
-                  help=IO_HELP[name])
+        patch_row(options, after=anchor, name=name, widget=f'xbox/{IO}/{name}', help=IO_HELP[name])
         anchor = name
     # Player Options: the four respawn rows leave for RESPAWN OPTIONS, whose row stands in their place
     player = patch(root, MM + 'settings_select\\multiplayer_setup\\player_options_edit\\player_options_menu',
@@ -2138,7 +2137,7 @@ def patch_document(names):
     player.set('footer', '321')
     poe = MM + 'settings_select\\multiplayer_setup\\player_options_edit\\'
     patch_row(player, after=poe + 'op_invisible_players', name='op_respawn', widget=f'xbox/{PO}/op_respawn',
-              pitch=COMFORTABLE_PITCH, help=PO_HELP['op_respawn'])
+              help=PO_HELP['op_respawn'])
     for key in ('op_respawn_time', 'op_respawn_time_growth', 'op_odd_man_out', 'op_suicide_penalty'):
         patch_row(player, 'remove', child=poe + key)
     # (STARTING EQUIPMENT's rows replace the Xbox's own)
@@ -2365,17 +2364,24 @@ def make_row_tall(row, bitmaps, documents, selected):
 
 
 def tall_patch_widgets(documents, bitmaps):
-    """The widgets patch rows put into the disc's lists sit on no list of ours, so the density pass never reaches
-    them: draw each as the standard tall row, as the rows of the lists that do."""
+    """The widgets a patch row adds to a list sit on no list of ours, so the density pass never reaches them. Where the
+    patch takes out every row the disc had, all the rows are ours: draw each as the standard tall row. Where disc
+    rows stay (Item Options, Player Options) the list keeps its disc rows' 28-unit pills and ours match them, until
+    the disc rows can be restyled too (agent-specs 2026-11-20 tall disc rows)."""
+    disc = json.loads((ROOT / 'tools/fixtures/disc_patched_lists.json').read_text())
     selected = [root for name, root in documents.items() if '.compact.' not in name]
     widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
-    for row in documents['patches.xml'].iter('row'):
-        widget = widgets.get(row.get('widget'))
-        if widget is None or '/row_36/' in (widget.get('bitmap') or ''):
+    for patch in documents['patches.xml'].iter('patch'):
+        removed = {row.get('child').rsplit('\\', 1)[-1] for row in patch.findall('remove')}
+        if {row['name'] for row in disc.get(patch.get('list'), [])} - removed or patch.get('list') not in disc:
             continue
-        widget.set('height', str(COMFORTABLE_PITCH))
-        widget.set('top', '0')
-        make_row_tall(widget, bitmaps, documents, selected)
+        for row in patch.iter('row'):
+            widget = widgets.get(row.get('widget'))
+            if widget is None or '/row_36/' in (widget.get('bitmap') or ''):
+                continue
+            widget.set('height', str(COMFORTABLE_PITCH))
+            widget.set('top', '0')
+            make_row_tall(widget, bitmaps, documents, selected)
 
 
 def apply_density(documents, pitch, bitmaps, settings=False):
