@@ -6251,20 +6251,23 @@ static wchar_t const *ui_widget_row_string(void *context, int index)
 	return spinner_string_list_get_string(definition->text_label_string_list.index, (short)index);
 }
 
-/* port: Xbox rows */
-static boolean ui_widget_row_name_is_touch(char const *name)
+/* port: whether a spinner is a standard row's value, drawn as a switch, a dropdown or a slider under touch and
+mouse (halo_menu_row.h decides which from its values): any spinner of the menus' own files, and the map's own
+spinner in a row that was made a standard tall row (pc_menu_row_tall: the disc's option lists). Said by the menus'
+data, never read off a tag's name. */
+static boolean ui_widget_row_is_standard(struct widget_instance *widget)
 {
-	return name && (!strncmp(name, "pc\\xbox\\", 8) || !strncmp(name, "xbox/", 5));
+	return pc_menu_tag(widget->definition_tag_index) ||
+		(widget->parent && pc_menu_row_tall(widget->parent->definition_tag_index));
 }
 
 static struct halo_menu_row ui_widget_row_control(struct widget_instance *widget)
 {
 	struct halo_menu_row row = { HALO_ROW_ENUM, -1 };
 	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
-	char const *name = tag_get_name(widget->definition_tag_index);
 	struct string_list *strings;
-	/* Keep the original PC look and carousels intact. */
-	if (!ui_widget_row_name_is_touch(name) ||
+	/* (carousels, which hold their items as children, keep their own behavior) */
+	if (!ui_widget_row_is_standard(widget) ||
 		definition->child_widgets.count || definition->text_label_string_list.index == NONE)
 		return row;
 	strings = unicode_string_list_definition_get(definition->text_label_string_list.index);
@@ -6279,8 +6282,7 @@ fallback enum also covers PC lists and carousels, which retain their behavior. *
 static boolean ui_widget_row_has_dropdown(struct widget_instance *widget)
 {
 	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
-	char const *name = tag_get_name(widget->definition_tag_index);
-	return ui_widget_row_name_is_touch(name) &&
+	return ui_widget_row_is_standard(widget) &&
 		!definition->child_widgets.count && definition->text_label_string_list.index != NONE &&
 		widget->parameters.list.number_of_items > 1 && ui_widget_row_control(widget).kind == HALO_ROW_ENUM;
 }

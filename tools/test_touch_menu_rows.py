@@ -42,7 +42,13 @@ int classify(int count, wchar_t const **strings, int *on) {
                               (['1', '2', '3', 'inf'], 2, -1), (['1', '2', '3', '4%'], 2, -1),
                               (['0.5x', '1x', '1.25x', '2X'], 3, -1), (['25%', '50%', '75%', '100%'], 3, -1),
                               (['1x', '2x', '3', '4x'], 2, -1), (['1x', '2%', '3x', '4x'], 2, -1),
-                              (['1x', '2x', 'x', '4x'], 2, -1)]:
+                              (['1x', '2x', 'x', '4x'], 2, -1),
+                              # a word for nothing below the numbers is the range's zero; any other word is a choice
+                              (['NONE', '1', '2', '3', '4'], 3, -1), (['off', '25%', '50%', '75%'], 3, -1),
+                              (['NONE', '0', '1', '2'], 2, -1), (['NONE', '2', '1', '3'], 2, -1),
+                              (['NONE', '1', '2'], 2, -1), (['NONE', '1', '2', 'NONE'], 2, -1),
+                              (['SAME', '1', '2', '3'], 2, -1), (['AUTO', '30', '60', '120', 'NONE'], 2, -1),
+                              (['1', 'NONE', '2', '3'], 2, -1), (['NONE', '1x', '2', '3x'], 2, -1)]:
         check(strings, kind, on)
     rows = json.loads((ROOT / 'tools/fixtures/touch_menu_rows.json').read_text())
     actual_rows = {(path.name, widget.get('name').split('/')[-1])
@@ -57,6 +63,78 @@ int classify(int count, wchar_t const **strings, int *on) {
         assert widget.get('strings').split('|') == strings
         expected = row['kind']
         check(strings, expected, row['on_index'])
+
+
+def test_standard_rows_are_chosen_by_data(tmp_path):
+    """Bug class: a row's control chosen by reading a tag's name. A spinner is a standard row's value when it
+    comes from the menus' own files or sits in a row made a standard tall row, whatever it is called, and its
+    values alone choose switch, dropdown or slider."""
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    program = r"""
+#include <assert.h>
+#include <stddef.h>
+#include <wchar.h>
+#include "halo_menu_row.h"
+#define TRUE 1
+#define FALSE 0
+#define NONE -1
+typedef int boolean;
+struct reference { long index; };
+struct block { long count; };
+struct ui_widget_definition { struct block child_widgets; struct reference text_label_string_list; };
+struct string_list { struct block strings; };
+struct widget_instance { long definition_tag_index; struct widget_instance *parent;
+ struct { struct { int number_of_items; } list; } parameters; };
+/* tags: 0-2 are the map's rows, 3-8 its spinners; 9 is a spinner of the menus' own files */
+static wchar_t const *lists[][6] = {
+ {L"5", L"10", L"15", L"25", L"50"}, {L"YES", L"NO"}, {L"SLAYER", L"ODDBALL", L"RACE"},
+ {L"50%", L"100%", L"150%", L"200%"}, {L"NONE", L"1", L"2", L"3", L"4"}};
+static int counts[] = {5, 2, 3, 4, 5};
+static struct ui_widget_definition definitions[10];
+static struct string_list string_lists[5];
+static int own_from = 9, tall[10];
+boolean pc_menu_tag(long tag) { return tag >= own_from; }
+boolean pc_menu_row_tall(long tag) { return tall[tag]; }
+struct ui_widget_definition *ui_widget_definition_get(long tag) { return &definitions[tag]; }
+struct string_list *unicode_string_list_definition_get(long list) { string_lists[list].strings.count = counts[list]; return &string_lists[list]; }
+static long spinner_string_list_extra_count(long list) { (void)list; return 0; }
+static wchar_t const *spinner_string_list_get_string(long list, short index) { return lists[list][index]; }
+""" + block(source, 'static wchar_t const *ui_widget_row_string(') + block(source, 'static boolean ui_widget_row_is_standard(') + \
+        block(source, 'static struct halo_menu_row ui_widget_row_control(') + \
+        block(source, 'static boolean ui_widget_row_has_dropdown(') + r"""
+int main(void) {
+ struct widget_instance rows[3] = {{0}, {1}, {2}}, spinner = {0};
+ int kinds[] = {HALO_ROW_RANGE, HALO_ROW_TOGGLE, HALO_ROW_ENUM, HALO_ROW_RANGE, HALO_ROW_RANGE};
+ int list;
+ tall[0] = 1;
+ for (list = 0; list < 5; list++) {
+  definitions[3 + list].text_label_string_list.index = list;
+  spinner.definition_tag_index = 3 + list; spinner.parameters.list.number_of_items = counts[list];
+  /* the map's spinner in a standard tall row: its values choose the control */
+  spinner.parent = &rows[0];
+  assert(ui_widget_row_control(&spinner).kind == kinds[list]);
+  assert(ui_widget_row_has_dropdown(&spinner) == (kinds[list] == HALO_ROW_ENUM));
+  /* the same spinner in a row left as the map has it keeps the map's arrows */
+  spinner.parent = &rows[1];
+  assert(ui_widget_row_control(&spinner).kind == HALO_ROW_ENUM && !ui_widget_row_has_dropdown(&spinner));
+  spinner.parent = NULL;
+  assert(ui_widget_row_control(&spinner).kind == HALO_ROW_ENUM && !ui_widget_row_has_dropdown(&spinner));
+ }
+ /* a spinner of the menus' own files is standard wherever it sits */
+ definitions[9].text_label_string_list.index = 4;
+ spinner.definition_tag_index = 9; spinner.parent = &rows[2];
+ assert(ui_widget_row_control(&spinner).kind == HALO_ROW_RANGE);
+ /* a carousel holds its items as children and keeps its own behavior */
+ definitions[9].child_widgets.count = 3;
+ assert(ui_widget_row_control(&spinner).kind == HALO_ROW_ENUM && !ui_widget_row_has_dropdown(&spinner));
+ return 0;
+}
+"""
+    probe, binary = tmp_path / 'standard.c', tmp_path / 'standard'
+    probe.write_text(program)
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
+                    str(probe), '-o', str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
 
 
 def test_pointer_control_activity(tmp_path):
