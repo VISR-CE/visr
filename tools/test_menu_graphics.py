@@ -123,6 +123,7 @@ struct event_record { short type; union { struct { short index, value; } button;
 struct ui_widget_definition { long flags, list_flags; struct { long count; } event_handlers, child_widgets; };
 static int refusals;
 static void ui_play_audio_feedback_sound(short sound) { if (sound == 4) refusals++; else assert(sound == 1); }
+static boolean ui_widget_port_disabled_row_activation(struct widget_instance const *widget, short event_type) { (void)widget; (void)event_type; return FALSE; }
 static void error(int level, char const *message, ...) { abort(); }
 static struct widget_instance *widget_instance_get_topmost_parent(struct widget_instance *widget)
 { return screen_of(widget); }

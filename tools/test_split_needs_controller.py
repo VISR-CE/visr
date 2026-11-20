@@ -36,12 +36,12 @@ def test_panel_explains_and_follows_controller_state_live():
 
 
 def test_grayed_split_row_ignores_activation_on_every_input():
-    gate = body(MENU_FUNCTIONS, "boolean ui_widget_port_split_activation_blocked(")
+    gate = body(MENU_FUNCTIONS, "boolean ui_widget_port_disabled_row_activation(")
     assert "BUTTON_A" in gate and "EVENT_CUSTOM_ACTIVATION" in gate
     assert "focused_child" in gate and "split_item_off(widget)" in gate
     ui_widget = (ROOT / "source/interface/ui_widget.c").read_text()
     dispatch = body(ui_widget, "static void event_handler_dispatch(\n\tstruct widget_instance *widget,\n\tstruct ui_widget_definition *definition,\n\tstruct event_record *event,\n\tstruct ui_widget_event_handler_reference *handler,\n\tboolean *calling_widget_deleted)\n{")
-    assert dispatch.index("ui_widget_port_split_activation_blocked(widget, handler->event_type)") < dispatch.index("_event_handler_run_function_bit")
+    assert dispatch.index("ui_widget_port_disabled_row_activation(widget, handler->event_type)") < dispatch.index("_event_handler_run_function_bit")
 
 
 def test_turning_internet_play_off_shows_no_restart_alert():
@@ -49,11 +49,20 @@ def test_turning_internet_play_off_shows_no_restart_alert():
     assert 'platform_show_message("Internet Play"' not in MENU_FUNCTIONS
 
 
-def test_blocked_split_activation_plays_the_internet_rows_error_sound():
-    gate = body(MENU_FUNCTIONS, "boolean ui_widget_port_split_activation_blocked(")
-    assert "campaign_fail()" in gate
+def test_every_disabled_row_refuses_every_input_with_the_disc_failure_sound():
+    """Controller and keyboard A, a mouse click and a touch tap all reach the row as A (or the custom activation);
+    the refusal plays the disc's flag_failure sound, the one a locked graphics row plays, from ui_widget.c."""
+    ui_widget = (ROOT / "source/interface/ui_widget.c").read_text()
+    gate = body(MENU_FUNCTIONS, "boolean ui_widget_port_disabled_row_activation(")
+    assert "internet_item_off(widget)" in gate and "split_item_off(widget)" in gate
+    refuse = body(ui_widget, "static boolean widget_instance_port_refuse_graphics_edit(")
+    assert "ui_widget_port_disabled_row_activation(widget, _gamepad_analog_button_a)" in refuse
+    assert "_ui_audio_feedback_flag_failure" in refuse
+    port_dispatch = body(ui_widget, "boolean ui_widget_port_dispatch_event(")
+    assert "ui_widget_port_disabled_row_activation(widget, event_type)" in port_dispatch
+    assert "_ui_audio_feedback_flag_failure" in port_dispatch
     assert "ui_play_audio_feedback_sound(SOUND_ERROR)" in body(MENU_FUNCTIONS, "static boolean campaign_fail(void)")
-    assert "campaign_fail()" in body(MENU_FUNCTIONS, "static boolean multiplayer_host(")
+    assert "#define SOUND_ERROR 4" in MENU_FUNCTIONS and "_ui_audio_feedback_flag_failure," in ui_widget
 
 
 def test_panel_lines_fit_the_panel_without_clipping():

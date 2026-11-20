@@ -1401,8 +1401,8 @@ boolean pc_menu_patch_list_index(
 (port/linux/game/menu_functions.c), and draw in gray. */
 boolean ui_widget_port_browser_row_unavailable(
 	struct widget_instance *widget);
-/* port: the grayed SPLIT SCREEN row ignores an activation (menu_functions.c) */
-boolean ui_widget_port_split_activation_blocked(
+/* port: a disabled row (grayed INTERNET or SPLIT SCREEN) refuses an activation (menu_functions.c) */
+boolean ui_widget_port_disabled_row_activation(
 	struct widget_instance const *widget,
 	short event_type);
 /* port: a graphics-mode override locks editing without disabling the row (menu_functions.c). */
@@ -3077,7 +3077,13 @@ static boolean widget_instance_port_refuse_graphics_edit(
 		 event->data.button.index == _widget_event_dpad_left || event->data.button.index == _widget_event_dpad_right);
 
 	edit = edit || (event->type == _event_type_left_stick && event->data.stick.x != 0);
-	if (!edit || !ui_widget_port_graphics_locked(widget))
+	if (!edit)
+		return FALSE;
+	/* a disabled row (grayed INTERNET or SPLIT SCREEN) is refused by A, whichever input made it (controller,
+	keyboard, mouse click or touch tap) */
+	if (!(event->type == _event_type_button && event->data.button.index == _gamepad_analog_button_a &&
+		ui_widget_port_disabled_row_activation(widget, _gamepad_analog_button_a)) &&
+		!ui_widget_port_graphics_locked(widget))
 		return FALSE;
 	ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
 	return TRUE;
@@ -3801,9 +3807,12 @@ static void event_handler_dispatch(
 	boolean close_current = FALSE;
 	boolean close_all = FALSE;
 
-	/* port: the grayed SPLIT SCREEN row of an iPhone with no controller does nothing when chosen */
-	if (ui_widget_port_split_activation_blocked(widget, handler->event_type))
+	/* port: a disabled row does nothing when chosen (the press is normally refused earlier, with the same sound) */
+	if (ui_widget_port_disabled_row_activation(widget, handler->event_type))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
 		return;
+	}
 	if (TEST_FLAG(handler->flags, _event_handler_run_scenario_script_bit) &&
 		handler->script[0])
 	{
@@ -4348,6 +4357,11 @@ boolean ui_widget_port_dispatch_event(
 	/* (deleted: a handler deleted the widget's screen, opening another or
 	going back; the callers' widgets are gone with it) */
 	*deleted = FALSE;
+	if (ui_widget_port_disabled_row_activation(widget, event_type))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+		return TRUE;
+	}
 
 	for (handler_index = 0; handler_index < definition->event_handlers.count; handler_index++)
 	{
