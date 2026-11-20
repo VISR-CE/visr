@@ -604,7 +604,7 @@ void halo_screen_ui_offset(unsigned char centered)
 
 	ui_scale = centered ? halo_ui_layout_scale(width) : 1.0f;
 	ui_y_offset = centered ? halo_ui_layout_y_offset(width) : 0.0f;
-	ui_offset = centered && width >= 640 ? (width - 640) / 2 : 0;
+	ui_offset = centered && width >= 640 ? halo_ui_layout_margin(width) : 0;
 }
 
 unsigned char halo_screen_ui_portrait(void)
@@ -621,7 +621,7 @@ void halo_screen_ui_backdrop(unsigned char cover)
 	{
 		ui_scale = 1.0f;
 		ui_y_offset = 0.0f;
-		ui_offset = (halo_screen_width() - 640) / 2;
+		ui_offset = halo_ui_layout_margin(halo_screen_width());
 	}
 	else
 		halo_screen_ui_offset(TRUE);
@@ -752,9 +752,8 @@ float halo_screen_menu_pixel_scale(void)
 /* The screen in menu units (halo_menu_screen.h). The menus are 640 columns centered on the screen, scaled by
 the menu window's zoom about column 320 and from its top row (the drawing coefficients in this file and
 menu_window_pointer, which inverts them), or, in portrait, fitted to the width and centered down the screen
-(halo_ui_layout.h). A screen column s in the centered design's units, -(width - 640) / 2 at the left edge,
-is menu column c + (s - c) / zoom, about the screen's center c, which is column 320 (320.5 on an odd width, whose
-margin halo_screen_ui_offset truncates); a screen row r is menu row top + r / zoom. The safe area takes the
+(halo_ui_layout.h). A screen column s in the centered design's units, -halo_ui_layout_margin at the left edge,
+is menu column c + (s - c) / zoom, about the screen's center c (halo_ui_layout_center); a screen row r is menu row top + r / zoom. The safe area takes the
 larger side inset on both sides, as the zoom does. */
 void halo_screen_menu_screen_rect(int zoomed, struct halo_menu_screen *screen)
 {
@@ -789,11 +788,10 @@ void halo_screen_menu_screen_rect(int zoomed, struct halo_menu_screen *screen)
 			menu_window_geometry(&top_row, &zoom);
 		if (zoom <= 0.0f)
 			zoom = 1.0f;
-		/* (the drawn margin: an integer, as halo_screen_ui_offset gives it) */
-		margin = (float)((halo_screen_width() - 640) / 2);
+		margin = (float)halo_ui_layout_margin(halo_screen_width());
 		left = -margin;
 		right = width - margin;
-		center = width * 0.5f - margin;
+		center = halo_ui_layout_center(halo_screen_width());
 		x[0] = center + (left - center) / zoom;
 		x[1] = center + (right - center) / zoom;
 		x[2] = center + (left + side * width - center) / zoom;
@@ -827,10 +825,8 @@ static void menu_window_pointer(struct halo_ui_pointer *pointer)
 {
 	float top, zoom, center;
 	menu_window_geometry(&top, &zoom);
-	/* the zoom is about the screen's center: column 320, or 320.5 on an odd width, whose drawn margin is whole
-	columns (halo_screen_ui_offset) */
-	center = halo_screen_width() >= 640 ?
-		(float)halo_screen_width() * 0.5f - (float)((halo_screen_width() - 640) / 2) : 320.0f;
+	/* the zoom is about the screen's center */
+	center = halo_ui_layout_center(halo_screen_width());
 	pointer->x = (short)floorf(center + (pointer->x - center) / zoom);
 	pointer->y = (short)floorf(top + pointer->y / zoom);
 	pointer->click_x = (short)floorf(center + (pointer->click_x - center) / zoom);

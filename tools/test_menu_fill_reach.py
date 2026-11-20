@@ -15,6 +15,7 @@ move between displays changes them under an open screen, and checks each result 
 whole screen and edge controls clear the safe-area insets.
 """
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -361,3 +362,19 @@ def test_cutout_over_the_design_moves_edge_controls(probe):
     edge controls start 52 columns into the design, not the inset times 640 (79) the old arithmetic gave."""
     output = subprocess.check_output([str(probe), DUO_OUTER_LANDSCAPE_FIXED], text=True)
     assert "safe left 53 " in output
+
+
+def test_one_margin_formula():
+    """The drawing, the screen in menu units and the pointer take the menus' margin from
+    `halo_ui_layout_margin`: a copy of the formula drifted from the draw once (the pointer's half column on an odd
+    width)."""
+    pattern = re.compile(r"-\s*640\s*\)\s*/\s*2")
+    copies = [
+        f"{path.relative_to(ROOT)}:{number}"
+        for directory in ("port/linux/src", "port/ios/host")
+        for path in sorted((ROOT / directory).iterdir())
+        if path.suffix in (".c", ".h", ".m") and path.name != "halo_ui_layout.h"
+        for number, line in enumerate(path.read_text(errors="replace").splitlines(), 1)
+        if pattern.search(line)
+    ]
+    assert not copies, copies
