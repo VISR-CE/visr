@@ -5363,8 +5363,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 				game->network_version, HALO_PORT_NETWORK_OLDEST_JOINABLE, HALO_PORT_NETWORK_VERSION);
 		else
 			usnprintf(text, NUMBEROF(text) - 1, game->failed ? L"COULDN'T REACH THIS GAME" :
-				!game->open ? L"THIS GAME IS FULL OR STARTING" : !config_boolean("network.online") ? L"TURN ON INTERNET PLAY IN SETTINGS" :
-				lobby_browser.joining ? L"CONNECTING..." : L"");
+				!game->open ? L"THIS GAME IS FULL OR STARTING" : lobby_browser.joining ? L"CONNECTING..." : L"");
 		/* the button lives in the legend and always reads JOIN GAME (dimmed when unusable); why it is
 		   unusable shows in the detail box */
 		text_set(named(join, "browser_join_caption", 0), lobby_browser.joining ? L"CONNECTING" : L"JOIN GAME");
