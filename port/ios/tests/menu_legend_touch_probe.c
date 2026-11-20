@@ -17,7 +17,8 @@ enum {_ui_mouse_target_item,_ui_mouse_target_value,_ui_mouse_target_list_slot,_u
 enum {_ui_widget_type_text_box, _ui_widget_type_spinner_list, _widget_event_dpad_up=8, _widget_event_dpad_down};
 enum {_gamepad_analog_button_a,_gamepad_analog_button_b,_gamepad_analog_button_x,_gamepad_analog_button_y};
 struct string_list_ref {long index;};
-struct ui_widget_definition {rectangle2d bounds,list_header_bounds,list_footer_bounds;struct string_list_ref text_label_string_list;struct {long index;} text_font;};
+struct ui_widget_definition {rectangle2d bounds,list_header_bounds,list_footer_bounds;struct string_list_ref text_label_string_list;struct {long index;} text_font;short horizontal_offset,justification;};
+enum {_text_justification_left,_text_justification_right,_text_justification_center};
 struct widget_instance {
  struct widget_instance *parent,*child,*next;
  short type,definition_tag_index,disabled,visible,horizontal_offset,vertical_offset,local_player_index,button;

@@ -6912,13 +6912,17 @@ static short ui_mouse_legend_label_width(
 draws its A, B, Y and X buttons in the same four places, right to left (A, B, Y,
 X), so a button never drifts from screen to screen and an unused slot stays empty.
 Each slot is as wide as the widest caption ever shown on that button plus padding,
-measured in the caption's own font. */
+measured in the caption's own font. A button is one standard element: its screen
+gives only the caption and the button, and the legend owns the pill's place and
+size (the slot, or the caption's measured width plus the minimum padding when a
+caption is wider than its slot) and centers the caption in it. */
 #define UI_TOUCH_LEGEND_SLOTS 4
 #define UI_TOUCH_LEGEND_RIGHT 592
 #define UI_TOUCH_LEGEND_GAP 12
 #define UI_TOUCH_LEGEND_LEFT_MARGIN 12 /* the leftmost slot stays this far inside the screen's left edge */
 #define UI_TOUCH_LEGEND_SCREEN_RIGHT 628 /* and the rightmost this far inside the right edge */
 #define UI_TOUCH_LEGEND_PADDING 24
+#define UI_TOUCH_LEGEND_MINIMUM_PADDING 12 /* a caption wider than its slot keeps this much on each side */
 #define UI_TOUCH_LEGEND_BAR_Y 395 /* a bar's buttons are centered at or below this */
 #define UI_TOUCH_LEGEND_BAR_TOP 404 /* the bar's top rule: a hit area never reaches above it */
 #define UI_TOUCH_LEGEND_MINIMUM_POINTS 44.0f
@@ -6969,7 +6973,9 @@ static void ui_touch_legend_note_caption_shift(
 	ui_touch_legend_caption_shift_count = MAX(ui_touch_legend_caption_shift_count, i + 1);
 }
 
-/* the slot (0 = A ... 3 = X) a legend button owns, or NONE for the keys that have none */
+/* the slot (0 = A ... 3 = X) a legend button owns. Any other button of a bar (a fifth action such
+as the lobby's SHARE on the left stick, or the original screens' START, BACK, BLACK and WHITE) takes B's
+slot, the extra slot: a touch bar never draws B, whose BACK, CANCEL or LEAVE is the title's chevron */
 static short ui_touch_legend_slot_for_button(
 	short button)
 {
@@ -6979,8 +6985,28 @@ static short ui_touch_legend_slot_for_button(
 	case _gamepad_analog_button_b: return 1;
 	case _gamepad_analog_button_y: return 2;
 	case _gamepad_analog_button_x: return 3;
+	case NONE: return NONE;
 	}
-	return NONE;
+	return 1;
+}
+
+/* where a caption's text starts, from the caption's box and its justification (the text is
+`text_width` wide, as ui_widget_port_text_width measures it, leading width included) */
+static short ui_touch_legend_text_x0(
+	struct ui_widget_definition const *label_definition,
+	rectangle2d const *label_bounds,
+	short text_width)
+{
+	short x0 = label_bounds->x0 + label_definition->horizontal_offset;
+
+	switch (label_definition->justification)
+	{
+	case _text_justification_right:
+		return label_bounds->x1 - text_width;
+	case _text_justification_center:
+		return x0 + (label_bounds->x1 - x0 - text_width) / 2;
+	}
+	return x0;
 }
 
 /* the slot's x range, measured with `font`; the slots sit right to left from the A slot's right edge */
@@ -7107,12 +7133,19 @@ static boolean ui_mouse_legend_bounds(
 
 			ui_touch_legend_slot_bounds(label_definition->text_font.index, slot, &x0, &x1);
 			center_x = (x0 + x1) / 2;
+			/* a caption wider than its slot widens the pill, centered on the slot */
+			if (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING > x1 - x0)
+			{
+				x0 = center_x - (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING) / 2;
+				x1 = x0 + text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING;
+			}
 			drawn->x0 = x0;
 			drawn->x1 = x1;
 			drawn->y0 = center_y - 15;
 			drawn->y1 = drawn->y0 + 40;
-			/* the caption is centered in the slot, wherever its screen put it */
-			ui_touch_legend_note_caption_shift(label, center_x - text_width / 2 - label_bounds.x0);
+			/* the caption is centered in the pill, wherever its screen put it and however it is justified */
+			ui_touch_legend_note_caption_shift(label, center_x - text_width / 2 -
+				ui_touch_legend_text_x0(label_definition, &label_bounds, text_width));
 			halo_screen_menu_visible_bottom(&visible_bottom, &points_per_unit);
 			minimum_units = UI_TOUCH_LEGEND_MINIMUM_POINTS / (points_per_unit > 0.0f ? points_per_unit : 0.78125f);
 			bounds->x0 = x0 - UI_TOUCH_LEGEND_GAP / 2;
