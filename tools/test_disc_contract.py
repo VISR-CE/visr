@@ -82,3 +82,28 @@ def test_a_row_appended_after_the_walked_rows_is_allowed():
     """The shipped advanced controls patch adds IN-GAME HELP after the five rows the handlers walk."""
     found = {leaf for leaf, _, _ in disc_contract.violations()}
     assert 'advanced_controls_menu' not in found
+
+
+def test_every_patched_option_list_fits_above_its_footer_with_every_row_tall():
+    """Every row of every screen is the standard tall row, the disc's own rows included (the engine restacks a
+    patched list at the standard pitch from its first row). Laid out that way, each patched list of option rows
+    must end by its patch's footer; a list that would not fit fails here, before a device shows it."""
+    import menu_geometry
+
+    layout = ui_map_tags.load_layout()
+    ours = disc_contract.xbox_widgets()
+    checked = {}
+    for patch in ET.parse(disc_contract.XBOX / 'patches.xml').getroot().iter('patch'):
+        path = patch.get('list')
+        disc = layout[path]['children']
+        # option lists: rows of the disc's option art, one under the other (the panel lists keep their own pitch)
+        bitmaps = {layout[child['widget']]['bitmap'].rsplit('\\', 1)[-1] for child in disc}
+        if bitmaps != {'option_bkds'}:
+            continue
+        rows = disc_contract.patched_rows(layout, ours, patch)
+        first = min(child['y'] for child in disc)
+        bottom = first + len(rows) * menu_geometry.COMFORTABLE_PITCH
+        checked[path.rsplit('\\', 1)[-1]] = (len(rows), bottom, int(patch.get('footer')))
+    assert set(checked) == {'advanced_controls_menu', 'item_options_menu', 'player_options_menu'}, sorted(checked)
+    over = {name: fit for name, fit in checked.items() if fit[1] > fit[2]}
+    assert over == {}, over
