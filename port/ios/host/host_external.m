@@ -796,6 +796,13 @@ static void safe_insets_refresh(void) {
             next[2]=(float)(inset.top/size.height);next[3]=(float)(inset.bottom/size.height);
         }
     }
+    /* debug only: HALO_DEBUG_SAFE_INSETS="left,right,top,bottom" (fractions of the window) stands in for a display's
+       cutout on a simulator or the Mac runner, which have none (the iPhone Duo's outer display in landscape is about
+       "0.1239,0,0,0.073") */
+    const char *forced=getenv("HALO_DEBUG_SAFE_INSETS");
+    float forced_insets[4];
+    if(forced && sscanf(forced,"%f,%f,%f,%f",&forced_insets[0],&forced_insets[1],&forced_insets[2],&forced_insets[3])==4)
+        memcpy(next,forced_insets,sizeof(next));
     /* debug only: HALO_DEBUG_MIRROR_SAFE_INSETS swaps left and right to stand in for the opposite landscape orientation on a simulator that cannot rotate */
     if(getenv("HALO_DEBUG_MIRROR_SAFE_INSETS")){float t=next[0];next[0]=next[1];next[1]=t;}
     pthread_mutex_lock(&safe_insets_lock);
