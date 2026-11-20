@@ -196,6 +196,8 @@ def timing_method(target, config):
     # A repeat of a window whose `metalperftrace` capture held no per-frame timeline: time the
     # Metal ports at `CAMetalLayer nextDrawable` with the same shim, which gave the same average rate to the digit.
     return 'glft-metal' if base == 'metalperftrace' and config.get('metal_swap_shim') else base
+# OpenCE-lineage Mac ports that read OpenCE-macOS's documented config.toml keys (max_fps, shadow_resolution, ...).
+OPENCE_CONFIG_PORTS = ('opence-macos', 'opence-bitmoda', 'meshce', 'halo-content-evolved')
 DRAWABLES = {'1280x960': (640, 480), '2560x1920': (1280, 960)}
 
 
@@ -223,7 +225,7 @@ def native_display(target_id, frame_mode='capped', quality_preset='defaults', dr
     if frame_mode == 'uncapped':
         if target_id == 'visr':
             display += 'frame_rate = "unlimited"\nvsync = false\n'
-        elif target_id == 'opence-macos':
+        elif target_id in OPENCE_CONFIG_PORTS:
             display += 'max_fps = -1\nvsync = false\n'
         elif target_id in ('corece', 'halo-og'):
             # CoreCE's and Halo OG's written config: frame_limit caps only with vsync off, and 0 leaves no cap.
@@ -240,7 +242,7 @@ def native_display(target_id, frame_mode='capped', quality_preset='defaults', dr
         if target_id == 'visr':
             display += ('shadow_map_size = 128\neffect_resolution = "xbox"\nmodel_lod = "auto"\n'
                         'anisotropic_filtering = 1\nupscaled_textures = false\nfirst_person_body = false\n')
-        elif target_id in ('opence-macos', 'corece'):
+        elif target_id in OPENCE_CONFIG_PORTS + ('corece',):
             display += ('shadow_resolution = 128\nresolution_scaling = "native"\nfov = 0.0\n'
                         'viewmodel_fov = 0.0\nper_pixel_lighting = false\nviewmodel_shield = false\nshield_glow = false\n')
             if target_id == 'corece':
@@ -257,7 +259,7 @@ def native_display(target_id, frame_mode='capped', quality_preset='defaults', dr
 HOSTED_KINDS = ('match', 'coop')
 # Where each port takes its hosted-game switches. Chupathingy has no config.toml, so it takes the documented
 # environment names; the others take the same keys in config.toml (Halo OG documents no environment names).
-COOP_ENEMIES_NONE = ('visr', 'opence-macos', 'corece', 'chupathingy')
+COOP_ENEMIES_NONE = ('visr', 'corece', 'chupathingy') + OPENCE_CONFIG_PORTS
 
 
 def hosted_spec(window):
