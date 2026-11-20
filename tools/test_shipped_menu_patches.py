@@ -19,6 +19,13 @@ import ui_map_tags  # noqa: E402
 PATCHES = ROOT / "port/assets/menus/xbox/patches.xml"
 
 
+# Children a patch removes that the map the manifest was written from does not have (another release's does):
+# the game skips a screen child it cannot find.
+ABSENT_FROM_THIS_MAP = {
+    "ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_button_bar",
+}
+
+
 def check_patch(layout, patch):
     errors = []
     list_path, screen_path = patch.get("list"), patch.get("screen")
@@ -50,6 +57,8 @@ def check_patch(layout, patch):
             inserted.add(op.get("name"))
         elif op.tag in ("remove", "replace"):
             child = op.get("child")
+            if child in ABSENT_FROM_THIS_MAP:
+                continue
             if not known(child):
                 errors.append(f"{label}: {op.tag} child={child} does not resolve")
             if op.tag == "replace":

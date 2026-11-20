@@ -181,7 +181,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/op_invert_look_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/gamepad_setup/op_invert_look_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/gamepad_setup/invert_look_label" y="5" />
 		<child widget="xbox/settings/gamepad_setup/invert_look_spinner_advanced" x="286" y="6" />
 	</widget>
@@ -192,7 +192,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/op_look_sensitivity_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/gamepad_setup/op_look_sensitivity_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/gamepad_setup/look_sensitivity_label" y="5" />
 		<child widget="xbox/settings/gamepad_setup/look_sensitivity_spinner_advanced" x="286" y="6" />
 	</widget>
@@ -203,7 +203,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/op_vibration_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/gamepad_setup/op_vibration_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/gamepad_setup/vibration_label" y="5" />
 		<child widget="xbox/settings/gamepad_setup/vibration_spinner_advanced" x="286" y="6" />
 	</widget>
@@ -214,7 +214,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/op_flight_inversion_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/gamepad_setup/op_flight_inversion_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/gamepad_setup/flight_inversion_label" y="5" />
 		<child widget="xbox/settings/gamepad_setup/flight_inversion_spinner_advanced" x="286" y="6" />
 	</widget>
@@ -225,7 +225,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/op_autocenter_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/gamepad_setup/op_autocenter_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/gamepad_setup/autocenter_label" y="5" />
 		<child widget="xbox/settings/gamepad_setup/autocenter_spinner_advanced" x="286" y="6" />
 	</widget>
@@ -236,7 +236,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/op_ingame_help_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/gamepad_setup/op_ingame_help_advanced" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/gamepad_setup/ingame_help_label" y="5" />
 		<child widget="xbox/settings/gamepad_setup/ingame_help_spinner_advanced" x="286" y="6" />
 	</widget>
