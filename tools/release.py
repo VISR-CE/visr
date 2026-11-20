@@ -146,11 +146,13 @@ def run_in_source(root: Path, check: str) -> None:
         import release_validation as validation
     if check not in validation.SOURCE_BOUND_CHECKS:
         raise ValueError(f"{check} is not a source-bound release check")
+    # -I and an explicit sys.path entry load the checkout's own `tools`, whatever PYTHONPATH or an installed package says
     code = (
-        "import os, sys; from tools import release_validation as v; "
+        "import os, sys; sys.path.insert(0, os.getcwd()); from tools import release_validation as v; "
         "getattr(v, sys.argv[1])(v.load_policy(os.environ['RELEASE_BUILD_POLICY']))"
     )
-    run(sys.executable, "-c", code, check, root=root)
+    child = {k: os.environ[k] for k in ("PATH", "HOME", "RELEASE_BUILD_POLICY", "GITHUB_ACTIONS", "CI") if k in os.environ}
+    run(sys.executable, "-I", "-c", code, check, root=root, env=child)
 
 
 def require_ci() -> None:

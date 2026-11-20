@@ -32,9 +32,9 @@ def functions(path: Path) -> dict[str, tuple[ast.FunctionDef, str]]:
 def test_every_function_reading_a_source_constant_is_source_bound_or_a_helper_of_one() -> None:
     reading = {name for name, (_, text) in functions(TOOLS / "release_validation.py").items()
                if any(constant in text for constant in SOURCE_CONSTANTS)}
-    # helpers and the feed verifiers are reached only through the source-bound checks, load_policy only parses
-    # the URL grammar and the fixed public key (the same in every generation), and probe/check already run in the
-    # source checkout (the workflow's preflight job checks out the source before calling them)
+    # helpers and the feed verifiers are reached only through the source-bound checks; load_policy also checks the policy's
+    # field set and profile target keys with the controller's copy, which preflight repeats with the source's, so a schema
+    # change on main must stay compatible with release branches (audited in 2026-11-20-ci-release-source-checks.md)
     allowed = set(validation.SOURCE_BOUND_CHECKS) | {"profile_feed_domain", "verify_feed", "_verify_feed", "load_policy"}
     assert reading <= allowed, f"{sorted(reading - allowed)} read a source constant; add them to SOURCE_BOUND_CHECKS or justify"
 
@@ -57,10 +57,26 @@ def test_run_in_source_refuses_a_check_that_is_not_source_bound() -> None:
 
 def test_run_in_source_runs_the_check_in_the_given_checkout(monkeypatch, tmp_path) -> None:
     calls = []
+    monkeypatch.setenv("RELEASE_BUILD_POLICY", "{}")
+    monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", "secret")
     monkeypatch.setattr(release, "run", lambda *args, **kw: calls.append((args, kw)))
     release.run_in_source(tmp_path, "require_asset_policy")
     (args, kw), = calls
-    assert kw["root"] == tmp_path and args[-1] == "require_asset_policy" and "from tools import release_validation" in args[2]
+    assert kw["root"] == tmp_path and args[-1] == "require_asset_policy" and "-I" in args
+    assert "RELEASE_BUILD_POLICY" in kw["env"] and "ANTHROPIC_WORKSPACE_ID" not in kw["env"]
+
+
+def test_run_in_source_loads_the_given_checkouts_tools_not_the_controllers(tmp_path, monkeypatch) -> None:
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "tools/release_validation.py").write_text(
+        "from pathlib import Path\n"
+        "def load_policy(value):\n    return {'seen': value}\n"
+        "def require_asset_policy(policy):\n    Path('ran').write_text(policy['seen'])\n"
+    )
+    monkeypatch.setenv("RELEASE_BUILD_POLICY", "the-policy")
+    monkeypatch.setenv("PYTHONPATH", str(TOOLS.parent))
+    release.run_in_source(tmp_path, "require_asset_policy")
+    assert (tmp_path / "ran").read_text() == "the-policy"
 
 
 def test_prepare_checks_the_asset_policy_after_checking_out_the_source() -> None:
