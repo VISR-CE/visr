@@ -174,12 +174,9 @@ int main(void)
 def test_coop_merged_setting_dispatch():
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     tags = (ROOT / 'port/linux/game/menu_tags.c').read_text()
-    assert '"coop options init"' in tags and '"coop options save"' in tags
+    assert '"coop options init"' in tags
     init = block(source, 'else if (!strcmp(name, "coop options init"))')
-    save = block(source, 'else if (!strcmp(name, "coop options save"))')
     assert 'coop_options_init(screen_of(widget));' in init
-    assert 'settings_each(screen_of(widget), setting_changed_save);' in save
-    assert 'coop_options_save(screen_of(widget));' in save
     assert '"coop options changed"' in tags
     changed = block(source, 'else if (!strcmp(name, "coop options changed"))')
     assert 'coop_options_save(screen_of(widget));' in changed

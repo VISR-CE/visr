@@ -97,7 +97,7 @@ def test_settings_keep_pc_values_and_handlers():
                   for w in output.iter('widget') if w.get('setting')}
         assert actual == expected
         retained = {e.get('run') for e in source.iter('on') if e.get('run')} - {
-            'port settings save', 'port settings defaults', 'port setting preview', 'port setting revert',
+            'port settings save', 'port settings defaults',
             'controls screen change set',
             'controls screen defaults', 'controls screen init'}
         assert retained <= {e.get('run') for e in output.iter('on') if e.get('run')}
