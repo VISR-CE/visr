@@ -1523,7 +1523,7 @@
         "orientation": {
           "type": "string",
           "default": "",
-          "description": "Request \"portrait\" or \"landscape\" once the first window scene is active; empty leaves the device's orientation alone. Portrait requires display.allow_portrait. For simulator captures. Read at launch.",
+          "description": "Request \"portrait\" or \"landscape\" once the first window scene is active; empty leaves the device's orientation alone. A comma list with seconds (\"portrait,landscape@20\") requests each later one that long after the first, to test a rotation. Portrait requires display.allow_portrait. For simulator captures. Read at launch.",
           "x-environment": "HALO_ORIENTATION",
           "x-environment-style": "value",
           "x-platforms": [
