@@ -2461,7 +2461,7 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 	struct ui_widget_definition const *model;
 	struct ui_widget_definition *definition;
 	struct ui_widget_child_reference reference;
-	short pitch, y, x, description = NONE, help_description = NONE;
+	short pitch, y, x, description = NONE;
 
 	if (anchor == NONE)
 		return patch_fail(work, source->file, source->line, "the list has no row", anchor_name);
@@ -2498,21 +2498,6 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 				return patch_fail(work, source->file, source->line, "the list's description is not one text for",
 					source->name);
 			work->help_strings = tag_get(UNICODE_STRING_LIST_TAG, text->text_label_string_list.index);
-			/* (the row's description is the first of its help strings, which follow the map's own after those of the rows
-			added before it: by its place in the list it would show another row's) */
-			{
-				long pieces = work->help_strings->strings.count, earlier;
-
-				for (earlier = 0; earlier < work->help_count; earlier++)
-				{
-					pieces++;
-					for (char const *bar = strchr(work->helps[earlier], '|'); bar; bar = strchr(bar + 1, '|'))
-						pieces++;
-				}
-				if (pieces > 32767)
-					return patch_fail(work, source->file, source->line, "too many descriptions for", source->name);
-				help_description = (short)pieces;
-			}
 			work->helps[work->help_count++] = source->help;
 			/* (its lines follow the map's own and those of the rows added before it) */
 			help_length = (short)patch_help_text_pieces(source->help);
@@ -2578,7 +2563,7 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 	work->definitions[at] = definition;
 	work->names[at] = source->name;
 	work->map_tags[at] = NONE;
-	work->descriptions[at] = help_description != NONE ? help_description : description;
+	work->descriptions[at] = description;
 	work->count++;
 	return TRUE;
 }

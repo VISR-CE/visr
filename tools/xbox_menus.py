@@ -2010,17 +2010,17 @@ def patch(root, list_path, screen_path):
 # The advanced controls page: (patch row name, the original's row tag, the controls page's key, help text)
 ADVANCED_ROWS = (
     ('op_invert_joystick', 'op_invert_joystick', 'invert_look',
-     'Pushing the thumbstick up looks down, and\\npulling it down looks up.'),
+     'Pushing the thumbstick up looks down, and\\npulling it down looks up.|Pushing the thumbstick up looks up.'),
     ('op_look_sensitivity', 'op_controller_sensitivity', 'look_sensitivity',
      'How fast the thumbstick turns your view.'),
     ('op_controller_vibration', 'op_controller_vibration', 'vibration',
-     'The controller vibrates during play.'),
+     'The controller vibrates during play.|The controller does not vibrate.'),
     ('op_flight_inversion', 'op_flight_stick_controls', 'flight_inversion',
-     'Flight controls are inverted in aircraft.'),
+     'Flight controls are inverted in aircraft.|Flight controls are not inverted.'),
     ('op_autocenter', 'op_auto_center', 'autocenter',
-     'The view returns to center when you let\\ngo of the thumbstick.'),
+     'The view returns to center when you let\\ngo of the thumbstick.|The view stays where you leave it.'),
     ('op_ingame_help', 'op_ingame_help', 'ingame_help',
-     'The game shows hints about its controls\\nas you play.'),
+     'The game shows hints about its controls\\nas you play.|The game does not show hints about its\\ncontrols.'),
 )
 
 

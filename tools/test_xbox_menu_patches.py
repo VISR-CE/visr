@@ -159,16 +159,17 @@ ADVANCED_HELP_WORD = {
 }
 
 
-def test_each_advanced_row_has_its_own_single_help_string():
+def test_each_advanced_row_has_help_for_its_own_values():
     patch = next(p for p in table() if p.get("screen").endswith("advanced_controls_screen"))
     added = [r for r in rows(patch) if r.get("widget")]
     assert len(added) == len(ADVANCED_HELP_WORD)
     for row in added:
         key = row.get("widget").rsplit("/", 1)[1].removeprefix("op_").removesuffix("_advanced")
         help_text = row.get("help")
-        # (one string per row: the list shows a row's help by its description number, the first of its strings)
-        assert "|" not in help_text, key
-        assert ADVANCED_HELP_WORD[key] in help_text, (key, help_text)
+        # (the list shows a row's help by its first line, one line a value for a two-value row; a slider has one)
+        lines = help_text.split("|")
+        assert len(lines) == (1 if key == "look_sensitivity" else 2), (key, help_text)
+        assert ADVANCED_HELP_WORD[key] in lines[0], (key, help_text)
         others = [w for k, w in ADVANCED_HELP_WORD.items() if k != key and w in help_text]
         assert not others, (key, others)
 

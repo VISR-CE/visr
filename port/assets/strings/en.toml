@@ -2370,21 +2370,26 @@ description = "Split screen on iPhone needs\\ncontrollers for extra players."
 
 [xbox.patches.op_autocenter]
 help0 = "The view returns to center when you let\\ngo of the thumbstick."
+help1 = "The view stays where you leave it."
 
 [xbox.patches.op_choose_weapons]
 help0 = "Choose the primary and secondary weapons\\neveryone starts with."
 
 [xbox.patches.op_controller_vibration]
 help0 = "The controller vibrates during play."
+help1 = "The controller does not vibrate."
 
 [xbox.patches.op_flight_inversion]
 help0 = "Flight controls are inverted in aircraft."
+help1 = "Flight controls are not inverted."
 
 [xbox.patches.op_ingame_help]
 help0 = "The game shows hints about its controls\\nas you play."
+help1 = "The game does not show hints about its\\ncontrols."
 
 [xbox.patches.op_invert_joystick]
 help0 = "Pushing the thumbstick up looks down, and\\npulling it down looks up."
+help1 = "Pushing the thumbstick up looks up."
 
 [xbox.patches.op_look_sensitivity]
 help0 = "How fast the thumbstick turns your view."

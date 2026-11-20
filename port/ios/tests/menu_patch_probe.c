@@ -906,7 +906,7 @@ static void check_apple(boolean tvos)
 		check(children_of(ad_list)[2].widget_tag.index == test_row, "the adopted row is our widget, not a copy");
 		check(!strcmp(children_of(ad_list)[2].name, "adopted"), "the adopted row is named so");
 		check(pc_menu_patch_list_index(ad_list, children_of(ad_list)[2].widget_tag.index, &description) &&
-			description == 4, "the adopted row's description is its first help string, after the map's four (%d)", description);
+			description == NONE, "the adopted row has no description (%d)", description);
 		{
 			struct string_list const *help = tag_get(UNICODE_STRING_LIST_TAG,
 				definition_of(ad_text)->text_label_string_list.index);
