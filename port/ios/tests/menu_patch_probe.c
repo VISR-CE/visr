@@ -9,7 +9,6 @@ argv[1]: "apple" (a keyboard, no Apple TV), "tvos" (the Apple TV, no keyboard) o
 fails the files). */
 
 static int input_pad = 1, input_keyboard = 1;
-static char const *menu_mode = "xbox";
 int platform_menu_pad(void) { return input_pad; }
 long config_integer(char const *name) { (void)name; return 0; }
 int platform_menu_keyboard(void) { return input_keyboard; }
@@ -170,8 +169,6 @@ void platform_log(char const *format, ...)
 
 char const *config_string(char const *name)
 {
-	if (!strcmp(name, "display.menus"))
-		return menu_mode;
 	if (!strcmp(name, "debug.language"))
 		return language_name;
 	return "";
@@ -948,42 +945,20 @@ static void check_apple(boolean tvos)
 		check(pc_menus_screen(postgame) == postgame, "the postgame map select stays the Xbox's for system link");
 		probe_lan = FALSE;
 		{
-			char const *const pc_pregame = "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
-			char const *const pc_postgame = "pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper";
-			char const *const xbox_pregame = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
-			struct
+			char const *const lobby = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
+			int pad;
+			for (pad = 0; pad < 2; pad++)
 			{
-				char const *mode;
-				int pad, lan;
-				char const *pregame, *postgame;
-			} const cases[] =
-			{
-				{ "auto", 0, FALSE, pc_pregame, pc_postgame },
-				{ "auto", 0, TRUE, pc_pregame, pc_postgame },
-				{ "auto", 1, FALSE, xbox_pregame, postgame },
-				{ "auto", 1, TRUE, pregame, postgame },
-				{ "pc", 1, FALSE, pc_pregame, pc_postgame },
-				{ "pc", 1, TRUE, pc_pregame, pc_postgame },
-				{ "xbox", 0, FALSE, xbox_pregame, postgame },
-				{ "xbox", 0, TRUE, pregame, postgame },
-			};
-			long index;
-			for (index = 0; index < NUMBEROF(cases); index++)
-			{
-				menu_mode = cases[index].mode;
-				input_pad = cases[index].pad;
-				probe_lan = cases[index].lan;
-				/* A newly loaded map or the previous screen may hold the other look. */
-				menu_tags.xbox_set = !input_pad;
-				check(!strcmp(pc_menus_screen(pregame), cases[index].pregame),
-					"%s pregame follows current input or override (pad %d, LAN %d)", menu_mode, input_pad, probe_lan);
-				check(!strcmp(pc_menus_screen(postgame), cases[index].postgame),
-					"%s postgame follows current input or override (pad %d, LAN %d)", menu_mode, input_pad, probe_lan);
+				input_pad = pad;
+				probe_lan = FALSE;
+				check(!strcmp(pc_menus_screen(pregame), lobby) && pc_menus_screen(postgame) == postgame,
+					"an Internet or Direct Link pregame is the generated lobby whatever the input (pad %d)", pad);
+				probe_lan = TRUE;
+				check(pc_menus_screen(pregame) == pregame && pc_menus_screen(postgame) == postgame,
+					"system link keeps the game's pregame whatever the input (pad %d)", pad);
 			}
-			menu_mode = "xbox";
 			input_pad = 1;
 			probe_lan = FALSE;
-			menu_tags.xbox_set = TRUE;
 		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
@@ -1347,38 +1322,14 @@ int main(int argc, char **argv)
 			long xbox = tag_loaded(UI_WIDGET_DEFINITION_TAG, MM "main_menu");
 			long pc = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\main_menu\\main_menu");
 			long open = xbox;
-			menu_mode = "auto";
 			input_pad = 0;
-			check(pc != NONE, "both looks loaded together");
-			check(open == xbox, "input changes do not mutate an open screen");
-			check(pc_menu_screen_open(open, NULL, TRUE) == pc && !menu_tags.xbox_set, "next open takes keyboard look");
+			check(pc_menu_screen_open(open, NULL, TRUE) == xbox, "keyboard and mouse keep the game's main menu");
+			check(pc != NONE && pc_menu_screen_open(pc, NULL, TRUE) == xbox,
+				"a screen asked for by its old name opens its counterpart");
 			input_pad = 1;
-			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox && menu_tags.xbox_set, "back to main takes pad look");
-			check(pc_menu_screen_open(mp_screen, NULL, TRUE) == mp_screen && menu_tags.xbox_set,
-				"an unavailable counterpart holds the look");
-			menu_mode = "pc";
-			check(pc_menu_screen_open(xbox, NULL, TRUE) == pc, "fixed PC overrides pad input");
-			menu_mode = "xbox";
+			check(pc_menu_screen_open(open, NULL, TRUE) == xbox, "a controller keeps the game's main menu");
+			check(pc_menu_screen_open(mp_screen, NULL, TRUE) == mp_screen, "a screen with no counterpart opens itself");
 			input_pad = 0;
-			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox, "fixed Xbox overrides keyboard input");
-			/* BACK reopens the screen below by name: from a settings page opened in the profile's page, BACK must land on
-			the profile's page (itself), not the hub the always-redirect sends a fresh open to */
-			{
-				long hub = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\settings\\settings_screen");
-				long video = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\settings\\video_settings\\video_settings_screen");
-				long main_menu = tag_loaded(UI_WIDGET_DEFINITION_TAG, MM "main_menu");
-
-				check(hub != NONE && video != NONE && pe_screen != NONE, "the hub walk's screens are in the map");
-				pc_menu_screen_open(main_menu, NULL, TRUE);
-				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == hub, "the profile page opened from the main menu is the hub");
-				check(pc_menu_screen_open(hub, NULL, TRUE) == hub, "the hub opens as itself");
-				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == pe_screen, "the profile page opened from the hub is itself");
-				check(pc_menu_screen_open(video, NULL, TRUE) == video, "a settings page opens as itself");
-				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == pe_screen, "BACK from a settings page opens the profile page, not the hub");
-				check(pc_menu_screen_open(hub, NULL, TRUE) == hub, "BACK from the profile page opens the hub");
-				pc_menu_screen_open(main_menu, NULL, TRUE);
-				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == hub, "the main menu ends the hub flow");
-			}
 			input_keyboard = 0;
 			pc_menu_screen_open(xbox, NULL, TRUE);
 			{

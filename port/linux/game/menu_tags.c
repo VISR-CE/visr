@@ -50,7 +50,6 @@ extern int host_development_hooks(void);
 void platform_log(char const *format, ...);
 char const *config_string(char const *name);
 long config_integer(char const *name);
-int platform_menu_pad(void);
 int platform_display_resolutions(long *widths, long *heights, int maximum);
 int platform_window_sizes(long *widths, long *heights, int maximum);
 
@@ -514,9 +513,6 @@ static struct
 	struct { long tag_index; short rows; } *windows;
 	long window_count;
 	boolean loaded;
-	/* the Xbox look's set (display.menus not "pc"), else the PC version's */
-	boolean xbox_set;
-	char root[300];
 } menu_tags;
 
 /* the build under way */
@@ -539,7 +535,6 @@ static struct
 	/* a multiplayer map's build (the pause menu's SETTINGS): what the map
 	has not got is none, not a failure */
 	boolean game_map;
-	boolean xbox_set;
 } build;
 
 /* ---------- private code */
@@ -1717,10 +1712,8 @@ pausebox2 pieces), the box is the port's taller one (pause/pausebox_*:
 tools/port_settings.py), centred where the old one was; on a custom map's,
 what is below the list moves down. */
 
-/* the screen SETTINGS opens, by set: the PC version's profile edit screen,
-or the Xbox look's own hub (a game map has not got ui.map's screens) */
-#define PAUSE_SETTINGS_SCREEN_PC "main_menu/settings_select/player_setup/player_profile_edit/player_profile_edit_screen"
-#define PAUSE_SETTINGS_SCREEN_XBOX "xbox/settings/settings_screen"
+/* the screen SETTINGS opens: the settings hub (a game map has not got ui.map's screens) */
+#define PAUSE_SETTINGS_SCREEN "xbox/settings/settings_screen"
 #define PAUSE_BUTTON_SPACING 35
 /* the Xbox look's comfortable row (xbox/settings.xml's hub rows): 36 units
 drawn on a 39 pitch, in a 232 wide list (the pause row picture: a band closed at both ends) */
@@ -1855,7 +1848,7 @@ static long pause_list_patch(struct cache_file_tag_instance *instances, struct u
 	long count = list->child_widgets.count, added = host ? 2 : 1, child;
 	struct ui_widget_child_reference *grown = allocate((count + added) * sizeof(struct ui_widget_child_reference));
 	struct ui_widget_definition const *model = tag_get(UI_WIDGET_DEFINITION_TAG, children[quit].widget_tag.index);
-	long settings_widget = widget_named(build.xbox_set ? PAUSE_SETTINGS_SCREEN_XBOX : PAUSE_SETTINGS_SCREEN_PC);
+	long settings_widget = widget_named(PAUSE_SETTINGS_SCREEN);
 	short spacing = count >= 2 ? (short)(children[count - 1].vertical_offset - children[count - 2].vertical_offset) :
 		PAUSE_BUTTON_SPACING;
 	void *buttons[2];
@@ -3206,7 +3199,6 @@ void menu_tags_loaded(
 	memset(&build, 0, sizeof(build));
 	build.menus = menus;
 	build.game_map = game_map;
-	build.xbox_set = strcmp(config_string("display.menus"), "pc") != 0;
 	patching = !game_map && menus->patch_count;
 	widget_count = menus->widget_count;
 	build.widget_tags = malloc((widget_count + 1) * sizeof(long));
@@ -3313,24 +3305,10 @@ void menu_tags_loaded(
 	}
 	else
 	{
-		/* (the Xbox look's root is the map's own main menu) */
-		menu_tags.root[0] = '\0';
+		/* (the root is the map's own main menu) */
 		patch_remote_legends();
 		for (index = 0; patching && index < menus->patch_count && !build.failed; index++)
 			patch_apply(instances, &menus->patches[index]);
-	}
-	if (!game_map && strcmp(config_string("display.menus"), "xbox") && widget_named(menus->root) != NONE)
-	{
-		snprintf(menu_tags.root, sizeof(menu_tags.root), "%s%s", PC_MENU_TAG_PREFIX, menus->root);
-		for (index = 0; menu_tags.root[index]; index++)
-		{
-			if (menu_tags.root[index] == '/')
-				menu_tags.root[index] = '\\';
-		}
-	}
-	else if (!game_map && !build.xbox_set)
-	{
-		platform_log("menus: there is no widget named %s, the main menu", menus->root);
 	}
 	if (build.failed)
 		goto failed;
@@ -3343,7 +3321,6 @@ void menu_tags_loaded(
 	cache_files_set_tag_instances(instances, build.first_index + build.next);
 	menu_pictures_pending = !game_map;
 	menu_tags.loaded = TRUE;
-	menu_tags.xbox_set = build.xbox_set;
 	platform_log("menus: %ld widgets, %ld string lists and %ld bitmaps added to the map's %ld tags",
 		widget_count, own_lists + menus->string_list_count, menus->bitmap_count, build.first_index);
 	goto done;
@@ -3452,13 +3429,6 @@ static void menu_profile_description(int keyboard)
 	}
 }
 
-static int menu_use_xbox(void)
-{
-	char const *setting = config_string("display.menus");
-
-	return !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());
-}
-
 static boolean menu_delete_from_select;
 
 boolean pc_menu_delete_from_select(void)
@@ -3487,7 +3457,6 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 	extern int platform_menu_keyboard(void);
 	char const *name, *target;
 	long replacement;
-	int use_xbox;
 	if (!menu_tags.loaded) return tag_index;
 	/* Split-pane originals may be absent from ui.map during screenshots. */
 	name = tag_index == NONE ? requested_name : tag_get_name(tag_index);
@@ -3500,11 +3469,10 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 		strstr(name, "\\confirm_delete_gametype_modal_fullscreen")))
 		menu_delete_from_select = !strcmp(name, "ui\\shell\\error\\confirm_delete_profile_modal_fullscreen");
 	if (root) menu_profile_description(platform_menu_keyboard());
-	use_xbox = menu_use_xbox();
 	/* The hub's PROFILES row opens the profile picker, and choosing a profile there opens the edit screen: both are always-redirects to the hub from the main menu, so while the hub flow is up (the hub, the picker and the edit screen opened from it, and back through them) they open as themselves. Any other root screen ends the flow. */
 	from_hub = menu_hub_open;
 	menu_hub_open = FALSE;
-	target = menu_screen_equivalent(name, use_xbox);
+	target = menu_screen_equivalent(name);
 	if (target && !strcmp(target, "pc\\xbox\\settings\\settings_screen"))
 	{
 		if (from_hub && strcmp(name, target))
@@ -3516,20 +3484,10 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 	}
 	if (!strcmp(name, "pc\\xbox\\settings\\settings_screen"))
 		menu_hub_open = TRUE;
-	/* BACK reopens the screen below by name (the widget stack keeps no instance), so the flow has to outlast every
-	screen the hub reaches: a settings page opened from the profile's page is part of it, or BACK from that page would
-	open the profile's page as a root screen again and the always-redirect above would send it to the hub. The flow
-	ends with a screen outside the hub's own (the main menu and the rest). */
-	if (from_hub && menu_screen_in_hub_flow(name))
-		menu_hub_open = TRUE;
-	/* The pause hub exists only in the Xbox look; PC pause settings edit the active profile. */
-	if (!use_xbox && !strcmp(name, "pc\\xbox\\settings\\settings_screen"))
-		target = "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen";
 	if (!target) return tag_index;
 	replacement = tag_loaded(UI_WIDGET_DEFINITION_TAG, target);
 	if (replacement == NONE) return tag_index;
-	menu_tags.xbox_set = use_xbox;
-	platform_log("menus: screen %s -> %s (%s)", name, target, use_xbox ? "pad" : "keyboard_mouse");
+	platform_log("menus: screen %s -> %s", name, target);
 	return replacement;
 }
 
@@ -3641,7 +3599,7 @@ char const *pc_menus_root_name(
 		if (name)
 			return name;
 	}
-	return menu_tags.loaded && menu_tags.root[0] ? menu_tags.root : "ui\\shell\\main_menu\\main_menu";
+	return "ui\\shell\\main_menu\\main_menu";
 }
 
 /* whether the list is one a patch changed (the patch table), and then the
@@ -3790,37 +3748,16 @@ these map-select and pregame screens are not in the equivalence table. */
 char const *pc_menus_screen(
 	char const *name)
 {
-	static struct
-	{
-		char const *game_name;
-		char const *menu_name;
-	} const screens[] =
-	{
-		{ "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_postgame_wrapper",
-			"pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper" },
-		{ "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\pregame\\connected_pregame_screen",
-			"pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen" },
-	};
-	/* (the Xbox look's lobby, for games that are not system link) */
-	static char const xbox_lobby[] = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
-	short index;
+	static char const pregame[] =
+		"ui\\shell\\main_menu\\multiplayer_type_select\\connected\\pregame\\connected_pregame_screen";
+	/* (the generated lobby, for games that are not system link) */
+	static char const lobby[] = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
 
-	if (!menu_tags.loaded)
-		return name;
-	if (menu_use_xbox())
-	{
-		/* (the Xbox's screens, but the pregame of an Internet or Direct Link game: the lobby, which has the
-		invites, the password and the players to add; system link keeps the Xbox's) */
-		if (!strcmp(name, screens[1].game_name) && !pc_menu_multiplayer_lan() &&
-			tag_loaded(UI_WIDGET_DEFINITION_TAG, xbox_lobby) != NONE)
-			return xbox_lobby;
-		return name;
-	}
-	for (index = 0; index < NUMBEROF(screens); index++)
-	{
-		if (!strcmp(name, screens[index].game_name))
-			return screens[index].menu_name;
-	}
+	/* (the game's own screens, but the pregame of an Internet or Direct Link game: the lobby, which has the
+	invites, the password and the players to add; system link keeps the game's) */
+	if (menu_tags.loaded && !strcmp(name, pregame) && !pc_menu_multiplayer_lan() &&
+		tag_loaded(UI_WIDGET_DEFINITION_TAG, lobby) != NONE)
+		return lobby;
 	return name;
 }
 

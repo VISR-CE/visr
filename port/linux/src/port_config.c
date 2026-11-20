@@ -935,10 +935,6 @@ static const struct config_setting config_settings[] =
 		"The most memory the upscaled textures may take, in MB; 0 (default) picks\n"
 		"it from the device's memory. Past it, the ones drawn longest ago make\n"
 		"room, and a texture with no room is drawn as the map has it.", _tier_player },
-	{ "display.menus", _config_string, "\"auto\"", "HALO_MENUS", _environment_value, _platform_all,
-		"The menus: \"auto\" (default) follows the input device at screen changes: PC\n"
-		"for keyboard and mouse, Xbox for controller or touch. \"pc\" and \"xbox\"\n"
-		"keep a fixed look. A menus folder here overrides port/assets/menus.", _tier_player, "auto|pc|xbox" },
 	{ "display.player_names", _config_string, "\"none\"", "HALO_PLAYER_NAMES", _environment_value, _platform_all,
 		"In multiplayer, whose names are drawn above their heads: \"none\" (the\n"
 		"Xbox's: the name of the player under the reticle shows, and teammates\n"

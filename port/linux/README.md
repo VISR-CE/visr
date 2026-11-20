@@ -175,9 +175,8 @@ Game), or loads or deletes any profile's saved game (Load Game). Many of the
 other functions behind the screens are not wired to this game yet
 (`port/assets/menus/UNWIRED.md`): the lists they fill (profiles, maps,
 servers, key bindings) are empty, and the settings they change do not
-change. The screens open, close and move between each other as the PC
-version's. `display.menus = "xbox"` gives the Xbox's menus, which start every
-kind of game.
+change. The game shows the Xbox's menus, with the port's screens in the same
+look, on every platform and with every input device.
 
 Multiplayer > CO-OP CAMPAIGN is the Xbox's cooperative play, which the PC
 version does not have: two players on this computer play the campaign in
@@ -230,8 +229,7 @@ which it reads again at each level load. If a key is not correct, or a value
 has the wrong type, the game writes the line to the log and uses the default
 value. The Settings menu (Video, Mouse, Audio, Network and Controls Setup)
 changes the useful settings, writes them into the file (only their lines
-change) and applies them at once, but `display.menus` from the next main
-menu.
+change) and applies them at once.
 
 Each setting has an environment variable. The environment variable changes
 the setting for one start of the game. It has priority over the file.
@@ -366,7 +364,6 @@ Apple Vision Pro's file.
 | `display.ui_redraw_pictures` | string | `"original"` | apple, desktop | `HALO_UI_REDRAW_PICTURES` | With display.ui_redraw, the console and controller pictures: "original" (default) the game's own. |
 | `display.upscaled_textures` | boolean | `true` | apple, desktop | `HALO_UPSCALED_TEXTURES` | Draw upscaled textures (made on this device from your copy of the game) where they exist; false draws the maps' own. |
 | `display.upscaled_textures_memory` | integer | `0` | apple, desktop | `HALO_UPSCALED_TEXTURES_MEMORY` | The most memory the upscaled textures may take, in MB; 0 (default) picks it from the device's memory. |
-| `display.menus` | string | `"auto"` | apple, desktop | `HALO_MENUS` | The menus: "auto" (default) follows the input device at screen changes: PC for keyboard and mouse, Xbox for controller or touch. "pc" and "xbox" keep a fixed look. |
 | `display.player_names` | string | `"none"` | apple, desktop | `HALO_PLAYER_NAMES` | In multiplayer, whose names are drawn above their heads: "none" (the Xbox's: the name of the player under the reticle shows, and teammates have the game's marker), "all", "allies" or "enemies". |
 | `display.player_name_scale` | number | `1.0` | apple, desktop | `HALO_PLAYER_NAME_SCALE` | How large the players' names are drawn: 1.0 three quarters of the size of the HUD's text, 0.25 to 4. |
 | `display.scoreboard_team_layout` | string | `"teams"` | apple, desktop | `HALO_SCOREBOARD_TEAM_LAYOUT` | How the scoreboard lists a team game's players: "teams" in a column for each team (red on the left, blue on the right), "score" all in order of score. |

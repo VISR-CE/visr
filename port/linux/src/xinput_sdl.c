@@ -1054,11 +1054,9 @@ static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
 	for (index = 0; index < test_press_count; index++)
 	{
 		const char *button = test_presses[index].button;
-		extern void platform_menu_activity(int pad, float dx, float dy, int motion);
 
 		if (poll < test_presses[index].poll || poll >= test_presses[index].poll + TEST_PRESS_POLLS)
 			continue;
-		platform_menu_activity(button[0] != 'k', 0, 0, 0);
 		if (button[0] == 'k') button++;
 		if (!strcmp(button, "start"))
 			pad->wButtons |= XINPUT_GAMEPAD_START;
@@ -1773,17 +1771,6 @@ static void stick_dead_zone(SHORT *x, SHORT *y)
 	*y = through_game_dead_zone(fy * scale);
 }
 
-static void menu_gamepad_activity(XINPUT_GAMEPAD const *pad)
-{
-	extern void platform_menu_activity(int pad, float dx, float dy, int motion);
-	int index;
-	for (index = 0; index < 8; index++)
-		if (pad->bAnalogButtons[index]) break;
-	if (pad->wButtons || index < 8 ||
-		abs(pad->sThumbLX) > GAME_STICK_DEAD_RANGE || abs(pad->sThumbLY) > GAME_STICK_DEAD_RANGE ||
-		abs(pad->sThumbRX) > GAME_STICK_DEAD_RANGE || abs(pad->sThumbRY) > GAME_STICK_DEAD_RANGE)
-		platform_menu_activity(1, 0, 0, 0);
-}
 
 static void sdl_gamepad_state(SDL_Gamepad *gamepad, XINPUT_GAMEPAD *pad)
 {
@@ -2056,7 +2043,6 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		{
 			XINPUT_GAMEPAD activity = {0};
 			sdl_gamepad_state(gamepads[0], &activity);
-			menu_gamepad_activity(&activity);
 			if (glyph_gamepad_active(&activity)) glyph_keyboard_active = 0;
 			sdl_gamepad_state(gamepads[0], &state->Gamepad);
 		}
@@ -2111,7 +2097,6 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	else if (port_gamepad(gamepads, count, port))
 	{
 		sdl_gamepad_state(port_gamepad(gamepads, count, port), &state->Gamepad);
-		menu_gamepad_activity(&state->Gamepad);
 	}
 
 	if (memcmp(&state->Gamepad, &controllers[port].previous, sizeof(state->Gamepad)))

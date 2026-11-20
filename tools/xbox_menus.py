@@ -2305,18 +2305,18 @@ def equivalence_header():
     lines += ['};', 'static char const *const menu_screen_always[][2] = {']
     for original, ours in SCREEN_ALWAYS:
         lines.append('\t{' + json.dumps(original.replace('/', '\\')) + ', ' + json.dumps(ours.replace('/', '\\')) + '},')
-    lines += ['};', 'static char const *menu_screen_equivalent(char const *name, int use_xbox)', '{',
+    lines += ['};', 'static char const *menu_screen_equivalent(char const *name)', '{',
               '\tunsigned int index;',
-              '\tfor (index = 0; use_xbox && index < sizeof(menu_screen_always) / sizeof(menu_screen_always[0]); index++)',
+              '\tfor (index = 0; index < sizeof(menu_screen_always) / sizeof(menu_screen_always[0]); index++)',
               '\t\tif (!strcmp(name, menu_screen_always[index][0]))',
               '\t\t\treturn menu_screen_always[index][1];',
               '\tchar const *tv = getenv("HALO_HOST_TVOS");',
-              '\tfor (index = 0; use_xbox && !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)',
+              '\tfor (index = 0; !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)',
               '\t\tif (!strcmp(name, menu_screen_replaced[index][0]))',
               '\t\t\treturn menu_screen_replaced[index][1];',
               '\tfor (index = 0; index < sizeof(menu_screen_pairs) / sizeof(menu_screen_pairs[0]); index++)',
               '\t\tif (!strcmp(name, menu_screen_pairs[index][0]) || !strcmp(name, menu_screen_pairs[index][1]))',
-              '\t\t\treturn menu_screen_pairs[index][use_xbox ? 0 : 1];', '\treturn NULL;', '}', '#endif', '']
+              '\t\t\treturn menu_screen_pairs[index][0];', '\treturn NULL;', '}', '#endif', '']
     return '\n'.join(lines)
 
 

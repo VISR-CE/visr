@@ -1620,10 +1620,7 @@ static boolean profile_save_now(void)
 
 boolean pc_menu_profile_auto_save_enabled(void)
 {
-	extern int platform_menu_pad(void);
-	char const *menus = config_string("display.menus");
-
-	return !strcmp(menus, "xbox") || (strcmp(menus, "pc") && platform_menu_pad());
+	return TRUE;
 }
 
 /* The native Xbox hub's Back handler calls this before ending editing.

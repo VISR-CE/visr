@@ -49,10 +49,6 @@ int menu_test_focus_text(char *text, int size) { (void)text; (void)size; return 
 enum { XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y };
 enum { XINPUT_GAMEPAD_START = 1, XINPUT_GAMEPAD_DPAD_UP = 2, XINPUT_GAMEPAD_DPAD_DOWN = 4,
        XINPUT_GAMEPAD_DPAD_LEFT = 8, XINPUT_GAMEPAD_DPAD_RIGHT = 16, XINPUT_GAMEPAD_BACK = 32 };
-static int menu_pad;
-void platform_menu_activity(int pad, float dx, float dy, int motion) {
-    (void)dx; (void)dy; (void)motion; menu_pad = pad;
-}
 typedef struct { unsigned short wButtons; unsigned char bAnalogButtons[8]; } XINPUT_GAMEPAD;
 #define CHECK(condition) do { if (!(condition)) { fprintf(stderr, "shortcut line %d: %s\n", __LINE__, #condition); exit(1); } } while (0)
 '''.replace("FOCUS_HEADER", str(ROOT / "port/linux/include/test_focus_walk.h")) + production + r'''
@@ -100,12 +96,10 @@ int main(void) {
     test_input_presses_parse("ka@0 none@8 knone@16");
     pad = (XINPUT_GAMEPAD){0};
     test_input_presses(&pad, 0);
-    CHECK(!menu_pad && pad.bAnalogButtons[XINPUT_GAMEPAD_A] == 255);
+    CHECK(pad.bAnalogButtons[XINPUT_GAMEPAD_A] == 255);
     pad = (XINPUT_GAMEPAD){0};
     test_input_presses(&pad, 8);
-    CHECK(menu_pad && !pad.wButtons && !pad.bAnalogButtons[XINPUT_GAMEPAD_A]);
-    test_input_presses(&pad, 16);
-    CHECK(!menu_pad);
+    CHECK(!pad.wButtons && !pad.bAnalogButtons[XINPUT_GAMEPAD_A]);
     return 0;
 }
 ''')

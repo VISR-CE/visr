@@ -2083,9 +2083,8 @@ static void set_textbox_to_build_number(
 			sizeof(build_number_string));
 	}
 #else
-	/* port: keep the PC menu's blank label; only the Xbox look's main menu (the map's own
-	   widget, not one of the menus' tags) shows VISR's version, whichever look display.menus
-	   picks at the moment */
+	/* port: a label in one of the menus' own tags stays blank; only the main menu (the map's own
+	   widget) shows VISR's version */
 	static wchar_t const blank_label[NUMBEROF(build_number_string)] = {0};
 
 	if (pc_menu_tag(widget->definition_tag_index))

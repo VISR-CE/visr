@@ -1,9 +1,8 @@
 # Menus
 
-The menus follow the last input device when a screen opens: the PC look for
-keyboard and mouse, the Xbox look for a controller or touch. Apple TV and
-Vision Pro always use the Xbox look. `display.menus = "auto"` is the default;
-`"pc"` and `"xbox"` keep a fixed look. They are XML files in this folder, which the
+The menus have one look, the Xbox's, on every platform and with every input
+device: a controller, the keyboard and the mouse, or touch. Button hints follow
+the device last used. The port's screens are XML files in this folder, which the
 game builds into its own widget tags when the menus' map (`ui.map`) loads
 (`port/linux/game/menu_tags.c`). They then work like the Xbox's menus: with a
 controller, the keyboard and the mouse, on every port.

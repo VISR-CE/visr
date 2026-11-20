@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILE_ONLY_PLAYER = {
     # desktop windows and the flat picture
     'display.fullscreen', 'display.resolution_scaling', 'display.window_scale', 'display.screen_width',
-    'display.native_hud', 'display.menus', 'display.scoreboard_background_color', 'display.movies',
+    'display.native_hud', 'display.scoreboard_background_color', 'display.movies',
     'display.first_person_legs', 'display.first_person_legs_seat_shift',
     # rendering switches kept for comparison (candidates for tuning, not yet decided)
     'display.decal_batching', 'display.decal_dense_upload', 'display.light_volume_batching',

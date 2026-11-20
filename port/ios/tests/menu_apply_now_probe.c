@@ -28,9 +28,6 @@ struct pc_menu_setting
 struct player_profile { int name, color; struct { int sensitivity; } controller_settings; wchar_t player_name[12]; };
 #define primary_color_index color
 static struct { short color; } color_list;
-static char const *menu_style = "xbox";
-static int menu_pad = 1;
-static int platform_menu_pad(void) { return menu_pad; }
 static char const *config_string(char const *name);
 static struct player_profile disk_profile = { 1, 2, { 3 }, L"Player" }, edit_profile;
 static long edit_index = 7;
@@ -64,7 +61,7 @@ static boolean player_ui_save_profile(void) { disk_profile = edit_profile; edit_
 static void player_ui_begin_editing_profile(long index) { edit_index = index; edit_profile = disk_profile; }
 /* SETTINGS */
 static int binding_index(char const *name);
-static char const *config_string(char const *name) { return !strcmp(name, "display.menus") ? menu_style : binding_values[binding_index(name)]; }
+static char const *config_string(char const *name) { return binding_values[binding_index(name)]; }
 static int config_default(char const *name, char *text, unsigned int size) { snprintf(text, size, "D%d", binding_index(name)); return TRUE; }
 static int config_write(char const *name, char const *text) { snprintf(binding_values[binding_index(name)], 128, "%s", text); writes++; return TRUE; }
 static int platform_binding_capture_poll(int *input) { *input = 5; return capture_result; }
@@ -115,13 +112,8 @@ int main(void)
 	edit_profile.name = 456;
 	assert(pc_menu_profile_save_on_back() && saves == 4 && disk_profile.name == 456);
 	assert(pc_menu_profile_save_on_back() && saves == 4);
-	/* PC menus retain explicit save, and a gametype is never treated as a player. */
-	menu_style = "pc"; edit_profile.name = 789;
-	pc_menu_profile_name_saved(edit_profile.player_name);
-	assert(pc_menu_profile_save_on_back() && saves == 4 && disk_profile.name == 456);
-	menu_style = "auto"; menu_pad = 0;
-	assert(pc_menu_profile_save_on_back() && saves == 4);
-	menu_pad = 1;
+	/* A gametype is never treated as a player. */
+	edit_profile.name = 789;
 	assert(pc_menu_profile_save_on_back() && saves == 5 && disk_profile.name == 789);
 	edit_index = NONE;
 	pc_menu_profile_name_saved(L"Gametype");

@@ -55,19 +55,19 @@ static char const *const menu_screen_always[][2] = {
 	{"ui\\shell\\error\\confirm_delete_profile_modal_fullscreen", "pc\\xbox\\error\\confirm_delete_profile_modal_fullscreen"},
 	{"ui\\shell\\error\\confirm_delete_gametype_modal_fullscreen", "pc\\xbox\\error\\confirm_delete_gametype_modal_fullscreen"},
 };
-static char const *menu_screen_equivalent(char const *name, int use_xbox)
+static char const *menu_screen_equivalent(char const *name)
 {
 	unsigned int index;
-	for (index = 0; use_xbox && index < sizeof(menu_screen_always) / sizeof(menu_screen_always[0]); index++)
+	for (index = 0; index < sizeof(menu_screen_always) / sizeof(menu_screen_always[0]); index++)
 		if (!strcmp(name, menu_screen_always[index][0]))
 			return menu_screen_always[index][1];
 	char const *tv = getenv("HALO_HOST_TVOS");
-	for (index = 0; use_xbox && !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)
+	for (index = 0; !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)
 		if (!strcmp(name, menu_screen_replaced[index][0]))
 			return menu_screen_replaced[index][1];
 	for (index = 0; index < sizeof(menu_screen_pairs) / sizeof(menu_screen_pairs[0]); index++)
 		if (!strcmp(name, menu_screen_pairs[index][0]) || !strcmp(name, menu_screen_pairs[index][1]))
-			return menu_screen_pairs[index][use_xbox ? 0 : 1];
+			return menu_screen_pairs[index][0];
 	return NULL;
 }
 #endif

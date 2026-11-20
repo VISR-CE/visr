@@ -118,13 +118,13 @@ int main(int argc, char **argv) {
     capturing=1; assert(!config_graphics_settings_snapshot(CONFIG_SCENE_MENU,&snapshot)); capturing=0;
     assert(!snapshot.valid && !snapshot.count && !capture_calls);
     config_values[scale].real = 0.5;
-    long menus = config_setting_index("display.menus");
+    long menus = config_setting_index("display.effect_limits");
     char oversized[CONFIG_GRAPHICS_MAXIMUM_STRING_BYTES+2]; memset(oversized,'x',sizeof(oversized)-1); oversized[sizeof(oversized)-1] = 0;
     free(config_values[menus].string); config_values[menus].string = strdup(oversized); config_states[menus].source = _source_file;
     assert(!config_graphics_settings_json(CONFIG_SCENE_MENU,text,sizeof(text)) && !text[0]);
     capturing=1; assert(!config_graphics_settings_snapshot(CONFIG_SCENE_MENU,&snapshot)); capturing=0;
     assert(!snapshot.valid && !snapshot.count && !capture_calls);
-    free(config_values[menus].string); config_values[menus].string = strdup("classic");
+    free(config_values[menus].string); config_values[menus].string = strdup("raised");
     char small[8] = "unsafe";
     assert(!config_graphics_settings_json(CONFIG_SCENE_MENU,small,sizeof(small)) && !small[0]);
     return 0;
