@@ -55,7 +55,7 @@ def test_defaults_and_explicit_overrides_across_ticks(tmp_path):
 
     settings = settings_schema.config_settings()
     for name in _names():
-        assert settings[name]['default'] is (name != 'debug.static_light_relink')
+        assert settings[name]['default'] is (name not in ('debug.static_light_relink', 'debug.verify_once_a_tick'))
     compiler = shutil.which('clang') or shutil.which('cc')
     if not compiler:
         pytest.skip('A C compiler is required for the simulation probe')
@@ -66,30 +66,34 @@ def test_defaults_and_explicit_overrides_across_ticks(tmp_path):
 #include <string.h>
 #include "sim_experiments.c"
 static long tick;
-static unsigned configured = 15;
+#define ALL ((1u << SIM_EXPERIMENT_COUNT) - 1)
+static unsigned configured;
 static unsigned merge = 1;
 long game_time_get(void) { return tick; }
 int config_boolean(const char *name) {
-    for (unsigned i = 0; i < 4; i++)
+    for (unsigned i = 0; i < SIM_EXPERIMENT_COUNT; i++)
         if (!strcmp(name, sim_experiment_names[i])) return (configured >> i) & 1;
     if (!strcmp(name, "debug.immediate_merge")) return merge;
     assert(0); return 0;
 }
 int main(void) {
-    for (unsigned defaults = 0; defaults < 16; defaults++) {
+    /* (every combination while they are few; past four settings, every value against a spread of defaults and masks
+    that still has each bit both ways) */
+    unsigned const defaults_step = ALL > 15 ? 13 : 1, mask_step = ALL > 15 ? 11 : 1;
+    for (unsigned defaults = 0; defaults <= ALL; defaults += defaults_step) {
         configured = defaults;
-        for (unsigned mask = 0; mask < 16; mask++) {
-            for (unsigned values = 0; values < 16; values++) {
+        for (unsigned mask = 0; mask <= ALL; mask += mask_step) {
+            for (unsigned values = 0; values <= ALL; values++) {
                 sim_experiment_override(values, mask);
                 unsigned expected = (defaults & ~mask) | (values & mask);
-                for (short i = 0; i < 4; i++) {
+                for (short i = 0; i < SIM_EXPERIMENT_COUNT; i++) {
                     assert(sim_experiment_enabled(i) == ((expected >> i) & 1));
                     assert(sim_experiment_enabled_now(i) == ((expected >> i) & 1));
                 }
             }
         }
     }
-    configured = 15;
+    configured = ALL;
     sim_experiment_override(0, 0);
     assert(sim_experiment_enabled(0));
     configured = 0;
@@ -101,10 +105,10 @@ int main(void) {
     assert(sim_experiment_enabled(0)); /* override invalidates the cache */
     sim_experiment_override(0, 0);
     assert(!sim_experiment_enabled(0));
-    assert(!sim_experiment_enabled(-1) && !sim_experiment_enabled(4));
-    assert(!sim_experiment_enabled_now(-1) && !sim_experiment_enabled_now(4));
+    assert(!sim_experiment_enabled(-1) && !sim_experiment_enabled(SIM_EXPERIMENT_COUNT));
+    assert(!sim_experiment_enabled_now(-1) && !sim_experiment_enabled_now(SIM_EXPERIMENT_COUNT));
     /* immediate merge follows its setting once a tick, and a case's override does not reach it */
-    sim_experiment_override(0, 15);
+    sim_experiment_override(0, ALL);
     merge = 1;
     tick++;
     assert(sim_switch_immediate_merge() && sim_switch_immediate_merge_now());
@@ -121,6 +125,24 @@ int main(void) {
     subprocess.run([str(binary)], check=True)
 
 
+def _record_function():
+    host = (ROOT / 'port/ios/host/host_benchmark.m').read_text()
+    return host[host.index('static void record_applied_settings('):host.index('/* one finished run as a JSON object')]
+
+
+def test_the_run_record_lists_the_same_settings_with_the_configuration_defaults():
+    import settings_schema
+
+    function = _record_function()
+    names = _names()
+    listed = re.search(r"switches\[\] = \{(.*?)\};", function, re.S).group(1)
+    assert re.findall(r'"([^"]+)"', listed) == names, "record_applied_settings lists other switches than sim_experiments.c"
+    defaults = re.findall(r'"(true|false)"', re.search(r"defaults\[\] = \{(.*?)\};", function, re.S).group(1))
+    settings = settings_schema.config_settings()
+    assert defaults == ["true" if settings[name]['default'] else "false" for name in names], \
+        "record_applied_settings' defaults differ from port_config.c's"
+
+
 def test_run_records_use_effective_simulation_values(tmp_path):
     import shutil
     import subprocess
@@ -129,8 +151,8 @@ def test_run_records_use_effective_simulation_values(tmp_path):
 
     if sys.platform != 'darwin' or not shutil.which('xcrun'):
         pytest.skip('Foundation is required for the run-record probe')
-    host = (ROOT / 'port/ios/host/host_benchmark.m').read_text()
-    function = host[host.index('static void record_applied_settings('):host.index('/* one finished run as a JSON object')]
+    function = _record_function()
+    names = _names()
     source = tmp_path / 'records.m'
     source.write_text(r'''
 #import <Foundation/Foundation.h>
@@ -139,11 +161,11 @@ def test_run_records_use_effective_simulation_values(tmp_path):
 #include "benchmark_plan.h"
 static unsigned configured;
 static NSString *configured_alias;
-static const char *const names[] = { "debug.collision_type_filter", "debug.sphere_query_type_filter",
-    "debug.static_light_relink", "debug.collision_candidates" };
+static const char *const names[] = { ''' + ", ".join(f'"{name}"' for name in names) + r''' };
+enum { COUNT = sizeof(names) / sizeof(names[0]), ALL = (1u << COUNT) - 1 };
 static NSString *configured_text(const char *name, const char *fallback) {
     if (configured_alias) return configured_alias;
-    for (unsigned bit = 0; bit < 4; bit++)
+    for (unsigned bit = 0; bit < COUNT; bit++)
         if (!strcmp(name, names[bit])) return configured & (1u << bit) ? @"true" : @"false";
     return @(fallback);
 }
@@ -151,15 +173,17 @@ static double host_config_real(const char *name, double fallback) { (void)name; 
 ''' + function + r'''
 int main(void) {
     @autoreleasepool {
-        for (configured = 0; configured < 16; configured++) {
-            for (unsigned mask = 0; mask < 16; mask++) {
-                for (unsigned values = 0; values < 16; values++) {
+        /* (every combination while they are few; past four settings, a spread that still has each bit both ways) */
+        unsigned const configured_step = ALL > 15 ? 13 : 1, mask_step = ALL > 15 ? 11 : 1, values_step = ALL > 15 ? 7 : 1;
+        for (configured = 0; configured <= ALL; configured += configured_step) {
+            for (unsigned mask = 0; mask <= ALL; mask += mask_step) {
+                for (unsigned values = 0; values <= ALL; values += values_step) {
                     struct benchmark_scene scene = { .sim_experiments = values, .sim_experiments_mask = mask };
                     for (const char *stage = "AP"; *stage; stage++) {
                         NSMutableDictionary *record = [NSMutableDictionary dictionary];
                         record_applied_settings(record, &scene, *stage);
                         unsigned expected = (configured & ~mask) | (values & mask);
-                        for (unsigned bit = 0; bit < 4; bit++)
+                        for (unsigned bit = 0; bit < COUNT; bit++)
                             assert([record[@(names[bit])] isEqual:expected & (1u << bit) ? @"on" : @"off"]);
                     }
                 }
@@ -171,7 +195,7 @@ int main(void) {
             NSMutableDictionary *record = [NSMutableDictionary dictionary];
             record_applied_settings(record, &scene, 'A');
             BOOL enabled = [@[@"true", @"1", @"on", @"TRUE"] containsObject:alias];
-            for (unsigned bit = 0; bit < 4; bit++)
+            for (unsigned bit = 0; bit < COUNT; bit++)
                 assert([record[@(names[bit])] isEqual:enabled ? @"on" : @"off"]);
         }
     }

@@ -1538,6 +1538,17 @@
             "desktop"
           ]
         },
+        "verify_once_a_tick": {
+          "type": "boolean",
+          "default": false,
+          "description": "The block caches and memory pools walk their whole block lists to verify them at every allocation and free. With this, a walk asked for inside a game tick or game frame happens once for each cache or pool at the end of that tick or frame, where a list gone wrong still stops the game. Off by default. Read again each tick, so it can be flipped while the game runs.",
+          "x-environment": "HALO_VERIFY_ONCE_A_TICK",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "aim_steady_level": {
           "type": "number",
           "default": -1.0,

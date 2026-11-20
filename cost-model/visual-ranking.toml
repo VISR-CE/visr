@@ -86,6 +86,10 @@ grade = {"on" = "invisible"}
 order = ["off", "on"]
 grade = {"on" = "invisible"}
 
+[handheld."debug.verify_once_a_tick"]
+order = ["off", "on"]
+grade = {"on" = "invisible"}
+
 [tv."debug.collision_type_filter"]
 order = ["off", "on"]
 grade = {"on" = "invisible"}
@@ -101,6 +105,10 @@ grade = {"on" = "invisible"}
 # debug.immediate_merge is exact and on in every build, so it is not a ladder knob.
 
 [tv."debug.collision_candidates"]
+order = ["off", "on"]
+grade = {"on" = "invisible"}
+
+[tv."debug.verify_once_a_tick"]
 order = ["off", "on"]
 grade = {"on" = "invisible"}
 
