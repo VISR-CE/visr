@@ -6,6 +6,7 @@
 #import <QuartzCore/QuartzCore.h>
 #include <pthread.h>
 #include <SDL3/SDL.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -210,11 +211,14 @@ static void relayout_to_scene(void) {
             CGSize want = CGSizeMake(round(bounds.size.width * scale), round(bounds.size.height * scale));
             int width = 0, height = 0;
             SDL_GetWindowSize(sdl, &width, &height);
-            BOOL layer_off = !CGSizeEqualToSize(layer.drawableSize, want);
+            /* (a pixel either way is the rounding of a fractional bounds times the scale, which UIKit and SDL
+               round their own way: correcting it each frame fought them forever) */
+            BOOL layer_off = fabs(layer.drawableSize.width - want.width) > 1.0 ||
+                             fabs(layer.drawableSize.height - want.height) > 1.0;
             int pw = 0, ph = 0;
             SDL_GetWindowSizeInPixels(sdl, &pw, &ph);
             BOOL sdl_off = width != (int)bounds.size.width || height != (int)bounds.size.height ||
-                           pw != (int)want.width || ph != (int)want.height;
+                           abs(pw - (int)want.width) > 1 || abs(ph - (int)want.height) > 1;
             if (changed) { [view setNeedsLayout]; [view layoutIfNeeded]; }
             if (layer.contentsScale != scale) layer.contentsScale = scale;
             double now = CACurrentMediaTime();
