@@ -7260,6 +7260,90 @@ static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d c
 	ui_widget_draw_touch_legend_slice(bitmap, x1 - cap, x1, y0, y1, 1.0f - cap_u, 1.0f, argb);
 }
 
+/* port: the scores after a game (game_engine.c, game_engine_post_rasterize_post_game) are not a widget screen: the
+game draws "quit" and "pick game" as one string with button glyphs and reads the gamepads itself. On touch the
+glyphs are hidden and nothing could be tapped, so the two actions are drawn here as the standard legend buttons, in
+B's and A's slots, and noted as pointer targets; a tap is handed to the game through ui_widget_port_postgame_pressed.
+Returns FALSE when the game should draw its own prompt (a controller, or keyboard and mouse). */
+/* the bottom bar's glyph line (414 in tools/xbox_menus.py's LEGEND_Y) and the least room a caption keeps on each
+side of its button */
+#define UI_POSTGAME_LEGEND_Y 414
+#define UI_POSTGAME_MINIMUM_PADDING 12
+static short ui_postgame_pending = NONE;
+static short ui_postgame_pressed = NONE;
+static short ui_postgame_pressed_frames = 0;
+
+boolean ui_widget_port_postgame_legend(
+	long font_index,
+	real alpha,
+	boolean pick_game)
+{
+	static wchar_t const *const captions[2] = { L"PICK GAME", L"QUIT" };
+	static short const buttons[2] = { _gamepad_analog_button_a, _gamepad_analog_button_b };
+	real_argb_color color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	short index;
+
+	if (halo_menu_pointer_controls() != 2 || font_index == NONE)
+		return FALSE;
+	color.alpha = alpha;
+	for (index = pick_game ? 0 : 1; index < 2; index++)
+	{
+		rectangle2d drawn, text_bounds;
+		short x0, x1, text_width, center_x;
+		boolean pressed = ui_postgame_pressed == buttons[index] && ui_postgame_pressed_frames > 0;
+
+		ui_touch_legend_slot_bounds(font_index, index, &x0, &x1);
+		draw_string_set_font(font_index);
+		draw_string_set_format(NONE, 0, 0);
+		draw_string_set_indents(0, 0);
+		text_width = ui_widget_port_text_width(captions[index]);
+		center_x = (short)((x0 + x1) / 2);
+		if (text_width + 2 * UI_POSTGAME_MINIMUM_PADDING > x1 - x0)
+		{
+			x0 = (short)(center_x - (text_width + 2 * UI_POSTGAME_MINIMUM_PADDING) / 2);
+			x1 = (short)(x0 + text_width + 2 * UI_POSTGAME_MINIMUM_PADDING);
+		}
+		drawn.x0 = x0;
+		drawn.x1 = x1;
+		drawn.y0 = UI_POSTGAME_LEGEND_Y - 2;
+		drawn.y1 = drawn.y0 + 40;
+		ui_widget_draw_touch_legend(&drawn, NULL, alpha, pressed);
+		text_bounds = drawn;
+		text_bounds.x0 = (short)(center_x - text_width / 2);
+		text_bounds.y0 = (short)(drawn.y0 + 9);
+		draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
+		rasterizer_draw_unicode_string(&text_bounds, NULL, NULL, 0, captions[index]);
+		if (ui_mouse_target_count < UI_MOUSE_MAXIMUM_TARGETS)
+		{
+			struct ui_mouse_target *target = &ui_mouse_targets[ui_mouse_target_count++];
+
+			csmemset(target, 0, sizeof(*target));
+			target->widget = NULL;
+			target->kind = _ui_mouse_target_button;
+			target->button_index = buttons[index];
+			target->bounds = drawn;
+			/* (at least the 60 units a finger gets on the menus' buttons) */
+			target->bounds.y0 -= 10;
+			target->bounds.y1 += 10;
+			target->bounds.x0 -= UI_TOUCH_LEGEND_GAP / 2;
+			target->bounds.x1 += UI_TOUCH_LEGEND_GAP / 2;
+		}
+	}
+	if (ui_postgame_pressed_frames > 0)
+		ui_postgame_pressed_frames--;
+	return TRUE;
+}
+
+/* whether the button (A: pick game, B: quit) was tapped on the scores since the last call for it */
+boolean ui_widget_port_postgame_pressed(
+	short button)
+{
+	if (ui_postgame_pending != button)
+		return FALSE;
+	ui_postgame_pending = NONE;
+	return TRUE;
+}
+
 /* port: whether B does something on this screen: its tag has a B or back handler, or has none and the
 default go-back has a previous screen to return to (the root screens have neither, so they get no
 chevron). Dialogs answer their own B and never take the chevron. */
@@ -8972,6 +9056,13 @@ static void ui_widgets_process_mouse(
 					break;
 				case _ui_mouse_target_button:
 					halo_ui_pointer_feedback(2);
+					if (!target->widget)
+					{
+						/* (the scores' own buttons: the game takes them, ui_widget_port_postgame_pressed) */
+						ui_postgame_pending = ui_postgame_pressed = target->button_index;
+						ui_postgame_pressed_frames = 8;
+						break;
+					}
 					ui_mouse_press(target->button_index);
 					break;
 				}

@@ -858,6 +858,10 @@ static void game_engine_verify_current_map(
 void game_engine_post_rasterize_post_game(
 	void);
 
+/* port: the scores' buttons on touch (source/interface/ui_widget.c) */
+boolean ui_widget_port_postgame_legend(long font_index, real alpha, boolean pick_game);
+boolean ui_widget_port_postgame_pressed(short button);
+
 static boolean internal_rasterize_score(
 	long player_index,
 	long message,
@@ -2566,6 +2570,9 @@ void game_engine_post_rasterize_post_game(
 		draw_string_set_color(&prompt_color);
 
 		server = global_network_game_server_get();
+		/* port: on touch the two actions are the menus' standard buttons, which can be tapped (ui_widget.c) */
+		if (ui_widget_port_postgame_legend(font_index, prompt_color.alpha, server != NULL))
+			return;
 		if (server)
 		{
 			bounds.x0 = 380;
@@ -4790,13 +4797,14 @@ void game_engine_update_non_deterministic(
 			if (game_engine_globals.postgame_progress > 1.0f)
 				game_engine_globals.postgame_progress = 1.0f;
 
-			if (test_any_gamepad_button(0) || test_any_gamepad_button(12))
+			/* port: or a tap on the scores' PICK GAME and QUIT buttons (ui_widget.c) */
+			if (test_any_gamepad_button(0) || test_any_gamepad_button(12) || ui_widget_port_postgame_pressed(0))
 			{
 				if (global_network_game_server_get())
 				network_game_server_reset_to_pregame(
 					global_network_game_server_get());
 			}
-			else if (test_any_gamepad_button(1) || test_any_gamepad_button(13))
+			else if (test_any_gamepad_button(1) || test_any_gamepad_button(13) || ui_widget_port_postgame_pressed(1))
 			{
 				network_game_abort();
 			}
