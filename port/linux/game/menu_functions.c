@@ -44,9 +44,8 @@ calls them from PC_MENU_FUNCTION_BASE on):
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
 
-The PC version's campaign menus, on player 1's profile (the active one, else
-the one last used, else the first) and the game's saved game in it:
-- "campaign menu continue" goes on with the saved game;
+The map lists, on player 1's profile (the active one, else the one last
+used, else the first) and the game's saved game in it:
 - New Game's list of levels ("initialize sp level list solo", "solo map
   list update", "solo level set map") has those the profile has reached, and
   marks those it has finished on Normal, Heroic and Legendary, as the
@@ -993,30 +992,6 @@ static void profile_name_show(struct widget_instance *description)
 		read_time = system_milliseconds();
 	}
 	text_set(named(description, "current_profile_name", 0), profile.player_name);
-}
-
-/* (Campaign's menu) "campaign menu init": player 1's profile and saved
-game, for its items */
-static boolean campaign_menu_initialize(short controller)
-{
-	struct player_profile profile;
-
-	if (campaign_profile(controller, &profile))
-		campaign_levels_read(&profile);
-	return TRUE;
-}
-
-/* "campaign menu continue": the saved game goes on */
-static boolean campaign_continue(short controller)
-{
-	struct player_profile profile;
-	char const *map_name;
-	short level, difficulty;
-
-	if (!campaign_profile(controller, &profile) || !ui_widget_port_saved_game(&map_name, &level, &difficulty))
-		return campaign_fail();
-	campaign_start(map_name, difficulty, controller);
-	return TRUE;
 }
 
 /* ---- the map lists (New Game's and the Map screen's): their first row's
@@ -7692,14 +7667,6 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "controls binding slot"))
 		{
 			controls_screen.slot = (short)!controls_screen.slot;
-		}
-		else if (!strcmp(name, "campaign menu init"))
-		{
-			return campaign_menu_initialize(controller);
-		}
-		else if (!strcmp(name, "campaign menu continue"))
-		{
-			return campaign_continue(controller);
 		}
 		else if (!strcmp(name, "port option row init"))
 		{
