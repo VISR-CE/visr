@@ -825,11 +825,15 @@ void halo_screen_menu_visible_bounds(float *top, float *bottom)
 widescreen centering have been undone by halo_ui_pointer_map. */
 static void menu_window_pointer(struct halo_ui_pointer *pointer)
 {
-	float top, zoom;
+	float top, zoom, center;
 	menu_window_geometry(&top, &zoom);
-	pointer->x = (short)floorf(320.0f + (pointer->x - 320.0f) / zoom);
+	/* the zoom is about the screen's center: column 320, or 320.5 on an odd width, whose drawn margin is whole
+	columns (halo_screen_ui_offset) */
+	center = halo_screen_width() >= 640 ?
+		(float)halo_screen_width() * 0.5f - (float)((halo_screen_width() - 640) / 2) : 320.0f;
+	pointer->x = (short)floorf(center + (pointer->x - center) / zoom);
 	pointer->y = (short)floorf(top + pointer->y / zoom);
-	pointer->click_x = (short)floorf(320.0f + (pointer->click_x - 320.0f) / zoom);
+	pointer->click_x = (short)floorf(center + (pointer->click_x - center) / zoom);
 	pointer->click_y = (short)floorf(top + pointer->click_y / zoom);
 	pointer->radius = (short)ceilf(pointer->radius / zoom);
 }
@@ -3651,18 +3655,32 @@ void halo_host_pointer_read(struct host_ui_pointer *pointer);
 void halo_host_pointer_feedback(int kind);
 void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer);
 
-/* a point on the host's surface (points) in the menus' coordinates: the
-surface's aspect is all that matters, so it stands for both the window and
-the drawable, scaled to keep the fractions of a point */
+/* the host's surface (points, scaled to keep the fractions of a point) and the
+drawable the picture is fit into there (pixels), which the surface shows
+stretched to its own size; a host that does not know the drawable gives the
+surface's own shape */
 #define UI_POINTER_SCALE 8.0f
+static int ui_surface_geometry(const struct host_ui_pointer *host, struct halo_ui_pointer_geometry *g)
+{
+	int width = (int)(host->surface_width * UI_POINTER_SCALE), height = (int)(host->surface_height * UI_POINTER_SCALE);
+	int pixel_width = width, pixel_height = height;
+
+	if (host->drawable_width >= 1.0f && host->drawable_height >= 1.0f)
+	{
+		pixel_width = (int)host->drawable_width;
+		pixel_height = (int)host->drawable_height;
+	}
+	return ui_pointer_geometry(g, width, height, pixel_width, pixel_height);
+}
+
+/* a point on the host's surface (points) in the menus' coordinates */
 static void ui_point_from_surface(const struct host_ui_pointer *host, float surface_x, float surface_y, short *x,
 	short *y)
 {
 	struct halo_ui_pointer_geometry g;
-	int width = (int)(host->surface_width * UI_POINTER_SCALE), height = (int)(host->surface_height * UI_POINTER_SCALE);
 
 	*x = *y = -1;
-	if (ui_pointer_geometry(&g, width, height, width, height))
+	if (ui_surface_geometry(host, &g))
 		halo_ui_pointer_map(&g, surface_x * UI_POINTER_SCALE, surface_y * UI_POINTER_SCALE, x, y);
 }
 
@@ -3736,7 +3754,6 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	if (host.surface_width > 0.0f && host.surface_height > 0.0f)
 	{
 		struct halo_ui_pointer_geometry g;
-		int width = (int)(host.surface_width * UI_POINTER_SCALE), height = (int)(host.surface_height * UI_POINTER_SCALE);
 
 		if (host.picture)
 		{
@@ -3759,7 +3776,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		{
 			ui_point_from_surface(&host, host.x, host.y, &pointer->x, &pointer->y);
 			ui_point_from_surface(&host, host.click_x, host.click_y, &pointer->click_x, &pointer->click_y);
-			if (host.radius > 0.0f && ui_pointer_geometry(&g, width, height, width, height))
+			if (host.radius > 0.0f && ui_surface_geometry(&host, &g))
 			{
 				float radius = halo_ui_pointer_length(&g, host.radius * UI_POINTER_SCALE);
 

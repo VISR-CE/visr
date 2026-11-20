@@ -1437,6 +1437,14 @@ look and pinch drives it (host_menu_gaze.h); the Apple TV has none, and its
 menus stay as they were. */
 
 static struct host_menu_pointer menu_pointer;
+/* the window's pixels: the drawable the picture is fit into, shown stretched over the window's points */
+static void menu_pointer_note_drawable(SDL_Window *window)
+{
+	int width = 0, height = 0;
+
+	host_sdl_window_pixels(window, &width, &height);
+	host_menu_pointer_set_drawable(&menu_pointer, (float)width, (float)height);
+}
 static void (*pointer_feedback)(int);
 static void (*pointer_menus_changed)(int);
 
@@ -1552,7 +1560,10 @@ static void menu_pointer_event(const SDL_Event *event)
 		return;
 	}
 	if (window && window_size(window, &width, &height))
+	{
 		host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
+		menu_pointer_note_drawable(window);
+	}
 	switch (event->type)
 	{
 	case SDL_EVENT_MOUSE_MOTION:
@@ -1832,6 +1843,7 @@ static void menu_script_run(void)
 	if ((menu_script.kind == 6 || menu_script.kind == 7) && menu_script_pinch())
 		return;
 	host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
+	menu_pointer_note_drawable(window);
 	t = menu_script.kind == 8 ? fminf(1.0f, (float)menu_script.step / 6.0f) :
 		menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
 	x = (menu_script.x0 + (menu_script.x1 - menu_script.x0) * t) * (float)width;

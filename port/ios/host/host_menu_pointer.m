@@ -2,6 +2,7 @@
    halo_ui_pointer_update reads the result through host_ui_pointer_read). The recognizer sits on the SDL
    root view beside the touch controls, takes no touch from them and cancels none. */
 #import <UIKit/UIKit.h>
+#import <QuartzCore/QuartzCore.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
 #include "host_main_thread.h"
@@ -50,6 +51,11 @@ static UIImpactFeedbackGenerator *medium_feedback;
     host_posture_layout_snapshot(&layout);
     host_menu_pointer_set_blocked(&pointer_state,host_ios_touch_blocked() || layout.laptop);
     host_menu_pointer_set_surface(&pointer_state,(float)root.bounds.size.width,(float)root.bounds.size.height);
+    /* the game's layer on this view: the picture is fit into its drawable, which the view shows stretched to its
+       bounds (the companion mirror draws into it too) */
+    CAMetalLayer *layer=(__bridge CAMetalLayer *)host_sdl_metal_layer();
+    CGSize drawable=[layer isKindOfClass:CAMetalLayer.class]?layer.drawableSize:CGSizeZero;
+    host_menu_pointer_set_drawable(&pointer_state,(float)drawable.width,(float)drawable.height);
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [self track];

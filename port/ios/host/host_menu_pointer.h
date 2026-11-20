@@ -39,6 +39,7 @@
 struct host_menu_pointer {
     int menus_active, blocked;
     float surface_width, surface_height;
+    float drawable_width, drawable_height;
     /* the finger being followed, if any */
     int tracking, device_held;
     intptr_t finger;
@@ -69,6 +70,11 @@ static inline void host_menu_pointer_clear(struct host_menu_pointer *m) {
 static inline void host_menu_pointer_set_surface(struct host_menu_pointer *m, float width, float height) {
     m->surface_width = width;
     m->surface_height = height;
+}
+/* the drawable the picture is fit into on that surface, in pixels (0: unknown) */
+static inline void host_menu_pointer_set_drawable(struct host_menu_pointer *m, float width, float height) {
+    m->drawable_width = width;
+    m->drawable_height = height;
 }
 /* a menu coming up or going away drops whatever was in flight */
 static inline void host_menu_pointer_set_menus(struct host_menu_pointer *m, int active) {
@@ -197,6 +203,8 @@ static inline void host_menu_pointer_read(struct host_menu_pointer *m, struct ho
     out->click_y = m->click_y;
     out->surface_width = m->surface_width;
     out->surface_height = m->surface_height;
+    out->drawable_width = m->drawable_width;
+    out->drawable_height = m->drawable_height;
     out->radius = m->touch == 2 ? HOST_MENU_POINTER_GAZE_RADIUS : m->touch ? HOST_MENU_POINTER_RADIUS : 0.0f;
     out->picture = m->touch == 2;
     if (!host_menu_pointer_listening(m)) {

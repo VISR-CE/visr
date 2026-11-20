@@ -613,7 +613,7 @@ def test_slider_held_pointer_and_layout(tmp_path):
 #include "host_menu_pointer.h"
 int main(void) {
  struct host_menu_pointer m = {0}; struct host_ui_pointer p;
- assert(sizeof(p) == 64 && offsetof(struct host_ui_pointer, held) == 60);
+ assert(sizeof(p) == 72 && offsetof(struct host_ui_pointer, held) == 60 && offsetof(struct host_ui_pointer, drawable_height) == 68);
  host_menu_pointer_set_menus(&m, 1);
  host_menu_pointer_touch_begin(&m, 1, 100, 100);
  host_menu_pointer_read(&m, &p); assert(p.held && p.moved);
@@ -779,7 +779,7 @@ def test_slider_pointer_abi_for_guest_and_host(tmp_path):
 #include <stddef.h>
 #include "halo_host_pointer.h"
 #include "halo_ui_pointer.h"
-_Static_assert(sizeof(struct host_ui_pointer) == 64, "host size");
+_Static_assert(sizeof(struct host_ui_pointer) == 72, "host size");
 _Static_assert(offsetof(struct host_ui_pointer, x) == 20, "position offset");
 _Static_assert(offsetof(struct host_ui_pointer, picture) == 48, "picture offset");
 _Static_assert(offsetof(struct host_ui_pointer, held) == 60, "held offset");

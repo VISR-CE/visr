@@ -33,6 +33,8 @@ HARNESS = r'''
 #include "halo_ui_pointer.h"
 #include "halo_ui_layout.h"
 #include "halo_menu_screen.h"
+#include "halo_ui_pointer_map.h"
+#include "halo_host_pointer.h"
 #define CONFIG_SCENE_MENU 1
 #define TRUE 1
 #define FALSE 0
@@ -73,6 +75,11 @@ static void draw_quad(rectangle2d const *r, unsigned color) {
     if (x < quad_left) quad_left = x;
     if (y < quad_top) quad_top = y;
 }
+/* the guest's back buffer, as the pointer's geometry reads it (ui_pointer_geometry) */
+struct render_target_entry { struct { int gl_width, gl_height, width, height; } target; };
+static struct { int back_buffer; } device;
+static struct render_target_entry back;
+static struct render_target_entry *render_target_get(const int *surface) { (void)surface; return &back; }
 static rectangle2d blits[2];
 static int blit_count;
 static void controller_glyph_blit(struct bitmap_data *bitmap, rectangle2d const *bounds, rectangle2d const *source,
@@ -83,6 +90,7 @@ static void controller_glyph_blit(struct bitmap_data *bitmap, rectangle2d const 
 }
 __HELPERS__
 __CALL_SITES__
+__POINTER__
 struct viewport { float viewport_scale[1][4], viewport_offset[1][4]; };
 /* where a menu-unit point lands on the screen, 0..width by 0..480, through the draw's coefficients (the menu
 window's while it is drawing) */
@@ -181,6 +189,50 @@ static void edge_controls(void) {
     /* never left of the clip it was asked for */
     assert(ui_widget_safe_left(100) >= 100);
 }
+/* Taps at the center of 36-unit targets all over the menus, through the picture's way to the glass (the menu
+window's draw, the picture fit into the drawable, the drawable stretched over the surface) and back through the
+production pointer (ui_point_from_surface, menu_window_pointer): each lands on its target. surface_height is in
+points; drawable_stretch makes the drawable's shape lag the surface's, as after a rotation or a move between
+screens. */
+static void taps(float surface_height, float drawable_stretch) {
+    float surface_width = surface_height * width / 480.0f;
+    float drawable_width = roundf(surface_width * 3 * drawable_stretch), drawable_height = roundf(surface_height * 3);
+    float fit = halo_ui_layout_scale(width), offset = halo_ui_layout_y_offset(width);
+    int worst = 0;
+
+    back.target.width = width; back.target.height = 480;
+    back.target.gl_width = width * 4; back.target.gl_height = 1920;
+    halo_screen_menu_window(1);
+    for (int y0 = 0; y0 + 36 <= 480; y0 += 11)
+        for (int x0 = 0; x0 + 36 <= 640; x0 += 13) {
+            float cx = x0 + 18.0f, cy = y0 + 18.0f, sx, sy;
+            if (width < 640) { sx = cx * fit; sy = cy * fit + offset; }
+            else drawn(cx, cy, &sx, &sy);
+            /* the picture (screen units) fit into the drawable, centered and keeping its shape */
+            float picture = (float)width / 480.0f, w = drawable_width, h = w / picture;
+            if (h > drawable_height) { h = drawable_height; w = h * picture; }
+            float px = (drawable_width - w) / 2 + sx / width * w, py = (drawable_height - h) / 2 + sy / 480.0f * h;
+            struct host_ui_pointer host = {0};
+            struct halo_ui_pointer pointer = {0};
+            host.surface_width = surface_width; host.surface_height = surface_height;
+            host.drawable_width = drawable_width; host.drawable_height = drawable_height;
+            ui_point_from_surface(&host, px * surface_width / drawable_width, py * surface_height / drawable_height,
+                &pointer.x, &pointer.y);
+            pointer.click_x = pointer.x; pointer.click_y = pointer.y;
+            halo_screen_menu_window(0);
+            menu_window_pointer(&pointer);
+            halo_screen_menu_window(1);
+            int ex = abs(pointer.x - (int)cx), ey = abs(pointer.y - (int)cy);
+            if (ex > worst) worst = ex;
+            if (ey > worst) worst = ey;
+        }
+    halo_screen_menu_window(0);
+    printf("  taps at %.0f pt high, drawable %.0fx%.0f: worst %d units\n", surface_height, drawable_width,
+        drawable_height, worst);
+    /* the pointer's point is whole menu units before the window's zoom is undone (halo_ui_pointer_map), so below
+       zoom one its rounding grows by a unit */
+    assert(worst <= (fabsf(menu_draw_zoom - 1.0f) > 0.001f ? 2 : 1));
+}
 int main(int argc, char **argv) {
     /* each argument: width x points-height : left,right,top,bottom insets, in the order a session meets them */
     for (int i = 1; i < argc; i++) {
@@ -203,6 +255,8 @@ int main(int argc, char **argv) {
         halo_screen_menu_window(0);
         if (width >= 640)
             back_chevron();
+        taps((float)height, 1.0f);
+        taps((float)height, 1.03f);
         /* outside the menu window (the fade): the screen at zoom one */
         if (width >= 640) {
             struct halo_menu_screen screen;
@@ -231,6 +285,11 @@ def probe(tmp_path_factory):
     helpers = source[source.index("static int menu_window_drawing;"):source.index("/* render_window calls this once")]
     widget = (ROOT / "source/interface/ui_widget.c").read_text()
     keyboard = (ROOT / "source/interface/virtual_keyboard.c").read_text()
+    pointer = "\n".join([
+        function(source, "static int ui_pointer_geometry("),
+        function(source, "static int ui_surface_geometry("),
+        function(source, "static void ui_point_from_surface("),
+    ]).replace("#define UI_POINTER_SCALE", "#define UI_POINTER_SCALE_UNUSED")
     call_sites = "\n".join([
         function(widget, "static long ui_widget_safe_left("),
         function(widget, "static void ui_touch_back_chevron_draw("),
@@ -243,9 +302,10 @@ def probe(tmp_path_factory):
     folder = tmp_path_factory.mktemp("menu_fill_reach")
     path, binary = folder / "reach.c", folder / "reach"
     path.write_text(HARNESS.replace("__HELPERS__", helpers).replace("__CALL_SITES__", call_sites)
+                    .replace("__POINTER__", "#define UI_POINTER_SCALE 8.0f\n" + pointer)
                     .replace("__COEFFICIENTS__", source[start:end]))
     subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function",
-                    "-I", str(ROOT / "port/linux/src"), "-idirafter", str(ROOT / "port/linux/include"),
+                    "-I", str(ROOT / "port/linux/src"), "-I", str(ROOT / "port/runtime/include"), "-idirafter", str(ROOT / "port/linux/include"),
                     str(path), str(ROOT / "port/linux/src/menu_scale.c"), "-lm", "-o", str(binary)], check=True)
     return binary
 

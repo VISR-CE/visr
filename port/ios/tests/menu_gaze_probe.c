@@ -238,11 +238,12 @@ static void pinches(void) {
 
 static void picture(void) {
     short x, y;
-    /* a 16:9 screen is 853 wide: the menus' 640 columns from 106.5 */
+    /* a 16:9 screen is 853 wide: the menus' 640 columns from 106, the whole columns of the drawn margin
+       (halo_screen_ui_offset) */
     halo_ui_pointer_map_picture(0.5f, 0.5f, 853, &x, &y);
     assert(abs(x - 320) <= 1 && y == 240);
     halo_ui_pointer_map_picture(0.0f, 0.0f, 853, &x, &y);
-    assert(x == -107 && y == 0);
+    assert(x == -106 && y == 0);
     halo_ui_pointer_map_picture(0.9999f, 0.9999f, 640, &x, &y);
     assert(x == 639 && y == 479);
     /* Portrait: half-size menu centered between picture lines 120 and 360. */
