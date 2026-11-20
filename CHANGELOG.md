@@ -1,3 +1,29 @@
+## visr-v0.6.20 (2026-11-20)
+
+### Summary
+
+- On iOS, set LAN broadcast to "auto" in network settings and confirm your game shows up for other players on the same local network.
+- Host a LAN game from an iOS device and check whether nearby players can find it.
+- Play in larger multiplayer games and listen for audio hitches or stutters during busy moments.
+- Watch for frame-time spikes in big matches while lots of sounds are playing.
+- Let sounds finish naturally and check that they end cleanly, with no cutoffs or lingering audio.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### fix
+
+- **net**: sign iOS and visionOS builds with the multicast entitlement so `network.lan_broadcast = "auto"` broadcasts — `feat/multicast-entitlement` (`ae7ce523f`) never reached `main`, so no file in `port/ios/*.entitlements` carried `com.apple.developer.networking.multicast`, `HALO_MULTICAST_ENTITLED` stayed undefined and the broadcast code in `host/host_bonjour.m` was compiled out; `VISR-iOS.entitlements` (new, for non-extended device builds), `VISR-iOS-extended.entitlements` and both visionOS files now carry it, `validate_profile_entitlements` names the missing capability, and `tools/test_multicast_entitlement.py` fails if a file the iOS or visionOS branches pick lacks the key (tvOS and Catalyst are unchanged)
+
+### perf
+
+- **audio**: do not wait for the mixer when completing finished packets — `streams_complete_finished` took every voice's lock each frame and waited whenever the audio thread held one, which cost 0.6-0.9 ms per frame in 32-128 player games with single waits up to 34 ms; it now uses `pthread_mutex_trylock`, leaves a busy voice for the next pass, and waits only after `MAXIMUM_COMPLETION_SKIPS` passes in a row
+
 ## visr-v0.6.19 (2026-11-17)
 
 ### Summary
