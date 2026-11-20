@@ -163,7 +163,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/player_count_label" type="text" controller="1" width="176" height="22" font="ui\small_ui" color="#FF2896FF" text_flags="no_focus_test">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/screen_stats_container" controller="1" width="544" height="61" color="#FF2896FF" align="right" left="48" top="328" bitmap="xbox/browser/browser_status">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/screen_stats_container" controller="1" width="544" height="64" color="#FF2896FF" align="right" left="48" top="328" bitmap="xbox/browser/browser_status">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_count_label" x="326" y="76" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/player_count_label" x="48" y="76" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/page_count_label" x="226" y="76" />

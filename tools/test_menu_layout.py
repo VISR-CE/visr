@@ -156,3 +156,27 @@ def test_no_screen_draws_a_button_bar_under_its_legend():
         if legend and bars:
             both.append((name, bars))
     assert both == []
+
+
+def test_a_box_is_as_large_as_the_drawing_of_ours_it_shows():
+    """A widget cuts its picture to its own size. A box that shows one of our own drawings whole (a single frame
+    from xbox/art with no placement of its own) must be at least the drawing's size, or it loses an edge: the
+    browser's status box was 3 units shorter than its drawing and drew no bottom border."""
+    bitmaps = {}
+    for path in sorted(XBOX.glob('*.xml')):
+        for bitmap in ET.parse(path).getroot().iter('bitmap'):
+            bitmaps[bitmap.get('name')] = bitmap
+    checked, cut = 0, []
+    for name, widget in WIDGETS.items():
+        bitmap = bitmaps.get(widget.get('bitmap'))
+        frames = bitmap.findall('frame') if bitmap is not None else []
+        # (xbox/art/none.png is the transparent picture: nothing of it can be cut)
+        if len(frames) != 1 or not frames[0].get('png', '').startswith('xbox/art/') or frames[0].get('map') \
+                or frames[0].get('png') == xbox_menus.NONE_PNG \
+                or frames[0].get('x') or frames[0].get('y') or widget.get('height') is None:
+            continue
+        checked += 1
+        if int(widget.get('height')) < int(frames[0].get('height')) or \
+                int(widget.get('width', 640)) < int(frames[0].get('width')):
+            cut.append((name, widget.get('width'), widget.get('height'), frames[0].get('width'), frames[0].get('height')))
+    assert checked >= 2 and cut == [], cut

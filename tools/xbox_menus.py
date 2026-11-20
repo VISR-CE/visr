@@ -1614,6 +1614,10 @@ def gametype_select_layout(root, widgets, bitmaps):
             root.remove(existing)
 
 
+# the browser's status box: its drawing's size (xbox/art/browser_status__0.png), which the box takes too
+BROWSER_STATUS = (544, 64)
+
+
 def browser_layout(root, widgets, bitmaps):
     base = 'xbox/' + MP + '/join_game'
     get = lambda leaf: widgets[base + '/' + leaf]
@@ -1692,7 +1696,9 @@ def browser_layout(root, widgets, bitmaps):
     for leaf in ('ticker_player_info', 'ticker_rules_info'):
         get(leaf).attrib.update(width='518', height='24', color='#FFFFFFFF')
     panel = get('screen_stats_container')
-    panel.attrib.update(left='48', top='328', width='544', height='61',
+    # (the box is as large as its drawing: a widget cuts its picture to its own size, and a shorter box lost the
+    # drawing's bottom border)
+    panel.attrib.update(left='48', top='328', width=str(BROWSER_STATUS[0]), height=str(BROWSER_STATUS[1]),
                         bitmap='xbox/browser/browser_status')
     # Bounds do not translate children: stats stay over the column headers,
     # while the description background sits below the ninth server row.
@@ -1728,7 +1734,8 @@ def browser_layout(root, widgets, bitmaps):
         ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + art, index='0',
                       png=f'xbox/art/{button[0]}_butn.png', **size)
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/browser_status')
-    ET.SubElement(bitmap, 'frame', png='xbox/art/browser_status__0.png', width='544', height='64')
+    ET.SubElement(bitmap, 'frame', png='xbox/art/browser_status__0.png', width=str(BROWSER_STATUS[0]),
+                  height=str(BROWSER_STATUS[1]))
     # A shared, inset redraw keeps the cap and right edge inside every row.
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/row')
     for index in (0, 1):
