@@ -27,7 +27,6 @@ struct pc_menu_setting
 };
 struct player_profile { int name, color; struct { int sensitivity; } controller_settings; wchar_t player_name[12]; };
 #define primary_color_index color
-static struct { short color; } color_list;
 static char const *config_string(char const *name);
 static struct player_profile disk_profile = { 1, 2, { 3 }, L"Player" }, edit_profile;
 static long edit_index = 7;
@@ -107,8 +106,9 @@ int main(void)
 	edit_profile.name = 123;
 	pc_menu_profile_name_saved(L"Other dialog");
 	assert(saves == 2 && disk_profile.name == 99);
-	color_list.color = 4;
-	assert(color_choose() && saves == 3 && disk_profile.color == 4 && disk_profile.name == 123);
+	/* (the game's own color picker saves through the same call) */
+	edit_profile.color = 4;
+	assert(pc_menu_profile_save_on_back() && saves == 3 && disk_profile.color == 4 && disk_profile.name == 123);
 	edit_profile.name = 456;
 	assert(pc_menu_profile_save_on_back() && saves == 4 && disk_profile.name == 456);
 	assert(pc_menu_profile_save_on_back() && saves == 4);

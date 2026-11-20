@@ -17,7 +17,7 @@ def test_settings_and_bindings_persist_without_save(tmp_path):
     functions = '\n'.join(block(source, signature) for signature in (
         'static boolean setting_changed_save(', *required, 'static boolean setting_default_show(',
         'boolean pc_menu_profile_auto_save_enabled(', 'boolean pc_menu_profile_save_on_back(',
-        'void pc_menu_profile_name_saved(', 'static boolean color_choose('))
+        'void pc_menu_profile_name_saved('))
     controls = source[source.index('#define CONTROL_BINDINGS'):source.index('static struct widget_instance *control_row(')]
     controls += '\n' + block(source, 'static void control_capture_poll(')
     fixture = (ROOT / 'port/ios/tests/menu_apply_now_probe.c').read_text()

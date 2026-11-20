@@ -1970,87 +1970,8 @@ static void video_rows_show(struct widget_instance *list)
 	}
 }
 
-/* ---------- Change Color: the profile's color, from a list of the
-game's colors (more than its rows: it scrolls), by the Xbox's names for
-its spinner's functions */
-
+/* the game's player colors */
 #define COLOR_COUNT 18
-#define COLOR_ROWS 11
-
-static struct
-{
-	/* the color on the first row, and the color chosen */
-	short first;
-	short color;
-} color_list;
-
-static void color_row_text(short row, wchar_t *text)
-{
-	string_get("pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\color_edit\\colors_list",
-		(short)(color_list.first + row), text);
-}
-
-/* "color picker menu initialize": on the profile's color */
-static boolean color_list_initialize(struct widget_instance *list)
-{
-	struct player_profile *profile = player_ui_get_edit_player_profile();
-
-	if (!profile)
-		return FALSE;
-	color_list.color = (short)PIN(profile->primary_color_index, 0, COLOR_COUNT - 1);
-	color_list.first = (short)PIN(color_list.color - COLOR_ROWS / 2, 0, COLOR_COUNT - COLOR_ROWS);
-	focus_row(list, (short)(color_list.color - color_list.first));
-	return TRUE;
-}
-
-/* a list of more items than its rows: the row chosen kept off its ends
-while there are more past them, the list moving instead; the item chosen,
-or NONE (its buttons) */
-static short list_scroll(struct widget_instance *list, short *first, short count, short rows)
-{
-	short row = focused_row(list);
-
-	if (row == rows - 1 && *first + rows < count)
-	{
-		(*first)++;
-		focus_row(list, --row);
-	}
-	else if (row == 0 && *first > 0)
-	{
-		(*first)--;
-		focus_row(list, ++row);
-	}
-	return row == NONE || row >= rows ? NONE : (short)(*first + row);
-}
-
-/* "color picker update": the list scrolled on at its ends, the color's
-name and picture */
-static void color_list_update(struct widget_instance *list)
-{
-	struct widget_instance *description = list->parameters.list.extended_description;
-	struct widget_instance *widget;
-	short color = list_scroll(list, &color_list.first, COLOR_COUNT, COLOR_ROWS);
-
-	if (color != NONE)
-		color_list.color = color;
-	rows_update(list, COLOR_ROWS, color_row_text);
-	if ((widget = named(description, "color_right_name", 0)) != NULL)
-		widget->parameters.text_box.string_list_index = color_list.color;
-	if ((widget = named(description, "color_right_pic", 0)) != NULL)
-		widget->animation.current_frame_index = color_list.color;
-	profile_name_show(description);
-}
-
-/* "color picker select color" */
-static boolean color_choose(void)
-{
-	struct player_profile *profile = player_ui_get_edit_player_profile();
-
-	if (!profile)
-		return FALSE;
-	profile->primary_color_index = color_list.color;
-	return pc_menu_profile_save_on_back();
-}
 
 /* ---------- Edit Profile Settings: its picture of Gamepad Setup, the
 profile's button settings as the Xbox's Controller Setup shows them */
@@ -7656,14 +7577,6 @@ boolean pc_menu_event_function_invoke(
 		{
 			return profile_delete();
 		}
-		else if (!strcmp(name, "color picker menu initialize"))
-		{
-			return color_list_initialize(widget);
-		}
-		else if (!strcmp(name, "color picker select color"))
-		{
-			return color_choose();
-		}
 		else if (!strcmp(name, "controls binding slot"))
 		{
 			controls_screen.slot = (short)!controls_screen.slot;
@@ -7798,8 +7711,6 @@ void pc_menu_game_data_function_invoke(
 	}
 	else if (!strcmp(name, "controls update menu"))
 		controls_update(widget);
-	else if (!strcmp(name, "color picker update"))
-		color_list_update(widget);
 	else if (!strcmp(name, "3wide player profile list update"))
 		profile_list_update(widget);
 	else if (!strcmp(name, "port gamepad layout preview"))

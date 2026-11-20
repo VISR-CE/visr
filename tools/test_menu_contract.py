@@ -19,8 +19,6 @@ HANDLERS = (ROOT / 'source/interface/ui_widget_event_handler_functions.c').read_
 # Remove an entry when its lookup goes or its widget arrives; nothing new belongs here.
 LOOKUPS_OUTSIDE_THE_XBOX_XML = {
     'op_server_password': 'a row no XML defines: the lookup is dead code to remove',
-    'color_right_name': 'PC-look profile color screen; leaves with the PC look',
-    'color_right_pic': 'PC-look profile color screen; leaves with the PC look',
     'difficulty_indicator': 'PC-look difficulty screen; leaves with the PC look',
     'list_item_0_chooser_spinner': 'PC-look campaign chooser; leaves with the PC look',
 }
