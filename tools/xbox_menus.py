@@ -2290,9 +2290,6 @@ def screen_pairs():
     pairs.append(('pc/xbox/error/confirm_join_big_modal_fullscreen', 'error/confirm_join_big_modal_fullscreen'))
     pairs.append(('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen',
                   'main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen'))
-    for group in ('vehicle', 'teamplay'):
-        name = f'main_menu/settings_select/multiplayer_setup/{group}_options_edit/{group}_options_screen'
-        pairs.append(('ui/shell/' + name, name))
     return [(x.replace('/', '\\'), ('pc/' + pc).replace('/', '\\')) for x, pc in pairs]
 
 
