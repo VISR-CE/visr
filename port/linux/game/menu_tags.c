@@ -2931,6 +2931,8 @@ static boolean patch_rows_tall(struct patch_work *work)
 	return TRUE;
 }
 
+static void option_columns_fit(struct ui_widget_definition const *list, char const *name);
+
 static void patch_apply(struct cache_file_tag_instance *instances, struct halo_menu_patch const *patch)
 {
 	struct halo_menus const *menus = build.menus;
@@ -3110,6 +3112,10 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 	memcpy(grown, work->rows, work->count * sizeof(*grown));
 	work->list->child_widgets.address = grown;
 	work->list->child_widgets.count = work->count;
+	/* standard tall rows keep the standard value column: as wide as the list's widest value, so a switch, a
+	dropdown or a slider has the room the menus' own rows give it, whatever width the map gave each spinner */
+	if (patch->rows)
+		option_columns_fit(work->list, patch->list);
 	/* (the list draws within its bounds) */
 	if (bottom - work->list_y > work->list->bounds.y1)
 		work->list->bounds.y1 = (short)(bottom - work->list_y);
@@ -3155,7 +3161,7 @@ clear of the touch dropdown's chevron (menu_geometry.h) */
 #define OPTION_VALUE_MINIMUM_WIDTH MENU_VALUE_MINIMUM_WIDTH
 #define OPTION_MAX(a, b) ((a) > (b) ? (a) : (b))
 
-/* a settings list's value column (each op_ row's spinner) as wide as the
+/* a settings list's value column (each row's spinner) as wide as the
 widest value of any of its rows, measured in its font, and the same for
 every row; the column keeps its right edge, so the spinners and their
 arrows stay where the rows' ends are and the labels keep the rest. Values
@@ -3179,7 +3185,8 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 		struct ui_widget_child_reference *pieces;
 		long piece;
 
-		if (strncmp(rows[row].name, "op_", 3) || rows[row].widget_tag.index == NONE)
+		/* (any row: one with no spinner only tells how far its label reaches) */
+		if (rows[row].widget_tag.index == NONE)
 			continue;
 		definition = tag_get(UI_WIDGET_DEFINITION_TAG, rows[row].widget_tag.index);
 		pieces = definition->child_widgets.address;

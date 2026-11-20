@@ -680,7 +680,9 @@ static void options_build(void)
 		long spinner;
 
 		snprintf(name, sizeof(name), "ui\\shell\\options\\%s_spinner", names[row]);
-		spinner = widget_add(name, _widget_type_spinner_list, 300, 0, 400, 28);
+		/* (as the map's are: each as wide as its author made it, here 100, 60 and 100) */
+		spinner = widget_add(name, _widget_type_spinner_list, 300, 0, row == 1 ? 360 : 400, 28);
+		definition_of(spinner)->text_font.index = 0;
 		snprintf(name, sizeof(name), "ui\\shell\\options\\%s_values", names[row]);
 		reference_set(&definition_of(spinner)->text_label_string_list, UNICODE_STRING_LIST_TAG,
 			strings_add(strdup(name), values[row]));
@@ -1005,6 +1007,19 @@ static void check_apple(boolean tvos)
 				check(definition->child_widgets.count == 1 && parts[0].vertical_offset == 5,
 					"a tall row's value moves down with it (%d)", parts[0].vertical_offset);
 				check(pc_menu_row_tall(placed->widget_tag.index), "the engine is told the row is tall");
+				/* Bug class: a standard row's value drawn in whatever width the map gave its spinner. The rows share
+				one value column: as wide as the widest value (5 letters of 8) and its margins, ending where the
+				widest spinner ended (400). */
+				{
+					struct ui_widget_definition const *spinner = definition_of(parts[0].widget_tag.index);
+
+					check(spinner->bounds.x1 - spinner->bounds.x0 == 40 + 2 * MENU_VALUE_MARGIN,
+						"a tall row's value has the standard column's width (row %ld: %d)", row,
+						spinner->bounds.x1 - spinner->bounds.x0);
+					check(parts[0].horizontal_offset + spinner->bounds.x1 == 400,
+						"tall rows' values end at one edge (row %ld: %d)", row,
+						parts[0].horizontal_offset + spinner->bounds.x1);
+				}
 			}
 			check(!pc_menu_row_tall(op_rows[0]), "a row the patch removed is not made tall");
 			check(!pc_menu_row_tall(children_of(ad_list)[0].widget_tag.index), "a list whose patch does not ask keeps its rows");
