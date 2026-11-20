@@ -284,10 +284,12 @@ def test_publish_reads_archive_after_xcode_consumes_normal_product(
         validation, "toolchain", lambda _, **kw: {"root": str(kw["root"])}
     )
     monkeypatch.setattr(
-        validation,
-        "check_feeds",
-        lambda _, **kw: (
-            None if kw["root"] == application else pytest.fail("feeds use controller")
+        publisher,
+        "run_in_source",
+        lambda root, check: (
+            None
+            if (root, check) == (application, "check_feeds")
+            else pytest.fail("feeds use controller")
         ),
     )
     commands = []

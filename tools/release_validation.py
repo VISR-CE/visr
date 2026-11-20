@@ -97,6 +97,11 @@ def require_feed_host(policy: dict[str, Any]) -> None:
             raise ValueError(f"{name} must be on https://{FEED_HOST}/, where new releases read their feeds")
 
 
+# Checks whose verdict depends on constants the source defines (feed generation, bundled profiles, key table). The
+# release controller runs them through `release.run_in_source`, never directly.
+SOURCE_BOUND_CHECKS = ("require_asset_policy", "check_feeds")
+
+
 def require_asset_policy(policy: dict[str, Any]) -> None:
     if not {"profile_feed_sha256s", "shader_feed_url", "shader_feed_sha256"} <= set(
         policy

@@ -1007,7 +1007,7 @@ def test_publish_uses_summary_for_testflight_and_full_entry_for_github(
 
     monkeypatch.setenv("RELEASE_BUILD_POLICY", json.dumps(policy()))
     monkeypatch.setattr(release_validation, "toolchain", lambda *_, **__: {})
-    monkeypatch.setattr(release_validation, "check_feeds", lambda *_, **__: None)
+    monkeypatch.setattr(release, "run_in_source", lambda *_, **__: None)
 
     release.publish(type("Args", (), {"source_root": tmp_path})())
 
@@ -1776,7 +1776,7 @@ def test_partial_release_resume_polls_uploading_platform_without_build_or_upload
     monkeypatch.setattr(release, "publish_context", lambda _: (tmp_path, manifest))
     monkeypatch.setenv("RELEASE_BUILD_POLICY", json.dumps(policy()))
     monkeypatch.setattr(release_validation, "toolchain", lambda *_, **__: {})
-    monkeypatch.setattr(release_validation, "check_feeds", lambda *_, **__: None)
+    monkeypatch.setattr(release, "run_in_source", lambda *_, **__: None)
     release.publish(type("Args", (), {"source_root": tmp_path})())
     assert all(command[:2] == ("git", "rev-parse") for command in commands)
     assert all(call[0] == "GET" for call in apple.calls)
