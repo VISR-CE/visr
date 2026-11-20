@@ -1434,8 +1434,7 @@ text = "DELETE GAMETYPE"
 description = "Delete this gametype."
 
 [xbox.patches.gametype_item_game]
-text = "GAME"
-description = "Score, time limit, and team rules."
+text = "GAME OPTIONS"
 
 [xbox.patches.gametype_item_vehicles]
 text = "VEHICLES"

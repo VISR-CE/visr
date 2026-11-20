@@ -2208,10 +2208,10 @@ def patch_document(names):
               description='Delete this gametype.')
     # The GAME screen holds the rules the type-specific pages used to (score, time limit, teams); the indicators
     # row moved into it as TEAMS HUD, and VEHICLES opens the vehicle options screen.
-    patch_row(gametype, after=GTE + 'playlist_edit_game_type_item', pitch=COMFORTABLE_PITCH,
-              name='gametype_item_game', text='GAME',
-              open='xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen',
-              picture='bitmap:xbox/pictures/gametype', description='Score, time limit, and team rules.')
+    # GAME OPTIONS (the disc's game type row, its picture and description kept) opens that page itself: the
+    # rules page of each gametype is reached from the page's TYPE row (op_type_*), so the GAME row is gone.
+    patch_row(gametype, 'replace', child=GTE + 'playlist_edit_game_type_item', name='gametype_item_game',
+              text='GAME OPTIONS', open='xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen')
     patch_row(gametype, 'remove', child=GTE + 'playlist_edit_indicators_item')
     patch_row(gametype, after=GTE + 'playlist_edit_items_list_item', pitch=COMFORTABLE_PITCH,
               name='gametype_item_vehicles', text='VEHICLES',

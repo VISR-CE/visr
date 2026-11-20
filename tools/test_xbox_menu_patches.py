@@ -290,3 +290,21 @@ def test_back_from_a_screen_opened_in_the_hub_flow_reaches_the_screen_below():
     for target in opened:
         name = "pc\\" + target.replace("/", "\\")
         assert any(name.startswith(p) for p in prefixes), f"BACK from {target} would leave the hub flow"
+
+
+def test_gametype_editor_has_one_game_options_row_that_reaches_every_rules_page():
+    """GAME OPTIONS (the disc's game type row) opens the shared game settings page and there is no GAME row; that
+    page's TYPE row for each gametype opens its rules page, so no gametype's rules are unreachable."""
+    patch = next(p for p in table() if p.get("screen").endswith("gametype_edit_screen"))
+    texts = [r.get("text") for r in rows(patch)]
+    assert "GAME" not in texts
+    (row,) = [r for r in rows(patch) if r.tag == "replace" and r.get("child").endswith("playlist_edit_game_type_item")]
+    page = row.get("open")
+    assert page.endswith("game_options_edit/game_options_screen")
+    opened = set()
+    for path in MENUS.glob("main_menu.multiplayer_type_select.game_options_edit.xml"):
+        for widget in ET.parse(path).getroot().iter("widget"):
+            if widget.get("name", "").rsplit("/", 1)[-1].startswith("op_type_"):
+                opened.update(h.get("open") for h in widget.iter("on") if h.get("event") == "a")
+    for engine in ("ctf", "koth", "slayer", "oddball", "race"):
+        assert any(o and o.endswith(f"playlist_edit/{engine}_edit/{engine}_options_screen") for o in opened), engine
