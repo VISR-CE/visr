@@ -57,11 +57,6 @@ used, else the first) and the game's saved game in it:
 The Xbox's functions of those names take the Xbox's widgets (a spinner of
 levels, the difficulty list itself), so ours run instead (menu_tags.c).
 
-Co-op (the Xbox's Cooperative Play, Multiplayer's CO-OP CAMPAIGN): "port coop
-begin" makes two players, player 1 on its profile; "port coop player 2"
-gives player 2 the profile chosen and the controller that chose it; then the
-campaign's New Game and difficulty start the game for both.
-
 The rest are the PC version's, which its menus (port/assets/menus/ce)
 name and the Xbox's has not: they do nothing yet, and succeed, so that what
 their handlers open opens.
@@ -846,8 +841,7 @@ static void rows_update(struct widget_instance *list, short count, void (*row_te
 }
 
 /* player 1's profile, read again (the active one, else the one last used,
-else the first), on the controller (in co-op, on the one that chose co-op:
-coop_begin); FALSE if there is none */
+else the first), on the controller; FALSE if there is none */
 static boolean campaign_profile(short controller, struct player_profile *profile)
 {
 	long profile_index = player_ui_get_active_player_profile_index(0);
@@ -2243,78 +2237,6 @@ static boolean profile_delete(void)
 			player_ui_set_active_player_profile(0, NONE, &profile);
 		}
 	}
-	return TRUE;
-}
-
-/* ---------- Co-op: the campaign for two players on this machine, in split
-screen (the Xbox's Cooperative Play, which the PC version has not):
-Multiplayer's CO-OP CAMPAIGN ("port coop begin"), player 2's profile, chosen
-with player 2's controller ("port coop player 2"), then New Game's levels
-(those either has reached) and difficulty, with either player's controller
-(ui_widget.c, widget_takes_events_of_controller). The main menu and
-Multiplayer go back to one player (main_menu_initialize,
-multiplayer_type_menu_initialize).
-With one gamepad, it is player 2's (pc_menu_split_players) */
-
-/* "port coop begin": two players, player 1 on its profile (campaign_profile)
-and the controller that chose co-op */
-static boolean coop_begin(short controller)
-{
-	struct player_profile profile;
-
-	player_spawn_count = 1;
-	player_ui_reset_single_player_local_player_controllers();
-	if (!campaign_profile(controller, &profile))
-		return campaign_fail();
-	player_spawn_count = 2;
-	return TRUE;
-}
-
-/* "port coop player 2 list initialize": on player 2's profile, else the first
-that is not player 1's */
-static boolean coop_player2_list_initialize(struct widget_instance *list)
-{
-	long player1 = player_ui_get_active_player_profile_index(0);
-	long player2 = player_ui_get_active_player_profile_index(1);
-	short index;
-
-	profile_list_read(TRUE);
-	profile_list.chosen = 0;
-	for (index = profile_list.count - 1; index >= 0; index--)
-	{
-		if (profile_list.indices[index] != player1)
-			profile_list.chosen = index;
-	}
-	for (index = 0; index < profile_list.count && player2 != NONE; index++)
-	{
-		if (profile_list.indices[index] == player2)
-			profile_list.chosen = index;
-	}
-	profile_list.first = (short)PIN(profile_list.chosen - PROFILE_ROWS / 2, 0,
-		MAX(0, profile_list.count + 1 - PROFILE_ROWS));
-	focus_row(list, (short)(profile_list.chosen - profile_list.first));
-	return TRUE;
-}
-
-/* "port coop player 2": the profile chosen made player 2's, on the controller
-that chose it, which must not be player 1's */
-static boolean coop_player2_choose(short controller)
-{
-	struct player_profile profile;
-
-	if (player_spawn_count < 2 || profile_list.chosen >= profile_list.count ||
-		!player_profile_get(profile_list.indices[profile_list.chosen], &profile))
-	{
-		return campaign_fail();
-	}
-	if (controller == player_ui_get_single_player_local_player_controller(0))
-	{
-		display_error_text_deferred(L"Player 2 chooses their\r\nprofile with their own\r\ncontroller.",
-			NONE);
-		return campaign_fail();
-	}
-	player_ui_set_single_player_local_player_controller(1, controller);
-	player_ui_set_active_player_profile(1, profile_list.indices[profile_list.chosen], &profile);
 	return TRUE;
 }
 
@@ -7576,18 +7498,6 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port lobby preview leave"))
 		{
 			return preview_leave(controller);
-		}
-		else if (!strcmp(name, "port coop begin"))
-		{
-			return coop_begin(controller);
-		}
-		else if (!strcmp(name, "port coop player 2 list initialize"))
-		{
-			return coop_player2_list_initialize(widget);
-		}
-		else if (!strcmp(name, "port coop player 2"))
-		{
-			return coop_player2_choose(controller);
 		}
 		else if (!strcmp(name, "request del player profile"))
 		{
