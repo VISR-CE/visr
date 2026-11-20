@@ -7500,6 +7500,9 @@ static void ui_touch_back_chevron_draw(
 	if (!(ui_touch_back_seen || ui_touch_back_generic) || ui_mouse_radius <= 0 ||
 		ui_mouse_target_count >= UI_MOUSE_MAXIMUM_TARGETS)
 		return;
+	/* drawn in the menu window, like its tap target, the title's helmet it sits beside and the
+	safe edge it keeps clear of (ui_widget_safe_left): all in the window's units */
+	halo_screen_menu_window(1);
 	if (ui_touch_title_seen)
 	{
 		/* (the title group itself moves clear of the safe inset, menu_title_touch_shift) */
@@ -7508,7 +7511,10 @@ static void ui_touch_back_chevron_draw(
 	}
 	else
 	{
-		cy = clip->y0 + reach / 2 + 4;
+		struct halo_menu_screen screen;
+
+		halo_screen_menu_screen_rect(TRUE, &screen);
+		cy = MAX(clip->y0, screen.safe_y0) + reach / 2 + 4;
 		cx = clip->x0 + reach / 2 + 4;
 		/* never under a camera cutout or rounded corner: the menu clip can run wider than the screen's safe area */
 		cx = MAX(cx, safe_left + reach / 2 + 2);
@@ -7532,6 +7538,7 @@ static void ui_touch_back_chevron_draw(
 	ui_mouse_targets[ui_mouse_target_count].kind = _ui_mouse_target_button;
 	ui_mouse_targets[ui_mouse_target_count].button_index = _gamepad_analog_button_b;
 	ui_mouse_target_count++;
+	halo_screen_menu_window(0);
 }
 
 /* port: the press-and-hold feedback and the context menu, drawn over the screen: the held item's outline
@@ -10278,10 +10285,13 @@ void render_ui_widgets(
 	else
 	{
 		/* port: the in-game keyboard is a menu screen too: the safe-area zoom keeps it clear of
-		a camera cutout (halo_screen_menu_window) */
+		a camera cutout (halo_screen_menu_window), over the game as well as in the menus, with
+		the menus' usual content span (it has no widgets to give one) */
+		halo_screen_menu_content(MENU_CONTENT_TOP, MENU_CONTENT_BOTTOM);
 		halo_screen_menu_window(1);
 		virtual_keyboard_render();
 		halo_screen_menu_window(0);
+		halo_screen_menu_content(0.0f, 0.0f);
 	}
 
 	return;

@@ -54,6 +54,25 @@ float halo_screen_pixel_scale(void) { return 3; }
 void platform_video_window_size(int *w, int *h) { *w = width; *h = height; }
 void platform_video_safe_insets(float *insets) { memcpy(insets, insets_now, sizeof(insets_now)); }
 int host_sdl_menu_height_points(void) { return height; }
+#define ABS(a) ((a)<0?-(a):(a))
+struct widget_instance { int unused; };
+struct ui_mouse_target { struct widget_instance *widget; rectangle2d bounds; int kind, button_index; };
+enum { _ui_mouse_target_button = 1, _gamepad_analog_button_b = 2, UI_MOUSE_MAXIMUM_TARGETS = 4 };
+static struct ui_mouse_target ui_mouse_targets[UI_MOUSE_MAXIMUM_TARGETS];
+static long ui_mouse_target_count, ui_mouse_radius = 8;
+static boolean ui_touch_back_seen = TRUE, ui_touch_back_generic, ui_touch_title_seen;
+static rectangle2d ui_touch_title_icon;
+static long ui_redraw_touch_target_units(void) { return 40; }
+/* the chevron's quads, as drawn (screen columns and rows), recorded through the draw's own transform */
+static float quad_left = 1e9f, quad_top = 1e9f;
+static void drawn(float x, float y, float *out_x, float *out_y);
+static void draw_quad(rectangle2d const *r, unsigned color) {
+    float x, y;
+    (void)color;
+    drawn(r->x0, r->y0, &x, &y);
+    if (x < quad_left) quad_left = x;
+    if (y < quad_top) quad_top = y;
+}
 static rectangle2d blits[2];
 static int blit_count;
 static void controller_glyph_blit(struct bitmap_data *bitmap, rectangle2d const *bounds, rectangle2d const *source,
@@ -74,7 +93,7 @@ static void drawn(float x, float y, float *out_x, float *out_y) {
     struct viewport uniforms = { { { width * 0.5f, -240 } }, { { width * 0.5f, 240 } } };
     struct viewport *converted = &uniforms;
     __COEFFICIENTS__
-    float screen_x = x + (width - 640) / 2.0f;
+    float screen_x = x + (width - 640) / 2;   /* the drawn margin is an integer (halo_screen_ui_offset) */
     float ndc_x = (screen_x - converted->viewport_offset[0][0]) / converted->viewport_scale[0][0];
     float ndc_y = (y - converted->viewport_offset[0][1]) / converted->viewport_scale[0][1];
     *out_x = (ndc_x + 1) * width / 2;
@@ -124,6 +143,26 @@ static void full_screen_fills(void) {
     }
     covers(rect, 1, 0, "keyboard band");
 }
+/* the touch BACK chevron, with no title (top left), drawn and tapped clear of the insets: called the way the
+screen's render calls it, outside the menu window's draw */
+static void back_chevron(void) {
+    struct widget_instance widget;
+    rectangle2d clip = {0, 0, 480, 640};
+    float side = fmaxf(insets_now[0], insets_now[1]), x, y;
+
+    quad_left = quad_top = 1e9f;
+    ui_mouse_target_count = 0;
+    ui_touch_back_chevron_draw(&widget, &clip);
+    assert(ui_mouse_target_count == 1 && !menu_window_drawing);
+    printf("  chevron drawn from %.1f, %.1f (insets %.1f, %.1f)\n", quad_left, quad_top, side * width,
+        insets_now[2] * 480);
+    assert(quad_left >= side * width && quad_top >= insets_now[2] * 480);
+    /* its tap target is in the pointer's units, the menu window's (menu_window_pointer): drawn there, clear too */
+    halo_screen_menu_window(1);
+    drawn(ui_mouse_targets[0].bounds.x0, ui_mouse_targets[0].bounds.y0, &x, &y);
+    halo_screen_menu_window(0);
+    assert(x >= side * width - 0.01f && y >= insets_now[2] * 480 - 0.01f);
+}
 /* edge controls (the touch BACK chevron, the title's shift, the hold popup, a dropdown) clear the insets */
 static void edge_controls(void) {
     struct halo_menu_screen screen;
@@ -162,6 +201,8 @@ int main(int argc, char **argv) {
             assert(screen.safe_y0 > screen.y0 && screen.safe_y1 < screen.y1);
         }
         halo_screen_menu_window(0);
+        if (width >= 640)
+            back_chevron();
         /* outside the menu window (the fade): the screen at zoom one */
         if (width >= 640) {
             struct halo_menu_screen screen;
@@ -192,6 +233,7 @@ def probe(tmp_path_factory):
     keyboard = (ROOT / "source/interface/virtual_keyboard.c").read_text()
     call_sites = "\n".join([
         function(widget, "static long ui_widget_safe_left("),
+        function(widget, "static void ui_touch_back_chevron_draw("),
         function(widget, "static void ui_widget_screen_fill_kind("),
         function(widget, "static void ui_widget_screen_fill_extend("),
         function(keyboard, "static void virtual_keyboard_side_strips("),
@@ -218,6 +260,7 @@ IPAD = "640x834:0,0,0,0"
 EXTERNAL_1080P = "853x1080:0,0,0,0"
 DEEP_CUTOUT = "700x375:0.2,0.2,0.1,0.11"
 DUO_OUTER_LANDSCAPE_FIXED = DUO_OUTER_LANDSCAPE + ":fixed"
+ODD_WIDTH_CUTOUT = "713x457:0.1239,0,0,0.073"
 
 SEQUENCES = {
     "rotate portrait to landscape on the Duo outer display": [DUO_OUTER_PORTRAIT, DUO_OUTER_LANDSCAPE],
@@ -225,6 +268,7 @@ SEQUENCES = {
     "unfold from the outer to the inner display": [DUO_OUTER_LANDSCAPE, DUO_INNER_LANDSCAPE, DUO_OUTER_LANDSCAPE],
     "move to an external display and back": [IPHONE_17_PRO, EXTERNAL_1080P, IPHONE_17_PRO],
     "4:3 iPad and a deep cutout": [IPAD, DEEP_CUTOUT, IPAD],
+    "an odd width under the zoom": [ODD_WIDTH_CUTOUT, EXTERNAL_1080P, ODD_WIDTH_CUTOUT],
     "the cutout over the design at zoom one": [DUO_OUTER_LANDSCAPE_FIXED, DUO_OUTER_LANDSCAPE, DEEP_CUTOUT + ":fixed"],
 }
 

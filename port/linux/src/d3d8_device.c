@@ -753,13 +753,14 @@ float halo_screen_menu_pixel_scale(void)
 the menu window's zoom about column 320 and from its top row (the drawing coefficients in this file and
 menu_window_pointer, which inverts them), or, in portrait, fitted to the width and centered down the screen
 (halo_ui_layout.h). A screen column s in the centered design's units, -(width - 640) / 2 at the left edge,
-is menu column 320 + (s - 320) / zoom; a screen row r is menu row top + r / zoom. The safe area takes the
+is menu column c + (s - c) / zoom, about the screen's center c, which is column 320 (320.5 on an odd width, whose
+margin halo_screen_ui_offset truncates); a screen row r is menu row top + r / zoom. The safe area takes the
 larger side inset on both sides, as the zoom does. */
 void halo_screen_menu_screen_rect(int zoomed, struct halo_menu_screen *screen)
 {
 	float width = (float)halo_screen_width();
 	float insets[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-	float side, margin, left, right, top_row = 0.0f, zoom = 1.0f, x[4], y[4];
+	float side, margin, left, right, center, top_row = 0.0f, zoom = 1.0f, x[4], y[4];
 
 	platform_video_safe_insets(insets);
 	side = insets[0] > insets[1] ? insets[0] : insets[1];
@@ -788,13 +789,15 @@ void halo_screen_menu_screen_rect(int zoomed, struct halo_menu_screen *screen)
 			menu_window_geometry(&top_row, &zoom);
 		if (zoom <= 0.0f)
 			zoom = 1.0f;
-		margin = (width - 640.0f) * 0.5f;
+		/* (the drawn margin: an integer, as halo_screen_ui_offset gives it) */
+		margin = (float)((halo_screen_width() - 640) / 2);
 		left = -margin;
-		right = 640.0f + margin;
-		x[0] = 320.0f + (left - 320.0f) / zoom;
-		x[1] = 320.0f + (right - 320.0f) / zoom;
-		x[2] = 320.0f + (left + side * width - 320.0f) / zoom;
-		x[3] = 320.0f + (right - side * width - 320.0f) / zoom;
+		right = width - margin;
+		center = width * 0.5f - margin;
+		x[0] = center + (left - center) / zoom;
+		x[1] = center + (right - center) / zoom;
+		x[2] = center + (left + side * width - center) / zoom;
+		x[3] = center + (right - side * width - center) / zoom;
 		y[0] = top_row;
 		y[1] = top_row + 480.0f / zoom;
 		y[2] = top_row + insets[2] * 480.0f / zoom;
