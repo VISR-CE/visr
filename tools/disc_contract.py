@@ -143,6 +143,62 @@ def option_lists_tall(layout, patches_root, ours=None):
     return found
 
 
+def reachable_screens(layout, patches_root, ours, redirects, named=()):
+    """The screens the game can show: every widget reached from the main menu and from the screens the game opens
+    by name (named), through the map's own handlers and ours, as the game follows them: a redirected screen is
+    never shown (its target is), a row a patch removes opens nothing, and a row a patch adds opens its target.
+    ours is {name: element} of the menus' own widgets; names are tag paths, ours under pc\\."""
+    removed, added = set(), {}
+    for patch in patches_root.iter('patch'):
+        for op in patch:
+            if op.tag in ('remove', 'replace'):
+                removed.add(op.get('child'))
+            if op.tag in ('row', 'replace') and (op.get('open') or op.get('widget')):
+                added.setdefault(patch.get('screen'), set()).add(op.get('open') or op.get('widget'))
+
+    def tag(name):
+        return name if '\\' in name else 'pc\\' + name.replace('/', '\\')
+
+    def map_opens(path, seen):
+        if path in seen or path not in layout or path in removed:
+            return set()
+        seen.add(path)
+        found = {handler['widget'] for handler in layout[path]['handlers'] if handler.get('widget')}
+        for child in layout[path]['children']:
+            found |= map_opens(child['widget'], seen)
+        return found
+
+    def our_opens(name, seen):
+        if name in seen or name not in ours:
+            return set()
+        seen.add(name)
+        found = set()
+        for element in ours[name].iter():
+            found |= {tag(element.get(key)) for key in ('open', 'replace', 'otherwise') if element.get(key)}
+            if element.tag == 'child':
+                found |= our_opens(element.get('widget'), seen)
+        return found
+
+    shown, waiting = set(), ['ui\\shell\\main_menu\\main_menu', *named]
+    while waiting:
+        screen = waiting.pop()
+        screen = redirects.get(screen, screen)
+        if screen in shown:
+            continue
+        shown.add(screen)
+        if screen.startswith('pc\\'):
+            waiting += our_opens(screen[3:].replace('\\', '/'), set())
+        else:
+            waiting += map_opens(screen, set()) | {tag(name) for name in added.get(screen, ())}
+    return shown
+
+
+def screens_named_in_the_game():
+    """Tag paths the game's own menu code names: screens it may open itself (an over-count is safe for a fit test)."""
+    text = ''.join((ROOT / 'port/linux/game' / name).read_text() for name in ('menu_functions.c', 'menu_tags.c'))
+    return sorted({match.replace('\\\\', '\\') for match in re.findall(r'"((?:ui|pc)\\\\[^"]+)"', text)})
+
+
 def violations(layout=None, patches=XBOX / 'patches.xml'):
     """(list, function, problem) for every requirement a patched list does not meet."""
     layout = layout or ui_map_tags.load_layout()

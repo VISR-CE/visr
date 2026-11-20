@@ -2217,7 +2217,6 @@ def patch_document(names):
               name='gametype_item_vehicles', text='VEHICLES',
               open='xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen',
               picture='bitmap:xbox/pictures/gametype', description='Which vehicles are on the map.')
-    tall_disc_rows(root)
     return root
 
 
@@ -2225,17 +2224,23 @@ def patch_document(names):
 TALL_ROW_ART = 'xbox/bitmaps/row_36/option_bkds'
 
 
-def tall_disc_rows(root):
-    """Every row of every screen is the standard tall row, the disc's own included: each disc option list that
+def tall_disc_rows(documents):
+    """Every row of every screen the game shows is the standard tall row, the disc's own included: each disc
+    option list on a screen the game can show (disc_contract.reachable_screens: not one a redirect replaces) that
     fits with tall rows is marked rows="tall" (the game restacks it at the standard pitch and gives the disc's
     rows the tall art, port/linux/game/menu_tags.c), on its patch, or on an empty patch where it had none. A list
     that would pass its limit is left as the disc has it (tools/test_disc_contract.py lists those)."""
     import disc_contract
     import ui_map_tags
 
+    root = documents['patches.xml']
+    layout = ui_map_tags.load_layout()
+    ours = {w.get('name'): w for document in documents.values() for w in document.iter('widget')}
+    redirects = {source.replace('/', '\\'): target.replace('/', '\\') for source, target in SCREEN_ALWAYS + SCREEN_REPLACED}
+    shown = disc_contract.reachable_screens(layout, root, ours, redirects, disc_contract.screens_named_in_the_game())
     patches = {p.get('list'): p for p in root.iter('patch')}
-    for path, (_, bottom, limit, screen) in sorted(disc_contract.option_lists_tall(ui_map_tags.load_layout(), root).items()):
-        if bottom > limit:
+    for path, (_, bottom, limit, screen) in sorted(disc_contract.option_lists_tall(layout, root, ours).items()):
+        if bottom > limit or screen not in shown:
             continue
         element = patches.get(path)
         if element is None:
@@ -2334,6 +2339,11 @@ SCREEN_ALWAYS = (('ui/shell/' + MP + '/connected/connected_map_select_wrapper',
                 ('ui/shell/' + PE + '/player_profile_edit_screen', 'pc/xbox/settings/settings_screen'),
                 ('ui/shell/main_menu/settings_select/player_setup/player_profile_select_screen',
                  'pc/xbox/settings/settings_screen')) + tuple(
+    # (one set of rule screens: the game's own, which the type list and SERVER SETUP's GAME TYPE row open, hold
+    # the score and team play rows that GAME has; ours are the same rules without them)
+    (f'ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/{kind}_edit/{kind}_options_screen',
+     f'pc/xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/{kind}_edit/{kind}_options_screen')
+    for kind in ('ctf', 'koth', 'oddball', 'race', 'slayer')) + tuple(
     (f'ui/shell/error/{name}', f'pc/xbox/error/{name}')
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS + ('confirm_delete_profile_modal_fullscreen',
                                                       'confirm_delete_gametype_modal_fullscreen'))
@@ -2644,6 +2654,7 @@ def generate(assets=MENUS):
                 adjusted.add(id(row))
                 make_row_tall(row, bitmaps, documents, selected)
     add_advanced_clones(documents)
+    tall_disc_rows(documents)
     tall_patch_widgets(documents, bitmaps)
     native_header_sizes(documents, assets)
     for root in documents.values():

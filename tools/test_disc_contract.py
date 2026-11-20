@@ -84,49 +84,89 @@ def test_a_row_appended_after_the_walked_rows_is_allowed():
     assert 'advanced_controls_menu' not in found
 
 
-# Disc option lists that do not fit with every row tall, with (rows, where they would end, the limit). Each needs a
-# decision (fewer rows, a scrolling window, or the help moved) before the engine restacks it; the test fails when
-# one of them starts to fit or a new one stops fitting.
+# Disc option lists the game shows that do not fit with every row tall, with (rows, where they would end, the
+# limit). Each needs a decision (fewer rows, a scrolling window, or the help moved) before the engine restacks it;
+# the test fails when one of them starts to fit or a new one stops fitting.
 TALL_OVERFLOW = {
-    'oddball_options_menu': (8, 385, 321),
     'controller_options_menu': (2, 151, 140),
 }
+# Disc option lists on screens the game never shows (a redirect replaces the screen, or a patch removes the only
+# row that opened it). They are not laid out: a fit test of a layout no player sees is the bug class here.
+NEVER_SHOWN = {
+    'ctf_options_menu', 'koth_options_menu', 'oddball_options_menu', 'race_options_menu', 'slayer_options_menu',
+    'indicator_options_menu'}
 
 
-def test_every_disc_option_list_fits_above_its_help_with_every_row_tall():
-    """Every row of every screen is the standard tall row, the disc's own rows included (the engine restacks a
-    disc option list at the standard pitch from its first row, patched or not). Laid out that way, each list must
-    end by its limit: its patch's footer, else the top of its help text. A list that would not fit is listed in
-    TALL_OVERFLOW with its numbers."""
-    import menu_geometry
+def shown_option_lists():
+    """Every disc option list on a screen the game can show, laid out after the shipped patches with every row
+    tall: {list leaf: (rows, where they end, the limit)}, and the leaves of the lists it never shows."""
+    import xbox_menus
 
-    assert disc_contract.TALL_PITCH == menu_geometry.COMFORTABLE_PITCH
     root = ET.parse(disc_contract.XBOX / 'patches.xml').getroot()
     # (the generator marks the lists that fit rows="tall"; laid out here from the patches without the marks' own
     # empty patches, so the limit of an unpatched list is its help text's top)
     for patch in list(root.iter('patch')):
         if not len(patch):
             root.remove(patch)
-    found = disc_contract.option_lists_tall(ui_map_tags.load_layout(), root, disc_contract.xbox_widgets())
-    checked = {path.rsplit('\\', 1)[-1]: fit[:3] for path, fit in found.items()}
+    layout, ours = ui_map_tags.load_layout(), disc_contract.xbox_widgets()
+    redirects = {source.replace('/', '\\'): target.replace('/', '\\')
+                 for source, target in xbox_menus.SCREEN_ALWAYS + xbox_menus.SCREEN_REPLACED}
+    shown = disc_contract.reachable_screens(layout, root, ours, redirects, disc_contract.screens_named_in_the_game())
+    found = disc_contract.option_lists_tall(layout, root, ours)
+    return ({path.rsplit('\\', 1)[-1]: fit[:3] for path, fit in found.items() if fit[3] in shown},
+            {path.rsplit('\\', 1)[-1] for path, fit in found.items() if fit[3] not in shown})
+
+
+def test_every_disc_option_list_the_game_shows_fits_with_every_row_tall():
+    """Every row of every screen is the standard tall row, the disc's own rows included (the engine restacks a
+    disc option list at the standard pitch from its first row, patched or not). Laid out as the game shows it
+    (after the shipped patches, on the screens it can reach), each list must end by its limit: its patch's
+    footer, else the top of its help text. A list that would not fit is listed in TALL_OVERFLOW with its numbers."""
+    import menu_geometry
+
+    assert disc_contract.TALL_PITCH == menu_geometry.COMFORTABLE_PITCH
+    checked, hidden = shown_option_lists()
     assert set(checked) == {
-        'advanced_controls_menu', 'item_options_menu', 'player_options_menu', 'indicator_options_menu',
-        'ctf_options_menu', 'koth_options_menu', 'oddball_options_menu', 'race_options_menu', 'slayer_options_menu',
-        'controller_options_menu'}, sorted(checked)
+        'advanced_controls_menu', 'item_options_menu', 'player_options_menu', 'controller_options_menu'}, sorted(checked)
+    assert hidden == NEVER_SHOWN, sorted(hidden)
     over = {name: fit for name, fit in checked.items() if fit[1] > fit[2]}
     assert over == TALL_OVERFLOW, over
 
 
-def test_the_patches_make_tall_exactly_the_option_lists_that_fit():
-    """rows="tall" is on every disc option list that fits and on no other, each with the tall art and its screen."""
+def test_a_redirect_or_a_removed_row_takes_a_screen_out_of_the_layout():
+    """The reach follows the game: a redirected screen is replaced by its target, a row a patch removes opens
+    nothing, and a row a patch adds opens its target."""
+    layout = {
+        'ui\\shell\\main_menu\\main_menu': {'handlers': [], 'children': [{'widget': 'a'}, {'widget': 'b'}]},
+        'a': {'handlers': [{'widget': 'ui\\one'}], 'children': []},
+        'b': {'handlers': [{'widget': 'ui\\two'}], 'children': []},
+        'ui\\one': {'handlers': [], 'children': []},
+        'ui\\two': {'handlers': [{'widget': 'ui\\three'}], 'children': []},
+        'ui\\three': {'handlers': [], 'children': []},
+    }
+    main = 'ui\\shell\\main_menu\\main_menu'
+    patches = ET.fromstring('<menus/>')
+    assert disc_contract.reachable_screens(layout, patches, {}, {}) == {main, 'ui\\one', 'ui\\two', 'ui\\three'}
+    ours = {'xbox/two': ET.fromstring('<widget name="xbox/two"><on event="a" open="xbox/four"/></widget>'),
+            'xbox/four': ET.fromstring('<widget name="xbox/four"/>')}
+    assert disc_contract.reachable_screens(layout, patches, ours, {'ui\\two': 'pc\\xbox\\two'}) == {
+        main, 'ui\\one', 'pc\\xbox\\two', 'pc\\xbox\\four'}
+    patches = ET.fromstring(f'<menus><patch list="l" screen="{main}"><remove child="a"/>'
+                            '<row after="b" name="n" open="xbox/four"/></patch></menus>')
+    assert disc_contract.reachable_screens(layout, patches, ours, {}) == {
+        main, 'ui\\two', 'ui\\three', 'pc\\xbox\\four'}
+
+
+def test_the_patches_make_tall_exactly_the_shown_option_lists_that_fit():
+    """rows="tall" is on every disc option list the game shows that fits and on no other, each with the tall art
+    and its screen."""
     root = ET.parse(disc_contract.XBOX / 'patches.xml').getroot()
     marked = {patch.get('list').rsplit('\\', 1)[-1]: patch for patch in root.iter('patch') if patch.get('rows')}
     assert all(patch.get('rows') == 'tall' and patch.get('tall_art') == 'xbox/bitmaps/row_36/option_bkds'
                for patch in marked.values())
-    assert set(marked) == {
-        'advanced_controls_menu', 'item_options_menu', 'player_options_menu', 'indicator_options_menu',
-        'ctf_options_menu', 'koth_options_menu', 'race_options_menu', 'slayer_options_menu'}
-    assert not set(marked) & set(TALL_OVERFLOW)
+    checked, _ = shown_option_lists()
+    assert set(marked) == set(checked) - set(TALL_OVERFLOW) == {
+        'advanced_controls_menu', 'item_options_menu', 'player_options_menu'}
     layout = ui_map_tags.load_layout()
     for patch in marked.values():
         assert any(child['widget'] == patch.get('list') for child in layout[patch.get('screen')]['children'])
