@@ -131,6 +131,14 @@ def recording_feed_required(policy: dict[str, Any]) -> bool:
     return policy.get("recording_feed_required", "on") != "off"
 
 
+def require_pinned_compiler(policy: dict[str, Any], pinned: str) -> None:
+    """The workflow installs one compiler (its RELEASE_COMPILER_VERSION); the policy must name the same one."""
+    if pinned and policy.get("guest_compiler_version") != pinned:
+        raise ValueError(
+            f"Policy guest compiler {policy.get('guest_compiler_version')!r} differs from the workflow's pinned {pinned!r}"
+        )
+
+
 def load_policy(value: str) -> dict[str, Any]:
     policy = json.loads(value or "{}")
     optional = {"cloud_saves", "benchmark_upload", "shader_upload", "perf_reports", "recording_feed_required", FIELD}
@@ -1086,9 +1094,9 @@ def main() -> None:
         if FIELD in report and report.get("source_date_epoch") != run(
                 "git", "show", "--no-patch", "--format=%ct", args.source_sha, capture=True):
             raise ValueError("Probe actual source timestamp differs from source commit")
-        recording_context = check_release(
-            report, load_policy(os.environ.get("RELEASE_BUILD_POLICY", "")), selected
-        )
+        policy = load_policy(os.environ.get("RELEASE_BUILD_POLICY", ""))
+        require_pinned_compiler(policy, os.environ.get("RELEASE_COMPILER_VERSION", ""))
+        recording_context = check_release(report, policy, selected)
         apple = release.API(
             "https://api.appstoreconnect.apple.com", release.apple_token
         )

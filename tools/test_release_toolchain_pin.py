@@ -69,3 +69,5 @@ def test_no_other_step_installs_homebrew_packages(workflow: dict) -> None:
 def test_formulas_already_on_the_runner_are_skipped_not_reinstalled(workflow: dict) -> None:
     script = install_steps(workflow["jobs"]["probe"])[0]["run"]
     assert 'brew list --formula --versions "$formula"' in script and 'brew install "$formula"' in script
+    assert "brew uninstall --force --ignore-dependencies llvm lld\n" in script
+    assert script.index("brew uninstall") < script.index("for formula in")
