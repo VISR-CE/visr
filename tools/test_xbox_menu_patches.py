@@ -4,6 +4,7 @@
 every screen it opens and every function it runs exists, that the multiplayer type list ends with six rows that each
 show a description and picture of their own, and that the rows only some devices show carry the platform that says so.
 """
+import json
 from pathlib import Path
 import re
 from xml.etree import ElementTree as ET
@@ -183,10 +184,80 @@ def test_advanced_rows_are_standard_tall_rows():
         assert [c.get("y") for c in row.findall("child")] == [c.get("y") for c in original.findall("child")], key
 
 
-# Patch rows that are our widgets and still draw the 28-unit option pill: the item and player option lists take
-# their pitch from the disc's rows, which are not measured here (the patch's footer would drop the whole patch if
-# taller rows overflowed it), so they stay until a device check says their lists have room.
-SHORT_PATCH_WIDGETS = {"op_spawn_weapons", "op_map_weapons", "op_choose_weapons", "op_respawn"}
+DISC_LISTS = json.loads((ROOT / "tools/fixtures/disc_patched_lists.json").read_text())
+
+
+def leaf(path):
+    return path.rsplit("\\", 1)[-1]
+
+
+def laid_out_rows(patch, widgets):
+    """The list after the patch's ops, as port/linux/game/menu_tags.c applies them: each row's name, y and height.
+
+    The disc's rows (names, y and height) are the fixture, read from the disc's ui.map by tools/ui_map_tags.py. An
+    added row goes one pitch below its anchor and pushes the rows after it down; a removed row pulls them up by
+    the pitch to the row before it. A row that is one of our widgets is as tall as that widget; any other row, as
+    its pitch (or 28, the disc's rows)."""
+    laid = [dict(r, disc=True) for r in DISC_LISTS[patch.get("list")]]
+
+    def find(name):
+        """A path names the disc's row; a bare name, a row of the patch's own (the two can share a leaf)."""
+        want_disc = "\\" in name
+        return next((i for i, r in enumerate(laid) if r["name"] == leaf(name) and r.get("disc", False) == want_disc),
+                    None)
+
+    def index(name):
+        return find(name)
+
+    def gap(i):
+        if i >= 1:
+            return laid[i]["y"] - laid[i - 1]["y"]
+        return laid[1]["y"] - laid[0]["y"]
+
+    for op in rows(patch):
+        if op.tag == "replace":
+            continue
+        if op.tag == "remove":
+            if find(op.get("child")) is None:
+                continue  # (a screen child such as a button bar, not a row)
+            i = index(op.get("child"))
+            step = gap(i)
+            del laid[i]
+            for r in laid[i:]:
+                r["y"] -= step
+            continue
+        anchor = op.get("after") or op.get("before")
+        i = index(anchor)
+        at = i + 1 if op.get("after") else i
+        pitch = int(op.get("pitch") or gap(i))
+        y = laid[at - 1]["y"] + pitch if at >= 1 else laid[at]["y"]
+        for r in laid[at:]:
+            r["y"] += pitch
+        height = int(widgets[op.get("widget")].get("height")) if op.get("widget") else int(op.get("pitch") or 28)
+        laid.insert(at, {"name": op.get("name"), "y": y, "height": height})
+    return laid
+
+
+def test_every_patched_list_fits_above_its_footer_with_tall_rows():
+    """patch_row_add and patch_row_remove drop the whole patch when the rows pass the footer, and the screen then
+    shows the disc's menu. This lays each patch out from the disc's rows and fails on any overflow."""
+    widgets = {w.get("name"): w for path in MENUS.glob("*.xml") if "compact" not in path.name
+               for w in ET.parse(path).getroot().iter("widget")}
+    checked = 0
+    for patch in table():
+        disc = DISC_LISTS.get(patch.get("list"), [])
+        # (a list whose rows the disc stacks by their own bounds, or lays out as cards, has the same offset on
+        # every row: only lists of rows one below another can be laid out from the fixture)
+        if len({r["y"] for r in disc}) != len(disc) or len(disc) < 3:
+            continue
+        laid = laid_out_rows(patch, widgets)
+        bottom = max(r["y"] + r["height"] for r in laid)
+        assert bottom <= int(patch.get("footer")), (patch.get("list"), bottom, patch.get("footer"))
+        ordered = sorted(laid, key=lambda r: r["y"])
+        for above, below in zip(ordered, ordered[1:]):
+            assert above["y"] + above["height"] <= below["y"], (patch.get("list"), above["name"], below["name"])
+        checked += 1
+    assert checked >= 3
 
 
 def test_patch_rows_that_are_our_widgets_draw_the_standard_tall_row():
@@ -198,15 +269,13 @@ def test_patch_rows_that_are_our_widgets_draw_the_standard_tall_row():
     for patch in table():
         for row in rows(patch):
             name = row.get("widget")
-            if not name or name.rsplit("/", 1)[1] in SHORT_PATCH_WIDGETS:
+            if not name:
                 continue
             widget = widgets[name]
             assert widget.get("height") == "39" and "/row_36/" in widget.get("bitmap", ""), (
                 name, widget.get("height"), widget.get("bitmap"))
             checked += 1
-    assert checked >= len(ADVANCED_HELP_WORD)
-    short = {n.rsplit("/", 1)[1] for n, w in widgets.items() if n.rsplit("/", 1)[1] in SHORT_PATCH_WIDGETS}
-    assert short == SHORT_PATCH_WIDGETS
+    assert checked >= len(ADVANCED_HELP_WORD) + 4
 
 
 def test_item_options_rows_set_and_save_their_own_spinners():

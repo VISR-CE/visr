@@ -2129,7 +2129,8 @@ def patch_document(names):
     options.set('footer', '321')
     anchor = MM + 'settings_select\\multiplayer_setup\\item_options_edit\\op_starting_equipment'
     for name, _, _ in IO_ROWS:
-        patch_row(options, after=anchor, name=name, widget=f'xbox/{IO}/{name}', help=IO_HELP[name])
+        patch_row(options, after=anchor, name=name, widget=f'xbox/{IO}/{name}', pitch=COMFORTABLE_PITCH,
+                  help=IO_HELP[name])
         anchor = name
     # Player Options: the four respawn rows leave for RESPAWN OPTIONS, whose row stands in their place
     player = patch(root, MM + 'settings_select\\multiplayer_setup\\player_options_edit\\player_options_menu',
@@ -2137,7 +2138,7 @@ def patch_document(names):
     player.set('footer', '321')
     poe = MM + 'settings_select\\multiplayer_setup\\player_options_edit\\'
     patch_row(player, after=poe + 'op_invisible_players', name='op_respawn', widget=f'xbox/{PO}/op_respawn',
-              help=PO_HELP['op_respawn'])
+              pitch=COMFORTABLE_PITCH, help=PO_HELP['op_respawn'])
     for key in ('op_respawn_time', 'op_respawn_time_growth', 'op_odd_man_out', 'op_suicide_penalty'):
         patch_row(player, 'remove', child=poe + key)
     # (STARTING EQUIPMENT's rows replace the Xbox's own)
@@ -2315,6 +2316,66 @@ def density_rows(options, widgets):
                  or (options.get('name', '').startswith('xbox/settings/')
                      and options.get('name', '').endswith('/options_menu')
                      and 'button_bar' not in c.get('widget') and '/scroll_' not in c.get('widget')))]
+
+
+def make_row_tall(row, bitmaps, documents, selected):
+    """Draw a row 36 units tall inside its 39-unit tap band (its art swapped for the row_36 variant, its text and
+    parts moved down to match). Every row that sits on the comfortable pitch takes this, whichever list or patch
+    row puts it there."""
+    drawn = 36 if row.get('height') == str(COMFORTABLE_PITCH) else 28
+    # The game's own option_bkds art (128 px, transparent padding) has a 96 px
+    # band when unselected and 112 px when selected: draw the frame taller so the
+    # visible band is 36 and 39 units (59 and 53 units drawn, scaled from the measured 94 px band against 102 px), centered on the pitch.
+    fitted = (drawn == 36 and row.get('bitmap') is not None
+              and bitmaps[row.get('bitmap')].find('frame') is not None
+              and all(f.get('map') and f.get('png', '').endswith(('option_bkds__0.png', 'option_bkds__1.png'))
+                      for f in bitmaps[row.get('bitmap')].findall('frame')))
+    small = (drawn == 36 and row.get('bitmap') is not None
+             and bitmaps[row.get('bitmap')].find('frame') is not None
+             and all(not f.get('map') and f.get('png', '').endswith(('option_bkds_sm__0.png', 'option_bkds_sm__1.png'))
+                     for f in bitmaps[row.get('bitmap')].findall('frame')))
+    shift = 5 if fitted else (drawn - 28) // 2
+    if not shift:
+        return
+    if row.get('type') == 'text' or row.get('text_y') is not None:
+        row.set('text_y', str(int(row.get('text_y', 0)) + shift))
+    for part in row.findall('child'):
+        part.set('y', str(int(part.get('y', 0)) + shift))
+    name = row.get('bitmap')
+    if name:
+        # Keep the leaf name so ui_redraw recognizes the frame.
+        prefix, leaf = name.rsplit('/', 1)
+        variant = f'{prefix}/row_{drawn}/{leaf}'
+        owner = next((r for r in selected if any(
+            b.get('name') == name for b in r.findall('bitmap'))), documents['bitmaps.xml'])
+        if not any(b.get('name') == variant for b in owner.findall('bitmap')):
+            bitmap = deepcopy(bitmaps[name])
+            bitmap.set('name', variant)
+            for index, frame in enumerate(bitmap.findall('frame')):
+                if fitted or small:
+                    # Heights span the measured visible band (36 unselected, 39
+                    # selected), so the padding around it is transparent overlap.
+                    height = (59, 53)[index] if fitted else (56, 52)[index]
+                    frame.set('height', str(height))
+                    frame.set('y', str((-10, -7)[index] if fitted else (-9, -7)[index]))
+                else:
+                    frame.set('height', str(drawn))
+            owner.append(bitmap)
+        row.set('bitmap', variant)
+
+
+def tall_patch_widgets(documents, bitmaps):
+    """The widgets patch rows put into the disc's lists sit on no list of ours, so the density pass never reaches
+    them: draw each as the standard tall row, as the rows of the lists that do."""
+    selected = [root for name, root in documents.items() if '.compact.' not in name]
+    widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
+    for row in documents['patches.xml'].iter('row'):
+        widget = widgets.get(row.get('widget'))
+        if widget is None or '/row_36/' in (widget.get('bitmap') or ''):
+            continue
+        widget.set('height', str(COMFORTABLE_PITCH))
+        widget.set('top', '0')
+        make_row_tall(widget, bitmaps, documents, selected)
 
 
 def apply_density(documents, pitch, bitmaps, settings=False):
@@ -2502,47 +2563,9 @@ def generate(assets=MENUS):
                     if id(row) in adjusted:
                         continue
                     adjusted.add(id(row))
-                    drawn = 36 if row.get('height') == str(COMFORTABLE_PITCH) else 28
-                    # The game's own option_bkds art (128 px, transparent padding) has a 96 px
-                    # band when unselected and 112 px when selected: draw the frame taller so the
-                    # visible band is 36 and 39 units (59 and 53 units drawn, scaled from the measured 94 px band against 102 px), centered on the pitch.
-                    fitted = (drawn == 36 and row.get('bitmap') is not None
-                              and bitmaps[row.get('bitmap')].find('frame') is not None
-                              and all(f.get('map') and f.get('png', '').endswith(('option_bkds__0.png', 'option_bkds__1.png'))
-                                      for f in bitmaps[row.get('bitmap')].findall('frame')))
-                    small = (drawn == 36 and row.get('bitmap') is not None
-                             and bitmaps[row.get('bitmap')].find('frame') is not None
-                             and all(not f.get('map') and f.get('png', '').endswith(('option_bkds_sm__0.png', 'option_bkds_sm__1.png'))
-                                     for f in bitmaps[row.get('bitmap')].findall('frame')))
-                    shift = 5 if fitted else (drawn - 28) // 2
-                    if not shift:
-                        continue
-                    if row.get('type') == 'text' or row.get('text_y') is not None:
-                        row.set('text_y', str(int(row.get('text_y', 0)) + shift))
-                    for part in row.findall('child'):
-                        part.set('y', str(int(part.get('y', 0)) + shift))
-                    name = row.get('bitmap')
-                    if name:
-                        # Keep the leaf name so ui_redraw recognizes the frame.
-                        prefix, leaf = name.rsplit('/', 1)
-                        variant = f'{prefix}/row_{drawn}/{leaf}'
-                        owner = next((r for r in selected if any(
-                            b.get('name') == name for b in r.findall('bitmap'))), documents['bitmaps.xml'])
-                        if not any(b.get('name') == variant for b in owner.findall('bitmap')):
-                            bitmap = deepcopy(bitmaps[name])
-                            bitmap.set('name', variant)
-                            for index, frame in enumerate(bitmap.findall('frame')):
-                                if fitted or small:
-                                    # Heights span the measured visible band (36 unselected, 39
-                                    # selected), so the padding around it is transparent overlap.
-                                    height = (59, 53)[index] if fitted else (56, 52)[index]
-                                    frame.set('height', str(height))
-                                    frame.set('y', str((-10, -7)[index] if fitted else (-9, -7)[index]))
-                                else:
-                                    frame.set('height', str(drawn))
-                            owner.append(bitmap)
-                        row.set('bitmap', variant)
+                    make_row_tall(row, bitmaps, documents, selected)
     add_advanced_clones(documents)
+    tall_patch_widgets(documents, bitmaps)
     native_header_sizes(documents, assets)
     for root in documents.values():
         validate(root, assets)
