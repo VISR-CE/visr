@@ -1756,6 +1756,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
+	{ "debug.pointer_log", _config_boolean, "false", "HALO_POINTER_LOG", _environment_value, _platform_ios,
+		"Log one line per menu tap or click: the surface's size in points, the\n"
+		"drawable's in pixels, the tap there and where it landed in menu units." },
 	{ "debug.menu_ready_shot", _config_integer, "0", "HALO_MENU_READY_SHOT", _environment_value, _platform_ios,
 		"Menu captures: once a menu screen is up, log \"menus: ready\", let it\n"
 		"settle this many frames, save one frame as frameNNNNN-ready.png in\n"

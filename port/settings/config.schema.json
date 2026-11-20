@@ -2870,6 +2870,16 @@
             "desktop"
           ]
         },
+        "pointer_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log one line per menu tap or click: the surface's size in points, the drawable's in pixels, the tap there and where it landed in menu units.",
+          "x-environment": "HALO_POINTER_LOG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "menu_ready_shot": {
           "type": "integer",
           "default": 0,

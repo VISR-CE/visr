@@ -657,6 +657,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.menu_min_scale` | boolean | `true` | apple, desktop | `HALO_MENU_MIN_SCALE` | Enlarge front-end and pause menu widgets toward one point per menu unit by cropping only their backdrop margins. visionOS keeps its existing scale. |
 | `debug.menu_density` | integer | `-1` | apple, desktop | `HALO_MENU_DENSITY` | Menu list row density, fixed at load: -1 uses the platform default, 0 uses comfortable rows, 1 uses compact rows. |
 | `debug.menu_open` | string | `""` | apple, desktop | `HALO_MENU_OPEN` | Start on this screen of the menus (port/assets/menus) instead of the main menu, a player profile being edited; empty for the main menu. |
+| `debug.pointer_log` | boolean | `false` | apple | `HALO_POINTER_LOG` | Log one line per menu tap or click: the surface's size in points, the drawable's in pixels, the tap there and where it landed in menu units. |
 | `debug.menu_ready_shot` | integer | `0` | apple | `HALO_MENU_READY_SHOT` | Menu captures: once a menu screen is up, log "menus: ready", let it settle this many frames, save one frame as frameNNNNN-ready.png in debug.screenshot_directory, and quit; 0 off. |
 | `debug.menu_sequence` | string | `""` | apple | `HALO_MENU_SEQUENCE` | Menu captures: name=screen entries separated by semicolons. |
 | `debug.menu_error` | string | `""` | apple, desktop | `HALO_MENU_ERROR` | Development builds only: after the menu loads, call the real error API. |

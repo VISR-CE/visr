@@ -3785,6 +3785,16 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		}
 	}
 	menu_window_pointer(pointer);
+	if (host.left_clicks > 0 && config_boolean("debug.pointer_log"))
+	{
+		float top, zoom;
+
+		menu_window_geometry(&top, &zoom);
+		platform_log("pointer: tap at %.1f,%.1f on a %.0fx%.0f pt surface, drawable %.0fx%.0f px, screen width %ld, "
+			"menu zoom %.3f top %.1f: menu %d,%d", host.click_x, host.click_y, host.surface_width, host.surface_height,
+			host.drawable_width, host.drawable_height, halo_screen_width(), zoom, top, pointer->click_x,
+			pointer->click_y);
+	}
 	pointer->held = host.held != 0;
 	pointer->moved = host.moved != 0;
 	pointer->down = host.down != 0;
