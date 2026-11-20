@@ -106,7 +106,7 @@ def test_menus_hide_nothing(matcher):
     texts = menu_texts()
     assert len(texts) > 500
     found = hidden(matcher, texts, ALL)
-    assert found == {TIP}, f"the menus' own text hidden: {sorted(rot13(text) for text in found)}"
+    assert found == set(), f"the menus' own text hidden: {sorted(rot13(text) for text in found)}"
 
 
 def map_texts(path):
