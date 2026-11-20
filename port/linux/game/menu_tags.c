@@ -702,7 +702,7 @@ static long tag_named(long group_tag, char const *name, char const *file, long l
 }
 
 /* "unwired <name>": a function the PC version has for these widgets, not
-yet written for this engine (port/assets/menus/UNWIRED.md), which does
+yet written for this engine, which does
 nothing */
 static boolean unwired(char const *name)
 {

@@ -23,6 +23,7 @@ from xml.etree import ElementTree as ET
 
 import menu_catalog
 import menu_geometry
+import port_settings
 from port_settings import apply_now_spinner_handlers
 # Shared geometry (rows, legend, value columns, dropdown) lives in menu_geometry.py, which also writes the
 # engine's menu_geometry.h.
@@ -31,6 +32,26 @@ from menu_geometry import (COMFORTABLE_PITCH, DROPDOWN_PITCH, FIRST_ROW, LEGEND_
 
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
+# The generator's own source rows: widget definitions it builds the screens from. They are input to this tool only
+# and are not shipped or read by the game. The settings and multiplayer screens come from tools/port_settings.py in
+# memory; the rest are the XML files in this folder.
+SOURCES = ROOT / 'tools/menu_sources'
+
+
+def generated_sources():
+    return {**port_settings.settings_files(), **port_settings.multiplayer_files()}
+
+
+def source_names():
+    return sorted({path.name for path in SOURCES.glob('*.xml')} | set(generated_sources()))
+
+
+def source(name):
+    """A source document's root element, parsed anew each call so a caller may change it."""
+    lines = generated_sources().get(name)
+    if lines is not None:
+        return ET.fromstring('\n'.join(lines))
+    return ET.parse(SOURCES / name).getroot()
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
 # fields under the header rule sit this far down, leaving a gap below the rule
 FIELD_GAP = 8
@@ -193,13 +214,13 @@ def serialize(root):
             + ET.tostring(root, encoding='unicode', short_empty_elements=True) + '\n')
 
 
-def retain_xbox_files(menus, files):
-    """Keep Xbox XML and its PNG dependencies when ce_menus rewrites the manifest."""
-    # (the Xbox XML is listed again below from the folder, so a file the generator no longer writes leaves)
-    names = {name for name in files if not (name.startswith('xbox/') and name.endswith('.xml'))}
-    # PC description panels share the drawings too, including ABOUT.
-    for path in sorted((menus / 'ce').glob('*.xml')):
-        names.update(frame.get('png') for frame in ET.parse(path).iter('frame') if frame.get('png'))
+# PNGs the game names itself (port/linux/game/menu_tags.c), beside those the XML's frames name.
+RUNTIME_PNGS = ('ce/port/blank__0.png',)
+
+
+def manifest_files(menus):
+    """The files the game embeds: the generated XML and every PNG it or the game names."""
+    names = set(RUNTIME_PNGS)
     for path in sorted((menus / 'xbox').glob('*.xml')):
         names.add(path.relative_to(menus).as_posix())
         root = ET.parse(path).getroot()
@@ -383,8 +404,7 @@ XBOX_DROPPED_ROWS = {
 
 
 def settings_page(assets, folder, bitmaps):
-    source = ET.parse(assets / 'ce' / f'{PE.replace("/", ".")}.{folder}.xml').getroot()
-    root = deepcopy(source)
+    root = source(f'{PE.replace("/", ".")}.{folder}.xml')
     pending = None
     prefix = f'{PE}/{folder}'
     base = f'xbox/settings/{folder}'
@@ -598,7 +618,7 @@ def item_options_document(assets, bitmaps, folder=None, io_rows=None):
     The Xbox's functions for the screen know only its own rows, so each row sets and saves its spinners itself.
     """
     folder, io_rows = folder or IO, io_rows or IO_ROWS
-    root = deepcopy(ET.parse(assets / 'ce' / (folder.replace('/', '.') + '.port.xml')).getroot())
+    root = source(folder.replace('/', '.') + '.port.xml')
     labels = {f'xbox/{folder}/{label}': caption for _, label, caption in io_rows}
     for element in root.iter():
         for key, value in list(element.attrib.items()):
@@ -768,7 +788,7 @@ def settings_hub(bitmaps, assets=MENUS):
 
 
 def bitmap_document(assets, names):
-    source = {b.get('name'): b for b in ET.parse(assets / 'ce/bitmaps.xml').getroot()}
+    source_bitmaps = {b.get('name'): b for b in source('bitmaps.xml')}
     root = ET.Element('menus')
     for name in sorted(names | {f'pause/pausebox_{side}' for side in ('left', 'center', 'right')} | {'pause/pause_row'}):
         if '\\' in name:
@@ -776,7 +796,7 @@ def bitmap_document(assets, names):
             ET.SubElement(bitmap, 'frame', map=name, index='0',
                           png='ce/shell/bitmaps/game_type_grafix__5.png', width='256', height='128')
             continue
-        bitmap = deepcopy(source[name])
+        bitmap = deepcopy(source_bitmaps[name])
         if not name.startswith('pause/'):
             bitmap.set('name', 'xbox/' + name)
         for index, frame in enumerate(bitmap):
@@ -824,20 +844,20 @@ def multiplayer_documents(assets, bitmaps):
     Native editor opens are the only map-widget references (never children).
     """
     definitions = {}
-    for path in sorted((assets / 'ce').glob('*.xml')):
-        for element in ET.parse(path).getroot():
+    for name in source_names():
+        for element in source(name):
             if element.get('name'):
                 definitions[element.tag, element.get('name')] = element
     documents = {}
     owned = set()
     for filename in MP_PAGES:
-        root = deepcopy(ET.parse(assets / 'ce' / (filename + '.xml')).getroot())
+        root = source(filename + '.xml')
         documents[filename + '.xml'] = root
         owned.update((e.tag, e.get('name')) for e in root)
     # new_select.port supplies the chooser, not a screen. The lobby borrows the PC solo list's map picture and
     # name widgets.
     campaign = documents['main_menu.new_select.port.xml']
-    for e in ET.parse(assets / 'ce/main_menu.solo_level_select.xml').getroot():
+    for e in source('main_menu.solo_level_select.xml'):
         if e.get('name') in LOBBY_MAP_WIDGETS:
             campaign.append(deepcopy(e))
             owned.add((e.tag, e.get('name')))
@@ -867,7 +887,7 @@ def multiplayer_documents(assets, bitmaps):
                    'playlist_edit.ctf_edit', 'playlist_edit.koth_edit', 'playlist_edit.oddball_edit',
                    'playlist_edit.race_edit', 'playlist_edit.slayer_edit'):
         filename = 'main_menu.settings_select.multiplayer_setup.' + folder + '.xml'
-        for e in ET.parse(assets / 'ce' / filename).getroot():
+        for e in source(filename):
             shared.append(deepcopy(e))
             owned.add((e.tag, e.get('name')))
     # Match the Xbox modal: fixed button art inside the alert, with A handled by the modal itself. The join
@@ -2195,7 +2215,7 @@ def patch_document(names):
 
 def header_frames(assets):
     """each bitmap's first frame, by name, from the PC look's bitmaps"""
-    return {b.get('name'): b.find('frame') for b in ET.parse(Path(assets) / 'ce/bitmaps.xml').getroot()}
+    return {b.get('name'): b.find('frame') for b in source('bitmaps.xml')}
 
 
 def native_header_size(name, bitmap, widget_type, frames):
@@ -2625,7 +2645,8 @@ def generate(assets=MENUS):
         (output / filename).write_text(menu_catalog.add_ids(serialize(root), Path(filename).stem, 'xbox'), encoding='utf-8')
     manifest_path = assets / 'menus.json'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-    manifest['files'] = retain_xbox_files(assets, manifest['files'])
+    manifest['comment'] = "The menus' files the game embeds (tools/xbox_menus.py, tools/embed_assets.py)."
+    manifest['files'] = manifest_files(assets)
     manifest_path.write_text(json.dumps(manifest, indent=1) + '\n', encoding='utf-8')
 
 

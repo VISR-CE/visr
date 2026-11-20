@@ -1317,17 +1317,14 @@ for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform
         execute([BUILD / name, kind],
                 env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud, 'HALO_HOST_SEND_LOG': cloud,
                      'HALO_HOST_KEYBOARD': '1' if mac else '0'})
-# Every platform keeps four evenly spaced rows and inert root cancel handlers.
-main_menu = ElementTree.parse(ROOT / 'port/assets/menus/ce/main_menu.xml').getroot()
-assert not any('quit_select' in element.get('open', '') for element in main_menu.iter())
-assert not any(element.get('platform') == 'quit' for element in main_menu.iter())
-for look in ('ce', 'xbox'):
-    dialog = ElementTree.parse(ROOT / f'port/assets/menus/{look}/main_menu.quit_select.xml')
-    assert any(w.get('name', '').endswith('/quit_screen') for w in dialog.iter('widget'))
-shown = list(main_menu.find("widget[@name='main_menu/main_menu_select_list']").iter('child'))
-assert [int(child.get('y')) for child in shown] == [247 + 36 * row for row in range(len(shown))] and len(shown) == 4, \
-    'the main menu without Quit: four items, a row apart'
-print('main menu without Quit: ' + ', '.join(child.get('widget').split('/')[-1] for child in shown))
+# No generated screen opens Quit; the confirmation stays for the debug setting.
+for path in sorted((ROOT / 'port/assets/menus/xbox').glob('*.xml')):
+    screen_file = ElementTree.parse(path).getroot()
+    assert not any('quit_select' in element.get('open', '') for element in screen_file.iter()), path.name
+    assert not any(element.get('platform') == 'quit' for element in screen_file.iter()), path.name
+dialog = ElementTree.parse(ROOT / 'port/assets/menus/xbox/main_menu.quit_select.xml')
+assert any(w.get('name', '').endswith('/quit_screen') for w in dialog.iter('widget'))
+print('menus without Quit: no screen opens the confirmation')
 run('python3', 'tools/test_menu_cancel.py')
 run('python3', 'tools/test_menu_visibility.py')
 # the Xbox look's patch table: rows added, taken out and replaced in the map's lists, their places, descriptions and

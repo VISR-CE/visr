@@ -4,24 +4,9 @@ from xml.etree import ElementTree as ET
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-MENUS = ROOT / 'port/assets/menus/ce'
 sys.path.insert(0, str(ROOT / 'tools'))
-import port_settings
 
 MT = 'main_menu/multiplayer_type_select'
-
-
-def test_every_selectable_row_has_a_description():
-    widgets = {}
-    for name in ('main_menu.multiplayer_type_select.xml', 'main_menu.multiplayer_type_select.coop.xml'):
-        for w in ET.parse(MENUS / name).getroot().iter('widget'):
-            widgets[w.get('name')] = w
-    rows = [widgets[c.get('widget')] for c in
-            widgets[f'{MT}/multiplayer_type_select_list'].findall('child')
-            if c.get('widget') in widgets]
-    selectable = [w for w in rows if w.get('type') != 'column_list' and w.find('on') is not None]
-    strings = port_settings.STRING_OVERRIDES[f'{MT}/multiplayer_option_descriptions']
-    assert len(selectable) == len(strings)
 
 
 def test_nested_button_bar_focus_has_no_description_index():

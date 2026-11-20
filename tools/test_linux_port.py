@@ -332,7 +332,7 @@ def test_menu_settings_exist():
     functions = (root / "port/linux/game/menu_functions.c").read_text()
     known = set(re.findall(r'^\t\{ "([a-z_]+\.[a-z_]+)", _config_', config, re.M))
     profile = set(re.findall(r'\{ "(profile\.[a-z_]+)", \d', functions))
-    for path in (MENUS / "ce").glob("*.xml"):
+    for path in (MENUS / "xbox").glob("*.xml"):
         for setting in re.findall(r'setting="([^"]+)"', path.read_text()):
             assert setting in known | profile | {"host.cloud_saves"}, f"{path.name}: {setting}"
     controls = set(re.findall(r'"(controls\.[a-z_]+)"', (root / "port/linux/src/xinput_sdl.c").read_text()))
@@ -347,12 +347,7 @@ def test_network_settings_hide_update_toggle_on_mobile():
     files = port_settings.settings_files()
     name = "main_menu.settings_select.player_setup.player_profile_edit.network_setup.xml"
     generated = "\n".join(files[name])
-    asset = MENUS / "ce" / name
-    repository = Path(__file__).resolve().parent.parent
-    assert menu_catalog.STRIP.sub("", asset.read_text(encoding="utf-8")) == generated
-    assert asset.relative_to(repository) in embed_assets.hud_asset_inputs()
-
-    root = ElementTree.fromstring(asset.read_text(encoding="utf-8"))
+    root = ElementTree.fromstring(generated)
     options_name = "main_menu/settings_select/player_setup/player_profile_edit/network_setup/options_menu"
     options = root.find(f".//widget[@name='{options_name}']")
     assert options is not None
@@ -589,7 +584,6 @@ def test_icloud_setting_and_status_share_network_screen():
 
     name = "main_menu.settings_select.player_setup.player_profile_edit.network_setup.xml"
     generated = "\n".join(port_settings.settings_files()[name])
-    assert menu_catalog.STRIP.sub("", (MENUS / "ce" / name).read_text()) == generated
     root = ElementTree.fromstring(generated)
     base = f"{port_settings.PE}/network_setup"
     row = root.find(f"widget[@name='{base}/op_cloud_saves']")
@@ -635,8 +629,7 @@ def test_settings_lists_pack_rows_and_keep_a_window():
     import xml.etree.ElementTree as ElementTree
 
     for folder in ("video_settings", "audio_settings", "mouse_settings", "gamepad_setup"):
-        for look, name in (("ce", f"{port_settings.PE.replace('/', '.')}.{folder}.xml"),
-                           ("xbox", f"settings.{folder}.xml")):
+        for look, name in (("xbox", f"settings.{folder}.xml"),):
             root = ElementTree.parse(MENUS / look / name).getroot()
             options = next(w for w in root.findall("widget") if w.get("name").endswith("/options_menu"))
             assert options.get("row_top") == "73" and int(options.get("row_pitch")) in (26, 30, 39), (look, folder)

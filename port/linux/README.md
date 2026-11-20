@@ -160,23 +160,11 @@ you push it again.
 
 ## Menus
 
-The menus are the PC version's (Halo Custom Edition's): its main menu and
-every screen it leads to (campaign, profiles, multiplayer with its server
-browser, direct IP and server setup, the gametype editor, and the profile's
-settings: controls, gamepads, mouse, audio, video, network and colour),
-laid out as it has them. Their pictures are the high-res redraws; the few
-that are not yet (3D renders, screenshots) are drawn from the Xbox's own
-menus where it has the same, else a placeholder, listed in
-`port/assets/menus/NON_HANDDRAWN.md`.
-
-The campaign is wired: Campaign, on player 1's profile (the one last used),
-continues its saved game, starts a level it has reached at a difficulty (New
-Game), or loads or deletes any profile's saved game (Load Game). Many of the
-other functions behind the screens are not wired to this game yet
-(`port/assets/menus/UNWIRED.md`): the lists they fill (profiles, maps,
-servers, key bindings) are empty, and the settings they change do not
-change. The game shows the Xbox's menus, with the port's screens in the same
-look, on every platform and with every input device.
+The menus are the Xbox's own, with the port's screens in the same look
+(multiplayer with its server browser, direct IP and server setup, the
+gametype editor's added pages, and the settings: controls, gamepads, mouse,
+audio, video, graphics and network), on every platform and with every input
+device. `port/assets/menus/README.md` describes their files.
 
 Multiplayer > CO-OP CAMPAIGN is the Xbox's cooperative play, which the PC
 version does not have: two players on this computer play the campaign in

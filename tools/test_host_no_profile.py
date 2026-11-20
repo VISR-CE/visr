@@ -40,9 +40,8 @@ def test_host_no_profile():
     assert 'port host profile' not in tags
     equiv = (ROOT / 'port/linux/include/menu_equivalence.h').read_text()
     assert 'host_profile_screen' not in equiv
-    for look in ('ce', 'xbox'):
-        xml = (ROOT / f'port/assets/menus/{look}/main_menu.multiplayer_type_select.lobby.xml').read_text()
-        assert 'host_profile' not in xml
+    xml = (ROOT / 'port/assets/menus/xbox/main_menu.multiplayer_type_select.lobby.xml').read_text()
+    assert 'host_profile' not in xml
 
 
 if __name__ == '__main__':
