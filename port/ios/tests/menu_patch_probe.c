@@ -909,6 +909,20 @@ static void check_apple(boolean tvos)
 				string_is(help, 5, "Help B"), "the adopted row's help strings follow the description's own (%ld)",
 				help->strings.count);
 		}
+		{
+			short help_line = 99, help_length = 99;
+
+			/* (the help updater asks for a row's first line: the map's rows keep theirs, none for a row
+			with no spinner; an added row's follows the description's own lines) */
+			check(pc_menu_patch_row_help(ad_list, children_of(ad_list)[0].widget_tag.index, &help_line, &help_length) &&
+				help_line == 0 && help_length == 0, "a map row with no spinner keeps line 0 and has no lines (%d, %d)",
+				help_line, help_length);
+			check(pc_menu_patch_row_help(ad_list, children_of(ad_list)[2].widget_tag.index, &help_line, &help_length) &&
+				help_line == 4 && help_length == 2, "the adopted row's two help lines follow the description's own (%d, %d)",
+				help_line, help_length);
+			check(!pc_menu_patch_row_help(ad_other_list, NONE, &help_line, &help_length) && help_line == NONE,
+				"a list no patch changed has no help lines of its own");
+		}
 		check(!pc_menu_patch_list_index(ad_other_list, NONE, &description) && child_count(ad_other_list) == 1,
 			"a row of a widget there is none of is not made");
 		check(!pc_menu_patch_list_index(ad_map_list, NONE, &description) && child_count(ad_map_list) == 1,

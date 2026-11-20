@@ -2378,6 +2378,43 @@ static void player_profile_edit_select_menu_update_extended_description(
 	return;
 }
 
+/* port: the help line of a patched option list's focused row (menu_tags.c numbers them: the
+patch removes, moves and adds rows, and an added row such as RESPAWN may have no spinner).
+Returns FALSE for a list no patch changed. */
+boolean pc_menu_patch_row_help(long list_tag, long row_tag, short *help, short *length);
+boolean ui_patched_options_help_update(
+	struct widget_instance *list)
+{
+	struct widget_instance *description = list->parameters.list.extended_description;
+	struct widget_instance *focused = list->focused_child;
+	struct widget_instance *spinner;
+	short help, length;
+
+	if (!pc_menu_patch_row_help(list->definition_tag_index, focused ? focused->definition_tag_index : NONE, &help,
+		&length))
+		return FALSE;
+	if (!description || description->type != _ui_widget_type_text_box || !focused || help == NONE)
+		return TRUE;
+	for (spinner = focused->child; spinner && spinner->type != _ui_widget_type_spinner_list; spinner = spinner->next)
+		;
+	if (spinner)
+	{
+		short extra_description = ui_widget_spinner_extra_description(spinner,
+			spinner->parameters.list.selected_list_item_index);
+
+		if (extra_description != NONE)
+		{
+			description->parameters.text_box.string_list_index = extra_description;
+			return TRUE;
+		}
+		/* (a line a value, or one line for the whole row) */
+		if (length > 1 && spinner->parameters.list.selected_list_item_index < length)
+			help = (short)(help + spinner->parameters.list.selected_list_item_index);
+	}
+	description->parameters.text_box.string_list_index = help;
+	return TRUE;
+}
+
 static void game_options_menu_update_text_desc(
 	struct widget_instance *widget)
 {
@@ -2407,6 +2444,9 @@ static void game_options_menu_update_text_desc(
 		definition->child_count > 0,
 		"expected some list items for multiplayer game settings list");
 
+	/* port: a patched list's rows are not the disc's (ui_patched_options_help_update) */
+	if (ui_patched_options_help_update(widget))
+		return;
 	extended_description = widget->parameters.list.extended_description;
 	if (widget->focused_child)
 	{

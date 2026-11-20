@@ -5,7 +5,9 @@ walked the list's rows in the disc's order and halted on the first row without a
 spinner. The Xbox look's Player Options patch replaces the four respawn rows with one
 RESPAWN row, so opening PLAYER OPTIONS halted with "expected 'respawn time growth'
 option spinner list". Each handler of a patched option list now asks for its rows by
-name (`option_list_row_spinner`) and leaves a removed row to its replacement.
+name (`option_list_row_spinner`) and leaves a removed row to its replacement. A patched list's
+description also takes each row's help line from the patch (`pc_menu_patch_row_help`): the disc's
+help updater counted one spinner a row in the disc's order and halted on RESPAWN, which has none.
 """
 from pathlib import Path
 import re
@@ -74,3 +76,11 @@ def test_row_lookup_matches_the_disc_tag_leaf():
     assert "strrchr(name, '\\\\')" in helper
     assert 'spinner->type != 2' in helper
 
+
+def test_option_help_updaters_ask_the_patch_first():
+    updater = (ROOT / 'source/interface/ui_widget_game_data_input_functions.c').read_text()
+    body = updater.split('static void game_options_menu_update_text_desc(\n', 1)[1].split('\n}\n', 1)[0]
+    assert body.index('if (ui_patched_options_help_update(widget))') < body.index('spinner_list = column->child;')
+    port = (ROOT / 'port/linux/game/menu_functions.c').read_text()
+    body = port.split('static void gametype_option_help(struct widget_instance *list)\n{', 1)[1].split('\n}\n', 1)[0]
+    assert 'if (ui_patched_options_help_update(list))' in body

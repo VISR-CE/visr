@@ -74,6 +74,7 @@ boolean pc_menu_tag(long tag_index);
 boolean pc_menu_multiplayer_lan(void);
 short pc_menu_list_window(long tag_index);
 boolean pc_menu_patch_list_index(long list_tag, long row_tag, short *description);
+boolean pc_menu_patch_row_help(long list_tag, long row_tag, short *help, short *length);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
 void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, boolean block, boolean load);
 
@@ -305,6 +306,9 @@ struct menu_patch_index
 	long list_tag;
 	long row_tag;
 	short description;
+	/* the row's first line in the list's description text, or NONE, and its number of lines (one a
+	value, or one for the whole row) */
+	short help, help_length;
 };
 
 /* a spinner bound to a setting (menu_functions.c) */
@@ -2108,6 +2112,12 @@ struct patch_work
 	/* each row's tag in the map (a replaced row's too), NONE for one added */
 	long map_tags[PATCH_MAXIMUM_ROWS];
 	short descriptions[PATCH_MAXIMUM_ROWS];
+	/* each row's first help line in the description text: a map row's where the map put it (its
+	spinner's own strings follow those of the rows before it in the map's order), an added row's
+	after the map's own lines, NONE for a row with none */
+	short help_lines[PATCH_MAXIMUM_ROWS];
+	/* and how many lines it has: one a value, or one for the whole row */
+	short help_lengths[PATCH_MAXIMUM_ROWS];
 	long count;
 	short *screen_y;
 	short footer, right;
@@ -2400,10 +2410,52 @@ static struct ui_widget_definition const *patch_model(struct patch_work const *w
 	return tag_get(UI_WIDGET_DEFINITION_TAG, tag);
 }
 
+/* the help lines a map row's values have in its list's description: its spinner's own strings */
+static short patch_row_help_count(struct ui_widget_definition const *row)
+{
+	struct ui_widget_child_reference const *children = row->child_widgets.address;
+
+	for (long child = 0; child < row->child_widgets.count; child++)
+	{
+		struct ui_widget_definition const *part;
+		struct string_list const *strings;
+
+		if (children[child].widget_tag.index == NONE)
+			continue;
+		part = tag_get(UI_WIDGET_DEFINITION_TAG, children[child].widget_tag.index);
+		if (!part || part->type != _widget_type_spinner_list || part->text_label_string_list.index == NONE)
+			continue;
+		strings = tag_get(UNICODE_STRING_LIST_TAG, part->text_label_string_list.index);
+		return strings ? (short)strings->strings.count : 0;
+	}
+	return 0;
+}
+
+/* the lines a help= takes (one per '|'-separated value) */
+static long patch_help_text_pieces(char const *help)
+{
+	long pieces = 1;
+
+	for (char const *bar = strchr(help, '|'); bar; bar = strchr(bar + 1, '|'))
+		pieces++;
+	return pieces;
+}
+
+/* the lines the helps added so far take */
+static long patch_help_pieces(struct patch_work const *work)
+{
+	long pieces = 0;
+
+	for (long index = 0; index < work->help_count; index++)
+		pieces += patch_help_text_pieces(work->helps[index]);
+	return pieces;
+}
+
 static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row const *source)
 {
 	char const *anchor_name = source->after ? source->after : source->before;
 	long anchor = patch_row_find(work, anchor_name), at, row, widget_tag;
+	short help_line = NONE, help_length = 0;
 	struct ui_widget_definition const *model;
 	struct ui_widget_definition *definition;
 	struct ui_widget_child_reference reference;
@@ -2445,6 +2497,9 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 					source->name);
 			work->help_strings = tag_get(UNICODE_STRING_LIST_TAG, text->text_label_string_list.index);
 			work->helps[work->help_count++] = source->help;
+			/* (its lines follow the map's own and those of the rows added before it) */
+			help_length = (short)patch_help_text_pieces(source->help);
+			help_line = (short)(work->help_strings->strings.count + patch_help_pieces(work) - help_length);
 		}
 	}
 	else
@@ -2497,7 +2552,11 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 		work->names[row] = work->names[row - 1];
 		work->map_tags[row] = work->map_tags[row - 1];
 		work->descriptions[row] = work->descriptions[row - 1];
+		work->help_lines[row] = work->help_lines[row - 1];
+		work->help_lengths[row] = work->help_lengths[row - 1];
 	}
+	work->help_lines[at] = help_line;
+	work->help_lengths[at] = help_length;
 	work->rows[at] = reference;
 	work->definitions[at] = definition;
 	work->names[at] = source->name;
@@ -2557,6 +2616,8 @@ static boolean patch_row_remove(struct patch_work *work, struct halo_menu_patch_
 		work->names[row] = work->names[row + 1];
 		work->map_tags[row] = work->map_tags[row + 1];
 		work->descriptions[row] = work->descriptions[row + 1];
+		work->help_lines[row] = work->help_lines[row + 1];
+		work->help_lengths[row] = work->help_lengths[row + 1];
 		work->rows[row].vertical_offset = (short)(work->rows[row].vertical_offset - pitch);
 	}
 	work->count--;
@@ -2589,6 +2650,8 @@ static boolean patch_row_replace(struct patch_work *work, struct halo_menu_patch
 	work->rows[replaced].horizontal_offset = (short)(x - work->list_x - definition->bounds.x0);
 	work->definitions[replaced] = definition;
 	work->names[replaced] = source->name;
+	work->help_lines[replaced] = NONE;
+	work->help_lengths[replaced] = 0;
 	return TRUE;
 }
 
@@ -2802,6 +2865,7 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 	struct patch_work *work = malloc(sizeof(*work));
 	struct ui_widget_child_reference *children, *grown;
 	long screen_tag, row, child, made, bottom;
+	short help_line = 0;
 
 	if (!work)
 	{
@@ -2901,6 +2965,9 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 		work->definitions[row] = tag_get(UI_WIDGET_DEFINITION_TAG, work->rows[row].widget_tag.index);
 		work->map_tags[row] = work->rows[row].widget_tag.index;
 		work->descriptions[row] = (short)row;
+		work->help_lines[row] = help_line;
+		work->help_lengths[row] = patch_row_help_count(work->definitions[row]);
+		help_line = (short)(help_line + work->help_lengths[row]);
 		right = (short)(work->list_x + work->definitions[row]->bounds.x1 + work->rows[row].horizontal_offset);
 		if (right > work->right)
 			work->right = right;
@@ -2977,6 +3044,8 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 		index->list_tag = work->list_tag;
 		index->row_tag = work->rows[row].widget_tag.index;
 		index->description = work->descriptions[row];
+		index->help = work->help_lines[row];
+		index->help_length = work->help_lengths[row];
 	}
 	platform_log("menus: %s: %ld rows patched (%ld made)", patch->list, work->count, work->made_count);
 
@@ -3580,6 +3649,36 @@ boolean pc_menu_patch_list_index(
 		if (row_tag != NONE && menu_tags.patch_indices[index].row_tag == row_tag)
 		{
 			*description = menu_tags.patch_indices[index].description;
+			break;
+		}
+	}
+	return patched;
+}
+
+/* whether the list is one a patch changed, and then the row's first line in the list's
+description text (NONE: the row has none) and its number of lines. A patch removes, moves and adds rows, so the
+disc's way of counting the lines (each row's spinner's strings, in the rows' order) and
+its rows each with a spinner no longer hold. */
+boolean pc_menu_patch_row_help(
+	long list_tag,
+	long row_tag,
+	short *help,
+	short *length)
+{
+	long index;
+	boolean patched = FALSE;
+
+	*help = NONE;
+	*length = 0;
+	for (index = 0; menu_tags.loaded && list_tag != NONE && index < menu_tags.patch_index_count; index++)
+	{
+		if (menu_tags.patch_indices[index].list_tag != list_tag)
+			continue;
+		patched = TRUE;
+		if (row_tag != NONE && menu_tags.patch_indices[index].row_tag == row_tag)
+		{
+			*help = menu_tags.patch_indices[index].help;
+			*length = menu_tags.patch_indices[index].help_length;
 			break;
 		}
 	}

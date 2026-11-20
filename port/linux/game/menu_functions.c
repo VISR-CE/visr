@@ -7198,6 +7198,8 @@ static void gametype_edit_name(struct widget_instance *text_box)
 /* "game settings lists text update": the help of the option with the
 focus, for its value (the description's strings are each option's values'
 helps in turn), as the Xbox's, which stops the game on the buttons' row */
+boolean ui_patched_options_help_update(struct widget_instance *list);
+
 static void gametype_option_help(struct widget_instance *list)
 {
 	struct widget_instance *description = list->parameters.list.extended_description;
@@ -7212,6 +7214,9 @@ static void gametype_option_help(struct widget_instance *list)
 
 		visible_set(named(list, "op_choose_weapons", 0), custom);
 	}
+	/* (a list a patch changed numbers its rows' helps itself: ui_widget_game_data_input_functions.c) */
+	if (ui_patched_options_help_update(list))
+		return;
 	/* (the server browser's filters, hidden: their helps are fewer than
 	their values) */
 	if (!description || !list->focused_child || !strncmp(list->name, "filters", 7))
