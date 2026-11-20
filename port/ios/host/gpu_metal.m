@@ -38,6 +38,7 @@ but never returns to its run loop, which would otherwise drain them.
 #include "ios_host.h"
 #include "metal_state_cache.h"
 #include "metal_scene_park.h"
+#include "metal_compute_grid.h"
 /* GPU_VALIDATION_REPORT: this backend's fallbacks and skips, by name, in a
 build with render validation; nothing otherwise */
 #include "gpu_validate.h"
@@ -7867,8 +7868,7 @@ static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePip
 	unsigned long width, unsigned long height)
 {
 	[compute setComputePipelineState:pipeline];
-	[compute dispatchThreadgroups:MTLSizeMake((width + 7) / 8, (height + 7) / 8, 1)
-		threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
+	metal_dispatch_grid(compute, MTLSizeMake(width, height, 1), MTLSizeMake(8, 8, 1));
 }
 
 
@@ -9939,9 +9939,9 @@ static NSString *const soft_depth_source =
 	"using namespace metal;\n"
 	"kernel void soft_depth_linearize(depth2d<float, access::read> depth [[texture(0)]],\n"
 	"\ttexture2d<float, access::write> distances [[texture(1)]], texture2d<uint, access::read> stencil [[texture(2)]],\n"
-	"\tconstant float4 &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"\tconstant float4 &p [[buffer(0)]], constant uint2 &size [[buffer(1)]], uint2 gid [[thread_position_in_grid]])\n"
 	"{\n"
-	"\tif (gid.x >= distances.get_width() || gid.y >= distances.get_height())\n"
+	"\tif (gid.x >= size.x || gid.y >= size.y || gid.x >= distances.get_width() || gid.y >= distances.get_height())\n"
 	"\t\treturn;\n"
 	"\tuint scale = uint(p.w);\n"
 	"\tuint2 last = uint2(depth.get_width() - 1, depth.get_height() - 1);\n"
@@ -10050,7 +10050,13 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		[compute setTexture:soft.distances atIndex:1];
 		[compute setTexture:soft.stencil_view atIndex:2];
 		[compute setBytes:soft.parameters length:sizeof(soft.parameters) atIndex:0];
-		[compute dispatchThreads:MTLSizeMake(width, height, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+		{
+			/* the scene's part of the target: whole threadgroups run past it, and those threads write nothing */
+			uint32_t size[2] = { (uint32_t)width, (uint32_t)height };
+
+			[compute setBytes:size length:sizeof(size) atIndex:1];
+		}
+		metal_dispatch_grid(compute, MTLSizeMake(width, height, 1), MTLSizeMake(16, 16, 1));
 		[compute endEncoding];
 		soft.active = YES;
 		return 1;

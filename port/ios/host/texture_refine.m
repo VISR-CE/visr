@@ -3,6 +3,7 @@ with output texel j between input texels 2j and 2j+1 (pipeline.downsample2), Lan
 texel centers (consistency._upsample_axis), a Gaussian of radius ceil(3 sigma), taps wrapped or clamped. */
 #import <Metal/Metal.h>
 #include "texture_refine.h"
+#include "metal_compute_grid.h"
 /* Menu silhouettes stay on the CPU (menu_picture_trace.c), sharing the bounded bpf worker and gameplay stop. */
 #include <math.h>
 #include <stdio.h>
@@ -273,7 +274,7 @@ static void dispatch_1d(id<MTLComputeCommandEncoder> encoder, id<MTLComputePipel
 	NSUInteger width = MIN(pipeline.maxTotalThreadsPerThreadgroup, 256);
 
 	[encoder setComputePipelineState:pipeline];
-	[encoder dispatchThreads:MTLSizeMake(count, 1, 1) threadsPerThreadgroup:MTLSizeMake(width, 1, 1)];
+	metal_dispatch_grid(encoder, MTLSizeMake(count, 1, 1), MTLSizeMake(width, 1, 1));
 }
 
 /* one axis of a separable filter. A 1-long axis is skipped when downsampling (pipeline.downsample2 skips it) but
@@ -303,7 +304,7 @@ static id<MTLBuffer> pass(TextureRefineContext *context, id<MTLComputeCommandEnc
 	[encoder setBuffer:dst offset:0 atIndex:1];
 	[encoder setBytes:&p length:sizeof(p) atIndex:2];
 	[encoder setBuffer:f->weights offset:0 atIndex:3];
-	[encoder dispatchThreads:MTLSizeMake(p.out_w, p.out_h, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+	metal_dispatch_grid(encoder, MTLSizeMake(p.out_w, p.out_h, 1), MTLSizeMake(16, 16, 1));
 	*w = p.out_w; *h = p.out_h;
 	return dst;
 }
@@ -355,7 +356,7 @@ static void derive(TextureRefineContext *context, id<MTLComputeCommandEncoder> e
 	[encoder setBuffer:height offset:0 atIndex:0];
 	[encoder setBuffer:normals offset:0 atIndex:1];
 	[encoder setBytes:&p length:sizeof(p) atIndex:2];
-	[encoder dispatchThreads:MTLSizeMake(w, h, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+	metal_dispatch_grid(encoder, MTLSizeMake(w, h, 1), MTLSizeMake(16, 16, 1));
 }
 
 /* the mismatch mask at the original's size: blur (a Gaussian of radius ceil(3 sigma)), then the smoothstep */
