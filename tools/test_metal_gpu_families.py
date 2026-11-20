@@ -60,6 +60,8 @@ def without_comments(source):
 def test_no_nonuniform_threadgroups():
     calls = []
     for path in SOURCES:
+        if "port/ios/tests" in path.as_posix():
+            continue  # probes compare against dispatchThreads: on the Mac; they never ship
         for number, line in enumerate(without_comments(path.read_text(errors="replace")).splitlines(), 1):
             if re.search(r"\bdispatchThreads(PerTile)?:", line):
                 calls.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()}")

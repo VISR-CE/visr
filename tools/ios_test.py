@@ -1003,6 +1003,11 @@ run(BUILD/'benchmark-isolation-probe')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', 'port/ios/tests/texture_refine_probe.m',
     'port/ios/host/texture_refine.m', '-framework', 'Foundation', '-framework', 'Metal', '-o', BUILD/'texture-refine-probe')
 run(BUILD/'texture-refine-probe')
+# compute grids in whole threadgroups (port/ios/host/metal_compute_grid.h) write only their own cells, as
+# dispatchThreads: would; skips itself where there is no Metal device
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', 'port/ios/tests/metal_compute_grid_probe.m',
+    '-framework', 'Foundation', '-framework', 'Metal', '-o', BUILD/'metal-compute-grid-probe')
+run(BUILD/'metal-compute-grid-probe')
 # the render's own local random sequence: frames drawn between ticks leave the game's local
 # numbers alone (the probe includes port/linux/game/render_random.c)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
