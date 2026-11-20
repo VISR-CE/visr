@@ -1848,6 +1848,7 @@ def test_signing_installs_only_selected_existing_material_and_cleans_it(
             "application-identifier": "TESTTEAM.example.app",
             "get-task-allow": False,
             "com.apple.developer.kernel.extended-virtual-addressing": True,
+            "com.apple.developer.networking.multicast": True,
         },
         "ExpirationDate": datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
         + datetime.timedelta(days=1),
@@ -2036,6 +2037,7 @@ def test_release_profiles_require_the_archive_extended_addressing_entitlement(
         "Entitlements": {
             key: True,
             "com.apple.developer.kernel.increased-memory-limit": True,
+            "com.apple.developer.networking.multicast": True,
         }
     }
     release_signing.validate_profile_entitlements(profile, platform)
@@ -2043,6 +2045,34 @@ def test_release_profiles_require_the_archive_extended_addressing_entitlement(
         profile["Entitlements"][key] = missing
         with pytest.raises(ValueError, match="extended-virtual-addressing"):
             release_signing.validate_profile_entitlements(profile, platform)
+
+
+@pytest.mark.parametrize("platform", ["ios", "visionos"])
+def test_release_profiles_require_the_multicast_entitlement_where_the_archive_asks_for_it(
+    platform: str,
+) -> None:
+    from tools import release_signing
+
+    key = release_signing.MULTICAST_ENTITLEMENT
+    profile = {
+        "Entitlements": {
+            "com.apple.developer.kernel.extended-virtual-addressing": True,
+            "com.apple.developer.kernel.increased-memory-limit": True,
+        }
+    }
+    with pytest.raises(ValueError, match="networking.multicast.*regenerate"):
+        release_signing.validate_profile_entitlements(profile, platform)
+    profile["Entitlements"][key] = True
+    release_signing.validate_profile_entitlements(profile, platform)
+
+
+def test_tvos_release_profile_does_not_need_the_multicast_entitlement() -> None:
+    from tools import release_signing
+
+    release_signing.validate_profile_entitlements(
+        {"Entitlements": {"com.apple.developer.kernel.extended-virtual-addressing": True}},
+        "tvos",
+    )
 
 
 def test_vision_release_profile_requires_its_existing_increased_memory_entitlement() -> (

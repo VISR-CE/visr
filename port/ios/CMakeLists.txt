@@ -368,9 +368,16 @@ else()
     # An iPad Pro (first generation, A9X, 4 GB) has no free 4 GB at a multiple of 4 GB for the guest arena; the
     # entitlement asks for a larger address space (tools/ios_build.py --extended-virtual-addressing). The iCloud
     # keys are added to this file's, not in place of them
+    # Both files carry the multicast entitlement (broadcast LAN discovery, host/host_bonjour.m)
     if(HALO_EXTENDED_VIRTUAL_ADDRESSING)
+        set(HALO_ENTITLEMENTS VISR-iOS-extended.entitlements)
+    elseif(NOT HALO_MAC)
+        # (the Catalyst build signs ad hoc, which cannot carry a restricted entitlement)
+        set(HALO_ENTITLEMENTS VISR-iOS.entitlements)
+    endif()
+    if(HALO_ENTITLEMENTS)
         set_target_properties(VISR PROPERTIES
-            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/VISR-iOS-extended.entitlements")
+            XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/${HALO_ENTITLEMENTS}")
     endif()
     # the app's page in the Settings app (host/host_texture_settings.m)
     target_sources(VISR PRIVATE "${HALO_SETTINGS_BUNDLE}")

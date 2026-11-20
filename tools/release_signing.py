@@ -31,6 +31,9 @@ def security(*args: str, capture: bool = False) -> str:
 MAC_INSTALLER_IDENTITY = "3rd Party Mac Developer Installer"
 
 
+MULTICAST_ENTITLEMENT = "com.apple.developer.networking.multicast"
+
+
 class XcodeManagedProfileError(ValueError):
     """A safe signing-preflight failure that can be reported without profile data."""
 
@@ -77,7 +80,12 @@ def validate_profile_entitlements(
     )
     for name, value in required.items():
         if value is True and entitlements.get(name) is not True:
-            raise ValueError(f"{platform} distribution profile must allow {name}")
+            hint = (
+                " (a provisioning profile made before the App ID gained the Multicast Networking capability lacks it; regenerate the profile)"
+                if name == MULTICAST_ENTITLEMENT
+                else ""
+            )
+            raise ValueError(f"{platform} distribution profile must allow {name}{hint}")
     if benchmark_upload or cloud_saves:
         services = entitlements.get("com.apple.developer.icloud-services", [])
         containers = entitlements.get("com.apple.developer.icloud-container-identifiers", [])

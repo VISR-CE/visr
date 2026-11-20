@@ -427,6 +427,7 @@ def test_manual_upload_package_uses_production_from_the_installed_profile(monkey
     profile = {
         "Entitlements": {
             "com.apple.developer.kernel.extended-virtual-addressing": True,
+            "com.apple.developer.networking.multicast": True,
             "com.apple.developer.icloud-services": ["CloudKit"],
             "com.apple.developer.icloud-container-identifiers": ["iCloud.org.steverice.visr"],
             "aps-environment": "production",

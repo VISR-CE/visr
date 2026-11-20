@@ -31,6 +31,7 @@ def test_profile_name_does_not_override_false_marker() -> None:
 def cloud_profile(aps_environment=None):
     entitlements = {
         "com.apple.developer.kernel.extended-virtual-addressing": True,
+        "com.apple.developer.networking.multicast": True,
         "com.apple.developer.icloud-services": ["CloudKit"],
         "com.apple.developer.icloud-container-identifiers": ["iCloud.org.steverice.visr"],
     }
@@ -42,7 +43,7 @@ def cloud_profile(aps_environment=None):
 def test_cloudkit_profile_validation_is_required_only_for_uploads() -> None:
     from tools.release_signing import validate_profile_entitlements
 
-    profile = {"Entitlements": {"com.apple.developer.kernel.extended-virtual-addressing": True}}
+    profile = {"Entitlements": {"com.apple.developer.kernel.extended-virtual-addressing": True, "com.apple.developer.networking.multicast": True}}
     validate_profile_entitlements(profile, "ios")
     with pytest.raises(ValueError, match="CloudKit"):
         validate_profile_entitlements(profile, "ios", benchmark_upload=True)
