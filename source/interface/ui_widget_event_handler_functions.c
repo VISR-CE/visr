@@ -4275,33 +4275,22 @@ static boolean player_profile_change_advanced_controller_settings(
 	boolean *widget_deleted)
 {
 	struct player_profile *profile;
-	struct widget_instance *list_item;
 	struct widget_instance *option_spinner;
 
 	profile = player_ui_get_edit_player_profile();
 	match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3984, widget->type == 3, "expected column list for advanced controller settings widget");
 	if (profile)
 	{
-		list_item = widget->child;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3992, list_item, "expected 'invert joystick' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3994, option_spinner, "expected 'invert joystick' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_invert_joystick");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: profile->controller_settings.invert_look = TRUE; break;
 		case 1: profile->controller_settings.invert_look = FALSE; break;
 		default: error(2, "unknown option selected for invert joystick"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 4003, list_item, "expected 'look sensitivity' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 4005, option_spinner, "expected 'look sensitivity' option spinner list");
-		{
+		option_spinner = option_list_row_spinner(widget, "op_controller_sensitivity");
+		if (option_spinner) {
 			long selected_index = option_spinner->data3C.selected_index;
 			if (selected_index >= 0 && selected_index <= 9)
 				profile->controller_settings.look_sensitivity = (byte)(option_spinner->data3C.selected_index + 1);
@@ -4309,39 +4298,24 @@ static boolean player_profile_change_advanced_controller_settings(
 				error(2, "unknown option selected for look sensitivity");
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 4024, list_item, "expected 'controller vibration' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 4026, option_spinner, "expected 'controller vibration' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_controller_vibration");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: profile->controller_settings.vibration_disabled = FALSE; break;
 		case 1: profile->controller_settings.vibration_disabled = TRUE; break;
 		default: error(2, "unknown option selected for controller vibration"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 4035, list_item, "expected 'flight stick controls' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 4037, option_spinner, "expected 'flight stick controls' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_flight_stick_controls");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: profile->controller_settings.flight_stick_aircraft_controls = TRUE; break;
 		case 1: profile->controller_settings.flight_stick_aircraft_controls = FALSE; break;
 		default: error(2, "unknown option selected for controller flight_stick_aircraft_controls"); break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 4046, list_item, "expected 'autocenter' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 4048, option_spinner, "expected 'autocenter' option spinner list");
-		switch (option_spinner->data3C.selected_index)
+		option_spinner = option_list_row_spinner(widget, "op_auto_center");
+		if (option_spinner) switch (option_spinner->data3C.selected_index)
 		{
 		case 0: profile->controller_settings.autocenter = TRUE; break;
 		case 1: profile->controller_settings.autocenter = FALSE; break;
@@ -4713,70 +4687,47 @@ static boolean player_profile_initialize_advanced_controller_settings(
 	boolean *widget_deleted)
 {
 	struct player_profile *profile;
-	struct widget_instance *list_item;
 	struct widget_instance *option_spinner;
 
 	profile = player_ui_get_edit_player_profile();
 	match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3844, widget->type == 3, "expected column list for advanced controller settings widget");
 	if (profile)
 	{
-		list_item = widget->child;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3852, list_item, "expected 'invert joystick' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3854, option_spinner, "expected 'invert joystick' option spinner list");
-		switch (profile->controller_settings.invert_look)
+		option_spinner = option_list_row_spinner(widget, "op_invert_joystick");
+		if (option_spinner) switch (profile->controller_settings.invert_look)
 		{
 		case FALSE: option_spinner->data3C.selected_index = 1; break;
 		case TRUE: option_spinner->data3C.selected_index = 0; break;
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3863, list_item, "expected 'look sensitivity' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3865, option_spinner, "expected 'look sensitivity' option spinner list");
-		if (profile->controller_settings.look_sensitivity > 0 && profile->controller_settings.look_sensitivity <= 10)
-			option_spinner->data3C.selected_index = profile->controller_settings.look_sensitivity - 1;
-		else
-			option_spinner->data3C.selected_index = 0;
+		option_spinner = option_list_row_spinner(widget, "op_controller_sensitivity");
+		if (option_spinner)
+		{
+			if (profile->controller_settings.look_sensitivity > 0 && profile->controller_settings.look_sensitivity <= 10)
+				option_spinner->data3C.selected_index = profile->controller_settings.look_sensitivity - 1;
+			else
+				option_spinner->data3C.selected_index = 0;
+		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3884, list_item, "expected 'controller vibration' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3886, option_spinner, "expected 'controller vibration' option spinner list");
-		switch (profile->controller_settings.vibration_disabled)
+		option_spinner = option_list_row_spinner(widget, "op_controller_vibration");
+		if (option_spinner) switch (profile->controller_settings.vibration_disabled)
 		{
 		case FALSE: option_spinner->data3C.selected_index = 0; break;
 		case TRUE: option_spinner->data3C.selected_index = 1; break;
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3895, list_item, "expected 'flight stick controls' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3897, option_spinner, "expected 'flight stick controls' option spinner list");
-		switch (profile->controller_settings.flight_stick_aircraft_controls)
+		option_spinner = option_list_row_spinner(widget, "op_flight_stick_controls");
+		if (option_spinner) switch (profile->controller_settings.flight_stick_aircraft_controls)
 		{
 		case FALSE: option_spinner->data3C.selected_index = 1; break;
 		case TRUE: option_spinner->data3C.selected_index = 0; break;
 		default: option_spinner->data3C.selected_index = 0; break;
 		}
 
-		list_item = list_item->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3906, list_item, "expected 'autocenter' list item");
-		option_spinner = list_item->child;
-		while (option_spinner && option_spinner->type != 2)
-			option_spinner = option_spinner->next;
-		match_vassert("c:\\halo\\SOURCE\\interface\\ui_widget_event_handler_functions.c", 3908, option_spinner, "expected 'autocenter' option spinner list");
-		switch (profile->controller_settings.autocenter)
+		option_spinner = option_list_row_spinner(widget, "op_auto_center");
+		if (option_spinner) switch (profile->controller_settings.autocenter)
 		{
 		case FALSE: option_spinner->data3C.selected_index = 1; return TRUE;
 		case TRUE: option_spinner->data3C.selected_index = 0; break;
@@ -5284,7 +5235,8 @@ static boolean playlist_profile_initialize_oddball_rules(
 	return FALSE;
 }
 /* port: an option list's spinner by its disc row's name. The Xbox look patches some of these
-lists (Player Options moves its four respawn rows to their own RESPAWN screen), so the rows are
+lists (Player Options moves its four respawn rows to their own RESPAWN screen, ADVANCED CONTROLS
+can trade the disc's rows for its own toggles), so the rows are
 no longer where the disc's handlers count them; a row the patch removed is left to its
 replacement's own handlers. */
 static struct widget_instance *option_list_row_spinner(struct widget_instance *list, char const *row_name)

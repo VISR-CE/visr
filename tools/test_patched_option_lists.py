@@ -21,6 +21,11 @@ OPTION_LISTS = {
         ['playlist_profile_initialize_player_options', 'playlist_profile_change_player_options'],
         ['op_number_of_lives', 'op_maximum_health', 'op_shields', 'op_respawn_time',
          'op_respawn_time_growth', 'op_odd_man_out', 'op_invisible_players', 'op_suicide_penalty']),
+    'advanced_controls_menu': (
+        ['player_profile_initialize_advanced_controller_settings',
+         'player_profile_change_advanced_controller_settings'],
+        ['op_invert_joystick', 'op_controller_sensitivity', 'op_controller_vibration',
+         'op_flight_stick_controls', 'op_auto_center']),
     'item_options_menu': (
         ['playlist_profile_initialize_item_options', 'playlist_profile_change_item_options'],
         ['op_infinite_grenades', 'op_vehicle_set', 'op_weapon_set', 'op_starting_equipment']),
@@ -68,3 +73,4 @@ def test_row_lookup_matches_the_disc_tag_leaf():
     assert 'tag_get_name(row->definition_tag_index)' in helper
     assert "strrchr(name, '\\\\')" in helper
     assert 'spinner->type != 2' in helper
+
