@@ -84,26 +84,41 @@ def test_a_row_appended_after_the_walked_rows_is_allowed():
     assert 'advanced_controls_menu' not in found
 
 
-def test_every_patched_option_list_fits_above_its_footer_with_every_row_tall():
+# Disc option lists that do not fit with every row tall, with (rows, where they would end, the limit). Each needs a
+# decision (fewer rows, a scrolling window, or the help moved) before the engine restacks it; the test fails when
+# one of them starts to fit or a new one stops fitting.
+TALL_OVERFLOW = {
+    'oddball_options_menu': (8, 385, 321),
+    'controller_options_menu': (2, 151, 140),
+}
+
+
+def test_every_disc_option_list_fits_above_its_help_with_every_row_tall():
     """Every row of every screen is the standard tall row, the disc's own rows included (the engine restacks a
-    patched list at the standard pitch from its first row). Laid out that way, each patched list of option rows
-    must end by its patch's footer; a list that would not fit fails here, before a device shows it."""
+    disc option list at the standard pitch from its first row, patched or not). Laid out that way, each list must
+    end by its limit: its patch's footer, else the top of its help text. A list that would not fit is listed in
+    TALL_OVERFLOW with its numbers."""
     import menu_geometry
 
     layout = ui_map_tags.load_layout()
     ours = disc_contract.xbox_widgets()
+    patches = {patch.get('list'): patch for patch in ET.parse(disc_contract.XBOX / 'patches.xml').getroot().iter('patch')}
     checked = {}
-    for patch in ET.parse(disc_contract.XBOX / 'patches.xml').getroot().iter('patch'):
-        path = patch.get('list')
-        disc = layout[path]['children']
+    for path, widget in layout.items():
+        disc = widget['children']
         # option lists: rows of the disc's option art, one under the other (the panel lists keep their own pitch)
-        bitmaps = {layout[child['widget']]['bitmap'].rsplit('\\', 1)[-1] for child in disc}
-        if bitmaps != {'option_bkds'}:
+        if widget['type'] != 'column_list' or not disc or {
+                layout[child['widget']]['bitmap'].rsplit('\\', 1)[-1] for child in disc} != {'option_bkds'}:
             continue
-        rows = disc_contract.patched_rows(layout, ours, patch)
-        first = min(child['y'] for child in disc)
-        bottom = first + len(rows) * menu_geometry.COMFORTABLE_PITCH
-        checked[path.rsplit('\\', 1)[-1]] = (len(rows), bottom, int(patch.get('footer')))
-    assert set(checked) == {'advanced_controls_menu', 'item_options_menu', 'player_options_menu'}, sorted(checked)
+        patch = patches.get(path)
+        rows = len(disc_contract.patched_rows(layout, ours, patch)) if patch is not None else len(disc)
+        # (bounds are left, top, right, bottom)
+        limit = int(patch.get('footer')) if patch is not None else layout[widget['description']]['bounds'][1]
+        bottom = min(child['y'] for child in disc) + rows * menu_geometry.COMFORTABLE_PITCH
+        checked[path.rsplit('\\', 1)[-1]] = (rows, bottom, limit)
+    assert set(checked) == {
+        'advanced_controls_menu', 'item_options_menu', 'player_options_menu', 'indicator_options_menu',
+        'ctf_options_menu', 'koth_options_menu', 'oddball_options_menu', 'race_options_menu', 'slayer_options_menu',
+        'controller_options_menu'}, sorted(checked)
     over = {name: fit for name, fit in checked.items() if fit[1] > fit[2]}
-    assert over == {}, over
+    assert over == TALL_OVERFLOW, over
