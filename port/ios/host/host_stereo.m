@@ -809,14 +809,17 @@ static BOOL prepare(id<MTLDevice> device, MTLPixelFormat color, MTLPixelFormat d
 	pipeline_depth = depth;
 	{
 		/* hud_depth_reduce sums with simd_sum and simd_max, SIMD-scoped reductions: Apple GPU family 7 (A14, M1) and
-		later, and Macs. On an earlier GPU the HUD rests at its distance. */
+		later, and Macs. Every Vision Pro has them; the check keeps the rule where the shader is. */
 		BOOL reductions = [device supportsFamily:MTLGPUFamilyApple7] || [device supportsFamily:MTLGPUFamilyMac2];
 		id<MTLFunction> reduce = reductions ? [library newFunctionWithName:@"hud_depth_reduce"] : nil;
 
 		hud_depth_pipeline = reduce ? [device newComputePipelineStateWithFunction:reduce error:&error] : nil;
-		if (!hud_depth_pipeline)
+		if (!reductions)
+			host_logf(HOST_LOG_INFO, "stereo: this GPU has no SIMD-group reductions (Apple GPU family 7), so the HUD "
+				"rests at its distance");
+		else if (!hud_depth_pipeline)
 			host_logf(HOST_LOG_ERROR, "stereo: the HUD depth's pipeline failed, so the HUD rests at its distance: %s",
-				error.description.UTF8String);
+				error ? error.description.UTF8String : "no function");
 	}
 	/* the eyes write the game's depth as it is; the HUD draws over them,
 	depth test off */
