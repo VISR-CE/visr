@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The menu fonts' glyph advances, and text layout as the game draws it (stdlib only).
 
-    python3 tools/menu_text_metrics.py --update /path/to/ui.map   # write build/menu_font_metrics.json
+    python3 tools/menu_text_metrics.py --update /path/to/ui.map   # rewrite tools/menu_font_metrics.json
     python3 tools/menu_text_metrics.py --check /path/to/ui.map    # fail when the table is stale
 
 The menus draw with the map's own fonts (`ui\\large_ui`, `ui\\small_ui`), which the generator cannot open,
@@ -21,17 +21,14 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-# The table is read from the disc, so it is not in the repository: --update writes it under build/ (or where
-# VISR_MENU_FONT_METRICS names), and the checks that measure text skip where it is missing (available()).
-# tools/menu_font_metrics.json is read first, should the table ever be checked in.
-SEARCH = (ROOT / 'tools/menu_font_metrics.json', ROOT / 'build/menu_font_metrics.json')
+# The table is checked in: numbers only (line metrics and per-character widths), no glyph art. --update rewrites
+# it from a ui.map and --check compares it with one; VISR_MENU_FONT_METRICS names another file to use.
+TABLE = ROOT / 'tools/menu_font_metrics.json'
 
 
 def metrics_path():
     named = os.environ.get('VISR_MENU_FONT_METRICS')
-    if named:
-        return Path(named)
-    return next((path for path in SEARCH if path.exists()), SEARCH[-1])
+    return Path(named) if named else TABLE
 
 
 def available():
@@ -162,6 +159,23 @@ def box_fits(font_name, text, width, height, text_x=0, text_y=0):
     return complete and last_baseline < height - text_y
 
 
+def dump(table):
+    """One line per font field, the characters as `"code": [advance, bitmap width]` pairs, eight to a line."""
+    lines = ['{']
+    for font_index, (name, entry) in enumerate(table.items()):
+        lines.append(f' {json.dumps(name)}: {{')
+        for key in ('ascending_height', 'descending_height', 'leading_height', 'leading_width'):
+            lines.append(f'  {json.dumps(key)}: {entry[key]},')
+        lines.append('  "characters": {')
+        pairs = [f'{json.dumps(code)}: {json.dumps(widths)}' for code, widths in entry['characters'].items()]
+        rows = [', '.join(pairs[start:start + 8]) for start in range(0, len(pairs), 8)]
+        lines.extend(f'   {row}' + (',' if index < len(rows) - 1 else '') for index, row in enumerate(rows))
+        lines.append('  }')
+        lines.append(' }' + (',' if font_index < len(table) - 1 else ''))
+    lines.append('}')
+    return '\n'.join(lines) + '\n'
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -169,7 +183,7 @@ def main(argv=None):
     group.add_argument('--check', metavar='MAP', help='compare the table with a ui.map')
     args = parser.parse_args(argv)
     table = read_fonts(args.update or args.check)
-    text = json.dumps(table, indent=1, sort_keys=False) + '\n'
+    text = dump(table)
     path = metrics_path()
     if args.update:
         path.parent.mkdir(parents=True, exist_ok=True)
