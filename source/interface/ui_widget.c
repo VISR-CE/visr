@@ -6447,14 +6447,6 @@ static void widget_instance_render_spinner_list(
 				string_index);
 			unsigned long length;
 
-			/* port: a switch row's state word is always ON or OFF, whatever its YES/NO strings say */
-			if (toggle)
-			{
-				static wchar_t state_on[] = L"ON";
-				static wchar_t state_off[] = L"OFF";
-
-				string = widget->parameters.list.selected_index == row.on_index ? state_on : state_off;
-			}
 			length = ustrlen(string);
 
 			item_text = pool_new_pointer(

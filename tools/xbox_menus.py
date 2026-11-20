@@ -937,7 +937,7 @@ def multiplayer_documents(assets, bitmaps):
                     desc.set('height', '60')
                 limit = int(desc.get('top'))
             w.set('height', str(limit))
-            if w.get('name') in ('xbox/' + MP + '/server_settings/options_menu', 'xbox/' + MP + '/coop_options/options_menu'):
+            if w.get('name') in HOSTED_LISTS:
                 for c in w.findall('child'):
                     if c.get('y') and 'button_bar' not in c.get('widget'):
                         # Preserve the co-op/competitive shared slots, using
@@ -1116,10 +1116,15 @@ def direct_ip_layout(root, dir_):
             root.remove(t)
 
 
+# The option lists hosting_layout lays out: their rows share slots between the co-op and competitive variants
+HOSTED_LISTS = set()
+
+
 def hosting_layout(root, widgets, page):
     """Use one option-row geometry while preserving the PC runtime bindings."""
     base = 'xbox/' + MP + '/' + page
     options = widgets[base + '/options_menu']
+    HOSTED_LISTS.add(options.get('name'))
     for c in list(options.findall('child')):
         if c.get('widget') == base + '/button_bar':
             options.remove(c)
@@ -2038,6 +2043,9 @@ def add_advanced_clones(documents):
         row.set('name', f'xbox/settings/gamepad_setup/op_{key}_advanced')
         spinner = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/{key}_spinner'))
         spinner.set('name', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
+        # a switch's state word is ON or OFF, as on the Xbox's advanced rows; the words live here, in the catalog
+        if spinner.get('strings') == 'YES|NO':
+            spinner.set('strings', 'ON|OFF')
         for part in row.findall('child'):
             if part.get('widget', '').endswith(f'{key}_spinner'):
                 part.set('widget', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')

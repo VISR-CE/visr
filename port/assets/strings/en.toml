@@ -2700,8 +2700,8 @@ s0 = "YES"
 s1 = "NO"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_autocenter_spinner_advanced]
-s0 = "YES"
-s1 = "NO"
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_defaults_caption]
 text = "DEFAULTS"
@@ -2722,8 +2722,8 @@ s0 = "YES"
 s1 = "NO"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_flight_inversion_spinner_advanced]
-s0 = "YES"
-s1 = "NO"
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings]
 how_fast_the_right_stick_turns_the_view = "How fast the right stick turns the view."
@@ -2748,8 +2748,8 @@ s0 = "YES"
 s1 = "NO"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_invert_look_spinner_advanced]
-s0 = "YES"
-s1 = "NO"
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_joystick_preset_spinner]
 s0 = "DEFAULT"
