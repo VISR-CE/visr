@@ -2,12 +2,15 @@
 
 The bug class: a Metal call or shader function that needs a newer GPU family than the oldest device VISR runs on (the
 A8 Apple TV HD, Apple GPU family 2). Non-uniform threadgroups (`dispatchThreads:`) need family 4 (A11): on the A10X
-iPad the soft particle pass aborted the app with 'APINotSupported' at a map's first frame.
+iPad the soft particle pass aborted the app with 'APINotSupported' at a map's first frame. SIMD-group functions in a
+shader need family 4, 6 or 7 depending on the kind.
 
 - Compute work is dispatched in whole threadgroups (`metal_dispatch_grid` in `port/ios/host/metal_compute_grid.h`),
   never with `dispatchThreads:` or `dispatchThreadsPerTile:`.
 - Every kernel that reads its grid position returns, or writes nothing, for a position outside its size before its
   first write, so the threads a whole threadgroup adds past the grid's edge change nothing.
+- A source file whose shaders use SIMD-group or quad-group functions checks `supportsFamily:` for a family that has
+  them (or a later one).
 """
 from pathlib import Path
 import re
@@ -98,8 +101,44 @@ def test_grid_kernels_return_outside_their_size():
     )
 
 
+# Metal Feature Set Tables: the earliest Apple GPU family with each kind of SIMD-group function
+SIMD_FAMILIES = (
+    (4, r"\bquad_(shuffle\w*|broadcast\w*)\s*\("),
+    (6, r"\bsimd_(shuffle\w*|broadcast\w*)\s*\("),
+    (7, r"\bsimd_(sum|product|min|max|and|or|xor|prefix_\w+|ballot|all|any)\s*\("),
+)
+
+
+def test_simd_group_functions_check_the_gpu_family():
+    missing = []
+    for path in SOURCES:
+        source = path.read_text(errors="replace")
+        text = shader_text(source)
+        shaders = "".join(body for _, _, body in kernels(text))
+        shaders += "".join(re.findall(r"\b(?:fragment|vertex)\s+\w[\s\S]*?\n\}", text))
+        needed = max((family for family, pattern in SIMD_FAMILIES if re.search(pattern, shaders)), default=0)
+        if not needed:
+            continue
+        checked = [int(family) for family in re.findall(r"supportsFamily:\s*MTLGPUFamilyApple(\d+)", source)]
+        if not any(family >= needed for family in checked):
+            missing.append(f"{path.relative_to(ROOT)}: needs supportsFamily:MTLGPUFamilyApple{needed} or later")
+    assert not missing, "\n".join(missing)
+
+
+def test_scan_finds_the_known_simd_shaders():
+    # the scan itself works: the SSAO gather (permutes) and the stereo HUD depth (reductions) are found and gated
+    for name, family in (("port/ios/host/gpu_metal.m", 6), ("port/ios/host/host_stereo.m", 7)):
+        source = (ROOT / name).read_text()
+        shaders = "".join(body for _, _, body in kernels(shader_text(source)))
+        needed = max(f for f, pattern in SIMD_FAMILIES if re.search(pattern, shaders))
+        assert needed == family, (name, needed)
+        assert f"supportsFamily:MTLGPUFamilyApple{family}" in source, name
+
+
 if __name__ == "__main__":
     test_no_nonuniform_threadgroups()
     test_grid_helper_dispatches_whole_threadgroups()
     test_grid_kernels_return_outside_their_size()
+    test_simd_group_functions_check_the_gpu_family()
+    test_scan_finds_the_known_simd_shaders()
     print("metal gpu families: ok")

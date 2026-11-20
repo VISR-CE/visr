@@ -7777,6 +7777,13 @@ static BOOL ssao_programs(void)
 		return !ssao.failed;
 	ssao.tried = YES;
 	ssao.failed = YES;
+	/* ssao_gather trades its neighbors' positions with simd_shuffle, a SIMD-scoped permute: Apple GPU family 6 (A13)
+	and later, and Macs. Earlier GPUs draw without ambient occlusion. */
+	if (![device supportsFamily:MTLGPUFamilyApple6] && ![device supportsFamily:MTLGPUFamilyMac2])
+	{
+		platform_log("ssao: this GPU has no SIMD-group permutes (Apple GPU family 6), so there is no ambient occlusion");
+		return NO;
+	}
 	library = [device newLibraryWithSource:ssao_source options:nil error:&error];
 	if (!library)
 	{

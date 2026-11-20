@@ -808,7 +808,10 @@ static BOOL prepare(id<MTLDevice> device, MTLPixelFormat color, MTLPixelFormat d
 	pipeline_color = color;
 	pipeline_depth = depth;
 	{
-		id<MTLFunction> reduce = [library newFunctionWithName:@"hud_depth_reduce"];
+		/* hud_depth_reduce sums with simd_sum and simd_max, SIMD-scoped reductions: Apple GPU family 7 (A14, M1) and
+		later, and Macs. On an earlier GPU the HUD rests at its distance. */
+		BOOL reductions = [device supportsFamily:MTLGPUFamilyApple7] || [device supportsFamily:MTLGPUFamilyMac2];
+		id<MTLFunction> reduce = reductions ? [library newFunctionWithName:@"hud_depth_reduce"] : nil;
 
 		hud_depth_pipeline = reduce ? [device newComputePipelineStateWithFunction:reduce error:&error] : nil;
 		if (!hud_depth_pipeline)
