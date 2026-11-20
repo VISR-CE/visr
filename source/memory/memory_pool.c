@@ -227,6 +227,8 @@ void memory_pool_compact(
 	struct memory_pool_block *block;
 	struct memory_pool_block *previous_block;
 
+	/* port: compacting writes every link again, so a walk put off (debug.verify_once_a_tick) is made first */
+	tick_verify_flush(pool);
 	block = pool->first_block;
 	if (block)
 	{
@@ -389,6 +391,19 @@ static struct memory_pool_block *memory_pool_block_get(
 	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 372, reference && (*reference));
 	memory_pool_verify(pool);
 	block = (struct memory_pool_block *)((byte *)*reference-sizeof(*block));
+	/* port: with the walk put off (debug.verify_once_a_tick), the block asked for is checked here: it may be
+	freed before the walk at the end of the tick, which would then no longer find it */
+	if (tick_verify_put_off(pool, memory_pool_verify_put_off))
+	{
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 355, block->header_signature==BLOCK_HEADER_SIGNATURE);
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 356, block->trailer_signature==BLOCK_TRAILER_SIGNATURE);
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 358, (byte *)block>=(byte *)pool->base_address);
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 359, (byte *)block+block->size<=(byte *)pool->base_address+pool->size);
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 352,
+			block->previous_block ? block->previous_block->next_block==block : pool->first_block==block);
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 353,
+			block->next_block ? block->next_block->previous_block==block : pool->last_block==block);
+	}
 	match_vassert(
 		"c:\\halo\\SOURCE\\memory\\memory_pool.c",
 		379,

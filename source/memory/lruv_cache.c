@@ -133,6 +133,9 @@ static void lruv_cache_verify(
 port/linux/game/tick_verify.c) */
 static void lruv_cache_verify_put_off(
 	void *cache);
+static void lruv_cache_verify_block(
+	struct lruv_cache *cache,
+	long block_index);
 boolean tick_verify_put_off(void *subject, void (*verify)(void *subject));
 void tick_verify_flush(void *subject);
 
@@ -245,6 +248,8 @@ void lruv_block_delete(
 
 	block = datum_get(cache->blocks, block_index);
 	lruv_cache_verify(cache, TRUE);
+	/* port: (the block leaving is checked here, where a walk put off would miss it) */
+	lruv_cache_verify_block(cache, block_index);
 
 	if (cache->delete_block_proc)
 		cache->delete_block_proc(block_index);
@@ -768,6 +773,68 @@ static long lruv_cache_bytes_to_pages(
 	return page_count;
 }
 
+/* port: what the walk asserts of one block: its links to its neighbors and their pages in order. A block is
+checked by this as it leaves the list (lruv_block_delete), since a walk put off to the end of the tick would no
+longer find it. */
+static void lruv_cache_verify_block(
+	struct lruv_cache *cache,
+	long block_index)
+{
+	struct lruv_cache_block *block;
+	struct lruv_cache_block *next_block;
+	struct lruv_cache_block *previous_block;
+
+	block = datum_get(cache->blocks, block_index);
+	if (block->previous_block_index == NONE)
+	{
+		match_assert(
+			"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
+			770,
+			cache->first_block_index==block_index);
+	}
+	else
+	{
+		previous_block = datum_get(cache->blocks, block->previous_block_index);
+		match_assert(
+			"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
+			776,
+			previous_block->next_block_index==block_index);
+		match_assert(
+			"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
+			777,
+			previous_block->first_page_index<block->first_page_index);
+		match_assert(
+			"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
+			778,
+			previous_block->first_page_index+previous_block->page_count<=block->first_page_index);
+	}
+
+	if (block->next_block_index == NONE)
+	{
+		match_assert(
+			"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
+			784,
+			cache->last_block_index==block_index);
+	}
+	else
+	{
+		next_block = datum_get(cache->blocks, block->next_block_index);
+		match_assert(
+			"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
+			790,
+			next_block->previous_block_index==block_index);
+		match_assert(
+			"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
+			791,
+			next_block->first_page_index>block->first_page_index);
+		match_assert(
+			"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
+			792,
+			block->first_page_index+block->page_count<=next_block->first_page_index);
+	}
+	return;
+}
+
 static void lruv_cache_verify_put_off(
 	void *cache)
 {
@@ -780,8 +847,6 @@ static void lruv_cache_verify(
 {
 	long block_index;
 	struct lruv_cache_block *block;
-	struct lruv_cache_block *next_block;
-	struct lruv_cache_block *previous_block;
 
 	match_assert("c:\\halo\\SOURCE\\memory\\lruv_cache.c", 754, cache);
 	match_assert("c:\\halo\\SOURCE\\memory\\lruv_cache.c", 755, cache->signature==LRUV_CACHE_SIGNATURE);
@@ -792,55 +857,8 @@ static void lruv_cache_verify(
 		block_index = cache->first_block_index;
 		while (block_index != NONE)
 		{
+			lruv_cache_verify_block(cache, block_index);
 			block = datum_get(cache->blocks, block_index);
-			if (block->previous_block_index == NONE)
-			{
-				match_assert(
-					"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
-					770,
-					cache->first_block_index==block_index);
-			}
-			else
-			{
-				previous_block = datum_get(cache->blocks, block->previous_block_index);
-				match_assert(
-					"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
-					776,
-					previous_block->next_block_index==block_index);
-				match_assert(
-					"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
-					777,
-					previous_block->first_page_index<block->first_page_index);
-				match_assert(
-					"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
-					778,
-					previous_block->first_page_index+previous_block->page_count<=block->first_page_index);
-			}
-
-			if (block->next_block_index == NONE)
-			{
-				match_assert(
-					"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
-					784,
-					cache->last_block_index==block_index);
-			}
-			else
-			{
-				next_block = datum_get(cache->blocks, block->next_block_index);
-				match_assert(
-					"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
-					790,
-					next_block->previous_block_index==block_index);
-				match_assert(
-					"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
-					791,
-					next_block->first_page_index>block->first_page_index);
-				match_assert(
-					"c:\\halo\\SOURCE\\memory\\lruv_cache.c",
-					792,
-					block->first_page_index+block->page_count<=next_block->first_page_index);
-			}
-
 			block_index = block->next_block_index;
 		}
 	}
