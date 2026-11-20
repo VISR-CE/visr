@@ -3202,7 +3202,7 @@ static boolean split_item_off(struct widget_instance const *widget)
 
 /* Whether an activation (A, or the custom activation touch and mouse taps send) lands on the grayed SPLIT SCREEN
 row, whether the handler sits on the row or on its list (the row in focus is the list's): the dispatcher then does
-nothing, so no handler, screen or sound runs. The panel text still shows, since focus is not an activation. */
+nothing but the error sound, so no handler or screen runs. The panel text still shows, since focus is not an activation. */
 boolean ui_widget_port_split_activation_blocked(struct widget_instance const *widget, short event_type)
 {
 	if ((event_type != BUTTON_A && event_type != EVENT_CUSTOM_ACTIVATION) || !menu_split_screen_needs_controller())
@@ -3210,7 +3210,17 @@ boolean ui_widget_port_split_activation_blocked(struct widget_instance const *wi
 	for (; widget; widget = widget->focused_child)
 	{
 		if (split_item_off(widget))
+		{
+			/* the error sound the grayed INTERNET row makes (campaign_fail), once per tap: one activation
+			reaches several handlers */
+			static unsigned long last_sound = 0;
+			unsigned long now = (unsigned long)system_milliseconds();
+
+			if (!last_sound || now - last_sound > 150)
+				campaign_fail();
+			last_sound = now ? now : 1;
 			return TRUE;
+		}
 	}
 	return FALSE;
 }

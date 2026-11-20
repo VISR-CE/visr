@@ -47,3 +47,10 @@ def test_grayed_split_row_ignores_activation_on_every_input():
 def test_turning_internet_play_off_shows_no_restart_alert():
     assert "turns off the next time" not in MENU_FUNCTIONS
     assert 'platform_show_message("Internet Play"' not in MENU_FUNCTIONS
+
+
+def test_blocked_split_activation_plays_the_internet_rows_error_sound():
+    gate = body(MENU_FUNCTIONS, "boolean ui_widget_port_split_activation_blocked(")
+    assert "campaign_fail()" in gate
+    assert "ui_play_audio_feedback_sound(SOUND_ERROR)" in body(MENU_FUNCTIONS, "static boolean campaign_fail(void)")
+    assert "campaign_fail()" in body(MENU_FUNCTIONS, "static boolean multiplayer_host(")
