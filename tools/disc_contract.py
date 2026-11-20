@@ -28,6 +28,11 @@ DATA_INPUTS = ROOT / 'source/interface/ui_widget_game_data_input_functions.c'
 XBOX = ROOT / 'port/assets/menus/xbox'
 
 
+# Port calls that take over for a list a patch changed and return before the disc's row walk
+# (`if (ui_patched_options_help_update(widget)) return;` in game_options_menu_update_text_desc).
+PATCHED_LIST_GUARDS = ('if (ui_patched_options_help_update(',)
+
+
 def function_tables():
     """The C functions the tags name by index: event handlers, then game data inputs."""
     handlers = HANDLERS.read_text(errors='replace')
@@ -50,7 +55,12 @@ def requirement(source, name):
     walks = len(re.findall(r'\blist_item = list_item->next;', body))
     if walks:
         return ('positional', walks + 1)
-    if 'expected a spinner list somewhere' in body:
+    marker = body.find('expected a spinner list somewhere')
+    if marker >= 0:
+        # a function that hands a patched list to the port's own code before it looks at the rows is safe
+        guard = min((at for at in (body.find(name) for name in PATCHED_LIST_GUARDS) if at >= 0), default=-1)
+        if 0 <= guard < marker:
+            return None
         return ('spinner_in_every_row',)
     return None
 

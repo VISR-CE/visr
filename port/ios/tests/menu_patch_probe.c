@@ -71,6 +71,10 @@ static char const patches_xml[] =
 	"<patch list=\"ui\\shell\\adopt\\adopt_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
 	"  <row after=\"ui\\shell\\adopt\\adopt_item_1\" name=\"adopted\" widget=\"xbox/test_row\" help=\"Help A|Help B\"/>\n"
 	"</patch>\n"
+	/* a row with a spinner out of an option list: the rows after it keep their own help lines */
+	"<patch list=\"ui\\shell\\options\\options_list\" screen=\"ui\\shell\\options\\options_screen\">\n"
+	"  <remove child=\"ui\\shell\\options\\op_first\"/>\n"
+	"</patch>\n"
 	"<patch list=\"ui\\shell\\adopt\\adopt_other_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
 	"  <row after=\"ui\\shell\\adopt\\adopt_other_item\" name=\"adopted_missing\" widget=\"xbox/no_such_screen\"/>\n"
 	"</patch>\n"
@@ -498,10 +502,12 @@ static long mp_screen, mp_list, mp_blueline, mp_key, pe_screen, pe_list, pe_blue
 static long st_screen, st_list, ov_list, other_list;
 
 static void adopt_build(void);
+static void options_build(void);
 
 static void map_build(void)
 {
 	adopt_build();
+	options_build();
 	/* The spinner resolves its default font, but this probe does not render it. */
 	map_add(FONT_TAG, "ui\\large_ui", calloc(1, 1));
 	/* the multiplayer type screen (bounds and offsets as the Xbox's ui.map has them) */
@@ -654,6 +660,42 @@ static void adopt_build(void)
 	children[3] = ad_bitmap_list;
 	ad_screen = widget_add("ui\\shell\\adopt\\adopt_screen", _widget_type_container, 0, 0, 640, 480);
 	children_set(ad_screen, 4, children, screen_xs, screen_ys);
+}
+
+static long op_list;
+
+/* an option list as the gametype editor's are: three rows, each with a spinner of 2, 3 and 2 values, and a
+description of one text whose seven strings are the rows' values' helps in turn */
+static void options_build(void)
+{
+	static char const *const names[3] = { "first", "second", "third" };
+	long const values[3] = { 2, 3, 2 };
+	long rows[3], children[1], text, row;
+	short const xs[3] = { 54, 54, 54 }, ys[3] = { 73, 103, 133 }, zero[1] = { 0 };
+
+	for (row = 0; row < 3; row++)
+	{
+		char name[96];
+		long spinner;
+
+		snprintf(name, sizeof(name), "ui\\shell\\options\\%s_spinner", names[row]);
+		spinner = widget_add(name, _widget_type_spinner_list, 300, 0, 400, 28);
+		snprintf(name, sizeof(name), "ui\\shell\\options\\%s_values", names[row]);
+		reference_set(&definition_of(spinner)->text_label_string_list, UNICODE_STRING_LIST_TAG,
+			strings_add(strdup(name), values[row]));
+		snprintf(name, sizeof(name), "ui\\shell\\options\\op_%s", names[row]);
+		rows[row] = row_add(strdup(name), 54, 0, 566, 28, 0);
+		children_set(rows[row], 1, &spinner, zero, zero);
+	}
+	op_list = widget_add("ui\\shell\\options\\options_list", _widget_type_column_list, 0, 0, 640, 480);
+	children_set(op_list, 3, rows, xs, ys);
+	text = widget_add("ui\\shell\\options\\options_help", _widget_type_text_box, 68, 321, 550, 400);
+	reference_set(&definition_of(text)->text_label_string_list, UNICODE_STRING_LIST_TAG,
+		strings_add("ui\\shell\\options\\options_help_strings", 7));
+	reference_set(&definition_of(op_list)->extended_description_widget, UI_WIDGET_DEFINITION_TAG, text);
+	children[0] = op_list;
+	children_set(widget_add("ui\\shell\\options\\options_screen", _widget_type_container, 0, 0, 640, 480),
+		1, children, zero, zero);
 }
 
 /* ---------- the checks */
@@ -923,6 +965,20 @@ static void check_apple(boolean tvos)
 				help_line, help_length);
 			check(!pc_menu_patch_row_help(ad_other_list, NONE, &help_line, &help_length) && help_line == NONE,
 				"a list no patch changed has no help lines of its own");
+		}
+		{
+			short help_line = 99, help_length = 99;
+
+			/* (the INVISIBLE PLAYERS case: a row with a spinner removed above it. The disc's updater summed the
+			value counts of the rows above, which a removed row no longer adds; the patch's numbering does) */
+			check(child_count(op_list) == 2, "the option list lost its first row (%ld)", child_count(op_list));
+			check(pc_menu_patch_row_help(op_list, children_of(op_list)[0].widget_tag.index, &help_line, &help_length) &&
+				help_line == 2 && help_length == 3,
+				"the row after a removed spinner row keeps its first help line and its three values (%d, %d)",
+				help_line, help_length);
+			check(pc_menu_patch_row_help(op_list, children_of(op_list)[1].widget_tag.index, &help_line, &help_length) &&
+				help_line == 5 && help_length == 2, "the last row keeps its first help line and its two values (%d, %d)",
+				help_line, help_length);
 		}
 		check(!pc_menu_patch_list_index(ad_other_list, NONE, &description) && child_count(ad_other_list) == 1,
 			"a row of a widget there is none of is not made");

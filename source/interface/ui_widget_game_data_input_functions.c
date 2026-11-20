@@ -2394,7 +2394,11 @@ boolean ui_patched_options_help_update(
 	if (!pc_menu_patch_row_help(list->definition_tag_index, focused ? focused->definition_tag_index : NONE, &help,
 		&length))
 		return FALSE;
-	if (!description || description->type != _ui_widget_type_text_box || !focused || help == NONE)
+	if (!description || description->type != _ui_widget_type_text_box)
+		return TRUE;
+	/* (a row with no help line shows none, not the line of the row the focus left) */
+	description->visible = focused && help != NONE;
+	if (!description->visible)
 		return TRUE;
 	for (spinner = focused->child; spinner && spinner->type != _ui_widget_type_spinner_list; spinner = spinner->next)
 		;

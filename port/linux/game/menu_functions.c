@@ -7299,8 +7299,6 @@ static void gametype_option_help(struct widget_instance *list)
 		{
 			if (spinner)
 				description->parameters.text_box.string_list_index = (short)(index + spinner->parameters.list.selected_index);
-			else if (!strcmp(row->name, "op_respawn"))
-				description->parameters.text_box.string_list_index = index; /* (the line after the spinners') */
 			return;
 		}
 		if (spinner)
