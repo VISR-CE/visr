@@ -308,3 +308,59 @@ def test_gametype_editor_has_one_game_options_row_that_reaches_every_rules_page(
                 opened.update(h.get("open") for h in widget.iter("on") if h.get("event") == "a")
     for engine in ("ctf", "koth", "slayer", "oddball", "race"):
         assert any(o and o.endswith(f"playlist_edit/{engine}_edit/{engine}_options_screen") for o in opened), engine
+
+
+def patched_row_widgets():
+    return {r.get("widget") for p in table() for r in rows(p) if r.get("widget")}
+
+
+def sub_screen_rows():
+    """(file, row, open targets, parent list) for every widget of ours that opens a screen on A."""
+    documents = {path: ET.parse(path).getroot() for path in sorted(MENUS.glob("*.xml"))
+                 if not path.name.startswith("patches")}
+    parents = {}
+    for root in documents.values():
+        for widget in root.iter("widget"):
+            for child in widget.findall("child"):
+                parents.setdefault(child.get("widget"), widget)
+    found = []
+    for path, root in documents.items():
+        for widget in root.iter("widget"):
+            opens = {o.get("open") for o in widget.findall("on") if o.get("event") == "a" and o.get("open")}
+            if opens:
+                found.append((path, widget, opens, parents.get(widget.get("name"))))
+    return found
+
+
+def test_every_row_that_opens_a_sub_screen_answers_a_start_and_a_tap():
+    """Checks the XML shape only: every row that opens a screen has the same screens on A and Start (when it has a
+    Start handler) and sits in a list the pointer walks, or is named by a patch row. It does not prove a tap opens
+    the screen: the gametype editor's tap-goes-back bug is open, and the device tap walk with the pointer log
+    (a kind 0 hit on the row, never kind 4) is the test that covers it. A tap presses A on the row under it
+    (`ui_mouse_widget_is_item`: a child of a column list, or of a list that tabs through its children)."""
+    rows_found = sub_screen_rows()
+    assert len(rows_found) >= 20
+    problems = []
+    for path, widget, opens, parent in rows_found:
+        name = widget.get("name", "").rsplit("/", 1)[-1]
+        starts = {o.get("open") for o in widget.findall("on") if o.get("event") == "start" and o.get("open")}
+        if starts != opens:
+            problems.append(f"{path.name} {name}: A and Start open different screens")
+        if parent is None:
+            # (a row the patch table puts into a disc list: patches.xml must name it, or nothing holds it)
+            if widget.get("name") not in patched_row_widgets():
+                problems.append(f"{path.name} {name}: no list holds it and no patch row adds it")
+            continue
+        if parent.get("name", "").endswith("_screen"):
+            continue  # (a legend button on its screen: the engine's button targets, not a list row)
+        flags = parent.get("flags", "")
+        if parent.get("type") != "column_list" and "tabs_children" not in flags and "tabs_items" not in flags:
+            problems.append(f"{path.name} {name}: its list {parent.get('name')} is not walked by the pointer")
+    assert not problems, "\n".join(problems)
+
+
+def test_the_gametype_editor_rows_that_open_screens_are_tap_targets():
+    """The rows Steve taps in the gametype editor (RESPAWN, CHOOSE WEAPONS, VEHICLES and the rest of the patch)
+    are among the rows the walk above covers."""
+    covered = {w.get("name", "").rsplit("/", 1)[-1] for _, w, _, _ in sub_screen_rows()}
+    assert {"op_respawn", "op_choose_weapons"} <= covered
