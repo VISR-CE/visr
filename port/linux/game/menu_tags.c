@@ -38,6 +38,7 @@ no screen pauses the game (a network game's clock runs on).
 
 #include "halo_menus.h"
 #include "menu_equivalence.h"
+#include "menu_geometry.h"
 #include "../../runtime/menu_picture_upscaled.h"
 
 #include <stdlib.h>
@@ -3077,9 +3078,10 @@ static long patch_tag_count(struct halo_menus const *menus)
 own measure, with its glyphs' overhang) */
 short ui_widget_port_font_text_width(long font_index, void const *text);
 
-/* the space a settings spinner keeps between its text and each arrow */
-#define OPTION_VALUE_MARGIN 16
-#define OPTION_VALUE_MINIMUM_WIDTH 80
+/* the space a settings spinner keeps between its text and each arrow, which also keeps a centered value
+clear of the touch dropdown's chevron (menu_geometry.h) */
+#define OPTION_VALUE_MARGIN MENU_VALUE_MARGIN
+#define OPTION_VALUE_MINIMUM_WIDTH MENU_VALUE_MINIMUM_WIDTH
 #define OPTION_MAX(a, b) ((a) > (b) ? (a) : (b))
 
 /* a settings list's value column (each op_ row's spinner) as wide as the

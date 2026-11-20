@@ -695,6 +695,7 @@ long ui_redraw_touch_target_units(void);
 #include "halo_menu_dropdown.h"
 #include "halo_menu_slider.h"
 #include "halo_controller_glyphs.h"
+#include "menu_geometry.h"
 #include "halo_menus.h"
 #include "../../port/runtime/include/halo_ui_carousel.h" /* shared with the host and probes; not on the guest include path */
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
@@ -6256,8 +6257,8 @@ static void ui_widget_row_draw_chevron(struct widget_instance *widget,
 	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip)
 {
 	rectangle2d bounds;
-	bounds.x1 = definition->bounds.x1 + offset.x - 8;
-	bounds.x0 = bounds.x1 - 12;
+	bounds.x1 = definition->bounds.x1 + offset.x - MENU_CHEVRON_INSET;
+	bounds.x0 = bounds.x1 - MENU_CHEVRON_WIDTH;
 	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 8) / 2;
 	bounds.y1 = bounds.y0 + 8;
 	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\dropdown_chevron", 0, &bounds, clip);
