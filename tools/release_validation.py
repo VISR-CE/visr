@@ -136,14 +136,6 @@ def recording_feed_required(policy: dict[str, Any]) -> bool:
     return policy.get("recording_feed_required", "on") != "off"
 
 
-def require_pinned_compiler(policy: dict[str, Any], pinned: str) -> None:
-    """The workflow installs one compiler (its RELEASE_COMPILER_VERSION); the policy must name the same one."""
-    if pinned and policy.get("guest_compiler_version") != pinned:
-        raise ValueError(
-            f"Policy guest compiler {policy.get('guest_compiler_version')!r} differs from the workflow's pinned {pinned!r}"
-        )
-
-
 def load_policy(value: str) -> dict[str, Any]:
     policy = json.loads(value or "{}")
     optional = {"cloud_saves", "benchmark_upload", "shader_upload", "perf_reports", "recording_feed_required", FIELD}
@@ -661,44 +653,12 @@ def verify_feed(
     kind: str,
     policy: dict[str, Any],
     *,
-    root: Path | None = None,
     profile_target: str | None = None,
     shader_assets: dict[str, bytes] | None = None,
     shader_index_only: bool = False,
     recording_assets: dict[str, bytes] | None = None,
     recording_index_only: bool = False,
 ) -> dict[str, Any] | None:
-    if root is not None:
-        if shader_assets is not None or shader_index_only:
-            raise ValueError("Immutable release verification requires complete shader acquisition")
-        # The immutable app supplies its public key, envelope contract, profile
-        # schema and native recording validator. Isolate its imports from the
-        # controller's modules; do not rebind their independent ROOT globals.
-        subprocess.run(
-            [
-                sys.executable,
-                "-I",
-                "-c",
-                (
-                    "import json, sys; sys.path.insert(0, sys.argv[1]); "
-                    "from tools.release_validation import verify_feed; "
-                    "verify_feed(sys.stdin.buffer.read(), sys.argv[2], json.loads(sys.argv[3]), "
-                    "**json.loads(sys.argv[4]))"
-                ),
-                str(root),
-                kind,
-                json.dumps(policy),
-                json.dumps(
-                    {"profile_target": profile_target}
-                    if profile_target is not None
-                    else {}
-                ),
-            ],
-            input=data,
-            cwd=root,
-            check=True,
-        )
-        return None
     if kind == "profile" and "profile_feed_sha256s" in policy:
         packs.data_pack.profile_target_parts(profile_target)
         if profile_target not in policy["profile_feed_sha256s"]:
@@ -873,9 +833,7 @@ def _verify_feed(
     }
 
 
-def check_feeds(
-    policy: dict[str, Any], *, root: Path | None = None
-) -> dict[str, Any] | None:
+def check_feeds(policy: dict[str, Any]) -> dict[str, Any] | None:
     recording_context = None
     feeds = []
     if "profile_feed_sha256s" in policy:
@@ -901,23 +859,13 @@ def check_feeds(
             data = response.read(limit + 1)
         if len(data) > limit:
             raise ValueError(f"{kind} feed exceeds the app download limit")
-        if root is None:
-            verified = (
-                verify_feed(data, kind, policy, profile_target=profile_target)
-                if profile_target is not None
-                else verify_feed(data, kind, policy)
-            )
-            if kind == "recording":
-                recording_context = verified
-        else:
-            if profile_target is not None:
-                verify_feed(
-                    data, kind, policy, root=root, profile_target=profile_target
-                )
-            else:
-                verify_feed(data, kind, policy, root=root)
-    if root is not None:
-        return None
+        verified = (
+            verify_feed(data, kind, policy, profile_target=profile_target)
+            if profile_target is not None
+            else verify_feed(data, kind, policy)
+        )
+        if kind == "recording":
+            recording_context = verified
     if not recording_feed_required(policy):
         return None
     if not isinstance(recording_context, dict):
@@ -1100,7 +1048,6 @@ def main() -> None:
                 "git", "show", "--no-patch", "--format=%ct", args.source_sha, capture=True):
             raise ValueError("Probe actual source timestamp differs from source commit")
         policy = load_policy(os.environ.get("RELEASE_BUILD_POLICY", ""))
-        require_pinned_compiler(policy, os.environ.get("RELEASE_COMPILER_VERSION", ""))
         recording_context = check_release(report, policy, selected)
         apple = release.API(
             "https://api.appstoreconnect.apple.com", release.apple_token

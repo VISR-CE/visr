@@ -1220,10 +1220,3 @@ def test_source_guard_accepts_main_history_and_release_branches(tmp_path: Path) 
     assert guard_passes(older, "main")  # not main's head
     assert guard_passes(branch_only, "release/0.6.2")
     assert not guard_passes(branch_only, "main")
-
-
-def test_policy_compiler_must_match_the_workflow_pin() -> None:
-    validation.require_pinned_compiler({"guest_compiler_version": "Homebrew clang version 23.1.4"}, "Homebrew clang version 23.1.4")
-    validation.require_pinned_compiler({"guest_compiler_version": "x"}, "")
-    with pytest.raises(ValueError, match="differs from the workflow's pinned"):
-        validation.require_pinned_compiler({"guest_compiler_version": "Homebrew clang version 23.1.6"}, "Homebrew clang version 23.1.4")

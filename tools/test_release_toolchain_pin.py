@@ -71,3 +71,11 @@ def test_formulas_already_on_the_runner_are_skipped_not_reinstalled(workflow: di
     assert 'brew list --formula --versions "$formula"' in script and 'brew install "$formula"' in script
     assert "brew uninstall --force --ignore-dependencies llvm lld\n" in script
     assert script.index("brew uninstall") < script.index("for formula in")
+
+
+def test_probe_requires_the_policy_to_name_the_pinned_compiler_before_installing_anything(workflow: dict) -> None:
+    steps = workflow["jobs"]["probe"]["steps"]
+    names = [step.get("name") for step in steps]
+    guard = steps[names.index("Require the policy to name the pinned compiler")]
+    assert names.index("Require the policy to name the pinned compiler") < names.index(STEP_NAME)
+    assert "RELEASE_COMPILER_VERSION" in guard["run"] and "guest_compiler_version" in guard["run"]

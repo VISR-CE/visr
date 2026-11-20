@@ -21,33 +21,64 @@ except ImportError:  # run as a script directory
     import release_validation as validation
 
 # what a function reads when its answer depends on the source tree
-SOURCE_CONSTANTS = ("packs.data_pack", "profile_revision", "PROFILE_FEED", "DEVICE_PROFILE_DOMAINS")
+SOURCE_CONSTANTS = (
+    "packs.data_pack", "profile_revision", "PROFILE_FEED", "DEVICE_PROFILE_DOMAINS", "benchmark_catalog",
+    "ENVELOPE_LIMITS", "XCODE_BUILDS", "SDK_VERSION", "DATA_PACK_PUBLIC_KEY", "data_pack_definitions",
+)
+CONTROLLER_MODULES = ("release_validation.py", "release.py", "release_unsigned.py", "release_macos.py")
+# Every controller function that reads one of them, with why the controller's copy is the right one. A new reader fails
+# the test until it is judged: run it through `run_in_source` (add it to SOURCE_BOUND_CHECKS) or give its reason here.
+JUDGED = {
+    "release_validation.py": {
+        "require_asset_policy": "source bound: run through run_in_source",
+        "check_feeds": "source bound: run through run_in_source",
+        "profile_feed_domain": "helper of require_asset_policy and verify_feed",
+        "verify_feed": "helper of check_feeds",
+        "_verify_feed": "helper of verify_feed",
+        "load_policy": "checks the policy's field set and URL grammar; preflight repeats it with the source's copy",
+        "toolchain": "the controller owns the accepted Xcode builds the runner may use",
+        "inspect_build": "the controller judges the built artifacts against the accepted Xcode builds",
+        "validate_recording_summary_context": "catalog facts the preflight emitted; the controller accepts a superset",
+    },
+    "release.py": {"archive_identity": "the controller owns the accepted Xcode builds"},
+    "release_unsigned.py": {},
+    "release_macos.py": {},
+}
+HELPERS = ("profile_feed_domain", "verify_feed", "_verify_feed")
 
 
-def functions(path: Path) -> dict[str, tuple[ast.FunctionDef, str]]:
+def functions(path: Path) -> dict[str, str]:
     text = path.read_text()
-    return {n.name: (n, ast.get_source_segment(text, n)) for n in ast.parse(text).body if isinstance(n, ast.FunctionDef)}
+    return {n.name: ast.get_source_segment(text, n) for n in ast.parse(text).body if isinstance(n, ast.FunctionDef)}
 
 
-def test_every_function_reading_a_source_constant_is_source_bound_or_a_helper_of_one() -> None:
-    reading = {name for name, (_, text) in functions(TOOLS / "release_validation.py").items()
-               if any(constant in text for constant in SOURCE_CONSTANTS)}
-    # helpers and the feed verifiers are reached only through the source-bound checks; load_policy also checks the policy's
-    # field set and profile target keys with the controller's copy, which preflight repeats with the source's, so a schema
-    # change on main must stay compatible with release branches (audited in 2026-11-20-ci-release-source-checks.md)
-    allowed = set(validation.SOURCE_BOUND_CHECKS) | {"profile_feed_domain", "verify_feed", "_verify_feed", "load_policy"}
-    assert reading <= allowed, f"{sorted(reading - allowed)} read a source constant; add them to SOURCE_BOUND_CHECKS or justify"
+@pytest.mark.parametrize("module", CONTROLLER_MODULES)
+def test_every_controller_function_reading_a_source_constant_has_been_judged(module: str) -> None:
+    path = TOOLS / module
+    if not path.exists():
+        pytest.skip(f"{module} does not exist")
+    reading = {name for name, text in functions(path).items() if any(c in text for c in SOURCE_CONSTANTS)}
+    judged = set(JUDGED[module])
+    assert reading == judged, (
+        f"unjudged readers {sorted(reading - judged)}; stale entries {sorted(judged - reading)}; "
+        "route a new reader through run_in_source or give its reason in JUDGED")
 
 
-def test_the_controller_never_calls_a_source_bound_check_directly() -> None:
-    for module in ("release.py", "release_unsigned.py", "release_macos.py", "release_from_tag.py"):
-        path = TOOLS / module
-        if not path.exists():
+def test_source_bound_checks_are_judged_as_such() -> None:
+    for check in validation.SOURCE_BOUND_CHECKS:
+        assert JUDGED["release_validation.py"][check].startswith("source bound")
+
+
+def test_the_controller_never_names_a_source_bound_check_or_its_helpers_outside_validation() -> None:
+    names = set(validation.SOURCE_BOUND_CHECKS) | set(HELPERS)
+    for module in CONTROLLER_MODULES:
+        if module == "release_validation.py" or not (TOOLS / module).exists():
             continue
-        for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.Attribute) and node.attr in validation.SOURCE_BOUND_CHECKS:
-                assert isinstance(node.value, ast.Name) and node.value.id != "validation", (
-                    f"{module}:{node.lineno} calls validation.{node.attr}; use run_in_source")
+        for node in ast.walk(ast.parse((TOOLS / module).read_text())):
+            name = node.attr if isinstance(node, ast.Attribute) else node.id if isinstance(node, ast.Name) else None
+            assert name not in names, f"{module}:{node.lineno} names {name}; use run_in_source"
+            if isinstance(node, ast.ImportFrom):
+                assert not {a.name for a in node.names} & names, f"{module}:{node.lineno} imports a source-bound check"
 
 
 def test_run_in_source_refuses_a_check_that_is_not_source_bound() -> None:
@@ -90,12 +121,18 @@ def test_publish_checks_feeds_in_the_application_checkout() -> None:
     assert 'run_in_source(root, "check_feeds")' in text
 
 
-def test_workflow_steps_on_the_controller_checkout_call_no_source_bound_check() -> None:
+def checkout_ref(job: dict) -> str | None:
+    for step in job["steps"]:
+        if str(step.get("uses", "")).startswith("actions/checkout"):
+            return step.get("with", {}).get("ref", "")
+    return None
+
+
+def test_only_jobs_that_check_out_the_source_call_a_source_bound_check_in_a_step() -> None:
     workflow = yaml.safe_load(WORKFLOW.read_text())
-    for name in ("prepare", "sync-main", "identity-check"):
-        for step in workflow["jobs"][name]["steps"]:
-            for check in validation.SOURCE_BOUND_CHECKS:
-                assert check not in step.get("run", ""), f"{name} runs {check} against the controller checkout"
-    # preflight checks out the source, so its direct call is the source's own
-    preflight = workflow["jobs"]["preflight"]["steps"]
-    assert preflight[0]["with"]["ref"] == "${{ inputs.source_sha }}"
+    for name, job in workflow["jobs"].items():
+        ref = checkout_ref(job)
+        for step in job["steps"]:
+            called = [c for c in validation.SOURCE_BOUND_CHECKS if c in step.get("run", "")]
+            if called:
+                assert ref == "${{ inputs.source_sha }}", f"{name} runs {called} against a checkout that is not the source"
