@@ -30,7 +30,7 @@ def test_row_is_grayed_but_focusable_and_cannot_start():
 
 
 def test_panel_explains_and_follows_controller_state_live():
-    assert "Split screen on iPhone needs a game" in PATCHES and "controller for each extra player." in PATCHES
+    assert "Split screen on iPhone needs" in PATCHES and "controllers for extra players." in PATCHES
     update = body(DESCRIPTION, "static void multiplayer_type_menu_update_extended_description(")
     assert "multiplayer_type_split" in update and "menu_split_screen_needs_controller()" in update
 
@@ -54,3 +54,18 @@ def test_blocked_split_activation_plays_the_internet_rows_error_sound():
     assert "campaign_fail()" in gate
     assert "ui_play_audio_feedback_sound(SOUND_ERROR)" in body(MENU_FUNCTIONS, "static boolean campaign_fail(void)")
     assert "campaign_fail()" in body(MENU_FUNCTIONS, "static boolean multiplayer_host(")
+
+
+def test_panel_lines_fit_the_panel_without_clipping():
+    """The multiplayer type panel does not wrap: a line wider than its box is clipped mid-word (a 35-character line
+    showed "needs a g"). The widest line known to fit is "Turn it on in Network Settings." (31 characters), so no
+    panel line here is longer, and the split sentence is broken by hand."""
+    import re
+    strings = {m.group(1): m.group(2) for m in re.finditer(
+        r'^\[xbox\.patches\.(\w+)\]\n(?:text = .*\n)?description = "(.*)"$', (ROOT / "port/assets/strings/en.toml").read_text(), re.M)}
+    text = strings["multiplayer_type_split_need_pad"]
+    assert text == "Split screen on iPhone needs\\\\ncontrollers for extra players."
+    for key in ("multiplayer_type_internet", "multiplayer_type_internet_off", "multiplayer_type_join_direct",
+                "multiplayer_type_split_need_pad"):
+        for line in strings[key].split("\\\\n"):
+            assert len(line) <= 31, (key, line)

@@ -2366,7 +2366,7 @@ text = "SYSTEM LINK PLAY"
 
 [xbox.patches.multiplayer_type_split_need_pad]
 text = "SPLIT SCREEN"
-description = "Split screen on iPhone needs a game\\ncontroller for each extra player."
+description = "Split screen on iPhone needs\\ncontrollers for extra players."
 
 [xbox.patches.op_choose_weapons]
 help0 = "Choose the primary and secondary weapons\\neveryone starts with."

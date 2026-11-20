@@ -42,7 +42,7 @@ static char const patches_xml[] =
 	"       picture=\"png:ce/port/blank__0.png\"/>\n"
 	"  <row after=\"ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_split_item\"\n"
 	"       name=\"multiplayer_type_split_need_pad\" text=\"SPLIT\" run=\"mp type set mode\"\n"
-	"       description=\"Split screen on iPhone needs a game\\ncontroller for each extra player.\" picture=\"1\"/>\n"
+	"       description=\"Split screen on iPhone needs\\ncontrollers for extra players.\" picture=\"1\"/>\n"
 	"  <remove child=\"multiplayer_type_split_need_pad\"/>\n"
 	"</patch>\n"
 	/* Insert settings and the Apple TV delete row before removing SAVE CHANGES. */
@@ -802,7 +802,7 @@ static void check_apple(boolean tvos)
 		check(string_is(strings, 3, "map 3"), "string 3 is the map's");
 		check(string_is(strings, 4, "Browse and host games on the Internet."), "string 4 is the internet description");
 		check(string_is(strings, 6, "Join a game by its code."), "string 6 is the direct description");
-		check(string_is(strings, 7, "Split screen on iPhone needs a game\\ncontroller for each extra player."), "string 7 is the split need-controller text");
+		check(string_is(strings, 7, "Split screen on iPhone needs\\ncontrollers for extra players."), "string 7 is the split need-controller text");
 		check(group->bitmaps.count == 8 && sequence->bitmap_count == 8 && sequence->first_bitmap_index == 0,
 			"the picture has eight frames in its sequence (%ld, %d)", group->bitmaps.count, sequence->bitmap_count);
 		check(frames[4].pixels_offset == frames[3].pixels_offset && frames[4].width == frames[3].width &&
