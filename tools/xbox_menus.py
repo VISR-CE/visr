@@ -22,20 +22,19 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import menu_catalog
+import menu_geometry
 from port_settings import apply_now_spinner_handlers
-# Dropdown option row pitch in menu units; matches HALO_DROPDOWN_PITCH in halo_menu_dropdown.h.
-DROPDOWN_PITCH = 52
+# Shared geometry (rows, legend, value columns, dropdown) lives in menu_geometry.py, which also writes the
+# engine's menu_geometry.h.
+from menu_geometry import (COMFORTABLE_PITCH, COMPACT_PITCH, DROPDOWN_PITCH, FIRST_ROW, LEGEND_Y,
+                           ROW_HEIGHT)
 
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
-# the Xbox's option rows: where the first sits and the pitch to the next
-FIRST_ROW, ROW_HEIGHT = 73, 28
 # fields under the header rule sit this far down, leaving a gap below the rule
 FIELD_GAP = 8
-FIELD_Y = 73 + FIELD_GAP
-COMFORTABLE_PITCH = 39
-COMPACT_PITCH = 30
+FIELD_Y = FIRST_ROW + FIELD_GAP
 DENSITY_PITCH = {'compact': COMPACT_PITCH, 'comfortable': COMFORTABLE_PITCH}
 ROW_PITCH = COMFORTABLE_PITCH
 # the scroll arrows sit to the right of the 512-wide rows
@@ -70,7 +69,7 @@ MAP_BITMAPS = {'gradient', 'list_field', 'list_item_bkd_top', 'list_item_bkd',
 # Shared geometry is in the game's 640x480 menu space. Row art remains 36
 # units tall inside a comfortable 39-unit tap band.
 TITLE = (35, 11, 512, 64)
-LEGEND_Y, LEGEND_A_X, LEGEND_B_X = 414, 471, 326
+LEGEND_A_X, LEGEND_B_X = 471, 326
 GLYPH_WIDTH, GLYPH_HEIGHT, CAPTION_OFFSET = 21, 26, 22
 HELP_TOP = {'comfortable': 335, 'compact': 350}
 # Both right panels end at the bottom rule (y 409, drawn by the gradient art), as the disc's panels do.
@@ -2601,6 +2600,7 @@ def main():
     args = parser.parse_args()
     generate(args.menus)
     (ROOT / 'port/linux/include/menu_equivalence.h').write_text(equivalence_header(), encoding='utf-8')
+    menu_geometry.HEADER.write_text(menu_geometry.header(), encoding='utf-8')
 
 
 if __name__ == '__main__':

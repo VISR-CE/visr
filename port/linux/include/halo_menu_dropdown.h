@@ -5,7 +5,8 @@ menu scale. */
 #define HALO_MENU_DROPDOWN_H
 
 #define HALO_DROPDOWN_WIDTH 165 /* minimum; the popup grows to its widest label */
-#define HALO_DROPDOWN_PITCH 52
+#include "menu_geometry.h"
+#define HALO_DROPDOWN_PITCH MENU_DROPDOWN_PITCH
 #define HALO_DROPDOWN_MAX_ROWS 7
 
 struct halo_menu_dropdown
