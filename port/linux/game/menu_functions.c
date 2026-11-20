@@ -54,10 +54,7 @@ the one last used, else the first) and the game's saved game in it:
   its difficulty. Its first row's chooser shows MULTIPLAYER's maps
   instead, one chosen played alone at once;
 - the difficulty menu: "difficulty item select" (a difficulty chosen) and
-  "set difficulty" (its OK button: the difficulty shown) start the game;
-- Load Game's list ("load game menu init", "load game list update", "load
-  game menu activated") has each profile's saved game, and "load game menu
-  delete request" and "delete finish" delete one.
+  "set difficulty" (its OK button: the difficulty shown) start the game.
 The Xbox's functions of those names take the Xbox's widgets (a spinner of
 levels, the difficulty list itself), so ours run instead (menu_tags.c).
 
@@ -654,14 +651,6 @@ struct campaign_level
 	boolean finished[3];
 };
 
-struct campaign_saved_game
-{
-	long profile_index;
-	wchar_t profile_name[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH + 1];
-	short level;
-	short difficulty;
-};
-
 static struct
 {
 	struct campaign_level levels[NUMBER_OF_SINGLE_PLAYER_LEVELS];
@@ -669,11 +658,6 @@ static struct
 	short saved_level;
 	/* the level and saved game the lists' descriptions last showed */
 	short shown_level;
-	short shown_saved_game;
-	/* Load Game's */
-	struct campaign_saved_game saved_games[MAXIMUM_ROWS];
-	short saved_game_count;
-	short saved_game_to_delete;
 } campaign;
 
 /* the descendant of the widget with the name (a widget's name is its
@@ -1403,135 +1387,6 @@ static short sibling_index(struct widget_instance *widget)
 	for (child = widget->parent ? widget->parent->child : widget; child && child != widget; child = child->next)
 		index++;
 	return index;
-}
-
-/* Load Game's list: each profile's saved game (read with the profile as
-player 1's, which then is again) */
-static void saved_games_read(short controller)
-{
-	struct player_profile profile, active;
-	long profiles[MAXIMUM_PROFILES];
-	long active_index;
-	word count = MAXIMUM_PROFILES;
-	short index;
-
-	campaign.saved_game_count = 0;
-	if (!campaign_profile(controller, &active))
-		return;
-	active_index = player_ui_get_active_player_profile_index(0);
-	player_profiles_enumerate_available_to_local_player_index(NONE, &count, profiles, FALSE);
-	for (index = 0; index < (short)count && campaign.saved_game_count < MAXIMUM_ROWS; index++)
-	{
-		struct campaign_saved_game *saved_game = &campaign.saved_games[campaign.saved_game_count];
-		char const *map_name;
-
-		if (!((unsigned long)profiles[index] & PROFILE_VALID_BIT) || !player_profile_get(profiles[index], &profile))
-			continue;
-		player_ui_set_active_player_profile(0, profiles[index], &profile);
-		if (ui_widget_port_saved_game(&map_name, &saved_game->level, &saved_game->difficulty))
-		{
-			saved_game->profile_index = profiles[index];
-			ustrncpy(saved_game->profile_name, profile.player_name, MAXIMUM_PLAYER_PROFILE_NAME_LENGTH);
-			saved_game->profile_name[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH] = 0;
-			campaign.saved_game_count++;
-		}
-	}
-	player_ui_set_active_player_profile(0, active_index, &active);
-	campaign_levels_read(&active);
-}
-
-/* "load game menu init" */
-static boolean saved_game_list_initialize(struct widget_instance *list, short controller)
-{
-	short index;
-
-	saved_games_read(controller);
-	campaign.shown_saved_game = 0;
-	for (index = 0; index < campaign.saved_game_count; index++)
-	{
-		if (campaign.saved_games[index].profile_index == player_ui_get_active_player_profile_index(0))
-			campaign.shown_saved_game = index;
-	}
-	focus_row(list, campaign.saved_game_count ? campaign.shown_saved_game : NONE);
-	return TRUE;
-}
-
-static void saved_game_row_text(short row, wchar_t *text)
-{
-	ustrncpy(text, campaign.saved_games[row].profile_name, ROW_TEXT_LENGTH - 1);
-	text[ROW_TEXT_LENGTH - 1] = 0;
-}
-
-/* "load game list update" */
-static void saved_game_list_update(struct widget_instance *list)
-{
-	struct widget_instance *description = list->parameters.list.extended_description;
-	struct widget_instance *item = named(description, "load_level_right_item", 0);
-	short row = focused_row(list);
-
-	rows_update(list, campaign.saved_game_count, saved_game_row_text);
-	if (row != NONE && row < campaign.saved_game_count)
-		campaign.shown_saved_game = row;
-	if (campaign.shown_saved_game >= campaign.saved_game_count)
-		campaign.shown_saved_game = campaign.saved_game_count - 1;
-	if (item)
-		item->visible = campaign.saved_game_count > 0;
-	if (campaign.saved_game_count > 0)
-	{
-		struct campaign_saved_game const *saved_game = &campaign.saved_games[campaign.shown_saved_game];
-
-		level_description(description, "load_level", saved_game->level, FALSE, NULL, saved_game->difficulty);
-	}
-	else if (row != NONE)
-	{
-		focus_row(list, NONE);
-	}
-	profile_name_show(description);
-}
-
-/* "load game menu activated": the saved game goes on, with its profile as
-player 1's */
-static boolean saved_game_continue(short controller)
-{
-	struct campaign_saved_game const *saved_game;
-	struct player_profile profile;
-
-	if (campaign.shown_saved_game < 0 || campaign.shown_saved_game >= campaign.saved_game_count)
-		return campaign_fail();
-	saved_game = &campaign.saved_games[campaign.shown_saved_game];
-	if (!player_profile_get(saved_game->profile_index, &profile))
-		return campaign_fail();
-	player_ui_set_active_player_profile(0, saved_game->profile_index, &profile);
-	campaign_start(main_get_solo_level_name(saved_game->level), saved_game->difficulty, controller);
-	return TRUE;
-}
-
-/* "load game menu delete request" (before its question) and "delete
-finish" (its OK): the saved game shown goes */
-static boolean saved_game_delete_request(void)
-{
-	if (campaign.shown_saved_game < 0 || campaign.shown_saved_game >= campaign.saved_game_count)
-		return campaign_fail();
-	campaign.saved_game_to_delete = campaign.shown_saved_game;
-	return TRUE;
-}
-
-static boolean saved_game_delete(short controller)
-{
-	char path[256];
-
-	if (campaign.saved_game_to_delete < 0 || campaign.saved_game_to_delete >= campaign.saved_game_count ||
-		!player_profile_get_enclosing_directory_path(campaign.saved_games[campaign.saved_game_to_delete].profile_index,
-			path) || strlen(path) + strlen("savegame.bin") >= sizeof(path))
-	{
-		return campaign_fail();
-	}
-	strcat(path, "savegame.bin");
-	if (!DeleteFileA(path))
-		platform_log("menus: could not delete %s", path);
-	campaign.saved_game_to_delete = NONE;
-	saved_games_read(controller);
-	return TRUE;
 }
 
 /* the settings' screens (tools/port_settings.py): every spinner of a
@@ -7893,22 +7748,6 @@ boolean pc_menu_event_function_invoke(
 		{
 			main_set_difficulty(PIN(difficulty_shown(widget), 0, 3));
 		}
-		else if (!strcmp(name, "load game menu init"))
-		{
-			return saved_game_list_initialize(widget, controller);
-		}
-		else if (!strcmp(name, "load game menu activated"))
-		{
-			return saved_game_continue(controller);
-		}
-		else if (!strcmp(name, "load game menu delete request"))
-		{
-			return saved_game_delete_request();
-		}
-		else if (!strcmp(name, "load game menu delete finish"))
-		{
-			return saved_game_delete(controller);
-		}
 		else if (!strcmp(name, "controls back handler") || !strcmp(name, "gamespy back handler") ||
 			!strcmp(name, "gamespy dismiss error") || !strcmp(name, "gamespy dismiss filters"))
 		{
@@ -7996,8 +7835,6 @@ void pc_menu_game_data_function_invoke(
 		color_list_update(widget);
 	else if (!strcmp(name, "3wide player profile list update"))
 		profile_list_update(widget);
-	else if (!strcmp(name, "load game list update"))
-		saved_game_list_update(widget);
 	else if (!strcmp(name, "port gamepad layout preview"))
 		profile_gamepad_layout(widget);
 }

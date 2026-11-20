@@ -23,7 +23,6 @@ LOOKUPS_OUTSIDE_THE_XBOX_XML = {
     'color_right_pic': 'PC-look profile color screen; leaves with the PC look',
     'difficulty_indicator': 'PC-look difficulty screen; leaves with the PC look',
     'list_item_0_chooser_spinner': 'PC-look campaign chooser; leaves with the PC look',
-    'load_level_right_item': 'PC-look load screen; leaves with the PC look',
 }
 
 
