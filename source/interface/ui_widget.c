@@ -5966,6 +5966,42 @@ from a string list resizes that block every render, and pool_resize_pointer halt
 other pointer. */
 static wchar_t *ui_text_box_render_override = NULL;
 
+/* draw_string's flag to wrap a line too wide for its box at a space (_draw_text_wrap_horizontally_bit, draw_string.c) */
+#define UI_DRAW_TEXT_WRAP_HORIZONTALLY FLAG(0)
+
+/* port: on touch, the disc's menu strings that name a controller button ("Press %a-button or
+%y-button to start your own game") draw that button as an empty gap, since touch has no glyph for it:
+each such string reachable on touch reads in words for a tap instead. The SELECT PROFILE slots'
+press_start_to_join strings depend on the slot and have their own touch text. NULL keeps the disc's
+string (any other string, or not touch). tools/test_menu_standard.py checks the table against the map. */
+static wchar_t const *ui_touch_disc_text(
+	long string_list_tag_index,
+	short string_list_index)
+{
+	static struct
+	{
+		char const *list;
+		short index;
+		wchar_t const *text;
+	} const touch_strings[] =
+	{
+		{ "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\server_list\\looking_for_servers_message", 1,
+			L"Looking for games...\r\n\r\nTap CREATE GAME to start\r\nyour own game" },
+	};
+	char const *name;
+	long index;
+
+	if (halo_menu_pointer_controls() != 2 || string_list_tag_index == NONE)
+		return NULL;
+	name = tag_get_name(string_list_tag_index);
+	for (index = 0; name && index < (long)NUMBEROF(touch_strings); index++)
+	{
+		if (touch_strings[index].index == string_list_index && !strcmp(name, touch_strings[index].list))
+			return touch_strings[index].text;
+	}
+	return NULL;
+}
+
 static void widget_instance_render_text_box(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -5997,6 +6033,13 @@ static void widget_instance_render_text_box(
 		string = widget == ui_widget_port_error_text_box && ui_widget_port_error_text ?
 			(wchar_t *)ui_widget_port_error_text :
 			unicode_string_list_get_string(definition->text_label_string_list.index, string_list_index);
+		/* port: on touch, a disc string that names a button in words a tap can act on instead */
+		{
+			wchar_t const *touch_text = ui_touch_disc_text(definition->text_label_string_list.index, string_list_index);
+
+			if (touch_text)
+				string = (wchar_t *)touch_text;
+		}
 		/* port: the description of a spinner's extra item */
 		if (string_list_index >= SPINNER_EXTRA_DESCRIPTION_BASE &&
 			string_list_index < SPINNER_EXTRA_DESCRIPTION_BASE + (short)NUMBEROF(kills_to_win_extra_descriptions))
@@ -6134,7 +6177,19 @@ static void widget_instance_render_text_box(
 		color.alpha *= halo_ui_carousel_fade((visible_x0 + visible_x1) * 0.5f,
 			(real)ui_carousel_clip->x0, (real)ui_carousel_clip->x1);
 	}
-	draw_string_set_draw_mode(font_index, NONE, justification, 0, &color);
+	/* port: a text box with room for two lines wraps a line too wide for it at a space, so no
+	description or panel text ever loses its end; draw_string would otherwise stop drawing a line at
+	the first letter past the box (MULTIPLAYER's panel showed "needs a g"). A box one line tall keeps
+	its line as it is (its text is sized to fit: tools/test_menu_standard.py). */
+	{
+		struct font_header *font_header = font_definition_get(font_index);
+		short line_height = (short)(font_header->ascending_height + font_header->descending_height +
+			font_header->leading_height);
+
+		draw_string_set_draw_mode(font_index, NONE, justification,
+			line_height > 0 && bounds.y1 - bounds.y0 - definition->vertical_offset >= 2 * line_height ?
+			UI_DRAW_TEXT_WRAP_HORIZONTALLY : 0, &color);
+	}
 	/* port: the port's own error text, wrapped to its dialog: the box its
 	background draws (narrower than the text box; its picture is padded to a
 	power of two, so a margin of the text's offset on each side and as much
