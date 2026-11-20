@@ -178,8 +178,11 @@ void host_ios_orientation_configure(void) {
         }
         [NSNotificationCenter.defaultCenter addObserverForName:UISceneDidActivateNotification object:nil
             queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *notification) {
-                if ([notification.object isKindOfClass:UIWindowScene.class])
+                if ([notification.object isKindOfClass:UIWindowScene.class]) {
+                    /* (the first check above finds no scene when configure runs before one connects) */
+                    portrait_screen_check();
                     request_debug_orientation(notification.object);
+                }
             }];
     });
 #endif
