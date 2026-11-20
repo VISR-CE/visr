@@ -1973,6 +1973,26 @@ static void video_rows_show(struct widget_instance *list)
 /* the game's player colors */
 #define COLOR_COUNT 18
 
+/* a list of more items than its rows: the row chosen kept off its ends
+while there are more past them, the list moving instead; the item chosen,
+or NONE (its buttons) */
+static short list_scroll(struct widget_instance *list, short *first, short count, short rows)
+{
+	short row = focused_row(list);
+
+	if (row == rows - 1 && *first + rows < count)
+	{
+		(*first)++;
+		focus_row(list, --row);
+	}
+	else if (row == 0 && *first > 0)
+	{
+		(*first)--;
+		focus_row(list, ++row);
+	}
+	return row == NONE || row >= rows ? NONE : (short)(*first + row);
+}
+
 /* ---------- Edit Profile Settings: its picture of Gamepad Setup, the
 profile's button settings as the Xbox's Controller Setup shows them */
 
