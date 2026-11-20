@@ -2363,27 +2363,6 @@ def make_row_tall(row, bitmaps, documents, selected):
         row.set('bitmap', variant)
 
 
-def tall_patch_widgets(documents, bitmaps):
-    """The widgets a patch row adds to a list sit on no list of ours, so the density pass never reaches them. Where the
-    patch takes out every row the disc had, all the rows are ours: draw each as the standard tall row. Where disc
-    rows stay (Item Options, Player Options) the list keeps its disc rows' 28-unit pills and ours match them, until
-    the disc rows can be restyled too (agent-specs 2026-11-20 tall disc rows)."""
-    disc = json.loads((ROOT / 'tools/fixtures/disc_patched_lists.json').read_text())
-    selected = [root for name, root in documents.items() if '.compact.' not in name]
-    widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
-    for patch in documents['patches.xml'].iter('patch'):
-        removed = {row.get('child').rsplit('\\', 1)[-1] for row in patch.findall('remove')}
-        if {row['name'] for row in disc.get(patch.get('list'), [])} - removed or patch.get('list') not in disc:
-            continue
-        for row in patch.iter('row'):
-            widget = widgets.get(row.get('widget'))
-            if widget is None or '/row_36/' in (widget.get('bitmap') or ''):
-                continue
-            widget.set('height', str(COMFORTABLE_PITCH))
-            widget.set('top', '0')
-            make_row_tall(widget, bitmaps, documents, selected)
-
-
 def apply_density(documents, pitch, bitmaps, settings=False):
     widgets = {w.get('name'): w for root in documents.values() for w in root.iter('widget')}
     for root in documents.values():
@@ -2571,7 +2550,6 @@ def generate(assets=MENUS):
                     adjusted.add(id(row))
                     make_row_tall(row, bitmaps, documents, selected)
     add_advanced_clones(documents)
-    tall_patch_widgets(documents, bitmaps)
     native_header_sizes(documents, assets)
     for root in documents.values():
         validate(root, assets)

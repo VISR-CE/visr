@@ -195,7 +195,7 @@ def leaf(path):
 def laid_out_rows(patch, widgets):
     """The list after the patch's ops, as port/linux/game/menu_tags.c applies them: each row's name, y and height.
 
-    The disc's rows (names, y and height) are the fixture, read from the disc's ui.map by tools/ui_map_tags.py. An
+    The disc's rows (names, y and height) are the fixture, taken from the disc's ui.map (tools/ui_map_tags.py has no mode that writes it yet). An
     added row goes one pitch below its anchor and pushes the rows after it down; a removed row pulls them up by
     the pitch to the row before it. A row that is one of our widgets is as tall as that widget; any other row, as
     its pitch (or 28, the disc's rows)."""
@@ -244,12 +244,16 @@ def test_every_patched_list_fits_above_its_footer_with_tall_rows():
     shows the disc's menu. This lays each patch out from the disc's rows and fails on any overflow."""
     widgets = {w.get("name"): w for path in MENUS.glob("*.xml") if "compact" not in path.name
                for w in ET.parse(path).getroot().iter("widget")}
-    checked = 0
+    checked = []
+    skipped = []
     for patch in table():
-        disc = DISC_LISTS.get(patch.get("list"), [])
+        name = patch.get("list")
+        assert name in DISC_LISTS, f"{name} has a patch but is not in the disc layout fixture"
+        disc = DISC_LISTS[name]
         # (a list whose rows the disc stacks by their own bounds, or lays out as cards, has the same offset on
         # every row: only lists of rows one below another can be laid out from the fixture)
         if len({r["y"] for r in disc}) != len(disc) or len(disc) < 3:
+            skipped.append(name.rsplit("\\", 1)[-1])
             continue
         laid = laid_out_rows(patch, widgets)
         bottom = max(r["y"] + r["height"] for r in laid)
@@ -257,8 +261,11 @@ def test_every_patched_list_fits_above_its_footer_with_tall_rows():
         ordered = sorted(laid, key=lambda r: r["y"])
         for above, below in zip(ordered, ordered[1:]):
             assert above["y"] + above["height"] <= below["y"], (patch.get("list"), above["name"], below["name"])
-        checked += 1
-    assert checked >= 3
+        checked.append(name.rsplit("\\", 1)[-1])
+    # The lists the fixture cannot lay out are named here: a new one fails this test until it is looked at, and
+    # the development-build halt in menu_tags.c is their only fit guard.
+    assert sorted(skipped) == ["edit_playlist_select_list", "multiplayer_type_select_list", "profile_edit_select_list"]
+    assert sorted(checked) == ["advanced_controls_menu", "item_options_menu", "player_options_menu"]
 
 
 def test_lists_whose_rows_are_all_ours_draw_the_standard_tall_row():
