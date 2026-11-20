@@ -22,16 +22,6 @@ static UIImpactFeedbackGenerator *medium_feedback;
 @interface HaloMenuTouch : UIGestureRecognizer <UIGestureRecognizerDelegate>
 @end
 
-/* The drawable the game's picture is fit into, which the game's view shows stretched to its bounds: the game's layer
-   (the companion mirror draws into it too), read where the presenter reads it. 0x0 when there is none yet. Every
-   pointer source (touches, the mouse, scripted taps) maps through this one. */
-void host_picture_drawable(float *width, float *height) {
-    CAMetalLayer *layer=(__bridge CAMetalLayer *)host_sdl_metal_layer();
-    CGSize drawable=[layer isKindOfClass:CAMetalLayer.class]?layer.drawableSize:CGSizeZero;
-    *width=(float)drawable.width;
-    *height=(float)drawable.height;
-}
-
 @implementation HaloMenuTouch
 - (instancetype)initWithTarget:(id)target action:(SEL)action {
     if(!(self=[super initWithTarget:target action:action]))return nil;

@@ -107,9 +107,6 @@ static inline void host_menu_pointer_clear(struct host_menu_pointer *m) {
     m->swiped = m->back_swipes = 0;
     m->moved = m->left_clicks = m->right_clicks = m->wheel_steps = 0;
 }
-/* the drawable the picture is fit into on the game's view, in pixels (0: unknown) */
-void host_picture_drawable(float *width, float *height);
-
 /* the surface the pointer's points are on, and the drawable the picture is fit into there (0x0: unknown) */
 static inline void host_menu_pointer_set_geometry(struct host_menu_pointer *m, float surface_width,
                                                   float surface_height, float drawable_width,
