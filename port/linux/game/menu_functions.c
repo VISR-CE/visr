@@ -2018,11 +2018,9 @@ static void profile_gamepad_layout(struct widget_instance *picture)
 
 /* ---------- Profiles: the player profiles, and a row to make one (as the
 PC version's list has them, but by the Xbox's names for its spinner's
-functions); choosing one makes it player 1's, the profile the campaign and
-Settings use; deleting one asks first */
+functions), for the lobby's ADD PLAYER list */
 
 #define PROFILE_ROWS 11
-#define PROFILE_DEFAULT_BIT 0x40000000UL
 
 static struct
 {
@@ -2032,7 +2030,6 @@ static struct
 	short count;
 	short first;
 	short chosen;
-	long to_delete;
 } profile_list;
 
 /* the profiles, read again when they are not those read last */
@@ -2065,30 +2062,6 @@ static void profile_list_read(boolean always)
 static short profile_list_rows(void)
 {
 	return (short)MIN(profile_list.count + 1, PROFILE_ROWS);
-}
-
-void ui_widget_port_host_profile_visit(void);
-
-/* "player profile list initialize": on player 1's profile */
-static boolean profile_list_initialize(struct widget_instance *list)
-{
-	ui_widget_port_host_profile_visit();
-	long active = player_ui_get_active_player_profile_index(0);
-	short index;
-
-	profile_list_read(TRUE);
-	if (active == NONE)
-		active = player_ui_get_player1_last_used_profile_index();
-	profile_list.chosen = 0;
-	for (index = 0; index < profile_list.count; index++)
-	{
-		if (profile_list.indices[index] == active)
-			profile_list.chosen = index;
-	}
-	profile_list.first = (short)PIN(profile_list.chosen - PROFILE_ROWS / 2, 0,
-		MAX(0, profile_list.count + 1 - PROFILE_ROWS));
-	focus_row(list, (short)(profile_list.chosen - profile_list.first));
-	return TRUE;
 }
 
 static void profile_row_text(short row, wchar_t *text)
@@ -2182,62 +2155,6 @@ static void profile_list_update(struct widget_instance *list)
 		}
 	}
 	profile_name_show(description);
-}
-
-/* "profile manager select": the profile chosen made player 1's (and the
-one used last); FALSE for the row that makes one (its handler then asks) */
-static boolean profile_choose(short controller)
-{
-	struct player_profile profile;
-
-	if (profile_list.chosen >= profile_list.count ||
-		!player_profile_get(profile_list.indices[profile_list.chosen], &profile))
-	{
-		return FALSE;
-	}
-	player_ui_set_active_player_profile(0, profile_list.indices[profile_list.chosen], &profile);
-	player_ui_set_single_player_local_player_controller(0, controller);
-	player_ui_remember_player1_profile(TRUE);
-	return TRUE;
-}
-
-/* "request del player profile" (before its question) */
-static boolean profile_delete_request(void)
-{
-	if (profile_list.chosen >= profile_list.count)
-		return campaign_fail();
-	profile_list.to_delete = profile_list.indices[profile_list.chosen];
-	return TRUE;
-}
-
-/* "final del player profile" (its OK): deleted, and if it was player 1's,
-the first left is */
-static boolean profile_delete(void)
-{
-	long index = profile_list.to_delete;
-	boolean active = index == player_ui_get_active_player_profile_index(0);
-
-	profile_list.to_delete = NONE;
-	if (index == NONE || ((unsigned long)index & PROFILE_DEFAULT_BIT))
-		return campaign_fail();
-	player_profile_delete(index);
-	profile_list_read(TRUE);
-	if (active)
-	{
-		struct player_profile profile;
-
-		if (profile_list.count && player_profile_get(profile_list.indices[0], &profile))
-		{
-			player_ui_set_active_player_profile(0, profile_list.indices[0], &profile);
-			player_ui_remember_player1_profile(TRUE);
-		}
-		else
-		{
-			memset(&profile, 0, sizeof(profile));
-			player_ui_set_active_player_profile(0, NONE, &profile);
-		}
-	}
-	return TRUE;
 }
 
 /* ---------- Controls Setup: the keyboard and mouse's controls
@@ -3028,6 +2945,7 @@ static struct
 /* the profile screen's list opened: the first open is the host's own. The list
 opens again after the name keyboard and the saving screen, so later opens do
 not end the host's turn; host_profile_continue does, once the profile exists */
+void ui_widget_port_host_profile_visit(void);
 void ui_widget_port_host_profile_visit(void)
 {
 	if (host_profile.controller != NONE)
@@ -7459,14 +7377,6 @@ boolean pc_menu_event_function_invoke(
 		{
 			return control_capture_begin(widget);
 		}
-		else if (!strcmp(name, "player profile list initialize"))
-		{
-			return profile_list_initialize(widget);
-		}
-		else if (!strcmp(name, "profile manager select"))
-		{
-			return profile_choose(controller);
-		}
 		else if (!strcmp(name, "port lobby open"))
 		{
 			return lobby_join_reset();
@@ -7498,14 +7408,6 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port lobby preview leave"))
 		{
 			return preview_leave(controller);
-		}
-		else if (!strcmp(name, "request del player profile"))
-		{
-			return profile_delete_request();
-		}
-		else if (!strcmp(name, "final del player profile"))
-		{
-			return profile_delete();
 		}
 		else if (!strcmp(name, "controls binding slot"))
 		{
