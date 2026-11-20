@@ -123,7 +123,9 @@ struct event_record { short type; union { struct { short index, value; } button;
 struct ui_widget_definition { long flags, list_flags; struct { long count; } event_handlers, child_widgets; };
 static int refusals;
 static void ui_play_audio_feedback_sound(short sound) { if (sound == 4) refusals++; else assert(sound == 1); }
-static boolean ui_widget_port_disabled_row_activation(struct widget_instance const *widget, short event_type) { (void)widget; (void)event_type; return FALSE; }
+static struct widget_instance const *disabled_row;
+static boolean ui_widget_port_disabled_row_activation(struct widget_instance const *widget, short event_type)
+{ return disabled_row && widget == disabled_row && event_type == _gamepad_analog_button_a; }
 static void error(int level, char const *message, ...) { abort(); }
 static struct widget_instance *widget_instance_get_topmost_parent(struct widget_instance *widget)
 { return screen_of(widget); }
@@ -346,6 +348,27 @@ int main(void)
         assert(motion->parameters.list.selected_index == i);
     }
     assert(refusals == 22);
+    /* a disabled row (grayed INTERNET or SPLIT SCREEN) refuses A with exactly one failure sound, and nothing else */
+    {
+        struct event_record event = { .type = _event_type_button, .data.button = { _gamepad_analog_button_a, 1 } };
+        int before = refusals;
+
+        disabled_row = op_sync;
+        assert(widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+        event.data.button.index = _widget_event_dpad_left;
+        assert(!widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+        event.type = _event_type_left_stick;
+        event.data.stick.x = 32767;
+        assert(!widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+        event.type = _event_type_button;
+        event.data.button.index = _gamepad_analog_button_a;
+        event.data.button.value = 0;
+        assert(!widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+        event.data.button.value = 1;
+        assert(!widget_instance_port_refuse_graphics_edit(list, &event) && refusals == before + 1);
+        disabled_row = NULL;
+        assert(!widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+    }
     /* vertical sync is no setting the mode replaces */
     assert(sync->visible && !op_sync->disabled);
     /* a fixed row can be chosen, for its help, and says what it is fixed to */

@@ -78,3 +78,59 @@ def test_panel_lines_fit_the_panel_without_clipping():
                 "multiplayer_type_split_need_pad"):
         for line in strings[key].split("\\\\n"):
             assert len(line) <= 31, (key, line)
+
+
+def test_disabled_row_predicate_behavior(tmp_path):
+    """The real predicate, with the setting and the controller count stubbed: the screen as the start widget with the
+    grayed row down the focus chain, the row itself, the rows that stay enabled, and the inputs that are not presses."""
+    import subprocess
+    functions = "\n".join(body(MENU_FUNCTIONS, signature) + "\n}\n" for signature in (
+        "static boolean internet_item_off(", "static boolean split_item_off(",
+        "boolean ui_widget_port_disabled_row_activation("))
+    program = r"""
+#include <assert.h>
+#include <string.h>
+typedef int boolean;
+#define TRUE 1
+#define FALSE 0
+#define BUTTON_A 0
+#define EVENT_CUSTOM_ACTIVATION 32
+struct widget_instance { char const *name; struct widget_instance *focused_child; };
+static int online, needs_pad;
+static int config_boolean(char const *key) { (void)key; return online; }
+boolean menu_split_screen_needs_controller(void) { return needs_pad; }
+""" + functions + r"""
+static struct widget_instance row(char const *name) { struct widget_instance r = { name, 0 }; return r; }
+int main(void)
+{
+    struct widget_instance screen = { "screen", 0 }, split = row("multiplayer_type_split_item"),
+        internet = row("multiplayer_type_internet"), create = row("multiplayer_type_create_interne"),
+        lan = row("multiplayer_type_join_lan"), direct = row("multiplayer_type_join_direct");
+
+    needs_pad = 1; online = 1;
+    screen.focused_child = &split;
+    assert(ui_widget_port_disabled_row_activation(&screen, BUTTON_A));
+    assert(ui_widget_port_disabled_row_activation(&screen, EVENT_CUSTOM_ACTIVATION));
+    assert(ui_widget_port_disabled_row_activation(&split, BUTTON_A));
+    assert(!ui_widget_port_disabled_row_activation(&screen, 2) && !ui_widget_port_disabled_row_activation(&screen, 12));
+    needs_pad = 0;
+    assert(!ui_widget_port_disabled_row_activation(&screen, BUTTON_A));
+    screen.focused_child = &internet;
+    assert(!ui_widget_port_disabled_row_activation(&screen, BUTTON_A));
+    online = 0;
+    assert(ui_widget_port_disabled_row_activation(&screen, BUTTON_A));
+    screen.focused_child = &create;
+    assert(ui_widget_port_disabled_row_activation(&screen, BUTTON_A));
+    screen.focused_child = &lan;
+    assert(!ui_widget_port_disabled_row_activation(&screen, BUTTON_A));
+    screen.focused_child = &direct;
+    assert(!ui_widget_port_disabled_row_activation(&screen, BUTTON_A));
+    assert(!ui_widget_port_disabled_row_activation(NULL, BUTTON_A));
+    return 0;
+}
+"""
+    source, binary = tmp_path / "predicate.c", tmp_path / "predicate"
+    source.write_text(program)
+    subprocess.run(["cc", "-Wall", "-Werror", "-Wno-unused-function", "-fsanitize=address,undefined", str(source),
+                    "--output", str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
