@@ -36,10 +36,9 @@ calls them from PC_MENU_FUNCTION_BASE on):
 - Controls Setup's: the keyboard and mouse's controls, two bindings each,
   shown a group at a time ("controls update menu"); "controls begin
   binding" takes the next key or button pressed for the binding left and
-  right choose ("controls binding slot"); OK ("controls screen change set")
-  writes them, "controls screen defaults" shows the defaults. The Xbox
-  screen ("port controls init") saves each capture or clear; "port controls
-  defaults" resets and saves.
+  right choose ("controls binding slot"). The screen ("port controls
+  init") saves each capture or clear; "port controls defaults" resets and
+  saves.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
@@ -7364,15 +7363,6 @@ boolean pc_menu_event_function_invoke(
 				return FALSE;
 			return strcmp(name, "port setting revert") ? setting_preview(widget, setting) : setting_revert(widget, setting);
 		}
-		else if (!strcmp(name, "controls screen init") || !strcmp(name, "controls screen defaults"))
-		{
-			controls_screen.apply_now = FALSE;
-			return controls_load(!strcmp(name, "controls screen defaults"));
-		}
-		else if (!strcmp(name, "controls screen change set"))
-		{
-			return controls_save();
-		}
 		else if (!strcmp(name, "controls begin binding"))
 		{
 			return control_capture_begin(widget);
@@ -7460,8 +7450,7 @@ boolean pc_menu_event_function_invoke(
 		{
 			main_set_difficulty(PIN(difficulty_shown(widget), 0, 3));
 		}
-		else if (!strcmp(name, "controls back handler") || !strcmp(name, "gamespy back handler") ||
-			!strcmp(name, "gamespy dismiss error") || !strcmp(name, "gamespy dismiss filters"))
+		else if (!strcmp(name, "gamespy back handler") || !strcmp(name, "gamespy dismiss error"))
 		{
 			ui_widget_port_go_back(widget);
 			*widget_deleted = TRUE;
