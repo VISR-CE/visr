@@ -68,19 +68,20 @@ static void update_orientation_preferences(UIWindowScene *windowScene) {
    cover and inner screens changes it), and when it changes, tell SDL and UIKit; a scene in portrait on a screen
    that no longer allows it turns to landscape. */
 static void portrait_screen_check(void) {
-    if (!allow_portrait) return;
     UIWindowScene *windowScene = game_window_scene();
     UIScreen *screen = windowScene.screen;
-    if (!screen) return;
-    CGSize size = screen.bounds.size;
-    int fits = host_portrait_fits(allow_portrait, size.width, size.height);
-    if (atomic_exchange(&screen_portrait, fits) == fits) return;
+    CGSize size = screen ? screen.bounds.size : CGSizeZero;
+    struct host_portrait_step step = host_portrait_check(atomic_load(&screen_portrait), allow_portrait, screen != nil,
+        size.width, size.height, UIInterfaceOrientationIsPortrait(windowScene.effectiveGeometry.interfaceOrientation));
+    if (!step.changed) return;
+    int fits = step.answer;
+    atomic_store(&screen_portrait, fits);
     host_logf(HOST_LOG_INFO, "portrait: %s on this %.0fx%.0f pt screen (at least %.0f pt wide in portrait)",
         fits ? "allowed" : "not allowed", size.width, size.height, HOST_PORTRAIT_MINIMUM_POINTS);
     SDL_SetHint(SDL_HINT_ORIENTATIONS, fits ? "Portrait PortraitUpsideDown LandscapeLeft LandscapeRight" :
         "LandscapeLeft LandscapeRight");
     update_orientation_preferences(windowScene);
-    if (!fits && UIInterfaceOrientationIsPortrait(windowScene.effectiveGeometry.interfaceOrientation))
+    if (step.turn_to_landscape)
         for (UIWindow *window in windowScene.windows)
             if (!window.hidden && window.rootViewController) { host_ios_require_landscape(window); break; }
 }

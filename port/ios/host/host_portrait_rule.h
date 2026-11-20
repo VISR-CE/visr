@@ -14,4 +14,23 @@ static inline int host_portrait_fits(int device_allows, double screen_width, dou
     return device_allows && narrow >= HOST_PORTRAIT_MINIMUM_POINTS;
 }
 
+/* One check of the screen the game's scene is on: the answer before (-1: none yet, which leaves the device's own),
+   whether there is a screen to measure, and whether the scene is in portrait now. The answer changes only when there
+   is a screen; a scene in portrait on a screen that stops allowing it turns to landscape. */
+struct host_portrait_step {
+    int answer, changed, turn_to_landscape;
+};
+
+static inline struct host_portrait_step host_portrait_check(int previous, int device_allows, int have_screen,
+                                                            double screen_width, double screen_height,
+                                                            int scene_portrait)
+{
+    struct host_portrait_step step = {previous, 0, 0};
+    if (!device_allows || !have_screen) return step;
+    step.answer = host_portrait_fits(device_allows, screen_width, screen_height);
+    step.changed = step.answer != previous;
+    step.turn_to_landscape = step.changed && !step.answer && scene_portrait;
+    return step;
+}
+
 #endif
