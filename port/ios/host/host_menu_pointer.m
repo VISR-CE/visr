@@ -60,10 +60,10 @@ void host_picture_drawable(float *width, float *height) {
     struct host_posture_layout layout;
     host_posture_layout_snapshot(&layout);
     host_menu_pointer_set_blocked(&pointer_state,host_ios_touch_blocked() || layout.laptop);
-    host_menu_pointer_set_surface(&pointer_state,(float)root.bounds.size.width,(float)root.bounds.size.height);
     float width=0,height=0;
     host_picture_drawable(&width,&height);
-    host_menu_pointer_set_drawable(&pointer_state,width,height);
+    host_menu_pointer_set_geometry(&pointer_state,(float)root.bounds.size.width,(float)root.bounds.size.height,
+                                   width,height);
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [self track];

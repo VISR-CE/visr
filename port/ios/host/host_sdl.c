@@ -1437,8 +1437,9 @@ look and pinch drives it (host_menu_gaze.h); the Apple TV has none, and its
 menus stay as they were. */
 
 static struct host_menu_pointer menu_pointer;
-/* the drawable the picture is fit into (host_picture_drawable, as for touches), else the window's pixels */
-static void menu_pointer_note_drawable(SDL_Window *window)
+/* the window's points, and the drawable the picture is fit into (host_picture_drawable, as for touches), else
+the window's pixels */
+static void menu_pointer_note_geometry(SDL_Window *window, int surface_width, int surface_height)
 {
 	float width = 0.0f, height = 0.0f;
 	int pixel_width = 0, pixel_height = 0;
@@ -1450,7 +1451,7 @@ static void menu_pointer_note_drawable(SDL_Window *window)
 		width = (float)pixel_width;
 		height = (float)pixel_height;
 	}
-	host_menu_pointer_set_drawable(&menu_pointer, width, height);
+	host_menu_pointer_set_geometry(&menu_pointer, (float)surface_width, (float)surface_height, width, height);
 }
 static void (*pointer_feedback)(int);
 static void (*pointer_menus_changed)(int);
@@ -1567,10 +1568,7 @@ static void menu_pointer_event(const SDL_Event *event)
 		return;
 	}
 	if (window && window_size(window, &width, &height))
-	{
-		host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
-		menu_pointer_note_drawable(window);
-	}
+		menu_pointer_note_geometry(window, width, height);
 	switch (event->type)
 	{
 	case SDL_EVENT_MOUSE_MOTION:
@@ -1662,7 +1660,8 @@ void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const flo
 	/* each pinch the menus take, as it begins and ends (the move between is the hand's travel) */
 	if (taken && !tracking)
 		host_logf(HOST_LOG_INFO, "menu pointer: a pinch at %.0f, %.0f of %.0f by %.0f points on the menus",
-			gaze.down_x, gaze.down_y, menu_pointer.surface_width, menu_pointer.surface_height);
+			gaze.down_x, gaze.down_y, host_pointer_geometry_snapshot(&menu_pointer.geometry).surface_width,
+			host_pointer_geometry_snapshot(&menu_pointer.geometry).surface_height);
 	else if (tracking && !gaze.tracking)
 		host_logf(HOST_LOG_INFO, "menu pointer: the pinch %s", phase == HOST_MENU_GAZE_CANCELLED ? "was canceled" :
 			menu_pointer.left_clicks > clicks ? "let go without travel: a press" : "let go after a drag");
@@ -1849,8 +1848,7 @@ static void menu_script_run(void)
 		return;
 	if ((menu_script.kind == 6 || menu_script.kind == 7) && menu_script_pinch())
 		return;
-	host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
-	menu_pointer_note_drawable(window);
+	menu_pointer_note_geometry(window, width, height);
 	t = menu_script.kind == 8 ? fminf(1.0f, (float)menu_script.step / 6.0f) :
 		menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
 	x = (menu_script.x0 + (menu_script.x1 - menu_script.x0) * t) * (float)width;
