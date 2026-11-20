@@ -192,11 +192,12 @@ static void edge_controls(void) {
 /* Taps at the center of 36-unit targets all over the menus, through the picture's way to the glass (the menu
 window's draw, the picture fit into the drawable, the drawable stretched over the surface) and back through the
 production pointer (ui_point_from_surface, menu_window_pointer): each lands on its target. surface_height is in
-points; drawable_stretch makes the drawable's shape lag the surface's, as after a rotation or a move between
-screens. */
-static void taps(float surface_height, float drawable_stretch) {
+points; drawable_stretch makes the drawable's shape lag the surface's, wider or narrower as after a move between
+screens, and transposed keeps the other orientation's drawable, as in the middle of a rotation. */
+static void taps(float surface_height, float drawable_stretch, int transposed) {
     float surface_width = surface_height * width / 480.0f;
     float drawable_width = roundf(surface_width * 3 * drawable_stretch), drawable_height = roundf(surface_height * 3);
+    if (transposed) { float t = drawable_width; drawable_width = drawable_height; drawable_height = t; }
     float fit = halo_ui_layout_scale(width), offset = halo_ui_layout_y_offset(width);
     int worst = 0;
 
@@ -255,8 +256,10 @@ int main(int argc, char **argv) {
         halo_screen_menu_window(0);
         if (width >= 640)
             back_chevron();
-        taps((float)height, 1.0f);
-        taps((float)height, 1.03f);
+        taps((float)height, 1.0f, 0);
+        taps((float)height, 1.03f, 0);
+        taps((float)height, 0.97f, 0);
+        taps((float)height, 1.0f, 1);
         /* outside the menu window (the fade): the screen at zoom one */
         if (width >= 640) {
             struct halo_menu_screen screen;
@@ -321,6 +324,7 @@ EXTERNAL_1080P = "853x1080:0,0,0,0"
 DEEP_CUTOUT = "700x375:0.2,0.2,0.1,0.11"
 DUO_OUTER_LANDSCAPE_FIXED = DUO_OUTER_LANDSCAPE + ":fixed"
 ODD_WIDTH_CUTOUT = "713x457:0.1239,0,0,0.073"
+DUO_INNER_PORTRAIT = "338x951:0,0,0.035,0.035"
 
 SEQUENCES = {
     "rotate portrait to landscape on the Duo outer display": [DUO_OUTER_PORTRAIT, DUO_OUTER_LANDSCAPE],
@@ -329,6 +333,8 @@ SEQUENCES = {
     "move to an external display and back": [IPHONE_17_PRO, EXTERNAL_1080P, IPHONE_17_PRO],
     "4:3 iPad and a deep cutout": [IPAD, DEEP_CUTOUT, IPAD],
     "an odd width under the zoom": [ODD_WIDTH_CUTOUT, EXTERNAL_1080P, ODD_WIDTH_CUTOUT],
+    "fold from the inner display in portrait to the outer display": [DUO_INNER_PORTRAIT, DUO_OUTER_LANDSCAPE,
+                                                                     DUO_INNER_PORTRAIT],
     "the cutout over the design at zoom one": [DUO_OUTER_LANDSCAPE_FIXED, DUO_OUTER_LANDSCAPE, DEEP_CUTOUT + ":fixed"],
 }
 

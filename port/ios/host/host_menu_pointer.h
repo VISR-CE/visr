@@ -72,6 +72,8 @@ static inline void host_menu_pointer_set_surface(struct host_menu_pointer *m, fl
     m->surface_height = height;
 }
 /* the drawable the picture is fit into on that surface, in pixels (0: unknown) */
+void host_picture_drawable(float *width, float *height);
+
 static inline void host_menu_pointer_set_drawable(struct host_menu_pointer *m, float width, float height) {
     m->drawable_width = width;
     m->drawable_height = height;

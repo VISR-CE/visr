@@ -1437,13 +1437,20 @@ look and pinch drives it (host_menu_gaze.h); the Apple TV has none, and its
 menus stay as they were. */
 
 static struct host_menu_pointer menu_pointer;
-/* the window's pixels: the drawable the picture is fit into, shown stretched over the window's points */
+/* the drawable the picture is fit into (host_picture_drawable, as for touches), else the window's pixels */
 static void menu_pointer_note_drawable(SDL_Window *window)
 {
-	int width = 0, height = 0;
+	float width = 0.0f, height = 0.0f;
+	int pixel_width = 0, pixel_height = 0;
 
-	host_sdl_window_pixels(window, &width, &height);
-	host_menu_pointer_set_drawable(&menu_pointer, (float)width, (float)height);
+	host_picture_drawable(&width, &height);
+	if (width < 1.0f || height < 1.0f)
+	{
+		host_sdl_window_pixels(window, &pixel_width, &pixel_height);
+		width = (float)pixel_width;
+		height = (float)pixel_height;
+	}
+	host_menu_pointer_set_drawable(&menu_pointer, width, height);
 }
 static void (*pointer_feedback)(int);
 static void (*pointer_menus_changed)(int);
