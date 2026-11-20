@@ -45,6 +45,12 @@ JUDGED = {
     "release_macos.py": {},
 }
 HELPERS = ("profile_feed_domain", "verify_feed", "_verify_feed")
+# Functions that call a source-bound check or helper without reading a constant themselves. The controller must not
+# name them either, or the check runs against the controller's constants by another route.
+CALLERS = {
+    "check_release": "runs in the preflight job, inside the source checkout",
+    "verify_pages_recording_feed": "judges main's own published feeds against main's constants",
+}
 
 
 def functions(path: Path) -> dict[str, str]:
@@ -64,13 +70,26 @@ def test_every_controller_function_reading_a_source_constant_has_been_judged(mod
         "route a new reader through run_in_source or give its reason in JUDGED")
 
 
+def test_every_function_calling_a_source_bound_check_is_a_judged_caller() -> None:
+    bound = set(validation.SOURCE_BOUND_CHECKS) | set(HELPERS)
+    text = (TOOLS / "release_validation.py").read_text()
+    callers = set()
+    for node in ast.parse(text).body:
+        if isinstance(node, ast.FunctionDef) and node.name not in bound:
+            used = {n.attr if isinstance(n, ast.Attribute) else n.id
+                    for n in ast.walk(node) if isinstance(n, (ast.Name, ast.Attribute))}
+            if used & bound:
+                callers.add(node.name)
+    assert callers == set(CALLERS), f"unjudged callers {sorted(callers - set(CALLERS))}; stale {sorted(set(CALLERS) - callers)}"
+
+
 def test_source_bound_checks_are_judged_as_such() -> None:
     for check in validation.SOURCE_BOUND_CHECKS:
         assert JUDGED["release_validation.py"][check].startswith("source bound")
 
 
 def test_the_controller_never_names_a_source_bound_check_or_its_helpers_outside_validation() -> None:
-    names = set(validation.SOURCE_BOUND_CHECKS) | set(HELPERS)
+    names = set(validation.SOURCE_BOUND_CHECKS) | set(HELPERS) | set(CALLERS)
     for module in CONTROLLER_MODULES:
         if module == "release_validation.py" or not (TOOLS / module).exists():
             continue
@@ -136,3 +155,21 @@ def test_only_jobs_that_check_out_the_source_call_a_source_bound_check_in_a_step
             called = [c for c in validation.SOURCE_BOUND_CHECKS if c in step.get("run", "")]
             if called:
                 assert ref == "${{ inputs.source_sha }}", f"{name} runs {called} against a checkout that is not the source"
+
+
+def test_the_probe_guard_script_accepts_only_the_pinned_compiler() -> None:
+    import json
+    import os
+    import subprocess
+
+    workflow = yaml.safe_load(WORKFLOW.read_text())
+    step = next(s for s in workflow["jobs"]["probe"]["steps"] if s.get("name") == "Require the policy to name the pinned compiler")
+    pinned = workflow["env"]["RELEASE_COMPILER_VERSION"]
+
+    def passes(policy: str) -> bool:
+        env = {**os.environ, "RELEASE_BUILD_POLICY": policy, "RELEASE_COMPILER_VERSION": pinned}
+        return subprocess.run(["bash", "-e", "-c", step["run"]], env=env, capture_output=True).returncode == 0
+
+    assert passes(json.dumps({"guest_compiler_version": pinned}))
+    assert not passes(json.dumps({"guest_compiler_version": pinned + "1"}))
+    assert not passes("{}") and not passes("") and not passes("[]")
