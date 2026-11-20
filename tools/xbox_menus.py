@@ -26,7 +26,7 @@ import menu_geometry
 from port_settings import apply_now_spinner_handlers
 # Shared geometry (rows, legend, value columns, dropdown) lives in menu_geometry.py, which also writes the
 # engine's menu_geometry.h.
-from menu_geometry import (COMFORTABLE_PITCH, COMPACT_PITCH, DROPDOWN_PITCH, FIRST_ROW, LEGEND_Y,
+from menu_geometry import (COMFORTABLE_PITCH, DROPDOWN_PITCH, FIRST_ROW, LEGEND_Y,
                            ROW_HEIGHT)
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +35,6 @@ PE = 'main_menu/settings_select/player_setup/player_profile_edit'
 # fields under the header rule sit this far down, leaving a gap below the rule
 FIELD_GAP = 8
 FIELD_Y = FIRST_ROW + FIELD_GAP
-DENSITY_PITCH = {'compact': COMPACT_PITCH, 'comfortable': COMFORTABLE_PITCH}
 ROW_PITCH = COMFORTABLE_PITCH
 # the scroll arrows sit to the right of the 512-wide rows
 ARROW_X = 574
@@ -71,7 +70,7 @@ MAP_BITMAPS = {'gradient', 'list_field', 'list_item_bkd_top', 'list_item_bkd',
 TITLE = (35, 11, 512, 64)
 LEGEND_A_X, LEGEND_B_X = 471, 326
 GLYPH_WIDTH, GLYPH_HEIGHT, CAPTION_OFFSET = 21, 26, 22
-HELP_TOP = {'comfortable': 335, 'compact': 350}
+HELP_TOP = 335
 # Both right panels end at the bottom rule (y 409, drawn by the gradient art), as the disc's panels do.
 RULE_Y = 409
 PANEL_A = {'list': (51, 78, 33), 'panel': (275, 78, 320, RULE_Y - 78)}
@@ -196,7 +195,8 @@ def serialize(root):
 
 def retain_xbox_files(menus, files):
     """Keep Xbox XML and its PNG dependencies when ce_menus rewrites the manifest."""
-    names = set(files)
+    # (the Xbox XML is listed again below from the folder, so a file the generator no longer writes leaves)
+    names = {name for name in files if not (name.startswith('xbox/') and name.endswith('.xml'))}
     # PC description panels share the drawings too, including ABOUT.
     for path in sorted((menus / 'ce').glob('*.xml')):
         names.update(frame.get('png') for frame in ET.parse(path).iter('frame') if frame.get('png'))
@@ -419,7 +419,7 @@ def settings_page(assets, folder, bitmaps):
         if element.get('bitmap') == 'xbox/bitmaps/option_bkds':
             element.set('height', str(ROW_HEIGHT))
         if element.get('name') == f'{base}/help' and folder != 'about':
-            element.attrib.update({k: str(v) for k, v in help_box(HELP_TOP['comfortable']).items()})
+            element.attrib.update({k: str(v) for k, v in help_box(HELP_TOP).items()})
         if element.get('name') == f'{base}/cloud_saves_status':
             element.set('top', '393')
             element.set('height', '20')
@@ -481,7 +481,7 @@ def notices_screen(root, bitmaps):
                      visible_rows=7, description=prefix + '/help',
                      flags='pass_unhandled_to_focused_child up_down_tabs_children')
     ET.SubElement(options, 'data', input='port settings help')
-    widget(root, prefix + '/help', type='text', **help_box(HELP_TOP['comfortable']),
+    widget(root, prefix + '/help', type='text', **help_box(HELP_TOP),
            string_list=prefix + '/help_strings', font=r'ui\small_ui', color='#FFFFFFFF')
     for index, _ in enumerate(about_data.LICENSES):
         row = prefix + f'/op_{index}'
@@ -1248,7 +1248,7 @@ def lobby_action_layout(root):
     for w in list(root.findall('widget')):
         if w.get('name').startswith(base + '/lobby_screen/legend/'):
             root.remove(w)
-    # Eleven compact roster bands end at 408, above the shared legend.
+    # The roster's bands end at 408, above the shared legend.
     rows = widgets[base + '/lobby_list']
     rows.find(f"child[@widget='{bar.get('name')}']").set('y', str(LEGEND_Y))
     bar.set('height', '53')
@@ -1753,10 +1753,10 @@ WAIT_DIALOGS = ('warning_creating_player_profile_screen', 'warning_saving_file_s
 # Every generated screen names its layout. Native layouts declare their kind
 # here too, but their map-tag geometry is owned by the game.
 LAYOUT_KINDS = {
-    'K1': {'legend_y': LEGEND_Y, 'help_top': HELP_TOP, 'row_pitch': DENSITY_PITCH},
-    'K2-A': {'legend_y': LEGEND_Y, 'row_pitch': DENSITY_PITCH, 'panel': PANEL_A},
-    'K2-B': {'legend_y': LEGEND_Y, 'row_pitch': DENSITY_PITCH, 'panel': PANEL_B},
-    'K6': {'legend_y': LEGEND_Y, 'row_pitch': DENSITY_PITCH},
+    'K1': {'legend_y': LEGEND_Y, 'help_top': HELP_TOP, 'row_pitch': ROW_PITCH},
+    'K2-A': {'legend_y': LEGEND_Y, 'row_pitch': ROW_PITCH, 'panel': PANEL_A},
+    'K2-B': {'legend_y': LEGEND_Y, 'row_pitch': ROW_PITCH, 'panel': PANEL_B},
+    'K6': {'legend_y': LEGEND_Y, 'row_pitch': ROW_PITCH},
     'K8': {'panel': DIALOG_PANEL, 'header': DIALOG_HEADER, 'button': DIALOG_BUTTON,
            'button_step': DIALOG_BUTTON_STEP,
            # Targets fit the panel's width; their lower 12 units extend below it so the message keeps its room.
@@ -1850,7 +1850,7 @@ LIST_LAYOUTS = {spec['options']: spec for spec in SCREEN_LAYOUTS.values() if 'op
 OPTION_LIST_LAYOUTS = {name: spec for name, spec in LIST_LAYOUTS.items() if spec['kind'] == 'K1'}
 
 
-def layout_geometry(documents, density):
+def layout_geometry(documents):
     """Apply shared help and title bounds before fitting the rows to the viewport."""
     for root in documents.values():
         widgets = {w.get('name'): w for w in root.findall('widget')}
@@ -1873,7 +1873,7 @@ def layout_geometry(documents, density):
                     continue
                 leaf = w.get('name').rsplit('/', 1)[-1]
                 if leaf in ('help', 'row_help', 'graphics_help', 'vehicle_options_help', 'teamplay_options_help'):
-                    geometry = help_box(HELP_TOP[density])
+                    geometry = help_box(HELP_TOP)
                     if 'help' in spec:
                         geometry.update(top=spec['help'][0], height=spec['help'][1])
                     w.attrib.update({k: str(v) for k, v in geometry.items()})
@@ -2320,23 +2320,9 @@ def equivalence_header():
     return '\n'.join(lines)
 
 
-# Long lists and their shared definitions must select the same density.
-LIST_DOCUMENTS = (
-    'main_menu.multiplayer_type_select.join_game.xml',
-    'main_menu.multiplayer_type_select.lobby.xml',
-    'main_menu.new_select.port.xml',
-    'main_menu.multiplayer_type_select.mp_map_select.xml',
-    'main_menu.settings_select.multiplayer_setup.playlist_select.xml',
-    'multiplayer.shared.xml', 'patches.xml',
-    # Controls Setup is also the paged key-binding editor.
-    'settings.controls_setup.xml',
-)
-
-
 # Generated option lists that keep their own row geometry, with the reason. Every other generated list whose
-# rows are option rows (the option_bkds row art) takes the density's standard row: tall (36 units of art on the
-# 39 pitch) when comfortable, so a row is tall because it is a generated row, never because its screen asked.
-# (The compact documents are the other density, not an exemption: their rows take the compact pitch.)
+# rows are option rows (the option_bkds row art) takes the standard row: tall (36 units of art on the 39 pitch),
+# so a row is tall because it is a generated row, never because its screen asked.
 OPTION_LIST_EXEMPTIONS = {
     # the browser's server rows: its own row art, pitch and pager (browser_layout)
     f'xbox/{MP}/join_game/join_game_items_list': 'server rows, laid out by browser_layout',
@@ -2560,57 +2546,75 @@ def generate(assets=MENUS):
     documents['bitmaps.xml'] = bitmap_document(assets, names)
     browser_error_layout(documents)
     action_bar_legends(documents)
-    layout_geometry(documents, 'comfortable')
+    layout_geometry(documents)
     standardize_spinners(documents)
     apply_density(documents, COMFORTABLE_PITCH, names, settings=True)
-    compact = {name: deepcopy(documents[name]) for name in LIST_DOCUMENTS}
-    layout_geometry(compact, 'compact')
-    apply_density(compact, COMPACT_PITCH, names)
-    apply_density(compact, COMPACT_PITCH, names, settings=True)
-    for row in compact['patches.xml'].iter('row'):
-        if row.get('pitch'):
-            row.set('pitch', str(COMPACT_PITCH))
     apply_density(documents, COMFORTABLE_PITCH, names)
     for name, document in documents.items():
         if name.startswith('settings.'):
             lead_kept_rows(document)
-    documents.update({name.removesuffix('.xml') + '.compact.xml': root for name, root in compact.items()})
-    # Separate frame placements keep the compact artwork at 28 units while
-    # comfortable rows draw 36 units inside their full 39-unit tap bands.
+    # The shared row art stays 28 units; a tall row draws its own 36-unit copy inside the full 39-unit tap band.
     bitmaps = {b.get('name'): b for root in documents.values() for b in root.findall('bitmap')}
-    row_art = set()
-    for compact_mode in (False, True):
-        selected = [root for name, root in documents.items()
-                    if ('.compact.' in name if compact_mode else '.compact.' not in name)
-                    or (compact_mode and '.compact.' not in name
-                        and name.removesuffix('.xml') + '.compact.xml' not in documents)]
-        widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
-        row_art.update(widgets[c.get('widget')].get('bitmap')
-                       for root in selected for options in root.iter('widget')
-                       if options.get('type') == 'column_list' for c in density_rows(options, widgets))
+    selected = list(documents.values())
+    widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
+    row_art = {widgets[c.get('widget')].get('bitmap')
+               for root in selected for options in root.iter('widget')
+               if options.get('type') == 'column_list' for c in density_rows(options, widgets)}
     for root in documents.values():
         for bitmap in root.findall('bitmap'):
             if bitmap.get('name') in row_art:
                 for frame in bitmap.findall('frame'):
                     frame.set('height', '28')
     adjusted = set()
-    for compact_mode in (False, True):
-        selected = [root for name, root in documents.items()
-                    if ('.compact.' in name if compact_mode else '.compact.' not in name)
-                    or (compact_mode and '.compact.' not in name
-                        and name.removesuffix('.xml') + '.compact.xml' not in documents)]
-        widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
-        for root in selected:
-            for options in root.iter('widget'):
-                if options.get('type') != 'column_list':
+    for root in selected:
+        for options in root.iter('widget'):
+            if options.get('type') != 'column_list':
+                continue
+            for c in density_rows(options, widgets):
+                row = widgets[c.get('widget')]
+                if id(row) in adjusted:
                     continue
-                for c in density_rows(options, widgets):
-                    row = widgets[c.get('widget')]
-                    if id(row) in adjusted:
-                        continue
-                    adjusted.add(id(row))
-                    make_row_tall(row, bitmaps, documents, selected)
-    add_advanced_clones(documents)
+                adjusted.add(id(row))
+                drawn = 36 if row.get('height') == str(COMFORTABLE_PITCH) else 28
+                # The game's own option_bkds art (128 px, transparent padding) has a 96 px
+                # band when unselected and 112 px when selected: draw the frame taller so the
+                # visible band is 36 and 39 units (59 and 53 units drawn, scaled from the measured 94 px band against 102 px), centered on the pitch.
+                fitted = (drawn == 36 and row.get('bitmap') is not None
+                          and bitmaps[row.get('bitmap')].find('frame') is not None
+                          and all(f.get('map') and f.get('png', '').endswith(('option_bkds__0.png', 'option_bkds__1.png'))
+                                  for f in bitmaps[row.get('bitmap')].findall('frame')))
+                small = (drawn == 36 and row.get('bitmap') is not None
+                         and bitmaps[row.get('bitmap')].find('frame') is not None
+                         and all(not f.get('map') and f.get('png', '').endswith(('option_bkds_sm__0.png', 'option_bkds_sm__1.png'))
+                                 for f in bitmaps[row.get('bitmap')].findall('frame')))
+                shift = 5 if fitted else (drawn - 28) // 2
+                if not shift:
+                    continue
+                if row.get('type') == 'text' or row.get('text_y') is not None:
+                    row.set('text_y', str(int(row.get('text_y', 0)) + shift))
+                for part in row.findall('child'):
+                    part.set('y', str(int(part.get('y', 0)) + shift))
+                name = row.get('bitmap')
+                if name:
+                    # Keep the leaf name so ui_redraw recognizes the frame.
+                    prefix, leaf = name.rsplit('/', 1)
+                    variant = f'{prefix}/row_{drawn}/{leaf}'
+                    owner = next((r for r in selected if any(
+                        b.get('name') == name for b in r.findall('bitmap'))), documents['bitmaps.xml'])
+                    if not any(b.get('name') == variant for b in owner.findall('bitmap')):
+                        bitmap = deepcopy(bitmaps[name])
+                        bitmap.set('name', variant)
+                        for index, frame in enumerate(bitmap.findall('frame')):
+                            if fitted or small:
+                                # Heights span the measured visible band (36 unselected, 39
+                                # selected), so the padding around it is transparent overlap.
+                                height = (59, 53)[index] if fitted else (56, 52)[index]
+                                frame.set('height', str(height))
+                                frame.set('y', str((-10, -7)[index] if fitted else (-9, -7)[index]))
+                            else:
+                                frame.set('height', str(drawn))
+                        owner.append(bitmap)
+                    row.set('bitmap', variant)
     native_header_sizes(documents, assets)
     for root in documents.values():
         validate(root, assets)

@@ -1,4 +1,4 @@
-"""Density variants keep tap bands contiguous and settings inside their viewport."""
+"""Standard rows keep tap bands contiguous and settings inside their viewport."""
 import json
 import re
 from pathlib import Path
@@ -22,11 +22,10 @@ def selected_documents(compact):
 def test_pitch_constants():
     module = generator()
     assert module.COMFORTABLE_PITCH == 39
-    assert module.COMPACT_PITCH == 30
-    assert module.DENSITY_PITCH == {'compact': 30, 'comfortable': 39}
+    assert not hasattr(module, 'COMPACT_PITCH')
 
 
-def test_every_long_list_has_a_manifest_twin():
+def test_no_compact_variant_is_generated_or_listed():
     expected = {'main_menu.multiplayer_type_select.join_game',
                 'main_menu.multiplayer_type_select.lobby', 'main_menu.new_select.port',
                 'main_menu.multiplayer_type_select.mp_map_select',
@@ -34,13 +33,14 @@ def test_every_long_list_has_a_manifest_twin():
                 'settings.controls_setup'}
     manifest = json.loads((MENUS / 'menus.json').read_text())['files']
     for name in expected:
-        for suffix in ('.xml', '.compact.xml'):
-            path = 'xbox/' + name + suffix
-            assert (MENUS / path).is_file()
-            assert path in manifest
+        path = 'xbox/' + name + '.xml'
+        assert (MENUS / path).is_file()
+        assert path in manifest
+    assert not list((MENUS / 'xbox').glob('*.compact.xml'))
+    assert not [path for path in manifest if '.compact.' in path]
 
 
-@pytest.mark.parametrize('compact', [False, True])
+@pytest.mark.parametrize('compact', [False])
 def test_selected_density_has_unique_definitions_and_tiled_tap_bands(compact):
     documents = [ET.parse(p).getroot() for p in selected_documents(compact)]
     definitions = [(e.tag, e.get('name')) for root in documents for e in root if e.get('name')]

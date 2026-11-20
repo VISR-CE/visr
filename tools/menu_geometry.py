@@ -17,13 +17,12 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 HEADER = ROOT / 'port/linux/include/menu_geometry.h'
 
-# Option rows: the first row's y, and the pitch and drawn art height per density. A comfortable row is a
-# 39-unit tap band with 36 units of row art centered in it; a compact row is 28 units of art on a 30 pitch.
+# Option rows: the first row's y, the disc's own row height, and the standard row: a 39-unit tap band with 36
+# units of row art centered in it.
 FIRST_ROW = 73
 ROW_HEIGHT = 28
 COMFORTABLE_PITCH = 39
 COMFORTABLE_ROW_ART = 36
-COMPACT_PITCH = 30
 # How far a comfortable row's label and value move down inside the taller row: the game's own option_bkds art
 # drawn as the 36-unit band (`xbox/bitmaps/row_36/option_bkds`) has its text line 5 units lower than the 28-unit row.
 COMFORTABLE_ROW_SHIFT = 5
@@ -41,10 +40,9 @@ DROPDOWN_PITCH = 52
 
 HEADER_VALUES = (
     ('MENU_FIRST_ROW', FIRST_ROW, "the first option row's y"),
-    ('MENU_ROW_HEIGHT', ROW_HEIGHT, "the disc's option row height (compact art)"),
+    ('MENU_ROW_HEIGHT', ROW_HEIGHT, "the disc's option row height"),
     ('MENU_COMFORTABLE_PITCH', COMFORTABLE_PITCH, 'a comfortable option row: its tap band and pitch'),
     ('MENU_COMFORTABLE_ROW_ART', COMFORTABLE_ROW_ART, "a comfortable option row's drawn art"),
-    ('MENU_COMPACT_PITCH', COMPACT_PITCH, 'a compact option row'),
     ('MENU_COMFORTABLE_ROW_SHIFT', COMFORTABLE_ROW_SHIFT, "a comfortable row's label and value, moved down"),
     ('MENU_LEGEND_Y', LEGEND_Y, "the bottom bar's glyphs and captions"),
     ('MENU_CHEVRON_INSET', CHEVRON_INSET, "the dropdown chevron, in from the value column's right edge"),

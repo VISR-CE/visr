@@ -527,18 +527,6 @@
     "reference_kind": "range"
   },
   {
-    "file": "settings.controls_setup.compact.xml",
-    "name": "group_spinner",
-    "strings": [
-      "MOVEMENT",
-      "WEAPONS",
-      "ACTIONS"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(3)"
-  },
-  {
     "file": "settings.controls_setup.xml",
     "name": "group_spinner",
     "strings": [

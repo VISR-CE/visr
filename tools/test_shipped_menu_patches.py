@@ -2,7 +2,7 @@
 
 The applier in port/linux/game/menu_tags.c drops a patch's whole set of ops when any one
 of them does not resolve (patch_fail), and the original menus then show on the device.
-This test walks port/assets/menus/xbox/patches.xml and patches.compact.xml and requires
+This test walks port/assets/menus/xbox/patches.xml and requires
 every before=, after=, remove child= and replace child= to name a row or screen child of
 the original widgets in port/assets/menus/ce/*.xml, or a row an earlier op of the same
 patch inserted.  Lists the repository does not hold (they live in the disc's ui.map)
@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MENUS = os.path.join(ROOT, "port", "assets", "menus")
-PATCHES = ["patches.xml", "patches.compact.xml"]
+PATCHES = ["patches.xml"]
 
 # lists and screens defined only in the disc's ui.map, so not in ce/*.xml
 UNVERIFIABLE = {
@@ -102,5 +102,5 @@ def test_shipped_patches_resolve():
         for patch in root.iter("patch"):
             checked += 1
             errors += check_patch(widgets, patch, f"{name} {patch.get('list').rsplit(chr(92), 1)[-1]}")
-    assert checked >= 8
+    assert checked >= 6
     assert not errors, "\n".join(errors)

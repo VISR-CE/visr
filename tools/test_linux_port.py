@@ -220,8 +220,7 @@ MENU_INTEGER_ATTRIBUTES = {"auto_close", "auto_close_fade", "height", "index", "
                            "text_y", "top", "visible_rows", "row_top", "row_pitch", "width", "x", "y"}
 
 
-@pytest.mark.parametrize('compact', [False, True])
-def test_menus_are_well_formed(compact):
+def test_menus_are_well_formed():
     """What port/linux/src/menu_files.c and port/linux/game/menu_tags.c check
     when the game loads them, but the map's own names (paths with backslashes),
     which only the map has."""
@@ -242,9 +241,7 @@ def test_menus_are_well_formed(compact):
         sorted(name for name in listed if name.endswith(".xml"))
     # The runtime loads one density variant, with shared definitions only once.
     files = [path for path in files
-             if ('.compact.' in path.name if compact else '.compact.' not in path.name)
-             or (compact and '.compact.' not in path.name
-                 and not path.with_suffix('.compact.xml').exists())]
+             ]
     widgets, bitmaps, strings, references, roots = {}, {}, {}, [], []
     for path in files:
         tree = ElementTree.parse(path)

@@ -1590,9 +1590,6 @@ def test_password_and_code_legend_caption_follows_the_row(kind):
 
 def layout_widgets(density):
     files = {p.name: p for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name}
-    if density == 'compact':
-        for p in (MENUS / 'xbox').glob('*.compact.xml'):
-            files[p.name.replace('.compact.xml', '.xml')] = p
     return {w.get('name'): w for p in files.values() for w in ET.parse(p).iter('widget')}
 
 
@@ -1628,7 +1625,7 @@ def test_every_generated_screen_declares_a_layout_kind():
     assert {s['kind'] for s in module.NATIVE_SCREEN_LAYOUTS.values()} >= {'K3', 'K4', 'K9', 'K10', 'K11'}
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_layout_kinds_control_help_rows_and_panels(density):
     module = generator()
     widgets = layout_widgets(density)
@@ -1651,12 +1648,6 @@ def test_layout_kinds_control_help_rows_and_panels(density):
                                                               or 'list_item_' in c.get('widget'))]
             ys = sorted({int(c.get('y')) for c in placed})
             pitch = spec.get('row_pitch', kind.get('row_pitch'))
-            if isinstance(pitch, dict):
-                # Shared screens without a compact variant retain their comfortable rows.
-                path = next(p for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name
-                            and any(w.get('name') == name for w in ET.parse(p).iter('widget')))
-                compact_exists = path.with_name(path.stem + '.compact.xml').exists()
-                pitch = pitch[density if compact_exists else 'comfortable']
             expected = [ys[0] + i * pitch for i in range(len(ys))]
             assert ys == expected, f'{name}: {density} row pitch {ys}, expected {expected}'
             if spec['kind'] == 'K1':
@@ -1665,7 +1656,7 @@ def test_layout_kinds_control_help_rows_and_panels(density):
                                 and n.rsplit('/', 1)[-1] in ('help', 'row_help', 'graphics_help',
                                                            'vehicle_options_help', 'teamplay_options_help')]
                 for help_widget in help_widgets:
-                    top = spec.get('help', (module.HELP_TOP[density if compact_exists else 'comfortable'],))[0]
+                    top = spec.get('help', (module.HELP_TOP,))[0]
                     assert int(help_widget.get('top')) == top, f'{name}: help top'
         if spec['kind'] in ('K2-A', 'K2-B'):
             expected = tuple(kind['panel']['panel'])
@@ -1676,7 +1667,7 @@ def test_layout_kinds_control_help_rows_and_panels(density):
                 assert tuple(int(w.get(k)) for k in ('left', 'top', 'width', 'height')) == expected, name
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_k8_panels_headers_and_adaptive_targets(density):
     module = generator()
     widgets = layout_widgets(density)
@@ -1727,7 +1718,7 @@ def legend_items(screen, widgets):
     return result
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_legends_share_y_and_spacing(density):
     module = generator()
     widgets = layout_widgets(density)
@@ -1810,7 +1801,7 @@ def test_shared_legend_slots_pack_by_caption_width(buttons, widths, expected):
     assert_pills_fit(buttons, positions, widths)
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_generated_legend_pills_do_not_overlap(density):
     module = generator()
     widgets = layout_widgets(density)
@@ -1835,7 +1826,7 @@ def test_generated_legend_pills_do_not_overlap(density):
         assert_pills_fit(name, positions, captions)
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_legend_pills_clear_info_panels(density):
     """A list-field box ends at the bottom rule, not below it, where the touch pill sits (info panel, stats box)."""
     module = generator()

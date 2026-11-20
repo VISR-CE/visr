@@ -82,7 +82,7 @@ def test_menu_patches(tmp_path):
         result = subprocess.run([str(binary), f"language-{language}", str(tmp_path)], capture_output=True, text=True)
         print(result.stdout + result.stderr)
         assert result.returncode == 0, f"menu language probe failed ({language})"
-    for mode in ("apple", "tvos", "compact", "override0", "override1", "bad"):
+    for mode in ("apple", "tvos", "bad"):
         result = subprocess.run([str(binary), mode, str(tmp_path)], capture_output=True, text=True)
         print(result.stdout + result.stderr)
         assert result.returncode == 0, f"menu patch probe failed ({mode})"

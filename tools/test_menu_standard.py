@@ -14,7 +14,7 @@ def test_geometry_header_is_generated_from_the_geometry_module():
 
 def test_generator_and_engine_take_their_shared_numbers_from_the_geometry_module():
     import xbox_menus
-    for name in ('FIRST_ROW', 'ROW_HEIGHT', 'COMFORTABLE_PITCH', 'COMPACT_PITCH', 'LEGEND_Y', 'DROPDOWN_PITCH'):
+    for name in ('FIRST_ROW', 'ROW_HEIGHT', 'COMFORTABLE_PITCH', 'LEGEND_Y', 'DROPDOWN_PITCH'):
         assert getattr(xbox_menus, name) == getattr(menu_geometry, name), name
 
 

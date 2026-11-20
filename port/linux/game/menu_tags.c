@@ -51,7 +51,6 @@ void platform_log(char const *format, ...);
 char const *config_string(char const *name);
 long config_integer(char const *name);
 int platform_menu_pad(void);
-int platform_menu_compact_density(void);
 int platform_display_resolutions(long *widths, long *heights, int maximum);
 int platform_window_sizes(long *widths, long *heights, int maximum);
 
@@ -3201,17 +3200,6 @@ void menu_tags_loaded(
 	/* (ui.map, and a multiplayer map: its pause menu's SETTINGS) */
 	if (game_map && tag_loaded('Soul', MULTIPLAYER_COLLECTION) == NONE)
 		return;
-	/* Keep the first choice across map loads and input changes. */
-	{
-		static int density = -1;
-		if (density < 0)
-		{
-			long override = config_integer("debug.menu_density");
-			density = override == 0 || override == 1 ? (int)override : platform_menu_compact_density();
-			halo_menus_set_compact_density(density);
-			platform_log("menus: row density %s", density ? "compact" : "comfortable");
-		}
-	}
 	menus = halo_menus_load();
 	if (!menus)
 		return;

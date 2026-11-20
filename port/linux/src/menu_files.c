@@ -1320,13 +1320,6 @@ static int read_file(struct reader *reader, const struct menu_file *file)
 
 /* ---------- public code */
 
-static int compact_density;
-
-void halo_menus_set_compact_density(int compact)
-{
-	compact_density = compact != 0;
-}
-
 struct halo_menus const *halo_menus_load(void)
 {
 	static int read;
@@ -1346,20 +1339,7 @@ struct halo_menus const *halo_menus_load(void)
 	{
 		size_t length = strlen(files[index].path);
 
-		char twin[1024];
-		int is_compact = length > 12 && !strcmp(files[index].path + length - 12, ".compact.xml");
-
-		/* A twin defines the same tags: read exactly one density, including shared rows. */
 		if (length <= 4 || strcmp(files[index].path + length - 4, ".xml")) continue;
-		if (is_compact)
-		{
-			if (!compact_density) continue;
-		}
-		else if (compact_density && length + 9 < sizeof(twin))
-		{
-			snprintf(twin, sizeof(twin), "%.*s.compact.xml", (int)(length - 4), files[index].path);
-			if (file_find(twin) >= 0) continue;
-		}
 		read_file(&reader, &files[index]);
 	}
 	free(reader.last_child);
