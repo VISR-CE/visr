@@ -116,8 +116,6 @@ SCREENS = {
              "Unlimited can tear and uses more power. Applies\nthe next time the game starts.", "mac_app"),
             ("SMOOTH MOTION:", "display.interpolation", ON_OFF,
              "Draw a frame for every display refresh, blending\nbetween the game's 30 ticks per second.", None),
-            ("INSTANT AIM:", "display.direct_camera", ON_OFF,
-             "In first person, turn the view the moment the\nmouse moves, not up to two ticks later.", "desktop"),
         ],
     },
     # the GRAPHICS screen (Xbox look, not the Mac, which has these rows on VIDEO): each change applies as it is made, as
@@ -142,6 +140,8 @@ SCREENS = {
              "Moving the mouse forward looks down.", None),
             ("AIM ASSIST:", "input.mouse_aim_assist", ON_OFF,
              "Slow and drag the view along with a target while\naiming with the mouse, as with a controller.", None),
+            ("INSTANT AIM:", "display.direct_camera", ON_OFF,
+             "In first person, turn the view the moment the\nmouse moves, not up to two ticks later.", "desktop"),
         ],
     },
     "audio_settings": {
@@ -246,6 +246,24 @@ CONTROL_ROWS = 7
 
 # the profile menu's words for what its items now open
 STRING_OVERRIDES = {
+    # (the PLAYER screen: its four rows, then the RESPAWN row's line; the respawn rows moved to RESPAWN OPTIONS)
+    "main_menu/settings_select/multiplayer_setup/player_options_edit/cap_player_options": [
+        "You will respawn indefinitely until you end the game\\nor reach a time limit.",
+        "You have one life to live. But at least you're using it\\nto kick ass across the galaxy instead of just sitting\\nin a mansion crying with your rich socialite lovers.",
+        "You will have three lives to live, which makes you\\none-third as cool as a cat.",
+        "You have five lives, which is four more than you'd get\\nin the real world.  Use them wisely.",
+        "You will begin the game with half your health already\\ngone, and shields at half capacity.",
+        "You begin the game with full health and shields.",
+        "You begin the game with 50% more health and shield\\nstrength than usual.",
+        "You begin the game with twice as much health and\\nshield strength as you normally do.",
+        "You begin the game with three times as much health \\nand shield strength as you normally do.",
+        "You begin the game with four times as much health \\nand shield strength as you normally do.",
+        "Your battle suit will have shields and thus make you\\nharder to kill.",
+        "The shields on your battle suit will not work, making\\nit much easier for everyone to perish.",
+        "All the players will be completely invisible.",
+        "All players will be visible unless they happen to find\\nan Active Camouflage powerup.",
+        "The respawn time and how it grows, odd man out, and the suicide penalty.",
+    ],
     "main_menu/multiplayer_type_select/join_game/join_game_column_headers": [
         "Server Name", "Map", "Players", "Game", "Region",
     ],
@@ -606,6 +624,7 @@ MT = "main_menu/multiplayer_type_select"
 # in turn: menu_functions.c's gametype_option_help)
 SLAYER_EDIT = "main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit"
 STRING_INSERTS = {
+    "main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels": [(9, ["VEHICLE TYPES"])],
     "strings/displayed_error_messages": [(60, [
         "This game allows more\\nplayers than this device\\nruns smoothly.\\nJoin anyway?",
     ])],
@@ -682,7 +701,7 @@ STRING_OVERRIDES.update({
     # gametype_options maps them to the engine's)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels": ["INFINITE GRENADES:", "WEAPON SET:", "VEHICLE SET:", "STARTING EQUIPMENT:",
                                   "VEHICLE RESPAWN TIME:", "LOADOUT:", "PRIMARY WEAPON:", "SECONDARY WEAPON:",
-                                  "MAP WEAPONS:"],
+                                  "MAP WEAPONS:", "CHOOSE WEAPONS", "STARTING EQUIPMENT:"],
     # (the helps of each option's values in turn: menu_functions.c's
     # gametype_option_help)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/cap_item_options": [
@@ -806,10 +825,9 @@ WIDGET_PATCHES = {
     # (Item Options' loadout rows, over its buttons)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu": {"insert_before": {
         "main_menu/settings_select/multiplayer_setup/item_options_edit/item_button_bar": [
+            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_spawn_weapons" x="54" y="133"/>',
             f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_map_weapons" x="54" y="163"/>',
-            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_loadout" x="54" y="193"/>',
-            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon" x="54" y="223"/>',
-            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon" x="54" y="253"/>',
+            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_choose_weapons" x="54" y="193"/>',
         ]}},
     # (the PC's Vehicles row's Start opened Item Options)
     "main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_vehicles_list_item": {"handlers": [
@@ -880,6 +898,11 @@ TITLES = {
     f"{MT}/join_game/header_password": "PASSWORD",
     f"{MT}/lobby/header_lobby": "GAME LOBBY",
     f"{MT}/coop_options/header_coop_options": "CO-OP OPTIONS",
+    f"{MT}/game_options_edit/header_game_options": "GAME",
+    f"{MT}/respawn_options_edit/header_respawn_options": "RESPAWN OPTIONS",
+    f"{MT}/teams_hud_edit/header_teams_hud": "TEAMS & HUD",
+    f"{MT}/weapons_edit/header_weapons": "CHOOSE WEAPONS",
+    f"{MT}/vehicle_types_edit/header_vehicle_types": "VEHICLE TYPES",
     f"{MT}/coop/header_player_2": "PLAYER 2 PROFILE",
     f"{MT}/lobby/header_add_player": "ADD PLAYER",
 }
@@ -1152,6 +1175,222 @@ def _browser_filters() -> list:
     lines = _screen(base, spec, rows, ["port settings help"], [], extra)
     return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
             and '<child widget="common_button_cancel"' not in line]
+
+
+def _game_options() -> list:
+    """the generic GAME screen of the gametype editor: the score to win (one row
+    per type, menu_functions.c's game_options_show keeping the current type's),
+    the time limit, team play, the teams and HUD, and the type's own options"""
+    base = f"{MT}/game_options_edit"
+    spec = {"screen": "game_options_screen", "spacing": 30,
+            "header": ("header_game_options", f"{base}/header_game_options")}
+    rows, extra = [], []
+    scores = [("captures_to_win", 0, ["1", "3", "5", "10", "15"]),
+              ("koth_score_to_win", 0, ["1 MINUTE", "2 MINUTES", "5 MINUTES", "10 MINUTES", "15 MINUTES"]),
+              ("score_to_win", 0, ["1", "2", "5", "10", "15"]),
+              ("laps_to_win", 0, ["1", "3", "5", "10", "15", "25"]),
+              ("kills_to_win", 0, ["5", "10", "15", "25", "50", "75", "100", "150", "200", "250", "500"])]
+    for key, place, strings in scores:
+        extra += _hosting_spinner(base, key, 0, strings, None, None)
+        rows.append((f"{base}/op_{key}", None, place))
+    extra += _hosting_spinner(base, "time_limit", 1, ["NONE", "10 MINUTES", "15 MINUTES", "20 MINUTES",
+                                                       "25 MINUTES", "30 MINUTES", "45 MINUTES"], None, None)
+    rows.append((f"{base}/op_time_limit", None, 1))
+    for key in ("team_play", "koth_team_play"):
+        extra += _hosting_spinner(base, key, 2, ["YES", "NO"], None, None)
+        rows.append((f"{base}/op_{key}", None, 2))
+    # the teams and HUD: its own screen, the friendly-fire state on the row
+    screen = f"{MT}/teams_hud_edit/teams_hud_screen"
+    extra += _widget(f"{base}/op_teams_hud", [("width", 512), ("height", 28),
+                                              ("flags", "pass_unhandled_to_focused_child"),
+                                              ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                     [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>',
+                      f'<child widget="{base}/teams_hud_label"/>',
+                      f'<child widget="{base}/teams_hud_state" x="320" y="1"/>'])
+    extra += _widget(f"{base}/teams_hud_label", [("type", "text"), ("controller", 1), ("width", 320),
+                                                 ("height", 22), ("string_list", f"{base}/labels"),
+                                                 ("string_index", 3), ("font", "ui\\large_ui"),
+                                                 ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    extra += _widget(f"{base}/teams_hud_state", [("type", "text"), ("controller", 1), ("width", 148),
+                                                 ("height", 22), ("font", "ui\\large_ui"),
+                                                 ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4)],
+                     ['<data input="port teams hud state"/>'])
+    rows.append((f"{base}/op_teams_hud", None, 3))
+    # the type's own options: one row per type, the current type's shown
+    for key, folder in (("ctf", "ctf_edit"), ("slayer", "slayer_edit"), ("oddball", "oddball_edit"),
+                        ("koth", "koth_edit"), ("race", "race_edit")):
+        screen = f"main_menu/settings_select/multiplayer_setup/playlist_edit/{folder}/{key}_options_screen"
+        extra += _widget(f"{base}/op_type_{key}", [("width", 512), ("height", 28),
+                                                   ("flags", "pass_unhandled_to_focused_child"),
+                                                   ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                         [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                          '<on event="left_mouse" run="mouse emit accept event"/>',
+                          f'<child widget="{base}/type_{key}_label"/>'])
+        extra += _widget(f"{base}/type_{key}_label", [("type", "text"), ("controller", 1), ("width", 512),
+                                                      ("height", 22), ("string_list", f"{base}/labels"),
+                                                      ("string_index", 4), ("font", "ui\\large_ui"),
+                                                      ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+        rows.append((f"{base}/op_type_{key}", None, 4))
+    extra += _strings(f"{base}/labels", ["SCORE TO WIN:", "TIME LIMIT:", "TEAM PLAY:", "TEAMS & HUD:", "TYPE OPTIONS"])
+    extra += _strings(f"{base}/help_strings", [
+        "How much a player or team must score\\nto win the game.",
+        "How long the game lasts before the\\nleader wins.",
+        "Whether players play as teams.",
+        "Team colors and which indicators show\\non the HUD.",
+        "The options of this game type."])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp profile set game options" back="true"/>',
+                      '<on event="start" run="mp profile set game options" back="true"/>'])
+    lines = _screen(base, spec, rows, [], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/game_options_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init game options"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
+def _respawn_options() -> list:
+    """RESPAWN OPTIONS, behind the PLAYER screen's RESPAWN row: the respawn time and its growth, odd man out, and
+    the suicide penalty (the spinners and values of the PLAYER screen they came from; their helps in that order)"""
+    base = f"{MT}/respawn_options_edit"
+    spec = {"screen": "respawn_options_screen", "spacing": 30,
+            "header": ("header_respawn_options", f"{base}/header_respawn_options")}
+    seconds = ["INSTANT", "5 SECONDS", "10 SECONDS", "15 SECONDS"]
+    penalty = ["NONE", "5 SECONDS", "10 SECONDS", "15 SECONDS"]
+    rows, extra = [], []
+    for index, (key, strings) in enumerate((("respawn_time", seconds), ("respawn_time_growth", penalty),
+                                            ("odd_man_out", ["YES", "NO"]), ("suicide_penalty", penalty))):
+        extra += _hosting_spinner(base, key, index, strings, None, None)
+        rows.append((f"{base}/op_{key}", None, index))
+    extra += _strings(f"{base}/labels", ["RESPAWN TIME:", "RESPAWN TIME GROWTH:", "ODD MAN OUT:", "SUICIDE PENALTY:"])
+    extra += _strings(f"{base}/help_strings", [
+        "After you die, you'll be able to respawn immediately.",
+        "When you die, there will be a five-second wait before\\nyou can rejoin the game.",
+        "You'll wait ten seconds after you perish before you\\ncan return to the game.",
+        "When you die, you must wait fifteen seconds before\\nyou can respawn. This will give you an idea of what\\neternity is like.",
+        "Respawn time will always remain at its initial\\nsetting.",
+        "Every time you die your respawn time will increase\\nby five seconds. Every time you kill someone your\\nrespawn time will decrease by five seconds.",
+        "Your respawn time increases by ten seconds each\\ntime you die, and decreases by ten seconds each\\ntime you kill someone.",
+        "Every time you die you'll add fifteen seconds to your\\nrespawn time. Every time you kill someone you'll\\nsubtract fifteen seconds.",
+        "When he dies, the Odd Man Out cannot respawn until\\nsomeone else assumes the shameful burden of Odd\\nMan Out by dying.",
+        "When you die, you will respawn immediately without\\nwaiting for someone else to repeat your mistakes.",
+        "You pay no price for ending your own life prematurely.",
+        "Every time you cause your own death, there will be a \\nfive-second wait before you can rejoin the game. ",
+        "You'll wait ten seconds after you cause your own \\ndeath before you can return to the game.",
+        "When you suicide, you must wait fifteen seconds \\nbefore you can respawn. This will give you an idea of \\nwhat eternity is like."])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp profile set respawn options" back="true"/>',
+                      '<on event="start" run="mp profile set respawn options" back="true"/>'])
+    lines = _screen(base, spec, rows, ["game settings lists text update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/respawn_options_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init respawn options"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
+def _teams_hud() -> list:
+    """TEAMS & HUD, behind the GAME screen's row: the team rules (friendly fire, its penalty, autobalance) and what
+    the HUD shows (radar display, players on radar, friends on screen), from the Team and Indicators screens they
+    were on; their helps in that order"""
+    base = f"{MT}/teams_hud_edit"
+    spec = {"screen": "teams_hud_screen", "spacing": 30,
+            "header": ("header_teams_hud", f"{base}/header_teams_hud")}
+    rows, extra = [], []
+    for index, (key, strings) in enumerate((
+            ("friendly_fire", ["OFF", "ON", "SHIELD ONLY", "EXPLOSIVES ONLY"]),
+            ("friendly_fire_penalty", ["NONE", "5 SECONDS", "10 SECONDS", "15 SECONDS"]),
+            ("autobalance", ["NO", "YES"]),
+            ("indicator_options_radar display", ["MOTION TRACKER", "NAV POINTS", "NONE"]),
+            ("indicator_options_players_on_radar", ["ALL", "FRIENDS", "NO"]),
+            ("indicator_options_friends_on_screen", ["YES", "NO"]))):
+        extra += _hosting_spinner(base, key, index, strings, None, None)
+        rows.append((f"{base}/op_{key}", None, index))
+    # (a row's name must not end in "_screen", which the layout checks read as a screen's)
+    row_name = f"{base}/op_indicator_options_friends_on_screen"
+    extra = [line.replace(f'"{row_name}"', f'"{row_name}_row"') for line in extra]
+    rows = [(f"{row_name}_row" if row == row_name else row, platform, *place) for row, platform, *place in rows]
+    extra += _strings(f"{base}/labels", ["FRIENDLY FIRE:", "FRIENDLY FIRE PENALTY:", "AUTOBALANCE:", "RADAR DISPLAY:",
+                                         "PLAYERS ON RADAR:", "FRIENDS ON SCREEN:"])
+    extra += _strings(f"{base}/help_strings", [
+        "Players can not be hurt by weapons and explosives\\nfired by their teammates.",
+        "Players can be hurt by weapons or explosives\\nfired by their teammates.",
+        "Damage from friendly fire will only reduce shields.\\nHealth will be unaffected.",
+        "Players can be hurt by damage from explosives \\nfired by their teammates.",
+        "No respawn time penalty will be assessed to players\\nwho kill a teammate.",
+        "Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die.",
+        "Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die.",
+        "Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die.",
+        "Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish.",
+        "Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team.",
+        "The game's objectives (hills, flags, balls and the like)\\nwill appear in your Motion Tracker.",
+        "The game's objectives will have special markers\\ndisplayed over them on screen.",
+        "The game's objectives will not be visible in your\\nMotion Tracker or on screen.",
+        "All other players in the game will show up on your \\nMotion Tracker when mobile.",
+        "Other friendly players in the game will show up on \\nyour Motion Tracker when mobile.",
+        "Other players in the game will never show up on your\\nMotion Tracker.",
+        "Green triangles will appear over the heads of your\\nteammates as a reminder that you should not shoot\\nthem.",
+        "Your teammates will only be denoted by the color of\\ntheir armor."])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp profile set teams hud" back="true"/>',
+                      '<on event="start" run="mp profile set teams hud" back="true"/>'])
+    lines = _screen(base, spec, rows, ["game settings lists text update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/teams_hud_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init teams hud"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
+def _vehicle_types() -> list:
+    """VEHICLE TYPES, behind the Vehicles screen's row: the side's count of each vehicle (menu_functions.c's
+    vehicles_update keeps them as they change and makes the side's set CUSTOM)"""
+    base = f"{MT}/vehicle_types_edit"
+    spec = {"screen": "vehicle_types_screen", "spacing": 30,
+            "header": ("header_vehicle_types", f"{base}/header_vehicle_types")}
+    rows, extra = [], []
+    names = ("warthog", "ghost", "scorpion", "rwarthog", "banshee", "cgturret")
+    for index, key in enumerate(names):
+        extra += _hosting_spinner(base, key, index, ["NONE", "1", "2", "3", "4"], None, None)
+        rows.append((f"{base}/op_{key}", None, index))
+    extra += _strings(f"{base}/labels", ["WARTHOG:", "GHOST:", "SCORPION:", "ROCKET WARTHOG:", "BANSHEE:", "GUN TURRET:"])
+    extra += _strings(f"{base}/help_strings", [
+        "No Warthogs will spawn in the map.",
+        "Up to one Warthog will spawn in the map.",
+        "Up to two Warthogs will spawn in the map.",
+        "Up to three Warthogs will spawn in the map.",
+        "Up to four Warthogs will spawn in the map.",
+        "No Ghosts will spawn in the map.",
+        "Up to one Ghost will spawn in the map.",
+        "Up to two Ghosts will spawn in the map.",
+        "Up to three Ghosts will spawn in the map.",
+        "Up to four Ghosts will spawn in the map.",
+        "No Scorpions will spawn in the map.",
+        "Up to one Scorpion will spawn in the map.",
+        "Up to two Scorpions will spawn in the map.",
+        "Up to three Scorpions will spawn in the map.",
+        "Up to four Scorpions will spawn in the map.",
+        "No Rocket Warthogs will spawn in the map.",
+        "Up to one Rocket Warthog will spawn in the map.",
+        "Up to two Rocket Warthogs will spawn in the map.",
+        "Up to three Rocket Warthogs will spawn in the map.",
+        "Up to four Rocket Warthogs will spawn in the map.",
+        "No Banshees will spawn in the map.",
+        "Up to one Banshee will spawn in the map.",
+        "Up to two Banshees will spawn in the map.",
+        "Up to three Banshees will spawn in the map.",
+        "Up to four Banshees will spawn in the map.",
+        "No Gun Turrets will spawn in the map.",
+        "Up to one Gun Turret will spawn in the map.",
+        "Up to two Gun Turrets will spawn in the map.",
+        "Up to three Gun Turrets will spawn in the map.",
+        "Up to four Gun Turrets will spawn in the map."])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp prof save vehicle options" back="true"/>',
+                      '<on event="start" run="mp prof save vehicle options" back="true"/>'])
+    lines = _screen(base, spec, rows, ["game settings lists text update", "mp prof vehicles update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/vehicle_types_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp prof init vehicle options"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
 
 
 def _server_settings() -> list:
@@ -1555,9 +1794,7 @@ def _item_options_extras() -> list:
     and secondary weapons)"""
     base = "main_menu/settings_select/multiplayer_setup/item_options_edit"
     lines = []
-    for key, strings, label in (("map_weapons", "var_map_weapons", 8), ("loadout", "var_loadout", 5),
-                                ("primary_weapon", "var_loadout_weapon", 6),
-                                ("secondary_weapon", "var_loadout_weapon", 7)):
+    for key, strings, label in (("spawn_weapons", "var_spawn_weapons", 10), ("map_weapons", "var_map_weapons", 8)):
         lines += _widget(f"{base}/op_{key}", [("width", 512), ("height", 28),
                                                ("flags", "pass_unhandled_to_focused_child"),
                                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
@@ -1575,9 +1812,64 @@ def _item_options_extras() -> list:
                           ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
                           ("header_bounds", "7 -13 19 -7"), ("footer_bounds", "7 208 19 214")],
                          ['<on event="left_mouse" run="mouse spinner 1wide click"/>'])
+    # the custom loadout's row, shown while the loadout is CUSTOM: it opens the primary and secondary weapons' screen
+    screen = f"{MT}/weapons_edit/weapons_screen"
+    lines += _widget(f"{base}/op_choose_weapons", [("width", 512), ("height", 28),
+                                                   ("flags", "pass_unhandled_to_focused_child"),
+                                                   ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                     [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>',
+                      f'<child widget="{base}/choose_weapons_label"/>'])
+    lines += _widget(f"{base}/choose_weapons_label", [("type", "text"), ("controller", 1), ("width", 480),
+                                                      ("height", 22), ("string_list", f"{base}/item_options_labels"),
+                                                      ("string_index", 9), ("font", "ui\\large_ui"),
+                                                      ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
     lines += _strings(f"{base}/var_map_weapons", ["YES", "NO"])
-    lines += _strings(f"{base}/var_loadout", ["CATEGORY", "CUSTOM"])
-    lines += _strings(f"{base}/var_loadout_weapon", LOADOUT_WEAPONS)
+    lines += _strings(f"{base}/var_spawn_weapons", ["CUSTOM", "GENERIC", "AS SPECIFIED"])
+    return lines
+
+
+def _weapons() -> list:
+    """PRIMARY and SECONDARY WEAPON, behind the Item Options' CHOOSE WEAPONS row (the loadout CUSTOM): each
+    player's two spawn weapons"""
+    base = f"{MT}/weapons_edit"
+    spec = {"screen": "weapons_screen", "spacing": 30, "header": ("header_weapons", f"{base}/header_weapons")}
+    rows, extra = [], []
+    for index, key in enumerate(("primary_weapon", "secondary_weapon")):
+        extra += _hosting_spinner(base, key, index, LOADOUT_WEAPONS, None, None)
+        rows.append((f"{base}/op_{key}", None, index))
+    extra += _strings(f"{base}/labels", ["PRIMARY WEAPON:", "SECONDARY WEAPON:"])
+    helps = ["no weapon", "a random weapon", "the assault rifle", "the pistol", "the shotgun", "the sniper rifle",
+             "the rocket launcher", "the plasma pistol", "the plasma rifle", "the needler"]
+    extra += _strings(f"{base}/help_strings", [f"Everyone starts with {w}\\nas a {kind} weapon."
+                                               for kind in ("primary", "secondary") for w in helps])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp profile set weapons" back="true"/>',
+                      '<on event="start" run="mp profile set weapons" back="true"/>'])
+    lines = _screen(base, spec, rows, ["game settings lists text update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/weapons_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init weapons"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
+def _player_options_extras() -> list:
+    """Player Options' RESPAWN row of the port's: it opens RESPAWN OPTIONS, and shows the respawn time"""
+    base = "main_menu/settings_select/multiplayer_setup/player_options_edit"
+    screen = f"{MT}/respawn_options_edit/respawn_options_screen"
+    lines = _widget(f"{base}/op_respawn", [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
+                                           ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                    [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                     '<on event="left_mouse" run="mouse emit accept event"/>',
+                     f'<child widget="{base}/respawn_label"/>', f'<child widget="{base}/respawn_state" x="320" y="1"/>'])
+    lines += _widget(f"{base}/respawn_label", [("type", "text"), ("controller", 1), ("width", 320), ("height", 22),
+                                                 ("string_list", f"{base}/player_options_labels"),
+                                                 ("string_index", 8), ("font", "ui\\large_ui"),
+                                                 ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    lines += _widget(f"{base}/respawn_state", [("type", "text"), ("controller", 1), ("width", 148), ("height", 22),
+                                                 ("font", "ui\\large_ui"), ("color", "#FF2896FF"),
+                                                 ("align", "center"), ("text_y", 4)],
+                     ['<data input="port respawn state"/>'])
     return lines
 
 
@@ -1615,10 +1907,16 @@ def multiplayer_files() -> dict:
         f"{MT}/server_settings".replace("/", ".") + ".xml": head + _server_settings() + ["</menus>", ""],
         f"{MT}/coop_options".replace("/", ".") + ".xml": head + _coop_options() + ["</menus>", ""],
         f"{MT}/join_game/filters".replace("/", ".") + ".xml": head + _browser_filters() + ["</menus>", ""],
+        f"{MT}/game_options_edit".replace("/", ".") + ".xml": head + _game_options() + ["</menus>", ""],
+        f"{MT}/respawn_options_edit".replace("/", ".") + ".xml": head + _respawn_options() + ["</menus>", ""],
+        f"{MT}/teams_hud_edit".replace("/", ".") + ".xml": head + _teams_hud() + ["</menus>", ""],
+        f"{MT}/weapons_edit".replace("/", ".") + ".xml": head + _weapons() + ["</menus>", ""],
+        f"{MT}/vehicle_types_edit".replace("/", ".") + ".xml": head + _vehicle_types() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],
         "main_menu/settings_select/multiplayer_setup/item_options_edit".replace("/", ".") + ".port.xml": head + _item_options_extras() + ["</menus>", ""],
+        "main_menu/settings_select/multiplayer_setup/player_options_edit".replace("/", ".") + ".port.xml": head + _player_options_extras() + ["</menus>", ""],
     }
 
 

@@ -200,6 +200,8 @@ void host_ios_touch_attach(SDL_Window *window) { host_macos_window_ready(window)
 void host_ios_touch_reset(void) {}
 void host_touch_replay_active(int active) { host_menu_pointer_block(active); }
 void host_ios_touch_pause(void) {}
+/* (no touch controls on the Mac; host_sdl.c forwards VISR_TOUCH_GAMEPLAY on every platform) */
+void host_ios_touch_gameplay_changed(int gameplay) { (void)gameplay; }
 int host_ios_gamepads(uint32_t *out, int capacity) {
     if (capacity <= 0 || !out) return 0;
     int count = 0; SDL_JoystickID *ids = SDL_GetGamepads(&count);

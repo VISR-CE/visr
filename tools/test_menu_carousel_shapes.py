@@ -28,6 +28,25 @@ class CarouselShapesTests(unittest.TestCase):
                 self.assertEqual(redraw(source, 32, 256, output, scale, None), 0)
                 self.assertEqual(bytes(output), saved)
 
+    def test_unknown_lock_source_preserves_upscale(self):
+        with tempfile.TemporaryDirectory() as directory:
+            library = Path(directory) / 'shapes.dylib'
+            subprocess.run(['cc', '-shared', '-std=c11', '-Wall', '-Wextra', '-Werror',
+                            str(ROOT / 'port/ios/host/menu_picture_shapes.c'),
+                            '-lm', '--output', str(library)], check=True)
+            dll = ctypes.CDLL(str(library))
+            identify = dll.menu_lock_shapes_source
+            redraw = dll.menu_lock_shapes
+            source = (ctypes.c_uint8 * (256 * 128 * 4))()
+            output = (ctypes.c_uint8 * (256 * 128 * 4 * 16))(*([73] * (256 * 128 * 4 * 16)))
+            saved = bytes(output)
+            self.assertEqual(identify(None, 256, 128), -1)
+            self.assertEqual(identify(source, 256, 128), -1)
+            self.assertEqual(identify(source, 128, 128), -1)
+            for scale in (0, 1, 2, 4, 8):
+                self.assertEqual(redraw(source, 256, 128, output, scale, None), 0)
+                self.assertEqual(bytes(output), saved)
+
 
 if __name__ == '__main__':
     unittest.main()

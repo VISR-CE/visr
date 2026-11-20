@@ -424,6 +424,9 @@ static char const *const port_function_names[] =
 	/* (the gametype editor's: the Xbox's walk their rows by place, which the
 	PC version's screens changed) */
 	"mp profile begin editing", "mp profile save changes", "request del playlist profile", "final del playlist profile",
+	"mp profile init game options", "mp profile set game options", "mp profile init respawn options",
+	"mp profile set respawn options", "mp profile init teams hud", "mp profile set teams hud",
+	"mp profile init weapons", "mp profile set weapons",
 	"mp profile init game engine", "mp profile set game engine", "mp profile init ctf rules",
 	"mp profile init koth rules", "mp profile init slayer rules", "mp profile init oddball rules",
 	"mp profile init racing rules", "mp profile init player opts", "mp profile init item options",
@@ -471,7 +474,7 @@ static char const *const port_game_data_input_names[] =
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
 	"mp map list update", "gt select list update", "gt edit list update", "load game list update",
 	"direct ip connect update", "network settings update",
-	"port cloud saves status", "port graphics state", "port hub status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
+	"port respawn state", "port teams hud state", "port cloud saves status", "port graphics state", "port hub status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
 	"port lobby preview update",
 	/* (the gametype editor's: the Xbox's stops the game on the buttons'
 	row; the Xbox's read only player_ui's gametype, not Server Setup's) */
@@ -1724,6 +1727,11 @@ drawn on a 39 pitch, in a 232 wide list (the pause row picture: a band closed at
 #define PAUSE_ROW_BITMAP "pause/pause_row"
 #define PAUSE_ROW_WIDEN (PAUSE_ROW_WIDTH - 202)
 #define PAUSE_BOX_FIRST_BUTTONS 3
+/* (the Xbox look's box: its rows raised into the stock box's tall top margin
+and its legend raised with them, so the touch legend's 60 unit pills fit
+between the last row and the box's bottom edge) */
+#define PAUSE_LIST_RAISE 22
+#define PAUSE_LEGEND_RAISE 15
 
 static long ui_function_named(char const *name)
 {
@@ -2022,9 +2030,15 @@ static void pause_patch(struct cache_file_tag_instance *instances)
 				children[child].vertical_offset -= grow / 2;
 				/* (wider: kept centred where the old box was) */
 				children[child].horizontal_offset -= pause_widen / 2;
+				if (child == list_child && pause_widen)
+					children[child].vertical_offset -= PAUSE_LIST_RAISE;
 			}
 			else if (children[child].vertical_offset > list_top)
+			{
 				children[child].vertical_offset += box_child != NONE ? grow - grow / 2 : grow;
+				if (box_child != NONE && pause_widen)
+					children[child].vertical_offset -= PAUSE_LEGEND_RAISE;
+			}
 		}
 		if (box_child != NONE && !box_redrawn)
 		{
@@ -2497,11 +2511,43 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 	return TRUE;
 }
 
+/* a screen child (a button bar, say) that is not a list row: it is taken out of
+the screen's children, and the list's index and the saved offsets follow it.
+Returns FALSE if the screen has no such child. */
+static boolean patch_screen_child_remove(struct patch_work *work, char const *name)
+{
+	struct ui_widget_child_reference *children = work->screen->child_widgets.address;
+	long child, last, removed, wanted = strchr(name, '\\') ? tag_loaded(UI_WIDGET_DEFINITION_TAG, name) : NONE;
+
+	if (wanted == NONE)
+		return FALSE;
+	for (child = 0; child < work->screen->child_widgets.count; child++)
+	{
+		if (child != work->list_child && children[child].widget_tag.index == wanted)
+			break;
+	}
+	if (child >= work->screen->child_widgets.count)
+		return FALSE;
+	last = work->screen->child_widgets.count - 1;
+	removed = child;
+	for (; child < last; child++)
+	{
+		children[child] = children[child + 1];
+		work->screen_y[child] = work->screen_y[child + 1];
+	}
+	work->screen->child_widgets.count = last;
+	if (work->list_child > removed)
+		work->list_child--;
+	return TRUE;
+}
+
 static boolean patch_row_remove(struct patch_work *work, struct halo_menu_patch_row const *source)
 {
 	long removed = patch_row_find(work, source->child), row;
 	short pitch, y;
 
+	if (removed == NONE && patch_screen_child_remove(work, source->child))
+		return TRUE;
 	if (removed == NONE)
 		return patch_fail(work, source->file, source->line, "the list has no row", source->child);
 	pitch = patch_pitch(work, source, removed, work->definitions[removed]);
@@ -3364,8 +3410,11 @@ boolean pc_menu_delete_from_select(void)
 	return menu_delete_from_select;
 }
 
+static boolean menu_hub_open;
+
 long pc_menu_screen_open(long tag_index, char const *requested_name, boolean root)
 {
+	boolean from_hub;
 	extern int platform_menu_keyboard(void);
 	char const *name, *target;
 	long replacement;
@@ -3383,7 +3432,21 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 		menu_delete_from_select = !strcmp(name, "ui\\shell\\error\\confirm_delete_profile_modal_fullscreen");
 	if (root) menu_profile_description(platform_menu_keyboard());
 	use_xbox = menu_use_xbox();
+	/* The hub's PROFILES row opens the profile picker, and choosing a profile there opens the edit screen: both are always-redirects to the hub from the main menu, so while the hub flow is up (the hub, the picker and the edit screen opened from it, and back through them) they open as themselves. Any other root screen ends the flow. */
+	from_hub = menu_hub_open;
+	menu_hub_open = FALSE;
 	target = menu_screen_equivalent(name, use_xbox);
+	if (target && !strcmp(target, "pc\\xbox\\settings\\settings_screen"))
+	{
+		if (from_hub && strcmp(name, target))
+		{
+			menu_hub_open = TRUE;
+			return tag_index;
+		}
+		menu_hub_open = TRUE;
+	}
+	if (!strcmp(name, "pc\\xbox\\settings\\settings_screen"))
+		menu_hub_open = TRUE;
 	/* The pause hub exists only in the Xbox look; PC pause settings edit the active profile. */
 	if (!use_xbox && !strcmp(name, "pc\\xbox\\settings\\settings_screen"))
 		target = "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen";
@@ -3530,6 +3593,27 @@ boolean pc_menu_patch_list_index(
 		}
 	}
 	return patched;
+}
+
+/* the number after the highest description number a row of the list has (the
+panel the patches add last, after the rows that survive); NONE when no row has one */
+short pc_menu_patch_list_last_description(
+	long list_tag,
+	long const *row_tags,
+	long row_count)
+{
+	short highest = NONE;
+	long index;
+
+	for (index = 0; index < row_count; index++)
+	{
+		short description = NONE;
+
+		if (pc_menu_patch_list_index(list_tag, row_tags[index], &description) &&
+			description != NONE && description > highest)
+			highest = description;
+	}
+	return highest == NONE ? NONE : highest + 1;
 }
 
 boolean pc_menu_tag(

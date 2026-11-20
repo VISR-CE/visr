@@ -4,14 +4,20 @@ menu scale. */
 #ifndef HALO_MENU_DROPDOWN_H
 #define HALO_MENU_DROPDOWN_H
 
-#define HALO_DROPDOWN_WIDTH 165
+#define HALO_DROPDOWN_WIDTH 165 /* minimum; the popup grows to its widest label */
 #define HALO_DROPDOWN_PITCH 52
 #define HALO_DROPDOWN_MAX_ROWS 7
 
 struct halo_menu_dropdown
 {
-	int open, x, y, rows, count, first, highlight;
+	int open, x, width, y, rows, count, first, highlight;
 };
+
+/* The popup width for a widest measured label: the label's width plus an eighth
+(the measurement runs short of the drawn string in some fonts), the row's text
+inset (6), the checkmark column (22) and the border (4). */
+#define halo_menu_dropdown_panel_width(widest_label) \
+	((widest_label) + (widest_label) / 8 + 6 + 22 + 4)
 
 static void halo_menu_dropdown_scroll(struct halo_menu_dropdown *d, int steps)
 {
@@ -24,7 +30,7 @@ static void halo_menu_dropdown_scroll(struct halo_menu_dropdown *d, int steps)
 within the visible band above the legend, reducing rows only when necessary. */
 static void halo_menu_dropdown_open(struct halo_menu_dropdown *d,
 	int left, int top, int bottom, int count, int selected,
-	int limit_top, int limit_bottom)
+	int limit_top, int limit_bottom, int wanted_width, int min_x, int max_x)
 {
 	int wanted = count < HALO_DROPDOWN_MAX_ROWS ? count : HALO_DROPDOWN_MAX_ROWS;
 	int fit = (limit_bottom - limit_top - 3) / HALO_DROPDOWN_PITCH;
@@ -36,7 +42,10 @@ static void halo_menu_dropdown_open(struct halo_menu_dropdown *d,
 	d->open = count > 0 && d->rows > 0;
 	height = d->rows * HALO_DROPDOWN_PITCH + 3;
 
-	d->x = left < 0 ? 0 : left > 640 - HALO_DROPDOWN_WIDTH ? 640 - HALO_DROPDOWN_WIDTH : left;
+	/* the popup is as wide as its widest label, never narrower than the minimum, and never wider than the safe span */
+	d->width = wanted_width < HALO_DROPDOWN_WIDTH ? HALO_DROPDOWN_WIDTH : wanted_width;
+	if (d->width > max_x - min_x) d->width = max_x - min_x;
+	d->x = left < min_x ? min_x : left > max_x - d->width ? max_x - d->width : left;
 	if (bottom >= limit_top && bottom + height <= limit_bottom)
 		d->y = bottom;
 	else if (top <= limit_bottom && top - height >= limit_top)
@@ -52,7 +61,7 @@ static void halo_menu_dropdown_open(struct halo_menu_dropdown *d,
 
 static int halo_menu_dropdown_option(struct halo_menu_dropdown const *d, int x, int y)
 {
-	if (!d->open || x < d->x + 2 || x >= d->x + HALO_DROPDOWN_WIDTH - 2 ||
+	if (!d->open || x < d->x + 2 || x >= d->x + d->width - 2 ||
 		y < d->y + 2 || y >= d->y + 2 + d->rows * HALO_DROPDOWN_PITCH)
 		return -1;
 	return d->first + (y - d->y - 2) / HALO_DROPDOWN_PITCH;

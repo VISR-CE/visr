@@ -1361,6 +1361,25 @@ static SDL_Gamepad *port_gamepad(SDL_Gamepad *gamepads[PORT_COUNT], int count, i
 	return port < count ? gamepads[port] : NULL;
 }
 
+/* True when a real game controller is attached. Port 0 always has a handle
+for the keyboard and touch, so the menus cannot use input_has_gamepad(0). */
+int xinput_sdl_has_physical_gamepad(void)
+{
+	SDL_Gamepad *gamepads[PORT_COUNT];
+	int count = sdl_gamepads(gamepads), index;
+
+	/* iOS lists the simulator's keyboard and some phones' key devices as generic gamepads (sdl_gamepads
+	orders them last); only a recognized controller type counts as a real one */
+	for (index = 0; index < count; index++)
+	{
+		SDL_GamepadType type = SDL_GetGamepadType(gamepads[index]);
+
+		if (type != SDL_GAMEPAD_TYPE_UNKNOWN && type != SDL_GAMEPAD_TYPE_STANDARD)
+			return 1;
+	}
+	return 0;
+}
+
 /* Menu hints follow the last actual device event, including a second pad.
 The game's port assignment remains unchanged. */
 void halo_controller_glyph_input_event(union SDL_Event const *event)

@@ -334,6 +334,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "../../port/runtime/include/halo_ui_carousel.h" /* shared with the host and probes; not on the guest include path */
 #include "cseries/cseries.h"
 #include "cseries/cseries_windows.h"
 #include "cseries/errors.h"
@@ -354,6 +355,9 @@ symbols in this file:
 #include "saved games/playlist_profile.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
+
+/* port: the settings (port/linux/game/config.c) */
+int config_boolean(const char *name);
 #include "custom_edition_maps.h" /* port: port/linux/game/custom_edition_maps.c */
 #include "halo_menus.h" /* port: PC_MENU_FUNCTION_BASE */
 
@@ -672,6 +676,14 @@ boolean pc_menu_patch_list_index(
 	long list_tag,
 	long row_tag,
 	short *description);
+short pc_menu_patch_list_last_description(
+	long list_tag,
+	long const *row_tags,
+	long row_count);
+void platform_log(char const *format, ...);
+
+/* port: menu_functions.c's */
+boolean menu_split_screen_needs_controller(void);
 
 /* ---------- globals */
 
@@ -876,6 +888,35 @@ static void multiplayer_type_menu_update_extended_description(
 	/* port: in the PC version's lists (port/assets/menus), the item's number
 	among those that take events, as its game counts them (past its labels) */
 	index = ui_widget_port_list_index(list_widget);
+
+	/* port: the INTERNET row, while internet play is off in Settings, shows the next panel in the list (the
+	"Internet play is off" picture and text the menu patches add behind it) */
+	if (index != NONE && !strncmp(list_widget->focused_child->name, "multiplayer_type_internet", 25) &&
+		!config_boolean("network.online"))
+		index += 1;
+
+	/* port: the split-screen row on an iPhone with no controller shows the panel added last (after DIRECT LINK's):
+	the number after the highest one a surviving row has */
+	if (list_widget->focused_child && !strncmp(list_widget->focused_child->name, "multiplayer_type_split", 22) &&
+		menu_split_screen_needs_controller())
+	{
+		long row_tags[64];
+		long row_count = 0;
+		short last;
+		static boolean logged = FALSE;
+
+		for (child = list_widget->child; child && row_count < 64; child = child->next)
+			row_tags[row_count++] = child->definition_tag_index;
+		last = pc_menu_patch_list_last_description(list_widget->definition_tag_index, row_tags, row_count);
+		if (last != NONE)
+			index = last;
+		if (!logged)
+		{
+			logged = TRUE;
+			platform_log("split-screen panel: needs controller, rows %ld, last description %d, index %d",
+				row_count, (int)last, (int)index);
+		}
+	}
 
 	if (index != NONE)
 	{
@@ -2200,6 +2241,13 @@ static void get_editable_player_profile_display_name(
 		0x9FE,
 		widget->type == _ui_widget_type_text_box,
 		"expected a text box widget for profile display name");
+	/* port: main-menu SETTINGS opens the settings hub before any player is chosen; its editable profile label is then empty */
+	if (widget->local_player_index < 0)
+	{
+		if (widget->parameters.text_box.text)
+			widget->parameters.text_box.text[0] = 0;
+		return;
+	}
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget_game_data_input_functions.c",
 		0xA00,
@@ -3127,55 +3175,13 @@ static void spinner_list_3wide_determine_displayed_item_indices(
 	struct widget_instance *list_widget,
 	long *displayed_item_indices)
 {
-	struct widget_instance *focused_child = list_widget->focused_child;
-	struct widget_instance *first_child = list_widget->child;
+	long first = ui_widget_port_carousel_first(list_widget);
+	long slot;
 
-	if (focused_child == first_child)
-	{
-		displayed_item_indices[0] = list_widget->parameters.list.selected_list_item_index;
-		displayed_item_indices[1] = displayed_item_indices[0] + 1;
-		if (displayed_item_indices[1] == list_widget->parameters.list.number_of_items)
-			displayed_item_indices[1] = 0;
-		displayed_item_indices[2] = displayed_item_indices[1] + 1;
-		if (displayed_item_indices[2] == list_widget->parameters.list.number_of_items)
-			displayed_item_indices[2] = 0;
-	}
-	else if (focused_child == first_child->next)
-	{
-		displayed_item_indices[1] = list_widget->parameters.list.selected_list_item_index;
-		displayed_item_indices[0] = displayed_item_indices[1] - 1;
-		if (displayed_item_indices[0] < 0)
-		{
-			displayed_item_indices[0] =
-				list_widget->parameters.list.number_of_items - 1;
-		}
-		displayed_item_indices[2] = displayed_item_indices[1] + 1;
-		if (displayed_item_indices[2] == list_widget->parameters.list.number_of_items)
-			displayed_item_indices[2] = 0;
-	}
-	else
-	{
-		displayed_item_indices[2] = list_widget->parameters.list.selected_list_item_index;
-		displayed_item_indices[1] = displayed_item_indices[2] - 1;
-		if (displayed_item_indices[1] < 0)
-		{
-			displayed_item_indices[1] =
-				list_widget->parameters.list.number_of_items - 1;
-		}
-		displayed_item_indices[0] = displayed_item_indices[1] - 1;
-		if (displayed_item_indices[0] < 0)
-		{
-			displayed_item_indices[0] =
-				list_widget->parameters.list.number_of_items - 1;
-		}
-	}
-
-	if (displayed_item_indices[0] >= list_widget->parameters.list.number_of_items)
-		displayed_item_indices[0] = NONE;
-	if (displayed_item_indices[1] >= list_widget->parameters.list.number_of_items)
-		displayed_item_indices[1] = NONE;
-	if (displayed_item_indices[2] >= list_widget->parameters.list.number_of_items)
-		displayed_item_indices[2] = NONE;
+	/* port: no wrap; render passes may temporarily bind an adjacent window. */
+	for (slot = 0; slot < 3; slot++)
+		displayed_item_indices[slot] = halo_ui_carousel_bound_item(first, slot,
+			list_widget->parameters.list.number_of_items);
 	return;
 }
 

@@ -166,7 +166,7 @@ def test_pause_settings_hub_uses_comfortable_rows():
     bitmaps = {b.get('name'): b for b in ET.parse(MENUS / 'xbox/bitmaps.xml').iter('bitmap')}
     options = widgets['xbox/settings/settings_list']
     rows = module.density_rows(options, widgets)
-    assert len(rows) == len(module.PAGE_ROWS)
+    assert len(rows) == len(module.HUB_ROWS)
     slots = sorted({int(c.get('y')) for c in rows})
     assert slots == [78 + i * 39 for i in range(len(slots))]
     for child in rows:

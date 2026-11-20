@@ -535,6 +535,8 @@
 		<string text="PRIMARY WEAPON:"/>
 		<string text="SECONDARY WEAPON:"/>
 		<string text="MAP WEAPONS:"/>
+		<string text="CHOOSE WEAPONS"/>
+		<string text="STARTING EQUIPMENT:"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_infinite_grenades">
 		<string text="YES"/>
@@ -573,22 +575,9 @@
 		<string text="You begin the game with four times as much health \nand shield strength as you normally do."/>
 		<string text="Your battle suit will have shields and thus make you\nharder to kill."/>
 		<string text="The shields on your battle suit will not work, making\nit much easier for everyone to perish."/>
-		<string text="After you die, you'll be able to respawn immediately."/>
-		<string text="When you die, there will be a five-second wait before\nyou can rejoin the game."/>
-		<string text="You'll wait ten seconds after you perish before you\ncan return to the game."/>
-		<string text="When you die, you must wait fifteen seconds before\nyou can respawn. This will give you an idea of what\neternity is like."/>
-		<string text="Respawn time will always remain at its initial\nsetting."/>
-		<string text="Every time you die your respawn time will increase\nby five seconds. Every time you kill someone your\nrespawn time will decrease by five seconds."/>
-		<string text="Your respawn time increases by ten seconds each\ntime you die, and decreases by ten seconds each\ntime you kill someone."/>
-		<string text="Every time you die you'll add fifteen seconds to your\nrespawn time. Every time you kill someone you'll\nsubtract fifteen seconds."/>
-		<string text="When he dies, the Odd Man Out cannot respawn until\nsomeone else assumes the shameful burden of Odd\nMan Out by dying."/>
-		<string text="When you die, you will respawn immediately without\nwaiting for someone else to repeat your mistakes."/>
 		<string text="All the players will be completely invisible."/>
 		<string text="All players will be visible unless they happen to find\nan Active Camouflage powerup."/>
-		<string text="You pay no price for ending your own life prematurely."/>
-		<string text="Every time you cause your own death, there will be a \nfive-second wait before you can rejoin the game. "/>
-		<string text="You'll wait ten seconds after you cause your own \ndeath before you can return to the game."/>
-		<string text="When you suicide, you must wait fifteen seconds \nbefore you can respawn. This will give you an idea of \nwhat eternity is like."/>
+		<string text="The respawn time and how it grows, odd man out, and the suicide penalty."/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels">
 		<string text="NUMBER OF LIVES:"/>
@@ -599,6 +588,7 @@
 		<string text="ODD MAN OUT:"/>
 		<string text="INVISIBLE PLAYERS:"/>
 		<string text="SUICIDE PENALTY:"/>
+		<string text="RESPAWN"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/player_options_edit/var_invisible_players">
 		<string text="YES"/>
@@ -900,6 +890,7 @@
 		<string text="SAVE CHANGES"/>
 		<string text="VEHICLE OPTIONS"/>
 		<string text="TEAMPLAY OPTIONS"/>
+		<string text="GAME"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/cap_race">
 		<string text="When the game ends, each team is ranked by its\nlowest-scoring member."/>
@@ -1133,6 +1124,7 @@
 		<string text="GUN TURRET:"/>
 		<string text="VEHICLE RESPAWN TIME:"/>
 		<string text="SIDE:"/>
+		<string text="VEHICLE TYPES"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/audio_option_labels">
 		<string text="MASTER VOLUME:"/>

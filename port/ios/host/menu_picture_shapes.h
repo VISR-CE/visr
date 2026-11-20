@@ -18,4 +18,10 @@ int menu_carousel_shapes_source(const uint8_t *source, unsigned width, unsigned 
 int menu_carousel_shapes(const uint8_t *source, unsigned width, unsigned height,
                          uint8_t *rgba, unsigned scale, const volatile int *cancel);
 
+/* The 256 by 128 level-select lock (sp_levels frame 10), identified by decoded
+ * source hash; same contract as the carousel frames. */
+int menu_lock_shapes_source(const uint8_t *source, unsigned width, unsigned height);
+int menu_lock_shapes(const uint8_t *source, unsigned width, unsigned height,
+                     uint8_t *rgba, unsigned scale, const volatile int *cancel);
+
 #endif

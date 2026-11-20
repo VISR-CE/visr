@@ -78,6 +78,10 @@ def test_multiplayer_type_has_six_rows_each_with_its_own_description_and_picture
             assert row.get("child") == MP + "multiplayer_type_conn_item" and not row.get("description")
             order[order.index("multiplayer_type_conn_item")] = row.get("name")
             descriptions[row.get("name")] = descriptions.pop("multiplayer_type_conn_item")
+        elif row.tag == "remove":
+            # the throwaway INTERNET (off) row only leaves its description and picture behind (internet-off panel)
+            order.remove(row.get("child").removeprefix(MP))
+            descriptions.pop(row.get("child").removeprefix(MP))
         else:
             anchor = row.get("after")
             anchor = anchor[len(MP):] if anchor.startswith(MP) else anchor
@@ -124,8 +128,8 @@ def test_profile_edit_rows():
 
 def test_gametype_delete_is_tvos_only():
     patch = next(p for p in table() if p.get("screen").endswith("gametype_edit_screen"))
-    (row,) = rows(patch)
-    assert row.get("platform") == "tvos" and row.get("text") == "DELETE GAMETYPE"
+    (row,) = [r for r in rows(patch) if r.get("text") == "DELETE GAMETYPE"]
+    assert row.get("platform") == "tvos"
 
 
 def test_in_game_help_is_added_to_advanced_setup():
@@ -137,12 +141,13 @@ def test_in_game_help_is_added_to_advanced_setup():
 
 def test_item_options_rows_set_and_save_their_own_spinners():
     patch = next(p for p in table() if p.get("screen").endswith("item_options_screen"))
-    assert [row.get("name") for row in rows(patch)] == ["op_map_weapons", "op_loadout", "op_primary_weapon",
-                                                         "op_secondary_weapon"]
+    # (and the Xbox's own STARTING EQUIPMENT row, removed: the combined row takes its place)
+    assert [row.get("name") for row in rows(patch)] == ["op_spawn_weapons", "op_map_weapons", "op_choose_weapons", None]
     functions = port_functions()
     widgets = {w.get("name"): w for path in MENUS.glob("*.xml") for w in ET.parse(path).getroot().iter("widget")}
-    for row in rows(patch):
-        handlers = {on.get("event"): on.get("run") for on in widgets[row.get("widget")].findall("on")}
+    for row in rows(patch)[:3]:
+        handlers = {on.get("event"): on.get("run") for on in widgets[row.get("widget")].findall("on")
+                    if on.get("run") and on.get("event") in ("created", "deleted")}
         assert handlers == {"created": "port option row init", "deleted": "port option row save"}
         assert set(handlers.values()) <= functions
     # (the rows have to end above the help text the patch's footer names)
@@ -165,7 +170,7 @@ def test_delete_confirmations_finish_both_edit_flows():
         assert not any('button_bar' in c.get('widget', '') for c in modal.findall('child'))
         for button, caption in (('a', 'OK'), ('b', 'CANCEL')):
             legend = f'xbox/error/confirm_delete_{kind}/legend/{button}_butn'
-            assert modal.find(f'child[@widget="{legend}"][@y="307"]') is not None
+            assert modal.find(f'child[@widget="{legend}"][@y="294"]') is not None
             assert widgets[f'{legend}_glyph'].get('bitmap') == f'xbox/browser/{button}_butn'
             assert widgets[f'{legend}/touch_caption'].get('text') == caption
             assert widgets[legend].find('on').get('run') == ('mouse emit accept event' if button == 'a' else 'mouse emit back event')
@@ -188,6 +193,6 @@ def test_video_is_mac_app_only_in_profile_and_pause_settings():
     assert children['video'].get('platform') == 'mac_app'
     assert not children['audio'].get('platform') and not children['network'].get('platform')
     # The runtime packs visible rows at the first two remaining rows' pitch.
-    assert options.get('visible_rows') == '5'
+    assert options.get('visible_rows') == '6'
     assert [int(children[key].get('y')) for key in ('controls', 'video', 'audio', 'network', 'keyboard')] == [
-        78, 117, 117, 156, 195]
+        78, 117, 156, 195, 273]

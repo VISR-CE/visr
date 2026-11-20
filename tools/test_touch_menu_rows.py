@@ -216,7 +216,7 @@ def test_dropdown_geometry_and_modal_state(tmp_path):
 int main(void) {
  struct halo_menu_dropdown d = {0};
  /* The entire six-row panel fits below the value. */
- halo_menu_dropdown_open(&d, 500, 100, 128, 6, 5, 0, 480);
+ halo_menu_dropdown_open(&d, 500, 100, 128, 6, 5, 0, 480, 165, 0, 640);
  assert(d.open && d.x == 475 && d.y == 128 && d.rows == 6);
  assert(d.first == 0 && d.highlight == 5);
  assert(halo_menu_dropdown_option(&d, 477, 130) == 0);
@@ -225,19 +225,19 @@ int main(void) {
  assert(halo_menu_dropdown_option(&d, 640, 130) == -1);
  assert(halo_menu_dropdown_click(&d, 477, 182) == 1 && !d.open);
  /* A bottom row opens above the legend rather than covering CANCEL. */
- halo_menu_dropdown_open(&d, -10, 300, 328, 3, 1, 0, 414);
+ halo_menu_dropdown_open(&d, -10, 300, 328, 3, 1, 0, 414, 165, 0, 640);
  assert(d.x == 0 && d.y == 141 && d.rows == 3 && d.first == 0);
  assert(d.y + d.rows * HALO_DROPDOWN_PITCH + 3 <= 414);
  assert(halo_menu_dropdown_click(&d, 200, 400) == -1 && !d.open);
  /* Cropped backdrop margins cannot hide either end of the panel. */
- halo_menu_dropdown_open(&d, 80, 400, 428, 7, 6, 23, 414);
+ halo_menu_dropdown_open(&d, 80, 400, 428, 7, 6, 23, 414, 165, 0, 640);
  assert(d.y == 33 && d.rows == 7 && d.first == 0);
  assert(d.y >= 23 && d.y + d.rows * HALO_DROPDOWN_PITCH + 3 <= 414);
  /* Neither side fits a full list: shift it above the legend. */
- halo_menu_dropdown_open(&d, 80, 200, 228, 7, 6, 23, 414);
+ halo_menu_dropdown_open(&d, 80, 200, 228, 7, 6, 23, 414, 165, 0, 640);
  assert(d.y == 47 && d.rows == 7 && d.first == 0);
  /* A too-tall list fills the band with complete rows and scrolls the rest. */
- halo_menu_dropdown_open(&d, 80, 200, 228, 100, 99, 60, 350);
+ halo_menu_dropdown_open(&d, 80, 200, 228, 100, 99, 60, 350, 165, 0, 640);
  assert(d.y == 87 && d.rows == 5 && d.first == 95 && d.highlight == 99);
  assert(d.y >= 60 && d.y + d.rows * HALO_DROPDOWN_PITCH + 3 == 350);
  assert(halo_menu_dropdown_option(&d, 90, 348) == 99);
@@ -246,14 +246,25 @@ int main(void) {
  halo_menu_dropdown_scroll(&d, 50); assert(d.first == 95);
  halo_menu_dropdown_scroll(&d, -100); assert(d.first == 0);
  /* Exactly enough room for a panel still allows it below the value. */
- halo_menu_dropdown_open(&d, 10, 100, 128, 2, 0, 23, 235);
+ halo_menu_dropdown_open(&d, 10, 100, 128, 2, 0, 23, 235, 165, 0, 640);
  assert(d.y == 128 && d.rows == 2);
- halo_menu_dropdown_open(&d, 10, 100, 128, 2, 0, 23, 234);
+ halo_menu_dropdown_open(&d, 10, 100, 128, 2, 0, 23, 234, 165, 0, 640);
  assert(d.y == 127 && d.rows == 2);
  /* An unusably short band must not create an offscreen one-row panel. */
- halo_menu_dropdown_open(&d, 10, 100, 128, 2, 0, 100, 154);
+ halo_menu_dropdown_open(&d, 10, 100, 128, 2, 0, 100, 154, 165, 0, 640);
  assert(!d.open && d.rows == 0);
- halo_menu_dropdown_open(&d, 10, 0, 28, 0, 0, 0, 414); assert(!d.open);
+ halo_menu_dropdown_open(&d, 10, 0, 28, 0, 0, 0, 414, 165, 0, 640); assert(!d.open);
+ /* The panel is wider than the label, its checkmark column and an eighth of slack. */
+ assert(halo_menu_dropdown_panel_width(100) == 100 + 12 + 32);
+ assert(halo_menu_dropdown_panel_width(0) == 32);
+ /* A long label widens the popup; it stays inside the safe span. */
+ halo_menu_dropdown_open(&d, 500, 100, 128, 3, 0, 0, 480, 230, 0, 640);
+ assert(d.width == 230 && d.x == 410 && d.x + d.width <= 640);
+ assert(halo_menu_dropdown_option(&d, 637, 130) == 0 && halo_menu_dropdown_option(&d, 639, 130) == -1);
+ halo_menu_dropdown_open(&d, 20, 100, 128, 3, 0, 0, 480, 230, 60, 640);
+ assert(d.x == 60 && d.width == 230);
+ halo_menu_dropdown_open(&d, 20, 100, 128, 3, 0, 0, 480, 900, 60, 600);
+ assert(d.width == 540 && d.x == 60);
  return 0;
 }
 ''')
@@ -272,12 +283,19 @@ def test_dropdown_uses_visible_band_and_legend(tmp_path):
 #include "halo_menu_dropdown.h"
 #define NONE -1
 #define MIN(a,b) ((a)<(b)?(a):(b))
+#define MAX(a,b) ((a)>(b)?(a):(b))
 #define _ui_mouse_target_button 3
 #define UI_DROPDOWN_LEGEND_CLEARANCE 6
 struct widget_instance {
- int creation_time, key;
+ int creation_time, key, definition_tag_index;
  struct { struct { int number_of_items, selected_index; } list; } parameters;
 };
+struct ui_widget_definition { struct { int index; } text_font, text_label_string_list; };
+static struct ui_widget_definition test_definition;
+struct ui_widget_definition *ui_widget_definition_get(int tag) { (void)tag; return &test_definition; }
+float ui_redraw_safe_left_units(long width) { (void)width; return 0; }
+void const *spinner_string_list_get_string(int list, short index) { (void)list; (void)index; return 0; }
+int ui_widget_port_font_text_width(int font, void const *text) { (void)font; (void)text; return 0; }
 struct bounds { int x0, y0, x1, y1; };
 struct ui_mouse_target {
  struct widget_instance *widget;
@@ -296,9 +314,9 @@ void halo_screen_menu_visible_bounds(float *top, float *bottom) {
 int ui_mouse_key_button(struct widget_instance *widget) { return widget->key; }
 ''' + block(source, 'static void ui_dropdown_open(') + r'''
 int main(void) {
- struct widget_instance row = {42, NONE, {{7, 6}}};
- struct widget_instance legend = {0, 1, {{0, 0}}};
- struct widget_instance arrow = {0, NONE, {{0, 0}}};
+ struct widget_instance row = {42, NONE, 0, {{7, 6}}};
+ struct widget_instance legend = {0, 1, 0, {{0, 0}}};
+ struct widget_instance arrow = {0, NONE, 0, {{0, 0}}};
  struct ui_mouse_target target = {&row, {0}, {80, 200, 160, 228}, 1};
  ui_mouse_targets[0].widget = &arrow;
  ui_mouse_targets[0].kind = _ui_mouse_target_button;
@@ -405,7 +423,7 @@ int main(void) {
  int index;
  /* A six-row band keeps this probe focused on modal event dispatch. */
  widget.parameters.list.number_of_items = 30;
- halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 25, 128, 480);
+ halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 25, 128, 480, 165, 0, 640);
  pointer.wheel_steps = -1;
  assert(ui_dropdown_process_pointer(&pointer) && ui_dropdown.first == 21 && presses == 0);
  pointer.wheel_steps = 0; pointer.left_clicks = 1; pointer.click_x = 104; pointer.click_y = 132;
@@ -419,24 +437,24 @@ int main(void) {
  widget.parameters.list.selected_index = 21;
  assert(ui_dropdown_process_pointer(&pointer) && ui_dropdown_selection == -1 && presses == 21);
  assert(!ui_dropdown_process_pointer(&pointer));
- halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480);
+ halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480, 165, 0, 640);
  pointer.click_x = 5;
  assert(ui_dropdown_process_pointer(&pointer) && !ui_dropdown.open && ui_dropdown_selection == -1);
- halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480);
+ halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480, 165, 0, 640);
  pointer.left_clicks = 0; pointer.right_clicks = 1;
  assert(ui_dropdown_process_pointer(&pointer) && !ui_dropdown.open && presses == 21);
  /* Keyboard ownership changes before Escape is delivered: it must remain modal. */
- halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480);
+ halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480, 165, 0, 640);
  controls = 0; pointer.right_clicks = 0;
  assert(ui_dropdown_process_pointer(&pointer) && ui_dropdown.open);
  assert(!ui_dropdown_filter_event(&event) && ui_dropdown.open);
  event.type = _event_type_button;
  assert(ui_dropdown_filter_event(&event) && !ui_dropdown.open);
  assert(!ui_dropdown_filter_event(&event));
- halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480);
+ halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480, 165, 0, 640);
  event.type = _event_type_left_stick;
  assert(ui_dropdown_filter_event(&event) && !ui_dropdown.open);
- halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480);
+ halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 21, 128, 480, 165, 0, 640);
  valid = 0;
  assert(ui_dropdown_process_pointer(&pointer) && !ui_dropdown.open && ui_dropdown_selection == -1);
  valid = 1; controls = 2; ui_dropdown_selection = 4; ui_dropdown_last_selection = -1;
@@ -515,7 +533,7 @@ wchar_t *spinner_string_list_get_string(int tag, short index) {
 void rasterizer_draw_unicode_string(rectangle2d *bounds, rectangle2d *clip, void *cursor,
  int flags, wchar_t const *text) {
  assert(bounds == clip && !cursor && !flags);
- assert(bounds->x0 == 108 && bounds->x1 == 241);
+ assert(bounds->x0 == 108 && bounds->x1 == 261);
  if (!strings) first_string = text[0];
  assert(text[0] == first_string + strings); strings++;
 }
@@ -528,7 +546,7 @@ int main(void) {
  widget.definition_tag_index = 99; widget.parameters.list.selected_index = 18;
  definition.text_font.index = 42; definition.text_label_string_list.index = 43;
  /* A six-row band exercises the matching panel art frame. */
- halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 20, 18, 128, 480);
+ halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 20, 18, 128, 480, 165, 0, 640);
  ui_dropdown_draw();
  assert(panels == 1 && checks == 1 && strings == 6 && first_string == 13 && highlights == 1);
  ui_widget_row_draw_chevron(&widget, &definition, offset, &clip); assert(chevrons == 1);

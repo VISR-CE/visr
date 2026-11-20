@@ -459,9 +459,18 @@ run(BUILD / 'touch-controller-probe')
 # fingers and pointer devices on the menus: the state machine, the mapping to the menus' coordinates, and the
 # struct that crosses to the guest (its layout must hold under the guest's arm64_32 flags too)
 run('python3', 'tools/test_menu_tap_targets.py')
+run('python3', 'tools/test_menu_carousel.py')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/menu_pointer_probe.c', '-o', BUILD / 'menu-pointer-probe')
 run(BUILD / 'menu-pointer-probe')
+# a finger dragging a strip of menu items (the map grid, the carousels): tap or drag, momentum, the snap to an item
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    '-Iport/runtime/include', 'port/ios/tests/menu_drag_probe.c', '-o', BUILD / 'menu-drag-probe')
+run(BUILD / 'menu-drag-probe')
+# the three-card carousel's nonwrapping window, centered peeks, controller glide, and tap behavior
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-Iport/runtime/include', 'port/ios/tests/menu_carousel_probe.c', '-o', BUILD / 'menu-carousel-probe')
+run(BUILD / 'menu-carousel-probe')
 # a look and pinch on the Vision Pro's menus: the ray to the menus' surface, the hand's travel, the picture fractions
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/menu_gaze_probe.c', '-o', BUILD / 'menu-gaze-probe')

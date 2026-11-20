@@ -111,7 +111,7 @@ def test_controller_glyph_draw_cache_and_clipping(tmp_path):
         pytest.skip('Apple compiler and frameworks are required')
     source = (ROOT / 'source/interface/ui_widget.c').read_text()
     start = source.index('#ifdef HALO_IOS\n#define CONTROLLER_GLYPH_CACHE_SIZE')
-    end = source.index('/* ---------- public code */', start)
+    end = source.index('/* port: three reusable widgets bind a nonwrapping strip.', start)
     program = (ROOT / 'port/ios/tests/controller_glyph_draw_probe.c').read_text().replace('/* DRAW */', source[start:end])
     hud = (ROOT / 'source/interface/hud_draw.c').read_text()
     stock = block(hud[hud.rindex('static void hud_draw_bitmap_internal('):], 'static void hud_draw_bitmap_internal(')

@@ -113,6 +113,171 @@
     "reference_kind": "enum(2)"
   },
   {
+    "file": "main_menu.multiplayer_type_select.game_options_edit.xml",
+    "name": "captures_to_win_spinner",
+    "strings": [
+      "1",
+      "3",
+      "5",
+      "10",
+      "15"
+    ],
+    "kind": 3,
+    "on_index": -1,
+    "reference_kind": 3
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.game_options_edit.xml",
+    "name": "kills_to_win_spinner",
+    "strings": [
+      "5",
+      "10",
+      "15",
+      "25",
+      "50",
+      "75",
+      "100",
+      "150",
+      "200",
+      "250",
+      "500"
+    ],
+    "kind": 3,
+    "on_index": -1,
+    "reference_kind": 3
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.game_options_edit.xml",
+    "name": "koth_score_to_win_spinner",
+    "strings": [
+      "1 MINUTE",
+      "2 MINUTES",
+      "5 MINUTES",
+      "10 MINUTES",
+      "15 MINUTES"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.game_options_edit.xml",
+    "name": "koth_team_play_spinner",
+    "strings": [
+      "YES",
+      "NO"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": 1
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.game_options_edit.xml",
+    "name": "laps_to_win_spinner",
+    "strings": [
+      "1",
+      "3",
+      "5",
+      "10",
+      "15",
+      "25"
+    ],
+    "kind": 3,
+    "on_index": -1,
+    "reference_kind": 3
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.game_options_edit.xml",
+    "name": "score_to_win_spinner",
+    "strings": [
+      "1",
+      "2",
+      "5",
+      "10",
+      "15"
+    ],
+    "kind": 3,
+    "on_index": -1,
+    "reference_kind": 3
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.game_options_edit.xml",
+    "name": "team_play_spinner",
+    "strings": [
+      "YES",
+      "NO"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": 1
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.game_options_edit.xml",
+    "name": "time_limit_spinner",
+    "strings": [
+      "NONE",
+      "10 MINUTES",
+      "15 MINUTES",
+      "20 MINUTES",
+      "25 MINUTES",
+      "30 MINUTES",
+      "45 MINUTES"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.respawn_options_edit.xml",
+    "name": "odd_man_out_spinner",
+    "strings": [
+      "YES",
+      "NO"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": 1
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.respawn_options_edit.xml",
+    "name": "respawn_time_growth_spinner",
+    "strings": [
+      "NONE",
+      "5 SECONDS",
+      "10 SECONDS",
+      "15 SECONDS"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.respawn_options_edit.xml",
+    "name": "respawn_time_spinner",
+    "strings": [
+      "INSTANT",
+      "5 SECONDS",
+      "10 SECONDS",
+      "15 SECONDS"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.respawn_options_edit.xml",
+    "name": "suicide_penalty_spinner",
+    "strings": [
+      "NONE",
+      "5 SECONDS",
+      "10 SECONDS",
+      "15 SECONDS"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
     "file": "main_menu.multiplayer_type_select.server_settings.xml",
     "name": "listing_spinner",
     "strings": [
@@ -142,6 +307,200 @@
     "kind": 3,
     "on_index": -1,
     "reference_kind": "range"
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.teams_hud_edit.xml",
+    "name": "autobalance_spinner",
+    "strings": [
+      "NO",
+      "YES"
+    ],
+    "kind": 1,
+    "on_index": 1,
+    "reference_kind": 1
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.teams_hud_edit.xml",
+    "name": "friendly_fire_penalty_spinner",
+    "strings": [
+      "NONE",
+      "5 SECONDS",
+      "10 SECONDS",
+      "15 SECONDS"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.teams_hud_edit.xml",
+    "name": "friendly_fire_spinner",
+    "strings": [
+      "OFF",
+      "ON",
+      "SHIELD ONLY",
+      "EXPLOSIVES ONLY"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.teams_hud_edit.xml",
+    "name": "indicator_options_friends_on_screen_spinner",
+    "strings": [
+      "YES",
+      "NO"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": 1
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.teams_hud_edit.xml",
+    "name": "indicator_options_players_on_radar_spinner",
+    "strings": [
+      "ALL",
+      "FRIENDS",
+      "NO"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.teams_hud_edit.xml",
+    "name": "indicator_options_radar display_spinner",
+    "strings": [
+      "MOTION TRACKER",
+      "NAV POINTS",
+      "NONE"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.vehicle_types_edit.xml",
+    "name": "banshee_spinner",
+    "strings": [
+      "NONE",
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.vehicle_types_edit.xml",
+    "name": "cgturret_spinner",
+    "strings": [
+      "NONE",
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.vehicle_types_edit.xml",
+    "name": "ghost_spinner",
+    "strings": [
+      "NONE",
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.vehicle_types_edit.xml",
+    "name": "rwarthog_spinner",
+    "strings": [
+      "NONE",
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.vehicle_types_edit.xml",
+    "name": "scorpion_spinner",
+    "strings": [
+      "NONE",
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.vehicle_types_edit.xml",
+    "name": "warthog_spinner",
+    "strings": [
+      "NONE",
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.weapons_edit.xml",
+    "name": "primary_weapon_spinner",
+    "strings": [
+      "NONE",
+      "RANDOM",
+      "ASSAULT RIFLE",
+      "PISTOL",
+      "SHOTGUN",
+      "SNIPER RIFLE",
+      "ROCKET LAUNCHER",
+      "PLASMA PISTOL",
+      "PLASMA RIFLE",
+      "NEEDLER"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.weapons_edit.xml",
+    "name": "secondary_weapon_spinner",
+    "strings": [
+      "NONE",
+      "RANDOM",
+      "ASSAULT RIFLE",
+      "PISTOL",
+      "SHOTGUN",
+      "SNIPER RIFLE",
+      "ROCKET LAUNCHER",
+      "PLASMA PISTOL",
+      "PLASMA RIFLE",
+      "NEEDLER"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": 2
   },
   {
     "file": "settings.audio_settings.xml",
@@ -624,7 +983,7 @@
     "reference_kind": "toggle"
   },
   {
-    "file": "settings.video_settings.xml",
+    "file": "settings.mouse_settings.xml",
     "name": "direct_camera_spinner",
     "strings": [
       "ON",

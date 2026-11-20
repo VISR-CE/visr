@@ -13,6 +13,7 @@ static double seconds(void) { struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t
 int menu_picture_redraw_source(const uint8_t *p,unsigned w,unsigned h) {
     int carousel=menu_carousel_shapes_source(p,w,h);
     if(carousel>=0)return carousel+9;
+    if(menu_lock_shapes_source(p,w,h)==0)return 13;
     static const uint64_t hashes[]={UINT64_C(0x10abeb8e84292ebb),UINT64_C(0x4f2391de207baaf5),
         UINT64_C(0xb21af00c0b190d4b),UINT64_C(0xe24cf6469a4cbaed),UINT64_C(0xa30fdfccfcf19037)};
     if(!p||w!=512||(h!=256&&h!=512))return -1;
@@ -247,7 +248,8 @@ int menu_picture_redraw(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *b
     if(picture<0||!bpf||(scale!=2&&scale!=4))return 0;
     if(cancel&&*cancel)return -1;
     if(picture>=9) {
-        int result=menu_carousel_shapes(source,sw,sh,bpf,scale,cancel);
+        int result=picture==13?menu_lock_shapes(source,sw,sh,bpf,scale,cancel):
+            menu_carousel_shapes(source,sw,sh,bpf,scale,cancel);
         if(metrics) { metrics->seconds=seconds()-start;metrics->scratch_bytes=(size_t)sw*sh*scale*scale*4; }
         return result;
     }

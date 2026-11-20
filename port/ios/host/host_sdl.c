@@ -27,6 +27,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_frame_pacer.h"
 #include "host_game_thread.h"
 #include "host_main_thread.h"
+#include "host_startup.h"
 
 #include <SDL3/SDL.h>
 #include <assert.h>
@@ -119,6 +120,7 @@ static void *handle_get(uint32_t handle, int type)
 static void menu_pointer_hint(void *userdata, const char *name, const char *old_value, const char *value);
 static void menu_pointer_event(const SDL_Event *event);
 static void menu_pointer_sync(void);
+static void touch_gameplay_hint(void *userdata, const char *name, const char *old_value, const char *value);
 
 int host_sdl_init(uint32_t flags)
 {
@@ -128,6 +130,7 @@ int host_sdl_init(uint32_t flags)
 	{
 		hinted = 1;
 		SDL_AddHintCallback("VISR_MENU_ACTIVE", menu_pointer_hint, NULL);
+		SDL_AddHintCallback("VISR_TOUCH_GAMEPLAY", touch_gameplay_hint, NULL);
 	}
 	return SDL_Init((SDL_InitFlags)flags);
 }
@@ -1467,10 +1470,32 @@ static void menu_pointer_hint(void *userdata, const char *name, const char *old_
 	atomic_store(&menu_pointer_hinted, menus);
 }
 
+/* the guest publishes VISR_TOUCH_GAMEPLAY while a map is running with nothing over it; the touch controls show only
+then. Noted here like the menu hint and taken up by menu_pointer_sync */
+static atomic_int touch_gameplay_hinted = -1;
+
+static void touch_gameplay_hint(void *userdata, const char *name, const char *old_value, const char *value)
+{
+	int gameplay = value && (value[0] == '1' || !SDL_strcasecmp(value, "true"));
+
+	(void)userdata;
+	(void)name;
+	(void)old_value;
+	atomic_store(&touch_gameplay_hinted, gameplay);
+}
+
+static void touch_gameplay_main(void *context)
+{
+	host_ios_touch_gameplay_changed((int)(intptr_t)context);
+}
+
 static void menu_pointer_sync(void)
 {
+	int gameplay = atomic_exchange(&touch_gameplay_hinted, -1);
 	int menus = atomic_exchange(&menu_pointer_hinted, -1);
 
+	if (gameplay >= 0)
+		host_main_sync_f((void *)(intptr_t)gameplay, touch_gameplay_main);
 	if (menus < 0)
 		return;
 	host_menu_pointer_set_menus(&menu_pointer, menus);
@@ -1700,6 +1725,15 @@ static void menu_script_next(void)
 		if (sscanf(menu_script.cursor, " %d%n", &menu_script.hold, &used) < 1 || menu_script.hold < 0)
 			menu_script.hold = 0;
 	}
+	else if (!strcmp(kind, "hold"))
+	{
+		int hold = 0;
+
+		menu_script.kind = 8;
+		sscanf(menu_script.cursor, "%f %f %f %f %d%n", &menu_script.x0, &menu_script.y0, &menu_script.x1,
+			&menu_script.y1, &hold, &used);
+		menu_script.steps = 7 + (hold > 0 ? hold : 0);
+	}
 	else if (!strcmp(kind, "wheel"))
 	{
 		menu_script.kind = 5;
@@ -1800,16 +1834,18 @@ static void menu_script_run(void)
 	if (!menu_script.kind || !window || !window_size(window, &width, &height) ||
 		menu_script.frame < menu_script.start + (unsigned long)menu_script.step)
 		return;
-	if (menu_script.kind >= 6 && menu_script_pinch())
+	if ((menu_script.kind == 6 || menu_script.kind == 7) && menu_script_pinch())
 		return;
 	host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
-	t = menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
+	t = menu_script.kind == 8 ? fminf(1.0f, (float)menu_script.step / 6.0f) :
+		menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
 	x = (menu_script.x0 + (menu_script.x1 - menu_script.x0) * t) * (float)width;
 	y = (menu_script.y0 + (menu_script.y1 - menu_script.y0) * t) * (float)height;
 	switch (menu_script.kind)
 	{
 	case 1:
 	case 2:
+	case 8:
 		if (menu_script.step == 0)
 			host_menu_pointer_touch_begin(&menu_pointer, 9000, x, y);
 		else if (menu_script.step < menu_script.steps)
@@ -2029,6 +2065,11 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size)
     if (!size) return;
     strncpy(buffer, host_cloud_saves_status(), size - 1);
     buffer[size - 1] = 0;
+}
+
+int host_sdl_is_phone(void)
+{
+    return host_startup_get()->phone ? 1 : 0;
 }
 
 void host_sdl_app_build(char *buffer, unsigned int size)
