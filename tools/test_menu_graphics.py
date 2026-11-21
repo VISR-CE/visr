@@ -516,6 +516,8 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         'static void graphics_help_text(', 'static void graphics_fixed_help(', 'static void graphics_apply_shown(',
         'static void graphics_rows_show('))
     functions = block((ROOT / 'port/linux/src/menu_files.c').read_text(), 'long halo_menus_utf16(') + '\n' + functions
+    # (menu_functions.c's declaration of the engine's focus rule, compiled below from ui_widget.c)
+    functions = 'boolean ui_widget_port_draws_focus(boolean focused);\n' + functions
     ui = (ROOT / 'source/interface/ui_widget.c').read_text()
     # (the lists draw their focus only for a controller or a mouse: 0, no pointer)
     functions += '\nstatic int halo_menu_pointer_controls(void) { return 0; }\n'
@@ -533,6 +535,7 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         'static boolean widget_instance_port_refuse_graphics_edit(',
         'boolean widget_event_function_list_widget_goto_next_item(',
         'boolean widget_event_function_list_widget_goto_previous_item(',
+        'boolean ui_widget_port_draws_focus(',
         'static boolean ui_list_child_draws_focus(',
         'static void column_list_update(', 'static void widget_instance_port_focus_child(',
         'static void widget_instance_tab_to_next_valid_widget(',

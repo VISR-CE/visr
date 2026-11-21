@@ -142,6 +142,8 @@ def test_carousel_production_integration():
         PREAMBLE,
         source[start:end],
         STUBS,
+        _function(source, "boolean ui_widget_port_draws_focus"),
+        _function(source, "static boolean ui_list_child_draws_focus"),
         _function(source, "static boolean ui_carousel_pointer"),
         _function(source, "static void ui_mouse_note_carousel_peeks"),
         _function(source, "static void ui_carousel_render"),

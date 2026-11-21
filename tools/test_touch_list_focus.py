@@ -30,7 +30,8 @@ def function(source, signature):
 
 def test_touch_draws_no_list_focus():
     source = (ROOT / "source/interface/ui_widget.c").read_text()
-    pieces = [function(source, "static boolean ui_list_child_draws_focus(\n"),
+    pieces = [function(source, "boolean ui_widget_port_draws_focus(\n"),
+              function(source, "static boolean ui_list_child_draws_focus(\n"),
               function(source, "static boolean widget_instance_text_box_is_focused(\n"),
               function(source, "static __inline void spinner_list_update(\n"),
               function(source, "static void column_list_update(\n")]
