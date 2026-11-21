@@ -655,12 +655,12 @@ static const struct config_setting config_settings[] =
 		"order without stepping past every body and weapon in a crowded cluster.\n"
 		"On by default; false walks every object. Read again each tick, so it can\n"
 		"be flipped while the game runs." },
-	{ "debug.verify_once_a_tick", _config_boolean, "false", "HALO_VERIFY_ONCE_A_TICK", _environment_value, _platform_all,
+	{ "debug.verify_once_a_tick", _config_boolean, "true", "HALO_VERIFY_ONCE_A_TICK", _environment_value, _platform_all,
 		"Walks each block cache's and memory pool's block list once at the end of\n"
 		"a game tick or game frame, where it walked the whole list at every\n"
 		"allocation and free inside one. A list gone wrong still stops the game\n"
 		"by the end of that tick or frame, and a block is checked as it leaves\n"
-		"the list. Off by default. Read again each tick, so it can be flipped\n"
+		"the list. On by default. Read again each tick, so it can be flipped\n"
 		"while the game runs." },
 	{ "debug.aim_steady_level", _config_real, "-1.0", "HALO_AIM_STEADY_LEVEL", _environment_value, _platform_ios,
 		"Testing input.aim_steady without an enemy: from 0.0 up, how firmly on a\n"
