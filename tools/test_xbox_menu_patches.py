@@ -342,5 +342,10 @@ def test_every_row_that_opens_a_sub_screen_answers_a_start_and_a_tap():
 def test_the_gametype_editor_rows_that_open_screens_are_tap_targets():
     """The rows Steve taps in the gametype editor (RESPAWN, CHOOSE WEAPONS, VEHICLES and the rest of the patch)
     are among the rows the walk above covers."""
-    covered = {w.get("name", "").rsplit("/", 1)[-1] for _, w, _, _ in sub_screen_rows()}
+    found = sub_screen_rows()
+    covered = {w.get("name", "").rsplit("/", 1)[-1] for _, w, _, _ in found}
     assert {"op_respawn", "op_choose_weapons"} <= covered
+    # (and the seven rows of the generated gametype editor's list)
+    editor = [w for _, w, _, parent in found if parent is not None and parent.get("name", "").endswith(
+        "playlist_edit/gametype_list")]
+    assert len(editor) == 7

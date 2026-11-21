@@ -2009,6 +2009,11 @@ def test_gametype_editor_rows_are_tall_picture_rows():
     children = options.findall('child')
     ys = [int(c.get('y')) for c in children]
     assert ys == [ys[0] + i * 39 for i in range(len(ys))]
+    # (each device's rows end above the panel's bottom rule: six, and the Apple TV's seven with DELETE GAMETYPE)
+    for active in (set(), {'tvos'}, {'mac_app', 'keyboard'}):
+        shown = [c for c in children if not c.get('platform') or (c.get('platform').lstrip('!') in active) != c.get(
+            'platform').startswith('!')]
+        assert max(int(c.get('y')) for c in shown) + 39 <= module.RULE_Y, active
     for c in children:
         row = widgets[c.get('widget')]
         assert row.get('height') == '39' and row.get('row') == 'tall', row.get('name')
