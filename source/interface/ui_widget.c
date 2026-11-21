@@ -5666,11 +5666,23 @@ static __inline real widget_instance_get_cumulative_alpha_modifier(
 	return alpha_modifier;
 }
 
+/* port: whether a list draws its child as focused (the selected frame, white text, the plasma). A finger does not
+move focus and a tap acts on the row it lands on, so while the last input is touch no list row draws as focused; the
+list keeps its focus for the panel it describes and for the next controller or keyboard press. Mouse, controller and
+keyboard draw it. (The carousel's cards follow the same rule in ui_carousel_render.) */
+static boolean ui_list_child_draws_focus(
+	struct widget_instance *list,
+	struct widget_instance *child)
+{
+	return child == list->focused_child && halo_menu_pointer_controls() != 2;
+}
+
 static boolean widget_instance_text_box_is_focused(
 	struct widget_instance *widget)
 {
 	struct widget_instance *parent = widget->parent;
 	boolean focused = parent ? parent->focused_child == widget : TRUE;
+	struct widget_instance *row;
 
 	if (!focused && parent)
 	{
@@ -5690,6 +5702,14 @@ static boolean widget_instance_text_box_is_focused(
 			parent = ancestor;
 		}
 		while (ancestor);
+	}
+
+	/* port: a list's focused row, and the text inside it, draw as focused only where the list draws its focus */
+	for (row = widget; focused && row->parent; row = row->parent)
+	{
+		if ((row->parent->type == _ui_widget_type_spinner_list || row->parent->type == _ui_widget_type_column_list) &&
+			!ui_list_child_draws_focus(row->parent, row))
+			focused = row->parent->focused_child != row;
 	}
 
 	return focused;
@@ -10163,7 +10183,8 @@ static void widget_instance_render_recursive(
 			window_children = column_list_window_begin(widget, definition, window, window_saved);
 		for (child = widget->child; child; child = child->next)
 		{
-			focus = child == widget->focused_child;
+			focus = widget->type == _ui_widget_type_spinner_list || widget->type == _ui_widget_type_column_list ?
+				ui_list_child_draws_focus(widget, child) : child == widget->focused_child;
 			use_nifty_plasma_fx = focus &&
 				(widget->type == _ui_widget_type_spinner_list ||
 				widget->type == _ui_widget_type_column_list);
@@ -10539,7 +10560,7 @@ static __inline void spinner_list_update(
 	for (child = widget->child; child; child = child->next)
 	{
 		child->animation.current_frame_index = 0;
-		if (child == widget->focused_child &&
+		if (ui_list_child_draws_focus(widget, child) &&
 			child->animation.number_of_sprite_frames == 2)
 		{
 			child->animation.current_frame_index = 1;
@@ -10561,7 +10582,7 @@ static void column_list_update(
 
 	for (child = widget->child; child; child = child->next)
 	{
-		if (child == widget->focused_child)
+		if (ui_list_child_draws_focus(widget, child))
 		{
 			if (child->animation.number_of_sprite_frames == 2)
 				child->animation.current_frame_index = 1;
