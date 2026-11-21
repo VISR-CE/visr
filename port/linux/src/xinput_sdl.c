@@ -949,7 +949,7 @@ next press */
 
 /* "press:BUTTON@POLL BUTTON@POLL ...": prefix a button with k for keyboard
 input (ka, kb, kdown); an unprefixed button is controller input. "none"
-changes only the input class. "focus:LABEL@POLL" (spaces in LABEL written as _) holds Down from POLL until the focused
+changes only the input class. "focus:LABEL@POLL[:DEADLINE]" (spaces in LABEL written as _) holds Down from POLL until the focused
 menu row's text is LABEL, instead of counting rows; it fails the run ("WALK FAIL" in the log, exit status
 TEST_FOCUS_EXIT_STATUS) when the list has no such row or the next scripted press comes first. Each BUTTON (start, back, a, b, x, y, up, down,
 left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
@@ -988,6 +988,12 @@ static void test_input_presses_parse(const char *text)
 			if (test_focus_count == 1)   /* the capture tools fail a screen that walks by label when a build does not say this */
 				platform_log("test_input: focus walk supported");
 			text += used;
+			/* "focus:LABEL@POLL:DEADLINE": the walk must have landed by DEADLINE even when no press follows it */
+			if (*text == ':' && sscanf(text, ":%lu%n", &poll, &used) == 1)
+			{
+				test_focus_walks[test_focus_count - 1].deadline = poll;
+				text += used;
+			}
 		}
 		else if (sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
 		{
