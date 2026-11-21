@@ -2024,24 +2024,38 @@ def test_every_title_picture_sets_its_title_at_the_same_height_and_size_inside_i
     """Bug class: a title picture whose text sits higher or lower in its 512x64 frame than the others draws above or
     below the title band (the gametype editor's, made from the game's one-line 512x32 header, drew half off the top
     of the screen). Every shipped header picture of the standard title size centers what it draws at one height."""
-    from PIL import Image
+    # (stdlib only: CI has no Pillow or NumPy)
+    from mac_run import read_png
 
-    import numpy as np
+    over = bytes(255 if value > 200 else 0 for value in range(256))
+    seen = bytes(0 if value == 0 else 255 for value in range(256))
+
+    def span(mask):
+        """first and last index of a nonzero byte, or None"""
+        first = len(mask) - len(mask.lstrip(b'\0'))
+        return None if first == len(mask) else (first, len(mask.rstrip(b'\0')) - 1)
 
     centers, letters, edges = {}, {}, {}
     for frame in ET.parse(MENUS / 'xbox' / 'bitmaps.xml').getroot().iter('frame'):
         png = frame.get('png') or ''
         if png.rsplit('/', 1)[-1].startswith('header') and (frame.get('width'), frame.get('height')) == ('512', '64'):
             if (MENUS / png).is_file():
-                image = Image.open(MENUS / png).convert('RGBA')
-                box = image.getchannel('A').getbbox()
-                centers[png] = (box[1] + box[3]) / 2 / image.height
+                width, height, bgra = read_png((MENUS / png).read_bytes())
+                stride = width * 4
+                rows = [bgra[y * stride:(y + 1) * stride] for y in range(height)]
+                alpha = [row[3::4] for row in rows]
+                drawn = [y for y in range(height) if span(alpha[y].translate(seen))]
+                centers[png] = (drawn[0] + drawn[-1] + 1) / 2 / height
                 # (and its letters: the bright blue of the text, at 4x)
-                pixels = np.asarray(image).astype(int)
-                ys, xs = np.nonzero((pixels[..., 2] > 200) & (pixels[..., 3] > 200))
-                letters[png] = (xs.min(), ys.min(), ys.max())
-                edges[png] = int(max(pixels[0, :, 3].max(), pixels[-1, :, 3].max(), pixels[:, 0, 3].max(),
-                                     pixels[:, -1, 3].max()))
+                left, top, bottom = width, None, None
+                for y, row in enumerate(rows):
+                    mask = (int.from_bytes(row[0::4].translate(over), 'big') &
+                            int.from_bytes(alpha[y].translate(over), 'big')).to_bytes(width, 'big')
+                    found = span(mask)
+                    if found:
+                        left, top, bottom = min(left, found[0]), y if top is None else top, y
+                letters[png] = (left, top, bottom)
+                edges[png] = max(max(alpha[0]), max(alpha[-1]), max(a[0] for a in alpha), max(a[-1] for a in alpha))
     assert len(centers) >= 30
     reference = sorted(centers.values())[len(centers) // 2]
     assert {png: center for png, center in centers.items() if abs(center - reference) > 0.01} == {}
