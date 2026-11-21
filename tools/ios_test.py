@@ -49,7 +49,7 @@ def links_probe(args):
 def run(*args):
     args = tuple(str(a) for a in args)
     if links_probe(args):
-        args = args + (str(host_stub_object(args)),)
+        args = args + ('-x', 'none', str(host_stub_object(args)))
     subprocess.run(list(args), cwd=ROOT, check=True)
 
 # Menu fallbacks are asset-free; map paths are also checked where the maps live.
