@@ -44,6 +44,7 @@ static char const *const menu_screen_always[][2] = {
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\oddball_edit\\oddball_options_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\oddball_edit\\oddball_options_screen"},
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\race_edit\\race_options_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\race_edit\\race_options_screen"},
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\slayer_edit\\slayer_options_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\slayer_edit\\slayer_options_screen"},
+	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\game_type_select\\gametype_select_screen", "pc\\xbox\\main_menu\\multiplayer_type_select\\game_options_edit\\game_options_screen"},
 	{"ui\\shell\\error\\error_modal_fullscreen", "pc\\xbox\\error\\error_modal_fullscreen"},
 	{"ui\\shell\\error\\error_modal_halfscreen", "pc\\xbox\\error\\error_modal_halfscreen"},
 	{"ui\\shell\\error\\error_modal_qtrscreen", "pc\\xbox\\error\\error_modal_qtrscreen"},

@@ -2343,7 +2343,11 @@ SCREEN_ALWAYS = (('ui/shell/' + MP + '/connected/connected_map_select_wrapper',
     # the score and team play rows that GAME has; ours are the same rules without them)
     (f'ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/{kind}_edit/{kind}_options_screen',
      f'pc/xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/{kind}_edit/{kind}_options_screen')
-    for kind in ('ctf', 'koth', 'oddball', 'race', 'slayer')) + tuple(
+    for kind in ('ctf', 'koth', 'oddball', 'race', 'slayer')) + (
+    # (the game's own list of the five gametypes, "step 1": GAME OPTIONS holds the same five TYPE rows, so
+    # whatever still asks for the list, as SERVER SETUP's GAME TYPE row does, gets that page)
+    ('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_screen',
+     'pc/xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen'),) + tuple(
     (f'ui/shell/error/{name}', f'pc/xbox/error/{name}')
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS + ('confirm_delete_profile_modal_fullscreen',
                                                       'confirm_delete_gametype_modal_fullscreen'))

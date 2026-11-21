@@ -157,6 +157,29 @@ def test_a_redirect_or_a_removed_row_takes_a_screen_out_of_the_layout():
         main, 'ui\\two', 'ui\\three', 'pc\\xbox\\four'}
 
 
+def test_no_path_reaches_the_step_one_gametype_list():
+    """GAME OPTIONS holds the five TYPE rows, so the game's own list of gametypes ("step 1") and the rule screens
+    behind it are never shown: every screen that asks for one gets ours."""
+    import xbox_menus
+
+    root = ET.parse(disc_contract.XBOX / 'patches.xml').getroot()
+    layout, ours = ui_map_tags.load_layout(), disc_contract.xbox_widgets()
+    redirects = {source.replace('/', '\\'): target.replace('/', '\\')
+                 for source, target in xbox_menus.SCREEN_ALWAYS + xbox_menus.SCREEN_REPLACED}
+    shown = disc_contract.reachable_screens(layout, root, ours, redirects, disc_contract.screens_named_in_the_game())
+    step_one = 'ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\game_type_select\\gametype_select_screen'
+    assert step_one in layout and step_one not in shown
+    assert redirects[step_one] == 'pc\\xbox\\main_menu\\multiplayer_type_select\\game_options_edit\\game_options_screen'
+    assert redirects[step_one] in shown
+    # (something still asks for it, so the redirect is what keeps it off the screen: the map's own rows, and
+    # ours that open it by its name)
+    asked = [path for path, widget in layout.items()
+             if any(handler.get('widget') == step_one for handler in widget['handlers'])]
+    asked += [name for name, widget in ours.items()
+              if any(element.get('open') == step_one for element in widget.iter('on'))]
+    assert asked
+
+
 def test_the_patches_make_tall_exactly_the_shown_option_lists_that_fit():
     """rows="tall" is on every disc option list the game shows that fits and on no other, each with the tall art
     and its screen."""
