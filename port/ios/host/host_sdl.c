@@ -740,7 +740,10 @@ void host_sdl_rumble_hold(int hold)
 
 int host_sdl_get_gamepads(uint32_t *ids, int capacity)
 {
-	/* the game lists the pads at each of its controller reads (XInputGetState) */
+	/* the game lists the pads at each of its controller reads (XInputGetState, the late look's stick
+	read): a read the poll's 2 ms gate or a long frame left behind still sees current state */
+	if (host_game_thread_enabled() && !host_on_main_thread())
+		host_controller_refresh();
 	host_controller_age_sample();
 	return host_ios_gamepads(ids, capacity);
 }

@@ -3,6 +3,7 @@
 #include "host_controller_age.h"
 #include <SDL3/SDL_events.h>
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -14,6 +15,9 @@ static int controller_refreshes, controller_pump_notes;
 /* the game thread brings the controllers up to date at its own poll, the main pump only notes it */
 void host_controller_refresh(void) { controller_refreshes++; }
 void host_controller_refreshed(void) { controller_pump_notes++; }
+static int age_samples;
+void host_controller_age_sample(void) { age_samples++; }
+int host_ios_gamepads(uint32_t *ids, int capacity) { (void)ids; (void)capacity; return 0; }
 
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     assert(strcmp(name, "debug.game_thread") == 0);
@@ -83,6 +87,13 @@ int main(int argc, char **argv) {
     assert(peeps == (expected ? 4 : 0));
     /* class: a read on the game thread never relies on the main timer's pump */
     assert(controller_refreshes == (expected ? 1 : 0));
+    /* and so does a controller read the poll's gate left behind: listing the pads refreshes first */
+    assert(host_sdl_get_gamepads(NULL, 0) == 0);
+    assert(controller_refreshes == (expected ? 2 : 0) && age_samples == 1);
+    on_main = 1;
+    assert(host_sdl_get_gamepads(NULL, 0) == 0);
+    assert(controller_refreshes == (expected ? 2 : 0) && age_samples == 2);
+    on_main = 0;
     assert(controller_pump_notes == pumps + (expected ? 0 : polls));
     assert(config_reads == 1);
     assert(window_refreshes == pumps);
