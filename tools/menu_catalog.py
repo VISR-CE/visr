@@ -88,8 +88,8 @@ def add_ids(xml, stem, prefix):
                     pairs.append((attribute, id_attribute, [f'{base}.{role}']))
             for attribute, id_attribute, role in (('strings', 'strings_ids', 's'), ('help', 'help_ids', 'help')):
                 value = attributes.get(attribute)
-                if value and ((tag == 'widget') != (attribute == 'strings')):
-                    continue  # strings belongs to widgets, help to patch rows
+                if value and ((tag in ('widget', 'action')) != (attribute == 'strings')):
+                    continue  # strings belongs to widgets and bar actions, help to patch rows
                 if value:
                     parts = value.split('|')
                     pairs.append((attribute, id_attribute, [f'{base}.{role}{i}' for i in range(len(parts))]))

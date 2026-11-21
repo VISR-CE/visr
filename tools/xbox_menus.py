@@ -234,12 +234,15 @@ def manifest_files(menus):
 def bar(screen, actions):
     """The screen's button bar: what each action does, never where it goes (the engine places it, menu_files.c).
 
-    actions: (slot, scope, caption, what) with slot x, y, b or a; scope global, select or back; what is
-    {'focus': 'true'} (the focused widget takes the button) or {'run': ...} / {'open': ...}.
+    actions: (slot, scope, caption, what) with slot x, y, b or a; scope global, select or back; caption a string,
+    or a list of captions the port picks from at run time (ui_widget_port_bar_caption; what's 'index' is the first
+    shown); what is {'focus': 'true'} (the focused widget takes the button) or {'run': ...} / {'open': ...}, plus
+    'while_typing': 'pointer' for an action whose key is a letter while a field is being typed in.
     """
     element = ET.SubElement(screen, 'bar')
     for slot, scope, caption, what in actions:
-        ET.SubElement(element, 'action', {'slot': slot, 'scope': scope, 'text': caption, **what})
+        text = {'strings': '|'.join(caption)} if isinstance(caption, (list, tuple)) else {'text': caption}
+        ET.SubElement(element, 'action', {'slot': slot, 'scope': scope, **text, **what})
     return element
 
 
@@ -1142,51 +1145,22 @@ def multiplayer_documents(assets, bitmaps):
         for w in list(root.findall('widget')):
             name = w.get('name', '')
             if name.endswith(('/password_screen', '/code_screen')):
-                # The footer legend carries JOIN GAME / CANCEL like every other
-                # screen. The screen's own button bar is hidden, so tapping the
-                # legend runs what the bar's buttons did (Enter in the field
-                # joins too).
+                # The screen's own button bar is hidden; its declared bar below
+                # carries CANCEL and JOIN GAME (Enter in the field joins too).
                 kind = 'password' if name.endswith('/password_screen') else 'code'
-                base = name + '/legend'
-                legend(root, w, base, accept='JOIN GAME', declared=False)
-                # The caption follows the selected row (menu_functions.c's
+                # The bar: A follows the selected row (menu_functions.c's
                 # legend_accept_caption): EDIT on the field, JOIN GAME on the
-                # JOIN GAME row, like SERVER SETUP's START GAME.
-                strings = ET.SubElement(root, 'strings', name=f'{base}/accept_captions')
-                for caption in ('EDIT', 'JOIN GAME'):
-                    ET.SubElement(strings, 'string', text=caption)
-                for target in root.iter('widget'):
-                    if target.get('name') == f'{base}/accept':
-                        del target.attrib['text']
-                        target.set('string_list', f'{base}/accept_captions')
-                        target.set('string_index', '1')
+                # JOIN GAME row, like SERVER SETUP's START GAME; the focused row
+                # takes it. B is the screen's own back (port <kind> back). The
+                # password's X hides or shows the text (plain by default); its
+                # key is a letter while typing, so only a tap or a click runs it
+                # then.
+                actions = [('b', 'back', 'CANCEL', {'focus': 'true'}),
+                           ('a', 'select', ['EDIT', 'JOIN GAME'], {'focus': 'true', 'index': '1'})]
                 if kind == 'password':
-                    # X hides or shows the password (plain text by default); the
-                    # caption follows menu_functions.c's password_screen.hidden.
-                    # Screen-level X ignores the key while typing (E is a letter
-                    # then); a click on the legend always toggles.
-                    hide = ET.SubElement(root, 'strings', name=f'{base}/hide_captions')
-                    for caption in ('HIDE', 'SHOW'):
-                        ET.SubElement(hide, 'string', text=caption)
-                    for leaf, x in (('x_butn', 60), ('x_hide', 82)):
-                        child(w, f'{base}/{leaf}', x=x, y=414)
-                        if leaf == 'x_hide':
-                            text_widget(root, f'{base}/{leaf}', 'HIDE', width=60, height=22)
-                        else:
-                            widget(root, f'{base}/{leaf}', type='container', width=21, height=26,
-                                   bitmap='xbox/browser/x_butn')
-                        target = next(t for t in root.iter('widget') if t.get('name') == f'{base}/{leaf}')
-                        if leaf == 'x_hide':
-                            del target.attrib['text']
-                            target.set('string_list', f'{base}/hide_captions')
-                            target.set('string_index', '0')
-                        ET.SubElement(target, 'on', event='left_mouse', run='port password togglehide click')
-                    ET.SubElement(w, 'on', event='x', run='port password togglehide')
-                for leaf, run in (('a_butn', f'port {kind} accept'), ('accept', f'port {kind} accept'),
-                                  ('b_butn', f'port {kind} back'), ('cancel', f'port {kind} back')):
-                    for target in root.iter('widget'):
-                        if target.get('name') == f'{base}/{leaf}':
-                            ET.SubElement(target, 'on', event='left_mouse', run=run)
+                    actions.insert(0, ('x', 'global', ['HIDE', 'SHOW'],
+                                       {'run': 'port password togglehide', 'while_typing': 'pointer'}))
+                bar(w, actions)
                 # JOIN GAME is a row below the field (SERVER SETUP's START GAME
                 # style); A activates whichever row is selected.
                 dir_ = name.rsplit('/', 1)[0]

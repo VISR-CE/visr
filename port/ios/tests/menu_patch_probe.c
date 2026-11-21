@@ -135,7 +135,10 @@ static char const screen_xml[] =
 	"<bitmap name=\"xbox/browser/b_butn\"><frame png=\"xbox/art/shipped.png\" width=\"32\" height=\"32\"/></bitmap>"
 	"<bitmap name=\"xbox/browser/y_butn\"><frame png=\"xbox/art/shipped.png\" width=\"32\" height=\"32\"/></bitmap>"
 	"<bitmap name=\"xbox/browser/a_butn\"><frame png=\"xbox/art/shipped.png\" width=\"32\" height=\"32\"/></bitmap>"
+	"<bitmap name=\"xbox/browser/x_butn\"><frame png=\"xbox/art/shipped.png\" width=\"32\" height=\"32\"/></bitmap>"
 	"<widget name=\"xbox/bar_screen\" width=\"640\" height=\"480\"><bar>"
+	"<action slot=\"x\" scope=\"global\" strings=\"HIDE|SHOW\" index=\"1\" run=\"port password togglehide\""
+	" while_typing=\"pointer\"/>"
 	"<action slot=\"b\" scope=\"back\" text=\"BACK\" focus=\"true\"/>"
 	"<action slot=\"y\" scope=\"global\" text=\"CREATE NEW\" run=\"port settings defaults apply\"/>"
 	"<action slot=\"a\" scope=\"select\" text=\"SELECT\" focus=\"true\"/></bar></widget>"
@@ -863,6 +866,8 @@ static void check_bar(void)
 		short x;
 	} const actions[] =
 	{
+		{ "pc\\xbox\\bar_screen\\bar\\x_butn", "pc\\xbox\\bar_screen\\bar\\x_caption", HALO_MENU_SLOT_X, HALO_MENU_SCOPE_GLOBAL,
+			MENU_BAR_SLOT_X_X0 + MENU_BAR_INSET },
 		{ "pc\\xbox\\bar_screen\\bar\\b_butn", "pc\\xbox\\bar_screen\\bar\\b_caption", HALO_MENU_SLOT_B, HALO_MENU_SCOPE_BACK,
 			MENU_BAR_SLOT_B_X0 + MENU_BAR_INSET },
 		{ "pc\\xbox\\bar_screen\\bar\\y_butn", "pc\\xbox\\bar_screen\\bar\\y_caption", HALO_MENU_SLOT_Y, HALO_MENU_SCOPE_GLOBAL,
@@ -873,15 +878,28 @@ static void check_bar(void)
 	long screen = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\bar_screen");
 	long defaults = PC_MENU_FUNCTION_BASE + name_index("port settings defaults apply", port_function_names,
 		NUMBEROF(port_function_names));
+	long togglehide = PC_MENU_FUNCTION_BASE + name_index("port password togglehide", port_function_names,
+		NUMBEROF(port_function_names));
 	struct ui_widget_definition const *definition;
 	struct ui_widget_event_handler_reference const *handlers;
-	long action, handler, y_handlers = 0, other_handlers = 0;
+	long action, handler, y_handlers = 0, x_handlers = 0, other_handlers = 0;
+	long x_caption = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\bar_screen\\bar\\x_caption");
 
 	check(screen != NONE, "the bar's screen is in the table");
 	if (screen == NONE)
 		return;
-	check(child_count(screen) == 6, "three actions, a glyph and a caption each (%ld children)", child_count(screen));
-	for (action = 0; action < 3; action++)
+	check(child_count(screen) == 8, "four actions, a glyph and a caption each (%ld children)", child_count(screen));
+	/* strings= is a caption the port picks at run time (ui_widget_port_bar_caption): a list, index= shown first */
+	if (x_caption != NONE)
+	{
+		struct ui_widget_definition const *caption = definition_of(x_caption);
+		struct string_list const *strings = tag_get(UNICODE_STRING_LIST_TAG, caption->text_label_string_list.index);
+
+		check(strings && strings->strings.count == 2 && string_is(strings, 0, "HIDE") && string_is(strings, 1, "SHOW"),
+			"an action's strings are its caption's list");
+		check(caption->string_list_index == 1, "index= is the caption shown first (%d)", caption->string_list_index);
+	}
+	for (action = 0; action < 4; action++)
 	{
 		long parts[2];
 		int part;
@@ -899,6 +917,10 @@ static void check_bar(void)
 			check(meta->role == HALO_MENU_ROLE_BAR_ACTION && meta->slot == actions[action].slot &&
 				meta->scope == actions[action].scope, "%s: slot and scope are noted (%d %d %d)",
 				part ? actions[action].caption : actions[action].glyph, meta->role, meta->slot, meta->scope);
+			/* while_typing="pointer" is noted on X's parts only: its key is a letter while typing */
+			check(meta->typing == (actions[action].slot == HALO_MENU_SLOT_X ? HALO_MENU_TYPING_POINTER :
+				HALO_MENU_TYPING_KEY), "%s: what its key does while typing is noted (%d)",
+				part ? actions[action].caption : actions[action].glyph, meta->typing);
 			for (child = 0; child < child_count(screen); child++)
 				if (children_of(screen)[child].widget_tag.index == parts[part]) found = child;
 			check(found != NONE, "a bar action is the screen's child");
@@ -909,7 +931,7 @@ static void check_bar(void)
 					children_of(screen)[found].horizontal_offset, children_of(screen)[found].vertical_offset);
 		}
 	}
-	check(tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\bar_screen\\bar\\x_butn") == NONE,
+	check(tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\bar_screen\\bar\\y_caption_2") == NONE,
 		"a bar has only the actions it declares");
 	definition = definition_of(screen);
 	handlers = definition->event_handlers.address;
@@ -918,11 +940,15 @@ static void check_bar(void)
 		if (handlers[handler].event_type == 3 && TEST_FLAG(handlers[handler].flags, _event_handler_run_function_bit) &&
 			handlers[handler].function == defaults)
 			y_handlers++;
+		else if (handlers[handler].event_type == 2 &&
+			TEST_FLAG(handlers[handler].flags, _event_handler_run_function_bit) && handlers[handler].function == togglehide)
+			x_handlers++;
 		else
 			other_handlers++;
 	}
-	check(y_handlers == 1 && other_handlers == 0, "the Y action runs on Y; focus actions add no handler (%ld, %ld)",
-		y_handlers, other_handlers);
+	check(y_handlers == 1 && x_handlers == 1 && other_handlers == 0,
+		"the Y and X actions run on their buttons; focus actions add no handler (%ld, %ld, %ld)",
+		y_handlers, x_handlers, other_handlers);
 }
 
 static void check_apple(boolean tvos)
@@ -1221,10 +1247,10 @@ static void check_apple(boolean tvos)
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
 	/* Five widgets, two bitmaps, spinner strings, the two PC description lists and the language file's two widgets and list (5 tags) precede patch tags. */
 	/* (the last 2 rows: the picture list's copies, one replacing a row and one added) */
-	/* (and the bar's screen: the screen, three glyphs, three captions and their three string lists, and the glyphs'
-	three bitmaps: 13 tags) */
-	counted = 8 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 2 + 2) + 2 + 5 + 13;
-	used = 8 + 2 * (3 + 4 + 1 + 2 + 2) + 2 + 5 + 13;
+	/* (and the bar's screen: the screen, four glyphs, four captions, the three text captions' string lists and the
+	X's strings list, and the glyphs' four bitmaps: 17 tags) */
+	counted = 8 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 2 + 2) + 2 + 5 + 17;
+	used = 8 + 2 * (3 + 4 + 1 + 2 + 2) + 2 + 5 + 17;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -1232,7 +1258,7 @@ static void check_apple(boolean tvos)
 	check(empty == 2, "the overflowing patch's two tags are empty (%ld)", empty);
 	check(tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\patch\\multiplayer_type_internet") ==
 		children_of(mp_list)[3].widget_tag.index, "a row's tag is named pc\\patch\\<name>");
-	check(textures_made == 4, "four textures made, DIRECT LINK's picture and the bar's three glyphs (%ld)", textures_made);
+	check(textures_made == 5, "five textures made, DIRECT LINK's picture and the bar's four glyphs (%ld)", textures_made);
 }
 
 /* A failed bitmap build must leave both map blocks and the sequence intact. */

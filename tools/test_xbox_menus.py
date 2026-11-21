@@ -1055,10 +1055,12 @@ def test_declared_bar_captions_fit_their_slots():
                 assert len(slots) == len(set(slots)), (path.name, screen.get('name'))
                 for action in bar.findall('action'):
                     x0, x1 = menu_geometry.BAR_SLOT_BOUNDS[action.get('slot')]
-                    width = menu_text_metrics.text_width(menu_geometry.BAR_FONT, action.get('text'))
                     room = x1 - x0 - 2 * menu_geometry.BAR_INSET - menu_geometry.BAR_CAPTION_OFFSET
-                    assert width <= room, (screen.get('name'), action.get('text'), width, room)
-                    assert width + 2 * 12 <= x1 - x0, (screen.get('name'), action.get('text'))
+                    # (every caption a run-time one can show)
+                    for caption in (action.get('text') or action.get('strings')).split('|'):
+                        width = menu_text_metrics.text_width(menu_geometry.BAR_FONT, caption)
+                        assert width <= room, (screen.get('name'), caption, width, room)
+                        assert width + 2 * 12 <= x1 - x0, (screen.get('name'), caption)
                     count += 1
     assert count >= 25
     # the slots run left to right X, Y, B, A, apart, inside the screen
@@ -1564,50 +1566,60 @@ def test_profile_editor_removes_save_after_inserting_settings():
                    for p in root.findall('patch') if p is not edit for r in p.findall('remove'))
 
 @pytest.mark.parametrize('kind', ('password', 'code'))
-def test_password_and_code_legend_caption_follows_the_row(kind):
-    """A opens the keyboard until text is held, so the legend's A caption is a two-string list
-    (EDIT, JOIN GAME) that menu_functions.c's legend_accept_caption switches; taps still join."""
+def test_password_and_code_bar_captions_follow_the_row(kind):
+    """A opens the keyboard until text is held, so the bar's A action has two captions (EDIT, JOIN GAME) that
+    menu_functions.c's legend_accept_caption picks by slot through ui_widget_port_bar_caption; the focused row takes
+    A. The password's X hides or shows the text; its key is a letter while typing, which the action declares
+    (while_typing="pointer"), so no screen branches on how X arrived."""
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.port.xml').getroot()
-    base = f'xbox/main_menu/multiplayer_type_select/join_game/{kind}/{kind}_screen/legend'
-    accept = next(w for w in root.iter('widget') if w.get('name') == base + '/accept')
-    assert accept.get('text') is None
-    strings = next(s for s in root.iter('strings') if s.get('name') == accept.get('string_list'))
-    assert [s.get('text') for s in strings] == ['EDIT', 'JOIN GAME']
-    assert accept.get('string_index') == '1'
-    assert accept.find('on[@event="left_mouse"]').get('run') == f'port {kind} accept'
-    screen = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0])
-    assert screen.find('on[@event="y"]') is None
+    name = f'xbox/main_menu/multiplayer_type_select/join_game/{kind}/{kind}_screen'
+    screen = next(w for w in root.iter('widget') if w.get('name') == name)
+    actions = {a.get('slot'): a for a in screen.find('bar').findall('action')}
+    assert actions['a'].get('strings') == 'EDIT|JOIN GAME' and actions['a'].get('index') == '1'
+    assert actions['a'].get('focus') == 'true' and actions['a'].get('scope') == 'select'
+    assert actions['b'].get('text') == 'CANCEL' and actions['b'].get('focus') == 'true'
+    assert screen.find('on[@event="b"]').get('run') == f'port {kind} back'
+    assert screen.find('on[@event="y"]') is None and screen.find('on[@event="x"]') is None
+    # no placed legend: nothing is found by a leaf name any more
+    assert not [w for w in root.iter('widget') if w.get('name', '').startswith(name + '/legend')]
     # JOIN GAME is its own row under the field; A on the field edits, A on the row joins
-    options = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0].rsplit('/', 1)[0] + '/options_menu')
+    options = next(w for w in root.iter('widget') if w.get('name') == name.rsplit('/', 1)[0] + '/options_menu')
     leaves = [c.get('widget').rsplit('/', 1)[1] for c in options.findall('child')]
     assert leaves == [f'op_{kind}', 'button_ok']
     ok = next(w for w in root.iter('widget') if w.get('name', '').endswith(f'/{kind}/button_ok'))
     assert ok.find('on[@event="a"]').get('run') == f'port {kind} join'
     field = next(w for w in root.iter('widget') if w.get('name', '').endswith(f'/op_{kind}'))
     assert field.find('on[@event="a"]').get('run') == f'port {kind} edit'
-    assert f'"port {kind} accept"' in (ROOT / 'port/linux/game/menu_tags.c').read_text()
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
-    assert f'legend_accept_caption(list, join_row_focused(list))' in source
+    assert 'legend_accept_caption(list, join_row_focused(list))' in source
+    assert 'ui_widget_port_bar_caption(screen, _gamepad_analog_button_a' in source
+    assert 'named(screen, "accept"' not in source and 'named(screen, "x_hide"' not in source
     assert 'config_string("debug.menu_text_seed")' in source
-    # X hides or shows the password (password screen only): HIDE while plain, SHOW while stars
-    x_names = [w.get('name') for w in root.iter('widget') if w.get('name', '').startswith(base + '/x_')]
     if kind == 'code':
-        assert x_names == []
+        assert 'x' not in actions
         return
-    assert screen.find('on[@event="x"]').get('run') == 'port password togglehide'
-    hide = next(w for w in root.iter('widget') if w.get('name') == base + '/x_hide')
-    assert hide.get('text') is None and hide.get('string_index') == '0'
-    strings = next(s for s in root.iter('strings') if s.get('name') == hide.get('string_list'))
-    assert [s.get('text') for s in strings] == ['HIDE', 'SHOW']
-    for leaf in ('x_butn', 'x_hide'):
-        entry = next(w for w in root.iter('widget') if w.get('name') == f'{base}/{leaf}')
-        assert entry.find('on[@event="left_mouse"]').get('run') == 'port password togglehide click'
-        assert screen.find(f'child[@widget="{base}/{leaf}"]') is not None
+    x = actions['x']
+    assert x.get('strings') == 'HIDE|SHOW' and x.get('scope') == 'global'
+    assert x.get('run') == 'port password togglehide' and x.get('while_typing') == 'pointer'
     assert 'password_screen.hidden = FALSE' in source
     assert 'stars[index] = password_screen.hidden' in source
-    assert '"port password togglehide click"' in (ROOT / 'port/linux/game/menu_tags.c').read_text()
+    assert 'togglehide click' not in source + (ROOT / 'port/linux/game/menu_tags.c').read_text()
     # the hosting Server Settings password stays masked
     assert 'text_field_begin_masked(row, multiplayer.game_password' in source
+
+
+def test_a_bar_key_that_is_a_letter_waits_only_for_the_key():
+    """while_typing="pointer" is data the engine reads (ui_bar_key_is_letter), for every screen: the key's press
+    waits while a field is typed in, a tap or a click (event_manager_post_pointer_button) still runs."""
+    engine = (ROOT / 'source/interface/ui_widget.c').read_text()
+    check = engine[engine.index('static boolean ui_bar_key_is_letter(\n\tstruct widget_instance *screen,\n\tstruct event_record const *event)\n{'):]
+    check = check[:check.index('\n}\n')]
+    assert 'event->data.button.pointer' in check and 'HALO_MENU_TYPING_POINTER' in check
+    assert 'ui_widget_port_text_editing()' in check
+    dispatch = engine[engine.index('if (ui_widget_port_disabled_row_activation(widget, handler->event_type))'):]
+    assert dispatch.index('ui_bar_key_is_letter(widget, event)') < dispatch.index('_event_handler_run_function_bit')
+    # (a tap's or a click's press is marked; the port's own posted presses, ui_widget_port_post_button, are not)
+    assert 'event_manager_post_pointer_button(claim_controller != NONE ? claim_controller : controller_index,\n\t\t\t\tui_mouse_presses[0]);' in engine
 
 
 def layout_widgets(density):

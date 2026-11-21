@@ -152,6 +152,8 @@ void ui_widget_port_go_back(struct widget_instance *widget);
 short ui_widget_port_list_index(struct widget_instance *list_widget);
 /* whether a focused item draws as focused (no focus drawn while the last input is touch) */
 boolean ui_widget_port_draws_focus(boolean focused);
+/* which of its captions the screen's bar action on the button shows (its strings=) */
+void ui_widget_port_bar_caption(struct widget_instance *screen, short button, short index);
 boolean ui_widget_port_saved_game(char const **map_name, short *level, short *difficulty);
 char const *ui_widget_event_handler_function_name(long function_index);
 short main_get_solo_level_from_name(char const *name);
@@ -2571,6 +2573,12 @@ static boolean text_field_editing(struct widget_instance *row)
 	return text_field.row && (!row || text_field.row == row);
 }
 
+/* a text field is being typed in (ui_widget.c: a bar action's key that is a letter then waits) */
+boolean ui_widget_port_text_editing(void)
+{
+	return text_field_editing(NULL);
+}
+
 /* the field's title for the system's dialog (an Apple TV's), by its row */
 static char const *text_field_title(struct widget_instance const *row)
 {
@@ -4824,20 +4832,16 @@ static void password_screen_done(char const *text)
 	snprintf(password_screen.text, sizeof(password_screen.text), "%s", text);
 }
 
-/* The legend's A caption on the password and code screens follows the
-selected row, like SERVER SETUP's: EDIT on the field (A opens or closes the
-keyboard), JOIN GAME on the JOIN GAME row. */
+/* The bar's A caption on the password and code screens follows the selected
+row, like SERVER SETUP's: EDIT on the field (A opens or closes the keyboard),
+JOIN GAME on the JOIN GAME row. The password screen's X: HIDE while the text
+shows, SHOW while stars. (A screen without that action is left alone.) */
 static void legend_accept_caption(struct widget_instance *list, boolean join)
 {
 	struct widget_instance *screen = screen_of(list);
-	struct widget_instance *caption = named(screen, "accept", 0);
 
-	if (caption)
-		caption->parameters.text_box.string_list_index = (short)(join ? 1 : 0);
-	/* the password screen's X legend: HIDE while the text shows, SHOW while stars */
-	caption = named(screen, "x_hide", 0);
-	if (caption)
-		caption->parameters.text_box.string_list_index = (short)(password_screen.hidden ? 1 : 0);
+	ui_widget_port_bar_caption(screen, _gamepad_analog_button_a, (short)(join ? 1 : 0));
+	ui_widget_port_bar_caption(screen, _gamepad_analog_button_x, (short)(password_screen.hidden ? 1 : 0));
 }
 
 /* the JOIN GAME row has the focus (the screen's list) */
@@ -4947,26 +4951,12 @@ static boolean password_screen_edit(struct widget_instance *row, boolean *widget
 	return TRUE;
 }
 
-/* "port password accept" (the legend's A caption, clicked): what A does on the selected row */
-static boolean password_screen_accept(struct widget_instance *widget, boolean *widget_deleted)
+/* "port password togglehide" (X, the bar's HIDE / SHOW): the text as stars
+or plain. While typing, X's key is a letter (a keyboard's E), so the bar's
+action is declared while_typing="pointer" and only a tap or a click arrives
+here then (ui_widget.c). */
+static boolean password_screen_togglehide(void)
 {
-	struct widget_instance *screen = screen_of(widget);
-	struct widget_instance *list = named(screen, "options_menu", 0);
-	struct widget_instance *row = named(screen, "op_password", 0);
-
-	if (list ? join_row_focused(list) : FALSE)
-		return password_screen_join(widget, widget_deleted);
-	return row ? password_screen_edit(row, widget_deleted) : FALSE;
-}
-
-/* "port password togglehide" (X, the legend's HIDE / SHOW): the text as
-stars or plain. The X key event is ignored while typing (a keyboard's E is a
-letter then); a click on the legend, "port password togglehide click", always
-works. */
-static boolean password_screen_togglehide(boolean typing_ok)
-{
-	if (!typing_ok && text_field_editing(NULL))
-		return FALSE;
 	password_screen.hidden = !password_screen.hidden;
 	if (text_field_editing(NULL))
 		text_field.masked = password_screen.hidden;
@@ -5267,18 +5257,6 @@ static boolean direct_ip_edit(struct widget_instance *widget)
 		address ? sizeof(direct_address) - 1 : sizeof(direct_port) - 1,
 		address ? direct_address_done : direct_port_done);
 	return TRUE;
-}
-
-/* "port code accept" (the legend's A caption, clicked): what A does on the selected row */
-static boolean code_screen_accept(struct widget_instance *widget, boolean *widget_deleted)
-{
-	struct widget_instance *screen = screen_of(widget);
-	struct widget_instance *list = named(screen, "options_menu", 0);
-	struct widget_instance *row = named(screen, "op_code", 0);
-
-	if (list ? join_row_focused(list) : FALSE)
-		return code_screen_join(widget, widget_deleted);
-	return row ? code_screen_edit(row, widget_deleted) : FALSE;
 }
 
 static boolean direct_ip_initialize(struct widget_instance *list)
@@ -7200,21 +7178,9 @@ boolean pc_menu_event_function_invoke(
 		{
 			return password_screen_join(widget, widget_deleted);
 		}
-		else if (!strcmp(name, "port password accept"))
-		{
-			return password_screen_accept(widget, widget_deleted);
-		}
 		else if (!strcmp(name, "port password togglehide"))
 		{
-			return password_screen_togglehide(FALSE);
-		}
-		else if (!strcmp(name, "port password togglehide click"))
-		{
-			return password_screen_togglehide(TRUE);
-		}
-		else if (!strcmp(name, "port code accept"))
-		{
-			return code_screen_accept(widget, widget_deleted);
+			return password_screen_togglehide();
 		}
 		else if (!strcmp(name, "port password back"))
 		{

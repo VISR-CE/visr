@@ -43,12 +43,21 @@ enum halo_menu_scope
 	HALO_MENU_SCOPE_POINTER
 };
 
+/* what an action's key does while a text field is being typed in: acts, or is a letter (the keyboard's E is X), so
+only a tap or a click on the action runs it */
+enum halo_menu_typing
+{
+	HALO_MENU_TYPING_KEY,
+	HALO_MENU_TYPING_POINTER
+};
+
 struct halo_menu_meta
 {
 	long tag_index;
 	unsigned char role;        /* enum halo_menu_role */
 	unsigned char slot;        /* enum halo_menu_slot */
 	unsigned char scope;       /* enum halo_menu_scope */
+	unsigned char typing;      /* enum halo_menu_typing: a bar action's key while a text field is being typed in */
 	unsigned char tall;        /* a standard tall row: the tall art, the standard tap band, the standard value kinds */
 	short visible_rows;        /* a list that shows a window of its rows: how many (0: all of them) */
 };

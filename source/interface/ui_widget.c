@@ -1412,6 +1412,13 @@ boolean ui_widget_port_disabled_row_activation(
 /* port: a graphics-mode override locks editing without disabling the row (menu_functions.c). */
 boolean ui_widget_port_graphics_locked(
 	struct widget_instance *widget);
+/* port: a text field is being typed in (menu_functions.c) */
+boolean ui_widget_port_text_editing(
+	void);
+/* port: whether the screen's bar action on the event's button waits while typing (its key is a letter then) */
+static boolean ui_bar_key_is_letter(
+	struct widget_instance *screen,
+	struct event_record const *event);
 /* port: where in its widget, and how large, the menus draw a frame of
 ui.map's that they scale (port/linux/game/menu_tags.c) */
 boolean pc_menu_frame_placement(
@@ -3817,6 +3824,10 @@ static void event_handler_dispatch(
 		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
 		return;
 	}
+	/* port: a bar action declared while_typing="pointer" (the password's X): its key is a letter while a field is
+	being typed in, so only a tap or a click on the action runs it */
+	if (ui_bar_key_is_letter(widget, event))
+		return;
 	if (TEST_FLAG(handler->flags, _event_handler_run_scenario_script_bit) &&
 		handler->script[0])
 	{
@@ -7280,6 +7291,51 @@ static short ui_bar_slot_button(unsigned char slot)
 	return NONE;
 }
 
+/* the screen's bar widget (glyph or caption, a direct child) of an action on the button, or NULL */
+static struct widget_instance *ui_bar_action_widget(
+	struct widget_instance *screen,
+	short button,
+	boolean caption)
+{
+	struct widget_instance *child;
+
+	for (child = screen ? screen->child : NULL; child; child = child->next)
+	{
+		struct halo_menu_meta const *meta = pc_menu_meta(child->definition_tag_index);
+
+		if (meta->role == HALO_MENU_ROLE_BAR_ACTION && ui_bar_slot_button(meta->slot) == button &&
+			(child->type == _ui_widget_type_text_box) == caption)
+			return child;
+	}
+	return NULL;
+}
+
+static boolean ui_bar_key_is_letter(
+	struct widget_instance *screen,
+	struct event_record const *event)
+{
+	struct widget_instance *action;
+
+	if (!event || event->type != _event_type_button || event->data.button.pointer)
+		return FALSE;
+	action = ui_bar_action_widget(screen, event->data.button.index, FALSE);
+	return action && pc_menu_meta(action->definition_tag_index)->typing == HALO_MENU_TYPING_POINTER &&
+		ui_widget_port_text_editing();
+}
+
+/* port: which of its captions a bar action shows (its strings=, halo_menus' <action>), by the action's button;
+the one place the port changes a caption at run time */
+void ui_widget_port_bar_caption(
+	struct widget_instance *screen,
+	short button,
+	short index)
+{
+	struct widget_instance *caption = ui_bar_action_widget(screen, button, TRUE);
+
+	if (caption)
+		caption->parameters.text_box.string_list_index = index;
+}
+
 static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 {
 	short button = ui_mouse_key_button(widget);
@@ -9315,7 +9371,8 @@ static void ui_widgets_process_mouse(
 	post_pointer_presses:
 		if (ui_mouse_press_count)
 		{
-			event_manager_post_button(claim_controller != NONE ? claim_controller : controller_index, ui_mouse_presses[0]);
+			event_manager_post_pointer_button(claim_controller != NONE ? claim_controller : controller_index,
+				ui_mouse_presses[0]);
 			claim_controller = NONE;
 			csmemmove(ui_mouse_presses, ui_mouse_presses + 1, --ui_mouse_press_count * sizeof(ui_mouse_presses[0]));
 		}

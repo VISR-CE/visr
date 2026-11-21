@@ -1025,7 +1025,8 @@ static void read_bar(struct reader *reader, const XML_Char **attributes)
 }
 
 /* one of the bar's widgets, made as a <widget> nested in the screen would be (attributes: name/value pairs) */
-static void bar_widget_add(struct reader *reader, const XML_Char **attributes, long screen, long slot, long scope)
+static void bar_widget_add(struct reader *reader, const XML_Char **attributes, long screen, long slot, long scope,
+	long typing)
 {
 	struct halo_menus *menus = &reader->menus;
 
@@ -1034,6 +1035,30 @@ static void bar_widget_add(struct reader *reader, const XML_Char **attributes, l
 	{
 		menus->widgets[menus->widget_count - 1].bar_slot = slot;
 		menus->widgets[menus->widget_count - 1].bar_scope = scope;
+		menus->widgets[menus->widget_count - 1].bar_typing = typing;
+	}
+}
+
+/* an action's captions that change at run time (strings="EDIT|JOIN GAME"): a string list named for its caption,
+which the engine's ui_widget_port_bar_caption picks from by the action's slot */
+static void bar_captions_add(struct reader *reader, const char *name, const char *strings, const char *ids)
+{
+	const XML_Char *list[] = { "name", name, NULL };
+	const char *text = strings, *id = ids;
+
+	read_strings(reader, list);
+	while (!reader->failed && text)
+	{
+		const char *text_end = strchr(text, '|'), *id_end = id ? strchr(id, '|') : NULL;
+		char *piece = copy_length(text, text_end ? (size_t)(text_end - text) : strlen(text));
+		char *piece_id = id ? copy_length(id, id_end ? (size_t)(id_end - id) : strlen(id)) : NULL;
+		const XML_Char *string[] = { "text", piece, piece_id ? "id" : NULL, piece_id, NULL };
+
+		read_string(reader, string, reader->menus.string_list_count - 1);
+		free(piece);
+		free(piece_id);
+		text = text_end ? text_end + 1 : NULL;
+		id = id_end ? id_end + 1 : NULL;
 	}
 }
 
@@ -1041,15 +1066,17 @@ static void read_action(struct reader *reader, const XML_Char **attributes, long
 {
 	struct halo_menus *menus = &reader->menus;
 	const char *slot = NULL, *scope = NULL, *text = NULL, *text_id = NULL, *run = NULL, *open = NULL, *focus = NULL;
+	const char *strings = NULL, *strings_ids = NULL, *index = NULL, *while_typing = NULL;
 	struct attribute table[] =
 	{
 		{ "slot", &slot }, { "scope", &scope }, { "text", &text }, { "text_id", &text_id }, { "run", &run },
-		{ "open", &open }, { "focus", &focus },
+		{ "open", &open }, { "focus", &focus }, { "strings", &strings }, { "strings_ids", &strings_ids },
+		{ "index", &index }, { "while_typing", &while_typing },
 	};
-	char glyph_name[256], caption_name[256], bitmap[32], x[16], y[16], width[16], height[16];
+	char glyph_name[256], caption_name[256], captions_name[256], bitmap[32], x[16], y[16], width[16], height[16];
 	char caption_x[16], caption_width[16], caption_height[16];
 	size_t slot_index, scope_index;
-	long widget, does;
+	long widget, does, typing = HALO_MENU_TYPING_KEY;
 
 	read_attributes(reader, "action", attributes, table, sizeof(table) / sizeof(*table));
 	if (reader->failed)
@@ -1068,11 +1095,24 @@ static void read_action(struct reader *reader, const XML_Char **attributes, long
 		reader_error(reader, "an <action>'s scope is \"global\", \"select\" or \"back\"");
 		return;
 	}
-	if (!text)
+	if ((text != NULL) + (strings != NULL) != 1)
 	{
-		reader_error(reader, "an <action> needs text");
+		reader_error(reader, "an <action> has text, or strings for a caption that changes");
 		return;
 	}
+	if (index && !strings)
+	{
+		reader_error(reader, "an <action>'s index picks one of its strings");
+		return;
+	}
+	strings_ids = ids_usable(reader, "strings_ids", strings_ids, strings);
+	if (while_typing && strcmp(while_typing, "pointer"))
+	{
+		reader_error(reader, "while_typing is \"pointer\" (the key is a letter then: a tap or a click runs it), or not given");
+		return;
+	}
+	if (while_typing)
+		typing = HALO_MENU_TYPING_POINTER;
 	if (focus && strcmp(focus, "true"))
 	{
 		reader_error(reader, "focus is \"true\", or not given");
@@ -1098,13 +1138,14 @@ static void read_action(struct reader *reader, const XML_Char **attributes, long
 			return;
 		}
 	}
-	if (strlen(menus->widgets[screen].name) + sizeof("/bar/x_caption") > sizeof(glyph_name))
+	if (strlen(menus->widgets[screen].name) + sizeof("/bar/x_captions") > sizeof(glyph_name))
 	{
 		reader_error(reader, "the screen's name is too long for its bar");
 		return;
 	}
 	snprintf(glyph_name, sizeof(glyph_name), "%s/bar/%s_butn", menus->widgets[screen].name, slot);
 	snprintf(caption_name, sizeof(caption_name), "%s/bar/%s_caption", menus->widgets[screen].name, slot);
+	snprintf(captions_name, sizeof(captions_name), "%s/bar/%s_captions", menus->widgets[screen].name, slot);
 	snprintf(bitmap, sizeof(bitmap), "xbox/browser/%s_butn", slot);
 	snprintf(x, sizeof(x), "%ld", bar_slots[slot_index].x0 + MENU_BAR_INSET);
 	snprintf(y, sizeof(y), "%d", MENU_LEGEND_Y);
@@ -1122,14 +1163,20 @@ static void read_action(struct reader *reader, const XML_Char **attributes, long
 		};
 		const XML_Char *caption[] =
 		{
-			"name", caption_name, "type", "text", "text", text, "font", "ui\\large_ui", "color", "#FF2896FF",
+			"name", caption_name, "type", "text", "font", "ui\\large_ui", "color", "#FF2896FF",
 			"width", caption_width, "height", caption_height, "x", caption_x, "y", y,
-			text_id ? "text_id" : NULL, text_id, NULL,
+			text ? "text" : "string_list", text ? text : captions_name,
+			/* (text's catalog ID, or which of the strings shows first) */
+			text ? (text_id ? "text_id" : NULL) : "string_index", text ? text_id : (index ? index : "0"), NULL,
 		};
 
-		bar_widget_add(reader, glyph, screen, bar_slots[slot_index].slot, bar_scopes[scope_index].scope);
+		if (strings)
+			bar_captions_add(reader, captions_name, strings, strings_ids);
 		if (!reader->failed)
-			bar_widget_add(reader, caption, screen, bar_slots[slot_index].slot, bar_scopes[scope_index].scope);
+			bar_widget_add(reader, glyph, screen, bar_slots[slot_index].slot, bar_scopes[scope_index].scope, typing);
+		if (!reader->failed)
+			bar_widget_add(reader, caption, screen, bar_slots[slot_index].slot, bar_scopes[scope_index].scope,
+				typing);
 	}
 	if (!reader->failed && (run || open))
 	{

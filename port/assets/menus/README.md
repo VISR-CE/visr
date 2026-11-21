@@ -213,10 +213,16 @@ does, never where it goes:
 - What it does, one of: `focus="true"` (A or B only: the focused widget takes
   the button), `run="..."` or `open="..."` (the screen's handler for the
   button).
-- `text` (and `text_id`), and `platform` as other elements take it.
+- `text` (and `text_id`), and `platform` as other elements take it. A
+  caption that changes at run time has `strings="EDIT|JOIN GAME"` (and
+  `strings_ids`) instead, with `index` the one shown first; the port picks
+  one by the action's button (`ui_widget_port_bar_caption`).
+- `while_typing="pointer"`: while a text field is being typed in, the
+  action's key is a letter (a keyboard's E is X), so only a tap or a click
+  on the action runs it then.
 
 The game makes each action's glyph and caption in its slot as it reads the
-file, and tells the engine their slot and scope.
+file, and tells the engine their slot, scope and `while_typing`.
 
 ### `<patch>`
 

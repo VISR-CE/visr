@@ -440,11 +440,11 @@ static char const *const port_function_names[] =
 	settings' screens having written theirs to config.toml) */
 	"player profile save changes",
 	/* (the server browser's password screen) */
-	"port password init", "port password edit", "port password join", "port password back", "port password accept", "port password togglehide", "port password togglehide click",
+	"port password init", "port password edit", "port password join", "port password back", "port password togglehide",
 	/* (Settings begins editing after its new profile is created) */
 	"new campaign decision",
 	/* (Direct Link's ENTER CODE screen: a join code or an invite link) */
-	"port code open", "port code init", "port code edit", "port code join", "port code back", "port code accept",
+	"port code open", "port code init", "port code edit", "port code join", "port code back",
 	/* (the lobby's Y: the invite link in the share sheet, Apple builds) */
 	"port lobby share",
 	/* (the Apple TV's DELETE PROFILE and DELETE GAMETYPE rows: the one being edited is the one the Xbox's
@@ -1493,6 +1493,7 @@ static void *widget_build(long widget_index)
 			meta->role = HALO_MENU_ROLE_BAR_ACTION;
 			meta->slot = (unsigned char)source->bar_slot;
 			meta->scope = (unsigned char)source->bar_scope;
+			meta->typing = (unsigned char)source->bar_typing;
 		}
 	}
 	if (source->visible_rows)

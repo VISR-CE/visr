@@ -124,6 +124,8 @@ struct halo_menu_widget
 	/* a glyph or caption the reader made from a screen's <bar> <action>: the action's slot and scope (enum
 	halo_menu_slot and halo_menu_scope, halo_menu_meta.h; 0: not a bar's) */
 	long bar_slot, bar_scope;
+	/* its key while a text field is being typed in (enum halo_menu_typing, halo_menu_meta.h; 0: the key acts) */
+	long bar_typing;
 	/* a settings list's rows (children named op_*): the first one's y and the
 	pitch they are packed at, so rows for another platform leave no gap (0: as
 	placed) */

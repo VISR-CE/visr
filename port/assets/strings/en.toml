@@ -203,11 +203,11 @@ text = "ENTER CODE"
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_button_ok]
 text = "JOIN GAME"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_accept_captions]
-edit = "EDIT"
-join_game = "JOIN GAME"
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_bar_a]
+s0 = "EDIT"
+s1 = "JOIN GAME"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_bar_b]
 text = "CANCEL"
 
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings]
@@ -228,16 +228,16 @@ could_not_join_the_game = "Could not join the game."
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_labels]
 password = "PASSWORD:"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_accept_captions]
-edit = "EDIT"
-join_game = "JOIN GAME"
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_a]
+s0 = "EDIT"
+s1 = "JOIN GAME"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_b]
 text = "CANCEL"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_hide_captions]
-hide = "HIDE"
-show = "SHOW"
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_x]
+s0 = "HIDE"
+s1 = "SHOW"
 
 [xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_add_caption]
 text = "ADD PLAYER"

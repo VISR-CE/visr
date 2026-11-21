@@ -207,7 +207,8 @@ MENU_ATTRIBUTES = {
     "remove": {"child", "pitch", "platform"},
     # (a screen's button bar, port/assets/menus/README.md)
     "bar": {"kind"},
-    "action": {"slot", "scope", "text", "text_id", "run", "open", "focus", "platform"},
+    "action": {"slot", "scope", "text", "text_id", "strings", "strings_ids", "index", "while_typing", "run", "open",
+               "focus", "platform"},
 }
 
 
@@ -322,6 +323,10 @@ def test_menus_are_well_formed():
                 assert element.get("scope") in ("global", "select", "back"), where
                 assert element.get("focus") in (None, "true"), where
                 assert sum(element.get(key) is not None for key in ("focus", "run", "open")) == 1, where
+                assert (element.get("text") is None) != (element.get("strings") is None), where
+                assert element.get("index") is None or (element.get("strings") and
+                                                        int(element.get("index")) < len(element.get("strings").split("|"))), where
+                assert element.get("while_typing") in (None, "pointer"), where
                 run = element.get("run")
                 assert run is None or run in functions, where
                 references.append((where, widgets, element.get("open")))
