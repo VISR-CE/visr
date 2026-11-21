@@ -711,14 +711,14 @@ static void options_build(void)
 		1, children, zero, zero);
 }
 
-static long pic_list, pic_rows[4];
+static long pic_list, pic_rows[4], pic_line, pic_screen;
 
 /* a picture list as the multiplayer type list is: four text rows 32 units tall on a 33 pitch, placed by their own
 bounds (the list's offsets 0), the last 22 units further down, the first drawing the top art */
 static void pictures_build(void)
 {
-	long children[1], row;
-	short const xs[4] = { 0, 0, 0, 0 }, ys[4] = { 0, 0, 0, 22 }, zero[1] = { 0 };
+	long children[2], row;
+	short const xs[4] = { 0, 0, 0, 0 }, ys[4] = { 0, 0, 0, 22 }, zero[2] = { 0, 0 };
 
 	for (row = 0; row < 4; row++)
 	{
@@ -731,8 +731,10 @@ static void pictures_build(void)
 	pic_list = widget_add("ui\\shell\\pictures\\picture_list", _widget_type_column_list, 0, 0, 640, 480);
 	children_set(pic_list, 4, pic_rows, xs, ys);
 	children[0] = pic_list;
-	children_set(widget_add("ui\\shell\\pictures\\picture_screen", _widget_type_container, 0, 0, 640, 480),
-		1, children, zero, zero);
+	/* (and a line in the gap before the last row, as the multiplayer type screen has) */
+	children[1] = pic_line = widget_add("ui\\shell\\pictures\\picture_line", _widget_type_container, 64, 190, 256, 192);
+	pic_screen = widget_add("ui\\shell\\pictures\\picture_screen", _widget_type_container, 0, 0, 640, 480);
+	children_set(pic_screen, 2, children, zero, zero);
 }
 
 /* ---------- the checks */
@@ -1092,6 +1094,11 @@ static void check_apple(boolean tvos)
 					"a tall picture row's text moves down by the kind's shift (%d)", definition->vertical_offset);
 				check(pc_menu_row_tall(placed->widget_tag.index), "the engine is told the picture row is tall");
 			}
+			/* (the line, 9 above the last row, moved down 33 with it when a row was added, to 223 above it at 232,
+			and follows it to 256: 57 in all) */
+			check(children_of(pic_screen)[1].widget_tag.index == pic_line && children_of(pic_screen)[1].vertical_offset == 57,
+				"a line in the gap between picture rows moves with the row below it (%d)",
+				children_of(pic_screen)[1].vertical_offset);
 		}
 		check(!pc_menu_patch_list_index(ad_other_list, NONE, &description) && child_count(ad_other_list) == 1,
 			"a row of a widget there is none of is not made");

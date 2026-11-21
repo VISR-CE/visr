@@ -2948,6 +2948,32 @@ static struct ui_widget_definition *patch_row_copy(struct patch_work *work, long
 	return NULL;
 }
 
+/* the screen's widgets that stand in a gap between the list's rows (left of the list's right edge, below the first
+row's top and above the last's), such as the line in the multiplayer type list's gap: each moves with the row below
+it, from where the rows stood (was) to where they stand now */
+static void patch_gap_widgets_follow(struct patch_work *work, short const *was)
+{
+	struct ui_widget_child_reference const *children = work->screen->child_widgets.address;
+	long child, row;
+
+	for (child = 0; child < work->screen->child_widgets.count && work->count > 1; child++)
+	{
+		struct ui_widget_definition const *definition;
+		short y, x;
+
+		if (child == work->list_child || children[child].widget_tag.index == NONE)
+			continue;
+		definition = tag_get(UI_WIDGET_DEFINITION_TAG, children[child].widget_tag.index);
+		y = (short)(definition->bounds.y0 + work->screen_y[child]);
+		x = (short)(definition->bounds.x0 + children[child].horizontal_offset);
+		if (x >= work->right || y <= was[0] || y >= was[work->count - 1])
+			continue;
+		for (row = 1; row < work->count && was[row] <= y; row++)
+			;
+		work->screen_y[child] = (short)(work->screen_y[child] + patch_row_y(work, row) - was[row]);
+	}
+}
+
 static boolean patch_rows_tall(struct patch_work *work)
 {
 	struct halo_menu_patch const *patch = work->patch;
@@ -3004,6 +3030,7 @@ static boolean patch_rows_tall(struct patch_work *work)
 		}
 		row_tall_note(tag);
 	}
+	patch_gap_widgets_follow(work, y);
 	return TRUE;
 }
 
