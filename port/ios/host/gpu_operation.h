@@ -100,6 +100,26 @@ enum gpu_operation
 #define GPU_OPERATION_CLASS_output_cap_settled QUERY
 #define GPU_OPERATION_CLASS_output_cap_commit AT_ONCE
 
+/* gpu_metal.m's functions the host calls by name, outside the backend table, and why each may (every other function
+there is static: the backend's operations are reached through its table, gpu_backend_metal, so in order with the
+others). tools/gpu_metal_entry_points.py checks the built gpu_metal.o's functions against this list after every
+macOS build (tools/macos_build.py): a new one needs a row, or a place in the table.
+- THREAD_SAFE: reads or counts through atomics, or reads a switch set for the run, from any thread
+  (gpu_metal_count_gpu_time: a command buffer that host_stereo.m or host_theater.m committed itself).
+- WORKGROUP: acts on the frame-deadline workgroup the presenting thread joined (the dispatch, the benchmark pages,
+  share sheets, cloud saves, host_tv.m). The encode thread joins it once encoding moves there, and these become
+  recorded commands then.
+- SURFACE: reads the game layer's drawable size where the presenter reads it (host_picture_drawable: every pointer
+  source maps through it). */
+#define GPU_METAL_DIRECT_ENTRY_POINTS(E) \
+	E(gpu_metal_async_compiles, THREAD_SAFE) \
+	E(gpu_metal_count_gpu_time, THREAD_SAFE) \
+	E(gpu_metal_gpu_spans_summary, THREAD_SAFE) \
+	E(gpu_metal_frame_deadline_end, WORKGROUP) \
+	E(gpu_metal_frame_deadline_leave, WORKGROUP) \
+	E(gpu_metal_frame_deadline_hold, WORKGROUP) \
+	E(host_picture_drawable, SURFACE)
+
 #define GPU_OPERATION_PASTE_(a, b) a##b
 #define GPU_OPERATION_PASTE(a, b) GPU_OPERATION_PASTE_(a, b)
 /* prefix followed by name's class (prefix##RECORDED, prefix##AT_ONCE, ...): a macro per class that a user defines,
