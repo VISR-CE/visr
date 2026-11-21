@@ -848,6 +848,14 @@ static const struct config_setting config_settings[] =
 	{ "audio.effects_volume", _config_real, "1.0", "HALO_EFFECTS_VOLUME", _environment_value, _platform_all,
 		"The volume of every other sound (effects and speech), 0.0 to 1.0 (of\n"
 		"audio.volume)." },
+	{ "audio.worker_priority", _config_string, "\"interactive\"", "HALO_AUDIO_WORKER_PRIORITY", _environment_value, _platform_ios,
+		"The priority of the thread that mixes the game's sound. SDL's own audio\n"
+		"thread, which is time-critical, waits on it for each callback, so at the\n"
+		"default priority it is held up whenever the game and render threads fill\n"
+		"the cores. \"interactive\" (default) is the game thread's class,\n"
+		"\"realtime\" a time-constraint policy of one callback's period, and\n"
+		"\"default\" leaves the thread at the system's default. Read when the\n"
+		"game starts." },
 	{ "audio.loose_sounds", _config_boolean, "false", "HALO_LOOSE_SOUNDS", _environment_value, _platform_all,
 		"For those making sounds: play each of a map's sounds that has a Halo PC\n"
 		"sound tag file of its name under the data root's tags folder\n"

@@ -79,6 +79,9 @@ uint32_t host_call_guest(uint32_t function, uint32_t a, uint32_t b, uint32_t c, 
 memory, so that it can call guest code; the stack is freed after it exits.
 Returns 0 or an errno value */
 int host_native_thread_create(void *(*function)(void *), void *argument, size_t stack_size);
+/* Puts the calling thread in the game thread's class (QOS_CLASS_USER_INTERACTIVE);
+returns 0 on success. The game thread and the guest audio mixing worker both use it. */
+int host_thread_interactive(void);
 /* runs the guest's __guest_start on the calling thread (one made by
 host_native_thread_create); does not return */
 void host_run_guest_main(uint32_t boot) __attribute__((noreturn));

@@ -3079,6 +3079,16 @@
             "desktop"
           ]
         },
+        "worker_priority": {
+          "type": "string",
+          "default": "interactive",
+          "description": "The priority of the thread that mixes the game's sound. SDL's own audio thread, which is time-critical, waits on it for each callback, so at the default priority it is held up whenever the game and render threads fill the cores. \"interactive\" (default) is the game thread's class, \"realtime\" a time-constraint policy of one callback's period, and \"default\" leaves the thread at the system's default. Read when the game starts.",
+          "x-environment": "HALO_AUDIO_WORKER_PRIORITY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "loose_sounds": {
           "type": "boolean",
           "default": false,

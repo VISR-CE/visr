@@ -415,6 +415,7 @@ the setting for one start of the game. It has priority over the file.
 | `audio.volume` | number | `1.0` | apple, desktop | `HALO_VOLUME` | The volume of everything, 0.0 to 1.0. |
 | `audio.music_volume` | number | `1.0` | apple, desktop | `HALO_MUSIC_VOLUME` | The music's volume, 0.0 to 1.0 (of audio.volume). |
 | `audio.effects_volume` | number | `1.0` | apple, desktop | `HALO_EFFECTS_VOLUME` | The volume of every other sound (effects and speech), 0.0 to 1.0 (of audio.volume). |
+| `audio.worker_priority` | string | `"interactive"` | apple | `HALO_AUDIO_WORKER_PRIORITY` | The priority of the thread that mixes the game's sound. |
 | `audio.loose_sounds` | boolean | `false` | apple, desktop | `HALO_LOOSE_SOUNDS` | For those making sounds: play each of a map's sounds that has a Halo PC sound tag file of its name under the data root's tags folder (tags/sound/.../name.sound) from that file. |
 ### input
 

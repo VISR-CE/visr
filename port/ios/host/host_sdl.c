@@ -10,6 +10,8 @@ native guest arena (host_thread.c). SDL's audio thread is the exception: it has 
 so the audio callback is handed to a thread that has one.
 */
 
+#include <mach/mach.h>
+#include <mach/mach_time.h>
 #include <TargetConditionals.h>
 #if TARGET_OS_VISION
 #include "host_theater.h"
@@ -866,6 +868,43 @@ static void audio_callback_timing(struct audio_binding *binding, int additional,
 
 static __thread struct audio_binding *audio_worker_binding;
 
+/* audio.worker_priority: SDL's own audio thread is time-critical and waits on this worker for each callback's
+sound, so a worker at default priority (below the game thread, which is user-interactive) holds it up whenever
+the cores are busy. "interactive" (default) is the game thread's class, "realtime" a time-constraint policy of
+the device's period (what Core Audio's I/O threads use), "default" leaves the thread alone. */
+static const char *audio_worker_set_priority(void)
+{
+	char mode[24];
+
+	host_config_string("audio.worker_priority", "interactive", mode, sizeof(mode));
+	if (!strcmp(mode, "default"))
+		return "default";
+	if (!strcmp(mode, "realtime"))
+	{
+		mach_timebase_info_data_t timebase;
+		thread_time_constraint_policy_data_t policy;
+		double to_absolute;
+
+		mach_timebase_info(&timebase);
+		to_absolute = 1.0e6 * (double)timebase.denom / (double)timebase.numer; /* absolute units a millisecond */
+		policy.period = (uint32_t)(10.667 * to_absolute);
+		policy.computation = (uint32_t)(2.0 * to_absolute);
+		policy.constraint = (uint32_t)(8.0 * to_absolute);
+		policy.preemptible = 1;
+		{
+			mach_port_t self = mach_thread_self();
+			kern_return_t result = thread_policy_set(self, THREAD_TIME_CONSTRAINT_POLICY, (thread_policy_t)&policy,
+				THREAD_TIME_CONSTRAINT_POLICY_COUNT);
+
+			mach_port_deallocate(mach_task_self(), self);
+			return result == KERN_SUCCESS ? "realtime" : "realtime refused";
+		}
+	}
+	if (strcmp(mode, "interactive"))
+		host_logf(HOST_LOG_WARN, "audio.worker_priority \"%s\" is not default, interactive or realtime; using interactive", mode);
+	return host_thread_interactive() == 0 ? "interactive" : "interactive refused";
+}
+
 static void *audio_thread(void *context)
 {
 	struct audio_binding *binding = context;
@@ -873,6 +912,7 @@ static void *audio_thread(void *context)
 	/* (named, so per-thread CPU lists show the game's sound mixing under its own name) */
 	pthread_setname_np("audio mix");
 	audio_worker_binding = binding;
+	host_logf(HOST_LOG_INFO, "audio mix worker priority: %s", audio_worker_set_priority());
 	pthread_mutex_lock(&binding->lock);
 	for (;;)
 	{

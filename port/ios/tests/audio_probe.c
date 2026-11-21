@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #ifndef HOST_SDL_SOURCE
 #define HOST_SDL_SOURCE "../host/host_sdl.c"
@@ -11,6 +12,14 @@
 
 static int panel_open;
 int host_window_up(void) { return 0; }
+int host_thread_interactive(void) { return pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0); }
+/* The worker's priority mode comes from the environment so a run can exercise each one. */
+void host_config_string(const char *name, const char *fallback, char *out, size_t size)
+{
+	const char *value = !strcmp(name, "audio.worker_priority") ? getenv("HALO_AUDIO_WORKER_PRIORITY") : NULL;
+
+	snprintf(out, size, "%s", value ? value : fallback);
+}
 int host_audio_output_up(void) { return panel_open; }
 
 static unsigned produced;

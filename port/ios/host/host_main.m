@@ -320,7 +320,7 @@ static void *game_thread_main(void *context) {
         struct game_thread_start start = *(struct game_thread_start *)context;
         free(context);
         if (pthread_setname_np("game") ||
-            pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0))
+            host_thread_interactive())
             host_crash("could not configure game thread");
         if (host_crash_thread_install()) host_crash("could not install game crash stack");
         host_guest_on_stack(start.entry, start.boot, start.arena, start.stack);
