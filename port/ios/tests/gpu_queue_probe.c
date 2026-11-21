@@ -19,8 +19,9 @@ static uint64_t hashes[MAXIMUM_FRAMES];
 static uint32_t frame_calls[MAXIMUM_FRAMES];
 static unsigned long frames_seen;
 
-static void record(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread)
+static void record(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
 {
+	(void)parts;
 	(void)second_thread;
 	if (frame < MAXIMUM_FRAMES)
 	{

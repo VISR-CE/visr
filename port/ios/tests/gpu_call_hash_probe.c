@@ -16,8 +16,9 @@ static uint64_t last_hash;
 static uint32_t last_calls;
 static int last_second_thread;
 
-static void record(unsigned long frame_number, uint32_t frame_calls, uint64_t frame_hash, int other_thread)
+static void record(unsigned long frame_number, uint32_t frame_calls, uint64_t frame_hash, int other_thread, const char *parts)
 {
+	(void)parts;
 	(void)frame_number;
 	last_hash = frame_hash;
 	last_calls = frame_calls;

@@ -24,8 +24,11 @@ they change nothing in the backend, and a queue may answer them from a cache.
 /* frame counts the presents since the wrapper was installed; calls is the
 commands hashed into hash since the last present (the present included);
 second_thread is 1 on the first frame a command came from a thread other than
-the one that sent the first command */
-typedef void (*gpu_call_hash_report)(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread);
+the one that sent the first command; parts lists each operation that ran (and a
+draw's constants and uniforms apart from its packet) as name:hash, so two runs
+that part can be traced to the operation that differs */
+typedef void (*gpu_call_hash_report)(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread,
+	const char *parts);
 
 /* chosen, hashed: the returned table calls chosen's functions */
 const struct gpu_backend *gpu_call_hash_wrap(const struct gpu_backend *chosen, gpu_call_hash_report report);

@@ -12,6 +12,7 @@ one does not compile.
 
 #include "gpu_call_hash.h"
 #include <pthread.h>
+#include <stdio.h>
 #include <string.h>
 
 enum
@@ -21,7 +22,20 @@ enum
 	GPU_OPERATIONS(OPERATION_NUMBER_F, OPERATION_NUMBER_P)
 #undef OPERATION_NUMBER_F
 #undef OPERATION_NUMBER_P
-	OPERATION_COUNT
+	OPERATION_COUNT,
+	/* parts of a draw's hash, apart from its packet (OPERATION_draw) */
+	PART_DRAW_CONSTANTS = OPERATION_COUNT,
+	PART_DRAW_UNIFORMS,
+	PARTS
+};
+
+static const char *const part_names[PARTS] = {
+#define OPERATION_NAME_F(type, name, parameters, arguments) #name,
+#define OPERATION_NAME_P(name, parameters, arguments) #name,
+	GPU_OPERATIONS(OPERATION_NAME_F, OPERATION_NAME_P)
+#undef OPERATION_NAME_F
+#undef OPERATION_NAME_P
+	"draw_constants", "draw_uniforms",
 };
 
 static const struct gpu_backend *next;
@@ -29,6 +43,10 @@ static struct gpu_backend hashed;
 static gpu_call_hash_report report;
 static uint64_t hash;
 static uint32_t calls;
+/* each operation's (and draw part's) own hash this frame, to tell which one two runs part on */
+static uint64_t parts[PARTS];
+static uint32_t part_calls[PARTS];
+static unsigned part;
 static unsigned long frame;
 static pthread_t owner;
 static int owner_known, second_thread, second_thread_reported;
@@ -43,6 +61,9 @@ static inline void mix64(uint64_t value)
 	hash ^= value;
 	hash *= PRIME;
 	hash ^= hash >> 29;
+	parts[part] ^= value;
+	parts[part] *= PRIME;
+	parts[part] ^= parts[part] >> 29;
 }
 
 static void mix_bytes(const void *data, uint64_t size)
@@ -87,6 +108,8 @@ static void command(unsigned operation)
 	else if (!pthread_equal(owner, self))
 		second_thread = 1;
 	calls++;
+	part = operation;
+	part_calls[operation]++;
 	mix64(0xc0de0000ull | operation);
 }
 
@@ -235,8 +258,10 @@ static uint32_t hashed_draw(const struct gpu_draw *draw, const struct gpu_consta
 {
 	command(OPERATION_draw);
 	mix_bytes(draw, sizeof(*draw));
+	part = PART_DRAW_CONSTANTS;
 	mix64(constants->serial);
 	mix_bytes(constants->c, sizeof(constants->c));
+	part = PART_DRAW_UNIFORMS;
 	mix_bytes(uniforms, sizeof(*uniforms));
 	return next->draw(draw, constants, uniforms);
 }
@@ -325,14 +350,24 @@ static void hashed_frame_start(void)
 static void frame_end(void)
 {
 	int report_second_thread = second_thread && !second_thread_reported;
+	char text[PARTS * 40];
+	size_t length = 0;
+	unsigned index;
 
 	if (report_second_thread)
 		second_thread_reported = 1;
+	text[0] = 0;
+	for (index = 0; index < PARTS && length < sizeof(text); index++)
+		if (part_calls[index] || (index >= OPERATION_COUNT && part_calls[OPERATION_draw]))
+			length += (size_t)snprintf(text + length, sizeof(text) - length, "%s%s:%08x", length ? " " : "",
+				part_names[index], (unsigned)(parts[index] ^ parts[index] >> 32));
 	if (report)
-		report(frame, calls, hash, report_second_thread);
+		report(frame, calls, hash, report_second_thread, text);
 	frame++;
 	calls = 0;
 	hash = 0;
+	memset(parts, 0, sizeof(parts));
+	memset(part_calls, 0, sizeof(part_calls));
 }
 
 static uint32_t hashed_present(gpu_texture back_buffer)
@@ -424,6 +459,8 @@ const struct gpu_backend *gpu_call_hash_wrap(const struct gpu_backend *chosen, g
 	hash = 0;
 	calls = 0;
 	frame = 0;
+	memset(parts, 0, sizeof(parts));
+	memset(part_calls, 0, sizeof(part_calls));
 	owner_known = second_thread = second_thread_reported = 0;
 	/* (a backend without an operation keeps it missing: frame_context is optional) */
 #define INSTALL_F(type, name, parameters, arguments) if (chosen->name) hashed.name = hashed_##name;

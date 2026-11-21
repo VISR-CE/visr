@@ -605,11 +605,11 @@ static const struct gpu_backend *capture_wrap(const struct gpu_backend *chosen, 
 #endif
 
 /* debug.gpu_call_hash (gpu_call_hash.h): one line a frame, next to the backend so the hash sees what it receives */
-static void call_hash_log(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread)
+static void call_hash_log(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
 {
 	if (second_thread)
 		platform_log("gpu call hash: a command came from a second thread by frame %lu", frame);
-	platform_log("gpu call hash: frame %lu calls %u hash %016llx", frame, calls, (unsigned long long)hash);
+	platform_log("gpu call hash: frame %lu calls %u hash %016llx %s", frame, calls, (unsigned long long)hash, parts);
 }
 
 static const struct gpu_backend *call_hash_wrap(const struct gpu_backend *chosen)
