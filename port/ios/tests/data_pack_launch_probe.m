@@ -40,6 +40,8 @@ void host_perf_hooks_present_begin(void) {}
 void host_perf_hooks_present_end(void) {}
 void host_external_snapshot(struct host_external_snapshot *out) { memset(out, 0, sizeof(*out)); }
 void host_frame_counter_show(unsigned long frame) { (void)frame; }
+void host_thread_cpu_install(void) {}
+void host_thread_cpu_frame(void) {}
 void host_benchmark_frame(double interval, double cpu, double gpu, double refresh, double simulation, double render,
     double translation, int ticks) {
     (void)interval; (void)cpu; (void)gpu; (void)refresh; (void)simulation; (void)render; (void)translation; (void)ticks;
