@@ -8171,26 +8171,6 @@ static long ui_mouse_distance_squared(
 
 /* the target drawn last (so on top, and the innermost) under a point; with a
 radius (a finger), when none contains the point, the nearest within it */
-/* port: debug.pointer_log's second line for a tap: what it hit (the kind of target, the widget and the button it
-presses), so a tap that went back can be told from one that opened a row: the BACK chevron and a screen's B legend
-are button targets that press B, a swipe in from the left edge is "back swipe" */
-static void ui_mouse_log_dispatch(
-	char const *what,
-	struct ui_mouse_target const *target)
-{
-	extern int config_boolean(char const *);
-	extern void platform_log(char const *, ...);
-
-	if (!config_boolean("debug.pointer_log"))
-		return;
-	if (!target)
-		platform_log("pointer: %s", what);
-	else
-		platform_log("pointer: %s kind %d widget %s button %d bounds %d,%d-%d,%d", what, (int)target->kind,
-			target->widget && target->widget->name ? target->widget->name : "(none)", (int)target->button_index,
-			target->bounds.x0, target->bounds.y0, target->bounds.x1, target->bounds.y1);
-}
-
 static struct ui_mouse_target *ui_mouse_target_at(
 	short x,
 	short y)
@@ -8787,6 +8767,26 @@ static void ui_carousel_activate(struct ui_mouse_target *target)
 	ui_carousel_rebind(list);
 	halo_ui_drag_glide(&state->drag, state->first * HALO_UI_CAROUSEL_PITCH);
 	ui_mouse_press(_gamepad_analog_button_a);
+}
+
+/* port: debug.pointer_log's second line for a tap: what it hit (the kind of target, the widget and the button it
+presses), so a tap that went back can be told from one that opened a row: the BACK chevron and a screen's B legend
+are button targets that press B, a swipe in from the left edge is "back swipe" */
+static void ui_mouse_log_dispatch(
+	char const *what,
+	struct ui_mouse_target const *target)
+{
+	extern int config_boolean(char const *);
+	extern void platform_log(char const *, ...);
+
+	if (!config_boolean("debug.pointer_log"))
+		return;
+	if (!target)
+		platform_log("pointer: %s", what);
+	else
+		platform_log("pointer: %s kind %d widget %s button %d bounds %d,%d-%d,%d", what, (int)target->kind,
+			target->widget && target->widget->name ? target->widget->name : "(none)", (int)target->button_index,
+			target->bounds.x0, target->bounds.y0, target->bounds.x1, target->bounds.y1);
 }
 
 static void ui_widgets_process_mouse(

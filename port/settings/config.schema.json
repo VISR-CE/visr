@@ -2884,7 +2884,7 @@
         "pointer_log": {
           "type": "boolean",
           "default": false,
-          "description": "Log one line per menu tap or click: the surface's size in points, the drawable's in pixels, the tap there and where it landed in menu units.",
+          "description": "Log one line per menu tap or click: the surface's size in points, the drawable's in pixels, the tap there and where it landed in menu units, then one line for what the tap hit (target kind, widget, button, bounds) or a back swipe.",
           "x-environment": "HALO_POINTER_LOG",
           "x-environment-style": "value",
           "x-platforms": [
