@@ -282,8 +282,27 @@ static const void *take_bytes(struct reader *reader, uint32_t *size)
 
 /* ---------- draws: the packet as the blocks that changed since the previous draw's */
 
-enum { DRAW_BLOCK = 32, DRAW_BLOCKS = (sizeof(struct gpu_draw) + DRAW_BLOCK - 1) / DRAW_BLOCK };
+enum
+{
+	DRAW_BLOCK = 32,
+	DRAW_BLOCKS = (sizeof(struct gpu_draw) + DRAW_BLOCK - 1) / DRAW_BLOCK,
+	UNIFORM_BLOCKS = (sizeof(struct gpu_uniforms) + DRAW_BLOCK - 1) / DRAW_BLOCK,
+};
 _Static_assert(DRAW_BLOCKS <= 32, "a draw's changed blocks no longer fit one mask word");
+_Static_assert(UNIFORM_BLOCKS <= 32, "the uniforms' changed blocks no longer fit one mask word");
+
+/* the blocks of now that differ from copy (all of them when copy is not known yet), which copy then takes */
+static uint32_t blocks_changed(const unsigned char *now, unsigned char *copy, unsigned count, int known)
+{
+	uint32_t mask = 0;
+	unsigned block;
+
+	for (block = 0; block < count; block++)
+		if (!known || memcmp(now + block * DRAW_BLOCK, copy + block * DRAW_BLOCK, DRAW_BLOCK))
+			mask |= 1u << block;
+	memcpy(copy, now, count * DRAW_BLOCK);
+	return mask;
+}
 
 /* the producer's copies of what the consumer holds */
 static struct
@@ -294,6 +313,8 @@ static struct
 	uint64_t constants_serial;
 	const struct gpu_uniforms *uniforms;
 	uint32_t uniforms_serial;
+	_Alignas(16) unsigned char uniform_blocks[UNIFORM_BLOCKS * DRAW_BLOCK];
+	int uniforms_known;
 } sent;
 
 /* the consumer's: the packet, and the store and uniforms the backend is handed */
@@ -301,7 +322,11 @@ static struct
 {
 	_Alignas(16) unsigned char draw[DRAW_BLOCKS * DRAW_BLOCK];
 	struct gpu_constant_store store;
-	struct gpu_uniforms uniforms;
+	union
+	{
+		struct gpu_uniforms uniforms;
+		unsigned char blocks[UNIFORM_BLOCKS * DRAW_BLOCK];
+	} uniforms;
 } held;
 
 enum { DRAW_CONSTANTS = 1, DRAW_ALL_CONSTANTS = 2, DRAW_UNIFORMS = 4 };
@@ -317,21 +342,15 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	const struct gpu_uniforms *uniforms)
 {
 	_Alignas(16) unsigned char packet[DRAW_BLOCKS * DRAW_BLOCK];
-	uint32_t mask = 0, blocks = 0, flags = 0, registers = 0, size, block;
+	uint32_t mask, blocks, flags = 0, registers = 0, size, block, uniform_mask = 0;
 	uint8_t changed[GPU_CONSTANT_COUNT];
 	uint64_t seen[(GPU_CONSTANT_COUNT + 63) / 64] = {0};
 	struct writer writer;
 
 	memcpy(packet, draw, sizeof(*draw));
 	memset(packet + sizeof(*draw), 0, sizeof(packet) - sizeof(*draw));
-	for (block = 0; block < DRAW_BLOCKS; block++)
-		if (!sent.draw_known ||
-			memcmp(packet + block * DRAW_BLOCK, sent.draw + block * DRAW_BLOCK, DRAW_BLOCK))
-		{
-			mask |= 1u << block;
-			blocks++;
-		}
-	memcpy(sent.draw, packet, sizeof(packet));
+	mask = blocks_changed(packet, sent.draw, DRAW_BLOCKS, sent.draw_known);
+	blocks = (uint32_t)__builtin_popcount(mask);
 	sent.draw_known = 1;
 
 	/* the registers that changed since the last draw, from the store's log while it still reaches back that far */
@@ -358,8 +377,16 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 		registers = GPU_CONSTANT_COUNT;
 	sent.store = constants;
 	sent.constants_serial = constants->serial;
+	/* uniforms: the blocks that changed, when the serial says anything did */
 	if (uniforms != sent.uniforms || uniforms->serial != sent.uniforms_serial)
+	{
+		_Alignas(16) unsigned char now[UNIFORM_BLOCKS * DRAW_BLOCK] = {0};
+
+		memcpy(now, uniforms, sizeof(*uniforms));
+		uniform_mask = blocks_changed(now, sent.uniform_blocks, UNIFORM_BLOCKS, sent.uniforms_known);
+		sent.uniforms_known = 1;
 		flags |= DRAW_UNIFORMS;
+	}
 	sent.uniforms = uniforms;
 	sent.uniforms_serial = uniforms->serial;
 
@@ -367,7 +394,7 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	if (flags & DRAW_CONSTANTS)
 		size += 16 + registers * (uint32_t)sizeof(struct register_entry);
 	if (flags & DRAW_UNIFORMS)
-		size += (uint32_t)sizeof(*uniforms);
+		size += 8 + (uint32_t)__builtin_popcount(uniform_mask) * DRAW_BLOCK;
 	writer.at = record_begin(OPERATION_draw, size);
 	put(&writer, &mask, 4);
 	put(&writer, &flags, 4);
@@ -398,7 +425,12 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	}
 	if (flags & DRAW_UNIFORMS)
 	{
-		put(&writer, uniforms, sizeof(*uniforms));
+		uint64_t word = uniform_mask;
+
+		put(&writer, &word, 8);
+		for (block = 0; block < UNIFORM_BLOCKS; block++)
+			if (uniform_mask & 1u << block)
+				put(&writer, sent.uniform_blocks + block * DRAW_BLOCK, DRAW_BLOCK);
 		statistics.uniforms++;
 	}
 	statistics.draws++;
@@ -653,8 +685,14 @@ static void consume_draw(struct reader *reader)
 		held.store.serial = serial;
 	}
 	if (flags & DRAW_UNIFORMS)
-		memcpy(&held.uniforms, take(reader, sizeof(held.uniforms)), sizeof(held.uniforms));
-	draw_result = next->draw((const struct gpu_draw *)held.draw, &held.store, &held.uniforms);
+	{
+		uint32_t uniform_mask = (uint32_t)TAKE(reader, uint64_t);
+
+		for (block = 0; block < UNIFORM_BLOCKS; block++)
+			if (uniform_mask & 1u << block)
+				memcpy(held.uniforms.blocks + block * DRAW_BLOCK, take(reader, DRAW_BLOCK), DRAW_BLOCK);
+	}
+	draw_result = next->draw((const struct gpu_draw *)held.draw, &held.store, &held.uniforms.uniforms);
 }
 
 static void consume_record(uint32_t operation, const unsigned char *payload)
@@ -761,8 +799,6 @@ static void consume_record(uint32_t operation, const unsigned char *payload)
 /* everything published so far */
 static void consume(void)
 {
-	uint64_t started = timing ? mach_absolute_time() : 0;
-
 	for (;;)
 	{
 		uint32_t published = atomic_load_explicit(&read_chunk->published, memory_order_acquire);
@@ -780,11 +816,18 @@ static void consume(void)
 			chunk_done(finished);
 			continue;
 		}
-		consume_record(header->operation, (const unsigned char *)(header + 1));
+		/* (a present's time is mostly the pacer's wait for the display, not encoding: left out) */
+		if (timing && header->operation != OPERATION_present && header->operation != OPERATION_present_stereo)
+		{
+			uint64_t started = mach_absolute_time();
+
+			consume_record(header->operation, (const unsigned char *)(header + 1));
+			statistics.consumed_ticks += mach_absolute_time() - started;
+		}
+		else
+			consume_record(header->operation, (const unsigned char *)(header + 1));
 		read_offset += (uint32_t)sizeof(*header) + header->size;
 	}
-	if (timing)
-		statistics.consumed_ticks += mach_absolute_time() - started;
 }
 
 const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, int queue_mode, int queue_timing,

@@ -33,7 +33,7 @@ enum { GPU_QUEUE_OFF, GPU_QUEUE_INLINE };
 int gpu_queue_mode_parse(const char *value);
 
 /* chosen, behind the queue; log takes a finished line (no newline). timing: also measure the time the consumer
-spends in the backend (two clock reads a record) */
+spends in the backend, presents left out (two clock reads a record) */
 const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, int mode, int timing,
 	void (*log)(const char *line));
 
