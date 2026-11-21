@@ -2936,6 +2936,18 @@ space above it beyond the list's closest pitch). A row of the map's own is chang
 name stay what the game's handlers and the patch's own numbering look it up by: its height becomes the pitch, its
 background the tall art (the first row's the top art, where given), and its content moves down by its kind's
 shift. A row of ours is tall already. Done once for a row that several lists share. */
+/* the row's definition if the patch made it as a copy of a map row (a <row> or <replace> without widget=), whose
+tag is not yet in the map's tags; NULL for the map's own rows and for our widgets */
+static struct ui_widget_definition *patch_row_copy(struct patch_work *work, long row)
+{
+	for (long made = 0; made < work->made_count; made++)
+	{
+		if (work->made_definitions[made] == work->definitions[row])
+			return work->made_definitions[made];
+	}
+	return NULL;
+}
+
 static boolean patch_rows_tall(struct patch_work *work)
 {
 	struct halo_menu_patch const *patch = work->patch;
@@ -2971,10 +2983,15 @@ static boolean patch_rows_tall(struct patch_work *work)
 		short gap = row > 0 && kind->keep_gaps && y[row] - y[row - 1] > closest ? (short)(y[row] - y[row - 1] - closest) : 0;
 		short top = row > 0 ? (short)(patch_row_y(work, row - 1) + MENU_COMFORTABLE_PITCH + gap) : first;
 
+		struct ui_widget_definition *definition = patch_row_copy(work, row);
+
 		work->rows[row].vertical_offset = (short)(top - work->list_y - work->definitions[row]->bounds.y0);
-		if (work->map_tags[row] != NONE && !pc_menu_row_tall(tag))
+		/* (the map's own row, once, where several lists show it; a copy made from one; never one of our widgets,
+		which are tall already) */
+		if (!definition && work->map_tags[row] == tag && tag != NONE && !pc_menu_row_tall(tag))
+			definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+		if (definition)
 		{
-			struct ui_widget_definition *definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
 			struct ui_widget_child_reference *parts = definition->child_widgets.address;
 			long part;
 

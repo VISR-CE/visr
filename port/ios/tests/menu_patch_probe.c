@@ -78,7 +78,11 @@ static char const patches_xml[] =
 	"</patch>\n"
 	/* a picture list (text rows placed by their own bounds, the last after a gap) made tall in place */
 	"<patch list=\"ui\\shell\\pictures\\picture_list\" screen=\"ui\\shell\\pictures\\picture_screen\""
-	" footer=\"414\" rows=\"tall\" row_kind=\"picture\" tall_art=\"xbox/test_picture\" tall_top_art=\"xbox/test_cached\"/>\n"
+	" footer=\"414\" rows=\"tall\" row_kind=\"picture\" tall_art=\"xbox/test_picture\" tall_top_art=\"xbox/test_cached\">\n"
+	/* (copies of the map's rows: one in a row's place, one added after it) */
+	"  <replace child=\"ui\\shell\\pictures\\picture_item_1\" name=\"picture_replaced\" text=\"R\" open=\"xbox/test_screen\"/>\n"
+	"  <row after=\"picture_replaced\" name=\"picture_added\" text=\"A\" open=\"xbox/test_screen\"/>\n"
+	"</patch>\n"
 	"<patch list=\"ui\\shell\\adopt\\adopt_other_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
 	"  <row after=\"ui\\shell\\adopt\\adopt_other_item\" name=\"adopted_missing\" widget=\"xbox/no_such_screen\"/>\n"
 	"</patch>\n"
@@ -1064,16 +1068,19 @@ static void check_apple(boolean tvos)
 			first the top art), and their text moves down by the kind's shift */
 			long art = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\test_picture");
 			long top_art = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\test_cached");
-			short const tops[4] = { 78, 117, 156, 217 };
+			short const tops[5] = { 78, 117, 156, 195, 256 };
 			long row;
 
-			check(child_count(pic_list) == 4, "the picture list keeps its four rows (%ld)", child_count(pic_list));
-			for (row = 0; row < 4 && child_count(pic_list) == 4; row++)
+			check(child_count(pic_list) == 5, "the picture list has its four rows and the one added (%ld)",
+				child_count(pic_list));
+			for (row = 0; row < 5 && child_count(pic_list) == 5; row++)
 			{
 				struct ui_widget_child_reference const *placed = &children_of(pic_list)[row];
 				struct ui_widget_definition const *definition = definition_of(placed->widget_tag.index);
 
-				check(placed->widget_tag.index == pic_rows[row], "a tall picture row keeps the map's tag (row %ld)", row);
+				/* (the replaced and the added rows are copies of the map's, tall as well) */
+				check((row == 1 || row == 2) != (placed->widget_tag.index == pic_rows[row < 2 ? row : row - 1]),
+					"a tall picture row keeps the map's tag, a copy has its own (row %ld)", row);
 				check(placed->vertical_offset + definition->bounds.y0 == tops[row],
 					"a tall picture row stands where the pitch and the map's gap put it (row %ld: %d)", row,
 					placed->vertical_offset + definition->bounds.y0);
@@ -1081,7 +1088,7 @@ static void check_apple(boolean tvos)
 					definition->bounds.y1 - definition->bounds.y0);
 				check(definition->background_bitmap.index == (row ? art : top_art) && art != NONE && top_art != NONE,
 					"a tall picture row draws the tall art, the first the top art (row %ld)", row);
-				check(definition->vertical_offset == 3 + MENU_PICTURE_ROW_SHIFT,
+				check(definition && definition->vertical_offset == 3 + MENU_PICTURE_ROW_SHIFT,
 					"a tall picture row's text moves down by the kind's shift (%d)", definition->vertical_offset);
 				check(pc_menu_row_tall(placed->widget_tag.index), "the engine is told the picture row is tall");
 			}
@@ -1125,8 +1132,9 @@ static void check_apple(boolean tvos)
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
 	/* Five widgets, two bitmaps, spinner strings, the two PC description lists and the language file's two widgets and list (5 tags) precede patch tags. */
-	counted = 8 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 2) + 2 + 5;
-	used = 8 + 2 * (3 + 4 + 1 + 2) + 2 + 5;
+	/* (the last 2 rows: the picture list's copies, one replacing a row and one added) */
+	counted = 8 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 2 + 2) + 2 + 5;
+	used = 8 + 2 * (3 + 4 + 1 + 2 + 2) + 2 + 5;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
