@@ -42,6 +42,10 @@ def test_scripted_x_and_y_emit_analog_buttons_for_exact_press_window() -> None:
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include "FOCUS_HEADER"
+void platform_log(const char *format, ...) { (void)format; }
+int menu_test_focus_text(char *text, int size) { (void)text; (void)size; return 0; }
 enum { XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y };
 enum { XINPUT_GAMEPAD_START = 1, XINPUT_GAMEPAD_DPAD_UP = 2, XINPUT_GAMEPAD_DPAD_DOWN = 4,
        XINPUT_GAMEPAD_DPAD_LEFT = 8, XINPUT_GAMEPAD_DPAD_RIGHT = 16, XINPUT_GAMEPAD_BACK = 32 };
@@ -51,8 +55,9 @@ void platform_menu_activity(int pad, float dx, float dy, int motion) {
 }
 typedef struct { unsigned short wButtons; unsigned char bAnalogButtons[8]; } XINPUT_GAMEPAD;
 #define CHECK(condition) do { if (!(condition)) { fprintf(stderr, "shortcut line %d: %s\n", __LINE__, #condition); exit(1); } } while (0)
-''' + production + r'''
+'''.replace("FOCUS_HEADER", str(ROOT / "port/linux/include/test_focus_walk.h")) + production + r'''
 int main(void) {
+    (void)test_input_focus_walks;   /* the focus walks live in the same region; their own probe is test_focus_walk_probe.c */
     test_input_presses_parse("x@8 y@16 a@24 b@32 start@40 up@48 down@56 left@64 right@72");
     CHECK(test_press_count == 9);
     for (unsigned long poll = 0; poll < 80; poll++) {
