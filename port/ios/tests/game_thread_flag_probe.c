@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     assert(peeps == (expected ? 4 : 0));
     /* class: a read on the game thread never relies on the main timer's pump */
     assert(controller_refreshes == (expected ? 1 : 0));
-    assert(controller_pump_notes == pumps);
+    assert(controller_pump_notes == (expected ? pumps : polls));
     assert(config_reads == 1);
     assert(window_refreshes == pumps);
     puts("PASS: cached game-thread flag; legacy poll or main pump and peep drain");

@@ -586,7 +586,12 @@ static int synthetic_key(SDL_Event *event)
 static int next_event(SDL_Event *event)
 {
 	if (!host_game_thread_enabled())
-		return SDL_PollEvent(event);
+	{
+		int more = SDL_PollEvent(event);
+
+		host_controller_refreshed();
+		return more;
+	}
 	/* Phase 4 pumps from the main run loop while the game drains events. */
 	if (host_on_main_thread())
 		host_event_pump();

@@ -320,8 +320,11 @@ static void text_prompt_dismiss(UIAlertController *alert) {
 /* what asks the app to end while the dialog is up, logged to find out */
 static bool SDLCALL text_prompt_watch(void *userdata,SDL_Event *event) {
     (void)userdata;
-    if(text_prompt_up() && (event->type==SDL_EVENT_QUIT || event->type==SDL_EVENT_TERMINATING ||
-        event->type==SDL_EVENT_WINDOW_CLOSE_REQUESTED || event->type==SDL_EVENT_WILL_ENTER_BACKGROUND))
+    /* watchers run on the thread that pushes the event, and the game thread pushes gamepad events
+       (host_controller_refresh): test the type before touching dialog state, which stays on main */
+    if((event->type==SDL_EVENT_QUIT || event->type==SDL_EVENT_TERMINATING ||
+        event->type==SDL_EVENT_WINDOW_CLOSE_REQUESTED || event->type==SDL_EVENT_WILL_ENTER_BACKGROUND) &&
+        text_prompt_up())
         host_logf(HOST_LOG_INFO,"keyboard: SDL event %d while the text dialog is up",(int)event->type);
     return true;
 }
