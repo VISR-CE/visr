@@ -1015,6 +1015,8 @@ static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
 
 		if (!walk->finished && poll >= walk->start && poll >= walk->hold_until && poll >= walk->next_look)
 			have = menu_test_focus_text(seen, sizeof(seen));
+		if (have)   /* every row the walk looks at, so a failed or a new walk can be read off the log */
+			platform_log("walk: focus %s: the focused row is \"%s\"", walk->label, seen);
 		action = test_focus_walk_poll(walk, poll, have ? seen : NULL);
 		if (action == TEST_FOCUS_DOWN)
 			pad->wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
