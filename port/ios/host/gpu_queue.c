@@ -329,6 +329,10 @@ static struct
 	} uniforms;
 } held;
 
+/* a draw record: its changed-block mask and flags, the changed packet blocks, then with DRAW_CONSTANTS either the
+whole store (DRAW_ALL_CONSTANTS: values, serials and log as they are, so a reader that follows the log finds what
+the game's store would give it) or a count, the serial and one register_entry per register changed, then with
+DRAW_UNIFORMS a block mask and the changed uniform blocks */
 enum { DRAW_CONSTANTS = 1, DRAW_ALL_CONSTANTS = 2, DRAW_UNIFORMS = 4 };
 
 struct register_entry
@@ -373,8 +377,6 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 			}
 		}
 	}
-	if (flags & DRAW_ALL_CONSTANTS)
-		registers = GPU_CONSTANT_COUNT;
 	sent.store = constants;
 	sent.constants_serial = constants->serial;
 	/* uniforms: the blocks that changed, when the serial says anything did */
@@ -391,7 +393,9 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	sent.uniforms_serial = uniforms->serial;
 
 	size = 8 + blocks * DRAW_BLOCK;
-	if (flags & DRAW_CONSTANTS)
+	if (flags & DRAW_ALL_CONSTANTS)
+		size += (uint32_t)sizeof(*constants);
+	else if (flags & DRAW_CONSTANTS)
 		size += 16 + registers * (uint32_t)sizeof(struct register_entry);
 	if (flags & DRAW_UNIFORMS)
 		size += 8 + (uint32_t)__builtin_popcount(uniform_mask) * DRAW_BLOCK;
@@ -401,7 +405,13 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	for (block = 0; block < DRAW_BLOCKS; block++)
 		if (mask & 1u << block)
 			put(&writer, packet + block * DRAW_BLOCK, DRAW_BLOCK);
-	if (flags & DRAW_CONSTANTS)
+	if (flags & DRAW_ALL_CONSTANTS)
+	{
+		put(&writer, constants, sizeof(*constants));
+		statistics.registers += GPU_CONSTANT_COUNT;
+		statistics.full_constants++;
+	}
+	else if (flags & DRAW_CONSTANTS)
 	{
 		uint64_t count = registers;
 		uint32_t entry;
@@ -411,7 +421,7 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 		for (entry = 0; entry < registers; entry++)
 		{
 			struct register_entry value;
-			uint32_t index = (flags & DRAW_ALL_CONSTANTS) ? entry : changed[entry];
+			uint32_t index = changed[entry];
 
 			value.index = index;
 			value.pad = 0;
@@ -420,8 +430,6 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 			put(&writer, &value, sizeof(value));
 		}
 		statistics.registers += registers;
-		if (flags & DRAW_ALL_CONSTANTS)
-			statistics.full_constants++;
 	}
 	if (flags & DRAW_UNIFORMS)
 	{
@@ -668,7 +676,9 @@ static void consume_draw(struct reader *reader)
 	for (block = 0; block < DRAW_BLOCKS; block++)
 		if (mask & 1u << block)
 			memcpy(held.draw + block * DRAW_BLOCK, take(reader, DRAW_BLOCK), DRAW_BLOCK);
-	if (flags & DRAW_CONSTANTS)
+	if (flags & DRAW_ALL_CONSTANTS)
+		memcpy(&held.store, take(reader, sizeof(held.store)), sizeof(held.store));
+	else if (flags & DRAW_CONSTANTS)
 	{
 		uint64_t count = TAKE(reader, uint64_t);
 		uint64_t serial = TAKE(reader, uint64_t);

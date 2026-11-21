@@ -2,7 +2,9 @@
 same bytes, in the same order, as one called directly. Plays the same made-up frames both ways into
 debug.gpu_call_hash (gpu_call_hash.c) and compares the frames' hashes: draws whose packets change a few bytes or
 many, constants changed one register at a time, in bursts past the store's change log and under a second store,
-uniforms, uploads bigger than a chunk, and every recorded operation. Built and run by tools/test_gpu_queue.py with
+uniforms, uploads bigger than a chunk, and every recorded operation. Then, behind the queue, a backend that reads
+the constants as gpu_gl.c does (following the store's change log) must see the game's values and serials on every
+draw. Built and run by tools/test_gpu_queue.py with
 gpu_call_hash.c and gpu_queue.c. */
 
 #include "gpu_call_hash.h"
@@ -79,6 +81,44 @@ static void store_set(struct gpu_constant_store *store, uint32_t index, float va
 	store->c[index][3] = -value;
 	store->serials[index] = ++store->serial;
 	store->log[store->serial % GPU_CONSTANT_LOG_SIZE] = (uint8_t)index;
+}
+
+/* ---------- a backend that reads the constants by their change log (gpu_gl.c's program_constants), checked
+against the store the draw came from */
+
+static const struct gpu_constant_store *front_store;
+static unsigned long stale_reads, stale_serials;
+
+static uint32_t log_reader_draw(const struct gpu_draw *draw, const struct gpu_constant_store *store,
+	const struct gpu_uniforms *uniforms_now)
+{
+	/* one reader per store the game draws from (a program's copy, as gpu_gl.c keeps one a program) */
+	static float copies[2][GPU_CONSTANT_COUNT][4];
+	static uint64_t serials_read[2];
+	static int known[2];
+	unsigned which = front_store == &stores[1], index;
+	uint64_t serial;
+
+	(void)draw, (void)uniforms_now;
+	if (known[which] && store->serial >= serials_read[which] &&
+		store->serial - serials_read[which] <= GPU_CONSTANT_COUNT)
+	{
+		for (serial = serials_read[which] + 1; serial <= store->serial; serial++)
+		{
+			index = store->log[serial % GPU_CONSTANT_LOG_SIZE];
+			memcpy(copies[which][index], store->c[index], sizeof(copies[which][index]));
+		}
+	}
+	else
+		for (index = 0; index < GPU_CONSTANT_COUNT; index++)
+			if (!known[which] || store->serial < serials_read[which] || store->serials[index] > serials_read[which])
+				memcpy(copies[which][index], store->c[index], sizeof(copies[which][index]));
+	known[which] = 1;
+	serials_read[which] = store->serial;
+	stale_reads += memcmp(copies[which], front_store->c, sizeof(copies[which])) != 0;
+	stale_serials += store->serial != front_store->serial ||
+		memcmp(store->serials, front_store->serials, sizeof(store->serials)) != 0;
+	return 1;
 }
 
 static unsigned char big[600 * 1024];
@@ -165,13 +205,18 @@ static void play(const struct gpu_backend *backend)
 			if (kind == 10)
 			{
 				store_set(&stores[1], random32() % GPU_CONSTANT_COUNT, (float)random32());
+				front_store = &stores[1];
 				backend->draw(&draw, &stores[1], &uniforms);
 			}
 			else
+			{
+				front_store = &stores[0];
 				backend->draw(&draw, &stores[0], &uniforms);
+			}
 			if (kind == 11)
 			{
 				backend->visibility_begin();
+				front_store = &stores[0];
 				backend->draw(&draw, &stores[0], &uniforms);
 				backend->visibility_end(1 + random32() % 100);
 				backend->visibility_result(1, &samples);
@@ -237,6 +282,16 @@ int main(void)
 		CHECK(front_hashes[frame] == hashes[frame] && hashes[frame] == direct[frame],
 			"frame %lu: in front of the queue %016llx, behind it %016llx", frame,
 			(unsigned long long)front_hashes[frame], (unsigned long long)hashes[frame]);
+
+	/* behind the queue, the constants a log-following backend reads, and the serials it is handed */
+	{
+		struct gpu_backend reader = fake;
+
+		reader.draw = log_reader_draw;
+		play(gpu_queue_wrap(&reader, GPU_QUEUE_INLINE, 0, quiet));
+		CHECK(!stale_reads && !stale_serials, "behind the queue %lu draws read stale constants by the change log "
+			"and %lu had other serials than the game's store", stale_reads, stale_serials);
+	}
 	puts("gpu_queue_probe: ok");
 	return 0;
 }
