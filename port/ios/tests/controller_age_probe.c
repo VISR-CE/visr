@@ -57,7 +57,8 @@ int main(void) {
     host_controller_age_sample();
     assert(logs == 1);
     assert(strstr(last_log, "controller age: reads "));
-    assert(strstr(last_log, "p99 1.00") || strstr(last_log, "p99 1.25"));
+    /* every read was exactly 1 ms old: bucket 4, reported at its upper edge */
+    assert(strstr(last_log, "p99 1.25"));
     puts("PASS: controller age is the time since the last update; a poll resets it");
     return 0;
 }
