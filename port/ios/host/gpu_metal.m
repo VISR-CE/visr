@@ -3815,6 +3815,12 @@ static uint32_t gpu_metal_compiles_outstanding(void)
 	return (uint32_t)atomic_load(&compiles_outstanding);
 }
 
+/* the frame's streams end (gpu.h's GPU_HOST_OPERATIONS); the transient sets still move at present, until the
+producer keeps a ring of its own (debug.encode_thread) */
+static void gpu_metal_stream_frame_end(void)
+{
+}
+
 /* ---------- compiling at map load (gpu.h; the front end's shader_list.c) */
 
 static uint32_t gpu_metal_warm_list_read(const char *name, char *text, uint32_t size)

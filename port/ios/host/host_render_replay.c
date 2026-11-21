@@ -177,7 +177,7 @@ static void replay_mutated(void *context, uint32_t operation, int refused)
 #define REPLAY_FUNCTION(type, name, parameters, arguments) .name = gpu_##name,
 #define REPLAY_PROCEDURE(name, parameters, arguments) .name = gpu_##name,
 /* gpu.h's entry points (host_gpu_dispatch.c), as the guest's imports reach them */
-static const struct gpu_backend entry_points = { GPU_FUNCTIONS(REPLAY_FUNCTION, REPLAY_PROCEDURE) };
+static const struct gpu_backend entry_points = { GPU_ENTRY_POINTS(REPLAY_FUNCTION, REPLAY_PROCEDURE) };
 
 void host_render_replay(void)
 {

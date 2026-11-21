@@ -53,7 +53,9 @@ void host_data_updates_healthy(void) { healthSignals++; [launchStore markHealthy
 static uint32_t Present(gpu_texture picture) { (void)picture; assert(healthSignals == 0); return 0; }
 static uint32_t PresentStereo(const struct gpu_stereo_present *picture) { (void)picture; assert(healthSignals == 0); return 0; }
 static void Context(uint32_t scene, uint32_t rate, const char *level) { (void)scene; (void)rate; (void)level; }
-static const struct gpu_backend renderer = {.present = Present, .present_stereo = PresentStereo, .frame_context = Context};
+static void StreamFrameEnd(void) {}
+static const struct gpu_backend renderer = {.present = Present, .present_stereo = PresentStereo, .frame_context = Context,
+    .stream_frame_end = StreamFrameEnd};
 
 static HostDataPackStore *Store(NSString *root, NSData *key) {
     return [[HostDataPackStore alloc] initWithRoot:root bundled:@"/bundled" kind:@"profiles" channel:@"stable"

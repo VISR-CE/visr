@@ -1835,6 +1835,11 @@ static uint32_t validate_compiles_outstanding(void)
 	return validation.backend.compiles_outstanding();
 }
 
+static void validate_stream_frame_end(void)
+{
+	validation.backend.stream_frame_end();
+}
+
 static void validate_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
 	validation.call = "initialize";

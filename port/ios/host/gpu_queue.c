@@ -623,7 +623,7 @@ static void queued_frame_context(uint32_t scene_class, uint32_t frame_rate, cons
 }
 
 /* ---------- the calls the producer makes itself, by class (gpu_operation.h): AT_ONCE and QUERY after the queue
-is consumed up to them, OTHER_THREAD (d3d8_device.c's vertical_blank_thread, which must not touch the queue) as
+is consumed up to them, PRODUCER at once (the backend keeps their state for the producer), OTHER_THREAD (d3d8_device.c's vertical_blank_thread, which must not touch the queue) as
 they come. RECORDED ones are written above. */
 
 #define QUEUED_F_RECORDED(type, name, parameters, arguments)
@@ -640,6 +640,10 @@ they come. RECORDED ones are written above. */
 		gpu_queue_drain(); \
 		direct->name arguments; \
 	}
+#define QUEUED_F_PRODUCER(type, name, parameters, arguments) \
+	static type queued_##name parameters { return direct->name arguments; }
+#define QUEUED_P_PRODUCER(name, parameters, arguments) \
+	static void queued_##name parameters { direct->name arguments; }
 #define QUEUED_F_QUERY QUEUED_F_AT_ONCE
 #define QUEUED_P_QUERY QUEUED_P_AT_ONCE
 #define QUEUED_F_OTHER_THREAD(type, name, parameters, arguments) \
@@ -649,7 +653,7 @@ they come. RECORDED ones are written above. */
 #define QUEUED_F(type, name, parameters, arguments) \
 	GPU_OPERATION_BY_CLASS(QUEUED_F_, name)(type, name, parameters, arguments)
 #define QUEUED_P(name, parameters, arguments) GPU_OPERATION_BY_CLASS(QUEUED_P_, name)(name, parameters, arguments)
-GPU_OPERATIONS(QUEUED_F, QUEUED_P)
+GPU_BACKEND_OPERATIONS(QUEUED_F, QUEUED_P)
 #undef QUEUED_F
 #undef QUEUED_P
 
@@ -848,11 +852,12 @@ static void consume_frame_context(struct reader *reader)
 #define CONSUMER_RECORDED(name) consume_##name
 #define CONSUMER_AT_ONCE(name) NULL
 #define CONSUMER_QUERY(name) NULL
+#define CONSUMER_PRODUCER(name) NULL
 #define CONSUMER_OTHER_THREAD(name) NULL
 #define CONSUMER_F(type, name, parameters, arguments) [GPU_OPERATION_##name] = GPU_OPERATION_BY_CLASS(CONSUMER_, name)(name),
 #define CONSUMER_P(name, parameters, arguments) [GPU_OPERATION_##name] = GPU_OPERATION_BY_CLASS(CONSUMER_, name)(name),
 static void (*const consumers[GPU_OPERATION_COUNT])(struct reader *reader) = {
-	GPU_OPERATIONS(CONSUMER_F, CONSUMER_P)
+	GPU_BACKEND_OPERATIONS(CONSUMER_F, CONSUMER_P)
 };
 #undef CONSUMER_F
 #undef CONSUMER_P
@@ -925,7 +930,7 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 	/* (a backend without an operation keeps it missing: frame_context is optional) */
 #define INSTALL_F(type, name, parameters, arguments) if (chosen->name) queued.name = queued_##name;
 #define INSTALL_P(name, parameters, arguments) if (chosen->name) queued.name = queued_##name;
-	GPU_OPERATIONS(INSTALL_F, INSTALL_P)
+	GPU_BACKEND_OPERATIONS(INSTALL_F, INSTALL_P)
 #undef INSTALL_F
 #undef INSTALL_P
 	return &queued;

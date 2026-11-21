@@ -106,6 +106,9 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	host_lifecycle_hold();
 	host_perf_hooks_context(1, metal_backend ? 1 : 2);
 	host_perf_hooks_present_begin();
+	/* (the frame's streams end before its present is written, in every queue mode, so stream handles are the same
+	with the queue off and on) */
+	wrapped_backend->stream_frame_end();
 	next_frame_due = wrapped_backend->present(back_buffer);
 	host_perf_hooks_present_end();
 	data_updates_presented();
@@ -138,6 +141,7 @@ static uint32_t present_stereo_wrapped(const struct gpu_stereo_present *present)
 	host_lifecycle_hold();
 	host_perf_hooks_context(1, metal_backend ? 1 : 2);
 	host_perf_hooks_present_begin();
+	wrapped_backend->stream_frame_end();
 	next_frame_due = wrapped_backend->present_stereo(present);
 	host_perf_hooks_present_end();
 	data_updates_presented();

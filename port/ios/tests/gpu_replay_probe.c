@@ -104,6 +104,7 @@ static void mock_compile_progress(uint32_t action, struct gpu_compile_progress *
 	progress->sealed = 1;
 }
 static uint32_t mock_compiles_outstanding(void) { return 0; }
+static void mock_stream_frame_end(void) {}
 static uint8_t mock_astc;
 static void mock_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {

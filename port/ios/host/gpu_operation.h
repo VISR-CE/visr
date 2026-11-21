@@ -1,7 +1,8 @@
 /*
 GPU_OPERATION.H
 
-Each operation in GPU_OPERATIONS (gpu.h) by number, and its class: how the
+Each operation in GPU_BACKEND_OPERATIONS (gpu.h: the guest's GPU_OPERATIONS, then
+the host's GPU_HOST_OPERATIONS) by number, and its class: how the
 encode queue (gpu_queue.c, debug.encode_thread) carries a call and whether the
 call hash (gpu_call_hash.c, debug.gpu_call_hash) mixes it. This list is the
 one place an operation's class is written down. An operation without a class
@@ -17,6 +18,10 @@ Classes:
   queue, once the queue is consumed up to it (creates, the streams, the
   anti-aliasing setup and the compile accounting). Hashed in front of the
   queue only.
+- PRODUCER: a call the producer makes itself, on the backend under the
+  queue, without waiting for the queue: the backend keeps the state it
+  touches (the stream sets) for the producer alone (stream_reserve, stream,
+  stream_frame_end). Hashed in front of the queue only.
 - QUERY: changes nothing in the backend, so a queue may answer it from a
   cache; made like an AT_ONCE call today. Never hashed.
 - OTHER_THREAD: another thread's call (vertical_blank_wait, from
@@ -33,7 +38,7 @@ enum gpu_operation
 {
 #define GPU_OPERATION_NUMBER_F(type, name, parameters, arguments) GPU_OPERATION_##name,
 #define GPU_OPERATION_NUMBER_P(name, parameters, arguments) GPU_OPERATION_##name,
-	GPU_OPERATIONS(GPU_OPERATION_NUMBER_F, GPU_OPERATION_NUMBER_P)
+	GPU_BACKEND_OPERATIONS(GPU_OPERATION_NUMBER_F, GPU_OPERATION_NUMBER_P)
 #undef GPU_OPERATION_NUMBER_F
 #undef GPU_OPERATION_NUMBER_P
 	GPU_OPERATION_COUNT
@@ -50,8 +55,8 @@ enum gpu_operation
 #define GPU_OPERATION_CLASS_texture_multisample RECORDED
 #define GPU_OPERATION_CLASS_buffer_create AT_ONCE
 #define GPU_OPERATION_CLASS_buffer_write RECORDED
-#define GPU_OPERATION_CLASS_stream_reserve AT_ONCE
-#define GPU_OPERATION_CLASS_stream AT_ONCE
+#define GPU_OPERATION_CLASS_stream_reserve PRODUCER
+#define GPU_OPERATION_CLASS_stream PRODUCER
 #define GPU_OPERATION_CLASS_shader_create AT_ONCE
 #define GPU_OPERATION_CLASS_clear RECORDED
 #define GPU_OPERATION_CLASS_draw RECORDED
@@ -77,6 +82,8 @@ enum gpu_operation
 #define GPU_OPERATION_CLASS_frame_context RECORDED
 #define GPU_OPERATION_CLASS_compiles_outstanding QUERY
 #define GPU_OPERATION_CLASS_compile_progress AT_ONCE
+/* GPU_HOST_OPERATIONS */
+#define GPU_OPERATION_CLASS_stream_frame_end PRODUCER
 
 #define GPU_OPERATION_PASTE_(a, b) a##b
 #define GPU_OPERATION_PASTE(a, b) GPU_OPERATION_PASTE_(a, b)
@@ -90,6 +97,7 @@ enum gpu_operation_class
 	GPU_CLASS_AT_ONCE,
 	GPU_CLASS_QUERY,
 	GPU_CLASS_OTHER_THREAD,
+	GPU_CLASS_PRODUCER,
 };
 
 static const unsigned char gpu_operation_classes[GPU_OPERATION_COUNT] = {
@@ -97,7 +105,7 @@ static const unsigned char gpu_operation_classes[GPU_OPERATION_COUNT] = {
 	[GPU_OPERATION_##name] = GPU_OPERATION_BY_CLASS(GPU_CLASS_, name),
 #define GPU_OPERATION_CLASS_ENTRY_P(name, parameters, arguments) \
 	[GPU_OPERATION_##name] = GPU_OPERATION_BY_CLASS(GPU_CLASS_, name),
-	GPU_OPERATIONS(GPU_OPERATION_CLASS_ENTRY_F, GPU_OPERATION_CLASS_ENTRY_P)
+	GPU_BACKEND_OPERATIONS(GPU_OPERATION_CLASS_ENTRY_F, GPU_OPERATION_CLASS_ENTRY_P)
 #undef GPU_OPERATION_CLASS_ENTRY_F
 #undef GPU_OPERATION_CLASS_ENTRY_P
 };
@@ -105,7 +113,7 @@ static const unsigned char gpu_operation_classes[GPU_OPERATION_COUNT] = {
 static const char *const gpu_operation_names[GPU_OPERATION_COUNT] = {
 #define GPU_OPERATION_NAME_F(type, name, parameters, arguments) [GPU_OPERATION_##name] = #name,
 #define GPU_OPERATION_NAME_P(name, parameters, arguments) [GPU_OPERATION_##name] = #name,
-	GPU_OPERATIONS(GPU_OPERATION_NAME_F, GPU_OPERATION_NAME_P)
+	GPU_BACKEND_OPERATIONS(GPU_OPERATION_NAME_F, GPU_OPERATION_NAME_P)
 #undef GPU_OPERATION_NAME_F
 #undef GPU_OPERATION_NAME_P
 };

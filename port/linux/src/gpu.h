@@ -819,9 +819,26 @@ its own functions. */
 	F(uint32_t, compiles_outstanding, (void), ()) \
 	P(compile_progress, (uint32_t action, struct gpu_compile_progress *progress), (action, progress))
 
-#define GPU_FUNCTIONS(F, P) \
+/* backend operations the host calls itself, with no gpu_ entry point and
+outside the guest's imports: stream_frame_end ends the frame's streams, so
+the next stream call fills the next frame's set; the iOS host calls it just
+before each present */
+#define GPU_HOST_OPERATIONS(F, P) \
+	P(stream_frame_end, (void), ())
+
+/* every operation a backend implements but initialize */
+#define GPU_BACKEND_OPERATIONS(F, P) \
+	GPU_OPERATIONS(F, P) \
+	GPU_HOST_OPERATIONS(F, P)
+
+/* gpu.h's entry points */
+#define GPU_ENTRY_POINTS(F, P) \
 	GPU_OPERATIONS(F, P) \
 	P(initialize, (uint32_t flags, struct gpu_capabilities *capabilities), (flags, capabilities))
+
+#define GPU_FUNCTIONS(F, P) \
+	GPU_ENTRY_POINTS(F, P) \
+	GPU_HOST_OPERATIONS(F, P)
 
 #define GPU_BACKEND_FUNCTION(type, name, parameters, arguments) type (*name) parameters;
 #define GPU_BACKEND_PROCEDURE(name, parameters, arguments) void (*name) parameters;

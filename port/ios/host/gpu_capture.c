@@ -921,6 +921,11 @@ static uint32_t capture_compiles_outstanding(void)
 	return capture.backend.compiles_outstanding();
 }
 
+static void capture_stream_frame_end(void)
+{
+	capture.backend.stream_frame_end();
+}
+
 static void capture_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
 	capture.backend.initialize(flags, capabilities);

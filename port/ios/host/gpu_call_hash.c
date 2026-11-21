@@ -360,6 +360,13 @@ static void hashed_frame_start(void)
 	h->next->frame_start();
 }
 
+static void hashed_stream_frame_end(void)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_stream_frame_end);
+	h->next->stream_frame_end();
+}
+
 /* the frame's last command: its hash goes to the report, and the next frame starts from nothing */
 static void frame_end(struct hasher *h)
 {
@@ -473,6 +480,8 @@ body; a query's goes straight to the instance's next backend */
 #define THUNK_P_RECORDED THUNK_COMMAND_P
 #define THUNK_F_AT_ONCE THUNK_COMMAND_F
 #define THUNK_P_AT_ONCE THUNK_COMMAND_P
+#define THUNK_F_PRODUCER THUNK_COMMAND_F
+#define THUNK_P_PRODUCER THUNK_COMMAND_P
 #define THUNK_F_QUERY THUNK_QUERY_F
 #define THUNK_P_QUERY THUNK_QUERY_P
 #define THUNK_F_OTHER_THREAD THUNK_QUERY_F
@@ -483,8 +492,8 @@ body; a query's goes straight to the instance's next backend */
 #define THUNK_F1(type, name, parameters, arguments) \
 	GPU_OPERATION_BY_CLASS(THUNK_F_, name)(1, type, name, parameters, arguments)
 #define THUNK_P1(name, parameters, arguments) GPU_OPERATION_BY_CLASS(THUNK_P_, name)(1, name, parameters, arguments)
-GPU_OPERATIONS(THUNK_F0, THUNK_P0)
-GPU_OPERATIONS(THUNK_F1, THUNK_P1)
+GPU_BACKEND_OPERATIONS(THUNK_F0, THUNK_P0)
+GPU_BACKEND_OPERATIONS(THUNK_F1, THUNK_P1)
 _Static_assert(GPU_CALL_HASH_INSTANCES == 2, "one set of thunks per instance");
 
 const struct gpu_backend *gpu_call_hash_wrap(unsigned instance, const struct gpu_backend *chosen,
@@ -503,11 +512,11 @@ const struct gpu_backend *gpu_call_hash_wrap(unsigned instance, const struct gpu
 #define INSTALL_P1(name, parameters, arguments) if (chosen->name) h->table.name = name##_on_1;
 	if (instance == 0)
 	{
-		GPU_OPERATIONS(INSTALL_F0, INSTALL_P0)
+		GPU_BACKEND_OPERATIONS(INSTALL_F0, INSTALL_P0)
 	}
 	else
 	{
-		GPU_OPERATIONS(INSTALL_F1, INSTALL_P1)
+		GPU_BACKEND_OPERATIONS(INSTALL_F1, INSTALL_P1)
 	}
 	return &h->table;
 }

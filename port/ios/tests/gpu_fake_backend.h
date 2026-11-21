@@ -121,6 +121,7 @@ static void fake_frame_context(uint32_t s, uint32_t r, const char *l) { (void)s,
 static uint32_t fake_compiles_outstanding(void) { return 0; }
 static void fake_compile_progress(uint32_t a, struct gpu_compile_progress *p) { (void)a, (void)p; }
 static void fake_initialize(uint32_t f, struct gpu_capabilities *c) { (void)f, (void)c; }
+static void fake_stream_frame_end(void) {}
 
 static const struct gpu_backend fake = {
 #define FAKE_F(type, name, parameters, arguments) .name = fake_##name,
@@ -144,14 +145,14 @@ static unsigned long fake_calls[GPU_OPERATION_COUNT];
 		fake_calls[GPU_OPERATION_##name]++; \
 		fake_##name arguments; \
 	}
-GPU_OPERATIONS(COUNTED_F, COUNTED_P)
+GPU_BACKEND_OPERATIONS(COUNTED_F, COUNTED_P)
 #undef COUNTED_F
 #undef COUNTED_P
 
 static const struct gpu_backend counted = {
 #define COUNTED_ENTRY_F(type, name, parameters, arguments) .name = counted_##name,
 #define COUNTED_ENTRY_P(name, parameters, arguments) .name = counted_##name,
-	GPU_OPERATIONS(COUNTED_ENTRY_F, COUNTED_ENTRY_P)
+	GPU_BACKEND_OPERATIONS(COUNTED_ENTRY_F, COUNTED_ENTRY_P)
 #undef COUNTED_ENTRY_F
 #undef COUNTED_ENTRY_P
 	.initialize = fake_initialize,

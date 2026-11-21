@@ -169,6 +169,7 @@ static void play(const struct gpu_backend *backend)
 		/* no data: the backend must still be handed the size */
 		if (frame % 9 == 2)
 			backend->buffer_write(buffer, 0, 48, NULL, 0);
+		backend->stream_reserve(draws * (uint32_t)sizeof(vertices), 0);
 		for (index = 0; index < draws; index++)
 		{
 			uint32_t kind = random32() % 16;
@@ -241,6 +242,8 @@ static void play(const struct gpu_backend *backend)
 		/* a texture made and destroyed inside a frame, so its destroy is in a compared hash */
 		if (frame % 11 == 3)
 			backend->texture_destroy(backend->texture_create(&description));
+		/* (as host_gpu_dispatch.c's present_wrapped does) */
+		backend->stream_frame_end();
 		if (frame % 5 == 4)
 		{
 			stereo.eye_color[0] = texture;
@@ -280,8 +283,10 @@ int main(void)
 			frames[frame].calls, (unsigned long long)frames[frame].hash, direct[frame].recorded_calls,
 			(unsigned long long)direct[frame].recorded);
 	for (operation = 0; operation < GPU_OPERATION_COUNT; operation++)
-		CHECK(gpu_operation_classes[operation] != GPU_CLASS_RECORDED || fake_calls[operation],
-			"the probe never sent %s, a recorded operation, through the queue", gpu_operation_names[operation]);
+		CHECK((gpu_operation_classes[operation] != GPU_CLASS_RECORDED &&
+			gpu_operation_classes[operation] != GPU_CLASS_PRODUCER) || fake_calls[operation],
+			"the probe never sent %s, a %s operation, through the queue", gpu_operation_names[operation],
+			gpu_operation_classes[operation] == GPU_CLASS_RECORDED ? "recorded" : "producer");
 
 	/* one run, hashed in front of the queue and behind it, as debug.gpu_call_hash does with the queue on */
 	frames_seen = front_seen = 0;
