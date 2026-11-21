@@ -985,6 +985,8 @@ static void test_input_presses_parse(const char *text)
 				if (*c == '_')
 					*c = ' ';
 			test_focus_walk_begin(&test_focus_walks[test_focus_count++], label, poll);
+			if (test_focus_count == 1)   /* the capture tools fail a screen that walks by label when a build does not say this */
+				platform_log("test_input: focus walk supported");
 			text += used;
 		}
 		else if (sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
