@@ -590,6 +590,10 @@ static int next_event(SDL_Event *event)
 	/* Phase 4 pumps from the main run loop while the game drains events. */
 	if (host_on_main_thread())
 		host_event_pump();
+	else
+		/* the game thread's own poll: SDL reads controller hardware only when asked, so
+		this keeps what the game reads as old as the poll, not as old as the main timer */
+		host_controller_refresh();
 	return SDL_PeepEvents(event, 1, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST) == 1;
 }
 

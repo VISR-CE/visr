@@ -81,6 +81,8 @@ int main(int argc, char **argv) {
     assert(pumps == (expected ? 4 : 1));
     assert(polls == (expected ? 0 : 4));
     assert(peeps == (expected ? 4 : 0));
+    /* class: a read on the game thread never relies on the main timer's pump */
+    assert(controller_refreshes == (expected ? 1 : 0));
     assert(controller_pump_notes == pumps);
     assert(config_reads == 1);
     assert(window_refreshes == pumps);
