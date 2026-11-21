@@ -2018,3 +2018,22 @@ def test_gametype_editor_rows_are_tall_picture_rows():
         row = widgets[c.get('widget')]
         assert row.get('height') == '39' and row.get('row') == 'tall', row.get('name')
         assert row.get('bitmap').startswith('xbox/bitmaps/row_36/list_item_bkd'), row.get('bitmap')
+
+
+def test_every_title_picture_sets_its_title_at_the_same_height():
+    """Bug class: a title picture whose text sits higher or lower in its 512x64 frame than the others draws above or
+    below the title band (the gametype editor's, made from the game's one-line 512x32 header, drew half off the top
+    of the screen). Every shipped header picture of the standard title size centers what it draws at one height."""
+    from PIL import Image
+
+    centers = {}
+    for frame in ET.parse(MENUS / 'xbox' / 'bitmaps.xml').getroot().iter('frame'):
+        png = frame.get('png') or ''
+        if png.rsplit('/', 1)[-1].startswith('header') and (frame.get('width'), frame.get('height')) == ('512', '64'):
+            if (MENUS / png).is_file():
+                image = Image.open(MENUS / png).convert('RGBA')
+                box = image.getchannel('A').getbbox()
+                centers[png] = (box[1] + box[3]) / 2 / image.height
+    assert len(centers) >= 30
+    reference = sorted(centers.values())[len(centers) // 2]
+    assert {png: center for png, center in centers.items() if abs(center - reference) > 0.01} == {}
