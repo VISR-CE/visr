@@ -163,6 +163,10 @@ static const struct config_setting config_settings[] =
 		"Draw the decals (bullet holes, blood, scorch marks) that share a texture\n"
 		"in one draw each rather than one draw a decal: the same picture for less\n"
 		"CPU time. False draws each on its own, to compare." },
+	{ "display.decal_dense_upload", _config_boolean, "true", "HALO_DECAL_DENSE_UPLOAD", _environment_value, _platform_all,
+		"A batched decal draw (display.decal_batching) uploads only the vertices it\n"
+		"draws: the same picture for far less data sent to the GPU in a long fight.\n"
+		"False uploads every vertex between its first and last decal, to compare." },
 	{ "display.light_volume_batching", _config_boolean, "true", "HALO_LIGHT_VOLUME_BATCHING", _environment_value, _platform_all,
 		"Draw the sprites of a light volume (a glow drawn as a row of sprites along\n"
 		"an object's marker) in one draw rather than one draw a sprite: the same\n"
@@ -736,6 +740,10 @@ static const struct config_setting config_settings[] =
 		"order without stepping past every body and weapon in a crowded cluster.\n"
 		"On by default; false walks every object. Read again each tick, so it can\n"
 		"be flipped while the game runs." },
+	{ "debug.decal_dense_check", _config_boolean, "false", "HALO_DECAL_DENSE_CHECK", _environment_value, _platform_all,
+		"Checks every vertex and color a batched decal draw uploads\n"
+		"(display.decal_dense_upload) against the game's own and logs how many\n"
+		"draws it checked and how many corners differ. Slow; for testing." },
 	{ "debug.verify_once_a_tick", _config_boolean, "true", "HALO_VERIFY_ONCE_A_TICK", _environment_value, _platform_all,
 		"Walks each block cache's and memory pool's block list once at the end of\n"
 		"a game tick or game frame, where it walked the whole list at every\n"
