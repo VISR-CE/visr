@@ -1,10 +1,12 @@
 /* A backend for probes (gpu_call_hash_probe.c, gpu_queue_probe.c) that does nothing and answers queries with
-fixed values: creates count up from 1, streams count up from offset 0 in buffer 1. Include it in one file. */
+fixed values: creates count up from 1, streams count up from offset 0 in buffer 1. counted is the same backend
+counting its calls by operation in fake_calls. Include it in one file. */
 
 #ifndef __HALO_GPU_FAKE_BACKEND_H
 #define __HALO_GPU_FAKE_BACKEND_H
 
 #include "gpu.h"
+#include "gpu_operation.h"
 
 
 static uint32_t created;
@@ -126,6 +128,33 @@ static const struct gpu_backend fake = {
 	GPU_FUNCTIONS(FAKE_F, FAKE_P)
 #undef FAKE_F
 #undef FAKE_P
+};
+
+static unsigned long fake_calls[GPU_OPERATION_COUNT];
+
+#define COUNTED_F(type, name, parameters, arguments) \
+	static type counted_##name parameters \
+	{ \
+		fake_calls[GPU_OPERATION_##name]++; \
+		return fake_##name arguments; \
+	}
+#define COUNTED_P(name, parameters, arguments) \
+	static void counted_##name parameters \
+	{ \
+		fake_calls[GPU_OPERATION_##name]++; \
+		fake_##name arguments; \
+	}
+GPU_OPERATIONS(COUNTED_F, COUNTED_P)
+#undef COUNTED_F
+#undef COUNTED_P
+
+static const struct gpu_backend counted = {
+#define COUNTED_ENTRY_F(type, name, parameters, arguments) .name = counted_##name,
+#define COUNTED_ENTRY_P(name, parameters, arguments) .name = counted_##name,
+	GPU_OPERATIONS(COUNTED_ENTRY_F, COUNTED_ENTRY_P)
+#undef COUNTED_ENTRY_F
+#undef COUNTED_ENTRY_P
+	.initialize = fake_initialize,
 };
 
 #endif

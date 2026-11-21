@@ -6,12 +6,15 @@ a record's header and payload, then publishes the chunk's new end; the
 consumer reads up to the published end and follows a chunk's next pointer
 once it reaches a WRAP record, handing the finished chunk back for reuse.
 
-Every operation in GPU_OPERATIONS needs a queued_<name> below:
-gpu_queue_wrap installs them through the list, so a new operation without one
-does not compile.
+Each operation is carried by its class (gpu_operation.h). A RECORDED one
+needs a queued_<name> below that writes its record and a consume_<name> that
+reads it back and makes the call; the others' entry points are generated from
+their class. gpu_queue_wrap installs every one through the list, so a new
+operation without its pieces does not compile.
 */
 
 #include "gpu_queue.h"
+#include "gpu_operation.h"
 #include <mach/mach_time.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -19,17 +22,8 @@ does not compile.
 #include <stdlib.h>
 #include <string.h>
 
-enum
-{
-#define OPERATION_NUMBER_F(type, name, parameters, arguments) OPERATION_##name,
-#define OPERATION_NUMBER_P(name, parameters, arguments) OPERATION_##name,
-	GPU_OPERATIONS(OPERATION_NUMBER_F, OPERATION_NUMBER_P)
-#undef OPERATION_NUMBER_F
-#undef OPERATION_NUMBER_P
-	OPERATION_COUNT,
-	/* the rest of the chunk is unused: go on in the next one */
-	RECORD_WRAP = OPERATION_COUNT,
-};
+/* the rest of the chunk is unused: go on in the next one */
+enum { RECORD_WRAP = GPU_OPERATION_COUNT };
 
 int gpu_queue_mode_parse(const char *value)
 {
@@ -249,7 +243,10 @@ static uint32_t align8(uint32_t size)
 	return (size + 7) & ~7u;
 }
 
-/* bytes, with their length in front, padded to 8; NULL as a length of UINT32_MAX */
+/* bytes, with their length in front, padded to 8; NULL as its length with BYTES_NULL set, so the backend is handed
+the size it was called with */
+static const uint64_t BYTES_NULL = 1ull << 32;
+
 static uint32_t bytes_size(uint32_t size)
 {
 	return 8 + align8(size);
@@ -257,7 +254,7 @@ static uint32_t bytes_size(uint32_t size)
 
 static void put_bytes(struct writer *writer, const void *data, uint32_t size)
 {
-	uint64_t length = data ? size : UINT32_MAX;
+	uint64_t length = data ? size : size | (uint64_t)BYTES_NULL;
 
 	put(writer, &length, 8);
 	if (data)
@@ -271,12 +268,9 @@ static const void *take_bytes(struct reader *reader, uint32_t *size)
 {
 	uint64_t length = TAKE(reader, uint64_t);
 
-	if (length == UINT32_MAX)
-	{
-		*size = 0;
-		return NULL;
-	}
 	*size = (uint32_t)length;
+	if (length & BYTES_NULL)
+		return NULL;
 	return take(reader, align8((uint32_t)length));
 }
 
@@ -399,7 +393,7 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 		size += 16 + registers * (uint32_t)sizeof(struct register_entry);
 	if (flags & DRAW_UNIFORMS)
 		size += 8 + (uint32_t)__builtin_popcount(uniform_mask) * DRAW_BLOCK;
-	writer.at = record_begin(OPERATION_draw, size);
+	writer.at = record_begin(GPU_OPERATION_draw, size);
 	put(&writer, &mask, 4);
 	put(&writer, &flags, 4);
 	for (block = 0; block < DRAW_BLOCKS; block++)
@@ -455,7 +449,7 @@ static void queued_texture_upload(gpu_texture texture, uint32_t face, uint32_t l
 	struct writer writer;
 	uint32_t header[4] = { texture, face, level, 0 };
 
-	writer.at = record_begin(OPERATION_texture_upload, 16 + bytes_size(size));
+	writer.at = record_begin(GPU_OPERATION_texture_upload, 16 + bytes_size(size));
 	put(&writer, header, 16);
 	put_bytes(&writer, data, size);
 	record_end();
@@ -465,7 +459,7 @@ static void queued_texture_copy_level(gpu_texture source, gpu_texture destinatio
 {
 	uint32_t arguments[4] = { source, destination, level, 0 };
 
-	record_simple(OPERATION_texture_copy_level, arguments, sizeof(arguments));
+	record_simple(GPU_OPERATION_texture_copy_level, arguments, sizeof(arguments));
 }
 
 static void queued_texture_copy_rects(gpu_texture source, const struct gpu_texture_copy *copies, uint32_t count)
@@ -474,7 +468,7 @@ static void queued_texture_copy_rects(gpu_texture source, const struct gpu_textu
 	uint64_t first = source;
 	uint32_t size = count * (uint32_t)sizeof(*copies);
 
-	writer.at = record_begin(OPERATION_texture_copy_rects, 8 + bytes_size(size));
+	writer.at = record_begin(GPU_OPERATION_texture_copy_rects, 8 + bytes_size(size));
 	put(&writer, &first, 8);
 	put_bytes(&writer, copies, size);
 	record_end();
@@ -484,28 +478,28 @@ static void queued_texture_generate_mipmaps(gpu_texture texture, uint32_t base_l
 {
 	uint32_t arguments[2] = { texture, base_level };
 
-	record_simple(OPERATION_texture_generate_mipmaps, arguments, sizeof(arguments));
+	record_simple(GPU_OPERATION_texture_generate_mipmaps, arguments, sizeof(arguments));
 }
 
 static void queued_texture_destroy(gpu_texture texture)
 {
 	uint64_t argument = texture;
 
-	record_simple(OPERATION_texture_destroy, &argument, sizeof(argument));
+	record_simple(GPU_OPERATION_texture_destroy, &argument, sizeof(argument));
 }
 
 static void queued_texture_set_content(gpu_texture texture, uint32_t width, uint32_t height)
 {
 	uint32_t arguments[4] = { texture, width, height, 0 };
 
-	record_simple(OPERATION_texture_set_content, arguments, sizeof(arguments));
+	record_simple(GPU_OPERATION_texture_set_content, arguments, sizeof(arguments));
 }
 
 static void queued_texture_multisample(gpu_texture texture, uint32_t samples)
 {
 	uint32_t arguments[2] = { texture, samples };
 
-	record_simple(OPERATION_texture_multisample, arguments, sizeof(arguments));
+	record_simple(GPU_OPERATION_texture_multisample, arguments, sizeof(arguments));
 }
 
 static void queued_buffer_write(gpu_buffer buffer, uint32_t offset, uint32_t size, const void *data, uint32_t flags)
@@ -513,7 +507,7 @@ static void queued_buffer_write(gpu_buffer buffer, uint32_t offset, uint32_t siz
 	struct writer writer;
 	uint32_t header[4] = { buffer, offset, flags, 0 };
 
-	writer.at = record_begin(OPERATION_buffer_write, 16 + bytes_size(size));
+	writer.at = record_begin(GPU_OPERATION_buffer_write, 16 + bytes_size(size));
 	put(&writer, header, 16);
 	put_bytes(&writer, data, size);
 	record_end();
@@ -524,7 +518,7 @@ static void queued_clear(const struct gpu_clear *clear, const struct gpu_rect *r
 	struct writer writer;
 	uint32_t size = count * (uint32_t)sizeof(*rectangles);
 
-	writer.at = record_begin(OPERATION_clear, align8(sizeof(*clear)) + bytes_size(size));
+	writer.at = record_begin(GPU_OPERATION_clear, align8(sizeof(*clear)) + bytes_size(size));
 	put(&writer, clear, sizeof(*clear));
 	writer.at += align8(sizeof(*clear)) - sizeof(*clear);
 	put_bytes(&writer, rectangles, size);
@@ -533,19 +527,19 @@ static void queued_clear(const struct gpu_clear *clear, const struct gpu_rect *r
 
 static void queued_visibility_begin(void)
 {
-	record_simple(OPERATION_visibility_begin, NULL, 0);
+	record_simple(GPU_OPERATION_visibility_begin, NULL, 0);
 }
 
 static void queued_visibility_end(uint32_t slot)
 {
 	uint64_t argument = slot;
 
-	record_simple(OPERATION_visibility_end, &argument, sizeof(argument));
+	record_simple(GPU_OPERATION_visibility_end, &argument, sizeof(argument));
 }
 
 static void queued_flush(void)
 {
-	record_simple(OPERATION_flush, NULL, 0);
+	record_simple(GPU_OPERATION_flush, NULL, 0);
 }
 
 static void queued_upscale(gpu_texture source, gpu_texture destination, const struct gpu_rect *area,
@@ -554,7 +548,7 @@ static void queued_upscale(gpu_texture source, gpu_texture destination, const st
 	struct writer writer;
 	uint32_t header[4] = { source, destination, anti_alias, 0 };
 
-	writer.at = record_begin(OPERATION_upscale, 16 + bytes_size(area ? sizeof(*area) : 0));
+	writer.at = record_begin(GPU_OPERATION_upscale, 16 + bytes_size(area ? sizeof(*area) : 0));
 	put(&writer, header, 16);
 	put_bytes(&writer, area, area ? sizeof(*area) : 0);
 	record_end();
@@ -565,7 +559,7 @@ static void queued_anti_alias(uint32_t method, gpu_texture target, const struct 
 	struct writer writer;
 	uint32_t header[2] = { method, target };
 
-	writer.at = record_begin(OPERATION_anti_alias, 8 + bytes_size(rect ? sizeof(*rect) : 0));
+	writer.at = record_begin(GPU_OPERATION_anti_alias, 8 + bytes_size(rect ? sizeof(*rect) : 0));
 	put(&writer, header, 8);
 	put_bytes(&writer, rect, rect ? sizeof(*rect) : 0);
 	record_end();
@@ -575,43 +569,43 @@ static void queued_companion_set(gpu_texture target)
 {
 	uint64_t argument = target;
 
-	record_simple(OPERATION_companion_set, &argument, sizeof(argument));
+	record_simple(GPU_OPERATION_companion_set, &argument, sizeof(argument));
 }
 
 static void queued_frame_start(void)
 {
-	record_simple(OPERATION_frame_start, NULL, 0);
+	record_simple(GPU_OPERATION_frame_start, NULL, 0);
 }
 
 static uint32_t queued_present(gpu_texture back_buffer)
 {
 	uint64_t argument = back_buffer;
 
-	record_simple(OPERATION_present, &argument, sizeof(argument));
+	record_simple(GPU_OPERATION_present, &argument, sizeof(argument));
 	statistics_frame();
 	return present_result;
 }
 
 static uint32_t queued_present_stereo(const struct gpu_stereo_present *present)
 {
-	record_simple(OPERATION_present_stereo, present, sizeof(*present));
+	record_simple(GPU_OPERATION_present_stereo, present, sizeof(*present));
 	statistics_frame();
 	return present_result;
 }
 
 static void queued_warm_begin(void)
 {
-	record_simple(OPERATION_warm_begin, NULL, 0);
+	record_simple(GPU_OPERATION_warm_begin, NULL, 0);
 }
 
 static void queued_pipeline_warm(const struct gpu_pipeline_description *description)
 {
-	record_simple(OPERATION_pipeline_warm, description, sizeof(*description));
+	record_simple(GPU_OPERATION_pipeline_warm, description, sizeof(*description));
 }
 
 static void queued_warm_end(void)
 {
-	record_simple(OPERATION_warm_end, NULL, 0);
+	record_simple(GPU_OPERATION_warm_end, NULL, 0);
 }
 
 static void queued_frame_context(uint32_t scene_class, uint32_t frame_rate, const char *level)
@@ -620,52 +614,44 @@ static void queued_frame_context(uint32_t scene_class, uint32_t frame_rate, cons
 	uint32_t header[2] = { scene_class, frame_rate };
 	uint32_t size = level ? (uint32_t)strlen(level) + 1 : 0;
 
-	writer.at = record_begin(OPERATION_frame_context, 8 + bytes_size(size));
+	writer.at = record_begin(GPU_OPERATION_frame_context, 8 + bytes_size(size));
 	put(&writer, header, 8);
 	put_bytes(&writer, level, size);
 	record_end();
 }
 
-/* ---------- called at once, after the queue is consumed up to them */
+/* ---------- the calls the producer makes itself, by class (gpu_operation.h): AT_ONCE and QUERY after the queue
+is consumed up to them, OTHER_THREAD (d3d8_device.c's vertical_blank_thread, which must not touch the queue) as
+they come. RECORDED ones are written above. */
 
-#define AT_ONCE_F(type, name, parameters, arguments) \
+#define QUEUED_F_RECORDED(type, name, parameters, arguments)
+#define QUEUED_P_RECORDED(name, parameters, arguments)
+#define QUEUED_F_AT_ONCE(type, name, parameters, arguments) \
 	static type queued_##name parameters \
 	{ \
 		gpu_queue_drain(); \
 		return next->name arguments; \
 	}
-#define AT_ONCE_P(name, parameters, arguments) \
+#define QUEUED_P_AT_ONCE(name, parameters, arguments) \
 	static void queued_##name parameters \
 	{ \
 		gpu_queue_drain(); \
 		next->name arguments; \
 	}
-AT_ONCE_F(gpu_texture, texture_create, (const struct gpu_texture_description *description), (description))
-AT_ONCE_F(uint32_t, texture_read, (gpu_texture texture, void *pixels, uint32_t size), (texture, pixels, size))
-AT_ONCE_F(gpu_buffer, buffer_create, (uint32_t size), (size))
-AT_ONCE_P(stream_reserve, (uint32_t vertex_bytes, uint32_t index_bytes), (vertex_bytes, index_bytes))
-AT_ONCE_F(uint32_t, stream, (uint32_t kind, const void *data, uint32_t size, gpu_buffer *buffer),
-	(kind, data, size, buffer))
-AT_ONCE_F(gpu_shader, shader_create, (uint32_t stage, const char *source), (stage, source))
-AT_ONCE_F(uint32_t, visibility_result, (uint32_t slot, uint32_t *samples), (slot, samples))
-AT_ONCE_F(uint32_t, anti_alias_prepare, (uint32_t method, const char *smaa_shader, const void *area_texels,
-	const void *search_texels), (method, smaa_shader, area_texels, search_texels))
-AT_ONCE_F(uint32_t, companion_size, (uint32_t *width, uint32_t *height), (width, height))
-AT_ONCE_F(uint32_t, call_count_take, (void), ())
-AT_ONCE_F(uint32_t, warm_list_read, (const char *name, char *text, uint32_t size), (name, text, size))
-AT_ONCE_F(uint32_t, pipeline_built_take, (struct gpu_pipeline_description *description), (description))
-AT_ONCE_F(uint32_t, compiles_outstanding, (void), ())
-AT_ONCE_P(compile_progress, (uint32_t action, struct gpu_compile_progress *progress), (action, progress))
-#undef AT_ONCE_F
-#undef AT_ONCE_P
+#define QUEUED_F_QUERY QUEUED_F_AT_ONCE
+#define QUEUED_P_QUERY QUEUED_P_AT_ONCE
+#define QUEUED_F_OTHER_THREAD(type, name, parameters, arguments) \
+	static type queued_##name parameters { return next->name arguments; }
+#define QUEUED_P_OTHER_THREAD(name, parameters, arguments) \
+	static void queued_##name parameters { next->name arguments; }
+#define QUEUED_F(type, name, parameters, arguments) \
+	GPU_OPERATION_BY_CLASS(QUEUED_F_, name)(type, name, parameters, arguments)
+#define QUEUED_P(name, parameters, arguments) GPU_OPERATION_BY_CLASS(QUEUED_P_, name)(name, parameters, arguments)
+GPU_OPERATIONS(QUEUED_F, QUEUED_P)
+#undef QUEUED_F
+#undef QUEUED_P
 
-/* d3d8_device.c's vertical_blank_thread: another thread, which must not touch the queue */
-static uint32_t queued_vertical_blank_wait(void)
-{
-	return next->vertical_blank_wait();
-}
-
-/* ---------- the consumer */
+/* ---------- the consumer: a consume_<name> for each RECORDED operation reads its record and makes the call */
 
 static void consume_draw(struct reader *reader)
 {
@@ -705,105 +691,180 @@ static void consume_draw(struct reader *reader)
 	draw_result = next->draw((const struct gpu_draw *)held.draw, &held.store, &held.uniforms.uniforms);
 }
 
+static void consume_texture_upload(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 16);
+	uint32_t size;
+	const void *data = take_bytes(reader, &size);
+
+	next->texture_upload(words[0], words[1], words[2], data, size);
+}
+
+static void consume_texture_copy_level(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 16);
+
+	next->texture_copy_level(words[0], words[1], words[2]);
+}
+
+static void consume_texture_copy_rects(struct reader *reader)
+{
+	uint64_t source = TAKE(reader, uint64_t);
+	uint32_t size;
+	const void *data = take_bytes(reader, &size);
+
+	next->texture_copy_rects((gpu_texture)source, data, size / (uint32_t)sizeof(struct gpu_texture_copy));
+}
+
+static void consume_texture_generate_mipmaps(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 8);
+
+	next->texture_generate_mipmaps(words[0], words[1]);
+}
+
+static void consume_texture_destroy(struct reader *reader)
+{
+	next->texture_destroy((gpu_texture)TAKE(reader, uint64_t));
+}
+
+static void consume_texture_set_content(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 16);
+
+	next->texture_set_content(words[0], words[1], words[2]);
+}
+
+static void consume_texture_multisample(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 8);
+
+	next->texture_multisample(words[0], words[1]);
+}
+
+static void consume_buffer_write(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 16);
+	uint32_t size;
+	const void *data = take_bytes(reader, &size);
+
+	next->buffer_write(words[0], words[1], size, data, words[2]);
+}
+
+static void consume_clear(struct reader *reader)
+{
+	const struct gpu_clear *clear = take(reader, align8(sizeof(struct gpu_clear)));
+	uint32_t size;
+	const void *data = take_bytes(reader, &size);
+
+	next->clear(clear, data, size / (uint32_t)sizeof(struct gpu_rect));
+}
+
+static void consume_visibility_begin(struct reader *reader)
+{
+	(void)reader;
+	next->visibility_begin();
+}
+
+static void consume_visibility_end(struct reader *reader)
+{
+	next->visibility_end((uint32_t)TAKE(reader, uint64_t));
+}
+
+static void consume_flush(struct reader *reader)
+{
+	(void)reader;
+	next->flush();
+}
+
+static void consume_upscale(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 16);
+	uint32_t size;
+	const void *data = take_bytes(reader, &size);
+
+	next->upscale(words[0], words[1], data, words[2]);
+}
+
+static void consume_anti_alias(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 8);
+	uint32_t size;
+	const void *data = take_bytes(reader, &size);
+
+	next->anti_alias(words[0], words[1], data);
+}
+
+static void consume_companion_set(struct reader *reader)
+{
+	next->companion_set((gpu_texture)TAKE(reader, uint64_t));
+}
+
+static void consume_frame_start(struct reader *reader)
+{
+	(void)reader;
+	next->frame_start();
+}
+
+static void consume_present(struct reader *reader)
+{
+	present_result = next->present((gpu_texture)TAKE(reader, uint64_t));
+}
+
+static void consume_present_stereo(struct reader *reader)
+{
+	present_result = next->present_stereo(take(reader, sizeof(struct gpu_stereo_present)));
+}
+
+static void consume_warm_begin(struct reader *reader)
+{
+	(void)reader;
+	next->warm_begin();
+}
+
+static void consume_pipeline_warm(struct reader *reader)
+{
+	next->pipeline_warm(take(reader, sizeof(struct gpu_pipeline_description)));
+}
+
+static void consume_warm_end(struct reader *reader)
+{
+	(void)reader;
+	next->warm_end();
+}
+
+static void consume_frame_context(struct reader *reader)
+{
+	const uint32_t *words = take(reader, 8);
+	uint32_t size;
+	const void *data = take_bytes(reader, &size);
+
+	next->frame_context(words[0], words[1], data);
+}
+
+/* each RECORDED operation's reader, by number; NULL for the other classes, which the queue never writes */
+#define CONSUMER_RECORDED(name) consume_##name
+#define CONSUMER_AT_ONCE(name) NULL
+#define CONSUMER_QUERY(name) NULL
+#define CONSUMER_OTHER_THREAD(name) NULL
+#define CONSUMER_F(type, name, parameters, arguments) [GPU_OPERATION_##name] = GPU_OPERATION_BY_CLASS(CONSUMER_, name)(name),
+#define CONSUMER_P(name, parameters, arguments) [GPU_OPERATION_##name] = GPU_OPERATION_BY_CLASS(CONSUMER_, name)(name),
+static void (*const consumers[GPU_OPERATION_COUNT])(struct reader *reader) = {
+	GPU_OPERATIONS(CONSUMER_F, CONSUMER_P)
+};
+#undef CONSUMER_F
+#undef CONSUMER_P
+
 static void consume_record(uint32_t operation, const unsigned char *payload)
 {
 	struct reader reader = { payload };
-	const uint32_t *words = (const uint32_t *)payload;
-	const void *data;
-	uint32_t size;
 
-	switch (operation)
+	if (operation >= GPU_OPERATION_COUNT || !consumers[operation])
 	{
-	case OPERATION_draw:
-		consume_draw(&reader);
-		break;
-	case OPERATION_texture_upload:
-		take(&reader, 16);
-		data = take_bytes(&reader, &size);
-		next->texture_upload(words[0], words[1], words[2], data, size);
-		break;
-	case OPERATION_texture_copy_level:
-		next->texture_copy_level(words[0], words[1], words[2]);
-		break;
-	case OPERATION_texture_copy_rects:
-		take(&reader, 8);
-		data = take_bytes(&reader, &size);
-		next->texture_copy_rects(words[0], data, size / (uint32_t)sizeof(struct gpu_texture_copy));
-		break;
-	case OPERATION_texture_generate_mipmaps:
-		next->texture_generate_mipmaps(words[0], words[1]);
-		break;
-	case OPERATION_texture_destroy:
-		next->texture_destroy(words[0]);
-		break;
-	case OPERATION_texture_set_content:
-		next->texture_set_content(words[0], words[1], words[2]);
-		break;
-	case OPERATION_texture_multisample:
-		next->texture_multisample(words[0], words[1]);
-		break;
-	case OPERATION_buffer_write:
-		take(&reader, 16);
-		data = take_bytes(&reader, &size);
-		next->buffer_write(words[0], words[1], size, data, words[2]);
-		break;
-	case OPERATION_clear:
-	{
-		const struct gpu_clear *clear = take(&reader, align8(sizeof(struct gpu_clear)));
-
-		data = take_bytes(&reader, &size);
-		next->clear(clear, data, size / (uint32_t)sizeof(struct gpu_rect));
-		break;
-	}
-	case OPERATION_visibility_begin:
-		next->visibility_begin();
-		break;
-	case OPERATION_visibility_end:
-		next->visibility_end(words[0]);
-		break;
-	case OPERATION_flush:
-		next->flush();
-		break;
-	case OPERATION_upscale:
-		take(&reader, 16);
-		data = take_bytes(&reader, &size);
-		next->upscale(words[0], words[1], data, words[2]);
-		break;
-	case OPERATION_anti_alias:
-		take(&reader, 8);
-		data = take_bytes(&reader, &size);
-		next->anti_alias(words[0], words[1], data);
-		break;
-	case OPERATION_companion_set:
-		next->companion_set(words[0]);
-		break;
-	case OPERATION_frame_start:
-		next->frame_start();
-		break;
-	case OPERATION_present:
-		present_result = next->present(words[0]);
-		break;
-	case OPERATION_present_stereo:
-		present_result = next->present_stereo((const struct gpu_stereo_present *)payload);
-		break;
-	case OPERATION_warm_begin:
-		next->warm_begin();
-		break;
-	case OPERATION_pipeline_warm:
-		next->pipeline_warm((const struct gpu_pipeline_description *)payload);
-		break;
-	case OPERATION_warm_end:
-		next->warm_end();
-		break;
-	case OPERATION_frame_context:
-		take(&reader, 8);
-		data = take_bytes(&reader, &size);
-		next->frame_context(words[0], words[1], data);
-		break;
-	default:
 		fprintf(stderr, "encode queue: record %u is not one the queue writes\n", operation);
 		abort();
 	}
+	consumers[operation](&reader);
 }
 
 /* everything published so far */
@@ -827,7 +888,7 @@ static void consume(void)
 			continue;
 		}
 		/* (a present's time is mostly the pacer's wait for the display, not encoding: left out) */
-		if (timing && header->operation != OPERATION_present && header->operation != OPERATION_present_stereo)
+		if (timing && header->operation != GPU_OPERATION_present && header->operation != GPU_OPERATION_present_stereo)
 		{
 			uint64_t started = mach_absolute_time();
 

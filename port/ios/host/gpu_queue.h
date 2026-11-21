@@ -14,12 +14,9 @@ Modes:
   written. Nothing moves to another thread; it measures what recording
   costs and shows the records carry everything the backend needs.
 
-Calls by class:
-- recorded: everything that changes the backend's state or draws, except
-  the ones below;
-- called at once: creates, queries and the streams (stream, stream_reserve),
-  after the queue is consumed up to them; vertical_blank_wait (another
-  thread's call) without waiting.
+Calls go by their class (gpu_operation.h): RECORDED ones through the queue,
+the others straight to the backend behind it (AT_ONCE and QUERY after the
+queue is consumed up to them).
 */
 
 #ifndef __HALO_GPU_QUEUE_H

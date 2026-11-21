@@ -5,38 +5,31 @@ debug.gpu_call_hash (gpu_call_hash.h). Each command mixes its operation's
 number, its scalar arguments, the structs it is handed and the bytes those
 point to into the frame's hash, before the call goes on to the backend.
 Handles a create returns are mixed in after the call, since later commands
-name them. Every operation in GPU_OPERATIONS needs a hashed_<name> below:
-gpu_call_hash_wrap installs them through the list, so a new operation without
-one does not compile.
+name them. Commands are the RECORDED and AT_ONCE operations (gpu_operation.h);
+each needs a hashed_<name> below, and gpu_call_hash_wrap installs every
+operation through the list, so a new one without its body does not compile.
+QUERY and OTHER_THREAD operations pass through unhashed.
 */
 
 #include "gpu_call_hash.h"
+#include "gpu_operation.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 
 enum
 {
-#define OPERATION_NUMBER_F(type, name, parameters, arguments) OPERATION_##name,
-#define OPERATION_NUMBER_P(name, parameters, arguments) OPERATION_##name,
-	GPU_OPERATIONS(OPERATION_NUMBER_F, OPERATION_NUMBER_P)
-#undef OPERATION_NUMBER_F
-#undef OPERATION_NUMBER_P
-	OPERATION_COUNT,
-	/* parts of a draw's hash, apart from its packet (OPERATION_draw) */
-	PART_DRAW_CONSTANTS = OPERATION_COUNT,
+	/* parts of a draw's hash, apart from its packet (GPU_OPERATION_draw) */
+	PART_DRAW_CONSTANTS = GPU_OPERATION_COUNT,
 	PART_DRAW_UNIFORMS,
 	PARTS
 };
 
-static const char *const part_names[PARTS] = {
-#define OPERATION_NAME_F(type, name, parameters, arguments) #name,
-#define OPERATION_NAME_P(name, parameters, arguments) #name,
-	GPU_OPERATIONS(OPERATION_NAME_F, OPERATION_NAME_P)
-#undef OPERATION_NAME_F
-#undef OPERATION_NAME_P
-	"draw_constants", "draw_uniforms",
-};
+static const char *part_name(unsigned part)
+{
+	return part < GPU_OPERATION_COUNT ? gpu_operation_names[part] :
+		part == PART_DRAW_CONSTANTS ? "draw_constants" : "draw_uniforms";
+}
 
 /* one wrapper: two can be installed at once (gpu_call_hash.h), so every hashed_<name> works on the instance its
 thunk named, kept per thread because one instance's call can reach the other's (a queue between them) */
@@ -128,7 +121,7 @@ static gpu_texture hashed_texture_create(const struct gpu_texture_description *d
 	struct hasher *h = current;
 	gpu_texture texture;
 
-	command(h, OPERATION_texture_create);
+	command(h, GPU_OPERATION_texture_create);
 	mix_bytes(h, description, sizeof(*description));
 	texture = h->next->texture_create(description);
 	mix64(h, texture);
@@ -138,7 +131,7 @@ static gpu_texture hashed_texture_create(const struct gpu_texture_description *d
 static void hashed_texture_upload(gpu_texture texture, uint32_t face, uint32_t level, const void *data, uint32_t size)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_texture_upload);
+	command(h, GPU_OPERATION_texture_upload);
 	mix64(h, texture);
 	mix64(h, ((uint64_t)face << 32) | level);
 	mix_bytes(h, data, size);
@@ -148,7 +141,7 @@ static void hashed_texture_upload(gpu_texture texture, uint32_t face, uint32_t l
 static void hashed_texture_copy_level(gpu_texture source, gpu_texture destination, uint32_t level)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_texture_copy_level);
+	command(h, GPU_OPERATION_texture_copy_level);
 	mix64(h, ((uint64_t)source << 32) | destination);
 	mix64(h, level);
 	h->next->texture_copy_level(source, destination, level);
@@ -157,7 +150,7 @@ static void hashed_texture_copy_level(gpu_texture source, gpu_texture destinatio
 static void hashed_texture_copy_rects(gpu_texture source, const struct gpu_texture_copy *copies, uint32_t count)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_texture_copy_rects);
+	command(h, GPU_OPERATION_texture_copy_rects);
 	mix64(h, source);
 	mix_bytes(h, copies, (uint64_t)count * sizeof(*copies));
 	h->next->texture_copy_rects(source, copies, count);
@@ -166,7 +159,7 @@ static void hashed_texture_copy_rects(gpu_texture source, const struct gpu_textu
 static void hashed_texture_generate_mipmaps(gpu_texture texture, uint32_t base_level)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_texture_generate_mipmaps);
+	command(h, GPU_OPERATION_texture_generate_mipmaps);
 	mix64(h, ((uint64_t)texture << 32) | base_level);
 	h->next->texture_generate_mipmaps(texture, base_level);
 }
@@ -174,22 +167,16 @@ static void hashed_texture_generate_mipmaps(gpu_texture texture, uint32_t base_l
 static void hashed_texture_destroy(gpu_texture texture)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_texture_destroy);
+	command(h, GPU_OPERATION_texture_destroy);
 	mix64(h, texture);
 	h->next->texture_destroy(texture);
 }
 
-/* a query */
-static uint32_t hashed_texture_read(gpu_texture texture, void *pixels, uint32_t size)
-{
-	struct hasher *h = current;
-	return h->next->texture_read(texture, pixels, size);
-}
 
 static void hashed_texture_set_content(gpu_texture texture, uint32_t width, uint32_t height)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_texture_set_content);
+	command(h, GPU_OPERATION_texture_set_content);
 	mix64(h, texture);
 	mix64(h, ((uint64_t)width << 32) | height);
 	h->next->texture_set_content(texture, width, height);
@@ -198,7 +185,7 @@ static void hashed_texture_set_content(gpu_texture texture, uint32_t width, uint
 static void hashed_texture_multisample(gpu_texture texture, uint32_t samples)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_texture_multisample);
+	command(h, GPU_OPERATION_texture_multisample);
 	mix64(h, ((uint64_t)texture << 32) | samples);
 	h->next->texture_multisample(texture, samples);
 }
@@ -210,7 +197,7 @@ static gpu_buffer hashed_buffer_create(uint32_t size)
 	struct hasher *h = current;
 	gpu_buffer buffer;
 
-	command(h, OPERATION_buffer_create);
+	command(h, GPU_OPERATION_buffer_create);
 	mix64(h, size);
 	buffer = h->next->buffer_create(size);
 	mix64(h, buffer);
@@ -220,7 +207,7 @@ static gpu_buffer hashed_buffer_create(uint32_t size)
 static void hashed_buffer_write(gpu_buffer buffer, uint32_t offset, uint32_t size, const void *data, uint32_t flags)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_buffer_write);
+	command(h, GPU_OPERATION_buffer_write);
 	mix64(h, ((uint64_t)buffer << 32) | offset);
 	mix64(h, flags);
 	mix_bytes(h, data, size);
@@ -230,7 +217,7 @@ static void hashed_buffer_write(gpu_buffer buffer, uint32_t offset, uint32_t siz
 static void hashed_stream_reserve(uint32_t vertex_bytes, uint32_t index_bytes)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_stream_reserve);
+	command(h, GPU_OPERATION_stream_reserve);
 	mix64(h, ((uint64_t)vertex_bytes << 32) | index_bytes);
 	h->next->stream_reserve(vertex_bytes, index_bytes);
 }
@@ -241,7 +228,7 @@ static uint32_t hashed_stream(uint32_t kind, const void *data, uint32_t size, gp
 	struct hasher *h = current;
 	uint32_t offset;
 
-	command(h, OPERATION_stream);
+	command(h, GPU_OPERATION_stream);
 	mix64(h, kind);
 	mix_bytes(h, data, size);
 	offset = h->next->stream(kind, data, size, buffer);
@@ -254,7 +241,7 @@ static gpu_shader hashed_shader_create(uint32_t stage, const char *source)
 	struct hasher *h = current;
 	gpu_shader shader;
 
-	command(h, OPERATION_shader_create);
+	command(h, GPU_OPERATION_shader_create);
 	mix64(h, stage);
 	mix_string(h, source);
 	shader = h->next->shader_create(stage, source);
@@ -267,7 +254,7 @@ static gpu_shader hashed_shader_create(uint32_t stage, const char *source)
 static void hashed_clear(const struct gpu_clear *clear, const struct gpu_rect *rectangles, uint32_t count)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_clear);
+	command(h, GPU_OPERATION_clear);
 	mix_bytes(h, clear, sizeof(*clear));
 	mix_bytes(h, rectangles, (uint64_t)count * sizeof(*rectangles));
 	h->next->clear(clear, rectangles, count);
@@ -280,7 +267,7 @@ static uint32_t hashed_draw(const struct gpu_draw *draw, const struct gpu_consta
 	const struct gpu_uniforms *uniforms)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_draw);
+	command(h, GPU_OPERATION_draw);
 	mix_bytes(h, draw, sizeof(*draw));
 	h->part = PART_DRAW_CONSTANTS;
 	mix64(h, constants->serial);
@@ -293,29 +280,23 @@ static uint32_t hashed_draw(const struct gpu_draw *draw, const struct gpu_consta
 static void hashed_visibility_begin(void)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_visibility_begin);
+	command(h, GPU_OPERATION_visibility_begin);
 	h->next->visibility_begin();
 }
 
 static void hashed_visibility_end(uint32_t slot)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_visibility_end);
+	command(h, GPU_OPERATION_visibility_end);
 	mix64(h, slot);
 	h->next->visibility_end(slot);
 }
 
-/* a query */
-static uint32_t hashed_visibility_result(uint32_t slot, uint32_t *samples)
-{
-	struct hasher *h = current;
-	return h->next->visibility_result(slot, samples);
-}
 
 static void hashed_flush(void)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_flush);
+	command(h, GPU_OPERATION_flush);
 	h->next->flush();
 }
 
@@ -323,7 +304,7 @@ static void hashed_upscale(gpu_texture source, gpu_texture destination, const st
 	uint32_t anti_alias)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_upscale);
+	command(h, GPU_OPERATION_upscale);
 	mix64(h, ((uint64_t)source << 32) | destination);
 	mix_bytes(h, area, area ? sizeof(*area) : 0);
 	mix64(h, anti_alias);
@@ -336,7 +317,7 @@ static uint32_t hashed_anti_alias_prepare(uint32_t method, const char *smaa_shad
 	const void *search_texels)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_anti_alias_prepare);
+	command(h, GPU_OPERATION_anti_alias_prepare);
 	mix64(h, method);
 	mix_string(h, smaa_shader);
 	mix64(h, (area_texels != 0) | (search_texels != 0) << 1);
@@ -346,30 +327,18 @@ static uint32_t hashed_anti_alias_prepare(uint32_t method, const char *smaa_shad
 static void hashed_anti_alias(uint32_t method, gpu_texture target, const struct gpu_rect *rect)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_anti_alias);
+	command(h, GPU_OPERATION_anti_alias);
 	mix64(h, ((uint64_t)method << 32) | target);
 	mix_bytes(h, rect, rect ? sizeof(*rect) : 0);
 	h->next->anti_alias(method, target, rect);
 }
 
-/* a query, and from another thread (d3d8_device.c's vertical_blank_thread): it touches nothing here */
-static uint32_t hashed_vertical_blank_wait(void)
-{
-	struct hasher *h = current;
-	return h->next->vertical_blank_wait();
-}
 
-/* a query */
-static uint32_t hashed_companion_size(uint32_t *width, uint32_t *height)
-{
-	struct hasher *h = current;
-	return h->next->companion_size(width, height);
-}
 
 static void hashed_companion_set(gpu_texture target)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_companion_set);
+	command(h, GPU_OPERATION_companion_set);
 	mix64(h, target);
 	h->next->companion_set(target);
 }
@@ -377,7 +346,7 @@ static void hashed_companion_set(gpu_texture target)
 static void hashed_frame_start(void)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_frame_start);
+	command(h, GPU_OPERATION_frame_start);
 	h->next->frame_start();
 }
 
@@ -393,9 +362,9 @@ static void frame_end(struct hasher *h)
 		h->second_thread_reported = 1;
 	text[0] = 0;
 	for (index = 0; index < PARTS && length < sizeof(text); index++)
-		if (h->part_calls[index] || (index >= OPERATION_COUNT && h->part_calls[OPERATION_draw]))
+		if (h->part_calls[index] || (index >= GPU_OPERATION_COUNT && h->part_calls[GPU_OPERATION_draw]))
 			length += (size_t)snprintf(text + length, sizeof(text) - length, "%s%s:%08x", length ? " " : "",
-				part_names[index], (unsigned)(h->parts[index] ^ h->parts[index] >> 32));
+				part_name(index), (unsigned)(h->parts[index] ^ h->parts[index] >> 32));
 	if (h->report)
 		h->report(h->frame, h->calls, h->hash, report_second_thread, text);
 	h->frame++;
@@ -410,7 +379,7 @@ static uint32_t hashed_present(gpu_texture back_buffer)
 	struct hasher *h = current;
 	uint32_t due;
 
-	command(h, OPERATION_present);
+	command(h, GPU_OPERATION_present);
 	mix64(h, back_buffer);
 	frame_end(h);
 	due = h->next->present(back_buffer);
@@ -420,37 +389,25 @@ static uint32_t hashed_present(gpu_texture back_buffer)
 static uint32_t hashed_present_stereo(const struct gpu_stereo_present *present)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_present_stereo);
+	command(h, GPU_OPERATION_present_stereo);
 	mix_bytes(h, present, sizeof(*present));
 	frame_end(h);
 	return h->next->present_stereo(present);
 }
 
-/* a query */
-static uint32_t hashed_call_count_take(void)
-{
-	struct hasher *h = current;
-	return h->next->call_count_take();
-}
 
-/* a query */
-static uint32_t hashed_warm_list_read(const char *name, char *text, uint32_t size)
-{
-	struct hasher *h = current;
-	return h->next->warm_list_read(name, text, size);
-}
 
 static void hashed_warm_begin(void)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_warm_begin);
+	command(h, GPU_OPERATION_warm_begin);
 	h->next->warm_begin();
 }
 
 static void hashed_pipeline_warm(const struct gpu_pipeline_description *description)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_pipeline_warm);
+	command(h, GPU_OPERATION_pipeline_warm);
 	mix_bytes(h, description, sizeof(*description));
 	h->next->pipeline_warm(description);
 }
@@ -458,32 +415,20 @@ static void hashed_pipeline_warm(const struct gpu_pipeline_description *descript
 static void hashed_warm_end(void)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_warm_end);
+	command(h, GPU_OPERATION_warm_end);
 	h->next->warm_end();
 }
 
-/* a query */
-static uint32_t hashed_pipeline_built_take(struct gpu_pipeline_description *description)
-{
-	struct hasher *h = current;
-	return h->next->pipeline_built_take(description);
-}
 
 static void hashed_frame_context(uint32_t scene_class, uint32_t frame_rate, const char *level)
 {
 	struct hasher *h = current;
-	command(h, OPERATION_frame_context);
+	command(h, GPU_OPERATION_frame_context);
 	mix64(h, ((uint64_t)scene_class << 32) | frame_rate);
 	mix_string(h, level);
 	h->next->frame_context(scene_class, frame_rate, level);
 }
 
-/* a query */
-static uint32_t hashed_compiles_outstanding(void)
-{
-	struct hasher *h = current;
-	return h->next->compiles_outstanding();
-}
 
 /* a snapshot is a query; the other actions change the backend's accounting */
 static void hashed_compile_progress(uint32_t action, struct gpu_compile_progress *progress)
@@ -491,21 +436,36 @@ static void hashed_compile_progress(uint32_t action, struct gpu_compile_progress
 	struct hasher *h = current;
 	if (action != GPU_COMPILE_PROGRESS_SNAPSHOT)
 	{
-		command(h, OPERATION_compile_progress);
+		command(h, GPU_OPERATION_compile_progress);
 		mix64(h, action);
 	}
 	h->next->compile_progress(action, progress);
 }
 
-/* each instance's entry points: they name the instance, then call the shared body */
+/* each instance's entry points, by class (gpu_operation.h): a command's thunk names the instance, then calls the shared
+body; a query's goes straight to the instance's next backend */
+#define THUNK_COMMAND_F(instance, type, name, parameters, arguments) \
+	static type name##_on_##instance parameters { current = &hashers[instance]; return hashed_##name arguments; }
+#define THUNK_COMMAND_P(instance, name, parameters, arguments) \
+	static void name##_on_##instance parameters { current = &hashers[instance]; hashed_##name arguments; }
+#define THUNK_QUERY_F(instance, type, name, parameters, arguments) \
+	static type name##_on_##instance parameters { return hashers[instance].next->name arguments; }
+#define THUNK_QUERY_P(instance, name, parameters, arguments) \
+	static void name##_on_##instance parameters { hashers[instance].next->name arguments; }
+#define THUNK_F_RECORDED THUNK_COMMAND_F
+#define THUNK_P_RECORDED THUNK_COMMAND_P
+#define THUNK_F_AT_ONCE THUNK_COMMAND_F
+#define THUNK_P_AT_ONCE THUNK_COMMAND_P
+#define THUNK_F_QUERY THUNK_QUERY_F
+#define THUNK_P_QUERY THUNK_QUERY_P
+#define THUNK_F_OTHER_THREAD THUNK_QUERY_F
+#define THUNK_P_OTHER_THREAD THUNK_QUERY_P
 #define THUNK_F0(type, name, parameters, arguments) \
-	static type name##_on_0 parameters { current = &hashers[0]; return hashed_##name arguments; }
-#define THUNK_P0(name, parameters, arguments) \
-	static void name##_on_0 parameters { current = &hashers[0]; hashed_##name arguments; }
+	GPU_OPERATION_BY_CLASS(THUNK_F_, name)(0, type, name, parameters, arguments)
+#define THUNK_P0(name, parameters, arguments) GPU_OPERATION_BY_CLASS(THUNK_P_, name)(0, name, parameters, arguments)
 #define THUNK_F1(type, name, parameters, arguments) \
-	static type name##_on_1 parameters { current = &hashers[1]; return hashed_##name arguments; }
-#define THUNK_P1(name, parameters, arguments) \
-	static void name##_on_1 parameters { current = &hashers[1]; hashed_##name arguments; }
+	GPU_OPERATION_BY_CLASS(THUNK_F_, name)(1, type, name, parameters, arguments)
+#define THUNK_P1(name, parameters, arguments) GPU_OPERATION_BY_CLASS(THUNK_P_, name)(1, name, parameters, arguments)
 GPU_OPERATIONS(THUNK_F0, THUNK_P0)
 GPU_OPERATIONS(THUNK_F1, THUNK_P1)
 _Static_assert(GPU_CALL_HASH_INSTANCES == 2, "one set of thunks per instance");

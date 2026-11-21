@@ -10,9 +10,8 @@ reordered or stale command changes the frame's hash. It is how a change to the
 path from the front end to the backend (the encode thread's queue) is shown
 not to change what the backend does.
 
-Queries (visibility_result, vertical_blank_wait, companion_size,
-call_count_take, texture_read, warm_list_read, pipeline_built_take,
-compiles_outstanding and a compile_progress snapshot) pass through unhashed:
+Queries (the QUERY and OTHER_THREAD classes in gpu_operation.h, and a
+compile_progress snapshot) pass through unhashed:
 they change nothing in the backend, and a queue may answer them from a cache.
 */
 

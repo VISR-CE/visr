@@ -2,9 +2,9 @@
 same bytes, in the same order, as one called directly. Plays the same made-up frames both ways into
 debug.gpu_call_hash (gpu_call_hash.c) and compares the frames' hashes: draws whose packets change a few bytes or
 many, constants changed one register at a time, in bursts past the store's change log and under a second store,
-uniforms, uploads bigger than a chunk, and every recorded operation. Then, behind the queue, a backend that reads
-the constants as gpu_gl.c does (following the store's change log) must see the game's values and serials on every
-draw. Built and run by tools/test_gpu_queue.py with
+uniforms changed whole and one value at a time, uploads bigger than a chunk, a write with no data, and every
+recorded operation, each of which must reach the backend behind the queue inside a compared frame. Then, behind the queue, a backend that reads the constants as gpu_gl.c does
+(following the store's change log) must see the game's values and serials on every draw. Built and run by tools/test_gpu_queue.py with
 gpu_call_hash.c and gpu_queue.c. */
 
 #include "gpu_call_hash.h"
@@ -174,6 +174,9 @@ static void play(const struct gpu_backend *backend)
 			backend->texture_upload(texture, 0, 0, big, sizeof(big));
 		}
 		backend->buffer_write(buffer, frame * 8, 64, big + frame, frame & 3);
+		/* no data: the backend must still be handed the size */
+		if (frame % 9 == 2)
+			backend->buffer_write(buffer, 0, 48, NULL, 0);
 		for (index = 0; index < draws; index++)
 		{
 			uint32_t kind = random32() % 16;
@@ -195,6 +198,12 @@ static void play(const struct gpu_backend *backend)
 			changes = kind == 8 ? 1500 : random32() % 6;
 			for (change = 0; change < changes; change++)
 				store_set(&stores[0], random32() % GPU_CONSTANT_COUNT, (float)(random32() % 1000));
+			if (kind == 15)
+			{
+				/* one value: a single block of the uniforms changes */
+				uniforms.serial++;
+				((float *)&uniforms)[5 + random32() % 40] = (float)random32();
+			}
 			if (kind == 9)
 			{
 				uniforms.serial++;
@@ -237,6 +246,9 @@ static void play(const struct gpu_backend *backend)
 		backend->companion_set(frame & 1 ? texture : 0);
 		if (frame == FRAMES / 2)
 			backend->frame_context(2, 60, NULL);
+		/* a texture made and destroyed inside a frame, so its destroy is in a compared hash */
+		if (frame % 11 == 3)
+			backend->texture_destroy(backend->texture_create(&description));
 		if (frame % 5 == 4)
 		{
 			stereo.eye_color[0] = texture;
@@ -246,7 +258,7 @@ static void play(const struct gpu_backend *backend)
 		else
 			backend->present(texture);
 	}
-	backend->texture_destroy(texture);
+	/* (nothing after the last present: every command is in a compared frame) */
 }
 
 int main(void)
@@ -254,6 +266,7 @@ int main(void)
 	uint64_t direct[FRAMES];
 	uint32_t direct_calls[FRAMES];
 	unsigned long frame;
+	unsigned operation;
 	int distinct = 0;
 
 	play(gpu_call_hash_wrap(0, &fake, record));
@@ -264,13 +277,18 @@ int main(void)
 		distinct += direct[frame] != direct[frame - 1];
 	CHECK(distinct > FRAMES / 2, "the frames hash alike: the probe tests nothing");
 
+	/* queued: the same hashes, and every recorded operation reaches the backend */
 	frames_seen = 0;
-	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &fake, record), GPU_QUEUE_INLINE, 1, quiet));
+	memset(fake_calls, 0, sizeof(fake_calls));
+	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), GPU_QUEUE_INLINE, 1, quiet));
 	CHECK(frames_seen == FRAMES, "the queued run presented %lu frames", frames_seen);
 	for (frame = 0; frame < FRAMES; frame++)
 		CHECK(hashes[frame] == direct[frame] && frame_calls[frame] == direct_calls[frame],
 			"frame %lu: queued %u commands, hash %016llx; direct %u, %016llx", frame, frame_calls[frame],
 			(unsigned long long)hashes[frame], direct_calls[frame], (unsigned long long)direct[frame]);
+	for (operation = 0; operation < GPU_OPERATION_COUNT; operation++)
+		CHECK(gpu_operation_classes[operation] != GPU_CLASS_RECORDED || fake_calls[operation],
+			"the probe never sent %s, a recorded operation, through the queue", gpu_operation_names[operation]);
 
 	/* one run, hashed in front of the queue and behind it, as debug.gpu_call_hash does with the queue on */
 	frames_seen = front_seen = 0;
