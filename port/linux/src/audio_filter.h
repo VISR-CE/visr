@@ -20,6 +20,8 @@ whose channels are equal.
 #define AUDIO_FILTER_H
 
 #define RESAMPLER_ZERO_CROSSINGS 24
+/* the most a voice's low pass is narrowed for a step above 1 */
+#define RESAMPLER_MAXIMUM_STRETCH 2
 #define RESAMPLER_TAPS (2 * RESAMPLER_ZERO_CROSSINGS)
 /* the frames a voice keeps (a power of two); one more than the taps wraps */
 #define RESAMPLER_HISTORY 128
@@ -102,6 +104,32 @@ static inline void audio_filter_fast(const float (*history)[2], unsigned long fi
 	}
 	*left = (sum_left[0] + sum_left[1]) + (sum_left[2] + sum_left[3]);
 	*right = stereo ? (sum_right[0] + sum_right[1]) + (sum_right[2] + sum_right[3]) : *left;
+}
+
+/* the weights of one output frame, the two rows of the phase table blended (as audio_filter_fast does for each tap) */
+static inline void audio_filter_blend(const float *weights, const float *next_weights, float blend, float *blended)
+{
+	int tap;
+
+	for (tap = 0; tap < RESAMPLER_TAPS; tap += 4)
+	{
+		audio_filter_vector weight = audio_filter_load(weights + tap);
+		audio_filter_vector difference = audio_filter_load(next_weights + tap) - weight;
+
+		weight = weight + difference * blend;
+		__builtin_memcpy(blended + tap, &weight, sizeof(weight));
+	}
+}
+
+/* RESAMPLER_TAPS contiguous frames against blended weights: the four lane sums added as (0 + 1) + (2 + 3) */
+static inline float audio_filter_dot(const float *source, const float *blended)
+{
+	audio_filter_vector sum = { 0.0f, 0.0f, 0.0f, 0.0f };
+	int tap;
+
+	for (tap = 0; tap < RESAMPLER_TAPS; tap += 4)
+		sum += audio_filter_load(source + tap) * audio_filter_load(blended + tap);
+	return (sum[0] + sum[1]) + (sum[2] + sum[3]);
 }
 
 /* what the mixer calls: the reference loop, or (fast, audio.fast_filter) the fast one with `stereo` the voice's own

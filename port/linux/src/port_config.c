@@ -948,6 +948,17 @@ static const struct config_setting config_settings[] =
 		"within 0.000002 of full scale, and about a quarter less mixing CPU\n"
 		"(0.81 to 0.59 ms a 10.7 ms callback with 55 voices, M3 Max). Off gives\n"
 		"the earlier loop. Read again when Settings changes it." },
+	{ "audio.rate_bus", _config_boolean, "true", "HALO_RATE_BUS", _environment_value, _platform_all,
+		"Sounds playing at exactly their own pitch (nearly all of them; the sound\n"
+		"files are 22,050 and 44,100 Hz) are added together at that rate and\n"
+		"resampled to the output's 48,000 Hz once a rate, instead of each one\n"
+		"separately: the same sound (a ramping voice differs by about 3e-5 of its\n"
+		"own level, the rounding of the way the old mixer ramped a gain; a sound may\n"
+		"start up to 45 microseconds later) and far less mixing CPU. Sounds with a\n"
+		"changed pitch, and stereo sounds panned towards where they are, are mixed\n"
+		"as before, with audio.fast_filter. Read again when Settings changes it\n"
+		"(turning it off moves sounds already playing to the old path at the next\n"
+		"callback); with it on, audio.fast_filter does not change a nominal sound." },
 	{ "audio.loose_sounds", _config_boolean, "false", "HALO_LOOSE_SOUNDS", _environment_value, _platform_all,
 		"For those making sounds: play each of a map's sounds that has a Halo PC\n"
 		"sound tag file of its name under the data root's tags folder\n"

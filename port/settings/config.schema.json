@@ -3754,6 +3754,17 @@
             "desktop"
           ]
         },
+        "rate_bus": {
+          "type": "boolean",
+          "default": true,
+          "description": "Sounds playing at exactly their own pitch (nearly all of them; the sound files are 22,050 and 44,100 Hz) are added together at that rate and resampled to the output's 48,000 Hz once a rate, instead of each one separately: the same sound (a ramping voice differs by about 3e-5 of its own level, the rounding of the way the old mixer ramped a gain; a sound may start up to 45 microseconds later) and far less mixing CPU. Sounds with a changed pitch, and stereo sounds panned towards where they are, are mixed as before, with audio.fast_filter. Read again when Settings changes it (turning it off moves sounds already playing to the old path at the next callback); with it on, audio.fast_filter does not change a nominal sound.",
+          "x-environment": "HALO_RATE_BUS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "loose_sounds": {
           "type": "boolean",
           "default": false,
