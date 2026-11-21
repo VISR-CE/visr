@@ -71,6 +71,8 @@ run('python3', 'tools/test_host_no_profile.py')
 run('python3', 'tools/test_ios_asm_convert.py')
 run('python3', 'tools/test_astc_rewrite.py')
 run('python3', 'tools/test_astc_encode.py')
+# The shared weak host stubs cover every host header function and compile under -Werror.
+run('python3', 'tools/test_host_stubs.py')
 run('python3', 'tools/astc_upload_test.py')
 run('python3', 'tools/test_astc_store.py')
 run('python3', 'tools/astc_worker_test.py')

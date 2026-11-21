@@ -229,9 +229,9 @@ def declaration(statement: str):
     return name, ret == 'void', noreturn, head
 
 
-def collect():
+def collect(host: Path = HOST):
     found = {}
-    for header in sorted(HOST.glob('*.h')):
+    for header in sorted(host.glob('*.h')):
         if header.name in SKIP_HEADERS:
             continue
         text = strip_comments(header.read_text())
@@ -274,6 +274,10 @@ def render(found) -> str:
     return '\n'.join(out) + '\n'
 
 
+def missing_defaults(found, stub_text: str) -> list[str]:
+    return sorted(set(found) - defined_names(stub_text))
+
+
 def defined_names(text: str) -> set[str]:
     return set(re.findall(r'__attribute__\(\(weak\)\) [^\n]*?\b(\w+)\(', text))
 
@@ -290,7 +294,7 @@ def main() -> int:
         print(f'wrote {OUTPUT.relative_to(ROOT)}: {len(found)} weak defaults')
         return 0
     current = OUTPUT.read_text() if OUTPUT.exists() else ''
-    missing = sorted(set(found) - defined_names(current))
+    missing = missing_defaults(found, current)
     if missing:
         print('host functions declared in port/ios/host/*.h without a weak default in '
               'port/ios/tests/host_stubs.c (run tools/host_stubs.py --write):')
