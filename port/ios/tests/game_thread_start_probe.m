@@ -62,6 +62,8 @@ static void host_cloud_saves_leaving(int seconds) { assert(host_on_main_thread()
 static void host_shader_upload_suspend(void) { assert(host_on_main_thread()); }
 static void host_perf_reports_finish(int failed) { assert(host_on_main_thread() && failed == (quit_mode != 2)); }
 static void host_crash(const char *message) { (void)message; abort(); }
+/* host_thread.c holds the real one; the probe asserts the class it sets. */
+static int host_thread_interactive(void) { return pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0); }
 static void host_exit(int code);
 static void host_event_pump(void) { assert(host_on_main_thread()); atomic_fetch_add(&pumps, 1); }
 static uint32_t host_guest_on_stack(uintptr_t start, uint32_t boot, uintptr_t arena, void *stack) {

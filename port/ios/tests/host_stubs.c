@@ -1488,6 +1488,8 @@ __attribute__((weak)) void host_thread_cpu_frame(void)
 { }
 __attribute__((weak)) void host_thread_cpu_install(void)
 { }
+__attribute__((weak)) int host_thread_interactive(void)
+{ fprintf(stderr, "host_stubs: probe called host_thread_interactive without defining it\n"); abort(); }
 __attribute__((weak)) void host_touch_replay_active(int active)
 { }
 __attribute__((weak)) void host_tv_import(const char *documents)

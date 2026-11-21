@@ -959,6 +959,14 @@ static const struct config_setting config_settings[] =
 		"as before, with audio.fast_filter. Read again when Settings changes it\n"
 		"(turning it off moves sounds already playing to the old path at the next\n"
 		"callback); with it on, audio.fast_filter does not change a nominal sound." },
+	{ "audio.worker_priority", _config_string, "\"interactive\"", "HALO_AUDIO_WORKER_PRIORITY", _environment_value, _platform_ios,
+		"The priority of the thread that mixes the game's sound. SDL's own audio\n"
+		"thread, which is time-critical, waits on it for each callback, so at the\n"
+		"default priority it is held up whenever the game and render threads fill\n"
+		"the cores. \"interactive\" (default) is the game thread's class,\n"
+		"\"realtime\" a time-constraint policy of one callback's period, and\n"
+		"\"default\" leaves the thread at the system's default. Read when the\n"
+		"game starts." },
 	{ "audio.loose_sounds", _config_boolean, "false", "HALO_LOOSE_SOUNDS", _environment_value, _platform_all,
 		"For those making sounds: play each of a map's sounds that has a Halo PC\n"
 		"sound tag file of its name under the data root's tags folder\n"
