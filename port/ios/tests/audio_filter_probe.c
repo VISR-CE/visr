@@ -9,6 +9,11 @@ voice whose channels are equal; and the check can tell a wrong answer from a rou
 
 #include "audio_filter.h"
 
+/* strict C11 on Linux does not define M_PI */
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 static unsigned state = 12345u;
 static float random_unit(void)
 {
