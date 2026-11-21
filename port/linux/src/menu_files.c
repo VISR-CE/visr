@@ -1034,7 +1034,8 @@ static void read_patch(struct reader *reader, const XML_Char **attributes)
 	struct attribute table[] =
 	{
 		{ "list", &patch.list }, { "screen", &patch.screen }, { "footer", NULL, &patch.footer, &patch.has_footer },
-		{ "rows", &patch.rows }, { "tall_art", &patch.tall_art },
+		{ "rows", &patch.rows }, { "tall_art", &patch.tall_art }, { "tall_top_art", &patch.tall_top_art },
+		{ "row_kind", &patch.row_kind },
 	};
 
 	memset(&patch, 0, sizeof(patch));

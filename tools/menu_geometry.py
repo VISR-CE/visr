@@ -26,6 +26,10 @@ COMFORTABLE_ROW_ART = 36
 # How far a comfortable row's label and value move down inside the taller row: the game's own option_bkds art
 # drawn as the 36-unit band (`xbox/bitmaps/row_36/option_bkds`) has its text line 5 units lower than the 28-unit row.
 COMFORTABLE_ROW_SHIFT = 5
+# Picture-list rows (the disc's list_item_bkd art, 32 units, beside a picture panel): the standard row draws the art
+# 36 units tall in the same band, so the row's text moves down by half the difference.
+PICTURE_ROW_HEIGHT = 32
+PICTURE_ROW_SHIFT = (COMFORTABLE_ROW_ART - PICTURE_ROW_HEIGHT) // 2
 # The bottom bar: legend y (glyphs and captions) and the y below which nothing of a list is drawn.
 LEGEND_Y = 414
 # A value column: the measured widest value plus this margin on each side, at least the minimum width. The margin
@@ -44,6 +48,7 @@ HEADER_VALUES = (
     ('MENU_COMFORTABLE_PITCH', COMFORTABLE_PITCH, 'a comfortable option row: its tap band and pitch'),
     ('MENU_COMFORTABLE_ROW_ART', COMFORTABLE_ROW_ART, "a comfortable option row's drawn art"),
     ('MENU_COMFORTABLE_ROW_SHIFT', COMFORTABLE_ROW_SHIFT, "a comfortable row's label and value, moved down"),
+    ('MENU_PICTURE_ROW_SHIFT', PICTURE_ROW_SHIFT, "a picture-list row's text, moved down in the taller row"),
     ('MENU_LEGEND_Y', LEGEND_Y, "the bottom bar's glyphs and captions"),
     ('MENU_CHEVRON_INSET', CHEVRON_INSET, "the dropdown chevron, in from the value column's right edge"),
     ('MENU_CHEVRON_WIDTH', CHEVRON_WIDTH, 'the dropdown chevron'),

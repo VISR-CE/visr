@@ -180,16 +180,83 @@ def test_no_path_reaches_the_step_one_gametype_list():
     assert asked
 
 
-def test_the_patches_make_tall_exactly_the_shown_option_lists_that_fit():
-    """rows="tall" is on every disc option list the game shows that fits and on no other, each with the tall art
-    and its screen."""
+def test_the_patches_make_tall_exactly_the_shown_lists_that_fit():
+    """rows="tall" is on every disc list of a standard row kind the game shows that fits and is not exempted, and on
+    no other, each with its row kind, that kind's tall art and its screen."""
+    import xbox_menus
+
     root = ET.parse(disc_contract.XBOX / 'patches.xml').getroot()
-    marked = {patch.get('list').rsplit('\\', 1)[-1]: patch for patch in root.iter('patch') if patch.get('rows')}
-    assert all(patch.get('rows') == 'tall' and patch.get('tall_art') == 'xbox/bitmaps/row_36/option_bkds'
-               for patch in marked.values())
-    checked, _ = shown_option_lists()
-    assert set(marked) == set(checked) - set(TALL_OVERFLOW) == {
-        'advanced_controls_menu', 'item_options_menu', 'player_options_menu'}
     layout = ui_map_tags.load_layout()
+    marked = {patch.get('list').rsplit('\\', 1)[-1]: patch for patch in root.iter('patch') if patch.get('rows')}
+    for patch in marked.values():
+        kind = disc_contract.row_kind(layout, patch.get('list'))
+        art, top_art = xbox_menus.TALL_ART[kind]
+        assert (patch.get('rows'), patch.get('row_kind'), patch.get('tall_art'), patch.get('tall_top_art')) == (
+            'tall', kind, art, top_art), patch.get('list')
+    checked, _ = shown_option_lists()
+    pictures, _ = shown_picture_lists()
+    exempt = {path.rsplit('\\', 1)[-1] for path in xbox_menus.DISC_LIST_EXEMPTIONS}
+    assert set(marked) == (set(checked) - set(TALL_OVERFLOW)) | (set(pictures) - exempt) == {
+        'advanced_controls_menu', 'item_options_menu', 'player_options_menu',
+        'multiplayer_type_select_list', 'difficulty_select_list'}
     for patch in marked.values():
         assert any(child['widget'] == patch.get('list') for child in layout[patch.get('screen')]['children'])
+
+
+# The platforms a patch row can name (platform="tvos", "!mac_app", ...), as each device shows them.
+PLATFORMS = {'iphone': set(), 'ipad_keyboard': {'keyboard'}, 'tvos': {'tvos'}, 'mac_app': {'mac_app', 'keyboard'}}
+
+
+def shows(platform, active):
+    """whether a row with platform= (None for every platform) shows where the active platforms are"""
+    if not platform:
+        return True
+    return (platform.lstrip('!') in active) != platform.startswith('!')
+
+
+def shown_picture_lists():
+    """Every disc picture list on a screen the game can show: {list leaf: {device: (rows, where they end, the
+    limit)}} after the shipped patches with every row tall, each device counting the patch rows it shows; and the
+    leaves of the picture lists it never shows."""
+    import xbox_menus
+
+    root = ET.parse(disc_contract.XBOX / 'patches.xml').getroot()
+    layout, ours = ui_map_tags.load_layout(), disc_contract.xbox_widgets()
+    redirects = {source.replace('/', '\\'): target.replace('/', '\\')
+                 for source, target in xbox_menus.SCREEN_ALWAYS + xbox_menus.SCREEN_REPLACED}
+    shown = disc_contract.reachable_screens(layout, root, ours, redirects, disc_contract.screens_named_in_the_game())
+    found, hidden = {}, set()
+    for device, active in PLATFORMS.items():
+        filtered = ET.fromstring(ET.tostring(root))
+        for patch in filtered.iter('patch'):
+            for op in list(patch):
+                if not shows(op.get('platform'), active):
+                    patch.remove(op)
+        for path, (rows, bottom, limit, screen, kind) in disc_contract.standard_lists_tall(layout, filtered, ours).items():
+            if kind != 'picture':
+                continue
+            if screen in shown:
+                found.setdefault(path.rsplit('\\', 1)[-1], {})[device] = (rows, bottom, limit)
+            else:
+                hidden.add(path.rsplit('\\', 1)[-1])
+    return found, hidden
+
+
+def test_every_disc_picture_list_the_game_shows_fits_with_every_row_tall_on_every_device():
+    """The disc's picture lists (text rows beside a picture panel) are restacked as standard tall rows, keeping the
+    disc's gaps and never reordering a row (the difficulty list's handler reads the chosen row's place as the
+    difficulty). Laid out as each device shows them, every list the game shows ends above the bottom bar, except
+    the lists in the generator's DISC_LIST_EXEMPTIONS, each with its reason."""
+    import xbox_menus
+
+    found, hidden = shown_picture_lists()
+    assert hidden == {'edit_playlist_select_list', 'gametype_select_list', 'profile_edit_select_list'}, sorted(hidden)
+    assert set(found) == {'multiplayer_type_select_list', 'difficulty_select_list', 'server_list'}, sorted(found)
+    exempt = {path.rsplit('\\', 1)[-1]: reason for path, reason in xbox_menus.DISC_LIST_EXEMPTIONS.items()}
+    assert set(exempt) == {'server_list'} and all(exempt.values())
+    over = {(leaf, device): fit for leaf, devices in found.items() for device, fit in devices.items()
+            if fit[1] > fit[2] and leaf not in exempt}
+    assert over == {}, over
+    # (the multiplayer type list keeps its 22-unit gap before its last row: 6 rows from 78, 39 apart, + 22)
+    assert found['multiplayer_type_select_list']['iphone'] == (6, 78 + 6 * 39 + 22, 414)
+    assert found['difficulty_select_list']['tvos'] == (4, 78 + 4 * 39, 414)

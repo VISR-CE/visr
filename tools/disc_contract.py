@@ -92,7 +92,11 @@ def patched_rows(layout, ours, patch):
 
     rows = [disc_row(child['widget']) for child in layout[patch.get('list')]['children']]
 
+    # (a replaced row is still found by the map's path, as the game's patch code finds it)
+    replaced = {}
+
     def index_of(name):
+        name = replaced.get(name, name)
         for index, row in enumerate(rows):
             if name in (row[0], row[1]):
                 return index
@@ -114,33 +118,69 @@ def patched_rows(layout, ours, patch):
             at = index_of(op.get('child'))
             if at is not None:
                 rows[at] = our_row(op, rows[at])
+                replaced[op.get('child')] = op.get('name')
     return rows
 
 
 OPTION_ROW_ART = 'option_bkds'
+# The kinds of disc rows the engine makes the standard tall row, by the art every row of a list draws: option rows
+# (a label and a value), and picture-list rows (text rows beside a picture panel, the first with a top variant).
+ROW_KINDS = {'option': {OPTION_ROW_ART}, 'picture': {'list_item_bkd', 'list_item_bkd_top'}}
 TALL_PITCH = 39
+# where a picture list's rows stop: the bottom bar (its panel, not a help text, is beside the rows)
+LEGEND_Y = 414
 
 
-def option_lists_tall(layout, patches_root, ours=None):
-    """Every disc option list (a column list whose rows all draw the disc's option row art), laid out with every
-    row a standard tall row at the standard pitch from its first row: {list path: (rows, where they end, the limit,
-    the screen that holds the list)}. The limit is the list's patch's footer, else the top of its help text."""
+def row_kind(layout, path):
+    """The kind of a disc column list's rows ('option' or 'picture'), or None for any other list."""
+    widget = layout[path]
+    if widget['type'] != 'column_list' or not widget['children']:
+        return None
+    arts = {layout[child['widget']]['bitmap'].rsplit('\\', 1)[-1] for child in widget['children']}
+    return next((kind for kind, known in ROW_KINDS.items() if arts <= known), None)
+
+
+def disc_row_tops(layout, path):
+    """Where each of a disc list's rows starts, in order: an option row at its child offset, a picture row at its
+    child offset plus its own bounds' top (bounds are left, top, right, bottom)."""
+    return [child['y'] + layout[child['widget']]['bounds'][1] for child in layout[path]['children']]
+
+
+def disc_gaps(tops):
+    """The extra space the disc leaves between rows: each step's surplus over the list's closest pitch."""
+    steps = [b - a for a, b in zip(tops, tops[1:]) if b > a]
+    return sum(step - min(steps) for step in steps) if steps else 0
+
+
+def standard_lists_tall(layout, patches_root, ours=None):
+    """Every disc list of a standard row kind, laid out with every row a standard tall row at the standard pitch
+    from its first row (a picture list keeping the disc's gaps): {list path: (rows, where they end, the limit, the
+    screen that holds the list, the row kind)}. The limit is the list's patch's footer, else the top of an option
+    list's help text or the bottom bar for a picture list."""
     patches = {patch.get('list'): patch for patch in patches_root.iter('patch')}
     found = {}
     for path, widget in layout.items():
-        disc = widget['children']
-        if widget['type'] != 'column_list' or not disc or {
-                layout[child['widget']]['bitmap'].rsplit('\\', 1)[-1] for child in disc} != {OPTION_ROW_ART}:
+        kind = row_kind(layout, path)
+        if kind is None:
             continue
+        disc = widget['children']
         patch = patches.get(path)
         rows = len(patched_rows(layout, ours or {}, patch)) if patch is not None else len(disc)
-        # (bounds are left, top, right, bottom)
-        limit = int(patch.get('footer')) if patch is not None else layout[widget['description']]['bounds'][1]
-        bottom = min(child['y'] for child in disc) + rows * TALL_PITCH
+        if patch is not None and patch.get('footer'):
+            limit = int(patch.get('footer'))
+        else:
+            limit = layout[widget['description']]['bounds'][1] if kind == 'option' else LEGEND_Y
+        tops = disc_row_tops(layout, path) if kind == 'picture' else [child['y'] for child in disc]
+        bottom = min(tops) + rows * TALL_PITCH + (disc_gaps(tops) if kind == 'picture' else 0)
         screen = next(parent for parent, other in layout.items()
                       if any(child['widget'] == path for child in other['children']))
-        found[path] = (rows, bottom, limit, screen)
+        found[path] = (rows, bottom, limit, screen, kind)
     return found
+
+
+def option_lists_tall(layout, patches_root, ours=None):
+    """standard_lists_tall's option lists, as (rows, where they end, the limit, the screen)."""
+    return {path: fit[:4] for path, fit in standard_lists_tall(layout, patches_root, ours).items() if fit[4] == 'option'}
 
 
 def reachable_screens(layout, patches_root, ours, redirects, named=()):

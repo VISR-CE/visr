@@ -73,9 +73,12 @@ static char const patches_xml[] =
 	"</patch>\n"
 	/* a row with a spinner out of an option list: the rows after it keep their own help lines */
 	"<patch list=\"ui\\shell\\options\\options_list\" screen=\"ui\\shell\\options\\options_screen\""
-	" rows=\"tall\" tall_art=\"xbox/test_picture\">\n"
+	" rows=\"tall\" row_kind=\"option\" tall_art=\"xbox/test_picture\">\n"
 	"  <remove child=\"ui\\shell\\options\\op_first\"/>\n"
 	"</patch>\n"
+	/* a picture list (text rows placed by their own bounds, the last after a gap) made tall in place */
+	"<patch list=\"ui\\shell\\pictures\\picture_list\" screen=\"ui\\shell\\pictures\\picture_screen\""
+	" footer=\"414\" rows=\"tall\" row_kind=\"picture\" tall_art=\"xbox/test_picture\" tall_top_art=\"xbox/test_cached\"/>\n"
 	"<patch list=\"ui\\shell\\adopt\\adopt_other_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
 	"  <row after=\"ui\\shell\\adopt\\adopt_other_item\" name=\"adopted_missing\" widget=\"xbox/no_such_screen\"/>\n"
 	"</patch>\n"
@@ -504,11 +507,13 @@ static long st_screen, st_list, ov_list, other_list;
 
 static void adopt_build(void);
 static void options_build(void);
+static void pictures_build(void);
 
 static void map_build(void)
 {
 	adopt_build();
 	options_build();
+	pictures_build();
 	/* The spinner resolves its default font, but this probe does not render it. */
 	map_add(FONT_TAG, "ui\\large_ui", calloc(1, 1));
 	/* the multiplayer type screen (bounds and offsets as the Xbox's ui.map has them) */
@@ -699,6 +704,30 @@ static void options_build(void)
 	reference_set(&definition_of(op_list)->extended_description_widget, UI_WIDGET_DEFINITION_TAG, text);
 	children[0] = op_list;
 	children_set(widget_add("ui\\shell\\options\\options_screen", _widget_type_container, 0, 0, 640, 480),
+		1, children, zero, zero);
+}
+
+static long pic_list, pic_rows[4];
+
+/* a picture list as the multiplayer type list is: four text rows 32 units tall on a 33 pitch, placed by their own
+bounds (the list's offsets 0), the last 22 units further down, the first drawing the top art */
+static void pictures_build(void)
+{
+	long children[1], row;
+	short const xs[4] = { 0, 0, 0, 0 }, ys[4] = { 0, 0, 0, 22 }, zero[1] = { 0 };
+
+	for (row = 0; row < 4; row++)
+	{
+		char name[96];
+
+		snprintf(name, sizeof(name), "ui\\shell\\pictures\\picture_item_%ld", row);
+		pic_rows[row] = row_add(strdup(name), 51, (short)(78 + row * 33), 283, (short)(110 + row * 33), 0);
+		definition_of(pic_rows[row])->vertical_offset = 3;
+	}
+	pic_list = widget_add("ui\\shell\\pictures\\picture_list", _widget_type_column_list, 0, 0, 640, 480);
+	children_set(pic_list, 4, pic_rows, xs, ys);
+	children[0] = pic_list;
+	children_set(widget_add("ui\\shell\\pictures\\picture_screen", _widget_type_container, 0, 0, 640, 480),
 		1, children, zero, zero);
 }
 
@@ -1028,6 +1057,34 @@ static void check_apple(boolean tvos)
 			check(pc_menu_meta(op_rows[0])->tag_index == NONE && !pc_menu_meta(op_rows[0])->role &&
 				!pc_menu_meta(NONE)->tall, "a tag the menus say nothing of has the record of nothing");
 			check(!pc_menu_row_tall(children_of(ad_list)[0].widget_tag.index), "a list whose patch does not ask keeps its rows");
+		}
+		{
+			/* rows="tall" row_kind="picture": the rows keep their tags and order, stand a standard pitch apart from
+			the first row's place with the map's 22-unit gap kept, are the tap band tall, draw the tall art (the
+			first the top art), and their text moves down by the kind's shift */
+			long art = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\test_picture");
+			long top_art = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\test_cached");
+			short const tops[4] = { 78, 117, 156, 217 };
+			long row;
+
+			check(child_count(pic_list) == 4, "the picture list keeps its four rows (%ld)", child_count(pic_list));
+			for (row = 0; row < 4 && child_count(pic_list) == 4; row++)
+			{
+				struct ui_widget_child_reference const *placed = &children_of(pic_list)[row];
+				struct ui_widget_definition const *definition = definition_of(placed->widget_tag.index);
+
+				check(placed->widget_tag.index == pic_rows[row], "a tall picture row keeps the map's tag (row %ld)", row);
+				check(placed->vertical_offset + definition->bounds.y0 == tops[row],
+					"a tall picture row stands where the pitch and the map's gap put it (row %ld: %d)", row,
+					placed->vertical_offset + definition->bounds.y0);
+				check(definition->bounds.y1 - definition->bounds.y0 == 39, "a tall picture row is the tap band tall (%d)",
+					definition->bounds.y1 - definition->bounds.y0);
+				check(definition->background_bitmap.index == (row ? art : top_art) && art != NONE && top_art != NONE,
+					"a tall picture row draws the tall art, the first the top art (row %ld)", row);
+				check(definition->vertical_offset == 3 + MENU_PICTURE_ROW_SHIFT,
+					"a tall picture row's text moves down by the kind's shift (%d)", definition->vertical_offset);
+				check(pc_menu_row_tall(placed->widget_tag.index), "the engine is told the picture row is tall");
+			}
 		}
 		check(!pc_menu_patch_list_index(ad_other_list, NONE, &description) && child_count(ad_other_list) == 1,
 			"a row of a widget there is none of is not made");

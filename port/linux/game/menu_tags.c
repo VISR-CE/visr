@@ -2897,40 +2897,81 @@ static void patch_remote_legends(void)
 /* one patch: worked out whole, then written (the list's rows, the
 screen's children's offsets, the rows' tags, the description's strings and
 frames), or not made at all */
+/* The standard tall row's geometry for each kind of the map's rows a patch makes tall: how far the row's content
+(an option row's label and value, a picture row's text) moves down in the taller row, and whether the list keeps
+the extra space the map leaves between some of its rows (a picture list's gap before its last row). */
+struct menu_row_kind
+{
+	char const *name;
+	short content_shift;
+	boolean keep_gaps;
+};
+
+static struct menu_row_kind const menu_row_kinds[] =
+{
+	{ "option", MENU_COMFORTABLE_ROW_SHIFT, FALSE },
+	{ "picture", MENU_PICTURE_ROW_SHIFT, TRUE },
+};
+
+static struct menu_row_kind const *menu_row_geometry(char const *kind)
+{
+	for (long index = 0; kind && index < NUMBEROF(menu_row_kinds); index++)
+	{
+		if (!strcmp(kind, menu_row_kinds[index].name))
+			return &menu_row_kinds[index];
+	}
+	return NULL;
+}
+
+static long patch_tall_art(char const *name)
+{
+	long index = name ? find(name, build.menus->bitmap_count, bitmap_name) : NONE;
+
+	return index == NONE ? NONE : build.bitmap_tags[index];
+}
+
 /* rows="tall": every row of the list becomes a standard tall row, in the order the patch left them. The rows
-are set at the standard pitch from the first row's place. A row of the map's own (28 units of the disc's art on
-a 30 pitch) is changed where it is, so its tag and its name stay what the game's handlers and the patch's own
-numbering look it up by: its height becomes the pitch, its background the tall art, and its label and value move
-down as a generated row's do. A row of ours is tall already. Done once for a row that several lists share. */
+are set at the standard pitch from the first row's place (a picture list keeps the map's extra gaps: each row's
+space above it beyond the list's closest pitch). A row of the map's own is changed where it is, so its tag and its
+name stay what the game's handlers and the patch's own numbering look it up by: its height becomes the pitch, its
+background the tall art (the first row's the top art, where given), and its content moves down by its kind's
+shift. A row of ours is tall already. Done once for a row that several lists share. */
 static boolean patch_rows_tall(struct patch_work *work)
 {
 	struct halo_menu_patch const *patch = work->patch;
-	long art = NONE, row;
-	short first;
+	struct menu_row_kind const *kind = menu_row_geometry(patch->row_kind);
+	long art = patch_tall_art(patch->tall_art), top_art = patch->tall_top_art ? patch_tall_art(patch->tall_top_art) : art;
+	long row;
+	short first, closest = 32767, y[PATCH_MAXIMUM_ROWS];
 
 	if (strcmp(patch->rows, "tall"))
 		return patch_fail(work, patch->file, patch->line, "rows is tall, or not given:", patch->rows);
-	if (patch->tall_art)
-	{
-		long index = find(patch->tall_art, build.menus->bitmap_count, bitmap_name);
-
-		art = index == NONE ? NONE : build.bitmap_tags[index];
-	}
-	if (art == NONE)
-		return patch_fail(work, patch->file, patch->line, "rows=\"tall\" needs tall_art, a bitmap of ours:",
-			patch->tall_art ? patch->tall_art : patch->list);
+	if (!kind)
+		return patch_fail(work, patch->file, patch->line, "rows=\"tall\" needs row_kind, option or picture:",
+			patch->row_kind ? patch->row_kind : patch->list);
+	if (art == NONE || top_art == NONE)
+		return patch_fail(work, patch->file, patch->line, "rows=\"tall\" needs tall_art (and tall_top_art), bitmaps of ours:",
+			art == NONE ? (patch->tall_art ? patch->tall_art : patch->list) : patch->tall_top_art);
 	if (work->count < 1)
 		return TRUE;
-	for (row = 1, first = work->rows[0].vertical_offset; row < work->count; row++)
+	for (row = 0; row < work->count; row++)
 	{
-		if (work->rows[row].vertical_offset < first)
-			first = work->rows[row].vertical_offset;
+		y[row] = patch_row_y(work, row);
+		if (row > 0 && y[row] - y[row - 1] > 0 && y[row] - y[row - 1] < closest)
+			closest = (short)(y[row] - y[row - 1]);
+	}
+	for (row = 1, first = y[0]; row < work->count; row++)
+	{
+		if (y[row] < first)
+			first = y[row];
 	}
 	for (row = 0; row < work->count; row++)
 	{
 		long tag = work->rows[row].widget_tag.index;
+		short gap = row > 0 && kind->keep_gaps && y[row] - y[row - 1] > closest ? (short)(y[row] - y[row - 1] - closest) : 0;
+		short top = row > 0 ? (short)(patch_row_y(work, row - 1) + MENU_COMFORTABLE_PITCH + gap) : first;
 
-		work->rows[row].vertical_offset = (short)(first + row * MENU_COMFORTABLE_PITCH);
+		work->rows[row].vertical_offset = (short)(top - work->list_y - work->definitions[row]->bounds.y0);
 		if (work->map_tags[row] != NONE && !pc_menu_row_tall(tag))
 		{
 			struct ui_widget_definition *definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
@@ -2938,9 +2979,11 @@ static boolean patch_rows_tall(struct patch_work *work)
 			long part;
 
 			definition->bounds.y1 = (short)(definition->bounds.y0 + MENU_COMFORTABLE_PITCH);
-			reference_set(&definition->background_bitmap, BITMAP_GROUP_TAG, art);
+			reference_set(&definition->background_bitmap, BITMAP_GROUP_TAG, row == 0 ? top_art : art);
+			if (definition->type == _widget_type_text_box)
+				definition->vertical_offset = (short)(definition->vertical_offset + kind->content_shift);
 			for (part = 0; part < definition->child_widgets.count; part++)
-				parts[part].vertical_offset = (short)(parts[part].vertical_offset + MENU_COMFORTABLE_ROW_SHIFT);
+				parts[part].vertical_offset = (short)(parts[part].vertical_offset + kind->content_shift);
 		}
 		row_tall_note(tag);
 	}

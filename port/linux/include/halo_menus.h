@@ -136,8 +136,10 @@ struct halo_menu_patch
 {
 	char const *list, *screen;
 	/* rows="tall": every row of the list, the map's own included, becomes a standard tall row at the standard
-	pitch from the first row's place, in order; tall_art names the bitmap of ours the map's rows then draw */
-	char const *rows, *tall_art;
+	pitch from the first row's place, in order; tall_art names the bitmap of ours the map's rows then draw, and
+	tall_top_art (optional) the one the first row draws (a picture list's first row has the tab that joins the
+	panel); row_kind ("option" or "picture") picks the kind's geometry (menu_tags.c, menu_row_geometry) */
+	char const *rows, *tall_art, *tall_top_art, *row_kind;
 	/* the y the rows stay above (footer=), else the screen's a_butn's */
 	long footer, has_footer;
 	long first_row, row_count;

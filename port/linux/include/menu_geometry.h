@@ -8,6 +8,7 @@
 #define MENU_COMFORTABLE_PITCH     39 /* a comfortable option row: its tap band and pitch */
 #define MENU_COMFORTABLE_ROW_ART   36 /* a comfortable option row's drawn art */
 #define MENU_COMFORTABLE_ROW_SHIFT 5 /* a comfortable row's label and value, moved down */
+#define MENU_PICTURE_ROW_SHIFT     2 /* a picture-list row's text, moved down in the taller row */
 #define MENU_LEGEND_Y              414 /* the bottom bar's glyphs and captions */
 #define MENU_CHEVRON_INSET         8 /* the dropdown chevron, in from the value column's right edge */
 #define MENU_CHEVRON_WIDTH         12 /* the dropdown chevron */

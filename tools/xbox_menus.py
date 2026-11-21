@@ -2296,33 +2296,51 @@ def patch_document(names):
     return root
 
 
-# the tall copy of the disc's option row art (written with the first generated row that uses it)
+# The tall copies of the disc's row art for each row kind the engine makes tall (written with the first generated
+# row that uses them): the art every row draws, and the first row's where the kind has a top variant.
 TALL_ROW_ART = 'xbox/bitmaps/row_36/option_bkds'
+TALL_ART = {'option': (TALL_ROW_ART, None),
+            'picture': ('xbox/bitmaps/row_36/list_item_bkd', 'xbox/bitmaps/row_36/list_item_bkd_top')}
+# Disc lists of a standard row kind that keep the disc's rows, with the reason.
+DISC_LIST_EXEMPTIONS = {
+    # (the System Link server list: 9 rows that do not fit tall and have no scrolling window; the 0.7.0 browser
+    # redesign replaces the screen)
+    MM + 'multiplayer_type_select\\connected\\server_list\\server_list':
+        'System Link server list: 9 rows, no scrolling window; replaced by the 0.7.0 browser',
+}
 
 
 def tall_disc_rows(documents):
-    """Every row of every screen the game shows is the standard tall row, the disc's own included: each disc
-    option list on a screen the game can show (disc_contract.reachable_screens: not one a redirect replaces) that
-    fits with tall rows is marked rows="tall" (the game restacks it at the standard pitch and gives the disc's
-    rows the tall art, port/linux/game/menu_tags.c), on its patch, or on an empty patch where it had none. A list
-    that would pass its limit is left as the disc has it (tools/test_disc_contract.py lists those)."""
+    """Every row of every screen the game shows is the standard tall row, the disc's own included: each disc list
+    of a standard row kind (disc_contract.row_kind: option rows, picture-list rows) on a screen the game can show
+    (disc_contract.reachable_screens: not one a redirect replaces) that fits with tall rows is marked rows="tall"
+    with its row kind and tall art (the game restacks it at the standard pitch and restyles the disc's rows,
+    port/linux/game/menu_tags.c), on its patch, or on an empty patch where it had none. A list that would pass its
+    limit is left as the disc has it (tools/test_disc_contract.py lists those), and so is one in
+    DISC_LIST_EXEMPTIONS."""
     import disc_contract
     import ui_map_tags
 
     root = documents['patches.xml']
     layout = ui_map_tags.load_layout()
     ours = {w.get('name'): w for document in documents.values() for w in document.iter('widget')}
+    bitmaps = {b.get('name') for document in documents.values() for b in document.iter('bitmap')}
     redirects = {source.replace('/', '\\'): target.replace('/', '\\') for source, target in SCREEN_ALWAYS + SCREEN_REPLACED}
     shown = disc_contract.reachable_screens(layout, root, ours, redirects, disc_contract.screens_named_in_the_game())
     patches = {p.get('list'): p for p in root.iter('patch')}
-    for path, (_, bottom, limit, screen) in sorted(disc_contract.option_lists_tall(layout, root, ours).items()):
-        if bottom > limit or screen not in shown:
+    for path, (_, bottom, limit, screen, kind) in sorted(disc_contract.standard_lists_tall(layout, root, ours).items()):
+        if bottom > limit or screen not in shown or path in DISC_LIST_EXEMPTIONS:
             continue
         element = patches.get(path)
         if element is None:
             element = ET.SubElement(root, 'patch', {'list': path, 'screen': screen, 'footer': str(limit)})
+        art, top_art = TALL_ART[kind]
+        assert {art, top_art} - {None} <= bitmaps, (path, art, top_art)
         element.set('rows', 'tall')
-        element.set('tall_art', TALL_ROW_ART)
+        element.set('row_kind', kind)
+        element.set('tall_art', art)
+        if top_art:
+            element.set('tall_top_art', top_art)
 
 
 def header_frames(assets):
