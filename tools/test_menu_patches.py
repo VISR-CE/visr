@@ -34,6 +34,7 @@ def build(directory: Path) -> Path:
     for source in ("port/linux/game/menu_tags.c", "port/linux/src/menu_files.c", "port/linux/src/menu_files.h",
                    "port/linux/src/menu_platform.h", "port/linux/include/halo_menus.h",
                    "port/linux/include/menu_equivalence.h", "port/linux/include/menu_geometry.h",
+                   "port/linux/include/halo_menu_meta.h",
                    "port/ios/tests/menu_patch_probe.c"):
         shutil.copy2(ROOT / source, directory)
     binary = directory / "menu_patch_probe"

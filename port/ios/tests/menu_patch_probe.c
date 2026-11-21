@@ -1007,6 +1007,9 @@ static void check_apple(boolean tvos)
 				check(definition->child_widgets.count == 1 && parts[0].vertical_offset == 5,
 					"a tall row's value moves down with it (%d)", parts[0].vertical_offset);
 				check(pc_menu_row_tall(placed->widget_tag.index), "the engine is told the row is tall");
+				check(pc_menu_meta(placed->widget_tag.index)->role == HALO_MENU_ROLE_ROW &&
+					pc_menu_meta(placed->widget_tag.index)->tag_index == placed->widget_tag.index,
+					"a tall row's record says it is a row");
 				/* Bug class: a standard row's value drawn in whatever width the map gave its spinner. The rows share
 				one value column: as wide as the widest value (5 letters of 8) and its margins, ending where the
 				widest spinner ended (400). */
@@ -1022,6 +1025,8 @@ static void check_apple(boolean tvos)
 				}
 			}
 			check(!pc_menu_row_tall(op_rows[0]), "a row the patch removed is not made tall");
+			check(pc_menu_meta(op_rows[0])->tag_index == NONE && !pc_menu_meta(op_rows[0])->role &&
+				!pc_menu_meta(NONE)->tall, "a tag the menus say nothing of has the record of nothing");
 			check(!pc_menu_row_tall(children_of(ad_list)[0].widget_tag.index), "a list whose patch does not ask keeps its rows");
 		}
 		check(!pc_menu_patch_list_index(ad_other_list, NONE, &description) && child_count(ad_other_list) == 1,

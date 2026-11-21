@@ -39,6 +39,7 @@ no screen pauses the game (a network game's clock runs on).
 #include "halo_menus.h"
 #include "menu_equivalence.h"
 #include "menu_geometry.h"
+#include "halo_menu_meta.h"
 #include "../../runtime/menu_picture_upscaled.h"
 
 #include <stdlib.h>
@@ -510,12 +511,10 @@ static struct
 	none), which their descriptions are shown by (pc_menu_patch_list_index) */
 	struct menu_patch_index *patch_indices;
 	long patch_index_count;
-	/* the column lists that show a window of their rows (visible_rows=) */
-	struct { long tag_index; short rows; } *windows;
-	long window_count;
-	/* the widgets that are standard tall rows (row="tall", and the map's rows a patch made tall) */
-	long *tall_rows;
-	long tall_row_count;
+	/* what the menus' data says of a widget, by tag (halo_menu_meta.h): a standard tall row (row="tall", and the
+	map's rows a patch made tall), a list's window of rows (visible_rows=) */
+	struct halo_menu_meta *meta;
+	long meta_count;
 	boolean loaded;
 } menu_tags;
 
@@ -1299,18 +1298,36 @@ static void rows_pack(struct halo_menu_widget const *source, struct ui_widget_ch
 		children[placed].flags &= ~0x80000000UL;
 }
 
-/* a widget noted as a standard tall row (pc_menu_row_tall) */
+/* the record of a tag to write to, made if the tag has none (NULL: out of memory, and the tag stays unsaid) */
+static struct halo_menu_meta *meta_note(long tag_index)
+{
+	struct halo_menu_meta *grown;
+	long index;
+
+	for (index = 0; index < menu_tags.meta_count; index++)
+	{
+		if (menu_tags.meta[index].tag_index == tag_index)
+			return &menu_tags.meta[index];
+	}
+	grown = realloc(menu_tags.meta, (menu_tags.meta_count + 1) * sizeof(*grown));
+	if (!grown)
+		return NULL;
+	menu_tags.meta = grown;
+	memset(&grown[menu_tags.meta_count], 0, sizeof(*grown));
+	grown[menu_tags.meta_count].tag_index = tag_index;
+	return &grown[menu_tags.meta_count++];
+}
+
+/* a widget noted as a standard tall row */
 static void row_tall_note(long tag_index)
 {
-	long *grown;
+	struct halo_menu_meta *meta = meta_note(tag_index);
 
-	if (pc_menu_row_tall(tag_index))
-		return;
-	grown = realloc(menu_tags.tall_rows, (menu_tags.tall_row_count + 1) * sizeof(*grown));
-	if (!grown)
-		return;
-	menu_tags.tall_rows = grown;
-	menu_tags.tall_rows[menu_tags.tall_row_count++] = tag_index;
+	if (meta)
+	{
+		meta->role = HALO_MENU_ROLE_ROW;
+		meta->tall = TRUE;
+	}
 }
 
 static void *widget_build(long widget_index)
@@ -1472,9 +1489,10 @@ static void *widget_build(long widget_index)
 			problem(source->file, source->line, "visible_rows is 1 to 64, for a column list:", source->name);
 		else
 		{
-			menu_tags.windows = realloc(menu_tags.windows, (menu_tags.window_count + 1) * sizeof(*menu_tags.windows));
-			menu_tags.windows[menu_tags.window_count].tag_index = build.widget_tags[widget_index];
-			menu_tags.windows[menu_tags.window_count++].rows = (short)source->visible_rows;
+			struct halo_menu_meta *meta = meta_note(build.widget_tags[widget_index]);
+
+			if (meta)
+				meta->visible_rows = (short)source->visible_rows;
 		}
 	}
 	reference_clear(&definition->list_header_bitmap, BITMAP_GROUP_TAG);
@@ -1718,10 +1736,8 @@ static void menu_tags_release(void)
 		free(menu_tags.settings);
 	if (menu_tags.patch_indices)
 		free(menu_tags.patch_indices);
-	if (menu_tags.windows)
-		free(menu_tags.windows);
-	if (menu_tags.tall_rows)
-		free(menu_tags.tall_rows);
+	if (menu_tags.meta)
+		free(menu_tags.meta);
 	memset(&menu_tags, 0, sizeof(menu_tags));
 }
 
@@ -3774,17 +3790,24 @@ boolean pc_menu_tag(
 
 /* how many rows of a menu file's column list show at once
 (visible_rows=); 0: all of them (ui_widget.c scrolls the rest in) */
+struct halo_menu_meta const *pc_menu_meta(
+	long tag_index)
+{
+	static struct halo_menu_meta const nothing = { NONE, 0, 0, 0, 0, 0 };
+	long index;
+
+	/* (read while the tags are built too: a patch asks whether a row it shares is tall already) */
+	for (index = 0; tag_index != NONE && index < menu_tags.meta_count; index++)
+	{
+		if (menu_tags.meta[index].tag_index == tag_index)
+			return &menu_tags.meta[index];
+	}
+	return &nothing;
+}
 short pc_menu_list_window(
 	long tag_index)
 {
-	long index;
-
-	for (index = 0; menu_tags.loaded && tag_index != NONE && index < menu_tags.window_count; index++)
-	{
-		if (menu_tags.windows[index].tag_index == tag_index)
-			return menu_tags.windows[index].rows;
-	}
-	return 0;
+	return pc_menu_meta(tag_index)->visible_rows;
 }
 
 /* whether the widget is a standard tall row: its art is drawn MENU_COMFORTABLE_ROW_ART units tall in its
@@ -3793,14 +3816,7 @@ a list's rows tall, never guessed from a name. */
 boolean pc_menu_row_tall(
 	long tag_index)
 {
-	long index;
-
-	for (index = 0; tag_index != NONE && index < menu_tags.tall_row_count; index++)
-	{
-		if (menu_tags.tall_rows[index] == tag_index)
-			return TRUE;
-	}
-	return FALSE;
+	return pc_menu_meta(tag_index)->tall;
 }
 
 /* where in its widget, and how large, a frame of ui.map's that a menu file
