@@ -1657,6 +1657,14 @@ static const struct config_setting config_settings[] =
 		"renderer received: each call, its arguments and the bytes they point to.\n"
 		"Two runs of the same recording whose renderers did the same work log the\n"
 		"same hashes. For checking changes to how drawing reaches the renderer." },
+	{ "debug.encode_thread", _config_string, "\"off\"", "HALO_ENCODE_THREAD", _environment_value, _platform_ios,
+		"How the Metal renderer's commands reach it. \"off\" (default): the game\n"
+		"thread calls the renderer. \"inline\": the game thread writes each command\n"
+		"into a queue and reads it back at once, to measure what the queue costs\n"
+		"and check that it changes nothing. Not on visionOS." },
+	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
+		"With debug.encode_thread on: also time the renderer's share of the\n"
+		"queue's work, in the log line it writes every 300 frames." },
 	{ "debug.frame_load_cpu", _config_real, "0.0", "HALO_FRAME_LOAD_CPU", _environment_value, _platform_ios,
 		"Milliseconds of made-up CPU work added to every frame (the frame pacer),\n"
 		"to see what display.frames_in_flight does when frames don't fit in a\n"

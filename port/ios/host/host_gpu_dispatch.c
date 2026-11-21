@@ -17,6 +17,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_external.h"
 #include "host_config.h"
 #include "gpu_call_hash.h"
+#include "gpu_queue.h"
 #include "host_low_power.h"
 #include "low_power.h"
 #if HALO_RENDER_VALIDATION
@@ -616,6 +617,36 @@ static const struct gpu_backend *call_hash_wrap(const struct gpu_backend *chosen
 	return strcmp(value, "true") ? chosen : gpu_call_hash_wrap(chosen, call_hash_log);
 }
 
+/* debug.encode_thread (gpu_queue.h): the Metal backend's commands go through the queue; not on visionOS or in the
+Catalyst test host, which have no game thread */
+static void encode_queue_log(const char *line)
+{
+	platform_log("%s", line);
+}
+
+static const struct gpu_backend *encode_queue_wrap(const struct gpu_backend *chosen)
+{
+#if TARGET_OS_VISION || TARGET_OS_MACCATALYST
+	return chosen;
+#else
+	char value[32];
+	int mode;
+
+	host_config_string("debug.encode_thread", "off", value, sizeof(value));
+	mode = gpu_queue_mode_parse(value);
+	if (mode < 0)
+	{
+		platform_log("debug.encode_thread: \"%s\" is not one of off and inline; it is off", value);
+		mode = GPU_QUEUE_OFF;
+	}
+	if (mode == GPU_QUEUE_OFF)
+		return chosen;
+	host_config_string("debug.encode_thread_timing", "false", value, sizeof(value));
+	platform_log("debug.encode_thread: %s", mode == GPU_QUEUE_INLINE ? "inline" : "?");
+	return gpu_queue_wrap(chosen, mode, !strcmp(value, "true"), encode_queue_log);
+#endif
+}
+
 void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
 #if defined(HALO_METAL_ONLY)
@@ -639,6 +670,8 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 	backend = capture_wrap(backend, flags);
 #endif
 	metal_backend = TARGET_OS_VISION || (flags & GPU_INITIALIZE_METAL) ? 1 : 0;
+	if (metal_backend)
+		backend = encode_queue_wrap(backend);
 	wrapped_backend = backend;
 	wrapped = *backend;
 	wrapped.present = present_wrapped;

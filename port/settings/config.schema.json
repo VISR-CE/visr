@@ -2618,6 +2618,26 @@
             "apple"
           ]
         },
+        "encode_thread": {
+          "type": "string",
+          "default": "off",
+          "description": "How the Metal renderer's commands reach it. \"off\" (default): the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. Not on visionOS.",
+          "x-environment": "HALO_ENCODE_THREAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "encode_thread_timing": {
+          "type": "boolean",
+          "default": false,
+          "description": "With debug.encode_thread on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames.",
+          "x-environment": "HALO_ENCODE_THREAD_TIMING",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "frame_load_cpu": {
           "type": "number",
           "default": 0.0,
