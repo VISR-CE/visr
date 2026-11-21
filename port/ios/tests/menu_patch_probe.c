@@ -1435,6 +1435,24 @@ int main(int argc, char **argv)
 			check(pc_menu_screen_open(open, NULL, TRUE) == xbox, "a controller keeps the game's main menu");
 			check(pc_menu_screen_open(mp_screen, NULL, TRUE) == mp_screen, "a screen with no counterpart opens itself");
 			input_pad = 0;
+			/* BACK reopens the screen below by name: from a settings page opened in the profile's page, BACK must land on
+			the profile's page (itself), not the hub the always-redirect sends a fresh open to */
+			{
+				long hub = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\settings\\settings_screen");
+				long video = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\settings\\video_settings\\video_settings_screen");
+				long main_menu = tag_loaded(UI_WIDGET_DEFINITION_TAG, MM "main_menu");
+
+				check(hub != NONE && video != NONE && pe_screen != NONE, "the hub walk's screens are in the map");
+				pc_menu_screen_open(main_menu, NULL, TRUE);
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == hub, "the profile page opened from the main menu is the hub");
+				check(pc_menu_screen_open(hub, NULL, TRUE) == hub, "the hub opens as itself");
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == pe_screen, "the profile page opened from the hub is itself");
+				check(pc_menu_screen_open(video, NULL, TRUE) == video, "a settings page opens as itself");
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == pe_screen, "BACK from a settings page opens the profile page, not the hub");
+				check(pc_menu_screen_open(hub, NULL, TRUE) == hub, "BACK from the profile page opens the hub");
+				pc_menu_screen_open(main_menu, NULL, TRUE);
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == hub, "the main menu ends the hub flow");
+			}
 			input_keyboard = 0;
 			pc_menu_screen_open(xbox, NULL, TRUE);
 			{

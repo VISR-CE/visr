@@ -3586,6 +3586,12 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 	}
 	if (!strcmp(name, "pc\\xbox\\settings\\settings_screen"))
 		menu_hub_open = TRUE;
+	/* BACK reopens the screen below by name (the widget stack keeps no instance), so the flow has to outlast every
+	screen the hub reaches: a settings page opened from the profile's page is part of it, or BACK from that page would
+	open the profile's page as a root screen again and the always-redirect above would send it to the hub. The flow
+	ends with a screen outside the hub's own (the main menu and the rest). */
+	if (from_hub && menu_screen_in_hub_flow(name))
+		menu_hub_open = TRUE;
 	if (!target) return tag_index;
 	replacement = tag_loaded(UI_WIDGET_DEFINITION_TAG, target);
 	if (replacement == NONE) return tag_index;
