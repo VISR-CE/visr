@@ -40,6 +40,10 @@ static const struct gpu_backend *next, *direct;
 static struct gpu_backend queued;
 /* the backend's answers to the last draw and present consumed (inline: the one just written) */
 static uint32_t draw_result, present_result;
+/* soft_depth_prepare's calls whose backend answer was not the producer's (soft_depth_ready's), and whether one has
+been logged */
+static unsigned long answers_differ;
+static int answer_logged;
 static int mode;
 static int timing;
 static void (*log_line)(const char *line);
@@ -218,6 +222,11 @@ void gpu_queue_drain(void)
 unsigned long gpu_queue_drains(void)
 {
 	return drains;
+}
+
+unsigned long gpu_queue_answers_differ(void)
+{
+	return answers_differ;
 }
 
 /* ---------- payload helpers */
@@ -630,6 +639,66 @@ static void queued_frame_context(uint32_t scene_class, uint32_t frame_rate, cons
 	record_end();
 }
 
+/* ---------- the side operations (gpu_backend.h's GPU_HOST_SIDE_OPERATIONS) */
+
+static uint32_t queued_soft_depth_ready(gpu_texture depth, const float *values, uint32_t count);
+
+/* the answer is the producer's, from soft_depth_ready, so the game has it before the backend makes the call; the
+record carries it, and the consumer counts a backend answer that differs (an allocation that failed) */
+static uint32_t queued_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
+{
+	struct writer writer;
+	uint32_t answer = queued_soft_depth_ready(depth, values, count);
+	uint32_t header[2] = { depth, answer };
+	/* (the count is the bytes' size, kept when values is NULL) */
+	uint32_t size = count * (uint32_t)sizeof(*values);
+
+	writer.at = record_begin(GPU_OPERATION_soft_depth_prepare, 8 + bytes_size(size));
+	put(&writer, header, 8);
+	put_bytes(&writer, values, size);
+	record_end();
+	return answer;
+}
+
+static void queued_soft_depth_finish(void)
+{
+	record_simple(GPU_OPERATION_soft_depth_finish, NULL, 0);
+}
+
+static void queued_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count)
+{
+	struct writer writer;
+	uint32_t header[2] = { color, depth };
+	/* (the count is the bytes' size, kept when values is NULL) */
+	uint32_t size = count * (uint32_t)sizeof(*values);
+
+	writer.at = record_begin(GPU_OPERATION_ssao_apply, 8 + bytes_size(size));
+	put(&writer, header, 8);
+	put_bytes(&writer, values, size);
+	record_end();
+}
+
+static void queued_set_upscaler(int metalfx)
+{
+	int64_t argument = metalfx;
+
+	record_simple(GPU_OPERATION_set_upscaler, &argument, sizeof(argument));
+}
+
+static void queued_set_crt(int enabled)
+{
+	int64_t argument = enabled;
+
+	record_simple(GPU_OPERATION_set_crt, &argument, sizeof(argument));
+}
+
+static void queued_benchmark_realtime(int on)
+{
+	int64_t argument = on;
+
+	record_simple(GPU_OPERATION_benchmark_realtime, &argument, sizeof(argument));
+}
+
 /* ---------- the calls the producer makes itself, by class (gpu_operation.h): AT_ONCE and QUERY after the queue
 is consumed up to them, PRODUCER at once (the backend keeps their state for the producer), OTHER_THREAD (d3d8_device.c's vertical_blank_thread, which must not touch the queue) as
 they come. RECORDED ones are written above. */
@@ -856,6 +925,58 @@ static void consume_frame_context(struct reader *reader)
 	next->frame_context(words[0], words[1], data);
 }
 
+static void consume_soft_depth_prepare(struct reader *reader)
+{
+	const uint32_t *header = take(reader, 8);
+	uint32_t size, answer;
+	const void *values = take_bytes(reader, &size);
+
+	answer = next->soft_depth_prepare(header[0], values, size / (uint32_t)sizeof(float));
+	if (answer != header[1])
+	{
+		answers_differ++;
+		if (!answer_logged && log_line)
+		{
+			char line[160];
+
+			snprintf(line, sizeof(line), "encode queue: soft particle depth answered %u where the game was told %u "
+				"(logged once)", answer, header[1]);
+			log_line(line);
+		}
+		answer_logged = 1;
+	}
+}
+
+static void consume_soft_depth_finish(struct reader *reader)
+{
+	(void)reader;
+	next->soft_depth_finish();
+}
+
+static void consume_ssao_apply(struct reader *reader)
+{
+	const uint32_t *header = take(reader, 8);
+	uint32_t size;
+	const void *values = take_bytes(reader, &size);
+
+	next->ssao_apply(header[0], header[1], values, size / (uint32_t)sizeof(float));
+}
+
+static void consume_set_upscaler(struct reader *reader)
+{
+	next->set_upscaler((int)TAKE(reader, int64_t));
+}
+
+static void consume_set_crt(struct reader *reader)
+{
+	next->set_crt((int)TAKE(reader, int64_t));
+}
+
+static void consume_benchmark_realtime(struct reader *reader)
+{
+	next->benchmark_realtime((int)TAKE(reader, int64_t));
+}
+
 /* each RECORDED operation's reader, by number; NULL for the other classes, which the queue never writes */
 #define CONSUMER_RECORDED(name) consume_##name
 #define CONSUMER_AT_ONCE(name) NULL
@@ -934,6 +1055,7 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 	memset(&sent, 0, sizeof(sent));
 	memset(&held, 0, sizeof(held));
 	memset(&statistics, 0, sizeof(statistics));
+	answer_logged = 0;
 	queued = *chosen;
 	/* (a backend without an operation keeps it missing: frame_context is optional) */
 #define INSTALL_F(type, name, parameters, arguments) if (chosen->name) queued.name = queued_##name;

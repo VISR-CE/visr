@@ -2648,7 +2648,7 @@ static id<MTLRenderPipelineState> crt_pipeline;
 
 /* The guest commits the effective mode and switch before rendering, including unsaved previews. */
 static BOOL crt_enabled;
-void gpu_metal_set_crt(int enabled)
+static void gpu_metal_set_crt(int enabled)
 {
 	if (crt_enabled != (enabled != 0))
 		platform_log("Metal: CRT effect %s", enabled ? "on" : "off");
@@ -5633,7 +5633,7 @@ __attribute__((unused)) static int virtual_display_present(id<MTLCommandBuffer> 
 real time for a while, paced by the display as a presented launch's are, and then not again. The pacing
 thread starts at the first such frame and stays */
 static BOOL fixed_timestep_launch;
-void gpu_metal_benchmark_realtime(int on)
+static void gpu_metal_benchmark_realtime(int on)
 {
 	if (!fixed_timestep_launch)
 		return;
@@ -6660,7 +6660,7 @@ static int output_change(void *new_layer, void *screen, int width, int height, i
     return applied;
 }
 
-int gpu_metal_output(void *new_layer, void *screen, int width, int height)
+static int gpu_metal_output(void *new_layer, void *screen, int width, int height)
 {
     return output_change(new_layer,screen,width,height,0);
 }
@@ -6694,7 +6694,7 @@ static BOOL output_cap_layer(CAMetalLayer *target, int width, int height)
 	return changed;
 }
 
-void gpu_metal_request_output_cap(int cap)
+static void gpu_metal_request_output_cap(int cap)
 {
 	/* (below zero: forget one still waiting) */
 	if(host_game_thread_enabled())host_output_request_set(&output_cap_request,cap);
@@ -6703,13 +6703,13 @@ void gpu_metal_request_output_cap(int cap)
 
 /* (a cap is for the built-in output: while an external output is in use one asked for waits, and counts as settled,
    until the game is back on the device's own screen) */
-int gpu_metal_output_cap_settled(void)
+static int gpu_metal_output_cap_settled(void)
 {
 	return (host_game_thread_enabled()?host_output_request_cap(host_output_request_read(&output_cap_request)):
         atomic_load(&output_cap_pending)) < 0 || host_external_active();
 }
 
-void gpu_metal_output_cap_commit(void)
+static void gpu_metal_output_cap_commit(void)
 {
 #if TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST)
 	int threaded=host_game_thread_enabled();
@@ -6758,7 +6758,7 @@ void gpu_metal_output_cap_commit(void)
 #endif
 }
 
-void gpu_metal_set_upscaler(int metalfx)
+static void gpu_metal_set_upscaler(int metalfx)
 {
 	metalfx_requested = metalfx != 0;
 #ifdef HAVE_METALFX
@@ -6768,7 +6768,7 @@ void gpu_metal_set_upscaler(int metalfx)
 #endif
 }
 
-int gpu_metal_upscaler(void)
+static int gpu_metal_upscaler(void)
 {
 	return metalfx_requested ? 1 : 0;
 }
@@ -8082,16 +8082,20 @@ static id<MTLComputeCommandEncoder> ssao_encoder(id<MTLComputeCommandEncoder> sh
 	return [command_buffer() computeCommandEncoderWithDescriptor:pass];
 }
 
-void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count)
+/* (the guest's host_ssao_apply with no values: a level's warm-up, which needs only the programs, before any render
+target exists) */
+static void gpu_metal_ssao_warm(void)
 {
 	@autoreleasepool
 	{
-		/* Level-load warming needs only the programs, before any render resources are available. */
-		if (count == 0)
-		{
-			ssao_programs();
-			return;
-		}
+		ssao_programs();
+	}
+}
+
+static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count)
+{
+	@autoreleasepool
+	{
 		MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
 		struct ssao_parameters p;
 		struct ssao_composite_parameters c;
@@ -10114,13 +10118,38 @@ static BOOL soft_depth_program(void)
 	return YES;
 }
 
-uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
+/* (the guest's host_soft_depth_prepare with no values: a level's warm-up, which compiles the program and leaves the
+current view's soft-depth state alone) */
+static uint32_t gpu_metal_soft_depth_warm(void)
 {
 	@autoreleasepool
 	{
-		/* Compile-only warming must preserve the current view's active soft-depth state. */
-		if (count == 0)
-			return soft_depth_program();
+		return soft_depth_program();
+	}
+}
+
+/* the depth target and values soft_depth_prepare can use: what it checks before it allocates anything, and what
+soft_depth_ready answers */
+static BOOL soft_depth_usable(MetalTexture *record, uint32_t count)
+{
+	return count >= 5 && record && record->texture && record->description.format == GPU_FORMAT_DEPTH_STENCIL &&
+		!record->samples && !foveation_map(record) && (record->texture.usage & MTLTextureUsagePixelFormatView) &&
+		soft_depth_program();
+}
+
+static uint32_t gpu_metal_soft_depth_ready(gpu_texture depth, const float *values, uint32_t count)
+{
+	(void)values;
+	@autoreleasepool
+	{
+		return soft_depth_usable(texture_record(depth), count);
+	}
+}
+
+static uint32_t gpu_metal_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
+{
+	@autoreleasepool
+	{
 		MetalTexture *record = texture_record(depth);
 		id<MTLComputeCommandEncoder> compute;
 		MTLTextureDescriptor *descriptor;
@@ -10129,9 +10158,7 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		NSUInteger content_width, content_height;
 
 		soft.active = NO;
-		if (count < 5 || !record || !record->texture || record->description.format != GPU_FORMAT_DEPTH_STENCIL ||
-			record->samples || foveation_map(record) || !(record->texture.usage & MTLTextureUsagePixelFormatView) ||
-			!soft_depth_program())
+		if (!soft_depth_usable(record, count))
 			return 0;
 		/* the level's stencil mark, shared with SSAO */
 		soft.stencil_view = level_stencil_view(record->texture);
@@ -10193,7 +10220,7 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 	}
 }
 
-void host_soft_depth_finish(void)
+static void gpu_metal_soft_depth_finish(void)
 {
 	soft.active = NO;
 }

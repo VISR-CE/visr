@@ -8,7 +8,7 @@ GPU_INITIALIZE_METAL (display.renderer = "metal"), Metal (gpu_metal.m).
 visionOS has no OpenGL ES, and its build leaves the GL backend out.
 */
 
-#include "gpu.h"
+#include "gpu_backend.h"
 #include "ios_host.h"
 #include "host_data_updates.h"
 #include <string.h>
@@ -770,6 +770,20 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 #define DISPATCH_PROCEDURE(name, parameters, arguments) void gpu_##name parameters { backend->name arguments; }
 GPU_OPERATIONS(DISPATCH_FUNCTION, DISPATCH_PROCEDURE)
 
+/* The Metal backend's side operations (gpu_backend.h's GPU_HOST_SIDE_OPERATIONS), host_gpu_<name>: once Metal draws,
+through the same wrappers as gpu.h's calls (the encode queue among them), so they reach the backend in order with the
+draws; before gpu_initialize, or while OpenGL ES draws, straight to the Metal backend, as they always went */
+static const struct gpu_backend *side_backend(void)
+{
+	return host_gpu_metal_active() ? wrapped_backend : &gpu_backend_metal;
+}
+#define SIDE_FUNCTION(type, name, parameters, arguments) type host_gpu_##name parameters { return side_backend()->name arguments; }
+#define SIDE_PROCEDURE(name, parameters, arguments) void host_gpu_##name parameters { side_backend()->name arguments; }
+GPU_HOST_SIDE_OPERATIONS(SIDE_FUNCTION, SIDE_PROCEDURE)
+#undef SIDE_FUNCTION
+#undef SIDE_PROCEDURE
+#include "gpu_side_imports.h"
+
 /* The guest resolver includes unsaved graphics previews and environment overrides. */
 void host_graphics_apply(int metalfx, int crt, int frame_rate)
 {
@@ -785,8 +799,8 @@ void host_graphics_apply(int metalfx, int crt, int frame_rate)
 		return;
 	if (previous_upscaler != metalfx)
 	{
-		gpu_metal_set_upscaler(metalfx);
+		host_gpu_set_upscaler(metalfx);
 		previous_upscaler = metalfx;
 	}
-	gpu_metal_set_crt(crt);
+	host_gpu_set_crt(crt);
 }

@@ -42,6 +42,21 @@ static void quiet(const char *line)
 	(void)line;
 }
 
+static unsigned lines_logged;
+
+static void count_lines(const char *line)
+{
+	(void)line;
+	lines_logged++;
+}
+
+/* a producer answer the backend then refuses: soft particles look possible, and an allocation fails */
+static uint32_t ready_yes(gpu_texture depth, const float *values, uint32_t count)
+{
+	(void)depth, (void)values, (void)count;
+	return 1;
+}
+
 #define CHECK(condition, ...) \
 	do \
 	{ \
@@ -135,6 +150,7 @@ static void play(const struct gpu_backend *backend)
 	struct gpu_stereo_present stereo;
 	struct gpu_pipeline_description pipeline;
 	unsigned char vertices[96];
+	float side_values[27];
 	uint32_t frame, index, samples, width, height;
 	gpu_buffer buffer;
 	gpu_texture texture;
@@ -148,6 +164,7 @@ static void play(const struct gpu_backend *backend)
 	memset(&clear, 0, sizeof(clear));
 	memset(&stereo, 0, sizeof(stereo));
 	memset(&pipeline, 0, sizeof(pipeline));
+	memset(side_values, 0, sizeof(side_values));
 	for (index = 0; index < sizeof(big); index++)
 		big[index] = (unsigned char)(index * 7);
 
@@ -157,6 +174,9 @@ static void play(const struct gpu_backend *backend)
 	pipeline.pixel_shader = backend->shader_create(1, "pixel");
 	backend->pipeline_warm(&pipeline);
 	backend->warm_end();
+	/* the side operations' warm-ups (gpu_side_imports.h's calls with no values) */
+	(void)backend->soft_depth_warm();
+	backend->ssao_warm();
 	description.width = description.height = 512;
 	description.levels = 1;
 	texture = backend->texture_create(&description);
@@ -166,6 +186,19 @@ static void play(const struct gpu_backend *backend)
 		uint32_t draws = 20 + random32() % 200;
 
 		backend->frame_start();
+		/* the side operations, between frames (host_graphics_apply, the benchmark, the output's changes) */
+		backend->set_upscaler((int)(frame & 1));
+		backend->set_crt((int)(frame & 2));
+		if (frame % 6 == 1)
+			backend->benchmark_realtime((int)(frame & 4));
+		if (frame % 10 == 3)
+		{
+			backend->request_output_cap((int)frame * 10);
+			(void)backend->output_cap_settled();
+			backend->output_cap_commit();
+			(void)backend->output(NULL, NULL, 640 + (int)frame, 480);
+		}
+		(void)backend->upscaler();
 		clear.color_target = texture;
 		clear.flags = GPU_CLEAR_COLOR | GPU_CLEAR_DEPTH;
 		clear.color = frame;
@@ -239,6 +272,21 @@ static void play(const struct gpu_backend *backend)
 				backend->texture_copy_level(texture, texture + 1, 1);
 			if (kind == 14)
 				backend->flush();
+			/* mid-frame: soft particles' depth (values, and once with none) and SSAO */
+			if (kind == 3 && index % 2)
+			{
+				side_values[0] = (float)frame;
+				side_values[5] = (float)index;
+				(void)backend->soft_depth_ready(texture + 1, side_values, 6);
+				(void)backend->soft_depth_prepare(texture + 1, (frame & 8) ? NULL : side_values, 6);
+				backend->draw(&draw, front_store, &uniforms);
+				backend->soft_depth_finish();
+			}
+			if (kind == 4 && index % 3 == 0)
+			{
+				side_values[2] = (float)random32();
+				backend->ssao_apply(texture, texture + 1, side_values, 18 + frame % 10);
+			}
 		}
 		backend->texture_generate_mipmaps(texture, 0);
 		backend->texture_set_content(texture, 300 + frame, 200);
@@ -323,6 +371,24 @@ int main(void)
 		play(gpu_queue_wrap(&reader, NULL, GPU_QUEUE_INLINE, 0, quiet));
 		CHECK(!stale_reads && !stale_serials, "behind the queue %lu draws read stale constants by the change log "
 			"and %lu had other serials than the game's store", stale_reads, stale_serials);
+	}
+	/* the game is given the producer's soft-depth answer (soft_depth_ready's); a backend answer that differs is
+	counted and logged once */
+	CHECK(gpu_queue_answers_differ() == 0, "%lu soft-depth answers differed from a backend that agrees",
+		gpu_queue_answers_differ());
+	{
+		struct gpu_backend disagrees = fake;
+		const struct gpu_backend *queue;
+		float values[6] = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 1.0f };
+
+		disagrees.soft_depth_ready = ready_yes;
+		lines_logged = 0;
+		queue = gpu_queue_wrap(&disagrees, NULL, GPU_QUEUE_INLINE, 0, count_lines);
+		CHECK(queue->soft_depth_prepare(3, values, 6) == 1, "the game was not given the producer's answer");
+		CHECK(queue->soft_depth_prepare(3, values, 6) == 1, "the game was not given the producer's answer");
+		CHECK(gpu_queue_answers_differ() == 2 && lines_logged == 1,
+			"two differing answers were counted %lu times and logged %u times", gpu_queue_answers_differ(),
+			lines_logged);
 	}
 	puts("gpu_queue_probe: ok");
 	return 0;

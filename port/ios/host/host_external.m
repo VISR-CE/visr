@@ -79,7 +79,7 @@ static void posture_picture_commit(void) {
     CAMetalLayer *target=laptop?(CAMetalLayer *)posture_picture.layer:(__bridge CAMetalLayer *)phone_layer;
     if(laptop!=posture_output || (laptop &&
         (width!=output_width || height!=output_height))) {
-        if(!gpu_metal_output((__bridge void *)target,NULL,width,height))return;
+        if(!host_gpu_output((__bridge void *)target,NULL,width,height))return;
         output_width=width;output_height=height;
         posture_output=laptop;
         publish_size();
@@ -123,7 +123,7 @@ static void posture_picture_commit_threaded(void) {
         }
     });
     if(!target)return;
-    int accepted=gpu_metal_output((__bridge void *)target,NULL,width,height);
+    int accepted=host_gpu_output((__bridge void *)target,NULL,width,height);
     host_main_sync(^{
         if(!accepted)return;
         output_width=width;output_height=height;
@@ -172,11 +172,11 @@ static int screen_is_external(UIScreen *screen) {
 }
 /* A switch the renderer cannot take yet (before it starts) stays pending and is logged once. */
 static int output_switch(void *layer,UIScreen *screen,int width,int height) {
-    /* gpu_metal_output restarts pacing through host_external_screen before
+    /* the Metal backend's output change restarts pacing through host_external_screen before
        returning, so publish the destination for that call and roll back on refusal. */
     UIScreen *previous_screen=output_screen;
     output_screen=screen;
-    if(gpu_metal_output(layer,(__bridge void *)screen,width,height)) {
+    if(host_gpu_output(layer,(__bridge void *)screen,width,height)) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
         posture_output=0;
         posture_picture.hidden=YES;
@@ -1011,7 +1011,7 @@ static void host_external_poll_main(void) {
    frame_slots or calls renderer code while the worker waits for it. A scene
    change during the drain leaves a new pending transaction for the next frame. */
 static void external_commit_threaded_output(int allow_pause) {
-    gpu_metal_output_cap_commit();
+    host_gpu_output_cap_commit();
 #if TARGET_OS_MACCATALYST
     host_main_sync(^{ test_output_frame++; });
 #endif
@@ -1056,7 +1056,7 @@ static void external_commit_threaded_output(int allow_pause) {
         if(destination)output_screen=screen; /* pacing_start reads this destination on main */
     });
     if(!destination)return;
-    int accepted=gpu_metal_output((__bridge void *)destination,(__bridge void *)screen,width,height);
+    int accepted=host_gpu_output((__bridge void *)destination,(__bridge void *)screen,width,height);
     host_main_sync(^{
         if(!accepted){output_screen=previous;return;}
         output_failures=0;output_screen=screen;output_width=width;output_height=height;companion_on=companion;
@@ -1105,7 +1105,7 @@ static void external_commit_threaded_output(int allow_pause) {
     });
 }
 
-/* Called by gpu_metal_output on main, after the worker has drained every slot.
+/* Called by gpu_metal.m's output change on main, after the worker has drained every slot.
    A stale destination from a disconnected scene is retained by the renderer but
    must not resize the replacement scene's view. */
 void host_external_output_resize(void *target,int width,int height) {
@@ -1130,11 +1130,11 @@ void host_external_commit(int allow_pause) {
     (void)allow_pause;
     /* (a benchmark display variant's built-in output cap, before the frame's first draw) */
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
-    BOOL cap_pending=!gpu_metal_output_cap_settled();
+    BOOL cap_pending=!host_gpu_output_cap_settled();
 #endif
-    gpu_metal_output_cap_commit();
+    host_gpu_output_cap_commit();
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
-    if(cap_pending && gpu_metal_output_cap_settled()) {
+    if(cap_pending && host_gpu_output_cap_settled()) {
         posture_output=0;
         publish_size();
         posture_picture.hidden=YES;

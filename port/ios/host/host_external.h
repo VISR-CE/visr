@@ -39,8 +39,9 @@ int host_external_cycle(int direction);
 int host_external_force(const char *mode);
 int host_external_ready(void);
 void host_external_mode_label(char *text, size_t size);
-/* gpu_metal.m: drains the old output before exchanging layers. */
-int gpu_metal_output(void *layer, void *screen, int width, int height);
+/* host_gpu_dispatch.c, the Metal backend's output side operation (gpu_backend.h): drains the old output before
+   exchanging layers. Game thread. */
+int host_gpu_output(void *layer, void *screen, int width, int height);
 /* Main-only layer geometry update, inside the renderer's drained output fence. */
 void host_external_output_resize(void *layer, int width, int height);
 /* host_sdl.c: close and reopen the output streams (and so the device) after an audio route change. */

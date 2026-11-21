@@ -105,11 +105,14 @@ static void mock_compile_progress(uint32_t action, struct gpu_compile_progress *
 }
 static uint32_t mock_compiles_outstanding(void) { return 0; }
 /* the host's own operations (gpu_backend.h) do nothing */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #define MOCK_HOST_F(type, name, parameters, arguments) static type mock_##name parameters { return (type)0; }
 #define MOCK_HOST_P(name, parameters, arguments) static void mock_##name parameters {}
 GPU_HOST_OPERATIONS(MOCK_HOST_F, MOCK_HOST_P)
 #undef MOCK_HOST_F
 #undef MOCK_HOST_P
+#pragma GCC diagnostic pop
 static uint8_t mock_astc;
 static void mock_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {

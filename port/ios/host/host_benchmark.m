@@ -536,7 +536,7 @@ int host_benchmark_presented(int on) {
     if (!host_benchmark_offscreen_requested()) return 0;
     if (atomic_exchange(&presented_now, on) != on) {
         host_benchmark_overlay_presented(on);
-        gpu_metal_benchmark_realtime(on);
+        host_gpu_benchmark_realtime(on);
         host_logf(HOST_LOG_INFO, "benchmark: frames %s", on ? "shown in real time" : "drawn offscreen, time-compressed");
     }
     return 1;
@@ -1366,8 +1366,8 @@ static int variant_wanted_upscaler(void) {
 /* puts the pass's display in force: the upscaler at once, the output cap between frames (host_benchmark_next waits
    for it, then has the game plan again for the new drawable); 1 when the cap is to change */
 static int variant_display_apply(void) {
-    if (gpu_metal_upscaler() != variant_wanted_upscaler()) {
-        gpu_metal_set_upscaler(variant_wanted_upscaler());
+    if (host_gpu_upscaler() != variant_wanted_upscaler()) {
+        host_gpu_set_upscaler(variant_wanted_upscaler());
         host_logf(HOST_LOG_INFO, "benchmark: variant %s: upscaler %s", suite_variants[variant_index].id,
             variant_wanted_upscaler() ? "metalfx" : "bilinear");
     }
@@ -1382,15 +1382,15 @@ static int variant_display_apply(void) {
     }
     host_logf(HOST_LOG_INFO, "benchmark: variant %s: built-in output cap %d", suite_variants[variant_index].id,
         variant_wanted_cap());
-    gpu_metal_request_output_cap(variant_wanted_cap());
+    host_gpu_request_output_cap(variant_wanted_cap());
     return 1;
 }
 
 /* the display the app started with, after the last pass or a suite ended early */
 static void variant_display_restore(void) {
-    if (launch_upscaler >= 0 && gpu_metal_upscaler() != launch_upscaler) gpu_metal_set_upscaler(launch_upscaler);
+    if (launch_upscaler >= 0 && host_gpu_upscaler() != launch_upscaler) host_gpu_set_upscaler(launch_upscaler);
     if (launch_output_cap >= 0 && host_sdl_output_cap_requested() != launch_output_cap)
-        gpu_metal_request_output_cap(launch_output_cap);
+        host_gpu_request_output_cap(launch_output_cap);
 }
 
 static void variant_state_write(void) {
@@ -1451,7 +1451,7 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
     if (atomic_load(&running)) return 1;
     /* (an output cap still being put in force, a variant suite's last restore among them: the suite starts once it
        has taken, from host_benchmark_next) */
-    if (!gpu_metal_output_cap_settled()) {
+    if (!host_gpu_output_cap_settled()) {
         variant_waiting = 1;
         variant_wait_started = CFAbsoluteTimeGetCurrent();
         atomic_store(&running, 1);
@@ -1482,7 +1482,7 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
         if (!launch_display_known) {
             launch_display_known = 1;
             launch_output_cap = host_sdl_output_cap_requested();
-            launch_upscaler = gpu_metal_upscaler();
+            launch_upscaler = host_gpu_upscaler();
         }
     }
     if (low_power_now()) {
@@ -1514,10 +1514,10 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
            was written with */
         int cap = variant_resume_cap, upscaler = variant_resume_upscaler;
         variant_resume_cap = variant_resume_upscaler = -1;
-        if (upscaler >= 0 && gpu_metal_upscaler() != upscaler) gpu_metal_set_upscaler(upscaler);
+        if (upscaler >= 0 && host_gpu_upscaler() != upscaler) host_gpu_set_upscaler(upscaler);
         if (cap >= 0 && host_sdl_output_cap_requested() != cap) {
             host_logf(HOST_LOG_INFO, "benchmark: carrying on: the pass's built-in output cap %d first", cap);
-            gpu_metal_request_output_cap(cap);
+            host_gpu_request_output_cap(cap);
             variant_waiting = 1;
             variant_wait_started = CFAbsoluteTimeGetCurrent();
             atomic_store(&running, 1);
@@ -1729,12 +1729,12 @@ int host_benchmark_next(char *text, unsigned int size) {
         if (atomic_load(&finish_requested)) {
             /* (finished from the screen while the display changed: kept for the start that follows) */
             variant_finish_pending = 1;
-            gpu_metal_request_output_cap(-1);
+            host_gpu_request_output_cap(-1);
         }
-        if (!gpu_metal_output_cap_settled() && CFAbsoluteTimeGetCurrent() - variant_wait_started < 5.0) return 3;
-        if (!gpu_metal_output_cap_settled()) {
+        if (!host_gpu_output_cap_settled() && CFAbsoluteTimeGetCurrent() - variant_wait_started < 5.0) return 3;
+        if (!host_gpu_output_cap_settled()) {
             host_logf(HOST_LOG_INFO, "benchmark: the display variant's output cap did not take; measuring as it is");
-            gpu_metal_request_output_cap(-1);
+            host_gpu_request_output_cap(-1);
             variant_display_failed = variant_index + 1;
         }
         variant_waiting = 0;

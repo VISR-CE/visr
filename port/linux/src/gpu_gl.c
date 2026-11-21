@@ -2907,6 +2907,17 @@ static void gpu_gl_stream_frame_end(void)
 {
 }
 
+/* the Metal backend's side operations (gpu_backend.h): the host sends them to Metal alone (host_gpu_dispatch.c), so
+here they do nothing and answer 0 */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#define GPU_GL_SIDE_FUNCTION(type, name, parameters, arguments) static type gpu_gl_##name parameters { return (type)0; }
+#define GPU_GL_SIDE_PROCEDURE(name, parameters, arguments) static void gpu_gl_##name parameters {}
+GPU_HOST_SIDE_OPERATIONS(GPU_GL_SIDE_FUNCTION, GPU_GL_SIDE_PROCEDURE)
+#undef GPU_GL_SIDE_FUNCTION
+#undef GPU_GL_SIDE_PROCEDURE
+#pragma GCC diagnostic pop
+
 /* ---------- the backend */
 
 #define GPU_GL_FUNCTION(type, name, parameters, arguments) .name = gpu_gl_##name,

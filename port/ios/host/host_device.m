@@ -152,8 +152,8 @@ void host_device_profile_applied(int point, int networked, int changed, int meta
     host_frame_rate_profile(frame_rate);
     /* Level loading permits the scaler's lazy allocation on the next presentation.
        The guest supplies the effective setting so explicit user overrides still win. */
-    if (point == 1 && host_gpu_metal_active() && gpu_metal_upscaler() != (metalfx != 0))
-        gpu_metal_set_upscaler(metalfx);
+    if (point == 1 && host_gpu_metal_active() && host_gpu_upscaler() != (metalfx != 0))
+        host_gpu_set_upscaler(metalfx);
     if (changed) {
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);

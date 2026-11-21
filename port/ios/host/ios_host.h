@@ -116,18 +116,18 @@ int host_sdl_output_cap(int *width, int *height);
 void host_sdl_output_native(int width, int height, int requested_cap);
 void host_sdl_native_output(int *width, int *height);
 int host_sdl_output_cap_requested(void);
-/* gpu_metal.m: a built-in output cap (0: none) or upscaler (0 bilinear, 1 MetalFX) to change to as the game runs, the
-   cap between frames (host_external_commit), a cap below zero forgetting one still waiting; 1 once nothing asked for
-   is still waiting. The benchmark's display
-   variants use them (host_benchmark.m). */
-void gpu_metal_request_output_cap(int cap);
-void gpu_metal_output_cap_commit(void);
-int gpu_metal_output_cap_settled(void);
+/* host_gpu_dispatch.c, the Metal backend's side operations (gpu_backend.h): a built-in output cap (0: none) or
+   upscaler (0 bilinear, 1 MetalFX) to change to as the game runs, the cap between frames (host_external_commit), a cap
+   below zero forgetting one still waiting; 1 once nothing asked for is still waiting. The benchmark's display
+   variants use them (host_benchmark.m). Game thread. */
+void host_gpu_request_output_cap(int cap);
+void host_gpu_output_cap_commit(void);
+int host_gpu_output_cap_settled(void);
 /* Game-thread query after GPU initialization, including validation wrappers. */
 int host_gpu_metal_active(void);
-void gpu_metal_set_upscaler(int metalfx);
-void gpu_metal_set_crt(int enabled);
-int gpu_metal_upscaler(void);
+void host_gpu_set_upscaler(int metalfx);
+void host_gpu_set_crt(int enabled);
+int host_gpu_upscaler(void);
 /* display.frame_rate (host_gpu_dispatch.c), any cap or "unlimited" in the Mac
 app, a cap under the display's rate on an iPhone, an iPad or an Apple TV:
 whether frames come as fast as they are drawn; the cap, 0 for none; and the

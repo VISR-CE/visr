@@ -13,7 +13,8 @@ gpu_call_hash.c.
 Classes:
 - RECORDED: a command written to the queue; the queue's consumer makes the
   call, in order with the other recorded commands. The call hash compares
-  these in front of the queue and behind it.
+  these in front of the queue and behind it. One with an answer gives the
+  game an answer the producer has: soft_depth_prepare's is soft_depth_ready's.
 - AT_ONCE: a command the producer makes itself, on the backend under the
   queue, once the queue is consumed up to it (creates, the streams, the
   anti-aliasing setup and the compile accounting). Hashed in front of the
@@ -84,6 +85,20 @@ enum gpu_operation
 #define GPU_OPERATION_CLASS_compile_progress AT_ONCE
 /* GPU_HOST_OPERATIONS */
 #define GPU_OPERATION_CLASS_stream_frame_end PRODUCER
+#define GPU_OPERATION_CLASS_soft_depth_warm AT_ONCE
+#define GPU_OPERATION_CLASS_soft_depth_ready QUERY
+#define GPU_OPERATION_CLASS_soft_depth_prepare RECORDED
+#define GPU_OPERATION_CLASS_soft_depth_finish RECORDED
+#define GPU_OPERATION_CLASS_ssao_warm AT_ONCE
+#define GPU_OPERATION_CLASS_ssao_apply RECORDED
+#define GPU_OPERATION_CLASS_set_upscaler RECORDED
+#define GPU_OPERATION_CLASS_upscaler QUERY
+#define GPU_OPERATION_CLASS_set_crt RECORDED
+#define GPU_OPERATION_CLASS_benchmark_realtime RECORDED
+#define GPU_OPERATION_CLASS_output AT_ONCE
+#define GPU_OPERATION_CLASS_request_output_cap AT_ONCE
+#define GPU_OPERATION_CLASS_output_cap_settled QUERY
+#define GPU_OPERATION_CLASS_output_cap_commit AT_ONCE
 
 #define GPU_OPERATION_PASTE_(a, b) a##b
 #define GPU_OPERATION_PASTE(a, b) GPU_OPERATION_PASTE_(a, b)

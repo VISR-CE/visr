@@ -367,6 +367,97 @@ static void hashed_stream_frame_end(void)
 	h->next->stream_frame_end();
 }
 
+/* ---------- the side operations (gpu_backend.h's GPU_HOST_SIDE_OPERATIONS); the output's layer and screen are
+pointers, which differ from run to run, so only whether there is one is mixed */
+
+static uint32_t hashed_soft_depth_warm(void)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_soft_depth_warm);
+	return h->next->soft_depth_warm();
+}
+
+static uint32_t hashed_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_soft_depth_prepare);
+	mix64(h, ((uint64_t)depth << 32) | count);
+	mix_bytes(h, values, values ? (uint64_t)count * sizeof(*values) : 0);
+	return h->next->soft_depth_prepare(depth, values, count);
+}
+
+static void hashed_soft_depth_finish(void)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_soft_depth_finish);
+	h->next->soft_depth_finish();
+}
+
+static void hashed_ssao_warm(void)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_ssao_warm);
+	h->next->ssao_warm();
+}
+
+static void hashed_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_ssao_apply);
+	mix64(h, ((uint64_t)color << 32) | depth);
+	mix64(h, count);
+	mix_bytes(h, values, values ? (uint64_t)count * sizeof(*values) : 0);
+	h->next->ssao_apply(color, depth, values, count);
+}
+
+static void hashed_set_upscaler(int metalfx)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_set_upscaler);
+	mix64(h, (uint64_t)(int64_t)metalfx);
+	h->next->set_upscaler(metalfx);
+}
+
+static void hashed_set_crt(int enabled)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_set_crt);
+	mix64(h, (uint64_t)(int64_t)enabled);
+	h->next->set_crt(enabled);
+}
+
+static void hashed_benchmark_realtime(int on)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_benchmark_realtime);
+	mix64(h, (uint64_t)(int64_t)on);
+	h->next->benchmark_realtime(on);
+}
+
+static int hashed_output(void *layer, void *screen, int width, int height)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_output);
+	mix64(h, (layer != NULL) | (uint64_t)(screen != NULL) << 1);
+	mix64(h, ((uint64_t)(uint32_t)width << 32) | (uint32_t)height);
+	return h->next->output(layer, screen, width, height);
+}
+
+static void hashed_request_output_cap(int cap)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_request_output_cap);
+	mix64(h, (uint64_t)(int64_t)cap);
+	h->next->request_output_cap(cap);
+}
+
+static void hashed_output_cap_commit(void)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_output_cap_commit);
+	h->next->output_cap_commit();
+}
+
 /* the frame's last command: its hash goes to the report, and the next frame starts from nothing */
 static void frame_end(struct hasher *h)
 {

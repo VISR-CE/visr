@@ -83,8 +83,9 @@ double host_benchmark_worker_waited_take(void);
 int host_benchmark_offscreen_pipelined(void);
 /* a presented run of an offscreen launch goes to the virtual display now (debug.benchmark_virtual_display) */
 int host_benchmark_virtual_display(void);
-/* gpu_metal.m: the same for the renderer, which a fixed-timestep launch started unpaced */
-void gpu_metal_benchmark_realtime(int on);
+/* host_gpu_dispatch.c, the Metal backend's side operation (gpu_backend.h): the same for the renderer, which a
+fixed-timestep launch started unpaced */
+void host_gpu_benchmark_realtime(int on);
 /* gpu_metal.m: the command buffers whose GPU times were used and refused since launch, and the last refused, as text */
 void gpu_metal_gpu_spans_summary(char *text, size_t size);
 #include "host_benchmark_progress.h"

@@ -43,4 +43,8 @@ void gpu_queue_drain(void);
 checks which calls wait for the queue */
 unsigned long gpu_queue_drains(void);
 
+/* soft_depth_prepare's calls so far whose backend answer differed from the one the game was given (the producer's,
+from soft_depth_ready): logged once, counted for a test */
+unsigned long gpu_queue_answers_differ(void);
+
 #endif

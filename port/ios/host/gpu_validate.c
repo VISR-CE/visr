@@ -1866,6 +1866,14 @@ static void streams_end(void)
 	validation.frame_end_held = 0;
 }
 
+/* the side operations (gpu_backend.h) pass through: they name no geometry the validator checks */
+#define VALIDATE_SIDE_F(type, name, parameters, arguments) \
+	static type validate_##name parameters { return validation.backend.name arguments; }
+#define VALIDATE_SIDE_P(name, parameters, arguments) static void validate_##name parameters { validation.backend.name arguments; }
+GPU_HOST_SIDE_OPERATIONS(VALIDATE_SIDE_F, VALIDATE_SIDE_P)
+#undef VALIDATE_SIDE_F
+#undef VALIDATE_SIDE_P
+
 static void validate_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
 	validation.call = "initialize";
