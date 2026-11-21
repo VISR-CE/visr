@@ -31,6 +31,18 @@ static void record(unsigned long frame, uint32_t calls, uint64_t hash, int secon
 	frames_seen = frame + 1;
 }
 
+/* the wrapper in front of the queue (instance 1), in the same run as the one behind it (instance 0) */
+static uint64_t front_hashes[MAXIMUM_FRAMES];
+static unsigned long front_seen;
+
+static void record_front(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+{
+	(void)calls, (void)second_thread, (void)parts;
+	if (frame < MAXIMUM_FRAMES)
+		front_hashes[frame] = hash;
+	front_seen = frame + 1;
+}
+
 static void quiet(const char *line)
 {
 	(void)line;
@@ -199,7 +211,7 @@ int main(void)
 	unsigned long frame;
 	int distinct = 0;
 
-	play(gpu_call_hash_wrap(&fake, record));
+	play(gpu_call_hash_wrap(0, &fake, record));
 	CHECK(frames_seen == FRAMES, "the direct run presented %lu frames", frames_seen);
 	memcpy(direct, hashes, sizeof(direct));
 	memcpy(direct_calls, frame_calls, sizeof(direct_calls));
@@ -208,12 +220,23 @@ int main(void)
 	CHECK(distinct > FRAMES / 2, "the frames hash alike: the probe tests nothing");
 
 	frames_seen = 0;
-	play(gpu_queue_wrap(gpu_call_hash_wrap(&fake, record), GPU_QUEUE_INLINE, 1, quiet));
+	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &fake, record), GPU_QUEUE_INLINE, 1, quiet));
 	CHECK(frames_seen == FRAMES, "the queued run presented %lu frames", frames_seen);
 	for (frame = 0; frame < FRAMES; frame++)
 		CHECK(hashes[frame] == direct[frame] && frame_calls[frame] == direct_calls[frame],
 			"frame %lu: queued %u commands, hash %016llx; direct %u, %016llx", frame, frame_calls[frame],
 			(unsigned long long)hashes[frame], direct_calls[frame], (unsigned long long)direct[frame]);
+
+	/* one run, hashed in front of the queue and behind it, as debug.gpu_call_hash does with the queue on */
+	frames_seen = front_seen = 0;
+	play(gpu_call_hash_wrap(1, gpu_queue_wrap(gpu_call_hash_wrap(0, &fake, record), GPU_QUEUE_INLINE, 0, quiet),
+		record_front));
+	CHECK(frames_seen == FRAMES && front_seen == FRAMES, "the paired run presented %lu and %lu frames", front_seen,
+		frames_seen);
+	for (frame = 0; frame < FRAMES; frame++)
+		CHECK(front_hashes[frame] == hashes[frame] && hashes[frame] == direct[frame],
+			"frame %lu: in front of the queue %016llx, behind it %016llx", frame,
+			(unsigned long long)front_hashes[frame], (unsigned long long)hashes[frame]);
 	puts("gpu_queue_probe: ok");
 	return 0;
 }

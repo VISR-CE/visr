@@ -30,7 +30,14 @@ that part can be traced to the operation that differs */
 typedef void (*gpu_call_hash_report)(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread,
 	const char *parts);
 
-/* chosen, hashed: the returned table calls chosen's functions */
-const struct gpu_backend *gpu_call_hash_wrap(const struct gpu_backend *chosen, gpu_call_hash_report report);
+/* how many wrappers can be installed at once: one on each side of a queue
+(debug.encode_thread), so each frame's hash before the queue can be compared
+with the hash after it */
+enum { GPU_CALL_HASH_INSTANCES = 2 };
+
+/* chosen, hashed by instance (0 or 1; installing an instance again starts it
+over): the returned table calls chosen's functions */
+const struct gpu_backend *gpu_call_hash_wrap(unsigned instance, const struct gpu_backend *chosen,
+	gpu_call_hash_report report);
 
 #endif

@@ -17,6 +17,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_external.h"
 #include "host_config.h"
 #include "gpu_call_hash.h"
+#include <pthread.h>
 #include "gpu_queue.h"
 #include "host_thread_cpu.h"
 #include "host_low_power.h"
@@ -27,6 +28,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "gpu_interface_hash.h"
 #include "guest_image.h"
 #include "host_config.h"
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -604,12 +606,70 @@ static const struct gpu_backend *capture_wrap(const struct gpu_backend *chosen, 
 }
 #endif
 
-/* debug.gpu_call_hash (gpu_call_hash.h): one line a frame, next to the backend so the hash sees what it receives */
+/* debug.gpu_call_hash (gpu_call_hash.h): one line a frame from the wrapper next to the backend, so the hash sees what
+the backend receives. With debug.encode_thread on, a second wrapper sits in front of the queue and every frame's hash
+there must equal the one behind it: the queue dropped, reordered or changed nothing */
+static int call_hash_on, call_hash_across_queue;
+static struct
+{
+	pthread_mutex_t lock;
+	/* the hashes in front of the queue that the back has not reached yet, by frame number */
+	struct { unsigned long frame; uint64_t hash; char parts[640]; } front[64];
+	unsigned long checked, differ;
+} call_hash_check = { .lock = PTHREAD_MUTEX_INITIALIZER };
+
+static void call_hash_back(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts);
+
 static void call_hash_log(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
 {
+	if (call_hash_across_queue)
+	{
+		call_hash_back(frame, calls, hash, second_thread, parts);
+		return;
+	}
 	if (second_thread)
 		platform_log("gpu call hash: a command came from a second thread by frame %lu", frame);
 	platform_log("gpu call hash: frame %lu calls %u hash %016llx %s", frame, calls, (unsigned long long)hash, parts);
+}
+
+static void call_hash_front(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+{
+	unsigned slot = (unsigned)(frame % 64);
+
+	(void)calls;
+	(void)second_thread;
+	pthread_mutex_lock(&call_hash_check.lock);
+	call_hash_check.front[slot].frame = frame;
+	call_hash_check.front[slot].hash = hash;
+	snprintf(call_hash_check.front[slot].parts, sizeof(call_hash_check.front[slot].parts), "%s", parts);
+	pthread_mutex_unlock(&call_hash_check.lock);
+}
+
+static void call_hash_back(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+{
+	unsigned slot = (unsigned)(frame % 64);
+	int same, known;
+	char front_parts[640];
+	uint64_t front_hash;
+	unsigned long checked, differ;
+
+	if (second_thread)
+		platform_log("gpu call hash: a command came from a second thread by frame %lu", frame);
+	platform_log("gpu call hash: frame %lu calls %u hash %016llx %s", frame, calls, (unsigned long long)hash, parts);
+	pthread_mutex_lock(&call_hash_check.lock);
+	known = call_hash_check.front[slot].frame == frame;
+	front_hash = call_hash_check.front[slot].hash;
+	snprintf(front_parts, sizeof(front_parts), "%s", call_hash_check.front[slot].parts);
+	same = known && front_hash == hash;
+	checked = ++call_hash_check.checked;
+	differ = call_hash_check.differ += !same;
+	pthread_mutex_unlock(&call_hash_check.lock);
+	if (!same && differ <= 20)
+		platform_log("gpu call hash: frame %lu differs across the queue: in front %016llx %s; behind %016llx %s", frame,
+			known ? (unsigned long long)front_hash : 0ull, known ? front_parts : "(not seen)", (unsigned long long)hash,
+			parts);
+	if (checked % 300 == 0)
+		platform_log("gpu call hash: queue check: %lu frames, %lu differ", checked, differ);
 }
 
 static const struct gpu_backend *call_hash_wrap(const struct gpu_backend *chosen)
@@ -617,7 +677,19 @@ static const struct gpu_backend *call_hash_wrap(const struct gpu_backend *chosen
 	char value[16];
 
 	host_config_string("debug.gpu_call_hash", "false", value, sizeof(value));
-	return strcmp(value, "true") ? chosen : gpu_call_hash_wrap(chosen, call_hash_log);
+	call_hash_on = !strcmp(value, "true");
+	call_hash_across_queue = 0;
+	call_hash_check.checked = call_hash_check.differ = 0;
+	return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
+}
+
+/* with the queue in place: the wrapper behind it (instance 0) compares, the one in front records */
+static const struct gpu_backend *call_hash_wrap_queue(const struct gpu_backend *queue, const struct gpu_backend *behind)
+{
+	if (!call_hash_on || queue == behind)
+		return queue;
+	call_hash_across_queue = 1;
+	return gpu_call_hash_wrap(1, queue, call_hash_front);
 }
 
 /* debug.encode_thread (gpu_queue.h): the Metal backend's commands go through the queue; not on visionOS or in the
@@ -674,7 +746,11 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 #endif
 	metal_backend = TARGET_OS_VISION || (flags & GPU_INITIALIZE_METAL) ? 1 : 0;
 	if (metal_backend)
-		backend = encode_queue_wrap(backend);
+	{
+		const struct gpu_backend *behind = backend;
+
+		backend = call_hash_wrap_queue(encode_queue_wrap(behind), behind);
+	}
 	wrapped_backend = backend;
 	wrapped = *backend;
 	wrapped.present = present_wrapped;

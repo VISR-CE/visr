@@ -128,7 +128,7 @@ static uint64_t fresh_frame(unsigned variant)
 	const struct gpu_backend *backend;
 
 	created = streamed = 0;
-	backend = gpu_call_hash_wrap(&fake, record);
+	backend = gpu_call_hash_wrap(0, &fake, record);
 	return frame_hash(backend, variant);
 }
 
@@ -151,7 +151,7 @@ int main(void)
 
 	/* the next frame starts over: two identical frames in a row hash alike */
 	created = streamed = 0;
-	backend = gpu_call_hash_wrap(&fake, record);
+	backend = gpu_call_hash_wrap(0, &fake, record);
 	frame_hash(backend, 0);
 	created = streamed = 0;
 	CHECK(frame_hash(backend, 0) == base, "the second of two identical frames hashed differently");
