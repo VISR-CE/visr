@@ -45,7 +45,6 @@ void host_main_sync_f(void *context, void (*fn)(void *)) {
     fn(context);
     on_main = previous;
 }
-void host_logf(int level, const char *format, ...) { (void)level; (void)format; }
 int host_ios_app_on_mac(void) { return app_on_mac; }
 SDL_Window *SDL_CreateWindow(const char *title, int w, int h, SDL_WindowFlags flags) {
     assert(on_main && sequence++ == 0);
@@ -95,7 +94,6 @@ bool SDL_SetError(const char *format, ...) {
     va_end(arguments); return false;
 }
 const char *SDL_GetError(void) { return "probe error"; }
-int host_external_size(int *w, int *h) { (void)w; (void)h; return 0; }
 /* tools/ios_test.py extracts the real handle table and window helpers. */
 #include "game_thread_window.inc"
 

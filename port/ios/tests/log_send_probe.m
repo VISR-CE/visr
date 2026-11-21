@@ -7,9 +7,6 @@
 #include "../host/host_log_file.c"
 #include "../host/host_log_send.m"
 
-void host_logf(int priority, const char *format, ...) {
-    (void)priority; (void)format;
-}
 
 static NSString *read_file(NSString *name) {
     return [NSString stringWithContentsOfFile:name encoding:NSUTF8StringEncoding error:nil] ?: @"";

@@ -6,7 +6,6 @@
 #include "../host/host_benchmark_catalog.h"
 #include "../host/host_data_pack.h"
 #include <stdarg.h>
-void host_logf(int priority, const char *format, ...) { (void)priority; (void)format; }
 static NSData *feedData, *blobData;
 @interface CatalogProtocol : NSURLProtocol
 @end

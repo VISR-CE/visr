@@ -18,7 +18,6 @@ int texture_upscale_model_available(void) {return 0;}
 const char *texture_upscale_model_unavailable_reason(void) {return "no compiled model in this build";}
 static int continued_begins,continued_ends;
 void host_texture_upscale_continued_phase(int began) {if(began)continued_begins++;else continued_ends++;}
-void texture_refine_set_cancel(const volatile int *flag) {(void)flag;}
 int host_device_profile_peek(const char *root,const char *name,char *text,size_t size) {(void)root;(void)name;snprintf(text,size,"true");return 1;}
 struct texture_upscale_generator *texture_upscale_generate_create(char *error,size_t size) {
     snprintf(error,size,"synthetic model failure");return NULL;

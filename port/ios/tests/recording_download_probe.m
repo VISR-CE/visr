@@ -7,7 +7,6 @@
 #include "../host/host_data_pack.h"
 #include "../../third_party/monocypher/monocypher-ed25519.h"
 #include <stdarg.h>
-void host_logf(int priority, const char *format, ...) { (void)priority; (void)format; }
 static int failures;
 #define CHECK(c, label) do { if (!(c)) { fprintf(stderr,"FAIL: %s\n",label); failures++; } } while (0)
 static uint8_t secret[64], public[32];
