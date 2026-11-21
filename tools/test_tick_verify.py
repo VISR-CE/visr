@@ -68,3 +68,26 @@ int main(void)
                     '--include-directory=' + str(tmp_path),
                     '--include-directory=' + str(ROOT / 'port/linux/game'), str(source), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+def test_every_begin_in_the_game_has_its_end_on_every_path():
+    """`tick_verify_begin` and `tick_verify_end` stay paired in `source/game/game.c`: each function that begins also
+    ends, once each, in that order, with no way out of the function between them. The class of bug is an early
+    return added between the two, which would leave walks put off and never made."""
+    import re
+    text = (ROOT / 'source/game/game.c').read_text(errors='surrogateescape')
+    functions = re.findall(r'^(?:static )?[a-z_ \*]+?\b(\w+)\(\n(?:\t[^\n]*\n)+?\{\n(.*?)^\}', text, re.M | re.S)
+    paired = {}
+    for name, body in functions:
+        begins = [match.start() for match in re.finditer(r'\btick_verify_begin\(\);', body)]
+        ends = [match.start() for match in re.finditer(r'\btick_verify_end\(\);', body)]
+        if not begins and not ends:
+            continue
+        assert len(begins) == 1 and len(ends) == 1 and begins[0] < ends[0], name
+        between = body[begins[0]:ends[0]]
+        assert not re.search(r'\b(return|goto|longjmp|exit)\b', between), name
+        paired[name] = True
+    # (and none outside a function body the pattern found)
+    assert len(re.findall(r'\btick_verify_begin\(\);', text)) == len(paired)
+    assert len(re.findall(r'\btick_verify_end\(\);', text)) == len(paired)
+    assert set(paired) == {'game_tick', 'game_frame'}
