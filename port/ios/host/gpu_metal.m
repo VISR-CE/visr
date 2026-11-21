@@ -666,6 +666,30 @@ static unsigned perf_scene_lines;
 static CFTimeInterval perf_gpu_waited;
 static uint64_t perf_presentation_budget;
 
+/* development builds: the per-frame state (the frame slot, the open command buffer) is touched by one thread, the
+one that began the first frame (the encode queue's consumer, gpu_owner_check.h, checks the operations; this checks
+the backend's own paths into it, such as an output change run on another thread). Reported once */
+#ifdef HALO_DEVELOPMENT_HOOKS
+static pthread_t encode_owner;
+static BOOL encode_owner_known, encode_owner_reported;
+
+static void encode_thread_check(const char *where)
+{
+	if (!encode_owner_known)
+	{
+		encode_owner = pthread_self();
+		encode_owner_known = YES;
+	}
+	else if (!pthread_equal(encode_owner, pthread_self()) && !encode_owner_reported)
+	{
+		encode_owner_reported = YES;
+		platform_log("Metal: %s ran on a thread other than the one encoding frames (reported once)", where);
+	}
+}
+#else
+#define encode_thread_check(where) ((void)0)
+#endif
+
 /* waits for the frame slot about to be reused, once per frame, before
 anything writes into its transient memory */
 
@@ -673,6 +697,7 @@ static void frame_begin(void)
 {
 	CFTimeInterval waited;
 
+	encode_thread_check("frame_begin");
 	if (frame_started)
 		return;
 	waited = CACurrentMediaTime();
@@ -955,7 +980,10 @@ static void commit(BOOL frame_end)
 {
 	id<MTLCommandBuffer> committed;
 	uint64_t serial = current_serial;
-	uint64_t perf_frame = host_perf_hooks_gpu_reserve();
+	uint64_t perf_frame;
+
+	encode_thread_check("commit");
+	perf_frame = host_perf_hooks_gpu_reserve();
 
 	NSData *pending = visibility.pending;
 	id<MTLBuffer> results = visibility_buffer;

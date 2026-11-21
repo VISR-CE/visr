@@ -19,6 +19,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "gpu_call_hash.h"
 #include <pthread.h>
 #include "gpu_queue.h"
+#include "gpu_owner_check.h"
 #include "host_thread_cpu.h"
 #include "host_low_power.h"
 #include "low_power.h"
@@ -717,6 +718,13 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 	mode = metal ? encode_queue_mode(&timing) : GPU_QUEUE_OFF;
 	if (mode == GPU_QUEUE_OFF)
 		return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
+	/* each call from the thread its class says (gpu_owner_check.h); a development build stops at the first that is
+	not */
+#ifdef HALO_DEVELOPMENT_HOOKS
+	chosen = gpu_owner_check_wrap(chosen, encode_queue_log, 1);
+#else
+	chosen = gpu_owner_check_wrap(chosen, encode_queue_log, 0);
+#endif
 	behind = call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_back) : chosen;
 	behind = gpu_queue_wrap(behind, chosen, mode, timing, encode_queue_log);
 	return call_hash_on ? gpu_call_hash_wrap(1, behind, call_hash_front) : behind;
