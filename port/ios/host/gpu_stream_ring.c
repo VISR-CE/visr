@@ -40,19 +40,11 @@ static struct gpu_stream_set *current_set(struct gpu_stream_ring *ring)
 	stamp = atomic_load_explicit(&set->stamp, memory_order_acquire);
 	if (stamp == GPU_STREAM_RING_PENDING)
 	{
-		char line[200];
-
-		if (!ring->unstamped++)
-		{
-			snprintf(line, sizeof(line), "stream ring: frame %lu reuses set %lu before its present was encoded "
-				"(a present without stream_frame_end, or the producer a whole ring ahead)", frame,
-				frame % ring->set_count);
-			ring_log(ring, line);
-		}
-		if (ring->owner.abort_on_unstamped)
-			abort();
+		/* (never reused: a stamp arriving later would mark the set free a lap early) */
+		ring->owner.unstamped(ring->owner.context, frame);
+		abort();
 	}
-	else if (stamp > ring->owner.completed(ring->owner.context))
+	if (stamp > ring->owner.completed(ring->owner.context))
 	{
 		ring->waits++;
 		ring->owner.wait(ring->owner.context, stamp);
@@ -123,7 +115,12 @@ void gpu_stream_ring_frame_end(struct gpu_stream_ring *ring)
 
 void gpu_stream_ring_presented(struct gpu_stream_ring *ring, uint64_t serial)
 {
-	if (ring->presented >= atomic_load_explicit(&ring->ended, memory_order_acquire))
+	unsigned long ended = atomic_load_explicit(&ring->ended, memory_order_acquire);
+
+	if (ended - ring->presented > 1 + ring->owner.lead && !ring->behind++)
+		ring_log(ring, "stream ring: a present found more ended frames than the lead allows (a stream_frame_end whose "
+			"present never came); later stamps are a set late");
+	if (ring->presented >= ended)
 	{
 		if (!ring->unmatched++)
 			ring_log(ring, "stream ring: a present came without stream_frame_end; its streams stay in the next set");

@@ -11,6 +11,7 @@ reported.
 
 #include "gpu_stream_ring.h"
 
+#include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,7 +69,20 @@ static void log_line(void *context, const char *line)
 	lines_logged++;
 }
 
-static const struct gpu_stream_ring_owner owner = { grow, completed, wait_for, log_line, NULL, 0 };
+/* the producer met an unstamped set: back to the case that expects it */
+static jmp_buf unstamped_return;
+static unsigned long unstamped_frame = ~0ul;
+
+static void unstamped(void *context, unsigned long frame)
+{
+	(void)context;
+	unstamped_frame = frame;
+	longjmp(unstamped_return, 1);
+}
+
+static struct gpu_stream_ring_owner owner = {
+	.grow = grow, .completed = completed, .wait = wait_for, .log = log_line, .unstamped = unstamped,
+};
 
 /* ---------- every stream still in flight, with the bytes it should still hold */
 
@@ -177,11 +191,12 @@ int main(void)
 		present(&ring, frame, frame + 1);
 	}
 	CHECK(ring.waits == 0 && waits_called == 0, "in step, the ring waited %lu times", ring.waits);
-	CHECK(ring.unstamped == 0 && ring.unmatched == 0 && lines_logged == 0, "in step, the ring logged a mismatch");
+	CHECK(ring.unmatched == 0 && ring.behind == 0 && lines_logged == 0, "in step, the ring logged a mismatch");
 
 	/* the producer two presents ahead of the consumer, three frames uncompleted behind it: the ring waits for the
 	GPU instead of overwriting, and never meets an unstamped set */
 	reset();
+	owner.lead = 2;
 	gpu_stream_ring_init(&ring, FRAMES + 2, &owner);
 	for (frame = 0; frame < 300; frame++)
 	{
@@ -195,21 +210,53 @@ int main(void)
 			check_in_flight();
 		}
 	}
-	CHECK(ring.unstamped == 0 && ring.unmatched == 0, "two ahead: %lu unstamped, %lu unmatched", ring.unstamped,
-		ring.unmatched);
+	CHECK(ring.unmatched == 0 && ring.behind == 0, "two ahead: %lu unmatched, %lu behind", ring.unmatched, ring.behind);
+	owner.lead = 0;
 	CHECK(ring.waits > 0 && ring.waits == waits_called, "two ahead, the ring never waited: the case tests nothing");
 
-	/* the same with one set fewer: the producer meets its own unstamped set, and says so */
+	/* a producer a whole ring ahead of the presents meets its own unstamped set and stops there: the set is never
+	reused, so a late stamp cannot mark it free a lap early */
 	reset();
 	gpu_stream_ring_init(&ring, 2, &owner);
-	for (frame = 0; frame < 6; frame++)
+	if (!setjmp(unstamped_return))
 	{
-		/* (its streams are overwritten, as the log says: not checked) */
-		stream_count = 0;
-		stream_frame(&ring, frame);
-		gpu_stream_ring_frame_end(&ring);
+		for (frame = 0; frame < 6; frame++)
+		{
+			stream_frame(&ring, frame);
+			gpu_stream_ring_frame_end(&ring);
+		}
+		CHECK(0, "a producer a ring ahead reused an unstamped set");
 	}
-	CHECK(ring.unstamped > 0 && lines_logged == 1, "a producer a ring ahead went unreported");
+	CHECK(unstamped_frame == 2, "the unstamped set was met at frame %lu, not 2", unstamped_frame);
+	check_in_flight();
+
+	/* a present behind more ended frames than the lead allows (a stream_frame_end whose present never came) is
+	reported once */
+	reset();
+	gpu_stream_ring_init(&ring, FRAMES + 1, &owner);
+	stream_frame(&ring, 0);
+	gpu_stream_ring_frame_end(&ring);
+	stream_frame(&ring, 1);
+	gpu_stream_ring_frame_end(&ring);
+	present(&ring, 0, 1);
+	present(&ring, 1, 2);
+	CHECK(ring.behind == 1 && lines_logged == 1, "a present behind its stream_frame_end went unreported");
+
+	/* a stream larger than a chunk gets a chunk of its own; a set out of chunks says so instead of wrapping */
+	reset();
+	gpu_stream_ring_init(&ring, FRAMES + 1, &owner);
+	{
+		static unsigned char big[20000];
+		uint32_t handle, offset, count;
+
+		memset(big, 0x5a, sizeof(big));
+		offset = gpu_stream_ring_copy(&ring, big, sizeof(big), 16, &handle);
+		CHECK(offset == 0 && ring.sets[0].chunks[0].length >= sizeof(big), "a stream larger than a chunk got no room");
+		for (count = 1; count < GPU_STREAM_RING_CHUNKS; count++)
+			CHECK(gpu_stream_ring_copy(&ring, big, sizeof(big), 16, &handle) != UINT32_MAX, "the set ran out early");
+		CHECK(gpu_stream_ring_copy(&ring, big, sizeof(big), 16, &handle) == UINT32_MAX,
+			"a set past its last chunk still took a stream");
+	}
 
 	/* a present without stream_frame_end is reported, and stamps nothing */
 	reset();

@@ -10,9 +10,10 @@ draws, so streaming never waits for the queue.
 A frame's set ends at stream_frame_end (gpu_backend.h), which the host calls
 once before every present. The consumer, encoding that present, stamps the set
 with the serial of the command buffer that carries it. The producer moves to a
-set again only once its stamp has completed; meeting a set that was never
-stamped means a present came without its stream_frame_end, or the producer ran
-a whole ring ahead of the consumer.
+set again only once its stamp has completed. A set met before it was stamped
+is never reused: the owner's unstamped callback is called and must not return
+(with no consumer thread the stamp can never come; a consumer thread would
+wait for it instead).
 
 Threads: the producer calls gpu_stream_ring_room, _copy, _reserve and
 _frame_end; the consumer calls gpu_stream_ring_presented. Each set's stamp and
@@ -61,9 +62,11 @@ struct gpu_stream_ring_owner
 	void (*wait)(void *context, uint64_t serial);
 	/* a finished line, no newline */
 	void (*log)(void *context, const char *line);
+	/* the producer met frame's set before its present was encoded; must not return */
+	void (*unstamped)(void *context, unsigned long frame);
 	void *context;
-	/* abort when the producer meets a set that was never stamped (development builds) */
-	int abort_on_unstamped;
+	/* frames the producer may run ahead of the consumer's presents (0: the present is a barrier) */
+	unsigned lead;
 };
 
 struct gpu_stream_ring
@@ -76,8 +79,9 @@ struct gpu_stream_ring
 	_Atomic unsigned long ended;
 	/* the consumer's */
 	unsigned long presented;
-	/* waits for the GPU, sets met unstamped, presents with no ended frame to stamp */
-	unsigned long waits, unstamped, unmatched;
+	/* waits for the GPU, presents with no ended frame to stamp, presents that found more ended frames than the
+	lead allows (a stream_frame_end whose present never came) */
+	unsigned long waits, unmatched, behind;
 };
 
 void gpu_stream_ring_init(struct gpu_stream_ring *ring, unsigned set_count, const struct gpu_stream_ring_owner *owner);
