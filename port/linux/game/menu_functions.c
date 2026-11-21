@@ -723,6 +723,7 @@ static struct widget_instance *first_text_box(struct widget_instance *widget)
 	return NULL;
 }
 
+/* (game thread only: it reads the text boxes the thread that renders them resizes) */
 int menu_test_focus_text(char *text, int size)
 {
 	struct widget_instance *screen = ui_widget_port_active_screen(0);
@@ -744,8 +745,8 @@ int menu_test_focus_text(char *text, int size)
 			box = chain[index]->type == 1 && chain[index]->parameters.text_box.text && chain[index]->parameters.text_box.text[0] ?
 				chain[index] : first_text_box(chain[index]);
 	}
-	for (index = depth - 1; index >= 0 && !box; index--)
-		box = first_text_box(chain[index]);
+	if (!box && depth)   /* no list in the chain: the deepest focused widget's own text, never an ancestor's */
+		box = first_text_box(chain[depth - 1]);
 	if (!box)
 		return 0;
 	wide = box->parameters.text_box.text;

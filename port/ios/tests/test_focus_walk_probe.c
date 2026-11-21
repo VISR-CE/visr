@@ -44,6 +44,12 @@ int main(void)
 	/* a label the list does not have fails: at the list's end, and by wrapping round */
 	assert(walk(rows, 6, 0, "DELETE GAMETYPE", &row) == TEST_FOCUS_FAIL_STUCK && row == 5);
 	assert(walk(rows, 6, 1, "DELETE GAMETYPE", &row) == TEST_FOCUS_FAIL_WRAP);
+	/* two rows with the same text, or a Down lost once, do not end the walk */
+	{
+		char const *const twins[] = { "A", "B", "B", "C", "VEHICLES" };
+
+		assert(walk(twins, 5, 0, "VEHICLES", &row) == TEST_FOCUS_DONE && row == 4);
+	}
 	/* no screen with a focused row for too long fails */
 	{
 		struct test_focus_walk w;

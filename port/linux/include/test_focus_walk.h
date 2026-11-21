@@ -31,6 +31,7 @@ struct test_focus_walk
 	unsigned long next_look;   /* the poll of the next look at the focus */
 	unsigned long hold_until;  /* Down is held until this poll */
 	int moved;                 /* Down has been pressed at least once */
+	int unchanged;             /* looks in a row at the same row after a press (one Down can be lost while a screen opens) */
 	int finished;              /* the walk has ended, with `result` */
 	int result;
 	char first[TEST_FOCUS_LABEL_MAX]; /* the row the walk began on */
@@ -103,9 +104,12 @@ static inline int test_focus_walk_poll(struct test_focus_walk *walk, unsigned lo
 		strncpy(walk->first, seen, TEST_FOCUS_LABEL_MAX - 1);
 	else if (!strcmp(seen, walk->last))
 	{
-		walk->finished = 1;
-		walk->result = TEST_FOCUS_FAIL_STUCK;
-		return walk->result;
+		if (++walk->unchanged >= 2)
+		{
+			walk->finished = 1;
+			walk->result = TEST_FOCUS_FAIL_STUCK;
+			return walk->result;
+		}
 	}
 	else if (!strcmp(seen, walk->first))
 	{
@@ -113,6 +117,8 @@ static inline int test_focus_walk_poll(struct test_focus_walk *walk, unsigned lo
 		walk->result = TEST_FOCUS_FAIL_WRAP;
 		return walk->result;
 	}
+	if (strcmp(seen, walk->last))
+		walk->unchanged = 0;
 	strncpy(walk->last, seen, TEST_FOCUS_LABEL_MAX - 1);
 	walk->moved = 1;
 	walk->hold_until = poll + TEST_FOCUS_HOLD_POLLS;

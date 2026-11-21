@@ -998,6 +998,11 @@ static void test_input_presses_parse(const char *text)
 		else
 			break;
 	}
+	if (text[strspn(text, " ")])   /* a step that did not parse, or one past the limits, would drop every press after it unseen */
+	{
+		platform_log("WALK FAIL: debug.test_input has text it cannot use: \"%s\"", text);
+		exit(TEST_FOCUS_EXIT_STATUS);
+	}
 	/* a walk must land before the next scripted press */
 	for (int walk = 0; walk < test_focus_count; walk++)
 		for (int press = 0; press < test_press_count; press++)
