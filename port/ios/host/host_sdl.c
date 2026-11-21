@@ -870,6 +870,8 @@ static void *audio_thread(void *context)
 {
 	struct audio_binding *binding = context;
 
+	/* (named, so per-thread CPU lists show the game's sound mixing under its own name) */
+	pthread_setname_np("audio mix");
 	audio_worker_binding = binding;
 	pthread_mutex_lock(&binding->lock);
 	for (;;)
