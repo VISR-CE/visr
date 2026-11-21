@@ -12,7 +12,9 @@ does not compile.
 */
 
 #include "gpu_queue.h"
+#include <mach/mach.h>
 #include <mach/mach_time.h>
+#include <sys/resource.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -128,27 +130,65 @@ static struct
 	uint64_t records, bytes, draws, draw_bytes, registers, full_constants, uniforms, consumed_ticks;
 } statistics;
 
+/* the presenting thread's CPU time, in microseconds, and the whole app's context switches: the baseline for what a
+second thread adds on chips with few cores */
+struct usage
+{
+	uint64_t thread_microseconds, voluntary, involuntary, wall_ticks;
+};
+
+static void usage_now(struct usage *usage)
+{
+	thread_basic_info_data_t info;
+	mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
+	struct rusage process;
+
+	memset(usage, 0, sizeof(*usage));
+	if (thread_info(pthread_mach_thread_np(pthread_self()), THREAD_BASIC_INFO, (thread_info_t)&info, &count) ==
+		KERN_SUCCESS)
+		usage->thread_microseconds = (uint64_t)(info.user_time.seconds + info.system_time.seconds) * 1000000u +
+			(uint64_t)(info.user_time.microseconds + info.system_time.microseconds);
+	if (!getrusage(RUSAGE_SELF, &process))
+	{
+		usage->voluntary = (uint64_t)process.ru_nvcsw;
+		usage->involuntary = (uint64_t)process.ru_nivcsw;
+	}
+	usage->wall_ticks = mach_absolute_time();
+}
+
+static struct usage window_start;
+
 static void statistics_frame(void)
 {
-	char line[512];
-	double frames, milliseconds;
+	char line[640];
+	double frames, milliseconds, wall;
 	mach_timebase_info_data_t base;
+	struct usage now;
 
+	if (!window_start.wall_ticks)
+		usage_now(&window_start);
 	if (++statistics.frames < STATISTICS_FRAMES)
 		return;
 	frames = (double)statistics.frames;
 	mach_timebase_info(&base);
 	milliseconds = (double)statistics.consumed_ticks * base.numer / base.denom / 1e6 / frames;
+	usage_now(&now);
+	wall = (double)(now.wall_ticks - window_start.wall_ticks) * base.numer / base.denom / 1e6 / frames;
 	snprintf(line, sizeof(line),
 		"encode queue: %lu frames, a frame: %.0f records, %.0f KiB, %.0f draws in %.0f KiB, %.0f registers, "
-		"%.1f whole constant sets, %.0f uniform sets, backend %.3f ms%s",
+		"%.1f whole constant sets, %.0f uniform sets, backend %.3f ms%s; frame %.3f ms, presenting thread CPU "
+		"%.3f ms, app context switches %.1f voluntary %.1f involuntary",
 		statistics.frames, (double)statistics.records / frames, (double)statistics.bytes / 1024.0 / frames,
 		(double)statistics.draws / frames, (double)statistics.draw_bytes / 1024.0 / frames,
 		(double)statistics.registers / frames, (double)statistics.full_constants / frames,
-		(double)statistics.uniforms / frames, milliseconds, timing ? "" : " (not timed)");
+		(double)statistics.uniforms / frames, milliseconds, timing ? "" : " (not timed)", wall,
+		(double)(now.thread_microseconds - window_start.thread_microseconds) / 1000.0 / frames,
+		(double)(now.voluntary - window_start.voluntary) / frames,
+		(double)(now.involuntary - window_start.involuntary) / frames);
 	if (log_line)
 		log_line(line);
 	memset(&statistics, 0, sizeof(statistics));
+	window_start = now;
 }
 
 /* ---------- the producer */
@@ -804,6 +844,7 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, int q
 	memset(&sent, 0, sizeof(sent));
 	memset(&held, 0, sizeof(held));
 	memset(&statistics, 0, sizeof(statistics));
+	memset(&window_start, 0, sizeof(window_start));
 	queued = *chosen;
 	/* (a backend without an operation keeps it missing: frame_context is optional) */
 #define INSTALL_F(type, name, parameters, arguments) if (chosen->name) queued.name = queued_##name;
