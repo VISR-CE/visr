@@ -186,7 +186,7 @@
 		<frame png="ce/port/main_menu/multiplayer_type_select/weapons_edit/header_weapons.png" width="512" height="64" />
 	</bitmap>
 	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/header_edit_multiplayer_gametype">
-		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/header_edit_multiplayer_gametype__0.png" width="512" height="64" />
+		<frame png="xbox/art/header_edit_multiplayer_gametype.png" width="512" height="64" />
 	</bitmap>
 	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options">
 		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options__0.png" width="512" height="64" />

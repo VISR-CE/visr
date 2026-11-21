@@ -2020,7 +2020,7 @@ def test_gametype_editor_rows_are_tall_picture_rows():
         assert row.get('bitmap').startswith('xbox/bitmaps/row_36/list_item_bkd'), row.get('bitmap')
 
 
-def test_every_title_picture_sets_its_title_at_the_same_height_and_size():
+def test_every_title_picture_sets_its_title_at_the_same_height_and_size_inside_its_frame():
     """Bug class: a title picture whose text sits higher or lower in its 512x64 frame than the others draws above or
     below the title band (the gametype editor's, made from the game's one-line 512x32 header, drew half off the top
     of the screen). Every shipped header picture of the standard title size centers what it draws at one height."""
@@ -2028,7 +2028,7 @@ def test_every_title_picture_sets_its_title_at_the_same_height_and_size():
 
     import numpy as np
 
-    centers, letters = {}, {}
+    centers, letters, edges = {}, {}, {}
     for frame in ET.parse(MENUS / 'xbox' / 'bitmaps.xml').getroot().iter('frame'):
         png = frame.get('png') or ''
         if png.rsplit('/', 1)[-1].startswith('header') and (frame.get('width'), frame.get('height')) == ('512', '64'):
@@ -2040,9 +2040,14 @@ def test_every_title_picture_sets_its_title_at_the_same_height_and_size():
                 pixels = np.asarray(image).astype(int)
                 ys, xs = np.nonzero((pixels[..., 2] > 200) & (pixels[..., 3] > 200))
                 letters[png] = (xs.min(), ys.min(), ys.max())
+                edges[png] = int(max(pixels[0, :, 3].max(), pixels[-1, :, 3].max(), pixels[:, 0, 3].max(),
+                                     pixels[:, -1, 3].max()))
     assert len(centers) >= 30
     reference = sorted(centers.values())[len(centers) // 2]
     assert {png: center for png, center in centers.items() if abs(center - reference) > 0.01} == {}
-    # the same cap height and left edge (the game's one-line header for the gametype editor is set smaller)
+    # the same left edge and cap top, and the standard cap height unless the title is set smaller to fit (the game's
+    # one-line header for the gametype editor was set at half the height)
     assert {png: box for png, box in letters.items()
-            if not (110 <= box[0] <= 135 and 128 <= box[1] <= 138 and 85 <= box[2] - box[1] <= 92)} == {}
+            if not (110 <= box[0] <= 135 and 128 <= box[1] <= 138 and 70 <= box[2] - box[1] <= 92)} == {}
+    # and its plate fades out inside the picture, on every side
+    assert {png: edge for png, edge in edges.items() if edge > 4} == {}
