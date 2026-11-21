@@ -432,6 +432,7 @@ the setting for one start of the game. It has priority over the file.
 | `audio.music_volume` | number | `1.0` | apple, desktop | `HALO_MUSIC_VOLUME` | The music's volume, 0.0 to 1.0 (of audio.volume). |
 | `audio.music_enabled` | boolean | `true` | apple, desktop | `HALO_MUSIC_ENABLED` | Play the game's music. |
 | `audio.effects_volume` | number | `1.0` | apple, desktop | `HALO_EFFECTS_VOLUME` | The volume of every other sound (effects and speech), 0.0 to 1.0 (of audio.volume). |
+| `audio.fast_filter` | boolean | `true` | apple, desktop | `HALO_FAST_AUDIO_FILTER` | The mixer's resampling filter (nearly all of the mixing thread's work in a big game) adds each voice's frames in four running sums instead of one, and a mono voice computes only one channel: the same sound to within 0.000002 of full scale, and about a quarter less mixing CPU (0.81 to 0.59 ms a 10.7 ms callback with 55 voices, M3 Max). |
 | `audio.loose_sounds` | boolean | `false` | apple, desktop | `HALO_LOOSE_SOUNDS` | For those making sounds: play each of a map's sounds that has a Halo PC sound tag file of its name under the data root's tags folder (tags/sound/.../name.sound) from that file. |
 ### input
 

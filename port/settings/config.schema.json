@@ -3743,6 +3743,17 @@
             "desktop"
           ]
         },
+        "fast_filter": {
+          "type": "boolean",
+          "default": true,
+          "description": "The mixer's resampling filter (nearly all of the mixing thread's work in a big game) adds each voice's frames in four running sums instead of one, and a mono voice computes only one channel: the same sound to within 0.000002 of full scale, and about a quarter less mixing CPU (0.81 to 0.59 ms a 10.7 ms callback with 55 voices, M3 Max). Off gives the earlier loop. Read again when Settings changes it.",
+          "x-environment": "HALO_FAST_AUDIO_FILTER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "loose_sounds": {
           "type": "boolean",
           "default": false,

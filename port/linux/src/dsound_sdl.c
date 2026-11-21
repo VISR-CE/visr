@@ -43,6 +43,7 @@ skips opening a device (port_config.c).
 #include "platform.h"
 #include "sdl_platform.h"
 #include "port_config.h"
+#include "audio_filter.h"
 
 #include <SDL3/SDL.h>
 #include <math.h>
@@ -60,12 +61,10 @@ skips opening a device (port_config.c).
 #define XBOX_ADPCM_BLOCK_SAMPLES 64
 
 /* the resampler (resampling) */
-#define RESAMPLER_ZERO_CROSSINGS 24
 #define RESAMPLER_TABLE_STEPS 256
 #define RESAMPLER_CUTOFF 0.96
 #define RESAMPLER_KAISER_BETA 6.5
 #define RESAMPLER_MAXIMUM_STRETCH 2
-#define RESAMPLER_HISTORY 128
 
 /* ---------- voices */
 
@@ -522,6 +521,9 @@ static BOOL voice_has_frames(struct sdl_stream *stream)
 
 /* ---------- mixing */
 
+/* audio.fast_filter (read on the game's thread: audio_start, and again when Settings changes it) */
+static volatile int fast_filter = 1;
+
 /* mixes one voice into output (frames of stereo float) */
 static void mix_voice(struct sdl_stream *stream, float *output, unsigned long frames)
 {
@@ -529,6 +531,7 @@ static void mix_voice(struct sdl_stream *stream, float *output, unsigned long fr
 	float target_left, target_right, left, right, ramp_left, ramp_right, scale;
 	long width;
 	unsigned long frame;
+	int fast = fast_filter;
 	/* (a stereo voice panned towards its sound: voice_gains) */
 	BOOL positioned = stream->channels == 2 && stream->stereo_positioned;
 
@@ -599,14 +602,7 @@ static void mix_voice(struct sdl_stream *stream, float *output, unsigned long fr
 			const float *weights = resampler_phases[row], *next_weights = resampler_phases[row + 1];
 			unsigned long first = stream->center + 1 - RESAMPLER_ZERO_CROSSINGS;
 
-			for (tap = 0; tap < 2 * RESAMPLER_ZERO_CROSSINGS; tap++)
-			{
-				const float *source = stream->history[(first + (unsigned long)tap) % RESAMPLER_HISTORY];
-				float weight = weights[tap] + (next_weights[tap] - weights[tap]) * blend;
-
-				sample_left += source[0] * weight;
-				sample_right += source[1] * weight;
-			}
+			audio_filter_voice(fast, stream->history, first, weights, next_weights, blend, stream->channels != 1, &sample_left, &sample_right);
 		}
 		else
 		{
@@ -970,6 +966,7 @@ static void audio_start(void)
 		return;
 	audio_started = TRUE;
 	master_volume = (float)config_real("audio.volume");
+	fast_filter = config_boolean("audio.fast_filter");
 	resampler_initialize();
 	resampler_phases_initialize();
 
@@ -1254,6 +1251,7 @@ VOID WINAPI DirectSoundDoWork(void)
 	{
 		volume_read_at = config_changes();
 		master_volume = (float)config_real("audio.volume");
+		fast_filter = config_boolean("audio.fast_filter");
 		/* audio.enabled applies live: off closes the device (other apps get
 		the output back), on opens it again, with the clock covering the swap */
 		if (audio_started)
