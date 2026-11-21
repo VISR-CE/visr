@@ -3478,6 +3478,19 @@ boolean pc_menu_delete_from_select(void)
 
 static boolean menu_hub_open;
 
+/* the screens the hub reaches and BACK returns to: its settings pages (pc\\xbox\\settings\\...), the profile screens
+(picker, edit, name and color edits) and the error and confirm screens they raise (the delete modal's CANCEL) */
+static boolean menu_screen_in_hub_flow(char const *name)
+{
+	static char const settings[] = "pc\\xbox\\settings\\";
+	static char const profiles[] = "ui\\shell\\main_menu\\settings_select\\player_setup\\";
+	static char const errors[] = "ui\\shell\\error\\";
+	static char const xbox_errors[] = "pc\\xbox\\error\\";
+
+	return !strncmp(name, settings, sizeof(settings) - 1) || !strncmp(name, profiles, sizeof(profiles) - 1) ||
+		!strncmp(name, errors, sizeof(errors) - 1) || !strncmp(name, xbox_errors, sizeof(xbox_errors) - 1);
+}
+
 long pc_menu_screen_open(long tag_index, char const *requested_name, boolean root)
 {
 	boolean from_hub;
@@ -3512,6 +3525,12 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 		menu_hub_open = TRUE;
 	}
 	if (!strcmp(name, "pc\\xbox\\settings\\settings_screen"))
+		menu_hub_open = TRUE;
+	/* BACK reopens the screen below by name (the widget stack keeps no instance), so the flow has to outlast every
+	screen the hub reaches: a settings page opened from the profile's page is part of it, or BACK from that page would
+	open the profile's page as a root screen again and the always-redirect above would send it to the hub. The flow
+	ends with a screen outside the hub's own (the main menu and the rest). */
+	if (from_hub && menu_screen_in_hub_flow(name))
 		menu_hub_open = TRUE;
 	/* The pause hub exists only in the Xbox look; PC pause settings edit the active profile. */
 	if (!use_xbox && !strcmp(name, "pc\\xbox\\settings\\settings_screen"))

@@ -564,6 +564,9 @@ static void map_build(void)
 		/* a screen child that is no list row: a patch takes it out */
 		children[8] = widget_add(PE "profile_edit_button_bar", _widget_type_container, 0, 0, 640, 60);
 		pe_screen = widget_add(PE "player_profile_edit_screen", _widget_type_container, 0, 0, 640, 480);
+		/* the hub and a settings page of the Xbox look, for the BACK walk below */
+		widget_add("pc\\xbox\\settings\\settings_screen", _widget_type_container, 0, 0, 640, 480);
+		widget_add("pc\\xbox\\settings\\video_settings\\video_settings_screen", _widget_type_container, 0, 0, 640, 480);
 		children_set(pe_screen, 9, children, screen_xs, screen_ys);
 	}
 	/* the main menu */
@@ -1379,6 +1382,24 @@ int main(int argc, char **argv)
 			menu_mode = "xbox";
 			input_pad = 0;
 			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox, "fixed Xbox overrides keyboard input");
+			/* BACK reopens the screen below by name: from a settings page opened in the profile's page, BACK must land on
+			the profile's page (itself), not the hub the always-redirect sends a fresh open to */
+			{
+				long hub = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\settings\\settings_screen");
+				long video = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\settings\\video_settings\\video_settings_screen");
+				long main_menu = tag_loaded(UI_WIDGET_DEFINITION_TAG, MM "main_menu");
+
+				check(hub != NONE && video != NONE && pe_screen != NONE, "the hub walk's screens are in the map");
+				pc_menu_screen_open(main_menu, NULL, TRUE);
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == hub, "the profile page opened from the main menu is the hub");
+				check(pc_menu_screen_open(hub, NULL, TRUE) == hub, "the hub opens as itself");
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == pe_screen, "the profile page opened from the hub is itself");
+				check(pc_menu_screen_open(video, NULL, TRUE) == video, "a settings page opens as itself");
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == pe_screen, "BACK from a settings page opens the profile page, not the hub");
+				check(pc_menu_screen_open(hub, NULL, TRUE) == hub, "BACK from the profile page opens the hub");
+				pc_menu_screen_open(main_menu, NULL, TRUE);
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == hub, "the main menu ends the hub flow");
+			}
 			input_keyboard = 0;
 			pc_menu_screen_open(xbox, NULL, TRUE);
 			{

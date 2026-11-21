@@ -349,3 +349,32 @@ def test_video_is_mac_app_only_in_profile_and_pause_settings():
     assert options.get('visible_rows') == '6'
     assert [int(children[key].get('y')) for key in ('controls', 'video', 'audio', 'network', 'keyboard')] == [
         78, 117, 156, 195, 273]
+
+
+def hub_flow_prefixes():
+    """The name prefixes menu_tags.c's `menu_screen_in_hub_flow` keeps the hub flow for."""
+    source = (ROOT / "port/linux/game/menu_tags.c").read_text()
+    block = source[source.index("static boolean menu_screen_in_hub_flow"):]
+    block = block[:block.index("\n}\n")]
+    return [p.replace("\\\\", "\\") for p in re.findall(r'\[\] = "([^"]+)"', block)]
+
+
+def test_back_from_a_screen_opened_in_the_hub_flow_reaches_the_screen_below():
+    """Bug class: BACK reopens the screen below by name, and the always-redirected screens (the profile picker and
+    edit page, which the main menu reaches as the hub) open as the hub unless the hub flow is up. Every screen the
+    profile page's rows open must keep the flow, or BACK from it lands on the hub (reported on the Duo: BACK from a
+    profile's setting went to SETTINGS). Walks the profile page's patch rows against the flow's prefixes."""
+    always = re.findall(r'\{"([^"]+)", "pc\\\\xbox\\\\settings\\\\settings_screen"\}',
+                        (ROOT / "port/linux/include/menu_equivalence.h").read_text())
+    assert len(always) == 2  # (the profile picker and edit page)
+    prefixes = hub_flow_prefixes()
+    assert len(prefixes) == 4
+    for screen in always:
+        screen = screen.replace("\\\\", "\\")
+        assert any(screen.startswith(p) for p in prefixes), f"{screen} is not in the hub flow"
+    patch = next(p for p in table() if p.get("screen", "").endswith("player_profile_edit_screen"))
+    opened = [r.get("open") for r in rows(patch) if r.get("open")]
+    assert len(opened) >= 5
+    for target in opened:
+        name = "pc\\" + target.replace("/", "\\")
+        assert any(name.startswith(p) for p in prefixes), f"BACK from {target} would leave the hub flow"
