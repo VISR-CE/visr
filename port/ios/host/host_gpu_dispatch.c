@@ -16,6 +16,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_perf_hooks.h"
 #include "host_external.h"
 #include "host_config.h"
+#include "gpu_call_hash.h"
 #include "host_low_power.h"
 #include "low_power.h"
 #if HALO_RENDER_VALIDATION
@@ -599,6 +600,23 @@ static const struct gpu_backend *capture_wrap(const struct gpu_backend *chosen, 
 }
 #endif
 
+/* debug.gpu_call_hash (gpu_call_hash.h): one line a frame from the wrapper next to the backend, so the hash sees what
+the backend receives */
+static void call_hash_log(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+{
+	if (second_thread)
+		platform_log("gpu call hash: a command came from a second thread by frame %lu", frame);
+	platform_log("gpu call hash: frame %lu calls %u hash %016llx %s", frame, calls, (unsigned long long)hash, parts);
+}
+
+static const struct gpu_backend *call_hash_wrap(const struct gpu_backend *chosen)
+{
+	char value[16];
+
+	host_config_string("debug.gpu_call_hash", "false", value, sizeof(value));
+	return strcmp(value, "true") ? chosen : gpu_call_hash_wrap(0, chosen, call_hash_log);
+}
+
 void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
 #if defined(HALO_METAL_ONLY)
@@ -616,6 +634,7 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 #else
 	backend = (flags & GPU_INITIALIZE_METAL) ? &gpu_backend_metal : &gpu_backend_gl;
 #endif
+	backend = call_hash_wrap(backend);
 #if HALO_RENDER_VALIDATION
 	backend = validation_wrap(backend);
 	backend = capture_wrap(backend, flags);

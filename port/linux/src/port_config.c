@@ -1652,6 +1652,14 @@ static const struct config_setting config_settings[] =
 		"The Metal renderer's visibility tests (lens flares) only say whether\n"
 		"anything was visible, as before they counted how much: a light that is\n"
 		"mostly hidden then flares at full strength. For comparing." },
+	{ "debug.gpu_call_hash", _config_boolean, "false", "HALO_GPU_CALL_HASH", _environment_set_is_true, _platform_ios,
+		"Logs, for every frame, a hash of every command the Metal or OpenGL ES\n"
+		"renderer received: each call, its arguments and the bytes they point to,\n"
+		"and one hash for each kind of call. The hashes compare frames within one\n"
+		"run, as when the same frames are hashed at two points; two runs of the\n"
+		"same recording can differ (texture numbering, values the game leaves in\n"
+		"unused constant lanes). For checking changes to how drawing reaches the\n"
+		"renderer." },
 	{ "debug.frame_load_cpu", _config_real, "0.0", "HALO_FRAME_LOAD_CPU", _environment_value, _platform_ios,
 		"Milliseconds of made-up CPU work added to every frame (the frame pacer),\n"
 		"to see what display.frames_in_flight does when frames don't fit in a\n"

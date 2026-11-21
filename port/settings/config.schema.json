@@ -2608,6 +2608,16 @@
             "apple"
           ]
         },
+        "gpu_call_hash": {
+          "type": "boolean",
+          "default": false,
+          "description": "Logs, for every frame, a hash of every command the Metal or OpenGL ES renderer received: each call, its arguments and the bytes they point to, and one hash for each kind of call. The hashes compare frames within one run, as when the same frames are hashed at two points; two runs of the same recording can differ (texture numbering, values the game leaves in unused constant lanes). For checking changes to how drawing reaches the renderer.",
+          "x-environment": "HALO_GPU_CALL_HASH",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "frame_load_cpu": {
           "type": "number",
           "default": 0.0,
