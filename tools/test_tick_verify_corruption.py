@@ -127,9 +127,12 @@ int main(int argc, char **argv)
         phase = "use"; memory_pool_block_allocate(pool, &references[3], 64); /* (the pool is used this tick) */
         block = (struct memory_pool_block *)references[1] - 1;
         if (!strcmp(wrong, "signature")) block->header_signature = 0;
-        else block->previous_block = block; /* "link" */
+        else if (!strcmp(wrong, "link")) block->previous_block = block;
+        else if (!strcmp(wrong, "last-next")) pool->last_block->next_block = block; /* the end of the list goes on */
+        else pool->last_block = block; /* "last": the list ends early */
         if (!strcmp(then, "free")) { phase = "free"; memory_pool_block_free(pool, &references[1]); }
         if (!strcmp(then, "compact")) { phase = "compact"; memory_pool_compact(pool); }
+        if (!strcmp(then, "allocate")) { void *another = NULL; phase = "allocate"; memory_pool_block_allocate(pool, &another, 64); }
         phase = "end"; tick_verify_end();
         phase = "next"; memory_pool_block_free(pool, &references[0]);
     }
@@ -190,12 +193,15 @@ CASES = [(subject, wrong, then)
          for subject, wrongs, thens in (('pool', ('signature', 'link'), ('free', 'compact', 'leave')),
                                         ('cache', ('link', 'pages'), ('free', 'leave')))
          for wrong in wrongs for then in thens]
+# an allocation links the new block to the end of the list, which would write over a wrong link there
+CASES += [('pool', 'last-next', 'allocate'), ('pool', 'last', 'allocate'), ('pool', 'signature', 'allocate')]
 
 
 @pytest.mark.parametrize('subject,wrong,then', CASES)
 def test_a_list_gone_wrong_inside_a_tick_stops_the_game_by_the_end_of_that_tick(probe, subject, wrong, then):
-    # freed, compacted or left alone: stopped where that happens or where the tick ends, never later
-    assert probe(subject, wrong, then, True) == {'free': 'free', 'compact': 'compact', 'leave': 'end'}[then]
+    # freed, compacted, allocated after or left alone: stopped where that happens or where the tick ends, never later
+    assert probe(subject, wrong, then, True) in {'free': ('free',), 'compact': ('compact',), 'leave': ('end',),
+                                                  'allocate': ('allocate', 'end')}[then]
 
 
 # where the assertion falls with the setting off: the game's own timing, measured on the files before
@@ -206,6 +212,8 @@ WITHOUT = {
     ('pool', 'signature', 'leave'): 'next', ('pool', 'link', 'free'): 'free', ('pool', 'link', 'compact'): 'never',
     ('pool', 'link', 'leave'): 'next', ('cache', 'link', 'free'): 'free', ('cache', 'link', 'leave'): 'next',
     ('cache', 'pages', 'free'): 'free', ('cache', 'pages', 'leave'): 'next',
+    ('pool', 'last-next', 'allocate'): 'allocate', ('pool', 'last', 'allocate'): 'allocate',
+    ('pool', 'signature', 'allocate'): 'allocate',
 }
 
 
