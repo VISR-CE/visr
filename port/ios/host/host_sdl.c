@@ -26,6 +26,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_open_website.h"
 #include "host_frame_pacer.h"
 #include "host_game_thread.h"
+#include "host_controller_age.h"
 #include "host_main_thread.h"
 #include "host_startup.h"
 
@@ -793,6 +794,8 @@ void host_sdl_rumble_hold(int hold)
 
 int host_sdl_get_gamepads(uint32_t *ids, int capacity)
 {
+	/* the game lists the pads at each of its controller reads (XInputGetState) */
+	host_controller_age_sample();
 	return host_ios_gamepads(ids, capacity);
 }
 

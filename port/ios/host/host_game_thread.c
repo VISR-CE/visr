@@ -2,6 +2,7 @@
 #include "ios_host.h"
 #include "host_config.h"
 #include "host_main_thread.h"
+#include "host_controller_age.h"
 #include <SDL3/SDL_events.h>
 #include <assert.h>
 #include <string.h>
@@ -27,5 +28,6 @@ int host_game_thread_enabled(void) {
 void host_event_pump(void) {
     assert(host_on_main_thread());
     SDL_PumpEvents();
+    host_controller_refreshed();
     host_sdl_refresh_window_cache();
 }

@@ -1,5 +1,6 @@
 #include "host_config.h"
 #include "host_game_thread.h"
+#include "host_controller_age.h"
 #include <SDL3/SDL_events.h>
 #include <assert.h>
 #include <stdio.h>
@@ -8,6 +9,11 @@
 static const char *configured;
 static int config_reads, pumps, polls, peeps, window_refreshes;
 static int on_main = 1, peep_result = 1;
+static int controller_refreshes, controller_pump_notes;
+
+/* the game thread brings the controllers up to date at its own poll, the main pump only notes it */
+void host_controller_refresh(void) { controller_refreshes++; }
+void host_controller_refreshed(void) { controller_pump_notes++; }
 
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     assert(strcmp(name, "debug.game_thread") == 0);
@@ -75,6 +81,7 @@ int main(int argc, char **argv) {
     assert(pumps == (expected ? 4 : 1));
     assert(polls == (expected ? 0 : 4));
     assert(peeps == (expected ? 4 : 0));
+    assert(controller_pump_notes == pumps);
     assert(config_reads == 1);
     assert(window_refreshes == pumps);
     puts("PASS: cached game-thread flag; legacy poll or main pump and peep drain");
