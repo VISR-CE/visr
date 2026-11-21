@@ -30,6 +30,7 @@ struct test_focus_walk
 {
 	char label[TEST_FOCUS_LABEL_MAX];
 	unsigned long start;       /* the poll the walk begins at */
+	int hold_to_end;           /* the deadline was given ("focus:LABEL@POLL:DEADLINE"): no press follows, so the focus must stay on the row past it */
 	unsigned long deadline;    /* the poll of the next scripted press, 0 for none: the walk must have landed by then */
 	unsigned long next_look;   /* the poll of the next look at the focus */
 	unsigned long hold_until;  /* Down is held until this poll */
@@ -72,8 +73,9 @@ static inline void test_focus_walk_begin(struct test_focus_walk *walk, char cons
 /* the polls a landed walk checks the focus again at: just before its deadline and where a capture's frame falls after it */
 static inline int test_focus_walk_checks_at(struct test_focus_walk const *walk, unsigned long poll)
 {
+	/* (a press after the walk moves the focus on purpose: only a walk that ends the script is checked past its deadline) */
 	return walk->deadline > TEST_FOCUS_CHECK_POLLS &&
-		(poll == walk->deadline - 2 || poll == walk->deadline + TEST_FOCUS_AFTER_POLLS);
+		(poll == walk->deadline - 2 || (walk->hold_to_end && poll == walk->deadline + TEST_FOCUS_AFTER_POLLS));
 }
 
 /* whether the caller should read the focused row's text this poll: a walk that is looking, or a landed one making its last

@@ -121,6 +121,7 @@ int main(void)
 
 		test_focus_walk_begin(&w, "SPLIT SCREEN", 10);
 		w.deadline = 100;
+		w.hold_to_end = 1;
 		for (unsigned long poll = 0; poll < 300 && action != TEST_FOCUS_FAIL_LOST; poll++)
 		{
 			char const *seen = poll < 20 ? NULL : poll < 120 ? "SPLIT SCREEN" : "COOPERATIVE PLAY";
@@ -128,6 +129,16 @@ int main(void)
 			action = test_focus_walk_poll(&w, poll, test_focus_walk_wants_look(&w, poll) ? seen : NULL);
 		}
 		assert(action == TEST_FOCUS_FAIL_LOST);
+		/* a walk a press follows (the A that opens the row) is not checked past its deadline: the focus moves on purpose */
+		test_focus_walk_begin(&w, "SPLIT SCREEN", 10);
+		w.deadline = 100;
+		for (unsigned long poll = 0; poll < 300; poll++)
+		{
+			char const *seen = poll < 20 ? NULL : poll < 120 ? "SPLIT SCREEN" : "NEXT PAGE ROW";
+
+			action = test_focus_walk_poll(&w, poll, test_focus_walk_wants_look(&w, poll) ? seen : NULL);
+			assert(action != TEST_FOCUS_FAIL_LOST);
+		}
 	}
 	puts("test_focus_walk_probe: ok");
 	return 0;

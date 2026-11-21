@@ -992,6 +992,7 @@ static void test_input_presses_parse(const char *text)
 			if (*text == ':' && sscanf(text, ":%lu%n", &poll, &used) == 1)
 			{
 				test_focus_walks[test_focus_count - 1].deadline = poll;
+				test_focus_walks[test_focus_count - 1].hold_to_end = 1;
 				text += used;
 			}
 		}
