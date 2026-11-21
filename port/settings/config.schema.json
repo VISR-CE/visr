@@ -1711,8 +1711,8 @@
         },
         "verify_once_a_tick": {
           "type": "boolean",
-          "default": false,
-          "description": "Walks each block cache's and memory pool's block list once at the end of a game tick or game frame, where it walked the whole list at every allocation and free inside one. A list gone wrong still stops the game by the end of that tick or frame, and a block is checked as it leaves the list. Off by default. Read again each tick, so it can be flipped while the game runs.",
+          "default": true,
+          "description": "Walks each block cache's and memory pool's block list once at the end of a game tick or game frame, where it walked the whole list at every allocation and free inside one. A list gone wrong still stops the game by the end of that tick or frame, and a block is checked as it leaves the list. On by default. Read again each tick, so it can be flipped while the game runs.",
           "x-environment": "HALO_VERIFY_ONCE_A_TICK",
           "x-environment-style": "value",
           "x-platforms": [
