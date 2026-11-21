@@ -9,6 +9,7 @@ caller reads the focused row's text from the same string the widget renders (men
 #define TEST_FOCUS_LABEL_MAX 48
 #define TEST_FOCUS_HOLD_POLLS 4    /* polls Down is held for a step */
 #define TEST_FOCUS_CHECK_POLLS 12  /* polls between looks at the focus: the move has drawn by then */
+#define TEST_FOCUS_BLIND_LOOKS 4   /* looks that find no focused row before one Down is pressed to give a page its focus */
 #define TEST_FOCUS_WAIT_POLLS 3000 /* polls to wait for a screen with a focused row before the walk fails */
 #define TEST_FOCUS_EXIT_STATUS 87  /* the process status of a failed walk where the platform has one */
 
@@ -20,7 +21,8 @@ enum test_focus_action
 	TEST_FOCUS_FAIL_STUCK, /* Down no longer moves the focus: the label is not in the list */
 	TEST_FOCUS_FAIL_WRAP,  /* the focus came back to where it began: the label is not in the list */
 	TEST_FOCUS_FAIL_NO_SCREEN, /* no screen with a focused row came up */
-	TEST_FOCUS_FAIL_LATE  /* the next scripted press came before the walk had landed */
+	TEST_FOCUS_FAIL_LATE, /* the next scripted press came before the walk had landed */
+	TEST_FOCUS_FAIL_LOST  /* the walk landed and the focus left the row again before its deadline (a menu that redraws its rows) */
 };
 
 struct test_focus_walk
@@ -31,6 +33,7 @@ struct test_focus_walk
 	unsigned long next_look;   /* the poll of the next look at the focus */
 	unsigned long hold_until;  /* Down is held until this poll */
 	int moved;                 /* Down has been pressed at least once */
+	int blind;                 /* looks in a row that found no focused row */
 	int unchanged;             /* looks in a row at the same row after a press (one Down can be lost while a screen opens) */
 	int finished;              /* the walk has ended, with `result` */
 	int result;
@@ -65,12 +68,29 @@ static inline void test_focus_walk_begin(struct test_focus_walk *walk, char cons
 	walk->start = walk->next_look = start;
 }
 
+/* whether the caller should read the focused row's text this poll: a walk that is looking, or a landed one making its last
+check before the deadline (the focus must still be on the row when the next press or the shot comes) */
+static inline int test_focus_walk_wants_look(struct test_focus_walk const *walk, unsigned long poll)
+{
+	if (walk->finished)
+		return walk->result == TEST_FOCUS_DONE && walk->deadline > TEST_FOCUS_CHECK_POLLS && poll == walk->deadline - 2;
+	return poll >= walk->start && poll >= walk->hold_until && poll >= walk->next_look;
+}
+
 /* one poll of the walk. `seen` is the focused row's text, or NULL when no screen has a focused row; it is read only on a
 poll that looks. Once the walk has finished it returns its result on every poll. */
 static inline int test_focus_walk_poll(struct test_focus_walk *walk, unsigned long poll, char const *seen)
 {
 	if (walk->finished)
+	{
+		if (walk->result == TEST_FOCUS_DONE && walk->deadline > TEST_FOCUS_CHECK_POLLS && poll == walk->deadline - 2 && seen &&
+			!test_focus_label_equal(seen, walk->label))
+		{
+			strncpy(walk->last, seen, TEST_FOCUS_LABEL_MAX - 1);
+			walk->result = TEST_FOCUS_FAIL_LOST;
+		}
 		return walk->result;
+	}
 	if (poll < walk->start)
 		return TEST_FOCUS_WAIT;
 	if (walk->deadline && poll >= walk->deadline)
@@ -92,8 +112,16 @@ static inline int test_focus_walk_poll(struct test_focus_walk *walk, unsigned lo
 			walk->result = TEST_FOCUS_FAIL_NO_SCREEN;
 			return walk->result;
 		}
+		/* a page that comes up with no row focused (a form page) takes its focus from the first Down */
+		if (++walk->blind >= TEST_FOCUS_BLIND_LOOKS)
+		{
+			walk->blind = 0;
+			walk->hold_until = poll + TEST_FOCUS_HOLD_POLLS;
+			return TEST_FOCUS_DOWN;
+		}
 		return TEST_FOCUS_WAIT;
 	}
+	walk->blind = 0;
 	if (test_focus_label_equal(seen, walk->label))
 	{
 		walk->finished = 1;

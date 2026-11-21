@@ -1026,7 +1026,7 @@ static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
 		char seen[TEST_FOCUS_LABEL_MAX];
 		int have = 0, was_finished = walk->finished, action;
 
-		if (!walk->finished && poll >= walk->start && poll >= walk->hold_until && poll >= walk->next_look)
+		if (test_focus_walk_wants_look(walk, poll))
 			have = menu_test_focus_text(seen, sizeof(seen));
 		if (have)   /* every row the walk looks at, so a failed or a new walk can be read off the log */
 			platform_log("walk: focus %s: the focused row is \"%s\"", walk->label, seen);
@@ -1035,11 +1035,12 @@ static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
 			pad->wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
 		else if (action == TEST_FOCUS_DONE && !was_finished)
 			platform_log("walk: focus %s landed at poll %lu", walk->label, poll);
-		else if (action >= TEST_FOCUS_FAIL_STUCK && !was_finished)
+		else if (action >= TEST_FOCUS_FAIL_STUCK && (!was_finished || action == TEST_FOCUS_FAIL_LOST))
 		{
 			platform_log("WALK FAIL: focus %s (%s); the focus was on \"%s\", it began on \"%s\"", walk->label,
 				action == TEST_FOCUS_FAIL_STUCK ? "Down no longer moves it" : action == TEST_FOCUS_FAIL_WRAP ? "the list wrapped" :
-				action == TEST_FOCUS_FAIL_LATE ? "the next press came first" : "no screen with a focused row", walk->last, walk->first);
+				action == TEST_FOCUS_FAIL_LATE ? "the next press came first" :
+				action == TEST_FOCUS_FAIL_LOST ? "the focus left the row before the deadline" : "no screen with a focused row", walk->last, walk->first);
 			exit(TEST_FOCUS_EXIT_STATUS);
 		}
 	}

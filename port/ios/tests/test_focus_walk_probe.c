@@ -15,7 +15,7 @@ static int walk(char const *const *rows, int count, int wraps, char const *label
 	{
 		int action = test_focus_walk_poll(&w, poll, poll < 50 ? NULL : rows[focus]);
 
-		if (action == TEST_FOCUS_DOWN && !last_down)
+		if (action == TEST_FOCUS_DOWN && !last_down && poll >= 50)   /* (before that no screen is up) */
 			focus = focus + 1 < count ? focus + 1 : wraps ? 0 : focus;
 		last_down = action == TEST_FOCUS_DOWN;
 		if (action != TEST_FOCUS_DOWN && action != TEST_FOCUS_WAIT)
@@ -50,6 +50,22 @@ int main(void)
 
 		assert(walk(twins, 5, 0, "VEHICLES", &row) == TEST_FOCUS_DONE && row == 4);
 	}
+	/* a page with no row focused takes its focus from the first Down, and the walk goes on from there */
+	{
+		struct test_focus_walk w;
+		int focus = -1, last_down = 0, action = TEST_FOCUS_WAIT;
+		char const *const page[] = { "SCORE TO WIN:", "TIME LIMIT:", "TEAM PLAY:", "TEAMS & HUD:", "TYPE OPTIONS" };
+
+		test_focus_walk_begin(&w, "TEAMS & HUD", 0);
+		for (unsigned long poll = 0; poll < 1000 && action != TEST_FOCUS_DONE; poll++)
+		{
+			action = test_focus_walk_poll(&w, poll, test_focus_walk_wants_look(&w, poll) ? (focus < 0 ? NULL : page[focus]) : NULL);
+			if (action == TEST_FOCUS_DOWN && !last_down && focus < 4)
+				focus++;
+			last_down = action == TEST_FOCUS_DOWN;
+		}
+		assert(action == TEST_FOCUS_DONE && focus == 3);
+	}
 	/* no screen with a focused row for too long fails */
 	{
 		struct test_focus_walk w;
@@ -75,6 +91,28 @@ int main(void)
 			action = test_focus_walk_poll(&w, poll, poll < 20 ? NULL : row);
 		}
 		assert(action == TEST_FOCUS_FAIL_LATE);
+	}
+	/* a walk that landed and then lost the focus before its deadline fails at the last check */
+	{
+		struct test_focus_walk w;
+		int action = TEST_FOCUS_WAIT;
+
+		test_focus_walk_begin(&w, "INTERNET", 10);
+		w.deadline = 100;
+		for (unsigned long poll = 0; poll < 200 && action != TEST_FOCUS_FAIL_LOST; poll++)
+		{
+			char const *seen = poll < 20 ? NULL : poll < 40 ? "INTERNET" : "COOPERATIVE PLAY";
+
+			action = test_focus_walk_poll(&w, poll, test_focus_walk_wants_look(&w, poll) ? seen : NULL);
+			assert(action != TEST_FOCUS_FAIL_NO_SCREEN && action != TEST_FOCUS_FAIL_LATE);
+		}
+		assert(action == TEST_FOCUS_FAIL_LOST);
+		/* and one that keeps the row to the deadline does not */
+		test_focus_walk_begin(&w, "INTERNET", 10);
+		w.deadline = 100;
+		for (unsigned long poll = 0; poll < 200 && poll < 99; poll++)
+			action = test_focus_walk_poll(&w, poll, test_focus_walk_wants_look(&w, poll) ? (poll < 20 ? NULL : "INTERNET") : NULL);
+		assert(action == TEST_FOCUS_DONE);
 	}
 	puts("test_focus_walk_probe: ok");
 	return 0;
