@@ -1,3 +1,36 @@
+## visr-v0.6.21 (2026-11-21)
+
+### Summary
+
+- Play large fights, especially with many players, and watch for smoother decal-heavy scenes such as bullet marks and scorch effects on Metal. This change is for Metal rendering, so it may not apply to every selected platform.
+- Check that decals still look correct and appear in the right order. The Metal renderer now uploads only the decal data it draws, and you can turn this off with the Dense Decal Upload setting under Display.
+- Play long matches and check that the game stays stable, with no sudden stops or crashes during memory-heavy moments.
+- Watch for slowdowns in big multiplayer fights, since a per-tick safety check is now on by default.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### fix
+
+- **sim**: `debug.verify_once_a_tick` checks the end of a pool's list before an allocation links to it — `memory_pool_block_allocate` wrote over a wrong `last_block` or `next_block` before the put-off walk could see it
+- **sim**: `debug.verify_once_a_tick` checks a block as it leaves the list — a walk put off to the end of the tick no longer found a block freed before then
+
+### perf
+
+- **metal**: a batched decal draw uploads only the vertices it draws — `halo_draw_quad_ranges` sent every vertex between a run's lowest and highest decal in the vertex cache, about 32 MB a frame in a 128-player fight for 0.9 MB drawn; `display.decal_dense_upload` (on) gathers the drawn vertices in order, `debug.decal_dense_check` compares them with the game's own, and the layouts move to `quad_ranges.h` with a probe
+- **sim**: `debug.verify_once_a_tick` on by default — the block list walks cost 7% of a 128-player tick on an A10X
+- **sim**: `debug.verify_once_a_tick` — walk each block cache and memory pool once at the end of a tick
+
+### test
+
+- **sim**: `tick_verify_begin` and `tick_verify_end` stay paired in `source/game/game.c` — an early return between them would leave walks put off and never made
+- **sim**: a list gone wrong inside a tick stops the game by the end of that tick — `tools/test_tick_verify_corruption.py` builds the real `lruv_cache.c`, `memory_pool.c` and `tick_verify.c`
+
 ## visr-v0.6.20 (2026-11-20)
 
 ### Summary
