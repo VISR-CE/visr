@@ -606,90 +606,65 @@ static const struct gpu_backend *capture_wrap(const struct gpu_backend *chosen, 
 }
 #endif
 
-/* debug.gpu_call_hash (gpu_call_hash.h): one line a frame from the wrapper next to the backend, so the hash sees what
-the backend receives. With debug.encode_thread on, a second wrapper sits in front of the queue and every frame's hash
-there must equal the one behind it: the queue dropped, reordered or changed nothing */
-static int call_hash_on, call_hash_across_queue;
+/* debug.gpu_call_hash (gpu_call_hash.h): one line a frame from the wrapper the game's calls reach first, so a run
+with the queue and one without log hashes that compare. With debug.encode_thread on, a second wrapper sits behind
+the queue and every frame's hash there must equal the recorded hash in front: the queue dropped, reordered or
+changed nothing it carries */
+static int call_hash_on;
 static struct
 {
 	pthread_mutex_t lock;
-	/* the hashes in front of the queue that the back has not reached yet, by frame number */
-	struct { unsigned long frame; uint64_t hash; char parts[640]; } front[64];
+	/* the recorded hashes in front of the queue that the back has not reached yet, by frame number */
+	struct { unsigned long frame; uint64_t recorded; char parts[640]; } front[64];
 	unsigned long checked, differ;
 } call_hash_check = { .lock = PTHREAD_MUTEX_INITIALIZER };
 
-static void call_hash_back(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts);
-
-static void call_hash_log(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+static void call_hash_log(const struct gpu_call_hash_frame *frame)
 {
-	if (call_hash_across_queue)
-	{
-		call_hash_back(frame, calls, hash, second_thread, parts);
-		return;
-	}
-	if (second_thread)
-		platform_log("gpu call hash: a command came from a second thread by frame %lu", frame);
-	platform_log("gpu call hash: frame %lu calls %u hash %016llx %s", frame, calls, (unsigned long long)hash, parts);
+	if (frame->second_thread)
+		platform_log("gpu call hash: a command came from a second thread by frame %lu", frame->frame);
+	platform_log("gpu call hash: frame %lu calls %u hash %016llx %s", frame->frame, frame->calls,
+		(unsigned long long)frame->hash, frame->parts);
 }
 
-static void call_hash_front(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+/* in front of the queue: the line every run logs, and the recorded hash for the back to compare */
+static void call_hash_front(const struct gpu_call_hash_frame *frame)
 {
-	unsigned slot = (unsigned)(frame % 64);
+	unsigned slot = (unsigned)(frame->frame % 64);
 
-	(void)calls;
-	(void)second_thread;
+	call_hash_log(frame);
 	pthread_mutex_lock(&call_hash_check.lock);
-	call_hash_check.front[slot].frame = frame;
-	call_hash_check.front[slot].hash = hash;
-	snprintf(call_hash_check.front[slot].parts, sizeof(call_hash_check.front[slot].parts), "%s", parts);
+	call_hash_check.front[slot].frame = frame->frame;
+	call_hash_check.front[slot].recorded = frame->recorded;
+	snprintf(call_hash_check.front[slot].parts, sizeof(call_hash_check.front[slot].parts), "%s", frame->parts);
 	pthread_mutex_unlock(&call_hash_check.lock);
 }
 
-static void call_hash_back(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+/* behind it: every command there must be a recorded one, so its whole hash is compared */
+static void call_hash_back(const struct gpu_call_hash_frame *frame)
 {
-	unsigned slot = (unsigned)(frame % 64);
+	unsigned slot = (unsigned)(frame->frame % 64);
 	int same, known;
 	char front_parts[640];
-	uint64_t front_hash;
+	uint64_t front_recorded;
 	unsigned long checked, differ;
 
-	if (second_thread)
-		platform_log("gpu call hash: a command came from a second thread by frame %lu", frame);
-	platform_log("gpu call hash: frame %lu calls %u hash %016llx %s", frame, calls, (unsigned long long)hash, parts);
+	if (frame->second_thread)
+		platform_log("gpu call hash: behind the queue a command came from a second thread by frame %lu", frame->frame);
 	pthread_mutex_lock(&call_hash_check.lock);
-	known = call_hash_check.front[slot].frame == frame;
-	front_hash = call_hash_check.front[slot].hash;
+	known = call_hash_check.front[slot].frame == frame->frame;
+	front_recorded = call_hash_check.front[slot].recorded;
 	snprintf(front_parts, sizeof(front_parts), "%s", call_hash_check.front[slot].parts);
-	same = known && front_hash == hash;
+	same = known && front_recorded == frame->hash;
 	checked = ++call_hash_check.checked;
 	differ = call_hash_check.differ += !same;
 	pthread_mutex_unlock(&call_hash_check.lock);
 	if (!same && differ <= 20)
-		platform_log("gpu call hash: frame %lu differs across the queue: in front %016llx %s; behind %016llx %s", frame,
-			known ? (unsigned long long)front_hash : 0ull, known ? front_parts : "(not seen)", (unsigned long long)hash,
-			parts);
+		platform_log("gpu call hash: frame %lu differs across the queue: recorded in front %016llx %s; behind "
+			"%016llx (%u calls) %s", frame->frame, known ? (unsigned long long)front_recorded : 0ull,
+			known ? front_parts : "(not seen)", (unsigned long long)frame->hash, frame->calls, frame->parts);
 	if (checked % 300 == 0)
 		platform_log("gpu call hash: queue check: %lu frames, %lu differ", checked, differ);
-}
-
-static const struct gpu_backend *call_hash_wrap(const struct gpu_backend *chosen)
-{
-	char value[16];
-
-	host_config_string("debug.gpu_call_hash", "false", value, sizeof(value));
-	call_hash_on = !strcmp(value, "true");
-	call_hash_across_queue = 0;
-	call_hash_check.checked = call_hash_check.differ = 0;
-	return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
-}
-
-/* with the queue in place: the wrapper behind it (instance 0) compares, the one in front records */
-static const struct gpu_backend *call_hash_wrap_queue(const struct gpu_backend *queue, const struct gpu_backend *behind)
-{
-	if (!call_hash_on || queue == behind)
-		return queue;
-	call_hash_across_queue = 1;
-	return gpu_call_hash_wrap(1, queue, call_hash_front);
 }
 
 /* debug.encode_thread (gpu_queue.h): the Metal backend's commands go through the queue; not on visionOS or in the
@@ -699,10 +674,11 @@ static void encode_queue_log(const char *line)
 	platform_log("%s", line);
 }
 
-static const struct gpu_backend *encode_queue_wrap(const struct gpu_backend *chosen)
+static int encode_queue_mode(int *timing)
 {
 #if TARGET_OS_VISION || TARGET_OS_MACCATALYST
-	return chosen;
+	(void)timing;
+	return GPU_QUEUE_OFF;
 #else
 	char value[32];
 	int mode;
@@ -715,11 +691,31 @@ static const struct gpu_backend *encode_queue_wrap(const struct gpu_backend *cho
 		mode = GPU_QUEUE_OFF;
 	}
 	if (mode == GPU_QUEUE_OFF)
-		return chosen;
+		return mode;
 	host_config_string("debug.encode_thread_timing", "false", value, sizeof(value));
+	*timing = !strcmp(value, "true");
 	platform_log("debug.encode_thread: %s", mode == GPU_QUEUE_INLINE ? "inline" : "?");
-	return gpu_queue_wrap(chosen, mode, !strcmp(value, "true"), encode_queue_log);
+	return mode;
 #endif
+}
+
+/* chosen with the call hash (debug.gpu_call_hash) and, on Metal, the encode queue in front of it: the hash wraps
+what the game calls; with the queue, a second hash behind the queue sees only the recorded commands */
+static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *chosen, int metal)
+{
+	char value[16];
+	int mode, timing = 0;
+	const struct gpu_backend *behind;
+
+	host_config_string("debug.gpu_call_hash", "false", value, sizeof(value));
+	call_hash_on = !strcmp(value, "true");
+	call_hash_check.checked = call_hash_check.differ = 0;
+	mode = metal ? encode_queue_mode(&timing) : GPU_QUEUE_OFF;
+	if (mode == GPU_QUEUE_OFF)
+		return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
+	behind = call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_back) : chosen;
+	behind = gpu_queue_wrap(behind, chosen, mode, timing, encode_queue_log);
+	return call_hash_on ? gpu_call_hash_wrap(1, behind, call_hash_front) : behind;
 }
 
 void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
@@ -739,18 +735,12 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 #else
 	backend = (flags & GPU_INITIALIZE_METAL) ? &gpu_backend_metal : &gpu_backend_gl;
 #endif
-	backend = call_hash_wrap(backend);
 #if HALO_RENDER_VALIDATION
 	backend = validation_wrap(backend);
 	backend = capture_wrap(backend, flags);
 #endif
 	metal_backend = TARGET_OS_VISION || (flags & GPU_INITIALIZE_METAL) ? 1 : 0;
-	if (metal_backend)
-	{
-		const struct gpu_backend *behind = backend;
-
-		backend = call_hash_wrap_queue(encode_queue_wrap(behind), behind);
-	}
+	backend = hash_and_queue_wrap(backend, metal_backend);
 	wrapped_backend = backend;
 	wrapped = *backend;
 	wrapped.present = present_wrapped;

@@ -12,17 +12,17 @@ tools/test_gpu_call_hash.py. */
 
 /* ---------- frames */
 
-static uint64_t last_hash;
-static uint32_t last_calls;
+static uint64_t last_hash, last_recorded;
+static uint32_t last_calls, last_recorded_calls;
 static int last_second_thread;
 
-static void record(unsigned long frame_number, uint32_t frame_calls, uint64_t frame_hash, int other_thread, const char *parts)
+static void record(const struct gpu_call_hash_frame *frame)
 {
-	(void)parts;
-	(void)frame_number;
-	last_hash = frame_hash;
-	last_calls = frame_calls;
-	last_second_thread = other_thread;
+	last_hash = frame->hash;
+	last_recorded = frame->recorded;
+	last_calls = frame->calls;
+	last_recorded_calls = frame->recorded_calls;
+	last_second_thread = frame->second_thread;
 }
 
 enum
@@ -140,6 +140,16 @@ int main(void)
 
 	CHECK(base != 0, "a frame hashed to 0");
 	CHECK(last_calls == 8, "a frame of eight commands counted another number");
+	/* the recorded hash leaves out the calls the producer makes itself (texture_create, stream) */
+	CHECK(last_recorded_calls == 6, "a frame of six recorded commands counted another number");
+	{
+		uint64_t base_recorded = last_recorded;
+
+		CHECK(fresh_frame(STREAM_BYTE) != base && last_recorded == base_recorded,
+			"a streamed byte (an AT_ONCE call's) changed the recorded hash, or not the whole hash");
+		CHECK(fresh_frame(DRAW_ARGUMENT) != base && last_recorded != base_recorded,
+			"a changed draw argument kept the recorded hash");
+	}
 	CHECK(fresh_frame(0) == base, "the same frame hashed differently");
 	CHECK(fresh_frame(EXTRA_QUERIES) == base, "queries changed the hash");
 	CHECK(fresh_frame(DROP_DRAW) != base, "a dropped draw kept the hash");

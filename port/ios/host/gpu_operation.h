@@ -11,10 +11,12 @@ gpu_call_hash.c.
 
 Classes:
 - RECORDED: a command written to the queue; the queue's consumer makes the
-  call, in order with the other recorded commands.
-- AT_ONCE: a command the producer makes itself, once the queue is consumed up
-  to it (creates, the streams, the anti-aliasing setup and the compile
-  accounting).
+  call, in order with the other recorded commands. The call hash compares
+  these in front of the queue and behind it.
+- AT_ONCE: a command the producer makes itself, on the backend under the
+  queue, once the queue is consumed up to it (creates, the streams, the
+  anti-aliasing setup and the compile accounting). Hashed in front of the
+  queue only.
 - QUERY: changes nothing in the backend, so a queue may answer it from a
   cache; made like an AT_ONCE call today. Never hashed.
 - OTHER_THREAD: another thread's call (vertical_blank_wait, from

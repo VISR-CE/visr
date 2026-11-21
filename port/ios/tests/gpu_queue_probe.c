@@ -3,7 +3,9 @@ same bytes, in the same order, as one called directly. Plays the same made-up fr
 debug.gpu_call_hash (gpu_call_hash.c) and compares the frames' hashes: draws whose packets change a few bytes or
 many, constants changed one register at a time, in bursts past the store's change log and under a second store,
 uniforms changed whole and one value at a time, uploads bigger than a chunk, a write with no data, and every
-recorded operation, each of which must reach the backend behind the queue inside a compared frame. Then, behind the queue, a backend that reads the constants as gpu_gl.c does
+recorded operation, each of which must reach the backend behind the queue inside a compared frame. Behind the
+queue the hash sees only the recorded commands, and must match the direct run's recorded hash; in front it must
+match the direct run's whole hash. Then, behind the queue, a backend that reads the constants as gpu_gl.c does
 (following the store's change log) must see the game's values and serials on every draw. Built and run by tools/test_gpu_queue.py with
 gpu_call_hash.c and gpu_queue.c. */
 
@@ -17,32 +19,22 @@ gpu_call_hash.c and gpu_queue.c. */
 
 enum { FRAMES = 60, MAXIMUM_FRAMES = 128 };
 
-static uint64_t hashes[MAXIMUM_FRAMES];
-static uint32_t frame_calls[MAXIMUM_FRAMES];
-static unsigned long frames_seen;
+/* each frame's report from a wrapper: instance 0 (direct, or behind the queue), and instance 1 in front of it */
+static struct gpu_call_hash_frame frames[MAXIMUM_FRAMES], front_frames[MAXIMUM_FRAMES];
+static unsigned long frames_seen, front_seen;
 
-static void record(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+static void record(const struct gpu_call_hash_frame *frame)
 {
-	(void)parts;
-	(void)second_thread;
-	if (frame < MAXIMUM_FRAMES)
-	{
-		hashes[frame] = hash;
-		frame_calls[frame] = calls;
-	}
-	frames_seen = frame + 1;
+	if (frame->frame < MAXIMUM_FRAMES)
+		frames[frame->frame] = *frame;
+	frames_seen = frame->frame + 1;
 }
 
-/* the wrapper in front of the queue (instance 1), in the same run as the one behind it (instance 0) */
-static uint64_t front_hashes[MAXIMUM_FRAMES];
-static unsigned long front_seen;
-
-static void record_front(unsigned long frame, uint32_t calls, uint64_t hash, int second_thread, const char *parts)
+static void record_front(const struct gpu_call_hash_frame *frame)
 {
-	(void)calls, (void)second_thread, (void)parts;
-	if (frame < MAXIMUM_FRAMES)
-		front_hashes[frame] = hash;
-	front_seen = frame + 1;
+	if (frame->frame < MAXIMUM_FRAMES)
+		front_frames[frame->frame] = *frame;
+	front_seen = frame->frame + 1;
 }
 
 static void quiet(const char *line)
@@ -263,50 +255,53 @@ static void play(const struct gpu_backend *backend)
 
 int main(void)
 {
-	uint64_t direct[FRAMES];
-	uint32_t direct_calls[FRAMES];
+	struct gpu_call_hash_frame direct[FRAMES];
 	unsigned long frame;
 	unsigned operation;
 	int distinct = 0;
 
 	play(gpu_call_hash_wrap(0, &fake, record));
 	CHECK(frames_seen == FRAMES, "the direct run presented %lu frames", frames_seen);
-	memcpy(direct, hashes, sizeof(direct));
-	memcpy(direct_calls, frame_calls, sizeof(direct_calls));
+	memcpy(direct, frames, sizeof(direct));
 	for (frame = 1; frame < FRAMES; frame++)
-		distinct += direct[frame] != direct[frame - 1];
+		distinct += direct[frame].hash != direct[frame - 1].hash && direct[frame].recorded != direct[frame - 1].recorded;
 	CHECK(distinct > FRAMES / 2, "the frames hash alike: the probe tests nothing");
 
-	/* queued: the same hashes, and every recorded operation reaches the backend */
+	/* behind the queue: only the recorded commands, the same as the direct run's; every recorded operation reaches
+	the backend */
 	frames_seen = 0;
 	memset(fake_calls, 0, sizeof(fake_calls));
-	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), GPU_QUEUE_INLINE, 1, quiet));
+	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_INLINE, 1, quiet));
 	CHECK(frames_seen == FRAMES, "the queued run presented %lu frames", frames_seen);
 	for (frame = 0; frame < FRAMES; frame++)
-		CHECK(hashes[frame] == direct[frame] && frame_calls[frame] == direct_calls[frame],
-			"frame %lu: queued %u commands, hash %016llx; direct %u, %016llx", frame, frame_calls[frame],
-			(unsigned long long)hashes[frame], direct_calls[frame], (unsigned long long)direct[frame]);
+		CHECK(frames[frame].hash == direct[frame].recorded && frames[frame].calls == direct[frame].recorded_calls &&
+			frames[frame].recorded == frames[frame].hash,
+			"frame %lu: behind the queue %u commands, hash %016llx; direct %u recorded, %016llx", frame,
+			frames[frame].calls, (unsigned long long)frames[frame].hash, direct[frame].recorded_calls,
+			(unsigned long long)direct[frame].recorded);
 	for (operation = 0; operation < GPU_OPERATION_COUNT; operation++)
 		CHECK(gpu_operation_classes[operation] != GPU_CLASS_RECORDED || fake_calls[operation],
 			"the probe never sent %s, a recorded operation, through the queue", gpu_operation_names[operation]);
 
 	/* one run, hashed in front of the queue and behind it, as debug.gpu_call_hash does with the queue on */
 	frames_seen = front_seen = 0;
-	play(gpu_call_hash_wrap(1, gpu_queue_wrap(gpu_call_hash_wrap(0, &fake, record), GPU_QUEUE_INLINE, 0, quiet),
+	play(gpu_call_hash_wrap(1, gpu_queue_wrap(gpu_call_hash_wrap(0, &fake, record), &fake, GPU_QUEUE_INLINE, 0, quiet),
 		record_front));
 	CHECK(frames_seen == FRAMES && front_seen == FRAMES, "the paired run presented %lu and %lu frames", front_seen,
 		frames_seen);
 	for (frame = 0; frame < FRAMES; frame++)
-		CHECK(front_hashes[frame] == hashes[frame] && hashes[frame] == direct[frame],
-			"frame %lu: in front of the queue %016llx, behind it %016llx", frame,
-			(unsigned long long)front_hashes[frame], (unsigned long long)hashes[frame]);
+		CHECK(front_frames[frame].hash == direct[frame].hash && front_frames[frame].recorded == frames[frame].hash &&
+			frames[frame].hash == direct[frame].recorded,
+			"frame %lu: in front of the queue %016llx (recorded %016llx), behind it %016llx", frame,
+			(unsigned long long)front_frames[frame].hash, (unsigned long long)front_frames[frame].recorded,
+			(unsigned long long)frames[frame].hash);
 
 	/* behind the queue, the constants a log-following backend reads, and the serials it is handed */
 	{
 		struct gpu_backend reader = fake;
 
 		reader.draw = log_reader_draw;
-		play(gpu_queue_wrap(&reader, GPU_QUEUE_INLINE, 0, quiet));
+		play(gpu_queue_wrap(&reader, NULL, GPU_QUEUE_INLINE, 0, quiet));
 		CHECK(!stale_reads && !stale_serials, "behind the queue %lu draws read stale constants by the change log "
 			"and %lu had other serials than the game's store", stale_reads, stale_serials);
 	}

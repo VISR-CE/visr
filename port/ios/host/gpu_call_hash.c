@@ -38,8 +38,10 @@ struct hasher
 	const struct gpu_backend *next;
 	struct gpu_backend table;
 	gpu_call_hash_report report;
-	uint64_t hash;
-	uint32_t calls;
+	/* every command this frame, and the RECORDED ones alone (recording: the command being mixed is one) */
+	uint64_t hash, recorded;
+	uint32_t calls, recorded_calls;
+	int recording;
 	/* each operation's (and draw part's) own hash this frame, to tell which one two runs part on */
 	uint64_t parts[PARTS];
 	uint32_t part_calls[PARTS];
@@ -62,6 +64,12 @@ static inline void mix64(struct hasher *h, uint64_t value)
 	h->hash ^= value;
 	h->hash *= PRIME;
 	h->hash ^= h->hash >> 29;
+	if (h->recording)
+	{
+		h->recorded ^= value;
+		h->recorded *= PRIME;
+		h->recorded ^= h->recorded >> 29;
+	}
 	h->parts[h->part] ^= value;
 	h->parts[h->part] *= PRIME;
 	h->parts[h->part] ^= h->parts[h->part] >> 29;
@@ -109,6 +117,8 @@ static void command(struct hasher *h, unsigned operation)
 	else if (!pthread_equal(h->owner, self))
 		h->second_thread = 1;
 	h->calls++;
+	h->recording = gpu_operation_classes[operation] == GPU_CLASS_RECORDED;
+	h->recorded_calls += (uint32_t)h->recording;
 	h->part = operation;
 	h->part_calls[operation]++;
 	mix64(h, 0xc0de0000ull | operation);
@@ -366,10 +376,17 @@ static void frame_end(struct hasher *h)
 			length += (size_t)snprintf(text + length, sizeof(text) - length, "%s%s:%08x", length ? " " : "",
 				part_name(index), (unsigned)(h->parts[index] ^ h->parts[index] >> 32));
 	if (h->report)
-		h->report(h->frame, h->calls, h->hash, report_second_thread, text);
+	{
+		struct gpu_call_hash_frame frame = {
+			.frame = h->frame, .calls = h->calls, .recorded_calls = h->recorded_calls, .hash = h->hash,
+			.recorded = h->recorded, .second_thread = report_second_thread, .parts = text,
+		};
+
+		h->report(&frame);
+	}
 	h->frame++;
-	h->calls = 0;
-	h->hash = 0;
+	h->calls = h->recorded_calls = 0;
+	h->hash = h->recorded = 0;
 	memset(h->parts, 0, sizeof(h->parts));
 	memset(h->part_calls, 0, sizeof(h->part_calls));
 }

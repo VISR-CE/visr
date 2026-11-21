@@ -15,8 +15,8 @@ Modes:
   costs and shows the records carry everything the backend needs.
 
 Calls go by their class (gpu_operation.h): RECORDED ones through the queue,
-the others straight to the backend behind it (AT_ONCE and QUERY after the
-queue is consumed up to them).
+the others straight to the backend (AT_ONCE and QUERY after the queue is
+consumed up to them).
 */
 
 #ifndef __HALO_GPU_QUEUE_H
@@ -29,10 +29,12 @@ enum { GPU_QUEUE_OFF, GPU_QUEUE_INLINE };
 /* the setting's value ("off", "inline"), or -1 for one it does not know */
 int gpu_queue_mode_parse(const char *value);
 
-/* chosen, behind the queue; log takes a finished line (no newline). timing: also measure the time the consumer
-spends in the backend, presents left out (two clock reads a record) */
-const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, int mode, int timing,
-	void (*log)(const char *line));
+/* chosen, behind the queue: it receives the RECORDED commands. beneath (NULL: chosen) receives the calls the
+producer makes itself; it is chosen without the wrappers that must see only recorded commands (the call hash
+behind the queue). log takes a finished line (no newline). timing: also measure the time the consumer spends in
+the backend, presents left out (two clock reads a record) */
+const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode,
+	int timing, void (*log)(const char *line));
 
 /* every record written so far has reached the backend: for a caller that reaches the backend outside gpu.h */
 void gpu_queue_drain(void);

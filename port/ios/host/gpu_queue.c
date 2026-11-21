@@ -34,7 +34,9 @@ int gpu_queue_mode_parse(const char *value)
 	return -1;
 }
 
-static const struct gpu_backend *next;
+/* next: where recorded commands go (the consumer's calls); direct: the backend under any wrapper that only
+recorded commands may pass (a call hash behind the queue), for the calls the producer makes itself */
+static const struct gpu_backend *next, *direct;
 static struct gpu_backend queued;
 /* the backend's answers to the last draw and present consumed (inline: the one just written) */
 static uint32_t draw_result, present_result;
@@ -630,20 +632,20 @@ they come. RECORDED ones are written above. */
 	static type queued_##name parameters \
 	{ \
 		gpu_queue_drain(); \
-		return next->name arguments; \
+		return direct->name arguments; \
 	}
 #define QUEUED_P_AT_ONCE(name, parameters, arguments) \
 	static void queued_##name parameters \
 	{ \
 		gpu_queue_drain(); \
-		next->name arguments; \
+		direct->name arguments; \
 	}
 #define QUEUED_F_QUERY QUEUED_F_AT_ONCE
 #define QUEUED_P_QUERY QUEUED_P_AT_ONCE
 #define QUEUED_F_OTHER_THREAD(type, name, parameters, arguments) \
-	static type queued_##name parameters { return next->name arguments; }
+	static type queued_##name parameters { return direct->name arguments; }
 #define QUEUED_P_OTHER_THREAD(name, parameters, arguments) \
-	static void queued_##name parameters { next->name arguments; }
+	static void queued_##name parameters { direct->name arguments; }
 #define QUEUED_F(type, name, parameters, arguments) \
 	GPU_OPERATION_BY_CLASS(QUEUED_F_, name)(type, name, parameters, arguments)
 #define QUEUED_P(name, parameters, arguments) GPU_OPERATION_BY_CLASS(QUEUED_P_, name)(name, parameters, arguments)
@@ -901,12 +903,13 @@ static void consume(void)
 	}
 }
 
-const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, int queue_mode, int queue_timing,
-	void (*log)(const char *line))
+const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath,
+	int queue_mode, int queue_timing, void (*log)(const char *line))
 {
 	if (queue_mode == GPU_QUEUE_OFF)
 		return chosen;
 	next = chosen;
+	direct = beneath ? beneath : chosen;
 	mode = queue_mode;
 	timing = queue_timing;
 	log_line = log;

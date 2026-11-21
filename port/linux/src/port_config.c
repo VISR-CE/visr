@@ -1656,9 +1656,10 @@ static const struct config_setting config_settings[] =
 		"Logs, for every frame, a hash of every command the Metal or OpenGL ES\n"
 		"renderer received: each call, its arguments and the bytes they point to.\n"
 		"Two runs of the same recording whose renderers did the same work log the\n"
-		"same hashes. With debug.encode_thread on, each frame's hash in front of\n"
-		"the queue is also compared with the hash behind it, and frames that differ\n"
-		"are logged. For checking changes to how drawing reaches the renderer." },
+		"same hashes. With debug.encode_thread on, the commands the queue carries\n"
+		"are hashed again behind it and compared with the same commands in front\n"
+		"of it, and frames that differ are logged. For checking changes to how\n"
+		"drawing reaches the renderer." },
 	{ "debug.encode_thread", _config_string, "\"off\"", "HALO_ENCODE_THREAD", _environment_value, _platform_ios,
 		"How the Metal renderer's commands reach it. \"off\" (default): the game\n"
 		"thread calls the renderer. \"inline\": the game thread writes each command\n"
