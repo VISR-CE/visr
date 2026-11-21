@@ -205,6 +205,9 @@ void platform_ready_screenshot_request(void);
 /* the same, saved as frameNNNNN-<name>.png (debug.menu_sequence) */
 void platform_ready_screenshot_request_named(const char *name);
 int platform_ready_screenshot_taken(void);
+/* debug.test_input "focus:LABEL": the text of the focused menu row as its widget draws it (ASCII), 1 when there is one
+(menu_functions.c) */
+int menu_test_focus_text(char *text, int size);
 /* debug.benchmark_window_shot: one capture of the first frame after a benchmark window's timer stops */
 void platform_benchmark_window_shot_request(void);
 void platform_clock_frame(void);

@@ -51,6 +51,7 @@ extern unsigned char network_aim_assist_block_mouse(void);
 #include "benchmark_mp_arena.h"
 #include "halo_spatial.h"
 #include "knob_cycle.h"
+#include "test_focus_walk.h"
 
 #include <SDL3/SDL.h>
 #include <math.h>
@@ -948,7 +949,9 @@ next press */
 
 /* "press:BUTTON@POLL BUTTON@POLL ...": prefix a button with k for keyboard
 input (ka, kb, kdown); an unprefixed button is controller input. "none"
-changes only the input class. Each BUTTON (start, back, a, b, x, y, up, down,
+changes only the input class. "focus:LABEL@POLL" (spaces in LABEL written as _) holds Down from POLL until the focused
+menu row's text is LABEL, instead of counting rows; it fails the run ("WALK FAIL" in the log, exit status
+TEST_FOCUS_EXIT_STATUS) when the list has no such row or the next scripted press comes first. Each BUTTON (start, back, a, b, x, y, up, down,
 left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
 else is pressed (a menu walked by script). Presses at the same POLL are held
 together: "back@100 down@100" is debug.knob_cycle's chord */
@@ -961,6 +964,9 @@ static struct
 	unsigned long poll;
 } test_presses[TEST_PRESS_MAX];
 static int test_press_count;
+#define TEST_FOCUS_MAX 8
+static struct test_focus_walk test_focus_walks[TEST_FOCUS_MAX];
+static int test_focus_count;
 
 static void test_input_presses_parse(const char *text)
 {
@@ -968,11 +974,59 @@ static void test_input_presses_parse(const char *text)
 	unsigned long poll;
 	int used;
 
-	while (test_press_count < TEST_PRESS_MAX && sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
+	while (test_press_count < TEST_PRESS_MAX)
 	{
-		strcpy(test_presses[test_press_count].button, button);
-		test_presses[test_press_count++].poll = poll;
-		text += used;
+		char label[TEST_FOCUS_LABEL_MAX];
+
+		/* "focus:LABEL@POLL", the walk to a row by its text */
+		if (test_focus_count < TEST_FOCUS_MAX && sscanf(text, " focus:%47[^@ ]@%lu%n", label, &poll, &used) == 2)
+		{
+			for (char *c = label; *c; c++)
+				if (*c == '_')
+					*c = ' ';
+			test_focus_walk_begin(&test_focus_walks[test_focus_count++], label, poll);
+			text += used;
+		}
+		else if (sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
+		{
+			strcpy(test_presses[test_press_count].button, button);
+			test_presses[test_press_count++].poll = poll;
+			text += used;
+		}
+		else
+			break;
+	}
+	/* a walk must land before the next scripted press */
+	for (int walk = 0; walk < test_focus_count; walk++)
+		for (int press = 0; press < test_press_count; press++)
+			if (test_presses[press].poll > test_focus_walks[walk].start &&
+				(!test_focus_walks[walk].deadline || test_presses[press].poll < test_focus_walks[walk].deadline))
+				test_focus_walks[walk].deadline = test_presses[press].poll;
+}
+
+/* the focus walks' Down presses; a failed walk ends the run */
+static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
+{
+	for (int index = 0; index < test_focus_count; index++)
+	{
+		struct test_focus_walk *walk = &test_focus_walks[index];
+		char seen[TEST_FOCUS_LABEL_MAX];
+		int have = 0, was_finished = walk->finished, action;
+
+		if (!walk->finished && poll >= walk->start && poll >= walk->hold_until && poll >= walk->next_look)
+			have = menu_test_focus_text(seen, sizeof(seen));
+		action = test_focus_walk_poll(walk, poll, have ? seen : NULL);
+		if (action == TEST_FOCUS_DOWN)
+			pad->wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
+		else if (action == TEST_FOCUS_DONE && !was_finished)
+			platform_log("walk: focus %s landed at poll %lu", walk->label, poll);
+		else if (action >= TEST_FOCUS_FAIL_STUCK && !was_finished)
+		{
+			platform_log("WALK FAIL: focus %s (%s); the focus was on \"%s\", it began on \"%s\"", walk->label,
+				action == TEST_FOCUS_FAIL_STUCK ? "Down no longer moves it" : action == TEST_FOCUS_FAIL_WRAP ? "the list wrapped" :
+				action == TEST_FOCUS_FAIL_LATE ? "the next press came first" : "no screen with a focused row", walk->last, walk->first);
+			exit(TEST_FOCUS_EXIT_STATUS);
+		}
 	}
 }
 
@@ -1089,7 +1143,8 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 	}
 	if (pressing)
 	{
-		test_input_presses(pad, press_polls++);
+		test_input_presses(pad, press_polls);
+		test_input_focus_walks(pad, press_polls++);
 		return;
 	}
 	if (unarmed_start >= 0)

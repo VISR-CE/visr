@@ -700,6 +700,61 @@ static struct widget_instance *named(struct widget_instance *widget, char const 
 	return widget ? descendant(widget, name, &nth) : NULL;
 }
 
+/* ---------- test input */
+
+/* The text of the row the focus is on, as its widget draws it (a text box's text is the string it rendered last, search
+and replace done): the first text box under the deepest focused widget that has one, ASCII, in `text`. 1 when there is
+such a row, 0 when no screen is up or nothing in it has the focus. This is how debug.test_input's "focus:LABEL" walk
+reads the menu (test_focus_walk.h), whatever the screen: no table of rows, no names of screens. */
+static struct widget_instance *first_text_box(struct widget_instance *widget)
+{
+	struct widget_instance *child;
+
+	for (child = widget->child; child; child = child->next)
+	{
+		struct widget_instance *found;
+
+		if (child->type == 1 && child->visible && child->parameters.text_box.text && child->parameters.text_box.text[0])
+			return child;
+		found = first_text_box(child);
+		if (found)
+			return found;
+	}
+	return NULL;
+}
+
+int menu_test_focus_text(char *text, int size)
+{
+	struct widget_instance *screen = ui_widget_port_active_screen(0);
+	struct widget_instance *focused, *box = NULL;
+	struct widget_instance *chain[16];
+	int depth = 0, index;
+	wchar_t const *wide;
+
+	if (!screen || size < 2)
+		return 0;
+	/* the focus chain, screen to deepest focused widget */
+	for (focused = screen->focused_child; focused && depth < 16; focused = focused->focused_child)
+		chain[depth++] = focused;
+	/* the row is the focused child of a list (a column list or a spinner list): its label is its first text box; with no list in
+	the chain, the deepest focused widget that has a text box under it */
+	for (index = 0; index < depth && !box; index++)
+	{
+		if (chain[index]->parent && (chain[index]->parent->type == 2 || chain[index]->parent->type == 3))
+			box = chain[index]->type == 1 && chain[index]->parameters.text_box.text && chain[index]->parameters.text_box.text[0] ?
+				chain[index] : first_text_box(chain[index]);
+	}
+	for (index = depth - 1; index >= 0 && !box; index--)
+		box = first_text_box(chain[index]);
+	if (!box)
+		return 0;
+	wide = box->parameters.text_box.text;
+	for (index = 0; wide[index] && index < size - 1; index++)
+		text[index] = wide[index] < 128 ? (char)wide[index] : '?';
+	text[index] = 0;
+	return 1;
+}
+
 /* the text box's own text (as the server list sets its items'), in a
 buffer of length characters (made the first time: a text box is always
 given the same length) */
