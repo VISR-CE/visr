@@ -206,10 +206,18 @@ static void record_simple(uint32_t operation, const void *arguments, uint32_t si
 	record_end();
 }
 
+static unsigned long drains;
+
 void gpu_queue_drain(void)
 {
+	drains++;
 	if (mode != GPU_QUEUE_OFF && write_chunk)
 		consume();
+}
+
+unsigned long gpu_queue_drains(void)
+{
+	return drains;
 }
 
 /* ---------- payload helpers */

@@ -1835,10 +1835,13 @@ static uint32_t validate_compiles_outstanding(void)
 	return validation.backend.compiles_outstanding();
 }
 
-static void validate_stream_frame_end(void)
-{
-	validation.backend.stream_frame_end();
-}
+/* the host's own operations (gpu_backend.h) pass through */
+#define VALIDATE_HOST_F(type, name, parameters, arguments) \
+	static type validate_##name parameters { return validation.backend.name arguments; }
+#define VALIDATE_HOST_P(name, parameters, arguments) static void validate_##name parameters { validation.backend.name arguments; }
+GPU_HOST_OPERATIONS(VALIDATE_HOST_F, VALIDATE_HOST_P)
+#undef VALIDATE_HOST_F
+#undef VALIDATE_HOST_P
 
 static void validate_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
@@ -1914,7 +1917,7 @@ void gpu_validation_install(struct gpu_backend *table, const struct gpu_validati
 	}
 #define INSTALL_FUNCTION(type, name, parameters, arguments) table->name = validate_##name;
 #define INSTALL_PROCEDURE(name, parameters, arguments) table->name = validate_##name;
-	GPU_FUNCTIONS(INSTALL_FUNCTION, INSTALL_PROCEDURE)
+	GPU_BACKEND_FUNCTIONS(INSTALL_FUNCTION, INSTALL_PROCEDURE)
 #undef INSTALL_FUNCTION
 #undef INSTALL_PROCEDURE
 	if (!registered)

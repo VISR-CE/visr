@@ -53,6 +53,16 @@ static void quiet(const char *line)
 		} \
 	} while (0)
 
+/* a PRODUCER call (gpu_operation.h) goes straight to the backend: it never waits for the queue */
+#define PRODUCER_CALL(call) \
+	do \
+	{ \
+		unsigned long drains_before = gpu_queue_drains(); \
+		call; \
+		CHECK(gpu_queue_drains() == drains_before, "%s waited for the queue", #call); \
+	} \
+	while (0)
+
 /* ---------- the front end's side: a constant store kept as d3d8_device.c's constants_store keeps it */
 
 static struct gpu_constant_store stores[2];
@@ -169,14 +179,14 @@ static void play(const struct gpu_backend *backend)
 		/* no data: the backend must still be handed the size */
 		if (frame % 9 == 2)
 			backend->buffer_write(buffer, 0, 48, NULL, 0);
-		backend->stream_reserve(draws * (uint32_t)sizeof(vertices), 0);
+		PRODUCER_CALL(backend->stream_reserve(draws * (uint32_t)sizeof(vertices), 0));
 		for (index = 0; index < draws; index++)
 		{
 			uint32_t kind = random32() % 16;
 			uint32_t changes, change;
 
 			memset(vertices, (int)(index + frame), sizeof(vertices));
-			draw.streams[0].offset = backend->stream(0, vertices, sizeof(vertices), &draw.streams[0].buffer);
+			PRODUCER_CALL(draw.streams[0].offset = backend->stream(0, vertices, sizeof(vertices), &draw.streams[0].buffer));
 			draw.streams[0].stride = 24;
 			draw.count = 3 + random32() % 30;
 			if (kind < 4)
@@ -243,7 +253,7 @@ static void play(const struct gpu_backend *backend)
 		if (frame % 11 == 3)
 			backend->texture_destroy(backend->texture_create(&description));
 		/* (as host_gpu_dispatch.c's present_wrapped does) */
-		backend->stream_frame_end();
+		PRODUCER_CALL(backend->stream_frame_end());
 		if (frame % 5 == 4)
 		{
 			stereo.eye_color[0] = texture;
@@ -261,6 +271,7 @@ int main(void)
 	struct gpu_call_hash_frame direct[FRAMES];
 	unsigned long frame;
 	unsigned operation;
+	unsigned long drains;
 	int distinct = 0;
 
 	play(gpu_call_hash_wrap(0, &fake, record));
@@ -274,7 +285,10 @@ int main(void)
 	the backend */
 	frames_seen = 0;
 	memset(fake_calls, 0, sizeof(fake_calls));
+	drains = gpu_queue_drains();
 	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_INLINE, 1, quiet));
+	/* (and the AT_ONCE calls, the creates, do wait) */
+	CHECK(gpu_queue_drains() > drains, "no call waited for the queue");
 	CHECK(frames_seen == FRAMES, "the queued run presented %lu frames", frames_seen);
 	for (frame = 0; frame < FRAMES; frame++)
 		CHECK(frames[frame].hash == direct[frame].recorded && frames[frame].calls == direct[frame].recorded_calls &&

@@ -1,7 +1,7 @@
 /*
 GPU_OPERATION.H
 
-Each operation in GPU_BACKEND_OPERATIONS (gpu.h: the guest's GPU_OPERATIONS, then
+Each operation in GPU_BACKEND_OPERATIONS (gpu_backend.h: gpu.h's GPU_OPERATIONS, then
 the host's GPU_HOST_OPERATIONS) by number, and its class: how the
 encode queue (gpu_queue.c, debug.encode_thread) carries a call and whether the
 call hash (gpu_call_hash.c, debug.gpu_call_hash) mixes it. This list is the
@@ -32,7 +32,7 @@ Classes:
 #ifndef __HALO_GPU_OPERATION_H
 #define __HALO_GPU_OPERATION_H
 
-#include "gpu.h"
+#include "gpu_backend.h"
 
 enum gpu_operation
 {

@@ -121,12 +121,17 @@ static void fake_frame_context(uint32_t s, uint32_t r, const char *l) { (void)s,
 static uint32_t fake_compiles_outstanding(void) { return 0; }
 static void fake_compile_progress(uint32_t a, struct gpu_compile_progress *p) { (void)a, (void)p; }
 static void fake_initialize(uint32_t f, struct gpu_capabilities *c) { (void)f, (void)c; }
-static void fake_stream_frame_end(void) {}
+/* the host's own operations (gpu_backend.h) do nothing */
+#define FAKE_HOST_F(type, name, parameters, arguments) static type fake_##name parameters { return (type)0; }
+#define FAKE_HOST_P(name, parameters, arguments) static void fake_##name parameters {}
+GPU_HOST_OPERATIONS(FAKE_HOST_F, FAKE_HOST_P)
+#undef FAKE_HOST_F
+#undef FAKE_HOST_P
 
 static const struct gpu_backend fake = {
 #define FAKE_F(type, name, parameters, arguments) .name = fake_##name,
 #define FAKE_P(name, parameters, arguments) .name = fake_##name,
-	GPU_FUNCTIONS(FAKE_F, FAKE_P)
+	GPU_BACKEND_FUNCTIONS(FAKE_F, FAKE_P)
 #undef FAKE_F
 #undef FAKE_P
 };

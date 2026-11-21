@@ -3815,7 +3815,7 @@ static uint32_t gpu_metal_compiles_outstanding(void)
 	return (uint32_t)atomic_load(&compiles_outstanding);
 }
 
-/* the frame's streams end (gpu.h's GPU_HOST_OPERATIONS); the transient sets still move at present, until the
+/* the frame's streams end (gpu_backend.h's GPU_HOST_OPERATIONS); the transient sets still move at present, until the
 producer keeps a ring of its own (debug.encode_thread) */
 static void gpu_metal_stream_frame_end(void)
 {
@@ -10089,7 +10089,7 @@ void host_soft_depth_finish(void)
 
 #define GPU_METAL_FUNCTION(type, name, parameters, arguments) .name = gpu_metal_##name,
 #define GPU_METAL_PROCEDURE(name, parameters, arguments) .name = gpu_metal_##name,
-const struct gpu_backend gpu_backend_metal = { GPU_FUNCTIONS(GPU_METAL_FUNCTION, GPU_METAL_PROCEDURE) };
+const struct gpu_backend gpu_backend_metal = { GPU_BACKEND_FUNCTIONS(GPU_METAL_FUNCTION, GPU_METAL_PROCEDURE) };
 
 /* The drawable the game's picture is fit into, which the game's view shows stretched to its bounds: the game's layer
    (the companion mirror draws into it too), read where the presenter reads it. 0x0 when there is none yet. Every

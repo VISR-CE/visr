@@ -26,7 +26,7 @@ their order against recorded commands is not the backend's.
 #ifndef __HALO_GPU_CALL_HASH_H
 #define __HALO_GPU_CALL_HASH_H
 
-#include "gpu.h"
+#include "gpu_backend.h"
 
 /* frame counts the presents since the wrapper was installed; calls is the
 commands hashed into hash since the last present (the present included), and

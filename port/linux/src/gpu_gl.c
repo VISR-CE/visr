@@ -2911,7 +2911,7 @@ static void gpu_gl_stream_frame_end(void)
 
 #define GPU_GL_FUNCTION(type, name, parameters, arguments) .name = gpu_gl_##name,
 #define GPU_GL_PROCEDURE(name, parameters, arguments) .name = gpu_gl_##name,
-const struct gpu_backend gpu_backend_gl = { GPU_FUNCTIONS(GPU_GL_FUNCTION, GPU_GL_PROCEDURE) };
+const struct gpu_backend gpu_backend_gl = { GPU_BACKEND_FUNCTIONS(GPU_GL_FUNCTION, GPU_GL_PROCEDURE) };
 #undef GPU_GL_FUNCTION
 #undef GPU_GL_PROCEDURE
 

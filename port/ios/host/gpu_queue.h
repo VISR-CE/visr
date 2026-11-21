@@ -22,7 +22,7 @@ consumed up to them).
 #ifndef __HALO_GPU_QUEUE_H
 #define __HALO_GPU_QUEUE_H
 
-#include "gpu.h"
+#include "gpu_backend.h"
 
 enum { GPU_QUEUE_OFF, GPU_QUEUE_INLINE };
 
@@ -38,5 +38,9 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 
 /* every record written so far has reached the backend: for a caller that reaches the backend outside gpu.h */
 void gpu_queue_drain(void);
+
+/* the calls to gpu_queue_drain so far, the producer's own (AT_ONCE and QUERY calls) included: for a test that
+checks which calls wait for the queue */
+unsigned long gpu_queue_drains(void);
 
 #endif

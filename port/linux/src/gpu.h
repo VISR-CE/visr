@@ -755,12 +755,12 @@ vertex, ASTC) */
 /* ---------- backends
 
 Every function above, for building a table of one backend's functions
-(struct gpu_backend) and the entry points that call through it: F(return
-type, name without gpu_, parameters, arguments) for a function with a
-result, P(name, parameters, arguments) for one without. GPU_OPERATIONS is
-every one but gpu_initialize, which picks the backend in the iOS host
-(port/ios/host/host_gpu_dispatch.c); elsewhere gpu_gl.c's entry points call
-its own functions. */
+(struct gpu_backend, gpu_backend.h) and the entry points that call through
+it: F(return type, name without gpu_, parameters, arguments) for a function
+with a result, P(name, parameters, arguments) for one without.
+GPU_OPERATIONS is every one but gpu_initialize, which picks the backend in
+the iOS host (port/ios/host/host_gpu_dispatch.c); elsewhere gpu_gl.c's entry
+points call its own functions. */
 
 #define GPU_OPERATIONS(F, P) \
 	F(gpu_texture, texture_create, (const struct gpu_texture_description *description), (description)) \
@@ -819,36 +819,9 @@ its own functions. */
 	F(uint32_t, compiles_outstanding, (void), ()) \
 	P(compile_progress, (uint32_t action, struct gpu_compile_progress *progress), (action, progress))
 
-/* backend operations the host calls itself, with no gpu_ entry point and
-outside the guest's imports: stream_frame_end ends the frame's streams, so
-the next stream call fills the next frame's set; the iOS host calls it just
-before each present */
-#define GPU_HOST_OPERATIONS(F, P) \
-	P(stream_frame_end, (void), ())
-
-/* every operation a backend implements but initialize */
-#define GPU_BACKEND_OPERATIONS(F, P) \
-	GPU_OPERATIONS(F, P) \
-	GPU_HOST_OPERATIONS(F, P)
-
-/* gpu.h's entry points */
+/* gpu.h's entry points; a backend's table is in gpu_backend.h */
 #define GPU_ENTRY_POINTS(F, P) \
 	GPU_OPERATIONS(F, P) \
 	P(initialize, (uint32_t flags, struct gpu_capabilities *capabilities), (flags, capabilities))
-
-#define GPU_FUNCTIONS(F, P) \
-	GPU_ENTRY_POINTS(F, P) \
-	GPU_HOST_OPERATIONS(F, P)
-
-#define GPU_BACKEND_FUNCTION(type, name, parameters, arguments) type (*name) parameters;
-#define GPU_BACKEND_PROCEDURE(name, parameters, arguments) void (*name) parameters;
-/* one backend's functions; it holds host pointers, so it never crosses to
-the guest */
-struct gpu_backend
-{
-	GPU_FUNCTIONS(GPU_BACKEND_FUNCTION, GPU_BACKEND_PROCEDURE)
-};
-#undef GPU_BACKEND_FUNCTION
-#undef GPU_BACKEND_PROCEDURE
 
 #endif

@@ -31,7 +31,7 @@ It compiles in the 64-bit host and the 32-bit guest: fixed-width fields only.
 #define __HALO_GPU_VALIDATE_H
 
 #include <stdint.h>
-#include "gpu.h"
+#include "gpu_backend.h"
 
 /* debug.render_validation */
 enum
