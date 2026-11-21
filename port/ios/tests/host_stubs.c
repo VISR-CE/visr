@@ -19,6 +19,7 @@
 #include "gpu_call_hash.h"
 #include "gpu_capture.h"
 #include "host.h"
+#include "host_astc_store.h"
 #include "host_audio_output.h"
 #include "host_audio_session.h"
 #include "host_benchmark.h"
@@ -35,6 +36,8 @@
 #include "host_frame_counter_stats.h"
 #include "host_frame_pacer.h"
 #include "host_game_thread.h"
+#include "host_geometry.h"
+#include "host_hinge.h"
 #include "host_join_link.h"
 #include "host_lan.h"
 #include "host_log_file.h"
@@ -48,6 +51,8 @@
 #include "host_perf_metal.h"
 #include "host_perf_reports.h"
 #include "host_perf_validation.h"
+#include "host_posture.h"
+#include "host_posture_layout.h"
 #include "host_profile.h"
 #include "host_qr.h"
 #include "host_quit_signals.h"
@@ -74,10 +79,18 @@
 #include "menu_picture_shapes.h"
 #include "menu_picture_trace.h"
 #include "texture_refine.h"
+#include "texture_upscale_encode.h"
+#include "texture_upscale_generate.h"
+#include "texture_upscale_model.h"
+#include "texture_upscale_pixels.h"
 
+__attribute__((weak)) void astc_store_map_arrived(const char *path)
+{ }
+__attribute__((weak)) void astc_store_map_will_load(const char *name)
+{ }
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long number, double began, int waits_for_display)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called frame_pacer_frame_begin without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) void frame_pacer_frame_dropped(struct frame_pacer_frame *frame)
@@ -93,11 +106,11 @@ __attribute__((weak)) void frame_pacer_gpu_time(double seconds)
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) int frame_pacer_in_flight(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called frame_pacer_in_flight without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) int frame_pacer_late_start_toggle(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called frame_pacer_late_start_toggle without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) void frame_pacer_panel_period(double period)
@@ -105,7 +118,7 @@ __attribute__((weak)) void frame_pacer_panel_period(double period)
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) double frame_pacer_present(const struct frame_pacer_frame *frame)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called frame_pacer_present without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
@@ -129,21 +142,21 @@ __attribute__((weak)) void frame_pacer_system_source(void)
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) uint32_t frame_pacer_vertical_blank_wait(void)
-{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called frame_pacer_vertical_blank_wait without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) int frame_pacer_wants_system_source(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called frame_pacer_wants_system_source without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) const struct gpu_backend * gpu_call_hash_wrap(unsigned instance, const struct gpu_backend *chosen, gpu_call_hash_report report)
-{ const struct gpu_backend * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called gpu_call_hash_wrap without defining it\n"); abort(); }
 __attribute__((weak)) void gpu_capture_finish(void)
 { }
 __attribute__((weak)) void gpu_capture_install(struct gpu_backend *table, const struct gpu_capture_host *host)
 { }
 #if defined(__OBJC__)
 __attribute__((weak)) int gpu_metal_async_compiles(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called gpu_metal_async_compiles without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void gpu_metal_benchmark_realtime(int on)
 { }
@@ -160,11 +173,11 @@ __attribute__((weak)) void gpu_metal_frame_deadline_leave(void)
 __attribute__((weak)) void gpu_metal_gpu_spans_summary(char *text, size_t size)
 { }
 __attribute__((weak)) int gpu_metal_output(void *layer, void *screen, int width, int height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called gpu_metal_output without defining it\n"); abort(); }
 __attribute__((weak)) void gpu_metal_output_cap_commit(void)
 { }
 __attribute__((weak)) int gpu_metal_output_cap_settled(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called gpu_metal_output_cap_settled without defining it\n"); abort(); }
 __attribute__((weak)) void gpu_metal_request_output_cap(int cap)
 { }
 __attribute__((weak)) void gpu_metal_set_crt(int enabled)
@@ -172,17 +185,29 @@ __attribute__((weak)) void gpu_metal_set_crt(int enabled)
 __attribute__((weak)) void gpu_metal_set_upscaler(int metalfx)
 { }
 __attribute__((weak)) int gpu_metal_upscaler(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called gpu_metal_upscaler without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_replay_header(const char *path, struct gpu_capture_header *header, char *error, size_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called gpu_replay_header without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_replay_run(const char *path, const struct gpu_backend *backend, const struct gpu_replay_host *host, struct gpu_replay_result *result)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called gpu_replay_run without defining it\n"); abort(); }
 __attribute__((weak)) int host_alert(const char *title, const char *message, const char *first, const char *second)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_alert without defining it\n"); abort(); }
+__attribute__((weak)) void host_astc_game_started(void)
+{ }
+__attribute__((weak)) void host_astc_map_arrived(const char *path)
+{ }
+__attribute__((weak)) void host_astc_map_will_load(const char *name)
+{ }
+__attribute__((weak)) void host_astc_store_init(const char *data_root)
+{ }
+__attribute__((weak)) void host_astc_store_prepare_import(const char *root, host_astc_progress progress, void *context)
+{ }
+__attribute__((weak)) void host_astc_store_scan(void)
+{ }
 __attribute__((weak)) void host_audio_output_poll(void)
 { }
 __attribute__((weak)) int host_audio_output_up(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_audio_output_up without defining it\n"); abort(); }
 __attribute__((weak)) void host_audio_session_apply(void)
 { }
 __attribute__((weak)) void host_audio_session_release(void)
@@ -190,19 +215,19 @@ __attribute__((weak)) void host_audio_session_release(void)
 __attribute__((weak)) void host_audio_session_set_mix_only(int enabled)
 { }
 __attribute__((weak)) BOOL host_benchmark_archive_interrupted(NSString *folder, NSError **error)
-{ BOOL _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_archive_interrupted without defining it\n"); abort(); }
 __attribute__((weak)) NSString * host_benchmark_catalog_file_sha256(NSString *folder)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_file_sha256 without defining it\n"); abort(); }
 __attribute__((weak)) BOOL host_benchmark_catalog_load(NSString *folder, struct host_benchmark_catalog *catalog, NSError **error)
-{ BOOL _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_load without defining it\n"); abort(); }
 __attribute__((weak)) BOOL host_benchmark_catalog_validate_folder(NSString *folder, NSError **error)
-{ BOOL _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_validate_folder without defining it\n"); abort(); }
 __attribute__((weak)) int host_benchmark_catalog_variants_for(const struct host_benchmark_catalog *catalog, const char *model, int indexes[HOST_BENCHMARK_VARIANTS_MAXIMUM])
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_variants_for without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_compile(double seconds)
 { }
 __attribute__((weak)) int host_benchmark_finish_requested(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_finish_requested without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_frame(double interval, double cpu, double gpu, double refresh_period, double simulation_cpu, double render_cpu, double translation_cpu, int ticks)
 { }
 __attribute__((weak)) void host_benchmark_frame_probe(void)
@@ -220,29 +245,29 @@ __attribute__((weak)) void host_benchmark_live(struct benchmark_live_snapshot *s
 __attribute__((weak)) void host_benchmark_live_reset(void)
 { }
 __attribute__((weak)) NSDictionary * host_benchmark_measurement_record(NSDictionary *record, NSDictionary *presentation, int pacing)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_measurement_record without defining it\n"); abort(); }
 __attribute__((weak)) const char * host_benchmark_menu(void)
-{ const char * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_menu without defining it\n"); abort(); }
 __attribute__((weak)) NSUInteger host_benchmark_menu_choice_count(NSString *selected_folder)
-{ NSUInteger _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_menu_choice_count without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_menu_status(const char *message)
 { }
 __attribute__((weak)) int host_benchmark_notice(const char *heading, const char *detail, double seconds, int (*until)(void))
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_notice without defining it\n"); abort(); }
 __attribute__((weak)) int host_benchmark_offscreen_active(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_offscreen_active without defining it\n"); abort(); }
 __attribute__((weak)) int host_benchmark_offscreen_pipelined(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_offscreen_pipelined without defining it\n"); abort(); }
 __attribute__((weak)) int host_benchmark_offscreen_request(int setting, int suite_named)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_offscreen_request without defining it\n"); abort(); }
 __attribute__((weak)) int host_benchmark_offscreen_requested(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_offscreen_requested without defining it\n"); abort(); }
 __attribute__((weak)) BOOL host_benchmark_outbox_acknowledge(NSString *path, NSError **error)
-{ BOOL _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_acknowledge without defining it\n"); abort(); }
 __attribute__((weak)) NSArray<NSString *> * host_benchmark_outbox_pending(NSString *folder)
-{ NSArray<NSString *> * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_pending without defining it\n"); abort(); }
 __attribute__((weak)) NSString * host_benchmark_outbox_store(NSString *folder, NSData *report, NSError **error)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_store without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_overlay_presented(int presented)
 { }
 __attribute__((weak)) void host_benchmark_overlay_show(int visible)
@@ -258,19 +283,19 @@ __attribute__((weak)) void host_benchmark_presentation_complete(struct host_benc
 __attribute__((weak)) void host_benchmark_presentation_configure(enum host_presentation_capability capability, int display_synchronized, int allows_tearing)
 { }
 __attribute__((weak)) NSDictionary * host_benchmark_presentation_diagnostics(void)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_diagnostics without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_presentation_end_async(void)
 { }
 __attribute__((weak)) void host_benchmark_presentation_exclude(void)
 { }
 __attribute__((weak)) NSDictionary * host_benchmark_presentation_finish(double timeout)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_finish without defining it\n"); abort(); }
 __attribute__((weak)) struct host_benchmark_presentation_token host_benchmark_presentation_reserve(double submitted, int scene_is_cutscene)
-{ struct host_benchmark_presentation_token _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_reserve without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_presentation_scene(int scene_is_cutscene)
 { }
 __attribute__((weak)) NSDictionary * host_benchmark_presentation_take_report(void)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_take_report without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_presentation_window(void)
 { }
 __attribute__((weak)) int host_benchmark_presented(int on)
@@ -282,37 +307,37 @@ __attribute__((weak)) void host_benchmark_request_finish(void)
 __attribute__((weak)) int host_benchmark_running(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int host_benchmark_send(const char *report_path, const char *summary, char *message, unsigned long size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_send without defining it\n"); abort(); }
 __attribute__((weak)) NSDictionary * host_benchmark_shader_delta(NSDictionary *before, NSDictionary *after)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_delta without defining it\n"); abort(); }
 __attribute__((weak)) NSDictionary * host_benchmark_shader_evidence(NSArray<NSDictionary *> *runs, NSArray<NSDictionary *> *previous, NSString *folder)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_evidence without defining it\n"); abort(); }
 __attribute__((weak)) NSDictionary * host_benchmark_shader_snapshot(NSString *folder, NSString *map)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_snapshot without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_shader_summarize(NSMutableDictionary *report)
 { }
 __attribute__((weak)) NSDictionary * host_benchmark_snapshot_create(NSString *folder, NSArray<NSString *> *sources, NSDictionary *identity, NSDictionary *updates, NSError **error)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_create without defining it\n"); abort(); }
 __attribute__((weak)) NSString * host_benchmark_snapshot_digest(id value)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_digest without defining it\n"); abort(); }
 __attribute__((weak)) NSDictionary * host_benchmark_snapshot_load(NSString *folder, NSDictionary *identity)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_load without defining it\n"); abort(); }
 __attribute__((weak)) NSDictionary * host_benchmark_snapshot_replay_environment(NSString *folder, NSDictionary *snapshot, NSString *recording)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_replay_environment without defining it\n"); abort(); }
 __attribute__((weak)) NSString * host_benchmark_submission_summary(NSDictionary *record)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_submission_summary without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_upscaler(const char *requested, unsigned effective_paths)
 { }
 __attribute__((weak)) int host_benchmark_virtual_display(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_virtual_display without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_worker_wait(uint32_t microseconds)
 { }
 __attribute__((weak)) double host_benchmark_worker_waited_take(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_worker_waited_take without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_workload(int variable)
 { }
 __attribute__((weak)) uint32_t host_call_guest(uint32_t function, uint32_t a, uint32_t b, uint32_t c, uint32_t d)
-{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_call_guest without defining it\n"); abort(); }
 #if (HALO_CLOUD_SAVES)
 __attribute__((weak)) void host_cloud_saves_before_game(void)
 { }
@@ -323,7 +348,7 @@ __attribute__((weak)) void host_cloud_saves_directory_removed(const char *path)
 #endif
 #if (HALO_CLOUD_SAVES)
 __attribute__((weak)) int host_cloud_saves_enabled(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_cloud_saves_enabled without defining it\n"); abort(); }
 #endif
 #if (HALO_CLOUD_SAVES)
 __attribute__((weak)) void host_cloud_saves_leaving(double seconds)
@@ -339,18 +364,18 @@ __attribute__((weak)) void host_cloud_saves_start(const char *data_root, const c
 #endif
 #if (HALO_CLOUD_SAVES)
 __attribute__((weak)) const char * host_cloud_saves_status(void)
-{ const char * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_cloud_saves_status without defining it\n"); abort(); }
 #endif
 #if (HALO_CLOUD_SAVES)
 __attribute__((weak)) int host_cloud_saves_sync_allowed(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_cloud_saves_sync_allowed without defining it\n"); abort(); }
 #endif
 #if (HALO_CLOUD_SAVES)
 __attribute__((weak)) int host_cloudkit_store(const char *container, struct cloud_store *store)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_cloudkit_store without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) int host_config_graphics_mode(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_config_graphics_mode without defining it\n"); abort(); }
 __attribute__((weak)) int host_config_profile_installed(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) double host_config_real(const char *name, double fallback)
@@ -362,24 +387,24 @@ __attribute__((weak)) void host_config_set_profile(int (*value)(const char *name
 __attribute__((weak)) void host_config_string(const char *name, const char *fallback, char *out, size_t size)
 { if (out && size) { snprintf(out, size, "%s", fallback ? fallback : ""); } }
 __attribute__((weak)) int host_config_write_boolean(const char *name, int value)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_config_write_boolean without defining it\n"); abort(); }
 __attribute__((weak)) void host_crash(const char *format, ...)
 { abort(); }
 __attribute__((weak)) void host_crash_install(int descriptor)
 { }
 __attribute__((weak)) int host_crash_thread_install(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_crash_thread_install without defining it\n"); abort(); }
 __attribute__((weak)) void host_data_updates_frame_ready(int ready)
 { }
 #if defined(__OBJC__)
 __attribute__((weak)) NSString * host_data_updates_framings_path(const char *key)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_data_updates_framings_path without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_data_updates_healthy(void)
 { }
 #if defined(__OBJC__)
 __attribute__((weak)) NSString * host_data_updates_latest_newer(void)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_data_updates_latest_newer without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_data_updates_menu_expected(void)
 { }
@@ -393,11 +418,11 @@ __attribute__((weak)) void host_data_updates_menu_start(void)
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) NSDictionary * host_data_updates_menu_state(void)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_data_updates_menu_state without defining it\n"); abort(); }
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) NSDictionary * host_data_updates_metadata(void)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_data_updates_metadata without defining it\n"); abort(); }
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) void host_data_updates_set_bundled_framings_sequence(uint64_t sequence)
@@ -416,9 +441,9 @@ __attribute__((weak)) void host_device_profile_applied(int point, int networked,
 __attribute__((weak)) void host_device_profile_copy(struct host_profile *profile)
 { }
 __attribute__((weak)) const char * host_device_profile_install(const char *data_root)
-{ const char * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_device_profile_install without defining it\n"); abort(); }
 __attribute__((weak)) int host_device_profile_peek(const char *data_root, const char *name, char *text, size_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_device_profile_peek without defining it\n"); abort(); }
 __attribute__((weak)) int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long version_size)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 #if (defined(__OBJC__) && !HALO_NATIVE_MAC)
@@ -432,11 +457,11 @@ __attribute__((weak)) void host_dismiss_window(UIWindow *window)
 __attribute__((weak)) int host_display_supports_portrait(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int host_dynamic_resolution_lines(int ceiling_lines)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_dynamic_resolution_lines without defining it\n"); abort(); }
 __attribute__((weak)) void host_dynamic_resolution_scene(int enabled, int floor_lines)
 { }
 __attribute__((weak)) int host_errno(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_errno without defining it\n"); abort(); }
 __attribute__((weak)) void host_event_pump(void)
 { }
 __attribute__((weak)) void host_exit(int code)
@@ -448,43 +473,43 @@ __attribute__((weak)) void host_external_attach(void *sdl_window, int metal)
 __attribute__((weak)) void host_external_commit(int allow_pause)
 { }
 __attribute__((weak)) double host_external_companion_dim(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_companion_dim without defining it\n"); abort(); }
 __attribute__((weak)) int host_external_cycle(int direction)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_cycle without defining it\n"); abort(); }
 __attribute__((weak)) void host_external_displays(struct host_external_displays *out)
 { }
 __attribute__((weak)) int host_external_fit(double bounds_width, double bounds_height, int width, int height, double out[4])
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_fit without defining it\n"); abort(); }
 __attribute__((weak)) int host_external_force(const char *mode)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_force without defining it\n"); abort(); }
 __attribute__((weak)) void host_external_install(void)
 { }
 __attribute__((weak)) void host_external_menu_splash(void)
 { }
 __attribute__((weak)) int host_external_mode_choose(const struct host_external_mode *modes, size_t count, int preferred, int cap, int forced_width, int forced_height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_mode_choose without defining it\n"); abort(); }
 __attribute__((weak)) int host_external_mode_drawable(int width, int height, int cap, int *out_width, int *out_height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_mode_drawable without defining it\n"); abort(); }
 __attribute__((weak)) void host_external_mode_label(char *text, size_t size)
 { }
 __attribute__((weak)) int host_external_mode_parse(const char *text, int index, int *width, int *height, int *count)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_mode_parse without defining it\n"); abort(); }
 __attribute__((weak)) int host_external_mode_preferred(const struct host_external_mode *modes, size_t count, int preferred_width, int preferred_height, double preferred_pixel_aspect)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_mode_preferred without defining it\n"); abort(); }
 __attribute__((weak)) void host_external_output_resize(void *layer, int width, int height)
 { }
 __attribute__((weak)) void * host_external_phone_layer(void)
-{ void * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_phone_layer without defining it\n"); abort(); }
 __attribute__((weak)) void host_external_poll(void)
 { }
 __attribute__((weak)) int host_external_ready(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_ready without defining it\n"); abort(); }
 __attribute__((weak)) void host_external_safe_insets(float *insets)
 { }
 __attribute__((weak)) void * host_external_scene(void)
-{ void * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_scene without defining it\n"); abort(); }
 __attribute__((weak)) void * host_external_screen(void)
-{ void * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_external_screen without defining it\n"); abort(); }
 __attribute__((weak)) int host_external_size(int *width, int *height)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) void host_external_snapshot(struct host_external_snapshot *out)
@@ -502,7 +527,7 @@ __attribute__((weak)) void host_frame_counter_show(unsigned long frame)
 __attribute__((weak)) void host_frame_counter_start(int fixed_timestep, int metal)
 { }
 __attribute__((weak)) struct host_frame_counter_summary host_frame_counter_stats_read(const struct host_frame_counter_stats *stats)
-{ struct host_frame_counter_summary _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_frame_counter_stats_read without defining it\n"); abort(); }
 __attribute__((weak)) void host_frame_counter_stats_reset(struct host_frame_counter_stats *stats)
 { }
 __attribute__((weak)) void host_frame_counter_stats_sample(struct host_frame_counter_stats *stats, double interval, double cpu, double gpu)
@@ -514,13 +539,13 @@ __attribute__((weak)) void host_frame_cpu_phase(int phase, int ticks)
 __attribute__((weak)) void host_frame_cpu_split(double *simulation, double *render, double *translation, int *ticks)
 { }
 __attribute__((weak)) double host_frame_rate_cap(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_frame_rate_cap without defining it\n"); abort(); }
 __attribute__((weak)) double host_frame_rate_effective(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_frame_rate_effective without defining it\n"); abort(); }
 __attribute__((weak)) double host_frame_rate_limit(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_frame_rate_limit without defining it\n"); abort(); }
 __attribute__((weak)) int host_frame_rate_low_power(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_frame_rate_low_power without defining it\n"); abort(); }
 __attribute__((weak)) void host_frame_rate_override(double rate)
 { }
 __attribute__((weak)) void host_frame_rate_profile(int rate)
@@ -528,55 +553,67 @@ __attribute__((weak)) void host_frame_rate_profile(int rate)
 __attribute__((weak)) void host_frame_rate_scene(double rate)
 { }
 __attribute__((weak)) double host_frame_rate_target(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_frame_rate_target without defining it\n"); abort(); }
 __attribute__((weak)) int host_frame_rate_unlimited(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_frame_rate_unlimited without defining it\n"); abort(); }
 #if defined(__OBJC__)
 __attribute__((weak)) BOOL host_framings_validate_file(NSString *path)
-{ BOOL _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_framings_validate_file without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) int host_game_thread_enabled(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void host_geometry_poll(void)
+{ }
+__attribute__((weak)) unsigned host_geometry_settled_generation(void)
+{ fprintf(stderr, "host_stubs: probe called host_geometry_settled_generation without defining it\n"); abort(); }
+__attribute__((weak)) unsigned host_geometry_settled_size(double *width, double *height)
+{ fprintf(stderr, "host_stubs: probe called host_geometry_settled_size without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_metal_active(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_gpu_metal_active without defining it\n"); abort(); }
 __attribute__((weak)) int host_guest_halt(const char *messages)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_guest_halt without defining it\n"); abort(); }
 __attribute__((weak)) uint32_t host_guest_invoke(uintptr_t function, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uintptr_t arena)
-{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_guest_invoke without defining it\n"); abort(); }
 __attribute__((weak)) long host_guest_mmap(uint64_t address, uint64_t size, int protection, int flags, int fd, int64_t offset)
-{ long _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_guest_mmap without defining it\n"); abort(); }
 __attribute__((weak)) long host_guest_mprotect(uint64_t address, uint64_t size, int protection)
-{ long _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_guest_mprotect without defining it\n"); abort(); }
 __attribute__((weak)) long host_guest_munmap(uint64_t address, uint64_t size)
-{ long _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_guest_munmap without defining it\n"); abort(); }
 __attribute__((weak)) uint32_t host_guest_on_stack(uintptr_t function, uint32_t argument, uintptr_t arena, void *stack_top)
-{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_guest_on_stack without defining it\n"); abort(); }
+__attribute__((weak)) void host_hinge_attach(void *root_view)
+{ }
+__attribute__((weak)) void host_hinge_poll(void)
+{ }
+__attribute__((weak)) void host_hinge_snapshot(struct host_hinge_snapshot *out)
+{ }
 __attribute__((weak)) void host_install_signal_handlers(void)
 { }
 #if (defined(__OBJC__) && !HALO_NATIVE_MAC)
 __attribute__((weak)) int host_invite_card_up(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_invite_card_up without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) int host_ios_app_on_mac(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ios_app_on_mac without defining it\n"); abort(); }
 __attribute__((weak)) uint32_t host_ios_default_framebuffer(void)
-{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ios_default_framebuffer without defining it\n"); abort(); }
 __attribute__((weak)) int host_ios_gamepad_axis(struct SDL_Gamepad *pad, int axis)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ios_gamepad_axis without defining it\n"); abort(); }
 __attribute__((weak)) int host_ios_gamepad_button(struct SDL_Gamepad *pad, int button)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ios_gamepad_button without defining it\n"); abort(); }
 __attribute__((weak)) struct SDL_Gamepad * host_ios_gamepad_physical(struct SDL_Gamepad *pad)
-{ struct SDL_Gamepad * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ios_gamepad_physical without defining it\n"); abort(); }
 __attribute__((weak)) int host_ios_gamepad_type(struct SDL_Gamepad *pad)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ios_gamepad_type without defining it\n"); abort(); }
 __attribute__((weak)) int host_ios_gamepads(uint32_t *out, int capacity)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ios_gamepads without defining it\n"); abort(); }
 __attribute__((weak)) void host_ios_prepare_assets(const char *documents)
 { }
 __attribute__((weak)) void host_ios_touch_attach(struct SDL_Window *window)
 { }
 __attribute__((weak)) int host_ios_touch_blocked(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ios_touch_blocked without defining it\n"); abort(); }
 __attribute__((weak)) void host_ios_touch_frame(void)
 { }
 __attribute__((weak)) void host_ios_touch_gameplay_changed(int gameplay)
@@ -587,11 +624,13 @@ __attribute__((weak)) void host_ios_touch_menu_changed(int menus)
 { }
 __attribute__((weak)) void host_ios_touch_pause(void)
 { }
+__attribute__((weak)) void host_ios_touch_posture_changed(void)
+{ }
 __attribute__((weak)) void host_ios_touch_reset(void)
 { }
 #if (defined(__OBJC__) && !HALO_NATIVE_MAC)
 __attribute__((weak)) int host_is_present_window(UIWindow *window)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_is_present_window without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_join_link_install(const char *data_root)
 { }
@@ -600,39 +639,39 @@ __attribute__((weak)) void host_join_link_open(const char *url)
 __attribute__((weak)) void host_join_link_poll(void)
 { }
 __attribute__((weak)) int host_lan_addresses(const struct host_lan_table *table, uint32_t *addresses, int maximum_count)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_lan_addresses without defining it\n"); abort(); }
 __attribute__((weak)) void host_lan_hold_request(struct host_lan_hold *hold, int hosting, int searching, double now)
 { }
 __attribute__((weak)) int host_lan_hold_wanted(const struct host_lan_hold *hold, double now)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_lan_hold_wanted without defining it\n"); abort(); }
 __attribute__((weak)) int host_lan_peer_add(struct host_lan_table *table, const char *name, uint32_t interface_index, struct host_lan_peer *evicted)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_lan_peer_add without defining it\n"); abort(); }
 __attribute__((weak)) void host_lan_peer_address(struct host_lan_table *table, int slot, uint32_t address)
 { }
 __attribute__((weak)) int host_lan_peer_find(const struct host_lan_table *table, const char *name, uint32_t interface_index)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_lan_peer_find without defining it\n"); abort(); }
 __attribute__((weak)) int host_lan_peer_remove(struct host_lan_table *table, const char *name, uint32_t interface_index, struct host_lan_peer *removed)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_lan_peer_remove without defining it\n"); abort(); }
 __attribute__((weak)) void host_lan_table_reset(struct host_lan_table *table, const char *self)
 { }
 __attribute__((weak)) int host_lan_txt_build(unsigned char *txt, int size, unsigned version, uint32_t fork)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_lan_txt_build without defining it\n"); abort(); }
 __attribute__((weak)) int host_lan_txt_matches(const unsigned char *txt, int length, unsigned version, uint32_t fork)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_lan_txt_matches without defining it\n"); abort(); }
 __attribute__((weak)) void host_lifecycle_hold(void)
 { }
 __attribute__((weak)) void host_lifecycle_install(void)
 { }
 __attribute__((weak)) int host_linux_errno(int native_errno)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_linux_errno without defining it\n"); abort(); }
 __attribute__((weak)) int host_load_image(const void *elf, size_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_load_image without defining it\n"); abort(); }
 __attribute__((weak)) void host_log_file_line(const char *text)
 { }
 __attribute__((weak)) FILE * host_log_file_open(long limit)
-{ FILE * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_log_file_open without defining it\n"); abort(); }
 __attribute__((weak)) int host_log_send_available(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_log_send_available without defining it\n"); abort(); }
 __attribute__((weak)) void host_log_send_start(void)
 { }
 __attribute__((weak)) void host_log_send_status(char *buffer, unsigned int size)
@@ -640,19 +679,19 @@ __attribute__((weak)) void host_log_send_status(char *buffer, unsigned int size)
 __attribute__((weak)) void host_logf(int priority, const char *format, ...)
 { }
 __attribute__((weak)) void * host_low_map(size_t size, int protection)
-{ void * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_low_map without defining it\n"); abort(); }
 __attribute__((weak)) int host_low_owns(uintptr_t address, size_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_low_owns without defining it\n"); abort(); }
 __attribute__((weak)) int host_low_power_display_limited(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_low_power_display_limited without defining it\n"); abort(); }
 __attribute__((weak)) double host_low_power_display_rate(unsigned *output)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_low_power_display_rate without defining it\n"); abort(); }
 __attribute__((weak)) int host_low_power_enabled(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_low_power_enabled without defining it\n"); abort(); }
 __attribute__((weak)) void host_low_power_install(void)
 { }
 __attribute__((weak)) unsigned long host_low_power_notices(void)
-{ unsigned long _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_low_power_notices without defining it\n"); abort(); }
 #if (HALO_LOW_POWER_TESTING)
 __attribute__((weak)) void host_low_power_test_reader(int (*reader)(void))
 { }
@@ -672,15 +711,15 @@ __attribute__((weak)) void host_main_sync(dispatch_block_t block)
 __attribute__((weak)) void host_main_sync_f(void *context, void (*fn)(void *))
 { }
 __attribute__((weak)) int host_map_framings_feed_path(const char *key, char *path, unsigned int size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_map_framings_feed_path without defining it\n"); abort(); }
 __attribute__((weak)) void host_map_identity_init(void)
 { }
 __attribute__((weak)) NSDictionary * host_map_identity_lookup(const char *map_name)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_map_identity_lookup without defining it\n"); abort(); }
 __attribute__((weak)) void host_map_identity_prepare_ui(void)
 { }
 __attribute__((weak)) NSDictionary * host_map_identity_resolve(const char *map_name)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_map_identity_resolve without defining it\n"); abort(); }
 __attribute__((weak)) void host_map_identity_wait(void)
 { }
 __attribute__((weak)) void host_map_load_failed(const char *map_name, const char *messages)
@@ -690,9 +729,9 @@ __attribute__((weak)) void host_map_pictures_import_done(int rendered, int cache
 __attribute__((weak)) void host_map_pictures_import_progress(int done, int total, const char *name)
 { }
 __attribute__((weak)) int host_map_pictures_import_stage(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_map_pictures_import_stage without defining it\n"); abort(); }
 __attribute__((weak)) int host_memory_initialize(uint32_t image_base, uint32_t image_size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_memory_initialize without defining it\n"); abort(); }
 __attribute__((weak)) void host_memory_reserve_early(uint32_t image_base, uint32_t image_size)
 { }
 __attribute__((weak)) void host_menu_gaze_note_surface(const float frame_to_origin[16], const float center[3], const float x_axis[3], const float y_axis[3], const float eye[3])
@@ -704,9 +743,9 @@ __attribute__((weak)) void host_menu_pointer_attach(void *root_view)
 __attribute__((weak)) void host_menu_pointer_block(int blocked)
 { }
 __attribute__((weak)) struct host_menu_pointer * host_menu_pointer_shared(void)
-{ struct host_menu_pointer * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_menu_pointer_shared without defining it\n"); abort(); }
 __attribute__((weak)) int host_native_thread_create(void *(*function)(void *), void *argument, size_t stack_size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_native_thread_create without defining it\n"); abort(); }
 __attribute__((weak)) int host_on_main_thread(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) void host_open_website(int page)
@@ -718,7 +757,7 @@ __attribute__((weak)) void host_perf_hooks_context(unsigned field, uint64_t valu
 __attribute__((weak)) void host_perf_hooks_cpu(uint64_t microseconds)
 { }
 __attribute__((weak)) int host_perf_hooks_dynamic_actuates(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_hooks_dynamic_actuates without defining it\n"); abort(); }
 __attribute__((weak)) void host_perf_hooks_dynamic_config(int enabled, int width, int height, int actual, int floor, int thermal, int eligible)
 { }
 __attribute__((weak)) int host_perf_hooks_dynamic_enabled(void)
@@ -728,7 +767,7 @@ __attribute__((weak)) void host_perf_hooks_dynamic_flush(void)
 __attribute__((weak)) void host_perf_hooks_dynamic_ignore(unsigned reason)
 { }
 __attribute__((weak)) int host_perf_hooks_dynamic_lines(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_hooks_dynamic_lines without defining it\n"); abort(); }
 __attribute__((weak)) void host_perf_hooks_dynamic_pause(void)
 { }
 __attribute__((weak)) void host_perf_hooks_dynamic_resume(void)
@@ -740,7 +779,7 @@ __attribute__((weak)) void host_perf_hooks_gpu_complete(uint64_t token, uint64_t
 __attribute__((weak)) void host_perf_hooks_gpu_join(struct game_perf_frame *frame)
 { }
 __attribute__((weak)) uint64_t host_perf_hooks_gpu_reserve(void)
-{ uint64_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_hooks_gpu_reserve without defining it\n"); abort(); }
 __attribute__((weak)) void host_perf_hooks_loading(int loading)
 { }
 __attribute__((weak)) void host_perf_hooks_pacing(uint64_t microseconds)
@@ -785,15 +824,15 @@ __attribute__((weak)) void host_perf_metal_join(struct game_perf_frame *frame)
 { }
 #if defined(__OBJC__)
 __attribute__((weak)) uint32_t host_perf_metal_prepare(id<MTLCommandBuffer> commands, MTLRenderPassDescriptor *pass, unsigned category, unsigned group)
-{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_metal_prepare without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_perf_metal_presented(uint64_t frame, uint64_t time_us, uint64_t budget_us)
 { }
 __attribute__((weak)) int host_perf_metal_stage_supported(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_metal_stage_supported without defining it\n"); abort(); }
 #if defined(__OBJC__)
 __attribute__((weak)) uint32_t host_perf_metal_switch(uint32_t token, id<MTLRenderCommandEncoder> encoder, unsigned group)
-{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_metal_switch without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) int host_perf_metal_timing_supported(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
@@ -806,9 +845,9 @@ __attribute__((weak)) void host_perf_metal_upscale_time(uint64_t frame, uint64_t
 __attribute__((weak)) void host_perf_reports_activate(const char *map_name, int suppressed)
 { }
 __attribute__((weak)) int host_perf_reports_collecting(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_reports_collecting without defining it\n"); abort(); }
 __attribute__((weak)) int host_perf_reports_enabled(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_reports_enabled without defining it\n"); abort(); }
 __attribute__((weak)) void host_perf_reports_event(const game_perf_event *event)
 { }
 __attribute__((weak)) void host_perf_reports_finish(int interrupted)
@@ -826,8 +865,16 @@ __attribute__((weak)) void host_perf_reports_start(const char *guest_sha256)
 __attribute__((weak)) void host_perf_reports_suspend(void)
 { }
 __attribute__((weak)) BOOL host_perf_validate_asset(NSString *path, NSDictionary *metadata, NSString *hash)
-{ BOOL _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_perf_validate_asset without defining it\n"); abort(); }
 __attribute__((weak)) void host_picture_drawable(float *width, float *height)
+{ }
+__attribute__((weak)) void host_posture_attach(void *root_view)
+{ }
+__attribute__((weak)) void host_posture_layout_snapshot(struct host_posture_layout *out)
+{ }
+__attribute__((weak)) void host_posture_poll(void)
+{ }
+__attribute__((weak)) void host_posture_snapshot(struct host_posture_snapshot *out)
 { }
 #if (defined(__OBJC__) && !HALO_NATIVE_MAC)
 __attribute__((weak)) void host_present_input_update(void)
@@ -835,70 +882,70 @@ __attribute__((weak)) void host_present_input_update(void)
 #endif
 #if (defined(__OBJC__) && !HALO_NATIVE_MAC)
 __attribute__((weak)) UIWindow * host_present_window(void)
-{ UIWindow * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_present_window without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) int host_profile_capacity_validate(const char *path)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_capacity_validate without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_catalog_device_validate(const char *folder, const struct host_device *device, const char *profile)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_catalog_device_validate without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_catalog_lists(const struct host_device *device, const char *folder)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_catalog_lists without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_catalog_validate(const char *folder)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_catalog_validate without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_device_key(const struct host_device *device, char *key, size_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_device_key without defining it\n"); abort(); }
 __attribute__((weak)) size_t host_profile_encode(const struct host_profile *profile, char *text, size_t size)
-{ size_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_encode without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_external_value(const struct host_profile *profile, const char *name, char *text, size_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_external_value without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_inherit(const struct host_device *device, const char *folder, void (*log)(const char *), struct host_profile *profile)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_inherit without defining it\n"); abort(); }
 #if defined(__OBJC__)
 __attribute__((weak)) NSString * host_profile_peek_folder(NSString *bundled, const struct host_device *device)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_peek_folder without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_profile_resolve(const struct host_device *device, const char *folder, const char *drop_in_path, const char *selector, void (*log)(const char *line), struct host_profile *profile)
 { }
 __attribute__((weak)) long long host_profile_revision_parse(const char *text, size_t size, char sha256[65])
-{ long long _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_revision_parse without defining it\n"); abort(); }
 __attribute__((weak)) long long host_profile_revision_read(const char *folder, char sha256[65])
-{ long long _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_revision_read without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_scene_value(const struct host_profile *profile, const char *name, const char *scene, char *text, size_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_scene_value without defining it\n"); abort(); }
 #if defined(__OBJC__)
 __attribute__((weak)) NSString * host_profile_update_folder(NSString *bundled)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_update_folder without defining it\n"); abort(); }
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) void host_profile_updates_watch(NSString *dropIn, void (^visitor)(NSString *folder, NSDictionary *identity))
 { }
 #endif
 __attribute__((weak)) int host_profile_validate_device_folder(const char *folder, const struct host_device *device, void (*log)(const char *))
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_validate_device_folder without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_validate_feed_folder(const char *folder, const struct host_device *device, int generation, void (*log)(const char *))
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_validate_feed_folder without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_validate_folder(const char *folder, void (*log)(const char *))
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_validate_folder without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_value(const struct host_profile *profile, const char *name, char *text, size_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_profile_value without defining it\n"); abort(); }
 __attribute__((weak)) CIImage * host_qr_code(NSString *text, NSUInteger quiet_zone)
-{ CIImage * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_qr_code without defining it\n"); abort(); }
 #if (!TARGET_OS_OSX)
 __attribute__((weak)) UIImage * host_qr_image(NSString *text, NSUInteger scale, NSUInteger quiet_zone)
-{ UIImage * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_qr_image without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) int host_quit_signals_install(dispatch_queue_t queue, host_quit_signal_handler handler)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_quit_signals_install without defining it\n"); abort(); }
 __attribute__((weak)) int host_ranked_interface(uint32_t *address, uint32_t *netmask)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_ranked_interface without defining it\n"); abort(); }
 __attribute__((weak)) int host_recording_pack_validate(const char *folder, void (*log)(const char *))
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_recording_pack_validate without defining it\n"); abort(); }
 #if defined(__OBJC__)
 __attribute__((weak)) NSString * host_recording_update_folder(NSString *bundled)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_recording_update_folder without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) BOOL host_report_delivery_acquire(void)
-{ BOOL _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_report_delivery_acquire without defining it\n"); abort(); }
 __attribute__((weak)) void host_report_delivery_cancel_performance(void)
 { }
 __attribute__((weak)) void host_report_delivery_cancel_shader(void)
@@ -910,33 +957,33 @@ __attribute__((weak)) void host_report_delivery_submit(NSString *path, NSString 
 __attribute__((weak)) void host_report_delivery_submit_shader(NSString *path, NSString *asset, NSDictionary *metadata, NSString *hash, dispatch_queue_t callback_queue, void (^completion)(BOOL, NSError *))
 { }
 __attribute__((weak)) void * host_resolve_import(const char *name)
-{ void * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_resolve_import without defining it\n"); abort(); }
 __attribute__((weak)) void host_run_guest_main(uint32_t boot)
 { abort(); }
 __attribute__((weak)) int host_sdl_audio_any_open(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_audio_any_open without defining it\n"); abort(); }
 __attribute__((weak)) int host_sdl_audio_open_count(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_audio_open_count without defining it\n"); abort(); }
 __attribute__((weak)) void host_sdl_audio_pause(int paused)
 { }
 __attribute__((weak)) void host_sdl_audio_route_changed(void)
 { }
 __attribute__((weak)) int host_sdl_audio_stalled(unsigned long long now)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_audio_stalled without defining it\n"); abort(); }
 __attribute__((weak)) void host_sdl_audio_touch(void)
 { }
 __attribute__((weak)) void host_sdl_cap_output(int width, int height)
 { }
 __attribute__((weak)) int host_sdl_controller_aim_owns(uint32_t id)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_controller_aim_owns without defining it\n"); abort(); }
 __attribute__((weak)) void * host_sdl_metal_layer(void)
-{ void * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_metal_layer without defining it\n"); abort(); }
 __attribute__((weak)) void host_sdl_native_output(int *width, int *height)
 { }
 __attribute__((weak)) int host_sdl_output_cap(int *width, int *height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_output_cap without defining it\n"); abort(); }
 __attribute__((weak)) int host_sdl_output_cap_requested(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_output_cap_requested without defining it\n"); abort(); }
 __attribute__((weak)) void host_sdl_output_native(int width, int height, int requested_cap)
 { }
 __attribute__((weak)) void host_sdl_pin_window_pixels(int width, int height)
@@ -946,44 +993,44 @@ __attribute__((weak)) void host_sdl_refresh_window_cache(void)
 __attribute__((weak)) void host_sdl_request_key(int shortcut)
 { }
 __attribute__((weak)) int host_sdl_show_simple_message_box(unsigned int flags, const char *title, const char *message)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_show_simple_message_box without defining it\n"); abort(); }
 __attribute__((weak)) void host_sdl_uncap_output(void)
 { }
 __attribute__((weak)) struct SDL_Window * host_sdl_window(void)
-{ struct SDL_Window * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_sdl_window without defining it\n"); abort(); }
 __attribute__((weak)) void host_sdl_window_pixels(struct SDL_Window *window, int *width, int *height)
 { }
 __attribute__((weak)) int host_shader_list_merge(const char *base, size_t base_size, const char *additions, size_t additions_size, char **merged, size_t *merged_size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_list_merge without defining it\n"); abort(); }
 __attribute__((weak)) char * host_shader_list_read_file(const char *path, size_t *size)
-{ char * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_list_read_file without defining it\n"); abort(); }
 __attribute__((weak)) int host_shader_map_name_valid(const char *name)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_map_name_valid without defining it\n"); abort(); }
 __attribute__((weak)) uint32_t host_shader_observation_activate(const char *map_name, int suppressed, char *map_key, uint32_t map_key_size)
-{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_observation_activate without defining it\n"); abort(); }
 __attribute__((weak)) void host_shader_observation_append(uint32_t token, const struct shader_observation *descriptor)
 { }
 __attribute__((weak)) int host_shader_observation_recording(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_observation_recording without defining it\n"); abort(); }
 __attribute__((weak)) int host_shader_pack_validate(const char *folder, const char *bundled, void (*log)(const char *))
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_pack_validate without defining it\n"); abort(); }
 #if defined(__OBJC__)
 __attribute__((weak)) NSData * host_shader_update_list(const char *name)
-{ NSData * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_update_list without defining it\n"); abort(); }
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) NSData * host_shader_upload_gzip(NSData *payload)
-{ NSData * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_upload_gzip without defining it\n"); abort(); }
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) NSDictionary * host_shader_upload_map_identity(const char *map_name)
-{ NSDictionary * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_upload_map_identity without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_shader_upload_prepare(void)
 { }
 #if defined(__OBJC__)
 __attribute__((weak)) NSTimeInterval host_shader_upload_retry(NSUInteger attempt, NSTimeInterval cloud_delay, double jitter)
-{ NSTimeInterval _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_upload_retry without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_shader_upload_start(const char *guest_sha256)
 { }
@@ -991,7 +1038,7 @@ __attribute__((weak)) void host_shader_upload_suspend(void)
 { }
 #if defined(__OBJC__)
 __attribute__((weak)) BOOL host_shader_upload_validate(NSDictionary *payload)
-{ BOOL _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_shader_upload_validate without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_socket_bound(int fd)
 { }
@@ -1000,7 +1047,7 @@ __attribute__((weak)) void host_socket_closed(int fd)
 __attribute__((weak)) void host_socket_connected(int fd, const struct sockaddr *address, socklen_t length)
 { }
 __attribute__((weak)) int host_socket_is_defunct(int fd)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_socket_is_defunct without defining it\n"); abort(); }
 __attribute__((weak)) void host_socket_listening(int fd, int backlog)
 { }
 __attribute__((weak)) void host_socket_opened(int fd, int family, int type, int protocol)
@@ -1008,13 +1055,13 @@ __attribute__((weak)) void host_socket_opened(int fd, int family, int type, int 
 __attribute__((weak)) void host_socket_option(int fd, int level, int name, const void *value, socklen_t length)
 { }
 __attribute__((weak)) int host_socket_revive(int force)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_socket_revive without defining it\n"); abort(); }
 __attribute__((weak)) int host_spatial_axes_parse(const char *value, int *forward_axis, int *up_axis)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_axes_parse without defining it\n"); abort(); }
 __attribute__((weak)) const char * host_spatial_axis_name(int axis)
-{ const char * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_axis_name without defining it\n"); abort(); }
 __attribute__((weak)) int host_spatial_button_clock_choose(struct host_spatial_button_clock *clock, double anchor_timestamp, double now, double *read_time)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_button_clock_choose without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_button_clock_failed(struct host_spatial_button_clock *clock, double now)
 { }
 #if (TARGET_OS_VISION)
@@ -1037,26 +1084,26 @@ __attribute__((weak)) void host_spatial_haptics_buzz(CHHapticEngine *engine, con
 #endif
 #if (TARGET_OS_VISION)
 __attribute__((weak)) CHHapticEngine * host_spatial_haptics_start(GCController *controller, const char *hand)
-{ CHHapticEngine * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_haptics_start without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) float host_spatial_head_yaw(const float back[3], int *level)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_head_yaw without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_hold_poses(struct halo_spatial_sample *sample, const struct halo_spatial_sample *reference)
 { }
 __attribute__((weak)) void host_spatial_location(const float room_from_location[16], const float head_position[3], int forward_axis, int up_axis, struct halo_spatial_location *location)
 { }
 __attribute__((weak)) int host_spatial_misplaced_update(struct host_spatial_misplaced *state, const struct halo_spatial_hand *hand, int has_head, double now)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_misplaced_update without defining it\n"); abort(); }
 __attribute__((weak)) int host_spatial_owns_sense_controllers(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_owns_sense_controllers without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_record_start(const char *name)
 { }
 __attribute__((weak)) void host_spatial_record_write(int kind, const struct halo_spatial_sample *sample)
 { }
 __attribute__((weak)) int host_spatial_replay_next(int kind, struct halo_spatial_sample *sample)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_replay_next without defining it\n"); abort(); }
 __attribute__((weak)) int host_spatial_replay_start(const char *name)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_replay_start without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_room_to_game(const float room[3], float game[3])
 { }
 #if (TARGET_OS_VISION)
@@ -1064,7 +1111,7 @@ __attribute__((weak)) void host_spatial_rumble_attach(int hand, CHHapticEngine *
 { }
 #endif
 __attribute__((weak)) int host_spatial_rumble_fresh(double sent, double now)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_rumble_fresh without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_rumble_hold(int hold)
 { }
 __attribute__((weak)) void host_spatial_rumble_map(float left_motor, float right_motor, int aiming_hand, float strength, struct host_spatial_rumble *rumble)
@@ -1078,15 +1125,15 @@ __attribute__((weak)) void host_spatial_rumble_quiet(int quiet)
 { }
 #endif
 __attribute__((weak)) int host_spatial_sense_menus_held(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_sense_menus_held without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_synthetic_hand(const struct host_spatial_synthetic *synthetic, double seconds, struct halo_spatial_hand *hand)
 { }
 __attribute__((weak)) int host_spatial_synthetic_parse(const char *value, struct host_spatial_synthetic *synthetic)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_spatial_synthetic_parse without defining it\n"); abort(); }
 __attribute__((weak)) void host_startup_capture(void)
 { }
 __attribute__((weak)) const struct host_startup_info * host_startup_get(void)
-{ const struct host_startup_info * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_startup_get without defining it\n"); abort(); }
 __attribute__((weak)) void host_startup_read_live(struct host_startup_info *info)
 { }
 __attribute__((weak)) void host_stereo_ab_change(const char *method, float quality, int shadows)
@@ -1094,15 +1141,15 @@ __attribute__((weak)) void host_stereo_ab_change(const char *method, float quali
 __attribute__((weak)) void host_stereo_ab_sample(double gpu_seconds)
 { }
 __attribute__((weak)) float host_stereo_cut_brightness(struct host_stereo_cut *cut, int shown, int covered, int requested, float frame_seconds, int *switched)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_cut_brightness without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_entered(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int host_stereo_foveated_size(int *screen_width, int *screen_height, int *allocated_width, int *allocated_height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_foveated_size without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_frame(struct halo_stereo_frame *frame)
 { }
 __attribute__((weak)) int host_stereo_frame_repeat(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_frame_repeat without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_head_hold(const struct host_stereo_head *head, struct halo_stereo_frame *frame)
 { }
 __attribute__((weak)) void host_stereo_head_recenter(struct host_stereo_head *head)
@@ -1116,45 +1163,45 @@ __attribute__((weak)) void host_stereo_hint_arm(void)
 __attribute__((weak)) void host_stereo_hud_aim_depth_clamp(struct host_stereo_hud_aim *aim, float near_meters, float far_meters)
 { }
 __attribute__((weak)) float host_stereo_hud_depth_ease(struct host_stereo_hud_depth_state *state, float nearest, float dt, const struct host_stereo_hud_depth_settings *settings)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_depth_ease without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_hud_depth_quad(const struct host_stereo_hud_quad *quad, float layout_width, struct host_stereo_hud_quad *depth_quad)
 { }
 __attribute__((weak)) int host_stereo_hud_depth_settings_clamp(struct host_stereo_hud_depth_settings *settings)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_depth_settings_clamp without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_hud_footprint(const struct host_stereo_hud_quad *quad, const float clip_from_device[16], const float device_from_level[16], const float tangents[4], float rectangle[4])
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_footprint without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_hud_footprint_screen(const float rectangle[4], float width, float height, float screen[4])
 { }
 __attribute__((weak)) int host_stereo_hud_laser(const float from[3], const float to[3], struct host_stereo_hud_quad *quad)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_laser without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_hud_layout(float layout_width, int ui, const float reticle[3], const float hud_tangents[2], const float (*group_extent)[4], const struct host_stereo_hud_placement *placement, const float piece_distance[HOST_STEREO_HUD_PIECE_COUNT], struct host_stereo_hud_quad *quads)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_layout without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_hud_layout_aimed(float layout_width, int ui, const float reticle[3], const struct host_stereo_hud_aim *aim, const float hud_tangents[2], const float (*group_extent)[4], const struct host_stereo_hud_placement *placement, const float piece_distance[HOST_STEREO_HUD_PIECE_COUNT], struct host_stereo_hud_quad *quads)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_layout_aimed without defining it\n"); abort(); }
 __attribute__((weak)) float host_stereo_hud_level_yaw(const float right[3], const float back[3])
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_level_yaw without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_hud_piece(const struct host_stereo_hud_quad *quad)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_piece without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_hud_placement_clamp(struct host_stereo_hud_placement *placement)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_placement_clamp without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_hud_reticle(float layout_width, const float position[3], const float direction[3], float distance, struct host_stereo_hud_quad *quad)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_reticle without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_hud_reticle_world(float layout_width, const float direction[3], float distance, struct host_stereo_hud_quad *quad, int *pinned)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_reticle_world without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_hud_reticle_world_pin(float layout_width, const float direction[3], float distance, int pin, struct host_stereo_hud_quad *quad, int *pinned)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_reticle_world_pin without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_hud_ui(float aspect, float distance, struct host_stereo_hud_quad *quad)
 { }
 __attribute__((weak)) int host_stereo_hud_zoom(const float tangents[2], float distance, struct host_stereo_hud_quad *quad)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_hud_zoom without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_last_head(float back[3], float position[3])
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_last_head without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_mode(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_mode without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_mode_requested(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_mode_requested without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_picture_size(int *width, int *height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_picture_size without defining it\n"); abort(); }
 #if defined(__OBJC__)
 __attribute__((weak)) void host_stereo_present(id<MTLCommandQueue> queue, id<MTLTexture> left, id<MTLTexture> right, id<MTLTexture> left_depth, id<MTLTexture> right_depth, __unsafe_unretained id<MTLTexture> const *hud_layers, const float (*hud_group_extent)[4], float hud_aspect, int hud_ui, const float reticle[3], const struct host_stereo_hud_aim *aim, const float hud_tangents[2], id<MTLTexture> zoom, const float zoom_tangents[2], float near_meters, float far_meters, float brightness, float vignette, float ui_dim, int expanding, float expansion, float expansion_bars, const float fade[4], int cutscene, const float cutscene_forward[3], const float cutscene_up[3], const float cutscene_tangents[2], float cutscene_dim, float look_dim, float look_blur)
 { }
@@ -1165,31 +1212,31 @@ __attribute__((weak)) void host_stereo_present_ui(id<MTLCommandQueue> queue, id<
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) id<MTLRasterizationRateMap> host_stereo_rate_map(int eye)
-{ id<MTLRasterizationRateMap> _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_rate_map without defining it\n"); abort(); }
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) id<MTLBuffer> host_stereo_rate_map_parameters(int eye)
-{ id<MTLBuffer> _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_rate_map_parameters without defining it\n"); abort(); }
 #endif
 #if defined(__OBJC__)
 __attribute__((weak)) int host_stereo_ready(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_ready without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) float host_stereo_render_quality(float quality)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_render_quality without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_room_recenter_pending(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_room_recenter_pending without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_room_vector(float vector[3])
 { }
 __attribute__((weak)) float host_stereo_room_yaw_offset(void)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_room_yaw_offset without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_set_entered(int entered)
 { }
 __attribute__((weak)) void host_stereo_space_opened(void *layer_renderer)
 { }
 #if defined(__OBJC__)
 __attribute__((weak)) int host_stereo_ui_ready(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_stereo_ui_ready without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_stereo_world_recenter(int active)
 { }
@@ -1201,6 +1248,14 @@ __attribute__((weak)) void host_texture_settings_apply(const char *data_root)
 { }
 __attribute__((weak)) void host_texture_settings_observe(const char *data_root)
 { }
+__attribute__((weak)) int host_texture_source_is_playing(void)
+{ fprintf(stderr, "host_stubs: probe called host_texture_source_is_playing without defining it\n"); abort(); }
+__attribute__((weak)) FILE * host_texture_source_open_policy_map(const char *path, uint64_t *size, char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called host_texture_source_open_policy_map without defining it\n"); abort(); }
+__attribute__((weak)) int host_texture_source_scan(const char *root, host_texture_map_callback callback, void *context)
+{ fprintf(stderr, "host_stubs: probe called host_texture_source_scan without defining it\n"); abort(); }
+__attribute__((weak)) int host_texture_source_walk_map(const char *path, host_texture_source_callback callback, void *context)
+{ fprintf(stderr, "host_stubs: probe called host_texture_source_walk_map without defining it\n"); abort(); }
 __attribute__((weak)) void host_texture_upscale_background_stop(int stop)
 { }
 __attribute__((weak)) int host_texture_upscale_busy(void)
@@ -1208,7 +1263,7 @@ __attribute__((weak)) int host_texture_upscale_busy(void)
 __attribute__((weak)) void host_texture_upscale_continued_phase(int began)
 { }
 __attribute__((weak)) int host_texture_upscale_delete_cache(const char *directory)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_texture_upscale_delete_cache without defining it\n"); abort(); }
 __attribute__((weak)) int host_texture_upscale_enabled(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int host_texture_upscale_first_run_phase(const char *root)
@@ -1218,19 +1273,19 @@ __attribute__((weak)) void host_texture_upscale_game_started(int is_game)
 __attribute__((weak)) void host_texture_upscale_init(const char *root)
 { }
 __attribute__((weak)) int host_texture_upscale_level_begin(const char *name)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_texture_upscale_level_begin without defining it\n"); abort(); }
 __attribute__((weak)) void host_texture_upscale_level_end(int skipped)
 { }
 __attribute__((weak)) int host_texture_upscale_level_poll(unsigned long long *done, unsigned long long *total)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_texture_upscale_level_poll without defining it\n"); abort(); }
 __attribute__((weak)) int host_texture_upscale_level_ready(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_texture_upscale_level_ready without defining it\n"); abort(); }
 __attribute__((weak)) void host_texture_upscale_map_will_load(const char *name)
 { }
 __attribute__((weak)) void host_texture_upscale_paused(int paused)
 { }
 __attribute__((weak)) int host_texture_upscale_prepare_import(const char *root, host_texture_upscale_progress progress, void *context)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_texture_upscale_prepare_import without defining it\n"); abort(); }
 __attribute__((weak)) void host_texture_upscale_progress_units(unsigned long long *done, unsigned long long *total)
 { }
 __attribute__((weak)) void host_texture_upscale_resolve_profile(const char *root)
@@ -1244,7 +1299,7 @@ __attribute__((weak)) void host_texture_upscale_stage_end(void)
 __attribute__((weak)) void host_texture_upscale_status(char *text, size_t size)
 { }
 __attribute__((weak)) int host_theater_active(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_active without defining it\n"); abort(); }
 __attribute__((weak)) void host_theater_attach(void *renderer)
 { }
 __attribute__((weak)) void host_theater_chord(int held)
@@ -1252,34 +1307,34 @@ __attribute__((weak)) void host_theater_chord(int held)
 __attribute__((weak)) void host_theater_close(void)
 { }
 __attribute__((weak)) int host_theater_dark(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_dark without defining it\n"); abort(); }
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) cp_drawable_t host_theater_drawable(size_t index, simd_float4x4 *origin_from_device, int *anchored)
-{ cp_drawable_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_drawable without defining it\n"); abort(); }
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) size_t host_theater_drawable_count(void)
-{ size_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_drawable_count without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_theater_enter(void)
 { }
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) float host_theater_fade_depth(simd_float4x4 projection)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_fade_depth without defining it\n"); abort(); }
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) simd_float4 host_theater_fade_tint(const float fade[4], uint32_t decode_srgb)
-{ simd_float4 _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_fade_tint without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) int host_theater_foveation(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_foveation without defining it\n"); abort(); }
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) int host_theater_foveation_state(float *quality, float *runtime, float *default_quality, const char **layout, const char **offered)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_foveation_state without defining it\n"); abort(); }
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) int host_theater_frame_begin(int fresh)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_frame_begin without defining it\n"); abort(); }
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) void host_theater_frame_end(void)
@@ -1291,18 +1346,18 @@ __attribute__((weak)) void host_theater_frame_end_empty(id<MTLCommandQueue> queu
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) int host_theater_frame_ready(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_frame_ready without defining it\n"); abort(); }
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) int host_theater_frame_repeat(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_frame_repeat without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_theater_load_settings(void)
 { }
 __attribute__((weak)) void host_theater_log_c(const char *message)
 { }
 __attribute__((weak)) float host_theater_minimum_near(void)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_minimum_near without defining it\n"); abort(); }
 __attribute__((weak)) void host_theater_open(void)
 { }
 __attribute__((weak)) void host_theater_open_failed(void)
@@ -1321,23 +1376,23 @@ __attribute__((weak)) void host_theater_present_eyes(id<MTLCommandQueue> queue, 
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) double host_theater_presentation_time(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_presentation_time without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) float host_theater_render_quality(void)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_render_quality without defining it\n"); abort(); }
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) double host_theater_rendering_deadline(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_rendering_deadline without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) float host_theater_runtime_quality(float quality)
-{ float _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_runtime_quality without defining it\n"); abort(); }
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) void host_theater_screen(size_t index, simd_float4x4 *origin_from_screen, simd_float2 *half_size)
 { }
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) ar_session_t host_theater_session(void)
-{ ar_session_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_session without defining it\n"); abort(); }
 #endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) void host_theater_session_restart(void)
@@ -1357,101 +1412,175 @@ __attribute__((weak)) void host_theater_start(int open)
 { }
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) double host_theater_take_waited(void)
-{ double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_take_waited without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_theater_test_toggle(void)
 { }
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) id<MTLRasterizationRateMap> host_theater_view_rate_map(cp_drawable_t drawable, cp_view_texture_map_t map)
-{ id<MTLRasterizationRateMap> _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_view_rate_map without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) int host_theater_window_parked(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_theater_window_parked without defining it\n"); abort(); }
 __attribute__((weak)) int host_thread_count(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_thread_count without defining it\n"); abort(); }
 __attribute__((weak)) void host_touch_replay_active(int active)
 { }
 __attribute__((weak)) void host_tv_import(const char *documents)
 { }
 __attribute__((weak)) int host_tv_text_prompt(int on, const char *title, const char *text, int masked)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_tv_text_prompt without defining it\n"); abort(); }
 __attribute__((weak)) void host_tv_text_prompt_tick(void)
 { }
 __attribute__((weak)) int host_tv_text_result(char *buffer, uint32_t size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_tv_text_result without defining it\n"); abort(); }
 __attribute__((weak)) NSArray<NSString *> * host_typed_outbox_pending(NSString *folder, NSString *prefix)
-{ NSArray<NSString *> * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_pending without defining it\n"); abort(); }
 __attribute__((weak)) NSString * host_typed_outbox_store(NSString *folder, NSData *payload, NSString *prefix, HostOutboxValidator validate, NSError **error)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_store without defining it\n"); abort(); }
 __attribute__((weak)) NSString * host_typed_outbox_store_asset(NSString *folder, NSString *asset, NSDictionary *metadata, NSString *prefix, NSString *payload_hash, HostOutboxAssetValidator validate, NSError **error)
-{ NSString * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_store_asset without defining it\n"); abort(); }
 __attribute__((weak)) void host_ui_pointer_install(void (*feedback)(int), void (*menus_changed)(int))
 { }
 __attribute__((weak)) int host_window_up(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int menu_background_redraw(const uint8_t *source, unsigned width, unsigned height, uint8_t *rgba, unsigned scale, const volatile int *cancel, struct menu_background_redraw_metrics *metrics)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_background_redraw without defining it\n"); abort(); }
 __attribute__((weak)) int menu_background_redraw_source(const uint8_t *source, unsigned width, unsigned height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_background_redraw_source without defining it\n"); abort(); }
 __attribute__((weak)) int menu_carousel_shapes(const uint8_t *source, unsigned width, unsigned height, uint8_t *rgba, unsigned scale, const volatile int *cancel)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_carousel_shapes without defining it\n"); abort(); }
 __attribute__((weak)) int menu_carousel_shapes_source(const uint8_t *source, unsigned width, unsigned height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_carousel_shapes_source without defining it\n"); abort(); }
 __attribute__((weak)) int menu_difficulty_large_source(const uint8_t *rgba, unsigned width, unsigned height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_difficulty_large_source without defining it\n"); abort(); }
 __attribute__((weak)) int menu_difficulty_replace(const uint8_t *small, const uint8_t *large, uint8_t *output, unsigned scale, const volatile int *cancel)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_difficulty_replace without defining it\n"); abort(); }
 __attribute__((weak)) int menu_difficulty_source(const uint8_t *rgba, unsigned width, unsigned height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_difficulty_source without defining it\n"); abort(); }
 __attribute__((weak)) int menu_lock_shapes(const uint8_t *source, unsigned width, unsigned height, uint8_t *rgba, unsigned scale, const volatile int *cancel)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_lock_shapes without defining it\n"); abort(); }
 __attribute__((weak)) int menu_lock_shapes_source(const uint8_t *source, unsigned width, unsigned height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_lock_shapes_source without defining it\n"); abort(); }
 __attribute__((weak)) int menu_picture_redraw(const uint8_t *source, unsigned width, unsigned height, uint8_t *bpf, unsigned scale, const volatile int *cancel, const char *resources, struct menu_picture_redraw_metrics *metrics)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_picture_redraw without defining it\n"); abort(); }
 __attribute__((weak)) int menu_picture_redraw_source(const uint8_t *source, unsigned width, unsigned height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_picture_redraw_source without defining it\n"); abort(); }
 __attribute__((weak)) int menu_picture_shapes(unsigned picture, const uint8_t *source, uint8_t *rgba, unsigned scale, const volatile int *cancel)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_picture_shapes without defining it\n"); abort(); }
 __attribute__((weak)) int menu_picture_trace(const uint8_t *source, unsigned width, unsigned height, uint8_t *bpf, unsigned scale, const volatile int *cancel, struct menu_picture_trace_metrics *metrics)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_picture_trace without defining it\n"); abort(); }
 __attribute__((weak)) int menu_picture_trace_source(const uint8_t *source, unsigned width, unsigned height)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called menu_picture_trace_source without defining it\n"); abort(); }
 __attribute__((weak)) int natpmp_address_request(unsigned char *packet)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called natpmp_address_request without defining it\n"); abort(); }
 __attribute__((weak)) int natpmp_address_response(const unsigned char *packet, int size, int *result, uint32_t *external_address)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called natpmp_address_response without defining it\n"); abort(); }
 __attribute__((weak)) int natpmp_map_request(unsigned char *packet, uint16_t internal_port, uint16_t external_port, uint32_t lifetime)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called natpmp_map_request without defining it\n"); abort(); }
 __attribute__((weak)) int natpmp_map_response(const unsigned char *packet, int size, uint16_t internal_port, int *result, uint16_t *external_port, uint32_t *lifetime)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called natpmp_map_response without defining it\n"); abort(); }
 __attribute__((weak)) int natpmp_map_udp(uint16_t port, uint16_t external_port, uint32_t *external_address, uint16_t *mapped_port, uint32_t *lifetime, int *method, char *error, int error_size)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called natpmp_map_udp without defining it\n"); abort(); }
 __attribute__((weak)) const char * natpmp_result_text(int result)
-{ const char * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called natpmp_result_text without defining it\n"); abort(); }
 __attribute__((weak)) void natpmp_unmap_udp(uint16_t port, uint16_t external_port)
 { }
 __attribute__((weak)) int pcp_map_request(unsigned char *packet, uint32_t client_address, const unsigned char *nonce, uint16_t internal_port, uint16_t external_port, uint32_t external_address, uint32_t lifetime)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called pcp_map_request without defining it\n"); abort(); }
 __attribute__((weak)) int pcp_map_response(const unsigned char *packet, int size, const unsigned char *nonce, uint16_t internal_port, int *result, uint16_t *external_port, uint32_t *external_address, uint32_t *lifetime)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called pcp_map_response without defining it\n"); abort(); }
 __attribute__((weak)) const char * pcp_result_text(int result)
-{ const char * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called pcp_result_text without defining it\n"); abort(); }
+__attribute__((weak)) int texture_record_decode_level0(const uint8_t *file, size_t size, uint64_t hash, uint32_t width, uint32_t height, uint8_t *rgba, size_t capacity, uint32_t *out_width, uint32_t *out_height)
+{ fprintf(stderr, "host_stubs: probe called texture_record_decode_level0 without defining it\n"); abort(); }
 __attribute__((weak)) int texture_refine_bump(struct texture_refine_context *handle, const float *top_height, const float *original_height, uint32_t width, uint32_t height, uint32_t scale, const struct texture_refine_params *params, int fallback, float *normals, float *mask)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called texture_refine_bump without defining it\n"); abort(); }
 __attribute__((weak)) int texture_refine_bump_bounded(float *top_height, const float *original_height, uint32_t width, uint32_t height, uint32_t scale, const struct texture_refine_params *params, int fallback, float *normals, float *mask)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called texture_refine_bump_bounded without defining it\n"); abort(); }
 __attribute__((weak)) int texture_refine_cancelled(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int texture_refine_color(struct texture_refine_context *handle, float *top, const float *reference, uint32_t width, uint32_t height, uint32_t channels, uint32_t scale, int wrap, const struct texture_refine_params *params, int fallback, float *mask)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called texture_refine_color without defining it\n"); abort(); }
 __attribute__((weak)) int texture_refine_color_bounded(float *top, const float *reference, uint32_t width, uint32_t height, uint32_t channels, uint32_t scale, int wrap, const struct texture_refine_params *params, int fallback, float *mask)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called texture_refine_color_bounded without defining it\n"); abort(); }
 __attribute__((weak)) int texture_refine_color_bounded_half(_Float16 *top, const float *reference, uint32_t width, uint32_t height, uint32_t channels, uint32_t scale, int wrap, const struct texture_refine_params *params, int fallback, float *mask)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called texture_refine_color_bounded_half without defining it\n"); abort(); }
 __attribute__((weak)) struct texture_refine_context * texture_refine_create(void *device, char *error, size_t error_size)
-{ struct texture_refine_context * _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+{ fprintf(stderr, "host_stubs: probe called texture_refine_create without defining it\n"); abort(); }
 __attribute__((weak)) void texture_refine_destroy(struct texture_refine_context *context)
 { }
 __attribute__((weak)) void texture_refine_set_cancel(const volatile int *flag)
 { }
+__attribute__((weak)) int texture_upscale_damage(const float *top, uint32_t top_channels, const float *reference, uint32_t width, uint32_t height, uint32_t scale, int wrap, int alpha_visible, double *share, double *structure_loss)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_damage without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_derive_normals(const float *height, uint32_t width, uint32_t height_count, float factor, float *normals)
+{ }
+__attribute__((weak)) int texture_upscale_dilate(float *rgba, uint32_t width, uint32_t height)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_dilate without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_down2(const float *src, uint32_t width, uint32_t height, uint32_t channels, int wrap, float *dst)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_down2 without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_down2_channel(const float *src, uint32_t width, uint32_t height, uint32_t channels, uint32_t channel, int wrap, float *dst)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_down2_channel without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_down2_channel_half(const _Float16 *src, uint32_t width, uint32_t height, uint32_t channels, uint32_t channel, int wrap, float *dst)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_down2_channel_half without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_encode_gate(const uint8_t *source, const uint8_t *decoded, size_t texels, struct texture_upscale_encode_metrics *metrics)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_encode_gate without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_encode_gate_alpha(const uint8_t *source, const uint8_t *decoded, size_t texels, unsigned alpha_mode, struct texture_upscale_encode_metrics *metrics)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_encode_gate_alpha without defining it\n"); abort(); }
+__attribute__((weak)) enum texture_upscale_encode_result texture_upscale_encode_record(const struct texture_upscale_rgba_level *levels, unsigned count, uint32_t source_width, uint32_t source_height, uint64_t hash, uint64_t recipe_key, uint32_t format, unsigned alpha_mode, unsigned threads, void **record, size_t *size, struct texture_upscale_encode_metrics *metrics)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_encode_record without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_encode_set_cancel(const volatile int *flag)
+{ }
+__attribute__((weak)) const char * texture_upscale_encoder_name(uint32_t format)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_encoder_name without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_finish(const float *rgba, uint32_t width, uint32_t height, enum texture_upscale_alpha alpha, uint8_t *dst)
+{ }
+__attribute__((weak)) int texture_upscale_generate(struct texture_upscale_generator *generator, const struct texture_upscale_generate_input *input, struct texture_upscale_generate_output *output, char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_generate without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_generate_abandon(struct texture_upscale_job *job)
+{ }
+__attribute__((weak)) int texture_upscale_generate_begin(struct texture_upscale_generator *generator, const struct texture_upscale_generate_input *input, struct texture_upscale_job **job, char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_generate_begin without defining it\n"); abort(); }
+__attribute__((weak)) struct texture_upscale_generator * texture_upscale_generate_create(char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_generate_create without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_generate_destroy(struct texture_upscale_generator *generator)
+{ }
+__attribute__((weak)) int texture_upscale_generate_end(struct texture_upscale_generator *generator, struct texture_upscale_job *job, struct texture_upscale_generate_output *output, char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_generate_end without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_generate_free_output(struct texture_upscale_generate_output *output)
+{ }
+__attribute__((weak)) int texture_upscale_generate_raw4x(struct texture_upscale_generator *generator, const struct texture_upscale_generate_input *input, float **pixels, unsigned *channels, char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_generate_raw4x without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_generate_stats(struct texture_upscale_generator *generator, struct texture_upscale_model_stats *stats)
+{ }
+__attribute__((weak)) const char * texture_upscale_generate_trace(struct texture_upscale_generator *generator)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_generate_trace without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_integrate_normals(const uint8_t *rgba, uint32_t width, uint32_t height, float *height_out, float *low, float *span)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_integrate_normals without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_model_available(void)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_model_available without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_model_cancelled(void)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_model_cancelled without defining it\n"); abort(); }
+__attribute__((weak)) struct texture_upscale_model * texture_upscale_model_create(char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_model_create without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_model_destroy(struct texture_upscale_model *model)
+{ }
+__attribute__((weak)) void texture_upscale_model_get_stats(struct texture_upscale_model *model, struct texture_upscale_model_stats *stats)
+{ }
+__attribute__((weak)) int texture_upscale_model_predict4x(struct texture_upscale_model *model, const float *input, uint32_t width, uint32_t height, uint32_t channels, int wrap, float *output, char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_model_predict4x without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_model_predict4x_strided(struct texture_upscale_model *model, const float *input, uint32_t width, uint32_t height, uint32_t channels, int wrap, float *output, uint32_t output_pixel_stride, char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_model_predict4x_strided without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_model_predict_tiles(struct texture_upscale_model *model, const float *input, uint32_t width, uint32_t height, uint32_t channels, int wrap, texture_upscale_tile_consumer consumer, void *context, char *error, size_t error_size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_model_predict_tiles without defining it\n"); abort(); }
+__attribute__((weak)) void texture_upscale_model_set_cancel(const volatile int *flag)
+{ }
+__attribute__((weak)) void texture_upscale_model_set_observer(struct texture_upscale_model *model, texture_upscale_model_observer observer, void *context)
+{ }
+__attribute__((weak)) const char * texture_upscale_model_unavailable_reason(void)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_model_unavailable_reason without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_pad_region(const float *src, uint32_t width, uint32_t height, uint32_t channels, int32_t x, int32_t y, uint32_t out_width, uint32_t out_height, int wrap, float *dst)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_pad_region without defining it\n"); abort(); }
+__attribute__((weak)) int texture_upscale_resize(const float *src, uint32_t width, uint32_t height, uint32_t channels, uint32_t scale, int wrap, float *dst)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_resize without defining it\n"); abort(); }
