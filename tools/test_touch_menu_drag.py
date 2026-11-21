@@ -11,7 +11,7 @@ def test_host_reports_moves_while_dragging(tmp_path):
     binary = tmp_path / 'probe'
     subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-unused-function', '-I', str(ROOT / 'port/ios/host'),
                     '-I', str(ROOT / 'port/linux/src'), '-I', str(ROOT / 'port/runtime/include'),
-                    str(ROOT / 'port/ios/tests/menu_pointer_probe.c'), '-o', str(binary)], check=True)
+                    str(ROOT / 'port/ios/tests/menu_pointer_probe.c'), '-o', str(binary), '-lm'], check=True)
     # the probe's drag case asserts the pointer follows the finger and that a drag is not a tap
     subprocess.run([str(binary)], check=True)
 
