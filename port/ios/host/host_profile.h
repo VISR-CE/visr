@@ -115,7 +115,8 @@ enum { HOST_PROFILE_FEED_GENERATION = 5, HOST_PROFILE_REVISION_MAXIMUM_BYTES = 1
    generation 2's format; 0.6.4 moved to it so it starts on a clean cache root, away from the shard sequences 0.6.3's
    duplicate stores quarantined, and so later publications do not reach 0.6.3. Generation 4 has generation 3's format
    and accepts a key generation 3's validators refuse. Generation 5 has generation 4's format and accepts a key
-   generation 4's validators refuse. */
+   generation 4's validators refuse. Generation 6 is the 0.6 line's from 0.6.22: generation 4's keys and
+   display.effect_limits, without the key generation 5 added. */
 int host_profile_validate_feed_folder(const char *folder, const struct host_device *device, int generation,
 	void (*log)(const char *));
 /* The profile set's revision (hardware/revision.toml) and the hash of the sources it was stamped from: parse returns

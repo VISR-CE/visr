@@ -36,8 +36,10 @@ PACKS = Path("docs/site/packs")
 PROFILE_DOMAIN = "device-profiles-5"
 # Every generation published from these sources, newest first, with the keys that generation's released validators
 # refuse: 0.6.4 to 0.6.7 read device-profiles-3 and refuse a whole shard that names network.full_rate_players.
-GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-4": ("display.allow_portrait",),
-               "device-profiles-3": ("network.full_rate_players", "display.allow_portrait")}
+# 0.6.22 reads device-profiles-6: generation 4's keys and display.effect_limits, which 0.6.19 to 0.6.21 refuse.
+GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-6": ("display.allow_portrait",),
+               "device-profiles-4": ("display.allow_portrait", "display.effect_limits"),
+               "device-profiles-3": ("network.full_rate_players", "display.allow_portrait", "display.effect_limits")}
 RECEIPT = FEED / "publication.json"
 RUN_JOB = Path.home() / "code/halovision/step-tools/run-job.sh"
 REPOSITORY = "VISR-CE/visr"
@@ -217,23 +219,40 @@ def manifest_sequence(shard):
 
 
 def strip_keys(text, keys):
-    """A profile's text without these settings or their evidence; everything else stays byte for byte."""
+    """A profile's text without these settings or their evidence; everything else stays byte for byte. A table
+    left with no setting by this (a [variable.display] that held only a stripped key) goes too, with the blank
+    line after it."""
     names = set()
     for key in keys:
         section, _, name = key.partition(".")
         names.update({f"{section}/{name}", f"variable.{section}/{name}"})
     evidence = {f'evidence."{prefix}{key}"' for key in keys for prefix in ("", "variable.")}
     lines, section = [], ""
+    # the table being read: where its header is in lines, whether it lost a setting and whether it keeps one
+    table = None
+
+    def close():
+        if table and table["lost"] and not table["kept"]:
+            del lines[table["at"]:table["at"] + 1]
+            if table["at"] < len(lines) and not lines[table["at"]].strip():
+                del lines[table["at"]]
+
     for line in text.splitlines(keepends=True):
         header = re.fullmatch(r"\s*\[([^\[\]]+)\]\s*(#.*)?", line.rstrip("\n"))
         if header:
+            close()
             section = header[1].strip()
+            table = None if section in evidence else {"at": len(lines), "lost": False, "kept": False}
         if section in evidence:
             continue
         setting = re.match(r"\s*([A-Za-z0-9_]+)\s*=", line)
         if setting and f"{section}/{setting[1]}" in names:
+            table["lost"] = True
             continue
+        if setting and table:
+            table["kept"] = True
         lines.append(line)
+    close()
     return "".join(lines)
 
 

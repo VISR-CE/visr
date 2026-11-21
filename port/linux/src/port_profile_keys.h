@@ -56,6 +56,12 @@ maps, anti-aliasing), which scene classes may not. display.dynamic_resolution
 and its floor follow it through the host (host_dynamic_resolution_scene);
 display.render_height is dynamic resolution's ceiling in both contexts.
 
+display.effect_limits is valid in the variable context alone: a profile may
+give multiplayer and the other variable workloads the Xbox's decal set and
+split-screen particle share, and single-player campaign always keeps the
+setting's own value. It is read as a map loads (decals.c), after the map's
+context is decided.
+
 choices is the accepted values separated by '|'; "#" among them accepts a
 whole number from 30 to 1000 (a frame rate: a profile cannot hold the game
 below 30). A number outside its range or a string that is
@@ -76,6 +82,7 @@ PROFILE_INTEGER("display.specular_light_limit", 0, 128)
 PROFILE_INTEGER("display.shadow_map_size", 128, 1024)
 PROFILE_INTEGER("display.shadow_minimum_size", 0, 240)
 PROFILE_STRING("display.effect_resolution", "xbox|half|full")
+PROFILE_STRING("display.effect_limits", "raised|xbox")
 PROFILE_STRING("display.model_lod", "max|auto")
 PROFILE_REAL("display.lod_scale", 0.5, 4.0)
 PROFILE_BOOLEAN("display.compressed_textures")
@@ -111,6 +118,7 @@ PROFILE_VARIABLE("display.anti_aliasing")
 PROFILE_VARIABLE("display.shadow_map_size")
 PROFILE_VARIABLE("display.dynamic_resolution")
 PROFILE_VARIABLE("display.dynamic_resolution_floor")
+PROFILE_VARIABLE("display.effect_limits")
 
 PROFILE_EXTERNAL("display.output_height")
 PROFILE_EXTERNAL("display.render_height")

@@ -161,7 +161,7 @@ def profile_schema(settings):
         return nested({name: values[name] for name in values if name in names})
     def scene_schema(names):
         return object_schema({scene: context(names & scenes) for scene in profile_check.SCENES})
-    properties = context(set(values))['properties']
+    properties = context(set(values) - profile_check.VARIABLE_ONLY)['properties']
     properties.update({
         'schema': {'type': 'integer', 'const': 1},
         'name': {'type': 'string', 'minLength': 1, 'maxLength': 63, 'pattern': r'^[^\x00-\x1f\x7f]+$'},
@@ -177,7 +177,7 @@ def profile_schema(settings):
     })
     evidence = {}
     for name in values:
-        contexts = [name]
+        contexts = [] if name in profile_check.VARIABLE_ONLY else [name]
         if name in scenes:
             contexts += [f'scene.{scene}.{name}' for scene in profile_check.SCENES]
         if name in variable:
@@ -273,6 +273,8 @@ def markdown(kind, settings):
             if choices:
                 accepted += ': ' + ', '.join('quoted 30 to 1000' if c == '#' else f'`{c}`' for c in choices)
             contexts = ['tvOS built-in'] if name == 'display.output_height' else ['gameplay']
+            if name in profile_check.VARIABLE_ONLY:
+                contexts = []
             if name in profile_check.variable_keys():
                 contexts.append('variable')
             if name in profile_check.scene_keys():

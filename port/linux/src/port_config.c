@@ -240,7 +240,8 @@ static const struct config_setting config_settings[] =
 		"four times the Xbox's decals and every player the effect's whole count;\n"
 		"\"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change\n"
 		"at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\"\n"
-		"(display.graphics).", _tier_player },
+		"(display.graphics). A device profile may set \"xbox\" for multiplayer and\n"
+		"the other variable workloads on devices that big games overload.", _tier_player },
 	{ "display.shadow_map_size", _config_integer, "128", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
 		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },
@@ -3148,6 +3149,12 @@ static void config_profile_load_text(const char *line, int point, int networked)
 			config_set_from_profile_text(&config_states[index].variable_value, config_settings[index].type, fields[1]);
 			continue;
 		}
+		/* (a setting of the variable workload alone, port_profile_keys.h: the predictable workload keeps its own) */
+		if (!strcmp(fields[0], "display.effect_limits"))
+		{
+			platform_log("settings: the device profile sets %s outside the variable workload, which it cannot; ignored", fields[0]);
+			continue;
+		}
 		if (count == 4)
 		{
 			for (scene = 1; scene < NUMBER_OF_CONFIG_SCENES && strcmp(config_scene_names[scene], fields[3]); scene++)
@@ -4844,10 +4851,14 @@ const char *config_string(const char *name)
 	return string ? string : "";
 }
 
-/* display.effect_limits (halo_linux_source_fixups.h): anything but "xbox" raises them */
+/* display.effect_limits (halo_linux_source_fixups.h): anything but "xbox" raises them. The value in force for the
+map's workload: a device profile may give the variable workload the Xbox's ([variable.display]), and the context is
+decided before a map's decals are set up (game_load, then decals_initialize_for_new_map). */
 unsigned char halo_effect_limits_raised(void)
 {
-	const char *limits = config_string("display.effect_limits");
+	char limits[16];
 
-	return !limits || strcmp(limits, "xbox") != 0;
+	config_scene_string("display.effect_limits", CONFIG_SCENE_GAMEPLAY, limits, sizeof(limits));
+
+	return strcmp(limits, "xbox") != 0;
 }

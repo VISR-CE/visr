@@ -578,6 +578,15 @@
               "default": 128,
               "description": "The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512. Profile values outside the accepted set are refused, not clamped."
             },
+            "effect_limits": {
+              "type": "string",
+              "enum": [
+                "raised",
+                "xbox"
+              ],
+              "default": "raised",
+              "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics). A device profile may set \"xbox\" for multiplayer and the other variable workloads on devices that big games overload. Profile values outside the accepted set are refused, not clamped."
+            },
             "anti_aliasing": {
               "type": "string",
               "enum": [
@@ -1710,6 +1719,50 @@
           ]
         },
         "display.effect_resolution": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "variable.display.effect_limits": {
           "type": "object",
           "properties": {
             "basis": {

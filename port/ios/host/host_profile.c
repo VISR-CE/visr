@@ -316,6 +316,12 @@ static void profile_add_settings(struct host_profile *profile, toml_datum_t tabl
 				profile_logf(log, "device profile: %s: %s cannot be set in this output context; ignored", label, value.name);
 				continue;
 			}
+			/* (display.effect_limits belongs to [variable.display] alone: port_profile_keys.h) */
+			if (!strcmp(value.name, "display.effect_limits") && !(scene && !strcmp(scene, "variable")))
+			{
+				profile_logf(log, "device profile: %s: %s can be set for the variable workload only; ignored", label, value.name);
+				continue;
+			}
 			if (scene && !(strcmp(scene, "variable") ?
 				name_in(value.name, scene_keys, sizeof(scene_keys) / sizeof(scene_keys[0])) :
 				name_in(value.name, variable_keys, sizeof(variable_keys) / sizeof(variable_keys[0]))))
@@ -1033,7 +1039,7 @@ int host_profile_validate_feed_folder(const char *folder, const struct host_devi
 	void (*log_line)(const char *))
 {
     char key[192];
-    if (!device || generation < 1 || generation > 5 || !host_profile_device_key(device, key, sizeof(key))) return 0;
+    if (!device || generation < 1 || generation > 6 || !host_profile_device_key(device, key, sizeof(key))) return 0;
     return profile_validate_folder(folder, device, generation >= 2 ? 2 : 0, log_line);
 }
 int host_profile_validate_device_folder(const char *folder, const struct host_device *device, void (*log_line)(const char *))

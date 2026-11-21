@@ -49,8 +49,9 @@ A downloaded shard replaces all of the app's bundled profiles for that launch, a
 | `device-profiles-1` | `profiles/` | 0.2.2 to 0.5.1 |
 | `device-profiles-2` | `device-profiles-2/` | 0.6.0 to 0.6.3 (retired) |
 | `device-profiles-3` | `device-profiles-3/` | 0.6.4 to 0.6.7 |
-| `device-profiles-4` | `device-profiles-4/` | 0.6.8 to 0.6.14 |
-| `device-profiles-5` | `device-profiles-5/` | 0.6.15 and later |
+| `device-profiles-4` | `device-profiles-4/` | 0.6.8 to 0.6.21 |
+| `device-profiles-5` | `device-profiles-5/` | builds of `main` |
+| `device-profiles-6` | `device-profiles-6/` | 0.6.22 and later 0.6 releases |
 
 The `device-profiles-2/` shards are withdrawn: 0.6.0 to 0.6.3 quarantine a newly published sequence (two data-pack stores share one cache root, and the launch menu reads the other store's first trial as a crashed launch), then report the profile server unreachable. Without a shard the server answers 404 and those apps benchmark with their bundled profiles. `RETIRED_PROFILE_DIRECTORIES` in `tools/pages_asset_overlay.py` keeps the live shards off the site. Publish profile updates again only for a client with the fix, at a sequence above 1793231748.
 

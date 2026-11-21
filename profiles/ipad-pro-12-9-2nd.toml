@@ -22,6 +22,9 @@ shadow_map_size = 128
 model_lod = "max"
 dynamic_resolution = true
 
+[variable.display]
+effect_limits = "xbox"
+
 [network]
 player_capacity = 64
 full_rate_players = 16
@@ -88,3 +91,8 @@ source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Bloo
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."
+
+[evidence."variable.display.effect_limits"]
+basis = "measured"
+why = "In a 128-player Blood Gulch fight the Xbox's decal set held 19.4 frames a second where the raised set held 17.2 (three interleaved rounds each): 7.0 ms less CPU a frame, 3.9 of it in the simulation's decal allocation and 3.2 in drawing, and 3.0 ms less GPU. The raised set keeps about four times the marks; a small game fills neither. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "VISR main 1a41b6f59 with debug.verify_once_a_tick on, iPad Pro 12.9 (2nd generation), cost:mp128-bloodgulch-1029-p60 presented, 2026-11-20"

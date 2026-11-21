@@ -259,7 +259,7 @@
         "effect_limits": {
           "type": "string",
           "default": "raised",
-          "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics).",
+          "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics). A device profile may set \"xbox\" for multiplayer and the other variable workloads on devices that big games overload.",
           "x-environment": "HALO_EFFECT_LIMITS",
           "x-environment-style": "value",
           "x-platforms": [

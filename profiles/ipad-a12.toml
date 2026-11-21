@@ -23,6 +23,9 @@ shadow_map_size = 128
 model_lod = "max"
 dynamic_resolution = true
 
+[variable.display]
+effect_limits = "xbox"
+
 [network]
 player_capacity = 64
 full_rate_players = 16
@@ -89,3 +92,8 @@ source = "`ipad-pro-12-9-2nd.toml` network.full_rate_players evidence, main e77a
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."
+
+[evidence."variable.display.effect_limits"]
+basis = "inherited"
+why = "This device holds 16 players or fewer at full rate; the measured iPad Pro 12.9 (2nd generation) gained 13% of its frame rate in a 128-player fight from the Xbox's decal set. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "`ipad-pro-12-9-2nd.toml` variable.display.effect_limits evidence, main 1a41b6f59, 2026-11-20"

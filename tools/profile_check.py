@@ -74,6 +74,11 @@ def scene_keys(text=None):
     return set(re.findall(r'^PROFILE_SCENE\("([a-z_]+\.[a-z0-9_]+)"\)\s*$', KEYS.read_text() if text is None else text, re.M))
 
 
+# settings a profile may set for the variable workload alone, never as its own (predictable) value
+# (port/linux/src/port_profile_keys.h; the validators in host_profile.c and port_config.c refuse them elsewhere)
+VARIABLE_ONLY = frozenset({"display.effect_limits"})
+
+
 def variable_keys(text=None):
     """the settings a profile may also set for the variable workload context (PROFILE_VARIABLE)"""
     return set(re.findall(r'^PROFILE_VARIABLE\("([a-z_]+\.[a-z0-9_]+)"\)\s*$', KEYS.read_text() if text is None else text, re.M))
@@ -250,6 +255,9 @@ def check_profile(path, keys, drop_in=False, scenes=None):
                 if not external and name == "display.output_height" and (
                         scene is not None or match.get("platform") != "tvos"):
                     problems.append(f"{shown} is valid only in an external section, or in a tvOS profile's [display]")
+                    continue
+                if name in VARIABLE_ONLY and not variable:
+                    problems.append(f"{shown} is valid only in [variable.{section}] (see port/linux/src/port_profile_keys.h)")
                     continue
                 if variable and name not in variable_keys():
                     problems.append(f"{shown}: {name} cannot change by workload (PROFILE_VARIABLE in port_profile_keys.h)")

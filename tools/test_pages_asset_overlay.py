@@ -29,7 +29,7 @@ def test_only_signed_asset_paths_are_admitted():
         "docs/site/packs/stable/shaders.json",
         PROFILE.replace("iPhone18,1", ".."),
         PROFILE.replace("/_", "/Apple-M4"),
-        PROFILE.replace("/profiles/", "/device-profiles-6/"),
+        PROFILE.replace("/profiles/", "/device-profiles-7/"),
         PROFILE.replace("/profiles/", "/shader-maps/"),
     ]:
         with pytest.raises(ValueError):

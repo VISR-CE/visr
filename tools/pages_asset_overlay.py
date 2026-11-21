@@ -50,7 +50,8 @@ LEGACY_PROFILE_INDEX = PREFIX + "profiles-2.json"
 # Each device-profile generation's shards live in their own directory: profiles/ holds the frozen
 # device-profiles-1 shards that 0.4.2 to 0.5.1 read, device-profiles-N/ the later generations'.
 PROFILE_DIRECTORIES = {"profiles": "device-profiles-1", "device-profiles-2": "device-profiles-2", "device-profiles-3": "device-profiles-3",
-                       "device-profiles-4": "device-profiles-4", "device-profiles-5": "device-profiles-5"}
+                       "device-profiles-4": "device-profiles-4", "device-profiles-5": "device-profiles-5",
+                       "device-profiles-6": "device-profiles-6"}
 # Live feeds that source deletion alone would not remove: stage_site keeps every live asset the source lacks,
 # so a retired recording feed is named here. They served only releases before 0.6.0.
 RETIRED_FEEDS = frozenset(

@@ -741,6 +741,48 @@ static void check_external(void)
 	external_active = 0;
 }
 
+/* a setting of the variable workload alone (display.effect_limits, port_profile_keys.h): a profile's value for the
+variable workload is in force while a map is variable and never in the predictable one; a profile cannot set it as its
+own value or for a scene class; a chosen value is the value in both */
+static void check_variable_only(void)
+{
+	char text[32];
+
+	fresh();
+	launch(TV_MODEL "display.effect_limits\txbox\tmodel Apple TV HD\tvariable\n");
+	assert(!strstr(logged, "display.effect_limits outside the variable workload"));
+	assert(!config_workload_variable() && halo_effect_limits_raised());
+	assert(!strcmp(config_string("display.effect_limits"), "raised"));
+	config_workload_set(1, "multiplayer map");
+	assert(!halo_effect_limits_raised());
+	assert(config_scene_string("display.effect_limits", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "xbox"));
+	/* (the setting itself and config.toml keep the default) */
+	assert(!strcmp(config_string("display.effect_limits"), "raised") && file_has(path, "\neffect_limits = \"raised\"\n"));
+	config_workload_set(0, "campaign");
+	assert(halo_effect_limits_raised());
+	/* refused as the profile's own value and for a scene class: both workloads keep the default */
+	fresh();
+	launch(TV_MODEL "display.effect_limits\txbox\tmodel Apple TV HD\n" "display.effect_limits\txbox\tmodel Apple TV HD\tmenu\n");
+	assert(strstr(logged, "the device profile sets display.effect_limits outside the variable workload, which it cannot; ignored"));
+	assert(halo_effect_limits_raised() && !strcmp(config_string("display.effect_limits"), "raised"));
+	config_workload_set(1, "multiplayer map");
+	assert(halo_effect_limits_raised());
+	config_workload_set(0, "campaign");
+	/* a value the player chose is the value in every workload, over the profile's */
+	fresh();
+	launch(TV_MODEL "display.effect_limits\txbox\tmodel Apple TV HD\tvariable\n");
+	assert(config_write("display.effect_limits", "xbox") && !halo_effect_limits_raised());
+	config_workload_set(1, "multiplayer map");
+	assert(!halo_effect_limits_raised());
+	config_workload_set(0, "campaign");
+	assert(!halo_effect_limits_raised());
+	/* (writing the default back is no choice, as for every setting: the profile's variable value returns) */
+	assert(config_write("display.effect_limits", "raised") && halo_effect_limits_raised());
+	config_workload_set(1, "multiplayer map");
+	assert(!halo_effect_limits_raised());
+	config_workload_set(0, "campaign");
+}
+
 /* the workload context: [variable.display] under the scene classes while a map is variable, the profile's own
 values while it is predictable; chosen and environment values win in both, external values over it */
 static void check_workload(void)
@@ -1100,6 +1142,7 @@ int main(void)
 	check_tiers();
 	check_external();
 	check_workload();
+	check_variable_only();
 	check_workload_frame_rate();
 	check_effect_resolution_migration();
 	check_graphics_modes();

@@ -29,6 +29,9 @@ frame_rate = "60"
 [scene.cutscene.display]
 render_height = 0
 
+[variable.display]
+effect_limits = "xbox"
+
 [network]
 player_capacity = 64
 full_rate_players = 16
@@ -89,3 +92,8 @@ source = "`ipad-pro-12-9-1st.toml` and `iphone-12-pro.toml` network.full_rate_pl
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "At a 720-line ceiling, upscaled textures add little visible detail and cost memory. Models with a profile of their own that render above 720 lines set them on."
+
+[evidence."variable.display.effect_limits"]
+basis = "inherited"
+why = "This device holds 16 players or fewer at full rate; the measured iPad Pro 12.9 (2nd generation) gained 13% of its frame rate in a 128-player fight from the Xbox's decal set. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "`ipad-pro-12-9-2nd.toml` variable.display.effect_limits evidence, main 1a41b6f59, 2026-11-20"

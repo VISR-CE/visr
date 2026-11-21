@@ -38,9 +38,12 @@ ROOT = Path(__file__).resolve().parents[1]
 # its shards are signed as PROFILE_FEED_DOMAIN:<target> and served from a directory of the same name.
 # device-profiles-1 is what 0.4.2 to 0.5.1 read; its path is frozen. device-profiles-2 is what 0.6.0 to 0.6.3 read; it is
 # retired: a new shard there would reach 0.6.3, whose duplicate stores quarantine it.
+# device-profiles-6 is what the 0.6 line reads from 0.6.22: generation 4's keys and display.effect_limits. This source
+# signs it (tools/profile_pr.py, GENERATIONS) and reads generation 5, which holds every key.
 PROFILE_FEED_GENERATION = 5
 PROFILE_FEED_DOMAIN = f"device-profiles-{PROFILE_FEED_GENERATION}"
-DEVICE_PROFILE_DOMAINS = ("device-profiles-1", "device-profiles-2", "device-profiles-3", "device-profiles-4", "device-profiles-5")
+DEVICE_PROFILE_DOMAINS = ("device-profiles-1", "device-profiles-2", "device-profiles-3", "device-profiles-4", "device-profiles-5",
+                          "device-profiles-6")
 REVISION = profile_revision.NAME
 SHADER_INDEX_LIMIT = 65536
 SHADER_COMPRESSED_FILE_LIMIT = 4 * 1024 * 1024
