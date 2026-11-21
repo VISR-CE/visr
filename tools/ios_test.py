@@ -30,7 +30,7 @@ def host_stub_object(args):
     if flags not in _host_stub_objects:
         name = 'host-stubs-%d.o' % len(_host_stub_objects)
         output = BUILD / name
-        subprocess.run(['xcrun', 'clang', '-c', '-x', 'objective-c', '-fobjc-arc', '-fblocks', '-Wall', '-Wextra',
+        subprocess.run(['xcrun', 'clang', '-c', '-x', 'objective-c', '-fno-objc-arc', '-fblocks', '-Wall', '-Wextra',
                         '-Werror', '-Iport/ios/host', '-Iport/runtime', '-Iport/linux/src',
                         '-Iport/runtime/include', '-Iport/ios', *flags, HOST_STUBS_SOURCE, '-o', output],
                        cwd=ROOT, check=True)
