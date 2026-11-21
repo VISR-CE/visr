@@ -76,6 +76,19 @@ def run(*args):
 EXTENDED_ADDRESSING_MAC_ERROR = '--extended-virtual-addressing is for device builds, not --mac'
 
 
+def entry_points_check(build, configuration):
+    """the Metal backend's exported symbols in the object just built are all classed
+    (tools/gpu_metal_entry_points.py): each platform's build sees its own conditional exports"""
+    if __package__:
+        from . import gpu_metal_entry_points
+    else:
+        import gpu_metal_entry_points
+    found = gpu_metal_entry_points.find_object(build, configuration)
+    if not found:
+        raise SystemExit(f'no {configuration} gpu_metal.o under {build}: the entry point check has nothing to read')
+    gpu_metal_entry_points.check(found)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
@@ -407,6 +420,7 @@ def main():
                      '-destination',f'platform={system},id={args.register_device}','-quiet',
                      '-allowProvisioningUpdates','-allowProvisioningDeviceRegistration',f'SYMROOT={build}','build']
     run(*command)
+    entry_points_check(build, f'Release-{sdk}')
     app = build/f'Release-{sdk}/VISR.app'
     print(f'App: {app}')
     if args.ipa:

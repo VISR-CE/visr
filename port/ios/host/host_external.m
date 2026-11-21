@@ -1011,7 +1011,8 @@ static void host_external_poll_main(void) {
    frame_slots or calls renderer code while the worker waits for it. A scene
    change during the drain leaves a new pending transaction for the next frame. */
 static void external_commit_threaded_output(int allow_pause) {
-    host_gpu_output_cap_commit();
+    /* (asked every frame: the commit waits for the encode queue, so it is made only when a cap is pending) */
+    if(!host_gpu_output_cap_settled())host_gpu_output_cap_commit();
 #if TARGET_OS_MACCATALYST
     host_main_sync(^{ test_output_frame++; });
 #endif
@@ -1132,7 +1133,8 @@ void host_external_commit(int allow_pause) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
     BOOL cap_pending=!host_gpu_output_cap_settled();
 #endif
-    host_gpu_output_cap_commit();
+    /* (asked every frame: the commit waits for the encode queue, so it is made only when a cap is pending) */
+    if(!host_gpu_output_cap_settled())host_gpu_output_cap_commit();
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
     if(cap_pending && host_gpu_output_cap_settled()) {
         posture_output=0;

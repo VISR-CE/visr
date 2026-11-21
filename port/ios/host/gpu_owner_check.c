@@ -74,6 +74,8 @@ static void owner_check(unsigned owner, unsigned operation)
 #define CHECKED_PRODUCER 1
 #define CHECKED_OTHER_THREAD 0
 #define OWNER_OF_OTHER_THREAD OWNER_PRODUCER
+#define CHECKED_THREAD_SAFE 0
+#define OWNER_OF_THREAD_SAFE OWNER_PRODUCER
 
 #define OWNED_F(type, name, parameters, arguments) \
 	static type owned_##name parameters \

@@ -50,6 +50,12 @@ answer 0.
 - output, request_output_cap, output_cap_settled, output_cap_commit: the
   output's layer and drawable size, and the built-in output's cap (ios_host.h,
   host_external.h), between frames. */
+/* the side operations whose one argument is an int switch, which the queue and the call hash write alike */
+#define GPU_HOST_SWITCH_OPERATIONS(S) \
+	S(set_upscaler) \
+	S(set_crt) \
+	S(benchmark_realtime)
+
 #define GPU_HOST_SIDE_OPERATIONS(F, P) \
 	F(uint32_t, soft_depth_warm, (void), ()) \
 	F(uint32_t, soft_depth_ready, (gpu_texture depth, const float *values, uint32_t count), (depth, values, count)) \
@@ -74,6 +80,19 @@ answer 0.
 #define GPU_BACKEND_FUNCTIONS(F, P) \
 	GPU_BACKEND_OPERATIONS(F, P) \
 	P(initialize, (uint32_t flags, struct gpu_capabilities *capabilities), (flags, capabilities))
+
+/* GPU_DO_NOTHING(list): for each operation of an operation list (GPU_HOST_OPERATIONS, GPU_HOST_SIDE_OPERATIONS),
+a static GPU_NOTHING_PREFIX##name that does nothing and answers 0, for a backend without the feature or a test's;
+the user defines GPU_NOTHING_PREFIX first */
+#define GPU_BACKEND_PASTE_(a, b) a##b
+#define GPU_BACKEND_PASTE(a, b) GPU_BACKEND_PASTE_(a, b)
+#define GPU_NOTHING_F(type, name, parameters, arguments) \
+	static type GPU_BACKEND_PASTE(GPU_NOTHING_PREFIX, name) parameters { return (type)0; }
+#define GPU_NOTHING_P(name, parameters, arguments) static void GPU_BACKEND_PASTE(GPU_NOTHING_PREFIX, name) parameters {}
+#define GPU_DO_NOTHING(list) \
+	_Pragma("GCC diagnostic push") _Pragma("GCC diagnostic ignored \"-Wunused-parameter\"") \
+	list(GPU_NOTHING_F, GPU_NOTHING_P) \
+	_Pragma("GCC diagnostic pop")
 
 #define GPU_BACKEND_FUNCTION(type, name, parameters, arguments) type (*name) parameters;
 #define GPU_BACKEND_PROCEDURE(name, parameters, arguments) void (*name) parameters;

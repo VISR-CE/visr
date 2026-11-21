@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Every function a built gpu_metal.o exports is one the host may call by name: a row of
+"""Every symbol a built gpu_metal.o exports is one the host may call by name: a row of
 port/ios/host/gpu_operation.h's GPU_METAL_DIRECT_ENTRY_POINTS, with its class. The backend's operations are static and
 reached through its table (gpu_backend_metal), so they reach the backend in order with the draws (through the encode
 queue when it is on); one exported by name is a way around it.
 
 The list is read by compiling a small C program that expands the header's macros, not by reading its text.
-Run after every macOS build by tools/macos_build.py; by hand: tools/gpu_metal_entry_points.py PATH/gpu_metal.o"""
+Run after every build by tools/ios_build.py (iOS, tvOS, visionOS: each sees its own conditional exports) and
+tools/macos_build.py; by hand: tools/gpu_metal_entry_points.py PATH/gpu_metal.o"""
 from pathlib import Path
 import shutil
 import subprocess
@@ -55,7 +56,8 @@ def tables():
 
 
 def exported(nm_output):
-    """the defined, exported symbols in nm -g -U output, without the leading underscore"""
+    """the defined, exported symbols in `nm --extern-only --defined-only` output, without the leading underscore;
+    data symbols count too (an exported global is a way around the table as well)"""
     names = set()
     for line in nm_output.splitlines():
         words = line.split()
@@ -75,23 +77,25 @@ def problems(names, direct, operations):
             found.append(f'{name} is a backend operation exported by name: make it static, so the host reaches it '
                          'through the table')
         else:
-            found.append(f'{name} is exported but has no class: add it to GPU_METAL_DIRECT_ENTRY_POINTS '
+            found.append(f'{name} is an exported symbol without a class: add it to GPU_METAL_DIRECT_ENTRY_POINTS '
                          '(gpu_operation.h) with why the host may call it by name, or make it an operation')
     return found
 
 
 def check(object_path):
-    output = subprocess.run(['nm', '-g', '-U', str(object_path)], check=True, capture_output=True, text=True).stdout
+    output = subprocess.run(['nm', '--extern-only', '--defined-only', str(object_path)], check=True, capture_output=True, text=True).stdout
     direct, operations = tables()
     found = problems(exported(output), direct, operations)
     if found:
         raise SystemExit('gpu_metal_entry_points: ' + str(object_path) + '\n  ' + '\n  '.join(found))
-    print(f'gpu_metal_entry_points: {object_path.name}: every exported function is classed')
+    print(f'gpu_metal_entry_points: {object_path}: every exported symbol is classed')
 
 
-def find_object(build):
-    """the newest gpu_metal.o under a build folder, or None"""
-    objects = sorted(Path(build).rglob('gpu_metal.o'), key=lambda path: path.stat().st_mtime)
+def find_object(build, configuration):
+    """the newest gpu_metal.o under a build folder built in configuration (Xcode's folder for it: Release, or
+    Release-iphoneos and the like), or None; another configuration's object, left from an earlier build, is not it"""
+    objects = sorted((path for path in Path(build).rglob('gpu_metal.o') if configuration in path.parts),
+                     key=lambda path: path.stat().st_mtime)
     return objects[-1] if objects else None
 
 

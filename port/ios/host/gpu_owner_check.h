@@ -5,7 +5,8 @@ With the encode queue on (debug.encode_thread, gpu_queue.h), every call that
 reaches the backend comes from the thread its class says (gpu_operation.h):
 - RECORDED: the queue's consumer, the thread of the first recorded call;
 - AT_ONCE, QUERY and PRODUCER: the producer, the thread of the first of them;
-- OTHER_THREAD: any thread (it is the class of the calls that come from one).
+- THREAD_SAFE and OTHER_THREAD: any thread (the classes of the calls that may
+  come from one).
 A call from another thread is reported once per class and counted; a
 development build (HALO_DEVELOPMENT_HOOKS) then stops. The wrapper is made
 from the class table, so a new operation is checked by its class.

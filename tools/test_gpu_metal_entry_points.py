@@ -38,7 +38,24 @@ class EntryPointTests(unittest.TestCase):
         found = gpu_metal_entry_points.problems(gpu_metal_entry_points.exported(nm), self.direct, self.operations)
         self.assertEqual(len(found), 2)
         self.assertIn('gpu_metal_set_crt is a backend operation exported by name', found[0])
-        self.assertIn('host_ssao_apply is exported but has no class', found[1])
+        self.assertIn('host_ssao_apply is an exported symbol without a class', found[1])
+
+    def test_an_exported_data_symbol_fails(self):
+        nm = ('0000000000001000 D _gpu_metal_side_switch\n'
+              '0000000000002000 S _gpu_metal_counters\n')
+        found = gpu_metal_entry_points.problems(gpu_metal_entry_points.exported(nm), self.direct, self.operations)
+        self.assertEqual(len(found), 2)
+
+    def test_the_object_is_the_configuration_just_built(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for folder in ('VISR.build/Release-iphoneos/x/arm64', 'VISR.build/Release-iphonesimulator/x/arm64'):
+                (root / folder).mkdir(parents=True)
+                (root / folder / 'gpu_metal.o').write_bytes(b'')
+            found = gpu_metal_entry_points.find_object(root, 'Release-iphoneos')
+            self.assertIn('Release-iphoneos', found.parts)
+            self.assertIsNone(gpu_metal_entry_points.find_object(root, 'Release-xros'))
 
 
 if __name__ == '__main__':

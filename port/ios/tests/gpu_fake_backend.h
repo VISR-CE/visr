@@ -122,14 +122,9 @@ static uint32_t fake_compiles_outstanding(void) { return 0; }
 static void fake_compile_progress(uint32_t a, struct gpu_compile_progress *p) { (void)a, (void)p; }
 static void fake_initialize(uint32_t f, struct gpu_capabilities *c) { (void)f, (void)c; }
 /* the host's own operations (gpu_backend.h) do nothing */
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#define FAKE_HOST_F(type, name, parameters, arguments) static type fake_##name parameters { return (type)0; }
-#define FAKE_HOST_P(name, parameters, arguments) static void fake_##name parameters {}
-GPU_HOST_OPERATIONS(FAKE_HOST_F, FAKE_HOST_P)
-#undef FAKE_HOST_F
-#undef FAKE_HOST_P
-#pragma GCC diagnostic pop
+#define GPU_NOTHING_PREFIX fake_
+GPU_DO_NOTHING(GPU_HOST_OPERATIONS)
+#undef GPU_NOTHING_PREFIX
 
 static const struct gpu_backend fake = {
 #define FAKE_F(type, name, parameters, arguments) .name = fake_##name,

@@ -25,6 +25,9 @@ Classes:
   stream_frame_end). Hashed in front of the queue only.
 - QUERY: changes nothing in the backend, so a queue may answer it from a
   cache; made like an AT_ONCE call today. Never hashed.
+- THREAD_SAFE: a read the backend answers from atomics or other state
+  safe from any thread (output_cap_settled, asked every frame): it passes the
+  queue without waiting for it. Never hashed.
 - OTHER_THREAD: another thread's call (vertical_blank_wait, from
   d3d8_device.c's vertical blank thread), which passes the queue without
   touching it. Never hashed.
@@ -97,7 +100,7 @@ enum gpu_operation
 #define GPU_OPERATION_CLASS_benchmark_realtime RECORDED
 #define GPU_OPERATION_CLASS_output AT_ONCE
 #define GPU_OPERATION_CLASS_request_output_cap AT_ONCE
-#define GPU_OPERATION_CLASS_output_cap_settled QUERY
+#define GPU_OPERATION_CLASS_output_cap_settled THREAD_SAFE
 #define GPU_OPERATION_CLASS_output_cap_commit AT_ONCE
 
 /* gpu_metal.m's functions the host calls by name, outside the backend table, and why each may (every other function
@@ -133,6 +136,7 @@ enum gpu_operation_class
 	GPU_CLASS_QUERY,
 	GPU_CLASS_OTHER_THREAD,
 	GPU_CLASS_PRODUCER,
+	GPU_CLASS_THREAD_SAFE,
 };
 
 static const unsigned char gpu_operation_classes[GPU_OPERATION_COUNT] = {

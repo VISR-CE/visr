@@ -78,6 +78,9 @@ static uint32_t ready_yes(gpu_texture depth, const float *values, uint32_t count
 	} \
 	while (0)
 
+/* a THREAD_SAFE call never waits for the queue either: output_cap_settled is asked every frame */
+#define THREAD_SAFE_CALL PRODUCER_CALL
+
 /* ---------- the front end's side: a constant store kept as d3d8_device.c's constants_store keeps it */
 
 static struct gpu_constant_store stores[2];
@@ -194,11 +197,11 @@ static void play(const struct gpu_backend *backend)
 		if (frame % 10 == 3)
 		{
 			backend->request_output_cap((int)frame * 10);
-			(void)backend->output_cap_settled();
 			backend->output_cap_commit();
 			(void)backend->output(NULL, NULL, 640 + (int)frame, 480);
 		}
 		(void)backend->upscaler();
+		THREAD_SAFE_CALL((void)backend->output_cap_settled());
 		clear.color_target = texture;
 		clear.flags = GPU_CLEAR_COLOR | GPU_CLEAR_DEPTH;
 		clear.color = frame;
@@ -286,6 +289,9 @@ static void play(const struct gpu_backend *backend)
 			{
 				side_values[2] = (float)random32();
 				backend->ssao_apply(texture, texture + 1, side_values, 18 + frame % 10);
+				/* an output change between draws: the frame's commands so far reach the backend first */
+				if (index % 6 == 0)
+					(void)backend->output(NULL, NULL, 800, 600 + (int)index);
 			}
 		}
 		backend->texture_generate_mipmaps(texture, 0);

@@ -644,7 +644,13 @@ static void queued_frame_context(uint32_t scene_class, uint32_t frame_rate, cons
 static uint32_t queued_soft_depth_ready(gpu_texture depth, const float *values, uint32_t count);
 
 /* the answer is the producer's, from soft_depth_ready, so the game has it before the backend makes the call; the
-record carries it, and the consumer counts a backend answer that differs (an allocation that failed) */
+record carries it, and the consumer counts a backend answer that differs (an allocation that failed).
+
+Records: { depth, answer } then the values (d3d8_device.c's halo_soft_particles_prepare: near, far, the projection's
+depth row p22 and p32, the fade distance, the scale), and for ssao_apply { color, depth } then its values
+(d3d8_device.c's halo_ssao_after_lightmaps). Targets are handles and the view's terms sit at fixed indexes, so a replay of one
+eye's records for the other (the visionOS review's item 4) can substitute the targets and patch the terms by index;
+the answer belongs to the recorded target, so such a replay recomputes it or leaves the count alone. */
 static uint32_t queued_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
 {
 	struct writer writer;
@@ -678,26 +684,15 @@ static void queued_ssao_apply(gpu_texture color, gpu_texture depth, const float 
 	record_end();
 }
 
-static void queued_set_upscaler(int metalfx)
-{
-	int64_t argument = metalfx;
-
-	record_simple(GPU_OPERATION_set_upscaler, &argument, sizeof(argument));
-}
-
-static void queued_set_crt(int enabled)
-{
-	int64_t argument = enabled;
-
-	record_simple(GPU_OPERATION_set_crt, &argument, sizeof(argument));
-}
-
-static void queued_benchmark_realtime(int on)
-{
-	int64_t argument = on;
-
-	record_simple(GPU_OPERATION_benchmark_realtime, &argument, sizeof(argument));
-}
+/* the switches (gpu_backend.h's GPU_HOST_SWITCH_OPERATIONS) */
+#define QUEUED_SWITCH(name) \
+	static void queued_##name(int value) \
+	{ \
+		int64_t argument = value; \
+		record_simple(GPU_OPERATION_##name, &argument, sizeof(argument)); \
+	}
+GPU_HOST_SWITCH_OPERATIONS(QUEUED_SWITCH)
+#undef QUEUED_SWITCH
 
 /* ---------- the calls the producer makes itself, by class (gpu_operation.h): AT_ONCE and QUERY after the queue
 is consumed up to them, PRODUCER at once (the backend keeps their state for the producer), OTHER_THREAD (d3d8_device.c's vertical_blank_thread, which must not touch the queue) as
@@ -723,6 +718,8 @@ they come. RECORDED ones are written above. */
 	static void queued_##name parameters { direct->name arguments; }
 #define QUEUED_F_QUERY QUEUED_F_AT_ONCE
 #define QUEUED_P_QUERY QUEUED_P_AT_ONCE
+#define QUEUED_F_THREAD_SAFE QUEUED_F_PRODUCER
+#define QUEUED_P_THREAD_SAFE QUEUED_P_PRODUCER
 #define QUEUED_F_OTHER_THREAD(type, name, parameters, arguments) \
 	static type queued_##name parameters { return direct->name arguments; }
 #define QUEUED_P_OTHER_THREAD(name, parameters, arguments) \
@@ -962,20 +959,10 @@ static void consume_ssao_apply(struct reader *reader)
 	next->ssao_apply(header[0], header[1], values, size / (uint32_t)sizeof(float));
 }
 
-static void consume_set_upscaler(struct reader *reader)
-{
-	next->set_upscaler((int)TAKE(reader, int64_t));
-}
-
-static void consume_set_crt(struct reader *reader)
-{
-	next->set_crt((int)TAKE(reader, int64_t));
-}
-
-static void consume_benchmark_realtime(struct reader *reader)
-{
-	next->benchmark_realtime((int)TAKE(reader, int64_t));
-}
+#define CONSUME_SWITCH(name) \
+	static void consume_##name(struct reader *reader) { next->name((int)TAKE(reader, int64_t)); }
+GPU_HOST_SWITCH_OPERATIONS(CONSUME_SWITCH)
+#undef CONSUME_SWITCH
 
 /* each RECORDED operation's reader, by number; NULL for the other classes, which the queue never writes */
 #define CONSUMER_RECORDED(name) consume_##name
@@ -983,6 +970,7 @@ static void consume_benchmark_realtime(struct reader *reader)
 #define CONSUMER_QUERY(name) NULL
 #define CONSUMER_PRODUCER(name) NULL
 #define CONSUMER_OTHER_THREAD(name) NULL
+#define CONSUMER_THREAD_SAFE(name) NULL
 #define CONSUMER_F(type, name, parameters, arguments) [GPU_OPERATION_##name] = GPU_OPERATION_BY_CLASS(CONSUMER_, name)(name),
 #define CONSUMER_P(name, parameters, arguments) [GPU_OPERATION_##name] = GPU_OPERATION_BY_CLASS(CONSUMER_, name)(name),
 static void (*const consumers[GPU_OPERATION_COUNT])(struct reader *reader) = {
@@ -1055,6 +1043,7 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 	memset(&sent, 0, sizeof(sent));
 	memset(&held, 0, sizeof(held));
 	memset(&statistics, 0, sizeof(statistics));
+	answers_differ = 0;
 	answer_logged = 0;
 	queued = *chosen;
 	/* (a backend without an operation keeps it missing: frame_context is optional) */

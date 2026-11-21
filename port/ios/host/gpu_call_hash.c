@@ -8,7 +8,7 @@ Handles a create returns are mixed in after the call, since later commands
 name them. Commands are the RECORDED and AT_ONCE operations (gpu_operation.h);
 each needs a hashed_<name> below, and gpu_call_hash_wrap installs every
 operation through the list, so a new one without its body does not compile.
-QUERY and OTHER_THREAD operations pass through unhashed.
+QUERY, THREAD_SAFE and OTHER_THREAD operations pass through unhashed.
 */
 
 #include "gpu_call_hash.h"
@@ -410,29 +410,17 @@ static void hashed_ssao_apply(gpu_texture color, gpu_texture depth, const float 
 	h->next->ssao_apply(color, depth, values, count);
 }
 
-static void hashed_set_upscaler(int metalfx)
-{
-	struct hasher *h = current;
-	command(h, GPU_OPERATION_set_upscaler);
-	mix64(h, (uint64_t)(int64_t)metalfx);
-	h->next->set_upscaler(metalfx);
-}
-
-static void hashed_set_crt(int enabled)
-{
-	struct hasher *h = current;
-	command(h, GPU_OPERATION_set_crt);
-	mix64(h, (uint64_t)(int64_t)enabled);
-	h->next->set_crt(enabled);
-}
-
-static void hashed_benchmark_realtime(int on)
-{
-	struct hasher *h = current;
-	command(h, GPU_OPERATION_benchmark_realtime);
-	mix64(h, (uint64_t)(int64_t)on);
-	h->next->benchmark_realtime(on);
-}
+/* the switches (gpu_backend.h's GPU_HOST_SWITCH_OPERATIONS) */
+#define HASHED_SWITCH(name) \
+	static void hashed_##name(int value) \
+	{ \
+		struct hasher *h = current; \
+		command(h, GPU_OPERATION_##name); \
+		mix64(h, (uint64_t)(int64_t)value); \
+		h->next->name(value); \
+	}
+GPU_HOST_SWITCH_OPERATIONS(HASHED_SWITCH)
+#undef HASHED_SWITCH
 
 static int hashed_output(void *layer, void *screen, int width, int height)
 {
@@ -576,6 +564,8 @@ body; a query's goes straight to the instance's next backend */
 #define THUNK_F_QUERY THUNK_QUERY_F
 #define THUNK_P_QUERY THUNK_QUERY_P
 #define THUNK_F_OTHER_THREAD THUNK_QUERY_F
+#define THUNK_F_THREAD_SAFE THUNK_QUERY_F
+#define THUNK_P_THREAD_SAFE THUNK_QUERY_P
 #define THUNK_P_OTHER_THREAD THUNK_QUERY_P
 #define THUNK_F0(type, name, parameters, arguments) \
 	GPU_OPERATION_BY_CLASS(THUNK_F_, name)(0, type, name, parameters, arguments)
