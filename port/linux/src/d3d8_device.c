@@ -26,6 +26,7 @@ Conventions carried over from the Xbox:
 */
 
 #include "xgpu.h"
+#include "quad_ranges.h"
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
@@ -6122,10 +6123,43 @@ static BOOL stream_has_colors(const struct vertex_shader_object *declaration, un
 	return FALSE;
 }
 
+/* a draw of gathered ranges (quad_ranges.h's dense layout): the ranges and, when debug.decal_dense_check asks, the
+draw's indices to check each gathered stream against */
+struct gathered_ranges
+{
+	struct quad_ranges ranges;
+	const unsigned short *check_indices;
+	unsigned long mismatches;
+};
+
+/* the vertices of a stream that the ranges draw, one range after another (until the next call) */
+static const unsigned char *quad_ranges_gathered(struct gathered_ranges *gathered, const unsigned char *source,
+	unsigned long stride, unsigned long bytes)
+{
+	static unsigned char *vertices;
+	static unsigned long capacity;
+
+	if (bytes > capacity)
+	{
+		free(vertices);
+		capacity = bytes * 2;
+		vertices = malloc(capacity);
+	}
+	quad_ranges_gather(&gathered->ranges, source, stride, vertices);
+	if (gathered->check_indices)
+		gathered->mismatches += quad_ranges_mismatches(&gathered->ranges, gathered->check_indices, source, stride,
+			vertices, NULL, NULL);
+	return vertices;
+}
+
 /* upload vertices [first, first + count) of every stream the declaration
 uses into the packet's streams and point its attributes at them; attribute
-data then starts at vertex 0 of the uploaded range */
-static void setup_streams(struct gpu_draw *draw, unsigned long first, unsigned long count)
+data then starts at vertex 0 of the uploaded range. With gathered, the
+vertices are those of its ranges instead, one range after another (count is
+their total, quad_ranges.h): they are always uploaded, since the mirror holds
+them where the game put them */
+static void setup_streams(struct gpu_draw *draw, unsigned long first, unsigned long count,
+	struct gathered_ranges *gathered)
 {
 	struct vertex_shader_object *declaration = device.vertex_shader;
 	struct gpu_vertex_stream *streams = draw->streams;
@@ -6149,7 +6183,7 @@ static void setup_streams(struct gpu_draw *draw, unsigned long first, unsigned l
 		streams[stream].buffer = 0;
 		streams[stream].stride = (uint32_t)stride;
 		base = (unsigned long)PLATFORM_PHYSICAL_TO_VIRTUAL(device.streams[stream].data) + first * stride;
-		if ((device_capabilities.vertex_bgra || !stream_has_colors(declaration, stream)) &&
+		if (!gathered && (device_capabilities.vertex_bgra || !stream_has_colors(declaration, stream)) &&
 			mirror_range(base, bytes, &streams[stream].buffer, &offset, NULL))
 		{
 			streams[stream].offset = (uint32_t)offset;
@@ -6172,6 +6206,11 @@ static void setup_streams(struct gpu_draw *draw, unsigned long first, unsigned l
 			const unsigned char *base = PLATFORM_PHYSICAL_TO_VIRTUAL(device.streams[stream].data);
 			unsigned long bytes = stride ? stride * count : 64;
 
+			if (gathered && stride)
+			{
+				base = quad_ranges_gathered(gathered, base, stride, bytes);
+				first = 0;
+			}
 			streams[stream].offset = (uint32_t)(device_capabilities.vertex_bgra ?
 				stream_upload(base + first * stride, bytes, &streams[stream].buffer) :
 				stream_upload_swizzled(declaration, stream, base + first * stride, bytes, stride, &streams[stream].buffer));
@@ -6348,7 +6387,7 @@ void WINAPI D3DDevice_DrawVertices(D3DPRIMITIVETYPE primitive_type, UINT start_v
 	if (target_hud_measured)
 		hud_draw_extent(NULL, 0);
 	trace_draw("draw", primitive_type, vertex_count, NULL);
-	setup_streams(draw, start_vertex, vertex_count);
+	setup_streams(draw, start_vertex, vertex_count, NULL);
 	if (primitive_type == D3DPT_QUADLIST)
 	{
 		unsigned long count;
@@ -6369,10 +6408,16 @@ void WINAPI D3DDevice_DrawVertices(D3DPRIMITIVETYPE primitive_type, UINT start_v
 /* port: a run of quad lists from the current stream that differ only in one
 constant attribute (the decals of a texture, rasterizer_xbox_decals.c, each
 with its own color in register 9), as one draw: the ranges' quads in order,
-indexed from the lowest range, with the attribute given per vertex from a
-stream of its own, at the float value set_attribute would have set. The
-picture is the same: the quads blend in the order the separate draws had.
-colors holds a red, green, blue and alpha byte for each range. */
+with the attribute given per vertex from a stream of its own, at the float
+value set_attribute would have set. The picture is the same: the quads blend
+in the order the separate draws had. colors holds a red, green, blue and
+alpha byte for each range.
+
+The draw uploads only the vertices it draws (quad_ranges.h's dense layout).
+The ranges of a run lie anywhere in the decals' vertex cache, so the span
+between the lowest and the highest, which display.decal_dense_upload = false
+still uploads to compare, was megabytes a draw in a long fight for a few
+hundred vertices drawn. */
 void halo_draw_quad_ranges(const UINT *first_vertex, const UINT *quad_count, const BYTE (*colors)[4], UINT count,
 	INT color_reg)
 {
@@ -6380,62 +6425,63 @@ void halo_draw_quad_ranges(const UINT *first_vertex, const UINT *quad_count, con
 	struct gpu_draw *draw = &draw_packet;
 	static float *values = NULL;
 	static unsigned long value_capacity = 0;
-	unsigned long low = ~0UL, high = 0, span, index_count = 0, range, vertex, offset;
+	static int dense_setting = -1, check_setting = -1;
+	struct gathered_ranges gathered = { { first_vertex, quad_count, count }, NULL, 0 };
+	const struct quad_ranges *ranges = &gathered.ranges;
+	unsigned long low, span, drawn, vertices, index_count, offset;
+	BOOL dense;
 	WORD *indices;
 	int stream;
 
 	if (!count || color_reg < 0 || color_reg >= XGPU_VERTEX_ATTRIBUTE_COUNT)
 		return;
-	for (range = 0; range < count; range++)
+	if (dense_setting < 0)
 	{
-		if (first_vertex[range] < low)
-			low = first_vertex[range];
-		if (first_vertex[range] + quad_count[range] * 4 > high)
-			high = first_vertex[range] + quad_count[range] * 4;
-		index_count += quad_count[range] * 6;
+		dense_setting = config_boolean("display.decal_dense_upload") != FALSE;
+		check_setting = config_boolean("debug.decal_dense_check") != FALSE;
+		if (check_setting)
+			platform_log("decal dense check: on (dense upload %s)", dense_setting ? "on" : "off, so nothing to check");
 	}
-	span = high - low;
-	if (!index_count || span > 65535 || !prepare_draw(draw, FALSE))
+	drawn = quad_ranges_vertex_count(ranges);
+	quad_ranges_span(ranges, &low, &span);
+	dense = quad_ranges_dense(dense_setting, drawn);
+	vertices = dense ? drawn : span;
+	if (!drawn || vertices > QUAD_RANGES_MAXIMUM_VERTICES || !prepare_draw(draw, FALSE))
 		return;
 	if (target_hud_measured)
 		hud_draw_extent(NULL, 0);
-	trace_draw("quad ranges", D3DPT_QUADLIST, span, NULL);
-	setup_streams(draw, low, span);
+	trace_draw("quad ranges", D3DPT_QUADLIST, vertices, NULL);
+	indices = index_scratch(_index_scratch_quads, drawn / 4 * 6);
+	index_count = quad_ranges_indices(ranges, dense, low, indices);
+	if (dense && check_setting)
+		gathered.check_indices = indices;
+	setup_streams(draw, dense ? 0 : low, vertices, dense ? &gathered : NULL);
 	/* a stream the declaration leaves free */
 	for (stream = 15; stream > 0 && device.streams[stream].data; stream--)
 		;
-	if (span * 4 > value_capacity)
+	if (vertices * 4 > value_capacity)
 	{
-		value_capacity = span * 4;
+		value_capacity = vertices * 4;
 		free(values);
 		values = malloc(value_capacity * sizeof(float));
 	}
-	indices = index_scratch(_index_scratch_quads, index_count);
-	index_count = 0;
-	for (range = 0; range < count; range++)
+	quad_ranges_colors(ranges, dense, low, colors, values);
+	if (gathered.check_indices)
 	{
-		unsigned long first = first_vertex[range] - low, quad;
+		static unsigned long checked, failures, reported_failures, reported_checked;
 
-		for (vertex = first; vertex < first + quad_count[range] * 4; vertex++)
+		checked++;
+		failures += gathered.mismatches + quad_ranges_mismatches(ranges, indices, NULL, 0, NULL, colors, values);
+		/* a line when a corner differs, and one every so often either way, so a clean run shows the check ran */
+		if (failures != reported_failures || checked - reported_checked >= 100000)
 		{
-			values[vertex * 4 + 0] = colors[range][0] / 255.0f;
-			values[vertex * 4 + 1] = colors[range][1] / 255.0f;
-			values[vertex * 4 + 2] = colors[range][2] / 255.0f;
-			values[vertex * 4 + 3] = colors[range][3] / 255.0f;
-		}
-		for (quad = 0; quad < quad_count[range]; quad++)
-		{
-			WORD v0 = (WORD)(first + quad * 4);
-
-			indices[index_count++] = v0;
-			indices[index_count++] = (WORD)(v0 + 1);
-			indices[index_count++] = (WORD)(v0 + 2);
-			indices[index_count++] = v0;
-			indices[index_count++] = (WORD)(v0 + 2);
-			indices[index_count++] = (WORD)(v0 + 3);
+			reported_failures = failures;
+			reported_checked = checked;
+			platform_log("decal dense check: %lu draws checked, %lu corners differ from the game's own vertices or colors",
+				checked, failures);
 		}
 	}
-	offset = stream_upload(values, span * 4 * sizeof(float), &draw->streams[stream].buffer);
+	offset = stream_upload(values, vertices * 4 * sizeof(float), &draw->streams[stream].buffer);
 	draw->streams[stream].offset = (uint32_t)offset;
 	draw->streams[stream].stride = 4 * sizeof(float);
 	draw->attributes[color_reg].format = GPU_ATTRIBUTE_FLOAT4;
@@ -6467,7 +6513,7 @@ void WINAPI D3DDevice_DrawIndexedVertices(D3DPRIMITIVETYPE primitive_type, UINT 
 	index_extent(index_data, vertex_count, generation, mirrored, &minimum, &maximum);
 	trace_draw("indexed", primitive_type, vertex_count, NULL);
 	/* (the streams from the base vertex on: index i is vertex base + i) */
-	setup_streams(draw, device.base_vertex_index + minimum, maximum - minimum + 1);
+	setup_streams(draw, device.base_vertex_index + minimum, maximum - minimum + 1, NULL);
 	draw->primitive = packet_primitive(primitive_type);
 	if (mirrored)
 	{

@@ -108,6 +108,17 @@
             "desktop"
           ]
         },
+        "decal_dense_upload": {
+          "type": "boolean",
+          "default": true,
+          "description": "A batched decal draw (display.decal_batching) uploads only the vertices it draws: the same picture for far less data sent to the GPU in a long fight. False uploads every vertex between its first and last decal, to compare.",
+          "x-environment": "HALO_DECAL_DENSE_UPLOAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "light_volume_batching": {
           "type": "boolean",
           "default": true,
@@ -1532,6 +1543,17 @@
           "default": true,
           "description": "Each cluster keeps a second list of its vehicles, scenery and other objects that are not bipeds, items or projectiles, and a collision ray that tests none of those three walks only that list: the same answers in the same order without stepping past every body and weapon in a crowded cluster. On by default; false walks every object. Read again each tick, so it can be flipped while the game runs.",
           "x-environment": "HALO_COLLISION_CANDIDATES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "decal_dense_check": {
+          "type": "boolean",
+          "default": false,
+          "description": "Checks every vertex and color a batched decal draw uploads (display.decal_dense_upload) against the game's own and logs how many draws it checked and how many corners differ. Slow; for testing.",
+          "x-environment": "HALO_DECAL_DENSE_CHECK",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
