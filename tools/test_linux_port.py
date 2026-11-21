@@ -201,7 +201,7 @@ MENU_ATTRIBUTES = {
     "replace": {"search", "function", "platform", "child", "model", "name", "text", "run", "open", "created",
                 "id", "text_id", "description_id"},
     # (a <patch>'s, port/assets/menus/README.md)
-    "patch": {"list", "screen", "footer", "rows", "tall_art"},
+    "patch": {"list", "screen", "footer", "rows", "row_kind", "tall_art", "tall_top_art"},
     "row": {"after", "before", "model", "name", "text", "run", "open", "created", "description", "picture", "pitch",
             "platform", "widget", "help", "bitmap", "id", "text_id", "description_id", "help_ids"},
     "remove": {"child", "pitch", "platform"},
