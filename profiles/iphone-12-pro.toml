@@ -23,6 +23,7 @@ dynamic_resolution = true
 
 [variable.display]
 frame_rate = "30"
+effect_limits = "xbox"
 
 [network]
 player_capacity = 64
@@ -83,3 +84,8 @@ source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Bloo
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."
+
+[evidence."variable.display.effect_limits"]
+basis = "measured"
+why = "In a 128-player Blood Gulch fight at 30 frames a second the Xbox's decal set took 27.4 ms of CPU a frame where the raised set took 29.1 (two and three interleaved rounds; paired rounds 1.7 and 2.2 ms less), and put 99.8% and 99.6% of frames on time where the raised set put 99.3%, 99.4% and 97.7%. GPU time was the same. The raised set keeps about four times the marks; a small game fills neither. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "VISR main 1a41b6f59 with debug.verify_once_a_tick on, iPhone 12 Pro, cost:mp128-bloodgulch-1029-p60 presented, 2026-11-20"
