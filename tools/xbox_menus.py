@@ -787,6 +787,98 @@ def settings_hub(bitmaps, assets=MENUS):
     return root
 
 
+# The gametype editor (EDIT MULTIPLAYER GAMETYPE): the screen the game's gametype list and SERVER SETUP open to edit
+# one gametype, in place of the game's own (SCREEN_ALWAYS). Its rows, in order: key, caption, the screen the row
+# opens, the function run first, platform, the picture (the map's bitmap and frame) and the description. The
+# game's rows keep their pictures and descriptions (the map's playlist_edit_list_extended_dsc_text, whose last
+# line names the gametype beside gametype_label); GAME OPTIONS, the game's GAME TYPE row, opens the shared game
+# settings page, whose TYPE rows reach each gametype's rules.
+GAMETYPE_EDIT = 'xbox/main_menu/settings_select/multiplayer_setup/playlist_edit'
+GAMETYPE_EDIT_SCREEN = f'{GAMETYPE_EDIT}/gametype_edit_screen'
+MP_SETUP = 'ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\'
+GAMETYPE_OPTIONS_PICTURES = MP_SETUP + 'playlist_edit\\gametype_options'
+GAMETYPE_PICTURE = ('ui\\shell\\main_menu\\multiplayer_type_select\\mp_options', 3)
+THIS_GAMETYPE = '\\n\\nThis gametype:'
+GAMETYPE_EDIT_ROWS = (
+    ('name', 'CHANGE NAME', MP_SETUP + 'name_edit\\gametype_name_screen',
+     'mp profile change name', None, (GAMETYPE_OPTIONS_PICTURES, 0),
+     'Rename this gametype using\\nthe virtual keyboard.\\n' + THIS_GAMETYPE),
+    ('game_options', 'GAME OPTIONS', 'xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen',
+     None, None, (GAMETYPE_OPTIONS_PICTURES, 1),
+     'Specify the type of game you\\nwant to play and the rules\\nthat apply to it.' + THIS_GAMETYPE),
+    ('player_options', 'PLAYER OPTIONS', MP_SETUP + 'player_options_edit\\player_options_screen',
+     None, None, (GAMETYPE_OPTIONS_PICTURES, 2),
+     'Choose the player settings and\\nrestrictions that apply to\\nthis gametype.' + THIS_GAMETYPE),
+    ('item_options', 'ITEM OPTIONS', MP_SETUP + 'item_options_edit\\item_options_screen',
+     None, None, (GAMETYPE_OPTIONS_PICTURES, 3),
+     'Choose the weapons, vehicles\\nand other items that appear in\\nthis gametype.' + THIS_GAMETYPE),
+    ('vehicles', 'VEHICLES', 'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen',
+     None, None, GAMETYPE_PICTURE, 'Which vehicles are on the map.\\n\\n' + THIS_GAMETYPE),
+    ('save', 'SAVE CHANGES', 'ui\\shell\\error\\warning_saving_file_screen',
+     'mp profile save changes', None, (GAMETYPE_OPTIONS_PICTURES, 5),
+     "Save changes you've made to\\nthis gametype and return to\\nthe previous screen." + THIS_GAMETYPE),
+    # (the Apple TV's: its Siri Remote has no Y button for the gametype list's DELETE)
+    ('delete', 'DELETE GAMETYPE', 'xbox/error/confirm_delete_gametype_modal_fullscreen',
+     'port delete request', 'tvos', GAMETYPE_PICTURE, 'Delete this gametype.\\n\\n' + THIS_GAMETYPE),
+)
+
+
+def gametype_editor(bitmaps):
+    """The gametype editor: the settings hub's layout (a list of tall picture rows, and the framed panel with the
+    focused row's picture and description, the gametype's name on its last line), with the game's title."""
+    root = ET.Element('menus')
+    base = GAMETYPE_EDIT
+    strings = ET.SubElement(root, 'strings', name=f'{base}/descriptions')
+    pictures = ET.SubElement(root, 'bitmap', name=f'{base}/pictures')
+    width, height = PICTURE_SIZE
+    for _, _, _, _, platform, (tag, index), description in GAMETYPE_EDIT_ROWS:
+        attrs = {'platform': platform} if platform else {}
+        ET.SubElement(strings, 'string', text=description, **attrs)
+        ET.SubElement(pictures, 'frame', map=tag, index=str(index), png=NONE_PNG, width=str(width),
+                      height=str(height), **attrs)
+    screen = widget(root, GAMETYPE_EDIT_SCREEN, width=640, height=480, flags='pass_unhandled_to_focused_child',
+                    bitmap=bitmap_ref('bitmaps/gradient', bitmaps))
+    # (the game's: the screen closes at once unless a gametype is being edited)
+    ET.SubElement(screen, 'on', event='created', run='close if not editing profile')
+    for event in ('b', 'back'):
+        ET.SubElement(screen, 'on', event=event, back='true')
+    child(screen, f'{base}/header')
+    child(screen, f'{base}/gametype_list')
+    child(screen, f'{base}/gametype_label', x=433, y=360)
+    # (the game's title, 512 by 32, at the top of the standard title box's picture)
+    widget(root, f'{base}/header', **title(),
+           bitmap=bitmap_ref('main_menu/settings_select/multiplayer_setup/playlist_edit/header_edit_multiplayer_gametype',
+                             bitmaps))
+    label = widget(root, f'{base}/gametype_label', type='text', width=160, height=22, font=r'ui\large_ui',
+                   color='#FFFFFFFF')
+    ET.SubElement(label, 'data', input='get edit game settings name')
+    # The panel: the frame, then the text and the picture (the order the list's description update expects), at
+    # the game's places for this screen, whose descriptions run a line longer than the hub's
+    description = widget(root, f'{base}/description', **panel(PANEL_A), bitmap=PANEL_BITMAPS['a'])
+    child(description, f'{base}/description_text')
+    child(description, f'{base}/description_picture')
+    widget(root, f'{base}/description_text', type='text', left=294, top=276, width=296, height=124,
+           string_list=f'{base}/descriptions', font=r'ui\large_ui', color=BLUE)
+    widget(root, f'{base}/description_picture', left=290, top=80, width=284, height=208, bitmap=f'{base}/pictures')
+    options = widget(root, f'{base}/gametype_list', type='column_list', width=640, height=480,
+                     flags='pass_unhandled_to_focused_child up_down_tabs_children', description=f'{base}/description')
+    ET.SubElement(options, 'data', input='plyr prof edit select menu upd8')
+    x, y, pitch = PANEL_A['list']
+    for index, (key, caption, opens, run, platform, _, _) in enumerate(GAMETYPE_EDIT_ROWS):
+        attrs = {'platform': platform} if platform else {}
+        child(options, f'{base}/{key}', x=x, y=y + index * pitch, **attrs)
+        art = 'bitmaps/list_item_bkd_top' if index == 0 else 'bitmaps/list_item_bkd'
+        row = text_widget(root, f'{base}/{key}', caption, width=232, height=32, bitmap=bitmap_ref(art, bitmaps),
+                          text_x=13, text_y=4)
+        for event in ('a', 'start'):
+            handler = ET.SubElement(row, 'on', event=event)
+            if run:
+                handler.set('run', run)
+            handler.set('open', opens)
+    legend(root, screen, base)
+    return root
+
+
 def bitmap_document(assets, names):
     source_bitmaps = {b.get('name'): b for b in source('bitmaps.xml')}
     root = ET.Element('menus')
@@ -1797,6 +1889,7 @@ SCREEN_LAYOUTS = {
                                       'controls_settings_screen', 'mouse_settings_screen', 'gamepad_setup_screen',
                                       'about_screen', 'graphics_screen'))},
     'xbox/settings/settings_screen': {'kind': 'K2-A', 'options': 'xbox/settings/settings_list'},
+    GAMETYPE_EDIT_SCREEN: {'kind': 'K2-A', 'options': f'{GAMETYPE_EDIT}/gametype_list'},
     # ABOUT keeps its version line and taller legal help below the scrolling actions.
     'xbox/settings/about/about_screen': {'kind': 'K1', 'options': 'xbox/settings/about/options_menu',
                                          'help': (286, 120), 'first_row': 102},
@@ -2200,23 +2293,6 @@ def patch_document(names):
         patch_row(player, 'remove', child=poe + key)
     # (STARTING EQUIPMENT's rows replace the Xbox's own)
     patch_row(options, 'remove', child=MM + 'settings_select\\multiplayer_setup\\item_options_edit\\op_starting_equipment')
-    # Gametype edit: DELETE GAMETYPE on the Apple TV
-    gametype = patch(root, GTE + 'edit_playlist_select_list', GTE + 'gametype_edit_screen')
-    patch_row(gametype, after=GTE + 'save_settings_item', platform='tvos', pitch=COMFORTABLE_PITCH,
-              name='gametype_item_delete', text='DELETE GAMETYPE', run='port delete request',
-              open='xbox/error/confirm_delete_gametype_modal_fullscreen', picture='bitmap:xbox/pictures/gametype',
-              description='Delete this gametype.')
-    # The GAME screen holds the rules the type-specific pages used to (score, time limit, teams); the indicators
-    # row moved into it as TEAMS HUD, and VEHICLES opens the vehicle options screen.
-    # GAME OPTIONS (the disc's game type row, its picture and description kept) opens that page itself: the
-    # rules page of each gametype is reached from the page's TYPE row (op_type_*), so the GAME row is gone.
-    patch_row(gametype, 'replace', child=GTE + 'playlist_edit_game_type_item', name='gametype_item_game',
-              text='GAME OPTIONS', open='xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen')
-    patch_row(gametype, 'remove', child=GTE + 'playlist_edit_indicators_item')
-    patch_row(gametype, after=GTE + 'playlist_edit_items_list_item', pitch=COMFORTABLE_PITCH,
-              name='gametype_item_vehicles', text='VEHICLES',
-              open='xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen',
-              picture='bitmap:xbox/pictures/gametype', description='Which vehicles are on the map.')
     return root
 
 
@@ -2324,8 +2400,6 @@ def screen_pairs():
                   'main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen'))
     pairs.append(('pc/xbox/main_menu/quit_select/quit_screen', 'main_menu/quit_select/quit_screen'))
     pairs.append(('pc/xbox/error/confirm_join_big_modal_fullscreen', 'error/confirm_join_big_modal_fullscreen'))
-    pairs.append(('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen',
-                  'main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen'))
     return [(x.replace('/', '\\'), ('pc/' + pc).replace('/', '\\')) for x, pc in pairs]
 
 
@@ -2347,7 +2421,13 @@ SCREEN_ALWAYS = (('ui/shell/' + MP + '/connected/connected_map_select_wrapper',
     # (the game's own list of the five gametypes, "step 1": GAME OPTIONS holds the same five TYPE rows, so
     # whatever still asks for the list, as SERVER SETUP's GAME TYPE row does, gets that page)
     ('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_screen',
-     'pc/xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen'),) + tuple(
+     'pc/xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen'),
+    # (the game's gametype editor, and CREATE NEW's screen, which holds only that editor as its child: ours has
+    # its rows as tall picture rows, GAME OPTIONS in GAME TYPE's place)
+    ('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen',
+     'pc/' + GAMETYPE_EDIT_SCREEN),
+    ('ui/shell/main_menu/settings_select/multiplayer_setup/create_and_edit_new_gametype_screen',
+     'pc/' + GAMETYPE_EDIT_SCREEN),) + tuple(
     (f'ui/shell/error/{name}', f'pc/xbox/error/{name}')
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS + ('confirm_delete_profile_modal_fullscreen',
                                                       'confirm_delete_gametype_modal_fullscreen'))
@@ -2401,6 +2481,11 @@ def is_option_row(row):
     return row is not None and row.get('bitmap', '').rsplit('/', 1)[-1] in ('option_bkds', 'option_bkds_sm')
 
 
+def is_picture_row(row):
+    """A list child drawn as a picture-list row (the list_item_bkd art of lists with a picture panel beside them)."""
+    return row is not None and row.get('bitmap', '').rsplit('/', 1)[-1] in ('list_item_bkd', 'list_item_bkd_top')
+
+
 def is_option_list(options, widgets):
     """A generated column list of option rows, not exempted."""
     # (a bar of buttons side by side, left_right_tabs_items, is not a list of rows)
@@ -2419,8 +2504,7 @@ def density_rows(options, widgets):
                  or ((options.get('name') in OPTION_LIST_LAYOUTS or option_list)
                      and '/scroll_' not in c.get('widget') and 'button_bar' not in c.get('widget')
                      and int(c.get('y')) < LEGEND_Y)
-                 or (options.get('name') == 'xbox/settings/settings_list'
-                     and '/scroll_' not in c.get('widget'))
+                 or (is_picture_row(widgets.get(c.get('widget'))) and '/scroll_' not in c.get('widget'))
                  or (options.get('name', '').startswith('xbox/settings/')
                      and options.get('name', '').endswith('/options_menu')
                      and 'button_bar' not in c.get('widget') and '/scroll_' not in c.get('widget')))]
@@ -2540,10 +2624,10 @@ def apply_density(documents, pitch, bitmaps, settings=False):
                         if int(c.get('y')) >= first + fit * row_pitch:
                             options.remove(c)
                 options.attrib.pop('visible_rows', None)
-                if options.get('name') == 'xbox/settings/settings_list':
+                platforms = {c.get('platform') for c in placements}
+                if any(platforms) and all(is_picture_row(widgets.get(c.get('widget'))) for c in placements):
                     # Pack platform-filtered rows even when every row fits: the window is the most rows one
                     # platform shows, and a row and its '!platform' twin never show together.
-                    platforms = {c.get('platform') for c in placements}
                     twins = sum(1 for p in platforms if p and p.startswith('!') and p[1:] in platforms)
                     options.set('visible_rows', str(len(placements) - twins))
                 elif browser:
@@ -2585,6 +2669,7 @@ def generate(assets=MENUS):
     names = set()
     documents = {f'settings.{page}.xml': settings_page(assets, page, names) for page in PAGES}
     documents['settings.xml'] = settings_hub(names, assets)
+    documents['main_menu.settings_select.multiplayer_setup.playlist_edit.xml'] = gametype_editor(names)
     # Keyboard and mouse form one entry from the hub and profile edit screen.
     keyboard = documents['settings.controls_setup.xml']
     base = 'xbox/settings/controls_setup'

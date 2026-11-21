@@ -133,12 +133,6 @@ def test_profile_edit_drops_the_empty_button_bar():
     assert any(child.endswith("profile_edit_button_bar") for child in removed)
 
 
-def test_gametype_delete_is_tvos_only():
-    patch = next(p for p in table() if p.get("screen").endswith("gametype_edit_screen"))
-    (row,) = [r for r in rows(patch) if r.get("text") == "DELETE GAMETYPE"]
-    assert row.get("platform") == "tvos"
-
-
 def test_in_game_help_is_added_to_advanced_setup():
     patch = next(p for p in table() if p.get("screen").endswith("advanced_controls_screen"))
     added = [r for r in rows(patch) if r.get("widget")]
@@ -225,9 +219,13 @@ def test_every_patch_has_an_explicit_footer():
 
 def test_delete_confirmations_finish_both_edit_flows():
     widgets = {w.get('name'): w for path in MENUS.glob('*.xml') for w in ET.parse(path).getroot().iter('widget')}
+    # (the rows that ask to delete: the profile page's patch row, and the generated gametype editor's row)
+    deletes = [row for patch in table() for row in rows(patch) if row.get('run') == 'port delete request']
+    deletes += [on for w in widgets.values() for on in w.findall('on')
+                if on.get('event') == 'a' and on.get('run') == 'port delete request']
     for kind in ('profile', 'gametype'):
-        row = next(row for patch in table() for row in rows(patch)
-                   if row.get('name') == ('profile_item_delete' if kind == 'profile' else 'gametype_item_delete'))
+        (row,) = {row.get('open'): row for row in deletes
+                  if row.get('open') == f'xbox/error/confirm_delete_{kind}_modal_fullscreen'}.values()
         modal = widgets[row.get('open')]
         for event in ('b', 'back'):
             cancel = modal.find(f'on[@event="{event}"]')
@@ -290,24 +288,6 @@ def test_back_from_a_screen_opened_in_the_hub_flow_reaches_the_screen_below():
     for target in opened:
         name = "pc\\" + target.replace("/", "\\")
         assert any(name.startswith(p) for p in prefixes), f"BACK from {target} would leave the hub flow"
-
-
-def test_gametype_editor_has_one_game_options_row_that_reaches_every_rules_page():
-    """GAME OPTIONS (the disc's game type row) opens the shared game settings page and there is no GAME row; that
-    page's TYPE row for each gametype opens its rules page, so no gametype's rules are unreachable."""
-    patch = next(p for p in table() if p.get("screen").endswith("gametype_edit_screen"))
-    texts = [r.get("text") for r in rows(patch)]
-    assert "GAME" not in texts
-    (row,) = [r for r in rows(patch) if r.tag == "replace" and r.get("child").endswith("playlist_edit_game_type_item")]
-    page = row.get("open")
-    assert page.endswith("game_options_edit/game_options_screen")
-    opened = set()
-    for path in MENUS.glob("main_menu.multiplayer_type_select.game_options_edit.xml"):
-        for widget in ET.parse(path).getroot().iter("widget"):
-            if widget.get("name", "").rsplit("/", 1)[-1].startswith("op_type_"):
-                opened.update(h.get("open") for h in widget.iter("on") if h.get("event") == "a")
-    for engine in ("ctf", "koth", "slayer", "oddball", "race"):
-        assert any(o and o.endswith(f"playlist_edit/{engine}_edit/{engine}_options_screen") for o in opened), engine
 
 
 def patched_row_widgets():

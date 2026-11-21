@@ -691,6 +691,42 @@ as_specified = "AS SPECIFIED"
 [xbox.main_menu_settings_select_multiplayer_setup_player_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_player_options_edit_respawn_label]
 text = "RESPAWN"
 
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_accept]
+text = "SELECT"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_cancel]
+text = "CANCEL"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_delete]
+text = "DELETE GAMETYPE"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_descriptions]
+rename_this_gametype_using_nthe__b046da = "Rename this gametype using\\nthe virtual keyboard.\\n\\n\\nThis gametype:"
+specify_the_type_of_game_you_nwa_654e47 = "Specify the type of game you\\nwant to play and the rules\\nthat apply to it.\\n\\nThis gametype:"
+choose_the_player_settings_and_n_66d1f6 = "Choose the player settings and\\nrestrictions that apply to\\nthis gametype.\\n\\nThis gametype:"
+choose_the_weapons_vehicles_nand_5bae0c = "Choose the weapons, vehicles\\nand other items that appear in\\nthis gametype.\\n\\nThis gametype:"
+which_vehicles_are_on_the_map_n__8a41a1 = "Which vehicles are on the map.\\n\\n\\n\\nThis gametype:"
+save_changes_you_ve_made_to_nthi_3cc1a0 = "Save changes you've made to\\nthis gametype and return to\\nthe previous screen.\\n\\nThis gametype:"
+delete_this_gametype_n_n_n_nthis_1b4626 = "Delete this gametype.\\n\\n\\n\\nThis gametype:"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_game_options]
+text = "GAME OPTIONS"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_item_options]
+text = "ITEM OPTIONS"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_name]
+text = "CHANGE NAME"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_player_options]
+text = "PLAYER OPTIONS"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_save]
+text = "SAVE CHANGES"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_vehicles]
+text = "VEHICLES"
+
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_legend_back]
 text = "BACK"
 
@@ -1428,17 +1464,6 @@ this_game_allows_more_nplayers_t_33cd0c = "This game allows more\\nplayers than 
 [xbox.multiplayer_shared.xbox_strings_var_boolean]
 no = "NO"
 yes = "YES"
-
-[xbox.patches.gametype_item_delete]
-text = "DELETE GAMETYPE"
-description = "Delete this gametype."
-
-[xbox.patches.gametype_item_game]
-text = "GAME OPTIONS"
-
-[xbox.patches.gametype_item_vehicles]
-text = "VEHICLES"
-description = "Which vehicles are on the map."
 
 [xbox.patches.multiplayer_type_internet]
 text = "INTERNET"

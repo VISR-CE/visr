@@ -30,7 +30,6 @@ static char const *const menu_screen_pairs[][2] = {
 	{"pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen", "pc\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen"},
 	{"pc\\xbox\\main_menu\\quit_select\\quit_screen", "pc\\main_menu\\quit_select\\quit_screen"},
 	{"pc\\xbox\\error\\confirm_join_big_modal_fullscreen", "pc\\error\\confirm_join_big_modal_fullscreen"},
-	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\gametype_edit_screen", "pc\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\gametype_edit_screen"},
 };
 static char const *const menu_screen_replaced[][2] = {
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen"},
@@ -45,6 +44,8 @@ static char const *const menu_screen_always[][2] = {
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\race_edit\\race_options_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\race_edit\\race_options_screen"},
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\slayer_edit\\slayer_options_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\slayer_edit\\slayer_options_screen"},
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\game_type_select\\gametype_select_screen", "pc\\xbox\\main_menu\\multiplayer_type_select\\game_options_edit\\game_options_screen"},
+	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\gametype_edit_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\gametype_edit_screen"},
+	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\create_and_edit_new_gametype_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\gametype_edit_screen"},
 	{"ui\\shell\\error\\error_modal_fullscreen", "pc\\xbox\\error\\error_modal_fullscreen"},
 	{"ui\\shell\\error\\error_modal_halfscreen", "pc\\xbox\\error\\error_modal_halfscreen"},
 	{"ui\\shell\\error\\error_modal_qtrscreen", "pc\\xbox\\error\\error_modal_qtrscreen"},

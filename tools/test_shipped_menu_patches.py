@@ -74,7 +74,7 @@ def test_shipped_patches_resolve():
     for patch in ET.parse(PATCHES).getroot().iter("patch"):
         checked += 1
         errors += check_patch(layout, patch)
-    assert checked >= 6
+    assert checked >= 5
     assert not errors, "\n".join(errors)
 
 

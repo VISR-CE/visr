@@ -1651,7 +1651,7 @@ def test_layout_kinds_control_help_rows_and_panels(density):
             placed = module.density_rows(options, widgets)
             if spec['kind'] == 'K2-A':
                 placed = [c for c in options.findall('child') if '/scroll_' not in c.get('widget')
-                          and c.get('widget') in widgets and (name == 'xbox/settings/settings_screen'
+                          and c.get('widget') in widgets and (module.is_picture_row(widgets[c.get('widget')])
                                                               or 'list_item_' in c.get('widget'))]
             ys = sorted({int(c.get('y')) for c in placed})
             pitch = spec.get('row_pitch', kind.get('row_pitch'))
@@ -1933,3 +1933,83 @@ def test_panel_frames_fit_their_panels():
         assert abs(width * module.FIELD_ART[0] / module.FIELD_PNG - spec['panel'][2]) < 0.5
         assert abs(height * module.FIELD_ART[1] / module.FIELD_PNG - spec['panel'][3]) < 0.5
         assert module.PANEL_BITMAPS[key].endswith('/list_field')
+
+
+def gametype_editor():
+    """(module, the generated gametype editor's widgets by name, its list)"""
+    module = generator()
+    document = ET.parse(MENUS / 'xbox/main_menu.settings_select.multiplayer_setup.playlist_edit.xml').getroot()
+    widgets = {w.get('name'): w for w in document.iter('widget')}
+    screen = widgets[module.GAMETYPE_EDIT_SCREEN]
+    (options,) = [widgets[c.get('widget')] for c in screen.findall('child')
+                  if widgets.get(c.get('widget'), ET.Element('x')).get('type') == 'column_list']
+    return module, widgets, options
+
+
+def test_the_game_s_gametype_editor_and_create_new_open_the_generated_one():
+    """The game's editor and CREATE NEW's screen (which holds only that editor) both open ours, on every
+    platform, so the game's rows (GAME TYPE, INDICATOR OPTIONS) are never shown."""
+    module = generator()
+    always = {source: target for source, target in module.SCREEN_ALWAYS}
+    disc = 'ui/shell/main_menu/settings_select/multiplayer_setup/'
+    for source in (disc + 'playlist_edit/gametype_edit_screen', disc + 'create_and_edit_new_gametype_screen'):
+        assert always[source] == 'pc/' + module.GAMETYPE_EDIT_SCREEN
+
+
+def test_gametype_editor_has_one_game_options_row_that_reaches_every_rules_page():
+    """GAME OPTIONS (the game's GAME TYPE row, its picture and description kept) opens the shared game settings
+    page and there is no GAME row; that page's TYPE row for each gametype opens its rules page, so no gametype's
+    rules are unreachable."""
+    module, widgets, options = gametype_editor()
+    rows = [widgets[c.get('widget')] for c in options.findall('child')]
+    texts = [r.get('text') for r in rows]
+    assert 'GAME' not in texts and texts.count('GAME OPTIONS') == 1
+    row = rows[texts.index('GAME OPTIONS')]
+    page = {on.get('open') for on in row.findall('on') if on.get('event') in ('a', 'start')}
+    assert page == {'xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen'}
+    # (the game's GAME TYPE row's picture and description: frame and string 1 of its lists)
+    (entry,) = [e for e in module.GAMETYPE_EDIT_ROWS if e[1] == 'GAME OPTIONS']
+    assert entry[5] == (module.GAMETYPE_OPTIONS_PICTURES, 1) and entry[6].startswith('Specify the type of game')
+    opened = set()
+    for widget in ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.game_options_edit.xml').getroot().iter(
+            'widget'):
+        if widget.get('name', '').rsplit('/', 1)[-1].startswith('op_type_'):
+            opened.update(h.get('open') for h in widget.iter('on') if h.get('event') == 'a')
+    for engine in ('ctf', 'koth', 'slayer', 'oddball', 'race'):
+        assert any(o and o.endswith(f'playlist_edit/{engine}_edit/{engine}_options_screen') for o in opened), engine
+
+
+def test_gametype_editor_panel_follows_the_rows_on_every_platform():
+    """The description update shows string and frame N for the Nth row shown, so the descriptions and pictures are
+    filtered by the same platforms as the rows, in the same order, and each row runs the game's handler it had
+    (rename, save) or the port's (delete)."""
+    module, widgets, options = gametype_editor()
+    document = ET.parse(MENUS / 'xbox/main_menu.settings_select.multiplayer_setup.playlist_edit.xml').getroot()
+    strings = document.find(f"strings[@name='{module.GAMETYPE_EDIT}/descriptions']")
+    pictures = document.find(f"bitmap[@name='{module.GAMETYPE_EDIT}/pictures']")
+    children = options.findall('child')
+    assert [c.get('platform') for c in children] == [s.get('platform') for s in strings] == [
+        f.get('platform') for f in pictures]
+    assert len(children) == len(module.GAMETYPE_EDIT_ROWS) == 7
+    assert [c.get('platform') for c in children].count('tvos') == 1  # (DELETE GAMETYPE)
+    runs = {widgets[c.get('widget')].get('text'): {on.get('run') for on in widgets[c.get('widget')].findall('on')}
+            for c in children}
+    assert runs['CHANGE NAME'] == {'mp profile change name'}
+    assert runs['SAVE CHANGES'] == {'mp profile save changes'}
+    assert runs['DELETE GAMETYPE'] == {'port delete request'}
+    screen = widgets[module.GAMETYPE_EDIT_SCREEN]
+    assert screen.find("on[@event='created']").get('run') == 'close if not editing profile'
+    # (every description ends on the line the gametype's name sits beside)
+    assert all(s.get('text').endswith('This gametype:') and s.get('text').count('\\n') == 4 for s in strings)
+
+
+def test_gametype_editor_rows_are_tall_picture_rows():
+    """The rows are the standard tall picture row (the row_36 art, 39 units apart), as the settings hub's are."""
+    module, widgets, options = gametype_editor()
+    children = options.findall('child')
+    ys = [int(c.get('y')) for c in children]
+    assert ys == [ys[0] + i * 39 for i in range(len(ys))]
+    for c in children:
+        row = widgets[c.get('widget')]
+        assert row.get('height') == '39' and row.get('row') == 'tall', row.get('name')
+        assert row.get('bitmap').startswith('xbox/bitmaps/row_36/list_item_bkd'), row.get('bitmap')
