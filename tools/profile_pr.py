@@ -249,7 +249,8 @@ def strip_keys(text, keys):
         if setting and f"{section}/{setting[1]}" in names:
             table["lost"] = True
             continue
-        if setting and table:
+        if table and not header and line.strip():
+            # (anything left in the table, a comment or a key of another shape too, keeps its header)
             table["kept"] = True
         lines.append(line)
     close()

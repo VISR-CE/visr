@@ -2239,6 +2239,28 @@ static const char *const config_variable_keys[] =
 #undef PROFILE_EXTERNAL
 };
 
+/* those of them it may set for that context alone (PROFILE_VARIABLE_ONLY): the predictable workload keeps its own */
+static const char *const config_variable_only_keys[] =
+{
+#define PROFILE_BOOLEAN(name)
+#define PROFILE_INTEGER(name, minimum, maximum)
+#define PROFILE_REAL(name, minimum, maximum)
+#define PROFILE_STRING(name, choices)
+#define PROFILE_SCENE(name)
+#define PROFILE_VARIABLE(name)
+#define PROFILE_VARIABLE_ONLY(name) name,
+#define PROFILE_EXTERNAL(name)
+#include "port_profile_keys.h"
+#undef PROFILE_BOOLEAN
+#undef PROFILE_INTEGER
+#undef PROFILE_REAL
+#undef PROFILE_STRING
+#undef PROFILE_SCENE
+#undef PROFILE_VARIABLE
+#undef PROFILE_VARIABLE_ONLY
+#undef PROFILE_EXTERNAL
+};
+
 static const struct
 {
 	const char *name;
@@ -3149,8 +3171,7 @@ static void config_profile_load_text(const char *line, int point, int networked)
 			config_set_from_profile_text(&config_states[index].variable_value, config_settings[index].type, fields[1]);
 			continue;
 		}
-		/* (a setting of the variable workload alone, port_profile_keys.h: the predictable workload keeps its own) */
-		if (!strcmp(fields[0], "display.effect_limits"))
+		if (config_name_in(fields[0], config_variable_only_keys, sizeof(config_variable_only_keys) / sizeof(config_variable_only_keys[0])))
 		{
 			platform_log("settings: the device profile sets %s outside the variable workload, which it cannot; ignored", fields[0]);
 			continue;

@@ -56,7 +56,10 @@ maps, anti-aliasing), which scene classes may not. display.dynamic_resolution
 and its floor follow it through the host (host_dynamic_resolution_scene);
 display.render_height is dynamic resolution's ceiling in both contexts.
 
-display.effect_limits is valid in the variable context alone: a profile may
+PROFILE_VARIABLE_ONLY names a setting a profile may set for the variable
+workload and nowhere else: not as its own (predictable) value, not for a
+scene class and not by output. An includer that does not define it gets
+PROFILE_VARIABLE for those names. display.effect_limits is one: a profile may
 give multiplayer and the other variable workloads the Xbox's decal set and
 split-screen particle share, and single-player campaign always keeps the
 setting's own value. It is read as a map loads (decals.c), after the map's
@@ -118,7 +121,15 @@ PROFILE_VARIABLE("display.anti_aliasing")
 PROFILE_VARIABLE("display.shadow_map_size")
 PROFILE_VARIABLE("display.dynamic_resolution")
 PROFILE_VARIABLE("display.dynamic_resolution_floor")
-PROFILE_VARIABLE("display.effect_limits")
+#ifndef PROFILE_VARIABLE_ONLY
+#define PROFILE_VARIABLE_ONLY(name) PROFILE_VARIABLE(name)
+#define PROFILE_VARIABLE_ONLY_IS_VARIABLE
+#endif
+PROFILE_VARIABLE_ONLY("display.effect_limits")
+#ifdef PROFILE_VARIABLE_ONLY_IS_VARIABLE
+#undef PROFILE_VARIABLE_ONLY
+#undef PROFILE_VARIABLE_ONLY_IS_VARIABLE
+#endif
 
 PROFILE_EXTERNAL("display.output_height")
 PROFILE_EXTERNAL("display.render_height")

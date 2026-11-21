@@ -129,14 +129,11 @@ assert problems(VARIABLE.replace("shadow_map_size = 128\n", 'shadow_map_size = 1
 refused(GOOD.replace("[display]\n", '[display]\neffect_limits = "xbox"\n', 1), "display.effect_limits is valid only in [variable.display]")
 refused(SCENE.replace("render_scale = 0.75", 'render_scale = 0.75\neffect_limits = "xbox"'), "valid only in [variable.display]")
 refused(VARIABLE.replace("shadow_map_size = 128\n", 'shadow_map_size = 128\neffect_limits = "half"\n', 1) + LIMITS, "effect_limits")
-# (and the two validators in the app say the same: the host's and the game's)
-ROOT = Path(__file__).resolve().parents[1]
-for name in profile_check.VARIABLE_ONLY:
-    assert name in profile_check.variable_keys()
-    host = (ROOT / "port/ios/host/host_profile.c").read_text()
-    game = (ROOT / "port/linux/src/port_config.c").read_text()
-    assert f'!strcmp(value.name, "{name}") && !(scene && !strcmp(scene, "variable"))' in host, name
-    assert f'if (!strcmp(fields[0], "{name}"))' in game, name
+# (every such setting is a variable-context setting; the app's validators read the same list: profile_probe.c and
+# config_origins_probe.c test what they do with it)
+assert profile_check.variable_only_keys() == {"display.effect_limits"} <= profile_check.variable_keys()
+assert profile_check.variable_only_keys('PROFILE_VARIABLE("a.b")\nPROFILE_VARIABLE_ONLY("c.d")\n') == {"c.d"}
+assert profile_check.variable_keys('PROFILE_VARIABLE("a.b")\nPROFILE_VARIABLE_ONLY("c.d")\n') == {"a.b", "c.d"}
 refused(GOOD + "[split.2.display]\nrender_scale = 0.5\n", "split.2 is not a setting")
 
 refused(SCENE.replace("[scene.menu.display]", "[scene.gameplay.display]"), 'scene class "gameplay"')

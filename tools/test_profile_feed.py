@@ -29,11 +29,11 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "b46b9985d4a78c4952cf42470f592e54963935d45c6331af098b0e8dec56154c"}
+                   5: "21d0d87c48e80f1dabf124c42a3375dfa6113fdfba3b642d8a471c893ba34e15"}
 
 
 def key_table_sha256(text):
-    lines = [" ".join(line.split()) for line in text.splitlines() if re.fullmatch(r"PROFILE_[A-Z]+\(.*\)\s*", line)]
+    lines = [" ".join(line.split()) for line in text.splitlines() if re.fullmatch(r"PROFILE_[A-Z_]+\(.*\)\s*", line)]
     return hashlib.sha256(("\n".join(lines) + "\n").encode()).hexdigest()
 
 
@@ -248,6 +248,10 @@ def test_stripping_a_table_of_its_only_setting_removes_the_table():
     # (a table that keeps another setting stays, and one that never held the key is untouched even when empty)
     kept = '[variable.display]\nshadow_map_size = 128\neffect_limits = "xbox"\n\n[variable.other]\n'
     assert profile_pr.strip_keys(kept, ("display.effect_limits",)) == "[variable.display]\nshadow_map_size = 128\n\n[variable.other]\n"
+    # (so does one that keeps a comment, a quoted key or a dotted key: without its header those would join the table before)
+    for rest in ("# why\n", '"quoted key" = 1\n', "dotted.key = 1\n"):
+        text = '[display]\nrender_height = 900\n\n[variable.display]\neffect_limits = "xbox"\n' + rest
+        assert profile_pr.strip_keys(text, ("display.effect_limits",)) == "[display]\nrender_height = 900\n\n[variable.display]\n" + rest
 
 
 def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):

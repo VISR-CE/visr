@@ -807,6 +807,23 @@ static void check_variable(void)
 		!strcmp(value, "true"));
 	assert(!host_profile_scene_value(&profile, "display.render_height", "variable", value, sizeof(value)));
 	snprintf(path, sizeof(path), "%s/variable.toml", folder); unlink(path);
+	/* a PROFILE_VARIABLE_ONLY setting (display.effect_limits): the variable context's value is carried; as the
+	profile's own value or a scene class's it is refused and named, and the rest of the profile stands */
+	write_file("variable.toml", "schema = 1\nname = \"Variable\"\nkind = \"model\"\n[match]\nplatform = \"ios\"\n"
+		"models = [\"Variable1,1\"]\n[display]\nrender_height = 1080\neffect_limits = \"xbox\"\n"
+		"[scene.menu.display]\neffect_limits = \"xbox\"\n"
+		"[variable.display]\neffect_limits = \"xbox\"\n");
+	logged[0] = 0;
+	profile = resolve(folder, device("ios", "Variable1,1", "", 5), NULL, "");
+	host_profile_encode(&profile, encoded, sizeof(encoded));
+	assert(strstr(encoded, "display.effect_limits\txbox\tmodel Variable\tvariable\n"));
+	assert(!strstr(encoded, "display.effect_limits\txbox\tmodel Variable\n") &&
+		!strstr(encoded, "display.effect_limits\txbox\tmodel Variable\tmenu\n"));
+	assert(strstr(logged, "display.effect_limits can be set for the variable workload only; ignored"));
+	assert(!has(&profile, "display.effect_limits", "xbox") && has(&profile, "display.render_height", "1080"));
+	assert(host_profile_scene_value(&profile, "display.effect_limits", "variable", value, sizeof(value)) && !strcmp(value, "xbox"));
+	assert(!host_profile_scene_value(&profile, "display.effect_limits", "menu", value, sizeof(value)));
+	snprintf(path, sizeof(path), "%s/variable.toml", folder); unlink(path);
 }
 
 static void check_and_newer(void)
