@@ -48,7 +48,8 @@ def test_shared_layout_geometry_is_used():
         root = ET.parse(MENUS / f'xbox/settings.{page}.xml')
         screen = root.find('widget')
         # (the bar is declared; the engine places it in the shared slots, menu_geometry.h)
-        assert bar_actions(screen) == {'b': 'back', 'a': 'select'}, page
+        assert bar_actions(screen) == ({'b': 'back', 'a': 'select'} if page == 'about' else
+                                       {'x': 'global', 'b': 'back', 'a': 'select'}), page
         assert not [c for c in screen.findall('child') if c.get('widget').endswith('_butn')], page
 
 
@@ -104,8 +105,10 @@ def test_settings_keep_pc_values_and_handlers():
         retained = {e.get('run') for e in source.iter('on') if e.get('run')} - {
             'port settings save', 'port settings defaults',
             'controls screen change set',
-            'controls screen defaults', 'controls screen init'}
-        assert retained <= {e.get('run') for e in output.iter('on') if e.get('run')}
+            'controls screen defaults', 'controls screen init',
+            'mouse emit accept event'}  # (the PC page's button click: a bar action takes clicks by its slot)
+        assert retained <= {e.get('run') for e in output.iter('on') if e.get('run')} | {
+            action.get('run') for action in output.iter('action') if action.get('run')}
         assert {'b': 'back', 'a': 'select'}.items() <= bar_actions(output.find('widget')).items(), folder
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
     video = ET.parse(MENUS / 'xbox/settings.video_settings.xml')
@@ -142,17 +145,16 @@ def test_settings_apply_without_save_and_offer_defaults_on_x():
         widgets = {w.get('name'): w for w in root.iter('widget')}
         screen = root.find('widget')
         assert not any(w.get('text') == 'SAVE' for w in widgets.values())
-        assert screen.find('on[@event="x"][@run]') is not None
+        defaults = screen.find("bar/action[@slot='x']")
+        assert defaults.get('scope') == 'global' and defaults.get('text') == 'DEFAULTS' and defaults.get('run')
         for event in ('b', 'back'):
             assert screen.find(f'on[@event="{event}"][@back="true"]') is not None
         captions = {w.get('text') for w in widgets.values() if w.get('type') == 'text'}
         captions |= {action.get('text') for action in screen.iterfind('bar/action')}
         assert {'SELECT', 'DEFAULTS', 'BACK'} <= captions
         assert not any(text and '=' in text for text in captions)
-        defaults = next(w for n, w in widgets.items() if n.endswith('/button_defaults'))
-        assert defaults.find('on[@event="left_mouse"]') is not None
-        assert defaults.find('on[@event="a"][@run]').get('run') == screen.find('on[@event="x"]').get('run')
-        assert any(w.get('bitmap') == 'xbox/browser/x_butn' for w in widgets.values())
+        # (the bar's X runs on the key, a click and a tap alike: no second handler on the screen)
+        assert screen.find('on[@event="x"]') is None
         for spinner in root.iter('widget'):
             if not spinner.get('setting'):
                 continue
@@ -945,29 +947,24 @@ def test_merged_rows_and_bindings():
                    for name in ('op_ally_friendly_fire', 'op_enemies_per_player', 'op_enemies_multiplier'))
 
 
-def test_settings_legends_have_global_button_bindings():
-    module = generator()
+def test_settings_bars_offer_defaults_on_x_and_no_focusable_buttons():
+    """Bug class: a screen-wide action built as a focusable list item (DEFAULTS was a row of the options list, so the
+    d-pad stopped on it and touch drew no pill). Every settings page declares X DEFAULTS as a global bar action, and
+    no button row is left in its options list."""
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':
             continue
         root = ET.parse(path).getroot()
         widgets = {w.get('name'): w for w in root.iter('widget')}
-        screen = next(w for name, w in widgets.items() if name.endswith('_screen'))
-        # (each change applies and saves as it is made: X DEFAULTS is the bar's only action)
-        assert not any(name.endswith('/button_ok') for name in widgets), path
+        screen = root.find('widget')
+        # (each change applies and saves as it is made: no SAVE, no Y)
+        assert not any(name.endswith(('/button_ok', '/button_defaults', '/button_bar')) for name in widgets), path
         assert screen.find('on[@event="y"]') is None, path
-        for button, target in (('x', 'button_defaults'),):
-            action = next(w for name, w in widgets.items() if name.endswith('/' + target))
-            handler = action.find(f'on[@event="{button}"]')
-            assert handler is not None, (path, button)
-            global_handler = screen.find(f'on[@event="{button}"]')
-            assert global_handler is not None
-            assert global_handler.get('run') == handler.get('run')
-            assert global_handler.get('back') == handler.get('back')
-            assert any(name.endswith('/' + button + '_butn') for name in widgets)
-            for event in ('a', 'start'):
-                assert action.find(f'on[@event="{event}"]').get('run') == handler.get('run')
-
+        assert bar_actions(screen) == {'x': 'global', 'b': 'back', 'a': 'select'}, path
+        run = screen.find("bar/action[@slot='x']").get('run')
+        assert run in ('port settings defaults apply', 'port controls defaults'), path
+        assert not [c for w in widgets.values() for c in w.findall('child')
+                    if c.get('widget').rsplit('/', 1)[-1] in ('button_bar', 'button_defaults', 'button_ok')], path
 
 def test_generated_menu_text_and_names_do_not_contain_equals():
     for path in (MENUS / 'xbox').glob('*.xml'):
@@ -1040,7 +1037,7 @@ def test_legend_touch_rectangles_fit_without_overlapping():
             count += 1
     # (the placed legends left; declared bars are placed by the engine and checked by
     # test_declared_bar_captions_fit_their_slots and the touch legend probe)
-    assert count > 20
+    assert count > 10
 
 
 def test_declared_bar_captions_fit_their_slots():
@@ -1068,20 +1065,6 @@ def test_declared_bar_captions_fit_their_slots():
     bounds = [menu_geometry.BAR_SLOT_BOUNDS[slot] for slot in 'xyba']
     assert all(left[1] + menu_geometry.BAR_GAP <= right[0] for left, right in zip(bounds, bounds[1:]))
     assert bounds[0][0] >= 0 and bounds[-1][1] <= 640
-
-
-def test_settings_footer_focus_only_visits_actions():
-    module = generator()
-    for path in (MENUS / 'xbox').glob('settings.*.xml'):
-        if path.name == 'settings.about.xml':
-            continue
-        widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
-        bar = next(w for name, w in widgets.items() if name.endswith('/button_bar'))
-        assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults']
-        for placement in bar.findall('child'):
-            action = widgets[placement.get('widget')]
-            assert action.find('on[@event="a"]') is not None
-            assert len(action.findall('child')) == 2
 
 
 def test_every_legend_button_has_a_key_and_action():
@@ -1217,7 +1200,7 @@ def test_graphics_screen_applies_each_change_with_the_modes_help():
     base = 'xbox/settings/graphics'
     options = widgets[f'{base}/options_menu']
     assert [c.get('widget').rsplit('/', 1)[-1] for c in options.findall('child')] == [
-        'op_graphics', 'op_crt_effect', 'button_bar']
+        'op_graphics', 'op_crt_effect']
     # the CRT effect is an Apple setting, shown by the game only while the mode row shows Hardcore
     assert options.findall('child')[1].get('platform') == 'apple'
     mode = widgets[f'{base}/graphics_spinner']
@@ -1244,8 +1227,8 @@ def test_graphics_screen_applies_each_change_with_the_modes_help():
     # each change applies as it is made, as on the other settings screens: B just leaves, X restores the defaults
     screen = widgets[f'{base}/graphics_screen']
     assert screen.find('on[@event="b"]').get('back') == 'true'
-    assert screen.find('on[@event="x"]').get('run') == 'port settings defaults apply'
-    assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' in widgets
+    assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' not in widgets
+    assert screen.find("bar/action[@slot='x']").get('run') == 'port settings defaults apply'
     assert screen.find("bar/action[@slot='b']").get('text') == 'BACK'
     for spinner in (mode, crt):
         assert spinner.find('on[@event="left"][@run="port setting changed"]') is not None

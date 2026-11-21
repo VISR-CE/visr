@@ -6,8 +6,8 @@
 		<on event="back" back="true" />
 		<child widget="xbox/settings/mouse_settings/header_profile_mouse_settings" />
 		<child widget="xbox/settings/mouse_settings/options_menu" />
-		<on event="x" run="port settings defaults apply" />
 		<bar>
+			<action slot="x" scope="global" text="DEFAULTS" text_id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_settings_screen_bar_x.text" run="port settings defaults apply" />
 			<action slot="b" scope="back" text="BACK" text_id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_settings_screen_bar_b.text" focus="true" />
 			<action slot="a" scope="select" text="SELECT" text_id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_settings_screen_bar_a.text" focus="true" />
 		</bar>
@@ -23,7 +23,6 @@
 		<child widget="xbox/settings/mouse_settings/op_invert_mouse" x="54" y="151" />
 		<child widget="xbox/settings/mouse_settings/op_mouse_aim_assist" x="54" y="190" />
 		<child widget="xbox/settings/mouse_settings/op_direct_camera" x="54" y="229" platform="desktop" />
-		<child widget="xbox/settings/mouse_settings/button_bar" y="414" />
 	</widget>
 	<widget name="xbox/settings/mouse_settings/op_mouse_sensitivity" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/mouse_settings/mouse_sensitivity_label" y="5" />
@@ -112,17 +111,4 @@
 		<string text="Slow and drag the view along with a target while\naiming with the mouse, as with a controller." id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings.slow_and_drag_the_view_along_wit_ccedca" />
 		<string text="In first person, turn the view the moment the\nmouse moves, not up to two ticks later." id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings.in_first_person_turn_the_view_th_17a6eb" />
 	</strings>
-	<widget name="xbox/settings/mouse_settings/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
-		<child widget="xbox/settings/mouse_settings/button_defaults" x="40" />
-	</widget>
-	<widget name="xbox/settings/mouse_settings/button_defaults" width="153" height="26">
-		<child widget="xbox/settings/mouse_settings/x_butn" />
-		<child widget="xbox/settings/mouse_settings/button_defaults_caption" x="22" />
-		<on event="a" run="port settings defaults apply" />
-		<on event="start" run="port settings defaults apply" />
-		<on event="x" run="port settings defaults apply" />
-		<on event="left_mouse" run="mouse emit accept event" />
-	</widget>
-	<widget name="xbox/settings/mouse_settings/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/settings/mouse_settings/button_defaults_caption" type="text" text="DEFAULTS" text_id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_button_defaults_caption.text" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
 </menus>

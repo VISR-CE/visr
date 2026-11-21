@@ -244,7 +244,7 @@ def bar(screen, actions):
 
 
 def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None, buttons=None,
-           declared=True):
+           declared=True, extra=()):
     """A/B icons post buttons to the current focus, as the Xbox legend does.
 
     A plain SELECT/BACK legend is a declared bar (`bar`); declared=False keeps the placed glyphs and captions for
@@ -252,8 +252,9 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform
     """
     hosting = screen.get('name').endswith('/server_settings_screen')
     if declared and buttons is None and not hosting and not accept_platform:
-        bar(screen, [(slot, scope, label, {'focus': 'true'})
-                     for slot, scope, label in (('b', 'back', cancel), ('a', 'select', accept)) if label is not None])
+        bar(screen, list(extra) + [(slot, scope, label, {'focus': 'true'})
+                                   for slot, scope, label in (('b', 'back', cancel), ('a', 'select', accept))
+                                   if label is not None])
         return
     if buttons is None:
         buttons = [('b', 'cancel', cancel), ('a', 'accept', accept)]
@@ -301,25 +302,15 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform
 
 
 def footer(root, base, defaults):
-    # X is a screen-level shortcut, so it works while an option row is focused.
-    # Each change applies and saves as it is made, so the bar has no SAVE.
+    """A settings page's bar: X DEFAULTS (a screen-wide action, so it works whichever row has the focus), B BACK and A
+    SELECT. Each change applies and saves as it is made, so the bar has no SAVE."""
     screen = root[0]
-    bar = widget(root, f'{base}/button_bar', type='column_list', width=320, height=28,
-                 flags='pass_unhandled_to_focused_child left_right_tabs_items')
-    for button, target, caption, x, width, run in (
-            ('x', 'button_defaults', 'DEFAULTS', 40, 132, defaults),):
-        icon = f'{base}/{button}_butn'
-        child(bar, f'{base}/{target}', x=x)
-        action = widget(root, f'{base}/{target}', width=21 + width, height=26)
-        child(action, icon)
-        child(action, f'{base}/{target}_caption', x=CAPTION_OFFSET)
-        widget(root, icon, width=21, height=26, bitmap=f'xbox/browser/{button}_butn')
-        text_widget(root, f'{base}/{target}_caption', caption, width=width, height=26)
-        for event in ('a', 'start', button):
-            ET.SubElement(action, 'on', event=event, run=run)
-        ET.SubElement(screen, 'on', event=button, run=run)
-        ET.SubElement(action, 'on', event='left_mouse', run='mouse emit accept event')
-    legend(root, screen, base, cancel='BACK')
+    # (the PC page's own button row, a focusable item of the options list, is not this look's)
+    for parent in root.iter('widget'):
+        for c in list(parent.findall('child')):
+            if c.get('widget') == f'{base}/button_bar':
+                parent.remove(c)
+    legend(root, screen, base, cancel='BACK', extra=[('x', 'global', 'DEFAULTS', {'run': defaults})])
 
 
 def apply_now_spinners(root):

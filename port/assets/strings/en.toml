@@ -1719,7 +1719,7 @@ text = "SELECT"
 [xbox.settings_audio_settings.xbox_settings_audio_settings_audio_settings_screen_bar_b]
 text = "BACK"
 
-[xbox.settings_audio_settings.xbox_settings_audio_settings_button_defaults_caption]
+[xbox.settings_audio_settings.xbox_settings_audio_settings_audio_settings_screen_bar_x]
 text = "DEFAULTS"
 
 [xbox.settings_audio_settings.xbox_settings_audio_settings_effects_volume_spinner]
@@ -1783,14 +1783,14 @@ s8 = "8"
 s9 = "9"
 s10 = "10"
 
-[xbox.settings_controls_setup.xbox_settings_controls_setup_button_defaults_caption]
-text = "DEFAULTS"
-
 [xbox.settings_controls_setup.xbox_settings_controls_setup_controls_settings_screen_bar_a]
 text = "SELECT"
 
 [xbox.settings_controls_setup.xbox_settings_controls_setup_controls_settings_screen_bar_b]
 text = "BACK"
+
+[xbox.settings_controls_setup.xbox_settings_controls_setup_controls_settings_screen_bar_x]
+text = "DEFAULTS"
 
 [xbox.settings_controls_setup.xbox_settings_controls_setup_group_label]
 text = "SHOW:"
@@ -1816,9 +1816,6 @@ s1 = "NO"
 s0 = "ON"
 s1 = "OFF"
 
-[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_defaults_caption]
-text = "DEFAULTS"
-
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_preset_spinner]
 s0 = "DEFAULT"
 s1 = "SWAP TRIGGERS"
@@ -1840,6 +1837,9 @@ text = "SELECT"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_gamepad_setup_screen_bar_b]
 text = "BACK"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_gamepad_setup_screen_bar_x]
+text = "DEFAULTS"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings]
 how_fast_the_right_stick_turns_the_view = "How fast the right stick turns the view."
@@ -1915,9 +1915,6 @@ s1 = "OFF"
 s0 = "ON"
 s1 = "OFF"
 
-[xbox.settings_graphics.xbox_settings_graphics_button_defaults_caption]
-text = "DEFAULTS"
-
 [xbox.settings_graphics.xbox_settings_graphics_crt_effect_spinner]
 s0 = "ON"
 s1 = "OFF"
@@ -1934,6 +1931,9 @@ text = "SELECT"
 [xbox.settings_graphics.xbox_settings_graphics_graphics_screen_bar_b]
 text = "BACK"
 
+[xbox.settings_graphics.xbox_settings_graphics_graphics_screen_bar_x]
+text = "DEFAULTS"
+
 [xbox.settings_graphics.xbox_settings_graphics_graphics_spinner]
 s0 = "HARDCORE"
 s1 = "CLASSIC"
@@ -1945,9 +1945,6 @@ the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showe
 [xbox.settings_graphics.xbox_settings_graphics_labels]
 mode = "MODE:"
 crt_effect = "CRT EFFECT:"
-
-[xbox.settings_mouse_settings.xbox_settings_mouse_settings_button_defaults_caption]
-text = "DEFAULTS"
 
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_shown]
 on = "ON"
@@ -1998,6 +1995,9 @@ text = "SELECT"
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_settings_screen_bar_b]
 text = "BACK"
 
+[xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_settings_screen_bar_x]
+text = "DEFAULTS"
+
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_vertical_sensitivity_spinner]
 s0 = "SAME"
 s1 = "0.25"
@@ -2019,9 +2019,6 @@ s1 = "OFF"
 [xbox.settings_network_setup.xbox_settings_network_setup_auto_spinner]
 s0 = "ON"
 s1 = "OFF"
-
-[xbox.settings_network_setup.xbox_settings_network_setup_button_defaults_caption]
-text = "DEFAULTS"
 
 [xbox.settings_network_setup.xbox_settings_network_setup_cloud_saves_spinner]
 s0 = "ON"
@@ -2093,6 +2090,9 @@ text = "SELECT"
 [xbox.settings_network_setup.xbox_settings_network_setup_network_settings_screen_bar_b]
 text = "BACK"
 
+[xbox.settings_network_setup.xbox_settings_network_setup_network_settings_screen_bar_x]
+text = "DEFAULTS"
+
 [xbox.settings_network_setup.xbox_settings_network_setup_online_spinner]
 s0 = "ON"
 s1 = "OFF"
@@ -2118,9 +2118,6 @@ s1 = "OFF"
 [xbox.settings_network_setup.xbox_settings_network_setup_scoreboard_team_layout_spinner]
 s0 = "ON"
 s1 = "OFF"
-
-[xbox.settings_video_settings.xbox_settings_video_settings_button_defaults_caption]
-text = "DEFAULTS"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_crt_effect_spinner]
 s0 = "ON"
@@ -2209,6 +2206,9 @@ text = "SELECT"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_video_settings_screen_bar_b]
 text = "BACK"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_video_settings_screen_bar_x]
+text = "DEFAULTS"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_vsync_spinner]
 s0 = "ON"

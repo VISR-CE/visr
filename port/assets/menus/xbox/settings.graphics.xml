@@ -8,8 +8,8 @@
 		<child widget="xbox/settings/graphics/options_menu" />
 		<child widget="xbox/settings/graphics/graphics_help" />
 		<child widget="xbox/settings/graphics/row_help" />
-		<on event="x" run="port settings defaults apply" />
 		<bar>
+			<action slot="x" scope="global" text="DEFAULTS" text_id="xbox.settings_graphics.xbox_settings_graphics_graphics_screen_bar_x.text" run="port settings defaults apply" />
 			<action slot="b" scope="back" text="BACK" text_id="xbox.settings_graphics.xbox_settings_graphics_graphics_screen_bar_b.text" focus="true" />
 			<action slot="a" scope="select" text="SELECT" text_id="xbox.settings_graphics.xbox_settings_graphics_graphics_screen_bar_a.text" focus="true" />
 		</bar>
@@ -22,7 +22,6 @@
 		<data input="port settings help" />
 		<child widget="xbox/settings/graphics/op_graphics" x="54" y="73" />
 		<child widget="xbox/settings/graphics/op_crt_effect" x="54" y="112" platform="apple" />
-		<child widget="xbox/settings/graphics/button_bar" y="414" />
 	</widget>
 	<widget name="xbox/settings/graphics/op_graphics" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/graphics/graphics_label" y="5" />
@@ -69,17 +68,4 @@
 		<string text="" />
 		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow, and soft color." id="xbox.settings_graphics.xbox_settings_graphics_help_strings.the_picture_as_a_crt_television__ce68fa" />
 	</strings>
-	<widget name="xbox/settings/graphics/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
-		<child widget="xbox/settings/graphics/button_defaults" x="40" />
-	</widget>
-	<widget name="xbox/settings/graphics/button_defaults" width="153" height="26">
-		<child widget="xbox/settings/graphics/x_butn" />
-		<child widget="xbox/settings/graphics/button_defaults_caption" x="22" />
-		<on event="a" run="port settings defaults apply" />
-		<on event="start" run="port settings defaults apply" />
-		<on event="x" run="port settings defaults apply" />
-		<on event="left_mouse" run="mouse emit accept event" />
-	</widget>
-	<widget name="xbox/settings/graphics/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/settings/graphics/button_defaults_caption" type="text" text="DEFAULTS" text_id="xbox.settings_graphics.xbox_settings_graphics_button_defaults_caption.text" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
 </menus>

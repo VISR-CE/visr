@@ -6,8 +6,8 @@
 		<on event="back" back="true" />
 		<child widget="xbox/settings/audio_settings/header_profile_audio_settings" />
 		<child widget="xbox/settings/audio_settings/options_menu" />
-		<on event="x" run="port settings defaults apply" />
 		<bar>
+			<action slot="x" scope="global" text="DEFAULTS" text_id="xbox.settings_audio_settings.xbox_settings_audio_settings_audio_settings_screen_bar_x.text" run="port settings defaults apply" />
 			<action slot="b" scope="back" text="BACK" text_id="xbox.settings_audio_settings.xbox_settings_audio_settings_audio_settings_screen_bar_b.text" focus="true" />
 			<action slot="a" scope="select" text="SELECT" text_id="xbox.settings_audio_settings.xbox_settings_audio_settings_audio_settings_screen_bar_a.text" focus="true" />
 		</bar>
@@ -23,7 +23,6 @@
 		<child widget="xbox/settings/audio_settings/op_effects_volume" x="54" y="151" />
 		<child widget="xbox/settings/audio_settings/op_music_enabled" x="54" y="190" />
 		<child widget="xbox/settings/audio_settings/op_music_volume" x="54" y="229" />
-		<child widget="xbox/settings/audio_settings/button_bar" y="414" />
 	</widget>
 	<widget name="xbox/settings/audio_settings/op_enabled" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/audio_settings/enabled_label" y="5" />
@@ -105,17 +104,4 @@
 		<string text="Turn the music on or off. Off lets other apps'\nmusic play at full volume." id="xbox.settings_audio_settings.xbox_settings_audio_settings_help_strings.turn_the_music_on_or_off_off_let_3ae03c" />
 		<string text="The music's volume." id="xbox.settings_audio_settings.xbox_settings_audio_settings_help_strings.the_music_s_volume" />
 	</strings>
-	<widget name="xbox/settings/audio_settings/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
-		<child widget="xbox/settings/audio_settings/button_defaults" x="40" />
-	</widget>
-	<widget name="xbox/settings/audio_settings/button_defaults" width="153" height="26">
-		<child widget="xbox/settings/audio_settings/x_butn" />
-		<child widget="xbox/settings/audio_settings/button_defaults_caption" x="22" />
-		<on event="a" run="port settings defaults apply" />
-		<on event="start" run="port settings defaults apply" />
-		<on event="x" run="port settings defaults apply" />
-		<on event="left_mouse" run="mouse emit accept event" />
-	</widget>
-	<widget name="xbox/settings/audio_settings/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/settings/audio_settings/button_defaults_caption" type="text" text="DEFAULTS" text_id="xbox.settings_audio_settings.xbox_settings_audio_settings_button_defaults_caption.text" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
 </menus>
