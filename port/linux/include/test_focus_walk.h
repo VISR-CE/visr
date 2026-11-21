@@ -10,6 +10,7 @@ caller reads the focused row's text from the same string the widget renders (men
 #define TEST_FOCUS_HOLD_POLLS 4    /* polls Down is held for a step */
 #define TEST_FOCUS_CHECK_POLLS 12  /* polls between looks at the focus: the move has drawn by then */
 #define TEST_FOCUS_BLIND_LOOKS 4   /* looks that find no focused row before one Down is pressed to give a page its focus */
+#define TEST_FOCUS_AFTER_POLLS 40  /* polls past the deadline of the last check: a capture's frame is taken about then */
 #define TEST_FOCUS_WAIT_POLLS 3000 /* polls to wait for a screen with a focused row before the walk fails */
 #define TEST_FOCUS_EXIT_STATUS 87  /* the process status of a failed walk where the platform has one */
 
@@ -68,12 +69,19 @@ static inline void test_focus_walk_begin(struct test_focus_walk *walk, char cons
 	walk->start = walk->next_look = start;
 }
 
+/* the polls a landed walk checks the focus again at: just before its deadline and where a capture's frame falls after it */
+static inline int test_focus_walk_checks_at(struct test_focus_walk const *walk, unsigned long poll)
+{
+	return walk->deadline > TEST_FOCUS_CHECK_POLLS &&
+		(poll == walk->deadline - 2 || poll == walk->deadline + TEST_FOCUS_AFTER_POLLS);
+}
+
 /* whether the caller should read the focused row's text this poll: a walk that is looking, or a landed one making its last
 check before the deadline (the focus must still be on the row when the next press or the shot comes) */
 static inline int test_focus_walk_wants_look(struct test_focus_walk const *walk, unsigned long poll)
 {
 	if (walk->finished)
-		return walk->result == TEST_FOCUS_DONE && walk->deadline > TEST_FOCUS_CHECK_POLLS && poll == walk->deadline - 2;
+		return walk->result == TEST_FOCUS_DONE && test_focus_walk_checks_at(walk, poll);
 	return poll >= walk->start && poll >= walk->hold_until && poll >= walk->next_look;
 }
 
@@ -83,7 +91,7 @@ static inline int test_focus_walk_poll(struct test_focus_walk *walk, unsigned lo
 {
 	if (walk->finished)
 	{
-		if (walk->result == TEST_FOCUS_DONE && walk->deadline > TEST_FOCUS_CHECK_POLLS && poll == walk->deadline - 2 && seen &&
+		if (walk->result == TEST_FOCUS_DONE && test_focus_walk_checks_at(walk, poll) && seen &&
 			!test_focus_label_equal(seen, walk->label))
 		{
 			strncpy(walk->last, seen, TEST_FOCUS_LABEL_MAX - 1);

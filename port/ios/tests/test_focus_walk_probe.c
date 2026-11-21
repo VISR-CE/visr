@@ -114,6 +114,21 @@ int main(void)
 			action = test_focus_walk_poll(&w, poll, test_focus_walk_wants_look(&w, poll) ? (poll < 20 ? NULL : "INTERNET") : NULL);
 		assert(action == TEST_FOCUS_DONE);
 	}
+	/* the check after the deadline, where a capture's frame falls: a focus that drifts off the row then fails too */
+	{
+		struct test_focus_walk w;
+		int action = TEST_FOCUS_WAIT;
+
+		test_focus_walk_begin(&w, "SPLIT SCREEN", 10);
+		w.deadline = 100;
+		for (unsigned long poll = 0; poll < 300 && action != TEST_FOCUS_FAIL_LOST; poll++)
+		{
+			char const *seen = poll < 20 ? NULL : poll < 120 ? "SPLIT SCREEN" : "COOPERATIVE PLAY";
+
+			action = test_focus_walk_poll(&w, poll, test_focus_walk_wants_look(&w, poll) ? seen : NULL);
+		}
+		assert(action == TEST_FOCUS_FAIL_LOST);
+	}
 	puts("test_focus_walk_probe: ok");
 	return 0;
 }
