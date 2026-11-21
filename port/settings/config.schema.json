@@ -2621,7 +2621,7 @@
         "encode_thread": {
           "type": "string",
           "default": "off",
-          "description": "How the Metal renderer's commands reach it. \"off\" (default): the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. Not on visionOS.",
+          "description": "How the Metal renderer's commands reach it. \"off\" (default): the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing; on visionOS, for measuring only.",
           "x-environment": "HALO_ENCODE_THREAD",
           "x-environment-style": "value",
           "x-platforms": [

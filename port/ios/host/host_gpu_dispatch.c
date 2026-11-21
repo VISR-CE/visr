@@ -667,8 +667,9 @@ static void call_hash_back(const struct gpu_call_hash_frame *frame)
 		platform_log("gpu call hash: queue check: %lu frames, %lu differ", checked, differ);
 }
 
-/* debug.encode_thread (gpu_queue.h): the Metal backend's commands go through the queue; not on visionOS or in the
-Catalyst test host, which have no game thread */
+/* debug.encode_thread (gpu_queue.h): the Metal backend's commands go through the queue; not in the Catalyst test
+host. On visionOS, which has no game thread (the main thread simulates and draws), only "inline" for measuring what
+the backend's share of the main thread is; no profile turns it on there */
 static void encode_queue_log(const char *line)
 {
 	platform_log("%s", line);
@@ -676,7 +677,7 @@ static void encode_queue_log(const char *line)
 
 static int encode_queue_mode(int *timing)
 {
-#if TARGET_OS_VISION || TARGET_OS_MACCATALYST
+#if TARGET_OS_MACCATALYST
 	(void)timing;
 	return GPU_QUEUE_OFF;
 #else

@@ -1664,7 +1664,7 @@ static const struct config_setting config_settings[] =
 		"How the Metal renderer's commands reach it. \"off\" (default): the game\n"
 		"thread calls the renderer. \"inline\": the game thread writes each command\n"
 		"into a queue and reads it back at once, to measure what the queue costs\n"
-		"and check that it changes nothing. Not on visionOS." },
+		"and check that it changes nothing; on visionOS, for measuring only." },
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
 		"With debug.encode_thread on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },
