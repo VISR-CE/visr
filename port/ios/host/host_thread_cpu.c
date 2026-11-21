@@ -90,6 +90,15 @@ static unsigned threads_now(struct thread_usage *usage)
 				size = THREAD_EXTENDED_INFO_COUNT;
 				if (thread_info(list[index], THREAD_EXTENDED_INFO, (thread_info_t)&extended, &size) == KERN_SUCCESS)
 					snprintf(entry->name, sizeof(entry->name), "%s", extended.pth_name);
+				/* an unnamed thread running a dispatch queue's work: the queue's label */
+				if (!entry->name[0] && identifier.dispatch_qaddr)
+				{
+					dispatch_queue_t queue = *(dispatch_queue_t *)(uintptr_t)identifier.dispatch_qaddr;
+					const char *label = queue ? dispatch_queue_get_label(queue) : NULL;
+
+					if (label && label[0])
+						snprintf(entry->name, sizeof(entry->name), "queue:%s", label);
+				}
 			}
 		}
 		mach_port_deallocate(mach_task_self(), list[index]);
@@ -151,6 +160,9 @@ void host_thread_cpu_frame(void)
 			continue;
 		spent[kept].id = now[index].id;
 		spent[kept].microseconds = now[index].microseconds - before;
+		/* (a thread seen running a queue's work at the window's start keeps that name if it is idle at its end) */
+		if (!now[index].name[0] && other < previous_count)
+			memcpy(now[index].name, previous[other].name, sizeof(now[index].name));
 		spent[kept].name = now[index].name;
 		total += spent[kept].microseconds;
 		if (spent[kept].id == main_id)
