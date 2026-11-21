@@ -18,6 +18,8 @@ high-res HUD's are (hud_hires.c).
 */
 
 #include "halo_menus.h"
+#include "halo_menu_meta.h"
+#include "menu_geometry.h"
 #include "hud_hires.h"
 #include "menu_files.h"
 #include "menu_platform.h"
@@ -268,6 +270,8 @@ enum element
 	_element_replace,
 	_element_patch,
 	_element_patch_row,
+	_element_bar,
+	_element_action,
 };
 
 /* an attribute an element may have: its text (text) or number (number,
@@ -983,6 +987,158 @@ static void read_input(struct reader *reader, const XML_Char **attributes, long 
 	LIST_ADD(reader, owner, first_input, last_input, inputs, index);
 }
 
+/* a screen's button bar (<bar>): its <action>s become the bar's widgets as they are read. Each action has a
+slot (x, y, b or a: its button, and its fixed place in the bar), a scope (global, select or back: where it shows on
+each input, ui_widget.c), a caption, and what it does: focus="true" sends the slot's button to the focused widget
+(select and back today), run= or open= is the screen's handler for that button. The reader places the glyph and
+the caption in the slot (menu_geometry.h) and notes the slot and scope on both widgets, which menu_tags.c keeps in
+the menus' meta records; nothing about an action is read off a widget's name. */
+static const struct
+{
+	const char *name;
+	long slot, x0, x1;
+} bar_slots[] =
+{
+	{ "x", HALO_MENU_SLOT_X, MENU_BAR_SLOT_X_X0, MENU_BAR_SLOT_X_X1 },
+	{ "y", HALO_MENU_SLOT_Y, MENU_BAR_SLOT_Y_X0, MENU_BAR_SLOT_Y_X1 },
+	{ "b", HALO_MENU_SLOT_B, MENU_BAR_SLOT_B_X0, MENU_BAR_SLOT_B_X1 },
+	{ "a", HALO_MENU_SLOT_A, MENU_BAR_SLOT_A_X0, MENU_BAR_SLOT_A_X1 },
+};
+
+static const struct
+{
+	const char *name;
+	long scope;
+} bar_scopes[] =
+{
+	{ "global", HALO_MENU_SCOPE_GLOBAL }, { "select", HALO_MENU_SCOPE_SELECT }, { "back", HALO_MENU_SCOPE_BACK },
+};
+
+static void read_bar(struct reader *reader, const XML_Char **attributes)
+{
+	const char *kind = NULL;
+	struct attribute table[] = { { "kind", &kind } };
+
+	read_attributes(reader, "bar", attributes, table, sizeof(table) / sizeof(*table));
+	if (!reader->failed && kind && strcmp(kind, "screen"))
+		reader_error(reader, "a <bar>'s kind is \"screen\"");
+}
+
+/* one of the bar's widgets, made as a <widget> nested in the screen would be (attributes: name/value pairs) */
+static void bar_widget_add(struct reader *reader, const XML_Char **attributes, long screen, long slot, long scope)
+{
+	struct halo_menus *menus = &reader->menus;
+
+	read_widget(reader, attributes, screen);
+	if (!reader->failed)
+	{
+		menus->widgets[menus->widget_count - 1].bar_slot = slot;
+		menus->widgets[menus->widget_count - 1].bar_scope = scope;
+	}
+}
+
+static void read_action(struct reader *reader, const XML_Char **attributes, long screen)
+{
+	struct halo_menus *menus = &reader->menus;
+	const char *slot = NULL, *scope = NULL, *text = NULL, *text_id = NULL, *run = NULL, *open = NULL, *focus = NULL;
+	struct attribute table[] =
+	{
+		{ "slot", &slot }, { "scope", &scope }, { "text", &text }, { "text_id", &text_id }, { "run", &run },
+		{ "open", &open }, { "focus", &focus },
+	};
+	char glyph_name[256], caption_name[256], bitmap[32], x[16], y[16], width[16], height[16];
+	char caption_x[16], caption_width[16], caption_height[16];
+	size_t slot_index, scope_index;
+	long widget, does;
+
+	read_attributes(reader, "action", attributes, table, sizeof(table) / sizeof(*table));
+	if (reader->failed)
+		return;
+	for (slot_index = 0; slot && slot_index < sizeof(bar_slots) / sizeof(*bar_slots); slot_index++)
+		if (!strcmp(slot, bar_slots[slot_index].name)) break;
+	for (scope_index = 0; scope && scope_index < sizeof(bar_scopes) / sizeof(*bar_scopes); scope_index++)
+		if (!strcmp(scope, bar_scopes[scope_index].name)) break;
+	if (!slot || slot_index == sizeof(bar_slots) / sizeof(*bar_slots))
+	{
+		reader_error(reader, "an <action>'s slot is \"x\", \"y\", \"b\" or \"a\"");
+		return;
+	}
+	if (!scope || scope_index == sizeof(bar_scopes) / sizeof(*bar_scopes))
+	{
+		reader_error(reader, "an <action>'s scope is \"global\", \"select\" or \"back\"");
+		return;
+	}
+	if (!text)
+	{
+		reader_error(reader, "an <action> needs text");
+		return;
+	}
+	if (focus && strcmp(focus, "true"))
+	{
+		reader_error(reader, "focus is \"true\", or not given");
+		return;
+	}
+	does = (focus != NULL) + (run != NULL) + (open != NULL);
+	if (does != 1)
+	{
+		reader_error(reader, "an <action> has one of focus=\"true\", run= and open=");
+		return;
+	}
+	/* the focused widget takes A as its select and B as its back (ui_widget.c) */
+	if (focus && bar_slots[slot_index].slot != HALO_MENU_SLOT_A && bar_slots[slot_index].slot != HALO_MENU_SLOT_B)
+	{
+		reader_error(reader, "focus=\"true\" is for the a and b slots");
+		return;
+	}
+	for (widget = 0; widget < menus->widget_count; widget++)
+	{
+		if (menus->widgets[widget].parent == screen && menus->widgets[widget].bar_slot == bar_slots[slot_index].slot)
+		{
+			reader_error(reader, "a screen has one action for each slot");
+			return;
+		}
+	}
+	if (strlen(menus->widgets[screen].name) + sizeof("/bar/x_caption") > sizeof(glyph_name))
+	{
+		reader_error(reader, "the screen's name is too long for its bar");
+		return;
+	}
+	snprintf(glyph_name, sizeof(glyph_name), "%s/bar/%s_butn", menus->widgets[screen].name, slot);
+	snprintf(caption_name, sizeof(caption_name), "%s/bar/%s_caption", menus->widgets[screen].name, slot);
+	snprintf(bitmap, sizeof(bitmap), "xbox/browser/%s_butn", slot);
+	snprintf(x, sizeof(x), "%ld", bar_slots[slot_index].x0 + MENU_BAR_INSET);
+	snprintf(y, sizeof(y), "%d", MENU_LEGEND_Y);
+	snprintf(width, sizeof(width), "%d", MENU_BAR_GLYPH_WIDTH);
+	snprintf(height, sizeof(height), "%d", MENU_BAR_GLYPH_HEIGHT);
+	snprintf(caption_x, sizeof(caption_x), "%ld", bar_slots[slot_index].x0 + MENU_BAR_INSET + MENU_BAR_CAPTION_OFFSET);
+	snprintf(caption_width, sizeof(caption_width), "%ld", bar_slots[slot_index].x1 - MENU_BAR_INSET -
+		(bar_slots[slot_index].x0 + MENU_BAR_INSET + MENU_BAR_CAPTION_OFFSET));
+	snprintf(caption_height, sizeof(caption_height), "%d", MENU_BAR_CAPTION_HEIGHT);
+	{
+		const XML_Char *glyph[] =
+		{
+			"name", glyph_name, "type", "container", "bitmap", bitmap, "width", width, "height", height,
+			"x", x, "y", y, NULL,
+		};
+		const XML_Char *caption[] =
+		{
+			"name", caption_name, "type", "text", "text", text, "font", "ui\\large_ui", "color", "#FF2896FF",
+			"width", caption_width, "height", caption_height, "x", caption_x, "y", y,
+			text_id ? "text_id" : NULL, text_id, NULL,
+		};
+
+		bar_widget_add(reader, glyph, screen, bar_slots[slot_index].slot, bar_scopes[scope_index].scope);
+		if (!reader->failed)
+			bar_widget_add(reader, caption, screen, bar_slots[slot_index].slot, bar_scopes[scope_index].scope);
+	}
+	if (!reader->failed && (run || open))
+	{
+		const XML_Char *handler[] = { "event", slot, run ? "run" : "open", run ? run : open, NULL };
+
+		read_handler(reader, handler, screen);
+	}
+}
+
 static void read_conditional(struct reader *reader, const XML_Char **attributes, long owner)
 {
 	struct halo_menus *menus = &reader->menus;
@@ -1254,6 +1410,16 @@ static void XMLCALL element_start(void *data, const XML_Char *name, const XML_Ch
 			element = _element_replace;
 			read_replace(reader, attributes, owner);
 		}
+		else if (!strcmp(name, "bar"))
+		{
+			element = _element_bar;
+			read_bar(reader, attributes);
+		}
+	}
+	else if (!strcmp(name, "action") && parent == _element_bar)
+	{
+		element = _element_action;
+		read_action(reader, attributes, owner);
 	}
 	if (element == _element_none)
 	{

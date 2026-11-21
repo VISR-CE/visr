@@ -118,6 +118,8 @@ def test_touch_legend_labels_have_minimum_tap_bounds(tmp_path):
     program = (ROOT / "port/ios/tests/menu_legend_touch_probe.c").read_text()
     slots = source[source.index("/* port: the touch legend's four fixed slots."):
                    source.index("/* port: the touch legend's button. `drawn`")]
+    program = program.replace('#include "menu_geometry.h"',
+                              (ROOT / "port/linux/include/menu_geometry.h").read_text())
     program = program.replace("/* SLOTS */", slots)
     program = program.replace("/* GEOMETRY */", block(source, "static boolean ui_mouse_legend_bounds("))
     program = program.replace("/* SLICE */", block(source, "static void ui_widget_draw_touch_legend_slice("))
@@ -131,6 +133,6 @@ def test_touch_legend_labels_have_minimum_tap_bounds(tmp_path):
         raise SkipTest("A C compiler is required for the legend tap probe")
     probe, binary = tmp_path / "legend.c", tmp_path / "legend"
     probe.write_text(program)
-    subprocess.run([compiler, "-Wall", "-Werror", "-fsanitize=address,undefined",
+    subprocess.run([compiler, "-Wall", "-Werror", "-Wno-unused-function", "-fsanitize=address,undefined",
                     str(probe), "--output=" + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

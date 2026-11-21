@@ -14,6 +14,8 @@ import argparse
 from pathlib import Path
 import sys
 
+import menu_text_metrics
+
 ROOT = Path(__file__).resolve().parents[1]
 HEADER = ROOT / 'port/linux/include/menu_geometry.h'
 
@@ -42,6 +44,45 @@ VALUE_MINIMUM_WIDTH = 80
 # Pointer dropdown option rows (at least 44 pt on the iPhone 17 Pro in landscape at the minimum menu scale).
 DROPDOWN_PITCH = 52
 
+# The button bar: four fixed slots, left to right X, Y, B and A, right-aligned. Each slot is as wide as the widest
+# caption it ever holds, in the bar's one caption font, plus padding on each side; a touch pill fills its slot, and
+# a controller glyph and its caption sit BAR_INSET inside it. The row first slides right into the screen's margin
+# and then trims padding, so the four slots fit the screen.
+BAR_FONT = 'ui\\large_ui'
+BAR_SLOTS = 'xyba'
+BAR_WIDEST = {'a': 'START GAME', 'b': 'CANCEL', 'y': 'CREATE GAME', 'x': 'DEFAULTS'}
+BAR_RIGHT = 592
+BAR_SCREEN_RIGHT = 628
+BAR_LEFT_MARGIN = 12
+BAR_GAP = 12
+BAR_PADDING = 24
+BAR_INSET = 4
+BAR_GLYPH_WIDTH = 21
+BAR_GLYPH_HEIGHT = 26
+BAR_CAPTION_OFFSET = 22
+BAR_CAPTION_HEIGHT = 22
+
+
+def bar_slots():
+    """Each slot's (x0, x1), from the A slot's right edge leftward."""
+    widths = {slot: menu_text_metrics.text_width(BAR_FONT, text) for slot, text in BAR_WIDEST.items()}
+    right, padding = BAR_RIGHT, BAR_PADDING
+    overflow = sum(widths.values()) + 2 * padding * 4 + BAR_GAP * 3 - BAR_RIGHT + BAR_LEFT_MARGIN
+    if overflow > 0:
+        shift = min(overflow, BAR_SCREEN_RIGHT - BAR_RIGHT)
+        right += shift
+        overflow -= shift
+        if overflow > 0:
+            padding = max(8, padding - (overflow + 2 * 4 - 1) // (2 * 4))
+    slots = {}
+    for slot in reversed(BAR_SLOTS):
+        slots[slot] = (right - widths[slot] - 2 * padding, right)
+        right = slots[slot][0] - BAR_GAP
+    return slots
+
+
+BAR_SLOT_BOUNDS = bar_slots()
+
 HEADER_VALUES = (
     ('MENU_FIRST_ROW', FIRST_ROW, "the first option row's y"),
     ('MENU_ROW_HEIGHT', ROW_HEIGHT, "the disc's option row height"),
@@ -55,6 +96,14 @@ HEADER_VALUES = (
     ('MENU_VALUE_MARGIN', VALUE_MARGIN, 'beside the widest value in a value column'),
     ('MENU_VALUE_MINIMUM_WIDTH', VALUE_MINIMUM_WIDTH, 'a value column at its narrowest'),
     ('MENU_DROPDOWN_PITCH', DROPDOWN_PITCH, 'a pointer dropdown option row'),
+    *((f'MENU_BAR_SLOT_{slot.upper()}_X{edge}', BAR_SLOT_BOUNDS[slot][edge], f"the bar's {slot.upper()} slot: its "
+       + ('left' if edge == 0 else 'right') + ' edge') for slot in BAR_SLOTS for edge in (0, 1)),
+    ('MENU_BAR_GAP', BAR_GAP, 'between two slots of the bar'),
+    ('MENU_BAR_INSET', BAR_INSET, "a controller glyph and its caption, in from their slot's edges"),
+    ('MENU_BAR_GLYPH_WIDTH', BAR_GLYPH_WIDTH, "a bar action's glyph"),
+    ('MENU_BAR_GLYPH_HEIGHT', BAR_GLYPH_HEIGHT, "a bar action's glyph"),
+    ('MENU_BAR_CAPTION_OFFSET', BAR_CAPTION_OFFSET, "a bar action's caption, right of its glyph's left edge"),
+    ('MENU_BAR_CAPTION_HEIGHT', BAR_CAPTION_HEIGHT, "a bar action's caption"),
 )
 
 

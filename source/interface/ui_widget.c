@@ -696,6 +696,7 @@ long ui_redraw_touch_target_units(void);
 #include "halo_menu_slider.h"
 #include "halo_controller_glyphs.h"
 #include "menu_geometry.h"
+#include "halo_menu_meta.h"
 #include "halo_menus.h"
 #include "../../port/runtime/include/halo_ui_carousel.h" /* shared with the host and probes; not on the guest include path */
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
@@ -6994,26 +6995,18 @@ static short ui_mouse_legend_label_width(
 /* port: the touch legend's four fixed slots. Every Xbox-look screen's bottom bar
 draws its A, B, Y and X buttons in the same four places, right to left (A, B, Y,
 X), so a button never drifts from screen to screen and an unused slot stays empty.
-Each slot is as wide as the widest caption ever shown on that button plus padding,
-measured in the caption's own font. A button is one standard element: its screen
-gives only the caption and the button, and the legend owns the pill's place and
-size (the slot, or the caption's measured width plus the minimum padding when a
-caption is wider than its slot) and centers the caption in it. */
+The slots are the button bar's (menu_geometry.h: as wide as the widest caption each
+ever holds, in the bar's caption font, plus padding). A button is one standard
+element: its screen gives only the caption and the button, and the legend owns the
+pill's place and size (the slot, or the caption's measured width plus the minimum
+padding when a caption is wider than its slot) and centers the caption in it. */
 #define UI_TOUCH_LEGEND_SLOTS 4
-#define UI_TOUCH_LEGEND_RIGHT 592
-#define UI_TOUCH_LEGEND_GAP 12
-#define UI_TOUCH_LEGEND_LEFT_MARGIN 12 /* the leftmost slot stays this far inside the screen's left edge */
-#define UI_TOUCH_LEGEND_SCREEN_RIGHT 628 /* and the rightmost this far inside the right edge */
-#define UI_TOUCH_LEGEND_PADDING 24
+#define UI_TOUCH_LEGEND_GAP MENU_BAR_GAP /* between two slots: each pointer target takes half */
 #define UI_TOUCH_LEGEND_MINIMUM_PADDING 12 /* a caption wider than its slot keeps this much on each side */
 #define UI_TOUCH_LEGEND_BAR_Y 395 /* a bar's buttons are centered at or below this */
 #define UI_TOUCH_LEGEND_BAR_TOP 404 /* the bar's top rule: a hit area never reaches above it */
 #define UI_TOUCH_LEGEND_MINIMUM_POINTS 44.0f
 #define UI_TOUCH_LEGEND_CAPTION_SHIFTS 16
-
-/* the widest caption each slot ever holds: A (START GAME), B (CANCEL), Y (CREATE GAME), X (DEFAULTS) */
-static wchar_t const *const ui_touch_legend_widest[UI_TOUCH_LEGEND_SLOTS] =
-	{ L"START GAME", L"CANCEL", L"CREATE GAME", L"DEFAULTS" };
 
 void halo_screen_menu_visible_bottom(float *bottom_unit, float *points_per_unit);
 
@@ -7092,48 +7085,22 @@ static short ui_touch_legend_text_x0(
 	return x0;
 }
 
-/* the slot's x range, measured with `font`; the slots sit right to left from the A slot's right edge */
+/* the slot's x range (0 = A ... 3 = X) */
 static void ui_touch_legend_slot_bounds(
-	long font,
 	short slot,
 	short *x0,
 	short *x1)
 {
-	long old_font = draw_string_get_font();
-	short i, right = UI_TOUCH_LEGEND_RIGHT, padding = UI_TOUCH_LEGEND_PADDING;
-	short widths[UI_TOUCH_LEGEND_SLOTS], total = 0, overflow, shift;
-
-	draw_string_set_font(font);
-	draw_string_set_format(NONE, 0, 0);
-	draw_string_set_indents(0, 0);
-	for (i = 0; i < UI_TOUCH_LEGEND_SLOTS; i++)
+	static short const slots[UI_TOUCH_LEGEND_SLOTS][2] =
 	{
-		widths[i] = ui_widget_port_text_width(ui_touch_legend_widest[i]);
-		total += widths[i];
-	}
-	/* keep the whole row inside the screen: first slide it right into the margin, then trim padding */
-	overflow = (UI_TOUCH_LEGEND_RIGHT - (total + 2 * padding * UI_TOUCH_LEGEND_SLOTS +
-		UI_TOUCH_LEGEND_GAP * (UI_TOUCH_LEGEND_SLOTS - 1))) * -1 + UI_TOUCH_LEGEND_LEFT_MARGIN;
-	if (overflow > 0)
-	{
-		shift = MIN(overflow, UI_TOUCH_LEGEND_SCREEN_RIGHT - UI_TOUCH_LEGEND_RIGHT);
-		right += shift;
-		overflow -= shift;
-		if (overflow > 0)
-			padding = MAX(8, padding - (overflow + 2 * UI_TOUCH_LEGEND_SLOTS - 1) / (2 * UI_TOUCH_LEGEND_SLOTS));
-	}
-	for (i = 0; i <= slot; i++)
-	{
-		short width = widths[i] + 2 * padding;
+		{ MENU_BAR_SLOT_A_X0, MENU_BAR_SLOT_A_X1 },
+		{ MENU_BAR_SLOT_B_X0, MENU_BAR_SLOT_B_X1 },
+		{ MENU_BAR_SLOT_Y_X0, MENU_BAR_SLOT_Y_X1 },
+		{ MENU_BAR_SLOT_X_X0, MENU_BAR_SLOT_X_X1 },
+	};
 
-		*x1 = right;
-		*x0 = right - width;
-		right = *x0 - UI_TOUCH_LEGEND_GAP;
-	}
-	if (old_font != NONE)
-		draw_string_set_font(old_font);
-
-	return;
+	*x0 = slots[slot][0];
+	*x1 = slots[slot][1];
 }
 
 /* port: the touch legend's button. `drawn` is the visible button: 40 units tall, in
@@ -7214,7 +7181,7 @@ static boolean ui_mouse_legend_bounds(
 			short x0, x1;
 			float visible_bottom, points_per_unit, minimum_units;
 
-			ui_touch_legend_slot_bounds(label_definition->text_font.index, slot, &x0, &x1);
+			ui_touch_legend_slot_bounds(slot, &x0, &x1);
 			center_x = (x0 + x1) / 2;
 			/* a caption wider than its slot widens the pill, centered on the slot */
 			if (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING > x1 - x0)
@@ -7291,13 +7258,34 @@ static struct widget_instance *ui_legend_save_caption(struct widget_instance *wi
 	return caption && ui_text_is_commit_caption(caption->parameters.text_box.text) ? caption : NULL;
 }
 
+/* the button of a bar's slot (halo_menu_meta.h) */
+static short ui_bar_slot_button(unsigned char slot)
+{
+	switch (slot)
+	{
+	case HALO_MENU_SLOT_X: return _gamepad_analog_button_x;
+	case HALO_MENU_SLOT_Y: return _gamepad_analog_button_y;
+	case HALO_MENU_SLOT_B: return _gamepad_analog_button_b;
+	case HALO_MENU_SLOT_A: return _gamepad_analog_button_a;
+	}
+	return NONE;
+}
+
 static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 {
 	short button = ui_mouse_key_button(widget);
+	struct halo_menu_meta const *meta = pc_menu_meta(widget->definition_tag_index);
 	char const *name;
 	char const *leaf;
 	short owner;
 
+	owner = widget->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+	/* a bar's action (the menus' data says its slot and scope): on touch, select is a tap on the item and back is
+	the title's chevron, so neither is drawn; a screen-wide action is */
+	if (meta->role == HALO_MENU_ROLE_BAR_ACTION)
+		return (meta->scope == HALO_MENU_SCOPE_SELECT || meta->scope == HALO_MENU_SCOPE_BACK) &&
+			controller_glyph_hidden(owner, ui_bar_slot_button(meta->slot)) != 0;
 	if (button != _gamepad_analog_button_a && button != _gamepad_analog_button_b &&
 		button != _gamepad_analog_button_x) return FALSE;
 	name = tag_get_name(widget->definition_tag_index);
@@ -7313,8 +7301,6 @@ static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 			return FALSE;
 	}
 	if (button == _gamepad_analog_button_a && ui_legend_save_caption(widget)) return FALSE;
-	owner = widget->local_player_index == NONE ?
-		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
 	return controller_glyph_hidden(owner, button) != 0;
 }
 
@@ -7441,7 +7427,7 @@ boolean ui_widget_port_postgame_legend(
 		short x0, x1, text_width, center_x;
 		boolean pressed = ui_postgame_pressed == buttons[index] && ui_postgame_pressed_frames > 0;
 
-		ui_touch_legend_slot_bounds(font_index, index, &x0, &x1);
+		ui_touch_legend_slot_bounds(index, &x0, &x1);
 		draw_string_set_font(font_index);
 		draw_string_set_format(NONE, 0, 0);
 		draw_string_set_indents(0, 0);

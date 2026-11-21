@@ -192,6 +192,32 @@ if_failed="true"/>`: a widget for a `branch` handler. `<replace search="..."
 function="controller"/>`: text replaced in the widget's (the controller's
 number).
 
+### `<bar>`
+
+A screen's button bar, inside the screen's `<widget>`. It says what each action
+does, never where it goes:
+
+```xml
+<bar>
+  <action slot="b" scope="back" text="BACK" focus="true"/>
+  <action slot="y" scope="global" text="CREATE NEW" run="..."/>
+  <action slot="a" scope="select" text="SELECT" focus="true"/>
+</bar>
+```
+
+- `slot`: `x`, `y`, `b` or `a`, the action's button and its fixed place in the
+  bar, left to right X, Y, B, A (`tools/menu_geometry.py` sizes the slots).
+  A screen has one action for each slot.
+- `scope`: `global` (shown on every input), `select` or `back` (not drawn on
+  touch, where a tap on the item selects and the title's chevron goes back).
+- What it does, one of: `focus="true"` (A or B only: the focused widget takes
+  the button), `run="..."` or `open="..."` (the screen's handler for the
+  button).
+- `text` (and `text_id`), and `platform` as other elements take it.
+
+The game makes each action's glyph and caption in its slot as it reads the
+file, and tells the engine their slot and scope.
+
 ### `<patch>`
 
 The Xbox look's files (`xbox/`) change some of `ui.map`'s own lists with

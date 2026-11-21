@@ -205,6 +205,9 @@ MENU_ATTRIBUTES = {
     "row": {"after", "before", "model", "name", "text", "run", "open", "created", "description", "picture", "pitch",
             "platform", "widget", "help", "bitmap", "id", "text_id", "description_id", "help_ids"},
     "remove": {"child", "pitch", "platform"},
+    # (a screen's button bar, port/assets/menus/README.md)
+    "bar": {"kind"},
+    "action": {"slot", "scope", "text", "text_id", "run", "open", "focus", "platform"},
 }
 
 
@@ -314,6 +317,14 @@ def test_menus_are_well_formed():
                 assert element.get("otherwise") is None or run, where
                 for attribute in ("open", "replace", "focus", "widget", "otherwise"):
                     references.append((where, widgets, element.get(attribute)))
+            elif element.tag == "action":
+                assert element.get("slot") in ("x", "y", "b", "a"), where
+                assert element.get("scope") in ("global", "select", "back"), where
+                assert element.get("focus") in (None, "true"), where
+                assert sum(element.get(key) is not None for key in ("focus", "run", "open")) == 1, where
+                run = element.get("run")
+                assert run is None or run in functions, where
+                references.append((where, widgets, element.get("open")))
             elif element.tag == "data":
                 assert element.get("input") in inputs or element.get("input").startswith("unwired "), where
     assert all(root_name in widgets for root_name in roots)

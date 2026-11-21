@@ -103,6 +103,8 @@ def test_every_widget_and_string_list_reference_resolves():
                 if name and '\\' not in name and name not in known:
                     dangling.append((filename, element.tag, key, name))
             for key in ('open', 'replace', 'focus', 'otherwise'):
+                if element.tag == 'action' and key == 'focus':
+                    continue  # a bar action's focus="true": the focused widget takes the button
                 name = element.get(key)
                 if name and '\\' not in name and name not in widgets:
                     dangling.append((filename, element.tag, key, name))

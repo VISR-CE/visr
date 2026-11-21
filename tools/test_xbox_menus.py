@@ -47,9 +47,14 @@ def test_shared_layout_geometry_is_used():
     for page in module.PAGES:
         root = ET.parse(MENUS / f'xbox/settings.{page}.xml')
         screen = root.find('widget')
-        for button, x in (('b', 326), ('a', 471)):
-            placed = next(c for c in screen.findall('child') if c.get('widget').endswith('/' + button + '_butn'))
-            assert (int(placed.get('x')), int(placed.get('y'))) == (x, 414), page
+        # (the bar is declared; the engine places it in the shared slots, menu_geometry.h)
+        assert bar_actions(screen) == {'b': 'back', 'a': 'select'}, page
+        assert not [c for c in screen.findall('child') if c.get('widget').endswith('_butn')], page
+
+
+def bar_actions(screen):
+    """{slot: scope} of a screen's declared button bar"""
+    return {action.get('slot'): action.get('scope') for action in screen.iterfind('bar/action')}
 
 
 def snapshot(path):
@@ -101,10 +106,7 @@ def test_settings_keep_pc_values_and_handlers():
             'controls screen change set',
             'controls screen defaults', 'controls screen init'}
         assert retained <= {e.get('run') for e in output.iter('on') if e.get('run')}
-        names = {w.get('name').rsplit('/', 1)[-1] for w in output.iter('widget')}
-        # (the About screen's A does nothing: its legend is the way back alone)
-        assert ({'b_butn', 'cancel'} if folder == 'about' else
-                {'a_butn', 'b_butn', 'accept', 'cancel'}) <= names
+        assert {'b': 'back', 'a': 'select'}.items() <= bar_actions(output.find('widget')).items(), folder
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
     video = ET.parse(MENUS / 'xbox/settings.video_settings.xml')
     assert not [w for w in video.iter('widget') if w.get('setting') == 'display.resolution_scaling']
@@ -144,6 +146,7 @@ def test_settings_apply_without_save_and_offer_defaults_on_x():
         for event in ('b', 'back'):
             assert screen.find(f'on[@event="{event}"][@back="true"]') is not None
         captions = {w.get('text') for w in widgets.values() if w.get('type') == 'text'}
+        captions |= {action.get('text') for action in screen.iterfind('bar/action')}
         assert {'SELECT', 'DEFAULTS', 'BACK'} <= captions
         assert not any(text and '=' in text for text in captions)
         defaults = next(w for n, w in widgets.items() if n.endswith('/button_defaults'))
@@ -1035,7 +1038,36 @@ def test_legend_touch_rectangles_fit_without_overlapping():
                     assert rect[0] >= previous[2] or previous[0] >= rect[2] or rect[1] >= previous[3] or previous[1] >= rect[3], (screen, name, rect, previous)
                 screen_rectangles.setdefault(screen, []).append(rect)
             count += 1
-    assert count > 40
+    # (the placed legends left; declared bars are placed by the engine and checked by
+    # test_declared_bar_captions_fit_their_slots and the touch legend probe)
+    assert count > 20
+
+
+def test_declared_bar_captions_fit_their_slots():
+    """Bug class: a caption that does not fit its button (CREATE GAME), and two actions in one place. Every declared
+    bar action's caption fits its slot in the bar's caption font, both as a touch pill (the caption and the minimum
+    padding) and beside its controller glyph, and a screen declares each slot once."""
+    import menu_geometry
+    import menu_text_metrics
+
+    count = 0
+    for path in sorted((MENUS / 'xbox').glob('*.xml')):
+        for screen in ET.parse(path).iter('widget'):
+            for bar in screen.findall('bar'):
+                slots = [action.get('slot') for action in bar.findall('action')]
+                assert len(slots) == len(set(slots)), (path.name, screen.get('name'))
+                for action in bar.findall('action'):
+                    x0, x1 = menu_geometry.BAR_SLOT_BOUNDS[action.get('slot')]
+                    width = menu_text_metrics.text_width(menu_geometry.BAR_FONT, action.get('text'))
+                    room = x1 - x0 - 2 * menu_geometry.BAR_INSET - menu_geometry.BAR_CAPTION_OFFSET
+                    assert width <= room, (screen.get('name'), action.get('text'), width, room)
+                    assert width + 2 * 12 <= x1 - x0, (screen.get('name'), action.get('text'))
+                    count += 1
+    assert count >= 25
+    # the slots run left to right X, Y, B, A, apart, inside the screen
+    bounds = [menu_geometry.BAR_SLOT_BOUNDS[slot] for slot in 'xyba']
+    assert all(left[1] + menu_geometry.BAR_GAP <= right[0] for left, right in zip(bounds, bounds[1:]))
+    assert bounds[0][0] >= 0 and bounds[-1][1] <= 640
 
 
 def test_settings_footer_focus_only_visits_actions():
@@ -1214,7 +1246,7 @@ def test_graphics_screen_applies_each_change_with_the_modes_help():
     assert screen.find('on[@event="b"]').get('back') == 'true'
     assert screen.find('on[@event="x"]').get('run') == 'port settings defaults apply'
     assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' in widgets
-    assert widgets[f'{base}/cancel'].get('text') == 'BACK'
+    assert screen.find("bar/action[@slot='b']").get('text') == 'BACK'
     for spinner in (mode, crt):
         assert spinner.find('on[@event="left"][@run="port setting changed"]') is not None
         assert spinner.find('on[@event="deleted"]') is None

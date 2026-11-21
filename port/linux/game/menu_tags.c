@@ -1483,6 +1483,18 @@ static void *widget_build(long widget_index)
 		else
 			row_tall_note(build.widget_tags[widget_index]);
 	}
+	if (source->bar_slot)
+	{
+		/* a glyph or caption of a screen's bar (menu_files.c, read_action) */
+		struct halo_menu_meta *meta = meta_note(build.widget_tags[widget_index]);
+
+		if (meta)
+		{
+			meta->role = HALO_MENU_ROLE_BAR_ACTION;
+			meta->slot = (unsigned char)source->bar_slot;
+			meta->scope = (unsigned char)source->bar_scope;
+		}
+	}
 	if (source->visible_rows)
 	{
 		if (definition->type != _widget_type_column_list || source->visible_rows < 1 || source->visible_rows > 64)

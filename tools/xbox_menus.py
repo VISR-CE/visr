@@ -231,9 +231,30 @@ def manifest_files(menus):
     return sorted(names)
 
 
-def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None, buttons=None):
-    """A/B icons post buttons to the current focus, as the Xbox legend does."""
+def bar(screen, actions):
+    """The screen's button bar: what each action does, never where it goes (the engine places it, menu_files.c).
+
+    actions: (slot, scope, caption, what) with slot x, y, b or a; scope global, select or back; what is
+    {'focus': 'true'} (the focused widget takes the button) or {'run': ...} / {'open': ...}.
+    """
+    element = ET.SubElement(screen, 'bar')
+    for slot, scope, caption, what in actions:
+        ET.SubElement(element, 'action', {'slot': slot, 'scope': scope, 'text': caption, **what})
+    return element
+
+
+def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None, buttons=None,
+           declared=True):
+    """A/B icons post buttons to the current focus, as the Xbox legend does.
+
+    A plain SELECT/BACK legend is a declared bar (`bar`); declared=False keeps the placed glyphs and captions for
+    the callers that still read them by name (a caption that changes at run time, dialogs).
+    """
     hosting = screen.get('name').endswith('/server_settings_screen')
+    if declared and buttons is None and not hosting and not accept_platform:
+        bar(screen, [(slot, scope, label, {'focus': 'true'})
+                     for slot, scope, label in (('b', 'back', cancel), ('a', 'select', accept)) if label is not None])
+        return
     if buttons is None:
         buttons = [('b', 'cancel', cancel), ('a', 'accept', accept)]
     buttons = [item for item in buttons if item[2] is not None]
@@ -1136,7 +1157,7 @@ def multiplayer_documents(assets, bitmaps):
                 # joins too).
                 kind = 'password' if name.endswith('/password_screen') else 'code'
                 base = name + '/legend'
-                legend(root, w, base, accept='JOIN GAME')
+                legend(root, w, base, accept='JOIN GAME', declared=False)
                 # The caption follows the selected row (menu_functions.c's
                 # legend_accept_caption): EDIT on the field, JOIN GAME on the
                 # JOIN GAME row, like SERVER SETUP's START GAME.
@@ -1202,9 +1223,11 @@ def multiplayer_documents(assets, bitmaps):
                 continue
             if name.endswith('_screen'):
                 # (co-op options apply as they change: no A action, so no A in the legend)
+                # (the filters keep the original bar's lower line, y 430: they convert with the dense bars)
                 legend(root, w, name + '/legend',
                        accept=None if filename == 'coop_options' else 'SELECT',
-                       cancel='BACK' if filename in ('server_settings', 'coop_options') else 'CANCEL')
+                       cancel='BACK' if filename in ('server_settings', 'coop_options') else 'CANCEL',
+                       declared=filename != 'join_game.filters')
     lobby_action_layout(documents['main_menu.multiplayer_type_select.lobby.xml'])
     return documents
 
@@ -1358,6 +1381,8 @@ def lobby_action_layout(root):
     for c in list(screen.findall('child')):
         if '/legend/' in c.get('widget'):
             screen.remove(c)
+    for declared in screen.findall('bar'):
+        screen.remove(declared)
     for w in list(root.findall('widget')):
         if w.get('name').startswith(base + '/lobby_screen/legend/'):
             root.remove(w)
@@ -1471,7 +1496,8 @@ def action_bar_legends(documents):
         # A remaining SELECT legend acts on the focused list row.
         keep_accept = 'a' not in used and any(
             '/legend/' in c.get('widget') and c.get('widget').endswith('/a_butn')
-            for t in targets for c in widgets[t].findall('child'))
+            for t in targets for c in widgets[t].findall('child')) or 'a' not in used and any(
+            action.get('slot') == 'a' for t in targets for action in widgets[t].iterfind('bar/action'))
         if keep_accept:
             order.append('a')
         # Captions come from the originals; text read only at runtime keeps 90.
@@ -1533,6 +1559,14 @@ def action_bar_legends(documents):
                         screen.remove(c)
                     else:
                         c.set('y', '430' if legacy else str(LEGEND_Y))
+            # a declared bar loses the same actions: the action bar holds the screen's back, and its select
+            # unless the screen keeps one
+            for declared in list(screen.findall('bar')):
+                for action in list(declared):
+                    if action.get('slot') == 'b' or (len(actions) > 2 if legacy else not keep_accept):
+                        declared.remove(action)
+                if not len(declared):
+                    screen.remove(declared)
         referenced = {c.get('widget') for w in widgets.values() for c in w.findall('child')}
         for target_name in targets:
             for candidate in list(owners[target_name].findall('widget')):
@@ -1814,7 +1848,8 @@ def browser_layout(root, widgets, bitmaps):
     for c in screen.findall('child'):
         if c.get('widget', '').endswith('/header_join_game'):
             c.attrib.pop('y', None)
-    legend(root, screen, base + '/legend', cancel='BACK')
+    # a four-button bar whose X is the list's own refresh widget: converts with the dense bars
+    legend(root, screen, base + '/legend', cancel='BACK', declared=False)
     # ui.map's 32x32 button textures include transparent padding; button_key
     # draws them at native size and advances 21 pixels to each caption.
     # The PNG redraws are needed only in maps without these Xbox bitmaps.
@@ -2033,7 +2068,7 @@ def dialog_legend_targets(root, screen, base, x=None, y=None, cancel=False, acce
         x = DIALOG_PANEL[0] + DIALOG_BUTTON[0]
     if y is None:
         y = DIALOG_PANEL[1] + DIALOG_BUTTON[1]
-    legend(root, screen, base, accept=accept)
+    legend(root, screen, base, accept=accept, declared=False)
     for button, label in (('a', accept), ('b', 'CANCEL')):
         icon, caption = f'{base}/{button}_butn', f'{base}/' + ('accept' if button == 'a' else 'cancel')
         if button == 'b' and not cancel:

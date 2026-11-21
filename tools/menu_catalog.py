@@ -28,7 +28,7 @@ CATALOG = ROOT / 'port/assets/strings/en.toml'
 # the ones tools/port_settings.py writes).
 ID_FOLDERS = ('xbox',)
 
-TAG = re.compile(r'<(/?)(widget|string|strings|row|replace)\b([^<>]*?)(/?)>', re.S)
+TAG = re.compile(r'<(/?)(widget|string|strings|row|replace|action)\b([^<>]*?)(/?)>', re.S)
 ATTR = re.compile(r'([\w:.-]+)="([^"]*)"')
 STRIP = re.compile(r' (?:id|text_id|description_id|strings_ids|help_ids)="[^"]*"')
 SEGMENT = re.compile(r'[^a-z0-9_]+')
@@ -44,6 +44,7 @@ def add_ids(xml, stem, prefix):
     stem = f'{prefix}.{segment(stem)}'
     seen = {}
     list_name = None
+    widgets = []  # the open <widget>s: a bar <action> is named by its screen and slot
 
     def unique(base):
         count = seen.get(base, 0) + 1
@@ -56,13 +57,19 @@ def add_ids(xml, stem, prefix):
         if closing:
             if tag == 'strings':
                 list_name = None
+            if tag == 'widget' and widgets:
+                widgets.pop()
             return match.group(0)
         attributes = dict(ATTR.findall(body))
+        if tag == 'widget' and not selfclose:
+            widgets.append(attributes.get('name', ''))
         if tag == 'strings':
             list_name = None if selfclose else segment(attributes.get('name', ''))
             return match.group(0)
         pairs = []  # (attribute, id attribute, [ids])
         name = segment(attributes.get('name', '').replace('\\', '/'))  # the whole path: stable when siblings move
+        if tag == 'action':
+            name = segment(f"{widgets[-1] if widgets else ''}/bar/{attributes.get('slot', '')}")
         if tag == 'string':
             if list_name is None or not attributes.get('text'):
                 return match.group(0)

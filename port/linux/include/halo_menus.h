@@ -11,8 +11,9 @@ their meaning.
 A file holds <menus> with <bitmap> (holding <frame>s), <strings> (holding
 <string>s) and <widget> elements; a <widget> holds <widget> and <child>
 (its children), <on> (an event handler), <data> (a game data input),
-<conditional> and <replace> elements. A <patch> changes a list of the
-map's own (the Xbox look's, in ui.map): its <row>, <remove> and <replace>
+<conditional>, <replace> and <bar> elements (a <bar> holds the screen's
+<action>s, which the reader makes into the bar's glyphs and captions). A
+<patch> changes a list of the map's own (the Xbox look's, in ui.map): its <row>, <remove> and <replace>
 elements add, take out and swap the list's rows. port/assets/menus/README.md
 describes them.
 */
@@ -120,6 +121,9 @@ struct halo_menu_widget
 	long has_width, has_height;
 	/* a column list's rows shown at once (0: all) */
 	long visible_rows;
+	/* a glyph or caption the reader made from a screen's <bar> <action>: the action's slot and scope (enum
+	halo_menu_slot and halo_menu_scope, halo_menu_meta.h; 0: not a bar's) */
+	long bar_slot, bar_scope;
 	/* a settings list's rows (children named op_*): the first one's y and the
 	pitch they are packed at, so rows for another platform leave no gap (0: as
 	placed) */

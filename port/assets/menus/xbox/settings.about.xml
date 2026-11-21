@@ -8,10 +8,10 @@
 		<child widget="xbox/settings/about/title_version" x="54" y="78" />
 		<child widget="xbox/settings/about/options_menu" />
 		<child widget="xbox/settings/about/help" />
-		<child widget="xbox/settings/about/b_butn" x="326" y="414" />
-		<child widget="xbox/settings/about/cancel" x="348" y="414" />
-		<child widget="xbox/settings/about/a_butn" x="471" y="414" />
-		<child widget="xbox/settings/about/accept" x="493" y="414" />
+		<bar>
+			<action slot="b" scope="back" text="BACK" text_id="xbox.settings_about.xbox_settings_about_about_screen_bar_b.text" focus="true" />
+			<action slot="a" scope="select" text="SELECT" text_id="xbox.settings_about.xbox_settings_about_about_screen_bar_a.text" focus="true" />
+		</bar>
 	</widget>
 	<widget name="xbox/settings/about/header_about" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 	</widget>
@@ -108,10 +108,6 @@
 	<widget name="xbox/settings/about/title_version" type="text" controller="1" width="512" height="24" font="ui\large_ui" color="#FF2896FF" text_x="13">
 		<data input="port about version" />
 	</widget>
-	<widget name="xbox/settings/about/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/about/cancel" type="text" text="BACK" text_id="xbox.settings_about.xbox_settings_about_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/settings/about/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/settings/about/accept" type="text" text="SELECT" text_id="xbox.settings_about.xbox_settings_about_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/send_log_confirm" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<on event="b" back="true" />
 		<on event="back" back="true" />
@@ -153,8 +149,9 @@
 		<on event="back" back="true" />
 		<child widget="xbox/settings/about/notices/header" />
 		<child widget="xbox/settings/about/notices/options_menu" />
-		<child widget="xbox/settings/about/notices/b_butn" x="326" y="414" />
-		<child widget="xbox/settings/about/notices/cancel" x="348" y="414" />
+		<bar>
+			<action slot="b" scope="back" text="BACK" text_id="xbox.settings_about.xbox_settings_about_notices_screen_bar_b.text" focus="true" />
+		</bar>
 	</widget>
 	<widget name="xbox/settings/about/notices/header" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_open_source_notices" />
 	<widget name="xbox/settings/about/notices/options_menu" type="column_list" width="640" height="350" visible_rows="7" description="xbox/settings/about/notices/help" flags="pass_unhandled_to_focused_child up_down_tabs_children">
@@ -482,8 +479,6 @@
 		<string text="Roger White, 1994, released by its author into the public\ndomain." id="xbox.settings_about.xbox_settings_about_notices_help_strings.roger_white_1994_released_by_its_8266c2" />
 		<string text="Copyright 2018 The Orbitron Project Authors." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_2018_the_orbitron_proj_96eea1" />
 	</strings>
-	<widget name="xbox/settings/about/notices/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/about/notices/cancel" type="text" text="BACK" text_id="xbox.settings_about.xbox_settings_about_notices_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/about/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/about/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
 	<widget name="xbox/settings/about/notices/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
