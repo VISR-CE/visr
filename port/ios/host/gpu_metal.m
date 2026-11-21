@@ -42,6 +42,7 @@ but never returns to its run loop, which would otherwise drain them.
 /* GPU_VALIDATION_REPORT: this backend's fallbacks and skips, by name, in a
 build with render validation; nothing otherwise */
 #include "gpu_validate.h"
+#include "gpu_stream_ring.h"
 #include "metal_compile_async.h"
 #include "metal_compile_progress.h"
 #include "host.h"
@@ -583,17 +584,21 @@ static struct
 	} slots[GPU_VISIBILITY_SLOTS];
 } visibility;
 
-/* ---------- transient memory: a frame slot's streams and constant snapshots,
-in chunks that live until the slot's frame comes around again */
+/* ---------- transient memory: a frame slot's constant snapshots and the
+indices the encoder writes for fans and loops, in chunks that live until the
+slot's frame comes around again. The front end's streams are the producer's
+(producer_streams, below) */
 
 struct transient
 {
 	/* chunk handles in the buffer table */
 	gpu_buffer chunks[64];
 	unsigned long chunk_count, chunk, offset;
+	/* the smallest chunk made */
+	unsigned long chunk_size;
 };
 
-static struct transient streams[FRAMES], snapshots[FRAMES];
+static struct transient encode_streams[FRAMES], snapshots[FRAMES];
 
 /* a handle's record, or nil: an array read, with no message. Macros, not functions: a function returning the
 record makes ARC retain it for the return and release it after, even inlined (about a sixth of a draw's own
@@ -625,25 +630,11 @@ static MetalBuffer *transient_room(struct transient *memory, uint32_t size, uint
 		if (memory->chunk_count == sizeof(memory->chunks) / sizeof(memory->chunks[0]))
 			host_crash("Metal: a frame streamed more than %lu chunks", memory->chunk_count);
 		record = [MetalBuffer new];
-		record->buffer = [device newBufferWithLength:size > CHUNK_SIZE ? size : CHUNK_SIZE
+		record->buffer = [device newBufferWithLength:size > memory->chunk_size ? size : memory->chunk_size
 			options:MTLResourceStorageModeShared];
 		record->transient = YES;
 		memory->chunks[memory->chunk_count++] = [buffers add:record];
 	}
-}
-
-/* copies size bytes into transient memory; returns the offset and sets
-*buffer to the chunk's handle */
-static uint32_t transient_copy(struct transient *memory, const void *data, uint32_t size, uint32_t alignment,
-	gpu_buffer *buffer)
-{
-	MetalBuffer *record = transient_room(memory, size, alignment);
-	uint32_t offset = (uint32_t)memory->offset;
-
-	memcpy((unsigned char *)record->buffer.contents + offset, data, size);
-	memory->offset += size;
-	*buffer = memory->chunks[memory->chunk];
-	return offset;
 }
 
 static void transient_reset(struct transient *memory)
@@ -681,7 +672,7 @@ static void frame_begin(void)
 	waited = CACurrentMediaTime();
 	dispatch_semaphore_wait(frame_slots, DISPATCH_TIME_FOREVER);
 	pacing_waited += CACurrentMediaTime() - waited;
-	transient_reset(&streams[frame_slot]);
+	transient_reset(&encode_streams[frame_slot]);
 	transient_reset(&snapshots[frame_slot]);
 	frame_upscale_paths = 0;
 	perf_group = HOST_PERF_SCENE;
@@ -1760,31 +1751,98 @@ static void gpu_metal_buffer_write(gpu_buffer buffer, uint32_t offset, uint32_t 
 	}
 }
 
+/* ---------- the producer's streams (gpu_stream_ring.h): touched only by
+the caller of stream, stream_reserve and stream_frame_end, never by the
+encoder, which marks a chunk used when a draw names it. Each chunk's record is
+made at initialize, so the buffer table changes only on the encoder's side;
+the producer assigns a record its buffer before any record naming the chunk
+is written. PRODUCER_LEAD: frames the producer may run ahead of the encoder,
+none until the encoder has a thread of its own (debug.encode_thread) */
+#define PRODUCER_LEAD 0
+#define PRODUCER_FRAMES (FRAMES + 1 + PRODUCER_LEAD)
+_Static_assert(PRODUCER_FRAMES <= GPU_STREAM_RING_SETS, "the producer's ring has room for its sets");
+
+static struct gpu_stream_ring producer_streams;
+static gpu_buffer producer_handles[PRODUCER_FRAMES][GPU_STREAM_RING_CHUNKS];
+static __unsafe_unretained MetalBuffer *producer_records[PRODUCER_FRAMES][GPU_STREAM_RING_CHUNKS];
+
+static int producer_grow(void *context, unsigned set, unsigned index, uint32_t size, struct gpu_stream_chunk *chunk)
+{
+	__unsafe_unretained MetalBuffer *record = producer_records[set][index];
+
+	(void)context;
+	record->buffer = [device newBufferWithLength:size > CHUNK_SIZE ? size : CHUNK_SIZE
+		options:MTLResourceStorageModeShared];
+	if (!record->buffer)
+		return 0;
+	chunk->handle = producer_handles[set][index];
+	chunk->contents = record->buffer.contents;
+	chunk->length = record->buffer.length;
+	return 1;
+}
+
+static uint64_t producer_completed(void *context)
+{
+	(void)context;
+	return atomic_load(&completed_serial);
+}
+
+/* (rare: the ring has a set more than the frames in flight) */
+static void producer_wait(void *context, uint64_t serial)
+{
+	CFTimeInterval waited = CACurrentMediaTime();
+
+	(void)context;
+	while (atomic_load(&completed_serial) < serial)
+		usleep(100);
+	pacing_waited += CACurrentMediaTime() - waited;
+}
+
+static void producer_log(void *context, const char *line)
+{
+	(void)context;
+	platform_log("Metal: %s", line);
+}
+
+static void producer_streams_initialize(void)
+{
+	struct gpu_stream_ring_owner owner = { producer_grow, producer_completed, producer_wait, producer_log, NULL, 0 };
+	unsigned set, index;
+
+#ifdef HALO_DEVELOPMENT_HOOKS
+	owner.abort_on_unstamped = 1;
+#endif
+	for (set = 0; set < PRODUCER_FRAMES; set++)
+		for (index = 0; index < GPU_STREAM_RING_CHUNKS; index++)
+		{
+			MetalBuffer *record = [MetalBuffer new];
+
+			record->transient = YES;
+			producer_records[set][index] = record;
+			producer_handles[set][index] = [buffers add:record];
+		}
+	gpu_stream_ring_init(&producer_streams, PRODUCER_FRAMES, &owner);
+}
+
 static void gpu_metal_stream_reserve(uint32_t vertex_bytes, uint32_t index_bytes)
 {
-	@autoreleasepool
-	{
-		/* a new chunk never discards the frame's earlier streams, so there is
-		nothing to keep together; only the slot must be ours */
-		frame_begin();
-	}
+	(void)vertex_bytes;
+	(void)index_bytes;
+	/* a new chunk never discards the frame's earlier streams, so there is nothing to keep together; only the set
+	must be free */
+	gpu_stream_ring_reserve(&producer_streams);
 }
 
 static uint32_t gpu_metal_stream(uint32_t kind, const void *data, uint32_t size, gpu_buffer *buffer)
 {
-	@autoreleasepool
-	{
-		__unsafe_unretained MetalBuffer *record;
-		uint32_t offset;
+	/* copies size bytes and keeps the next stream 16-aligned (gpu_gl.c copies the rounded size, reading past the
+	caller's data) */
+	uint32_t offset = gpu_stream_ring_copy(&producer_streams, data, size, 16, buffer);
 
-		frame_begin();
-		/* copies size bytes and keeps the next stream 16-aligned (gpu_gl.c
-		copies the rounded size, reading past the caller's data) */
-		offset = transient_copy(&streams[frame_slot], data, size, 16, buffer);
-		record = buffer_record(*buffer);
-		use_buffer(record);
-		return offset;
-	}
+	(void)kind;
+	if (offset == UINT32_MAX)
+		host_crash("Metal: a frame streamed more than %d chunks", GPU_STREAM_RING_CHUNKS);
+	return offset;
 }
 
 /* ---------- shaders */
@@ -3815,10 +3873,10 @@ static uint32_t gpu_metal_compiles_outstanding(void)
 	return (uint32_t)atomic_load(&compiles_outstanding);
 }
 
-/* the frame's streams end (gpu_backend.h's GPU_HOST_OPERATIONS); the transient sets still move at present, until the
-producer keeps a ring of its own (debug.encode_thread) */
+/* the frame's streams end (gpu_backend.h's GPU_HOST_OPERATIONS): its set waits for its present's stamp */
 static void gpu_metal_stream_frame_end(void)
 {
+	gpu_stream_ring_frame_end(&producer_streams);
 }
 
 /* ---------- compiling at map load (gpu.h; the front end's shader_list.c) */
@@ -4529,7 +4587,7 @@ the vertex count, 0 if there's nothing to draw */
 handle and offset, and where to write them */
 static uint32_t *stream_indices(uint32_t count, gpu_buffer *buffer, uint32_t *offset)
 {
-	struct transient *memory = &streams[frame_slot];
+	struct transient *memory = &encode_streams[frame_slot];
 	MetalBuffer *record = transient_room(memory, count * (uint32_t)sizeof(uint32_t), 4);
 	uint32_t *indices = (uint32_t *)((unsigned char *)record->buffer.contents + memory->offset);
 
@@ -8912,7 +8970,7 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 	}
 }
 
-static uint32_t gpu_metal_present(gpu_texture back_buffer)
+static uint32_t present_frame(gpu_texture back_buffer)
 {
 	@autoreleasepool
 	{
@@ -9481,7 +9539,7 @@ static void stereo_pacing_count(void)
 }
 #endif
 
-static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *present)
+static uint32_t present_stereo_frame(const struct gpu_stereo_present *present)
 {
     /* Vision Pro DRS remains an experiment; clear a preceding mono frame's eligibility. */
     if (host_perf_hooks_dynamic_enabled())
@@ -9602,7 +9660,30 @@ static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *presen
 	}
 #endif
 	/* (the window: eye 0, or a zoomed frame's picture in its place) */
-	return gpu_metal_present(present->zoom ? present->zoom : present->eye_color[0]);
+	return present_frame(present->zoom ? present->zoom : present->eye_color[0]);
+}
+
+/* the frame's streams are read by the command buffers up to the one carrying its present, which every present path
+commits: the producer may reuse their set once that one completes */
+static void stamp_streams(void)
+{
+	gpu_stream_ring_presented(&producer_streams, commands ? current_serial : current_serial - 1);
+}
+
+static uint32_t gpu_metal_present(gpu_texture back_buffer)
+{
+	uint32_t next_frame_due = present_frame(back_buffer);
+
+	stamp_streams();
+	return next_frame_due;
+}
+
+static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *present)
+{
+	uint32_t next_frame_due = present_stereo_frame(present);
+
+	stamp_streams();
+	return next_frame_due;
 }
 
 static uint32_t gpu_metal_call_count_take(void)
@@ -9694,6 +9775,13 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		});
 		textures = [MetalTable new];
 		buffers = [MetalTable new];
+		producer_streams_initialize();
+		for (unsigned slot = 0; slot < FRAMES; slot++)
+		{
+			snapshots[slot].chunk_size = CHUNK_SIZE;
+			/* (fans' and loops' indices only: a few hundred KB at most) */
+			encode_streams[slot].chunk_size = CHUNK_SIZE / 8;
+		}
 		shaders = [MetalTable new];
 		frame_slots = dispatch_semaphore_create(FRAMES);
 		clear_pipelines = [NSMutableDictionary dictionary];

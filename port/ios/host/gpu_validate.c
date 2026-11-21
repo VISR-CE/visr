@@ -148,6 +148,8 @@ static struct
 	unsigned long failures, rejected;
 	unsigned long summarized;
 	int installed, stopping;
+	/* a stream_frame_end not yet passed on (validate_stream_frame_end) */
+	int frame_end_held;
 } validation;
 
 static pthread_mutex_t report_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -1712,6 +1714,8 @@ static void validate_anti_alias(uint32_t method, gpu_texture target, const struc
 	validation.backend.anti_alias(method, target, rect);
 }
 
+static void streams_end(void);
+
 static uint32_t validate_present(gpu_texture back_buffer)
 {
 	uint32_t due;
@@ -1723,7 +1727,13 @@ static uint32_t validate_present(gpu_texture back_buffer)
 	if (validation.visibility_active)
 		REPORT(VISIBILITY_INVALID, 5, "a visibility test is still open at the frame's end");
 	check_picture(back_buffer, "the back buffer", 1);
-	due = rejected(before) ? 0 : validation.backend.present(back_buffer);
+	if (rejected(before))
+		due = 0;
+	else
+	{
+		streams_end();
+		due = validation.backend.present(back_buffer);
+	}
 	frame_end();
 	return due;
 }
@@ -1767,7 +1777,13 @@ static uint32_t validate_present_stereo(const struct gpu_stereo_present *present
 	{
 		REPORT(PRESENT_INVALID, 3, "no stereo frame");
 	}
-	due = rejected(before) ? 0 : validation.backend.present_stereo(present);
+	if (rejected(before))
+		due = 0;
+	else
+	{
+		streams_end();
+		due = validation.backend.present_stereo(present);
+	}
 	frame_end();
 	return due;
 }
@@ -1835,13 +1851,20 @@ static uint32_t validate_compiles_outstanding(void)
 	return validation.backend.compiles_outstanding();
 }
 
-/* the host's own operations (gpu_backend.h) pass through */
-#define VALIDATE_HOST_F(type, name, parameters, arguments) \
-	static type validate_##name parameters { return validation.backend.name arguments; }
-#define VALIDATE_HOST_P(name, parameters, arguments) static void validate_##name parameters { validation.backend.name arguments; }
-GPU_HOST_OPERATIONS(VALIDATE_HOST_F, VALIDATE_HOST_P)
-#undef VALIDATE_HOST_F
-#undef VALIDATE_HOST_P
+/* the host's own operations (gpu_backend.h). stream_frame_end is held until the present it comes before: a present
+the validator rejects never reaches the backend, so its frame's streams do not end there either, and the backend
+sees one stream_frame_end before each present it draws */
+static void validate_stream_frame_end(void)
+{
+	validation.frame_end_held = 1;
+}
+
+static void streams_end(void)
+{
+	if (validation.frame_end_held)
+		validation.backend.stream_frame_end();
+	validation.frame_end_held = 0;
+}
 
 static void validate_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
