@@ -38,6 +38,7 @@ void host_config_string(const char *name, const char *fallback, char *out, size_
 }
 void SDL_PumpEvents(void) { assert(on_main); live_width++; live_height++; }
 int host_on_main_thread(void) { return on_main; }
+void host_controller_refreshed(void) {}
 void host_main_sync_f(void *context, void (*fn)(void *)) {
     int previous = on_main;
     if (!on_main) dispatches++;

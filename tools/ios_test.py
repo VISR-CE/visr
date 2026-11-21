@@ -197,6 +197,11 @@ for catalyst, native in ((0, 0), (1, 0), (0, 1)):
         '-o', window_probe)
     for flag in ('true', 'false'):
         run(window_probe, flag)
+run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+    '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/runtime/include', *sdl_headers,
+    'port/ios/tests/controller_age_probe.c', 'port/ios/host/host_controller_age.c',
+    '-o', BUILD/'controller-age-probe')
+run(BUILD/'controller-age-probe')
 run('xcrun', 'clang', '-O2', '-DHALO_IOS=1', '-Iport/ios/host', '-Iport/ios/host',
     '-Iport/runtime/include', 'port/ios/tests/audio_probe.c', '-Wl,-dead_strip',
     *sdl_flags, '-o', BUILD/'audio-probe')
