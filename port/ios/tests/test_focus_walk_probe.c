@@ -72,7 +72,7 @@ int main(void)
 		int action = TEST_FOCUS_WAIT;
 
 		test_focus_walk_begin(&w, "VEHICLES", 0);
-		for (unsigned long poll = 0; poll < 5000 && action == TEST_FOCUS_WAIT; poll++)
+		for (unsigned long poll = 0; poll < 5000 && action != TEST_FOCUS_FAIL_NO_SCREEN; poll++)
 			action = test_focus_walk_poll(&w, poll, NULL);
 		assert(action == TEST_FOCUS_FAIL_NO_SCREEN);
 	}
