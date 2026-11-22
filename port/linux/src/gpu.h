@@ -84,9 +84,9 @@ struct gpu_capabilities
 	/* screen-space ambient occlusion can be drawn (host_ssao_apply: Metal on Apple GPU family 6 and later, and Macs);
 	otherwise display.ambient_occlusion and debug.ssao draw nothing and reports record it off */
 	uint8_t ambient_occlusion;
-	/* soft particle edges can be drawn (host_soft_depth_prepare: Metal on Apple GPU family 3 and later, and Macs);
-	otherwise display.soft_particles draws nothing. An A8 (family 2) GPU faults in the compute pass whatever it
-	reads. Takes the padding after ambient_occlusion, so the structure keeps its layout */
+	/* soft particle edges can be drawn (host_soft_depth_prepare, as the Metal gate's pass table answers: Apple GPU family 4
+	and later, and Macs); otherwise display.soft_particles draws nothing. The A8 and A10X fault their GPUs in the compute
+	pass. Takes the padding after ambient_occlusion, so the structure keeps its layout */
 	uint8_t soft_particles;
 	uint32_t max_texture_size;
 };

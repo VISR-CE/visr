@@ -73,7 +73,7 @@ Apple2 (a simulator that reports none) takes Apple2's. */
 /* (name, first family, last family, what was seen). A quirk blocks every pass that names it on the families from
 first to last. */
 #define METAL_QUIRKS(X) \
-	X(A8_COMPUTE_DISPATCH_FAULT, 2, 2, "A8 compute dispatch faults")
+	X(A8_A10X_COMPUTE_DISPATCH_FAULT, 2, 3, "A8 and A10X compute dispatch faults")
 
 /* How a pass's floor is known: a fleet device of that family ran the pass clean, or the family comes from Apple's
 table and today's checks and no fleet device has run it there. Lowering any floor needs a device run. */
@@ -84,10 +84,12 @@ table and today's checks and no fleet device has run it there. Lowering any floo
 "enforced" is 0 for a row the backend does not read yet: its answer is logged and changes nothing (MSAA until the
 resolve calls read it).
 Soft particles: the A8 (Apple TV HD) faults its GPU on the pass's compute dispatch whatever the kernel reads
-(known-bugs, Nov 21, 2026); the A10X iPad Pro (Apple3) ran it clean, so the floor is Apple3, device-verified. */
+(known-bugs, Nov 21, 2026), and the A10X iPad Pro (Apple3) had failed command buffers in 11 of 24 latency-lane arms
+with the pass on and none in 24 arms with it off (Nov 22), so the floor is Apple4. No Apple4 fleet device has run it;
+the Air 4 (A14) runs it clean once the acceptance runs say so. */
 #define METAL_PASSES(X) \
-	X(SOFT_PARTICLES, METAL_NEEDS(STENCIL_TEXTURE_VIEWS), METAL_BLOCKED_BY(A8_COMPUTE_DISPATCH_FAULT), 3, \
-		METAL_FLOOR_VERIFIED, 1, "soft particles", "hard particle edges") \
+	X(SOFT_PARTICLES, METAL_NEEDS(STENCIL_TEXTURE_VIEWS), METAL_BLOCKED_BY(A8_A10X_COMPUTE_DISPATCH_FAULT), 4, \
+		METAL_FLOOR_DOCUMENTED, 1, "soft particles", "hard particle edges") \
 	X(AMBIENT_OCCLUSION, METAL_NEEDS(SIMD_PERMUTES) | METAL_NEEDS(STENCIL_TEXTURE_VIEWS), 0, 6, \
 		METAL_FLOOR_DOCUMENTED, 1, "ambient occlusion", "no ambient occlusion") \
 	X(MSAA, METAL_NEEDS(MSAA_DEPTH_RESOLVE) | METAL_NEEDS(MSAA_STORE_AND_RESOLVE) | METAL_NEEDS(MSAA_STENCIL_RESOLVE), \

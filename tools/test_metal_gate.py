@@ -95,8 +95,9 @@ class MetalGateTests(unittest.TestCase):
         self.assertIn("Metal gate: Apple3 (A9-A10).", a10x)
         self.assertNotIn("BINARY_ARCHIVES", a10x)
         self.assertIn("ambient occlusion off (needs SIMD_PERMUTES, Apple6)", a10x)
-        self.assertIn("soft particles off (A8 compute dispatch faults)", a8)
-        self.assertIn("soft particles on", a10x)
+        # the A8 and the A10X fault their GPUs on the soft particle compute dispatch: Apple4 (A11) and later run it
+        self.assertIn("soft particles off (A8 and A10X compute dispatch faults)", a8)
+        self.assertIn("soft particles off (A8 and A10X compute dispatch faults)", a10x)
 
     def test_feature_rows_match_apples_table(self):
         documented = {}
