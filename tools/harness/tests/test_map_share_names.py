@@ -62,7 +62,7 @@ def generated(fault=None, faulty_function=None):
     # the menus' names (custom_edition_maps.c): Halo PC's own maps, and the rest
     maps = read("port/linux/game/custom_edition_maps.c")
     text += read("port/runtime/stock_maps.h").replace("#pragma once", "") + "\n"
-    for name in ("stock_map_find", "display_name_make", "custom_edition_maps_tell_versions_apart"):
+    for name in ("stock_map_find", "stock_display_name_widen", "display_name_make", "custom_edition_maps_tell_versions_apart"):
         code = function(maps, name)
         if fault and name == faulty_function:
             code = mutated(code, *fault)

@@ -77,11 +77,9 @@ custom campaigns' and ui_widget.c's spinner descriptions' (0x7000). */
 pictures (the campaign menu's, one frame per level in order). */
 #define FIRST_CAMPAIGN_DISPLAY_INDEX 0x3000
 #define CAMPAIGN_LEVEL_PICTURES_TAG_NAME "ui\\shell\\bitmaps\\sp_levels"
-static wchar_t campaign_level_names[NUMBER_OF_SINGLE_PLAYER_LEVELS][32] =
-{
-	L"The Pillar of Autumn", L"Halo", L"The Truth and Reconciliation", L"The Silent Cartographer",
-	L"Assault on the Control Room", L"343 Guilty Spark", L"The Library", L"Two Betrayals", L"Keyes", L"The Maw",
-};
+#define CAMPAIGN_LEVEL_NAME_LENGTH 32
+/* filled from the stock table's campaign rows (stock_maps.h) when first asked for */
+static wchar_t campaign_level_names[NUMBER_OF_SINGLE_PLAYER_LEVELS][CAMPAIGN_LEVEL_NAME_LENGTH];
 static wchar_t campaign_level_description[] = L"A campaign level, played co-op";
 
 /* The level pictures tag, the picture shape (140x114 in the menus' 640x480;
@@ -188,6 +186,19 @@ static struct stock_map const *stock_map_find(
 	return map && (map->flags & STOCK_MAP_PC_MULTIPLAYER) ? map : NULL;
 }
 
+/* a stock map's menu name (ASCII) as a wide string of at most `size` characters with its terminator */
+static void stock_display_name_widen(
+	struct stock_map const *stock,
+	wchar_t *display_name,
+	int size)
+{
+	int index;
+
+	for (index = 0; index < size - 1 && stock->display_name[index]; index++)
+		display_name[index] = (wchar_t)(unsigned char)stock->display_name[index];
+	display_name[index] = 0;
+}
+
 /* A map's menu name: Halo PC's name for its own maps, otherwise the file
 name (without a hash it ends in) with underscores as spaces and words
 capitalized ("the_bay_of_pigs" becomes "The Bay Of Pigs"). */
@@ -202,9 +213,7 @@ static void display_name_make(
 
 	if (stock)
 	{
-		for (index = 0; stock->display_name[index]; index++)
-			display_name[index] = (wchar_t)(unsigned char)stock->display_name[index];
-		display_name[index] = 0;
+		stock_display_name_widen(stock, display_name, MAXIMUM_MAP_NAME_LENGTH + 8);
 		return;
 	}
 
@@ -641,6 +650,29 @@ static short campaign_level_from_name(
 	return NONE;
 }
 
+/* the menu name of the stock campaign level `level` (0 is a10), from the stock table */
+static wchar_t *campaign_level_name(
+	short level)
+{
+	int count, row, campaign = 0;
+	struct stock_map const *maps = stock_maps(&count);
+
+	if (!campaign_level_names[level][0])
+	{
+		for (row = 0; row < count; row++)
+		{
+			if (!(maps[row].flags & STOCK_MAP_CAMPAIGN)) continue;
+			if (campaign++ == level)
+			{
+				stock_display_name_widen(&maps[row], campaign_level_names[level], CAMPAIGN_LEVEL_NAME_LENGTH);
+				break;
+			}
+		}
+	}
+
+	return campaign_level_names[level];
+}
+
 /* ---------- public code */
 
 char **custom_edition_maps_level_list(
@@ -846,7 +878,7 @@ wchar_t *custom_edition_maps_name(
 
 	if (level != NONE)
 	{
-		return campaign_level_names[level];
+		return campaign_level_name(level);
 	}
 
 	return map ? map->display_name : NULL;

@@ -21,6 +21,8 @@ test_map_share_names.py takes the constants (config.inc) and the code
 #define ustrcpy(destination, source) wcscpy(destination, source)
 #define _strnicmp(first, second, count) strncasecmp(first, second, count)
 #define csprintf sprintf
+/* the game's longest map file name is shorter; the harness buffers below hold 64 */
+#define MAXIMUM_MAP_NAME_LENGTH 56
 
 /* a map listed (custom_edition_maps.c's, its names alone) */
 struct custom_edition_map
