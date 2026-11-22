@@ -1139,6 +1139,8 @@ static void audio_route_changed_locked(void)
         if(SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(replacement),&output,NULL))
             host_logf(HOST_LOG_INFO,"audio route: stream reopened on a new device at %d Hz, %d channels (guest source %d Hz)",
                 output.freq,output.channels,binding->source.freq);
+        {char granted[256];host_audio_session_describe(granted,sizeof(granted));
+            host_logf(HOST_LOG_INFO,"audio route: reopened timing: %s",granted);}
     }
 }
 
@@ -1267,6 +1269,13 @@ uint32_t host_sdl_open_audio_stream(uint32_t device, const void *spec, uint32_t 
 		if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(stream), &device_spec, &device_frames))
 			host_logf(HOST_LOG_INFO, "audio device: %d Hz, %d channels, format 0x%x, %d sample frames",
 				device_spec.freq, device_spec.channels, (unsigned)device_spec.format, device_frames);
+		/* a separate line: tools/mac_run.py compares "audio device:" between runners and these values differ per run */
+		{
+			char granted[256];
+
+			host_audio_session_describe(granted, sizeof(granted));
+			host_logf(HOST_LOG_INFO, "audio device timing: %s", granted);
+		}
 	}
 	/* the device starts paused, so no callback can run before this */
 	pthread_mutex_lock(&audio_life_lock);

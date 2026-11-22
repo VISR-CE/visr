@@ -885,6 +885,12 @@ def input_run(folder, log=INPUT_LOG, root="/data"):
     return folder
 
 
+def test_audio_timing_lines_differ_per_run_so_they_are_not_compared_inputs():
+    log = INPUT_LOG + "halo-ios: audio device timing: io_buffer=21.33 ms output_latency=9.10 ms\n"
+    log += "halo-ios: audio route: timing: buffer_frames=512 device_latency=0\n"
+    assert not any("timing" in line for line in mac_run.input_lines(log))
+
+
 def test_input_lines_keep_the_lines_that_name_a_run_s_inputs():
     lines = mac_run.input_lines(INPUT_LOG)
     assert f"guest image sha256 {SHA}" in lines

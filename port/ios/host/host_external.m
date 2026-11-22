@@ -23,6 +23,7 @@
 #include "renderer_build.h"
 #include "host_audio_route.h"
 #include "host_audio_stall.h"
+#include "host_audio_session.h"
 #include "host_config.h"
 #include "host_profile.h"
 
@@ -936,6 +937,8 @@ static void host_external_poll_main(void) {
         host_logf(HOST_LOG_INFO,"audio route: category=%s mode=%s output=%s rate=%.0f Hz latency=%.3f s",
             audio.category.UTF8String,audio.mode.UTF8String,audio_route_text().UTF8String,
             audio.sampleRate,audio.outputLatency);
+        {char granted[256];host_audio_session_describe(granted,sizeof(granted));
+            host_logf(HOST_LOG_INFO,"audio route: timing: %s",granted);}
         if(candidate_screen) {
             pthread_mutex_lock(&snapshot_lock);
             snprintf(snapshot.name,sizeof(snapshot.name),"%s",port_name().UTF8String);
