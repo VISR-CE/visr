@@ -11,6 +11,7 @@ gpu_call_hash.c and gpu_queue.c. */
 
 #include "gpu_call_hash.h"
 #include "gpu_queue.h"
+#include "gpu_owner_check.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -378,12 +379,19 @@ static void check_keyframes(const char *run)
 }
 
 static pthread_t consumer_thread;
-static int consumer_thread_set;
+static int consumer_thread_set, consumer_starts;
 
 static void consumer_started(void)
 {
 	consumer_thread = pthread_self();
 	consumer_thread_set = 1;
+	consumer_starts++;
+}
+
+static void owner_consumer_started(void)
+{
+	gpu_owner_check_bind_consumer();
+	consumer_started();
 }
 
 int main(void)
@@ -483,5 +491,27 @@ int main(void)
 			frames[frame].calls, (unsigned long long)frames[frame].hash, direct[frame].recorded_calls,
 			(unsigned long long)direct[frame].recorded);
 	CHECK(gpu_queue_barrier_waited() >= 0.0, "a threaded present did not wait at the barrier");
+
+	/* wrapped again, as the app's dispatch wraps (owner check under the queue): to inline and back to the encode
+	thread, the old thread ends and a new one binds itself as the consumer, so every call still comes from its owner */
+	{
+		const struct gpu_backend *checked;
+		int round;
+
+		for (round = 0; round < 2; round++)
+		{
+			checked = gpu_owner_check_wrap(&counted, quiet, 0);
+			play(gpu_queue_wrap(checked, checked, GPU_QUEUE_INLINE, 0, quiet, gpu_owner_check_bind_consumer));
+			checked = gpu_owner_check_wrap(&counted, quiet, 0);
+			consumer_thread_set = 0;
+			play(gpu_queue_wrap(checked, checked, GPU_QUEUE_THREAD, 0, quiet, owner_consumer_started));
+			/* (a new thread's pthread_t can equal the joined one's, so the starts are counted) */
+			CHECK(consumer_thread_set && !pthread_equal(consumer_thread, pthread_self()),
+				"wrapped again, round %d: no new encode thread started", round);
+		}
+		CHECK(consumer_starts == 3, "the encode thread started %d times for three threaded wraps", consumer_starts);
+		CHECK(gpu_owner_check_violations() == 0, "wrapped again, %lu calls came from a thread other than their owner",
+			gpu_owner_check_violations());
+	}
 	return 0;
 }

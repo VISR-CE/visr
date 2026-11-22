@@ -35,6 +35,8 @@ static struct
 	pthread_cond_t work, idle;
 	_Atomic uint64_t written, consumed;
 	_Atomic int sleeping, drain_waiting;
+	/* set by a wrap that ends the thread (worker_stop) */
+	_Atomic int stopping;
 	void (*started)(void);
 	double barrier_waited; /* the last present's wait for the consumer, in seconds (the producer's) */
 } worker = { .lock = PTHREAD_MUTEX_INITIALIZER, .work = PTHREAD_COND_INITIALIZER, .idle = PTHREAD_COND_INITIALIZER };
@@ -1193,7 +1195,7 @@ static void *worker_main(void *unused)
 #endif
 	if (worker.started)
 		worker.started();
-	for (;;)
+	while (!atomic_load(&worker.stopping))
 	{
 		uint64_t dry;
 
@@ -1207,13 +1209,13 @@ static void *worker_main(void *unused)
 			pthread_mutex_unlock(&worker.lock);
 		}
 		dry = clock_ns();
-		while (!worker_backlog() && clock_ns() - dry < WORKER_SPIN_NS)
+		while (!worker_backlog() && clock_ns() - dry < WORKER_SPIN_NS && !atomic_load(&worker.stopping))
 			;
 		if (worker_backlog() && mode == GPU_QUEUE_THREAD)
 			continue;
 		pthread_mutex_lock(&worker.lock);
 		atomic_store(&worker.sleeping, 1);
-		while (!worker_backlog() || mode != GPU_QUEUE_THREAD)
+		while ((!worker_backlog() || mode != GPU_QUEUE_THREAD) && !atomic_load(&worker.stopping))
 		{
 			if (atomic_load(&worker.drain_waiting))
 				pthread_cond_broadcast(&worker.idle);
@@ -1243,12 +1245,28 @@ static void worker_start(void)
 	worker.running = 1;
 }
 
+/* the encode thread ends (with nothing left to make: a wrap drains first), so a later wrap changes nothing under it and
+a new thread calls the new wrap's consumer_started */
+static void worker_stop(void)
+{
+	if (!worker.running)
+		return;
+	pthread_mutex_lock(&worker.lock);
+	atomic_store(&worker.stopping, 1);
+	pthread_cond_broadcast(&worker.work);
+	pthread_mutex_unlock(&worker.lock);
+	pthread_join(worker.thread, NULL);
+	atomic_store(&worker.stopping, 0);
+	worker.running = 0;
+}
+
 const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath,
 	int queue_mode, int queue_timing, void (*log)(const char *line), void (*consumer_started)(void))
 {
-	/* (an earlier wrap's records are all made first; a running encode thread then consumes nothing until the mode
-	says so) */
+	/* (an earlier wrap's records are all made first, and its encode thread ends: a wrap again starts a new one, bound
+	to the new consumer_started) */
 	drain();
+	worker_stop();
 	if (queue_mode == GPU_QUEUE_OFF)
 	{
 		mode = GPU_QUEUE_OFF;
