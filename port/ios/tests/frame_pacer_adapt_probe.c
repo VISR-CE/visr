@@ -41,7 +41,7 @@ static struct frame_pacer_adapt run(const struct stream *s, int start_limit, dou
         double wobble = s->jitter * s->period * ((double)((n * 7919) % 201) / 100.0 - 1.0);
         struct frame_pacer_adapt_frame frame = {
             .at = at, .interval = interval, .period = s->period + wobble, .gpu = s->gpu, .grant_to_present = s->grant,
-            .lead = s->lead, .slot_waited = limit == 1 && !s->cpu_caused, .others_in_flight = s->others[limit],
+            .lead = s->lead, .slot_waited = limit == 1 && !s->cpu_caused,
             .transition = transition,
         };
 
@@ -94,9 +94,23 @@ int main(void)
     CHECK(b.limit == 1 && b.switches <= 2);
 
     /* under rate, GPU-bound (50 a second with the second slot in use): two stays */
+    /* (one halves it, 50 to 30 a second: the rate-loss exit leaves, the retries grow, and the run keeps most of
+       fixed two's rate) */
     struct stream gpu_under = { p60, { 0, 2 * p60, 0.020 }, { 0, 0, 1 }, 0.019, 0.003, 0.003, 0, 0, 0 };
-    a = run(&gpu_under, 2, 30.0, 0);
-    CHECK(a.limit == 2 && a.switches == 0);
+    a = run(&gpu_under, 2, 300.0, 0);
+    CHECK(a.limit == 2 && a.switches >= 4 && a.switches <= 24 && a.retry_delay == FRAME_PACER_ADAPT_RETRY_MOST);
+    CHECK(shown_rate > 0.95 * 50.0);
+
+    /* the A10X iPad Pro at 128 players (traces, 2026-11-22): GPU-bound with the second slot in use, 20.5 a second at
+       two and 19.5 at one, 5% fewer: one in flight, for 25 to 70 ms less delay */
+    struct stream a10x = { p60, { 0, 1.0 / 19.5, 1.0 / 20.5 }, { 0, 0, 1 }, 0.040, 0.0002, 0.003, 0, 0, 0 };
+    a = run(&a10x, 2, 120.0, 0);
+    CHECK(a.limit == 1 && a.switches == 1 && a.reason == FRAME_PACER_ADAPT_UNDER);
+
+    /* the iPad Air 4 at 32 players (traces): GPU 14 ms, one in flight shows 30 a second: two, never one */
+    struct stream air4 = { p60, { 0, 2 * p60, p60 }, { 0, 0, 1 }, 0.021, 0.0003, 0.003, 0, 0, 0 };
+    a = run(&air4, 2, 120.0, 0);
+    CHECK(a.limit == 2 && a.switches == 0 && shown_rate > 59.0);
 
     /* under rate with the second slot idle, but the floor loses rate: it leaves, and the retries grow */
     /* (30 ms at the floor against 22 at the ceiling: never one and a half intervals late, so the rate test leaves) */

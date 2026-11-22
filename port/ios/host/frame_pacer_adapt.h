@@ -9,16 +9,26 @@ and gains the shorter delay (the A10X iPad Pro in a 128-player game).
 The rule, decided from presented frames only:
 
 - enter the floor, once the retry delay has passed, when either
-  - under rate: over a second at the ceiling, fewer than FRAME_PACER_ADAPT_UNDER_RATE of the rate in force was
-    shown and fewer than FRAME_PACER_ADAPT_IDLE_SLOT of frames took the second slot (a second slot in use is
-    helping: the GPU-bound case), or
+  - under rate: over a span at the ceiling, fewer than FRAME_PACER_ADAPT_UNDER_RATE of the rate in force was
+    shown, or
   - fits: the worst GPU time plus the worst span from slot grant to present, each over the last
     FRAME_PACER_ADAPT_WINDOW frames with a valid value, plus the lead, is within FRAME_PACER_ADAPT_FIT of the period
     in force. Neither measure contains a slot wait, so it reads the same at one and at two.
 - leave the floor on two slot-caused misses within FRAME_PACER_ADAPT_MISS_SPAN seconds (a frame that waited for
   its slot and came over one and a half periods after the frame before; under rate, one and a half of the interval
   the ceiling showed), or, for an under-rate stay, when a
-  second at the floor shows more than FRAME_PACER_ADAPT_RATE_LOSS less than the rate seen at the ceiling.
+  span at the floor shows more than FRAME_PACER_ADAPT_RATE_LOSS less than the rate seen at the ceiling.
+
+Set from fixed-one against fixed-two traces (debug.present_times) on 2026-11-22:
+- iPad Air 4, 32 players, 60 Hz: GPU 14 ms at the median and 16 to 21 at the 90th percentile, grant to present
+  0.3 ms. One in flight showed 30 frames a second, two 60; the fit test (GPU worst plus grant plus 3 ms lead within
+  90% of 16.7 ms) keeps it at two.
+- A10X iPad Pro, 128 players: GPU-bound (GPU 38 to 41 ms at the median, the second slot in use for 88 to 90% of
+  frames at two), and still one in flight is the better trade: 19.3 to 19.8 frames a second against 20.3 to 20.6 at
+  two (5% fewer), with controller to shown 66 to 115 ms against 122 to 139. The queue off ran 18.2 at 94 to 117 ms,
+  so two in flight is the arm that breaks the latency rule. A second slot in use therefore does not keep a device
+  under its rate at two (the design's idle-slot test is dropped); the rate-loss exit decides, with a tolerance
+  above that 5% and a span long enough that a 19-frame second's noise does not trip it.
 - the retry delay gates every entry: FRAME_PACER_ADAPT_RETRY_FIRST, doubling after each exit up to
   FRAME_PACER_ADAPT_RETRY_MOST; it resets on a change of period or after FRAME_PACER_ADAPT_RETRY_CALM seconds at
   the floor without an exit.
@@ -32,14 +42,13 @@ frame_pacer_adapt_probe.c (tools/ios_test.py) holds the cases. */
 #define FRAME_PACER_ADAPT_MINIMUM_SAMPLES 30
 #define FRAME_PACER_ADAPT_FIT 0.90
 #define FRAME_PACER_ADAPT_UNDER_RATE 0.95
-#define FRAME_PACER_ADAPT_IDLE_SLOT 0.10
-#define FRAME_PACER_ADAPT_RATE_LOSS 0.02
+#define FRAME_PACER_ADAPT_RATE_LOSS 0.10
 #define FRAME_PACER_ADAPT_MISS_SPAN 0.5
 #define FRAME_PACER_ADAPT_RETRY_FIRST 2.0
 #define FRAME_PACER_ADAPT_RETRY_MOST 60.0
 #define FRAME_PACER_ADAPT_RETRY_CALM 60.0
-/* (a second of frames for the rate tests) */
-#define FRAME_PACER_ADAPT_SPAN 1.0
+/* (the rate tests' span: two seconds, about 40 frames at the A10X's 19) */
+#define FRAME_PACER_ADAPT_SPAN 2.0
 /* a period that moved by more than this share is a new rate in force; less is the display link's jitter */
 #define FRAME_PACER_ADAPT_PERIOD_CHANGE 0.02
 /* an interval this long is a load, a pause or the background, not a frame (as frame_pacer_shown_add) */
@@ -64,7 +73,6 @@ struct frame_pacer_adapt_frame
 	double grant_to_present; /* slot grant to the present; below 0: unknown (0 is a present at once) */
 	double lead;             /* the compositor's lead the late start keeps */
 	int slot_waited;         /* found every slot taken and waited */
-	int others_in_flight;    /* frames holding a slot when it took its own */
 	int transition;          /* shown while the slots drained after a change: counts toward nothing */
 };
 
@@ -74,7 +82,7 @@ struct frame_pacer_adapt
 	double gpu[FRAME_PACER_ADAPT_WINDOW], grant[FRAME_PACER_ADAPT_WINDOW];
 	int gpu_count, gpu_next, grant_count, grant_next;
 	double span_start;          /* the rate test's second began; 0: not yet */
-	int span_frames, span_second_slot;
+	int span_frames;
 	double rate_at_ceiling;     /* frames a second the last full second at the ceiling showed; 0: none */
 	int under_rate_stay;        /* the floor was entered under rate */
 	double miss_at[2];          /* the last two slot-caused misses at the floor */
@@ -173,11 +181,10 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 	if (adapt->span_start <= 0.0 || frame->interval <= 0.0 || frame->interval >= FRAME_PACER_ADAPT_GAP)
 	{
 		adapt->span_start = now;
-		adapt->span_frames = adapt->span_second_slot = 0;
+		adapt->span_frames = 0;
 		return adapt->limit;
 	}
 	adapt->span_frames++;
-	adapt->span_second_slot += frame->others_in_flight > 0;
 	if (adapt->limit == adapt->floor)
 	{
 		/* leave on slot-caused misses: late against the period, or, in a stay entered under rate, against the interval
@@ -201,7 +208,7 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 			double rate = adapt->span_frames / (now - adapt->span_start);
 
 			adapt->span_start = now;
-			adapt->span_frames = adapt->span_second_slot = 0;
+			adapt->span_frames = 0;
 			if (adapt->under_rate_stay && adapt->rate_at_ceiling > 0.0 &&
 				rate < adapt->rate_at_ceiling * (1.0 - FRAME_PACER_ADAPT_RATE_LOSS))
 			{
@@ -218,15 +225,14 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 	if (now - adapt->span_start >= FRAME_PACER_ADAPT_SPAN)
 	{
 		double rate = adapt->span_frames / (now - adapt->span_start);
-		double second_slot = (double)adapt->span_second_slot / adapt->span_frames;
 		int fits = frame_pacer_adapt_fits(adapt, frame->period, frame->lead);
 
 		adapt->rate_at_ceiling = rate;
 		adapt->span_start = now;
-		adapt->span_frames = adapt->span_second_slot = 0;
+		adapt->span_frames = 0;
 		if (now < adapt->retry_at)
 			return adapt->limit;
-		if (rate < FRAME_PACER_ADAPT_UNDER_RATE / frame->period && second_slot < FRAME_PACER_ADAPT_IDLE_SLOT)
+		if (rate < FRAME_PACER_ADAPT_UNDER_RATE / frame->period)
 			frame_pacer_adapt_switch(adapt, adapt->floor, now, FRAME_PACER_ADAPT_UNDER);
 		else if (fits == 1)
 			frame_pacer_adapt_switch(adapt, adapt->floor, now, FRAME_PACER_ADAPT_FITS);
