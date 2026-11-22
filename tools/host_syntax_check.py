@@ -28,6 +28,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -90,20 +91,29 @@ def run(*args, **kwargs):
 
 
 def prepare():
-    """the guest-side files the host sources include, made the way tools/ios_build.py makes them"""
+    """the generated files the host sources include, made without building or linking the guest"""
     for name, (registry, revision, source) in ios_build.HEADERS.items():
         target = ROOT / 'build/ios/gl_include' / name
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True)
             url = f'https://raw.githubusercontent.com/KhronosGroup/{registry}/{revision}/{source}'
             target.write_bytes(urllib.request.urlopen(url, timeout=30).read())
-    run(sys.executable, 'configure.py', '--ios', '--pgo=use', '--lto=full', '--ios-llvm', host_toolchain.find_llvm(),
-        '--ios-lld', host_toolchain.find_lld(), check=True)
-    run('ninja', 'ios_guest', check=True)
-    run(sys.executable, 'tools/ios_bridges.py', check=True)
-    run(sys.executable, 'tools/ios_embed_guest.py', 'build/ios/halo_guest.elf', 'build/ios/embedded', check=True)
-    notices = ROOT / 'build/ios/licenses'
-    notices.mkdir(parents=True, exist_ok=True)
+    # No guest link: the host sources include only the generated bridge and import-table sources, the
+    # syscall numbers, the render-validation interface hash and the embedded image's layout header. The
+    # last one is a stub with this layout's constants, since the host sources only declare the blobs.
+    run(sys.executable, 'configure.py', '--ios', '--pgo=off', '--lto=off', '--render-validation',
+        '--ios-llvm', host_toolchain.find_llvm(), '--ios-lld', host_toolchain.find_lld(), check=True)
+    run('ninja', 'build/ios/host/host_import_table.c', check=True)
+    run(sys.executable, 'tools/ios_bridges.py', '--render-validation', check=True)
+    run(sys.executable, 'tools/gpu_interface_hash.py', check=True)
+    embedded = ROOT / 'build/ios/embedded'
+    embedded.mkdir(parents=True, exist_ok=True)
+    (embedded / 'guest_image.h').write_text(
+        '/* Syntax-check stub of the generated guest image layout (tools/host_syntax_check.py). */\n'
+        '#pragma once\n#define IOS_GUEST_CODE_SIZE 4177920u\n#define IOS_GUEST_DATA_ADDRESS 0x883fc000u\n'
+        '#define IOS_GUEST_DATA_SIZE 3076780u\n#define IOS_GUEST_IMAGE_END 0x88b501d4u\n'
+        'extern const unsigned char halo_guest_code[], halo_guest_data[];\n')
+    (embedded / 'guest_image.S').touch()
 
 
 def missing_inputs():
@@ -173,13 +183,16 @@ def main():
     parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 4))
     parser.add_argument('--keep', action='store_true', help='keep the CMake folders under build/host-syntax')
     args = parser.parse_args()
+    begun = time.monotonic()
     problem = host_toolchain.check_build_host()
     if problem:
         raise SystemExit(problem)
     if missing_inputs():
         if not args.prepare:
             raise SystemExit('missing build inputs (run with --prepare, or tools/ios_build.py once): ' + ', '.join(missing_inputs()))
+        started = time.monotonic()
         prepare()
+        print(f'prepare: {time.monotonic() - started:.0f} s', flush=True)
     platforms = args.platform or list(PLATFORMS)
     variants = args.variant or list(VARIANTS)
     combos = [(p, v) for p in platforms for v in variants]
@@ -199,6 +212,7 @@ def main():
                 failures.append((label, file, output))
     for label, file, output in failures:
         print(f'FAIL [{label}] {Path(file).relative_to(ROOT)}\n{output.rstrip()}\n', file=sys.stderr)
+    print(f'total: {time.monotonic() - begun:.0f} s')
     print(f'host syntax check: {len(jobs)} compiles, {len(covered)} distinct host files, '
           f'{len(combos)} configurations, {len(failures)} failed')
     if not args.keep:
