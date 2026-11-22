@@ -109,7 +109,11 @@ __attribute__((weak)) void frame_pacer_frame_dropped(struct frame_pacer_frame *f
 { }
 #endif
 #if (HALO_FRAME_PACING)
-__attribute__((weak)) void frame_pacer_frame_start(void)
+__attribute__((weak)) void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu_seconds, double waited)
+{ }
+#endif
+#if (HALO_FRAME_PACING)
+__attribute__((weak)) void frame_pacer_frame_start(int may_wait)
 { }
 #endif
 #if (HALO_FRAME_PACING)
@@ -133,6 +137,10 @@ __attribute__((weak)) void frame_pacer_panel_period(double period)
 { }
 #endif
 #if (HALO_FRAME_PACING)
+__attribute__((weak)) void frame_pacer_pixels(double ratio)
+{ }
+#endif
+#if (HALO_FRAME_PACING)
 __attribute__((weak)) double frame_pacer_present(const struct frame_pacer_frame *frame)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_present without defining it\n"); abort(); }
 #endif
@@ -147,6 +155,10 @@ __attribute__((weak)) void frame_pacer_refresh(double timestamp, double period)
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) void frame_pacer_start(int fixed_timestep)
 { }
+#endif
+#if (HALO_FRAME_PACING)
+__attribute__((weak)) const char * frame_pacer_start_state_name(int state)
+{ fprintf(stderr, "host_stubs: probe called frame_pacer_start_state_name without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) void frame_pacer_stop(void)

@@ -11,6 +11,7 @@
 #include "host_perf_metal.h"
 #include "dynamic_resolution_shadow.h"
 #include "host_external.h"
+#include "host_frame_pacer.h"
 /* host.h's (it pulls in the guest ABI, which the hooks' probes build without) */
 void host_logf(int priority, const char *format, ...) __attribute__((format(printf, 2, 3)));
 #ifndef HOST_LOG_INFO
@@ -128,6 +129,14 @@ int host_dynamic_resolution_lines(int ceiling_lines) {
         } else lines = shadow.plan.lines[shadow.plan.level];
     }
     pthread_mutex_unlock(&dynamic_lock);
+    /* The pacer's late start allows for the worst recent frame: tell it when the next frames have more pixels, so a
+     * step up is allowed for before its first frame instead of being taken for a frame that cost too much. */
+    {
+        static int lines_before;
+        if (lines > 0 && lines_before > 0 && lines != lines_before)
+            frame_pacer_pixels((double)lines * lines / ((double)lines_before * lines_before));
+        lines_before = lines;
+    }
     return lines;
 }
 void host_perf_hooks_dynamic_config(int enabled, int width, int height, int actual, int floor, int thermal, int eligible) {

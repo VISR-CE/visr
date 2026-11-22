@@ -7,6 +7,7 @@ same pacer:
 
 	frame_pacer_frame_start   as the game starts a frame, before it reads input (may wait)
 	frame_pacer_frame_begin   before a frame asks for its drawable (may wait)
+	frame_pacer_frame_finished when the GPU finished the frame, with its times
 	frame_pacer_present       as the frame is presented: how long it must stay up
 	frame_pacer_presented     when the display showed it, with the time
 	frame_pacer_frame_dropped the frame had nothing to show after all
@@ -43,6 +44,9 @@ struct frame_pacer_frame
 	uint8_t waits_for_display;
 	uint8_t slot;            /* holds one of the frames in flight */
 	uint8_t watched;         /* frame_pacer_presented wants to hear of it */
+	uint8_t counted;         /* counted as handed to the display and not yet shown (the extended late start) */
+	uint8_t in_flight;       /* frames handed to the display and not yet shown, before this one */
+	uint8_t start_state;     /* frame_pacer.h's frame_pacer_start_state */
 };
 
 #if HALO_FRAME_PACING
@@ -91,8 +95,37 @@ the controllers and steps the blend between ticks (d3d8_device.c's
 halo_frame_start, through gpu_frame_start). With display.late_start, waits
 until the frame's work would be done just in time for the next refresh
 (frame_pacer.h, "a late start"); otherwise only notes the time. Nothing
-under debug.fixed_timestep, where the pacer isn't started. */
-void frame_pacer_frame_start(void);
+under debug.fixed_timestep, where the pacer isn't started. may_wait: 0 when
+something else decides how long this frame stays up (display.frame_pacing's
+whole-refresh holds), and the frame starts at once. */
+void frame_pacer_frame_start(int may_wait);
+/* whether the frame's late start gave it a refresh to aim at: its waiting for
+the display was done before the input read, and a renderer's own wait for a
+frame rate's refreshes inside its present is skipped */
+static inline int frame_pacer_aimed(const struct frame_pacer_frame *frame)
+{
+	return frame->aim > 0.0;
+}
+/* the renderer handed the frame's slot and count to its presented handler
+(a copy of the frame): this copy holds neither any more */
+static inline void frame_pacer_frame_handed(struct frame_pacer_frame *frame)
+{
+	frame->slot = frame->counted = 0;
+}
+/* The GPU finished the frame's last command buffer (any thread). number: the
+frame's, as given to frame_pacer_frame_begin; gpu_end: when, on the pacer's
+clock (0 unknown); gpu_seconds: the GPU's time on this frame's own command
+buffers; waited: how long the frame waited for the display inside its present
+(a slot, a drawable, a frame rate's refreshes). The extended late start's
+cost of a frame (frame_pacer.h). */
+void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu_seconds, double waited);
+/* the picture has ratio times the pixels from the next frame on (dynamic
+resolution changed its lines): the extended late start allows for the GPU's
+longer work before the first such frame starts */
+void frame_pacer_pixels(double ratio);
+/* what the frame's start decided, as a word for a log or the frame timeline
+row: "engaged", "no_fit", "holdoff" or "off" */
+const char *frame_pacer_start_state_name(int state);
 
 /* the GPU's time on the frames it has finished since the last call, in
 seconds: a renderer's measure for the late start's guess (0 if it has none) */
@@ -175,8 +208,34 @@ static inline void frame_pacer_refresh(double timestamp, double period)
 	(void)period;
 }
 
-static inline void frame_pacer_frame_start(void)
+static inline void frame_pacer_frame_start(int may_wait)
 {
+	(void)may_wait;
+}
+static inline int frame_pacer_aimed(const struct frame_pacer_frame *frame)
+{
+	(void)frame;
+	return 0;
+}
+static inline void frame_pacer_frame_handed(struct frame_pacer_frame *frame)
+{
+	(void)frame;
+}
+static inline void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu_seconds, double waited)
+{
+	(void)number;
+	(void)gpu_end;
+	(void)gpu_seconds;
+	(void)waited;
+}
+static inline void frame_pacer_pixels(double ratio)
+{
+	(void)ratio;
+}
+static inline const char *frame_pacer_start_state_name(int state)
+{
+	(void)state;
+	return "off";
 }
 
 static inline void frame_pacer_gpu_time(double seconds)

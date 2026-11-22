@@ -409,30 +409,31 @@ static void gpu_busy_refused(const char *why, CFTimeInterval start, CFTimeInterv
 			why, start, end, now, (unsigned long long)refused);
 }
 
-static void gpu_busy_add(CFTimeInterval start, CFTimeInterval end)
+/* returns the time it counted (0 or more), or a negative number for a span it refused */
+static CFTimeInterval gpu_busy_add(CFTimeInterval start, CFTimeInterval end)
 {
 	CFTimeInterval counted = 0.0, now = CACurrentMediaTime();
 
 	if (!(start > 0.0) || !(end >= start))
 	{
 		gpu_busy_refused("no times", start, end, now);
-		return;
+		return -1.0;
 	}
 	if (end == start)
 	{
 		gpu_busy_refused("no length", start, end, now);
-		return;
+		return -1.0;
 	}
 	/* (a small allowance for the clocks' rounding) */
 	if (end > now + 0.01)
 	{
 		gpu_busy_refused("ends after it was reported", start, end, now);
-		return;
+		return -1.0;
 	}
 	if (end - start > 10.0)
 	{
 		gpu_busy_refused("longer than any frame", start, end, now);
-		return;
+		return -1.0;
 	}
 	atomic_fetch_add(&gpu_spans_used, 1);
 	os_unfair_lock_lock(&gpu_busy_lock);
@@ -444,6 +445,7 @@ static void gpu_busy_add(CFTimeInterval start, CFTimeInterval end)
 	os_unfair_lock_unlock(&gpu_busy_lock);
 	if (counted > 0.0)
 		atomic_fetch_add(&pacing_gpu_nanoseconds, (uint64_t)(counted * 1e9));
+	return counted;
 }
 
 /* command buffers that failed (their status an error): how many, and the last
@@ -452,8 +454,8 @@ times are not the GPU's work. */
 static uint64_t gpu_failed_buffers;
 static char gpu_failed_first[200], gpu_failed_last[200];
 
-/* a completed command buffer's GPU time, into the union */
-static void gpu_busy_count(id<MTLCommandBuffer> completed)
+/* a completed command buffer's GPU time, into the union: what it added there (gpu_busy_add) */
+static CFTimeInterval gpu_busy_count(id<MTLCommandBuffer> completed)
 {
 	if (completed.status == MTLCommandBufferStatusError)
 	{
@@ -486,9 +488,30 @@ static void gpu_busy_count(id<MTLCommandBuffer> completed)
 			}
 		}
 		gpu_busy_refused("failed", completed.GPUStartTime, completed.GPUEndTime, CACurrentMediaTime());
-		return;
+		return -1.0;
 	}
-	gpu_busy_add(completed.GPUStartTime, completed.GPUEndTime);
+	return gpu_busy_add(completed.GPUStartTime, completed.GPUEndTime);
+}
+
+/* Each frame's own GPU time, for the pacer's extended late start (frame_pacer_frame_finished): what its command
+buffers added to the union, summed as they complete, by the frame's number. The frame's last buffer takes the sum.
+frame_gpu_waited is the frame's wait for the display inside its Present, set there before that buffer is committed. */
+enum { FRAME_GPU_FRAMES = 8 };
+static _Atomic uint64_t frame_gpu_nanoseconds[FRAME_GPU_FRAMES];
+static double frame_gpu_waited;
+
+static void frame_gpu_count(unsigned long frame, id<MTLCommandBuffer> completed, BOOL frame_end, double waited)
+{
+	CFTimeInterval counted = gpu_busy_count(completed);
+
+	if (counted > 0.0)
+		atomic_fetch_add(&frame_gpu_nanoseconds[frame % FRAME_GPU_FRAMES], (uint64_t)(counted * 1e9));
+	if (frame_end)
+	{
+		uint64_t nanoseconds = atomic_exchange(&frame_gpu_nanoseconds[frame % FRAME_GPU_FRAMES], 0);
+
+		frame_pacer_frame_finished(frame, counted >= 0.0 ? completed.GPUEndTime : 0.0, (double)nanoseconds / 1e9, waited);
+	}
 }
 
 /* Both callers must agree: an import frame cannot wait for a display slot
@@ -868,6 +891,7 @@ static void native_unpark(void)
 	if (commands)
 	{
 		uint64_t perf_frame = host_perf_hooks_gpu_reserve();
+		unsigned long gpu_frame = frames;
 		[commands addCompletedHandler:^(id<MTLCommandBuffer> completed)
 		{
 			host_perf_metal_complete(completed);
@@ -876,7 +900,7 @@ static void native_unpark(void)
 				completed.status == MTLCommandBufferStatusCompleted && completed.GPUStartTime > 0.0 && duration > 0.0);
 			if (completed.status == MTLCommandBufferStatusError)
 				platform_log("Metal: a command buffer ahead of the HUD's or the scene's pass failed: %s", completed.error.description.UTF8String);
-			gpu_busy_count(completed);
+			frame_gpu_count(gpu_frame, completed, NO, 0.0);
 		}];
 		[commands commit];
 	}
@@ -1010,6 +1034,11 @@ static void commit(BOOL frame_end)
 	host_perf_metal_frame_touch(span_frame);
 	if (perf_scene_open && perf_group == HOST_PERF_UPSCALE)
 		perf_scene_open = 0;
+	/* (the pacer's cost of the frame: frame_gpu_count) */
+	unsigned long gpu_frame = frames;
+	double gpu_frame_waited = frame_end ? frame_gpu_waited : 0.0;
+	if (frame_end)
+		frame_gpu_waited = 0.0;
 	[committed addCompletedHandler:^(id<MTLCommandBuffer> completed)
 	{
 		if (span_frame && completed.status == MTLCommandBufferStatusCompleted && completed.GPUStartTime > 0.0)
@@ -1029,7 +1058,7 @@ static void commit(BOOL frame_end)
 		double perf_duration = completed.GPUEndTime - completed.GPUStartTime;
 		host_perf_hooks_gpu_complete(perf_frame, perf_duration > 0.0 ? (uint64_t)(perf_duration * 1e6) : 0,
 			completed.status == MTLCommandBufferStatusCompleted && completed.GPUStartTime > 0.0 && perf_duration > 0.0);
-		gpu_busy_count(completed);
+		frame_gpu_count(gpu_frame, completed, frame_end, gpu_frame_waited);
 		for (test = 0; test < pending.length / sizeof(*tests); test++)
 		{
 			/* the samples its draws passed, added up (a yes-or-no test's
@@ -5964,7 +5993,7 @@ some frames one refresh after the last and some two (35 frames a second for 30).
 a frame rate waits for the display itself: until the display link has called for as many refreshes
 since the last Present as a frame stays up. Presented right after that call, the frame shows at the
 next refresh, that many after the one before. A frame that is already late goes at once. */
-static void frame_context_wait(void)
+static void frame_context_wait(BOOL aimed)
 {
 	static unsigned long presented_at;
 	CFTimeInterval period, began = CACurrentMediaTime();
@@ -5974,7 +6003,9 @@ static void frame_context_wait(void)
 	period = refresh_period;
 	os_unfair_lock_unlock(&pacing_lock);
 	refreshes = frame_context_refreshes(period);
-	if (refreshes > 1)
+	/* (a frame the pacer's late start aimed at its slot waited before the game read its input, and is on time as it
+	comes: frame_pacer.h, "a late start, extended") */
+	if (refreshes > 1 && !aimed)
 	{
 		/* (a quarter second at most: a display link that stopped must not stop the game) */
 		while (atomic_load(&refresh_count) < presented_at + (unsigned long)refreshes && CACurrentMediaTime() - began < 0.25)
@@ -6565,8 +6596,9 @@ static void gpu_metal_frame_start(void)
 	counted = total;
 	/* (debug.benchmark_offscreen: nothing waits on the display) */
 	slept = CACurrentMediaTime();
+	/* (display.frame_pacing's whole-refresh holds are a share of the display the late start does not follow) */
 	if (!render_offscreen_active())
-		frame_pacer_frame_start();
+		frame_pacer_frame_start(pacing.off);
 	slept = CACurrentMediaTime() - slept;
 	/* the late start's sleep is a wait, not the frame's work: it leaves the frame's CPU time, and the frame's deadline
 	interval starts after it (the input latency audit, revision 2 item 1) */
@@ -9357,7 +9389,9 @@ static uint32_t present_frame(gpu_texture back_buffer)
 				frame_log.width = (unsigned)picture.width;
 				frame_log.height = (unsigned)picture.height;
 				if (!offscreen)
-					frame_context_wait();
+					frame_context_wait(frame_pacer_aimed(&paced));
+				/* (the frame's waits for the display, for the pacer's cost of it: pacing_schedule clears them) */
+				frame_gpu_waited = display_waited + slot_wait_counted();
 				hold = pacing_schedule(drawable != nil || virtual_texture >= 0, &next_frame_due);
 				/* (offscreen: nothing is shown, so nothing is paced or presented) */
 #if HALO_FRAME_PACING
@@ -9372,7 +9406,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 						hold = frame_pacer_present(&paced);
 					if (virtual_display_present(commands, virtual_texture, hold, &paced, perf, perf_frame,
 						perf_presentation_budget))
-						paced.slot = 0;
+						frame_pacer_frame_handed(&paced);
 					virtual_texture = -1;
 				}
 				else
@@ -9425,7 +9459,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 							frame_pacer_presented(&shown_frame, shown.presentedTime);
 						}];
 #endif
-						paced.slot = 0;
+						frame_pacer_frame_handed(&paced);
 					}
 #endif
 #if TARGET_OS_SIMULATOR

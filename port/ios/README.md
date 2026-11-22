@@ -335,7 +335,7 @@ frame_rate = "display"       # Mac app: a cap ("60", "240") or "unlimited"; see 
 frames_in_flight = ""        # Metal: frames on their way to the display at once, "1" to "3" or "system" (empty: "2", "1" with the encode thread); see below
 frame_spacing = true         # Metal: each frame stays up for its share of the display's time; see below
 frame_source = ""            # Metal: "clock" (default) or "system" (iOS 17, tvOS 17, macOS 14); see below
-late_start = ""              # Metal: start frames late, "true" or "false" (empty: on in the Mac app); see below
+late_start = ""              # Metal: start frames late, "true", "extended" or "false" (empty: on in the Mac app); see below
 async_shaders = "auto"       # Compile shaders off the game thread, skipping a draw until it's ready ("off": wait)
 direct_camera = true         # On foot, the view follows the stick every frame
 ```
@@ -403,6 +403,12 @@ frames and the build has none of this.
   the last 32 frames plus a margin it learns, and goes back to starting at
   once for a couple of seconds whenever a frame costs more than it allowed
   for or is shown late. The Mac app's F8 switches it while playing.
+  `late_start = "extended"` (being measured on iPhone, iPad, and Apple TV)
+  keeps starting late when a frame's work is longer than one refresh, which
+  dynamic resolution and 120 Hz make the usual case, and under 30 frames a
+  second caps: each frame aims at the refresh after the frames already on
+  their way to the display, the CPU's work on it overlaps the GPU's work on
+  the frame before, and it stops only for a frame shown late.
 
 None of it applies when frames do not wait for the display (`frame_rate =
 "unlimited"`, or a cap above the display's rate): a minimum time on screen

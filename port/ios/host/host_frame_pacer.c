@@ -8,6 +8,7 @@ log around frame_pacer.h's rules. */
 #include "host_config.h"
 #include "ios_host.h"
 
+#include <math.h>
 #include <pthread.h>
 #include <string.h>
 #include <time.h>
@@ -20,6 +21,20 @@ hidden, and a presented notice that never comes mustn't stop the game */
 #define SLOT_WAIT_SECONDS 0.1
 /* the display isn't refreshing (the background) after this long */
 #define BLANK_WAIT_NANOSECONDS 50000000L
+
+enum { LATE_START_OFF, LATE_START_CLASSIC, LATE_START_EXTENDED };
+
+/* a frame between its present and its shown notice, for the extended late start's reports, which come from the GPU's
+completion handler and the presented handler, by the frame's number */
+enum { FRAME_COSTS = 8 };
+
+struct pacer_frame_cost
+{
+	unsigned long number;
+	int known;
+	double began, cpu, aim, allowed;
+	double gpu_end;                  /* 0: not finished yet */
+};
 
 static struct
 {
@@ -39,10 +54,16 @@ static struct
 	double period;                   /* the display's refresh period, seconds; 0 unknown */
 	double panel;                    /* the panel's own period where it is shorter (frame_pacer_panel_period); 0 */
 	double refresh;                  /* the time of the display's latest refresh; 0 none yet */
-	int late_start;                  /* display.late_start */
+	int late_start;                  /* display.late_start: LATE_START_OFF, _CLASSIC or _EXTENDED */
+	int late_start_asked;            /* the setting's, which frame_pacer_late_start_toggle returns to */
 	struct frame_pacer_late late;
+	struct frame_pacer_extended extended;
+	int outstanding;                 /* frames handed to the display and not yet shown (counted while extended) */
+	struct pacer_frame_cost costs[FRAME_COSTS]; /* the frames whose GPU work or shown notice is still to come */
 	double frame_started;            /* when this frame's work began (frame_pacer_frame_start); 0 unknown */
 	double frame_aim;                /* the refresh this frame's late start aimed at; 0 none */
+	double frame_allowed;            /* the cost its late start allowed for; 0 none */
+	int frame_state;                 /* frame_pacer_start_state */
 	double gpu_time;                 /* the renderer's latest (frame_pacer_gpu_time) */
 	int waited_for_display;          /* the last frame presented waited for the display */
 	double load_every;               /* debug.frame_load_every, seconds: the made-up load is on in every other span */
@@ -100,10 +121,16 @@ void frame_pacer_start(int fixed_timestep)
 	/* (measured on the Mac only so far: off elsewhere unless asked for) */
 	host_config_string("display.late_start", "", value, sizeof(value));
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
-	pacer.late_start = strcmp(value, "false") != 0;
+	pacer.late_start = strcmp(value, "false") != 0 ? LATE_START_CLASSIC : LATE_START_OFF;
 #else
-	pacer.late_start = !strcmp(value, "true");
+	pacer.late_start = !strcmp(value, "true") ? LATE_START_CLASSIC : LATE_START_OFF;
 #endif
+	if (!strcmp(value, "extended"))
+		pacer.late_start = LATE_START_EXTENDED;
+	pacer.late_start_asked = pacer.late_start;
+	memset(&pacer.extended, 0, sizeof(pacer.extended));
+	memset(pacer.costs, 0, sizeof(pacer.costs));
+	pacer.outstanding = 0;
 	/* (the hold has been seen only on the Mac, where other windows share the window server: frame_pacer_slot_wait) */
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
 	pacer.drops = 1;
@@ -116,7 +143,8 @@ void frame_pacer_start(int fixed_timestep)
 	platform_log("frame pacer: %d frame%s in flight%s, frame spacing %s%s (display.frames_in_flight, display.frame_spacing)",
 		limit, limit == 1 ? "" : "s", limit ? "" : " (no limit: the renderer's own queue)", pacer.spacing ? "on" : "off",
 		pacer.times ? "; debug.present_times" : "");
-	platform_log("frame pacer: late start %s (display.late_start)", pacer.late_start ? "on" : "off");
+	platform_log("frame pacer: late start %s (display.late_start)", pacer.late_start == LATE_START_EXTENDED ? "extended" :
+		pacer.late_start ? "on" : "off");
 	if (pacer.load > 0.0)
 		platform_log("frame pacer: debug.frame_load_cpu spins %.1f ms in every frame%s", pacer.load * 1e3,
 			pacer.load_every > 0.0 ? ", on and off (debug.frame_load_every)" : "");
@@ -140,9 +168,10 @@ void frame_pacer_stop(void)
 	pthread_mutex_unlock(&pacer.lock);
 }
 
-void frame_pacer_frame_start(void)
+void frame_pacer_frame_start(int may_wait)
 {
-	double now, wait = 0.0, aim = 0.0;
+	double now, wait = 0.0, aim = 0.0, allowed = 0.0, share;
+	int state = FRAME_PACER_START_OFF;
 
 	if (!pacer.started)
 		return;
@@ -162,15 +191,35 @@ void frame_pacer_frame_start(void)
 			pthread_cond_broadcast(&pacer.shown_or_ticked);
 		}
 	}
+	share = frame_pacer_share(pacer.period, host_frame_rate_target());
 	/* only for frames shown in step with the display, by the pacer's own
 	rules: drawing faster than the display there is nothing to be in time
-	for, and the system's pacer keeps its own time; and only while a frame's
-	share is one refresh (a cap or a scene class's rate below the display's
-	spaces frames out, which the late start's aim does not follow) */
-	if (pacer.late_start && pacer.waited_for_display && !pacer.system_source && pacer.refresh > 0.0 &&
-		frame_pacer_share(pacer.period, host_frame_rate_target()) == 1.0)
+	for, and the system's pacer keeps its own time */
+	if (!pacer.late_start || !may_wait || !pacer.waited_for_display || pacer.system_source || pacer.refresh <= 0.0)
+		;
+	else if (pacer.late_start == LATE_START_EXTENDED)
+	{
+		struct frame_pacer_extended_input in = { now, pacer.refresh, pacer.period, pacer.panel, share, pacer.flight.limit,
+			pacer.outstanding, pacer.shown.last };
+		struct frame_pacer_extended_start start = frame_pacer_extended_wait(&pacer.extended, &in);
+
+		wait = start.wait;
+		aim = start.aim;
+		allowed = start.allowed;
+		state = start.state;
+	}
+	/* (the late start as it was: only while a frame's share is one refresh; a cap or a scene class's rate below the
+	display's spaces frames out, which its aim does not follow) */
+	else if (share == 1.0)
+	{
 		wait = frame_pacer_late_wait(&pacer.late, now, pacer.refresh, pacer.period, &aim);
+		state = aim > 0.0 ? FRAME_PACER_START_ENGAGED : pacer.late.holdoff > 0 ? FRAME_PACER_START_HELD :
+			FRAME_PACER_START_NO_FIT;
+	}
 	pthread_mutex_unlock(&pacer.lock);
+	/* (a tenth of a second at most, whatever the rules said: the game's loop must not stop) */
+	if (wait > 0.1)
+		wait = 0.1;
 	if (wait > 0.0)
 	{
 		struct timespec duration = { 0, (long)(wait * 1e9) };
@@ -178,7 +227,38 @@ void frame_pacer_frame_start(void)
 		nanosleep(&duration, NULL);
 	}
 	pacer.frame_aim = aim;
+	pacer.frame_allowed = allowed;
+	pacer.frame_state = state;
 	pacer.frame_started = now_seconds();
+}
+
+const char *frame_pacer_start_state_name(int state)
+{
+	return state == FRAME_PACER_START_ENGAGED ? "engaged" : state == FRAME_PACER_START_NO_FIT ? "no_fit" :
+		state == FRAME_PACER_START_HELD ? "holdoff" : "off";
+}
+
+void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu_seconds, double waited)
+{
+	struct pacer_frame_cost *cost = &pacer.costs[number % FRAME_COSTS];
+
+	if (!pacer.started || gpu_end <= 0.0)
+		return;
+	pthread_mutex_lock(&pacer.lock);
+	if (cost->known && cost->number == number && cost->began > 0.0)
+	{
+		cost->gpu_end = gpu_end;
+		frame_pacer_extended_cost(&pacer.extended, gpu_end - cost->began - (waited > 0.0 ? waited : 0.0), gpu_seconds,
+			cost->cpu, cost->allowed, now_seconds());
+	}
+	pthread_mutex_unlock(&pacer.lock);
+}
+
+void frame_pacer_pixels(double ratio)
+{
+	pthread_mutex_lock(&pacer.lock);
+	frame_pacer_extended_scale(&pacer.extended, ratio);
+	pthread_mutex_unlock(&pacer.lock);
 }
 
 void frame_pacer_gpu_time(double seconds)
@@ -191,7 +271,8 @@ int frame_pacer_late_start_toggle(void)
 	int now_on;
 
 	pthread_mutex_lock(&pacer.lock);
-	now_on = pacer.late_start = !pacer.late_start;
+	now_on = pacer.late_start = pacer.late_start ? LATE_START_OFF :
+		pacer.late_start_asked ? pacer.late_start_asked : LATE_START_CLASSIC;
 	pthread_mutex_unlock(&pacer.lock);
 	platform_log("frame pacer: late start %s (toggled)", now_on ? "on" : "off");
 	return now_on;
@@ -259,10 +340,24 @@ int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long numbe
 	the display is counted from there, where the controllers were read) */
 	if (pacer.frame_started > 0.0)
 	{
+		struct pacer_frame_cost *cost = &pacer.costs[number % FRAME_COSTS];
+		double cpu = now_seconds() - pacer.frame_started;
+
 		frame->began = pacer.frame_started;
 		frame->aim = pacer.frame_aim;
+		frame->start_state = (uint8_t)pacer.frame_state;
 		pthread_mutex_lock(&pacer.lock);
-		frame_pacer_late_cost(&pacer.late, now_seconds() - pacer.frame_started + pacer.gpu_time);
+		if (pacer.late_start != LATE_START_EXTENDED)
+			frame_pacer_late_cost(&pacer.late, cpu + pacer.gpu_time);
+		/* (the extended late start's cost of the frame comes when the GPU finishes it: frame_pacer_frame_finished) */
+		cost->number = number;
+		cost->known = 1;
+		cost->began = pacer.frame_started;
+		cost->cpu = cpu;
+		cost->aim = pacer.frame_aim;
+		cost->allowed = pacer.frame_allowed;
+		cost->gpu_end = 0.0;
+		frame->in_flight = (uint8_t)(pacer.outstanding > 255 ? 255 : pacer.outstanding);
 		pacer.waited_for_display = waits_for_display != 0;
 		pthread_mutex_unlock(&pacer.lock);
 	}
@@ -303,6 +398,12 @@ int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long numbe
 		else
 			pacer.backlog_since = 0.0;
 	}
+	/* the extended late start counts every frame handed to the display until it is shown, whatever the limit */
+	if (present && pacer.late_start == LATE_START_EXTENDED)
+	{
+		frame->counted = frame->watched = 1;
+		pacer.outstanding++;
+	}
 	pthread_mutex_unlock(&pacer.lock);
 	return present;
 }
@@ -338,10 +439,23 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 		frame_pacer_flight_give(&pacer.flight);
 		pthread_cond_broadcast(&pacer.shown_or_ticked);
 	}
+	if (frame->counted && pacer.outstanding > 0)
+		pacer.outstanding--;
 	period = pacer.period;
 	/* (judged against the rate in force: under a scene class's 30 a frame's share is two refreshes) */
 	interval = frame_pacer_shown_add(&pacer.shown, at, period, frame_pacer_share(period, host_frame_rate_target()));
-	frame_pacer_late_shown(&pacer.late, frame->aim, at, period);
+	if (pacer.late_start == LATE_START_EXTENDED)
+	{
+		const struct pacer_frame_cost *cost = &pacer.costs[frame->number % FRAME_COSTS];
+		/* how long before its aim the GPU finished it; unknown when the GPU's report has not come */
+		double slack = cost->known && cost->number == frame->number && cost->gpu_end > 0.0 ? frame->aim - cost->gpu_end :
+			(double)NAN;
+
+		frame_pacer_extended_shown(&pacer.extended, frame->aim, at, slack, frame_pacer_extended_step(period, pacer.panel),
+			now_seconds());
+	}
+	else
+		frame_pacer_late_shown(&pacer.late, frame->aim, at, period);
 	if (pacer.shown.frames >= pacer.reported + 600)
 	{
 		frames = pacer.shown.frames - pacer.reported;
@@ -357,11 +471,35 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 	pthread_mutex_unlock(&pacer.lock);
 	if (pacer.times)
 	{
-		platform_log("present time: frame %lu at %.3f ms, %.3f ms after the one before, %.3f ms after it began%s",
+		platform_log("present time: frame %lu at %.3f ms, %.3f ms after the one before, %.3f ms after it began%s; start %s, "
+			"%.3f ms after its aim, %u in flight before it",
 			frame->number, at * 1e3, interval * 1e3, frame->began > 0.0 ? (at - frame->began) * 1e3 : 0.0,
-			noticed ? " (noticed: the system gave no time)" : "");
+			noticed ? " (noticed: the system gave no time)" : "", frame_pacer_start_state_name(frame->start_state),
+			frame->aim > 0.0 ? (at - frame->aim) * 1e3 : 0.0, (unsigned)frame->in_flight);
 	}
-	if (frames)
+	if (frames && pacer.late_start == LATE_START_EXTENDED)
+	{
+		struct frame_pacer_extended starts;
+
+		pthread_mutex_lock(&pacer.lock);
+		starts = pacer.extended;
+		pacer.extended.late_starts = pacer.extended.no_fit = pacer.extended.held = pacer.extended.jumps = 0;
+		pacer.extended.misses = pacer.extended.pushed = pacer.extended.early = pacer.extended.offsets = 0;
+		pacer.extended.offset = 0.0;
+		pthread_mutex_unlock(&pacer.lock);
+		platform_log("frame pacer: of the last %lu frames shown, %lu came over 1.5 times their share of the display after the "
+			"one before (longest %.1f ms, of %lu intervals at %.1f Hz); extended late starts %lu, no fit %lu, held %lu, "
+			"cost jumps %lu, shown late %lu, pushed late %lu, shown early %lu, shown %.2f ms after aim (mean), worst cost "
+			"%.1f ms (GPU %.1f, least CPU %.1f), lead %.1f ms (too short at %.1f); presents given up %lu", frames, late,
+			longest * 1e3, intervals, period > 0.0 ? 1.0 / period : 0.0, starts.late_starts, starts.no_fit, starts.held,
+			starts.jumps, starts.misses, starts.pushed, starts.early,
+			starts.offsets ? starts.offset / (double)starts.offsets * 1e3 : 0.0,
+			frame_pacer_extended_worst(starts.work, starts.count) * 1e3,
+			frame_pacer_extended_worst(starts.gpu, starts.count) * 1e3,
+			frame_pacer_extended_least(starts.cpu, starts.count) * 1e3, frame_pacer_extended_lead(&starts) * 1e3,
+			starts.lead_failed * 1e3, given_up);
+	}
+	else if (frames)
 	{
 		struct frame_pacer_late starts;
 
@@ -379,12 +517,17 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 
 void frame_pacer_frame_dropped(struct frame_pacer_frame *frame)
 {
-	if (!frame->slot)
+	if (!frame->slot && !frame->counted)
 		return;
-	frame->slot = 0;
 	pthread_mutex_lock(&pacer.lock);
-	frame_pacer_flight_give(&pacer.flight);
-	pthread_cond_broadcast(&pacer.shown_or_ticked);
+	if (frame->slot)
+	{
+		frame_pacer_flight_give(&pacer.flight);
+		pthread_cond_broadcast(&pacer.shown_or_ticked);
+	}
+	if (frame->counted && pacer.outstanding > 0)
+		pacer.outstanding--;
+	frame->slot = frame->counted = 0;
 	pthread_mutex_unlock(&pacer.lock);
 }
 
