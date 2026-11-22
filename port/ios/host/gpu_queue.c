@@ -1565,6 +1565,9 @@ static void override_end(const unsigned char *payload)
 }
 
 /* the span's records again, from its beginning to its end, into next */
+/* draws a replay skipped as eye 0's alone (eye-0-only records: the frame's shadow generation), for verify */
+static unsigned long replay_skipped_draws;
+
 static void replay_span(const struct gpu_backend *next)
 {
 	struct chunk *chunk = eye.first_chunk;
@@ -1592,7 +1595,11 @@ static void replay_span(const struct gpu_backend *next)
 			override_end(payload);
 		else if (operation < GPU_OPERATION_COUNT && replayed[operation])
 		{
-			consume_record(&eye.replay, operation, payload, (header->operation & eye.replay.skip) != 0);
+			int skip = (header->operation & eye.replay.skip) != 0;
+
+			consume_record(&eye.replay, operation, payload, skip);
+			if (skip && operation == GPU_OPERATION_draw)
+				replay_skipped_draws++;
 			records++;
 		}
 		offset += (uint32_t)sizeof(*header) + header->size;
@@ -1655,6 +1662,9 @@ static struct
 	/* calls one side made that the other did not (found by matching each call to the next live call of the same
 	operation and, for draws, the same shaders and primitives) */
 	unsigned long replay_only, live_only;
+	/* the replay's draws skipped as eye 0's alone: excluded from the verdict by their own rule (their records are
+	marked eye 0 only, and the live eye makes none of them) */
+	unsigned long eye_0_only;
 	unsigned long registers[CLASS_COUNT][GPU_CONSTANT_COUNT];
 	/* the first example of each: the live eye's value, then the replay's */
 	float example[CLASS_COUNT][GPU_CONSTANT_COUNT][2][4];
@@ -1908,9 +1918,13 @@ static void verify_summary(void)
 
 	if (!log_line)
 		return;
-	length = snprintf(line, sizeof(line), "stereo replay verify summary: %lu spans, %lu differ; %lu of %lu calls differ, "
-		"%lu unmatched (%lu replay only, %lu live only), %lu in uniforms; packet:", tally.spans, tally.differing_spans,
-		tally.differ, tally.calls, tally.structure, tally.replay_only, tally.live_only, tally.uniforms);
+	/* (passes only with every replay call matched to a live call, every live call matched, and every matched pair
+	equal; eye 0's own draws are counted apart) */
+	length = snprintf(line, sizeof(line), "stereo replay verify summary: %s: %lu spans, %lu differ; %lu replay calls, "
+		"%lu matched calls differ, %lu replay calls not made live, %lu live calls not replayed, %lu eye-0-only draws "
+		"skipped (excluded); %lu differ in uniforms; packet:",
+		tally.differ || tally.replay_only || tally.live_only ? "FAIL" : "PASS", tally.spans, tally.differing_spans,
+		tally.calls, tally.differ, tally.replay_only, tally.live_only, tally.eye_0_only, tally.uniforms);
 	for (field = 0; field < DRAW_FIELDS; field++)
 		if (tally.packet[field] && length < (int)sizeof(line) - 40)
 			length += snprintf(line + length, sizeof(line) - (size_t)length, " %s %lu", draw_fields[field].name,
@@ -2143,14 +2157,26 @@ static void verify_live_end(void)
 	verify_phase = VERIFY_COMPARE;
 	compare_at = 0;
 	compare_index = compare_differ = 0;
+	replay_skipped_draws = 0;
 	replay_span(&verify_backend);
 	verify_phase = VERIFY_TEE;
-	if (compare_at != live_calls.size)
+	tally.eye_0_only += replay_skipped_draws;
+	if (compare_at < live_calls.size)
 	{
+		unsigned long left = 0;
+
+		for (at = compare_at; at + 8 <= live_calls.size; left++)
+		{
+			uint32_t size;
+
+			memcpy(&size, live_calls.bytes + at + 4, 4);
+			at += 8 + size;
+		}
 		compare_differ++;
 		tally.structure++;
-		snprintf(line, sizeof(line), "stereo replay verify: the live eye made more calls than the replay (%lu, %lu)",
-			live_count, compare_index);
+		tally.live_only += left;
+		snprintf(line, sizeof(line), "stereo replay verify: the live eye made %lu calls after the replay's last (%lu "
+			"live, %lu replayed)", left, live_count, compare_index);
 		verify_detail_line(line);
 	}
 	atomic_fetch_add(&eye_verified, 1);
