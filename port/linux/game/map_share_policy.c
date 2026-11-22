@@ -18,8 +18,9 @@ static char const *const verdict_descriptions[NUMBER_OF_MAP_SHARE_POLICY_VERDICT
 {
 	"a community map",
 	"a resource map (Custom Edition's own)",
-	"a stock map (its checksum is Custom Edition's own map's)",
+	"a stock map (its content is Custom Edition's own map's)",
 	"not a Custom Edition map",
+	"a map not hashed yet",
 };
 
 /* ---------- header reading */
@@ -84,7 +85,8 @@ enum map_share_policy_verdict map_share_policy_judge(
 	uint32_t name_length,
 	void const *header,
 	uint32_t header_bytes,
-	uint32_t file_size)
+	uint32_t file_size,
+	uint8_t const *content)
 {
 	struct header_bytes bytes;
 	struct cache_file_source source;
@@ -105,7 +107,9 @@ enum map_share_policy_verdict map_share_policy_judge(
 		return _map_share_policy_resource_map;
 	if (status != _cache_file_status_ok || identity.format != _cache_file_format_custom_edition_cache)
 		return _map_share_policy_not_a_community_map;
-	if (stock_map_with_checksum(identity.checksum))
+	if (!content)
+		return _map_share_policy_content_unknown;
+	if (stock_map_with_content(content))
 		return _map_share_policy_stock_map;
 	return _map_share_policy_community_map;
 }
@@ -114,6 +118,12 @@ int map_share_policy_may_send(
 	enum map_share_policy_verdict verdict)
 {
 	return verdict == _map_share_policy_community_map;
+}
+
+int map_share_policy_may_hash(
+	enum map_share_policy_verdict verdict)
+{
+	return verdict == _map_share_policy_community_map || verdict == _map_share_policy_content_unknown;
 }
 
 char const *map_share_policy_describe(

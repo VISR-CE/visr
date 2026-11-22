@@ -3,16 +3,19 @@ MAP_SHARE_SEND.C (test)
 
 What map sharing (port/linux/game/map_share.c, map_share_files.c) sends to
 other players: community maps only, never Custom Edition's resource maps or
-its stock maps (by their checksums, port/runtime/stock_maps.h), whatever path
-sends it. The files are real
+its stock maps (by their content hashes, port/runtime/stock_maps.h: everything
+but the cache header, so an edited header checksum does not hide one),
+whatever path sends it. The files are real
 files in a temporary folder, judged by the real map_share_policy.c and
 cache_file_formats.c (compiled beside this one), and every path that sends a
 file is driven: the catalog (map_share_file_hash), the host's offer
 (host_request, host_offer), and what a machine passes on of a connection's
 file (send_state, piece_sendable, serving_file_size, block_read,
-connection_send_hashes, download_piece_had). tools/test_map_share_send.py
-takes the constants and structures (config.inc) and the code
-(under_test.inc).
+connection_send_hashes, download_piece_had). Files are hashed as the hashing
+thread does (hash_job_run, catalog_job_finish), here on the test's own thread.
+tools/test_map_share_send.py takes the constants and structures (config.inc)
+and the code (under_test.inc), and gives the stock table each Custom Edition
+map's content hash as its fake copy here has it (stock_file).
 */
 
 #include "harness.h"
@@ -25,6 +28,7 @@ takes the constants and structures (config.inc) and the code
 
 #include "cache_file_formats.h"
 #include "map_share_policy.h"
+#include "monocypher.h"
 #include "stock_maps.h"
 
 typedef unsigned short word;
@@ -47,6 +51,12 @@ typedef unsigned short word;
 #define _error_silent 0
 #define error(level, ...) ((void)0)
 #define _distributed_message_map_share_offer 0x40
+#define __stdcall
+
+static void p2p_blake2b_256(const void *data, unsigned long size, unsigned char *digest)
+{
+	crypto_blake2b(digest, 32, (const uint8_t *)data, (size_t)size);
+}
 
 /* ---------- the fake world */
 
@@ -200,7 +210,9 @@ static void resource_header(byte *header, unsigned long type)
 	put32(header + 0x08, 0x10);
 }
 
-static void file_write(char const *name, byte const *header, long size)
+/* a file of `size` bytes: `header`, `marker` right after it (what the
+file's content is), then zeros */
+static void marked_file_write(char const *name, byte const *header, char const *marker, long size)
 {
 	char path[MAP_SHARE_PATH_SIZE];
 	FILE *stream;
@@ -210,26 +222,50 @@ static void file_write(char const *name, byte const *header, long size)
 	stream = fopen(path, "wb");
 	CHECK(stream != NULL, "%s cannot be written", path);
 	fwrite(header, 1, MIN(size, CACHE_FILE_HEADER_BYTES), stream);
+	if (marker && size > CACHE_FILE_HEADER_BYTES + (long)strlen(marker))
+		fwrite(marker, 1, strlen(marker), stream);
 	fseek(stream, size - 1, SEEK_SET);
 	fwrite(&zero, 1, 1, stream);
 	fclose(stream);
 }
 
-/* a Custom Edition cache with a stock map's header checksum (a copy of it) */
-static void stock_file(char const *name, char const *header_name, unsigned long checksum)
+static void file_write(char const *name, byte const *header, long size)
 {
-	byte header[CACHE_FILE_HEADER_BYTES];
+	marked_file_write(name, header, NULL, size);
+}
 
-	cache_header(header, CACHE_FILE_VERSION_CUSTOM_EDITION, header_name, checksum);
-	file_write(name, header, FAKE_FILE_BYTES);
+/* a stock map's first piece: a Custom Edition header (named `header_name`,
+with `checksum`: a copy's may be edited) and the content of the stock map
+`stock` (test_map_share_send.py gives the table its content hash) */
+static void stock_piece(byte *piece, char const *stock, char const *header_name, unsigned long checksum)
+{
+	memset(piece, 0, MAP_SHARE_PIECE_BYTES);
+	cache_header(piece, CACHE_FILE_VERSION_CUSTOM_EDITION, header_name, checksum);
+	snprintf((char *)piece + CACHE_FILE_HEADER_BYTES, 64, "stock %s", stock);
+}
+
+static void community_piece(byte *piece, char const *header_name)
+{
+	memset(piece, 0, MAP_SHARE_PIECE_BYTES);
+	cache_header(piece, CACHE_FILE_VERSION_CUSTOM_EDITION, header_name, COMMUNITY_CHECKSUM);
+	snprintf((char *)piece + CACHE_FILE_HEADER_BYTES, 64, "community %s", header_name);
+}
+
+/* a copy of the stock map `stock`, under any name and header */
+static void stock_file(char const *name, char const *stock, char const *header_name, unsigned long checksum)
+{
+	static byte piece[MAP_SHARE_PIECE_BYTES];
+
+	stock_piece(piece, stock, header_name, checksum);
+	marked_file_write(name, piece, (char const *)piece + CACHE_FILE_HEADER_BYTES, FAKE_FILE_BYTES);
 }
 
 static void community_file(char const *name, char const *header_name)
 {
-	byte header[CACHE_FILE_HEADER_BYTES];
+	static byte piece[MAP_SHARE_PIECE_BYTES];
 
-	cache_header(header, CACHE_FILE_VERSION_CUSTOM_EDITION, header_name, COMMUNITY_CHECKSUM);
-	file_write(name, header, FAKE_FILE_BYTES);
+	community_piece(piece, header_name);
+	marked_file_write(name, piece, (char const *)piece + CACHE_FILE_HEADER_BYTES, FAKE_FILE_BYTES);
 }
 
 static void folder_make(void)
@@ -238,14 +274,41 @@ static void folder_make(void)
 	CHECK(mkdtemp(fake_folder) != NULL, "no temporary folder");
 }
 
-/* whether the catalog takes the file (as the host's offer and every
-connection does, map_share_file_hash) */
-static boolean catalog_takes(char const *name, short kind)
+/* whether the catalog refuses the file before hashing it (by its kind, name
+or header: map_share_file_hash says NONE) */
+static boolean catalog_refuses_unhashed(char const *name, short kind)
 {
 	char path[MAP_SHARE_PATH_SIZE];
 
 	fake_path(path, name);
-	return map_share_file_hash(path, kind) != NONE;
+	return map_share_file_hash(path, kind) == NONE;
+}
+
+/* the catalog file at `index` hashed, as the hashing thread does it */
+static void catalog_hash(short index)
+{
+	struct map_share_file *file = map_share_file_get(index);
+	struct hash_job job;
+
+	if (!file || file->ready || file->failed)
+		return;
+	memset(&job, 0, sizeof(job));
+	strncpy(job.path, file->path, sizeof(job.path) - 1);
+	hash_job_run(&job);
+	catalog_job_finish(index, &job);
+}
+
+/* whether the catalog sends the file (as the host's offer and every
+connection takes it, map_share_file_hash), once it is hashed */
+static boolean catalog_takes(char const *name, short kind)
+{
+	char path[MAP_SHARE_PATH_SIZE];
+	short index;
+
+	fake_path(path, name);
+	index = map_share_file_hash(path, kind);
+	catalog_hash(index);
+	return index != NONE && map_share_file_get(index)->ready;
 }
 
 /* ---------- the cases */
@@ -266,24 +329,31 @@ static void case_catalog(void)
 	community_file("hugeass_1a2b3c4d.map", "hugeass");
 	CHECK(catalog_takes("hugeass_1a2b3c4d.map", _map_share_file_map), "a community map's second version is not sent");
 
-	/* Custom Edition's stock maps, by their checksums, under their names and
-	any other */
+	/* Custom Edition's stock maps, by their content, under their names and
+	any other, and with an edited header checksum */
 	maps = stock_maps(&count);
 	for (index = 0; index < count; index++)
 	{
-		if (!maps[index].custom_edition_checksum)
+		if (!maps[index].custom_edition_content)
 			continue;
 		snprintf(name, sizeof(name), "%s.map", maps[index].file);
-		stock_file(name, maps[index].file, maps[index].custom_edition_checksum);
+		stock_file(name, maps[index].file, maps[index].file, BLOOD_GULCH_CHECKSUM);
 		CHECK(!catalog_takes(name, _map_share_file_map), "%s is sent", name);
-		stock_file("renamed.map", "renamed", maps[index].custom_edition_checksum);
-		CHECK(!catalog_takes("renamed.map", _map_share_file_map), "%s renamed is sent", maps[index].file);
+		snprintf(name, sizeof(name), "renamed-%s.map", maps[index].file);
+		stock_file(name, maps[index].file, "renamed", BLOOD_GULCH_CHECKSUM);
+		CHECK(!catalog_takes(name, _map_share_file_map), "%s renamed is sent", maps[index].file);
+		snprintf(name, sizeof(name), "edited-%s.map", maps[index].file);
+		stock_file(name, maps[index].file, maps[index].file, COMMUNITY_CHECKSUM);
+		CHECK(!catalog_takes(name, _map_share_file_map), "%s with an edited header checksum is sent",
+			maps[index].file);
 		stocked++;
 	}
-	CHECK(stocked == 20, "%d stock maps with checksums", stocked);
+	CHECK(stocked == 20, "%d stock maps with content hashes", stocked);
 
 	/* a community map that reuses a stock map's name, its file's or its
-	header's, but differs in content is sent */
+	header's, but differs in content is sent (written a second later than
+	the stock copy of that name above, as a file replaced is known) */
+	sleep(1);
 	community_file("bloodgulch.map", "bloodgulch");
 	CHECK(catalog_takes("bloodgulch.map", _map_share_file_map), "a community map named bloodgulch is not sent");
 	community_file("A10_1a2b3c4d.map", "a10");
@@ -294,27 +364,27 @@ static void case_catalog(void)
 	/* resource maps: as what they are sent as, or by what they are */
 	resource_header(header, 1);
 	file_write("bitmaps.map", header, FAKE_FILE_BYTES);
-	CHECK(!catalog_takes("bitmaps.map", _map_share_file_bitmaps), "bitmaps.map is sent");
+	CHECK(catalog_refuses_unhashed("bitmaps.map", _map_share_file_bitmaps), "bitmaps.map is sent");
 	file_write("textures.map", header, FAKE_FILE_BYTES);
-	CHECK(!catalog_takes("textures.map", _map_share_file_map), "a resource map under a map's name is sent");
-	CHECK(!catalog_takes("hugeass.map", _map_share_file_sounds), "a file sent as sounds.map is sent");
-	CHECK(!catalog_takes("hugeass.map", _map_share_file_locale), "a file sent as loc.map is sent");
+	CHECK(catalog_refuses_unhashed("textures.map", _map_share_file_map), "a resource map under a map's name is sent");
+	CHECK(catalog_refuses_unhashed("hugeass.map", _map_share_file_sounds), "a file sent as sounds.map is sent");
+	CHECK(catalog_refuses_unhashed("hugeass.map", _map_share_file_locale), "a file sent as loc.map is sent");
 	/* (and a map by a resource map's name, in any case, as a second version) */
 	community_file("Sounds.map", "sounds");
-	CHECK(!catalog_takes("Sounds.map", _map_share_file_map), "a map named sounds.map is sent");
+	CHECK(catalog_refuses_unhashed("Sounds.map", _map_share_file_map), "a map named sounds.map is sent");
 	community_file("loc_1a2b3c4d.map", "loc");
-	CHECK(!catalog_takes("loc_1a2b3c4d.map", _map_share_file_map), "a map named loc.map is sent");
+	CHECK(catalog_refuses_unhashed("loc_1a2b3c4d.map", _map_share_file_map), "a map named loc.map is sent");
 
 	/* not a Custom Edition cache: Halo PC's and the Xbox's, or none */
 	cache_header(header, 7, "pcmap", COMMUNITY_CHECKSUM);
 	file_write("pcmap.map", header, FAKE_FILE_BYTES);
-	CHECK(!catalog_takes("pcmap.map", _map_share_file_map), "a Halo PC cache is sent");
+	CHECK(catalog_refuses_unhashed("pcmap.map", _map_share_file_map), "a Halo PC cache is sent");
 	cache_header(header, CACHE_FILE_VERSION_XBOX, "xboxmap", COMMUNITY_CHECKSUM);
 	file_write("xboxmap.map", header, FAKE_FILE_BYTES);
-	CHECK(!catalog_takes("xboxmap.map", _map_share_file_map), "an Xbox cache is sent");
+	CHECK(catalog_refuses_unhashed("xboxmap.map", _map_share_file_map), "an Xbox cache is sent");
 	cache_header(header, CACHE_FILE_VERSION_CUSTOM_EDITION, "tiny", COMMUNITY_CHECKSUM);
 	file_write("tiny.map", header, 0x400);
-	CHECK(!catalog_takes("tiny.map", _map_share_file_map), "a file smaller than a header is sent");
+	CHECK(catalog_refuses_unhashed("tiny.map", _map_share_file_map), "a file smaller than a header is sent");
 
 	/* a community map hashed, then replaced by a stock one, is sent no more
 	(what was sent of it is not sent of the new file) */
@@ -324,13 +394,23 @@ static void case_catalog(void)
 
 		community_file("swapped.map", "swapped");
 		fake_path(path, "swapped.map");
+		CHECK(catalog_takes("swapped.map", _map_share_file_map), "a community map is not sent");
 		swapped = map_share_file_hash(path, _map_share_file_map);
-		CHECK(swapped != NONE, "a community map is not sent");
-		map_share_file_get(swapped)->ready = TRUE;
+		CHECK(swapped != NONE && map_share_file_get(swapped)->ready, "a community map is not sent");
 		sleep(1);
-		stock_file("swapped.map", "swapped", BLOOD_GULCH_CHECKSUM);
+		stock_file("swapped.map", "bloodgulch", "swapped", COMMUNITY_CHECKSUM);
 		CHECK(!catalog_takes("swapped.map", _map_share_file_map), "a community map replaced by a stock one is sent");
 		CHECK(!map_share_file_get(swapped)->ready, "the catalog still sends a file replaced by a stock map");
+		/* (and one replaced by a resource map, refused before it is hashed) */
+		community_file("swapped2.map", "swapped2");
+		fake_path(path, "swapped2.map");
+		CHECK(catalog_takes("swapped2.map", _map_share_file_map), "a community map is not sent");
+		swapped = map_share_file_hash(path, _map_share_file_map);
+		sleep(1);
+		resource_header(header, 2);
+		file_write("swapped2.map", header, FAKE_FILE_BYTES);
+		CHECK(!catalog_takes("swapped2.map", _map_share_file_map), "a community map replaced by sounds.map is sent");
+		CHECK(!map_share_file_get(swapped)->ready, "the catalog still sends a file replaced by a resource map");
 	}
 }
 
@@ -345,10 +425,22 @@ static void request(byte wanted)
 	asked.wanted = wanted;
 	fake_offers = 0;
 	fake_offer_count = 0;
+	fake_offer_result = 0xFF;
 	host_request(1, &asked);
-	/* (host_update offers once the files are hashed) */
+	/* (host_update offers once the files are hashed, or that it cannot) */
 	if (!fake_offers)
-		host_offer(1, _offer_ok);
+	{
+		struct host_machine *machine = &map_share_globals.machines[1];
+		boolean ready;
+		short index;
+
+		for (index = 0; index < machine->file_count; index++)
+			catalog_hash(machine->catalog_files[index]);
+		if (host_files_failed(machine, &ready))
+			host_offer(1, _offer_unavailable);
+		else if (ready)
+			host_offer(1, _offer_ok);
+	}
 }
 
 static void case_offer(void)
@@ -358,8 +450,9 @@ static void case_offer(void)
 
 	folder_make();
 	community_file("hugeass.map", "hugeass");
-	stock_file("bloodgulch.map", "bloodgulch", BLOOD_GULCH_CHECKSUM);
-	stock_file("renamed.map", "renamed", BLOOD_GULCH_CHECKSUM);
+	stock_file("bloodgulch.map", "bloodgulch", "bloodgulch", BLOOD_GULCH_CHECKSUM);
+	stock_file("renamed.map", "bloodgulch", "renamed", BLOOD_GULCH_CHECKSUM);
+	stock_file("edited.map", "bloodgulch", "edited", COMMUNITY_CHECKSUM);
 	resource_header(header, 1);
 	file_write("bitmaps.map", header, FAKE_FILE_BYTES);
 	resource_header(header, 2);
@@ -393,6 +486,10 @@ static void case_offer(void)
 	strcpy(fake_game.map.name, "custom_maps\\renamed");
 	request(FLAG(_map_share_file_map));
 	CHECK(fake_offer_result == _offer_unavailable && fake_offer_count == 0, "a stock map renamed offered");
+	strcpy(fake_game.map.name, "custom_maps\\edited");
+	request(FLAG(_map_share_file_map));
+	CHECK(fake_offer_result == _offer_unavailable && fake_offer_count == 0,
+		"a stock map with an edited header checksum offered");
 }
 
 /* what a downloading machine passes on of the download's files */
@@ -407,6 +504,13 @@ static void download_file_make(short index, short kind, char const *name, byte c
 	file->size = FAKE_FILE_BYTES;
 	file->piece_count = map_share_piece_count(file->size);
 	file->piece_hashes = calloc((unsigned long)file->piece_count, MAP_SHARE_HASH_BYTES);
+	/* (the later pieces' hashes, known before any piece is had: the fake
+	files' second piece is zeros) */
+	{
+		static byte zeros[FAKE_FILE_BYTES - MAP_SHARE_PIECE_BYTES];
+
+		p2p_blake2b_256(zeros, sizeof(zeros), file->piece_hashes + MAP_SHARE_HASH_BYTES);
+	}
 	file->have = calloc(1, 1);
 	file->asked = calloc((unsigned long)file->piece_count, 1);
 	fake_path(file->final_path, name);
@@ -495,15 +599,15 @@ static void case_relay(void)
 	struct serving serving;
 	short index;
 
-	/* a community map; bitmaps.map; a stock map renamed; a community map's
-	header sent as sounds.map */
-	cache_header(piece, CACHE_FILE_VERSION_CUSTOM_EDITION, "hugeass", COMMUNITY_CHECKSUM);
+	/* a community map; bitmaps.map; a stock map renamed, its header
+	checksum edited; a community map sent as sounds.map */
+	community_piece(piece, "hugeass");
 	download_file_make(0, _map_share_file_map, "hugeass.map", piece);
 	resource_header(piece, 1);
 	download_file_make(1, _map_share_file_bitmaps, "bitmaps.map", piece);
-	cache_header(piece, CACHE_FILE_VERSION_CUSTOM_EDITION, "bloodgulch", BLOOD_GULCH_CHECKSUM);
+	stock_piece(piece, "bloodgulch", "mymap", COMMUNITY_CHECKSUM);
 	download_file_make(2, _map_share_file_map, "mymap.map", piece);
-	cache_header(piece, CACHE_FILE_VERSION_CUSTOM_EDITION, "hugeass", COMMUNITY_CHECKSUM);
+	community_piece(piece, "hugeass");
 	download_file_make(3, _map_share_file_sounds, "sounds.map", piece);
 	for (index = 0; index < 4; index++)
 		connection->download_file[index] = index;
@@ -585,10 +689,28 @@ static void case_catalog_replaced(void)
 	CHECK(piece_sendable(connection, 0, 0), "a community map's piece is not sendable");
 	CHECK(block_read(connection, &serving, block, &bytes), "a community map's block is not read");
 	sleep(1);
-	stock_file("hugeass.map", "hugeass", BLOOD_GULCH_CHECKSUM);
+	stock_file("hugeass.map", "bloodgulch", "hugeass", BLOOD_GULCH_CHECKSUM);
 	CHECK(!piece_sendable(connection, 0, 0), "a replaced file's piece is sendable");
 	CHECK(!serving_file_size(connection, 0), "a replaced file has a size to send");
 	CHECK(!block_read(connection, &serving, block, &bytes), "a replaced file's block is read");
+}
+
+/* a stock map is hashed once: its content, kept for its size and time
+written, refuses it again without hashing it, after the catalog has let it
+go */
+static void case_catalog_once(void)
+{
+	char path[MAP_SHARE_PATH_SIZE];
+
+	folder_make();
+	stock_file("bloodgulch.map", "bloodgulch", "bloodgulch", COMMUNITY_CHECKSUM);
+	CHECK(!catalog_takes("bloodgulch.map", _map_share_file_map), "a stock map is sent");
+	memset(map_share_files_globals.files, 0, sizeof(map_share_files_globals.files));
+	fake_path(path, "bloodgulch.map");
+	CHECK(map_share_file_hash(path, _map_share_file_map) == NONE, "a stock map refused before is hashed again");
+	/* (a community map is hashed once too, and sent) */
+	community_file("hugeass.map", "hugeass");
+	CHECK(catalog_takes("hugeass.map", _map_share_file_map), "a community map is not sent");
 }
 
 int main(int count, char **arguments)
@@ -601,6 +723,8 @@ int main(int count, char **arguments)
 		case_offer();
 	else if (!strcmp(name, "relay"))
 		case_relay();
+	else if (!strcmp(name, "catalog-once"))
+		case_catalog_once();
 	else if (!strcmp(name, "catalog-replaced"))
 		case_catalog_replaced();
 	else if (!strcmp(name, "relay-unknown"))

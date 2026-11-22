@@ -64,6 +64,9 @@ enum
 and its pieces' hashes */
 static char const file_hash_label[] = "OpenCE map 1";
 #define FILE_HASH_LABEL_BYTES 12
+/* what a content hash is of (map_share_content_hash) */
+static char const content_hash_label[] = "VISR map content 1";
+#define CONTENT_HASH_LABEL_BYTES 18
 
 enum
 {
@@ -86,6 +89,8 @@ struct hash_job
 	long piece_count;
 	byte *piece_hashes;
 	byte hash[MAP_SHARE_HASH_BYTES];
+	/* its content hash (map_share_content_hash) */
+	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
 	/* written by the thread: done (ready or failed) when it has exited */
 	volatile long failed;
 };
@@ -105,6 +110,10 @@ struct known_hash
 	unsigned long size;
 	unsigned long modified;
 	byte hash[MAP_SHARE_HASH_BYTES];
+	/* its content hash, once a catalog job found it (map_share_file_hash
+	judges the file by it without hashing it again) */
+	boolean content_known;
+	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
 };
 
 struct map_share_files_globals
@@ -276,12 +285,78 @@ void map_share_file_hash_of_pieces(
 	free(data);
 }
 
+void map_share_first_piece_rest_hash(
+	byte const *piece,
+	unsigned long bytes,
+	byte *rest_hash)
+{
+	p2p_blake2b_256(piece + MIN(bytes, CACHE_FILE_HEADER_BYTES), bytes - MIN(bytes, CACHE_FILE_HEADER_BYTES), rest_hash);
+}
+
+void map_share_content_hash(
+	unsigned long size,
+	byte const *rest_hash,
+	byte const *piece_hashes,
+	long piece_count,
+	byte *content)
+{
+	long later = MAX(piece_count - 1, 0);
+	unsigned long bytes = CONTENT_HASH_LABEL_BYTES + 4 + MAP_SHARE_HASH_BYTES + (unsigned long)later * MAP_SHARE_HASH_BYTES;
+	byte *data = malloc(bytes);
+	short index;
+
+	if (!data)
+	{
+		csmemset(content, 0, MAP_SHARE_POLICY_CONTENT_BYTES);
+		return;
+	}
+	csmemcpy(data, content_hash_label, CONTENT_HASH_LABEL_BYTES);
+	for (index = 0; index < 4; index++)
+		data[CONTENT_HASH_LABEL_BYTES + index] = (byte)(size >> (index * 8));
+	csmemcpy(data + CONTENT_HASH_LABEL_BYTES + 4, rest_hash, MAP_SHARE_HASH_BYTES);
+	if (later)
+	{
+		csmemcpy(data + CONTENT_HASH_LABEL_BYTES + 4 + MAP_SHARE_HASH_BYTES, piece_hashes + MAP_SHARE_HASH_BYTES,
+			(unsigned long)later * MAP_SHARE_HASH_BYTES);
+	}
+	p2p_blake2b_256(data, bytes, content);
+	free(data);
+}
+
+boolean map_share_content_read(
+	FILE *stream,
+	unsigned long size,
+	byte const *piece_hashes,
+	long piece_count,
+	byte *content)
+{
+	unsigned long bytes = MIN((unsigned long)MAP_SHARE_PIECE_BYTES, size);
+	byte *piece = malloc(MAX(bytes, 1));
+	byte rest_hash[MAP_SHARE_HASH_BYTES];
+	boolean read = piece && stream && fseek(stream, 0, SEEK_SET) == 0 && fread(piece, 1, bytes, stream) == bytes;
+
+	if (read)
+	{
+		map_share_first_piece_rest_hash(piece, bytes, rest_hash);
+		map_share_content_hash(size, rest_hash, piece_hashes, piece_count, content);
+	}
+	free(piece);
+	return read;
+}
+
+static struct known_hash *known_hash_find(
+	char const *path,
+	unsigned long size,
+	unsigned long modified);
+
 /* the hashing thread: the job's file read a piece at a time */
 static unsigned long __stdcall hash_job_run(
 	void *input)
 {
 	struct hash_job *job = input;
 	byte *piece = malloc(MAP_SHARE_PIECE_BYTES);
+	/* (a file of no pieces has no first piece: left all zeros) */
+	byte rest_hash[MAP_SHARE_HASH_BYTES] = {0};
 	FILE *stream = fopen(job->path, "rb");
 	long size = -1;
 	long index;
@@ -309,12 +384,17 @@ static unsigned long __stdcall hash_job_run(
 			break;
 		}
 		p2p_blake2b_256(piece, bytes, job->piece_hashes + index * MAP_SHARE_HASH_BYTES);
+		if (index == 0)
+			map_share_first_piece_rest_hash(piece, bytes, rest_hash);
 	}
 	if (stream)
 		fclose(stream);
 	free(piece);
 	if (job->piece_hashes)
+	{
 		map_share_file_hash_of_pieces(job->size, job->piece_hashes, job->piece_count, job->hash);
+		map_share_content_hash(job->size, rest_hash, job->piece_hashes, job->piece_count, job->content);
+	}
 	else
 		job->failed = TRUE;
 
@@ -372,12 +452,13 @@ boolean map_share_file_unchanged(
 	return file_stamp(file->path, &size, &modified) && size == file->size && modified == file->modified;
 }
 
-boolean map_share_file_sendable(
+enum map_share_policy_verdict map_share_file_judge(
 	char const *path,
 	short kind,
 	unsigned long size,
 	byte const *header,
-	long header_bytes)
+	long header_bytes,
+	byte const *content)
 {
 	byte header_read[CACHE_FILE_HEADER_BYTES];
 	char name[MAP_SHARE_PATH_SIZE];
@@ -406,10 +487,10 @@ boolean map_share_file_sendable(
 		header = header_read;
 	}
 	verdict = map_share_policy_judge(kind, name, (uint32_t)map_share_name_base_length(name), header,
-		(uint32_t)MAX(header_bytes, 0), (uint32_t)size);
-	if (!map_share_policy_may_send(verdict))
+		(uint32_t)MAX(header_bytes, 0), (uint32_t)size, content);
+	if (!map_share_policy_may_hash(verdict) || (content && !map_share_policy_may_send(verdict)))
 		error(_error_silent, "map sharing: %s is not sent to other players: %s", path, map_share_policy_describe(verdict));
-	return map_share_policy_may_send(verdict);
+	return verdict;
 }
 
 /* ---------- the catalog */
@@ -420,6 +501,7 @@ short map_share_file_hash(
 {
 	struct map_share_files_globals *globals = &map_share_files_globals;
 	struct map_share_file *file = NULL;
+	struct known_hash const *known;
 	unsigned long size;
 	unsigned long modified;
 	short index;
@@ -435,8 +517,12 @@ short map_share_file_hash(
 		}
 	}
 	/* (only what map sharing may send is in the catalog: a file that has
-	become one it may not, replaced since it was hashed, is sent no more) */
-	if (!map_share_file_sendable(path, kind, size, NULL, 0))
+	become one it may not, replaced since it was hashed, is sent no more. Its
+	content is judged once it is hashed, and again from the hash known for
+	this size and time written) */
+	known = known_hash_find(path, size, modified);
+	if (!map_share_policy_may_hash(map_share_file_judge(path, kind, size, NULL, 0,
+		known && known->content_known ? known->content : NULL)))
 	{
 		if (file)
 		{
@@ -478,6 +564,59 @@ short map_share_file_hash(
 	return (short)(file - globals->files);
 }
 
+/* a catalog file hashed: its hash and content kept for its size and time
+written, and the file sent only if its content may be (a stock map's is not:
+failed, so a host offers nothing that needs it) */
+static void catalog_file_judged(
+	struct map_share_file *file,
+	byte const *content)
+{
+	struct known_hash *known;
+
+	map_share_map_hash_remember(file->path, file->hash);
+	known = known_hash_find(file->path, file->size, file->modified);
+	if (known)
+	{
+		csmemcpy(known->content, content, MAP_SHARE_POLICY_CONTENT_BYTES);
+		known->content_known = TRUE;
+	}
+	file->ready = map_share_policy_may_send(map_share_file_judge(file->path, file->kind, file->size, NULL, 0, content));
+	file->failed = !file->ready;
+}
+
+/* a catalog file's hashing done (the job's piece hashes the file's now, or
+freed) */
+static void catalog_job_finish(
+	short owner,
+	struct hash_job *job)
+{
+	struct map_share_file *file = map_share_file_get(owner);
+
+	/* (replaced meanwhile: the catalog's file is another's now) */
+	if (file && !csstrcasecmp(file->path, job->path))
+	{
+		/* (changed meanwhile: hashed again; or refused meanwhile,
+		map_share_file_hash: not sent) */
+		if (job->failed || job->size != file->size || file->failed)
+		{
+			file->failed = file->failed || job->failed;
+			free(job->piece_hashes);
+		}
+		else
+		{
+			file->piece_count = job->piece_count;
+			file->piece_hashes = job->piece_hashes;
+			csmemcpy(file->hash, job->hash, MAP_SHARE_HASH_BYTES);
+			catalog_file_judged(file, job->content);
+		}
+	}
+	else
+	{
+		free(job->piece_hashes);
+	}
+	job->piece_hashes = NULL;
+}
+
 short map_share_file_hashed(
 	char const *path,
 	short kind,
@@ -488,6 +627,9 @@ short map_share_file_hashed(
 {
 	short index = map_share_file_hash(path, kind);
 	struct map_share_file *file = map_share_file_get(index);
+	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
+	FILE *stream;
+	boolean read;
 
 	if (!file || file->size != size || piece_count != map_share_piece_count(size))
 		return index;
@@ -498,8 +640,21 @@ short map_share_file_hashed(
 	csmemcpy(file->piece_hashes, piece_hashes, (unsigned long)piece_count * MAP_SHARE_HASH_BYTES);
 	file->piece_count = piece_count;
 	csmemcpy(file->hash, hash, MAP_SHARE_HASH_BYTES);
-	file->ready = TRUE;
-	file->failed = FALSE;
+	/* (its content from its first piece, read again: the rest are the
+	pieces' hashes, checked) */
+	stream = fopen(path, "rb");
+	read = map_share_content_read(stream, size, piece_hashes, piece_count, content);
+	if (stream)
+		fclose(stream);
+	if (read)
+	{
+		catalog_file_judged(file, content);
+	}
+	else
+	{
+		file->ready = FALSE;
+		file->failed = TRUE;
+	}
 	return index;
 }
 
@@ -905,34 +1060,8 @@ void map_share_files_update(
 		switch (globals->job_type)
 		{
 		case _hash_job_file:
-		{
-			struct map_share_file *file = map_share_file_get((short)globals->job_owner);
-
-			/* (replaced meanwhile: the catalog's file is another's now) */
-			if (file && !csstrcasecmp(file->path, globals->job.path))
-			{
-				/* (changed meanwhile: hashed again; or refused meanwhile,
-				map_share_file_hash: not sent) */
-				if (globals->job.failed || globals->job.size != file->size || file->failed)
-				{
-					file->failed = file->failed || globals->job.failed;
-					free(globals->job.piece_hashes);
-				}
-				else
-				{
-					file->piece_count = globals->job.piece_count;
-					file->piece_hashes = globals->job.piece_hashes;
-					csmemcpy(file->hash, globals->job.hash, MAP_SHARE_HASH_BYTES);
-					file->ready = TRUE;
-					map_share_map_hash_remember(file->path, file->hash);
-				}
-			}
-			else
-			{
-				free(globals->job.piece_hashes);
-			}
+			catalog_job_finish((short)globals->job_owner, &globals->job);
 			break;
-		}
 		case _hash_job_name:
 			naming_finish(&globals->job_naming, &globals->job);
 			free(globals->job.piece_hashes);
