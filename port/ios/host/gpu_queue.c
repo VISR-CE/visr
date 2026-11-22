@@ -158,8 +158,9 @@ static struct
 {
 	unsigned long frames;
 	uint64_t records, bytes, draws, draw_bytes, registers, full_constants, uniforms, keyframes;
-	/* the waits for the consumer: AT_ONCE and QUERY calls and the present barrier, and their time when timed */
-	uint64_t drains, drain_ns;
+	/* the waits for the consumer: AT_ONCE and QUERY calls (frame_start's included), those that found records pending,
+	and their time when timed; the present barrier's time apart */
+	uint64_t drains, drains_pending, drain_ns, barrier_ns;
 } statistics;
 /* the consumer's (with the encode thread, written there): its time in the backend, taken by the producer's line */
 static _Atomic uint64_t consumed_ns;
@@ -190,12 +191,14 @@ static void statistics_frame(void)
 	milliseconds = (double)atomic_exchange(&consumed_ns, 0) / 1e6 / frames;
 	snprintf(line, sizeof(line),
 		"encode queue: %lu frames, a frame: %.0f records, %.0f KiB, %.0f draws in %.0f KiB, %.0f registers, "
-		"%.1f whole constant sets, %.0f uniform sets, %.1f keyframes, %.1f drains in %.3f ms, backend %.3f ms%s",
+		"%.1f whole constant sets, %.0f uniform sets, %.1f keyframes, %.1f drains (%.2f with records pending) in "
+		"%.3f ms, barrier %.3f ms, backend %.3f ms%s",
 		statistics.frames, (double)statistics.records / frames, (double)statistics.bytes / 1024.0 / frames,
 		(double)statistics.draws / frames, (double)statistics.draw_bytes / 1024.0 / frames,
 		(double)statistics.registers / frames, (double)statistics.full_constants / frames,
 		(double)statistics.uniforms / frames, (double)statistics.keyframes / frames,
-		(double)statistics.drains / frames, (double)statistics.drain_ns / 1e6 / frames, milliseconds, timing ? "" : " (not timed)");
+		(double)statistics.drains / frames, (double)statistics.drains_pending / frames,
+		(double)statistics.drain_ns / 1e6 / frames, (double)statistics.barrier_ns / 1e6 / frames, milliseconds, timing ? "" : " (not timed)");
 	if (log_line)
 		log_line(line);
 	memset(&statistics, 0, sizeof(statistics));
@@ -290,6 +293,7 @@ void gpu_queue_drain(void)
 {
 	drains++;
 	statistics.drains++;
+	statistics.drains_pending += atomic_load(&worker.written) != atomic_load(&worker.consumed);
 	if (timing)
 	{
 		uint64_t started = clock_ns();
@@ -710,9 +714,12 @@ static void present_barrier(void)
 
 	if (mode != GPU_QUEUE_THREAD)
 		return;
+	drains++;
 	started = clock_ns();
-	gpu_queue_drain();
-	worker.barrier_waited = (double)(clock_ns() - started) / 1e9;
+	drain();
+	started = clock_ns() - started;
+	statistics.barrier_ns += started;
+	worker.barrier_waited = (double)started / 1e9;
 }
 
 /* the frame's first draw is a keyframe: its record carries the whole packet, store and uniforms, so a reader that
