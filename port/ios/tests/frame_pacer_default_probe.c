@@ -12,6 +12,7 @@ grant, present). Built by tools/ios_test.py with the shared host stubs. */
 
 static int encode_thread, checks, failures;
 static const char *frames_in_flight = "";
+static const char *frame_source = "";
 
 #define CHECK(condition) do { checks++; if (!(condition)) { failures++; \
     fprintf(stderr, "frame_pacer_default_probe: line %d: %s\n", __LINE__, #condition); } } while (0)
@@ -23,7 +24,8 @@ double host_frame_rate_target(void) { return 0.0; }
 double host_config_real(const char *name, double fallback) { (void)name; return fallback; }
 void host_config_string(const char *name, const char *fallback, char *out, size_t size)
 {
-    snprintf(out, size, "%s", !strcmp(name, "display.frames_in_flight") ? frames_in_flight : fallback);
+    snprintf(out, size, "%s", !strcmp(name, "display.frames_in_flight") ? frames_in_flight :
+        !strcmp(name, "display.frame_source") ? frame_source : fallback);
 }
 void platform_log(const char *format, ...)
 {
@@ -46,6 +48,11 @@ int main(void)
     CHECK(started_in_flight(1, "2") == 2);
     CHECK(started_in_flight(0, "1") == 1);
     CHECK(started_in_flight(1, "system") == 0);
+    /* (the system's pacer keeps a fixed limit: "auto" and the thread's default fall back to theirs, not one) */
+    frame_source = "system";
+    CHECK(started_in_flight(0, "auto") == 2);
+    CHECK(started_in_flight(1, "") == 1);
+    frame_source = "";
     /* one frame in flight: the second frame finds the slot taken and waits; both record their grant and present */
     {
         struct frame_pacer_frame first, second;

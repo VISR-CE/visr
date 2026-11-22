@@ -40,6 +40,10 @@ frame_pacer_adapt_probe.c (tools/ios_test.py) holds the cases. */
 #define FRAME_PACER_ADAPT_RETRY_CALM 60.0
 /* (a second of frames for the rate tests) */
 #define FRAME_PACER_ADAPT_SPAN 1.0
+/* a period that moved by more than this share is a new rate in force; less is the display link's jitter */
+#define FRAME_PACER_ADAPT_PERIOD_CHANGE 0.02
+/* an interval this long is a load, a pause or the background, not a frame (as frame_pacer_shown_add) */
+#define FRAME_PACER_ADAPT_GAP 0.25
 
 enum frame_pacer_adapt_reason
 {
@@ -145,7 +149,8 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 
 	if (adapt->floor >= adapt->ceiling || now <= 0.0 || frame->period <= 0.0)
 		return adapt->limit;
-	if (adapt->period > 0.0 && frame->period != adapt->period)
+	if (adapt->period > 0.0 && (frame->period > adapt->period * (1.0 + FRAME_PACER_ADAPT_PERIOD_CHANGE) ||
+		frame->period < adapt->period * (1.0 - FRAME_PACER_ADAPT_PERIOD_CHANGE)))
 	{
 		/* a new rate in force: the windows and the delay start again, and the limit stays */
 		int limit = adapt->limit;
@@ -159,24 +164,29 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 	adapt->period = frame->period;
 	if (frame->transition)
 		return adapt->limit;
-	if (frame->gpu > 0.0 && frame->gpu < 0.25)
+	if (frame->gpu > 0.0 && frame->gpu < FRAME_PACER_ADAPT_GAP)
 		frame_pacer_adapt_push(adapt->gpu, &adapt->gpu_count, &adapt->gpu_next, frame->gpu);
-	if (frame->grant_to_present >= 0.0 && frame->grant_to_present < 0.25)
+	if (frame->grant_to_present >= 0.0 && frame->grant_to_present < FRAME_PACER_ADAPT_GAP)
 		frame_pacer_adapt_push(adapt->grant, &adapt->grant_count, &adapt->grant_next, frame->grant_to_present);
-	/* the rate test's second */
-	if (adapt->span_start <= 0.0)
+	/* the rate test's second: frames shown after the one that started it, and a gap (a load, a pause) starts it again
+	without a measure, so neither a hitch nor the frame at its edge reads as rate */
+	if (adapt->span_start <= 0.0 || frame->interval <= 0.0 || frame->interval >= FRAME_PACER_ADAPT_GAP)
+	{
 		adapt->span_start = now;
+		adapt->span_frames = adapt->span_second_slot = 0;
+		return adapt->limit;
+	}
 	adapt->span_frames++;
 	adapt->span_second_slot += frame->others_in_flight > 0;
 	if (adapt->limit == adapt->floor)
 	{
-		/* leave on slot-caused misses: late against the period, or, on a device under its rate, against the
-		interval the ceiling showed (every frame there is over one and a half periods) */
+		/* leave on slot-caused misses: late against the period, or, in a stay entered under rate, against the interval
+		the ceiling showed (every frame there is over one and a half periods) */
 		double expected = frame->period;
 
-		if (adapt->rate_at_ceiling > 0.0 && 1.0 / adapt->rate_at_ceiling > expected)
+		if (adapt->under_rate_stay && adapt->rate_at_ceiling > 0.0 && 1.0 / adapt->rate_at_ceiling > expected)
 			expected = 1.0 / adapt->rate_at_ceiling;
-		if (frame->slot_waited && frame->interval > 1.5 * expected && frame->interval < 0.25)
+		if (frame->slot_waited && frame->interval > 1.5 * expected)
 		{
 			adapt->miss_at[0] = adapt->miss_at[1];
 			adapt->miss_at[1] = now;

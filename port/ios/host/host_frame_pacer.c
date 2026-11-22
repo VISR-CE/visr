@@ -11,6 +11,7 @@ log around frame_pacer.h's rules. */
 
 #include <math.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -93,15 +94,14 @@ static void deadline_after(struct timespec *deadline, long nanoseconds)
 void frame_pacer_start(int fixed_timestep)
 {
 	char value[16];
-	int limit, adaptive, start_limit;
+	int limit, fixed, adaptive, start_limit;
 
 	if (fixed_timestep)
 		return;
 	host_config_string("display.frames_in_flight", "", value, sizeof(value));
-	limit = frame_pacer_in_flight_setting(value, frame_pacer_in_flight_default(host_gpu_encode_thread_on()));
+	fixed = frame_pacer_in_flight_setting(value, frame_pacer_in_flight_default(host_gpu_encode_thread_on()));
 	adaptive = frame_pacer_in_flight_adaptive(value, host_gpu_encode_thread_on());
-	if (adaptive)
-		limit = 1;
+	limit = adaptive ? 1 : fixed;
 #if TARGET_OS_SIMULATOR
 	/* a simulator's drawables never say when they were shown */
 	limit = 0;
@@ -122,6 +122,13 @@ void frame_pacer_start(int fixed_timestep)
 	host_config_string("display.frame_source", "", value, sizeof(value));
 	/* (the system's pacer shows one frame a refresh: no cap, no "unlimited") */
 	pacer.system_wanted = !strcmp(value, "system") && !host_frame_rate_unlimited() && host_frame_rate_cap() == 0.0;
+	/* (the system's pacer keeps its own queue: the limit it is given stays fixed, as before "auto") */
+	if (pacer.system_wanted && adaptive)
+	{
+		adaptive = pacer.adaptive = 0;
+		pacer.in_flight = pacer.flight.limit = start_limit = fixed;
+		frame_pacer_adapt_reset(&pacer.adapt, fixed, fixed);
+	}
 	host_config_string("debug.present_times", "false", value, sizeof(value));
 	pacer.times = !strcmp(value, "true");
 	pacer.load = host_config_real("debug.frame_load_cpu", 0.0) / 1e3;
@@ -449,8 +456,10 @@ double frame_pacer_present(struct frame_pacer_frame *frame)
 		panel);
 }
 
-/* (under the lock) a presented frame for adaptive frames in flight, and the limit it leaves */
-static void adapt_frame(const struct frame_pacer_frame *frame, double at, double interval, double period, double gpu)
+/* (under the lock) a presented frame for adaptive frames in flight; a switch writes its log line to line (empty:
+none), which the caller logs once the lock is released */
+static void adapt_frame(const struct frame_pacer_frame *frame, double at, double interval, double period, double gpu,
+	char *line, size_t size)
 {
 	unsigned long switches = pacer.adapt.switches;
 	struct frame_pacer_adapt_frame shown = {
@@ -473,7 +482,7 @@ static void adapt_frame(const struct frame_pacer_frame *frame, double at, double
 	pacer.flight.limit = limit;
 	pacer.drain_through = pacer.last_granted;
 	pthread_cond_broadcast(&pacer.shown_or_ticked);
-	platform_log("frame pacer: %d frame%s in flight (%s): %.1f frames a second at two, GPU %.1f ms and grant to present "
+	snprintf(line, size, "frame pacer: %d frame%s in flight (%s): %.1f frames a second at two, GPU %.1f ms and grant to present "
 		"%.1f ms at worst, lead %.1f ms, period %.1f ms; next try at one in %.0f s", limit, limit == 1 ? "" : "s",
 		pacer.adapt.reason == FRAME_PACER_ADAPT_FITS ? "fits" : pacer.adapt.reason == FRAME_PACER_ADAPT_UNDER ?
 		"under its rate with the second slot idle" : pacer.adapt.reason == FRAME_PACER_ADAPT_MISSES ?
@@ -486,7 +495,8 @@ static void adapt_frame(const struct frame_pacer_frame *frame, double at, double
 void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 {
 	double interval, period, gpu;
-	unsigned long frames = 0, intervals = 0, late = 0, given_up = 0, slot_waits = 0;
+	unsigned long frames = 0, intervals = 0, late = 0, given_up = 0, slot_waits = 0, switches = 0;
+	char switched[320] = "";
 	double gpu_before = 0.0, allowed = 0.0;
 	int limit;
 	double longest = 0.0;
@@ -530,8 +540,9 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 	else
 		frame_pacer_late_shown(&pacer.late, frame->aim, at, period);
 	/* (a frame of the run before a restart says nothing about this run) */
-	if (pacer.adaptive && !(frame->sequence && frame->sequence <= pacer.handed_before) && frame->slot && !noticed && !pacer.system_source)
-		adapt_frame(frame, at, interval, period, gpu);
+	if (pacer.adaptive && !(frame->sequence && frame->sequence <= pacer.handed_before) && frame->slot && !noticed &&
+		!pacer.system_source)
+		adapt_frame(frame, at, interval, period, gpu, switched, sizeof(switched));
 	if (pacer.shown.frames >= pacer.reported + 600)
 	{
 		frames = pacer.shown.frames - pacer.reported;
@@ -543,10 +554,13 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 		pacer.given_up = 0;
 		slot_waits = pacer.slot_waits;
 		pacer.slot_waits = 0;
+		switches = pacer.adapt.switches;
 		pacer.shown.intervals = pacer.shown.late = 0;
 		pacer.shown.longest = 0.0;
 	}
 	pthread_mutex_unlock(&pacer.lock);
+	if (switched[0])
+		platform_log("%s", switched);
 	if (pacer.times)
 	{
 		/* (after "it began": the inputs adaptive frames in flight would read, for traces; grant to present is 0 when
@@ -598,7 +612,7 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 			"shown late %lu, worst cost %.1f ms, lead %.1f ms; presents given up %lu; waited for a slot with a frame in flight %lu; "
 			"%d in flight, %lu switches", frames, late, longest * 1e3, intervals, period > 0.0 ? 1.0 / period : 0.0,
 			starts.late_starts, starts.at_once, starts.jumps, starts.misses, frame_pacer_late_worst(&starts) * 1e3,
-			frame_pacer_late_lead(&starts) * 1e3, given_up, slot_waits, limit, pacer.adapt.switches);
+			frame_pacer_late_lead(&starts) * 1e3, given_up, slot_waits, limit, switches);
 	}
 }
 
