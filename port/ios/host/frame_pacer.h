@@ -789,6 +789,38 @@ static inline void frame_pacer_extended_shown(struct frame_pacer_extended *late,
 }
 
 
+/* ---- a lead remembered. The lead starts at FRAME_PACER_EXTENDED_LEAD and the rules find the one a display needs by
+frames shown late: on the 120 Hz phone and tablet measured, 8.5 ms at 60 frames a second, found over the first minutes
+of every run, where its late frames were. The host keeps the lead a display mode ended on and starts the next run of
+that mode from it. */
+
+/* the display mode a lead belongs to, as one number: the panel's refreshes a second and the game's frames a second
+(120060: 60 frames a second on a 120 Hz panel); 0 unknown. step: frame_pacer_extended_step; slot: a frame's share of
+the display, seconds */
+static inline int frame_pacer_extended_mode(double step, double slot)
+{
+	return step > 0.0 && slot > 0.0 ? (int)(1.0 / step + 0.5) * 1000 + (int)(1.0 / slot + 0.5) : 0;
+}
+
+/* start from a lead found before, and the lead that failed under it (0: none known, as a lead given by a profile:
+the lead then holds as if the one a margin under it had failed). Returns 0, changing nothing, for values the rules
+could not have reached: a lead under the starting one or over the longest for this step, or a failed lead not under
+the lead. */
+static inline int frame_pacer_extended_recall(struct frame_pacer_extended *late, double lead, double failed, double step)
+{
+	if (failed == 0.0 && lead > FRAME_PACER_EXTENDED_LEAD + FRAME_PACER_EXTENDED_LEAD_MARGIN)
+		failed = lead - FRAME_PACER_EXTENDED_LEAD_MARGIN;
+	if (!(lead >= FRAME_PACER_EXTENDED_LEAD) || lead > FRAME_PACER_EXTENDED_LEAD_MAXIMUM * step || !(failed >= 0.0) ||
+		failed >= lead)
+		return 0;
+	late->lead = lead;
+	late->lead_failed = failed;
+	late->remembered = 0;
+	late->lead_misses = 0;
+	late->aimed_since = 0;
+	return 1;
+}
+
 /* ---- the extended late start's bookkeeping of one frame, the same for the host (host_frame_pacer.c) and the
 simulator (tests/frame_pacer_sim.h), so what the simulator tests is what the host does: what the rules are asked,
 what a frame's work is, and how long before its aim the GPU finished it */

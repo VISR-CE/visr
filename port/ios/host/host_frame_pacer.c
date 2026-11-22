@@ -8,8 +8,10 @@ log around frame_pacer.h's rules. */
 #include "host_config.h"
 #include "ios_host.h"
 
+#include <CoreFoundation/CoreFoundation.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -44,6 +46,10 @@ static struct
 	double refresh;                  /* the time of the display's latest refresh; 0 none yet */
 	int late_start;                  /* display.late_start: LATE_START_OFF, _CLASSIC or _EXTENDED */
 	int late_start_asked;            /* the setting's, which frame_pacer_late_start_toggle returns to */
+	int lead_remember;               /* debug.late_start_remember: keep the extended late start's lead between runs */
+	double lead_seed;                /* debug.late_start_lead, seconds: the lead for a display mode never run; 0 none */
+	int lead_mode;                   /* frame_pacer_extended_mode of the lead in use; 0 none yet */
+	double lead_kept, lead_kept_failed; /* what is remembered for that mode */
 	double late_start_slot;          /* the extended late start's shortest slot (frame_pacer.h's slot_least); 0 none */
 	struct frame_pacer_late late;
 	struct frame_pacer_extended extended;
@@ -125,6 +131,12 @@ void frame_pacer_start(int fixed_timestep)
 	pacer.late_start_slot = !strcmp(value, "extended") ? FRAME_PACER_EXTENDED_SLOT : 0.0;
 	memset(&pacer.extended, 0, sizeof(pacer.extended));
 	memset(&pacer.costs, 0, sizeof(pacer.costs));
+	/* (the next frame recalls its display mode's lead) */
+	host_config_string("debug.late_start_remember", "true", value, sizeof(value));
+	pacer.lead_remember = strcmp(value, "false") != 0;
+	pacer.lead_seed = host_config_real("debug.late_start_lead", 0.0) / 1e3;
+	pacer.lead_mode = 0;
+	pacer.lead_kept = pacer.lead_kept_failed = 0.0;
 	/* (the count goes on through a restart, so a shown notice still to come for a frame of the run before cannot be
 	taken for one of this run's: none of this run's are in flight yet) */
 	pacer.handed_before = pacer.shown_highest = pacer.handed;
@@ -174,14 +186,76 @@ void frame_pacer_stop(void)
 	pthread_mutex_unlock(&pacer.lock);
 }
 
+/* the extended late start's lead for a display mode, kept in the app's preferences between runs: "lead failed", in
+milliseconds, under late_start_lead.<mode> */
+static CFStringRef lead_key(int mode)
+{
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("late_start_lead.%d"), mode);
+}
+
+static int lead_read(int mode, double *lead, double *failed)
+{
+	CFStringRef key = lead_key(mode);
+	CFPropertyListRef value = CFPreferencesCopyAppValue(key, kCFPreferencesCurrentApplication);
+	char text[64];
+	int found = 0;
+
+	if (value && CFGetTypeID(value) == CFStringGetTypeID() &&
+		CFStringGetCString((CFStringRef)value, text, sizeof(text), kCFStringEncodingUTF8) &&
+		sscanf(text, "%lf %lf", lead, failed) == 2)
+	{
+		*lead /= 1e3;
+		*failed /= 1e3;
+		found = 1;
+	}
+	if (value)
+		CFRelease(value);
+	CFRelease(key);
+	return found;
+}
+
+static void lead_write(int mode, double lead, double failed)
+{
+	CFStringRef key = lead_key(mode);
+	CFStringRef value = CFStringCreateWithFormat(NULL, NULL, CFSTR("%.3f %.3f"), lead * 1e3, failed * 1e3);
+
+	CFPreferencesSetAppValue(key, value, kCFPreferencesCurrentApplication);
+	CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
+	CFRelease(value);
+	CFRelease(key);
+}
+
+/* the display mode changed, or this is the run's first aimed frame: start from the lead that mode ended on the last
+time, or the profile's for a mode never run. Without the lock: it reads the preferences. */
+static void lead_recall(int mode, double step)
+{
+	double lead = 0.0, failed = 0.0;
+	int remembered = pacer.lead_remember && lead_read(mode, &lead, &failed), taken;
+
+	if (!remembered)
+	{
+		lead = pacer.lead_seed;
+		failed = 0.0;
+	}
+	pthread_mutex_lock(&pacer.lock);
+	pacer.lead_mode = mode;
+	taken = lead > 0.0 && frame_pacer_extended_recall(&pacer.extended, lead, failed, step);
+	/* (with nothing to start from, the lead in use stays, and is kept for this mode only once it changes here) */
+	pacer.lead_kept = pacer.extended.lead;
+	pacer.lead_kept_failed = pacer.extended.lead_failed;
+	pthread_mutex_unlock(&pacer.lock);
+	if (taken)
+		platform_log("frame pacer: late start lead %.1f ms %s for %d Hz at %d frames a second", lead * 1e3,
+			remembered ? "remembered" : "given (debug.late_start_lead)", mode / 1000, mode % 1000);
+}
+
 void frame_pacer_frame_start(int may_wait)
 {
-	double now, wait = 0.0, aim = 0.0, allowed = 0.0, share;
-	int state = FRAME_PACER_START_OFF;
+	double now, wait = 0.0, aim = 0.0, allowed = 0.0, share, step;
+	int state = FRAME_PACER_START_OFF, mode = 0;
 
 	if (!pacer.started)
 		return;
-	now = now_seconds();
 	pthread_mutex_lock(&pacer.lock);
 	/* (the limit follows the frame rate in force, which changes with the map's workload and the scene class; frames
 	already holding a slot give it back whatever the limit is) */
@@ -198,6 +272,16 @@ void frame_pacer_frame_start(int may_wait)
 		}
 	}
 	share = frame_pacer_share(pacer.period, host_frame_rate_target());
+	step = frame_pacer_extended_step(pacer.period, pacer.panel);
+	if (pacer.late_start == LATE_START_EXTENDED && pacer.refresh > 0.0)
+		mode = frame_pacer_extended_mode(step, share * pacer.period);
+	if (mode && mode != pacer.lead_mode)
+	{
+		pthread_mutex_unlock(&pacer.lock);
+		lead_recall(mode, step);
+		pthread_mutex_lock(&pacer.lock);
+	}
+	now = now_seconds();
 	/* only for frames shown in step with the display, by the pacer's own
 	rules: drawing faster than the display there is nothing to be in time
 	for, and the system's pacer keeps its own time */
@@ -426,8 +510,8 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 	double interval, period;
 	unsigned long frames = 0, intervals = 0, late = 0, given_up = 0;
 	double gpu_before = 0.0, allowed = 0.0;
-	double longest = 0.0;
-	int noticed = at <= 0.0;
+	double longest = 0.0, keep = 0.0, keep_failed = 0.0;
+	int noticed = at <= 0.0, keep_mode = 0;
 
 	/* (no time from the system: when it told us) */
 	if (noticed)
@@ -460,6 +544,14 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 		}
 		frame_pacer_extended_frame_shown(&pacer.extended, known, frame->aim, at, period, pacer.panel,
 			frame_pacer_share(period, host_frame_rate_target()), now_seconds());
+		/* (a lead found too short and the longer one taken: what the next run of this display mode starts from) */
+		if (pacer.lead_remember && pacer.lead_mode && pacer.extended.lead_failed > 0.0 &&
+			(pacer.extended.lead_failed != pacer.lead_kept_failed || pacer.extended.lead > pacer.lead_kept))
+		{
+			keep_mode = pacer.lead_mode;
+			keep = pacer.lead_kept = pacer.extended.lead;
+			keep_failed = pacer.lead_kept_failed = pacer.extended.lead_failed;
+		}
 	}
 	else
 		frame_pacer_late_shown(&pacer.late, frame->aim, at, period);
@@ -476,6 +568,12 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 		pacer.shown.longest = 0.0;
 	}
 	pthread_mutex_unlock(&pacer.lock);
+	if (keep_mode)
+	{
+		lead_write(keep_mode, keep, keep_failed);
+		platform_log("frame pacer: late start lead %.1f ms (%.1f ms was too short) kept for %d Hz at %d frames a second",
+			keep * 1e3, keep_failed * 1e3, keep_mode / 1000, keep_mode % 1000);
+	}
 	if (pacer.times)
 	{
 		platform_log("present time: frame %lu at %.3f ms, %.3f ms after the one before, %.3f ms after it began%s; start %s, "
