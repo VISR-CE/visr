@@ -16,7 +16,7 @@ def test_import_offscreen_rule(tmp_path):
 
 def test_import_uses_same_rule_for_pacer_and_present():
     source = (ROOT / "port/ios/host/gpu_metal.m").read_text()
-    assert "if (!render_offscreen_active())\n\t\tframe_pacer_frame_start();" in source
+    assert "if (!render_offscreen_active())\n\t\tframe_pacer_frame_start(pacing.off);" in source
     assert "BOOL offscreen = render_offscreen_active();" in source
     assert "host_render_offscreen_frame(host_benchmark_offscreen_active()," in source
     assert "host_map_pictures_import_stage(), TARGET_OS_VISION)" in source

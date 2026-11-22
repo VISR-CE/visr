@@ -44,7 +44,7 @@ struct frame_pacer_frame
 	uint8_t waits_for_display;
 	uint8_t slot;            /* holds one of the frames in flight */
 	uint8_t watched;         /* frame_pacer_presented wants to hear of it */
-	uint8_t counted;         /* counted as handed to the display and not yet shown (the extended late start) */
+	unsigned long sequence;  /* its place among the frames handed to the display, from 1; 0: it was not */
 	uint8_t in_flight;       /* frames handed to the display and not yet shown, before this one */
 	uint8_t start_state;     /* frame_pacer.h's frame_pacer_start_state */
 };
@@ -110,7 +110,8 @@ static inline int frame_pacer_aimed(const struct frame_pacer_frame *frame)
 (a copy of the frame): this copy holds neither any more */
 static inline void frame_pacer_frame_handed(struct frame_pacer_frame *frame)
 {
-	frame->slot = frame->counted = 0;
+	frame->slot = 0;
+	frame->sequence = 0;
 }
 /* The GPU finished the frame's last command buffer (any thread). number: the
 frame's, as given to frame_pacer_frame_begin; gpu_end: when, on the pacer's

@@ -33,7 +33,9 @@ struct load
 	double cpu, gpu_fixed, gpu_pixels;  /* gpu_pixels: the per-pixel part at the full picture */
 	double cpu_noise, gpu_noise;        /* each frame adds up to this much, evenly spread */
 	long spike_frame;                   /* 0 none */
-	double spike_cpu;
+	long spike_every;                   /* 0: only spike_frame; else every so many frames from it */
+	long tick_every;                    /* 0 none: every so many frames the CPU's work is tick_cpu longer (a game tick) */
+	double spike_cpu, tick_cpu;
 	double rise_from, rise_to, fall_from, fall_to, risen; /* the GPU's per-pixel part times up to `risen` */
 	double full_pixels;
 	unsigned random;
@@ -61,8 +63,12 @@ static void load_cost(const struct sim *sim, long frame, double now, double *cpu
 		else if (since >= load->rise_from)
 			scale = 1.0 + (load->risen - 1.0) * (since - load->rise_from) / (load->rise_to - load->rise_from);
 	}
-	*cpu = load->cpu + load->cpu_noise * load_noise(load) + (load->spike_frame && frame == load->spike_frame ?
-		load->spike_cpu : 0.0);
+	*cpu = load->cpu + load->cpu_noise * load_noise(load);
+	if (load->spike_frame && (frame == load->spike_frame || (load->spike_every && frame > load->spike_frame &&
+		(frame - load->spike_frame) % load->spike_every == 0)))
+		*cpu += load->spike_cpu;
+	if (load->tick_every && frame % load->tick_every == 0)
+		*cpu += load->tick_cpu;
 	*gpu_fixed = load->gpu_fixed + load->gpu_noise * load_noise(load);
 	*gpu_per_pixel = load->gpu_pixels * scale / (load->full_pixels > 0.0 ? load->full_pixels : 1.0);
 }
@@ -412,6 +418,79 @@ int main(int argc, char **argv)
 		CHECK(result.engaged == result.frames && result.missed == 0 && result.waited == 0);
 		finish(sim);
 	}
+	/* ---- the CPU's work over a slot, on every frame or on the frames that run a game tick: no start can help, and
+	the frame after a long one must not sleep toward a later slot. The frame rate and the late frames are those
+	without a late start */
+	{
+		static const struct load loads[] = {
+			{ .cpu = 0.009, .gpu_fixed = 0.003 },
+			{ .cpu = 0.008, .gpu_fixed = 0.003, .cpu_noise = 0.0008 },
+			{ .cpu = 0.0055, .gpu_fixed = 0.004, .tick_every = 4, .tick_cpu = 0.0035 },
+			{ .cpu = 0.0055, .gpu_fixed = 0.004, .tick_every = 2, .tick_cpu = 0.0035 },
+		};
+		unsigned index;
+
+		for (index = 0; index < sizeof(loads) / sizeof(loads[0]); index++)
+		{
+			struct load load = loads[index];
+			struct sim *off = run(SIM_OFF, P120, P120, 1.0, 2, &load, 6000), *extended;
+			struct sim_result before, after;
+
+			sim_run(off, 6000);
+			before = sim_measure(off, 1200, 6000);
+			load = loads[index];
+			extended = run(SIM_EXTENDED, P120, P120, 1.0, 2, &load, 6000);
+			sim_run(extended, 6000);
+			after = sim_measure(extended, 1200, 6000);
+			if (verbose)
+			{
+				row("CPU over a slot", SIM_OFF, off, 1200);
+				row("CPU over a slot", SIM_EXTENDED, extended, 1200);
+			}
+			CHECK(after.rate > before.rate - 0.5);
+			CHECK(after.late <= before.late);
+			finish(off);
+			finish(extended);
+		}
+	}
+	/* ---- a shown notice that never comes: the count of frames in flight is made up by the next notice, and no slot
+	is skipped afterward */
+	{
+		struct load load = { .cpu = 0.003, .gpu_fixed = 0.007, .cpu_noise = 0.0005, .gpu_noise = 0.0003 };
+		struct sim *extended = run(SIM_EXTENDED, P120, P120, 1.0, 2, &load, 6000);
+		struct sim_result result;
+
+		extended->lose_notice = 3000;
+		sim_run(extended, 6000);
+		result = sim_measure(extended, 3010, 6000);
+		if (verbose)
+			row("a lost shown notice", SIM_EXTENDED, extended, 3010);
+		CHECK(result.late == 0 && fabs(result.rate - 120.0) < 0.1);
+		CHECK(result.engaged == result.frames && result.missed == 0);
+		finish(extended);
+	}
+	/* ---- a spike every 1,500 frames: each is one frame shown late, counted as that (not as pushed), and the lead,
+	which the spikes say nothing about, stays where the system's need puts it */
+	{
+		struct load load = { .cpu = 0.003, .gpu_fixed = 0.004, .cpu_noise = 0.0003, .spike_frame = 1500, .spike_every = 1500,
+			.spike_cpu = 0.006 };
+		struct sim *extended = run(SIM_EXTENDED, P120, P120, 1.0, 2, &load, 15000);
+		struct sim_result result;
+
+		sim_run(extended, 15000);
+		result = sim_measure(extended, 1200, 15000);
+		if (verbose)
+		{
+			row("a spike every 1,500 frames", SIM_EXTENDED, extended, 1200);
+			printf("  misses %lu pushed %lu jumps %lu failed %.1f\n", extended->extended.misses, extended->extended.pushed,
+				extended->extended.jumps, extended->extended.lead_failed * 1e3);
+		}
+		CHECK(extended->extended.misses >= 8 && extended->extended.misses <= 10);
+		CHECK(result.late <= 10);
+		CHECK(extended->extended.lead_failed == 0.0);
+		CHECK(frame_pacer_extended_lead(&extended->extended) <= FRAME_PACER_LATE_LEAD + FRAME_PACER_LATE_LEAD_STEP);
+		finish(extended);
+	}
 	/* ---- the rules alone */
 	{
 		struct frame_pacer_extended late;
@@ -435,24 +514,23 @@ int main(int argc, char **argv)
 		frame_pacer_extended_shown(&late, start.aim, start.aim + P120, 0.001, frame_pacer_extended_step(P60, P120), 10.03);
 		CHECK(late.misses == 1 && late.holdoff_until > 10.03 + 0.99);
 		/* (its GPU work ended under a lead before its aim: it cost too much, and the lead is not marked too short) */
-		CHECK(late.lead_failed == 0.0);
-		CHECK(fabs(frame_pacer_extended_lead(&late) - (FRAME_PACER_LATE_LEAD + FRAME_PACER_LATE_LEAD_STEP)) < 1e-12);
+		CHECK(late.lead_failed == 0.0 && fabs(frame_pacer_extended_lead(&late) - FRAME_PACER_LATE_LEAD) < 1e-12);
 		/* stopped until the holdoff ends */
 		in.now = 10.5;
 		CHECK(frame_pacer_extended_wait(&late, &in).state == FRAME_PACER_START_HELD);
 		/* the frame behind a late one, pushed late with it, changes nothing */
 		frame_pacer_extended_shown(&late, 10.4, 10.4 + P60, 0.004, P120, 10.5);
 		CHECK(late.misses == 1 && late.pushed == 1 && late.holdoff == FRAME_PACER_EXTENDED_HOLDOFF);
-		CHECK(fabs(frame_pacer_extended_lead(&late) - (FRAME_PACER_LATE_LEAD + FRAME_PACER_LATE_LEAD_STEP)) < 1e-12);
+		CHECK(fabs(frame_pacer_extended_lead(&late) - FRAME_PACER_LATE_LEAD) < 1e-12);
 		/* late again soon after starting again: stopped for twice as long; done a lead ahead and still late, so
 		this lead is remembered as too short */
 		in.now = 11.2;
 		in.refresh = 11.2;
 		start = frame_pacer_extended_wait(&late, &in);
 		CHECK(start.state == FRAME_PACER_START_ENGAGED);
-		frame_pacer_extended_shown(&late, start.aim, start.aim + P60, 0.0051, P120, 11.25);
+		frame_pacer_extended_shown(&late, start.aim, start.aim + P60, 0.0031, P120, 11.25);
 		CHECK(late.holdoff == 2.0 * FRAME_PACER_EXTENDED_HOLDOFF && fabs(late.holdoff_until - 13.25) < 1e-9);
-		CHECK(fabs(late.lead_failed - 0.005) < 1e-12);
+		CHECK(fabs(late.lead_failed - 0.003) < 1e-12 && fabs(frame_pacer_extended_lead(&late) - 0.005) < 1e-12);
 		/* frames in flight own the next slots: with the last frame shown at 20.0 and two in flight, the frame's
 		slot is the third after it, whatever it could make */
 		late.holdoff_until = 0.0;
@@ -481,10 +559,27 @@ int main(int argc, char **argv)
 		starts at once */
 		in.share = 1.0;
 		in.in_flight = 6;
+		in.limit = 0;
 		in.shown_last = in.now - 0.001;
 		late.last_aim = 0.0;
 		start = frame_pacer_extended_wait(&late, &in);
 		CHECK(start.state == FRAME_PACER_START_NO_FIT && start.wait == 0.0);
+		/* with a limit, no more frames count as in flight than it lets be: a count that is wrong cannot push the aim
+		past the limit's slots */
+		in.limit = 2;
+		late.last_aim = 0.0;
+		start = frame_pacer_extended_wait(&late, &in);
+		CHECK(start.state == FRAME_PACER_START_ENGAGED && start.aim < in.shown_last + 3.5 * P60);
+		/* behind: with the last slot spoken for a refresh ago and a budget of 13 ms, the frame cannot make the slot
+		after it. It does not sleep toward a later one: it starts at once with no aim */
+		in.in_flight = 0;
+		in.shown_last = in.now - 0.010;
+		late.last_aim = 0.0;
+		start = frame_pacer_extended_wait(&late, &in);
+		CHECK(start.state == FRAME_PACER_START_NO_FIT && start.wait == 0.0 && start.aim == 0.0 && late.behind == 1);
+		/* an 80 Hz link on a 120 Hz panel: the link's refreshes are not all the panel's, so the grid is the link's */
+		CHECK(frame_pacer_extended_step(1.0 / 80.0, P120) == 1.0 / 80.0);
+		CHECK(frame_pacer_extended_step(P60, P120) == P120 && frame_pacer_extended_step(P120, P120) == P120);
 		/* more pixels: the GPU's part of every cost in the window grows by the ratio; fewer change nothing */
 		frame_pacer_extended_scale(&late, 1.5);
 		CHECK(fabs(frame_pacer_extended_worst(late.gpu, late.count) - 0.009) < 1e-12);

@@ -88,7 +88,9 @@ struct sim
 	double now, gpu_free, shown_last, shown_noticed, gpu_total, gpu_counted;
 	double present_refreshes; /* link refreshes counted at the last Present (frame_context_wait) */
 	int waited_for_display;
-	int outstanding;
+	long handed, shown_highest; /* frames handed to the display, and the highest of them known shown: the count in
+	                            flight is the difference, so a notice that never comes is made up by the next */
+	long lose_notice;           /* this frame's shown notice never arrives (0: none) */
 	struct sim_event events[SIM_EVENTS];
 	int event_count;
 	struct sim_frame *frames;
@@ -148,7 +150,10 @@ static inline void sim_events_until(struct sim *sim, double until)
 			continue;
 		}
 		frame_pacer_flight_give(&sim->flight);
-		sim->outstanding--;
+		if (sim->lose_notice && event.frame == sim->lose_notice)
+			continue;
+		if (event.frame + 1 > sim->shown_highest)
+			sim->shown_highest = event.frame + 1;
 		sim->shown_noticed = frame->shown;
 		if (sim->mode == SIM_CLASSIC)
 			frame_pacer_late_shown(&sim->classic, frame->aim, frame->shown, sim->link);
@@ -215,7 +220,7 @@ static inline void sim_frame(struct sim *sim)
 	else if (sim->mode == SIM_EXTENDED && sim->waited_for_display)
 	{
 		struct frame_pacer_extended_input in = { sim->now, sim_link_refresh(sim, sim->now), sim->link, sim->panel,
-			sim->share, sim->limit, sim->outstanding, sim->shown_noticed };
+			sim->share, sim->limit, (int)(sim->handed - sim->shown_highest), sim->shown_noticed };
 		struct frame_pacer_extended_start start = frame_pacer_extended_wait(&sim->extended, &in);
 
 		wait = start.wait;
@@ -243,7 +248,7 @@ static inline void sim_frame(struct sim *sim)
 		frame->allowed = sim->classic.allowed;
 	}
 	sim->waited_for_display = 1;
-	frame->in_flight_at_present = sim->outstanding;
+	frame->in_flight_at_present = (int)(sim->handed - sim->shown_highest);
 	taken = frame_pacer_flight_take(&sim->flight);
 	while (!taken && sim->event_count)
 	{
@@ -283,7 +288,7 @@ static inline void sim_frame(struct sim *sim)
 	}
 	frame->shown = shown;
 	sim->shown_last = shown;
-	sim->outstanding++;
+	sim->handed = sim->count + 1;
 	sim_event_add(sim, shown + sim->notice, 1, sim->count);
 	sim->count++;
 }

@@ -386,6 +386,11 @@ are in flight is always counted as shown late. These rules replace it:
   a frame within one slot (over that the device is below its rate and no
   start can help), and the whole budget within the frames in flight's limit
   of slots, so that no frame waits for a slot.
+- The CPU's time on a frame (its start to its Present) fits one slot too, and
+  a frame that cannot make the slot after the last one spoken for never
+  sleeps: it starts at once with no aim. Otherwise one frame whose CPU work
+  passes a slot would make every frame after it wait out a slot it could
+  have had.
 - A frame's cost is its own: from its start to the end of its own GPU work,
   less its waits for the display, with its own GPU time beside it.
 - A cost over what was allowed stops late starts only when it used up more
@@ -394,12 +399,13 @@ are in flight is always counted as shown late. These rules replace it:
 - A frame shown late stops them for FRAME_PACER_EXTENDED_HOLDOFF seconds,
   doubling (to FRAME_PACER_EXTENDED_HOLDOFF_MAXIMUM) each time the next miss
   comes within FRAME_PACER_EXTENDED_RETRY seconds of starting again.
-- The lead grows with each frame shown late and shrinks slowly, as before.
-  When the frame was late although its GPU work ended a lead before its aim,
-  the system needed longer than the lead: that lead is remembered as too
-  short, and the slow shrink stops short of it. A frame shown late while late
-  starts are already stopped (the frame behind a late one is pushed late with
-  it) changes nothing.
+- The lead grows only when a frame was shown late although its GPU work ended
+  a lead before its aim: the system needed longer than the lead. That lead is
+  remembered as too short, and the slow shrink stops short of it. A frame that
+  was late because it cost too much says nothing about the lead. A frame shown
+  late while a late frame has already stopped late starts (the frame behind
+  it, pushed late with it) changes nothing. The lead also shrinks while
+  frames do not fit, so a lead grown too long cannot keep late starts off.
 - When the picture gets more pixels (dynamic resolution steps up) the costs
   in the window grow by the same ratio on their GPU part, so the step is
   allowed for before its first frame instead of being a jump. */
@@ -433,10 +439,14 @@ struct frame_pacer_extended
 	double lead_failed;     /* a lead that was too short; 0 none known */
 	double holdoff_until;   /* late starts stop until this time */
 	double holdoff;         /* how long the last miss stopped them */
+	double missed_until;    /* when the last miss's stop ended, or will */
 	double last_aim;        /* the aim of the frame started last; 0 none */
 	unsigned long calm;     /* frames shown on time since the lead last changed */
+	unsigned long idle;     /* frames that did not fit since the lead last changed */
+	int missed;             /* late starts are stopped by a frame shown late (not by a jump) */
+	double slack_least;     /* the least time between the GPU's end and the aim among frames shown on time; 0 none */
 	unsigned long remembered; /* frames shown on time since lead_failed was set */
-	unsigned long late_starts, no_fit, held, jumps, misses, pushed, early;
+	unsigned long late_starts, no_fit, behind, held, jumps, misses, pushed, early;
 	double offset;          /* shown minus aim, summed over offsets frames */
 	unsigned long offsets;
 };
@@ -492,7 +502,28 @@ static inline double frame_pacer_extended_least(const double *costs, int count)
 /* the refresh grid's step: the panel's period where it is the shorter */
 static inline double frame_pacer_extended_step(double period, double panel)
 {
-	return panel >= 1.0 / 240.0 && panel < period ? panel : period;
+	double ratio;
+
+	if (panel < 1.0 / 240.0 || panel >= period)
+		return period;
+	/* (only when the link's refreshes are refreshes of the panel: an 80 Hz link on a 120 Hz panel is one and a half
+	of the panel's, and its own grid is the only one both share) */
+	ratio = period / panel;
+	return ratio - (double)(long)(ratio + 0.5) < 0.02 && (double)(long)(ratio + 0.5) - ratio < 0.02 ? panel : period;
+}
+
+/* the slow shrink of the lead, a quarter step at a time, never under the floor or a quarter step over a lead known to
+be too short */
+static inline void frame_pacer_extended_shrink(struct frame_pacer_extended *late)
+{
+	double lead = frame_pacer_extended_lead(late);
+	double least = late->lead_failed > 0.0 ? late->lead_failed + FRAME_PACER_LATE_LEAD_STEP / 4.0 :
+		FRAME_PACER_LATE_LEAD_MINIMUM;
+
+	if (lead - FRAME_PACER_LATE_LEAD_STEP / 4.0 > least)
+		late->lead = lead - FRAME_PACER_LATE_LEAD_STEP / 4.0;
+	else if (lead > least)
+		late->lead = least;
 }
 
 static inline struct frame_pacer_extended_start frame_pacer_extended_wait(struct frame_pacer_extended *late,
@@ -521,30 +552,45 @@ static inline struct frame_pacer_extended_start frame_pacer_extended_wait(struct
 	work = frame_pacer_extended_worst(late->work, late->count);
 	gpu = frame_pacer_extended_worst(late->gpu, late->count);
 	budget = work + lead;
+	late->missed = 0;
 	/* each stage in its slot; and the frame reaches its Present, at the earliest its least CPU time after its start,
 	no more than the limit's slots before its own slot, less the time the shown notice of the frame whose slot it
 	takes needs to arrive: then no frame waits for a slot */
-	if (gpu > slot || budget - frame_pacer_extended_least(late->cpu, late->count) + FRAME_PACER_EXTENDED_NOTICE >
-		(double)limit * slot)
+	if (gpu > slot || frame_pacer_extended_worst(late->cpu, late->count) > slot ||
+		budget - frame_pacer_extended_least(late->cpu, late->count) + FRAME_PACER_EXTENDED_NOTICE > (double)limit * slot)
 	{
 		late->no_fit++;
+		/* (a lead grown too long to fit comes back down by itself: frames that start at once teach it nothing) */
+		if (++late->idle >= FRAME_PACER_LATE_CALM)
+		{
+			late->idle = 0;
+			frame_pacer_extended_shrink(late);
+		}
 		return start;
 	}
 	earliest = in->now + budget;
 	/* the last slot spoken for */
 	if (in->shown_last > 0.0 && in->now - in->shown_last < 0.25)
-		occupied = in->shown_last + (double)(in->in_flight > 0 ? in->in_flight : 0) * slot;
+	{
+		/* (no more frames are in flight than the limit lets be) */
+		int in_flight = in->in_flight < 0 ? 0 : in->limit > 0 && in->in_flight > in->limit ? in->limit : in->in_flight;
+
+		occupied = in->shown_last + (double)in_flight * slot;
+	}
 	if (in->in_flight > 0 && before > occupied)
 		occupied = before;
 	if (occupied > 0.0)
 	{
-		double slots = (double)(long)((earliest - occupied) / slot + 1.0 - 1e-6);
-
-		/* the frames before keep the phase: whole slots after the last one, on the nearest refresh */
-		aim = occupied + (slots < 1.0 ? 1.0 : slots) * slot;
+		/* behind: the frame cannot make the slot after the last one spoken for (by more than the lead's slack). It
+		never sleeps then (the display has a free slot it is already late for): it starts at once with no aim */
+		if (earliest > occupied + slot + 0.25 * lead)
+		{
+			late->behind++;
+			return start;
+		}
+		/* the frames before keep the phase: one slot after the last one, on the nearest refresh */
+		aim = occupied + slot;
 		aim = in->refresh + step * (double)(long)((aim - in->refresh) / step + (aim >= in->refresh ? 0.5 : -0.5));
-		while (aim < earliest)
-			aim += slot;
 	}
 	else
 		/* nothing shown lately: the first refresh the frame can make */
@@ -613,44 +659,42 @@ static inline void frame_pacer_extended_shown(struct frame_pacer_extended *late,
 	late->offsets++;
 	if (at > aim + 0.5 * step)
 	{
-		/* (pushed late by the frame before it) */
-		if (now < late->holdoff_until && late->holdoff > 0.0)
+		/* (pushed late by the frame before it, which stopped late starts) */
+		if (now < late->holdoff_until && late->missed)
 		{
 			late->pushed++;
 			return;
 		}
 		late->misses++;
-		late->holdoff = late->holdoff > 0.0 && now < late->holdoff_until + FRAME_PACER_EXTENDED_RETRY ?
+		late->holdoff = late->holdoff > 0.0 && now < late->missed_until + FRAME_PACER_EXTENDED_RETRY ?
 			late->holdoff * 2.0 : FRAME_PACER_EXTENDED_HOLDOFF;
 		if (late->holdoff > FRAME_PACER_EXTENDED_HOLDOFF_MAXIMUM)
 			late->holdoff = FRAME_PACER_EXTENDED_HOLDOFF_MAXIMUM;
-		late->holdoff_until = now + late->holdoff;
+		late->holdoff_until = late->missed_until = now + late->holdoff;
+		late->missed = 1;
 		/* done a lead ahead and still late: the system needs longer than this lead. (Otherwise the frame cost too
 		much, and the lead may shrink back.) */
 		if (!(slack < lead - 0.0005))
 		{
 			late->lead_failed = lead;
 			late->remembered = 0;
+			late->lead = lead + FRAME_PACER_LATE_LEAD_STEP;
+			if (late->lead > FRAME_PACER_EXTENDED_LEAD_MAXIMUM * step)
+				late->lead = FRAME_PACER_EXTENDED_LEAD_MAXIMUM * step;
 		}
-		late->lead = lead + FRAME_PACER_LATE_LEAD_STEP;
-		if (late->lead > FRAME_PACER_EXTENDED_LEAD_MAXIMUM * step)
-			late->lead = FRAME_PACER_EXTENDED_LEAD_MAXIMUM * step;
-		late->calm = 0;
+		late->calm = late->idle = 0;
 		return;
 	}
 	if (at < aim - 0.5 * step)
 		late->early++;
 	if (late->lead_failed > 0.0 && ++late->remembered >= FRAME_PACER_EXTENDED_FORGET)
 		late->lead_failed = 0.0;
+	if (slack == slack && slack > 0.0 && (late->slack_least <= 0.0 || slack < late->slack_least))
+		late->slack_least = slack;
 	if (++late->calm >= FRAME_PACER_LATE_CALM)
 	{
-		double least = late->lead_failed > 0.0 ? late->lead_failed + FRAME_PACER_LATE_LEAD_STEP / 4.0 :
-			FRAME_PACER_LATE_LEAD_MINIMUM;
-
 		late->calm = 0;
-		lead -= FRAME_PACER_LATE_LEAD_STEP / 4.0;
-		late->lead = lead > least ? lead : least < frame_pacer_extended_lead(late) ? least :
-			frame_pacer_extended_lead(late);
+		frame_pacer_extended_shrink(late);
 	}
 }
 
