@@ -58,6 +58,7 @@ static int SDL_PushEvent(SDL_Event *event) {
 static int host_game_thread_enabled(void) { return 1; }
 static void host_logf(int priority, const char *format, ...) { (void)priority; (void)format; }
 static void host_spatial_rumble_hold(int held) { assert(host_on_main_thread() && held); }
+static void host_save_writer_wait(double seconds) { assert(host_on_main_thread() && seconds == 2); }
 static void host_cloud_saves_leaving(int seconds) { assert(host_on_main_thread() && seconds == 3); }
 static void host_shader_upload_suspend(void) { assert(host_on_main_thread()); }
 static void host_perf_reports_finish(int failed) { assert(host_on_main_thread() && failed == (quit_mode != 2)); }
