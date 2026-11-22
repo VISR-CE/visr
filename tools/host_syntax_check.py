@@ -97,7 +97,7 @@ def prepare():
             target.parent.mkdir(parents=True, exist_ok=True)
             url = f'https://raw.githubusercontent.com/KhronosGroup/{registry}/{revision}/{source}'
             target.write_bytes(urllib.request.urlopen(url, timeout=30).read())
-    run(sys.executable, 'configure.py', '--ios', '--pgo=off', '--lto=off', '--ios-llvm', host_toolchain.find_llvm(),
+    run(sys.executable, 'configure.py', '--ios', '--pgo=use', '--lto=full', '--ios-llvm', host_toolchain.find_llvm(),
         '--ios-lld', host_toolchain.find_lld(), check=True)
     run('ninja', 'ios_guest', check=True)
     run(sys.executable, 'tools/ios_bridges.py', check=True)
