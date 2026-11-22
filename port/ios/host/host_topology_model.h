@@ -29,6 +29,7 @@ struct host_topology {
     int external_context;              /* the profile's [external] section applies */
     int mirrored;                      /* a display shows this device scaled; the game is not on it */
     int settled;                       /* 0 while a mode is being negotiated or a screen is unclaimed */
+    int other_screens, mirroring_screens;   /* the legacy counts (host_external_displays), for the shadow comparison */
 };
 
 static inline const char *host_display_kind_name(int kind) {
@@ -71,7 +72,7 @@ static inline int host_topology_has_output(const struct host_topology_facts *f, 
     return 0;
 }
 
-_Static_assert(sizeof(struct host_topology) == 220, "host_topology changed size: check for padding and update this");
+_Static_assert(sizeof(struct host_topology) == 228, "host_topology changed size: check for padding and update this");
 /* everything but the generation, compared as bytes (the struct is zeroed before it is filled) */
 static inline int host_topology_changed(const struct host_topology *a, const struct host_topology *b) {
     struct host_topology x = *a, y = *b;
@@ -105,6 +106,8 @@ static inline void host_topology_derive(const struct host_topology_facts *f, con
         } else if (f->external_scene.present && id == f->external_scene.screen) {
             kind = DISPLAY_EXTERNAL;
             external = t.display_count;
+        } else if (pad && !mirrors && id == f->app_scene.main_screen) {
+            kind = DISPLAY_PANEL;              /* the iPad's own panel while the window sits on its extended desktop */
         } else if (pad && !mirrors) {
             kind = DISPLAY_EXTENDED;
         } else {
@@ -155,6 +158,8 @@ static inline void host_topology_derive(const struct host_topology_facts *f, con
         snprintf(t.name, sizeof(t.name), "%s", t.transport != TRANSPORT_UNKNOWN && f->display_port_name[0] ?
             f->display_port_name : "External display");
     }
+    t.other_screens = other_screens;
+    t.mirroring_screens = mirroring_screens;
     t.external_context = t.game >= 0 && (t.displays[t.game].kind == DISPLAY_EXTERNAL || t.displays[t.game].kind == DISPLAY_EXTENDED);
     /* mirrored: today's three signs, through the same function (host_external_session.h) */
     struct host_external_display_signals signals = {.game_external = t.external_context,

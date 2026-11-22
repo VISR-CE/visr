@@ -902,16 +902,18 @@ static void topology_facts_collect(struct host_topology_facts *out) {
 }
 /* Today's deciders against the model, one question each (host_topology_shadow_check): the answers are compared in
    the poll, once they have held for a second, and a disagreement is logged. */
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
 static unsigned topology_screen_id(UIScreen *screen) { return (unsigned)(((uintptr_t)(__bridge void *)screen)>>4); }
 static int topology_hash(const char *text) { unsigned h=5381;for(;text && *text;text++)h=h*33+(unsigned char)*text;return (int)(h&0x7fffffff); }
 static void topology_shadow_compare(const struct host_topology *model,double now) {
-#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
     static struct host_topology_shadow shadow;
     struct host_external_displays displays;
     host_external_displays_main(&displays);
     const struct { const char *name; int legacy, model; } questions[]={
         {"external context",snapshot.external,model->external_context},
         {"mirrored",displays.use==HOST_EXTERNAL_DISPLAY_MIRRORED,model->mirrored},
+        {"other screens",displays.other_screens,model->other_screens},
+        {"mirroring screens",displays.mirroring_screens,model->mirroring_screens},
         {"game screen",(int)(topology_screen_id(output_screen)&0x7fffffff),
             model->game>=0?(int)(model->displays[model->game].screen&0x7fffffff):0},
         {"external display name",snapshot.external?topology_hash(port_name().UTF8String):0,
@@ -921,10 +923,8 @@ static void topology_shadow_compare(const struct host_topology *model,double now
         if(host_topology_shadow_check(&shadow,i,now,questions[i].legacy,questions[i].model))
             host_logf(HOST_LOG_WARN,"topology mismatch: %s legacy=%d model=%d",questions[i].name,questions[i].legacy,
                 questions[i].model);
-#else
-    (void)model;(void)now;
-#endif
 }
+#endif
 /* debug.topology_facts: the facts written when a field changes, the topology derived from them (a line when it
    changes) and compared with today's deciders. Read on main in the poll; with the setting off the poll does nothing. */
 static void topology_facts_poll(void) {

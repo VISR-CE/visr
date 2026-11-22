@@ -167,6 +167,37 @@ int main(void) {
             struct host_topology next = derive(&a[j], &gen[i]);
             assert(next.generation == gen[i].generation + 1);
         }
+    /* parity with today's classifier: over phone and pad, the main screen being the app's or the other, the other
+       screen mirroring or not, and the external scene on it or not, the model's counts of screens that are not the
+       device's own panels equal the legacy count through host_external_screen_is_external */
+    for (int idiom = HOST_FACTS_IDIOM_PHONE; idiom <= HOST_FACTS_IDIOM_PAD; idiom++)
+        for (int main_is_app = 0; main_is_app < 2; main_is_app++)
+            for (int mirrors = 0; mirrors < 2; mirrors++)
+                for (int scene = 0; scene < 2; scene++) {
+                    f = base(idiom, 50.0);
+                    f.app_scene.present = 1; f.app_scene.screen = APP;
+                    f.app_scene.main_screen = main_is_app ? APP : EXT;
+                    f.app_scene.main_is_app = main_is_app;
+                    host_topology_facts_add_screen(&f, APP, 0, 2048, 2732, 120);
+                    host_topology_facts_add_screen(&f, EXT, mirrors, 2560, 1440, 60);
+                    if (scene) {
+                        f.external_scene.present = 1; f.external_scene.screen = EXT; f.external_scene.width = 2560;
+                        f.external_scene.height = 1440; f.external_scene.hertz = 60;
+                    }
+                    t = derive(&f, NULL);
+                    int other = 0, mirroring = 0;
+                    const unsigned ids[2] = {APP, EXT};
+                    const int mirror_of[2] = {0, mirrors};
+                    for (int i = 0; i < 2; i++) {
+                        struct host_external_screen_signals sig = {.main_screen = ids[i] == f.app_scene.main_screen,
+                            .external_scene = scene && ids[i] == EXT, .mirroring = mirror_of[i],
+                            .phone = idiom == HOST_FACTS_IDIOM_PHONE, .mac = 0};
+                        if (host_external_screen_is_external(&sig)) { other++; if (mirror_of[i]) mirroring++; }
+                    }
+                    if (t.other_screens != other || t.mirroring_screens != mirroring)
+                        fprintf(stderr, "idiom %d main_is_app %d mirrors %d scene %d: model %d/%d legacy %d/%d\n", idiom, main_is_app, mirrors, scene, t.other_screens, t.mirroring_screens, other, mirroring);
+                    assert(t.other_screens == other && t.mirroring_screens == mirroring);
+                }
     /* the lines */
     char line[400];
     f = duo(HOST_HINGE_FULLY_OPEN, 1.0); add_monitor(&f, 0);

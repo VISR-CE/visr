@@ -254,12 +254,10 @@ static NSDictionary *output_now(void) {
        from it yet): which display the game is on, how it is carried, which panel the device is on */
     struct host_topology topology;
     host_external_topology_now(&topology);
-    NSDictionary *topology_block = @{
-        @"game": @(topology.game >= 0 ? host_display_kind_name(topology.displays[topology.game].kind) : "none"),
-        @"transport": @(host_display_transport_name(topology.transport)),
-        @"device": @(topology.device >= 0 ? host_display_kind_name(topology.displays[topology.device].kind) : "none"),
-        @"posture": @(host_posture_label(topology.posture)), @"sound": @(host_sound_target_name(topology.sound)),
-        @"mirrored": @(topology.mirrored ? YES : NO) };
+    char topology_json[256];
+    host_topology_json(&topology, topology_json, sizeof(topology_json));
+    NSDictionary *topology_block = [NSJSONSerialization JSONObjectWithData:[NSData dataWithBytes:topology_json length:strlen(topology_json)]
+        options:0 error:nil] ?: @{};
     return @{ @"topology": topology_block, @"kind": output.external ? @"external" : @"builtin", @"width": @(output.width),
         @"display_use": @(host_external_display_use_name((enum host_external_display_use)displays.use)),
         @"other_screens": @(displays.other_screens), @"mirroring_screens": @(displays.mirroring_screens),
