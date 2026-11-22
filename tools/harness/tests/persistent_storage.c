@@ -114,6 +114,8 @@ static void game_state_revert(void) {
 }
 static boolean network_coop_active(void) { return FALSE; }
 static unsigned char input_replay_playing(void) { return !strcmp(fault,"replay"); }
+static int config_scripted_run(void) { return !strcmp(fault,"scripted"); }
+static int config_boolean(const char *name) { (void)name; return 0; }
 /* the host's writer (port/runtime/save_writer.c, under port/ios/tests/save_writer_probe.c): the whole image or nothing */
 static int host_writes;
 static boolean saved_game_persist_write_now(const void *image, long size) {

@@ -19,13 +19,17 @@ typedef int boolean;
 #define FALSE 0
 #define TRUE 1
 enum { PERSIST_PATH_SIZE = 1024 };
-static int solo = 1, profile = 1, coop, replay, setting = 1, has_directory = 1;
+static int solo = 1, profile = 1, coop, replay, scripted, lifted, setting = 1, has_directory = 1;
 static short player_spawn_count = 1;
 static short main_get_current_solo_level(void) { return solo ? 3 : NONE; }
 static long player_ui_get_active_player_profile_index(short player) { assert(player == 0); return profile ? 2 : NONE; }
 static boolean network_coop_active(void) { return coop; }
 static unsigned char input_replay_playing(void) { return (unsigned char)replay; }
-static int config_boolean(const char *name) { assert(!strcmp(name, "saves.checkpoint_persist")); return setting; }
+static int config_scripted_run(void) { return scripted; }
+static int config_boolean(const char *name) {
+    if (!strcmp(name, "debug.scripted_run_saves")) return lifted;
+    assert(!strcmp(name, "saves.checkpoint_persist")); return setting;
+}
 static boolean player_ui_get_path_to_local_player_profile_directory(short player, char *path) {
     assert(player == 0); strcpy(path, "u:\\UDATA\\C7201D882DAE\\"); return has_directory;
 }
@@ -52,12 +56,13 @@ static int host_save_write_now(const char *checkpoint_path, const char *target_p
 MAIN = r'''
 int main(void) {
     int bits, written, persists = 0;
-    for (bits = 0; bits < 128; bits++)
+    for (bits = 0; bits < 512; bits++)
         for (written = 0; written < 2; written++) {
             int expected;
             solo = bits & 1; profile = (bits >> 1) & 1; coop = (bits >> 2) & 1; replay = (bits >> 3) & 1;
             setting = (bits >> 4) & 1; has_directory = (bits >> 5) & 1; player_spawn_count = (bits >> 6) & 1 ? 2 : 1;
-            expected = solo && profile && !coop && !replay && player_spawn_count == 1;
+            scripted = (bits >> 7) & 1; lifted = (bits >> 8) & 1;
+            expected = solo && profile && !coop && player_spawn_count == 1 && (lifted || (!replay && !scripted));
             assert(saved_game_persist_allowed() == expected);
             saved_game_persist_checkpoint_begin();
             saved_game_persist_checkpoint_end(written, 4096);
@@ -70,9 +75,9 @@ int main(void) {
                 assert(!strcmp(last_checkpoint, "host<z:\\savegame.bin>"));
             }
         }
-    assert(persists == 1 && begins == 256);
+    assert(persists == 5 && begins == 1024);
     /* Save and Quit hands the host the game's buffer and both paths; the setting is for checkpoints only */
-    solo = profile = has_directory = 1; coop = replay = setting = 0; player_spawn_count = 1;
+    solo = profile = has_directory = 1; coop = replay = scripted = lifted = setting = 0; player_spawn_count = 1;
     assert(saved_game_persist_write_now(&writes, 77) == TRUE && writes == 1 && last_image == &writes && last_size == 77);
     assert(!strcmp(last_target, "host<u:\\UDATA\\C7201D882DAE\\savegame.bin>") && !strcmp(last_checkpoint, "host<z:\\savegame.bin>"));
     has_directory = 0;

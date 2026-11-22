@@ -1140,7 +1140,12 @@ static const struct config_setting config_settings[] =
 		"game resumes from the last checkpoint however the app ended. The file is\n"
 		"copied on a thread of its own and replaced whole. Off, the saved game\n"
 		"is written only by Save and Quit, as on the Xbox. Replays, benchmarks,\n"
-		"co-op and network games never write one. Read at each checkpoint." },
+		"scripted test runs, co-op and network games never write one. Read at\n"
+		"each checkpoint." },
+	{ "debug.scripted_run_saves", _config_boolean, "false", "HALO_SCRIPTED_RUN_SAVES", _environment_set_is_true, _platform_all,
+		"A replay or a scripted run (a test, a benchmark, a runner) may write the\n"
+		"active profile's saved game, at checkpoints and from Save and Quit, as\n"
+		"the player's own game does: for tests and measurements of saving." },
 
 	{ "network.address", _config_string, "\"\"", "HALO_NET_ADDRESS", _environment_value, _platform_all,
 		"This machine's IPv4 address for system link, for a machine on several\n"

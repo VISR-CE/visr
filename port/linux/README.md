@@ -459,6 +459,11 @@ Apple Vision Pro's file.
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
 | `saves.checkpoint_persist` | boolean | `true` | apple, desktop | `HALO_CHECKPOINT_PERSIST` | Each campaign checkpoint also becomes the profile's saved game, so the game resumes from the last checkpoint however the app ended. |
+### debug
+
+| Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
+| --- | --- | --- | --- | --- | --- |
+| `debug.scripted_run_saves` | boolean | `false` | apple, desktop | `HALO_SCRIPTED_RUN_SAVES` | A replay or a scripted run (a test, a benchmark, a runner) may write the active profile's saved game, at checkpoints and from Save and Quit, as the player's own game does: for tests and measurements of saving. |
 ### network
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |

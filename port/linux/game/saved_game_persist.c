@@ -22,7 +22,8 @@ boolean saved_game_persist_allowed(
 		player_spawn_count == 1 &&
 		player_ui_get_active_player_profile_index(0) != NONE &&
 		!network_coop_active() &&
-		!input_replay_playing();
+		/* a replay, a benchmark, a test or a runner passes checkpoints too, and is not the player's game */
+		(config_boolean("debug.scripted_run_saves") || (!input_replay_playing() && !config_scripted_run()));
 }
 
 /* the checkpoint file's and the active profile's saved game's host paths */

@@ -84,6 +84,8 @@ enum
 /* context is a CONFIG_PROFILE_* bit mask; the game helper supplies exclusions. */
 void config_profile_safe_point(int point, int context);
 int config_profile_apply_snapshot(const char *snapshot, const char *version, int point, int context);
+/* Whether this launch's settings script it (source/game/game.c). */
+int config_scripted_run(void);
 /* Game-side eligibility, shared by the level, cinematic and local player hooks. */
 void config_profile_game_safe_point(int point);
 

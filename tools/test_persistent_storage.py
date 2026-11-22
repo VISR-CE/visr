@@ -149,12 +149,13 @@ def test_save_quit_without_profile_returns_to_menu(probe, tmp_path):
     assert path.read_bytes() == original
 
 
-def test_save_quit_in_a_replay_leaves_the_saved_game(probe, tmp_path):
+@pytest.mark.parametrize("fault", ["replay", "scripted"])
+def test_save_quit_in_a_replay_or_scripted_run_leaves_the_saved_game(probe, tmp_path, fault):
     """A replay plays under the device's own profile: Save and Quit there must not replace its saved game."""
     path = tmp_path / "savegame.bin"
     original = b"v" * SIZE
     path.write_bytes(original)
-    result, _ = run(probe, tmp_path, mode="quit", fault="replay")
+    result, _ = run(probe, tmp_path, mode="quit", fault=fault)
     assert result["ok"] == result["menus"] == "1"
     assert result["writes"] == result["host_writes"] == result["reverts"] == result["dialogs"] == result["live"] == "0"
     assert path.read_bytes() == original

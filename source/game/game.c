@@ -656,13 +656,12 @@ boolean game_is_cooperative(
 	return player_spawn_count > 1;
 }
 
-/* port: freeze reproducible runs for their whole launch, including the gaps
-between benchmark cases. Split-screen joins are transient and include lobby
-players that have not reached players_globals yet (menu_functions.c). Ordinary
-campaign scripts still reach the cutscene hooks. */
-void config_profile_game_safe_point(int point)
+/* port: whether this launch's settings script it (a test, a capture, a
+benchmark, a recording or a runner): a run that is not the player's own play.
+One list, for the device-profile freeze below and for which games may write a
+saved game (port/linux/game/saved_game_persist.c). */
+int config_scripted_run(void)
 {
-	static int frozen_run;
 	static char const *const scripted_settings[] = {
 		"debug.benchmark_suite", "debug.input_record", "debug.input_replay",
 		"debug.controller_record", "debug.controller_replay", "debug.test_input",
@@ -670,9 +669,6 @@ void config_profile_game_safe_point(int point)
 		"debug.gpu_shader_replay", "debug.test_text_answer"
 	};
 	unsigned int index;
-	int context = 0;
-	extern unsigned char input_replay_sim_isolated(void);
-	extern unsigned char pc_menu_split_players(void);
 
 	if (getenv("HALO_RUNNER") || config_benchmark_isolated() || config_boolean("debug.benchmark") ||
 		config_boolean("debug.fixed_timestep") ||
@@ -682,13 +678,29 @@ void config_profile_game_safe_point(int point)
 		config_boolean("debug.test_theater_reopen") ||
 		config_real("debug.exit_after") > 0.0 ||
 		config_real("debug.test_win_level") > 0.0 ||
-		config_integer("debug.screenshot_every") > 0 ||
+		config_integer("debug.screenshot_every") > 0)
+		return 1;
+	for (index = 0; index < sizeof(scripted_settings) / sizeof(scripted_settings[0]); index++)
+		if (*config_string(scripted_settings[index]))
+			return 1;
+	return 0;
+}
+
+/* port: freeze reproducible runs for their whole launch, including the gaps
+between benchmark cases. Split-screen joins are transient and include lobby
+players that have not reached players_globals yet (menu_functions.c). Ordinary
+campaign scripts still reach the cutscene hooks. */
+void config_profile_game_safe_point(int point)
+{
+	static int frozen_run;
+	int context = 0;
+	extern unsigned char input_replay_sim_isolated(void);
+	extern unsigned char pc_menu_split_players(void);
+
+	if (config_scripted_run() ||
 		input_replay_playing() || input_replay_sim_isolated() ||
 		game_connection() == _game_connection_film_playback)
 		frozen_run = 1;
-	for (index = 0; index < sizeof(scripted_settings) / sizeof(scripted_settings[0]); index++)
-		if (*config_string(scripted_settings[index]))
-			frozen_run = 1;
 	if (frozen_run || pc_menu_split_players())
 		context |= CONFIG_PROFILE_FROZEN;
 	if (game_connection() != _game_connection_local)

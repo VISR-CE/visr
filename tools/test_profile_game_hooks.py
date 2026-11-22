@@ -27,7 +27,8 @@ def compile_probe(tmp_path, text):
 
 @pytest.fixture
 def eligibility_probe(tmp_path):
-    actual = function((ROOT / "source/game/game.c").read_text(), "void config_profile_game_safe_point(")
+    game = (ROOT / "source/game/game.c").read_text()
+    actual = function(game, "int config_scripted_run(") + "\n" + function(game, "void config_profile_game_safe_point(")
     return compile_probe(tmp_path, r'''
 #include <assert.h>
 #include <stdlib.h>

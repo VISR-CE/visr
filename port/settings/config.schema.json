@@ -1878,6 +1878,17 @@
             "apple"
           ]
         },
+        "scripted_run_saves": {
+          "type": "boolean",
+          "default": false,
+          "description": "A replay or a scripted run (a test, a benchmark, a runner) may write the active profile's saved game, at checkpoints and from Save and Quit, as the player's own game does: for tests and measurements of saving.",
+          "x-environment": "HALO_SCRIPTED_RUN_SAVES",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "external_mode": {
           "type": "string",
           "default": "",
@@ -4809,7 +4820,7 @@
         "checkpoint_persist": {
           "type": "boolean",
           "default": true,
-          "description": "Each campaign checkpoint also becomes the profile's saved game, so the game resumes from the last checkpoint however the app ended. The file is copied on a thread of its own and replaced whole. Off, the saved game is written only by Save and Quit, as on the Xbox. Replays, benchmarks, co-op and network games never write one. Read at each checkpoint.",
+          "description": "Each campaign checkpoint also becomes the profile's saved game, so the game resumes from the last checkpoint however the app ended. The file is copied on a thread of its own and replaced whole. Off, the saved game is written only by Save and Quit, as on the Xbox. Replays, benchmarks, scripted test runs, co-op and network games never write one. Read at each checkpoint.",
           "x-environment": "HALO_CHECKPOINT_PERSIST",
           "x-environment-style": "value",
           "x-platforms": [
