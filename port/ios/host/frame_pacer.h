@@ -801,6 +801,41 @@ struct frame_pacer_extended_frame
 	double gpu_end; /* when the GPU finished it; 0: not yet */
 };
 
+/* the frames between their Present and their shown notice, by number: the GPU's report and the shown notice come
+from other threads' handlers and name the frame. A place goes to the frame eight later, which is far more than are
+ever in flight */
+enum { FRAME_PACER_EXTENDED_FRAMES = 8 };
+
+struct frame_pacer_extended_frames
+{
+	struct
+	{
+		unsigned long number;
+		int known;
+		struct frame_pacer_extended_frame frame;
+	} places[FRAME_PACER_EXTENDED_FRAMES];
+};
+
+/* a frame at its Present: began, cpu, aim and allowed as struct frame_pacer_extended_frame */
+static inline void frame_pacer_extended_frames_add(struct frame_pacer_extended_frames *frames, unsigned long number,
+	double began, double cpu, double aim, double allowed)
+{
+	struct frame_pacer_extended_frame frame = { began, cpu, aim, allowed, 0.0 };
+
+	frames->places[number % FRAME_PACER_EXTENDED_FRAMES].number = number;
+	frames->places[number % FRAME_PACER_EXTENDED_FRAMES].known = 1;
+	frames->places[number % FRAME_PACER_EXTENDED_FRAMES].frame = frame;
+}
+
+/* a frame's bookkeeping, or NULL when it was never added or its place has gone to a later frame */
+static inline struct frame_pacer_extended_frame *frame_pacer_extended_frames_find(struct frame_pacer_extended_frames *frames,
+	unsigned long number)
+{
+	return frames->places[number % FRAME_PACER_EXTENDED_FRAMES].known &&
+		frames->places[number % FRAME_PACER_EXTENDED_FRAMES].number == number ?
+		&frames->places[number % FRAME_PACER_EXTENDED_FRAMES].frame : NULL;
+}
+
 /* what frame_pacer_extended_wait is asked. handed, shown_highest: the frames handed to the display and the highest
 of them a shown notice has come for (those between are in flight); the rest as struct frame_pacer_extended_input */
 static inline struct frame_pacer_extended_input frame_pacer_extended_asked(double now, double refresh, double period,
@@ -813,11 +848,13 @@ static inline struct frame_pacer_extended_input frame_pacer_extended_asked(doubl
 	return in;
 }
 
-/* the GPU finished a frame at gpu_end, after gpu seconds on it; waited: the seconds of its work spent waiting for the
-display (0 or less: none); now: the clock */
+/* the GPU finished a frame at gpu_end, after gpu seconds on it; frame: its bookkeeping, or NULL when it is gone
+(nothing is counted); waited: the seconds of its work spent waiting for the display (0 or less: none); now: the clock */
 static inline void frame_pacer_extended_frame_finished(struct frame_pacer_extended *late,
 	struct frame_pacer_extended_frame *frame, double gpu_end, double gpu, double waited, double now)
 {
+	if (!frame || frame->began <= 0.0)
+		return;
 	frame->gpu_end = gpu_end;
 	frame_pacer_extended_cost(late, gpu_end - frame->began - (waited > 0.0 ? waited : 0.0), gpu, frame->cpu,
 		frame->allowed, now);

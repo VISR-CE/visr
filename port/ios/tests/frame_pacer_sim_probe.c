@@ -666,6 +666,53 @@ int main(int argc, char **argv)
 			CHECK(unknown.misses == 3 * FRAME_PACER_EXTENDED_LEAD_MISSES && unknown.lead_misses == 0);
 			CHECK(unknown.lead_failed == 0.0 && fabs(frame_pacer_extended_lead(&unknown) - FRAME_PACER_EXTENDED_LEAD) < 1e-12);
 		}
+		/* the frames between Present and shown, by number (what the host keeps): a place goes to the frame
+		FRAME_PACER_EXTENDED_FRAMES later, after which the earlier frame's reports are a frame that is gone */
+		{
+			struct frame_pacer_extended rules;
+			struct frame_pacer_extended_frames frames;
+			unsigned long first = 5, wrapped = first + FRAME_PACER_EXTENDED_FRAMES;
+
+			memset(&rules, 0, sizeof(rules));
+			memset(&frames, 0, sizeof(frames));
+			CHECK(!frame_pacer_extended_frames_find(&frames, first) && !frame_pacer_extended_frames_find(&frames, 0));
+			/* (a report for a frame never added counts nothing) */
+			frame_pacer_extended_frame_finished(&rules, frame_pacer_extended_frames_find(&frames, first), 60.008, 0.004, 0.0,
+				60.008);
+			CHECK(rules.count == 0);
+			frame_pacer_extended_frames_add(&frames, first, 60.0, 0.003, 60.0 + P60, 0.008);
+			CHECK(frame_pacer_extended_frames_find(&frames, first) && !frame_pacer_extended_frames_find(&frames, wrapped));
+			/* the shown notice before the GPU's report (the handlers are on different threads): the frame was late, and
+			with its GPU end unknown that says nothing about the lead */
+			frame_pacer_extended_frame_shown(&rules, frame_pacer_extended_frames_find(&frames, first), 60.0 + P60,
+				60.0 + 2.0 * P60, P60, P60, 1.0, 60.04);
+			CHECK(rules.misses == 1 && rules.lead_misses == 0);
+			/* the report still counts the frame's work: 8 ms from its start, less a millisecond waiting for the display */
+			frame_pacer_extended_frame_finished(&rules, frame_pacer_extended_frames_find(&frames, first), 60.008, 0.004, 0.001,
+				60.05);
+			CHECK(rules.count == 1 && fabs(rules.work[0] - 0.007) < 1e-12 && fabs(rules.gpu[0] - 0.004) < 1e-12 &&
+				fabs(rules.cpu[0] - 0.003) < 1e-12);
+			CHECK(fabs(frame_pacer_extended_frames_find(&frames, first)->gpu_end - 60.008) < 1e-12);
+			/* a frame shown late whose GPU ended a full lead before its aim is the lead's failure */
+			frame_pacer_extended_frame_shown(&rules, frame_pacer_extended_frames_find(&frames, first), 60.008 + 0.006,
+				60.008 + 0.006 + P60, P60, P60, 1.0, 62.0);
+			CHECK(rules.misses == 2 && rules.lead_misses == 1);
+			/* its place taken by the frame eight later, its own reports find nothing */
+			frame_pacer_extended_frames_add(&frames, wrapped, 61.0, 0.003, 0.0, 0.0);
+			CHECK(!frame_pacer_extended_frames_find(&frames, first));
+			CHECK(frame_pacer_extended_frames_find(&frames, wrapped)->began == 61.0 &&
+				frame_pacer_extended_frames_find(&frames, wrapped)->gpu_end == 0.0);
+			frame_pacer_extended_frame_finished(&rules, frame_pacer_extended_frames_find(&frames, first), 61.5, 0.004, 0.0, 61.5);
+			CHECK(rules.count == 1);
+		}
+		/* the frames in flight the rules are asked about: those handed to the display less the highest shown */
+		{
+			struct frame_pacer_extended_input asked = frame_pacer_extended_asked(70.0, 69.99, P120, P120, 2.0, 2, 1002, 1000,
+				69.98, FRAME_PACER_EXTENDED_SLOT);
+
+			CHECK(asked.in_flight == 2 && asked.limit == 2 && asked.share == 2.0 && asked.shown_last == 69.98 &&
+				asked.slot_least == FRAME_PACER_EXTENDED_SLOT && asked.now == 70.0 && asked.refresh == 69.99);
+		}
 		/* frames shown late with their GPU work done a lead ahead: a few among many aimed frames are the display's
 		own, and nothing stops */
 		late.holdoff_until = 0.0;

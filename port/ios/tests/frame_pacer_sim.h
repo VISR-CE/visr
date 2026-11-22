@@ -84,6 +84,7 @@ struct sim
 	struct frame_pacer_flight flight;
 	struct frame_pacer_late classic;
 	struct frame_pacer_extended extended;
+	struct frame_pacer_extended_frames extended_frames; /* as the host keeps them, by the frame's number */
 	/* the run */
 	double now, gpu_free, shown_last, shown_noticed, gpu_total, gpu_counted;
 	double present_refreshes; /* link refreshes counted at the last Present (frame_context_wait) */
@@ -135,15 +136,12 @@ static inline double sim_slot(const struct sim *sim)
 	return sim->share * sim->link;
 }
 
-/* a frame's bookkeeping as the host keeps it (frame_pacer.h), before its GPU end is known. A frame that started at
-once, under unaimed_cost, began as much later as leaves that share of its work: the rules are told less of it */
-static inline struct frame_pacer_extended_frame sim_record(const struct sim *sim, const struct sim_frame *frame)
+/* when a frame's work began, as the rules are told. A frame that started at once, under unaimed_cost, began as much
+later as leaves that share of its work: they hear less of it */
+static inline double sim_began(const struct sim *sim, const struct sim_frame *frame)
 {
-	struct frame_pacer_extended_frame record = { frame->read, frame->cpu, frame->aim, frame->allowed, 0.0 };
-
-	if (sim->unaimed_cost > 0.0 && frame->allowed <= 0.0)
-		record.began = frame->gpu_end - frame->waited - (frame->gpu_end - frame->read - frame->waited) * sim->unaimed_cost;
-	return record;
+	return sim->unaimed_cost > 0.0 && frame->allowed <= 0.0 ?
+		frame->gpu_end - frame->waited - (frame->gpu_end - frame->read - frame->waited) * sim->unaimed_cost : frame->read;
 }
 
 /* the events up to a time, in order: what the completion and presented handlers do */
@@ -159,12 +157,9 @@ static inline void sim_events_until(struct sim *sim, double until)
 		{
 			sim->gpu_total += frame->gpu;
 			if (sim->mode == SIM_EXTENDED)
-			{
-				struct frame_pacer_extended_frame record = sim_record(sim, frame);
-
-				frame_pacer_extended_frame_finished(&sim->extended, &record, frame->gpu_end, frame->gpu, frame->waited,
-					event.at);
-			}
+				frame_pacer_extended_frame_finished(&sim->extended,
+					frame_pacer_extended_frames_find(&sim->extended_frames, (unsigned long)event.frame), frame->gpu_end,
+					frame->gpu, frame->waited, event.at);
 			continue;
 		}
 		frame_pacer_flight_give(&sim->flight);
@@ -176,13 +171,9 @@ static inline void sim_events_until(struct sim *sim, double until)
 		if (sim->mode == SIM_CLASSIC)
 			frame_pacer_late_shown(&sim->classic, frame->aim, frame->shown, sim->link);
 		else if (sim->mode == SIM_EXTENDED)
-		{
-			struct frame_pacer_extended_frame record = sim_record(sim, frame);
-
-			record.gpu_end = frame->gpu_end;
-			frame_pacer_extended_frame_shown(&sim->extended, &record, frame->aim, frame->shown, sim->link, sim->panel,
-				sim->share, event.at);
-		}
+			frame_pacer_extended_frame_shown(&sim->extended,
+				frame_pacer_extended_frames_find(&sim->extended_frames, (unsigned long)event.frame), frame->aim, frame->shown,
+				sim->link, sim->panel, sim->share, event.at);
 		if (sim->drs_height)
 		{
 			struct dynamic_resolution_frame fed = { 0 };
@@ -295,6 +286,8 @@ static inline void sim_frame(struct sim *sim)
 	/* 4. commit */
 	frame->gpu_end = (sim->gpu_free > sim->now ? sim->gpu_free : sim->now) + frame->gpu;
 	sim->gpu_free = frame->gpu_end;
+	frame_pacer_extended_frames_add(&sim->extended_frames, (unsigned long)sim->count, sim_began(sim, frame), frame->cpu,
+		frame->aim, frame->allowed);
 	sim_event_add(sim, frame->gpu_end, 0, sim->count);
 	/* 5. the display */
 	minimum = frame_pacer_minimum_duration_panel(1, 1, sim->link, sim->share > 1.0 ? 1.0 / sim_slot(sim) : 0.0,

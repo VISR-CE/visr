@@ -24,17 +24,6 @@ hidden, and a presented notice that never comes mustn't stop the game */
 
 enum { LATE_START_OFF, LATE_START_CLASSIC, LATE_START_EXTENDED };
 
-/* a frame between its present and its shown notice, for the extended late start's reports, which come from the GPU's
-completion handler and the presented handler, by the frame's number */
-enum { FRAME_COSTS = 8 };
-
-struct pacer_frame_cost
-{
-	unsigned long number;
-	int known;
-	struct frame_pacer_extended_frame frame; /* frame_pacer.h */
-};
-
 static struct
 {
 	int started;
@@ -62,7 +51,7 @@ static struct
 	flight, whatever the limit, and a shown notice that never comes is made up by the next one */
 	unsigned long handed, shown_highest;
 	double shown_latest;             /* the latest time a frame was shown, only ever later; 0 none */
-	struct pacer_frame_cost costs[FRAME_COSTS]; /* the frames whose GPU work or shown notice is still to come */
+	struct frame_pacer_extended_frames costs; /* the frames whose GPU work or shown notice is still to come */
 	double frame_started;            /* when this frame's work began (frame_pacer_frame_start); 0 unknown */
 	double frame_aim;                /* the refresh this frame's late start aimed at; 0 none */
 	double frame_allowed;            /* the cost its late start allowed for; 0 none */
@@ -134,7 +123,7 @@ void frame_pacer_start(int fixed_timestep)
 		pacer.late_start = LATE_START_EXTENDED;
 	pacer.late_start_slot = !strcmp(value, "extended") ? FRAME_PACER_EXTENDED_SLOT : 0.0;
 	memset(&pacer.extended, 0, sizeof(pacer.extended));
-	memset(pacer.costs, 0, sizeof(pacer.costs));
+	memset(&pacer.costs, 0, sizeof(pacer.costs));
 	pacer.handed = pacer.shown_highest = 0;
 	pacer.shown_latest = 0.0;
 #if TARGET_OS_SIMULATOR
@@ -257,13 +246,11 @@ const char *frame_pacer_start_state_name(int state)
 
 void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu_seconds, double waited)
 {
-	struct pacer_frame_cost *cost = &pacer.costs[number % FRAME_COSTS];
-
 	if (!pacer.started || gpu_end <= 0.0)
 		return;
 	pthread_mutex_lock(&pacer.lock);
-	if (cost->known && cost->number == number && cost->frame.began > 0.0)
-		frame_pacer_extended_frame_finished(&pacer.extended, &cost->frame, gpu_end, gpu_seconds, waited, now_seconds());
+	frame_pacer_extended_frame_finished(&pacer.extended, frame_pacer_extended_frames_find(&pacer.costs, number), gpu_end,
+		gpu_seconds, waited, now_seconds());
 	pthread_mutex_unlock(&pacer.lock);
 }
 
@@ -353,7 +340,6 @@ int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long numbe
 	the display is counted from there, where the controllers were read) */
 	if (pacer.frame_started > 0.0)
 	{
-		struct pacer_frame_cost *cost = &pacer.costs[number % FRAME_COSTS];
 		double cpu = now_seconds() - pacer.frame_started;
 
 		frame->began = pacer.frame_started;
@@ -363,13 +349,7 @@ int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long numbe
 		if (pacer.late_start != LATE_START_EXTENDED)
 			frame_pacer_late_cost(&pacer.late, cpu + pacer.gpu_time);
 		/* (the extended late start's cost of the frame comes when the GPU finishes it: frame_pacer_frame_finished) */
-		cost->number = number;
-		cost->known = 1;
-		cost->frame.began = pacer.frame_started;
-		cost->frame.cpu = cpu;
-		cost->frame.aim = pacer.frame_aim;
-		cost->frame.allowed = pacer.frame_allowed;
-		cost->frame.gpu_end = 0.0;
+		frame_pacer_extended_frames_add(&pacer.costs, number, pacer.frame_started, cpu, pacer.frame_aim, pacer.frame_allowed);
 		frame->in_flight = (uint8_t)(pacer.handed - pacer.shown_highest > 255 ? 255 : pacer.handed - pacer.shown_highest);
 		pacer.waited_for_display = waits_for_display != 0;
 		pthread_mutex_unlock(&pacer.lock);
@@ -464,9 +444,8 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 	interval = frame_pacer_shown_add(&pacer.shown, at, period, frame_pacer_share(period, host_frame_rate_target()));
 	if (pacer.late_start == LATE_START_EXTENDED)
 	{
-		const struct pacer_frame_cost *cost = &pacer.costs[frame->number % FRAME_COSTS];
-		/* (another frame's by now: this one's GPU end is unknown) */
-		const struct frame_pacer_extended_frame *known = cost->known && cost->number == frame->number ? &cost->frame : NULL;
+		/* (NULL when its place is another frame's by now: this one's GPU end is unknown) */
+		const struct frame_pacer_extended_frame *known = frame_pacer_extended_frames_find(&pacer.costs, frame->number);
 
 		if (known)
 		{
