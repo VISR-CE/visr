@@ -1094,6 +1094,11 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-I
 run(BUILD/'stereo-head-probe')
 for distance in ('1.5', '1.75', '2.0'):
     run(BUILD/'stereo-head-probe', '--shared-scope-view', distance)
+# the posture the headset logs from the head's height (comfort and aim design, phase 0)
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
+    'port/ios/tests/stereo_posture_probe.c', 'port/ios/host/host_stereo_posture.c',
+    '-o', BUILD/'stereo-posture-probe')
+run(BUILD/'stereo-posture-probe')
 run('python3', 'tools/test_dead_spectator_head.py')
 run('python3', 'tools/test_stereo_passenger.py')
 run('python3', 'tools/test_stereo_scope_guest.py')

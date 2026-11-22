@@ -179,7 +179,7 @@ add_executable(VISR MACOSX_BUNDLE
     host/host_perf_reports.m host/host_perf_hooks.c host/host_perf_metal.m host/host_perf_validation.m host/host_report_delivery.m host/host_log_file.c host/host_open_website.m host/host_log_send.m "${ROOT}/port/runtime/game_perf.c"
     host/host_benchmark.m host/host_benchmark_outbox.m host/host_benchmark_presentation.m host/host_benchmark_page.m "${ROOT}/port/runtime/benchmark_metrics.c" "${ROOT}/port/runtime/benchmark_presentation.c"
     "${ROOT}/port/runtime/benchmark_plan.c" "${ROOT}/port/runtime/benchmark_journal.c"
-    host/host_stereo.m host/host_stereo_head.c host/host_stereo_hud.c
+    host/host_stereo.m host/host_stereo_head.c host/host_stereo_posture.c host/host_stereo_hud.c
     host/host_spatial.m host/host_spatial_pose.c host/host_spatial_record.c
     "${ROOT}/port/linux/src/delta_legacy_runtime.c"
     "${ROOT}/port/linux/src/posix_files.c" host/posix_net.c host/host_socket_revival.c host/host_natpmp.c host/host_natpmp_packets.c
