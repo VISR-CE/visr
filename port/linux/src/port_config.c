@@ -1335,6 +1335,11 @@ static const struct config_setting config_settings[] =
 		"Run the game loop on its own thread instead of the main thread (iOS, tvOS, and the\n"
 		"native Mac app; read by the host at launch, restart to change). Off keeps the game\n"
 		"loop on the main thread. The game thread is on by default." },
+	{ "debug.controller_age_log", _config_boolean, "false", "HALO_CONTROLLER_AGE_LOG", _environment_value, _platform_ios,
+		"Every 5 seconds log how old the controller state was when the game read it, before the\n"
+		"read's own refresh, as reads, mean, p50, p99 and max in milliseconds (the time since SDL\n"
+		"last updated the controllers; the game thread updates them at its poll and at each\n"
+		"read when older than 0.25 ms). Off by default." },
 	{ "debug.graphics_cycle", _config_integer, "0", "HALO_GRAPHICS_CYCLE", _environment_value, _platform_ios,
 		"Every this many frames of a level (not the main menu), switch display.graphics to the next mode, unsaved,\n"
 		"wrapping from enhanced to hardcore, and log it: for checking that each mode applies on the next frame\n"

@@ -32,6 +32,7 @@
 #include "host_benchmark_snapshot.h"
 #include "host_cloud_saves.h"
 #include "host_config.h"
+#include "host_controller_age.h"
 #include "host_crash.h"
 #include "host_data_updates.h"
 #include "host_external.h"
@@ -402,6 +403,18 @@ __attribute__((weak)) void host_config_string(const char *name, const char *fall
 { if (out && size) { snprintf(out, size, "%s", fallback ? fallback : ""); } }
 __attribute__((weak)) int host_config_write_boolean(const char *name, int value)
 { fprintf(stderr, "host_stubs: probe called host_config_write_boolean without defining it\n"); abort(); }
+__attribute__((weak)) uint64_t host_controller_age_ns(void)
+{ fprintf(stderr, "host_stubs: probe called host_controller_age_ns without defining it\n"); abort(); }
+__attribute__((weak)) void host_controller_refresh(void)
+{ }
+__attribute__((weak)) void host_controller_refresh_bounded(void)
+{ }
+__attribute__((weak)) void host_controller_refresh_for_read(void)
+{ }
+__attribute__((weak)) void host_controller_refreshed(void)
+{ }
+__attribute__((weak)) void host_controller_sample(void)
+{ }
 __attribute__((weak)) void host_crash(const char *format, ...)
 { abort(); }
 __attribute__((weak)) void host_crash_install(int descriptor)

@@ -26,6 +26,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_open_website.h"
 #include "host_frame_pacer.h"
 #include "host_game_thread.h"
+#include "host_controller_age.h"
 #include "host_main_thread.h"
 #include "host_startup.h"
 
@@ -654,10 +655,19 @@ static int synthetic_key(SDL_Event *event)
 static int next_event(SDL_Event *event)
 {
 	if (!host_game_thread_enabled())
-		return SDL_PollEvent(event);
+	{
+		int more = SDL_PollEvent(event);
+
+		host_controller_refreshed();
+		return more;
+	}
 	/* Phase 4 pumps from the main run loop while the game drains events. */
 	if (host_on_main_thread())
 		host_event_pump();
+	else
+		/* the game thread's own poll: SDL reads controller hardware only when asked, so
+		this keeps what the game reads as old as the poll, not as old as the main timer */
+		host_controller_refresh_bounded();
 	return SDL_PeepEvents(event, 1, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST) == 1;
 }
 
@@ -794,6 +804,17 @@ void host_sdl_rumble_hold(int hold)
 int host_sdl_get_gamepads(uint32_t *ids, int capacity)
 {
 	return host_ios_gamepads(ids, capacity);
+}
+
+/* The game's controller reads (XInputGetState, the late look's stick read) call this first: the poll's
+2 ms gate and a long frame can leave them a frame behind, and only the game thread can bring the state
+up to date for them (the main thread's pump does, on its timer). */
+void host_sdl_update_joysticks(void)
+{
+	if (host_game_thread_enabled() && !host_on_main_thread())
+		host_controller_refresh_for_read();
+	else
+		host_controller_sample();
 }
 
 uint32_t host_sdl_open_gamepad(uint32_t id)
