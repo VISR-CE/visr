@@ -116,6 +116,8 @@ int main(void)
             frame_pacer_frame_begin(&frame[0], 200, 0.0, 1);
             frame_pacer_frame_begin(&frame[1], 201, 0.0, 1);
             CHECK(frame[0].slot && frame[1].slot_waited && !frame[1].slot);
+            /* (the wait it logs runs from the wait's start to the grant) */
+            CHECK(frame[1].wait_began > 0.0 && frame[1].granted >= frame[1].wait_began && frame[0].wait_began == 0.0);
             frame_pacer_presented(&frame[0], at += 1.0 / 60.0);
             frame_pacer_stop();
         }

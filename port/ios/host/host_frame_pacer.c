@@ -401,6 +401,7 @@ int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long numbe
 			double now = now_seconds();
 
 			frame->slot_waited = 1;
+			frame->wait_began = now;
 			double backlog = pacer.backlog_since > 0.0 ? now - pacer.backlog_since : 0.0;
 			double wait = frame_pacer_slot_wait(pacer.drops, pacer.period, frame_pacer_share(pacer.period,
 				host_frame_rate_target()), backlog, SLOT_WAIT_SECONDS);
@@ -563,12 +564,13 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 		/* (after "it began": the inputs adaptive frames in flight would read, for traces; grant to present is 0 when
 		the frame had no slot asked or no hold asked, and the GPU time is the renderer's latest report) */
 		platform_log("present time: frame %lu at %.3f ms, %.3f ms after the one before, %.3f ms after it began%s; "
-			"limit %d, slot wait %d, others in flight %d, grant to present %.3f ms, gpu %.3f ms; start %s, "
+			"limit %d, slot wait %d, others in flight %d, grant to present %.3f ms, gpu %.3f ms, waited %.3f ms; start %s, "
 			"%.3f ms after its aim, %u in flight before it, its GPU work done %.3f ms before, %.3f ms of cost allowed",
 			frame->number, at * 1e3, interval * 1e3, frame->began > 0.0 ? (at - frame->began) * 1e3 : 0.0,
 			noticed ? " (noticed: the system gave no time)" : "", limit, frame->slot_waited, frame->others_in_flight,
 			frame->granted > 0.0 && frame->presenting >= frame->granted ? (frame->presenting - frame->granted) * 1e3 : 0.0,
-			gpu * 1e3, frame_pacer_start_state_name(frame->start_state),
+			gpu * 1e3, frame->wait_began > 0.0 && frame->granted >= frame->wait_began ?
+			(frame->granted - frame->wait_began) * 1e3 : 0.0, frame_pacer_start_state_name(frame->start_state),
 			frame->aim > 0.0 ? (at - frame->aim) * 1e3 : 0.0, (unsigned)frame->in_flight, gpu_before * 1e3, allowed * 1e3);
 	}
 	if (frames && pacer.late_start == LATE_START_EXTENDED)

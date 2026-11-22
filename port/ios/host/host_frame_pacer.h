@@ -50,6 +50,7 @@ struct frame_pacer_frame
 	uint8_t slot_waited;     /* found every slot taken (a frame still in flight) and waited for one */
 	uint8_t others_in_flight; /* frames that held a slot when it got its own (1 at two in flight: the second slot) */
 	double granted;          /* when it got its slot or went on without one (the pacer's clock); 0: never asked */
+	double wait_began;       /* when it began waiting for a slot; 0: it did not wait */
 	double presenting;       /* when frame_pacer_present was asked its hold; 0: it was not */
 };
 
