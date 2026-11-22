@@ -14,7 +14,7 @@ imitate Ubuntu 24.04 with glibc:
 3. A link without `-lm` must not leave a libm function undefined
    (`linux_libm.txt`): libSystem provides them on macOS, glibc needs `-lm`.
    Compiles keep the math functions arm64 inlines as calls so the check sees
-   them.
+   them, and `-lm` before an input fails, as Ubuntu's `--as-needed` does.
 
 Commands that cannot run on Linux anyway (Objective-C, frameworks, Apple
 device targets) pass through unchanged. `HALO_LINUX_STRICT=0` turns the
@@ -81,6 +81,8 @@ class Command:
         self.link = True
         self.shared = False
         self.math = False
+        self.math_index = -1
+        self.last_input = -1
         self.iso = False
         self.feature_macro = False
         index = 0
@@ -102,6 +104,7 @@ class Command:
                 self.language = argument[2:]
             elif argument in ("-lm", "-l:libm.so") or (argument == "-l" and value == "m"):
                 self.math = True
+                self.math_index = index
             elif argument in NO_LINK:
                 self.link = False
             elif argument in SHARED:
@@ -121,6 +124,7 @@ class Command:
                 self.apple = True
             elif not argument.startswith("-") or argument == "-":
                 self.inputs.append(argument)
+                self.last_input = index
                 suffix = Path(argument).suffix
                 if self.language == "c" or (self.language in ("", "none") and suffix in C_SOURCES):
                     self.c_sources.append(argument)
@@ -281,6 +285,9 @@ def main() -> int:
     sanitized = name == "clang" and any(argument.startswith("-fsanitize=") for argument in arguments)
     if command.link and not command.shared and not command.math and not sanitized and os.path.exists(command.output):
         problems += math_problems(command.output)
+    if command.link and 0 <= command.math_index < command.last_input:
+        problems.append("-lm comes before an input file: Ubuntu links with --as-needed, so libm is dropped "
+                        "before anything needs it; put -lm after the sources")
     for problem in problems:
         sys.stderr.write(f"linux-strict: {problem}; command: {describe(name, arguments)}\n")
     if problems:
