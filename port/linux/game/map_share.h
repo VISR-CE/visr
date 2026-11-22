@@ -21,6 +21,12 @@ renamed: one a build of before named for its hash has its name given back.
 #ifndef __MAP_SHARE_H
 #define __MAP_SHARE_H
 
+/* ---------- headers */
+
+#include "map_share_policy.h"
+
+#include <stdio.h>
+
 /* ---------- constants */
 
 enum
@@ -170,7 +176,7 @@ void map_share_render(
 map_share_file_hash asks for the file at a path (a map, or a resource map
 of a kind, _map_share_file_*) to be hashed on the hashing thread, if it is
 not (or has changed since); its index in the catalog, or NONE, and NONE for
-a file map sharing may not send (map_share_file_sendable). */
+a file map sharing may not send (map_share_file_judge). */
 struct map_share_file
 {
 	boolean used;
@@ -190,19 +196,23 @@ short map_share_file_hash(
 	char const *path,
 	short kind);
 
-/* Whether map sharing may send the file at `path` (of `size` bytes) as a
-file of `kind` to other players: a community map only, never a resource map
-or a stock map (map_share_policy.c, which judges it by
-its name and its header: `header_bytes` of `header`, or, when that is NULL,
-read from the file). Every path that sends a file's bytes asks this: the
-catalog takes only files it allows (map_share_file_hash), and a download is
-passed on only once it does (map_share.c). */
-boolean map_share_file_sendable(
+/* What map sharing may do with the file at `path` (of `size` bytes) as a
+file of `kind`, for other players (map_share_policy.c): send a community map
+only, never a resource map or a stock map. It is judged by its name, its
+header (`header_bytes` of `header`, or, when that is NULL, read from the
+file) and its content hash (`content`, map_share_content_hash; NULL when not
+known yet, which lets it be hashed but not sent). A refusal is logged. Every
+path that sends a file's bytes asks this: the catalog takes only files it
+lets be hashed (map_share_file_hash) and sends them only once their content
+is judged, and a download is passed on only once it may be sent
+(map_share.c). */
+enum map_share_policy_verdict map_share_file_judge(
 	char const *path,
 	short kind,
 	unsigned long size,
 	byte const *header,
-	long header_bytes);
+	long header_bytes,
+	byte const *content);
 
 /* whether a catalog file is still the one judged and hashed: the same size
 and time written (one replaced is judged again by map_share_file_hash before
@@ -226,6 +236,30 @@ short map_share_file_find(
 /* the pieces of a file of `size` bytes */
 long map_share_piece_count(
 	unsigned long size);
+/* A map's content hash: BLAKE2b's (32 bytes) of a label, its size, the
+hash of its first piece after the cache header (CACHE_FILE_HEADER_BYTES),
+and its later pieces' hashes. Everything but the header, which can be
+edited without changing what the map is, so a stock map is known by it under
+any header (port/runtime/stock_maps.h). map_share_first_piece_rest_hash
+hashes the first piece's `bytes` after the header; map_share_content_hash
+takes that and the pieces' hashes; map_share_content_read reads the first
+piece from `stream` (a file of `size` bytes) for it. */
+void map_share_first_piece_rest_hash(
+	byte const *piece,
+	unsigned long bytes,
+	byte *rest_hash);
+void map_share_content_hash(
+	unsigned long size,
+	byte const *rest_hash,
+	byte const *piece_hashes,
+	long piece_count,
+	byte *content);
+boolean map_share_content_read(
+	FILE *stream,
+	unsigned long size,
+	byte const *piece_hashes,
+	long piece_count,
+	byte *content);
 /* the hash of a file of `size` bytes from its pieces' hashes */
 void map_share_file_hash_of_pieces(
 	unsigned long size,

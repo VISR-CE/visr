@@ -264,7 +264,7 @@ enum
 };
 
 /* whether a download's file may be passed on to other players
-(map_share_file_sendable), judged once its first piece, its header, is had */
+(map_share_file_judge), judged once its first piece, its header, is had */
 enum
 {
 	_sendable_unknown,
@@ -805,19 +805,23 @@ static short download_file_with_hash(
 
 /* ---------- what this machine sends of a connection's file */
 
-/* Whether the download's file may be passed on (map_share_file_sendable):
-judged from its header once its first piece is had, and until then not. */
+/* Whether the download's file may be passed on (map_share_file_judge):
+judged from its header and its content hash once its first piece is had (the
+later pieces' hashes are known and checked before any piece is), and until
+then not. */
 static boolean download_file_sendable(
 	struct download_file *file)
 {
 	byte header[CACHE_FILE_HEADER_BYTES];
+	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
 	unsigned long bytes = MIN((unsigned long)sizeof(header), file->size);
 
 	if (file->sendable == _sendable_unknown && file->have && (file->have[0] & 1) && file->stream &&
-		fseek(file->stream, 0, SEEK_SET) == 0 && fread(header, 1, bytes, file->stream) == bytes)
+		file->piece_hashes && map_share_content_read(file->stream, file->size, file->piece_hashes, file->piece_count,
+		content) && fseek(file->stream, 0, SEEK_SET) == 0 && fread(header, 1, bytes, file->stream) == bytes)
 	{
-		file->sendable = map_share_file_sendable(file->final_path, file->kind, file->size, header, (long)bytes) ?
-			_sendable_yes : _sendable_no;
+		file->sendable = map_share_policy_may_send(map_share_file_judge(file->final_path, file->kind, file->size,
+			header, (long)bytes, content)) ? _sendable_yes : _sendable_no;
 	}
 	return file->sendable == _sendable_yes;
 }
@@ -3135,6 +3139,29 @@ static void host_sources(
 
 /* a machine's request: its files asked to be hashed, the answer given once
 they are */
+/* whether a file the machine asked for will not be sent (gone from the
+catalog, or failed: unreadable, or refused once hashed, a stock map's
+content), and whether all of them are hashed */
+static boolean host_files_failed(
+	struct host_machine const *machine,
+	boolean *ready)
+{
+	boolean failed = FALSE;
+	short file_index;
+
+	*ready = TRUE;
+	for (file_index = 0; file_index < machine->file_count; file_index++)
+	{
+		struct map_share_file const *file = map_share_file_get(machine->catalog_files[file_index]);
+
+		if (!file || file->failed)
+			failed = TRUE;
+		else if (!file->ready)
+			*ready = FALSE;
+	}
+	return failed;
+}
+
 static void host_request(
 	long machine_index,
 	struct distributed_map_share_request const *request)
@@ -3270,21 +3297,10 @@ static void host_update(
 		}
 		if (machine->asked)
 		{
-			boolean ready = TRUE;
+			boolean ready;
 			boolean failed = FALSE;
 
-			for (file_index = 0; file_index < machine->file_count; file_index++)
-			{
-				struct map_share_file *file = map_share_file_get(machine->catalog_files[file_index]);
-
-				if (!file)
-					failed = TRUE;
-				else if (file->failed)
-					failed = TRUE;
-				else if (!file->ready)
-					ready = FALSE;
-			}
-			if (failed)
+			if (host_files_failed(machine, &ready))
 			{
 				host_offer(index, _offer_unavailable);
 				machine->downloading = FALSE;

@@ -466,12 +466,16 @@ its name alone beside it, has its name given back as the map lists find it.
   Custom Edition's stock maps, whatever the file is named
   (`map_share_policy.c`). A file is judged by what it is: a resource map by
   the kind it is sent as, its name (without the hash digits a second
-  version's ends in) or its header; a stock map by its header's checksum
-  (`port/runtime/stock_maps.h`). The header must be a valid Custom Edition
+  version's ends in) or its header; a stock map by its content hash, which
+  covers everything but the cache header, so a copy with an edited header
+  checksum is still known (`map_share_content_hash`,
+  `port/runtime/stock_maps.h`). The header must be a valid Custom Edition
   cache. A community map that reuses a stock map's name but differs in
   content is sent. The catalog every whole file is sent from takes no other
-  file (`map_share_file_hash`), and a download's file is passed on only once
-  its first piece, the header, says it may be.
+  file (`map_share_file_hash`) and sends one only once its content is judged,
+  after it is hashed; a map's content hash is kept for its size and time
+  written, so it is not hashed again. A download's file is passed on only
+  once its first piece, the header, and its pieces' hashes say it may be.
 - **The offer.** A host that shares maps (`network.map_share`) hashes the
   map on a thread of its own and answers with its size and hash (`_offer`,
   or why it does not: sharing off, or not a map it sends). A client that
