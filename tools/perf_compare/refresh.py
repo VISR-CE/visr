@@ -245,7 +245,11 @@ def write_outputs(page_path, summary, check=False):
         legal = MarkdownIt('commonmark', {'html': False}).render(load_facts()['shared']['legal']).rstrip()
         (ROOT / 'docs/site/benchmarks').mkdir(exist_ok=True)
         status |= write_page(ROOT / 'docs/site/benchmarks.html', site_page.render_site_page(summary, rows, specs, legal), check)
-        status |= write_page(ROOT / 'docs/site/benchmarks/results.csv', charts.SNAPSHOT.read_text(encoding='utf-8'), check)
+        snapshot = charts.SNAPSHOT.read_bytes()
+        if b'\r' in snapshot:
+            print(f'{charts.SNAPSHOT.name}: carriage returns; the snapshot uses LF line endings', file=sys.stderr)
+            status |= 1
+        status |= write_page(ROOT / 'docs/site/benchmarks/results.csv', snapshot.decode('utf-8'), check)
         if check:
             status |= static_chart_status(rows, specs, charts, site_page)
     return status
@@ -271,11 +275,12 @@ def static_chart_status(rows, specs, charts, site_page):
 
 def write_page(path, content, check=False):
     if check:
-        if not path.exists() or path.read_text() != content:
+        # Compare bytes: text mode folds CRLF into LF and would pass a file the byte-for-byte tests reject.
+        if not path.exists() or path.read_bytes() != content.encode('utf-8'):
             print(f'stale generated file: {path.name}', file=sys.stderr)
             return 1
         return 0
-    path.write_text(content)
+    path.write_bytes(content.encode('utf-8'))
     return 0
 
 

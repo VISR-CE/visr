@@ -36,7 +36,7 @@ platform = "Mac"
 metrics = ["cpu_p50_ms", "gpu_p50_ms"]
 pair = true
 details = ["cpu_p50_ms", "gpu_p50_ms", "gpu_p90_ms"]
-port_order = ["visr", "opence-macos", "corece", "chupathingy", "halo-og", "openh1"]
+port_order = ["visr", "opence-macos", "corece", "chupathingy", "halo-og", "openh1", "opence-bitmoda", "meshce", "halo-content-evolved"]
 no_data_reason = "CPU and GPU time per frame not reported"
 
 [query.no_gpu_notes]
