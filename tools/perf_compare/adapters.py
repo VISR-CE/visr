@@ -199,6 +199,8 @@ def timing_method(target, config):
 # OpenCE-lineage Mac ports that read OpenCE-macOS's documented config.toml keys (max_fps, shadow_resolution, ...).
 OPENCE_CONFIG_PORTS = ('opence-macos', 'opence-bitmoda', 'meshce', 'halo-content-evolved')
 # Ports that keep config.toml under the home folder's Application Support and ignore the save root's copy.
+# Ports whose window size comes from `display.window_scale` (a multiple of 640x480 points); `display.window_size` is ignored.
+WINDOW_SCALE_PORTS = ('visr', 'corece', 'halo-og', 'opence-bitmoda', 'meshce', 'halo-content-evolved')
 HOME_CONFIG_DIRS = {'halo-content-evolved': 'Halo Content Evolved'}
 DRAWABLES = {'1280x960': (640, 480), '2560x1920': (1280, 960)}
 
@@ -215,7 +217,7 @@ def native_display(target_id, frame_mode='capped', quality_preset='defaults', dr
     if width == 640:
         display += ('fullscreen = false\nscreen_width = 0\nscreen_height = 480\nrender_height = 0\n'
                     'window_scale = 1\nwindow_size = "640x480"\ninterpolation = true\n')
-    elif target_id in ('visr', 'corece', 'halo-og') + OPENCE_CONFIG_PORTS[1:]:
+    elif target_id in WINDOW_SCALE_PORTS:
         # VISR's window_size key is desktop-only; CoreCE and Halo OG have no such key either (their documented
         # `display.window_scale` is the window size as a multiple of 640x480 points). The Mac app sizes its window as
         # 640x480 points times window_scale.
