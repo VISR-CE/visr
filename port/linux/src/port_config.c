@@ -941,6 +941,24 @@ static const struct config_setting config_settings[] =
 	{ "audio.effects_volume", _config_real, "1.0", "HALO_EFFECTS_VOLUME", _environment_value, _platform_all,
 		"The volume of every other sound (effects and speech), 0.0 to 1.0 (of\n"
 		"audio.volume)." },
+	{ "audio.fast_filter", _config_boolean, "true", "HALO_FAST_AUDIO_FILTER", _environment_value, _platform_all,
+		"The mixer's resampling filter (nearly all of the mixing thread's work in\n"
+		"a big game) adds each voice's frames in four running sums instead of\n"
+		"one, and a mono voice computes only one channel: the same sound to\n"
+		"within 0.000002 of full scale, and about a quarter less mixing CPU\n"
+		"(0.81 to 0.59 ms a 10.7 ms callback with 55 voices, M3 Max). Off gives\n"
+		"the earlier loop. Read again when Settings changes it." },
+	{ "audio.rate_bus", _config_boolean, "true", "HALO_RATE_BUS", _environment_value, _platform_all,
+		"Sounds playing at exactly their own pitch (nearly all of them; the sound\n"
+		"files are 22,050 and 44,100 Hz) are added together at that rate and\n"
+		"resampled to the output's 48,000 Hz once a rate, instead of each one\n"
+		"separately: the same sound (a ramping voice differs by about 3e-5 of its\n"
+		"own level, the rounding of the way the old mixer ramped a gain; a sound may\n"
+		"start up to 45 microseconds later) and far less mixing CPU. Sounds with a\n"
+		"changed pitch, and stereo sounds panned towards where they are, are mixed\n"
+		"as before, with audio.fast_filter. Read again when Settings changes it\n"
+		"(turning it off moves sounds already playing to the old path at the next\n"
+		"callback); with it on, audio.fast_filter does not change a nominal sound." },
 	{ "audio.loose_sounds", _config_boolean, "false", "HALO_LOOSE_SOUNDS", _environment_value, _platform_all,
 		"For those making sounds: play each of a map's sounds that has a Halo PC\n"
 		"sound tag file of its name under the data root's tags folder\n"
@@ -1654,12 +1672,14 @@ static const struct config_setting config_settings[] =
 		"mostly hidden then flares at full strength. For comparing." },
 	{ "debug.gpu_call_hash", _config_boolean, "false", "HALO_GPU_CALL_HASH", _environment_set_is_true, _platform_ios,
 		"Logs, for every frame, a hash of every command the Metal or OpenGL ES\n"
-		"renderer received: each call, its arguments and the bytes they point to.\n"
-		"Two runs of the same recording whose renderers did the same work log the\n"
-		"same hashes. With debug.encode_thread on, the commands the queue carries\n"
-		"are hashed again behind it and compared with the same commands in front\n"
-		"of it, and frames that differ are logged. For checking changes to how\n"
-		"drawing reaches the renderer." },
+		"renderer received: each call, its arguments and the bytes they point to,\n"
+		"and one hash for each kind of call. The hashes compare frames within one\n"
+		"run, as when the same frames are hashed at two points; two runs of the\n"
+		"same recording can differ (texture numbering, values the game leaves in\n"
+		"unused constant lanes). With debug.encode_thread on, the commands the\n"
+		"queue carries are hashed again behind it and compared with the same\n"
+		"commands in front of it, and frames that differ are logged. For checking\n"
+		"changes to how drawing reaches the renderer." },
 	{ "debug.encode_thread", _config_string, "\"off\"", "HALO_ENCODE_THREAD", _environment_value, _platform_ios,
 		"How the Metal renderer's commands reach it. \"off\" (default): the game\n"
 		"thread calls the renderer. \"inline\": the game thread writes each command\n"

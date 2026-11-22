@@ -19,6 +19,7 @@ APPLE_PROBES = {
     "test_controller_glyph_raster.py",
     "test_astc_rewrite.py",
     "test_astc_encode.py",
+    "test_host_stubs.py",
     "test_benchmark_menu.py",
     "test_frame_workgroup_uikit.py",
     "test_menu_cancel.py",

@@ -43,6 +43,8 @@ skips opening a device (port_config.c).
 #include "platform.h"
 #include "sdl_platform.h"
 #include "port_config.h"
+#include "audio_filter.h"
+#include "audio_bus.h"
 
 #include <SDL3/SDL.h>
 #include <math.h>
@@ -60,12 +62,9 @@ skips opening a device (port_config.c).
 #define XBOX_ADPCM_BLOCK_SAMPLES 64
 
 /* the resampler (resampling) */
-#define RESAMPLER_ZERO_CROSSINGS 24
 #define RESAMPLER_TABLE_STEPS 256
 #define RESAMPLER_CUTOFF 0.96
 #define RESAMPLER_KAISER_BETA 6.5
-#define RESAMPLER_MAXIMUM_STRETCH 2
-#define RESAMPLER_HISTORY 128
 
 /* ---------- voices */
 
@@ -117,14 +116,9 @@ struct sdl_stream
 	unsigned long packet_count;
 	/* the next frame to take from the first packet not finished */
 	unsigned long cursor;
-	/* the resampler's (resampler_reset): the last RESAMPLER_HISTORY frames
-	taken, how many were taken, the frame the output is at and how far past
-	it, and the frames of silence taken since the packets ran out */
-	float history[RESAMPLER_HISTORY][2];
-	unsigned long history_count;
-	unsigned long center;
-	double phase;
-	unsigned long silence;
+	/* the resampler's and the rate bus's state (audio_bus.h): the last frames taken, the frame the output is at and how
+	far past it, the frames of silence taken since the packets ran out, and where the voice is on the bus */
+	struct audio_voice voice;
 	/* gains the mixer is ramping from, to avoid clicks */
 	float current_left, current_right;
 	BOOL gains_valid;
@@ -454,11 +448,7 @@ static void resampler_phases_initialize(void)
 starts at */
 static void resampler_reset(struct sdl_stream *stream)
 {
-	memset(stream->history, 0, sizeof(stream->history));
-	stream->history_count = RESAMPLER_ZERO_CROSSINGS * RESAMPLER_MAXIMUM_STRETCH;
-	stream->center = stream->history_count;
-	stream->phase = 0.0;
-	stream->silence = 0;
+	audio_voice_reset(&stream->voice);
 }
 
 static float packet_sample(const struct voice_packet *packet, unsigned long frame, unsigned long channel,
@@ -522,6 +512,33 @@ static BOOL voice_has_frames(struct sdl_stream *stream)
 
 /* ---------- mixing */
 
+/* audio.fast_filter (read on the game's thread: audio_start, and again when Settings changes it) */
+static volatile int fast_filter = 1;
+
+/* audio.rate_bus (read on the game's thread like fast_filter), the two rates' buses and the mixer's clock, the output
+frames mixed so far */
+static volatile int rate_bus = 1;
+static struct audio_bus buses[2];
+_Static_assert(MIX_CHUNK_FRAMES <= AUDIO_BUS_MAXIMUM_FRAMES, "the bus's sums hold the longest callback's window");
+static unsigned long long bus_clock;
+
+/* the bus a voice may play on: it plays at exactly its source rate (22,050 or 44,100 Hz) and is not a stereo voice
+panned towards its sound, whose far-ear gain is not linear in time across a callback. NULL otherwise */
+static struct audio_bus *bus_for(const struct sdl_stream *stream, BOOL positioned)
+{
+	if (!rate_bus || positioned || stream->channels > 2)
+		return NULL;
+	if (stream->frequency && stream->frequency != stream->sample_rate)
+		return NULL;
+	return stream->sample_rate == 22050 ? &buses[0] : stream->sample_rate == 44100 ? &buses[1] : NULL;
+}
+
+/* take_frame for audio_bus.h */
+static int bus_take_frame(void *source, float *frame)
+{
+	return take_frame((struct sdl_stream *)source, frame) ? 1 : 0;
+}
+
 /* mixes one voice into output (frames of stereo float) */
 static void mix_voice(struct sdl_stream *stream, float *output, unsigned long frames)
 {
@@ -529,6 +546,8 @@ static void mix_voice(struct sdl_stream *stream, float *output, unsigned long fr
 	float target_left, target_right, left, right, ramp_left, ramp_right, scale;
 	long width;
 	unsigned long frame;
+	int fast = fast_filter;
+	struct audio_bus *bus;
 	/* (a stereo voice panned towards its sound: voice_gains) */
 	BOOL positioned = stream->channels == 2 && stream->stereo_positioned;
 
@@ -542,7 +561,7 @@ static void mix_voice(struct sdl_stream *stream, float *output, unsigned long fr
 	/* a voice that ran dry and stopped (below) starts over once it has
 	frames again: stream_process starts over only a stream with no packets,
 	and the next can come before the finished ones are completed */
-	if (stream->silence > (unsigned long)(2 * width))
+	if (stream->voice.silence > (unsigned long)(2 * width))
 	{
 		if (!voice_has_frames(stream))
 			return;
@@ -561,6 +580,17 @@ static void mix_voice(struct sdl_stream *stream, float *output, unsigned long fr
 	ramp_left = (target_left - left) / (float)frames;
 	ramp_right = (target_right - right) / (float)frames;
 
+	/* (one read of audio.rate_bus: Settings can change it between two) */
+	bus = bus_for(stream, positioned);
+	if (audio_bus_voice_prepare(&stream->voice, bus, bus_clock))
+	{
+		audio_bus_mix_voice(&stream->voice, bus, bus_clock, frames, left, right, ramp_left, ramp_right, width,
+			bus_take_frame, stream);
+		stream->current_left = target_left;
+		stream->current_right = target_right;
+		return;
+	}
+
 	for (frame = 0; frame < frames; frame++)
 	{
 		float sample_left = 0.0f, sample_right = 0.0f;
@@ -568,22 +598,22 @@ static void mix_voice(struct sdl_stream *stream, float *output, unsigned long fr
 
 		/* the frames ahead the low pass reaches; after the last packet,
 		silence, until what was taken has played out */
-		while ((long)(stream->history_count - stream->center) <= width)
+		while ((long)(stream->voice.history_count - stream->voice.center) <= width)
 		{
-			float *slot = stream->history[stream->history_count % RESAMPLER_HISTORY];
+			float *slot = stream->voice.history[stream->voice.history_count % RESAMPLER_HISTORY];
 
 			if (take_frame(stream, slot))
 			{
-				stream->silence = 0;
+				stream->voice.silence = 0;
 			}
 			else
 			{
 				slot[0] = slot[1] = 0.0f;
-				stream->silence++;
+				stream->voice.silence++;
 			}
-			stream->history_count++;
+			stream->voice.history_count++;
 		}
-		if (stream->silence > (unsigned long)(2 * width))
+		if (stream->voice.silence > (unsigned long)(2 * width))
 			break;
 
 		if (!left && !right && !ramp_left && !ramp_right)
@@ -593,27 +623,20 @@ static void mix_voice(struct sdl_stream *stream, float *output, unsigned long fr
 		}
 		else if (scale == 1.0f)
 		{
-			double position = stream->phase * RESAMPLER_TABLE_STEPS;
+			double position = stream->voice.phase * RESAMPLER_TABLE_STEPS;
 			unsigned long row = (unsigned long)position;
 			float blend = (float)(position - (double)row);
 			const float *weights = resampler_phases[row], *next_weights = resampler_phases[row + 1];
-			unsigned long first = stream->center + 1 - RESAMPLER_ZERO_CROSSINGS;
+			unsigned long first = stream->voice.center + 1 - RESAMPLER_ZERO_CROSSINGS;
 
-			for (tap = 0; tap < 2 * RESAMPLER_ZERO_CROSSINGS; tap++)
-			{
-				const float *source = stream->history[(first + (unsigned long)tap) % RESAMPLER_HISTORY];
-				float weight = weights[tap] + (next_weights[tap] - weights[tap]) * blend;
-
-				sample_left += source[0] * weight;
-				sample_right += source[1] * weight;
-			}
+			audio_filter_voice(fast, stream->voice.history, first, weights, next_weights, blend, stream->channels != 1, &sample_left, &sample_right);
 		}
 		else
 		{
 			for (tap = 1 - width; tap <= width; tap++)
 			{
-				const float *source = stream->history[(stream->center + (unsigned long)tap) % RESAMPLER_HISTORY];
-				float weight = scale * resampler_weight(fabsf((float)tap - (float)stream->phase) * scale * RESAMPLER_TABLE_STEPS);
+				const float *source = stream->voice.history[(stream->voice.center + (unsigned long)tap) % RESAMPLER_HISTORY];
+				float weight = scale * resampler_weight(fabsf((float)tap - (float)stream->voice.phase) * scale * RESAMPLER_TABLE_STEPS);
 
 				sample_left += source[0] * weight;
 				sample_right += source[1] * weight;
@@ -644,11 +667,11 @@ static void mix_voice(struct sdl_stream *stream, float *output, unsigned long fr
 		}
 		left += ramp_left;
 		right += ramp_right;
-		stream->phase += step;
-		while (stream->phase >= 1.0)
+		stream->voice.phase += step;
+		while (stream->voice.phase >= 1.0)
 		{
-			stream->phase -= 1.0;
-			stream->center++;
+			stream->voice.phase -= 1.0;
+			stream->voice.center++;
 		}
 	}
 	stream->current_left = target_left;
@@ -743,6 +766,13 @@ static void mix(float *output, unsigned long frames)
 	struct sdl_stream *stream;
 
 	memset(output, 0, frames * OUTPUT_CHANNELS * sizeof(float));
+	if (!buses[0].denominator)
+	{
+		audio_bus_initialize(&buses[0], 147, 320);
+		audio_bus_initialize(&buses[1], 147, 160);
+	}
+	audio_bus_begin(&buses[0], bus_clock, frames);
+	audio_bus_begin(&buses[1], bus_clock, frames);
 	pthread_mutex_lock(&listener_lock);
 	mixed_listener = listener;
 	pthread_mutex_unlock(&listener_lock);
@@ -753,6 +783,9 @@ static void mix(float *output, unsigned long frames)
 		mix_voice(stream, output, frames);
 		pthread_mutex_unlock(&stream->lock);
 	}
+	audio_bus_finish(&buses[0], bus_clock, frames, resampler_phases, RESAMPLER_TABLE_STEPS, output);
+	audio_bus_finish(&buses[1], bus_clock, frames, resampler_phases, RESAMPLER_TABLE_STEPS, output);
+	bus_clock += frames;
 	mix_buffers(output, frames);
 	pthread_mutex_unlock(&mixer_lock);
 	limit(output, frames);
@@ -970,6 +1003,8 @@ static void audio_start(void)
 		return;
 	audio_started = TRUE;
 	master_volume = (float)config_real("audio.volume");
+	fast_filter = config_boolean("audio.fast_filter");
+	rate_bus = config_boolean("audio.rate_bus");
 	resampler_initialize();
 	resampler_phases_initialize();
 
@@ -1254,6 +1289,8 @@ VOID WINAPI DirectSoundDoWork(void)
 	{
 		volume_read_at = config_changes();
 		master_volume = (float)config_real("audio.volume");
+		fast_filter = config_boolean("audio.fast_filter");
+		rate_bus = config_boolean("audio.rate_bus");
 		/* audio.enabled applies live: off closes the device (other apps get
 		the output back), on opens it again, with the clock covering the swap */
 		if (audio_started)
