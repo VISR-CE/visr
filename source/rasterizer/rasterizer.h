@@ -434,6 +434,16 @@ void rasterizer_eye_matrices(
 	short count,
 	rasterizer_eye_matrices_builder build,
 	void *context);
+/* port: matrices computed from a pair's eye 0 matrices (render_model's
+relative matrices): eye 1's of a pair, or NULL; and a derived pair, eye 1's
+computed the same way from eye 1's */
+real_matrix4x3 const *rasterizer_eye_matrices_other(
+	real_matrix4x3 const *eye_0,
+	short count);
+void rasterizer_eye_matrices_derived(
+	real_matrix4x3 const *eye_0,
+	real_matrix4x3 const *eye_1,
+	short count);
 
 /* port: the render target's viewport while split screen's full HUD draws in a
 one-player layout (hud_full_layout_begin); NULL goes back to the camera's */

@@ -3114,6 +3114,59 @@ void rasterizer_eye_matrices(
 	return;
 }
 
+static struct eye_matrix_pair const *eye_matrices_find(
+	real_matrix4x3 const *matrices,
+	short count)
+{
+	short index;
+
+	for (index = 0; index < eye_matrix_pair_count; index++)
+	{
+		if (eye_matrix_pairs[index].count == count &&
+			!csmemcmp(eye_matrix_pairs[index].eye_0, matrices, count * sizeof(*matrices)))
+		{
+			return &eye_matrix_pairs[index];
+		}
+	}
+	return NULL;
+}
+
+real_matrix4x3 const *rasterizer_eye_matrices_other(
+	real_matrix4x3 const *eye_0,
+	short count)
+{
+	struct eye_matrix_pair const *pair;
+
+	if (!eye_matrix_pair_count || !other_eye_ready || other_eye_swapped || !eye_0 || count <= 0)
+		return NULL;
+	pair = eye_matrices_find(eye_0, count);
+	return pair ? pair->eye_1 : NULL;
+}
+
+void rasterizer_eye_matrices_derived(
+	real_matrix4x3 const *eye_0,
+	real_matrix4x3 const *eye_1,
+	short count)
+{
+	struct eye_matrix_pair *pair;
+	real_matrix4x3 *copy;
+
+	if (!other_eye_ready || other_eye_swapped || count <= 0 || eye_matrix_pair_count >= EYE_MATRIX_PAIRS ||
+		eye_matrix_pool_used + 2 * count > EYE_MATRIX_POOL || eye_matrices_find(eye_0, count))
+	{
+		return;
+	}
+	copy = &eye_matrix_pool[eye_matrix_pool_used];
+	csmemcpy(copy, eye_0, count * sizeof(*copy));
+	csmemcpy(copy + count, eye_1, count * sizeof(*copy));
+	eye_matrix_pool_used += 2 * count;
+	pair = &eye_matrix_pairs[eye_matrix_pair_count++];
+	pair->eye_0 = copy;
+	pair->eye_1 = copy + count;
+	pair->count = count;
+	return;
+}
+
 /* port: eye 1's node matrix rows for a skinning just stored from matrices
 (through nodes, a part's palette, when not NULL), if they are a pair's */
 static void skinning_other_eye(
@@ -3131,14 +3184,7 @@ static void skinning_other_eye(
 	{
 		return;
 	}
-	for (index = 0; index < eye_matrix_pair_count && !pair; index++)
-	{
-		if (eye_matrix_pairs[index].count == matrix_count &&
-			!csmemcmp(eye_matrix_pairs[index].eye_0, matrices, matrix_count * sizeof(*matrices)))
-		{
-			pair = &eye_matrix_pairs[index];
-		}
-	}
+	pair = eye_matrices_find(matrices, matrix_count);
 	if (!pair)
 		return;
 	for (index = 0; index < node_count; index++)
