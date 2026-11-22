@@ -73,7 +73,7 @@ Apple2 (a simulator that reports none) takes Apple2's. */
 /* (name, first family, last family, what was seen). A quirk blocks every pass that names it on the families from
 first to last. */
 #define METAL_QUIRKS(X) \
-	X(A8_A10X_COMPUTE_DISPATCH_FAULT, 2, 3, "A8 and A10X compute dispatch faults")
+	X(COMPUTE_DISPATCH_FAULT, 2, 3, "A8 and A10X compute dispatch faults")
 
 /* How a pass's floor is known: a fleet device of that family ran the pass clean, or the family comes from Apple's
 table and today's checks and no fleet device has run it there. Lowering any floor needs a device run. */
@@ -88,7 +88,7 @@ Soft particles: the A8 (Apple TV HD) faults its GPU on the pass's compute dispat
 with the pass on and none in 24 arms with it off (Nov 22), so the floor is Apple4. No fleet device of Apple4 (A11) has
 run it; the Apple7 Air 4 (A14) is the fleet device that confirms it runs clean above the floor. */
 #define METAL_PASSES(X) \
-	X(SOFT_PARTICLES, METAL_NEEDS(STENCIL_TEXTURE_VIEWS), METAL_BLOCKED_BY(A8_A10X_COMPUTE_DISPATCH_FAULT), 4, \
+	X(SOFT_PARTICLES, METAL_NEEDS(STENCIL_TEXTURE_VIEWS), METAL_BLOCKED_BY(COMPUTE_DISPATCH_FAULT), 4, \
 		METAL_FLOOR_DOCUMENTED, 1, "soft particles", "hard particle edges") \
 	X(AMBIENT_OCCLUSION, METAL_NEEDS(SIMD_PERMUTES) | METAL_NEEDS(STENCIL_TEXTURE_VIEWS), 0, 6, \
 		METAL_FLOOR_DOCUMENTED, 1, "ambient occlusion", "no ambient occlusion") \
