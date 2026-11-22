@@ -1712,6 +1712,11 @@ static const struct config_setting config_settings[] =
 		"Closes and reopens the sound device every this many seconds, as an\n"
 		"audio route change does (an external display connecting), to check\n"
 		"that sound keeps playing across one. 0 (default): never." },
+	{ "debug.topology_facts", _config_boolean, "false", "HALO_TOPOLOGY_FACTS", _environment_value, _platform_ios,
+		"Logs what the system reports about displays (the screens and whether each mirrors, the game's and the\n"
+		"external scene, the scene accessory, the hinge and posture, the audio route's outputs) once at launch and\n"
+		"again whenever one of them changes, not at every poll. Nothing reads it; for recording what a device\n"
+		"reports across a connect, a fold or a rotation. false (default): off." },
 	{ "debug.low_power_frame_rate", _config_string, "\"true\"", "HALO_LOW_POWER_FRAME_RATE", _environment_value, _platform_ios,
 		"In Low Power Mode, gameplay and cutscenes aim for half the frame rate\n"
 		"they aim for otherwise (120 to 60, 60 to 30, never under 30) and menus\n"

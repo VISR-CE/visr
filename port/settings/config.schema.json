@@ -2698,6 +2698,16 @@
             "apple"
           ]
         },
+        "topology_facts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Logs what the system reports about displays (the screens and whether each mirrors, the game's and the external scene, the scene accessory, the hinge and posture, the audio route's outputs) once at launch and again whenever one of them changes, not at every poll. Nothing reads it; for recording what a device reports across a connect, a fold or a rotation. false (default): off.",
+          "x-environment": "HALO_TOPOLOGY_FACTS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "low_power_frame_rate": {
           "type": "string",
           "default": "true",

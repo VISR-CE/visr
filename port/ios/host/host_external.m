@@ -16,6 +16,7 @@
 #include "host_external_splash.h"
 #include "host_hinge.h"
 #include "host_panel.h"
+#include "host_topology.h"
 #include "host_posture_layout.h"
 #include "host_output_cap.h"
 #include "host_geometry.h"
@@ -838,12 +839,87 @@ void host_external_safe_insets(float *insets) {
     memcpy(insets,safe_insets,sizeof(safe_insets));
     pthread_mutex_unlock(&safe_insets_lock);
 }
+/* debug.topology_facts: what the system reports about displays, written when a field changes (host_topology.h).
+   Read on main in the poll; nothing is derived and nothing else reads it. */
+static void topology_facts_poll(void) {
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    static int enabled=-1;
+    static struct host_topology_observer observer;
+    static int dropped_logged;
+    if(enabled<0) {
+        char value[16];
+        host_config_string("debug.topology_facts","false",value,sizeof(value));
+        enabled=!strcmp(value,"true");
+    }
+    if(!enabled)return;
+    struct host_topology_facts facts;
+    memset(&facts,0,sizeof(facts));
+    facts.now=CACurrentMediaTime();
+    UIUserInterfaceIdiom idiom=UIDevice.currentDevice.userInterfaceIdiom;
+    facts.idiom=idiom==UIUserInterfaceIdiomPhone?HOST_FACTS_IDIOM_PHONE:idiom==UIUserInterfaceIdiomPad?HOST_FACTS_IDIOM_PAD:
+        HOST_FACTS_IDIOM_OTHER;
+    facts.ios_app_on_mac=NSProcessInfo.processInfo.iOSAppOnMac;
+    facts.metal=metal_enabled;
+    UIScreen *app_screen=phone_window.windowScene.screen;
+    facts.app_scene.present=app_screen!=nil;
+    facts.app_scene.screen=(unsigned)(((uintptr_t)(__bridge void *)app_screen)>>4);
+    UIWindowScene *external_scene=external_window.windowScene;
+    if(candidate_screen || external_scene) {
+        facts.external_scene.present=1;
+        facts.external_scene.negotiating=session_state.negotiating;
+        facts.external_scene.screen=(unsigned)(((uintptr_t)(__bridge void *)candidate_screen)>>4);
+        facts.external_scene.scene=(unsigned)(((uintptr_t)(__bridge void *)external_scene)>>4);
+        facts.external_scene.width=(int)candidate_screen.currentMode.size.width;
+        facts.external_scene.height=(int)candidate_screen.currentMode.size.height;
+        facts.external_scene.hertz=(int)candidate_screen.maximumFramesPerSecond;
+    }
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+    if(@available(iOS 27.0,*)) {
+        UISceneAccessoryRegistration *registration=accessory_registration;
+        facts.accessory.registered=registration!=nil;
+        facts.accessory.available=registration.available?1:0;
+        facts.accessory.offered_since=accessory_offer_since>0?accessory_offer_since:0;
+    }
+#endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    for(UIScreen *screen in UIScreen.screens)
+        host_topology_facts_add_screen(&facts,(unsigned)(((uintptr_t)(__bridge void *)screen)>>4),
+            screen.mirroredScreen!=nil,(int)screen.nativeBounds.size.width,(int)screen.nativeBounds.size.height,
+            (int)screen.maximumFramesPerSecond);
+#pragma clang diagnostic pop
+    struct host_hinge_snapshot hinge;
+    host_hinge_snapshot(&hinge);
+    facts.hinge_available=hinge.available;
+    facts.hinge_status=hinge.status;
+    struct host_posture_snapshot posture;
+    host_posture_snapshot(&posture);
+    facts.posture=posture.posture;
+    for(AVAudioSessionPortDescription *port in AVAudioSession.sharedInstance.currentRoute.outputs) {
+        int kind=host_route_port_kind(port.portType.UTF8String);
+        host_topology_facts_add_output(&facts,kind);
+        if(!facts.display_port_name[0] && (kind==HOST_ROUTE_HDMI || kind==HOST_ROUTE_DISPLAYPORT || kind==HOST_ROUTE_AIRPLAY))
+            snprintf(facts.display_port_name,sizeof(facts.display_port_name),"%s",port.portName.UTF8String?:"");
+    }
+    if(facts.screens_dropped && !dropped_logged) {
+        dropped_logged=1;
+        host_logf(HOST_LOG_INFO,"topology facts: %d screens beyond the first %d are not listed",facts.screens_dropped,
+            HOST_FACTS_SCREENS);
+    }
+    if(host_topology_observe(&observer,&facts)) {
+        char line[768];
+        host_topology_facts_format(&facts,line,sizeof(line));
+        host_logf(HOST_LOG_INFO,"%s",line);
+    }
+#endif
+}
 static void host_external_poll_main(void) {
     host_hinge_poll();
 #if TARGET_OS_IOS && !TARGET_OS_TV
     host_geometry_poll();
 #endif
     host_posture_poll();
+    topology_facts_poll();
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
     host_ios_touch_posture_changed();
 #endif
