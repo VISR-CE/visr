@@ -298,6 +298,8 @@ def validate_shaders(folder):
 # admit it. Raising this floor stops the gate from naming those builds; lowering it must come with a reason
 # (docs/data-packs.md, "Shader feed gate").
 SHADER_FEED_FLOOR_TAG = "visr-v0.6.15"
+# where the release tags are read from (a test points it at a checkout without tags)
+RELEASE_REPOSITORY = ROOT
 
 
 def release_version(tag):
@@ -309,24 +311,24 @@ def released_shader_validators(floor=None):
     """[(tag, probe, bundled lists folder)] for every release from the floor on: each probe is built from that
     tag's own shader_pack_probe.c and host_shader_pack.c (and the shader_record module, once it has one), and the
     folder is that tag's bundled port/shader-lists, which is the base its app merges a feed onto."""
-    listed = subprocess.run(["git", "-C", str(ROOT), "tag", "--list", "visr-v*"], capture_output=True, text=True, check=True)
+    listed = subprocess.run(["git", "-C", str(RELEASE_REPOSITORY), "tag", "--list", "visr-v*"], capture_output=True, text=True, check=True)
     floor = floor or SHADER_FEED_FLOOR_TAG
     minimum = release_version(floor)
     tags = sorted((tag for tag in listed.stdout.split() if release_version(tag) and release_version(tag) >= minimum),
                   key=release_version)
     result = []
     for tag in tags:
-        commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", f"{tag}^{{commit}}"], capture_output=True,
+        commit = subprocess.run(["git", "-C", str(RELEASE_REPOSITORY), "rev-parse", f"{tag}^{{commit}}"], capture_output=True,
                                 text=True, check=True).stdout.strip()
         cache = ROOT / "build/ios/probe/released" / commit
         probe, lists = cache / "shader-pack-probe", cache / "shader-lists"
         if not probe.exists() or not lists.is_dir():
             cache.mkdir(parents=True, exist_ok=True)
-            present = subprocess.run(["git", "-C", str(ROOT), "ls-tree", "-r", "--name-only", commit, "--",
+            present = subprocess.run(["git", "-C", str(RELEASE_REPOSITORY), "ls-tree", "-r", "--name-only", commit, "--",
                                       "port/runtime/shader_record.c"], capture_output=True, text=True).stdout.split()
             paths = ["port/ios/host", "port/ios/tests/shader_pack_probe.c", "port/shader-lists", *(["port/runtime"] if present else [])]
             with tempfile.TemporaryDirectory(prefix="visr-released-shaders-") as temporary:
-                archive = subprocess.run(["git", "-C", str(ROOT), "archive", "--format=tar", commit, "--", *paths],
+                archive = subprocess.run(["git", "-C", str(RELEASE_REPOSITORY), "archive", "--format=tar", commit, "--", *paths],
                                          capture_output=True, check=True).stdout
                 subprocess.run(["tar", "--extract", "--directory", temporary], input=archive, check=True)
                 tree = Path(temporary)
@@ -673,6 +675,10 @@ def main(arguments=None):
     parser.add_argument("--sequence", required=True, type=int)
     parser.add_argument("--compatibility", required=True)
     parser.add_argument("--input", required=True, type=Path)
+    parser.add_argument("--released-apps", choices=("require", "skip"), default="require",
+                        help="a shader feed is checked against every release from the floor on, built from the tags in "
+                             "this checkout (git fetch --tags); skip is for a checkout without tags, such as CI's, "
+                             "and never for a feed that is published")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--signing-key", required=True, type=Path)
     parser.add_argument("--notes", default="")
@@ -709,8 +715,11 @@ def main(arguments=None):
             with tempfile.TemporaryDirectory(prefix="visr-released-shader-snapshot-") as temporary:
                 for name, content in files.items():
                     (Path(temporary) / name).write_bytes(content)
-                checked = validate_shaders_with_released_apps(temporary)
-            print(f"Released apps that admit this snapshot: {', '.join(checked)}")
+                if args.released_apps == "require":
+                    checked = validate_shaders_with_released_apps(temporary)
+                    print(f"Released apps that admit this snapshot: {', '.join(checked)}")
+                else:
+                    print("Released-app check skipped (--released-apps skip)")
     assets = {}
     if args.kind == "shaders" and args.compatibility == SHADER_LISTS_FORMAT:
         encoded = {}
