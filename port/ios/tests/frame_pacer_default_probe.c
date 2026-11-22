@@ -54,14 +54,26 @@ int main(void)
         frames_in_flight = "";
         frame_pacer_start(0);
         CHECK(frame_pacer_frame_begin(&first, 1, 0.0, 1) == 1);
-        CHECK(first.slot && !first.slot_waited && first.granted > 0.0 && first.presenting == 0.0);
+        CHECK(first.slot && !first.slot_waited && !first.others_in_flight && first.granted > 0.0 && first.presenting == 0.0);
         frame_pacer_present(&first);
         CHECK(first.presenting >= first.granted);
         frame_pacer_frame_begin(&second, 2, 0.0, 1);
         CHECK(second.slot_waited && second.granted >= first.presenting);
+        /* (it gave up waiting: the first frame still holds the one slot, so the second holds none) */
+        CHECK(!second.slot && !second.others_in_flight);
         frame_pacer_presented(&first, 0.0);
         frame_pacer_frame_dropped(&second);
         frame_pacer_stop();
+        /* two in flight: the second frame takes the second slot at once, with the first still in flight */
+        frames_in_flight = "2";
+        frame_pacer_start(0);
+        frame_pacer_frame_begin(&first, 4, 0.0, 1);
+        frame_pacer_frame_begin(&second, 5, 0.0, 1);
+        CHECK(second.slot && !second.slot_waited && second.others_in_flight == 1);
+        frame_pacer_presented(&first, 0.0);
+        frame_pacer_presented(&second, 0.0);
+        frame_pacer_stop();
+        frames_in_flight = "";
         /* (a frame that does not wait for the display asks for no slot and records no grant) */
         frame_pacer_start(0);
         CHECK(frame_pacer_frame_begin(&first, 3, 0.0, 0) == 1 && !first.slot && first.granted == 0.0);
