@@ -1020,7 +1020,8 @@ void structure_render_shadow(
 	short bounding_surface_count,
 	real_plane3d const *bounding_surfaces)
 {
-	long surface_indices[MAXIMUM_LOCALLY_RENDERED_SURFACES];
+	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (16 KiB per shadow); structure_visibility_build_surfaces returns how many it wrote and only those are read */
+	SIM_UNINITIALIZED long surface_indices[MAXIMUM_LOCALLY_RENDERED_SURFACES];
 	long surface_count;
 	long dynamic_triangles_index;
 

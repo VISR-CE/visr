@@ -25,8 +25,15 @@ REVIEWED = {
     ("source/objects/objects.c", "cannot_interpolate_node_orientations_storage"),  # object_compute_node_matrices
     ("source/objects/objects.c", "temporary_object_indices"),  # objects_in_sphere
     ("source/render/render_objects.c", "name"),  # render_object_list
+    ("source/cache/cache_files.c", "expected_group"),  # tag_get
+    ("source/cache/cache_files.c", "returned_group"),  # tag_get
+    ("source/objects/objects.c", "garbage_object_indices"),  # objects_garbage_collection
+    ("source/game/players.c", "actions"),  # players_update_before_game
+    ("source/models/models.c", "relative_node_matrices"),  # render_model
+    ("source/structures/structure_render.c", "surface_indices"),  # structure_render_shadow
+    ("port/linux/src/d3d8_device.c", "key"),  # prepare_draw
 }
-REVIEWED_COUNT = 9
+REVIEWED_COUNT = 16
 
 USE = re.compile(r"^\s*SIM_UNINITIALIZED\s+[^;=]*?\b(\w+)\s*(?:\[[^\]]*\])?\s*;", re.M)
 
@@ -57,7 +64,10 @@ def test_each_opt_out_says_why():
         lines = (ROOT / path).read_text(encoding="latin-1").splitlines()
         for index, line in enumerate(lines):
             if "SIM_UNINITIALIZED" in line:
-                assert "port:" in lines[index - 1] or "*/" in lines[index - 1], f"{path}:{index + 1} needs a comment above it"
+                above = index - 1
+                while "SIM_UNINITIALIZED" in lines[above]:  # one comment may cover adjacent opt-outs
+                    above -= 1
+                assert lines[above].rstrip().endswith("*/"), f"{path}:{index + 1} needs a comment above it"
 
 
 def test_pattern_build_empties_the_macro():

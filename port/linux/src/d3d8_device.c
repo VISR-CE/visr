@@ -6294,7 +6294,8 @@ skipped */
 static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 {
 	struct vertex_shader_object *program = current_program();
-	struct nv2a_pixel_shader_key key;
+	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (once per draw); pixel_key_begin clears it before any other use */
+	SIM_UNINITIALIZED struct nv2a_pixel_shader_key key;
 	float texture_scale[4][4];
 	BOOL has_depth = FALSE, lit;
 	int stage;

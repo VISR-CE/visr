@@ -4338,7 +4338,8 @@ void objects_garbage_collection(
 		boolean should_collect = FALSE;
 
 		{
-			long garbage_object_indices[MAXIMUM_OBJECTS_PER_MAP];
+			/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (32 KiB a tick); only the first garbage_object_count entries, written as they are found, are read */
+			SIM_UNINITIALIZED long garbage_object_indices[MAXIMUM_OBJECTS_PER_MAP];
 
 			if (debug_object_garbage_collection)
 			{

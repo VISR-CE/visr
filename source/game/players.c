@@ -4808,7 +4808,8 @@ void player_aiming_vector_from_facing(
 void players_update_before_game(
 	void)
 {
-	struct player_action actions[NETWORK_GAME_MAXIMUM_PLAYER_COUNT];
+	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build; the csmemset below clears it before anything reads it */
+	SIM_UNINITIALIZED struct player_action actions[NETWORK_GAME_MAXIMUM_PLAYER_COUNT];
 	struct data_iterator iterator;
 	struct player_datum *player;
 	struct unit_datum *unit;
