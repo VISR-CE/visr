@@ -339,7 +339,7 @@ static void check_keyframes(const char *run)
 	unsigned long differ, checked = gpu_queue_keyframes_checked(&differ);
 	static unsigned long checked_before;
 
-	CHECK(checked - checked_before >= FRAMES - 1 && !differ,
+	CHECK(checked - checked_before == FRAMES && !differ,
 		"the %s run checked %lu keyframes for %d frames; %lu left another state", run, checked - checked_before, FRAMES,
 		differ);
 	checked_before = checked;

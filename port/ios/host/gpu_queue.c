@@ -73,11 +73,6 @@ int gpu_queue_mode_parse(const char *value)
 calls the producer makes itself (recorded commands go to the consumer's next) */
 static const struct gpu_backend *direct;
 static struct gpu_backend queued;
-/* the backend's answers to the last draw and present consumed (inline: the one just written) */
-/* soft_depth_prepare's calls whose backend answer was not the producer's (soft_depth_ready's), and whether one has
-been logged */
-static unsigned long answers_differ;
-static int answer_logged;
 static _Atomic int mode;
 static int timing;
 static void (*log_line)(const char *line);
@@ -297,11 +292,6 @@ unsigned long gpu_queue_drains(void)
 	return drains;
 }
 
-unsigned long gpu_queue_answers_differ(void)
-{
-	return answers_differ;
-}
-
 /* ---------- payload helpers */
 
 struct writer
@@ -423,7 +413,12 @@ struct consumer
 			unsigned char blocks[UNIFORM_BLOCKS * DRAW_BLOCK];
 		} uniforms;
 	} held;
+	/* the backend's answers to the last draw and present consumed (inline: the one just written) */
 	uint32_t draw_result, present_result;
+	/* soft_depth_prepare's calls whose backend answer was not the producer's (soft_depth_ready's), and whether one
+	has been logged */
+	unsigned long answers_differ;
+	int answer_logged;
 };
 
 /* the queue's own consumer */
@@ -1042,8 +1037,8 @@ static void consume_soft_depth_prepare(struct reader *reader)
 	answer = reader->consumer->next->soft_depth_prepare(header[0], values, size / (uint32_t)sizeof(float));
 	if (answer != header[1])
 	{
-		answers_differ++;
-		if (!answer_logged && log_line)
+		reader->consumer->answers_differ++;
+		if (!reader->consumer->answer_logged && log_line)
 		{
 			char line[160];
 
@@ -1051,7 +1046,7 @@ static void consume_soft_depth_prepare(struct reader *reader)
 				"(logged once)", answer, header[1]);
 			log_line(line);
 		}
-		answer_logged = 1;
+		reader->consumer->answer_logged = 1;
 	}
 }
 
@@ -1127,6 +1122,11 @@ static void check_keyframe(const unsigned char *payload)
 	keyframes_checked++;
 	if (memcmp(&fresh.held, &primary.held, sizeof(fresh.held)))
 		keyframes_differ++;
+}
+
+unsigned long gpu_queue_answers_differ(void)
+{
+	return primary.answers_differ;
 }
 
 void gpu_queue_check_keyframes(int on)
@@ -1270,8 +1270,8 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 	atomic_store(&worker.written, 0);
 	atomic_store(&worker.consumed, 0);
 	worker.started = consumer_started;
-	answers_differ = 0;
-	answer_logged = 0;
+	primary.answers_differ = 0;
+	primary.answer_logged = 0;
 	queued = *chosen;
 	/* (a backend without an operation keeps it missing: frame_context is optional) */
 #define INSTALL_F(type, name, parameters, arguments) if (chosen->name) queued.name = queued_##name;
