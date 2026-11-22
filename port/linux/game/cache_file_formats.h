@@ -356,6 +356,21 @@ enum cache_file_status cache_file_resource_maps_needed(
 	struct cache_file_source *source,
 	uint32_t *types);
 
+/* Each tag of a Custom Edition cache, from its tag index and names alone:
+`visit` is given the tag's group (as a four-character code, 'sbsp'), its
+path ("levels\a10\a10a") and whether it is the scenario's tag (by the
+handle the tag index names, whatever group it was given), until it returns
+0. Reads the tag data once. */
+typedef int (*cache_file_tag_name_proc)(
+	void *context,
+	uint32_t group,
+	char const *name,
+	int is_scenario);
+enum cache_file_status cache_file_tag_names(
+	struct cache_file_source *source,
+	cache_file_tag_name_proc visit,
+	void *context);
+
 /* The format of a cache header already in memory (CACHE_FILE_HEADER_BYTES
 bytes), from its signatures and version alone: for callers that hold a
 header but not its file. */

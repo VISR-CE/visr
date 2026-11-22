@@ -469,13 +469,17 @@ its name alone beside it, has its name given back as the map lists find it.
   version's ends in) or its header; a stock map by its content hash, which
   covers everything but the cache header, so a copy with an edited header
   checksum is still known (`map_share_content_hash`,
-  `port/runtime/stock_maps.h`). The header must be a valid Custom Edition
-  cache. A community map that reuses a stock map's name but differs in
+  `port/runtime/stock_maps.h`); a conversion of a campaign level by its tags,
+  whatever the file is named: its scenario's tag, or any structure BSP's,
+  lies in a campaign level's folder (`levels\a10\...`). A community map that
+  only borrows a campaign level's shaders or sounds is not a conversion. The
+  header must be a valid Custom Edition cache. A community map that reuses a stock map's name but differs in
   content is sent. The catalog every whole file is sent from takes no other
   file (`map_share_file_hash`) and sends one only once its content is judged,
   after it is hashed; a map's content hash is kept for its size and time
   written, so it is not hashed again. A download's file is passed on only
-  once its first piece, the header, and its pieces' hashes say it may be.
+  once its first piece, the header, the pieces holding its tag data and its
+  pieces' hashes say it may be.
 - **The offer.** A host that shares maps (`network.map_share`) hashes the
   map on a thread of its own and answers with its size and hash (`_offer`,
   or why it does not: sharing off, or not a map it sends). A client that

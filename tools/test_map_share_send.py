@@ -19,6 +19,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -34,12 +35,13 @@ CASES = ["catalog", "catalog-once", "catalog-changing", "catalog-replaced", "dow
 
 MAP_SHARE_FILES_FUNCTIONS = ("hex_digit", "map_share_name_hashed", "map_share_name_base_length",
                              "map_share_piece_count", "map_share_file_get", "map_share_file_hash_of_pieces",
-                             "map_share_first_piece_rest_hash", "map_share_content_hash", "map_share_content_read",
+                             "map_share_first_piece_rest_hash", "map_share_content_hash", "file_source_read",
+                             "map_share_campaign_read", "map_share_tag_data_pieces", "map_share_content_read",
                              "hash_job_run", "map_share_file_judge", "map_share_file_unchanged", "known_hash_find",
                              "map_share_map_hash_remember", "map_share_file_hash", "catalog_file_judged",
                              "catalog_job_finish", "map_share_file_hashed")
 MAP_SHARE_FUNCTIONS = ("put_long", "level_name_copy", "frame_room", "frame_begin", "frame_piece",
-                       "current_files_hashed", "download_file_sendable", "sent_catalog_file", "sent_download_file",
+                       "current_files_hashed", "download_file_has_pieces", "download_file_sendable", "sent_catalog_file", "sent_download_file",
                        "send_state", "piece_sendable", "connection_send_hashes", "serving_file_size", "block_read",
                        "download_piece_had", "host_offer", "host_files_failed", "host_request")
 
@@ -64,14 +66,26 @@ NEGATIVE_CONTROLS = {
                       "map_share_first_piece_rest_hash", "catalog"),
     "sent-before-judged": (("\tfile->ready = map_share_policy_may_send(", "\tfile->ready = TRUE || map_share_policy_may_send("),
                            "map_share_files.c", "catalog_file_judged", "catalog"),
-    "seeded-unjudged": (("\t\tcatalog_file_judged(file, content);\n", "\t\tfile->ready = TRUE;\n"), "map_share_files.c",
+    "seeded-unjudged": (("\t\tcatalog_file_judged(file, content, campaign);\n", "\t\tfile->ready = TRUE + 0 * campaign;\n"), "map_share_files.c",
                         "map_share_file_hashed", "downloaded"),
     "read-while-changing": (("if (job->failed || file->failed || !job->modified)", "if (job->failed || file->failed)"),
                             "map_share_files.c", "catalog_job_finish", "catalog-changing"),
-    "content-forgotten": (("\t\tknown->content_known = TRUE;\n", ""), "map_share_files.c", "catalog_file_judged",
+    "campaign-trusted": (("\tif (campaign)\n\t\treturn _map_share_policy_campaign_map;\n", ""), "map_share_policy.c",
+                         None, "catalog"),
+    "campaign-by-any-tag": (("if ((is_scenario || group == STRUCTURE_BSP_GROUP_TAG) && campaign_level_path(name))",
+                             "if (campaign_level_path(name))"), "map_share_policy.c", None, "catalog"),
+    "campaign-scenario-only": (("(is_scenario || group == STRUCTURE_BSP_GROUP_TAG)", "is_scenario"),
+                               "map_share_policy.c", None, "catalog"),
+    "campaign-case-sensitive": (("\t\t\tif (character >= 'A' && character <= 'Z')\n\t\t\t\tcharacter = (char)(character - 'A' + 'a');"
+                                 "\n\t\t\tif (character != expected)",
+                                 "\t\t\tif (character != expected)"), "map_share_policy.c", None, "catalog"),
+    "campaign-by-prefix": ((" && path[position] == '\\\\')", ")"), "map_share_policy.c", None, "catalog"),
+    "relay-before-tags": (("\t\tdownload_file_has_pieces(file, first_tag_piece, last_tag_piece)) &&",
+                           "\t\tTRUE) &&"), "map_share.c", "download_file_sendable", "relay-unknown"),
+    "content-forgotten": (("\t\tknown->content_known = campaign >= 0;\n", ""), "map_share_files.c", "catalog_file_judged",
                           "catalog-once"),
-    "any-cache-sent": (("identity.format != _cache_file_format_custom_edition_cache", "0"), "map_share_policy.c",
-                       None, "catalog"),
+    "any-cache-sent": (("if (status != _cache_file_status_ok || identity.format != _cache_file_format_custom_edition_cache)",
+                        "if (status != _cache_file_status_ok)"), "map_share_policy.c", None, "catalog"),
     "hashed-name-trusted": (("(uint32_t)map_share_name_base_length(name)", "(uint32_t)strlen(name)"),
                             "map_share_files.c", "map_share_file_judge", "catalog"),
     "refused-file-kept": (("\t\t\tfile->ready = FALSE;\n\t\t\tfile->failed = TRUE;\n", ""), "map_share_files.c",
@@ -108,7 +122,7 @@ NEGATIVE_CONTROLS = {
 PIECE_BYTES = 0x40000
 HEADER_BYTES = 0x800
 CONTENT_LABEL = b"VISR map content 1"
-# the fixture's files (map_share_send.c FAKE_FILE_BYTES): a header, a marker after it, then zeros
+# the fixture's files' size (map_share_send.c FAKE_FILE_BYTES)
 FAKE_FILE_BYTES = PIECE_BYTES + 0x1000
 
 
@@ -123,19 +137,11 @@ def content_hash(data):
     return blake(CONTENT_LABEL + len(data).to_bytes(4, "little") + b"".join(parts)).hex()
 
 
-def fake_stock_content(name):
-    """the content hash of map_share_send.c's stock_file for the map `name` (its header does not count)"""
-    data = bytearray(FAKE_FILE_BYTES)
-    marker = ("stock " + name).encode()
-    data[HEADER_BYTES:HEADER_BYTES + len(marker)] = marker
-    return content_hash(bytes(data))
-
-
-def fixture_stock_table():
+def fixture_stock_table(contents):
     """the stock table, each Custom Edition map's content hash its fake copy's in the fixture (a file cannot be
     made to have the real one's)"""
     return re.sub(r'(\{ "(\w+)", "[^"]*", [\w |]+, )"[0-9a-f]{64}"',
-                  lambda match: '%s"%s"' % (match.group(1), fake_stock_content(match.group(2))),
+                  lambda match: '%s"%s"' % (match.group(1), contents[match.group(2)]),
                   read("port/runtime/stock_maps.h"))
 
 
@@ -182,18 +188,17 @@ def generated(fault=None, fault_file=None, faulty_function=None):
     return config, text, policy
 
 
-def build(work, fault=None, fault_file=None, faulty_function=None):
+def compile_fixture(work, config, text, policy, table):
     clang = find_clang()
     if clang is None:
         pytest.skip("clang is needed")
-    config, text, policy = generated(fault, fault_file, faulty_function)
     (work / "config.inc").write_text(config)
     (work / "under_test.inc").write_text(text)
     # (the policy where the game has it, beside the stock table it includes)
     (work / "port/linux/game").mkdir(parents=True, exist_ok=True)
     (work / "port/runtime").mkdir(parents=True, exist_ok=True)
     (work / "port/linux/game/map_share_policy.c").write_text(policy)
-    (work / "port/runtime/stock_maps.h").write_text(fixture_stock_table())
+    (work / "port/runtime/stock_maps.h").write_text(table)
     executable = work / "map_share_send"
     command = [clang, "-std=gnu99", "-O1", "-g", "-Wall", "-Werror", "-Wno-unused-function", "-Wno-unused-variable",
                "-I", str(ROOT / "tools/harness/include"), "-I", str(work), "-I", str(work / "port/runtime"),
@@ -203,6 +208,29 @@ def build(work, fault=None, fault_file=None, faulty_function=None):
     if result.returncode:
         pytest.fail(f"map_share_send.c does not compile:\n{result.stderr}")
     return executable
+
+
+FIXTURE_CONTENTS = {}
+
+
+def fixture_contents():
+    """each stock map's fake copy's content hash, from the fixture's `contents` (the code as it is, no fault)"""
+    if not FIXTURE_CONTENTS:
+        work = Path(tempfile.mkdtemp(prefix="map-share-contents-"))
+        try:
+            executable = compile_fixture(work, *generated(), read("port/runtime/stock_maps.h"))
+            status, output = run(executable, "contents")
+            assert status == 0, output
+            FIXTURE_CONTENTS.update(line.split() for line in output.splitlines())
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+    assert set(FIXTURE_CONTENTS) == CUSTOM_EDITION_STOCK
+    return FIXTURE_CONTENTS
+
+
+def build(work, fault=None, fault_file=None, faulty_function=None):
+    return compile_fixture(work, *generated(fault, fault_file, faulty_function),
+                           fixture_stock_table(fixture_contents()))
 
 
 def run(executable, case):
@@ -361,8 +389,9 @@ def real_maps():
 
 
 def test_real_maps_none_is_sent_under_any_name(real_maps, tmp_path):
-    """Every stock map and resource map there, under its own name and renamed, and each stock map with an edited
-    header checksum, is refused; the content hashes are the table's."""
+    """Every stock map and resource map there, under its own name and renamed, each stock map with an edited header
+    checksum, and a campaign conversion made from each multiplayer map, is refused; the content hashes are the
+    table's."""
     clang = find_clang()
     if clang is None:
         pytest.skip("clang is needed")
@@ -372,10 +401,16 @@ def test_real_maps_none_is_sent_under_any_name(real_maps, tmp_path):
 #include "cache_file_formats.h"
 #include <stdio.h>
 #include <string.h>
+static int file_read(void *context, uint32_t offset, uint32_t size, void *buffer)
+{
+	return fseek(context, (long)offset, SEEK_SET) == 0 && fread(buffer, 1, size, context) == size;
+}
 /* arguments: the name to judge under, then a file and its content hash (hex) at a time */
 int main(int count, char **arguments)
 {
 	int index;
+	struct cache_file_source source;
+	int campaign;
 	for (index = 2; index + 1 < count; index += 2)
 	{
 		unsigned char header[CACHE_FILE_HEADER_BYTES] = {0};
@@ -396,8 +431,14 @@ int main(int count, char **arguments)
 			sscanf(arguments[index + 1] + position * 2, "%2x", &value);
 			content[position] = (unsigned char)value;
 		}
+		stream = fopen(arguments[index], "rb");
+		source.context = stream;
+		source.read = file_read;
+		source.size = (uint32_t)size;
+		campaign = map_share_policy_campaign(&source);
+		fclose(stream);
 		printf("%d\n", map_share_policy_may_send(map_share_policy_judge(0, arguments[1], (unsigned)strlen(arguments[1]),
-			header, (unsigned)bytes, (unsigned)size, content)));
+			header, (unsigned)bytes, (unsigned)size, content, campaign)));
 	}
 	return 0;
 }
@@ -409,6 +450,7 @@ int main(int count, char **arguments)
     files = sorted(path for path in real_maps.glob("*.map") if path.stem in refused)
     assert files
     arguments = []
+    conversions = 0
     for path in files:
         data = path.read_bytes()
         content = content_hash(data)
@@ -418,7 +460,17 @@ int main(int count, char **arguments)
             edited = tmp_path / f"edited-{path.name}"
             edited.write_bytes(data[:0x64] + bytes(4) + data[0x68:])
             arguments += [str(edited), content_hash(edited.read_bytes())]
+            # (a conversion of a campaign level made from it: its scenario renamed into a campaign level's folder,
+            # so its content is no stock map's)
+            scenario = f"levels\\test\\{path.stem}\\{path.stem}\0".encode()
+            if path.stem != "ui" and scenario in data:
+                renamed = b"levels\\a10\\" + b"x" * (len(scenario) - 12) + b"\0"
+                converted = tmp_path / f"converted-{path.name}"
+                converted.write_bytes(data.replace(scenario, renamed))
+                arguments += [str(converted), content_hash(converted.read_bytes())]
+                conversions += 1
         arguments += [str(path), content]
+    assert conversions, "no stock map's scenario could be renamed into a campaign level's folder"
     for name in ("hugeass", *(path.stem for path in files)):
         result = subprocess.run([str(judge), name, *arguments], capture_output=True, text=True, check=True)
         assert set(result.stdout.split()) == {"0"}, f"a stock or resource map is sent as {name}.map"

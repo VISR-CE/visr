@@ -234,21 +234,98 @@ static void file_write(char const *name, byte const *header, long size)
 	marked_file_write(name, header, NULL, size);
 }
 
-/* a stock map's first piece: a Custom Edition header (named `header_name`,
-with `checksum`: a copy's may be edited) and the content of the stock map
-`stock` (test_map_share_send.py gives the table its content hash) */
-static void stock_piece(byte *piece, char const *stock, char const *header_name, unsigned long checksum)
+/* a Custom Edition map's first piece: its header (named `header_name`, with
+`checksum`: a copy's may be edited), its tag data right after it (a tag
+index of the scenario `scenario`, the structure BSP `bsp` and, if
+`extra_group`, one more tag `extra`), then `marker`, what its content is */
+enum
 {
+	FAKE_TAG_CACHE_ADDRESS = 0x40440000,
+	FAKE_TAG_DATA_BYTES = 0x200,
+	FAKE_TAG_INSTANCES = 0x28,
+	FAKE_TAG_NAMES = FAKE_TAG_INSTANCES + 3 * 0x20,
+};
+
+static void map_piece(byte *piece, char const *header_name, unsigned long checksum, char const *scenario,
+	char const *bsp, unsigned long extra_group, char const *extra, char const *marker)
+{
+	byte *tags = piece + CACHE_FILE_HEADER_BYTES;
+	char const *names[3] = { scenario, bsp, extra };
+	unsigned long const groups[3] = { 0x73636E72UL, 0x73627370UL, extra_group };
+	long name_offset = FAKE_TAG_NAMES;
+	int count = extra_group ? 3 : 2;
+	int index;
+
 	memset(piece, 0, MAP_SHARE_PIECE_BYTES);
 	cache_header(piece, CACHE_FILE_VERSION_CUSTOM_EDITION, header_name, checksum);
-	snprintf((char *)piece + CACHE_FILE_HEADER_BYTES, 64, "stock %s", stock);
+	put32(piece + 0x14, FAKE_TAG_DATA_BYTES);
+	put32(tags + 0x00, FAKE_TAG_CACHE_ADDRESS + FAKE_TAG_INSTANCES);
+	put32(tags + 0x04, 0xE1740000UL);
+	put32(tags + 0x0C, (unsigned long)count);
+	put32(tags + 0x24, 0x74616773UL);
+	for (index = 0; index < count; index++)
+	{
+		byte *instance = tags + FAKE_TAG_INSTANCES + index * 0x20;
+
+		put32(instance + 0x00, groups[index]);
+		put32(instance + 0x0C, 0xE1740000UL + (unsigned long)index);
+		put32(instance + 0x10, FAKE_TAG_CACHE_ADDRESS + (unsigned long)name_offset);
+		strcpy((char *)tags + name_offset, names[index]);
+		name_offset += (long)strlen(names[index]) + 1;
+	}
+	CHECK(name_offset < FAKE_TAG_DATA_BYTES, "fake tag names too long");
+	snprintf((char *)tags + FAKE_TAG_DATA_BYTES, 64, "%s", marker);
 }
 
+/* a copy of the stock map `stock`'s first piece (test_map_share_send.py
+gives the table its content hash: `contents`) */
+static void stock_piece(byte *piece, char const *stock, char const *header_name, unsigned long checksum)
+{
+	char path[128];
+	char marker[64];
+
+	snprintf(path, sizeof(path), "levels\\test\\%s\\%s", stock, stock);
+	snprintf(marker, sizeof(marker), "stock %s", stock);
+	map_piece(piece, header_name, checksum, path, path, 0, NULL, marker);
+}
+
+/* a community map's: its own scenario and BSP, and, as community maps do,
+a shader of a campaign level's */
 static void community_piece(byte *piece, char const *header_name)
 {
-	memset(piece, 0, MAP_SHARE_PIECE_BYTES);
-	cache_header(piece, CACHE_FILE_VERSION_CUSTOM_EDITION, header_name, COMMUNITY_CHECKSUM);
-	snprintf((char *)piece + CACHE_FILE_HEADER_BYTES, 64, "community %s", header_name);
+	char path[128];
+	char marker[64];
+
+	snprintf(path, sizeof(path), "levels\\test\\%s\\%s", header_name, header_name);
+	snprintf(marker, sizeof(marker), "community %s", header_name);
+	map_piece(piece, header_name, COMMUNITY_CHECKSUM, path, path, 0x73686472UL,
+		"levels\\a10\\shaders\\metal", marker);
+}
+
+/* a conversion of a campaign level: by its scenario (levels\a10\a10, in any
+case), or by a structure BSP of one with a scenario renamed */
+static void conversion_piece(byte *piece, char const *header_name, char const *scenario, char const *bsp)
+{
+	char marker[64];
+
+	snprintf(marker, sizeof(marker), "conversion %s %s", scenario, bsp);
+	map_piece(piece, header_name, COMMUNITY_CHECKSUM, scenario, bsp, 0, NULL, marker);
+}
+
+/* a file whose first piece is `piece`, zeros after it */
+static void piece_file(char const *name, byte const *piece)
+{
+	char path[MAP_SHARE_PATH_SIZE];
+	FILE *stream;
+	byte zero = 0;
+
+	fake_path(path, name);
+	stream = fopen(path, "wb");
+	CHECK(stream != NULL, "%s cannot be written", path);
+	fwrite(piece, 1, MAP_SHARE_PIECE_BYTES, stream);
+	fseek(stream, FAKE_FILE_BYTES - 1, SEEK_SET);
+	fwrite(&zero, 1, 1, stream);
+	fclose(stream);
 }
 
 /* a copy of the stock map `stock`, under any name and header */
@@ -257,7 +334,7 @@ static void stock_file(char const *name, char const *stock, char const *header_n
 	static byte piece[MAP_SHARE_PIECE_BYTES];
 
 	stock_piece(piece, stock, header_name, checksum);
-	marked_file_write(name, piece, (char const *)piece + CACHE_FILE_HEADER_BYTES, FAKE_FILE_BYTES);
+	piece_file(name, piece);
 }
 
 static void community_file(char const *name, char const *header_name)
@@ -265,7 +342,15 @@ static void community_file(char const *name, char const *header_name)
 	static byte piece[MAP_SHARE_PIECE_BYTES];
 
 	community_piece(piece, header_name);
-	marked_file_write(name, piece, (char const *)piece + CACHE_FILE_HEADER_BYTES, FAKE_FILE_BYTES);
+	piece_file(name, piece);
+}
+
+static void conversion_file(char const *name, char const *header_name, char const *scenario, char const *bsp)
+{
+	static byte piece[MAP_SHARE_PIECE_BYTES];
+
+	conversion_piece(piece, header_name, scenario, bsp);
+	piece_file(name, piece);
 }
 
 static void folder_make(void)
@@ -361,6 +446,19 @@ static void case_catalog(void)
 	community_file("mymod.map", "bloodgulch");
 	CHECK(catalog_takes("mymod.map", _map_share_file_map), "a community map with a stock header name is not sent");
 
+	/* conversions of a campaign level, by their tags under any name: the
+	scenario's, or a structure BSP's with the scenario renamed; a
+	community map that only borrows a campaign shader is sent (above) */
+	conversion_file("pillar.map", "pillar", "levels\\a10\\a10", "levels\\a10\\a10a");
+	CHECK(!catalog_takes("pillar.map", _map_share_file_map), "a campaign conversion is sent");
+	conversion_file("hugeass2.map", "hugeass2", "LEVELS\\A30\\a30_coop", "levels\\test\\hugeass2\\hugeass2");
+	CHECK(!catalog_takes("hugeass2.map", _map_share_file_map), "a campaign conversion's scenario in capitals is sent");
+	conversion_file("cartographer.map", "cartographer", "levels\\test\\carto\\carto", "levels\\b30\\b30");
+	CHECK(!catalog_takes("cartographer.map", _map_share_file_map),
+		"a map on a campaign level's structure BSP, its scenario renamed, is sent");
+	conversion_file("a100.map", "a100", "levels\\a100\\a100", "levels\\a100\\a100");
+	CHECK(catalog_takes("a100.map", _map_share_file_map), "a community map in a folder named like a campaign level's is not sent");
+
 	/* resource maps: as what they are sent as, or by what they are */
 	resource_header(header, 1);
 	file_write("bitmaps.map", header, FAKE_FILE_BYTES);
@@ -453,6 +551,7 @@ static void case_offer(void)
 	stock_file("bloodgulch.map", "bloodgulch", "bloodgulch", BLOOD_GULCH_CHECKSUM);
 	stock_file("renamed.map", "bloodgulch", "renamed", BLOOD_GULCH_CHECKSUM);
 	stock_file("edited.map", "bloodgulch", "edited", COMMUNITY_CHECKSUM);
+	conversion_file("pillar.map", "pillar", "levels\\a10\\a10", "levels\\a10\\a10a");
 	resource_header(header, 1);
 	file_write("bitmaps.map", header, FAKE_FILE_BYTES);
 	resource_header(header, 2);
@@ -490,6 +589,9 @@ static void case_offer(void)
 	request(FLAG(_map_share_file_map));
 	CHECK(fake_offer_result == _offer_unavailable && fake_offer_count == 0,
 		"a stock map with an edited header checksum offered");
+	strcpy(fake_game.map.name, "custom_maps\\pillar");
+	request(FLAG(_map_share_file_map));
+	CHECK(fake_offer_result == _offer_unavailable && fake_offer_count == 0, "a campaign conversion offered");
 }
 
 /* what a downloading machine passes on of the download's files */
@@ -662,6 +764,22 @@ static void case_relay_unknown(void)
 	CHECK(!piece_sendable(connection, 0, 1), "a piece of a file not judged yet is sendable");
 	send_state(connection, 0);
 	CHECK(connection->output_size == 0, "the state of a file not judged yet is said");
+
+	/* a community map whose tag data lies in its second piece: not passed
+	on with its first piece alone, then passed on once its tags are had */
+	connection = relay_make(1);
+	community_piece(piece, "later");
+	put32(piece + 0x10, MAP_SHARE_PIECE_BYTES);
+	download_file_make(0, _map_share_file_map, "later.map", piece);
+	connection->download_file[0] = 0;
+	CHECK(!piece_sendable(connection, 0, 0), "a file whose tags are not had yet is passed on");
+	{
+		static byte tags[MAP_SHARE_PIECE_BYTES];
+
+		memcpy(tags, piece + CACHE_FILE_HEADER_BYTES, FAKE_TAG_DATA_BYTES);
+		download_piece_had(0, 1, tags);
+	}
+	CHECK(piece_sendable(connection, 0, 0), "a community map whose tags are had is not passed on");
 }
 
 /* a catalog file replaced on disk after it was judged is not sent until it
@@ -764,13 +882,49 @@ static void case_downloaded(void)
 	CHECK(downloaded_takes("hugeass.map"), "a downloaded community map is not passed on");
 	stock_file("mymap.map", "bloodgulch", "mymap", COMMUNITY_CHECKSUM);
 	CHECK(!downloaded_takes("mymap.map"), "a downloaded stock map with an edited header checksum is passed on");
+	conversion_file("pillar.map", "pillar", "levels\\a10\\a10", "levels\\a10\\a10a");
+	CHECK(!downloaded_takes("pillar.map"), "a downloaded campaign conversion is passed on");
+}
+
+/* each stock map's fake copy's content hash, for test_map_share_send.py
+to give the stock table */
+static void contents(void)
+{
+	struct stock_map const *maps;
+	char name[64];
+	int count;
+	int index;
+
+	folder_make();
+	maps = stock_maps(&count);
+	for (index = 0; index < count; index++)
+	{
+		struct hash_job job;
+		int position;
+
+		if (!maps[index].custom_edition_content)
+			continue;
+		snprintf(name, sizeof(name), "%s.map", maps[index].file);
+		stock_file(name, maps[index].file, maps[index].file, BLOOD_GULCH_CHECKSUM);
+		memset(&job, 0, sizeof(job));
+		fake_path(job.path, name);
+		hash_job_run(&job);
+		CHECK(!job.failed, "%s cannot be hashed", name);
+		printf("%s ", maps[index].file);
+		for (position = 0; position < MAP_SHARE_POLICY_CONTENT_BYTES; position++)
+			printf("%02x", job.content[position]);
+		printf("\n");
+		free(job.piece_hashes);
+	}
 }
 
 int main(int count, char **arguments)
 {
 	char const *name = count > 1 ? arguments[1] : "";
 
-	if (!strcmp(name, "catalog"))
+	if (!strcmp(name, "contents"))
+		contents();
+	else if (!strcmp(name, "catalog"))
 		case_catalog();
 	else if (!strcmp(name, "offer"))
 		case_offer();
