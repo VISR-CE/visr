@@ -34,9 +34,15 @@ void host_logf(int priority, const char *format, ...)
 	va_list arguments;
 
 	(void)priority;
+	char line[1024];
+
 	va_start(arguments, format);
-	vsnprintf(last_line, sizeof(last_line), format, arguments);
+	vsnprintf(line, sizeof(line), format, arguments);
 	va_end(arguments);
+	/* (the latency line; the handler counts after it are not checked here) */
+	if (strncmp(line, "latency: frames=", 16))
+		return;
+	memcpy(last_line, line, sizeof(line));
 	lines++;
 }
 

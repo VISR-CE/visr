@@ -35,6 +35,7 @@ static struct
 	_Atomic uint64_t frame_id; /* the open row's */
 	struct frame_timeline_latency window;
 	int log; /* debug.latency_log */
+	_Atomic unsigned long handlers, no_time, too_late; /* presented handlers since the last line */
 } timeline = { .once = PTHREAD_ONCE_INIT };
 
 static void timeline_start(void)
@@ -112,18 +113,14 @@ int host_frame_timeline_logging(void)
 
 void host_frame_timeline_shown(uint64_t frame_id, double shown)
 {
-	static _Atomic int reported_zero, reported_late;
-
 	pthread_once(&timeline.once, timeline_start);
-	/* (once each: a display that gives no presented time, and a shown time for a row the ring no longer holds, leave
-	controller_to_shown unknown; say why) */
-	if (shown <= 0.0 && !atomic_exchange(&reported_zero, 1))
-		host_logf(HOST_LOG_INFO, "latency: frame %llu was shown with no presented time (reported once)",
-			(unsigned long long)frame_id);
-	if (shown > 0.0 && atomic_load(&timeline.frame_id) > frame_id + FRAME_TIMELINE_RING &&
-		!atomic_exchange(&reported_late, 1))
-		host_logf(HOST_LOG_INFO, "latency: frame %llu's presented time came after its row left the ring (reported "
-			"once)", (unsigned long long)frame_id);
+	/* (counted for the line after each window: a presented handler with no presented time, and a shown time for a
+	row the ring no longer holds, leave controller_to_shown unknown) */
+	atomic_fetch_add(&timeline.handlers, 1);
+	if (shown <= 0.0)
+		atomic_fetch_add(&timeline.no_time, 1);
+	else if (atomic_load(&timeline.frame_id) > frame_id + FRAME_TIMELINE_RING)
+		atomic_fetch_add(&timeline.too_late, 1);
 	frame_timeline_ring_shown(&timeline.ring, frame_id, shown, FRAME_TIMELINE_SHOWN_DRAWABLE_PRESENTED_TIME);
 }
 
@@ -144,5 +141,8 @@ void host_frame_timeline_seal(void)
 
 		frame_timeline_latency_line(&timeline.window, PLATFORM, line, sizeof(line));
 		host_logf(HOST_LOG_INFO, "%s", line);
+		host_logf(HOST_LOG_INFO, "latency handlers: %lu presented handlers, %lu with no presented time, %lu after "
+			"the row left the ring", atomic_exchange(&timeline.handlers, 0), atomic_exchange(&timeline.no_time, 0),
+			atomic_exchange(&timeline.too_late, 0));
 	}
 }
