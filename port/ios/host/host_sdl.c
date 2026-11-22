@@ -1139,8 +1139,6 @@ static void audio_route_changed_locked(void)
         if(SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(replacement),&output,NULL))
             host_logf(HOST_LOG_INFO,"audio route: stream reopened on a new device at %d Hz, %d channels (guest source %d Hz)",
                 output.freq,output.channels,binding->source.freq);
-        {char granted[256];host_audio_session_describe(granted,sizeof(granted));
-            host_logf(HOST_LOG_INFO,"audio route: reopened timing: %s",granted);}
     }
 }
 

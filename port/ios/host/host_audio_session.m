@@ -63,7 +63,8 @@ void host_audio_session_apply(void)
 {
 }
 
-/* macOS has no audio session: the default output device's own numbers (frames, at its nominal rate). */
+/* macOS has no audio session: the system default output device's own numbers (frames, at its nominal rate), not SDL's
+   queue (its size is "sample frames" on the audio device line) and not the device SDL opened if that is not the default. */
 void host_audio_session_describe(char *out,size_t size)
 {
     AudioObjectID device=kAudioObjectUnknown;
@@ -92,9 +93,9 @@ void host_audio_session_describe(char *out,size_t size)
     if(AudioObjectGetPropertyData(device,&address,0,NULL,&length,streams)==noErr && length>=sizeof(AudioObjectID))
         have_stream=hal_u32(streams[0],kAudioObjectPropertyScopeGlobal,kAudioStreamPropertyLatency,&stream_latency);
     /* -1: the property was not readable */
-    snprintf(out,size,"buffer_frames=%d device_latency=%d safety_offset=%d stream_latency=%d rate=%.0f Hz transport=0x%x",
+    snprintf(out,size,"buffer_frames=%d device_latency=%d safety_offset=%d stream_latency=%d rate=%.0f Hz transport=%d",
         have_buffer?(int)buffer:-1,have_latency?(int)latency:-1,have_safety?(int)safety:-1,have_stream?(int)stream_latency:-1,
-        rate,have_transport?(unsigned)transport:0u);
+        rate,have_transport?(int)transport:-1);
 }
 
 void host_audio_session_release(void)
