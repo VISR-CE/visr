@@ -91,6 +91,16 @@ int shader_record_close(struct shader_record_set *set, shader_record_lookup look
 
 	for (i = 0; i < set->count; i++)
 		shader_record_reduce(&set->items[i]); /* also a pipeline's vertex variant */
+	/* A pipeline follows its pixel shader to the canonical hash now: normalizing folds ps records that reduce to
+	one key and keeps only one recorded hash, so the others would be lost */
+	for (i = 0; i < set->count; i++)
+		if (set->items[i].kind == SHADER_RECORD_PIPELINE)
+		{
+			const struct shader_record *found = shader_record_set_find_pixel(set, set->items[i].hash);
+
+			if (found)
+				set->items[i].hash = found->hash;
+		}
 	shader_record_normalize(set);
 	count = set->count;
 	for (i = 0; i < count; i++)

@@ -83,7 +83,13 @@ static int list_maps(const char *folder, char names[][64], int max)
 
 static void map_path(char *out, size_t size, const char *folder, const char *map)
 {
-	snprintf(out, size, "%s/%s.txt", folder, map);
+	size_t a = strlen(folder), b = strlen(map);
+
+	if (a + b + 6 > size) { out[0] = 0; return; }
+	memcpy(out, folder, a);
+	out[a] = '/';
+	memcpy(out + a + 1, map, b);
+	memcpy(out + a + 1 + b, ".txt", 5);
 }
 
 /* Reads the records of a file into SET. Unparseable lines are listed on stderr and counted in *BAD; when ADMIT, a
@@ -111,6 +117,20 @@ static int read_records(const char *path, struct shader_record_set *set, int adm
 			line++;
 		if (!*line || *line == '#')
 			continue;
+		if (shader_record_parse(line, &record, &problem) && record.kind == SHADER_RECORD_PS &&
+			shader_record_hash(record.key, record.key_size) != record.hash)
+		{
+			/* a key must hash to its name at every size: close rewrites the hash from the key */
+			memset(&problem, 0, sizeof(problem));
+			problem.reason = SHADER_RECORD_BAD_HASH;
+			problem.field = "hash";
+			problem.index = -1;
+			snprintf(problem.detail, sizeof(problem.detail), "the key hashes to another value");
+			problem.value = (int64_t)shader_record_hash(record.key, record.key_size);
+			fprintf(stderr, "%s:%d: %s\n", path, line_no, shader_record_problem_text(&problem, message, sizeof(message)));
+			(*bad)++;
+			continue;
+		}
 		if (!shader_record_parse(line, &record, &problem) || (admit && !shader_record_admit(&record, &problem)))
 		{
 			fprintf(stderr, "%s:%d: %s\n", path, line_no, shader_record_problem_text(&problem, message, sizeof(message)));
@@ -201,8 +221,7 @@ static int command_fields(int argc, char **argv)
 
 		if (f->size * f->count == 1) snprintf(bytes, sizeof(bytes), "%u", f->offset);
 		else snprintf(bytes, sizeof(bytes), "%u-%u", f->offset, end);
-		if (f->count > 1 && f->size == 1) snprintf(name, sizeof(name), "`%s[%u]`", f->name, f->count);
-		else if (f->count > 1) snprintf(name, sizeof(name), "`%s[%u]`", f->name, f->count);
+		if (f->count > 1) snprintf(name, sizeof(name), "`%s[%u]`", f->name, f->count);
 		else snprintf(name, sizeof(name), "`%s`", f->name);
 		legal_text(f, legal, sizeof(legal));
 		if (markdown) printf("| %s | %s | %s | %s |\n", bytes, name, f->source, legal);
@@ -233,7 +252,7 @@ static int command_fields(int argc, char **argv)
 
 static void explain_record(const struct shader_record *r)
 {
-	char line[SHADER_RECORD_LINE_MAX], name[80], message[200];
+	char name[80], message[200];
 	struct shader_record_problem problem;
 	size_t i;
 
@@ -287,7 +306,6 @@ static void explain_record(const struct shader_record *r)
 		printf("  admitted\n");
 	else
 		printf("  refused: %s\n", shader_record_problem_text(&problem, message, sizeof(message)));
-	shader_record_format(r, line);
 }
 
 static int command_explain(int argc, char **argv)
@@ -489,7 +507,7 @@ static int command_close(int argc, char **argv)
 		for (j = 0; j < count; j++)
 		{
 			for (k = 0; k < n && strcmp(names[k], found[j]); k++) ;
-			if (k == n && n < MAX_MAPS) snprintf(names[n++], 64, "%s", found[j]);
+			if (k == n && n < MAX_MAPS) memcpy(names[n++], found[j], 64);
 		}
 	}
 	if (report && !(json = fopen(report, "wb")))
@@ -505,7 +523,7 @@ static int command_close(int argc, char **argv)
 		int bad = 0, d;
 		char path[1200];
 
-		snprintf(s.current, sizeof(s.current), "%s", names[i]);
+		memcpy(s.current, names[i], 64);
 		for (d = 0; d < deltas.count; d++)
 		{
 			size_t first = set.count;
@@ -513,6 +531,7 @@ static int command_close(int argc, char **argv)
 			map_path(path, sizeof(path), deltas.items[d], names[i]);
 			if (access(path, 0) == 0 && !read_records(path, &set, 0, &bad))
 				return 1;
+			if (bad) exit_code = 1;
 			for (j = first; j < set.count; j++)
 				set.items[j].origin = (uint32_t)d;
 		}
@@ -595,7 +614,7 @@ static int rebuild(const char *out, const char *lists, char **folders, int folde
 			for (j = 0; j < count; j++)
 			{
 				for (k = 0; k < n && strcmp(names[k], found[j]); k++) ;
-				if (k == n && n < MAX_MAPS) snprintf(names[n++], 64, "%s", found[j]);
+				if (k == n && n < MAX_MAPS) memcpy(names[n++], found[j], 64);
 			}
 		}
 	}
@@ -623,7 +642,7 @@ static int rebuild(const char *out, const char *lists, char **folders, int folde
 		}
 		before = existing.count;
 		/* what is added is closed against the list it joins */
-		snprintf(s.current, sizeof(s.current), "%s", names[i]);
+		memcpy(s.current, names[i], 64);
 		if (before)
 		{
 			struct source *source = add_source(&s, names[i], 0);

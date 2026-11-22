@@ -361,7 +361,7 @@ PINNED_TOTALS = {"in": 84, "closed": 39, "unresolved": 13}
 
 
 def test_close_pins_what_it_does_to_the_real_interval_files(tmp_path):
-    """twenty intervals from four tester reports, closed against only the report's own dependency candidates; the
+    """twenty intervals from four reports, closed against only the report's own dependency candidates; the
     totals are pinned so a change in how `close` resolves is a visible diff"""
     totals = {"in": 0, "closed": 0, "unresolved": 0}
     for index, interval in enumerate(intervals()):
@@ -522,8 +522,6 @@ def test_builds_before_the_floor_refuse_a_sampler_type_of_five_and_those_from_it
     five = folder_with(tmp_path, f"{ps(key(2, sampler_type=[5, 0, 0, 0]))}\n")
     assert data_pack.validate_shaders_with_released_apps(five)[0] == "visr-v0.6.15"
     monkeypatch.setattr(data_pack, "SHADER_FEED_FLOOR_TAG", "visr-v0.6.12")
-    monkeypatch.setattr(data_pack, "released_shader_validators",
-                        lambda floor="visr-v0.6.12", original=data_pack.released_shader_validators: original(floor))
     with pytest.raises(ValueError, match=r"visr-v0\.6\.1[234] would refuse"):
         data_pack.validate_shaders_with_released_apps(five)
 
@@ -576,3 +574,25 @@ def test_whatever_close_reduces_a_lit_key_to_passes_the_validator(tmp_path):
     assert report["unresolved_pipelines"] == 0
     assert run("check", "--lint", str(out)).returncode == 0
     assert all(len(line.split()[2]) == 504 for line in read_entries(out / "a10.txt") if line.startswith("ps "))
+
+
+def test_ps_records_that_fold_to_one_key_keep_every_pipeline_closed(tmp_path):
+    """two non-canonical keys with one canonical form: both recorded hashes must reach the one shader"""
+    words = [0] * 57
+    words[53] = 2
+    one, two = bytearray(struct.pack("<57I", *words) + bytes(24)), bytearray(struct.pack("<57I", *words) + bytes(24))
+    one[4 * 5:4 * 5 + 4] = (1).to_bytes(4, "little")
+    two[4 * 5:4 * 5 + 4] = (2).to_bytes(4, "little")
+    text = "\n".join([VS, ps(bytes(one)), ps(bytes(two)), pipeline(fnv(bytes(one))),
+                      pipeline(fnv(bytes(two)), fields="1 4 5 0 15 0 1")]) + "\n"
+    delta = folder_with(tmp_path, text)
+    out, report = close(tmp_path, delta)
+    assert report["unresolved_pipelines"] == 0
+    assert len([line for line in read_entries(out / "a10.txt") if line.startswith("pipeline")]) == 2
+    assert run("canonical", "--out", str(tmp_path / "canon"), str(delta)).returncode == 0
+
+
+def test_close_refuses_a_ps_whose_key_does_not_hash_to_its_name(tmp_path):
+    delta = folder_with(tmp_path, f"ps {'0' * 8}deadbeef {key(2).hex()}\n{pipeline('0' * 8 + 'deadbeef')}\n")
+    result = run("close", "--out", str(tmp_path / "o"), str(delta))
+    assert result.returncode == 1 and "the key hashes to another value" in result.stderr

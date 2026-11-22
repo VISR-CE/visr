@@ -303,11 +303,12 @@ def release_version(tag):
     return tuple(map(int, found.groups())) if found else None
 
 
-def released_shader_validators(floor=SHADER_FEED_FLOOR_TAG):
+def released_shader_validators(floor=None):
     """[(tag, probe, bundled lists folder)] for every release from the floor on: each probe is built from that
     tag's own shader_pack_probe.c and host_shader_pack.c (and the shader_record module, once it has one), and the
     folder is that tag's bundled port/shader-lists, which is the base its app merges a feed onto."""
     listed = subprocess.run(["git", "-C", str(ROOT), "tag", "--list", "visr-v*"], capture_output=True, text=True, check=True)
+    floor = floor or SHADER_FEED_FLOOR_TAG
     minimum = release_version(floor)
     tags = sorted((tag for tag in listed.stdout.split() if release_version(tag) and release_version(tag) >= minimum),
                   key=release_version)
@@ -350,8 +351,8 @@ def validate_shaders_with_released_apps(folder, require=True):
     record: each app admits the feed merged onto its own bundled lists, so each is run exactly so. Returns the
     tags that admit it. `require` is False only where a tagless checkout is expected (tests)."""
     validators = released_shader_validators()
-    if require and not validators:
-        raise ValueError(f"no release tag from {SHADER_FEED_FLOOR_TAG} on is in this checkout (git fetch --tags)")
+    if require and (not validators or validators[0][0] != SHADER_FEED_FLOOR_TAG):
+        raise ValueError(f"the floor tag {SHADER_FEED_FLOOR_TAG} is not in this checkout (git fetch --tags)")
     for tag, probe, lists in validators:
         result = subprocess.run([str(probe), str(folder), str(lists)], capture_output=True, text=True)
         if result.returncode:

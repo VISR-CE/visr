@@ -18,7 +18,7 @@ struct record { int kind, line_no; char key[64], vertex[64], pixel[64], line[640
 struct reporter { host_shader_report fn; void *context; int reported; };
 static void report(struct reporter *r, const char *file, int line_no, const char *message)
 {
-    char text[400];
+    char text[1400];
     if (!r || !r->fn) return;
     r->reported++;
     if (line_no) snprintf(text, sizeof(text), "%s:%d: %s", file, line_no, message);
@@ -36,8 +36,11 @@ static int parse(const char *line, struct record *r, struct shader_record_proble
         shader_record_vertex_name(&s, r->vertex, sizeof(r->vertex));
         shader_record_pixel_name(&s, r->pixel, sizeof(r->pixel));
     } else shader_record_name(&s, r->key, sizeof(r->key));
-    shader_record_format(&s, text);
-    snprintf(r->line, sizeof(r->line), "%s", text);
+    {
+        size_t length = shader_record_format(&s, text);
+        if (length >= sizeof(r->line)) return 0;
+        memcpy(r->line, text, length + 1);
+    }
     return 1;
 }
 static int compare_key(const void *a, const void *b) { return strcmp(((const struct record *)a)->key, ((const struct record *)b)->key); }
