@@ -57,11 +57,20 @@ struct frame_timeline_ring
 {
 	pthread_mutex_t lock;
 	struct frame_timeline_row rows[FRAME_TIMELINE_RING];
+	/* a shown time that came before its row was stored (with the encode thread the display can show a frame before
+	the game thread, woken from the present barrier, seals its row): kept by slot, joined at the store */
+	struct
+	{
+		uint64_t frame_id;
+		double shown;
+		unsigned basis;
+	} early[FRAME_TIMELINE_RING];
 };
 
 void frame_timeline_ring_init(struct frame_timeline_ring *ring);
 void frame_timeline_ring_store(struct frame_timeline_ring *ring, const struct frame_timeline_row *row);
-/* the display showed frame_id at shown (0 or less: it never was); a row already gone from the ring is left alone */
+/* the display showed frame_id at shown (0 or less: it never was); a row already gone from the ring is left alone,
+and one not stored yet gets it when it is */
 void frame_timeline_ring_shown(struct frame_timeline_ring *ring, uint64_t frame_id, double shown, unsigned basis);
 /* copies frame_id's row out; 0 when it is no longer (or not yet) in the ring */
 int frame_timeline_ring_take(struct frame_timeline_ring *ring, uint64_t frame_id, struct frame_timeline_row *row);

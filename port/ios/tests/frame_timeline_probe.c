@@ -45,6 +45,17 @@ int main(void)
 	CHECK(!frame_timeline_ring_take(&ring, 4, &taken), "frame 4 is still in a 16-row ring after frame 20");
 	frame_timeline_ring_shown(&ring, 19, 0.0, FRAME_TIMELINE_SHOWN_DRAWABLE_PRESENTED_TIME);
 	CHECK(frame_timeline_ring_take(&ring, 19, &taken) && isnan(taken.shown), "a zero presentedTime became a shown time");
+	/* a shown time before its row is stored (the encode thread presented it, the game thread had not sealed yet)
+	joins the row when it is stored */
+	frame_timeline_ring_shown(&ring, 21, 7.0, FRAME_TIMELINE_SHOWN_DRAWABLE_PRESENTED_TIME);
+	CHECK(!frame_timeline_ring_take(&ring, 21, &taken), "frame 21 is in the ring before it was stored");
+	frame_timeline_row_clear(&row, 21);
+	frame_timeline_ring_store(&ring, &row);
+	CHECK(frame_timeline_ring_take(&ring, 21, &taken) && taken.shown == 7.0 &&
+		taken.shown_basis == FRAME_TIMELINE_SHOWN_DRAWABLE_PRESENTED_TIME, "an early shown time did not join its row");
+	frame_timeline_row_clear(&row, 37);
+	frame_timeline_ring_store(&ring, &row);
+	CHECK(frame_timeline_ring_take(&ring, 37, &taken) && isnan(taken.shown), "frame 21's early shown time joined frame 37");
 
 	/* the window: read at 1.000 s + n ms, shown 30 ms later except every tenth frame; no encoder tail */
 	for (id = 1; id <= FRAME_TIMELINE_WINDOW; id++)

@@ -25,13 +25,24 @@ void frame_timeline_ring_init(struct frame_timeline_ring *ring)
 
 	pthread_mutex_init(&ring->lock, NULL);
 	for (index = 0; index < FRAME_TIMELINE_RING; index++)
+	{
 		frame_timeline_row_clear(&ring->rows[index], 0);
+		ring->early[index].frame_id = 0;
+	}
 }
 
 void frame_timeline_ring_store(struct frame_timeline_ring *ring, const struct frame_timeline_row *row)
 {
+	unsigned slot = (unsigned)(row->frame_id % FRAME_TIMELINE_RING);
+
 	pthread_mutex_lock(&ring->lock);
-	ring->rows[row->frame_id % FRAME_TIMELINE_RING] = *row;
+	ring->rows[slot] = *row;
+	if (ring->early[slot].frame_id == row->frame_id)
+	{
+		ring->rows[slot].shown = ring->early[slot].shown;
+		ring->rows[slot].shown_basis = ring->early[slot].basis;
+	}
+	ring->early[slot].frame_id = 0;
 	pthread_mutex_unlock(&ring->lock);
 }
 
@@ -46,6 +57,12 @@ void frame_timeline_ring_shown(struct frame_timeline_ring *ring, uint64_t frame_
 	{
 		row->shown = shown;
 		row->shown_basis = basis;
+	}
+	else if (row->frame_id < frame_id)
+	{
+		ring->early[frame_id % FRAME_TIMELINE_RING].frame_id = frame_id;
+		ring->early[frame_id % FRAME_TIMELINE_RING].shown = shown;
+		ring->early[frame_id % FRAME_TIMELINE_RING].basis = basis;
 	}
 	pthread_mutex_unlock(&ring->lock);
 }
