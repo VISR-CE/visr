@@ -119,5 +119,35 @@ class GuestImageHeader(unittest.TestCase):
             self.assertIn(name, header)
 
 
+@unittest.skipUnless(shutil.which('clang') and shutil.which('nm'), 'needs clang and nm')
+class ImportDefinitionCheck(unittest.TestCase):
+    """the class: a guest import defined only inside a conditionally compiled file compiles everywhere and
+    fails the link where the condition is false"""
+
+    def objects(self, folder, sources):
+        import host_syntax_check
+        result = []
+        for name, text in sources.items():
+            source = Path(folder) / f'{name}.c'
+            source.write_text(text)
+            obj = Path(folder) / f'0-{name}.o'
+            subprocess.run(['clang', '-c', '-o', str(obj), str(source)], check=True)
+            result.append(obj)
+        return host_syntax_check.missing_definitions(result, listed=())
+
+    BRIDGES = 'void host_resolve_import(void) {}\nextern void host_frames_in_flight_scene(void);\nvoid use(void) { host_frames_in_flight_scene(); }\n'
+
+    def test_import_defined_only_under_a_disabled_condition_is_reported(self):
+        conditional = '#if HALO_FRAME_PACING\nvoid host_frames_in_flight_scene(void) {}\n#endif\n'
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(self.objects(folder, {'bridges': self.BRIDGES, 'host_x': conditional}),
+                             ['host_frames_in_flight_scene'])
+
+    def test_import_defined_unconditionally_passes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertEqual(self.objects(folder, {'bridges': self.BRIDGES,
+                                                   'host_x': 'void host_frames_in_flight_scene(void) {}\n'}), [])
+
+
 if __name__ == '__main__':
     unittest.main()

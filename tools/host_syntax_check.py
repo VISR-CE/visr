@@ -9,7 +9,11 @@ block then breaks the one device build that nobody ran (the `snapshot_output` us
 
 This tool takes each platform's real compile commands from CMake instead of listing flags by hand:
 it configures port/ios (or port/macos) with the Ninja generator for the platform's SDK, reads
-`compile_commands.json`, and re-runs every host translation unit with `-fsyntax-only`. The same CMake
+`compile_commands.json`, and re-runs every host translation unit with the strict flags, unoptimized and
+with `-c` (no link). Then `nm` checks that every function in port/runtime/host_imports*.list, and every
+host function the generated bridges call, is defined by some compiled object: an import defined only inside
+a conditionally compiled file (`host_frames_in_flight_scene` under `#if HALO_FRAME_PACING`) would otherwise
+pass every compile and fail the app's link. The same CMake
 options that gate code get a second pass with every optional feature turned on (the shipped
 configuration) next to the plain defaults, so both sides of those `#if`s are compiled.
 
@@ -148,8 +152,23 @@ def host_entries(compile_commands):
     return entries
 
 
-def syntax_command(command_line):
-    """a compile command with its object output dropped and the strict syntax-only flags added"""
+def definer_entries(compile_commands):
+    """the compile commands for every source that can define a guest import: the host folders, the runtime,
+    the shared Linux-port sources and the generated bridges, but not SDL or the bundled libraries"""
+    entries = {}
+    for entry in json.loads(Path(compile_commands).read_text()):
+        path = Path(entry['file'])
+        if path.suffix not in SYNTAX_SUFFIXES or 'third_party' in path.parts or 'sdl3' in path.parts:
+            continue
+        if any(folder in path.parents for folder in (*HOST_DIRS, ROOT / 'port/runtime', ROOT / 'port/linux',
+                                                     ROOT / 'build/ios/host')):
+            entries[str(path)] = entry
+    return entries
+
+
+def syntax_command(command_line, object_file=None):
+    """a compile command with its object output dropped and the strict syntax-only flags added; with
+    `object_file`, an unoptimized compile to that object instead (for the import-definition check)"""
     args = shlex.split(command_line)
     result = []
     skip = False
@@ -163,15 +182,52 @@ def syntax_command(command_line):
         else:
             result.append(arg)
     # keep the compiler and its flags, add ours before the source file (last argument)
-    return result[:-1] + list(STRICT_FLAGS) + result[-1:]
+    if object_file:
+        flags = [flag for flag in STRICT_FLAGS if flag != '-fsyntax-only'] + ['-O0', '-c', '-o', str(object_file)]
+    else:
+        flags = list(STRICT_FLAGS)
+    return result[:-1] + flags + result[-1:]
 
 
-def check_one(entry):
+def check_one(entry, object_file=None):
     """(file, ok, diagnostics) for one compile-command entry, run from its own directory"""
-    command = syntax_command(entry['command'])
+    command = syntax_command(entry['command'], object_file)
     result = subprocess.run(command, cwd=entry.get('directory') or ROOT, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True)
     return entry['file'], result.returncode == 0, result.stdout
+
+
+def symbols(object_file, mode):
+    """the external symbols of an object, without the leading underscore: `defined` or `undefined`"""
+    flag = '-gU' if mode == 'defined' else '-gu'
+    out = subprocess.run(['nm', flag, str(object_file)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True).stdout
+    names = set()
+    for line in out.splitlines():
+        name = line.split()[-1] if line.split() else ''
+        if name.startswith('_'):
+            names.add(name[1:])
+    return names
+
+
+def import_names():
+    """every function name the guest imports from the host, as the host defines it (host_gpu_x is gpu_x)"""
+    names = set()
+    for path in sorted((ROOT / 'port/runtime').glob('host_imports*.list')):
+        for line in path.read_text().splitlines():
+            line = line.split('#')[0].strip()
+            if line:
+                names.add(line[len('host_'):] if line.startswith('host_gpu_') else line)
+    return names
+
+
+def missing_definitions(objects, listed=None):
+    """the imported functions no compiled object defines: what would fail the app's link"""
+    defined, needed = set(), set(import_names() if listed is None else listed)
+    for object_file in objects:
+        defined |= symbols(object_file, 'defined')
+        if object_file.stem.endswith('-bridges'):
+            needed |= {name for name in symbols(object_file, 'undefined') if name.startswith(('host_', 'posix_', 'gpu_'))}
+    return sorted(needed - defined)
 
 
 def main():
@@ -200,17 +256,31 @@ def main():
         databases = list(pool.map(lambda pv: configure(*pv), combos))
     jobs = []
     covered = set()
+    objects = {}
     for (platform, variant), database in zip(combos, databases):
-        entries = host_entries(database)
-        covered.update(entries)
-        jobs.extend((f'{platform}/{variant}', entry) for entry in entries.values())
+        label = f'{platform}/{variant}'
+        entries = definer_entries(database)
+        covered.update(path for path in entries if Path(path).parent in HOST_DIRS)
+        folder = database.parent / 'objects'
+        folder.mkdir(exist_ok=True)
+        for index, entry in enumerate(entries.values()):
+            object_file = folder / f'{index}-{Path(entry["file"]).stem}.o'
+            jobs.append((label, entry, object_file))
+            objects.setdefault(label, []).append(object_file)
     failures = []
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        for (label, _), (file, ok, output) in zip(jobs, pool.map(lambda job: check_one(job[1]), jobs)):
+        for (label, _, _), (file, ok, output) in zip(jobs, pool.map(lambda job: check_one(job[1], job[2]), jobs)):
             if not ok:
                 failures.append((label, file, output))
+    if not failures:
+        for label, files in objects.items():
+            missing = missing_definitions([f for f in files if f.exists()])
+            if missing:
+                failures.append((label, 'guest imports', 'imported but defined by no compiled object (the link would fail): '
+                                 + ', '.join(missing)))
     for label, file, output in failures:
-        print(f'FAIL [{label}] {Path(file).relative_to(ROOT)}\n{output.rstrip()}\n', file=sys.stderr)
+        name = str(Path(file).relative_to(ROOT)) if str(file).startswith(str(ROOT)) else file
+        print(f'FAIL [{label}] {name}\n{output.rstrip()}\n', file=sys.stderr)
     print(f'total: {time.monotonic() - begun:.0f} s')
     print(f'host syntax check: {len(jobs)} compiles, {len(covered)} distinct host files, '
           f'{len(combos)} configurations, {len(failures)} failed')
