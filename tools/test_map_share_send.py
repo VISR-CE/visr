@@ -14,6 +14,7 @@ test_real_maps_* also check every stock map and resource map there against the p
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -169,45 +170,78 @@ def test_negative_control(control, tmp_path):
 # ---------- one table of the game's own maps
 
 
-# Custom Edition's stock maps: written out here rather than taken from the code under test
-CUSTOM_EDITION_STOCK = {
-    "beavercreek", "bloodgulch", "boardingaction", "carousel", "chillout", "damnation", "dangercanyon", "deathisland",
-    "gephyrophobia", "hangemhigh", "icefields", "infinity", "longest", "prisoner", "putput", "ratrace", "sidewinder",
-    "timberland", "wizard", "ui",
+# Custom Edition's stock maps and the checksum in each one's header (version 609, as installed): written out here
+# rather than taken from the code under test, so a mistyped checksum in the table fails
+CUSTOM_EDITION_CHECKSUMS = {
+    "ui": 0x73EE7229, "beavercreek": 0x07B3876A, "sidewinder": 0xBD95CF55, "damnation": 0x0FBA059D,
+    "ratrace": 0xF7F8E14C, "prisoner": 0x43B81A8B, "hangemhigh": 0xA7C8B9C6, "chillout": 0x93C53C27,
+    "carousel": 0x9C301A08, "boardingaction": 0xF4DEEF94, "bloodgulch": 0x7B309554, "wizard": 0xCF3359B1,
+    "putput": 0xAF2F0B84, "longest": 0xC8F48FF6, "icefields": 0x5EC1DEB7, "deathisland": 0x1DF8C97F,
+    "dangercanyon": 0xC410CD74, "infinity": 0x0E7F7FE7, "timberland": 0x54446470, "gephyrophobia": 0xD2872165,
 }
-STOCK_NAMES = CUSTOM_EDITION_STOCK | {"a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40"}
+CUSTOM_EDITION_STOCK = set(CUSTOM_EDITION_CHECKSUMS)
+CAMPAIGN = {"a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40"}
+STOCK_NAMES = CUSTOM_EDITION_STOCK | CAMPAIGN
+
+
+def stock_table_rows():
+    """(file, menu name, checksum) for each row of port/runtime/stock_maps.h"""
+    import re
+    rows = re.findall(r'\{ "(\w+)", "([^"]*)", [\w |]+, (0x[0-9A-F]+UL|0), (-?\d+) \}',
+                      read("port/runtime/stock_maps.h"))
+    return [(name, display, int(value.rstrip("UL"), 16) if value != "0" else 0) for name, display, value, _ in rows]
 
 
 def test_stock_table_has_every_custom_edition_checksum():
-    import re
-    table = read("port/runtime/stock_maps.h")
-    rows = re.findall(r'\{ "(\w+)", "[^"]*", [\w |]+, (0x[0-9A-F]+UL|0), (-?\d+) \}', table)
-    checksums = {name: int(value.rstrip("UL"), 16) if value != "0" else 0 for name, value, _ in rows}
+    checksums = {name: checksum for name, _, checksum in stock_table_rows()}
     assert set(checksums) == STOCK_NAMES
-    assert {name for name, value in checksums.items() if value} == CUSTOM_EDITION_STOCK
-    assert len(set(checksums.values()) - {0}) == len(CUSTOM_EDITION_STOCK)
+    assert {name: value for name, value in checksums.items() if value} == CUSTOM_EDITION_CHECKSUMS
 
 
-# the native sources allowed a literal list of the game's own maps: the table itself, and tests and data keyed by
-# something else (the official shader lists, by hash)
-STOCK_LIST_ALLOWED = {"port/runtime/stock_maps.h", "port/ios/host/host_shader_official_maps.h"}
+# the table itself; the Xbox maps' SHA-256s (a different identity); and Custom Edition maps' behaviors, keyed by name
+# and tag data checksum, which name the community maps that share a stock name
+STOCK_LIST_ALLOWED = {"port/runtime/stock_maps.h", "port/ios/host/host_shader_official_maps.h",
+                      "port/linux/game/custom_edition_behaviours.inc"}
+# a C comment, a character constant, or a string literal (group 1)
+C_TOKEN = re.compile(r"""/\*.*?\*/|//[^\n]*|'(?:[^'\\\n]|\\.)*'|"((?:[^"\\\n]|\\.)*)\"""", re.S)
+
+
+def stock_maps_written_out(text, display_names):
+    """the stock maps a source file names in its string literals: by file name anywhere in a literal ("bloodgulch",
+    "levels\\test\\bloodgulch\\bloodgulch") or by the whole menu name (L"The Maw"); the menus' map (ui) is left out,
+    since "ui" starts every interface tag path, and comments are skipped"""
+    found = set()
+    for literal in (token.group(1) for token in C_TOKEN.finditer(text) if token.group(1) is not None):
+        found |= {word for word in re.findall(r"[A-Za-z0-9]+", literal) if word in STOCK_NAMES - {"ui"}}
+        if literal in display_names:
+            found.add(display_names[literal])
+    return found
 
 
 def test_no_second_stock_table():
     """A list of the game's own maps is read from port/runtime/stock_maps.h, not written out again."""
-    import re
     import subprocess as process
+    display_names = {display: name for name, display, _ in stock_table_rows()
+                     if name != "ui" and display.lower() != name and len(display.split()) > 1}
     files = process.run(["git", "ls-files", "port/*.c", "port/*.h", "port/*.m", "port/*.inc"], cwd=ROOT,
                         capture_output=True, text=True, check=True).stdout.split()
     lists = []
     for relative in files:
         if relative in STOCK_LIST_ALLOWED or "/tests/" in relative or relative.endswith("_test.c"):
             continue
-        text = (ROOT / relative).read_text(encoding="latin-1")
-        found = {name for name in re.findall(r'@?"(\w+)"', text) if name in STOCK_NAMES}
+        found = stock_maps_written_out((ROOT / relative).read_text(encoding="latin-1"), display_names)
         if len(found) >= 3:
             lists.append(f"{relative}: {sorted(found)}")
     assert not lists, "stock map names written out again:\n" + "\n".join(lists)
+
+
+def test_second_stock_table_is_seen():
+    """the scan sees the shapes a copied list takes: bare names, scenario paths and wide menu names"""
+    display_names = {"The Pillar of Autumn": "a10", "The Maw": "d40", "Blood Gulch": "bloodgulch"}
+    assert len(stock_maps_written_out('"levels\\a10\\a10", "levels\\test\\wizard\\wizard", "c20"', {})) == 3
+    assert len(stock_maps_written_out('L"The Pillar of Autumn", L"The Maw", L"Blood Gulch"', display_names)) == 3
+    assert stock_maps_written_out('"ui\\shell\\bitmaps\\mp_map_grafix", "a1", "putputs"', {}) == set()
+    assert stock_maps_written_out('/* "a10", "a30", "c40" */ // "wizard", "longest", "putput"\n', {}) == set()
 
 
 # ---------- every path that sends takes its file from the gate
