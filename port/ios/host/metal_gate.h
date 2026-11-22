@@ -82,12 +82,12 @@ table and today's checks and no fleet device has run it there. Lowering any floo
 
 /* (name, features it needs, quirks that block it, floor family, floor state, enforced, label, without it).
 "enforced" is 0 for a row the backend does not read yet: its answer is logged and changes nothing (MSAA until the
-resolve calls read it; soft particles until `soft_particles_supported()` in gpu_metal.m reads it, which then sets 1).
+resolve calls read it).
 Soft particles: the A8 (Apple TV HD) faults its GPU on the pass's compute dispatch whatever the kernel reads
 (known-bugs, Nov 21, 2026); the A10X iPad Pro (Apple3) ran it clean, so the floor is Apple3, device-verified. */
 #define METAL_PASSES(X) \
 	X(SOFT_PARTICLES, METAL_NEEDS(STENCIL_TEXTURE_VIEWS), METAL_BLOCKED_BY(A8_COMPUTE_DISPATCH_FAULT), 3, \
-		METAL_FLOOR_VERIFIED, 0, "soft particles", "hard particle edges") \
+		METAL_FLOOR_VERIFIED, 1, "soft particles", "hard particle edges") \
 	X(AMBIENT_OCCLUSION, METAL_NEEDS(SIMD_PERMUTES) | METAL_NEEDS(STENCIL_TEXTURE_VIEWS), 0, 6, \
 		METAL_FLOOR_DOCUMENTED, 1, "ambient occlusion", "no ambient occlusion") \
 	X(MSAA, METAL_NEEDS(MSAA_DEPTH_RESOLVE) | METAL_NEEDS(MSAA_STORE_AND_RESOLVE) | METAL_NEEDS(MSAA_STENCIL_RESOLVE), \

@@ -31,6 +31,7 @@ int main(void)
 	FIELD(gpu_capabilities, astc);
 	FIELD(gpu_capabilities, max_samples);
 	FIELD(gpu_capabilities, ambient_occlusion);
+	FIELD(gpu_capabilities, soft_particles);
 	FIELD(gpu_capabilities, max_texture_size);
 	SIZE(gpu_texture_description);
 	FIELD(gpu_texture_description, foveated_eye);

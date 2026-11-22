@@ -7908,6 +7908,14 @@ static BOOL ssao_supported(void)
 	return metal_pass(METAL_PASS_AMBIENT_OCCLUSION);
 }
 
+/* soft particle edges (host_soft_depth_prepare) take the Metal gate's answer for the pass (metal_gate.h's row: the A8
+faults its GPU on the compute dispatch, so the floor is above Apple2); gpu_capabilities.soft_particles tells the front
+end and the reports */
+static BOOL soft_particles_supported(void)
+{
+	return metal_pass(METAL_PASS_SOFT_PARTICLES);
+}
+
 static BOOL ssao_programs(void)
 {
 	NSError *error = nil;
@@ -10192,6 +10200,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		border_colors = metal_feature(METAL_FEATURE_BORDER_COLOR);
 		capabilities->border_clamp = 0;
 		capabilities->ambient_occlusion = ssao_supported() ? 1 : 0;
+		capabilities->soft_particles = soft_particles_supported() ? 1 : 0;
 		/* 8192 on an A8 (the Apple TV HD), the one Apple GPU family below Apple3 that still runs; at most 16384,
 		which is all the front end asks for, though Apple10 and later take 32768 */
 		capabilities->max_texture_size = MIN(metal_limit(METAL_LIMIT_TEXTURE_2D_SIZE), 16384);
@@ -10267,6 +10276,9 @@ static BOOL soft_depth_program(void)
 	id<MTLLibrary> library;
 	id<MTLFunction> function;
 
+	/* every entry (the level warm-up, soft_depth_usable, the prepare) goes through here: off where the GPU faults */
+	if (!soft_particles_supported())
+		return NO;
 	if (soft.tried)
 		return !soft.failed;
 	soft.tried = YES;

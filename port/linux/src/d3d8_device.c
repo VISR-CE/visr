@@ -3005,6 +3005,16 @@ int halo_ambient_occlusion_effective(void)
 	return device.gl_ready && shader_dialect.msl && ssao_mode() > 0 && stereo->mode == HALO_STEREO_OFF;
 }
 
+/* whether soft particle edges can be drawn, as reports record it (benchmark_suite.c's renderer_state): off where the
+GPU cannot run the pass (gpu_capabilities.soft_particles), without Metal, and whatever display.soft_particles says in a
+mode that turns it off */
+int halo_soft_particles_effective(void)
+{
+	return device.gl_ready && shader_dialect.msl && device_capabilities.soft_particles &&
+		(config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_CLASSIC) ||
+		 config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_ENHANCED));
+}
+
 /* whether the view being drawn takes AO: the same answer at the mark and at the pass */
 static BOOL ssao_view_wanted(void)
 {
@@ -3111,7 +3121,8 @@ static BOOL soft_view_wanted(void)
 	const struct halo_stereo_frame *stereo = halo_stereo_frame();
 	struct render_target_entry *color, *depth;
 
-	if (!native_scene || !device.gl_ready || !shader_dialect.msl || !config_boolean("display.soft_particles"))
+	if (!native_scene || !device.gl_ready || !shader_dialect.msl || !device_capabilities.soft_particles ||
+		!config_boolean("display.soft_particles"))
 		return FALSE;
 	if (stereo->mode != HALO_STEREO_OFF || stereo->eye_count)
 		return FALSE;
@@ -5381,7 +5392,7 @@ void halo_shader_list_warm(char const *map_name)
 		return;
 	}
 	lit_wanted = shader_dialect.msl && config_boolean_in_graphics_mode("display.per_pixel_lighting", GRAPHICS_MODE_ENHANCED);
-	soft_wanted = shader_dialect.msl && halo_stereo_frame()->mode != HALO_STEREO_HEAD &&
+	soft_wanted = shader_dialect.msl && device_capabilities.soft_particles && halo_stereo_frame()->mode != HALO_STEREO_HEAD &&
 		(config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_CLASSIC) ||
 		 config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_ENHANCED));
 	size = gpu_warm_list_read(shader_list.map, NULL, 0);

@@ -100,7 +100,7 @@ static void compare(const char *label, struct metal_gate_facts facts)
 		metal_feature(METAL_FEATURE_COUNTER_SAMPLING_STAGE));
 	EXPECT("counters at draw boundaries", facts.queries & Q(COUNTERS_DRAW),
 		metal_feature(METAL_FEATURE_COUNTER_SAMPLING_DRAW));
-	/* fix/soft-particles-a8's soft_particles_supported(): Apple3 or a Mac (the pass is not read here yet) */
+	/* gpu_metal.m's soft_particles_supported() reads this row: Apple3 or a Mac */
 	EXPECT("soft particles", apple[3] || mac, (metal_gate()->passes >> METAL_PASS_SOFT_PARTICLES) & 1);
 	/* host_stereo.m */
 	EXPECT("stereo HUD depth", apple[7] || mac, metal_pass(METAL_PASS_STEREO_HUD_DEPTH));
