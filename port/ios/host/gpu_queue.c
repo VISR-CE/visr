@@ -13,6 +13,10 @@ their class. gpu_queue_wrap installs every one through the list, so a new
 operation without its pieces does not compile.
 */
 
+/* (Apple builds: the uptime clock and the encode thread's QoS are Darwin extensions, which a strict ISO -std hides) */
+#ifdef __APPLE__
+#define _DARWIN_C_SOURCE
+#endif
 #include "gpu_queue.h"
 #include "gpu_operation.h"
 #include <time.h>

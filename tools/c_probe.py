@@ -1,5 +1,6 @@
 """Builds and runs a standalone C probe for a unit test: one place for the compiler choice, the warning flags and the
 include paths the host probes share."""
+import os
 import pathlib
 import platform
 import shutil
@@ -10,6 +11,9 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 HOST_INCLUDES = ("port/ios/host", "port/linux/src")
+# the Linux-strict compiler wrapper `tools/ci_test.py` puts first on PATH on macOS: a probe run directly fails where the
+# Linux Tooling job would, as it does under ci_test
+STRICT = ROOT / "tools/probekit/strict"
 FLAGS = ("-std=c11", "-Wall", "-Wextra", "-Werror", "-O1", "-pthread")
 
 
@@ -47,6 +51,12 @@ def run_probe(test: unittest.TestCase, sources, includes=HOST_INCLUDES, extra=()
     compiler = shutil.which("clang") or (None if darwin_only else shutil.which("cc"))
     if not compiler:
         test.skipTest("A C compiler is required")
+    environment = dict(os.environ)
+    if darwin_only:
+        # (Apple-only code never builds on Linux, so the Linux-strict checks do not apply)
+        environment["HALO_LINUX_STRICT"] = "0"
+    elif sys.platform == "darwin" and (STRICT / "clang").exists():
+        compiler = str(STRICT / "clang")
     name = pathlib.Path(sources[0]).stem
     with tempfile.TemporaryDirectory(prefix=f"{name}-") as temp:
         executable = pathlib.Path(temp) / "probe"
@@ -55,5 +65,5 @@ def run_probe(test: unittest.TestCase, sources, includes=HOST_INCLUDES, extra=()
             command += ["-I", str(ROOT / include)]
         command += [str(ROOT / source) for source in sources]
         command += [*extra, "-o", str(executable)]
-        subprocess.run(command, check=True)
+        subprocess.run(command, check=True, env=environment)
         subprocess.run([*launcher, str(executable)], check=True)
