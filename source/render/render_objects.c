@@ -661,10 +661,14 @@ void render_object_shadows(
 			short index;
 
 			deferred_shadow_apply_count = 0;
+			/* port: the second eye's replay: the frame's shadows are generated in eye 0's pass alone (eye 1's
+			reuses them: rasterizer_environment_shadow_begin), so the replay does not generate them again */
+			halo_stereo_replay_eye(HALO_STEREO_REPLAY_EYE_0);
 			render_shadows_deferring = TRUE;
 			process_rendered_objects(&data);
 			render_shadows_deferring = FALSE;
 			rasterizer_environment_shadows_defer_end();
+			halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);
 			for (index = 0; index < deferred_shadow_apply_count; index++)
 			{
 				struct deferred_shadow_apply *apply = &deferred_shadow_applies[index];
