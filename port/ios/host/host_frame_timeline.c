@@ -112,7 +112,18 @@ int host_frame_timeline_logging(void)
 
 void host_frame_timeline_shown(uint64_t frame_id, double shown)
 {
+	static _Atomic int reported_zero, reported_late;
+
 	pthread_once(&timeline.once, timeline_start);
+	/* (once each: a display that gives no presented time, and a shown time for a row the ring no longer holds, leave
+	controller_to_shown unknown; say why) */
+	if (shown <= 0.0 && !atomic_exchange(&reported_zero, 1))
+		host_logf(HOST_LOG_INFO, "latency: frame %llu was shown with no presented time (reported once)",
+			(unsigned long long)frame_id);
+	if (shown > 0.0 && atomic_load(&timeline.frame_id) > frame_id + FRAME_TIMELINE_RING &&
+		!atomic_exchange(&reported_late, 1))
+		host_logf(HOST_LOG_INFO, "latency: frame %llu's presented time came after its row left the ring (reported "
+			"once)", (unsigned long long)frame_id);
 	frame_timeline_ring_shown(&timeline.ring, frame_id, shown, FRAME_TIMELINE_SHOWN_DRAWABLE_PRESENTED_TIME);
 }
 
