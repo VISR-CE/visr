@@ -47,6 +47,9 @@ struct frame_pacer_frame
 	unsigned long sequence;  /* its place among the frames handed to the display, from 1; 0: it was not */
 	uint8_t in_flight;       /* frames handed to the display and not yet shown, before this one */
 	uint8_t start_state;     /* frame_pacer.h's frame_pacer_start_state */
+	uint8_t slot_waited;     /* found every slot taken (a frame still in flight) and waited for one */
+	double granted;          /* when it got its slot or went on without one (the pacer's clock); 0: never asked */
+	double presenting;       /* when frame_pacer_present was asked its hold; 0: it was not */
 };
 
 /* frame_pacer_frame_start's time, aim, allowed cost and state wait in one place for the frame's Present, so the game
@@ -156,7 +159,7 @@ int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long numbe
 /* the frame is being presented: the least time it must stay on screen after
 the frame before it, in seconds (presentDrawable:afterMinimumDuration:), or 0
 to present it as it comes */
-double frame_pacer_present(const struct frame_pacer_frame *frame);
+double frame_pacer_present(struct frame_pacer_frame *frame);
 
 /* whether frame_pacer_presented must be called for this frame once it is
 shown (a renderer that can't say when frames are shown leaves the frame's
@@ -264,7 +267,7 @@ static inline int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsig
 	return 1;
 }
 
-static inline double frame_pacer_present(const struct frame_pacer_frame *frame)
+static inline double frame_pacer_present(struct frame_pacer_frame *frame)
 {
 	(void)frame;
 	return 0.0;

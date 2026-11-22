@@ -141,7 +141,7 @@ __attribute__((weak)) void frame_pacer_pixels(double ratio)
 { }
 #endif
 #if (HALO_FRAME_PACING)
-__attribute__((weak)) double frame_pacer_present(const struct frame_pacer_frame *frame)
+__attribute__((weak)) double frame_pacer_present(struct frame_pacer_frame *frame)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_present without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
