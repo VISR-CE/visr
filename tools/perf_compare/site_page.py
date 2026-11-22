@@ -170,13 +170,23 @@ def caption_html(table: dict | None) -> str:
             f'<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>')
 
 
+def static_chart_path(spec: dict) -> Path:
+    return SITE / f"benchmarks/static-{slug(spec)}.svg"
+
+
+def static_chart(spec: dict, rows: list[dict], suite: str = charts.DEFAULT_SUITE) -> tuple[Path, str | None]:
+    """The pre-rendered SVG path of a chart spec and the chart source it must show (None: the chart draws nothing)."""
+    built = charts.model(rows, spec["query"], suite, spec.get("box"))
+    return static_chart_path(spec), charts.source(spec, built, suite)
+
+
 def section(spec: dict, rows: list[dict], suite: str, reasons: dict, device_text: dict | None = None, shots: dict | None = None) -> str:
     built = charts.model(rows, spec["query"], suite, spec.get("box"))
     name = slug(spec)
     text = charts.source(spec, built, suite)
     if text is None:
         chart = f'<p class="bench-empty">{escape(charts.empty_text(spec, built))}</p>'
-    elif (SITE / f"benchmarks/static-{name}.svg").exists():
+    elif static_chart_path(spec).exists():
         chart = (f'<img src="benchmarks/static-{name}.svg" alt="{escape(spec["heading"])}: '
                  f'{escape(" and ".join(label.lower() for label in spec["series_labels"]))} per build, '
                  f'{escape(charts.SUITE_NAMES[suite])} suite">')
