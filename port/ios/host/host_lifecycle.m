@@ -129,10 +129,6 @@ int host_lifecycle_in_background(void) {
     return atomic_load(&backgrounded);
 }
 
-int host_lifecycle_backgrounded(void) {
-    return atomic_load(&backgrounded);
-}
-
 void host_lifecycle_hold(void) {
     if(host_game_thread_enabled() && !host_on_main_thread()){
         host_lifecycle_wait_until_foreground(&foreground_wait,&backgrounded);

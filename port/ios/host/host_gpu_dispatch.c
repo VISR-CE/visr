@@ -108,7 +108,7 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 		gpu_metal_frame_deadline_end();
 	/* (with the encode thread, the frame's records so far reach the GPU before the hold, not while in the
 	background) */
-	if (encode_queue_on && host_lifecycle_backgrounded())
+	if (encode_queue_on && host_lifecycle_in_background())
 		gpu_queue_drain();
 	host_lifecycle_hold();
 	host_perf_hooks_context(1, metal_backend ? 1 : 2);
@@ -725,11 +725,18 @@ static int encode_queue_mode(int *timing)
 	}
 	if (mode == GPU_QUEUE_OFF)
 		return mode;
-	platform_log("debug.encode_thread: %s", value);
+	platform_log("debug.encode_thread: %s", mode == GPU_QUEUE_THREAD ? "thread" : "inline");
 	host_config_string("debug.encode_thread_timing", "false", value, sizeof(value));
 	*timing = !strcmp(value, "true");
 	return mode;
 #endif
+}
+
+static int encode_thread_on;
+
+int host_gpu_encode_thread_on(void)
+{
+	return encode_thread_on;
 }
 
 int host_gpu_encode_queue_on(void)
@@ -757,6 +764,7 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 	call_hash_check.checked = call_hash_check.differ = 0;
 	mode = metal ? encode_queue_mode(&timing) : GPU_QUEUE_OFF;
 	encode_queue_on = mode != GPU_QUEUE_OFF;
+	encode_thread_on = mode == GPU_QUEUE_THREAD;
 	if (mode == GPU_QUEUE_OFF)
 		return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
 	/* each call from the thread its class says (gpu_owner_check.h); a development build stops at the first that is

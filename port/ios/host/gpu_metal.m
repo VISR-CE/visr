@@ -531,7 +531,15 @@ static inline BOOL gpu_metal_gpu_spans(uint64_t *used, uint64_t *refused)
 	*refused = now_refused;
 	return measured;
 }
-static CFTimeInterval pacing_waited;
+/* A frame's waits, taken up by pacing_schedule, in three parts by thread and meaning (they are not the frame's work):
+- pacing_waited: the game thread's (the late start's sleep, the stream ring's producer_wait);
+- display_waited: inside the present (the drawable, frame_context_wait): the timeline row's display wait, the part of
+  the encode thread's present barrier that is not encoding;
+- slot_waited: frame_begin's wait for a frame slot, on the thread that encodes. With the encode thread
+  (debug.encode_thread = "thread") the game thread works on meanwhile, so it does not leave the frame's CPU time.
+With the encode thread pacing_schedule runs while the game thread waits at the present barrier, and the game thread
+adds to pacing_waited only outside it, so no two threads touch one of them at once. */
+static CFTimeInterval pacing_waited, display_waited, slot_waited;
 
 #if TARGET_OS_VISION
 /* the presenters' command buffers (host_stereo.m, host_theater.m): their GPU
@@ -708,7 +716,7 @@ static void frame_begin(void)
 		return;
 	waited = CACurrentMediaTime();
 	dispatch_semaphore_wait(frame_slots, DISPATCH_TIME_FOREVER);
-	pacing_waited += CACurrentMediaTime() - waited;
+	slot_waited += CACurrentMediaTime() - waited;
 	transient_reset(&encode_streams[frame_slot]);
 	transient_reset(&snapshots[frame_slot]);
 	frame_upscale_paths = 0;
@@ -5980,7 +5988,7 @@ static void frame_context_wait(void)
 		while (atomic_load(&refresh_count) < presented_at + (unsigned long)refreshes && CACurrentMediaTime() - began < 0.25)
 			usleep(500);
 		/* (not the frame's work: the CPU times in the log leave it out) */
-		pacing_waited += CACurrentMediaTime() - began;
+		display_waited += CACurrentMediaTime() - began;
 	}
 	presented_at = atomic_load(&refresh_count);
 }
@@ -6189,14 +6197,16 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	CFTimeInterval now = CACurrentMediaTime(), period, hold, interval;
 	long context_refreshes;
 	uint64_t gpu_total = atomic_load(&pacing_gpu_nanoseconds);
-	double cpu, gpu, simulation_cpu, render_cpu, translation_cpu;
+	double cpu, gpu, simulation_cpu, render_cpu, translation_cpu, waited;
 	long lower, up;
 	int ticks;
 	BOOL gpu_measured;
 
 	*next_frame_due = 0;
 	host_frame_cpu_split(&simulation_cpu, &render_cpu, &translation_cpu, &ticks);
-	cpu = pacing.work_started > 0.0 ? now - pacing.work_started - pacing_waited : 0.0;
+	/* (with the encode thread a slot wait overlapped the game's work) */
+	waited = pacing_waited + display_waited + (host_gpu_encode_thread_on() ? 0.0 : slot_waited);
+	cpu = pacing.work_started > 0.0 ? now - pacing.work_started - waited : 0.0;
 	/* (shadow mode's CPU input also leaves out readback and visibility waits;
 	pacing, the benchmark and reports without it keep the plain figure) */
 	{
@@ -6210,9 +6220,11 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	pacing.gpu_counted = gpu_total;
 	/* (no measurement, not an idle GPU: the benchmark keeps it apart) */
 	gpu_measured = gpu_metal_gpu_spans(&pacing.gpu_used, &pacing.gpu_refused);
-	host_perf_hooks_pacing(pacing_waited > 0.0 ? (uint64_t)(pacing_waited * 1e6) : 0);
-	host_frame_timeline_waits(pacing_waited, -1.0);
-	pacing_waited = 0.0;
+	host_perf_hooks_pacing(waited > 0.0 ? (uint64_t)(waited * 1e6) : 0);
+	/* (the row's display wait is inside the frame: not the late start, which is before the controller read; with the
+	encode thread only the present's, the part of the barrier that is not encoding) */
+	host_frame_timeline_waits(display_waited + (host_gpu_encode_thread_on() ? 0.0 : slot_waited), -1.0);
+	pacing_waited = display_waited = slot_waited = 0.0;
 	interval = pacing.last_present > 0.0 ? now - pacing.last_present : 0.0;
 	pacing.last_present = now;
 	os_unfair_lock_lock(&pacing_lock);
@@ -9266,11 +9278,11 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			os_unfair_lock_unlock(&pacing_lock);
 			usleep((useconds_t)((period >= 1.0 / 240.0 && period <= 1.0 / 20.0 ? period : 1.0 / 60.0) * 1e6));
 		}
-		pacing_waited += CACurrentMediaTime() - waited;
+		display_waited += CACurrentMediaTime() - waited;
 		/* (a frame not shown isn't scheduled, so its waits aren't taken up
 		there: they mustn't count against the next frame that is) */
 		if (unsynced && !drawable)
-			pacing_waited = 0.0;
+			pacing_waited = display_waited = slot_waited = 0.0;
 		if (drawable)
 			target = drawable.texture;
 		/* nil in the background (or held, or unsynchronized with none ready):

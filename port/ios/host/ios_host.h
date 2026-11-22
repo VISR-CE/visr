@@ -98,7 +98,7 @@ backgrounds the app */
 void host_lifecycle_install(void);
 void host_lifecycle_hold(void);
 /* 1 while the app is in the background (host_lifecycle_hold would hold) */
-int host_lifecycle_backgrounded(void);
+int host_lifecycle_in_background(void);
 /* gpu_metal.m (display.frame_deadline): the frame's work has ended; nothing on a Vision Pro */
 void gpu_metal_frame_deadline_end(void);
 /* the calling thread is about to run UIKit's own loop: leave the frame workgroup, join again at the next frame */
@@ -130,6 +130,8 @@ int host_gpu_metal_active(void);
 /* 1 when debug.encode_thread put the encode queue in front of the Metal backend (decided before the backend's
 initialize, which sizes its stream ring by it) */
 int host_gpu_encode_queue_on(void);
+/* 1 with debug.encode_thread = "thread": the backend's recorded calls run on the encode thread */
+int host_gpu_encode_thread_on(void);
 void host_gpu_set_upscaler(int metalfx);
 void host_gpu_set_crt(int enabled);
 int host_gpu_upscaler(void);
