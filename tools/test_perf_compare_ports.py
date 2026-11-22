@@ -76,3 +76,13 @@ def test_window_scale_ports_ask_for_the_2x_drawable():
     for port in adapters.WINDOW_SCALE_PORTS:
         text = adapters.native_display(port, 'uncapped', 'defaults', '2560x1920')
         assert 'window_scale = 2' in text, port
+
+
+def test_every_label_names_its_port_and_not_a_device_nickname():
+    """A label is the chart series name and is public: the port's name, then the version, then an optional device in parentheses."""
+    wrong = []
+    for number, row in enumerate(snapshot_rows(), start=2):
+        label = row['label']
+        if not label.startswith(row['port_name']) or row['version'] not in label:
+            wrong.append((number, label))
+    assert not wrong, f'labels that are not "<port name> <version>[ (<device>)]": {wrong[:5]}'
