@@ -22,6 +22,16 @@ int main(void) {@autoreleasepool {
     NSString *empty_graphics_hash=[graphics_hash copy];
     host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\"}}");dispatch_sync(worker,^{});
     assert([graphics[@"display.renderer"] isEqual:@"metal"] && [graphics[@"display.frame_rate"] isEqual:@"60"]);assert(![graphics_hash isEqual:empty_graphics_hash]);
+    /* a setting a device profile can change is carried and moves the hash: a string key, an integer and a boolean
+       (tools/test_graphics_settings_capture.py checks the list against the whole profile key table) */
+    NSString *plain_graphics_hash=[graphics_hash copy];
+    host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\",\"display.effect_limits\":\"xbox\",\"display.texture_idle_seconds\":30,\"display.allow_portrait\":true}}");dispatch_sync(worker,^{});
+    assert([graphics[@"display.effect_limits"] isEqual:@"xbox"] && [graphics[@"display.texture_idle_seconds"] isEqual:@30] && [graphics[@"display.allow_portrait"] isEqual:@YES]);
+    assert(![graphics_hash isEqual:plain_graphics_hash]);NSString *xbox_graphics_hash=[graphics_hash copy];
+    host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\",\"display.effect_limits\":\"raised\",\"display.texture_idle_seconds\":30,\"display.allow_portrait\":true}}");dispatch_sync(worker,^{});
+    assert(![graphics_hash isEqual:xbox_graphics_hash] && [graphics[@"display.effect_limits"] isEqual:@"raised"]);
+    host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\",\"display.effect_limits\":\"bogus\"}}");dispatch_sync(worker,^{});
+    assert(!graphics[@"display.effect_limits"] && [graphics_hash isEqual:plain_graphics_hash]);
     NSString *safe_graphics_hash=[graphics_hash copy];
     host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\",\"display.render_height\":\"/private/perf-secret\"}}");dispatch_sync(worker,^{});
     assert([graphics_hash isEqual:safe_graphics_hash]);assert(!graphics_string_allowed(@"display.frame_rate",@"29") && !graphics_string_allowed(@"display.frame_rate",@"1001"));

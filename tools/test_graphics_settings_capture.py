@@ -193,3 +193,20 @@ def test_performance_graphics_context_has_identical_guest_and_host_layout(tmp_pa
               "--include-directory=" + str(ROOT / "port/runtime"), str(source)]
     subprocess.run(common, check=True)
     subprocess.run([*common, "--target=i386-unknown-none"], check=True)
+
+
+def test_reports_carry_every_display_setting_a_profile_can_set():
+    """The class: a setting a device profile can change that a performance report does not record, so two reports
+    with different settings look the same and share a profile hash. The host keeps its own list of the names a
+    report carries (host_perf_reports.m); every display.* key in the profile key table must be on it."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import profile_check
+
+    source = (ROOT / "port/ios/host/host_perf_reports.m").read_text()
+    start = source.index('NSArray *keys=@[@"display.renderer"')
+    carried = set(re.findall(r'@"([a-z_]+\.[a-z0-9_]+)"', source[start:source.index("];", start)]))
+    assert len(carried) > 40, "the report key list was not found where this test reads it"
+    settable = {name for name in profile_check.profile_keys() if name.startswith("display.")}
+    assert len(settable) > 20
+    missing = sorted(settable - carried)
+    assert not missing, f"host_perf_reports.m: add these profile settings to the report's graphics keys: {missing}"
