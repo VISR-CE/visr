@@ -272,6 +272,24 @@ for sanitizer in ('thread', 'address,undefined'):
         '-Iport/ios/host', 'port/ios/tests/gamepad_merge_probe.c', *sdl_flags,
         '-o', BUILD/'gamepad-merge-probe')
     run(BUILD/'gamepad-merge-probe')
+# the Apple TV's merged pad (host_tv.m): the Siri Remote's latches and the text dialog's gate, extracted from the
+# production file with the dialog's UIKit side and SDL's gamepads stubbed by the probe; pad reads on other threads
+# while main ticks, under the thread sanitizer too
+tv_source = 'port/ios/host/host_tv.m'
+tv_state = [line for line in (ROOT / tv_source).read_text().splitlines() if re.match(
+    r'static (?:_Atomic bool remote_down|struct host_gamepad_merge merge|_Atomic bool text_input_blocked_flag|'
+    r'bool text_prompt_gate)\b', line)]
+if len(tv_state) != 4:
+    raise SystemExit(f'{tv_source}: the remote latch, merge or text gate state moved: {tv_state}')
+(BUILD / 'tv_gamepad_gate.inc').write_text('\n'.join(tv_state + [extracted_definition(tv_source, name) for name in (
+    'remote_button', 'remote_event', 'remote_read', 'host_ios_touch_reset', 'text_input_blocked_cached',
+    'text_input_blocked_now', 'host_tv_text_prompt_tick', 'aim_owned', 'host_ios_gamepads', 'host_ios_gamepad_physical',
+    'host_ios_gamepad_type', 'host_ios_gamepad_axis', 'host_ios_gamepad_button')]) + '\n')
+for sanitizer in ('thread', 'address,undefined'):
+    run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', f'-fsanitize={sanitizer}',
+        '-Iport/ios/host', f'-I{BUILD}', *sdl_headers, 'port/ios/tests/tv_gamepad_gate_probe.c',
+        '-o', BUILD/'tv-gamepad-gate-probe')
+    run(BUILD/'tv-gamepad-gate-probe')
 run('xcrun', 'clang', '-O2', '-DHALO_IOS=1', '-Iport/ios/host', '-Iport/ios/host',
     '-Iport/runtime/include', 'port/ios/tests/audio_probe.c', '-Wl,-dead_strip',
     *sdl_flags, '-o', BUILD/'audio-probe')
