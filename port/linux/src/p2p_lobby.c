@@ -66,6 +66,7 @@ of MAXIMUM_QUEUED; the rest is dropped (hosts publish again).
 #include "delta_list.h"
 #include "delta_platform.h"
 #include "halo_delta_peer.h"
+#include "halo_host_flags.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1281,12 +1282,6 @@ void p2p_lobby_delta_games(const struct delta_game *games, int count)
 
 #ifdef HALO_IOS
 void host_sdl_app_version(char *buffer, unsigned int size);
-
-static int delta_host_flag(const char *name)
-{
-	const char *value = getenv(name);
-	return value && !strcmp(value, "1");
-}
 #endif
 
 int p2p_lobby_delta_wanted(struct delta_announce *announce)
@@ -1308,8 +1303,8 @@ int p2p_lobby_delta_wanted(struct delta_announce *announce)
 	announce->teams = (lobby.flags & _listing_has_teams) != 0;
 	announce->version = delta_legacy_announce_version();
 #ifdef HALO_IOS
-	delta_platform_key(announce->platform_key, delta_platform_current(delta_host_flag("HALO_HOST_MAC"),
-		delta_host_flag("HALO_HOST_TVOS"), delta_host_flag("HALO_HOST_VISIONOS")), 0, 0, 0);
+	delta_platform_key(announce->platform_key, delta_platform_current(halo_host_flag("HALO_HOST_MAC"),
+		halo_host_flag("HALO_HOST_TVOS"), halo_host_visionos()), 0, 0, 0);
 	host_sdl_app_version(announce->build, sizeof(announce->build));
 #else
 	delta_platform_key(announce->platform_key, delta_platform_current(0, 0, 0), 0, 0, 0);

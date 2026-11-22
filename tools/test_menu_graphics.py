@@ -26,6 +26,7 @@ typedef unsigned short word;
 #define MAXIMUM_STRINGS 64
 #define NUMBEROF(a) ((long)(sizeof(a) / sizeof((a)[0])))
 #include "PORT_GRAPHICS_MODES"
+#include "HALO_HOST_FLAGS"
 struct widget_instance
 {
     long definition_tag_index;
@@ -539,6 +540,7 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
     assert 'graphics_state_show(widget)' in invoke and 'hub_status_show(widget)' in invoke
     assert invoke.index('graphics_rows_show(widget)') < invoke.index('settings_help(widget)')
     program = PROGRAM.replace('PORT_GRAPHICS_MODES', str(ROOT / 'port/linux/src/port_graphics_modes.h')).replace(
+        'HALO_HOST_FLAGS', str(ROOT / 'port/linux/src/halo_host_flags.h')).replace(
         '/* PRODUCTION */', functions)
     probe, binary = tmp_path / 'graphics.c', tmp_path / 'graphics'
     probe.write_text(program)
@@ -590,7 +592,8 @@ int main(void)
     return 0;
 }
 '''
-    program = program.replace('PORT_GRAPHICS_MODES', str(ROOT / 'port/linux/src/port_graphics_modes.h'))
+    program = program.replace('PORT_GRAPHICS_MODES', str(ROOT / 'port/linux/src/port_graphics_modes.h')).replace(
+        'HALO_HOST_FLAGS', str(ROOT / 'port/linux/src/halo_host_flags.h'))
     probe, binary = tmp_path / "help.c", tmp_path / "help"
     probe.write_text(program)
     subprocess.run(['cc', '-Wall', '-Werror', '-Wno-unused-function', '-Wno-unused-variable',

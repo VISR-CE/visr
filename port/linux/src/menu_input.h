@@ -3,11 +3,11 @@
 #define MENU_INPUT_H
 #include <stdlib.h>
 #include <string.h>
+#include "halo_host_flags.h"
 struct menu_input_tracker { int initialized, pad, locked; };
 static int menu_input_env(char const *name)
 {
-	char const *value = getenv(name);
-	return value && !strcmp(value, "1");
+	return halo_host_flag(name);
 }
 static void menu_input_start(struct menu_input_tracker *state, int mobile, int locked, int controller)
 {

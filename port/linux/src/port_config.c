@@ -25,6 +25,7 @@ config_origin_decide.
 #include "port_config.h"
 #include "port_profile_apply.h"
 #include "port_graphics_modes.h"
+#include "halo_host_flags.h"
 #include "tomlc17.h"
 
 #include <SDL3/SDL.h>
@@ -2089,12 +2090,8 @@ static int config_written(size_t index)
 	unsigned platforms = CONFIG_PLATFORM;
 
 #ifdef HALO_ILP32
-	{
-		const char *vision = getenv("HALO_HOST_VISIONOS");
-
-		if (!vision || strcmp(vision, "1"))
-			platforms &= ~(unsigned)_platform_visionos;
-	}
+	if (!halo_host_visionos())
+		platforms &= ~(unsigned)_platform_visionos;
 #endif
 	return (setting->platforms & platforms) && setting->tier != _tier_tuning;
 }

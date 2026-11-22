@@ -39,6 +39,7 @@ frame_rate = "30"), which it holds frames for and names in its frame log
 #include "scenario/scenario_definitions.h"
 #include "main/main.h"
 #include "../src/gpu.h"
+#include "../src/halo_host_flags.h"
 #include "../src/halo_stereo.h"
 #include "../src/port_config.h"
 #include "bungie_net/network/transport.h"
@@ -125,7 +126,6 @@ void halo_workload_decide(void)
 	short connection = game_connection();
 	struct network_game *game = network_game_get_game();
 	long full_rate_players = config_integer("network.full_rate_players");
-	const char *visionos = getenv("HALO_HOST_VISIONOS");
 	int hold_30, variable;
 	char reasons[160];
 
@@ -146,7 +146,7 @@ void halo_workload_decide(void)
 		config_string("network.coop_enemies_mode"), inputs.network_players);
 	variable = workload_variable(&inputs, reasons, sizeof(reasons));
 	/* The compositor owns visionOS pacing, including when its profile sets this threshold. */
-	hold_30 = !(visionos && atoi(visionos)) && workload_hold_30(&inputs, full_rate_players);
+	hold_30 = !halo_host_visionos() && workload_hold_30(&inputs, full_rate_players);
 	if (hold_30)
 		snprintf(reasons, sizeof(reasons), "multiplayer map; %d players, %d on this device; above %ld at full rate: 30 fps",
 			workload_game_players(&inputs), inputs.local_players, full_rate_players);

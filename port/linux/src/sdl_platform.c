@@ -71,7 +71,7 @@ int platform_menu_pad(void)
 		mobile = !menu_input_env("HALO_HOST_MAC");
 #endif
 		menu_input_start(&menu_input, mobile,
-			menu_input_env("HALO_HOST_TVOS") || menu_input_env("HALO_HOST_VISIONOS"), count > 0);
+			menu_input_env("HALO_HOST_TVOS") || halo_host_visionos(), count > 0);
 		SDL_free(ids);
 	}
 	return menu_input.pad;

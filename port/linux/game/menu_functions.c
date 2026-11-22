@@ -95,6 +95,7 @@ their handlers open opens.
 /* (internet play's server browser: the platform layer's) */
 #include "../src/p2p.h"
 #include "../src/port_graphics_modes.h"
+#include "../src/halo_host_flags.h"
 #include "../src/halo_internet.h"
 #include "../src/halo_direct_ip.h"
 #include "../include/menu_gametype.h"
@@ -1823,9 +1824,7 @@ boolean ui_widget_port_graphics_locked(struct widget_instance *widget)
 /* the Apple Vision Pro's host (menu_platform.h), where a stereo view cannot be the Xbox's 4:3 picture */
 static boolean graphics_in_vr(void)
 {
-	char const *vision = getenv("HALO_HOST_VISIONOS");
-
-	return vision && !strcmp(vision, "1");
+	return halo_host_visionos() ? TRUE : FALSE;
 }
 
 /* what the device is called in a row's help (menu_platform.h's host variables) */

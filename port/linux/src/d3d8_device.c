@@ -34,6 +34,7 @@ Conventions carried over from the Xbox:
 #include "menu_scale.h"
 #include "halo_menu_screen.h"
 #include "port_config.h"
+#include "halo_host_flags.h"
 #include "port_graphics_modes.h"
 #include "halo_display.h"
 #ifdef HALO_ILP32
@@ -656,8 +657,7 @@ static void menu_window_geometry(float *top, float *zoom)
 		return;
 #ifdef HALO_ILP32
 	/* A spatial surface has its own apparent size, unrelated to window points. */
-	const char *vision = getenv("HALO_HOST_VISIONOS");
-	if (vision && !strcmp(vision, "1"))
+	if (halo_host_visionos())
 		return;
 	height = host_sdl_menu_height_points();
 #else
