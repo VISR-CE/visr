@@ -12,9 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sched.h>
-#include <time.h>
 #include "host_gamepad_merge.h"
+#include "thread_passes.h"
 
 static _Thread_local int on_main;
 int host_on_main_thread(void) { return on_main; }
@@ -72,9 +71,9 @@ static void *tick_off_main(void *context) {
 }
 
 static atomic_int stop;
-/* passes each other thread has made: two readers, then the enumerator */
+/* the other threads' passes (thread_passes.h): two readers, then the enumerator */
 enum { READERS = 2, THREADS = 3 };
-static atomic_long passes[THREADS];
+static struct thread_passes passes;
 static void *reader(void *context) {
     atomic_long *count = context;
     while (!atomic_load(&stop)) {
@@ -97,20 +96,6 @@ static void *enumerator(void *context) {
     }
     return NULL;
 }
-/* true once every other thread has made a pass since `since` was taken */
-static int all_passed_since(const long since[THREADS]) {
-    for (int i = 0; i < THREADS; i++)
-        if (atomic_load(&passes[i]) <= since[i]) return 0;
-    return 1;
-}
-/* Fails loudly when a thread has not run within 30 s: a stalled thread must not read as a pass. */
-static void check_deadline(time_t deadline, const char *what) {
-    if (time(NULL) < deadline) return;
-    fprintf(stderr, "FAIL: %s: a thread made no pass within 30 s (readers %ld, %ld; enumerator %ld)\n", what,
-        atomic_load(&passes[0]), atomic_load(&passes[1]), atomic_load(&passes[2]));
-    exit(1);
-}
-
 int main(void) {
     on_main = 1;
     merge.virtual_id = 1;
@@ -167,40 +152,25 @@ int main(void) {
     atomic_store(&hardware.buttons[SDL_GAMEPAD_BUTTON_WEST], false);
 
     /* pad reads and an enumeration on other threads while main presses, ticks and opens and closes the dialog */
-    /* Main waits for every thread's first pass, then keeps going past 3,000 ticks until each has made another,
-       so the reads always overlap main's ticks however the threads are scheduled. */
+    /* main waits for each thread's first pass, then ticks at least 3,000 times and until each has made two more */
     pthread_t threads[THREADS];
     for (int i = 0; i < THREADS; i++)
-        assert(pthread_create(&threads[i], NULL, i < READERS ? reader : enumerator, &passes[i]) == 0);
-    long none[THREADS] = {0, 0, 0};
-    time_t deadline = time(NULL) + 30;
-    while (!all_passed_since(none)) {
-        check_deadline(deadline, "before main's ticks");
-        sched_yield();
-    }
-    long start[THREADS];
-    for (int i = 0; i < THREADS; i++) start[i] = atomic_load(&passes[i]);
-    deadline = time(NULL) + 30;
-    int ticks = 0;
-    for (; ticks < 3000 || !all_passed_since(start); ticks++) {
-        int i = ticks;
-        key(i & 1 ? SDL_SCANCODE_DOWN : SDL_SCANCODE_RETURN, i % 3 != 0);
-        dialog_up = i % 50 < 10;
-        atomic_store(&hardware_down, i % 50 >= 10 && i % 50 < 15);
-        atomic_store(&hardware.buttons[SDL_GAMEPAD_BUTTON_NORTH], i % 7 == 0);
-        atomic_store(&hardware.axes[SDL_GAMEPAD_AXIS_RIGHTY], (Sint16)(i * 10));
+        assert(pthread_create(&threads[i], NULL, i < READERS ? reader : enumerator, &passes.passes[i]) == 0);
+    thread_passes_start(&passes, THREADS);
+    int tick = 0;
+    for (; thread_passes_continue(&passes, tick, 3000); tick++) {
+        key(tick & 1 ? SDL_SCANCODE_DOWN : SDL_SCANCODE_RETURN, tick % 3 != 0);
+        dialog_up = tick % 50 < 10;
+        atomic_store(&hardware_down, tick % 50 >= 10 && tick % 50 < 15);
+        atomic_store(&hardware.buttons[SDL_GAMEPAD_BUTTON_NORTH], tick % 7 == 0);
+        atomic_store(&hardware.axes[SDL_GAMEPAD_AXIS_RIGHTY], (Sint16)((unsigned)tick * 10));
         host_tv_text_prompt_tick();
-        if (ticks >= 3000) {
-            check_deadline(deadline, "during main's ticks");
-            sched_yield();
-        }
     }
     atomic_store(&stop, 1);
     for (int i = 0; i < THREADS; i++) assert(pthread_join(threads[i], NULL) == 0);
-    /* not vacuous: each thread ran while main ticked */
-    for (int i = 0; i < THREADS; i++) assert(atomic_load(&passes[i]) > start[i] && start[i] > 0);
-    long reads = atomic_load(&passes[0]) + atomic_load(&passes[1]);
+    long total = thread_passes_finish(&passes);
+    long reads = total - atomic_load(&passes.passes[THREADS - 1]);
     printf("PASS: the Apple TV pad's remote latches and text dialog gate; %ld reads on other threads during %d ticks on main\n",
-        reads, ticks);
+        reads, tick);
     return 0;
 }

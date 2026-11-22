@@ -3,6 +3,7 @@
    as main's pump, the game thread and the guest's own threads make them. The class: gamepad state
    shared between threads is atomic, never a plain variable one thread writes while another reads. */
 #include "host_gamepad_merge.h"
+#include "thread_passes.h"
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -12,7 +13,9 @@ static SDL_JoystickID hardware[2];
 /* which hardware pad the skip callback hides (-1: none); main flips it while the threads run */
 static atomic_int hidden = -1;
 static atomic_int stop;
-static atomic_long reads, enumerations;
+/* the other threads' passes (thread_passes.h): the enumerator, then two readers */
+enum { THREADS = 3 };
+static struct thread_passes passes;
 
 static int skip(uint32_t id) {
     int index = atomic_load(&hidden);
@@ -34,22 +37,22 @@ static SDL_JoystickID attach(const char *name) {
 }
 
 static void *reader(void *context) {
-    (void)context;
+    atomic_long *count = context;
     while (!atomic_load(&stop)) {
         SDL_Gamepad *pad = host_gamepad_merge_primary(&merge);
         if (pad) (void)SDL_GetGamepadAxis(pad, SDL_GAMEPAD_AXIS_LEFTX);
-        atomic_fetch_add(&reads, 1);
+        atomic_fetch_add(count, 1);
     }
     return NULL;
 }
 
 static void *enumerator(void *context) {
-    (void)context;
+    atomic_long *count = context;
     uint32_t out[8];
     while (!atomic_load(&stop)) {
         int used = host_gamepad_merge_enumerate(&merge, out, 8, skip, NULL, NULL);
         assert(used >= 1 && out[0] == merge.virtual_id);
-        atomic_fetch_add(&enumerations, 1);
+        atomic_fetch_add(count, 1);
     }
     return NULL;
 }
@@ -86,22 +89,24 @@ int main(void) {
     assert(host_gamepad_merge_enumerate(&merge, out, 8, skip, &primary, &previous) == 1);
     assert(primary == hardware[1] && previous == hardware[0]);
 
-    /* enumerations change the primary while two readers use it */
-    pthread_t threads[3];
-    assert(pthread_create(&threads[0], NULL, enumerator, NULL) == 0);
-    assert(pthread_create(&threads[1], NULL, reader, NULL) == 0);
-    assert(pthread_create(&threads[2], NULL, reader, NULL) == 0);
-    for (int i = 0; i < 2000; i++) {
-        atomic_store(&hidden, i % 3 - 1);
+    /* enumerations change the primary while two readers use it: main waits for each thread's first pass, then
+       works at least 2,000 times and until each has made two more */
+    pthread_t threads[THREADS];
+    for (int i = 0; i < THREADS; i++)
+        assert(pthread_create(&threads[i], NULL, i == 0 ? enumerator : reader, &passes.passes[i]) == 0);
+    thread_passes_start(&passes, THREADS);
+    for (int step = 0; thread_passes_continue(&passes, step, 2000); step++) {
+        atomic_store(&hidden, step % 3 - 1);
         (void)host_gamepad_merge_enumerate(&merge, out, 8, skip, NULL, NULL);
         (void)host_gamepad_merge_primary(&merge);
     }
     atomic_store(&stop, 1);
-    for (int i = 0; i < 3; i++) assert(pthread_join(threads[i], NULL) == 0);
-    assert(atomic_load(&reads) > 0 && atomic_load(&enumerations) > 0);
+    for (int i = 0; i < THREADS; i++) assert(pthread_join(threads[i], NULL) == 0);
+    long total = thread_passes_finish(&passes);
+    long enumerations = atomic_load(&passes.passes[0]);
 
     SDL_Quit();
     printf("PASS: merged pad ports, skip and primary; %ld concurrent reads over %ld enumerations\n",
-        atomic_load(&reads), atomic_load(&enumerations));
+        total - enumerations, enumerations);
     return 0;
 }
