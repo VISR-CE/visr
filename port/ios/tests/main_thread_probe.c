@@ -20,6 +20,10 @@ static void advance(void *context) {
     assert(atomic_fetch_add(&step, 1) == expected);
 }
 static void nothing(void *context) { (void)context; }
+static void sleep_briefly(void *context) {
+    (void)context;
+    usleep(5000);
+}
 static void *worker(void *context) {
     (void)context;
     assert(!host_on_main_thread());
@@ -36,12 +40,21 @@ static void *worker(void *context) {
     struct host_main_sync_waits waits;
     host_main_sync_take(&waits);
     assert(waits.count == 2);
+    /* both entry points time their wait, and the longest is kept beside the total */
     host_main_sync(^{ usleep(5000); });
     host_main_sync_take(&waits);
     assert(waits.count == 1);
     assert(waits.nanoseconds >= 5000000 && waits.longest_nanoseconds == waits.nanoseconds);
+    host_main_sync_f(NULL, sleep_briefly);
+    host_main_sync(^{ usleep(20000); });
+    host_main_sync_take(&waits);
+    assert(waits.count == 2);
+    assert(waits.nanoseconds >= 25000000);
+    assert(waits.longest_nanoseconds >= 20000000 && waits.longest_nanoseconds < waits.nanoseconds);
     host_main_sync_take(&waits);
     assert(waits.count == 0 && waits.nanoseconds == 0);
+    /* main is waiting in its run loop now: none of this thread's waits may land in main's totals */
+    host_main_sync(^{ usleep(1000); });
     /* Waits made outside a no-wait zone are not counted; inside one (nested too) every wait is,
        and asyncs are not. */
     assert(host_main_forbidden_waits() == 0);
@@ -101,6 +114,9 @@ int main(void) {
         CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, false);
     assert(atomic_load(&done));
     assert(pthread_join(thread, NULL) == 0);
+    /* the worker's waits were counted on the worker: main's own totals stay empty */
+    host_main_sync_take(&main_waits);
+    assert(main_waits.count == 0 && main_waits.nanoseconds == 0);
     assert(atomic_load(&step) == 4);
     assert(host_main_forbidden_waits() == 3);
     dispatch_release(submitted);
