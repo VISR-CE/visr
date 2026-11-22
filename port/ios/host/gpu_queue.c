@@ -1652,6 +1652,9 @@ enum { DRAW_FIELDS = sizeof(draw_fields) / sizeof(draw_fields[0]) };
 static struct
 {
 	unsigned long spans, differing_spans, calls, differ, structure, uniforms, packet[DRAW_FIELDS];
+	/* calls one side made that the other did not (found by matching each call to the next live call of the same
+	operation and, for draws, the same shaders and primitives) */
+	unsigned long replay_only, live_only;
 	unsigned long registers[CLASS_COUNT][GPU_CONSTANT_COUNT];
 	/* the first example of each: the live eye's value, then the replay's */
 	float example[CLASS_COUNT][GPU_CONSTANT_COUNT][2][4];
@@ -1797,42 +1800,95 @@ static void verify_draw_differs(const unsigned char *live, const unsigned char *
 	verify_detail_line(line);
 }
 
-/* the replay's call just written to replay_call, against the live call at compare_at */
+/* whether two calls (entries) are the same call, perhaps with other values: the same operation and size, and for
+a draw the same shaders and primitives */
+static int same_call(const unsigned char *a, const unsigned char *b)
+{
+	const struct gpu_draw *x, *y;
+
+	if (memcmp(a, b, 8))
+		return 0;
+	if (*(const uint32_t *)a != GPU_OPERATION_draw)
+		return 1;
+	x = (const struct gpu_draw *)(a + 8);
+	y = (const struct gpu_draw *)(b + 8);
+	return x->vertex_shader == y->vertex_shader && x->pixel_shader == y->pixel_shader &&
+		x->index_buffer == y->index_buffer && x->index_offset == y->index_offset && x->primitive == y->primitive &&
+		x->count == y->count && x->base_vertex == y->base_vertex;
+}
+
+static const char *call_text(const unsigned char *call, char *text, size_t size)
+{
+	uint32_t operation;
+
+	memcpy(&operation, call, 4);
+	if (operation == GPU_OPERATION_draw)
+	{
+		const struct gpu_draw *draw = (const struct gpu_draw *)(call + 8);
+
+		snprintf(text, size, "draw (shaders %u/%u, target %u, %u from %u)", (unsigned)draw->vertex_shader,
+			(unsigned)draw->pixel_shader, (unsigned)draw->color_target, draw->count, draw->index_offset);
+	}
+	else
+		snprintf(text, size, "operation %u", operation);
+	return text;
+}
+
+enum { VERIFY_LOOK_AHEAD = 512 };
+
+/* the replay's call just written to replay_call, against the live call at compare_at; a call the live eye did not
+make, or live calls the replay skips, are counted as such and the calls after them still compared */
 static void verify_compare(void)
 {
 	const unsigned char *live = live_calls.bytes + compare_at;
 	const unsigned char *made = replay_call.bytes;
-	uint32_t live_operation, live_size, operation, size;
-	char line[256];
+	uint32_t live_size, operation, size;
+	char line[384], text[2][96];
 
 	memcpy(&operation, made, 4);
 	memcpy(&size, made + 4, 4);
 	compare_index++;
 	tally.calls++;
-	if (compare_at + 8 > live_calls.size)
+	if (compare_at + 8 > live_calls.size || !same_call(live, made))
 	{
+		size_t at = compare_at;
+		unsigned long skipped;
+
+		for (skipped = 0; skipped < VERIFY_LOOK_AHEAD && at + 8 <= live_calls.size; skipped++)
+		{
+			if (same_call(live_calls.bytes + at, made))
+				break;
+			memcpy(&live_size, live_calls.bytes + at + 4, 4);
+			at += 8 + live_size;
+		}
 		compare_differ++;
 		tally.structure++;
-		snprintf(line, sizeof(line), "stereo replay verify: call %lu (operation %u) has no live call", compare_index,
-			operation);
-		verify_detail_line(line);
-		return;
+		if (skipped < VERIFY_LOOK_AHEAD && at + 8 <= live_calls.size)
+		{
+			tally.live_only += skipped;
+			snprintf(line, sizeof(line), "stereo replay verify: before call %lu, %s, the live eye made %lu calls the "
+				"replay did not, the first %s", compare_index, call_text(made, text[0], sizeof(text[0])), skipped,
+				call_text(live, text[1], sizeof(text[1])));
+			verify_detail_line(line);
+			compare_at = at;
+			live = live_calls.bytes + compare_at;
+		}
+		else
+		{
+			tally.replay_only++;
+			snprintf(line, sizeof(line), "stereo replay verify: call %lu, %s, is not one the live eye made", compare_index,
+				call_text(made, text[0], sizeof(text[0])));
+			verify_detail_line(line);
+			return;
+		}
 	}
-	memcpy(&live_operation, live, 4);
 	memcpy(&live_size, live + 4, 4);
 	compare_at += 8 + live_size;
-	if (live_operation == operation && live_size == size && !memcmp(live + 8, made + 8, size))
+	if (!memcmp(live + 8, made + 8, size))
 		return;
 	compare_differ++;
 	tally.differ++;
-	if (live_operation != operation || live_size != size)
-	{
-		tally.structure++;
-		snprintf(line, sizeof(line), "stereo replay verify: call %lu is operation %u (%u bytes), the live eye's %u (%u "
-			"bytes)", compare_index, operation, size, live_operation, live_size);
-		verify_detail_line(line);
-	}
-	else if (operation == GPU_OPERATION_draw)
+	if (operation == GPU_OPERATION_draw)
 		verify_draw_differs(live, made, plain_call(compare_index - 1, operation, size));
 	else
 	{
@@ -1853,8 +1909,8 @@ static void verify_summary(void)
 	if (!log_line)
 		return;
 	length = snprintf(line, sizeof(line), "stereo replay verify summary: %lu spans, %lu differ; %lu of %lu calls differ, "
-		"%lu in operation or size, %lu in uniforms; packet:", tally.spans, tally.differing_spans, tally.differ,
-		tally.calls, tally.structure, tally.uniforms);
+		"%lu unmatched (%lu replay only, %lu live only), %lu in uniforms; packet:", tally.spans, tally.differing_spans,
+		tally.differ, tally.calls, tally.structure, tally.replay_only, tally.live_only, tally.uniforms);
 	for (field = 0; field < DRAW_FIELDS; field++)
 		if (tally.packet[field] && length < (int)sizeof(line) - 40)
 			length += snprintf(line + length, sizeof(line) - (size_t)length, " %s %lu", draw_fields[field].name,
