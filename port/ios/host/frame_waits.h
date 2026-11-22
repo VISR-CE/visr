@@ -22,9 +22,10 @@ struct frame_waits_taken
 
 void frame_waits_add_game(double seconds);
 void frame_waits_add_display(double seconds);
+/* (one slot wait a frame: frame_begin waits once, so the last interval is the frame's) */
 void frame_waits_add_slot(double started, double ended);
-/* the frame's waits, cleared for the next. Every present takes them, shown or not, so a frame's waits never land on
-the next frame's row. present_called: when the game thread reached its present with the encode thread on
+/* the frame's waits, cleared for the next. Every flat present takes them, shown or not, so a frame's waits never land
+on the next frame's row (the visionOS stereo, theater and UI-quad presents do not yet: the visionOS encode step). present_called: when the game thread reached its present with the encode thread on
 (host_gpu_present_called); a negative value means the game thread encoded the frame itself. */
 struct frame_waits_taken frame_waits_take(double present_called);
 
