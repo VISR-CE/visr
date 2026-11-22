@@ -82,10 +82,15 @@ NEGATIVE_CONTROLS = {
     "campaign-by-prefix": ((" && path[position] == '\\\\')", ")"), "map_share_policy.c", None, "catalog"),
     "relay-before-tags": (("\t\tdownload_file_has_pieces(file, first_tag_piece, last_tag_piece)) &&",
                            "\t\tTRUE) &&"), "map_share.c", "download_file_sendable", "relay-unknown"),
+    "campaign-any-type": (("return campaign && identity.scenario_type == _cache_file_scenario_type_solo;",
+                          "return campaign;"), "map_share_policy.c", None, "catalog"),
+    "solo-refused": (("return campaign && identity.scenario_type == _cache_file_scenario_type_solo;",
+                      "return campaign || identity.scenario_type == _cache_file_scenario_type_solo;"),
+                     "map_share_policy.c", None, "catalog"),
     "relay-campaign-ignored": (("map_share_campaign_read(file->stream, file->size)", "0"), "map_share.c",
                                "download_file_sendable", "relay-refused"),
-    "unreadable-tags-sent": (("campaign : -1", "campaign : 0"), "map_share_policy.c", None, "catalog"),
-    "unreadable-tags-relayed": (("campaign : -1", "campaign : 0"), "map_share_policy.c", None, "relay-refused"),
+    "unreadable-tags-sent": (("\t\treturn -1;\n\t}\n\t/* (only a singleplayer", "\t\treturn 0;\n\t}\n\t/* (only a singleplayer"), "map_share_policy.c", None, "catalog"),
+    "unreadable-tags-relayed": (("\t\treturn -1;\n\t}\n\t/* (only a singleplayer", "\t\treturn 0;\n\t}\n\t/* (only a singleplayer"), "map_share_policy.c", None, "relay-refused"),
     "content-forgotten": (("\t\tknown->content_known = campaign >= 0;\n", ""), "map_share_files.c", "catalog_file_judged",
                           "catalog-once"),
     "any-cache-sent": (("if (status != _cache_file_status_ok || identity.format != _cache_file_format_custom_edition_cache)",
@@ -432,8 +437,8 @@ def real_maps():
 
 def test_real_maps_none_is_sent_under_any_name(real_maps, tmp_path):
     """Every stock map and resource map there, under its own name and renamed, each stock map with an edited header
-    checksum, and a campaign conversion made from each multiplayer map, is refused; the content hashes are the
-    table's."""
+    checksum, and a singleplayer campaign conversion made from each multiplayer map, is refused; the same copy left a
+    multiplayer map is sent; the content hashes are the table's."""
     clang = find_clang()
     if clang is None:
         pytest.skip("clang is needed")
@@ -492,6 +497,7 @@ int main(int count, char **arguments)
     files = sorted(path for path in real_maps.glob("*.map") if path.stem in refused)
     assert files
     arguments = []
+    shared = []
     conversions = 0
     for path in files:
         data = path.read_bytes()
@@ -503,12 +509,16 @@ int main(int count, char **arguments)
             edited.write_bytes(data[:0x64] + bytes(4) + data[0x68:])
             arguments += [str(edited), content_hash(edited.read_bytes())]
             # (a conversion of a campaign level made from it: its scenario renamed into a campaign level's folder,
-            # so its content is no stock map's)
+            # so its content is no stock map's, and its header made a singleplayer map's; left a multiplayer map,
+            # the same copy is sent)
             scenario = f"levels\\test\\{path.stem}\\{path.stem}\0".encode()
             if path.stem != "ui" and scenario in data:
-                renamed = b"levels\\a10\\" + b"x" * (len(scenario) - 12) + b"\0"
+                renamed = data.replace(scenario, b"levels\\a10\\" + b"x" * (len(scenario) - 12) + b"\0")
+                multiplayer = tmp_path / f"multiplayer-{path.name}"
+                multiplayer.write_bytes(renamed)
+                shared += [str(multiplayer), content_hash(renamed)]
                 converted = tmp_path / f"converted-{path.name}"
-                converted.write_bytes(data.replace(scenario, renamed))
+                converted.write_bytes(renamed[:0x60] + bytes(2) + renamed[0x62:])
                 arguments += [str(converted), content_hash(converted.read_bytes())]
                 conversions += 1
         arguments += [str(path), content]
@@ -516,3 +526,5 @@ int main(int count, char **arguments)
     for name in ("hugeass", *(path.stem for path in files)):
         result = subprocess.run([str(judge), name, *arguments], capture_output=True, text=True, check=True)
         assert set(result.stdout.split()) == {"0"}, f"a stock or resource map is sent as {name}.map"
+    result = subprocess.run([str(judge), "mymap", *shared], capture_output=True, text=True, check=True)
+    assert result.stdout.split() == ["1"] * conversions, "a multiplayer map in a campaign level's folder is refused"

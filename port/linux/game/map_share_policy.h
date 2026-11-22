@@ -18,9 +18,10 @@ and with any header, an edited checksum too (port/runtime/stock_maps.h). A
 community map that reuses a stock map's name but differs in content may be
 sent. Anything that is not a valid Custom Edition cache (a Halo PC or Xbox
 cache, a header not had yet or not read) is refused, and a map whose content
-hash is not known yet may be hashed but not sent. A conversion of a
-campaign level (Bungie's campaign content) is refused by its tag paths: its
-scenario or a structure BSP in a campaign level's folder. Tag paths are
+hash is not known yet may be hashed but not sent. A singleplayer
+conversion of a campaign level (Bungie's campaign content) is refused by its
+tag paths: its scenario or a structure BSP in a campaign level's folder; a
+multiplayer map built on a campaign level's geometry is sent. Tag paths are
 names the game does not read, so a conversion whose tags were renamed (moved
 to another folder, or scrambled by a map protection tool) is not known; this
 catches the ones that keep the paths they were built with.
@@ -81,15 +82,16 @@ enum map_share_policy_verdict map_share_policy_judge(
 	uint8_t const *content,
 	int32_t campaign);
 
-/* Whether a Custom Edition cache is a conversion of a campaign level, by its
-tag paths, not its file name: 1 when its scenario's tag, or any structure
+/* Whether a Custom Edition cache is a singleplayer conversion of a campaign
+level, by its header's scenario type and its tag paths, not its file name: 1
+when it is a singleplayer map and its scenario's tag, or any structure
 BSP's, lies in a campaign level's folder (levels\a10\..., the campaign rows
 of port/runtime/stock_maps.h), however the file or its header is named; 0
-when none does; -1 when its tags cannot be read. Community maps that only
-borrow a campaign level's shaders or sounds are not conversions; a map built
-on a campaign level's structure BSP is one. The paths are names only: a
-conversion whose scenario and structure BSPs were renamed out of those
-folders reads 0. */
+otherwise; -1 when its header or tags cannot be read. A multiplayer map is
+never one, whatever campaign level's structure BSP or shaders it is built
+on, and neither is a singleplayer map of a community's own levels. Best
+effort: the paths are names only, so a conversion whose scenario and
+structure BSPs were renamed out of those folders reads 0. */
 struct cache_file_source;
 int32_t map_share_policy_campaign(
 	struct cache_file_source *source);

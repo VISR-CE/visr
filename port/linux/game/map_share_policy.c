@@ -166,10 +166,17 @@ int map_share_policy_tag_data(
 int32_t map_share_policy_campaign(
 	struct cache_file_source *source)
 {
+	struct cache_file_identity identity;
 	int campaign = 0;
 
-	return cache_file_tag_names(source, campaign_tag_visit, &campaign) == _cache_file_status_ok || campaign ?
-		campaign : -1;
+	if (cache_file_identify(source, &identity) != _cache_file_status_ok ||
+		(cache_file_tag_names(source, campaign_tag_visit, &campaign) != _cache_file_status_ok && !campaign))
+	{
+		return -1;
+	}
+	/* (only a singleplayer map is a conversion of the campaign: a
+	multiplayer map built on a campaign level's structure BSP is shared) */
+	return campaign && identity.scenario_type == _cache_file_scenario_type_solo;
 }
 
 
