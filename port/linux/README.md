@@ -458,7 +458,7 @@ Apple Vision Pro's file.
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
-| `saves.checkpoint_persist` | boolean | `true` | apple, desktop | `HALO_CHECKPOINT_PERSIST` | Each campaign checkpoint also becomes the profile's saved game, so the game resumes from the last checkpoint however the app ended. |
+| `saves.checkpoint_persist` | boolean | `true` | apple | `HALO_CHECKPOINT_PERSIST` | Each campaign checkpoint also becomes the profile's saved game, so the game resumes from the last checkpoint however the app ended. |
 ### debug
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |

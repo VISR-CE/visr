@@ -1135,7 +1135,7 @@ static const struct config_setting config_settings[] =
 		"custom_maps folder for Custom Edition maps and their bitmaps.map,\n"
 		"sounds.map and loc.map (game.custom_edition); empty for none.", _tier_player },
 
-	{ "saves.checkpoint_persist", _config_boolean, "true", "HALO_CHECKPOINT_PERSIST", _environment_value, _platform_all,
+	{ "saves.checkpoint_persist", _config_boolean, "true", "HALO_CHECKPOINT_PERSIST", _environment_value, _platform_ios,
 		"Each campaign checkpoint also becomes the profile's saved game, so the\n"
 		"game resumes from the last checkpoint however the app ended. The file is\n"
 		"copied on a thread of its own and replaced whole. Off, the saved game\n"
