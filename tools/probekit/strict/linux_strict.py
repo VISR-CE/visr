@@ -49,6 +49,7 @@ C_SOURCES = {".c", ".i"}
 APPLE_SOURCES = {".m", ".mm", ".M"}
 # Options whose value is the next argument.
 SEPARATE_VALUE = {
+    "--output",
     "-o", "-I", "-D", "-U", "-include", "-imacros", "-isystem", "-iquote", "-idirafter", "-isysroot",
     "-x", "-L", "-l", "-arch", "-target", "-MF", "-MT", "-MQ", "-Xlinker", "-Xclang", "-Xpreprocessor",
     "-Xassembler", "-framework", "-F", "-iframework", "-install_name", "-rpath", "-u", "-e",
@@ -91,7 +92,7 @@ class Command:
             argument = arguments[index]
             value = arguments[index + 1] if argument in SEPARATE_VALUE and index + 1 < len(arguments) else None
             joined = value if value is not None else ""
-            if argument == "-o" and value is not None:
+            if argument in ("-o", "--output") and value is not None:
                 self.output = value
             elif argument.startswith("-o") and len(argument) > 2:
                 self.output = argument[2:]

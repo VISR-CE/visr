@@ -164,3 +164,5 @@ def test_lm_before_the_sources_is_refused(tmp_path: Path) -> None:
     result = compile_with(tmp_path, "cc", HYPOT, "-lm", "probe.c", "-o", "probe")
     assert result.returncode != 0
     assert "-lm comes before an input file" in result.stderr
+    # A separate --output value is not an input.
+    assert compile_with(tmp_path, "cc", HYPOT, "probe.c", "-lm", "--output", "probe").returncode == 0
