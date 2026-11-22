@@ -135,6 +135,17 @@ static inline double sim_slot(const struct sim *sim)
 	return sim->share * sim->link;
 }
 
+/* a frame's bookkeeping as the host keeps it (frame_pacer.h), before its GPU end is known. A frame that started at
+once, under unaimed_cost, began as much later as leaves that share of its work: the rules are told less of it */
+static inline struct frame_pacer_extended_frame sim_record(const struct sim *sim, const struct sim_frame *frame)
+{
+	struct frame_pacer_extended_frame record = { frame->read, frame->cpu, frame->aim, frame->allowed, 0.0 };
+
+	if (sim->unaimed_cost > 0.0 && frame->allowed <= 0.0)
+		record.began = frame->gpu_end - frame->waited - (frame->gpu_end - frame->read - frame->waited) * sim->unaimed_cost;
+	return record;
+}
+
 /* the events up to a time, in order: what the completion and presented handlers do */
 static inline void sim_events_until(struct sim *sim, double until)
 {
@@ -148,9 +159,12 @@ static inline void sim_events_until(struct sim *sim, double until)
 		{
 			sim->gpu_total += frame->gpu;
 			if (sim->mode == SIM_EXTENDED)
-				frame_pacer_extended_cost(&sim->extended, (frame->gpu_end - frame->read - frame->waited) *
-					(sim->unaimed_cost > 0.0 && frame->allowed <= 0.0 ? sim->unaimed_cost : 1.0), frame->gpu,
-					frame->cpu, frame->allowed, event.at);
+			{
+				struct frame_pacer_extended_frame record = sim_record(sim, frame);
+
+				frame_pacer_extended_frame_finished(&sim->extended, &record, frame->gpu_end, frame->gpu, frame->waited,
+					event.at);
+			}
 			continue;
 		}
 		frame_pacer_flight_give(&sim->flight);
@@ -162,8 +176,13 @@ static inline void sim_events_until(struct sim *sim, double until)
 		if (sim->mode == SIM_CLASSIC)
 			frame_pacer_late_shown(&sim->classic, frame->aim, frame->shown, sim->link);
 		else if (sim->mode == SIM_EXTENDED)
-			frame_pacer_extended_shown(&sim->extended, frame->aim, frame->shown, frame->aim - frame->gpu_end,
-				frame_pacer_extended_step(sim->link, sim->panel), sim_slot(sim), event.at);
+		{
+			struct frame_pacer_extended_frame record = sim_record(sim, frame);
+
+			record.gpu_end = frame->gpu_end;
+			frame_pacer_extended_frame_shown(&sim->extended, &record, frame->aim, frame->shown, sim->link, sim->panel,
+				sim->share, event.at);
+		}
 		if (sim->drs_height)
 		{
 			struct dynamic_resolution_frame fed = { 0 };
@@ -223,8 +242,9 @@ static inline void sim_frame(struct sim *sim)
 	}
 	else if (sim->mode == SIM_EXTENDED && sim->waited_for_display)
 	{
-		struct frame_pacer_extended_input in = { sim->now, sim_link_refresh(sim, sim->now), sim->link, sim->panel,
-			sim->share, sim->limit, (int)(sim->handed - sim->shown_highest), sim->shown_noticed, sim->slot_least };
+		struct frame_pacer_extended_input in = frame_pacer_extended_asked(sim->now, sim_link_refresh(sim, sim->now),
+			sim->link, sim->panel, sim->share, sim->limit, (unsigned long)sim->handed, (unsigned long)sim->shown_highest,
+			sim->shown_noticed, sim->slot_least);
 		struct frame_pacer_extended_start start = frame_pacer_extended_wait(&sim->extended, &in);
 
 		wait = start.wait;

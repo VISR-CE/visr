@@ -34,6 +34,7 @@ on each refresh that comes a sixtieth of a second or more after the last one
 counted: every refresh at 60 Hz, every other at 120. */
 #pragma once
 
+#include <math.h>
 #include <string.h>
 
 /* ---------- frames in flight */
@@ -785,6 +786,53 @@ static inline void frame_pacer_extended_shown(struct frame_pacer_extended *late,
 		late->calm = 0;
 		frame_pacer_extended_shrink(late);
 	}
+}
+
+
+/* ---- the extended late start's bookkeeping of one frame, the same for the host (host_frame_pacer.c) and the
+simulator (tests/frame_pacer_sim.h), so what the simulator tests is what the host does: what the rules are asked,
+what a frame's work is, and how long before its aim the GPU finished it */
+struct frame_pacer_extended_frame
+{
+	double began;   /* when its work began, after its late start's wait */
+	double cpu;     /* seconds from there to its Present */
+	double aim;     /* the refresh its late start aimed at; 0 none */
+	double allowed; /* the cost its late start allowed for; 0 none */
+	double gpu_end; /* when the GPU finished it; 0: not yet */
+};
+
+/* what frame_pacer_extended_wait is asked. handed, shown_highest: the frames handed to the display and the highest
+of them a shown notice has come for (those between are in flight); the rest as struct frame_pacer_extended_input */
+static inline struct frame_pacer_extended_input frame_pacer_extended_asked(double now, double refresh, double period,
+	double panel, double share, int limit, unsigned long handed, unsigned long shown_highest, double shown_last,
+	double slot_least)
+{
+	struct frame_pacer_extended_input in = { now, refresh, period, panel, share, limit, (int)(handed - shown_highest),
+		shown_last, slot_least };
+
+	return in;
+}
+
+/* the GPU finished a frame at gpu_end, after gpu seconds on it; waited: the seconds of its work spent waiting for the
+display (0 or less: none); now: the clock */
+static inline void frame_pacer_extended_frame_finished(struct frame_pacer_extended *late,
+	struct frame_pacer_extended_frame *frame, double gpu_end, double gpu, double waited, double now)
+{
+	frame->gpu_end = gpu_end;
+	frame_pacer_extended_cost(late, gpu_end - frame->began - (waited > 0.0 ? waited : 0.0), gpu, frame->cpu,
+		frame->allowed, now);
+}
+
+/* a frame was shown at this time. frame: its bookkeeping, or NULL when it is gone (the GPU's end is then unknown, as
+it is when its report has not come); aim: the refresh it aimed at (0 none); period, panel, share: as
+struct frame_pacer_extended_input; now: the clock */
+static inline void frame_pacer_extended_frame_shown(struct frame_pacer_extended *late,
+	const struct frame_pacer_extended_frame *frame, double aim, double at, double period, double panel, double share,
+	double now)
+{
+	double slack = frame && frame->gpu_end > 0.0 ? aim - frame->gpu_end : (double)NAN;
+
+	frame_pacer_extended_shown(late, aim, at, slack, frame_pacer_extended_step(period, panel), share * period, now);
 }
 
 /* ---------- when frames were shown */

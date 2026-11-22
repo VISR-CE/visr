@@ -32,8 +32,7 @@ struct pacer_frame_cost
 {
 	unsigned long number;
 	int known;
-	double began, cpu, aim, allowed;
-	double gpu_end;                  /* 0: not finished yet */
+	struct frame_pacer_extended_frame frame; /* frame_pacer.h */
 };
 
 static struct
@@ -214,8 +213,8 @@ void frame_pacer_frame_start(int may_wait)
 		;
 	else if (pacer.late_start == LATE_START_EXTENDED)
 	{
-		struct frame_pacer_extended_input in = { now, pacer.refresh, pacer.period, pacer.panel, share, pacer.flight.limit,
-			(int)(pacer.handed - pacer.shown_highest), pacer.shown_latest, pacer.late_start_slot };
+		struct frame_pacer_extended_input in = frame_pacer_extended_asked(now, pacer.refresh, pacer.period, pacer.panel,
+			share, pacer.flight.limit, pacer.handed, pacer.shown_highest, pacer.shown_latest, pacer.late_start_slot);
 		struct frame_pacer_extended_start start = frame_pacer_extended_wait(&pacer.extended, &in);
 
 		wait = start.wait;
@@ -263,12 +262,8 @@ void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu
 	if (!pacer.started || gpu_end <= 0.0)
 		return;
 	pthread_mutex_lock(&pacer.lock);
-	if (cost->known && cost->number == number && cost->began > 0.0)
-	{
-		cost->gpu_end = gpu_end;
-		frame_pacer_extended_cost(&pacer.extended, gpu_end - cost->began - (waited > 0.0 ? waited : 0.0), gpu_seconds,
-			cost->cpu, cost->allowed, now_seconds());
-	}
+	if (cost->known && cost->number == number && cost->frame.began > 0.0)
+		frame_pacer_extended_frame_finished(&pacer.extended, &cost->frame, gpu_end, gpu_seconds, waited, now_seconds());
 	pthread_mutex_unlock(&pacer.lock);
 }
 
@@ -370,11 +365,11 @@ int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long numbe
 		/* (the extended late start's cost of the frame comes when the GPU finishes it: frame_pacer_frame_finished) */
 		cost->number = number;
 		cost->known = 1;
-		cost->began = pacer.frame_started;
-		cost->cpu = cpu;
-		cost->aim = pacer.frame_aim;
-		cost->allowed = pacer.frame_allowed;
-		cost->gpu_end = 0.0;
+		cost->frame.began = pacer.frame_started;
+		cost->frame.cpu = cpu;
+		cost->frame.aim = pacer.frame_aim;
+		cost->frame.allowed = pacer.frame_allowed;
+		cost->frame.gpu_end = 0.0;
 		frame->in_flight = (uint8_t)(pacer.handed - pacer.shown_highest > 255 ? 255 : pacer.handed - pacer.shown_highest);
 		pacer.waited_for_display = waits_for_display != 0;
 		pthread_mutex_unlock(&pacer.lock);
@@ -470,17 +465,16 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 	if (pacer.late_start == LATE_START_EXTENDED)
 	{
 		const struct pacer_frame_cost *cost = &pacer.costs[frame->number % FRAME_COSTS];
-		/* how long before its aim the GPU finished it; unknown when the GPU's report has not come */
-		double slack = cost->known && cost->number == frame->number && cost->gpu_end > 0.0 ? frame->aim - cost->gpu_end :
-			(double)NAN;
+		/* (another frame's by now: this one's GPU end is unknown) */
+		const struct frame_pacer_extended_frame *known = cost->known && cost->number == frame->number ? &cost->frame : NULL;
 
-		if (cost->known && cost->number == frame->number)
+		if (known)
 		{
-			gpu_before = cost->gpu_end > 0.0 ? at - cost->gpu_end : 0.0;
-			allowed = cost->allowed;
+			gpu_before = known->gpu_end > 0.0 ? at - known->gpu_end : 0.0;
+			allowed = known->allowed;
 		}
-		frame_pacer_extended_shown(&pacer.extended, frame->aim, at, slack, frame_pacer_extended_step(period, pacer.panel),
-			frame_pacer_share(period, host_frame_rate_target()) * period, now_seconds());
+		frame_pacer_extended_frame_shown(&pacer.extended, known, frame->aim, at, period, pacer.panel,
+			frame_pacer_share(period, host_frame_rate_target()), now_seconds());
 	}
 	else
 		frame_pacer_late_shown(&pacer.late, frame->aim, at, period);
