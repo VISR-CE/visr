@@ -101,6 +101,7 @@ symbols in this file:
 #include "console.h"
 #include "game_state.h"
 #include "network_coop.h" /* port: checkpoint membership for host team-wipe reverts */
+#include "saved_game_persist.h" /* port: each checkpoint becomes the profile's saved game */
 #include "../../port/linux/src/port_config.h" /* port: checkpoint revival is a local respawn boundary */
 #include "game.h"
 #include "tag_files.h"
@@ -330,7 +331,12 @@ void game_state_save(
 	game_state_call_before_save_procs();
 
 	main_stop_time();
+	/* port: the checkpoint is also the profile's saved game from here on, where
+	the Xbox game kept it only until the console was switched off. The host
+	copies the file just written on a thread of its own (saved_game_persist.h). */
+	saved_game_persist_checkpoint_begin();
 	game_state_globals.saved_game_valid = (game_state_write_to_file()!=FALSE);
+	saved_game_persist_checkpoint_end(game_state_globals.saved_game_valid, GAME_STATE_SIZE);
 	main_start_time();
 	/* port: never associate new players with an older or failed save. */
 	if (game_state_globals.saved_game_valid)
@@ -401,19 +407,20 @@ boolean game_state_save_to_persistent_storage(
 {
 	if (player_spawn_count==1)
 	{
-		/* port: reject unusable storage before changing the live game. The
-		writer closes this same handle, without reopening the path. */
+		/* port: reject unusable storage before changing the live game. */
 		void *storage = game_state_open_persistent_storage(NULL);
 		if (storage == INVALID_HANDLE_VALUE)
 			return FALSE;
 
+		/* port: the check is all the handle is for. The file is replaced
+		whole by the host's writer (saved_game_persist.h), never written in
+		place, so a write cut short leaves the saved game that was there. */
+		CloseHandle(storage);
+
 		game_state_note_event("save and quit");
 		game_state_revert();
-		return game_state_write_to_persistent_storage(
-			storage,
+		return saved_game_persist_write_now(
 			game_state_globals.base_address,
-			&game_state_globals.header->checksum,
-			sizeof(*game_state_globals.header),
 			/* the whole of the native builds' larger game state */
 			GAME_STATE_SIZE);
 	}

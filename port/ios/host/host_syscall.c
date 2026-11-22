@@ -1,6 +1,7 @@
 /* Translate the guest's Linux/musl ABI into Darwin libc and pthread calls. */
 #include "ios_host.h"
 #include "host_cloud_saves.h"
+#include "host_save_writer.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -156,6 +157,8 @@ long long host_syscall(long long number,long long a,long long b,long long c,long
     case __NR_fsync:case __NR_fdatasync:return result(fsync(a));
     case __NR_mkdirat:return result(mkdirat(directory_fd(a),P(const char *,b),c));
     case __NR_unlinkat: {
+        /* a saved game the game deletes is not written again behind the deletion (host_save_writer.h) */
+        if(!(c&0x200))host_save_writer_unlinking(P(const char *,b));
         int removed=unlinkat(directory_fd(a),P(const char *,b),(c&0x200)?AT_REMOVEDIR:0);
         /* a save's directory removed by the game is a deletion to pass on (nothing without HALO_CLOUD_SAVES) */
         if(!removed && (c&0x200))host_cloud_saves_directory_removed(P(const char *,b));

@@ -454,6 +454,11 @@ Apple Vision Pro's file.
 | `paths.data` | string | `""` | desktop | `HALO_DATA_ROOT` | The folder holding the game data's maps folder; empty looks in the working directory and its assets folder. |
 | `paths.saves` | string | `""` | desktop | `HALO_SAVE_ROOT` | Where saved games and profiles go; empty for the usual place (~/.local/share/halo-linux, or %APPDATA%\halo on Windows). |
 | `paths.custom_edition` | string | `""` | desktop | `HALO_CUSTOM_EDITION_ROOT` | A Halo Custom Edition install whose maps folder is looked in after the custom_maps folder for Custom Edition maps and their bitmaps.map, sounds.map and loc.map (game.custom_edition); empty for none. |
+### saves
+
+| Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
+| --- | --- | --- | --- | --- | --- |
+| `saves.checkpoint_persist` | boolean | `true` | apple, desktop | `HALO_CHECKPOINT_PERSIST` | Each campaign checkpoint also becomes the profile's saved game, so the game resumes from the last checkpoint however the app ended. |
 ### network
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |

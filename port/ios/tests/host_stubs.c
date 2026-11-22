@@ -62,6 +62,7 @@
 #include "host_quit_signals.h"
 #include "host_recording_pack.h"
 #include "host_report_delivery.h"
+#include "host_save_writer.h"
 #include "host_shader_pack.h"
 #include "host_shader_upload.h"
 #include "host_socket_revival.h"
@@ -1023,6 +1024,18 @@ __attribute__((weak)) void * host_resolve_import(const char *name)
 { fprintf(stderr, "host_stubs: probe called host_resolve_import without defining it\n"); abort(); }
 __attribute__((weak)) void host_run_guest_main(uint32_t boot)
 { abort(); }
+__attribute__((weak)) void host_save_checkpoint_begin(void)
+{ }
+__attribute__((weak)) void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size)
+{ }
+__attribute__((weak)) int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size)
+{ fprintf(stderr, "host_stubs: probe called host_save_write_now without defining it\n"); abort(); }
+__attribute__((weak)) void host_save_writer_start(const char *save_root)
+{ }
+__attribute__((weak)) void host_save_writer_unlinking(const char *path)
+{ }
+__attribute__((weak)) void host_save_writer_wait(double seconds)
+{ }
 __attribute__((weak)) int host_sdl_audio_any_open(void)
 { fprintf(stderr, "host_stubs: probe called host_sdl_audio_any_open without defining it\n"); abort(); }
 __attribute__((weak)) int host_sdl_audio_open_count(void)

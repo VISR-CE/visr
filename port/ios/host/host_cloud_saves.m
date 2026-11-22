@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include "host.h"
 #include "host_cloud_saves.h"
+#include "host_save_writer.h"
 #include "cloud_saves.h"
 #include "guest_image.h"
 #include "../../linux/include/halo_port_limits.h"
@@ -386,6 +387,9 @@ static void cloud_show_notices(void) {
 
 static void cloud_scan(void (^then)(void)) {
     dispatch_async(cloud_queue, ^{
+        /* the app is leaving the screen or was asked to look now: a checkpoint being written to the saved
+           game is waited for here, on this queue, never on the main thread (the game may still run) */
+        host_save_writer_wait(2);
         cloud_pass_paced(CLOUD_PASS_RUNNING, 1);
         if (then) then();
     });

@@ -4803,6 +4803,23 @@
       },
       "additionalProperties": false
     },
+    "saves": {
+      "type": "object",
+      "properties": {
+        "checkpoint_persist": {
+          "type": "boolean",
+          "default": true,
+          "description": "Each campaign checkpoint also becomes the profile's saved game, so the game resumes from the last checkpoint however the app ended. The file is copied on a thread of its own and replaced whole. Off, the saved game is written only by Save and Quit, as on the Xbox. Replays, benchmarks, co-op and network games never write one. Read at each checkpoint.",
+          "x-environment": "HALO_CHECKPOINT_PERSIST",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "discord": {
       "type": "object",
       "properties": {

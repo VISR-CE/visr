@@ -337,6 +337,14 @@ void host_bink_audio_skip(unsigned int position);
 int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
+/* The saved game's one writer (port/runtime/save_writer.h). Paths are host paths (platform_translate_path).
+   begin and end go around the game's write of its checkpoint file; a target_path at end makes that
+   checkpoint the profile's saved game, written by a host thread (NULL: it stays a checkpoint only).
+   write_now is Save and Quit: the image is the saved game before it returns 1; 0, and the saved game is
+   the one it was. */
+void host_save_checkpoint_begin(void);
+void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size);
+int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size);
 /* the menus' SEND LOG row: starts the upload of the log to iCloud; the row's text (its progress, the code or why not) */
 void host_sdl_send_log_start(void);
 /* the About screen's website row: opens https://visr.gg/ in the default browser (not on the Apple TV) */

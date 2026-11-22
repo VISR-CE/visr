@@ -1135,6 +1135,13 @@ static const struct config_setting config_settings[] =
 		"custom_maps folder for Custom Edition maps and their bitmaps.map,\n"
 		"sounds.map and loc.map (game.custom_edition); empty for none.", _tier_player },
 
+	{ "saves.checkpoint_persist", _config_boolean, "true", "HALO_CHECKPOINT_PERSIST", _environment_value, _platform_all,
+		"Each campaign checkpoint also becomes the profile's saved game, so the\n"
+		"game resumes from the last checkpoint however the app ended. The file is\n"
+		"copied on a thread of its own and replaced whole. Off, the saved game\n"
+		"is written only by Save and Quit, as on the Xbox. Replays, benchmarks,\n"
+		"co-op and network games never write one. Read at each checkpoint." },
+
 	{ "network.address", _config_string, "\"\"", "HALO_NET_ADDRESS", _environment_value, _platform_all,
 		"This machine's IPv4 address for system link, for a machine on several\n"
 		"networks; empty chooses one.", _tier_player },

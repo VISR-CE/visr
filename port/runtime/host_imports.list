@@ -203,3 +203,6 @@ host_astc_texture_read
 host_astc_texture_generation
 host_texture_record_rgba
 host_sdl_update_joysticks
+host_save_checkpoint_begin
+host_save_checkpoint_end
+host_save_write_now

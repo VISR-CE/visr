@@ -930,6 +930,7 @@ symbols in this file:
 #include "interface/ui_widget_definitions.h"
 #include "custom_edition_maps.h" /* port: port/linux/game/custom_edition_maps.c */
 #include "saved games/saved_game_files.h"
+#include "saved_game_persist.h" /* port: port/linux/game/saved_game_persist.c */
 #include "text/unicode.h"
 #include "halo_menus.h" /* port: PC_MENU_FUNCTION_BASE */
 
@@ -2041,11 +2042,12 @@ static boolean pause_game_quit_to_main_menu(
 		return TRUE;
 	}
 	/* port: a multiplayer map played alone (New Game's MULTIPLAYER maps) is
-	not saved, so it never takes the place of the campaign's saved game */
-	if (main_get_current_solo_level() != NONE &&
-		/* port: and a level played with no player profile (started with map_name) has no saved game to write to:
-		it returns to the main menu with nothing saved, not with an error */
-		player_ui_get_active_player_profile_index(0) != NONE &&
+	not saved, so it never takes the place of the campaign's saved game; a
+	level played with no player profile (started with map_name) has no saved
+	game to write to, and a replay plays under a profile whose saved game is
+	not its own: each returns to the main menu with nothing saved, not with
+	an error. The checkpoints ask the same question (saved_game_persist.h). */
+	if (saved_game_persist_allowed() &&
 		!game_state_save_to_persistent_storage())
 	{
 		/* port: reverting to the checkpoint can restore its unpaused clock.
