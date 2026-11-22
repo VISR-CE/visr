@@ -126,13 +126,14 @@ const char *host_cloud_saves_status(void) {
    pass whatever it left, and when that was */
 static struct cloud_pacing cloud_pacing;
 
-static void cloud_pass(enum cloud_pass pass) {
+static void cloud_pass_paced(enum cloud_pass pass, int leaving_the_screen) {
     if (!host_cloud_saves_sync_allowed()) return;
     struct cloud_local_signatures signatures;
     cloud_local_signatures(cloud_save_root, cloud_state_path, &signatures);
     /* While the game runs a pass only uploads, and each pass begins by asking iCloud what it holds:
        cloud_pacing_due (cloud_saves.h) says when there is something worth asking for. */
-    if (pass == CLOUD_PASS_RUNNING && !cloud_pacing_due(&cloud_pacing, &signatures, (long long)CFAbsoluteTimeGetCurrent()))
+    if (pass == CLOUD_PASS_RUNNING &&
+            !cloud_pacing_due(&cloud_pacing, &signatures, (long long)CFAbsoluteTimeGetCurrent(), leaving_the_screen))
         return;
     enum cloud_state state = cloud_engine_sync(cloud_engine, pass);
     cloud_pacing_passed(&cloud_pacing, &signatures, state, (long long)CFAbsoluteTimeGetCurrent());
@@ -142,6 +143,8 @@ static void cloud_pass(enum cloud_pass pass) {
         cloud_stop();
     }
 }
+
+static void cloud_pass(enum cloud_pass pass) { cloud_pass_paced(pass, 0); }
 
 /* Whether this signature carries the container. An app that asks CloudKit for a container its
    signature lacks is ended by an exception, and a sideloading tool that re-signs an unsigned build
@@ -383,7 +386,7 @@ static void cloud_show_notices(void) {
 
 static void cloud_scan(void (^then)(void)) {
     dispatch_async(cloud_queue, ^{
-        cloud_pass(CLOUD_PASS_RUNNING);
+        cloud_pass_paced(CLOUD_PASS_RUNNING, 1);
         if (then) then();
     });
 }

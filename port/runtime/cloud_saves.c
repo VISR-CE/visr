@@ -1104,7 +1104,8 @@ void cloud_local_signature(const char *save_root, const char *state_path, char h
 	memcpy(hash, signatures.all, CLOUD_HASH_SIZE);
 }
 
-int cloud_pacing_due(const struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, long long now)
+int cloud_pacing_due(const struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, long long now,
+	int leaving_the_screen)
 {
 	long long since = now - pacing->last_pass;
 
@@ -1115,8 +1116,10 @@ int cloud_pacing_due(const struct cloud_pacing *pacing, const struct cloud_local
 	if (!pacing->idle[0] && pacing->passed && since < CLOUD_RETRY_SECONDS && !strcmp(signatures->all, pacing->tried))
 		return 0;
 	/* only saved games changed since a pass that left nothing to do: the game replaces one at every
-	   checkpoint, and each would cost a read of the whole file, its hash and an upload */
-	if (pacing->idle[0] && since < CLOUD_CHECKPOINT_SECONDS && !strcmp(signatures->other, pacing->idle_other))
+	   checkpoint, and each would cost a read of the whole file, its hash and an upload. An app that is
+	   leaving the screen may not come back, so the newest one goes then */
+	if (!leaving_the_screen && pacing->idle[0] && since < CLOUD_CHECKPOINT_SECONDS &&
+		!strcmp(signatures->other, pacing->idle_other))
 		return 0;
 	return 1;
 }

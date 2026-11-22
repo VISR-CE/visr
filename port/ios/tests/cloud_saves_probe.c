@@ -1527,7 +1527,7 @@ static int paced_pass(struct device *device, struct cloud_pacing *pacing)
 	struct cloud_local_signatures signatures;
 
 	cloud_local_signatures(device->save_root, device->state_path, &signatures);
-	if (!cloud_pacing_due(pacing, &signatures, clock_now))
+	if (!cloud_pacing_due(pacing, &signatures, clock_now, 0))
 		return 0;
 	cloud_pacing_passed(pacing, &signatures, running(device), clock_now);
 	return 1;
@@ -1564,10 +1564,20 @@ static void test_checkpoints_are_paced(void)
 	CHECK(!paced_pass(&a, &pacing));
 	put_profile(&a, SLOT, "Chief", 3, 1, 3);
 	CHECK(paced_pass(&a, &pacing) && cloud.saves == saves + 2);
-	/* the last checkpoint before the app leaves always goes: the leaving pass asks nobody */
+	/* the last checkpoint before the app leaves always goes: the pass as the app leaves the screen is
+	   not held (nor made when nothing changed), and the leaving pass asks nobody */
 	clock_now += 15;
 	put_saved_game(&a, SLOT, "a30", 6000, 0);
 	CHECK(!paced_pass(&a, &pacing));
+	{
+		struct cloud_local_signatures signatures;
+
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		CHECK(cloud_pacing_due(&pacing, &signatures, clock_now, 1));
+		CHECK(!strcmp(signatures.other, pacing.idle_other) && strcmp(signatures.all, pacing.idle));
+		memcpy(signatures.all, pacing.idle, CLOUD_HASH_SIZE);
+		CHECK(!cloud_pacing_due(&pacing, &signatures, clock_now, 1));
+	}
 	saves = cloud.saves;
 	a.game_started = 1;
 	CHECK(cloud_engine_sync(a.engine, CLOUD_PASS_LEAVING) == CLOUD_STATE_IDLE && cloud.saves == saves + 1);
@@ -1577,10 +1587,10 @@ static void test_checkpoints_are_paced(void)
 
 		cloud_local_signatures(a.save_root, a.state_path, &signatures);
 		cloud_pacing_passed(&pacing, &signatures, CLOUD_STATE_IDLE, clock_now);
-		CHECK(!cloud_pacing_due(&pacing, &signatures, clock_now + 15));
+		CHECK(!cloud_pacing_due(&pacing, &signatures, clock_now + 15, 0));
 		cloud_note_local_delete(a.state_path, SLOT2);
 		cloud_local_signatures(a.save_root, a.state_path, &signatures);
-		CHECK(cloud_pacing_due(&pacing, &signatures, clock_now + 15));
+		CHECK(cloud_pacing_due(&pacing, &signatures, clock_now + 15, 0));
 	}
 	/* while something waits (no network), a try a minute as before, whatever changed */
 	{
@@ -1589,11 +1599,11 @@ static void test_checkpoints_are_paced(void)
 
 		cloud_local_signatures(a.save_root, a.state_path, &signatures);
 		cloud_pacing_passed(&waiting, &signatures, CLOUD_STATE_PENDING, clock_now);
-		CHECK(!cloud_pacing_due(&waiting, &signatures, clock_now + CLOUD_RETRY_SECONDS - 1));
-		CHECK(cloud_pacing_due(&waiting, &signatures, clock_now + CLOUD_RETRY_SECONDS));
+		CHECK(!cloud_pacing_due(&waiting, &signatures, clock_now + CLOUD_RETRY_SECONDS - 1, 0));
+		CHECK(cloud_pacing_due(&waiting, &signatures, clock_now + CLOUD_RETRY_SECONDS, 0));
 		put_saved_game(&a, SLOT, "a30", 7000, 1);   /* (another time than the last one written) */
 		cloud_local_signatures(a.save_root, a.state_path, &signatures);
-		CHECK(cloud_pacing_due(&waiting, &signatures, clock_now + 1));
+		CHECK(cloud_pacing_due(&waiting, &signatures, clock_now + 1, 0));
 	}
 	device_end(&a);
 }

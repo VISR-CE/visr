@@ -207,7 +207,9 @@ struct cloud_pacing
 	long long last_pass;                                        /* seconds on the host's clock */
 	int passed;
 };
-int cloud_pacing_due(const struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, long long now);
+/* leaving_the_screen: the app is going to the background (it may not come back): checkpoints are not held */
+int cloud_pacing_due(const struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, long long now,
+	int leaving_the_screen);
 void cloud_pacing_passed(struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, enum cloud_state state,
 	long long now);
 /* path is a slot's directory under save_root: writes its id and returns 1 */
