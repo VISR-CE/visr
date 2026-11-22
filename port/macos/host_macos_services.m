@@ -7,6 +7,7 @@
 #include "host_macos.h"
 #include "ios_host.h"
 #include "host_external.h"
+#include "host_topology_model.h"
 #include "host_external_session.h"
 #include "host_benchmark.h"
 #include "host_shader_upload.h"
@@ -248,6 +249,11 @@ void host_external_snapshot(struct host_external_snapshot *out) {
 }
 /* (the Mac game window is a window: no external display and nothing to mirror) */
 void host_external_device_screen(struct host_device_screen *out) { memset(out, 0, sizeof(*out)); }
+void host_external_topology_now(struct host_topology *out) {
+    struct host_topology_facts facts;
+    memset(&facts, 0, sizeof(facts));
+    host_topology_derive(&facts, NULL, out);
+}
 void host_external_displays(struct host_external_displays *out) {
     memset(out, 0, sizeof(*out));
     out->accessory_available = -1;

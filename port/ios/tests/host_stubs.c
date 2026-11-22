@@ -550,6 +550,8 @@ __attribute__((weak)) int host_external_size(int *width, int *height)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) void host_external_snapshot(struct host_external_snapshot *out)
 { }
+__attribute__((weak)) void host_external_topology_now(struct host_topology *out)
+{ }
 __attribute__((weak)) void host_extra_scene_restore_watch(void)
 { }
 __attribute__((weak)) void host_fatal(const char *format, ...)

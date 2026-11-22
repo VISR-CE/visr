@@ -16,7 +16,7 @@
 #include "host_external_splash.h"
 #include "host_hinge.h"
 #include "host_panel.h"
-#include "host_topology.h"
+#include "host_topology_model.h"
 #include "host_posture_layout.h"
 #include "host_output_cap.h"
 #include "host_geometry.h"
@@ -842,19 +842,10 @@ void host_external_safe_insets(float *insets) {
     memcpy(insets,safe_insets,sizeof(safe_insets));
     pthread_mutex_unlock(&safe_insets_lock);
 }
-/* debug.topology_facts: what the system reports about displays, written when a field changes (host_topology.h).
-   Read on main in the poll; nothing is derived and nothing else reads it. */
-static void topology_facts_poll(void) {
+/* what the system reports about displays, copied into plain data (host_topology.h). Main thread. */
+static void topology_facts_collect(struct host_topology_facts *out) {
+    memset(out,0,sizeof(*out));
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
-    static int enabled=-1;
-    static struct host_topology_observer observer;
-    static int dropped_logged;
-    if(enabled<0) {
-        char value[16];
-        host_config_string("debug.topology_facts","false",value,sizeof(value));
-        enabled=!strcmp(value,"true");
-    }
-    if(!enabled)return;
     struct host_topology_facts facts;
     memset(&facts,0,sizeof(facts));
     facts.now=CACurrentMediaTime();
@@ -906,6 +897,50 @@ static void topology_facts_poll(void) {
         if(!facts.display_port_name[0] && (kind==HOST_ROUTE_HDMI || kind==HOST_ROUTE_DISPLAYPORT || kind==HOST_ROUTE_AIRPLAY))
             snprintf(facts.display_port_name,sizeof(facts.display_port_name),"%s",port.portName.UTF8String?:"");
     }
+    *out=facts;
+#endif
+}
+/* Today's deciders against the model, one question each (host_topology_shadow_check): the answers are compared in
+   the poll, once they have held for a second, and a disagreement is logged. */
+static unsigned topology_screen_id(UIScreen *screen) { return (unsigned)(((uintptr_t)(__bridge void *)screen)>>4); }
+static int topology_hash(const char *text) { unsigned h=5381;for(;text && *text;text++)h=h*33+(unsigned char)*text;return (int)(h&0x7fffffff); }
+static void topology_shadow_compare(const struct host_topology *model,double now) {
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    static struct host_topology_shadow shadow;
+    struct host_external_displays displays;
+    host_external_displays_main(&displays);
+    const struct { const char *name; int legacy, model; } questions[]={
+        {"external context",snapshot.external,model->external_context},
+        {"mirrored",displays.use==HOST_EXTERNAL_DISPLAY_MIRRORED,model->mirrored},
+        {"game screen",(int)(topology_screen_id(output_screen)&0x7fffffff),
+            model->game>=0?(int)(model->displays[model->game].screen&0x7fffffff):0},
+        {"external display name",snapshot.external?topology_hash(port_name().UTF8String):0,
+            snapshot.external && model->external_context?topology_hash(model->name):0},
+    };
+    for(int i=0;i<(int)(sizeof(questions)/sizeof(questions[0]));i++)
+        if(host_topology_shadow_check(&shadow,i,now,questions[i].legacy,questions[i].model))
+            host_logf(HOST_LOG_WARN,"topology mismatch: %s legacy=%d model=%d",questions[i].name,questions[i].legacy,
+                questions[i].model);
+#else
+    (void)model;(void)now;
+#endif
+}
+/* debug.topology_facts: the facts written when a field changes, the topology derived from them (a line when it
+   changes) and compared with today's deciders. Read on main in the poll; with the setting off the poll does nothing. */
+static void topology_facts_poll(void) {
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    static int enabled=-1;
+    static struct host_topology_observer observer;
+    static struct host_topology topology;
+    static int have_topology,dropped_logged;
+    if(enabled<0) {
+        char value[16];
+        host_config_string("debug.topology_facts","false",value,sizeof(value));
+        enabled=!strcmp(value,"true");
+    }
+    if(!enabled)return;
+    struct host_topology_facts facts;
+    topology_facts_collect(&facts);
     if(facts.screens_dropped && !dropped_logged) {
         dropped_logged=1;
         host_logf(HOST_LOG_INFO,"topology facts: %d screens beyond the first %d are not listed",facts.screens_dropped,
@@ -916,7 +951,24 @@ static void topology_facts_poll(void) {
         host_topology_facts_format(&facts,line,sizeof(line));
         host_logf(HOST_LOG_INFO,"%s",line);
     }
+    struct host_topology next;
+    host_topology_derive(&facts,have_topology?&topology:NULL,&next);
+    if(!have_topology || next.generation!=topology.generation) {
+        char line[320];
+        host_topology_format(&next,line,sizeof(line));
+        host_logf(HOST_LOG_INFO,"%s",line);
+    }
+    topology=next;have_topology=1;
+    topology_shadow_compare(&topology,facts.now);
 #endif
+}
+/* The topology as the facts read now give it, for the benchmark report's block (main thread work, any caller). */
+void host_external_topology_now(struct host_topology *out) {
+    host_main_sync(^{
+        struct host_topology_facts facts;
+        topology_facts_collect(&facts);
+        host_topology_derive(&facts,NULL,out);
+    });
 }
 static void host_external_poll_main(void) {
     host_hinge_poll();
@@ -1417,6 +1469,11 @@ void * host_external_phone_layer(void) {
 #else
 void host_external_output_resize(void *target,int width,int height) {(void)target;(void)width;(void)height;}
 void host_external_install(void) {}
+void host_external_topology_now(struct host_topology *out) {
+    struct host_topology_facts facts;
+    memset(&facts,0,sizeof(facts));
+    host_topology_derive(&facts,NULL,out);
+}
 void host_external_menu_splash(void) {}
 void host_external_attach(void *window,int metal) { (void)window;(void)metal; }
 void host_external_poll(void) {}

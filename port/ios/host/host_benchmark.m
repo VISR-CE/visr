@@ -34,6 +34,7 @@
 #include "host_profile.h"
 #include "host_config.h"
 #include "host_external.h"
+#include "host_topology_model.h"
 #include "host_external_session.h"
 #include "host_low_power.h"
 #include "benchmark_metrics.h"
@@ -249,7 +250,17 @@ static NSDictionary *output_now(void) {
        own size ("display_use": "mirrored") is neither a built-in run nor an external one (host_external_session.h) */
     struct host_external_displays displays;
     host_external_displays(&displays);
-    return @{ @"kind": output.external ? @"external" : @"builtin", @"width": @(output.width),
+    /* the display topology as the system's facts give it now (host_topology_model.h; shadow mode, nothing decides
+       from it yet): which display the game is on, how it is carried, which panel the device is on */
+    struct host_topology topology;
+    host_external_topology_now(&topology);
+    NSDictionary *topology_block = @{
+        @"game": @(topology.game >= 0 ? host_display_kind_name(topology.displays[topology.game].kind) : "none"),
+        @"transport": @(host_display_transport_name(topology.transport)),
+        @"device": @(topology.device >= 0 ? host_display_kind_name(topology.displays[topology.device].kind) : "none"),
+        @"posture": @(host_posture_label(topology.posture)), @"sound": @(host_sound_target_name(topology.sound)),
+        @"mirrored": @(topology.mirrored ? YES : NO) };
+    return @{ @"topology": topology_block, @"kind": output.external ? @"external" : @"builtin", @"width": @(output.width),
         @"display_use": @(host_external_display_use_name((enum host_external_display_use)displays.use)),
         @"other_screens": @(displays.other_screens), @"mirroring_screens": @(displays.mirroring_screens),
         @"video_route": @(displays.video_route), @"accessory_available": @(displays.accessory_available),

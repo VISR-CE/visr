@@ -19,6 +19,10 @@ void host_external_commit(int allow_pause);
    "panel_inner", from the hinge). valid is 0 until the window exists and where there is no such window. */
 struct host_device_screen { int valid; double width, height; long maximum_frames; char panel[16]; };
 void host_external_device_screen(struct host_device_screen *out);
+/* The display topology derived from what the system reports now (host_topology_model.h): shadow mode, for the
+   report's topology block; nothing decides from it yet. */
+struct host_topology;
+void host_external_topology_now(struct host_topology *out);
 int host_external_active(void);
 int host_external_size(int *width, int *height);
 /* the built-in display's safe-area insets as fractions of the window: left, right, top, bottom (zeros on an external display) */
