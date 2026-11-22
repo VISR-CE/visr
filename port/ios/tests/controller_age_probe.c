@@ -34,31 +34,41 @@ void host_logf(int priority, const char *format, ...) {
 int main(void) {
     clock_ns = 1000000;
     assert(host_controller_age_ns() == UINT64_MAX);
-    host_controller_age_sample();
-    assert(logs == 0);
-    host_controller_refresh();
-    assert(updates == 1 && host_controller_age_ns() == 0);
-    /* a read 8.3 ms after the main pump sees 8.3 ms old state ... */
+    /* a first read has no state to be old: no sample, and it brings the controllers up to date */
+    host_controller_refresh_for_read();
+    assert(logs == 0 && updates == 1 && host_controller_age_ns() == 0);
+    /* a read 8.3 ms after the last update (the main timer's) is refreshed first: it never sees that age */
     clock_ns += 8333000;
     assert(host_controller_age_ns() == 8333000);
-    /* ... and the game thread's poll just before the read makes it fresh */
-    host_controller_refresh();
-    clock_ns += 50000;
-    assert(updates == 2 && host_controller_age_ns() == 50000);
+    host_controller_refresh_for_read();
+    assert(updates == 2 && host_controller_age_ns() == 0);
+    /* the class: a game read never sees state older than HOST_CONTROLLER_READ_MAX_AGE_NS, whatever its
+       interval from the previous update; reads of one poll (four ports, the late look) share one update */
+    for (int gap = 0; gap < 40; gap++) {
+        clock_ns += (Uint64)gap * 400000;
+        host_controller_refresh_for_read();
+        assert(host_controller_age_ns() < HOST_CONTROLLER_READ_MAX_AGE_NS);
+    }
+    int before = updates;
+    for (int read = 0; read < 10; read++) {
+        clock_ns += 10000; /* ten reads over 100 us: one poll's */
+        host_controller_refresh_for_read();
+    }
+    assert(updates - before <= 1);
+    clock_ns += 1000000;
     host_controller_refreshed();
     assert(host_controller_age_ns() == 0);
-    /* the window logs after 5 s with the distribution of its reads */
+    /* the log reports the age the reads would have seen before their refresh, in 5 s windows */
+    logs = 0;
     for (int read = 0; read < 600; read++) {
-        host_controller_refresh();
         clock_ns += 1000000;
-        host_controller_age_sample();
+        host_controller_refresh_for_read();
+        host_controller_refresh_for_read(); /* the second read of the poll: nothing to refresh */
     }
     clock_ns += 5000000000ull;
-    host_controller_age_sample();
-    assert(logs == 1);
+    host_controller_refresh_for_read();
+    assert(logs >= 1);
     assert(strstr(last_log, "controller age: reads "));
-    /* every read was exactly 1 ms old: bucket 4, reported at its upper edge */
-    assert(strstr(last_log, "p99 1.25"));
-    puts("PASS: controller age is the time since the last update; a poll resets it");
+    puts("PASS: a game read never sees controller state older than the read bound; the age log samples before the refresh");
     return 0;
 }

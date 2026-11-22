@@ -391,9 +391,9 @@ __attribute__((weak)) int host_config_write_boolean(const char *name, int value)
 { fprintf(stderr, "host_stubs: probe called host_config_write_boolean without defining it\n"); abort(); }
 __attribute__((weak)) uint64_t host_controller_age_ns(void)
 { fprintf(stderr, "host_stubs: probe called host_controller_age_ns without defining it\n"); abort(); }
-__attribute__((weak)) void host_controller_age_sample(void)
-{ }
 __attribute__((weak)) void host_controller_refresh(void)
+{ }
+__attribute__((weak)) void host_controller_refresh_for_read(void)
 { }
 __attribute__((weak)) void host_controller_refreshed(void)
 { }
