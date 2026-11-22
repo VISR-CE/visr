@@ -34,7 +34,7 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 
 [evidence."display.frames_in_flight_at_30"]
 basis = "measured"
-why = "Under the 30 frame cap one frame in flight cut the time from the controller read to the screen from 97 to 98 ms to 64 to 65 ms at 16 and 64 players (p95 98 ms down to 65 ms), with no failed GPU buffers in any arm and 29.9 frames a second shown against 30.5 with two in flight (a 2% lower rate). The key applies only while the frame rate in force is 30 or lower, here a game above 64 players; the 60 in the campaign and in smaller games is unchanged (at the 60 cap one in flight drops this device to 29.9 frames a second, so the key is not used there). On-time frames were 0.999 in the 16 and 64 player arms."
+why = "The profile runs 60 and reaches 30 only in a game above 64 players and in 30 fps scene classes. No arm ran there at 30. In forced 30 arms at 16 and 64 players one frame in flight cut the time from the controller read to the screen from 97 to 98 ms to 64 to 65 ms with no failed GPU buffers, at 29.9 frames a second shown against 30.5 with two in flight (a 2% lower rate). The nearest game it applies to, 128 players below rate under the 60 cap, showed two in flight at 35.4 frames a second and 65.2 / 81.7 ms (p50 / p95) against one in flight at 29.9 frames a second and 64.7 / 65.0 ms, a gain of about 17 ms at p95 and none at p50. On-time frames were not measured at 128 players."
 source = "VISR input latency matrix (`step-tools/bench/latency-matrix.py`), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22"
 
 [evidence."display.render_height"]

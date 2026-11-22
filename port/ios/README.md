@@ -380,7 +380,8 @@ frames and the build has none of this.
   the controller read to the screen from about 98 to 65 ms on devices whose
   CPU and GPU work together fit the 33 ms, with no loss of frames (the
   iPhone Duo and the A10X iPad Pro at 16 players; the iPhone 12 Pro gained
-  21% for a 2% lower shown rate). A device profile sets it.
+  21% for a 2% lower shown rate; the iPhone Duo under heavy multiplayer is
+  GPU-bound and loses frames, so its profile does not set it). A device profile sets it.
 - `frame_spacing` (default `true`) keeps each frame on screen for its share
   of the display's time before the next may replace it: one refresh, or with
   a `frame_rate` cap under the display's rate, the cap's (two refreshes for
