@@ -16,6 +16,7 @@
 #pragma clang diagnostic ignored "-Wmissing-prototypes"
 #endif
 
+#include "frame_waits.h"
 #include "gpu_call_hash.h"
 #include "gpu_capture.h"
 #include "gpu_owner_check.h"
@@ -157,6 +158,14 @@ __attribute__((weak)) uint32_t frame_pacer_vertical_blank_wait(void)
 __attribute__((weak)) int frame_pacer_wants_system_source(void)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_wants_system_source without defining it\n"); abort(); }
 #endif
+__attribute__((weak)) void frame_waits_add_display(double seconds)
+{ }
+__attribute__((weak)) void frame_waits_add_game(double seconds)
+{ }
+__attribute__((weak)) void frame_waits_add_slot(double started, double ended)
+{ }
+__attribute__((weak)) struct frame_waits_taken frame_waits_take(double present_called)
+{ fprintf(stderr, "host_stubs: probe called frame_waits_take without defining it\n"); abort(); }
 __attribute__((weak)) const struct gpu_backend * gpu_call_hash_wrap(unsigned instance, const struct gpu_backend *chosen, gpu_call_hash_report report)
 { fprintf(stderr, "host_stubs: probe called gpu_call_hash_wrap without defining it\n"); abort(); }
 __attribute__((weak)) void gpu_capture_finish(void)
@@ -637,8 +646,6 @@ __attribute__((weak)) void host_gpu_benchmark_realtime(int on)
 { }
 __attribute__((weak)) int host_gpu_encode_queue_on(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
-__attribute__((weak)) int host_gpu_encode_thread_on(void)
-{ fprintf(stderr, "host_stubs: probe called host_gpu_encode_thread_on without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_metal_active(void)
 { fprintf(stderr, "host_stubs: probe called host_gpu_metal_active without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_output(void *layer, void *screen, int width, int height)

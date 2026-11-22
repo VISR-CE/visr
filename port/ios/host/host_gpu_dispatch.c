@@ -100,10 +100,12 @@ static void low_power_scene(uint32_t scene_class);
 /* when the game thread last called its present (uptime_seconds, CACurrentMediaTime's clock): set before the present
 is recorded, so the encode thread reads this frame's when it makes that present */
 static double present_called;
+/* 1 with debug.encode_thread = "thread" */
+static int encode_thread_on;
 
 double host_gpu_present_called(void)
 {
-	return present_called;
+	return encode_thread_on ? present_called : -1.0;
 }
 
 static uint32_t present_wrapped(gpu_texture back_buffer)
@@ -742,13 +744,6 @@ static int encode_queue_mode(int *timing)
 	*timing = !strcmp(value, "true");
 	return mode;
 #endif
-}
-
-static int encode_thread_on;
-
-int host_gpu_encode_thread_on(void)
-{
-	return encode_thread_on;
 }
 
 int host_gpu_encode_queue_on(void)

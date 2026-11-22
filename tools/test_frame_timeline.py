@@ -17,6 +17,11 @@ class FrameTimelineTests(unittest.TestCase):
                          "port/runtime/frame_timeline.c"],
                   includes=(*HOST_INCLUDES, "port/runtime/include"), extra=["-lm"], darwin_only=True)
 
+    def test_frame_waits(self):
+        """A frame's waits: what leaves its CPU time and what is the row's display wait, with and without the encode
+        thread, and nothing carried to the next frame."""
+        run_probe(self, ["port/ios/tests/frame_waits_probe.c", "port/ios/host/frame_waits.c"], extra=["-lm"])
+
 
 if __name__ == "__main__":
     unittest.main()

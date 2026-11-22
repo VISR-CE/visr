@@ -44,6 +44,7 @@ but never returns to its run loop, which would otherwise drain them.
 build with render validation; nothing otherwise */
 #include "gpu_validate.h"
 #include "gpu_stream_ring.h"
+#include "frame_waits.h"
 #include "host_frame_timeline.h"
 #include "metal_compile_async.h"
 #include "metal_compile_progress.h"
@@ -531,32 +532,7 @@ static inline BOOL gpu_metal_gpu_spans(uint64_t *used, uint64_t *refused)
 	*refused = now_refused;
 	return measured;
 }
-/* A frame's waits, taken up by pacing_schedule, in three parts by thread and meaning (they are not the frame's work):
-- pacing_waited: the game thread's (the late start's sleep, the stream ring's producer_wait);
-- display_waited: inside the present (the drawable, frame_context_wait): the timeline row's display wait, the part of
-  the encode thread's present barrier that is not encoding;
-- slot_waited: frame_begin's wait for a frame slot, on the thread that encodes. With the encode thread
-  (debug.encode_thread = "thread") the game thread works on meanwhile, so it does not leave the frame's CPU time.
-With the encode thread pacing_schedule runs while the game thread waits at the present barrier, and the game thread
-adds to pacing_waited only outside it, so no two threads touch one of them at once. */
-static CFTimeInterval pacing_waited, display_waited, slot_waited;
-/* the frame's slot wait's start and end (CACurrentMediaTime; 0: none this frame) */
-static CFTimeInterval slot_wait_started, slot_wait_ended;
-
-/* the part of the frame's slot wait that was not the frame's work. With the encode thread only the part after the game
-thread reached its present (host_gpu_present_called): before that the game thread worked on; after it, the game thread
-waited at the present barrier for the slot, as it waits for the display */
-static CFTimeInterval slot_wait_counted(void)
-{
-	CFTimeInterval from;
-
-	if (!host_gpu_encode_thread_on())
-		return slot_waited;
-	if (slot_wait_ended <= 0.0)
-		return 0.0;
-	from = slot_wait_started > host_gpu_present_called() ? slot_wait_started : host_gpu_present_called();
-	return slot_wait_ended > from ? slot_wait_ended - from : 0.0;
-}
+/* (a frame's waits, which are not its work, are frame_waits.h's: taken by every present, shown or not) */
 
 #if TARGET_OS_VISION
 /* the presenters' command buffers (host_stereo.m, host_theater.m): their GPU
@@ -733,9 +709,7 @@ static void frame_begin(void)
 		return;
 	waited = CACurrentMediaTime();
 	dispatch_semaphore_wait(frame_slots, DISPATCH_TIME_FOREVER);
-	slot_wait_started = waited;
-	slot_wait_ended = CACurrentMediaTime();
-	slot_waited += slot_wait_ended - waited;
+	frame_waits_add_slot(waited, CACurrentMediaTime());
 	transient_reset(&encode_streams[frame_slot]);
 	transient_reset(&snapshots[frame_slot]);
 	frame_upscale_paths = 0;
@@ -1882,7 +1856,7 @@ static void producer_wait(void *context, uint64_t serial)
 		}
 		usleep(100);
 	}
-	pacing_waited += CACurrentMediaTime() - waited;
+	frame_waits_add_game(CACurrentMediaTime() - waited);
 }
 
 static void producer_log(void *context, const char *line)
@@ -6007,7 +5981,7 @@ static void frame_context_wait(void)
 		while (atomic_load(&refresh_count) < presented_at + (unsigned long)refreshes && CACurrentMediaTime() - began < 0.25)
 			usleep(500);
 		/* (not the frame's work: the CPU times in the log leave it out) */
-		display_waited += CACurrentMediaTime() - began;
+		frame_waits_add_display(CACurrentMediaTime() - began);
 	}
 	presented_at = atomic_load(&refresh_count);
 }
@@ -6216,15 +6190,16 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	CFTimeInterval now = CACurrentMediaTime(), period, hold, interval;
 	long context_refreshes;
 	uint64_t gpu_total = atomic_load(&pacing_gpu_nanoseconds);
-	double cpu, gpu, simulation_cpu, render_cpu, translation_cpu, waited, slot;
+	double cpu, gpu, simulation_cpu, render_cpu, translation_cpu, waited;
+	struct frame_waits_taken waits;
 	long lower, up;
 	int ticks;
 	BOOL gpu_measured;
 
 	*next_frame_due = 0;
 	host_frame_cpu_split(&simulation_cpu, &render_cpu, &translation_cpu, &ticks);
-	slot = slot_wait_counted();
-	waited = pacing_waited + display_waited + slot;
+	waits = frame_waits_take(host_gpu_present_called());
+	waited = waits.cpu;
 	cpu = pacing.work_started > 0.0 ? now - pacing.work_started - waited : 0.0;
 	/* (shadow mode's CPU input also leaves out readback and visibility waits;
 	pacing, the benchmark and reports without it keep the plain figure) */
@@ -6242,8 +6217,7 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	host_perf_hooks_pacing(waited > 0.0 ? (uint64_t)(waited * 1e6) : 0);
 	/* (the row's display wait is inside the frame: not the late start, which is before the controller read; with the
 	encode thread, the part of the barrier that is not encoding) */
-	host_frame_timeline_waits(display_waited + slot, -1.0);
-	pacing_waited = display_waited = slot_waited = slot_wait_started = slot_wait_ended = 0.0;
+	host_frame_timeline_waits(waits.display, -1.0);
 	interval = pacing.last_present > 0.0 ? now - pacing.last_present : 0.0;
 	pacing.last_present = now;
 	os_unfair_lock_lock(&pacing_lock);
@@ -6591,7 +6565,7 @@ static void gpu_metal_frame_start(void)
 	slept = CACurrentMediaTime() - slept;
 	/* the late start's sleep is a wait, not the frame's work: it leaves the frame's CPU time, and the frame's deadline
 	interval starts after it (the input latency audit, revision 2 item 1) */
-	pacing_waited += slept;
+	frame_waits_add_game(slept);
 #if !TARGET_OS_VISION
 	frame_deadline_join();
 	frame_deadline_late_start(slept);
@@ -9299,11 +9273,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			os_unfair_lock_unlock(&pacing_lock);
 			usleep((useconds_t)((period >= 1.0 / 240.0 && period <= 1.0 / 20.0 ? period : 1.0 / 60.0) * 1e6));
 		}
-		display_waited += CACurrentMediaTime() - waited;
-		/* (a frame not shown isn't scheduled, so its waits aren't taken up
-		there: they mustn't count against the next frame that is) */
-		if (unsynced && !drawable)
-			pacing_waited = display_waited = slot_waited = slot_wait_started = slot_wait_ended = 0.0;
+		frame_waits_add_display(CACurrentMediaTime() - waited);
 		if (drawable)
 			target = drawable.texture;
 		/* nil in the background (or held, or unsynchronized with none ready):
@@ -9466,7 +9436,12 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			}
 		}
 		else
+		{
+			/* (a frame not shown isn't scheduled, but its waits are still its own: its row gets its display wait,
+			and nothing lands on the next frame's) */
+			host_frame_timeline_waits(frame_waits_take(host_gpu_present_called()).display, -1.0);
 			host_benchmark_frame_unshown(drawable || offscreen || virtual_texture >= 0 ? 1 : 0);
+		}
 		/* (a virtual display's texture the frame had no picture for goes back) */
 		if (virtual_texture >= 0)
 		{

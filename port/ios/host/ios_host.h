@@ -130,10 +130,9 @@ int host_gpu_metal_active(void);
 /* 1 when debug.encode_thread put the encode queue in front of the Metal backend (decided before the backend's
 initialize, which sizes its stream ring by it) */
 int host_gpu_encode_queue_on(void);
-/* 1 with debug.encode_thread = "thread": the backend's recorded calls run on the encode thread */
-int host_gpu_encode_thread_on(void);
-/* when the game thread last called its present (CACurrentMediaTime's clock): the encode thread's frame-slot wait after
-it is a wait at the present barrier */
+/* with debug.encode_thread = "thread", when the game thread last called its present (CACurrentMediaTime's clock): the
+encode thread's frame-slot wait after it is a wait at the present barrier (frame_waits.h). -1 without the encode
+thread, where the game thread encodes the frame itself. */
 double host_gpu_present_called(void);
 void host_gpu_set_upscaler(int metalfx);
 void host_gpu_set_crt(int enabled);
