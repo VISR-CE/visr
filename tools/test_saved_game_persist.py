@@ -213,6 +213,9 @@ int main(void) {
     /* an image the check declines is not taken */
     accepts = 0;
     assert(!game_state_read_from_file() && failures == 2);
+    /* a revert with no checkpoint kept is declined quietly (the caller starts the map over), not an assertion */
+    has_kept = 0;
+    assert(!game_state_read_from_file() && failures == 2);
     game_state_close_file();
     assert(!xbox_game_state_globals.file_open);
     game_state_create_or_open_file();

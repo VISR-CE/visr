@@ -78,7 +78,8 @@ int save_writer_replace_with_pieces(const struct save_writer_io *io, save_writer
 
 /* io NULL is save_writer_posix_io (as before any call of this); log may be NULL */
 void save_writer_start(const struct save_writer_io *io, void (*log)(int warning, const char *line));
-/* removes temporary files a run that ended early left in the session folder */
+/* removes temporary files a run that ended early left in the session folder, and the checkpoint file
+   (savegame.bin, the size of a saved game) that builds before the kept checkpoint wrote there */
 void save_writer_clean(const struct save_writer_io *io, const char *session_folder);
 /* A checkpoint, on the game's thread: the image becomes the session's checkpoint (a copy; no file is touched),
    and with a target_path also the profile's saved game, written by the worker (NULL: it stays a checkpoint

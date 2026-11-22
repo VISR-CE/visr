@@ -373,7 +373,10 @@ static atomic_uint writer_generation;
 /* The session's checkpoint: the game state as it was at the last one. The game's thread copies into it at a
    checkpoint and out of it at a revert; the worker copies out of it a piece at a time. The lock is held around
    those copies and nothing else (never around a call to the disk), so the game's thread waits for one piece's
-   copy at most. The buffer is made at the first checkpoint and never freed: the worker is detached. */
+   copy at most. The buffer is made at the first checkpoint and kept for the run (the worker is detached); it is
+   made again only for a checkpoint of another size, under the lock. It holds no path: where a checkpoint is to be
+   saved is in its request alone, so a checkpoint whose write was withdrawn (its profile deleted) is never
+   written later. */
 static struct
 {
 	pthread_mutex_t lock;
@@ -482,8 +485,10 @@ void save_writer_clean(const struct save_writer_io *io, const char *session_fold
 		size_t length = strlen(entry->d_name);
 		char path[PATH_SIZE];
 
-		if (length <= prefix + suffix || strncmp(entry->d_name, SAVE_WRITER_TEMPORARY_PREFIX, prefix) ||
-			strcmp(entry->d_name + length - suffix, SAVE_WRITER_TEMPORARY_SUFFIX))
+		/* (and the checkpoint file of builds before the checkpoint was kept in memory: nothing reads it now) */
+		if (strcmp(entry->d_name, SAVED_GAME_FILE) &&
+			(length <= prefix + suffix || strncmp(entry->d_name, SAVE_WRITER_TEMPORARY_PREFIX, prefix) ||
+			strcmp(entry->d_name + length - suffix, SAVE_WRITER_TEMPORARY_SUFFIX)))
 			continue;
 		if ((size_t)snprintf(path, sizeof(path), "%s/%s", session_folder, entry->d_name) < sizeof(path))
 			io->remove(io->context, path);

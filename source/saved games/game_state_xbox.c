@@ -344,8 +344,13 @@ boolean game_state_read_from_file(
 	image = malloc(xbox_game_state_globals.buffer_size);
 #ifdef HALO_IOS
 	(void)bytes_read;
+	/* port: no checkpoint kept this session is no error of a disk: the caller starts the map over */
+	if (image && !saved_game_persist_checkpoint_load(image, xbox_game_state_globals.buffer_size))
+	{
+		free(image);
+		return FALSE;
+	}
 	if (image &&
-		saved_game_persist_checkpoint_load(image, xbox_game_state_globals.buffer_size) &&
 		game_state_image_accept(image, xbox_game_state_globals.buffer_size))
 #else
 	if (image &&

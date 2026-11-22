@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 static void writer_log(int warning, const char *line)
 {
@@ -19,14 +18,7 @@ void host_save_writer_start(const char *save_root)
 
 	save_writer_start(NULL, writer_log);
 	if ((size_t)snprintf(session, sizeof(session), "%s/z", save_root) < sizeof(session))
-	{
-		char old_checkpoint[1200];
-
 		save_writer_clean(NULL, session);
-		/* the checkpoint file of builds before the checkpoint was kept in memory: nothing reads it now */
-		snprintf(old_checkpoint, sizeof(old_checkpoint), "%s/" SAVED_GAME_FILE, session);
-		unlink(old_checkpoint);
-	}
 }
 
 void host_save_writer_unlinking(const char *path)

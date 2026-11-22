@@ -115,7 +115,7 @@ static int exists(const char *path) { return access(path, F_OK) == 0; }
 
 static char calls[8192];
 static int call_count;
-static int fail_at = -1, dead_at = -1, dead, short_source;
+static int fail_at = -1, dead_at = -1, dead, short_source, gone_source;
 static int slot_checked, renamed;
 static atomic_int gate_closed, gate_reached;
 /* the call the gate holds (the worker's first write of a piece, unless a test names another) */
@@ -173,6 +173,8 @@ static int read_piece(void *context, uint8_t *piece, size_t count, size_t offset
 	(void)context;
 	if (!step("read") || (short_source && offset + count >= IMAGE_SIZE))
 		return SAVE_WRITER_PIECE_FAILED;
+	if (gone_source && offset)
+		return SAVE_WRITER_PIECE_GONE;
 	memcpy(piece, piece_source + offset, count);
 	return SAVE_WRITER_PIECE_READ;
 }
@@ -206,7 +208,7 @@ static void reset(void)
 	calls[0] = 0;
 	call_count = 0;
 	fail_at = dead_at = -1;
-	dead = short_source = renamed = 0;
+	dead = short_source = gone_source = renamed = 0;
 }
 
 static void begin(const char *name, const uint8_t *old)
@@ -393,6 +395,12 @@ static void test_short_source_and_other_sizes(void)
 	CHECK(replace(1, new) == SAVE_WRITER_FAILED);
 	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE) && !exists(temporary_path));
 
+	/* a source that is another checkpoint's by its second piece: the write is abandoned, which is no failure */
+	begin("a source that is gone", old);
+	gone_source = 1;
+	CHECK(replace(1, new) == SAVE_WRITER_ABANDONED);
+	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE) && !exists(temporary_path) && !strstr(calls, "rename "));
+
 	/* another build's saved game (another size) is left alone, as the game's own check of a profile leaves it */
 	begin("a saved game of another size", old);
 	put(target_path, old, IMAGE_SIZE - 1);
@@ -439,10 +447,10 @@ static void test_clean(void)
 	snprintf(other, sizeof(other), "%s/persist-.new", session);
 	snprintf(kept, sizeof(kept), "%s/cache.map", session);
 	put(leftover, &byte, 1); put(other, &byte, 1); put(kept, &byte, 1);
+	/* (the checkpoint file an older build left in the session folder goes too: nothing reads it now) */
 	put(checkpoint_path, &byte, 1);
 	save_writer_clean(NULL, session);
-	CHECK(!exists(leftover) && exists(other) && exists(kept) && exists(checkpoint_path));
-	unlink(checkpoint_path);
+	CHECK(!exists(leftover) && exists(other) && exists(kept) && !exists(checkpoint_path));
 	unlink(other); unlink(kept);
 }
 
@@ -560,6 +568,21 @@ static void test_worker(void)
 	CHECK(file_is_image(target_path, third) && !exists(temporary_path) && checkpoint_is(third));
 	CHECK(save_writer_replaced_count() == count + 1);
 
+	/* and while the worker sits in the rename, past its last look at the generation: the older checkpoint
+	   lands, as it always could, and the newer one follows it; the game waits for neither */
+	begin("a checkpoint while the worker renames", old);
+	gate_at = "rename";
+	close_gate();
+	checkpoint(first, 1);
+	wait_for_gate();
+	checkpoint(second, 1);
+	CHECK(checkpoint_is(second));
+	atomic_store(&gate_closed, 0);
+	gate_at = "write";
+	CHECK(save_writer_wait(10));
+	CHECK(file_is_image(target_path, second) && !exists(temporary_path));
+	CHECK(save_writer_replaced_count() == count + 3);
+
 	/* checkpoints that arrive while one is written: only the newest is written after it */
 	begin("checkpoints queue as one", old);
 	close_gate();
@@ -570,7 +593,7 @@ static void test_worker(void)
 	atomic_store(&gate_closed, 0);
 	CHECK(save_writer_wait(10));
 	CHECK(file_is_image(target_path, third));
-	CHECK(save_writer_replaced_count() == count + 2);
+	CHECK(save_writer_replaced_count() == count + 4);
 
 	/* Save and Quit while a checkpoint is being written: the game's buffer is what is saved, and the
 	   worker's copy never lands after it */

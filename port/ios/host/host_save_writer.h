@@ -4,7 +4,7 @@
 #define HOST_SAVE_WRITER_H
 
 /* at startup, before the game: removes what a run that ended early left in <save_root>/z, and the checkpoint
-   file builds before this one kept there (21 MB that nothing reads now) */
+   file builds before this one kept there (save_writer_clean) */
 void host_save_writer_start(const char *save_root);
 /* the guest is about to unlink path: a saved game being deleted is not written again behind it */
 void host_save_writer_unlinking(const char *path);
