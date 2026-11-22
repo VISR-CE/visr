@@ -72,6 +72,9 @@ four register banks of eight stages (D3DRS_PSALPHAINPUTS0, ...OUTPUTS0, PSRGBINP
 enum shader_record_rule
 {
 	SHADER_RECORD_FREE,     /* not checked */
+	SHADER_RECORD_COMBINERS, /* the combiner registers: admit does not check them; lint requires the count word
+	                           (index SHADER_RECORD_COMBINER_COUNT) at most SHADER_RECORD_COMBINER_COUNT_MAX and
+	                           the canonical form (registers past the count zero) */
 	SHADER_RECORD_RANGE,    /* each element in MIN..MAX */
 	SHADER_RECORD_COMPARE,  /* 0, or a D3DCMP_* function (Xbox values 0x200..0x207, not desktop D3D's 1..8) */
 	SHADER_RECORD_TEXMODES, /* not checked by admit; lint: each of the four 5-bit modes at most
@@ -83,7 +86,7 @@ enum shader_record_rule
 /* The key's fields, in byte order: X(name, offset, size, count, minimum, maximum, rule, source). A field is
 COUNT elements of SIZE bytes; a multi-byte element is little-endian. */
 #define SHADER_RECORD_PS_FIELDS(X) \
-	X(combiner_state, 0, 4, 57, 0, 0, SHADER_RECORD_FREE, \
+	X(combiner_state, 0, 4, 57, 0, 0, SHADER_RECORD_COMBINERS, \
 		"D3DRS_PS* render states; constants zeroed, stages past the combiner count zeroed") \
 	X(texture_modes, 228, 4, 1, 0, 0, SHADER_RECORD_TEXMODES, "D3DRS_PSTEXTUREMODES: four 5-bit modes") \
 	X(sampler_type, 232, 1, 4, 0, 5, SHADER_RECORD_RANGE, \
@@ -103,17 +106,21 @@ COUNT elements of SIZE bytes; a multi-byte element is little-endian. */
 	X(lighting_program, 256, 4, 2, 0, 0, SHADER_RECORD_EXTENDED, \
 		"the lit vertex program's hash, low word first; 0 unlit")
 
-/* A pipeline's fields after the two shader names, in line order: X(name, maximum, source). Each is 0..MAXIMUM. */
+/* A pipeline's numeric fields, required ones first: X(name, maximum, default, source). Each is 0..MAXIMUM. A
+field whose DEFAULT is another field is optional in the line (the 13-field form) and takes that field's value
+when absent; a required field names itself. On the line they follow the two shader names (columns 3 on), with
+ATTRIBUTE_KINDS (SHADER_RECORD_ATTRIBUTES bytes, each 0..SHADER_RECORD_ATTRIBUTE_KIND_MAX, as 32 hex digits)
+after the required ones. */
 #define SHADER_RECORD_PIPELINE_FIELDS(X) \
-	X(blend, 1, "blending on") \
-	X(source, SHADER_RECORD_FACTOR_MAX, "the color source factor (GPU_BLEND_*)") \
-	X(destination, SHADER_RECORD_FACTOR_MAX, "the color destination factor") \
-	X(operation, SHADER_RECORD_OPERATION_MAX, "the blend operation (GPU_BLEND_OP_*)") \
-	X(write_mask, 15, "the color channels written") \
-	X(exact_borders, 15, "the borders drawn exactly") \
-	X(depth, 1, "depth testing on")
-/* ... then ATTRIBUTE_KINDS (SHADER_RECORD_ATTRIBUTES bytes, each 0..SHADER_RECORD_ATTRIBUTE_KIND_MAX, as
-32 hex digits), then alpha_source and alpha_destination (each 0..SHADER_RECORD_FACTOR_MAX) */
+	X(blend, 1, blend, "blending on") \
+	X(source, SHADER_RECORD_FACTOR_MAX, source, "the color source factor (GPU_BLEND_*)") \
+	X(destination, SHADER_RECORD_FACTOR_MAX, destination, "the color destination factor") \
+	X(operation, SHADER_RECORD_OPERATION_MAX, operation, "the blend operation (GPU_BLEND_OP_*)") \
+	X(write_mask, 15, write_mask, "the color channels written") \
+	X(exact_borders, 15, exact_borders, "the borders drawn exactly") \
+	X(depth, 1, depth, "depth testing on") \
+	X(alpha_source, SHADER_RECORD_FACTOR_MAX, source, "the alpha source factor") \
+	X(alpha_destination, SHADER_RECORD_FACTOR_MAX, destination, "the alpha destination factor")
 
 enum shader_record_kind { SHADER_RECORD_VS, SHADER_RECORD_PS, SHADER_RECORD_PIPELINE };
 
@@ -200,8 +207,13 @@ struct shader_record_pipeline_field
 {
 	const char *name;
 	uint32_t maximum;
+	size_t member;         /* offsetof the field in struct shader_record */
+	size_t default_member; /* the same for DEFAULT; equal to MEMBER when the field is required */
 	const char *source;
 };
+/* how many of the table's fields a line must carry (the rest may be absent), and a field's column on the line */
+size_t shader_record_pipeline_required_count(void);
+size_t shader_record_pipeline_column(size_t index);
 extern const struct shader_record_pipeline_field shader_record_pipeline_fields[];
 extern const size_t shader_record_pipeline_field_count;
 
@@ -266,7 +278,8 @@ int shader_record_close(struct shader_record_set *set, shader_record_lookup look
 /* Sorts and deduplicates a set of records already in current form (the union, ordering and canonical form the
 bundled lists use), without closing it */
 int shader_record_normalize(struct shader_record_set *set);
-/* Every problem keeping the set from being closed (a pipeline's missing vs or ps, two records of one name),
+/* Every problem keeping the set from being closed (a pipeline's missing vs or ps; conflicting records of one name are reported by shader_record_normalize's caller
+through SHADER_RECORD_CONFLICT, not here),
 at most MAX of them into OUT; returns how many there are in all. A pipeline's line is not set (the caller knows
 it); DETAIL names what is missing. */
 size_t shader_record_closed_problems(const struct shader_record_set *set, struct shader_record_problem *out,

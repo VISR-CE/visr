@@ -7,6 +7,7 @@
 #import "host_report_delivery.h"
 #import <CommonCrypto/CommonDigest.h>
 #include "host_shader_pack.h"
+#include "../../runtime/shader_record.h"
 #include "host_shader_official_maps.h"
 #include "host_data_updates.h"
 #include "host_benchmark.h"
@@ -60,7 +61,7 @@ BOOL host_shader_upload_validate(NSDictionary *value) {
            ![value[field] canBeConvertedToEncoding:NSASCIIStringEncoding])return NO;
     NSString *format=value[@"mapFormat"], *list=value[@"shaderListID"];
     NSRegularExpression *format_pattern=[NSRegularExpression regularExpressionWithPattern:@"^cache-(0|[1-9][0-9]{0,9})$" options:0 error:nil];
-    NSRegularExpression *list_pattern=[NSRegularExpression regularExpressionWithPattern:@"^shader-lists-2:(bundled|0|[1-9][0-9]{0,19}):[0-9a-f]{64}$" options:0 error:nil];
+    NSRegularExpression *list_pattern=[NSRegularExpression regularExpressionWithPattern:@"^" SHADER_RECORD_FORMAT ":(bundled|0|[1-9][0-9]{0,19}):[0-9a-f]{64}$" options:0 error:nil];
     if(![format_pattern firstMatchInString:format options:0 range:NSMakeRange(0,format.length)] ||
        [[format substringFromIndex:6] longLongValue]>UINT32_MAX ||
        ![list_pattern firstMatchInString:list options:0 range:NSMakeRange(0,list.length)] ||
@@ -465,7 +466,7 @@ uint32_t host_shader_observation_activate(const char *name,int suppressed,char *
     NSDictionary *feed=host_data_updates_metadata()[@"shaders"];
     if([feed[@"effective_bundled_fallback"] boolValue])return 0;
     NSString *hash=feed[@"sha256"];if(!hex(hash,64))return 0;
-    NSString *list=[NSString stringWithFormat:@"shader-lists-2:%@:%@",[feed[@"bundled"] boolValue] ? @"bundled" : [feed[@"sequence"] description],hash];
+    NSString *list=[NSString stringWithFormat:@SHADER_RECORD_FORMAT ":%@:%@",[feed[@"bundled"] boolValue] ? @"bundled" : [feed[@"sequence"] description],hash];
     snprintf(g->shader_list_id,sizeof(g->shader_list_id),"%s",list.UTF8String);
     atomic_store_explicit(&generations[index].ready,1,memory_order_release);
     return index+1;

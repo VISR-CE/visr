@@ -9,11 +9,33 @@ const struct shader_record_field shader_record_ps_fields[] = { SHADER_RECORD_PS_
 #undef ROW
 const size_t shader_record_ps_field_count = sizeof(shader_record_ps_fields) / sizeof(shader_record_ps_fields[0]);
 
-#define ROW(name, maximum, source) {#name, maximum, source},
+#define ROW(name, maximum, default, source) \
+	{#name, maximum, offsetof(struct shader_record, name), offsetof(struct shader_record, default), source},
 const struct shader_record_pipeline_field shader_record_pipeline_fields[] = { SHADER_RECORD_PIPELINE_FIELDS(ROW) };
 #undef ROW
 const size_t shader_record_pipeline_field_count =
 	sizeof(shader_record_pipeline_fields) / sizeof(shader_record_pipeline_fields[0]);
+
+size_t shader_record_pipeline_required_count(void)
+{
+	size_t i, n = 0;
+
+	for (i = 0; i < shader_record_pipeline_field_count; i++)
+		if (shader_record_pipeline_fields[i].default_member == shader_record_pipeline_fields[i].member)
+			n++;
+	return n;
+}
+
+/* columns: "pipeline VERTEX PIXEL" is 0-2, the required fields follow, then the attribute kinds, then the optional ones */
+size_t shader_record_pipeline_column(size_t index)
+{
+	return index < shader_record_pipeline_required_count() ? 3 + index : 4 + index;
+}
+
+static uint32_t *pipeline_member(struct shader_record *r, size_t member)
+{
+	return (uint32_t *)((char *)r + member);
+}
 
 uint64_t shader_record_hash(const uint8_t *bytes, size_t size)
 {
@@ -208,14 +230,13 @@ int shader_record_parse(const char *text, struct shader_record *r, struct shader
 	}
 	else if (!strcmp(fields[0], "pipeline"))
 	{
-		uint32_t *values[9] = { &r->blend, &r->source, &r->destination, &r->operation, &r->write_mask,
-			&r->exact_borders, &r->depth, &r->alpha_source, &r->alpha_destination };
-		int i;
+		size_t required = shader_record_pipeline_required_count(), i;
 
 		r->kind = SHADER_RECORD_PIPELINE;
-		if (n != 11 && n != 13)
+		if ((size_t)n != 4 + required && (size_t)n != 4 + shader_record_pipeline_field_count)
 		{
-			note(p, SHADER_RECORD_SYNTAX, "pipeline", -1, n, 11, 13, "a pipeline line has 11 or 13 fields");
+			note(p, SHADER_RECORD_SYNTAX, "pipeline", -1, n, (int64_t)(4 + required),
+				(int64_t)(4 + shader_record_pipeline_field_count), "a pipeline line has 11 or 13 fields");
 			return 0;
 		}
 		if (!vertex_key(fields[1], r, p))
@@ -226,33 +247,28 @@ int shader_record_parse(const char *text, struct shader_record *r, struct shader
 			return 0;
 		}
 		r->recorded_hash = r->hash;
-		if (!hex_bytes(fields[10], SHADER_RECORD_ATTRIBUTES, r->attribute_kinds))
+		if (!hex_bytes(fields[3 + required], SHADER_RECORD_ATTRIBUTES, r->attribute_kinds))
 		{
 			note(p, SHADER_RECORD_SYNTAX, "attribute_kinds", -1, 0, 0, 0, "not 32 lowercase hex digits");
 			return 0;
 		}
-		for (i = 0; i < 7; i++)
-			if (!number(fields[i + 3], 10, values[i]))
-			{
-				note(p, SHADER_RECORD_SYNTAX, shader_record_pipeline_fields[i].name, -1, 0, 0, 0,
-					"not a decimal number");
-				return 0;
-			}
-		r->alpha_source = r->source;
-		r->alpha_destination = r->destination;
-		if (n == 13)
+		for (i = 0; i < shader_record_pipeline_field_count; i++)
 		{
-			if (!number(fields[11], 10, values[7]))
+			const struct shader_record_pipeline_field *f = &shader_record_pipeline_fields[i];
+			size_t column = shader_record_pipeline_column(i);
+
+			if (column >= (size_t)n)
+				continue;
+			if (!number(fields[column], 10, pipeline_member(r, f->member)))
 			{
-				note(p, SHADER_RECORD_SYNTAX, "alpha_source", -1, 0, 0, 0, "not a decimal number");
-				return 0;
-			}
-			if (!number(fields[12], 10, values[8]))
-			{
-				note(p, SHADER_RECORD_SYNTAX, "alpha_destination", -1, 0, 0, 0, "not a decimal number");
+				note(p, SHADER_RECORD_SYNTAX, f->name, -1, 0, 0, 0, "not a decimal number");
 				return 0;
 			}
 		}
+		for (i = 0; i < shader_record_pipeline_field_count; i++)
+			if (shader_record_pipeline_column(i) >= (size_t)n)
+				*pipeline_member(r, shader_record_pipeline_fields[i].member) =
+					*pipeline_member(r, shader_record_pipeline_fields[i].default_member);
 	}
 	else
 	{
@@ -287,8 +303,7 @@ void shader_record_pixel_name(const struct shader_record *r, char *name, size_t 
 size_t shader_record_format(const struct shader_record *r, char *line)
 {
 	static const char digits[] = "0123456789abcdef";
-	size_t length;
-	uint32_t i;
+	size_t length, i, j;
 
 	if (r->kind == SHADER_RECORD_VS)
 		return (size_t)snprintf(line, SHADER_RECORD_LINE_MAX, "vs %016llx %u %x",
@@ -304,16 +319,23 @@ size_t shader_record_format(const struct shader_record *r, char *line)
 		line[length] = 0;
 		return length;
 	}
-	length = (size_t)snprintf(line, SHADER_RECORD_LINE_MAX, "pipeline %016llx.%u.%x %016llx %u %u %u %u %u %u %u ",
-		(unsigned long long)r->vertex_hash, r->variant, r->mask, (unsigned long long)r->hash, r->blend, r->source,
-		r->destination, r->operation, r->write_mask, r->exact_borders, r->depth);
-	for (i = 0; i < SHADER_RECORD_ATTRIBUTES; i++)
+	length = (size_t)snprintf(line, SHADER_RECORD_LINE_MAX, "pipeline %016llx.%u.%x %016llx",
+		(unsigned long long)r->vertex_hash, r->variant, r->mask, (unsigned long long)r->hash);
+	for (i = 0; i < shader_record_pipeline_field_count; i++)
 	{
-		line[length++] = digits[r->attribute_kinds[i] >> 4];
-		line[length++] = digits[r->attribute_kinds[i] & 15];
+		if (i == shader_record_pipeline_required_count())
+		{
+			line[length++] = ' ';
+			for (j = 0; j < SHADER_RECORD_ATTRIBUTES; j++)
+			{
+				line[length++] = digits[r->attribute_kinds[j] >> 4];
+				line[length++] = digits[r->attribute_kinds[j] & 15];
+			}
+		}
+		length += (size_t)snprintf(line + length, SHADER_RECORD_LINE_MAX - length, " %u",
+			*pipeline_member((struct shader_record *)r, shader_record_pipeline_fields[i].member));
 	}
-	return length + (size_t)snprintf(line + length, SHADER_RECORD_LINE_MAX - length, " %u %u", r->alpha_source,
-		r->alpha_destination);
+	return length;
 }
 
 /* ---- admit and lint ---- */
@@ -391,25 +413,15 @@ int shader_record_admit(const struct shader_record *r, struct shader_record_prob
 	}
 	if (!admit_vertex(r, p))
 		return 0;
+	for (i = 0; i < shader_record_pipeline_field_count; i++)
 	{
-		uint32_t values[] = {
-#define VAL(name, maximum, source) r->name,
-			SHADER_RECORD_PIPELINE_FIELDS(VAL)
-#undef VAL
-			r->alpha_source, r->alpha_destination };
+		const struct shader_record_pipeline_field *f = &shader_record_pipeline_fields[i];
+		uint32_t value = *pipeline_member((struct shader_record *)r, f->member);
 
-		for (i = 0; i < sizeof(values) / sizeof(values[0]); i++)
+		if (value > f->maximum)
 		{
-			const char *name = i < shader_record_pipeline_field_count ? shader_record_pipeline_fields[i].name
-				: i == shader_record_pipeline_field_count ? "alpha_source" : "alpha_destination";
-			uint32_t maximum = i < shader_record_pipeline_field_count ? shader_record_pipeline_fields[i].maximum
-				: SHADER_RECORD_FACTOR_MAX;
-
-			if (values[i] > maximum)
-			{
-				note(p, SHADER_RECORD_OUT_OF_RANGE, name, -1, values[i], 0, maximum, NULL);
-				return 0;
-			}
+			note(p, SHADER_RECORD_OUT_OF_RANGE, f->name, -1, value, 0, f->maximum, NULL);
+			return 0;
 		}
 	}
 	for (i = 0; i < SHADER_RECORD_ATTRIBUTES; i++)
@@ -422,73 +434,93 @@ int shader_record_admit(const struct shader_record *r, struct shader_record_prob
 	return 1;
 }
 
-static void load_combiners(const struct shader_record *r, uint32_t *words)
+static const struct shader_record_field *combiner_field(void)
 {
-	int i;
+	size_t k;
 
-	for (i = 0; i < SHADER_RECORD_COMBINER_WORDS; i++)
-		words[i] = (uint32_t)r->key[4 * i] | (uint32_t)r->key[4 * i + 1] << 8 | (uint32_t)r->key[4 * i + 2] << 16 |
-			(uint32_t)r->key[4 * i + 3] << 24;
+	for (k = 0; k < shader_record_ps_field_count; k++)
+		if (shader_record_ps_fields[k].rule == SHADER_RECORD_COMBINERS)
+			return &shader_record_ps_fields[k];
+	return NULL; /* the field-table test requires exactly one */
+}
+
+static void load_combiners(const struct shader_record *r, const struct shader_record_field *f, uint32_t *words)
+{
+	uint32_t i;
+
+	for (i = 0; i < f->count; i++)
+		words[i] = element(r->key, f, i);
 }
 
 int shader_record_lint(const struct shader_record *r, struct shader_record_problem *p)
 {
-	uint32_t words[SHADER_RECORD_COMBINER_WORDS], canonical[SHADER_RECORD_COMBINER_WORDS], modes, i;
+	size_t k;
 
 	if (r->kind != SHADER_RECORD_PS)
 		return 1;
-	if (r->key_size < 4 * SHADER_RECORD_COMBINER_WORDS + 4)
+	for (k = 0; k < shader_record_ps_field_count; k++)
 	{
-		note(p, SHADER_RECORD_BAD_SIZE, "key_size", -1, r->key_size, SHADER_RECORD_KEY_BASE_SIZE,
-			SHADER_RECORD_KEY_BASE_SIZE, NULL);
-		return 0;
-	}
-	load_combiners(r, words);
-	if ((words[SHADER_RECORD_COMBINER_COUNT] & 0xff) > SHADER_RECORD_COMBINER_COUNT_MAX)
-	{
-		note(p, SHADER_RECORD_OUT_OF_RANGE, "combiner_count", -1, words[SHADER_RECORD_COMBINER_COUNT] & 0xff, 0,
-			SHADER_RECORD_COMBINER_COUNT_MAX, NULL);
-		return 0;
-	}
-	memcpy(canonical, words, sizeof(words));
-	shader_record_canonicalize_combiners(canonical);
-	if (memcmp(canonical, words, sizeof(words)))
-	{
-		note(p, SHADER_RECORD_NOT_CANONICAL, "combiner_state", -1, 0, 0, 0,
-			"registers past the combiner count are not zero (canonical form)");
-		return 0;
-	}
-	modes = (uint32_t)r->key[228] | (uint32_t)r->key[229] << 8 | (uint32_t)r->key[230] << 16 | (uint32_t)r->key[231] << 24;
-	for (i = 0; i < 4; i++)
-		if (((modes >> (5 * i)) & 31) > SHADER_RECORD_TEXTURE_MODE_MAX)
+		const struct shader_record_field *f = &shader_record_ps_fields[k];
+
+		if (f->rule == SHADER_RECORD_COMBINERS)
 		{
-			note(p, SHADER_RECORD_OUT_OF_RANGE, "texture_modes", (int)i, (modes >> (5 * i)) & 31, 0,
-				SHADER_RECORD_TEXTURE_MODE_MAX, NULL);
-			return 0;
+			uint32_t words[SHADER_RECORD_COMBINER_WORDS], canonical[SHADER_RECORD_COMBINER_WORDS];
+
+			if (r->key_size < f->offset + f->size * f->count + 4)
+			{
+				note(p, SHADER_RECORD_BAD_SIZE, "key_size", -1, r->key_size, SHADER_RECORD_KEY_BASE_SIZE,
+					SHADER_RECORD_KEY_BASE_SIZE, NULL);
+				return 0;
+			}
+			load_combiners(r, f, words);
+			if ((words[SHADER_RECORD_COMBINER_COUNT] & 0xff) > SHADER_RECORD_COMBINER_COUNT_MAX)
+			{
+				note(p, SHADER_RECORD_OUT_OF_RANGE, "combiner_count", -1, words[SHADER_RECORD_COMBINER_COUNT] & 0xff,
+					0, SHADER_RECORD_COMBINER_COUNT_MAX, NULL);
+				return 0;
+			}
+			memcpy(canonical, words, sizeof(words));
+			shader_record_canonicalize_combiners(canonical);
+			if (memcmp(canonical, words, sizeof(words)))
+			{
+				note(p, SHADER_RECORD_NOT_CANONICAL, f->name, -1, 0, 0, 0,
+					"registers past the combiner count are not zero (canonical form)");
+				return 0;
+			}
 		}
+		else if (f->rule == SHADER_RECORD_TEXMODES)
+		{
+			uint32_t modes = element(r->key, f, 0), i;
+
+			for (i = 0; i < 4; i++)
+				if (((modes >> (5 * i)) & 31) > SHADER_RECORD_TEXTURE_MODE_MAX)
+				{
+					note(p, SHADER_RECORD_OUT_OF_RANGE, f->name, (int)i, (modes >> (5 * i)) & 31, 0,
+						SHADER_RECORD_TEXTURE_MODE_MAX, NULL);
+					return 0;
+				}
+		}
+	}
 	return 1;
 }
 
-/* ---- canonical form and reduction ---- */
-
 int shader_record_canonicalize(struct shader_record *r)
 {
-	uint32_t words[SHADER_RECORD_COMBINER_WORDS], i;
+	const struct shader_record_field *f = combiner_field();
+	uint32_t words[SHADER_RECORD_COMBINER_WORDS], i, b;
 	uint8_t before[4 * SHADER_RECORD_COMBINER_WORDS];
 	uint64_t hash;
 
-	if (r->kind != SHADER_RECORD_PS || r->key_size < 4 * SHADER_RECORD_COMBINER_WORDS)
+	if (r->kind != SHADER_RECORD_PS || r->key_size < f->offset + f->size * f->count)
 		return 0;
-	memcpy(before, r->key, sizeof(before));
-	load_combiners(r, words);
+	memcpy(before, r->key + f->offset, sizeof(before));
+	load_combiners(r, f, words);
 	shader_record_canonicalize_combiners(words);
-	for (i = 0; i < SHADER_RECORD_COMBINER_WORDS; i++)
-	{
-		r->key[4 * i] = (uint8_t)words[i]; r->key[4 * i + 1] = (uint8_t)(words[i] >> 8);
-		r->key[4 * i + 2] = (uint8_t)(words[i] >> 16); r->key[4 * i + 3] = (uint8_t)(words[i] >> 24);
-	}
+	for (i = 0; i < f->count; i++)
+		for (b = 0; b < f->size; b++)
+			r->key[f->offset + i * f->size + b] = (uint8_t)(words[i] >> (8 * b));
 	hash = shader_record_hash(r->key, r->key_size);
-	if (!memcmp(before, r->key, sizeof(before)) && hash == r->hash)
+	if (!memcmp(before, r->key + f->offset, sizeof(before)) && hash == r->hash)
 		return 0;
 	r->hash = hash;
 	return 1;

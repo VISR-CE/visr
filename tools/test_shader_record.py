@@ -278,7 +278,8 @@ def test_explain_names_the_bytes_the_misreadings_confused(tmp_path):
 
 def test_explain_a_line_decodes_each_kind():
     assert "variant=1" in run("explain", "vs 00000000000000aa 1 0", check=True).stdout
-    assert "blend=1 source=5" in run("explain", pipeline("1" * 16, fields="1 5 0 0 7 0 0"), check=True).stdout
+    out = run("explain", pipeline("1" * 16, fields="1 5 0 0 7 0 0"), check=True).stdout
+    assert "blend=1 " in out and "source=5 " in out
 
 
 # ---- close ---------------------------------------------------------------
@@ -596,3 +597,29 @@ def test_close_refuses_a_ps_whose_key_does_not_hash_to_its_name(tmp_path):
     delta = folder_with(tmp_path, f"ps {'0' * 8}deadbeef {key(2).hex()}\n{pipeline('0' * 8 + 'deadbeef')}\n")
     result = run("close", "--out", str(tmp_path / "o"), str(delta))
     assert result.returncode == 1 and "the key hashes to another value" in result.stderr
+
+
+def test_a_new_field_is_a_change_to_the_table_alone():
+    """No code outside the field tables names a key or pipeline field, or its offset: lint, parse, format,
+    admit, canonicalize and explain all walk the tables, so a field added to them needs no other edit."""
+    header = (ROOT / "port/runtime/shader_record.h").read_text()
+    names = set(re.findall(r"^\tX\((\w+),", header, re.M))
+    assert {"blend", "alpha_destination", "combiner_state", "texture_modes", "sampler_type"} <= names
+    offsets = set(re.findall(r"^\tX\(\w+, (\d{3}),", header, re.M))
+    for path in ("port/runtime/shader_record.c", "port/runtime/shader_record_close.c",
+                 "port/ios/tests/shader_record_tool.c"):
+        text = re.sub(r'/\*.*?\*/|//[^\n]*', "", (ROOT / path).read_text(), flags=re.S)
+        text = re.sub(r"#define ROW.*?\n(?:\t[^\n]*\n)*", "", text)
+        for name in names:
+            assert not re.search(rf'"{name}"|\br->{name}\b', text), f"{path} names the field {name}"
+        for offset in offsets:
+            assert not re.search(rf"\[{offset}\]|key\W[^;\n]*\b{offset}\b", text), f"{path} hard-codes the offset {offset}"
+
+
+def test_pipeline_table_layout_the_parser_relies_on():
+    """required fields first; the line is 4 + required (+ the optional ones) fields wide"""
+    fields = run("fields", check=True).stdout.splitlines()
+    pipeline = [line.split("\t") for line in fields if line.startswith("pipeline\t")]
+    assert [row[1] for row in pipeline][:7] == ["blend", "source", "destination", "operation", "write_mask",
+                                               "exact_borders", "depth"]
+    assert [row[1] for row in pipeline].index("attribute_kinds") == 7

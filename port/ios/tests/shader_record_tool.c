@@ -198,6 +198,7 @@ static void legal_text(const struct shader_record_field *f, char *out, size_t si
 	{
 	case SHADER_RECORD_RANGE: snprintf(out, size, "%u-%u", f->minimum, f->maximum); break;
 	case SHADER_RECORD_COMPARE: snprintf(out, size, "0, or 0x200-0x207"); break;
+	case SHADER_RECORD_COMBINERS: snprintf(out, size, "not checked by the app; tools: count word at most %d, canonical form", SHADER_RECORD_COMBINER_COUNT_MAX); break;
 	case SHADER_RECORD_TEXMODES: snprintf(out, size, "not checked by the app; tools: each mode at most %d", SHADER_RECORD_TEXTURE_MODE_MAX); break;
 	case SHADER_RECORD_EXTENDED: snprintf(out, size, "extended keys only; the app takes base keys, tools reduce them"); break;
 	default: snprintf(out, size, "not checked"); break;
@@ -227,24 +228,26 @@ static int command_fields(int argc, char **argv)
 		if (markdown) printf("| %s | %s | %s | %s |\n", bytes, name, f->source, legal);
 		else printf("%u\t%u\t%u\t%s\t%u\t%u\t%s\n", f->offset, f->size, f->count,
 			f->rule == SHADER_RECORD_RANGE ? "range" : f->rule == SHADER_RECORD_COMPARE ? "compare" :
-			f->rule == SHADER_RECORD_TEXMODES ? "texmodes" : f->rule == SHADER_RECORD_EXTENDED ? "extended" : "free",
+			f->rule == SHADER_RECORD_COMBINERS ? "combiners" : f->rule == SHADER_RECORD_TEXMODES ? "texmodes" : f->rule == SHADER_RECORD_EXTENDED ? "extended" : "free",
 			f->minimum, f->maximum, f->name);
 	}
 	if (markdown) printf("\nA pipeline line's fields after its two shader names:\n\n| Field | Source | Legal values |\n|---|---|---|\n");
 	for (i = 0; i < shader_record_pipeline_field_count; i++)
 	{
 		const struct shader_record_pipeline_field *f = &shader_record_pipeline_fields[i];
+		int optional = f->default_member != f->member;
 
-		if (markdown) printf("| `%s` | %s | 0-%u |\n", f->name, f->source, f->maximum);
+		if (i == shader_record_pipeline_required_count())
+		{
+			if (markdown)
+				printf("| `attribute_kinds[%d]` | the vertex attribute format per stream (GPU_ATTRIBUTE_*), 32 hex digits | 0-%d |\n",
+					SHADER_RECORD_ATTRIBUTES, SHADER_RECORD_ATTRIBUTE_KIND_MAX);
+			else printf("pipeline\tattribute_kinds\t%d\n", SHADER_RECORD_ATTRIBUTE_KIND_MAX);
+		}
+		if (markdown) printf("| `%s` | %s%s | 0-%u |\n", f->name, f->source,
+			optional ? " (absent in the 11-field form, where it equals the matching color field)" : "", f->maximum);
 		else printf("pipeline\t%s\t%u\n", f->name, f->maximum);
 	}
-	if (markdown)
-		printf("| `attribute_kinds[%d]` | the vertex attribute format per stream (GPU_ATTRIBUTE_*), 32 hex digits | 0-%d |\n"
-			"| `alpha_source`, `alpha_destination` | the alpha factors (absent in the 11-field form, where they equal the color factors) | 0-%d |\n",
-			SHADER_RECORD_ATTRIBUTES, SHADER_RECORD_ATTRIBUTE_KIND_MAX, SHADER_RECORD_FACTOR_MAX);
-	else
-		printf("pipeline\tattribute_kinds\t%d\npipeline\talpha_source\t%d\npipeline\talpha_destination\t%d\n",
-			SHADER_RECORD_ATTRIBUTE_KIND_MAX, SHADER_RECORD_FACTOR_MAX, SHADER_RECORD_FACTOR_MAX);
 	return 0;
 }
 
@@ -269,7 +272,7 @@ static void explain_record(const struct shader_record *r)
 
 			if (f->offset + f->size * f->count > r->key_size)
 				continue;
-			if (f->count == SHADER_RECORD_COMBINER_WORDS)
+			if (f->rule == SHADER_RECORD_COMBINERS)
 			{
 				uint32_t count = (uint32_t)r->key[4 * SHADER_RECORD_COMBINER_COUNT];
 				printf("  %-22s combiner_count=%u (word %d); %u words, bytes %u-%u\n", f->name, count,
@@ -295,9 +298,11 @@ static void explain_record(const struct shader_record *r)
 	{
 		shader_record_vertex_name(r, name, sizeof(name));
 		printf("pipeline %s\n  pixel_hash=%016llx\n", name + 3, (unsigned long long)r->hash);
-		printf("  blend=%u source=%u destination=%u operation=%u\n  write_mask=%u exact_borders=%u depth=%u\n"
-			"  alpha_source=%u alpha_destination=%u\n  attribute_kinds=", r->blend, r->source, r->destination, r->operation,
-			r->write_mask, r->exact_borders, r->depth, r->alpha_source, r->alpha_destination);
+		for (i = 0; i < shader_record_pipeline_field_count; i++)
+			printf("  %s=%u (0-%u)\n", shader_record_pipeline_fields[i].name,
+				*(const uint32_t *)((const char *)r + shader_record_pipeline_fields[i].member),
+				shader_record_pipeline_fields[i].maximum);
+		printf("  attribute_kinds=");
 		for (i = 0; i < SHADER_RECORD_ATTRIBUTES; i++)
 			printf("%02x", r->attribute_kinds[i]);
 		printf("\n");

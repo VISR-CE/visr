@@ -20,6 +20,8 @@ import urllib.error
 import urllib.request
 from typing import Literal, overload
 
+from data_pack_validation import SHADER_LISTS_FORMAT
+
 if __package__:
     from . import pages_recording_overlay as legacy
     from . import release_validation as validation
@@ -181,7 +183,7 @@ def verify_shader_bundle(assets: dict[str, bytes]) -> None:
             raise ValueError("Shader assets require their signed index")
         return
     metadata = verify_asset(SHADER, assets[SHADER])
-    if metadata["compatibility"] != "shader-lists-2":
+    if metadata["compatibility"] != SHADER_LISTS_FORMAT:
         if maps:
             raise ValueError("Legacy shader feed cannot authenticate compressed assets")
         return
@@ -539,7 +541,7 @@ def stage_site(
         selected[path] = raw
     # Drop old immutable maps only after the selected index is known. Deployments
     # stage the complete set together; a new index never references partial data.
-    if SHADER in selected and verify_asset(SHADER, selected[SHADER])["compatibility"] == "shader-lists-2":
+    if SHADER in selected and verify_asset(SHADER, selected[SHADER])["compatibility"] == SHADER_LISTS_FORMAT:
         envelope = validation.packs.decode_json(selected[SHADER])
         index = validation.packs.shader_index(validation.packs.decode_base64(envelope["payload"], 65536))
         keep = {PREFIX + "shader-maps/" + item[2] + ".zlib" for item in index.values()}

@@ -100,7 +100,7 @@ One definition of a record serves the recorder's tools, the app's admission, the
 <!-- shader-record fields -->
 | Bytes | Field | Source | Legal values |
 |---|---|---|---|
-| 0-227 | `combiner_state[57]` | D3DRS_PS* render states; constants zeroed, stages past the combiner count zeroed | not checked |
+| 0-227 | `combiner_state[57]` | D3DRS_PS* render states; constants zeroed, stages past the combiner count zeroed | not checked by the app; tools: count word at most 8, canonical form |
 | 228-231 | `texture_modes` | D3DRS_PSTEXTUREMODES: four 5-bit modes | not checked by the app; tools: each mode at most 18 |
 | 232-235 | `sampler_type[4]` | the bound texture's kind per stage: 0 none ... 5 _xgpu_sampler_2d_content (a dynamic-resolution pooled target) | 0-5 |
 | 236-239 | `alpha_kill[4]` | D3DTSS_ALPHAKILL per stage | 0-1 |
@@ -128,7 +128,8 @@ A pipeline line's fields after its two shader names:
 | `exact_borders` | the borders drawn exactly | 0-15 |
 | `depth` | depth testing on | 0-1 |
 | `attribute_kinds[16]` | the vertex attribute format per stream (GPU_ATTRIBUTE_*), 32 hex digits | 0-19 |
-| `alpha_source`, `alpha_destination` | the alpha factors (absent in the 11-field form, where they equal the color factors) | 0-14 |
+| `alpha_source` | the alpha source factor (absent in the 11-field form, where it equals the matching color field) | 0-14 |
+| `alpha_destination` | the alpha destination factor (absent in the 11-field form, where it equals the matching color field) | 0-14 |
 <!-- /shader-record fields -->
 
 Bytes 252 and up exist only in extended keys (a multisampled alpha test, a soft particle, per-pixel lighting). The app admits base keys, 252 bytes, alone; the warm-up derives every extended shader from its base record.

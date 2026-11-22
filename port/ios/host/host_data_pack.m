@@ -3,6 +3,7 @@
 #include "../../third_party/monocypher/monocypher-ed25519.h"
 #include "host_recording_pack.h"
 #include "host_shader_pack.h"
+#include "../../runtime/shader_record.h"
 #include "host.h"
 #include <sys/stat.h>
 #include <math.h>
@@ -253,7 +254,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
 // can make the app hold. The payload's files are base64 inside the payload, which is base64 again in the envelope:
 // Recording bounds follow the maximum individually valid files, without a separate library-size cap.
 // tools/data_pack.py uses the same base64/JSON allowance.
-- (BOOL)shaderIndex { return [_kind isEqual:@"shaders"] && [_compatibility isEqual:@"shader-lists-2"]; }
+- (BOOL)shaderIndex { return [_kind isEqual:@"shaders"] && [_compatibility isEqual:@SHADER_RECORD_FORMAT]; }
 - (BOOL)recordingIndex { return [_kind isEqual:@"recordings"] && [_compatibility hasPrefix:@"benchmark-catalog-2:"]; }
 - (BOOL)indexed { return self.shaderIndex || self.recordingIndex; }
 - (NSUInteger)envelopeLimit { if ([_kind isEqual:@"latest"]) return 16 * 1024; if ([_kind isEqual:@"framings"]) return 384 * 1024; if (self.indexed) return HOST_SHADER_PACK_MAX_INDEX_BYTES; return [_kind isEqual:@"profiles"] ? 4 * 1024 * 1024 : [_kind isEqual:@"shaders"] ? HOST_SHADER_PACK_MAX_ENVELOPE_BYTES : HOST_RECORDING_PACK_MAX_ENVELOPE_BYTES; }

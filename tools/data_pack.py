@@ -20,6 +20,8 @@ import sys
 import tempfile
 import zlib
 
+from data_pack_validation import SHADER_LISTS_FORMAT
+
 if __package__:
     from . import benchmark_catalog
     from . import profile_check
@@ -710,7 +712,7 @@ def main(arguments=None):
                 checked = validate_shaders_with_released_apps(temporary)
             print(f"Released apps that admit this snapshot: {', '.join(checked)}")
     assets = {}
-    if args.kind == "shaders" and args.compatibility == "shader-lists-2":
+    if args.kind == "shaders" and args.compatibility == SHADER_LISTS_FORMAT:
         encoded = {}
         compressed_total = 0
         for name, content in files.items():
