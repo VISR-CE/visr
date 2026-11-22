@@ -837,12 +837,15 @@ static const struct config_setting config_settings[] =
 		"do reaches the screen sooner (the Metal renderer's frame pacer). It backs\n"
 		"off to starting at once whenever frames take too long or vary. \"true\" or\n"
 		"\"false\"; empty (default): on in the Mac app, off on an iPhone, iPad or\n"
-		"Apple TV. \"extended\" (being measured) also starts late when a frame's\n"
-		"work is longer than one refresh, under dynamic resolution and under frame\n"
-		"rate caps, and aims each frame at the refresh after the frames already on\n"
-		"their way to the display. The Mac app's F8 switches it while playing. Not\n"
-		"on a Vision Pro, and not when frames don't wait for the display\n"
-		"(display.frame_rate).", _tier_player, "|true|false|extended" },
+		"Apple TV. \"extended\" also starts late when a frame's work is longer than\n"
+		"one refresh, under dynamic resolution and under frame rate caps, and aims\n"
+		"each frame at the refresh after the frames already on their way to the\n"
+		"display; it acts only while the game runs at 60 frames a second or fewer\n"
+		"(a cap, a scene class's rate or a 60 Hz display), where it was measured\n"
+		"to halve the time to the screen or better, and a device profile may set\n"
+		"it. \"extended_all\" is the same at any frame rate, for measuring. The Mac\n"
+		"app's F8 switches it while playing. Not on a Vision Pro, and not when\n"
+		"frames don't wait for the display (display.frame_rate).", _tier_player, "|true|false|extended|extended_all" },
 	{ "display.frame_source", _config_string, "\"\"", "HALO_FRAME_SOURCE", _environment_value, _platform_ios,
 		"Where the Metal renderer's frames get their place on the display:\n"
 		"\"clock\" asks for one when a frame is ready and applies\n"

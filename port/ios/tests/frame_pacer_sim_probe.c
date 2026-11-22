@@ -521,10 +521,40 @@ int main(int argc, char **argv)
 		finish(off);
 		finish(extended);
 	}
+	/* ---- display.late_start = "extended" acts at 60 frames a second and under: a game at the rate of a 120 Hz
+	panel is left exactly as with no late start, a 60 cap on that panel, a 60 Hz display and a 30 cap start late */
+	{
+		static const struct { double panel, link, share; int aimed; } rates[] =
+		{
+			{ P120, P120, 1.0, 0 }, { P120, P60, 1.0, 1 }, { P60, P60, 1.0, 1 }, { P60, P60, 2.0, 1 }, { P120, P120, 2.0, 1 },
+		};
+		int index;
+
+		for (index = 0; index < (int)(sizeof(rates) / sizeof(rates[0])); index++)
+		{
+			struct load load = { .cpu = 0.003, .gpu_fixed = 0.004, .cpu_noise = 0.0003, .gpu_noise = 0.0003 }, load_off = load;
+			struct sim *off = run(SIM_OFF, rates[index].panel, rates[index].link, rates[index].share, 2, &load_off, 3000);
+			struct sim *extended = run(SIM_EXTENDED, rates[index].panel, rates[index].link, rates[index].share, 2, &load, 3000);
+			struct sim_result result, baseline;
+
+			extended->slot_least = FRAME_PACER_EXTENDED_SLOT;
+			sim_run(off, 3000);
+			sim_run(extended, 3000);
+			baseline = sim_measure(off, 600, 3000);
+			result = sim_measure(extended, 600, 3000);
+			if (rates[index].aimed)
+				CHECK(result.engaged > result.frames * 99 / 100 && result.read_to_shown_median < 0.6 * baseline.read_to_shown_median);
+			else
+				CHECK(result.engaged == 0 && result.read_to_shown_median == baseline.read_to_shown_median &&
+					result.late == baseline.late && result.waited_mean == baseline.waited_mean);
+			finish(off);
+			finish(extended);
+		}
+	}
 	/* ---- the rules alone */
 	{
 		struct frame_pacer_extended late;
-		struct frame_pacer_extended_input in = { 10.0, 10.0, P60, P120, 1.0, 2, 0, 0.0 };
+		struct frame_pacer_extended_input in = { 10.0, 10.0, P60, P120, 1.0, 2, 0, 0.0, 0.0 };
 		struct frame_pacer_extended_start start;
 		int index;
 

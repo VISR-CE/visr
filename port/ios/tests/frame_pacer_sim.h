@@ -91,6 +91,7 @@ struct sim
 	long handed, shown_highest; /* frames handed to the display, and the highest of them known shown: the count in
 	                            flight is the difference, so a notice that never comes is made up by the next */
 	long lose_notice;           /* this frame's shown notice never arrives (0: none) */
+	double slot_least;          /* the extended late start's shortest slot (0: any) */
 	long slip_every;            /* every so many frames the display shows one a refresh late by itself (0: never) */
 	double unaimed_cost;        /* frames that start at once report this share of their work (0: all of it) */
 	struct sim_event events[SIM_EVENTS];
@@ -223,7 +224,7 @@ static inline void sim_frame(struct sim *sim)
 	else if (sim->mode == SIM_EXTENDED && sim->waited_for_display)
 	{
 		struct frame_pacer_extended_input in = { sim->now, sim_link_refresh(sim, sim->now), sim->link, sim->panel,
-			sim->share, sim->limit, (int)(sim->handed - sim->shown_highest), sim->shown_noticed };
+			sim->share, sim->limit, (int)(sim->handed - sim->shown_highest), sim->shown_noticed, sim->slot_least };
 		struct frame_pacer_extended_start start = frame_pacer_extended_wait(&sim->extended, &in);
 
 		wait = start.wait;

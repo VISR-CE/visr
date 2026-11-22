@@ -434,6 +434,12 @@ enum frame_pacer_start_state
 };
 
 #define FRAME_PACER_EXTENDED_HOLDOFF 1.0
+/* the shortest slot display.late_start = "extended" starts late for: a frame's share of the display at 60 frames a
+second (a little under, for a display link that reports 59.94). Measured on a 120 Hz phone: at 30 frames a second
+98 ms from a frame's start to the screen became 33 ms for 0.8 more late frames in 1,000, at 60 48 ms became 20 ms for
+8 more, and at 120 frames with an aim were shown late three times as often as frames without, so the stops left it
+on for a tenth of the frames and nothing was gained */
+#define FRAME_PACER_EXTENDED_SLOT (0.98 / 60.0)
 /* the lead it starts from (a phone's display took 4 to 5 ms from the GPU's end to the refresh) */
 #define FRAME_PACER_EXTENDED_LEAD 0.005
 /* a frame shown late for its cost stops late starts only when another was within this long before it */
@@ -490,12 +496,16 @@ any one refresh on that clock; period: the display link's; panel: the panel's
 own period where it is shorter than the link's (0: the link's); share: the
 frame's share in link periods (frame_pacer_share); limit: the frames in
 flight's limit (0 none); in_flight: frames handed to the display and not yet
-shown; shown_last: when the last frame was shown (0 unknown) */
+shown; shown_last: when the last frame was shown (0 unknown); slot_least:
+frames whose share of the display is shorter than this many seconds start at
+once (0: none are; FRAME_PACER_EXTENDED_SLOT for display.late_start =
+"extended") */
 struct frame_pacer_extended_input
 {
 	double now, refresh, period, panel, share;
 	int limit, in_flight;
 	double shown_last;
+	double slot_least;
 };
 
 struct frame_pacer_extended_start
@@ -584,6 +594,12 @@ static inline struct frame_pacer_extended_start frame_pacer_extended_wait(struct
 	}
 	step = frame_pacer_extended_step(in->period, in->panel);
 	slot = (in->share >= 1.0 ? in->share : 1.0) * in->period;
+	/* (a rate it is not used at: the frame starts at once, as with no late start) */
+	if (slot < in->slot_least)
+	{
+		late->no_fit++;
+		return start;
+	}
 	lead = frame_pacer_extended_lead(late);
 	work = frame_pacer_extended_worst(late->work, late->count);
 	if (work < frame_pacer_extended_worst(late->aimed, FRAME_PACER_LATE_WINDOW))

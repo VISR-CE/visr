@@ -403,12 +403,16 @@ frames and the build has none of this.
   the last 32 frames plus a margin it learns, and goes back to starting at
   once for a couple of seconds whenever a frame costs more than it allowed
   for or is shown late. The Mac app's F8 switches it while playing.
-  `late_start = "extended"` (being measured on iPhone, iPad, and Apple TV)
-  keeps starting late when a frame's work is longer than one refresh, which
-  dynamic resolution and 120 Hz make the usual case, and under 30 frames a
-  second caps: each frame aims at the refresh after the frames already on
-  their way to the display, the CPU's work on it overlaps the GPU's work on
-  the frame before, and it stops only for a frame shown late.
+  `late_start = "extended"` keeps starting late when a frame's work is longer
+  than one refresh and under frame rate caps: each frame aims at the refresh
+  after the frames already on their way to the display, and the CPU's work on
+  it overlaps the GPU's work on the frame before. It acts only while the game
+  runs at 60 frames a second or fewer (a cap, a scene class's rate, or a
+  60 Hz display), and a device profile may set it. Measured on a 120 Hz
+  iPhone, from a frame's start to the screen: 98 ms became 33 ms under a
+  30 cap for about one more late frame in 1,000, and 48 ms became 20 ms at
+  60 for about eight more. At 120 frames a second it did not hold, so it is
+  left off there; `"extended_all"` runs it at any rate, for measuring.
 
 None of it applies when frames do not wait for the display (`frame_rate =
 "unlimited"`, or a cap above the display's rate): a minimum time on screen

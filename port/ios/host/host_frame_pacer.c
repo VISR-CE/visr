@@ -56,6 +56,7 @@ static struct
 	double refresh;                  /* the time of the display's latest refresh; 0 none yet */
 	int late_start;                  /* display.late_start: LATE_START_OFF, _CLASSIC or _EXTENDED */
 	int late_start_asked;            /* the setting's, which frame_pacer_late_start_toggle returns to */
+	double late_start_slot;          /* the extended late start's shortest slot (frame_pacer.h's slot_least); 0 none */
 	struct frame_pacer_late late;
 	struct frame_pacer_extended extended;
 	/* frames handed to the display, and the highest of them known shown or dropped: the difference is the frames in
@@ -128,8 +129,11 @@ void frame_pacer_start(int fixed_timestep)
 #else
 	pacer.late_start = !strcmp(value, "true") ? LATE_START_CLASSIC : LATE_START_OFF;
 #endif
-	if (!strcmp(value, "extended"))
+	/* ("extended": at 60 frames a second and under, where it was measured to gain; "extended_all": at any rate, for
+	measuring) */
+	if (!strcmp(value, "extended") || !strcmp(value, "extended_all"))
 		pacer.late_start = LATE_START_EXTENDED;
+	pacer.late_start_slot = !strcmp(value, "extended") ? FRAME_PACER_EXTENDED_SLOT : 0.0;
 	pacer.late_start_asked = pacer.late_start;
 	memset(&pacer.extended, 0, sizeof(pacer.extended));
 	memset(pacer.costs, 0, sizeof(pacer.costs));
@@ -152,8 +156,9 @@ void frame_pacer_start(int fixed_timestep)
 	platform_log("frame pacer: %d frame%s in flight%s, frame spacing %s%s (display.frames_in_flight, display.frame_spacing)",
 		limit, limit == 1 ? "" : "s", limit ? "" : " (no limit: the renderer's own queue)", pacer.spacing ? "on" : "off",
 		pacer.times ? "; debug.present_times" : "");
-	platform_log("frame pacer: late start %s (display.late_start)", pacer.late_start == LATE_START_EXTENDED ? "extended" :
-		pacer.late_start ? "on" : "off");
+	platform_log("frame pacer: late start %s (display.late_start)", pacer.late_start != LATE_START_EXTENDED ?
+		pacer.late_start ? "on" : "off" : pacer.late_start_slot > 0.0 ? "extended, at 60 frames a second and under" :
+		"extended, at any frame rate");
 	if (pacer.load > 0.0)
 		platform_log("frame pacer: debug.frame_load_cpu spins %.1f ms in every frame%s", pacer.load * 1e3,
 			pacer.load_every > 0.0 ? ", on and off (debug.frame_load_every)" : "");
@@ -209,7 +214,7 @@ void frame_pacer_frame_start(int may_wait)
 	else if (pacer.late_start == LATE_START_EXTENDED)
 	{
 		struct frame_pacer_extended_input in = { now, pacer.refresh, pacer.period, pacer.panel, share, pacer.flight.limit,
-			(int)(pacer.handed - pacer.shown_highest), pacer.shown_latest };
+			(int)(pacer.handed - pacer.shown_highest), pacer.shown_latest, pacer.late_start_slot };
 		struct frame_pacer_extended_start start = frame_pacer_extended_wait(&pacer.extended, &in);
 
 		wait = start.wait;
