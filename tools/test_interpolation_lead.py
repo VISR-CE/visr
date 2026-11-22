@@ -242,3 +242,14 @@ def test_interpolation_lead_follows_presentation(tmp_path):
     ], check=True)
     result = subprocess.run([str(executable)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_stereo_frame_reads_the_cpu_split_once():
+    """`host_frame_cpu_split` hands over the frame's split and clears it, so a second read in the same frame gets
+    nothing: the cadence line's tick times come from the one read the benchmark frame also uses."""
+    source = (ROOT / "port/ios/host/gpu_metal.m").read_text()
+    start = source.index("static void stereo_pacing_count(int view, id<MTLTexture> picture)\n{")
+    body = source[start:source.index("\n}\n", start)]
+    assert body.count("host_frame_cpu_split(") == 1
+    assert "stereo_pacing.ticked[stereo_pacing.timed] = ticks > 0" in body
+    assert "reading.simulation > 0.0 ? reading.simulation" in body
