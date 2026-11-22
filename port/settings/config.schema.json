@@ -2701,7 +2701,7 @@
         "topology_facts": {
           "type": "boolean",
           "default": false,
-          "description": "Logs what the system reports about displays (the screens and whether each mirrors, the game's and the external scene, the scene accessory, the hinge and posture, the audio route's outputs) once at launch and again whenever one of them changes, not at every poll. Nothing reads it; for recording what a device reports across a connect, a fold or a rotation. false (default): off.",
+          "description": "Logs what the system reports about displays (the screens and whether each mirrors, the game's and the external scene, the scene accessory, the hinge and posture, the audio route's outputs) once at launch and again whenever one of them changes, not at every poll, then the display topology derived from them (a \"topology N:\" line when it changes) and a \"topology mismatch:\" line where it disagrees with the game's own decision for a second or more. Nothing decides from it; for recording what a device reports across a connect, a fold or a rotation. false (default): off.",
           "x-environment": "HALO_TOPOLOGY_FACTS",
           "x-environment-style": "value",
           "x-platforms": [
