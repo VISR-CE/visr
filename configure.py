@@ -75,6 +75,14 @@ parser.add_argument(
     type=Path,
     help="profile-guided optimisation from this profile instead",
 )
+parser.add_argument(
+    "--guest-auto-init",
+    choices=["off", "zero", "pattern"],
+    default="off",
+    help="native builds (Linux, the iOS guest): initialize the game's and the platform layer's stack locals "
+    "(-ftrivial-auto-var-init): off (the default), zero, or pattern (the determinism check; SIM_UNINITIALIZED "
+    "locals are filled too). Linux trains the profile the iOS guest uses, so both take it",
+)
 parser.add_argument("--ios", action="store_true", help="build the native iOS, tvOS and visionOS guest (`ninja ios_guest`)")
 parser.add_argument("--ios-llvm", default=host_toolchain.find_llvm(), help="LLVM installation with arm64_32 clang (default: found under the Homebrew prefix)")
 parser.add_argument("--ios-lld", default=host_toolchain.find_lld(), help="ELF linker for the iOS guest (default: found under the Homebrew prefix)")
@@ -102,6 +110,7 @@ sln = SimpleNamespace(
     port_portable=args.portable,
     port_pgo=args.pgo,
     port_pgo_profile=args.pgo_profile,
+    port_auto_init=args.guest_auto_init,
     ios=args.ios,
     ios_llvm=args.ios_llvm,
     ios_lld=args.ios_lld,

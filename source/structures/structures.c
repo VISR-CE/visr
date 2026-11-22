@@ -357,7 +357,8 @@ boolean sphere_intersects_cluster_portal(
 		struct collision_bsp)->bsp3d.planes;
 	real_plane3d *collision_plane;
 	real plane_distance;
-	real_point2d projected_points[MAXIMUM_VERTICES_PER_CLUSTER_PORTAL];
+	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile (once per portal of every cluster walked); the points up to vertex_count are written before they are read */
+	SIM_UNINITIALIZED real_point2d projected_points[MAXIMUM_VERTICES_PER_CLUSTER_PORTAL];
 	real_point3d projected_centroid3d;
 	real_point2d projected_centroid2d;
 	real_vector3d const *plane_normal;

@@ -3033,7 +3033,8 @@ static void biped_update_physics(
 			{
 				real radius = definition->biped.collision_height_standing * 0.5f;
 				real_point3d center = physics->new_position;
-				struct collision_feature_list features;
+				/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_features_new clears the counts and every entry is written before its count covers it */
+				SIM_UNINITIALIZED struct collision_feature_list features;
 
 				center.z += radius;
 				if (collision_get_features_in_sphere(

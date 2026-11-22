@@ -168,6 +168,17 @@ def configuration_defines(sln: Any) -> List[str]:
     return defines
 
 
+def auto_init_flags(sln: Any) -> List[str]:
+    """configure.py --guest-auto-init: the flags that initialize the stack locals of
+    the game's and the platform layer's units (this build, which trains the PGO
+    profile, and the iOS guest). A pattern build also empties SIM_UNINITIALIZED
+    (port/linux/include/halo_sim_uninitialized.h), so the check fills every local."""
+    mode = getattr(sln, "port_auto_init", "off")
+    if mode == "off":
+        return []
+    return [f"-ftrivial-auto-var-init={mode}", *(["-DHALO_AUTO_INIT_PATTERN"] if mode == "pattern" else [])]
+
+
 def check_profile_options(profile: bool, pgo: str) -> None:
     """A profiling build is optimised with the committed profiles or none:
     trained, a profile would record the profiling code's own paths."""
@@ -443,6 +454,7 @@ def generate_linux_build(n: Writer, sln: Any) -> None:
         game_cflags = " ".join([
             abi,
             " ".join(GAME_FLAGS),
+            *auto_init_flags(sln),
             f"-include {prefix_header}",
             f"-include {semantics_header}",
             f"-I{port_include}",
@@ -479,6 +491,7 @@ def generate_linux_build(n: Writer, sln: Any) -> None:
             f"-I{ZLIB_DIR}",
             "-Isource -Isource/cseries",
             sdk_flags,
+            *auto_init_flags(sln),
         ])
         posix_cflags = " ".join(POSIX_FLAGS + [march_flag(sln), f"-I{platform_dir}"])
         mbedtls_include = f"-I{MBEDTLS_DIR / 'include'}"

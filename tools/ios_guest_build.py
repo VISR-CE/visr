@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from .embed_assets import hud_assets_build
-from .linux_build import (LINUX_PROFILE, MUSL_MATH_DIR, STB_VORBIS_SOURCE, XDK_INCLUDE, compile_launcher,
+from .linux_build import (LINUX_PROFILE, auto_init_flags, MUSL_MATH_DIR, STB_VORBIS_SOURCE, XDK_INCLUDE, compile_launcher,
                           configuration_defines,
                           game_defines_and_includes,
                           game_sources, lto_mode, musl_math_cflags, musl_math_sources, pgo_mode, pgo_profile, profile_use_flags,
@@ -373,7 +373,7 @@ def generate_ios_guest_build(n: Writer, sln: Any) -> None:
         "-Wno-error=return-type",
     ]
     game_cflags = " ".join([
-        guest_abi, guest_code, " ".join(game_flags), profile_flags,
+        guest_abi, guest_code, " ".join(game_flags), profile_flags, *auto_init_flags(sln),
         f"-include {prefix_header}", f"-include {semantics_header}",
         f"-I{LINUX_DIR}/include",
         # the headers of the port's own game units (port/linux/game), for the
@@ -394,6 +394,7 @@ def generate_ios_guest_build(n: Writer, sln: Any) -> None:
     # the platform layer shared with Linux, and the guest runtime
     platform_cflags = " ".join([
         guest_abi, guest_code, "-std=gnu11", "-D_GNU_SOURCE", "-DHALO_LINUX_PLATFORM_LAYER", "-w", profile_flags,
+        *auto_init_flags(sln),
         f"-include {prefix_header}", f"-include {platform_semantics_header}",
         f"-I{LINUX_DIR}/src", f"-I{LINUX_DIR}/include", f"-I{PORT_DIR}/guest/runtime",
         f"-I{PORT_DIR}/include", f"-I{TOML_DIR}", f"-I{EXPAT_DIR}", f"-I{KCP_DIR}", f"-I{MONOCYPHER_DIR}",

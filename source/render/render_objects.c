@@ -1031,7 +1031,8 @@ static void render_object_list(
 					{
 						struct object_header_datum *object_header =
 							object_header_get(object_index);
-						char name[512];
+						/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; only the debug text below uses it, after sprintf writes it */
+						SIM_UNINITIALIZED char name[512];
 						real_point3d text_point;
 
 						if (debug_inactive_objects &&
