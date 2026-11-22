@@ -8,54 +8,17 @@ Which files map sharing may send (map_share_policy.h).
 
 #include "map_share_policy.h"
 #include "cache_file_formats.h"
+#include "../../runtime/stock_maps.h"
 
 #include <string.h>
 
 /* ---------- constants */
 
-/* The publisher's maps, by file name: Custom Edition's (its 19 multiplayer
-maps and ui.map), Halo PC's campaign levels, and the resource maps' names.
-The Xbox disc's multiplayer maps are among Custom Edition's. */
-static char const *const publisher_names[] =
-{
-	"beavercreek", "bloodgulch", "boardingaction", "carousel", "chillout", "damnation", "dangercanyon",
-	"deathisland", "gephyrophobia", "hangemhigh", "icefields", "infinity", "longest", "prisoner", "putput",
-	"ratrace", "sidewinder", "timberland", "wizard", "ui",
-	"a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40",
-	"bitmaps", "sounds", "loc",
-};
-
-/* the header checksums of Custom Edition's own maps (version 609, as
-installed), which a copy keeps under any name */
-static uint32_t const publisher_checksums[] =
-{
-	0x07B3876AUL, /* beavercreek */
-	0x7B309554UL, /* bloodgulch */
-	0xF4DEEF94UL, /* boardingaction */
-	0x9C301A08UL, /* carousel */
-	0x93C53C27UL, /* chillout */
-	0x0FBA059DUL, /* damnation */
-	0xC410CD74UL, /* dangercanyon */
-	0x1DF8C97FUL, /* deathisland */
-	0xD2872165UL, /* gephyrophobia */
-	0xA7C8B9C6UL, /* hangemhigh */
-	0x5EC1DEB7UL, /* icefields */
-	0x0E7F7FE7UL, /* infinity */
-	0xC8F48FF6UL, /* longest */
-	0x43B81A8BUL, /* prisoner */
-	0xAF2F0B84UL, /* putput */
-	0xF7F8E14CUL, /* ratrace */
-	0xBD95CF55UL, /* sidewinder */
-	0x54446470UL, /* timberland */
-	0x73EE7229UL, /* ui */
-	0xCF3359B1UL, /* wizard */
-};
-
 static char const *const verdict_descriptions[NUMBER_OF_MAP_SHARE_POLICY_VERDICTS] =
 {
 	"a community map",
 	"a resource map (Custom Edition's own)",
-	"one of the publisher's maps",
+	"a stock map (its checksum is Custom Edition's own map's)",
 	"not a Custom Edition map",
 };
 
@@ -83,44 +46,31 @@ static int header_read(
 
 /* ---------- names */
 
-static int ascii_lower(
-	int character)
-{
-	return character >= 'A' && character <= 'Z' ? character - 'A' + 'a' : character;
-}
-
-/* whether `length` characters of `name` are one of the publisher's map
-names, in any case */
-static int publisher_name(
+/* whether `length` characters of `name` are a resource map's name
+(bitmaps, sounds, loc), in any case */
+static int resource_map_name(
 	char const *name,
 	uint32_t length)
 {
-	uint32_t index;
+	int type;
 
-	for (index = 0; index < sizeof(publisher_names) / sizeof(publisher_names[0]); index++)
+	for (type = _resource_map_bitmaps; type < NUMBER_OF_RESOURCE_MAP_TYPES; type++)
 	{
-		char const *stock = publisher_names[index];
+		char const *resource = resource_map_type_describe((enum resource_map_type)type);
 		uint32_t position;
 
-		if (strlen(stock) != length)
+		if (strlen(resource) != length)
 			continue;
-		for (position = 0; position < length && ascii_lower((unsigned char)name[position]) == stock[position];
-			position++)
-			;
+		for (position = 0; position < length; position++)
+		{
+			char character = name[position];
+
+			if (character >= 'A' && character <= 'Z')
+				character = (char)(character - 'A' + 'a');
+			if (character != resource[position])
+				break;
+		}
 		if (position == length)
-			return 1;
-	}
-	return 0;
-}
-
-static int publisher_checksum(
-	uint32_t checksum)
-{
-	uint32_t index;
-
-	for (index = 0; index < sizeof(publisher_checksums) / sizeof(publisher_checksums[0]); index++)
-	{
-		if (publisher_checksums[index] == checksum)
 			return 1;
 	}
 	return 0;
@@ -141,10 +91,8 @@ enum map_share_policy_verdict map_share_policy_judge(
 	struct cache_file_identity identity;
 	enum cache_file_status status;
 
-	if (kind != _resource_map_none)
+	if (kind != _resource_map_none || !name || resource_map_name(name, name_length))
 		return _map_share_policy_resource_map;
-	if (!name || publisher_name(name, name_length))
-		return _map_share_policy_publisher_map;
 	if (!header || header_bytes < CACHE_FILE_HEADER_BYTES)
 		return _map_share_policy_not_a_community_map;
 	bytes.bytes = header;
@@ -157,8 +105,8 @@ enum map_share_policy_verdict map_share_policy_judge(
 		return _map_share_policy_resource_map;
 	if (status != _cache_file_status_ok || identity.format != _cache_file_format_custom_edition_cache)
 		return _map_share_policy_not_a_community_map;
-	if (publisher_name(identity.name, (uint32_t)strlen(identity.name)) || publisher_checksum(identity.checksum))
-		return _map_share_policy_publisher_map;
+	if (stock_map_with_checksum(identity.checksum))
+		return _map_share_policy_stock_map;
 	return _map_share_policy_community_map;
 }
 
@@ -173,11 +121,4 @@ char const *map_share_policy_describe(
 {
 	return (unsigned)verdict < NUMBER_OF_MAP_SHARE_POLICY_VERDICTS ? verdict_descriptions[verdict] :
 		"unknown";
-}
-
-char const *const *map_share_policy_publisher_names(
-	int32_t *count)
-{
-	*count = (int32_t)(sizeof(publisher_names) / sizeof(publisher_names[0]));
-	return publisher_names;
 }

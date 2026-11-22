@@ -463,13 +463,15 @@ its name alone beside it, has its name given back as the map lists find it.
   precache the map, as it waits for any machine.
 - **What is sent.** Map sharing sends community maps only: never Custom
   Edition's resource maps (bitmaps.map, sounds.map, loc.map) and never one of
-  the publisher's own maps (Custom Edition's and Halo PC's), whatever the
-  file is named (`map_share_policy.c`). A file is judged by what it is: the
-  kind it is sent as, its name (without the hash digits a second version's
-  ends in), and its header, which must be a Custom Edition cache whose name
-  and checksum are not the publisher's. The catalog every whole file is sent
-  from takes no other file (`map_share_file_hash`), and a download's file is
-  passed on only once its first piece, the header, says it may be.
+  Custom Edition's stock maps, whatever the file is named
+  (`map_share_policy.c`). A file is judged by what it is: a resource map by
+  the kind it is sent as, its name (without the hash digits a second
+  version's ends in) or its header; a stock map by its header's checksum
+  (`port/runtime/stock_maps.h`). The header must be a valid Custom Edition
+  cache. A community map that reuses a stock map's name but differs in
+  content is sent. The catalog every whole file is sent from takes no other
+  file (`map_share_file_hash`), and a download's file is passed on only once
+  its first piece, the header, says it may be.
 - **The offer.** A host that shares maps (`network.map_share`) hashes the
   map on a thread of its own and answers with its size and hash (`_offer`,
   or why it does not: sharing off, or not a map it sends). A client that

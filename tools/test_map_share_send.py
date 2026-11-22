@@ -1,6 +1,6 @@
 """What map sharing sends to other players (port/linux/game/map_share.c, map_share_files.c, map_share_policy.c):
-community maps only. Never Custom Edition's resource maps (bitmaps.map, sounds.map, loc.map) and never one of the
-publisher's own maps, by any path that sends a file: the catalog every whole file is sent from, the host's offer, and
+community maps only. Never Custom Edition's resource maps (bitmaps.map, sounds.map, loc.map) and never one of its
+stock maps (known by checksum, port/runtime/stock_maps.h), by any path that sends a file: the catalog every whole file is sent from, the host's offer, and
 what a downloading machine passes on of its download (its state, haves, pieces' hashes, pieces and blocks).
 
 The real code is taken from the sources (tools/harness) and compiled against the fake world in
@@ -41,14 +41,15 @@ MAP_SHARE_FUNCTIONS = ("put_long", "level_name_copy", "frame_room", "frame_begin
 NEGATIVE_CONTROLS = {
     "catalog-takes-anything": (("\tif (!map_share_file_sendable(path, kind, size, NULL, 0))\n",
                                 "\tif (FALSE)\n"), "map_share_files.c", "map_share_file_hash", "catalog"),
-    "resource-kinds-sent": (("\tif (kind != _resource_map_none)\n\t\treturn _map_share_policy_resource_map;\n", ""),
-                            "map_share_policy.c", None, "catalog"),
-    "file-name-trusted": (("if (!name || publisher_name(name, name_length))", "if (!name)"),
-                          "map_share_policy.c", None, "catalog"),
-    "header-name-trusted": (("if (publisher_name(identity.name, (uint32_t)strlen(identity.name)) || ",
-                             "if ("), "map_share_policy.c", None, "catalog"),
-    "checksum-trusted": ((" || publisher_checksum(identity.checksum))", ")"), "map_share_policy.c", None,
+    "resource-kinds-sent": (("if (kind != _resource_map_none || ", "if ("), "map_share_policy.c", None, "catalog"),
+    "resource-names-sent": ((" || resource_map_name(name, name_length))", ")"), "map_share_policy.c", None,
+                            "catalog"),
+    "checksum-trusted": (("if (stock_map_with_checksum(identity.checksum))", "if (0)"), "map_share_policy.c", None,
                          "catalog"),
+    "stock-names-refused": (("if (stock_map_with_checksum(identity.checksum))",
+                             "if (stock_map_with_checksum(identity.checksum) || "
+                             "stock_map_named(identity.name, strlen(identity.name)))"),
+                            "map_share_policy.c", None, "catalog"),
     "any-cache-sent": (("identity.format != _cache_file_format_custom_edition_cache", "0"), "map_share_policy.c",
                        None, "catalog"),
     "hashed-name-trusted": (("(uint32_t)map_share_name_base_length(name)", "(uint32_t)strlen(name)"),
@@ -127,11 +128,15 @@ def build(work, fault=None, fault_file=None, faulty_function=None):
     config, text, policy = generated(fault, fault_file, faulty_function)
     (work / "config.inc").write_text(config)
     (work / "under_test.inc").write_text(text)
-    (work / "map_share_policy.c").write_text(policy)
+    # (the policy where the game has it, beside the stock table it includes)
+    (work / "port/linux/game").mkdir(parents=True, exist_ok=True)
+    (work / "port/runtime").mkdir(parents=True, exist_ok=True)
+    (work / "port/linux/game/map_share_policy.c").write_text(policy)
+    (work / "port/runtime/stock_maps.h").write_text(read("port/runtime/stock_maps.h"))
     executable = work / "map_share_send"
     command = [clang, "-std=gnu99", "-O1", "-g", "-Wall", "-Werror", "-Wno-unused-function", "-Wno-unused-variable",
-               "-I", str(ROOT / "tools/harness/include"), "-I", str(work), "-I", str(GAME), str(FIXTURE),
-               str(work / "map_share_policy.c"), str(GAME / "cache_file_formats.c"), "-o", str(executable)]
+               "-I", str(ROOT / "tools/harness/include"), "-I", str(work), "-I", str(GAME), "-I", str(ROOT / "port/runtime"),
+               str(FIXTURE), str(work / "port/linux/game/map_share_policy.c"), str(GAME / "cache_file_formats.c"), "-o", str(executable)]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode:
         pytest.fail(f"map_share_send.c does not compile:\n{result.stderr}")
@@ -161,54 +166,48 @@ def test_negative_control(control, tmp_path):
     assert status == CHECK_FAILED, f"{fault_file} with a fault ({control}) passed '{case}': the test cannot see it"
 
 
-# ---------- the publisher's names
+# ---------- one table of the game's own maps
 
 
-def policy_names():
-    policy = read("port/linux/game/map_share_policy.c")
-    start = policy.index("publisher_names[] =")
-    table = policy[policy.index("{", start):policy.index("};", start)]
-    return {name.strip().strip('"') for name in table.strip("{} \n\t").replace("\n", " ").split(",") if name.strip()}
-
-
-# Custom Edition's own maps and resource maps, Halo PC's campaign levels: the names the policy must know, written out
-# here rather than taken from the code under test
-PUBLISHER_FILES = {
+# Custom Edition's stock maps: written out here rather than taken from the code under test
+CUSTOM_EDITION_STOCK = {
     "beavercreek", "bloodgulch", "boardingaction", "carousel", "chillout", "damnation", "dangercanyon", "deathisland",
     "gephyrophobia", "hangemhigh", "icefields", "infinity", "longest", "prisoner", "putput", "ratrace", "sidewinder",
-    "timberland", "wizard", "ui", "a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40", "bitmaps",
-    "sounds", "loc",
+    "timberland", "wizard", "ui",
 }
+STOCK_NAMES = CUSTOM_EDITION_STOCK | {"a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40"}
 
 
-def test_policy_knows_every_publisher_file():
-    assert PUBLISHER_FILES <= policy_names()
+def test_stock_table_has_every_custom_edition_checksum():
+    import re
+    table = read("port/runtime/stock_maps.h")
+    rows = re.findall(r'\{ "(\w+)", "[^"]*", [\w |]+, (0x[0-9A-F]+UL|0), (-?\d+) \}', table)
+    checksums = {name: int(value.rstrip("UL"), 16) if value != "0" else 0 for name, value, _ in rows}
+    assert set(checksums) == STOCK_NAMES
+    assert {name for name, value in checksums.items() if value} == CUSTOM_EDITION_STOCK
+    assert len(set(checksums.values()) - {0}) == len(CUSTOM_EDITION_STOCK)
 
 
-def test_policy_knows_the_menus_stock_maps():
-    """custom_edition_maps.c lists Halo PC's own maps as stock: each is a publisher's map to map sharing too."""
-    maps = read("port/linux/game/custom_edition_maps.c")
-    start = maps.index("} const stock_maps[] =")
-    table = maps[start:maps.index("};", start)]
-    names = {part.split('"')[1] for part in table.split("{ ")[1:]}
-    assert names and names <= policy_names()
+# the native sources allowed a literal list of the game's own maps: the table itself, and tests and data keyed by
+# something else (the official shader lists, by hash)
+STOCK_LIST_ALLOWED = {"port/runtime/stock_maps.h", "port/ios/host/host_shader_official_maps.h"}
 
 
-def string_table(relative, marker):
-    source = read(relative)
-    start = source.index(marker)
-    table = source[source.index("{", start):source.index("}", start)]
-    return {part.strip().strip('"') for part in table.strip("{").split(",") if part.strip().startswith('"')}
-
-
-@pytest.mark.parametrize("relative, marker", [
-    ("port/linux/src/p2p_lobby.c", "static const char *const stock_maps[] ="),
-    ("port/linux/game/photo_framing.c", "static const char *stock[] = {"),
-])
-def test_policy_knows_the_other_stock_tables(relative, marker):
-    """The game's other lists of its own maps name nothing map sharing would send."""
-    names = string_table(relative, marker)
-    assert names and names <= policy_names()
+def test_no_second_stock_table():
+    """A list of the game's own maps is read from port/runtime/stock_maps.h, not written out again."""
+    import re
+    import subprocess as process
+    files = process.run(["git", "ls-files", "port/*.c", "port/*.h", "port/*.m", "port/*.inc"], cwd=ROOT,
+                        capture_output=True, text=True, check=True).stdout.split()
+    lists = []
+    for relative in files:
+        if relative in STOCK_LIST_ALLOWED or "/tests/" in relative or relative.endswith("_test.c"):
+            continue
+        text = (ROOT / relative).read_text(encoding="latin-1")
+        found = {name for name in re.findall(r'@?"(\w+)"', text) if name in STOCK_NAMES}
+        if len(found) >= 3:
+            lists.append(f"{relative}: {sorted(found)}")
+    assert not lists, "stock map names written out again:\n" + "\n".join(lists)
 
 
 # ---------- every path that sends takes its file from the gate
@@ -288,8 +287,9 @@ int main(int count, char **arguments)
     judge = tmp_path / "judge"
     subprocess.run([clang, "-std=c99", "-I", str(GAME), str(driver), str(GAME / "map_share_policy.c"),
                     str(GAME / "cache_file_formats.c"), "-o", str(judge)], check=True)
-    files = sorted(path for path in real_maps.glob("*.map") if path.stem in PUBLISHER_FILES)
+    refused = CUSTOM_EDITION_STOCK | {"bitmaps", "sounds", "loc"}
+    files = sorted(path for path in real_maps.glob("*.map") if path.stem in refused)
     assert files
     for name in ("hugeass", *(path.stem for path in files)):
         result = subprocess.run([str(judge), name, *map(str, files)], capture_output=True, text=True, check=True)
-        assert set(result.stdout.split()) == {"0"}, f"a publisher's file is sent as {name}.map"
+        assert set(result.stdout.split()) == {"0"}, f"a stock or resource map is sent as {name}.map"
