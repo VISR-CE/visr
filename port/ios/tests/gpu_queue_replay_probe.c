@@ -297,7 +297,29 @@ static void run(int mode, const char *name)
 			"%s: verify counted %lu differences for draws in another order (blended %u)", name,
 			after.verify_differ - swapped_before.verify_differ, index);
 	}
-	CHECK(after.spans - before.spans == 9 && after.replayed - before.replayed == 2 &&
+	/* ---------- equal-looking draws that also differ in a register no pass substitutes pair by their nearest bytes:
+	each object's draw with its own, out of order, not the first with its key */
+	{
+		struct gpu_queue_eye_statistics nearest_before;
+
+		gpu_queue_eye_statistics(&nearest_before);
+		store_set(&store, 1, 7.0f);
+		CHECK(gpu_queue_eye_span_begin(1), "%s: no nearest verify span", name);
+		constant_draw(10, 5.0f, 0);
+		constant_draw(10, 6.0f, 0);
+		CHECK(gpu_queue_eye_span_end(&map) == 1, "%s: a nearest verify span is not replayed", name);
+		store_set(&store, 1, 8.0f);
+		constant_draw(11, 6.0f, 0);
+		constant_draw(11, 5.0f, 0);
+		gpu_queue_eye_live_end();
+		queue->present_stereo(&present);
+		gpu_queue_drain();
+		gpu_queue_eye_statistics(&after);
+		CHECK(after.verify_reordered - nearest_before.verify_reordered == 1,
+			"%s: %lu draws taken out of order, expected the first replay draw to take the second live one", name,
+			after.verify_reordered - nearest_before.verify_reordered);
+	}
+	CHECK(after.spans - before.spans == 10 && after.replayed - before.replayed == 2 &&
 		after.unreplayable - before.unreplayable == 1, "%s: %lu spans, %lu replayed, %lu not", name,
 		after.spans - before.spans, after.replayed - before.replayed, after.unreplayable - before.unreplayable);
 	/* the queue off opens no span */

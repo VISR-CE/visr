@@ -1534,7 +1534,8 @@ static struct
 	const struct gpu_backend *live_next;
 } eye;
 
-static _Atomic unsigned long eye_spans, eye_replayed, eye_unreplayable, eye_verified, eye_verify_differ;
+static _Atomic unsigned long eye_spans, eye_replayed, eye_unreplayable, eye_verified, eye_verify_differ,
+	eye_verify_reordered;
 /* the replays' time (the walk and the backend calls it makes), for the statistics line */
 static _Atomic uint64_t replay_ns, replay_records;
 
@@ -1655,8 +1656,8 @@ static unsigned long plain_count, plain_capacity;
 static __typeof__(((struct consumer *)0)->held) verify_held_start;
 static float verify_end_store[GPU_CONSTANT_COUNT][4];
 /* the live eye's calls by index: where each begins in live_calls, whether a replay call took it, and the first not
-taken (a replay call takes the first live call ahead with its operation, shaders, primitives and streamed bytes whose
-bytes are all equal, else the first with them: the eyes may order equal-looking draws differently) */
+taken (a replay call takes, of the live calls ahead with its operation, shaders, primitives and streamed bytes, the
+one whose bytes are nearest, the first of equals: the eyes may order equal-looking draws differently) */
 static size_t *live_at;
 static unsigned char *live_taken;
 static unsigned long live_count, live_capacity, live_first;
@@ -1952,11 +1953,22 @@ static void verify_nearest_draw(const unsigned char *made)
 /* the replay's call just written to replay_call, against the live eye's calls: it takes one (live_at), or is counted
 as a call the live eye did not make; a take out of the live eye's order is counted, and fails verify for a blended
 draw */
+/* how far apart two calls' bytes are: the 16-byte blocks that differ (a register is one) */
+static unsigned long call_distance(const unsigned char *a, const unsigned char *b, uint32_t size)
+{
+	unsigned long blocks = 0;
+	uint32_t at;
+
+	for (at = 0; at < size; at += 16)
+		blocks += memcmp(a + at, b + at, size - at < 16 ? size - at : 16) != 0;
+	return blocks;
+}
+
 static void verify_compare(void)
 {
 	const unsigned char *live, *made = replay_call.bytes;
 	uint32_t operation, size;
-	unsigned long index, scanned = 0, first_key = ULONG_MAX, taken = ULONG_MAX;
+	unsigned long index, scanned = 0, first_key = ULONG_MAX, taken = ULONG_MAX, nearest = ULONG_MAX, distance;
 	char line[384], text[96];
 
 	memcpy(&operation, made, 4);
@@ -1974,14 +1986,17 @@ static void verify_compare(void)
 			continue;
 		if (first_key == ULONG_MAX)
 			first_key = index;
-		if (!memcmp(candidate + 8, made + 8, size))
+		/* (the nearest by bytes: the eyes' equal-looking draws, the same model's parts on many objects, differ in
+		their eye's registers, so the one whose other registers are equal is the same object's) */
+		distance = call_distance(candidate + 8, made + 8, size);
+		if (distance < nearest)
 		{
+			nearest = distance;
 			taken = index;
-			break;
+			if (!distance)
+				break;
 		}
 	}
-	if (taken == ULONG_MAX)
-		taken = first_key;
 	if (taken == ULONG_MAX)
 	{
 		compare_differ++;
@@ -1994,9 +2009,10 @@ static void verify_compare(void)
 		return;
 	}
 	live = live_calls.bytes + live_at[taken];
-	if (taken != live_first)
+	if (taken != first_key)
 	{
 		tally.reordered++;
+		atomic_fetch_add(&eye_verify_reordered, 1);
 		if (operation == GPU_OPERATION_draw && ((const struct gpu_draw *)(made + 8))->blend.enable)
 		{
 			tally.reordered_blended++;
@@ -2650,6 +2666,7 @@ void gpu_queue_eye_statistics(struct gpu_queue_eye_statistics *statistics)
 	statistics->unreplayable = atomic_load(&eye_unreplayable);
 	statistics->verified = atomic_load(&eye_verified);
 	statistics->verify_differ = atomic_load(&eye_verify_differ);
+	statistics->verify_reordered = atomic_load(&eye_verify_reordered);
 }
 
 /* everything published so far */

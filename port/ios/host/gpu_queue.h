@@ -115,6 +115,8 @@ that differed from the live eye's */
 struct gpu_queue_eye_statistics
 {
 	unsigned long spans, replayed, unreplayable, verified, verify_differ;
+	/* verify's replay calls that took a live call out of the live eye's order */
+	unsigned long verify_reordered;
 };
 void gpu_queue_eye_statistics(struct gpu_queue_eye_statistics *statistics);
 
