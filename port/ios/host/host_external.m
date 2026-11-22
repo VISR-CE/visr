@@ -15,6 +15,7 @@
 #include "host_external_session.h"
 #include "host_external_splash.h"
 #include "host_hinge.h"
+#include "host_panel.h"
 #include "host_posture_layout.h"
 #include "host_output_cap.h"
 #include "host_geometry.h"
@@ -83,6 +84,8 @@ static void posture_picture_commit(void) {
         output_width=width;output_height=height;
         posture_output=laptop;
         publish_size();
+        /* a posture change resizes the output: the generation moves, so a benchmark run that spans it is marked */
+        snapshot_output(snapshot.external,output_width,output_height,"posture");
     }
     picture_layout=next;
     posture_picture.hidden=!laptop;
@@ -129,6 +132,7 @@ static void posture_picture_commit_threaded(void) {
         output_width=width;output_height=height;
         posture_output=laptop;
         publish_size();
+        snapshot_output(snapshot.external,output_width,output_height,"posture");
         picture_layout=next;
         posture_picture.hidden=!laptop;
         safe_insets_refresh();
@@ -580,6 +584,24 @@ void host_external_snapshot(struct host_external_snapshot *out) {
         }
     });
 }
+/* The device's own screen as the report describes it: the screen of the app's window scene (the panel the app is
+   on), which on the iPhone Duo is not always UIScreen.mainScreen. valid is 0 where there is no such window. */
+void host_external_device_screen(struct host_device_screen *out) {
+    memset(out,0,sizeof(*out));
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    host_main_sync(^{
+        UIScreen *screen=phone_window.windowScene.screen;
+        if(!screen)return;
+        struct host_hinge_snapshot hinge;
+        host_hinge_snapshot(&hinge);
+        out->valid=1;
+        out->width=screen.nativeBounds.size.width;
+        out->height=screen.nativeBounds.size.height;
+        out->maximum_frames=(long)screen.maximumFramesPerSecond;
+        snprintf(out->panel,sizeof(out->panel),"%s",host_panel_name(host_panel_from_hinge(&hinge)));
+    });
+#endif
+}
 int host_external_active(void) {
     if(!host_game_thread_enabled())return snapshot.external;
     pthread_mutex_lock(&snapshot_lock);int active=snapshot.external;pthread_mutex_unlock(&snapshot_lock);
@@ -1019,7 +1041,7 @@ static void external_commit_threaded_output(int allow_pause) {
     __block CAMetalLayer *destination=nil;
     __block UIScreen *screen=nil;
     __block UIScreen *previous=nil;
-    __block int width=0,height=0,companion=0,was_external=0;
+    __block int width=0,height=0,companion=0,was_external=0,moved=0;
     __block unsigned generation=0;
     struct { char reason[32]; } plan_storage;
     char *reason=plan_storage.reason;
@@ -1053,6 +1075,7 @@ static void external_commit_threaded_output(int allow_pause) {
             destination=(__bridge CAMetalLayer *)phone_layer;
             screen=phone_window.windowScene.screen;
             SDL_GetWindowSizeInPixels(host_sdl_window(),&width,&height);
+            moved=1;
         }
         if(destination)output_screen=screen; /* pacing_start reads this destination on main */
     });
@@ -1089,6 +1112,9 @@ static void external_commit_threaded_output(int allow_pause) {
         (void)generation;(void)was_external;(void)allow_pause;
 #endif
         snapshot_output(screen_is_external(screen),width,height,reason);
+        /* (the main-thread form below logs the same move; the game thread's own had said nothing) */
+        if(moved)host_logf(HOST_LOG_INFO,"external display: window moved to %dx%d at %ld Hz",width,height,
+            (long)screen.maximumFramesPerSecond);
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
         if(companion && scene_current) {
             pthread_mutex_lock(&snapshot_lock);
@@ -1313,6 +1339,7 @@ void host_external_attach(void *window,int metal) { (void)window;(void)metal; }
 void host_external_poll(void) {}
 void host_external_commit(int allow_pause) { (void)allow_pause; }
 int host_external_active(void) { return 0; }
+void host_external_device_screen(struct host_device_screen *out) { memset(out,0,sizeof(*out)); }
 void host_external_displays(struct host_external_displays *out) {
     memset(out,0,sizeof(*out));out->accessory_available=-1;out->use=HOST_EXTERNAL_DISPLAY_NONE;
 }

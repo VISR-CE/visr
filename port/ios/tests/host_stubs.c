@@ -505,6 +505,8 @@ __attribute__((weak)) double host_external_companion_dim(void)
 { fprintf(stderr, "host_stubs: probe called host_external_companion_dim without defining it\n"); abort(); }
 __attribute__((weak)) int host_external_cycle(int direction)
 { fprintf(stderr, "host_stubs: probe called host_external_cycle without defining it\n"); abort(); }
+__attribute__((weak)) void host_external_device_screen(struct host_device_screen *out)
+{ }
 __attribute__((weak)) void host_external_displays(struct host_external_displays *out)
 { }
 __attribute__((weak)) int host_external_fit(double bounds_width, double bounds_height, int width, int height, double out[4])

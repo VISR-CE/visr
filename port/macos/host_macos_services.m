@@ -247,6 +247,7 @@ void host_external_snapshot(struct host_external_snapshot *out) {
     });
 }
 /* (the Mac game window is a window: no external display and nothing to mirror) */
+void host_external_device_screen(struct host_device_screen *out) { memset(out, 0, sizeof(*out)); }
 void host_external_displays(struct host_external_displays *out) {
     memset(out, 0, sizeof(*out));
     out->accessory_available = -1;

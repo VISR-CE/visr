@@ -747,6 +747,7 @@ static void sampler_start(void) {
 }
 
 static double screen_rate(void);
+static struct host_device_screen device_screen(void);
 /* the output's highest rate (an external display's, else the screen's), with the run's cap on top
    (benchmark_run_budget_hertz) */
 static double run_budget_hertz(void) {
@@ -755,7 +756,6 @@ static double run_budget_hertz(void) {
     return benchmark_run_budget_hertz(output.refresh_hertz > 0 ? (double)output.refresh_hertz : screen_rate(),
         refresh_hertz > 0.0 ? refresh_hertz : screen_hertz, host_frame_rate_cap());
 }
-static void screen_size(double *width, double *height);
 
 /* ---------- the report */
 
@@ -837,7 +837,9 @@ static NSString *report_header(void) {
     id<MTLDevice> gpu = MTLCreateSystemDefaultDevice();
     double screen_width, screen_height;
 
-    screen_size(&screen_width, &screen_height);
+    struct host_device_screen device = device_screen();
+    screen_width = device.width;
+    screen_height = device.height;
     NSDateFormatter *minutes = [NSDateFormatter new];
     char chip[128] = "";
     size_t chip_size = sizeof(chip);
@@ -853,7 +855,7 @@ static NSString *report_header(void) {
     return [NSString stringWithFormat:@"\"format\":%d,\"code\":%@,\"suite\":%d,\"mode\":\"%s\",\"started\":\"%@\","
         "\"device\":{\"model\":%@,\"chip\":%@,\"platform\":\"%@\",\"host\":\"%@\",\"os\":\"%ld.%ld.%ld\",\"os_build\":%@,"
         "\"gpu\":%@,\"gpu_family\":%d,\"bc_textures\":%s,\"memory_mb\":%llu,"
-        "\"screen\":{\"width\":%.0f,\"height\":%.0f,\"maximum_frames_a_second\":%ld,\"frame_rate_cap\":%ld}},"
+        "\"screen\":{\"width\":%.0f,\"height\":%.0f,\"maximum_frames_a_second\":%ld,\"frame_rate_cap\":%ld,\"panel\":%@}},"
         "\"external_modes_complete\":%s,\"output\":%@,\"output_reports\":%@,\"requested_output\":%@,\"app\":{\"version\":%@,\"build\":%@,\"image\":\"%s\"},"
         "\"profile\":{\"selection\":%@,\"source_hardware\":%@,\"target_hardware\":%@,\"source_tier\":%d,\"target_tier\":%d,\"catalog_version\":%@,\"class\":%@,\"model\":%@,\"drop_in\":%s,\"drawable_lines\":%ld,\"render_lines\":%ld,\"anisotropic_filtering\":%ld,\"shadow_map_size\":%ld,"
         "\"model_lod\":\"%s\"},\"data_updates\":%@,\"recording_snapshot\":%@,\"profile_sha256\":%@,"
@@ -866,7 +868,7 @@ static NSString *report_header(void) {
         json_string([[process.operatingSystemVersionString componentsSeparatedByString:@"Build "].lastObject
             stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@")"]]),
         json_string(gpu.name), gpu ? gpu_family(gpu) : 0, bc_textures(gpu) ? "true" : "false", process.physicalMemory >> 20,
-        screen_width, screen_height, (long)screen_rate(), lround(host_frame_rate_cap()),
+        screen_width, screen_height, device.maximum_frames, lround(host_frame_rate_cap()), json_string(@(device.panel)),
         external_modes.count && external_mode_index + 1 < external_modes.count ? "false" : "true",
         json_object(suite_output ?: output_now()), json_object(output_reports ?: @[]),
         json_string(external_modes.count ? external_modes[external_mode_index] : @""),
@@ -1185,28 +1187,33 @@ static void flag(NSString *name) {
     if (![flags containsObject:name]) [flags addObject:name];
 }
 
-/* the main screen's highest rate and its size in pixels; visionOS has no screen (UIScreen): its displays run at 90 */
-static double screen_rate(void) {
+/* The screen the app's window is on (host_external_device_screen), in one read so its size, rate and panel agree:
+   on the iPhone Duo UIScreen.mainScreen can be the panel the game is not on. Before the window exists, or where
+   there is none, the main screen. visionOS has no screen (UIScreen): its displays run at 90. */
+static struct host_device_screen device_screen(void) {
+    struct host_device_screen device = {0};
 #if HALO_NATIVE_MAC
-    return host_macos_refresh_rate();
+    int w = 0, h = 0;
+    host_macos_screen_size(&w, &h);
+    device.width = w;
+    device.height = h;
+    device.maximum_frames = (long)host_macos_refresh_rate();
 #elif TARGET_OS_VISION
-    return 90.0;
+    device.maximum_frames = 90;
 #else
-    return (double)UIScreen.mainScreen.maximumFramesPerSecond;
+    host_external_device_screen(&device);
+    if (!device.valid) {
+        device.width = UIScreen.mainScreen.nativeBounds.size.width;
+        device.height = UIScreen.mainScreen.nativeBounds.size.height;
+        device.maximum_frames = (long)UIScreen.mainScreen.maximumFramesPerSecond;
+    }
 #endif
+    if (!device.panel[0]) snprintf(device.panel, sizeof(device.panel), "panel");
+    return device;
 }
 
-static void screen_size(double *width, double *height) {
-#if HALO_NATIVE_MAC
-    int w=0,h=0;
-    host_macos_screen_size(&w, &h);
-    *width=w;*height=h;
-#elif TARGET_OS_VISION
-    *width = *height = 0.0;
-#else
-    *width = UIScreen.mainScreen.nativeBounds.size.width;
-    *height = UIScreen.mainScreen.nativeBounds.size.height;
-#endif
+static double screen_rate(void) {
+    return (double)device_screen().maximum_frames;
 }
 
 static int cooled(void) {

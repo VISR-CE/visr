@@ -15,6 +15,10 @@ void host_external_menu_splash(void);
 void host_external_attach(void *sdl_window, int metal);
 void host_external_poll(void);
 void host_external_commit(int allow_pause);
+/* The screen the app's own window is on: its pixel size, highest rate and panel name ("panel", "panel_cover" or
+   "panel_inner", from the hinge). valid is 0 until the window exists and where there is no such window. */
+struct host_device_screen { int valid; double width, height; long maximum_frames; char panel[16]; };
+void host_external_device_screen(struct host_device_screen *out);
 int host_external_active(void);
 int host_external_size(int *width, int *height);
 /* the built-in display's safe-area insets as fractions of the window: left, right, top, bottom (zeros on an external display) */
