@@ -42,7 +42,10 @@ NONE_INDEX = "ffffffff"
 POSITION_TOLERANCE = 0.05
 REST_TOLERANCE = 0.002
 AGE_TOLERANCE = 0.01
-DEVICE_TOLERANCE = 0.01
+# (network_coop.c's DEVICE_POSITION_TOLERANCE: a client device moving within
+# this of the host's is not corrected, so only a device at rest is compared)
+DEVICE_TOLERANCE = 0.03
+UNIT_TYPES = ("0", "1")
 
 
 @dataclass
@@ -65,15 +68,18 @@ def _fields(text: str) -> dict[str, str]:
     index = 0
     while index < len(words):
         key = words[index]
-        width = {"pos": 3, "rounds": 4, "grenades": 2, "weapons": 4, "groups": 2, "begin": 0}.get(key, 1)
+        # (a tag name, last on its line, may hold spaces)
+        width = len(words) if key == "tag" else {"pos": 3, "rounds": 4, "grenades": 2, "weapons": 4, "groups": 2, "begin": 0}.get(key, 1)
         result[key] = " ".join(words[index + 1:index + 1 + width])
         index += 1 + width
     return result
 
 
 def parse(path: Path) -> dict[int, Census]:
-    """Every complete census in a log, by tick (a census without its end line is dropped)."""
+    """Every complete census in a log, by tick (a census without its end line is dropped). A tick logged
+    twice (a new game in the same log restarts the clock) is ambiguous and dropped too."""
     censuses: dict[int, Census] = {}
+    repeated: set[int] = set()
     current: Census | None = None
     for raw in path.read_text(errors="replace").splitlines():
         match = LINE.search(raw)
@@ -88,6 +94,8 @@ def parse(path: Path) -> dict[int, Census]:
             continue
         if kind == "end":
             current.complete = True
+            if tick in censuses:
+                repeated.add(tick)
             censuses[tick] = current
             current = None
             continue
@@ -101,6 +109,8 @@ def parse(path: Path) -> dict[int, Census]:
             current.objects.setdefault(identifier, {})[kind] = values
         elif kind == "device":
             current.devices[identifier] = values
+    for tick in repeated:
+        del censuses[tick]
     return censuses
 
 
@@ -163,7 +173,8 @@ def differences(host: Census, client: Census, host_before: Census | None,
             differ(f"object {identifier} exists", f"object {identifier} (type {kind}, def {owner.get('def')}): "
                    f"host {'has' if a else 'lacks'} it, client {'has' if b else 'lacks'} it")
             continue
-        for name in ("type", "def", "parent", "dead"):
+        # (the wire carries death only for units)
+        for name in ("type", "def", "parent") + (("dead",) if a.get("type") in UNIT_TYPES else ()):
             if a.get(name) != b.get(name):
                 differ(f"object {identifier} {name}", f"object {identifier} {name}: host {a.get(name)}, client {b.get(name)}")
         if (a.get("parent") == NONE_INDEX and _resting(identifier, host, host_before)
@@ -174,7 +185,10 @@ def differences(host: Census, client: Census, host_before: Census | None,
                        f"({_distance(pa, pb):.3f} apart)")
         if "unit" in a and "unit" in b:
             ua, ub = a["unit"], b["unit"]
-            names = ["player", "seat", "grenades", "current", "weapons"]
+            names = ["player", "seat"]
+            # (the host stops sending a dead unit's inventory)
+            if a.get("dead") == "0":
+                names += ["grenades", "current", "weapons"]
             # (whether something drives it: an actor on the host, the host's
             # control on a client; a dead unit is driven by nothing)
             if a.get("dead") == "0" and ua.get("player") == "-1":
@@ -206,8 +220,12 @@ def differences(host: Census, client: Census, host_before: Census | None,
             differ(f"device {identifier} exists", f"device {identifier}: host {'has' if a else 'lacks'} it, client {'has' if b else 'lacks'} it")
             continue
         for name in ("position", "power"):
-            if abs(float(a.get(name, 0)) - float(b.get(name, 0))) > DEVICE_TOLERANCE:
-                differ(f"device {identifier} {name}", f"device {identifier} {name}: host {a.get(name)}, client {b.get(name)}")
+            resting = all(before is not None and identifier in before.devices
+                          and before.devices[identifier].get(name) == now.get(name)
+                          for before, now in ((host_before, a), (client_before, b)))
+            if resting and abs(float(a.get(name, 0)) - float(b.get(name, 0))) > DEVICE_TOLERANCE:
+                differ(f"device {identifier} {name}", f"device {identifier} {name} ({a.get('tag', '?')}, groups "
+                       f"{a.get('groups', '?')}): host {a.get(name)}, client {b.get(name)}")
     return found, notes
 
 
@@ -217,7 +235,10 @@ def compare(host_log: Path, client_log: Path, first: int = 0, last: int | None =
     ticks = sorted(t for t in set(hosts) & set(clients) if t >= first and (last is None or t <= last))
     report: dict = {"host": str(host_log), "client": str(client_log), "paired": len(ticks),
                     "first": ticks[0] if ticks else None, "last": ticks[-1] if ticks else None,
-                    "persist": persist, "disagreements": [], "host_only": [], "transient": 0}
+                    "persist": persist, "disagreements": [], "host_only": [], "transient": 0,
+                    "unpaired": {role: len([t for t in set(mine) - set(theirs)
+                                            if t >= first and (last is None or t <= last)])
+                                 for role, mine, theirs in (("host", hosts, clients), ("client", clients, hosts))}}
     streak: dict[str, int] = {}
     reported: set[str] = set()
     previous_tick = None
@@ -260,7 +281,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(f"coop census: {report['paired']} paired censuses, ticks {report['first']} to {report['last']}: "
           f"{'agree' if report['agree'] else 'DISAGREE'} ({len(report['disagreements'])} lasting differences, "
-          f"{report['transient']} in flight, {len(report['host_only'])} host-only notes)")
+          f"{report['transient']} in flight, {len(report['host_only'])} host-only notes; unpaired: host "
+          f"{report['unpaired']['host']}, client {report['unpaired']['client']})")
     for item in report["disagreements"][:40]:
         print(f"  tick {item['tick']}: {item['what']}")
     if len(report["disagreements"]) > 40:

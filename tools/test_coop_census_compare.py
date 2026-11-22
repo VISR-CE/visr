@@ -35,7 +35,7 @@ def census_lines(tick: int, role: str, players=None, objects=None, devices=None)
             weapon.update(values["weapon"])
             lines.append(f"coop census: tick {tick} weapon {identifier} " + " ".join(f"{k} {v}" for k, v in weapon.items()))
     for identifier, values in (devices or {}).items():
-        lines.append(f"coop census: tick {tick} device {identifier} position {values[0]:.3f} power {values[1]:.3f} groups 3 -1 tag door")
+        lines.append(f"coop census: tick {tick} device {identifier} position {values[0]:.3f} power {values[1]:.3f} groups 3 -1 tag holo control")
     lines.append(f"coop census: tick {tick} end objects {len(objects or {})} devices {len(devices or {})}")
     return lines
 
@@ -127,9 +127,49 @@ def test_incomplete_census_is_not_paired(tmp_path):
 
 
 def test_device_difference(tmp_path):
-    host = [census_lines(t, "host", devices={"e0040007": (1.0, 1.0)}) for t in (150, 300)]
-    client = [census_lines(t, "client", devices={"e0040007": (0.0, 1.0)}) for t in (150, 300)]
-    assert [d["key"] for d in run(tmp_path, host, client)["disagreements"]] == ["device e0040007 position"]
+    host = [census_lines(t, "host", devices={"e0040007": (1.0, 1.0)}) for t in (150, 300, 450)]
+    client = [census_lines(t, "client", devices={"e0040007": (0.0, 1.0)}) for t in (150, 300, 450)]
+    report = run(tmp_path, host, client)
+    assert [d["key"] for d in report["disagreements"]] == ["device e0040007 position"]
+    assert "(holo control, groups 3 -1)" in report["disagreements"][0]["what"]
+
+
+def test_moving_device_within_the_wire_tolerance_agrees(tmp_path):
+    # (a moving device is corrected only beyond 0.03, and only a device at rest is compared)
+    host = [census_lines(t, "host", devices={"e0040007": (p, 1.0)}) for t, p in ((150, 0.1), (300, 0.3), (450, 0.5))]
+    client = [census_lines(t, "client", devices={"e0040007": (p, 1.0)}) for t, p in ((150, 0.08), (300, 0.28), (450, 0.48))]
+    assert run(tmp_path, host, client)["agree"]
+
+
+def test_dead_unit_inventory_is_not_compared(tmp_path):
+    # (the host stops sending a dead unit's inventory)
+    host = [census_lines(t, "host", objects={"e0030006": {"dead": "1", "unit": {"grenades": "2 0"}}}) for t in (150, 300, 450)]
+    client = [census_lines(t, "client", objects={"e0030006": {"dead": "1", "unit": {"grenades": "0 0"}}}) for t in (150, 300, 450)]
+    assert run(tmp_path, host, client)["agree"]
+
+
+def test_death_is_compared_only_for_units(tmp_path):
+    # (the wire carries death only for bipeds and vehicles)
+    host = [census_lines(t, "host", objects={"e0050008": {"type": "2", "dead": "1"}, "e0030006": {"dead": "1", "unit": {}}})
+            for t in (150, 300, 450)]
+    client = [census_lines(t, "client", objects={"e0050008": {"type": "2", "dead": "0"}, "e0030006": {"dead": "0", "unit": {}}})
+              for t in (150, 300, 450)]
+    assert [d["key"] for d in run(tmp_path, host, client)["disagreements"]] == ["object e0030006 dead"]
+
+
+def test_repeated_tick_is_not_paired(tmp_path):
+    # (a second game in the same log restarts the clock: tick 300 is ambiguous)
+    host = [census_lines(150, "host"), census_lines(300, "host"), census_lines(300, "host", objects={"e0010004": {}})]
+    client = [census_lines(150, "client"), census_lines(300, "client")]
+    report = run(tmp_path, host, client)
+    assert report["paired"] == 1 and report["unpaired"] == {"host": 0, "client": 1}
+
+
+def test_unpaired_censuses_are_counted(tmp_path):
+    host = [census_lines(t, "host") for t in (150, 300, 450)]
+    client = [census_lines(t, "client") for t in (150, 450)]
+    report = run(tmp_path, host, client)
+    assert report["paired"] == 2 and report["unpaired"] == {"host": 1, "client": 0}
 
 
 def _c_format_to_python(fmt: str) -> str:

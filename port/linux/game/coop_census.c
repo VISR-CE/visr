@@ -27,13 +27,13 @@ a tick. */
 #include "networking/network_client_manager.h"
 
 #include "coop_census.h"
+#include "../src/port_config.h"
 
 #include <string.h>
 
-/* port/linux/src (game units declare these themselves: the platform
-headers bring the host C library, which clashes with the game's) */
-double config_real(char const *name);
-void platform_log(char const *format, ...);
+/* port/linux/src/platform.h (its header brings the host C library, which
+clashes with the game's, so game units declare it as it is declared there) */
+void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 enum
 {
