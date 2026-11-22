@@ -592,7 +592,8 @@ void host_external_device_screen(struct host_device_screen *out) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
     host_main_sync(^{
         UIScreen *screen=phone_window.windowScene.screen;
-        if(!screen)return;
+        /* (an iPad's window dragged to a monitor under Stage Manager is not this device's own screen) */
+        if(!screen || screen_is_external(screen))return;
         struct host_hinge_snapshot hinge;
         host_hinge_snapshot(&hinge);
         out->valid=1;

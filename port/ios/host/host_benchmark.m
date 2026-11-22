@@ -2060,7 +2060,7 @@ void host_benchmark_end(const char *status_name, const char *note) {
     if (output.generation != run_output_generation) {
         interrupted = 1;
         flag(@"output_changed");
-        note = "the display connected, disconnected, or changed mode during this run";
+        note = "the display connected, disconnected, or changed mode, or the posture changed, during this run";
     }
     /* (mirroring starts and stops without the output changing: a run mirrored at its start or its end is marked
        mirrored, and is not evidence for the built-in screen's targets) */

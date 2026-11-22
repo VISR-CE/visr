@@ -81,8 +81,9 @@ static inline void host_topology_facts_add_screen(struct host_topology_facts *fa
     } else facts->screens_dropped++;
 }
 
-/* the fields compared by value: every field but the poll's clock. The facts are built with no padding read
-   (memset to zero first), so a field-wise comparison cannot see stale bytes. */
+/* every field but the poll's clock, compared as bytes: the facts are built from a zeroed struct, and the assert
+   keeps a new field from introducing padding that a struct copy need not carry */
+_Static_assert(sizeof(struct host_topology_facts) == 256, "host_topology_facts changed size: check for padding and update this");
 static inline int host_topology_facts_changed(const struct host_topology_facts *a, const struct host_topology_facts *b) {
     struct host_topology_facts x = *a, y = *b;
     x.now = y.now = 0.0;
