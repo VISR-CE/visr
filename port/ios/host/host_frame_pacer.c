@@ -50,6 +50,7 @@ static struct
 	/* frames handed to the display, and the highest of them known shown or dropped: the difference is the frames in
 	flight, whatever the limit, and a shown notice that never comes is made up by the next one */
 	unsigned long handed, shown_highest;
+	unsigned long handed_before;     /* the frames handed to the display when the pacer last started: the run before's */
 	double shown_latest;             /* the latest time a frame was shown, only ever later; 0 none */
 	struct frame_pacer_extended_frames costs; /* the frames whose GPU work or shown notice is still to come */
 	double frame_started;            /* when this frame's work began (frame_pacer_frame_start); 0 unknown */
@@ -124,7 +125,9 @@ void frame_pacer_start(int fixed_timestep)
 	pacer.late_start_slot = !strcmp(value, "extended") ? FRAME_PACER_EXTENDED_SLOT : 0.0;
 	memset(&pacer.extended, 0, sizeof(pacer.extended));
 	memset(&pacer.costs, 0, sizeof(pacer.costs));
-	pacer.handed = pacer.shown_highest = 0;
+	/* (the count goes on through a restart, so a shown notice still to come for a frame of the run before cannot be
+	taken for one of this run's: none of this run's are in flight yet) */
+	pacer.handed_before = pacer.shown_highest = pacer.handed;
 	pacer.shown_latest = 0.0;
 #if TARGET_OS_SIMULATOR
 	/* (a simulator's drawables never say when they were shown: nothing to aim at) */
@@ -442,7 +445,10 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 	period = pacer.period;
 	/* (judged against the rate in force: under a scene class's 30 a frame's share is two refreshes) */
 	interval = frame_pacer_shown_add(&pacer.shown, at, period, frame_pacer_share(period, host_frame_rate_target()));
-	if (pacer.late_start == LATE_START_EXTENDED)
+	/* (a frame of the run before a restart aimed by that run's rules) */
+	if (frame->sequence && frame->sequence <= pacer.handed_before)
+		;
+	else if (pacer.late_start == LATE_START_EXTENDED)
 	{
 		/* (NULL when its place is another frame's by now: this one's GPU end is unknown) */
 		const struct frame_pacer_extended_frame *known = frame_pacer_extended_frames_find(&pacer.costs, frame->number);
