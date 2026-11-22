@@ -523,7 +523,6 @@ int main(void)
 			"two differing answers were counted %lu times and logged %u times", gpu_queue_answers_differ(),
 			lines_logged);
 	}
-	puts("gpu_queue_probe: ok");
 	/* the encode thread: the same recorded commands, made on the encode thread, every present a barrier (last: the
 	thread stays, waiting, for the rest of the probe) */
 	frames_seen = 0;
@@ -595,11 +594,15 @@ int main(void)
 	}
 
 	/* the encode thread's sleep and wake: records with pauses longer than its spin, so it sleeps between them, and
-	records back to back; a drain finds every one made */
+	records back to back; a drain finds every one made, and a record written to a sleeping thread is made without one
+	(the producer's wake) */
 	{
 		const struct gpu_backend *queue = gpu_queue_wrap(&counted, NULL, GPU_QUEUE_THREAD, 0, quiet, NULL);
+		double pause = (double)gpu_queue_consumer_spin_ns() * 1.6 / 1e9;
+		unsigned long sleeps = gpu_queue_consumer_sleeps(), before;
+		struct gpu_backend slow_backend = fake;
 		struct gpu_draw draw;
-		int paused;
+		int paused, tries;
 		uint32_t index;
 
 		memset(&draw, 0, sizeof(draw));
@@ -611,12 +614,25 @@ int main(void)
 			{
 				queue->draw(&draw, &stores[0], &uniforms);
 				if (paused && index % 5 == 0)
-					spin_seconds(0.00008);
+					spin_seconds(pause);
 			}
 			gpu_queue_drain();
 			CHECK(fake_calls[GPU_OPERATION_draw] - before == 3000, "%s pauses, %lu of 3000 draws were made",
 				paused ? "with" : "without", fake_calls[GPU_OPERATION_draw] - before);
+			CHECK(!paused || gpu_queue_consumer_sleeps() > sleeps, "the paused run never let the encode thread sleep");
 		}
+		spin_seconds(pause * 4);
+		CHECK(gpu_queue_consumer_sleeps() > sleeps, "the encode thread did not sleep");
+		before = atomic_load(&slow_draws_made);
+		slow_backend.draw = slow_draw;
+		queue = gpu_queue_wrap(&slow_backend, NULL, GPU_QUEUE_THREAD, 0, quiet, NULL);
+		spin_seconds(pause * 4);
+		queue->draw(&draw, &stores[0], &uniforms);
+		for (tries = 0; atomic_load(&slow_draws_made) == before && tries < 1000; tries++)
+			spin_seconds(0.001);
+		CHECK(atomic_load(&slow_draws_made) == before + 1, "a record written to a sleeping encode thread was not made "
+			"within a second without a drain");
 	}
+	puts("gpu_queue_probe: ok");
 	return 0;
 }

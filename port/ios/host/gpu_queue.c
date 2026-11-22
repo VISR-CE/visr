@@ -37,6 +37,7 @@ static struct
 	_Atomic int sleeping, drain_waiting;
 	/* set by a wrap that ends the thread (worker_stop) */
 	_Atomic int stopping;
+	_Atomic unsigned long sleeps;
 	void (*started)(void);
 	double barrier_waited; /* the last present's wait for the consumer, in seconds (the producer's) */
 } worker = { .lock = PTHREAD_MUTEX_INITIALIZER, .work = PTHREAD_COND_INITIALIZER, .idle = PTHREAD_COND_INITIALIZER };
@@ -1160,6 +1161,16 @@ void gpu_queue_check_keyframes(int on)
 	keyframe_check = on;
 }
 
+unsigned long gpu_queue_consumer_sleeps(void)
+{
+	return atomic_load(&worker.sleeps);
+}
+
+unsigned long gpu_queue_consumer_spin_ns(void)
+{
+	return WORKER_SPIN_NS;
+}
+
 unsigned long gpu_queue_keyframes_checked(unsigned long *differ)
 {
 	if (differ)
@@ -1239,6 +1250,7 @@ static void *worker_main(void *unused)
 			continue;
 		pthread_mutex_lock(&worker.lock);
 		atomic_store(&worker.sleeping, 1);
+		atomic_fetch_add(&worker.sleeps, 1);
 		while ((!worker_backlog() || mode != GPU_QUEUE_THREAD) && !atomic_load(&worker.stopping))
 		{
 			if (atomic_load(&worker.drain_waiting))

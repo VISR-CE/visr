@@ -59,6 +59,10 @@ carries every part whole) is consumed again by a consumer with no state, which m
 consumer holds. Returns the keyframes checked so far and, in differ, how many left another state */
 void gpu_queue_check_keyframes(int on);
 unsigned long gpu_queue_keyframes_checked(unsigned long *differ);
+/* for a test: how many times the encode thread has gone to sleep for want of records, and how long it spins first
+(nanoseconds) */
+unsigned long gpu_queue_consumer_sleeps(void);
+unsigned long gpu_queue_consumer_spin_ns(void);
 
 /* GPU_QUEUE_THREAD: how long the last present waited for the encode thread (the barrier), in seconds; -1 otherwise */
 double gpu_queue_barrier_waited(void);

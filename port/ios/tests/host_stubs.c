@@ -200,6 +200,10 @@ __attribute__((weak)) double gpu_queue_barrier_waited(void)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_barrier_waited without defining it\n"); abort(); }
 __attribute__((weak)) void gpu_queue_check_keyframes(int on)
 { }
+__attribute__((weak)) unsigned long gpu_queue_consumer_sleeps(void)
+{ fprintf(stderr, "host_stubs: probe called gpu_queue_consumer_sleeps without defining it\n"); abort(); }
+__attribute__((weak)) unsigned long gpu_queue_consumer_spin_ns(void)
+{ fprintf(stderr, "host_stubs: probe called gpu_queue_consumer_spin_ns without defining it\n"); abort(); }
 __attribute__((weak)) void gpu_queue_drain(void)
 { }
 __attribute__((weak)) unsigned long gpu_queue_drains(void)
