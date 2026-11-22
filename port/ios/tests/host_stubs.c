@@ -83,6 +83,7 @@
 #include "menu_picture_redraw.h"
 #include "menu_picture_shapes.h"
 #include "menu_picture_trace.h"
+#include "metal_gate.h"
 #include "texture_refine.h"
 #include "texture_upscale_encode.h"
 #include "texture_upscale_generate.h"
@@ -1533,6 +1534,10 @@ __attribute__((weak)) int menu_picture_trace(const uint8_t *source, unsigned wid
 { fprintf(stderr, "host_stubs: probe called menu_picture_trace without defining it\n"); abort(); }
 __attribute__((weak)) int menu_picture_trace_source(const uint8_t *source, unsigned width, unsigned height)
 { fprintf(stderr, "host_stubs: probe called menu_picture_trace_source without defining it\n"); abort(); }
+__attribute__((weak)) const struct metal_gate * metal_gate(void)
+{ fprintf(stderr, "host_stubs: probe called metal_gate without defining it\n"); abort(); }
+__attribute__((weak)) void metal_gate_adopt_facts(const struct metal_gate_facts *facts)
+{ }
 __attribute__((weak)) int natpmp_address_request(unsigned char *packet)
 { fprintf(stderr, "host_stubs: probe called natpmp_address_request without defining it\n"); abort(); }
 __attribute__((weak)) int natpmp_address_response(const unsigned char *packet, int size, int *result, uint32_t *external_address)
