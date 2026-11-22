@@ -77,4 +77,45 @@ unsigned long gpu_queue_consumer_spin_ns(void);
 /* GPU_QUEUE_THREAD: how long the last present waited for the encode thread (the barrier), in seconds; -1 otherwise */
 double gpu_queue_barrier_waited(void);
 
+/* ---------- debug.stereo_replay: the second eye by replay (the second-eye replay design). The producer brackets
+eye 0's pass with a span; at the span's end the consumer walks the span's records a second time into eye 1's
+targets (the back buffer's and depth buffer's eye-1 textures by the map), with eye 1's camera constants in place of
+eye 0's, so the game does not draw eye 1 itself. Records inside the span can be marked for one eye: the queue's own
+consumer skips eye-1-only records, the replay skips eye-0-only ones (each still applies a skipped draw's state, since
+draws are coded as changes from the one before). A span whose resources are rewritten after a replayed record read
+them cannot be replayed: its end answers 0, and the game draws eye 1 itself as it does with the replay off. */
+
+enum { GPU_QUEUE_EYE_BOTH, GPU_QUEUE_EYE_0, GPU_QUEUE_EYE_1 };
+enum { GPU_QUEUE_EYE_MAP_SIZE = 8 };
+
+/* the replay's texture map: from[i] (eye 0's) becomes to[i] (eye 1's) wherever a replayed record names it */
+struct gpu_queue_eye_map
+{
+	uint32_t count;
+	gpu_texture from[GPU_QUEUE_EYE_MAP_SIZE], to[GPU_QUEUE_EYE_MAP_SIZE];
+};
+
+/* opens a span (1); 0, and nothing opens, with the queue off. verify: the span is not replayed into eye 1's
+targets; after gpu_queue_eye_live_end the replay's calls are compared with the live eye 1's calls the game made
+between the span's end and that call, and the result is logged */
+int gpu_queue_eye_span_begin(int verify);
+/* the records written from now on are for one eye (GPU_QUEUE_EYE_0 or GPU_QUEUE_EYE_1), or both */
+void gpu_queue_eye_only(int eye);
+/* the replay holds these values in registers first..first+count-1 (the store's numbering, c[0] first) from here on,
+whatever eye 0's records store there, until gpu_queue_eye_constants_end */
+void gpu_queue_eye_constants(uint32_t first, uint32_t count, const float *values);
+void gpu_queue_eye_constants_end(uint32_t first, uint32_t count);
+/* closes the span: 1 when it will be replayed (or verified), 0 when the game must draw eye 1 itself */
+int gpu_queue_eye_span_end(const struct gpu_queue_eye_map *map);
+/* verify: the live eye 1's calls end here */
+void gpu_queue_eye_live_end(void);
+
+/* a test's view of the spans so far: opened, replayed, the ones that could not be, verified, and verified calls
+that differed from the live eye's */
+struct gpu_queue_eye_statistics
+{
+	unsigned long spans, replayed, unreplayable, verified, verify_differ;
+};
+void gpu_queue_eye_statistics(struct gpu_queue_eye_statistics *statistics);
+
 #endif

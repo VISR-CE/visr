@@ -18,6 +18,20 @@ class GpuQueueTests(unittest.TestCase):
                          "port/ios/host/gpu_queue.c", "port/ios/host/gpu_owner_check.c"], extra=["-fsanitize=thread"],
                   launcher=sanitizer_launcher())
 
+    def test_second_eye_replay_makes_the_span_again(self):
+        compiler = shutil.which("clang") or shutil.which("cc")
+        if not compiler:
+            self.skipTest("A C compiler is required")
+        with tempfile.TemporaryDirectory(prefix="gpu-queue-replay-probe-") as temp:
+            executable = pathlib.Path(temp) / "probe"
+            subprocess.run([
+                compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-O1", "-pthread",
+                "-I", str(ROOT / "port/ios/host"), "-I", str(ROOT / "port/linux/src"),
+                str(ROOT / "port/ios/tests/gpu_queue_replay_probe.c"), str(ROOT / "port/ios/host/gpu_queue.c"),
+                "-o", str(executable),
+            ], check=True)
+            subprocess.run([str(executable)], check=True)
+
 
 if __name__ == "__main__":
     unittest.main()
