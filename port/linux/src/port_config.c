@@ -1084,9 +1084,10 @@ static const struct config_setting config_settings[] =
 		"paces its own frames. A profile sets this at or below player_capacity." },
 	{ "network.map_share", _config_boolean, "true", "HALO_NET_MAP_SHARE", _environment_value, _platform_all,
 		"Hosting: send a player who joins without the game's Custom Edition map\n"
-		"the map (from custom_maps), and the resource maps it needs that the\n"
-		"player lacks (bitmaps.map, sounds.map, loc.map). The game's other\n"
-		"players help (network.map_seed)." },
+		"the map (from custom_maps), if it is a community map. Custom Edition's\n"
+		"own maps and resource maps (bitmaps.map, sounds.map, loc.map) are never\n"
+		"sent: a player who lacks them is sent nothing. The game's other players\n"
+		"help (network.map_seed)." },
 	{ "network.map_share_upload", _config_integer, "1024", "HALO_NET_MAP_SHARE_UPLOAD", _environment_value,
 		_platform_all,
 		"Hosting: the most kilobytes a second the host sends of maps (16 to\n"

@@ -461,13 +461,23 @@ its name alone beside it, has its name given back as the map lists find it.
   have named the map, and for a game in progress until it is downloaded; in
   the lobby they join at once, and the host's start waits for the machine to
   precache the map, as it waits for any machine.
+- **What is sent.** Map sharing sends community maps only: never Custom
+  Edition's resource maps (bitmaps.map, sounds.map, loc.map) and never one of
+  the publisher's own maps (Custom Edition's and Halo PC's), whatever the
+  file is named (`map_share_policy.c`). A file is judged by what it is: the
+  kind it is sent as, its name (without the hash digits a second version's
+  ends in), and its header, which must be a Custom Edition cache whose name
+  and checksum are not the publisher's. The catalog every whole file is sent
+  from takes no other file (`map_share_file_hash`), and a download's file is
+  passed on only once its first piece, the header, says it may be.
 - **The offer.** A host that shares maps (`network.map_share`) hashes the
-  map, and the resource maps the map needs (its tag index says which: a tag
+  map on a thread of its own and answers with its size and hash (`_offer`,
+  or why it does not: sharing off, or not a map it sends). A client that
+  also lacks a resource map the map needs (its tag index says which: a tag
   whose entry's word at 0x18 is set is held whole by bitmaps.map for a
   bitmap, sounds.map for a sound, loc.map for a font, string list or HUD
-  message text) that the client lacks, on a thread of their own, and
-  answers with each file's size and hash (`_offer`, or why it does not:
-  sharing off, or not the game's map), and which of its other machines may
+  message text) is offered nothing, since it could not play the map. The
+  host also says which of its other machines may
   have them (`_sources`: an address on a LAN, internet play's key hash on the
   internet), again every ten seconds. A map that is not of the game's version is
   not offered. The client checks that the map is of the game's version, and
@@ -489,8 +499,8 @@ its name alone beside it, has its name given back as the map lists find it.
   against the file's hash; a frame of none is refused. Each piece is
   checked against its own as it arrives, and an end that sends a wrong one
   is not asked again. A machine
-  sends of the game's files (its map, the resource maps the map needs, a
-  download's pieces) no faster than `network.map_share_upload` (the host,
+  sends of the game's files (its map, if it is a community map, and a
+  download's pieces of one) no faster than `network.map_share_upload` (the host,
   1024 KB/s) or `network.map_seed_upload` (a player, 256 KB/s), round all
   its connections a 16 KiB block at a time, so that the game's own traffic
   keeps the rest of the upload; `network.map_seed = false` sends none. A

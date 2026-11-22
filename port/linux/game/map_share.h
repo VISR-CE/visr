@@ -169,7 +169,8 @@ void map_share_render(
 /* A file hashed for sharing: its size, its pieces' hashes and its hash.
 map_share_file_hash asks for the file at a path (a map, or a resource map
 of a kind, _map_share_file_*) to be hashed on the hashing thread, if it is
-not (or has changed since); its index in the catalog, or NONE. */
+not (or has changed since); its index in the catalog, or NONE, and NONE for
+a file map sharing may not send (map_share_file_sendable). */
 struct map_share_file
 {
 	boolean used;
@@ -188,6 +189,20 @@ struct map_share_file
 short map_share_file_hash(
 	char const *path,
 	short kind);
+
+/* Whether map sharing may send the file at `path` (of `size` bytes) as a
+file of `kind` to other players: a community map only, never a resource map
+or one of the publisher's own maps (map_share_policy.c, which judges it by
+its name and its header: `header_bytes` of `header`, or, when that is NULL,
+read from the file). Every path that sends a file's bytes asks this: the
+catalog takes only files it allows (map_share_file_hash), and a download is
+passed on only once it does (map_share.c). */
+boolean map_share_file_sendable(
+	char const *path,
+	short kind,
+	unsigned long size,
+	byte const *header,
+	long header_bytes);
 /* ... and a file whose pieces' hashes are known (a download's, which were
 checked): taken as it is, not hashed again */
 short map_share_file_hashed(

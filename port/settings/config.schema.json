@@ -3318,7 +3318,7 @@
         "map_share": {
           "type": "boolean",
           "default": true,
-          "description": "Hosting: send a player who joins without the game's Custom Edition map the map (from custom_maps), and the resource maps it needs that the player lacks (bitmaps.map, sounds.map, loc.map). The game's other players help (network.map_seed).",
+          "description": "Hosting: send a player who joins without the game's Custom Edition map the map (from custom_maps), if it is a community map. Custom Edition's own maps and resource maps (bitmaps.map, sounds.map, loc.map) are never sent: a player who lacks them is sent nothing. The game's other players help (network.map_seed).",
           "x-environment": "HALO_NET_MAP_SHARE",
           "x-environment-style": "value",
           "x-platforms": [

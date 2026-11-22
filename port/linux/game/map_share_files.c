@@ -23,6 +23,7 @@ pieces' hashes any player sends it, and each piece as it arrives.
 #include "custom_edition_cache.h"
 #include "custom_edition_maps.h"
 #include "map_share.h"
+#include "map_share_policy.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -354,6 +355,48 @@ static boolean file_stamp(
 	return TRUE;
 }
 
+/* ---------- what may be sent */
+
+boolean map_share_file_sendable(
+	char const *path,
+	short kind,
+	unsigned long size,
+	byte const *header,
+	long header_bytes)
+{
+	byte header_read[CACHE_FILE_HEADER_BYTES];
+	char name[MAP_SHARE_PATH_SIZE];
+	char const *start = path;
+	char const *character;
+	char *extension;
+	enum map_share_policy_verdict verdict;
+
+	for (character = path; *character; character++)
+	{
+		if (*character == '\\' || *character == '/')
+			start = character + 1;
+	}
+	csmemset(name, 0, sizeof(name));
+	csstrncpy(name, start, sizeof(name) - 1);
+	extension = strrchr(name, '.');
+	if (extension && !csstrcasecmp(extension, ".map"))
+		*extension = 0;
+	if (!header)
+	{
+		FILE *stream = fopen(path, "rb");
+
+		header_bytes = stream ? (long)fread(header_read, 1, sizeof(header_read), stream) : 0;
+		if (stream)
+			fclose(stream);
+		header = header_read;
+	}
+	verdict = map_share_policy_judge(kind, name, (uint32_t)map_share_name_base_length(name), header,
+		(uint32_t)MAX(header_bytes, 0), (uint32_t)size);
+	if (!map_share_policy_may_send(verdict))
+		error(_error_silent, "map sharing: %s is not sent to other players: %s", path, map_share_policy_describe(verdict));
+	return map_share_policy_may_send(verdict);
+}
+
 /* ---------- the catalog */
 
 short map_share_file_hash(
@@ -375,6 +418,17 @@ short map_share_file_hash(
 			file = &globals->files[index];
 			break;
 		}
+	}
+	/* (only what map sharing may send is in the catalog: a file that has
+	become one it may not, replaced since it was hashed, is sent no more) */
+	if (!map_share_file_sendable(path, kind, size, NULL, 0))
+	{
+		if (file)
+		{
+			file->ready = FALSE;
+			file->failed = TRUE;
+		}
+		return NONE;
 	}
 	/* (changed since: hashed again) */
 	if (file && (file->ready || file->failed) && (file->size != size || file->modified != modified))
@@ -842,10 +896,11 @@ void map_share_files_update(
 			/* (replaced meanwhile: the catalog's file is another's now) */
 			if (file && !csstrcasecmp(file->path, globals->job.path))
 			{
-				/* (changed meanwhile: hashed again) */
-				if (globals->job.failed || globals->job.size != file->size)
+				/* (changed meanwhile: hashed again; or refused meanwhile,
+				map_share_file_hash: not sent) */
+				if (globals->job.failed || globals->job.size != file->size || file->failed)
 				{
-					file->failed = globals->job.failed;
+					file->failed = file->failed || globals->job.failed;
 					free(globals->job.piece_hashes);
 				}
 				else
