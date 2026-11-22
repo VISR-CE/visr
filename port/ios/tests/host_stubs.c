@@ -73,6 +73,7 @@
 #include "host_stereo.h"
 #include "host_stereo_head.h"
 #include "host_stereo_hud.h"
+#include "host_stereo_posture.h"
 #include "host_texture_settings.h"
 #include "host_texture_upscale.h"
 #include "host_theater.h"
@@ -1260,6 +1261,12 @@ __attribute__((weak)) int host_stereo_mode_requested(void)
 { fprintf(stderr, "host_stubs: probe called host_stereo_mode_requested without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_picture_size(int *width, int *height)
 { fprintf(stderr, "host_stubs: probe called host_stereo_picture_size without defining it\n"); abort(); }
+__attribute__((weak)) const char * host_stereo_posture_name(enum host_stereo_posture_kind posture)
+{ fprintf(stderr, "host_stubs: probe called host_stereo_posture_name without defining it\n"); abort(); }
+__attribute__((weak)) int host_stereo_posture_sample(struct host_stereo_posture *posture, double now, float height, float pitch_degrees, struct host_stereo_posture_event *event)
+{ fprintf(stderr, "host_stubs: probe called host_stereo_posture_sample without defining it\n"); abort(); }
+__attribute__((weak)) void host_stereo_posture_start(struct host_stereo_posture *posture, double now)
+{ }
 #if defined(__OBJC__)
 __attribute__((weak)) void host_stereo_present(id<MTLCommandQueue> queue, id<MTLTexture> left, id<MTLTexture> right, id<MTLTexture> left_depth, id<MTLTexture> right_depth, __unsafe_unretained id<MTLTexture> const *hud_layers, const float (*hud_group_extent)[4], float hud_aspect, int hud_ui, const float reticle[3], const struct host_stereo_hud_aim *aim, const float hud_tangents[2], id<MTLTexture> zoom, const float zoom_tangents[2], float near_meters, float far_meters, float brightness, float vignette, float ui_dim, int expanding, float expansion, float expansion_bars, const float fade[4], int cutscene, const float cutscene_forward[3], const float cutscene_up[3], const float cutscene_tangents[2], float cutscene_dim, float look_dim, float look_blur)
 { }
