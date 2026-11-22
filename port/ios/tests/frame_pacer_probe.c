@@ -51,6 +51,25 @@ int main(void)
 	CHECK(frame_pacer_in_flight_for(30.0, 2, "system") == 2);
 	CHECK(frame_pacer_in_flight_for(30.0, 0, "1") == 0);
 
+	/* the limit lowered while two frames hold slots (a 30 frame rate begins): no new frame until both are shown, and the
+	count stays balanced */
+	{
+		struct frame_pacer_flight flight = { 2, 0 };
+
+		CHECK(frame_pacer_flight_take(&flight));
+		CHECK(frame_pacer_flight_take(&flight));
+		flight.limit = 1;
+		CHECK(!frame_pacer_flight_take(&flight));
+		frame_pacer_flight_give(&flight);
+		CHECK(!frame_pacer_flight_take(&flight));
+		frame_pacer_flight_give(&flight);
+		CHECK(flight.count == 0);
+		CHECK(frame_pacer_flight_take(&flight));
+		CHECK(!frame_pacer_flight_take(&flight));
+		frame_pacer_flight_give(&flight);
+		CHECK(flight.count == 0);
+	}
+
 	/* frames in flight: a limit of 2 lets two start, holds the third until one is shown */
 	{
 		struct frame_pacer_flight flight = { 2, 0 };
