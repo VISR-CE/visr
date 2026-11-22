@@ -123,6 +123,8 @@ def test_tuning_values_leave_the_public_reference():
 TUNING_OFF_HEADSET = {
     # the audio mixing thread's scheduling class, chosen from measurements; a player has no way to judge it
     'audio.worker_priority',
+    # compares the corrected interpolation lead with the old timing on every display; a measurement switch
+    'display.presentation_lead',
 }
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
                    'display.theater_width', 'input.aim', 'input.aim_hand',
