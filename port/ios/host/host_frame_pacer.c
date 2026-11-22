@@ -134,7 +134,6 @@ void frame_pacer_start(int fixed_timestep)
 	if (!strcmp(value, "extended") || !strcmp(value, "extended_all"))
 		pacer.late_start = LATE_START_EXTENDED;
 	pacer.late_start_slot = !strcmp(value, "extended") ? FRAME_PACER_EXTENDED_SLOT : 0.0;
-	pacer.late_start_asked = pacer.late_start;
 	memset(&pacer.extended, 0, sizeof(pacer.extended));
 	memset(pacer.costs, 0, sizeof(pacer.costs));
 	pacer.handed = pacer.shown_highest = 0;
@@ -144,6 +143,8 @@ void frame_pacer_start(int fixed_timestep)
 	if (pacer.late_start == LATE_START_EXTENDED)
 		pacer.late_start = LATE_START_OFF;
 #endif
+	/* (after the simulator's rule, so a toggle cannot turn the extended late start on there) */
+	pacer.late_start_asked = pacer.late_start;
 	/* (the hold has been seen only on the Mac, where other windows share the window server: frame_pacer_slot_wait) */
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
 	pacer.drops = 1;

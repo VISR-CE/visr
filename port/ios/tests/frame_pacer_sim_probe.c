@@ -590,6 +590,18 @@ int main(int argc, char **argv)
 		frame_pacer_extended_shown(&late, 10.5, 10.5 + P60, 0.006, P120, P60, 10.9);
 		frame_pacer_extended_shown(&late, 10.5, 10.5 + 0.3, 0.006, P120, P60, 10.9);
 		CHECK(late.misses == 2 && late.pushed == 2);
+		/* frames shown late whose GPU end is not known say nothing about the lead: however many, it does not grow */
+		{
+			struct frame_pacer_extended unknown;
+			int late_frames;
+
+			memset(&unknown, 0, sizeof(unknown));
+			for (late_frames = 0; late_frames < 3 * FRAME_PACER_EXTENDED_LEAD_MISSES; late_frames++)
+				frame_pacer_extended_shown(&unknown, 50.0 + 2.0 * late_frames, 50.0 + 2.0 * late_frames + P60, (double)NAN,
+					P120, P60, 50.1 + 2.0 * late_frames);
+			CHECK(unknown.misses == 3 * FRAME_PACER_EXTENDED_LEAD_MISSES && unknown.lead_misses == 0);
+			CHECK(unknown.lead_failed == 0.0 && fabs(frame_pacer_extended_lead(&unknown) - FRAME_PACER_EXTENDED_LEAD) < 1e-12);
+		}
 		/* frames shown late with their GPU work done a lead ahead: a few among many aimed frames are the display's
 		own, and nothing stops */
 		late.holdoff_until = 0.0;

@@ -468,7 +468,7 @@ struct frame_pacer_extended
 	double gpu[FRAME_PACER_LATE_WINDOW];  /* the GPU's time on the same frame */
 	double cpu[FRAME_PACER_LATE_WINDOW];  /* its start to its Present */
 	int count, next;
-	double lead;            /* 0: FRAME_PACER_LATE_LEAD */
+	double lead;            /* 0: FRAME_PACER_EXTENDED_LEAD */
 	double lead_failed;     /* a lead that was too short; 0 none known */
 	double holdoff_until;   /* late starts stop until this time */
 	double holdoff;         /* how long the last miss stopped them */
@@ -742,7 +742,8 @@ static inline void frame_pacer_extended_shown(struct frame_pacer_extended *late,
 		late->misses++;
 		late->calm = late->idle = 0;
 		late->miss_at = now;
-		if (!(slack < lead - 0.0005))
+		/* (a frame whose GPU end is not known says nothing about the lead: it counts as one that cost too much) */
+		if (slack == slack && slack >= lead - 0.0005)
 		{
 			/* done a lead ahead and still late: the display's own, unless there are many */
 			if (++late->lead_misses >= FRAME_PACER_EXTENDED_LEAD_MISSES)
