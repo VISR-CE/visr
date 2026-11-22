@@ -723,6 +723,11 @@ run(BUILD/'frame-pacer-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/frame_pacer_sim_probe.c', '-o', BUILD/'frame-pacer-sim-probe')
 run(BUILD/'frame-pacer-sim-probe')
+# the pacer's default frames in flight as host_frame_pacer.c reads it: one with the encode thread
+run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-DHALO_FRAME_PACING=1',
+    '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/frame_pacer_default_probe.c',
+    'port/ios/host/host_frame_pacer.c', '-o', BUILD/'frame-pacer-default-probe')
+run(BUILD/'frame-pacer-default-probe')
 # dynamic resolution's planner, with synthetic per-frame costs and presentation feedback
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/dynamic_resolution_probe.c', '-o', BUILD/'dynamic-resolution-probe')
