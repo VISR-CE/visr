@@ -1062,6 +1062,10 @@ run(BUILD/'host-config-write-probe')
 run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
     '-Iport/runtime', 'port/ios/tests/cloud_saves_probe.c', 'port/runtime/cloud_saves.c', '-lz', '-o', BUILD/'cloud-saves-probe')
 run(BUILD/'cloud-saves-probe')
+# the saved game's one writer: the order of its calls, a failure and a death at every call, the worker (port/runtime/save_writer.c)
+run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
+    '-Iport/runtime', 'port/ios/tests/save_writer_probe.c', 'port/runtime/save_writer.c', '-o', BUILD/'save-writer-probe')
+run(BUILD/'save-writer-probe')
 # the game's reread of one setting at a level load, the environment still winning (port/linux/src/port_config.c)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_ILP32', '-Iport/linux/src',
     '-Iport/third_party/tomlc17', *shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True)),

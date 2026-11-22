@@ -1,5 +1,6 @@
 /* The cloud save rules (cloud_saves.h). */
 #include "cloud_saves.h"
+#include "saved_game_image.h"
 #include "stock_maps.h"
 
 #include <ctype.h>
@@ -318,59 +319,31 @@ const char *cloud_level_title(const char *map)
 	return stock ? stock->display_name : map;
 }
 
-/* source/memory/crc.c */
-static uint32_t game_crc(uint32_t crc, const uint8_t *data, size_t size)
-{
-	static uint32_t table[256];
-	size_t i;
-
-	if (!table[1])
-	{
-		uint32_t n;
-		int bit;
-
-		for (n = 0; n < 256; n++)
-		{
-			uint32_t value = n;
-
-			for (bit = 0; bit < 8; bit++)
-				value = (value & 1) ? (value >> 1) ^ 0xEDB88320u : value >> 1;
-			table[n] = value;
-		}
-	}
-	for (i = 0; i < size; i++)
-		crc = (crc >> 8) ^ table[(data[i] ^ crc) & 0xff];
-	return crc;
-}
-
-/* struct game_state_header (source/saved games/game_state.h) */
+/* the saved game's header and checksum (saved_game_image.h, shared with the saved game writer) */
 enum
 {
-	HEADER_LAYOUT = 0,
-	HEADER_MAP = 4,
-	HEADER_MAP_SIZE = 256,
-	HEADER_BUILD = 0x104,
-	HEADER_BUILD_SIZE = 32,
-	HEADER_DIFFICULTY = 0x126,
-	HEADER_MAP_CHECKSUM = 0x128,
-	HEADER_CHECKSUM = 0x148,
-	HEADER_SIZE = 0x14c,
+	HEADER_LAYOUT = SAVED_GAME_HEADER_LAYOUT,
+	HEADER_MAP = SAVED_GAME_HEADER_MAP,
+	HEADER_MAP_SIZE = SAVED_GAME_HEADER_MAP_SIZE,
+	HEADER_BUILD = SAVED_GAME_HEADER_BUILD,
+	HEADER_BUILD_SIZE = SAVED_GAME_HEADER_BUILD_SIZE,
+	HEADER_DIFFICULTY = SAVED_GAME_HEADER_DIFFICULTY,
+	HEADER_MAP_CHECKSUM = SAVED_GAME_HEADER_MAP_CHECKSUM,
+	HEADER_CHECKSUM = SAVED_GAME_HEADER_CHECKSUM,
+	HEADER_SIZE = SAVED_GAME_HEADER_SIZE,
 };
 
 static uint32_t read_u32(const uint8_t *p) { return p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
 
 int cloud_checkpoint_check(const uint8_t *data, size_t size)
 {
-	static const uint8_t zero[4] = { 0 };
 	uint32_t crc;
 	size_t i;
 
 	if (size < HEADER_SIZE)
 		return -1;
 	/* the checksum is over the file with its own field zero */
-	crc = game_crc(0xFFFFFFFFu, data, HEADER_CHECKSUM);
-	crc = game_crc(crc, zero, 4);
-	crc = game_crc(crc, data + HEADER_CHECKSUM + 4, size - HEADER_CHECKSUM - 4);
+	crc = saved_game_image_checksum(data, size);
 	if (crc == read_u32(data + HEADER_CHECKSUM) && data[HEADER_MAP])
 		return 1;
 	for (i = 0; i < size; i++)
