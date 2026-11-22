@@ -366,6 +366,9 @@ static struct
 /* (the log is never called with the lock held: the game's thread takes the lock at every checkpoint) */
 static atomic_int writer_refusal_logged;
 
+/* (under the lock) the saved game the worker last put in place in this run */
+static char writer_last_target[PATH_SIZE];
+
 /* odd while the game writes its checkpoint file */
 static atomic_uint writer_generation;
 /* the write in progress is not to reach the saved game */
@@ -425,6 +428,8 @@ static void *worker(void *unused)
 		pthread_mutex_lock(&writer.lock);
 		writer.busy = 0;
 		writer.replaced += result == SAVE_WRITER_REPLACED;
+		if (result == SAVE_WRITER_REPLACED)
+			snprintf(writer_last_target, sizeof(writer_last_target), "%s", writer.active.target);
 		pthread_cond_broadcast(&writer.changed);
 	}
 	return NULL;
@@ -530,9 +535,9 @@ int save_writer_write_now(const char *checkpoint_path, const char *target_path, 
 	return result == SAVE_WRITER_REPLACED;
 }
 
-void save_writer_withdraw(const char *target_path)
+/* under the lock */
+static void withdraw_locked(const char *target_path)
 {
-	pthread_mutex_lock(&writer.lock);
 	if (writer.queued.valid && same_saved_game(writer.queued.target, target_path))
 		writer.queued.valid = 0;
 	if (writer.busy && same_saved_game(writer.active.target, target_path))
@@ -541,7 +546,37 @@ void save_writer_withdraw(const char *target_path)
 		while (writer.busy)
 			pthread_cond_wait(&writer.changed, &writer.lock);
 	}
+}
+
+void save_writer_withdraw(const char *target_path)
+{
+	pthread_mutex_lock(&writer.lock);
+	withdraw_locked(target_path);
+	/* (what the worker put there before is the game's to delete now) */
+	if (same_saved_game(writer_last_target, target_path))
+		writer_last_target[0] = 0;
 	pthread_mutex_unlock(&writer.lock);
+}
+
+int save_writer_withdraw_folder(const char *folder_path, char *written_path, size_t written_path_size)
+{
+	char target[PATH_SIZE];
+	size_t length = folder_path ? strlen(folder_path) : 0;
+	int written;
+
+	while (length && folder_path[length - 1] == '/')
+		length--;
+	if (!length || (size_t)snprintf(target, sizeof(target), "%.*s/savegame.bin", (int)length, folder_path) >= sizeof(target))
+		return 0;
+	pthread_mutex_lock(&writer.lock);
+	withdraw_locked(target);
+	written = writer_last_target[0] && same_saved_game(writer_last_target, target);
+	if (written)
+		writer_last_target[0] = 0;
+	pthread_mutex_unlock(&writer.lock);
+	if (written && written_path)
+		snprintf(written_path, written_path_size, "%s", target);
+	return written;
 }
 
 int save_writer_wait(double seconds)

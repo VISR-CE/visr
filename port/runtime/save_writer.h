@@ -82,6 +82,10 @@ void save_writer_checkpoint_end(const char *checkpoint_path, const char *target_
 int save_writer_write_now(const char *checkpoint_path, const char *target_path, const uint8_t *image, size_t size);
 /* the saved game at target_path is being deleted: withdraws and waits for a write to it */
 void save_writer_withdraw(const char *target_path);
+/* A slot's folder is being removed: withdraws and waits for a write to its saved game. 1, with the saved
+   game's path, when the worker put one there in this run and nothing has withdrawn it since: a checkpoint
+   that landed after the game listed the folder's files, which the caller removes so the folder can go. */
+int save_writer_withdraw_folder(const char *folder_path, char *written_path, size_t written_path_size);
 /* waits until nothing is queued or being written, at most seconds; 1 when idle */
 int save_writer_wait(double seconds);
 /* saved games replaced by the worker since the start (for tests and the log) */

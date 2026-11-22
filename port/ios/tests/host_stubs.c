@@ -1030,6 +1030,10 @@ __attribute__((weak)) void host_save_checkpoint_end(const char *checkpoint_path,
 { }
 __attribute__((weak)) int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size)
 { fprintf(stderr, "host_stubs: probe called host_save_write_now without defining it\n"); abort(); }
+__attribute__((weak)) void host_save_writer_folder_left(int directory, const char *path, int *removed)
+{ }
+__attribute__((weak)) void host_save_writer_removing_folder(const char *path)
+{ }
 __attribute__((weak)) void host_save_writer_start(const char *save_root)
 { }
 __attribute__((weak)) void host_save_writer_unlinking(const char *path)

@@ -544,6 +544,31 @@ static void test_worker(void)
 	CHECK(save_writer_wait(10));
 	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE));
 
+	/* a profile's folder removed: a checkpoint still being written is withdrawn; one that landed after the
+	   game had emptied the folder is named, once, so the caller can remove it and the folder */
+	{
+		char written[700] = "", folder[700];
+
+		snprintf(folder, sizeof(folder), "%s/", slot);
+		begin("a deleted profile's folder, checkpoint in progress", old);
+		save_writer_withdraw(target_path);
+		CHECK(unlink(target_path) == 0);
+		close_gate();
+		checkpoint(first, 1);
+		wait_for_gate();
+		CHECK(pthread_create(&opener, NULL, open_gate_soon, NULL) == 0);
+		CHECK(!save_writer_withdraw_folder(folder, written, sizeof(written)) && !written[0]);
+		pthread_join(opener, NULL);
+		CHECK(save_writer_wait(10) && !exists(target_path) && !exists(temporary_path));
+
+		test_name = "a deleted profile's folder, checkpoint landed";
+		checkpoint(first, 1);
+		CHECK(save_writer_wait(10) && file_is_image(target_path, first));
+		CHECK(!save_writer_withdraw_folder("elsewhere/u/UDATA/FFFFFFFFFFFF", written, sizeof(written)) && !written[0]);
+		CHECK(save_writer_withdraw_folder(slot, written, sizeof(written)) && !strcmp(written, target_path));
+		CHECK(!save_writer_withdraw_folder(slot, written, sizeof(written)));
+	}
+
 	/* Save and Quit fails loudly, and keeps the old saved game, when the disk does */
 	begin("Save and Quit with a failing disk", old);
 	fail_at = 3;

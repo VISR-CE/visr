@@ -7,6 +7,11 @@
 void host_save_writer_start(const char *save_root);
 /* the guest is about to unlink path: a saved game being deleted is not written again behind it */
 void host_save_writer_unlinking(const char *path);
+/* The guest is about to remove the folder at path, and then could not (errno is the removal's): a
+   checkpoint's saved game that landed in a profile's folder while the game was deleting the profile is
+   withdrawn, or removed so the folder can go; *removed becomes the second removal's result. */
+void host_save_writer_removing_folder(const char *path);
+void host_save_writer_folder_left(int directory, const char *path, int *removed);
 /* waits, at most seconds, for a saved game that is being written */
 void host_save_writer_wait(double seconds);
 
