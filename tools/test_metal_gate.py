@@ -60,7 +60,7 @@ def apple_table():
     return list(csv.DictReader(lines, delimiter="\t"))
 
 
-CAPABILITY_CHECK = re.compile(r"supportsFamily:|supportsBCTextureCompression|supports32BitFloatFiltering|"
+CAPABILITY_CHECK = re.compile(r"supportsFamily[:(]|supportsBCTextureCompression|supports32BitFloatFiltering|"
                               r"supportsRasterizationRateMapWithLayerCount:|supportsCounterSampling:|"
                               r"MTLFXSpatialScalerDescriptor supportsDevice:")
 
@@ -130,6 +130,23 @@ class MetalGateTests(unittest.TestCase):
                 with self.subTest(pass_=name, feature=feature):
                     self.assertGreaterEqual(floor, families[feature])
 
+    def test_enforced_passes_are_read_and_others_are_not(self):
+        # a pass marked enforced must be read by the backend, and one marked "[not enforced yet]" must not be, so the log
+        # never says a wired pass is unenforced or the other way around
+        read = set()
+        for folder in ("port/ios/host", "port/macos"):
+            if not (ROOT / folder).is_dir():
+                continue
+            for path in (ROOT / folder).rglob("*"):
+                if path.suffix in {".m", ".mm", ".c", ".swift"}:
+                    read |= set(re.findall(r"\bmetal_pass\(\s*METAL_PASS_(\w+)\s*\)",
+                                           without_comments(path.read_text(errors="replace"))))
+        for row in macro_rows("METAL_PASSES"):
+            name, enforced = row[0], row[5] == "1"
+            with self.subTest(pass_=name):
+                self.assertEqual(name in read, enforced,
+                                 "set the row's enforced flag to match whether metal_pass() reads it")
+
     def test_capability_checks_go_through_the_gate(self):
         # the device's own answers are asked in one file; everything else reads the gate
         calls = []
@@ -148,7 +165,8 @@ class MetalGateTests(unittest.TestCase):
                      "if (@available(iOS 16.4, *)) bc = device.supportsBCTextureCompression;",
                      "if (![device supportsRasterizationRateMapWithLayerCount:1])",
                      "mode = [device supportsCounterSampling:MTLCounterSamplingPointAtDrawBoundary];",
-                     "if (![MTLFXSpatialScalerDescriptor supportsDevice:device] ||"):
+                     "if (![MTLFXSpatialScalerDescriptor supportsDevice:device] ||",
+                     "let ok = device.supportsFamily(.apple7)"):
             with self.subTest(line=line):
                 self.assertEqual(len(raw_capability_checks("int a;\n" + line + "\n")), 1)
         self.assertFalse(raw_capability_checks("/* supportsFamily: Apple3 */\n// supportsBCTextureCompression\n"))

@@ -115,6 +115,56 @@ static void compare(const char *label, struct metal_gate_facts facts)
 	}
 }
 
+/* Every family and Mac shape against every subset of the queries' answers: a query-backed answer is the old check's
+(the query alone) unless the query is in `overruled`, and `overruled` holds exactly the non-footnoted queries that
+answered yes below their documented family. This is the whole set of behavior changes, asserted, not assumed. */
+static void check_every_answer(void)
+{
+	static const struct { int query, family, mac; enum metal_feature feature; } rows[] = {
+		{ METAL_QUERY_RATE_MAP, 6, 1, METAL_FEATURE_RASTERIZATION_RATE_MAPS },
+		{ METAL_QUERY_METALFX_SPATIAL, 3, 1, METAL_FEATURE_METALFX_SPATIAL },
+		{ METAL_QUERY_COUNTERS_STAGE, 2, 1, METAL_FEATURE_COUNTER_SAMPLING_STAGE },
+		{ METAL_QUERY_COUNTERS_DRAW, 2, 1, METAL_FEATURE_COUNTER_SAMPLING_DRAW },
+		{ METAL_QUERY_BC, 9, 1, METAL_FEATURE_BC_TEXTURES },
+		{ METAL_QUERY_FLOAT32_FILTER, 9, 1, METAL_FEATURE_FLOAT32_FILTERING },
+	};
+	int family, mac, row;
+	uint32_t subset;
+
+	for (family = 0; family <= 11; family++)
+		for (mac = 0; mac <= 1; mac++)
+			for (subset = 0; subset < (UINT32_C(1) << METAL_QUERY_COUNT); subset++)
+			{
+				struct metal_gate_facts facts = device(family, mac, subset);
+				uint32_t expected = 0;
+
+				metal_gate_adopt_facts(&facts);
+				for (row = 0; row < (int)(sizeof(rows) / sizeof(*rows)); row++)
+				{
+					int answer = (int)((subset >> rows[row].query) & 1);
+					int documented = family >= rows[row].family || (mac && rows[row].mac);
+					int raises = rows[row].query == METAL_QUERY_BC || rows[row].query == METAL_QUERY_FLOAT32_FILTER;
+					int overruled = (int)((metal_gate()->overruled >> rows[row].query) & 1);
+
+					if (answer && !documented && !raises)
+						expected |= UINT32_C(1) << rows[row].query;
+					if (!overruled && metal_feature(rows[row].feature) != answer)
+					{
+						fprintf(stderr, "Apple%d mac %d queries 0x%x: %s is %d, its query said %d\n", family, mac,
+							(unsigned)subset, metal_feature_name(rows[row].feature), metal_feature(rows[row].feature),
+							answer);
+						failures++;
+					}
+				}
+				if (metal_gate()->overruled != expected)
+				{
+					fprintf(stderr, "Apple%d mac %d queries 0x%x: overruled 0x%x, expected 0x%x\n", family, mac,
+						(unsigned)subset, (unsigned)metal_gate()->overruled, (unsigned)expected);
+					failures++;
+				}
+			}
+}
+
 static void check_tables(void)
 {
 	static const struct { const char *name; uint64_t needs; int floor; } passes[] = {
@@ -240,6 +290,7 @@ int main(int argc, char **argv)
 	/* iOS before 16.4 has no BC query: the answer is no */
 	compare("Apple9 on an OS without the BC query", device(9, 0, documented_queries(9, 0, 0, 0) & ~Q(BC)));
 	check_tables();
+	check_every_answer();
 	if (failures)
 	{
 		fprintf(stderr, "metal gate: %d disagreements\n", failures);
