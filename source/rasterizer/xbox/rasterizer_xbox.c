@@ -1260,6 +1260,11 @@ void rasterizer_set_model_lighting(
 		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox.c",
 		2898,
 		lighting->distant_light_count>=0 && lighting->distant_light_count<=MAXIMUM_RENDERED_DISTANT_LIGHTS);
+	/* port: the whole block is uploaded, and nothing below writes the
+	distant lights' pad0C and pad1C or the ambient pad, so c[-73].w to
+	c[-69].w carried leftover stack bytes (c[-69].w differed between two
+	runs of one build); clear the block first */
+	csmemset(&lighting_constants, 0, sizeof(lighting_constants));
 	if (rasterizer_debug_options.model_lighting_ambient > 0.0f)
 	{
 		csmemset(&lighting_constants, 0, sizeof(lighting_constants));
