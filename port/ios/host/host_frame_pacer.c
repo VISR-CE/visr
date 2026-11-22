@@ -484,7 +484,7 @@ static void adapt_frame(const struct frame_pacer_frame *frame, double at, double
 	snprintf(line, size, "frame pacer: %d frame%s in flight (%s): %.1f frames a second at two, GPU %.1f ms and grant to present "
 		"%.1f ms at worst, lead %.1f ms, period %.1f ms; next try at one in %.0f s", limit, limit == 1 ? "" : "s",
 		pacer.adapt.reason == FRAME_PACER_ADAPT_FITS ? "fits" : pacer.adapt.reason == FRAME_PACER_ADAPT_UNDER ?
-		"under its rate with the second slot idle" : pacer.adapt.reason == FRAME_PACER_ADAPT_MISSES ?
+		"under its rate" : pacer.adapt.reason == FRAME_PACER_ADAPT_MISSES ?
 		"frames missed waiting for the slot" : "an under-rate stay lost rate", pacer.adapt.rate_at_ceiling,
 		frame_pacer_adapt_worst(pacer.adapt.gpu, pacer.adapt.gpu_count) * 1e3,
 		frame_pacer_adapt_worst(pacer.adapt.grant, pacer.adapt.grant_count) * 1e3, shown.lead * 1e3, shown.period * 1e3,

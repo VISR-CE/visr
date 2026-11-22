@@ -85,7 +85,7 @@ int main(void)
     a = run(&wrong, 2, 300.0, 0);
     CHECK(a.switches >= 4 && a.switches <= 24 && a.retry_delay == FRAME_PACER_ADAPT_RETRY_MOST);
 
-    /* under rate, CPU-bound (the A10X iPad Pro at 128 players, about 18 a second, second slot idle): the floor */
+    /* under rate, CPU-bound (the A10X iPad Pro at 128 players, about 18 a second): the floor */
     struct stream cpu_under = { p60, { 0, 0.053, 0.055 }, { 0, 0, 0 }, 0.030, 0.004, 0.003, 0, 0, 0 };
     a = run(&cpu_under, 2, 30.0, 0);
     CHECK(a.limit == 1 && a.switches == 1 && a.reason == FRAME_PACER_ADAPT_UNDER);
@@ -112,7 +112,7 @@ int main(void)
     a = run(&air4, 2, 120.0, 0);
     CHECK(a.limit == 2 && a.switches == 0 && shown_rate > 59.0);
 
-    /* under rate with the second slot idle, but the floor loses rate: it leaves, and the retries grow */
+    /* under rate, but the floor loses rate: it leaves, and the retries grow */
     /* (30 ms at the floor against 22 at the ceiling: never one and a half intervals late, so the rate test leaves) */
     struct stream lossy = { p60, { 0, 0.030, 0.022 }, { 0, 0, 0 }, 0.012, 0.003, 0.003, 0, 0, 0 };
     a = run(&lossy, 2, 120.0, 0);

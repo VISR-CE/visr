@@ -367,16 +367,16 @@ frames and the build has none of this.
 
 - `frames_in_flight` (`"1"` to `"3"`, `"system"` or `"auto"`; default `"2"`,
   or `"auto"` with the encode thread on (`display.encode_thread`), whose game
-  thread otherwise queues a frame ahead of a GPU-bound display). `"auto"` runs
-  one frame in flight while a frame's GPU work and present fit the period, or
-  while the device is under its rate with the second slot idle, and two
-  otherwise (`frame_pacer_adapt.h`: one in flight halved the iPad Air 4 to 30
-  frames a second at 60, and two showed the A10X iPad Pro's input 25 to 35 ms
-  later at 128 players) is how many frames may be on their way to
-  the display at once. A frame is not started
+  thread otherwise queues a frame ahead of a GPU-bound display) is how many
+  frames may be on their way to the display at once. A frame is not started
   on its way until fewer than that many are waiting to be shown. `"1"` gives
   the shortest delay between the game and the screen, and costs frames
   whenever a frame's CPU and GPU work together take longer than one refresh.
+  `"auto"` runs one frame in flight while a frame's GPU work and present fit
+  the period, or while the device is under its rate and one in flight keeps
+  that rate, and two otherwise (`frame_pacer_adapt.h`: one in flight halved
+  the iPad Air 4 to 30 frames a second at 60, and two showed the A10X iPad
+  Pro's input 25 to 35 ms later at 128 players).
   `"system"` leaves the queue to the system, which allows up to three.
 - `frames_in_flight_at_30` (`"1"` or `"2"`; default empty, which follows
   `frames_in_flight`) is the limit while the frame rate in force is 30 or

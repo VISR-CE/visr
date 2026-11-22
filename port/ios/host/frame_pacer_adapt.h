@@ -58,7 +58,7 @@ enum frame_pacer_adapt_reason
 {
 	FRAME_PACER_ADAPT_NONE,
 	FRAME_PACER_ADAPT_FITS,        /* entered the floor: the work fits */
-	FRAME_PACER_ADAPT_UNDER,       /* entered the floor: under rate with the second slot idle */
+	FRAME_PACER_ADAPT_UNDER,       /* entered the floor: under rate at the ceiling */
 	FRAME_PACER_ADAPT_MISSES,      /* left the floor: slot-caused misses */
 	FRAME_PACER_ADAPT_RATE_LOST,   /* left the floor: an under-rate stay lost rate */
 };
