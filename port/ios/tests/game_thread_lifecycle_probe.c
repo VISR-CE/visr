@@ -47,8 +47,11 @@ static void wait_for(unsigned count)
 }
 /* the work a hold does before it waits (the encode queue's drain): counted, with the background flag it saw */
 static _Atomic unsigned befores, befores_in_background;
+static _Atomic int before_had_lock;
 static void before_waiting(void)
 {
+    if (!pthread_mutex_trylock(&foreground_wait.mutex)) pthread_mutex_unlock(&foreground_wait.mutex);
+    else atomic_store(&before_had_lock, 1);
     atomic_fetch_add(&befores, 1);
     if (atomic_load(&backgrounded)) atomic_fetch_add(&befores_in_background, 1);
 }
@@ -136,6 +139,23 @@ int main(void)
         assert(!pthread_join(worker, NULL));
     }
     assert(atomic_load(&befores) == 20 && atomic_load(&befores_in_background) == 20);
+    /* The background arrives while the hold is blocked on the lock (after any check made before it): the work still
+       comes before the wait, and the main thread's lock is never held across it. */
+    for (unsigned i = 0; i < 20; i++) {
+        unsigned before = atomic_load(&befores);
+        pthread_mutex_lock(&foreground_wait.mutex);
+        unsigned began = atomic_load(&waits);
+        assert(!pthread_create(&worker, NULL, hold_with_drain, NULL));
+        pause_briefly();
+        atomic_store(&backgrounded, 1);
+        pthread_mutex_unlock(&foreground_wait.mutex);
+        wait_for(began + 1);
+        assert(atomic_load(&befores) == before + 1);
+        host_lifecycle_wait_set(&foreground_wait, &backgrounded, 0);
+        assert(!pthread_join(worker, NULL));
+    }
+    /* before_waiting runs without the lock: the main thread's notification can take it meanwhile */
+    assert(!atomic_load(&before_had_lock));
     assert(!pthread_mutex_trylock(&foreground_wait.mutex));
     pthread_mutex_unlock(&foreground_wait.mutex);
     puts("PASS: lifecycle routing, foreground wakes, spurious wakes, repeated holds, timed fallback, work before the wait");
