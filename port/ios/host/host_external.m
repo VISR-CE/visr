@@ -26,6 +26,8 @@
 #include "host_config.h"
 #include "host_profile.h"
 
+/* declared before the posture code (iPhone only) that calls it */
+static void snapshot_output(int external,int width,int height,const char *reason);
 #if !TARGET_OS_VISION
 static struct host_external_snapshot snapshot;
 static pthread_mutex_t snapshot_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -518,7 +520,6 @@ void host_external_menu_splash(void) {
     }
 #endif
 }
-static void snapshot_output(int external,int width,int height,const char *reason);
 void host_external_attach(void *window_pointer,int metal) {
     host_main_sync(^{
         SDL_Window *window=window_pointer;
