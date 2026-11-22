@@ -77,6 +77,7 @@ static CFTimeInterval open_presentation;
 static CFTimeInterval open_deadline;
 /* host_theater_set_frame_repeat's count until the next frame opens; -1 for none */
 static _Atomic int repeat_pending = -1;
+static void frame_repeat_apply(void);
 /* when the open frame's wait ended and it opened, which is when its poses are read (the same clock): measured,
 not the predicted optimal input time, so a frame opened late shows in the lead */
 static CFTimeInterval open_input;
