@@ -401,6 +401,12 @@ void frame_pacer_refresh(double timestamp, double period)
 	if (pacer.started && frame_pacer_blank_refresh(&pacer.blank, timestamp))
 		pthread_cond_broadcast(&pacer.shown_or_ticked);
 	pthread_mutex_unlock(&pacer.lock);
+	/* (debug.present_times: the display's own account of its refreshes, on the present times' clock, to set beside
+	when frames were shown: the refresh the link reports, the next one it expects, and how long after the first the
+	call came) */
+	if (pacer.times && pacer.started)
+		platform_log("frame pacer: refresh at %.3f ms, the next expected at %.3f ms, told %.3f ms after",
+			timestamp * 1e3, (timestamp + period) * 1e3, (now_seconds() - timestamp) * 1e3);
 }
 
 int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long number, double began, int waits_for_display)
