@@ -5,6 +5,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 static void writer_log(int warning, const char *line)
 {
@@ -17,7 +19,14 @@ void host_save_writer_start(const char *save_root)
 
 	save_writer_start(NULL, writer_log);
 	if ((size_t)snprintf(session, sizeof(session), "%s/z", save_root) < sizeof(session))
+	{
+		char old_checkpoint[1200];
+
 		save_writer_clean(NULL, session);
+		/* the checkpoint file of builds before the checkpoint was kept in memory: nothing reads it now */
+		snprintf(old_checkpoint, sizeof(old_checkpoint), "%s/" SAVED_GAME_FILE, session);
+		unlink(old_checkpoint);
+	}
 }
 
 void host_save_writer_unlinking(const char *path)
@@ -40,15 +49,17 @@ void host_save_writer_wait(double seconds)
 		host_logf(HOST_LOG_INFO, "saved game: a checkpoint was still being written after %.0f s; the saved game stays the one before it", seconds);
 }
 
-void host_save_checkpoint_begin(void)
-{
-	save_writer_checkpoint_begin();
-}
-
-void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size)
+int host_save_checkpoint_store(const void *image, unsigned int size, const char *session_path, const char *target_path)
 {
 	static int told;
+	struct timespec began, ended;
+	int stored;
 
+	if (!image)
+		return 0;
+	clock_gettime(CLOCK_MONOTONIC, &began);
+	stored = save_writer_checkpoint_store(image, size, session_path, target_path);
+	clock_gettime(CLOCK_MONOTONIC, &ended);
 	/* (the game's thread only: once a run, so a log says which kind of game it was) */
 	if (!target_path && !told)
 	{
@@ -56,14 +67,25 @@ void host_save_checkpoint_end(const char *checkpoint_path, const char *target_pa
 		host_logf(HOST_LOG_INFO, "saved game: this game's checkpoints are not written to a saved game (no profile, co-op, "
 			"a network game, a replay or scripted run, or saves.checkpoint_persist off)");
 	}
-	/* (a line a checkpoint: a log then shows where each fell among the frames, kept or not) */
-	host_logf(HOST_LOG_INFO, "saved game: checkpoint, %s", target_path ? "to be the saved game" : "not kept");
-	save_writer_checkpoint_end(checkpoint_path ? checkpoint_path : "", target_path, size);
+	/* (a line a checkpoint: a log then shows where each fell among the frames, kept or not, and what it cost
+	   the game's thread) */
+	if (stored)
+		host_logf(HOST_LOG_INFO, "saved game: checkpoint, %s; the game's thread kept it in %.1f ms",
+			target_path ? "to be the saved game" : "not kept",
+			(double)(ended.tv_sec - began.tv_sec) * 1e3 + (double)(ended.tv_nsec - began.tv_nsec) / 1e6);
+	else
+		host_logf(HOST_LOG_WARN, "saved game: no memory to keep a checkpoint of %u bytes; there is none to revert to", size);
+	return stored;
 }
 
-int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size)
+int host_save_checkpoint_load(void *image, unsigned int size)
 {
-	if (!checkpoint_path || !target_path || !image)
+	return image ? save_writer_checkpoint_load(image, size) : 0;
+}
+
+int host_save_write_now(const char *session_path, const char *target_path, const void *image, unsigned int size)
+{
+	if (!session_path || !target_path || !image)
 		return 0;
-	return save_writer_write_now(checkpoint_path, target_path, image, size);
+	return save_writer_write_now(session_path, target_path, image, size);
 }

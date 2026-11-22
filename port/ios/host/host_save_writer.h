@@ -1,9 +1,10 @@
-/* The saved game's writer in the host (port/runtime/save_writer.h has the rules): the guest's three
+/* The saved game's writer in the host (port/runtime/save_writer.h has the rules): the guest's
    imports, and what the host itself calls around them. */
 #ifndef HOST_SAVE_WRITER_H
 #define HOST_SAVE_WRITER_H
 
-/* at startup, before the game: removes what a run that ended early left in <save_root>/z */
+/* at startup, before the game: removes what a run that ended early left in <save_root>/z, and the checkpoint
+   file builds before this one kept there (21 MB that nothing reads now) */
 void host_save_writer_start(const char *save_root);
 /* the guest is about to unlink path: a saved game being deleted is not written again behind it */
 void host_save_writer_unlinking(const char *path);
@@ -11,9 +12,9 @@ void host_save_writer_unlinking(const char *path);
 void host_save_writer_wait(double seconds);
 
 /* the guest's imports (guest_host.h): paths are host paths, as the guest's own file calls pass them */
-void host_save_checkpoint_begin(void);
+int host_save_checkpoint_store(const void *image, unsigned int size, const char *session_path, const char *target_path);
+int host_save_checkpoint_load(void *image, unsigned int size);
 void host_save_withdraw_folder(const char *folder_path);
-void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size);
-int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size);
+int host_save_write_now(const char *session_path, const char *target_path, const void *image, unsigned int size);
 
 #endif

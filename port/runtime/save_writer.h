@@ -1,13 +1,14 @@
 /* The one writer of a profile's saved game (<save root>/u/UDATA/<slot>/savegame.bin).
 
    A saved game is replaced whole: the new image goes to a temporary file in the session folder (the folder
-   of the checkpoint file, <save root>/z: the same volume, and outside every slot, so nothing that reads a
+   <save root>/z: the same volume, and outside every slot, so nothing that reads a
    slot ever sees it), is synced to the disk, renamed over the saved game, and the slot's folder is synced.
    Whenever the process or the power ends, the saved game is the old one or the new one.
 
-   Two ways in. At a checkpoint the game has just written the game state to its checkpoint file; a worker
-   thread copies that file, with the checksum a saved game carries, so the game's thread only counts a
-   generation and posts a request. Save and Quit writes the game's own buffer before it returns.
+   Two ways in. At a checkpoint the game's thread copies the game state into a buffer kept here (the session's
+   checkpoint, which a revert copies back), and a worker thread writes that buffer out, with the checksum a
+   saved game carries: the game's thread touches no file. Save and Quit writes the game's own buffer before it
+   returns.
 
    All I/O goes through a table of functions, so a test can record the order of the calls and fail any. */
 #ifndef SAVE_WRITER_H
@@ -43,9 +44,9 @@ struct save_writer_io
 
 extern const struct save_writer_io save_writer_posix_io;
 
-/* The temporary file's name for a saved game at target_path, in the folder of checkpoint_path. 0 when the
+/* The temporary file's name for a saved game at target_path, in the folder of session_path (any path in the session folder). 0 when the
    paths cannot be used. */
-int save_writer_temporary_path(const char *checkpoint_path, const char *target_path, char *path, size_t path_size);
+int save_writer_temporary_path(const char *session_path, const char *target_path, char *path, size_t path_size);
 /* the prefix and suffix of every temporary file, for the cleanup at launch */
 #define SAVE_WRITER_TEMPORARY_PREFIX "persist-"
 #define SAVE_WRITER_TEMPORARY_SUFFIX ".new"
@@ -64,10 +65,14 @@ int save_writer_replace_with_data(const struct save_writer_io *io, const char *t
 enum { SAVE_WRITER_REFUSED = -2, SAVE_WRITER_FAILED = -1, SAVE_WRITER_ABANDONED = 0, SAVE_WRITER_REPLACED = 1 };
 int save_writer_replace_with_image(const struct save_writer_io *io, const char *temporary_path, const char *target_path,
 	const uint8_t *image, size_t size, int (*current)(void *context), void *context);
-/* The same from a file of exactly size bytes (the checkpoint file), read in pieces. current is also asked
-   after the read, so a source that changed while it was read is never used. */
-int save_writer_replace_with_file(const struct save_writer_io *io, const char *source_path, const char *temporary_path,
-	const char *target_path, size_t size, int (*current)(void *context), void *context);
+/* The same from a source read a piece at a time, in order, each piece once (the worker's: the kept checkpoint).
+   A reader returns SAVE_WRITER_PIECE_READ, SAVE_WRITER_PIECE_FAILED, or SAVE_WRITER_PIECE_GONE when the source
+   is no longer the image the write was asked for, which abandons the write. current is also asked after the
+   last piece, so a source that changed while it was read is never used. */
+enum { SAVE_WRITER_PIECE_GONE = -1, SAVE_WRITER_PIECE_FAILED = 0, SAVE_WRITER_PIECE_READ = 1 };
+typedef int save_writer_piece_reader(void *read_context, uint8_t *piece, size_t count, size_t offset);
+int save_writer_replace_with_pieces(const struct save_writer_io *io, save_writer_piece_reader *read_piece, void *read_context,
+	const char *temporary_path, const char *target_path, size_t size, int (*current)(void *context), void *context);
 
 /* ---- the worker: one per process */
 
@@ -75,14 +80,17 @@ int save_writer_replace_with_file(const struct save_writer_io *io, const char *s
 void save_writer_start(const struct save_writer_io *io, void (*log)(int warning, const char *line));
 /* removes temporary files a run that ended early left in the session folder */
 void save_writer_clean(const struct save_writer_io *io, const char *session_folder);
-/* around the game's write of its checkpoint file, on the game's thread: the worker never uses a copy of the
-   file that overlaps one */
-void save_writer_checkpoint_begin(void);
-/* target_path NULL: the checkpoint is not to become the saved game */
-void save_writer_checkpoint_end(const char *checkpoint_path, const char *target_path, size_t size);
+/* A checkpoint, on the game's thread: the image becomes the session's checkpoint (a copy; no file is touched),
+   and with a target_path also the profile's saved game, written by the worker (NULL: it stays a checkpoint
+   only). session_path is any path in the session folder, where the temporary file goes. A checkpoint being
+   written when the next one comes is abandoned without a wait. 0 when there is no memory for the copy: there
+   is then no checkpoint to revert to. */
+int save_writer_checkpoint_store(const uint8_t *image, size_t size, const char *session_path, const char *target_path);
+/* A revert, on the game's thread: the session's checkpoint, copied into image. 0 when there is none of this size. */
+int save_writer_checkpoint_load(uint8_t *image, size_t size);
 /* Save and Quit, on the game's thread: withdraws a queued checkpoint, waits for one being written, and
    replaces the saved game with the image before it returns. 1 on success. */
-int save_writer_write_now(const char *checkpoint_path, const char *target_path, const uint8_t *image, size_t size);
+int save_writer_write_now(const char *session_path, const char *target_path, const uint8_t *image, size_t size);
 /* the saved game at target_path is being deleted: withdraws and waits for a write to it */
 void save_writer_withdraw(const char *target_path);
 /* The profile whose folder this is is about to be deleted, before the game lists the folder's files:

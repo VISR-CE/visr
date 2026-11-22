@@ -1068,13 +1068,13 @@ __attribute__((weak)) void * host_resolve_import(const char *name)
 { fprintf(stderr, "host_stubs: probe called host_resolve_import without defining it\n"); abort(); }
 __attribute__((weak)) void host_run_guest_main(uint32_t boot)
 { abort(); }
-__attribute__((weak)) void host_save_checkpoint_begin(void)
-{ }
-__attribute__((weak)) void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size)
-{ }
+__attribute__((weak)) int host_save_checkpoint_load(void *image, unsigned int size)
+{ fprintf(stderr, "host_stubs: probe called host_save_checkpoint_load without defining it\n"); abort(); }
+__attribute__((weak)) int host_save_checkpoint_store(const void *image, unsigned int size, const char *session_path, const char *target_path)
+{ fprintf(stderr, "host_stubs: probe called host_save_checkpoint_store without defining it\n"); abort(); }
 __attribute__((weak)) void host_save_withdraw_folder(const char *folder_path)
 { }
-__attribute__((weak)) int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size)
+__attribute__((weak)) int host_save_write_now(const char *session_path, const char *target_path, const void *image, unsigned int size)
 { fprintf(stderr, "host_stubs: probe called host_save_write_now without defining it\n"); abort(); }
 __attribute__((weak)) void host_save_writer_start(const char *save_root)
 { }

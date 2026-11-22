@@ -150,19 +150,19 @@ static int slot_and_file(const char *target_path, const char **slot, size_t *slo
 	return *slot_length != 0;
 }
 
-int save_writer_temporary_path(const char *checkpoint_path, const char *target_path, char *path, size_t path_size)
+int save_writer_temporary_path(const char *session_path, const char *target_path, char *path, size_t path_size)
 {
 	size_t folder_length, slot_length;
 	const char *slot;
 	int length;
 
-	if (!checkpoint_path || !target_path || !slot_and_file(target_path, &slot, &slot_length))
+	if (!session_path || !target_path || !slot_and_file(target_path, &slot, &slot_length))
 		return 0;
-	(void)last_component(checkpoint_path, &folder_length);
+	(void)last_component(session_path, &folder_length);
 	if (!folder_length)
 		return 0;
 	length = snprintf(path, path_size, "%.*s/" SAVE_WRITER_TEMPORARY_PREFIX "%.*s" SAVE_WRITER_TEMPORARY_SUFFIX,
-		(int)folder_length, checkpoint_path, (int)slot_length, slot);
+		(int)folder_length, session_path, (int)slot_length, slot);
 	return length > 0 && (size_t)length < path_size;
 }
 
@@ -278,14 +278,14 @@ int save_writer_replace_with_image(const struct save_writer_io *io, const char *
 	return finish(io, file, temporary_path, target_path, current, context);
 }
 
-int save_writer_replace_with_file(const struct save_writer_io *io, const char *source_path, const char *temporary_path,
-	const char *target_path, size_t size, int (*current)(void *context), void *context)
+int save_writer_replace_with_pieces(const struct save_writer_io *io, save_writer_piece_reader *read_piece, void *read_context,
+	const char *temporary_path, const char *target_path, size_t size, int (*current)(void *context), void *context)
 {
 	uint8_t checksum[4];
 	uint8_t *piece;
 	uint32_t crc = SAVED_GAME_CRC_START;
 	size_t offset = 0;
-	int source, file, result = SAVE_WRITER_FAILED;
+	int file, result = SAVE_WRITER_FAILED;
 
 	if (size < SAVED_GAME_HEADER_SIZE)
 		return SAVE_WRITER_FAILED;
@@ -296,38 +296,39 @@ int save_writer_replace_with_file(const struct save_writer_io *io, const char *s
 	piece = malloc(COPY_PIECE);
 	if (!piece)
 		return SAVE_WRITER_FAILED;
-	source = io->open(io->context, source_path, 0);
-	if (source < 0)
-	{
-		free(piece);
-		return SAVE_WRITER_FAILED;
-	}
 	file = io->open(io->context, temporary_path, 1);
 	if (file < 0)
 	{
-		io->close(io->context, source);
 		free(piece);
 		return SAVE_WRITER_FAILED;
 	}
 	while (offset < size)
 	{
 		size_t count = size - offset < COPY_PIECE ? size - offset : COPY_PIECE;
+		int read = read_piece(read_context, piece, count, offset);
 
-		if (io->read_at(io->context, source, piece, count, (long long)offset) != (long long)count ||
-			io->write_at(io->context, file, piece, count, (long long)offset) != 0)
+		if (read != SAVE_WRITER_PIECE_READ)
+		{
+			/* (a source that is another checkpoint's by now is no failure of the disk) */
+			if (read == SAVE_WRITER_PIECE_GONE)
+				result = SAVE_WRITER_ABANDONED;
+			break;
+		}
+		if (io->write_at(io->context, file, piece, count, (long long)offset) != 0)
 			break;
 		crc = saved_game_crc_run(crc, piece, offset, count);
 		offset += count;
-		/* overtaken or withdrawn: whoever waits for this copy (Save and Quit, a profile being deleted)
-		   waits for one piece, not for the file */
+		/* overtaken or withdrawn: whoever waits for this write (Save and Quit, a profile being deleted)
+		   waits for one piece, not for the image */
 		if (offset < size && current && !current(context))
+		{
+			result = SAVE_WRITER_ABANDONED;
 			break;
+		}
 	}
-	io->close(io->context, source);
 	free(piece);
 	if (offset == size)
 	{
-		/* a copy that overlapped the game's next write of the file is no checkpoint at all */
 		if (current && !current(context))
 			result = SAVE_WRITER_ABANDONED;
 		else
@@ -349,7 +350,7 @@ struct request
 	int valid;
 	unsigned generation;
 	size_t size;
-	char checkpoint[PATH_SIZE], target[PATH_SIZE], temporary[PATH_SIZE];
+	char target[PATH_SIZE], temporary[PATH_SIZE];
 };
 
 static struct
@@ -366,8 +367,20 @@ static struct
 /* (the log is never called with the lock held: the game's thread takes the lock at every checkpoint) */
 static atomic_int writer_refusal_logged;
 
-/* odd while the game writes its checkpoint file */
+/* counts the checkpoints kept: a write is of the checkpoint its request names, or of none */
 static atomic_uint writer_generation;
+
+/* The session's checkpoint: the game state as it was at the last one. The game's thread copies into it at a
+   checkpoint and out of it at a revert; the worker copies out of it a piece at a time. The lock is held around
+   those copies and nothing else (never around a call to the disk), so the game's thread waits for one piece's
+   copy at most. The buffer is made at the first checkpoint and never freed: the worker is detached. */
+static struct
+{
+	pthread_mutex_t lock;
+	uint8_t *image;
+	size_t size;
+	int valid;
+} kept = { PTHREAD_MUTEX_INITIALIZER, NULL, 0, 0 };
 /* the write in progress is not to reach the saved game */
 static atomic_int writer_withdrawn;
 
@@ -400,6 +413,22 @@ static int worker_current(void *context)
 	return atomic_load(&writer_generation) == request->generation && !atomic_load(&writer_withdrawn);
 }
 
+/* a piece of the checkpoint the request is of; none once the game has kept another */
+static int worker_read_piece(void *context, uint8_t *piece, size_t count, size_t offset)
+{
+	const struct request *request = context;
+	int read = SAVE_WRITER_PIECE_GONE;
+
+	pthread_mutex_lock(&kept.lock);
+	if (kept.valid && atomic_load(&writer_generation) == request->generation && offset + count <= kept.size)
+	{
+		memcpy(piece, kept.image + offset, count);
+		read = SAVE_WRITER_PIECE_READ;
+	}
+	pthread_mutex_unlock(&kept.lock);
+	return read;
+}
+
 static void *worker(void *unused)
 {
 	(void)unused;
@@ -419,7 +448,7 @@ static void *worker(void *unused)
 		writer.busy = 1;
 		atomic_store(&writer_withdrawn, 0);
 		pthread_mutex_unlock(&writer.lock);
-		result = save_writer_replace_with_file(writer.io, writer.active.checkpoint, writer.active.temporary,
+		result = save_writer_replace_with_pieces(writer.io, worker_read_piece, &writer.active, writer.active.temporary,
 			writer.active.target, writer.active.size, worker_current, &writer.active);
 		writer_log_result(result, writer.active.target);
 		pthread_mutex_lock(&writer.lock);
@@ -462,27 +491,39 @@ void save_writer_clean(const struct save_writer_io *io, const char *session_fold
 	closedir(folder);
 }
 
-void save_writer_checkpoint_begin(void)
-{
-	atomic_fetch_add(&writer_generation, 1);
-}
-
-void save_writer_checkpoint_end(const char *checkpoint_path, const char *target_path, size_t size)
+int save_writer_checkpoint_store(const uint8_t *image, size_t size, const char *session_path, const char *target_path)
 {
 	struct request request = { 0 };
-	unsigned generation = atomic_fetch_add(&writer_generation, 1) + 1;
+	unsigned generation;
+	int stored;
 
-	if (target_path && strlen(checkpoint_path) < PATH_SIZE && strlen(target_path) < PATH_SIZE &&
-		save_writer_temporary_path(checkpoint_path, target_path, request.temporary, sizeof(request.temporary)))
+	pthread_mutex_lock(&kept.lock);
+	/* (whatever the worker is writing is of the checkpoint before: it reads no more of it) */
+	generation = atomic_fetch_add(&writer_generation, 1) + 1;
+	if (kept.image && kept.size != size)
+	{
+		free(kept.image);
+		kept.image = NULL;
+	}
+	if (!kept.image)
+		kept.image = malloc(size);
+	kept.size = size;
+	kept.valid = kept.image != NULL;
+	if (kept.valid)
+		memcpy(kept.image, image, size);
+	stored = kept.valid;
+	pthread_mutex_unlock(&kept.lock);
+
+	if (stored && target_path && session_path && strlen(target_path) < PATH_SIZE &&
+		save_writer_temporary_path(session_path, target_path, request.temporary, sizeof(request.temporary)))
 	{
 		request.valid = 1;
 		request.generation = generation;
 		request.size = size;
-		strcpy(request.checkpoint, checkpoint_path);
 		strcpy(request.target, target_path);
 	}
 	pthread_mutex_lock(&writer.lock);
-	/* a checkpoint that is not to be saved still takes the place of an older one that waits: its file is gone */
+	/* a checkpoint that is not to be saved still takes the place of an older one that waits: that one is gone */
 	writer.queued = request;
 	if (request.valid)
 	{
@@ -501,6 +542,19 @@ void save_writer_checkpoint_end(const char *checkpoint_path, const char *target_
 		pthread_cond_broadcast(&writer.changed);
 	}
 	pthread_mutex_unlock(&writer.lock);
+	return stored;
+}
+
+int save_writer_checkpoint_load(uint8_t *image, size_t size)
+{
+	int loaded;
+
+	pthread_mutex_lock(&kept.lock);
+	loaded = kept.valid && kept.size == size;
+	if (loaded)
+		memcpy(image, kept.image, size);
+	pthread_mutex_unlock(&kept.lock);
+	return loaded;
 }
 
 /* with the lock held: nothing queued, and nothing being written when it returns */
@@ -513,13 +567,13 @@ static void quiesce_locked(void)
 		pthread_cond_wait(&writer.changed, &writer.lock);
 }
 
-int save_writer_write_now(const char *checkpoint_path, const char *target_path, const uint8_t *image, size_t size)
+int save_writer_write_now(const char *session_path, const char *target_path, const uint8_t *image, size_t size)
 {
 	char temporary[PATH_SIZE];
 	const struct save_writer_io *io;
 	int result;
 
-	if (!save_writer_temporary_path(checkpoint_path, target_path, temporary, sizeof(temporary)))
+	if (!save_writer_temporary_path(session_path, target_path, temporary, sizeof(temporary)))
 		return 0;
 	pthread_mutex_lock(&writer.lock);
 	quiesce_locked();

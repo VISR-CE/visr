@@ -1399,7 +1399,7 @@ def seed_native_data(args, data):
     """seed a data folder that has no `seeded` marker: play two throwaway runs, then write the marker.
     The a10 run comes first: a host's first a10 GL run in a newly seeded folder has fallen behind on
     two of the build hosts. The menu run comes second: the first menu run in a new folder
-    writes last_language.dat and savegame.bin and precaches the ui map once more, so it differs from
+    writes last_language.dat and precaches the ui map once more, so it differs from
     every later menu run, and the iPad runner's container is always past that state. A folder without
     maps is cloned from --maps first (into maps.partial, renamed when complete, so an interrupted
     clone is redone); a failed throwaway run then unseeds it. A folder that already has maps (made some

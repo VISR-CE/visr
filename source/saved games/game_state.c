@@ -332,11 +332,11 @@ void game_state_save(
 
 	main_stop_time();
 	/* port: the checkpoint is also the profile's saved game from here on, where
-	the Xbox game kept it only until the console was switched off. The host
-	copies the file just written on a thread of its own (saved_game_persist.h). */
-	saved_game_persist_checkpoint_begin();
+	the Xbox game kept it only until the console was switched off. On the Apple
+	builds game_state_write_to_file hands the game state to the host, which keeps
+	a copy for a revert and writes the saved game on a thread of its own
+	(saved_game_persist.h). */
 	game_state_globals.saved_game_valid = (game_state_write_to_file()!=FALSE);
-	saved_game_persist_checkpoint_end(game_state_globals.saved_game_valid, GAME_STATE_SIZE);
 	main_start_time();
 	/* port: never associate new players with an older or failed save. */
 	if (game_state_globals.saved_game_valid)

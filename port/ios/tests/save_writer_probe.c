@@ -118,6 +118,10 @@ static int call_count;
 static int fail_at = -1, dead_at = -1, dead, short_source;
 static int slot_checked, renamed;
 static atomic_int gate_closed, gate_reached;
+/* the call the gate holds (the worker's first write of a piece, unless a test names another) */
+static const char *gate_at = "write";
+/* the image a piece reader reads (replace(1, ...)) */
+static const uint8_t *piece_source;
 
 static void slot_holds_only_the_saved_game(void)
 {
@@ -143,6 +147,12 @@ static int step(const char *name)
 		strcat(calls, " ");
 	}
 	slot_holds_only_the_saved_game();
+	if (atomic_load(&gate_closed) && !strcmp(name, gate_at))
+	{
+		atomic_store(&gate_reached, 1);
+		while (atomic_load(&gate_closed))
+			usleep(1000);
+	}
 	if (dead || index == dead_at)
 	{
 		dead = 1;
@@ -155,17 +165,16 @@ static int rec_open(void *c, const char *path, int create) { return step(create 
 static int rec_open_folder(void *c, const char *path) { return step("open_folder") ? save_writer_posix_io.open_folder(c, path) : -1; }
 static long long rec_read_at(void *c, int file, void *data, size_t size, long long offset)
 {
-	if (!step("read"))
-		return -1;
-	if (atomic_load(&gate_closed))
-	{
-		atomic_store(&gate_reached, 1);
-		while (atomic_load(&gate_closed))
-			usleep(1000);
-	}
-	if (short_source && offset + (long long)size >= IMAGE_SIZE)
-		size--;
-	return save_writer_posix_io.read_at(c, file, data, size, offset);
+	return step("read") ? save_writer_posix_io.read_at(c, file, data, size, offset) : -1;
+}
+/* a source read a piece at a time: an image in memory, as the worker's is */
+static int read_piece(void *context, uint8_t *piece, size_t count, size_t offset)
+{
+	(void)context;
+	if (!step("read") || (short_source && offset + count >= IMAGE_SIZE))
+		return SAVE_WRITER_PIECE_FAILED;
+	memcpy(piece, piece_source + offset, count);
+	return SAVE_WRITER_PIECE_READ;
 }
 static int rec_write_at(void *c, int file, const void *data, size_t size, long long offset) { return step("write") ? save_writer_posix_io.write_at(c, file, data, size, offset) : -1; }
 static int rec_full_sync(void *c, int file) { return step("full_sync") ? save_writer_posix_io.full_sync(c, file) : -1; }
@@ -210,10 +219,11 @@ static void begin(const char *name, const uint8_t *old)
 
 /* ---- one replacement */
 
-static int replace(int from_file, const uint8_t *image)
+static int replace(int from_pieces, const uint8_t *image)
 {
-	if (from_file)
-		return save_writer_replace_with_file(&recording, checkpoint_path, temporary_path, target_path, IMAGE_SIZE, NULL, NULL);
+	piece_source = image;
+	if (from_pieces)
+		return save_writer_replace_with_pieces(&recording, read_piece, NULL, temporary_path, target_path, IMAGE_SIZE, NULL, NULL);
 	return save_writer_replace_with_image(&recording, temporary_path, target_path, image, IMAGE_SIZE, NULL, NULL);
 }
 
@@ -236,15 +246,14 @@ static void test_order_and_content(void)
 {
 	static const char *const image_order[] = { "size ", "create ", "write write write ", "full_sync ", "close ", "rename ",
 		"open_folder ", "sync_folder ", "close " };
-	static const char *const file_order[] = { "size ", "open ", "create ", "read write ", "close ", "write ", "full_sync ", "close ",
+	static const char *const file_order[] = { "size ", "create ", "read write ", "read write ", "write ", "full_sync ", "close ",
 		"rename ", "open_folder ", "sync_folder ", "close " };
 	uint8_t *old = make_image(1), *new = make_image(2), *before = make_image(2);
 	int from_file;
 
 	for (from_file = 0; from_file < 2; from_file++)
 	{
-		begin(from_file ? "order, from the checkpoint file" : "order, from the game's buffer", old);
-		put(checkpoint_path, new, IMAGE_SIZE);
+		begin(from_file ? "order, a piece at a time" : "order, from the game's buffer", old);
 		CHECK(!image_whole(new, IMAGE_SIZE));
 		CHECK(replace(from_file, new) == SAVE_WRITER_REPLACED);
 		check_order(from_file ? file_order : image_order,
@@ -255,14 +264,19 @@ static void test_order_and_content(void)
 		CHECK(!strstr(calls, "remove "));
 		CHECK(file_is_image(target_path, new));
 		CHECK(!exists(temporary_path));
-		/* the game's buffer and its checkpoint file are as they were */
+		/* the game's buffer is as it was */
 		CHECK(!memcmp(new, before, IMAGE_SIZE));
+		/* and the two ways write the same file, checksum and all */
 		{
+			static uint8_t *whole_way;
 			size_t size;
-			uint8_t *source = get(checkpoint_path, &size);
+			uint8_t *written = get(target_path, &size);
 
-			CHECK(source && size == IMAGE_SIZE && !memcmp(source, before, IMAGE_SIZE));
-			free(source);
+			CHECK(written && size == IMAGE_SIZE && image_whole(written, size));
+			if (whole_way)
+				CHECK(!memcmp(written, whole_way, size));
+			else
+				whole_way = written;
 		}
 	}
 	free(old); free(new); free(before);
@@ -279,7 +293,6 @@ static void test_every_failure_and_every_death(void)
 	CHECK(replace(0, old) == SAVE_WRITER_REPLACED);
 	stamped_old = get(target_path, &size);
 	CHECK(stamped_old && size == IMAGE_SIZE && image_whole(stamped_old, size));
-	put(checkpoint_path, new, IMAGE_SIZE);
 	for (from_file = 0; from_file < 2; from_file++)
 	{
 		begin("failures: a clean run", stamped_old);
@@ -375,8 +388,7 @@ static void test_short_source_and_other_sizes(void)
 {
 	uint8_t *old = make_image(1), *new = make_image(2);
 
-	begin("a checkpoint file that ends early", old);
-	put(checkpoint_path, new, IMAGE_SIZE);
+	begin("a source that fails at its last piece", old);
 	short_source = 1;
 	CHECK(replace(1, new) == SAVE_WRITER_FAILED);
 	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE) && !exists(temporary_path));
@@ -430,6 +442,7 @@ static void test_clean(void)
 	put(checkpoint_path, &byte, 1);
 	save_writer_clean(NULL, session);
 	CHECK(!exists(leftover) && exists(other) && exists(kept) && exists(checkpoint_path));
+	unlink(checkpoint_path);
 	unlink(other); unlink(kept);
 }
 
@@ -454,11 +467,25 @@ static void wait_for_gate(void)
 
 static void close_gate(void) { atomic_store(&gate_reached, 0); atomic_store(&gate_closed, 1); }
 
+/* the game's thread at a checkpoint; it never waits for the disk */
 static void checkpoint(const uint8_t *image, int save)
 {
-	save_writer_checkpoint_begin();
-	put(checkpoint_path, image, IMAGE_SIZE);
-	save_writer_checkpoint_end(checkpoint_path, save ? target_path : NULL, IMAGE_SIZE);
+	/* (with the worker held at the gate, any call counted across this would be this thread's) */
+	int held = atomic_load(&gate_closed) && atomic_load(&gate_reached);
+	int calls_before = held ? call_count : 0;
+
+	CHECK(save_writer_checkpoint_store(image, IMAGE_SIZE, checkpoint_path, save ? target_path : NULL));
+	if (held)
+		CHECK(call_count == calls_before);
+}
+
+static int checkpoint_is(const uint8_t *image)
+{
+	uint8_t *loaded = malloc(IMAGE_SIZE);
+	int same = loaded && save_writer_checkpoint_load(loaded, IMAGE_SIZE) && !memcmp(loaded, image, IMAGE_SIZE);
+
+	free(loaded);
+	return same;
 }
 
 static void test_worker(void)
@@ -469,10 +496,27 @@ static void test_worker(void)
 
 	save_writer_start(&recording, NULL);
 
+	begin("a revert before any checkpoint", old);
+	{
+		uint8_t *loaded = malloc(IMAGE_SIZE);
+
+		CHECK(loaded && !save_writer_checkpoint_load(loaded, IMAGE_SIZE));
+		free(loaded);
+	}
+
 	begin("a checkpoint becomes the saved game", old);
 	checkpoint(first, 1);
+	CHECK(checkpoint_is(first));
 	CHECK(save_writer_wait(10));
 	CHECK(file_is_image(target_path, first) && !exists(temporary_path));
+	CHECK(checkpoint_is(first) && !exists(checkpoint_path));
+	/* a checkpoint of another size is no checkpoint to a revert that asks for this one */
+	{
+		uint8_t *loaded = malloc(IMAGE_SIZE + 1);
+
+		CHECK(loaded && !save_writer_checkpoint_load(loaded, IMAGE_SIZE + 1) && !save_writer_checkpoint_load(loaded, IMAGE_SIZE - 1));
+		free(loaded);
+	}
 	CHECK(save_writer_replaced_count() == 1);
 	CHECK(strstr(calls, "full_sync ") && strstr(calls, "full_sync ") < strstr(calls, "rename "));
 
@@ -480,8 +524,9 @@ static void test_worker(void)
 	checkpoint(second, 0);
 	CHECK(save_writer_wait(10));
 	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE) && call_count == 0);
+	CHECK(checkpoint_is(second));
 
-	/* the game writes its next checkpoint while the worker copies this one: the copy is of no checkpoint */
+	/* the game keeps its next checkpoint while the worker writes this one: the write is of no checkpoint */
 	begin("a checkpoint overtaken while it is copied", old);
 	count = save_writer_replaced_count();
 	close_gate();
@@ -489,10 +534,31 @@ static void test_worker(void)
 	wait_for_gate();
 	CHECK(!save_writer_wait(0.05));
 	checkpoint(second, 0);
+	CHECK(checkpoint_is(second));
 	atomic_store(&gate_closed, 0);
 	CHECK(save_writer_wait(10));
 	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE) && !exists(temporary_path));
 	CHECK(save_writer_replaced_count() == count);
+
+	/* The class of bug this guards: the game's thread waiting for the disk at a checkpoint. The worker sits in
+	   the full sync of one checkpoint (the slowest call there is) while the game keeps two more and reverts:
+	   none of that waits, the sync's checkpoint never becomes the saved game, and the newest does. */
+	begin("checkpoints and a revert while the worker syncs", old);
+	count = save_writer_replaced_count();
+	gate_at = "full_sync";
+	close_gate();
+	checkpoint(first, 1);
+	wait_for_gate();
+	checkpoint(second, 1);
+	CHECK(checkpoint_is(second));
+	checkpoint(third, 1);
+	CHECK(checkpoint_is(third));
+	CHECK(atomic_load(&gate_closed) && !save_writer_wait(0));
+	atomic_store(&gate_closed, 0);
+	gate_at = "write";
+	CHECK(save_writer_wait(10));
+	CHECK(file_is_image(target_path, third) && !exists(temporary_path) && checkpoint_is(third));
+	CHECK(save_writer_replaced_count() == count + 1);
 
 	/* checkpoints that arrive while one is written: only the newest is written after it */
 	begin("checkpoints queue as one", old);
@@ -504,7 +570,7 @@ static void test_worker(void)
 	atomic_store(&gate_closed, 0);
 	CHECK(save_writer_wait(10));
 	CHECK(file_is_image(target_path, third));
-	CHECK(save_writer_replaced_count() == count + 1);
+	CHECK(save_writer_replaced_count() == count + 2);
 
 	/* Save and Quit while a checkpoint is being written: the game's buffer is what is saved, and the
 	   worker's copy never lands after it */
@@ -519,6 +585,8 @@ static void test_worker(void)
 	CHECK(save_writer_wait(10));
 	CHECK(file_is_image(target_path, second) && !exists(temporary_path));
 	CHECK(save_writer_replaced_count() == count);
+	/* (the session's checkpoint is still the one before: Save and Quit writes the game's buffer) */
+	CHECK(checkpoint_is(first));
 
 	/* a profile deleted while its checkpoint is being written: nothing is written into it afterward */
 	begin("a deleted profile's saved game", old);
@@ -531,6 +599,10 @@ static void test_worker(void)
 	CHECK(unlink(target_path) == 0);
 	CHECK(save_writer_wait(10));
 	CHECK(!exists(target_path) && !exists(temporary_path));
+	/* (the checkpoint itself stays, for a revert; it is never written to the deleted profile later) */
+	CHECK(checkpoint_is(first));
+	usleep(20000);
+	CHECK(save_writer_wait(0) && !exists(target_path));
 	/* and one that only waited */
 	put(target_path, old, IMAGE_SIZE);
 	close_gate();

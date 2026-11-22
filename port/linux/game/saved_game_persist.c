@@ -13,9 +13,9 @@ kept and Save and Quit writes the file as the game always did (game_state.c). */
 #ifdef HALO_IOS
 /* platform.h's, and the host's (port/runtime/guest/runtime/guest_host.h) */
 void platform_translate_path(const char *xbox_path, char *host_path, unsigned long host_path_size);
-void host_save_checkpoint_begin(void);
-void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size);
-int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size);
+int host_save_checkpoint_store(const void *image, unsigned int size, const char *session_path, const char *target_path);
+int host_save_checkpoint_load(void *image, unsigned int size);
+int host_save_write_now(const char *session_path, const char *target_path, const void *image, unsigned int size);
 
 enum { PERSIST_PATH_SIZE = 1024 };
 #endif
@@ -32,14 +32,15 @@ boolean saved_game_persist_allowed(
 }
 
 #ifdef HALO_IOS
-/* The checkpoint file's and the active profile's saved game's host paths. A translation walks folders
-   on the disk, and this runs on the game's thread at every checkpoint, so both are kept: the checkpoint
-   file's for the run, the saved game's until another profile's folder is asked for. */
+/* A path in the session folder (where the writer's temporary file goes; no file has this name on these builds)
+   and the active profile's saved game's host path. A translation walks folders on the disk, and this runs on
+   the game's thread at every checkpoint, so both are kept: the session's for the run, the saved game's until
+   another profile's folder is asked for. */
 static boolean persist_paths(
-	char *checkpoint_path,
+	char *session_path,
 	char *target_path)
 {
-	static char kept_directory[256], kept_target[PERSIST_PATH_SIZE], kept_checkpoint[PERSIST_PATH_SIZE];
+	static char kept_directory[256], kept_target[PERSIST_PATH_SIZE], kept_session[PERSIST_PATH_SIZE];
 	char profile_directory[256];
 	char xbox_path[256 + 16];
 
@@ -54,40 +55,44 @@ static boolean persist_paths(
 		platform_translate_path(xbox_path, kept_target, PERSIST_PATH_SIZE);
 		strcpy(kept_directory, profile_directory);
 	}
-	if (!kept_checkpoint[0])
-		platform_translate_path("z:\\savegame.bin", kept_checkpoint, PERSIST_PATH_SIZE);
+	if (!kept_session[0])
+		platform_translate_path("z:\\savegame.bin", kept_session, PERSIST_PATH_SIZE);
 	strcpy(target_path, kept_target);
-	strcpy(checkpoint_path, kept_checkpoint);
-	return target_path[0] && checkpoint_path[0];
+	strcpy(session_path, kept_session);
+	return target_path[0] && session_path[0];
 }
 
 #endif
 
-void saved_game_persist_checkpoint_begin(
-	void)
-{
-#ifdef HALO_IOS
-	host_save_checkpoint_begin();
-#endif
-}
-
-void saved_game_persist_checkpoint_end(
-	boolean written,
+boolean saved_game_persist_checkpoint_store(
+	const void *image,
 	long size)
 {
 #ifdef HALO_IOS
-	char checkpoint_path[PERSIST_PATH_SIZE] = "";
+	char session_path[PERSIST_PATH_SIZE] = "";
 	char target_path[PERSIST_PATH_SIZE];
-	boolean persist = written &&
-		config_boolean("saves.checkpoint_persist") &&
+	boolean persist = config_boolean("saves.checkpoint_persist") &&
 		saved_game_persist_allowed() &&
-		persist_paths(checkpoint_path, target_path);
+		persist_paths(session_path, target_path);
 
-	/* (a checkpoint that is not to be saved still ends the host's count of the write) */
-	host_save_checkpoint_end(checkpoint_path, persist ? target_path : NULL, (unsigned int)size);
+	return host_save_checkpoint_store(image, (unsigned int)size, session_path, persist ? target_path : NULL) != 0;
 #else
-	(void)written;
+	(void)image;
 	(void)size;
+	return FALSE;
+#endif
+}
+
+boolean saved_game_persist_checkpoint_load(
+	void *image,
+	long size)
+{
+#ifdef HALO_IOS
+	return host_save_checkpoint_load(image, (unsigned int)size) != 0;
+#else
+	(void)image;
+	(void)size;
+	return FALSE;
 #endif
 }
 
@@ -96,11 +101,11 @@ boolean saved_game_persist_write_now(
 	long size)
 {
 #ifdef HALO_IOS
-	char checkpoint_path[PERSIST_PATH_SIZE];
+	char session_path[PERSIST_PATH_SIZE];
 	char target_path[PERSIST_PATH_SIZE];
 
-	return persist_paths(checkpoint_path, target_path) &&
-		host_save_write_now(checkpoint_path, target_path, image, (unsigned int)size) != 0;
+	return persist_paths(session_path, target_path) &&
+		host_save_write_now(session_path, target_path, image, (unsigned int)size) != 0;
 #else
 	(void)image;
 	(void)size;

@@ -337,14 +337,15 @@ void host_bink_audio_skip(unsigned int position);
 int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
-/* The saved game's one writer (port/runtime/save_writer.h). Paths are host paths (platform_translate_path).
-   begin and end go around the game's write of its checkpoint file; a target_path at end makes that
-   checkpoint the profile's saved game, written by a host thread (NULL: it stays a checkpoint only).
-   write_now is Save and Quit: the image is the saved game before it returns 1; 0, and the saved game is
-   the one it was. */
-void host_save_checkpoint_begin(void);
-void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size);
-int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size);
+/* The saved game's one writer (port/runtime/save_writer.h). Paths are host paths (platform_translate_path);
+   session_path is any path in the session folder. checkpoint_store: the host keeps a copy of the image as the
+   session's checkpoint (1; 0 when it cannot), and a target_path makes it the profile's saved game too, written
+   by a host thread (NULL: it stays a checkpoint only). checkpoint_load: that copy, into image, for a revert (0:
+   there is none). write_now is Save and Quit: the image is the saved game before it returns 1; 0, and the saved
+   game is the one it was. */
+int host_save_checkpoint_store(const void *image, unsigned int size, const char *session_path, const char *target_path);
+int host_save_checkpoint_load(void *image, unsigned int size);
+int host_save_write_now(const char *session_path, const char *target_path, const void *image, unsigned int size);
 /* A profile is about to be deleted (XDeleteSaveGame), before its folder's files are listed: a checkpoint
    still being written to its saved game is withdrawn and waited for, so the folder can be emptied and go. */
 void host_save_withdraw_folder(const char *folder_path);
