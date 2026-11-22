@@ -939,6 +939,17 @@
           ],
           "x-tier": "player"
         },
+        "presentation_lead": {
+          "type": "boolean",
+          "default": true,
+          "description": "Time the blend between game ticks by when each frame is shown, measured from when the frame read the game clock, so moving things step evenly whatever the display's cadence. Off measures it as earlier builds did, for comparison; the Vision Pro then gets no correction.",
+          "x-environment": "HALO_PRESENTATION_LEAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "late_start": {
           "type": "string",
           "default": "",

@@ -821,6 +821,11 @@ static const struct config_setting config_settings[] =
 		"read it, a few milliseconds on the frames that run a game tick. Only the\n"
 		"picture moves; aim and shots are the game's as before. Off by default;\n"
 		"F9 switches it while playing. Player one's controller, on foot.", _tier_player },
+	{ "display.presentation_lead", _config_boolean, "true", "HALO_PRESENTATION_LEAD", _environment_value, _platform_all,
+		"Time the blend between game ticks by when each frame is shown, measured\n"
+		"from when the frame read the game clock, so moving things step evenly\n"
+		"whatever the display's cadence. Off measures it as earlier builds\n"
+		"did, for comparison; the Vision Pro then gets no correction.", _tier_tuning },
 	{ "display.late_start", _config_string, "\"\"", "HALO_LATE_START", _environment_value, _platform_ios,
 		"Start each frame's work as late as it can be and still be done for the\n"
 		"next refresh of the display, so the controller is read later and what you\n"

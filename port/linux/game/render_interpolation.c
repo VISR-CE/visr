@@ -620,10 +620,39 @@ static void stereo_lead_summary(double lead, double correction)
 	kind_sum[0] = kind_sum[1] = largest = 0.0;
 }
 
+/* display.presentation_lead: off is the timing before the lead was measured
+from the loop clock's read, for comparing the two in the headset (the
+cadence session's knob, halo_presentation_lead_toggle): stereo frames get no
+correction, and flat frames measure their lead from the moment the fraction is
+asked for, averaging each time. The stereo lead is still measured and logged */
+static int presentation_lead_setting = -1;
+
+static int presentation_lead_enabled(void)
+{
+	if (presentation_lead_setting < 0)
+	{
+		presentation_lead_setting = config_boolean("display.presentation_lead") ? 1 : 0;
+		if (!presentation_lead_setting)
+			platform_log("interpolation: display.presentation_lead off: the lead is measured as before Nov 21");
+	}
+	return presentation_lead_setting;
+}
+
+void halo_presentation_lead_toggle(void)
+{
+	presentation_lead_setting = !presentation_lead_enabled();
+	interpolation_lead_reset(&display_lead);
+	interpolation_lead_reset(&stereo_lead);
+	platform_log("interpolation: presentation lead %s (toggled)", presentation_lead_setting ? "on" : "off");
+}
+
 static real fraction_for_display(real fraction)
 {
 	struct interpolation_lead *state;
 	double presentation, clock_read, correction;
+	static unsigned long legacy_calls;
+	int enabled = presentation_lead_enabled();
+	unsigned long frame = loop_frame;
 
 	frame_lead_milliseconds = 0.0;
 	/* 1 while the game is paused */
@@ -643,7 +672,13 @@ static real fraction_for_display(real fraction)
 		presentation = next_frame_due_milliseconds;
 	}
 	clock_read = loop_clock_read_milliseconds > 0.0 ? loop_clock_read_milliseconds : halo_frame_trace_milliseconds();
-	correction = interpolation_lead_correction(state, loop_frame, loop_frame_ticked, clock_read, presentation);
+	if (!enabled && !stereo_leading)
+	{
+		/* (off: from now, a sample each call) */
+		clock_read = halo_frame_trace_milliseconds();
+		frame = ~0ul - legacy_calls++;
+	}
+	correction = interpolation_lead_correction(state, frame, loop_frame_ticked, clock_read, presentation);
 	if (presentation != 0.0)
 	{
 		frame_lead_milliseconds = state->lead;
@@ -651,6 +686,8 @@ static real fraction_for_display(real fraction)
 			stereo_lead_summary(state->lead, correction);
 	}
 	frame_lead_average_milliseconds = state->average;
+	if (!enabled && stereo_leading)
+		return fraction;
 	fraction += (real)(correction / 1000.0 * TICKS_PER_SECOND * game_time_get_speed());
 	return PIN(fraction, 0.0f, 1.0f);
 }

@@ -27,6 +27,8 @@ double halo_frame_trace_milliseconds(void) { return now_ms; }
 int platform_fixed_timestep(void) { return 0; }
 real game_time_get_speed(void) { return 1.0f; }
 void platform_log(const char *format, ...) { (void)format; }
+static int lead_setting = 1;
+int config_boolean(const char *name) { (void)name; return lead_setting; }
 static int loop_frame_ticked;
 #include "interpolation_lead.h"
 """
@@ -169,6 +171,27 @@ static void space_closes(void)
 	check(fraction == 0.4f, "space closed: a stereo correction outlived the space", fraction);
 }
 
+/* display.presentation_lead off: the headset's picture as before (no correction), for the session's comparison */
+static void setting_off(void)
+{
+	double worst = 0.0;
+	int n;
+
+	halo_presentation_lead_toggle();
+	render_interpolation_presentation_due(0);
+	for (n = 0; n < 200; n++) {
+		double base = 70000.0 + n * TICK_MS;
+		double read = base + (n % 2 ? 28.0 : 6.0);
+		double tick_start = floor(read / TICK_MS) * TICK_MS;
+		real fraction = (real)((read - tick_start) / TICK_MS);
+		double drawn = stereo_frame(read, n % 2 ? 0.0 : 10.0, read + 16.0, read + (n % 2 ? 35.0 : 46.0), NULL);
+
+		worst = fmax(worst, fabs(drawn - shown(read, fraction)));
+	}
+	check(worst < 0.001, "setting off: the headset was corrected", worst);
+	halo_presentation_lead_toggle();
+}
+
 int main(void)
 {
 	uneven_stereo();
@@ -176,6 +199,7 @@ int main(void)
 	steady_stereo(1000.0 / 45.0);
 	flat_slow_ticks();
 	space_closes();
+	setting_off();
 	return failures ? 1 : 0;
 }
 """

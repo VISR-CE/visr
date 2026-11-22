@@ -96,6 +96,8 @@ int halo_look_stick_latest(float *read_x, float *read_y, float *now_x, float *no
 float halo_look_read_age(void);
 /* render_interpolation.c: display.late_look on and off while playing (F9) */
 void halo_late_look_toggle(void);
+/* render_interpolation.c: display.presentation_lead on or off, for a live comparison */
+void halo_presentation_lead_toggle(void);
 void platform_mouse_capture(BOOL capture);
 #ifdef HALO_ILP32
 /* a menu came up or went away (d3d8_device.c, halo_ui_pointer_update) */
