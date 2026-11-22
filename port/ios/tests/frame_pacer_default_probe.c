@@ -51,7 +51,7 @@ int main(void)
         struct frame_pacer_frame first, second;
 
         encode_thread = 1;
-        frames_in_flight = "";
+        frames_in_flight = "1";
         frame_pacer_start(0);
         CHECK(frame_pacer_frame_begin(&first, 1, 0.0, 1) == 1);
         CHECK(first.slot && !first.slot_waited && !first.others_in_flight && first.granted > 0.0 && first.presenting == 0.0);
@@ -78,6 +78,54 @@ int main(void)
         frame_pacer_start(0);
         CHECK(frame_pacer_frame_begin(&first, 3, 0.0, 0) == 1 && !first.slot && first.granted == 0.0);
         frame_pacer_stop();
+    }
+    /* adaptive (the thread's default, or "auto"): it starts at two, and a fitting stream of presented frames takes it
+       to one; an explicit "1" is fixed at one from the start */
+    {
+        static const char *const adaptive[][2] = { { "1", "" }, { "0", "auto" } };
+
+        for (int c = 0; c < 2; c++)
+        {
+            struct frame_pacer_frame frame[2];
+            double at = 1000.0;
+
+            encode_thread = adaptive[c][0][0] == '1';
+            frames_in_flight = adaptive[c][1];
+            frame_pacer_start(0);
+            frame_pacer_refresh(at, 1.0 / 60.0);
+            frame_pacer_gpu_time(0.004);
+            frame_pacer_frame_begin(&frame[0], 1, 0.0, 1);
+            frame_pacer_frame_begin(&frame[1], 2, 0.0, 1);
+            CHECK(frame[0].slot && frame[1].slot && frame[1].others_in_flight == 1);
+            frame_pacer_presented(&frame[0], at);
+            frame_pacer_presented(&frame[1], at += 1.0 / 60.0);
+            for (unsigned long number = 3; number < 3 + 120; number++)
+            {
+                frame_pacer_frame_begin(&frame[0], number, 0.0, 1);
+                frame_pacer_present(&frame[0]);
+                frame_pacer_presented(&frame[0], at += 1.0 / 60.0);
+            }
+            /* (now at one: a frame that holds the slot makes the next one wait) */
+            frame_pacer_frame_begin(&frame[0], 200, 0.0, 1);
+            frame_pacer_frame_begin(&frame[1], 201, 0.0, 1);
+            CHECK(frame[0].slot && frame[1].slot_waited && !frame[1].slot);
+            frame_pacer_presented(&frame[0], at += 1.0 / 60.0);
+            frame_pacer_stop();
+        }
+        /* explicit one: fixed from the first frame */
+        encode_thread = 1;
+        frames_in_flight = "1";
+        frame_pacer_start(0);
+        {
+            struct frame_pacer_frame frame[2];
+
+            frame_pacer_frame_begin(&frame[0], 1, 0.0, 1);
+            frame_pacer_frame_begin(&frame[1], 2, 0.0, 1);
+            CHECK(frame[0].slot && frame[1].slot_waited && !frame[1].slot);
+            frame_pacer_presented(&frame[0], 0.0);
+        }
+        frame_pacer_stop();
+        frames_in_flight = "";
     }
     if (failures)
         return 1;

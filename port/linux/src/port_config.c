@@ -868,8 +868,10 @@ static const struct config_setting config_settings[] =
 		"that many are waiting to be shown. \"1\" gives the least delay between the\n"
 		"game and the screen, and costs frames when a frame's CPU and GPU work\n"
 		"together take longer than a refresh; \"system\" leaves the queue to the\n"
-		"system (up to 3). Empty (default): \"2\", or \"1\" with the encode thread\n"
-		"on (display.encode_thread). Not on a Vision Pro, which paces\n"
+		"system (up to 3). \"auto\": \"1\" while a frame's GPU work and present fit\n"
+		"the period or the device is under its rate anyway, else \"2\". Empty\n"
+		"(default): \"2\", or \"auto\" with the encode thread on\n"
+		"(display.encode_thread). Not on a Vision Pro, which paces\n"
 		"frames itself, and not for frames that don't wait for the display\n"
 		"(display.frame_rate).", _tier_player, "|1|2|3|system" },
 	{ "display.frames_in_flight_at_30", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT_AT_30", _environment_value, _platform_ios,

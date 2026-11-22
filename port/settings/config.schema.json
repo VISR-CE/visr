@@ -1057,7 +1057,7 @@
         "frames_in_flight": {
           "type": "string",
           "default": "",
-          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" to \"3\": a frame isn't started on its way until fewer than that many are waiting to be shown. \"1\" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; \"system\" leaves the queue to the system (up to 3). Empty (default): \"2\", or \"1\" with the encode thread on (display.encode_thread). Not on a Vision Pro, which paces frames itself, and not for frames that don't wait for the display (display.frame_rate).",
+          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" to \"3\": a frame isn't started on its way until fewer than that many are waiting to be shown. \"1\" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; \"system\" leaves the queue to the system (up to 3). \"auto\": \"1\" while a frame's GPU work and present fit the period or the device is under its rate anyway, else \"2\". Empty (default): \"2\", or \"auto\" with the encode thread on (display.encode_thread). Not on a Vision Pro, which paces frames itself, and not for frames that don't wait for the display (display.frame_rate).",
           "x-environment": "HALO_FRAMES_IN_FLIGHT",
           "x-environment-style": "value",
           "x-platforms": [

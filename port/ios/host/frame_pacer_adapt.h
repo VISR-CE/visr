@@ -57,7 +57,7 @@ struct frame_pacer_adapt_frame
 	double interval;         /* since the frame before was shown; 0: none */
 	double period;           /* the frame period in force: the display's refresh times the share of the rate in force */
 	double gpu;              /* its GPU time */
-	double grant_to_present; /* slot grant to the present */
+	double grant_to_present; /* slot grant to the present; below 0: unknown (0 is a present at once) */
 	double lead;             /* the compositor's lead the late start keeps */
 	int slot_waited;         /* found every slot taken and waited */
 	int others_in_flight;    /* frames holding a slot when it took its own */
@@ -161,7 +161,7 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 		return adapt->limit;
 	if (frame->gpu > 0.0 && frame->gpu < 0.25)
 		frame_pacer_adapt_push(adapt->gpu, &adapt->gpu_count, &adapt->gpu_next, frame->gpu);
-	if (frame->grant_to_present > 0.0 && frame->grant_to_present < 0.25)
+	if (frame->grant_to_present >= 0.0 && frame->grant_to_present < 0.25)
 		frame_pacer_adapt_push(adapt->grant, &adapt->grant_count, &adapt->grant_next, frame->grant_to_present);
 	/* the rate test's second */
 	if (adapt->span_start <= 0.0)

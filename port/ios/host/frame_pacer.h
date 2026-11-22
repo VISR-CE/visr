@@ -53,8 +53,15 @@ static inline int frame_pacer_in_flight_default(int encode_thread)
 	return encode_thread ? 1 : 2;
 }
 
+/* whether the pacer chooses between that lowest limit and two frame by frame (frame_pacer_adapt.h):
+display.frames_in_flight = "auto", or empty with the encode thread, whose default is one only while it fits */
+static inline int frame_pacer_in_flight_adaptive(const char *value, int encode_thread)
+{
+	return !strcmp(value, "auto") || (!value[0] && encode_thread);
+}
+
 /* display.frames_in_flight: "1" to "3"; "system" is 0, no limit of the
-pacer's (the renderer's own queue); anything else, fallback */
+pacer's (the renderer's own queue); anything else ("auto", empty), fallback */
 static inline int frame_pacer_in_flight_setting(const char *value, int fallback)
 {
 	if (!strcmp(value, "system"))

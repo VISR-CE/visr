@@ -365,9 +365,14 @@ option `HALO_FRAME_PACING` (`tools/ios_build.py --frame-pacing on|off`), on by
 default everywhere except a Vision Pro build: there the Compositor paces
 frames and the build has none of this.
 
-- `frames_in_flight` (`"1"` to `"3"`, or `"system"`; default `"2"`, or `"1"`
-  with the encode thread on (`display.encode_thread`), whose game thread otherwise queues a
-  frame ahead of a GPU-bound display) is how many frames may be on their way to
+- `frames_in_flight` (`"1"` to `"3"`, `"system"` or `"auto"`; default `"2"`,
+  or `"auto"` with the encode thread on (`display.encode_thread`), whose game
+  thread otherwise queues a frame ahead of a GPU-bound display). `"auto"` runs
+  one frame in flight while a frame's GPU work and present fit the period, or
+  while the device is under its rate with the second slot idle, and two
+  otherwise (`frame_pacer_adapt.h`: one in flight halved the iPad Air 4 to 30
+  frames a second at 60, and two showed the A10X iPad Pro's input 25 to 35 ms
+  later at 128 players) is how many frames may be on their way to
   the display at once. A frame is not started
   on its way until fewer than that many are waiting to be shown. `"1"` gives
   the shortest delay between the game and the screen, and costs frames

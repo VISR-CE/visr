@@ -102,6 +102,12 @@ int main(void)
     a = run(&blind, 2, 10.0, 0);
     CHECK(a.limit == 2 && a.switches == 0);
 
+    /* no known grant-to-present span (below 0): holds its limit */
+    struct stream no_grant = fits;
+    no_grant.grant = -1.0;
+    a = run(&no_grant, 2, 10.0, 0);
+    CHECK(a.limit == 2 && a.switches == 0);
+
     /* a 30 cap on a 60 Hz display (a share of two refreshes): fits at 33 ms */
     struct stream cap30 = { 2 * p60, { 0, 2 * p60, 2 * p60 }, { 0, 0, 1 }, 0.016, 0.004, 0.003 };
     a = run(&cap30, 2, 10.0, 0);
