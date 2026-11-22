@@ -26,6 +26,7 @@ render_height = 1080
 anisotropic_filtering = 16
 dynamic_resolution = true
 dynamic_resolution_floor = 720
+frames_in_flight_at_30 = "1"
 
 [variable.display]
 dynamic_resolution = true
@@ -35,6 +36,11 @@ effect_limits = "xbox"
 [network]
 player_capacity = 128
 full_rate_players = 6
+
+[evidence."display.frames_in_flight_at_30"]
+basis = "measured"
+why = "Under the 30 frame cap one frame in flight cut the time from the controller read to the screen from 82.7 to 65.7 ms at 16 players and at 64 players (p95 83.1 to 65.9 ms), a 17 ms drop, with 0.998 to 0.999 of frames on time and no failed GPU command buffers in any arm. Shown rate was 29.8 to 29.9 frames a second with one in flight against 30.4 with two, a 2% lower rate. The GPU takes 21 to 25 ms a frame here, so a frame waits for its refreshes either way and the second frame in flight only added a refresh of delay."
+source = "VISR input latency matrix (`step-tools/bench/latency-matrix.py`), build 20261121.215044 (`measure/input-latency-1121` 1d034f255), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22"
 
 [evidence."display.upscaled_textures"]
 basis = "assumed"
