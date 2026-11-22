@@ -1145,7 +1145,10 @@ static const struct config_setting config_settings[] =
 	{ "debug.scripted_run_saves", _config_boolean, "false", "HALO_SCRIPTED_RUN_SAVES", _environment_set_is_true, _platform_all,
 		"A replay or a scripted run (a test, a benchmark, a runner) may write the\n"
 		"active profile's saved game, at checkpoints and from Save and Quit, as\n"
-		"the player's own game does: for tests and measurements of saving." },
+		"the player's own game does: for tests and measurements of saving. A\n"
+		"level started without the menu (the console's map_name) then plays as\n"
+		"the last profile used, whose saved game it replaces; without a profile\n"
+		"on the device nothing is saved." },
 
 	{ "network.address", _config_string, "\"\"", "HALO_NET_ADDRESS", _environment_value, _platform_all,
 		"This machine's IPv4 address for system link, for a machine on several\n"

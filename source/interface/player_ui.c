@@ -456,7 +456,9 @@ int config_boolean(const char *name);
 
 /* port: debug.profile_controls gives a level started without a menu (the console's map_name) the controls of the
 last profile used, as the menu's New Game would: look sensitivity, inverted look and the button layout. The
-profile is copied without its index, so no profile file is written by the level. */
+profile is copied without its index, so no profile file is written by the level.
+debug.scripted_run_saves does the same and keeps the index: the level then plays as that profile's game, so its
+checkpoints become the profile's saved game (a measurement of saving on a device nobody plays). */
 void player_ui_port_apply_last_profile_controls(
 	void)
 {
@@ -465,7 +467,9 @@ void player_ui_port_apply_last_profile_controls(
 	struct player_profile profile;
 	long index;
 
-	if (!config_boolean("debug.profile_controls"))
+	boolean as_the_profile = config_boolean("debug.scripted_run_saves");
+
+	if (!config_boolean("debug.profile_controls") && !as_the_profile)
 		return;
 	/* (once a level: when the game time has gone back, to its start or a revert's) */
 	if (now >= previous_time && previous_time >= 0)
@@ -482,7 +486,9 @@ void player_ui_port_apply_last_profile_controls(
 		platform_log("debug.profile_controls: no last-used profile to take the controls from");
 		return;
 	}
-	player_ui_set_active_player_profile(0, NONE, &profile);
+	player_ui_set_active_player_profile(0, as_the_profile ? index : NONE, &profile);
+	if (as_the_profile)
+		platform_log("debug.scripted_run_saves: playing as the last-used profile (%ld); its saved game will be replaced", index);
 	platform_log("debug.profile_controls: controls from the last-used profile: look sensitivity %d, invert look %d, "
 		"button preset %d, joystick preset %d", (int)profile.controller_settings.look_sensitivity,
 		(int)profile.controller_settings.invert_look, (int)profile.controller_settings.button_preset,

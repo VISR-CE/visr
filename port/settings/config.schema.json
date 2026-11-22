@@ -1881,7 +1881,7 @@
         "scripted_run_saves": {
           "type": "boolean",
           "default": false,
-          "description": "A replay or a scripted run (a test, a benchmark, a runner) may write the active profile's saved game, at checkpoints and from Save and Quit, as the player's own game does: for tests and measurements of saving.",
+          "description": "A replay or a scripted run (a test, a benchmark, a runner) may write the active profile's saved game, at checkpoints and from Save and Quit, as the player's own game does: for tests and measurements of saving. A level started without the menu (the console's map_name) then plays as the last profile used, whose saved game it replaces; without a profile on the device nothing is saved.",
           "x-environment": "HALO_SCRIPTED_RUN_SAVES",
           "x-environment-style": "set_is_true",
           "x-platforms": [
