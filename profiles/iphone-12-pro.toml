@@ -15,6 +15,7 @@ models = ["iPhone13,3"]
 [display]
 upscaled_textures = true
 frame_rate = "60"
+frames_in_flight_at_30 = "1"
 render_height = 900
 anisotropic_filtering = 16
 shadow_map_size = 128
@@ -33,6 +34,11 @@ full_rate_players = 32
 basis = "measured"
 why = "At 60 frames a second and 900 lines the Maw fight put 99.96% and 99.96% of frames on time and a10-heroic 99.87% and 99.97% (two rounds each, 0 to 2 stalls over 50 ms, thermal state 0 throughout); at 720 lines 99.98% and 99.98% and 99.87% and 99.93%. The earlier sweep (build 20261024.122832) put 71.8% and 72.7% on time at 60 and 720 lines, which contradicts these runs; the new build passed at both sizes. 60 holds with margin at 1x enemies; 1.5x, 2x and multiplayer were measured at 30 only, so the variable workload keeps 30."
 source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-29 to 2026-10-30"
+
+[evidence."display.frames_in_flight_at_30"]
+basis = "measured"
+why = "While the frame rate in force is 30 (the variable workload, where this profile holds 30), one frame in flight cut the time from the controller read to the screen from 80.6 to 63.6 ms (16 players) and from 80.9 to 64.7 ms (64 players) at 29.6 to 29.7 frames a second shown against 30.3 to 30.4 with two in flight (a 2% lower shown rate), and p95 from 81.7 to 64.7 ms. The GPU takes 22 to 25 ms a frame at 900 lines here, so a frame waits for its refreshes either way and the second frame in flight only added a frame of delay. Late start never engaged (0 of 198 frames). The campaign's 60 is unchanged: the key applies only at 30 or lower, and its predictable workload was not in this matrix."
+source = "VISR input latency matrix (`step-tools/bench/latency-matrix.py`), build 20261121.214648 (`measure/input-latency-1121` 1d034f255), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22"
 
 [evidence."variable.display.frame_rate"]
 basis = "measured"
