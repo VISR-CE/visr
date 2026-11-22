@@ -47,7 +47,7 @@ RELEASE_PAGES = {
     "opence-web": "https://halocombatevolved.com/",
     "corece": "https://github.com/mastercheese-dev/CoreCE/releases/tag/build-{build}",
     "chupathingy": "https://github.com/ChupathingyCE/chupathingyce/releases/tag/{tag}",
-    "opence-bitmoda": "https://github.com/bitmoda/MeshCE/releases/tag/{tag}",
+    "opence-bitmoda": "https://github.com/bitmoda/MeshCE/releases/tag/opence-build-{build}",
     "meshce": "https://github.com/bitmoda/MeshCE/releases/tag/build-{build}",
     "halo-content-evolved": "https://github.com/Watanoge/halo-content-evolved/releases/tag/build-{build}",
     "halo-og": "https://github.com/pfista/halo-og/releases/tag/{tag}",
