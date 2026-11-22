@@ -1,0 +1,3 @@
+#!/bin/sh
+# Strict compiler wrapper for the Mac ci_test run; see linux_strict.py.
+exec "${HALO_STRICT_PYTHON:-python3}" -I "$(dirname "$0")/linux_strict.py" "$(basename "$0")" "$@"

@@ -8,6 +8,7 @@ this target to recursively collect tools/.
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -42,9 +43,22 @@ APPLE_PROBES = {
 STANDALONE = {"test_death_timing.py", "test_light_storage.py"}
 
 
-def run(*arguments: str) -> None:
+STRICT = ROOT / "tools/probekit/strict"
+
+
+def run(*arguments: str, env: dict[str, str] | None = None) -> None:
     print("+ " + " ".join(arguments), flush=True)
-    subprocess.run(arguments, cwd=ROOT, check=True)
+    subprocess.run(arguments, cwd=ROOT, check=True, env=env)
+
+
+def strict_environment() -> dict[str, str] | None:
+    """On macOS, put the Linux-strict `cc` and `clang` wrappers first on PATH (tools/probekit/strict)."""
+    if sys.platform != "darwin":
+        return None
+    env = dict(os.environ)
+    env["PATH"] = os.pathsep.join([str(STRICT), env.get("PATH", "")])
+    env["HALO_STRICT_PYTHON"] = sys.executable
+    return env
 
 
 def main() -> None:
@@ -60,7 +74,7 @@ def main() -> None:
     if args.junit:
         args.junit.parent.mkdir(parents=True, exist_ok=True)
         options.append(f"--junitxml={args.junit}")
-    run(sys.executable, "-m", "pytest", *options, *tests)
+    run(sys.executable, "-m", "pytest", *options, *tests, env=strict_environment())
     run(sys.executable, "tools/build_site.py", "--check")
     run(sys.executable, "tools/settings_schema.py", "--check")
     run(sys.executable, "tools/profile_check.py")
