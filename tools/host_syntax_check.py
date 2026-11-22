@@ -157,13 +157,16 @@ def host_entries(compile_commands):
     return entries
 
 
-def definer_entries(compile_commands):
+def definer_entries(compile_commands, validation=True):
     """the compile commands for every source that can define a guest import: the host folders, the runtime,
-    the shared Linux-port sources and the generated bridges, but not SDL or the bundled libraries"""
+    the shared Linux-port sources and the generated bridges, but not SDL or the bundled libraries. The
+    bridges are generated once with render validation, so a build without it leaves them out."""
     entries = {}
     for entry in json.loads(Path(compile_commands).read_text()):
         path = Path(entry['file']).resolve()  # CMake may name the folder through a symlink
         if path.suffix not in SYNTAX_SUFFIXES or 'third_party' in path.parts or 'sdl3' in path.parts:
+            continue
+        if path.name == 'bridges.c' and not validation:
             continue
         if any(folder in path.parents for folder in (*HOST_DIRS, ROOT / 'port/runtime', ROOT / 'port/linux',
                                                      ROOT / 'build/ios/host')):
@@ -214,10 +217,12 @@ def symbols(object_file, mode):
     return names
 
 
-def import_names():
+def import_names(validation=True):
     """every function name the guest imports from the host, as the host defines it (host_gpu_x is gpu_x)"""
     names = set()
     for path in sorted((ROOT / 'port/runtime').glob('host_imports*.list')):
+        if 'validation' in path.name and not validation:
+            continue
         for line in path.read_text().splitlines():
             line = line.split('#')[0].strip()
             if line:
@@ -225,9 +230,9 @@ def import_names():
     return names
 
 
-def missing_definitions(objects, listed=None):
+def missing_definitions(objects, listed=None, validation=True):
     """the imported functions no compiled object defines: what would fail the app's link"""
-    defined, needed = set(), set(import_names() if listed is None else listed)
+    defined, needed = set(), set(import_names(validation) if listed is None else listed)
     for object_file in objects:
         defined |= symbols(object_file, 'defined')
         if object_file.stem.endswith('-bridges'):
@@ -264,7 +269,7 @@ def main():
     objects = {}
     for (platform, variant), database in zip(combos, databases):
         label = f'{platform}/{variant}'
-        entries = definer_entries(database)
+        entries = definer_entries(database, variant == 'features')
         covered.update(path for path in entries if Path(path).parent in HOST_DIRS)
         if not any(Path(path).parent in HOST_DIRS for path in entries):
             raise SystemExit(f'{label}: no host sources in the compile commands (a path mismatch would pass silently)')
@@ -279,12 +284,14 @@ def main():
         for (label, _, _), (file, ok, output) in zip(jobs, pool.map(lambda job: check_one(job[1], job[2]), jobs)):
             if not ok:
                 failures.append((label, file, output))
-    if not failures:
-        for label, files in objects.items():
-            missing = missing_definitions([f for f in files if f.exists()])
-            if missing:
-                failures.append((label, 'guest imports', 'imported but defined by no compiled object (the link would fail): '
-                                 + ', '.join(missing)))
+    failed = {label for label, _, _ in failures}
+    for label, files in objects.items():
+        if label in failed:
+            continue  # a failed compile leaves objects out, and every import it defines would look missing
+        missing = missing_definitions(files, validation=label.endswith('/features'))
+        if missing:
+            failures.append((label, 'guest imports', 'imported but defined by no compiled object (the link would fail): '
+                             + ', '.join(missing)))
     for label, file, output in failures:
         name = str(Path(file).relative_to(ROOT)) if str(file).startswith(str(ROOT)) else file
         print(f'FAIL [{label}] {name}\n{output.rstrip()}\n', file=sys.stderr)
