@@ -45,6 +45,8 @@ struct workload_inputs
 	double enemy_multiplier;
 	/* a co-op host's extra enemies (network.coop_enemies_mode other than "none") */
 	int coop_extra_enemies;
+	/* the system paces the frames (visionOS's Compositor): network.full_rate_players warns but never holds 30 */
+	int compositor_paced;
 };
 
 /* Whether a game's extra co-op enemies add any (coop_enemies.c): a machine that joined is not told the host's choice, so
@@ -67,7 +69,7 @@ static inline int workload_game_players(const struct workload_inputs *in)
 /* The decision is latched at map load, independently of later joins and departures. */
 static inline int workload_hold_30(const struct workload_inputs *in, long full_rate_players)
 {
-	return !in->main_menu && in->multiplayer_map && in->local_players <= 1 && full_rate_players > 0 &&
+	return !in->compositor_paced && !in->main_menu && in->multiplayer_map && in->local_players <= 1 && full_rate_players > 0 &&
 		workload_game_players(in) > full_rate_players;
 }
 

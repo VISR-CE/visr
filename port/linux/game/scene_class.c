@@ -144,9 +144,10 @@ void halo_workload_decide(void)
 	which adds enemies for each player past the first; a host's mode adds none while it is the only player) */
 	inputs.coop_extra_enemies = workload_coop_extra_enemies(connection == _game_connection_network_client,
 		config_string("network.coop_enemies_mode"), inputs.network_players);
-	variable = workload_variable(&inputs, reasons, sizeof(reasons));
 	/* The compositor owns visionOS pacing, including when its profile sets this threshold. */
-	hold_30 = !halo_host_visionos() && workload_hold_30(&inputs, full_rate_players);
+	inputs.compositor_paced = halo_host_visionos();
+	variable = workload_variable(&inputs, reasons, sizeof(reasons));
+	hold_30 = workload_hold_30(&inputs, full_rate_players);
 	if (hold_30)
 		snprintf(reasons, sizeof(reasons), "multiplayer map; %d players, %d on this device; above %ld at full rate: 30 fps",
 			workload_game_players(&inputs), inputs.local_players, full_rate_players);

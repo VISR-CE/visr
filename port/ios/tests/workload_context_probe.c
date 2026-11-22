@@ -103,6 +103,11 @@ int main(void)
 	mp.local_players = 1;
 	mp.main_menu = 1;
 	assert(!workload_hold_30(&mp, 2));
+	/* visionOS: the Vision Pro profile sets the threshold for the warning; the Compositor keeps the pacing */
+	mp.main_menu = 0;
+	assert(workload_hold_30(&mp, 2));
+	mp.compositor_paced = 1;
+	assert(!workload_hold_30(&mp, 2) && !workload_hold_30(&mp, 48));
 	puts("PASS: workload contexts: solo, multiplier, LAN co-op by size, online co-op, split screen, multiplayer maps");
 	return 0;
 }
