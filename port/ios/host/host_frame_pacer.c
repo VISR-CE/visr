@@ -15,9 +15,6 @@ log around frame_pacer.h's rules. */
 /* host_gpu.c's, which writes the guest's log */
 void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
-/* frames in flight when display.frames_in_flight is empty: port/ios/README.md
-has the measurements behind it */
-#define IN_FLIGHT_DEFAULT 2
 /* a frame goes ahead without a slot after this long: the window may be
 hidden, and a presented notice that never comes mustn't stop the game */
 #define SLOT_WAIT_SECONDS 0.1
@@ -80,7 +77,7 @@ void frame_pacer_start(int fixed_timestep)
 	if (fixed_timestep)
 		return;
 	host_config_string("display.frames_in_flight", "", value, sizeof(value));
-	limit = frame_pacer_in_flight_setting(value, IN_FLIGHT_DEFAULT);
+	limit = frame_pacer_in_flight_setting(value, frame_pacer_in_flight_default(host_gpu_encode_thread_on()));
 #if TARGET_OS_SIMULATOR
 	/* a simulator's drawables never say when they were shown */
 	limit = 0;

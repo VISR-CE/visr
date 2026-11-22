@@ -33,6 +33,11 @@ int main(void)
 	CHECK(frame_pacer_in_flight_setting("4", 2) == 2);
 	CHECK(frame_pacer_in_flight_setting("12", 2) == 2);
 	CHECK(frame_pacer_in_flight_setting("system", 2) == 0);
+	/* the default: two, one with the encode thread (no frame of queue added between the controller and the screen) */
+	CHECK(frame_pacer_in_flight_default(0) == 2);
+	CHECK(frame_pacer_in_flight_default(1) == 1);
+	CHECK(frame_pacer_in_flight_setting("", frame_pacer_in_flight_default(1)) == 1);
+	CHECK(frame_pacer_in_flight_setting("2", frame_pacer_in_flight_default(1)) == 2);
 
 	/* frames in flight: a limit of 2 lets two start, holds the third until one is shown */
 	{

@@ -108,6 +108,11 @@ double host_gpu_present_called(void)
 	return encode_thread_on ? present_called : -1.0;
 }
 
+int host_gpu_encode_thread_on(void)
+{
+	return encode_thread_on;
+}
+
 /* the backend's present for each kind of frame, made between present_frame's steps (frame: what the wrapper was
 handed) */
 static uint32_t make_present(const void *frame)

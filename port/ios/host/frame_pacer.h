@@ -40,6 +40,16 @@ counted: every refresh at 60 Hz, every other at 120. */
 
 enum { FRAME_PACER_IN_FLIGHT_MAXIMUM = 3 };
 
+/* frames in flight when display.frames_in_flight is empty (port/ios/README.md has the measurements behind two): one
+with the encode thread (debug.encode_thread = "thread"). Its game thread starts the next frame while the encode
+thread finishes this one, so on a GPU-bound device a second frame in flight is a frame of queue between the controller
+and the screen: on the A10X iPad Pro at 128 players, two frames in flight showed gameplay 25 to 35 ms later than the
+queue off, and one showed it no later, with more frames on time. */
+static inline int frame_pacer_in_flight_default(int encode_thread)
+{
+	return encode_thread ? 1 : 2;
+}
+
 /* display.frames_in_flight: "1" to "3"; "system" is 0, no limit of the
 pacer's (the renderer's own queue); anything else, fallback */
 static inline int frame_pacer_in_flight_setting(const char *value, int fallback)

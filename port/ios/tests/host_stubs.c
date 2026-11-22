@@ -650,6 +650,8 @@ __attribute__((weak)) void host_gpu_benchmark_realtime(int on)
 { }
 __attribute__((weak)) int host_gpu_encode_queue_on(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) int host_gpu_encode_thread_on(void)
+{ fprintf(stderr, "host_stubs: probe called host_gpu_encode_thread_on without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_metal_active(void)
 { fprintf(stderr, "host_stubs: probe called host_gpu_metal_active without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_output(void *layer, void *screen, int width, int height)

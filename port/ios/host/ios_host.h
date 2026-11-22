@@ -136,6 +136,9 @@ int host_gpu_encode_queue_on(void);
 encode thread's frame-slot wait after it is a wait at the present barrier (frame_waits.h). -1 without the encode
 thread, where the game thread encodes the frame itself. */
 double host_gpu_present_called(void);
+/* 1 with debug.encode_thread = "thread" (decided before the backend's initialize): the frame pacer's default frames
+in flight */
+int host_gpu_encode_thread_on(void);
 void host_gpu_set_upscaler(int metalfx);
 void host_gpu_set_crt(int enabled);
 int host_gpu_upscaler(void);
