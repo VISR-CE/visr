@@ -299,7 +299,7 @@ Apple Vision Pro's file.
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
 | `input.ui_touch_target` | integer | `44` | apple | `HALO_UI_TOUCH_TARGET` | On an iPhone, the least height in points of a menu row's or button's touch target: a tap between rows goes to the nearest one this tall around its center. |
-| `input.aim` | string | `"controller"` | visionos | `HALO_AIM` | With display.stereo = "head": what aims, "head" (the view's center) or "controller" (default; the aiming hand's Sense controller). |
+| `input.aim` | string | `"auto"` | visionos | `HALO_AIM` | With display.stereo = "head": what aims, "auto" (default: the aiming hand's Sense controller when one is connected, else the head), "controller" (the same) or "head" (the view's center). |
 | `input.aim_loss_grace` | number | `0.5` | visionos | `HALO_AIM_LOSS_GRACE` | With input.aim = "controller": seconds of lost hand tracking during which the last hand aim is held, in local and network play, before the aim eases to the head over 0.2 seconds (0 to 5). |
 | `input.aim_hand` | string | `"right"` | visionos | `HALO_AIM_HAND` | With input.aim = "controller": the aiming hand, "right" (default) or "left" (the buttons mirror). |
 | `input.controller_rumble` | number | `1.0` | apple | `HALO_CONTROLLER_RUMBLE` | How strongly the game's rumble plays on a gamepad (0 to 2: 1 is the game's own strength, 0 is off). |

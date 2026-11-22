@@ -511,9 +511,10 @@ static const struct config_setting config_settings[] =
 	{ "input.comfort_vignette", _config_boolean, "false", "HALO_COMFORT_VIGNETTE", _environment_value, _platform_visionos,
 		"With input.turn = \"smooth\": darken the edges of the view while the stick\n"
 		"turns it, for comfort.", _tier_tuning },
-	{ "input.aim", _config_string, "\"controller\"", "HALO_AIM", _environment_value, _platform_visionos,
-		"With display.stereo = \"head\": what aims, \"head\" (the view's center)\n"
-		"or \"controller\" (default; the aiming hand's Sense controller). Aiming\n"
+	{ "input.aim", _config_string, "\"auto\"", "HALO_AIM", _environment_value, _platform_visionos,
+		"With display.stereo = \"head\": what aims, \"auto\" (default: the aiming\n"
+		"hand's Sense controller when one is connected, else the head),\n"
+		"\"controller\" (the same) or \"head\" (the view's center). Aiming\n"
 		"uses the head when tracking is unavailable in local play. In network\n"
 		"play, aim holds its last valid hand direction through input.aim_loss_grace,\n"
 		"then uses the head until the hand is tracked again (and before the\n"

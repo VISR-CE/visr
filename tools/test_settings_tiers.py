@@ -131,3 +131,7 @@ def test_headset_settings_are_apple_vision_pro_alone():
     assert players == ['display.immersive', 'display.stereo', 'display.theater_distance',
                        'display.theater_environment', 'display.theater_width', 'input.aim', 'input.aim_hand']
 
+
+def test_aim_defaults_to_auto():
+    settings, _ = tiers()
+    assert settings['input.aim']['default'] == 'auto'

@@ -548,14 +548,14 @@ static void check_tiers(void)
 	assert(!file_has(path, "\naim = ") && !file_has(path, "\nstereo = ") && !file_has(path, "\naim_loss_grace = 0.5"));
 	assert(!file_has(path, "\naim_steady = ") && !file_has(path, "\nsnap_angle = ") && !file_has(path, "\nhud_distance = "));
 	assert(!file_has(origins, "input.aim\t") && !file_has(origins, "input.aim_steady\t"));
-	assert(!strcmp(config_string("input.aim"), "controller") && config_real("input.aim_steady_zoom_8x") == 2.0);
+	assert(!strcmp(config_string("input.aim"), "auto") && config_real("input.aim_steady_zoom_8x") == 2.0);
 	assert(file_has(path, "\nvolume = 1.0\n"));
 
 	/* Apple Vision Pro: its player and profile settings, still no tuning value */
 	fresh();
 	setenv("HALO_HOST_VISIONOS", "1", 1);
 	launch("");
-	assert(file_has(path, "\naim = \"controller\"\n") && file_has(path, "\naim_hand = \"right\"\n"));
+	assert(file_has(path, "\naim = \"auto\"\n") && file_has(path, "\naim_hand = \"right\"\n"));
 	assert(file_has(path, "\nstereo = ") && file_has(path, "\naim_loss_grace = ") && file_has(path, "\nfoveation = "));
 	assert(!file_has(path, "\naim_steady = ") && !file_has(path, "\nsnap_angle = ") && !file_has(path, "\nhud_distance = "));
 	assert(!file_has(path, "\naim_origin_raise = ") && !file_has(path, "\nturn = "));
