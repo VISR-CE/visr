@@ -32,11 +32,14 @@ boolean saved_game_persist_allowed(
 }
 
 #ifdef HALO_IOS
-/* the checkpoint file's and the active profile's saved game's host paths */
+/* The checkpoint file's and the active profile's saved game's host paths. A translation walks folders
+   on the disk, and this runs on the game's thread at every checkpoint, so both are kept: the checkpoint
+   file's for the run, the saved game's until another profile's folder is asked for. */
 static boolean persist_paths(
 	char *checkpoint_path,
 	char *target_path)
 {
+	static char kept_directory[256], kept_target[PERSIST_PATH_SIZE], kept_checkpoint[PERSIST_PATH_SIZE];
 	char profile_directory[256];
 	char xbox_path[256 + 16];
 
@@ -44,10 +47,17 @@ static boolean persist_paths(
 		return FALSE;
 	if (strlen(profile_directory) + sizeof("savegame.bin") > sizeof(xbox_path))
 		return FALSE;
-	strcpy(xbox_path, profile_directory);
-	strcat(xbox_path, "savegame.bin");
-	platform_translate_path(xbox_path, target_path, PERSIST_PATH_SIZE);
-	platform_translate_path("z:\\savegame.bin", checkpoint_path, PERSIST_PATH_SIZE);
+	if (!kept_target[0] || strcmp(kept_directory, profile_directory))
+	{
+		strcpy(xbox_path, profile_directory);
+		strcat(xbox_path, "savegame.bin");
+		platform_translate_path(xbox_path, kept_target, PERSIST_PATH_SIZE);
+		strcpy(kept_directory, profile_directory);
+	}
+	if (!kept_checkpoint[0])
+		platform_translate_path("z:\\savegame.bin", kept_checkpoint, PERSIST_PATH_SIZE);
+	strcpy(target_path, kept_target);
+	strcpy(checkpoint_path, kept_checkpoint);
 	return target_path[0] && checkpoint_path[0];
 }
 

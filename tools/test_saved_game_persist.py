@@ -20,7 +20,7 @@ typedef int boolean;
 #define FALSE 0
 #define TRUE 1
 enum { PERSIST_PATH_SIZE = 1024 };
-static int solo = 1, profile = 1, coop, replay, scripted, lifted, setting = 1, has_directory = 1;
+static int solo = 1, profile = 1, coop, replay, scripted, lifted, setting = 1, has_directory = 1, other_profile, translations;
 static short player_spawn_count = 1;
 static short main_get_current_solo_level(void) { return solo ? 3 : NONE; }
 static long player_ui_get_active_player_profile_index(short player) { assert(player == 0); return profile ? 2 : NONE; }
@@ -32,9 +32,10 @@ static int config_boolean(const char *name) {
     assert(!strcmp(name, "saves.checkpoint_persist")); return setting;
 }
 static boolean player_ui_get_path_to_local_player_profile_directory(short player, char *path) {
-    assert(player == 0); strcpy(path, "u:\\UDATA\\C7201D882DAE\\"); return has_directory;
+    assert(player == 0); strcpy(path, other_profile ? "u:\\UDATA\\AAAAAAAAAAAA\\" : "u:\\UDATA\\C7201D882DAE\\"); return has_directory;
 }
 static void platform_translate_path(const char *xbox_path, char *host_path, unsigned long size) {
+    translations++;
     snprintf(host_path, size, "host<%s>", xbox_path);
 }
 static int begins, ends, writes;
@@ -83,6 +84,16 @@ int main(void) {
     assert(!strcmp(last_target, "host<u:\\UDATA\\C7201D882DAE\\savegame.bin>") && !strcmp(last_checkpoint, "host<z:\\savegame.bin>"));
     has_directory = 0;
     assert(saved_game_persist_write_now(&writes, 77) == FALSE && writes == 1);
+    /* the paths are translated once, not at every checkpoint (a translation walks folders on the disk,
+       on the game's thread), and again when another profile is the active one */
+    assert(translations == 2);
+    has_directory = setting = 1; other_profile = 1;
+    saved_game_persist_checkpoint_begin(); saved_game_persist_checkpoint_end(1, 4096);
+    assert(translations == 3 && !strcmp(last_target, "host<u:\\UDATA\\AAAAAAAAAAAA\\savegame.bin>"));
+    saved_game_persist_checkpoint_begin(); saved_game_persist_checkpoint_end(1, 4096);
+    other_profile = 0;
+    saved_game_persist_checkpoint_begin(); saved_game_persist_checkpoint_end(1, 4096);
+    assert(translations == 4 && !strcmp(last_target, "host<u:\\UDATA\\C7201D882DAE\\savegame.bin>"));
     return 0;
 }
 '''
