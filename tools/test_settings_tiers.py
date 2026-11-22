@@ -129,6 +129,8 @@ TUNING_OFF_HEADSET = {
     'display.interpolation',
     # a safety switch, on by default; off only to compare with the Xbox's Save and Quit-only writes
     'saves.checkpoint_persist',
+    # the Metal encode thread, chosen per device from measured pairs; a device profile will carry it
+    'display.encode_thread',
 }
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
                    'display.theater_width', 'input.aim', 'input.aim_hand',

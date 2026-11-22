@@ -1052,7 +1052,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "tuning"
         },
         "frames_in_flight": {
           "type": "string",

@@ -861,7 +861,7 @@ static const struct config_setting config_settings[] =
 		"thread calls the renderer while the game thread goes on; each frame's\n"
 		"present waits for it. A device profile turns it on where it measures\n"
 		"better. debug.encode_thread overrides it. Needs the game thread; not on\n"
-		"visionOS or Mac Catalyst.", _tier_player, "|off|thread" },
+		"visionOS or Mac Catalyst.", _tier_tuning, "|off|thread" },
 	{ "display.frames_in_flight", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT", _environment_value, _platform_ios,
 		"How many frames the Metal renderer may have on their way to the display\n"
 		"at once, \"1\" to \"3\": a frame isn't started on its way until fewer than\n"
