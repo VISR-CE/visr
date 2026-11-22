@@ -551,6 +551,70 @@ int main(int argc, char **argv)
 			finish(extended);
 		}
 	}
+	/* ---- a 60 Hz display that needs a frame a little earlier than the starting lead (5.2 to 7 ms against 5 ms): the
+	lead grows once, to the lead that failed plus the margin, late starts stay on, and the only late frames left are
+	the display's own (one in 1,000 here) */
+	{
+		static const double latches[] = { 0.0052, 0.0055, 0.007 };
+		int index;
+
+		for (index = 0; index < (int)(sizeof(latches) / sizeof(latches[0])); index++)
+		{
+			struct load load = { .cpu = 0.004, .gpu_fixed = 0.004, .cpu_noise = 0.001, .gpu_noise = 0.001 }, load_off = load;
+			struct sim *off = run(SIM_OFF, P60, P60, 1.0, 2, &load_off, 36000);
+			struct sim *extended = run(SIM_EXTENDED, P60, P60, 1.0, 2, &load, 36000);
+			struct sim_result result, baseline;
+			double lead;
+
+			off->latch = extended->latch = latches[index];
+			off->slip_every = extended->slip_every = 1000;
+			extended->slot_least = FRAME_PACER_EXTENDED_SLOT;
+			sim_run(off, 36000);
+			sim_run(extended, 36000);
+			baseline = sim_measure(off, 3600, 36000);
+			result = sim_measure(extended, 3600, 36000);
+			lead = frame_pacer_extended_lead(&extended->extended);
+			if (verbose)
+				printf("60 Hz latch %.1f: engaged %ld of %ld, late %ld (off %ld), lead %.1f failed %.1f read %.1f (off %.1f)\n",
+					latches[index] * 1e3, result.engaged, result.frames, result.late, baseline.late, lead * 1e3,
+					extended->extended.lead_failed * 1e3, result.read_to_shown_median * 1e3, baseline.read_to_shown_median * 1e3);
+			CHECK(lead >= latches[index] && lead <= latches[index] + FRAME_PACER_LATE_LEAD_STEP);
+			CHECK(fabs(lead - (extended->extended.lead_failed + FRAME_PACER_EXTENDED_LEAD_MARGIN)) < 1e-9);
+			CHECK(result.engaged == result.frames);
+			CHECK(result.late <= result.frames / 1000);
+			CHECK(result.read_to_shown_median < 0.5 * baseline.read_to_shown_median);
+			finish(off);
+			finish(extended);
+		}
+	}
+	/* ---- the heavy 60 class on a 120 Hz panel (7 ms of game, 15 ms of GPU: 22 of the 33.3 ms between the start of
+	one frame and the refresh two slots on): every frame is aimed, the rate holds at 60, and the display's own late
+	frames are the only ones */
+	{
+		struct load load = { .cpu = 0.007, .gpu_fixed = 0.015, .cpu_noise = 0.0008, .gpu_noise = 0.0008 }, load_off = load;
+		struct sim *off = run(SIM_OFF, P120, P120, 2.0, 2, &load_off, 36000);
+		struct sim *extended = run(SIM_EXTENDED, P120, P120, 2.0, 2, &load, 36000);
+		struct sim_result result, baseline;
+
+		off->latch = extended->latch = 0.0045;
+		off->slip_every = extended->slip_every = 1000;
+		extended->unaimed_cost = 0.75;
+		extended->slot_least = FRAME_PACER_EXTENDED_SLOT;
+		sim_run(off, 36000);
+		sim_run(extended, 36000);
+		baseline = sim_measure(off, 3600, 36000);
+		result = sim_measure(extended, 3600, 36000);
+		if (verbose)
+			printf("heavy 60 class: engaged %ld of %ld, late %ld (off %ld), lead %.1f read %.1f (off %.1f) fps %.1f\n",
+				result.engaged, result.frames, result.late, baseline.late, frame_pacer_extended_lead(&extended->extended) * 1e3,
+				result.read_to_shown_median * 1e3, baseline.read_to_shown_median * 1e3, result.rate);
+		CHECK(result.engaged == result.frames && fabs(result.rate - 60.0) < 0.1);
+		CHECK(result.late <= result.frames / 1000);
+		CHECK(fabs(frame_pacer_extended_lead(&extended->extended) - FRAME_PACER_EXTENDED_LEAD) < 1e-12);
+		CHECK(result.read_to_shown_median < 0.65 * baseline.read_to_shown_median);
+		finish(off);
+		finish(extended);
+	}
 	/* ---- the rules alone */
 	{
 		struct frame_pacer_extended late;
