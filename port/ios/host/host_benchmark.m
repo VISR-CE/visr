@@ -332,6 +332,31 @@ int host_benchmark_running(void) {
 
 static unsigned upscaler_requests, upscaler_paths;
 static uint64_t upscaler_frames[5];
+/* the open run's frames that the Compositor paced (visionOS's immersive space), the view of the last and the size
+   of the picture the GPU shaded for it; under the lock */
+static unsigned long compositor_frames;
+static int compositor_view, compositor_width, compositor_height;
+
+void host_benchmark_compositor_frame(int view, int width, int height)
+{
+    if (!atomic_load(&running)) return;
+    os_unfair_lock_lock(&lock);
+    if (window_open) {
+        compositor_frames++;
+        compositor_view = view;
+        if (width > 0 && height > 0) { compositor_width = width; compositor_height = height; }
+    }
+    os_unfair_lock_unlock(&lock);
+}
+
+/* what a run's frames were drawn at: the Compositor frames' picture where the run had them (the guest's window size
+   is then the eyes' logical size, or the flat window's), else the size the guest opened the window with */
+static void run_render_size(int *width, int *height) {
+    BOOL compositor = compositor_frames && compositor_width > 0 && compositor_height > 0;
+    *width = compositor ? compositor_width : window_width;
+    *height = compositor ? compositor_height : window_height;
+}
+
 void host_benchmark_upscaler(const char *requested, unsigned effective_paths)
 {
     if (!atomic_load(&running)) return;
@@ -937,6 +962,7 @@ static void reset_run_record(void) {
     run_capped = window_presented = 0;
     os_unfair_lock_lock(&lock);
     window_open = window_interrupted = window_width = window_height = 0;
+    compositor_frames = 0; compositor_view = compositor_width = compositor_height = 0;
     dynamic_line_count = dynamic_line_other = 0;
     upscaler_requests = upscaler_paths = 0;
     memset(upscaler_frames, 0, sizeof(upscaler_frames));
@@ -992,6 +1018,8 @@ static void record_applied_settings(NSMutableDictionary *settings, const struct 
 static BOOL write_run(const struct benchmark_run *finished, enum benchmark_status status, NSString *note,
     const char *measurements, NSDictionary *presentation) {
     const struct benchmark_scene *scene = &plan.scenes[finished->scene];
+    int render_width, render_height;
+    run_render_size(&render_width, &render_height);
     NSString *text = [NSString stringWithFormat:@"{\"index\":%d,\"stage\":\"%c\",\"scene\":\"%s\",\"map\":\"%s\","
         "\"difficulty\":\"%s\",\"recording\":%@,\"kind\":\"%s\",\"settings\":{\"render_lines\":%ld,"
         "\"anisotropic_filtering\":%ld,\"shadow_map_size\":%ld,\"model_lod\":\"%s\"},\"status\":\"%s\",\"note\":%@,"
@@ -1003,7 +1031,7 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
         /* (a baseline run leaves the size to the profile: what it drew at is the setting it ran with) */
         finished->lines ? finished->lines : (long)window_height, finished->anisotropy, finished->shadow_size,
         finished->model_lod_max ? "max" : "auto",
-        benchmark_status_name(status), json_string(note), window_width, window_height, json_object(run_output ?: suite_output ?: output_now()),
+        benchmark_status_name(status), json_string(note), render_width, render_height, json_object(run_output ?: suite_output ?: output_now()),
         json_object(@{ @"start": run_environment_start ?: @{}, @"end": run_environment_end ?: environment_now() }), measurements ? "," : "",
         measurements ?: ""];
 
@@ -1064,8 +1092,19 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
         !virtual_display_setting;
     int pacing = host_benchmark_pacing_of(host_benchmark_offscreen_requested(), offscreen, offscreen_pipelined,
         virtual_display_setting);
+    /* (a run the Compositor paced: its intervals are between the Compositor's presentation times; the guest's own
+       window size, the eyes' logical size, stays beside the picture's) */
+    if (pacing == HOST_BENCHMARK_PACING_PRESENTED && compositor_frames) {
+        static const char *views[] = { "full", "stereo_screen", "theater_screen", "ui_quad" };
+        pacing = HOST_BENCHMARK_PACING_COMPOSITOR;
+        record[@"compositor"] = @{ @"frames": @(compositor_frames),
+            @"view": @(compositor_view >= 0 && compositor_view < 4 ? views[compositor_view] : "unknown"),
+            @"picture_size": @[ @(compositor_width), @(compositor_height) ],
+            @"guest_render_size": @[ @(window_width), @(window_height) ] };
+    }
     /* (a virtual display's run is measured as a shown one: pacing_mode tells them apart) */
-    record[@"presented"] = @(pacing == HOST_BENCHMARK_PACING_PRESENTED || pacing == HOST_BENCHMARK_PACING_VIRTUAL_DISPLAY);
+    record[@"presented"] = @(pacing == HOST_BENCHMARK_PACING_PRESENTED || pacing == HOST_BENCHMARK_PACING_VIRTUAL_DISPLAY ||
+        pacing == HOST_BENCHMARK_PACING_COMPOSITOR);
     record[@"reality_check"] = @(finished->stage == 'P');
     record[@"measured_ticks"] = @(atomic_load(&window_ticks));
     record[@"capped"] = @(run_capped != 0);
@@ -1981,6 +2020,7 @@ int host_benchmark_next(char *text, unsigned int size) {
     run_capped = 0;
     os_unfair_lock_lock(&lock);
     window_open = window_interrupted = window_width = window_height = 0;
+    compositor_frames = 0; compositor_view = compositor_width = compositor_height = 0;
     dynamic_line_count = dynamic_line_other = 0;
     benchmark_live_reset(&live);
     /* <= 2 GiB devices retain a 4 MiB collector; others allow 16 MiB. */
@@ -2174,10 +2214,12 @@ static BOOL finish_run(NSDictionary *presentation) {
     benchmark_journal_end(JOURNAL, run.index, &outcome);
     run_open = 0;
     if (outcome_count < BENCHMARK_RUNS_MAXIMUM) outcomes[outcome_count++] = outcome;
+    int logged_width, logged_height;
+    run_render_size(&logged_width, &logged_height);
     host_logf(HOST_LOG_INFO, "benchmark: run %d %s: %zu submissions, %.1f a second, submission interval 90th %.1f ms, 99th %.1f ms, CPU 95th %.1f, GPU 95th %.1f, "
         "at %.1f Hz, %dx%d, least memory left %ld MB", run.index, benchmark_status_name(outcome.status), summary.frames,
-        summary.frames_a_second, summary.interval.p90, outcome.interval_p99, outcome.cpu_p95, outcome.gpu_p95, outcome.refresh_hertz, window_width,
-        window_height, outcome.left_least);
+        summary.frames_a_second, summary.interval.p90, outcome.interval_p99, outcome.cpu_p95, outcome.gpu_p95, outcome.refresh_hertz, logged_width,
+        logged_height, outcome.left_least);
     host_logf(HOST_LOG_INFO, "benchmark: run %d offered %lu submissions; %lu had no drawable and %lu no picture", run.index,
         pending_offered, pending_no_drawable, pending_no_picture);
     /* (the OpenGL ES renderer measures no GPU time: its GPU 95th of 0.0 is no measurement) */

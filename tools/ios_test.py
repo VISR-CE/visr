@@ -746,6 +746,12 @@ for perf_reports in (1, 0):
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/benchmark_offscreen_probe.c', '-o', BUILD/'benchmark-offscreen-probe')
 run(BUILD/'benchmark-offscreen-probe')
+# A frame visionOS's Compositor paces is a benchmark frame whichever present path showed it: the paths' shared
+# arithmetic into the benchmark's metrics (tools/test_stereo_benchmark_frames.py holds each path to the call).
+run('xcrun', 'clang', '-std=c99', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    '-Iport/runtime', 'port/ios/tests/stereo_benchmark_frames_probe.c', 'port/runtime/benchmark_metrics.c', '-o',
+    BUILD/'stereo-benchmark-frames-probe')
+run(BUILD/'stereo-benchmark-frames-probe')
 # Disc-import picture progress uses the same clamped fraction on UIKit and AppKit.
 run('xcrun', 'clang', '-std=c99', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host',
     'port/ios/tests/map_pictures_progress_probe.c', '-o', BUILD/'map-pictures-progress-probe')

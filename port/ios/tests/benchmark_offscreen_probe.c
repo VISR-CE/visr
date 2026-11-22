@@ -43,6 +43,9 @@ static void pacing_kinds(void) {
     CHECK(host_benchmark_pacing_of(1, 0, 0, 1) == HOST_BENCHMARK_PACING_VIRTUAL_DISPLAY);
     CHECK(!strcmp(host_benchmark_timing_basis(HOST_BENCHMARK_PACING_PIPELINED), "offscreen_pipelined"));
     CHECK(!strcmp(host_benchmark_timing_basis(HOST_BENCHMARK_PACING_VIRTUAL_DISPLAY), "virtual_display"));
+    /* a run visionOS's Compositor paced is shown, and says where its intervals come from */
+    CHECK(!strcmp(host_benchmark_timing_basis(HOST_BENCHMARK_PACING_COMPOSITOR), "compositor_presentation_timing"));
+    CHECK(!strcmp(host_benchmark_pacing_mode(HOST_BENCHMARK_PACING_COMPOSITOR), "presented"));
     CHECK(!strcmp(host_benchmark_pacing_mode(HOST_BENCHMARK_PACING_PRESENTED), "presented"));
     CHECK(!strcmp(host_benchmark_pacing_mode(HOST_BENCHMARK_PACING_SERIALIZED), "offscreen_serialized"));
     CHECK(!strcmp(host_benchmark_pacing_mode(HOST_BENCHMARK_PACING_PIPELINED), "offscreen_pipelined"));

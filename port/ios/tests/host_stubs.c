@@ -243,6 +243,8 @@ __attribute__((weak)) int host_benchmark_catalog_variants_for(const struct host_
 { fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_variants_for without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_compile(double seconds)
 { }
+__attribute__((weak)) void host_benchmark_compositor_frame(int view, int width, int height)
+{ }
 __attribute__((weak)) int host_benchmark_finish_requested(void)
 { fprintf(stderr, "host_stubs: probe called host_benchmark_finish_requested without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_frame(double interval, double cpu, double gpu, double refresh_period, double simulation_cpu, double render_cpu, double translation_cpu, int ticks)
@@ -1400,6 +1402,10 @@ __attribute__((weak)) int host_theater_frame_ready(void)
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) int host_theater_frame_repeat(void)
 { fprintf(stderr, "host_stubs: probe called host_theater_frame_repeat without defining it\n"); abort(); }
+#endif
+#if (defined(__OBJC__) && !defined(__swift__))
+__attribute__((weak)) double host_theater_last_presentation_time(void)
+{ fprintf(stderr, "host_stubs: probe called host_theater_last_presentation_time without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_theater_load_settings(void)
 { }

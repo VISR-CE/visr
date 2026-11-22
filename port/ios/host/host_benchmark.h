@@ -35,6 +35,11 @@ void host_benchmark_install(void);
 enum host_upscaler_path { HOST_UPSCALER_NONE = 1, HOST_UPSCALER_BILINEAR = 2,
     HOST_UPSCALER_METALFX = 4, HOST_UPSCALER_UNKNOWN = 8 };
 void host_benchmark_upscaler(const char *requested, unsigned effective_paths);
+/* the Metal backend on visionOS, before host_benchmark_frame for a frame the Compositor paced (the immersive space's
+   eyes or theater screen): the view (enum host_compositor_view, host_stereo_measure.h) and the size of the picture
+   the GPU shaded for it, one eye's or the theater's (0: unknown). A run with such frames reports their size and
+   says its intervals come from the Compositor's presentation times. */
+void host_benchmark_compositor_frame(int view, int width, int height);
 /* Bounded typed configuration from the guest resolver during an open measurement window. */
 void host_benchmark_graphics(const char *json);
 

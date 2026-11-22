@@ -72,9 +72,12 @@ int host_theater_foveation_state(float *quality, float *runtime, float *default_
 waiting for the Compositor's frames (host_theater_frame_begin) since the
 last call; the open frame's presentation time and the time the Compositor
 wants it submitted by, its rendering deadline (CACurrentMediaTime's clock,
-0 without a frame); and the layer's frame repeat count */
+0 without a frame); the presentation time of the last frame opened, which
+a path that opens and ends its frame inside its present reads afterwards
+(0 before any); and the layer's frame repeat count */
 double host_theater_take_waited(void);
 double host_theater_presentation_time(void);
+double host_theater_last_presentation_time(void);
 double host_theater_rendering_deadline(void);
 int host_theater_frame_repeat(void);
 /* the screen's pose in the room for the open frame's drawable (placed first

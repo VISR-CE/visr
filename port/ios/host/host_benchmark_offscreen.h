@@ -44,6 +44,8 @@ enum host_benchmark_pacing {
     HOST_BENCHMARK_PACING_SERIALIZED,
     HOST_BENCHMARK_PACING_PIPELINED,
     HOST_BENCHMARK_PACING_VIRTUAL_DISPLAY,
+    /* shown, and paced by visionOS's Compositor: intervals are between its predicted presentation times */
+    HOST_BENCHMARK_PACING_COMPOSITOR,
 };
 
 /* the pacing of a run: offscreen (an uncapped run of an offscreen launch), the launch's mode and whether a presented
@@ -61,6 +63,7 @@ static inline const char *host_benchmark_timing_basis(int pacing) {
     case HOST_BENCHMARK_PACING_SERIALIZED: return "offscreen_uncapped";
     case HOST_BENCHMARK_PACING_PIPELINED: return "offscreen_pipelined";
     case HOST_BENCHMARK_PACING_VIRTUAL_DISPLAY: return "virtual_display";
+    case HOST_BENCHMARK_PACING_COMPOSITOR: return "compositor_presentation_timing";
     default: return "submission_timing";
     }
 }

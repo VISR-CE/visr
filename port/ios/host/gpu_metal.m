@@ -263,6 +263,9 @@ static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, 
 #if TARGET_OS_VISION
 #include "host_theater.h"
 #include "host_stereo_hud.h"
+#include "host_stereo_measure.h"
+/* a Compositor-paced frame's measurements, from every present path that shows one (with the stereo frame times) */
+static void stereo_pacing_count(int view, id<MTLTexture> picture, BOOL after_present);
 /* the cut's fade through black (gpu_metal_present_stereo) */
 static float stereo_cut_brightness(int view, int covered, int requested);
 #endif
@@ -9105,6 +9108,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			use_texture(record);
 			commit(YES);
 			host_stereo_present_ui(queue, record->texture, nil, stereo_cut_brightness(HOST_STEREO_VIEW_UI, 0, 0));
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_UI_QUAD, record->texture, YES);
 			frames++;
 			pacing.work_started = CACurrentMediaTime();
 		perf_gpu_waited = 0.0;
@@ -9139,6 +9143,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			use_texture(record);
 			commit(YES);
 			host_theater_present(queue, picture);
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_THEATER_SCREEN, picture, YES);
 			frames++;
 			pacing.work_started = CACurrentMediaTime();
 		perf_gpu_waited = 0.0;
@@ -9511,31 +9516,69 @@ static struct
 	long before the presentation that deadline was */
 	double lateness[PACING_TIMED_FRAMES];
 	double deadline_lead;
+	/* the display's refresh period as the last report measured it (90 Hz's before the first) */
+	CFTimeInterval period;
+	uint64_t gpu_used, gpu_refused;
 	unsigned long timed, frames, late;
 } stereo_pacing;
 
-static void stereo_pacing_count(void)
+/* One Compositor-paced frame's measurements. Every present path that hands a picture to the Compositor calls this
+once for its frame, with the view it showed (host_stereo_measure.h): the eyes and the screens are a benchmark run's
+frames (host_benchmark_frame, which also feeds the overlay and the performance reports), the UI's quad is not and
+feeds only those two. picture is what the GPU shaded for the view (an eye, or the theater's picture), for the run's
+render size.
+
+after_present: the paths that open the Compositor's frame inside their present (the theater screen's mono picture,
+the UI's quad from the mono entry) call it after the present, so the wait is this frame's and lies in the present;
+the others open theirs at the game's frame begin, inside the render span, and call it before the presenter's
+encode, as they always have. */
+static void stereo_pacing_count(int view, id<MTLTexture> picture, BOOL after_present)
 {
-	CFTimeInterval now = CACurrentMediaTime();
-	CFTimeInterval waited = host_theater_take_waited();
-	CFTimeInterval presentation = host_theater_presentation_time();
-	CFTimeInterval interval = 0.0;
+	struct host_stereo_measure_in reading = { view, CACurrentMediaTime(), pacing.work_started,
+		after_present ? host_theater_last_presentation_time() : host_theater_presentation_time(),
+		stereo_pacing.last_presentation, host_theater_take_waited(), !after_present, -1.0, -1.0, -1.0 };
+	int ticks = 0;
 	uint64_t gpu_total = atomic_load(&pacing_gpu_nanoseconds);
-	double cpu = pacing.work_started > 0.0 ? now - pacing.work_started - waited : 0.0;
+	double translation_cpu;
+
+	host_frame_cpu_split(&reading.simulation, &reading.render, &translation_cpu, &ticks);
+	reading.translation = translation_cpu;
+	struct host_stereo_measure_out measured = host_stereo_measure(&reading);
+	CFTimeInterval now = reading.now, waited = reading.waited, presentation = reading.presentation;
+	CFTimeInterval interval = measured.interval;
+	double cpu = measured.cpu;
 	double perf_cpu = cpu - (host_perf_hooks_dynamic_enabled() ? perf_gpu_waited : 0.0);
+	double frame_gpu_waited = perf_gpu_waited;
 	perf_gpu_waited = 0.0;
 	double gpu = (double)(gpu_total - stereo_pacing.gpu_counted) / 1e9;
+	BOOL gpu_measured = gpu_metal_gpu_spans(&stereo_pacing.gpu_used, &stereo_pacing.gpu_refused);
 
 	host_perf_hooks_pacing(waited > 0.0 ? (uint64_t)(waited * 1e6) : 0);
 	stereo_pacing.gpu_counted = gpu_total;
-	if (presentation > 0.0 && stereo_pacing.last_presentation > 0.0)
-		interval = presentation - stereo_pacing.last_presentation;
 	if (presentation > 0.0)
 		stereo_pacing.last_presentation = presentation;
+	if (measured.run_frame)
+	{
+		/* the device benchmark (host_benchmark.m): every Compositor frame while a run's window is open. It feeds
+		the overlay (host_frame_counter_sample) and the performance reports' CPU time itself. */
+		host_benchmark_compositor_frame(view, picture ? (int)picture.width : 0, picture ? (int)picture.height : 0);
+		host_benchmark_upscaler(metalfx_requested ? "metalfx" : "bilinear", frame_upscale_paths ?: HOST_UPSCALER_NONE);
+		host_benchmark_frame(interval, cpu > 0.0 ? cpu : -1.0, gpu_measured ? gpu : -1.0,
+			stereo_pacing.period > 0.0 ? stereo_pacing.period : 1.0 / 90.0, reading.simulation, measured.render,
+			reading.translation, ticks);
+		host_benchmark_frame_waits(frame_gpu_waited, host_benchmark_worker_waited_take());
+		host_benchmark_frame_probe();
+	}
+	else
+		/* Reuse stereo pacing samples for the opt-in host overlay, without GPU queries. */
+		host_frame_counter_sample(interval, cpu, gpu);
+	/* (after host_benchmark_frame, whose own figure is the frame's whole CPU time: dynamic resolution's shadow
+	mode leaves out the frame's waits for the GPU) */
 	host_perf_hooks_cpu(perf_cpu >= 0.0 ? (uint64_t)(perf_cpu * 1e6) : UINT64_MAX);
-	/* Reuse stereo pacing samples for the opt-in host overlay, without GPU queries. */
-	host_frame_counter_sample(interval, cpu, gpu);
 	host_stereo_ab_sample(gpu);
+	/* (the log's reports below stay the eyes' frames, as the scripts that read them expect) */
+	if (view != HOST_COMPOSITOR_VIEW_FULL && view != HOST_COMPOSITOR_VIEW_STEREO_SCREEN)
+		return;
 	/* a quarter second or more is a load or the background, not a frame */
 	if (interval > 0.0 && interval < 0.25 && cpu > 0.0 && stereo_pacing.timed < PACING_TIMED_FRAMES)
 	{
@@ -9567,6 +9610,7 @@ static void stereo_pacing_count(void)
 
 		if (period < 1.0 / 120.0 || period > 1.0 / 60.0)
 			period = 1.0 / 90.0;
+		stereo_pacing.period = period;
 		for (index = 0; index < stereo_pacing.timed; index++)
 		{
 			long up = lround(stereo_pacing.intervals[index] / period);
@@ -9575,23 +9619,17 @@ static void stereo_pacing_count(void)
 		}
 		pacing_percentiles(stereo_pacing.cpu_times, stereo_pacing.timed, &cpu_median, &cpu_high);
 		pacing_percentiles(stereo_pacing.gpu_times, stereo_pacing.timed, &gpu_median, &gpu_high);
-		/* the system's state with each report, when it changes: the Compositor ran whole stretches at 45 Hz with the
-		GPU well under the 90 Hz budget, a state that crossed relaunches and came and went in a launch */
+		/* the system's state with every report: the Compositor ran whole stretches at 45 Hz with the GPU well under
+		the 90 Hz budget, a state that crossed relaunches and came and went in a launch, and a report without its
+		thermal state cannot be judged afterwards */
 		{
-			static int logged_thermal = -1, logged_low_power = -1;
+			static const char *names[] = { "nominal", "fair", "serious", "critical" };
 			int thermal = (int)NSProcessInfo.processInfo.thermalState;
 			int low_power = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
 
-			if (thermal != logged_thermal || low_power != logged_low_power)
-			{
-				static const char *names[] = { "nominal", "fair", "serious", "critical" };
-
-				platform_log("stereo: thermal state %s, Low Power Mode %s, presentations %.1f ms apart at the shortest",
-					thermal >= 0 && thermal < 4 ? names[thermal] : "unknown", low_power ? "on" : "off",
-					stereo_pacing.shortest * 1000.0);
-				logged_thermal = thermal;
-				logged_low_power = low_power;
-			}
+			platform_log("stereo: thermal state %s, Low Power Mode %s, presentations %.1f ms apart at the shortest",
+				thermal >= 0 && thermal < 4 ? names[thermal] : "unknown", low_power ? "on" : "off",
+				stereo_pacing.shortest * 1000.0);
 		}
 		platform_log("stereo: frames shown for 1/2/3/4/5+ refreshes at %.1f Hz: %lu/%lu/%lu/%lu/%lu (repeat count %d); "
 			"frame CPU %.1f ms, GPU %.1f ms (medians; 95th %.1f, %.1f)", 1.0 / period, shown[1], shown[2], shown[3],
@@ -9668,7 +9706,7 @@ static uint32_t present_stereo_frame(const struct gpu_stereo_present *present)
 			if (zoom && zoom->texture)
 				use_texture(zoom);
 			commit(YES);
-			stereo_pacing_count();
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_FULL, color[0]->texture, NO);
 			struct host_stereo_hud_aim aim = { present->reticle_world != 0, present->reticle_distance,
 				present->reticle_dim != 0, present->laser != 0,
 				{ present->laser_from[0], present->laser_from[1], present->laser_from[2] }, present->laser_opacity,
@@ -9701,6 +9739,7 @@ static uint32_t present_stereo_frame(const struct gpu_stereo_present *present)
 			use_texture(color[0]);
 			use_texture(hud);
 			commit(YES);
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_UI_QUAD, picture, NO);
 			host_stereo_present_ui(queue, picture, hud->texture,
 				stereo_cut_brightness(HOST_STEREO_VIEW_UI, present->cut_covered, 0));
 			frames++;
@@ -9723,7 +9762,7 @@ static uint32_t present_stereo_frame(const struct gpu_stereo_present *present)
 			if (hud && hud->texture)
 				use_texture(hud);
 			commit(YES);
-			stereo_pacing_count();
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_STEREO_SCREEN, color[0]->texture, NO);
 			host_theater_present_eyes(queue, left, right, hud ? hud->texture : nil,
 				present->fade, stereo_cut_brightness(HOST_STEREO_VIEW_SCREEN, present->cut_covered, 0));
 			frames++;

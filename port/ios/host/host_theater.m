@@ -924,6 +924,11 @@ double host_theater_presentation_time(void)
 	return open_frame ? open_presentation : 0.0;
 }
 
+double host_theater_last_presentation_time(void)
+{
+	return open_presentation;
+}
+
 double host_theater_rendering_deadline(void)
 {
 	return open_frame ? open_deadline : 0.0;
