@@ -593,5 +593,30 @@ int main(void)
 		CHECK(gpu_queue_barrier_waited() >= 0.002, "the present barrier waited %.3f ms for a 2 ms present",
 			gpu_queue_barrier_waited() * 1e3);
 	}
+
+	/* the encode thread's sleep and wake: records with pauses longer than its spin, so it sleeps between them, and
+	records back to back; a drain finds every one made */
+	{
+		const struct gpu_backend *queue = gpu_queue_wrap(&counted, NULL, GPU_QUEUE_THREAD, 0, quiet, NULL);
+		struct gpu_draw draw;
+		int paused;
+		uint32_t index;
+
+		memset(&draw, 0, sizeof(draw));
+		for (paused = 1; paused >= 0; paused--)
+		{
+			unsigned long before = fake_calls[GPU_OPERATION_draw];
+
+			for (index = 0; index < 3000; index++)
+			{
+				queue->draw(&draw, &stores[0], &uniforms);
+				if (paused && index % 5 == 0)
+					spin_seconds(0.00008);
+			}
+			gpu_queue_drain();
+			CHECK(fake_calls[GPU_OPERATION_draw] - before == 3000, "%s pauses, %lu of 3000 draws were made",
+				paused ? "with" : "without", fake_calls[GPU_OPERATION_draw] - before);
+		}
+	}
 	return 0;
 }
