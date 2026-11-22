@@ -1,4 +1,4 @@
-/* texture_policy.c on hand-made bitmaps: the same cases as step-tools/upscale_lib/tests/test_policy.py */
+/* texture_policy.c on hand-made bitmaps: the same cases as workspace-tools/upscale_lib/tests/test_policy.py */
 #include <assert.h>
 #include <locale.h>
 #include <stdio.h>

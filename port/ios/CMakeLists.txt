@@ -470,7 +470,7 @@ set_source_files_properties("${HALO_PRIVACY_MANIFEST}" PROPERTIES MACOSX_PACKAGE
 # starts. Off, the suite has only the scenes that play by themselves and the app carries no recording: the first
 # tester builds are made so, until recorded routes are shown to hold on other devices
 # On with routes off (the native Mac development build): the app carries no recordings but still runs the unsigned
-# benchmark/local-routes catalog that tools/replay_check.py and step-tools/watch-windows.py write
+# benchmark/local-routes catalog that tools/replay_check.py and workspace-tools/watch-windows.py write
 option(HALO_BENCHMARK_LOCAL_ROUTES "Run benchmark/local-routes without bundling recordings" OFF)
 option(HALO_BENCHMARK_ROUTES "Bundle the device benchmark's recorded routes and run them as scenes" ON)
 if(HALO_BENCHMARK_ROUTES)

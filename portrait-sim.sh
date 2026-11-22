@@ -7,9 +7,13 @@
 set -u
 tree=$1 out=$2 maps=${3:-}
 if [ -z "$maps" ]; then
-	for candidate in "$HOME/Library/Containers/A52F51E8-9FB5-464B-B308-B8A8D5802D03/Data/Documents/maps" "$HOME/code/halovision-remote/data/Documents/maps" "$HOME/code/halovision-remote/duo-hud-maps" "$HOME/code/halovision-remote/data/native-runner/maps" /Volumes/scratch/halovision-archive-1105/panorama-max-1031/combined-source/maps /Volumes/scratch/halovision-remote-scratch/pano-bg-1104/source/maps; do
+	# VISR_MAPS_DIRS: colon-separated folders to search for a maps folder that holds ui.map.
+	old_ifs=$IFS; IFS=:
+	for candidate in ${VISR_MAPS_DIRS:-}; do
+		IFS=$old_ifs
 		[ -f "$candidate/ui.map" ] && { maps=$candidate; break; }
 	done
+	IFS=$old_ifs
 fi
 [ -d "$out" ] && find "$out" -mindepth 1 -delete; mkdir -p "$out"; out=$(cd "$out" && pwd -P); exec > >(tee "$out/run.txt") 2>&1
 capped() {

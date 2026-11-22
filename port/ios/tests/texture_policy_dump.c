@@ -1,5 +1,5 @@
 /* texture_policy.c over a folder of .map files, in sorted name order, with the embedded policy: one line per key,
-"hash<TAB>width<TAB>height<TAB>result<TAB>kind", the format of step-tools texture-policy.py classify's results.tsv */
+"hash<TAB>width<TAB>height<TAB>result<TAB>kind", the format of workspace-tools texture-policy.py classify's results.tsv */
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>

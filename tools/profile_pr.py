@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Turn a benchmark report into a device profile pull request: the profile change, the check, before and after
 Mac-runner screenshots, the signed tester shards and the pull request text."""
+import os
 import argparse
 import base64
 import hashlib
@@ -41,7 +42,7 @@ GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-6": ("display.allow_portrait
                "device-profiles-4": ("display.allow_portrait", "display.effect_limits"),
                "device-profiles-3": ("network.full_rate_players", "display.allow_portrait", "display.effect_limits")}
 RECEIPT = FEED / "publication.json"
-RUN_JOB = Path.home() / "code/halovision/step-tools/run-job.sh"
+RUN_JOB = Path(os.environ.get("VISR_RUN_JOB", "run-job.sh"))
 REPOSITORY = "VISR-CE/visr"
 ASSETS_BRANCH = "profile-pr-assets"
 # the cost model's name for a knob, where the profile's differs
