@@ -19,6 +19,7 @@ static void advance(void *context) {
     assert(host_on_main_thread());
     assert(atomic_fetch_add(&step, 1) == expected);
 }
+static void nothing(void *context) { (void)context; }
 static void *worker(void *context) {
     (void)context;
     assert(!host_on_main_thread());
@@ -31,6 +32,24 @@ static void *worker(void *context) {
     int sync_expected = 3;
     host_main_sync_f(&sync_expected, advance);
     assert(atomic_load(&step) == 4);
+    /* Waits made outside a no-wait zone are not counted; inside one (nested too) every wait is,
+       and asyncs are not. */
+    assert(host_main_forbidden_waits() == 0);
+    host_main_wait_forbid();
+    host_main_async(^{});
+    assert(host_main_forbidden_waits() == 0);
+    host_main_sync(^{});
+    assert(host_main_forbidden_waits() == 1);
+    host_main_wait_forbid();
+    host_main_sync_f(NULL, nothing);
+    host_main_wait_allow();
+    assert(host_main_forbidden_waits() == 2);
+    host_main_sync(^{});
+    host_main_wait_allow();
+    assert(host_main_forbidden_waits() == 3);
+    host_main_sync(^{});
+    host_main_sync_f(NULL, nothing);
+    assert(host_main_forbidden_waits() == 3);
     atomic_store(&done, 1);
     return NULL;
 }
@@ -49,6 +68,12 @@ int main(void) {
     expected = 3;
     host_main_async_f(&expected, advance);
     assert(atomic_load(&step) == 4);
+    /* main runs its own calls inline, so a zone on main counts nothing */
+    host_main_wait_forbid();
+    host_main_sync(^{});
+    host_main_sync_f(NULL, nothing);
+    host_main_wait_allow();
+    assert(host_main_forbidden_waits() == 0);
 
     atomic_store(&step, 0);
     submitted = dispatch_semaphore_create(0);
@@ -63,8 +88,9 @@ int main(void) {
     assert(atomic_load(&done));
     assert(pthread_join(thread, NULL) == 0);
     assert(atomic_load(&step) == 4);
+    assert(host_main_forbidden_waits() == 3);
     dispatch_release(submitted);
     alarm(0);
-    puts("PASS: main-thread calls run inline in order; worker calls dispatch to main and sync waits");
+    puts("PASS: main-thread calls run inline in order; worker calls dispatch to main and sync waits; waits inside a no-wait zone are counted");
     return 0;
 }

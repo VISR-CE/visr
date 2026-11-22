@@ -57,6 +57,11 @@ int SDL_PeepEvents(SDL_Event *event, int count, SDL_EventAction action, Uint32 f
     return peep_result;
 }
 
+/* host_sdl.c's no-wait zone around controller reads (host_main_thread.h), stubbed with it */
+static int pad_reads_open;
+static void pad_read_begin(void) { pad_reads_open++; }
+static void pad_read_end(void) { assert(pad_reads_open > 0); pad_reads_open--; }
+
 /* tools/ios_test.py extracts the production helper without the rest of host_sdl.c. */
 #include "game_thread_next_event.inc"
 
@@ -97,6 +102,8 @@ int main(int argc, char **argv) {
     host_sdl_update_joysticks();
     assert(read_refreshes == (expected ? 1 : 0) && read_samples == (expected ? 1 : 2));
     on_main = 0;
+    /* both reads ran inside the no-wait zone, and left it */
+    assert(pad_reads_open == 0);
     assert(controller_pump_notes == pumps + (expected ? 0 : polls));
     assert(config_reads == 1);
     assert(window_refreshes == pumps);

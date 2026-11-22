@@ -44,17 +44,16 @@ static atomic_int note_hidden=-1;
 /* the remote's pad and the hardware controller it merges (host_gamepad_merge.h) */
 static struct host_gamepad_merge merge;
 #if TARGET_OS_TV
-/* true while tvOS's text dialog is up, and after it until every button of the
-   hardware controller is let go: the game reads no controller then (below) */
-static bool text_input_blocked(void);
-/* The same answer as of the last text_input_blocked on main (kept by it and by each poll's
-   host_tv_text_prompt_tick), for the event filter below: SDL runs a filter on the thread that
-   pushes the event, holding the event-watch lock, so it must not call SDL joystick functions
-   (hardware_held does, and the game thread holds the joystick lock when an update pushes an
-   event: the two locks would be taken in opposite orders). */
+/* True while tvOS's text dialog is up, and after it until every button of the hardware
+   controller is let go: the game reads no controller then (below). Main decides it (the dialog
+   is UIKit's) on each poll's host_tv_text_prompt_tick, from the poll with the game on main or
+   from the main run loop's event pump with the game thread on, and publishes it here. Pad reads
+   and the event filter below only load it, on any thread, and never wait on main: SDL runs a
+   filter on the thread that pushes the event, holding the event-watch lock, so it must not call
+   SDL joystick functions either (hardware_held does, and the game thread holds the joystick
+   lock when an update pushes an event: the two locks would be taken in opposite orders). */
 static bool text_input_blocked_cached(void);
 #else
-#define text_input_blocked() false
 #define text_input_blocked_cached() false
 #endif
 /* Remote presses latch until the game reads them: a swipe's key down and up
@@ -96,14 +95,6 @@ static bool SDLCALL remote_event(void *userdata,SDL_Event *event) {
     return false;
 }
 static bool remote_read(int button) {
-#if TARGET_OS_TV
-    if(host_game_thread_enabled() && !host_on_main_thread()) {
-        __block bool result;
-        host_main_sync(^{ result=remote_read(button); });
-        return result;
-    }
-#endif
-
     if(button<0 || button>=SDL_GAMEPAD_BUTTON_COUNT)return false;
     bool latched=atomic_exchange(&remote_latched[button],false);
     return atomic_load(&remote_down[button]) || latched;
@@ -189,7 +180,7 @@ int host_ios_gamepad_type(SDL_Gamepad *pad) {
     return physical?SDL_GetGamepadType(physical):SDL_GAMEPAD_TYPE_XBOX360;
 }
 int host_ios_gamepad_axis(SDL_Gamepad *pad,int axis) {
-    if(text_input_blocked())return 0;
+    if(text_input_blocked_cached())return 0;
     int value=SDL_GetGamepadAxis(pad,axis);
     SDL_Gamepad *physical=host_gamepad_merge_is_virtual(&merge,pad)?host_gamepad_merge_primary(&merge):NULL;
     if(physical) {
@@ -199,7 +190,7 @@ int host_ios_gamepad_axis(SDL_Gamepad *pad,int axis) {
     return value;
 }
 int host_ios_gamepad_button(SDL_Gamepad *pad,int button) {
-    if(text_input_blocked())return 0;
+    if(text_input_blocked_cached())return 0;
     if(!host_gamepad_merge_is_virtual(&merge,pad))return SDL_GetGamepadButton(pad,button);
     SDL_Gamepad *physical=host_gamepad_merge_primary(&merge);
     return remote_read(button) || (physical && SDL_GetGamepadButton(physical,button));
@@ -293,21 +284,12 @@ static bool text_input_blocked_now(void) {
     host_ios_touch_reset();
     return false;
 }
-static bool text_input_blocked(void) {
-    if(host_game_thread_enabled() && !host_on_main_thread()) {
-        __block bool result;
-        host_main_sync(^{ result=text_input_blocked(); });
-        return result;
-    }
-    bool result=text_input_blocked_now();
-    atomic_store_explicit(&text_input_blocked_flag,result,memory_order_release);
-    return result;
-}
-
-/* each poll (host_sdl.c's text_input_update): the controller goes back to the
-   game as soon as the dialog is gone, however it went */
+/* each poll on main (host_sdl.c's text_input_update with the game on main, host_event_pump's
+   timer with the game thread on): the controller goes back to the game as soon as the dialog is
+   gone, however it went. Off main it does nothing; the game thread never waits on main for it. */
 void host_tv_text_prompt_tick(void) {
-    (void)text_input_blocked();
+    if(!host_on_main_thread())return;
+    atomic_store_explicit(&text_input_blocked_flag,text_input_blocked_now(),memory_order_release);
 }
 
 /* Done: the dialog's text, whole, for host_tv_text_result */

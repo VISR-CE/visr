@@ -12,3 +12,11 @@ void host_main_sync(dispatch_block_t block);
 #endif
 void host_main_async_f(void *context, void (*fn)(void *));
 void host_main_sync_f(void *context, void (*fn)(void *));
+
+/* Code that must never wait on main, such as a controller read (host_sdl.c's gamepad entry points),
+   runs between host_main_wait_forbid and host_main_wait_allow (they nest). A host_main_sync or
+   host_main_sync_f made in between from another thread is still made, and counted:
+   host_main_forbidden_waits gives the count, for a log line and the probes. */
+void host_main_wait_forbid(void);
+void host_main_wait_allow(void);
+unsigned long host_main_forbidden_waits(void);

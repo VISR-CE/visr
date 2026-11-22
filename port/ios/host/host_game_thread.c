@@ -30,4 +30,8 @@ void host_event_pump(void) {
     SDL_PumpEvents();
     host_controller_refreshed();
     host_sdl_refresh_window_cache();
+#if TARGET_OS_TV
+    /* tvOS's text dialog gate, decided here on main so the game thread's pad reads only load it (host_tv.m) */
+    host_tv_text_prompt_tick();
+#endif
 }

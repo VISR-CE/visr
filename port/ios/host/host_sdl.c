@@ -802,9 +802,33 @@ void host_sdl_rumble_hold(int hold)
 	SDL_free(ids);
 }
 
+/* A controller read never waits on the main thread: the main thread can be busy for a long time,
+and the wait sits right before the game uses what it read. The gamepad entry points below run in
+host_main_thread.h's no-wait zone; the first wait made in one is logged as an error. Shared state
+they read is atomic or SDL's own (taken under SDL's joystick lock), never main's. */
+static void pad_read_begin(void)
+{
+	host_main_wait_forbid();
+}
+
+static void pad_read_end(void)
+{
+	static atomic_int logged;
+
+	host_main_wait_allow();
+	if (host_main_forbidden_waits() && !atomic_exchange(&logged, 1))
+		host_logf(HOST_LOG_ERROR, "a controller read waited on the main thread (%lu so far): reads must not",
+			host_main_forbidden_waits());
+}
+
 int host_sdl_get_gamepads(uint32_t *ids, int capacity)
 {
-	return host_ios_gamepads(ids, capacity);
+	int count;
+
+	pad_read_begin();
+	count = host_ios_gamepads(ids, capacity);
+	pad_read_end();
+	return count;
 }
 
 /* The game's controller reads (XInputGetState, the late look's stick read) call this first: the poll's
@@ -812,16 +836,21 @@ int host_sdl_get_gamepads(uint32_t *ids, int capacity)
 up to date for them (the main thread's pump does, on its timer). */
 void host_sdl_update_joysticks(void)
 {
+	pad_read_begin();
 	if (host_game_thread_enabled() && !host_on_main_thread())
 		host_controller_refresh_for_read();
 	else
 		host_controller_sample();
+	pad_read_end();
 }
 
 uint32_t host_sdl_open_gamepad(uint32_t id)
 {
-	SDL_Gamepad *gamepad = SDL_OpenGamepad((SDL_JoystickID)id);
+	SDL_Gamepad *gamepad;
 
+	pad_read_begin();
+	gamepad = SDL_OpenGamepad((SDL_JoystickID)id);
+	pad_read_end();
 	if (gamepad)
 		host_logf(HOST_LOG_INFO, "gamepad %u: %s (type %d, %04x:%04x)", (unsigned)id, SDL_GetGamepadName(gamepad),
 			(int)SDL_GetGamepadType(gamepad), SDL_GetGamepadVendor(gamepad), SDL_GetGamepadProduct(gamepad));
@@ -836,24 +865,36 @@ uint32_t host_sdl_gamepad_from_id(uint32_t id)
 int host_sdl_gamepad_axis(uint32_t gamepad, int axis)
 {
 	SDL_Gamepad *object = handle_get(gamepad, _handle_gamepad);
+	int value;
 
+	pad_read_begin();
 	/* (at rest while a share sheet is up) */
-	return object && !host_window_up() && !host_audio_output_up() ? host_ios_gamepad_axis(object, axis) : 0;
+	value = object && !host_window_up() && !host_audio_output_up() ? host_ios_gamepad_axis(object, axis) : 0;
+	pad_read_end();
+	return value;
 }
 
 int host_sdl_gamepad_button(uint32_t gamepad, int button)
 {
 	SDL_Gamepad *object = handle_get(gamepad, _handle_gamepad);
+	int value;
 
+	pad_read_begin();
 	/* (none pressed while a share sheet is up) */
-	return object && !host_window_up() && !host_audio_output_up() ? host_ios_gamepad_button(object, button) : 0;
+	value = object && !host_window_up() && !host_audio_output_up() ? host_ios_gamepad_button(object, button) : 0;
+	pad_read_end();
+	return value;
 }
 
 int host_sdl_gamepad_type(uint32_t gamepad)
 {
 	SDL_Gamepad *object = handle_get(gamepad, _handle_gamepad);
+	int type;
 
-	return object ? host_ios_gamepad_type(object) : SDL_GAMEPAD_TYPE_UNKNOWN;
+	pad_read_begin();
+	type = object ? host_ios_gamepad_type(object) : SDL_GAMEPAD_TYPE_UNKNOWN;
+	pad_read_end();
+	return type;
 }
 
 /* The guest's handle can name the virtual pad merging touch and hardware.
