@@ -230,6 +230,20 @@ __attribute__((weak)) void gpu_queue_drain(void)
 { }
 __attribute__((weak)) unsigned long gpu_queue_drains(void)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_drains without defining it\n"); abort(); }
+__attribute__((weak)) void gpu_queue_eye_constants(uint32_t first, uint32_t count, const float *values)
+{ }
+__attribute__((weak)) void gpu_queue_eye_constants_end(uint32_t first, uint32_t count)
+{ }
+__attribute__((weak)) void gpu_queue_eye_live_end(void)
+{ }
+__attribute__((weak)) void gpu_queue_eye_only(int eye)
+{ }
+__attribute__((weak)) int gpu_queue_eye_span_begin(int verify)
+{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) int gpu_queue_eye_span_end(const struct gpu_queue_eye_map *map)
+{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void gpu_queue_eye_statistics(struct gpu_queue_eye_statistics *statistics)
+{ }
 __attribute__((weak)) unsigned long gpu_queue_keyframes_checked(unsigned long *differ)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_keyframes_checked without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_queue_mode_choose(const char *debug, const char *display, const char **from)
@@ -1396,6 +1410,18 @@ __attribute__((weak)) int host_stereo_ready(void)
 #endif
 __attribute__((weak)) float host_stereo_render_quality(float quality)
 { fprintf(stderr, "host_stubs: probe called host_stereo_render_quality without defining it\n"); abort(); }
+__attribute__((weak)) uint32_t host_stereo_replay_begin(void)
+{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *values)
+{ }
+__attribute__((weak)) void host_stereo_replay_constants_end(uint32_t first, uint32_t count)
+{ }
+__attribute__((weak)) uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to)
+{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void host_stereo_replay_eye(uint32_t eye)
+{ }
+__attribute__((weak)) void host_stereo_replay_live_end(void)
+{ }
 __attribute__((weak)) int host_stereo_room_recenter_pending(void)
 { fprintf(stderr, "host_stubs: probe called host_stereo_room_recenter_pending without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_room_vector(float vector[3])

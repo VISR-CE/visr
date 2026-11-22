@@ -1813,6 +1813,13 @@ static const struct config_setting config_settings[] =
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
 		"With the encode queue on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },
+	{ "debug.stereo_replay", _config_string, "\"off\"", "HALO_STEREO_REPLAY", _environment_value, _platform_ios,
+		"Stereo with Metal: \"on\" draws the second eye by making the first eye's\n"
+		"renderer commands again into its targets with its own camera, instead\n"
+		"of drawing the scene a second time; a frame with a mirror in view draws\n"
+		"it as with \"off\". \"verify\" draws the second eye as with \"off\",\n"
+		"compares the replay's commands with it and logs the first differences.\n"
+		"Needs debug.encode_thread \"inline\" or \"thread\"." },
 	{ "debug.latency_log", _config_boolean, "false", "HALO_LATENCY_LOG", _environment_set_is_true, _platform_ios,
 		"Logs a latency line every 300 frames: how old the controller state was\n"
 		"when the game read it, and the time from that read to the frame's\n"

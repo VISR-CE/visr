@@ -125,6 +125,12 @@ host_soft_depth_prepare
 host_soft_depth_finish
 # the present pass (gpu_metal.m): debug.knob_cycle's present dither
 host_present_dither_set
+host_stereo_replay_begin
+host_stereo_replay_eye
+host_stereo_replay_constants
+host_stereo_replay_constants_end
+host_stereo_replay_end
+host_stereo_replay_live_end
 # stereo (halo_stereo.h)
 host_stereo_frame
 host_stereo_entered

@@ -4684,6 +4684,165 @@ void WINAPI D3DDevice_GetVertexShaderSize(DWORD handle, UINT *size)
 	*size = object ? object->instruction_count : 0;
 }
 
+/* ---------- port: debug.stereo_replay (halo_stereo.h; the second-eye replay design). Eye 0's pass draws inside a
+span of the iOS host's encode queue, which makes its calls again into eye 1's targets. This side keeps the span's
+markers in order with the calls (a held immediate draw is made first), sends eye 1's camera constants, ends each
+of them where the game next stores that register itself, and maps eye 0's screen targets to eye 1's */
+
+#ifdef HALO_ILP32
+static int replay_open;
+/* the registers whose eye 1 value the replay holds (gpu_queue.h's overrides) */
+static uint64_t replay_overridden[(XGPU_VERTEX_CONSTANT_COUNT + 63) / 64];
+static int replay_any_overridden;
+#endif
+
+/* debug.stereo_replay is on or verify (the host still decides whether a span opens) */
+int halo_stereo_replay_wanted(void)
+{
+#ifdef HALO_ILP32
+	static int wanted = -1;
+
+	if (wanted < 0)
+	{
+		const char *value = config_string("debug.stereo_replay");
+
+		wanted = value && (!strcmp(value, "on") || !strcmp(value, "verify"));
+	}
+	return wanted;
+#else
+	return 0;
+#endif
+}
+
+int halo_stereo_replay_begin(void)
+{
+#ifdef HALO_ILP32
+	uint32_t mode;
+
+	if (replay_open)
+		return HALO_STEREO_REPLAY_OFF;
+	IMMEDIATE_FLUSH();
+	mode = host_stereo_replay_begin();
+	replay_open = mode != HALO_STEREO_REPLAY_OFF;
+	memset(replay_overridden, 0, sizeof(replay_overridden));
+	replay_any_overridden = 0;
+	return (int)mode;
+#else
+	return HALO_STEREO_REPLAY_OFF;
+#endif
+}
+
+void halo_stereo_replay_eye(int eye)
+{
+#ifdef HALO_ILP32
+	if (!replay_open)
+		return;
+	IMMEDIATE_FLUSH();
+	host_stereo_replay_eye((uint32_t)eye);
+#else
+	(void)eye;
+#endif
+}
+
+void halo_stereo_replay_constants(int reg, const void *values, unsigned long count)
+{
+#ifdef HALO_ILP32
+	long first = reg + XGPU_VERTEX_CONSTANT_BIAS;
+	unsigned long index;
+
+	if (!replay_open || first < 0 || first + (long)count > XGPU_VERTEX_CONSTANT_COUNT)
+		return;
+	IMMEDIATE_FLUSH();
+	host_stereo_replay_constants((uint32_t)first, (uint32_t)count, values);
+	for (index = (unsigned long)first; index < (unsigned long)first + count; index++)
+		replay_overridden[index / 64] |= 1ull << (index % 64);
+	replay_any_overridden = 1;
+#else
+	(void)reg, (void)values, (void)count;
+#endif
+}
+
+/* the game stores registers first..first+count-1 itself: the replay's eye 1 values there end */
+static void replay_constants_stored(unsigned long first, unsigned long count)
+{
+#ifdef HALO_ILP32
+	unsigned long index, run = 0, run_first = 0;
+
+	if (!replay_any_overridden)
+		return;
+	for (index = first; index <= first + count; index++)
+	{
+		int overridden = index < first + count && (replay_overridden[index / 64] & 1ull << (index % 64));
+
+		if (overridden)
+		{
+			if (!run)
+				run_first = index;
+			run++;
+			replay_overridden[index / 64] &= ~(1ull << (index % 64));
+		}
+		else if (run)
+		{
+			IMMEDIATE_FLUSH();
+			host_stereo_replay_constants_end((uint32_t)run_first, (uint32_t)run);
+			run = 0;
+		}
+	}
+#else
+	(void)first, (void)count;
+#endif
+}
+
+int halo_stereo_replay_end(void)
+{
+#ifdef HALO_ILP32
+	struct render_target_entry *targets[4];
+	uint32_t from[2], to[2], count = 0, index;
+	int replayed;
+
+	if (!replay_open)
+		return 0;
+	IMMEDIATE_FLUSH();
+	replay_open = 0;
+	/* eye 0's color and depth, and eye 1's (made now if eye 1 has not drawn yet) */
+	targets[0] = render_target_get_layer(&device.back_buffer, 0);
+	targets[1] = render_target_get_layer(&device.back_buffer, 1);
+	targets[2] = render_target_get_layer(&device.depth_buffer, 0);
+	targets[3] = render_target_get_layer(&device.depth_buffer, 1);
+	for (index = 0; index < 4; index += 2)
+		if (targets[index] && targets[index + 1])
+		{
+			from[count] = targets[index]->target.texture;
+			to[count] = targets[index + 1]->target.texture;
+			count++;
+		}
+	replayed = host_stereo_replay_end(count, from, to) != 0;
+	/* (eye 1's targets are drawn this frame, as if its pass had drawn them: superseded_targets_release and the
+	render target lookup read these) */
+	if (replayed)
+	{
+		if (targets[1])
+		{
+			targets[1]->last_rendered = device.frame + 1;
+			targets[1]->target.written = ++render_target_write_serial;
+		}
+		if (targets[3])
+			targets[3]->last_rendered = device.frame + 1;
+	}
+	return replayed;
+#else
+	return 0;
+#endif
+}
+
+void halo_stereo_replay_live_end(void)
+{
+#ifdef HALO_ILP32
+	IMMEDIATE_FLUSH();
+	host_stereo_replay_live_end();
+#endif
+}
+
 void WINAPI D3DDevice_SetVertexShaderConstant(INT reg, CONST void *constant_data, DWORD constant_count)
 {
 	TRANSLATION_TIMED(set_vertex_shader_constant); /* port */
@@ -4693,6 +4852,7 @@ void WINAPI D3DDevice_SetVertexShaderConstant(INT reg, CONST void *constant_data
 		return;
 	if (first + (long)constant_count > XGPU_VERTEX_CONSTANT_COUNT)
 		constant_count = XGPU_VERTEX_CONSTANT_COUNT - first;
+	replay_constants_stored((unsigned long)first, constant_count);
 	constants_store((unsigned long)first, constant_data, constant_count);
 }
 

@@ -713,4 +713,27 @@ int halo_stereo_help_text_line_end(const unsigned short *text, int length);
 /* Screen flashes whose blend would disappear over the companion black. */
 void halo_companion_flash(unsigned int color, int adapt);
 
+/* debug.stereo_replay (the second-eye replay design; d3d8_device.c, through
+the iOS host's encode queue, port/ios/host/gpu_queue.h). In a stereo frame
+render_player_frame_stereo asks begin before eye 0's pass: OFF draws eye 1
+as without the replay; ON opens a span, and eye 0's pass draws for both
+eyes (its calls are made again into eye 1's targets with eye 1's camera
+constants), so end answers 1 and eye 1's pass is not drawn, or 0 when the
+span cannot be replayed and eye 1 is drawn as without the replay; VERIFY
+opens a span that is not drawn twice: eye 1 is drawn too, and live_end after
+it compares the replay's calls with eye 1's. eye marks the calls that follow
+for one eye (HALO_STEREO_REPLAY_EYE_0 or _1) or both. constants: eye 1's
+values for vertex registers from reg (the game's numbering, -96 first), held
+in the replay until the game next stores one of them itself. wanted: the
+setting asks for the replay, so render_player_frame_stereo prepares eye 1's
+camera before it asks begin */
+enum { HALO_STEREO_REPLAY_OFF, HALO_STEREO_REPLAY_ON, HALO_STEREO_REPLAY_VERIFY };
+enum { HALO_STEREO_REPLAY_BOTH, HALO_STEREO_REPLAY_EYE_0, HALO_STEREO_REPLAY_EYE_1 };
+int halo_stereo_replay_wanted(void);
+int halo_stereo_replay_begin(void);
+void halo_stereo_replay_eye(int eye);
+void halo_stereo_replay_constants(int reg, const void *values, unsigned long count);
+int halo_stereo_replay_end(void);
+void halo_stereo_replay_live_end(void);
+
 #endif

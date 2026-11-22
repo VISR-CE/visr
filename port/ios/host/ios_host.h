@@ -134,6 +134,14 @@ int host_gpu_metal_active(void);
 /* 1 when debug.encode_thread put the encode queue in front of the Metal backend (decided before the backend's
 initialize, which sizes its stream ring by it) */
 int host_gpu_encode_queue_on(void);
+/* debug.stereo_replay: the guest's imports for d3d8_device.c's halo_stereo_replay_* (guest_host.h), on the encode
+queue's spans (gpu_queue.h) */
+uint32_t host_stereo_replay_begin(void);
+void host_stereo_replay_eye(uint32_t eye);
+void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *values);
+void host_stereo_replay_constants_end(uint32_t first, uint32_t count);
+uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to);
+void host_stereo_replay_live_end(void);
 /* with debug.encode_thread = "thread", when the game thread last called its present (CACurrentMediaTime's clock): the
 encode thread's frame-slot wait after it is a wait at the present barrier (frame_waits.h). -1 without the encode
 thread, where the game thread encodes the frame itself. */

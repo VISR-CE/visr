@@ -289,6 +289,17 @@ as view distances for the transparent geometry drawn next (count floats: near, f
 fade distance, the distances' scale); 1 when it was. Finish ends it */
 uint32_t host_soft_depth_prepare(gpu_texture depth, const float *parameters, uint32_t count);
 void host_soft_depth_finish(void);
+/* debug.stereo_replay (port/linux/src/d3d8_device.c's halo_stereo_replay_*, the iOS host's gpu_queue.h): begin
+opens a span for eye 0's pass and answers its mode (HALO_STEREO_REPLAY_*; OFF opens none); eye marks the calls
+after it for one eye (HALO_STEREO_REPLAY_EYE_*) or both; constants holds eye 1's values for count registers from
+first (c[0] first) in the replay, and constants_end ends that; end closes the span with the textures eye 1's
+calls use for eye 0's, answering 1 when it is replayed; live_end ends verify's live eye 1 */
+uint32_t host_stereo_replay_begin(void);
+void host_stereo_replay_eye(uint32_t eye);
+void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *values);
+void host_stereo_replay_constants_end(uint32_t first, uint32_t count);
+uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to);
+void host_stereo_replay_live_end(void);
 
 /* ---------- stereo (port/linux/game/stereo.c; the host's port/ios/host/host_stereo.m)
 

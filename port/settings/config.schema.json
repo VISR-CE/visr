@@ -3083,6 +3083,16 @@
             "apple"
           ]
         },
+        "stereo_replay": {
+          "type": "string",
+          "default": "off",
+          "description": "Stereo with Metal: \"on\" draws the second eye by making the first eye's renderer commands again into its targets with its own camera, instead of drawing the scene a second time; a frame with a mirror in view draws it as with \"off\". \"verify\" draws the second eye as with \"off\", compares the replay's commands with it and logs the first differences. Needs debug.encode_thread \"inline\" or \"thread\".",
+          "x-environment": "HALO_STEREO_REPLAY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "latency_log": {
           "type": "boolean",
           "default": false,

@@ -773,6 +773,76 @@ int host_gpu_encode_queue_on(void)
 #define OWNER_CHECK_STOPS 0
 #endif
 
+/* debug.stereo_replay (halo_stereo.h; gpu_queue.h): the second eye by replay, through the encode queue */
+static int stereo_replay_mode;
+
+static void stereo_replay_setting(void)
+{
+	char value[16];
+
+	host_config_string("debug.stereo_replay", "off", value, sizeof(value));
+	stereo_replay_mode = !strcmp(value, "on") ? HALO_STEREO_REPLAY_ON :
+		!strcmp(value, "verify") ? HALO_STEREO_REPLAY_VERIFY : HALO_STEREO_REPLAY_OFF;
+	if (stereo_replay_mode == HALO_STEREO_REPLAY_OFF)
+	{
+		if (strcmp(value, "off") && strcmp(value, "false") && value[0])
+			platform_log("debug.stereo_replay: \"%s\" is not one of off, on and verify; it is off", value);
+		return;
+	}
+	if (!encode_queue_on)
+	{
+		platform_log("debug.stereo_replay needs debug.encode_thread \"inline\" or \"thread\"; it is off");
+		stereo_replay_mode = HALO_STEREO_REPLAY_OFF;
+		return;
+	}
+	platform_log("debug.stereo_replay: %s%s", value, call_hash_on ? " (the call hash's check across the queue counts "
+		"the replay's calls as differences)" : "");
+}
+
+uint32_t host_stereo_replay_begin(void)
+{
+	if (stereo_replay_mode == HALO_STEREO_REPLAY_OFF)
+		return HALO_STEREO_REPLAY_OFF;
+	return gpu_queue_eye_span_begin(stereo_replay_mode == HALO_STEREO_REPLAY_VERIFY) ? (uint32_t)stereo_replay_mode :
+		HALO_STEREO_REPLAY_OFF;
+}
+
+void host_stereo_replay_eye(uint32_t eye)
+{
+	gpu_queue_eye_only(eye == HALO_STEREO_REPLAY_EYE_0 ? GPU_QUEUE_EYE_0 :
+		eye == HALO_STEREO_REPLAY_EYE_1 ? GPU_QUEUE_EYE_1 : GPU_QUEUE_EYE_BOTH);
+}
+
+void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *values)
+{
+	gpu_queue_eye_constants(first, count, values);
+}
+
+void host_stereo_replay_constants_end(uint32_t first, uint32_t count)
+{
+	gpu_queue_eye_constants_end(first, count);
+}
+
+uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to)
+{
+	struct gpu_queue_eye_map map;
+	uint32_t index;
+
+	memset(&map, 0, sizeof(map));
+	map.count = count < GPU_QUEUE_EYE_MAP_SIZE ? count : GPU_QUEUE_EYE_MAP_SIZE;
+	for (index = 0; index < map.count; index++)
+	{
+		map.from[index] = from[index];
+		map.to[index] = to[index];
+	}
+	return (uint32_t)gpu_queue_eye_span_end(&map);
+}
+
+void host_stereo_replay_live_end(void)
+{
+	gpu_queue_eye_live_end();
+}
+
 /* chosen with the call hash (debug.gpu_call_hash) and, on Metal, the encode queue in front of it: the hash wraps
 what the game calls; with the queue, a second hash behind the queue sees only the recorded commands */
 static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *chosen, int metal)
@@ -787,6 +857,7 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 	mode = metal ? encode_queue_mode(&timing) : GPU_QUEUE_OFF;
 	encode_queue_on = mode != GPU_QUEUE_OFF;
 	encode_thread_on = mode == GPU_QUEUE_THREAD;
+	stereo_replay_setting();
 	if (mode == GPU_QUEUE_OFF)
 		return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
 	/* each call from the thread its class says (gpu_owner_check.h); a development build stops at the first that is
