@@ -6113,7 +6113,8 @@ static void frame_deadline_late_start(double slept)
 {
 	if (slept < 0.0002 || !frame_deadline.open)
 		return;
-	if (!pthread_equal(frame_deadline.thread, pthread_self()) && frame_deadline.producer_joined != 1)
+	if (!frame_deadline_interval_member(pthread_equal(frame_deadline.thread, pthread_self()),
+			frame_deadline.producer_joined))
 		return;
 	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
 	{
@@ -6125,9 +6126,14 @@ static void frame_deadline_late_start(double slept)
 	}
 }
 
-/* the frame's work ends now (Present is about to wait, or the dispatch to hold in the background) */
+/* the frame's work ends now (Present is about to wait, or the dispatch to hold in the background). With the encode
+thread, a game thread that has not joined (before its first late start, or a join that failed) leaves the end to the
+encode thread's present (frame_deadline_interval_member). */
 void gpu_metal_frame_deadline_end(void)
 {
+	if (!frame_deadline_interval_member(pthread_equal(frame_deadline.thread, pthread_self()),
+			frame_deadline.producer_joined))
+		return;
 	if (frame_deadline.open)
 	{
 		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))

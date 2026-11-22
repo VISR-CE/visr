@@ -117,8 +117,10 @@ iOS, tvOS and macOS build (tools/ios_build.py, tools/macos_build.py): a new one 
 - THREAD_SAFE: reads or counts through atomics, or reads a switch set for the run, from any thread
   (gpu_metal_count_gpu_time: a command buffer that host_stereo.m or host_theater.m committed itself).
 - WORKGROUP: acts on the frame-deadline workgroup the presenting thread joined (the dispatch, the benchmark pages,
-  share sheets, cloud saves, host_tv.m). The encode thread joins it once encoding moves there, and these become
-  recorded commands then.
+  share sheets, cloud saves, host_tv.m). They stay direct calls with the encode thread, which joins the workgroup and
+  starts the interval at its present's return, before the barrier lets the game thread go: the game thread's end comes
+  before its present is recorded and the encode thread's present ends it again, a non-member's end does nothing, and
+  _leave and _hold return early with a game thread.
 - SURFACE: reads the game layer's drawable size where the presenter reads it (host_picture_drawable: every pointer
   source maps through it). */
 #define GPU_METAL_DIRECT_ENTRY_POINTS(E) \
