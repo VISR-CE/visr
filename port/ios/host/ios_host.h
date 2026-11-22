@@ -125,6 +125,9 @@ void host_gpu_output_cap_commit(void);
 int host_gpu_output_cap_settled(void);
 /* Game-thread query after GPU initialization, including validation wrappers. */
 int host_gpu_metal_active(void);
+/* 1 when debug.encode_thread put the encode queue in front of the Metal backend (decided before the backend's
+initialize, which sizes its stream ring by it) */
+int host_gpu_encode_queue_on(void);
 void host_gpu_set_upscaler(int metalfx);
 void host_gpu_set_crt(int enabled);
 int host_gpu_upscaler(void);

@@ -1802,6 +1802,7 @@ is written. PRODUCER_LEAD: frames the producer may run ahead of the encoder:
 none, since a frame ahead would read input a refresh earlier than the display
 needs it (the present is a barrier; the encode thread design's revision 4) */
 #define PRODUCER_LEAD 0
+/* the most sets the ring may get (the encode queue on); with it off, FRAMES (gpu_stream_ring_set_count) */
 #define PRODUCER_FRAMES (FRAMES + 1 + PRODUCER_LEAD)
 _Static_assert(PRODUCER_FRAMES <= GPU_STREAM_RING_SETS, "the producer's ring has room for its sets");
 
@@ -1872,9 +1873,9 @@ static void producer_streams_initialize(void)
 		.grow = producer_grow, .completed = producer_completed, .wait = producer_wait, .log = producer_log,
 		.unstamped = producer_unstamped, .lead = PRODUCER_LEAD,
 	};
-	unsigned set, index;
+	unsigned set, index, sets = gpu_stream_ring_set_count(FRAMES, PRODUCER_LEAD, host_gpu_encode_queue_on());
 
-	for (set = 0; set < PRODUCER_FRAMES; set++)
+	for (set = 0; set < sets; set++)
 		for (index = 0; index < GPU_STREAM_RING_CHUNKS; index++)
 		{
 			MetalBuffer *record = [MetalBuffer new];
@@ -1883,7 +1884,7 @@ static void producer_streams_initialize(void)
 			producer_records[set][index] = record;
 			producer_handles[set][index] = [buffers add:record];
 		}
-	gpu_stream_ring_init(&producer_streams, PRODUCER_FRAMES, &owner);
+	gpu_stream_ring_init(&producer_streams, sets, &owner);
 }
 
 static void gpu_metal_stream_reserve(uint32_t vertex_bytes, uint32_t index_bytes)

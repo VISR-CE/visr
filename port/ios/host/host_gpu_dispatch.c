@@ -706,6 +706,13 @@ static int encode_queue_mode(int *timing)
 #endif
 }
 
+static int encode_queue_on;
+
+int host_gpu_encode_queue_on(void)
+{
+	return encode_queue_on;
+}
+
 /* a development build stops at the first call from the wrong thread */
 #ifdef HALO_DEVELOPMENT_HOOKS
 #define OWNER_CHECK_STOPS 1
@@ -725,6 +732,7 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 	call_hash_on = !strcmp(value, "true");
 	call_hash_check.checked = call_hash_check.differ = 0;
 	mode = metal ? encode_queue_mode(&timing) : GPU_QUEUE_OFF;
+	encode_queue_on = mode != GPU_QUEUE_OFF;
 	if (mode == GPU_QUEUE_OFF)
 		return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
 	/* each call from the thread its class says (gpu_owner_check.h); a development build stops at the first that is

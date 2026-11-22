@@ -205,6 +205,8 @@ __attribute__((weak)) void gpu_stream_ring_reserve(struct gpu_stream_ring *ring)
 { }
 __attribute__((weak)) void * gpu_stream_ring_room(struct gpu_stream_ring *ring, uint32_t size, uint32_t alignment, uint32_t *handle, uint32_t *offset)
 { fprintf(stderr, "host_stubs: probe called gpu_stream_ring_room without defining it\n"); abort(); }
+__attribute__((weak)) unsigned gpu_stream_ring_set_count(unsigned frames_in_flight, unsigned lead, int queued)
+{ fprintf(stderr, "host_stubs: probe called gpu_stream_ring_set_count without defining it\n"); abort(); }
 __attribute__((weak)) int host_alert(const char *title, const char *message, const char *first, const char *second)
 { fprintf(stderr, "host_stubs: probe called host_alert without defining it\n"); abort(); }
 __attribute__((weak)) void host_astc_game_started(void)
@@ -597,6 +599,8 @@ __attribute__((weak)) unsigned host_geometry_settled_size(double *width, double 
 { fprintf(stderr, "host_stubs: probe called host_geometry_settled_size without defining it\n"); abort(); }
 __attribute__((weak)) void host_gpu_benchmark_realtime(int on)
 { }
+__attribute__((weak)) int host_gpu_encode_queue_on(void)
+{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int host_gpu_metal_active(void)
 { fprintf(stderr, "host_stubs: probe called host_gpu_metal_active without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_output(void *layer, void *screen, int width, int height)

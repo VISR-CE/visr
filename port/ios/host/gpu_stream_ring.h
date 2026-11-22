@@ -86,6 +86,11 @@ struct gpu_stream_ring
 
 void gpu_stream_ring_init(struct gpu_stream_ring *ring, unsigned set_count, const struct gpu_stream_ring_owner *owner);
 
+/* the sets a backend gives its ring: one per frame in flight and per frame of lead, and with the encode queue on
+(queued) one more, for the frame recorded while the one before it is still being encoded. With the queue off the
+ring holds no more streams than the frame slots did before it */
+unsigned gpu_stream_ring_set_count(unsigned frames_in_flight, unsigned lead, int queued);
+
 /* producer: room for size bytes at alignment (a power of two) in the frame's set; returns where to write them and
 sets *handle and *offset, or NULL when the set is full (GPU_STREAM_RING_CHUNKS chunks) or a chunk cannot be made */
 void *gpu_stream_ring_room(struct gpu_stream_ring *ring, uint32_t size, uint32_t alignment, uint32_t *handle,

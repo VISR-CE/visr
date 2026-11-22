@@ -22,6 +22,11 @@ void gpu_stream_ring_init(struct gpu_stream_ring *ring, unsigned set_count, cons
 	atomic_init(&ring->ended, 0);
 }
 
+unsigned gpu_stream_ring_set_count(unsigned frames_in_flight, unsigned lead, int queued)
+{
+	return frames_in_flight + lead + (queued ? 1 : 0);
+}
+
 static void ring_log(struct gpu_stream_ring *ring, const char *line)
 {
 	if (ring->owner.log)

@@ -51,7 +51,7 @@ ZERO_OK = {
     'host_benchmark_presented', 'host_texture_upscale_first_run_phase', 'host_texture_upscale_enabled',
     'host_texture_upscale_busy', 'texture_refine_cancelled', 'host_config_profile_installed',
     'host_perf_metal_timing_supported', 'host_on_main_thread', 'host_game_thread_enabled',
-    'host_development_hooks', 'host_perf_hooks_dynamic_enabled', 'host_perf_hooks_frame_id',
+    'host_development_hooks', 'host_gpu_encode_queue_on', 'host_perf_hooks_dynamic_enabled', 'host_perf_hooks_frame_id',
 }
 
 HEADER_NOTE = """\

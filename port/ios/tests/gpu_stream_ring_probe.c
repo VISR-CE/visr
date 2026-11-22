@@ -177,10 +177,34 @@ int main(void)
 	static struct gpu_stream_ring ring;
 	unsigned long frame;
 
+	/* the set count by queue mode: the queue off keeps one set per frame slot, as before the ring; the queue on one
+	more */
+	CHECK(gpu_stream_ring_set_count(FRAMES, 0, 0) == FRAMES, "the queue off gives %u sets, not one per frame slot",
+		gpu_stream_ring_set_count(FRAMES, 0, 0));
+	CHECK(gpu_stream_ring_set_count(FRAMES, 0, 1) == FRAMES + 1, "the queue on gives %u sets, not FRAMES + 1",
+		gpu_stream_ring_set_count(FRAMES, 0, 1));
+	CHECK(gpu_stream_ring_set_count(FRAMES, 2, 1) == FRAMES + 3, "a lead of 2 with the queue on gives %u sets",
+		gpu_stream_ring_set_count(FRAMES, 2, 1));
+
 	/* the queue off: each frame streams, ends and is presented at once; before a frame's first command the
-	consumer's frame slot wait has seen frame - FRAMES complete. FRAMES + 1 sets never wait */
+	consumer's frame slot wait has seen frame - FRAMES complete, so the queue off's sets never wait */
 	reset();
-	gpu_stream_ring_init(&ring, FRAMES + 1, &owner);
+	gpu_stream_ring_init(&ring, gpu_stream_ring_set_count(FRAMES, 0, 0), &owner);
+	for (frame = 0; frame < 300; frame++)
+	{
+		if (frame >= FRAMES && completed_serial < frame - FRAMES + 1)
+			completed_serial = frame - FRAMES + 1;
+		check_in_flight();
+		stream_frame(&ring, frame);
+		gpu_stream_ring_frame_end(&ring);
+		present(&ring, frame, frame + 1);
+	}
+	CHECK(ring.waits == 0 && waits_called == 0, "queue off, the ring waited %lu times", ring.waits);
+	CHECK(ring.unmatched == 0 && ring.behind == 0 && lines_logged == 0, "queue off, the ring logged a mismatch");
+
+	/* the same with the queue on's sets */
+	reset();
+	gpu_stream_ring_init(&ring, gpu_stream_ring_set_count(FRAMES, 0, 1), &owner);
 	for (frame = 0; frame < 300; frame++)
 	{
 		if (frame >= FRAMES && completed_serial < frame - FRAMES + 1)
