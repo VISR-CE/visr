@@ -108,8 +108,12 @@ def prepare():
     # No guest link: the host sources include only the generated bridge and import-table sources, the
     # syscall numbers, the render-validation interface hash and the embedded image's layout header. The
     # last one is a stub with this layout's constants, since the host sources only declare the blobs.
-    run(sys.executable, 'configure.py', '--ios', '--pgo=off', '--lto=off', '--render-validation',
-        '--ios-llvm', host_toolchain.find_llvm(), '--ios-lld', host_toolchain.find_lld(), check=True)
+    # configure.py clones SDL and musl, so it runs only when there is no build.ninja; ninja regenerates
+    # build.ninja itself when the configure inputs change. The generated sources below are remade every
+    # time: a copy left by an earlier checkout of this folder would otherwise go stale.
+    if not (ROOT / 'build.ninja').exists() or not (ROOT / 'build/third_party/SDL3').exists():
+        run(sys.executable, 'configure.py', '--ios', '--pgo=off', '--lto=off', '--render-validation',
+            '--ios-llvm', host_toolchain.find_llvm(), '--ios-lld', host_toolchain.find_lld(), check=True)
     run('ninja', 'build/ios/host/host_import_table.c', check=True)
     run(sys.executable, 'tools/ios_bridges.py', '--render-validation', check=True)
     run(sys.executable, 'tools/gpu_interface_hash.py', check=True)
@@ -244,7 +248,7 @@ def main():
     problem = host_toolchain.check_build_host()
     if problem:
         raise SystemExit(problem)
-    if missing_inputs():
+    if args.prepare or missing_inputs():
         if not args.prepare:
             raise SystemExit('missing build inputs (run with --prepare, or tools/ios_build.py once): ' + ', '.join(missing_inputs()))
         started = time.monotonic()
