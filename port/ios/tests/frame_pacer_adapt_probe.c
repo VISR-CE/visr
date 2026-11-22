@@ -268,6 +268,16 @@ int main(void)
                     rule.frames[last], two.frames[last]);
             CHECK(rule.frames[last] >= 0.9 * two.frames[last]);
         }
+        /* the calm time runs on across re-measures: after exits that grew the retry delay (one in flight halving a
+           50-frame load), a long under-rate stay forgives it, though it goes back to two every 20 s to measure */
+        {
+            static const struct frame_pacer_model_phase calm[] = { { 60, 0.010, 0.019 }, { 200, 0.049, 0.040 } };
+            struct frame_pacer_model_result rule = frame_pacer_model_run(calm, 2, refresh, 1, 0.003, 0);
+
+            CHECK(rule.reasons[FRAME_PACER_ADAPT_RATE_LOST] + rule.reasons[FRAME_PACER_ADAPT_MISSES] >= 2);
+            CHECK(rule.reasons[FRAME_PACER_ADAPT_REMEASURE_CEILING] >= 3);
+            CHECK(rule.retry_delay == FRAME_PACER_ADAPT_RETRY_FIRST);
+        }
         /* and the A10X at 128 players held steady keeps most of its time at one, re-measuring now and then */
         {
             static const struct frame_pacer_model_phase steady[] = { { 120, 0.049, 0.040 } };

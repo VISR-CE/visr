@@ -25,6 +25,7 @@ struct frame_pacer_model_result
 	double at_one[FRAME_PACER_MODEL_PHASES];   /* seconds each phase spent at one in flight */
 	int reasons[8];                            /* switches by reason */
 	unsigned long switches;
+	double retry_delay;                        /* the rule's at the end */
 };
 
 /* fixed: 1 or 2 for a fixed limit, 0 for the adaptive rule */
@@ -110,5 +111,6 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 		start = grant;
 	}
 	r.switches = adapt.switches;
+	r.retry_delay = adapt.retry_delay;
 	return r;
 }
