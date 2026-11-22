@@ -23,8 +23,9 @@ conversion of a campaign level (Bungie's campaign content) is refused by its
 tag paths: its scenario or a structure BSP in a campaign level's folder; a
 multiplayer map built on a campaign level's geometry is sent. Tag paths are
 names the game does not read, so a conversion whose tags were renamed (moved
-to another folder, or scrambled by a map protection tool) is not known; this
-catches the ones that keep the paths they were built with.
+to another folder, or scrambled by a map protection tool) is not known, nor
+is one whose header was edited to say multiplayer; this catches the ones
+that keep the paths and type they were built with.
 
 Standalone C with fixed-width types, as cache_file_formats.c is: compiled into
 the game and into the test tools/test_map_share_send.py.
@@ -87,18 +88,22 @@ level, by its header's scenario type and its tag paths, not its file name: 1
 when it is a singleplayer map and its scenario's tag, or any structure
 BSP's, lies in a campaign level's folder (levels\a10\..., the campaign rows
 of port/runtime/stock_maps.h), however the file or its header is named; 0
-otherwise; -1 when its header or tags cannot be read. A multiplayer map is
-never one, whatever campaign level's structure BSP or shaders it is built
-on, and neither is a singleplayer map of a community's own levels. Best
-effort: the paths are names only, so a conversion whose scenario and
-structure BSPs were renamed out of those folders reads 0. */
+otherwise; -1 when its header, or a singleplayer map's tags, cannot be read.
+A multiplayer map is never one, whatever campaign level's structure BSP or
+shaders it is built on, and its tags are not read; neither is a
+singleplayer map of a community's own levels. Best effort: the paths are
+names only, so a conversion whose scenario and structure BSPs were renamed
+out of those folders reads 0, and the scenario type is the header's, outside
+the content hash, so a conversion whose header was edited to say
+multiplayer reads 0 too. */
 struct cache_file_source;
 int32_t map_share_policy_campaign(
 	struct cache_file_source *source);
 
 /* where a Custom Edition cache's tag data lies (`*offset`, `*size` bytes),
-from its header: what has to be read for map_share_policy_campaign; 0 when
-the header is not a valid Custom Edition cache's */
+from its header: what map_share_policy_campaign reads; 0 when nothing need
+be read: a multiplayer map's tags are not, and a header that is not a valid
+Custom Edition cache's is refused from the header alone */
 int map_share_policy_tag_data(
 	void const *header,
 	uint32_t header_bytes,

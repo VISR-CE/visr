@@ -133,6 +133,16 @@ static int campaign_tag_visit(
 	return 1;
 }
 
+/* whether a Custom Edition cache's tags are read to know whether it is a
+conversion of a campaign level: only a singleplayer map's are (a
+multiplayer map is shared whatever campaign level's geometry it is built
+on, so its tags are not read, and cannot keep it from being sent) */
+static int campaign_tags_read(
+	struct cache_file_identity const *identity)
+{
+	return identity->scenario_type == _cache_file_scenario_type_solo;
+}
+
 /* ---------- public code */
 
 int map_share_policy_tag_data(
@@ -154,7 +164,8 @@ int map_share_policy_tag_data(
 	source.read = header_read;
 	source.size = file_size;
 	if (cache_file_identify(&source, &identity) != _cache_file_status_ok ||
-		identity.format != _cache_file_format_custom_edition_cache || !identity.tag_data_size)
+		identity.format != _cache_file_format_custom_edition_cache || !identity.tag_data_size ||
+		!campaign_tags_read(&identity))
 	{
 		return 0;
 	}
@@ -170,13 +181,14 @@ int32_t map_share_policy_campaign(
 	int campaign = 0;
 
 	if (cache_file_identify(source, &identity) != _cache_file_status_ok ||
-		(cache_file_tag_names(source, campaign_tag_visit, &campaign) != _cache_file_status_ok && !campaign))
+		identity.format != _cache_file_format_custom_edition_cache)
 	{
 		return -1;
 	}
-	/* (only a singleplayer map is a conversion of the campaign: a
-	multiplayer map built on a campaign level's structure BSP is shared) */
-	return campaign && identity.scenario_type == _cache_file_scenario_type_solo;
+	if (!campaign_tags_read(&identity))
+		return 0;
+	return cache_file_tag_names(source, campaign_tag_visit, &campaign) == _cache_file_status_ok || campaign ?
+		campaign : -1;
 }
 
 

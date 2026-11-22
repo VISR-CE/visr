@@ -822,9 +822,10 @@ static boolean download_file_has_pieces(
 }
 
 /* Whether the download's file may be passed on (map_share_file_judge):
-judged from its header, its content hash and its tags once its first piece
-and the pieces of its tag data are had (the later pieces' hashes are known
-and checked before any piece is), and until then not. */
+judged from its header, its content hash and, a singleplayer map's, its
+tags once its first piece and the pieces of its tag data are had (the later
+pieces' hashes are known and checked before any piece is), and until then
+not. */
 static boolean download_file_sendable(
 	struct download_file *file)
 {
@@ -834,8 +835,9 @@ static boolean download_file_sendable(
 	long first_tag_piece;
 	long last_tag_piece;
 
-	/* (a header that names no tag data is judged at once: refused as no
-	Custom Edition cache's) */
+	/* (a header that names no tag data to read is judged at once: a
+	multiplayer map's, whose tags are not read, or one refused as no Custom
+	Edition cache's) */
 	if (file->sendable == _sendable_unknown && file->have && (file->have[0] & 1) && file->stream &&
 		file->piece_hashes && fseek(file->stream, 0, SEEK_SET) == 0 &&
 		fread(header, 1, bytes, file->stream) == bytes &&

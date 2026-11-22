@@ -465,25 +465,28 @@ its name alone beside it, has its name given back as the map lists find it.
   Edition's resource maps (bitmaps.map, sounds.map, loc.map) and never one of
   Custom Edition's stock maps, whatever the file is named
   (`map_share_policy.c`). A file is judged by what it is: a resource map by
-  the kind it is sent as, its name (without the hash digits a second
-  version's ends in) or its header; a stock map by its content hash, which
-  covers everything but the cache header, so a copy with an edited header
-  checksum is still known (`map_share_content_hash`,
-  `port/runtime/stock_maps.h`); a singleplayer conversion of a campaign level
-  by its tag paths, whatever the file is named: it is a singleplayer map and
+  the kind it is sent as, its name (without the hash digits a second version's
+  ends in) or its header; a stock map by its content hash, which covers
+  everything but the cache header, so a copy with an edited header checksum is
+  still known (`map_share_content_hash`, `port/runtime/stock_maps.h`); a
+  singleplayer conversion of a campaign level by its header and tag paths,
+  whatever the file is named: its header says it is a singleplayer map, and
   its scenario's tag, or any structure BSP's, lies in a campaign level's
   folder (`levels\a10\...`). A multiplayer map is sent whatever campaign
-  level's geometry, shaders or sounds it is built on. Tag paths are names the game does not read, so a conversion
-  whose scenario and structure BSPs were renamed out of those folders (by
-  hand or by a map protection tool) is not recognized: the check is best
-  effort. The
-  header must be a valid Custom Edition cache. A community map that reuses a stock map's name but differs in
-  content is sent. The catalog every whole file is sent from takes no other
-  file (`map_share_file_hash`) and sends one only once its content is judged,
-  after it is hashed; a map's content hash is kept for its size and time
-  written, so it is not hashed again. A download's file is passed on only
-  once its first piece, the header, the pieces holding its tag data and its
-  pieces' hashes say it may be.
+  level's geometry, shaders or sounds it is built on, and its tags are not
+  read. The check is best effort: tag paths are names the game does not read,
+  so a conversion whose scenario and structure BSPs were renamed out of those
+  folders (by hand or by a map protection tool) is not recognized, and the
+  scenario type sits in the header, outside the content hash, so a conversion
+  whose header was edited to say multiplayer is sent as a multiplayer map. A
+  singleplayer map whose tags cannot be read is not sent, and the log says so.
+  The header must be a valid Custom Edition cache. A community map that reuses
+  a stock map's name but differs in content is sent. The catalog every whole
+  file is sent from takes no other file (`map_share_file_hash`) and sends one
+  only once its content is judged, after it is hashed; a map's content hash is
+  kept for its size and time written, so it is not hashed again. A download's
+  file is passed on only once its first piece, the header, its pieces' hashes
+  and, for a singleplayer map, the pieces holding its tag data say it may be.
 - **The offer.** A host that shares maps (`network.map_share`) hashes the
   map on a thread of its own and answers with its size and hash (`_offer`,
   or why it does not: sharing off, or not a map it sends). A client that
