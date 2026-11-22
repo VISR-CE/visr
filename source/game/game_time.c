@@ -84,6 +84,8 @@ boolean main_port_main_menu_loaded(void);
 void network_distributed_tick(void);
 /* port: aligned diagnostic samples, port/linux/game/network_test.c */
 void network_test_log_tick(void);
+/* port: debug.coop_census (port/linux/game/coop_census.c) */
+void coop_census_tick(void);
 
 /* port: the tick loop's steps, timed in the profiling build */
 PROFILE_SECTION(game_time_network_distributed_tick_section, "network_distributed_tick")
@@ -519,6 +521,7 @@ void game_time_update(
 						/* the distributed netcode's per-tick state */
 						profile_scope(game_time_network_distributed_tick_section, network_distributed_tick();)
 						network_test_log_tick();
+						coop_census_tick();
 						/* port: what the main loop does between ticks comes before the next one (main_tick_end) */
 						if (main_tick_end())
 							break;

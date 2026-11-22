@@ -1587,6 +1587,10 @@ static const struct config_setting config_settings[] =
 		_platform_all,
 		"The port of the script console (telnet_console); the Xbox's was 23, which\n"
 		"only the administrator can listen on." },
+	{ "debug.coop_census", _config_real, "0.0", "HALO_COOP_CENSUS", _environment_value, _platform_all,
+		"Every this many seconds of a network game, each machine logs every player\n"
+		"record, networked object and device it has (coop census: lines), for\n"
+		"tools/coop_census_compare.py to compare host and client; 0 never." },
 	{ "debug.network_latency", _config_real, "0.0", "HALO_NETWORK_LATENCY", _environment_value, _platform_all,
 		"Milliseconds everything received is held back (a round trip between two\n"
 		"machines of twice it), to test the netcode as over the internet; 0 none." },

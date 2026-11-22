@@ -2409,6 +2409,17 @@
             "desktop"
           ]
         },
+        "coop_census": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Every this many seconds of a network game, each machine logs every player record, networked object and device it has (coop census: lines), for tools/coop_census_compare.py to compare host and client; 0 never.",
+          "x-environment": "HALO_COOP_CENSUS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "network_latency": {
           "type": "number",
           "default": 0.0,

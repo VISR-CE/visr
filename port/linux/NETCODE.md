@@ -913,6 +913,36 @@ action button where the host has nothing for them to pick up, with where it
 has them and the nearest item: a client that sees a pickup the host does
 not.
 
+## Replication contract
+
+What host and clients must agree on once play has settled, and what is the
+host's alone. State outside the first list may differ between machines, and
+tests do not compare it.
+
+- **Must match:** the roster (each player record's absolute index, machine,
+  seat in the machine table, team and quit state, and its unit; clients number
+  player identifiers themselves, so a player is matched by absolute index);
+  for every networked object (bipeds, vehicles, weapons and equipment, at the
+  same indices on every machine) its existence, definition, parent and seat,
+  dead flag and resting position within 0.05 world units; every carried
+  weapon's magazine counts and age; each unit's grenade counts, weapons and
+  current weapon; device positions and power; which units something drives
+  (an actor on the host, the host's control on a client).
+- **Host-only:** the magazine counts and age of weapons nobody carries (they
+  are sent only in a unit's inventory, and the host's count is taken when a
+  weapon is picked up); item owner fields; AI internals; the checkpoint
+  itself; script state.
+
+`debug.coop_census` (`port/linux/game/coop_census.c`) logs a census of that
+state every so many seconds of game time, the same ticks on every machine:
+one `coop census:` line per player record, networked object and device.
+`tools/coop_census_compare.py HOST_LOG CLIENT_LOG` pairs two machines'
+censuses by tick and reports every difference in the first list that lasts
+two censuses in a row (a client learns of a change a round trip late, so one
+census can catch it in flight), comparing positions only for objects at rest
+on both machines. Differences in the second list are printed as notes and
+never fail the comparison.
+
 ## Apple port: version 26
 
 Version 26 adds WebRTC capabilities and certificate fingerprints to sealed

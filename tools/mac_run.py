@@ -287,6 +287,7 @@ DEFAULTS = {
     "debug.network_test_pickup": "0.0",
     "debug.network_test_pickup_weapon": '""',
     "debug.network_test_weapon": '""',
+    "debug.coop_census": "0.0",
     "debug.network_latency": "0.0",
     "debug.network_loss": "0.0",
     # ("auto" is off in a runner run, which sets debug.exit_after)

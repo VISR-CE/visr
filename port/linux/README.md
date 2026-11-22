@@ -562,6 +562,7 @@ Apple Vision Pro's file.
 | `debug.network_test_public` | boolean | `false` | apple, desktop | `HALO_NETWORK_TEST_PUBLIC` | The network test's host lists its game in the server browser; browse joins it. |
 | `debug.telnet_console` | boolean | `false` | apple, desktop | `HALO_TELNET_CONSOLE` | Listen on 127.0.0.1 (port telnet_console_port) for a script console that runs what it is sent as the game's console does, with no password; false none. |
 | `debug.telnet_console_port` | integer | `2323` | apple, desktop | `HALO_TELNET_CONSOLE_PORT` | The port of the script console (telnet_console); the Xbox's was 23, which only the administrator can listen on. |
+| `debug.coop_census` | number | `0.0` | apple, desktop | `HALO_COOP_CENSUS` | Every this many seconds of a network game, each machine logs every player record, networked object and device it has (coop census: lines), for tools/coop_census_compare.py to compare host and client; 0 never. |
 | `debug.network_latency` | number | `0.0` | apple, desktop | `HALO_NETWORK_LATENCY` | Milliseconds everything received is held back (a round trip between two machines of twice it), to test the netcode as over the internet; 0 none. |
 | `debug.network_loss` | number | `0.0` | apple, desktop | `HALO_NETWORK_LOSS` | Percent of datagrams received that are dropped, for the same; 0 none. |
 | `debug.network_corrupt` | number | `0.0` | apple, desktop | `HALO_NETWORK_CORRUPT` | Percent of the datagrams received that are damaged at random, to test that nothing a machine sends can crash the game; 0 none. |
