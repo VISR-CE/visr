@@ -376,7 +376,8 @@ frames and the build has none of this.
 - `frames_in_flight_at_30` (`"1"` or `"2"`; default empty, which follows
   `frames_in_flight`) is the limit while the frame rate in force is 30 or
   lower: a 30 cap, a big multiplayer game held to 30, a scene class's 30. It
-  never exceeds `frames_in_flight`. Under a 30 cap `"1"` cuts the time from
+  never exceeds `frames_in_flight`. A profile may set it for the variable
+  workload (multiplayer, co-op, split screen, more enemies) alone. Under a 30 cap `"1"` cuts the time from
   the controller read to the screen from about 98 to 65 ms on devices whose
   CPU and GPU work together fit the 33 ms, with no loss of frames (the
   iPhone Duo and the A10X iPad Pro at 16 players; the iPhone 12 Pro gained

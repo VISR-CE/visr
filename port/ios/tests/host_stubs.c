@@ -121,6 +121,10 @@ __attribute__((weak)) int frame_pacer_in_flight(void)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_in_flight without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
+__attribute__((weak)) void frame_pacer_in_flight_at_30_set(int at_30)
+{ }
+#endif
+#if (HALO_FRAME_PACING)
 __attribute__((weak)) int frame_pacer_late_start_toggle(void)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_late_start_toggle without defining it\n"); abort(); }
 #endif
@@ -636,10 +640,8 @@ __attribute__((weak)) void host_frame_timeline_shown(uint64_t frame_id, double s
 { }
 __attribute__((weak)) void host_frame_timeline_waits(double display_wait, double encoder_tail)
 { }
-#if (HALO_FRAME_PACING)
 __attribute__((weak)) void host_frames_in_flight_scene(int at_30)
 { }
-#endif
 #if defined(__OBJC__)
 __attribute__((weak)) BOOL host_framings_validate_file(NSString *path)
 { fprintf(stderr, "host_stubs: probe called host_framings_validate_file without defining it\n"); abort(); }

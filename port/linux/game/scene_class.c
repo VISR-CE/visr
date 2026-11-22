@@ -277,7 +277,7 @@ int halo_scene_class(void)
 				char limit[8];
 
 				config_scene_string("display.frames_in_flight_at_30", scene_class, limit, sizeof(limit));
-				host_frames_in_flight_scene(limit[0] == '1' || limit[0] == '2' ? limit[0] - '0' : 0);
+				host_frames_in_flight_scene(!strcmp(limit, "1") ? 1 : !strcmp(limit, "2") ? 2 : 0);
 			}
 		}
 	}

@@ -125,7 +125,7 @@ void frame_pacer_start(int fixed_timestep)
 /* A guest import, when the workload context, the scene class or the settings change: display.frames_in_flight_at_30
 as the game resolves it (1 or 2; 0 for none), which a profile may set for the variable workload alone, so the host's
 own config reads could not see it. Frame_pacer_frame_start applies it while the frame rate in force is 30 or lower. */
-void host_frames_in_flight_scene(int at_30)
+void frame_pacer_in_flight_at_30_set(int at_30)
 {
 	pthread_mutex_lock(&pacer.lock);
 	pacer.in_flight_at_30 = at_30 == 1 || at_30 == 2 ? at_30 : 0;
@@ -411,3 +411,10 @@ uint32_t frame_pacer_vertical_blank_wait(void)
 }
 
 #endif
+
+/* A guest import, so defined whether or not the pacer is compiled in (the Vision Pro build has none: the compositor
+paces frames, and the value has nothing to limit). */
+void host_frames_in_flight_scene(int at_30)
+{
+	frame_pacer_in_flight_at_30_set(at_30);
+}
