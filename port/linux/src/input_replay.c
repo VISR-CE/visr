@@ -67,7 +67,6 @@ to the recording, a summary to the log, and the game quits.
 #include "platform.h"
 #include "port_config.h"
 #include "input_replay.h"
-#include "mp_benchmark_probe.h"
 #include "../../runtime/replay_environment.h"
 
 #include <stdarg.h>
@@ -116,6 +115,8 @@ double halo_frame_trace_milliseconds(void);
 extern int halo_controller_run_aimed(void);
 extern int halo_controller_aim_configured(void);
 extern int halo_controller_unit_state(float position[3], float *facing_yaw, float *aim_yaw);
+/* debug.benchmark_own_input in force (mp_benchmark_context.c) */
+extern int mp_benchmark_probe_own_input(void);
 
 #define RECORDING_HEADER "halo input recording 1"
 /* how long after the last recorded state a replay ends, in ticks */
