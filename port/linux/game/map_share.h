@@ -200,8 +200,10 @@ short map_share_file_hash(
 file of `kind`, for other players (map_share_policy.c): send a community map
 only, never a resource map or a stock map. It is judged by its name, its
 header (`header_bytes` of `header`, or, when that is NULL, read from the
-file) and its content hash (`content`, map_share_content_hash; NULL when not
-known yet, which lets it be hashed but not sent). A refusal is logged. Every
+file), its content hash (`content`, map_share_content_hash; NULL when not
+known yet) and whether it is a campaign conversion (`campaign`,
+map_share_campaign_read; -1 when not known yet). Either not known lets it be
+hashed but not sent. A refusal is logged. Every
 path that sends a file's bytes asks this: the catalog takes only files it
 lets be hashed (map_share_file_hash) and sends them only once their content
 is judged, and a download is passed on only once it may be sent
@@ -212,7 +214,8 @@ enum map_share_policy_verdict map_share_file_judge(
 	unsigned long size,
 	byte const *header,
 	long header_bytes,
-	byte const *content);
+	byte const *content,
+	long campaign);
 
 /* whether a catalog file is still the one judged and hashed: the same size
 and time written (one replaced is judged again by map_share_file_hash before
@@ -254,6 +257,19 @@ void map_share_content_hash(
 	byte const *piece_hashes,
 	long piece_count,
 	byte *content);
+/* Whether the Custom Edition cache open as `stream` (`size` bytes) is a
+conversion of a campaign level, from its tags (map_share_policy_campaign:
+1, 0, or -1 when they cannot be read); and the pieces that hold its tag
+data, from its header, which a download needs to know it. */
+long map_share_campaign_read(
+	FILE *stream,
+	unsigned long size);
+boolean map_share_tag_data_pieces(
+	byte const *header,
+	long header_bytes,
+	unsigned long size,
+	long *first_piece,
+	long *last_piece);
 boolean map_share_content_read(
 	FILE *stream,
 	unsigned long size,

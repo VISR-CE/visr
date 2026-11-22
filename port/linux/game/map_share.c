@@ -264,7 +264,7 @@ enum
 };
 
 /* whether a download's file may be passed on to other players
-(map_share_file_judge), judged once its first piece, its header, is had */
+(map_share_file_judge), judged once its first piece and its tag data are had */
 enum
 {
 	_sendable_unknown,
@@ -805,23 +805,47 @@ static short download_file_with_hash(
 
 /* ---------- what this machine sends of a connection's file */
 
+/* whether the download has every piece from `first` to `last` */
+static boolean download_file_has_pieces(
+	struct download_file const *file,
+	long first,
+	long last)
+{
+	long piece;
+
+	for (piece = first; piece <= last; piece++)
+	{
+		if (piece < 0 || piece >= file->piece_count || !(file->have[piece >> 3] & (1 << (piece & 7))))
+			return FALSE;
+	}
+	return TRUE;
+}
+
 /* Whether the download's file may be passed on (map_share_file_judge):
-judged from its header and its content hash once its first piece is had (the
-later pieces' hashes are known and checked before any piece is), and until
-then not. */
+judged from its header, its content hash and its tags once its first piece
+and the pieces of its tag data are had (the later pieces' hashes are known
+and checked before any piece is), and until then not. */
 static boolean download_file_sendable(
 	struct download_file *file)
 {
 	byte header[CACHE_FILE_HEADER_BYTES];
 	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
 	unsigned long bytes = MIN((unsigned long)sizeof(header), file->size);
+	long first_tag_piece;
+	long last_tag_piece;
 
+	/* (a header that names no tag data is judged at once: refused as no
+	Custom Edition cache's) */
 	if (file->sendable == _sendable_unknown && file->have && (file->have[0] & 1) && file->stream &&
-		file->piece_hashes && map_share_content_read(file->stream, file->size, file->piece_hashes, file->piece_count,
-		content) && fseek(file->stream, 0, SEEK_SET) == 0 && fread(header, 1, bytes, file->stream) == bytes)
+		file->piece_hashes && fseek(file->stream, 0, SEEK_SET) == 0 &&
+		fread(header, 1, bytes, file->stream) == bytes &&
+		(!map_share_tag_data_pieces(header, (long)bytes, file->size, &first_tag_piece, &last_tag_piece) ||
+		download_file_has_pieces(file, first_tag_piece, last_tag_piece)) &&
+		map_share_content_read(file->stream, file->size, file->piece_hashes, file->piece_count, content))
 	{
 		file->sendable = map_share_policy_may_send(map_share_file_judge(file->final_path, file->kind, file->size,
-			header, (long)bytes, content)) ? _sendable_yes : _sendable_no;
+			header, (long)bytes, content, map_share_campaign_read(file->stream, file->size))) ?
+			_sendable_yes : _sendable_no;
 	}
 	return file->sendable == _sendable_yes;
 }

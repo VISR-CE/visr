@@ -94,6 +94,8 @@ struct hash_job
 	/* when the file was written, the same before and after it was read (0
 	if it changed while it was) */
 	unsigned long modified;
+	/* whether it is a campaign conversion (map_share_policy_campaign) */
+	long campaign;
 	/* written by the thread: done (ready or failed) when it has exited */
 	volatile long failed;
 };
@@ -113,10 +115,12 @@ struct known_hash
 	unsigned long size;
 	unsigned long modified;
 	byte hash[MAP_SHARE_HASH_BYTES];
-	/* its content hash, once a catalog job found it (map_share_file_hash
-	judges the file by it without hashing it again) */
+	/* its content hash and whether it is a campaign conversion, once a
+	catalog job found them (map_share_file_hash judges the file by them
+	without reading it again) */
 	boolean content_known;
 	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
+	long campaign;
 };
 
 struct map_share_files_globals
@@ -326,6 +330,49 @@ void map_share_content_hash(
 	free(data);
 }
 
+/* a cache_file_source over an open file */
+static int file_source_read(
+	void *context,
+	uint32_t offset,
+	uint32_t size,
+	void *buffer)
+{
+	FILE *stream = context;
+
+	return fseek(stream, (long)offset, SEEK_SET) == 0 && fread(buffer, 1, size, stream) == size;
+}
+
+long map_share_campaign_read(
+	FILE *stream,
+	unsigned long size)
+{
+	struct cache_file_source source;
+
+	if (!stream)
+		return -1;
+	source.context = stream;
+	source.read = file_source_read;
+	source.size = (uint32_t)size;
+	return (long)map_share_policy_campaign(&source);
+}
+
+boolean map_share_tag_data_pieces(
+	byte const *header,
+	long header_bytes,
+	unsigned long size,
+	long *first_piece,
+	long *last_piece)
+{
+	uint32_t offset;
+	uint32_t bytes;
+
+	if (!map_share_policy_tag_data(header, (uint32_t)MAX(header_bytes, 0), (uint32_t)size, &offset, &bytes))
+		return FALSE;
+	*first_piece = (long)(offset / MAP_SHARE_PIECE_BYTES);
+	*last_piece = (long)((offset + bytes - 1) / MAP_SHARE_PIECE_BYTES);
+	return TRUE;
+}
+
 boolean map_share_content_read(
 	FILE *stream,
 	unsigned long size,
@@ -401,6 +448,11 @@ static unsigned long __stdcall hash_job_run(
 	if (stream)
 		fclose(stream);
 	free(piece);
+	/* (its tags, read again: whether it is a campaign conversion) */
+	stream = job->piece_hashes ? fopen(job->path, "rb") : NULL;
+	job->campaign = map_share_campaign_read(stream, job->size);
+	if (stream)
+		fclose(stream);
 	job->modified = stamped && file_stamp(job->path, &stamp_size, &stamp_after) && stamp_after == stamp_before ?
 		stamp_before : 0;
 	if (job->piece_hashes)
@@ -471,7 +523,8 @@ enum map_share_policy_verdict map_share_file_judge(
 	unsigned long size,
 	byte const *header,
 	long header_bytes,
-	byte const *content)
+	byte const *content,
+	long campaign)
 {
 	byte header_read[CACHE_FILE_HEADER_BYTES];
 	char name[MAP_SHARE_PATH_SIZE];
@@ -500,8 +553,8 @@ enum map_share_policy_verdict map_share_file_judge(
 		header = header_read;
 	}
 	verdict = map_share_policy_judge(kind, name, (uint32_t)map_share_name_base_length(name), header,
-		(uint32_t)MAX(header_bytes, 0), (uint32_t)size, content);
-	if (!map_share_policy_may_hash(verdict) || (content && !map_share_policy_may_send(verdict)))
+		(uint32_t)MAX(header_bytes, 0), (uint32_t)size, content, (int32_t)campaign);
+	if (!map_share_policy_may_hash(verdict) || (content && campaign >= 0 && !map_share_policy_may_send(verdict)))
 		error(_error_silent, "map sharing: %s is not sent to other players: %s", path, map_share_policy_describe(verdict));
 	return verdict;
 }
@@ -535,7 +588,7 @@ short map_share_file_hash(
 	this size and time written) */
 	known = known_hash_find(path, size, modified);
 	if (!map_share_policy_may_hash(map_share_file_judge(path, kind, size, NULL, 0,
-		known && known->content_known ? known->content : NULL)))
+		known && known->content_known ? known->content : NULL, known && known->content_known ? known->campaign : -1)))
 	{
 		if (file)
 		{
@@ -582,7 +635,8 @@ written, and the file sent only if its content may be (a stock map's is not:
 failed, so a host offers nothing that needs it) */
 static void catalog_file_judged(
 	struct map_share_file *file,
-	byte const *content)
+	byte const *content,
+	long campaign)
 {
 	struct known_hash *known;
 
@@ -591,9 +645,11 @@ static void catalog_file_judged(
 	if (known)
 	{
 		csmemcpy(known->content, content, MAP_SHARE_POLICY_CONTENT_BYTES);
-		known->content_known = TRUE;
+		known->campaign = campaign;
+		known->content_known = campaign >= 0;
 	}
-	file->ready = map_share_policy_may_send(map_share_file_judge(file->path, file->kind, file->size, NULL, 0, content));
+	file->ready = map_share_policy_may_send(map_share_file_judge(file->path, file->kind, file->size, NULL, 0, content,
+		campaign));
 	file->failed = !file->ready;
 }
 
@@ -624,7 +680,7 @@ static void catalog_job_finish(
 			file->piece_count = job->piece_count;
 			file->piece_hashes = job->piece_hashes;
 			csmemcpy(file->hash, job->hash, MAP_SHARE_HASH_BYTES);
-			catalog_file_judged(file, job->content);
+			catalog_file_judged(file, job->content, job->campaign);
 		}
 	}
 	else
@@ -647,6 +703,7 @@ short map_share_file_hashed(
 	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
 	FILE *stream;
 	boolean read;
+	long campaign;
 
 	if (!file || file->size != size || piece_count != map_share_piece_count(size))
 		return index;
@@ -661,11 +718,12 @@ short map_share_file_hashed(
 	pieces' hashes, checked) */
 	stream = fopen(path, "rb");
 	read = map_share_content_read(stream, size, piece_hashes, piece_count, content);
+	campaign = map_share_campaign_read(stream, size);
 	if (stream)
 		fclose(stream);
 	if (read)
 	{
-		catalog_file_judged(file, content);
+		catalog_file_judged(file, content, campaign);
 	}
 	else
 	{
