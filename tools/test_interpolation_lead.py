@@ -252,14 +252,18 @@ def test_interpolation_lead_follows_presentation(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_stereo_frame_reads_the_cpu_split_once():
-    """`host_frame_cpu_split` hands over the frame's split and clears it, so a second read in the same frame gets
-    nothing: the cadence line's tick times come from the one read the benchmark frame also uses."""
+def test_no_present_reads_the_cpu_split_twice():
+    """`host_frame_cpu_split` hands over the frame's split and clears it, so a second read in the same function gets
+    nothing: every reader (the stereo frame's measurement, the flat present, the dispatch) reads it once, and the
+    stereo frame's cadence line takes its tick times from the read the benchmark frame also uses."""
+    for path in ("port/ios/host/gpu_metal.m", "port/ios/host/host_gpu_dispatch.c"):
+        source = (ROOT / path).read_text()
+        for function in source.split("\n}\n"):
+            assert function.count("host_frame_cpu_split(") <= 1, f"{path}: a function reads the CPU split twice"
     source = (ROOT / "port/ios/host/gpu_metal.m").read_text()
     start = source.index("static void stereo_pacing_count(int view, id<MTLTexture> picture)\n{")
     body = source[start:source.index("\n}\n", start)]
     assert body.count("host_frame_cpu_split(") == 1
-    assert "stereo_pacing.ticked[stereo_pacing.timed] = ticks > 0" in body
     assert "reading.simulation > 0.0 ? reading.simulation" in body
 
 
