@@ -52,7 +52,7 @@ source = "Apple TV HD presented runs of a10 and d40 at 540 lines and minimum set
 [evidence."variable.display.frames_in_flight_at_30"]
 basis = "measured"
 why = "This device does not hold 30 either way (22 frames a second at 16 players and 16 at 32 by the report's rate, soft particles off, which the profile does not set). One frame in flight cut the time from the controller read to the screen from 129 to 82 ms at 16 players (p95 140 to 99 ms) and from 147 to 97 ms at 32 players (p95 180 to 115 ms) at almost the same frame rate (22.4 to 22.0 and 15.8 to 15.8 by the report). The cost: at 16 players the share of on-time frames fell from 0.77 to 0.60 (at 32 players it rose from 0.13 to 0.16). Only the variable workload (multiplayer, co-op, split screen, more enemies) takes it: campaign was not in this matrix, and a GPU-bound case can lose frames with one in flight (the iPhone Duo did), so the predictable workload keeps two. A campaign pair can widen it. The profile takes the 47 to 50 ms for that cost, because input latency outranks a few frames."
-source = "VISR input latency matrix (`step-tools/bench/latency-matrix.py`), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22, build 20261121.215044 (`measure/input-latency-1121` 1d034f255)"
+source = "VISR input latency matrix, presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22, build 20261121.215044 (`measure/input-latency-1121` 1d034f255)"
 
 [evidence."display.dynamic_resolution"]
 basis = "measured"
