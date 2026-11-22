@@ -30,14 +30,14 @@ from harness import CHECK_FAILED, constant, enum_with, function, mutated, read, 
 GAME = ROOT / "port/linux/game"
 MONOCYPHER = ROOT / "port/third_party/monocypher"
 FIXTURE = ROOT / "tools/harness/tests/map_share_send.c"
-CASES = ["catalog", "catalog-once", "catalog-replaced", "offer", "relay", "relay-unknown"]
+CASES = ["catalog", "catalog-once", "catalog-changing", "catalog-replaced", "downloaded", "offer", "relay", "relay-unknown"]
 
 MAP_SHARE_FILES_FUNCTIONS = ("hex_digit", "map_share_name_hashed", "map_share_name_base_length",
                              "map_share_piece_count", "map_share_file_get", "map_share_file_hash_of_pieces",
                              "map_share_first_piece_rest_hash", "map_share_content_hash", "map_share_content_read",
                              "hash_job_run", "map_share_file_judge", "map_share_file_unchanged", "known_hash_find",
                              "map_share_map_hash_remember", "map_share_file_hash", "catalog_file_judged",
-                             "catalog_job_finish")
+                             "catalog_job_finish", "map_share_file_hashed")
 MAP_SHARE_FUNCTIONS = ("put_long", "level_name_copy", "frame_room", "frame_begin", "frame_piece",
                        "current_files_hashed", "download_file_sendable", "sent_catalog_file", "sent_download_file",
                        "send_state", "piece_sendable", "connection_send_hashes", "serving_file_size", "block_read",
@@ -64,6 +64,10 @@ NEGATIVE_CONTROLS = {
                       "map_share_first_piece_rest_hash", "catalog"),
     "sent-before-judged": (("\tfile->ready = map_share_policy_may_send(", "\tfile->ready = TRUE || map_share_policy_may_send("),
                            "map_share_files.c", "catalog_file_judged", "catalog"),
+    "seeded-unjudged": (("\t\tcatalog_file_judged(file, content);\n", "\t\tfile->ready = TRUE;\n"), "map_share_files.c",
+                        "map_share_file_hashed", "downloaded"),
+    "read-while-changing": (("if (job->failed || file->failed || !job->modified)", "if (job->failed || file->failed)"),
+                            "map_share_files.c", "catalog_job_finish", "catalog-changing"),
     "content-forgotten": (("\t\tknown->content_known = TRUE;\n", ""), "map_share_files.c", "catalog_file_judged",
                           "catalog-once"),
     "any-cache-sent": (("identity.format != _cache_file_format_custom_edition_cache", "0"), "map_share_policy.c",
@@ -303,6 +307,18 @@ def test_no_second_stock_table():
 
 
 # ---------- every path that sends takes its file from the gate
+
+
+def test_only_judging_makes_a_catalog_file_ready():
+    """A catalog file is sent once it is ready, and it becomes ready only where its content is judged."""
+    readied = {}
+    for relative in ("port/linux/game/map_share_files.c", "port/linux/game/map_share.c"):
+        source = read(relative)
+        for match in re.finditer(r"^(?:static )?[\w *]+?\b(\w+)\(\s*[^;{]*\)\s*\{", source, re.M):
+            body = function(source, match.group(1))
+            if re.search(r"->ready\s*=(?!\s*FALSE\b)", body):
+                readied.setdefault(relative, set()).add(match.group(1))
+    assert readied == {"port/linux/game/map_share_files.c": {"catalog_file_judged"}}, readied
 
 
 # the functions of map_share.c that may read a connection's files directly: the gate itself, matching, and those

@@ -713,6 +713,59 @@ static void case_catalog_once(void)
 	CHECK(catalog_takes("hugeass.map", _map_share_file_map), "a community map is not sent");
 }
 
+/* a file that changed while it was hashed is hashed again, not sent as what
+was read */
+static void case_catalog_changing(void)
+{
+	char path[MAP_SHARE_PATH_SIZE];
+	struct hash_job job;
+	short index;
+
+	folder_make();
+	community_file("hugeass.map", "hugeass");
+	fake_path(path, "hugeass.map");
+	index = map_share_file_hash(path, _map_share_file_map);
+	CHECK(index != NONE, "a community map is not taken");
+	memset(&job, 0, sizeof(job));
+	strncpy(job.path, path, sizeof(job.path) - 1);
+	hash_job_run(&job);
+	CHECK(job.modified != 0, "a file that did not change is said to have");
+	job.modified = 0;
+	catalog_job_finish(index, &job);
+	CHECK(!map_share_file_get(index)->ready && !map_share_file_get(index)->failed,
+		"a file that changed while it was hashed is sent, or never hashed again");
+	catalog_hash(index);
+	CHECK(map_share_file_get(index)->ready, "a community map hashed again is not sent");
+}
+
+/* a finished download, seeded with the pieces' hashes it was checked
+against (map_share_file_hashed), is sent only if its content may be */
+static boolean downloaded_takes(char const *name)
+{
+	char path[MAP_SHARE_PATH_SIZE];
+	struct hash_job job;
+	struct map_share_file *file;
+
+	fake_path(path, name);
+	memset(&job, 0, sizeof(job));
+	strncpy(job.path, path, sizeof(job.path) - 1);
+	hash_job_run(&job);
+	CHECK(!job.failed, "%s cannot be hashed", name);
+	file = map_share_file_get(map_share_file_hashed(path, _map_share_file_map, job.size, job.piece_hashes,
+		job.piece_count, job.hash));
+	free(job.piece_hashes);
+	return file && file->ready;
+}
+
+static void case_downloaded(void)
+{
+	folder_make();
+	community_file("hugeass.map", "hugeass");
+	CHECK(downloaded_takes("hugeass.map"), "a downloaded community map is not passed on");
+	stock_file("mymap.map", "bloodgulch", "mymap", COMMUNITY_CHECKSUM);
+	CHECK(!downloaded_takes("mymap.map"), "a downloaded stock map with an edited header checksum is passed on");
+}
+
 int main(int count, char **arguments)
 {
 	char const *name = count > 1 ? arguments[1] : "";
@@ -725,6 +778,10 @@ int main(int count, char **arguments)
 		case_relay();
 	else if (!strcmp(name, "catalog-once"))
 		case_catalog_once();
+	else if (!strcmp(name, "catalog-changing"))
+		case_catalog_changing();
+	else if (!strcmp(name, "downloaded"))
+		case_downloaded();
 	else if (!strcmp(name, "catalog-replaced"))
 		case_catalog_replaced();
 	else if (!strcmp(name, "relay-unknown"))
