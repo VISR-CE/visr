@@ -95,12 +95,23 @@ static int dynamic_timing_available(void) {
     return 0;
 }
 void host_perf_hooks_dynamic_ignore(unsigned reason) { atomic_fetch_or(&dynamic_events, reason); }
+/* The pacer's late start allows for the worst recent frame: it is told when the next frames have more or fewer
+ * pixels, so a step up is allowed for before its first frame instead of being taken for a frame that cost too much.
+ * Returns the next frames' pixels over the last frames', or 0 when the lines did not change. Under dynamic_lock. */
+static int dynamic_lines_before;
+static double dynamic_lines_ratio(int lines) {
+    double ratio = lines > 0 && dynamic_lines_before > 0 && lines != dynamic_lines_before ?
+        (double)lines * lines / ((double)dynamic_lines_before * dynamic_lines_before) : 0.0;
+    if (lines > 0) dynamic_lines_before = lines;
+    return ratio;
+}
 /* Between frames, on the game thread. The planner's level was decided from
  * frames presented at least eight frames ago (dynamic_drain_locked); the
  * guest renders the next frames at the returned lines. A refused frame resets
  * the planner to the ceiling, so a refusal never strands a lower picture. */
 int host_dynamic_resolution_lines(int ceiling_lines) {
     int lines;
+    double ratio;
     if (!host_perf_hooks_dynamic_actuates()) return 0;
     /* (asked whether it is on at all, with nothing changed) */
     if (ceiling_lines < 0) return dynamic_timing_available();
@@ -114,7 +125,9 @@ int host_dynamic_resolution_lines(int ceiling_lines) {
             shadow.plan.level = 0;
             shadow.plan.settle = DYNAMIC_RESOLUTION_SETTLE;
         }
+        ratio = dynamic_lines_ratio(ceiling_lines > 0 ? ceiling_lines : 0);
         pthread_mutex_unlock(&dynamic_lock);
+        if (ratio > 0.0) frame_pacer_pixels(ratio);
         return ceiling_lines > 0 ? ceiling_lines : 0;
     }
     lines = ceiling_lines;
@@ -128,15 +141,9 @@ int host_dynamic_resolution_lines(int ceiling_lines) {
             lines = shadow.plan.lines[step < (unsigned)shadow.plan.levels ? step : span - step];
         } else lines = shadow.plan.lines[shadow.plan.level];
     }
+    ratio = dynamic_lines_ratio(lines);
     pthread_mutex_unlock(&dynamic_lock);
-    /* The pacer's late start allows for the worst recent frame: tell it when the next frames have more pixels, so a
-     * step up is allowed for before its first frame instead of being taken for a frame that cost too much. */
-    {
-        static int lines_before;
-        if (lines > 0 && lines_before > 0 && lines != lines_before)
-            frame_pacer_pixels((double)lines * lines / ((double)lines_before * lines_before));
-        lines_before = lines;
-    }
+    if (ratio > 0.0) frame_pacer_pixels(ratio);
     return lines;
 }
 void host_perf_hooks_dynamic_config(int enabled, int width, int height, int actual, int floor, int thermal, int eligible) {
