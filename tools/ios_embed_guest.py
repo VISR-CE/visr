@@ -59,6 +59,17 @@ def symbol_table(symbols,start,end,digest):
     return table+names
 
 
+def image_header(digest,code_size,data_address,data_size,data_memory_size):
+    """the text of guest_image.h: the one source of its layout, shared with tools/host_syntax_check.py"""
+    return ('/* Generated guest image layout. */\n#pragma once\n'
+            f'#define HALO_GUEST_SHA256 "{digest}"\n'
+            f'#define IOS_GUEST_CODE_SIZE {code_size}u\n'
+            f'#define IOS_GUEST_DATA_ADDRESS 0x{data_address:x}u\n'
+            f'#define IOS_GUEST_DATA_SIZE {data_size}u\n'
+            f'#define IOS_GUEST_IMAGE_END 0x{data_address+data_memory_size:x}u\n'
+            'extern const unsigned char halo_guest_code[], halo_guest_data[], halo_guest_symbols[];\n')
+
+
 def embed(source, destination):
     """Validate the ELF load ranges and emit assembly plus layout metadata."""
     data=source.read_bytes()
@@ -89,14 +100,7 @@ def embed(source, destination):
         f'# VISR guest symbols: guest image sha256 {digest}\n# address name (guest addresses; code from 0x{start:x} to 0x{end:x})\n'
         +''.join(f'{address:08x} {name}\n' for address,name in symbols))
     (destination/'guest-data.bin').write_bytes(writable[4])
-    (destination/'guest_image.h').write_text(
-        '/* Generated guest image layout. */\n#pragma once\n'
-        f'#define HALO_GUEST_SHA256 "{digest}"\n'
-        f'#define IOS_GUEST_CODE_SIZE {len(code_bytes)}u\n'
-        f'#define IOS_GUEST_DATA_ADDRESS 0x{writable[1]:x}u\n'
-        f'#define IOS_GUEST_DATA_SIZE {writable[2]}u\n'
-        f'#define IOS_GUEST_IMAGE_END 0x{writable[1]+writable[3]:x}u\n'
-        'extern const unsigned char halo_guest_code[], halo_guest_data[], halo_guest_symbols[];\n')
+    (destination/'guest_image.h').write_text(image_header(digest,len(code_bytes),writable[1],writable[2],writable[3]))
     (destination/'guest_image.S').write_text(
         '/* Guest code is covered by the enclosing app code signature. */\n'
         '.section __TEXT,__halocode,regular,pure_instructions\n.p2align 14\n'

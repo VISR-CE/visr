@@ -34,10 +34,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 if __package__:
-    from . import host_toolchain, ios_build
+    from . import host_toolchain, ios_build, ios_embed_guest
 else:
     import host_toolchain
     import ios_build
+    import ios_embed_guest
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build/host-syntax'
@@ -108,11 +109,9 @@ def prepare():
     run(sys.executable, 'tools/gpu_interface_hash.py', check=True)
     embedded = ROOT / 'build/ios/embedded'
     embedded.mkdir(parents=True, exist_ok=True)
-    (embedded / 'guest_image.h').write_text(
-        '/* Syntax-check stub of the generated guest image layout (tools/host_syntax_check.py). */\n'
-        '#pragma once\n#define IOS_GUEST_CODE_SIZE 4177920u\n#define IOS_GUEST_DATA_ADDRESS 0x883fc000u\n'
-        '#define IOS_GUEST_DATA_SIZE 3076780u\n#define IOS_GUEST_IMAGE_END 0x88b501d4u\n'
-        'extern const unsigned char halo_guest_code[], halo_guest_data[];\n')
+    # Placeholder layout values: a syntax check only declares the blobs and never reads the constants.
+    # The text comes from the generator that makes the real header, so the declarations cannot drift.
+    (embedded / 'guest_image.h').write_text(ios_embed_guest.image_header('0' * 64, 0x4000, 0x88004000, 0x4000, 0x4000))
     (embedded / 'guest_image.S').touch()
 
 

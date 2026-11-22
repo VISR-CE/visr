@@ -102,5 +102,22 @@ class CatchesUseBeforeDeclarationPerPlatform(unittest.TestCase):
         self.assertTrue(ok, output)
 
 
+class GuestImageHeader(unittest.TestCase):
+    def test_header_declares_every_guest_image_name_the_host_uses(self):
+        """the syntax-check stub is made by the generator of the real header, so a name a host source
+        starts using (an `IOS_GUEST_*` macro or a `halo_guest_*` blob) must be in what it writes"""
+        import re
+        import host_syntax_check
+        import ios_embed_guest
+        header = ios_embed_guest.image_header('0' * 64, 0x4000, 0x88004000, 0x4000, 0x4000)
+        used = set()
+        for path in (host_syntax_check.ROOT / 'port/ios/host').iterdir():
+            if path.suffix in ('.c', '.m', '.h'):
+                used.update(re.findall(r'\b(?:IOS_GUEST_[A-Z_]+|HALO_GUEST_SHA256|halo_guest_(?:code|data|symbols))\b', path.read_text()))
+        self.assertTrue(used)
+        for name in sorted(used):
+            self.assertIn(name, header)
+
+
 if __name__ == '__main__':
     unittest.main()
