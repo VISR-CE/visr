@@ -19,8 +19,11 @@ void host_frame_timeline_controller_read(void);
 /* the open row's frame id, for a completion handler to patch the row later */
 uint64_t host_frame_timeline_frame_id(void);
 /* the backend's part of the open row, before its present returns: the frame's display wait and, with the encode
-thread, the encoder's tail (seconds; a negative value leaves the field unknown) */
+thread, the encoder's tail (seconds; a negative value leaves the field as it is) */
 void host_frame_timeline_waits(double display_wait, double encoder_tail);
+/* with the encode thread, after the present barrier: the game thread's wait there (seconds); the row's encoder tail
+is the part that was not the display wait */
+void host_frame_timeline_barrier(double waited);
 /* 1 with debug.latency_log: the backend asks the drawable for its presented time only then */
 int host_frame_timeline_logging(void);
 /* the display showed frame_id at shown (CACurrentMediaTime's clock; 0 never shown): any thread */

@@ -2800,7 +2800,7 @@
         "encode_thread": {
           "type": "string",
           "default": "off",
-          "description": "How the Metal renderer's commands reach it. \"off\" (default): the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. Not on visionOS or Mac Catalyst.",
+          "description": "How the Metal renderer's commands reach it. \"off\" (default): the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. \"thread\": an encode thread reads the queue and calls the renderer while the game thread goes on; each frame's present waits for it, so input is read as late as with \"off\". Needs the game thread. Not on visionOS or Mac Catalyst.",
           "x-environment": "HALO_ENCODE_THREAD",
           "x-environment-style": "value",
           "x-platforms": [

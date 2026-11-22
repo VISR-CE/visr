@@ -87,8 +87,21 @@ void host_frame_timeline_waits(double display_wait, double encoder_tail)
 {
 	struct frame_timeline_row *row = open_row();
 
-	row->display_wait = display_wait >= 0.0 ? display_wait : NAN;
-	row->encoder_tail = encoder_tail >= 0.0 ? encoder_tail : NAN;
+	if (display_wait >= 0.0)
+		row->display_wait = display_wait;
+	if (encoder_tail >= 0.0)
+		row->encoder_tail = encoder_tail;
+}
+
+void host_frame_timeline_barrier(double waited)
+{
+	struct frame_timeline_row *row = open_row();
+
+	if (waited < 0.0)
+		return;
+	if (!isnan(row->display_wait))
+		waited -= row->display_wait;
+	row->encoder_tail = waited > 0.0 ? waited : 0.0;
 }
 
 int host_frame_timeline_logging(void)

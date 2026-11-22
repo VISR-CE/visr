@@ -13,6 +13,12 @@ Modes:
 - GPU_QUEUE_INLINE: the game thread consumes each record as soon as it is
   written. Nothing moves to another thread; it measures what recording
   costs and shows the records carry everything the backend needs.
+- GPU_QUEUE_THREAD: the encode thread consumes the records as they are
+  published, so the backend's encoding and its frame-slot wait run beside
+  the game's translation. Every present is a barrier: it returns once the
+  encode thread has made it, so input is read where it is with the queue off
+  and no frame is queued ahead (encode spec revision 4). A draw's answer is
+  1 (the backend's is not known yet).
 
 Calls go by their class (gpu_operation.h): RECORDED ones through the queue,
 the others straight to the backend (AT_ONCE and QUERY after the queue is
@@ -24,17 +30,18 @@ consumed up to them).
 
 #include "gpu_backend.h"
 
-enum { GPU_QUEUE_OFF, GPU_QUEUE_INLINE };
+enum { GPU_QUEUE_OFF, GPU_QUEUE_INLINE, GPU_QUEUE_THREAD };
 
-/* the setting's value ("off", "inline"), or -1 for one it does not know */
+/* the setting's value ("off", "inline", "thread"), or -1 for one it does not know */
 int gpu_queue_mode_parse(const char *value);
 
 /* chosen, behind the queue: it receives the RECORDED commands. beneath (NULL: chosen) receives the calls the
 producer makes itself; it is chosen without the wrappers that must see only recorded commands (the call hash
 behind the queue). log takes a finished line (no newline). timing: also measure the time the consumer spends in
-the backend, presents left out (two clock reads a record) */
+the backend, presents left out (two clock reads a record). consumer_started (may be NULL) runs first on the encode
+thread when GPU_QUEUE_THREAD starts it (the owner check binds its consumer there) */
 const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode,
-	int timing, void (*log)(const char *line));
+	int timing, void (*log)(const char *line), void (*consumer_started)(void));
 
 /* every record written so far has reached the backend: for a caller that reaches the backend outside gpu.h */
 void gpu_queue_drain(void);
@@ -46,5 +53,8 @@ unsigned long gpu_queue_drains(void);
 /* soft_depth_prepare's calls so far whose backend answer differed from the one the game was given (the producer's,
 from soft_depth_ready): logged once, counted for a test */
 unsigned long gpu_queue_answers_differ(void);
+
+/* GPU_QUEUE_THREAD: how long the last present waited for the encode thread (the barrier), in seconds; -1 otherwise */
+double gpu_queue_barrier_waited(void);
 
 #endif

@@ -22,6 +22,27 @@ operation without its pieces does not compile.
 #include <stdlib.h>
 #include <string.h>
 
+/* ---------- the encode thread (GPU_QUEUE_THREAD): the consumer on its own thread. The producer counts the records
+it writes and the consumer the records it has made; the consumer spins briefly when it runs dry, then sleeps until
+the producer wakes it. A drain (an AT_ONCE or QUERY call, and every present: the barrier) waits until the consumer
+has made every record written */
+
+static struct
+{
+	pthread_t thread;
+	int running;
+	pthread_mutex_t lock;
+	pthread_cond_t work, idle;
+	_Atomic uint64_t written, consumed;
+	_Atomic int sleeping, drain_waiting;
+	void (*started)(void);
+	double barrier_waited; /* the last present's wait for the consumer, in seconds (the producer's) */
+} worker = { .lock = PTHREAD_MUTEX_INITIALIZER, .work = PTHREAD_COND_INITIALIZER, .idle = PTHREAD_COND_INITIALIZER };
+
+/* how long a dry consumer spins before it sleeps: a frame's records come microseconds apart while the game
+translates, and a sleep and wake per record would cost more than the record */
+enum { WORKER_SPIN_NS = 50000 };
+
 /* the rest of the chunk is unused: go on in the next one */
 enum { RECORD_WRAP = GPU_OPERATION_COUNT };
 
@@ -31,6 +52,8 @@ int gpu_queue_mode_parse(const char *value)
 		return GPU_QUEUE_OFF;
 	if (!strcmp(value, "inline"))
 		return GPU_QUEUE_INLINE;
+	if (!strcmp(value, "thread"))
+		return GPU_QUEUE_THREAD;
 	return -1;
 }
 
@@ -44,7 +67,7 @@ static uint32_t draw_result, present_result;
 been logged */
 static unsigned long answers_differ;
 static int answer_logged;
-static int mode;
+static _Atomic int mode;
 static int timing;
 static void (*log_line)(const char *line);
 
@@ -204,8 +227,15 @@ static void record_end(void)
 	atomic_store_explicit(&write_chunk->published, write_offset, memory_order_release);
 	statistics.records++;
 	statistics.bytes += sizeof(struct record) + record_size;
+	atomic_fetch_add(&worker.written, 1);
 	if (mode == GPU_QUEUE_INLINE)
 		consume();
+	else if (atomic_load(&worker.sleeping))
+	{
+		pthread_mutex_lock(&worker.lock);
+		pthread_cond_signal(&worker.work);
+		pthread_mutex_unlock(&worker.lock);
+	}
 }
 
 /* a record with no payload but its arguments */
@@ -223,8 +253,23 @@ static unsigned long drains;
 void gpu_queue_drain(void)
 {
 	drains++;
-	if (mode != GPU_QUEUE_OFF && write_chunk)
+	if (mode == GPU_QUEUE_INLINE && write_chunk)
 		consume();
+	else if (mode == GPU_QUEUE_THREAD && atomic_load(&worker.consumed) != atomic_load(&worker.written))
+	{
+		pthread_mutex_lock(&worker.lock);
+		atomic_store(&worker.drain_waiting, 1);
+		pthread_cond_signal(&worker.work);
+		while (atomic_load(&worker.consumed) != atomic_load(&worker.written))
+			pthread_cond_wait(&worker.idle, &worker.lock);
+		atomic_store(&worker.drain_waiting, 0);
+		pthread_mutex_unlock(&worker.lock);
+	}
+}
+
+double gpu_queue_barrier_waited(void)
+{
+	return mode == GPU_QUEUE_THREAD ? worker.barrier_waited : -1.0;
 }
 
 unsigned long gpu_queue_drains(void)
@@ -465,8 +510,10 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	statistics.draws++;
 	statistics.draw_bytes += sizeof(struct record) + size;
 	record_end();
-	/* inline: the draw has reached the backend; its answer is the backend's */
-	return draw_result;
+	/* inline: the draw has reached the backend; its answer is the backend's. With the thread it has not: the game
+	is told it drew (a skipped draw only counts in the game's statistics and the TV companion's list, whose redraw
+	the backend skips again) */
+	return mode == GPU_QUEUE_THREAD ? 1 : draw_result;
 }
 
 /* ---------- the other recorded commands */
@@ -599,11 +646,25 @@ static void queued_companion_set(gpu_texture target)
 	record_simple(GPU_OPERATION_companion_set, &argument, sizeof(argument));
 }
 
+/* the present is a barrier (encode spec revision 4): the game reads the next frame's input only after the consumer
+has made this present, its display waits included, so input is sampled where it is without the queue */
+static void present_barrier(void)
+{
+	uint64_t started;
+
+	if (mode != GPU_QUEUE_THREAD)
+		return;
+	started = clock_ns();
+	gpu_queue_drain();
+	worker.barrier_waited = (double)(clock_ns() - started) / 1e9;
+}
+
 static uint32_t queued_present(gpu_texture back_buffer)
 {
 	uint64_t argument = back_buffer;
 
 	record_simple(GPU_OPERATION_present, &argument, sizeof(argument));
+	present_barrier();
 	statistics_frame();
 	return present_result;
 }
@@ -611,6 +672,7 @@ static uint32_t queued_present(gpu_texture back_buffer)
 static uint32_t queued_present_stereo(const struct gpu_stereo_present *present)
 {
 	record_simple(GPU_OPERATION_present_stereo, present, sizeof(*present));
+	present_barrier();
 	statistics_frame();
 	return present_result;
 }
@@ -1017,14 +1079,80 @@ static void consume(void)
 		else
 			consume_record(header->operation, (const unsigned char *)(header + 1));
 		read_offset += (uint32_t)sizeof(*header) + header->size;
+		atomic_fetch_add(&worker.consumed, 1);
 	}
 }
 
+static uint64_t worker_backlog(void)
+{
+	return atomic_load(&worker.written) - atomic_load(&worker.consumed);
+}
+
+static void *worker_main(void *unused)
+{
+	(void)unused;
+#ifdef __APPLE__
+	pthread_setname_np("encode");
+#endif
+	if (worker.started)
+		worker.started();
+	for (;;)
+	{
+		uint64_t dry;
+
+		if (mode == GPU_QUEUE_THREAD)
+			consume();
+		/* (a drain waits for this: every record written is made) */
+		if (atomic_load(&worker.drain_waiting) && !worker_backlog())
+		{
+			pthread_mutex_lock(&worker.lock);
+			pthread_cond_broadcast(&worker.idle);
+			pthread_mutex_unlock(&worker.lock);
+		}
+		dry = clock_ns();
+		while (!worker_backlog() && clock_ns() - dry < WORKER_SPIN_NS)
+			;
+		if (worker_backlog() && mode == GPU_QUEUE_THREAD)
+			continue;
+		pthread_mutex_lock(&worker.lock);
+		atomic_store(&worker.sleeping, 1);
+		while (!worker_backlog() || mode != GPU_QUEUE_THREAD)
+		{
+			if (atomic_load(&worker.drain_waiting))
+				pthread_cond_broadcast(&worker.idle);
+			pthread_cond_wait(&worker.work, &worker.lock);
+		}
+		atomic_store(&worker.sleeping, 0);
+		pthread_mutex_unlock(&worker.lock);
+	}
+	return NULL;
+}
+
+/* the encode thread, once: at the game thread's priority, since the game thread waits on it at every present
+(encode spec revision 5 item 4) */
+static void worker_start(void)
+{
+	pthread_attr_t attributes;
+
+	if (worker.running)
+		return;
+	pthread_attr_init(&attributes);
+#ifdef __APPLE__
+	pthread_attr_set_qos_class_np(&attributes, QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
+	if (pthread_create(&worker.thread, &attributes, worker_main, NULL))
+		abort();
+	pthread_attr_destroy(&attributes);
+	worker.running = 1;
+}
+
 const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath,
-	int queue_mode, int queue_timing, void (*log)(const char *line))
+	int queue_mode, int queue_timing, void (*log)(const char *line), void (*consumer_started)(void))
 {
 	if (queue_mode == GPU_QUEUE_OFF)
 		return chosen;
+	/* (a running encode thread consumes nothing until the mode says so: an earlier wrap's records are all made) */
+	gpu_queue_drain();
 	next = chosen;
 	direct = beneath ? beneath : chosen;
 	mode = queue_mode;
@@ -1038,6 +1166,9 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 	memset(&sent, 0, sizeof(sent));
 	memset(&held, 0, sizeof(held));
 	memset(&statistics, 0, sizeof(statistics));
+	atomic_store(&worker.written, 0);
+	atomic_store(&worker.consumed, 0);
+	worker.started = consumer_started;
 	answers_differ = 0;
 	answer_logged = 0;
 	queued = *chosen;
@@ -1047,5 +1178,7 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 	GPU_BACKEND_OPERATIONS(INSTALL_F, INSTALL_P)
 #undef INSTALL_F
 #undef INSTALL_P
+	if (mode == GPU_QUEUE_THREAD)
+		worker_start();
 	return &queued;
 }

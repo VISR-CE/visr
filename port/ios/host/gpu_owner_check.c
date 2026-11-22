@@ -74,6 +74,12 @@ GPU_BACKEND_OPERATIONS(OWNED_F, OWNED_P)
 #undef OWNED_F
 #undef OWNED_P
 
+void gpu_owner_check_bind_consumer(void)
+{
+	check.owners[0] = pthread_self();
+	atomic_store(&check.reported[0], 0);
+}
+
 const struct gpu_backend *gpu_owner_check_wrap(const struct gpu_backend *chosen, void (*report)(const char *line),
 	int stop)
 {

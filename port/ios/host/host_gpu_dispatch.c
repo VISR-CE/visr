@@ -81,6 +81,8 @@ static void data_updates_presented(void)
 Metal backend reports its own, with the GPU's time (gpu_metal.m's pacing_schedule), and this must not count them twice.
 The interval is from one Present's return to the next's; the CPU time is the game's work between them. */
 static int metal_backend;
+/* debug.encode_thread is not off (hash_and_queue_wrap) */
+static int encode_queue_on;
 
 int host_gpu_metal_active(void)
 {
@@ -104,6 +106,10 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	/* (the frame's work ends here: a background hold mustn't count against its deadline) */
 	if (metal_backend)
 		gpu_metal_frame_deadline_end();
+	/* (with the encode thread, the frame's records so far reach the GPU before the hold, not while in the
+	background) */
+	if (encode_queue_on && host_lifecycle_backgrounded())
+		gpu_queue_drain();
 	host_lifecycle_hold();
 	host_perf_hooks_context(1, metal_backend ? 1 : 2);
 	host_perf_hooks_present_begin();
@@ -113,6 +119,7 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	next_frame_due = wrapped_backend->present(back_buffer);
 	/* (the frame timeline row is sealed here, on the game thread after the backend's present returned: the timeline
 	spec's decision note) */
+	host_frame_timeline_barrier(gpu_queue_barrier_waited());
 	host_frame_timeline_seal();
 	host_perf_hooks_present_end();
 	data_updates_presented();
@@ -706,8 +713,15 @@ static int encode_queue_mode(int *timing)
 	mode = gpu_queue_mode_parse(value);
 	if (mode < 0)
 	{
-		platform_log("debug.encode_thread: \"%s\" is not one of off and inline; it is off", value);
+		platform_log("debug.encode_thread: \"%s\" is not one of off, inline and thread; it is off", value);
 		mode = GPU_QUEUE_OFF;
+	}
+	/* the encode thread needs a game thread: on the main thread the present barrier would hold the main thread while
+	the backend's main-thread work (drawable size, host_main_sync) waits for it */
+	if (mode == GPU_QUEUE_THREAD && pthread_main_np())
+	{
+		platform_log("debug.encode_thread: \"thread\" needs the game thread (debug.game_thread); it is inline");
+		mode = GPU_QUEUE_INLINE;
 	}
 	if (mode == GPU_QUEUE_OFF)
 		return mode;
@@ -717,8 +731,6 @@ static int encode_queue_mode(int *timing)
 	return mode;
 #endif
 }
-
-static int encode_queue_on;
 
 int host_gpu_encode_queue_on(void)
 {
@@ -751,7 +763,7 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 	not */
 	chosen = gpu_owner_check_wrap(chosen, encode_queue_log, OWNER_CHECK_STOPS);
 	behind = call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_back) : chosen;
-	behind = gpu_queue_wrap(behind, chosen, mode, timing, encode_queue_log);
+	behind = gpu_queue_wrap(behind, chosen, mode, timing, encode_queue_log, gpu_owner_check_bind_consumer);
 	return call_hash_on ? gpu_call_hash_wrap(1, behind, call_hash_front) : behind;
 }
 

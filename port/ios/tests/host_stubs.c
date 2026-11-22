@@ -179,19 +179,23 @@ __attribute__((weak)) void gpu_metal_frame_deadline_leave(void)
 { }
 __attribute__((weak)) void gpu_metal_gpu_spans_summary(char *text, size_t size)
 { }
+__attribute__((weak)) void gpu_owner_check_bind_consumer(void)
+{ }
 __attribute__((weak)) unsigned long gpu_owner_check_violations(void)
 { fprintf(stderr, "host_stubs: probe called gpu_owner_check_violations without defining it\n"); abort(); }
 __attribute__((weak)) const struct gpu_backend * gpu_owner_check_wrap(const struct gpu_backend *chosen, void (*report)(const char *line), int stop)
 { fprintf(stderr, "host_stubs: probe called gpu_owner_check_wrap without defining it\n"); abort(); }
 __attribute__((weak)) unsigned long gpu_queue_answers_differ(void)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_answers_differ without defining it\n"); abort(); }
+__attribute__((weak)) double gpu_queue_barrier_waited(void)
+{ fprintf(stderr, "host_stubs: probe called gpu_queue_barrier_waited without defining it\n"); abort(); }
 __attribute__((weak)) void gpu_queue_drain(void)
 { }
 __attribute__((weak)) unsigned long gpu_queue_drains(void)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_drains without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_queue_mode_parse(const char *value)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_mode_parse without defining it\n"); abort(); }
-__attribute__((weak)) const struct gpu_backend * gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode, int timing, void (*log)(const char *line))
+__attribute__((weak)) const struct gpu_backend * gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode, int timing, void (*log)(const char *line), void (*consumer_started)(void))
 { fprintf(stderr, "host_stubs: probe called gpu_queue_wrap without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_replay_header(const char *path, struct gpu_capture_header *header, char *error, size_t size)
 { fprintf(stderr, "host_stubs: probe called gpu_replay_header without defining it\n"); abort(); }
@@ -597,6 +601,8 @@ __attribute__((weak)) double host_frame_rate_target(void)
 { fprintf(stderr, "host_stubs: probe called host_frame_rate_target without defining it\n"); abort(); }
 __attribute__((weak)) int host_frame_rate_unlimited(void)
 { fprintf(stderr, "host_stubs: probe called host_frame_rate_unlimited without defining it\n"); abort(); }
+__attribute__((weak)) void host_frame_timeline_barrier(double waited)
+{ }
 __attribute__((weak)) void host_frame_timeline_controller_read(void)
 { }
 __attribute__((weak)) uint64_t host_frame_timeline_frame_id(void)
@@ -729,6 +735,8 @@ __attribute__((weak)) int host_lan_txt_build(unsigned char *txt, int size, unsig
 { fprintf(stderr, "host_stubs: probe called host_lan_txt_build without defining it\n"); abort(); }
 __attribute__((weak)) int host_lan_txt_matches(const unsigned char *txt, int length, unsigned version, uint32_t fork)
 { fprintf(stderr, "host_stubs: probe called host_lan_txt_matches without defining it\n"); abort(); }
+__attribute__((weak)) int host_lifecycle_backgrounded(void)
+{ fprintf(stderr, "host_stubs: probe called host_lifecycle_backgrounded without defining it\n"); abort(); }
 __attribute__((weak)) void host_lifecycle_hold(void)
 { }
 __attribute__((weak)) void host_lifecycle_install(void)

@@ -23,6 +23,9 @@ build) */
 const struct gpu_backend *gpu_owner_check_wrap(const struct gpu_backend *chosen, void (*report)(const char *line),
 	int stop);
 
+/* the calling thread is the queue's consumer from now on: the encode thread, when it starts */
+void gpu_owner_check_bind_consumer(void);
+
 /* the calls so far that came from a thread other than their class's owner: for a test */
 unsigned long gpu_owner_check_violations(void);
 

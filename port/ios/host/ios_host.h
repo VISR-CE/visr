@@ -97,6 +97,8 @@ app that submits GPU work in the background and a closed visionOS window only
 backgrounds the app */
 void host_lifecycle_install(void);
 void host_lifecycle_hold(void);
+/* 1 while the app is in the background (host_lifecycle_hold would hold) */
+int host_lifecycle_backgrounded(void);
 /* gpu_metal.m (display.frame_deadline): the frame's work has ended; nothing on a Vision Pro */
 void gpu_metal_frame_deadline_end(void);
 /* the calling thread is about to run UIKit's own loop: leave the frame workgroup, join again at the next frame */

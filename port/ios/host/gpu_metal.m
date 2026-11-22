@@ -6010,8 +6010,9 @@ static struct
 {
 	int state;               /* FRAME_DEADLINE_*: 0 not set up, 1 joined, 2 left (rejoins at the next frame), -1 off */
 	os_workgroup_interval_t interval;
-	struct os_workgroup_join_token_opaque_s token;
+	struct os_workgroup_join_token_opaque_s token, producer_token;
 	pthread_t thread;        /* the thread that joined: a workgroup is left on the thread that joined it */
+	int producer_joined;     /* with the encode thread, the game thread joined as well (frame_deadline_join) */
 	int open, start_failed;
 	int held;                /* a UIKit dialog is up over the game: no frame joins (gpu_metal_frame_deadline_hold) */
 	uint64_t deadline;       /* the open interval's deadline (mach time) */
@@ -6093,9 +6094,25 @@ static void frame_deadline_begin(BOOL offscreen)
 
 /* the pacer's late start slept this long after the interval began at Present's return: the frame's work begins now,
 toward the same deadline */
+/* With the encode thread (debug.encode_thread = "thread") Present runs there, so that thread joins and starts each
+frame's interval; the game thread, whose translation is the frame's other half, joins the same workgroup at its next
+frame start. The two never touch the interval at once: the game thread does (frame_deadline_late_start) only after
+the present barrier, while the encode thread waits for the next frame's records. */
+static void frame_deadline_join(void)
+{
+	if (frame_deadline.state != FRAME_DEADLINE_JOINED || frame_deadline.producer_joined ||
+		pthread_equal(frame_deadline.thread, pthread_self()))
+		return;
+	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+		frame_deadline.producer_joined = os_workgroup_join(frame_deadline.interval, &frame_deadline.producer_token) ? -1 :
+			1;
+}
+
 static void frame_deadline_late_start(double slept)
 {
-	if (slept < 0.0002 || !frame_deadline.open || !pthread_equal(frame_deadline.thread, pthread_self()))
+	if (slept < 0.0002 || !frame_deadline.open)
+		return;
+	if (!pthread_equal(frame_deadline.thread, pthread_self()) && frame_deadline.producer_joined != 1)
 		return;
 	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
 	{
@@ -6545,6 +6562,7 @@ static void gpu_metal_frame_start(void)
 	interval starts after it (the input latency audit, revision 2 item 1) */
 	pacing_waited += slept;
 #if !TARGET_OS_VISION
+	frame_deadline_join();
 	frame_deadline_late_start(slept);
 #endif
 #endif

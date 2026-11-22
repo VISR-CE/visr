@@ -1759,7 +1759,10 @@ static const struct config_setting config_settings[] =
 		"How the Metal renderer's commands reach it. \"off\" (default): the game\n"
 		"thread calls the renderer. \"inline\": the game thread writes each command\n"
 		"into a queue and reads it back at once, to measure what the queue costs\n"
-		"and check that it changes nothing. Not on visionOS or Mac Catalyst." },
+		"and check that it changes nothing. \"thread\": an encode thread reads the\n"
+		"queue and calls the renderer while the game thread goes on; each frame's\n"
+		"present waits for it, so input is read as late as with \"off\". Needs\n"
+		"the game thread. Not on visionOS or Mac Catalyst." },
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
 		"With debug.encode_thread on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },

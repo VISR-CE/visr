@@ -11,6 +11,7 @@ gpu_call_hash.c and gpu_queue.c. */
 
 #include "gpu_call_hash.h"
 #include "gpu_queue.h"
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -320,6 +321,15 @@ static void play(const struct gpu_backend *backend)
 	/* (nothing after the last present: every command is in a compared frame) */
 }
 
+static pthread_t consumer_thread;
+static int consumer_thread_set;
+
+static void consumer_started(void)
+{
+	consumer_thread = pthread_self();
+	consumer_thread_set = 1;
+}
+
 int main(void)
 {
 	struct gpu_call_hash_frame direct[FRAMES];
@@ -340,7 +350,7 @@ int main(void)
 	frames_seen = 0;
 	memset(fake_calls, 0, sizeof(fake_calls));
 	drains = gpu_queue_drains();
-	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_INLINE, 1, quiet));
+	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_INLINE, 1, quiet, NULL));
 	/* (and the AT_ONCE calls, the creates, do wait) */
 	CHECK(gpu_queue_drains() > drains, "no call waited for the queue");
 	CHECK(frames_seen == FRAMES, "the queued run presented %lu frames", frames_seen);
@@ -358,7 +368,7 @@ int main(void)
 
 	/* one run, hashed in front of the queue and behind it, as debug.gpu_call_hash does with the queue on */
 	frames_seen = front_seen = 0;
-	play(gpu_call_hash_wrap(1, gpu_queue_wrap(gpu_call_hash_wrap(0, &fake, record), &fake, GPU_QUEUE_INLINE, 0, quiet),
+	play(gpu_call_hash_wrap(1, gpu_queue_wrap(gpu_call_hash_wrap(0, &fake, record), &fake, GPU_QUEUE_INLINE, 0, quiet, NULL),
 		record_front));
 	CHECK(frames_seen == FRAMES && front_seen == FRAMES, "the paired run presented %lu and %lu frames", front_seen,
 		frames_seen);
@@ -374,7 +384,7 @@ int main(void)
 		struct gpu_backend reader = fake;
 
 		reader.draw = log_reader_draw;
-		play(gpu_queue_wrap(&reader, NULL, GPU_QUEUE_INLINE, 0, quiet));
+		play(gpu_queue_wrap(&reader, NULL, GPU_QUEUE_INLINE, 0, quiet, NULL));
 		CHECK(!stale_reads && !stale_serials, "behind the queue %lu draws read stale constants by the change log "
 			"and %lu had other serials than the game's store", stale_reads, stale_serials);
 	}
@@ -389,7 +399,7 @@ int main(void)
 
 		disagrees.soft_depth_ready = ready_yes;
 		lines_logged = 0;
-		queue = gpu_queue_wrap(&disagrees, NULL, GPU_QUEUE_INLINE, 0, count_lines);
+		queue = gpu_queue_wrap(&disagrees, NULL, GPU_QUEUE_INLINE, 0, count_lines, NULL);
 		CHECK(queue->soft_depth_prepare(3, values, 6) == 1, "the game was not given the producer's answer");
 		CHECK(queue->soft_depth_prepare(3, values, 6) == 1, "the game was not given the producer's answer");
 		CHECK(gpu_queue_answers_differ() == 2 && lines_logged == 1,
@@ -397,5 +407,19 @@ int main(void)
 			lines_logged);
 	}
 	puts("gpu_queue_probe: ok");
+	/* the encode thread: the same recorded commands, made on the encode thread, every present a barrier (last: the
+	thread stays, waiting, for the rest of the probe) */
+	frames_seen = 0;
+	memset(fake_calls, 0, sizeof(fake_calls));
+	consumer_thread_set = 0;
+	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_THREAD, 0, quiet, consumer_started));
+	CHECK(consumer_thread_set && !pthread_equal(consumer_thread, pthread_self()), "the encode thread did not start");
+	CHECK(frames_seen == FRAMES, "the threaded run presented %lu frames", frames_seen);
+	for (frame = 0; frame < FRAMES; frame++)
+		CHECK(frames[frame].hash == direct[frame].recorded && frames[frame].calls == direct[frame].recorded_calls,
+			"frame %lu: behind the encode thread %u commands, hash %016llx; direct %u recorded, %016llx", frame,
+			frames[frame].calls, (unsigned long long)frames[frame].hash, direct[frame].recorded_calls,
+			(unsigned long long)direct[frame].recorded);
+	CHECK(gpu_queue_barrier_waited() >= 0.0, "a threaded present did not wait at the barrier");
 	return 0;
 }
