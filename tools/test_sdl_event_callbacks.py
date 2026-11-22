@@ -22,7 +22,8 @@ def strip_comments(text: str) -> str:
 
 
 def functions(text: str) -> dict[str, str]:
-    """Function name -> body, for the definitions at file scope (brace matched)."""
+    """Function name -> body, for the definitions at file scope (brace matched); a name defined more than once
+    (the branches of an #if) gets its bodies joined."""
     found = {}
     for match in DEFINITION.finditer(text):
         name, depth, index = match.group(1), 1, match.end()
@@ -31,7 +32,7 @@ def functions(text: str) -> dict[str, str]:
         while depth and index < len(text):
             depth += {"{": 1, "}": -1}.get(text[index], 0)
             index += 1
-        found.setdefault(name, text[match.end():index])
+        found[name] = found.get(name, "") + text[match.end():index]
     return found
 
 
@@ -95,7 +96,9 @@ def test_the_callbacks_are_found_in_the_host():
 # and the rest are defined once per platform, so same-named bodies are joined).
 PAD_READS = ("host_sdl_get_gamepads", "host_sdl_update_joysticks", "host_sdl_open_gamepad", "host_sdl_gamepad_from_id",
              "host_sdl_gamepad_axis", "host_sdl_gamepad_button", "host_sdl_gamepad_type")
-MAIN_WAIT = re.compile(r"\bhost_main_sync\w*|\bdispatch_sync\w*")
+# Waits named here are found in C functions; Objective-C methods and message sends are not followed.
+MAIN_WAIT = re.compile(r"\bhost_main_sync\w*|\bdispatch_(?:barrier_)?sync\w*|\bdispatch_(?:semaphore|group)_wait\b|"
+                       r"\bperformSelectorOnMainThread\b|\bwaitUntilDone\s*:\s*YES")
 
 
 def every_definition(paths) -> dict[str, str]:
@@ -153,3 +156,22 @@ int host_ios_gamepad_axis(SDL_Gamepad *pad, int axis) { if (text_input_blocked()
         for name, body in functions(strip_comments(text)).items():
             defined[name] = defined.get(name, "") + body
     assert main_waits(defined, ["host_sdl_gamepad_axis"]) == []
+
+
+def test_every_branch_of_a_function_is_walked():
+    """A function defined in both branches of an #if is walked in both, and the other wait spellings are found."""
+    entry = "int host_sdl_gamepad_button(uint32_t gamepad, int button) { return host_window_up(); }"
+    branches = """
+#if TARGET_OS_TV
+int host_window_up(void) { return 0; }
+#else
+int host_window_up(void) { dispatch_semaphore_wait(done, FOREVER); return 1; }
+#endif
+"""
+    defined = functions(strip_comments(entry + branches))
+    assert main_waits(defined, ["host_sdl_gamepad_button"]) == [
+        "host_sdl_gamepad_button reaches dispatch_semaphore_wait through host_window_up"]
+    for wait in ("dispatch_barrier_sync(queue, ^{});", "dispatch_group_wait(group, FOREVER);",
+                 "[object performSelectorOnMainThread:selector withObject:nil waitUntilDone:YES];"):
+        defined = functions(strip_comments(entry.replace("return host_window_up();", wait + " return 0;")))
+        assert main_waits(defined, ["host_sdl_gamepad_button"]), wait
