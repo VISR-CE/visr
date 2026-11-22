@@ -16,7 +16,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 # the table itself, and what the Objective-C runtime and blocks export
 ALLOWED = {'gpu_backend_metal'}
-RUNTIME_PREFIXES = ('OBJC_', '__block_descriptor', '__copy_helper_block', '__destroy_helper_block')
+RUNTIME_PREFIXES = ('OBJC_', '_OBJC_', '__block_descriptor', '__copy_helper_block', '__destroy_helper_block')
 
 PROGRAM = r'''
 #include "gpu_operation.h"

@@ -10,10 +10,10 @@ static UIScreen *output_screen, *expected_screen;
 static int output_failures, renderer_ready;
 #define HOST_LOG_WARN 1
 static void host_logf(int priority,const char *format,...) { (void)priority;(void)format; }
-static int gpu_metal_output(void *layer,void *screen,int width,int height) {
+static int host_gpu_output(void *layer,void *screen,int width,int height) {
     (void)layer;(void)width;(void)height;
     assert(screen==(__bridge void *)expected_screen);
-    /* Pacing restarts inside gpu_metal_output and asks host_external_screen. */
+    /* Pacing restarts inside the Metal output change and asks host_external_screen. */
     assert(output_screen==expected_screen);
     return renderer_ready;
 }

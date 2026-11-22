@@ -27,6 +27,8 @@ class EntryPointTests(unittest.TestCase):
         nm = ('0000000000001000 T _gpu_metal_async_compiles\n'
               '0000000000002000 S _gpu_backend_metal\n'
               '0000000000003000 S _OBJC_CLASS_$_MetalTexture\n'
+              '0000000000003800 S __OBJC_PROTOCOL_$_CAMetalDisplayLinkDelegate\n'
+              '0000000000003900 S __OBJC_LABEL_PROTOCOL_$_CAMetalDisplayLinkDelegate\n'
               '0000000000004000 S ___block_descriptor_32_e5_v8?0l\n'
               '0000000000005000 T _host_picture_drawable\n')
         names = gpu_metal_entry_points.exported(nm)

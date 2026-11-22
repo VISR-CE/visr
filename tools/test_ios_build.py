@@ -13,6 +13,8 @@ def built_objects_not_read(monkeypatch):
     """these tests replace the build with a stub, so there is no gpu_metal.o for the entry point check to read
     (tools/test_gpu_metal_entry_points.py tests the check)"""
     monkeypatch.setattr(ios_build, 'entry_points_check', lambda build, configuration: None)
+    from tools import macos_build
+    monkeypatch.setattr(macos_build, 'entry_points_check', lambda: None)
 
 
 def test_ipad_multitasking_declares_all_distribution_required_orientations():
