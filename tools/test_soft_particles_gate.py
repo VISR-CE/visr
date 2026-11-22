@@ -1,7 +1,7 @@
 """The soft particle compute pass stays behind its GPU-family check.
 
 The bug class: a GPU path first enabled on an older GPU family than anyone ran it on. `soft_depth_linearize` first ran on
-the A8 (Apple GPU family 2, the Apple TV HD) after the dispatch fix, and the GPU faulted ("victim of GPU error/recovery")
+the A8 (Apple GPU family 2, the Apple TV HD) and the A10X (family 3) after the dispatch fix, and the GPU faulted ("victim of GPU error/recovery")
 whatever the kernel read. `soft_depth_program`, which the warm-up, the usable check and the prepare all call, returns
 false where `soft_particles_supported()` (the gate's answer) is false, and the front end learns it from `gpu_capabilities`.
 """
@@ -48,8 +48,12 @@ def test_front_end_asks_the_capability():
 
 
 def test_reports_record_soft_particles_as_drawn():
-    start = DEVICE.index("int halo_soft_particles_effective(void)")
+    # one helper answers for the frame; the draw-time check adds the view's targets, the report records the helper
+    start = DEVICE.index("static BOOL soft_particles_enabled(void)")
     body = DEVICE[start:DEVICE.index("\n}\n", start)]
-    assert "device_capabilities.soft_particles" in body
+    assert "device_capabilities.soft_particles" in body and "halo_stereo_frame()" in body
+    assert "soft_particles_enabled()" in DEVICE[DEVICE.index("static BOOL soft_view_wanted(void)"):][:400]
+    effective = DEVICE[DEVICE.index("int halo_soft_particles_effective(void)"):][:120]
+    assert "soft_particles_enabled()" in effective
     suite = (ROOT / "port/linux/src/benchmark_suite.c").read_text()
     assert "halo_soft_particles_effective()" in suite and '\\"soft_particles\\"' in suite

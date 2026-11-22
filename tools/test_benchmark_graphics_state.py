@@ -40,13 +40,14 @@ static int halo_model_lod_override_state(void) { return model_lod_override; }
 static int halo_model_lod_effective(void) { return model_lod; }
 static int ambient_occlusion = 0;
 static int halo_ambient_occlusion_effective(void) { return ambient_occlusion; }
-static int halo_soft_particles_effective(void) { return ambient_occlusion; }
+static int soft_particles = 1;
+static int halo_soft_particles_effective(void) { return soft_particles; }
 ''' + actual + r'''
 int main(void) {
     char json[CONFIG_GRAPHICS_MAXIMUM_BYTES];
     assert(benchmark_graphics_snapshot_json(0,json,sizeof(json)));
     puts(json);
-    shadow_target=512; sampler_max=8; texture_replacement_selections=3; ambient_occlusion=1;
+    shadow_target=512; sampler_max=8; texture_replacement_selections=3; ambient_occlusion=1; soft_particles=0;
     assert(benchmark_graphics_snapshot_json(0,json,sizeof(json)));
     puts(json);
     char tiny[32]="unsafe";
@@ -74,8 +75,8 @@ int main(void) {
     assert first["renderer_state"]["ambient_occlusion"] is False
     assert last["renderer_state"]["ambient_occlusion"] is True
     # soft particle edges as drawn: off where the GPU cannot run the pass (gpu_capabilities.soft_particles)
-    assert first["renderer_state"]["soft_particles"] is False
-    assert last["renderer_state"]["soft_particles"] is True
+    assert first["renderer_state"]["soft_particles"] is True
+    assert last["renderer_state"]["soft_particles"] is False
 
 
 def test_reports_record_ambient_occlusion_as_drawn():

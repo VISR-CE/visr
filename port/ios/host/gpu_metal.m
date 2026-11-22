@@ -7908,9 +7908,8 @@ static BOOL ssao_supported(void)
 	return metal_pass(METAL_PASS_AMBIENT_OCCLUSION);
 }
 
-/* soft particle edges (host_soft_depth_prepare) take the Metal gate's answer for the pass (metal_gate.h's row: the A8
-faults its GPU on the compute dispatch, so the floor is above Apple2); gpu_capabilities.soft_particles tells the front
-end and the reports */
+/* soft particle edges (host_soft_depth_prepare) take the Metal gate's answer for the pass (the SOFT_PARTICLES row in
+metal_gate.h holds the floor and the reason); gpu_capabilities.soft_particles tells the front end and the reports */
 static BOOL soft_particles_supported(void)
 {
 	return metal_pass(METAL_PASS_SOFT_PARTICLES);

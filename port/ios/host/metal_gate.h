@@ -85,8 +85,8 @@ table and today's checks and no fleet device has run it there. Lowering any floo
 resolve calls read it).
 Soft particles: the A8 (Apple TV HD) faults its GPU on the pass's compute dispatch whatever the kernel reads
 (known-bugs, Nov 21, 2026), and the A10X iPad Pro (Apple3) had failed command buffers in 11 of 24 latency-lane arms
-with the pass on and none in 24 arms with it off (Nov 22), so the floor is Apple4. No Apple4 fleet device has run it;
-the Air 4 (A14) runs it clean once the acceptance runs say so. */
+with the pass on and none in 24 arms with it off (Nov 22), so the floor is Apple4. No fleet device of Apple4 (A11) has
+run it; the Apple7 Air 4 (A14) is the fleet device that confirms it runs clean above the floor. */
 #define METAL_PASSES(X) \
 	X(SOFT_PARTICLES, METAL_NEEDS(STENCIL_TEXTURE_VIEWS), METAL_BLOCKED_BY(A8_A10X_COMPUTE_DISPATCH_FAULT), 4, \
 		METAL_FLOOR_DOCUMENTED, 1, "soft particles", "hard particle edges") \

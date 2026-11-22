@@ -3005,14 +3005,20 @@ int halo_ambient_occlusion_effective(void)
 	return device.gl_ready && shader_dialect.msl && ssao_mode() > 0 && stereo->mode == HALO_STEREO_OFF;
 }
 
-/* whether soft particle edges can be drawn, as reports record it (benchmark_suite.c's renderer_state): off where the
-GPU cannot run the pass (gpu_capabilities.soft_particles), without Metal, and whatever display.soft_particles says in a
-mode that turns it off */
+/* whether soft particle edges are on for the frame: Metal, a GPU that can run the pass (gpu_capabilities.soft_particles),
+the live setting (which the graphics mode turns off where it does not apply), and no stereo. The draw-time check
+(soft_view_wanted) adds the view's own targets; reports (benchmark_suite.c's renderer_state) record this answer */
+static BOOL soft_particles_enabled(void)
+{
+	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+
+	return device.gl_ready && shader_dialect.msl && device_capabilities.soft_particles &&
+		config_boolean("display.soft_particles") && stereo->mode == HALO_STEREO_OFF && !stereo->eye_count;
+}
+
 int halo_soft_particles_effective(void)
 {
-	return device.gl_ready && shader_dialect.msl && device_capabilities.soft_particles &&
-		(config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_CLASSIC) ||
-		 config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_ENHANCED));
+	return soft_particles_enabled();
 }
 
 /* whether the view being drawn takes AO: the same answer at the mark and at the pass */
@@ -3118,13 +3124,9 @@ static unsigned long soft_groups;
 
 static BOOL soft_view_wanted(void)
 {
-	const struct halo_stereo_frame *stereo = halo_stereo_frame();
 	struct render_target_entry *color, *depth;
 
-	if (!native_scene || !device.gl_ready || !shader_dialect.msl || !device_capabilities.soft_particles ||
-		!config_boolean("display.soft_particles"))
-		return FALSE;
-	if (stereo->mode != HALO_STEREO_OFF || stereo->eye_count)
+	if (!native_scene || !soft_particles_enabled())
 		return FALSE;
 	color = render_target_get(device.render_target);
 	depth = render_target_get(device.depth_stencil);
