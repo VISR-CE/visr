@@ -61,7 +61,16 @@ enum
 	RECORD_EYE_CONSTANTS,
 	RECORD_EYE_CONSTANTS_END,
 	RECORD_LIVE_END,
+	RECORD_STREAM_NOTE,
 	RECORD_KINDS
+};
+
+/* RECORD_STREAM_NOTE's payload, then the streamed bytes: verify's record of each gpu_stream from a verify span's
+start to its live end, so a draw is compared by the bytes it reads and not by where in the frame's stream rings they
+went (each eye streams its own copy) */
+struct stream_note
+{
+	uint32_t buffer, offset, size, pad;
 };
 
 /* a record header's operation word: the operation in the low bits, flags above it. RECORD_KEYFRAME marks a frame's
@@ -1051,6 +1060,25 @@ GPU_BACKEND_OPERATIONS(QUEUED_F, QUEUED_P)
 
 /* ---------- the second eye's replay: the producer's calls (gpu_queue.h) */
 
+/* (the producer's: a verify span is open, through its live end) */
+static int stream_notes;
+
+static uint32_t queued_stream_noted(uint32_t kind, const void *data, uint32_t size, gpu_buffer *buffer)
+{
+	uint32_t offset = direct->stream(kind, data, size, buffer);
+
+	if (stream_notes && data)
+	{
+		struct stream_note note = { *buffer, offset, size, 0 };
+		unsigned char *payload = record_begin(RECORD_STREAM_NOTE, (uint32_t)sizeof(note) + size);
+
+		memcpy(payload, &note, sizeof(note));
+		memcpy(payload + sizeof(note), data, size);
+		record_end();
+	}
+	return offset;
+}
+
 int gpu_queue_eye_span_begin(int verify)
 {
 	uint32_t verify_word = (uint32_t)verify;
@@ -1063,6 +1091,7 @@ int gpu_queue_eye_span_begin(int verify)
 	memset(span.textures, 0, sizeof(span.textures));
 	span.open = 1;
 	span.verify = verify;
+	stream_notes = verify;
 	span.unreplayable = 0;
 	span.reason = NULL;
 	return 1;
@@ -2048,12 +2077,199 @@ static void verify_summary(void)
 	if (verify_phase == VERIFY_COMPARE) \
 		verify_compare()
 
+/* ---------- verify's stream notes: each gpu_stream of the span and its live eye, by ring buffer in offset order, so a
+draw's index and vertex ranges are named by the bytes they read */
+
+struct note
+{
+	uint32_t offset, size;
+	size_t data_at;
+	uint64_t hash;
+};
+
+struct ring_notes
+{
+	gpu_buffer buffer;
+	struct note *notes;
+	unsigned long count, capacity;
+	int unordered;
+};
+
+enum { NOTE_RINGS = 64 };
+static struct ring_notes note_rings[NOTE_RINGS];
+static struct call_log note_bytes;
+static unsigned long notes_lost;
+
+static uint64_t bytes_hash(const unsigned char *bytes, size_t size)
+{
+	uint64_t hash = 14695981039346656037ull;
+	size_t index;
+
+	for (index = 0; index < size; index++)
+		hash = (hash ^ bytes[index]) * 1099511628211ull;
+	return hash;
+}
+
+static void notes_reset(void)
+{
+	int ring;
+
+	for (ring = 0; ring < NOTE_RINGS; ring++)
+	{
+		note_rings[ring].count = 0;
+		note_rings[ring].unordered = 0;
+	}
+	note_bytes.size = 0;
+}
+
+static struct ring_notes *note_ring(gpu_buffer buffer, int add)
+{
+	int ring;
+
+	for (ring = 0; ring < NOTE_RINGS; ring++)
+		if (note_rings[ring].count && note_rings[ring].buffer == buffer)
+			return &note_rings[ring];
+	if (!add)
+		return NULL;
+	for (ring = 0; ring < NOTE_RINGS; ring++)
+		if (!note_rings[ring].count)
+		{
+			note_rings[ring].buffer = buffer;
+			return &note_rings[ring];
+		}
+	return NULL;
+}
+
+static void note_add(const unsigned char *payload)
+{
+	struct stream_note header;
+	struct ring_notes *ring;
+	struct note *note;
+
+	memcpy(&header, payload, sizeof(header));
+	ring = note_ring(header.buffer, 1);
+	if (!ring)
+	{
+		notes_lost++;
+		return;
+	}
+	if (ring->count == ring->capacity)
+	{
+		ring->capacity = ring->capacity ? ring->capacity * 2 : 1024;
+		ring->notes = realloc(ring->notes, ring->capacity * sizeof(*ring->notes));
+		if (!ring->notes)
+			abort();
+	}
+	if (ring->count && ring->notes[ring->count - 1].offset >= header.offset)
+		ring->unordered = 1;
+	note = &ring->notes[ring->count++];
+	note->offset = header.offset;
+	note->size = header.size;
+	note->data_at = note_bytes.size;
+	note->hash = bytes_hash(payload + sizeof(header), header.size);
+	log_put(&note_bytes, payload + sizeof(header), header.size);
+}
+
+/* the note whose bytes hold offset in buffer: the last one at or before it (a ring's offsets only grow in a frame;
+an unordered ring is searched from its newest note back) */
+static const struct note *note_find(gpu_buffer buffer, int64_t offset)
+{
+	const struct ring_notes *ring = note_ring(buffer, 0);
+	unsigned long low = 0, high;
+
+	if (!ring || offset < 0)
+		return NULL;
+	if (ring->unordered)
+	{
+		for (high = ring->count; high-- > 0;)
+			if (ring->notes[high].offset <= offset && offset < (int64_t)ring->notes[high].offset + ring->notes[high].size)
+				return &ring->notes[high];
+		return NULL;
+	}
+	high = ring->count;
+	while (low < high)
+	{
+		unsigned long middle = (low + high) / 2;
+
+		if ((int64_t)ring->notes[middle].offset <= offset)
+			low = middle + 1;
+		else
+			high = middle;
+	}
+	if (!low)
+		return NULL;
+	{
+		const struct note *note = &ring->notes[low - 1];
+
+		return offset < (int64_t)note->offset + note->size ? note : NULL;
+	}
+}
+
+/* a streamed range's name: its note's bytes and where in them it starts (a range in no note, a buffer written
+another way, keeps its own buffer and offset) */
+static uint32_t note_name(const struct note *note, int64_t offset)
+{
+	return (uint32_t)(note->hash ^ (note->hash >> 32) ^ ((uint64_t)(offset - note->offset) * 0x9e3779b97f4a7c15ull));
+}
+
+enum { NOTED_BUFFER = 0xffffffffu };
+
+/* the draw as verify compares it: each streamed index and vertex range named by its bytes (note_name), the base
+vertex folded into the vertex ranges */
+static void draw_keyed(struct gpu_draw *draw)
+{
+	int64_t first_vertex = 0;
+	int stream;
+
+	if (draw->index_buffer)
+	{
+		const struct note *note = note_find(draw->index_buffer, draw->index_offset);
+
+		first_vertex = draw->base_vertex;
+		if (note && (int64_t)draw->index_offset + (int64_t)draw->count * 2 <= (int64_t)note->offset + note->size)
+		{
+			const unsigned char *indices = note_bytes.bytes + note->data_at + (draw->index_offset - note->offset);
+			uint32_t index, lowest = 0xffff;
+
+			for (index = 0; index < draw->count; index++)
+			{
+				uint16_t value;
+
+				memcpy(&value, indices + index * 2, 2);
+				if (value < lowest)
+					lowest = value;
+			}
+			first_vertex += lowest;
+			draw->index_offset = note_name(note, draw->index_offset);
+			draw->index_buffer = NOTED_BUFFER;
+		}
+	}
+	for (stream = 0; stream < 16; stream++)
+	{
+		struct gpu_vertex_stream *vertices = &draw->streams[stream];
+		int64_t start = (int64_t)vertices->offset + first_vertex * vertices->stride;
+		const struct note *note;
+
+		if (!vertices->buffer)
+			continue;
+		note = note_find(vertices->buffer, start);
+		if (!note)
+			continue;
+		vertices->offset = note_name(note, start);
+		vertices->buffer = NOTED_BUFFER;
+	}
+	if (draw->index_buffer == NOTED_BUFFER)
+		draw->base_vertex = 0;
+}
+
 static uint32_t verify_draw(const struct gpu_draw *draw, const struct gpu_constant_store *constants,
 	const struct gpu_uniforms *uniforms)
 {
 	struct gpu_uniforms copy = *uniforms;
+	struct gpu_draw keyed = *draw;
 	VERIFY_BEGIN(draw);
-	log_put(log, draw, sizeof(*draw));
+	draw_keyed(&keyed);
+	log_put(log, &keyed, sizeof(keyed));
 	log_put(log, constants->c, sizeof(constants->c));
 	copy.serial = 0;
 	log_put(log, &copy, sizeof(copy));
@@ -2288,7 +2504,10 @@ static void eye_record(uint32_t operation, const struct record *header)
 		eye.first_offset = read_offset + (uint32_t)sizeof(*header) + header->size;
 		memcpy(&eye.replay.held, &primary.held, sizeof(eye.replay.held));
 		if (header->size >= 4 && *(const uint32_t *)payload)
+		{
 			memcpy(&verify_held_start, &primary.held, sizeof(verify_held_start));
+			notes_reset();
+		}
 		memset(eye.overrides.active, 0, sizeof(eye.overrides.active));
 		eye.replay.skip = RECORD_EYE_0;
 		eye.replay.map = &eye.map;
@@ -2326,6 +2545,9 @@ static void eye_record(uint32_t operation, const struct record *header)
 		eye_release();
 		break;
 	}
+	case RECORD_STREAM_NOTE:
+		note_add(payload);
+		break;
 	case RECORD_LIVE_END:
 		if (!eye.capturing)
 			break;
@@ -2353,6 +2575,8 @@ static void span_close(const struct gpu_queue_eye_map *map)
 		end->map = *map;
 	record_end();
 	span.open = 0;
+	if (!end->verify)
+		stream_notes = 0;
 	if (!replay)
 		unreplayable_reason = span.reason ? span.reason : "no map";
 }
@@ -2369,6 +2593,7 @@ void gpu_queue_eye_live_end(void)
 {
 	if (mode != GPU_QUEUE_OFF)
 		record_simple(RECORD_LIVE_END, NULL, 0);
+	stream_notes = 0;
 }
 
 /* the statistics line's part for the replay, since the last line: nothing when no span opened */
@@ -2574,6 +2799,9 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 	GPU_BACKEND_OPERATIONS(INSTALL_F, INSTALL_P)
 #undef INSTALL_F
 #undef INSTALL_P
+	if (chosen->stream)
+		queued.stream = queued_stream_noted;
+	stream_notes = 0;
 	if (mode == GPU_QUEUE_THREAD)
 		worker_start();
 	return &queued;

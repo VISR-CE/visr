@@ -5,7 +5,8 @@ texture map applied, eye-0-only records skipped, eye 1's constant overrides held
 constant set included) until they end, and a replay-only serial; the span crosses chunks, so its finished chunks must
 be kept for the replay. A buffer rewritten after a replayed draw read it makes the span unreplayable, a write the
 backend marks unused does not. Verify mode compares the replay's calls with the live eye's: equal calls pass, a
-differing constant is counted. Built and run by tools/test_gpu_queue.py with gpu_queue.c. */
+differing constant is counted; a draw reading streamed bytes is compared by those bytes, so the live eye's own copy at
+another ring offset matches and different bytes do not. Built and run by tools/test_gpu_queue.py with gpu_queue.c. */
 
 #include "gpu_queue.h"
 #include <stdio.h>
@@ -80,6 +81,32 @@ static void draw(gpu_texture color, gpu_texture stage, gpu_buffer buffer, const 
 	packet.depth_target = color + 2;
 	packet.stages[0].texture = stage;
 	packet.streams[0].buffer = buffer;
+	packet.count = 3;
+	queue->draw(&packet, from, &uniforms);
+}
+
+/* an indexed draw of streamed vertices and indices, each eye streaming its own copy (the ring offsets differ) */
+static void streamed_draw(gpu_texture color, float shift, const struct gpu_constant_store *from)
+{
+	const uint16_t indices[3] = { 2, 3, 4 };
+	float vertices[5][2];
+	struct gpu_draw packet;
+	gpu_buffer buffer;
+	int vertex;
+
+	for (vertex = 0; vertex < 5; vertex++)
+	{
+		vertices[vertex][0] = (float)vertex + shift;
+		vertices[vertex][1] = 1.0f;
+	}
+	memset(&packet, 0, sizeof(packet));
+	packet.color_target = color;
+	packet.depth_target = color + 2;
+	packet.streams[0].offset = queue->stream(GPU_STREAM_KIND_VERTEX, vertices, sizeof(vertices), &buffer);
+	packet.streams[0].buffer = buffer;
+	packet.streams[0].stride = sizeof(vertices[0]);
+	packet.index_offset = queue->stream(GPU_STREAM_KIND_INDEX, indices, sizeof(indices), &packet.index_buffer);
+	packet.primitive = GPU_PRIMITIVE_TRIANGLES;
 	packet.count = 3;
 	queue->draw(&packet, from, &uniforms);
 }
@@ -215,7 +242,26 @@ static void run(int mode, const char *name)
 		CHECK((after.verify_differ - before.verify_differ == 0) == (index == 0),
 			"%s: verify counted %lu differing calls in pass %u", name, after.verify_differ - before.verify_differ, index);
 	}
-	CHECK(after.spans - before.spans == 5 && after.replayed - before.replayed == 2 &&
+	/* ---------- verify by streamed bytes: the live eye's copy at other offsets matches, other bytes do not */
+	for (index = 0; index < 2; index++)
+	{
+		struct gpu_queue_eye_statistics streamed_before;
+
+		gpu_queue_eye_statistics(&streamed_before);
+		CHECK(gpu_queue_eye_span_begin(1), "%s: no streamed verify span", name);
+		streamed_draw(10, 0.0f, &store);
+		CHECK(gpu_queue_eye_span_end(&map) == 1, "%s: a streamed verify span is not replayed", name);
+		streamed_draw(11, index ? 0.5f : 0.0f, &store);
+		gpu_queue_eye_live_end();
+		queue->present_stereo(&present);
+		gpu_queue_drain();
+		gpu_queue_eye_statistics(&after);
+		CHECK(after.verified - streamed_before.verified == 1, "%s: the streamed span was not verified", name);
+		CHECK((after.verify_differ - streamed_before.verify_differ == 0) == (index == 0),
+			"%s: verify counted %lu differing calls for streamed draws in pass %u", name,
+			after.verify_differ - streamed_before.verify_differ, index);
+	}
+	CHECK(after.spans - before.spans == 7 && after.replayed - before.replayed == 2 &&
 		after.unreplayable - before.unreplayable == 1, "%s: %lu spans, %lu replayed, %lu not", name,
 		after.spans - before.spans, after.replayed - before.replayed, after.unreplayable - before.unreplayable);
 	/* the queue off opens no span */
