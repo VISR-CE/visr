@@ -42,6 +42,8 @@ void host_data_updates_menu_start(void) {
 }
 void host_data_updates_menu_finish(void) {}
 void host_logf(int priority, const char *format, ...) {}
+/* no external display here (the shared host stubs do not build for Mac Catalyst, so this probe keeps its own) */
+void host_external_menu_splash(void) {}
 void benchmark_journal_load(const char *path, struct benchmark_journal *journal) { memset(journal, 0, sizeof(*journal)); }
 const char *benchmark_mode_name(enum benchmark_mode mode) { return "full-unified"; }
 NSString *host_recording_update_folder(NSString *bundled) { return bundled; }
