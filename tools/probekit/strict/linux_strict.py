@@ -13,8 +13,8 @@ imitate Ubuntu 24.04 with glibc:
    only Apple builds reach carries an `/* apple-only */` comment on its line.
 3. A link without `-lm` must not leave a libm function undefined
    (`linux_libm.txt`): libSystem provides them on macOS, glibc needs `-lm`.
-   Compiles keep the math functions arm64 inlines as calls so the check sees
-   them, and `-lm` before an input fails, as Ubuntu's `--as-needed` does.
+   For clang the check reads an x86-64 build of the same sources, since arm64
+   inlines calls that x86-64 Linux makes, and `-lm` before an input fails, as Ubuntu's `--as-needed` does.
 
 Commands that cannot run on Linux anyway (Objective-C, frameworks, Apple
 device targets) pass through unchanged. `HALO_LINUX_STRICT=0` turns the
@@ -30,17 +30,18 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 
 HERE = Path(__file__).resolve().parent
 ISO_STANDARDS = re.compile(r"-std=(c89|c90|c99|c9x|c11|c1x|c17|c18|c2x|c23|iso9899:.*)$")
 FEATURE_MACROS = ("_POSIX_C_SOURCE", "_XOPEN_SOURCE", "_GNU_SOURCE", "_DEFAULT_SOURCE", "_BSD_SOURCE",
                   "_DARWIN_C_SOURCE", "_ANSI_SOURCE", "_C99_SOURCE")
 STRICT_MACROS = ["-D_ANSI_SOURCE", "-D_C99_SOURCE"]
-# libm functions that clang on arm64 turns into instructions, so a link without -lm shows no call to them;
-# x86-64 Linux calls most of them. Compiling them as calls lets the libm check see them.
-INLINED_MATH = ("sqrt", "floor", "ceil", "trunc", "round", "rint", "nearbyint", "fmin", "fmax", "fma", "lround",
-                "llround", "lrint", "llrint", "fabs")
-MATH_AS_CALLS = [f"-fno-builtin-{name}{suffix}" for name in INLINED_MATH for suffix in ("", "f", "l")]
+# arm64 turns sqrt, floor, ceil, fma, lround and others into instructions, so an arm64 binary hides calls that
+# x86-64 Linux makes. The libm check reads an extra x86-64 build instead, with Linux's -fmath-errno default
+# (Darwin's is -fno-math-errno) and the baseline x86-64 CPU Ubuntu builds for. Options that only fit the arm64 build are left out of it.
+X86_TARGET = ["-target", "x86_64-apple-macos11", "-march=x86-64", "-fmath-errno"]
+X86_DROPPED = ("-H", "-fsanitize", "-mcpu", "-march", "-mtune", "-arch", "-target", "--target", "-mmacos")
 # Darwin's combined sine and cosine, which clang emits for sin(x) with cos(x).
 SINCOS = {"__sincos_stret": ("sin", "cos"), "__sincosf_stret": ("sinf", "cosf")}
 DEFINES_FEATURE_MACRO = re.compile(r"^\s*#\s*define\s+(" + "|".join(FEATURE_MACROS) + r")\b", re.MULTILINE)
@@ -240,7 +241,32 @@ def split_trace(stderr: str) -> tuple[list[tuple[int, str]], str]:
     return trace, "".join(kept)
 
 
-def math_problems(output: str) -> list[str]:
+def x86_build(compiler: str, command: Command) -> str | None:
+    """Link the same C sources for x86-64 into a temporary file, or None when the command does not allow it."""
+    if any(not (source in command.c_sources) for source in command.inputs):
+        return None
+    arguments = []
+    skip = False
+    for index, argument in enumerate(command.arguments):
+        if skip:
+            skip = False
+            continue
+        if argument in ("-o", "--output", "-arch", "-target"):
+            skip = True
+            continue
+        if argument.startswith(X86_DROPPED) or argument.startswith(("-o", "--output=")):
+            continue
+        arguments.append(argument)
+    handle, path = tempfile.mkstemp(prefix="linux-strict-x86-")
+    os.close(handle)
+    result = subprocess.run([compiler, *arguments, *X86_TARGET, "-o", path], capture_output=True)
+    if result.returncode != 0:
+        os.remove(path)
+        return None
+    return path
+
+
+def math_problems(output: str, shown: str) -> list[str]:
     result = subprocess.run(["nm", "-u", output], capture_output=True, text=True)
     if result.returncode != 0:
         return []
@@ -252,7 +278,7 @@ def math_problems(output: str) -> list[str]:
     names = sorted(undefined & libm)
     if not names:
         return []
-    return [f"{output} calls {', '.join(names)}: links on macOS, needs -lm on Linux"]
+    return [f"{shown} calls {', '.join(names)}: links on macOS, needs -lm on Linux"]
 
 
 def main() -> int:
@@ -269,8 +295,6 @@ def main() -> int:
         extra.append("-H")
         if strict_macros:
             extra += STRICT_MACROS
-        if not (command.link and command.math):
-            extra += MATH_AS_CALLS
     result = subprocess.run([compiler, *arguments, *extra], stderr=subprocess.PIPE, text=True, errors="replace")
     trace, diagnostics = split_trace(result.stderr)
     sys.stderr.write(diagnostics)
@@ -284,7 +308,14 @@ def main() -> int:
     # clang links libm itself for its sanitizer runtimes, so a sanitized clang link needs no -lm on Linux either.
     sanitized = name == "clang" and any(argument.startswith("-fsanitize=") for argument in arguments)
     if command.link and not command.shared and not command.math and not sanitized and os.path.exists(command.output):
-        problems += math_problems(command.output)
+        # Only for clang, whose x86-64 code generation the Mac's clang reproduces; Ubuntu's cc is gcc, which
+        # inlines and folds differently (it drops ceil of a converted integer), so cc keeps the arm64 check.
+        x86 = x86_build(compiler, command) if name == "clang" else None
+        try:
+            problems += math_problems(x86 or command.output, command.output)
+        finally:
+            if x86:
+                os.remove(x86)
     if command.link and 0 <= command.math_index < command.last_input:
         problems.append("-lm comes before an input file: Ubuntu links with --as-needed, so libm is dropped "
                         "before anything needs it; put -lm after the sources")
