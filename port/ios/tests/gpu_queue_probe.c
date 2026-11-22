@@ -321,6 +321,31 @@ static void play(const struct gpu_backend *backend)
 	/* (nothing after the last present: every command is in a compared frame) */
 }
 
+/* the AT_ONCE and QUERY calls that reached the backend since fake_calls was cleared */
+static unsigned long calls_that_drain(void)
+{
+	unsigned long calls = 0;
+	unsigned operation;
+
+	for (operation = 0; operation < GPU_OPERATION_COUNT; operation++)
+		if (gpu_operation_classes[operation] == GPU_CLASS_AT_ONCE || gpu_operation_classes[operation] == GPU_CLASS_QUERY)
+			calls += fake_calls[operation];
+	return calls;
+}
+
+/* every frame's first draw was a keyframe a stateless reader could start from (the second eye's replay) */
+static void check_keyframes(const char *run)
+{
+	unsigned long differ, checked = gpu_queue_keyframes_checked(&differ);
+	static unsigned long checked_before;
+
+	CHECK(checked - checked_before >= FRAMES - 1 && !differ,
+		"the %s run checked %lu keyframes for %d frames; %lu left another state", run, checked - checked_before, FRAMES,
+		differ);
+	checked_before = checked;
+	gpu_queue_check_keyframes(0);
+}
+
 static pthread_t consumer_thread;
 static int consumer_thread_set;
 
@@ -349,10 +374,13 @@ int main(void)
 	the backend */
 	frames_seen = 0;
 	memset(fake_calls, 0, sizeof(fake_calls));
+	gpu_queue_check_keyframes(1);
 	drains = gpu_queue_drains();
 	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_INLINE, 1, quiet, NULL));
-	/* (and the AT_ONCE calls, the creates, do wait) */
-	CHECK(gpu_queue_drains() > drains, "no call waited for the queue");
+	/* (every AT_ONCE and QUERY call waits for the queue exactly once, by its class; nothing else does) */
+	CHECK(gpu_queue_drains() - drains == calls_that_drain(), "%lu drains for %lu AT_ONCE and QUERY calls",
+		gpu_queue_drains() - drains, calls_that_drain());
+	check_keyframes("inline");
 	CHECK(frames_seen == FRAMES, "the queued run presented %lu frames", frames_seen);
 	for (frame = 0; frame < FRAMES; frame++)
 		CHECK(frames[frame].hash == direct[frame].recorded && frames[frame].calls == direct[frame].recorded_calls &&
@@ -412,7 +440,9 @@ int main(void)
 	frames_seen = 0;
 	memset(fake_calls, 0, sizeof(fake_calls));
 	consumer_thread_set = 0;
+	gpu_queue_check_keyframes(1);
 	play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_THREAD, 0, quiet, consumer_started));
+	check_keyframes("threaded");
 	CHECK(consumer_thread_set && !pthread_equal(consumer_thread, pthread_self()), "the encode thread did not start");
 	CHECK(frames_seen == FRAMES, "the threaded run presented %lu frames", frames_seen);
 	for (frame = 0; frame < FRAMES; frame++)

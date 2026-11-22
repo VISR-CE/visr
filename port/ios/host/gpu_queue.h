@@ -54,6 +54,12 @@ unsigned long gpu_queue_drains(void);
 from soft_depth_ready): logged once, counted for a test */
 unsigned long gpu_queue_answers_differ(void);
 
+/* a test's check that a reader can start at a frame boundary: each frame's first draw (a keyframe, whose record
+carries every part whole) is consumed again by a consumer with no state, which must end up holding what the queue's
+consumer holds. Returns the keyframes checked so far and, in differ, how many left another state */
+void gpu_queue_check_keyframes(int on);
+unsigned long gpu_queue_keyframes_checked(unsigned long *differ);
+
 /* GPU_QUEUE_THREAD: how long the last present waited for the encode thread (the barrier), in seconds; -1 otherwise */
 double gpu_queue_barrier_waited(void);
 

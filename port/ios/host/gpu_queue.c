@@ -46,6 +46,18 @@ enum { WORKER_SPIN_NS = 50000 };
 /* the rest of the chunk is unused: go on in the next one */
 enum { RECORD_WRAP = GPU_OPERATION_COUNT };
 
+/* a record header's operation word: the operation in the low bits, flags above it. RECORD_KEYFRAME marks a frame's
+first draw, whose record carries the whole packet, store and uniforms (keyframe); the two eye bits are kept for the
+second eye's replay (a record for eye 0 only or eye 1 only; neither: both) */
+enum
+{
+	RECORD_OPERATION = 0xffffu,
+	RECORD_KEYFRAME = 1u << 16,
+	RECORD_EYE_0 = 1u << 17,
+	RECORD_EYE_1 = 1u << 18,
+};
+_Static_assert(RECORD_WRAP <= RECORD_OPERATION, "the operations outgrew the header's operation bits");
+
 int gpu_queue_mode_parse(const char *value)
 {
 	if (!strcmp(value, "off") || !strcmp(value, "false") || !value[0])
@@ -57,12 +69,11 @@ int gpu_queue_mode_parse(const char *value)
 	return -1;
 }
 
-/* next: where recorded commands go (the consumer's calls); direct: the backend under any wrapper that only
-recorded commands may pass (a call hash behind the queue), for the calls the producer makes itself */
-static const struct gpu_backend *next, *direct;
+/* direct: the backend under any wrapper that only recorded commands may pass (a call hash behind the queue), for the
+calls the producer makes itself (recorded commands go to the consumer's next) */
+static const struct gpu_backend *direct;
 static struct gpu_backend queued;
 /* the backend's answers to the last draw and present consumed (inline: the one just written) */
-static uint32_t draw_result, present_result;
 /* soft_depth_prepare's calls whose backend answer was not the producer's (soft_depth_ready's), and whether one has
 been logged */
 static unsigned long answers_differ;
@@ -145,11 +156,14 @@ static uint32_t write_offset, read_offset;
 
 enum { STATISTICS_FRAMES = 300 };
 
+/* the producer's (written as it records) */
 static struct
 {
 	unsigned long frames;
-	uint64_t records, bytes, draws, draw_bytes, registers, full_constants, uniforms, consumed_ns;
+	uint64_t records, bytes, draws, draw_bytes, registers, full_constants, uniforms, keyframes;
 } statistics;
+/* the consumer's (with the encode thread, written there): its time in the backend, taken by the producer's line */
+static _Atomic uint64_t consumed_ns;
 
 /* (debug.encode_thread_timing's clock: C11's timespec_get, so the queue and its probe build off Apple platforms too,
 where strict C11 does not declare clock_gettime) */
@@ -169,7 +183,7 @@ static void statistics_frame(void)
 	if (++statistics.frames < STATISTICS_FRAMES)
 		return;
 	frames = (double)statistics.frames;
-	milliseconds = (double)statistics.consumed_ns / 1e6 / frames;
+	milliseconds = (double)atomic_exchange(&consumed_ns, 0) / 1e6 / frames;
 	snprintf(line, sizeof(line),
 		"encode queue: %lu frames, a frame: %.0f records, %.0f KiB, %.0f draws in %.0f KiB, %.0f registers, "
 		"%.1f whole constant sets, %.0f uniform sets, backend %.3f ms%s",
@@ -185,7 +199,7 @@ static void statistics_frame(void)
 /* ---------- the producer */
 
 static unsigned char *record_payload;
-static uint32_t record_operation, record_size;
+static uint32_t record_operation, record_size, record_flags;
 
 /* room for a record of size payload bytes; returns where the payload goes */
 static void *record_begin(uint32_t operation, uint32_t size)
@@ -221,8 +235,9 @@ static void record_end(void)
 {
 	struct record *header = (struct record *)(write_chunk->data + write_offset);
 
-	header->operation = record_operation;
+	header->operation = record_operation | record_flags;
 	header->size = record_size;
+	record_flags = 0;
 	write_offset += (uint32_t)sizeof(struct record) + record_size;
 	atomic_store_explicit(&write_chunk->published, write_offset, memory_order_release);
 	statistics.records++;
@@ -250,9 +265,8 @@ static void record_simple(uint32_t operation, const void *arguments, uint32_t si
 
 static unsigned long drains;
 
-void gpu_queue_drain(void)
+static void drain(void)
 {
-	drains++;
 	if (mode == GPU_QUEUE_INLINE && write_chunk)
 		consume();
 	else if (mode == GPU_QUEUE_THREAD && atomic_load(&worker.consumed) != atomic_load(&worker.written))
@@ -265,6 +279,12 @@ void gpu_queue_drain(void)
 		atomic_store(&worker.drain_waiting, 0);
 		pthread_mutex_unlock(&worker.lock);
 	}
+}
+
+void gpu_queue_drain(void)
+{
+	drains++;
+	drain();
 }
 
 double gpu_queue_barrier_waited(void)
@@ -295,9 +315,12 @@ static void put(struct writer *writer, const void *data, uint32_t size)
 	writer->at += size;
 }
 
+struct consumer;
+
 struct reader
 {
 	const unsigned char *at;
+	struct consumer *consumer;
 };
 
 static const void *take(struct reader *reader, uint32_t size)
@@ -383,17 +406,28 @@ static struct
 	int uniforms_known;
 } sent;
 
-/* the consumer's: the packet, and the store and uniforms the backend is handed */
-static struct
+/* A consumer: where its calls go, the delta state its draw records apply to (the packet, and the store and uniforms
+the backend is handed) and the backend's last answers. Consuming a record is a function of the record and this state
+alone, so a second consumer (the second eye's replay, which starts from a copy of the primary's state at a frame
+boundary or a span's start) reads the same records without disturbing the primary. */
+struct consumer
 {
-	_Alignas(16) unsigned char draw[DRAW_BLOCKS * DRAW_BLOCK];
-	struct gpu_constant_store store;
-	union
+	const struct gpu_backend *next;
+	struct
 	{
-		struct gpu_uniforms uniforms;
-		unsigned char blocks[UNIFORM_BLOCKS * DRAW_BLOCK];
-	} uniforms;
-} held;
+		_Alignas(16) unsigned char draw[DRAW_BLOCKS * DRAW_BLOCK];
+		struct gpu_constant_store store;
+		union
+		{
+			struct gpu_uniforms uniforms;
+			unsigned char blocks[UNIFORM_BLOCKS * DRAW_BLOCK];
+		} uniforms;
+	} held;
+	uint32_t draw_result, present_result;
+};
+
+/* the queue's own consumer */
+static struct consumer primary;
 
 /* a draw record: its changed-block mask and flags, the changed packet blocks, then with DRAW_CONSTANTS either the
 whole store (DRAW_ALL_CONSTANTS: values, serials and log as they are, so a reader that follows the log finds what
@@ -414,11 +448,13 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	_Alignas(16) unsigned char packet[DRAW_BLOCKS * DRAW_BLOCK];
 	uint32_t mask, blocks, flags = 0, registers = 0, size, block, uniform_mask = 0;
 	uint8_t changed[GPU_CONSTANT_COUNT];
+	int sent_was_known;
 	uint64_t seen[(GPU_CONSTANT_COUNT + 63) / 64] = {0};
 	struct writer writer;
 
 	memcpy(packet, draw, sizeof(*draw));
 	memset(packet + sizeof(*draw), 0, sizeof(packet) - sizeof(*draw));
+	sent_was_known = sent.draw_known;
 	mask = blocks_changed(packet, sent.draw, DRAW_BLOCKS, sent.draw_known);
 	blocks = (uint32_t)__builtin_popcount(mask);
 	sent.draw_known = 1;
@@ -466,6 +502,12 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	if (flags & DRAW_UNIFORMS)
 		size += 8 + (uint32_t)__builtin_popcount(uniform_mask) * DRAW_BLOCK;
 	writer.at = record_begin(GPU_OPERATION_draw, size);
+	/* (every part whole: the frame's first draw, or the first after the queue was installed) */
+	if (!sent_was_known)
+	{
+		record_flags = RECORD_KEYFRAME;
+		statistics.keyframes++;
+	}
 	put(&writer, &mask, 4);
 	put(&writer, &flags, 4);
 	for (block = 0; block < DRAW_BLOCKS; block++)
@@ -513,7 +555,7 @@ static uint32_t queued_draw(const struct gpu_draw *draw, const struct gpu_consta
 	/* inline: the draw has reached the backend; its answer is the backend's. With the thread it has not: the game
 	is told it drew (a skipped draw only counts in the game's statistics and the TV companion's list, whose redraw
 	the backend skips again) */
-	return mode == GPU_QUEUE_THREAD ? 1 : draw_result;
+	return mode == GPU_QUEUE_THREAD ? 1 : primary.draw_result;
 }
 
 /* ---------- the other recorded commands */
@@ -659,22 +701,34 @@ static void present_barrier(void)
 	worker.barrier_waited = (double)(clock_ns() - started) / 1e9;
 }
 
+/* the frame's first draw is a keyframe: its record carries the whole packet, store and uniforms, so a reader that
+starts at a frame boundary with no state of its own (a second consumer) gets the same calls as the primary */
+static void keyframe(void)
+{
+	sent.draw_known = 0;
+	sent.store = NULL;
+	sent.uniforms = NULL;
+	sent.uniforms_known = 0;
+}
+
 static uint32_t queued_present(gpu_texture back_buffer)
 {
 	uint64_t argument = back_buffer;
 
 	record_simple(GPU_OPERATION_present, &argument, sizeof(argument));
+	keyframe();
 	present_barrier();
 	statistics_frame();
-	return present_result;
+	return primary.present_result;
 }
 
 static uint32_t queued_present_stereo(const struct gpu_stereo_present *present)
 {
 	record_simple(GPU_OPERATION_present_stereo, present, sizeof(*present));
+	keyframe();
 	present_barrier();
 	statistics_frame();
-	return present_result;
+	return primary.present_result;
 }
 
 static void queued_warm_begin(void)
@@ -804,9 +858,9 @@ static void consume_draw(struct reader *reader)
 
 	for (block = 0; block < DRAW_BLOCKS; block++)
 		if (mask & 1u << block)
-			memcpy(held.draw + block * DRAW_BLOCK, take(reader, DRAW_BLOCK), DRAW_BLOCK);
+			memcpy(reader->consumer->held.draw + block * DRAW_BLOCK, take(reader, DRAW_BLOCK), DRAW_BLOCK);
 	if (flags & DRAW_ALL_CONSTANTS)
-		memcpy(&held.store, take(reader, sizeof(held.store)), sizeof(held.store));
+		memcpy(&reader->consumer->held.store, take(reader, sizeof(reader->consumer->held.store)), sizeof(reader->consumer->held.store));
 	else if (flags & DRAW_CONSTANTS)
 	{
 		uint64_t count = TAKE(reader, uint64_t);
@@ -817,11 +871,11 @@ static void consume_draw(struct reader *reader)
 		{
 			const struct register_entry *value = take(reader, sizeof(*value));
 
-			memcpy(held.store.c[value->index], value->value, sizeof(value->value));
-			held.store.serials[value->index] = value->serial;
-			held.store.log[value->serial % GPU_CONSTANT_LOG_SIZE] = (uint8_t)value->index;
+			memcpy(reader->consumer->held.store.c[value->index], value->value, sizeof(value->value));
+			reader->consumer->held.store.serials[value->index] = value->serial;
+			reader->consumer->held.store.log[value->serial % GPU_CONSTANT_LOG_SIZE] = (uint8_t)value->index;
 		}
-		held.store.serial = serial;
+		reader->consumer->held.store.serial = serial;
 	}
 	if (flags & DRAW_UNIFORMS)
 	{
@@ -829,9 +883,9 @@ static void consume_draw(struct reader *reader)
 
 		for (block = 0; block < UNIFORM_BLOCKS; block++)
 			if (uniform_mask & 1u << block)
-				memcpy(held.uniforms.blocks + block * DRAW_BLOCK, take(reader, DRAW_BLOCK), DRAW_BLOCK);
+				memcpy(reader->consumer->held.uniforms.blocks + block * DRAW_BLOCK, take(reader, DRAW_BLOCK), DRAW_BLOCK);
 	}
-	draw_result = next->draw((const struct gpu_draw *)held.draw, &held.store, &held.uniforms.uniforms);
+	reader->consumer->draw_result = reader->consumer->next->draw((const struct gpu_draw *)reader->consumer->held.draw, &reader->consumer->held.store, &reader->consumer->held.uniforms.uniforms);
 }
 
 static void consume_texture_upload(struct reader *reader)
@@ -840,14 +894,14 @@ static void consume_texture_upload(struct reader *reader)
 	uint32_t size;
 	const void *data = take_bytes(reader, &size);
 
-	next->texture_upload(words[0], words[1], words[2], data, size);
+	reader->consumer->next->texture_upload(words[0], words[1], words[2], data, size);
 }
 
 static void consume_texture_copy_level(struct reader *reader)
 {
 	const uint32_t *words = take(reader, 16);
 
-	next->texture_copy_level(words[0], words[1], words[2]);
+	reader->consumer->next->texture_copy_level(words[0], words[1], words[2]);
 }
 
 static void consume_texture_copy_rects(struct reader *reader)
@@ -856,33 +910,33 @@ static void consume_texture_copy_rects(struct reader *reader)
 	uint32_t size;
 	const void *data = take_bytes(reader, &size);
 
-	next->texture_copy_rects((gpu_texture)source, data, size / (uint32_t)sizeof(struct gpu_texture_copy));
+	reader->consumer->next->texture_copy_rects((gpu_texture)source, data, size / (uint32_t)sizeof(struct gpu_texture_copy));
 }
 
 static void consume_texture_generate_mipmaps(struct reader *reader)
 {
 	const uint32_t *words = take(reader, 8);
 
-	next->texture_generate_mipmaps(words[0], words[1]);
+	reader->consumer->next->texture_generate_mipmaps(words[0], words[1]);
 }
 
 static void consume_texture_destroy(struct reader *reader)
 {
-	next->texture_destroy((gpu_texture)TAKE(reader, uint64_t));
+	reader->consumer->next->texture_destroy((gpu_texture)TAKE(reader, uint64_t));
 }
 
 static void consume_texture_set_content(struct reader *reader)
 {
 	const uint32_t *words = take(reader, 16);
 
-	next->texture_set_content(words[0], words[1], words[2]);
+	reader->consumer->next->texture_set_content(words[0], words[1], words[2]);
 }
 
 static void consume_texture_multisample(struct reader *reader)
 {
 	const uint32_t *words = take(reader, 8);
 
-	next->texture_multisample(words[0], words[1]);
+	reader->consumer->next->texture_multisample(words[0], words[1]);
 }
 
 static void consume_buffer_write(struct reader *reader)
@@ -891,7 +945,7 @@ static void consume_buffer_write(struct reader *reader)
 	uint32_t size;
 	const void *data = take_bytes(reader, &size);
 
-	next->buffer_write(words[0], words[1], size, data, words[2]);
+	reader->consumer->next->buffer_write(words[0], words[1], size, data, words[2]);
 }
 
 static void consume_clear(struct reader *reader)
@@ -900,24 +954,24 @@ static void consume_clear(struct reader *reader)
 	uint32_t size;
 	const void *data = take_bytes(reader, &size);
 
-	next->clear(clear, data, size / (uint32_t)sizeof(struct gpu_rect));
+	reader->consumer->next->clear(clear, data, size / (uint32_t)sizeof(struct gpu_rect));
 }
 
 static void consume_visibility_begin(struct reader *reader)
 {
 	(void)reader;
-	next->visibility_begin();
+	reader->consumer->next->visibility_begin();
 }
 
 static void consume_visibility_end(struct reader *reader)
 {
-	next->visibility_end((uint32_t)TAKE(reader, uint64_t));
+	reader->consumer->next->visibility_end((uint32_t)TAKE(reader, uint64_t));
 }
 
 static void consume_flush(struct reader *reader)
 {
 	(void)reader;
-	next->flush();
+	reader->consumer->next->flush();
 }
 
 static void consume_upscale(struct reader *reader)
@@ -926,7 +980,7 @@ static void consume_upscale(struct reader *reader)
 	uint32_t size;
 	const void *data = take_bytes(reader, &size);
 
-	next->upscale(words[0], words[1], data, words[2]);
+	reader->consumer->next->upscale(words[0], words[1], data, words[2]);
 }
 
 static void consume_anti_alias(struct reader *reader)
@@ -935,39 +989,39 @@ static void consume_anti_alias(struct reader *reader)
 	uint32_t size;
 	const void *data = take_bytes(reader, &size);
 
-	next->anti_alias(words[0], words[1], data);
+	reader->consumer->next->anti_alias(words[0], words[1], data);
 }
 
 static void consume_companion_set(struct reader *reader)
 {
-	next->companion_set((gpu_texture)TAKE(reader, uint64_t));
+	reader->consumer->next->companion_set((gpu_texture)TAKE(reader, uint64_t));
 }
 
 static void consume_present(struct reader *reader)
 {
-	present_result = next->present((gpu_texture)TAKE(reader, uint64_t));
+	reader->consumer->present_result = reader->consumer->next->present((gpu_texture)TAKE(reader, uint64_t));
 }
 
 static void consume_present_stereo(struct reader *reader)
 {
-	present_result = next->present_stereo(take(reader, sizeof(struct gpu_stereo_present)));
+	reader->consumer->present_result = reader->consumer->next->present_stereo(take(reader, sizeof(struct gpu_stereo_present)));
 }
 
 static void consume_warm_begin(struct reader *reader)
 {
 	(void)reader;
-	next->warm_begin();
+	reader->consumer->next->warm_begin();
 }
 
 static void consume_pipeline_warm(struct reader *reader)
 {
-	next->pipeline_warm(take(reader, sizeof(struct gpu_pipeline_description)));
+	reader->consumer->next->pipeline_warm(take(reader, sizeof(struct gpu_pipeline_description)));
 }
 
 static void consume_warm_end(struct reader *reader)
 {
 	(void)reader;
-	next->warm_end();
+	reader->consumer->next->warm_end();
 }
 
 static void consume_frame_context(struct reader *reader)
@@ -976,7 +1030,7 @@ static void consume_frame_context(struct reader *reader)
 	uint32_t size;
 	const void *data = take_bytes(reader, &size);
 
-	next->frame_context(words[0], words[1], data);
+	reader->consumer->next->frame_context(words[0], words[1], data);
 }
 
 static void consume_soft_depth_prepare(struct reader *reader)
@@ -985,7 +1039,7 @@ static void consume_soft_depth_prepare(struct reader *reader)
 	uint32_t size, answer;
 	const void *values = take_bytes(reader, &size);
 
-	answer = next->soft_depth_prepare(header[0], values, size / (uint32_t)sizeof(float));
+	answer = reader->consumer->next->soft_depth_prepare(header[0], values, size / (uint32_t)sizeof(float));
 	if (answer != header[1])
 	{
 		answers_differ++;
@@ -1004,7 +1058,7 @@ static void consume_soft_depth_prepare(struct reader *reader)
 static void consume_soft_depth_finish(struct reader *reader)
 {
 	(void)reader;
-	next->soft_depth_finish();
+	reader->consumer->next->soft_depth_finish();
 }
 
 static void consume_ssao_apply(struct reader *reader)
@@ -1013,11 +1067,11 @@ static void consume_ssao_apply(struct reader *reader)
 	uint32_t size;
 	const void *values = take_bytes(reader, &size);
 
-	next->ssao_apply(header[0], header[1], values, size / (uint32_t)sizeof(float));
+	reader->consumer->next->ssao_apply(header[0], header[1], values, size / (uint32_t)sizeof(float));
 }
 
 #define CONSUME_SWITCH(name) \
-	static void consume_##name(struct reader *reader) { next->name((int)TAKE(reader, int64_t)); }
+	static void consume_##name(struct reader *reader) { reader->consumer->next->name((int)TAKE(reader, int64_t)); }
 GPU_HOST_SWITCH_OPERATIONS(CONSUME_SWITCH)
 #undef CONSUME_SWITCH
 
@@ -1036,9 +1090,9 @@ static void (*const consumers[GPU_OPERATION_COUNT])(struct reader *reader) = {
 #undef CONSUMER_F
 #undef CONSUMER_P
 
-static void consume_record(uint32_t operation, const unsigned char *payload)
+static void consume_record(struct consumer *consumer, uint32_t operation, const unsigned char *payload)
 {
-	struct reader reader = { payload };
+	struct reader reader = { payload, consumer };
 
 	if (operation >= GPU_OPERATION_COUNT || !consumers[operation])
 	{
@@ -1048,6 +1102,45 @@ static void consume_record(uint32_t operation, const unsigned char *payload)
 	consumers[operation](&reader);
 }
 
+/* debug: each keyframe draw, consumed again by a consumer with no state of its own, must leave the state the primary
+holds after it (a reader can start at a frame boundary) */
+static int keyframe_check;
+static unsigned long keyframes_checked, keyframes_differ;
+
+static uint32_t draw_nothing(const struct gpu_draw *draw, const struct gpu_constant_store *constants,
+	const struct gpu_uniforms *uniforms)
+{
+	(void)draw;
+	(void)constants;
+	(void)uniforms;
+	return 1;
+}
+
+static void check_keyframe(const unsigned char *payload)
+{
+	static struct gpu_backend nothing = { .draw = draw_nothing };
+	static struct consumer fresh;
+
+	memset(&fresh, 0, sizeof(fresh));
+	fresh.next = &nothing;
+	consume_record(&fresh, GPU_OPERATION_draw, payload);
+	keyframes_checked++;
+	if (memcmp(&fresh.held, &primary.held, sizeof(fresh.held)))
+		keyframes_differ++;
+}
+
+void gpu_queue_check_keyframes(int on)
+{
+	keyframe_check = on;
+}
+
+unsigned long gpu_queue_keyframes_checked(unsigned long *differ)
+{
+	if (differ)
+		*differ = keyframes_differ;
+	return keyframes_checked;
+}
+
 /* everything published so far */
 static void consume(void)
 {
@@ -1055,11 +1148,13 @@ static void consume(void)
 	{
 		uint32_t published = atomic_load_explicit(&read_chunk->published, memory_order_acquire);
 		const struct record *header;
+		uint32_t operation;
 
 		if (read_offset >= published)
 			break;
 		header = (const struct record *)(read_chunk->data + read_offset);
-		if (header->operation == RECORD_WRAP)
+		operation = header->operation & RECORD_OPERATION;
+		if (operation == RECORD_WRAP)
 		{
 			struct chunk *finished = read_chunk;
 
@@ -1069,15 +1164,17 @@ static void consume(void)
 			continue;
 		}
 		/* (a present's time is mostly the pacer's wait for the display, not encoding: left out) */
-		if (timing && header->operation != GPU_OPERATION_present && header->operation != GPU_OPERATION_present_stereo)
+		if (timing && operation != GPU_OPERATION_present && operation != GPU_OPERATION_present_stereo)
 		{
 			uint64_t started = clock_ns();
 
-			consume_record(header->operation, (const unsigned char *)(header + 1));
-			statistics.consumed_ns += clock_ns() - started;
+			consume_record(&primary, operation, (const unsigned char *)(header + 1));
+			atomic_fetch_add_explicit(&consumed_ns, clock_ns() - started, memory_order_relaxed);
 		}
 		else
-			consume_record(header->operation, (const unsigned char *)(header + 1));
+			consume_record(&primary, operation, (const unsigned char *)(header + 1));
+		if ((header->operation & RECORD_KEYFRAME) && keyframe_check)
+			check_keyframe((const unsigned char *)(header + 1));
 		read_offset += (uint32_t)sizeof(*header) + header->size;
 		atomic_fetch_add(&worker.consumed, 1);
 	}
@@ -1149,11 +1246,15 @@ static void worker_start(void)
 const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath,
 	int queue_mode, int queue_timing, void (*log)(const char *line), void (*consumer_started)(void))
 {
+	/* (an earlier wrap's records are all made first; a running encode thread then consumes nothing until the mode
+	says so) */
+	drain();
 	if (queue_mode == GPU_QUEUE_OFF)
+	{
+		mode = GPU_QUEUE_OFF;
 		return chosen;
-	/* (a running encode thread consumes nothing until the mode says so: an earlier wrap's records are all made) */
-	gpu_queue_drain();
-	next = chosen;
+	}
+	primary.next = chosen;
 	direct = beneath ? beneath : chosen;
 	mode = queue_mode;
 	timing = queue_timing;
@@ -1164,7 +1265,7 @@ const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const
 		write_offset = read_offset = 0;
 	}
 	memset(&sent, 0, sizeof(sent));
-	memset(&held, 0, sizeof(held));
+	memset(&primary.held, 0, sizeof(primary.held));
 	memset(&statistics, 0, sizeof(statistics));
 	atomic_store(&worker.written, 0);
 	atomic_store(&worker.consumed, 0);
