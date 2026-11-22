@@ -3,7 +3,8 @@ MAP_SHARE_SEND.C (test)
 
 What map sharing (port/linux/game/map_share.c, map_share_files.c) sends to
 other players: community maps only, never Custom Edition's resource maps or
-one of the publisher's own maps, whatever path sends it. The files are real
+its stock maps (by their checksums, port/runtime/stock_maps.h), whatever path
+sends it. The files are real
 files in a temporary folder, judged by the real map_share_policy.c and
 cache_file_formats.c (compiled beside this one), and every path that sends a
 file is driven: the catalog (map_share_file_hash), the host's offer
@@ -24,6 +25,7 @@ takes the constants and structures (config.inc) and the code
 
 #include "cache_file_formats.h"
 #include "map_share_policy.h"
+#include "stock_maps.h"
 
 typedef unsigned short word;
 
@@ -213,6 +215,15 @@ static void file_write(char const *name, byte const *header, long size)
 	fclose(stream);
 }
 
+/* a Custom Edition cache with a stock map's header checksum (a copy of it) */
+static void stock_file(char const *name, char const *header_name, unsigned long checksum)
+{
+	byte header[CACHE_FILE_HEADER_BYTES];
+
+	cache_header(header, CACHE_FILE_VERSION_CUSTOM_EDITION, header_name, checksum);
+	file_write(name, header, FAKE_FILE_BYTES);
+}
+
 static void community_file(char const *name, char const *header_name)
 {
 	byte header[CACHE_FILE_HEADER_BYTES];
@@ -243,10 +254,11 @@ static boolean catalog_takes(char const *name, short kind)
 static void case_catalog(void)
 {
 	byte header[CACHE_FILE_HEADER_BYTES];
-	char const *const *names;
+	struct stock_map const *maps;
 	char name[64];
-	int32_t count;
-	int32_t index;
+	int count;
+	int index;
+	int stocked = 0;
 
 	folder_make();
 	community_file("hugeass.map", "hugeass");
@@ -254,28 +266,30 @@ static void case_catalog(void)
 	community_file("hugeass_1a2b3c4d.map", "hugeass");
 	CHECK(catalog_takes("hugeass_1a2b3c4d.map", _map_share_file_map), "a community map's second version is not sent");
 
-	/* the publisher's maps, by every name, in any case and as a second
-	version (a community map's header: the name alone says) */
-	names = map_share_policy_publisher_names(&count);
-	CHECK(count >= 23, "only %d of the publisher's names", (int)count);
+	/* Custom Edition's stock maps, by their checksums, under their names and
+	any other */
+	maps = stock_maps(&count);
 	for (index = 0; index < count; index++)
 	{
-		snprintf(name, sizeof(name), "%s.map", names[index]);
-		community_file(name, "hugeass");
+		if (!maps[index].custom_edition_checksum)
+			continue;
+		snprintf(name, sizeof(name), "%s.map", maps[index].file);
+		stock_file(name, maps[index].file, maps[index].custom_edition_checksum);
 		CHECK(!catalog_takes(name, _map_share_file_map), "%s is sent", name);
-		snprintf(name, sizeof(name), "%s_1a2b3c4d.map", names[index]);
-		community_file(name, "hugeass");
-		CHECK(!catalog_takes(name, _map_share_file_map), "%s is sent", name);
+		stock_file("renamed.map", "renamed", maps[index].custom_edition_checksum);
+		CHECK(!catalog_takes("renamed.map", _map_share_file_map), "%s renamed is sent", maps[index].file);
+		stocked++;
 	}
-	community_file("BloodGulch.map", "hugeass");
-	CHECK(!catalog_takes("BloodGulch.map", _map_share_file_map), "BloodGulch.map is sent");
+	CHECK(stocked == 20, "%d stock maps with checksums", stocked);
 
-	/* a copy of one under another name: its header's name, or its checksum */
-	community_file("renamed.map", "bloodgulch");
-	CHECK(!catalog_takes("renamed.map", _map_share_file_map), "a stock map renamed is sent");
-	cache_header(header, CACHE_FILE_VERSION_CUSTOM_EDITION, "renamed2", BLOOD_GULCH_CHECKSUM);
-	file_write("renamed2.map", header, FAKE_FILE_BYTES);
-	CHECK(!catalog_takes("renamed2.map", _map_share_file_map), "a stock map renamed, header and all, is sent");
+	/* a community map that reuses a stock map's name, its file's or its
+	header's, but differs in content is sent */
+	community_file("bloodgulch.map", "bloodgulch");
+	CHECK(catalog_takes("bloodgulch.map", _map_share_file_map), "a community map named bloodgulch is not sent");
+	community_file("A10_1a2b3c4d.map", "a10");
+	CHECK(catalog_takes("A10_1a2b3c4d.map", _map_share_file_map), "a community map named a10 is not sent");
+	community_file("mymod.map", "bloodgulch");
+	CHECK(catalog_takes("mymod.map", _map_share_file_map), "a community map with a stock header name is not sent");
 
 	/* resource maps: as what they are sent as, or by what they are */
 	resource_header(header, 1);
@@ -285,6 +299,11 @@ static void case_catalog(void)
 	CHECK(!catalog_takes("textures.map", _map_share_file_map), "a resource map under a map's name is sent");
 	CHECK(!catalog_takes("hugeass.map", _map_share_file_sounds), "a file sent as sounds.map is sent");
 	CHECK(!catalog_takes("hugeass.map", _map_share_file_locale), "a file sent as loc.map is sent");
+	/* (and a map by a resource map's name, in any case, as a second version) */
+	community_file("Sounds.map", "sounds");
+	CHECK(!catalog_takes("Sounds.map", _map_share_file_map), "a map named sounds.map is sent");
+	community_file("loc_1a2b3c4d.map", "loc");
+	CHECK(!catalog_takes("loc_1a2b3c4d.map", _map_share_file_map), "a map named loc.map is sent");
 
 	/* not a Custom Edition cache: Halo PC's and the Xbox's, or none */
 	cache_header(header, 7, "pcmap", COMMUNITY_CHECKSUM);
@@ -309,7 +328,7 @@ static void case_catalog(void)
 		CHECK(swapped != NONE, "a community map is not sent");
 		map_share_file_get(swapped)->ready = TRUE;
 		sleep(1);
-		community_file("swapped.map", "bloodgulch");
+		stock_file("swapped.map", "swapped", BLOOD_GULCH_CHECKSUM);
 		CHECK(!catalog_takes("swapped.map", _map_share_file_map), "a community map replaced by a stock one is sent");
 		CHECK(!map_share_file_get(swapped)->ready, "the catalog still sends a file replaced by a stock map");
 	}
@@ -339,8 +358,8 @@ static void case_offer(void)
 
 	folder_make();
 	community_file("hugeass.map", "hugeass");
-	community_file("bloodgulch.map", "bloodgulch");
-	community_file("renamed.map", "bloodgulch");
+	stock_file("bloodgulch.map", "bloodgulch", BLOOD_GULCH_CHECKSUM);
+	stock_file("renamed.map", "renamed", BLOOD_GULCH_CHECKSUM);
 	resource_header(header, 1);
 	file_write("bitmaps.map", header, FAKE_FILE_BYTES);
 	resource_header(header, 2);
@@ -367,7 +386,7 @@ static void case_offer(void)
 			"resource map %d offered alone (%d files)", index, fake_offer_count);
 	}
 
-	/* the publisher's map, by its name or renamed */
+	/* a stock map, by its name or renamed */
 	strcpy(fake_game.map.name, "custom_maps\\bloodgulch");
 	request(FLAG(_map_share_file_map));
 	CHECK(fake_offer_result == _offer_unavailable && fake_offer_count == 0, "a stock map offered");
@@ -566,7 +585,7 @@ static void case_catalog_replaced(void)
 	CHECK(piece_sendable(connection, 0, 0), "a community map's piece is not sendable");
 	CHECK(block_read(connection, &serving, block, &bytes), "a community map's block is not read");
 	sleep(1);
-	community_file("hugeass.map", "bloodgulch");
+	stock_file("hugeass.map", "hugeass", BLOOD_GULCH_CHECKSUM);
 	CHECK(!piece_sendable(connection, 0, 0), "a replaced file's piece is sendable");
 	CHECK(!serving_file_size(connection, 0), "a replaced file has a size to send");
 	CHECK(!block_read(connection, &serving, block, &bytes), "a replaced file's block is read");

@@ -192,7 +192,7 @@ short map_share_file_hash(
 
 /* Whether map sharing may send the file at `path` (of `size` bytes) as a
 file of `kind` to other players: a community map only, never a resource map
-or one of the publisher's own maps (map_share_policy.c, which judges it by
+or a stock map (map_share_policy.c, which judges it by
 its name and its header: `header_bytes` of `header`, or, when that is NULL,
 read from the file). Every path that sends a file's bytes asks this: the
 catalog takes only files it allows (map_share_file_hash), and a download is

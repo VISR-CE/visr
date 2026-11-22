@@ -3,18 +3,19 @@ MAP_SHARE_POLICY.H
 
 Which files map sharing may send to another player (map_share.c,
 map_share_files.c): community maps only. Never Custom Edition's resource
-maps (bitmaps.map, sounds.map, loc.map) and never one of the publisher's own
-maps (Custom Edition's and Halo PC's), whatever the file is named: they are
-the players' own copies of the game, not this machine's to hand out.
+maps (bitmaps.map, sounds.map, loc.map) and never Custom Edition's own stock
+maps: they are the players' own copies of the game, not this machine's to
+hand out.
 
 A file is judged by what it is, not by which path asks: its kind as map
 sharing names it, the name it is shared under, and its header (the first
-CACHE_FILE_HEADER_BYTES bytes). A map is the publisher's when its file name
-(without the hash digits a second version's ends in) or its header's name is
-one of the publisher's, or its header's checksum is one of theirs (a copy
-renamed, header and all). Anything that is not a Custom Edition cache
-(a resource map under a map's name, a Halo PC or Xbox cache, a header not
-had yet or not read) is refused.
+CACHE_FILE_HEADER_BYTES bytes). A resource map is known by the kind it is
+sent as, by its name (without the hash digits a second version's ends in), or
+by its header; a stock map by its header's checksum, which a copy keeps under
+any name (port/runtime/stock_maps.h). A community map that reuses a stock
+map's name but differs in content may be sent. Anything that is not a valid
+Custom Edition cache (a Halo PC or Xbox cache, a header not had yet or not
+read) is refused.
 
 Standalone C with fixed-width types, as cache_file_formats.c is: compiled into
 the game and into the test tools/test_map_share_send.py.
@@ -36,8 +37,8 @@ enum map_share_policy_verdict
 	_map_share_policy_community_map,
 	/* a resource map, by the kind it is sent as or by its header */
 	_map_share_policy_resource_map,
-	/* one of the publisher's maps, by name or checksum */
-	_map_share_policy_publisher_map,
+	/* a stock map: Custom Edition's own, by its header's checksum */
+	_map_share_policy_stock_map,
 	/* not a Custom Edition cache, or its header not had */
 	_map_share_policy_not_a_community_map,
 
@@ -67,9 +68,5 @@ int map_share_policy_may_send(
 /* the verdict as a log line says it */
 char const *map_share_policy_describe(
 	enum map_share_policy_verdict verdict);
-
-/* the publisher's map names, `*count` of them (for the tests) */
-char const *const *map_share_policy_publisher_names(
-	int32_t *count);
 
 #endif

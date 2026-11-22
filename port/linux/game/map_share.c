@@ -10,7 +10,7 @@ of its files it lacks: the map, bitmaps.map, sounds.map, loc.map). A host
 that shares maps (network.map_share) hashes them (map_share_files.c) and
 answers with each file's size and hash (_offer), if it may send them all
 (map_share_policy.c: community maps only, never Custom Edition's resource maps
-or the publisher's own maps), and which of the game's
+or its stock maps), and which of the game's
 other machines may have them (_sources, again every few seconds: they are
 the tracker's). The client then fetches the files from all of them at once,
 as a torrent's peers do, over connections of their own on MAP_SHARE_PORT:
