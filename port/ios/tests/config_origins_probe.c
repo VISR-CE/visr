@@ -541,6 +541,22 @@ static void check_tiers(void)
 {
 	char *text;
 
+	/* a stored tier exactly where it is not derived: a missing tier would fail open (written as a player's) */
+	{
+		size_t index;
+
+		for (index = 0; index < NUMBER_OF_CONFIG_SETTINGS; index++)
+		{
+			int derived = !strncmp(config_settings[index].name, "debug.", 6) || config_is_profile_setting(index);
+
+			if (derived != (config_settings[index].tier == _tier_derived))
+			{
+				fprintf(stderr, "config_origins_probe: %s's tier\n", config_settings[index].name);
+				assert(0);
+			}
+		}
+	}
+
 	/* an iPhone, iPad or Apple TV: no headset setting and no tuning value in the file, though both read */
 	fresh();
 	setenv("HALO_HOST_VISIONOS", "0", 1);
@@ -623,6 +639,17 @@ static void check_tiers(void)
 		free(before);
 		free(before_origins);
 	}
+
+	/* a written default in a form config_text_drop does not find (a dotted key outside its table) is left as it
+	   is, and the file is not rewritten launch after launch */
+	fresh();
+	write_text(path, "input.hud_scale_unused = 1\ndisplay.hud_scale = 1.0\n");
+	write_text(origins, "display.hud_scale\tdefault\t1.0\n");
+	launch("");
+	text = read_text(path);
+	launch("");
+	assert(file_has(path, text) && file_has(origins, "display.hud_scale\tdefault\t1.0\n"));
+	free(text);
 
 	/* an iPhone file with headset settings an earlier version wrote: they leave it, a chosen one stays */
 	fresh();

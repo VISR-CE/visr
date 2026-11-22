@@ -3944,9 +3944,11 @@ static char *config_text_set(const char *text, const char *name, const char *lin
 /* text (config.toml's) without name's line, the rest kept as it is; with
 comment, also without the comment lines right above it and the blank line
 before them, which config_append_setting writes with a default. NULL without
-memory */
+memory, or when the text has no such line */
 static char *config_text_drop(const char *text, const char *name, int comment)
 {
+	int dropped = 0;
+
 	const char *dot = strchr(name, '.');
 	char section[64], key[64], current[64] = "";
 	struct config_text out = { 0 };
@@ -3989,6 +3991,7 @@ static char *config_text_drop(const char *text, const char *name, int comment)
 		else if (in_section && config_line_key(line, end, key))
 		{
 			held = NULL;
+			dropped = 1;
 			line = next;
 			continue;
 		}
@@ -4007,6 +4010,11 @@ static char *config_text_drop(const char *text, const char *name, int comment)
 	}
 	if (held)
 		config_append(&out, held);
+	if (!dropped)
+	{
+		free(out.buffer);
+		return NULL;
+	}
 	return out.buffer;
 }
 

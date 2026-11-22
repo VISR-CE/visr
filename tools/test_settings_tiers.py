@@ -115,21 +115,26 @@ def test_tuning_values_leave_the_public_reference():
     assert config['properties']['input']['properties']['aim_steady']['x-tier'] == 'tuning'
 
 
-def test_headset_settings_are_apple_vision_pro_alone():
+# Tuning values that are not Apple Vision Pro's alone (none yet): each would be written nowhere and read everywhere.
+TUNING_OFF_HEADSET = set()
+VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
+                   'display.theater_width', 'input.aim', 'input.aim_hand'}
+VISIONOS_PROFILE = {'display.foveation', 'display.frame_repeat', 'display.hud_resolution', 'display.lod_scale',
+                    'display.render_quality', 'input.aim_loss_grace'}
+
+
+def test_tuning_values_are_apple_vision_pro_alone():
     settings, tier = tiers()
-    # the hand-aim, turning, body, seat, HUD and stereo depth values of Apple Vision Pro
-    headset = [name for name in settings if re.match(
-        r'input\.(aim|laser|reticle|weapon_|first_person_arms|arms_|head_magnetism|zoom_takeover|turn$|snap_angle|'
-        r'smooth_turn|comfort_vignette)|display\.(stereo|immersive|theater_|first_person_body|seat_look|pod_look|'
-        r'eye_height|weapon_offset|hud_|film_|screen_(depth|convergence|framing)|foveation|render_quality|'
-        r'frame_repeat|lod_scale)', name)]
-    assert len(headset) > 60
-    other = sorted(name for name in headset if settings[name]['x-platforms'] != ['visionos'])
-    assert not other, f'Apple Vision Pro settings written on other devices too: {other}'
-    # no Apple Vision Pro setting is a player choice beyond the reviewed few
-    players = sorted(name for name in headset if tier[name] == 'player')
-    assert players == ['display.immersive', 'display.stereo', 'display.theater_distance',
-                       'display.theater_environment', 'display.theater_width', 'input.aim', 'input.aim_hand']
+    other = sorted(name for name, value in tier.items() if value == 'tuning' and name not in TUNING_OFF_HEADSET
+                   and settings[name]['x-platforms'] != ['visionos'])
+    assert not other, f'tuning values not marked _platform_visionos (or reviewed onto TUNING_OFF_HEADSET): {other}'
+
+
+def test_apple_vision_pro_player_and_profile_settings_are_reviewed():
+    settings, tier = tiers()
+    visionos = {name for name, item in settings.items() if item['x-platforms'] == ['visionos']}
+    assert {name for name in visionos if tier[name] == 'player'} == VISIONOS_PLAYER
+    assert {name for name in visionos if tier[name] == 'profile'} == VISIONOS_PROFILE
 
 
 def test_aim_defaults_to_auto():
