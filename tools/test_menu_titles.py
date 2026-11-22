@@ -55,3 +55,24 @@ def test_the_engine_finds_titles_by_role_only():
     for guess in ('header', 'shell', '->width', '->height', 'tag_get_name', 'strncmp'):
         assert guess not in body, f'menu_title_icon guesses a title by {guess!r}'
     assert not re.search(r'menu_title_(?:icon|touch_shift|icon_draw)\(\s*definition->', source)
+
+
+def test_each_title_has_one_string_for_each_frame_of_its_picture():
+    titles, strings = declared()
+    frames, bitmaps = {}, {}
+    for path in sorted(XBOX.glob('*.xml')):
+        root = ET.parse(path).getroot()
+        for bitmap in root.findall('bitmap'):
+            frames[bitmap.get('name')] = len(bitmap.findall('frame'))
+        for widget in root.iter('widget'):
+            bitmaps[widget.get('name')] = widget.get('bitmap')
+    layout = json.loads((ROOT / 'tools/fixtures/disc_menu_layout.json').read_text())
+    disc_frames = {}
+    for asset in json.loads((ROOT / 'port/assets/titles/titles.json').read_text())['assets']:
+        disc_frames.setdefault(asset['tag'], set()).add(asset['bitmap'])
+    for widget, name in titles.items():
+        if '\\' in widget:
+            count = len(disc_frames.get(layout[widget]['bitmap'], ()))
+        else:
+            count = frames.get(bitmaps.get(widget), 0)
+        assert count and len(strings[name]) == count, f'{widget}: {len(strings[name])} strings, {count} frames'
