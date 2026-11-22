@@ -1311,7 +1311,8 @@ run(BUILD/'texture-upscale-tiles-probe')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', '-Iport/runtime',
     '-Iport/runtime/include', '-Iport/linux/src', 'port/ios/tests/texture_upscale_driver_probe.m',
     'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c',
-    'port/runtime/texture_cache.c', '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'AppKit',
+    'port/runtime/texture_cache.c', 'port/ios/host/metal_gate.m', '-DMETAL_GATE_NO_METALFX',
+    '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'AppKit',
     '-o', BUILD/'texture-upscale-driver-probe')
 run(BUILD/'texture-upscale-driver-probe')
 
