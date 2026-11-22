@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 		result = sim_measure(extended, 600, 3000);
 		CHECK(result.engaged == result.frames);
 		/* the read is the cost and the lead before the screen, to within a millisecond; nothing waits in Present */
-		CHECK(result.read_to_shown_p95 < 0.008 + FRAME_PACER_LATE_LEAD + 0.001);
+		CHECK(result.read_to_shown_p95 < 0.008 + FRAME_PACER_EXTENDED_LEAD + 0.001);
 		CHECK(result.waited == 0);
 		finish(off);
 		finish(classic);
@@ -212,7 +212,7 @@ int main(int argc, char **argv)
 			row("120 Hz, GPU at 85%", SIM_EXTENDED, extended, 1200);
 		CHECK(fabs(before.read_to_shown_median - 3.0 * P120) < 0.002);
 		CHECK(after.engaged == after.frames && after.missed == 0 && after.late == 0 && after.waited == 0);
-		CHECK(after.read_to_shown_p95 < 0.0038 + 0.0075 + FRAME_PACER_LATE_LEAD + 0.001);
+		CHECK(after.read_to_shown_p95 < 0.0038 + 0.0075 + FRAME_PACER_EXTENDED_LEAD + 0.001);
 		CHECK(fabs(after.rate - 120.0) < 0.1 && fabs(before.rate - 120.0) < 0.1);
 		/* noise alone is not a jump: late starts never stopped */
 		CHECK(extended->extended.jumps == 0 && extended->extended.held == 0);
@@ -347,7 +347,7 @@ int main(int argc, char **argv)
 			row("30 cap on a 60 Hz link", SIM_EXTENDED, extended, 600);
 		CHECK(fabs(before.read_to_shown_median - 3.0 * 2.0 * P60) < 0.002);
 		CHECK(after.engaged == after.frames && after.missed == 0 && after.late == 0 && after.waited == 0);
-		CHECK(after.read_to_shown_p95 < 0.009 + 0.015 + FRAME_PACER_LATE_LEAD + 0.001);
+		CHECK(after.read_to_shown_p95 < 0.009 + 0.015 + FRAME_PACER_EXTENDED_LEAD + 0.001);
 		for (index = 600; index < 3000; index++)
 			CHECK(fabs(extended->frames[index].interval - 2.0 * P60) < 1e-6);
 		finish(off);
@@ -415,7 +415,8 @@ int main(int argc, char **argv)
 		result = sim_measure(sim, 600, 3000);
 		if (verbose)
 			row("one in flight, light", SIM_EXTENDED, sim, 600);
-		CHECK(result.engaged == result.frames && result.missed == 0 && result.waited == 0);
+		/* (the lead it starts from does not fit one slot with this cost: it shrinks while frames do not fit, then they do) */
+		CHECK(result.engaged > result.frames * 99 / 100 && result.missed == 0 && result.waited <= result.frames / 100);
 		finish(sim);
 	}
 	/* ---- the CPU's work over a slot, on every frame or on the frames that run a game tick: no start can help, and
@@ -488,7 +489,35 @@ int main(int argc, char **argv)
 		CHECK(extended->extended.misses >= 8 && extended->extended.misses <= 10);
 		CHECK(result.late <= 10);
 		CHECK(extended->extended.lead_failed == 0.0);
-		CHECK(frame_pacer_extended_lead(&extended->extended) <= FRAME_PACER_LATE_LEAD + FRAME_PACER_LATE_LEAD_STEP);
+		CHECK(frame_pacer_extended_lead(&extended->extended) <= FRAME_PACER_EXTENDED_LEAD + FRAME_PACER_LATE_LEAD_STEP);
+		finish(extended);
+	}
+	/* ---- the display shows one frame in 700 a refresh late by itself, and frames that start at once report three
+	quarters of their work (both measured on a 120 Hz phone): late starts stay on, and the lead does not grow */
+	{
+		struct load load = { .cpu = 0.0035, .gpu_fixed = 0.0038, .cpu_noise = 0.0003, .gpu_noise = 0.0003 };
+		struct load load_off = load;
+		struct sim *off = run(SIM_OFF, P120, P120, 1.0, 2, &load_off, 24000);
+		struct sim *extended = run(SIM_EXTENDED, P120, P120, 1.0, 2, &load, 24000);
+		struct sim_result result, baseline;
+
+		off->latch = extended->latch = 0.0045;
+		off->slip_every = extended->slip_every = 700;
+		extended->unaimed_cost = 0.75;
+		sim_run(off, 24000);
+		sim_run(extended, 24000);
+		baseline = sim_measure(off, 1200, 24000);
+		result = sim_measure(extended, 1200, 24000);
+		if (verbose)
+			printf("slips: engaged %ld of %ld, late %ld (off %ld), misses %lu pushed %lu lead %.1f failed %.1f read %.1f (off %.1f)\n",
+				result.engaged, result.frames, result.late, baseline.late, extended->extended.misses,
+				extended->extended.pushed, frame_pacer_extended_lead(&extended->extended) * 1e3,
+				extended->extended.lead_failed * 1e3, result.read_to_shown_median * 1e3, baseline.read_to_shown_median * 1e3);
+		CHECK(result.engaged > result.frames * 95 / 100);
+		CHECK(result.late <= baseline.late + 8);
+		CHECK(frame_pacer_extended_lead(&extended->extended) <= 0.0075);
+		CHECK(result.read_to_shown_median < baseline.read_to_shown_median - 0.008);
+		finish(off);
 		finish(extended);
 	}
 	/* ---- the rules alone */
@@ -508,29 +537,54 @@ int main(int argc, char **argv)
 		in.now = 10.001;
 		start = frame_pacer_extended_wait(&late, &in);
 		CHECK(start.state == FRAME_PACER_START_ENGAGED && fabs(start.aim - (10.0 + 2.0 * P120)) < 1e-9);
-		CHECK(fabs(start.wait - (start.aim - 0.013 - in.now)) < 1e-9 && fabs(start.allowed - 0.010) < 1e-12);
+		CHECK(fabs(start.wait - (start.aim - 0.010 - FRAME_PACER_EXTENDED_LEAD - in.now)) < 1e-9 && fabs(start.allowed - 0.010) < 1e-12);
 		/* shown on a panel refresh between the link's (a 60 cap on a 120 Hz panel): a frame one panel refresh late
-		is late, though that is half a link period */
-		frame_pacer_extended_shown(&late, start.aim, start.aim + P120, 0.001, frame_pacer_extended_step(P60, P120), 10.03);
-		CHECK(late.misses == 1 && late.holdoff_until > 10.03 + 0.99);
-		/* (its GPU work ended under a lead before its aim: it cost too much, and the lead is not marked too short) */
-		CHECK(late.lead_failed == 0.0 && fabs(frame_pacer_extended_lead(&late) - FRAME_PACER_LATE_LEAD) < 1e-12);
-		/* stopped until the holdoff ends */
-		in.now = 10.5;
+		is late, though that is half a link period. One late frame alone stops nothing */
+		frame_pacer_extended_shown(&late, start.aim, start.aim + P120, 0.001, frame_pacer_extended_step(P60, P120), P60,
+			10.03);
+		CHECK(late.misses == 1 && late.holdoff_until == 0.0);
+		in.now = 10.04;
+		CHECK(frame_pacer_extended_wait(&late, &in).state == FRAME_PACER_START_ENGAGED);
+		/* the frames behind it, pushed late with it, are the same event */
+		frame_pacer_extended_shown(&late, 10.04, 10.04 + P60, 0.006, P120, P60, 10.03 + 3.0 * P60);
+		CHECK(late.misses == 1 && late.pushed == 1 && late.holdoff_until == 0.0);
+		/* a second late frame within a second stops late starts. (The first one's GPU work ended under a lead
+		before its aim: it cost too much, and the lead is not marked too short.) */
+		frame_pacer_extended_shown(&late, 10.4, 10.4 + P60, 0.006, P120, P60, 10.5);
+		CHECK(late.misses == 2 && late.holdoff == FRAME_PACER_EXTENDED_HOLDOFF && fabs(late.holdoff_until - 11.5) < 1e-9);
+		CHECK(late.lead_failed == 0.0 && fabs(frame_pacer_extended_lead(&late) - FRAME_PACER_EXTENDED_LEAD) < 1e-12);
+		in.now = 10.6;
 		CHECK(frame_pacer_extended_wait(&late, &in).state == FRAME_PACER_START_HELD);
-		/* the frame behind a late one, pushed late with it, changes nothing */
-		frame_pacer_extended_shown(&late, 10.4, 10.4 + P60, 0.004, P120, 10.5);
-		CHECK(late.misses == 1 && late.pushed == 1 && late.holdoff == FRAME_PACER_EXTENDED_HOLDOFF);
-		CHECK(fabs(frame_pacer_extended_lead(&late) - FRAME_PACER_LATE_LEAD) < 1e-12);
-		/* late again soon after starting again: stopped for twice as long; done a lead ahead and still late, so
-		this lead is remembered as too short */
-		in.now = 11.2;
-		in.refresh = 11.2;
+		/* (a frame shown late while they are stopped changes nothing) */
+		frame_pacer_extended_shown(&late, 10.5, 10.5 + P60, 0.006, P120, P60, 10.9);
+		CHECK(late.misses == 2 && late.pushed == 2);
+		/* two late frames soon after starting again: stopped for twice as long; both done a lead ahead and still
+		late, so this lead is remembered as too short, and the shrink stops a margin over it */
+		in.now = 11.6;
+		in.refresh = 11.6;
 		start = frame_pacer_extended_wait(&late, &in);
 		CHECK(start.state == FRAME_PACER_START_ENGAGED);
-		frame_pacer_extended_shown(&late, start.aim, start.aim + P60, 0.0031, P120, 11.25);
-		CHECK(late.holdoff == 2.0 * FRAME_PACER_EXTENDED_HOLDOFF && fabs(late.holdoff_until - 13.25) < 1e-9);
-		CHECK(fabs(late.lead_failed - 0.003) < 1e-12 && fabs(frame_pacer_extended_lead(&late) - 0.005) < 1e-12);
+		frame_pacer_extended_shown(&late, start.aim, start.aim + P60, 0.0051, P120, P60, 11.65);
+		CHECK(late.misses == 3 && late.holdoff_until < 11.65);
+		frame_pacer_extended_shown(&late, 11.9, 11.9 + P60, 0.0051, P120, P60, 11.95);
+		CHECK(late.holdoff == 2.0 * FRAME_PACER_EXTENDED_HOLDOFF && fabs(late.holdoff_until - 13.95) < 1e-9);
+		CHECK(fabs(late.lead_failed - 0.005) < 1e-12 && fabs(frame_pacer_extended_lead(&late) - 0.007) < 1e-12);
+		for (index = 0; index < 8; index++)
+			frame_pacer_extended_shrink(&late);
+		CHECK(fabs(frame_pacer_extended_lead(&late) - (0.005 + FRAME_PACER_EXTENDED_LEAD_MARGIN)) < 1e-12);
+		late.lead = late.lead_failed = 0.0;
+		/* frames with a late start measured more than the ones that start at once: the next start allows for the
+		worst of them, fading */
+		frame_pacer_extended_cost(&late, 0.012, 0.006, 0.004, 0.010, 12.0);
+		CHECK(fabs(late.work_aimed - 0.012) < 1e-12);
+		for (index = 0; index < FRAME_PACER_LATE_WINDOW; index++)
+			frame_pacer_extended_cost(&late, 0.010, 0.006, 0.004, 0.0, 12.0);
+		late.holdoff_until = 0.0;
+		in.now = 14.0;
+		in.refresh = 14.0;
+		start = frame_pacer_extended_wait(&late, &in);
+		CHECK(start.state == FRAME_PACER_START_ENGAGED && fabs(start.allowed - 0.012) < 1e-12);
+		late.work_aimed = 0.0;
 		/* frames in flight own the next slots: with the last frame shown at 20.0 and two in flight, the frame's
 		slot is the third after it, whatever it could make */
 		late.holdoff_until = 0.0;
@@ -595,9 +649,9 @@ int main(int argc, char **argv)
 			struct frame_pacer_extended jumps;
 
 			memset(&jumps, 0, sizeof(jumps));
-			frame_pacer_extended_cost(&jumps, 0.0061, 0.003, 0.003, 0.005, 40.0);
+			frame_pacer_extended_cost(&jumps, 0.0074, 0.003, 0.003, 0.005, 40.0);
 			CHECK(jumps.jumps == 0 && jumps.holdoff_until == 0.0);
-			frame_pacer_extended_cost(&jumps, 0.0066, 0.003, 0.003, 0.005, 40.0);
+			frame_pacer_extended_cost(&jumps, 0.0076, 0.003, 0.003, 0.005, 40.0);
 			CHECK(jumps.jumps == 1 && fabs(jumps.holdoff_until - 41.0) < 1e-9);
 			/* a load is not a frame */
 			frame_pacer_extended_cost(&jumps, 0.5, 0.003, 0.003, 0.005, 40.0);

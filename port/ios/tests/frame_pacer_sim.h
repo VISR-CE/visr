@@ -91,6 +91,8 @@ struct sim
 	long handed, shown_highest; /* frames handed to the display, and the highest of them known shown: the count in
 	                            flight is the difference, so a notice that never comes is made up by the next */
 	long lose_notice;           /* this frame's shown notice never arrives (0: none) */
+	long slip_every;            /* every so many frames the display shows one a refresh late by itself (0: never) */
+	double unaimed_cost;        /* frames that start at once report this share of their work (0: all of it) */
 	struct sim_event events[SIM_EVENTS];
 	int event_count;
 	struct sim_frame *frames;
@@ -145,7 +147,8 @@ static inline void sim_events_until(struct sim *sim, double until)
 		{
 			sim->gpu_total += frame->gpu;
 			if (sim->mode == SIM_EXTENDED)
-				frame_pacer_extended_cost(&sim->extended, frame->gpu_end - frame->read - frame->waited, frame->gpu,
+				frame_pacer_extended_cost(&sim->extended, (frame->gpu_end - frame->read - frame->waited) *
+					(sim->unaimed_cost > 0.0 && frame->allowed <= 0.0 ? sim->unaimed_cost : 1.0), frame->gpu,
 					frame->cpu, frame->allowed, event.at);
 			continue;
 		}
@@ -159,7 +162,7 @@ static inline void sim_events_until(struct sim *sim, double until)
 			frame_pacer_late_shown(&sim->classic, frame->aim, frame->shown, sim->link);
 		else if (sim->mode == SIM_EXTENDED)
 			frame_pacer_extended_shown(&sim->extended, frame->aim, frame->shown, frame->aim - frame->gpu_end,
-				frame_pacer_extended_step(sim->link, sim->panel), event.at);
+				frame_pacer_extended_step(sim->link, sim->panel), sim_slot(sim), event.at);
 		if (sim->drs_height)
 		{
 			struct dynamic_resolution_frame fed = { 0 };
@@ -276,6 +279,8 @@ static inline void sim_frame(struct sim *sim)
 	minimum = frame_pacer_minimum_duration_panel(1, 1, sim->link, sim->share > 1.0 ? 1.0 / sim_slot(sim) : 0.0,
 		sim->panel < sim->link ? sim->panel : 0.0);
 	shown = sim_refresh_from(sim, frame->gpu_end + sim->latch);
+	if (sim->slip_every && sim->count && sim->count % sim->slip_every == 0)
+		shown += sim->panel;
 	if (sim->shown_last > 0.0)
 	{
 		double after = sim_refresh_from(sim, sim->shown_last + minimum);

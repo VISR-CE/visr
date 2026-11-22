@@ -441,6 +441,7 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 {
 	double interval, period;
 	unsigned long frames = 0, intervals = 0, late = 0, given_up = 0;
+	double gpu_before = 0.0, allowed = 0.0;
 	double longest = 0.0;
 	int noticed = at <= 0.0;
 
@@ -467,8 +468,13 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 		double slack = cost->known && cost->number == frame->number && cost->gpu_end > 0.0 ? frame->aim - cost->gpu_end :
 			(double)NAN;
 
+		if (cost->known && cost->number == frame->number)
+		{
+			gpu_before = cost->gpu_end > 0.0 ? at - cost->gpu_end : 0.0;
+			allowed = cost->allowed;
+		}
 		frame_pacer_extended_shown(&pacer.extended, frame->aim, at, slack, frame_pacer_extended_step(period, pacer.panel),
-			now_seconds());
+			frame_pacer_share(period, host_frame_rate_target()) * period, now_seconds());
 	}
 	else
 		frame_pacer_late_shown(&pacer.late, frame->aim, at, period);
@@ -488,10 +494,10 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 	if (pacer.times)
 	{
 		platform_log("present time: frame %lu at %.3f ms, %.3f ms after the one before, %.3f ms after it began%s; start %s, "
-			"%.3f ms after its aim, %u in flight before it",
+			"%.3f ms after its aim, %u in flight before it, its GPU work done %.3f ms before, %.3f ms of cost allowed",
 			frame->number, at * 1e3, interval * 1e3, frame->began > 0.0 ? (at - frame->began) * 1e3 : 0.0,
 			noticed ? " (noticed: the system gave no time)" : "", frame_pacer_start_state_name(frame->start_state),
-			frame->aim > 0.0 ? (at - frame->aim) * 1e3 : 0.0, (unsigned)frame->in_flight);
+			frame->aim > 0.0 ? (at - frame->aim) * 1e3 : 0.0, (unsigned)frame->in_flight, gpu_before * 1e3, allowed * 1e3);
 	}
 	if (frames && pacer.late_start == LATE_START_EXTENDED)
 	{
