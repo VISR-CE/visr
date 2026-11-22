@@ -25,7 +25,6 @@
 #include "../../linux/include/halo_port_limits.h"
 
 #define CLOUD_SCAN_SECONDS 15
-#define CLOUD_RETRY_SECONDS 60         /* between tries while something waits and no save has changed */
 #define CLOUD_WAIT_SECONDS 8           /* at launch, on a device that has saves */
 #define CLOUD_WAIT_EMPTY_SECONDS 20    /* on one that has none: a new device, or a purged Apple TV */
 #define CLOUD_ANSWER_SECONDS 20        /* for what a notice's button asks for */
@@ -125,25 +124,18 @@ const char *host_cloud_saves_status(void) {
 
 /* cloud_queue only: the local saves as of the last pass that left nothing to do, as of the last
    pass whatever it left, and when that was */
-static char cloud_idle_signature[CLOUD_HASH_SIZE], cloud_tried_signature[CLOUD_HASH_SIZE];
-static CFAbsoluteTime cloud_last_pass;
+static struct cloud_pacing cloud_pacing;
 
-/* one pass, on cloud_queue */
 static void cloud_pass(enum cloud_pass pass) {
     if (!host_cloud_saves_sync_allowed()) return;
-    char signature[CLOUD_HASH_SIZE];
-    cloud_local_signature(cloud_save_root, cloud_state_path, signature);
+    struct cloud_local_signatures signatures;
+    cloud_local_signatures(cloud_save_root, cloud_state_path, &signatures);
     /* While the game runs a pass only uploads, and each pass begins by asking iCloud what it holds:
-       when no save has changed since a pass that left nothing to do, there is nothing to ask for.
-       When something still waits (no network, files being written), it is tried once a minute. */
-    if (pass == CLOUD_PASS_RUNNING && (!strcmp(signature, cloud_idle_signature) ||
-            (cloud_idle_signature[0] == 0 && cloud_last_pass && CFAbsoluteTimeGetCurrent() - cloud_last_pass < CLOUD_RETRY_SECONDS &&
-             !strcmp(signature, cloud_tried_signature))))
+       cloud_pacing_due (cloud_saves.h) says when there is something worth asking for. */
+    if (pass == CLOUD_PASS_RUNNING && !cloud_pacing_due(&cloud_pacing, &signatures, (long long)CFAbsoluteTimeGetCurrent()))
         return;
     enum cloud_state state = cloud_engine_sync(cloud_engine, pass);
-    cloud_last_pass = CFAbsoluteTimeGetCurrent();
-    snprintf(cloud_tried_signature, sizeof(cloud_tried_signature), "%s", signature);
-    snprintf(cloud_idle_signature, sizeof(cloud_idle_signature), "%s", state == CLOUD_STATE_IDLE ? signature : "");
+    cloud_pacing_passed(&cloud_pacing, &signatures, state, (long long)CFAbsoluteTimeGetCurrent());
     cloud_publish_state(state);
     if (state == CLOUD_STATE_FAILED) {
         host_logf(HOST_LOG_WARN, "cloud saves: stopped for this run");

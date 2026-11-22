@@ -1042,15 +1042,16 @@ int cloud_local_slot_count(const char *save_root)
 	return found;
 }
 
-void cloud_local_signature(const char *save_root, const char *state_path, char hash[CLOUD_HASH_SIZE])
+void cloud_local_signatures(const char *save_root, const char *state_path, struct cloud_local_signatures *signatures)
 {
 	char ids[CLOUD_MAX_SLOTS][CLOUD_SLOT_ID_SIZE], directory[1100], path[1400], line[1500];
 	int count = local_slot_ids(save_root, ids, CLOUD_MAX_SLOTS), i;
-	struct sha256 sha;
+	struct sha256 all, other;
 	uint8_t digest[32];
 	struct stat st;
 
-	sha256_begin(&sha);
+	sha256_begin(&all);
+	sha256_begin(&other);
 	for (i = 0; i < count; i++)
 	{
 		struct dirent *entry;
@@ -1062,8 +1063,10 @@ void cloud_local_signature(const char *save_root, const char *state_path, char h
 			continue;
 		if (stat(directory, &st) == 0)
 		{
+			/* (a saved game replaced whole changes its folder's time, so "other" leaves the time out: a
+			   file added or removed still shows there, by its name) */
 			snprintf(line, sizeof(line), "%s %lld.%ld\n", ids[i], (long long)st.st_mtimespec.tv_sec, (long)st.st_mtimespec.tv_nsec);
-			sha256_add(&sha, line, strlen(line));
+			sha256_add(&all, line, strlen(line));
 		}
 		while ((entry = readdir(dir)) != NULL)
 		{
@@ -1073,7 +1076,10 @@ void cloud_local_signature(const char *save_root, const char *state_path, char h
 			/* (the directory's order is not sorted, and need not be: it is the same until something changes) */
 			snprintf(line, sizeof(line), "%s/%s %lld %lld.%ld\n", ids[i], entry->d_name, (long long)st.st_size,
 				(long long)st.st_mtimespec.tv_sec, (long)st.st_mtimespec.tv_nsec);
-			sha256_add(&sha, line, strlen(line));
+			sha256_add(&all, line, strlen(line));
+			if (!strcmp(entry->d_name, CHECKPOINT_FILE))
+				snprintf(line, sizeof(line), "%s/%s\n", ids[i], entry->d_name);
+			sha256_add(&other, line, strlen(line));
 		}
 		closedir(dir);
 	}
@@ -1081,10 +1087,50 @@ void cloud_local_signature(const char *save_root, const char *state_path, char h
 	if (stat(path, &st) == 0)
 	{
 		snprintf(line, sizeof(line), "deleted %lld\n", (long long)st.st_size);
-		sha256_add(&sha, line, strlen(line));
+		sha256_add(&all, line, strlen(line));
+		sha256_add(&other, line, strlen(line));
 	}
-	sha256_end(&sha, digest);
-	hex_of(digest, 32, hash);
+	sha256_end(&all, digest);
+	hex_of(digest, 32, signatures->all);
+	sha256_end(&other, digest);
+	hex_of(digest, 32, signatures->other);
+}
+
+void cloud_local_signature(const char *save_root, const char *state_path, char hash[CLOUD_HASH_SIZE])
+{
+	struct cloud_local_signatures signatures;
+
+	cloud_local_signatures(save_root, state_path, &signatures);
+	memcpy(hash, signatures.all, CLOUD_HASH_SIZE);
+}
+
+int cloud_pacing_due(const struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, long long now)
+{
+	long long since = now - pacing->last_pass;
+
+	/* nothing changed since a pass that left nothing to do */
+	if (!strcmp(signatures->all, pacing->idle))
+		return 0;
+	/* something still waits (no network, files being written) and nothing changed since the last try */
+	if (!pacing->idle[0] && pacing->passed && since < CLOUD_RETRY_SECONDS && !strcmp(signatures->all, pacing->tried))
+		return 0;
+	/* only saved games changed since a pass that left nothing to do: the game replaces one at every
+	   checkpoint, and each would cost a read of the whole file, its hash and an upload */
+	if (pacing->idle[0] && since < CLOUD_CHECKPOINT_SECONDS && !strcmp(signatures->other, pacing->idle_other))
+		return 0;
+	return 1;
+}
+
+void cloud_pacing_passed(struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, enum cloud_state state,
+	long long now)
+{
+	int idle = state == CLOUD_STATE_IDLE;
+
+	pacing->passed = 1;
+	pacing->last_pass = now;
+	memcpy(pacing->tried, signatures->all, CLOUD_HASH_SIZE);
+	memcpy(pacing->idle, idle ? signatures->all : "", idle ? CLOUD_HASH_SIZE : 1);
+	memcpy(pacing->idle_other, idle ? signatures->other : "", idle ? CLOUD_HASH_SIZE : 1);
 }
 
 int cloud_slot_of_path(const char *save_root, const char *path, char *slot)

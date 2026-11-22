@@ -1519,6 +1519,85 @@ static void test_files_must_be_still(void)
 	device_end(&a);
 }
 
+/* What the host does every 15 s while the game runs (cloud_pacing_due, then a pass). The class: work
+   and network use that grow with how often the game saves. The game replaces the saved game at every
+   checkpoint, and a pass per checkpoint would read and hash the whole file and upload it each time. */
+static int paced_pass(struct device *device, struct cloud_pacing *pacing)
+{
+	struct cloud_local_signatures signatures;
+
+	cloud_local_signatures(device->save_root, device->state_path, &signatures);
+	if (!cloud_pacing_due(pacing, &signatures, clock_now))
+		return 0;
+	cloud_pacing_passed(pacing, &signatures, running(device), clock_now);
+	return 1;
+}
+
+static void test_checkpoints_are_paced(void)
+{
+	struct device a;
+	struct cloud_pacing pacing = { 0 };
+	int saves, passes = 0, uploads, second;
+
+	cloud_reset();
+	device_make(&a, "iPhone");
+	put_profile(&a, SLOT, "Chief", 2, 1, 10);
+	put_saved_game(&a, SLOT, "a30", 1, 10);
+	CHECK(paced_pass(&a, &pacing) && cloud.count == 2);
+	CHECK(!paced_pass(&a, &pacing));
+	saves = cloud.saves;
+	/* twenty minutes of play with a checkpoint every 40 s, the host looking every 15 s */
+	for (second = 15; second <= 1200; second += 15)
+	{
+		clock_now += 15;
+		if (second % 40 < 15)
+			put_saved_game(&a, SLOT, "a30", second, 3);
+		passes += paced_pass(&a, &pacing);
+	}
+	uploads = cloud.saves - saves;
+	CHECK(passes >= 3 && passes <= 1200 / CLOUD_CHECKPOINT_SECONDS + 1);
+	CHECK(uploads >= 3 && uploads <= passes);
+	/* a profile that changes is not held back by that, and takes the newest checkpoint with it */
+	clock_now += 15;
+	put_saved_game(&a, SLOT, "a30", 5000, 3);
+	saves = cloud.saves;
+	CHECK(!paced_pass(&a, &pacing));
+	put_profile(&a, SLOT, "Chief", 3, 1, 3);
+	CHECK(paced_pass(&a, &pacing) && cloud.saves == saves + 2);
+	/* the last checkpoint before the app leaves always goes: the leaving pass asks nobody */
+	clock_now += 15;
+	put_saved_game(&a, SLOT, "a30", 6000, 0);
+	CHECK(!paced_pass(&a, &pacing));
+	saves = cloud.saves;
+	a.game_started = 1;
+	CHECK(cloud_engine_sync(a.engine, CLOUD_PASS_LEAVING) == CLOUD_STATE_IDLE && cloud.saves == saves + 1);
+	/* a deletion is not held back either */
+	{
+		struct cloud_local_signatures signatures;
+
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		cloud_pacing_passed(&pacing, &signatures, CLOUD_STATE_IDLE, clock_now);
+		CHECK(!cloud_pacing_due(&pacing, &signatures, clock_now + 15));
+		cloud_note_local_delete(a.state_path, SLOT2);
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		CHECK(cloud_pacing_due(&pacing, &signatures, clock_now + 15));
+	}
+	/* while something waits (no network), a try a minute as before, whatever changed */
+	{
+		struct cloud_pacing waiting = { 0 };
+		struct cloud_local_signatures signatures;
+
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		cloud_pacing_passed(&waiting, &signatures, CLOUD_STATE_PENDING, clock_now);
+		CHECK(!cloud_pacing_due(&waiting, &signatures, clock_now + CLOUD_RETRY_SECONDS - 1));
+		CHECK(cloud_pacing_due(&waiting, &signatures, clock_now + CLOUD_RETRY_SECONDS));
+		put_saved_game(&a, SLOT, "a30", 7000, 1);   /* (another time than the last one written) */
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		CHECK(cloud_pacing_due(&waiting, &signatures, clock_now + 1));
+	}
+	device_end(&a);
+}
+
 static void test_saved_game_that_is_not_one(void)
 {
 	struct device a, b;
@@ -1771,6 +1850,7 @@ int main(int argc, char **argv)
 		{ "unfinished slots stay home", test_unfinished_slots_stay_home },
 		{ "foreign files are left alone", test_foreign_files_are_left_alone },
 		{ "files must be still", test_files_must_be_still },
+		{ "checkpoints are paced", test_checkpoints_are_paced },
 		{ "a saved game that is not one", test_saved_game_that_is_not_one },
 		{ "layouts keep their own saved games", test_layouts_keep_their_own_saved_games },
 		{ "a saved game of another size", test_saved_game_of_another_size },
