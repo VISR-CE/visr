@@ -3,6 +3,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import profile_cost_model as cost
 import profile_pr as pr
@@ -62,6 +64,7 @@ def setup(tmp_path, monkeypatch, key=None):
     report.parent.mkdir()
     report.write_text(json.dumps({"device": {"platform": "ios"}, "runs": []}))
     monkeypatch.setattr(pr, "PROFILES", profiles)
+    monkeypatch.setattr(pr, "RUN_JOB", "run-job.sh")
     monkeypatch.setattr(pr, "fits_from", lambda *_: [fit()])
     monkeypatch.setattr(pr.predict, "read_devices", lambda: [DEVICE])
     monkeypatch.setattr(pr.propose, "read_ranking", lambda: RANKING)
@@ -148,3 +151,10 @@ def test_every_non_mac_profile_model_has_a_publish_target(tmp_path):
     (tmp_path / "profiles/air.toml").write_text('[match]\nplatform = "ios"\nmodels = ["iPad13,1"]\n')
     (tmp_path / "profiles/mini.toml").write_text('[match]\nplatform = "mac"\nchips = ["Apple M4"]\n')
     assert pr.published_targets(tmp_path, tmp_path / "feeds") == ["ios/iPad13,1/_"]
+
+
+def test_screenshots_need_the_job_launcher(tmp_path, monkeypatch):
+    options = setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(pr, "RUN_JOB", "")
+    with pytest.raises(pr.Failure, match="VISR_RUN_JOB"):
+        pr.build(options, Runner())
