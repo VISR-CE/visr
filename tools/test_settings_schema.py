@@ -83,8 +83,10 @@ def test_profile_contexts_and_values():
 
 def test_markdown_lists_all_source_keys():
     settings = schema.config_settings()
-    for name in settings:
-        assert f'`{name}`' in schema.markdown('config', settings)
+    table = schema.markdown('config', settings)
+    # (every setting but the tuning values, which test_settings_tiers.py keeps out)
+    for name, item in settings.items():
+        assert (f'`{name}`' in table) == (item.get('x-tier') != 'tuning'), name
     for name in schema.profile_check.profile_keys():
         assert f'`{name}`' in schema.markdown('profile', settings)
 

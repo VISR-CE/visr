@@ -145,7 +145,8 @@ static void check_first_launch(void)
 	/* the file is written with the values in force, every line live as it always was */
 	assert(file_has(path, "\nrenderer = \"metal\"\n") && file_has(path, "\nrender_height = 1080\n"));
 	assert(file_has(path, "\nupscaled_textures = false\n") && file_has(path, "\nrender_scale = 0.5\n"));
-	assert(file_has(path, "\nshadow_map_size = 128\n") && file_has(path, "\nrender_quality = 0.6\n"));
+	/* (display.render_quality is Apple Vision Pro's alone: read here, but not written into this device's file) */
+	assert(file_has(path, "\nshadow_map_size = 128\n") && !file_has(path, "render_quality"));
 	/* and each recorded as a default the game wrote */
 	assert(file_has(origins, "display.render_height\tdefault\t1080\n") && file_has(origins, "display.renderer\tdefault\t\"metal\"\n"));
 	assert(file_has(origins, "display.shadow_map_size\tdefault\t128\n") && !file_has(origins, "\tchosen"));
@@ -272,8 +273,11 @@ static void check_old_install(void)
 	assert(strstr(logged, "settings: display.render_height = 0 in config.toml is a default an earlier version wrote"));
 	assert(strstr(logged, "settings: display.upscaled_textures = true in config.toml is a default"));
 	assert(!strstr(logged, "input.turn = ") && !strstr(logged, "network.online = "));
-	assert(file_has(path, "# a comment of mine\nrender_height = 1080\nframe_pacing = \"off\"\nfoveation = true\n"
+	/* (display.foveation, Apple Vision Pro's alone, was a default the game wrote: it leaves this device's file;
+	input.turn, a tuning value somebody chose, stays and is named in the log) */
+	assert(file_has(path, "# a comment of mine\nrender_height = 1080\nframe_pacing = \"off\"\n"
 		"anisotropic_filtering = 4\n"));
+	assert(strstr(logged, "settings: input.turn in config.toml is a tuning value, not a player setting; it is in force as set"));
 	assert(file_has(origins, "display.anisotropic_filtering\tchosen\n") && file_has(origins, "input.turn\tchosen\n"));
 	assert(file_has(origins, "display.renderer\tdefault\t\"metal\"\n"));
 	launch(TV_MODEL);
@@ -405,14 +409,24 @@ static void check_menus(void)
 	assert(config_integer("display.shadow_map_size") == 512 && !config_boolean("display.upscaled_textures"));
 	/* the menus ask whether a profile sets a setting (its campaign value, config_default, is then the device's) */
 	assert(config_profile_sets("display.shadow_map_size") && config_profile_sets("display.render_scale"));
-	assert(!config_profile_sets("input.snap_angle") && !config_profile_sets("no.such.setting"));
+	assert(!config_profile_sets("audio.volume") && !config_profile_sets("no.such.setting"));
 	/* a setting no profile names behaves the same against its built-in default */
-	assert(config_write("input.snap_angle", "45"));
-	assert(config_explicit("input.snap_angle"));
-	assert(file_has(origins, "input.snap_angle\tchosen\n"));
-	assert(config_write("input.snap_angle", "30"));
-	assert(file_has(origins, "input.snap_angle\tdefault\t30.0\n"));
-	assert(!config_explicit("input.snap_angle"));
+	assert(config_write("audio.volume", "0.5"));
+	assert(config_explicit("audio.volume"));
+	assert(file_has(origins, "audio.volume\tchosen\n"));
+	assert(config_write("audio.volume", "1.0"));
+	assert(file_has(origins, "audio.volume\tdefault\t1.0\n"));
+	assert(!config_explicit("audio.volume"));
+	/* a tuning value written from a menu or a debug chord is in force for this run and never reaches the files */
+	{
+		char *before = read_text(path), *before_origins = read_text(origins);
+
+		assert(config_write("input.snap_angle", "45") && config_real("input.snap_angle") == 45.0);
+		assert(file_has(path, before) && file_has(origins, before_origins) && !file_has(path, "snap_angle"));
+		assert(strstr(logged, "settings: input.snap_angle is a tuning value: 45 for this run only, not written to config.toml"));
+		free(before);
+		free(before_origins);
+	}
 }
 
 /* the environment over everything, and what a profile may not do */
@@ -501,23 +515,124 @@ static void check_changed_default(void)
 {
 	fresh();
 	launch("");
-	assert(file_has(path, "\nsnap_angle = 30.0\n") && file_has(origins, "input.snap_angle\tdefault\t30.0\n"));
+	assert(file_has(path, "\nvolume = 1.0\n") && file_has(origins, "audio.volume\tdefault\t1.0\n"));
 	/* as an earlier build with another default left it */
 	{
-		char *text = read_text(path), *changed = config_text_set(text, "input.snap_angle", "snap_angle = 45.0\n");
-		char *record = read_text(origins), *line = strstr(record, "input.snap_angle\tdefault\t30.0");
+		char *text = read_text(path), *changed = config_text_set(text, "audio.volume", "volume = 0.5\n");
+		char *record = read_text(origins), *line = strstr(record, "audio.volume\tdefault\t1.0");
 
 		write_text(path, changed);
 		assert(line);
-		memcpy(line + strlen("input.snap_angle\tdefault\t"), "45.0", 4);
+		memcpy(line + strlen("audio.volume\tdefault\t"), "0.5", 3);
 		write_text(origins, record);
 		free(text);
 		free(changed);
 		free(record);
 	}
 	launch("");
-	assert(config_real("input.snap_angle") == 30.0 && file_has(path, "\nsnap_angle = 30.0\n"));
-	assert(strstr(logged, "settings: input.snap_angle was the default 45.0 in config.toml; it is now this device's 30.0"));
+	assert(config_real("audio.volume") == 1.0 && file_has(path, "\nvolume = 1.0\n"));
+	assert(strstr(logged, "settings: audio.volume was the default 0.5 in config.toml; it is now this device's 1.0"));
+}
+
+/* setting tiers (port_config.c's enum config_tier): a tuning value and another device's setting are never written,
+   a line the game wrote for one as a default leaves the file with its comment, one somebody chose stays in force,
+   and Apple Vision Pro's own settings are written only on Apple Vision Pro */
+static void check_tiers(void)
+{
+	char *text;
+
+	/* an iPhone, iPad or Apple TV: no headset setting and no tuning value in the file, though both read */
+	fresh();
+	setenv("HALO_HOST_VISIONOS", "0", 1);
+	launch("");
+	assert(!file_has(path, "\naim = ") && !file_has(path, "\nstereo = ") && !file_has(path, "\naim_loss_grace = 0.5"));
+	assert(!file_has(path, "\naim_steady = ") && !file_has(path, "\nsnap_angle = ") && !file_has(path, "\nhud_distance = "));
+	assert(!file_has(origins, "input.aim\t") && !file_has(origins, "input.aim_steady\t"));
+	assert(!strcmp(config_string("input.aim"), "controller") && config_real("input.aim_steady_zoom_8x") == 2.0);
+	assert(file_has(path, "\nvolume = 1.0\n"));
+
+	/* Apple Vision Pro: its player and profile settings, still no tuning value */
+	fresh();
+	setenv("HALO_HOST_VISIONOS", "1", 1);
+	launch("");
+	assert(file_has(path, "\naim = \"controller\"\n") && file_has(path, "\naim_hand = \"right\"\n"));
+	assert(file_has(path, "\nstereo = ") && file_has(path, "\naim_loss_grace = ") && file_has(path, "\nfoveation = "));
+	assert(!file_has(path, "\naim_steady = ") && !file_has(path, "\nsnap_angle = ") && !file_has(path, "\nhud_distance = "));
+	assert(!file_has(path, "\naim_origin_raise = ") && !file_has(path, "\nturn = "));
+
+	/* a headset file an earlier version wrote: its tuning defaults go with their comments, a chosen one stays */
+	fresh();
+	write_text(path,
+		"[display]\n"
+		"stereo = \"head\"\n"
+		"\n"
+		"# With display.stereo = \"head\": how far ahead the HUD sits.\n"
+		"# In meters.\n"
+		"hud_distance = 2.0\n"
+		"\n"
+		"# a comment of mine\n"
+		"\n"
+		"# The HUD's size.\n"
+		"hud_scale = 1.0\n"
+		"\n[input]\n"
+		"\n"
+		"# How much a hand's tremor is smoothed.\n"
+		"aim_steady = 0.0\n"
+		"\n"
+		"# The aim ray's start.\n"
+		"aim_origin_raise = 0.3\n"
+		"aim_hand = \"left\"\n");
+	write_text(origins, "display.stereo\tchosen\ndisplay.hud_distance\tdefault\t2.0\ndisplay.hud_scale\tdefault\t1.0\n"
+		"input.aim_steady\tdefault\t0.0\ninput.aim_origin_raise\tchosen\ninput.aim_hand\tchosen\n");
+	launch("");
+	text = read_text(path);
+	assert(!strstr(text, "\nhud_distance = ") && !strstr(text, "how far ahead the HUD sits") && !strstr(text, "# In meters.\n"));
+	assert(!strstr(text, "\nhud_scale = ") && !strstr(text, "# The HUD's size.\n") && strstr(text, "\n# a comment of mine\n"));
+	assert(!strstr(text, "\naim_steady = ") && !strstr(text, "# How much a hand's tremor is smoothed.\n"));
+	assert(strstr(text, "# The aim ray's start.\naim_origin_raise = 0.3\naim_hand = \"left\"\n"));
+	assert(strstr(text, "[display]\nstereo = \"head\"\n"));
+	free(text);
+	assert(config_real("input.aim_origin_raise") == 0.3 && config_real("display.hud_distance") == 2.0);
+	assert(!file_has(origins, "display.hud_distance") && !file_has(origins, "input.aim_steady\t"));
+	assert(file_has(origins, "input.aim_origin_raise\tchosen\n"));
+	assert(strstr(logged, "settings: input.aim_origin_raise in config.toml is a tuning value, not a player setting; "
+		"it is in force as set"));
+	/* the next launch changes nothing more */
+	text = read_text(path);
+	launch("");
+	assert(file_has(path, text));
+	free(text);
+
+	/* every tuning value a debug chord or a menu might write stays out of both files */
+	{
+		char *before = read_text(path), *before_origins = read_text(origins);
+		size_t index;
+		int tuning = 0;
+
+		for (index = 0; index < NUMBER_OF_CONFIG_SETTINGS; index++)
+		{
+			char value[600];
+
+			if (config_settings[index].tier != _tier_tuning)
+				continue;
+			tuning++;
+			assert(config_default(config_settings[index].name, value, sizeof(value)));
+			assert(config_write(config_settings[index].name, value));
+		}
+		assert(tuning > 50 && file_has(path, before) && file_has(origins, before_origins));
+		free(before);
+		free(before_origins);
+	}
+
+	/* an iPhone file with headset settings an earlier version wrote: they leave it, a chosen one stays */
+	fresh();
+	setenv("HALO_HOST_VISIONOS", "0", 1);
+	write_text(path, "[display]\n\n# Flat or stereo.\nstereo = \"off\"\nimmersive = true\n");
+	write_text(origins, "display.stereo\tdefault\t\"off\"\ndisplay.immersive\tchosen\n");
+	launch("");
+	assert(!file_has(path, "\nstereo = ") && !file_has(path, "# Flat or stereo.\n") && file_has(path, "\nimmersive = true\n"));
+	assert(strstr(logged, "settings: display.immersive in config.toml is not a setting of this device; it is in force as set"));
+	unsetenv("HALO_HOST_VISIONOS");
 }
 
 /* the renderer's default was OpenGL ES: a Mac's config.toml from before config.origins holds it, written by the game,
@@ -953,6 +1068,7 @@ int main(void)
 	check_environment_and_refusals();
 	check_scenes();
 	check_changed_default();
+	check_tiers();
 	check_external();
 	check_workload();
 	check_workload_frame_rate();
@@ -960,6 +1076,6 @@ int main(void)
 	check_graphics_modes();
 	fresh();
 	rmdir(directory);
-	puts("PASS: settings layers: default, device profile, a chosen value, the environment; config.origins; scene classes; workload contexts; graphics modes");
+	puts("PASS: settings layers: default, device profile, a chosen value, the environment; config.origins; scene classes; workload contexts; graphics modes; setting tiers");
 	return 0;
 }

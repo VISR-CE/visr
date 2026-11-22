@@ -121,6 +121,7 @@ void platform_log(const char *format, ...);
 const char *config_string(const char *name);
 double config_real(const char *name);
 int config_boolean(const char *name);
+int config_set_unsaved(const char *name, const char *value);
 /* port/linux/game/cinematic_screen.c */
 int halo_look_disabled_first_person(void);
 #ifdef HALO_IOS
@@ -1636,9 +1637,10 @@ void halo_controller_origin_raise_step(int direction)
 	settings();
 	origin_raise_message_pending = 1;
 	origin_raise = controller_origin_raise_step(origin_raise, direction);
-	/* kept for the next launch (the file's value is what settings() reads) */
+	/* for this run only: a tuning value never reaches the player's config.toml (the
+	log line below records it for the session) */
 	snprintf(value, sizeof(value), "%.1f", origin_raise);
-	config_write("input.aim_origin_raise", value);
+	config_set_unsaved("input.aim_origin_raise", value);
 	platform_log("controller aim: aim origin raise %.2f tick %ld frame %lu", origin_raise, (long)game_time_get(),
 		platform_clock_frames());
 }

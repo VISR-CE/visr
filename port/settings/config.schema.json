@@ -15,7 +15,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "crt_effect": {
           "type": "boolean",
@@ -25,7 +26,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "fullscreen": {
           "type": "boolean",
@@ -35,7 +37,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "mode": {
           "type": "string",
@@ -45,7 +48,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "resolution": {
           "type": "string",
@@ -55,7 +59,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "resolution_scaling": {
           "type": "string",
@@ -65,7 +70,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "window_size": {
           "type": "string",
@@ -75,7 +81,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "window_scale": {
           "type": "integer",
@@ -85,7 +92,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "screen_width": {
           "type": "integer",
@@ -95,7 +103,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "render_height": {
           "type": "integer",
@@ -127,7 +136,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "decal_dense_upload": {
           "type": "boolean",
@@ -138,7 +148,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "light_volume_batching": {
           "type": "boolean",
@@ -149,7 +160,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "shadow_batching": {
           "type": "boolean",
@@ -160,7 +172,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "per_pixel_lighting": {
           "type": "boolean",
@@ -171,7 +184,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "point_light_highlight": {
           "type": "integer",
@@ -182,7 +196,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "point_light_limit": {
           "type": "integer",
@@ -193,7 +208,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "shadow_minimum_size": {
           "type": "integer",
@@ -237,7 +253,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "effect_limits": {
           "type": "string",
@@ -248,7 +265,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "shadow_map_size": {
           "type": "integer",
@@ -269,7 +287,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "shadow_props": {
           "type": "boolean",
@@ -280,7 +299,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "effect_resolution": {
           "type": "string",
@@ -311,7 +331,7 @@
           "x-environment": "HALO_LOD_SCALE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "compressed_textures": {
@@ -342,7 +362,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "dynamic_resolution": {
           "type": "boolean",
@@ -402,8 +423,9 @@
           "x-environment": "HALO_IMMERSIVE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "stereo": {
           "type": "string",
@@ -412,8 +434,9 @@
           "x-environment": "HALO_STEREO",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "frame_repeat": {
           "type": "integer",
@@ -422,7 +445,7 @@
           "x-environment": "HALO_FRAME_REPEAT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "foveation": {
@@ -432,7 +455,7 @@
           "x-environment": "HALO_FOVEATION",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "render_quality": {
@@ -442,7 +465,7 @@
           "x-environment": "HALO_RENDER_QUALITY",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "first_person_body": {
@@ -452,8 +475,9 @@
           "x-environment": "HALO_FIRST_PERSON_BODY",
           "x-environment-style": "set_is_true",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "first_person_body_offset": {
           "type": "number",
@@ -462,8 +486,9 @@
           "x-environment": "HALO_FIRST_PERSON_BODY_OFFSET",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "first_person_body_seats": {
           "type": "boolean",
@@ -472,8 +497,9 @@
           "x-environment": "HALO_FIRST_PERSON_BODY_SEATS",
           "x-environment-style": "set_is_true",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "first_person_body_seat_offset": {
           "type": "number",
@@ -482,8 +508,9 @@
           "x-environment": "HALO_FIRST_PERSON_BODY_SEAT_OFFSET",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_offset_down": {
           "type": "number",
@@ -492,8 +519,9 @@
           "x-environment": "HALO_WEAPON_OFFSET_DOWN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_offset_back": {
           "type": "number",
@@ -502,8 +530,9 @@
           "x-environment": "HALO_WEAPON_OFFSET_BACK",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "eye_height_offset": {
           "type": "number",
@@ -512,8 +541,9 @@
           "x-environment": "HALO_EYE_HEIGHT_OFFSET",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "seat_look_fade": {
           "type": "boolean",
@@ -522,8 +552,9 @@
           "x-environment": "HALO_SEAT_LOOK_FADE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "seat_look_fade_start": {
           "type": "number",
@@ -532,8 +563,9 @@
           "x-environment": "HALO_SEAT_LOOK_FADE_START",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "seat_look_fade_black": {
           "type": "number",
@@ -542,8 +574,9 @@
           "x-environment": "HALO_SEAT_LOOK_FADE_BLACK",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "pod_look_fade_start": {
           "type": "number",
@@ -552,8 +585,9 @@
           "x-environment": "HALO_POD_LOOK_FADE_START",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "pod_look_fade_end": {
           "type": "number",
@@ -562,8 +596,9 @@
           "x-environment": "HALO_POD_LOOK_FADE_END",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "pod_look_fade_dim": {
           "type": "number",
@@ -572,8 +607,9 @@
           "x-environment": "HALO_POD_LOOK_FADE_DIM",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "seat_look_fade_blur": {
           "type": "boolean",
@@ -582,8 +618,9 @@
           "x-environment": "HALO_SEAT_LOOK_FADE_BLUR",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "film_depth_share": {
           "type": "number",
@@ -592,8 +629,9 @@
           "x-environment": "HALO_FILM_DEPTH_SHARE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "film_convergence": {
           "type": "number",
@@ -602,8 +640,9 @@
           "x-environment": "HALO_FILM_CONVERGENCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "screen_depth_share": {
           "type": "number",
@@ -612,8 +651,9 @@
           "x-environment": "HALO_SCREEN_DEPTH_SHARE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "screen_convergence": {
           "type": "number",
@@ -622,8 +662,9 @@
           "x-environment": "HALO_SCREEN_CONVERGENCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "screen_framing": {
           "type": "string",
@@ -632,8 +673,9 @@
           "x-environment": "HALO_SCREEN_FRAMING",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "stereo_vehicle_screen": {
           "type": "boolean",
@@ -642,8 +684,9 @@
           "x-environment": "HALO_STEREO_VEHICLE_SCREEN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_corner_across": {
           "type": "number",
@@ -652,8 +695,9 @@
           "x-environment": "HALO_HUD_CORNER_ACROSS",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_corner_up": {
           "type": "number",
@@ -662,8 +706,9 @@
           "x-environment": "HALO_HUD_CORNER_UP",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_tracker_down": {
           "type": "number",
@@ -672,8 +717,9 @@
           "x-environment": "HALO_HUD_TRACKER_DOWN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_messages_up": {
           "type": "number",
@@ -682,8 +728,9 @@
           "x-environment": "HALO_HUD_MESSAGES_UP",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_scale": {
           "type": "number",
@@ -692,8 +739,9 @@
           "x-environment": "HALO_HUD_SCALE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_distance": {
           "type": "number",
@@ -702,8 +750,9 @@
           "x-environment": "HALO_HUD_DISTANCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth": {
           "type": "boolean",
@@ -712,8 +761,9 @@
           "x-environment": "HALO_HUD_DEPTH",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_share": {
           "type": "number",
@@ -722,8 +772,9 @@
           "x-environment": "HALO_HUD_DEPTH_SHARE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_floor": {
           "type": "number",
@@ -732,8 +783,9 @@
           "x-environment": "HALO_HUD_DEPTH_FLOOR",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_pull_in": {
           "type": "number",
@@ -742,8 +794,9 @@
           "x-environment": "HALO_HUD_DEPTH_PULL_IN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_relax": {
           "type": "number",
@@ -752,8 +805,9 @@
           "x-environment": "HALO_HUD_DEPTH_RELAX",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_relax_delay": {
           "type": "number",
@@ -762,8 +816,9 @@
           "x-environment": "HALO_HUD_DEPTH_RELAX_DELAY",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_resolution": {
           "type": "number",
@@ -772,7 +827,7 @@
           "x-environment": "HALO_HUD_RESOLUTION",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "texture_idle_seconds": {
@@ -804,8 +859,9 @@
           "x-environment": "HALO_THEATER_WIDTH",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "theater_distance": {
           "type": "number",
@@ -814,8 +870,9 @@
           "x-environment": "HALO_THEATER_DISTANCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "theater_environment": {
           "type": "string",
@@ -824,8 +881,9 @@
           "x-environment": "HALO_THEATER_ENVIRONMENT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "renderer": {
           "type": "string",
@@ -845,7 +903,8 @@
           "x-environment-style": "set_is_true",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "frame_pacing": {
           "type": "string",
@@ -864,8 +923,9 @@
           "x-environment": "HALO_STEREO_FLARE_COUNTING",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "late_look": {
           "type": "boolean",
@@ -876,7 +936,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "late_start": {
           "type": "string",
@@ -886,7 +947,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "frame_source": {
           "type": "string",
@@ -896,7 +958,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "frames_in_flight": {
           "type": "string",
@@ -906,7 +969,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "frame_spacing": {
           "type": "boolean",
@@ -916,7 +980,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "frame_rate": {
           "type": "string",
@@ -946,7 +1011,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "vsync": {
           "type": "boolean",
@@ -957,7 +1023,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "max_fps": {
           "type": "integer",
@@ -967,7 +1034,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "interpolation": {
           "type": "boolean",
@@ -989,7 +1057,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "high_res_hud": {
           "type": "boolean",
@@ -1022,7 +1091,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "ui_redraw_pictures": {
           "type": "string",
@@ -1033,7 +1103,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "upscaled_textures": {
           "type": "boolean",
@@ -1055,7 +1126,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "menus": {
           "type": "string",
@@ -1066,7 +1138,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "player_names": {
           "type": "string",
@@ -1077,7 +1150,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "player_name_scale": {
           "type": "number",
@@ -1088,7 +1162,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "scoreboard_team_layout": {
           "type": "string",
@@ -1099,7 +1174,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "scoreboard_background": {
           "type": "boolean",
@@ -1110,7 +1186,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "scoreboard_background_color": {
           "type": "string",
@@ -1121,7 +1198,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "first_person_legs": {
           "type": "boolean",
@@ -1132,7 +1210,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "first_person_legs_seat_shift": {
           "type": "number",
@@ -1143,7 +1222,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -1159,7 +1239,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "turn": {
           "type": "string",
@@ -1168,8 +1249,9 @@
           "x-environment": "HALO_TURN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "snap_angle": {
           "type": "number",
@@ -1178,8 +1260,9 @@
           "x-environment": "HALO_SNAP_ANGLE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "smooth_turn_speed": {
           "type": "number",
@@ -1188,8 +1271,9 @@
           "x-environment": "HALO_SMOOTH_TURN_SPEED",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "comfort_vignette": {
           "type": "boolean",
@@ -1198,8 +1282,9 @@
           "x-environment": "HALO_COMFORT_VIGNETTE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim": {
           "type": "string",
@@ -1208,8 +1293,9 @@
           "x-environment": "HALO_AIM",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "aim_loss_grace": {
           "type": "number",
@@ -1218,7 +1304,7 @@
           "x-environment": "HALO_AIM_LOSS_GRACE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "aim_hand": {
@@ -1228,8 +1314,9 @@
           "x-environment": "HALO_AIM_HAND",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "aim_pitch_offset": {
           "type": "number",
@@ -1238,8 +1325,9 @@
           "x-environment": "HALO_AIM_PITCH_OFFSET",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_assist": {
           "type": "number",
@@ -1248,8 +1336,9 @@
           "x-environment": "HALO_AIM_ASSIST",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_steady": {
           "type": "number",
@@ -1258,8 +1347,9 @@
           "x-environment": "HALO_AIM_STEADY",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_steady_zoom_2x": {
           "type": "number",
@@ -1268,8 +1358,9 @@
           "x-environment": "HALO_AIM_STEADY_ZOOM_2X",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_steady_zoom_8x": {
           "type": "number",
@@ -1278,8 +1369,9 @@
           "x-environment": "HALO_AIM_STEADY_ZOOM_8X",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "controller_rumble": {
           "type": "number",
@@ -1289,7 +1381,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "blast_rumble": {
           "type": "boolean",
@@ -1300,7 +1393,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "laser": {
           "type": "string",
@@ -1309,8 +1403,9 @@
           "x-environment": "HALO_LASER",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "reticle_ease": {
           "type": "number",
@@ -1319,8 +1414,9 @@
           "x-environment": "HALO_RETICLE_EASE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_turn_limit": {
           "type": "number",
@@ -1329,8 +1425,9 @@
           "x-environment": "HALO_WEAPON_TURN_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_roll_limit": {
           "type": "number",
@@ -1339,8 +1436,9 @@
           "x-environment": "HALO_WEAPON_ROLL_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_smoothing": {
           "type": "number",
@@ -1349,8 +1447,9 @@
           "x-environment": "HALO_WEAPON_SMOOTHING",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "first_person_arms": {
           "type": "string",
@@ -1359,8 +1458,9 @@
           "x-environment": "HALO_FIRST_PERSON_ARMS",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_follow": {
           "type": "number",
@@ -1369,8 +1469,9 @@
           "x-environment": "HALO_ARMS_FOLLOW",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_turn_limit": {
           "type": "number",
@@ -1379,8 +1480,9 @@
           "x-environment": "HALO_ARMS_TURN_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_up_limit": {
           "type": "number",
@@ -1389,8 +1491,9 @@
           "x-environment": "HALO_ARMS_UP_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_down_limit": {
           "type": "number",
@@ -1399,8 +1502,9 @@
           "x-environment": "HALO_ARMS_DOWN_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_roll_limit": {
           "type": "number",
@@ -1409,8 +1513,9 @@
           "x-environment": "HALO_ARMS_ROLL_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "head_magnetism": {
           "type": "boolean",
@@ -1419,8 +1524,9 @@
           "x-environment": "HALO_HEAD_MAGNETISM",
           "x-environment-style": "set_is_true",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "zoom_takeover": {
           "type": "boolean",
@@ -1429,8 +1535,9 @@
           "x-environment": "HALO_ZOOM_TAKEOVER",
           "x-environment-style": "set_is_true",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_origin_raise": {
           "type": "number",
@@ -1439,8 +1546,9 @@
           "x-environment": "HALO_AIM_ORIGIN_RAISE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "laser_distance": {
           "type": "number",
@@ -1449,8 +1557,9 @@
           "x-environment": "HALO_LASER_DISTANCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "stick_dead_zone": {
           "type": "number",
@@ -1461,7 +1570,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "mouse_sensitivity": {
           "type": "number",
@@ -1471,7 +1581,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "invert_mouse": {
           "type": "boolean",
@@ -1481,7 +1592,8 @@
           "x-environment-style": "set_is_true",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "mouse_aim_assist": {
           "type": "boolean",
@@ -1491,7 +1603,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "mouse_vertical_sensitivity": {
           "type": "number",
@@ -1501,7 +1614,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -3697,7 +3811,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "slurs": {
           "type": "string",
@@ -3708,7 +3823,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "swearing": {
           "type": "string",
@@ -3719,7 +3835,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "insults": {
           "type": "string",
@@ -3730,7 +3847,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -3747,7 +3865,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "volume": {
           "type": "number",
@@ -3758,7 +3877,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "music_volume": {
           "type": "number",
@@ -3769,7 +3889,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "music_enabled": {
           "type": "boolean",
@@ -3780,7 +3901,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "effects_volume": {
           "type": "number",
@@ -3791,7 +3913,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "fast_filter": {
           "type": "boolean",
@@ -3802,7 +3925,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "rate_bus": {
           "type": "boolean",
@@ -3813,7 +3937,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "worker_priority": {
           "type": "string",
@@ -3834,7 +3959,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -3851,7 +3977,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "address": {
           "type": "string",
@@ -3862,7 +3989,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "broadcast": {
           "type": "string",
@@ -3873,7 +4001,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "lan_broadcast": {
           "type": "string",
@@ -3883,7 +4012,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "online": {
           "type": "boolean",
@@ -3898,7 +4028,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "online_ask": {
           "type": "boolean",
@@ -3908,7 +4039,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "join_from_clipboard": {
           "type": "boolean",
@@ -3923,7 +4055,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "tunnel_port": {
           "type": "integer",
@@ -3934,7 +4067,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "allow_upnp": {
           "type": "boolean",
@@ -3945,7 +4079,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "background_grace": {
           "type": "integer",
@@ -3956,7 +4091,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "public_lobby": {
           "type": "boolean",
@@ -3967,7 +4103,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_browse": {
           "type": "boolean",
@@ -3978,7 +4115,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_table": {
           "type": "boolean",
@@ -3989,7 +4127,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_peer": {
           "type": "boolean",
@@ -4000,7 +4139,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_announce": {
           "type": "boolean",
@@ -4011,7 +4151,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_url": {
           "type": "string",
@@ -4022,7 +4163,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "host_public": {
           "type": "boolean",
@@ -4037,7 +4179,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "host_version": {
           "type": "integer",
@@ -4048,7 +4191,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "player_capacity": {
           "type": "integer",
@@ -4080,7 +4224,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "map_share_upload": {
           "type": "integer",
@@ -4091,7 +4236,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "map_seed": {
           "type": "boolean",
@@ -4106,7 +4252,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "map_seed_upload": {
           "type": "integer",
@@ -4117,7 +4264,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "custom_maps": {
           "type": "boolean",
@@ -4128,7 +4276,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "map_download": {
           "type": "boolean",
@@ -4143,7 +4292,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "coop_public": {
           "type": "boolean",
@@ -4154,7 +4304,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_late_join": {
           "type": "boolean",
@@ -4165,7 +4316,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_friendly_fire": {
           "type": "string",
@@ -4176,7 +4328,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_own_friendly_fire": {
           "type": "boolean",
@@ -4187,7 +4340,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_ally_friendly_fire": {
           "type": "boolean",
@@ -4198,7 +4352,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_player_collisions": {
           "type": "boolean",
@@ -4209,7 +4364,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_enemies_mode": {
           "type": "string",
@@ -4220,7 +4376,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_enemies": {
           "type": "integer",
@@ -4231,7 +4388,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_enemies_multiplier": {
           "type": "integer",
@@ -4242,7 +4400,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "brokers_file": {
           "type": "string",
@@ -4253,7 +4412,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "stun_servers": {
           "type": "string",
@@ -4264,7 +4424,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4281,7 +4442,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "move_backward": {
           "type": "string",
@@ -4292,7 +4454,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "strafe_left": {
           "type": "string",
@@ -4303,7 +4466,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "strafe_right": {
           "type": "string",
@@ -4314,7 +4478,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "jump": {
           "type": "string",
@@ -4325,7 +4490,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "crouch": {
           "type": "string",
@@ -4336,7 +4502,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "fire": {
           "type": "string",
@@ -4347,7 +4514,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "throw_grenade": {
           "type": "string",
@@ -4358,7 +4526,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "melee": {
           "type": "string",
@@ -4369,7 +4538,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "reload": {
           "type": "string",
@@ -4380,7 +4550,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "zoom": {
           "type": "string",
@@ -4391,7 +4562,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "switch_weapon": {
           "type": "string",
@@ -4402,7 +4574,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "switch_grenade": {
           "type": "string",
@@ -4413,7 +4586,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "action": {
           "type": "string",
@@ -4424,7 +4598,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "flashlight": {
           "type": "string",
@@ -4435,7 +4610,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "scoreboard": {
           "type": "string",
@@ -4446,7 +4622,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "pause": {
           "type": "string",
@@ -4457,7 +4634,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4474,7 +4652,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "language": {
           "type": "string",
@@ -4485,7 +4664,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "loading_screen": {
           "type": "string",
@@ -4496,7 +4676,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "loading_screen_seconds": {
           "type": "number",
@@ -4507,7 +4688,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "garbage_limit": {
           "type": "string",
@@ -4518,7 +4700,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "enhanced_animations": {
           "type": "boolean",
@@ -4529,7 +4712,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "custom_edition": {
           "type": "boolean",
@@ -4540,7 +4724,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4556,7 +4741,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "saves": {
           "type": "string",
@@ -4566,7 +4752,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "custom_edition": {
           "type": "string",
@@ -4576,7 +4763,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4592,7 +4780,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4608,7 +4797,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
