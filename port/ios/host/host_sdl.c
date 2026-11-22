@@ -740,12 +740,16 @@ void host_sdl_rumble_hold(int hold)
 
 int host_sdl_get_gamepads(uint32_t *ids, int capacity)
 {
-	/* the game lists the pads at each of its controller reads (XInputGetState, the late look's stick
-	read): a read the poll's 2 ms gate or a long frame left behind still sees current state */
-	if (host_game_thread_enabled() && !host_on_main_thread())
-		host_controller_refresh();
-	host_controller_age_sample();
 	return host_ios_gamepads(ids, capacity);
+}
+
+/* The game's controller reads (XInputGetState, the late look's stick read) call this first: the poll's
+2 ms gate and a long frame can leave them a frame behind, and only the game thread can bring the state
+up to date for them (the main thread's pump does, on its timer). */
+void host_sdl_update_joysticks(void)
+{
+	if (host_game_thread_enabled() && !host_on_main_thread())
+		host_controller_refresh_for_read();
 }
 
 uint32_t host_sdl_open_gamepad(uint32_t id)

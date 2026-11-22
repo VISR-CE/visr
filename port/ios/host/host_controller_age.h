@@ -8,14 +8,15 @@
    main-only state for joystick or gamepad events. */
 void host_controller_refresh(void);
 
+/* A game read of controller state, on the game thread: logs the age the read would have seen (with
+   debug.controller_age_log), then refreshes unless the state is under HOST_CONTROLLER_READ_MAX_AGE_NS
+   old, so the reads of one poll (four ports, the late look) share one update. */
+#define HOST_CONTROLLER_READ_MAX_AGE_NS 250000ull
+void host_controller_refresh_for_read(void);
+
 /* The main-thread pump (SDL_PumpEvents) just updated the controllers. */
 void host_controller_refreshed(void);
 
 /* Nanoseconds since the controllers were last brought up to date, or
    UINT64_MAX before the first update. */
 uint64_t host_controller_age_ns(void);
-
-/* One game read of controller state: adds its age to the window and, with
-   debug.controller_age_log, logs count, mean, p50, p99 and max every 5 s
-   (percentiles are bucket upper edges, 0.25 ms apart). */
-void host_controller_age_sample(void);

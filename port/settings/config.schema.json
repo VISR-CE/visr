@@ -1621,6 +1621,16 @@
             "apple"
           ]
         },
+        "controller_age_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Every 5 seconds log how old the controller state was when the game read it, before the read's own refresh, as reads, mean, p50, p99 and max in milliseconds (the time since SDL last updated the controllers; the game thread updates them at its poll and at each read when older than 0.25 ms). Off by default.",
+          "x-environment": "HALO_CONTROLLER_AGE_LOG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "knob_cycle": {
           "type": "boolean",
           "default": false,

@@ -43,7 +43,9 @@ static unsigned long long percentile_ns(double fraction) {
     return max_ns;
 }
 
-void host_controller_age_sample(void) {
+/* Adds the age of the state to the window and, with debug.controller_age_log, logs count, mean, p50, p99
+   and max every 5 s (percentiles are bucket upper edges, 0.25 ms apart). */
+static void age_sample(void) {
     if (log_enabled < 0) {
         char value[16];
         host_config_string("debug.controller_age_log", "false", value, sizeof(value));
@@ -69,4 +71,9 @@ void host_controller_age_sample(void) {
         window_start_ns = now;
     }
     pthread_mutex_unlock(&stats_lock);
+}
+
+void host_controller_refresh_for_read(void) {
+    age_sample();
+    if (host_controller_age_ns() >= HOST_CONTROLLER_READ_MAX_AGE_NS) host_controller_refresh();
 }

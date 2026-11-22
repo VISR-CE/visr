@@ -194,6 +194,8 @@ index of the one pressed, or -1 */
 int host_sdl_show_message_box(unsigned int flags, const char *title, const char *message, const char *first,
 	const char *second);
 int host_sdl_get_gamepads(unsigned int *ids, int capacity);
+/* the game thread's controller reads (xinput_sdl.c) bring SDL's controller state up to date first */
+void host_sdl_update_joysticks(void);
 unsigned int host_sdl_open_gamepad(unsigned int id);
 unsigned int host_sdl_gamepad_from_id(unsigned int id);
 int host_sdl_gamepad_axis(unsigned int gamepad, int axis);

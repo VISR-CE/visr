@@ -1140,6 +1140,16 @@ static void wheel_update(void)
 
 /* ---------- SDL gamepads */
 
+/* a controller read starts from current state: on the Apple hosts' game thread SDL updates its controllers
+only when asked (the main thread's timer does, up to a frame earlier); the host skips the update when
+another read of this poll just made it */
+static void controllers_update(void)
+{
+#ifdef HALO_ILP32
+	SDL_UpdateJoysticks();
+#endif
+}
+
 /* the SDL gamepads in connection order, at most one per port */
 static int sdl_gamepads(SDL_Gamepad *gamepads[PORT_COUNT])
 {
@@ -1502,6 +1512,7 @@ int halo_look_stick_latest(float *read_x, float *read_y, float *now_x, float *no
 	if (!look_read.valid)
 		return 0;
 	platform_pump_events();
+	controllers_update();
 	count = sdl_gamepads(gamepads);
 	gamepad = port_gamepad(gamepads, count, 0);
 	if (!gamepad)
@@ -1527,6 +1538,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	if (port < 0)
 		return ERROR_DEVICE_NOT_CONNECTED;
 	platform_pump_events();
+	controllers_update();
 	count = sdl_gamepads(gamepads);
 	if (port == 0)
 	{

@@ -1198,9 +1198,10 @@ static const struct config_setting config_settings[] =
 		"from 1.0 and wrap to 1.0, each step a new render target size, for checking that\n"
 		"debug.gpu_stats' live render targets stay flat (0, the default: off)." },
 	{ "debug.controller_age_log", _config_boolean, "false", "HALO_CONTROLLER_AGE_LOG", _environment_value, _platform_ios,
-		"Every 5 seconds log how old the controller state was when the game read it, as reads,\n"
-		"mean, p50, p99 and max in milliseconds (the time since SDL last updated the controllers;\n"
-		"the game thread updates them at its own poll). Off by default." },
+		"Every 5 seconds log how old the controller state was when the game read it, before the\n"
+		"read's own refresh, as reads, mean, p50, p99 and max in milliseconds (the time since SDL\n"
+		"last updated the controllers; the game thread updates them at its poll and at each\n"
+		"read when older than 0.25 ms). Off by default." },
 	{ "debug.knob_cycle", _config_boolean, "false", "HALO_KNOB_CYCLE", _environment_value, _platform_ios,
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"

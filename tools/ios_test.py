@@ -172,7 +172,7 @@ sdl_flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--li
 sdl_headers = shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True))
 (BUILD / 'game_thread_next_event.inc').write_text(
     extracted_definition('port/ios/host/host_sdl.c', 'next_event') + '\n' +
-    extracted_definition('port/ios/host/host_sdl.c', 'host_sdl_get_gamepads'))
+    extracted_definition('port/ios/host/host_sdl.c', 'host_sdl_update_joysticks'))
 run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
     '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/runtime/include', f'-I{BUILD}', *sdl_headers,
     'port/ios/tests/game_thread_flag_probe.c', 'port/ios/host/host_game_thread.c',
