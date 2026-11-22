@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
         assert type(values["display.render_quality"]) is float
         assert values["display.upscaler"] in ("bilinear","metalfx")
         required = {"display.anti_aliasing", "display.lod_scale", "display.interpolation", "display.frame_pacing",
-                    "display.vsync", "display.frame_rate", "display.frame_repeat", "display.effect_resolution",
+                    "display.vsync", "display.frame_rate", "display.frame_repeat", "display.effect_resolution", "display.effect_limits",
                     "display.shadow_batching", "display.decal_batching", "display.decal_dense_upload",
                     "display.compressed_textures",
                     "display.upscaled_textures", "display.native_hud", "display.high_res_hud", "display.high_res_text",
