@@ -5679,15 +5679,16 @@ static __inline real widget_instance_get_cumulative_alpha_modifier(
 }
 
 /* port: the one rule for drawing focus (a row's selected frame, white text, the plasma, a card's outline): whether a
-focused item draws as focused. A finger does not move focus and a tap acts on the item it lands on, so while the last
-input is touch nothing draws as focused; the focus itself stays, for the panel it describes and for the next
-controller or keyboard press. Mouse, controller and keyboard draw it. Every place that draws focus asks this
-(ui_list_child_draws_focus for a list's child, the carousel's cards, and the port's own lists in menu_functions.c);
-tools/test_focus_draw_rule.py fails on one that does not. */
-boolean ui_widget_port_draws_focus(
-	boolean focused)
+focused item of a kind (halo_menu_meta.h) draws as focused. A list's rows draw their focus on every input, touch
+too, so a touch player sees which row the panel describes. A carousel card draws no focus outline while the last
+input is touch: a finger does not move focus and a tap acts on the card it lands on. Every place that draws focus
+asks this (ui_list_child_draws_focus for a list's child, the carousel's cards, and the port's own lists in
+menu_functions.c); tools/test_focus_draw_rule.py fails on one that does not. */
+int ui_widget_port_draws_focus(
+	enum halo_menu_focus_item item,
+	int focused)
 {
-	return focused && halo_menu_pointer_controls() != 2;
+	return focused && (item == HALO_MENU_FOCUS_ROW || halo_menu_pointer_controls() != 2);
 }
 
 /* port: whether a list draws its child as focused (ui_widget_port_draws_focus) */
@@ -5695,7 +5696,7 @@ static boolean ui_list_child_draws_focus(
 	struct widget_instance *list,
 	struct widget_instance *child)
 {
-	return ui_widget_port_draws_focus(child == list->focused_child);
+	return ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, child == list->focused_child);
 }
 
 static boolean widget_instance_text_box_is_focused(
@@ -9695,7 +9696,8 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 			ui_carousel_rebind(list);
 			for (child = list->child; child; child = child->next)
 				if (child->animation.number_of_sprite_frames == 2)
-					child->animation.current_frame_index = ui_list_child_draws_focus(list, child) ? 1 : 0;
+					child->animation.current_frame_index =
+						ui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, child == list->focused_child) ? 1 : 0;
 		}
 		slot = item - state->binding_first;
 		card = widget_instance_get_nth_child(list, slot);
@@ -9705,7 +9707,8 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 		card_offset.x = (short)roundf(left) - card_definition->bounds.x0 - card->horizontal_offset;
 		ui_mouse_noting_targets = FALSE;
 		widget_instance_render_recursive(card, &frame, card_offset,
-			ui_widget_port_draws_focus(item == saved_selected), ui_widget_port_draws_focus(item == saved_selected));
+			ui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, item == saved_selected),
+			ui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, item == saved_selected));
 		ui_mouse_noting_targets = noting;
 		if (noting && card->visible && !card->disabled && !list->disabled &&
 			widget_instance_can_receive_events(list) && left >= frame.x0 &&
@@ -10574,7 +10577,7 @@ static void widget_instance_render_column_list(
 				clip_rect,
 				offset,
 				focus,
-				ui_widget_port_draws_focus(item_index == widget->parameters.list.selected_index));
+				ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, item_index == widget->parameters.list.selected_index));
 			item_index++;
 		}
 	}

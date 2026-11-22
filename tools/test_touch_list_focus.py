@@ -1,9 +1,9 @@
 """Executes the menu lists' focus drawing from source/interface/ui_widget.c for each input.
 
-Bug class: touch drawing keyboard and controller focus on list rows. A finger does not move focus and a tap acts on the
-row it lands on, so while the last input is touch no row of a column or spinner list draws as focused (no selected
-frame, no white text), at any depth (a row's text inside a row); the list keeps its focused child. Mouse, controller
-and keyboard draw it.
+Bug class: a list row's focus drawn differently by input. Steve (Nov 22): a list's rows keep their focus frame on
+touch, as on every other input, so a touch player sees which row the panel describes. Every row of a column or spinner
+list draws its focus (selected frame, white text) on every input, at any depth (a row's text inside a row), and the
+list keeps its focused child. A carousel card is the exception: no focus outline while the last input is touch.
 """
 
 from pathlib import Path
@@ -28,9 +28,9 @@ def function(source, signature):
             return source[start:index]
 
 
-def test_touch_draws_no_list_focus():
+def test_list_rows_draw_focus_on_every_input():
     source = (ROOT / "source/interface/ui_widget.c").read_text()
-    pieces = [function(source, "boolean ui_widget_port_draws_focus(\n"),
+    pieces = [function(source, "int ui_widget_port_draws_focus(\n"),
               function(source, "static boolean ui_list_child_draws_focus(\n"),
               function(source, "static boolean widget_instance_text_box_is_focused(\n"),
               function(source, "static __inline void spinner_list_update(\n"),
@@ -52,6 +52,7 @@ struct widget_instance {
 };
 struct ui_widget_definition { int unused; };
 static int pointer_controls;
+enum halo_menu_focus_item { HALO_MENU_FOCUS_ROW, HALO_MENU_FOCUS_CARD };
 static int halo_menu_pointer_controls(void) { return pointer_controls; }
 __PIECES__
 int main(void) {
@@ -68,7 +69,9 @@ int main(void) {
     label.type = _ui_widget_type_text_box;
     list.focused_child = &row[1];
     for (pointer_controls = 0; pointer_controls <= 2; pointer_controls++) {
-        int drawn = pointer_controls != 2;
+        int drawn = 1;
+        assert(ui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, 1) == (pointer_controls != 2));
+        assert(!ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, 0) && !ui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, 0));
         for (int kind = 0; kind < 2; kind++) {
             list.type = kind ? _ui_widget_type_spinner_list : _ui_widget_type_column_list;
             if (kind) spinner_list_update(&list); else column_list_update(&list, &definition);

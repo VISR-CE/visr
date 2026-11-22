@@ -75,6 +75,7 @@ their handlers open opens.
 #include "text/unicode.h"
 
 #include "halo_menus.h"
+#include "halo_menu_meta.h"
 #include "halo_network_version.h"
 #include "halo_network_content.h"
 #include "custom_edition_cache.h"
@@ -150,8 +151,6 @@ boolean ui_widget_port_dispatch_event(struct widget_instance *widget, short even
 	boolean *deleted);
 void ui_widget_port_go_back(struct widget_instance *widget);
 short ui_widget_port_list_index(struct widget_instance *list_widget);
-/* whether a focused item draws as focused (no focus drawn while the last input is touch) */
-boolean ui_widget_port_draws_focus(boolean focused);
 /* which of its captions the screen's bar action on the button shows (its strings=) */
 void ui_widget_port_bar_caption(struct widget_instance *screen, short button, short index);
 boolean ui_widget_port_saved_game(char const **map_name, short *level, short *difficulty);
@@ -1774,7 +1773,7 @@ static void graphics_rows_show(struct widget_instance *list)
 		/* column_list_update runs before event navigation. Match the outline to the focus used for help
 		during this draw, including when hiding the CRT row moves focus back to GRAPHICS. */
 		if (row->animation.number_of_sprite_frames == 2)
-			row->animation.current_frame_index = ui_widget_port_draws_focus(row == list->focused_child) ? 1 : 0;
+			row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == list->focused_child) ? 1 : 0;
 		for (part = row->child; part; part = part->next)
 		{
 			if (strstr(part->name, "_replaced"))
@@ -4031,7 +4030,7 @@ static void browser_focus(struct widget_instance *list)
 	for (row = list->child; row; row = row->next)
 	{
 		if (browser_row_index(row) != NONE)
-			row->animation.current_frame_index = ui_widget_port_draws_focus(row == focused) ? 1 : 0;
+			row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == focused) ? 1 : 0;
 	}
 	focus_off_hidden(named(list, "join_game_button_bar", 0));
 	if (focused && focused->visible && !focused->disabled)

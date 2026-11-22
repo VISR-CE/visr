@@ -51,6 +51,17 @@ enum halo_menu_typing
 	HALO_MENU_TYPING_POINTER
 };
 
+/* what draws focus, for the one focus rule (ui_widget.c's ui_widget_port_draws_focus): a row of a list (its selected
+frame, white text, plasma) draws it on every input, touch too; a carousel card's outline is not drawn on touch */
+enum halo_menu_focus_item
+{
+	HALO_MENU_FOCUS_ROW,
+	HALO_MENU_FOCUS_CARD
+};
+
+/* whether a focused item of the kind draws as focused (ui_widget.c) */
+int ui_widget_port_draws_focus(enum halo_menu_focus_item item, int focused);
+
 struct halo_menu_meta
 {
 	long tag_index;

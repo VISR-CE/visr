@@ -1,11 +1,10 @@
 """Every place that draws menu focus asks one rule, ui_widget_port_draws_focus.
 
-Bug class: touch drawing keyboard and controller focus. A finger does not move focus and a tap acts on the item it
-lands on, so while the last input is touch nothing draws as focused: no selected frame on a list row, a standalone
-row or a carousel card, no plasma or white text on a generated list item, no focused text box. Focus is drawn in
-several places (the engine's list updaters, its render loop and carousel, and the port's own lists in
-menu_functions.c, such as the Video Setup rows and the server browser). The Video Setup GRAPHICS row was the second
-place found drawing its frame on touch, after the list rows, because it decided on its own. This test reads every
+Bug class: focus drawn by a place that decides on its own, so one kind of item looks different from another on the
+same input. The rule decides by the kind of item: a list row (the engine's list rows, a generated list item's plasma
+and white text, the port's own rows such as Video Setup and the server browser) draws its focus on every input, touch
+too (Steve, Nov 22); a carousel card draws no focus outline on touch. Focus is drawn in several places (the engine's
+list updaters, its render loop and carousel, and the port's own lists in menu_functions.c). This test reads every
 focus-drawing site in both files and fails on one that decides without the rule.
 """
 
@@ -120,28 +119,30 @@ def test_every_focus_draw_site_asks_the_rule():
 
 def test_the_rule_is_where_the_lists_and_text_boxes_get_it():
     engine = ENGINE.read_text()
-    rule = engine[engine.index(f"boolean {RULE}("):]
+    rule = engine[engine.index(f"int {RULE}("):]
     assert "halo_menu_pointer_controls() != 2" in rule[:rule.index("}")]
     list_rule = engine[engine.index(f"static boolean {LIST_RULE}("):]
     assert RULE in list_rule[:list_rule.index("}")]
     text_box = engine[engine.rindex("static boolean widget_instance_text_box_is_focused("):]
     assert LIST_RULE in text_box[:text_box.index("\n}")]
-    assert f"boolean {RULE}(boolean focused);" in PORT.read_text()
+    assert '#include "halo_menu_meta.h"' in PORT.read_text()
+    header = (ROOT / "port/linux/include/halo_menu_meta.h").read_text()
+    assert f"int {RULE}(enum halo_menu_focus_item item, int focused);" in header
 
 
 def test_the_scan_finds_each_kind_of_bypass():
     """the sites as they were before the rule, one per kind, each found"""
     engine, port = ENGINE.read_text(), PORT.read_text()
     bypasses = [
-        ("port", "row->animation.current_frame_index = ui_widget_port_draws_focus(row == list->focused_child) ? 1 : 0;",
+        ("port", "row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == list->focused_child) ? 1 : 0;",
          "row->animation.current_frame_index = row == list->focused_child ? 1 : 0;"),
-        ("port", "row->animation.current_frame_index = ui_widget_port_draws_focus(row == focused) ? 1 : 0;",
+        ("port", "row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == focused) ? 1 : 0;",
          "row->animation.current_frame_index = row == focused ? 1 : 0;"),
-        ("engine", "child->animation.current_frame_index = ui_list_child_draws_focus(list, child) ? 1 : 0;",
+        ("engine", "child->animation.current_frame_index =\n\t\t\t\t\t\tui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, child == list->focused_child) ? 1 : 0;",
          "child->animation.current_frame_index = child == list->focused_child ? 1 : 0;"),
-        ("engine", "ui_widget_port_draws_focus(item_index == widget->parameters.list.selected_index));",
+        ("engine", "ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, item_index == widget->parameters.list.selected_index));",
          "item_index == widget->parameters.list.selected_index);"),
-        ("engine", "ui_widget_port_draws_focus(item == saved_selected), ui_widget_port_draws_focus(item == saved_selected));",
+        ("engine", "ui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, item == saved_selected),\n\t\t\tui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, item == saved_selected));",
          "item == saved_selected, item == saved_selected);"),
         ("engine", "if (ui_list_child_draws_focus(widget, child))\n\t\t{\n\t\t\tif (child->animation.number_of_sprite_frames == 2)",
          "if (child == widget->focused_child)\n\t\t{\n\t\t\tif (child->animation.number_of_sprite_frames == 2)"),
