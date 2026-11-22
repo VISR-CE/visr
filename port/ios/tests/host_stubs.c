@@ -1466,7 +1466,7 @@ __attribute__((weak)) void host_theater_set_upper_limbs(int32_t visible)
 __attribute__((weak)) void host_theater_start(int open)
 { }
 #if (defined(__OBJC__) && !defined(__swift__))
-__attribute__((weak)) double host_theater_take_waited(void)
+__attribute__((weak)) double host_theater_take_waited(int *in_render)
 { fprintf(stderr, "host_stubs: probe called host_theater_take_waited without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_theater_test_toggle(void)

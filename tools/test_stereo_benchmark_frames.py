@@ -16,7 +16,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / "port/ios/host"
 # every function that hands a picture to the Compositor
-PRESENTS = {"host_stereo_present", "host_stereo_present_ui", "host_theater_present", "host_theater_present_eyes"}
+# and the view its frame is measured as: only the UI's quad is not a run's frame, so a path marked as the quad by
+# mistake would be shown and count 0 frames
+PRESENT_VIEWS = {"host_stereo_present": "FULL", "host_theater_present_eyes": "STEREO_SCREEN",
+                 "host_theater_present": "THEATER_SCREEN", "host_stereo_present_ui": "UI_QUAD"}
+PRESENTS = set(PRESENT_VIEWS)
 
 
 def test_probe(tmp_path):
@@ -57,6 +61,29 @@ def test_every_compositor_present_is_measured():
     for name, number, branch in branches:
         counted = [line for line in branch if "stereo_pacing_count(" in line]
         assert len(counted) == 1, f"gpu_metal.m:{number}: {name} is shown and its frame is measured {len(counted)} times"
+        view = re.search(r"stereo_pacing_count\(HOST_COMPOSITOR_VIEW_(\w+),", counted[0])
+        assert view and view.group(1) == PRESENT_VIEWS[name], f"gpu_metal.m:{number}: {name} is measured as the wrong view"
+
+
+def test_theater_picture_is_measured_at_its_shaded_size():
+    """the theater screen's picture is upscaled to the screen: the run's render size is what the GPU shaded"""
+    lines = code_lines(HOST / "gpu_metal.m")
+    counted = [line for line in lines if "stereo_pacing_count(HOST_COMPOSITOR_VIEW_THEATER_SCREEN" in line]
+    assert len(counted) == 1 and "source_picture)" in counted[0]
+
+
+def test_report_sizes_agree():
+    """a Compositor run's render_size and its settings.render_lines come from one size"""
+    host = "\n".join(code_lines(HOST / "host_benchmark.m"))
+    assert "finished->lines ? finished->lines : (long)render_height" in host
+    assert "(long)window_height, finished->anisotropy" not in host
+    assert "host_compositor_view_name(compositor_view)" in host
+
+
+def test_wait_position_comes_from_the_theater():
+    """where the Compositor's wait fell is recorded where the frame is opened, not asserted per call site"""
+    theater = "\n".join(code_lines(HOST / "host_theater.m"))
+    assert "frame_waited_in_render = fresh;" in theater
 
 
 def test_no_other_compositor_present():
@@ -72,7 +99,7 @@ def test_measurement_feeds_the_benchmark():
     start = next(at for at, line in enumerate(lines) if line.startswith("static void stereo_pacing_count(int view") and not line.endswith(";"))
     end = next(at for at in range(start, len(lines)) if lines[at] == "}")
     body = "\n".join(lines[start:end])
-    assert "host_stereo_measure(" in body and "host_frame_cpu_split(" in body and "host_theater_take_waited()" in body
+    assert "host_stereo_measure(" in body and "host_frame_cpu_split(" in body and "host_theater_take_waited(&wait_in_render)" in body
     assert body.count("host_benchmark_frame(") == 1 and "host_benchmark_upscaler(" in body
     # host_benchmark_frame feeds the overlay itself: a run frame must not reach it twice
     assert body.count("host_frame_counter_sample(") == 1

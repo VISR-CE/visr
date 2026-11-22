@@ -24,6 +24,7 @@
 #import <QuartzCore/CAMediaTiming.h>
 #include "host_benchmark_page_policy.h"
 #include "host_benchmark_offscreen.h"
+#include "host_stereo_measure.h"
 #import "host_benchmark_presentation.h"
 #import "host_benchmark_snapshot.h"
 #import "host_data_updates.h"
@@ -1029,7 +1030,7 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
         scene->kind == BENCHMARK_SCENE_MENU ? "menu" : scene->kind == BENCHMARK_SCENE_CUTSCENE ? "cutscene" :
             scene->kind == BENCHMARK_SCENE_MULTIPLAYER ? "multiplayer_synthetic" : "gameplay",
         /* (a baseline run leaves the size to the profile: what it drew at is the setting it ran with) */
-        finished->lines ? finished->lines : (long)window_height, finished->anisotropy, finished->shadow_size,
+        finished->lines ? finished->lines : (long)render_height, finished->anisotropy, finished->shadow_size,
         finished->model_lod_max ? "max" : "auto",
         benchmark_status_name(status), json_string(note), render_width, render_height, json_object(run_output ?: suite_output ?: output_now()),
         json_object(@{ @"start": run_environment_start ?: @{}, @"end": run_environment_end ?: environment_now() }), measurements ? "," : "",
@@ -1095,10 +1096,9 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
     /* (a run the Compositor paced: its intervals are between the Compositor's presentation times; the guest's own
        window size, the eyes' logical size, stays beside the picture's) */
     if (pacing == HOST_BENCHMARK_PACING_PRESENTED && compositor_frames) {
-        static const char *views[] = { "full", "stereo_screen", "theater_screen", "ui_quad" };
         pacing = HOST_BENCHMARK_PACING_COMPOSITOR;
         record[@"compositor"] = @{ @"frames": @(compositor_frames),
-            @"view": @(compositor_view >= 0 && compositor_view < 4 ? views[compositor_view] : "unknown"),
+            @"view": @(host_compositor_view_name(compositor_view)),
             @"picture_size": @[ @(compositor_width), @(compositor_height) ],
             @"guest_render_size": @[ @(window_width), @(window_height) ] };
     }

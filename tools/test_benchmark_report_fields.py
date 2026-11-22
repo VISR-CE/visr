@@ -127,6 +127,8 @@ static int outcome_count, run_player_capacity, run_workload_variable, run_worklo
 static _Atomic long window_ticks;
 static double run_started_at, window_started_at;
 static int run_capped, window_presented, window_open, window_interrupted, window_width, window_height;
+static unsigned long compositor_frames;
+static int compositor_view, compositor_width, compositor_height;
 static unsigned dynamic_line_count, dynamic_line_other, upscaler_requests, upscaler_paths;
 static unsigned upscaler_frames[5];
 static NSDictionary *graphics_first, *graphics_last, *run_shader_before, *run_shader_after;
@@ -194,6 +196,7 @@ int main(int argc, char **argv) { @autoreleasepool {
     journal_path = @"journal";
     assert(benchmark_journal_start(JOURNAL, plan.mode, "CAPACITY", &plan.device, benchmark_plan_signature(&plan)));
     window_width=1920; window_height=1080; dynamic_line_count=8; dynamic_line_other=3;
+    compositor_frames=300; compositor_view=2; compositor_width=1888; compositor_height=1792;
     upscaler_requests=upscaler_paths=4; upscaler_frames[2]=100;
     graphics_first=graphics_last=@{@"stale": @YES}; graphics_changed=YES; graphics_snapshots=42;
     run_shader_before=run_shader_after=@{@"stale": @YES};
@@ -205,6 +208,7 @@ int main(int argc, char **argv) { @autoreleasepool {
         assert(unknown[@"workload_context"]==NSNull.null && !run_workload_seen);
     }
     assert(!window_width && !window_height && !dynamic_line_count && !dynamic_line_other);
+    assert(!compositor_frames && !compositor_view && !compositor_width && !compositor_height);
     assert(!upscaler_requests && !upscaler_paths && !upscaler_frames[2]);
     assert(!graphics_first && !graphics_last && !graphics_changed && !graphics_snapshots);
     assert(!run_shader_before && !run_shader_after && !run_started_at && !window_ticks && !run_capped && !window_presented);

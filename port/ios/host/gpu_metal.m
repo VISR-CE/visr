@@ -265,7 +265,7 @@ static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, 
 #include "host_stereo_hud.h"
 #include "host_stereo_measure.h"
 /* a Compositor-paced frame's measurements, from every present path that shows one (with the stereo frame times) */
-static void stereo_pacing_count(int view, id<MTLTexture> picture, BOOL after_present);
+static void stereo_pacing_count(int view, id<MTLTexture> picture);
 /* the cut's fade through black (gpu_metal_present_stereo) */
 static float stereo_cut_brightness(int view, int covered, int requested);
 #endif
@@ -9108,7 +9108,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			use_texture(record);
 			commit(YES);
 			host_stereo_present_ui(queue, record->texture, nil, stereo_cut_brightness(HOST_STEREO_VIEW_UI, 0, 0));
-			stereo_pacing_count(HOST_COMPOSITOR_VIEW_UI_QUAD, record->texture, YES);
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_UI_QUAD, record->texture);
 			frames++;
 			pacing.work_started = CACurrentMediaTime();
 		perf_gpu_waited = 0.0;
@@ -9143,7 +9143,8 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			use_texture(record);
 			commit(YES);
 			host_theater_present(queue, picture);
-			stereo_pacing_count(HOST_COMPOSITOR_VIEW_THEATER_SCREEN, picture, YES);
+			/* (the picture the GPU shaded, before the upscale to the screen's size) */
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_THEATER_SCREEN, source_picture);
 			frames++;
 			pacing.work_started = CACurrentMediaTime();
 		perf_gpu_waited = 0.0;
@@ -9528,15 +9529,17 @@ frames (host_benchmark_frame, which also feeds the overlay and the performance r
 feeds only those two. picture is what the GPU shaded for the view (an eye, or the theater's picture), for the run's
 render size.
 
-after_present: the paths that open the Compositor's frame inside their present (the theater screen's mono picture,
-the UI's quad from the mono entry) call it after the present, so the wait is this frame's and lies in the present;
-the others open theirs at the game's frame begin, inside the render span, and call it before the presenter's
-encode, as they always have. */
-static void stereo_pacing_count(int view, id<MTLTexture> picture, BOOL after_present)
+The mono entry's paths call it after their present, which is where the theater screen's picture opens its
+Compositor frame; the stereo entry's call it before the presenter's encode, as they always have. Where the
+Compositor's wait fell (the game's render span or the present) is the theater code's to say, since a mono present
+can also show a frame the game's frame begin already opened. */
+static void stereo_pacing_count(int view, id<MTLTexture> picture)
 {
+	int wait_in_render = 0;
+	double waited_for_frame = host_theater_take_waited(&wait_in_render);
 	struct host_stereo_measure_in reading = { view, CACurrentMediaTime(), pacing.work_started,
-		after_present ? host_theater_last_presentation_time() : host_theater_presentation_time(),
-		stereo_pacing.last_presentation, host_theater_take_waited(), !after_present, -1.0, -1.0, -1.0 };
+		host_theater_last_presentation_time(), stereo_pacing.last_presentation, waited_for_frame, wait_in_render,
+		-1.0, -1.0, -1.0 };
 	int ticks = 0;
 	uint64_t gpu_total = atomic_load(&pacing_gpu_nanoseconds);
 	double translation_cpu;
@@ -9552,6 +9555,8 @@ static void stereo_pacing_count(int view, id<MTLTexture> picture, BOOL after_pre
 	perf_gpu_waited = 0.0;
 	double gpu = (double)(gpu_total - stereo_pacing.gpu_counted) / 1e9;
 	BOOL gpu_measured = gpu_metal_gpu_spans(&stereo_pacing.gpu_used, &stereo_pacing.gpu_refused);
+	/* (taken on every frame, so a menu's waits do not land on the run's first frame) */
+	double worker_waited = host_benchmark_worker_waited_take();
 
 	host_perf_hooks_pacing(waited > 0.0 ? (uint64_t)(waited * 1e6) : 0);
 	stereo_pacing.gpu_counted = gpu_total;
@@ -9566,7 +9571,7 @@ static void stereo_pacing_count(int view, id<MTLTexture> picture, BOOL after_pre
 		host_benchmark_frame(interval, cpu > 0.0 ? cpu : -1.0, gpu_measured ? gpu : -1.0,
 			stereo_pacing.period > 0.0 ? stereo_pacing.period : 1.0 / 90.0, reading.simulation, measured.render,
 			reading.translation, ticks);
-		host_benchmark_frame_waits(frame_gpu_waited, host_benchmark_worker_waited_take());
+		host_benchmark_frame_waits(frame_gpu_waited, worker_waited);
 		host_benchmark_frame_probe();
 	}
 	else
@@ -9706,7 +9711,7 @@ static uint32_t present_stereo_frame(const struct gpu_stereo_present *present)
 			if (zoom && zoom->texture)
 				use_texture(zoom);
 			commit(YES);
-			stereo_pacing_count(HOST_COMPOSITOR_VIEW_FULL, color[0]->texture, NO);
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_FULL, color[0]->texture);
 			struct host_stereo_hud_aim aim = { present->reticle_world != 0, present->reticle_distance,
 				present->reticle_dim != 0, present->laser != 0,
 				{ present->laser_from[0], present->laser_from[1], present->laser_from[2] }, present->laser_opacity,
@@ -9739,7 +9744,7 @@ static uint32_t present_stereo_frame(const struct gpu_stereo_present *present)
 			use_texture(color[0]);
 			use_texture(hud);
 			commit(YES);
-			stereo_pacing_count(HOST_COMPOSITOR_VIEW_UI_QUAD, picture, NO);
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_UI_QUAD, picture);
 			host_stereo_present_ui(queue, picture, hud->texture,
 				stereo_cut_brightness(HOST_STEREO_VIEW_UI, present->cut_covered, 0));
 			frames++;
@@ -9762,7 +9767,7 @@ static uint32_t present_stereo_frame(const struct gpu_stereo_present *present)
 			if (hud && hud->texture)
 				use_texture(hud);
 			commit(YES);
-			stereo_pacing_count(HOST_COMPOSITOR_VIEW_STEREO_SCREEN, color[0]->texture, NO);
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_STEREO_SCREEN, color[0]->texture);
 			host_theater_present_eyes(queue, left, right, hud ? hud->texture : nil,
 				present->fade, stereo_cut_brightness(HOST_STEREO_VIEW_SCREEN, present->cut_covered, 0));
 			frames++;

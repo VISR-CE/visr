@@ -17,7 +17,19 @@ enum host_compositor_view {
     HOST_COMPOSITOR_VIEW_THEATER_SCREEN,
     /* the UI's quad: menus and loads, which are not a run's frames */
     HOST_COMPOSITOR_VIEW_UI_QUAD,
+    HOST_COMPOSITOR_VIEW_COUNT
 };
+
+/* the view's name in a benchmark report's "compositor" object */
+static inline const char *host_compositor_view_name(int view) {
+    switch (view) {
+    case HOST_COMPOSITOR_VIEW_FULL: return "full";
+    case HOST_COMPOSITOR_VIEW_STEREO_SCREEN: return "stereo_screen";
+    case HOST_COMPOSITOR_VIEW_THEATER_SCREEN: return "theater_screen";
+    case HOST_COMPOSITOR_VIEW_UI_QUAD: return "ui_quad";
+    default: return "unknown";
+    }
+}
 
 struct host_stereo_measure_in {
     int view;
@@ -27,14 +39,16 @@ struct host_stereo_measure_in {
     /* the seconds since work_started spent waiting for the Compositor's frame, taken once */
     double waited;
     /* 1 when that wait fell inside the game's render span (the frame was opened at the game's frame begin), 0 when
-       it fell inside the present */
+       it fell inside the present: the theater code, which opens the frame, says which (host_theater_take_waited) */
     int wait_in_render;
     /* the game's marks (host_frame_cpu_split): negative where it marked none */
     double simulation, render, translation;
 };
 
 struct host_stereo_measure_out {
-    /* seconds; interval 0 where either presentation time is unknown, cpu 0 where the work's start is */
+    /* seconds; interval 0 where either presentation time is unknown, cpu 0 where the work's start is. A frame the
+       Compositor opened and then ended empty or canceled still has a new presentation time, so it has an interval
+       and is counted; telling those apart waits for the frame timeline's unshown flag. */
     double interval, cpu;
     /* the render span without the Compositor's wait; negative where unknown */
     double render;

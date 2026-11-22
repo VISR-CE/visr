@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "host_stereo_measure.h"
 #include "benchmark_metrics.h"
 
@@ -98,6 +99,14 @@ int main(void) {
         reading.wait_in_render = 0; reading.render = 0.005;
         CHECK(NEAR(host_stereo_measure(&reading).render, 0.005));
     }
+    /* every view has a name in the report, and only the UI's quad is not a run's frame */
+    for (int view = 0; view < HOST_COMPOSITOR_VIEW_COUNT; view++) {
+        struct host_stereo_measure_in reading = { view, 10.0, 9.990, 10.02, 10.0, 0.0, 0, -1.0, -1.0, -1.0 };
+
+        CHECK(strcmp(host_compositor_view_name(view), "unknown") != 0);
+        CHECK(host_stereo_measure(&reading).run_frame == (view != HOST_COMPOSITOR_VIEW_UI_QUAD));
+    }
+    CHECK(strcmp(host_compositor_view_name(HOST_COMPOSITOR_VIEW_COUNT), "unknown") == 0);
     if (failures) {
         fprintf(stderr, "stereo_benchmark_frames_probe: %d of %d checks failed\n", failures, checks);
         return 1;

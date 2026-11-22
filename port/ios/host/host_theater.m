@@ -70,6 +70,8 @@ static BOOL open_anchored[MAXIMUM_DRAWABLES];
 the Compositor's frames since the last take, and the open frame's
 presentation time */
 static CFTimeInterval frame_waited;
+/* whether the latest of those waits began a frame at the game's frame begin (fresh), inside its render span */
+static int frame_waited_in_render;
 static CFTimeInterval open_presentation;
 /* when the Compositor wants the open frame submitted by (CACurrentMediaTime's clock) */
 static CFTimeInterval open_deadline;
@@ -843,6 +845,7 @@ int host_theater_frame_begin(int fresh)
 		/* the poses are freshest at the optimal input time */
 		cp_time_wait_until(cp_frame_timing_get_optimal_input_time(timing));
 		frame_waited += CACurrentMediaTime() - wait_began;
+		frame_waited_in_render = fresh;
 		open_presentation = cp_time_to_cf_time_interval(cp_frame_timing_get_presentation_time(timing));
 		open_deadline = cp_time_to_cf_time_interval(cp_frame_timing_get_rendering_deadline(timing));
 		cp_frame_start_submission(frame);
@@ -911,11 +914,14 @@ cp_drawable_t host_theater_drawable(size_t index, simd_float4x4 *origin_from_dev
 	return open_drawables[index];
 }
 
-double host_theater_take_waited(void)
+double host_theater_take_waited(int *in_render)
 {
 	CFTimeInterval waited = frame_waited;
 
+	if (in_render)
+		*in_render = frame_waited_in_render;
 	frame_waited = 0.0;
+	frame_waited_in_render = 0;
 	return waited;
 }
 

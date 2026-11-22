@@ -70,12 +70,14 @@ int host_theater_foveation_state(float *quality, float *runtime, float *default_
 	const char **offered);
 /* for stereo's frame times (gpu_metal.m): the seconds the game spent
 waiting for the Compositor's frames (host_theater_frame_begin) since the
-last call; the open frame's presentation time and the time the Compositor
+last call, and in *in_render (may be NULL) whether that wait opened a
+frame at the game's frame begin, inside its render span, and not inside
+a present; the open frame's presentation time and the time the Compositor
 wants it submitted by, its rendering deadline (CACurrentMediaTime's clock,
 0 without a frame); the presentation time of the last frame opened, which
 a path that opens and ends its frame inside its present reads afterwards
 (0 before any); and the layer's frame repeat count */
-double host_theater_take_waited(void);
+double host_theater_take_waited(int *in_render);
 double host_theater_presentation_time(void);
 double host_theater_last_presentation_time(void);
 double host_theater_rendering_deadline(void);
