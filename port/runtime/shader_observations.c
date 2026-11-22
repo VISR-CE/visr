@@ -1,5 +1,6 @@
 /* Bounded single-producer collection; canonicalization runs on the worker. */
 #include "shader_observations.h"
+#include "shader_record.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -31,46 +32,33 @@ int shader_observations_take(struct shader_observation_collector *c, struct shad
     atomic_store_explicit(&c->read, read + 1, memory_order_release);
     return 1;
 }
-static uint64_t hash64(const uint8_t *bytes, uint32_t size)
-{
-    uint64_t hash = UINT64_C(14695981039346656037);
-    while (size--) { hash ^= *bytes++; hash *= UINT64_C(1099511628211); }
-    return hash;
-}
 int shader_observations_lines(const struct shader_observation *d, char *line, char *vertex, char *pixel)
 {
+    struct shader_record v = {0}, p = {0}, pipeline = {0};
     uint32_t i;
-    char kinds[33];
     line[0] = vertex[0] = pixel[0] = 0;
     if (d->kind < SHADER_OBSERVATION_VERTEX || d->kind > SHADER_OBSERVATION_PIPELINE || d->variant > 1) return 0;
+    v.kind = SHADER_RECORD_VS; v.vertex_hash = d->vertex_hash; v.variant = d->variant; v.mask = d->packed_mask;
     if (d->kind != SHADER_OBSERVATION_VERTEX) {
-        size_t length;
-        if (!d->pixel_size || d->pixel_size > SHADER_OBSERVATION_PIXEL_MAX ||
-            hash64(d->pixel, d->pixel_size) != d->pixel_hash) return 0;
-        length = (size_t)snprintf(pixel, SHADER_OBSERVATION_LINE_MAX, "ps %016llx ", (unsigned long long)d->pixel_hash);
-        for (i = 0; i < d->pixel_size; ++i) {
-            static const char hex[] = "0123456789abcdef";
-            pixel[length++] = hex[d->pixel[i] >> 4]; pixel[length++] = hex[d->pixel[i] & 15];
-        }
-        pixel[length] = 0;
+        if (!d->pixel_size || d->pixel_size > SHADER_OBSERVATION_PIXEL_MAX || d->pixel_size > SHADER_RECORD_KEY_MAX ||
+            shader_record_hash(d->pixel, d->pixel_size) != d->pixel_hash) return 0;
+        p.kind = SHADER_RECORD_PS; p.hash = d->pixel_hash; p.key_size = d->pixel_size;
+        memcpy(p.key, d->pixel, d->pixel_size);
+        shader_record_format(&p, pixel);
     }
-    if (d->kind != SHADER_OBSERVATION_PIXEL)
-        snprintf(vertex, SHADER_OBSERVATION_LINE_MAX, "vs %016llx %u %x", (unsigned long long)d->vertex_hash, d->variant, d->packed_mask);
+    if (d->kind != SHADER_OBSERVATION_PIXEL) shader_record_format(&v, vertex);
     if (d->kind == SHADER_OBSERVATION_VERTEX) strcpy(line, vertex);
     else if (d->kind == SHADER_OBSERVATION_PIXEL) strcpy(line, pixel);
     else {
-        if (d->blend > 1 || d->exact_borders > 15 || d->depth > 1 || d->write_mask > 15 ||
-            d->source > 14 || d->destination > 14 || d->operation > 4 ||
-            d->alpha_source > 14 || d->alpha_destination > 14) return 0;
-        for (i = 0; i < 16; ++i) {
-            if (d->attribute_kinds[i] > 19) return 0;
-            snprintf(kinds + 2 * i, 3, "%02x", d->attribute_kinds[i]);
-        }
-        snprintf(line, SHADER_OBSERVATION_LINE_MAX,
-            "pipeline %016llx.%u.%x %016llx %u %u %u %u %u %u %u %s %u %u",
-            (unsigned long long)d->vertex_hash, d->variant, d->packed_mask, (unsigned long long)d->pixel_hash,
-            d->blend, d->source, d->destination, d->operation, d->write_mask, d->exact_borders, d->depth,
-            kinds, d->alpha_source, d->alpha_destination);
+        /* the ranges are the contract's (shader_record_admit), written once */
+        pipeline.kind = SHADER_RECORD_PIPELINE; pipeline.vertex_hash = d->vertex_hash; pipeline.variant = d->variant;
+        pipeline.mask = d->packed_mask; pipeline.hash = d->pixel_hash; pipeline.blend = d->blend;
+        pipeline.source = d->source; pipeline.destination = d->destination; pipeline.operation = d->operation;
+        pipeline.write_mask = d->write_mask; pipeline.exact_borders = d->exact_borders; pipeline.depth = d->depth;
+        pipeline.alpha_source = d->alpha_source; pipeline.alpha_destination = d->alpha_destination;
+        for (i = 0; i < SHADER_RECORD_ATTRIBUTES; ++i) pipeline.attribute_kinds[i] = d->attribute_kinds[i];
+        if (!shader_record_admit(&pipeline, NULL)) return 0;
+        shader_record_format(&pipeline, line);
     }
     return 1;
 }

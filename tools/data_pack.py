@@ -13,6 +13,7 @@ import lzma
 import os
 from pathlib import Path
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -268,12 +269,94 @@ def validate_with_released_apps(files, target, generation):
     return [tag for tag, _ in validators]
 
 
+SHADER_RECORD_SOURCES = ["port/ios/host/host_shader_pack.c", "port/runtime/shader_record.c"]
+SHADER_RECORD_HEADERS = ["port/ios/host/host_shader_pack.h", "port/runtime/shader_record.h"]
+
+
+def shader_pack_probe():
+    """The app's shader admission (host_shader_pack.c on the shader_record.h contract), as a command"""
+    return helper("shader-pack-probe", ["port/ios/tests/shader_pack_probe.c", *SHADER_RECORD_SOURCES],
+                  dependencies=SHADER_RECORD_HEADERS)
+
+
+def shader_record_tool():
+    """tools for shader record files: check, explain, close, canonical, merge, fields (docs/data-packs.md)"""
+    return helper("shader-record", ["port/ios/tests/shader_record_tool.c", "port/runtime/shader_record_close.c",
+                                    *SHADER_RECORD_SOURCES], dependencies=SHADER_RECORD_HEADERS)
+
+
 def validate_shaders(folder):
-    probe = helper("shader-pack-probe", ["port/ios/tests/shader_pack_probe.c", "port/ios/host/host_shader_pack.c"],
-                   dependencies=["port/ios/host/host_shader_pack.h"])
-    result = subprocess.run([str(probe), str(folder)], capture_output=True, text=True)
+    result = subprocess.run([str(shader_pack_probe()), str(folder)], capture_output=True, text=True)
     if result.returncode:
         raise ValueError(result.stderr.strip() or "shader snapshot rejected")
+
+
+# The oldest release whose app the shader feed must satisfy. Builds 0.6.12-0.6.14 refuse a whole snapshot that
+# holds a sampler-type-5 record (their bound is 4), and keep their bundled lists when they do; 0.6.15 and later
+# admit it. Raising this floor stops the gate from naming those builds; lowering it must come with a reason
+# (docs/data-packs.md, "Shader feed gate").
+SHADER_FEED_FLOOR_TAG = "visr-v0.6.15"
+
+
+def release_version(tag):
+    found = re.fullmatch(r"visr-v(\d+)\.(\d+)\.(\d+)", tag)
+    return tuple(map(int, found.groups())) if found else None
+
+
+def released_shader_validators(floor=SHADER_FEED_FLOOR_TAG):
+    """[(tag, probe, bundled lists folder)] for every release from the floor on: each probe is built from that
+    tag's own shader_pack_probe.c and host_shader_pack.c (and the shader_record module, once it has one), and the
+    folder is that tag's bundled port/shader-lists, which is the base its app merges a feed onto."""
+    listed = subprocess.run(["git", "-C", str(ROOT), "tag", "--list", "visr-v*"], capture_output=True, text=True, check=True)
+    minimum = release_version(floor)
+    tags = sorted((tag for tag in listed.stdout.split() if release_version(tag) and release_version(tag) >= minimum),
+                  key=release_version)
+    result = []
+    for tag in tags:
+        commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", f"{tag}^{{commit}}"], capture_output=True,
+                                text=True, check=True).stdout.strip()
+        cache = ROOT / "build/ios/probe/released" / commit
+        probe, lists = cache / "shader-pack-probe", cache / "shader-lists"
+        if not probe.exists() or not lists.is_dir():
+            cache.mkdir(parents=True, exist_ok=True)
+            present = subprocess.run(["git", "-C", str(ROOT), "ls-tree", "-r", "--name-only", commit, "--",
+                                      "port/runtime/shader_record.c"], capture_output=True, text=True).stdout.split()
+            paths = ["port/ios/host", "port/ios/tests/shader_pack_probe.c", "port/shader-lists", *(["port/runtime"] if present else [])]
+            with tempfile.TemporaryDirectory(prefix="visr-released-shaders-") as temporary:
+                archive = subprocess.run(["git", "-C", str(ROOT), "archive", "--format=tar", commit, "--", *paths],
+                                         capture_output=True, check=True).stdout
+                subprocess.run(["tar", "--extract", "--directory", temporary], input=archive, check=True)
+                tree = Path(temporary)
+                sources = [tree / "port/ios/tests/shader_pack_probe.c", tree / "port/ios/host/host_shader_pack.c"]
+                if present:
+                    sources.append(tree / "port/runtime/shader_record.c")
+                descriptor, output = tempfile.mkstemp(prefix=".shader-pack-", dir=cache)
+                os.close(descriptor)
+                try:
+                    subprocess.run(["cc", "-std=c11", "-D_POSIX_C_SOURCE=200809L", "-D_DARWIN_C_SOURCE=1", "-O1", "-w",
+                                    *map(str, sources), "-o", output], check=True)
+                    os.chmod(output, 0o755)
+                    shutil.rmtree(lists, ignore_errors=True)
+                    shutil.copytree(tree / "port/shader-lists", lists)
+                    os.replace(output, probe)
+                finally:
+                    Path(output).unlink(missing_ok=True)
+        result.append((tag, probe, lists))
+    return result
+
+
+def validate_shaders_with_released_apps(folder, require=True):
+    """Refuse a shader snapshot that any release from the floor on would refuse, naming the release and the
+    record: each app admits the feed merged onto its own bundled lists, so each is run exactly so. Returns the
+    tags that admit it. `require` is False only where a tagless checkout is expected (tests)."""
+    validators = released_shader_validators()
+    if require and not validators:
+        raise ValueError(f"no release tag from {SHADER_FEED_FLOOR_TAG} on is in this checkout (git fetch --tags)")
+    for tag, probe, lists in validators:
+        result = subprocess.run([str(probe), str(folder), str(lists)], capture_output=True, text=True)
+        if result.returncode:
+            raise ValueError(f"{tag} would refuse this shader snapshot: " + (result.stderr.strip() or "shader snapshot rejected"))
+    return [tag for tag, _, _ in validators]
 
 
 def validate_device_profiles(folder, target, generation=1):
@@ -619,6 +702,12 @@ def main(arguments=None):
         if args.device_platform or args.device_model or args.device_chip:
             raise ValueError("device arguments require device-profiles-1, -2, -3, -4 or -5 compatibility")
         files = snapshot(args.input, args.kind, args.compatibility)
+        if args.kind == "shaders":
+            with tempfile.TemporaryDirectory(prefix="visr-released-shader-snapshot-") as temporary:
+                for name, content in files.items():
+                    (Path(temporary) / name).write_bytes(content)
+                checked = validate_shaders_with_released_apps(temporary)
+            print(f"Released apps that admit this snapshot: {', '.join(checked)}")
     assets = {}
     if args.kind == "shaders" and args.compatibility == "shader-lists-2":
         encoded = {}

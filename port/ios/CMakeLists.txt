@@ -175,7 +175,7 @@ add_executable(VISR MACOSX_BUNDLE
     host/host_shader_pack.c host/host_data_pack.m host/host_data_updates.m host/host_recording_pack.c host/host_benchmark_snapshot.m host/host_benchmark_catalog.m
     "${ROOT}/port/third_party/monocypher/monocypher.c"
     "${ROOT}/port/third_party/monocypher/monocypher-ed25519.c"
-    host/host_shader_upload.m host/host_map_identity.m "${ROOT}/port/runtime/shader_observations.c"
+    host/host_shader_upload.m host/host_map_identity.m "${ROOT}/port/runtime/shader_observations.c" "${ROOT}/port/runtime/shader_record.c"
     host/host_perf_reports.m host/host_perf_hooks.c host/host_perf_metal.m host/host_perf_validation.m host/host_report_delivery.m host/host_log_file.c host/host_open_website.m host/host_log_send.m "${ROOT}/port/runtime/game_perf.c"
     host/host_benchmark.m host/host_benchmark_outbox.m host/host_benchmark_presentation.m host/host_benchmark_page.m "${ROOT}/port/runtime/benchmark_metrics.c" "${ROOT}/port/runtime/benchmark_presentation.c"
     "${ROOT}/port/runtime/benchmark_plan.c" "${ROOT}/port/runtime/benchmark_journal.c"

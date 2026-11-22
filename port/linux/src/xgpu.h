@@ -14,6 +14,8 @@ guest memory write tracking (memory_watch.c) and the device itself
 #include "gpu.h"
 
 #include <stddef.h>
+#include <stdint.h>
+#include "../../runtime/shader_record.h"
 
 /* what the GPU backend can do (gpu_initialize, d3d8_device.c) */
 extern struct gpu_capabilities device_capabilities;
@@ -179,7 +181,9 @@ enum
 };
 
 /* everything a translated pixel shader depends on; the GLSL program cache
-is keyed by these bytes */
+is keyed by these bytes. It is the record shader_record.h's table SHADER_RECORD_PS_FIELDS describes (DWORD is
+4 bytes in the guest, the only compiler that includes this file; the later members are fixed-width): the
+assertions below fail the build when the two differ (a field added here needs its row there) */
 struct nv2a_pixel_shader_key
 {
 	DWORD combiner_state[D3DRS_PS_MAX];
@@ -191,7 +195,7 @@ struct nv2a_pixel_shader_key
 	D3DTSIGN_*) that hold signed data in an unsigned texture format */
 	unsigned char color_sign[4];
 	/* D3DCMP_* function for the alpha test, or 0 when disabled */
-	unsigned long alpha_test_function;
+	uint32_t alpha_test_function;
 	unsigned char fog_enable;
 	unsigned char fog_table_mode;
 	/* inside a visibility test: count the samples that pass (iOS) */
@@ -235,8 +239,35 @@ struct nv2a_pixel_shader_key
 	program_hash) of the lit vertex program this pixel shader is drawn with,
 	low word first; 0 unlit. Its shader replaces xD0, xD1 and xT3 with the
 	program's lighting, run per pixel (nv2a_lighting_slice) */
-	unsigned int lighting_program[2];
+	uint32_t lighting_program[2];
 };
+
+/* the struct is the table's record: every field at its offset and size, no padding, and the three key sizes
+(what a list holds, what a multisampled or soft key adds, what a lit key adds) */
+#define SHADER_RECORD_ASSERT(name, offset, size, count, minimum, maximum, rule, source) \
+	_Static_assert(offsetof(struct nv2a_pixel_shader_key, name) == (offset), \
+		#name " is not at its offset in shader_record.h's SHADER_RECORD_PS_FIELDS"); \
+	_Static_assert(sizeof(((struct nv2a_pixel_shader_key *)0)->name) == (size) * (count), \
+		#name " is not the size of its row in shader_record.h's SHADER_RECORD_PS_FIELDS");
+SHADER_RECORD_PS_FIELDS(SHADER_RECORD_ASSERT)
+#undef SHADER_RECORD_ASSERT
+#define SHADER_RECORD_SUM(name, offset, size, count, minimum, maximum, rule, source) + (size) * (count)
+_Static_assert(0 SHADER_RECORD_PS_FIELDS(SHADER_RECORD_SUM) == sizeof(struct nv2a_pixel_shader_key) &&
+	sizeof(struct nv2a_pixel_shader_key) == SHADER_RECORD_KEY_LIT_SIZE,
+	"struct nv2a_pixel_shader_key has a member shader_record.h's SHADER_RECORD_PS_FIELDS does not list");
+#undef SHADER_RECORD_SUM
+_Static_assert(offsetof(struct nv2a_pixel_shader_key, alpha_test_samples) == SHADER_RECORD_KEY_BASE_SIZE &&
+	offsetof(struct nv2a_pixel_shader_key, lighting_program) == SHADER_RECORD_KEY_SAMPLES_SIZE,
+	"the key sizes of shader_record.h are not the struct's");
+/* a pipeline line's ranges are gpu.h's enums' (not asserted in gpu.h itself: its text is GPU_INTERFACE_HASH, and
+every capture made before an edit there would be refused) */
+_Static_assert(GPU_BLEND_ONE_MINUS_CONSTANT_ALPHA == SHADER_RECORD_FACTOR_MAX && GPU_BLEND_OP_MAX == SHADER_RECORD_OPERATION_MAX &&
+	GPU_ATTRIBUTE_NORMPACKED3 == SHADER_RECORD_ATTRIBUTE_KIND_MAX && GPU_ATTRIBUTE_COUNT == SHADER_RECORD_ATTRIBUTES,
+	"shader_record.h's pipeline ranges are not gpu.h's blend and attribute enums'");
+_Static_assert(D3DRS_PS_MAX == SHADER_RECORD_COMBINER_WORDS && D3DRS_PSCOMBINERCOUNT == SHADER_RECORD_COMBINER_COUNT &&
+	D3DRS_PSALPHAINPUTS0 == SHADER_RECORD_BANK_ALPHA_INPUTS && D3DRS_PSALPHAOUTPUTS0 == SHADER_RECORD_BANK_ALPHA_OUTPUTS &&
+	D3DRS_PSRGBINPUTS0 == SHADER_RECORD_BANK_RGB_INPUTS && D3DRS_PSRGBOUTPUTS0 == SHADER_RECORD_BANK_RGB_OUTPUTS,
+	"the combiner state's layout in shader_record.h is not the render states'");
 #define XGPU_COVERAGE_ALPHA 1
 #define XGPU_COVERAGE_POINT_THRESHOLD 2
 
@@ -259,7 +290,10 @@ static inline unsigned long nv2a_pixel_shader_key_size(const struct nv2a_pixel_s
 
 /* the key as the translation reads it: the translation runs the combiner stages below the combiner count
 (D3DRS_PSCOMBINERCOUNT, at most 8) and reads nothing of the later stages' registers, which hold whatever an earlier
-shader left in them. Zeroing them makes one shader one key, whatever drew before it. */
+shader left in them. Zeroing them makes one shader one key, whatever drew before it. This is shader_record.h's
+SHADER_RECORD_CANONICALIZE_COMBINERS, written out here with the render states' names because the extracted-source
+test harnesses (tools/test_pixel_key_samples.py) compile this function alone against their own enums;
+tools/test_shader_record.py checks that the two give one answer on random keys. */
 static inline void nv2a_pixel_shader_key_canonicalize(struct nv2a_pixel_shader_key *key)
 {
 	unsigned long count = key->combiner_state[D3DRS_PSCOMBINERCOUNT] & 0xff, stage;

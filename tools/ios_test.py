@@ -342,13 +342,13 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address', '-Iport/ios/host', '-Iport/th
     'port/third_party/tomlc17/tomlc17.c', '-o', BUILD / 'profile-pack-probe')
 run(BUILD / 'profile-pack-probe', ROOT / 'profiles')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror',
-    'port/ios/tests/shader_pack_probe.c', 'port/ios/host/host_shader_pack.c', '-o', BUILD / 'shader-pack-probe')
+    'port/ios/tests/shader_pack_probe.c', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c', '-o', BUILD / 'shader-pack-probe')
 run(BUILD / 'shader-pack-probe', ROOT / 'port/shader-lists')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror',
-    'port/ios/tests/shader_admission_memory_probe.c', '-o', BUILD / 'shader-admission-memory-probe')
+    'port/ios/tests/shader_admission_memory_probe.c', 'port/runtime/shader_record.c', '-o', BUILD / 'shader-admission-memory-probe')
 run(BUILD / 'shader-admission-memory-probe')
 run('xcrun', 'clang', '-std=c11', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror',
-    '-Iport/runtime', 'port/ios/tests/shader_observations_probe.c', 'port/runtime/shader_observations.c',
+    '-Iport/runtime', 'port/ios/tests/shader_observations_probe.c', 'port/runtime/shader_observations.c', 'port/runtime/shader_record.c',
     '-o', BUILD / 'shader-observations-probe')
 run(BUILD / 'shader-observations-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror',
@@ -376,7 +376,7 @@ run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="tes
     '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/data_updates_probe.m',
     'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c', 'port/ios/host/host_data_pack.m',
     'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
-    'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
+    'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'data-updates-probe')
 # A signed latest-release record is staged and read by the same store the launch menu uses.
@@ -418,7 +418,7 @@ run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="tes
     '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/profile_feed_probe.m',
     'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c', 'port/ios/host/host_data_pack.m',
     'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
-    'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
+    'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'profile-feed-probe')
 # (the published feeds are the VISR-CE/visr-feeds commit tools/visr-feeds.pin names, fetched by tools/visr_feeds_tree.py)
@@ -430,7 +430,7 @@ run(BUILD / 'profile-feed-probe', ROOT, feeds_tree / 'tester/profiles',
     BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
     '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression', 'port/ios/tests/shader_download_probe.m',
-    'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
+    'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'shader-download-probe')
 run(BUILD / 'shader-download-probe')
@@ -442,7 +442,7 @@ run('python3', '-c', (
     'open(sys.argv[1], "wb").write(data_pack.compress_recording_archive(data_pack.recording_archive(files))[0])'), recording_archive)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
     '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression', 'port/ios/tests/recording_download_probe.m',
-    'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
+    'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'recording-download-probe')
 run(BUILD / 'recording-download-probe', recording_archive)
@@ -459,7 +459,7 @@ run('python3', '-I', '-c', (
 published_blob = next((published / 'recording-blobs').glob('*.xz'))
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
     '-Iport/ios/host', '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression',
-    'port/ios/tests/recording_catalog_probe.m', 'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
+    'port/ios/tests/recording_catalog_probe.m', 'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c',
     'port/ios/host/host_benchmark_catalog.m', 'port/ios/host/host_recording_pack.c', 'port/runtime/benchmark_plan.c',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'recording-catalog-probe')
@@ -472,7 +472,7 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblo
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation', '-lz', '-lcompression',
     'port/ios/tests/feeds_host_probe.m', 'port/ios/host/host_data_pack.m', 'port/ios/host/host_profile.c',
     'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c', 'port/ios/host/host_recording_pack.c',
-    'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
+    'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'feeds-host-probe')
 run('python3', 'tools/feeds_host_check.py', BUILD / 'feeds-host-probe')
@@ -740,7 +740,7 @@ for perf_reports in (1, 0):
         '-fobjc-arc', '-fblocks', '-DHALO_NATIVE_MAC=1', f'-DHALO_PERF_REPORTS={perf_reports}',
         '-DHALO_SHADER_UPLOAD=0', '-Iport/ios/host', '-framework', 'Foundation', '-framework', 'AppKit',
         'port/ios/tests/map_identity_probe.m', 'port/ios/host/host_map_identity.m',
-        'port/ios/host/host_shader_upload.m', 'port/ios/host/host_shader_pack.c', '-lz', '-o', probe)
+        'port/ios/host/host_shader_upload.m', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c', '-lz', '-o', probe)
     run(probe)
 # debug.benchmark_offscreen's rules: honored only in a suite named at launch, never on the stereo path
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',

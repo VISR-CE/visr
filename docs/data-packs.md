@@ -93,6 +93,73 @@ The publisher writes compressed assets before atomically replacing its local ind
 
 Offline publication tools can still validate `shader-lists-1` envelopes. Clients using the per-map format require a `shader-lists-2` feed at the existing shader URL.
 
+### Shader records
+
+One definition of a record serves the recorder's tools, the app's admission, the upload writer and the list tools: `port/runtime/shader_record.h`. A record is `vs HASH VARIANT MASK`, `ps HASH KEY` or `pipeline VERTEX.VARIANT.MASK PIXEL ...`. The pixel shader key is `struct nv2a_pixel_shader_key` (`port/linux/src/xgpu.h`); the table below is generated from the header's field table by `shader-record fields --markdown`, and a test fails when it differs. The struct has fixed-width members and static assertions against the table, so a field added to one and not the other does not compile.
+
+<!-- shader-record fields -->
+| Bytes | Field | Source | Legal values |
+|---|---|---|---|
+| 0-227 | `combiner_state[57]` | D3DRS_PS* render states; constants zeroed, stages past the combiner count zeroed | not checked |
+| 228-231 | `texture_modes` | D3DRS_PSTEXTUREMODES: four 5-bit modes | not checked by the app; tools: each mode at most 18 |
+| 232-235 | `sampler_type[4]` | the bound texture's kind per stage: 0 none ... 5 _xgpu_sampler_2d_content (a dynamic-resolution pooled target) | 0-5 |
+| 236-239 | `alpha_kill[4]` | D3DTSS_ALPHAKILL per stage | 0-1 |
+| 240-243 | `color_sign[4]` | D3DTSS_COLORSIGN's channel bits per stage | 0-15 |
+| 244-247 | `alpha_test_function` | D3DRS_ALPHAFUNC when the alpha test is on, else 0 | 0, or 0x200-0x207 |
+| 248 | `fog_enable` | D3DRS_FOGENABLE | 0-1 |
+| 249 | `fog_table_mode` | D3DRS_FOGTABLEMODE | 0-3 |
+| 250 | `count_samples` | a visibility test with a shader counter | 0-1 |
+| 251 | `coverage_alpha` | high-resolution HUD meter flags | 0-3 |
+| 252 | `alpha_test_samples` | a multisampled target's alpha test | extended keys only; the app takes base keys, tools reduce them |
+| 253 | `soft_depth` | a soft-edged particle sprite's mode | extended keys only; the app takes base keys, tools reduce them |
+| 254 | `lighting_highlight` | display.point_light_highlight's preset | extended keys only; the app takes base keys, tools reduce them |
+| 255 | `lighting_point_lights` | display.point_light_limit's extra lights | extended keys only; the app takes base keys, tools reduce them |
+| 256-263 | `lighting_program[2]` | the lit vertex program's hash, low word first; 0 unlit | extended keys only; the app takes base keys, tools reduce them |
+
+A pipeline line's fields after its two shader names:
+
+| Field | Source | Legal values |
+|---|---|---|
+| `blend` | blending on | 0-1 |
+| `source` | the color source factor (GPU_BLEND_*) | 0-14 |
+| `destination` | the color destination factor | 0-14 |
+| `operation` | the blend operation (GPU_BLEND_OP_*) | 0-4 |
+| `write_mask` | the color channels written | 0-15 |
+| `exact_borders` | the borders drawn exactly | 0-15 |
+| `depth` | depth testing on | 0-1 |
+| `attribute_kinds[16]` | the vertex attribute format per stream (GPU_ATTRIBUTE_*), 32 hex digits | 0-19 |
+| `alpha_source`, `alpha_destination` | the alpha factors (absent in the 11-field form, where they equal the color factors) | 0-14 |
+<!-- /shader-record fields -->
+
+Bytes 252 and up exist only in extended keys (a multisampled alpha test, a soft particle, per-pixel lighting). The app admits base keys, 252 bytes, alone; the warm-up derives every extended shader from its base record.
+
+Three levels of rule apply to a record:
+
+- **parse**: the text is well formed.
+- **admit**: exactly the rules the app has always enforced (the key's byte ranges, the hash, variant and mask, the pipeline's ranges). The app and `shader-pack-probe` call this and nothing else. A rule moves into `admit` only by a deliberate, reviewed change with the released-build gate green.
+- **lint**: further rules tools apply before a record enters the bundled lists (canonical form, at most eight combiner stages, texture modes in range). Never linked into admission.
+
+A file is **closed** when every pipeline's vertex and pixel records are in the same file. Bundled lists, feed files and upload batches are closed, and the app admits only closed files, each one on its own. A file a device recorded is a **delta**: it holds what the device compiled outside the warm-up, and the pipelines it names often depend on shaders the device had already warmed from a list. `shader-record close` turns a delta into a closed file.
+
+`shader-record` (`port/ios/tests/shader_record_tool.c`; run it as `python3 tools/shader_record.py COMMAND`, which builds it when its sources change) has these commands. Folders hold `MAP.txt` files.
+
+| Command | What it does |
+|---|---|
+| `check [--lint] FOLDER [BASE]` | the app's admission of FOLDER merged onto BASE, listing every problem as `MAP.txt:LINE: FIELD=VALUE, allowed MIN-MAX` or `missing dependency ...`; `--lint` adds the tool-side rules |
+| `explain FILE\|LINE [HASH]` | decodes each record field by field with the table's names |
+| `close --out FOLDER [--report FILE] [--base FOLDER]... [--also FOLDER]... DELTA...` | closes each map of the delta files; see below |
+| `canonical --out FOLDER FOLDER` | rewrites every list in canonical form and order |
+| `merge --out FOLDER LISTS FOLDER...` | the union of LISTS and the folders, closed and checked; writes nothing unless every map passes |
+| `fields [--markdown]` | the field table |
+
+`tools/shader_lists.py merge` and `canonicalize` call `merge` and `canonical`, and change `port/shader-lists` only when the tool exits 0.
+
+`close` keeps nothing it cannot prove. A lit pixel key (264 bytes) or a vertex variant of 2 or 3 is reduced to its unlit base, the form the warm-up derives from. A pipeline's missing vertex record is synthesized from the pipeline's own vertex key, which holds the whole line. A missing pixel record is looked up by its hash, as the pipeline wrote it or canonicalized, in this order: the other delta files, then the `--also` folders (the report's dependency candidates, only ever a lookup source), then each `--base` (the bundled lists at the report's release and the feed snapshot then current); within each, the same map first and then every other map, since the pixel shader cache is process-wide. A pipeline whose pixel shader is found nowhere is left out and listed in the report JSON with its hash and source; nothing is guessed.
+
+#### Shader feed gate
+
+`tools/data_pack.py` refuses to publish a shader snapshot unless the app of every release from `SHADER_FEED_FLOOR_TAG` on admits it. It builds each tag's own `shader_pack_probe.c` and `host_shader_pack.c` and runs the snapshot with that tag's bundled lists as the base, as the app does, and names the release that refuses. The floor is `visr-v0.6.15`: builds 0.6.12 to 0.6.14 bound the sampler type at 4 and refuse a whole snapshot that holds a type-5 record (a dynamic-resolution pooled target), keeping their bundled lists instead. Lowering the floor needs a reason in this section.
+
 At launch the host freezes a canonical, deduplicated union of bundled records and downloaded additions. Bundled lists always remain. Existing local shader captures are appended by the game as before. Invalid or missing additions fall back to bundled lists.
 
 ## Recording catalogs

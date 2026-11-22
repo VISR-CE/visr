@@ -2,10 +2,11 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
+#include "shader_record.h"
 #ifndef HALO_ILP32
 #include <stdatomic.h>
 #endif
-#define SHADER_OBSERVATION_ABI "shader-lists-2"
+#define SHADER_OBSERVATION_ABI SHADER_RECORD_FORMAT
 #define SHADER_OBSERVATION_PIXEL_MAX 512
 #define SHADER_OBSERVATION_CAPACITY 512
 #define SHADER_OBSERVATION_LINE_MAX 1152

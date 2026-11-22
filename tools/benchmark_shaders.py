@@ -81,7 +81,7 @@ def extract(report: dict, destination: Path) -> dict:
             raise ValueError("Dependency candidate attribution differs")
         files[f"dependency-candidates/{name}.txt"] = payload(capture)
     summary = {"format": 1, "code": report["code"], "app": app, "runs": outcomes,
-               "descriptor_validation": "pending; validate hashes, ranges, map attribution, and pipeline dependencies before merging",
+               "descriptor_validation": "pending; close each intervals/ folder with the shader-record tool (close, then tools/shader_lists.py merge) before merging",
                "dependency_candidates": "cumulative and unattributed; never merge wholesale",
                "files": {name: hashlib.sha256(text.encode()).hexdigest() for name, text in files.items()}}
     destination.mkdir(parents=True, exist_ok=False)
