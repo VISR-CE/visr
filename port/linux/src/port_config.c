@@ -1141,7 +1141,7 @@ static const struct config_setting config_settings[] =
 		"copied on a thread of its own and replaced whole. Off, the saved game\n"
 		"is written only by Save and Quit, as on the Xbox. Replays, benchmarks,\n"
 		"scripted test runs, co-op and network games never write one. Read at\n"
-		"each checkpoint." },
+		"each checkpoint.", _tier_tuning },
 	{ "debug.checkpoint_every", _config_real, "0.0", "HALO_CHECKPOINT_EVERY", _environment_value, _platform_all,
 		"Ask for a checkpoint every this many seconds of game time (the game\n"
 		"takes it when it is safe to), to measure what a checkpoint costs in a\n"

@@ -125,6 +125,8 @@ TUNING_OFF_HEADSET = {
     'audio.worker_priority',
     # compares the corrected interpolation lead with the old timing on every display; a measurement switch
     'display.presentation_lead',
+    # a safety switch, on by default; off only to compare with the Xbox's Save and Quit-only writes
+    'saves.checkpoint_persist',
 }
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
                    'display.theater_width', 'input.aim', 'input.aim_hand',
