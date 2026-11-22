@@ -715,6 +715,10 @@ run(BUILD/'qr-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/frame_pacer_probe.c', '-o', BUILD/'frame-pacer-probe')
 run(BUILD/'frame-pacer-probe')
+# the extended late start in a model of the whole paced loop (frame_pacer_sim.h), with dynamic resolution's planner
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    'port/ios/tests/frame_pacer_sim_probe.c', '-o', BUILD/'frame-pacer-sim-probe')
+run(BUILD/'frame-pacer-sim-probe')
 # dynamic resolution's planner, with synthetic per-frame costs and presentation feedback
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/dynamic_resolution_probe.c', '-o', BUILD/'dynamic-resolution-probe')
