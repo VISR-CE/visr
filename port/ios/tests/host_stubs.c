@@ -228,6 +228,8 @@ __attribute__((weak)) int host_audio_output_up(void)
 { fprintf(stderr, "host_stubs: probe called host_audio_output_up without defining it\n"); abort(); }
 __attribute__((weak)) void host_audio_session_apply(void)
 { }
+__attribute__((weak)) void host_audio_session_describe(char *out, size_t size)
+{ }
 __attribute__((weak)) void host_audio_session_release(void)
 { }
 __attribute__((weak)) void host_audio_session_set_mix_only(int enabled)
