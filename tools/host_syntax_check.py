@@ -49,7 +49,7 @@ BUILD = ROOT / 'build/host-syntax'
 # Sources under these folders are the host files this check covers.
 HOST_DIRS = (ROOT / 'port/ios/host', ROOT / 'port/macos')
 # What the compile of each source must not be allowed to get away with.
-STRICT_FLAGS = ('-fsyntax-only', '-Werror=implicit-function-declaration', '-Werror=implicit-int')
+STRICT_FLAGS = ('-Werror=implicit-function-declaration', '-Werror=implicit-int')
 SYNTAX_SUFFIXES = ('.c', '.m', '.mm', '.cpp')
 
 # name -> (CMake source folder, CMAKE_SYSTEM_NAME, SDK, deployment target, extra definitions)
@@ -117,8 +117,11 @@ def prepare():
     embedded.mkdir(parents=True, exist_ok=True)
     # Placeholder layout values: a syntax check only declares the blobs and never reads the constants.
     # The text comes from the generator that makes the real header, so the declarations cannot drift.
-    (embedded / 'guest_image.h').write_text(ios_embed_guest.image_header('0' * 64, 0x4000, 0x88004000, 0x4000, 0x4000))
-    (embedded / 'guest_image.S').touch()
+    # A real header and image from an earlier app build stay.
+    if not (embedded / 'guest_image.h').exists():
+        (embedded / 'guest_image.h').write_text(ios_embed_guest.image_header('0' * 64, 0x4000, 0x88004000, 0x4000, 0x4000))
+    if not (embedded / 'guest_image.S').exists():
+        (embedded / 'guest_image.S').touch()
 
 
 def missing_inputs():
@@ -147,16 +150,6 @@ def configure(platform, variant):
     return folder / 'compile_commands.json'
 
 
-def host_entries(compile_commands):
-    """the compile commands for host sources, one per file"""
-    entries = {}
-    for entry in json.loads(Path(compile_commands).read_text()):
-        path = Path(entry['file']).resolve()  # CMake may name the folder through a symlink
-        if path.suffix in SYNTAX_SUFFIXES and any(folder in path.parents for folder in HOST_DIRS):
-            entries[str(path)] = entry
-    return entries
-
-
 def definer_entries(compile_commands, validation=True):
     """the compile commands for every source that can define a guest import: the host folders, the runtime,
     the shared Linux-port sources and the generated bridges, but not SDL or the bundled libraries. The
@@ -171,12 +164,13 @@ def definer_entries(compile_commands, validation=True):
         if any(folder in path.parents for folder in (*HOST_DIRS, ROOT / 'port/runtime', ROOT / 'port/linux',
                                                      ROOT / 'build/ios/host')):
             entries[str(path)] = entry
+    if not any(Path(path).parent in HOST_DIRS for path in entries):
+        raise SystemExit('no host sources in the compile commands (a path mismatch would pass silently)')
     return entries
 
 
-def syntax_command(command_line, object_file=None):
-    """a compile command with its object output dropped and the strict syntax-only flags added; with
-    `object_file`, an unoptimized compile to that object instead (for the import-definition check)"""
+def syntax_command(command_line, object_file):
+    """a compile command rewritten to compile unoptimized to `object_file` with the strict flags added"""
     args = shlex.split(command_line)
     result = []
     skip = False
@@ -190,14 +184,10 @@ def syntax_command(command_line, object_file=None):
         else:
             result.append(arg)
     # keep the compiler and its flags, add ours before the source file (last argument)
-    if object_file:
-        flags = [flag for flag in STRICT_FLAGS if flag != '-fsyntax-only'] + ['-O0', '-c', '-o', str(object_file)]
-    else:
-        flags = list(STRICT_FLAGS)
-    return result[:-1] + flags + result[-1:]
+    return result[:-1] + [*STRICT_FLAGS, '-O0', '-c', '-o', str(object_file)] + result[-1:]
 
 
-def check_one(entry, object_file=None):
+def check_one(entry, object_file):
     """(file, ok, diagnostics) for one compile-command entry, run from its own directory"""
     command = syntax_command(entry['command'], object_file)
     result = subprocess.run(command, cwd=entry.get('directory') or ROOT, stdout=subprocess.PIPE,
@@ -208,7 +198,7 @@ def check_one(entry, object_file=None):
 def symbols(object_file, mode):
     """the external symbols of an object, without the leading underscore: `defined` or `undefined`"""
     flag = '-gU' if mode == 'defined' else '-gu'
-    out = subprocess.run(['nm', flag, str(object_file)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True).stdout
+    out = subprocess.run(['nm', flag, str(object_file)], stdout=subprocess.PIPE, text=True, check=True).stdout
     names = set()
     for line in out.splitlines():
         name = line.split()[-1] if line.split() else ''
@@ -227,6 +217,8 @@ def import_names(validation=True):
             line = line.split('#')[0].strip()
             if line:
                 names.add(line[len('host_'):] if line.startswith('host_gpu_') else line)
+    if not names:
+        raise SystemExit('no guest imports found in port/runtime/host_imports*.list (the lists moved?)')
     return names
 
 
@@ -271,8 +263,6 @@ def main():
         label = f'{platform}/{variant}'
         entries = definer_entries(database, variant == 'features')
         covered.update(path for path in entries if Path(path).parent in HOST_DIRS)
-        if not any(Path(path).parent in HOST_DIRS for path in entries):
-            raise SystemExit(f'{label}: no host sources in the compile commands (a path mismatch would pass silently)')
         folder = database.parent / 'objects'
         folder.mkdir(exist_ok=True)
         for index, entry in enumerate(entries.values()):
@@ -295,6 +285,10 @@ def main():
     for label, file, output in failures:
         name = str(Path(file).relative_to(ROOT)) if str(file).startswith(str(ROOT)) else file
         print(f'FAIL [{label}] {name}\n{output.rstrip()}\n', file=sys.stderr)
+    uncompiled = sorted(p.name for folder in HOST_DIRS for p in folder.iterdir()
+                        if p.suffix in SYNTAX_SUFFIXES and p.resolve() not in {Path(c).resolve() for c in covered})
+    if uncompiled:
+        print('host sources no configuration compiled: ' + ', '.join(uncompiled))
     print(f'total: {time.monotonic() - begun:.0f} s')
     print(f'host syntax check: {len(jobs)} compiles, {len(covered)} distinct host files, '
           f'{len(combos)} configurations, {len(failures)} failed')

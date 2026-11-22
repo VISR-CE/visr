@@ -39,34 +39,81 @@ def sdk_path(sdk):
 
 
 class SyntaxCommandTransform(unittest.TestCase):
-    def test_object_output_dropped_and_strict_flags_added(self):
+    def test_compile_to_object_with_strict_flags(self):
         import host_syntax_check
         command = host_syntax_check.syntax_command(
-            '/usr/bin/clang -DX=1 -I/a -x objective-c -MD -MT t -MF d.d -o obj.o -c /src/host_a.m')
+            '/usr/bin/clang -DX=1 -I/a -x objective-c -MD -MT t -MF d.d -o obj.o -c /src/host_a.m', '/tmp/new.o')
         self.assertEqual(command[0], '/usr/bin/clang')
-        self.assertNotIn('-o', command)
-        self.assertNotIn('-c', command)
+        self.assertEqual(command.count('-o'), 1)
+        self.assertEqual(command[command.index('-o') + 1], '/tmp/new.o')
+        self.assertIn('-c', command)
         self.assertNotIn('obj.o', command)
         self.assertNotIn('-MD', command)
-        self.assertIn('-fsyntax-only', command)
+        self.assertIn('-O0', command)
         self.assertIn('-Werror=implicit-function-declaration', command)
         self.assertEqual(command[-1], '/src/host_a.m')
         self.assertIn('-DX=1', command)
 
-    def test_host_entries_keeps_only_host_sources(self):
+
+def write_database(folder, files):
+    import json
+    path = Path(folder) / 'compile_commands.json'
+    path.write_text(json.dumps([{'file': str(file), 'command': 'clang -c x', 'directory': '/'} for file in files]))
+    return path
+
+
+class DefinerEntries(unittest.TestCase):
+    def setUp(self):
         import host_syntax_check
-        root = host_syntax_check.ROOT
-        database = [
-            {'file': str(root / 'port/ios/host/host_a.m'), 'command': 'clang -c x', 'directory': '/'},
-            {'file': str(root / 'port/ios/host/guest_call.S'), 'command': 'clang -c x', 'directory': '/'},
-            {'file': str(root / 'port/runtime/other.c'), 'command': 'clang -c x', 'directory': '/'},
-        ]
+        self.module = host_syntax_check
+        self.root = host_syntax_check.ROOT
+
+    def test_selects_host_runtime_and_bridges_but_not_third_party_or_assembly(self):
         with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / 'compile_commands.json'
-            import json
-            path.write_text(json.dumps(database))
-            entries = host_syntax_check.host_entries(path)
-        self.assertEqual(list(entries), [str(root / 'port/ios/host/host_a.m')])
+            database = write_database(folder, [
+                self.root / 'port/ios/host/host_a.m', self.root / 'port/ios/host/guest_call.S',
+                self.root / 'port/runtime/other.c', self.root / 'port/third_party/kcp/ikcp.c',
+                self.root / 'build/ios/host/bridges.c'])
+            entries = self.module.definer_entries(database)
+            self.assertEqual(sorted(Path(path).relative_to(self.root).as_posix() for path in entries),
+                             ['build/ios/host/bridges.c', 'port/ios/host/host_a.m', 'port/runtime/other.c'])
+            plain = self.module.definer_entries(database, validation=False)
+            self.assertNotIn(str(self.root / 'build/ios/host/bridges.c'), plain)
+
+    def test_a_database_with_no_host_sources_fails_instead_of_passing(self):
+        with tempfile.TemporaryDirectory() as folder:
+            database = write_database(folder, [self.root / 'port/runtime/other.c'])
+            with self.assertRaises(SystemExit):
+                self.module.definer_entries(database)
+
+    def test_paths_through_a_symlinked_checkout_still_match(self):
+        """CMake names a symlinked checkout by its link path; the sweep once compiled nothing and passed"""
+        with tempfile.TemporaryDirectory() as folder:
+            link = Path(folder) / 'link'
+            link.symlink_to(self.root)
+            database = write_database(folder, [link / 'port/ios/host/host_a.m'])
+            self.assertEqual(len(self.module.definer_entries(database)), 1)
+
+
+class ImportNames(unittest.TestCase):
+    def test_lists_are_found_and_validation_ones_follow_the_flag(self):
+        import host_syntax_check
+        with_validation = host_syntax_check.import_names(True)
+        without = host_syntax_check.import_names(False)
+        self.assertTrue(without)
+        self.assertLess(without, with_validation)
+
+    def test_an_empty_import_list_fails_instead_of_passing(self):
+        import host_syntax_check
+        original = host_syntax_check.ROOT
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / 'port/runtime').mkdir(parents=True)
+            host_syntax_check.ROOT = Path(folder)
+            try:
+                with self.assertRaises(SystemExit):
+                    host_syntax_check.import_names(True)
+            finally:
+                host_syntax_check.ROOT = original
 
 
 @unittest.skipUnless(platform.system() == 'Darwin' and shutil.which('xcrun'), 'needs Xcode')
@@ -80,7 +127,8 @@ class CatchesUseBeforeDeclarationPerPlatform(unittest.TestCase):
             file = Path(folder) / 'fixture.c'
             file.write_text(source)
             command = f'clang -x c -std=gnu17 -arch arm64 -isysroot {shlex.quote(path)} -target {target} -o fixture.o -c {file}'
-            return host_syntax_check.check_one({'file': str(file), 'command': command, 'directory': folder})
+            return host_syntax_check.check_one({'file': str(file), 'command': command, 'directory': folder},
+                                               Path(folder) / 'fixture.o')
 
     def test_visionos_only_mistake_is_caught_on_visionos_not_iphone(self):
         _, ok, output = self.compile(FIXTURE, 'xros', 'arm64-apple-xros2.0')
@@ -119,7 +167,8 @@ class GuestImageHeader(unittest.TestCase):
             self.assertIn(name, header)
 
 
-@unittest.skipUnless(shutil.which('clang') and shutil.which('nm'), 'needs clang and nm')
+# Mach-O symbols carry a leading underscore and ELF ones do not, so this runs only where the sweep does.
+@unittest.skipUnless(platform.system() == 'Darwin' and shutil.which('clang') and shutil.which('nm'), 'needs a Mac')
 class ImportDefinitionCheck(unittest.TestCase):
     """the class: a guest import defined only inside a conditionally compiled file compiles everywhere and
     fails the link where the condition is false"""
