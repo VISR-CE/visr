@@ -589,6 +589,37 @@ void render_interpolation_presentation_due(unsigned long microseconds)
 	stereo_presentation_frame = loop_frame;
 }
 
+/* "interpolation: stereo lead" every 600 stereo frames (the headset cadence
+measurements): the lead from the loop clock's read to the presentation, which
+is also the controller's age at the presentation, by kind of frame, and the
+largest correction. Once a loop frame */
+static void stereo_lead_summary(double lead, double correction)
+{
+	static unsigned long counted_frame, frames, kind_frames[2];
+	static double kind_sum[2], shortest, longest, largest;
+	int kind = loop_frame_ticked ? 1 : 0;
+
+	if (counted_frame == loop_frame)
+		return;
+	counted_frame = loop_frame;
+	if (frames == 0 || lead < shortest)
+		shortest = lead;
+	if (frames == 0 || lead > longest)
+		longest = lead;
+	if (fabs(correction) > largest)
+		largest = fabs(correction);
+	kind_sum[kind] += lead;
+	kind_frames[kind]++;
+	if (++frames < 600)
+		return;
+	platform_log("interpolation: stereo lead from the loop clock's read to the presentation: %.1f ms with a tick "
+		"(%lu frames), %.1f ms without (%lu), %.1f to %.1f ms; correction up to %.1f ms",
+		kind_frames[1] ? kind_sum[1] / (double)kind_frames[1] : 0.0, kind_frames[1],
+		kind_frames[0] ? kind_sum[0] / (double)kind_frames[0] : 0.0, kind_frames[0], shortest, longest, largest);
+	frames = kind_frames[0] = kind_frames[1] = 0;
+	kind_sum[0] = kind_sum[1] = largest = 0.0;
+}
+
 static real fraction_for_display(real fraction)
 {
 	struct interpolation_lead *state;
@@ -614,7 +645,11 @@ static real fraction_for_display(real fraction)
 	clock_read = loop_clock_read_milliseconds > 0.0 ? loop_clock_read_milliseconds : halo_frame_trace_milliseconds();
 	correction = interpolation_lead_correction(state, loop_frame, loop_frame_ticked, clock_read, presentation);
 	if (presentation != 0.0)
+	{
 		frame_lead_milliseconds = state->lead;
+		if (stereo_leading)
+			stereo_lead_summary(state->lead, correction);
+	}
 	frame_lead_average_milliseconds = state->average;
 	fraction += (real)(correction / 1000.0 * TICKS_PER_SECOND * game_time_get_speed());
 	return PIN(fraction, 0.0f, 1.0f);

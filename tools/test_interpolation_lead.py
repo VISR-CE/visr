@@ -26,6 +26,7 @@ static double now_ms;
 double halo_frame_trace_milliseconds(void) { return now_ms; }
 int platform_fixed_timestep(void) { return 0; }
 real game_time_get_speed(void) { return 1.0f; }
+void platform_log(const char *format, ...) { (void)format; }
 static int loop_frame_ticked;
 #include "interpolation_lead.h"
 """

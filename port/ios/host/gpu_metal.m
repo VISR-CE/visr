@@ -9522,7 +9522,54 @@ static struct
 	CFTimeInterval period;
 	uint64_t gpu_used, gpu_refused;
 	unsigned long timed, frames, late;
+	/* the cadence line: whether each frame ran a tick, its tick and render seconds (the render: its CPU time less
+	the tick's), how long it waited for the Compositor, and its optimal input time's distance to the presentation */
+	char ticked[PACING_TIMED_FRAMES];
+	double tick_times[PACING_TIMED_FRAMES], render_times[PACING_TIMED_FRAMES], waits[PACING_TIMED_FRAMES];
+	double pose_leads[PACING_TIMED_FRAMES];
 } stereo_pacing;
+
+/* the cadence line's percentiles over the frames that did (ticked 1) or did not (0) run a tick; -1: all frames */
+static void stereo_cadence_percentiles(const double *times, int ticked, double *median, double *high)
+{
+	static double picked[PACING_TIMED_FRAMES];
+	unsigned long index, count = 0;
+
+	for (index = 0; index < stereo_pacing.timed; index++)
+		if (ticked < 0 || stereo_pacing.ticked[index] == ticked)
+			picked[count++] = times[index];
+	pacing_percentiles(picked, count, median, high);
+}
+
+/* "stereo: cadence" (the headset cadence measurements): frames with and without a tick against the refreshes
+they were shown for, so the report says whether the tick frames are the ones that miss. A frame shown for two or
+more refreshes after waiting for the Compositor while its own work fit one refresh was paced by the system, not
+late by its own work, and is counted apart */
+static void stereo_cadence_report(CFTimeInterval period)
+{
+	unsigned long shown[2][4] = { { 0 } }, paced = 0, index;
+	double tick_median, tick_high, render_tick_median, render_tick_high, render_median, render_high;
+	double pose_median, pose_high;
+
+	for (index = 0; index < stereo_pacing.timed; index++)
+	{
+		long up = lround(stereo_pacing.intervals[index] / period);
+
+		up = up < 1 ? 1 : up > 3 ? 3 : up;
+		shown[stereo_pacing.ticked[index] ? 1 : 0][up]++;
+		if (up >= 2 && stereo_pacing.cpu_times[index] <= period && stereo_pacing.waits[index] >= 0.0005)
+			paced++;
+	}
+	stereo_cadence_percentiles(stereo_pacing.tick_times, 1, &tick_median, &tick_high);
+	stereo_cadence_percentiles(stereo_pacing.render_times, 1, &render_tick_median, &render_tick_high);
+	stereo_cadence_percentiles(stereo_pacing.render_times, 0, &render_median, &render_high);
+	stereo_cadence_percentiles(stereo_pacing.pose_leads, -1, &pose_median, &pose_high);
+	platform_log("stereo: cadence: tick frames shown for 1/2/3+ refreshes %lu/%lu/%lu, other frames %lu/%lu/%lu, "
+		"%lu of the late ones paced by the Compositor; tick %.1f ms (95th %.1f), render %.1f ms (95th %.1f) with a "
+		"tick and %.1f ms (95th %.1f) without; pose to presentation %.1f ms (95th %.1f)", shown[1][1], shown[1][2],
+		shown[1][3], shown[0][1], shown[0][2], shown[0][3], paced, tick_median, tick_high, render_tick_median,
+		render_tick_high, render_median, render_high, pose_median, pose_high);
+}
 
 /* One Compositor-paced frame's measurements. Every present path that hands a picture to the Compositor calls this
 once for its frame, with the view it showed (host_stereo_measure.h): the eyes and the screens are a benchmark run's
@@ -9594,6 +9641,16 @@ static void stereo_pacing_count(int view, id<MTLTexture> picture)
 		stereo_pacing.cpu_times[stereo_pacing.timed] = cpu;
 		stereo_pacing.gpu_times[stereo_pacing.timed] = gpu;
 		{
+			double tick = ticks > 0 && reading.simulation > 0.0 ? reading.simulation : 0.0;
+			CFTimeInterval input = host_theater_optimal_input_time();
+
+			stereo_pacing.ticked[stereo_pacing.timed] = ticks > 0;
+			stereo_pacing.tick_times[stereo_pacing.timed] = tick;
+			stereo_pacing.render_times[stereo_pacing.timed] = cpu > tick ? cpu - tick : 0.0;
+			stereo_pacing.waits[stereo_pacing.timed] = waited;
+			stereo_pacing.pose_leads[stereo_pacing.timed] = input > 0.0 && presentation > input ? presentation - input : 0.0;
+		}
+		{
 			CFTimeInterval deadline = host_theater_rendering_deadline();
 
 			stereo_pacing.lateness[stereo_pacing.timed] = deadline > 0.0 ? now - deadline : 0.0;
@@ -9623,6 +9680,8 @@ static void stereo_pacing_count(int view, id<MTLTexture> picture)
 
 			shown[up < 1 ? 1 : up > 5 ? 5 : up]++;
 		}
+		/* (before the percentiles below sort the CPU times out of frame order) */
+		stereo_cadence_report(period);
 		pacing_percentiles(stereo_pacing.cpu_times, stereo_pacing.timed, &cpu_median, &cpu_high);
 		pacing_percentiles(stereo_pacing.gpu_times, stereo_pacing.timed, &gpu_median, &gpu_high);
 		/* the system's state with every report: the Compositor ran whole stretches at 45 Hz with the GPU well under
