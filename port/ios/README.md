@@ -332,7 +332,7 @@ shadow_map_size = 128        # 128 (as on the Xbox) to 512
 effect_resolution = "half" # Mirror and camouflage target: "xbox" (320x240), "half" or "full" of the screen's resolution
 frame_pacing = "off"         # Experimental: "tick" or "refresh" hold every frame for whole refreshes
 frame_rate = "display"       # Mac app: a cap ("60", "240") or "unlimited"; see below
-frames_in_flight = ""        # Metal: frames on their way to the display at once, "1" to "3" or "system" (empty: "2"); see below
+frames_in_flight = ""        # Metal: frames on their way to the display at once, "1" to "3" or "system" (empty: "2", "1" with the encode thread); see below
 frame_spacing = true         # Metal: each frame stays up for its share of the display's time; see below
 frame_source = ""            # Metal: "clock" (default) or "system" (iOS 17, tvOS 17, macOS 14); see below
 late_start = ""              # Metal: start frames late, "true" or "false" (empty: on in the Mac app); see below
@@ -365,8 +365,10 @@ option `HALO_FRAME_PACING` (`tools/ios_build.py --frame-pacing on|off`), on by
 default everywhere except a Vision Pro build: there the Compositor paces
 frames and the build has none of this.
 
-- `frames_in_flight` (`"1"` to `"3"`, or `"system"`; default `"2"`) is how many
-  frames may be on their way to the display at once. A frame is not started
+- `frames_in_flight` (`"1"` to `"3"`, or `"system"`; default `"2"`, or `"1"`
+  with `debug.encode_thread = "thread"`, whose game thread otherwise queues a
+  frame ahead of a GPU-bound display) is how many frames may be on their way to
+  the display at once. A frame is not started
   on its way until fewer than that many are waiting to be shown. `"1"` gives
   the shortest delay between the game and the screen, and costs frames
   whenever a frame's CPU and GPU work together take longer than one refresh.

@@ -13,6 +13,7 @@ STEPS = (
     "present_called = called;",
     "gpu_metal_frame_deadline_end();",
     "host_lifecycle_hold(encode_queue_on ? gpu_queue_drain : NULL);",
+    "host_perf_hooks_present_begin();",
     "wrapped_backend->stream_frame_end();",
     "next_frame_due = make(frame);",
     "host_frame_timeline_barrier(gpu_queue_barrier_waited());",
@@ -21,6 +22,7 @@ STEPS = (
     "data_updates_presented();",
     "low_power_frame();",
     "host_thread_cpu_frame();",
+    "host_frame_counter_show(presented++);",
 )
 
 
@@ -43,7 +45,7 @@ class PresentPathsTests(unittest.TestCase):
                 wrapper = re.search(rf"wrapped\.{operation} = (\w+);", self.source)
                 self.assertIsNotNone(wrapper, f"the dispatch does not wrap {operation}")
                 body = self.bodies[wrapper.group(1)].strip()
-                self.assertRegex(body, r"^return present_frame\(make_\w+, [^;]+\);$")
+                self.assertRegex(body, rf"^return present_frame\(make_{operation}, [^;]+\);$")
 
     def test_only_the_make_functions_call_a_backend_present(self):
         for name, body in self.bodies.items():
@@ -60,6 +62,8 @@ class PresentPathsTests(unittest.TestCase):
                 self.assertGreaterEqual(position, 0, f"present_frame skips {step}")
                 self.assertEqual(self.source.count(step), 1, f"{step} is made outside present_frame too")
         self.assertEqual(positions, sorted(positions), "present_frame's steps are out of order")
+        # (no step may depend on the kind of frame: that is the stereo bug written the other way)
+        self.assertNotRegex(body, r"\bmake_present\w*", "present_frame treats one kind of present differently")
 
 
 if __name__ == "__main__":
