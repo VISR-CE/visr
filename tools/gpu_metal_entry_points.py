@@ -99,6 +99,15 @@ def find_object(build, configuration):
     return objects[-1] if objects else None
 
 
+def check_build(build, configuration):
+    """check the configuration's gpu_metal.o just built under build (tools/ios_build.py, tools/macos_build.py): each
+    platform's build sees its own conditional exports"""
+    found = find_object(build, configuration)
+    if not found:
+        raise SystemExit(f'no {configuration} gpu_metal.o under {build}: the entry point check has nothing to read')
+    check(found)
+
+
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         raise SystemExit('usage: gpu_metal_entry_points.py PATH/gpu_metal.o')

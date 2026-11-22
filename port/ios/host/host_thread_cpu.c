@@ -127,13 +127,15 @@ void host_thread_cpu_frame(void)
 	struct rusage usage;
 	mach_timebase_info_data_t base;
 	unsigned count, index, kept = 0, other;
-	uint64_t self = 0, total = 0, main_microseconds = 0, wall_ticks = mach_absolute_time(), main_id = atomic_load(&main_thread_id);
+	uint64_t self = 0, total = 0, main_microseconds = 0, wall_ticks, main_id;
 	double per_frame, wall;
 	char line[1400];
 	int length;
 
 	if (!enabled)
 		return;
+	wall_ticks = mach_absolute_time();
+	main_id = atomic_load(&main_thread_id);
 	if (!window_started)
 	{
 		window_started = wall_ticks;

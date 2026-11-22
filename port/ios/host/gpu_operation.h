@@ -24,7 +24,9 @@ Classes:
   touches (the stream sets) for the producer alone (stream_reserve, stream,
   stream_frame_end). Hashed in front of the queue only.
 - QUERY: changes nothing in the backend, so a queue may answer it from a
-  cache; made like an AT_ONCE call today. Never hashed.
+  cache; made like an AT_ONCE call today. Never hashed. (One exception:
+  soft_depth_ready compiles its program the first time it is asked; S4 moves
+  it to the producer.)
 - THREAD_SAFE: a read the backend answers from atomics or other state
   safe from any thread (output_cap_settled, asked every frame): it passes the
   queue without waiting for it. Never hashed.
@@ -106,7 +108,7 @@ enum gpu_operation
 /* gpu_metal.m's functions the host calls by name, outside the backend table, and why each may (every other function
 there is static: the backend's operations are reached through its table, gpu_backend_metal, so in order with the
 others). tools/gpu_metal_entry_points.py checks the built gpu_metal.o's functions against this list after every
-macOS build (tools/macos_build.py): a new one needs a row, or a place in the table.
+iOS, tvOS and macOS build (tools/ios_build.py, tools/macos_build.py): a new one needs a row, or a place in the table.
 - THREAD_SAFE: reads or counts through atomics, or reads a switch set for the run, from any thread
   (gpu_metal_count_gpu_time: a command buffer that host_stereo.m or host_theater.m committed itself).
 - WORKGROUP: acts on the frame-deadline workgroup the presenting thread joined (the dispatch, the benchmark pages,

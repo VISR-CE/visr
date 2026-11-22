@@ -29,7 +29,6 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "gpu_interface_hash.h"
 #include "guest_image.h"
 #include "host_config.h"
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -615,12 +614,15 @@ static const struct gpu_backend *capture_wrap(const struct gpu_backend *chosen, 
 with the queue and one without log hashes that compare. With debug.encode_thread on, a second wrapper sits behind
 the queue and every frame's hash there must equal the recorded hash in front: the queue dropped, reordered or
 changed nothing it carries */
+/* (frames the back of the queue may trail the front by, and the room for a frame's per-operation hashes) */
+#define CALL_HASH_FRAMES 64
+#define CALL_HASH_PARTS 640
 static int call_hash_on;
 static struct
 {
 	pthread_mutex_t lock;
 	/* the recorded hashes in front of the queue that the back has not reached yet, by frame number */
-	struct { unsigned long frame; uint64_t recorded; char parts[640]; } front[64];
+	struct { unsigned long frame; uint64_t recorded; char parts[CALL_HASH_PARTS]; } front[CALL_HASH_FRAMES];
 	unsigned long checked, differ;
 } call_hash_check = { .lock = PTHREAD_MUTEX_INITIALIZER };
 
@@ -635,7 +637,7 @@ static void call_hash_log(const struct gpu_call_hash_frame *frame)
 /* in front of the queue: the line every run logs, and the recorded hash for the back to compare */
 static void call_hash_front(const struct gpu_call_hash_frame *frame)
 {
-	unsigned slot = (unsigned)(frame->frame % 64);
+	unsigned slot = (unsigned)(frame->frame % CALL_HASH_FRAMES);
 
 	call_hash_log(frame);
 	pthread_mutex_lock(&call_hash_check.lock);
@@ -648,9 +650,9 @@ static void call_hash_front(const struct gpu_call_hash_frame *frame)
 /* behind it: every command there must be a recorded one, so its whole hash is compared */
 static void call_hash_back(const struct gpu_call_hash_frame *frame)
 {
-	unsigned slot = (unsigned)(frame->frame % 64);
+	unsigned slot = (unsigned)(frame->frame % CALL_HASH_FRAMES);
 	int same, known;
-	char front_parts[640];
+	char front_parts[CALL_HASH_PARTS];
 	uint64_t front_recorded;
 	unsigned long checked, differ;
 
@@ -697,12 +699,19 @@ static int encode_queue_mode(int *timing)
 	}
 	if (mode == GPU_QUEUE_OFF)
 		return mode;
+	platform_log("debug.encode_thread: %s", value);
 	host_config_string("debug.encode_thread_timing", "false", value, sizeof(value));
 	*timing = !strcmp(value, "true");
-	platform_log("debug.encode_thread: %s", mode == GPU_QUEUE_INLINE ? "inline" : "?");
 	return mode;
 #endif
 }
+
+/* a development build stops at the first call from the wrong thread */
+#ifdef HALO_DEVELOPMENT_HOOKS
+#define OWNER_CHECK_STOPS 1
+#else
+#define OWNER_CHECK_STOPS 0
+#endif
 
 /* chosen with the call hash (debug.gpu_call_hash) and, on Metal, the encode queue in front of it: the hash wraps
 what the game calls; with the queue, a second hash behind the queue sees only the recorded commands */
@@ -720,11 +729,7 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 		return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
 	/* each call from the thread its class says (gpu_owner_check.h); a development build stops at the first that is
 	not */
-#ifdef HALO_DEVELOPMENT_HOOKS
-	chosen = gpu_owner_check_wrap(chosen, encode_queue_log, 1);
-#else
-	chosen = gpu_owner_check_wrap(chosen, encode_queue_log, 0);
-#endif
+	chosen = gpu_owner_check_wrap(chosen, encode_queue_log, OWNER_CHECK_STOPS);
 	behind = call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_back) : chosen;
 	behind = gpu_queue_wrap(behind, chosen, mode, timing, encode_queue_log);
 	return call_hash_on ? gpu_call_hash_wrap(1, behind, call_hash_front) : behind;

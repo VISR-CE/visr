@@ -720,10 +720,8 @@ they come. RECORDED ones are written above. */
 #define QUEUED_P_QUERY QUEUED_P_AT_ONCE
 #define QUEUED_F_THREAD_SAFE QUEUED_F_PRODUCER
 #define QUEUED_P_THREAD_SAFE QUEUED_P_PRODUCER
-#define QUEUED_F_OTHER_THREAD(type, name, parameters, arguments) \
-	static type queued_##name parameters { return direct->name arguments; }
-#define QUEUED_P_OTHER_THREAD(name, parameters, arguments) \
-	static void queued_##name parameters { direct->name arguments; }
+#define QUEUED_F_OTHER_THREAD QUEUED_F_PRODUCER
+#define QUEUED_P_OTHER_THREAD QUEUED_P_PRODUCER
 #define QUEUED_F(type, name, parameters, arguments) \
 	GPU_OPERATION_BY_CLASS(QUEUED_F_, name)(type, name, parameters, arguments)
 #define QUEUED_P(name, parameters, arguments) GPU_OPERATION_BY_CLASS(QUEUED_P_, name)(name, parameters, arguments)

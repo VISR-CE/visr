@@ -83,10 +83,7 @@ def entry_points_check(build, configuration):
         from . import gpu_metal_entry_points
     else:
         import gpu_metal_entry_points
-    found = gpu_metal_entry_points.find_object(build, configuration)
-    if not found:
-        raise SystemExit(f'no {configuration} gpu_metal.o under {build}: the entry point check has nothing to read')
-    gpu_metal_entry_points.check(found)
+    gpu_metal_entry_points.check_build(build, configuration)
 
 
 def main():
