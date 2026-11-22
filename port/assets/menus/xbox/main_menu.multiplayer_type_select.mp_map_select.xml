@@ -198,4 +198,8 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/main_menu/multiplayer_type_select/mp_map_select/header_select_map/title">
+		<string text="SELECT MAP" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_header_select_map_title.select_map" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/mp_map_select/header_select_map" strings="xbox/main_menu/multiplayer_type_select/mp_map_select/header_select_map/title" />
 </menus>

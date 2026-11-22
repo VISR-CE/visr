@@ -144,4 +144,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/header_vehicle_types/title">
+		<string text="VEHICLE TYPES" id="xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_header_vehicle_types_title.vehicle_types" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/header_vehicle_types" strings="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/header_vehicle_types/title" />
 </menus>

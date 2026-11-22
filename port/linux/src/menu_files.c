@@ -272,6 +272,7 @@ enum element
 	_element_patch_row,
 	_element_bar,
 	_element_action,
+	_element_title,
 };
 
 /* an attribute an element may have: its text (text) or number (number,
@@ -1254,6 +1255,22 @@ static void read_patch(struct reader *reader, const XML_Char **attributes)
 	menus->patches[menus->patch_count++] = patch;
 }
 
+static void read_title(struct reader *reader, const XML_Char **attributes)
+{
+	struct halo_menus *menus = &reader->menus;
+	struct halo_menu_title title;
+	struct attribute table[] = { { "widget", &title.widget }, { "strings", &title.strings } };
+
+	memset(&title, 0, sizeof(title));
+	title.file = reader->file;
+	title.line = current_line(reader);
+	read_attributes(reader, "title", attributes, table, sizeof(table) / sizeof(*table));
+	if (!reader->failed && (!title.widget || !title.strings))
+		reader_error(reader, "a <title> needs a widget and its strings");
+	GROW(reader, menus->titles, menus->title_count);
+	menus->titles[menus->title_count++] = title;
+}
+
 /* a picture: a frame of the description's own bitmap by its number, or
 png: and a PNG's path in the menus folder.
 port: bitmap: names an XML bitmap whose first frame is copied. */
@@ -1402,6 +1419,11 @@ static void XMLCALL element_start(void *data, const XML_Char *name, const XML_Ch
 	{
 		element = _element_string;
 		read_string(reader, attributes, owner);
+	}
+	else if (!strcmp(name, "title") && parent == _element_menus)
+	{
+		element = _element_title;
+		read_title(reader, attributes);
 	}
 	else if (!strcmp(name, "patch") && parent == _element_menus)
 	{

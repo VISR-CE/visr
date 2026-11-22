@@ -68,4 +68,8 @@
 		<string text="" />
 		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow, and soft color." id="xbox.settings_graphics.xbox_settings_graphics_help_strings.the_picture_as_a_crt_television__ce68fa" />
 	</strings>
+	<strings name="xbox/settings/graphics/header_graphics/title">
+		<string text="GRAPHICS" id="xbox.settings_graphics.xbox_settings_graphics_header_graphics_title.graphics" />
+	</strings>
+	<title widget="xbox/settings/graphics/header_graphics" strings="xbox/settings/graphics/header_graphics/title" />
 </menus>

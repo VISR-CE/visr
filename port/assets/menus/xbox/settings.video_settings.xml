@@ -210,4 +210,8 @@
 	</strings>
 	<widget name="xbox/settings/video_settings/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/video_settings/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/settings/video_settings/header_profile_video_settings/title">
+		<string text="VIDEO SETUP" id="xbox.settings_video_settings.xbox_settings_video_settings_header_profile_video_settings_title.video_setup" />
+	</strings>
+	<title widget="xbox/settings/video_settings/header_profile_video_settings" strings="xbox/settings/video_settings/header_profile_video_settings/title" />
 </menus>

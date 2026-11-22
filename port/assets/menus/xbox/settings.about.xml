@@ -483,4 +483,12 @@
 	<widget name="xbox/settings/about/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
 	<widget name="xbox/settings/about/notices/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/about/notices/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/settings/about/header_about/title">
+		<string text="ABOUT" id="xbox.settings_about.xbox_settings_about_header_about_title.about" />
+	</strings>
+	<title widget="xbox/settings/about/header_about" strings="xbox/settings/about/header_about/title" />
+	<strings name="xbox/settings/about/notices/header/title">
+		<string text="OPEN SOURCE NOTICES" id="xbox.settings_about.xbox_settings_about_notices_header_title.open_source_notices" />
+	</strings>
+	<title widget="xbox/settings/about/notices/header" strings="xbox/settings/about/notices/header/title" />
 </menus>

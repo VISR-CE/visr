@@ -105,4 +105,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_button_bar/common_button_cancel/caption" x="21" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters/title">
+		<string text="FILTERS" id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_header_filters_title.filters" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters" strings="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters/title" />
 </menus>

@@ -111,4 +111,8 @@
 		<string text="Slow and drag the view along with a target while\naiming with the mouse, as with a controller." id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings.slow_and_drag_the_view_along_wit_ccedca" />
 		<string text="In first person, turn the view the moment the\nmouse moves, not up to two ticks later." id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings.in_first_person_turn_the_view_th_17a6eb" />
 	</strings>
+	<strings name="xbox/settings/mouse_settings/header_profile_mouse_settings/title">
+		<string text="MOUSE SETUP" id="xbox.settings_mouse_settings.xbox_settings_mouse_settings_header_profile_mouse_settings_title.mouse_setup" />
+	</strings>
+	<title widget="xbox/settings/mouse_settings/header_profile_mouse_settings" strings="xbox/settings/mouse_settings/header_profile_mouse_settings/title" />
 </menus>

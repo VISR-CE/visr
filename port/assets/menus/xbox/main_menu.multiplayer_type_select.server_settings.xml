@@ -195,4 +195,8 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/accept" type="text" text="SELECT" text_id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_screen_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="85" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings/title">
+		<string text="SERVER SETUP" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_header_server_settings_title.server_setup" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings" strings="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings/title" />
 </menus>

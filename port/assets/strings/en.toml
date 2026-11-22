@@ -87,6 +87,9 @@ s1 = "PLAYERS ONLY"
 s2 = "AI ALLIES ONLY"
 s3 = "ON"
 
+[xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_header_coop_options_title]
+co_op_options = "CO-OP OPTIONS"
+
 [xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_player_collisions_spinner]
 s0 = "ON"
 s1 = "OFF"
@@ -100,6 +103,9 @@ text = "SELECT"
 [xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_bar_b]
 text = "CANCEL"
 
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_header_direct_ip_title]
+direct_ip = "DIRECT IP"
+
 [xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_server_port_label]
 text = "SERVER PORT"
 
@@ -109,6 +115,9 @@ s1 = "3"
 s2 = "5"
 s3 = "10"
 s4 = "15"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_header_game_options_title]
+game = "GAME"
 
 [xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings]
 how_much_a_player_or_team_must_s_fbe60f = "How much a player or team must score\\nto win the game."
@@ -185,6 +194,12 @@ text = "OK"
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_error_legend_accept]
 text = "OK"
 
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_header_internet_title]
+internet_lobby = "INTERNET LOBBY"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_header_lan_title]
+lan_lobby = "LAN LOBBY"
+
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_button_refresh]
 text = "REFRESH"
 
@@ -196,6 +211,9 @@ text = "BACK"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_legend_accept]
 text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_header_filters_title]
+filters = "FILTERS"
 
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_button_clipboard]
 text = "ENTER CODE"
@@ -210,6 +228,9 @@ s1 = "JOIN GAME"
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_bar_b]
 text = "CANCEL"
 
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_header_direct_link_title]
+direct_link = "DIRECT LINK"
+
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings]
 type_the_join_code_your_friend_s_71ed39 = "Type the join code your friend's lobby shows,\\nor a whole invite link, then JOIN GAME."
 that_is_not_a_join_code_eight_le_74b529 = "That is not a join code (eight letters and digits)\\nor an invite link. Try again."
@@ -217,8 +238,17 @@ that_is_not_a_join_code_eight_le_74b529 = "That is not a join code (eight letter
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_labels]
 join_code = "JOIN CODE:"
 
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_header_direct_link_title]
+direct_link = "DIRECT LINK"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_header_server_browser_title]
+server_browser = "SERVER BROWSER"
+
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_button_ok]
 text = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_header_password_title]
+password = "PASSWORD"
 
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_help_strings]
 this_game_has_a_password_nenter__2e5444 = "This game has a password.\\nEnter it, then select JOIN GAME."
@@ -238,6 +268,12 @@ text = "CANCEL"
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_x]
 s0 = "HIDE"
 s1 = "SHOW"
+
+[xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_header_add_player_title]
+add_player = "ADD PLAYER"
+
+[xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_header_lobby_title]
+game_lobby = "GAME LOBBY"
 
 [xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_add_caption]
 text = "ADD PLAYER"
@@ -281,6 +317,9 @@ text = "JOIN GAME"
 [xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_preview_button_join]
 text = "JOIN GAME"
 
+[xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_header_select_map_title]
+select_map = "SELECT MAP"
+
 [xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line]
 the_pillar_of_autumn = "The Pillar of Autumn"
 halo = "Halo"
@@ -320,6 +359,9 @@ text = "BACK"
 4_16_players_8 = "4-16 players"
 4_16_players_9 = "4-16 players"
 2_12_players = "2-12 players"
+
+[xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_header_respawn_options_title]
+respawn_options = "RESPAWN OPTIONS"
 
 [xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_help_strings]
 after_you_die_you_ll_be_able_to__bb6af7 = "After you die, you'll be able to respawn immediately."
@@ -370,6 +412,9 @@ text = "GAME TYPE:"
 
 [xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_gametype_options_label]
 text = "GAMETYPE OPTIONS"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_header_server_settings_title]
+server_setup = "SERVER SETUP"
 
 [xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_help_strings]
 the_name_the_game_shows_in_the_l_02355d = "The name the game shows in the lists of games.\\nEnter changes it."
@@ -475,6 +520,9 @@ s1 = "ON"
 s2 = "SHIELD ONLY"
 s3 = "EXPLOSIVES ONLY"
 
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_header_teams_hud_title]
+teams_amp_hud = "TEAMS & HUD"
+
 [xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_help_strings]
 players_can_not_be_hurt_by_weapo_f42723 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
 players_can_be_hurt_by_weapons_o_a40947 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
@@ -538,6 +586,9 @@ s2 = "2"
 s3 = "3"
 s4 = "4"
 
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_header_vehicle_types_title]
+vehicle_types = "VEHICLE TYPES"
+
 [xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_help_strings]
 no_warthogs_will_spawn_in_the_map = "No Warthogs will spawn in the map."
 up_to_one_warthog_will_spawn_in_the_map = "Up to one Warthog will spawn in the map."
@@ -598,6 +649,9 @@ s1 = "1"
 s2 = "2"
 s3 = "3"
 s4 = "4"
+
+[xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_header_weapons_title]
+choose_weapons = "CHOOSE WEAPONS"
 
 [xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_help_strings]
 everyone_starts_with_no_weapon_n_306286 = "Everyone starts with no weapon\\nas a primary weapon."
@@ -712,6 +766,9 @@ text = "SELECT"
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_gametype_edit_screen_bar_b]
 text = "CANCEL"
 
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_header_title]
+edit_multiplayer_gametype = "EDIT MULTIPLAYER GAMETYPE"
+
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_item_options]
 text = "ITEM OPTIONS"
 
@@ -726,6 +783,9 @@ text = "SAVE CHANGES"
 
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_vehicles]
 text = "VEHICLES"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_header_select_gametype_to_edit_title]
+select_gametype_to_edit = "SELECT GAMETYPE TO EDIT"
 
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_legend_back]
 text = "BACK"
@@ -1068,6 +1128,9 @@ off = "OFF"
 5_minutes = "5 MINUTES"
 10_minutes = "10 MINUTES"
 
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_game_type_select_header_rules_title]
+step_2_set_game_rules = "STEP 2: SET GAME RULES"
+
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth]
 during_the_course_of_the_game_th_e2679f = "During the course of the game, the Hill will teleport to\\na random location."
 the_hill_will_always_be_in_the_same_spot = "The Hill will always be in the same spot."
@@ -1337,6 +1400,9 @@ up_to_two_gun_turrets_will_spawn_a7ad86 = "Up to two Gun Turrets will spawn in t
 up_to_three_gun_turrets_will_spa_4e6358 = "Up to three Gun Turrets will spawn in the map."
 up_to_four_gun_turrets_will_spaw_2e6640 = "Up to four Gun Turrets will spawn in the map."
 
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_header_vehicle_options_title]
+vehicle_options = "VEHICLE OPTIONS"
+
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_team]
 red_team = "RED TEAM"
 blue_team = "BLUE TEAM"
@@ -1559,6 +1625,9 @@ text = "CONTROLS"
 [xbox.settings.xbox_settings_graphics]
 text = "GRAPHICS"
 
+[xbox.settings.xbox_settings_header_title]
+edit_profile_settings = "EDIT PROFILE SETTINGS"
+
 [xbox.settings.xbox_settings_hub_descriptions]
 look_sensitivity_vibration_and_n_ceed49 = "Look, sensitivity, vibration and\\nthe button layout.\\n\\nCurrent Profile:"
 frame_rate_resolution_and_how_nt_9b5c73 = "Frame rate, resolution, and how\\nthe picture is drawn.\\n\\nCurrent Profile:"
@@ -1592,6 +1661,9 @@ text = "SELECT"
 [xbox.settings_about.xbox_settings_about_about_screen_bar_b]
 text = "BACK"
 
+[xbox.settings_about.xbox_settings_about_header_about_title]
+about = "ABOUT"
+
 [xbox.settings_about.xbox_settings_about_help]
 text = "Halo, Halo: Combat Evolved, Master Chief, and the related names\\nand logos are trademarks of Microsoft Corporation. Halo: Combat\\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\\nproject. It is not affiliated with, sponsored by, or endorsed by\\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\\nIndustries), or Bungie."
 
@@ -1602,6 +1674,9 @@ privacy = "PRIVACY"
 license = "LICENSE"
 open_source_notices = "OPEN SOURCE NOTICES"
 send_log = "SEND LOG"
+
+[xbox.settings_about.xbox_settings_about_notices_header_title]
+open_source_notices = "OPEN SOURCE NOTICES"
 
 [xbox.settings_about.xbox_settings_about_notices_help_strings]
 licensed_under_the_apache_licens_ec793e = "Licensed under the Apache License, Version 2.0."
@@ -1739,6 +1814,9 @@ s10 = "10"
 s0 = "ON"
 s1 = "OFF"
 
+[xbox.settings_audio_settings.xbox_settings_audio_settings_header_profile_audio_settings_title]
+audio_setup = "AUDIO SETUP"
+
 [xbox.settings_audio_settings.xbox_settings_audio_settings_help_strings]
 turn_all_game_sound_on_or_off = "Turn all game sound on or off."
 the_volume_of_everything = "The volume of everything."
@@ -1800,6 +1878,9 @@ s0 = "MOVEMENT"
 s1 = "WEAPONS"
 s2 = "ACTIONS"
 
+[xbox.settings_controls_setup.xbox_settings_controls_setup_header_profile_controls_settings_title]
+controls_setup = "CONTROLS SETUP"
+
 [xbox.settings_controls_setup.xbox_settings_controls_setup_help_strings]
 choose_what_to_show_with_left_and_right = "Choose what to show, with left and right."
 enter_sets_the_key_chosen_left_a_eae99c = "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button."
@@ -1840,6 +1921,9 @@ text = "BACK"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_gamepad_setup_screen_bar_x]
 text = "DEFAULTS"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_header_profile_controller_setting_title]
+controller_setup = "CONTROLLER SETUP"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings]
 how_fast_the_right_stick_turns_the_view = "How fast the right stick turns the view."
@@ -1939,6 +2023,9 @@ s0 = "HARDCORE"
 s1 = "CLASSIC"
 s2 = "ENHANCED"
 
+[xbox.settings_graphics.xbox_settings_graphics_header_graphics_title]
+graphics = "GRAPHICS"
+
 [xbox.settings_graphics.xbox_settings_graphics_help_strings]
 the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
 
@@ -1953,6 +2040,9 @@ off = "OFF"
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_spinner]
 s0 = "ON"
 s1 = "OFF"
+
+[xbox.settings_mouse_settings.xbox_settings_mouse_settings_header_profile_mouse_settings_title]
+mouse_setup = "MOUSE SETUP"
 
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings]
 how_fast_the_view_turns_side_to__e7b8fc = "How fast the view turns side to side for the\\nmouse's movement."
@@ -2031,6 +2121,9 @@ s1 = "OFF"
 [xbox.settings_network_setup.xbox_settings_network_setup_enabled_spinner]
 s0 = "ON"
 s1 = "OFF"
+
+[xbox.settings_network_setup.xbox_settings_network_setup_header_profile_network_settings_title]
+network_setup = "NETWORK SETUP"
 
 [xbox.settings_network_setup.xbox_settings_network_setup_help_strings]
 host_and_join_games_over_the_int_073f36 = "Host and join games over the internet by invite\\nlinks; off keeps to the local network."
@@ -2148,6 +2241,9 @@ s0 = "HARDCORE"
 s1 = "CLASSIC"
 s2 = "ENHANCED"
 
+[xbox.settings_video_settings.xbox_settings_video_settings_header_profile_video_settings_title]
+video_setup = "VIDEO SETUP"
+
 [xbox.settings_video_settings.xbox_settings_video_settings_help_strings]
 the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
 fullscreen_takes_the_display_bor_0977db = "Fullscreen takes the display; borderless covers it\\nwith a window. F11 switches to the window."
@@ -2216,3 +2312,82 @@ s1 = "OFF"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_window_size_spinner]
 s0 = "1280 x 960"
+
+[xbox.titles.ui_shell_main_menu_difficulty_select_header_choose_difficulty_title]
+choose_difficulty = "CHOOSE DIFFICULTY"
+
+[xbox.titles.ui_shell_main_menu_gametype_select_header_select_gametype_title]
+select_gametype = "SELECT GAMETYPE"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_connected_4way_profile_select_header_select_profile_title]
+select_profile = "SELECT PROFILE"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_connected_pregame_header_select_teams_title]
+select_teams = "SELECT TEAMS"
+enlisted_players = "ENLISTED PLAYERS"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_connected_server_list_header_found_games_title]
+system_link_games = "SYSTEM LINK GAMES"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_coop_header_select_profile_player_1_title]
+select_profile_player_1 = "SELECT PROFILE: PLAYER 1"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_coop_header_select_profile_player_2_title]
+select_profile_player_2 = "SELECT PROFILE: PLAYER 2"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_header_multiplayer_title]
+multiplayer = "MULTIPLAYER"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_mp_map_select_header_select_map_title]
+select_map = "SELECT MAP"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_split_screen_4way_profile_select_header_select_profile_title]
+select_profile = "SELECT PROFILE"
+
+[xbox.titles.ui_shell_main_menu_player_profiles_select_header_select_profile_title]
+select_profile = "SELECT PROFILE"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_indicator_options_edit_header_indicator_options_title]
+indicator_options = "INDICATOR OPTIONS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_item_options_edit_header_item_options_title]
+item_options = "ITEM OPTIONS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_name_edit_header_gametype_name_title]
+gametype_name = "GAMETYPE NAME"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_player_options_edit_header_player_options_title]
+player_options = "PLAYER OPTIONS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_playlist_edit_game_type_select_header_rules_title]
+step_2_set_game_rules = "STEP 2: SET GAME RULES"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_playlist_edit_header_edit_multiplayer_gametype_title]
+edit_multiplayer_gametype = "EDIT MULTIPLAYER GAMETYPE"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_playlist_edit_header_set_options_title]
+step_1_select_game = "STEP 1: SELECT GAME"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_playlist_select_header_select_gametype_to_edit_title]
+select_gametype_to_edit = "SELECT GAMETYPE TO EDIT"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_header_select_profile_to_edit_title]
+select_profile_to_edit = "SELECT PROFILE TO EDIT"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_advanced_controls_header_advanced_controls_title]
+advanced_controls = "ADVANCED CONTROLS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_color_edit_header_profile_color_title]
+multiplayer_color = "MULTIPLAYER COLOR"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_controller_edit_header_profile_controller_setting_title]
+controller_setup = "CONTROLLER SETUP"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_header_profile_settings_title]
+edit_profile_settings = "EDIT PROFILE SETTINGS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_name_edit_header_profile_name_title]
+profile_name = "PROFILE NAME"
+
+[xbox.titles.ui_shell_main_menu_solo_level_select_header_replay_level_title]
+load_level = "LOAD LEVEL"

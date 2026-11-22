@@ -9528,30 +9528,21 @@ static void column_list_window_end(
 		child->visible = saved[index++];
 }
 
-/* port: the VISR helmet left of a screen's title. The titles are pictures
-(header_*, in ui.map and in the menus' files, of both looks), 64 units high,
-whose capitals stand 22 units tall from 33 units down and start 30 units in.
-The picture (xbox/bitmaps/visr_title_icon, tools/xbox_menus.py) is 36 units
-square; the helmet in it is 22 units tall like the capitals and 29 wide, and
-the picture is centered on them with 11 units between the helmet and the first
-letter.
-Dialogs' headers (ui\\shell\\error\\...) are not screens' titles. */
+/* port: the VISR helmet left of a screen's title. A title is the widget the
+menus' data says is one (halo_menu_meta.h's HALO_MENU_ROLE_TITLE, a <title>
+in the menus' files); nothing about it is read off its name or its picture.
+Its picture is 64 units high, the capitals stand 22 units tall from 33 units
+down and start 30 units in. The helmet's picture (xbox/bitmaps/visr_title_icon,
+tools/xbox_menus.py) is 36 units square; the helmet in it is 22 units tall
+like the capitals and 29 wide, and the picture is centered on them with 11
+units between the helmet and the first letter. */
 static struct bitmap_data *menu_title_icon(
-	long bitmap_tag,
+	struct widget_instance const *widget,
 	struct bitmap_data const *picture)
 {
-	char const *name;
-	char const *leaf;
 	long icon_tag;
 
-	if (bitmap_tag == NONE || !picture || picture->height != 64 || picture->width < 256)
-		return NULL;
-	name = tag_get_name(bitmap_tag);
-	if (!name || (strncmp(name, "ui\\shell\\", 9) && strncmp(name, "pc\\", 3)) || strstr(name, "\\error\\"))
-		return NULL;
-	leaf = strrchr(name, '\\');
-	leaf = leaf ? leaf + 1 : name;
-	if (strncmp(leaf, "header", 6))
+	if (!picture || pc_menu_meta(widget->definition_tag_index)->role != HALO_MENU_ROLE_TITLE)
 		return NULL;
 	icon_tag = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\bitmaps\\visr_title_icon");
 	return icon_tag == NONE ? NULL : bitmap_group_get_bitmap_from_sequence(icon_tag, 0, 0);
@@ -9561,14 +9552,14 @@ static struct bitmap_data *menu_title_icon(
 screen's safe inset leaves no room for it there, the chevron, helmet and title
 move right together, by how far the chevron's tap target would cross the inset */
 static short menu_title_touch_shift(
-	long bitmap_tag,
+	struct widget_instance const *widget,
 	struct bitmap_data const *picture,
 	rectangle2d const *bounds,
 	rectangle2d const *clip)
 {
 	long reach, safe_left, scale_x = 1, helmet_left, needed;
 
-	if (ui_mouse_radius <= 0 || !clip || !menu_title_icon(bitmap_tag, picture))
+	if (ui_mouse_radius <= 0 || !clip || !menu_title_icon(widget, picture))
 		return 0;
 	reach = MAX(ui_redraw_touch_target_units(), 32);
 	safe_left = ui_widget_safe_left(clip->x0);
@@ -9581,7 +9572,7 @@ static short menu_title_touch_shift(
 }
 
 static void menu_title_icon_draw(
-	long bitmap_tag,
+	struct widget_instance const *widget,
 	struct bitmap_data const *picture,
 	rectangle2d const *bounds,
 	rectangle2d *clip,
@@ -9591,7 +9582,7 @@ static void menu_title_icon_draw(
 	rectangle2d rect;
 	long scale_x = 1, scale_y = 1, size, left;
 
-	icon = menu_title_icon(bitmap_tag, picture);
+	icon = menu_title_icon(widget, picture);
 	if (!icon)
 		return;
 	/* (a picture smaller than its widget is drawn stretched over it) */
@@ -10074,7 +10065,7 @@ static void widget_instance_render_recursive(
 				ui_hold_grow_card(widget, &bounds);
 				if (!custom_edition_picture)
 				{
-					short shift = menu_title_touch_shift(definition->background_bitmap.index, bitmap, &bounds, clip);
+					short shift = menu_title_touch_shift(widget, bitmap, &bounds, clip);
 
 					bounds.x0 += shift;
 					bounds.x1 += shift;
@@ -10136,7 +10127,7 @@ static void widget_instance_render_recursive(
 				if (portrait_backdrop)
 					halo_screen_ui_backdrop(FALSE);
 				if (!custom_edition_picture)
-					menu_title_icon_draw(definition->background_bitmap.index, bitmap, &bounds, clip, color);
+					menu_title_icon_draw(widget, bitmap, &bounds, clip, color);
 			}
 		}
 		if (use_nifty_plasma_fx)

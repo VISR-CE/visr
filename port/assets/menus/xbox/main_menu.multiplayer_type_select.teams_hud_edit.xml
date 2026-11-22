@@ -131,4 +131,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/header_teams_hud/title">
+		<string text="TEAMS &amp; HUD" id="xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_header_teams_hud_title.teams_amp_hud" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/header_teams_hud" strings="xbox/main_menu/multiplayer_type_select/teams_hud_edit/header_teams_hud/title" />
 </menus>

@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 import argparse
 import about_data
+import menu_titles
 from copy import deepcopy
 import json
 import re
@@ -200,8 +201,9 @@ def validate(root, assets):
         if element.tag == 'widget' and '\\' in element.get('name', ''):
             raise ValueError(f"map widget definition: {element.get('name')}")
         for key in ('widget', 'description', 'root'):
-            # (a patch row's description is text, whose "\n" is a line break)
-            if element.tag == 'row' and key == 'description':
+            # (a patch row's description is text, whose "\n" is a line break; a <title> names a disc screen's
+            # title widget by its path, as a patch names its list)
+            if (element.tag == 'row' and key == 'description') or (element.tag == 'title' and key == 'widget'):
                 continue
             if '\\' in element.get(key, ''):
                 raise ValueError(f'map widget dependency: {element.get(key)}')
@@ -2764,6 +2766,10 @@ def generate(assets=MENUS):
     tall_disc_rows(documents)
     tall_patch_widgets(documents, bitmaps)
     native_header_sizes(documents, assets)
+    # every screen's title as text (tools/menu_titles.py): the generated screens' beside their widgets, the disc's
+    # in a file of their own
+    documents['titles.xml'] = ET.Element('menus')
+    menu_titles.declare(documents, documents['titles.xml'])
     for root in documents.values():
         validate(root, assets)
     output = assets / 'xbox'

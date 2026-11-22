@@ -51,4 +51,8 @@
 		<on event="a" run="direct ip edit field" />
 		<on event="start" run="direct ip edit field" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip/title">
+		<string text="DIRECT IP" id="xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_header_direct_ip_title.direct_ip" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip" strings="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip/title" />
 </menus>

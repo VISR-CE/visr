@@ -272,4 +272,12 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_list/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_list/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_list/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/main_menu/multiplayer_type_select/lobby/header_lobby/title">
+		<string text="GAME LOBBY" id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_header_lobby_title.game_lobby" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/lobby/header_lobby" strings="xbox/main_menu/multiplayer_type_select/lobby/header_lobby/title" />
+	<strings name="xbox/main_menu/multiplayer_type_select/lobby/header_add_player/title">
+		<string text="ADD PLAYER" id="xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_header_add_player_title.add_player" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/lobby/header_add_player" strings="xbox/main_menu/multiplayer_type_select/lobby/header_add_player/title" />
 </menus>

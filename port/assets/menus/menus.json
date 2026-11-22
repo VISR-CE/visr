@@ -172,6 +172,7 @@
   "xbox/settings.mouse_settings.xml",
   "xbox/settings.network_setup.xml",
   "xbox/settings.video_settings.xml",
-  "xbox/settings.xml"
+  "xbox/settings.xml",
+  "xbox/titles.xml"
  ]
 }

@@ -89,4 +89,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons/title">
+		<string text="CHOOSE WEAPONS" id="xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_header_weapons_title.choose_weapons" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons" strings="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons/title" />
 </menus>

@@ -104,4 +104,8 @@
 		<string text="Turn the music on or off. Off lets other apps'\nmusic play at full volume." id="xbox.settings_audio_settings.xbox_settings_audio_settings_help_strings.turn_the_music_on_or_off_off_let_3ae03c" />
 		<string text="The music's volume." id="xbox.settings_audio_settings.xbox_settings_audio_settings_help_strings.the_music_s_volume" />
 	</strings>
+	<strings name="xbox/settings/audio_settings/header_profile_audio_settings/title">
+		<string text="AUDIO SETUP" id="xbox.settings_audio_settings.xbox_settings_audio_settings_header_profile_audio_settings_title.audio_setup" />
+	</strings>
+	<title widget="xbox/settings/audio_settings/header_profile_audio_settings" strings="xbox/settings/audio_settings/header_profile_audio_settings/title" />
 </menus>

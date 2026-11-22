@@ -121,4 +121,8 @@
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/playlist_select_list/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/playlist_select_list/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit/title">
+		<string text="SELECT GAMETYPE TO EDIT" id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_header_select_gametype_to_edit_title.select_gametype_to_edit" />
+	</strings>
+	<title widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit" strings="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit/title" />
 </menus>

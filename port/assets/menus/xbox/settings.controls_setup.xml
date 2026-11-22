@@ -110,4 +110,8 @@
 	</widget>
 	<widget name="xbox/settings/controls_setup/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/controls_setup/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/settings/controls_setup/header_profile_controls_settings/title">
+		<string text="CONTROLS SETUP" id="xbox.settings_controls_setup.xbox_settings_controls_setup_header_profile_controls_settings_title.controls_setup" />
+	</strings>
+	<title widget="xbox/settings/controls_setup/header_profile_controls_settings" strings="xbox/settings/controls_setup/header_profile_controls_settings/title" />
 </menus>

@@ -256,4 +256,8 @@
 	</strings>
 	<widget name="xbox/settings/network_setup/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/network_setup/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/settings/network_setup/header_profile_network_settings/title">
+		<string text="NETWORK SETUP" id="xbox.settings_network_setup.xbox_settings_network_setup_header_profile_network_settings_title.network_setup" />
+	</strings>
+	<title widget="xbox/settings/network_setup/header_profile_network_settings" strings="xbox/settings/network_setup/header_profile_network_settings/title" />
 </menus>

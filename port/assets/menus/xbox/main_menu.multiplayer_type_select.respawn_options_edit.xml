@@ -105,4 +105,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/header_respawn_options/title">
+		<string text="RESPAWN OPTIONS" id="xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_header_respawn_options_title.respawn_options" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/header_respawn_options" strings="xbox/main_menu/multiplayer_type_select/respawn_options_edit/header_respawn_options/title" />
 </menus>

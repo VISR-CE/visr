@@ -83,4 +83,8 @@
 		<on event="a" open="xbox/settings/controls_setup/controls_settings_screen" />
 		<on event="start" open="xbox/settings/controls_setup/controls_settings_screen" />
 	</widget>
+	<strings name="xbox/settings/header/title">
+		<string text="EDIT PROFILE SETTINGS" id="xbox.settings.xbox_settings_header_title.edit_profile_settings" />
+	</strings>
+	<title widget="xbox/settings/header" strings="xbox/settings/header/title" />
 </menus>

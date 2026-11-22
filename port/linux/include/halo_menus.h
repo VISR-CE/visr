@@ -179,6 +179,16 @@ struct halo_menu_patch_row
 	long line;
 };
 
+/* <title widget="..." strings="..."/>: a screen's title, a widget (ours, or the map's by its path with backslashes)
+whose text is a string list of the menus' (one string for each frame its picture had); the engine draws it with the
+title element's look (halo_menu_meta.h's HALO_MENU_ROLE_TITLE) */
+struct halo_menu_title
+{
+	char const *widget, *strings;
+	char const *file;
+	long line;
+};
+
 struct halo_menus
 {
 	struct halo_menu_bitmap *bitmaps;
@@ -205,6 +215,8 @@ struct halo_menus
 	long patch_count;
 	struct halo_menu_patch_row *patch_rows;
 	long patch_row_count;
+	struct halo_menu_title *titles;
+	long title_count;
 	/* the main menu: <menus root="..."> (the last given), else "main_menu" */
 	char const *root;
 };

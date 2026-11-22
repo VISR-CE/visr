@@ -229,6 +229,9 @@ def check_menus(folder, assets=None, inventory=None):
                 resolve_map(path, value, "DeLa", key)
             elif element.tag == "widget" and key == "name" and "\\" in value:
                 errors.append(f"{path}: name={value} names a map widget in an Xbox-look file")
+            elif element.tag == "title" and key == "widget" and "\\" in value:
+                # (a disc screen's title, named by its path as a patch names its list)
+                resolve_map(path, value, "DeLa", key)
             elif not patch and key in ("widget", "description", "root"):
                 if "\\" in value:
                     errors.append(f"{path}: {key}={value!r} names a map widget in an Xbox-look file")

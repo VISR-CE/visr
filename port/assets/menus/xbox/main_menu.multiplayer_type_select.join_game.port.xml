@@ -118,4 +118,20 @@
 		<string text="Type the join code your friend's lobby shows,\nor a whole invite link, then JOIN GAME." id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings.type_the_join_code_your_friend_s_71ed39" />
 		<string text="That is not a join code (eight letters and digits)\nor an invite link. Try again." id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings.that_is_not_a_join_code_eight_le_74b529" />
 	</strings>
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/password/header_password/title">
+		<string text="PASSWORD" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_header_password_title.password" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/password/header_password" strings="xbox/main_menu/multiplayer_type_select/join_game/password/header_password/title" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/header_server_browser/title">
+		<string text="SERVER BROWSER" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_header_server_browser_title.server_browser" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/header_server_browser" strings="xbox/main_menu/multiplayer_type_select/join_game/header_server_browser/title" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link/title">
+		<string text="DIRECT LINK" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_header_direct_link_title.direct_link" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link" strings="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link/title" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link/title">
+		<string text="DIRECT LINK" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_header_direct_link_title.direct_link" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link" strings="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link/title" />
 </menus>

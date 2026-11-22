@@ -17,7 +17,7 @@ enum halo_menu_role
 {
 	HALO_MENU_ROLE_NONE,
 	HALO_MENU_ROLE_ROW,        /* a row of an option list */
-	HALO_MENU_ROLE_TITLE,      /* the screen's title */
+	HALO_MENU_ROLE_TITLE,      /* the screen's title: text (title_strings), drawn with the title element's look */
 	HALO_MENU_ROLE_BAR_ACTION, /* an action of the button bar */
 	HALO_MENU_ROLE_ROW_ACTION  /* an action bound to a row or a panel, outside the bar */
 };
@@ -60,6 +60,7 @@ struct halo_menu_meta
 	unsigned char typing;      /* enum halo_menu_typing: a bar action's key while a text field is being typed in */
 	unsigned char tall;        /* a standard tall row: the tall art, the standard tap band, the standard value kinds */
 	short visible_rows;        /* a list that shows a window of its rows: how many (0: all of them) */
+	long title_strings;        /* a title's text: a string list tag, one string for each frame of its picture */
 };
 
 /* the record of a tag; one of nothing (every field 0, its tag NONE) for a tag the menus say nothing of, so a

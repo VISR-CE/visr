@@ -224,6 +224,17 @@ does, never where it goes:
 The game makes each action's glyph and caption in its slot as it reads the
 file, and tells the engine their slot, scope and `while_typing`.
 
+### `<title>`
+
+`<title widget="..." strings="..."/>` makes a widget its screen's title.
+`widget` names one of ours, or a disc screen's by its path in the map (with
+backslashes); `strings` names a `<strings>` list holding its text, one string
+for each frame of its picture. The engine draws every title with one look and
+puts the helmet, the touch BACK chevron and the touch shift beside it; it
+finds titles only by this element, never by a widget's name or picture.
+`tools/menu_titles.py` writes them: the generated screens' titles in their own
+files, the disc screens' in `titles.xml`.
+
 ### `<patch>`
 
 The Xbox look's files (`xbox/`) change some of `ui.map`'s own lists with

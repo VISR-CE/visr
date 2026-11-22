@@ -194,4 +194,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/game_options_edit/header_game_options/title">
+		<string text="GAME" id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_header_game_options_title.game" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/game_options_edit/header_game_options" strings="xbox/main_menu/multiplayer_type_select/game_options_edit/header_game_options/title" />
 </menus>

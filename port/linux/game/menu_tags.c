@@ -1318,6 +1318,32 @@ static struct halo_menu_meta *meta_note(long tag_index)
 	return &grown[menu_tags.meta_count++];
 }
 
+/* the menus' <title>s: each widget noted as its screen's title, with its text (a widget of the map's that this map
+does not have, a disc screen's title while a game map is loaded, is left alone) */
+static void titles_note(void)
+{
+	struct halo_menus const *menus = build.menus;
+	long index;
+
+	for (index = 0; index < menus->title_count && !build.failed; index++)
+	{
+		struct halo_menu_title const *title = &menus->titles[index];
+		long widget = strchr(title->widget, '\\') ? tag_loaded(UI_WIDGET_DEFINITION_TAG, title->widget) :
+			tag_named(UI_WIDGET_DEFINITION_TAG, title->widget, title->file, title->line);
+		long strings = tag_named(UNICODE_STRING_LIST_TAG, title->strings, title->file, title->line);
+		struct halo_menu_meta *meta;
+
+		if (widget == NONE || strings == NONE)
+			continue;
+		meta = meta_note(widget);
+		if (meta)
+		{
+			meta->role = HALO_MENU_ROLE_TITLE;
+			meta->title_strings = strings;
+		}
+	}
+}
+
 /* a widget noted as a standard tall row */
 static void row_tall_note(long tag_index)
 {
@@ -3493,6 +3519,7 @@ void menu_tags_loaded(
 	cache_files_set_tag_instances(instances, build.first_index + total);
 	for (index = 0; index < widget_count && !build.failed; index++)
 		instances[DATUM_INDEX_TO_ABSOLUTE_INDEX(build.widget_tags[index])].base_address = widget_build(index);
+	titles_note();
 	if (build.failed)
 		goto failed;
 	for (index = 0; index < widget_count; index++)

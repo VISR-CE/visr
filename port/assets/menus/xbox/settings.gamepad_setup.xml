@@ -222,4 +222,8 @@
 		<child widget="xbox/settings/gamepad_setup/ingame_help_label" y="5" />
 		<child widget="xbox/settings/gamepad_setup/ingame_help_spinner_advanced" x="286" y="6" />
 	</widget>
+	<strings name="xbox/settings/gamepad_setup/header_profile_controller_setting/title">
+		<string text="CONTROLLER SETUP" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_header_profile_controller_setting_title.controller_setup" />
+	</strings>
+	<title widget="xbox/settings/gamepad_setup/header_profile_controller_setting" strings="xbox/settings/gamepad_setup/header_profile_controller_setting/title" />
 </menus>

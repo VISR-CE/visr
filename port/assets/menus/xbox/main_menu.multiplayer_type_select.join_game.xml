@@ -505,4 +505,12 @@
 		<frame png="xbox/art/browser_row__0.png" width="544" height="36" />
 		<frame png="xbox/art/browser_row__1.png" width="544" height="36" />
 	</bitmap>
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/header_internet/title">
+		<string text="INTERNET LOBBY" id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_header_internet_title.internet_lobby" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/header_internet" strings="xbox/main_menu/multiplayer_type_select/join_game/header_internet/title" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/header_lan/title">
+		<string text="LAN LOBBY" id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_header_lan_title.lan_lobby" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/header_lan" strings="xbox/main_menu/multiplayer_type_select/join_game/header_lan/title" />
 </menus>

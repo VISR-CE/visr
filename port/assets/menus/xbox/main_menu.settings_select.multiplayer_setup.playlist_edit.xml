@@ -79,4 +79,8 @@
 		<on event="a" run="port delete request" open="xbox/error/confirm_delete_gametype_modal_fullscreen" />
 		<on event="start" run="port delete request" open="xbox/error/confirm_delete_gametype_modal_fullscreen" />
 	</widget>
+	<strings name="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/header/title">
+		<string text="EDIT MULTIPLAYER GAMETYPE" id="xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_header_title.edit_multiplayer_gametype" />
+	</strings>
+	<title widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/header" strings="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/header/title" />
 </menus>
