@@ -212,7 +212,9 @@ def main():
         objects = []
         sources = ['port/linux/src/astc_rewrite.c', 'port/runtime/astc_store.c',
                    'port/ios/host/host_map_identity.m', 'port/ios/tests/astc_worker_probe.m',
-                   'port/linux/src/astc_encode.cpp', 'port/ios/host/host_astc_texture.c']
+                   'port/linux/src/astc_encode.cpp', 'port/ios/host/host_astc_texture.c',
+                   # the GPU-family gate answers host_astc_store.m's BC and ASTC questions
+                   'port/ios/host/metal_gate.m']
         sources += [str(p.relative_to(tree)) for p in sorted((tree / 'port/third_party/astcenc').glob('*.cpp'))]
         for i, source in enumerate(sources):
             cxx = source.endswith('.cpp')
@@ -222,7 +224,7 @@ def main():
             if cxx:
                 command += ['-std=c++14']
             if source.endswith('.m'):
-                command += ['-fobjc-arc', '-fblocks']
+                command += ['-fobjc-arc', '-fblocks', '-DMETAL_GATE_NO_METALFX']
             obj = build / f'{i}.o'
             subprocess.run([*command, '-c', str(tree / source), '--output', str(obj)], check=True)
             objects.append(str(obj))
