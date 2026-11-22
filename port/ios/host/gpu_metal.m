@@ -9529,6 +9529,14 @@ static struct
 	double pose_leads[PACING_TIMED_FRAMES];
 } stereo_pacing;
 
+/* the refreshes a stereo frame was shown for, from its interval: 1 to most */
+static long stereo_refreshes_shown(double interval, CFTimeInterval period, long most)
+{
+	long up = lround(interval / period);
+
+	return up < 1 ? 1 : up > most ? most : up;
+}
+
 /* the cadence line's percentiles over the frames that did (ticked 1) or did not (0) run a tick; -1: all frames */
 static void stereo_cadence_percentiles(const double *times, int ticked, double *median, double *high)
 {
@@ -9555,9 +9563,8 @@ static void stereo_cadence_report(CFTimeInterval period)
 
 	for (index = 0; index < stereo_pacing.timed; index++)
 	{
-		long up = lround(stereo_pacing.intervals[index] / period);
+		long up = stereo_refreshes_shown(stereo_pacing.intervals[index], period, 3);
 
-		up = up < 1 ? 1 : up > 3 ? 3 : up;
 		shown[stereo_pacing.ticked[index] ? 1 : 0][up]++;
 		if (up >= 2 && index > 0 && stereo_pacing.tick_times[index] + stereo_pacing.render_times[index - 1] <= period &&
 			stereo_pacing.gpu_times[index - 1] <= period)
@@ -9678,9 +9685,7 @@ static void stereo_pacing_count(int view, id<MTLTexture> picture)
 		stereo_pacing.period = period;
 		for (index = 0; index < stereo_pacing.timed; index++)
 		{
-			long up = lround(stereo_pacing.intervals[index] / period);
-
-			shown[up < 1 ? 1 : up > 5 ? 5 : up]++;
+			shown[stereo_refreshes_shown(stereo_pacing.intervals[index], period, 5)]++;
 		}
 		/* (before the percentiles below sort the CPU times out of frame order) */
 		stereo_cadence_report(period);
