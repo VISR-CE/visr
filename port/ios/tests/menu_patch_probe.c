@@ -98,6 +98,11 @@ static char const patches_xml[] =
 	"<patch list=\"ui\\shell\\overflow\\overflow_list\" screen=\"ui\\shell\\overflow\\overflow_screen\">\n"
 	"  <row after=\"ui\\shell\\overflow\\overflow_item_0\" name=\"overflow_a\" text=\"A\" open=\"xbox/test_screen\"/>\n"
 	"</patch>\n"
+	/* rows="tall" that would pass the footer once tall: not made, and the map's rows stay as they were */
+	"<patch list=\"ui\\shell\\tall_overflow\\tall_overflow_list\" screen=\"ui\\shell\\tall_overflow\\tall_overflow_screen\""
+	" rows=\"tall\" row_kind=\"option\" tall_art=\"xbox/test_picture\">\n"
+	"  <remove child=\"ui\\shell\\tall_overflow\\tall_overflow_item_0\"/>\n"
+	"</patch>\n"
 	/* a list the map has not got: not made, nothing used */
 	"<patch list=\"ui\\shell\\missing\\missing_list\" screen=\"ui\\shell\\missing\\missing_screen\">\n"
 	"  <row after=\"ui\\shell\\missing\\missing_item\" name=\"missing_row\" text=\"MISSING\" open=\"xbox/test_screen\"/>\n"
@@ -517,7 +522,7 @@ static long panel_add(char const *name, char const *picture_name, char const *te
 #define MM "ui\\shell\\main_menu\\"
 
 static long mp_screen, mp_list, mp_blueline, mp_key, pe_screen, pe_list, pe_blueline, mm_screen, mm_list;
-static long st_screen, st_list, ov_list, other_list;
+static long st_screen, st_list, ov_list, other_list, to_list, to_rows[5];
 
 static void adopt_build(void);
 static void options_build(void);
@@ -643,6 +648,30 @@ static void map_build(void)
 		children[1] = widget_add("ui\\shell\\overflow\\button_key_options", _widget_type_container, 0, 0, 300, 26);
 		children_set(children[1], 1, &legend, legend_x, legend_y);
 		children_set(widget_add("ui\\shell\\overflow\\overflow_screen", _widget_type_container, 0, 0, 640, 480),
+			2, children, screen_xs, screen_ys);
+	}
+	/* a list whose rows fit at 27 units apart (the last ends at the footer) but not on the standard tall pitch */
+	{
+		long children[2];
+		short const xs[5] = { 0, 0, 0, 0, 0 }, ys[5] = { 300, 327, 354, 381, 408 };
+		short const screen_xs[2] = { 0, 300 }, screen_ys[2] = { 0, 414 };
+		char name[64];
+		long row;
+
+		for (row = 0; row < 5; row++)
+		{
+			snprintf(name, sizeof(name), "ui\\shell\\tall_overflow\\tall_overflow_item_%ld", row);
+			to_rows[row] = row_add(strdup(name), 51, 0, 283, 26, 0);
+		}
+		to_list = widget_add("ui\\shell\\tall_overflow\\tall_overflow_list", _widget_type_column_list, 0, 0, 640, 480);
+		children_set(to_list, 5, to_rows, xs, ys);
+		children[0] = to_list;
+		long legend = widget_add("ui\\shell\\tall_overflow\\a_butn", _widget_type_container, 0, 7, 21, 33);
+		short const legend_x[1] = { 0 }, legend_y[1] = { 7 };
+
+		children[1] = widget_add("ui\\shell\\tall_overflow\\button_key_options", _widget_type_container, 0, 0, 300, 26);
+		children_set(children[1], 1, &legend, legend_x, legend_y);
+		children_set(widget_add("ui\\shell\\tall_overflow\\tall_overflow_screen", _widget_type_container, 0, 0, 640, 480),
 			2, children, screen_xs, screen_ys);
 	}
 }
@@ -1072,6 +1101,27 @@ static void check_apple(boolean tvos)
 
 		check_rows("overflow", ov_list, tops, 2);
 		check(!pc_menu_patch_list_index(ov_list, NONE, &description), "the overflowing list is not patched");
+		/* (a tall patch is worked out whole before it changes a row: one that fails leaves the map's rows alone) */
+		{
+			short const tall_tops[5] = { 300, 327, 354, 381, 408 };
+			long row;
+
+			check_rows("tall overflow", to_list, tall_tops, 5);
+			check(!pc_menu_patch_list_index(to_list, NONE, &description), "the list too tall for its footer is not patched");
+			for (row = 0; row < 5; row++)
+			{
+				struct ui_widget_definition const *definition = definition_of(to_rows[row]);
+
+				check(definition->bounds.y1 - definition->bounds.y0 == 26,
+					"a failed tall patch leaves the map's row its height (row %ld: %d)", row,
+					definition->bounds.y1 - definition->bounds.y0);
+				check(definition->background_bitmap.index == NONE, "a failed tall patch leaves the map's row its art (row %ld)", row);
+				check(!pc_menu_row_tall(to_rows[row]) && pc_menu_meta(to_rows[row])->role == HALO_MENU_ROLE_NONE,
+					"a failed tall patch says nothing of the map's row (row %ld)", row);
+			}
+		}
+		check(pc_menu_meta(NONE)->title_strings == NONE && pc_menu_meta(to_rows[0])->title_strings == NONE,
+			"a tag that is not a title has no title text");
 		check(!pc_menu_patch_list_index(other_list, NONE, &description) && child_count(other_list) == 1,
 			"the list whose row runs no function is not patched");
 		check(!pc_menu_patch_list_index(mm_screen, NONE, &description), "a screen is not a patched list");

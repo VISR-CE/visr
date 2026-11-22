@@ -1315,6 +1315,7 @@ static struct halo_menu_meta *meta_note(long tag_index)
 	menu_tags.meta = grown;
 	memset(&grown[menu_tags.meta_count], 0, sizeof(*grown));
 	grown[menu_tags.meta_count].tag_index = tag_index;
+	grown[menu_tags.meta_count].title_strings = NONE;
 	return &grown[menu_tags.meta_count++];
 }
 
@@ -1347,7 +1348,7 @@ static void titles_note(void)
 /* a widget noted as a standard tall row */
 static void row_tall_note(long tag_index)
 {
-	struct halo_menu_meta *meta = meta_note(tag_index);
+	struct halo_menu_meta *meta = tag_index == NONE ? NULL : meta_note(tag_index);
 
 	if (meta)
 	{
@@ -2201,6 +2202,11 @@ struct patch_work
 	/* the rows made: their tags, definitions, names and texts */
 	long made_widgets[PATCH_MAXIMUM_ROWS], made_texts[PATCH_MAXIMUM_ROWS];
 	struct ui_widget_definition *made_definitions[PATCH_MAXIMUM_ROWS];
+	/* rows="tall": each row's definition to make tall when the patch is written (NULL: none, ours or already
+	tall), and its art; a patch that fails before it is written leaves the map's rows as they were */
+	struct ui_widget_definition *tall_definitions[PATCH_MAXIMUM_ROWS];
+	long tall_art[PATCH_MAXIMUM_ROWS];
+	short tall_shift;
 	char const *made_names[PATCH_MAXIMUM_ROWS], *made_strings[PATCH_MAXIMUM_ROWS];
 	long made_count;
 	/* the help strings of the rows that are our widgets, added in order to the description's text */
@@ -3013,6 +3019,36 @@ static void patch_gap_widgets_follow(struct patch_work *work, short const *was)
 	}
 }
 
+/* rows="tall", written: the rows patch_rows_tall chose made tall, each noted as a standard tall row */
+static void patch_rows_tall_write(struct patch_work *work)
+{
+	long row;
+
+	for (row = 0; row < work->count; row++)
+	{
+		struct ui_widget_definition *definition = work->tall_definitions[row];
+		long tag = work->rows[row].widget_tag.index;
+
+		/* (a map row the list shows twice is made tall once) */
+		if (definition && !(tag != NONE && pc_menu_row_tall(tag)))
+		{
+			struct ui_widget_child_reference *parts = definition->child_widgets.address;
+			long part;
+
+			definition->bounds.y1 = (short)(definition->bounds.y0 + MENU_COMFORTABLE_PITCH);
+			reference_set(&definition->background_bitmap, BITMAP_GROUP_TAG, work->tall_art[row]);
+			if (definition->type == _widget_type_text_box)
+				definition->vertical_offset = (short)(definition->vertical_offset + work->tall_shift);
+			for (part = 0; part < definition->child_widgets.count; part++)
+				parts[part].vertical_offset = (short)(parts[part].vertical_offset + work->tall_shift);
+		}
+		if (tag != NONE)
+			row_tall_note(tag);
+	}
+}
+
+/* rows="tall", worked out: where each row stands on the standard pitch and which definitions become tall (written
+by patch_rows_tall_write, after the patch's last failure) */
 static boolean patch_rows_tall(struct patch_work *work)
 {
 	struct halo_menu_patch const *patch = work->patch;
@@ -3055,20 +3091,10 @@ static boolean patch_rows_tall(struct patch_work *work)
 		which are tall already) */
 		if (!definition && work->map_tags[row] == tag && tag != NONE && !pc_menu_row_tall(tag))
 			definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
-		if (definition)
-		{
-			struct ui_widget_child_reference *parts = definition->child_widgets.address;
-			long part;
-
-			definition->bounds.y1 = (short)(definition->bounds.y0 + MENU_COMFORTABLE_PITCH);
-			reference_set(&definition->background_bitmap, BITMAP_GROUP_TAG, row == 0 ? top_art : art);
-			if (definition->type == _widget_type_text_box)
-				definition->vertical_offset = (short)(definition->vertical_offset + kind->content_shift);
-			for (part = 0; part < definition->child_widgets.count; part++)
-				parts[part].vertical_offset = (short)(parts[part].vertical_offset + kind->content_shift);
-		}
-		row_tall_note(tag);
+		work->tall_definitions[row] = definition;
+		work->tall_art[row] = row == 0 ? top_art : art;
 	}
+	work->tall_shift = kind->content_shift;
 	patch_gap_widgets_follow(work, y);
 	return TRUE;
 }
@@ -3203,7 +3229,8 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 	/* (the rows above the footer) */
 	for (row = 0, bottom = -32768; row < work->count; row++)
 	{
-		long row_bottom = patch_row_y(work, row) + work->definitions[row]->bounds.y1 - work->definitions[row]->bounds.y0;
+		long row_bottom = patch_row_y(work, row) + (work->tall_definitions[row] ? MENU_COMFORTABLE_PITCH :
+			work->definitions[row]->bounds.y1 - work->definitions[row]->bounds.y0);
 
 		if (row_bottom > bottom)
 			bottom = row_bottom;
@@ -3254,6 +3281,8 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 	memcpy(grown, work->rows, work->count * sizeof(*grown));
 	work->list->child_widgets.address = grown;
 	work->list->child_widgets.count = work->count;
+	if (patch->rows)
+		patch_rows_tall_write(work);
 	/* standard tall rows keep the standard value column: as wide as the list's widest value, so a switch, a
 	dropdown or a slider has the room the menus' own rows give it, whatever width the map gave each spinner */
 	if (patch->rows)
@@ -3926,7 +3955,7 @@ boolean pc_menu_tag(
 struct halo_menu_meta const *pc_menu_meta(
 	long tag_index)
 {
-	static struct halo_menu_meta const nothing = { NONE, 0, 0, 0, 0, 0 };
+	static struct halo_menu_meta const nothing = { NONE, 0, 0, 0, 0, 0, 0, NONE };
 	long index;
 
 	/* (read while the tags are built too: a patch asks whether a row it shares is tall already) */

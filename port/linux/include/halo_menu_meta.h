@@ -60,10 +60,10 @@ struct halo_menu_meta
 	unsigned char typing;      /* enum halo_menu_typing: a bar action's key while a text field is being typed in */
 	unsigned char tall;        /* a standard tall row: the tall art, the standard tap band, the standard value kinds */
 	short visible_rows;        /* a list that shows a window of its rows: how many (0: all of them) */
-	long title_strings;        /* a title's text: a string list tag, one string for each frame of its picture */
+	long title_strings;        /* a title's text: a string list tag, one string for each frame of its picture (NONE: not a title) */
 };
 
-/* the record of a tag; one of nothing (every field 0, its tag NONE) for a tag the menus say nothing of, so a
+/* the record of a tag; one of nothing (every field 0, its tag and title_strings NONE) for a tag the menus say nothing of, so a
 caller reads a field without a test */
 struct halo_menu_meta const *pc_menu_meta(long tag_index);
 
