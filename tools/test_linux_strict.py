@@ -132,3 +132,29 @@ def test_c_language_override_is_checked_whatever_the_suffix(tmp_path: Path) -> N
                             capture_output=True, text=True)
     assert result.returncode != 0
     assert "<mach/mach_time.h>" in result.stderr
+
+
+def test_libm_functions_arm64_inlines_still_need_lm(tmp_path: Path) -> None:
+    source = ("#include <math.h>\nint main(int c, char **v) { (void)v; double x = c;"
+              " return (int)(sqrt(x) + floor(x) + fmax(x, 2.0) + fabs(x) + (double)lround(x)); }\n")
+    for level in ("-O0", "-O2"):
+        result = compile_with(tmp_path, "cc", source, level, "probe.c", "-o", "probe")
+        assert result.returncode != 0, level
+        for name in ("sqrt", "floor", "fmax", "fabs", "lround"):
+            assert name in result.stderr, (level, name)
+    # Built in two steps, the object still calls them, and the link without -lm is refused.
+    assert compile_with(tmp_path, "cc", source, "-O2", "-c", "probe.c", "-o", "probe.o").returncode == 0
+    environment = ci_test.strict_environment()
+    assert environment is not None
+    link = subprocess.run(["cc", "probe.o", "-o", "probe"], cwd=tmp_path, env=environment,
+                          capture_output=True, text=True)
+    assert link.returncode != 0 and "sqrt" in link.stderr
+    assert compile_with(tmp_path, "cc", source, "-O2", "probe.c", "-o", "probe", "-lm").returncode == 0
+
+
+def test_combined_sine_and_cosine_needs_lm(tmp_path: Path) -> None:
+    source = "#include <math.h>\nint main(int c, char **v) { (void)v; double x = c; return (int)(sin(x) * cos(x) * 9); }\n"
+    result = compile_with(tmp_path, "cc", source, "-O2", "probe.c", "-o", "probe")
+    assert result.returncode != 0
+    assert "cos, sin" in result.stderr
+

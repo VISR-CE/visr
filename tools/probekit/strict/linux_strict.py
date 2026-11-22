@@ -13,6 +13,8 @@ imitate Ubuntu 24.04 with glibc:
    only Apple builds reach carries an `/* apple-only */` comment on its line.
 3. A link without `-lm` must not leave a libm function undefined
    (`linux_libm.txt`): libSystem provides them on macOS, glibc needs `-lm`.
+   Compiles keep the math functions arm64 inlines as calls so the check sees
+   them.
 
 Commands that cannot run on Linux anyway (Objective-C, frameworks, Apple
 device targets) pass through unchanged. `HALO_LINUX_STRICT=0` turns the
@@ -34,6 +36,13 @@ ISO_STANDARDS = re.compile(r"-std=(c89|c90|c99|c9x|c11|c1x|c17|c18|c2x|c23|iso98
 FEATURE_MACROS = ("_POSIX_C_SOURCE", "_XOPEN_SOURCE", "_GNU_SOURCE", "_DEFAULT_SOURCE", "_BSD_SOURCE",
                   "_DARWIN_C_SOURCE", "_ANSI_SOURCE", "_C99_SOURCE")
 STRICT_MACROS = ["-D_ANSI_SOURCE", "-D_C99_SOURCE"]
+# libm functions that clang on arm64 turns into instructions, so a link without -lm shows no call to them;
+# x86-64 Linux calls most of them. Compiling them as calls lets the libm check see them.
+INLINED_MATH = ("sqrt", "floor", "ceil", "trunc", "round", "rint", "nearbyint", "fmin", "fmax", "fma", "lround",
+                "llround", "lrint", "llrint", "fabs")
+MATH_AS_CALLS = [f"-fno-builtin-{name}{suffix}" for name in INLINED_MATH for suffix in ("", "f", "l")]
+# Darwin's combined sine and cosine, which clang emits for sin(x) with cos(x).
+SINCOS = {"__sincos_stret": ("sin", "cos"), "__sincosf_stret": ("sinf", "cosf")}
 DEFINES_FEATURE_MACRO = re.compile(r"^\s*#\s*define\s+(" + "|".join(FEATURE_MACROS) + r")\b", re.MULTILINE)
 C_SOURCES = {".c", ".i"}
 APPLE_SOURCES = {".m", ".mm", ".M"}
@@ -232,7 +241,11 @@ def math_problems(output: str) -> list[str]:
     if result.returncode != 0:
         return []
     libm = lines("linux_libm.txt")
-    names = sorted({symbol.lstrip("_") for symbol in result.stdout.split()} & libm)
+    undefined = {symbol[1:] if symbol.startswith("_") else symbol for symbol in result.stdout.split()}
+    for combined, parts in SINCOS.items():
+        if combined in undefined:
+            undefined.update(parts)
+    names = sorted(undefined & libm)
     if not names:
         return []
     return [f"{output} calls {', '.join(names)}: links on macOS, needs -lm on Linux"]
@@ -247,15 +260,18 @@ def main() -> int:
     if command.apple or (not command.c_sources and not command.link):
         os.execv(compiler, [compiler, *arguments])
     extra = []
+    strict_macros = bool(command.c_sources) and command.iso and not command.defines_feature_macro()
     if command.c_sources:
         extra.append("-H")
-        if command.iso and not command.defines_feature_macro():
+        if strict_macros:
             extra += STRICT_MACROS
+        if not (command.link and command.math):
+            extra += MATH_AS_CALLS
     result = subprocess.run([compiler, *arguments, *extra], stderr=subprocess.PIPE, text=True, errors="replace")
     trace, diagnostics = split_trace(result.stderr)
     sys.stderr.write(diagnostics)
     if result.returncode != 0:
-        if extra[1:] and "error" in diagnostics:
+        if strict_macros and "error" in diagnostics:
             sys.stderr.write("linux-strict: compiled with -D_ANSI_SOURCE -D_C99_SOURCE to match glibc's strict "
                              "ISO C headers, which hide M_PI, strdup and clock_gettime; command: "
                              f"{describe(name, arguments)}\n")
