@@ -15,7 +15,8 @@ static _Atomic uint64_t last_update_ns;
 static pthread_mutex_t stats_lock = PTHREAD_MUTEX_INITIALIZER;
 static unsigned histogram[BUCKETS];
 static unsigned long long count, sum_ns, max_ns, window_start_ns;
-static int log_enabled = -1;
+/* (-1 until read; age_sample runs on main, the game thread and the guest's own threads) */
+static atomic_int log_enabled = -1;
 
 void host_controller_refreshed(void) {
     atomic_store_explicit(&last_update_ns, SDL_GetTicksNS(), memory_order_release);
@@ -46,12 +47,14 @@ static unsigned long long percentile_ns(double fraction) {
 /* Adds the age of the state to the window and, with debug.controller_age_log, logs count, mean, p50, p99
    and max every 5 s (percentiles are bucket upper edges, 0.25 ms apart). */
 static void age_sample(void) {
-    if (log_enabled < 0) {
+    int enabled = atomic_load(&log_enabled);
+    if (enabled < 0) {
         char value[16];
         host_config_string("debug.controller_age_log", "false", value, sizeof(value));
-        log_enabled = strcmp(value, "true") == 0;
+        enabled = strcmp(value, "true") == 0;
+        atomic_store(&log_enabled, enabled);
     }
-    if (!log_enabled) return;
+    if (!enabled) return;
     uint64_t age = host_controller_age_ns();
     if (age == UINT64_MAX) return;
     uint64_t now = SDL_GetTicksNS();

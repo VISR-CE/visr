@@ -805,7 +805,8 @@ void host_sdl_rumble_hold(int hold)
 /* A controller read never waits on the main thread: the main thread can be busy for a long time,
 and the wait sits right before the game uses what it read. The gamepad entry points below run in
 host_main_thread.h's no-wait zone; the first wait made in one is logged as an error. Shared state
-they read is atomic or SDL's own (taken under SDL's joystick lock), never main's. */
+they read is atomic or SDL's own (taken under SDL's joystick lock), never main's. A development build
+stops there (as the GPU owner check does). tools/test_sdl_event_callbacks.py checks the same statically. */
 static void pad_read_begin(void)
 {
 	host_main_wait_forbid();
@@ -817,8 +818,13 @@ static void pad_read_end(void)
 
 	host_main_wait_allow();
 	if (host_main_forbidden_waits() && !atomic_exchange(&logged, 1))
+	{
 		host_logf(HOST_LOG_ERROR, "a controller read waited on the main thread (%lu so far): reads must not",
 			host_main_forbidden_waits());
+#ifdef HALO_DEVELOPMENT_HOOKS
+		host_crash("a controller read waited on the main thread");
+#endif
+	}
 }
 
 int host_sdl_get_gamepads(uint32_t *ids, int capacity)
