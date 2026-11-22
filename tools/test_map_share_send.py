@@ -27,11 +27,11 @@ from harness import CHECK_FAILED, constant, enum_with, function, mutated, read, 
 
 GAME = ROOT / "port/linux/game"
 FIXTURE = ROOT / "tools/harness/tests/map_share_send.c"
-CASES = ["catalog", "offer", "relay", "relay-unknown"]
+CASES = ["catalog", "catalog-replaced", "offer", "relay", "relay-unknown"]
 
 MAP_SHARE_FILES_FUNCTIONS = ("hex_digit", "map_share_name_hashed", "map_share_name_base_length",
-                             "map_share_piece_count", "map_share_file_sendable", "map_share_file_hash",
-                             "map_share_file_get")
+                             "map_share_piece_count", "map_share_file_sendable", "map_share_file_unchanged",
+                             "map_share_file_hash", "map_share_file_get")
 MAP_SHARE_FUNCTIONS = ("put_long", "level_name_copy", "frame_room", "frame_begin", "frame_piece",
                        "current_files_hashed", "download_file_sendable", "sent_catalog_file", "sent_download_file",
                        "send_state", "piece_sendable", "connection_send_hashes", "serving_file_size", "block_read",
@@ -63,6 +63,13 @@ NEGATIVE_CONTROLS = {
                        "map_share.c", "download_file_sendable", "relay-unknown"),
     "haves-of-anything": (("index < MAXIMUM_CONNECTIONS && download_file_sendable(file)",
                            "index < MAXIMUM_CONNECTIONS"), "map_share.c", "download_piece_had", "relay"),
+    "catalog-trusted-after-judging": (("map_share_sending() && map_share_file_unchanged(file)", "map_share_sending()"),
+                                      "map_share.c", "sent_catalog_file", "catalog-replaced"),
+    "catalog-sent-unhashed": (("return file && file->ready && map_share_sending()", "return file && map_share_sending()"),
+                              "map_share.c", "sent_catalog_file", "catalog-replaced"),
+    "refused-says-none": (("\t\tbody[1] = _have_pieces;\n\t\tcsmemset(body + 2, 0, bytes);",
+                           "\t\tbody[1] = _have_none;\n\t\tcsmemset(body + 2, 0, bytes);"),
+                          "map_share.c", "send_state", "relay"),
     "pieces-of-anything": (("struct download_file *file = sent_download_file(connection, index);\n\n\tif (catalog_file)"
                             "\n\t\treturn piece >= 0 && piece < catalog_file->piece_count;",
                             "struct download_file *file = connection->download_file[index] != NONE ? "
@@ -185,6 +192,48 @@ def test_policy_knows_the_menus_stock_maps():
     table = maps[start:maps.index("};", start)]
     names = {part.split('"')[1] for part in table.split("{ ")[1:]}
     assert names and names <= policy_names()
+
+
+def string_table(relative, marker):
+    source = read(relative)
+    start = source.index(marker)
+    table = source[source.index("{", start):source.index("}", start)]
+    return {part.strip().strip('"') for part in table.strip("{").split(",") if part.strip().startswith('"')}
+
+
+@pytest.mark.parametrize("relative, marker", [
+    ("port/linux/src/p2p_lobby.c", "static const char *const stock_maps[] ="),
+    ("port/linux/game/photo_framing.c", "static const char *stock[] = {"),
+])
+def test_policy_knows_the_other_stock_tables(relative, marker):
+    """The game's other lists of its own maps name nothing map sharing would send."""
+    names = string_table(relative, marker)
+    assert names and names <= policy_names()
+
+
+# ---------- every path that sends takes its file from the gate
+
+
+# the functions of map_share.c that may read a connection's files directly: the gate itself, matching, and those
+# that receive (a new function that sends must take its file from sent_catalog_file or sent_download_file)
+DIRECT_FILE_READERS = {
+    "sent_catalog_file", "sent_download_file", "send_state", "connection_match_files", "connection_set_files",
+    "connection_new", "connection_free", "connection_close", "remote_piece_had", "remote_pieces_forget", "download_piece_had",
+    "piece_choose", "download_unasked_pieces", "connection_ask", "request_remove", "frame_state", "frame_have",
+    "frame_block", "frame_refuse", "frame_hashes_request", "frame_hashes", "connection_read", "connections_update",
+    "download_update", "hashes_source", "download_end",
+}
+
+
+def test_no_path_sends_around_the_gate():
+    import re
+    source = read("port/linux/game/map_share.c")
+    readers = set()
+    for match in re.finditer(r"^(?:static )?[\w *]+?\b(\w+)\(\s*[^;{]*\)\s*\{", source, re.M):
+        body = function(source, match.group(1))
+        if "connection->download_file[" in body or "map_share_file_get(connection->catalog_file" in body:
+            readers.add(match.group(1))
+    assert readers <= DIRECT_FILE_READERS, f"read a connection's files around the gate: {readers - DIRECT_FILE_READERS}"
 
 
 # ---------- real maps, when present (never committed)

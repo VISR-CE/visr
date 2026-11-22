@@ -203,6 +203,12 @@ boolean map_share_file_sendable(
 	unsigned long size,
 	byte const *header,
 	long header_bytes);
+
+/* whether a catalog file is still the one judged and hashed: the same size
+and time written (one replaced is judged again by map_share_file_hash before
+it is sent) */
+boolean map_share_file_unchanged(
+	struct map_share_file const *file);
 /* ... and a file whose pieces' hashes are known (a download's, which were
 checked): taken as it is, not hashed again */
 short map_share_file_hashed(

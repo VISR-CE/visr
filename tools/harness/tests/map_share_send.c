@@ -442,6 +442,31 @@ static int frames(struct connection const *connection, byte type, short file)
 	return count;
 }
 
+/* what the connection's state frame of file `file` says it has (NONE: no
+frame), and whether any piece is in it */
+static int state_said(struct connection const *connection, short file, boolean *pieces)
+{
+	long offset = 0;
+
+	*pieces = FALSE;
+	while (offset + 5 <= connection->output_size)
+	{
+		byte const *frame = connection->output + offset;
+		long length = (long)(frame[0] | frame[1] << 8 | frame[2] << 16 | (unsigned long)frame[3] << 24);
+
+		if (frame[4] == _frame_state && length > 2 && frame[5] == file)
+		{
+			long index;
+
+			for (index = 7; index < 4 + length; index++)
+				*pieces = *pieces || frame[index] != 0;
+			return frame[6];
+		}
+		offset += 4 + length;
+	}
+	return NONE;
+}
+
 static void case_relay(void)
 {
 	static byte piece[MAP_SHARE_PIECE_BYTES];
@@ -474,7 +499,15 @@ static void case_relay(void)
 		CHECK(frames(connection, _frame_have, index) == (sent ? 1 : 0), "file %d: %d haves said", index,
 			frames(connection, _frame_have, index));
 		send_state(connection, index);
-		CHECK(frames(connection, _frame_state, index) == 1, "file %d: its state not said", index);
+		{
+			boolean pieces;
+			int said = state_said(connection, index, &pieces);
+
+			/* (one that is not passed on is still being downloaded, with
+			nothing to give: never _have_none, which closes the connection
+			the download needs) */
+			CHECK(said == _have_pieces && pieces == sent, "file %d: said %d (pieces %d)", index, said, pieces);
+		}
 		CHECK(piece_sendable(connection, index, 0) == sent, "file %d: piece 0 sendable", index);
 		CHECK(piece_sendable(connection, index, 1) == sent, "file %d: piece 1 sendable", index);
 		CHECK((serving_file_size(connection, index) != 0) == sent, "file %d: a size to send", index);
@@ -508,6 +541,37 @@ static void case_relay_unknown(void)
 	CHECK(connection->output_size == 0, "the state of a file not judged yet is said");
 }
 
+/* a catalog file replaced on disk after it was judged is not sent until it
+is judged again */
+static void case_catalog_replaced(void)
+{
+	struct connection *connection = relay_make(1);
+	char path[MAP_SHARE_PATH_SIZE];
+	byte block[MAP_SHARE_BLOCK_BYTES];
+	unsigned long bytes;
+	struct serving serving;
+	short index;
+
+	community_file("hugeass.map", "hugeass");
+	fake_path(path, "hugeass.map");
+	index = map_share_file_hash(path, _map_share_file_map);
+	CHECK(index != NONE, "a community map is not sent");
+	map_share_file_get(index)->piece_count = map_share_piece_count(FAKE_FILE_BYTES);
+	connection->catalog_file[0] = index;
+	CHECK(!piece_sendable(connection, 0, 0), "a piece of a file not hashed yet is sendable");
+	map_share_file_get(index)->ready = TRUE;
+	serving.file = 0;
+	serving.piece = 0;
+	serving.offset = 0;
+	CHECK(piece_sendable(connection, 0, 0), "a community map's piece is not sendable");
+	CHECK(block_read(connection, &serving, block, &bytes), "a community map's block is not read");
+	sleep(1);
+	community_file("hugeass.map", "bloodgulch");
+	CHECK(!piece_sendable(connection, 0, 0), "a replaced file's piece is sendable");
+	CHECK(!serving_file_size(connection, 0), "a replaced file has a size to send");
+	CHECK(!block_read(connection, &serving, block, &bytes), "a replaced file's block is read");
+}
+
 int main(int count, char **arguments)
 {
 	char const *name = count > 1 ? arguments[1] : "";
@@ -518,6 +582,8 @@ int main(int count, char **arguments)
 		case_offer();
 	else if (!strcmp(name, "relay"))
 		case_relay();
+	else if (!strcmp(name, "catalog-replaced"))
+		case_catalog_replaced();
 	else if (!strcmp(name, "relay-unknown"))
 		case_relay_unknown();
 	else

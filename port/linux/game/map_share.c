@@ -833,7 +833,7 @@ static struct map_share_file *sent_catalog_file(
 {
 	struct map_share_file *file = map_share_file_get(connection->catalog_file[index]);
 
-	return file && file->ready && map_share_sending() ? file : NULL;
+	return file && file->ready && map_share_sending() && map_share_file_unchanged(file) ? file : NULL;
 }
 
 static struct download_file *sent_download_file(
@@ -944,15 +944,26 @@ static void send_state(
 		body[0] = (byte)index;
 		body[1] = _have_all;
 	}
+	else if (download_file != NONE && download->files[download_file].sendable == _sendable_no)
+	{
+		/* (a download's file that may not be passed on: being downloaded,
+		with no piece to give. Never _have_none, which the other end, of
+		this build or one before, takes for nothing to do with this one
+		and closes the connection its download needs) */
+		long bytes = (download->files[download_file].piece_count + 7) / 8;
+
+		if (!frame_room(connection, 2 + bytes))
+			return;
+		body = frame_begin(connection, _frame_state, 2 + bytes);
+		body[0] = (byte)index;
+		body[1] = _have_pieces;
+		csmemset(body + 2, 0, bytes);
+	}
 	else
 	{
-		/* (not known yet: said once it is; a download's file that may not
-		be passed on, none) */
-		if ((download_file != NONE && download->files[download_file].sendable != _sendable_no) ||
-			!current_files_hashed())
-		{
+		/* (not known yet: said once it is) */
+		if (download_file != NONE || !current_files_hashed())
 			return;
-		}
 		if (!frame_room(connection, 2))
 			return;
 		body = frame_begin(connection, _frame_state, 2);

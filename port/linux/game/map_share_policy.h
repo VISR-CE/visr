@@ -17,8 +17,7 @@ renamed, header and all). Anything that is not a Custom Edition cache
 had yet or not read) is refused.
 
 Standalone C with fixed-width types, as cache_file_formats.c is: compiled into
-the game and into the tests (tools/test_map_share_policy.py,
-tools/harness/tests/test_map_share_publisher.py).
+the game and into the test tools/test_map_share_send.py.
 */
 
 #ifndef __MAP_SHARE_POLICY_H
