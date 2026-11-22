@@ -290,6 +290,10 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-director
     'port/ios/tests/topology_facts_probe.c', '-o', BUILD/'topology-facts-probe')
 run(BUILD/'topology-facts-probe')
 
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
+    'port/ios/tests/topology_probe.c', '-o', BUILD/'topology-probe')
+run(BUILD/'topology-probe')
+
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/companion_probe.c', '-o', BUILD/'companion-probe')
 run(BUILD/'companion-probe')
