@@ -163,3 +163,40 @@ int main(void) {
 }
 ''')
     subprocess.run([str(binary)], check=True)
+
+
+def test_a_profile_being_deleted_withdraws_its_checkpoint_first(tmp_path):
+    """XDeleteSaveGame tells the host's writer before it lists the profile's folder. The class of bug: the
+    writer's thread putting a file into a folder the game is emptying, which then cannot be removed."""
+    source = (ROOT / "port/linux/src/xbox_xapi.c").read_text()
+    binary = compile_probe(tmp_path, r'''
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#define HALO_IOS 1
+#define WINAPI
+#define MAX_PATH 260
+#define ERROR_SUCCESS 0
+#define ERROR_PATH_NOT_FOUND 3
+typedef unsigned long DWORD; typedef const char *LPCSTR; typedef const unsigned short *LPCWSTR;
+static char order[64], withdrawn[1024];
+static int present = 1;
+static void save_directory_for(LPCSTR root, LPCWSTR name, char *directory, unsigned long size) {
+    (void)root; (void)name; snprintf(directory, size, "u:\\UDATA\\C7201D882DAE\\");
+}
+static DWORD GetFileAttributesA(const char *path) { (void)path; return present ? 16 : (DWORD)-1; }
+static void platform_translate_path(const char *xbox_path, char *host_path, unsigned long size) {
+    snprintf(host_path, size, "host<%s>", xbox_path);
+}
+void host_save_withdraw_folder(const char *folder_path) { strcat(order, "w"); strcpy(withdrawn, folder_path); }
+static void delete_tree(const char *directory) { (void)directory; strcat(order, "d"); }
+''' + function(source, "DWORD WINAPI XDeleteSaveGame(") + r'''
+int main(void) {
+    assert(XDeleteSaveGame("u:\\", 0) == ERROR_SUCCESS);
+    assert(!strcmp(order, "wd") && !strcmp(withdrawn, "host<u:\\UDATA\\C7201D882DAE\\>"));
+    order[0] = 0; present = 0;
+    assert(XDeleteSaveGame("u:\\", 0) == ERROR_PATH_NOT_FOUND && !order[0]);
+    return 0;
+}
+''')
+    subprocess.run([str(binary)], check=True)

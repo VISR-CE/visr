@@ -188,6 +188,19 @@ DWORD WINAPI XDeleteSaveGame(LPCSTR root_path_name, LPCWSTR save_game_name)
 	save_directory_for(root_path_name, save_game_name, directory, sizeof(directory));
 	if (GetFileAttributesA(directory) == (DWORD)-1)
 		return ERROR_PATH_NOT_FOUND;
+#ifdef HALO_IOS
+	/* A checkpoint may still be on its way into this profile's saved game, on the host's writer thread
+	(port/linux/game/saved_game_persist.h). It is withdrawn before the folder is listed, or the file would
+	land after the listing and keep the folder. */
+	{
+		extern void host_save_withdraw_folder(const char *folder_path);
+		char host_directory[1024];
+
+		platform_translate_path(directory, host_directory, sizeof(host_directory));
+		if (host_directory[0])
+			host_save_withdraw_folder(host_directory);
+	}
+#endif
 	delete_tree(directory);
 	return ERROR_SUCCESS;
 }

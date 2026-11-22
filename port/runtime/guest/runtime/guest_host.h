@@ -345,6 +345,9 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
 void host_save_checkpoint_begin(void);
 void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size);
 int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size);
+/* A profile is about to be deleted (XDeleteSaveGame), before its folder's files are listed: a checkpoint
+   still being written to its saved game is withdrawn and waited for, so the folder can be emptied and go. */
+void host_save_withdraw_folder(const char *folder_path);
 /* the menus' SEND LOG row: starts the upload of the log to iCloud; the row's text (its progress, the code or why not) */
 void host_sdl_send_log_start(void);
 /* the About screen's website row: opens https://visr.gg/ in the default browser (not on the Apple TV) */

@@ -206,3 +206,4 @@ host_sdl_update_joysticks
 host_save_checkpoint_begin
 host_save_checkpoint_end
 host_save_write_now
+host_save_withdraw_folder

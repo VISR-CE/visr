@@ -1152,7 +1152,8 @@ static const struct config_setting config_settings[] =
 		"the player's own game does: for tests and measurements of saving. A\n"
 		"level started without the menu (the console's map_name) then plays as\n"
 		"the last profile used, whose saved game it replaces; without a profile\n"
-		"on the device nothing is saved." },
+		"on the device nothing is saved. The profile's own file can change too\n"
+		"(inverted look, levels finished), so never on a device someone plays." },
 
 	{ "network.address", _config_string, "\"\"", "HALO_NET_ADDRESS", _environment_value, _platform_all,
 		"This machine's IPv4 address for system link, for a machine on several\n"
