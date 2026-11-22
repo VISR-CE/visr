@@ -6,6 +6,9 @@ the presenting thread was blocked on the main thread a frame (host_main_sync
 and host_main_sync_f made off main) and how many round trips it made, as
 median, 95th percentile and worst frame, plus the longest single wait. It
 sizes the input latency audit's fix 6 (no waits on main inside a frame).
+Only waits made through host_main_sync and host_main_sync_f are counted: a
+raw dispatch_sync to the main queue or performSelectorOnMainThread with
+waitUntilDone does not show up here.
 */
 
 #ifndef __HALO_HOST_MAIN_SYNC_LOG_H
