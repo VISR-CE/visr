@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Turn a benchmark report into a device profile pull request: the profile change, the check, before and after
-Mac-runner screenshots, the signed tester shards and the pull request text."""
-import os
+Mac-runner screenshots, the signed tester shards and the pull request text.
+
+The screenshot step submits a job through a launcher program named by the environment variable VISR_RUN_JOB
+(a path to an executable taking --kind, --host, --fetch, LABEL, WORKTREE and a command). Without it, use
+--dry-run --skip-screenshots."""
 import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -42,7 +46,7 @@ GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-6": ("display.allow_portrait
                "device-profiles-4": ("display.allow_portrait", "display.effect_limits"),
                "device-profiles-3": ("network.full_rate_players", "display.allow_portrait", "display.effect_limits")}
 RECEIPT = FEED / "publication.json"
-RUN_JOB = Path(os.environ.get("VISR_RUN_JOB", "run-job.sh"))
+RUN_JOB = os.environ.get("VISR_RUN_JOB", "")
 REPOSITORY = "VISR-CE/visr"
 ASSETS_BRANCH = "profile-pr-assets"
 # the cost model's name for a knob, where the profile's differs
@@ -192,7 +196,9 @@ def render_screenshots(label, sets, folder, options, run):
         steps.append(" ".join(shlex.quote(str(part)) for part in command))
     steps.append(f'rm -R "{private}"')
     folder.mkdir(parents=True, exist_ok=True)
-    result = run(RUN_JOB, "--kind", "runner", *(["--host", options.host] if options.host else []), "--fetch", f"{remote}={folder}", label, options.worktree,
+    if not RUN_JOB:
+        raise Failure("set VISR_RUN_JOB to the job launcher, or use --dry-run --skip-screenshots")
+    result = run(Path(RUN_JOB), "--kind", "runner", *(["--host", options.host] if options.host else []), "--fetch", f"{remote}={folder}", label, options.worktree,
                  "bash", "-ec", "\n".join(steps))
     if result.returncode:
         raise Failure(f"the screenshot job {label} failed (exit {result.returncode})")

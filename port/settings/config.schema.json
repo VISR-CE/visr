@@ -3720,7 +3720,7 @@
         "texture_override_directory": {
           "type": "string",
           "default": "",
-          "description": "A folder of replacement textures, <hash>.rgba (workspace-tools/texture-upscale.py), each drawn in place of the texture whose first mip level hashes to <hash>; empty none.",
+          "description": "A folder of replacement textures, <hash>.rgba, each drawn in place of the texture whose first mip level hashes to <hash>; empty none.",
           "x-environment": "HALO_TEXTURE_OVERRIDE",
           "x-environment-style": "value",
           "x-platforms": [

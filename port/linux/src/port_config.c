@@ -2059,7 +2059,7 @@ static const struct config_setting config_settings[] =
 	{ "debug.texture_dump_directory", _config_string, "\"\"", "HALO_TEXTURE_DUMP", _environment_value, _platform_all,
 		"A folder to write every texture to as it is uploaded; empty none." },
 	{ "debug.texture_override_directory", _config_string, "\"\"", "HALO_TEXTURE_OVERRIDE", _environment_value, _platform_all,
-		"A folder of replacement textures, <hash>.rgba (workspace-tools/texture-upscale.py),\n"
+		"A folder of replacement textures, <hash>.rgba,\n"
 		"each drawn in place of the texture whose first mip level hashes to <hash>; empty none." },
 	{ "debug.texture_compare_directory", _config_string, "\"\"", "HALO_TEXTURE_COMPARE", _environment_value, _platform_all,
 		"A second folder of replacement textures to compare texture_override_directory's\n"

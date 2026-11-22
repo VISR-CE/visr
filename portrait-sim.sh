@@ -1,7 +1,8 @@
 #!/bin/bash
-# Portrait play in the iPhone Duo simulator (lane portrait-1109): display.allow_portrait + debug.orientation portrait,
+# Portrait play in the iPhone Duo simulator: display.allow_portrait + debug.orientation portrait,
 # one player on Blood Gulch slayer through debug.network_test, once per debug.portrait_field_of_view mode.
 #   portrait-sim.sh WORKTREE OUT [MAPS_DIR]
+# Without MAPS_DIR, the first folder in the colon-separated VISR_MAPS_DIRS that holds ui.map is used.
 # Inner-display screenshots at fixed times per mode; runtime logs per mode.
 # It deletes only the simulator it created.
 set -u

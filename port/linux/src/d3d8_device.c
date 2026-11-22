@@ -238,8 +238,7 @@ Compositor's eyes (menus, loads, the mono layer), the last one a frame
 without them took: the theater picture's, which the mono presenter puts on
 the screen; 0 until one is known */
 static float screen_scale_mono[2];
-/* dynamic resolution (host_dynamic_resolution_lines, the design in
-agent-specs' dynamic-resolution design): while screen_dynamic, the mono
+/* dynamic resolution (host_dynamic_resolution_lines): while screen_dynamic, the mono
 screen's targets are allocated once at screen_scale_ceiling, the profile's
 render size, and the scene renders in their top left at screen_scale, which
 the planner lowers under load and raises again, between frames only. The
@@ -2969,7 +2968,7 @@ void halo_render_scene_end(void)
 /* what the shader translators emit for this context */
 static struct nv2a_dialect shader_dialect;
 
-/* ---------- debug.ssao (spike): screen-space ambient occlusion (~/code/agent-specs, 2026-11-05 ssao design)
+/* ---------- debug.ssao (spike): screen-space ambient occlusion
 
 Right after the level's lightmap pass (render_window, source/render/render.c) the frame holds the level's lightmap
 light (multiplied by the diffuse textures later) and the objects' finished pixels, and its depth buffer has every

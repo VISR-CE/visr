@@ -272,7 +272,7 @@ def test_lists_whose_rows_are_all_ours_draw_the_standard_tall_row():
     """A widget a patch row puts into a disc screen is copied at generation time; one copied before the density
     pass keeps the 28-unit pill on the 39 pitch (ADVANCED CONTROLS drew short pills with gaps). Where the patch
     leaves some of the disc's rows, the screen is uniformly the disc's 28-unit pills until the disc rows can be
-    restyled (agent-specs 2026-11-20 tall disc rows): our rows there match them."""
+    restyled: our rows there match them."""
     widgets = {w.get("name"): w for path in MENUS.glob("*.xml") if "compact" not in path.name
                for w in ET.parse(path).getroot().iter("widget")}
     checked = 0

@@ -2,8 +2,7 @@
 FIRST_PERSON_ARMS.C
 
 The first-person gun and arms while a hand aims in HEAD mode
-(input.first_person_arms = "solved"; the design in agent-specs
-2026-10-13-halo-ce-ios-first-person-arms-design.md).
+(input.first_person_arms = "solved").
 
 The game's first-person model was animated for a gun mounted on the camera:
 its root node ("frame bone24") is placed at the camera each frame and the
