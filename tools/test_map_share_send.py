@@ -31,7 +31,7 @@ from harness import CHECK_FAILED, constant, enum_with, function, mutated, read, 
 GAME = ROOT / "port/linux/game"
 MONOCYPHER = ROOT / "port/third_party/monocypher"
 FIXTURE = ROOT / "tools/harness/tests/map_share_send.c"
-CASES = ["catalog", "catalog-once", "catalog-changing", "catalog-replaced", "downloaded", "offer", "relay", "relay-unknown"]
+CASES = ["catalog", "catalog-once", "catalog-changing", "catalog-replaced", "downloaded", "offer", "relay", "relay-unknown", "relay-refused"]
 
 MAP_SHARE_FILES_FUNCTIONS = ("hex_digit", "map_share_name_hashed", "map_share_name_base_length",
                              "map_share_piece_count", "map_share_file_get", "map_share_file_hash_of_pieces",
@@ -82,6 +82,10 @@ NEGATIVE_CONTROLS = {
     "campaign-by-prefix": ((" && path[position] == '\\\\')", ")"), "map_share_policy.c", None, "catalog"),
     "relay-before-tags": (("\t\tdownload_file_has_pieces(file, first_tag_piece, last_tag_piece)) &&",
                            "\t\tTRUE) &&"), "map_share.c", "download_file_sendable", "relay-unknown"),
+    "relay-campaign-ignored": (("map_share_campaign_read(file->stream, file->size)", "0"), "map_share.c",
+                               "download_file_sendable", "relay-refused"),
+    "unreadable-tags-sent": (("campaign : -1", "campaign : 0"), "map_share_policy.c", None, "catalog"),
+    "unreadable-tags-relayed": (("campaign : -1", "campaign : 0"), "map_share_policy.c", None, "relay-refused"),
     "content-forgotten": (("\t\tknown->content_known = campaign >= 0;\n", ""), "map_share_files.c", "catalog_file_judged",
                           "catalog-once"),
     "any-cache-sent": (("if (status != _cache_file_status_ok || identity.format != _cache_file_format_custom_edition_cache)",
@@ -369,6 +373,44 @@ def test_no_path_sends_around_the_gate():
         if "connection->download_file[" in body or "map_share_file_get(connection->catalog_file" in body:
             readers.add(match.group(1))
     assert readers <= DIRECT_FILE_READERS, f"read a connection's files around the gate: {readers - DIRECT_FILE_READERS}"
+
+
+def call_arguments(source, callee):
+    """The top-level arguments of each call of `callee` in `source` (not its definition)."""
+    calls = []
+    for match in re.finditer(rf"\b{callee}\(", source):
+        line_start = source.rfind("\n", 0, match.start()) + 1
+        if source[line_start:match.start()].startswith(("enum ", "static ")):
+            continue
+        depth, position, arguments, start = 0, match.end(), [], match.end()
+        while True:
+            character = source[position]
+            if character in "([":
+                depth += 1
+            elif character in ")]":
+                if depth == 0:
+                    arguments.append(source[start:position].strip())
+                    break
+                depth -= 1
+            elif character == "," and depth == 0:
+                arguments.append(source[start:position].strip())
+                start = position + 1
+            position += 1
+        calls.append(arguments)
+    return calls
+
+
+def test_no_judge_is_told_a_map_is_no_conversion():
+    """Every judgment of a file is given the campaign answer read from its tags (or -1, unknown, which refuses it),
+    never a constant that says it is not a conversion: on the relay path as on the catalog's."""
+    calls = []
+    for name in ("map_share.c", "map_share_files.c"):
+        calls += [(name, arguments) for arguments in call_arguments(read(f"port/linux/game/{name}"),
+                                                                   "map_share_file_judge")]
+    assert {name for name, _ in calls} == {"map_share.c", "map_share_files.c"}, calls
+    for name, arguments in calls:
+        assert len(arguments) == 7, (name, arguments)
+        assert not re.fullmatch(r"\(?(?:\(\w+\)\s*)?\d+L?\)?", arguments[-1]), (name, arguments)
 
 
 # ---------- real maps, when present (never committed)

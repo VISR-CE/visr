@@ -469,10 +469,13 @@ its name alone beside it, has its name given back as the map lists find it.
   version's ends in) or its header; a stock map by its content hash, which
   covers everything but the cache header, so a copy with an edited header
   checksum is still known (`map_share_content_hash`,
-  `port/runtime/stock_maps.h`); a conversion of a campaign level by its tags,
-  whatever the file is named: its scenario's tag, or any structure BSP's,
-  lies in a campaign level's folder (`levels\a10\...`). A community map that
-  only borrows a campaign level's shaders or sounds is not a conversion. The
+  `port/runtime/stock_maps.h`); a conversion of a campaign level by its tag
+  paths, whatever the file is named: its scenario's tag, or any structure
+  BSP's, lies in a campaign level's folder (`levels\a10\...`). A community
+  map that only borrows a campaign level's shaders or sounds is not a
+  conversion. Tag paths are names the game does not read, so a conversion
+  whose scenario and structure BSPs were renamed out of those folders (by
+  hand or by a map protection tool) is not recognized. The
   header must be a valid Custom Edition cache. A community map that reuses a stock map's name but differs in
   content is sent. The catalog every whole file is sent from takes no other
   file (`map_share_file_hash`) and sends one only once its content is judged,

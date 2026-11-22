@@ -312,6 +312,16 @@ static void conversion_piece(byte *piece, char const *header_name, char const *s
 	map_piece(piece, header_name, COMMUNITY_CHECKSUM, scenario, bsp, 0, NULL, marker);
 }
 
+/* a community map whose tags cannot be read: its last tag's name lies
+outside the tag data (after its scenario's, which is read and is not a
+campaign level's) */
+static void unreadable_piece(byte *piece, char const *header_name)
+{
+	community_piece(piece, header_name);
+	put32(piece + CACHE_FILE_HEADER_BYTES + FAKE_TAG_INSTANCES + 2 * 0x20 + 0x10,
+		FAKE_TAG_CACHE_ADDRESS + FAKE_TAG_DATA_BYTES);
+}
+
 /* a file whose first piece is `piece`, zeros after it */
 static void piece_file(char const *name, byte const *piece)
 {
@@ -350,6 +360,14 @@ static void conversion_file(char const *name, char const *header_name, char cons
 	static byte piece[MAP_SHARE_PIECE_BYTES];
 
 	conversion_piece(piece, header_name, scenario, bsp);
+	piece_file(name, piece);
+}
+
+static void unreadable_file(char const *name, char const *header_name)
+{
+	static byte piece[MAP_SHARE_PIECE_BYTES];
+
+	unreadable_piece(piece, header_name);
 	piece_file(name, piece);
 }
 
@@ -458,6 +476,9 @@ static void case_catalog(void)
 		"a map on a campaign level's structure BSP, its scenario renamed, is sent");
 	conversion_file("a100.map", "a100", "levels\\a100\\a100", "levels\\a100\\a100");
 	CHECK(catalog_takes("a100.map", _map_share_file_map), "a community map in a folder named like a campaign level's is not sent");
+	/* a map whose tags cannot be read is not known not to be one */
+	unreadable_file("unreadable.map", "unreadable");
+	CHECK(!catalog_takes("unreadable.map", _map_share_file_map), "a map whose tags cannot be read is sent");
 
 	/* resource maps: as what they are sent as, or by what they are */
 	resource_header(header, 1);
@@ -750,6 +771,38 @@ static void case_relay(void)
 	}
 }
 
+/* a download's campaign conversion, renamed, and a download's map whose
+tags cannot be read are not passed on, with all their pieces had */
+static void case_relay_refused(void)
+{
+	static byte piece[MAP_SHARE_PIECE_BYTES];
+	struct connection *connection = relay_make(1);
+
+	conversion_piece(piece, "pillar", "levels\\a10\\a10", "levels\\a10\\a10a");
+	download_file_make(0, _map_share_file_map, "pillar.map", piece);
+	connection->download_file[0] = 0;
+	memset(piece, 0, sizeof(piece));
+	download_piece_had(0, 1, piece);
+	CHECK(!piece_sendable(connection, 0, 0), "a campaign conversion is passed on");
+
+	connection = relay_make(1);
+	unreadable_piece(piece, "unreadable");
+	download_file_make(0, _map_share_file_map, "unreadable.map", piece);
+	connection->download_file[0] = 0;
+	memset(piece, 0, sizeof(piece));
+	download_piece_had(0, 1, piece);
+	CHECK(!piece_sendable(connection, 0, 0), "a map whose tags cannot be read is passed on");
+
+	/* (and a community map so made is: the refusals above are theirs) */
+	connection = relay_make(1);
+	community_piece(piece, "hugeass");
+	download_file_make(0, _map_share_file_map, "hugeass.map", piece);
+	connection->download_file[0] = 0;
+	memset(piece, 0, sizeof(piece));
+	download_piece_had(0, 1, piece);
+	CHECK(piece_sendable(connection, 0, 0), "a community map is not passed on");
+}
+
 /* a download's file whose first piece is not had yet is not passed on */
 static void case_relay_unknown(void)
 {
@@ -940,6 +993,8 @@ int main(int count, char **arguments)
 		case_catalog_replaced();
 	else if (!strcmp(name, "relay-unknown"))
 		case_relay_unknown();
+	else if (!strcmp(name, "relay-refused"))
+		case_relay_refused();
 	else
 		CHECK(0, "no case %s", name);
 	return 0;
