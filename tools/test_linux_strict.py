@@ -98,3 +98,37 @@ def test_switch_turns_the_wrappers_into_pass_throughs(tmp_path: Path) -> None:
     result = compile_with(tmp_path, "cc", MACH + HYPOT, "-std=c11", "probe.c", "-o", "probe",
                           env={"HALO_LINUX_STRICT": "0"})
     assert result.returncode == 0, result.stderr
+
+
+def test_headers_the_runner_image_and_the_compiler_provide_are_allowed(tmp_path: Path) -> None:
+    # zlib.h comes from the runner image's zlib1g-dev; arm_neon.h is clang's own, reached only on arm64.
+    source = "#include <zlib.h>\n#ifdef __ARM_NEON\n#include <arm_neon.h>\n#endif\nint zero(void) { return 0; }\n"
+    result = compile_with(tmp_path, "clang", source, "-c", "probe.c", "-o", "probe.o")
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("output", [["-oprobe"], ["--output=probe"]])
+def test_attached_output_forms_are_still_checked_for_libm(tmp_path: Path, output: list[str]) -> None:
+    result = compile_with(tmp_path, "cc", HYPOT, "probe.c", *output)
+    assert result.returncode != 0
+    assert "hypotf" in result.stderr
+
+
+def test_libm_passed_to_the_linker_counts(tmp_path: Path) -> None:
+    result = compile_with(tmp_path, "cc", HYPOT, "probe.c", "-o", "probe", "-Wl,-lm")
+    assert result.returncode == 0, result.stderr
+
+
+def test_sanitized_clang_link_brings_libm(tmp_path: Path) -> None:
+    result = compile_with(tmp_path, "clang", HYPOT, "-fsanitize=undefined", "probe.c", "-o", "probe")
+    assert result.returncode == 0, result.stderr
+
+
+def test_c_language_override_is_checked_whatever_the_suffix(tmp_path: Path) -> None:
+    (tmp_path / "probe.m").write_text(MACH)
+    environment = ci_test.strict_environment()
+    assert environment is not None
+    result = subprocess.run(["clang", "-x", "c", "-c", "probe.m", "-o", "probe.o"], cwd=tmp_path, env=environment,
+                            capture_output=True, text=True)
+    assert result.returncode != 0
+    assert "<mach/mach_time.h>" in result.stderr

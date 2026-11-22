@@ -81,6 +81,12 @@ class Command:
             joined = value if value is not None else ""
             if argument == "-o" and value is not None:
                 self.output = value
+            elif argument.startswith("-o") and len(argument) > 2:
+                self.output = argument[2:]
+            elif argument.startswith("--output="):
+                self.output = argument[len("--output="):]
+            elif argument.startswith("-Wl,") and "-lm" in argument.split(",")[1:]:
+                self.math = True
             elif argument == "-x" and value is not None:
                 self.language = value
             elif argument.startswith("-x") and len(argument) > 2:
@@ -107,10 +113,11 @@ class Command:
             elif not argument.startswith("-") or argument == "-":
                 self.inputs.append(argument)
                 suffix = Path(argument).suffix
-                if self.language.startswith("objective-c") or suffix in APPLE_SOURCES:
-                    self.apple = True
-                elif self.language == "c" or (self.language in ("", "none") and suffix in C_SOURCES):
+                if self.language == "c" or (self.language in ("", "none") and suffix in C_SOURCES):
                     self.c_sources.append(argument)
+                elif self.language.startswith("objective-c") or (self.language in ("", "none")
+                                                                and suffix in APPLE_SOURCES):
+                    self.apple = True
             index += 2 if value is not None else 1
 
     def defines_feature_macro(self) -> bool:
@@ -185,7 +192,9 @@ def header_problems(trace: list[tuple[int, str]], sources: list[str]) -> list[st
         if not is_system(path):
             continue
         name = include_name(path)
-        if name in allowed:
+        # The compiler's own headers (arm_neon.h, stdatomic.h, ...) ship with clang and gcc on every platform;
+        # an architecture-specific one is reached only on that architecture.
+        if name in allowed or "/lib/clang/" in path:
             continue
         # With several sources in one command, -H does not say which one included a header.
         including = [file for file in including if include_lines(file, name)] or including
@@ -252,7 +261,9 @@ def main() -> int:
                              f"{describe(name, arguments)}\n")
         return result.returncode
     problems = header_problems(trace, [os.path.realpath(source) for source in command.c_sources])
-    if command.link and not command.shared and not command.math and os.path.exists(command.output):
+    # clang links libm itself for its sanitizer runtimes, so a sanitized clang link needs no -lm on Linux either.
+    sanitized = name == "clang" and any(argument.startswith("-fsanitize=") for argument in arguments)
+    if command.link and not command.shared and not command.math and not sanitized and os.path.exists(command.output):
         problems += math_problems(command.output)
     for problem in problems:
         sys.stderr.write(f"linux-strict: {problem}; command: {describe(name, arguments)}\n")

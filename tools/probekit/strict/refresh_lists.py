@@ -27,7 +27,11 @@ PACKAGES = {
                        "21c631ba4da3d38d92a133e28a8a14278e1e00174ed135a20661d1e532e05ca5"),
     "libgcc-13-dev": ("pool/main/g/gcc-13/libgcc-13-dev_13.2.0-23ubuntu4_amd64.deb",
                       "d36c9acb969dd37fdc0496120715d8bba67a5cc43a0c2569717314e6ad80020c"),
+    # Preinstalled on GitHub's ubuntu-24.04 runner image, which the Tooling job uses.
+    "zlib1g-dev": ("pool/main/z/zlib/zlib1g-dev_1.3.dfsg-3.1ubuntu2_amd64.deb",
+                   "7360405fbf49e35dca2f7a4ebeac7d4fe5fe3b2db99adac70e11e104f53b2642"),
 }
+DEVELOPMENT = ("libc6-dev", "linux-libc-dev", "libgcc-13-dev", "zlib1g-dev")
 # Header roots, as include names are seen from: glibc and the kernel headers,
 # their multiarch copies, and gcc's own headers.
 INCLUDE_ROOTS = ("usr/include/x86_64-linux-gnu", "usr/include",
@@ -88,7 +92,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         work = Path(temporary)
         roots = {name: unpack(name, work) for name in PACKAGES}
-        header_names = headers([roots["libc6-dev"], roots["linux-libc-dev"], roots["libgcc-13-dev"]])
+        header_names = headers([roots[name] for name in DEVELOPMENT])
         runtime = roots["libc6"] / "usr/lib/x86_64-linux-gnu"
         # Functions libm exports that libc does not: these link on macOS (libSystem) but need -lm on Linux.
         libm_only = exports(runtime / "libm.so.6") - exports(runtime / "libc.so.6")

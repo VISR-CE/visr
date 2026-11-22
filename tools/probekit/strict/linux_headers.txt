@@ -1584,3 +1584,5 @@ xsaveintrin.h
 xsaveoptintrin.h
 xsavesintrin.h
 xtestintrin.h
+zconf.h
+zlib.h
