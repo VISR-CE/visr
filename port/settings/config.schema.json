@@ -265,8 +265,7 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ],
-          "x-tier": "player"
+          ]
         },
         "shadow_map_size": {
           "type": "integer",

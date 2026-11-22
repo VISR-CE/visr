@@ -241,7 +241,7 @@ static const struct config_setting config_settings[] =
 		"\"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change\n"
 		"at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\"\n"
 		"(display.graphics). A device profile may set \"xbox\" for multiplayer and\n"
-		"the other variable workloads on devices that big games overload.", _tier_player },
+		"the other variable workloads on devices that big games overload." },
 	{ "display.shadow_map_size", _config_integer, "128", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
 		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },

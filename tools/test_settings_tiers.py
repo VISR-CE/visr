@@ -26,7 +26,7 @@ FILE_ONLY_PLAYER = {
     # rendering switches kept for comparison (candidates for tuning, not yet decided)
     'display.decal_batching', 'display.decal_dense_upload', 'display.light_volume_batching',
     'display.shadow_batching', 'display.per_pixel_lighting', 'display.point_light_highlight',
-    'display.point_light_limit', 'display.soft_particles', 'display.effect_limits', 'display.ambient_occlusion',
+    'display.point_light_limit', 'display.soft_particles', 'display.ambient_occlusion',
     'display.shadow_props', 'display.ui_redraw', 'display.ui_redraw_pictures', 'display.upscaled_textures_memory',
     # frame timing (candidates for tuning, not yet decided)
     'display.frame_deadline', 'display.late_look', 'display.late_start', 'display.frame_source',
