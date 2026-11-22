@@ -556,6 +556,11 @@ enum map_share_policy_verdict map_share_file_judge(
 		(uint32_t)MAX(header_bytes, 0), (uint32_t)size, content, (int32_t)campaign);
 	if (!map_share_policy_may_hash(verdict) || (content && campaign >= 0 && !map_share_policy_may_send(verdict)))
 		error(_error_silent, "map sharing: %s is not sent to other players: %s", path, map_share_policy_describe(verdict));
+	else if (content && campaign < 0)
+	{
+		error(_error_silent, "map sharing: %s is not sent to other players: a singleplayer map whose tags cannot be read",
+			path);
+	}
 	return verdict;
 }
 

@@ -49,7 +49,9 @@ typedef unsigned short word;
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define _error_silent 0
-#define error(level, ...) ((void)0)
+/* (the last message logged, for the cases that check a refusal is logged) */
+static char fake_logged[512];
+#define error(level, ...) snprintf(fake_logged, sizeof(fake_logged), __VA_ARGS__)
 #define _distributed_message_map_share_offer 0x40
 #define __stdcall
 
@@ -338,12 +340,16 @@ static void conversion_piece(byte *piece, char const *header_name, char const *s
 	map_piece(piece, header_name, COMMUNITY_CHECKSUM, _cache_file_scenario_type_solo, scenario, bsp, 0, NULL, marker);
 }
 
-/* a community map whose tags cannot be read: its last tag's name lies
-outside the tag data (after its scenario's, which is read and is not a
-campaign level's) */
-static void unreadable_piece(byte *piece, char const *header_name)
+/* a community map whose tags cannot be read, singleplayer (`scenario_type`
+_cache_file_scenario_type_solo, refused) or multiplayer (its tags are not
+read: sent): its last tag's name lies outside the tag data (after its
+scenario's, which is read and is not a campaign level's) */
+static void unreadable_piece(byte *piece, char const *header_name, int scenario_type)
 {
-	community_piece(piece, header_name);
+	if (scenario_type == _cache_file_scenario_type_solo)
+		solo_piece(piece, header_name);
+	else
+		community_piece(piece, header_name);
 	put32(piece + CACHE_FILE_HEADER_BYTES + FAKE_TAG_INSTANCES + 2 * 0x20 + 0x10,
 		FAKE_TAG_CACHE_ADDRESS + FAKE_TAG_DATA_BYTES);
 }
@@ -406,11 +412,11 @@ static void campaign_multiplayer_file(char const *name, char const *header_name,
 	piece_file(name, piece);
 }
 
-static void unreadable_file(char const *name, char const *header_name)
+static void unreadable_file(char const *name, char const *header_name, int scenario_type)
 {
 	static byte piece[MAP_SHARE_PIECE_BYTES];
 
-	unreadable_piece(piece, header_name);
+	unreadable_piece(piece, header_name, scenario_type);
 	piece_file(name, piece);
 }
 
@@ -529,8 +535,14 @@ static void case_catalog(void)
 	solo_file("mycampaign.map", "mycampaign");
 	CHECK(catalog_takes("mycampaign.map", _map_share_file_map), "a community singleplayer map is not sent");
 	/* a map whose tags cannot be read is not known not to be one */
-	unreadable_file("unreadable.map", "unreadable");
-	CHECK(!catalog_takes("unreadable.map", _map_share_file_map), "a map whose tags cannot be read is sent");
+	fake_logged[0] = 0;
+	unreadable_file("unreadable.map", "unreadable", _cache_file_scenario_type_solo);
+	CHECK(!catalog_takes("unreadable.map", _map_share_file_map), "a singleplayer map whose tags cannot be read is sent");
+	CHECK(strstr(fake_logged, "unreadable.map") && strstr(fake_logged, "tags cannot be read"),
+		"a singleplayer map whose tags cannot be read is refused without a word (%s)", fake_logged);
+	/* (a multiplayer map's tags are not read: it is sent) */
+	unreadable_file("unreadablemp.map", "unreadablemp", _cache_file_scenario_type_multiplayer);
+	CHECK(catalog_takes("unreadablemp.map", _map_share_file_map), "a multiplayer map whose tags cannot be read is not sent");
 
 	/* resource maps: as what they are sent as, or by what they are */
 	resource_header(header, 1);
@@ -823,8 +835,8 @@ static void case_relay(void)
 	}
 }
 
-/* a download's campaign conversion, renamed, and a download's map whose
-tags cannot be read are not passed on, with all their pieces had */
+/* a download's campaign conversion, renamed, and a download's singleplayer
+map whose tags cannot be read are not passed on, with all their pieces had */
 static void case_relay_refused(void)
 {
 	static byte piece[MAP_SHARE_PIECE_BYTES];
@@ -838,12 +850,19 @@ static void case_relay_refused(void)
 	CHECK(!piece_sendable(connection, 0, 0), "a campaign conversion is passed on");
 
 	connection = relay_make(1);
-	unreadable_piece(piece, "unreadable");
+	unreadable_piece(piece, "unreadable", _cache_file_scenario_type_solo);
 	download_file_make(0, _map_share_file_map, "unreadable.map", piece);
 	connection->download_file[0] = 0;
 	memset(piece, 0, sizeof(piece));
 	download_piece_had(0, 1, piece);
-	CHECK(!piece_sendable(connection, 0, 0), "a map whose tags cannot be read is passed on");
+	CHECK(!piece_sendable(connection, 0, 0), "a singleplayer map whose tags cannot be read is passed on");
+
+	/* (a multiplayer one is passed on, from its first piece alone) */
+	connection = relay_make(1);
+	unreadable_piece(piece, "unreadablemp", _cache_file_scenario_type_multiplayer);
+	download_file_make(0, _map_share_file_map, "unreadablemp.map", piece);
+	connection->download_file[0] = 0;
+	CHECK(piece_sendable(connection, 0, 0), "a multiplayer map whose tags cannot be read is not passed on");
 
 	/* (and a community map so made is: the refusals above are theirs) */
 	connection = relay_make(1);
@@ -853,6 +872,116 @@ static void case_relay_refused(void)
 	memset(piece, 0, sizeof(piece));
 	download_piece_had(0, 1, piece);
 	CHECK(piece_sendable(connection, 0, 0), "a community map is not passed on");
+}
+
+/* a singleplayer map of four pieces whose tag index and instances end
+piece 1 and whose tag names fill piece 2 (`scenario` the scenario's and the
+structure BSP's): a relay judges it only once it has both */
+enum
+{
+	SPLIT_FILE_BYTES = 3 * MAP_SHARE_PIECE_BYTES + 0x1000,
+	SPLIT_TAG_DATA_OFFSET = 2 * MAP_SHARE_PIECE_BYTES - 0x100,
+	SPLIT_TAG_NAMES = 0x100,
+	SPLIT_TAG_DATA_BYTES = 0x300,
+};
+
+static byte split_file[SPLIT_FILE_BYTES];
+
+static void split_tags_map(char const *scenario)
+{
+	byte *tags = split_file + SPLIT_TAG_DATA_OFFSET;
+	long name_offset = SPLIT_TAG_NAMES;
+	unsigned long const groups[2] = { 0x73636E72UL, 0x73627370UL };
+	int index;
+
+	memset(split_file, 0, sizeof(split_file));
+	cache_header(split_file, CACHE_FILE_VERSION_CUSTOM_EDITION, "split", COMMUNITY_CHECKSUM);
+	split_file[0x60] = _cache_file_scenario_type_solo;
+	put32(split_file + 0x10, SPLIT_TAG_DATA_OFFSET);
+	put32(split_file + 0x14, SPLIT_TAG_DATA_BYTES);
+	put32(tags + 0x00, FAKE_TAG_CACHE_ADDRESS + FAKE_TAG_INSTANCES);
+	put32(tags + 0x04, 0xE1740000UL);
+	put32(tags + 0x0C, 2);
+	put32(tags + 0x24, 0x74616773UL);
+	for (index = 0; index < 2; index++)
+	{
+		byte *instance = tags + FAKE_TAG_INSTANCES + index * 0x20;
+
+		put32(instance + 0x00, groups[index]);
+		put32(instance + 0x0C, 0xE1740000UL + (unsigned long)index);
+		put32(instance + 0x10, FAKE_TAG_CACHE_ADDRESS + (unsigned long)name_offset);
+		strcpy((char *)tags + name_offset, scenario);
+		name_offset += (long)strlen(scenario) + 1;
+	}
+	CHECK(SPLIT_TAG_DATA_OFFSET + FAKE_TAG_INSTANCES + 2 * 0x20 <= 2 * MAP_SHARE_PIECE_BYTES &&
+		SPLIT_TAG_DATA_OFFSET + SPLIT_TAG_NAMES >= 2 * MAP_SHARE_PIECE_BYTES &&
+		name_offset < SPLIT_TAG_DATA_BYTES, "the split map's tags do not lie across pieces 1 and 2");
+}
+
+/* the download's file `index`, `split_file`, with no piece had yet */
+static void split_download_make(short index, char const *name)
+{
+	struct download_file *file = &map_share_globals.download.files[index];
+	long piece;
+
+	memset(file, 0, sizeof(*file));
+	file->kind = _map_share_file_map;
+	file->state = _file_transferring;
+	file->size = SPLIT_FILE_BYTES;
+	file->piece_count = map_share_piece_count(file->size);
+	file->piece_hashes = calloc((unsigned long)file->piece_count, MAP_SHARE_HASH_BYTES);
+	for (piece = 0; piece < file->piece_count; piece++)
+	{
+		unsigned long offset = (unsigned long)piece * MAP_SHARE_PIECE_BYTES;
+
+		p2p_blake2b_256(split_file + offset, MIN(MAP_SHARE_PIECE_BYTES, file->size - offset),
+			file->piece_hashes + piece * MAP_SHARE_HASH_BYTES);
+	}
+	file->have = calloc(1, 1);
+	file->asked = calloc((unsigned long)file->piece_count, 1);
+	fake_path(file->final_path, name);
+	snprintf(file->part_path, sizeof(file->part_path), "%s.part", file->final_path);
+	file->stream = fopen(file->part_path, "w+b");
+	CHECK(file->stream != NULL, "%s cannot be written", file->part_path);
+}
+
+/* a relay waits for every piece the tags lie in, the first and the last:
+pieces had in the order `order` (the last of them one the tags need), the
+file judged only after the last, then a conversion refused and a community
+map passed on. The file's last piece comes first, so a part file missing a
+piece the tags need reads it as zeros, not as a short read. */
+static void case_relay_tag_range(void)
+{
+	static long const orders[2][4] = { { 3, 0, 1, 2 }, { 3, 2, 0, 1 } };
+	static char const *const scenarios[2] = { "levels\\a10\\a10", "levels\\test\\split\\split" };
+	int order;
+	int kind;
+
+	for (kind = 0; kind < 2; kind++)
+	{
+		for (order = 0; order < 2; order++)
+		{
+			struct connection *connection = relay_make(1);
+			int step;
+
+			split_tags_map(scenarios[kind]);
+			split_download_make(0, "split.map");
+			connection->download_file[0] = 0;
+			for (step = 0; step < 4; step++)
+			{
+				long piece = orders[order][step];
+
+				download_piece_had(0, piece, split_file + piece * MAP_SHARE_PIECE_BYTES);
+				if (step < 3)
+				{
+					CHECK(!piece_sendable(connection, 0, 0), "%s: passed on without piece %ld of its tags (order %d)",
+						scenarios[kind], orders[order][3], order);
+				}
+			}
+			CHECK(piece_sendable(connection, 0, 0) == (kind == 1), "%s: %s with all its pieces (order %d)",
+				scenarios[kind], kind ? "not passed on" : "passed on", order);
+		}
+	}
 }
 
 /* a download's file whose first piece is not had yet is not passed on */
@@ -870,10 +999,11 @@ static void case_relay_unknown(void)
 	send_state(connection, 0);
 	CHECK(connection->output_size == 0, "the state of a file not judged yet is said");
 
-	/* a community map whose tag data lies in its second piece: not passed
-	on with its first piece alone, then passed on once its tags are had */
+	/* a community singleplayer map whose tag data lies in its second piece:
+	not passed on with its first piece alone, then passed on once its tags
+	are had */
 	connection = relay_make(1);
-	community_piece(piece, "later");
+	solo_piece(piece, "later");
 	put32(piece + 0x10, MAP_SHARE_PIECE_BYTES);
 	download_file_make(0, _map_share_file_map, "later.map", piece);
 	connection->download_file[0] = 0;
@@ -885,6 +1015,15 @@ static void case_relay_unknown(void)
 		download_piece_had(0, 1, tags);
 	}
 	CHECK(piece_sendable(connection, 0, 0), "a community map whose tags are had is not passed on");
+
+	/* a community multiplayer map so made is passed on from its first piece:
+	its tags are not read */
+	connection = relay_make(1);
+	community_piece(piece, "earlier");
+	put32(piece + 0x10, MAP_SHARE_PIECE_BYTES);
+	download_file_make(0, _map_share_file_map, "earlier.map", piece);
+	connection->download_file[0] = 0;
+	CHECK(piece_sendable(connection, 0, 0), "a multiplayer map is held back for its tags");
 }
 
 /* a catalog file replaced on disk after it was judged is not sent until it
@@ -1047,6 +1186,8 @@ int main(int count, char **arguments)
 		case_relay_unknown();
 	else if (!strcmp(name, "relay-refused"))
 		case_relay_refused();
+	else if (!strcmp(name, "relay-tag-range"))
+		case_relay_tag_range();
 	else
 		CHECK(0, "no case %s", name);
 	return 0;
