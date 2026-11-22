@@ -162,14 +162,19 @@ static struct
 /* the consumer's (with the encode thread, written there): its time in the backend, taken by the producer's line */
 static _Atomic uint64_t consumed_ns;
 
-/* (debug.encode_thread_timing's clock: C11's timespec_get, so the queue and its probe build off Apple platforms too,
-where strict C11 does not declare clock_gettime) */
+/* the queue's clock (debug.encode_thread_timing, the barrier's wait in the latency line, the consumer's spin): a
+monotonic one on Apple platforms, so a wall-clock step cannot corrupt a sample; elsewhere C11's timespec_get (the
+probe's Linux build, where strict C11 does not declare clock_gettime) */
 static uint64_t clock_ns(void)
 {
+#ifdef __APPLE__
+	return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+#else
 	struct timespec now;
 
 	timespec_get(&now, TIME_UTC);
 	return (uint64_t)now.tv_sec * 1000000000u + (uint64_t)now.tv_nsec;
+#endif
 }
 
 static void statistics_frame(void)
