@@ -5,11 +5,13 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from xml.etree import ElementTree
 
 import host_stubs
 import host_toolchain
+from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of
 
 _problem = host_toolchain.check_run_host('tools/ios_test.py (the guest probe runner)')
 if _problem:
@@ -28,20 +30,42 @@ def host_stub_object(args):
     flags = sorted(a for a in args if a.startswith('-D') or a.startswith('-std='))
     return host_stubs.stub_object(BUILD, flags)
 
-def links_probe(args):
-    """True for a clang command that links an executable from a file in port/ios/tests."""
-    if args[:2] != ('xcrun', 'clang') or '-o' not in args:
-        return False
-    if any(a in ('-c', '-S', '-E', '-fsyntax-only') for a in args):
-        return False
-    sources = [a for a in args if str(a).startswith('port/ios/tests/') and str(a).endswith(('.c', '.m', '.cpp'))]
-    return bool(sources)
+# Every probe this file links must also run: tools/probe_ledger.py fails the run at the end otherwise.
+probes = ProbeLedger()
 
-def run(*args):
+def execute(args, builds=False, probe=None, **kwargs):
+    """subprocess.run with check=True. Unless the command builds, it notes the probe it runs: the program, or
+    `probe` when the program is a driver script handed the probe. A failure prints the exact command, with any
+    shared stub object `run` added."""
+    args = [str(a) for a in args]
+    if not builds:
+        probes.note_ran(Path(ROOT, probe if probe is not None else args[0]))
+    try:
+        return subprocess.run(args, cwd=ROOT, check=True, **kwargs)
+    except subprocess.CalledProcessError:
+        print('ios_test.py: failed: ' + shlex.join(args), file=sys.stderr, flush=True)
+        raise
+
+# Runners that open a UIKit window scene need a logged-in GUI session. GitHub's macOS runners have none (their
+# workflow sets HALO_NO_GUI_SESSION=1), so there such a run is skipped and the ledger reports the skip.
+GUI_SESSION = os.environ.get('HALO_NO_GUI_SESSION') != '1'
+
+def run_in_gui_session(*args):
+    if GUI_SESSION:
+        run(*args)
+    else:
+        probes.note_skipped(args, 'opens a UIKit window scene, and HALO_NO_GUI_SESSION=1 says this host has no GUI session')
+
+def run(*args, probe=None):
     args = tuple(str(a) for a in args)
-    if links_probe(args):
+    builds = links_probe(args)
+    if compiles_probe(args) and not builds:
+        raise SystemExit('ios_test.py: a probe link whose output it cannot read (-o, --output or --output=): '
+                         + shlex.join(args))
+    if builds:
+        probes.note_built(Path(ROOT, output_of(args)), args)
         args = args + ('-x', 'none', str(host_stub_object(args)))
-    subprocess.run(list(args), cwd=ROOT, check=True)
+    execute(args, builds=builds, probe=probe)
 
 # Menu fallbacks are asset-free; map paths are also checked where the maps live.
 xbox_menus = ROOT / 'port/assets/menus/xbox'
@@ -101,7 +125,7 @@ run('xcrun', 'clang', '-O2', '-Iport/linux/src', 'port/ios/tests/ui_redraw_probe
 run(BUILD / 'ui-redraw-probe')
 run('xcrun', 'clang', '-O2', '-Iport/linux/src', 'port/ios/tests/gpu_layout_probe.c', '-o', BUILD / 'gpu-layout-probe')
 with open(BUILD / 'gpu_layout_check.h', 'w') as layout_check:
-    subprocess.run([str(BUILD / 'gpu-layout-probe')], cwd=ROOT, check=True, stdout=layout_check)
+    execute([BUILD / 'gpu-layout-probe'], stdout=layout_check)
 run(clang, '--target=arm64_32-apple-watchos', '-mcpu=cortex-a53', '-ffixed-x15', '-ffixed-x27', '-fno-omit-frame-pointer',
     '-fno-stack-protector', '-ffreestanding', '-Iport/linux/src', '-fsyntax-only', '-x', 'c', BUILD / 'gpu_layout_check.h')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-Iport/ios/host',
@@ -490,6 +514,8 @@ run('python3', '-I', '-c', (
     'files = json.loads(base64.b64decode(json.load(open(sys.argv[1]))["payload"]))["files"]; '
     '[(out / name).write_bytes(base64.b64decode(value)) for name, value in files.items()]'),
     published / 'recordings-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json', published_originals)
+# the publisher's recording validator (tools/data_pack.py) accepts the published catalog-1 recordings
+run(BUILD / 'recording-pack-probe', published_originals)
 published_blob = next((published / 'recording-blobs').glob('*.xz'))
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
     '-Iport/ios/host', '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression',
@@ -509,7 +535,7 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblo
     'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'feeds-host-probe')
-run('python3', 'tools/feeds_host_check.py', BUILD / 'feeds-host-probe')
+run('python3', 'tools/feeds_host_check.py', BUILD / 'feeds-host-probe', probe=BUILD / 'feeds-host-probe')
 # a benchmark session keeps the recordings it started with, byte for byte, across an update and a relaunch
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Iport/ios/host',
     '-framework', 'Foundation', 'port/ios/tests/benchmark_snapshot_probe.m', 'port/ios/host/host_benchmark_snapshot.m',
@@ -694,6 +720,8 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,
 run(BUILD/'frame-deadline-probe')
 # UIKit's animations with the frame workgroup: tvOS's text dialog holds the drawing thread out (host_tv.m)
 run('python3', 'tools/test_frame_workgroup_uikit.py')
+# the tester benchmark menu in real UIKit, as a small Mac Catalyst app that opens a window scene
+run_in_gui_session('python3', 'tools/test_benchmark_menu.py')
 # visibility answers by fixed latency (visibility_history.h): from the expected frames, whatever the GPU's timing
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/visibility_history_probe.c', '-o', BUILD/'visibility-history-probe')
@@ -1286,9 +1314,9 @@ for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform
     run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', *defines, 'port/ios/tests/menu_platform_probe.c', '-o', BUILD / name)
     kind = name.split('-', 2)[2]
     for cloud in ('0', '1'):
-        subprocess.run([str(BUILD / name), kind], cwd=ROOT, check=True,
-                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud, 'HALO_HOST_SEND_LOG': cloud,
-                            'HALO_HOST_KEYBOARD': '1' if mac else '0'})
+        execute([BUILD / name, kind],
+                env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud, 'HALO_HOST_SEND_LOG': cloud,
+                     'HALO_HOST_KEYBOARD': '1' if mac else '0'})
 # Every platform keeps four evenly spaced rows and inert root cancel handlers.
 main_menu = ElementTree.parse(ROOT / 'port/assets/menus/ce/main_menu.xml').getroot()
 assert not any('quit_select' in element.get('open', '') for element in main_menu.iter())
@@ -1374,3 +1402,13 @@ run('xcrun', 'clang', '-O2', '-fobjc-arc', '-DHOST_STEREO_AB_PROBE',
     'port/ios/tests/stereo_ab_probe.c', 'port/ios/host/host_stereo.m', '-o', BUILD/'stereo-ab-host-probe')
 run(BUILD/'stereo-ab-host-probe', 'enabled')
 run(BUILD/'stereo-ab-host-probe', 'disabled')
+
+# Probes nothing else built: header-only logic each probe checks on its own.
+for name, includes in (('audio_route_probe', ['-Iport/ios/host']), ('external_session_probe', ['-Iport/ios/host']),
+                       ('external_splash_probe', ['-Iport/ios/host']), ('bink_edge_gradient_probe', []),
+                       ('bink_movie_fit_probe', []), ('menu_gametype_probe', []), ('portrait_fov_probe', [])):
+    run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', *includes,
+        f'port/ios/tests/{name}.c', '-o', BUILD / name.replace('_', '-'))
+    run(BUILD / name.replace('_', '-'))
+
+probes.check()
