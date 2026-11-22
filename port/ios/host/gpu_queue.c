@@ -158,6 +158,8 @@ static struct
 {
 	unsigned long frames;
 	uint64_t records, bytes, draws, draw_bytes, registers, full_constants, uniforms, keyframes;
+	/* the waits for the consumer: AT_ONCE and QUERY calls and the present barrier, and their time when timed */
+	uint64_t drains, drain_ns;
 } statistics;
 /* the consumer's (with the encode thread, written there): its time in the backend, taken by the producer's line */
 static _Atomic uint64_t consumed_ns;
@@ -188,11 +190,12 @@ static void statistics_frame(void)
 	milliseconds = (double)atomic_exchange(&consumed_ns, 0) / 1e6 / frames;
 	snprintf(line, sizeof(line),
 		"encode queue: %lu frames, a frame: %.0f records, %.0f KiB, %.0f draws in %.0f KiB, %.0f registers, "
-		"%.1f whole constant sets, %.0f uniform sets, %.1f keyframes, backend %.3f ms%s",
+		"%.1f whole constant sets, %.0f uniform sets, %.1f keyframes, %.1f drains in %.3f ms, backend %.3f ms%s",
 		statistics.frames, (double)statistics.records / frames, (double)statistics.bytes / 1024.0 / frames,
 		(double)statistics.draws / frames, (double)statistics.draw_bytes / 1024.0 / frames,
 		(double)statistics.registers / frames, (double)statistics.full_constants / frames,
-		(double)statistics.uniforms / frames, (double)statistics.keyframes / frames, milliseconds, timing ? "" : " (not timed)");
+		(double)statistics.uniforms / frames, (double)statistics.keyframes / frames,
+		(double)statistics.drains / frames, (double)statistics.drain_ns / 1e6 / frames, milliseconds, timing ? "" : " (not timed)");
 	if (log_line)
 		log_line(line);
 	memset(&statistics, 0, sizeof(statistics));
@@ -286,7 +289,16 @@ static void drain(void)
 void gpu_queue_drain(void)
 {
 	drains++;
-	drain();
+	statistics.drains++;
+	if (timing)
+	{
+		uint64_t started = clock_ns();
+
+		drain();
+		statistics.drain_ns += clock_ns() - started;
+	}
+	else
+		drain();
 }
 
 double gpu_queue_barrier_waited(void)
