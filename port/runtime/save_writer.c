@@ -302,6 +302,10 @@ int save_writer_replace_with_file(const struct save_writer_io *io, const char *s
 			break;
 		crc = saved_game_crc_run(crc, piece, offset, count);
 		offset += count;
+		/* overtaken or withdrawn: whoever waits for this copy (Save and Quit, a profile being deleted)
+		   waits for one piece, not for the file */
+		if (offset < size && current && !current(context))
+			break;
 	}
 	io->close(io->context, source);
 	free(piece);
@@ -338,10 +342,13 @@ static struct
 	pthread_cond_t changed;
 	const struct save_writer_io *io;
 	void (*log)(int warning, const char *line);
-	int thread_started, busy, refusal_logged;
+	int thread_started, busy;
 	struct request queued, active;
 	unsigned long replaced;
-} writer = { PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, &save_writer_posix_io, NULL, 0, 0, 0, { 0 }, { 0 }, 0 };
+} writer = { PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, &save_writer_posix_io, NULL, 0, 0, { 0 }, { 0 }, 0 };
+
+/* (the log is never called with the lock held: the game's thread takes the lock at every checkpoint) */
+static atomic_int writer_refusal_logged;
 
 /* odd while the game writes its checkpoint file */
 static atomic_uint writer_generation;
@@ -364,9 +371,8 @@ static void writer_log_result(int result, const char *target)
 		writer_log(0, "saved game: %s replaced", target);
 	else if (result == SAVE_WRITER_FAILED)
 		writer_log(1, "saved game: %s could not be replaced; the one before it stays", target);
-	else if (result == SAVE_WRITER_REFUSED && !writer.refusal_logged)
+	else if (result == SAVE_WRITER_REFUSED && !atomic_exchange(&writer_refusal_logged, 1))
 	{
-		writer.refusal_logged = 1;
 		writer_log(1, "saved game: %s is of another size (another build's) and is left alone", target);
 	}
 }
@@ -399,10 +405,10 @@ static void *worker(void *unused)
 		pthread_mutex_unlock(&writer.lock);
 		result = save_writer_replace_with_file(writer.io, writer.active.checkpoint, writer.active.temporary,
 			writer.active.target, writer.active.size, worker_current, &writer.active);
+		writer_log_result(result, writer.active.target);
 		pthread_mutex_lock(&writer.lock);
 		writer.busy = 0;
 		writer.replaced += result == SAVE_WRITER_REPLACED;
-		writer_log_result(result, writer.active.target);
 		pthread_cond_broadcast(&writer.changed);
 	}
 	return NULL;
@@ -504,9 +510,7 @@ int save_writer_write_now(const char *checkpoint_path, const char *target_path, 
 	io = writer.io;
 	pthread_mutex_unlock(&writer.lock);
 	result = save_writer_replace_with_image(io, temporary, target_path, image, size, NULL, NULL);
-	pthread_mutex_lock(&writer.lock);
 	writer_log_result(result, target_path);
-	pthread_mutex_unlock(&writer.lock);
 	return result == SAVE_WRITER_REPLACED;
 }
 
