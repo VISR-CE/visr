@@ -165,22 +165,17 @@ int main(void) {
     subprocess.run([str(binary)], check=True)
 
 
-def test_a_profile_being_deleted_withdraws_its_checkpoint_first(tmp_path):
-    """XDeleteSaveGame tells the host's writer before it lists the profile's folder. The class of bug: the
-    writer's thread putting a file into a folder the game is emptying, which then cannot be removed."""
-    source = (ROOT / "port/linux/src/xbox_xapi.c").read_text()
-    binary = compile_probe(tmp_path, r'''
+DELETE_SAVE_GAME_PROBE = r"""
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#define HALO_IOS 1
 #define WINAPI
 #define MAX_PATH 260
 #define ERROR_SUCCESS 0
 #define ERROR_PATH_NOT_FOUND 3
 typedef unsigned long DWORD; typedef const char *LPCSTR; typedef const unsigned short *LPCWSTR;
 static char order[64], withdrawn[1024];
-static int present = 1;
+static int present = 1, deletes_that_leave_the_folder;
 static void save_directory_for(LPCSTR root, LPCWSTR name, char *directory, unsigned long size) {
     (void)root; (void)name; snprintf(directory, size, "u:\\UDATA\\C7201D882DAE\\");
 }
@@ -189,14 +184,48 @@ static void platform_translate_path(const char *xbox_path, char *host_path, unsi
     snprintf(host_path, size, "host<%s>", xbox_path);
 }
 void host_save_withdraw_folder(const char *folder_path) { strcat(order, "w"); strcpy(withdrawn, folder_path); }
-static void delete_tree(const char *directory) { (void)directory; strcat(order, "d"); }
-''' + function(source, "DWORD WINAPI XDeleteSaveGame(") + r'''
+static void delete_tree(const char *directory) {
+    (void)directory; strcat(order, "d");
+    if (deletes_that_leave_the_folder > 0) deletes_that_leave_the_folder--; else present = 0;
+}
+static void again(int leaving) { order[0] = 0; present = 1; deletes_that_leave_the_folder = leaving; }
+"""
+
+
+def test_a_profile_being_deleted_withdraws_its_checkpoint_first(tmp_path):
+    """XDeleteSaveGame tells the host's writer before it lists the profile's folder. The class of bug: the
+    writer's thread putting a file into a folder the game is emptying, which then cannot be removed. The profile
+    write thread deletes profiles while the game plays, so a checkpoint posted between the withdrawal and the
+    listing gets a second withdrawal and listing, and no more than that."""
+    source = (ROOT / "port/linux/src/xbox_xapi.c").read_text()
+    binary = compile_probe(tmp_path, "#define HALO_IOS 1\n" + DELETE_SAVE_GAME_PROBE
+                           + function(source, "DWORD WINAPI XDeleteSaveGame(") + r"""
 int main(void) {
     assert(XDeleteSaveGame("u:\\", 0) == ERROR_SUCCESS);
     assert(!strcmp(order, "wd") && !strcmp(withdrawn, "host<u:\\UDATA\\C7201D882DAE\\>"));
+    again(1);
+    assert(XDeleteSaveGame("u:\\", 0) == ERROR_SUCCESS && !strcmp(order, "wdwd"));
+    again(5);
+    assert(XDeleteSaveGame("u:\\", 0) == ERROR_SUCCESS && !strcmp(order, "wdwd"));
     order[0] = 0; present = 0;
     assert(XDeleteSaveGame("u:\\", 0) == ERROR_PATH_NOT_FOUND && !order[0]);
     return 0;
 }
-''')
+""")
+    subprocess.run([str(binary)], check=True)
+
+
+def test_a_build_without_a_host_deletes_a_profile_without_asking_one(tmp_path):
+    """The desktop builds compile the same file and have no host: XDeleteSaveGame must not name a host function
+    there (the probe's is left out, so naming it would not link), and deletes once."""
+    source = (ROOT / "port/linux/src/xbox_xapi.c").read_text()
+    stubs = "\n".join(line for line in DELETE_SAVE_GAME_PROBE.split("\n") if "host_save_withdraw_folder" not in line)
+    binary = compile_probe(tmp_path, stubs + function(source, "DWORD WINAPI XDeleteSaveGame(") + r"""
+int main(void) {
+    (void)withdrawn; (void)platform_translate_path;
+    again(1);
+    assert(XDeleteSaveGame("u:\\", 0) == ERROR_SUCCESS && !strcmp(order, "d"));
+    return 0;
+}
+""")
     subprocess.run([str(binary)], check=True)

@@ -191,17 +191,26 @@ DWORD WINAPI XDeleteSaveGame(LPCSTR root_path_name, LPCWSTR save_game_name)
 #ifdef HALO_IOS
 	/* A checkpoint may still be on its way into this profile's saved game, on the host's writer thread
 	(port/linux/game/saved_game_persist.h). It is withdrawn before the folder is listed, or the file would
-	land after the listing and keep the folder. */
+	land after the listing and keep the folder. A profile is also deleted from the profile write thread while the
+	game plays, so a checkpoint can be posted between the withdrawal and the listing: the folder still being there
+	afterwards gets one more withdrawal and listing. */
 	{
 		extern void host_save_withdraw_folder(const char *folder_path);
 		char host_directory[1024];
+		int attempt;
 
 		platform_translate_path(directory, host_directory, sizeof(host_directory));
-		if (host_directory[0])
+		for (attempt = 0; attempt < 2; attempt++)
+		{
 			host_save_withdraw_folder(host_directory);
+			delete_tree(directory);
+			if (GetFileAttributesA(directory) == (DWORD)-1)
+				break;
+		}
 	}
-#endif
+#else
 	delete_tree(directory);
+#endif
 	return ERROR_SUCCESS;
 }
 

@@ -561,6 +561,26 @@ static void test_worker(void)
 		CHECK(save_writer_wait(0) && !exists(target_path) && !exists(temporary_path));
 		pthread_join(opener, NULL);
 
+		/* the form the game sends: the folder without a trailing separator; and a checkpoint that has not started */
+		test_name = "a deleted profile's folder, no trailing separator";
+		close_gate();
+		checkpoint(first, 1);
+		wait_for_gate();
+		CHECK(pthread_create(&opener, NULL, open_gate_soon, NULL) == 0);
+		save_writer_withdraw_folder(slot);
+		CHECK(save_writer_wait(0) && !exists(target_path) && !exists(temporary_path));
+		pthread_join(opener, NULL);
+
+		test_name = "a deleted profile's folder, checkpoint not started";
+		close_gate();
+		checkpoint(first, 1);
+		wait_for_gate();
+		checkpoint(second, 1);
+		CHECK(pthread_create(&opener, NULL, open_gate_soon, NULL) == 0);
+		save_writer_withdraw_folder(slot);
+		pthread_join(opener, NULL);
+		CHECK(save_writer_wait(10) && !exists(target_path) && !exists(temporary_path));
+
 		test_name = "another profile's folder";
 		close_gate();
 		checkpoint(first, 1);
