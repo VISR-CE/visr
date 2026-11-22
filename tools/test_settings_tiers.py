@@ -119,8 +119,11 @@ def test_tuning_values_leave_the_public_reference():
     assert config['properties']['input']['properties']['aim_steady']['x-tier'] == 'tuning'
 
 
-# Tuning values that are not Apple Vision Pro's alone (none yet): each would be written nowhere and read everywhere.
-TUNING_OFF_HEADSET = set()
+# Tuning values that are not Apple Vision Pro's alone, reviewed: each is written nowhere and read everywhere.
+TUNING_OFF_HEADSET = {
+    # the audio mixing thread's scheduling class, chosen from measurements; a player has no way to judge it
+    'audio.worker_priority',
+}
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
                    'display.theater_width', 'input.aim', 'input.aim_hand',
                    # (until phase 2's COMFORT row: see FILE_ONLY_PLAYER)
