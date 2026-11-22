@@ -68,6 +68,9 @@ enum mp_benchmark_probe_input_policy mp_benchmark_probe_current_policy(void)
 {
 	int requested = mp_benchmark_probe_requested();
 
+	/* (debug.benchmark_own_input: a guided session plays inside the benchmark's game with its own controller) */
+	if (requested && config_boolean("debug.benchmark_own_input"))
+		return mp_benchmark_probe_ordinary_input;
 	return mp_benchmark_probe_policy(requested, requested && mp_benchmark_probe_active());
 }
 
