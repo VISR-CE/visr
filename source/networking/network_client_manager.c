@@ -2173,8 +2173,7 @@ boolean network_game_client_initiate_join_game(
 			global_network_game_server_get() != NULL, network_game_client_host_version);
 		/* port: Delta starts only after this legacy join supplies a machine index. */
 		delta_peer_game_join(address->address.long_words[0], address->port,
-			game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES &&
-			network_game_client_advertised_versions[game_index].delta_major != 0);
+			advertised && network_game_client_advertised_versions[game_index].delta_major != 0);
 	}
 
 	csmemcpy(

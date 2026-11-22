@@ -113,3 +113,17 @@ def test_join_version_has_one_owner():
     # (the declaration's initializer, network_game_set_host_version for the server, and the join)
     assert len(assignments) == 3, assignments
     assert sum("halo_network_version_of_joined_game(" in line for line in assignments) == 1
+
+
+def test_only_the_server_sets_the_host_version():
+    """Class, the other half: a second owner would appear as another caller of network_game_set_host_version.
+    The server sets it when it is created (the configured version) and resets it when it is disposed."""
+    callers = []
+    for path in list((ROOT / "source").rglob("*.c")) + list((ROOT / "port").rglob("*.c")) + list((ROOT / "port").rglob("*.m")):
+        for line in path.read_text(errors="replace").splitlines():
+            if "network_game_set_host_version(" in line and not line.lstrip().startswith(("void ", "*", "/*")):
+                callers.append((path.relative_to(ROOT).as_posix(), line.strip()))
+    assert sorted(callers) == [
+        ("source/networking/network_server_manager.c", "network_game_set_host_version(HALO_PORT_NETWORK_VERSION);"),
+        ("source/networking/network_server_manager.c", "network_game_set_host_version(network_game_server_configured_version());"),
+    ], callers
