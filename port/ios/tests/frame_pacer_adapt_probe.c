@@ -17,7 +17,6 @@ struct stream
 {
     double period;                 /* the frame period in force */
     double interval[3];            /* time between shown frames */
-    int others[3];                 /* frames holding a slot when it took its own */
     double gpu, grant, lead;
     double jitter;                 /* the display link's period wobbles by up to this share, frame to frame */
     double hitch_at;               /* a 0.4 s load at this second of the run; 0: none */
@@ -83,14 +82,14 @@ int main(void)
     struct frame_pacer_adapt a, b;
 
     /* fits at 60 (GPU 6 ms, grant to present 3, lead 3): one in flight, from either start, one switch at most */
-    struct stream fits = { p60, { 0, p60, p60 }, { 0, 0, 1 }, 0.006, 0.003, 0.003, 0, 0, 0 };
+    struct stream fits = { p60, { 0, p60, p60 }, 0.006, 0.003, 0.003, 0, 0, 0 };
     a = run(&fits, 2, 10.0, 0);
     b = run(&fits, 1, 10.0, 0);
     CHECK(a.limit == 1 && a.switches == 1 && a.reason == FRAME_PACER_ADAPT_FITS);
     CHECK(b.limit == 1 && b.switches == 0);
 
     /* GPU-bound at 60 (the iPad Air 4: GPU 14 ms): one in flight would halve the rate, so it stays at two */
-    struct stream gpu_bound = { p60, { 0, 2 * p60, p60 }, { 0, 0, 1 }, 0.014, 0.003, 0.003, 0, 0, 0 };
+    struct stream gpu_bound = { p60, { 0, 2 * p60, p60 }, 0.014, 0.003, 0.003, 0, 0, 0 };
     a = run(&gpu_bound, 2, 30.0, 0);
     CHECK(a.limit == 2 && a.switches == 0);
     /* from the floor it leaves on slot-caused misses and does not come back on its own */
@@ -98,12 +97,12 @@ int main(void)
     CHECK(b.limit == 2 && b.switches == 1 && b.reason == FRAME_PACER_ADAPT_MISSES);
 
     /* the model says it fits but the floor misses: the retry delay bounds the switches */
-    struct stream wrong = { p60, { 0, 2 * p60, p60 }, { 0, 0, 1 }, 0.005, 0.003, 0.003, 0, 0, 0 };
+    struct stream wrong = { p60, { 0, 2 * p60, p60 }, 0.005, 0.003, 0.003, 0, 0, 0 };
     a = run(&wrong, 2, 300.0, 0);
     CHECK(a.switches >= 4 && a.switches <= 24 && a.retry_delay == FRAME_PACER_ADAPT_RETRY_MOST);
 
     /* under rate, CPU-bound (the A10X iPad Pro at 128 players, about 18 a second): the floor */
-    struct stream cpu_under = { p60, { 0, 0.053, 0.055 }, { 0, 0, 0 }, 0.030, 0.004, 0.003, 0, 0, 0 };
+    struct stream cpu_under = { p60, { 0, 0.053, 0.055 }, 0.030, 0.004, 0.003, 0, 0, 0 };
     a = run(&cpu_under, 2, 30.0, 0);
     CHECK(exits == 0 && floor_share > 0.8 && remeasures >= 1 && remeasures <= 30.0 / FRAME_PACER_ADAPT_REMEASURE);
     /* (from the floor it has no rate at the ceiling to judge against: it goes up once to learn it, then back) */
@@ -113,31 +112,31 @@ int main(void)
     /* under rate, GPU-bound (50 a second with the second slot in use): two stays */
     /* (one halves it, 50 to 30 a second: the rate-loss exit leaves, the retries grow, and the run keeps most of
        fixed two's rate) */
-    struct stream gpu_under = { p60, { 0, 2 * p60, 0.020 }, { 0, 0, 1 }, 0.019, 0.003, 0.003, 0, 0, 0 };
+    struct stream gpu_under = { p60, { 0, 2 * p60, 0.020 }, 0.019, 0.003, 0.003, 0, 0, 0 };
     a = run(&gpu_under, 2, 300.0, 0);
     CHECK(a.limit == 2 && a.switches >= 4 && a.switches <= 24 && a.retry_delay == FRAME_PACER_ADAPT_RETRY_MOST);
     CHECK(shown_rate > 0.95 * 50.0);
 
     /* the A10X iPad Pro at 128 players (traces, 2026-11-22): GPU-bound with the second slot in use, 20.5 a second at
        two and 19.5 at one, 5% fewer: one in flight, for 25 to 70 ms less delay */
-    struct stream a10x = { p60, { 0, 1.0 / 19.5, 1.0 / 20.5 }, { 0, 0, 1 }, 0.040, 0.0002, 0.003, 0, 0, 0 };
+    struct stream a10x = { p60, { 0, 1.0 / 19.5, 1.0 / 20.5 }, 0.040, 0.0002, 0.003, 0, 0, 0 };
     a = run(&a10x, 2, 120.0, 0);
     CHECK(exits == 0 && floor_share > 0.85 && remeasures <= 120.0 / FRAME_PACER_ADAPT_REMEASURE);
 
     /* the iPad Air 4 at 32 players (traces): GPU 14 ms, one in flight shows 30 a second: two, never one */
-    struct stream air4 = { p60, { 0, 2 * p60, p60 }, { 0, 0, 1 }, 0.021, 0.0003, 0.003, 0, 0, 0 };
+    struct stream air4 = { p60, { 0, 2 * p60, p60 }, 0.021, 0.0003, 0.003, 0, 0, 0 };
     a = run(&air4, 2, 120.0, 0);
     CHECK(a.limit == 2 && a.switches == 0 && shown_rate > 59.0);
 
     /* under rate, but the floor loses rate: it leaves, and the retries grow */
     /* (30 ms at the floor against 22 at the ceiling: never one and a half intervals late, so the rate test leaves) */
-    struct stream lossy = { p60, { 0, 0.030, 0.022 }, { 0, 0, 0 }, 0.012, 0.003, 0.003, 0, 0, 0 };
+    struct stream lossy = { p60, { 0, 0.030, 0.022 }, 0.012, 0.003, 0.003, 0, 0, 0 };
     a = run(&lossy, 2, 120.0, 0);
     CHECK(a.reason == FRAME_PACER_ADAPT_RATE_LOST || (a.limit == 1 && a.switches > 2));
     CHECK(a.switches >= 2 && a.switches <= 16 && a.retry_delay >= 32.0);
     CHECK(shown_rate > 0.95 / 0.022 * 0.9);
     /* (33 ms at the floor: over one and a half of 22, so the misses leave first) */
-    struct stream missing = { p60, { 0, 2 * p60, 0.022 }, { 0, 0, 0 }, 0.012, 0.003, 0.003, 0, 0, 0 };
+    struct stream missing = { p60, { 0, 2 * p60, 0.022 }, 0.012, 0.003, 0.003, 0, 0, 0 };
     a = run(&missing, 2, 120.0, 0);
     CHECK(a.reason == FRAME_PACER_ADAPT_MISSES || (a.limit == 1 && a.switches > 2));
     CHECK(a.switches >= 2 && a.switches <= 16 && a.retry_delay >= 32.0);
@@ -160,12 +159,12 @@ int main(void)
     CHECK(a.limit == 2 && a.switches == 0);
 
     /* a 30 cap on a 60 Hz display (a share of two refreshes): fits at 33 ms */
-    struct stream cap30 = { 2 * p60, { 0, 2 * p60, 2 * p60 }, { 0, 0, 1 }, 0.016, 0.004, 0.003, 0, 0, 0 };
+    struct stream cap30 = { 2 * p60, { 0, 2 * p60, 2 * p60 }, 0.016, 0.004, 0.003, 0, 0, 0 };
     a = run(&cap30, 2, 10.0, 0);
     CHECK(a.limit == 1 && a.reason == FRAME_PACER_ADAPT_FITS);
 
     /* 120 Hz: GPU 6 ms does not fit 8.3 ms with the grant and the lead */
-    struct stream hz120 = { 1.0 / 120.0, { 0, 2.0 / 120.0, 1.0 / 120.0 }, { 0, 0, 1 }, 0.006, 0.002, 0.003, 0, 0, 0 };
+    struct stream hz120 = { 1.0 / 120.0, { 0, 2.0 / 120.0, 1.0 / 120.0 }, 0.006, 0.002, 0.003, 0, 0, 0 };
     a = run(&hz120, 2, 10.0, 0);
     CHECK(a.limit == 2 && a.switches == 0);
 
@@ -222,7 +221,7 @@ int main(void)
     /* under rate with the same interval at one and at two (CPU-bound): it enters once and stays, the rate test not
        counting the frame that starts each second */
     {
-        struct stream same = { p60, { 0, 0.055, 0.055 }, { 0, 0, 0 }, 0.030, 0.004, 0.003, 0, 0, 0 };
+        struct stream same = { p60, { 0, 0.055, 0.055 }, 0.030, 0.004, 0.003, 0, 0, 0 };
 
         a = run(&same, 2, 60.0, 0);
         CHECK(exits == 0 && floor_share > 0.85);
