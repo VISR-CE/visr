@@ -166,6 +166,11 @@ run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fblock
     'port/ios/tests/main_thread_probe.c', 'port/ios/host/host_main_thread.c',
     '-o', BUILD/'main-thread-probe')
 run(BUILD/'main-thread-probe')
+# Debug-log window statistics: one median and 95th percentile definition for every log.
+run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-Iport/ios/host', 'port/ios/tests/window_stats_probe.c', 'port/ios/host/host_window_stats.c',
+    '-o', BUILD/'window-stats-probe')
+run(BUILD/'window-stats-probe')
 # Process snapshots use live main-thread fallback until main captures startup.
 run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fblocks',
     '-fsanitize=address,undefined', '-Iport/ios/host', '-framework', 'CoreFoundation',

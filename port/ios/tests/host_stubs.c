@@ -82,6 +82,7 @@
 #include "host_texture_upscale.h"
 #include "host_theater.h"
 #include "host_thread_cpu.h"
+#include "host_window_stats.h"
 #include "ios_host.h"
 #include "menu_background_redraw.h"
 #include "menu_difficulty.h"
@@ -1599,6 +1600,8 @@ __attribute__((weak)) NSString * host_typed_outbox_store_asset(NSString *folder,
 { fprintf(stderr, "host_stubs: probe called host_typed_outbox_store_asset without defining it\n"); abort(); }
 __attribute__((weak)) void host_ui_pointer_install(void (*feedback)(int), void (*menus_changed)(int))
 { }
+__attribute__((weak)) struct host_window_stats host_window_stats(double *values, unsigned long count)
+{ fprintf(stderr, "host_stubs: probe called host_window_stats without defining it\n"); abort(); }
 __attribute__((weak)) int host_window_up(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int menu_background_redraw(const uint8_t *source, unsigned width, unsigned height, uint8_t *rgba, unsigned scale, const volatile int *cancel, struct menu_background_redraw_metrics *metrics)

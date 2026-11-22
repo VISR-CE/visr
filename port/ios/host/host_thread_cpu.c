@@ -11,6 +11,7 @@ without a name is listed by its ID.
 
 #include "host_thread_cpu.h"
 #include "host_config.h"
+#include "host_window_stats.h"
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -23,7 +24,7 @@ without a name is listed by its ID.
 
 void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
-enum { WINDOW_FRAMES = 300, THREADS = 256, LISTED = 12 };
+enum { THREADS = 256, LISTED = 12 };
 
 struct thread_usage
 {
@@ -143,7 +144,7 @@ void host_thread_cpu_frame(void)
 		previous_count = threads_now(previous);
 		return;
 	}
-	if (++frames < WINDOW_FRAMES)
+	if (++frames < HOST_LOG_WINDOW_FRAMES)
 		return;
 	count = threads_now(now);
 	getrusage(RUSAGE_SELF, &usage);

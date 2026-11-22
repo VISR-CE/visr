@@ -56,6 +56,7 @@ build with render validation; nothing otherwise */
 #include "halo_display.h"
 #include "host_output_cap.h"
 #include "host_output_sync.h"
+#include "host_window_stats.h"
 #include "host_game_thread.h"
 #include "host_external.h"
 
@@ -5299,12 +5300,10 @@ static int compare_times(const void *a, const void *b)
 /* the median and 95th percentile of count times, in milliseconds (sorts them) */
 static void pacing_percentiles(double *times, unsigned long count, double *median, double *high)
 {
-	*median = *high = 0.0;
-	if (!count)
-		return;
-	qsort(times, count, sizeof(*times), compare_times);
-	*median = times[count / 2] * 1000.0;
-	*high = times[count * 95 / 100] * 1000.0;
+	struct host_window_stats stats = host_window_stats(times, count);
+
+	*median = stats.median * 1000.0;
+	*high = stats.high * 1000.0;
 }
 
 static void frame_log_start(void);
