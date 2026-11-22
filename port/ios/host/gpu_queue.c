@@ -92,6 +92,13 @@ int gpu_queue_mode_choose(const char *debug, const char *display, const char **f
 	return mode == GPU_QUEUE_INLINE ? -1 : mode;
 }
 
+int gpu_queue_mode_on_main_thread(int mode, const char *debug)
+{
+	if (mode != GPU_QUEUE_THREAD)
+		return mode;
+	return debug && debug[0] ? GPU_QUEUE_INLINE : GPU_QUEUE_OFF;
+}
+
 /* direct: the backend under any wrapper that only recorded commands may pass (a call hash behind the queue), for the
 calls the producer makes itself (recorded commands go to the consumer's next) */
 static const struct gpu_backend *direct;

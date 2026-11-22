@@ -466,6 +466,15 @@ int main(void)
 		CHECK(gpu_queue_mode_choose("inline", "off", NULL) == GPU_QUEUE_INLINE, "debug.encode_thread lost the test mode");
 		CHECK(gpu_queue_mode_choose("thread", "off", NULL) == GPU_QUEUE_THREAD, "debug.encode_thread = thread lost");
 		CHECK(gpu_queue_mode_choose("sideways", "thread", NULL) < 0, "a bad debug.encode_thread was taken");
+		/* on the main thread "thread" cannot run: a debug choice falls back to the test mode, a profile's to off */
+		CHECK(gpu_queue_mode_on_main_thread(GPU_QUEUE_THREAD, "thread") == GPU_QUEUE_INLINE,
+			"debug.encode_thread = thread on the main thread is not inline");
+		CHECK(gpu_queue_mode_on_main_thread(GPU_QUEUE_THREAD, "") == GPU_QUEUE_OFF,
+			"display.encode_thread = thread on the main thread is not off");
+		CHECK(gpu_queue_mode_on_main_thread(GPU_QUEUE_THREAD, NULL) == GPU_QUEUE_OFF,
+			"a profile's thread with no debug value on the main thread is not off");
+		CHECK(gpu_queue_mode_on_main_thread(GPU_QUEUE_INLINE, "inline") == GPU_QUEUE_INLINE &&
+			gpu_queue_mode_on_main_thread(GPU_QUEUE_OFF, "") == GPU_QUEUE_OFF, "a mode that runs anywhere was changed");
 	}
 
 	play(gpu_call_hash_wrap(0, &fake, record));

@@ -40,6 +40,11 @@ display.encode_thread, the profile's choice, which takes "off" and "thread" alon
 not take; *from (may be NULL) names the setting decided. */
 int gpu_queue_mode_choose(const char *debug, const char *display, const char **from);
 
+/* the mode for a renderer on the main thread, where "thread" cannot run (the present barrier would hold the main
+thread while the backend's main-thread work waits for it): "inline" when debug.encode_thread chose it (the test mode
+stands in for a debug choice), "off" when the profile did; any other mode as it is */
+int gpu_queue_mode_on_main_thread(int mode, const char *debug);
+
 /* chosen, behind the queue: it receives the RECORDED commands. beneath (NULL: chosen) receives the calls the
 producer makes itself; it is chosen without the wrappers that must see only recorded commands (the call hash
 behind the queue). log takes a finished line (no newline). timing: also measure the time the consumer spends in

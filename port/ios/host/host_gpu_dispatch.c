@@ -101,7 +101,7 @@ static void low_power_scene(uint32_t scene_class);
 /* when the game thread last called its present (uptime_seconds, CACurrentMediaTime's clock): set before the present
 is recorded, so the encode thread reads this frame's when it makes that present */
 static double present_called;
-/* 1 with debug.encode_thread = "thread" */
+/* 1 with the encode thread in force (gpu_queue_mode_choose: debug.encode_thread, else display.encode_thread) */
 static int encode_thread_on;
 
 double host_gpu_present_called(void)
@@ -748,8 +748,7 @@ static int encode_queue_mode(int *timing)
 	the backend's main-thread work (drawable size, host_main_sync) waits for it */
 	if (mode == GPU_QUEUE_THREAD && pthread_main_np())
 	{
-		/* (the test mode stands in for a debug choice; a profile's falls back to off) */
-		mode = strcmp(from, "debug.encode_thread") ? GPU_QUEUE_OFF : GPU_QUEUE_INLINE;
+		mode = gpu_queue_mode_on_main_thread(mode, debug);
 		platform_log("%s: \"thread\" needs the game thread (debug.game_thread); it is %s", from,
 			mode == GPU_QUEUE_OFF ? "off" : "inline");
 	}
