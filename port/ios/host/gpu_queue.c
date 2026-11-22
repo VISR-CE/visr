@@ -25,6 +25,7 @@ operation without its pieces does not compile.
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 
 /* ---------- the encode thread (GPU_QUEUE_THREAD): the consumer on its own thread. The producer counts the records
@@ -1653,7 +1654,12 @@ static unsigned long plain_count, plain_capacity;
 /* the span's starting state (for the plain pass and the replay), and eye 0's registers at the span's end */
 static __typeof__(((struct consumer *)0)->held) verify_held_start;
 static float verify_end_store[GPU_CONSTANT_COUNT][4];
-static size_t compare_at;
+/* the live eye's calls by index: where each begins in live_calls, whether a replay call took it, and the first not
+taken (a replay call takes the first live call ahead with its operation, shaders, primitives and streamed bytes whose
+bytes are all equal, else the first with them: the eyes may order equal-looking draws differently) */
+static size_t *live_at;
+static unsigned char *live_taken;
+static unsigned long live_count, live_capacity, live_first;
 static unsigned long compare_index, compare_differ, compare_unmatched_logged;
 /* the call key fields verify_nearest_draw tells apart */
 enum { NEAREST_INDEX_BUFFER, NEAREST_INDEX_OFFSET, NEAREST_BASE_VERTEX, NEAREST_STREAM_BUFFER, NEAREST_STREAM_OFFSET,
@@ -1698,6 +1704,9 @@ static struct
 	/* calls one side made that the other did not (found by matching each call to the next live call of the same
 	operation and, for draws, the same shaders and primitives) */
 	unsigned long replay_only, live_only;
+	/* replay calls that took a live call other than the first not yet taken, and of those, blended draws (whose order
+	changes the picture) */
+	unsigned long reordered, reordered_blended;
 	/* for each unmatched replay draw, the nearest live draw ahead with its shaders, primitive and count: how many had
 	one, and how many of those differ in each call key field (NEAREST_*) */
 	unsigned long nearest_found, nearest[NEAREST_FIELDS];
@@ -1897,20 +1906,23 @@ call key fields that keep them apart (an index or vertex range the eyes upload a
 static void verify_nearest_draw(const unsigned char *made)
 {
 	const struct gpu_draw *y = (const struct gpu_draw *)(made + 8), *x;
-	size_t at = compare_at;
-	unsigned long skipped;
+	unsigned long skipped = 0, index;
 	char line[384];
-	uint32_t operation, live_size;
+	uint32_t operation;
 	int stream_buffer = 0, stream_offset = 0, stream;
 
 	memcpy(&operation, made, 4);
 	if (operation != GPU_OPERATION_draw)
 		return;
-	for (skipped = 0; skipped < VERIFY_LOOK_AHEAD && at + 8 <= live_calls.size; skipped++)
+	for (index = live_first; index < live_count && skipped < VERIFY_LOOK_AHEAD; index++)
 	{
-		memcpy(&operation, live_calls.bytes + at, 4);
-		memcpy(&live_size, live_calls.bytes + at + 4, 4);
-		x = (const struct gpu_draw *)(live_calls.bytes + at + 8);
+		const unsigned char *at = live_calls.bytes + live_at[index];
+
+		if (live_taken[index])
+			continue;
+		skipped++;
+		memcpy(&operation, at, 4);
+		x = (const struct gpu_draw *)(at + 8);
 		if (operation == GPU_OPERATION_draw && x->vertex_shader == y->vertex_shader &&
 			x->pixel_shader == y->pixel_shader && x->primitive == y->primitive && x->count == y->count)
 		{
@@ -1933,60 +1945,67 @@ static void verify_nearest_draw(const unsigned char *made)
 			verify_unmatched_line(line);
 			return;
 		}
-		at += 8 + live_size;
 	}
 	verify_unmatched_line("stereo replay verify: no live draw ahead has its shaders, primitive and count");
 }
 
-/* the replay's call just written to replay_call, against the live call at compare_at; a call the live eye did not
-make, or live calls the replay skips, are counted as such and the calls after them still compared */
+/* the replay's call just written to replay_call, against the live eye's calls: it takes one (live_at), or is counted
+as a call the live eye did not make; a take out of the live eye's order is counted, and fails verify for a blended
+draw */
 static void verify_compare(void)
 {
-	const unsigned char *live = live_calls.bytes + compare_at;
-	const unsigned char *made = replay_call.bytes;
-	uint32_t live_size, operation, size;
-	char line[384], text[2][96];
+	const unsigned char *live, *made = replay_call.bytes;
+	uint32_t operation, size;
+	unsigned long index, scanned = 0, first_key = ULONG_MAX, taken = ULONG_MAX;
+	char line[384], text[96];
 
 	memcpy(&operation, made, 4);
 	memcpy(&size, made + 4, 4);
 	compare_index++;
 	tally.calls++;
-	if (compare_at + 8 > live_calls.size || !same_call(live, made))
+	for (index = live_first; index < live_count && scanned < VERIFY_LOOK_AHEAD; index++)
 	{
-		size_t at = compare_at;
-		unsigned long skipped;
+		const unsigned char *candidate = live_calls.bytes + live_at[index];
 
-		for (skipped = 0; skipped < VERIFY_LOOK_AHEAD && at + 8 <= live_calls.size; skipped++)
+		if (live_taken[index])
+			continue;
+		scanned++;
+		if (!same_call(candidate, made))
+			continue;
+		if (first_key == ULONG_MAX)
+			first_key = index;
+		if (!memcmp(candidate + 8, made + 8, size))
 		{
-			if (same_call(live_calls.bytes + at, made))
-				break;
-			memcpy(&live_size, live_calls.bytes + at + 4, 4);
-			at += 8 + live_size;
-		}
-		compare_differ++;
-		tally.structure++;
-		if (skipped < VERIFY_LOOK_AHEAD && at + 8 <= live_calls.size)
-		{
-			tally.live_only += skipped;
-			snprintf(line, sizeof(line), "stereo replay verify: before call %lu, %s, the live eye made %lu calls the "
-				"replay did not, the first %s", compare_index, call_text(made, text[0], sizeof(text[0])), skipped,
-				call_text(live, text[1], sizeof(text[1])));
-			verify_unmatched_line(line);
-			compare_at = at;
-			live = live_calls.bytes + compare_at;
-		}
-		else
-		{
-			tally.replay_only++;
-			snprintf(line, sizeof(line), "stereo replay verify: call %lu, %s, is not one the live eye made", compare_index,
-				call_text(made, text[0], sizeof(text[0])));
-			verify_unmatched_line(line);
-			verify_nearest_draw(made);
-			return;
+			taken = index;
+			break;
 		}
 	}
-	memcpy(&live_size, live + 4, 4);
-	compare_at += 8 + live_size;
+	if (taken == ULONG_MAX)
+		taken = first_key;
+	if (taken == ULONG_MAX)
+	{
+		compare_differ++;
+		tally.structure++;
+		tally.replay_only++;
+		snprintf(line, sizeof(line), "stereo replay verify: call %lu, %s, is not one the live eye made", compare_index,
+			call_text(made, text, sizeof(text)));
+		verify_unmatched_line(line);
+		verify_nearest_draw(made);
+		return;
+	}
+	live = live_calls.bytes + live_at[taken];
+	if (taken != live_first)
+	{
+		tally.reordered++;
+		if (operation == GPU_OPERATION_draw && ((const struct gpu_draw *)(made + 8))->blend.enable)
+		{
+			tally.reordered_blended++;
+			compare_differ++;
+		}
+	}
+	live_taken[taken] = 1;
+	while (live_first < live_count && live_taken[live_first])
+		live_first++;
 	if (!memcmp(live + 8, made + 8, size))
 		return;
 	compare_differ++;
@@ -2015,9 +2034,11 @@ static void verify_summary(void)
 	equal; eye 0's own draws are counted apart) */
 	length = snprintf(line, sizeof(line), "stereo replay verify summary: %s: %lu spans, %lu differ; %lu replay calls, "
 		"%lu matched calls differ, %lu replay calls not made live, %lu live calls not replayed, %lu eye-0-only draws "
-		"skipped (excluded); %lu differ in uniforms; packet:",
-		tally.differ || tally.replay_only || tally.live_only ? "FAIL" : "PASS", tally.spans, tally.differing_spans,
-		tally.calls, tally.differ, tally.replay_only, tally.live_only, tally.eye_0_only, tally.uniforms);
+		"skipped (excluded); %lu matched out of the live eye's order (%lu of them blended); %lu differ in uniforms; "
+		"packet:",
+		tally.differ || tally.replay_only || tally.live_only || tally.reordered_blended ? "FAIL" : "PASS", tally.spans,
+		tally.differing_spans, tally.calls, tally.differ, tally.replay_only, tally.live_only, tally.eye_0_only,
+		tally.reordered, tally.reordered_blended, tally.uniforms);
 	for (field = 0; field < DRAW_FIELDS; field++)
 		if (tally.packet[field] && length < (int)sizeof(line) - 40)
 			length += snprintf(line + length, sizeof(line) - (size_t)length, " %s %lu", draw_fields[field].name,
@@ -2424,17 +2445,28 @@ static void verify_restart(int plain)
 static void verify_live_end(void)
 {
 	char line[256];
-	unsigned long live_count = 0;
+	unsigned long left = 0, index;
 	size_t at;
 
 	primary.next = eye.live_next;
-	for (at = 0; at + 8 <= live_calls.size; live_count++)
+	for (at = 0, live_count = 0; at + 8 <= live_calls.size; live_count++)
 	{
 		uint32_t size;
 
+		if (live_count == live_capacity)
+		{
+			live_capacity = live_capacity ? live_capacity * 2 : 4096;
+			live_at = realloc(live_at, live_capacity * sizeof(*live_at));
+			live_taken = realloc(live_taken, live_capacity);
+			if (!live_at || !live_taken)
+				abort();
+		}
+		live_at[live_count] = at;
+		live_taken[live_count] = 0;
 		memcpy(&size, live_calls.bytes + at + 4, 4);
 		at += 8 + size;
 	}
+	live_first = 0;
 	verify_detail = live_count >= VERIFY_BIG_SPAN_CALLS ? verify_big_spans_logged < VERIFY_SPANS_LOGGED :
 		live_count >= VERIFY_DETAIL_CALLS && verify_spans_logged < VERIFY_SPANS_LOGGED;
 	/* (the plain pass first: the span as eye 0 made it, for telling how a register differs) */
@@ -2445,29 +2477,21 @@ static void verify_live_end(void)
 	replay_span(&verify_backend);
 	verify_restart(0);
 	verify_phase = VERIFY_COMPARE;
-	compare_at = 0;
 	compare_index = compare_differ = compare_unmatched_logged = 0;
 	replay_skipped_draws = 0;
 	replay_span(&verify_backend);
 	verify_phase = VERIFY_TEE;
 	tally.eye_0_only += replay_skipped_draws;
-	if (compare_at < live_calls.size)
+	for (index = live_first; index < live_count; index++)
+		left += !live_taken[index];
+	if (left)
 	{
-		unsigned long left = 0;
-
-		for (at = compare_at; at + 8 <= live_calls.size; left++)
-		{
-			uint32_t size;
-
-			memcpy(&size, live_calls.bytes + at + 4, 4);
-			at += 8 + size;
-		}
 		compare_differ++;
 		tally.structure++;
 		tally.live_only += left;
-		snprintf(line, sizeof(line), "stereo replay verify: the live eye made %lu calls after the replay's last (%lu "
-			"live, %lu replayed)", left, live_count, compare_index);
-		verify_detail_line(line);
+		snprintf(line, sizeof(line), "stereo replay verify: the live eye made %lu calls no replay call took (%lu live, "
+			"%lu replayed)", left, live_count, compare_index);
+		verify_unmatched_line(line);
 	}
 	atomic_fetch_add(&eye_verified, 1);
 	tally.spans++;

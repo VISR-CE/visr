@@ -6,7 +6,8 @@ constant set included) until they end, and a replay-only serial; the span crosse
 be kept for the replay. A buffer rewritten after a replayed draw read it makes the span unreplayable, a write the
 backend marks unused does not. Verify mode compares the replay's calls with the live eye's: equal calls pass, a
 differing constant is counted; a draw reading streamed bytes is compared by those bytes, so the live eye's own copy at
-another ring offset matches and different bytes do not. Built and run by tools/test_gpu_queue.py with gpu_queue.c. */
+another ring offset matches and different bytes do not; equal-looking draws the live eye makes in another order match
+when opaque and count as a difference when blended. Built and run by tools/test_gpu_queue.py with gpu_queue.c. */
 
 #include "gpu_queue.h"
 #include <stdio.h>
@@ -109,6 +110,21 @@ static void streamed_draw(gpu_texture color, float shift, const struct gpu_const
 	packet.primitive = GPU_PRIMITIVE_TRIANGLES;
 	packet.count = 3;
 	queue->draw(&packet, from, &uniforms);
+}
+
+/* a draw that differs from another only by c0, blended or not */
+static void constant_draw(gpu_texture color, float c0, int blended)
+{
+	struct gpu_draw packet;
+
+	store_set(&store, 0, c0);
+	memset(&packet, 0, sizeof(packet));
+	packet.color_target = color;
+	packet.depth_target = color + 2;
+	packet.streams[0].buffer = 1;
+	packet.blend.enable = (uint8_t)blended;
+	packet.count = 3;
+	queue->draw(&packet, &store, &uniforms);
 }
 
 static void clear(gpu_texture color)
@@ -261,7 +277,27 @@ static void run(int mode, const char *name)
 			"%s: verify counted %lu differing calls for streamed draws in pass %u", name,
 			after.verify_differ - streamed_before.verify_differ, index);
 	}
-	CHECK(after.spans - before.spans == 7 && after.replayed - before.replayed == 2 &&
+	/* ---------- verify takes equal-looking draws out of order: equal for opaque draws, a difference for blended ones */
+	for (index = 0; index < 2; index++)
+	{
+		struct gpu_queue_eye_statistics swapped_before;
+
+		gpu_queue_eye_statistics(&swapped_before);
+		CHECK(gpu_queue_eye_span_begin(1), "%s: no swapped verify span", name);
+		constant_draw(10, 5.0f, (int)index);
+		constant_draw(10, 6.0f, (int)index);
+		CHECK(gpu_queue_eye_span_end(&map) == 1, "%s: a swapped verify span is not replayed", name);
+		constant_draw(11, 6.0f, (int)index);
+		constant_draw(11, 5.0f, (int)index);
+		gpu_queue_eye_live_end();
+		queue->present_stereo(&present);
+		gpu_queue_drain();
+		gpu_queue_eye_statistics(&after);
+		CHECK((after.verify_differ - swapped_before.verify_differ == 0) == (index == 0),
+			"%s: verify counted %lu differences for draws in another order (blended %u)", name,
+			after.verify_differ - swapped_before.verify_differ, index);
+	}
+	CHECK(after.spans - before.spans == 9 && after.replayed - before.replayed == 2 &&
 		after.unreplayable - before.unreplayable == 1, "%s: %lu spans, %lu replayed, %lu not", name,
 		after.spans - before.spans, after.replayed - before.replayed, after.unreplayable - before.unreplayable);
 	/* the queue off opens no span */
