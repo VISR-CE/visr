@@ -1142,6 +1142,10 @@ static const struct config_setting config_settings[] =
 		"is written only by Save and Quit, as on the Xbox. Replays, benchmarks,\n"
 		"scripted test runs, co-op and network games never write one. Read at\n"
 		"each checkpoint." },
+	{ "debug.checkpoint_every", _config_real, "0.0", "HALO_CHECKPOINT_EVERY", _environment_value, _platform_all,
+		"Ask for a checkpoint every this many seconds of game time (the game\n"
+		"takes it when it is safe to), to measure what a checkpoint costs in a\n"
+		"scene nobody plays; 0 never." },
 	{ "debug.scripted_run_saves", _config_boolean, "false", "HALO_SCRIPTED_RUN_SAVES", _environment_set_is_true, _platform_all,
 		"A replay or a scripted run (a test, a benchmark, a runner) may write the\n"
 		"active profile's saved game, at checkpoints and from Save and Quit, as\n"

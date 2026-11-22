@@ -1878,6 +1878,17 @@
             "apple"
           ]
         },
+        "checkpoint_every": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Ask for a checkpoint every this many seconds of game time (the game takes it when it is safe to), to measure what a checkpoint costs in a scene nobody plays; 0 never.",
+          "x-environment": "HALO_CHECKPOINT_EVERY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "scripted_run_saves": {
           "type": "boolean",
           "default": false,

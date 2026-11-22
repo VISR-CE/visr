@@ -369,6 +369,26 @@ void game_tick(
 
 		player_ui_port_apply_last_profile_controls();
 	}
+	/* port: debug.checkpoint_every asks for a checkpoint at a steady interval of game time, so the cost
+	of one (and of saves.checkpoint_persist) can be measured in a scene nobody plays */
+	{
+		static long next_checkpoint = -1;
+		double every = config_real("debug.checkpoint_every");
+
+		if (every > 0.0)
+		{
+			long interval = (long)(every * 30.0), now = game_time_get();
+
+			/* (a new level or a revert: the game time went back) */
+			if (next_checkpoint < 0 || now + interval < next_checkpoint)
+				next_checkpoint = now + interval;
+			if (now >= next_checkpoint)
+			{
+				next_checkpoint = now + interval;
+				main_save_map_safe();
+			}
+		}
+	}
 
 	match_assert(
 		"c:\\halo\\SOURCE\\game\\game.c",
@@ -678,6 +698,7 @@ int config_scripted_run(void)
 		config_boolean("debug.test_theater_reopen") ||
 		config_real("debug.exit_after") > 0.0 ||
 		config_real("debug.test_win_level") > 0.0 ||
+		config_real("debug.checkpoint_every") > 0.0 ||
 		config_integer("debug.screenshot_every") > 0)
 		return 1;
 	for (index = 0; index < sizeof(scripted_settings) / sizeof(scripted_settings[0]); index++)
