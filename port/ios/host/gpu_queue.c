@@ -181,11 +181,11 @@ static void statistics_frame(void)
 	milliseconds = (double)atomic_exchange(&consumed_ns, 0) / 1e6 / frames;
 	snprintf(line, sizeof(line),
 		"encode queue: %lu frames, a frame: %.0f records, %.0f KiB, %.0f draws in %.0f KiB, %.0f registers, "
-		"%.1f whole constant sets, %.0f uniform sets, backend %.3f ms%s",
+		"%.1f whole constant sets, %.0f uniform sets, %.1f keyframes, backend %.3f ms%s",
 		statistics.frames, (double)statistics.records / frames, (double)statistics.bytes / 1024.0 / frames,
 		(double)statistics.draws / frames, (double)statistics.draw_bytes / 1024.0 / frames,
 		(double)statistics.registers / frames, (double)statistics.full_constants / frames,
-		(double)statistics.uniforms / frames, milliseconds, timing ? "" : " (not timed)");
+		(double)statistics.uniforms / frames, (double)statistics.keyframes / frames, milliseconds, timing ? "" : " (not timed)");
 	if (log_line)
 		log_line(line);
 	memset(&statistics, 0, sizeof(statistics));

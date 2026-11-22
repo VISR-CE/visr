@@ -302,6 +302,23 @@ static void play(const struct gpu_backend *backend)
 		backend->anti_alias(1, texture, (frame & 4) ? rects + 1 : NULL);
 		backend->companion_size(&width, &height);
 		backend->companion_set(frame & 1 ? texture : 0);
+		/* a readback (a screenshot) and the host's pipeline and statistics questions mid-frame; each waits for every
+		command before it */
+		if (frame % 7 == 2)
+		{
+			unsigned char pixels[16];
+			char list[32];
+			struct gpu_pipeline_description built;
+			struct gpu_compile_progress progress;
+
+			(void)backend->texture_read(texture, pixels, sizeof(pixels));
+			(void)backend->anti_alias_prepare(1, NULL, NULL, NULL);
+			(void)backend->call_count_take();
+			(void)backend->warm_list_read("bloodgulch", list, sizeof(list));
+			(void)backend->pipeline_built_take(&built);
+			(void)backend->compiles_outstanding();
+			backend->compile_progress(0, &progress);
+		}
 		if (frame == FRAMES / 2)
 			backend->frame_context(2, 60, NULL);
 		/* a texture made and destroyed inside a frame, so its destroy is in a compared hash */
@@ -319,6 +336,20 @@ static void play(const struct gpu_backend *backend)
 			backend->present(texture);
 	}
 	/* (nothing after the last present: every command is in a compared frame) */
+}
+
+/* the classes whose calls the queue handles itself (records, drains for, or makes on the producer), by name; NULL for
+the others */
+static const char *queue_class_name(unsigned class)
+{
+	switch (class)
+	{
+	case GPU_CLASS_RECORDED: return "RECORDED";
+	case GPU_CLASS_AT_ONCE: return "AT_ONCE";
+	case GPU_CLASS_QUERY: return "QUERY";
+	case GPU_CLASS_PRODUCER: return "PRODUCER";
+	default: return NULL;
+	}
 }
 
 /* the AT_ONCE and QUERY calls that reached the backend since fake_calls was cleared */
@@ -388,11 +419,12 @@ int main(void)
 			"frame %lu: behind the queue %u commands, hash %016llx; direct %u recorded, %016llx", frame,
 			frames[frame].calls, (unsigned long long)frames[frame].hash, direct[frame].recorded_calls,
 			(unsigned long long)direct[frame].recorded);
+	/* (every operation the queue records, drains for or passes on by class reached the backend, so the drain count
+	above cannot match because an operation was never called) */
 	for (operation = 0; operation < GPU_OPERATION_COUNT; operation++)
-		CHECK((gpu_operation_classes[operation] != GPU_CLASS_RECORDED &&
-			gpu_operation_classes[operation] != GPU_CLASS_PRODUCER) || fake_calls[operation],
-			"the probe never sent %s, a %s operation, through the queue", gpu_operation_names[operation],
-			gpu_operation_classes[operation] == GPU_CLASS_RECORDED ? "recorded" : "producer");
+		CHECK(!queue_class_name(gpu_operation_classes[operation]) || fake_calls[operation],
+			"the probe never sent %s (class %s) through the queue", gpu_operation_names[operation],
+			queue_class_name(gpu_operation_classes[operation]));
 
 	/* one run, hashed in front of the queue and behind it, as debug.gpu_call_hash does with the queue on */
 	frames_seen = front_seen = 0;
