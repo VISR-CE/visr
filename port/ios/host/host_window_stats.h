@@ -1,8 +1,10 @@
 /*
 HOST_WINDOW_STATS.H
 
-Summaries of a window of per-frame values for the debug logs, so every log
-line in a frame-timing comparison uses the same median and 95th percentile.
+Summaries of a window of per-frame values for the host's debug logs
+(debug.main_sync_log and the pacing line), so those lines share one median and
+95th percentile. The frame timeline (port/runtime/frame_timeline.c) still
+uses nearest rank, one index lower.
 */
 
 #ifndef __HALO_HOST_WINDOW_STATS_H
