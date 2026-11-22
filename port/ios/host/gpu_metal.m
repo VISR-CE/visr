@@ -6013,6 +6013,7 @@ static struct
 	pthread_t thread;        /* the thread that joined: a workgroup is left on the thread that joined it */
 	int open, start_failed;
 	int held;                /* a UIKit dialog is up over the game: no frame joins (gpu_metal_frame_deadline_hold) */
+	uint64_t deadline;       /* the open interval's deadline (mach time) */
 	mach_timebase_info_data_t timebase;
 } frame_deadline;
 
@@ -6082,8 +6083,26 @@ static void frame_deadline_begin(BOOL offscreen)
 			NULL);
 
 		frame_deadline.open = started == 0;
+		frame_deadline.deadline = now + (uint64_t)(period * 1e9 * (double)frame_deadline.timebase.denom /
+			(double)frame_deadline.timebase.numer);
 		if (started && !frame_deadline.start_failed++)
 			host_logf(HOST_LOG_ERROR, "Metal: a frame's deadline was refused (os_workgroup_interval_start %d)", started);
+	}
+}
+
+/* the pacer's late start slept this long after the interval began at Present's return: the frame's work begins now,
+toward the same deadline */
+static void frame_deadline_late_start(double slept)
+{
+	if (slept < 0.0002 || !frame_deadline.open || !pthread_equal(frame_deadline.thread, pthread_self()))
+		return;
+	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+	{
+		uint64_t now = mach_absolute_time();
+
+		os_workgroup_interval_finish(frame_deadline.interval, NULL);
+		frame_deadline.open = now < frame_deadline.deadline &&
+			!os_workgroup_interval_start(frame_deadline.interval, now, frame_deadline.deadline, NULL);
 	}
 }
 
@@ -6468,6 +6487,7 @@ static void gpu_metal_frame_start(void)
 {
 #if HALO_FRAME_PACING
 	static uint64_t counted;
+	double slept;
 	uint64_t total = atomic_load(&pacing_gpu_nanoseconds);
 
 	frame_pacer_gpu_time((double)(total - counted) / 1e9);
@@ -6515,8 +6535,16 @@ static void gpu_metal_frame_start(void)
 	}
 	counted = total;
 	/* (debug.benchmark_offscreen: nothing waits on the display) */
+	slept = CACurrentMediaTime();
 	if (!render_offscreen_active())
 		frame_pacer_frame_start();
+	slept = CACurrentMediaTime() - slept;
+	/* the late start's sleep is a wait, not the frame's work: it leaves the frame's CPU time, and the frame's deadline
+	interval starts after it (the input latency audit, revision 2 item 1) */
+	pacing_waited += slept;
+#if !TARGET_OS_VISION
+	frame_deadline_late_start(slept);
+#endif
 #endif
 }
 

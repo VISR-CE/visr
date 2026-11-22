@@ -140,8 +140,8 @@ int main(void)
 
 	CHECK(base != 0, "a frame hashed to 0");
 	CHECK(last_calls == 8, "a frame of eight commands counted another number");
-	/* the recorded hash leaves out the calls the producer makes itself (texture_create, stream) */
-	CHECK(last_recorded_calls == 6, "a frame of six recorded commands counted another number");
+	/* the recorded hash leaves out the calls the producer makes itself (texture_create, stream, frame_start) */
+	CHECK(last_recorded_calls == 5, "a frame of five recorded commands counted another number");
 	{
 		uint64_t base_recorded = last_recorded;
 

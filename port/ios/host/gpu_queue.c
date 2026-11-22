@@ -599,11 +599,6 @@ static void queued_companion_set(gpu_texture target)
 	record_simple(GPU_OPERATION_companion_set, &argument, sizeof(argument));
 }
 
-static void queued_frame_start(void)
-{
-	record_simple(GPU_OPERATION_frame_start, NULL, 0);
-}
-
 static uint32_t queued_present(gpu_texture back_buffer)
 {
 	uint64_t argument = back_buffer;
@@ -884,12 +879,6 @@ static void consume_anti_alias(struct reader *reader)
 static void consume_companion_set(struct reader *reader)
 {
 	next->companion_set((gpu_texture)TAKE(reader, uint64_t));
-}
-
-static void consume_frame_start(struct reader *reader)
-{
-	(void)reader;
-	next->frame_start();
 }
 
 static void consume_present(struct reader *reader)
