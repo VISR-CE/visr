@@ -878,10 +878,14 @@ void _rasterizer_window_get_fog(
 	return;
 }
 
-void _rasterizer_window_set_fog(
-	struct render_fog const *fog)
+/* port: the fog block (registers -88 to -85) from fog and the window's
+camera, the game's _rasterizer_window_set_fog; it keeps the window's fog
+(plane included) as the game did. For one eye at a time: the second eye's
+replay computes eye 1's in eye 0's pass (rasterizer_other_eye_begin) */
+static void rasterizer_window_fog_constants(
+	struct render_fog const *fog,
+	real fog_constants[4][4])
 {
-	real fog_constants[4][4];
 	real inverse_atmospheric_range;
 	real inverse_planar_distance;
 	real inverse_planar_depth;
@@ -992,6 +996,15 @@ void _rasterizer_window_set_fog(
 	fog_constants[3][2] = PIN(global_window_parameters.fog.planar_maximum_density,
 		0.0f, 1.0f);
 	fog_constants[3][3] = 0.0f;
+	return;
+}
+
+void _rasterizer_window_set_fog(
+	struct render_fog const *fog)
+{
+	real fog_constants[4][4];
+
+	rasterizer_window_fog_constants(fog, fog_constants);
 	D3DDevice_SetVertexShaderConstant(
 		-88,
 		fog_constants,
@@ -1000,6 +1013,14 @@ void _rasterizer_window_set_fog(
 		global_d3d_device,
 		D3DRS_FOGCOLOR,
 		real_rgb_color_to_pixel32(&global_window_parameters.fog.atmospheric_color));
+	/* port: the second eye's replay: eye 1's fog block (its fog color is
+	eye 0's: the color does not depend on the camera) */
+	if (rasterizer_other_eye_begin())
+	{
+		rasterizer_window_fog_constants(fog, fog_constants);
+		halo_stereo_replay_constants(-88, fog_constants, 4);
+		rasterizer_other_eye_end();
+	}
 	return;
 }
 
@@ -1810,6 +1831,9 @@ D3DSurface *rasterizer_get_target(
 	return d3d_surface;
 }
 
+static void rasterizer_other_eye_window_begin(
+	struct rasterizer_window_begin_parameters const *parameters);
+
 void _rasterizer_window_begin(
 	struct rasterizer_window_begin_parameters const *parameters)
 {
@@ -1824,6 +1848,7 @@ void _rasterizer_window_begin(
 		1352,
 		global_d3d_device);
 	global_window_parameters = *parameters;
+	rasterizer_other_eye_window_begin(parameters); /* port: debug.stereo_replay */
 	suppress_window_begin_end = (previous_window_index != NONE &&
 		parameters->window_index == NONE);
 	previous_window_index = parameters->window_index;
@@ -2904,6 +2929,113 @@ static real_matrix4x3 first_person_saved_world_to_view;
 static real first_person_saved_projection_columns[4][2];
 static boolean first_person_eye_applied;
 
+/* port: debug.stereo_replay (the second-eye replay design, revision 1 item
+6): eye 1's window state while eye 0's pass draws for both eyes. What the
+rasterizer derives from the eye's camera is the window's camera, frustum and
+fog (its plane included) and the first-person weapon's saved view; a site
+that stores values computed from them computes eye 1's between
+rasterizer_other_eye_begin, which swaps eye 1's state in (and the stereo
+layer to eye 1's), and rasterizer_other_eye_end, which swaps eye 0's back.
+Eye 1's state starts at each of eye 0's windows from the camera and frustum
+render_player_frame_stereo gave (rasterizer_stereo_replay_eye) */
+struct rasterizer_eye_window
+{
+	struct render_camera camera;
+	struct render_frustum frustum;
+	struct render_fog fog;
+	real_matrix4x3 first_person_saved_world_to_view;
+	real first_person_saved_projection_columns[4][2];
+	boolean first_person_eye_applied;
+};
+
+static struct render_camera replay_eye_camera;
+static struct render_frustum replay_eye_frustum;
+static boolean replay_eye_given;
+static struct rasterizer_eye_window other_eye;
+/* eye 0's window is drawing for both eyes; and eye 1's state is swapped in */
+static boolean other_eye_ready;
+static boolean other_eye_swapped;
+static int other_eye_saved_layer;
+
+void rasterizer_stereo_replay_eye(
+	struct render_camera const *camera,
+	struct render_frustum const *frustum)
+{
+	replay_eye_given = camera && frustum;
+	if (replay_eye_given)
+	{
+		replay_eye_camera = *camera;
+		replay_eye_frustum = *frustum;
+	}
+	else
+		other_eye_ready = FALSE;
+	return;
+}
+
+static void rasterizer_other_eye_window_begin(
+	struct rasterizer_window_begin_parameters const *parameters)
+{
+	other_eye_ready = replay_eye_given && halo_stereo_current_layer() == 0 &&
+		parameters->rasterizer_target == _rasterizer_target_render_primary;
+	if (!other_eye_ready)
+		return;
+	memset(&other_eye, 0, sizeof(other_eye));
+	other_eye.camera = replay_eye_camera;
+	other_eye.frustum = replay_eye_frustum;
+	other_eye.fog = parameters->fog;
+	return;
+}
+
+static void rasterizer_other_eye_swap(
+	void)
+{
+	struct rasterizer_eye_window eye;
+	short row;
+
+	eye.camera = global_window_parameters.camera;
+	eye.frustum = global_window_parameters.frustum;
+	eye.fog = global_window_parameters.fog;
+	eye.first_person_saved_world_to_view = first_person_saved_world_to_view;
+	memcpy(eye.first_person_saved_projection_columns, first_person_saved_projection_columns,
+		sizeof(eye.first_person_saved_projection_columns));
+	eye.first_person_eye_applied = first_person_eye_applied;
+	global_window_parameters.camera = other_eye.camera;
+	global_window_parameters.frustum = other_eye.frustum;
+	global_window_parameters.fog = other_eye.fog;
+	first_person_saved_world_to_view = other_eye.first_person_saved_world_to_view;
+	for (row = 0; row < 4; row++)
+	{
+		first_person_saved_projection_columns[row][0] = other_eye.first_person_saved_projection_columns[row][0];
+		first_person_saved_projection_columns[row][1] = other_eye.first_person_saved_projection_columns[row][1];
+	}
+	first_person_eye_applied = other_eye.first_person_eye_applied;
+	other_eye = eye;
+	return;
+}
+
+boolean rasterizer_other_eye_begin(
+	void)
+{
+	if (!other_eye_ready || other_eye_swapped)
+		return FALSE;
+	rasterizer_other_eye_swap();
+	other_eye_swapped = TRUE;
+	other_eye_saved_layer = halo_stereo_current_layer();
+	halo_stereo_layer(1);
+	return TRUE;
+}
+
+void rasterizer_other_eye_end(
+	void)
+{
+	if (!other_eye_swapped)
+		return;
+	rasterizer_other_eye_swap();
+	other_eye_swapped = FALSE;
+	halo_stereo_layer(other_eye_saved_layer);
+	return;
+}
+
 /* port: the weapon's eye in place of the window's for the weapon's draws:
 the window's camera (this eye's) moved by the difference between the
 weapon's eye and this one, with the weapon eye's bounds (tangents over the
@@ -3027,18 +3159,18 @@ static boolean rasterizer_first_person_split_screen(
 	return TRUE;
 }
 
-void rasterizer_set_frustum_z(
+/* port: the window's frustum with this depth range, and the camera block
+(registers -96 to -89) from it: the game's rasterizer_set_frustum_z for one
+eye at a time. The second eye's replay computes eye 1's in eye 0's pass
+(rasterizer_other_eye_begin), each eye from its own window state */
+static void rasterizer_frustum_constants(
 	real z_near,
-	real z_far)
+	real z_far,
+	real vertex_constants[8][4])
 {
-	real vertex_constants[8][4];
 	short column;
 	short row;
 
-	match_assert(
-		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox.c",
-		2967,
-		global_d3d_device);
 	/* port: in a SCREEN mode eye (gameplay or the film) the first-person
 	weapon has its own eye, nearly flat with its nearest point on the
 	screen's surface (stereo.c); in HEAD mode's full view its draws may move
@@ -3117,11 +3249,33 @@ screen they take the Xbox top view's lower placement
 	vertex_constants[7][1] = global_window_parameters.frustum.view_to_world.left.j;
 	vertex_constants[7][2] = global_window_parameters.frustum.view_to_world.left.k;
 	vertex_constants[7][3] = 255.9375f;
+	return;
+}
+
+void rasterizer_set_frustum_z(
+	real z_near,
+	real z_far)
+{
+	real vertex_constants[8][4];
+
+	match_assert(
+		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox.c",
+		2967,
+		global_d3d_device);
+	rasterizer_frustum_constants(z_near, z_far, vertex_constants);
 	IDirect3DDevice8_SetVertexShaderConstant(
 		global_d3d_device,
 		-96,
 		vertex_constants,
 		8);
+	/* port: the second eye's replay: eye 1's block, from eye 1's window
+	state (its first-person weapon's eye included) */
+	if (rasterizer_other_eye_begin())
+	{
+		rasterizer_frustum_constants(z_near, z_far, vertex_constants);
+		halo_stereo_replay_constants(-96, vertex_constants, 8);
+		rasterizer_other_eye_end();
+	}
 	return;
 }
 

@@ -412,6 +412,18 @@ void rasterizer_window_begin(
 	struct rasterizer_window_begin_parameters const *parameters);
 void rasterizer_window_end(
 	void);
+/* port: debug.stereo_replay (the second-eye replay design): eye 1's camera
+and frustum while eye 0's pass draws for both eyes (NULL: none), and the
+swap a site that stores values from the eye's camera makes to compute eye
+1's (rasterizer_xbox.c); begin answers FALSE outside such a pass */
+void rasterizer_stereo_replay_eye(
+	struct render_camera const *camera,
+	struct render_frustum const *frustum);
+boolean rasterizer_other_eye_begin(
+	void);
+void rasterizer_other_eye_end(
+	void);
+
 /* port: the render target's viewport while split screen's full HUD draws in a
 one-player layout (hud_full_layout_begin); NULL goes back to the camera's */
 void rasterizer_hud_layout_viewport(
