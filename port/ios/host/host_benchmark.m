@@ -1224,6 +1224,17 @@ static void flag(NSString *name) {
     if (![flags containsObject:name]) [flags addObject:name];
 }
 
+/* debug.benchmark_own_input (the environment's value first, as the game reads it): a person played controller 1, so
+   the report is not a benchmark result: flagged, kept in report.json, never queued or sent */
+static int own_input_requested(void) {
+    const char *environment = getenv("HALO_BENCHMARK_OWN_INPUT");
+    char text[16];
+
+    if (environment && *environment) return !strcmp(environment, "true") || !strcmp(environment, "1");
+    host_config_string("debug.benchmark_own_input", "false", text, sizeof(text));
+    return !strcmp(text, "true");
+}
+
 /* The screen the app's window is on (host_external_device_screen), in one read so its size, rate and panel agree:
    on the iPhone Duo UIScreen.mainScreen can be the panel the game is not on. Before the window exists, or where
    there is none, the main screen. visionOS has no screen (UIScreen): its displays run at 90. */
@@ -1579,6 +1590,7 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
     if (!pinned_snapshot) return 0;
     flags = [NSMutableArray array];
     if (host_benchmark_offscreen_requested()) flag(@"benchmark_offscreen");
+    if (own_input_requested()) flag(@"benchmark_own_input");
     started = NSDate.date;
     /* "quick:a10-crew,c40-bridge": only the scenes named after the colon */
     NSArray<NSString *> *only = strchr(mode, ':') ? [@(strchr(mode, ':') + 1) componentsSeparatedByString:@","] : nil;
@@ -1884,15 +1896,19 @@ int host_benchmark_next(char *text, unsigned int size) {
         NSString *summary = report_summary();
         host_benchmark_overlay_show(0);
         NSError *preservation_error=nil;
-        BOOL preserved=host_benchmark_outbox_store(@FOLDER "/outbox",[NSData dataWithContentsOfFile:@REPORT],&preservation_error)!=nil;
-        if(!preserved)host_logf(HOST_LOG_INFO,"benchmark: report remains at report.json; outbox preservation failed: %s",
+        BOOL own_input=[flags containsObject:@"benchmark_own_input"];
+        BOOL preserved=!own_input && host_benchmark_outbox_store(@FOLDER "/outbox",[NSData dataWithContentsOfFile:@REPORT],&preservation_error)!=nil;
+        if(own_input)host_logf(HOST_LOG_INFO,"benchmark: a person played (debug.benchmark_own_input): the report stays in report.json, never queued or sent");
+        else if(!preserved)host_logf(HOST_LOG_INFO,"benchmark: report remains at report.json; outbox preservation failed: %s",
             preservation_error.localizedDescription.UTF8String ?: "unknown error");
 #ifdef HALO_BENCHMARK_CLOUD
         /* Tester benchmarks deliver automatically; scripted builds opt in with
            their existing launch setting. The outbox precedes every attempt. */
+        if (!own_input
 #ifndef HALO_TESTER_BUILD
-        if (getenv("HALO_BENCHMARK_SEND"))
+            && getenv("HALO_BENCHMARK_SEND")
 #endif
+            )
         {
             char message[256];
 

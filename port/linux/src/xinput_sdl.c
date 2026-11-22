@@ -1241,6 +1241,8 @@ static enum mp_benchmark_probe_input_policy mp_benchmark_probe_or_test_gamepad(X
 {
 	enum mp_benchmark_probe_input_policy policy = mp_benchmark_probe_current_policy();
 
+	if (port == 0 && mp_benchmark_probe_own_input())
+		policy = mp_benchmark_probe_ordinary_input;
 	if (policy == mp_benchmark_probe_scripted_input)
 		mp_benchmark_probe_gamepad(pad, port);
 	else if (policy == mp_benchmark_probe_neutral_input)

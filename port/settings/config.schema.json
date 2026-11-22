@@ -2236,7 +2236,7 @@
         "benchmark_own_input": {
           "type": "boolean",
           "default": false,
-          "description": "In a multiplayer benchmark game, controller 1 plays the local player instead of the benchmark's scripted input, for a guided session inside the benchmark's simulated players. Its report is not a benchmark result.",
+          "description": "Once a multiplayer benchmark game is running, controller 1 plays the local player instead of the benchmark's scripted input, for a guided session inside the benchmark's simulated players. The report is flagged benchmark_own_input and stays in report.json: never queued or sent.",
           "x-environment": "HALO_BENCHMARK_OWN_INPUT",
           "x-environment-style": "value",
           "x-platforms": [

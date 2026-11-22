@@ -1514,9 +1514,10 @@ static const struct config_setting config_settings[] =
 		"\"browse-only\" logs public games without joining, \"browse-empty\" joins an\n"
 		"empty master-listed server; empty for none." },
 	{ "debug.benchmark_own_input", _config_boolean, "false", "HALO_BENCHMARK_OWN_INPUT", _environment_value, _platform_all,
-		"In a multiplayer benchmark game, controller 1 plays the local player instead\n"
-		"of the benchmark's scripted input, for a guided session inside the benchmark's\n"
-		"simulated players. Its report is not a benchmark result." },
+		"Once a multiplayer benchmark game is running, controller 1 plays the local\n"
+		"player instead of the benchmark's scripted input, for a guided session inside\n"
+		"the benchmark's simulated players. The report is flagged benchmark_own_input\n"
+		"and stays in report.json: never queued or sent." },
 	{ "debug.multiplayer_benchmark_probe", _config_boolean, "false", "HALO_MULTIPLAYER_BENCHMARK_PROBE",
 		_environment_value, _platform_all,
 		"In a four-local-player automated Chill Out Slayer match, draw only player\n"

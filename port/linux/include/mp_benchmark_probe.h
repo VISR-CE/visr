@@ -44,6 +44,8 @@ void mp_benchmark_probe_set_suite_requested(int requested);
 void mp_benchmark_probe_reset_controllers(void);
 void mp_benchmark_probe_action_counts(struct mp_benchmark_probe_counts counts[4]);
 enum mp_benchmark_probe_input_policy mp_benchmark_probe_current_policy(void);
+/* debug.benchmark_own_input in force: controller 1 plays a running benchmark game (mp_benchmark_context.c) */
+int mp_benchmark_probe_own_input(void);
 long mp_benchmark_probe_tick(void);
 
 #endif

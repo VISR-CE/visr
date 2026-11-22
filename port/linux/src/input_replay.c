@@ -67,6 +67,7 @@ to the recording, a summary to the log, and the game quits.
 #include "platform.h"
 #include "port_config.h"
 #include "input_replay.h"
+#include "mp_benchmark_probe.h"
 #include "../../runtime/replay_environment.h"
 
 #include <stdarg.h>
@@ -1187,7 +1188,10 @@ void input_replay_filter(XINPUT_GAMEPAD *pad)
 	ticks = game_ticks();
 	if (ticks < 0.0)
 		return;
-	/* the suite: nobody plays; a scene with no recording stands still */
+	/* the suite: nobody plays; a scene with no recording stands still. With debug.benchmark_own_input the
+	controller plays the running game (mp_benchmark_probe_own_input, the same answer the scripted override gives) */
+	if (replay.suite && !*replay.replay_path && mp_benchmark_probe_own_input())
+		return;
 	if (replay.suite && (!*replay.replay_path || replay.replay_finished))
 	{
 		memset(pad, 0, sizeof(*pad));
