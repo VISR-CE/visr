@@ -76,9 +76,12 @@ enum gpu_operation
 #define GPU_OPERATION_CLASS_vertical_blank_wait OTHER_THREAD
 #define GPU_OPERATION_CLASS_companion_size QUERY
 #define GPU_OPERATION_CLASS_companion_set RECORDED
-/* (the pacer's late start sleeps before the game reads input, so on the thread that reads it; it touches only the
-pacer and the GPU-time count, which the present barrier orders against the encoder) */
-#define GPU_OPERATION_CLASS_frame_start PRODUCER
+/* (the pacer's late start sleeps before the game reads input, so on the thread that reads it. It touches the pacer, the
+frame's waits and the frame-deadline interval, which the encoder's frame_begin and present also touch, and the game
+can write records between a present and its next controller read, so it waits for those first: with nothing pending
+that is two atomic loads, and otherwise the game thread waits where it would have encoded them itself with the queue
+off, so input is read no earlier and no later) */
+#define GPU_OPERATION_CLASS_frame_start AT_ONCE
 #define GPU_OPERATION_CLASS_present RECORDED
 #define GPU_OPERATION_CLASS_present_stereo RECORDED
 #define GPU_OPERATION_CLASS_call_count_take QUERY

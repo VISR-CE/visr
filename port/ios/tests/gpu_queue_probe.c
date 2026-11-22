@@ -13,9 +13,11 @@ gpu_call_hash.c and gpu_queue.c. */
 #include "gpu_queue.h"
 #include "gpu_owner_check.h"
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "gpu_fake_backend.h"
 
@@ -394,6 +396,53 @@ static void owner_consumer_started(void)
 	consumer_started();
 }
 
+/* the encode thread's order against the game thread: a slow backend, so the consumer is behind when the game thread
+calls in */
+static _Atomic unsigned long slow_draws_made;
+static unsigned long draws_made_at_call;
+static _Atomic int slow_presented;
+
+static void spin_seconds(double seconds)
+{
+	struct timespec now;
+	double until;
+
+	timespec_get(&now, TIME_UTC);
+	until = (double)now.tv_sec + (double)now.tv_nsec / 1e9 + seconds;
+	do
+		timespec_get(&now, TIME_UTC);
+	while ((double)now.tv_sec + (double)now.tv_nsec / 1e9 < until);
+}
+
+static uint32_t slow_draw(const struct gpu_draw *d, const struct gpu_constant_store *c, const struct gpu_uniforms *u)
+{
+	(void)d, (void)c, (void)u;
+	spin_seconds(0.0005);
+	atomic_fetch_add(&slow_draws_made, 1);
+	return 1;
+}
+
+static void slow_frame_start(void)
+{
+	draws_made_at_call = atomic_load(&slow_draws_made);
+}
+
+static uint32_t slow_visibility_result(uint32_t slot, uint32_t *samples)
+{
+	(void)slot;
+	*samples = 0;
+	draws_made_at_call = atomic_load(&slow_draws_made);
+	return 1;
+}
+
+static uint32_t slow_present(gpu_texture back_buffer)
+{
+	(void)back_buffer;
+	spin_seconds(0.002);
+	atomic_store(&slow_presented, 1);
+	return 7;
+}
+
 int main(void)
 {
 	struct gpu_call_hash_frame direct[FRAMES];
@@ -512,6 +561,37 @@ int main(void)
 		CHECK(consumer_starts == 3, "the encode thread started %d times for three threaded wraps", consumer_starts);
 		CHECK(gpu_owner_check_violations() == 0, "wrapped again, %lu calls came from a thread other than their owner",
 			gpu_owner_check_violations());
+	}
+
+	/* with the encode thread behind: the late start (frame_start) and a query each come after every record the game
+	wrote before them is made, and a present returns only once it is made, with the backend's answer, the game thread
+	having waited for it at the barrier */
+	{
+		struct gpu_backend slow = fake;
+		const struct gpu_backend *queue;
+		struct gpu_draw draw;
+		uint32_t samples, index;
+
+		slow.draw = slow_draw;
+		slow.frame_start = slow_frame_start;
+		slow.visibility_result = slow_visibility_result;
+		slow.present = slow_present;
+		memset(&draw, 0, sizeof(draw));
+		queue = gpu_queue_wrap(&slow, NULL, GPU_QUEUE_THREAD, 0, quiet, NULL);
+		for (index = 0; index < 20; index++)
+			queue->draw(&draw, &stores[0], &uniforms);
+		queue->frame_start();
+		CHECK(draws_made_at_call == 20, "the late start came with %lu of 20 draws made", draws_made_at_call);
+		for (index = 0; index < 20; index++)
+			queue->draw(&draw, &stores[0], &uniforms);
+		(void)queue->visibility_result(0, &samples);
+		CHECK(draws_made_at_call == 40, "a query came with %lu of 40 draws made", draws_made_at_call);
+		for (index = 0; index < 20; index++)
+			queue->draw(&draw, &stores[0], &uniforms);
+		CHECK(queue->present(0) == 7 && atomic_load(&slow_presented) && atomic_load(&slow_draws_made) == 60,
+			"a present returned before it was made");
+		CHECK(gpu_queue_barrier_waited() >= 0.002, "the present barrier waited %.3f ms for a 2 ms present",
+			gpu_queue_barrier_waited() * 1e3);
 	}
 	return 0;
 }
