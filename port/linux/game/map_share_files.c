@@ -357,6 +357,21 @@ static boolean file_stamp(
 
 /* ---------- what may be sent */
 
+/* (map_share_policy.c takes a file's kind as a resource map type: the map's
+is none) */
+typedef char verify_map_share_kinds[_map_share_file_map == _resource_map_none &&
+	_map_share_file_bitmaps == _resource_map_bitmaps && _map_share_file_sounds == _resource_map_sounds &&
+	_map_share_file_locale == _resource_map_locale ? 1 : -1];
+
+boolean map_share_file_unchanged(
+	struct map_share_file const *file)
+{
+	unsigned long size;
+	unsigned long modified;
+
+	return file_stamp(file->path, &size, &modified) && size == file->size && modified == file->modified;
+}
+
 boolean map_share_file_sendable(
 	char const *path,
 	short kind,
