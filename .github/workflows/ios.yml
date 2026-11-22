@@ -103,6 +103,12 @@ jobs:
           xcrun --sdk xros metal --version
       - name: ABI, memory, audio, and XISO regressions
         run: python3 tools/ios_test.py
+      # Every host source, compiled with -fsyntax-only for iPhone, Apple TV, Vision Pro and macOS, so a
+      # platform-only `#if` block that does not compile fails here and not in a later build.
+      - name: Syntax-check host sources on every platform
+        run: |
+          xcrun --sdk appletvos --show-sdk-path
+          python3 tools/host_syntax_check.py --prepare
       - name: Build unsigned device IPA
         run: python3 tools/ios_build.py --unsigned --jobs 3 --ipa dist/VISR-iOS-unsigned.ipa
       - name: Build Mac Catalyst test host (runner and GL reference only; never shipped)
