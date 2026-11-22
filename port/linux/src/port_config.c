@@ -1777,7 +1777,7 @@ static const struct config_setting config_settings[] =
 		"thread, the drawing thread and each other busy thread, and the app's\n"
 		"context switches, to see how busy each core is." },
 	{ "debug.main_sync_log", _config_boolean, "false", "HALO_MAIN_SYNC_LOG", _environment_set_is_true, _platform_ios,
-		"Logs, every 300 frames, how long the drawing thread waited on the main\n"
+		"Logs, every 300 frames, how long the game thread waited on the main\n"
 		"thread a frame and how many times it asked, to size those waits." },
 	{ "debug.frame_load_cpu", _config_real, "0.0", "HALO_FRAME_LOAD_CPU", _environment_value, _platform_ios,
 		"Milliseconds of made-up CPU work added to every frame (the frame pacer),\n"

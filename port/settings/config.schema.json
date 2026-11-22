@@ -2840,7 +2840,7 @@
         "main_sync_log": {
           "type": "boolean",
           "default": false,
-          "description": "Logs, every 300 frames, how long the drawing thread waited on the main thread a frame and how many times it asked, to size those waits.",
+          "description": "Logs, every 300 frames, how long the game thread waited on the main thread a frame and how many times it asked, to size those waits.",
           "x-environment": "HALO_MAIN_SYNC_LOG",
           "x-environment-style": "set_is_true",
           "x-platforms": [

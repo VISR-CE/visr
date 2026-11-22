@@ -14,7 +14,7 @@ static void count_wait(void) {
     if (wait_forbidden) atomic_fetch_add(&forbidden_waits, 1);
 }
 
-/* the calling thread's waits on main since its last host_main_sync_take (the input latency audit's fix 6: the game
+/* the calling thread's waits on main since its last host_main_sync_take (debug.main_sync_log: how long the game
 thread blocks on main inside a frame) */
 static _Thread_local struct host_main_sync_waits thread_waits;
 

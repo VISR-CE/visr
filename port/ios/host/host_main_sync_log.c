@@ -3,7 +3,7 @@ HOST_MAIN_SYNC_LOG.C
 
 debug.main_sync_log (host_main_sync_log.h). The waits are counted by
 host_main_thread.c for each thread; at each present this thread's counts
-are taken, so a frame's figure is everything the presenting thread waited on
+are taken, so a frame's figure is everything the game thread waited on
 main since the previous present.
 */
 
@@ -31,7 +31,8 @@ void host_main_sync_log_install(void)
 	window_started = 0;
 	longest = 0;
 	if (enabled)
-		platform_log("main sync: logging the presenting thread's waits on main every %d frames (debug.main_sync_log)",
+		platform_log("main sync: logging the game thread's waits on main every %d frames (debug.main_sync_log); "
+			"with debug.encode_thread = \"thread\" the renderer's waits on the encode thread are not counted",
 			HOST_LOG_WINDOW_FRAMES);
 }
 
