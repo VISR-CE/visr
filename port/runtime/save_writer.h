@@ -63,7 +63,7 @@ int save_writer_replace_with_file(const struct save_writer_io *io, const char *s
 /* ---- the worker: one per process */
 
 /* io NULL is save_writer_posix_io (as before any call of this); log may be NULL */
-void save_writer_start(const struct save_writer_io *io, void (*log)(const char *line));
+void save_writer_start(const struct save_writer_io *io, void (*log)(int warning, const char *line));
 /* removes temporary files a run that ended early left in the session folder */
 void save_writer_clean(const struct save_writer_io *io, const char *session_folder);
 /* around the game's write of its checkpoint file, on the game's thread: the worker never uses a copy of the

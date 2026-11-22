@@ -337,7 +337,7 @@ static struct
 	pthread_mutex_t lock;
 	pthread_cond_t changed;
 	const struct save_writer_io *io;
-	void (*log)(const char *line);
+	void (*log)(int warning, const char *line);
 	int thread_started, busy, refusal_logged;
 	struct request queued, active;
 	unsigned long replaced;
@@ -348,24 +348,26 @@ static atomic_uint writer_generation;
 /* the write in progress is not to reach the saved game */
 static atomic_int writer_withdrawn;
 
-static void writer_log(const char *format, const char *path)
+static void writer_log(int warning, const char *format, const char *path)
 {
 	char line[PATH_SIZE + 160];
 
 	if (!writer.log)
 		return;
 	snprintf(line, sizeof(line), format, path);
-	writer.log(line);
+	writer.log(warning, line);
 }
 
 static void writer_log_result(int result, const char *target)
 {
-	if (result == SAVE_WRITER_FAILED)
-		writer_log("saved game: %s could not be replaced; the one before it stays", target);
+	if (result == SAVE_WRITER_REPLACED)
+		writer_log(0, "saved game: %s replaced", target);
+	else if (result == SAVE_WRITER_FAILED)
+		writer_log(1, "saved game: %s could not be replaced; the one before it stays", target);
 	else if (result == SAVE_WRITER_REFUSED && !writer.refusal_logged)
 	{
 		writer.refusal_logged = 1;
-		writer_log("saved game: %s is of another size (another build's) and is left alone", target);
+		writer_log(1, "saved game: %s is of another size (another build's) and is left alone", target);
 	}
 }
 
@@ -406,7 +408,7 @@ static void *worker(void *unused)
 	return NULL;
 }
 
-void save_writer_start(const struct save_writer_io *io, void (*log)(const char *line))
+void save_writer_start(const struct save_writer_io *io, void (*log)(int warning, const char *line))
 {
 	pthread_mutex_lock(&writer.lock);
 	writer.io = io ? io : &save_writer_posix_io;
@@ -502,12 +504,9 @@ int save_writer_write_now(const char *checkpoint_path, const char *target_path, 
 	io = writer.io;
 	pthread_mutex_unlock(&writer.lock);
 	result = save_writer_replace_with_image(io, temporary, target_path, image, size, NULL, NULL);
-	if (result != SAVE_WRITER_REPLACED)
-	{
-		pthread_mutex_lock(&writer.lock);
-		writer_log_result(result, target_path);
-		pthread_mutex_unlock(&writer.lock);
-	}
+	pthread_mutex_lock(&writer.lock);
+	writer_log_result(result, target_path);
+	pthread_mutex_unlock(&writer.lock);
 	return result == SAVE_WRITER_REPLACED;
 }
 

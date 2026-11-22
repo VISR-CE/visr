@@ -6,9 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 
-static void writer_log(const char *line)
+static void writer_log(int warning, const char *line)
 {
-	host_logf(HOST_LOG_WARN, "%s", line);
+	host_logf(warning ? HOST_LOG_WARN : HOST_LOG_INFO, "%s", line);
 }
 
 void host_save_writer_start(const char *save_root)
@@ -41,6 +41,15 @@ void host_save_checkpoint_begin(void)
 
 void host_save_checkpoint_end(const char *checkpoint_path, const char *target_path, unsigned int size)
 {
+	static int told;
+
+	/* (the game's thread only: once a run, so a log says which kind of game it was) */
+	if (!target_path && !told)
+	{
+		told = 1;
+		host_logf(HOST_LOG_INFO, "saved game: this game's checkpoints are not written to a saved game (no profile, co-op, "
+			"a network game, a replay, or saves.checkpoint_persist off)");
+	}
 	save_writer_checkpoint_end(checkpoint_path ? checkpoint_path : "", target_path, size);
 }
 
