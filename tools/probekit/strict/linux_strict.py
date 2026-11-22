@@ -154,20 +154,22 @@ def include_name(path: str) -> str:
     return path.rsplit("/include/", 1)[1] if "/include/" in path else Path(path).name
 
 
-def marked_apple_only(including: list[str], name: str) -> bool:
-    """Whether an including file's `#include` of `name` carries an `apple-only` comment."""
-    pattern = re.compile(r"^\s*#\s*(?:include|import|include_next)\s*[<\"]([^>\"]+)[>\"](.*)$")
-    for file in including:
-        try:
-            text = Path(file).read_text(errors="replace")
-        except OSError:
-            continue
-        for line in text.splitlines():
-            match = pattern.match(line)
-            if match and (match.group(1) == name or name.endswith("/" + match.group(1))
-                          or match.group(1).endswith("/" + name)) and "apple-only" in match.group(2):
-                return True
-    return False
+INCLUDE = re.compile(r"^\s*#\s*(?:include|import|include_next)\s*[<\"]([^>\"]+)[>\"](.*)$")
+
+
+def include_lines(file: str, name: str) -> list[str]:
+    """What follows each `#include` of `name` in `file` (its comments), one entry per include line."""
+    try:
+        text = Path(file).read_text(errors="replace")
+    except OSError:
+        return []
+    found = []
+    for line in text.splitlines():
+        match = INCLUDE.match(line)
+        if match and (match.group(1) == name or name.endswith("/" + match.group(1))
+                      or match.group(1).endswith("/" + name)):
+            found.append(match.group(2))
+    return found
 
 
 def header_problems(trace: list[tuple[int, str]], sources: list[str]) -> list[str]:
@@ -183,10 +185,13 @@ def header_problems(trace: list[tuple[int, str]], sources: list[str]) -> list[st
         if not is_system(path):
             continue
         name = include_name(path)
-        if name in allowed or marked_apple_only(including, name):
+        if name in allowed:
             continue
-        where = ", ".join(including)
-        problems.append(f"{where} includes <{name}>, which Ubuntu 24.04 does not have; "
+        # With several sources in one command, -H does not say which one included a header.
+        including = [file for file in including if include_lines(file, name)] or including
+        if any("apple-only" in rest for file in including for rest in include_lines(file, name)):
+            continue
+        problems.append(f"{', '.join(including)} includes <{name}>, which Ubuntu 24.04 does not have; "
                         "guard it for Apple builds and mark the line /* apple-only */")
     return list(dict.fromkeys(problems))
 
@@ -199,9 +204,9 @@ def split_trace(stderr: str) -> tuple[list[tuple[int, str]], str]:
     for line in stderr.splitlines(keepends=True):
         match = re.match(r"^(\.+) (.+)$", line.rstrip("\n"))
         if match:
-            # Apple's clang also lists the SDKSettings.json it reads; only headers count.
-            if not match.group(2).endswith(".json"):
-                trace.append((len(match.group(1)), os.path.realpath(match.group(2))))
+            # Clang also lists the SDKSettings.json and sanitizer ignore lists it reads; only headers count.
+            if match.group(2).endswith(".h"):
+                trace.append((len(match.group(1)), os.path.abspath(match.group(2))))
             guards = False
         elif line.startswith("Multiple include guards may be useful for:"):
             guards = True
