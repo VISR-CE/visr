@@ -44,6 +44,7 @@ but never returns to its run loop, which would otherwise drain them.
 build with render validation; nothing otherwise */
 #include "gpu_validate.h"
 #include "gpu_stream_ring.h"
+#include "host_frame_timeline.h"
 #include "metal_compile_async.h"
 #include "metal_compile_progress.h"
 #include "host.h"
@@ -6193,6 +6194,7 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	/* (no measurement, not an idle GPU: the benchmark keeps it apart) */
 	gpu_measured = gpu_metal_gpu_spans(&pacing.gpu_used, &pacing.gpu_refused);
 	host_perf_hooks_pacing(pacing_waited > 0.0 ? (uint64_t)(pacing_waited * 1e6) : 0);
+	host_frame_timeline_waits(pacing_waited, -1.0);
 	pacing_waited = 0.0;
 	interval = pacing.last_present > 0.0 ? now - pacing.last_present : 0.0;
 	pacing.last_present = now;
@@ -9353,6 +9355,17 @@ static uint32_t present_frame(gpu_texture back_buffer)
 				{
 					gpu_metal_presentation_observe(drawable, CACurrentMediaTime(), frame_context.scene_class == 2,
 						presentation_transition);
+#if !TARGET_OS_SIMULATOR
+					/* (debug.latency_log only: the frame timeline row's shown time) */
+					if (host_frame_timeline_logging())
+					{
+						uint64_t timeline_frame = host_frame_timeline_frame_id();
+
+						[drawable addPresentedHandler:^(id<MTLDrawable> shown) {
+							host_frame_timeline_shown(timeline_frame, shown.presentedTime);
+						}];
+					}
+#endif
 #if !TARGET_OS_SIMULATOR
                     /* (shadow mode only: no block or callback per frame otherwise) */
                     if (host_perf_hooks_dynamic_enabled())

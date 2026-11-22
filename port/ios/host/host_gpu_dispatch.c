@@ -17,6 +17,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_external.h"
 #include "host_config.h"
 #include "gpu_call_hash.h"
+#include "host_frame_timeline.h"
 #include <pthread.h>
 #include "gpu_queue.h"
 #include "gpu_owner_check.h"
@@ -110,6 +111,9 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	with the queue off and on) */
 	wrapped_backend->stream_frame_end();
 	next_frame_due = wrapped_backend->present(back_buffer);
+	/* (the frame timeline row is sealed here, on the game thread after the backend's present returned: the timeline
+	spec's decision note) */
+	host_frame_timeline_seal();
 	host_perf_hooks_present_end();
 	data_updates_presented();
 	/* (between frames: Low Power Mode's frame rate for the next one) */
@@ -131,6 +135,14 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	if (frame_counter)
 		host_frame_counter_show(presented++);
 	return next_frame_due;
+}
+
+/* the game reads the controllers next (halo_frame_start has returned, late start included): the frame timeline's
+controller read */
+static void frame_start_wrapped(void)
+{
+	wrapped_backend->frame_start();
+	host_frame_timeline_controller_read();
 }
 
 /* a stereo frame is a Present too */
@@ -770,6 +782,7 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 	wrapped = *backend;
 	wrapped.present = present_wrapped;
 	wrapped.present_stereo = present_stereo_wrapped;
+	wrapped.frame_start = frame_start_wrapped;
 	if (backend->frame_context)
 		wrapped.frame_context = frame_context_wrapped;
 	backend = &wrapped;

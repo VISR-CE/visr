@@ -39,6 +39,7 @@
 #include "host_external_mode.h"
 #include "host_frame_counter_stats.h"
 #include "host_frame_pacer.h"
+#include "host_frame_timeline.h"
 #include "host_game_thread.h"
 #include "host_geometry.h"
 #include "host_hinge.h"
@@ -596,6 +597,18 @@ __attribute__((weak)) double host_frame_rate_target(void)
 { fprintf(stderr, "host_stubs: probe called host_frame_rate_target without defining it\n"); abort(); }
 __attribute__((weak)) int host_frame_rate_unlimited(void)
 { fprintf(stderr, "host_stubs: probe called host_frame_rate_unlimited without defining it\n"); abort(); }
+__attribute__((weak)) void host_frame_timeline_controller_read(void)
+{ }
+__attribute__((weak)) uint64_t host_frame_timeline_frame_id(void)
+{ uint64_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) int host_frame_timeline_logging(void)
+{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void host_frame_timeline_seal(void)
+{ }
+__attribute__((weak)) void host_frame_timeline_shown(uint64_t frame_id, double shown)
+{ }
+__attribute__((weak)) void host_frame_timeline_waits(double display_wait, double encoder_tail)
+{ }
 #if defined(__OBJC__)
 __attribute__((weak)) BOOL host_framings_validate_file(NSString *path)
 { fprintf(stderr, "host_stubs: probe called host_framings_validate_file without defining it\n"); abort(); }

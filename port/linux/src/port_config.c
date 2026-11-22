@@ -1763,6 +1763,11 @@ static const struct config_setting config_settings[] =
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
 		"With debug.encode_thread on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },
+	{ "debug.latency_log", _config_boolean, "false", "HALO_LATENCY_LOG", _environment_set_is_true, _platform_ios,
+		"Logs a latency line every 300 frames: how old the controller state was\n"
+		"when the game read it, and the time from that read to the frame's\n"
+		"submission and to when the display showed it (median and 95th\n"
+		"percentile), the frame's display wait, and frames never shown." },
 	{ "debug.thread_cpu_log", _config_boolean, "false", "HALO_THREAD_CPU_LOG", _environment_set_is_true, _platform_ios,
 		"Logs, every 300 frames, the CPU time a frame of the whole app, the main\n"
 		"thread, the drawing thread and each other busy thread, and the app's\n"

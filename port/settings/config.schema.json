@@ -2817,6 +2817,16 @@
             "apple"
           ]
         },
+        "latency_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Logs a latency line every 300 frames: how old the controller state was when the game read it, and the time from that read to the frame's submission and to when the display showed it (median and 95th percentile), the frame's display wait, and frames never shown.",
+          "x-environment": "HALO_LATENCY_LOG",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "thread_cpu_log": {
           "type": "boolean",
           "default": false,
