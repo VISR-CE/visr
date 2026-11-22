@@ -598,7 +598,7 @@ static int next_event(SDL_Event *event)
 	else
 		/* the game thread's own poll: SDL reads controller hardware only when asked, so
 		this keeps what the game reads as old as the poll, not as old as the main timer */
-		host_controller_refresh();
+		host_controller_refresh_bounded();
 	return SDL_PeepEvents(event, 1, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST) == 1;
 }
 
@@ -750,6 +750,8 @@ void host_sdl_update_joysticks(void)
 {
 	if (host_game_thread_enabled() && !host_on_main_thread())
 		host_controller_refresh_for_read();
+	else
+		host_controller_sample();
 }
 
 uint32_t host_sdl_open_gamepad(uint32_t id)

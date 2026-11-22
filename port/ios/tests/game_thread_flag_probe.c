@@ -13,7 +13,10 @@ static int on_main = 1, peep_result = 1;
 static int controller_refreshes, controller_pump_notes;
 
 /* the game thread brings the controllers up to date at its own poll, the main pump only notes it */
-void host_controller_refresh(void) { controller_refreshes++; }
+void host_controller_refresh(void) {}
+void host_controller_refresh_bounded(void) { controller_refreshes++; }
+static int read_samples;
+void host_controller_sample(void) { read_samples++; }
 void host_controller_refreshed(void) { controller_pump_notes++; }
 static int read_refreshes;
 void host_controller_refresh_for_read(void) { read_refreshes++; }
@@ -89,10 +92,10 @@ int main(int argc, char **argv) {
     /* a controller read the poll's gate left behind: the game thread's own read refreshes, main's and the
        thread-off build's do not */
     host_sdl_update_joysticks();
-    assert(read_refreshes == (expected ? 1 : 0));
+    assert(read_refreshes == (expected ? 1 : 0) && read_samples == (expected ? 0 : 1));
     on_main = 1;
     host_sdl_update_joysticks();
-    assert(read_refreshes == (expected ? 1 : 0));
+    assert(read_refreshes == (expected ? 1 : 0) && read_samples == (expected ? 1 : 2));
     on_main = 0;
     assert(controller_pump_notes == pumps + (expected ? 0 : polls));
     assert(config_reads == 1);
