@@ -106,6 +106,19 @@ static inline unsigned halo_network_version_wire_contract(unsigned theirs)
 	return theirs;
 }
 
+/* the version of the game a client is joining, the one owner of that choice: an
+advertised game speaks its advertised version's contract; this machine's own
+server (the host's local join, which is not in the advertised list) keeps the
+version the server was created with (network.host_version); any other join
+falls back to this build's. */
+static inline unsigned halo_network_version_of_joined_game(int advertised, unsigned advertised_version,
+	int own_server, unsigned own_server_version)
+{
+	if (advertised)
+		return halo_network_version_wire_contract(advertised_version);
+	return own_server ? own_server_version : HALO_PORT_NETWORK_VERSION;
+}
+
 /* whether a host of the version sends the aim-assist policy (message 90);
 a client of an older host plays with the mouse's magnetism as set */
 static inline int halo_network_version_has_aim_policy(unsigned version)

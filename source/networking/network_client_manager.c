@@ -2165,9 +2165,12 @@ boolean network_game_client_initiate_join_game(
 	{
 		long game_index = game - client->available_games;
 
-		network_game_client_host_version = game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES ?
-			halo_network_version_wire_contract(network_game_client_advertised_versions[game_index].version) :
-			HALO_PORT_NETWORK_VERSION;
+		boolean advertised = game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES;
+
+		/* (the host's local join keeps the version network_game_server_create set) */
+		network_game_client_host_version = halo_network_version_of_joined_game(advertised,
+			advertised ? network_game_client_advertised_versions[game_index].version : 0,
+			global_network_game_server_get() != NULL, network_game_client_host_version);
 		/* port: Delta starts only after this legacy join supplies a machine index. */
 		delta_peer_game_join(address->address.long_words[0], address->port,
 			game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES &&

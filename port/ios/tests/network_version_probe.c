@@ -86,6 +86,18 @@ int main(void)
 	assert(halo_network_version_has_join_version_field(halo_network_version_wire_contract(43)));
 	/* 44 keeps its number on the wire and has exactly the 43 layout */
 	assert(halo_network_version_wire_contract(44) == 44);
+	/* the version a join settles on: a host joining its own server keeps every
+	version it can host, whatever the build's default */
+	{
+		unsigned const hosted[] = { HALO_PORT_NETWORK_VERSION, HALO_NETWORK_VERSION_RIDING };
+		unsigned index;
+
+		for (index = 0; index < sizeof(hosted) / sizeof(hosted[0]); index++)
+			assert(halo_network_version_of_joined_game(0, 0, 1, hosted[index]) == hosted[index]);
+		for (version = 0; version < 0x10000; version++)
+			assert(halo_network_version_of_joined_game(1, version, 1, 38) == halo_network_version_wire_contract(version));
+		assert(halo_network_version_of_joined_game(0, 0, 0, HALO_NETWORK_VERSION_RIDING) == HALO_PORT_NETWORK_VERSION);
+	}
 	assert(halo_network_version_has_join_version_field(44) && halo_network_version_has_settings_digests(44) &&
 		halo_network_version_has_checkpoint_epoch(44) && halo_network_version_has_scripted_poses(44) &&
 		halo_network_version_has_shared_sim_fixes(44) && halo_network_version_has_riding(44));

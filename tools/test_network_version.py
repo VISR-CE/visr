@@ -98,6 +98,18 @@ def test_row_joined_versions_keep_the_older_codec():
     """A version past 41 that only a signed row makes joinable is presumed additive over the 41 codec,
     so the join records its wire contract, not the advertised number, as the host version."""
     client = read("source/networking/network_client_manager.c")
-    assert "halo_network_version_wire_contract(network_game_client_advertised_versions[game_index].version)" in client
+    # (halo_network_version_of_joined_game applies the contract to an advertised game; the probe checks it)
+    assert "network_game_client_host_version = halo_network_version_of_joined_game(" in client
     assert "network_game_client_advertised_versions[game_index].version : HALO_PORT_NETWORK_VERSION" not in client
     assert "!halo_network_version_is_shared_release(theirs) && delta_legacy_presumed(theirs)" in client
+
+
+def test_join_version_has_one_owner():
+    """Class: the version of the game a machine is in is written by the server it creates and by the
+    client's join (the host joins its own server too). Every join decides it through
+    halo_network_version_of_joined_game, which the probe checks keeps a host's version on its local join."""
+    client = read("source/networking/network_client_manager.c")
+    assignments = [line for line in client.splitlines() if "network_game_client_host_version =" in line]
+    # (the declaration's initializer, network_game_set_host_version for the server, and the join)
+    assert len(assignments) == 3, assignments
+    assert sum("halo_network_version_of_joined_game(" in line for line in assignments) == 1
