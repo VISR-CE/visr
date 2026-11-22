@@ -463,6 +463,7 @@ Apple Vision Pro's file.
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
+| `debug.checkpoint_every` | number | `0.0` | apple, desktop | `HALO_CHECKPOINT_EVERY` | Ask for a checkpoint every this many seconds of game time (the game takes it when it is safe to), to measure what a checkpoint costs in a scene nobody plays; 0 never. |
 | `debug.scripted_run_saves` | boolean | `false` | apple, desktop | `HALO_SCRIPTED_RUN_SAVES` | A replay or a scripted run (a test, a benchmark, a runner) may write the active profile's saved game, at checkpoints and from Save and Quit, as the player's own game does: for tests and measurements of saving. |
 ### network
 
