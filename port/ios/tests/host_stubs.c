@@ -1063,6 +1063,8 @@ __attribute__((weak)) void host_shader_observation_append(uint32_t token, const 
 { }
 __attribute__((weak)) int host_shader_observation_recording(void)
 { fprintf(stderr, "host_stubs: probe called host_shader_observation_recording without defining it\n"); abort(); }
+__attribute__((weak)) int host_shader_pack_check(const char *folder, const char *bundled, void (*log)(const char *), host_shader_report report_problem, void *context)
+{ fprintf(stderr, "host_stubs: probe called host_shader_pack_check without defining it\n"); abort(); }
 __attribute__((weak)) int host_shader_pack_validate(const char *folder, const char *bundled, void (*log)(const char *))
 { fprintf(stderr, "host_stubs: probe called host_shader_pack_validate without defining it\n"); abort(); }
 #if defined(__OBJC__)
