@@ -21,9 +21,19 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 RASTERIZER = ROOT / "source/rasterizer/xbox/rasterizer_xbox.c"
 RENDER_H = ROOT / "source/render/render.h"
+OBJECT_LIGHTS_H = ROOT / "source/objects/object_lights.h"
+# the production limits the probe's arrays and loops are sized by
+LIMIT_SOURCES = {
+    "MAXIMUM_RENDERED_DISTANT_LIGHTS": RENDER_H,
+    "MAXIMUM_RENDERED_POINT_LIGHTS": RENDER_H,
+    "LIGHTS_PORT_MAXIMUM_POINT_LIGHTS": OBJECT_LIGHTS_H,
+    "NUMBER_OF_MODEL_LIGHTING_CONSTANTS": RASTERIZER,
+}
 
-# Every function that uploads a vertex constant block from a local struct
-# (`&local` as the data argument). A new one must be added to the probe.
+# Every function in rasterizer_xbox.c that uploads a vertex constant block from a
+# local struct (`&local` as the data argument). A new one must be added to the
+# probe. Blocks built in local arrays and passed by name (fog, screen and the
+# environment shaders' constants) are outside this check.
 COVERED_UPLOADERS = {"rasterizer_set_model_lighting", "rasterizer_port_extra_point_lights"}
 
 
@@ -76,8 +86,7 @@ typedef struct { real x, y, z; } real_point3d;
 typedef struct { real i, j, k; } real_vector3d;
 typedef struct { real red, green, blue; } real_rgb_color;
 typedef struct { real alpha, red, green, blue; } real_argb_color;
-enum { MAXIMUM_RENDERED_DISTANT_LIGHTS = 2, MAXIMUM_RENDERED_POINT_LIGHTS = 2,
-	LIGHTS_PORT_MAXIMUM_POINT_LIGHTS = 8, NUMBER_OF_MODEL_LIGHTING_CONSTANTS = 11 };
+LIMITS
 #define match_assert(file, line, expr) do { if (!(expr)) { puts("assert: " #expr); _exit_probe(); } } while (0)
 #define match_vassert(file, line, expr, message) match_assert(file, line, expr)
 #define csprintf(buffer, ...) ""
@@ -155,6 +164,15 @@ int main(void)
 """
 
 
+def limits():
+    values = []
+    for name, path in LIMIT_SOURCES.items():
+        match = re.search(rf"\b{name}\s*=\s*(\d+)", path.read_text(encoding="latin-1"))
+        assert match, f"Production constant missing: {name}"
+        values.append(f"{name} = {match.group(1)}")
+    return "enum { " + ", ".join(values) + " };\n"
+
+
 def probe_source():
     rasterizer = RASTERIZER.read_text(encoding="latin-1")
     render = RENDER_H.read_text(encoding="latin-1")
@@ -176,7 +194,7 @@ def probe_source():
         function(rasterizer, "rasterizer_port_extra_point_lights"),
         function(rasterizer, "rasterizer_set_model_lighting"),
     ])
-    return PROBE.replace("STRUCTS", structs).replace("PRODUCTION", production)
+    return PROBE.replace("LIMITS", limits()).replace("STRUCTS", structs).replace("PRODUCTION", production)
 
 
 def test_every_stack_built_constant_upload_is_probed():
