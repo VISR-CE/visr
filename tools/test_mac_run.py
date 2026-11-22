@@ -1542,35 +1542,50 @@ def test_toml_value_quotes_bare_strings(raw, expected):
     assert mac_run.toml_value(raw) == expected
 
 
-def _benchmark_out(tmp_path, report=None, runs=0):
+def _benchmark_out(tmp_path, report=None, statuses=()):
     folder = tmp_path / "benchmark"
-    folder.mkdir()
+    folder.mkdir(parents=True)
     if report is not None:
         (folder / "report.json").write_text(json.dumps(report))
-    for index in range(runs):
-        (folder / f"run-{index:02d}.json").write_text("{}")
+    for index, status in enumerate(statuses):
+        (folder / f"run-{index:02d}.json").write_text(json.dumps({"index": index, "status": status}))
     return tmp_path
 
 
 def test_a_refused_benchmark_catalog_fails_the_run_with_its_reason(tmp_path):
     out = _benchmark_out(tmp_path, {"benchmark_catalog": {
         "status": "unavailable", "note": "The signed benchmark catalog is missing, malformed, or noncanonical."}})
-    problem = mac_run.benchmark_suite_problem(out)
-    assert "refused the benchmark catalog" in problem and "noncanonical" in problem
     args = argparse.Namespace(benchmark_suite="cost:mp64-bloodgulch-1029", out=out)
     with pytest.raises(SystemExit) as exit:
         mac_run.benchmark_suite_check(args)
-    assert "noncanonical" in str(exit.value)
+    assert "ran no benchmark cases" in str(exit.value) and "noncanonical" in str(exit.value)
 
 
-def test_a_benchmark_suite_without_runs_fails(tmp_path):
-    assert "made no runs" in mac_run.benchmark_suite_problem(
-        _benchmark_out(tmp_path, {"benchmark_catalog": {"status": "available"}}))
-    assert "wrote no report" in mac_run.benchmark_suite_problem(tmp_path / "missing")
+@pytest.mark.parametrize("report, statuses, expected", [
+    ({"benchmark_catalog": {"status": "available"}}, (), "made no runs"),
+    (None, (), "wrote no report"),
+    ({"benchmark_catalog": {"status": "available"}}, ("skipped", "failed"), "no benchmark run was measured: failed, skipped"),
+    (["not", "an", "object"], ("ok",), "not a JSON object"),
+])
+def test_a_benchmark_suite_that_measured_nothing_fails(tmp_path, report, statuses, expected):
+    out = _benchmark_out(tmp_path, report, statuses)
+    with pytest.raises(SystemExit) as exit:
+        mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite="cost:x", out=out))
+    assert expected in str(exit.value)
 
 
-def test_a_benchmark_suite_with_runs_passes(tmp_path):
-    out = _benchmark_out(tmp_path, {"benchmark_catalog": {"status": "available"}}, runs=1)
-    assert mac_run.benchmark_suite_problem(out) is None
+def test_a_benchmark_suite_with_a_measured_run_passes(tmp_path):
+    out = _benchmark_out(tmp_path, {"benchmark_catalog": {"status": "available"}}, ("skipped", "partial"))
     mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite="cost:x", out=out))
     mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite=None, out=tmp_path / "none"))
+
+
+def test_collect_drops_an_earlier_suites_benchmark_files(tmp_path):
+    out = _benchmark_out(tmp_path / "out", {"benchmark_catalog": {"status": "available"}}, ("ok",))
+    documents = tmp_path / "documents"
+    (documents / "benchmark").mkdir(parents=True)
+    (documents / "benchmark" / "report.json").write_text(json.dumps({"benchmark_catalog": {"status": "available"}}))
+    mac_run.collect(documents, out)
+    with pytest.raises(SystemExit) as exit:
+        mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite="cost:x", out=out))
+    assert "made no runs" in str(exit.value)

@@ -36,6 +36,40 @@ def load_runs(path):
     return [(f"{Path(path).parent.name}/{Path(path).name}#{run['index']}", run) for run in runs]
 
 
+# a run status (benchmark_status_name in port/runtime/benchmark_plan.c) whose frames were measured
+MEASURED_STATUSES = ("ok", "partial")
+
+
+def suite_problem(folder):
+    """why a benchmark suite's folder (the game's documents/benchmark, as copied) holds no measured run, or None. The
+    game ends a suite whose catalog it refused (a local benchmark-catalog.json that is not canonical JSON, a duplicate
+    case order), whose cases matched nothing or whose runs all failed as it ends one that ran, with game exit 0"""
+    folder = Path(folder)
+    report = folder / "report.json"
+    catalog = {}
+    if report.is_file():
+        try:
+            loaded = json.loads(report.read_text(errors="replace"))
+        except ValueError:
+            loaded = None
+        if not isinstance(loaded, dict):
+            return f"the benchmark report {report} is not a JSON object"
+        catalog = loaded.get("benchmark_catalog") or {}
+    if catalog.get("status") == "unavailable":
+        return f"the game ran no benchmark cases: {catalog.get('note') or 'no reason given'}"
+    statuses = []
+    for path in sorted(folder.glob("run-*.json")) if folder.is_dir() else []:
+        try:
+            statuses += [run.get("status", "ok") for _, run in load_runs(path)]
+        except (ValueError, KeyError, AttributeError, TypeError):
+            statuses.append(f"unreadable {path.name}")
+    if not statuses:
+        return "the benchmark suite made no runs" + ("" if report.is_file() else " and wrote no report")
+    if not any(status in MEASURED_STATUSES for status in statuses):
+        return "no benchmark run was measured: " + ", ".join(sorted(set(statuses)))
+    return None
+
+
 def route_points(note):
     """[(tick, x, y, z)] from a run's note; [] when the note is not a route"""
     points = []

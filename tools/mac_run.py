@@ -40,6 +40,9 @@ import time
 import zlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import benchmark_routes  # noqa: E402
+
 # a debug.gpu_stats summary (d3d8_device.c), after platform_log's prefix
 STATS = re.compile(r"frame \d+: (.*)$")
 # the GL call total at the end of a debug.gpu_stats summary
@@ -1092,6 +1095,8 @@ def collect(documents, out):
     if (documents / "recordings").is_dir():
         shutil.copytree(documents / "recordings", out / "recordings", dirs_exist_ok=True)
     # the device benchmark's journal, runs and report (--benchmark-suite), without the recordings it replayed
+    # (a reused --out keeps nothing of an earlier suite: benchmark_suite_check reads only this run's)
+    shutil.rmtree(out / "benchmark", ignore_errors=True)
     if (documents / "benchmark").is_dir():
         (out / "benchmark").mkdir(exist_ok=True)
         for file in sorted((documents / "benchmark").iterdir()):
@@ -1099,32 +1104,11 @@ def collect(documents, out):
                 shutil.copy2(file, out / "benchmark" / file.name)
 
 
-def benchmark_suite_problem(out):
-    """why a --benchmark-suite run measured nothing, or None. The game ends a suite whose catalog it refused (a
-    local benchmark-catalog.json that is not canonical JSON, a duplicate case order) or whose cases matched nothing
-    as it ends one that ran, with game exit 0, so the runner checks the report and the runs itself"""
-    folder = Path(out) / "benchmark"
-    report = folder / "report.json"
-    runs = sorted(folder.glob("run-*.json")) if folder.is_dir() else []
-    catalog = {}
-    if report.is_file():
-        try:
-            catalog = json.loads(report.read_text(errors="replace")).get("benchmark_catalog") or {}
-        except ValueError:
-            return f"the benchmark report {report} is not JSON"
-    if catalog.get("status") == "unavailable":
-        note = catalog.get("note") or "no reason given"
-        return f"the game refused the benchmark catalog or found none of the suite's cases in it: {note}"
-    if not runs:
-        return "the benchmark suite made no runs" + ("" if report.is_file() else " and wrote no report")
-    return None
-
-
 def benchmark_suite_check(args):
     """exits with the reason when a --benchmark-suite run measured nothing"""
     if not getattr(args, "benchmark_suite", None):
         return
-    problem = benchmark_suite_problem(args.out)
+    problem = benchmark_routes.suite_problem(Path(args.out) / "benchmark")
     if problem:
         sys.exit(f"{problem}; logs are in {args.out}")
 
