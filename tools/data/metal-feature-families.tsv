@@ -1,0 +1,153 @@
+# Apple "Metal Feature Set Tables", October 23, 2026 edition: each feature and the first Apple GPU family with it.
+# gate_feature names the METAL_FEATURES row in port/ios/host/metal_gate.h that carries it; tools/test_metal_gate.py compares the two.
+feature	first_apple_family	section	gate_feature
+MetalKit	2	features	
+Metal performance shaders	2	features	
+Programmable blending	2	features	
+Separate depth and stencil attachments	2	features	
+PVRTC pixel formats	2	features	
+EAC/ETC pixel formats	2	features	
+ASTC pixel formats	2	features	ASTC_TEXTURES
+BC pixel formats	9	features	BC_TEXTURES
+Compressed volume texture formats	3	features	
+Extended range pixel formats	3	features	
+Wide color pixel format	2	features	
+Depth-16 pixel format	2	features	
+Linear textures	2	features	
+MSAA depth resolve	3	features	MSAA_DEPTH_RESOLVE
+Array of textures (read)	3	features	
+Array of textures (write)	6	features	
+Cube map texture arrays	4	features	
+Stencil texture views	2	features	STENCIL_TEXTURE_VIEWS
+Array of samplers	3	features	
+Sampler maximum anisotropy	2	features	
+Sampler LOD clamp	2	features	
+MTLSamplerState support for comparison functions	3	features	
+16-bit unsigned integer coordinates	2	features	
+Border color	7	features	BORDER_COLOR
+Counting occlusion query	3	features	COUNTING_OCCLUSION
+Base vertex/instance drawing	3	features	BASE_VERTEX_DRAWS
+Layered rendering	5	features	LAYERED_RENDERING
+Layered rendering to multisample textures	7	features	
+Memoryless render targets	2	features	
+Dual-source blending	2	features	
+Combined MSAA store and resolve action	3	features	MSAA_STORE_AND_RESOLVE
+MSAA blits	2	features	
+Programmable sample positions	2	features	
+Deferred store action	2	features	
+Memory barriers	3	features	
+Indirect command buffer support for memory barriers (compute)	3	features	
+Indirect command buffer support for memory barriers (rendering)	9	features	
+Tessellation	3	features	
+Indirect tessellation arguments	5	features	
+Tessellation in indirect command buffers	5	features	
+Resource heaps	2	features	
+Function specialization	2	features	
+Read/write buffers in functions	3	features	
+Read/write textures in functions	4	features	READ_WRITE_TEXTURES
+Extract, insert, and reverse bits	2	features	
+SIMD barrier	2	features	
+Indirect draw and dispatch arguments	3	features	
+Argument buffers tier	2	features	
+Argument buffers tier	6	features	
+Indirect command buffers (rendering)	3	features	
+Indirect command buffers (compute)	3	features	
+Uniform type	2	features	
+Imageblocks	4	features	
+Tile shaders	4	features	
+Imageblock sample coverage control	4	features	
+Post-depth coverage	4	features	
+Quad-scoped permute operations	4	features	QUAD_PERMUTES
+Quad-scoped ballot operation	6	features	
+Quad-scoped reduction operations	7	features	
+SIMD-scoped permute operations	6	features	SIMD_PERMUTES
+SIMD-scoped reduction operations	7	features	SIMD_REDUCTIONS
+SIMD-scoped matrix multiply operations	7	features	
+Raster order groups	4	features	
+Nonuniform threadgroup size	4	features	NONUNIFORM_THREADGROUPS
+Multiple viewports	5	features	
+Stencil feedback	5	features	STENCIL_FEEDBACK
+Stencil resolve	5	features	MSAA_STENCIL_RESOLVE
+Nonsquare tile dispatch	5	features	
+Texture swizzle	2	features	
+Placement heap	2	features	
+Primitive ID	7	features	
+Barycentric coordinates	7	features	
+Read/write cube map textures in functions	4	features	
+Sparse textures	6	features	
+Sparse depth and stencil textures	8	features	
+Variable rasterization rate	6	features	RASTERIZATION_RATE_MAPS
+Vertex amplification	6	features	VERTEX_AMPLIFICATION
+64-bit integer math	3	features	
+Lossy texture compression	8	features	
+SIMD shift and fill	8	features	
+Render dynamic libraries	6	features	
+Compute dynamic libraries	6	features	
+Mesh shading	7	features	
+Indirect mesh draw arguments	9	features	
+Indirect command buffers containing mesh draws	9	features	
+MetalFX spatial upscaling	3	features	METALFX_SPATIAL
+MetalFX temporal upscaling	7	features	
+MetalFX frame interpolation	5	features	
+MetalFX denoised upscaling	9	features	
+Fast resource loading	2	features	
+Ray tracing in compute pipelines	6	features	
+Ray tracing in render pipelines	6	features	
+Floating-point atomics	7	features	
+Texture atomics	6	features	
+64-bit atomics	9	features	
+Query texture LOD	8	features	
+Binary archives	3	features	BINARY_ARCHIVES
+Function pointers in compute pipelines	6	features	
+Function pointers in render pipelines	6	features	
+Depth sample compare bias and gradient	2	features	
+Nonprivate depth stencil textures	2	features	
+Dynamic stride for attribute buffers	4	features	
+MTLAttributeFormat.floatRGB9E5 and .floatRG11B10	5	features	
+MTLDataType.bfloat (brain float) scalar and vector cases	6	features	
+Relaxed math	4	features	RELAXED_MATH
+Global built-ins and bindings	6	features	
+Memory coherence for textures and buffers in shaders	6	features	
+Per-pipeline shader validation	6	features	
+Shader logging	6	features	
+Residency sets	6	features	
+Acceleration structures containing row-major matrices	9	features	
+Ray tracing with per-component motion interpolation	9	features	
+Direct access to on-chip ray-intersection result storage	9	features	
+Fragment visibility count accumulation	7	features	
+Argument tables	7	features	
+Command allocators	7	features	
+Decoupled command queues and command buffers	7	features	
+Texture view pools	7	features	
+Command barriers	7	features	
+Placement sparse buffers	8	features	
+Placement sparse textures	8	features	
+Dedicated compilation contexts	7	features	
+Pipeline dataset serialization	7	features	
+Flexible render pipeline state	7	features	
+Color attachment mapping	7	features	
+Machine learning encoding	7	features	
+Tensors	7	features	
+Performance counter heaps	7	features	
+Address-driven acceleration structure builds	9	features	
+Acceleration structure build options	9	features	
+Intersection function buffers	9	features	
+Sampler minimum and maximum reduction	10	features	
+Sampler LOD bias	10	features	
+Access to pre-raster per-vertex values	10	features	
+Depth bounds testing	10	features	
+Indirect command buffer support for raster and depth/stencil state	10	features	
+Atomics on cube map and cube map array textures	10	features	
+Universal texture compression	10	features	
+Acquire and release memory ordering atomics	7	features	
+2 x 1 and 1 x 2 block texture reads	7	features	
+Clamp to edge behavior for texture reads	7	features	
+Integer coordinate offsets for texture reads and atomics	7	features	
+Generic address space	7	features	
+RGB pixel formats	11	features	
+Compute shader forward progress guarantees	11	features	
+Vertex attribute interpolation preserves INF/NAN	11	features	
+FP32 denormalized numbers	11	features	
+R32Float, RG32Float and Depth32Float filtering	9	pixel format capabilities	FLOAT32_FILTERING
+Counter sampling at stage boundaries (MTLDevice.supportsCounterSampling)	2	runtime query only	COUNTER_SAMPLING_STAGE
+Counter sampling at draw boundaries (MTLDevice.supportsCounterSampling)	2	runtime query only	COUNTER_SAMPLING_DRAW

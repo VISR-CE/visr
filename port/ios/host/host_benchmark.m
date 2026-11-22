@@ -10,6 +10,7 @@
    device or its owner, an address, a path or game assets. Shader compilation descriptors accompany the measurements. */
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#include "metal_gate.h"
 #if HALO_NATIVE_MAC
 #import <AppKit/AppKit.h>
 #include "host_macos.h"
@@ -833,21 +834,6 @@ static NSString *platform_name(void) {
 #endif
 }
 
-/* the highest Apple GPU family the device supports, probed by number so a family newer than the SDK counts */
-static int gpu_family(id<MTLDevice> device) {
-    int family, highest = 0;
-
-    for (family = 1; family <= 20; family++)
-        if ([device supportsFamily:(MTLGPUFamily)(1000 + family)]) highest = family;
-    return highest;
-}
-
-/* whether the GPU samples BC1-3 natively; without it, original textures are decoded or converted to ASTC */
-static BOOL bc_textures(id<MTLDevice> device) {
-    if (@available(iOS 16.4, tvOS 16.4, visionOS 1.0, *))
-        return device.supportsBCTextureCompression;
-    return NO;
-}
 
 /* the report's first members: the device, the app and the suite; never a name or an identifier of the device */
 /* whether the pinned snapshot's catalog came from a signed recordings pack */
@@ -893,7 +879,9 @@ static NSString *report_header(void) {
         /* "Version 26.6 (Build 23M5311a)": the build's name alone */
         json_string([[process.operatingSystemVersionString componentsSeparatedByString:@"Build "].lastObject
             stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@")"]]),
-        json_string(gpu.name), gpu ? gpu_family(gpu) : 0, bc_textures(gpu) ? "true" : "false", process.physicalMemory >> 20,
+        json_string(gpu.name), gpu ? metal_gate_family() : 0,
+        /* whether the GPU samples BC1-3 natively; without it, original textures are decoded or converted to ASTC */
+        gpu && metal_feature(METAL_FEATURE_BC_TEXTURES) ? "true" : "false", process.physicalMemory >> 20,
         screen_width, screen_height, device.maximum_frames, lround(host_frame_rate_cap()), json_string(@(device.panel)),
         external_modes.count && external_mode_index + 1 < external_modes.count ? "false" : "true",
         json_object(suite_output ?: output_now()), json_object(output_reports ?: @[]),

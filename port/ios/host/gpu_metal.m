@@ -39,6 +39,7 @@ but never returns to its run loop, which would otherwise drain them.
 #include "metal_state_cache.h"
 #include "metal_scene_park.h"
 #include "metal_compute_grid.h"
+#include "metal_gate.h"
 /* GPU_VALIDATION_REPORT: this backend's fallbacks and skips, by name, in a
 build with render validation; nothing otherwise */
 #include "gpu_validate.h"
@@ -342,7 +343,7 @@ static void msaa_options(void)
 	direct = getenv("HALO_MSAA_FILL_DIRECT");
 	msaa_keep_samples = keep && *keep == '1';
 	msaa_fill_direct = direct && *direct == '1';
-	msaa_stencil_export = [device supportsFamily:MTLGPUFamilyApple5] || [device supportsFamily:MTLGPUFamilyMac2];
+	msaa_stencil_export = metal_pass(METAL_PASS_MSAA_STENCIL_FILL);
 	platform_log("Metal: multisampling keeps %s samples between passes and fills them from %s; stencil %s written by "
 		"a fragment shader", msaa_keep_samples ? "every target's" : "depth's and stencil's",
 		msaa_fill_direct ? "the resolved texture itself" : "a copy of it", msaa_stencil_export ? "can be" : "cannot be");
@@ -2199,7 +2200,7 @@ static NSArray *test_map(NSUInteger width, NSUInteger height)
 		float side = sides[0], top = tops[0];
 		int index, tried;
 
-		if (![device supportsRasterizationRateMapWithLayerCount:1])
+		if (!metal_pass(METAL_PASS_RATE_MAP))
 		{
 			platform_log("Metal: debug.rate_map_test: this GPU has no rate maps");
 			rate_map_test = NO;
@@ -3568,7 +3569,7 @@ static void archive_open(void)
 	NSUInteger index;
 
 	/* binary archives need GPU family Apple3 (an A9) or a Mac */
-	if (![device supportsFamily:MTLGPUFamilyApple3] && ![device supportsFamily:MTLGPUFamilyMac2])
+	if (!metal_feature(METAL_FEATURE_BINARY_ARCHIVES))
 	{
 		platform_log("Metal: no pipeline archive (this GPU has no binary archives); every launch compiles its pipelines");
 		return;
@@ -7904,7 +7905,7 @@ static struct
 later, and Macs. Earlier GPUs draw without ambient occlusion (gpu_capabilities.ambient_occlusion). */
 static BOOL ssao_supported(void)
 {
-	return [device supportsFamily:MTLGPUFamilyApple6] || [device supportsFamily:MTLGPUFamilyMac2];
+	return metal_pass(METAL_PASS_AMBIENT_OCCLUSION);
 }
 
 static BOOL ssao_programs(void)
@@ -8042,7 +8043,7 @@ static BOOL ssao_timing_on(void)
 		id<MTLCounterSet> timestamps = nil;
 
 		ssao_timing.state = -1;
-		if (!getenv("HALO_SSAO_TIMING") || ![device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary])
+		if (!getenv("HALO_SSAO_TIMING") || !metal_feature(METAL_FEATURE_COUNTER_SAMPLING_STAGE))
 			return NO;
 		for (id<MTLCounterSet> set in device.counterSets)
 			if ([set.name isEqualToString:MTLCommonCounterSetTimestamp])
@@ -8637,7 +8638,7 @@ static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, NSUInteger conten
 			descriptor.outputTextureFormat = back_buffer.pixelFormat;
 			/* the game's colors are display-encoded, not linear */
 			descriptor.colorProcessingMode = MTLFXSpatialScalerColorProcessingModePerceptual;
-			if (![MTLFXSpatialScalerDescriptor supportsDevice:device] ||
+			if (!metal_pass(METAL_PASS_METALFX_SPATIAL) ||
 				!(upscaler = [descriptor newSpatialScalerWithDevice:device]))
 			{
 				platform_log("Metal: MetalFX's spatial scaler is unavailable; the picture is scaled bilinearly");
@@ -9072,7 +9073,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
         if (host_perf_hooks_dynamic_enabled() && !perf_capability_noted) {
             if (!host_perf_metal_stage_supported())
                 platform_log("DRS: no stage-boundary GPU timing; the planner uses command-buffer GPU spans (coarse)");
-            else if (![device supportsCounterSampling:MTLCounterSamplingPointAtDrawBoundary])
+            else if (!metal_feature(METAL_FEATURE_COUNTER_SAMPLING_DRAW))
                 platform_log("DRS shadow: sampling separate upscale and HUD stages");
             perf_capability_noted = YES;
         }
@@ -9979,7 +9980,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 			metal-pixel-math in the data folder (as tools make stderr.log), names
 			the mode for one run: safe, relaxed or fast. For comparing pictures
 			and measuring; a GPU without relaxed math compiles relaxed as safe. */
-			BOOL relaxed_available = [device supportsFamily:MTLGPUFamilyApple4] || [device supportsFamily:MTLGPUFamilyMac2];
+			BOOL relaxed_available = metal_feature(METAL_FEATURE_RELAXED_MATH);
 			char wanted[16] = "";
 			const char *math = getenv("HALO_METAL_PIXEL_MATH");
 			FILE *file = math ? NULL : fopen("metal-pixel-math", "r");
@@ -10003,7 +10004,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 			height there, and its frames differ from safe math's by one or two
 			levels in under 7% of the pixels (three pixels of 518,400 by more),
 			as they do on a Mac. An A9 or A10 keeps safe math until measured. */
-			else if (![device supportsFamily:MTLGPUFamilyApple3])
+			else if (metal_gate_family() < 3)
 				pixel_compile_options.mathMode = MTLMathModeFast;
 			if (wanted[0] || !relaxed_available)
 				platform_log("Metal: pixel shaders compile with %s math%s",
@@ -10038,17 +10039,26 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		/* the class shows whether Metal's API validation wraps the device
 		(MTLDebugDevice; tools/mac_run.py run --metal-validation) */
 		platform_log("Metal on %s (%s)", device.name.UTF8String, NSStringFromClass([device class]).UTF8String);
+		{
+			/* what this GPU may do, resolved once (metal_gate.h) */
+			char block[1024];
+
+			metal_gate_describe(metal_gate(), block, sizeof(block));
+			platform_log("%s", block);
+			metal_gate_describe_features(metal_gate(), block, sizeof(block));
+			platform_log("%s", block);
+		}
 		compressed_textures = astc_textures = NO;
 		if (flags & GPU_INITIALIZE_COMPRESSED_TEXTURES)
 		{
 			char astc[16];
 
 			host_config_string("debug.texture_astc", "auto", astc, sizeof(astc));
-			if (@available(iOS 16.4, tvOS 16.4, visionOS 1.0, *))
-				compressed_textures = device.supportsBCTextureCompression;
+			/* (metal_gate.m answers no for BC before iOS and tvOS 16.4, which cannot ask) */
+			compressed_textures = metal_feature(METAL_FEATURE_BC_TEXTURES);
 			/* astc_policy.h: "auto" converts only without BC, behind VISR_ASTC_AUTOMATIC. */
 			astc_textures = astc_policy_converts(astc, compressed_textures) &&
-				[device supportsFamily:MTLGPUFamilyApple2];
+				metal_feature(METAL_FEATURE_ASTC_TEXTURES);
 			/* Force the no-BC path on an Apple silicon Mac for screenshot comparisons. */
 			if (!strcmp(astc, "force"))
 				compressed_textures = NO;
@@ -10065,9 +10075,8 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 			BOOL bc = NO;
 
 			host_config_string("debug.texture_astc", "auto", astc, sizeof(astc));
-			if (@available(iOS 16.4, tvOS 16.4, visionOS 1.0, *))
-				bc = device.supportsBCTextureCompression && strcmp(astc, "force");
-			upscaled_format = bc ? GPU_FORMAT_BC7 : [device supportsFamily:MTLGPUFamilyApple2] ?
+			bc = metal_feature(METAL_FEATURE_BC_TEXTURES) && strcmp(astc, "force");
+			upscaled_format = bc ? GPU_FORMAT_BC7 : metal_feature(METAL_FEATURE_ASTC_TEXTURES) ?
 				GPU_FORMAT_ASTC4X4 : 0;
 			platform_log("Metal: upscaled textures' records are %s", upscaled_format == GPU_FORMAT_BC7 ? "BC7" :
 				upscaled_format ? "ASTC 4x4" : "not drawable here");
@@ -10087,7 +10096,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		GL does. (vertex_bgra needs no such test: it is the shaders' own
 		fetch, not a vertex descriptor's format.) */
 		base_vertex_draws = !(flags & GPU_INITIALIZE_NO_BASE_VERTEX) &&
-			([device supportsFamily:MTLGPUFamilyApple3] || [device supportsFamily:MTLGPUFamilyMac2]);
+			metal_feature(METAL_FEATURE_BASE_VERTEX_DRAWS);
 		if (!base_vertex_draws && !(flags & GPU_INITIALIZE_NO_BASE_VERTEX))
 			platform_log("Metal: this GPU has no base vertex drawing (below family Apple3); indices are rebased per draw");
 		capabilities->base_vertex = base_vertex_draws ? 1 : 0;
@@ -10099,7 +10108,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 #if HALO_FRAME_PACING && !TARGET_OS_SIMULATOR
 		system_frames_start();
 #endif
-		visibility_counts = [device supportsFamily:MTLGPUFamilyApple3] || [device supportsFamily:MTLGPUFamilyMac2];
+		visibility_counts = metal_feature(METAL_FEATURE_COUNTING_OCCLUSION);
 		{
 			/* debug.visibility_any_sample: the yes-or-no answer everywhere, to compare */
 			char value[8];
@@ -10114,12 +10123,12 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		capabilities->upscaled_format = upscaled_format;
 		/* border colors stay inside the backend: the front end doesn't read
 		border_clamp, and a GL run and a Metal run report the same line */
-		border_colors = [device supportsFamily:MTLGPUFamilyApple7] || [device supportsFamily:MTLGPUFamilyMac2];
+		border_colors = metal_feature(METAL_FEATURE_BORDER_COLOR);
 		capabilities->border_clamp = 0;
 		capabilities->ambient_occlusion = ssao_supported() ? 1 : 0;
-		/* 8192 on an A8 (the Apple TV HD), the one Apple GPU family below Apple3 that still runs */
-		capabilities->max_texture_size = [device supportsFamily:MTLGPUFamilyApple3] ||
-			[device supportsFamily:MTLGPUFamilyMac2] ? 16384 : 8192;
+		/* 8192 on an A8 (the Apple TV HD), the one Apple GPU family below Apple3 that still runs; at most 16384,
+		which is all the front end asks for, though Apple10 and later take 32768 */
+		capabilities->max_texture_size = MIN(metal_limit(METAL_LIMIT_TEXTURE_2D_SIZE), 16384);
 		/* multisampling's most samples a pixel, which every target format
 		takes (display.anti_aliasing) */
 		{

@@ -9,8 +9,8 @@ shader need family 4, 6 or 7 depending on the kind.
   never with `dispatchThreads:` or `dispatchThreadsPerTile:`.
 - Every kernel that reads its grid position returns, or writes nothing, for a position outside its size before its
   first write, so the threads a whole threadgroup adds past the grid's edge change nothing.
-- A source file whose shaders use SIMD-group or quad-group functions checks `supportsFamily:` for a family that has
-  them (or a later one).
+- A source file whose shaders use SIMD-group or quad-group functions asks the GPU-family gate
+  (`port/ios/host/metal_gate.h`) for a pass whose floor is a family that has them (or a later one).
 """
 from pathlib import Path
 import re
@@ -111,7 +111,20 @@ SIMD_FAMILIES = (
 )
 
 
+def gate_pass_floors():
+    """Each METAL_PASSES row's floor family, from metal_gate.h."""
+    import test_metal_gate
+
+    return {row[0]: int(row[3]) for row in test_metal_gate.macro_rows("METAL_PASSES")}
+
+
+def gated_family(source, floors):
+    """The highest floor among the gate passes source asks for (`metal_pass(METAL_PASS_X)`)."""
+    return max((floors[name] for name in re.findall(r"\bmetal_pass\(\s*METAL_PASS_(\w+)\s*\)", source)), default=0)
+
+
 def test_simd_group_functions_check_the_gpu_family():
+    floors = gate_pass_floors()
     missing = []
     for path in SOURCES:
         source = path.read_text(errors="replace")
@@ -121,20 +134,20 @@ def test_simd_group_functions_check_the_gpu_family():
         needed = max((family for family, pattern in SIMD_FAMILIES if re.search(pattern, shaders)), default=0)
         if not needed:
             continue
-        checked = [int(family) for family in re.findall(r"supportsFamily:\s*MTLGPUFamilyApple(\d+)", source)]
-        if not any(family >= needed for family in checked):
-            missing.append(f"{path.relative_to(ROOT)}: needs supportsFamily:MTLGPUFamilyApple{needed} or later")
+        if gated_family(source, floors) < needed:
+            missing.append(f"{path.relative_to(ROOT)}: needs a metal_pass() whose floor is Apple{needed} or later")
     assert not missing, "\n".join(missing)
 
 
 def test_scan_finds_the_known_simd_shaders():
     # the scan itself works: the SSAO gather (permutes) and the stereo HUD depth (reductions) are found and gated
+    floors = gate_pass_floors()
     for name, family in (("port/ios/host/gpu_metal.m", 6), ("port/ios/host/host_stereo.m", 7)):
         source = (ROOT / name).read_text()
         shaders = "".join(body for _, _, body in kernels(shader_text(source)))
         needed = max(f for f, pattern in SIMD_FAMILIES if re.search(pattern, shaders))
         assert needed == family, (name, needed)
-        assert f"supportsFamily:MTLGPUFamilyApple{family}" in source, name
+        assert gated_family(source, floors) == family, name
 
 
 if __name__ == "__main__":

@@ -703,8 +703,8 @@ for mode in ('graphics', 'plan', 'pin', 'sweep', 'profile', 'notiming', 'variabl
 # Counter metadata remains bounded and refuses stale/partial completion; no GPU submission.
 run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
     '-fobjc-arc', '-fblocks', '-Iport/runtime', '-Iport/ios/host',
-    '-framework', 'Foundation', '-framework', 'Metal',
-    'port/ios/tests/perf_metal_probe.m', '-o', BUILD/'perf-metal-probe')
+    '-framework', 'Foundation', '-framework', 'Metal', '-DMETAL_GATE_NO_METALFX',
+    'port/ios/tests/perf_metal_probe.m', 'port/ios/host/metal_gate.m', '-o', BUILD/'perf-metal-probe')
 run(BUILD/'perf-metal-probe')
 # Recorder bounds, spike windows, and checksummed journal recovery.
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',

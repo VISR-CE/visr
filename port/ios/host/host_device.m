@@ -3,6 +3,7 @@
 #include "host_main_thread.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#include "metal_gate.h"
 #if HALO_NATIVE_MAC
 #include <SDL3/SDL.h>
 #endif
@@ -66,18 +67,12 @@ void host_device_identify(struct host_device *device)
 	@autoreleasepool
 	{
 		id<MTLDevice> gpu = MTLCreateSystemDefaultDevice();
-		int family;
 
 		if (gpu)
 		{
 			snprintf(device->gpu_name, sizeof(device->gpu_name), "%s", gpu.name.UTF8String ?: "");
-			/* MTLGPUFamilyApple1 is 1001 and each later family the next number: asked by number, so a
-			   family newer than the SDK this was built with still counts */
-			for (family = 20; family >= 1 && !device->gpu_family; family--)
-			{
-				if ([gpu supportsFamily:(MTLGPUFamily)(1000 + family)])
-					device->gpu_family = family;
-			}
+			/* the highest Apple family (metal_gate.m asks by number, so a family newer than the SDK counts) */
+			device->gpu_family = metal_gate_family();
 		}
 #if HALO_NATIVE_MAC || !TARGET_OS_VISION
         if (host_on_main_thread())

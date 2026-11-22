@@ -11,10 +11,12 @@ uint64_t host_perf_hooks_frame_id(void) { return test_frame; }
 @interface TestCounterDevice : NSObject
 @end
 @implementation TestCounterDevice
-- (BOOL)supportsCounterSampling:(MTLCounterSamplingPoint)point { (void)point; return YES; }
 @end
 int main(void) {
     @autoreleasepool {
+        /* a GPU that samples counters at both boundaries, whatever this Mac's does (metal_gate.h) */
+        metal_gate_adopt_facts(&(struct metal_gate_facts){ .apple_families = 0xfe /* Apple1 to Apple7 */,
+            .queries = (UINT32_C(1) << METAL_QUERY_COUNTERS_STAGE) | (UINT32_C(1) << METAL_QUERY_COUNTERS_DRAW) });
         NSObject *commands[BUFFER_COUNT + 1];
         for (unsigned i = 0; i <= BUFFER_COUNT; ++i) commands[i] = [NSObject new];
         assert(host_perf_metal_prepare((id)commands[0], nil, 0, HOST_PERF_SCENE) == 0);

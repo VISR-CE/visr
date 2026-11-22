@@ -36,6 +36,7 @@ Elsewhere host_stereo_frame leaves the frame mono. */
 #if TARGET_OS_VISION
 #import <CompositorServices/CompositorServices.h>
 #import <Metal/Metal.h>
+#include "metal_gate.h"
 #include <os/proc.h>
 #include <simd/simd.h>
 #include <stdatomic.h>
@@ -809,8 +810,8 @@ static BOOL prepare(id<MTLDevice> device, MTLPixelFormat color, MTLPixelFormat d
 	pipeline_depth = depth;
 	{
 		/* hud_depth_reduce sums with simd_sum and simd_max, SIMD-scoped reductions: Apple GPU family 7 (A14, M1) and
-		later, and Macs. Every Vision Pro has them; the check keeps the rule where the shader is. */
-		BOOL reductions = [device supportsFamily:MTLGPUFamilyApple7] || [device supportsFamily:MTLGPUFamilyMac2];
+		later, and Macs. Every Vision Pro has them; the gate's STEREO_HUD_DEPTH pass keeps the rule. */
+		BOOL reductions = metal_pass(METAL_PASS_STEREO_HUD_DEPTH);
 		id<MTLFunction> reduce = reductions ? [library newFunctionWithName:@"hud_depth_reduce"] : nil;
 
 		hud_depth_pipeline = reduce ? [device newComputePipelineStateWithFunction:reduce error:&error] : nil;
