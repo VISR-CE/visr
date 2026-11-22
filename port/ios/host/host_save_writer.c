@@ -48,7 +48,7 @@ void host_save_checkpoint_end(const char *checkpoint_path, const char *target_pa
 	{
 		told = 1;
 		host_logf(HOST_LOG_INFO, "saved game: this game's checkpoints are not written to a saved game (no profile, co-op, "
-			"a network game, a replay, or saves.checkpoint_persist off)");
+			"a network game, a replay or scripted run, or saves.checkpoint_persist off)");
 	}
 	save_writer_checkpoint_end(checkpoint_path ? checkpoint_path : "", target_path, size);
 }
