@@ -274,10 +274,10 @@ static void check_old_install(void)
 	assert(strstr(logged, "settings: display.upscaled_textures = true in config.toml is a default"));
 	assert(!strstr(logged, "input.turn = ") && !strstr(logged, "network.online = "));
 	/* (display.foveation, Apple Vision Pro's alone, was a default the game wrote: it leaves this device's file;
-	input.turn, a tuning value somebody chose, stays and is named in the log) */
+	input.turn, Apple Vision Pro's alone but chosen, stays and is named in the log) */
 	assert(file_has(path, "# a comment of mine\nrender_height = 1080\nframe_pacing = \"off\"\n"
 		"anisotropic_filtering = 4\n"));
-	assert(strstr(logged, "settings: input.turn in config.toml is a tuning value, not a player setting; it is in force as set"));
+	assert(strstr(logged, "settings: input.turn in config.toml is not a setting of this device; it is in force as set"));
 	assert(file_has(origins, "display.anisotropic_filtering\tchosen\n") && file_has(origins, "input.turn\tchosen\n"));
 	assert(file_has(origins, "display.renderer\tdefault\t\"metal\"\n"));
 	launch(TV_MODEL);
@@ -421,9 +421,9 @@ static void check_menus(void)
 	{
 		char *before = read_text(path), *before_origins = read_text(origins);
 
-		assert(config_write("input.snap_angle", "45") && config_real("input.snap_angle") == 45.0);
-		assert(file_has(path, before) && file_has(origins, before_origins) && !file_has(path, "snap_angle"));
-		assert(strstr(logged, "settings: input.snap_angle is a tuning value: 45 for this run only, not written to config.toml"));
+		assert(config_write("input.aim_steady", "1.5") && config_real("input.aim_steady") == 1.5);
+		assert(file_has(path, before) && file_has(origins, before_origins) && !file_has(path, "\naim_steady = "));
+		assert(strstr(logged, "settings: input.aim_steady is a tuning value: 1.5 for this run only, not written to config.toml"));
 		free(before);
 		free(before_origins);
 	}
@@ -562,7 +562,7 @@ static void check_tiers(void)
 	setenv("HALO_HOST_VISIONOS", "0", 1);
 	launch("");
 	assert(!file_has(path, "\naim = ") && !file_has(path, "\nstereo = ") && !file_has(path, "\naim_loss_grace = 0.5"));
-	assert(!file_has(path, "\naim_steady = ") && !file_has(path, "\nsnap_angle = ") && !file_has(path, "\nhud_distance = "));
+	assert(!file_has(path, "\naim_steady = ") && !file_has(path, "\naim_pitch_offset = ") && !file_has(path, "\nhud_distance = "));
 	assert(!file_has(origins, "input.aim\t") && !file_has(origins, "input.aim_steady\t"));
 	assert(!strcmp(config_string("input.aim"), "auto") && config_real("input.aim_steady_zoom_8x") == 2.0);
 	assert(file_has(path, "\nvolume = 1.0\n"));
@@ -573,8 +573,10 @@ static void check_tiers(void)
 	launch("");
 	assert(file_has(path, "\naim = \"auto\"\n") && file_has(path, "\naim_hand = \"right\"\n"));
 	assert(file_has(path, "\nstereo = ") && file_has(path, "\naim_loss_grace = ") && file_has(path, "\nfoveation = "));
-	assert(!file_has(path, "\naim_steady = ") && !file_has(path, "\nsnap_angle = ") && !file_has(path, "\nhud_distance = "));
-	assert(!file_has(path, "\naim_origin_raise = ") && !file_has(path, "\nturn = "));
+	assert(!file_has(path, "\naim_steady = ") && !file_has(path, "\naim_pitch_offset = ") && !file_has(path, "\nhud_distance = "));
+	assert(!file_has(path, "\naim_origin_raise = ") && !file_has(path, "\nreticle_ease = "));
+	/* (the turn and vehicle-screen choices stay the player's until the COMFORT row replaces them) */
+	assert(file_has(path, "\nturn = \"snap\"\n") && file_has(path, "\nsnap_angle = "));
 
 	/* a headset file an earlier version wrote: its tuning defaults go with their comments, a chosen one stays */
 	fresh();

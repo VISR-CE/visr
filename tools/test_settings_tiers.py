@@ -34,6 +34,10 @@ FILE_ONLY_PLAYER = {
     # Apple Vision Pro: the window or immersive space, and aiming (menu rows come with the HEADSET screen)
     'display.immersive', 'display.stereo', 'display.theater_width', 'display.theater_distance',
     'display.theater_environment', 'input.aim', 'input.aim_hand',
+    # TODO(comfort and aim design, phase 2): input.comfort's COMFORT row replaces these five, which then become
+    # tuning overrides (decided by the coordinator, may be revisited); display.screen_framing waits on Steve
+    'input.turn', 'input.snap_angle', 'input.smooth_turn_speed', 'input.comfort_vignette',
+    'display.stereo_vehicle_screen', 'display.screen_framing',
     # input
     'input.ui_touch_target', 'input.controller_rumble', 'input.blast_rumble', 'input.stick_dead_zone',
     'controls.move_forward', 'controls.move_backward', 'controls.strafe_left', 'controls.strafe_right',
@@ -118,7 +122,10 @@ def test_tuning_values_leave_the_public_reference():
 # Tuning values that are not Apple Vision Pro's alone (none yet): each would be written nowhere and read everywhere.
 TUNING_OFF_HEADSET = set()
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
-                   'display.theater_width', 'input.aim', 'input.aim_hand'}
+                   'display.theater_width', 'input.aim', 'input.aim_hand',
+                   # (until phase 2's COMFORT row: see FILE_ONLY_PLAYER)
+                   'input.turn', 'input.snap_angle', 'input.smooth_turn_speed', 'input.comfort_vignette',
+                   'display.stereo_vehicle_screen', 'display.screen_framing'}
 VISIONOS_PROFILE = {'display.foveation', 'display.frame_repeat', 'display.hud_resolution', 'display.lod_scale',
                     'display.render_quality', 'input.aim_loss_grace'}
 

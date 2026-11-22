@@ -131,7 +131,7 @@ static void check_written_file(void)
 	assert(toml_seek(result.toptab, "input.aim").type == TOML_STRING);
 	assert(toml_seek(result.toptab, "input.stick_dead_zone").type == TOML_FP64);
 	/* (a tuning value is not written) */
-	assert(toml_seek(result.toptab, "input.turn").type == TOML_UNKNOWN);
+	assert(toml_seek(result.toptab, "input.aim_steady").type == TOML_UNKNOWN);
 #endif
 	/* nothing to fold in it */
 	assert(!config_fold_repeats(text));

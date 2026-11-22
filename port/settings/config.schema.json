@@ -675,7 +675,7 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "player"
         },
         "stereo_vehicle_screen": {
           "type": "boolean",
@@ -686,7 +686,7 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "player"
         },
         "hud_corner_across": {
           "type": "number",
@@ -1251,7 +1251,7 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "player"
         },
         "snap_angle": {
           "type": "number",
@@ -1262,7 +1262,7 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "player"
         },
         "smooth_turn_speed": {
           "type": "number",
@@ -1273,7 +1273,7 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "player"
         },
         "comfort_vignette": {
           "type": "boolean",
@@ -1284,7 +1284,7 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "player"
         },
         "aim": {
           "type": "string",

@@ -426,13 +426,13 @@ static const struct config_setting config_settings[] =
 		"size, and the screen's bottom edge cuts the weapon like a window frame;\n"
 		"\"wide\" shows the flat game's wider view, everything a quarter smaller\n"
 		"and the whole weapon in view. Cutscenes fill the screen either way.\n"
-		"Read at start.", _tier_tuning },
+		"Read at start.", _tier_player },
 	{ "display.stereo_vehicle_screen", _config_boolean, "false", "HALO_STEREO_VEHICLE_SCREEN", _environment_value,
 		_platform_visionos,
 		"With display.stereo = \"head\": put third-person cameras (a vehicle's chase\n"
 		"camera) on the theater screen, as cutscenes are. Off (default), they stay\n"
 		"around you: your head looks around from the camera, and the sticks drive\n"
-		"and aim. Read at start.", _tier_tuning },
+		"and aim. Read at start.", _tier_player },
 	{ "display.hud_corner_across", _config_real, "28.0", "HALO_HUD_CORNER_ACROSS", _environment_value, _platform_visionos,
 		"With display.stereo = \"head\": how far out to the sides the HUD sits, in\n"
 		"degrees from the view's center: the outer corners of the weapon's counters\n"
@@ -502,15 +502,15 @@ static const struct config_setting config_settings[] =
 	{ "input.turn", _config_string, "\"snap\"", "HALO_TURN", _environment_value, _platform_visionos,
 		"With display.stereo = \"head\": how the right stick turns the view: \"snap\"\n"
 		"(default; a flick turns input.snap_angle at once), \"smooth\" (steadily, at\n"
-		"input.smooth_turn_speed), or \"off\" (it doesn't; turn your body).", _tier_tuning },
+		"input.smooth_turn_speed), or \"off\" (it doesn't; turn your body).", _tier_player },
 	{ "input.snap_angle", _config_real, "30.0", "HALO_SNAP_ANGLE", _environment_value, _platform_visionos,
-		"With input.turn = \"snap\": degrees per snap (5 to 180).", _tier_tuning },
+		"With input.turn = \"snap\": degrees per snap (5 to 180).", _tier_player },
 	{ "input.smooth_turn_speed", _config_real, "120.0", "HALO_SMOOTH_TURN_SPEED", _environment_value, _platform_visionos,
 		"With input.turn = \"smooth\": degrees per second with the stick all the way\n"
-		"over (10 to 720; 120 is the game's own speed before it speeds up).", _tier_tuning },
+		"over (10 to 720; 120 is the game's own speed before it speeds up).", _tier_player },
 	{ "input.comfort_vignette", _config_boolean, "false", "HALO_COMFORT_VIGNETTE", _environment_value, _platform_visionos,
 		"With input.turn = \"smooth\": darken the edges of the view while the stick\n"
-		"turns it, for comfort.", _tier_tuning },
+		"turns it, for comfort.", _tier_player },
 	{ "input.aim", _config_string, "\"auto\"", "HALO_AIM", _environment_value, _platform_visionos,
 		"With display.stereo = \"head\": what aims, \"auto\" (default: the aiming\n"
 		"hand's Sense controller when one is connected, else the head),\n"
