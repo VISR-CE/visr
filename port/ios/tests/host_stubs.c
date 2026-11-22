@@ -636,6 +636,10 @@ __attribute__((weak)) void host_frame_timeline_shown(uint64_t frame_id, double s
 { }
 __attribute__((weak)) void host_frame_timeline_waits(double display_wait, double encoder_tail)
 { }
+#if (HALO_FRAME_PACING)
+__attribute__((weak)) void host_frames_in_flight_scene(int at_30)
+{ }
+#endif
 #if defined(__OBJC__)
 __attribute__((weak)) BOOL host_framings_validate_file(NSString *path)
 { fprintf(stderr, "host_stubs: probe called host_framings_validate_file without defining it\n"); abort(); }

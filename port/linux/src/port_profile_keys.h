@@ -116,6 +116,7 @@ PROFILE_SCENE("display.render_height")
 PROFILE_SCENE("display.frame_rate")
 
 PROFILE_VARIABLE("display.frame_rate")
+PROFILE_VARIABLE("display.frames_in_flight_at_30")
 PROFILE_VARIABLE("display.render_height")
 PROFILE_VARIABLE("display.render_scale")
 PROFILE_VARIABLE("display.anti_aliasing")

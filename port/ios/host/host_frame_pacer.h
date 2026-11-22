@@ -75,6 +75,9 @@ int frame_pacer_wants_system_source(void);
 void frame_pacer_system_source(void);
 int frame_pacer_in_flight(void);
 
+/* a guest import (host_frames_in_flight_scene in guest_host.h) */
+void host_frames_in_flight_scene(int at_30);
+
 /* a refresh of the display: its time and the display's refresh period, in
 seconds on the clock frame_pacer_presented's times use (CACurrentMediaTime's);
 any thread */
@@ -145,6 +148,11 @@ static inline void frame_pacer_start(int fixed_timestep)
 
 static inline void frame_pacer_stop(void)
 {
+}
+
+static inline void host_frames_in_flight_scene(int at_30)
+{
+	(void)at_30;
 }
 
 static inline int frame_pacer_wants_system_source(void)

@@ -29,7 +29,7 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "98d7d4a88b58bedf3b5a150bc9caeee1e83f916164367fd66d19d7690e2cdd38"}
+                   5: "be19565c8cc21bdac5483cd7a1bf7f85c1b7bef959128db795e7213fdc481309"}
 
 
 def key_table_sha256(text):

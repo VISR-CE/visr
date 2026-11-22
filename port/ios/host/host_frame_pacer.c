@@ -27,7 +27,7 @@ static struct
 	int system_wanted;               /* display.frame_source = "system", and frames wait for the display */
 	int system_source;               /* the renderer's system pacer runs: no slots or spacing of ours */
 	int in_flight;                   /* display.frames_in_flight (0: no limit) */
-	char in_flight_at_30[8];         /* display.frames_in_flight_at_30 */
+	int in_flight_at_30;             /* display.frames_in_flight_at_30 in force (host_frames_in_flight_scene); 0: none */
 	int spacing;                     /* display.frame_spacing */
 	int times;                       /* debug.present_times */
 	double load;                     /* debug.frame_load_cpu, in seconds */
@@ -88,7 +88,6 @@ void frame_pacer_start(int fixed_timestep)
 	/* (started again after frame_pacer_stop: frames from before hold no slot) */
 	memset(&pacer.flight, 0, sizeof(pacer.flight));
 	pacer.flight.limit = pacer.in_flight = limit;
-	host_config_string("display.frames_in_flight_at_30", "", pacer.in_flight_at_30, sizeof(pacer.in_flight_at_30));
 	pacer.spacing = strcmp(value, "false") != 0;
 	host_config_string("display.frame_source", "", value, sizeof(value));
 	/* (the system's pacer shows one frame a refresh: no cap, no "unlimited") */
@@ -121,6 +120,16 @@ void frame_pacer_start(int fixed_timestep)
 	if (pacer.load > 0.0)
 		platform_log("frame pacer: debug.frame_load_cpu spins %.1f ms in every frame%s", pacer.load * 1e3,
 			pacer.load_every > 0.0 ? ", on and off (debug.frame_load_every)" : "");
+}
+
+/* A guest import, when the workload context, the scene class or the settings change: display.frames_in_flight_at_30
+as the game resolves it (1 or 2; 0 for none), which a profile may set for the variable workload alone, so the host's
+own config reads could not see it. Frame_pacer_frame_start applies it while the frame rate in force is 30 or lower. */
+void host_frames_in_flight_scene(int at_30)
+{
+	pthread_mutex_lock(&pacer.lock);
+	pacer.in_flight_at_30 = at_30 == 1 || at_30 == 2 ? at_30 : 0;
+	pthread_mutex_unlock(&pacer.lock);
 }
 
 void frame_pacer_stop(void)

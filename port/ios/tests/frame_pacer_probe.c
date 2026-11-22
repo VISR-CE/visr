@@ -40,16 +40,16 @@ int main(void)
 	CHECK(frame_pacer_in_flight_setting("2", frame_pacer_in_flight_default(1)) == 2);
 
 	/* the frames in flight at a 30 frame rate: only a lower limit, only at 30 or under, never above the base */
-	CHECK(frame_pacer_in_flight_for(30.0, 2, "1") == 1);
-	CHECK(frame_pacer_in_flight_for(29.97, 2, "1") == 1);
-	CHECK(frame_pacer_in_flight_for(60.0, 2, "1") == 2);
-	CHECK(frame_pacer_in_flight_for(0.0, 2, "1") == 2);
-	CHECK(frame_pacer_in_flight_for(30.0, 2, "") == 2);
-	CHECK(frame_pacer_in_flight_for(30.0, 2, "2") == 2);
-	CHECK(frame_pacer_in_flight_for(30.0, 1, "2") == 1);
-	CHECK(frame_pacer_in_flight_for(30.0, 3, "2") == 2);
-	CHECK(frame_pacer_in_flight_for(30.0, 2, "system") == 2);
-	CHECK(frame_pacer_in_flight_for(30.0, 0, "1") == 0);
+	CHECK(frame_pacer_in_flight_for(30.0, 2, 1) == 1);
+	CHECK(frame_pacer_in_flight_for(29.97, 2, 1) == 1);
+	CHECK(frame_pacer_in_flight_for(60.0, 2, 1) == 2);
+	CHECK(frame_pacer_in_flight_for(0.0, 2, 1) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 2, 0) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 2, 2) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 1, 2) == 1);
+	CHECK(frame_pacer_in_flight_for(30.0, 3, 2) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 2, 0) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 0, 1) == 0);
 
 	/* the limit lowered while two frames hold slots (a 30 frame rate begins): no new frame until both are shown, and the
 	count stays balanced */

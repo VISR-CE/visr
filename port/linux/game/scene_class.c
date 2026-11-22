@@ -59,6 +59,8 @@ void platform_log(const char *format, ...);
 #ifdef HALO_ILP32
 /* port/ios/host/host_perf_hooks.c, a guest import */
 void host_dynamic_resolution_scene(int enabled, int floor_lines);
+/* port/ios/host/host_frame_pacer.c, a guest import */
+void host_frames_in_flight_scene(int at_30);
 /* port/ios/host/host_benchmark.m: the decision the map actually uses, even when its context did not change. */
 void host_benchmark_workload(int variable);
 #endif
@@ -269,6 +271,14 @@ int halo_scene_class(void)
 			told_drs_changes = changes;
 			host_dynamic_resolution_scene(config_scene_boolean("display.dynamic_resolution", scene_class),
 				(int)config_scene_integer("display.dynamic_resolution_floor", scene_class));
+			/* (display.frames_in_flight_at_30 may differ by workload context, which the host's own config reads do not
+			see: the pacer takes the value in force from here) */
+			{
+				char limit[8];
+
+				config_scene_string("display.frames_in_flight_at_30", scene_class, limit, sizeof(limit));
+				host_frames_in_flight_scene(limit[0] == '1' || limit[0] == '2' ? limit[0] - '0' : 0);
+			}
 		}
 	}
 #endif
