@@ -14,6 +14,14 @@ void host_controller_refresh(void);
 #define HOST_CONTROLLER_READ_MAX_AGE_NS 250000ull
 void host_controller_refresh_for_read(void);
 
+/* The same sample without the refresh, for a read on the main thread or with the game thread off
+   (so Vision Pro and the thread-off builds report an age too). */
+void host_controller_sample(void);
+
+/* Refreshes unless the state is under the read bound old: the poll's update after each event of one pump
+   (a pump delivering N events is one update, not N + 1). */
+void host_controller_refresh_bounded(void);
+
 /* The main-thread pump (SDL_PumpEvents) just updated the controllers. */
 void host_controller_refreshed(void);
 

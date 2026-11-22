@@ -73,7 +73,15 @@ static void age_sample(void) {
     pthread_mutex_unlock(&stats_lock);
 }
 
+void host_controller_sample(void) {
+    age_sample();
+}
+
+void host_controller_refresh_bounded(void) {
+    if (host_controller_age_ns() >= HOST_CONTROLLER_READ_MAX_AGE_NS) host_controller_refresh();
+}
+
 void host_controller_refresh_for_read(void) {
     age_sample();
-    if (host_controller_age_ns() >= HOST_CONTROLLER_READ_MAX_AGE_NS) host_controller_refresh();
+    host_controller_refresh_bounded();
 }

@@ -59,6 +59,8 @@ int main(void) {
     host_controller_refreshed();
     assert(host_controller_age_ns() == 0);
     /* the log reports the age the reads would have seen before their refresh, in 5 s windows */
+    clock_ns += 6000000000ull;
+    host_controller_refresh_for_read(); /* closes the window the earlier reads were in */
     logs = 0;
     for (int read = 0; read < 600; read++) {
         clock_ns += 1000000;
@@ -69,6 +71,9 @@ int main(void) {
     host_controller_refresh_for_read();
     assert(logs >= 1);
     assert(strstr(last_log, "controller age: reads "));
+    /* the first read of each poll was 1 ms old before its refresh (bucket 4, reported at its upper edge),
+       the second 0: a sample taken after the refresh would report 0.25 */
+    assert(strstr(last_log, "p99 1.25"));
     puts("PASS: a game read never sees controller state older than the read bound; the age log samples before the refresh");
     return 0;
 }
