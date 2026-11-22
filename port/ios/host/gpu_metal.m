@@ -1838,6 +1838,9 @@ is written. PRODUCER_LEAD: frames the producer may run ahead of the encoder:
 none, since a frame ahead would read input a refresh earlier than the display
 needs it (the present is a barrier; the encode thread design's revision 4) */
 #define PRODUCER_LEAD 0
+/* (the pacer keeps one frame's start values until its Present: host_frame_pacer.h) */
+_Static_assert(PRODUCER_LEAD <= FRAME_PACER_START_LEAD,
+	"a producer ahead of the encoder would overwrite a frame's late start values before its Present: pass them with the frame");
 /* the most sets the ring may get (the encode queue on); with it off, FRAMES (gpu_stream_ring_set_count) */
 #define PRODUCER_FRAMES (FRAMES + 1 + PRODUCER_LEAD)
 _Static_assert(PRODUCER_FRAMES <= GPU_STREAM_RING_SETS, "the producer's ring has room for its sets");

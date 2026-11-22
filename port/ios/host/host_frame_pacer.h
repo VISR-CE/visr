@@ -49,6 +49,12 @@ struct frame_pacer_frame
 	uint8_t start_state;     /* frame_pacer.h's frame_pacer_start_state */
 };
 
+/* frame_pacer_frame_start's time, aim, allowed cost and state wait in one place for the frame's Present, so the game
+must not start a frame while an earlier one's Present is still to come: the frames a renderer's producer may run ahead
+of its Present (gpu_metal.m's PRODUCER_LEAD, checked there). A renderer that lets the producer lead must pass a frame's
+start values along with the frame instead. */
+#define FRAME_PACER_START_LEAD 0
+
 #if HALO_FRAME_PACING
 
 /* once, before the first frame; fixed_timestep (debug.fixed_timestep): the
