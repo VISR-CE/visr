@@ -1044,10 +1044,20 @@
             "system"
           ]
         },
+        "encode_thread": {
+          "type": "string",
+          "default": "off",
+          "description": "Whether the Metal renderer's commands go through an encode thread. \"off\" (default): the game thread calls the renderer. \"thread\": an encode thread calls the renderer while the game thread goes on; each frame's present waits for it. A device profile turns it on where it measures better. debug.encode_thread overrides it. Needs the game thread; not on visionOS or Mac Catalyst.",
+          "x-environment": "HALO_DISPLAY_ENCODE_THREAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "frames_in_flight": {
           "type": "string",
           "default": "",
-          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" to \"3\": a frame isn't started on its way until fewer than that many are waiting to be shown. \"1\" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; \"system\" leaves the queue to the system (up to 3). Empty (default): \"2\", or \"1\" with debug.encode_thread = \"thread\". Not on a Vision Pro, which paces frames itself, and not for frames that don't wait for the display (display.frame_rate).",
+          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" to \"3\": a frame isn't started on its way until fewer than that many are waiting to be shown. \"1\" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; \"system\" leaves the queue to the system (up to 3). Empty (default): \"2\", or \"1\" with the encode thread on (display.encode_thread). Not on a Vision Pro, which paces frames itself, and not for frames that don't wait for the display (display.frame_rate).",
           "x-environment": "HALO_FRAMES_IN_FLIGHT",
           "x-environment-style": "value",
           "x-platforms": [
@@ -2976,7 +2986,7 @@
         "gpu_call_hash": {
           "type": "boolean",
           "default": false,
-          "description": "Logs, for every frame, a hash of every command the Metal or OpenGL ES renderer received: each call, its arguments and the bytes they point to, and one hash for each kind of call. The hashes compare frames within one run, as when the same frames are hashed at two points; two runs of the same recording can differ (texture numbering, values the game leaves in unused constant lanes). With debug.encode_thread on, the commands the queue carries are hashed again behind it and compared with the same commands in front of it, and frames that differ are logged. For checking changes to how drawing reaches the renderer.",
+          "description": "Logs, for every frame, a hash of every command the Metal or OpenGL ES renderer received: each call, its arguments and the bytes they point to, and one hash for each kind of call. The hashes compare frames within one run, as when the same frames are hashed at two points; two runs of the same recording can differ (texture numbering, values the game leaves in unused constant lanes). With the encode queue on, the commands the queue carries are hashed again behind it and compared with the same commands in front of it, and frames that differ are logged. For checking changes to how drawing reaches the renderer.",
           "x-environment": "HALO_GPU_CALL_HASH",
           "x-environment-style": "set_is_true",
           "x-platforms": [
@@ -2985,8 +2995,8 @@
         },
         "encode_thread": {
           "type": "string",
-          "default": "off",
-          "description": "How the Metal renderer's commands reach it. \"off\" (default): the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. \"thread\": an encode thread reads the queue and calls the renderer while the game thread goes on; each frame's present waits for it, so input is read as late as with \"off\". Needs the game thread. Not on visionOS or Mac Catalyst.",
+          "default": "",
+          "description": "Overrides display.encode_thread, for measurement. Empty (default): follow display.encode_thread. How the Metal renderer's commands reach it. \"off\": the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. \"thread\": an encode thread reads the queue and calls the renderer while the game thread goes on; each frame's present waits for it, so input is read as late as with \"off\". Needs the game thread. Not on visionOS or Mac Catalyst.",
           "x-environment": "HALO_ENCODE_THREAD",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3001,7 +3011,7 @@
         "encode_thread_timing": {
           "type": "boolean",
           "default": false,
-          "description": "With debug.encode_thread on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames.",
+          "description": "With the encode queue on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames.",
           "x-environment": "HALO_ENCODE_THREAD_TIMING",
           "x-environment-style": "set_is_true",
           "x-platforms": [

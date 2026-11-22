@@ -76,6 +76,22 @@ int gpu_queue_mode_parse(const char *value)
 	return -1;
 }
 
+int gpu_queue_mode_choose(const char *debug, const char *display, const char **from)
+{
+	int mode;
+
+	if (debug && debug[0])
+	{
+		if (from)
+			*from = "debug.encode_thread";
+		return gpu_queue_mode_parse(debug);
+	}
+	if (from)
+		*from = "display.encode_thread";
+	mode = gpu_queue_mode_parse(display ? display : "");
+	return mode == GPU_QUEUE_INLINE ? -1 : mode;
+}
+
 /* direct: the backend under any wrapper that only recorded commands may pass (a call hash behind the queue), for the
 calls the producer makes itself (recorded commands go to the consumer's next) */
 static const struct gpu_backend *direct;

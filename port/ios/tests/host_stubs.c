@@ -230,6 +230,8 @@ __attribute__((weak)) unsigned long gpu_queue_drains(void)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_drains without defining it\n"); abort(); }
 __attribute__((weak)) unsigned long gpu_queue_keyframes_checked(unsigned long *differ)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_keyframes_checked without defining it\n"); abort(); }
+__attribute__((weak)) int gpu_queue_mode_choose(const char *debug, const char *display, const char **from)
+{ fprintf(stderr, "host_stubs: probe called gpu_queue_mode_choose without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_queue_mode_parse(const char *value)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_mode_parse without defining it\n"); abort(); }
 __attribute__((weak)) const struct gpu_backend * gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode, int timing, void (*log)(const char *line), void (*consumer_started)(void))

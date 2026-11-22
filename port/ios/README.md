@@ -366,7 +366,7 @@ default everywhere except a Vision Pro build: there the Compositor paces
 frames and the build has none of this.
 
 - `frames_in_flight` (`"1"` to `"3"`, or `"system"`; default `"2"`, or `"1"`
-  with `debug.encode_thread = "thread"`, whose game thread otherwise queues a
+  with the encode thread on (`display.encode_thread`), whose game thread otherwise queues a
   frame ahead of a GPU-bound display) is how many frames may be on their way to
   the display at once. A frame is not started
   on its way until fewer than that many are waiting to be shown. `"1"` gives

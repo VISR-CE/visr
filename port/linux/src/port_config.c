@@ -855,14 +855,21 @@ static const struct config_setting config_settings[] =
 		"takes one from the system for each refresh (iOS 17, tvOS 17, macOS 14\n"
 		"and later, and only with display.frame_rate = \"display\"; elsewhere\n"
 		"\"clock\" is used). Empty (default): \"clock\". Not on a Vision Pro.", _tier_player, "|clock|system" },
+	{ "display.encode_thread", _config_string, "\"off\"", "HALO_DISPLAY_ENCODE_THREAD", _environment_value, _platform_ios,
+		"Whether the Metal renderer's commands go through an encode thread.\n"
+		"\"off\" (default): the game thread calls the renderer. \"thread\": an encode\n"
+		"thread calls the renderer while the game thread goes on; each frame's\n"
+		"present waits for it. A device profile turns it on where it measures\n"
+		"better. debug.encode_thread overrides it. Needs the game thread; not on\n"
+		"visionOS or Mac Catalyst.", _tier_player, "|off|thread" },
 	{ "display.frames_in_flight", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT", _environment_value, _platform_ios,
 		"How many frames the Metal renderer may have on their way to the display\n"
 		"at once, \"1\" to \"3\": a frame isn't started on its way until fewer than\n"
 		"that many are waiting to be shown. \"1\" gives the least delay between the\n"
 		"game and the screen, and costs frames when a frame's CPU and GPU work\n"
 		"together take longer than a refresh; \"system\" leaves the queue to the\n"
-		"system (up to 3). Empty (default): \"2\", or \"1\" with debug.encode_thread =\n"
-		"\"thread\". Not on a Vision Pro, which paces\n"
+		"system (up to 3). Empty (default): \"2\", or \"1\" with the encode thread\n"
+		"on (display.encode_thread). Not on a Vision Pro, which paces\n"
 		"frames itself, and not for frames that don't wait for the display\n"
 		"(display.frame_rate).", _tier_player, "|1|2|3|system" },
 	{ "display.frames_in_flight_at_30", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT_AT_30", _environment_value, _platform_ios,
@@ -1776,12 +1783,13 @@ static const struct config_setting config_settings[] =
 		"and one hash for each kind of call. The hashes compare frames within one\n"
 		"run, as when the same frames are hashed at two points; two runs of the\n"
 		"same recording can differ (texture numbering, values the game leaves in\n"
-		"unused constant lanes). With debug.encode_thread on, the commands the\n"
+		"unused constant lanes). With the encode queue on, the commands the\n"
 		"queue carries are hashed again behind it and compared with the same\n"
 		"commands in front of it, and frames that differ are logged. For checking\n"
 		"changes to how drawing reaches the renderer." },
-	{ "debug.encode_thread", _config_string, "\"off\"", "HALO_ENCODE_THREAD", _environment_value, _platform_ios,
-		"How the Metal renderer's commands reach it. \"off\" (default): the game\n"
+	{ "debug.encode_thread", _config_string, "\"\"", "HALO_ENCODE_THREAD", _environment_value, _platform_ios,
+		"Overrides display.encode_thread, for measurement. Empty (default): follow\n"
+		"display.encode_thread. How the Metal renderer's commands reach it. \"off\": the game\n"
 		"thread calls the renderer. \"inline\": the game thread writes each command\n"
 		"into a queue and reads it back at once, to measure what the queue costs\n"
 		"and check that it changes nothing. \"thread\": an encode thread reads the\n"
@@ -1789,7 +1797,7 @@ static const struct config_setting config_settings[] =
 		"present waits for it, so input is read as late as with \"off\". Needs\n"
 		"the game thread. Not on visionOS or Mac Catalyst.", _tier_derived, "off|inline|thread" },
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
-		"With debug.encode_thread on: also time the renderer's share of the\n"
+		"With the encode queue on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },
 	{ "debug.latency_log", _config_boolean, "false", "HALO_LATENCY_LOG", _environment_set_is_true, _platform_ios,
 		"Logs a latency line every 300 frames: how old the controller state was\n"
