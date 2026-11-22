@@ -61,16 +61,18 @@ PLATFORMS = {
 }
 
 
-def feature_definitions():
-    """every option that compiles code in or out, on: the configuration the release builds ship"""
+def feature_definitions(platform):
+    """every option that compiles code in or out, on: the configuration the release builds ship (the native
+    Mac app does not support benchmark upload or tester builds, so it gets the rest)"""
+    mac = platform == 'macosx'
     return [
-        *ios_build.cloud_definitions('org.steverice.visr', True, None, True, True, True),
-        '-DHALO_TESTER_BUILD=ON', '-DHALO_BENCHMARK_ROUTES=ON', '-DHALO_DEVELOPMENT_HOOKS=ON',
+        *ios_build.cloud_definitions('org.steverice.visr', True, None, not mac, True, True),
+        f'-DHALO_TESTER_BUILD={"OFF" if mac else "ON"}', '-DHALO_BENCHMARK_ROUTES=ON', '-DHALO_DEVELOPMENT_HOOKS=ON',
         '-DHALO_RENDER_VALIDATION=ON', '-DHALO_BINK=ON',
     ]
 
 
-def plain_definitions():
+def plain_definitions(platform):
     return [*ios_build.cloud_definitions('org.steverice.visr', False, None),
             '-DHALO_TESTER_BUILD=OFF', '-DHALO_BENCHMARK_ROUTES=OFF', '-DHALO_DEVELOPMENT_HOOKS=OFF',
             '-DHALO_RENDER_VALIDATION=OFF', '-DHALO_BINK=OFF']
@@ -133,7 +135,7 @@ def configure(platform, variant):
     command = ['cmake', '-S', source, '-B', folder, '-G', 'Ninja', f'-DCMAKE_SYSTEM_NAME={system}',
                f'-DCMAKE_OSX_SYSROOT={sdk}', '-DCMAKE_OSX_ARCHITECTURES=arm64',
                f'-DCMAKE_OSX_DEPLOYMENT_TARGET={deployment}', '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
-               *common_definitions(), *VARIANTS[variant](), *extra]
+               *common_definitions(), *VARIANTS[variant](platform), *extra]
     if platform == 'macosx':
         command.append('-DHALO_NATIVE_MAC=ON')
     if system == 'visionOS':
