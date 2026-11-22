@@ -866,6 +866,8 @@ static void topology_facts_poll(void) {
     UIScreen *app_screen=phone_window.windowScene.screen;
     facts.app_scene.present=app_screen!=nil;
     facts.app_scene.screen=(unsigned)(((uintptr_t)(__bridge void *)app_screen)>>4);
+    facts.app_scene.main_screen=(unsigned)(((uintptr_t)(__bridge void *)UIScreen.mainScreen)>>4);
+    facts.app_scene.main_is_app=app_screen==UIScreen.mainScreen;
     UIWindowScene *external_scene=external_window.windowScene;
     if(candidate_screen || external_scene) {
         facts.external_scene.present=1;

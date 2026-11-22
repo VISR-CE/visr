@@ -23,7 +23,7 @@ struct host_topology_facts {
     double now;                /* the poll's clock; the timers below are start times on it */
     int idiom;                 /* enum host_facts_idiom */
     int ios_app_on_mac, metal;
-    struct { int present; unsigned screen; } app_scene;
+    struct { int present; unsigned screen, main_screen; int main_is_app; } app_scene;  /* main_screen: UIScreen.mainScreen */
     struct { int present, negotiating; unsigned screen, scene; int width, height, hertz; } external_scene;
     struct { int registered, available; double offered_since; } accessory;
     struct { unsigned id; int mirrors, pixel_width, pixel_height, hertz; } screens[HOST_FACTS_SCREENS];
@@ -83,7 +83,7 @@ static inline void host_topology_facts_add_screen(struct host_topology_facts *fa
 
 /* every field but the poll's clock, compared as bytes: the facts are built from a zeroed struct, and the assert
    keeps a new field from introducing padding that a struct copy need not carry */
-_Static_assert(sizeof(struct host_topology_facts) == 256, "host_topology_facts changed size: check for padding and update this");
+_Static_assert(sizeof(struct host_topology_facts) == 264, "host_topology_facts changed size: check for padding and update this");
 static inline int host_topology_facts_changed(const struct host_topology_facts *a, const struct host_topology_facts *b) {
     struct host_topology_facts x = *a, y = *b;
     x.now = y.now = 0.0;
@@ -119,6 +119,7 @@ static inline void host_topology_facts_format(const struct host_topology_facts *
     ADD("topology facts: idiom %s%s, metal %d; app scene %s", host_facts_idiom_name(f->idiom),
         f->ios_app_on_mac ? " (app on Mac)" : "", f->metal, f->app_scene.present ? "on" : "none");
     if (f->app_scene.present) ADD(" screen %x", f->app_scene.screen);
+    ADD(", main screen %x%s", f->app_scene.main_screen, f->app_scene.main_is_app ? " (the app's)" : "");
     ADD("; external scene ");
     if (f->external_scene.present)
         ADD("%x on screen %x %dx%d at %d Hz%s", f->external_scene.scene, f->external_scene.screen,

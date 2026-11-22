@@ -11,6 +11,8 @@ static struct host_topology_facts duo_closed(double now) {
     f.metal = 1;
     f.app_scene.present = 1;
     f.app_scene.screen = 0xa1;
+    f.app_scene.main_screen = 0xb2;   /* the main screen is the other panel */
+    f.app_scene.main_is_app = 0;
     host_topology_facts_add_screen(&f, 0xa1, 0, 1206, 2622, 120);
     f.hinge_available = 1;
     f.hinge_status = HOST_HINGE_CLOSED;
@@ -62,6 +64,12 @@ int main(void) {
     f = duo_closed(5.0);
     host_topology_facts_format(&f, text, sizeof(text));
     assert(strstr(text, "idiom phone") && strstr(text, "hinge closed") && strstr(text, "screens 1 [a1 1206x2622 at 120 Hz]"));
+    assert(strstr(text, "main screen b2") && !strstr(text, "(the app's)"));
+    f.app_scene.main_screen = 0xa1; f.app_scene.main_is_app = 1;
+    host_topology_facts_format(&f, text, sizeof(text));
+    assert(strstr(text, "main screen a1 (the app's)"));
+    f = duo_closed(5.0);
+    host_topology_facts_format(&f, text, sizeof(text));
     assert(strstr(text, "route speaker") && strstr(text, "external scene none") && !strchr(text, '\n'));
     /* a short buffer is cut and terminated, never overrun */
     char small[16];
