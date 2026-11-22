@@ -10,6 +10,7 @@
 #include "host_touch_replay.h"
 #include "host_touch_latch.h"
 #include "host_touch_controller.h"
+#include "host_gamepad_merge.h"
 #include "host_posture_layout.h"
 #include "host_menu_pointer.h"
 #include "host_audio_output.h"
@@ -27,7 +28,7 @@ app launch on, the controls stay hidden and take no touches */
 static atomic_int gameplay_active;
 static BOOL touch_overlay_off(void) { return atomic_load(&menu_up)!=0||atomic_load(&gameplay_active)==0; }
 int host_ios_touch_blocked(void) { return host_touch_replay_blocked(&replay_gate); }
-static int pause_pending;
+static atomic_int pause_pending;
 static struct host_touch_latch button_latches[SDL_GAMEPAD_BUTTON_COUNT];
 static struct host_touch_latch trigger_latches[2];
 int host_ios_app_on_mac(void)
@@ -35,9 +36,10 @@ int host_ios_app_on_mac(void)
     if(@available(iOS 14.0,*)) return NSProcessInfo.processInfo.isiOSAppOnMac?1:0;
     return 0;
 }
-void host_ios_touch_pause(void) { if (!host_touch_replay_blocked(&replay_gate)) pause_pending=1; }
+void host_ios_touch_pause(void) { if (!host_touch_replay_blocked(&replay_gate)) atomic_store(&pause_pending,1); }
 static SDL_Joystick *touch_joystick;
-static SDL_JoystickID touch_id, primary_hardware;
+/* the touch controls' pad and the hardware controller it merges (host_gamepad_merge.h) */
+static struct host_gamepad_merge merge;
 static atomic_int glyph_touch_active = 1;
 
 static void button_state(int button, BOOL down) {
@@ -64,34 +66,25 @@ void host_ios_touch_initialize(void) {
     desc.axis_mask=(1u<<SDL_GAMEPAD_AXIS_COUNT)-1;
     desc.button_mask=(1u<<SDL_GAMEPAD_BUTTON_COUNT)-1;
     desc.name="Halo Touch Controls";
-    touch_id=SDL_AttachVirtualJoystick(&desc);
-    touch_joystick=SDL_OpenJoystick(touch_id);
+    merge.virtual_id=SDL_AttachVirtualJoystick(&desc);
+    touch_joystick=SDL_OpenJoystick(merge.virtual_id);
     if(!touch_joystick)host_fatal("Could not initialize touch controls: %s",SDL_GetError());
     axis_state(SDL_GAMEPAD_AXIS_LEFT_TRIGGER,-1);
     axis_state(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,-1);
 }
 int host_ios_gamepads(uint32_t *out,int capacity) {
-    int count=0,used=0;SDL_JoystickID *ids=SDL_GetGamepads(&count);
-    SDL_JoystickID previous_hardware=primary_hardware;
-    primary_hardware=0;
-    if(capacity>0 && touch_id)out[used++]=touch_id;
-    for(int i=0;i<count;i++) {
-        if(ids[i]==touch_id)continue;
-        if(!primary_hardware) {
-            primary_hardware=ids[i];
-            if(!SDL_GetGamepadFromID(ids[i]))SDL_OpenGamepad(ids[i]);
-        } else if(used<capacity) out[used++]=ids[i];
-    }
-    if(previous_hardware!=primary_hardware)atomic_store(&glyph_touch_active,primary_hardware?0:1);
-    SDL_free(ids);return used;
+    SDL_JoystickID primary,previous;
+    int used=host_gamepad_merge_enumerate(&merge,out,capacity,NULL,&primary,&previous);
+    if(previous!=primary)atomic_store(&glyph_touch_active,primary?0:1);
+    return used;
 }
+static SDL_Gamepad *primary_pad(void) { return host_gamepad_merge_primary(&merge); }
 SDL_Gamepad *host_ios_gamepad_physical(SDL_Gamepad *pad) {
-    return SDL_GetGamepadID(pad)==touch_id ?
-        (primary_hardware && !atomic_load(&glyph_touch_active)?SDL_GetGamepadFromID(primary_hardware):NULL) : pad;
+    return host_gamepad_merge_is_virtual(&merge,pad) ? (!atomic_load(&glyph_touch_active)?primary_pad():NULL) : pad;
 }
 int host_ios_gamepad_type(SDL_Gamepad *pad) {
     /* Keep the shared touch/hardware controller in the first recognized port. */
-    return SDL_GetGamepadID(pad)==touch_id?SDL_GAMEPAD_TYPE_XBOX360:SDL_GetGamepadType(pad);
+    return host_gamepad_merge_is_virtual(&merge,pad)?SDL_GAMEPAD_TYPE_XBOX360:SDL_GetGamepadType(pad);
 }
 /* The guest publishes this hint while any in-game menu (the campaign's pause
    screen, a network game's pause menu, the scores) is up. The guest ignores
@@ -108,32 +101,33 @@ static int touch_menu_button(int button) {
 }
 int host_ios_gamepad_axis(SDL_Gamepad *pad,int axis) {
     int value=SDL_GetGamepadAxis(pad,axis);
-    if(SDL_GetGamepadID(pad)==touch_id && !host_touch_replay_blocked(&replay_gate) && !touch_menu_up() &&
+    if(host_gamepad_merge_is_virtual(&merge,pad) && !host_touch_replay_blocked(&replay_gate) && !touch_menu_up() &&
         axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER && axis<=SDL_GAMEPAD_AXIS_RIGHT_TRIGGER &&
         host_touch_latch_read(&trigger_latches[axis-SDL_GAMEPAD_AXIS_LEFT_TRIGGER]))
         value=32767;
-    if(SDL_GetGamepadID(pad)==touch_id && (host_touch_replay_blocked(&replay_gate) ||
+    if(host_gamepad_merge_is_virtual(&merge,pad) && (host_touch_replay_blocked(&replay_gate) ||
         (axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER && touch_menu_up())))
         value=0;
-    if(SDL_GetGamepadID(pad)==touch_id && primary_hardware) {
-        int physical=SDL_GetGamepadAxis(SDL_GetGamepadFromID(primary_hardware),axis);
-        if(abs(physical)>9000)atomic_store(&glyph_touch_active,0);
-        if(abs(physical)>abs(value))value=physical;
+    SDL_Gamepad *physical=host_gamepad_merge_is_virtual(&merge,pad)?primary_pad():NULL;
+    if(physical) {
+        int other=SDL_GetGamepadAxis(physical,axis);
+        if(abs(other)>9000)atomic_store(&glyph_touch_active,0);
+        if(abs(other)>abs(value))value=other;
     }
     return value;
 }
 int host_ios_gamepad_button(SDL_Gamepad *pad,int button) {
-    if(SDL_GetGamepadID(pad)==touch_id && primary_hardware &&
-        SDL_GetGamepadButton(SDL_GetGamepadFromID(primary_hardware),button))atomic_store(&glyph_touch_active,0);
-    if(button==SDL_GAMEPAD_BUTTON_START && SDL_GetGamepadID(pad)==touch_id && pause_pending && !host_touch_replay_blocked(&replay_gate)) {
-        pause_pending=0;return 1;
-    }
-    return (!(SDL_GetGamepadID(pad)==touch_id && (host_touch_replay_blocked(&replay_gate) ||
+    SDL_Gamepad *physical=host_gamepad_merge_is_virtual(&merge,pad)?primary_pad():NULL;
+    int physical_down=physical && SDL_GetGamepadButton(physical,button);
+    if(physical_down)atomic_store(&glyph_touch_active,0);
+    if(button==SDL_GAMEPAD_BUTTON_START && host_gamepad_merge_is_virtual(&merge,pad) && !host_touch_replay_blocked(&replay_gate) &&
+        atomic_exchange(&pause_pending,0))
+        return 1;
+    return (!(host_gamepad_merge_is_virtual(&merge,pad) && (host_touch_replay_blocked(&replay_gate) ||
                 (touch_menu_up() && !touch_menu_button(button)))) &&
-            ((SDL_GetGamepadID(pad)==touch_id && button>=0 && button<SDL_GAMEPAD_BUTTON_COUNT &&
+            ((host_gamepad_merge_is_virtual(&merge,pad) && button>=0 && button<SDL_GAMEPAD_BUTTON_COUNT &&
               host_touch_latch_read(&button_latches[button])) || SDL_GetGamepadButton(pad,button))) ||
-        (SDL_GetGamepadID(pad)==touch_id && primary_hardware &&
-         SDL_GetGamepadButton(SDL_GetGamepadFromID(primary_hardware),button));
+        physical_down;
 }
 void host_ios_touch_frame(void) {
     /* The game's input waits under a share sheet or the audio output panel;
@@ -158,7 +152,7 @@ void host_ios_touch_frame(void) {
 void host_ios_touch_reset(void) {
     for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)atomic_store(&button_latches[i].state,0);
     for(int i=0;i<2;i++)atomic_store(&trigger_latches[i].state,0);
-    pause_pending=0;
+    atomic_store(&pause_pending,0);
     for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)button_state(i,NO);
     for(int i=0;i<SDL_GAMEPAD_AXIS_COUNT;i++)axis_state(i,i>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER?-1:0);
 }
@@ -480,7 +474,7 @@ static bool SDLCALL controller_input_watch(void *userdata,SDL_Event *event) {
     if(event->type==SDL_EVENT_GAMEPAD_BUTTON_DOWN){input=HOST_TOUCH_CONTROLLER_BUTTON_DOWN;device=event->gbutton.which;}
     else if(event->type==SDL_EVENT_GAMEPAD_AXIS_MOTION){input=HOST_TOUCH_CONTROLLER_AXIS;device=event->gaxis.which;value=event->gaxis.value;}
     else return true;
-    if(!atomic_load(&controls_showing) || !host_touch_controller_hides(input,device,touch_id,value))return true;
+    if(!atomic_load(&controls_showing) || !host_touch_controller_hides(input,device,merge.virtual_id,value))return true;
     if(atomic_exchange(&controller_hide_pending,1))return true;
     dispatch_async(dispatch_get_main_queue(),^{
         atomic_store(&controller_hide_pending,0);

@@ -48,13 +48,16 @@ enum { SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WES
        SDL_GAMEPAD_BUTTON_LEFT_PADDLE2, SDL_GAMEPAD_BUTTON_TOUCHPAD, SDL_GAMEPAD_BUTTON_MISC2,
        SDL_GAMEPAD_BUTTON_MISC3, SDL_GAMEPAD_BUTTON_MISC4, SDL_GAMEPAD_BUTTON_MISC5,
        SDL_GAMEPAD_BUTTON_MISC6, SDL_GAMEPAD_BUTTON_COUNT };
-static int pause_pending;
+static atomic_int pause_pending;
 __GLYPH_STATE__
 enum { SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, SDL_GAMEPAD_AXIS_RIGHTX,
        SDL_GAMEPAD_AXIS_RIGHTY, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, SDL_GAMEPAD_AXIS_COUNT };
 __LATCHES__
 static struct host_touch_replay_gate replay_gate;
-static int touch_id = 1, primary_hardware, paused, sheet_up, audio_panel_up;
+static int paused, sheet_up, audio_panel_up;
+/* host_gamepad_merge.h's merged pad: the touch pad is id 1, the primary hardware controller id 2 */
+static atomic_int primary_hardware;
+static struct { int virtual_id; } merge = {1};
 static int host_window_up(void) { return sheet_up; }
 static int host_audio_output_up(void) { return audio_panel_up; }
 static SDL_Gamepad touch = {1, {12000, -18000, 14000, -20000, 9000, 15000}, {0}};
@@ -63,6 +66,8 @@ static int SDL_GetGamepadButton(SDL_Gamepad *pad, int button) { return pad->butt
 static int SDL_GetGamepadID(SDL_Gamepad *pad) { return pad->id; }
 static int SDL_GetGamepadAxis(SDL_Gamepad *pad, int axis) { return pad->axes[axis]; }
 static SDL_Gamepad *SDL_GetGamepadFromID(int id) { assert(id == 2); return &hardware; }
+static int host_gamepad_merge_is_virtual(void *state, SDL_Gamepad *pad) { return SDL_GetGamepadID(pad) == ((typeof(merge) *)state)->virtual_id; }
+static SDL_Gamepad *primary_pad(void) { return atomic_load(&primary_hardware) ? SDL_GetGamepadFromID(atomic_load(&primary_hardware)) : NULL; }
 static int __attribute__((unused)) SDL_GetHintBoolean(const char *name, int fallback) {
     assert(!strcmp(name, "VISR_PAUSE_MENU")); (void)fallback; return paused;
 }

@@ -265,6 +265,13 @@ run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
     'port/ios/tests/controller_age_probe.c', 'port/ios/host/host_controller_age.c',
     '-o', BUILD/'controller-age-probe')
 run(BUILD/'controller-age-probe')
+# player one's merged pad (host_gamepad_merge.h) with real SDL virtual pads: its ports, and its shared
+# state read on other threads while enumerations change it, under the thread sanitizer too
+for sanitizer in ('thread', 'address,undefined'):
+    run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', f'-fsanitize={sanitizer}',
+        '-Iport/ios/host', 'port/ios/tests/gamepad_merge_probe.c', *sdl_flags,
+        '-o', BUILD/'gamepad-merge-probe')
+    run(BUILD/'gamepad-merge-probe')
 run('xcrun', 'clang', '-O2', '-DHALO_IOS=1', '-Iport/ios/host', '-Iport/ios/host',
     '-Iport/runtime/include', 'port/ios/tests/audio_probe.c', '-Wl,-dead_strip',
     *sdl_flags, '-o', BUILD/'audio-probe')

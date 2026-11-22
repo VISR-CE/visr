@@ -11,6 +11,7 @@
 #include "host_game_thread.h"
 #include <stdatomic.h>
 #include "host_config.h"
+#include "host_gamepad_merge.h"
 #include <stdlib.h>
 
 /* The Siri Remote isn't a joystick (host_main.m), so SDL delivers its presses
@@ -35,10 +36,13 @@ void host_touch_replay_active(int active) { (void)active; }
 #endif
 static SDL_Joystick *remote_joystick;
 #if TARGET_OS_VISION
-/* "Connect a game controller", shown while none is (host_ios_gamepads) */
+/* "Connect a game controller", shown while none is (host_ios_gamepads); main only. note_hidden is
+   the last enumeration's answer (-1: none yet), for the note made after it. */
 static UILabel *controller_note;
+static atomic_int note_hidden=-1;
 #endif
-static SDL_JoystickID remote_id, primary_hardware;
+/* the remote's pad and the hardware controller it merges (host_gamepad_merge.h) */
+static struct host_gamepad_merge merge;
 #if TARGET_OS_TV
 /* true while tvOS's text dialog is up, and after it until every button of the
    hardware controller is let go: the game reads no controller then (below) */
@@ -54,9 +58,10 @@ static bool text_input_blocked_cached(void);
 #define text_input_blocked_cached() false
 #endif
 /* Remote presses latch until the game reads them: a swipe's key down and up
-   arrive together, and a slow frame could otherwise miss a short press. On
-   tvOS, reads marshal to main, where the event pump writes the latches. */
-static bool remote_down[SDL_GAMEPAD_BUTTON_COUNT], remote_latched[SDL_GAMEPAD_BUTTON_COUNT];
+   arrive together, and a slow frame could otherwise miss a short press. The
+   event filter writes them on the thread that pushes the key (main) and pad
+   reads take them on whichever thread reads, so they are atomics. */
+static _Atomic bool remote_down[SDL_GAMEPAD_BUTTON_COUNT], remote_latched[SDL_GAMEPAD_BUTTON_COUNT];
 
 static int remote_button(SDL_Scancode key) {
     switch(key) {
@@ -85,8 +90,8 @@ static bool SDLCALL remote_event(void *userdata,SDL_Event *event) {
     if(button<0)return true;
     if(text_input_blocked_cached())return false;
     if(!event->key.repeat) {
-        remote_down[button]=event->key.down;
-        if(event->key.down)remote_latched[button]=true;
+        atomic_store(&remote_down[button],event->key.down);
+        if(event->key.down)atomic_store(&remote_latched[button],true);
     }
     return false;
 }
@@ -100,9 +105,8 @@ static bool remote_read(int button) {
 #endif
 
     if(button<0 || button>=SDL_GAMEPAD_BUTTON_COUNT)return false;
-    bool pressed=remote_down[button] || remote_latched[button];
-    remote_latched[button]=false;
-    return pressed;
+    bool latched=atomic_exchange(&remote_latched[button],false);
+    return atomic_load(&remote_down[button]) || latched;
 }
 
 void host_ios_touch_initialize(void) {
@@ -114,15 +118,15 @@ void host_ios_touch_initialize(void) {
     desc.axis_mask=(1u<<SDL_GAMEPAD_AXIS_COUNT)-1;
     desc.button_mask=(1u<<SDL_GAMEPAD_BUTTON_COUNT)-1;
     desc.name="Halo Remote";
-    remote_id=SDL_AttachVirtualJoystick(&desc);
-    remote_joystick=SDL_OpenJoystick(remote_id);
+    merge.virtual_id=SDL_AttachVirtualJoystick(&desc);
+    remote_joystick=SDL_OpenJoystick(merge.virtual_id);
     if(!remote_joystick)host_fatal("Could not initialize remote controls: %s",SDL_GetError());
     SDL_SetJoystickVirtualAxis(remote_joystick,SDL_GAMEPAD_AXIS_LEFT_TRIGGER,-32768);
     SDL_SetJoystickVirtualAxis(remote_joystick,SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,-32768);
     SDL_SetEventFilter(remote_event,NULL);
 }
 void host_ios_touch_reset(void) {
-    for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)remote_down[i]=remote_latched[i]=false;
+    for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++){atomic_store(&remote_down[i],false);atomic_store(&remote_latched[i],false);}
 }
 
 void host_ios_touch_attach(SDL_Window *window) {
@@ -139,6 +143,7 @@ void host_ios_touch_attach(SDL_Window *window) {
         controller_note.text=@"Connect a game controller to play Halo.";
         controller_note.font=[UIFont preferredFontForTextStyle:UIFontTextStyleTitle2];
         controller_note.textColor=UIColor.whiteColor;
+        controller_note.hidden=atomic_load(&note_hidden)==1;
         controller_note.backgroundColor=[UIColor colorWithWhite:0 alpha:0.6];
         controller_note.textAlignment=NSTextAlignmentCenter;
         controller_note.layer.cornerRadius=12;controller_note.clipsToBounds=YES;
@@ -161,45 +166,43 @@ void host_ios_touch_attach(SDL_Window *window) {
     });
 }
 
-/* Port assignment and merging mirror host_touch.m, with the remote in place of touch. */
+/* Port assignment and merging are host_touch.m's, with the remote in place of touch; a Sense
+   controller that aims (host_spatial) takes no port. */
+static int aim_owned(uint32_t id) { return host_sdl_controller_aim_owns(id); }
 int host_ios_gamepads(uint32_t *out,int capacity) {
-    int count=0,used=0;SDL_JoystickID *ids=SDL_GetGamepads(&count);
-    primary_hardware=0;
-    if(capacity>0 && remote_id)out[used++]=remote_id;
-    for(int i=0;i<count;i++) {
-        if(ids[i]==remote_id || host_sdl_controller_aim_owns((uint32_t)ids[i]))continue;
-        if(!primary_hardware) {
-            primary_hardware=ids[i];
-            if(!SDL_GetGamepadFromID(ids[i]))SDL_OpenGamepad(ids[i]);
-        } else if(used<capacity) out[used++]=ids[i];
-    }
+    SDL_JoystickID primary;
+    int used=host_gamepad_merge_enumerate(&merge,out,capacity,aim_owned,&primary,NULL);
 #if TARGET_OS_VISION
-    controller_note.hidden=primary_hardware!=0;
+    /* (UIKit's, so on main; only when it changes, so an enumeration off main does not queue work) */
+    int hidden=primary!=0;
+    if(atomic_exchange(&note_hidden,hidden)!=hidden)
+        host_main_async(^{ controller_note.hidden=atomic_load(&note_hidden)!=0; });
 #endif
-    SDL_free(ids);return used;
+    return used;
 }
 SDL_Gamepad *host_ios_gamepad_physical(SDL_Gamepad *pad) {
-    return SDL_GetGamepadID(pad)==remote_id ? (primary_hardware?SDL_GetGamepadFromID(primary_hardware):NULL) : pad;
+    return host_gamepad_merge_is_virtual(&merge,pad) ? host_gamepad_merge_primary(&merge) : pad;
 }
 int host_ios_gamepad_type(SDL_Gamepad *pad) {
-    SDL_Gamepad *physical=primary_hardware?SDL_GetGamepadFromID(primary_hardware):NULL;
-    if(SDL_GetGamepadID(pad)!=remote_id)return SDL_GetGamepadType(pad);
+    if(!host_gamepad_merge_is_virtual(&merge,pad))return SDL_GetGamepadType(pad);
+    SDL_Gamepad *physical=host_gamepad_merge_primary(&merge);
     return physical?SDL_GetGamepadType(physical):SDL_GAMEPAD_TYPE_XBOX360;
 }
 int host_ios_gamepad_axis(SDL_Gamepad *pad,int axis) {
     if(text_input_blocked())return 0;
     int value=SDL_GetGamepadAxis(pad,axis);
-    if(SDL_GetGamepadID(pad)==remote_id && primary_hardware) {
-        int physical=SDL_GetGamepadAxis(SDL_GetGamepadFromID(primary_hardware),axis);
-        if(abs(physical)>abs(value))value=physical;
+    SDL_Gamepad *physical=host_gamepad_merge_is_virtual(&merge,pad)?host_gamepad_merge_primary(&merge):NULL;
+    if(physical) {
+        int other=SDL_GetGamepadAxis(physical,axis);
+        if(abs(other)>abs(value))value=other;
     }
     return value;
 }
 int host_ios_gamepad_button(SDL_Gamepad *pad,int button) {
     if(text_input_blocked())return 0;
-    if(SDL_GetGamepadID(pad)!=remote_id)return SDL_GetGamepadButton(pad,button);
-    return remote_read(button) ||
-        (primary_hardware && SDL_GetGamepadButton(SDL_GetGamepadFromID(primary_hardware),button));
+    if(!host_gamepad_merge_is_virtual(&merge,pad))return SDL_GetGamepadButton(pad,button);
+    SDL_Gamepad *physical=host_gamepad_merge_primary(&merge);
+    return remote_read(button) || (physical && SDL_GetGamepadButton(physical,button));
 }
 
 #if TARGET_OS_TV
@@ -243,7 +246,7 @@ static bool hardware_held(void) {
     bool held=false;
     for(int i=0;i<count && !held;i++) {
         SDL_Gamepad *pad=SDL_GetGamepadFromID(ids[i]);
-        if(!pad || ids[i]==remote_id)continue;
+        if(!pad || ids[i]==merge.virtual_id)continue;
         for(int b=0;b<SDL_GAMEPAD_BUTTON_COUNT && !held;b++)held=SDL_GetGamepadButton(pad,(SDL_GamepadButton)b);
         for(int a=0;a<SDL_GAMEPAD_AXIS_COUNT && !held;a++)held=abs(SDL_GetGamepadAxis(pad,(SDL_GamepadAxis)a))>12000;
     }

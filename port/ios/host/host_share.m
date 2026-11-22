@@ -3,6 +3,7 @@ the share sheet (posix_share_link). Each is presented from a window of its
 own on the game's window scene, at the alert level, so it shows while
 theater mode hides the game's window for the immersive space
 (host_theater.m). */
+#include <stdatomic.h>
 #import <UIKit/UIKit.h>
 #include <TargetConditionals.h>
 #include <SDL3/SDL.h>
@@ -95,6 +96,9 @@ game's input waits (host_window_up) and posix_share_link offers no second
 sheet; host_dismiss_window clears it on every way a sheet goes: chosen,
 canceled, or its scene going to the background */
 static UIWindow *sheet_window;
+/* sheet_window!=nil, for host_window_up: the game's pad reads ask it on whichever thread reads,
+   and sheet_window is main's alone */
+static atomic_int sheet_up;
 #if !TARGET_OS_TV
 /* the sheet window's scene, kept apart: once the scene disconnects the window
 no longer gives it (watch_background) */
@@ -141,6 +145,7 @@ void host_dismiss_window(UIWindow *window)
 	if (window == sheet_window)
 	{
 		sheet_window = nil;
+		atomic_store(&sheet_up, 0);
 		sheet_scene = nil;
 		host_present_input_update();
 	}
@@ -211,7 +216,7 @@ int host_alert(const char *title, const char *message, const char *first, const 
 
 int host_window_up(void)
 {
-	return sheet_window != nil || host_invite_card_up();
+	return atomic_load(&sheet_up) || host_invite_card_up();
 }
 
 #if !TARGET_OS_TV
@@ -286,6 +291,7 @@ int posix_share_link(const char *link)
 		host_dismiss_window(window);
 	};
 	sheet_window = window;
+	atomic_store(&sheet_up, 1);
 	sheet_scene = window.windowScene;
 	game_focus(0);
 	[window.rootViewController presentViewController:sheet animated:YES completion:nil];
