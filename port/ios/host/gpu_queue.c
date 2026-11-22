@@ -1630,9 +1630,11 @@ static unsigned long compare_index, compare_differ;
 enum { VERIFY_TEE, VERIFY_PLAIN, VERIFY_COMPARE };
 static int verify_phase;
 static int verify_detail;
-static unsigned verify_spans_logged;
-/* (detail lines only for spans of a played frame, not the menus') */
-enum { VERIFY_SPANS_LOGGED = 4, VERIFY_LINES_A_SPAN = 6, VERIFY_DETAIL_CALLS = 200, VERIFY_WINDOW = 300 };
+static unsigned verify_spans_logged, verify_big_spans_logged;
+/* (detail lines only for spans of a played frame, not the menus'; and again for the first big spans, a played frame
+with many objects, whose differences the menus' and a level start's do not show) */
+enum { VERIFY_SPANS_LOGGED = 4, VERIFY_LINES_A_SPAN = 6, VERIFY_DETAIL_CALLS = 200, VERIFY_WINDOW = 300,
+	VERIFY_BIG_SPAN_CALLS = 2000 };
 
 /* how a register that differs from the live eye's differs. Not substituted: the replay has eye 0's value, the live
 eye another (a site that stores the register per eye and sends no eye 1 value). Eye 0's leftover: the same, but the
@@ -1846,6 +1848,40 @@ static const char *call_text(const unsigned char *call, char *text, size_t size)
 
 enum { VERIFY_LOOK_AHEAD = 512 };
 
+/* for a replay draw no live call matches: the first live draw ahead with its shaders, primitive and count, and the
+call key fields that keep them apart (an index or vertex range the eyes upload apart, say) */
+static void verify_nearest_draw(const unsigned char *made)
+{
+	const struct gpu_draw *y = (const struct gpu_draw *)(made + 8), *x;
+	size_t at = compare_at;
+	unsigned long skipped;
+	char line[384];
+	uint32_t operation, live_size;
+
+	memcpy(&operation, made, 4);
+	if (operation != GPU_OPERATION_draw)
+		return;
+	for (skipped = 0; skipped < VERIFY_LOOK_AHEAD && at + 8 <= live_calls.size; skipped++)
+	{
+		memcpy(&operation, live_calls.bytes + at, 4);
+		memcpy(&live_size, live_calls.bytes + at + 4, 4);
+		x = (const struct gpu_draw *)(live_calls.bytes + at + 8);
+		if (operation == GPU_OPERATION_draw && x->vertex_shader == y->vertex_shader &&
+			x->pixel_shader == y->pixel_shader && x->primitive == y->primitive && x->count == y->count)
+		{
+			snprintf(line, sizeof(line), "stereo replay verify: nearest live draw %lu calls ahead: index buffer %u/%u, "
+				"index offset %u/%u, base vertex %d/%d, stream 0 buffer %u/%u offset %u/%u (live/replay)", skipped,
+				(unsigned)x->index_buffer, (unsigned)y->index_buffer, x->index_offset, y->index_offset, x->base_vertex,
+				y->base_vertex, (unsigned)x->streams[0].buffer, (unsigned)y->streams[0].buffer, x->streams[0].offset,
+				y->streams[0].offset);
+			verify_detail_line(line);
+			return;
+		}
+		at += 8 + live_size;
+	}
+	verify_detail_line("stereo replay verify: no live draw ahead has its shaders, primitive and count");
+}
+
 /* the replay's call just written to replay_call, against the live call at compare_at; a call the live eye did not
 make, or live calls the replay skips, are counted as such and the calls after them still compared */
 static void verify_compare(void)
@@ -1889,6 +1925,7 @@ static void verify_compare(void)
 			snprintf(line, sizeof(line), "stereo replay verify: call %lu, %s, is not one the live eye made", compare_index,
 				call_text(made, text[0], sizeof(text[0])));
 			verify_detail_line(line);
+			verify_nearest_draw(made);
 			return;
 		}
 	}
@@ -2146,7 +2183,8 @@ static void verify_live_end(void)
 		memcpy(&size, live_calls.bytes + at + 4, 4);
 		at += 8 + size;
 	}
-	verify_detail = live_count >= VERIFY_DETAIL_CALLS && verify_spans_logged < VERIFY_SPANS_LOGGED;
+	verify_detail = live_count >= VERIFY_BIG_SPAN_CALLS ? verify_big_spans_logged < VERIFY_SPANS_LOGGED :
+		live_count >= VERIFY_DETAIL_CALLS && verify_spans_logged < VERIFY_SPANS_LOGGED;
 	/* (the plain pass first: the span as eye 0 made it, for telling how a register differs) */
 	verify_restart(1);
 	verify_phase = VERIFY_PLAIN;
@@ -2190,7 +2228,10 @@ static void verify_live_end(void)
 			snprintf(line, sizeof(line), "stereo replay verify: %lu of %lu calls differ from the live eye's (%lu live)",
 				compare_differ, compare_index, live_count);
 			log_line(line);
-			verify_spans_logged++;
+			if (live_count >= VERIFY_BIG_SPAN_CALLS)
+				verify_big_spans_logged++;
+			else
+				verify_spans_logged++;
 		}
 	}
 	if (tally.spans >= VERIFY_WINDOW)
