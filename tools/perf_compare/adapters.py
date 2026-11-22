@@ -198,6 +198,8 @@ def timing_method(target, config):
     return 'glft-metal' if base == 'metalperftrace' and config.get('metal_swap_shim') else base
 # OpenCE-lineage Mac ports that read OpenCE-macOS's documented config.toml keys (max_fps, shadow_resolution, ...).
 OPENCE_CONFIG_PORTS = ('opence-macos', 'opence-bitmoda', 'meshce', 'halo-content-evolved')
+# Ports that keep config.toml under the home folder's Application Support and ignore the save root's copy.
+HOME_CONFIG_DIRS = {'halo-content-evolved': 'Halo Content Evolved'}
 DRAWABLES = {'1280x960': (640, 480), '2560x1920': (1280, 960)}
 
 
@@ -213,7 +215,7 @@ def native_display(target_id, frame_mode='capped', quality_preset='defaults', dr
     if width == 640:
         display += ('fullscreen = false\nscreen_width = 0\nscreen_height = 480\nrender_height = 0\n'
                     'window_scale = 1\nwindow_size = "640x480"\ninterpolation = true\n')
-    elif target_id in ('visr', 'corece', 'halo-og'):
+    elif target_id in ('visr', 'corece', 'halo-og') + OPENCE_CONFIG_PORTS[1:]:
         # VISR's window_size key is desktop-only; CoreCE and Halo OG have no such key either (their documented
         # `display.window_scale` is the window size as a multiple of 640x480 points). The Mac app sizes its window as
         # 640x480 points times window_scale.
@@ -347,6 +349,9 @@ def _native(target, scenario, out, config):
     # binaries, proven by the console lane); Chupathingy has no config.toml. Halo OG's documented `display.window_scale`
     # and `HALO_WINDOWED` (windowed Mac play) set its drawable like CoreCE's and VISR's.
     environment_port = target['id'] in ENV_CONSOLE_PORTS
+    if target['id'] in HOME_CONFIG_DIRS:
+        home_config = out / 'home' / 'Library' / 'Application Support' / HOME_CONFIG_DIRS[target['id']]
+        home_config.mkdir(parents=True)
     text += ''.join(f'{key} = {value}\n' for key, value in config.get('debug_keys', {}).items())  # diagnostics only (e.g. gpu_stats = true)
     if target['id'] == 'chupathingy':
         text = ('[display]\nfullscreen = false\n[audio]\nenabled = false\n[network]\nonline = false\n[update]\nauto = false\n'
@@ -368,6 +373,9 @@ def _native(target, scenario, out, config):
         env['HALO_TEST_INPUT'] = window['test_input']
     if target['id'] == 'chupathingy':
         env.update(hosted_env)
+    if target['id'] in HOME_CONFIG_DIRS:
+        (home_config / 'config.toml').write_text(text)
+        env['HOME'] = str(out / 'home')
     if environment_port:
         (out / 'home').mkdir(exist_ok=True)
         env.update({'HOME': str(out / 'home'), 'HALO_TELNET_CONSOLE': '1', 'HALO_TELNET_CONSOLE_PORT': str(port),
