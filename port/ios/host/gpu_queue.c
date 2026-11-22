@@ -1053,10 +1053,12 @@ GPU_BACKEND_OPERATIONS(QUEUED_F, QUEUED_P)
 
 int gpu_queue_eye_span_begin(int verify)
 {
+	uint32_t verify_word = (uint32_t)verify;
+
 	if (mode == GPU_QUEUE_OFF || span.open)
 		return 0;
 	record_eye = 0;
-	record_simple(RECORD_SPAN_BEGIN, NULL, 0);
+	record_simple(RECORD_SPAN_BEGIN, &verify_word, sizeof(verify_word));
 	memset(span.buffers, 0, sizeof(span.buffers));
 	memset(span.textures, 0, sizeof(span.textures));
 	span.open = 1;
@@ -1494,6 +1496,8 @@ static struct
 	uint32_t first_offset;
 	/* verify: the live eye's calls are being logged (between the span's end and the live end) */
 	int capturing, verify;
+	/* verify's plain pass: the span again as eye 0 made it, with no eye 1 constants */
+	int plain;
 	struct gpu_queue_eye_map map;
 	struct consumer replay;
 	struct overrides overrides;
@@ -1524,6 +1528,8 @@ static void override_begin(const unsigned char *payload)
 	struct overrides *overrides = &eye.overrides;
 	struct consumer *replay = &eye.replay;
 
+	if (eye.plain)
+		return;
 	for (entry = 0; entry < words[1] && words[0] + entry < GPU_CONSTANT_COUNT; entry++)
 	{
 		uint32_t index = words[0] + entry;
@@ -1544,6 +1550,8 @@ static void override_end(const unsigned char *payload)
 	struct overrides *overrides = &eye.overrides;
 	struct consumer *replay = &eye.replay;
 
+	if (eye.plain)
+		return;
 	for (entry = 0; entry < words[1] && words[0] + entry < GPU_CONSTANT_COUNT; entry++)
 	{
 		uint32_t index = words[0] + entry;
@@ -1602,12 +1610,52 @@ struct call_log
 	size_t size, capacity;
 };
 
-static struct call_log live_calls, replay_call;
+static struct call_log live_calls, plain_calls, replay_call;
+/* where each of the plain pass's calls begins in plain_calls */
+static size_t *plain_at;
+static unsigned long plain_count, plain_capacity;
+/* the span's starting state (for the plain pass and the replay), and eye 0's registers at the span's end */
+static __typeof__(((struct consumer *)0)->held) verify_held_start;
+static float verify_end_store[GPU_CONSTANT_COUNT][4];
 static size_t compare_at;
 static unsigned long compare_index, compare_differ;
-static int verify_tee;
+/* the tee logs the live eye's calls and makes them; the plain pass and the replay log theirs and make none */
+enum { VERIFY_TEE, VERIFY_PLAIN, VERIFY_COMPARE };
+static int verify_phase;
+static int verify_detail;
 static unsigned verify_spans_logged;
-enum { VERIFY_SPANS_LOGGED = 4, VERIFY_LINES_A_SPAN = 6 };
+/* (detail lines only for spans of a played frame, not the menus') */
+enum { VERIFY_SPANS_LOGGED = 4, VERIFY_LINES_A_SPAN = 6, VERIFY_DETAIL_CALLS = 200, VERIFY_WINDOW = 300 };
+
+/* how a register that differs from the live eye's differs. Not substituted: the replay has eye 0's value, the live
+eye another (a site that stores the register per eye and sends no eye 1 value). Eye 0's leftover: the same, but the
+live eye's value is the one eye 0 left at its end (the live eye read a register it did not store again; the replay
+starts from the span's start). Substituted wrong: the replay's value is neither eye 0's nor the live eye's */
+enum { CLASS_NOT_SUBSTITUTED, CLASS_LEFTOVER, CLASS_SUBSTITUTED_WRONG, CLASS_NO_PLAIN_CALL, CLASS_COUNT };
+static const char *const class_names[CLASS_COUNT] = { "not substituted", "eye 0's leftover", "substituted wrong",
+	"no plain call to compare" };
+
+#define FIELD(name) { #name, offsetof(struct gpu_draw, name), sizeof(((struct gpu_draw *)0)->name) },
+static const struct
+{
+	const char *name;
+	size_t offset, size;
+} draw_fields[] = {
+	FIELD(color_target) FIELD(depth_target) FIELD(vertex_shader) FIELD(pixel_shader) FIELD(viewport) FIELD(scissor)
+	FIELD(depth_stencil) FIELD(blend) FIELD(raster) FIELD(stages) FIELD(streams) FIELD(attributes)
+	FIELD(constant_values) FIELD(index_buffer) FIELD(index_offset) FIELD(primitive) FIELD(count) FIELD(base_vertex)
+};
+#undef FIELD
+enum { DRAW_FIELDS = sizeof(draw_fields) / sizeof(draw_fields[0]) };
+
+/* the differences over a window of verified spans, logged as one summary */
+static struct
+{
+	unsigned long spans, differing_spans, calls, differ, structure, uniforms, packet[DRAW_FIELDS];
+	unsigned long registers[CLASS_COUNT][GPU_CONSTANT_COUNT];
+	/* the first example of each: the live eye's value, then the replay's */
+	float example[CLASS_COUNT][GPU_CONSTANT_COUNT][2][4];
+} tally;
 
 static void log_put(struct call_log *log, const void *data, size_t size)
 {
@@ -1629,6 +1677,18 @@ static void log_put(struct call_log *log, const void *data, size_t size)
 	log->size += size;
 }
 
+static void plain_at_put(size_t at)
+{
+	if (plain_count == plain_capacity)
+	{
+		plain_capacity = plain_capacity ? plain_capacity * 2 : 4096;
+		plain_at = realloc(plain_at, plain_capacity * sizeof(*plain_at));
+		if (!plain_at)
+			abort();
+	}
+	plain_at[plain_count++] = at;
+}
+
 /* an entry: its operation and its bytes' size, then the bytes */
 static size_t entry_begin(struct call_log *log, uint32_t operation)
 {
@@ -1646,16 +1706,6 @@ static void entry_end(struct call_log *log, size_t at)
 	memcpy(log->bytes + at + 4, &size, 4);
 }
 
-static const char *draw_field(size_t offset)
-{
-#define FIELD(name) if (offset < offsetof(struct gpu_draw, name) + sizeof(((struct gpu_draw *)0)->name)) return #name;
-	FIELD(color_target) FIELD(depth_target) FIELD(vertex_shader) FIELD(pixel_shader) FIELD(viewport) FIELD(scissor)
-	FIELD(depth_stencil) FIELD(blend) FIELD(raster) FIELD(stages) FIELD(streams) FIELD(attributes)
-	FIELD(constant_values) FIELD(index_buffer) FIELD(index_offset) FIELD(primitive) FIELD(count) FIELD(base_vertex)
-#undef FIELD
-	return "?";
-}
-
 static size_t first_difference(const unsigned char *a, const unsigned char *b, size_t size)
 {
 	size_t at;
@@ -1666,26 +1716,106 @@ static size_t first_difference(const unsigned char *a, const unsigned char *b, s
 	return size;
 }
 
+/* the plain pass's call of the same index, if it is the same operation of the same size */
+static const unsigned char *plain_call(unsigned long index, uint32_t operation, uint32_t size)
+{
+	uint32_t plain_operation, plain_size;
+	const unsigned char *at;
+
+	if (index >= plain_count)
+		return NULL;
+	at = plain_calls.bytes + plain_at[index];
+	memcpy(&plain_operation, at, 4);
+	memcpy(&plain_size, at + 4, 4);
+	return plain_operation == operation && plain_size == size ? at : NULL;
+}
+
+static void verify_detail_line(const char *line)
+{
+	if (verify_detail && compare_differ <= VERIFY_LINES_A_SPAN && log_line)
+		log_line(line);
+}
+
+/* a draw that differs: tallied by packet field, register (and how it differs) and uniforms */
+static void verify_draw_differs(const unsigned char *live, const unsigned char *made, const unsigned char *plain)
+{
+	const size_t constants_offset = 8 + sizeof(struct gpu_draw);
+	const size_t uniforms_offset = constants_offset + sizeof(((struct gpu_constant_store *)0)->c);
+	char line[640];
+	int length, index, listed = 0;
+	size_t field;
+
+	length = snprintf(line, sizeof(line), "stereo replay verify: call %lu (draw):", compare_index);
+	for (field = 0; field < DRAW_FIELDS; field++)
+		if (memcmp(live + 8 + draw_fields[field].offset, made + 8 + draw_fields[field].offset, draw_fields[field].size))
+		{
+			tally.packet[field]++;
+			if (length < (int)sizeof(line) - 40)
+				length += snprintf(line + length, sizeof(line) - (size_t)length, " packet %s", draw_fields[field].name);
+		}
+	for (index = 0; index < GPU_CONSTANT_COUNT; index++)
+	{
+		const unsigned char *a = live + constants_offset + index * 16, *b = made + constants_offset + index * 16;
+		int class;
+
+		if (!memcmp(a, b, 16))
+			continue;
+		if (!plain)
+			class = CLASS_NO_PLAIN_CALL;
+		else if (memcmp(b, plain + constants_offset + index * 16, 16))
+			class = CLASS_SUBSTITUTED_WRONG;
+		else if (!memcmp(a, verify_end_store[index], 16))
+			class = CLASS_LEFTOVER;
+		else
+			class = CLASS_NOT_SUBSTITUTED;
+		if (!tally.registers[class][index]++)
+		{
+			memcpy(tally.example[class][index][0], a, 16);
+			memcpy(tally.example[class][index][1], b, 16);
+		}
+		if (length < (int)sizeof(line) - 80)
+		{
+			float x[4], y[4];
+
+			memcpy(x, a, 16);
+			memcpy(y, b, 16);
+			if (listed++ < 3)
+				length += snprintf(line + length, sizeof(line) - (size_t)length,
+					" c%d [%s] live %g,%g,%g,%g replay %g,%g,%g,%g", index - 96, class_names[class], x[0], x[1], x[2],
+					x[3], y[0], y[1], y[2], y[3]);
+			else
+				length += snprintf(line + length, sizeof(line) - (size_t)length, " c%d", index - 96);
+		}
+	}
+	if (memcmp(live + uniforms_offset, made + uniforms_offset, sizeof(struct gpu_uniforms)))
+	{
+		tally.uniforms++;
+		if (length < (int)sizeof(line) - 40)
+			snprintf(line + length, sizeof(line) - (size_t)length, " uniforms (byte %zu)",
+				first_difference(live + uniforms_offset, made + uniforms_offset, sizeof(struct gpu_uniforms)));
+	}
+	verify_detail_line(line);
+}
+
 /* the replay's call just written to replay_call, against the live call at compare_at */
 static void verify_compare(void)
 {
 	const unsigned char *live = live_calls.bytes + compare_at;
 	const unsigned char *made = replay_call.bytes;
 	uint32_t live_operation, live_size, operation, size;
-	char line[512];
+	char line[256];
 
 	memcpy(&operation, made, 4);
 	memcpy(&size, made + 4, 4);
 	compare_index++;
+	tally.calls++;
 	if (compare_at + 8 > live_calls.size)
 	{
 		compare_differ++;
-		if (verify_spans_logged < VERIFY_SPANS_LOGGED && compare_differ <= VERIFY_LINES_A_SPAN && log_line)
-		{
-			snprintf(line, sizeof(line), "stereo replay verify: call %lu (operation %u) has no live call", compare_index,
-				operation);
-			log_line(line);
-		}
+		tally.structure++;
+		snprintf(line, sizeof(line), "stereo replay verify: call %lu (operation %u) has no live call", compare_index,
+			operation);
+		verify_detail_line(line);
 		return;
 	}
 	memcpy(&live_operation, live, 4);
@@ -1694,57 +1824,85 @@ static void verify_compare(void)
 	if (live_operation == operation && live_size == size && !memcmp(live + 8, made + 8, size))
 		return;
 	compare_differ++;
-	if (verify_spans_logged >= VERIFY_SPANS_LOGGED || compare_differ > VERIFY_LINES_A_SPAN || !log_line)
-		return;
+	tally.differ++;
 	if (live_operation != operation || live_size != size)
+	{
+		tally.structure++;
 		snprintf(line, sizeof(line), "stereo replay verify: call %lu is operation %u (%u bytes), the live eye's %u (%u "
 			"bytes)", compare_index, operation, size, live_operation, live_size);
-	else if (operation == GPU_OPERATION_draw)
-	{
-		size_t at = first_difference(live + 8, made + 8, sizeof(struct gpu_draw));
-		const unsigned char *live_constants = live + 8 + sizeof(struct gpu_draw);
-		const unsigned char *made_constants = made + 8 + sizeof(struct gpu_draw);
-		int length, index, listed = 0;
-
-		length = snprintf(line, sizeof(line), "stereo replay verify: call %lu (draw):", compare_index);
-		if (at < sizeof(struct gpu_draw))
-			length += snprintf(line + length, sizeof(line) - (size_t)length, " packet %s (byte %zu)", draw_field(at), at);
-		for (index = 0; index < GPU_CONSTANT_COUNT && length < (int)sizeof(line) - 40; index++)
-			if (memcmp(live_constants + index * 16, made_constants + index * 16, 16))
-			{
-				float a[4], b[4];
-
-				memcpy(a, live_constants + index * 16, 16);
-				memcpy(b, made_constants + index * 16, 16);
-				if (listed++ < 4)
-					length += snprintf(line + length, sizeof(line) - (size_t)length, " c%d live %g,%g,%g,%g replay %g,%g,%g,%g",
-						index - 96, a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3]);
-				else
-				{
-					length += snprintf(line + length, sizeof(line) - (size_t)length, " c%d", index - 96);
-				}
-			}
-		at = first_difference(live + 8 + sizeof(struct gpu_draw) + sizeof(((struct gpu_constant_store *)0)->c),
-			made + 8 + sizeof(struct gpu_draw) + sizeof(((struct gpu_constant_store *)0)->c), sizeof(struct gpu_uniforms));
-		if (at < sizeof(struct gpu_uniforms))
-			snprintf(line + length, sizeof(line) - (size_t)length, " uniforms (byte %zu)", at);
+		verify_detail_line(line);
 	}
+	else if (operation == GPU_OPERATION_draw)
+		verify_draw_differs(live, made, plain_call(compare_index - 1, operation, size));
 	else
+	{
 		snprintf(line, sizeof(line), "stereo replay verify: call %lu (operation %u) differs at byte %zu", compare_index,
 			operation, first_difference(live + 8, made + 8, size));
+		verify_detail_line(line);
+	}
+}
+
+/* the window's summary: counts, then for each way a register differs the registers it most often does, with the
+first example */
+static void verify_summary(void)
+{
+	char line[1536];
+	int length, class;
+	size_t field;
+
+	if (!log_line)
+		return;
+	length = snprintf(line, sizeof(line), "stereo replay verify summary: %lu spans, %lu differ; %lu of %lu calls differ, "
+		"%lu in operation or size, %lu in uniforms; packet:", tally.spans, tally.differing_spans, tally.differ,
+		tally.calls, tally.structure, tally.uniforms);
+	for (field = 0; field < DRAW_FIELDS; field++)
+		if (tally.packet[field] && length < (int)sizeof(line) - 40)
+			length += snprintf(line + length, sizeof(line) - (size_t)length, " %s %lu", draw_fields[field].name,
+				tally.packet[field]);
 	log_line(line);
+	for (class = 0; class < CLASS_COUNT; class++)
+	{
+		unsigned long *counts = tally.registers[class];
+		int shown, index;
+
+		length = snprintf(line, sizeof(line), "stereo replay verify summary: %s:", class_names[class]);
+		for (shown = 0; shown < 10; shown++)
+		{
+			int best = -1;
+
+			for (index = 0; index < GPU_CONSTANT_COUNT; index++)
+				if (counts[index] && (best < 0 || counts[index] > counts[best]))
+					best = index;
+			if (best < 0 || length >= (int)sizeof(line) - 120)
+				break;
+			{
+				const float *x = tally.example[class][best][0], *y = tally.example[class][best][1];
+
+				length += snprintf(line + length, sizeof(line) - (size_t)length,
+					" c%d x%lu (live %g,%g,%g,%g replay %g,%g,%g,%g)", best - 96, counts[best], x[0], x[1], x[2], x[3],
+					y[0], y[1], y[2], y[3]);
+			}
+			counts[best] = 0;
+		}
+		if (shown)
+			log_line(line);
+	}
+	memset(&tally, 0, sizeof(tally));
 }
 
 /* a call as bytes: logged (the live eye, then made) or compared (the replay, not made) */
 #define VERIFY_BEGIN(name) \
-	struct call_log *log = verify_tee ? &live_calls : &replay_call; \
+	struct call_log *log = verify_phase == VERIFY_TEE ? &live_calls : \
+		verify_phase == VERIFY_PLAIN ? &plain_calls : &replay_call; \
 	size_t at; \
-	if (!verify_tee) \
+	if (verify_phase == VERIFY_COMPARE) \
 		replay_call.size = 0; \
+	else if (verify_phase == VERIFY_PLAIN) \
+		plain_at_put(plain_calls.size); \
 	at = entry_begin(log, GPU_OPERATION_##name)
 #define VERIFY_END() \
 	entry_end(log, at); \
-	if (!verify_tee) \
+	if (verify_phase == VERIFY_COMPARE) \
 		verify_compare()
 
 static uint32_t verify_draw(const struct gpu_draw *draw, const struct gpu_constant_store *constants,
@@ -1757,7 +1915,7 @@ static uint32_t verify_draw(const struct gpu_draw *draw, const struct gpu_consta
 	copy.serial = 0;
 	log_put(log, &copy, sizeof(copy));
 	VERIFY_END();
-	return verify_tee ? eye.live_next->draw(draw, constants, uniforms) : 1;
+	return verify_phase == VERIFY_TEE ? eye.live_next->draw(draw, constants, uniforms) : 1;
 }
 
 static void verify_clear(const struct gpu_clear *clear, const struct gpu_rect *rectangles, uint32_t count)
@@ -1766,7 +1924,7 @@ static void verify_clear(const struct gpu_clear *clear, const struct gpu_rect *r
 	log_put(log, clear, sizeof(*clear));
 	log_put(log, rectangles, count * sizeof(*rectangles));
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->clear(clear, rectangles, count);
 }
 
@@ -1774,7 +1932,7 @@ static void verify_visibility_begin(void)
 {
 	VERIFY_BEGIN(visibility_begin);
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->visibility_begin();
 }
 
@@ -1783,7 +1941,7 @@ static void verify_visibility_end(uint32_t slot)
 	VERIFY_BEGIN(visibility_end);
 	log_put(log, &slot, sizeof(slot));
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->visibility_end(slot);
 }
 
@@ -1793,7 +1951,7 @@ static void verify_texture_copy_level(gpu_texture source, gpu_texture destinatio
 	VERIFY_BEGIN(texture_copy_level);
 	log_put(log, words, sizeof(words));
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->texture_copy_level(source, destination, level);
 }
 
@@ -1803,7 +1961,7 @@ static void verify_texture_copy_rects(gpu_texture source, const struct gpu_textu
 	log_put(log, &source, sizeof(source));
 	log_put(log, copies, count * sizeof(*copies));
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->texture_copy_rects(source, copies, count);
 }
 
@@ -1813,7 +1971,7 @@ static void verify_texture_generate_mipmaps(gpu_texture texture, uint32_t base_l
 	VERIFY_BEGIN(texture_generate_mipmaps);
 	log_put(log, words, sizeof(words));
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->texture_generate_mipmaps(texture, base_level);
 }
 
@@ -1826,7 +1984,7 @@ static void verify_upscale(gpu_texture source, gpu_texture destination, const st
 	if (area)
 		log_put(log, area, sizeof(*area));
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->upscale(source, destination, area, anti_alias);
 }
 
@@ -1838,7 +1996,7 @@ static void verify_anti_alias(uint32_t method, gpu_texture target, const struct 
 	if (rect)
 		log_put(log, rect, sizeof(*rect));
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->anti_alias(method, target, rect);
 }
 
@@ -1849,14 +2007,14 @@ static uint32_t verify_soft_depth_prepare(gpu_texture depth, const float *values
 	if (values)
 		log_put(log, values, count * sizeof(*values));
 	VERIFY_END();
-	return verify_tee ? eye.live_next->soft_depth_prepare(depth, values, count) : 1;
+	return verify_phase == VERIFY_TEE ? eye.live_next->soft_depth_prepare(depth, values, count) : 1;
 }
 
 static void verify_soft_depth_finish(void)
 {
 	VERIFY_BEGIN(soft_depth_finish);
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->soft_depth_finish();
 }
 
@@ -1868,7 +2026,7 @@ static void verify_ssao_apply(gpu_texture color, gpu_texture depth, const float 
 	if (values)
 		log_put(log, values, count * sizeof(*values));
 	VERIFY_END();
-	if (verify_tee)
+	if (verify_phase == VERIFY_TEE)
 		eye.live_next->ssao_apply(color, depth, values, count);
 }
 #undef VERIFY_BEGIN
@@ -1895,37 +2053,66 @@ static void verify_install(struct gpu_backend *backend, const struct gpu_backend
 static struct gpu_backend verify_backend;
 
 /* the live eye's calls are logged; the span's replay is compared with them */
+static void verify_restart(int plain)
+{
+	memcpy(&eye.replay.held, &verify_held_start, sizeof(eye.replay.held));
+	memset(eye.overrides.active, 0, sizeof(eye.overrides.active));
+	eye.replay.skip = plain ? RECORD_EYE_1 : RECORD_EYE_0;
+	eye.plain = plain;
+	overrides_changed(&eye.replay);
+}
+
 static void verify_live_end(void)
 {
 	char line[256];
+	unsigned long live_count = 0;
+	size_t at;
 
 	primary.next = eye.live_next;
-	verify_tee = 0;
+	for (at = 0; at + 8 <= live_calls.size; live_count++)
+	{
+		uint32_t size;
+
+		memcpy(&size, live_calls.bytes + at + 4, 4);
+		at += 8 + size;
+	}
+	verify_detail = live_count >= VERIFY_DETAIL_CALLS && verify_spans_logged < VERIFY_SPANS_LOGGED;
+	/* (the plain pass first: the span as eye 0 made it, for telling how a register differs) */
+	verify_restart(1);
+	verify_phase = VERIFY_PLAIN;
+	plain_calls.size = 0;
+	plain_count = 0;
+	replay_span(&verify_backend);
+	verify_restart(0);
+	verify_phase = VERIFY_COMPARE;
 	compare_at = 0;
 	compare_index = compare_differ = 0;
 	replay_span(&verify_backend);
+	verify_phase = VERIFY_TEE;
 	if (compare_at != live_calls.size)
 	{
 		compare_differ++;
-		if (verify_spans_logged < VERIFY_SPANS_LOGGED && log_line)
-		{
-			snprintf(line, sizeof(line), "stereo replay verify: the live eye made more calls than the replay (%lu)",
-				compare_index);
-			log_line(line);
-		}
+		tally.structure++;
+		snprintf(line, sizeof(line), "stereo replay verify: the live eye made more calls than the replay (%lu, %lu)",
+			live_count, compare_index);
+		verify_detail_line(line);
 	}
 	atomic_fetch_add(&eye_verified, 1);
+	tally.spans++;
 	if (compare_differ)
 	{
 		atomic_fetch_add(&eye_verify_differ, compare_differ);
-		if (verify_spans_logged < VERIFY_SPANS_LOGGED && log_line)
+		tally.differing_spans++;
+		if (verify_detail && log_line)
 		{
-			snprintf(line, sizeof(line), "stereo replay verify: %lu of %lu calls differ from the live eye's",
-				compare_differ, compare_index);
+			snprintf(line, sizeof(line), "stereo replay verify: %lu of %lu calls differ from the live eye's (%lu live)",
+				compare_differ, compare_index, live_count);
 			log_line(line);
+			verify_spans_logged++;
 		}
-		verify_spans_logged++;
 	}
+	if (tally.spans >= VERIFY_WINDOW)
+		verify_summary();
 }
 
 /* a record that is not an operation, consumed by the queue's own consumer */
@@ -1941,6 +2128,8 @@ static void eye_record(uint32_t operation, const struct record *header)
 		eye.first_chunk = read_chunk;
 		eye.first_offset = read_offset + (uint32_t)sizeof(*header) + header->size;
 		memcpy(&eye.replay.held, &primary.held, sizeof(eye.replay.held));
+		if (header->size >= 4 && *(const uint32_t *)payload)
+			memcpy(&verify_held_start, &primary.held, sizeof(verify_held_start));
 		memset(eye.overrides.active, 0, sizeof(eye.overrides.active));
 		eye.replay.skip = RECORD_EYE_0;
 		eye.replay.map = &eye.map;
@@ -1967,7 +2156,8 @@ static void eye_record(uint32_t operation, const struct record *header)
 			eye.capturing = 1;
 			eye.live_next = primary.next;
 			live_calls.size = 0;
-			verify_tee = 1;
+			verify_phase = VERIFY_TEE;
+			memcpy(verify_end_store, primary.held.store.c, sizeof(verify_end_store));
 			verify_install(&verify_backend, primary.next);
 			primary.next = &verify_backend;
 			break;
