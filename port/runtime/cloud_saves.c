@@ -1,6 +1,7 @@
 /* The cloud save rules (cloud_saves.h). */
 #include "cloud_saves.h"
 #include "saved_game_image.h"
+#include "save_writer.h"
 #include "stock_maps.h"
 
 #include <ctype.h>
@@ -21,6 +22,14 @@
 #define VARIANT_FILE "blam.lst"
 #define SAVE_FILE_SIZE 512
 #define TEMP_PREFIX ".cloud-"
+
+/* every file this engine puts under the save root goes through the one writer of save files */
+static const struct save_writer_io *cloud_save_io = &save_writer_posix_io;
+
+void cloud_saves_set_save_io(const struct save_writer_io *io)
+{
+	cloud_save_io = io ? io : &save_writer_posix_io;
+}
 #define PAYLOAD_MAGIC "VISRSAV1"
 #define MAX_BASES (CLOUD_MAX_SLOTS * 3)
 #define MAX_NOTICES 16
@@ -1163,39 +1172,16 @@ int cloud_slot_of_path(const char *save_root, const char *path, char *slot)
 	return cloud_slot_id_valid(slot);
 }
 
-/* writes one file through a temporary name in the same directory */
+/* Writes one file through a temporary name in the same directory (a name this engine never lists, and
+   clears at the next launch), by the one writer of save files (save_writer.h): to the disk before it takes
+   the old file's place, so a launch cut short leaves the old file or the new one. */
 static int write_file(const char *directory, const char *name, const uint8_t *data, size_t size)
 {
 	char temp[1300], path[1300];
-	size_t used = 0;
-	int fd;
 
 	snprintf(temp, sizeof(temp), "%s/%s%s", directory, TEMP_PREFIX, name);
 	snprintf(path, sizeof(path), "%s/%s", directory, name);
-	fd = open(temp, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	if (fd < 0)
-		return 0;
-	while (used < size)
-	{
-		ssize_t put = write(fd, data + used, size - used);
-
-		if (put <= 0)
-			break;
-		used += (size_t)put;
-	}
-	if (used != size || fsync(fd) != 0)
-	{
-		close(fd);
-		unlink(temp);
-		return 0;
-	}
-	close(fd);
-	if (rename(temp, path) != 0)
-	{
-		unlink(temp);
-		return 0;
-	}
-	return 1;
+	return save_writer_replace_with_data(cloud_save_io, temp, path, data, size) == SAVE_WRITER_REPLACED;
 }
 
 static int make_slot_directory(const char *save_root, const char *id, char *directory, size_t size)

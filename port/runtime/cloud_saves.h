@@ -165,6 +165,11 @@ struct cloud_notice
 
 struct cloud_engine;
 
+/* Tests: the I/O the engine's writes of save files go through (save_writer.h); NULL for the real files.
+   Set before any engine runs. */
+struct save_writer_io;
+void cloud_saves_set_save_io(const struct save_writer_io *io);
+
 struct cloud_engine *cloud_engine_create(const struct cloud_config *config, const struct cloud_store *store);
 void cloud_engine_destroy(struct cloud_engine *engine);
 

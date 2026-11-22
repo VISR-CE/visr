@@ -235,6 +235,22 @@ static int finish(const struct save_writer_io *io, int file, const char *tempora
 	return SAVE_WRITER_REPLACED;
 }
 
+int save_writer_replace_with_data(const struct save_writer_io *io, const char *temporary_path, const char *target_path,
+	const uint8_t *data, size_t size)
+{
+	int file = io->open(io->context, temporary_path, 1);
+
+	if (file < 0)
+		return SAVE_WRITER_FAILED;
+	if (size && io->write_at(io->context, file, data, size, 0) != 0)
+	{
+		io->close(io->context, file);
+		io->remove(io->context, temporary_path);
+		return SAVE_WRITER_FAILED;
+	}
+	return finish(io, file, temporary_path, target_path, NULL, NULL);
+}
+
 int save_writer_replace_with_image(const struct save_writer_io *io, const char *temporary_path, const char *target_path,
 	const uint8_t *image, size_t size, int (*current)(void *context), void *context)
 {

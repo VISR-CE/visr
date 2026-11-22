@@ -47,6 +47,12 @@ int save_writer_temporary_path(const char *checkpoint_path, const char *target_p
 #define SAVE_WRITER_TEMPORARY_PREFIX "persist-"
 #define SAVE_WRITER_TEMPORARY_SUFFIX ".new"
 
+/* Any file under the save root (a profile, a game type, a saved game another device made): the same
+   sequence, with no rule about what the file holds. The temporary file is in the caller's care: it must be
+   a name on the target's volume that nothing reads. */
+int save_writer_replace_with_data(const struct save_writer_io *io, const char *temporary_path, const char *target_path,
+	const uint8_t *data, size_t size);
+
 /* Replaces target_path with the image, whose checksum field is computed here (the image is not changed).
    current, when given, is asked before the rename: 0 abandons the write. Returns SAVE_WRITER_REPLACED,
    SAVE_WRITER_ABANDONED, SAVE_WRITER_FAILED (an I/O error) or SAVE_WRITER_REFUSED (a saved game of another

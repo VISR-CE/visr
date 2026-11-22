@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <zlib.h>
 #include "cloud_saves.h"
+#include "save_writer.h"
 
 #define SLOT "C7201D882DAE"
 #define SLOT2 "0123456789AB"
@@ -470,9 +471,92 @@ static void remove_tree(const char *path)
 	nftw(path, remove_entry, 16, FTW_DEPTH | FTW_PHYS);
 }
 
+/* The class of bug: a save file written by anything but the game or the one writer of save files (a file
+   written in place can be cut short and destroy the one before it). The probe keeps what each file under
+   a device's u/UDATA held when the game (put_file) or the writer (a rename through the engine's I/O
+   table) last put it there; whenever a device ends, every file there must be one of those, byte for byte. */
+static struct { char path[512]; uint64_t hash; } ledger[512];
+static int ledger_count;
+static unsigned long ledger_writer_files, ledger_checked;
+
+static int file_hash(const char *path, uint64_t *hash)
+{
+	FILE *file = fopen(path, "rb");
+	int c;
+
+	if (!file)
+		return 0;
+	*hash = 1469598103934665603ull;
+	while ((c = fgetc(file)) != EOF)
+		*hash = (*hash ^ (uint64_t)c) * 1099511628211ull;
+	fclose(file);
+	return 1;
+}
+
+static void ledger_note(const char *path)
+{
+	int i;
+
+	if (!strstr(path, "/u/UDATA/"))
+		return;
+	for (i = 0; i < ledger_count && strcmp(ledger[i].path, path); i++)
+		;
+	if (i == ledger_count)
+	{
+		assert(ledger_count < (int)(sizeof(ledger) / sizeof(ledger[0])) && strlen(path) < sizeof(ledger[0].path));
+		strcpy(ledger[ledger_count++].path, path);
+	}
+	assert(file_hash(path, &ledger[i].hash));
+}
+
+static int ledger_rename(void *context, const char *from, const char *to)
+{
+	int result = save_writer_posix_io.rename(context, from, to);
+
+	if (result == 0)
+	{
+		ledger_writer_files++;
+		ledger_note(to);
+	}
+	return result;
+}
+
+static int ledger_check_entry(const char *path, const struct stat *st, int type, struct FTW *walk)
+{
+	uint64_t hash;
+	int i;
+
+	(void)st; (void)walk;
+	if (type != FTW_F || !strstr(path, "/u/UDATA/"))
+		return 0;
+	for (i = 0; i < ledger_count && strcmp(ledger[i].path, path); i++)
+		;
+	if (i == ledger_count || !file_hash(path, &hash) || hash != ledger[i].hash)
+	{
+		fprintf(stderr, "a save file neither the game nor the writer put there: %s\n", path);
+		abort();
+	}
+	ledger_checked++;
+	return 0;
+}
+
+static void ledger_check(const struct device *device)
+{
+	int i, kept = 0;
+	size_t length = strlen(device->root);
+
+	nftw(device->root, ledger_check_entry, 16, FTW_PHYS);
+	/* the device's files are about to go */
+	for (i = 0; i < ledger_count; i++)
+		if (strncmp(ledger[i].path, device->root, length) || ledger[i].path[length] != '/')
+			ledger[kept++] = ledger[i];
+	ledger_count = kept;
+}
+
 static void device_end(struct device *device)
 {
 	cloud_engine_destroy(device->engine);
+	ledger_check(device);
 	remove_tree(device->root);
 }
 
@@ -480,6 +564,7 @@ static void device_end(struct device *device)
 static void device_purge(struct device *device)
 {
 	cloud_engine_destroy(device->engine);
+	ledger_check(device);
 	remove_tree(device->root);
 	mkdir(device->root, 0755);
 	mkdir(device->save_root, 0755);
@@ -505,6 +590,7 @@ static void put_file(const struct device *device, const char *slot, const char *
 	file = fopen(path, "wb");
 	assert(file && fwrite(data, 1, size, file) == size);
 	fclose(file);
+	ledger_note(path);
 	times[0].tv_sec = times[1].tv_sec = (time_t)(clock_now - age);
 	times[0].tv_usec = times[1].tv_usec = 0;
 	assert(utimes(path, times) == 0);
@@ -1873,6 +1959,13 @@ int main(int argc, char **argv)
 
 	clock_now = (long long)time(NULL) + 5;
 	verbose = argc > 1 && !strcmp(argv[1], "--verbose");
+	{
+		static struct save_writer_io io;
+
+		io = save_writer_posix_io;
+		io.rename = ledger_rename;
+		cloud_saves_set_save_io(&io);
+	}
 	for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++)
 	{
 		if (argc > 2 && !strstr(tests[i].name, argv[2]))
@@ -1883,6 +1976,8 @@ int main(int argc, char **argv)
 		tests[i].run();
 	}
 	cloud_reset();
+	/* (a run of every test: the engine wrote save files, and every one of them was the writer's) */
+	assert(argc > 2 || (ledger_writer_files > 20 && ledger_checked > ledger_writer_files));
 	printf("cloud_saves_probe: ok (%zu tests)\n", sizeof(tests) / sizeof(tests[0]));
 	return 0;
 }

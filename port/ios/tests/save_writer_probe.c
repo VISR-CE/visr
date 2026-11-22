@@ -317,6 +317,60 @@ static void test_every_failure_and_every_death(void)
 	free(old); free(new); free(stamped_old);
 }
 
+/* any other save file (a profile, a game type): the same sequence, whatever the old and new sizes */
+static int file_is(const char *path, const char *text)
+{
+	size_t size;
+	uint8_t *data = get(path, &size);
+	int same = data && size == strlen(text) && !memcmp(data, text, size);
+
+	free(data);
+	return same;
+}
+
+static void test_any_file(void)
+{
+	static const char *const order[] = { "create ", "write ", "full_sync ", "close ", "rename ", "open_folder ", "sync_folder ",
+		"close " };
+	static const char old[] = "the old profile", new[] = "a new profile, longer than the old one";
+	int mode, total, index;
+
+	test_name = "any file: order";
+	reset();
+	put(target_path, (const uint8_t *)old, strlen(old));
+	CHECK(save_writer_replace_with_data(&recording, temporary_path, target_path, (const uint8_t *)new, strlen(new)) ==
+		SAVE_WRITER_REPLACED);
+	check_order(order, (int)(sizeof(order) / sizeof(*order)));
+	CHECK(!strstr(strstr(calls, "rename "), "full_sync ") && !strstr(calls, "remove "));
+	CHECK(file_is(target_path, new) && !exists(temporary_path));
+	total = call_count;
+	for (mode = 0; mode < 2; mode++)
+		for (index = 0; index < total; index++)
+		{
+			int result, is_new;
+
+			test_name = mode ? "any file: a death at every call" : "any file: a failure at every call";
+			reset();
+			unlink(temporary_path);
+			put(target_path, (const uint8_t *)old, strlen(old));
+			if (mode)
+				dead_at = index;
+			else
+				fail_at = index;
+			result = save_writer_replace_with_data(&recording, temporary_path, target_path, (const uint8_t *)new, strlen(new));
+			is_new = file_is(target_path, new);
+			CHECK(is_new != file_is(target_path, old));
+			CHECK(is_new == renamed);
+			if (!mode)
+				CHECK(result == (is_new ? SAVE_WRITER_REPLACED : SAVE_WRITER_FAILED));
+		}
+	/* a file that was not there, and an empty one */
+	reset();
+	unlink(target_path);
+	CHECK(save_writer_replace_with_data(&recording, temporary_path, target_path, (const uint8_t *)new, 0) == SAVE_WRITER_REPLACED);
+	CHECK(file_is(target_path, ""));
+}
+
 static void test_short_source_and_other_sizes(void)
 {
 	uint8_t *old = make_image(1), *new = make_image(2);
@@ -523,6 +577,7 @@ int main(void)
 	test_order_and_content();
 	test_every_failure_and_every_death();
 	test_short_source_and_other_sizes();
+	test_any_file();
 	test_clean();
 	test_worker();
 	CHECK(slot_checked > 500);
