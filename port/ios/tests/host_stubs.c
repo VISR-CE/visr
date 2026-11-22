@@ -645,6 +645,8 @@ __attribute__((weak)) void host_gpu_output_cap_commit(void)
 { }
 __attribute__((weak)) int host_gpu_output_cap_settled(void)
 { fprintf(stderr, "host_stubs: probe called host_gpu_output_cap_settled without defining it\n"); abort(); }
+__attribute__((weak)) double host_gpu_present_called(void)
+{ fprintf(stderr, "host_stubs: probe called host_gpu_present_called without defining it\n"); abort(); }
 __attribute__((weak)) void host_gpu_request_output_cap(int cap)
 { }
 __attribute__((weak)) void host_gpu_set_crt(int enabled)

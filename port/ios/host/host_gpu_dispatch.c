@@ -97,11 +97,22 @@ static double uptime_seconds(void)
 static void low_power_frame(void);
 static void low_power_scene(uint32_t scene_class);
 
+/* when the game thread last called its present (uptime_seconds, CACurrentMediaTime's clock): set before the present
+is recorded, so the encode thread reads this frame's when it makes that present */
+static double present_called;
+
+double host_gpu_present_called(void)
+{
+	return present_called;
+}
+
 static uint32_t present_wrapped(gpu_texture back_buffer)
 {
 	static double last_returned;
 	uint32_t next_frame_due;
 	double called = uptime_seconds();
+
+	present_called = called;
 
 	/* (the frame's work ends here: a background hold mustn't count against its deadline) */
 	if (metal_backend)

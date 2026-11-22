@@ -540,6 +540,23 @@ static inline BOOL gpu_metal_gpu_spans(uint64_t *used, uint64_t *refused)
 With the encode thread pacing_schedule runs while the game thread waits at the present barrier, and the game thread
 adds to pacing_waited only outside it, so no two threads touch one of them at once. */
 static CFTimeInterval pacing_waited, display_waited, slot_waited;
+/* the frame's slot wait's start and end (CACurrentMediaTime; 0: none this frame) */
+static CFTimeInterval slot_wait_started, slot_wait_ended;
+
+/* the part of the frame's slot wait that was not the frame's work. With the encode thread only the part after the game
+thread reached its present (host_gpu_present_called): before that the game thread worked on; after it, the game thread
+waited at the present barrier for the slot, as it waits for the display */
+static CFTimeInterval slot_wait_counted(void)
+{
+	CFTimeInterval from;
+
+	if (!host_gpu_encode_thread_on())
+		return slot_waited;
+	if (slot_wait_ended <= 0.0)
+		return 0.0;
+	from = slot_wait_started > host_gpu_present_called() ? slot_wait_started : host_gpu_present_called();
+	return slot_wait_ended > from ? slot_wait_ended - from : 0.0;
+}
 
 #if TARGET_OS_VISION
 /* the presenters' command buffers (host_stereo.m, host_theater.m): their GPU
@@ -716,7 +733,9 @@ static void frame_begin(void)
 		return;
 	waited = CACurrentMediaTime();
 	dispatch_semaphore_wait(frame_slots, DISPATCH_TIME_FOREVER);
-	slot_waited += CACurrentMediaTime() - waited;
+	slot_wait_started = waited;
+	slot_wait_ended = CACurrentMediaTime();
+	slot_waited += slot_wait_ended - waited;
 	transient_reset(&encode_streams[frame_slot]);
 	transient_reset(&snapshots[frame_slot]);
 	frame_upscale_paths = 0;
@@ -6197,15 +6216,15 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	CFTimeInterval now = CACurrentMediaTime(), period, hold, interval;
 	long context_refreshes;
 	uint64_t gpu_total = atomic_load(&pacing_gpu_nanoseconds);
-	double cpu, gpu, simulation_cpu, render_cpu, translation_cpu, waited;
+	double cpu, gpu, simulation_cpu, render_cpu, translation_cpu, waited, slot;
 	long lower, up;
 	int ticks;
 	BOOL gpu_measured;
 
 	*next_frame_due = 0;
 	host_frame_cpu_split(&simulation_cpu, &render_cpu, &translation_cpu, &ticks);
-	/* (with the encode thread a slot wait overlapped the game's work) */
-	waited = pacing_waited + display_waited + (host_gpu_encode_thread_on() ? 0.0 : slot_waited);
+	slot = slot_wait_counted();
+	waited = pacing_waited + display_waited + slot;
 	cpu = pacing.work_started > 0.0 ? now - pacing.work_started - waited : 0.0;
 	/* (shadow mode's CPU input also leaves out readback and visibility waits;
 	pacing, the benchmark and reports without it keep the plain figure) */
@@ -6222,9 +6241,9 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	gpu_measured = gpu_metal_gpu_spans(&pacing.gpu_used, &pacing.gpu_refused);
 	host_perf_hooks_pacing(waited > 0.0 ? (uint64_t)(waited * 1e6) : 0);
 	/* (the row's display wait is inside the frame: not the late start, which is before the controller read; with the
-	encode thread only the present's, the part of the barrier that is not encoding) */
-	host_frame_timeline_waits(display_waited + (host_gpu_encode_thread_on() ? 0.0 : slot_waited), -1.0);
-	pacing_waited = display_waited = slot_waited = 0.0;
+	encode thread, the part of the barrier that is not encoding) */
+	host_frame_timeline_waits(display_waited + slot, -1.0);
+	pacing_waited = display_waited = slot_waited = slot_wait_started = slot_wait_ended = 0.0;
 	interval = pacing.last_present > 0.0 ? now - pacing.last_present : 0.0;
 	pacing.last_present = now;
 	os_unfair_lock_lock(&pacing_lock);
@@ -9282,7 +9301,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 		/* (a frame not shown isn't scheduled, so its waits aren't taken up
 		there: they mustn't count against the next frame that is) */
 		if (unsynced && !drawable)
-			pacing_waited = display_waited = slot_waited = 0.0;
+			pacing_waited = display_waited = slot_waited = slot_wait_started = slot_wait_ended = 0.0;
 		if (drawable)
 			target = drawable.texture;
 		/* nil in the background (or held, or unsynchronized with none ready):
