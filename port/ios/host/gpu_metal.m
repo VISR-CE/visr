@@ -9523,7 +9523,7 @@ static struct
 	uint64_t gpu_used, gpu_refused;
 	unsigned long timed, frames, late;
 	/* the cadence line: whether each frame ran a tick, its tick and render seconds (the render: its CPU time less
-	the tick's), how long it waited for the Compositor, and its optimal input time's distance to the presentation */
+	the tick's), how long it waited for the Compositor, and the distance from its opening (its poses) to the presentation */
 	char ticked[PACING_TIMED_FRAMES];
 	double tick_times[PACING_TIMED_FRAMES], render_times[PACING_TIMED_FRAMES], waits[PACING_TIMED_FRAMES];
 	double pose_leads[PACING_TIMED_FRAMES];
@@ -9642,7 +9642,7 @@ static void stereo_pacing_count(int view, id<MTLTexture> picture)
 		stereo_pacing.gpu_times[stereo_pacing.timed] = gpu;
 		{
 			double tick = ticks > 0 && reading.simulation > 0.0 ? reading.simulation : 0.0;
-			CFTimeInterval input = host_theater_optimal_input_time();
+			CFTimeInterval input = host_theater_opened_time();
 
 			stereo_pacing.ticked[stereo_pacing.timed] = ticks > 0;
 			stereo_pacing.tick_times[stereo_pacing.timed] = tick;

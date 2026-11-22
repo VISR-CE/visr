@@ -75,7 +75,8 @@ static int frame_waited_in_render;
 static CFTimeInterval open_presentation;
 /* when the Compositor wants the open frame submitted by (CACurrentMediaTime's clock) */
 static CFTimeInterval open_deadline;
-/* the open frame's optimal input time, when its poses were read (the same clock) */
+/* when the open frame's wait ended and it opened, which is when its poses are read (the same clock): measured,
+not the predicted optimal input time, so a frame opened late shows in the lead */
 static CFTimeInterval open_input;
 
 /* forgets the open frame without ending it: the space closed under it */
@@ -850,7 +851,7 @@ int host_theater_frame_begin(int fresh)
 		frame_waited_in_render = fresh;
 		open_presentation = cp_time_to_cf_time_interval(cp_frame_timing_get_presentation_time(timing));
 		open_deadline = cp_time_to_cf_time_interval(cp_frame_timing_get_rendering_deadline(timing));
-		open_input = cp_time_to_cf_time_interval(cp_frame_timing_get_optimal_input_time(timing));
+		open_input = CACurrentMediaTime();
 		cp_frame_start_submission(frame);
 		cp_drawable_array_t drawables = cp_frame_query_drawables(frame);
 		size_t count = cp_drawable_array_get_count(drawables);
@@ -943,7 +944,7 @@ double host_theater_rendering_deadline(void)
 	return open_frame ? open_deadline : 0.0;
 }
 
-double host_theater_optimal_input_time(void)
+double host_theater_opened_time(void)
 {
 	return open_frame ? open_input : 0.0;
 }

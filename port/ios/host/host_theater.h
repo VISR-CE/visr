@@ -81,8 +81,8 @@ double host_theater_take_waited(int *in_render);
 double host_theater_presentation_time(void);
 double host_theater_last_presentation_time(void);
 double host_theater_rendering_deadline(void);
-/* the open frame's optimal input time, when its poses are read (the same clock; 0 without a frame) */
-double host_theater_optimal_input_time(void);
+/* when the open frame's wait ended and it opened, which is when its poses are read (the same clock; 0 without a frame) */
+double host_theater_opened_time(void);
 int host_theater_frame_repeat(void);
 /* the screen's pose in the room for the open frame's drawable (placed first
 if a present hasn't placed it yet) and its half width and half height in

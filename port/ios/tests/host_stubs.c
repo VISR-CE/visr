@@ -1432,8 +1432,8 @@ __attribute__((weak)) void host_theater_open(void)
 __attribute__((weak)) void host_theater_open_failed(void)
 { }
 #if (defined(__OBJC__) && !defined(__swift__))
-__attribute__((weak)) double host_theater_optimal_input_time(void)
-{ fprintf(stderr, "host_stubs: probe called host_theater_optimal_input_time without defining it\n"); abort(); }
+__attribute__((weak)) double host_theater_opened_time(void)
+{ fprintf(stderr, "host_stubs: probe called host_theater_opened_time without defining it\n"); abort(); }
 #endif
 __attribute__((weak)) void host_theater_ornament(void *controller, int shown)
 { }
