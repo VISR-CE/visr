@@ -15,7 +15,7 @@ operation without its pieces does not compile.
 
 #include "gpu_queue.h"
 #include "gpu_operation.h"
-#include <mach/mach_time.h>
+#include <time.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -125,20 +125,28 @@ enum { STATISTICS_FRAMES = 300 };
 static struct
 {
 	unsigned long frames;
-	uint64_t records, bytes, draws, draw_bytes, registers, full_constants, uniforms, consumed_ticks;
+	uint64_t records, bytes, draws, draw_bytes, registers, full_constants, uniforms, consumed_ns;
 } statistics;
+
+/* (debug.encode_thread_timing's clock: C11's timespec_get, so the queue and its probe build off Apple platforms too,
+where strict C11 does not declare clock_gettime) */
+static uint64_t clock_ns(void)
+{
+	struct timespec now;
+
+	timespec_get(&now, TIME_UTC);
+	return (uint64_t)now.tv_sec * 1000000000u + (uint64_t)now.tv_nsec;
+}
 
 static void statistics_frame(void)
 {
 	char line[512];
 	double frames, milliseconds;
-	mach_timebase_info_data_t base;
 
 	if (++statistics.frames < STATISTICS_FRAMES)
 		return;
 	frames = (double)statistics.frames;
-	mach_timebase_info(&base);
-	milliseconds = (double)statistics.consumed_ticks * base.numer / base.denom / 1e6 / frames;
+	milliseconds = (double)statistics.consumed_ns / 1e6 / frames;
 	snprintf(line, sizeof(line),
 		"encode queue: %lu frames, a frame: %.0f records, %.0f KiB, %.0f draws in %.0f KiB, %.0f registers, "
 		"%.1f whole constant sets, %.0f uniform sets, backend %.3f ms%s",
@@ -1012,10 +1020,10 @@ static void consume(void)
 		/* (a present's time is mostly the pacer's wait for the display, not encoding: left out) */
 		if (timing && header->operation != GPU_OPERATION_present && header->operation != GPU_OPERATION_present_stereo)
 		{
-			uint64_t started = mach_absolute_time();
+			uint64_t started = clock_ns();
 
 			consume_record(header->operation, (const unsigned char *)(header + 1));
-			statistics.consumed_ticks += mach_absolute_time() - started;
+			statistics.consumed_ns += clock_ns() - started;
 		}
 		else
 			consume_record(header->operation, (const unsigned char *)(header + 1));
