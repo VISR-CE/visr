@@ -8977,10 +8977,9 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 			halo_stereo_reticle(present.reticle);
 			stereo_reticle_aimed(&present);
 			halo_stereo_hud_tangents(present.hud_tangents);
-			/* the frame's lead was taken from the Compositor when it opened
-			(halo_stereo_frame_begin, render_interpolation_presentation_due):
-			the flat schedule's reset here would clear its average each frame */
-			gpu_present_stereo(&present);
+			/* (a frame shown by the Compositor has its lead from there, and the
+			schedule ignores this; one that fell through to the window does not) */
+			render_interpolation_next_frame_due(gpu_present_stereo(&present));
 		}
 		else
 			render_interpolation_next_frame_due(gpu_present(back_buffer->target.texture));

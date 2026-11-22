@@ -8,6 +8,7 @@ through synthetic schedules (the headset's uneven 2,1 cadence, a flat 60 Hz with
 steady cadences, the space closing) and checks what a frame shows against when it is seen.
 """
 from pathlib import Path
+import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -122,7 +123,7 @@ static void steady_stereo(double period)
 
 /* flat 60 Hz: each present says when the next frame shows, 30 ms after its clock read; tick
    frames spend 12 ms in the tick before either call, which must not shorten their lead */
-static void flat_slow_ticks(void)
+static void flat_slow_ticks(int eyes_fell_through)
 {
 	int n;
 	double worst = 0.0;
@@ -130,6 +131,10 @@ static void flat_slow_ticks(void)
 	render_interpolation_presentation_due(0);
 	render_interpolation_next_frame_due(0);
 	for (n = 0; n < 400; n++) {
+		/* a two-eye frame without the Compositor (side by side, or the headset not ready) reports no
+		presentation when it begins and is shown, and scheduled, by the window's present */
+		if (eyes_fell_through)
+			render_interpolation_presentation_due(0);
 		double read = 1.0 + n * (1000.0 / 60.0);
 		double tick_start = floor(read / TICK_MS) * TICK_MS;
 		int ticked = floor((read - 1000.0 / 60.0) / TICK_MS) != floor(read / TICK_MS);
@@ -151,7 +156,8 @@ static void flat_slow_ticks(void)
 		now_ms = read + 14.0;
 		render_interpolation_next_frame_due((unsigned long)((read + 1000.0 / 60.0 + 30.0 - now_ms) * 1000.0));
 	}
-	check(worst < 0.05, "flat: a tick frame's lead read short", worst);
+	check(worst < 0.05, eyes_fell_through ? "two eyes in the window: the window's schedule was dropped"
+		: "flat: a tick frame's lead read short", worst);
 }
 
 /* the space closing: no Compositor frame, no stereo correction left behind */
@@ -216,7 +222,9 @@ int main(void)
 	uneven_stereo();
 	steady_stereo(1000.0 / 90.0);
 	steady_stereo(1000.0 / 45.0);
-	flat_slow_ticks();
+	flat_slow_ticks(0);
+	uneven_stereo();
+	flat_slow_ticks(1);
 	space_closes();
 	stereo_stops_silently();
 	setting_off();
@@ -253,3 +261,13 @@ def test_stereo_frame_reads_the_cpu_split_once():
     assert body.count("host_frame_cpu_split(") == 1
     assert "stereo_pacing.ticked[stereo_pacing.timed] = ticks > 0" in body
     assert "reading.simulation > 0.0 ? reading.simulation" in body
+
+
+def test_every_window_present_schedules_the_next_frame():
+    """A present that can show in the window hands its schedule on: `gpu_present_stereo` falls through to the
+    window's present when the Compositor is not there, and the schedule ignores it while stereo leads."""
+    source = (ROOT / "port/linux/src/d3d8_device.c").read_text()
+    presents = re.findall(r"^[^\n/]*\bgpu_present(?:_stereo)?\([^\n]*$", source, re.M)
+    assert presents, "no presents found in d3d8_device.c"
+    for line in presents:
+        assert "render_interpolation_next_frame_due(" in line, f"a present's schedule is dropped: {line.strip()}"

@@ -555,6 +555,11 @@ void render_interpolation_clock_read(void)
 
 void render_interpolation_next_frame_due(unsigned long microseconds)
 {
+	/* a frame that opened a Compositor frame has its lead from there (render_interpolation_presentation_due); a
+	present's schedule is the window's, so only a frame that showed in the window (no eyes, a two-eye frame that
+	fell through to it, or the first after the eyes stopped without saying so) moves it */
+	if (stereo_leading && stereo_presentation_frame == loop_frame)
+		return;
 	if (microseconds == 0 || platform_fixed_timestep())
 	{
 		next_frame_due_milliseconds = 0.0;
