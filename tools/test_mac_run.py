@@ -1,6 +1,7 @@
 """Tests for the Mac runner's pure helpers (tools/mac_run.py)."""
 
 import argparse
+import json
 import os
 import plistlib
 import shutil
@@ -1539,3 +1540,37 @@ def test_the_appkit_runner_seeds_from_the_active_family_s_catalyst_folder(tmp_pa
 ])
 def test_toml_value_quotes_bare_strings(raw, expected):
     assert mac_run.toml_value(raw) == expected
+
+
+def _benchmark_out(tmp_path, report=None, runs=0):
+    folder = tmp_path / "benchmark"
+    folder.mkdir()
+    if report is not None:
+        (folder / "report.json").write_text(json.dumps(report))
+    for index in range(runs):
+        (folder / f"run-{index:02d}.json").write_text("{}")
+    return tmp_path
+
+
+def test_a_refused_benchmark_catalog_fails_the_run_with_its_reason(tmp_path):
+    out = _benchmark_out(tmp_path, {"benchmark_catalog": {
+        "status": "unavailable", "note": "The signed benchmark catalog is missing, malformed, or noncanonical."}})
+    problem = mac_run.benchmark_suite_problem(out)
+    assert "refused the benchmark catalog" in problem and "noncanonical" in problem
+    args = argparse.Namespace(benchmark_suite="cost:mp64-bloodgulch-1029", out=out)
+    with pytest.raises(SystemExit) as exit:
+        mac_run.benchmark_suite_check(args)
+    assert "noncanonical" in str(exit.value)
+
+
+def test_a_benchmark_suite_without_runs_fails(tmp_path):
+    assert "made no runs" in mac_run.benchmark_suite_problem(
+        _benchmark_out(tmp_path, {"benchmark_catalog": {"status": "available"}}))
+    assert "wrote no report" in mac_run.benchmark_suite_problem(tmp_path / "missing")
+
+
+def test_a_benchmark_suite_with_runs_passes(tmp_path):
+    out = _benchmark_out(tmp_path, {"benchmark_catalog": {"status": "available"}}, runs=1)
+    assert mac_run.benchmark_suite_problem(out) is None
+    mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite="cost:x", out=out))
+    mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite=None, out=tmp_path / "none"))

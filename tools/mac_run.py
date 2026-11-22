@@ -1099,6 +1099,36 @@ def collect(documents, out):
                 shutil.copy2(file, out / "benchmark" / file.name)
 
 
+def benchmark_suite_problem(out):
+    """why a --benchmark-suite run measured nothing, or None. The game ends a suite whose catalog it refused (a
+    local benchmark-catalog.json that is not canonical JSON, a duplicate case order) or whose cases matched nothing
+    as it ends one that ran, with game exit 0, so the runner checks the report and the runs itself"""
+    folder = Path(out) / "benchmark"
+    report = folder / "report.json"
+    runs = sorted(folder.glob("run-*.json")) if folder.is_dir() else []
+    catalog = {}
+    if report.is_file():
+        try:
+            catalog = json.loads(report.read_text(errors="replace")).get("benchmark_catalog") or {}
+        except ValueError:
+            return f"the benchmark report {report} is not JSON"
+    if catalog.get("status") == "unavailable":
+        note = catalog.get("note") or "no reason given"
+        return f"the game refused the benchmark catalog or found none of the suite's cases in it: {note}"
+    if not runs:
+        return "the benchmark suite made no runs" + ("" if report.is_file() else " and wrote no report")
+    return None
+
+
+def benchmark_suite_check(args):
+    """exits with the reason when a --benchmark-suite run measured nothing"""
+    if not getattr(args, "benchmark_suite", None):
+        return
+    problem = benchmark_suite_problem(args.out)
+    if problem:
+        sys.exit(f"{problem}; logs are in {args.out}")
+
+
 def simulator_pattern(udid):
     """a pgrep -f pattern matching the game's executable in simulator udid"""
     return f"CoreSimulator/Devices/{udid}/.*/VISR.app/VISR"
@@ -1140,6 +1170,7 @@ def run_simulator(args):
     collect(documents, args.out)
     if not finished:
         sys.exit(f"the game was still running {limit} seconds after launch and was stopped; logs are in {args.out}")
+    benchmark_suite_check(args)
     print(f"results: {args.out}")
 
 
@@ -1602,6 +1633,7 @@ def run_native(args):
         reports = collect_crash_reports(args.app, launched, args.out)
         crashed = f"; crash report: {', '.join(str(path) for path in reports)}" if reports else ""
         sys.exit(f"the game did not exit cleanly (game exit {status}); logs are in {args.out}{crashed}")
+    benchmark_suite_check(args)
     print(f"results: {args.out}")
 
 
@@ -1651,6 +1683,7 @@ def run(args):
     if not finished:
         sys.exit(f"{TARGET} was still running {limit} seconds after launch and was killed; "
                  f"logs are in {args.out}")
+    benchmark_suite_check(args)
     print(f"results: {args.out}")
 
 
