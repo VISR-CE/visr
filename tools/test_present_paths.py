@@ -22,6 +22,7 @@ STEPS = (
     "data_updates_presented();",
     "low_power_frame();",
     "host_thread_cpu_frame();",
+    "host_main_sync_log_frame();",
     "host_frame_counter_show(presented++);",
 )
 

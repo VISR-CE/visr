@@ -32,6 +32,16 @@ static void *worker(void *context) {
     int sync_expected = 3;
     host_main_sync_f(&sync_expected, advance);
     assert(atomic_load(&step) == 4);
+    /* the two sync calls blocked this thread on main, and each wait is counted with its time (debug.main_sync_log) */
+    struct host_main_sync_waits waits;
+    host_main_sync_take(&waits);
+    assert(waits.count == 2);
+    host_main_sync(^{ usleep(5000); });
+    host_main_sync_take(&waits);
+    assert(waits.count == 1);
+    assert(waits.nanoseconds >= 5000000 && waits.longest_nanoseconds == waits.nanoseconds);
+    host_main_sync_take(&waits);
+    assert(waits.count == 0 && waits.nanoseconds == 0);
     /* Waits made outside a no-wait zone are not counted; inside one (nested too) every wait is,
        and asyncs are not. */
     assert(host_main_forbidden_waits() == 0);
@@ -74,6 +84,10 @@ int main(void) {
     host_main_sync_f(NULL, nothing);
     host_main_wait_allow();
     assert(host_main_forbidden_waits() == 0);
+    /* calls made on main run inline: nothing waited */
+    struct host_main_sync_waits main_waits;
+    host_main_sync_take(&main_waits);
+    assert(main_waits.count == 0 && main_waits.nanoseconds == 0);
 
     atomic_store(&step, 0);
     submitted = dispatch_semaphore_create(0);
@@ -91,6 +105,6 @@ int main(void) {
     assert(host_main_forbidden_waits() == 3);
     dispatch_release(submitted);
     alarm(0);
-    puts("PASS: main-thread calls run inline in order; worker calls dispatch to main and sync waits; waits inside a no-wait zone are counted");
+    puts("PASS: main-thread calls run inline in order; worker calls dispatch to main and sync waits, each counted with its time; waits inside a no-wait zone are counted");
     return 0;
 }

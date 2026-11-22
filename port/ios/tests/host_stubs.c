@@ -49,6 +49,7 @@
 #include "host_log_file.h"
 #include "host_log_send.h"
 #include "host_low_power.h"
+#include "host_main_sync_log.h"
 #include "host_main_thread.h"
 #include "host_map_identity.h"
 #include "host_natpmp.h"
@@ -813,6 +814,12 @@ __attribute__((weak)) void host_main_sync(dispatch_block_t block)
 { }
 #endif
 __attribute__((weak)) void host_main_sync_f(void *context, void (*fn)(void *))
+{ }
+__attribute__((weak)) void host_main_sync_log_frame(void)
+{ }
+__attribute__((weak)) void host_main_sync_log_install(void)
+{ }
+__attribute__((weak)) void host_main_sync_take(struct host_main_sync_waits *waits)
 { }
 __attribute__((weak)) void host_main_wait_allow(void)
 { }

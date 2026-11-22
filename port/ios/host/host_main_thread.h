@@ -4,6 +4,7 @@
    host_main_sync_f. */
 #pragma once
 #include <dispatch/dispatch.h>
+#include <stdint.h>
 
 int host_on_main_thread(void);
 #ifdef __BLOCKS__
@@ -22,3 +23,13 @@ void host_main_sync_f(void *context, void (*fn)(void *));
 void host_main_wait_forbid(void);
 void host_main_wait_allow(void);
 unsigned long host_main_forbidden_waits(void);
+
+/* the time a thread spent blocked in host_main_sync and host_main_sync_f calls made off the main thread (calls made on
+main run inline and do not count) */
+struct host_main_sync_waits {
+    uint64_t count;
+    uint64_t nanoseconds;
+    uint64_t longest_nanoseconds;
+};
+/* the calling thread's waits since its last take, and starts it again from zero */
+void host_main_sync_take(struct host_main_sync_waits *waits);

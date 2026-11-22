@@ -22,6 +22,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "gpu_queue.h"
 #include "gpu_owner_check.h"
 #include "host_thread_cpu.h"
+#include "host_main_sync_log.h"
 #include "host_low_power.h"
 #include "low_power.h"
 #if HALO_RENDER_VALIDATION
@@ -171,6 +172,7 @@ static uint32_t present_frame(uint32_t (*make)(const void *frame), const void *f
 		last_returned = returned;
 	}
 	host_thread_cpu_frame();
+	host_main_sync_log_frame();
 	if (frame_counter)
 		host_frame_counter_show(presented++);
 	return next_frame_due;
@@ -830,6 +832,7 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 		host_frame_counter_start((flags & GPU_INITIALIZE_FIXED_TIMESTEP) != 0, (flags & GPU_INITIALIZE_METAL) != 0);
 	host_lifecycle_install();
 	host_thread_cpu_install();
+	host_main_sync_log_install();
 	frame_rate_initialize(flags);
 	/* (before the backend starts its pacing: the display link asks for Low Power Mode's rate from the first frame) */
 	low_power_install();
