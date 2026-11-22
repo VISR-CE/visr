@@ -108,7 +108,24 @@ double host_gpu_present_called(void)
 	return encode_thread_on ? present_called : -1.0;
 }
 
-static uint32_t present_wrapped(gpu_texture back_buffer)
+/* the backend's present for each kind of frame, made between present_frame's steps (frame: what the wrapper was
+handed) */
+static uint32_t make_present(const void *frame)
+{
+	return wrapped_backend->present(*(const gpu_texture *)frame);
+}
+
+static uint32_t make_present_stereo(const void *frame)
+{
+	return wrapped_backend->present_stereo(frame);
+}
+
+/* Every present path, mono or stereo, goes through here, so each frame gets the same steps around the backend's
+present whatever its kind (tools/test_present_paths.py): when the game thread called it (the encode thread's slot
+wait), the end of the frame's deadline interval, the background hold (with the encode thread, after the queue's
+drain), the frame's stream end, and after it the timeline row's seal (on the game thread after the backend's present
+returned: the timeline spec's decision note) and the per-frame bookkeeping. */
+static uint32_t present_frame(uint32_t (*make)(const void *frame), const void *frame)
 {
 	static double last_returned;
 	uint32_t next_frame_due;
@@ -127,9 +144,7 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	/* (the frame's streams end before its present is written, in every queue mode, so stream handles are the same
 	with the queue off and on) */
 	wrapped_backend->stream_frame_end();
-	next_frame_due = wrapped_backend->present(back_buffer);
-	/* (the frame timeline row is sealed here, on the game thread after the backend's present returned: the timeline
-	spec's decision note) */
+	next_frame_due = make(frame);
 	if (encode_queue_on)
 		host_frame_timeline_barrier(gpu_queue_barrier_waited());
 	host_frame_timeline_seal();
@@ -156,6 +171,11 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	return next_frame_due;
 }
 
+static uint32_t present_wrapped(gpu_texture back_buffer)
+{
+	return present_frame(make_present, &back_buffer);
+}
+
 /* the game reads the controllers next (halo_frame_start has returned, late start included): the frame timeline's
 controller read */
 static void frame_start_wrapped(void)
@@ -167,20 +187,7 @@ static void frame_start_wrapped(void)
 /* a stereo frame is a Present too */
 static uint32_t present_stereo_wrapped(const struct gpu_stereo_present *present)
 {
-	uint32_t next_frame_due;
-
-	host_lifecycle_hold(encode_queue_on ? gpu_queue_drain : NULL);
-	host_perf_hooks_context(1, metal_backend ? 1 : 2);
-	host_perf_hooks_present_begin();
-	wrapped_backend->stream_frame_end();
-	next_frame_due = wrapped_backend->present_stereo(present);
-	host_perf_hooks_present_end();
-	data_updates_presented();
-	low_power_frame();
-	host_thread_cpu_frame();
-	if (frame_counter)
-		host_frame_counter_show(presented++);
-	return next_frame_due;
+	return present_frame(make_present_stereo, present);
 }
 
 /* the scene class's frame rate is the backend's to hold; Low Power Mode's cap follows the class at once (menus keep
