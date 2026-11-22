@@ -36,7 +36,7 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.hud_resolution", PORT_PROFILE_LEVEL},
 		{"display.frame_pacing", PORT_PROFILE_SESSION}, /* session clock setup */
 		{"display.frame_rate", PORT_PROFILE_HOT},
-		{"display.frames_in_flight_at_30", PORT_PROFILE_HOT}, /* the pacer reads it each frame */
+		{"display.frames_in_flight_at_30", PORT_PROFILE_SESSION}, /* read when the frame pacer starts */
 		{"display.async_shaders", PORT_PROFILE_SESSION},
 		{"display.interpolation", PORT_PROFILE_LEVEL}, /* interpolation touches tick presentation */
 		{"input.aim_loss_grace", PORT_PROFILE_LOCAL_INPUT},

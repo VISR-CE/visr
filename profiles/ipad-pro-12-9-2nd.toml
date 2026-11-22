@@ -37,7 +37,7 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 
 [evidence."display.frames_in_flight_at_30"]
 basis = "measured"
-why = "Under the 30 frame cap, one frame in flight cut the time from the controller read to the screen from 99.4 to 66.0 ms at 16 players (p95 103.5 to 69.9 ms) with 30.1 frames a second shown in both. At 64 players it cut 99.3 to 66.0 ms (p95 106.7 to 75.9 ms) while shown frames were 28.3 to 28.7 a second with one in flight or two in the arms that held the cap (29.7 and 28.7 with two): a late-start pair with one in flight showed 43.1 frames a second under the same cap, which is unexplained, so the 64-player cost is not settled. The matrix ran the A10X's 120 Hz panel with this profile's 30."
+why = "Under the 30 frame cap, one frame in flight cut the time from the controller read to the screen from 99.4 to 66.0 ms at 16 players (p95 103.5 to 69.9 ms) with 30.0 and 30.1 frames a second shown with two in flight and 30.1 with one. At 64 players, where the GPU takes 35 to 37 ms and neither setting holds 30, it cut 99.3 to 66.0 ms (p95 106.7 to 75.9 ms); the one valid arm with one in flight showed 28.3 frames a second against 29.7 and 28.7 with two, so the 64-player cost is up to 1.4 frames a second. A second one-in-flight arm at 64 players is void (GPU faults)."
 source = "VISR input latency matrix (`step-tools/bench/latency-matrix.py`), build 20261121.214648 (`measure/input-latency-1121` 1d034f255), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22"
 
 [evidence."display.render_height"]

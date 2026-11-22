@@ -378,9 +378,9 @@ frames and the build has none of this.
   lower: a 30 cap, a big multiplayer game held to 30, a scene class's 30. It
   never exceeds `frames_in_flight`. Under a 30 cap `"1"` cuts the time from
   the controller read to the screen from about 98 to 65 ms on devices whose
-  CPU and GPU work together fit the 33 ms, with no loss of frames
-  (measured on the iPhone Duo and the A10X iPad Pro). A device profile sets
-  it.
+  CPU and GPU work together fit the 33 ms, with no loss of frames (the
+  iPhone Duo and the A10X iPad Pro at 16 players; the iPhone 12 Pro gained
+  21% for a 2% lower shown rate). A device profile sets it.
 - `frame_spacing` (default `true`) keeps each frame on screen for its share
   of the display's time before the next may replace it: one refresh, or with
   a `frame_rate` cap under the display's rate, the cap's (two refreshes for
