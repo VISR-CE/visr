@@ -22,35 +22,14 @@ static struct
 	void (*report)(const char *line);
 	int stop;
 	pthread_t owners[OWNERS];
-	_Atomic int owner_known[OWNERS];
 	_Atomic int reported[OWNERS];
 	_Atomic unsigned long violations;
 } check;
 
 static void owner_check(unsigned owner, unsigned operation)
 {
-	pthread_t self = pthread_self();
-	int expected = 0;
-
-	if (atomic_load_explicit(&check.owner_known[owner], memory_order_acquire) == 2)
-	{
-		if (pthread_equal(check.owners[owner], self))
-			return;
-	}
-	else if (atomic_compare_exchange_strong(&check.owner_known[owner], &expected, 1))
-	{
-		check.owners[owner] = self;
-		atomic_store_explicit(&check.owner_known[owner], 2, memory_order_release);
+	if (pthread_equal(check.owners[owner], pthread_self()))
 		return;
-	}
-	else
-	{
-		/* (another thread is binding this owner now: that is a second thread too) */
-		while (atomic_load_explicit(&check.owner_known[owner], memory_order_acquire) != 2)
-			;
-		if (pthread_equal(check.owners[owner], self))
-			return;
-	}
 	atomic_fetch_add(&check.violations, 1);
 	if (!atomic_exchange(&check.reported[owner], 1) && check.report)
 	{
@@ -103,9 +82,11 @@ const struct gpu_backend *gpu_owner_check_wrap(const struct gpu_backend *chosen,
 	check.next = chosen;
 	check.report = report;
 	check.stop = stop;
+	/* (the thread that chooses the backend, in gpu_initialize, is the game's: inline, it both records and consumes;
+	an encode thread rebinds the consumer when it starts) */
 	for (owner = 0; owner < OWNERS; owner++)
 	{
-		atomic_store(&check.owner_known[owner], 0);
+		check.owners[owner] = pthread_self();
 		atomic_store(&check.reported[owner], 0);
 	}
 	check.table = *chosen;

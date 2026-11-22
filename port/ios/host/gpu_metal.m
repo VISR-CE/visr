@@ -673,6 +673,7 @@ the backend's own paths into it, such as an output change run on another thread)
 static pthread_t encode_owner;
 static BOOL encode_owner_known, encode_owner_reported;
 
+/* (frame_begin runs at the start of every command_buffer() call, so its check covers every path that encodes) */
 static void encode_thread_check(const char *where)
 {
 	if (!encode_owner_known)
@@ -976,6 +977,10 @@ static void async_frame_end(void);
 
 /* commits the open command buffer; the frame's last one (at Present) also
 frees its frame slot when it completes */
+/* the serial of the command buffer that ended the last frame (commit(YES)): the frame's streams are free once it
+completes */
+static uint64_t frame_end_serial;
+
 static void commit(BOOL frame_end)
 {
 	id<MTLCommandBuffer> committed;
@@ -1061,6 +1066,8 @@ static void commit(BOOL frame_end)
 	[committed commit];
 	last_committed = committed;
 	commands = nil;
+	if (frame_end)
+		frame_end_serial = serial;
 	current_serial++;
 	write_epoch = ++epochs;
 	if (frame_end)
@@ -1830,7 +1837,18 @@ static void producer_wait(void *context, uint64_t serial)
 
 	(void)context;
 	while (atomic_load(&completed_serial) < serial)
+	{
+		static BOOL reported;
+
+		/* (as frame_begin waits for a frame slot without a limit; a command buffer that never completes is logged) */
+		if (!reported && CACurrentMediaTime() - waited > 1.0)
+		{
+			reported = YES;
+			platform_log("Metal: the stream ring has waited over 1 s for command buffer %llu (reported once)",
+				(unsigned long long)serial);
+		}
 		usleep(100);
+	}
 	pacing_waited += CACurrentMediaTime() - waited;
 }
 
@@ -9728,7 +9746,7 @@ static void stamp_streams(void)
 	if (frame_started)
 		host_crash("Metal: a present returned with its frame still open");
 #endif
-	gpu_stream_ring_presented(&producer_streams, commands ? current_serial : current_serial - 1);
+	gpu_stream_ring_presented(&producer_streams, frame_end_serial);
 }
 
 static uint32_t gpu_metal_present(gpu_texture back_buffer)

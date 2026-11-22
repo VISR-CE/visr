@@ -59,6 +59,13 @@ int main(void)
 	int frame;
 
 	checked = gpu_owner_check_wrap(&fake, count_line, 0);
+	/* the owners are the thread that installed the check, even when another thread calls first */
+	on_second_thread(0);
+	CHECK(gpu_owner_check_violations() == 1 && lines == 1, "a first call from a second thread: %lu violations",
+		gpu_owner_check_violations());
+	checked = gpu_owner_check_wrap(&fake, count_line, 0);
+	lines = 0;
+	before = gpu_owner_check_violations();
 	/* one thread, as inline: nothing to report */
 	for (frame = 0; frame < 3; frame++)
 	{
@@ -67,17 +74,17 @@ int main(void)
 		checked->flush();
 		(void)checked->present(0);
 	}
-	CHECK(gpu_owner_check_violations() == 0 && lines == 0, "one thread reported %lu violations",
+	CHECK(gpu_owner_check_violations() == before && lines == 0, "one thread reported %lu violations",
 		gpu_owner_check_violations());
 
 	/* a recorded call from a second thread: the consumer's; twice, reported once */
 	on_second_thread(0);
 	on_second_thread(0);
-	CHECK(gpu_owner_check_violations() == 2 && lines == 1, "a second consumer: %lu violations, %u lines",
+	CHECK(gpu_owner_check_violations() == before + 2 && lines == 1, "a second consumer: %lu violations, %u lines",
 		gpu_owner_check_violations(), lines);
 	/* an AT_ONCE call from a second thread: the producer's, reported once more */
 	on_second_thread(1);
-	CHECK(gpu_owner_check_violations() == 3 && lines == 2, "a second producer: %lu violations, %u lines",
+	CHECK(gpu_owner_check_violations() == before + 3 && lines == 2, "a second producer: %lu violations, %u lines",
 		gpu_owner_check_violations(), lines);
 	/* an OTHER_THREAD call is not checked */
 	before = gpu_owner_check_violations();

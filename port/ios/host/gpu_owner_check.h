@@ -3,8 +3,9 @@ GPU_OWNER_CHECK.H
 
 With the encode queue on (debug.encode_thread, gpu_queue.h), every call that
 reaches the backend comes from the thread its class says (gpu_operation.h):
-- RECORDED: the queue's consumer, the thread of the first recorded call;
-- AT_ONCE, QUERY and PRODUCER: the producer, the thread of the first of them;
+- RECORDED: the queue's consumer;
+- AT_ONCE, QUERY and PRODUCER: the producer;
+both are the thread that installs the check (gpu_initialize's, the game's);
 - THREAD_SAFE and OTHER_THREAD: any thread (the classes of the calls that may
   come from one).
 A call from another thread is reported once per class and counted; a
