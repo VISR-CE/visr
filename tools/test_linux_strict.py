@@ -166,3 +166,13 @@ def test_lm_before_the_sources_is_refused(tmp_path: Path) -> None:
     assert "-lm comes before an input file" in result.stderr
     # A separate --output value is not an input.
     assert compile_with(tmp_path, "cc", HYPOT, "probe.c", "-lm", "--output", "probe").returncode == 0
+
+
+def test_a_source_that_cannot_build_for_x86_64_falls_back_to_the_arm64_check(tmp_path: Path) -> None:
+    source = "#ifdef __x86_64__\n#error arm64 only\n#endif\nint main(void) { return 0; }\n"
+    result = compile_with(tmp_path, "clang", source, "probe.c", "-o", "probe")
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "probe").exists()
+    failing = compile_with(tmp_path, "clang", "#ifdef __x86_64__\n#error arm64 only\n#endif\n" + HYPOT,
+                           "probe.c", "-o", "probe")
+    assert failing.returncode != 0 and "hypotf" in failing.stderr

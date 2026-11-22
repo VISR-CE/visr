@@ -262,7 +262,8 @@ def x86_build(compiler: str, command: Command) -> str | None:
     os.close(handle)
     result = subprocess.run([compiler, *arguments, *X86_TARGET, "-o", path], capture_output=True)
     if result.returncode != 0:
-        os.remove(path)
+        # The compiler deletes its output when the build fails; the x86-64 build is optional, so skip the check.
+        Path(path).unlink(missing_ok=True)
         return None
     return path
 
@@ -316,7 +317,7 @@ def main() -> int:
             problems += math_problems(x86 or command.output, command.output)
         finally:
             if x86:
-                os.remove(x86)
+                Path(x86).unlink(missing_ok=True)
     if command.link and 0 <= command.math_index < command.last_input:
         problems.append("-lm comes before an input file: Ubuntu links with --as-needed, so libm is dropped "
                         "before anything needs it; put -lm after the sources")
