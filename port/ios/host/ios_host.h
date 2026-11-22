@@ -96,7 +96,9 @@ the game holds at its next Present until the app is back, since iOS ends an
 app that submits GPU work in the background and a closed visionOS window only
 backgrounds the app */
 void host_lifecycle_install(void);
-void host_lifecycle_hold(void);
+/* before_waiting (may be NULL): runs once when the hold is about to wait (with the encode thread, the queue's drain,
+so the frame's records reach the GPU before the wait and not during it) */
+void host_lifecycle_hold(void (*before_waiting)(void));
 /* 1 while the app is in the background (host_lifecycle_hold would hold) */
 int host_lifecycle_in_background(void);
 /* gpu_metal.m (display.frame_deadline): the frame's work has ended; nothing on a Vision Pro */

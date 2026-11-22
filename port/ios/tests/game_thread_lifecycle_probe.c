@@ -45,10 +45,24 @@ static void wait_for(unsigned count)
         pause_briefly();
     }
 }
+/* the work a hold does before it waits (the encode queue's drain): counted, with the background flag it saw */
+static _Atomic unsigned befores, befores_in_background;
+static void before_waiting(void)
+{
+    atomic_fetch_add(&befores, 1);
+    if (atomic_load(&backgrounded)) atomic_fetch_add(&befores_in_background, 1);
+}
+static void *hold_with_drain(void *unused)
+{
+    (void)unused;
+    host_lifecycle_hold(before_waiting);
+    atomic_fetch_add(&returned, 1);
+    return NULL;
+}
 static void *hold(void *unused)
 {
     (void)unused;
-    host_lifecycle_hold();
+    host_lifecycle_hold(NULL);
     atomic_fetch_add(&returned, 1);
     return NULL;
 }
@@ -56,20 +70,20 @@ int main(void)
 {
     alarm(20);
     /* Clear before entry must return immediately, including off main. */
-    host_lifecycle_hold();
+    host_lifecycle_hold(NULL);
     assert(!spins && !atomic_load(&waits));
     for (int flag = 0; flag <= 1; flag++) {
         threaded = flag;
         on_main = 1;
         atomic_store(&backgrounded, 1);
-        host_lifecycle_hold();
+        host_lifecycle_hold(NULL);
         assert(!atomic_load(&backgrounded));
     }
     assert(spins == 2 && !atomic_load(&waits));
     /* Flag off preserves the original calling-thread run-loop path. */
     threaded = 0; on_main = 0;
     atomic_store(&backgrounded, 1);
-    host_lifecycle_hold();
+    host_lifecycle_hold(NULL);
     assert(spins == 3 && !atomic_load(&waits));
     threaded = 1;
 
@@ -108,8 +122,22 @@ int main(void)
         host_lifecycle_wait_set(&foreground_wait, &backgrounded, 0);
         assert(!pthread_join(worker, NULL));
     }
+    /* The work before the wait runs once a hold that waits, in the background, and never for one that does not. */
+    threaded = 1;
+    host_lifecycle_hold(before_waiting);
+    assert(!atomic_load(&befores));
+    for (unsigned i = 0; i < 20; i++) {
+        atomic_store(&returned, 0);
+        host_lifecycle_wait_set(&foreground_wait, &backgrounded, 1);
+        unsigned began = atomic_load(&waits);
+        assert(!pthread_create(&worker, NULL, hold_with_drain, NULL));
+        wait_for(began + 1);
+        host_lifecycle_wait_set(&foreground_wait, &backgrounded, 0);
+        assert(!pthread_join(worker, NULL));
+    }
+    assert(atomic_load(&befores) == 20 && atomic_load(&befores_in_background) == 20);
     assert(!pthread_mutex_trylock(&foreground_wait.mutex));
     pthread_mutex_unlock(&foreground_wait.mutex);
-    puts("PASS: lifecycle routing, foreground wakes, spurious wakes, repeated holds, timed fallback");
+    puts("PASS: lifecycle routing, foreground wakes, spurious wakes, repeated holds, timed fallback, work before the wait");
     return 0;
 }

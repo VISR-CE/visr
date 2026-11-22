@@ -119,11 +119,9 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	/* (the frame's work ends here: a background hold mustn't count against its deadline) */
 	if (metal_backend)
 		gpu_metal_frame_deadline_end();
-	/* (with the encode thread, the frame's records so far reach the GPU before the hold, not while in the
+	/* (with the encode thread, the frame's records so far reach the GPU before the hold waits, not while in the
 	background) */
-	if (encode_queue_on && host_lifecycle_in_background())
-		gpu_queue_drain();
-	host_lifecycle_hold();
+	host_lifecycle_hold(encode_queue_on ? gpu_queue_drain : NULL);
 	host_perf_hooks_context(1, metal_backend ? 1 : 2);
 	host_perf_hooks_present_begin();
 	/* (the frame's streams end before its present is written, in every queue mode, so stream handles are the same
@@ -171,7 +169,7 @@ static uint32_t present_stereo_wrapped(const struct gpu_stereo_present *present)
 {
 	uint32_t next_frame_due;
 
-	host_lifecycle_hold();
+	host_lifecycle_hold(encode_queue_on ? gpu_queue_drain : NULL);
 	host_perf_hooks_context(1, metal_backend ? 1 : 2);
 	host_perf_hooks_present_begin();
 	wrapped_backend->stream_frame_end();

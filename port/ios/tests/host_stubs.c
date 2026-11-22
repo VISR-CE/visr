@@ -752,7 +752,7 @@ __attribute__((weak)) int host_lan_txt_build(unsigned char *txt, int size, unsig
 { fprintf(stderr, "host_stubs: probe called host_lan_txt_build without defining it\n"); abort(); }
 __attribute__((weak)) int host_lan_txt_matches(const unsigned char *txt, int length, unsigned version, uint32_t fork)
 { fprintf(stderr, "host_stubs: probe called host_lan_txt_matches without defining it\n"); abort(); }
-__attribute__((weak)) void host_lifecycle_hold(void)
+__attribute__((weak)) void host_lifecycle_hold(void (*before_waiting)(void))
 { }
 __attribute__((weak)) int host_lifecycle_in_background(void)
 { fprintf(stderr, "host_stubs: probe called host_lifecycle_in_background without defining it\n"); abort(); }

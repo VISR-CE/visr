@@ -216,7 +216,7 @@ int host_ios_gamepad_axis(SDL_Gamepad *pad, int axis) { return SDL_GetGamepadAxi
 int host_ios_gamepad_button(SDL_Gamepad *pad, int button) { return SDL_GetGamepadButton(pad, (SDL_GamepadButton)button); }
 void host_lifecycle_install(void) {}
 int host_lifecycle_in_background(void) { return 0; }
-void host_lifecycle_hold(void) {}
+void host_lifecycle_hold(void (*before_waiting)(void)) { (void)before_waiting; }
 /* Native Mac play keeps running outside the foreground; its guest clock never subtracts suspended time. */
 unsigned long long host_lifecycle_background_milliseconds(void) { return 0; }
 void host_external_install(void) {}
