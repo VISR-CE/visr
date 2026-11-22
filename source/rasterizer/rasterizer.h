@@ -423,6 +423,17 @@ boolean rasterizer_other_eye_begin(
 	void);
 void rasterizer_other_eye_end(
 	void);
+/* port: node matrices a site builds from the eye's own position (the sky,
+far scenery): in eye 0's pass of a replay, build is called again between
+rasterizer_other_eye_begin and _end (halo_stereo_eye_position then answers
+eye 1's), and the skinnings of eye_0's matrices send eye 1's too. Every such
+site goes through this (tools/stereo_eye_sites.py checks) */
+typedef void (*rasterizer_eye_matrices_builder)(void *context, real_matrix4x3 *matrices, short count);
+void rasterizer_eye_matrices(
+	real_matrix4x3 const *eye_0,
+	short count,
+	rasterizer_eye_matrices_builder build,
+	void *context);
 
 /* port: the render target's viewport while split screen's full HUD draws in a
 one-player layout (hud_full_layout_begin); NULL goes back to the camera's */

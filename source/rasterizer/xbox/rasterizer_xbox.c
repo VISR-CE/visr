@@ -1344,6 +1344,9 @@ static void node_matrix_constants(
 	return;
 }
 
+static void skinning_other_eye(real_matrix4x3 const *matrices, short matrix_count, byte const *nodes,
+	short node_count);
+
 /* port: the matrices of the model being drawn, when it has more nodes than
 the vertex shader's constants hold (RASTERIZER_MAXIMUM_NODES_PER_MODEL - 1):
 each of its parts is then given its own nodes' matrices alone as it is
@@ -1384,6 +1387,7 @@ void rasterizer_set_model_skinning(
 		-36,
 		vsh_constants__nodematrices,
 		skinning->node_matrix_count * 3);
+	skinning_other_eye(skinning->node_matrices, skinning->node_matrix_count, NULL, skinning->node_matrix_count);
 	if (rasterizer_debug_options.statistics_mode)
 		rasterizer_frame_statistics.vertex_shader_skinning_constant_bytes +=
 			skinning->node_matrix_count * sizeof(vsh_constants__nodematrices[0]);
@@ -1409,7 +1413,10 @@ void rasterizer_model_part_skinning(
 			&many_node_matrices[MIN(nodes[node_index], many_node_matrix_count - 1)]);
 	}
 	if (node_index)
+	{
 		D3DDevice_SetVertexShaderConstant(-36, vsh_constants__nodematrices, node_index * 3);
+		skinning_other_eye(many_node_matrices, many_node_matrix_count, nodes, node_index);
+	}
 	return;
 }
 
@@ -2956,6 +2963,8 @@ static struct rasterizer_eye_window other_eye;
 static boolean other_eye_ready;
 static boolean other_eye_swapped;
 static int other_eye_saved_layer;
+static union real_point3d const *other_eye_saved_position;
+static void eye_matrices_reset(void);
 
 void rasterizer_stereo_replay_eye(
 	struct render_camera const *camera,
@@ -2977,6 +2986,7 @@ static void rasterizer_other_eye_window_begin(
 {
 	other_eye_ready = replay_eye_given && halo_stereo_current_layer() == 0 &&
 		parameters->rasterizer_target == _rasterizer_target_render_primary;
+	eye_matrices_reset();
 	if (!other_eye_ready)
 		return;
 	memset(&other_eye, 0, sizeof(other_eye));
@@ -3022,6 +3032,9 @@ boolean rasterizer_other_eye_begin(
 	other_eye_swapped = TRUE;
 	other_eye_saved_layer = halo_stereo_current_layer();
 	halo_stereo_layer(1);
+	/* (halo_stereo_eye_position answers eye 1's position meanwhile, as in eye 1's pass) */
+	other_eye_saved_position = halo_stereo_eye_position();
+	halo_stereo_set_eye_position(&global_window_parameters.camera.position);
 	return TRUE;
 }
 
@@ -3033,6 +3046,108 @@ void rasterizer_other_eye_end(
 	rasterizer_other_eye_swap();
 	other_eye_swapped = FALSE;
 	halo_stereo_layer(other_eye_saved_layer);
+	halo_stereo_set_eye_position(other_eye_saved_position);
+	return;
+}
+
+/* port: the second eye's replay: node matrices built from the eye's own
+position (rasterizer_eye_matrices), eye 0's beside eye 1's, for this window.
+A skinning whose matrices equal a pair's eye 0 matrices, whatever array they
+were copied into on the way (a transparent group's copy), sends eye 1's */
+enum
+{
+	EYE_MATRIX_PAIRS = 32,
+	EYE_MATRIX_POOL = 1024
+};
+
+struct eye_matrix_pair
+{
+	real_matrix4x3 const *eye_0;
+	real_matrix4x3 const *eye_1;
+	short count;
+};
+
+static struct eye_matrix_pair eye_matrix_pairs[EYE_MATRIX_PAIRS];
+static short eye_matrix_pair_count;
+static real_matrix4x3 eye_matrix_pool[EYE_MATRIX_POOL];
+static short eye_matrix_pool_used;
+
+static void eye_matrices_reset(
+	void)
+{
+	eye_matrix_pair_count = 0;
+	eye_matrix_pool_used = 0;
+	return;
+}
+
+void rasterizer_eye_matrices(
+	real_matrix4x3 const *eye_0,
+	short count,
+	rasterizer_eye_matrices_builder build,
+	void *context)
+{
+	static boolean reported = FALSE;
+	struct eye_matrix_pair *pair;
+	real_matrix4x3 *copy;
+
+	if (!other_eye_ready || other_eye_swapped || !eye_0 || count <= 0)
+		return;
+	if (eye_matrix_pair_count >= EYE_MATRIX_PAIRS || eye_matrix_pool_used + 2 * count > EYE_MATRIX_POOL)
+	{
+		/* (eye 1 keeps eye 0's matrices for these draws; verify shows them) */
+		if (!reported)
+			error(_error_silent, "### WARNING the second eye's replay has no room for more eye matrices");
+		reported = TRUE;
+		return;
+	}
+	copy = &eye_matrix_pool[eye_matrix_pool_used];
+	csmemcpy(copy, eye_0, count * sizeof(*copy));
+	if (!rasterizer_other_eye_begin())
+		return;
+	build(context, copy + count, count);
+	rasterizer_other_eye_end();
+	eye_matrix_pool_used += 2 * count;
+	pair = &eye_matrix_pairs[eye_matrix_pair_count++];
+	pair->eye_0 = copy;
+	pair->eye_1 = copy + count;
+	pair->count = count;
+	return;
+}
+
+/* port: eye 1's node matrix rows for a skinning just stored from matrices
+(through nodes, a part's palette, when not NULL), if they are a pair's */
+static void skinning_other_eye(
+	real_matrix4x3 const *matrices,
+	short matrix_count,
+	byte const *nodes,
+	short node_count)
+{
+	real rows[RASTERIZER_MAXIMUM_NODES_PER_MODEL][3][4];
+	struct eye_matrix_pair const *pair = NULL;
+	short index;
+
+	if (!eye_matrix_pair_count || !other_eye_ready || other_eye_swapped || node_count <= 0 ||
+		node_count > RASTERIZER_MAXIMUM_NODES_PER_MODEL)
+	{
+		return;
+	}
+	for (index = 0; index < eye_matrix_pair_count && !pair; index++)
+	{
+		if (eye_matrix_pairs[index].count == matrix_count &&
+			!csmemcmp(eye_matrix_pairs[index].eye_0, matrices, matrix_count * sizeof(*matrices)))
+		{
+			pair = &eye_matrix_pairs[index];
+		}
+	}
+	if (!pair)
+		return;
+	for (index = 0; index < node_count; index++)
+		node_matrix_constants(rows[index], &pair->eye_1[nodes ? MIN(nodes[index], matrix_count - 1) : index]);
+	if (rasterizer_other_eye_begin())
+	{
+		halo_stereo_replay_constants(-36, rows, node_count * 3);
+		rasterizer_other_eye_end();
+	}
 	return;
 }
 

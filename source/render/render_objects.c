@@ -638,6 +638,27 @@ void render_objects(
 /* port: port/linux/game/first_person_legs.c */
 boolean first_person_legs_wanted(long object_index);
 real_matrix4x3 const *first_person_legs_node_matrices(long object_index, real_matrix4x3 const *nodes);
+
+/* port: a far scenery object (port/linux/game/stereo_far.c) for
+rasterizer_eye_matrices: its matrices built for the eye pass the builder
+runs in */
+struct render_far_scenery
+{
+	char const *tag_name;
+	real_matrix4x3 const *node_matrices;
+};
+
+static void render_far_scenery_eye_matrices(
+	void *context,
+	real_matrix4x3 *matrices,
+	short count)
+{
+	struct render_far_scenery const *far = (struct render_far_scenery const *)context;
+
+	csmemcpy(matrices, halo_stereo_far_matrices(far->tag_name, far->node_matrices, count, &render.camera.position),
+		count * sizeof(*matrices));
+	return;
+}
 real_matrix4x3 const *first_person_legs_shadow_node_matrices(long object_index, real_matrix4x3 const *nodes);
 
 void render_object_shadows(
@@ -946,11 +967,20 @@ static void render_object_list(
 				with the eye, so it has no disparity and reads as far away (port/linux/game/stereo_far.c) */
 				if (!data->shadow && halo_stereo_eye_position())
 				{
-					node_matrices = halo_stereo_far_matrices(
-						tag_get_name(object->definition_index),
-						node_matrices,
+					struct render_far_scenery far;
+
+					far.tag_name = tag_get_name(object->definition_index);
+					far.node_matrices = node_matrices;
+					node_matrices = halo_stereo_far_matrices(far.tag_name, node_matrices,
 						(short)(object->object.node_matrices.size / (short)sizeof(real_matrix4x3)),
 						&render.camera.position);
+					/* port: the second eye's replay: eye 1's copy moves with eye 1 */
+					if (node_matrices != far.node_matrices)
+					{
+						rasterizer_eye_matrices(node_matrices,
+							(short)(object->object.node_matrices.size / (short)sizeof(real_matrix4x3)),
+							render_far_scenery_eye_matrices, &far);
+					}
 				}
 				/* port: controller aim: the local player's own projectile, while young, draws a
 				render-only copy moved toward the drawn gun's muzzle, and its bounding sphere with it
