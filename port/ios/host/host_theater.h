@@ -84,6 +84,9 @@ double host_theater_rendering_deadline(void);
 /* when the open frame's wait ended and it opened, which is when its poses are read (the same clock; 0 without a frame) */
 double host_theater_opened_time(void);
 int host_theater_frame_repeat(void);
+/* sets the layer's frame repeat count (clamped to 0..3) as the next frame opens, from any thread, and logs the count
+the Compositor reports; the space opening sets display.frame_repeat's again (host_stereo_space_opened) */
+void host_theater_set_frame_repeat(int repeat);
 /* the screen's pose in the room for the open frame's drawable (placed first
 if a present hasn't placed it yet) and its half width and half height in
 meters, at the picture's shape (host_theater_picture_size); the screen's

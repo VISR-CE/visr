@@ -115,5 +115,7 @@ void host_stereo_present_ui(id<MTLCommandQueue> queue, id<MTLTexture> picture, i
 
 /* Negative quality queries the runtime target; nonnegative quality sets it. */
 float host_stereo_render_quality(float quality);
+/* the Compositor's frame repeat count, live (debug.knob_cycle's cadence): host_theater_set_frame_repeat on visionOS */
+void host_stereo_frame_repeat_set(int repeat);
 void host_stereo_ab_change(const char *method, float quality, int shadows);
 void host_stereo_ab_sample(double gpu_seconds);

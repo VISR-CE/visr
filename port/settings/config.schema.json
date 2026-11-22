@@ -1950,8 +1950,18 @@
         "knob_cycle": {
           "type": "boolean",
           "default": false,
-          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight, point light limit) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
+          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight, point light limit, ambient occlusion, graphics, and on Vision Pro the cadence: the Compositor's frame repeat count 0, 1 or 2, shown as A, B, C) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
           "x-environment": "HALO_KNOB_CYCLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "knob_cycle_start": {
+          "type": "string",
+          "default": "",
+          "description": "The setting debug.knob_cycle's chord starts on, by its config name (for example \"display.frame_repeat\"), so a session's comparison needs only left and right. Empty or unknown: the first.",
+          "x-environment": "HALO_KNOB_CYCLE_START",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"

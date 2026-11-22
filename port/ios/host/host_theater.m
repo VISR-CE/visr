@@ -75,6 +75,8 @@ static int frame_waited_in_render;
 static CFTimeInterval open_presentation;
 /* when the Compositor wants the open frame submitted by (CACurrentMediaTime's clock) */
 static CFTimeInterval open_deadline;
+/* host_theater_set_frame_repeat's count until the next frame opens; -1 for none */
+static _Atomic int repeat_pending = -1;
 /* when the open frame's wait ended and it opened, which is when its poses are read (the same clock): measured,
 not the predicted optimal input time, so a frame opened late shows in the lead */
 static CFTimeInterval open_input;
@@ -836,6 +838,7 @@ int host_theater_frame_begin(int fresh)
 		if (!host_theater_active() || cp_layer_renderer_get_state(layer_renderer) != cp_layer_renderer_state_running)
 			return 0;
 		/* waits for the Compositor's next frame, which paces the game to it */
+		frame_repeat_apply();
 		CFTimeInterval wait_began = CACurrentMediaTime();
 		cp_frame_t frame = cp_layer_renderer_query_next_frame(layer_renderer);
 		if (!frame)
@@ -947,6 +950,23 @@ double host_theater_rendering_deadline(void)
 double host_theater_opened_time(void)
 {
 	return open_frame ? open_input : 0.0;
+}
+
+void host_theater_set_frame_repeat(int repeat)
+{
+	atomic_store(&repeat_pending, repeat < 0 ? 0 : repeat > 3 ? 3 : repeat);
+}
+
+/* the frame thread, before it asks for the next frame */
+static void frame_repeat_apply(void)
+{
+	int repeat = atomic_exchange(&repeat_pending, -1);
+
+	if (repeat < 0 || !layer_renderer)
+		return;
+	cp_layer_renderer_set_minimum_frame_repeat_count(layer_renderer, repeat);
+	host_logf(HOST_LOG_INFO, "stereo: the frame repeat count is %d (asked %d, live): a frame every %d refresh%s",
+		cp_layer_renderer_get_minimum_frame_repeat_count(layer_renderer), repeat, repeat + 1, repeat ? "es" : "");
 }
 
 int host_theater_frame_repeat(void)

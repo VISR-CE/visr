@@ -1387,12 +1387,17 @@ static const struct config_setting config_settings[] =
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"
 		"anti-aliasing, effect resolution, mirror resolution, per-pixel lighting,\n"
-		"point-light highlight, point light limit)\n"
-		"and left and right step its value as the game runs, from the next frame,\n"
+		"point-light highlight, point light limit, ambient occlusion, graphics,\n"
+		"and on Vision Pro the cadence: the Compositor's frame repeat count 0, 1\n"
+		"or 2, shown as A, B, C) and left and right step its value as the game runs, from the next frame,\n"
 		"shown on screen for\n"
 		"two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see\n"
 		"the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and\n"
 		"debug.sense_tuning_chord's D-pad step get none of its presses. Not saved." },
+	{ "debug.knob_cycle_start", _config_string, "\"\"", "HALO_KNOB_CYCLE_START", _environment_value, _platform_ios,
+		"The setting debug.knob_cycle's chord starts on, by its config name (for\n"
+		"example \"display.frame_repeat\"), so a session's comparison needs only\n"
+		"left and right. Empty or unknown: the first." },
 	{ "debug.sense_tuning_chord", _config_boolean, "false", "HALO_SENSE_TUNING_CHORD", _environment_value, _platform_ios,
 		"While a hand aims and Back (Create) is held, controller buttons change aim and\n"
 		"arms tuning as the game runs (laser mode, aim assist, steadying, pitch offset,\n"

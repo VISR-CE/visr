@@ -2852,6 +2852,16 @@ float host_stereo_render_quality(float quality)
 #endif
 }
 
+void host_stereo_frame_repeat_set(int repeat)
+{
+#if TARGET_OS_VISION
+	host_theater_set_frame_repeat(repeat);
+#else
+	(void)repeat;
+	host_logf(HOST_LOG_INFO, "stereo: the frame repeat count changes only on Vision Pro");
+#endif
+}
+
 #include "host_stereo_ab.h"
 static struct host_stereo_ab_window ab_window;
 static char ab_method[32];

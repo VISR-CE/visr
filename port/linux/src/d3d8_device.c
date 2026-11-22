@@ -2757,6 +2757,16 @@ int halo_knob_apply(const char *name, const char *value)
 		ssao_live = atoi(value);
 	else if (!strcmp(name, "display.graphics"))
 		return config_graphics_try(value);
+	else if (!strcmp(name, "display.frame_repeat"))
+	{
+		/* (the Compositor's, between frames; nothing to allocate again) */
+#ifdef HALO_ILP32
+		host_stereo_frame_repeat_set(atoi(value));
+#else
+		platform_log("stereo: the frame repeat count changes only on Vision Pro");
+#endif
+		return 1;
+	}
 	else
 		return 0;
 	knob_ab_changed();

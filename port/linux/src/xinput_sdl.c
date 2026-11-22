@@ -241,7 +241,7 @@ static void knob_cycle_chord(XINPUT_GAMEPAD *pad)
 	if (enabled < 0)
 	{
 		enabled = config_boolean("debug.knob_cycle");
-		knob_state_reset(&state);
+		knob_state_start(&state, config_string("debug.knob_cycle_start"));
 	}
 	if (!enabled)
 		return;
