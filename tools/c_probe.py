@@ -21,6 +21,23 @@ def sanitizer_launcher():
     return ()
 
 
+def sanitizer_links(sanitizer: str) -> bool:
+    """Whether the compiler run_probe uses can build and run a program with `-fsanitize=<sanitizer>` (a compiler
+    without that runtime, or a kernel it cannot map its shadow memory on, skips the probe instead of failing it)."""
+    compiler = shutil.which("clang") or shutil.which("cc")
+    if not compiler:
+        return False
+    with tempfile.TemporaryDirectory(prefix="sanitizer-") as temp:
+        source = pathlib.Path(temp) / "empty.c"
+        executable = pathlib.Path(temp) / "empty"
+        source.write_text("int main(void) { return 0; }\n")
+        built = subprocess.run([compiler, f"-fsanitize={sanitizer}", str(source), "-o", str(executable)],
+                               capture_output=True)
+        if built.returncode:
+            return False
+        return not subprocess.run([*sanitizer_launcher(), str(executable)], capture_output=True).returncode
+
+
 def run_probe(test: unittest.TestCase, sources, includes=HOST_INCLUDES, extra=(), darwin_only=False, launcher=()):
     """Compiles `sources` (paths relative to the repository root) with `includes` and runs the result, behind
     `launcher` when given; skips the test when no compiler is found, or off macOS when `darwin_only` is set (probes of
