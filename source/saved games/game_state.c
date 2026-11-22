@@ -412,6 +412,7 @@ boolean game_state_save_to_persistent_storage(
 		if (storage == INVALID_HANDLE_VALUE)
 			return FALSE;
 
+#ifdef HALO_IOS
 		/* port: the check is all the handle is for. The file is replaced
 		whole by the host's writer (saved_game_persist.h), never written in
 		place, so a write cut short leaves the saved game that was there. */
@@ -423,6 +424,19 @@ boolean game_state_save_to_persistent_storage(
 			game_state_globals.base_address,
 			/* the whole of the native builds' larger game state */
 			GAME_STATE_SIZE);
+#else
+		/* port: the desktop builds have no host writer: in place, as the
+		game always wrote it. The writer closes this same handle. */
+		game_state_note_event("save and quit");
+		game_state_revert();
+		return game_state_write_to_persistent_storage(
+			storage,
+			game_state_globals.base_address,
+			&game_state_globals.header->checksum,
+			sizeof(*game_state_globals.header),
+			/* the whole of the native builds' larger game state */
+			GAME_STATE_SIZE);
+#endif
 	}
 
 	return TRUE;

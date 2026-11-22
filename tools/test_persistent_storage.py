@@ -38,7 +38,8 @@ def probe(tmp_path_factory):
     ])
     harness = (ROOT / "tools/harness/tests/persistent_storage.c").read_text()
     source = folder / "probe.c"
-    source.write_text(harness.replace("/* PRODUCTION FUNCTIONS */", functions))
+    # (the Apple path: the host writes the file; the desktop builds keep the in-place write)
+    source.write_text(harness.replace("/* PRODUCTION FUNCTIONS */", "#define HALO_IOS 1\n" + functions))
     binary = folder / ("probe.exe" if os.name == "nt" else "probe")
     compiler = shutil.which(os.environ.get("CC", "clang"))
     assert compiler, "clang is required for the persistent-storage regression"

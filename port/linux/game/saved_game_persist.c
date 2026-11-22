@@ -8,6 +8,9 @@
 #include "../src/input_replay.h"
 #include "../src/port_config.h"
 
+/* The Apple builds have the host's writer; the desktop builds have no host, so there a checkpoint is not
+kept and Save and Quit writes the file as the game always did (game_state.c). */
+#ifdef HALO_IOS
 /* platform.h's, and the host's (port/runtime/guest/runtime/guest_host.h) */
 void platform_translate_path(const char *xbox_path, char *host_path, unsigned long host_path_size);
 void host_save_checkpoint_begin(void);
@@ -15,6 +18,7 @@ void host_save_checkpoint_end(const char *checkpoint_path, const char *target_pa
 int host_save_write_now(const char *checkpoint_path, const char *target_path, const void *image, unsigned int size);
 
 enum { PERSIST_PATH_SIZE = 1024 };
+#endif
 
 boolean saved_game_persist_allowed(
 	void)
@@ -27,6 +31,7 @@ boolean saved_game_persist_allowed(
 		(config_boolean("debug.scripted_run_saves") || (!input_replay_playing() && !config_scripted_run()));
 }
 
+#ifdef HALO_IOS
 /* the checkpoint file's and the active profile's saved game's host paths */
 static boolean persist_paths(
 	char *checkpoint_path,
@@ -46,16 +51,21 @@ static boolean persist_paths(
 	return target_path[0] && checkpoint_path[0];
 }
 
+#endif
+
 void saved_game_persist_checkpoint_begin(
 	void)
 {
+#ifdef HALO_IOS
 	host_save_checkpoint_begin();
+#endif
 }
 
 void saved_game_persist_checkpoint_end(
 	boolean written,
 	long size)
 {
+#ifdef HALO_IOS
 	char checkpoint_path[PERSIST_PATH_SIZE] = "";
 	char target_path[PERSIST_PATH_SIZE];
 	boolean persist = written &&
@@ -65,15 +75,25 @@ void saved_game_persist_checkpoint_end(
 
 	/* (a checkpoint that is not to be saved still ends the host's count of the write) */
 	host_save_checkpoint_end(checkpoint_path, persist ? target_path : NULL, (unsigned int)size);
+#else
+	(void)written;
+	(void)size;
+#endif
 }
 
 boolean saved_game_persist_write_now(
 	const void *image,
 	long size)
 {
+#ifdef HALO_IOS
 	char checkpoint_path[PERSIST_PATH_SIZE];
 	char target_path[PERSIST_PATH_SIZE];
 
 	return persist_paths(checkpoint_path, target_path) &&
 		host_save_write_now(checkpoint_path, target_path, image, (unsigned int)size) != 0;
+#else
+	(void)image;
+	(void)size;
+	return FALSE;
+#endif
 }

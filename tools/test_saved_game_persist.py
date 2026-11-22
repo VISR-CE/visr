@@ -11,6 +11,7 @@ from test_profile_game_hooks import compile_probe, function
 ROOT = Path(__file__).resolve().parents[1]
 
 STUBS = r'''
+#define HALO_IOS 1
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -121,6 +122,32 @@ int main(void) {
     order[0] = 0; write_ok = 0;
     game_state_save();
     assert(!strcmp(order, "psbweS") && ended_with == 0);
+    return 0;
+}
+''')
+    subprocess.run([str(binary)], check=True)
+
+
+def test_a_build_without_a_host_links_and_keeps_nothing(tmp_path):
+    """The desktop builds compile the same unit and have no host imports: the class of bug is a guest call to a
+    host function that only the Apple builds provide, which fails only at the desktop link."""
+    source = (ROOT / "port/linux/game/saved_game_persist.c").read_text()
+    functions = "\n".join(function(source, signature) for signature in (
+        "boolean saved_game_persist_allowed(", "void saved_game_persist_checkpoint_begin(",
+        "void saved_game_persist_checkpoint_end(", "boolean saved_game_persist_write_now("))
+    stubs = STUBS.replace("#define HALO_IOS 1\n", "")
+    for name in ("host_save_checkpoint_begin", "host_save_checkpoint_end", "host_save_write_now"):
+        assert f"static void {name}(" in stubs or f"static int {name}(" in stubs
+    # (no host function is defined here at all: a call to one would not link)
+    start = stubs.index("static int begins, ends, writes;")
+    stubs = stubs[:start] + "static int writes;\n"
+    binary = compile_probe(tmp_path, stubs + "__attribute__((unused)) static void *unused_stubs[] = { platform_translate_path, "
+        "player_ui_get_path_to_local_player_profile_directory };\n" + functions + r'''
+int main(void) {
+    saved_game_persist_checkpoint_begin();
+    saved_game_persist_checkpoint_end(TRUE, 4096);
+    assert(saved_game_persist_allowed());
+    assert(saved_game_persist_write_now(&writes, 77) == FALSE);
     return 0;
 }
 ''')
