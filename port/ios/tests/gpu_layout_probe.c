@@ -129,6 +129,7 @@ int main(void)
 	FIELD(halo_stereo_frame, foveated);
 	FIELD(halo_stereo_frame, foveated_width);
 	FIELD(halo_stereo_frame, foveated_height);
+	FIELD(halo_stereo_frame, presentation_lead_microseconds);
 	SIZE(halo_spatial_location);
 	FIELD(halo_spatial_location, forward);
 	FIELD(halo_spatial_location, left);

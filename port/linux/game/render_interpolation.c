@@ -655,6 +655,9 @@ static real fraction_for_display(real fraction)
 	unsigned long frame = loop_frame;
 
 	frame_lead_milliseconds = 0.0;
+	/* (a stereo schedule no frame has reported for since the last one: its frames stopped without saying so) */
+	if (stereo_leading && loop_frame - stereo_presentation_frame > 1)
+		render_interpolation_presentation_due(0);
 	/* 1 while the game is paused */
 	if (fraction >= 1.0f)
 		return fraction;

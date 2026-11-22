@@ -171,6 +171,25 @@ static void space_closes(void)
 	check(fraction == 0.4f, "space closed: a stereo correction outlived the space", fraction);
 }
 
+/* stereo frames that stop without reporting 0 (a path that forgot): the schedule lapses after one frame */
+static void stereo_stops_silently(void)
+{
+	double read = 90000.0;
+	real fraction;
+	int n;
+
+	render_interpolation_presentation_due(0);
+	for (n = 0; n < 40; n++)
+		stereo_frame(read + n * 22.2, n % 2 ? 0.0 : 10.0, read + n * 22.2 + 16.0, read + n * 22.2 + (n % 2 ? 35.0 : 46.0), NULL);
+	for (n = 0; n < 3; n++) {
+		now_ms = read + 900.0 + n * 16.7;
+		render_interpolation_clock_read();
+		loop_frame_ticked = n == 0;
+		fraction = fraction_for_display(0.4f);
+	}
+	check(fraction == 0.4f, "stereo stopped without a report: its correction outlived it", fraction);
+}
+
 /* display.presentation_lead off: the headset's picture as before (no correction), for the session's comparison */
 static void setting_off(void)
 {
@@ -199,6 +218,7 @@ int main(void)
 	steady_stereo(1000.0 / 45.0);
 	flat_slow_ticks();
 	space_closes();
+	stereo_stops_silently();
 	setting_off();
 	return failures ? 1 : 0;
 }

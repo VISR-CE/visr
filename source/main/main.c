@@ -2766,9 +2766,6 @@ static void main_update_time_unthrottled(
 	real seconds_elapsed = 0.0f;
 
 	QueryPerformanceCounter(&counter);
-	/* port: the same instant on the display's clock: a frame's lead to its
-	presentation is measured from here (port/linux/game/render_interpolation.c) */
-	render_interpolation_clock_read();
 	QueryPerformanceFrequency(&frequency);
 	if (main_previous_counter.QuadPart && frequency.QuadPart)
 	{
@@ -2815,6 +2812,10 @@ static void main_update_time(
 	short short_target_index;
 	real seconds_elapsed;
 
+	/* port: the loop clock's read on the display's clock, whichever way the
+	time is taken: a frame's lead to its presentation is measured from here
+	(port/linux/game/render_interpolation.c) */
+	render_interpolation_clock_read();
 	if (halo_interpolation_enabled())
 	{
 		main_update_time_unthrottled();
