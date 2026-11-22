@@ -23,9 +23,12 @@ a tick. */
 #include "devices/devices.h"
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
+#include "tag_files/tag_files.h"
 #include "networking/network_client_manager.h"
 
 #include "coop_census.h"
+
+#include <string.h>
 
 /* port/linux/src (game units declare these themselves: the platform
 headers bring the host C library, which clashes with the game's) */
@@ -172,8 +175,15 @@ static void coop_census_log(
 	object_iterator_new(&iterator, _object_mask_device, 0);
 	while (object_iterator_next(&iterator))
 	{
-		platform_log("coop census: tick %ld device %08lx position %.3f power %.3f",
-			tick, (unsigned long)iterator.index, device_get_position(iterator.index), device_get_power(iterator.index));
+		struct device_datum *device = device_get(iterator.index);
+		char const *tag = tag_get_name(device->definition_index);
+		char const *leaf = tag ? strrchr(tag, '\\') : NULL;
+
+		/* (the groups and tag name tell a scripted device from one that moves on its own) */
+		platform_log("coop census: tick %ld device %08lx position %.3f power %.3f groups %d %d tag %.40s",
+			tick, (unsigned long)iterator.index, device_get_position(iterator.index), device_get_power(iterator.index),
+			(int)device->device.position_group_index, (int)device->device.power_group_index,
+			leaf ? leaf + 1 : tag ? tag : "?");
 		devices++;
 	}
 	/* (the scenario's names of the objects there, for tests that name one) */

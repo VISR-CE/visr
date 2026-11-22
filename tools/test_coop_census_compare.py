@@ -35,7 +35,7 @@ def census_lines(tick: int, role: str, players=None, objects=None, devices=None)
             weapon.update(values["weapon"])
             lines.append(f"coop census: tick {tick} weapon {identifier} " + " ".join(f"{k} {v}" for k, v in weapon.items()))
     for identifier, values in (devices or {}).items():
-        lines.append(f"coop census: tick {tick} device {identifier} position {values[0]:.3f} power {values[1]:.3f}")
+        lines.append(f"coop census: tick {tick} device {identifier} position {values[0]:.3f} power {values[1]:.3f} groups 3 -1 tag door")
     lines.append(f"coop census: tick {tick} end objects {len(objects or {})} devices {len(devices or {})}")
     return lines
 
@@ -103,9 +103,9 @@ def test_carried_ammunition_must_match_and_loose_is_host_only(tmp_path):
     loose = {"e0060009": {"type": "2", "weapon": {"carried": "0", "rounds": "24 12 0 0"}}}
     carried_wrong = dict(WORLD, e0020005={"type": "2", "parent": "e0010004",
                                           "weapon": {"carried": "1", "rounds": "72 32 0 0"}})
-    host = [census_lines(t, "host", {}, {**WORLD, **loose}) for t in (150, 300)]
+    host = [census_lines(t, "host", {}, {**WORLD, **loose}) for t in (150, 300, 450)]
     client = [census_lines(t, "client", {}, {**carried_wrong, "e0060009": {"type": "2", "weapon": {"rounds": "72 12 0 0"}}})
-              for t in (150, 300)]
+              for t in (150, 300, 450)]
     report = run(tmp_path, host, client)
     assert [d["key"] for d in report["disagreements"]] == ["weapon e0020005 rounds"]
     assert report["host_only"] and all("e0060009" in n["what"] for n in report["host_only"])
@@ -156,7 +156,7 @@ def test_game_format_parses(tmp_path):
         render(kinds["unit"], [300, 0xe0010004, 0, -1, 1, 2, 1, 0, 0xe0020005, 0xffffffff, 0xffffffff, 0xffffffff]),
         render(kinds["object"], [300, 0xe0020005, 2, 0xe1230002, 0xe0010004, 0, 0, 1.0, 2.0, 3.0]),
         render(kinds["weapon"], [300, 0xe0020005, 1, 60, 32, 0, 0, 0.0]),
-        render(kinds["device"], [300, 0xe0040007, 1.0, 0.5]),
+        render(kinds["device"], [300, 0xe0040007, 1.0, 0.5, 3, -1, "door"]),
         render(kinds["end"], [300, 2, 1]),
     ]
     path = tmp_path / "game.log"
@@ -169,4 +169,16 @@ def test_game_format_parses(tmp_path):
     assert unit["unit"]["grenades"] == "2 1" and unit["unit"]["weapons"].split()[0] == "e0020005"
     weapon = parsed.objects["e0020005"]
     assert weapon["parent"] == "e0010004" and weapon["weapon"]["rounds"] == "60 32 0 0"
-    assert parsed.devices["e0040007"] == {"position": "1.000", "power": "0.500"}
+    assert parsed.devices["e0040007"] == {"position": "1.000", "power": "0.500", "groups": "3 -1", "tag": "door"}
+
+
+def test_carried_rounds_while_firing_are_in_flight(tmp_path):
+    """a weapon whose count changes between censuses is being fired: not compared until it holds still"""
+    def world(rounds):
+        return dict(WORLD, e0020005={"type": "2", "parent": "e0010004", "weapon": {"carried": "1", "rounds": rounds}})
+    host = [census_lines(t, "host", {}, world(f"180 {50 - t // 150} 0 0")) for t in (150, 300, 450, 600)]
+    client = [census_lines(t, "client", {}, world(f"180 {52 - t // 150} 0 0")) for t in (150, 300, 450, 600)]
+    assert run(tmp_path, host, client)["agree"]
+    host_still = host[:2] + [census_lines(t, "host", {}, world("180 40 0 0")) for t in (450, 600, 750)]
+    client_still = client[:2] + [census_lines(t, "client", {}, world("180 42 0 0")) for t in (450, 600, 750)]
+    assert [d["key"] for d in run(tmp_path, host_still, client_still)["disagreements"]] == ["weapon e0020005 rounds"]

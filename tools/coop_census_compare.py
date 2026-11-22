@@ -12,7 +12,8 @@ compares every pair under the contract in `port/linux/NETCODE.md`
   seat, team and quit state, and its unit), every networked object's
   existence, definition, parent, dead flag and, at rest, position; a unit's
   seat, grenades, weapons, current weapon and whether something drives it;
-  every carried weapon's magazines and age; device positions and power;
+  every carried weapon's magazines (once they have held still on both machines) and age; device positions
+  and power;
 - host-only: a loose weapon's magazines and age (reported, never a failure).
 
 A difference counts only when it is there in `--persist` consecutive paired
@@ -64,7 +65,7 @@ def _fields(text: str) -> dict[str, str]:
     index = 0
     while index < len(words):
         key = words[index]
-        width = {"pos": 3, "rounds": 4, "grenades": 2, "weapons": 4, "begin": 0}.get(key, 1)
+        width = {"pos": 3, "rounds": 4, "grenades": 2, "weapons": 4, "groups": 2, "begin": 0}.get(key, 1)
         result[key] = " ".join(words[index + 1:index + 1 + width])
         index += 1 + width
     return result
@@ -119,6 +120,13 @@ def _resting(identifier: str, census: Census, previous: Census | None) -> bool:
         return False
     now, before = _position(census.objects[identifier]), _position(previous.objects[identifier])
     return now is not None and before is not None and _distance(now, before) <= REST_TOLERANCE
+
+
+def _rounds_resting(identifier: str, census: Census, previous: Census | None) -> bool:
+    if previous is None or identifier not in previous.objects:
+        return False
+    return census.objects[identifier].get("weapon", {}).get("rounds") == \
+        previous.objects[identifier].get("weapon", {}).get("rounds")
 
 
 def _carried(values: dict) -> bool:
@@ -179,7 +187,11 @@ def differences(host: Census, client: Census, host_before: Census | None,
             if wa.get("carried") != wb.get("carried"):
                 differ(f"weapon {identifier} carried", f"weapon {identifier} carried: host {wa.get('carried')}, client {wb.get('carried')}")
             elif _carried(a):
-                if wa.get("rounds") != wb.get("rounds"):
+                # (a weapon being fired changes every tick, and the host's
+                # inventories reach a client a round trip late: counts are
+                # compared once they have held still on both machines)
+                if wa.get("rounds") != wb.get("rounds") and _rounds_resting(identifier, host, host_before) \
+                        and _rounds_resting(identifier, client, client_before):
                     differ(f"weapon {identifier} rounds", f"weapon {identifier} carried rounds: host {wa.get('rounds')}, client {wb.get('rounds')}")
                 if abs(float(wa.get("age", 0)) - float(wb.get("age", 0))) > AGE_TOLERANCE:
                     differ(f"weapon {identifier} age", f"weapon {identifier} carried age: host {wa.get('age')}, client {wb.get('age')}")
