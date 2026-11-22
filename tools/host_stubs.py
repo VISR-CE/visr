@@ -32,8 +32,9 @@ HOST = ROOT / 'port/ios/host'
 OUTPUT = ROOT / 'port/ios/tests/host_stubs.c'
 
 # Headers that need UIKit (not present for the macOS probes) are not covered, nor gpu_side_imports.h, which
-# holds the guest imports' definitions for host_gpu_dispatch.c and a probe to include, not declarations.
-SKIP_HEADERS = {'host_orientation.h', 'host_upscale_tick.h', 'gpu_side_imports.h'}
+# holds the guest imports' definitions for host_gpu_dispatch.c and a probe to include, not declarations, nor
+# host_gamepad_merge.h, which declares no host function (only static inline helpers over SDL's gamepads).
+SKIP_HEADERS = {'host_orientation.h', 'host_upscale_tick.h', 'gpu_side_imports.h', 'host_gamepad_merge.h'}
 
 # Defaults that must do more than return zero. Keyed by function name; the body
 # may use the declared parameter names.

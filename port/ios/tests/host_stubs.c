@@ -761,11 +761,17 @@ __attribute__((weak)) void host_main_async(dispatch_block_t block)
 #endif
 __attribute__((weak)) void host_main_async_f(void *context, void (*fn)(void *))
 { }
+__attribute__((weak)) unsigned long host_main_forbidden_waits(void)
+{ fprintf(stderr, "host_stubs: probe called host_main_forbidden_waits without defining it\n"); abort(); }
 #if defined(__BLOCKS__)
 __attribute__((weak)) void host_main_sync(dispatch_block_t block)
 { }
 #endif
 __attribute__((weak)) void host_main_sync_f(void *context, void (*fn)(void *))
+{ }
+__attribute__((weak)) void host_main_wait_allow(void)
+{ }
+__attribute__((weak)) void host_main_wait_forbid(void)
 { }
 __attribute__((weak)) int host_map_framings_feed_path(const char *key, char *path, unsigned int size)
 { fprintf(stderr, "host_stubs: probe called host_map_framings_feed_path without defining it\n"); abort(); }
