@@ -19,8 +19,11 @@ community map that reuses a stock map's name but differs in content may be
 sent. Anything that is not a valid Custom Edition cache (a Halo PC or Xbox
 cache, a header not had yet or not read) is refused, and a map whose content
 hash is not known yet may be hashed but not sent. A conversion of a
-campaign level (Bungie's campaign content) is refused by its tags: its
-scenario or a structure BSP in a campaign level's folder.
+campaign level (Bungie's campaign content) is refused by its tag paths: its
+scenario or a structure BSP in a campaign level's folder. Tag paths are
+names the game does not read, so a conversion whose tags were renamed (moved
+to another folder, or scrambled by a map protection tool) is not known; this
+catches the ones that keep the paths they were built with.
 
 Standalone C with fixed-width types, as cache_file_formats.c is: compiled into
 the game and into the test tools/test_map_share_send.py.
@@ -79,11 +82,14 @@ enum map_share_policy_verdict map_share_policy_judge(
 	int32_t campaign);
 
 /* Whether a Custom Edition cache is a conversion of a campaign level, by its
-tags, not its name: 1 when its scenario's tag, or any structure BSP's, lies
-in a campaign level's folder (levels\a10\..., the campaign rows of
-port/runtime/stock_maps.h), however the file or its header is named; 0 when
-none does; -1 when its tags cannot be read. Community maps that only borrow
-a campaign level's shaders or sounds are not conversions. */
+tag paths, not its file name: 1 when its scenario's tag, or any structure
+BSP's, lies in a campaign level's folder (levels\a10\..., the campaign rows
+of port/runtime/stock_maps.h), however the file or its header is named; 0
+when none does; -1 when its tags cannot be read. Community maps that only
+borrow a campaign level's shaders or sounds are not conversions; a map built
+on a campaign level's structure BSP is one. The paths are names only: a
+conversion whose scenario and structure BSPs were renamed out of those
+folders reads 0. */
 struct cache_file_source;
 int32_t map_share_policy_campaign(
 	struct cache_file_source *source);
