@@ -4,6 +4,7 @@ probe can check the rules without the app. */
 #pragma once
 #include <string.h>
 #include <stdio.h>
+#include "stock_maps.h"
 
 /* The order the work goes through the maps: the main menu's map first (Steve, 2026-10-26: the main menu's textures
    are the first thing the player sees, so they are made before anything else), then the campaign in order, then the
@@ -11,13 +12,20 @@ probe can check the rules without the app. */
 #define TEXTURE_UPSCALE_MENU_MAP "ui"
 static inline int texture_upscale_map_rank(const char *base, int in_custom_maps)
 {
-	static const char *const campaign[] = { TEXTURE_UPSCALE_MENU_MAP, "a10", "a30", "a50", "b30", "b40", "c10", "c20",
-		"c40", "d20", "d40" };
+	int count;
+	const struct stock_map *maps = stock_maps(&count);
 	int i;
+	int rank = 0;
 
-	for (i = 0; i < (int)(sizeof(campaign) / sizeof(campaign[0])); i++)
-		if (!strcmp(base, campaign[i]))
-			return i;
+	/* (the menus' map, then the campaign, in the table's order) */
+	for (i = 0; i < count; i++)
+	{
+		if (!(maps[i].flags & (STOCK_MAP_INTERFACE | STOCK_MAP_CAMPAIGN)))
+			continue;
+		if (!strcmp(base, maps[i].file))
+			return rank;
+		rank++;
+	}
 	return in_custom_maps ? 2000 : 1000;
 }
 

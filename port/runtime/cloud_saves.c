@@ -1,5 +1,6 @@
 /* The cloud save rules (cloud_saves.h). */
 #include "cloud_saves.h"
+#include "stock_maps.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -286,28 +287,35 @@ static long long meta_number(const char *meta, const char *key)
 
 /* ---------- the game's files */
 
-static const char *const campaign_maps[10] = { "a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40" };
-static const char *const campaign_titles[10] = { "The Pillar of Autumn", "Halo", "The Truth and Reconciliation",
-	"The Silent Cartographer", "Assault on the Control Room", "343 Guilty Spark", "The Library", "Two Betrayals",
-	"Keyes", "The Maw" };
-
+/* the campaign level a map is (its order in the campaign, stock_maps.h), or -1 */
 static int campaign_level(const char *map)
 {
 	const char *name = strrchr(map, '\\');
+	int count;
+	const struct stock_map *maps = stock_maps(&count);
 	int i;
+	int level = 0;
 
 	name = name ? name + 1 : map;
-	for (i = 0; i < 10; i++)
-		if (!strcmp(name, campaign_maps[i]))
-			return i;
+	for (i = 0; i < count; i++)
+	{
+		if (!(maps[i].flags & STOCK_MAP_CAMPAIGN))
+			continue;
+		if (!strcmp(name, maps[i].file))
+			return level;
+		level++;
+	}
 	return -1;
 }
 
 const char *cloud_level_title(const char *map)
 {
-	int level = campaign_level(map);
+	const char *name = strrchr(map, '\\');
+	const struct stock_map *stock;
 
-	return level < 0 ? map : campaign_titles[level];
+	name = name ? name + 1 : map;
+	stock = campaign_level(map) < 0 ? NULL : stock_map_named(name, strlen(name));
+	return stock ? stock->display_name : map;
 }
 
 /* source/memory/crc.c */
