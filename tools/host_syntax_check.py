@@ -151,7 +151,7 @@ def host_entries(compile_commands):
     """the compile commands for host sources, one per file"""
     entries = {}
     for entry in json.loads(Path(compile_commands).read_text()):
-        path = Path(entry['file'])
+        path = Path(entry['file']).resolve()  # CMake may name the folder through a symlink
         if path.suffix in SYNTAX_SUFFIXES and any(folder in path.parents for folder in HOST_DIRS):
             entries[str(path)] = entry
     return entries
@@ -162,7 +162,7 @@ def definer_entries(compile_commands):
     the shared Linux-port sources and the generated bridges, but not SDL or the bundled libraries"""
     entries = {}
     for entry in json.loads(Path(compile_commands).read_text()):
-        path = Path(entry['file'])
+        path = Path(entry['file']).resolve()  # CMake may name the folder through a symlink
         if path.suffix not in SYNTAX_SUFFIXES or 'third_party' in path.parts or 'sdl3' in path.parts:
             continue
         if any(folder in path.parents for folder in (*HOST_DIRS, ROOT / 'port/runtime', ROOT / 'port/linux',
@@ -266,6 +266,8 @@ def main():
         label = f'{platform}/{variant}'
         entries = definer_entries(database)
         covered.update(path for path in entries if Path(path).parent in HOST_DIRS)
+        if not any(Path(path).parent in HOST_DIRS for path in entries):
+            raise SystemExit(f'{label}: no host sources in the compile commands (a path mismatch would pass silently)')
         folder = database.parent / 'objects'
         folder.mkdir(exist_ok=True)
         for index, entry in enumerate(entries.values()):
