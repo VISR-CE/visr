@@ -1,5 +1,5 @@
 # The device profile set's revision (docs/data-packs.md, "Profile revisions"). After changing any profile
 # or the hardware catalog, run python3 tools/profile_revision.py --bump.
 schema = 1
-revision = 33
-sha256 = "f45f4e40703c670ef9fd23e3cdd993516b20ebf5c5f65733389635db178709e0"
+revision = 34
+sha256 = "6426b444fdf87a196f95d094f796f2cf85f68ffcd8dd11fbfaf63c7e618d8185"
