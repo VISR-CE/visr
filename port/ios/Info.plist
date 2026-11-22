@@ -106,5 +106,11 @@
 	<string>$(HALO_SHADER_FEED_URL)</string>
 	<key>HaloRecordingFeedURL</key>
 	<string>$(HALO_RECORDING_FEED_URL)</string>
+	<key>GCSupportsGameMode</key>
+	<true/>
+	<key>LSSupportsGameMode</key>
+	<true/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.action-games</string>
 </dict>
 </plist>
