@@ -119,7 +119,8 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 	next_frame_due = wrapped_backend->present(back_buffer);
 	/* (the frame timeline row is sealed here, on the game thread after the backend's present returned: the timeline
 	spec's decision note) */
-	host_frame_timeline_barrier(gpu_queue_barrier_waited());
+	if (encode_queue_on)
+		host_frame_timeline_barrier(gpu_queue_barrier_waited());
 	host_frame_timeline_seal();
 	host_perf_hooks_present_end();
 	data_updates_presented();
