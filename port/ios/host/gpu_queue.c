@@ -1625,7 +1625,12 @@ static unsigned long plain_count, plain_capacity;
 static __typeof__(((struct consumer *)0)->held) verify_held_start;
 static float verify_end_store[GPU_CONSTANT_COUNT][4];
 static size_t compare_at;
-static unsigned long compare_index, compare_differ;
+static unsigned long compare_index, compare_differ, compare_unmatched_logged;
+/* the call key fields verify_nearest_draw tells apart */
+enum { NEAREST_INDEX_BUFFER, NEAREST_INDEX_OFFSET, NEAREST_BASE_VERTEX, NEAREST_STREAM_BUFFER, NEAREST_STREAM_OFFSET,
+	NEAREST_FIELDS };
+static const char *const nearest_names[NEAREST_FIELDS] = { "index buffer", "index offset", "base vertex",
+	"stream buffer", "stream offset" };
 /* the tee logs the live eye's calls and makes them; the plain pass and the replay log theirs and make none */
 enum { VERIFY_TEE, VERIFY_PLAIN, VERIFY_COMPARE };
 static int verify_phase;
@@ -1664,6 +1669,9 @@ static struct
 	/* calls one side made that the other did not (found by matching each call to the next live call of the same
 	operation and, for draws, the same shaders and primitives) */
 	unsigned long replay_only, live_only;
+	/* for each unmatched replay draw, the nearest live draw ahead with its shaders, primitive and count: how many had
+	one, and how many of those differ in each call key field (NEAREST_*) */
+	unsigned long nearest_found, nearest[NEAREST_FIELDS];
 	/* the replay's draws skipped as eye 0's alone: excluded from the verdict by their own rule (their records are
 	marked eye 0 only, and the live eye makes none of them) */
 	unsigned long eye_0_only;
@@ -1748,6 +1756,13 @@ static const unsigned char *plain_call(unsigned long index, uint32_t operation, 
 static void verify_detail_line(const char *line)
 {
 	if (verify_detail && compare_differ <= VERIFY_LINES_A_SPAN && log_line)
+		log_line(line);
+}
+
+/* an unmatched call's detail: its own budget a span, so the matched calls that differ first do not crowd it out */
+static void verify_unmatched_line(const char *line)
+{
+	if (verify_detail && compare_unmatched_logged++ < VERIFY_LINES_A_SPAN && log_line)
 		log_line(line);
 }
 
@@ -1857,6 +1872,7 @@ static void verify_nearest_draw(const unsigned char *made)
 	unsigned long skipped;
 	char line[384];
 	uint32_t operation, live_size;
+	int stream_buffer = 0, stream_offset = 0, stream;
 
 	memcpy(&operation, made, 4);
 	if (operation != GPU_OPERATION_draw)
@@ -1869,17 +1885,28 @@ static void verify_nearest_draw(const unsigned char *made)
 		if (operation == GPU_OPERATION_draw && x->vertex_shader == y->vertex_shader &&
 			x->pixel_shader == y->pixel_shader && x->primitive == y->primitive && x->count == y->count)
 		{
+			for (stream = 0; stream < 16; stream++)
+			{
+				stream_buffer |= x->streams[stream].buffer != y->streams[stream].buffer;
+				stream_offset |= x->streams[stream].offset != y->streams[stream].offset;
+			}
+			tally.nearest_found++;
+			tally.nearest[NEAREST_INDEX_BUFFER] += x->index_buffer != y->index_buffer;
+			tally.nearest[NEAREST_INDEX_OFFSET] += x->index_offset != y->index_offset;
+			tally.nearest[NEAREST_BASE_VERTEX] += x->base_vertex != y->base_vertex;
+			tally.nearest[NEAREST_STREAM_BUFFER] += stream_buffer;
+			tally.nearest[NEAREST_STREAM_OFFSET] += stream_offset;
 			snprintf(line, sizeof(line), "stereo replay verify: nearest live draw %lu calls ahead: index buffer %u/%u, "
 				"index offset %u/%u, base vertex %d/%d, stream 0 buffer %u/%u offset %u/%u (live/replay)", skipped,
 				(unsigned)x->index_buffer, (unsigned)y->index_buffer, x->index_offset, y->index_offset, x->base_vertex,
 				y->base_vertex, (unsigned)x->streams[0].buffer, (unsigned)y->streams[0].buffer, x->streams[0].offset,
 				y->streams[0].offset);
-			verify_detail_line(line);
+			verify_unmatched_line(line);
 			return;
 		}
 		at += 8 + live_size;
 	}
-	verify_detail_line("stereo replay verify: no live draw ahead has its shaders, primitive and count");
+	verify_unmatched_line("stereo replay verify: no live draw ahead has its shaders, primitive and count");
 }
 
 /* the replay's call just written to replay_call, against the live call at compare_at; a call the live eye did not
@@ -1915,7 +1942,7 @@ static void verify_compare(void)
 			snprintf(line, sizeof(line), "stereo replay verify: before call %lu, %s, the live eye made %lu calls the "
 				"replay did not, the first %s", compare_index, call_text(made, text[0], sizeof(text[0])), skipped,
 				call_text(live, text[1], sizeof(text[1])));
-			verify_detail_line(line);
+			verify_unmatched_line(line);
 			compare_at = at;
 			live = live_calls.bytes + compare_at;
 		}
@@ -1924,7 +1951,7 @@ static void verify_compare(void)
 			tally.replay_only++;
 			snprintf(line, sizeof(line), "stereo replay verify: call %lu, %s, is not one the live eye made", compare_index,
 				call_text(made, text[0], sizeof(text[0])));
-			verify_detail_line(line);
+			verify_unmatched_line(line);
 			verify_nearest_draw(made);
 			return;
 		}
@@ -1967,6 +1994,15 @@ static void verify_summary(void)
 			length += snprintf(line + length, sizeof(line) - (size_t)length, " %s %lu", draw_fields[field].name,
 				tally.packet[field]);
 	log_line(line);
+	if (tally.replay_only)
+	{
+		length = snprintf(line, sizeof(line), "stereo replay verify summary: unmatched replay draws with a nearest live "
+			"draw (same shaders, primitive and count): %lu; of those differing in:", tally.nearest_found);
+		for (field = 0; field < NEAREST_FIELDS; field++)
+			length += snprintf(line + length, sizeof(line) - (size_t)length, " %s %lu", nearest_names[field],
+				tally.nearest[field]);
+		log_line(line);
+	}
 	for (class = 0; class < CLASS_COUNT; class++)
 	{
 		unsigned long *counts = tally.registers[class];
@@ -2194,7 +2230,7 @@ static void verify_live_end(void)
 	verify_restart(0);
 	verify_phase = VERIFY_COMPARE;
 	compare_at = 0;
-	compare_index = compare_differ = 0;
+	compare_index = compare_differ = compare_unmatched_logged = 0;
 	replay_skipped_draws = 0;
 	replay_span(&verify_backend);
 	verify_phase = VERIFY_TEE;
