@@ -9,6 +9,7 @@
 #include "ios_host.h"
 #include "host_main_thread.h"
 #include "host_game_thread.h"
+#include <stdatomic.h>
 #include "host_config.h"
 #include <stdlib.h>
 
@@ -31,8 +32,15 @@ static SDL_JoystickID remote_id, primary_hardware;
 /* true while tvOS's text dialog is up, and after it until every button of the
    hardware controller is let go: the game reads no controller then (below) */
 static bool text_input_blocked(void);
+/* The same answer as of the last text_input_blocked on main (kept by it and by each poll's
+   host_tv_text_prompt_tick), for the event filter below: SDL runs a filter on the thread that
+   pushes the event, holding the event-watch lock, so it must not call SDL joystick functions
+   (hardware_held does, and the game thread holds the joystick lock when an update pushes an
+   event: the two locks would be taken in opposite orders). */
+static bool text_input_blocked_cached(void);
 #else
 #define text_input_blocked() false
+#define text_input_blocked_cached() false
 #endif
 /* Remote presses latch until the game reads them: a swipe's key down and up
    arrive together, and a slow frame could otherwise miss a short press. On
@@ -64,7 +72,7 @@ static bool SDLCALL remote_event(void *userdata,SDL_Event *event) {
     if(event->type!=SDL_EVENT_KEY_DOWN && event->type!=SDL_EVENT_KEY_UP)return true;
     int button=remote_button(event->key.scancode);
     if(button<0)return true;
-    if(text_input_blocked())return false;
+    if(text_input_blocked_cached())return false;
     if(!event->key.repeat) {
         remote_down[button]=event->key.down;
         if(event->key.down)remote_latched[button]=true;
@@ -248,13 +256,11 @@ static void text_prompt_hint(bool on) {
     text_prompt_hint_set=on;
 }
 
-static bool text_input_blocked(void) {
-    if(host_game_thread_enabled() && !host_on_main_thread()) {
-        __block bool result;
-        host_main_sync(^{ result=text_input_blocked(); });
-        return result;
-    }
-
+static _Atomic bool text_input_blocked_flag;
+static bool text_input_blocked_cached(void) {
+    return atomic_load_explicit(&text_input_blocked_flag,memory_order_acquire);
+}
+static bool text_input_blocked_now(void) {
     if(text_prompt_up()) {
         text_prompt_gate=true;
         return true;
@@ -267,6 +273,16 @@ static bool text_input_blocked(void) {
     text_prompt_gate=false;
     host_ios_touch_reset();
     return false;
+}
+static bool text_input_blocked(void) {
+    if(host_game_thread_enabled() && !host_on_main_thread()) {
+        __block bool result;
+        host_main_sync(^{ result=text_input_blocked(); });
+        return result;
+    }
+    bool result=text_input_blocked_now();
+    atomic_store_explicit(&text_input_blocked_flag,result,memory_order_release);
+    return result;
 }
 
 /* each poll (host_sdl.c's text_input_update): the controller goes back to the
@@ -398,6 +414,7 @@ int host_tv_text_prompt(int on, const char *title, const char *text, int masked)
     text_prompt=alert;
     text_prompt_shown=alert;
     text_prompt_gate=true;
+    atomic_store_explicit(&text_input_blocked_flag,true,memory_order_release);
     text_prompt_hint(true);
     host_ios_touch_reset();
     /* (the game draws on under the dialog, and its event pump runs the
