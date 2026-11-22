@@ -1,0 +1,297 @@
+{
+  "chosen": {
+    "color": "#2995FF",
+    "cap": 22.0,
+    "baseline": 55.25,
+    "left": 29.75,
+    "background": "glow"
+  },
+  "pictures": [
+    {
+      "name": "difficulty_select__header_choose_difficulty__0",
+      "text": "CHOOSE DIFFICULTY",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 30.0,
+      "near_alpha": 174.4,
+      "far_alpha": 20.4,
+      "background": "glow"
+    },
+    {
+      "name": "gametype_select__header_select_gametype__0",
+      "text": "SELECT GAMETYPE",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 173.1,
+      "far_alpha": 19.1,
+      "background": "glow"
+    },
+    {
+      "name": "4way_profile_select__header_select_profile__0",
+      "text": "SELECT PROFILE",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 172.2,
+      "far_alpha": 16.6,
+      "background": "glow"
+    },
+    {
+      "name": "pregame__header_enlisted_players__0",
+      "text": "SELECT TEAMS",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 171.3,
+      "far_alpha": 15.0,
+      "background": "glow"
+    },
+    {
+      "name": "pregame__header_enlisted_players__1",
+      "text": "ENLISTED PLAYERS",
+      "color": "#2995FF",
+      "cap": 22.5,
+      "baseline": 55.5,
+      "left": 29.75,
+      "near_alpha": 173.4,
+      "far_alpha": 19.0,
+      "background": "glow"
+    },
+    {
+      "name": "server_list__header_found_games__0",
+      "text": "SYSTEM LINK GAMES",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 175.4,
+      "far_alpha": 21.6,
+      "background": "glow"
+    },
+    {
+      "name": "coop__header_select_profile_player_1__0",
+      "text": "SELECT PROFILE: PLAYER 1",
+      "color": "#2995FF",
+      "cap": 22.5,
+      "baseline": 55.5,
+      "left": 29.5,
+      "near_alpha": 172.5,
+      "far_alpha": 31.5,
+      "background": "plate"
+    },
+    {
+      "name": "coop__header_select_profile_player_2__0",
+      "text": "SELECT PROFILE: PLAYER 2",
+      "color": "#2995FF",
+      "cap": 22.5,
+      "baseline": 55.5,
+      "left": 29.5,
+      "near_alpha": 172.7,
+      "far_alpha": 32.7,
+      "background": "plate"
+    },
+    {
+      "name": "multiplayer_type_select__header_multiplayer__0",
+      "text": "MULTIPLAYER",
+      "color": "#2995FF",
+      "cap": 22.5,
+      "baseline": 55.5,
+      "left": 30.75,
+      "near_alpha": 171.6,
+      "far_alpha": 12.3,
+      "background": "glow"
+    },
+    {
+      "name": "mp_map_select__header_select_map__0",
+      "text": "SELECT MAP",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 169.9,
+      "far_alpha": 12.3,
+      "background": "glow"
+    },
+    {
+      "name": "player_profiles_select__header_select_profile__0",
+      "text": "SELECT PROFILE",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 172.2,
+      "far_alpha": 16.6,
+      "background": "glow"
+    },
+    {
+      "name": "indicator_options_edit__header_indicator_options__0",
+      "text": "INDICATOR OPTIONS",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 31.25,
+      "near_alpha": 174.4,
+      "far_alpha": 20.1,
+      "background": "glow"
+    },
+    {
+      "name": "item_options_edit__header_item_options__0",
+      "text": "ITEM OPTIONS",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 31.25,
+      "near_alpha": 171.9,
+      "far_alpha": 13.8,
+      "background": "glow"
+    },
+    {
+      "name": "name_edit__header_gametype_name__0",
+      "text": "GAMETYPE NAME",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 173.5,
+      "far_alpha": 16.8,
+      "background": "glow"
+    },
+    {
+      "name": "player_options_edit__header_player_options__0",
+      "text": "PLAYER OPTIONS",
+      "color": "#2995FF",
+      "cap": 22.25,
+      "baseline": 55.5,
+      "left": 31.0,
+      "near_alpha": 172.0,
+      "far_alpha": 16.6,
+      "background": "glow"
+    },
+    {
+      "name": "game_type_select__header_rules__0",
+      "text": "STEP 1: SELECT GAME",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 172.4,
+      "far_alpha": 23.6,
+      "background": "glow"
+    },
+    {
+      "name": "playlist_edit__header_edit_multiplayer_gametype__0",
+      "text": "EDIT MULTIPLAYER GAMETYPE",
+      "color": "#2995FF",
+      "cap": 22.5,
+      "baseline": 55.5,
+      "left": 30.0,
+      "near_alpha": 173.7,
+      "far_alpha": 12.6,
+      "background": "glow"
+    },
+    {
+      "name": "playlist_edit__header_set_options__0",
+      "text": "STEP 2: SET GAME RULES",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 174.0,
+      "far_alpha": 31.0,
+      "background": "plate"
+    },
+    {
+      "name": "playlist_select__header_select_gametype_to_edit__0",
+      "text": "SELECT GAMETYPE TO EDIT",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 173.7,
+      "far_alpha": 33.5,
+      "background": "plate"
+    },
+    {
+      "name": "player_setup__header_select_profile_to_edit__0",
+      "text": "SELECT PROFILE TO EDIT",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 173.4,
+      "far_alpha": 29.6,
+      "background": "plate"
+    },
+    {
+      "name": "advanced_controls__header_advanced_controls__0",
+      "text": "ADVANCED CONTROLS",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 28.0,
+      "near_alpha": 174.8,
+      "far_alpha": 21.8,
+      "background": "glow"
+    },
+    {
+      "name": "color_edit__header_profile_color__0",
+      "text": "MULTIPLAYER COLOR",
+      "color": "#2995FF",
+      "cap": 22.25,
+      "baseline": 55.5,
+      "left": 30.75,
+      "near_alpha": 173.3,
+      "far_alpha": 20.7,
+      "background": "glow"
+    },
+    {
+      "name": "controller_edit__header_profile_controller_setting__0",
+      "text": "CONTROLLER SETUP",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 30.0,
+      "near_alpha": 175.3,
+      "far_alpha": 19.6,
+      "background": "glow"
+    },
+    {
+      "name": "player_profile_edit__header_edit_profile_settings__0",
+      "text": "EDIT PROFILE SETTINGS",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 29.75,
+      "near_alpha": 174.9,
+      "far_alpha": 27.1,
+      "background": "plate"
+    },
+    {
+      "name": "name_edit__header_profile_name__0",
+      "text": "PROFILE NAME",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 31.25,
+      "near_alpha": 172.5,
+      "far_alpha": 14.5,
+      "background": "glow"
+    },
+    {
+      "name": "solo_level_select__header_load_level__0",
+      "text": "LOAD LEVEL",
+      "color": "#2995FF",
+      "cap": 22.0,
+      "baseline": 55.25,
+      "left": 30.5,
+      "near_alpha": 170.4,
+      "far_alpha": 10.5,
+      "background": "glow"
+    }
+  ]
+}
