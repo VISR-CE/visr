@@ -1,6 +1,7 @@
 """Builds and runs a standalone C probe for a unit test: one place for the compiler choice, the warning flags and the
 include paths the host probes share."""
 import pathlib
+import platform
 import shutil
 import subprocess
 import sys
@@ -12,9 +13,18 @@ HOST_INCLUDES = ("port/ios/host", "port/linux/src")
 FLAGS = ("-std=c11", "-Wall", "-Wextra", "-Werror", "-O1", "-pthread")
 
 
-def run_probe(test: unittest.TestCase, sources, includes=HOST_INCLUDES, extra=(), darwin_only=False):
-    """Compiles `sources` (paths relative to the repository root) with `includes` and runs the result; skips the test
-    when no compiler is found, or off macOS when `darwin_only` is set (probes of code that reads the Mach clock)."""
+def sanitizer_launcher():
+    """What a ThreadSanitizer probe runs behind: on Linux, address randomization off, since the kernel's wider mmap
+    randomization puts mappings where TSan's shadow memory goes."""
+    if sys.platform == "linux" and shutil.which("setarch"):
+        return ("setarch", platform.machine(), "--addr-no-randomize")
+    return ()
+
+
+def run_probe(test: unittest.TestCase, sources, includes=HOST_INCLUDES, extra=(), darwin_only=False, launcher=()):
+    """Compiles `sources` (paths relative to the repository root) with `includes` and runs the result, behind
+    `launcher` when given; skips the test when no compiler is found, or off macOS when `darwin_only` is set (probes of
+    code that reads the Mach clock)."""
     if darwin_only and sys.platform != "darwin":
         test.skipTest("macOS is required")
     compiler = shutil.which("clang") or (None if darwin_only else shutil.which("cc"))
@@ -29,4 +39,4 @@ def run_probe(test: unittest.TestCase, sources, includes=HOST_INCLUDES, extra=()
         command += [str(ROOT / source) for source in sources]
         command += [*extra, "-o", str(executable)]
         subprocess.run(command, check=True)
-        subprocess.run([str(executable)], check=True)
+        subprocess.run([*launcher, str(executable)], check=True)
