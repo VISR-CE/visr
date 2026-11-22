@@ -24,6 +24,8 @@ void host_frame_timeline_waits(double display_wait, double encoder_tail);
 /* with the encode thread, after the present barrier: the game thread's wait there (seconds); the row's encoder tail
 is the part that was not the display wait */
 void host_frame_timeline_barrier(double waited);
+/* the pacer's late-start sleep before the open row's controller read (seconds; on the game thread) */
+void host_frame_timeline_late_start(double slept);
 /* 1 with debug.latency_log: the backend asks the drawable for its presented time only then */
 int host_frame_timeline_logging(void);
 /* the display showed frame_id at shown (CACurrentMediaTime's clock; 0 never shown): any thread */

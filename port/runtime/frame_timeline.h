@@ -47,6 +47,7 @@ struct frame_timeline_row
 	double display_wait;         /* blocked for the display or a frame slot inside the frame */
 	double encoder_tail;         /* with the encode thread: the game thread's wait at the present barrier that was
 	                                the encoder's work */
+	double late_start_wait;      /* the pacer's sleep before controller_read (display.late_start) */
 };
 
 /* a row with every field unknown */
@@ -75,15 +76,6 @@ void frame_timeline_ring_shown(struct frame_timeline_ring *ring, uint64_t frame_
 /* copies frame_id's row out; 0 when it is no longer (or not yet) in the ring */
 int frame_timeline_ring_take(struct frame_timeline_ring *ring, uint64_t frame_id, struct frame_timeline_row *row);
 
-/* debug.latency_log's window: FRAME_TIMELINE_WINDOW rows, then one line */
-struct frame_timeline_latency
-{
-	unsigned frames, unshown;
-	unsigned basis_seen; /* a bit per shown_basis */
-	unsigned counts[5];
-	double values[5][FRAME_TIMELINE_WINDOW]; /* the latency metrics, in milliseconds; FRAME_TIMELINE_METRIC_* */
-};
-
 enum
 {
 	FRAME_TIMELINE_METRIC_STATE_AGE,
@@ -91,6 +83,17 @@ enum
 	FRAME_TIMELINE_METRIC_TO_SHOWN,
 	FRAME_TIMELINE_METRIC_ENCODER_TAIL,
 	FRAME_TIMELINE_METRIC_DISPLAY_WAIT,
+	FRAME_TIMELINE_METRIC_LATE_START_WAIT,
+	FRAME_TIMELINE_METRICS
+};
+
+/* debug.latency_log's window: FRAME_TIMELINE_WINDOW rows, then one line */
+struct frame_timeline_latency
+{
+	unsigned frames, unshown;
+	unsigned basis_seen; /* a bit per shown_basis */
+	unsigned counts[FRAME_TIMELINE_METRICS];
+	double values[FRAME_TIMELINE_METRICS][FRAME_TIMELINE_WINDOW]; /* the latency metrics, in milliseconds; FRAME_TIMELINE_METRIC_* */
 };
 
 /* adds a row; returns 1 when the window is full and frame_timeline_latency_line should print it */

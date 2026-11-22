@@ -6595,6 +6595,8 @@ static void gpu_metal_frame_start(void)
 #if !TARGET_OS_VISION
 	frame_deadline_join();
 	frame_deadline_late_start(slept);
+	if (!render_offscreen_active())
+		host_frame_timeline_late_start(slept);
 #endif
 #endif
 }

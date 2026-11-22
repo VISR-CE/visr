@@ -611,6 +611,8 @@ __attribute__((weak)) void host_frame_timeline_controller_read(void)
 { }
 __attribute__((weak)) uint64_t host_frame_timeline_frame_id(void)
 { uint64_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void host_frame_timeline_late_start(double slept)
+{ }
 __attribute__((weak)) int host_frame_timeline_logging(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) void host_frame_timeline_seal(void)

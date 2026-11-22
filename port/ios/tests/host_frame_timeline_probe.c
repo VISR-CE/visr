@@ -53,6 +53,7 @@ int main(void)
 	CHECK(host_frame_timeline_logging(), "debug.latency_log did not turn the line on");
 	for (frame = 0; frame < 400 && !lines; frame++)
 	{
+		host_frame_timeline_late_start(0.005);
 		host_frame_timeline_controller_read();
 		/* (the backend's present: its display wait; then the dispatch's barrier wait) */
 		host_frame_timeline_waits(0.004, -1.0);
@@ -62,6 +63,7 @@ int main(void)
 	CHECK(lines == 1, "no latency line after %d frames", frame);
 	CHECK(strstr(last_line, " display_wait_p50=4.00 display_wait_p95=4.00"), "display wait: %s", last_line);
 	CHECK(strstr(last_line, " encoder_tail_p50=2.00 encoder_tail_p95=2.00"), "encoder tail: %s", last_line);
+	CHECK(strstr(last_line, " late_start_wait_p50=5.00 late_start_wait_p95=5.00"), "late start: %s", last_line);
 
 	/* without the encode thread there is no barrier: the tail stays unknown (the second window: the first still
 	holds the rows the line lags behind) */

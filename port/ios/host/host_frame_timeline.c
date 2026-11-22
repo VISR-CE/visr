@@ -105,6 +105,11 @@ void host_frame_timeline_barrier(double waited)
 	row->encoder_tail = waited > 0.0 ? waited : 0.0;
 }
 
+void host_frame_timeline_late_start(double slept)
+{
+	open_row()->late_start_wait = slept;
+}
+
 int host_frame_timeline_logging(void)
 {
 	pthread_once(&timeline.once, timeline_start);

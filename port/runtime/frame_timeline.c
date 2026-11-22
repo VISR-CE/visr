@@ -16,7 +16,7 @@ void frame_timeline_row_clear(struct frame_timeline_row *row, uint64_t frame_id)
 	row->frame_id = frame_id;
 	row->shown_basis = FRAME_TIMELINE_SHOWN_NONE;
 	row->controller_read = row->submit = row->shown = NAN;
-	row->controller_state_age = row->display_wait = row->encoder_tail = NAN;
+	row->controller_state_age = row->display_wait = row->encoder_tail = row->late_start_wait = NAN;
 }
 
 void frame_timeline_ring_init(struct frame_timeline_ring *ring)
@@ -94,6 +94,7 @@ int frame_timeline_latency_add(struct frame_timeline_latency *window, const stru
 	add_metric(window, FRAME_TIMELINE_METRIC_TO_SHOWN, row->shown - row->controller_read);
 	add_metric(window, FRAME_TIMELINE_METRIC_ENCODER_TAIL, row->encoder_tail);
 	add_metric(window, FRAME_TIMELINE_METRIC_DISPLAY_WAIT, row->display_wait);
+	add_metric(window, FRAME_TIMELINE_METRIC_LATE_START_WAIT, row->late_start_wait);
 	/* (frames without a shown time are counted, not dropped silently: encode spec revision 5 item 7) */
 	if (isnan(row->shown))
 		window->unshown++;
@@ -129,6 +130,7 @@ int frame_timeline_latency_line(struct frame_timeline_latency *window, const cha
 		{ "controller_to_shown", FRAME_TIMELINE_METRIC_TO_SHOWN },
 		{ "encoder_tail", FRAME_TIMELINE_METRIC_ENCODER_TAIL },
 		{ "display_wait", FRAME_TIMELINE_METRIC_DISPLAY_WAIT },
+		{ "late_start_wait", FRAME_TIMELINE_METRIC_LATE_START_WAIT },
 	};
 	const char *basis = window->basis_seen & (1u << FRAME_TIMELINE_SHOWN_DRAWABLE_PRESENTED_TIME) ?
 		"drawable_presented_time" : window->basis_seen & (1u << FRAME_TIMELINE_SHOWN_COMPOSITOR_PREDICTED) ?
