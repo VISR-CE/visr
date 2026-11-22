@@ -1,6 +1,7 @@
 /* port: see saved_game_persist.h */
 #include "cseries.h"
 #include "saved_game_persist.h"
+#include "math/real_math.h"
 #include "main/main.h"
 #include "interface/player_ui.h"
 #include "network_coop.h"
