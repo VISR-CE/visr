@@ -477,6 +477,7 @@ struct frame_pacer_extended
 	double miss_at;         /* when the last frame was shown late (not one pushed late behind another); 0 none */
 	double cost_miss_at;    /* when the last frame was shown late because it cost more than allowed; 0 none */
 	int lead_misses;        /* frames shown late with their GPU work done a lead ahead, among the last aimed_since */
+	unsigned long wobbles;  /* of those, shown under a whole refresh late: the display's timing, not counted there */
 	unsigned long aimed_since; /* aimed frames shown since that count began */
 	double aimed[FRAME_PACER_LATE_WINDOW]; /* the work of the last frames that had a late start (frames that start at
 	                        once measure less: their waits for the display overlap the GPU's work on them) */
@@ -746,8 +747,12 @@ static inline void frame_pacer_extended_shown(struct frame_pacer_extended *late,
 		/* (a frame whose GPU end is not known says nothing about the lead: it counts as one that cost too much) */
 		if (slack == slack && slack >= lead - 0.0005)
 		{
-			/* done a lead ahead and still late: the display's own, unless there are many */
-			if (++late->lead_misses >= FRAME_PACER_EXTENDED_LEAD_MISSES)
+			/* done a lead ahead and still late: the display's own, unless there are many. Under a whole refresh late
+			(a phone's panel shows a ready frame half a refresh, 4.17 ms, after its aim and the next one 12.5 ms
+			later) is the display's timing whatever the lead: a longer lead would not have caught the refresh */
+			if (at < aim + 0.75 * step)
+				late->wobbles++;
+			else if (++late->lead_misses >= FRAME_PACER_EXTENDED_LEAD_MISSES)
 			{
 				late->lead_misses = 0;
 				late->aimed_since = 0;

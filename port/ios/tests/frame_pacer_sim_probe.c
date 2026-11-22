@@ -776,6 +776,22 @@ int main(int argc, char **argv)
 			frame_pacer_extended_shown(&late, 30.0, 30.0, 0.0051, P120, P60, 30.1);
 		frame_pacer_extended_shown(&late, 31.0, 31.0 + P60, 0.0051, P120, P60, 31.1);
 		CHECK(late.holdoff_until == 0.0 && late.lead_failed == 0.0 && late.lead_misses == 1);
+		/* a ready frame shown half a panel refresh after its aim (a phone at 60 on its 120 Hz panel: 4.173 ms against
+		the 4.167 ms line for a late frame): the display's timing, however many there are. They are not lead misses,
+		nothing stops and the lead stays; a whole refresh late with the same slack still counts */
+		{
+			struct frame_pacer_extended wobble = { 0 };
+
+			for (index = 0; index < 4 * FRAME_PACER_EXTENDED_LEAD_MISSES; index++)
+				frame_pacer_extended_shown(&wobble, 40.0 + index, 40.0 + index + 0.004173, 0.013, P120, P60, 40.1 + index);
+			CHECK(wobble.misses == 4 * FRAME_PACER_EXTENDED_LEAD_MISSES && wobble.wobbles == wobble.misses);
+			CHECK(wobble.lead_misses == 0 && wobble.lead_failed == 0.0 && wobble.holdoff_until == 0.0 && !wobble.missed);
+			CHECK(frame_pacer_extended_lead(&wobble) == FRAME_PACER_EXTENDED_LEAD);
+			frame_pacer_extended_shown(&wobble, 90.0, 90.0 + 0.004160, 0.013, P120, P60, 90.1);
+			CHECK(wobble.misses == 4 * FRAME_PACER_EXTENDED_LEAD_MISSES);
+			frame_pacer_extended_shown(&wobble, 91.0, 91.0 + P120, 0.013, P120, P60, 91.1);
+			CHECK(wobble.lead_misses == 1 && wobble.wobbles == 4 * FRAME_PACER_EXTENDED_LEAD_MISSES);
+		}
 		/* many among few aimed frames: the lead is too short. Late starts stop, the lead grows, and the shrink stops a
 		margin over the one that failed */
 		for (index = 0; index < FRAME_PACER_EXTENDED_LEAD_MISSES - 1; index++)
