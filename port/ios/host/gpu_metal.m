@@ -9394,7 +9394,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 				if (!offscreen)
 					frame_context_wait(frame_pacer_aimed(&paced));
 				/* (the frame's waits for the display, for the pacer's cost of it: pacing_schedule clears them) */
-				frame_gpu_waited = display_waited + slot_wait_counted();
+				frame_gpu_waited = frame_waits_display(host_gpu_present_called());
 				hold = pacing_schedule(drawable != nil || virtual_texture >= 0, &next_frame_due);
 				/* (offscreen: nothing is shown, so nothing is paced or presented) */
 #if HALO_FRAME_PACING

@@ -37,6 +37,11 @@ static double slot_counted(double present_called)
 	return slot_ended > from ? slot_ended - from : 0.0;
 }
 
+double frame_waits_display(double present_called)
+{
+	return display_waited + slot_counted(present_called);
+}
+
 struct frame_waits_taken frame_waits_take(double present_called)
 {
 	struct frame_waits_taken taken;

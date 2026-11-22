@@ -24,6 +24,9 @@ void frame_waits_add_game(double seconds);
 void frame_waits_add_display(double seconds);
 /* (one slot wait a frame: frame_begin waits once, so the last interval is the frame's) */
 void frame_waits_add_slot(double started, double ended);
+/* the frame's display wait so far (what frame_waits_take's display will be), leaving it in place: for the frame
+pacer's cost of the frame, read in the present before the frame's waits are taken */
+double frame_waits_display(double present_called);
 /* the frame's waits, cleared for the next. Every flat present takes them, shown or not, so a frame's waits never land
 on the next frame's row (the visionOS stereo, theater and UI-quad presents do not yet: the visionOS encode step). present_called: when the game thread reached its present with the encode thread on
 (host_gpu_present_called); a negative value means the game thread encoded the frame itself. */
