@@ -79,5 +79,9 @@
 	<string>$(HALO_SHADER_FEED_URL)</string>
 	<key>HaloRecordingFeedURL</key>
 	<string>$(HALO_RECORDING_FEED_URL)</string>
+	<key>GCSupportsGameMode</key>
+	<true/>
+	<key>LSSupportsGameMode</key>
+	<true/>
 </dict>
 </plist>
