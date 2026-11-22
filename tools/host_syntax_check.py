@@ -136,6 +136,9 @@ def configure(platform, variant):
                *common_definitions(), *VARIANTS[variant](), *extra]
     if platform == 'macosx':
         command.append('-DHALO_NATIVE_MAC=ON')
+    if system == 'visionOS':
+        # port/ios enables Swift for the theater; with Ninja its compiler probe targets macOS unless told
+        command.append(f'-DCMAKE_Swift_COMPILER_TARGET=arm64-apple-xros{deployment}')
     result = run(*command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     if result.returncode:
         raise SystemExit(f'{platform}/{variant}: cmake configure failed\n{result.stdout[-3000:]}')
