@@ -91,6 +91,9 @@ struct hash_job
 	byte hash[MAP_SHARE_HASH_BYTES];
 	/* its content hash (map_share_content_hash) */
 	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
+	/* when the file was written, the same before and after it was read (0
+	if it changed while it was) */
+	unsigned long modified;
 	/* written by the thread: done (ready or failed) when it has exited */
 	volatile long failed;
 };
@@ -348,6 +351,10 @@ static struct known_hash *known_hash_find(
 	char const *path,
 	unsigned long size,
 	unsigned long modified);
+static boolean file_stamp(
+	char const *path,
+	unsigned long *size,
+	unsigned long *modified);
 
 /* the hashing thread: the job's file read a piece at a time */
 static unsigned long __stdcall hash_job_run(
@@ -355,11 +362,15 @@ static unsigned long __stdcall hash_job_run(
 {
 	struct hash_job *job = input;
 	byte *piece = malloc(MAP_SHARE_PIECE_BYTES);
-	/* (a file of no pieces has no first piece: left all zeros) */
-	byte rest_hash[MAP_SHARE_HASH_BYTES] = {0};
+	byte rest_hash[MAP_SHARE_HASH_BYTES];
+	unsigned long stamp_size, stamp_before = 0, stamp_after = 0;
+	boolean stamped = file_stamp(job->path, &stamp_size, &stamp_before);
 	FILE *stream = fopen(job->path, "rb");
 	long size = -1;
 	long index;
+
+	/* (a file of no pieces: its first piece is empty) */
+	map_share_first_piece_rest_hash(rest_hash, 0, rest_hash);
 
 	job->piece_hashes = NULL;
 	if (!piece || !stream || fseek(stream, 0, SEEK_END) != 0 || (size = ftell(stream)) < 0 ||
@@ -390,6 +401,8 @@ static unsigned long __stdcall hash_job_run(
 	if (stream)
 		fclose(stream);
 	free(piece);
+	job->modified = stamped && file_stamp(job->path, &stamp_size, &stamp_after) && stamp_after == stamp_before ?
+		stamp_before : 0;
 	if (job->piece_hashes)
 	{
 		map_share_file_hash_of_pieces(job->size, job->piece_hashes, job->piece_count, job->hash);
@@ -595,15 +608,19 @@ static void catalog_job_finish(
 	/* (replaced meanwhile: the catalog's file is another's now) */
 	if (file && !csstrcasecmp(file->path, job->path))
 	{
-		/* (changed meanwhile: hashed again; or refused meanwhile,
-		map_share_file_hash: not sent) */
-		if (job->failed || job->size != file->size || file->failed)
+		/* (unreadable, or refused meanwhile, map_share_file_hash: not sent;
+		changed while it was read: hashed again) */
+		if (job->failed || file->failed || !job->modified)
 		{
 			file->failed = file->failed || job->failed;
 			free(job->piece_hashes);
 		}
 		else
 		{
+			/* (the file as it was read, which may have changed since it was
+			taken into the catalog: map_share_file_unchanged compares with this) */
+			file->size = job->size;
+			file->modified = job->modified;
 			file->piece_count = job->piece_count;
 			file->piece_hashes = job->piece_hashes;
 			csmemcpy(file->hash, job->hash, MAP_SHARE_HASH_BYTES);
