@@ -160,6 +160,14 @@ struct cache_file_source
 	uint32_t size;
 };
 
+/* a cache header's scenario type */
+enum
+{
+	_cache_file_scenario_type_solo = 0,
+	_cache_file_scenario_type_multiplayer,
+	_cache_file_scenario_type_main_menu
+};
+
 struct cache_file_identity
 {
 	enum cache_file_format format;
@@ -171,6 +179,7 @@ struct cache_file_identity
 	uint32_t compressed_file_length;
 	uint32_t tag_data_offset;
 	uint32_t tag_data_size;
+	/* what the map is played as (_cache_file_scenario_type_solo and on) */
 	int16_t scenario_type;
 	uint32_t checksum;
 	char name[CACHE_FILE_STRING_BYTES];

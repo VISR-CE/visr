@@ -246,8 +246,8 @@ enum
 	FAKE_TAG_NAMES = FAKE_TAG_INSTANCES + 3 * 0x20,
 };
 
-static void map_piece(byte *piece, char const *header_name, unsigned long checksum, char const *scenario,
-	char const *bsp, unsigned long extra_group, char const *extra, char const *marker)
+static void map_piece(byte *piece, char const *header_name, unsigned long checksum, int scenario_type,
+	char const *scenario, char const *bsp, unsigned long extra_group, char const *extra, char const *marker)
 {
 	byte *tags = piece + CACHE_FILE_HEADER_BYTES;
 	char const *names[3] = { scenario, bsp, extra };
@@ -259,6 +259,7 @@ static void map_piece(byte *piece, char const *header_name, unsigned long checks
 	memset(piece, 0, MAP_SHARE_PIECE_BYTES);
 	cache_header(piece, CACHE_FILE_VERSION_CUSTOM_EDITION, header_name, checksum);
 	put32(piece + 0x14, FAKE_TAG_DATA_BYTES);
+	piece[0x60] = (byte)scenario_type;
 	put32(tags + 0x00, FAKE_TAG_CACHE_ADDRESS + FAKE_TAG_INSTANCES);
 	put32(tags + 0x04, 0xE1740000UL);
 	put32(tags + 0x0C, (unsigned long)count);
@@ -286,11 +287,11 @@ static void stock_piece(byte *piece, char const *stock, char const *header_name,
 
 	snprintf(path, sizeof(path), "levels\\test\\%s\\%s", stock, stock);
 	snprintf(marker, sizeof(marker), "stock %s", stock);
-	map_piece(piece, header_name, checksum, path, path, 0, NULL, marker);
+	map_piece(piece, header_name, checksum, _cache_file_scenario_type_multiplayer, path, path, 0, NULL, marker);
 }
 
-/* a community map's: its own scenario and BSP, and, as community maps do,
-a shader of a campaign level's */
+/* a community multiplayer map's: its own scenario and BSP, and, as
+community maps do, a shader of a campaign level's */
 static void community_piece(byte *piece, char const *header_name)
 {
 	char path[128];
@@ -298,18 +299,43 @@ static void community_piece(byte *piece, char const *header_name)
 
 	snprintf(path, sizeof(path), "levels\\test\\%s\\%s", header_name, header_name);
 	snprintf(marker, sizeof(marker), "community %s", header_name);
-	map_piece(piece, header_name, COMMUNITY_CHECKSUM, path, path, 0x73686472UL,
+	map_piece(piece, header_name, COMMUNITY_CHECKSUM, _cache_file_scenario_type_multiplayer, path, path, 0x73686472UL,
 		"levels\\a10\\shaders\\metal", marker);
 }
 
-/* a conversion of a campaign level: by its scenario (levels\a10\a10, in any
-case), or by a structure BSP of one with a scenario renamed */
+/* a community singleplayer map of its own levels, with a campaign level's
+shader as community maps have: not a conversion */
+static void solo_piece(byte *piece, char const *header_name)
+{
+	char path[128];
+	char marker[64];
+
+	snprintf(path, sizeof(path), "levels\\test\\%s\\%s", header_name, header_name);
+	snprintf(marker, sizeof(marker), "solo %s", header_name);
+	map_piece(piece, header_name, COMMUNITY_CHECKSUM, _cache_file_scenario_type_solo, path, path, 0x73686472UL,
+		"levels\\a10\\shaders\\metal", marker);
+}
+
+/* a community multiplayer map built on a campaign level's structure BSP
+(scenario `scenario`, BSP `bsp`): shared */
+static void campaign_multiplayer_piece(byte *piece, char const *header_name, char const *scenario, char const *bsp)
+{
+	char marker[64];
+
+	snprintf(marker, sizeof(marker), "multiplayer %s %s", scenario, bsp);
+	map_piece(piece, header_name, COMMUNITY_CHECKSUM, _cache_file_scenario_type_multiplayer, scenario, bsp, 0, NULL,
+		marker);
+}
+
+/* a singleplayer conversion of a campaign level: by its scenario
+(levels\a10\a10, in any case), or by a structure BSP of one with a scenario
+renamed */
 static void conversion_piece(byte *piece, char const *header_name, char const *scenario, char const *bsp)
 {
 	char marker[64];
 
 	snprintf(marker, sizeof(marker), "conversion %s %s", scenario, bsp);
-	map_piece(piece, header_name, COMMUNITY_CHECKSUM, scenario, bsp, 0, NULL, marker);
+	map_piece(piece, header_name, COMMUNITY_CHECKSUM, _cache_file_scenario_type_solo, scenario, bsp, 0, NULL, marker);
 }
 
 /* a community map whose tags cannot be read: its last tag's name lies
@@ -360,6 +386,23 @@ static void conversion_file(char const *name, char const *header_name, char cons
 	static byte piece[MAP_SHARE_PIECE_BYTES];
 
 	conversion_piece(piece, header_name, scenario, bsp);
+	piece_file(name, piece);
+}
+
+static void solo_file(char const *name, char const *header_name)
+{
+	static byte piece[MAP_SHARE_PIECE_BYTES];
+
+	solo_piece(piece, header_name);
+	piece_file(name, piece);
+}
+
+static void campaign_multiplayer_file(char const *name, char const *header_name, char const *scenario,
+	char const *bsp)
+{
+	static byte piece[MAP_SHARE_PIECE_BYTES];
+
+	campaign_multiplayer_piece(piece, header_name, scenario, bsp);
 	piece_file(name, piece);
 }
 
@@ -476,6 +519,15 @@ static void case_catalog(void)
 		"a map on a campaign level's structure BSP, its scenario renamed, is sent");
 	conversion_file("a100.map", "a100", "levels\\a100\\a100", "levels\\a100\\a100");
 	CHECK(catalog_takes("a100.map", _map_share_file_map), "a community map in a folder named like a campaign level's is not sent");
+	/* multiplayer maps built on a campaign level's structure BSP, or with a
+	scenario in a campaign level's folder, are sent; so is a community's own
+	singleplayer map */
+	campaign_multiplayer_file("b30mp.map", "b30mp", "levels\\test\\b30mp\\b30mp", "levels\\b30\\b30");
+	CHECK(catalog_takes("b30mp.map", _map_share_file_map), "a multiplayer map on a campaign level's BSP is not sent");
+	campaign_multiplayer_file("a10mp.map", "a10mp", "levels\\a10\\a10mp", "levels\\a10\\a10a");
+	CHECK(catalog_takes("a10mp.map", _map_share_file_map), "a multiplayer map in a campaign level's folder is not sent");
+	solo_file("mycampaign.map", "mycampaign");
+	CHECK(catalog_takes("mycampaign.map", _map_share_file_map), "a community singleplayer map is not sent");
 	/* a map whose tags cannot be read is not known not to be one */
 	unreadable_file("unreadable.map", "unreadable");
 	CHECK(!catalog_takes("unreadable.map", _map_share_file_map), "a map whose tags cannot be read is sent");
