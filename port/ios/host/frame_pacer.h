@@ -61,6 +61,20 @@ static inline int frame_pacer_in_flight_setting(const char *value, int fallback)
 	return fallback;
 }
 
+/* The frames in flight a frame starts under: display.frames_in_flight's limit (base; 0 is the system's), or while the
+frame rate in force is 30 or lower (target, 0 for none) the lower of that and display.frames_in_flight_at_30's
+(at_30 "1" or "2"; anything else leaves base). It never goes above base, which sized the renderer's buffers when
+the pacer started, and a base of 0 (no limit) keeps 0 and its own queue: the pacer's slots do not exist to resize. */
+static inline int frame_pacer_in_flight_for(double target, int base, const char *at_30)
+{
+	int wanted;
+
+	if (!base || target <= 0.0 || target > 30.5)
+		return base;
+	wanted = frame_pacer_in_flight_setting(at_30, base);
+	return wanted > 0 && wanted < base ? wanted : base;
+}
+
 struct frame_pacer_flight
 {
 	int limit; /* 0: none */

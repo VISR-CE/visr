@@ -27,6 +27,7 @@ static struct
 	int system_wanted;               /* display.frame_source = "system", and frames wait for the display */
 	int system_source;               /* the renderer's system pacer runs: no slots or spacing of ours */
 	int in_flight;                   /* display.frames_in_flight (0: no limit) */
+	char in_flight_at_30[8];         /* display.frames_in_flight_at_30 */
 	int spacing;                     /* display.frame_spacing */
 	int times;                       /* debug.present_times */
 	double load;                     /* debug.frame_load_cpu, in seconds */
@@ -87,6 +88,7 @@ void frame_pacer_start(int fixed_timestep)
 	/* (started again after frame_pacer_stop: frames from before hold no slot) */
 	memset(&pacer.flight, 0, sizeof(pacer.flight));
 	pacer.flight.limit = pacer.in_flight = limit;
+	host_config_string("display.frames_in_flight_at_30", "", pacer.in_flight_at_30, sizeof(pacer.in_flight_at_30));
 	pacer.spacing = strcmp(value, "false") != 0;
 	host_config_string("display.frame_source", "", value, sizeof(value));
 	/* (the system's pacer shows one frame a refresh: no cap, no "unlimited") */
@@ -137,6 +139,20 @@ void frame_pacer_frame_start(void)
 		return;
 	now = now_seconds();
 	pthread_mutex_lock(&pacer.lock);
+	/* (the limit follows the frame rate in force, which changes with the map's workload and the scene class; frames
+	already holding a slot give it back whatever the limit is) */
+	if (!pacer.system_source && pacer.flight.limit)
+	{
+		int limit = frame_pacer_in_flight_for(host_frame_rate_target(), pacer.in_flight, pacer.in_flight_at_30);
+
+		if (limit != pacer.flight.limit)
+		{
+			pacer.flight.limit = limit;
+			platform_log("frame pacer: %d frame%s in flight (display.frames_in_flight%s)", limit, limit == 1 ? "" : "s",
+				limit == pacer.in_flight ? "" : "_at_30, for a frame rate of 30 or lower");
+			pthread_cond_broadcast(&pacer.shown_or_ticked);
+		}
+	}
 	/* only for frames shown in step with the display, by the pacer's own
 	rules: drawing faster than the display there is nothing to be in time
 	for, and the system's pacer keeps its own time; and only while a frame's

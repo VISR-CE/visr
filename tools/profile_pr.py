@@ -42,9 +42,10 @@ PROFILE_DOMAIN = "device-profiles-5"
 # Every generation published from these sources, newest first, with the keys that generation's released validators
 # refuse: 0.6.4 to 0.6.7 read device-profiles-3 and refuse a whole shard that names network.full_rate_players.
 # 0.6.22 reads device-profiles-6: generation 4's keys and display.effect_limits, which 0.6.8 to 0.6.21 refuse.
-GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-6": ("display.allow_portrait",),
-               "device-profiles-4": ("display.allow_portrait", "display.effect_limits"),
-               "device-profiles-3": ("network.full_rate_players", "display.allow_portrait", "display.effect_limits")}
+GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-6": ("display.allow_portrait", "display.frames_in_flight_at_30"),
+               "device-profiles-4": ("display.allow_portrait", "display.effect_limits", "display.frames_in_flight_at_30"),
+               "device-profiles-3": ("network.full_rate_players", "display.allow_portrait", "display.effect_limits",
+                                       "display.frames_in_flight_at_30")}
 RECEIPT = FEED / "publication.json"
 RUN_JOB = os.environ.get("VISR_RUN_JOB", "")
 REPOSITORY = "VISR-CE/visr"

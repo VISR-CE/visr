@@ -373,6 +373,14 @@ frames and the build has none of this.
   the shortest delay between the game and the screen, and costs frames
   whenever a frame's CPU and GPU work together take longer than one refresh.
   `"system"` leaves the queue to the system, which allows up to three.
+- `frames_in_flight_at_30` (`"1"` or `"2"`; default empty, which follows
+  `frames_in_flight`) is the limit while the frame rate in force is 30 or
+  lower: a 30 cap, a big multiplayer game held to 30, a scene class's 30. It
+  never exceeds `frames_in_flight`. Under a 30 cap `"1"` cuts the time from
+  the controller read to the screen from about 98 to 65 ms on devices whose
+  CPU and GPU work together fit the 33 ms, with no loss of frames
+  (measured on the iPhone Duo and the A10X iPad Pro). A device profile sets
+  it.
 - `frame_spacing` (default `true`) keeps each frame on screen for its share
   of the display's time before the next may replace it: one refresh, or with
   a `frame_rate` cap under the display's rate, the cap's (two refreshes for

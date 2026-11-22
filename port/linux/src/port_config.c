@@ -856,6 +856,14 @@ static const struct config_setting config_settings[] =
 		"\"thread\". Not on a Vision Pro, which paces\n"
 		"frames itself, and not for frames that don't wait for the display\n"
 		"(display.frame_rate).", _tier_player, "|1|2|3|system" },
+	{ "display.frames_in_flight_at_30", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT_AT_30", _environment_value, _platform_ios,
+		"How many frames the Metal renderer may have on their way to the display\n"
+		"at once, \"1\" or \"2\", while the frame rate in force is 30 or lower (a\n"
+		"30 cap, a big multiplayer game held to 30, a scene class's 30). One\n"
+		"frame in flight cuts the delay between the game and the screen by a\n"
+		"third when a frame's CPU and GPU work together fit the 33 ms, and never\n"
+		"raises display.frames_in_flight. Empty (default): display.frames_in_flight\n"
+		"throughout. Not on a Vision Pro." },
 	{ "display.frame_spacing", _config_boolean, "true", "HALO_FRAME_SPACING", _environment_value, _platform_ios,
 		"Keep each frame on screen for its share of the display's time before the\n"
 		"next may replace it (the Metal renderer), so frames show evenly spaced:\n"
