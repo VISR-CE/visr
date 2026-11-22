@@ -159,6 +159,7 @@ time stereo.c reads it (once a frame) */
 static unsigned long probe_clock;
 unsigned long platform_clock_frames(void) { return ++probe_clock; }
 double halo_frame_trace_milliseconds(void) { return 0.0; }
+void render_interpolation_presentation_due(unsigned long microseconds) { (void)microseconds; }
 int halo_third_person_camera(void) { return game_third_person; }
 /* The focused dead-camera probe can replace this with the production
 camera procedure and network predicate. */

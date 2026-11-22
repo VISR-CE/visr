@@ -27,6 +27,8 @@ float game_time_get_tick_fraction(void);
 void render_interpolation_tick(void);
 void render_interpolation_reset(void);
 void render_interpolation_frame_begin(void);
+/* the loop clock was read for this frame (main_update_time_unthrottled) */
+void render_interpolation_clock_read(void);
 void render_interpolation_frame_end(void);
 float render_interpolation_fraction(void);
 struct real_matrix4x3 *render_interpolation_object_node_matrices(long object_index);

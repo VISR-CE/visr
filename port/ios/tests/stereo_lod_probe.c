@@ -222,6 +222,7 @@ void halo_cutscene_state(struct halo_cutscene_state *state) { memset(state, 0, s
 int platform_fixed_timestep(void) { return 1; }
 unsigned long platform_clock_frames(void) { return 0; }
 double halo_frame_trace_milliseconds(void) { return 0.0; }
+void render_interpolation_presentation_due(unsigned long microseconds) { (void)microseconds; }
 void halo_screen_commit_stereo_scale(void) {}
 /* main.c: one player window (split screen keeps the mono path) */
 short main_get_window_count(void) { return 1; }

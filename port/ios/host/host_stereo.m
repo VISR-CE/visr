@@ -1217,6 +1217,13 @@ static void stereo_frame(struct halo_stereo_frame *frame) API_AVAILABLE(visionos
 	}
 	cp_drawable_t drawable = host_theater_drawable(0, &origin_from_device, &anchored);
 	head_frame_open = head_configured();
+	/* the presentation's distance from now, the end of the Compositor's
+	wait: the guest adds it to its own clock (render_interpolation.c) */
+	{
+		double lead = (host_theater_presentation_time() - CACurrentMediaTime()) * 1e6;
+
+		frame->presentation_lead_microseconds = lead >= 1.0 ? (int32_t)MIN(lead, 1e6) : 1;
+	}
 	{
 		NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
 
@@ -1479,6 +1486,7 @@ void host_stereo_frame(struct halo_stereo_frame *frame)
 	frame->foveated = 0;
 	frame->foveated_width = 0;
 	frame->foveated_height = 0;
+	frame->presentation_lead_microseconds = 0;
 #if TARGET_OS_VISION
 	head_frame_open = 0;
 	host_spatial_frame(NULL, NULL);

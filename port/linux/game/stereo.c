@@ -85,6 +85,9 @@ void platform_log(const char *format, ...);
 int platform_fixed_timestep(void);
 unsigned long platform_clock_frames(void);
 double halo_frame_trace_milliseconds(void);
+/* render_interpolation.c: when this frame's Compositor frame shows, in
+microseconds from now; 0: none this frame */
+void render_interpolation_presentation_due(unsigned long microseconds);
 /* port/linux/src/d3d8_device.c */
 void halo_screen_commit_stereo_scale(void);
 /* source/main/main.c: the player windows, more than one in split screen */
@@ -1372,6 +1375,11 @@ void halo_stereo_frame_begin(void)
 #ifdef HALO_IOS
 		host_stereo_frame(&stereo_frame);
 #endif
+		/* the frame's presentation, for the blend between ticks; a frame
+		that draws mono passes 0 and keeps the flat present's schedule */
+		render_interpolation_presentation_due(stereo_frame.eye_count == 2 && one_window &&
+			stereo_frame.presentation_lead_microseconds > 0 ?
+			(unsigned long)stereo_frame.presentation_lead_microseconds : 0);
 		/* no Compositor frame (the space isn't open): mono, in the window.
 		Split screen: mono too, though the frame is still opened (its picture
 		goes on the UI's quad, as for any frame without eyes) */
