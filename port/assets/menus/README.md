@@ -287,7 +287,6 @@ device, or the switch being off leave the original picture in place. These direc
 map pictures use the texture cache instead of overwriting the original PNG cache;
 they share its memory budget, storage accounting and deletion.
 
-The main menu has no Quit row in either look. B and Back at the root do
-nothing. The retained confirmation is available only through the debug
-setting `debug.menu_open = "main_menu/quit_select/quit_screen"` for PC, or
-`"xbox/main_menu/quit_select/quit_screen"` for Xbox.
+The main menu has no Quit row. B and Back at the root do nothing. The
+retained confirmation is available only through the debug setting
+`debug.menu_open = "xbox/main_menu/quit_select/quit_screen"`.
