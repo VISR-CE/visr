@@ -62,8 +62,10 @@ def test_virtual_keyboard_separator_patch_preserves_the_typed_key():
 
 def test_legend_glyphs_center_on_caption_cap_height():
     source = (ROOT / 'source/interface/ui_widget.c').read_text()
-    assert '#define LEGEND_GLYPH_RAISE 3' in source
-    assert 'glyph_bounds.y0 -= LEGEND_GLYPH_RAISE;' in source
+    header = (ROOT / 'source/interface/controller_glyphs.h').read_text()
+    assert '#define LEGEND_GLYPH_RAISE 3' in header
+    assert 'box.y0 -= LEGEND_GLYPH_RAISE;' in header
+    assert 'controller_glyph_legend_bounds(&bounds, clip)' in source
     assert '&glyph_bounds, clip, glyph_color, _controller_glyph_blend_menu' in source
 
 
