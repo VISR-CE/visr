@@ -4913,16 +4913,21 @@ void display_error_deferred(
 }
 
 /* port: an error message of the port's own text (the maps have only the
-Xbox's), in the dialog of an error whose text it takes the place of */
+Xbox's), in the dialog of an error whose text it takes the place of. The text is
+copied: the dialog reads it on every frame it draws, long after a caller's
+formatted buffer is gone */
 void display_error_text_deferred(
 	wchar_t const *text,
 	short local_player_index)
 {
+	static wchar_t deferred_text[512];
 	short index = local_player_index == NONE ? 0 : local_player_index;
 
 	if (!VALID_INDEX(index, MAXIMUM_NUMBER_OF_LOCAL_PLAYERS) || widget_globals.deferred_errors[index].error_code != NONE)
 		return;
-	ui_widget_port_error_pending_text = text;
+	ustrncpy(deferred_text, text, NUMBEROF(deferred_text) - 1);
+	deferred_text[NUMBEROF(deferred_text) - 1] = 0;
+	ui_widget_port_error_pending_text = deferred_text;
 	display_error_deferred(_error_cannot_create_saved_game_file_with_empty_name, local_player_index, TRUE, FALSE);
 
 	return;

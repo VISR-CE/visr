@@ -505,3 +505,54 @@ def test_connect_progress_belongs_to_the_joining_game_only():
     assert "ui_widget_port_bar_caption" not in detail[:detail.index("\n}\n")]
     timeout = source[source.index("could not reach the server browser's game"):]
     assert "display_error_text_deferred" in timeout[:900]
+
+
+def test_deferred_error_text_is_copied_not_borrowed():
+    """Bug class (the failed-join dialog read a dead stack buffer): the dialog reads the pending text on every
+    frame it draws, so display_error_text_deferred must own a copy, as its main-menu twin does."""
+    import re
+    import shutil
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "source/interface/ui_widget.c").read_text()
+    start = source.index("void display_error_text_deferred(")
+    function = source[start:source.index("\n}\n", start) + 3]
+    compiler = shutil.which("clang") or shutil.which("cc")
+    if compiler is None:
+        import pytest
+        pytest.skip("A C compiler is required")
+    program = r'''
+#include <stdio.h>
+#include <stdlib.h>
+#include <wchar.h>
+typedef wchar_t wchar;
+#define NONE (-1)
+#define NUMBEROF(a) (sizeof(a) / sizeof((a)[0]))
+#define VALID_INDEX(i, n) ((i) >= 0 && (i) < (n))
+#define MAXIMUM_NUMBER_OF_LOCAL_PLAYERS 4
+#define _error_cannot_create_saved_game_file_with_empty_name 7
+#define TRUE 1
+#define FALSE 0
+static struct { struct { int error_code; } deferred_errors[4]; } widget_globals = { { { NONE }, { NONE }, { NONE }, { NONE } } };
+static wchar_t const *ui_widget_port_error_pending_text;
+static wchar_t *ustrncpy(wchar_t *d, wchar_t const *s, size_t n) { return wcsncpy(d, s, n); }
+static void display_error_deferred(int code, short player, int a, int b) { (void)code; (void)player; (void)a; (void)b; }
+''' + function + r'''
+int main(void)
+{
+	wchar_t buffer[32];
+	wcscpy(buffer, L"Couldn't reach it.");
+	display_error_text_deferred(buffer, NONE);
+	wcscpy(buffer, L"garbage garbage garbage");
+	if (wcscmp(ui_widget_port_error_pending_text, L"Couldn't reach it.")) { fprintf(stderr, "borrowed\n"); return 1; }
+	return 0;
+}
+'''
+    with tempfile.TemporaryDirectory(prefix="deferred-error-") as temporary:
+        path = Path(temporary) / "probe.c"
+        path.write_text(program)
+        subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", str(path),
+                        "--output", str(Path(temporary) / "probe")], check=True)
+        subprocess.run([str(Path(temporary) / "probe")], check=True)

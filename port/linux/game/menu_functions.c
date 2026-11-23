@@ -5385,8 +5385,6 @@ static void lobby_browser_update(struct widget_instance *list)
 	}
 	/* the line below the rows */
 	{
-		wchar_t name[P2P_LISTING_NAME_SIZE + 1];
-
 		if (!config_boolean("network.public_lobby"))
 			usnprintf(text, NUMBEROF(text) - 1, L"The public game list is turned off.");
 		else if (!lobby_browser.count && lobby_browser.hidden)
