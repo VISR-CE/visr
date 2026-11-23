@@ -17,7 +17,6 @@ and the debug keyboard that the game's console reads.
 #include "gl.h"
 #endif
 #include "port_config.h"
-#include "smooth_motion.h"
 #include "halo_virtual_clock.h"
 #include "p2p.h"
 #include "halo_internet.h"
@@ -531,22 +530,9 @@ int halo_interpolation_enabled(void)
 
 	if (read_at != config_changes() || read_class != scene)
 	{
-		char rate[32] = "";
-		long max_fps = 0;
-
 		read_at = config_changes();
 		read_class = scene;
-		if (config_explicit("display.interpolation"))
-			enabled = config_boolean("display.interpolation");
-		else
-		{
-#ifdef HALO_ILP32
-			config_scene_string("display.frame_rate", scene, rate, sizeof(rate));
-#else
-			max_fps = config_integer("display.max_fps");
-#endif
-			enabled = smooth_motion_automatic(smooth_motion_cap(rate, config_boolean("display.vsync"), max_fps));
-		}
+		enabled = config_smooth_motion(scene);
 	}
 	return enabled && !photo_mode_active();
 }

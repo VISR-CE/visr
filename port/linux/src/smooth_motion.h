@@ -1,6 +1,6 @@
 /* Smooth motion (frames drawn between the game's 30 ticks a second) is automatic: on while the frame rate in
-force is above 30, off at a 30 cap or lower. This is the one rule; halo_interpolation_enabled
-(sdl_platform.c) is its only caller. display.interpolation is a testing override of it, never a menu row. */
+force is above 30, off at a 30 cap or lower. This is the one rule; config_smooth_motion (port_config.c) applies
+it, and the renderer (halo_interpolation_enabled) and the performance reports call that. display.interpolation is a testing override of it, never a menu row. */
 #ifndef SMOOTH_MOTION_H
 #define SMOOTH_MOTION_H
 

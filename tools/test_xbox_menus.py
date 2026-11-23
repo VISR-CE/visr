@@ -1474,9 +1474,9 @@ def test_video_setup_rows_keep_the_leading_places_on_every_platform(platform):
     assert options.get('row_pitch') == '39'
     assert options.get('row_top') == rows[0].get('y')
     if platform is None:
-        assert names == ['op_graphics', 'op_vsync', 'op_interpolation']
+        assert names == ['op_graphics', 'op_vsync']
     if platform == 'mac_app':
-        assert names == ['op_graphics', 'op_vsync', 'op_frame_rate', 'op_interpolation']
+        assert names == ['op_graphics', 'op_vsync', 'op_frame_rate']
 
 
 def test_frame_rate_spinner_fits_the_longest_value_inside_the_row():

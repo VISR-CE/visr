@@ -23,6 +23,7 @@ config_origin_decide.
 
 #include "platform.h"
 #include "port_config.h"
+#include "smooth_motion.h"
 #include "port_profile_apply.h"
 #include "port_graphics_modes.h"
 #include "halo_host_flags.h"
@@ -887,8 +888,8 @@ static const struct config_setting config_settings[] =
 		"Apple TV a number under the display's highest rate runs the display at\n"
 		"it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the\n"
 		"display's rate. The game still runs at 30 ticks a second whatever is\n"
-		"drawn, and with display.interpolation off it draws 30 frames a second at\n"
-		"most. A Vision Pro paces frames itself and ignores this." },
+		"drawn; at a cap of 30 or lower it draws one frame for each tick, with no\n"
+		"smooth motion. A Vision Pro paces frames itself and ignores this." },
 	{ "display.async_shaders", _config_string, "\"auto\"", "HALO_ASYNC_SHADERS", _environment_value, _platform_ios,
 		"How the Metal renderer compiles shaders: \"auto\" (default) on worker\n"
 		"threads, skipping a draw for the frames until its pipeline is ready, so\n"
@@ -4584,6 +4585,24 @@ int config_scene_string(const char *name, int scene, char *text, size_t size)
 	return index >= 0 && value != &config_values[index];
 }
 
+/* Smooth motion in the scene (smooth_motion.h): display.interpolation when it is set by hand, by --set or in
+the environment (the testing override), else on while the scene's frame rate in force is above 30. Every caller
+uses this one function: the renderer (halo_interpolation_enabled) and the performance reports' settings. */
+int config_smooth_motion(int scene)
+{
+	char rate[32] = "";
+	long max_fps = 0;
+
+	if (config_explicit("display.interpolation"))
+		return config_scene_boolean("display.interpolation", scene);
+#ifdef HALO_ILP32
+	config_scene_string("display.frame_rate", scene, rate, sizeof(rate));
+#else
+	max_fps = config_integer("display.max_fps");
+#endif
+	return smooth_motion_automatic(smooth_motion_cap(rate, config_boolean("display.vsync"), max_fps));
+}
+
 const char *config_scene_name(int scene)
 {
 	return scene >= 0 && scene < NUMBER_OF_CONFIG_SCENES ? config_scene_names[scene] : "";
@@ -4757,7 +4776,8 @@ int config_graphics_settings_snapshot(int scene, struct game_perf_graphics_snaps
 		{
 		case _config_boolean:
 			entry->type = GAME_PERF_GRAPHICS_BOOLEAN;
-			entry->value.boolean = value->boolean != 0;
+			/* (the effective state: smooth motion is automatic, so the setting's value is no report of it) */
+			entry->value.boolean = (!strcmp(setting->name, "display.interpolation") ? config_smooth_motion(scene) : value->boolean) != 0;
 			break;
 		case _config_integer:
 			entry->type = GAME_PERF_GRAPHICS_INTEGER;
@@ -4812,7 +4832,9 @@ int config_graphics_settings_json(int scene, char *text, size_t size)
 		graphics_string(&json,setting->name); graphics_append(&json,":");
 		switch (setting->type)
 		{
-		case _config_boolean: graphics_append(&json,"%s",value->boolean ? "true" : "false"); break;
+		case _config_boolean:
+			graphics_append(&json,"%s",(!strcmp(setting->name,"display.interpolation") ? config_smooth_motion(scene) : value->boolean) ? "true" : "false");
+			break;
 		case _config_integer: graphics_append(&json,"%ld",value->integer); break;
 		case _config_real: graphics_real(&json,value->real); break;
 		case _config_string: graphics_string(&json,value->string); break;

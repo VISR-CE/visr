@@ -107,6 +107,8 @@ while the setting's own value comes from its default or the profile; else
 config_real and config_boolean */
 double config_scene_real(const char *name, int scene);
 int config_scene_boolean(const char *name, int scene);
+/* smooth motion in the scene: automatic from its frame rate, unless display.interpolation is set (smooth_motion.h) */
+int config_smooth_motion(int scene);
 long config_scene_integer(const char *name, int scene);
 /* a string setting's, into text; 1 when it is a scene or external context value, 0 when the setting's own */
 int config_scene_string(const char *name, int scene, char *text, size_t size);

@@ -975,6 +975,28 @@ static void check_smooth_motion_migration(void)
 	launch("");
 	assert(!file_has(path, "interpolation") && file_has(marker, "removed") && !config_explicit("display.interpolation"));
 	assert(config_boolean("display.interpolation"));
+	/* the effective state follows the frame rate in force, and the performance reports record it, not the setting */
+	{
+		char json[CONFIG_GRAPHICS_MAXIMUM_BYTES];
+		static const struct { const char *rate; int on; } rates[] = {
+			{ "display", 1 }, { "unlimited", 1 }, { "120", 1 }, { "60", 1 }, { "30", 0 },
+		};
+
+		for (size_t index = 0; index < sizeof(rates) / sizeof(rates[0]); index++)
+		{
+			assert(config_write("display.frame_rate", rates[index].rate));
+			assert(config_smooth_motion(CONFIG_SCENE_GAMEPLAY) == rates[index].on);
+			assert(config_boolean("display.interpolation"));   /* (the setting itself is still its default) */
+			assert(config_graphics_settings_json(CONFIG_SCENE_GAMEPLAY, json, sizeof(json)));
+			assert(strstr(json, rates[index].on ? "\"display.interpolation\":true" : "\"display.interpolation\":false"));
+		}
+		/* the testing override wins at a 30 cap, and the report then records it */
+		setenv("HALO_INTERPOLATION", "true", 1);
+		launch("");
+		assert(config_write("display.frame_rate", "30") && config_explicit("display.interpolation"));
+		assert(config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+		unsetenv("HALO_INTERPOLATION");
+	}
 	/* the menus never offer it: it is not a profile setting either */
 	assert(!config_is_profile_setting((size_t)config_setting_index("display.interpolation")));
 }
