@@ -1953,10 +1953,54 @@ static void verify_nearest_draw(const unsigned char *made)
 /* the replay's call just written to replay_call, against the live eye's calls: it takes one (live_at), or is counted
 as a call the live eye did not make; a take out of the live eye's order is counted, and fails verify for a blended
 draw */
-/* a draw pair this many 16-byte blocks apart or more is logged whole (verify_far_pair) */
-enum { VERIFY_FAR_BLOCKS = 16 };
+/* a draw pair this many 16-byte blocks apart or more is logged whole (verify_far_pair), in spans of at least
+VERIFY_FAR_SPAN_CALLS live calls (gameplay, not menus) */
+enum { VERIFY_FAR_BLOCKS = 16, VERIFY_FAR_SPAN_CALLS = 500 };
 
 static unsigned long verify_far_logged;
+
+/* every register a far pair differs in, with its class and the live, replay and plain values, three to a line */
+static void verify_far_registers(const unsigned char *live, const unsigned char *made, const unsigned char *plain)
+{
+	const size_t constants_offset = 8 + sizeof(struct gpu_draw);
+	char line[1024];
+	int length = 0, index, on_line = 0;
+
+	for (index = 0; index < GPU_CONSTANT_COUNT; index++)
+	{
+		const unsigned char *a = live + constants_offset + index * 16, *b = made + constants_offset + index * 16;
+		const unsigned char *c = plain ? plain + constants_offset + index * 16 : NULL;
+		float x[4], y[4], z[4] = { 0, 0, 0, 0 };
+		const char *class;
+
+		if (!memcmp(a, b, 16))
+			continue;
+		if (!c)
+			class = class_names[CLASS_NO_PLAIN_CALL];
+		else if (memcmp(b, c, 16))
+			class = class_names[CLASS_SUBSTITUTED_WRONG];
+		else if (!memcmp(a, verify_end_store[index], 16))
+			class = class_names[CLASS_LEFTOVER];
+		else
+			class = class_names[CLASS_NOT_SUBSTITUTED];
+		memcpy(x, a, 16);
+		memcpy(y, b, 16);
+		if (c)
+			memcpy(z, c, 16);
+		if (!on_line)
+			length = snprintf(line, sizeof(line), "stereo replay verify far pair: registers:");
+		length += snprintf(line + length, sizeof(line) - (size_t)length,
+			" c%d [%s] live %g,%g,%g,%g replay %g,%g,%g,%g plain %g,%g,%g,%g;", index - 96, class, x[0], x[1], x[2],
+			x[3], y[0], y[1], y[2], y[3], z[0], z[1], z[2], z[3]);
+		if (++on_line == 3)
+		{
+			log_line(line);
+			on_line = 0;
+		}
+	}
+	if (on_line)
+		log_line(line);
+}
 
 /* a pair whose nearest candidate is still far: both draws' packets, side by side, for telling a draw the live eye
 makes another way from a pairing mistake (the first spans' worth only) */
@@ -1970,7 +2014,7 @@ static void verify_far_pair(const unsigned char *live, const unsigned char *made
 	int length, side;
 
 	(void)size;
-	if (!log_line || verify_far_logged >= 40 || live_count < VERIFY_BIG_SPAN_CALLS)
+	if (!log_line || verify_far_logged >= 40 || live_count < VERIFY_FAR_SPAN_CALLS)
 		return;
 	verify_far_logged++;
 	snprintf(line, sizeof(line), "stereo replay verify far pair: replay call %lu took live call %lu of %lu candidates, "
@@ -1993,6 +2037,7 @@ static void verify_far_pair(const unsigned char *live, const unsigned char *made
 		(void)length;
 		log_line(line);
 	}
+	verify_far_registers(live, made, plain_call(compare_index - 1, GPU_OPERATION_draw, size));
 }
 
 /* how far apart two calls' bytes are: the 16-byte blocks that differ (a register is one) */
