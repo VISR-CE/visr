@@ -113,4 +113,4 @@ why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPa
 [evidence."display.allow_portrait"]
 basis = "assumed"
 why = "Product decision, November 9, 2026: enable portrait play on the iPhone Duo."
-source = "Steve, 2026-11-09"
+source = "project decision, 2026-11-09"
