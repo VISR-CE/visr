@@ -1228,7 +1228,7 @@ static const struct config_setting config_settings[] =
 		_environment_value, _platform_all,
 		"Whether the server browser lists games this build cannot join: another\n"
 		"network version, a mode it does not play, or a join that failed this run\n"
-		"(FILTERS' GAMES I CAN'T JOIN). Their count stays in the list's footer.", _tier_player },
+		"(FILTERS' UNAVAILABLE GAMES). Their count stays in the list's footer.", _tier_player },
 	{ "network.delta_browse", _config_boolean, "true", "HALO_NET_DELTA_BROWSE", _environment_value, _platform_all,
 		"The server browser also lists the games of Delta's public list\n"
 		"(network.delta_url), run by others, with the network version of each;\n"

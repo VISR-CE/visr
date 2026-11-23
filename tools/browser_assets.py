@@ -75,7 +75,13 @@ def generate(output, icons):
     draw("preview_none", 310, 155, svg(310, 155, ""), scale=1)
     draw("detail", 312, 273, rounded(312, 273, "#0d2c57", "#4aa8ff", radius=9))
     draw("big", 294, 20, rounded(294, 20, "#e8b520", radius=3))
-    draw("badge", 120, 18, rounded(120, 18, "none", "#1f5fae", radius=3))
+    # The detail panel's pills: normal (HUD blue) and blocked (grayed as the disabled rows are, never red).
+    for index, border in enumerate(("#1f5fae", "#4b5663")):
+        draw(f"badge__{index}", 120, 18, rounded(120, 18, "none", border, radius=3))
+    # The lock inside the password pill.
+    draw("lock", 12, 14, svg(12, 14,
+         '<path d="M3 6V4.5a3 3 0 0 1 6 0V6" fill="none" stroke="#cfe8ff" stroke-width="1.4"/>'
+         '<rect x="1" y="6" width="10" height="7.2" rx="1.4" fill="#cfe8ff"/>'))
     for index, (fill, border) in enumerate((("none", "none"),
                                            ("#174b89", "#cfe8ff"))):
         draw(f"join__{index}", 140, 45, rounded(140, 45, fill, border))

@@ -472,3 +472,19 @@ def test_backdrop_has_bottom_rule_above_the_legend_strip():
     assert 'bitmap="xbox/browser/backdrop"' in text
     filters = (root / 'main_menu.multiplayer_type_select.join_game.filters.xml').read_text()
     assert 'bitmap="xbox/browser/filters_backdrop"' in filters
+
+
+def test_every_detail_widget_the_empty_panel_hides_is_shown_or_hidden_for_a_game():
+    """Bug class (the pills missing on first open): the panel blanks widgets when no game is chosen, and a game
+    chosen later must set each of them itself instead of relying on what an earlier state left."""
+    import re
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] / "port/linux/game/menu_functions.c").read_text()
+    start = source.index("\tif (!present)\n\t{\n\t\tchar const *const blank[]")
+    end = source.index("\n}\n", start)
+    body = source[start:end]
+    hidden = re.search(r"hidden\[\] = \{([^}]*)\}", body).group(1)
+    names = re.findall(r'"(\w+)"', hidden)
+    after = body[body.index("game = &lobby_browser.games"):]
+    for name in names:
+        assert re.search(r'visible_set\(\s*named\(detail, "%s", 0\)' % name, after), name

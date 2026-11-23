@@ -1140,12 +1140,12 @@ BROWSER_FILTERS = [
      ["players", "name", "map", "game"], "The order of the list.\\nGames you can join always come first."),
     ("games", "GAMES", ["ALL", "MULTIPLAYER", "CO-OP"], "network.browser_games", ["all", "multiplayer", "coop"],
      "Multiplayer games, co-op campaigns, or both."),
-    ("full", "FULL GAMES", ["SHOW", "HIDE"], "network.browser_show_full", ["true", "false"],
-     "Games that are full or about to start."),
-    ("locked", "PASSWORD GAMES", ["SHOW", "HIDE"], "network.browser_show_locked", ["true", "false"],
-     "Games that need a password to join."),
-    ("unjoinable", "GAMES I CAN'T JOIN", ["HIDE", "SHOW"], "network.browser_show_unjoinable", ["false", "true"],
-     "Games on another network version, in a mode\\nVISR does not play, or that failed to connect."),
+    ("full", "FULL GAMES", ["ON", "OFF"], "network.browser_show_full", ["true", "false"],
+     "ON shows games that are full or about to start."),
+    ("locked", "PASSWORD GAMES", ["ON", "OFF"], "network.browser_show_locked", ["true", "false"],
+     "ON shows games that need a password to join."),
+    ("unjoinable", "UNAVAILABLE GAMES", ["ON", "OFF"], "network.browser_show_unjoinable", ["true", "false"],
+     "ON shows games on another network version, in a\\nmode VISR does not play, or that failed to connect."),
 ]
 
 

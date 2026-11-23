@@ -1213,9 +1213,9 @@ def filters_layout(root, widgets):
     for w in list(root.iter('widget')):  # the dropped legend's widgets would be orphans
         if w.get('name', '').startswith(base + '/filters_screen/legend'):
             root.remove(w)
-    # RESET is a screen-wide action, DONE the way back (the engine places the bar)
+    # RESET is a screen-wide action, BACK the way back (the engine places the bar)
     bar(screen, [('x', 'global', 'RESET', {'run': 'port browser filters reset'}),
-                 ('b', 'back', 'DONE', {'focus': 'true'})])
+                 ('b', 'back', 'BACK', {'focus': 'true'})])
     ET.SubElement(screen, 'data', input='port browser filters update')
     # The title takes the same place as the server browser's (26 units above its original spot);
     # the count sits inside the panel, between the band and the first row.
@@ -1802,7 +1802,7 @@ def browser_layout(root, widgets, bitmaps):
             ('gametype_large', 145, 118, [f'gametype_large__{i}' for i in range(7)]),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
             ('detail', 312, 273, ['detail']),
-            ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge']),
+            ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge__0', 'badge__1']), ('lock', 12, 14, ['lock']),
             ('option', 532, 54, ['option__0', 'option__1'])):
         browser_bitmap(root, name, width, height, frames)
     for name, width in (('chip_all', 78), ('chip_multiplayer', 144), ('chip_coop', 100), ('toggle', 174)):
@@ -1917,9 +1917,14 @@ def browser_layout(root, widgets, bitmaps):
             ('browser_detail_big', 313, 318, 294, 20, 'small', '#0a2245', ''),
             ('browser_join_reason', 313, 338, 294, 20, 'small', '#7fc4ff', ''),
             ('browser_detail_net', 313, 360, 120, 18, 'small', '#cfe8ff', ''),
+            ('browser_detail_net_blocked', 313, 360, 120, 18, 'small', '#7b8794', ''),
             ('browser_detail_password', 441, 360, 120, 18, 'small', '#cfe8ff', ''),
+            ('browser_detail_lock', 448, 358, 12, 14, None, None, ''),
             ('browser_detail_status', 317, 213, 286, 160, 'small', '#7fc4ff', '')):
         child(detail if leaf == 'browser_detail_status' else content, base + '/' + leaf, x=x, y=y)
+        if leaf == 'browser_detail_lock':
+            widget(root, base + '/' + leaf, width=width, height=height, bitmap='xbox/browser/lock')
+            continue
         item = widget(root, base + '/' + leaf, type='text', width=width, height=height,
                       font='ui\\' + font + '_ui', color=color)
         if text:
@@ -1927,7 +1932,12 @@ def browser_layout(root, widgets, bitmaps):
         if leaf == 'browser_detail_big':
             item.attrib.update(bitmap='xbox/browser/big', text_x='5', text_y='2')
         elif leaf in ('browser_detail_net', 'browser_detail_password'):
+            # (the pill: one style, its frames normal and blocked; the password pill's text leaves room for the lock)
             item.attrib.update(bitmap='xbox/browser/badge', align='center', text_y='1')
+            if leaf == 'browser_detail_password':
+                item.attrib['text_x'] = '8'
+        elif leaf == 'browser_detail_net_blocked':
+            item.attrib.update(align='center', text_y='1')
     # the content never takes focus
     detail.insert(0, ET.Element('child', widget=base + '/browser_detail_content'))
     # IP ADDRESS and CREATE are screen-wide actions, BACK the way back (the engine places the bar)

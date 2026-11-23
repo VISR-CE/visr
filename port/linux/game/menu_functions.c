@@ -4924,7 +4924,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 			"browser_detail_host", "browser_detail_equipment", "browser_detail_big", "browser_join_reason",
 			"browser_detail_net", "browser_detail_password" };
 		char const *const hidden[] = { "browser_equipment_label", "browser_detail_big", "browser_join_reason",
-			"browser_detail_net", "browser_detail_password" };
+			"browser_detail_net", "browser_detail_net_blocked", "browser_detail_password", "browser_detail_lock" };
 		short index;
 
 		lobby_map_show(detail, "");
@@ -4973,10 +4973,26 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	browser_name_set(named(detail, "browser_detail_big", 0), text);
 	visible_set(named(detail, "browser_detail_big", 0),
 		player_capacity_marked(game->player_count, game->maximum_player_count));
-	usnprintf(text, NUMBEROF(text) - 1, L"NET v%d", game->network_version);
-	browser_name_set(named(detail, "browser_detail_net", 0), text);
-	usnprintf(text, NUMBEROF(text) - 1, L"%s", game->locked ? L"PASSWORD" : L"NO PASSWORD");
-	browser_name_set(named(detail, "browser_detail_password", 0), text);
+	/* The pills (one style, in states: normal, blue; blocked by the network version, gray as the disabled rows
+	are; a password's carries a lock). Every pill is set on every update, shown or not, so none depends on what
+	an earlier game or screen left (the panel's blanking above hides them all). */
+	{
+		struct widget_instance *net = named(detail, "browser_detail_net", 0);
+		struct widget_instance *blocked_text = named(detail, "browser_detail_net_blocked", 0);
+		boolean blocked = !game->joinable || halo_network_kind_reason(game->kind) != NULL;
+
+		usnprintf(text, NUMBEROF(text) - 1, L"NET v%d", game->network_version);
+		/* (the pill widget carries the frame and the normal text; a blocked pill's text is the gray overlay's) */
+		text_set(net, blocked ? L"" : text);
+		text_set(blocked_text, text);
+		if (net)
+			net->animation.current_frame_index = blocked ? 1 : 0;
+		visible_set(named(detail, "browser_detail_net", 0), TRUE);
+		visible_set(named(detail, "browser_detail_net_blocked", 0), blocked);
+		text_set(named(detail, "browser_detail_password", 0), L"PASSWORD");
+		visible_set(named(detail, "browser_detail_password", 0), game->locked);
+		visible_set(named(detail, "browser_detail_lock", 0), game->locked);
+	}
 	{
 		boolean usable = browser_listing_can_join(game) && game->open && config_boolean("network.online") && !lobby_browser.joining;
 
@@ -4984,8 +5000,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		if (halo_network_kind_reason(game->kind))
 			usnprintf(text, NUMBEROF(text) - 1, L"%hs", halo_network_kind_reason(game->kind));
 		else if (!game->joinable)
-			usnprintf(text, NUMBEROF(text) - 1, L"This game uses network version %d. VISR can join versions %d to %d.",
-				game->network_version, HALO_PORT_NETWORK_OLDEST_JOINABLE, HALO_PORT_NETWORK_VERSION);
+			text[0] = 0;	/* (the pill says it) */
 		else
 			usnprintf(text, NUMBEROF(text) - 1, game->failed ? L"COULDN'T REACH THIS GAME" :
 				!game->open ? L"THIS GAME IS FULL OR STARTING" : lobby_browser.joining ? L"CONNECTING..." : L"");
