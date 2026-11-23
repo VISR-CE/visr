@@ -84,6 +84,18 @@ def bar_slots():
 
 BAR_SLOT_BOUNDS = bar_slots()
 
+# Row lists with a geometry of their own, each exempt from the standard pitch and row height by exact name, with its
+# (pitch, height) and the reason: the tests check these lists have exactly this geometry, so an exemption cannot
+# hide a drift. The server browser's rows are the approved mockup's (a list beside a detail panel); the legacy Direct
+# Link table keeps the disc's rows.
+_MP = 'xbox/main_menu/multiplayer_type_select'
+BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT = 46, 43
+OWN_GEOMETRY_ROW_LISTS = {
+    f'{_MP}/join_game/join_game_items_list': (BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT,
+                                              'server browser: the approved mockup C list'),
+    f'{_MP}/join_game_legacy/join_game_items_list': (24, 24, 'legacy Direct Link table: the disc table'),
+}
+
 
 def bar_caption_room(slot):
     x0, x1 = BAR_SLOT_BOUNDS[slot]

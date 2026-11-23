@@ -7341,6 +7341,21 @@ void ui_widget_port_bar_caption(
 		caption->parameters.text_box.string_list_index = index;
 }
 
+/* port: an action of a screen's bar shown dimmed while it cannot be used (its glyph and caption), by the action's button */
+void ui_widget_port_bar_dim(
+	struct widget_instance *screen,
+	short button,
+	boolean dim)
+{
+	struct widget_instance *caption = ui_bar_action_widget(screen, button, TRUE);
+	struct widget_instance *glyph = ui_bar_action_widget(screen, button, FALSE);
+
+	if (caption)
+		caption->alpha_modifier = dim ? 0.45f : 1.0f;
+	if (glyph)
+		glyph->alpha_modifier = dim ? 0.45f : 1.0f;
+}
+
 static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 {
 	short button = ui_mouse_key_button(widget);

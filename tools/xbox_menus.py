@@ -1801,7 +1801,7 @@ def browser_layout(root, widgets, bitmaps):
             ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
             ('gametype_large', 145, 118, [f'gametype_large__{i}' for i in range(7)]),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
-            ('detail', 312, 273, ['detail']), ('join', 140, 45, ['join__0', 'join__1']),
+            ('detail', 312, 273, ['detail']),
             ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge']),
             ('option', 532, 54, ['option__0', 'option__1'])):
         browser_bitmap(root, name, width, height, frames)
@@ -1835,12 +1835,11 @@ def browser_layout(root, widgets, bitmaps):
                   visible_rows=6, flags='pass_unhandled_to_focused_child')
     ET.SubElement(rows, 'data', input='gamespy screen update')
     for event, run in (('up', 'port browser rows up'), ('stick_up', 'port browser rows up'),
-                       ('down', 'port browser rows down'), ('stick_down', 'port browser rows down'),
-                       ('right', 'port browser detail navigation'), ('stick_right', 'port browser detail navigation')):
+                       ('down', 'port browser rows down'), ('stick_down', 'port browser rows down')):
         ET.SubElement(rows, 'on', event=event, run=run)
     for index in range(6):
-        child(rows, base + f'/server_item_{index + 1}', x=24, y=110 + index * 46)
-        row = widget(root, base + f'/server_item_{index + 1}', width=270, height=43,
+        child(rows, base + f'/server_item_{index + 1}', x=24, y=110 + index * menu_geometry.BROWSER_ROW_PITCH)
+        row = widget(root, base + f'/server_item_{index + 1}', width=270, height=menu_geometry.BROWSER_ROW_HEIGHT,
                      bitmap='xbox/browser/c_row', color='#FFFFFF')
         ET.SubElement(row, 'on', event='a', run='gamespy select item')
         ET.SubElement(row, 'on', event='start', run='gamespy select item')
@@ -1929,23 +1928,14 @@ def browser_layout(root, widgets, bitmaps):
             item.attrib.update(bitmap='xbox/browser/big', text_x='5', text_y='2')
         elif leaf in ('browser_detail_net', 'browser_detail_password'):
             item.attrib.update(bitmap='xbox/browser/badge', align='center', text_y='1')
-    child(detail, base + '/join_game_button_join', x=476, y=398)
-    # JOIN stays the first eligible child; the content never takes focus.
-    join_ref = detail.find(f"child[@widget='{base}/join_game_button_join']")
-    detail.remove(join_ref)
-    detail.insert(0, join_ref)
-    detail.insert(1, ET.Element('child', widget=base + '/browser_detail_content'))
-    join = widget(root, base + '/join_game_button_join', width=140, height=45, bitmap='xbox/browser/join')
-    ET.SubElement(join, 'on', event='a', run='gamespy select button')
-    child(join, base + '/browser_join_icon', x=0, y=16)
-    widget(root, base + '/browser_join_icon', width=28, height=28, bitmap='xbox/browser/a_butn')
-    child(join, base + '/browser_join_caption', x=34, y=17)
-    widget(root, base + '/browser_join_caption', type='text', width=106, height=26,
-           font=r'ui\large_ui', color='#4aa8ff')
+    # the content never takes focus
+    detail.insert(0, ET.Element('child', widget=base + '/browser_detail_content'))
     # IP ADDRESS and CREATE are screen-wide actions, BACK the way back (the engine places the bar)
+    # (A is the focused row's own, JOIN GAME: the port dims it and says CONNECTING while joining, ui_widget_port_bar_dim)
     bar(screen, [('x', 'global', 'IP ADDRESS', {'run': 'port browser ip open'}),
                  ('y', 'global', 'CREATE', {'run': 'join controller to mp game'}),
-                 ('b', 'back', 'BACK', {'run': 'gamespy back handler'})])
+                 ('b', 'back', 'BACK', {'run': 'gamespy back handler'}),
+                 ('a', 'select', ['JOIN GAME', 'CONNECTING'], {'focus': 'true'})])
 
 
 def legacy_browser_layout(root, widgets, bitmaps):

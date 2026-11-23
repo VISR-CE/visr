@@ -153,6 +153,7 @@ void ui_widget_port_go_back(struct widget_instance *widget);
 short ui_widget_port_list_index(struct widget_instance *list_widget);
 /* which of its captions the screen's bar action on the button shows (its strings=) */
 void ui_widget_port_bar_caption(struct widget_instance *screen, short button, short index);
+void ui_widget_port_bar_dim(struct widget_instance *screen, short button, boolean dim);
 boolean ui_widget_port_saved_game(char const **map_name, short *level, short *difficulty);
 char const *ui_widget_event_handler_function_name(long function_index);
 short main_get_solo_level_from_name(char const *name);
@@ -4865,7 +4866,6 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	wchar_t const *const types[] = { L"Co-op", L"CTF", L"Slayer", L"Oddball", L"King", L"Race" };
 	wchar_t const *host = L"";
 	boolean present = lobby_browser.chosen >= 0 && lobby_browser.chosen < lobby_browser.count;
-	struct widget_instance *join;
 
 	if (!detail)
 		return;
@@ -4904,6 +4904,8 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		visible_set(named(detail, "browser_detail_equipment", 0), FALSE);
 		visible_set(named(detail, "browser_host_label", 0), TRUE);
 		visible_set(named(detail, "browser_detail_host", 0), TRUE);
+		ui_widget_port_bar_caption(screen, _gamepad_analog_button_a, 0);
+		ui_widget_port_bar_dim(screen, _gamepad_analog_button_a, TRUE);
 		return;
 	}
 	game = &lobby_browser.games[lobby_browser.chosen];
@@ -4943,15 +4945,10 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	browser_name_set(named(detail, "browser_detail_net", 0), text);
 	usnprintf(text, NUMBEROF(text) - 1, L"%s", game->locked ? L"PASSWORD" : L"NO PASSWORD");
 	browser_name_set(named(detail, "browser_detail_password", 0), text);
-	join = named(detail, "join_game_button_join", 0);
-	if (join)
 	{
 		boolean usable = browser_listing_can_join(game) && game->open && config_boolean("network.online") && !lobby_browser.joining;
 
-		join->disabled = !usable;
-		join->alpha_modifier = usable ? 1.0f : 0.45f;
-		join->animation.current_frame_index = usable && detail->focused_child == join &&
-			detail->parent->focused_child == detail ? 1 : 0;
+		/* (JOIN GAME is the screen's bar action on A: dimmed when unusable, and A on a row does nothing then) */
 		if (halo_network_kind_reason(game->kind))
 			usnprintf(text, NUMBEROF(text) - 1, L"%hs", halo_network_kind_reason(game->kind));
 		else if (!game->joinable)
@@ -4960,9 +4957,10 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		else
 			usnprintf(text, NUMBEROF(text) - 1, game->failed ? L"COULDN'T REACH THIS GAME" :
 				!game->open ? L"THIS GAME IS FULL OR STARTING" : lobby_browser.joining ? L"CONNECTING..." : L"");
-		/* the button lives in the legend and always reads JOIN GAME (dimmed when unusable); why it is
+		/* the action always reads JOIN GAME (CONNECTING while joining, dimmed when unusable); why it is
 		   unusable shows in the detail box */
-		text_set(named(join, "browser_join_caption", 0), lobby_browser.joining ? L"CONNECTING" : L"JOIN GAME");
+		ui_widget_port_bar_caption(screen, _gamepad_analog_button_a, lobby_browser.joining ? 1 : 0);
+		ui_widget_port_bar_dim(screen, _gamepad_analog_button_a, !usable);
 		visible_set(named(detail, "browser_join_reason", 0), !usable && text[0] != 0);
 		browser_name_set(named(detail, "browser_join_reason", 0), text);
 	}
@@ -5059,45 +5057,6 @@ static boolean browser_rows_navigation(struct widget_instance *widget, boolean d
 	return TRUE;
 }
 
-static boolean browser_detail_navigation(struct widget_instance *widget)
-{
-	struct widget_instance *join = named(screen_of(widget), "join_game_button_join", 0);
-
-	if (join && join->visible && !join->disabled)
-		browser_c_focus(join);
-	return TRUE;
-}
-
-/* Touch follows the global-vs-contextual rule: global actions keep their own
-buttons without controller glyphs, BACK is only the top-left chevron, and the
-main contextual action has no button because tapping the item does it. */
-static boolean menu_touch_active(struct widget_instance *widget)
-{
-	extern int controller_glyph_hidden(short player, short physical);
-	extern short local_player_index_for_draw_string_and_hack_in_icons;
-	short owner = widget->local_player_index == NONE ?
-		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
-
-	return controller_glyph_hidden(owner, BUTTON_A) ? TRUE : FALSE;
-}
-
-/* Touch follows the global-vs-contextual rule: the main contextual action has no
-button because tapping the item does it, so JOIN GAME (in the detail panel, whose
-update shows it with the panel each frame, so this runs after that update and only
-ever hides it) is not drawn on touch. */
-static void browser_touch_join_update(struct widget_instance *screen)
-{
-	struct widget_instance *join = named(screen, "join_game_button_join", 0);
-	struct widget_instance *focus;
-
-	if (!screen || !join || !menu_touch_active(screen))
-		return;
-	visible_set(join, FALSE);
-	for (focus = screen; focus->focused_child; focus = focus->focused_child)
-		;
-	if (focus == join)
-		browser_c_focus(named(screen, "browser_chip_all", 0));
-}
 
 static void browser_filters_update(struct widget_instance *widget)
 {
@@ -5743,7 +5702,6 @@ static void browser_update(struct widget_instance *list)
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
 	{
 		lobby_browser_update(list);
-		browser_touch_join_update(screen_of(list));
 		return;
 	}
 	browser_games_read();
@@ -6201,11 +6159,9 @@ static boolean browser_join_big_finish(struct widget_instance *widget, boolean *
 		return TRUE;
 	if (multiplayer.mode != browser_join_big.mode)
 		return campaign_fail();
-	/* (the Xbox look's browser has no JOIN button, A on a row joins: the replay then runs on the screen) */
+	/* (A on a row joins: the replay then runs on the screen) */
 	screen = ui_widget_port_active_screen(0);
-	join = screen ? named(screen, "join_game_button_join", 0) : NULL;
-	if (!join)
-		join = screen;
+	join = screen;
 	if (!join)
 		return campaign_fail();
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
@@ -7805,8 +7761,6 @@ boolean pc_menu_event_function_invoke(
 			return browser_rows_navigation(widget, FALSE);
 		else if (!strcmp(name, "port browser rows down"))
 			return browser_rows_navigation(widget, TRUE);
-		else if (!strcmp(name, "port browser detail navigation"))
-			return browser_detail_navigation(widget);
 		else if (!strcmp(name, "port browser filters reset"))
 			return browser_filters_reset(widget);
 		else if (!strcmp(name, "port browser filters open"))

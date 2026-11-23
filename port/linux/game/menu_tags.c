@@ -418,7 +418,6 @@ static char const *const port_function_names[] =
 	"port lobby preview join",
 	"port browser join big confirm", "port browser join big back",
 	"port browser chip select", "port browser chips navigation", "port browser rows up", "port browser rows down",
-	"port browser detail navigation",
 	"port browser filters reset", "port browser filters open", "port browser ip open",
 	"port setup edit",
 	"port map list back",

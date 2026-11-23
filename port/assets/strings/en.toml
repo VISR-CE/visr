@@ -200,6 +200,10 @@ internet_lobby = "INTERNET LOBBY"
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_header_lan_title]
 lan_lobby = "LAN LOBBY"
 
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_a]
+s0 = "JOIN GAME"
+s1 = "CONNECTING"
+
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_b]
 text = "BACK"
 

@@ -289,7 +289,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     assert widgets['join_game_screen'].get('type') == 'column_list'
     assert widgets['browser_detail'].get('type') == 'column_list'
     assert [c.get('widget').rsplit('/', 1)[-1] for c in panel.findall('child')] == [
-        'join_game_button_join', 'browser_detail_content', 'browser_detail_status']
+        'browser_detail_content', 'browser_detail_status']
     content = widgets['browser_detail_content']
     assert content.get('flags') == 'no_focused_child'
     assert (content.get('left'), content.get('top'), content.get('width'), content.get('height')) == (
@@ -299,8 +299,8 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
             'browser_rules_label', 'browser_detail_rules', 'browser_detail_name'} <= names
     assert 'browser_detail_status' not in names
     assert not content.findall('data')
-    assert widgets['join_game_button_join'].get('height') == '45'
-    assert widgets['join_game_button_join'].get('bitmap') == 'xbox/browser/join'
+    # (JOIN GAME is the bar's A action, not a widget of the detail panel)
+    assert not {'join_game_button_join', 'browser_join_icon', 'browser_join_caption'} & widgets.keys()
     assert not {'join_game_header', 'browser_filters', 'join_game_button_refresh'} & widgets.keys()
     assert widgets['server_item_server_name'].get('font') == r'ui\large_ui'
     assert widgets['server_item_map'].get('font') == r'ui\small_ui'
@@ -334,7 +334,7 @@ def test_browser_code_filled_text_has_no_definition_string():
     static = {'browser_rules_label', 'browser_equipment_label', 'browser_host_label',
               'browser_ip_address_caption', 'browser_create_inter_caption', 'browser_back_caption'}
     dynamic = {name: w for name, w in widgets.items() if w.get('type') == 'text' and name not in static}
-    assert {'browser_detail_name', 'browser_detail_status', 'browser_join_caption',
+    assert {'browser_detail_name', 'browser_detail_status',
             'browser_chip_all_label', 'browser_chip_all_white', 'browser_filter_label',
             'server_item_players', 'server_item_capacity'} <= dynamic.keys()
     # widget_instance_render_text_box reloads a definition string every frame,
@@ -580,19 +580,6 @@ def test_browser_stats_keep_runtime_string_aliases():
     labels = root.find(f'strings[@name="{name}"]')
     assert labels is not None
     assert [s.get('text') for s in labels][6:9] == ['SERVERS:', 'PLAYERS:', 'PAGE']
-
-
-def test_browser_join_button_draws_map_art_with_a_large_caption_target():
-    root, widgets = browser_c_widgets()
-    bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
-    icon = widgets['browser_join_icon']
-    frame = bitmaps[icon.get('bitmap')].find('frame')
-    assert frame.get('map') == 'ui\\shell\\bitmaps\\a_butn'
-    assert (MENUS / frame.get('png')).is_file()
-    assert (frame.get('width'), frame.get('height')) == ('32', '32')
-    join = [c for c in widgets['browser_detail'].findall('child') if c.get('widget').endswith('join_game_button_join')][0]
-    assert (int(join.get('x')), int(join.get('y'))) == (476, 398)
-    assert 476 + int(widgets['join_game_button_join'].get('width')) == 616
 
 
 def test_browser_highlight_has_one_shape_for_every_row():

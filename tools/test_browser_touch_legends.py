@@ -38,7 +38,8 @@ def test_browser_actions_are_a_declared_bar():
     assert bar_actions(BROWSER_XML) == {
         'x': ('global', 'IP ADDRESS', 'port browser ip open'),
         'y': ('global', 'CREATE', 'join controller to mp game'),
-        'b': ('back', 'BACK', 'gamespy back handler')}
+        'b': ('back', 'BACK', 'gamespy back handler'),
+        'a': ('select', None, None)}
 
 
 def test_filters_actions_are_a_declared_bar():
@@ -54,21 +55,12 @@ def test_browser_has_no_placed_legend_widgets():
             assert f'/{name}' not in text, (xml, name)
 
 
-def test_browser_touch_hides_join_after_the_detail_update():
-    body = function_body('browser_touch_join_update')
-    assert 'menu_touch_active(screen)' in body
-    # JOIN GAME lives in the detail panel, whose update re-shows it, so touch only hides it, after that update
-    assert 'visible_set(join, FALSE)' in body
-    browser = function_body('browser_update')
-    assert browser.index('lobby_browser_update(list);') < browser.index('browser_touch_join_update(screen_of(list));')
-    # focus never stays on a widget touch hides
-    assert 'focus == join' in body
-
-
-def test_touch_uses_controller_glyph_rule():
-    body = function_body('menu_touch_active')
-    assert 'controller_glyph_hidden(owner, BUTTON_A)' in body
-
-
-def test_join_game_button_exists():
-    assert '/join_game_button_join"' in (MENUS / BROWSER_XML).read_text()
+def test_join_game_is_the_bars_select_action_with_a_run_time_caption():
+    root = ET.parse(MENUS / BROWSER_XML).getroot()
+    action = next(a for a in root.iter('action') if a.get('slot') == 'a')
+    assert action.get('scope') == 'select' and action.get('focus') == 'true'
+    assert action.get('strings') == 'JOIN GAME|CONNECTING'
+    # no placed copy of it, and no touch code of its own: the bar leaves a select action undrawn on touch
+    text = (MENUS / BROWSER_XML).read_text()
+    assert 'xbox/main_menu/multiplayer_type_select/join_game/join_game_button_join' not in text and 'browser_join_' not in text.replace('browser_join_reason', '')
+    assert 'browser_touch_join_update' not in SOURCE.read_text()

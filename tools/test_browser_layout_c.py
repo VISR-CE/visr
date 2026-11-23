@@ -257,7 +257,6 @@ def test_browser_controller_navigation(tmp_path):
         "static void browser_ready_post(",
         "static boolean browser_chips_navigation(",
         "static boolean browser_rows_navigation(",
-        "static boolean browser_detail_navigation(",
     )
     production = "\n".join(function(source, signature) for signature in signatures)
     harness = r'''
@@ -348,11 +347,10 @@ int main(void)
         {.name="browser_chip_coop"},{.name="browser_filter"}};
     struct widget_instance rows[6]={{.name="server_item_1"},{.name="server_item_2"},
         {.name="server_item_3"},{.name="server_item_4"},{.name="server_item_5"},{.name="server_item_6"}};
-    struct widget_instance join={.name="join_game_button_join",.visible=TRUE};
     struct widget_instance legend[3]={{.name="browser_ip_address",.visible=TRUE},{.name="browser_create_inter",.visible=TRUE},
         {.name="browser_back",.visible=TRUE}};
     children(&screen,sections,4); children(&sections[0],chips,4); children(&sections[1],rows,6);
-    children(&sections[2],&join,1); children(&sections[3],legend,3);
+    children(&sections[3],legend,3);
     for (int i=0;i<6;i++) rows[i].visible=TRUE;
     struct widget_instance *list=&sections[1];
     assert(lobby_browser_rows(list)==6);
@@ -394,13 +392,8 @@ int main(void)
     browser_c_controls_update(list);
     assert(chips[0].animation.current_frame_index==1);
     browser_focus(list); assert(rows[2].animation.current_frame_index==1);
-    browser_detail_navigation(&rows[2]);
-    assert(screen.focused_child==&sections[2] && sections[2].focused_child==&join);
     browser_chips_navigation(&sections[2]);
     assert(screen.focused_child==list && list->focused_child==&rows[2]);
-    join.disabled=TRUE; browser_detail_navigation(&rows[2]); assert(screen.focused_child==list);
-    join.disabled=FALSE; join.visible=FALSE;
-    browser_detail_navigation(&rows[2]); assert(screen.focused_child==list);
     /* Async completion and its retry must reach the selected row after focus moved away. */
     expected_post_row=&rows[2]; expected_post_controller=lobby_browser.controller=3;
     browser_c_focus(&chips[1]); browser_ready_post(list);

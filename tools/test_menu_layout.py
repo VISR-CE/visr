@@ -24,12 +24,7 @@ SHORT_ROW_LISTS = {
     f'{MP}/join_game/code/options_menu': 'entry form: its help box sits right under the rows and must move first',
     f'{MP}/direct_ip/direct_ip_menu': 'entry form: its help box sits right under the rows and must move first',
 }
-# The server browser's lists keep the approved mockup's own geometry (a list beside a detail panel, rows of the
-# mockup's pitch), and the legacy Direct Link table keeps the disc's rows; each is exempt from the standard pitch.
-BROWSER_LISTS = {
-    f'{MP}/join_game/join_game_items_list': 'server browser: the approved mockup C list, 46-unit pitch (rows 43 tall)',
-    f'{MP}/join_game_legacy/join_game_items_list': 'legacy Direct Link table: the disc table at its own pitch',
-}
+BROWSER_LISTS = menu_geometry.OWN_GEOMETRY_ROW_LISTS  # (exempt from the standard pitch; asserted below)
 # Screens still laid out by their own code and skipped by `layout_geometry`.
 LEGACY_SCREENS = {
     f'{MP}/direct_ip/direct_ip_screen', f'{MP}/join_game/filters/filters_screen',
@@ -193,3 +188,18 @@ def test_a_box_is_as_large_as_the_drawing_of_ours_it_shows():
                 int(widget.get('width', 640)) < int(frames[0].get('width')):
             cut.append((name, widget.get('width'), widget.get('height'), frames[0].get('width'), frames[0].get('height')))
     assert checked >= 2 and cut == [], cut
+
+
+def test_the_exempt_row_lists_have_exactly_their_declared_geometry():
+    found = {}
+    for name, _, rows in row_lists():
+        if name in BROWSER_LISTS:
+            ys = sorted({int(c.get('y')) for c in rows})
+            found[name] = ({b - a for a, b in zip(ys, ys[1:])},
+                           {int(WIDGETS[c.get('widget')].get('height', 480)) for c in rows})
+    assert set(found) == set(BROWSER_LISTS)
+    for name, (pitches, heights) in found.items():
+        pitch, height, _ = BROWSER_LISTS[name]
+        assert pitches == {pitch} and heights == {height}, name
+        # a row is at least a finger tall, or its list is the disc's own table
+        assert height >= menu_geometry.ROW_HEIGHT or 'legacy' in name, name

@@ -6,6 +6,7 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
+import menu_geometry
 from test_xbox_menus import generator
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,8 +47,8 @@ def test_menus_have_unique_definitions_and_tiled_tap_bands():
     pitch = 39
     seen = 0
     for options in widgets.values():
-        if options.get('type') != 'column_list' or '/multiplayer_type_select/join_game' in options.get('name', ''):
-            # The server browser (53-unit rows) and the Direct Link table (24-unit rows) keep their own geometry.
+        if options.get('type') != 'column_list' or options.get('name') in menu_geometry.OWN_GEOMETRY_ROW_LISTS:
+            # the server browser and the Direct Link table keep their own geometry (asserted in test_menu_layout)
             continue
         rows = [c for c in options.findall('child')
                 if re.fullmatch(r'(?:list_item_|server_item_)\d+(?:_map_kind)?',
@@ -66,7 +67,7 @@ def test_menus_have_unique_definitions_and_tiled_tap_bands():
                 # Padded option art is drawn taller so its band is 36/39 units.
                 assert heights <= {'36', '59', '53', '56', '52'}
         visible = int(options.get('visible_rows', len(slots)))
-        assert slots[0] + visible * pitch <= (338 if options.get('name').endswith('/join_game_items_list') else 414)
+        assert slots[0] + visible * pitch <= 414
     assert seen >= 4
 
 
