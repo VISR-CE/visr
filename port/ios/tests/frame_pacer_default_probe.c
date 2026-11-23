@@ -169,6 +169,42 @@ int main(void)
         }
         rate_target = 0.0;
     }
+    /* a pin by display.frames_in_flight_at_30 and its end: what the rule saw before the pin is not judged against the
+    frames after it, so a stream that needs two gets its second slot again at 60 (the first re-check's case A) */
+    {
+        struct frame_pacer_frame frame[2];
+        double at = 1000.0;
+        long number = 1;
+
+        encode_thread = 1;
+        frames_in_flight = "";
+        rate_target = 60.0;
+        frame_pacer_start(0);
+        frame_pacer_in_flight_at_30_set(1);
+        frame_pacer_refresh(at, 1.0 / 60.0);
+        frame_pacer_gpu_time(0.020);
+        for (int phase = 0; phase < 3; phase++)
+        {
+            double step = phase == 1 ? 1.0 / 30.0 : 1.0 / 60.0;
+            int frames = phase == 1 ? 300 : 180;
+
+            rate_target = phase == 1 ? 30.0 : 60.0;
+            for (int count = 0; count < frames; count++)
+            {
+                frame_pacer_frame_start();
+                frame_pacer_frame_begin(&frame[0], number++, 0.0, 1);
+                at += step;
+                frame_pacer_presented(&frame[0], at);
+            }
+        }
+        frame_pacer_frame_start();
+        frame_pacer_frame_begin(&frame[0], number++, 0.0, 1);
+        frame_pacer_frame_start();
+        frame_pacer_frame_begin(&frame[1], number++, 0.0, 1);
+        CHECK(frame[0].slot && frame[1].slot);
+        frame_pacer_stop();
+        rate_target = 0.0;
+    }
     if (failures)
         return 1;
     printf("frame_pacer_default_probe: %d checks passed\n", checks);

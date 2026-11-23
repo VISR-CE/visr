@@ -222,6 +222,9 @@ void frame_pacer_frame_start(int may_wait)
 
 		if (limit != pacer.flight.limit)
 		{
+			/* (frames across a change the cap makes are transition frames, as across the rule's own switches) */
+			if (pacer.adaptive)
+				pacer.drain_through = pacer.last_granted;
 			pacer.flight.limit = limit;
 			platform_log("frame pacer: %d frame%s in flight (display.frames_in_flight%s)", limit, limit == 1 ? "" : "s",
 				limit == (pacer.adaptive ? pacer.adapt.limit : pacer.in_flight) ? "" : "_at_30, for a frame rate of 30 or lower");
@@ -486,9 +489,13 @@ static void adapt_frame(const struct frame_pacer_frame *frame, double at, double
 	};
 	int limit;
 
-	/* (pinned lower by display.frames_in_flight_at_30: the frames did not run at the rule's limit, so they say nothing about it) */
+	/* (pinned lower by display.frames_in_flight_at_30: the frames did not run at the rule's limit, so they say nothing about it,
+	and what the rule measured before the pin is not carried across it: it starts again at its ceiling when the pin ends) */
 	if (pacer_limit_now() < pacer.adapt.limit)
+	{
+		frame_pacer_adapt_reset(&pacer.adapt, pacer.adapt.floor, pacer.adapt.ceiling);
 		return;
+	}
 	limit = frame_pacer_adapt_frame(&pacer.adapt, &shown);
 	if (pacer.adapt.switches == switches || limit == pacer.flight.limit)
 		return;
