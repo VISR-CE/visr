@@ -67,6 +67,10 @@ static void hold(int on) {
 @implementation ProbeDelegate
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
     (void)session; (void)options;
+    /* the runner tells a scene UIKit could not make, which ends the app before this, from the probe itself
+       (tools/uikit_probe_app.py) */
+    printf("frame workgroup probe (%s): started\n", fixed ? "fixed" : "unfixed");
+    fflush(stdout);
     self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
     self.window.rootViewController = [UIViewController new];
     [self.window makeKeyAndVisible];
@@ -77,9 +81,6 @@ static void hold(int on) {
 
 - (void)play {
     {
-        /* (the runner tells a scene UIKit could not make, which ends the app before this, from the probe itself) */
-        printf("frame workgroup probe (%s): started\n", fixed ? "fixed" : "unfixed");
-        fflush(stdout);
         UIViewController *root = self.window.rootViewController;
         UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 200, 200)];
         scroll.contentSize = CGSizeMake(200, 2000);

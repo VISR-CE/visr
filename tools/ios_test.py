@@ -34,16 +34,21 @@ def host_stub_object(args):
 # Every probe this file links must also run: tools/probe_ledger.py fails the run at the end otherwise.
 probes = ProbeLedger()
 
-def execute(args, builds=False, probe=None, **kwargs):
+def execute(args, builds=False, probe=None, skippable=False, **kwargs):
     """subprocess.run with check=True. Unless the command builds, it notes the probe it runs: the program, or
     `probe` when the program is a driver script handed the probe. A failure prints the exact command, with any
-    shared stub object `run` added."""
+    shared stub object `run` added. With `skippable`, a runner's skip (tools/uikit_probe_app.py) is returned
+    instead of raised."""
     args = [str(a) for a in args]
     if not builds:
         probes.note_ran(Path(ROOT, probe if probe is not None else args[0]))
     try:
         return subprocess.run(args, cwd=ROOT, check=True, **kwargs)
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as error:
+        if skippable and uikit_probe_app.is_skip(error.returncode, error.stdout):
+            return error
+        if isinstance(error.stdout, str):
+            print(error.stdout, end='', flush=True)
         print('ios_test.py: failed: ' + shlex.join(args), file=sys.stderr, flush=True)
         raise
 
@@ -51,16 +56,10 @@ def execute(args, builds=False, probe=None, **kwargs):
 # cannot make the scene (a hosted runner, a Mac without a usable GUI session), the runner exits SKIPPED; that run
 # is recorded in the ledger and reported at the end, never counted as a pass.
 def run_uikit_app(*args):
-    args = [str(a) for a in args]
-    try:
-        result = subprocess.run(args, cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True)
-        print(result.stdout, end='', flush=True)
-    except subprocess.CalledProcessError as error:
-        print(error.stdout or '', end='', flush=True)
-        if error.returncode != uikit_probe_app.SKIPPED:
-            print('ios_test.py: failed: ' + shlex.join(args), file=sys.stderr, flush=True)
-            raise
-        probes.note_skipped(args, uikit_probe_app.skip_reason(error.stdout or ''))
+    result = execute(args, skippable=True, stdout=subprocess.PIPE, text=True)
+    print(result.stdout, end='', flush=True)
+    if result.returncode == uikit_probe_app.SKIPPED:
+        probes.note_skipped(args, uikit_probe_app.skip_reason(result.stdout))
 
 def run(*args, probe=None):
     args = tuple(str(a) for a in args)

@@ -16,8 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import uikit_probe_app
 
 REASON = 'Failed to create work interval'
-# the probe's exit status when UIKit never finished the dialog's transitions, so the hold could not be tested
-SKIPPED = uikit_probe_app.SKIPPED
 
 
 def main():
@@ -50,11 +48,11 @@ def main():
         return result
 
     fixed = run('fixed')
-    failure = uikit_probe_app.start_failure(fixed, 'frame workgroup probe (fixed)')
-    if failure:
-        uikit_probe_app.skip(f'frame workgroup probe: UIKit could not start the probe here ({failure})')
-    if fixed.returncode == SKIPPED and REASON not in fixed.stderr:
-        uikit_probe_app.skip('frame workgroup probe: ' + uikit_probe_app.skip_reason(fixed.stderr))
+    uikit_probe_app.require_start(fixed, 'frame workgroup probe (fixed)')
+    # the probe's own skip (exit 77 and a SKIP line on stderr): no workgroup here, or UIKit never finished the
+    # dialog's transitions, so the hold could not be tested
+    if fixed.returncode == uikit_probe_app.SKIPPED and REASON not in fixed.stderr:
+        uikit_probe_app.skip('frame workgroup probe: ' + (uikit_probe_app.skip_reason(fixed.stderr) or 'no reason given'))
     if fixed.returncode != 0 or REASON in fixed.stderr:
         sys.stderr.write(fixed.stderr[-4000:])
         sys.exit('frame workgroup probe: the dialog held out of the workgroup still failed')

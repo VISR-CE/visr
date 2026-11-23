@@ -36,9 +36,7 @@ def main():
     result = subprocess.run([str(MACOS / 'BenchmarkMenuProbe')], cwd=ROOT, timeout=30, capture_output=True, text=True,
                             env={**os.environ, 'DYLD_FRAMEWORK_PATH': '/System/iOSSupport/System/Library/Frameworks'})
     print(result.stdout, end='')
-    failure = uikit_probe_app.start_failure(result, 'benchmark menu probe')
-    if failure:
-        uikit_probe_app.skip(f'benchmark menu probe: UIKit could not start the probe here ({failure})')
+    uikit_probe_app.require_start(result, 'benchmark menu probe')
     if result.returncode != 0:
         sys.stderr.write(result.stderr[-4000:])
         sys.exit(f'benchmark menu probe: exit {result.returncode}')

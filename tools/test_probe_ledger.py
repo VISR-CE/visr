@@ -45,7 +45,8 @@ def test_a_skipped_run_is_reported_not_silent():
 
 
 # The only runs ios_test.py may skip: runners that launch a probe as a Mac Catalyst app (tools/uikit_probe_app.py)
-UIKIT_APP_RUNNERS = ['tools/test_frame_workgroup_uikit.py', 'tools/test_benchmark_menu.py']
+UIKIT_APP_RUNNERS = sorted(f'tools/{path.name}' for path in TOOLS.glob('test_*.py')
+                           if re.search(r'apple-ios[0-9.]*-macabi', path.read_text()))
 
 
 def test_only_declared_uikit_app_runners_may_skip():
@@ -54,11 +55,12 @@ def test_only_declared_uikit_app_runners_may_skip():
              and isinstance(node.func, ast.Name) and node.func.id == 'run_uikit_app']
     runners = [argument.value for call in sorted(calls, key=lambda call: call.lineno) for argument in call.args
                if isinstance(argument, ast.Constant) and str(argument.value).startswith('tools/')]
-    assert runners == UIKIT_APP_RUNNERS
+    assert UIKIT_APP_RUNNERS, 'no tools/test_*.py builds a Mac Catalyst probe'
+    assert sorted(runners) == UIKIT_APP_RUNNERS
     assert source.count('note_skipped(') == 1, 'ios_test.py skips only through run_uikit_app'
     for runner in UIKIT_APP_RUNNERS:
         text = (ROOT / runner).read_text()
-        assert 'uikit_probe_app.start_failure(' in text and 'uikit_probe_app.skip(' in text, runner
+        assert 'uikit_probe_app.require_start(' in text, runner
 
 
 def test_a_rebuilt_probe_has_to_run_again(tmp_path):
