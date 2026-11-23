@@ -180,6 +180,11 @@ int main(void) {
   assert(halo_controller_glyph_request(0,-1,face,label,sizeof(label))==3);
   assert(!strcmp(label,halo_glyph_menu_key(face)));
  }
+ /* a destructive secondary action's keyboard legend names Backspace, the Mac "delete" key */
+ glyph_x_destructive=1;
+ assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==3 && !strcmp(label,"Backspace"));
+ assert(halo_controller_glyph_request(0,-1,0,label,sizeof(label))==3 && !strcmp(label,"Enter"));
+ glyph_x_destructive=0;
  event.type=SDL_EVENT_FINGER_DOWN;halo_controller_glyph_input_event(&event);
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==1);
  memset(&event,0,sizeof(event));event.type=SDL_EVENT_KEY_DOWN;event.key.repeat=1;

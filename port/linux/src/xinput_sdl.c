@@ -732,7 +732,7 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 	if (k[SDL_SCANCODE_F1]) pad->wButtons |= XINPUT_GAMEPAD_BACK;
 	if (k[HALO_GLYPH_MENU_WILDCARD_SCANCODE]) pad->wButtons |= XINPUT_GAMEPAD_LEFT_THUMB;
 
-	/* (escape backs out, as backspace does: the pause menu's B resumes the
+	/* (escape backs out: the pause menu's B resumes the
 	game, the main menu's asks to quit; Start would choose, as A does) */
 #define MENU_SCANCODE(button, scancode, label) {button, scancode},
 	static const struct { int button, scancode; } menu_scancodes[] = {HALO_GLYPH_MENU_BINDINGS(MENU_SCANCODE)};
@@ -743,13 +743,16 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 		pad->bAnalogButtons[menu_scancodes[button].button] |= analog(k[menu_scancodes[button].scancode]);
 	}
 	pad->bAnalogButtons[XINPUT_GAMEPAD_A] |= analog(k[SDL_SCANCODE_SPACE] || k[SDL_SCANCODE_KP_ENTER]);
-	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_BACKSPACE] ||
-		(mouse && m[SDL_BUTTON_X1]));
+	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(mouse && m[SDL_BUTTON_X1]);
 #ifdef HALO_ILP32
 	/* the system back key (gesture or button) backs out of menus */
 	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_AC_BACK]);
 #endif
-	pad->bAnalogButtons[XINPUT_GAMEPAD_X] |= analog(k[SDL_SCANCODE_DELETE]);
+	/* the one place a key becomes the secondary action; typing_gamepad (text entry) returned above, so
+	Backspace edits text there and never deletes a profile */
+#define SECONDARY_DOWN(scancode) || k[scancode]
+	pad->bAnalogButtons[XINPUT_GAMEPAD_X] |= analog(0 HALO_GLYPH_MENU_SECONDARY_KEYS(SECONDARY_DOWN));
+#undef SECONDARY_DOWN
 }
 
 /* the keys held when the game and the menus switch count as up until let go
@@ -1834,7 +1837,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 		return HALO_GLYPH_ORIGINAL;
 	}
 	if (glyph_menus_active && shown.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
-		snprintf(label, size, "Delete");
+		snprintf(label, size, "%s", HALO_GLYPH_MENU_SECONDARY_LABEL);
 	else if (semantic == 28 || semantic == 29)
 		snprintf(label, size, "%s", semantic == 28 ? "Enter" : "Escape");
 	else if (semantic == 30 || semantic == 31)

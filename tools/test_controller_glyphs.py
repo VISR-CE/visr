@@ -232,3 +232,24 @@ if __name__ == '__main__':
         test_native_controller_bridge_mapping(Path(directory))
         test_virtual_keyboard_fallback_and_legend_patches(Path(directory))
         test_initial_keyboard_owner(Path(directory))
+
+
+def test_backspace_is_the_secondary_menu_key_and_still_edits_text(tmp_path):
+    """Backspace (the key Mac keyboards label "delete") triggers a list screen's secondary action, forward
+    delete is an alias, and on a text-entry screen neither reaches the menu. Runs the real keyboard_gamepad."""
+    if not shutil.which('xcrun'):
+        import pytest
+        pytest.skip('Apple compiler and frameworks are required')
+    source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
+    program = (ROOT / 'port/ios/tests/keyboard_menu_keys_probe.c').read_text()
+    for marker, function in (('/* ANALOG */', 'static BYTE analog('), ('/* TYPING */', 'static void typing_gamepad('),
+                             ('/* KEYBOARD */', 'static void keyboard_gamepad(')):
+        program = program.replace(marker, block(source, function))
+    probe, binary = tmp_path / 'keys.c', tmp_path / 'keys'
+    probe.write_text(program)
+    subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-Wno-unused-variable', '-Wno-unused-function',
+                    '-fsanitize=address,undefined', '-iquote', str(ROOT / 'port/linux/include'),
+                    '-iquote', str(ROOT / 'port/linux/src'),
+                    *subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True).split(),
+                    str(probe), '--output=' + str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)

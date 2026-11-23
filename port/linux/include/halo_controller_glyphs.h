@@ -11,6 +11,11 @@ enum { HALO_GLYPH_ORIGINAL, HALO_GLYPH_HIDDEN, HALO_GLYPH_SYMBOL, HALO_GLYPH_KEY
 	X(2, SDL_SCANCODE_E, "E") \
 	X(3, SDL_SCANCODE_TAB, "Tab")
 
+/* The secondary action (X: delete a profile or a gametype) is the key Mac keyboards label "delete", which is
+Backspace; forward delete stays an alias. The legend names the first. */
+#define HALO_GLYPH_MENU_SECONDARY_KEYS(X) X(SDL_SCANCODE_BACKSPACE) X(SDL_SCANCODE_DELETE)
+#define HALO_GLYPH_MENU_SECONDARY_LABEL "Backspace"
+
 /* The left stick click is the wildcard fifth action; its menu key is R. */
 #define HALO_GLYPH_MENU_WILDCARD_SCANCODE SDL_SCANCODE_R
 
