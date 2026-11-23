@@ -10,8 +10,8 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-
-import pytest
+import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / "port/assets/menus"
@@ -97,19 +97,36 @@ def run(binary: Path, directory: Path, environment: dict):
                           env={"PATH": "/usr/bin:/bin", **environment})
 
 
-@pytest.mark.parametrize("platform_set", sorted(PLATFORM_SETS))
-def test_shipped_menus_load_for_every_platform_set(tmp_path, platform_set):
-    binary = build(tmp_path)
-    result = run(binary, tmp_path, PLATFORM_SETS[platform_set])
-    problems = [line for line in result.stdout.splitlines() if "menus:" in line and "not added" not in line
-                and ("error" in line or "nothing named" in line or "strings are for" in line or ": the map has no" in line)]
-    assert result.returncode == 0, (platform_set, "\n".join(problems[:20]), result.stdout[-1500:], result.stderr[-1500:])
-    assert "menus: not added" not in result.stdout
+def check_platform_set(directory: Path, platform_set: str) -> None:
+    binary = build(directory)
+    result = run(binary, directory, PLATFORM_SETS[platform_set])
+    problems = [line for line in result.stdout.splitlines() if line.startswith("log: menus:")]
+    assert result.returncode == 0 and "menus: not added" not in result.stdout, (
+        platform_set, "\n".join(problems[:20]), result.stdout[-1500:], result.stderr[-1500:])
+
+
+def check_probe_fails_on_a_refused_menu(directory: Path) -> None:
+    """The probe is no rubber stamp: a widget the builder refuses (strings on a container) fails the load."""
+    refused = b'<menus><widget name="xbox/refused/widget" type="container" strings="A|B"/></menus>'
+    binary = build(directory, {"xbox/refused.xml": refused})
+    result = run(binary, directory, PLATFORM_SETS["iphone"])
+    assert result.returncode == 1 and "strings are for" in result.stdout, result.stdout[-800:]
+
+
+def test_shipped_menus_load_for_every_platform_set(tmp_path):
+    for platform_set in sorted(PLATFORM_SETS):
+        check_platform_set(tmp_path / platform_set, platform_set)
 
 
 def test_the_probe_fails_on_a_menu_the_builder_refuses(tmp_path):
-    """The probe is no rubber stamp: a widget the builder refuses (strings on a container) fails the load."""
-    refused = b'<menus><widget name="xbox/refused/widget" type="container" strings="A|B"/></menus>'
-    binary = build(tmp_path, {"xbox/refused.xml": refused})
-    result = run(binary, tmp_path, PLATFORM_SETS["iphone"])
-    assert result.returncode == 1 and "strings are for" in result.stdout, result.stdout[-800:]
+    check_probe_fails_on_a_refused_menu(tmp_path / "refused")
+
+
+if __name__ == "__main__":
+    with tempfile.TemporaryDirectory() as folder:
+        for name in sorted(PLATFORM_SETS):
+            check_platform_set(Path(folder) / name, name)
+            print(f"menus load: {name}")
+        check_probe_fails_on_a_refused_menu(Path(folder) / "refused")
+        print("the probe fails on a refused menu")
+    sys.exit(0)
