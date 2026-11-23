@@ -3485,8 +3485,6 @@ static boolean network_game_client_join_available_game(
 				return FALSE;
 			}
 
-			if (!network_game_client_can_initiate_join(client, game))
-				return FALSE;
 			csmemset(&join_parameters, 0, sizeof(join_parameters));
 			transport_client_start((XNADDR const *)&game->xnaddr, (XNKEY const *)&game->key,
 				(XNKID const *)&game->key_id, NETWORK_GAME_SERVER_PORT, &address);

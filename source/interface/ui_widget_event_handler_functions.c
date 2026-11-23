@@ -2595,6 +2595,13 @@ static boolean netgame_unjoin_player(
 				}
 			}
 		}
+		else if (state == 1)
+		{
+			/* port: backing out while the join is still under way ends it, as the
+			failed-join path does; else the client stays "joining" under the browser
+			and every JOIN after it is refused (network_game_client_can_initiate_join) */
+			network_game_abort();
+		}
 		else
 			error(2, "can't request player removal from netgame_unjoin_player() unless we are in pregame");
 	}
@@ -6093,7 +6100,10 @@ static boolean ui_widget_port_join_at_port(
 	is ignored: it must not reach the assertion in network_game_client_initiate_join_game,
 	and the failure path below (network_game_abort) would end the join under way */
 	if (!network_game_client_can_initiate_join(global_network_game_client_get(), server))
+	{
+		ui_play_audio_feedback_sound(4);
 		return FALSE;
+	}
 	transport_client_start(server + 0x18, server + 8, server, port, &address);
 	if (!address.address.long_words[0] || !address.port)
 	{
