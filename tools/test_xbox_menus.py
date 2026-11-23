@@ -2163,16 +2163,16 @@ def test_every_title_picture_sets_its_title_at_the_same_height_and_size_inside_i
 
 
 def test_a_caption_too_wide_for_its_slot_in_the_large_font_takes_the_small_one():
-    """Bug class: a caption that does not fit its standard slot (IP ADDRESS in X's). The slots stay one size for
+    """Bug class: a caption that does not fit its standard slot (a long caption in X's). The slots stay one size for
     every screen; the caption is the one that adapts, by one rule (`bar_caption_font`) over every caption."""
     import menu_geometry
     import menu_text_metrics
 
     assert menu_geometry.bar_caption_font('x', ['DEFAULTS']) == 'large'
-    assert menu_geometry.bar_caption_font('x', ['IP ADDRESS']) == 'small'
-    assert menu_geometry.bar_caption_font('x', ['HIDE', 'IP ADDRESS']) == 'small'
-    assert menu_text_metrics.text_width(menu_geometry.BAR_FONT, 'IP ADDRESS') > menu_geometry.bar_caption_room('x')
-    assert menu_geometry.BAR_WIDEST['x'] == 'DEFAULTS'
+    assert menu_geometry.bar_caption_font('x', ['IP ADDRESSES']) == 'small'
+    assert menu_geometry.bar_caption_font('x', ['HIDE', 'IP ADDRESSES']) == 'small'
+    assert menu_text_metrics.text_width(menu_geometry.BAR_FONT, 'IP ADDRESSES') > menu_geometry.bar_caption_room('x')
+    assert menu_geometry.BAR_WIDEST['x'] == 'IP ADDRESS'
     try:
         menu_geometry.bar_caption_font('x', ['A CAPTION FAR TOO WIDE FOR ANY ONE SLOT OF THE BAR'])
     except ValueError:

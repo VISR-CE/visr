@@ -36,7 +36,7 @@ def bar_actions(xml):
 
 def test_browser_actions_are_a_declared_bar():
     assert bar_actions(BROWSER_XML) == {
-        'x': ('global', 'DIRECT IP', 'port browser ip open'),
+        'x': ('global', 'IP ADDRESS', 'port browser ip open'),
         'y': ('global', 'CREATE', 'port browser create'),
         'b': ('back', 'BACK', 'gamespy back handler'),
         'a': ('select', None, None)}

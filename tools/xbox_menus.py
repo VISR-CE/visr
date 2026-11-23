@@ -1939,9 +1939,9 @@ def browser_layout(root, widgets, bitmaps):
             item.attrib.update(align='center', text_y='1')
     # the content never takes focus
     detail.insert(0, ET.Element('child', widget=base + '/browser_detail_content'))
-    # DIRECT IP and CREATE are screen-wide actions, BACK the way back (the engine places the bar)
+    # IP ADDRESS and CREATE are screen-wide actions, BACK the way back (the engine places the bar)
     # (A is the focused row's own, JOIN GAME: the port dims it and says CONNECTING while joining, ui_widget_port_bar_dim)
-    bar(screen, [('x', 'global', 'DIRECT IP', {'run': 'port browser ip open'}),
+    bar(screen, [('x', 'global', 'IP ADDRESS', {'run': 'port browser ip open'}),
                  ('y', 'global', 'CREATE', {'run': 'port browser create'}),
                  ('b', 'back', 'BACK', {'run': 'gamespy back handler'}),
                  ('a', 'select', ['JOIN GAME', 'CONNECTING'], {'focus': 'true'})])
