@@ -117,14 +117,12 @@ def test_every_focus_draw_site_asks_the_rule():
     assert not found, f"focus drawn without {RULE}: {found}"
 
 
-def test_the_rule_is_where_the_lists_and_text_boxes_get_it():
+def test_the_rule_is_where_the_lists_get_it():
     engine = ENGINE.read_text()
     rule = engine[engine.index(f"int {RULE}("):]
     assert "halo_menu_pointer_controls() != 2" in rule[:rule.index("}")]
     list_rule = engine[engine.index(f"static boolean {LIST_RULE}("):]
     assert RULE in list_rule[:list_rule.index("}")]
-    text_box = engine[engine.rindex("static boolean widget_instance_text_box_is_focused("):]
-    assert LIST_RULE in text_box[:text_box.index("\n}")]
     assert '#include "halo_menu_meta.h"' in PORT.read_text()
     header = (ROOT / "port/linux/include/halo_menu_meta.h").read_text()
     assert f"int {RULE}(enum halo_menu_focus_item item, int focused);" in header
@@ -138,11 +136,11 @@ def test_the_scan_finds_each_kind_of_bypass():
          "row->animation.current_frame_index = row == list->focused_child ? 1 : 0;"),
         ("port", "row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == focused) ? 1 : 0;",
          "row->animation.current_frame_index = row == focused ? 1 : 0;"),
-        ("engine", "child->animation.current_frame_index =\n\t\t\t\t\t\tui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, child == list->focused_child) ? 1 : 0;",
+        ("engine", "child->animation.current_frame_index =\n\t\t\t\t\t\tui_list_child_draws_focus(list, child) ? 1 : 0;",
          "child->animation.current_frame_index = child == list->focused_child ? 1 : 0;"),
         ("engine", "ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, item_index == widget->parameters.list.selected_index));",
          "item_index == widget->parameters.list.selected_index);"),
-        ("engine", "ui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, item == saved_selected),\n\t\t\tui_widget_port_draws_focus(HALO_MENU_FOCUS_CARD, item == saved_selected));",
+        ("engine", "ui_widget_port_draws_focus(ui_list_focus_item(list), item == saved_selected),\n\t\t\tui_widget_port_draws_focus(ui_list_focus_item(list), item == saved_selected));",
          "item == saved_selected, item == saved_selected);"),
         ("engine", "if (ui_list_child_draws_focus(widget, child))\n\t\t{\n\t\t\tif (child->animation.number_of_sprite_frames == 2)",
          "if (child == widget->focused_child)\n\t\t{\n\t\t\tif (child->animation.number_of_sprite_frames == 2)"),

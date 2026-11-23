@@ -537,6 +537,7 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         'boolean widget_event_function_list_widget_goto_next_item(',
         'boolean widget_event_function_list_widget_goto_previous_item(',
         'int ui_widget_port_draws_focus(',
+        'static enum halo_menu_focus_item ui_list_focus_item(',
         'static boolean ui_list_child_draws_focus(',
         'static void column_list_update(', 'static void widget_instance_port_focus_child(',
         'static void widget_instance_tab_to_next_valid_widget(',
