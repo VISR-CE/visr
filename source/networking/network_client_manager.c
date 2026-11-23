@@ -2374,6 +2374,8 @@ void network_game_client_reset(
 		0x4EE,
 		client);
 
+	boolean join_under_way = client->state == _network_game_client_state_joining;
+
 	/* port: a new game gets a new Delta session, even at the same address. */
 	delta_peer_game_client_stop();
 
@@ -2382,9 +2384,11 @@ void network_game_client_reset(
 	client->machine_index = NONE;
 	client->state = _network_game_client_state_searching;
 
-	/* (port: or one that was lost, whose socket stays until it is torn down) */
+	/* (port: or one that was lost, whose socket stays until it is torn down; or a join
+	still under way, whose connection is open but not connected yet: the next join
+	connects a fresh one, as a player who backed out of it and joins another game expects) */
 	if (teardown_connection && client->connection &&
-		((boolean)network_connection_connected(client->connection) ||
+		((boolean)network_connection_connected(client->connection) || join_under_way ||
 			!network_connection_active(client->connection)))
 	{
 		if (network_connection_disconnect(client->connection))

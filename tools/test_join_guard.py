@@ -147,3 +147,13 @@ int main(void)
     executable = tmp_path / "unjoin"
     subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function", "-o", str(executable), str(program)], check=True)
     assert subprocess.run([str(executable)]).returncode == 0
+
+
+def test_reset_tears_down_a_join_under_way():
+    # a join under way has an open, unconnected connection: the back-out's reset must still
+    # tear it down, or the next join connects over a half-open one
+    start = MANAGER.index("void network_game_client_reset(")
+    body = MANAGER[start:MANAGER.index("\n}\n", start)]
+    assert "client->state == _network_game_client_state_joining" in body
+    state_set = body.index("client->state = _network_game_client_state_searching;")
+    assert body.index("join_under_way") < state_set < body.index("network_connection_disconnect(")
