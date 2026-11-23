@@ -126,6 +126,11 @@
           "default": true,
           "description": "Draw upscaled textures (made on this device from your copy of the game) where they exist; false draws the maps' own. A device profile that sets false turns them off whatever this says. Takes effect at the next level load. Profile values outside the accepted set are refused, not clamped."
         },
+        "repaired_textures": {
+          "type": "boolean",
+          "default": true,
+          "description": "Repair the banding stored in the maps' textures when they are imported on this device: the lightmaps and the smooth gradients (skies, fog, glow) were stored with 5 or 6 bits a channel, so they show steps, and the repair rebuilds the gradient they were rounded from without moving a texel farther than the rounding could have. Runs on every device, with or without upscaled textures; Hardcore draws the maps' own textures (display.graphics). Takes effect at the next level load. Profile values outside the accepted set are refused, not clamped."
+        },
         "anti_aliasing": {
           "type": "string",
           "enum": [
@@ -2040,6 +2045,50 @@
           ]
         },
         "display.upscaled_textures": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "display.repaired_textures": {
           "type": "object",
           "properties": {
             "basis": {

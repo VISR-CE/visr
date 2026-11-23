@@ -52,6 +52,7 @@ enum graphics_mode
 	X("display.model_lod", "auto", NULL) \
 	/* art: the maps' own textures, HUD bitmaps, fonts and menus, and the original animations */ \
 	X("display.upscaled_textures", "false", NULL) \
+	X("display.repaired_textures", "false", NULL) \
 	X("display.high_res_hud", "false", NULL) \
 	X("display.high_res_text", "false", NULL) \
 	X("display.ui_redraw", "false", NULL) \

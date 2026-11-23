@@ -950,6 +950,13 @@ static const struct config_setting config_settings[] =
 		"where they exist; false draws the maps' own. A device profile that sets\n"
 		"false turns them off whatever this says. Takes effect at the next\n"
 		"level load." },
+	{ "display.repaired_textures", _config_boolean, "true", "HALO_REPAIRED_TEXTURES", _environment_value, _platform_all,
+		"Repair the banding stored in the maps' textures when they are imported on this\n"
+		"device: the lightmaps and the smooth gradients (skies, fog, glow) were stored with\n"
+		"5 or 6 bits a channel, so they show steps, and the repair rebuilds the gradient\n"
+		"they were rounded from without moving a texel farther than the rounding could have.\n"
+		"Runs on every device, with or without upscaled textures; Hardcore draws the maps'\n"
+		"own textures (display.graphics). Takes effect at the next level load." },
 	{ "display.upscaled_textures_memory", _config_integer, "0", "HALO_UPSCALED_TEXTURES_MEMORY", _environment_value,
 		_platform_all,
 		"The most memory the upscaled textures may take, in MB; 0 (default) picks\n"
