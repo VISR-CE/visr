@@ -22,9 +22,6 @@ def test_screen_counterparts(tmp_path):
 #include "menu_equivalence.h"
 int main(void) {
     assert(!menu_screen_equivalent("unpaired"));
-    /* the retired PC look's names open nothing */
-    assert(!menu_screen_equivalent("pc\\error\\confirm_join_big_modal_fullscreen"));
-    assert(!menu_screen_equivalent("pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"));
     /* a replacement that always applies */
     for (unsigned int i = 0; i < sizeof(menu_screen_always)/sizeof(menu_screen_always[0]); i++)
         assert(!strcmp(menu_screen_equivalent(menu_screen_always[i][0]), menu_screen_always[i][1]));

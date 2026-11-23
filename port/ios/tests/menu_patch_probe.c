@@ -151,9 +151,9 @@ static char const screen_xml[] =
 
 static char const pc_xml[] =
 	"<menus><widget name=\"main_menu/main_menu\"/>"
-	"<strings name=\"main_menu/settings_select/player_setup/player_profile_edit/profile_edit_descriptions\">"
+	"<strings name=\"xbox/main_menu/settings_select/player_setup/player_profile_edit/profile_edit_descriptions\">"
 	"<string text=\"Rename this profile.\"/></strings>"
-	"<strings name=\"main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_list_extended_dsc_text\">"
+	"<strings name=\"xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_list_extended_dsc_text\">"
 	"<string text=\"Rename this gametype.\"/></strings></menus>";
 
 /* (embedded as tools/embed_assets.py has them; the malformed patch is a file of the same name in the menus folder,
@@ -1685,11 +1685,11 @@ int main(int argc, char **argv)
 			pc_menu_screen_open(xbox, NULL, TRUE);
 			{
 				struct string_list *list = tag_get(UNICODE_STRING_LIST_TAG,
-					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
+					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\xbox\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
 				check(string_is(list, 0, "Rename this profile using\\nthe virtual keyboard.\\n\\nCurrent Profile:"),
 					"keyboard removal changes the next screen's description");
 				struct string_list *gametype = tag_get(UNICODE_STRING_LIST_TAG,
-					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\playlist_edit_list_extended_dsc_text"));
+					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\playlist_edit_list_extended_dsc_text"));
 				check(string_is(gametype, 0, "Rename this gametype using\\nthe virtual keyboard.\\n\\nThis gametype:"),
 					"virtual keyboard caption keeps the gametype label on the fourth line");
 				input_keyboard = 1;

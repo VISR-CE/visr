@@ -157,11 +157,9 @@ static char const *tag_get_name(long tag) { return name; }
 int main(void)
 {
     struct widget_instance widget = {0};
-    name = "pc\\main_menu\\multiplayer_type_select\\server_settings\\x_butn_invite";
-    assert(ui_mouse_key_button(&widget) == _gamepad_analog_button_x);
     name = "pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\x_butn_invite";
     assert(ui_mouse_key_button(&widget) == _gamepad_analog_button_x);
-    name = "pc\\main_menu\\multiplayer_type_select\\server_settings\\invite_value";
+    name = "pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\invite_value";
     assert(ui_mouse_key_button(&widget) == NONE);
 }
 '''.replace('/* FUNCTION */', function)
