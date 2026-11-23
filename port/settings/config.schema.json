@@ -3040,26 +3040,6 @@
             "apple"
           ]
         },
-        "late_start_remember": {
-          "type": "boolean",
-          "default": true,
-          "description": "display.late_start = \"extended\" finds how early this display needs a frame from the frames it shows late, and keeps what it found for each display mode (the panel's rate and the game's) so the next launch starts from it. false: neither read nor kept, to measure a first launch.",
-          "x-environment": "HALO_LATE_START_REMEMBER",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple"
-          ]
-        },
-        "late_start_lead": {
-          "type": "number",
-          "default": 0.0,
-          "description": "Milliseconds before a refresh that display.late_start = \"extended\" has a frame's GPU work done by, on a display mode with nothing kept from an earlier launch (debug.late_start_remember). 0 (default): 5.",
-          "x-environment": "HALO_LATE_START_LEAD",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple"
-          ]
-        },
         "frame_load_every": {
           "type": "number",
           "default": 0.0,

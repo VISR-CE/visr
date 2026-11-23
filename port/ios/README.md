@@ -412,11 +412,7 @@ frames and the build has none of this.
   iPhone, from a frame's start to the screen: 98 ms became 33 ms under a
   30 cap for about one more late frame in 1,000, and 48 ms became 20 ms at
   60 for about eight more. At 120 frames a second it did not hold, so it is
-  left off there; `"extended_all"` runs it at any rate, for measuring. It finds
-  how early the display needs a frame from the frames shown late, which is
-  where its late frames come from, and keeps what it found for each display
-  mode (the panel's rate and the game's) for the next launch
-  (`debug.late_start_remember`, `debug.late_start_lead`).
+  left off there; `"extended_all"` runs it at any rate, for measuring.
 
 None of it applies when frames do not wait for the display (`frame_rate =
 "unlimited"`, or a cap above the display's rate): a minimum time on screen

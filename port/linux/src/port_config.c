@@ -1810,15 +1810,6 @@ static const struct config_setting config_settings[] =
 		"Milliseconds of made-up CPU work added to every frame (the frame pacer),\n"
 		"to see what display.frames_in_flight does when frames don't fit in a\n"
 		"refresh. 0 (default): none." },
-	{ "debug.late_start_remember", _config_boolean, "true", "HALO_LATE_START_REMEMBER", _environment_value, _platform_ios,
-		"display.late_start = \"extended\" finds how early this display needs a\n"
-		"frame from the frames it shows late, and keeps what it found for each\n"
-		"display mode (the panel's rate and the game's) so the next launch starts\n"
-		"from it. false: neither read nor kept, to measure a first launch." },
-	{ "debug.late_start_lead", _config_real, "0.0", "HALO_LATE_START_LEAD", _environment_value, _platform_ios,
-		"Milliseconds before a refresh that display.late_start = \"extended\"\n"
-		"has a frame's GPU work done by, on a display mode with nothing kept\n"
-		"from an earlier launch (debug.late_start_remember). 0 (default): 5." },
 	{ "debug.frame_load_every", _config_real, "0.0", "HALO_FRAME_LOAD_EVERY", _environment_value, _platform_ios,
 		"With debug.frame_load_cpu: the made-up work comes and goes, on in every\n"
 		"other span of this many seconds, as a fight would. 0 (default): always." },

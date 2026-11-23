@@ -587,58 +587,6 @@ int main(int argc, char **argv)
 			finish(extended);
 		}
 	}
-	/* ---- a lead remembered: the same display, needing a frame 7 ms early, run again from the lead the first run ended
-	on has none of the first run's late frames or stops */
-	{
-		struct load load = { .cpu = 0.004, .gpu_fixed = 0.004, .cpu_noise = 0.001, .gpu_noise = 0.001 }, load_again = load;
-		struct sim *first = run(SIM_EXTENDED, P60, P60, 1.0, 2, &load, 12000);
-		struct sim *again = run(SIM_EXTENDED, P60, P60, 1.0, 2, &load_again, 12000);
-		struct sim_result fresh, recalled;
-
-		first->latch = again->latch = 0.007;
-		sim_run(first, 12000);
-		fresh = sim_measure(first, 0, 12000);
-		CHECK(fresh.late >= FRAME_PACER_EXTENDED_LEAD_MISSES && first->extended.lead_failed > 0.0);
-		CHECK(frame_pacer_extended_recall(&again->extended, frame_pacer_extended_lead(&first->extended),
-			first->extended.lead_failed, frame_pacer_extended_step(P60, P60)));
-		sim_run(again, 12000);
-		recalled = sim_measure(again, 0, 12000);
-		if (verbose)
-			printf("remembered lead: late %ld then %ld, engaged %ld then %ld of %ld, lead %.1f then %.1f\n", fresh.late,
-				recalled.late, fresh.engaged, recalled.engaged, recalled.frames,
-				frame_pacer_extended_lead(&first->extended) * 1e3, frame_pacer_extended_lead(&again->extended) * 1e3);
-		CHECK(recalled.late == 0 && again->extended.misses == 0);
-		CHECK(recalled.engaged > fresh.engaged);
-		CHECK(frame_pacer_extended_lead(&again->extended) == frame_pacer_extended_lead(&first->extended));
-		CHECK(recalled.read_to_shown_median < fresh.read_to_shown_median + 0.0005);
-		finish(first);
-		finish(again);
-	}
-	/* (what may be recalled: only a lead the rules could have reached; a profile's lead holds without a failed one) */
-	{
-		struct frame_pacer_extended late;
-		int count;
-
-		memset(&late, 0, sizeof(late));
-		CHECK(!frame_pacer_extended_recall(&late, 0.004, 0.0, P120));               /* under the starting lead */
-		CHECK(!frame_pacer_extended_recall(&late, 0.020, 0.018, P120));             /* over 1.5 steps */
-		CHECK(!frame_pacer_extended_recall(&late, 0.0085, 0.0085, P120));           /* the failed lead not under it */
-		CHECK(!frame_pacer_extended_recall(&late, (double)NAN, 0.0, P120) && !frame_pacer_extended_recall(&late, 0.0085, -1.0, P120));
-		CHECK(late.lead == 0.0 && late.lead_failed == 0.0);
-		CHECK(frame_pacer_extended_recall(&late, 0.0085, 0.007, P120));
-		CHECK(late.lead == 0.0085 && late.lead_failed == 0.007);
-		CHECK(frame_pacer_extended_recall(&late, 0.008, 0.0, P120));
-		CHECK(fabs(late.lead_failed - (0.008 - FRAME_PACER_EXTENDED_LEAD_MARGIN)) < 1e-12);
-		/* (frames going well do not shrink it under what was recalled) */
-		for (count = 0; count < 1000; count++)
-			frame_pacer_extended_shrink(&late);
-		CHECK(fabs(frame_pacer_extended_lead(&late) - 0.008) < 1e-12);
-		CHECK(frame_pacer_extended_recall(&late, FRAME_PACER_EXTENDED_LEAD, 0.0, P120) && late.lead_failed == 0.0);
-		/* the display mode a lead is kept under */
-		CHECK(frame_pacer_extended_mode(P120, P60) == 120060 && frame_pacer_extended_mode(P120, 2.0 * P60) == 120030);
-		CHECK(frame_pacer_extended_mode(P60, P60) == 60060 && frame_pacer_extended_mode(1.0 / 59.94, 1.0 / 59.94) == 60060);
-		CHECK(frame_pacer_extended_mode(0.0, P60) == 0 && frame_pacer_extended_mode(P120, 0.0) == 0);
-	}
 	/* ---- the heavy 60 class on a 120 Hz panel (7 ms of game, 15 ms of GPU: 22 of the 33.3 ms between the start of
 	one frame and the refresh two slots on): every frame is aimed, the rate holds at 60, and the display's own late
 	frames are the only ones */
