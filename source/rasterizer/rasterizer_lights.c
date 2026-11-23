@@ -547,6 +547,7 @@ void rasterizer_lights_reset_for_new_map(
 		sizeof(local_lens_flare_occlusion_test_results));
 	memset(local_lens_flare_occlusion_test_results2, 0, sizeof(local_lens_flare_occlusion_test_results2));
 	local_lens_flare_count = 0;
+	memset(local_lens_flare_replayed, 0, sizeof(local_lens_flare_replayed));
 
 	return;
 }
