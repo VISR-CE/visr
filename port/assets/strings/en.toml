@@ -241,14 +241,14 @@ text = "SELECT"
 text = "BACK"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_b]
-text = "DONE"
+text = "BACK"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_x]
 text = "RESET"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_full_spinner]
-s0 = "SHOW"
-s1 = "HIDE"
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_games_spinner]
 s0 = "ALL"
@@ -261,20 +261,20 @@ sort_amp_filter = "SORT & FILTER"
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings]
 the_order_of_the_list_ngames_you_267fad = "The order of the list.\\nGames you can join always come first."
 multiplayer_games_co_op_campaign_1677ef = "Multiplayer games, co-op campaigns, or both."
-games_that_are_full_or_about_to_start = "Games that are full or about to start."
-games_that_need_a_password_to_join = "Games that need a password to join."
-games_on_another_network_version_67b7b3 = "Games on another network version, in a mode\\nVISR does not play, or that failed to connect."
+on_shows_games_that_are_full_or__f2e394 = "ON shows games that are full or about to start."
+on_shows_games_that_need_a_passw_7b32df = "ON shows games that need a password to join."
+on_shows_games_on_another_networ_e7d1c9 = "ON shows games on another network version, in a\\nmode VISR does not play, or that failed to connect."
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_labels]
 sort_by = "SORT BY"
 games = "GAMES"
 full_games = "FULL GAMES"
 password_games = "PASSWORD GAMES"
-games_i_can_t_join = "GAMES I CAN'T JOIN"
+unavailable_games = "UNAVAILABLE GAMES"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_locked_spinner]
-s0 = "SHOW"
-s1 = "HIDE"
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_sort_spinner]
 s0 = "MOST PLAYERS"
@@ -283,8 +283,8 @@ s2 = "MAP"
 s3 = "GAME"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_unjoinable_spinner]
-s0 = "HIDE"
-s1 = "SHOW"
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_button_clipboard]
 text = "ENTER CODE"

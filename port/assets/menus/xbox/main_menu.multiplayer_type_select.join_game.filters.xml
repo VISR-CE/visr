@@ -8,7 +8,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/options_menu" />
 		<bar>
 			<action slot="x" scope="global" text="RESET" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_x.text" run="port browser filters reset" />
-			<action slot="b" scope="back" text="DONE" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_b.text" focus="true" />
+			<action slot="b" scope="back" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_b.text" focus="true" />
 		</bar>
 		<data input="port browser filters update" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_filter_status" x="310" y="48" />
@@ -55,7 +55,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/full_label" type="text" controller="1" width="300" height="54" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="16">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/full_spinner" type="spinner" top="16" width="198" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_full_spinner.s0|xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_full_spinner.s1" setting="network.browser_show_full" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="20 -28 34 -16" footer_bounds="20 214 34 226">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/full_spinner" type="spinner" top="16" width="198" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_full_spinner.s0|xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_full_spinner.s1" setting="network.browser_show_full" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="20 -28 34 -16" footer_bounds="20 214 34 226">
 		<on event="created" run="port setting load" />
 		<on event="deleted" run="port setting save" />
 		<on event="left_mouse" run="mouse spinner 1wide click" />
@@ -66,7 +66,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/locked_label" type="text" controller="1" width="300" height="54" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="16">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/locked_spinner" type="spinner" top="16" width="198" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_locked_spinner.s0|xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_locked_spinner.s1" setting="network.browser_show_locked" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="20 -28 34 -16" footer_bounds="20 214 34 226">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/locked_spinner" type="spinner" top="16" width="198" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_locked_spinner.s0|xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_locked_spinner.s1" setting="network.browser_show_locked" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="20 -28 34 -16" footer_bounds="20 214 34 226">
 		<on event="created" run="port setting load" />
 		<on event="deleted" run="port setting save" />
 		<on event="left_mouse" run="mouse spinner 1wide click" />
@@ -77,7 +77,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/unjoinable_label" type="text" controller="1" width="300" height="54" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="16">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/unjoinable_spinner" type="spinner" top="16" width="198" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HIDE|SHOW" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_unjoinable_spinner.s0|xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_unjoinable_spinner.s1" setting="network.browser_show_unjoinable" values="false|true" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="20 -28 34 -16" footer_bounds="20 214 34 226">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/unjoinable_spinner" type="spinner" top="16" width="198" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_unjoinable_spinner.s0|xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_unjoinable_spinner.s1" setting="network.browser_show_unjoinable" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="20 -28 34 -16" footer_bounds="20 214 34 226">
 		<on event="created" run="port setting load" />
 		<on event="deleted" run="port setting save" />
 		<on event="left_mouse" run="mouse spinner 1wide click" />
@@ -87,15 +87,15 @@
 		<string text="GAMES" id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_labels.games" />
 		<string text="FULL GAMES" id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_labels.full_games" />
 		<string text="PASSWORD GAMES" id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_labels.password_games" />
-		<string text="GAMES I CAN'T JOIN" id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_labels.games_i_can_t_join" />
+		<string text="UNAVAILABLE GAMES" id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_labels.unavailable_games" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/help_strings">
 		<string text="" />
 		<string text="The order of the list.\nGames you can join always come first." id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings.the_order_of_the_list_ngames_you_267fad" />
 		<string text="Multiplayer games, co-op campaigns, or both." id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings.multiplayer_games_co_op_campaign_1677ef" />
-		<string text="Games that are full or about to start." id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings.games_that_are_full_or_about_to_start" />
-		<string text="Games that need a password to join." id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings.games_that_need_a_password_to_join" />
-		<string text="Games on another network version, in a mode\nVISR does not play, or that failed to connect." id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings.games_on_another_network_version_67b7b3" />
+		<string text="ON shows games that are full or about to start." id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings.on_shows_games_that_are_full_or__f2e394" />
+		<string text="ON shows games that need a password to join." id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings.on_shows_games_that_need_a_passw_7b32df" />
+		<string text="ON shows games on another network version, in a\nmode VISR does not play, or that failed to connect." id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings.on_shows_games_on_another_networ_e7d1c9" />
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" back="true" />
