@@ -11,6 +11,7 @@ grant, present). Built by tools/ios_test.py with the shared host stubs. */
 #include <string.h>
 
 static int encode_thread, checks, failures;
+static double rate_target;
 static const char *frames_in_flight = "";
 static const char *frame_source = "";
 
@@ -20,7 +21,7 @@ static const char *frame_source = "";
 int host_gpu_encode_thread_on(void) { return encode_thread; }
 int host_frame_rate_unlimited(void) { return 0; }
 double host_frame_rate_cap(void) { return 0.0; }
-double host_frame_rate_target(void) { return 0.0; }
+double host_frame_rate_target(void) { return rate_target; }
 double host_config_real(const char *name, double fallback) { (void)name; return fallback; }
 void host_config_string(const char *name, const char *fallback, char *out, size_t size)
 {
@@ -135,6 +136,38 @@ int main(void)
         }
         frame_pacer_stop();
         frames_in_flight = "";
+    }
+    /* the game calls frame_pacer_frame_start every frame, which sets the limit again from the rule and
+    display.frames_in_flight_at_30: a stream whose GPU time does not fit a refresh must still get its second slot, and
+    the at-30 cap pins one only while the frame rate in force is 30 or lower (main's cap once overwrote the rule's two) */
+    {
+        static const struct { double target; int at_30; int second_slot; } cases[] = {
+            { 0.0, 0, 1 }, { 60.0, 0, 1 }, { 60.0, 1, 1 }, { 30.0, 0, 1 }, { 30.0, 2, 1 }, { 30.0, 1, 0 }, { 29.97, 1, 0 },
+        };
+
+        for (size_t index = 0; index < sizeof(cases) / sizeof(cases[0]); index++)
+        {
+            struct frame_pacer_frame frame[2];
+
+            encode_thread = 1;
+            frames_in_flight = "";
+            rate_target = cases[index].target;
+            frame_pacer_start(0);
+            frame_pacer_in_flight_at_30_set(cases[index].at_30);
+            frame_pacer_refresh(1000.0, 1.0 / 60.0);
+            frame_pacer_gpu_time(0.020);
+            frame_pacer_frame_start();
+            frame_pacer_frame_begin(&frame[0], 1, 0.0, 1);
+            frame_pacer_frame_start();
+            frame_pacer_frame_begin(&frame[1], 2, 0.0, 1);
+            CHECK(frame[0].slot);
+            CHECK(!!frame[1].slot == cases[index].second_slot);
+            frame_pacer_presented(&frame[0], 1000.0);
+            if (frame[1].slot)
+                frame_pacer_presented(&frame[1], 1000.02);
+            frame_pacer_stop();
+        }
+        rate_target = 0.0;
     }
     if (failures)
         return 1;

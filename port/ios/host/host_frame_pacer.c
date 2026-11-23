@@ -197,6 +197,14 @@ void frame_pacer_stop(void)
 	pthread_mutex_unlock(&pacer.lock);
 }
 
+/* (under the lock) the limit for the frames that start now: what the adaptive rule holds (or display.frames_in_flight where
+it does not run), lowered by display.frames_in_flight_at_30 while the frame rate in force is 30 or lower */
+static int pacer_limit_now(void)
+{
+	return frame_pacer_in_flight_for(host_frame_rate_target(), pacer.adaptive ? pacer.adapt.limit : pacer.in_flight,
+		pacer.in_flight_at_30);
+}
+
 void frame_pacer_frame_start(int may_wait)
 {
 	double now, wait = 0.0, aim = 0.0, allowed = 0.0, share;
@@ -210,13 +218,13 @@ void frame_pacer_frame_start(int may_wait)
 	already holding a slot give it back whatever the limit is) */
 	if (!pacer.system_source && pacer.flight.limit)
 	{
-		int limit = frame_pacer_in_flight_for(host_frame_rate_target(), pacer.in_flight, pacer.in_flight_at_30);
+		int limit = pacer_limit_now();
 
 		if (limit != pacer.flight.limit)
 		{
 			pacer.flight.limit = limit;
 			platform_log("frame pacer: %d frame%s in flight (display.frames_in_flight%s)", limit, limit == 1 ? "" : "s",
-				limit == pacer.in_flight ? "" : "_at_30, for a frame rate of 30 or lower");
+				limit == (pacer.adaptive ? pacer.adapt.limit : pacer.in_flight) ? "" : "_at_30, for a frame rate of 30 or lower");
 			pthread_cond_broadcast(&pacer.shown_or_ticked);
 		}
 	}
@@ -476,11 +484,15 @@ static void adapt_frame(const struct frame_pacer_frame *frame, double at, double
 		.waited = frame->wait_began > 0.0 && frame->granted >= frame->wait_began ? frame->granted - frame->wait_began : 0.0,
 		.transition = frame->number <= pacer.drain_through,
 	};
-	int limit = frame_pacer_adapt_frame(&pacer.adapt, &shown);
+	int limit;
 
+	/* (pinned lower by display.frames_in_flight_at_30: the frames did not run at the rule's limit, so they say nothing about it) */
+	if (pacer_limit_now() < pacer.adapt.limit)
+		return;
+	limit = frame_pacer_adapt_frame(&pacer.adapt, &shown);
 	if (pacer.adapt.switches == switches || limit == pacer.flight.limit)
 		return;
-	pacer.flight.limit = limit;
+	pacer.flight.limit = pacer_limit_now();
 	pacer.drain_through = pacer.last_granted;
 	pthread_cond_broadcast(&pacer.shown_or_ticked);
 	snprintf(line, size, "frame pacer: %d frame%s in flight (%s): %.1f frames a second in the last span at two, GPU %.1f ms and grant to present "
