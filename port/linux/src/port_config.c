@@ -873,7 +873,7 @@ static const struct config_setting config_settings[] =
 		"(default): \"2\", or \"auto\" with the encode thread on\n"
 		"(display.encode_thread). Not on a Vision Pro, which paces\n"
 		"frames itself, and not for frames that don't wait for the display\n"
-		"(display.frame_rate).", _tier_player, "|1|2|3|system" },
+		"(display.frame_rate).", _tier_player, "|1|2|3|system|auto" },
 	{ "display.frames_in_flight_at_30", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT_AT_30", _environment_value, _platform_ios,
 		"How many frames the Metal renderer may have on their way to the display\n"
 		"at once, \"1\" or \"2\", while the frame rate in force is 30 or lower (a\n"

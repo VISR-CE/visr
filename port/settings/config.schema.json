@@ -1053,7 +1053,12 @@
           "x-platforms": [
             "apple"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "enum": [
+            "",
+            "off",
+            "thread"
+          ]
         },
         "frames_in_flight": {
           "type": "string",
@@ -1070,7 +1075,8 @@
             "1",
             "2",
             "3",
-            "system"
+            "system",
+            "auto"
           ]
         },
         "frames_in_flight_at_30": {
