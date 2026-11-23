@@ -1,0 +1,316 @@
+/*
+TRACED_SHADOWS.H
+
+The parts of traced object shadows (display.traced_shadows; gpu_metal.m) that need no Metal: checking the game's
+records (port/linux/src/traced_shadows_format.h), skinning a part's vertices, and the caster cache, which decides for
+each shadow's caster whether its acceleration structure is reused as it is, updated in place, or built.
+
+Plain C in a header so that port/ios/tests/traced_shadows_probe.c runs the same code on any host
+(tools/test_traced_shadows.py).
+
+The cache. A structure belongs to an object and a shape (which parts under which nodes): two windows of a split
+screen may draw one object's shadow at different levels of detail, and those are two structures. Each frame a caster's
+record is compared with what its structure was last made from:
+- the same pose: reuse (a parked vehicle, a crate, a body; the other eye's or window's shadow of the same frame);
+- another pose: update in place (a refit), or build again when refits are off;
+- no structure of that shape: build;
+- TRACED_REFIT_LIMIT refits since its build: build again, at most TRACED_REBUILDS_A_FRAME such a frame, so an animation
+  that has moved far from the pose a structure was built in does not trace slowly forever.
+A slot not used for TRACED_IDLE_FRAMES frames is free for another caster, and its structure is released.
+*/
+
+#ifndef __HALO_TRACED_SHADOWS_H
+#define __HALO_TRACED_SHADOWS_H
+
+#include <stddef.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "traced_shadows_format.h"
+
+enum
+{
+	TRACED_CASTER_SLOTS = 1024, /* a power of two */
+	TRACED_CASTER_PROBES = 32,
+	TRACED_REFIT_LIMIT = 120,
+	TRACED_REBUILDS_A_FRAME = 4,
+	TRACED_IDLE_FRAMES = 60,
+	/* triangles of every caster built or updated in a frame; a caster past it has no shadow that frame */
+	TRACED_FRAME_TRIANGLES = 200000,
+};
+
+enum traced_decision
+{
+	TRACED_REFUSED, /* a malformed record, another epoch's, or no free slot: no shadow */
+	TRACED_REUSE,
+	TRACED_REFIT,
+	TRACED_BUILD,
+};
+
+/* ---------- records */
+
+/* a part record's vertices and triangles, or 0 when the record is not well formed */
+static inline int traced_part_read(const void *bytes, uint32_t size, const struct traced_shadows_part **part,
+	const struct traced_shadows_vertex **vertices, const uint16_t **triangles)
+{
+	const struct traced_shadows_part *header = (const struct traced_shadows_part *)bytes;
+	uint64_t wanted;
+	uint32_t index;
+
+	if (!bytes || size < sizeof(*header) || !header->vertex_count || !header->triangle_count ||
+		header->vertex_count > TRACED_SHADOWS_PART_VERTICES || header->triangle_count > 0x100000)
+		return 0;
+	wanted = sizeof(*header) + (uint64_t)header->vertex_count * sizeof(struct traced_shadows_vertex) +
+		(((uint64_t)header->triangle_count * 3 * sizeof(uint16_t) + 3) & ~(uint64_t)3);
+	if (size != wanted)
+		return 0;
+	*part = header;
+	*vertices = (const struct traced_shadows_vertex *)(header + 1);
+	*triangles = (const uint16_t *)(*vertices + header->vertex_count);
+	for (index = 0; index < header->triangle_count * 3; index++)
+		if ((*triangles)[index] >= header->vertex_count)
+			return 0;
+	return 1;
+}
+
+/* a caster record's shape and pose, or 0 when the record is not well formed: the sizes add up, the shape's
+models fit it, and the pose holds every model's nodes */
+static inline int traced_caster_read(const void *bytes, uint32_t size, const struct traced_shadows_caster **caster,
+	const uint32_t **shape, const float **pose)
+{
+	const struct traced_shadows_caster *header = (const struct traced_shadows_caster *)bytes;
+	const uint32_t *words;
+	uint64_t at = 0, nodes = 0;
+	uint32_t model, limit;
+
+	if (!bytes || size < sizeof(*header) || (header->shape_size & 3) || (header->pose_size & 3) ||
+		(uint64_t)sizeof(*header) + header->shape_size + header->pose_size != size || !header->model_count)
+		return 0;
+	words = (const uint32_t *)(header + 1);
+	limit = header->shape_size / 4;
+	for (model = 0; model < header->model_count; model++)
+	{
+		if (at + 2 > limit || !words[at] || words[at] > 255 || at + 2 + words[at + 1] > limit)
+			return 0;
+		nodes += words[at];
+		at += 2 + (uint64_t)words[at + 1];
+	}
+	if (at != limit || nodes * TRACED_SHADOWS_NODE_FLOATS * sizeof(float) != header->pose_size)
+		return 0;
+	*caster = header;
+	*shape = words;
+	*pose = (const float *)(words + limit);
+	return 1;
+}
+
+/* ---------- skinning */
+
+/* count vertices of a part under node_count node matrices (TRACED_SHADOWS_NODE_FLOATS floats each), as the game's
+shadow vertex shader places them: each a blend of its two nodes' transforms by its weight. A node past the model's
+is the first. Written three floats a vertex */
+static inline void traced_skin(const struct traced_shadows_vertex *vertices, uint32_t count, const float *matrices,
+	uint32_t node_count, float *positions)
+{
+	uint32_t index;
+
+	for (index = 0; index < count; index++)
+	{
+		const struct traced_shadows_vertex *vertex = &vertices[index];
+		const float *a = matrices + (size_t)(vertex->nodes[0] < node_count ? vertex->nodes[0] : 0) * TRACED_SHADOWS_NODE_FLOATS;
+		const float *b = matrices + (size_t)(vertex->nodes[1] < node_count ? vertex->nodes[1] : 0) * TRACED_SHADOWS_NODE_FLOATS;
+		float x = vertex->position[0], y = vertex->position[1], z = vertex->position[2];
+		float wa = vertex->weight * a[0], wb = (1.0f - vertex->weight) * b[0];
+		float wpa = vertex->weight, wpb = 1.0f - vertex->weight;
+		int axis;
+
+		/* scale * (forward x + left y + up z) + position, forward at 1, left at 4, up at 7, position at 10 */
+		for (axis = 0; axis < 3; axis++)
+			positions[(size_t)index * 3 + axis] =
+				wa * (a[1 + axis] * x + a[4 + axis] * y + a[7 + axis] * z) + wpa * a[10 + axis] +
+				wb * (b[1 + axis] * x + b[4 + axis] * y + b[7 + axis] * z) + wpb * b[10 + axis];
+	}
+}
+
+/* ---------- the caster cache */
+
+struct traced_caster_slot
+{
+	uint32_t used;
+	uint32_t object;
+	/* copies of the shape and pose its structure was last made from */
+	uint32_t *shape;
+	float *pose;
+	uint32_t shape_size, pose_size;
+	uint32_t shape_capacity, pose_capacity;
+	/* the frame it was last asked for, and last built or updated in */
+	uint64_t frame, updated;
+	uint32_t refits;
+	uint32_t triangles;
+};
+
+struct traced_caster_cache
+{
+	struct traced_caster_slot slots[TRACED_CASTER_SLOTS];
+	uint64_t frame;
+	uint32_t rebuilds; /* periodic ones this frame */
+	uint32_t frame_triangles;
+	/* since the last log line */
+	uint32_t reuses, refits, builds, refused;
+};
+
+static inline uint32_t traced_shape_hash(uint32_t object, const uint32_t *shape, uint32_t shape_size)
+{
+	uint32_t hash = object * 2654435761u, index;
+
+	for (index = 0; index < shape_size / 4; index++)
+		hash = (hash ^ shape[index]) * 16777619u;
+	return hash ^ (hash >> 15);
+}
+
+/* a new frame: the periodic rebuilds' and the triangles' budgets start again */
+static inline void traced_cache_frame(struct traced_caster_cache *cache, uint64_t frame)
+{
+	if (cache->frame == frame)
+		return;
+	cache->frame = frame;
+	cache->rebuilds = 0;
+	cache->frame_triangles = 0;
+}
+
+/* a slot's copies and counts are dropped; the caller releases its structure */
+static inline void traced_slot_clear(struct traced_caster_slot *slot)
+{
+	free(slot->shape);
+	free(slot->pose);
+	memset(slot, 0, sizeof(*slot));
+}
+
+static inline void traced_cache_reset(struct traced_caster_cache *cache)
+{
+	uint32_t index;
+
+	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
+		traced_slot_clear(&cache->slots[index]);
+	cache->rebuilds = cache->frame_triangles = 0;
+}
+
+static inline int traced_slot_copy(struct traced_caster_slot *slot, const uint32_t *shape, uint32_t shape_size,
+	const float *pose, uint32_t pose_size)
+{
+	if (slot->shape_capacity < shape_size)
+	{
+		uint32_t *grown = (uint32_t *)realloc(slot->shape, shape_size);
+
+		if (!grown)
+			return 0;
+		slot->shape = grown;
+		slot->shape_capacity = shape_size;
+	}
+	if (slot->pose_capacity < pose_size)
+	{
+		float *grown = (float *)realloc(slot->pose, pose_size);
+
+		if (!grown)
+			return 0;
+		slot->pose = grown;
+		slot->pose_capacity = pose_size;
+	}
+	memcpy(slot->shape, shape, shape_size);
+	memcpy(slot->pose, pose, pose_size);
+	slot->shape_size = shape_size;
+	slot->pose_size = pose_size;
+	return 1;
+}
+
+/* What to do with a caster this frame, and the slot whose structure it is (*slot_index; *released is 1 when the
+slot held another caster's structure, which the caller releases before building). triangles is the caster's own
+count, refit_allowed the debug switch. A caster already updated this frame in another pose (which the game does not
+do, but a structure must never be updated twice before its draws) takes another slot */
+static inline enum traced_decision traced_cache_decide(struct traced_caster_cache *cache, uint32_t object,
+	const uint32_t *shape, uint32_t shape_size, const float *pose, uint32_t pose_size, uint32_t triangles,
+	int refit_allowed, uint32_t *slot_index, int *released)
+{
+	uint32_t hash = traced_shape_hash(object, shape, shape_size), probe;
+	struct traced_caster_slot *found = NULL, *spare = NULL;
+	enum traced_decision decision;
+
+	*released = 0;
+	for (probe = 0; probe < TRACED_CASTER_PROBES; probe++)
+	{
+		struct traced_caster_slot *slot = &cache->slots[(hash + probe) & (TRACED_CASTER_SLOTS - 1)];
+
+		if (slot->used && slot->object == object && slot->shape_size == shape_size &&
+			!memcmp(slot->shape, shape, shape_size))
+		{
+			int same_pose = slot->pose_size == pose_size && !memcmp(slot->pose, pose, pose_size);
+
+			if (same_pose || slot->updated != cache->frame)
+			{
+				found = slot;
+				break;
+			}
+			continue;
+		}
+		if (!spare && (!slot->used || slot->frame + TRACED_IDLE_FRAMES < cache->frame))
+			spare = slot;
+	}
+	if (found && found->pose_size == pose_size && !memcmp(found->pose, pose, pose_size))
+	{
+		found->frame = cache->frame;
+		cache->reuses++;
+		*slot_index = (uint32_t)(found - cache->slots);
+		return TRACED_REUSE;
+	}
+	if (cache->frame_triangles + triangles > TRACED_FRAME_TRIANGLES)
+	{
+		cache->refused++;
+		return TRACED_REFUSED;
+	}
+	if (found)
+	{
+		decision = TRACED_REFIT;
+		if (!refit_allowed)
+			decision = TRACED_BUILD;
+		else if (found->refits >= TRACED_REFIT_LIMIT && cache->rebuilds < TRACED_REBUILDS_A_FRAME)
+		{
+			decision = TRACED_BUILD;
+			cache->rebuilds++;
+		}
+	}
+	else
+	{
+		if (!spare)
+		{
+			cache->refused++;
+			return TRACED_REFUSED;
+		}
+		*released = spare->used != 0;
+		found = spare;
+		found->used = 1;
+		found->object = object;
+		found->refits = 0;
+		decision = TRACED_BUILD;
+	}
+	if (!traced_slot_copy(found, shape, shape_size, pose, pose_size))
+	{
+		/* (its structure, if any, no longer matches a pose the cache knows: drop the slot) */
+		*released = 1;
+		*slot_index = (uint32_t)(found - cache->slots);
+		traced_slot_clear(found);
+		cache->refused++;
+		return TRACED_REFUSED;
+	}
+	found->frame = found->updated = cache->frame;
+	found->triangles = triangles;
+	found->refits = decision == TRACED_REFIT ? found->refits + 1 : 0;
+	cache->frame_triangles += triangles;
+	if (decision == TRACED_REFIT)
+		cache->refits++;
+	else
+		cache->builds++;
+	*slot_index = (uint32_t)(found - cache->slots);
+	return decision;
+}
+
+#endif
