@@ -993,15 +993,15 @@ static const struct config_setting config_settings[] =
 		"only friends.", _tier_player, "none|all|allies|enemies" },
 	{ "display.player_name_scale", _config_real, "1.0", "HALO_PLAYER_NAME_SCALE", _environment_value, _platform_all,
 		"How large the players' names are drawn: 1.0 three quarters of the size of\n"
-		"the HUD's text, 0.25 to 4.", _tier_player },
+		"the HUD's text, 0.25 to 4.", _tier_tuning },
 	{ "display.scoreboard_team_layout", _config_string, "\"teams\"", "HALO_SCOREBOARD_TEAM_LAYOUT", _environment_value,
 		_platform_all,
 		"How the scoreboard lists a team game's players: \"teams\" in a column for\n"
 		"each team (red on the left, blue on the right), \"score\" all in order of\n"
-		"score.", _tier_player, "teams|score" },
+		"score.", _tier_tuning, "teams|score" },
 	{ "display.scoreboard_background", _config_boolean, "true", "HALO_SCOREBOARD_BACKGROUND", _environment_value,
 		_platform_all,
-		"Draw a panel behind the multiplayer scoreboard, for clearer text.", _tier_player },
+		"Draw a panel behind the multiplayer scoreboard, for clearer text.", _tier_tuning },
 	{ "display.scoreboard_background_color", _config_string, "\"16, 16, 16, 150\"", "HALO_SCOREBOARD_BACKGROUND_COLOR",
 		_environment_value, _platform_all,
 		"The scoreboard panel's colour: \"red, green, blue, alpha\", each 0 to 255\n"
@@ -1192,7 +1192,7 @@ static const struct config_setting config_settings[] =
 		"Let internet play ask the router (UPnP; on Apple devices NAT-PMP or\n"
 		"PCP) to forward its port, for networks whose NAT stops connections:\n"
 		"when a player joins this machine's game, and when joining a game takes\n"
-		"too long. False never asks.", _tier_player },
+		"too long. False never asks.", _tier_tuning },
 	{ "network.background_grace", _config_integer, "60", "HALO_NET_BACKGROUND_GRACE", _environment_value, _platform_all,
 		"Seconds the other players of an internet game wait for this machine\n"
 		"when its app goes to the background (an Apple device suspends it, its\n"
@@ -1288,7 +1288,7 @@ static const struct config_setting config_settings[] =
 	{ "network.map_seed_upload", _config_integer, "256", "HALO_NET_MAP_SEED_UPLOAD", _environment_value,
 		_platform_all,
 		"Playing in another's game: the most kilobytes a second this machine\n"
-		"sends of maps to other players (16 to 65536).", _tier_player },
+		"sends of maps to other players (16 to 65536).", _tier_tuning },
 	{ "network.custom_maps", _config_boolean, "false", "HALO_NET_CUSTOM_MAPS", _environment_value, _platform_all,
 		"Experimental: the server browser also shows games on Custom Edition\n"
 		"maps, those of a map in custom_maps or, with network.map_download on,\n"

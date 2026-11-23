@@ -665,6 +665,62 @@ static void check_tiers(void)
 	unsetenv("HALO_HOST_VISIONOS");
 }
 
+/* NETWORK SETUP's cut rows (UPnP, the names' size, the scoreboard's layout and panel, the maps upload limit) are tuning
+   settings now, under the names they had. Bug class: a setting leaving the menu loses what a player set. A config.toml
+   from before holds each, written by the game as a default or chosen by the player; a default goes, a chosen value
+   stays in force, and the default is what every other player gets */
+static void check_cut_menu_settings(void)
+{
+	char *text;
+
+	fresh();
+	write_text(path,
+		"[network]\n"
+		"allow_upnp = true\n"
+		"map_seed_upload = 256\n"
+		"\n[display]\n"
+		"player_name_scale = 1.0\n"
+		"scoreboard_team_layout = \"teams\"\n"
+		"scoreboard_background = true\n");
+	write_text(origins, "network.allow_upnp\tdefault\ttrue\nnetwork.map_seed_upload\tdefault\t256\n"
+		"display.player_name_scale\tdefault\t1.0\ndisplay.scoreboard_team_layout\tdefault\t\"teams\"\n"
+		"display.scoreboard_background\tdefault\ttrue\n");
+	launch("");
+	assert(!file_has(path, "\nallow_upnp = ") && !file_has(path, "\nmap_seed_upload = ") &&
+		!file_has(path, "\nplayer_name_scale = ") && !file_has(path, "\nscoreboard_team_layout = ") &&
+		!file_has(path, "\nscoreboard_background = "));
+	assert(config_boolean("network.allow_upnp") && config_integer("network.map_seed_upload") == 256 &&
+		config_real("display.player_name_scale") == 1.0 && !strcmp(config_string("display.scoreboard_team_layout"), "teams") &&
+		config_boolean("display.scoreboard_background"));
+
+	fresh();
+	write_text(path,
+		"[network]\n"
+		"allow_upnp = false\n"
+		"map_seed_upload = 1024\n"
+		"\n[display]\n"
+		"player_name_scale = 1.5\n"
+		"scoreboard_team_layout = \"score\"\n"
+		"scoreboard_background = false\n");
+	write_text(origins, "network.allow_upnp\tchosen\nnetwork.map_seed_upload\tchosen\n"
+		"display.player_name_scale\tchosen\ndisplay.scoreboard_team_layout\tchosen\n"
+		"display.scoreboard_background\tchosen\n");
+	launch("");
+	assert(!config_boolean("network.allow_upnp") && config_integer("network.map_seed_upload") == 1024 &&
+		config_real("display.player_name_scale") == 1.5 && !strcmp(config_string("display.scoreboard_team_layout"), "score") &&
+		!config_boolean("display.scoreboard_background"));
+	text = read_text(path);
+	assert(strstr(text, "allow_upnp = false") && strstr(text, "map_seed_upload = 1024") &&
+		strstr(text, "player_name_scale = 1.5") && strstr(text, "scoreboard_team_layout = \"score\"") &&
+		strstr(text, "scoreboard_background = false"));
+	free(text);
+	/* the next launch changes nothing */
+	text = read_text(path);
+	launch("");
+	assert(file_has(path, text));
+	free(text);
+}
+
 /* the renderer's default was OpenGL ES: a Mac's config.toml from before config.origins holds it, written by the game,
    and gets Metal; one marked chosen keeps OpenGL ES */
 static void check_renderer_default(void)
@@ -1246,6 +1302,7 @@ int main(void)
 	check_scenes();
 	check_changed_default();
 	check_tiers();
+	check_cut_menu_settings();
 	check_external();
 	check_workload();
 	check_variable_only();

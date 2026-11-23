@@ -130,6 +130,10 @@ TUNING_OFF_HEADSET = {
     'display.repaired_textures',
     # the 16-bit scene, 8 until device profiles set it (that step adds the profile key and its feed generation)
     'display.scene_precision',
+    # rows NETWORK SETUP no longer has: their defaults are the choice nearly everyone wants, and a value a player
+    # set in config.toml stays in force (port/ios/tests/config_origins_probe.c, check_cut_menu_settings)
+    'network.allow_upnp', 'network.map_seed_upload', 'display.player_name_scale', 'display.scoreboard_team_layout',
+    'display.scoreboard_background',
 }
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
                    'display.theater_width', 'input.aim', 'input.aim_hand',
