@@ -45,7 +45,7 @@ def test_browser_actions_are_a_declared_bar():
 def test_filters_actions_are_a_declared_bar():
     actions = bar_actions(FILTERS_XML)
     assert actions['x'] == ('global', 'RESET', 'port browser filters reset')
-    assert actions['b'][:2] == ('back', 'DONE')
+    assert actions['b'][:2] == ('back', 'BACK')
 
 
 def test_browser_has_no_placed_legend_widgets():

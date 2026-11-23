@@ -617,7 +617,7 @@ def test_sort_filter_has_four_large_rows_reset_and_done():
     assert widgets['filters_screen'].find('data[@input="port browser filters update"]') is not None
     bar = {a.get('slot'): a for a in widgets['filters_screen'].find('bar').findall('action')}
     assert (bar['x'].get('text'), bar['x'].get('run')) == ('RESET', 'port browser filters reset')
-    assert (bar['b'].get('text'), bar['b'].get('scope')) == ('DONE', 'back')
+    assert (bar['b'].get('text'), bar['b'].get('scope')) == ('BACK', 'back')
 
 
 def test_no_screen_opens_quit_but_the_dialog_stays():
