@@ -35,11 +35,13 @@ def test_codec_is_plain_gnu89_for_the_guest_build(tmp_path):
 
 def test_no_input_code_reads_a_moved_setting_from_the_config():
     """Every reader of a moved input setting goes through the profile: no config_*() call names one."""
-    for source in ('port/linux/src/xinput_sdl.c', 'port/linux/game/menu_functions.c', 'port/linux/game/player_input_profile.c',
-                   'source/interface/player_ui.c'):
-        text = (ROOT / source).read_text(encoding='latin-1')
-        for call in re.findall(r'config_(?:boolean|integer|real|string|text|default|write|write_boolean)\(\s*("[^"]*")', text):
-            assert not MOVED_KEYS.fullmatch(call), f'{source} reads {call} from the device config'
+    sources = [path for folder in ('port', 'source') for pattern in ('*.c', '*.m', '*.h')
+               for path in (ROOT / folder).rglob(pattern) if '/tests/' not in path.as_posix()]
+    assert len(sources) > 100
+    for path in sources:
+        text = path.read_text(encoding='latin-1')
+        for call in re.findall(r'config_(?:boolean|integer|real|string|text|default|write|write_boolean|reload_boolean)\(\s*("[^"]*")', text):
+            assert not MOVED_KEYS.fullmatch(call), f'{path} reads {call} from the device config'
     config = (ROOT / 'port/linux/src/port_config.c').read_text()
     assert not re.search(r'^\t\{ ' + MOVED_KEYS.pattern, config, re.M)
 

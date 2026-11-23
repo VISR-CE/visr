@@ -11,7 +11,7 @@ def generated(fault=None):
     inp=function(input_source,'halo_linux_mouse_aiming')
     version=re.sub(r'^#include "[^"\n]+"\n','',read('port/linux/include/halo_network_version.h'),flags=re.M)
     if fault=='authority': policy=mutated(policy,'machine_index != NONE ||','FALSE ||')
-    if fault=='override': inp=mutated(inp,'aim_assist && !network_aim_assist_block_mouse()','aim_assist')
+    if fault=='override': inp=mutated(inp,'mouse.aim_assist && !network_aim_assist_block_mouse()','mouse.aim_assist')
     if fault=='version': version=mutated(version,'return version >= HALO_NETWORK_VERSION_AIM_POLICY;','return 1;')
     return (('policy.inc',policy),('input.inc',inp),('version.inc',version))
 

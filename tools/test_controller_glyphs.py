@@ -156,7 +156,7 @@ def test_controller_glyph_requests(tmp_path):
     source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
     function = block(source, 'int halo_controller_glyph_request(')
     program = (ROOT / 'port/ios/tests/controller_glyph_request_probe.c').read_text().replace('/* REQUEST */', function)
-    first = source.index('static const char *const binding_settings[')
+    first = source.index('static const char *const binding_environment[')
     settings = source[first:source.index('};', first)+2]
     program = program.replace('/* BINDING SETTINGS */', settings).replace('/* BINDINGS READ */', block(source, 'static void bindings_read(void)'))
     activity = '\n'.join(block(source, marker) for marker in ('void halo_controller_glyph_pointer_activity(', 'static void glyph_keyboard_activity(', 'static int glyph_gamepad_active(', 'void halo_controller_glyph_input_event('))

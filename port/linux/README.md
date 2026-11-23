@@ -109,7 +109,7 @@ backtrace to the standard error. To find the function at the address, enter
 
 The keyboard and the mouse are a control scheme of their own for the player
 of controller 1: each action has up to two keys or mouse buttons, which
-Settings > Controls Setup (or `[controls]` in `config.toml`) changes. The
+Settings > Controls Setup changes, and the player's profile keeps (`HALO_KEY_<ACTION>` overrides them for one run). The
 game adds the input of the first gamepad to controller 1. The other
 gamepads operate controllers 2 to 4. With two or more players on this
 computer (co-op, or split screen in a network game) and only one gamepad,

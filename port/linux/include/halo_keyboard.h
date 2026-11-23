@@ -3,8 +3,8 @@ HALO_KEYBOARD.H
 
 The keyboard and mouse's own controls (port/linux/src/xinput_sdl.c): in the
 game they do not drive the first controller, as they do in the menus, but
-the player's actions themselves, by the bindings in config.toml's
-[controls] (Settings > Controls Setup changes them). The game takes them
+the player's actions themselves, by the bindings in the
+player's profile (Settings > Controls Setup changes them). The game takes them
 with the first controller's (source/input/input_abstraction.c), so the
 profile's button layout is the controller's alone, and reloading has a key
 of its own (source/game/player_control.c).

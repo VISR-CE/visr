@@ -12,6 +12,8 @@ static unsigned int network_game_host_version(void){return host_version;}
 static int delta_legacy_joinable(unsigned int version){(void)version;return 0;}
 #include "version.inc"
 static unsigned long changes,mouse_aimed_ms,stick_aimed_ms;
+struct mouse_values{float sensitivity,vertical_sensitivity;int invert,aim_assist;};
+static void mouse_values_read(struct mouse_values *values){values->sensitivity=values->vertical_sensitivity=1.0f;values->invert=0;values->aim_assist=preference;}
 static int mouse_lock,sends,unreliable;
 static boolean network_connection_last_read_was_unreliable(void){return unreliable;}
 static byte wire[32];static word wire_size;

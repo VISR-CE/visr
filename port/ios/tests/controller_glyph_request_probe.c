@@ -31,8 +31,16 @@ static const char *configured="Q";
 /* BINDING SETTINGS */
 static const char *override;
 static int host_development_hooks(void) { return dev; }
-static const char *config_string(const char *name) { return !strcmp(name,"debug.controller_glyph_family") ? (override?override:"") : !strcmp(name,"controls.scoreboard") ? "T" : !strcmp(name,"controls.pause") ? "P" : configured; }
-static unsigned long config_changes(void) {return generation;}
+static const char *config_string(const char *name) { return !strcmp(name,"debug.controller_glyph_family") ? (override?override:""):""; }
+/* the profile of the player on gamepad 0: its bindings are the names in `configured` (Q or "Unbound,Q": a name of one
+letter is a key, any other is none), the scoreboard's T and the pause's P */
+unsigned short player_input_profile_binding(short player, short action, short slot) {
+ const char *text=action==15?"T":action==16?"P":configured;
+ char name[32]="", token[32]; size_t length; int index; (void)player;
+ for(index=0;index<=slot;index++){ while(*text==' '||*text==',')text++; length=strcspn(text,","); snprintf(token,sizeof(token),"%.*s",(int)length,text); text+=length; if(index==slot)snprintf(name,sizeof(name),"%s",token); }
+ return strlen(name)==1?(unsigned short)name[0]:0;
+}
+static int input_from_stable_code(unsigned short code) { return code?(int)code:-1; }
 int halo_input_from_name(const char *name) {return strlen(name)==1?name[0]:-1;}
 #define platform_log(...) ((void)0)
 static int sdl_gamepads(SDL_Gamepad **pads) { pads[0]=(void *)(uintptr_t)21;pads[1]=(void *)(uintptr_t)22;return 2; }

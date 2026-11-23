@@ -7,7 +7,7 @@ Port 0 is always connected: it is the keyboard and mouse, merged with the
 first SDL gamepad when one is present. Further SDL gamepads take ports 1-3.
 
 In the game the keyboard and mouse are a control scheme of their own
-(port/linux/include/halo_keyboard.h): config.toml's [controls] bind each of
+(port/linux/include/halo_keyboard.h): the player's profile binds each of
 the player's actions to up to two keys, mouse buttons or wheel turns
 (Settings > Controls Setup changes them), and the game takes the actions
 held (halo_keyboard_actions) with the controller's. They press none of its
@@ -531,7 +531,7 @@ int halo_linux_mouse_look(short gamepad_index, float *yaw, float *pitch)
 }
 
 /* whether the player on the gamepad aims with the mouse (it moved after the
-right stick last did) and input.mouse_aim_assist is off: then the view's
+right stick last did) and the profile's mouse aim assist is off: then the view's
 magnetism leaves them be (player_control.c); the bullets' autoaim stays */
 int halo_linux_mouse_aiming(short gamepad_index)
 {

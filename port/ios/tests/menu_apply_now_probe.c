@@ -32,7 +32,9 @@ static struct player_profile disk_profile = { 1, 2, { 3 }, L"Player" }, edit_pro
 static long edit_index = 7;
 static int writes, applies, saves, asks, messages, reloads, capture_result, write_failure;
 static int online, running, cloud;
-static char binding_values[17][128];
+struct player_input_profile { unsigned short bindings[17][2]; };
+#define PLAYER_INPUT_CODE_NONE 0
+static struct player_input_profile disk_input, edit_input;
 static struct widget_instance *screen_of(struct widget_instance *w) { while (w->parent) w = w->parent; return w; }
 static void platform_log(char const *format, ...) { (void)format; }
 static void platform_show_message(char const *title, char const *text) { messages++; }
@@ -55,23 +57,20 @@ static boolean setting_text(char const *name, char *text, unsigned int size, boo
 static short setting_value_index(struct pc_menu_setting *setting, char const *text) { return 0; }
 static struct player_profile *player_ui_get_edit_player_profile(void) { return edit_index == NONE ? NULL : &edit_profile; }
 static long player_ui_get_edit_profile_index(void) { return edit_index; }
-static boolean player_ui_edit_profile_is_dirty(void) { return memcmp(&disk_profile, &edit_profile, sizeof(edit_profile)) != 0; }
-static boolean player_ui_save_profile(void) { disk_profile = edit_profile; edit_index = NONE; saves++; return TRUE; }
-static void player_ui_begin_editing_profile(long index) { edit_index = index; edit_profile = disk_profile; }
+static struct player_input_profile *player_ui_get_edit_player_input(void) { return edit_index == NONE ? NULL : &edit_input; }
+static boolean player_ui_edit_profile_is_dirty(void) { return memcmp(&disk_profile, &edit_profile, sizeof(edit_profile)) != 0 || memcmp(&disk_input, &edit_input, sizeof(edit_input)) != 0; }
+static boolean player_ui_save_profile(void) { disk_profile = edit_profile; disk_input = edit_input; edit_index = NONE; saves++; return TRUE; }
+static void player_ui_begin_editing_profile(long index) { edit_index = index; edit_profile = disk_profile; edit_input = disk_input; }
 /* SETTINGS */
-static int binding_index(char const *name);
-static char const *config_string(char const *name) { return binding_values[binding_index(name)]; }
-static int config_default(char const *name, char *text, unsigned int size) { snprintf(text, size, "D%d", binding_index(name)); return TRUE; }
-static int config_write(char const *name, char const *text) { snprintf(binding_values[binding_index(name)], 128, "%s", text); writes++; return TRUE; }
 static int platform_binding_capture_poll(int *input) { *input = 5; return capture_result; }
-static void halo_input_name(int input, char *text, unsigned int size) { snprintf(text, size, "K"); }
+/* (names and codes are one-to-one here: "K<n>" is code n) */
+static void halo_input_name(int input, char *text, unsigned int size) { snprintf(text, size, "K%d", input); }
+static int halo_input_from_name(char const *name) { return atoi(name + 1); }
+static unsigned short halo_input_stable_code(int input) { return (unsigned short)input; }
+static int halo_input_from_stable(unsigned short code) { return code ? code : -1; }
+static void player_input_profile_defaults(struct player_input_profile *values)
+{ int i; memset(values, 0, sizeof(*values)); for (i = 0; i < 17; i++) values->bindings[i][0] = (unsigned short)(100 + i); }
 /* CONTROLS */
-static int binding_index(char const *name)
-{
-	int i;
-	for (i = 0; i < NUMBEROF(controls); i++) if (!strcmp(name, controls[i].setting)) return i;
-	abort();
-}
 int main(void)
 {
 	struct widget_instance screen = { NULL, "audio_settings_screen", { { 0 } } };
@@ -126,20 +125,27 @@ int main(void)
 	setting.loaded_index = 1;
 	assert(setting_apply_now(&spinner, &setting) && setting.loaded_index == 0);
 
+	/* the bindings are the edited profile's, and a change saves the profile as every profile setting does */
+	player_ui_begin_editing_profile(7);
 	controls_load(FALSE); controls_screen.apply_now = TRUE;
-	strcpy(controls_screen.bindings[1][0], "K");
-	strcpy(binding_values[1], "K");
+	strcpy(controls_screen.bindings[1][0], "K5");
+	edit_input.bindings[1][0] = 5;
 	controls_screen.capturing_control = 0; controls_screen.capturing_slot = 0; capture_result = 1;
-	control_capture_poll();
-	assert(!strcmp(binding_values[0], "K") && !*binding_values[1]);
+	{
+		int before_saves = saves;
+		control_capture_poll();
+		assert(edit_index == 7 && disk_input.bindings[0][0] == 5 && !disk_input.bindings[1][0] && saves == before_saves + 1);
+	}
 	controls_screen.capturing_control = 0; capture_result = 2; control_capture_poll();
-	assert(!*binding_values[0]);
-	int before = writes;
-	controls_screen.capturing_control = 0; capture_result = 3; control_capture_poll();
-	assert(writes == before);
-	controls_load(TRUE); controls_save(); assert(!strcmp(binding_values[0], "D0"));
+	assert(!disk_input.bindings[0][0]);
+	{
+		int before = saves;
+		controls_screen.capturing_control = 0; capture_result = 3; control_capture_poll();
+		assert(saves == before);
+	}
+	controls_load(TRUE); controls_save(); assert(disk_input.bindings[0][0] == 100);
 	controls_screen.apply_now = FALSE; controls_screen.capturing_control = 0; capture_result = 1;
-	control_capture_poll(); assert(!strcmp(binding_values[0], "D0"));
+	control_capture_poll(); assert(disk_input.bindings[0][0] == 100);
 	puts("apply-now persistence passed");
 	return 0;
 }
