@@ -1,6 +1,7 @@
 /* The texture repair's host side without a game: its records and finished maps follow a delete of the cache folder. */
 #import "host_texture_repair.m"
 #include <assert.h>
+#include "test_tmpdir.h"
 
 static char cache_root[512];
 static int walks;
@@ -28,7 +29,7 @@ enum texture_upscale_encode_result texture_upscale_encode_raw(const struct textu
 static void settle(void) { for (int i = 0; i < 4; i++) dispatch_sync(worker, ^{}); }
 
 int main(void) { @autoreleasepool {
-    char pattern[] = "/tmp/visr-repair-host-XXXXXX", *root = mkdtemp(pattern), maps[600];
+    char pattern[512], *root = test_mkdtemp(pattern, sizeof(pattern), "visr-repair-host"), maps[600];
     assert(root);
     snprintf(cache_root, sizeof(cache_root), "%s/cache", root);
     snprintf(maps, sizeof(maps), "%s/maps", root);
