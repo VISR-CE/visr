@@ -43,6 +43,8 @@ int main(void) {
      if (x<x0)x0=x; if (x>x1)x1=x; if (y<y0)y0=y; if (y>y1)y1=y; }
     assert(x1>=0);
     assert(x0>=1 && y0>=1 && x1<=w-2 && y1<=h-2);
+    /* centered vertically in the box (within 1 unit), so the raise puts it on the caption's capitals */
+    assert(abs((y0+y1+1)-h) <= 2*scale);
    }
    free(box);
   }

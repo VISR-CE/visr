@@ -24,4 +24,15 @@ static inline rectangle2d controller_glyph_legend_raise(rectangle2d const *rect)
 	raised.y1 -= LEGEND_GLYPH_RAISE;
 	return raised;
 }
+/* what controller_glyph_blit leaves visible: the box cropped to the clip */
+static inline rectangle2d controller_glyph_visible_rect(rectangle2d const *box, rectangle2d const *clip)
+{
+	rectangle2d shown = *box;
+	if (!clip) return shown;
+	if (shown.x0 < clip->x0) shown.x0 = clip->x0;
+	if (shown.x1 > clip->x1) shown.x1 = clip->x1;
+	if (shown.y0 < clip->y0) shown.y0 = clip->y0;
+	if (shown.y1 > clip->y1) shown.y1 = clip->y1;
+	return shown;
+}
 #endif
