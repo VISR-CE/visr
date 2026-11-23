@@ -999,6 +999,14 @@ static void rasterizer_window_fog_constants(
 	return;
 }
 
+static void rasterizer_window_fog_eye_constants(
+	void const *context,
+	real (*constants)[4])
+{
+	rasterizer_window_fog_constants((struct render_fog const *)context, constants);
+	return;
+}
+
 void _rasterizer_window_set_fog(
 	struct render_fog const *fog)
 {
@@ -1015,12 +1023,7 @@ void _rasterizer_window_set_fog(
 		real_rgb_color_to_pixel32(&global_window_parameters.fog.atmospheric_color));
 	/* port: the second eye's replay: eye 1's fog block (its fog color is
 	eye 0's: the color does not depend on the camera) */
-	if (rasterizer_other_eye_begin())
-	{
-		rasterizer_window_fog_constants(fog, fog_constants);
-		halo_stereo_replay_constants(-88, fog_constants, 4);
-		rasterizer_other_eye_end();
-	}
+	rasterizer_eye_constants(-88, 4, fog_constants, rasterizer_window_fog_eye_constants, fog);
 	return;
 }
 
@@ -3050,6 +3053,35 @@ void rasterizer_other_eye_end(
 	return;
 }
 
+void rasterizer_eye_constants(
+	short first,
+	short count,
+	real (*constants)[4],
+	rasterizer_eye_constants_builder build,
+	void const *context)
+{
+	if (rasterizer_other_eye_begin())
+	{
+		build(context, constants);
+		halo_stereo_replay_constants(first, constants, count);
+		rasterizer_other_eye_end();
+	}
+	return;
+}
+
+void rasterizer_eye_constants_send(
+	short first,
+	short count,
+	real const (*constants)[4])
+{
+	if (rasterizer_other_eye_begin())
+	{
+		halo_stereo_replay_constants(first, constants, count);
+		rasterizer_other_eye_end();
+	}
+	return;
+}
+
 boolean rasterizer_other_eye_draws(
 	void)
 {
@@ -3214,11 +3246,7 @@ static void skinning_other_eye(
 		return;
 	for (index = 0; index < node_count; index++)
 		node_matrix_constants(rows[index], &pair->eye_1[nodes ? MIN(nodes[index], matrix_count - 1) : index]);
-	if (rasterizer_other_eye_begin())
-	{
-		halo_stereo_replay_constants(-36, rows, node_count * 3);
-		rasterizer_other_eye_end();
-	}
+	rasterizer_eye_constants_send(-36, node_count * 3, (real const (*)[4])rows);
 	return;
 }
 
@@ -3438,6 +3466,16 @@ screen they take the Xbox top view's lower placement
 	return;
 }
 
+static void rasterizer_frustum_eye_constants(
+	void const *context,
+	real (*constants)[4])
+{
+	real const *range = (real const *)context;
+
+	rasterizer_frustum_constants(range[0], range[1], constants);
+	return;
+}
+
 void rasterizer_set_frustum_z(
 	real z_near,
 	real z_far)
@@ -3456,11 +3494,10 @@ void rasterizer_set_frustum_z(
 		8);
 	/* port: the second eye's replay: eye 1's block, from eye 1's window
 	state (its first-person weapon's eye included) */
-	if (rasterizer_other_eye_begin())
 	{
-		rasterizer_frustum_constants(z_near, z_far, vertex_constants);
-		halo_stereo_replay_constants(-96, vertex_constants, 8);
-		rasterizer_other_eye_end();
+		real const range[2] = { z_near, z_far };
+
+		rasterizer_eye_constants(-96, 8, vertex_constants, rasterizer_frustum_eye_constants, range);
 	}
 	return;
 }

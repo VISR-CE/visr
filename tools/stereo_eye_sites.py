@@ -5,7 +5,8 @@ gives eye 1 its value there.
 
 While eye 0's pass draws for both eyes, a value computed from the eye is eye
 0's unless the site computes eye 1's too: through rasterizer_other_eye_begin
-and _end (a constant block), rasterizer_for_each_eye (the whole pass again for eye 1, its records marked for it),
+and _end, rasterizer_eye_constants (a constant block built under eye 1's state, or sent: the one place that
+orders the game's store before eye 1's), rasterizer_for_each_eye (the whole pass again for eye 1, its records marked for it),
 or rasterizer_eye_matrices (node matrices built from the eye's position). A new reader that is not in
 SITES fails the check, so a site cannot skip the mechanism unnoticed.
 
@@ -32,7 +33,8 @@ FOLDERS = ("source", "port/linux/game")
 READS = re.compile(
     r"global_window_parameters\.(?:camera|frustum|fog\.plane)|halo_stereo_eye_position\(\)|"
     r"halo_stereo_current_layer\(\)|halo_stereo_repeat_pass\(\)")
-ROUTES = ("rasterizer_other_eye_begin(", "rasterizer_eye_matrices(", "rasterizer_for_each_eye(")
+ROUTES = ("rasterizer_other_eye_begin(", "rasterizer_eye_matrices(", "rasterizer_for_each_eye(", "rasterizer_eye_constants(",
+          "rasterizer_eye_constants_send(")
 DEFINITION = re.compile(r"^(?:static\s+|extern\s+)?[A-Za-z_][\w\s\*]*?\b([A-Za-z_]\w*)\s*\(")
 
 X = "source/rasterizer/xbox/"

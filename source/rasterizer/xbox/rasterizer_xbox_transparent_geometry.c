@@ -1044,6 +1044,14 @@ static void transparent_geometry_zsprite_constants(
 	return;
 }
 
+static void transparent_geometry_zsprite_eye_constants(
+	void const *context,
+	real (*constants)[4])
+{
+	transparent_geometry_zsprite_constants((struct shader_effect_definition const *)context, constants);
+	return;
+}
+
 /* the camera transform a group's vertices are placed by (the game's, inline
 in rasterizer_transparent_geometry_group_draw): view-space geometry's from the
 window's camera, else none. The second eye's replay computes eye 1's too */
@@ -1084,6 +1092,16 @@ static void transparent_geometry_camera_transform(
 	}
 	return;
 }
+
+/* the builders rasterizer_eye_constants calls (the second eye's replay) */
+static void transparent_geometry_camera_eye_constants(
+	void const *context,
+	real (*constants)[4])
+{
+	transparent_geometry_camera_transform((struct transparent_geometry_group const *)context, constants);
+	return;
+}
+
 
 void rasterizer_transparent_geometry_group_draw(
 	struct transparent_geometry_group *group,
@@ -1279,13 +1297,10 @@ void rasterizer_transparent_geometry_group_draw(
 						3);
 					/* port: the second eye's replay: view-space geometry's
 					transform from eye 1's camera */
-					if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_viewspace_bit) &&
-						rasterizer_other_eye_begin())
+					if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_viewspace_bit))
 					{
-						transparent_geometry_camera_transform(group, camera_transform);
-						halo_stereo_replay_constants(RASTERIZER_TRANSPARENT_GEOMETRY_CAMERA_CONSTANT_INDEX,
-							camera_transform, 3);
-						rasterizer_other_eye_end();
+						rasterizer_eye_constants(RASTERIZER_TRANSPARENT_GEOMETRY_CAMERA_CONSTANT_INDEX, 3,
+							camera_transform, transparent_geometry_camera_eye_constants, group);
 					}
 				}
 
@@ -1702,15 +1717,12 @@ void rasterizer_transparent_geometry_group_draw(
 								}
 								/* port: the second eye's replay: view-space
 								geometry's placement from eye 1's camera */
-								if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_viewspace_bit) &&
-									rasterizer_other_eye_begin())
+								if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_viewspace_bit))
 								{
 									real eye_inverse[VSH_CONSTANTS__INVERSE_COUNT][4];
 
-									transparent_geometry_camera_transform(group, eye_inverse);
-									halo_stereo_replay_constants(VSH_CONSTANTS__INVERSE_OFFSET, eye_inverse,
-										VSH_CONSTANTS__INVERSE_COUNT);
-									rasterizer_other_eye_end();
+									rasterizer_eye_constants(VSH_CONSTANTS__INVERSE_OFFSET, VSH_CONSTANTS__INVERSE_COUNT,
+										eye_inverse, transparent_geometry_camera_eye_constants, group);
 								}
 
 								result = IDirect3DDevice8_SetVertexShaderConstant(
@@ -1746,13 +1758,8 @@ void rasterizer_transparent_geometry_group_draw(
 										VSH_CONSTANTS__ZSPRITE_COUNT);
 									/* port: the second eye's replay: eye 1's
 									depth terms */
-									if (rasterizer_other_eye_begin())
-									{
-										transparent_geometry_zsprite_constants(shader_effect, vsh_constants__zsprite);
-										halo_stereo_replay_constants(VSH_CONSTANTS__ZSPRITE_OFFSET, vsh_constants__zsprite,
-											VSH_CONSTANTS__ZSPRITE_COUNT);
-										rasterizer_other_eye_end();
-									}
+									rasterizer_eye_constants(VSH_CONSTANTS__ZSPRITE_OFFSET, VSH_CONSTANTS__ZSPRITE_COUNT,
+										vsh_constants__zsprite, transparent_geometry_zsprite_eye_constants, shader_effect);
 									if (success && result >= 0)
 									{
 										success = TRUE;

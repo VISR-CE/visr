@@ -428,6 +428,24 @@ void rasterizer_other_eye_end(
 flares) does so only then */
 boolean rasterizer_other_eye_draws(
 	void);
+/* port: eye 1's value of a vertex constant block the game just stored from eye
+0's window state, for the second eye's replay. build(context, constants) fills
+constants (count rows of four, held in the register numbering from first)
+between rasterizer_other_eye_begin and _end, so it reads eye 1's window state;
+the helper then holds them for eye 1. A site calls it after its own store of
+eye 0's block, and does nothing outside a replay. constants_send holds rows a
+site already computed for eye 1 (tools/stereo_eye_sites.py names every site) */
+typedef void (*rasterizer_eye_constants_builder)(void const *context, real (*constants)[4]);
+void rasterizer_eye_constants(
+	short first,
+	short count,
+	real (*constants)[4],
+	rasterizer_eye_constants_builder build,
+	void const *context);
+void rasterizer_eye_constants_send(
+	short first,
+	short count,
+	real const (*constants)[4]);
 /* port: run draw once for eye 0 and, when the replay draws for both eyes
 (rasterizer_other_eye_draws), once more for eye 1 inside
 rasterizer_other_eye_begin and _end, each pass's records marked for its eye */
