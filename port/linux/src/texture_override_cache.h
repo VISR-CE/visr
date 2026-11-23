@@ -37,6 +37,10 @@ second set's folder ("" for none; a folder of <hash>.rgba files), both kept,
 not copied. The cache's manifest is read now, and only the records it lists
 are read. Returns the number it lists */
 size_t texture_override_cache_records(const char *directory, uint32_t format, const char *second);
+/* which manifests of that folder texture_override_cache_records lists: the upscaled textures' (manifest.tsv, the
+default) and the repaired textures' (manifest-repair.tsv, written by the host's texture repair; a repaired record is
+a texture's own size, drawn where there is no upscaled one). Set before the call; it holds until set again. */
+void texture_override_cache_record_sets(int upscaled, int repaired);
 /* a map has loaded, with or without upscaled textures for the level */
 void texture_override_cache_map_loaded(int enabled);
 /* draw the second set (or the first again) from now on */

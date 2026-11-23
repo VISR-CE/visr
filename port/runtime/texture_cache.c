@@ -13,9 +13,9 @@ the manifest, the storage rules and entry writes. A cache entry holds only the n
 
 static const char *const result_names[] = { "s4g", "bpf", "original" };
 
-static void manifest_path(const char *directory, char *path, size_t size)
+static void manifest_path(const char *directory, const char *name, char *path, size_t size)
 {
-	snprintf(path, size, "%s/manifest.tsv", directory);
+	snprintf(path, size, "%s/%s", directory, name ? name : "manifest.tsv");
 }
 
 uint64_t texture_recipe_global_key(const struct texture_recipe_globals *g, enum texture_policy_treatment treatment,
@@ -212,7 +212,8 @@ uint64_t texture_cache_projected_remaining(const struct texture_policy_decision 
 	return bytes;
 }
 
-int texture_cache_manifest_load(const char *directory, struct texture_cache_record **records, size_t *count_out)
+int texture_cache_manifest_load_named(const char *directory, const char *name, struct texture_cache_record **records,
+	size_t *count_out)
 {
 	char path[1024], line[256];
 	FILE *file;
@@ -221,7 +222,7 @@ int texture_cache_manifest_load(const char *directory, struct texture_cache_reco
 
 	*records = NULL;
 	*count_out = 0;
-	manifest_path(directory, path, sizeof(path));
+	manifest_path(directory, name, path, sizeof(path));
 	if (!(file = fopen(path, "r")))
 		return errno == ENOENT ? 0 : -1;   /* no manifest: an empty cache; one that cannot be read is an error */
 	while (fgets(line, sizeof(line), file))
@@ -258,6 +259,11 @@ int texture_cache_manifest_load(const char *directory, struct texture_cache_reco
 	}
 	*count_out = count;
 	return 0;
+}
+
+int texture_cache_manifest_load(const char *directory, struct texture_cache_record **records, size_t *count_out)
+{
+	return texture_cache_manifest_load_named(directory, NULL, records, count_out);
 }
 
 /* writes <path> through <path>.tmp: fill, flush, fsync, close, rename; on any failure the .tmp is removed and the old
@@ -303,13 +309,19 @@ static int fill_manifest(FILE *file, const void *context)
 	return 0;
 }
 
-int texture_cache_manifest_save(const char *directory, const struct texture_cache_record *records, size_t count)
+int texture_cache_manifest_save_named(const char *directory, const char *name, const struct texture_cache_record *records,
+	size_t count)
 {
 	char path[1024];
 	struct manifest_contents m = { records, count };
 
-	manifest_path(directory, path, sizeof(path));
+	manifest_path(directory, name, path, sizeof(path));
 	return write_atomically(path, fill_manifest, &m);
+}
+
+int texture_cache_manifest_save(const char *directory, const struct texture_cache_record *records, size_t count)
+{
+	return texture_cache_manifest_save_named(directory, NULL, records, count);
 }
 
 /* ---------- the whole-game decisions, beside the manifest (decisions.tsv) */
@@ -466,6 +478,9 @@ static int ours(const char *name)
 	size_t length = strlen(name);
 
 	return !strcmp(name, "manifest.tsv") || !strcmp(name, "manifest.tsv.tmp") ||
+		/* the host's texture repair: its manifest and the list of maps it has finished */
+		!strcmp(name, "manifest-repair.tsv") || !strcmp(name, "manifest-repair.tsv.tmp") || !strcmp(name, "repair-maps.tsv") ||
+		!strcmp(name, "repair-maps.tsv.tmp") ||
 		!strcmp(name, "decisions.tsv") || !strcmp(name, "decisions.tsv.tmp") ||
 		(length > 4 && !strcmp(name + length - 4, ".bin")) || (length > 8 && !strcmp(name + length - 8, ".bin.tmp"));
 }

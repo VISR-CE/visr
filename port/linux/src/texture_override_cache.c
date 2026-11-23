@@ -29,9 +29,14 @@ struct record_entry
 {
 	uint64_t hash, recipe_key;
 	uint32_t width, height;
+	/* 0: the upscaled textures' manifest, 1: the repaired textures' */
+	uint32_t source;
 };
 static struct record_entry *record_entries;
 static size_t record_entry_count;
+/* which manifests the listing reads (texture_override_cache_record_sets): the upscaled textures' manifest.tsv, the
+repaired textures' manifest-repair.tsv in the same folder */
+static int records_upscaled = 1, records_repaired;
 static double read_milliseconds;
 static unsigned long reads;
 
@@ -76,28 +81,44 @@ static int by_record_key(const void *a, const void *b)
 		return x->hash < y->hash ? -1 : 1;
 	if (x->width != y->width)
 		return x->width < y->width ? -1 : 1;
-	return (x->height > y->height) - (x->height < y->height);
+	if (x->height != y->height)
+		return x->height < y->height ? -1 : 1;
+	/* (the same texture in both manifests: the upscaled record sorts first and stays) */
+	return (x->source > y->source) - (x->source < y->source);
+}
+
+/* the sorted list without the repeats of a key: the first of each stays */
+static void drop_repeats(void)
+{
+	size_t at, kept = 0;
+
+	for (at = 0; at < record_entry_count; at++)
+		if (!kept || record_entries[at].hash != record_entries[kept - 1].hash ||
+			record_entries[at].width != record_entries[kept - 1].width ||
+			record_entries[at].height != record_entries[kept - 1].height)
+			record_entries[kept++] = record_entries[at];
+	record_entry_count = kept;
 }
 
 static const struct record_entry *record_entry(uint64_t hash, uint32_t width, uint32_t height);
 
-size_t texture_override_cache_records(const char *directory, uint32_t format, const char *second)
+void texture_override_cache_record_sets(int upscaled, int repaired)
+{
+	records_upscaled = upscaled != 0;
+	records_repaired = repaired != 0;
+}
+
+/* Reads one manifest's entries after the ones already listed. A texture both manifests list is drawn from the
+upscaled one (made from the repaired texels). Returns 0 if the file cannot be opened. */
+static int read_manifest(const char *name, size_t *capacity, uint32_t source)
 {
 	char path[1024], line[512];
 	FILE *file;
-	size_t capacity = 0;
-	int length;
+	int length = snprintf(path, sizeof(path), "%s/%s", directories[0], name);
 
-	free(record_entries);
-	record_entries = NULL;
-	record_entry_count = 0;
-	directories[0] = directory ? directory : "";
-	directories[1] = second ? second : "";
-	records_format = format;
-	length = snprintf(path, sizeof(path), "%s/manifest.tsv", directories[0]);
-	file = format && *directories[0] && length > 0 && (size_t)length < sizeof(path) ? fopen(path, "r") : NULL;
+	file = length > 0 && (size_t)length < sizeof(path) ? fopen(path, "r") : NULL;
 	if (!file)
-		goto refreshed;
+		return 0;
 	/* (port/runtime/texture_cache.c's manifest: hash, width, height, result, treatment, recipe key, global key,
 	bytes) */
 	while (fgets(line, sizeof(line), file))
@@ -112,21 +133,44 @@ size_t texture_override_cache_records(const char *directory, uint32_t format, co
 		/* (an entry kept original, TEXTURE_POLICY_ORIGINAL, has no record to draw) */
 		if (result == 2)
 			continue;
-		if (record_entry_count == capacity)
+		entry.source = source;
+		if (record_entry_count == *capacity)
 		{
-			size_t more = capacity ? capacity * 2 : 256;
+			size_t more = *capacity ? *capacity * 2 : 256;
 			struct record_entry *grown = realloc(record_entries, more * sizeof(*grown));
 
 			if (!grown)
 				break;
 			record_entries = grown;
-			capacity = more;
+			*capacity = more;
 		}
 		record_entries[record_entry_count++] = entry;
 	}
 	fclose(file);
+	return 1;
+}
+
+size_t texture_override_cache_records(const char *directory, uint32_t format, const char *second)
+{
+	size_t capacity = 0;
+
+	free(record_entries);
+	record_entries = NULL;
+	record_entry_count = 0;
+	directories[0] = directory ? directory : "";
+	directories[1] = second ? second : "";
+	records_format = format;
+	if (!format || !*directories[0])
+		goto refreshed;
+	if (records_upscaled)
+		read_manifest("manifest.tsv", &capacity, 0);
+	if (records_repaired)
+		read_manifest("manifest-repair.tsv", &capacity, 1);
 	if (record_entry_count)
+	{
 		qsort(record_entries, record_entry_count, sizeof(*record_entries), by_record_key);
+		drop_repeats();
+	}
 refreshed:
 	/* Menus may read the manifest again as the host publishes pictures. Retry newly arrived records and replace
 	changed recipes, retaining unchanged textures and the budget's refusal backoff. No source pixels are cached here. */
@@ -147,7 +191,7 @@ refreshed:
 
 static const struct record_entry *record_entry(uint64_t hash, uint32_t width, uint32_t height)
 {
-	struct record_entry key = { hash, 0, width, height };
+	struct record_entry key = { hash, 0, width, height, 0 };
 
 	return record_entry_count ? bsearch(&key, record_entries, record_entry_count, sizeof(*record_entries),
 		by_record_key) : NULL;

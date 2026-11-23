@@ -87,6 +87,11 @@ static inline uint64_t texture_cache_projected_entry(const struct texture_policy
 /* the manifest: <directory>/manifest.tsv, one record per line; load returns 0 with *records malloc'd and *count set (a missing manifest: 0 records), or -1 if it exists but cannot be read (no records) */
 int texture_cache_manifest_load(const char *directory, struct texture_cache_record **records, size_t *count);
 int texture_cache_manifest_save(const char *directory, const struct texture_cache_record *records, size_t count);
+/* the same for another manifest file of the folder (the host's texture repair keeps manifest-repair.tsv); name NULL is manifest.tsv */
+int texture_cache_manifest_load_named(const char *directory, const char *name, struct texture_cache_record **records,
+	size_t *count);
+int texture_cache_manifest_save_named(const char *directory, const char *name, const struct texture_cache_record *records,
+	size_t count);
 /* the whole-game decisions the generator classified (<directory>/decisions.tsv), so readiness can be judged while the
    generator is off: load returns 0 with *decisions malloc'd and sorted by hash, width and height, or -1 if the file is
    missing or cannot be read. The optional sixth column saves scale; old rows load scale 0 (unknown). */
