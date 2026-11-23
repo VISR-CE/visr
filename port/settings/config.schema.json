@@ -1023,7 +1023,9 @@
           "enum": [
             "",
             "true",
-            "false"
+            "false",
+            "extended",
+            "extended_all"
           ]
         },
         "frame_source": {
