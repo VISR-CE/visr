@@ -1363,6 +1363,8 @@ run('python3', 'tools/test_menu_visibility.py')
 # the Xbox look's patch table: rows added, taken out and replaced in the map's lists, their places, descriptions and
 # tags, and patches that do not fit or resolve left unmade (menu_tags.c, port/ios/tests/menu_patch_probe.c)
 run('python3', 'tools/test_menu_patches.py')
+# the shipped menus load through the real builder for every platform set (menu_tags.c, port/ios/tests/menu_load_probe.c)
+run('python3', 'tools/test_menu_builder_loads.py')
 # the decode behind the menus' picture cache: swizzled, linear and DXT textures read back as RGBA (xbox_textures.c)
 run('python3', 'tools/test_menu_art_decode.py')
 

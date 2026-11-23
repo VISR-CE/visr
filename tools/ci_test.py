@@ -24,6 +24,7 @@ APPLE_PROBES = {
     "test_benchmark_menu.py",
     "test_frame_workgroup_uikit.py",
     "test_menu_cancel.py",
+    "test_menu_builder_loads.py",
     "test_menu_display_rate.py",
     "test_loading_progress.py",
     "test_replay_control.py",
