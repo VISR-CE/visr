@@ -11,6 +11,7 @@ from xml.etree import ElementTree
 
 import host_stubs
 import host_toolchain
+import uikit_probe_app
 from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of
 
 _problem = host_toolchain.check_run_host('tools/ios_test.py (the guest probe runner)')
@@ -46,15 +47,20 @@ def execute(args, builds=False, probe=None, **kwargs):
         print('ios_test.py: failed: ' + shlex.join(args), file=sys.stderr, flush=True)
         raise
 
-# Runners that open a UIKit window scene need a logged-in GUI session. GitHub's macOS runners have none (their
-# workflow sets HALO_NO_GUI_SESSION=1), so there such a run is skipped and the ledger reports the skip.
-GUI_SESSION = os.environ.get('HALO_NO_GUI_SESSION') != '1'
-
-def run_in_gui_session(*args):
-    if GUI_SESSION:
-        run(*args)
-    else:
-        probes.note_skipped(args, 'opens a UIKit window scene, and HALO_NO_GUI_SESSION=1 says this host has no GUI session')
+# Runners that launch a probe as a Mac Catalyst app with a UIKit window scene (tools/uikit_probe_app.py). Where UIKit
+# cannot make the scene (a hosted runner, a Mac without a usable GUI session), the runner exits SKIPPED; that run
+# is recorded in the ledger and reported at the end, never counted as a pass.
+def run_uikit_app(*args):
+    args = [str(a) for a in args]
+    try:
+        result = subprocess.run(args, cwd=ROOT, check=True, stdout=subprocess.PIPE, text=True)
+        print(result.stdout, end='', flush=True)
+    except subprocess.CalledProcessError as error:
+        print(error.stdout or '', end='', flush=True)
+        if error.returncode != uikit_probe_app.SKIPPED:
+            print('ios_test.py: failed: ' + shlex.join(args), file=sys.stderr, flush=True)
+            raise
+        probes.note_skipped(args, uikit_probe_app.skip_reason(error.stdout or ''))
 
 def run(*args, probe=None):
     args = tuple(str(a) for a in args)
@@ -719,9 +725,9 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,
     '-framework', 'AudioToolbox', 'port/ios/tests/frame_deadline_probe.c', '-o', BUILD/'frame-deadline-probe')
 run(BUILD/'frame-deadline-probe')
 # UIKit's animations with the frame workgroup: tvOS's text dialog holds the drawing thread out (host_tv.m)
-run('python3', 'tools/test_frame_workgroup_uikit.py')
-# the tester benchmark menu in real UIKit, as a small Mac Catalyst app that opens a window scene
-run_in_gui_session('python3', 'tools/test_benchmark_menu.py')
+run_uikit_app('python3', 'tools/test_frame_workgroup_uikit.py')
+# the tester benchmark menu in real UIKit, as a small Mac Catalyst app
+run_uikit_app('python3', 'tools/test_benchmark_menu.py')
 # visibility answers by fixed latency (visibility_history.h): from the expected frames, whatever the GPU's timing
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/visibility_history_probe.c', '-o', BUILD/'visibility-history-probe')

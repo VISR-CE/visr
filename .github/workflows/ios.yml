@@ -102,9 +102,6 @@ jobs:
           fi
           xcrun --sdk xros metal --version
       - name: ABI, memory, audio, and XISO regressions
-        env:
-          # no logged-in GUI session: tools/ios_test.py skips, and reports, its runs that open a UIKit window scene
-          HALO_NO_GUI_SESSION: "1"
         run: python3 tools/ios_test.py
       - name: Build unsigned device IPA
         run: python3 tools/ios_build.py --unsigned --jobs 3 --ipa dist/VISR-iOS-unsigned.ipa

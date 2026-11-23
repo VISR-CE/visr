@@ -74,6 +74,10 @@ static void refresh(HaloBenchmarkMenuController *controller) {
 @implementation ProbeDelegate
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options { return YES; }
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
+    /* the runner tells a scene UIKit could not make, which ends the app before this, from the probe itself
+       (tools/uikit_probe_app.py) */
+    printf("benchmark menu probe: started\n");
+    fflush(stdout);
     feed_state = @{ @"ready": @NO, @"loading": @YES, @"reason": @"" };
     HaloBenchmarkMenuController *controller = [HaloBenchmarkMenuController new];
     controller.heading = @"VISR"; controller.detail = benchmark_menu_detail();

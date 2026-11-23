@@ -44,18 +44,21 @@ def test_a_skipped_run_is_reported_not_silent():
     assert lines == ['SKIPPED (not run on this host): python3 tools/gui_runner.py: needs a GUI session']
 
 
-# The only runs ios_test.py may skip, each a runner that opens a UIKit window scene; adding one is a decision.
-GUI_SESSION_RUNNERS = ['tools/test_benchmark_menu.py']
+# The only runs ios_test.py may skip: runners that launch a probe as a Mac Catalyst app (tools/uikit_probe_app.py)
+UIKIT_APP_RUNNERS = ['tools/test_frame_workgroup_uikit.py', 'tools/test_benchmark_menu.py']
 
 
-def test_only_declared_runners_may_skip_without_a_gui_session():
+def test_only_declared_uikit_app_runners_may_skip():
     source = IOS_TEST.read_text()
     calls = [node for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Call)
-             and isinstance(node.func, ast.Name) and node.func.id == 'run_in_gui_session']
-    runners = [argument.value for call in calls for argument in call.args
+             and isinstance(node.func, ast.Name) and node.func.id == 'run_uikit_app']
+    runners = [argument.value for call in sorted(calls, key=lambda call: call.lineno) for argument in call.args
                if isinstance(argument, ast.Constant) and str(argument.value).startswith('tools/')]
-    assert runners == GUI_SESSION_RUNNERS
-    assert source.count('note_skipped(') == 1, 'ios_test.py skips only through run_in_gui_session'
+    assert runners == UIKIT_APP_RUNNERS
+    assert source.count('note_skipped(') == 1, 'ios_test.py skips only through run_uikit_app'
+    for runner in UIKIT_APP_RUNNERS:
+        text = (ROOT / runner).read_text()
+        assert 'uikit_probe_app.start_failure(' in text and 'uikit_probe_app.skip(' in text, runner
 
 
 def test_a_rebuilt_probe_has_to_run_again(tmp_path):

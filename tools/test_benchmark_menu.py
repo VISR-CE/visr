@@ -3,7 +3,11 @@
 import os
 import plistlib
 import subprocess
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import uikit_probe_app
 
 def main():
     ROOT = Path(__file__).resolve().parents[1]
@@ -29,8 +33,15 @@ def main():
                                UISceneConfigurations={'UIWindowSceneSessionRoleApplication': [dict(
                                    UISceneConfigurationName='Default', UISceneDelegateClassName='ProbeDelegate')]})), output)
     subprocess.run(['codesign', '--force', '--sign', '-', str(APP)], check=True)
-    subprocess.run([str(MACOS / 'BenchmarkMenuProbe')], cwd=ROOT, check=True, timeout=30,
-                   env={**os.environ, 'DYLD_FRAMEWORK_PATH': '/System/iOSSupport/System/Library/Frameworks'})
+    result = subprocess.run([str(MACOS / 'BenchmarkMenuProbe')], cwd=ROOT, timeout=30, capture_output=True, text=True,
+                            env={**os.environ, 'DYLD_FRAMEWORK_PATH': '/System/iOSSupport/System/Library/Frameworks'})
+    print(result.stdout, end='')
+    failure = uikit_probe_app.start_failure(result, 'benchmark menu probe')
+    if failure:
+        uikit_probe_app.skip(f'benchmark menu probe: UIKit could not start the probe here ({failure})')
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr[-4000:])
+        sys.exit(f'benchmark menu probe: exit {result.returncode}')
 
 
 if __name__ == '__main__':
