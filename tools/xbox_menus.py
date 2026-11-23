@@ -114,9 +114,15 @@ DIALOG_HEADER_POSITION = tuple(a + b for a, b in zip(DIALOG_PANEL[:2], DIALOG_HE
 DIALOG_BUTTON = (122, 132, 108, 25)
 # Tap area: at least 53 units tall (44 pt), 112 wide, centered on the pill; it extends up across the rule.
 DIALOG_HIT = (122, 118, 112, 53)
-# Where the original-look glyph and caption sit, relative to the panel.
-DIALOG_LEGACY_Y = 122
-DIALOG_BUTTON_STEP = 118
+# The footer band runs from the rule (panel y 130) to the panel's bottom (159). The glyph (26 tall) is centered
+# in it, as is the drawn pill (DIALOG_BUTTON); the caption sits 2 below the glyph's top.
+DIALOG_RULE, DIALOG_BOTTOM = 130, 159
+DIALOG_GLYPH_Y = (DIALOG_RULE + DIALOG_BOTTOM - 26) // 2
+DIALOG_GLYPH, DIALOG_GLYPH_GAP = 21, 4
+# large_ui capitals run about 12.5 units each; slots hug glyph + caption + padding, 60 wide at least (tap area),
+# and the row is centered as a group.
+DIALOG_CAPTION_CHAR = 12.5
+DIALOG_SLOT_PAD, DIALOG_SLOT_GAP, DIALOG_SLOT_MIN = 8, 6, 60
 
 
 def title():
@@ -1875,7 +1881,6 @@ LAYOUT_KINDS = {
     'K2-B': {'legend_y': LEGEND_Y, 'row_pitch': ROW_PITCH, 'panel': PANEL_B},
     'K6': {'legend_y': LEGEND_Y, 'row_pitch': ROW_PITCH},
     'K8': {'panel': DIALOG_PANEL, 'header': DIALOG_HEADER, 'button': DIALOG_BUTTON,
-           'button_step': DIALOG_BUTTON_STEP,
            # Targets fit the panel's width; their lower 12 units extend below it so the message keeps its room.
            'target_overhang_below': 12},
     **{kind: {'native': True} for kind in ('K3', 'K4', 'K9', 'K10', 'K11')},
@@ -2024,13 +2029,39 @@ def browser_error_layout(documents):
     dialog_legend_targets(root, screen, base + '/error_legend')
 
 
+def dialog_legend_slots(labels):
+    """Slots (panel-relative x, width) for a dialog's legend buttons, in the order given.
+
+    Each slot is as wide as its glyph and caption plus padding (never under the tap minimum), and the
+    row is centered as a group on the panel, so a short OK beside a long CANCEL is not left-heavy.
+    """
+    widths = [max(DIALOG_SLOT_MIN, DIALOG_GLYPH + DIALOG_GLYPH_GAP + dialog_caption_width(label) + 2 * DIALOG_SLOT_PAD)
+              for label in labels]
+    x = (DIALOG_PANEL[2] - sum(widths) - DIALOG_SLOT_GAP * (len(widths) - 1)) // 2
+    slots = []
+    for width in widths:
+        slots.append((x, width))
+        x += width + DIALOG_SLOT_GAP
+    return slots
+
+
+def dialog_caption_width(label):
+    return math.ceil(len(label) * DIALOG_CAPTION_CHAR)
+
+
 def dialog_legend_targets(root, screen, base, x=None, y=None, cancel=False, accept='OK'):
-    """Reuse the legend bindings, with full touch buttons and adaptive glyphs."""
-    if x is None:
-        x = DIALOG_PANEL[0] + DIALOG_BUTTON[0]
+    """Reuse the legend bindings, with full touch buttons and adaptive glyphs.
+
+    x is the panel's left edge plus DIALOG_BUTTON[0] and y its top plus DIALOG_BUTTON[1] (the pill's place);
+    the buttons are laid out from the panel, not from those constants.
+    """
+    left = (DIALOG_PANEL[0] if x is None else x - DIALOG_BUTTON[0])
     if y is None:
         y = DIALOG_PANEL[1] + DIALOG_BUTTON[1]
+    top = y - DIALOG_BUTTON[1]
     legend(root, screen, base, accept=accept, declared=False)
+    order = [('b', 'CANCEL'), ('a', accept)] if cancel else [('a', accept)]
+    slots = dict(zip((b for b, _ in order), dialog_legend_slots([label for _, label in order])))
     for button, label in (('a', accept), ('b', 'CANCEL')):
         icon, caption = f'{base}/{button}_butn', f'{base}/' + ('accept' if button == 'a' else 'cancel')
         if button == 'b' and not cancel:
@@ -2039,25 +2070,26 @@ def dialog_legend_targets(root, screen, base, x=None, y=None, cancel=False, acce
                 screen.remove(screen.find(f"child[@widget='{name}']"))
             continue
         screen.remove(screen.find(f"child[@widget='{caption}']"))
+        slot_x, slot_w = slots[button]
         pill_dy = DIALOG_BUTTON[1] - DIALOG_HIT[1]
-        screen.find(f"child[@widget='{icon}']").attrib.update(x=str(x if button == 'a' else x - DIALOG_BUTTON_STEP), y=str(y - pill_dy))
+        screen.find(f"child[@widget='{icon}']").attrib.update(x=str(left + slot_x), y=str(top + DIALOG_HIT[1]))
         target = root.find(f"widget[@name='{icon}']")
-        target.attrib.update(width=str(DIALOG_HIT[2]), height=str(DIALOG_HIT[3]))
+        target.attrib.update(width=str(slot_w), height=str(DIALOG_HIT[3]))
         target.attrib.pop('bitmap')
-        target_x = x if button == 'a' else x - DIALOG_BUTTON_STEP
-        panel_right = x - DIALOG_BUTTON[0] + DIALOG_PANEL[2]
-        caption_width = min(90, panel_right - target_x - CAPTION_OFFSET)
+        pill_w = slot_w - 4
+        caption_width = dialog_caption_width(label)
+        content_x = (slot_w - (DIALOG_GLYPH + DIALOG_GLYPH_GAP + caption_width)) // 2
         root.find(f"widget[@name='{caption}']").set('width', str(caption_width))
         ET.SubElement(target, 'data', input='port dialog legend update')
         touch_base = icon + '/'
-        child(target, touch_base + 'touch_background', y=pill_dy)
-        widget(root, touch_base + 'touch_background', width=DIALOG_BUTTON[2], height=DIALOG_BUTTON[3], bitmap='xbox/dialog_touch_button')
-        child(target, touch_base + 'touch_caption', y=(DIALOG_BUTTON[3] - 24) // 2 + pill_dy)
-        text_widget(root, touch_base + 'touch_caption', label,
-                    width=min(DIALOG_BUTTON[2], panel_right - target_x), height=24, align='center')
-        child(target, icon + '_glyph', y=DIALOG_LEGACY_Y + 2 - DIALOG_HIT[1])
-        widget(root, icon + '_glyph', width=21, height=26, bitmap=f'xbox/browser/{button}_butn')
-        child(target, caption, x=22, y=DIALOG_LEGACY_Y + 4 - DIALOG_HIT[1])
+        child(target, touch_base + 'touch_background', x=2, y=pill_dy)
+        widget(root, touch_base + 'touch_background', width=pill_w, height=DIALOG_BUTTON[3], bitmap='xbox/dialog_touch_button')
+        child(target, touch_base + 'touch_caption', x=2, y=(DIALOG_BUTTON[3] - 24) // 2 + pill_dy)
+        text_widget(root, touch_base + 'touch_caption', label, width=pill_w, height=24, align='center')
+        # The glyph and caption sit centered in the footer band under the rule, as one unit in the slot.
+        child(target, icon + '_glyph', x=content_x, y=DIALOG_GLYPH_Y - DIALOG_HIT[1])
+        widget(root, icon + '_glyph', width=DIALOG_GLYPH, height=26, bitmap=f'xbox/browser/{button}_butn')
+        child(target, caption, x=content_x + DIALOG_GLYPH + DIALOG_GLYPH_GAP, y=DIALOG_GLYPH_Y + 2 - DIALOG_HIT[1])
         ET.SubElement(target, 'on', event='left_mouse',
                       run='mouse emit accept event' if button == 'a' else 'mouse emit back event')
 
