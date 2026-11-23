@@ -30,10 +30,6 @@ def xml_roots():
     return {path.name: ET.parse(path).getroot() for path in sorted(XBOX.glob('*.xml'))}
 
 
-def resolve(name):
-    return 'unwired' if name.startswith('unwired ') else name
-
-
 def test_every_function_the_xml_runs_is_one_the_tag_builder_knows():
     port = set(table(TAGS, 'static char const *const port_function_names[] ='))
     game = set(table(HANDLERS, 'event_handler_function_list ='))
@@ -42,7 +38,7 @@ def test_every_function_the_xml_runs_is_one_the_tag_builder_knows():
         for element in root.iter():
             for key in ('run', 'created'):
                 name = element.get(key)
-                if name and resolve(name) not in port | game:
+                if name and name not in port | game:
                     unknown.append((filename, element.tag, key, name))
     assert unknown == []
 
@@ -51,7 +47,7 @@ def test_every_game_data_input_the_xml_names_is_one_the_tag_builder_knows():
     port = set(table(TAGS, 'static char const *const port_game_data_input_names[] ='))
     game = set(table(TAGS, 'static char const *const game_data_input_names[] ='))
     unknown = [(filename, data.get('input')) for filename, root in xml_roots().items() for data in root.iter('data')
-               if resolve(data.get('input')) not in port | game]
+               if data.get('input') not in port | game]
     assert unknown == []
 
 

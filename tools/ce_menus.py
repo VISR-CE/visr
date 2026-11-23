@@ -151,11 +151,6 @@ XBOX_FRAMES = {
 }
 PLACEHOLDER_SCALE = 2
 
-# the Xbox's functions that the PC version rewrote for its own widgets (its
-# column lists where the Xbox had spinners, and other children), which stop
-# this engine on the PC widgets: written as "unwired <name>", which does
-# nothing (UNWIRED.md)
-INCOMPATIBLE = set()
 # the PC version's own functions that menu_functions.c does what they do
 # (and its campaign's: the Xbox's of those names, which take the Xbox's
 # widgets, menu_functions.c's for ours)
@@ -511,7 +506,7 @@ def widget_xml(tag: str, widget: dict, tags: Tags, functions: list, inputs: list
     inner = indent + "\t"
     for data in widget["game data inputs"]:
         name = inputs[data["function"]]
-        lines.append(f"{inner}<data{attributes([('input', f'unwired {name}' if name in INCOMPATIBLE else name)])}/>")
+        lines.append(f"{inner}<data{attributes([('input', name)])}/>")
     lines += [f"{inner}<data{attributes([('input', name)])}/>" for name in patch.get("inputs", [])]
     lines += [f"{inner}{line}" for line in patch.get("handlers", [])]
     for handler in widget["event handlers"] if "handlers" not in patch else []:
@@ -520,7 +515,7 @@ def widget_xml(tag: str, widget: dict, tags: Tags, functions: list, inputs: list
         handler_pairs = [("event", EVENTS[handler["event type"]])]
         if flags >> 7 & 1:
             name = functions[handler["function"]]
-            handler_pairs.append(("run", f"unwired {name}" if name in INCOMPATIBLE else name))
+            handler_pairs.append(("run", name))
         if flags >> 10 & 1:
             handler_pairs.append(("script", handler["script"]))
         elif handler["script"]:

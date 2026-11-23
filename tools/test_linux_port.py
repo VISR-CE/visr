@@ -315,7 +315,7 @@ def test_menus_are_well_formed():
             elif element.tag == "on":
                 assert set(element.get("event").split()) <= set(events), where
                 run = element.get("run")
-                assert run is None or run in functions or run.startswith("unwired "), where
+                assert run is None or run in functions, where
                 assert element.get("otherwise") is None or run, where
                 for attribute in ("open", "replace", "focus", "widget", "otherwise"):
                     references.append((where, widgets, element.get(attribute)))
@@ -332,7 +332,7 @@ def test_menus_are_well_formed():
                 assert run is None or run in functions, where
                 references.append((where, widgets, element.get("open")))
             elif element.tag == "data":
-                assert element.get("input") in inputs or element.get("input").startswith("unwired "), where
+                assert element.get("input") in inputs, where
     assert all(root_name in widgets for root_name in roots)
     for where, names, name in references:
         if name and "\\" not in name:

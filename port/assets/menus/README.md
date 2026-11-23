@@ -130,7 +130,7 @@ and what to do.
 | Attribute | Value |
 | --- | --- |
 | `event` | `a`, `b`, `x`, `y`, `black`, `white`, `left_trigger`, `right_trigger`, `up`, `down`, `left`, `right`, `start`, `back`, `left_thumb`, `right_thumb`, `stick_up`, `stick_down`, `stick_left`, `stick_right`, `right_stick_up`, `right_stick_down`, `right_stick_left`, `right_stick_right`, `created`, `deleted`; the PC version's `get_focus`, `lose_focus`, `left_mouse`, `middle_mouse`, `right_mouse`, `double_click`, `custom_activation` and `post_render`, which this engine never sends (but `custom_activation`: `emit custom activation event` and `single prev cl item activated` send it) |
-| `run` | A function: the game's, as its tags name them; the PC version's; the port's (below); or `unwired <name>`, which does nothing (`UNWIRED.md`) |
+| `run` | A function: the game's, as its tags name them; the PC version's; or the port's (below) |
 | `open`, `replace`, `focus` | A widget to open, to open in its place, to give the focus |
 | `back` | `true`: back to the screen before |
 | `close` | `current`, `all`, or `other` (with `widget`) |

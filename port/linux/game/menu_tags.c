@@ -382,7 +382,7 @@ widgets run instead of the Xbox's (those take the Xbox's widgets: a spinner
 of levels, the difficulty list itself) */
 static char const *const port_function_names[] =
 {
-	"port quit game", "port setting load", "port setting save", "unwired",
+	"port quit game", "port setting load", "port setting save",
 	"exit gracefully to xbox dashboard", "pause game invert pitch", "start new coop game",
 	"pause game invert spinner get", "pause game invert spinner set", "main menu quit game",
 	"mouse emit accept event", "mouse emit back event", "mouse emit dpad left event",
@@ -471,7 +471,6 @@ static char const *const port_function_names[] =
 PC_MENU_FUNCTION_BASE (menu_functions.c) */
 static char const *const port_game_data_input_names[] =
 {
-	"unwired",
 	"pause game set textbox inverted", "dim unless two controllers", "controls update menu",
 	"video menu update", "gamespy screen update", "common button bar update", "gamepad update menu",
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
@@ -704,14 +703,6 @@ static long tag_named(long group_tag, char const *name, char const *file, long l
 	return index;
 }
 
-/* "unwired <name>": a function the PC version has for these widgets, not
-yet written for this engine, which does
-nothing */
-static boolean unwired(char const *name)
-{
-	return !strncmp(name, "unwired ", 8);
-}
-
 /* an event handler function by its name (the port's, else the game's), or
 NONE */
 static long function_lookup(char const *name)
@@ -719,8 +710,6 @@ static long function_lookup(char const *name)
 	char const *function_name;
 	long index;
 
-	if (unwired(name))
-		name = "unwired";
 	index = name_index(name, port_function_names, NUMBEROF(port_function_names));
 	if (index != NONE)
 		return PC_MENU_FUNCTION_BASE + index;
@@ -745,8 +734,6 @@ static long game_data_input_index(char const *name, char const *file, long line)
 {
 	long index;
 
-	if (unwired(name))
-		name = "unwired";
 	/* (ours first, as for the event handlers) */
 	index = name_index(name, port_game_data_input_names, NUMBEROF(port_game_data_input_names));
 	if (index != NONE)
