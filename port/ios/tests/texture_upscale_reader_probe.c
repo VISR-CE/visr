@@ -82,8 +82,25 @@ void texture_upscale_reader_probe(const char *directory, uint32_t format, const 
         assert(!texture_override_cache_find(&reference, 0x71, 4, 4, &levels, &fallback));
         texture_override_cache_map_loaded(0);
         assert(!live_textures);
-        remove(repaired); remove(repaired_manifest);
+        /* both files present, the repaired one unusable: each set reads only its own file */
         assert(!rename(moved, plain));
+        out = fopen(repaired, "wb"); assert(out);
+        assert(fwrite("bad", 1, 3, out) == 3); assert(!fclose(out));
+        texture_override_cache_record_sets(1, 0);
+        assert(texture_override_cache_records(directory, format, "") == 1);
+        texture_override_cache_map_loaded(1);
+        memset(&reference, 0, sizeof(reference)); levels = 0; uploaded_levels = 0; uploaded_bytes = 0;
+        assert(texture_override_cache_find(&reference, 0x71, 4, 4, &levels, &fallback));
+        texture_override_cache_map_loaded(0);
+        texture_override_cache_record_sets(0, 1);
+        assert(texture_override_cache_records(directory, format, "") == 1);
+        texture_override_cache_map_loaded(1);
+        memset(&reference, 0, sizeof(reference)); levels = 0; uploaded_levels = 0;
+        assert(!texture_override_cache_find(&reference, 0x71, 4, 4, &levels, &fallback));
+        texture_override_cache_map_loaded(0);
+        assert(!live_textures);
+        remove(repaired); remove(repaired_manifest);
+        texture_override_cache_record_sets(1, 0);
     }
     /* Corruption must be refused before any GPU allocation or block upload. */
     char path[512];
