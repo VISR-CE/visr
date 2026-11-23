@@ -29,7 +29,7 @@ def test_accepted(assignment):
 
 # (assignment, a word the refusal must contain): each case is refused for the reason it names
 @pytest.mark.parametrize('assignment, reason', [
-    ('debug.encode_thread="on"', 'must be one of "off", "inline", "thread"'),
+    ('debug.encode_thread="on"', 'must be one of "", "off", "inline", "thread"'),
     ('debug.encode_thread=thread', 'needs quotes'),
     ('debug.encode_threads="thread"', 'not a setting'),
     ('display.vsync=yes', 'is not true or false'),
@@ -57,7 +57,7 @@ def test_bare_number_is_not_a_string():
 
 
 def test_unknown_key_suggests_near_names():
-    assert 'debug.encode_thread' in refusal('display.encode_thread="thread"')
+    assert 'debug.encode_thread' in refusal('debug.encode_thead="thread"')
 
 
 def test_every_string_setting_is_closed_or_reviewed_free_form():
@@ -82,7 +82,7 @@ def test_choices_have_one_source():
 
 def test_schema_carries_the_choices():
     config = settings_schema.config_schema(settings_schema.config_settings())
-    assert config['properties']['debug']['properties']['encode_thread']['enum'] == ['off', 'inline', 'thread']
+    assert config['properties']['debug']['properties']['encode_thread']['enum'] == ['', 'off', 'inline', 'thread']
 
 
 def test_command_line_exit_status():
@@ -95,5 +95,5 @@ def test_command_line_exit_status():
 def test_mac_run_refuses_before_launching(tmp_path):
     result = subprocess.run([sys.executable, str(TOOLS / 'mac_run.py'), 'run', '--out', str(tmp_path / 'out'),
                              '--set', 'debug.encode_thread="on"'], capture_output=True, text=True)
-    assert result.returncode != 0 and 'must be one of "off", "inline", "thread"' in result.stderr
+    assert result.returncode != 0 and 'must be one of "", "off", "inline", "thread"' in result.stderr
     assert not (tmp_path / 'out').exists()

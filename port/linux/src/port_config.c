@@ -1797,7 +1797,7 @@ static const struct config_setting config_settings[] =
 		"and check that it changes nothing. \"thread\": an encode thread reads the\n"
 		"queue and calls the renderer while the game thread goes on; each frame's\n"
 		"present waits for it, so input is read as late as with \"off\". Needs\n"
-		"the game thread. Not on visionOS or Mac Catalyst.", _tier_derived, "off|inline|thread" },
+		"the game thread. Not on visionOS or Mac Catalyst.", _tier_derived, "|off|inline|thread" },
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
 		"With the encode queue on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },

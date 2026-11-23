@@ -3010,6 +3010,7 @@
             "apple"
           ],
           "enum": [
+            "",
             "off",
             "inline",
             "thread"
