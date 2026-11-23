@@ -26,6 +26,7 @@ struct stream
 static double shown_rate;          /* the run's frames a second */
 static double floor_share;         /* the run's share of time at one in flight */
 static int exits;                  /* left the floor on misses or rate loss */
+static double forced_wait;         /* above 0: every frame at one waited this long for its slot */
 
 static struct frame_pacer_adapt run(const struct stream *s, int start_limit, double seconds, int transition)
 {
@@ -48,7 +49,8 @@ static struct frame_pacer_adapt run(const struct stream *s, int start_limit, dou
             .at = at, .interval = interval, .period = s->period + wobble, .gpu = s->gpu, .grant_to_present = s->grant,
             .lead = s->lead, .slot_waited = limit == 1 && !s->cpu_caused,
             /* (a frame at one that waited for its slot waited what one costs over two: the difference of intervals) */
-            .waited = limit == 1 && !s->cpu_caused && s->interval[1] > s->interval[2] ? s->interval[1] - s->interval[2] : 0.0,
+            .waited = limit == 1 && forced_wait > 0.0 ? forced_wait :
+                limit == 1 && !s->cpu_caused && s->interval[1] > s->interval[2] ? s->interval[1] - s->interval[2] : 0.0,
             .transition = transition,
         };
 
@@ -227,6 +229,17 @@ int main(void)
         CHECK(exits == 0 && floor_share > 0.85);
     }
 
+    /* GPU-bound at one, where most of each interval is the wait for the frame before (its GPU work): two would show
+       no faster than the GPU, so the span's GPU time bounds the estimate and a 6% cost does not read as rate loss */
+    {
+        struct stream gpu_wait = { p60, { 0, 0.032, 0.030 }, 0.030, 0.0003, 0.003, 0, 0, 0 };
+
+        forced_wait = 0.025;
+        b = run(&gpu_wait, 1, 60.0, 0);
+        forced_wait = 0.0;
+        CHECK(b.limit == 1 && exits == 0);
+    }
+
     /* CPU-caused misses at the floor (the frame never waited for its slot) do not leave it */
     {
         struct stream cpu_late = fits;
@@ -275,6 +288,42 @@ int main(void)
 
             CHECK(rule.reasons[FRAME_PACER_ADAPT_RATE_LOST] + rule.reasons[FRAME_PACER_ADAPT_MISSES] >= 2);
             CHECK(rule.retry_delay == FRAME_PACER_ADAPT_RETRY_FIRST);
+        }
+        /* the class over a grid of workloads (60 Hz, at 60 and at 30, CPU and GPU 4 to 60 ms, steady, varying, and
+           with GPU spikes): the rule never shows under 88% of what fixed two shows (third review pass, T1: a CPU-bound
+           device under its rate, CPU 20 ms and GPU 12, kept one in flight at 40 frames a second where two shows 50) */
+        {
+            static const struct frame_pacer_model_variation vary[] = { { 0, 0, 0, 0 }, { 0.3, 0.3, 0, 0 }, { 0.1, 0.1, 8, 0.020 } };
+            int kept_at_loss = 0;
+
+            for (int share = 1; share <= 2; share++)
+                for (int v = 0; v < 3; v++)
+                    for (double cpu = 0.004; cpu <= 0.0601; cpu += 0.008)
+                        for (double gpu = 0.004; gpu <= 0.0601; gpu += 0.008)
+                        {
+                            const struct frame_pacer_model_phase work[] = { { 120, cpu, gpu } };
+                            struct frame_pacer_model_result two = frame_pacer_model_run_varied(work, 1, refresh, share, 0.003, 2,
+                                &vary[v]);
+                            struct frame_pacer_model_result rule = frame_pacer_model_run_varied(work, 1, refresh, share, 0.003, 0,
+                                &vary[v]);
+
+                            if (rule.frames[0] < 0.88 * two.frames[0])
+                            {
+                                kept_at_loss++;
+                                fprintf(stderr, "frame_pacer_adapt_probe: share %d, variation %d, CPU %.0f ms, GPU %.0f ms: "
+                                    "%.0f frames against %.0f at two\n", share, v, cpu * 1e3, gpu * 1e3, rule.frames[0],
+                                    two.frames[0]);
+                            }
+                        }
+            CHECK(kept_at_loss == 0);
+            /* (the case the review found, steady) */
+            {
+                static const struct frame_pacer_model_phase t1[] = { { 120, 0.020, 0.012 } };
+                struct frame_pacer_model_result two = frame_pacer_model_run(t1, 1, refresh, 1, 0.003, 2);
+                struct frame_pacer_model_result rule = frame_pacer_model_run(t1, 1, refresh, 1, 0.003, 0);
+
+                CHECK(rule.frames[0] >= 0.9 * two.frames[0]);
+            }
         }
         /* the 3 s load is a gap: no span reads it as rate, so the rule never leaves two for it */
         {

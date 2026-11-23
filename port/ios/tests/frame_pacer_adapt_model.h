@@ -16,8 +16,26 @@ the workload changes under it. */
 struct frame_pacer_model_phase
 {
 	double until;     /* seconds from the start the phase ends */
-	double cpu, gpu;  /* per frame */
+	double cpu, gpu;  /* per frame, on average */
 };
+
+/* how each frame's work varies around its phase's */
+struct frame_pacer_model_variation
+{
+	double cpu, gpu;              /* each frame's time varies by up to this share either way */
+	double spike_every, spike;    /* one frame in about spike_every adds spike seconds of GPU time; 0: none */
+};
+
+/* a fixed draw in [0, 1) by frame number, so fixed one, fixed two and the rule see the same work */
+static inline double frame_pacer_model_draw(unsigned long n, unsigned salt)
+{
+	unsigned long long x = n * 6364136223846793005ULL + salt * 1442695040888963407ULL + 1;
+
+	x ^= x >> 33;
+	x *= 0xff51afd7ed558ccdULL;
+	x ^= x >> 33;
+	return (double)(x % 100000) / 100000.0;
+}
 
 struct frame_pacer_model_result
 {
@@ -29,9 +47,9 @@ struct frame_pacer_model_result
 	enum frame_pacer_adapt_reason stay;        /* the kind of stay at the end (none at two) */
 };
 
-/* fixed: 1 or 2 for a fixed limit, 0 for the adaptive rule */
-static inline struct frame_pacer_model_result frame_pacer_model_run(const struct frame_pacer_model_phase *phases, int count,
-	double refresh, int share, double lead, int fixed)
+/* fixed: 1 or 2 for a fixed limit, 0 for the adaptive rule; vary may be NULL (steady work) */
+static inline struct frame_pacer_model_result frame_pacer_model_run_varied(const struct frame_pacer_model_phase *phases,
+	int count, double refresh, int share, double lead, int fixed, const struct frame_pacer_model_variation *vary)
 {
 	struct frame_pacer_model_result r;
 	struct frame_pacer_adapt adapt;
@@ -49,11 +67,22 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 	while (start < end)
 	{
 		int p = 0, waited = 0;
-		double ready, asked, grant;
+		double ready, asked, grant, cpu, gpu;
 
 		while (p < count - 1 && start - 1.0 >= phases[p].until)
 			p++;
-		ready = asked = start + phases[p].cpu;
+		{
+			cpu = phases[p].cpu;
+			gpu = phases[p].gpu;
+			if (vary)
+			{
+				cpu *= 1.0 + vary->cpu * (2.0 * frame_pacer_model_draw(n, 1) - 1.0);
+				gpu *= 1.0 + vary->gpu * (2.0 * frame_pacer_model_draw(n, 2) - 1.0);
+				if (vary->spike_every > 0.0 && frame_pacer_model_draw(n, 3) < 1.0 / vary->spike_every)
+					gpu += vary->spike;
+			}
+		}
+		ready = asked = start + cpu;
 		for (;;)
 		{
 			/* feed every frame shown by now */
@@ -98,7 +127,7 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 		}
 		grant = ready;
 		last_granted = ++n;
-		gpu_done = (grant > gpu_done ? grant : gpu_done) + phases[p].gpu;
+		gpu_done = (grant > gpu_done ? grant : gpu_done) + gpu;
 		{
 			double at = ceil((gpu_done + lead) / refresh - 1e-9) * refresh;
 
@@ -106,7 +135,7 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 				at = last_shown + share * refresh;
 			shown[held] = at;
 			number[held] = n;
-			gpu_of[held] = phases[p].gpu;
+			gpu_of[held] = gpu;
 			waited_of[held] = waited;
 			wait_of[held] = grant - asked;
 			held++;
@@ -118,4 +147,10 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 	r.retry_delay = adapt.retry_delay;
 	r.stay = adapt.stay;
 	return r;
+}
+
+static inline struct frame_pacer_model_result frame_pacer_model_run(const struct frame_pacer_model_phase *phases, int count,
+	double refresh, int share, double lead, int fixed)
+{
+	return frame_pacer_model_run_varied(phases, count, refresh, share, lead, fixed, NULL);
 }

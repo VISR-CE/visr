@@ -21,8 +21,8 @@ The rule, decided from presented frames only:
   kept from the ceiling. Leave the floor on
   - two slot-caused misses within FRAME_PACER_ADAPT_MISS_SPAN seconds: a frame that waited for its slot and came
     over one and a half of its interval at two after the frame before, or
-  - rate loss: a span at the floor shows more than FRAME_PACER_ADAPT_RATE_LOSS fewer frames than its intervals at
-    two add up to.
+  - rate loss: a span at the floor is more than FRAME_PACER_ADAPT_RATE_LOSS longer than two would have taken for
+    the same frames (the span less its slot waits, but never under a period a frame or the span's GPU time).
   (The second code review's B1: judged against a rate taken at entry, a workload that eased after entry kept a
   floor that halved the rate. A first fix went back to two every 20 s to measure again, which put a 33 ms step of
   delay into an A10X campaign that fits; this measure replaces it.)
@@ -68,7 +68,7 @@ enum frame_pacer_adapt_reason
 	FRAME_PACER_ADAPT_FITS,        /* entered the floor: the work fits */
 	FRAME_PACER_ADAPT_UNDER,       /* entered the floor: under rate at the ceiling */
 	FRAME_PACER_ADAPT_MISSES,      /* left the floor: slot-caused misses */
-	FRAME_PACER_ADAPT_RATE_LOST,   /* left the floor: an under-rate stay lost rate */
+	FRAME_PACER_ADAPT_RATE_LOST,   /* left the floor: one in flight showed fewer frames than two would */
 };
 
 static inline const char *frame_pacer_adapt_reason_name(enum frame_pacer_adapt_reason reason)
@@ -78,7 +78,7 @@ static inline const char *frame_pacer_adapt_reason_name(enum frame_pacer_adapt_r
 	case FRAME_PACER_ADAPT_FITS: return "fits";
 	case FRAME_PACER_ADAPT_UNDER: return "under its rate";
 	case FRAME_PACER_ADAPT_MISSES: return "frames missed waiting for the slot";
-	case FRAME_PACER_ADAPT_RATE_LOST: return "an under-rate stay lost rate";
+	case FRAME_PACER_ADAPT_RATE_LOST: return "one in flight lost rate";
 	default: return "none";
 	}
 }
@@ -104,7 +104,7 @@ struct frame_pacer_adapt
 	int gpu_count, gpu_next, grant_count, grant_next;
 	double span_start;          /* the rate test's second began; 0: not yet */
 	int span_frames;
-	double span_at_two;         /* at the floor: the span's intervals as two in flight would have shown them */
+	double span_waited, span_gpu; /* at the floor: the span's slot waits and GPU times */
 	double rate_at_ceiling;     /* frames a second the last span at the ceiling showed; 0: none */
 	enum frame_pacer_adapt_reason stay; /* the kind of this stay at the floor: fits or under rate */
 	double miss_at[2];          /* the last two slot-caused misses at the floor */
@@ -157,7 +157,7 @@ static inline void frame_pacer_adapt_switch(struct frame_pacer_adapt *adapt, int
 	adapt->reason = reason;
 	adapt->switches++;
 	adapt->span_start = 0.0;
-	adapt->span_at_two = 0.0;
+	adapt->span_waited = adapt->span_gpu = 0.0;
 	adapt->miss_at[0] = adapt->miss_at[1] = 0.0;
 	if (limit == adapt->floor)
 	{
@@ -221,7 +221,7 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 	{
 		adapt->span_start = now;
 		adapt->span_frames = 0;
-		adapt->span_at_two = 0.0;
+		adapt->span_waited = adapt->span_gpu = 0.0;
 		return adapt->limit;
 	}
 	adapt->span_frames++;
@@ -229,7 +229,8 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 	{
 		double at_two = frame_pacer_adapt_at_two(frame);
 
-		adapt->span_at_two += at_two;
+		adapt->span_waited += frame->waited > 0.0 ? frame->waited : 0.0;
+		adapt->span_gpu += frame->gpu > 0.0 && frame->gpu < FRAME_PACER_ADAPT_GAP ? frame->gpu : 0.0;
 		/* leave on slot-caused misses: late against what two in flight would have shown */
 		if (frame->slot_waited && frame->interval > 1.5 * at_two)
 		{
@@ -244,13 +245,21 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 		if (now - adapt->span_start >= FRAME_PACER_ADAPT_SPAN)
 		{
 			/* leave on rate loss against the same frames at two; a stay whose work now fits is a fits stay */
-			/* (the same frames in less time at two: rate at one = frames / span, at two = frames / span_at_two) */
-			int lost = adapt->span_at_two > 0.0 &&
-				adapt->span_at_two < (1.0 - FRAME_PACER_ADAPT_RATE_LOSS) * (now - adapt->span_start);
+			/* the span as two would have shown the same frames: less the slot waits, but never under a period a frame
+			or the GPU's time, clamped over the whole span (a frame granted late makes the next one late too, though
+			that one never waited, so a clamp per frame hides the loss: third review pass, T1) */
+			double span = now - adapt->span_start, at_two_span = span - adapt->span_waited;
+			int lost;
+
+			if (at_two_span < adapt->span_frames * frame->period)
+				at_two_span = adapt->span_frames * frame->period;
+			if (at_two_span < adapt->span_gpu)
+				at_two_span = adapt->span_gpu;
+			lost = at_two_span < (1.0 - FRAME_PACER_ADAPT_RATE_LOSS) * span;
 
 			adapt->span_start = now;
 			adapt->span_frames = 0;
-			adapt->span_at_two = 0.0;
+			adapt->span_waited = adapt->span_gpu = 0.0;
 			if (lost)
 			{
 				frame_pacer_adapt_switch(adapt, adapt->ceiling, now, FRAME_PACER_ADAPT_RATE_LOST);

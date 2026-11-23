@@ -483,7 +483,7 @@ static void adapt_frame(const struct frame_pacer_frame *frame, double at, double
 	pacer.flight.limit = limit;
 	pacer.drain_through = pacer.last_granted;
 	pthread_cond_broadcast(&pacer.shown_or_ticked);
-	snprintf(line, size, "frame pacer: %d frame%s in flight (%s): %.1f frames a second at two, GPU %.1f ms and grant to present "
+	snprintf(line, size, "frame pacer: %d frame%s in flight (%s): %.1f frames a second in the last span at two, GPU %.1f ms and grant to present "
 		"%.1f ms at worst, lead %.1f ms, period %.1f ms; next try at one in %.0f s", limit, limit == 1 ? "" : "s",
 		frame_pacer_adapt_reason_name(pacer.adapt.reason), pacer.adapt.rate_at_ceiling,
 		frame_pacer_adapt_worst(pacer.adapt.gpu, pacer.adapt.gpu_count) * 1e3,
@@ -498,6 +498,7 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 	char switched[320] = "";
 	double gpu_before = 0.0, allowed = 0.0;
 	int limit;
+	enum frame_pacer_adapt_reason stay = FRAME_PACER_ADAPT_NONE;
 	double longest = 0.0;
 	int noticed = at <= 0.0;
 
@@ -554,6 +555,7 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 		slot_waits = pacer.slot_waits;
 		pacer.slot_waits = 0;
 		switches = pacer.adapt.switches;
+		stay = pacer.adapt.stay;
 		pacer.shown.intervals = pacer.shown.late = 0;
 		pacer.shown.longest = 0.0;
 	}
@@ -610,9 +612,11 @@ void frame_pacer_presented(const struct frame_pacer_frame *frame, double at)
 		platform_log("frame pacer: of the last %lu frames shown, %lu came over 1.5 times their share of the display after the "
 			"one before (longest %.1f ms, of %lu intervals at %.1f Hz); late starts %lu, at once %lu, cost jumps %lu, "
 			"shown late %lu, worst cost %.1f ms, lead %.1f ms; presents given up %lu; waited for a slot with a frame in flight %lu; "
-			"%d in flight, %lu switches", frames, late, longest * 1e3, intervals, period > 0.0 ? 1.0 / period : 0.0,
+			"%d in flight%s%s%s, %lu switches", frames, late, longest * 1e3, intervals, period > 0.0 ? 1.0 / period : 0.0,
 			starts.late_starts, starts.at_once, starts.jumps, starts.misses, frame_pacer_late_worst(&starts) * 1e3,
-			frame_pacer_late_lead(&starts) * 1e3, given_up, slot_waits, limit, switches);
+			frame_pacer_late_lead(&starts) * 1e3, given_up, slot_waits, limit,
+			stay != FRAME_PACER_ADAPT_NONE ? " (" : "", stay != FRAME_PACER_ADAPT_NONE ? frame_pacer_adapt_reason_name(stay) : "",
+			stay != FRAME_PACER_ADAPT_NONE ? ")" : "", switches);
 	}
 }
 
