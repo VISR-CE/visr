@@ -37,7 +37,7 @@ static char const patches_xml[] =
 	"  <remove child=\"multiplayer_type_internet_off\"/>\n"
 	"  <row after=\"multiplayer_type_internet\" name=\"multiplayer_type_join_direct\" text=\"DIRECT LINK\"\n"
 	"       run=\"mp type set mode\" open=\"xbox/test_screen\" description=\"Join a game by its code.\"\n"
-	"       picture=\"png:ce/port/blank__0.png\"/>\n"
+	"       picture=\"png:pictures/port/blank__0.png\"/>\n"
 	"  <row after=\"ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_split_item\"\n"
 	"       name=\"multiplayer_type_split_need_pad\" text=\"SPLIT\" run=\"mp type set mode\"\n"
 	"       description=\"Split screen on iPhone needs\\ncontrollers for extra players.\" picture=\"1\"/>\n"
@@ -1332,7 +1332,7 @@ static void check_panel_failure(void)
 	work->panel.base = work->panel.frames = 1;
 	work->added_count = 1;
 	work->added_descriptions[0] = "New description";
-	work->added_pictures[0] = "png:ce/port/blank__0.png";
+	work->added_pictures[0] = "png:pictures/port/blank__0.png";
 	reject_texture = TRUE;
 	check(!patch_panel_write(work), "a failed bitmap build rejects the panel");
 	reject_texture = FALSE;

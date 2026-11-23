@@ -54,7 +54,7 @@ used, else the first) and the game's saved game in it:
 The Xbox's functions of those names take the Xbox's widgets (a spinner of
 levels, the difficulty list itself), so ours run instead (menu_tags.c).
 
-The rest are the PC version's, which its menus (port/assets/menus/ce)
+The rest are the PC version's, which its menus (the sources in tools/menu_sources)
 name and the Xbox's has not: they do nothing yet, and succeed, so that what
 their handlers open opens.
 */

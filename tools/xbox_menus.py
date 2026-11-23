@@ -214,7 +214,7 @@ def serialize(root):
 
 
 # PNGs the game names itself (port/linux/game/menu_tags.c), beside those the XML's frames name.
-RUNTIME_PNGS = ('ce/port/blank__0.png',)
+RUNTIME_PNGS = ('pictures/port/blank__0.png',)
 
 
 def manifest_files(menus):
@@ -900,7 +900,7 @@ def bitmap_document(assets, names):
         if '\\' in name:
             bitmap = ET.SubElement(root, 'bitmap', name='xbox/map/' + name.replace('\\', '/'))
             ET.SubElement(bitmap, 'frame', map=name, index='0',
-                          png='ce/shell/bitmaps/game_type_grafix__5.png', width='256', height='128')
+                          png='pictures/shell/bitmaps/game_type_grafix__5.png', width='256', height='128')
             continue
         bitmap = deepcopy(source_bitmaps[name])
         if not name.startswith('pause/'):
@@ -914,7 +914,7 @@ def bitmap_document(assets, names):
         bitmap = ET.SubElement(root, 'bitmap', name=PANEL_BITMAPS[key])
         width, height = panel_frame_size(panel_box)
         ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\list_field', index='0',
-                      png='ce/shell/bitmaps/list_field__0.png', width=str(width), height=str(height))
+                      png='pictures/shell/bitmaps/list_field__0.png', width=str(width), height=str(height))
     # Borrow the Multiplayer diagrams and gametype figure through single-frame bitmaps.
     for name, index in (('gametype', 3),):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
@@ -1713,7 +1713,7 @@ def browser_layout(root, widgets, bitmaps):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{art}')
         for index in range(frames):
             ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + art, index=str(index),
-                          png=f'ce/shell/bitmaps/{art}__{index}.png',
+                          png=f'pictures/shell/bitmaps/{art}__{index}.png',
                           width=str(width), height=str(height))
 
     # The Xbox's nine-row list needs a wider column for the PC browser's
@@ -2059,7 +2059,7 @@ def dialog_document():
     """Keep display_error's first two children stable while sharing the Xbox art."""
     root = ET.Element('menus')
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/dialog_touch_button')
-    ET.SubElement(bitmap, 'frame', png='ce/shell/bitmaps/text_button_background__1.png',
+    ET.SubElement(bitmap, 'frame', png='pictures/shell/bitmaps/text_button_background__1.png',
                   width='128', height='32')  # the png is 512x128; the widget scales it to the drawn pill
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS:
         base = 'xbox/error/' + name

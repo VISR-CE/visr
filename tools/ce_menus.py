@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Imports the PC version's widgets (Halo Custom Edition's) as source rows for the
 menu generator (tools/menu_sources, read only by tools/xbox_menus.py; the game
-never loads them), and draws the menus' art (port/assets/menus/ce/*.png):
+never loads them), and draws the menus' art (port/assets/menus/pictures/*.png):
 
     python tools/ce_menus.py --tags .../halopc-restored/tags \\
         --definitions .../invader/src/tag/hek/definition \\
@@ -329,7 +329,7 @@ class Art:
         cap_top = font.getbbox("H")[1]
         draw.text((port_settings.TITLE_LEFT * scale, port_settings.TITLE_TOP * scale - cap_top), text,
                   font=font, fill=port_settings.TITLE_COLOR)
-        png = f"ce/port/{name}.png"
+        png = f"pictures/port/{name}.png"
         (MENUS / png).parent.mkdir(parents=True, exist_ok=True)
         image.save(MENUS / png, optimize=True)
         self.pngs.append(png)
@@ -345,7 +345,7 @@ class Art:
             svg = MENUS / "port_svg" / f"{name}__{index}.svg"
             svg.parent.mkdir(parents=True, exist_ok=True)
             svg.write_text(text)
-            png = f"ce/port/{name}__{index}.png"
+            png = f"pictures/port/{name}__{index}.png"
             (MENUS / png).parent.mkdir(parents=True, exist_ok=True)
             Image.fromarray(render_svg(svg, SCALE), "RGBA").save(MENUS / png, optimize=True)
             self.pngs.append(png)

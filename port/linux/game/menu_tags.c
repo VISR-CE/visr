@@ -123,7 +123,7 @@ adds to */
 /* the tags pause_patch adds: two buttons and their texts */
 #define PAUSE_PATCH_TAGS 4
 /* what a frame of ui.map's is drawn as in a game map, which has not got it */
-#define BLANK_PNG "ce/port/blank__0.png"
+#define BLANK_PNG "pictures/port/blank__0.png"
 #define UI_WIDGET_DEFINITION_TAG 'DeLa'
 #define UNICODE_STRING_LIST_TAG 'ustr'
 #define FONT_TAG 'font'

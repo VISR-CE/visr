@@ -268,7 +268,7 @@ def test_about_and_notices_layout_clears_help_and_legend():
 def test_xbox_about_is_current(tmp_path):
     # (the whole generator runs: row density, legends and spinners are passes over every document)
     assets = tmp_path / "menus"
-    shutil.copytree(MENUS / "ce", assets / "ce")
+    shutil.copytree(MENUS / "pictures", assets / "pictures")
     shutil.copytree(MENUS / "xbox/art", assets / "xbox/art")
     shutil.copy(MENUS / "menus.json", assets / "menus.json")
     xbox_menus.generate(assets)

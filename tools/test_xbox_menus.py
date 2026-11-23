@@ -64,7 +64,7 @@ def snapshot(path):
 
 def test_generation_is_deterministic_and_checked_in(tmp_path):
     assets = tmp_path / 'menus'
-    shutil.copytree(MENUS / 'ce', assets / 'ce')
+    shutil.copytree(MENUS / 'pictures', assets / 'pictures')
     # (the art the generator draws from: tools/xbox_menu_art.py's)
     shutil.copytree(MENUS / 'xbox/art', assets / 'xbox/art')
     shutil.copy(MENUS / 'menus.json', assets / 'menus.json')
@@ -84,7 +84,7 @@ def test_generation_is_deterministic_and_checked_in(tmp_path):
             assert frame.get('png') in manifest
     assert manifest == module.manifest_files(assets)
     assert not [name for name in manifest if name.startswith('ce/') and name.endswith('.xml')]
-    assert 'ce/port/pause/pausebox_center__1.png' in manifest
+    assert 'pictures/port/pause/pausebox_center__1.png' in manifest
 
 
 def test_settings_keep_pc_values_and_handlers():
@@ -1317,7 +1317,7 @@ def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_
 def test_the_graphics_screen_is_shipped():
     manifest = json.loads((MENUS / 'menus.json').read_text())['files']
     for name in ('xbox/settings.graphics.xml',
-                 'ce/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png'):
+                 'pictures/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png'):
         assert name in manifest, name
 
 

@@ -449,7 +449,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/ticker_rules_info_label" type="text" controller="1" width="80" height="18" string_list="xbox/main_menu/multiplayer_type_select/join_game/join_game_ticker_labels" string_index="1" font="ui\small_ui" color="#FF2896FF">
 	</widget>
 	<bitmap name="xbox/browser/list_field">
-		<frame map="ui\shell\bitmaps\list_field" index="0" png="ce/shell/bitmaps/list_field__0.png" width="884" height="102" />
+		<frame map="ui\shell\bitmaps\list_field" index="0" png="pictures/shell/bitmaps/list_field__0.png" width="884" height="102" />
 	</bitmap>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" width="640" height="402" flags="pass_unhandled_to_focused_child">
 		<on event="x" run="gamespy select button" />

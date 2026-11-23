@@ -1,5 +1,5 @@
 """The port's settings screens, which tools/ce_menus.py writes in place of the
-PC version's (port/assets/menus/ce): laid out as its are (rows of a label and
+PC version's (tools/menu_sources): laid out as its are (rows of a label and
 a spinner over its row backgrounds, a line of help for the row chosen,
 Defaults, OK and Cancel), with what this port has to set instead of what the
 PC version had (no connection speed or texture quality: a window or the full
