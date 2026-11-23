@@ -553,7 +553,10 @@ static int generate_source(void *opaque,const struct host_texture_source *source
        (recipe_globals' repair_version). A redrawn picture keeps the map's own pixels. */
     if(!input.synthetic&&texture_repair_applies(source->format,source->width,source->height)){
         if(texture_repair_texture(source->format,source->width,source->height,source->level_count,source->rgba,source->level_offsets,
-            source->stored,source->level_stored_offsets,owned,NULL)==1)atomic_fetch_add(&repaired_sources,1);
+            source->stored,source->level_stored_offsets,owned,NULL)==1){
+            if(!atomic_fetch_add(&repaired_sources,1))
+                host_logf(HOST_LOG_INFO,"Upscale %016llx: made from the repaired texture (the first this launch; repair version %u)",
+                    (unsigned long long)d->hash,TEXTURE_REPAIR_VERSION);}
         else{uint32_t w=d->width,h=d->height;size_t offset=0;
             for(unsigned i=0;i<source->level_count;i++){memcpy(owned+offset,source->rgba+source->level_offsets[i],(size_t)w*h*4);
                 offset+=(size_t)w*h*4;w=MAX(1u,w/2);h=MAX(1u,h/2);}}
