@@ -99,10 +99,10 @@
 		<child widget="xbox/settings/network_setup/custom_maps_label" y="5" />
 		<child widget="xbox/settings/network_setup/custom_maps_state" x="319" y="6" />
 	</widget>
+	<widget name="xbox/settings/network_setup/custom_maps_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/network_setup/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
 	<widget name="xbox/settings/network_setup/custom_maps_state" type="text" left="66" top="2" width="80" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" strings="ON|OFF" strings_ids="xbox.settings_network_setup.xbox_settings_network_setup_custom_maps_state.s0|xbox.settings_network_setup.xbox_settings_network_setup_custom_maps_state.s1" setting="network.custom_maps" values="true|false">
 		<data input="port setting state" />
-	</widget>
-	<widget name="xbox/settings/network_setup/custom_maps_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/network_setup/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/network_setup/op_enabled" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/network_setup/enabled_label" y="5" />

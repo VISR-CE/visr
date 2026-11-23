@@ -280,6 +280,24 @@ def _strings(name: str, texts: list) -> list:
             *[f"\t\t<string{attributes([('text', text)])}/>" for text in texts], "\t</strings>"]
 
 
+def _opener_row(row: str, screen: str, label: str, label_width: int, label_strings: str, label_index: int,
+                state: str, state_pairs: list, state_input: str, platform=None) -> list:
+    """a row that opens a screen of its own and shows a state word where a spinner shows its value: A, Start and a
+    click open the screen, the label is a text of the row's, and the state word is a text the game fills
+    (menu_functions.c, state_input). RESPAWN, TEAMS & HUD and NETWORK's MAPS are such rows"""
+    lines = _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
+                          ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF"), ("platform", platform)],
+                    [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                     '<on event="left_mouse" run="mouse emit accept event"/>',
+                     f'<child{attributes([("widget", label)])}/>',
+                     f'<child{attributes([("widget", state), ("x", 320), ("y", 1)])}/>'])
+    lines += _widget(label, [("type", "text"), ("controller", 1), ("width", label_width), ("height", 22),
+                             ("string_list", label_strings), ("string_index", label_index), ("font", "ui\\large_ui"),
+                             ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    lines += _widget(state, state_pairs, [f'<data input="{state_input}"/>'])
+    return lines
+
+
 # a state shown where a row's spinner shows its value: the spinner's place, font and alignment, without its arrows
 STATE_VALUE = [("type", "text"), ("left", 3), ("top", 2), ("width", 147), ("height", 20), ("font", "ui\\large_ui"),
                ("color", "#FF2896FF"), ("align", "center"), ("text_y", 1)]
@@ -380,19 +398,14 @@ def _setting_screen(folder: str, spec: dict) -> list:
         replaced = setting in graphics_replaced()
         opens = spec.get("opens", {}).get(setting)
         if opens:
-            # (a stateful row: the setting's state word where a spinner's value is, and A opens the screen of the
-            # rest; no arrows, so a click or tap acts as A. menu_functions.c's "port setting state" shows the word)
-            screen = f"xbox/settings/{opens}/{SCREENS[opens]['screen']}"
-            extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
-                                   ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF"), ("platform", platform)],
-                             [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
-                              '<on event="left_mouse" run="mouse emit accept event"/>',
-                              f'<child{attributes([("widget", f"{base}/{key}_label")])}/>',
-                              f'<child{attributes([("widget", f"{base}/{key}_state"), ("x", 320), ("y", 1)])}/>'])
-            extra += _widget(f"{base}/{key}_state",
-                             STATE_VALUE + [("strings", "|".join(shown for shown, _ in choices)),
-                                            ("setting", setting), ("values", "|".join(value for _, value in choices))],
-                             ['<data input="port setting state"/>'])
+            # (a stateful row: its setting's state word, which menu_functions.c's "port setting state" shows; no
+            # arrows, so a click or tap acts as A)
+            extra += _opener_row(row, f"xbox/settings/{opens}/{SCREENS[opens]['screen']}", f"{base}/{key}_label",
+                                 300, f"{base}/labels", index, f"{base}/{key}_state",
+                                 STATE_VALUE + [("strings", "|".join(shown for shown, _ in choices)),
+                                                ("setting", setting),
+                                                ("values", "|".join(value for _, value in choices))],
+                                 "port setting state", platform)
         else:
             extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
                                    ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF"), ("platform", platform)],
@@ -404,11 +417,11 @@ def _setting_screen(folder: str, spec: dict) -> list:
             extra += _widget(f"{base}/{key}_replaced",
                              REPLACED_VALUE + [("string_list", f"{base}/{key}_shown")], [])
             extra += _strings(f"{base}/{key}_shown", [shown for shown, _ in choices])
-        extra += _widget(f"{base}/{key}_label",
-                         [("type", "text"), ("controller", 1), ("width", 300), ("height", 22),
-                          ("string_list", f"{base}/labels"), ("string_index", index), ("font", "ui\\large_ui"),
-                          ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
         if not opens:
+            extra += _widget(f"{base}/{key}_label",
+                             [("type", "text"), ("controller", 1), ("width", 300), ("height", 22),
+                              ("string_list", f"{base}/labels"), ("string_index", index), ("font", "ui\\large_ui"),
+                              ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
             extra += _widget(f"{base}/{key}_spinner",
                              [("type", "spinner"), ("left", 3), ("top", 2), ("width", 147), ("height", 20),
                               ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
@@ -1169,21 +1182,11 @@ def _game_options() -> list:
         rows.append((f"{base}/op_{key}", None, 2))
     # the teams and HUD: its own screen, the friendly-fire state on the row
     screen = f"{MT}/teams_hud_edit/teams_hud_screen"
-    extra += _widget(f"{base}/op_teams_hud", [("width", 512), ("height", 28),
-                                              ("flags", "pass_unhandled_to_focused_child"),
-                                              ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                     [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
-                      '<on event="left_mouse" run="mouse emit accept event"/>',
-                      f'<child widget="{base}/teams_hud_label"/>',
-                      f'<child widget="{base}/teams_hud_state" x="320" y="1"/>'])
-    extra += _widget(f"{base}/teams_hud_label", [("type", "text"), ("controller", 1), ("width", 320),
-                                                 ("height", 22), ("string_list", f"{base}/labels"),
-                                                 ("string_index", 3), ("font", "ui\\large_ui"),
-                                                 ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    extra += _widget(f"{base}/teams_hud_state", [("type", "text"), ("controller", 1), ("width", 148),
-                                                 ("height", 22), ("font", "ui\\large_ui"),
-                                                 ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4)],
-                     ['<data input="port teams hud state"/>'])
+    extra += _opener_row(f"{base}/op_teams_hud", screen, f"{base}/teams_hud_label", 320, f"{base}/labels", 3,
+                         f"{base}/teams_hud_state",
+                         [("type", "text"), ("controller", 1), ("width", 148), ("height", 22),
+                          ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4)],
+                         "port teams hud state")
     rows.append((f"{base}/op_teams_hud", None, 3))
     # the type's own options: one row per type, the current type's shown
     for key, folder in (("ctf", "ctf_edit"), ("slayer", "slayer_edit"), ("oddball", "oddball_edit"),
@@ -1825,19 +1828,11 @@ def _player_options_extras() -> list:
     """Player Options' RESPAWN row of the port's: it opens RESPAWN OPTIONS, and shows the respawn time"""
     base = "main_menu/settings_select/multiplayer_setup/player_options_edit"
     screen = f"{MT}/respawn_options_edit/respawn_options_screen"
-    lines = _widget(f"{base}/op_respawn", [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
-                                           ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                    [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
-                     '<on event="left_mouse" run="mouse emit accept event"/>',
-                     f'<child widget="{base}/respawn_label"/>', f'<child widget="{base}/respawn_state" x="320" y="1"/>'])
-    lines += _widget(f"{base}/respawn_label", [("type", "text"), ("controller", 1), ("width", 320), ("height", 22),
-                                                 ("string_list", f"{base}/player_options_labels"),
-                                                 ("string_index", 8), ("font", "ui\\large_ui"),
-                                                 ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    lines += _widget(f"{base}/respawn_state", [("type", "text"), ("controller", 1), ("width", 148), ("height", 22),
-                                                 ("font", "ui\\large_ui"), ("color", "#FF2896FF"),
-                                                 ("align", "center"), ("text_y", 4)],
-                     ['<data input="port respawn state"/>'])
+    lines = _opener_row(f"{base}/op_respawn", screen, f"{base}/respawn_label", 320, f"{base}/player_options_labels", 8,
+                        f"{base}/respawn_state",
+                        [("type", "text"), ("controller", 1), ("width", 148), ("height", 22),
+                         ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4)],
+                        "port respawn state")
     return lines
 
 

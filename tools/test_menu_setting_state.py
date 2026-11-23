@@ -123,3 +123,20 @@ def test_network_keeps_six_rows_and_maps_holds_the_map_sharing_rows():
     for name in cut:
         entry = config[config.index(f'\t{{ "{name}",'):]
         assert '_tier_tuning' in entry[:entry.index('\n\t{ "', 5)], name
+
+
+def test_every_setting_row_is_reached_by_a_defaults_of_its_own_screen():
+    """A setting that moves to a screen of its own (MAPS) keeps a DEFAULTS that resets it: every spinner of a setting
+    in the settings pages sits on a screen whose X action runs "port settings defaults apply", and NETWORK's DEFAULTS
+    is no longer the only one for the map settings."""
+    for path in sorted(MENUS.glob('settings.*.xml')):
+        root = ET.parse(path).getroot()
+        screen = root.find('widget')
+        spinners = [w for w in root.iter('widget') if w.get('type') == 'spinner' and w.get('setting')]
+        if not spinners or path.name == 'settings.controls_setup.xml':
+            continue
+        defaults = screen.find("bar/action[@slot='x']")
+        assert defaults is not None and defaults.get('run') == 'port settings defaults apply', path.name
+    maps = ET.parse(MENUS / 'settings.maps.xml').getroot()
+    assert {w.get('setting') for w in maps.iter('widget') if w.get('type') == 'spinner'} == {
+        'network.custom_maps', 'network.map_download', 'network.map_seed'}
