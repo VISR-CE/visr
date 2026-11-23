@@ -386,7 +386,8 @@ int main(void)
     assert(chips[1].animation.current_frame_index==0 && chips[2].animation.current_frame_index==0);
     browser_focus(list); /* Rendering must clear the old row's local focus. */
     assert(list->focused_child==NULL);
-    for (int i=0;i<6;i++) assert(rows[i].animation.current_frame_index==0);
+    /* (the chosen game's tab stays joined to the panel while the focus is elsewhere; no other row is) */
+    for (int i=0;i<6;i++) assert(rows[i].animation.current_frame_index==(i+lobby_browser.first==lobby_browser.chosen && rows[i].visible));
     lobby_browser.chosen=2; browser_chips_navigation(&chips[1]);
     assert(screen.focused_child==list && list->focused_child==&rows[2]);
     browser_c_controls_update(list);

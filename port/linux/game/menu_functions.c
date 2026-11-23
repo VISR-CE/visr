@@ -4044,7 +4044,7 @@ static void browser_focus(struct widget_instance *list)
 		/* (layout C's rows are tabs: the game chosen stays joined to the detail panel, whoever has the focus) */
 		if (named(screen_of(list), "browser_chips", 0))
 			row->animation.current_frame_index =
-				multiplayer.mode == _multiplayer_mode_server_browser && row->visible &&
+				row->visible &&
 				row_index + lobby_browser.first == lobby_browser.chosen ? 1 : 0;
 		else
 			row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == focused) ? 1 : 0;
