@@ -119,7 +119,8 @@ def test_browser_action_widget_routes_refresh_and_internet_create_after_name_tru
     target = action.find('on[@event="y"][@open]').get("open")
     assert target == r"ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper"
     source = (ROOT / "port/linux/game/menu_functions.c").read_text()
-    mode = function(source, "static void multiplayer_mode_set(")
+    mode = "".join(function(source, name) for name in ("static short multiplayer_mode_named(",
+        "static void multiplayer_mode_apply(", "static void multiplayer_mode_set("))
     select = function(source, "static boolean lobby_browser_select(")
     start = select.index('\tif (strstr(widget->name, "button_refresh"))')
     end = select.index('\n\tif (row == NONE', start)

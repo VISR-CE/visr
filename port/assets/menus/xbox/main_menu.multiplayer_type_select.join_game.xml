@@ -606,7 +606,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" x="36" y="186" />
 		<bar>
 			<action slot="x" scope="global" text="IP ADDRESS" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_x.text" size="small" run="port browser ip open" />
-			<action slot="y" scope="global" text="CREATE" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_y.text" run="join controller to mp game" />
+			<action slot="y" scope="global" text="CREATE" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_y.text" run="port browser create" />
 			<action slot="b" scope="back" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_b.text" run="gamespy back handler" />
 			<action slot="a" scope="select" strings="JOIN GAME|CONNECTING" strings_ids="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_a.s0|xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_a.s1" focus="true" />
 		</bar>

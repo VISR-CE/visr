@@ -1933,7 +1933,7 @@ def browser_layout(root, widgets, bitmaps):
     # IP ADDRESS and CREATE are screen-wide actions, BACK the way back (the engine places the bar)
     # (A is the focused row's own, JOIN GAME: the port dims it and says CONNECTING while joining, ui_widget_port_bar_dim)
     bar(screen, [('x', 'global', 'IP ADDRESS', {'run': 'port browser ip open'}),
-                 ('y', 'global', 'CREATE', {'run': 'join controller to mp game'}),
+                 ('y', 'global', 'CREATE', {'run': 'port browser create'}),
                  ('b', 'back', 'BACK', {'run': 'gamespy back handler'}),
                  ('a', 'select', ['JOIN GAME', 'CONNECTING'], {'focus': 'true'})])
 

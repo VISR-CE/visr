@@ -2817,18 +2817,22 @@ boolean ui_widget_port_disabled_row_activation(struct widget_instance const *wid
 	return FALSE;
 }
 
-/* "mp type set mode": the item's (by its name) */
-static void multiplayer_mode_set(struct widget_instance *widget)
+/* the mode a multiplayer type item (by its name) chooses */
+static short multiplayer_mode_named(char const *name)
 {
-	char const *name = widget->name;
-
 	/* (an instance's name is cut to 31 characters:
 	"multiplayer_type_create_interne") */
-	multiplayer.mode =
+	return
 		strstr(name, "create_inter") ? _multiplayer_mode_host_internet :
 		strstr(name, "create_lan") ? _multiplayer_mode_host_lan :
 		strstr(name, "join_lan") ? _multiplayer_mode_lan :
 		strstr(name, "join_direct") ? _multiplayer_mode_direct_link : _multiplayer_mode_server_browser;
+}
+
+/* a mode chosen, by an item's name or by an action that says it outright */
+static void multiplayer_mode_apply(short mode)
+{
+	multiplayer.mode = mode;
 	multiplayer.invite_pending = FALSE;
 #ifdef HALO_IOS
 	if (multiplayer.mode == _multiplayer_mode_host_internet || multiplayer.mode == _multiplayer_mode_direct_link ||
@@ -2837,6 +2841,12 @@ static void multiplayer_mode_set(struct widget_instance *widget)
 		menu_internet_screen_opened();
 	}
 #endif
+}
+
+/* "mp type set mode": the item's (by its name) */
+static void multiplayer_mode_set(struct widget_instance *widget)
+{
+	multiplayer_mode_apply(multiplayer_mode_named(widget->name));
 }
 
 #ifdef HALO_IOS
@@ -2909,14 +2919,14 @@ static boolean multiplayer_host_start(struct widget_instance *widget, struct eve
 the server made. With no profile, the profile screen opens instead, and its
 choice goes on to the map (the browser's second handler, "mp type set mode",
 does not run once a screen has opened) */
-static boolean multiplayer_host(struct widget_instance *widget, struct event_record *event, short controller,
-	boolean *widget_deleted)
+static boolean multiplayer_host_mode(struct widget_instance *widget, struct event_record *event, short controller,
+	boolean *widget_deleted, short mode, boolean off)
 {
 	struct player_profile profile;
 
-	if (internet_item_off(widget))
+	if (off)
 		return campaign_fail();
-	multiplayer_mode_set(widget);
+	multiplayer_mode_apply(mode);
 	if (!campaign_profile(controller, &profile))
 	{
 		host_profile.controller = controller;
@@ -2926,6 +2936,22 @@ static boolean multiplayer_host(struct widget_instance *widget, struct event_rec
 	if (!multiplayer_player(controller))
 		return FALSE;
 	return multiplayer_host_start(widget, event, widget_deleted);
+}
+
+static boolean multiplayer_host(struct widget_instance *widget, struct event_record *event, short controller,
+	boolean *widget_deleted)
+{
+	return multiplayer_host_mode(widget, event, controller, widget_deleted, multiplayer_mode_named(widget->name),
+		internet_item_off(widget));
+}
+
+/* the server browser's CREATE: an Internet game, said outright (the bar's action is not an item named for its mode,
+so the mode cannot come from the widget that ran it) */
+static boolean browser_create(struct widget_instance *widget, struct event_record *event, short controller,
+	boolean *widget_deleted)
+{
+	return multiplayer_host_mode(widget, event, controller, widget_deleted,
+		_multiplayer_mode_host_internet, !config_boolean("network.online"));
 }
 
 /* the profile just made is player 1's: hosting goes on to the map */
@@ -7882,6 +7908,10 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "direct ip connect go"))
 		{
 			return direct_ip_connect(widget, event, controller, widget_deleted);
+		}
+		else if (!strcmp(name, "port browser create"))
+		{
+			return browser_create(widget, event, controller, widget_deleted);
 		}
 		else if (!strcmp(name, "join controller to mp game"))
 		{

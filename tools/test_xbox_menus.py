@@ -396,7 +396,7 @@ def test_browser_actions_are_a_bar_and_the_list_takes_only_its_own_keys():
     assert not screen.findall('on[@event="x"]') and not screen.findall('on[@event="y"]')
     bar = {a.get('slot'): a for a in screen.find('bar').findall('action')}
     assert bar['x'].get('run') == 'port browser ip open'
-    assert bar['y'].get('run') == 'join controller to mp game'
+    assert bar['y'].get('run') == 'port browser create'
     assert bar['b'].get('scope') == 'back'
     assert actions.get('flags') == 'pass_unhandled_to_focused_child'
     assert [c.get('widget').rsplit('/', 1)[-1] for c in actions.findall('child')] == [
@@ -2183,3 +2183,13 @@ def test_a_caption_too_wide_for_its_slot_in_the_large_font_takes_the_small_one()
         pass
     else:
         raise AssertionError('a caption that fits in neither font must be refused')
+
+
+def test_no_bar_action_runs_a_handler_that_takes_its_mode_from_the_widget_name():
+    """Bug class (the browser's CREATE froze the menu): "mp type set mode" and "join controller to mp game" choose the
+    multiplayer mode by the name of the item that ran them (`multiplayer_mode_named`), and a bar action is not an item
+    named for its mode, so the browser's CREATE says its mode outright (`port browser create`)."""
+    by_name = {'mp type set mode', 'join controller to mp game'}
+    for path in sorted((MENUS / 'xbox').glob('*.xml')):
+        for action in ET.parse(path).iter('action'):
+            assert action.get('run') not in by_name, (path.name, action.get('slot'))
