@@ -7641,8 +7641,10 @@ static void menu_ready_shot_poll(void)
 
 /* "menus: screen up <name> at frame N" each time the active screen is a new instance (a screen loaded, or an earlier one
 reloaded), and "menus: screen down at frame N" when none is active: the capture harness reads them to know a shot was taken with
-its screen up and loaded, with any input (pointer runs set no debug.menu_ready_shot). An instance is its address, definition tag
-and creation time, so a widget reallocated at a freed one's address is still new. One compare per pump, no per-frame lines. */
+its screen active, with any input (pointer runs set no debug.menu_ready_shot). An instance is its address, definition tag
+and creation time, so a widget reallocated at a freed one's address is still new. Local player 0's screen only (a split-screen
+pause menu of players 2 to 4 is not logged). One compare per pump, no per-frame lines. "Active" is when the instance becomes the
+active one, before a frame with it is presented. */
 static void menu_screen_up_log(void)
 {
 	static struct widget_instance *last_screen;
