@@ -2761,7 +2761,6 @@ void menu_internet_screen_opened(void)
 }
 #endif
 
-boolean pc_menu_xbox_look(void);
 /* The multiplayer type screen's INTERNET row (and the Create item that hosts on the Internet) while internet play
 is off in Settings: drawn gray, still focusable so its panel says why, and doing nothing when chosen.
 (an instance's name is cut to 31 characters) */
@@ -2820,15 +2819,12 @@ boolean ui_widget_port_disabled_row_activation(struct widget_instance const *wid
 static void multiplayer_mode_set(struct widget_instance *widget)
 {
 	char const *name = widget->name;
-	boolean pc_look_lan = strstr(name, "join_lan") && !pc_menu_xbox_look();
 
 	/* (an instance's name is cut to 31 characters:
 	"multiplayer_type_create_interne") */
 	multiplayer.mode =
 		strstr(name, "create_inter") ? _multiplayer_mode_host_internet :
 		strstr(name, "create_lan") ? _multiplayer_mode_host_lan :
-		/* (the PC look has no LAN table: its JOIN LAN row opens the server browser; the Xbox look keeps SYSTEM LINK) */
-		pc_look_lan ? _multiplayer_mode_server_browser :
 		strstr(name, "join_lan") ? _multiplayer_mode_lan :
 		strstr(name, "join_direct") ? _multiplayer_mode_direct_link : _multiplayer_mode_server_browser;
 	multiplayer.invite_pending = FALSE;

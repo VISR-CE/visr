@@ -75,7 +75,6 @@ boolean pc_menu_tag(long tag_index);
 boolean pc_menu_row_tall(long tag_index);
 /* whether the multiplayer mode chosen is system link (menu_functions.c) */
 boolean pc_menu_multiplayer_lan(void);
-boolean pc_menu_xbox_look(void);
 short pc_menu_list_window(long tag_index);
 boolean pc_menu_patch_list_index(long list_tag, long row_tag, short *description);
 boolean pc_menu_patch_row_help(long list_tag, long row_tag, short *help, short *length);

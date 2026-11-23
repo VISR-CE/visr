@@ -133,7 +133,6 @@ def test_browser_action_widget_routes_refresh_and_internet_create_after_name_tru
 #define FALSE 0
 #define SOUND_FORWARD 7
 typedef int boolean;
-static boolean pc_menu_xbox_look(void) { return TRUE; }
 struct widget_instance { char name[32]; };
 enum { _multiplayer_mode_host_internet = 1, _multiplayer_mode_host_lan,
        _multiplayer_mode_lan, _multiplayer_mode_direct_link, _multiplayer_mode_server_browser };
