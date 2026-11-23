@@ -97,7 +97,11 @@ struct player_profile { int record; };
 static struct
 {
 	struct { struct player_profile profile; long active_profile_index; } local_players[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
+	long edit_profile_index;
 } player_ui_globals;
+static long player1_last_used_profile_index = NONE;
+static char player1_profile_path[0x100];
+#define _saved_game_file_type_player_profile 1
 static long last_index = -2;
 static void set_local_player_controls_from_player_profile(short local_player_index) { (void)local_player_index; }
 
@@ -107,9 +111,11 @@ delete closes the list up */
 #define INDEX_OF(n) ((((long)(n)) << 16) | 0x40000000L)
 static struct player_input_profile files[16];
 static int count;
+static int file_id[16], next_id;
 static long profile_create(const struct player_input_profile *input)
 {
 	files[count] = *input;
+	file_id[count] = ++next_id;
 	return INDEX_OF(count++);
 }
 boolean player_profile_get_input(long index, struct player_input_profile *input)
@@ -120,6 +126,35 @@ boolean player_profile_get_input(long index, struct player_input_profile *input)
 	*input = files[n];
 	return 1;
 }
+/* the profile's directory path names it across a re-listing (the id stands for the directory) */
+static void path_of(int n, char *path) { snprintf(path, 32, "p%d", file_id[n]); }
+long saved_game_file_get_type(long index) { (void)index; return _saved_game_file_type_player_profile; }
+boolean player_profile_get_enclosing_directory_path(long index, char *path)
+{
+	int n = (int)((index >> 16) & 0xFFF);
+	if (index == NONE || n >= count)
+		return 0;
+	path_of(n, path);
+	return 1;
+}
+boolean saved_game_file_get_path_to_enclosing_directory(long index, char *path)
+{
+	return player_profile_get_enclosing_directory_path(index, path);
+}
+long saved_game_file_find_profile_index_for_directory_path(const char *path, short type)
+{
+	int n;
+	char other[32];
+	(void)type;
+	for (n = 0; n < count; n++)
+	{
+		path_of(n, other);
+		if (!strcmp(path, other))
+			return INDEX_OF(n);
+	}
+	return NONE;
+}
+boolean saved_game_file_retrieve_player1_last_used_profile_directory(char *path) { (void)path; return 0; }
 /* FUNCTIONS */
 /* delete_enumerated_saved_game_file: the entry goes and the game's thread is told (it applies the post at its next
 tick, or before it reads or sets a profile) */
@@ -127,8 +162,35 @@ static void profile_remove(long index)
 {
 	int i, n = (int)((index >> 16) & 0xFFF);
 	for (i = n; i + 1 < count; i++)
+	{
 		files[i] = files[i + 1];
+		file_id[i] = file_id[i + 1];
+	}
 	count--;
+}
+/* enumerate_memory_units: the listing comes back in another order (here: reversed) and says so */
+static void profile_relist_reversed(void)
+{
+	int i;
+	for (i = 0; i < count / 2; i++)
+	{
+		struct player_input_profile swap = files[i];
+		int swap_id = file_id[i];
+		files[i] = files[count - 1 - i]; file_id[i] = file_id[count - 1 - i];
+		files[count - 1 - i] = swap; file_id[count - 1 - i] = swap_id;
+	}
+	player_ui_post_saved_game_files_relisted();
+}
+static void reset_players(void)
+{
+	int p;
+	count = 0;
+	memset(&player_ui_globals, 0, sizeof(player_ui_globals));
+	for (p = 0; p < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; p++)
+		player_ui_globals.local_players[p].active_profile_index = NONE;
+	player_ui_globals.edit_profile_index = NONE;
+	player1_last_used_profile_index = NONE;
+	player1_profile_path[0] = 0;
 }
 static void profile_delete(long index)
 {
@@ -280,6 +342,69 @@ int main(void)
 		player_ui_apply_pending_saved_game_file_deletions();
 		assert(active_of(0) == INDEX_OF(0));
 	}
+
+	/* every cached index follows a delete: the last-used profile of player 1 and the profile being edited, as well as
+	the local players' */
+	reset_players();
+	index_a = profile_create(&a);
+	index_b = profile_create(&b);
+	index_c = profile_create(&c);
+	player1_last_used_profile_index = index_c;
+	player_ui_set_edit_profile_index(index_c);
+	profile_delete(index_a);
+	player_ui_apply_pending_saved_game_file_deletions();
+	assert(player1_last_used_profile_index == INDEX_OF(1) && player_ui_globals.edit_profile_index == INDEX_OF(1));
+	/* the deleted profile itself: nothing keeps its index */
+	profile_delete(INDEX_OF(1));
+	player_ui_apply_pending_saved_game_file_deletions();
+	assert(player1_last_used_profile_index == NONE && player_ui_globals.edit_profile_index == NONE);
+
+	/* the saved games listed again in another order: the paths decide, for the local players (with their own input
+	settings), the profile being edited and player 1's last-used profile (found again when it is next read) */
+	reset_players();
+	index_a = profile_create(&a);
+	index_b = profile_create(&b);
+	index_c = profile_create(&c);
+	player_ui_set_active_player_profile(0, index_a, &record);
+	player_ui_set_active_player_profile(1, index_b, &record);
+	player_ui_set_active_player_profile(2, index_c, &record);
+	player_ui_set_edit_profile_index(index_a);
+	player1_last_used_profile_index = index_c;
+	snprintf(player1_profile_path, 32, "p%d", file_id[2]);
+	profile_relist_reversed();
+	player_ui_apply_pending_saved_game_file_deletions();
+	assert(active_of(0) == INDEX_OF(2) && active_of(1) == INDEX_OF(1) && active_of(2) == INDEX_OF(0));
+	assert(!memcmp(player_input_profile_for_local_player(0), &a, sizeof(a)));
+	assert(!memcmp(player_input_profile_for_local_player(2), &c, sizeof(c)));
+	assert(player_ui_globals.edit_profile_index == INDEX_OF(2));
+	assert(player_ui_get_player1_last_used_profile_index() == INDEX_OF(0));
+
+	/* a profile that is gone when the list is built again is dropped, not left on another profile's index */
+	reset_players();
+	index_a = profile_create(&a);
+	index_b = profile_create(&b);
+	player_ui_set_active_player_profile(0, index_a, &record);
+	player_ui_set_active_player_profile(1, index_b, &record);
+	player_ui_set_edit_profile_index(index_a);
+	profile_remove(index_a);	/* (the listing no longer has it, and nothing was posted) */
+	player_ui_post_saved_game_files_relisted();
+	player_ui_apply_pending_saved_game_file_deletions();
+	assert(active_of(0) == NONE && active_of(1) == INDEX_OF(0) && player_ui_globals.edit_profile_index == NONE);
+	assert(!memcmp(player_input_profile_for_local_player(0), &defaults, sizeof(defaults)));
+	assert(!memcmp(player_input_profile_for_local_player(1), &b, sizeof(b)));
+
+	/* a compaction that failed partway: nothing is trusted */
+	reset_players();
+	index_a = profile_create(&a);
+	index_b = profile_create(&b);
+	player_ui_set_active_player_profile(0, index_a, &record);
+	player_ui_set_active_player_profile(1, index_b, &record);
+	player_ui_set_edit_profile_index(index_b);
+	player1_last_used_profile_index = index_b;
+	player_ui_post_saved_game_files_unknown_change();
+	player_ui_apply_pending_saved_game_file_deletions();
+	assert(active_of(0) == NONE && active_of(1) == NONE && player_ui_globals.edit_profile_index == NONE && player1_last_used_profile_index == NONE);
+	assert(!memcmp(player_input_profile_for_local_player(1), &defaults, sizeof(defaults)));
 	return 0;
 }
 '''
@@ -299,13 +424,14 @@ def _activation_status(tmp_path, ui_source, mutate=None):
     # (the deletion mailbox is new in the branch: a source without it gets empty posts, which the probe must reject)
     if '/* port: saved game file deletion mailbox' in ui_source:
         start = ui_source.index('/* port: saved game file deletion mailbox')
-        functions = ui_source[start:ui_source.index('/* end of the deletion mailbox */')] + '\n' + functions
+        functions = ui_source[start:ui_source.index('/* end of the deletion mailbox */')] + '\n' + \
+            _function(ui_source, 'long player_ui_get_player1_last_used_profile_index(') + '\n' + functions
     else:
         functions = ('void player_ui_post_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }\n'
                      'void player_ui_apply_pending_saved_game_file_deletions(void) { }\n') + functions
     if mutate:
         functions = mutate(functions)
-    folder = tmp_path / 'probe'
+    folder = tmp_path / ('probe%d' % len(list(tmp_path.iterdir())))
     folder.mkdir()
     program = folder / 'probe.c'
     program.write_text(PROGRAM.replace('/* FUNCTIONS */', functions).replace('"../../port/', '"' + str(ROOT) + '/port/'))
@@ -355,7 +481,47 @@ def test_deletes_are_posted_under_the_mapfile_mutex_and_drained_before_index_rea
     ui = (ROOT / 'source' / 'interface' / 'player_ui.c').read_text(encoding='latin-1').replace('\r\n', '\n')
     start = ui.index('/* end of the deletion mailbox */')
     for chunk in re.split(r'\n(?=[a-z][a-z_ ]* \*?player_ui_\w+\()', ui[:start] + '\n' + ui[start:]):
-        if '.active_profile_index' in chunk and 'player_ui_saved_game_file_deleted(' not in chunk[:60] \
+        if '.active_profile_index' in chunk and not re.match(r'static void player_ui_(saved_game_file_deleted|find_cached|clear_active|remember_profile_path|forget_cached)', chunk) \
                 and 'player_ui_apply_pending_saved_game_file_deletions' not in chunk[:60]:
             if re.search(r'\.active_profile_index\s*(!=|==|,|\))', chunk) or 'result = ' in chunk:
                 assert 'player_ui_apply_pending_saved_game_file_deletions();' in chunk, chunk[:80]
+
+
+def _replace_function(functions, signature, replacement):
+    start = functions.index(signature)
+    return functions[:start] + replacement + functions[functions.index('\n}', start) + 2:]
+
+
+def test_the_probe_catches_a_post_that_does_nothing(tmp_path):
+    ui = (ROOT / 'source/interface/player_ui.c').read_text(encoding='latin-1')
+
+    def no_op_post(functions):
+        return _replace_function(functions, 'void player_ui_post_saved_game_file_deleted(',
+                                 'void player_ui_post_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }')
+
+    assert _activation_status(tmp_path, ui, no_op_post) != 0
+
+
+def test_the_probe_catches_a_relisting_that_finds_nothing_again(tmp_path):
+    ui = (ROOT / 'source/interface/player_ui.c').read_text(encoding='latin-1')
+
+    def no_op_relisting(functions):
+        return _replace_function(functions, 'static void player_ui_find_cached_profiles_by_path(',
+                                 'static void player_ui_find_cached_profiles_by_path(void) { }')
+
+    def no_op_relisted_post(functions):
+        return _replace_function(functions, 'void player_ui_post_saved_game_files_relisted(',
+                                 'void player_ui_post_saved_game_files_relisted(void) { }')
+
+    assert _activation_status(tmp_path, ui, no_op_relisting) != 0
+    assert _activation_status(tmp_path, ui, no_op_relisted_post) != 0
+
+
+def test_a_relisting_and_a_failed_compaction_are_posted_by_the_saved_game_files():
+    files = (ROOT / 'source' / 'saved games' / 'saved_game_files.c').read_text(encoding='latin-1').replace('\r\n', '\n')
+    listing = files[files.rindex('static void enumerate_memory_units(\n\tvoid)\n{'):]
+    listing = listing[:listing.index('\n}')]
+    assert listing.rstrip().endswith('player_ui_post_saved_game_files_relisted();\n\treturn;')
+    remove = files[files.rindex('static boolean remove_nth_entry_in_mapfile(\n\tword memory_unit_index,\n\tword n,\n\tlong deleted_index)\n{'):]
+    remove = remove[:remove.index('saved_game_files_release_mapfile_mutex();')]
+    assert 'player_ui_post_saved_game_files_unknown_change();' in remove

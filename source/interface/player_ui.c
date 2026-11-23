@@ -228,6 +228,10 @@ static void reset_local_player_profile(
 	short local_player_index);
 static void clear_profile_edit_data(
 	void);
+static void player_ui_remember_profile_path(
+	short local_player_index);
+static void player_ui_set_edit_profile_index(
+	long profile_index);
 
 /* ---------- globals */
 
@@ -749,9 +753,13 @@ void player_ui_set_single_player_local_player_controller(
 long player_ui_get_player1_last_used_profile_index(
 	void)
 {
-	if (!player1_profile_path[0] &&
+	player_ui_apply_pending_saved_game_file_deletions();
+	if (!player1_profile_path[0])
 		saved_game_file_retrieve_player1_last_used_profile_directory(
-			player1_profile_path))
+			player1_profile_path);
+	/* port: the index is a cache of the profile's directory path: after the saved games were listed again it is NONE
+	and found by the path here */
+	if (player1_profile_path[0] && player1_last_used_profile_index == NONE)
 	{
 		player1_last_used_profile_index = saved_game_file_find_profile_index_for_directory_path(
 			player1_profile_path, _saved_game_file_type_player_profile);
@@ -906,7 +914,7 @@ void player_ui_begin_editing_profile(
 			return;
 	}
 
-	player_ui_globals.edit_profile_index = profile_index;
+	player_ui_set_edit_profile_index(profile_index);
 	return;
 }
 
@@ -982,7 +990,7 @@ boolean player_ui_save_profile(
 							new_profile_index,
 							&player_ui_globals.edit_profile.current.variant,
 							&player_ui_edit_options.current);
-						player_ui_globals.edit_profile_index = new_profile_index;
+						player_ui_set_edit_profile_index(new_profile_index);
 						if (saved_game_file_get_path_to_enclosing_directory(
 							new_profile_index,
 							directory_path))
@@ -1348,6 +1356,7 @@ void player_ui_set_active_player_profile(
 		&player_ui_globals.local_players[local_player_index].profile,
 		profile,
 		sizeof(*profile));
+	player_ui_remember_profile_path(local_player_index);
 	/* port: and the input settings of that profile, or the defaults without one. Always read: a profile's index
 	can be reused by another profile after a delete */
 	{
@@ -1360,16 +1369,24 @@ void player_ui_set_active_player_profile(
 	return;
 }
 
-/* port: saved game file deletion mailbox. The mapfile closes up over a deleted entry (saved_game_files.c
-remove_nth_entry_in_mapfile), so every entry after it has an index one lower and a local player's active index must
-follow its profile. A delete can run on any thread (a failed profile write deletes on the write thread), and the local
-players belong to the game thread: a delete posts its index here, and the game thread applies the posts in order, at
-its next tick (main.c) and before it reads or sets a profile. Posts come from one producer at a time (the mapfile mutex). */
+/* port: saved game file deletion mailbox. Profile indices that the UI caches (each local player's active profile,
+the last-used profile of player 1, the profile being edited) name a position in the mapfile, and the position changes
+in two ways: the mapfile closes up over a deleted entry (saved_game_files.c remove_nth_entry_in_mapfile), and it is
+rebuilt from the directory listing (enumerate_memory_units). Both post here, from any thread (a failed profile write
+deletes on the write thread), and the game thread applies the posts in order, at its next tick (main.c) and before it
+reads or sets a profile: player_ui_reresolve_cached_profile_indices is the one place that follows the changes. Posts
+come from one producer at a time (the mapfile mutex), except the flags. */
 #define PLAYER_UI_DELETION_MAILBOX_SIZE 16
+#define PLAYER_UI_PATH_SIZE 0x100
 static long player_ui_deletion_mailbox[PLAYER_UI_DELETION_MAILBOX_SIZE];
 static long player_ui_deletion_head;
 static long player_ui_deletion_tail;
 static volatile long player_ui_deletion_overflow;
+static volatile long player_ui_relisted;
+/* the directory path of each cached profile, which names it across a re-listing */
+static char player_ui_active_profile_path[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS][PLAYER_UI_PATH_SIZE];
+static char player_ui_edit_profile_path[PLAYER_UI_PATH_SIZE];
+static short player_ui_edit_profile_type = NONE;
 
 void player_ui_post_saved_game_file_deleted(
 	long deleted_index)
@@ -1390,8 +1407,77 @@ void player_ui_post_saved_game_file_deleted(
 	return;
 }
 
-/* a local player follows one deleted entry: the player on it has no profile and the default input settings (they
-keep the record they have), and every entry after it has an index one lower */
+/* the entries may have moved in a way nobody can describe (a compaction that failed partway): no cached profile is
+trusted */
+void player_ui_post_saved_game_files_unknown_change(
+	void)
+{
+	player_ui_deletion_overflow = 1;
+	return;
+}
+
+/* the saved games were listed again: the order need not be the old one */
+void player_ui_post_saved_game_files_relisted(
+	void)
+{
+	player_ui_relisted = 1;
+	return;
+}
+
+static void player_ui_remember_profile_path(
+	short local_player_index)
+{
+	char *path = player_ui_active_profile_path[local_player_index];
+	long profile_index = player_ui_globals.local_players[local_player_index].active_profile_index;
+
+	path[0] = '\0';
+	if (profile_index != NONE && !player_profile_get_enclosing_directory_path(profile_index, path))
+		path[0] = '\0';
+	return;
+}
+
+static void player_ui_set_edit_profile_index(
+	long profile_index)
+{
+	player_ui_globals.edit_profile_index = profile_index;
+	player_ui_edit_profile_path[0] = '\0';
+	player_ui_edit_profile_type = NONE;
+	if (profile_index != NONE)
+	{
+		player_ui_edit_profile_type = saved_game_file_get_type(profile_index);
+		if (!saved_game_file_get_path_to_enclosing_directory(profile_index, player_ui_edit_profile_path))
+			player_ui_edit_profile_path[0] = '\0';
+	}
+	return;
+}
+
+static void player_ui_clear_active_profile(
+	short local_player_index)
+{
+	player_ui_globals.local_players[local_player_index].active_profile_index = NONE;
+	player_ui_active_profile_path[local_player_index][0] = '\0';
+	player_input_profile_set_local_player(local_player_index, NULL);
+	return;
+}
+
+/* a cached index after one entry was deleted: NONE for the entry itself, one lower for each later entry of the same
+memory unit */
+static long player_ui_index_after_deletion(
+	long index,
+	long deleted_index)
+{
+	if (index == NONE)
+		return NONE;
+	if (index == deleted_index)
+		return NONE;
+	if (((index >> 8) & 0xFF) == ((deleted_index >> 8) & 0xFF) &&
+		((index >> 16) & 0xFFF) > ((deleted_index >> 16) & 0xFFF))
+		return index - (1L << 16);
+	return index;
+}
+
+/* every cached profile index follows one deleted entry (a profile that was deleted has no index: a local player on
+it plays with no profile and the default input settings, and keeps the record they have) */
 static void player_ui_saved_game_file_deleted(
 	long deleted_index)
 {
@@ -1400,25 +1486,88 @@ static void player_ui_saved_game_file_deleted(
 	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
 	{
 		long active = player_ui_globals.local_players[local_player_index].active_profile_index;
+		long after = player_ui_index_after_deletion(active, deleted_index);
 
-		if (active == NONE)
-			continue;
-		if (active == deleted_index)
+		if (active != NONE && after == NONE)
+			player_ui_clear_active_profile(local_player_index);
+		else
+			player_ui_globals.local_players[local_player_index].active_profile_index = after;
+	}
+	player1_last_used_profile_index = player_ui_index_after_deletion(player1_last_used_profile_index, deleted_index);
+	if (player_ui_globals.edit_profile_index != NONE)
+	{
+		player_ui_globals.edit_profile_index = player_ui_index_after_deletion(player_ui_globals.edit_profile_index, deleted_index);
+		if (player_ui_globals.edit_profile_index == NONE)
 		{
-			player_ui_globals.local_players[local_player_index].active_profile_index = NONE;
-			player_input_profile_set_local_player(local_player_index, NULL);
-		}
-		else if (((active >> 8) & 0xFF) == ((deleted_index >> 8) & 0xFF) &&
-			((active >> 16) & 0xFFF) > ((deleted_index >> 16) & 0xFFF))
-		{
-			player_ui_globals.local_players[local_player_index].active_profile_index = active - (1L << 16);
+			player_ui_edit_profile_path[0] = '\0';
+			player_ui_edit_profile_type = NONE;
 		}
 	}
 	return;
 }
 
-/* the game thread applies what was posted; a mailbox that overflowed (more deletes between ticks than it holds)
-cannot say which indices moved, so every local player then has no profile */
+/* no cached index can be trusted */
+static void player_ui_forget_cached_profile_indices(
+	void)
+{
+	short local_player_index;
+
+	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
+		player_ui_clear_active_profile(local_player_index);
+	player1_last_used_profile_index = NONE;
+	player_ui_globals.edit_profile_index = NONE;
+	player_ui_edit_profile_path[0] = '\0';
+	player_ui_edit_profile_type = NONE;
+	return;
+}
+
+/* the saved games were listed again: every cached index is found again by the path of its profile, and one that is
+not found is dropped. (player 1's last-used index is found again by its path when it is next read.) */
+static void player_ui_find_cached_profiles_by_path(
+	void)
+{
+	short local_player_index;
+
+	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
+	{
+		if (player_ui_globals.local_players[local_player_index].active_profile_index != NONE)
+		{
+			long found = player_ui_active_profile_path[local_player_index][0] ?
+				saved_game_file_find_profile_index_for_directory_path(
+					player_ui_active_profile_path[local_player_index], _saved_game_file_type_player_profile) : NONE;
+
+			if (found == NONE)
+			{
+				player_ui_clear_active_profile(local_player_index);
+			}
+			else
+			{
+				struct player_input_profile input;
+
+				player_ui_globals.local_players[local_player_index].active_profile_index = found;
+				player_profile_get_input(found, &input);
+				player_input_profile_set_local_player(local_player_index, &input);
+			}
+		}
+	}
+	player1_last_used_profile_index = NONE;
+	if (player_ui_globals.edit_profile_index != NONE)
+	{
+		player_ui_globals.edit_profile_index = player_ui_edit_profile_path[0] ?
+			saved_game_file_find_profile_index_for_directory_path(
+				player_ui_edit_profile_path, player_ui_edit_profile_type) : NONE;
+		if (player_ui_globals.edit_profile_index == NONE)
+		{
+			player_ui_edit_profile_path[0] = '\0';
+			player_ui_edit_profile_type = NONE;
+		}
+	}
+	return;
+}
+
+/* the game thread applies what was posted, in the order: deletions, then (if the saved games were listed again) the
+paths decide. A mailbox that overflowed (more deletes between ticks than it holds) or a compaction that failed cannot
+say which indices moved, so nothing is trusted. This is the one function that follows every change to the indices. */
 void player_ui_apply_pending_saved_game_file_deletions(
 	void)
 {
@@ -1432,14 +1581,14 @@ void player_ui_apply_pending_saved_game_file_deletions(
 	}
 	if (player_ui_deletion_overflow)
 	{
-		short local_player_index;
-
 		player_ui_deletion_overflow = 0;
-		for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
-		{
-			player_ui_globals.local_players[local_player_index].active_profile_index = NONE;
-			player_input_profile_set_local_player(local_player_index, NULL);
-		}
+		player_ui_relisted = 0;
+		player_ui_forget_cached_profile_indices();
+	}
+	else if (player_ui_relisted)
+	{
+		player_ui_relisted = 0;
+		player_ui_find_cached_profiles_by_path();
 	}
 	return;
 }

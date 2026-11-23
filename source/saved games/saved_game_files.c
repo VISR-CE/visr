@@ -1974,6 +1974,8 @@ static void enumerate_memory_units(
 	}
 
 	saved_game_files_globals.memory_units_dirty = FALSE;
+	/* port: the order of the entries may have changed: the UI finds its cached profiles again by their paths */
+	player_ui_post_saved_game_files_relisted();
 	return;
 }
 
@@ -2458,6 +2460,7 @@ static boolean remove_nth_entry_in_mapfile(
 	unsigned long entry_offset = n*sizeof(struct enumerated_saved_game_file);
 	unsigned long next_entry_offset;
 	boolean success = FALSE;
+	boolean entries_may_have_moved = FALSE;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\saved games\\saved_game_files.c",
@@ -2487,6 +2490,7 @@ static boolean remove_nth_entry_in_mapfile(
 
 			if (success == TRUE)
 			{
+				entries_may_have_moved = TRUE;
 				while (next_entry_offset < mapfile_size)
 				{
 					if (!file_read_from_position(&saved_game_files_globals.memory_unit_mapfile,
@@ -2515,6 +2519,11 @@ static boolean remove_nth_entry_in_mapfile(
 				/* port: the entries after it moved down: the game thread's local players follow. Posted under the
 				mapfile mutex, so posts are single-producer and in the order the mapfile changed */
 				player_ui_post_saved_game_file_deleted(deleted_index);
+			}
+			else if (entries_may_have_moved)
+			{
+				/* port: some entries moved down and the file did not shrink: no cached index can be trusted */
+				player_ui_post_saved_game_files_unknown_change();
 			}
 
 			if (!file_close(&saved_game_files_globals.memory_unit_mapfile))

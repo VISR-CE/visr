@@ -124,6 +124,12 @@ void player_ui_update_active_player_profile_record(
 thread applies posts at its tick (main.c) and before it reads or sets a profile */
 void player_ui_post_saved_game_file_deleted(
 	long deleted_index);
+/* port: the entries may have moved in a way nobody can describe (a compaction that failed partway), or the saved
+games were listed again and may be in another order */
+void player_ui_post_saved_game_files_unknown_change(
+	void);
+void player_ui_post_saved_game_files_relisted(
+	void);
 void player_ui_apply_pending_saved_game_file_deletions(
 	void);
 void player_ui_set_active_player_profile(
