@@ -1,5 +1,5 @@
 /* Adaptive frames in flight: the pacer's choice between a floor of one frame in flight and a ceiling of two, frame
-by frame, from what recent frames needed (design: agent-specs 2026-11-22 adaptive frames in flight, revision 3).
+by frame, from what recent frames needed.
 
 One frame in flight shows input a frame sooner but holds the next frame's present until the frame before it is
 shown, so a frame whose GPU work and present do not fit one frame period drops the rate to the next divisor of the
