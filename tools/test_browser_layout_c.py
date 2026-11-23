@@ -16,6 +16,8 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
     sorting = function(source[sorting_start:], "static struct\n") + " browser_sorting;"
     signatures = (
         "static boolean browser_listing_cooperative(",
+        "static short browser_join_block(",
+        "static void browser_join_block_text(",
         "static boolean browser_listing_can_join(",
         "static boolean browser_listing_other_filters(",
         "static boolean browser_listing_in_chip(",
@@ -25,7 +27,9 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
         "static short browser_filter_and_sort(",
         "static long browser_target_fps(",
     )
-    production = "\n".join(function(source, signature) for signature in signatures)
+    join_enum = source[source.index("enum\n{\n\t_browser_join_ok"):]
+    join_enum = join_enum[:join_enum.index("};") + 3]
+    production = join_enum + "\n".join(function(source, signature) for signature in signatures)
     harness = r'''
 #define HALO_IOS 1
 #include <assert.h>
@@ -35,6 +39,7 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
 #include <wchar.h>
 #include "p2p.h"
 #include "halo_network_content.h"
+#include "halo_network_version.h"
 typedef int boolean;
 #define FALSE 0
 #define TRUE 1
@@ -42,9 +47,10 @@ typedef int boolean;
 #define BROWSER_SORT_KEY_LENGTH 48
 #define ROW_TEXT_LENGTH 128
 #define ustrncpy wcsncpy
+#define usnprintf swprintf
 enum { _browser_sort_players, _browser_sort_name, _browser_sort_map, _browser_sort_game };
 static struct { short chip_counts[3]; } lobby_browser;
-static int show_full=1, show_locked=1, show_unjoinable=0;
+static int show_full=1, show_locked=1, show_unjoinable=0, online=1;
 static char const *game_type="all", *frame_rate="auto";
 static char const *base_rate="30";   /* the predictable/in-force value: must never be read for the target */
 static int display_refresh=0;
@@ -55,6 +61,7 @@ static int config_variable_string(char const *key, char *text, size_t size)
 }
 static int config_boolean(char const *key)
 {
+    if (!strcmp(key,"network.online")) return online;
     if (!strcmp(key,"network.browser_show_full")) return show_full;
     if (!strcmp(key,"network.browser_show_locked")) return show_locked;
     assert(!strcmp(key,"network.browser_show_unjoinable")); return show_unjoinable;
@@ -132,6 +139,21 @@ int main(void)
     show_unjoinable=0; g.joinable=1; g.failed=1;
     assert(!browser_listing_can_join(&g) && !browser_listing_shown(&g));
     g.failed=0;
+    /* one reason for every consumer: its order, and its words (the panel leaves a version to the network pill) */
+    {
+        wchar_t words[128];
+        g=listing(2,4); g.open=1; g.joinable=1; g.failed=0; online=1;
+        assert(browser_join_block(&g)==_browser_join_ok);
+        g.open=0; assert(browser_join_block(&g)==_browser_join_full);
+        browser_join_block_text(&g,_browser_join_full,1,words,128); assert(!wcscmp(words,L"This game is full or starting."));
+        g.open=1; g.failed=1; assert(browser_join_block(&g)==_browser_join_failed);
+        browser_join_block_text(&g,_browser_join_failed,1,words,128); assert(!wcscmp(words,L"Couldn't reach this game."));
+        online=0; assert(browser_join_block(&g)==_browser_join_offline);
+        g.joinable=0; assert(browser_join_block(&g)==_browser_join_version);
+        browser_join_block_text(&g,_browser_join_version,1,words,128); assert(!words[0]);
+        browser_join_block_text(&g,_browser_join_version,0,words,128); assert(wcsstr(words,L"network version"));
+        online=1; g=listing(2,4); g.joinable=1;
+    }
     unsigned const unsupported[]={1,2,3,4,0x80,0xff};
     for (unsigned i=0;i<sizeof(unsupported)/sizeof(unsupported[0]);i++)
     {
