@@ -9,20 +9,23 @@ and gains the shorter delay (the A10X iPad Pro in a 128-player game).
 The rule, decided from presented frames only:
 
 - enter the floor, once the retry delay has passed, when either
-  - under rate: over a span at the ceiling, fewer than FRAME_PACER_ADAPT_UNDER_RATE of the rate in force was
-    shown, or
   - fits: the worst GPU time plus the worst span from slot grant to present, each over the last
     FRAME_PACER_ADAPT_WINDOW frames with a valid value, plus the lead, is within FRAME_PACER_ADAPT_FIT of the period
-    in force. Neither measure contains a slot wait, so it reads the same at one and at two.
-- leave the floor on two slot-caused misses within FRAME_PACER_ADAPT_MISS_SPAN seconds (a frame that waited for
-  its slot and came over one and a half periods after the frame before; under rate, one and a half of the interval
-  the ceiling showed), or, for an under-rate stay, when a
-  span at the floor shows more than FRAME_PACER_ADAPT_RATE_LOSS less than the rate seen at the ceiling.
-- an under-rate stay goes back to the ceiling for one span every FRAME_PACER_ADAPT_REMEASURE seconds to measure its
-  rate again, without the retry delay, and comes straight back if still under rate. Its exits compare the floor
-  with a rate taken at entry; a workload that eases after entry (an Air 4 at 31 frames a second at two during a
-  heavy fight, then back to 60) would otherwise keep a floor that halves the rate, since 30 is within the tolerance
-  of 31 and no frame is late against a 32 ms baseline (second code review, B1).
+    in force. Neither measure contains a slot wait, so it reads the same at one and at two. Or
+  - under rate: over a span at the ceiling, fewer than FRAME_PACER_ADAPT_UNDER_RATE of the rate in force was
+    shown. A stay entered under rate whose work fits at a later span is a fits stay from then on (a stay entered
+    while a level loads is not left labeled by the load).
+- at the floor, every frame also yields the interval two in flight would have shown: its own, less the time it
+  waited for its slot (with a second slot it would have started when it began waiting), but never under the period
+  or its GPU time. The floor is judged against that, measured now, frame by frame, with no trip to two and no rate
+  kept from the ceiling. Leave the floor on
+  - two slot-caused misses within FRAME_PACER_ADAPT_MISS_SPAN seconds: a frame that waited for its slot and came
+    over one and a half of its interval at two after the frame before, or
+  - rate loss: a span at the floor shows more than FRAME_PACER_ADAPT_RATE_LOSS fewer frames than its intervals at
+    two add up to.
+  (The second code review's B1: judged against a rate taken at entry, a workload that eased after entry kept a
+  floor that halved the rate. A first fix went back to two every 20 s to measure again, which put a 33 ms step of
+  delay into an A10X campaign that fits; this measure replaces it.)
 
 Set from fixed-one against fixed-two traces (debug.present_times) on 2026-11-22:
 - iPad Air 4, 32 players, 60 Hz: GPU 14 ms at the median and 16 to 21 at the 90th percentile, grant to present
@@ -52,9 +55,6 @@ frame_pacer_adapt_probe.c (tools/ios_test.py) holds the cases. */
 #define FRAME_PACER_ADAPT_RETRY_FIRST 2.0
 #define FRAME_PACER_ADAPT_RETRY_MOST 60.0
 #define FRAME_PACER_ADAPT_RETRY_CALM 60.0
-/* the longest an under-rate stay keeps a rate taken at entry: the cost of a workload that eased (up to this long at
-half rate) against one span at two each time (about 10% of an A10X stay at two) */
-#define FRAME_PACER_ADAPT_REMEASURE 20.0
 /* (the rate tests' span: two seconds, about 40 frames at the A10X's 19) */
 #define FRAME_PACER_ADAPT_SPAN 2.0
 /* a period that moved by more than this share is a new rate in force; less is the display link's jitter */
@@ -69,7 +69,6 @@ enum frame_pacer_adapt_reason
 	FRAME_PACER_ADAPT_UNDER,       /* entered the floor: under rate at the ceiling */
 	FRAME_PACER_ADAPT_MISSES,      /* left the floor: slot-caused misses */
 	FRAME_PACER_ADAPT_RATE_LOST,   /* left the floor: an under-rate stay lost rate */
-	FRAME_PACER_ADAPT_REMEASURE_CEILING, /* left the floor for one span to measure the ceiling's rate again */
 };
 
 static inline const char *frame_pacer_adapt_reason_name(enum frame_pacer_adapt_reason reason)
@@ -80,7 +79,6 @@ static inline const char *frame_pacer_adapt_reason_name(enum frame_pacer_adapt_r
 	case FRAME_PACER_ADAPT_UNDER: return "under its rate";
 	case FRAME_PACER_ADAPT_MISSES: return "frames missed waiting for the slot";
 	case FRAME_PACER_ADAPT_RATE_LOST: return "an under-rate stay lost rate";
-	case FRAME_PACER_ADAPT_REMEASURE_CEILING: return "measuring the rate at two again";
 	default: return "none";
 	}
 }
@@ -95,6 +93,7 @@ struct frame_pacer_adapt_frame
 	double grant_to_present; /* slot grant to the present; below 0: unknown (0 is a present at once) */
 	double lead;             /* the compositor's lead the late start keeps */
 	int slot_waited;         /* found every slot taken and waited */
+	double waited;           /* how long it waited for its slot: from the wait's start to the grant; 0: it did not */
 	int transition;          /* shown while the slots drained after a change: counts toward nothing */
 };
 
@@ -105,12 +104,12 @@ struct frame_pacer_adapt
 	int gpu_count, gpu_next, grant_count, grant_next;
 	double span_start;          /* the rate test's second began; 0: not yet */
 	int span_frames;
+	double span_at_two;         /* at the floor: the span's intervals as two in flight would have shown them */
 	double rate_at_ceiling;     /* frames a second the last span at the ceiling showed; 0: none */
-	int under_rate_stay;        /* the floor was entered under rate */
+	enum frame_pacer_adapt_reason stay; /* the kind of this stay at the floor: fits or under rate */
 	double miss_at[2];          /* the last two slot-caused misses at the floor */
 	double retry_delay, retry_at, period;
-	double floor_since;         /* at the floor since, without an exit (a re-measure does not count) */
-	double stay_since;          /* this stay at the floor began */
+	double floor_since;         /* at the floor since, without an exit */
 	unsigned long switches;
 	enum frame_pacer_adapt_reason reason; /* of the latest switch */
 };
@@ -158,28 +157,32 @@ static inline void frame_pacer_adapt_switch(struct frame_pacer_adapt *adapt, int
 	adapt->reason = reason;
 	adapt->switches++;
 	adapt->span_start = 0.0;
+	adapt->span_at_two = 0.0;
 	adapt->miss_at[0] = adapt->miss_at[1] = 0.0;
 	if (limit == adapt->floor)
 	{
-		if (adapt->floor_since <= 0.0)
-			adapt->floor_since = now;
-		adapt->stay_since = now;
-		adapt->under_rate_stay = reason == FRAME_PACER_ADAPT_UNDER;
-	}
-	else if (reason == FRAME_PACER_ADAPT_REMEASURE_CEILING)
-	{
-		/* one span at two, then straight back if still under rate: no delay, and the calm time runs on */
-		adapt->retry_at = now;
-		adapt->under_rate_stay = 0;
+		adapt->floor_since = now;
+		adapt->stay = reason;
 	}
 	else
 	{
 		adapt->retry_at = now + adapt->retry_delay;
 		adapt->retry_delay = adapt->retry_delay * 2.0 < FRAME_PACER_ADAPT_RETRY_MOST ? adapt->retry_delay * 2.0 :
 			FRAME_PACER_ADAPT_RETRY_MOST;
-		adapt->under_rate_stay = 0;
-		adapt->floor_since = 0.0;
+		adapt->stay = FRAME_PACER_ADAPT_NONE;
 	}
+}
+
+/* at the floor: the interval two in flight would have shown for this frame (frame_pacer_adapt.h's rule) */
+static inline double frame_pacer_adapt_at_two(const struct frame_pacer_adapt_frame *frame)
+{
+	double at_two = frame->interval - (frame->waited > 0.0 ? frame->waited : 0.0);
+
+	if (at_two < frame->period)
+		at_two = frame->period;
+	if (at_two < frame->gpu)
+		at_two = frame->gpu;
+	return at_two;
 }
 
 /* one presented frame; returns the limit for the frames that start from now (reason of a switch in adapt->reason,
@@ -196,11 +199,14 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 		/* a new rate in force: the windows and the delay start again, and the limit stays */
 		int limit = adapt->limit;
 		unsigned long switches = adapt->switches;
+		enum frame_pacer_adapt_reason stay = adapt->stay, reason = adapt->reason;
 
 		frame_pacer_adapt_reset(adapt, adapt->floor, adapt->ceiling);
 		adapt->limit = limit;
 		adapt->switches = switches;
-		adapt->floor_since = adapt->stay_since = limit == adapt->floor ? now : 0.0;
+		adapt->stay = stay;
+		adapt->reason = reason;
+		adapt->floor_since = limit == adapt->floor ? now : 0.0;
 	}
 	adapt->period = frame->period;
 	if (frame->transition)
@@ -215,18 +221,17 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 	{
 		adapt->span_start = now;
 		adapt->span_frames = 0;
+		adapt->span_at_two = 0.0;
 		return adapt->limit;
 	}
 	adapt->span_frames++;
 	if (adapt->limit == adapt->floor)
 	{
-		/* leave on slot-caused misses: late against the period, or, in a stay entered under rate, against the interval
-		the ceiling showed (every frame there is over one and a half periods) */
-		double expected = frame->period;
+		double at_two = frame_pacer_adapt_at_two(frame);
 
-		if (adapt->under_rate_stay && adapt->rate_at_ceiling > 0.0 && 1.0 / adapt->rate_at_ceiling > expected)
-			expected = 1.0 / adapt->rate_at_ceiling;
-		if (frame->slot_waited && frame->interval > 1.5 * expected)
+		adapt->span_at_two += at_two;
+		/* leave on slot-caused misses: late against what two in flight would have shown */
+		if (frame->slot_waited && frame->interval > 1.5 * at_two)
 		{
 			adapt->miss_at[0] = adapt->miss_at[1];
 			adapt->miss_at[1] = now;
@@ -238,21 +243,21 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 		}
 		if (now - adapt->span_start >= FRAME_PACER_ADAPT_SPAN)
 		{
-			double rate = adapt->span_frames / (now - adapt->span_start);
+			/* leave on rate loss against the same frames at two; a stay whose work now fits is a fits stay */
+			/* (the same frames in less time at two: rate at one = frames / span, at two = frames / span_at_two) */
+			int lost = adapt->span_at_two > 0.0 &&
+				adapt->span_at_two < (1.0 - FRAME_PACER_ADAPT_RATE_LOSS) * (now - adapt->span_start);
 
 			adapt->span_start = now;
 			adapt->span_frames = 0;
-			if (adapt->under_rate_stay && adapt->rate_at_ceiling > 0.0 &&
-				rate < adapt->rate_at_ceiling * (1.0 - FRAME_PACER_ADAPT_RATE_LOSS))
+			adapt->span_at_two = 0.0;
+			if (lost)
 			{
 				frame_pacer_adapt_switch(adapt, adapt->ceiling, now, FRAME_PACER_ADAPT_RATE_LOST);
 				return adapt->limit;
 			}
-		}
-		if (adapt->under_rate_stay && now - adapt->stay_since >= FRAME_PACER_ADAPT_REMEASURE)
-		{
-			frame_pacer_adapt_switch(adapt, adapt->ceiling, now, FRAME_PACER_ADAPT_REMEASURE_CEILING);
-			return adapt->limit;
+			if (adapt->stay == FRAME_PACER_ADAPT_UNDER && frame_pacer_adapt_fits(adapt, frame->period, frame->lead) == 1)
+				adapt->stay = FRAME_PACER_ADAPT_FITS;
 		}
 		/* a long calm stay forgives the delay */
 		if (adapt->floor_since > 0.0 && now - adapt->floor_since >= FRAME_PACER_ADAPT_RETRY_CALM)
@@ -270,12 +275,10 @@ static inline int frame_pacer_adapt_frame(struct frame_pacer_adapt *adapt, const
 		adapt->span_frames = 0;
 		if (now < adapt->retry_at)
 			return adapt->limit;
-		if (rate < FRAME_PACER_ADAPT_UNDER_RATE / frame->period)
-			frame_pacer_adapt_switch(adapt, adapt->floor, now, FRAME_PACER_ADAPT_UNDER);
-		else if (fits == 1)
+		if (fits == 1)
 			frame_pacer_adapt_switch(adapt, adapt->floor, now, FRAME_PACER_ADAPT_FITS);
-		else
-			adapt->floor_since = 0.0;    /* (a re-measure that stays at two ends the calm time) */
+		else if (rate < FRAME_PACER_ADAPT_UNDER_RATE / frame->period)
+			frame_pacer_adapt_switch(adapt, adapt->floor, now, FRAME_PACER_ADAPT_UNDER);
 	}
 	return adapt->limit;
 }

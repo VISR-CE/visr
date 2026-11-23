@@ -25,8 +25,7 @@ struct stream
 
 static double shown_rate;          /* the run's frames a second */
 static double floor_share;         /* the run's share of time at one in flight */
-static int exits;                  /* left the floor on misses or rate loss (a re-measure is not an exit) */
-static int remeasures;             /* left an under-rate stay for one span to measure the ceiling again */
+static int exits;                  /* left the floor on misses or rate loss */
 
 static struct frame_pacer_adapt run(const struct stream *s, int start_limit, double seconds, int transition)
 {
@@ -36,7 +35,7 @@ static struct frame_pacer_adapt run(const struct stream *s, int start_limit, dou
     int hitched = 0;
     double at_floor = 0.0;
 
-    exits = remeasures = 0;
+    exits = 0;
 
     frame_pacer_adapt_reset(&adapt, 1, 2);
     adapt.limit = start_limit;
@@ -48,6 +47,8 @@ static struct frame_pacer_adapt run(const struct stream *s, int start_limit, dou
         struct frame_pacer_adapt_frame frame = {
             .at = at, .interval = interval, .period = s->period + wobble, .gpu = s->gpu, .grant_to_present = s->grant,
             .lead = s->lead, .slot_waited = limit == 1 && !s->cpu_caused,
+            /* (a frame at one that waited for its slot waited what one costs over two: the difference of intervals) */
+            .waited = limit == 1 && !s->cpu_caused && s->interval[1] > s->interval[2] ? s->interval[1] - s->interval[2] : 0.0,
             .transition = transition,
         };
 
@@ -57,7 +58,6 @@ static struct frame_pacer_adapt run(const struct stream *s, int start_limit, dou
         if (adapt.switches != before)
         {
             exits += adapt.reason == FRAME_PACER_ADAPT_MISSES || adapt.reason == FRAME_PACER_ADAPT_RATE_LOST;
-            remeasures += adapt.reason == FRAME_PACER_ADAPT_REMEASURE_CEILING;
         }
         n++;
         frames++;
@@ -104,7 +104,7 @@ int main(void)
     /* under rate, CPU-bound (the A10X iPad Pro at 128 players, about 18 a second): the floor */
     struct stream cpu_under = { p60, { 0, 0.053, 0.055 }, 0.030, 0.004, 0.003, 0, 0, 0 };
     a = run(&cpu_under, 2, 30.0, 0);
-    CHECK(exits == 0 && floor_share > 0.8 && remeasures >= 1 && remeasures <= 30.0 / FRAME_PACER_ADAPT_REMEASURE);
+    CHECK(exits == 0 && floor_share > 0.9 && a.switches == 1);
     /* (from the floor it has no rate at the ceiling to judge against: it goes up once to learn it, then back) */
     b = run(&cpu_under, 1, 30.0, 0);
     CHECK(exits <= 1 && floor_share > 0.8);
@@ -121,7 +121,7 @@ int main(void)
        two and 19.5 at one, 5% fewer: one in flight, for 25 to 70 ms less delay */
     struct stream a10x = { p60, { 0, 1.0 / 19.5, 1.0 / 20.5 }, 0.040, 0.0002, 0.003, 0, 0, 0 };
     a = run(&a10x, 2, 120.0, 0);
-    CHECK(exits == 0 && floor_share > 0.85 && remeasures <= 120.0 / FRAME_PACER_ADAPT_REMEASURE);
+    CHECK(exits == 0 && floor_share > 0.95 && a.switches == 1);
 
     /* the iPad Air 4 at 32 players (traces): GPU 14 ms, one in flight shows 30 a second: two, never one */
     struct stream air4 = { p60, { 0, 2 * p60, p60 }, 0.021, 0.0003, 0.003, 0, 0, 0 };
@@ -268,15 +268,30 @@ int main(void)
                     rule.frames[last], two.frames[last]);
             CHECK(rule.frames[last] >= 0.9 * two.frames[last]);
         }
-        /* the calm time runs on across re-measures: after exits that grew the retry delay (one in flight halving a
-           50-frame load), a long under-rate stay forgives it, though it goes back to two every 20 s to measure */
+        /* after exits that grew the retry delay (one in flight halving a 50-frame load), a long calm stay forgives it */
         {
             static const struct frame_pacer_model_phase calm[] = { { 60, 0.010, 0.019 }, { 200, 0.049, 0.040 } };
             struct frame_pacer_model_result rule = frame_pacer_model_run(calm, 2, refresh, 1, 0.003, 0);
 
             CHECK(rule.reasons[FRAME_PACER_ADAPT_RATE_LOST] + rule.reasons[FRAME_PACER_ADAPT_MISSES] >= 2);
-            CHECK(rule.reasons[FRAME_PACER_ADAPT_REMEASURE_CEILING] >= 3);
             CHECK(rule.retry_delay == FRAME_PACER_ADAPT_RETRY_FIRST);
+        }
+        /* the 3 s load is a gap: no span reads it as rate, so the rule never leaves two for it */
+        {
+            static const struct frame_pacer_model_phase load[] = { { 20, 0.010, 0.014 }, { 23, 3.0, 0.014 }, { 83, 0.010, 0.014 } };
+            struct frame_pacer_model_result rule = frame_pacer_model_run(load, 3, refresh, 1, 0.003, 0);
+
+            CHECK(rule.switches == 0);
+        }
+        /* a stay entered under rate while a level loads, whose work then fits (the A10X campaign at 30: CPU 8.5 ms,
+           GPU 14 in a 33 ms period), is a fits stay: one in flight for the rest, with no exit (on device a rate kept
+           from the load made it leave twice) */
+        {
+            static const struct frame_pacer_model_phase loaded[] = { { 10, 0.060, 0.045 }, { 130, 0.0085, 0.014 } };
+            struct frame_pacer_model_result rule = frame_pacer_model_run(loaded, 2, refresh, 2, 0.003, 0);
+
+            CHECK(rule.reasons[FRAME_PACER_ADAPT_UNDER] == 1 && rule.reasons[FRAME_PACER_ADAPT_FITS] == 0);
+            CHECK(rule.stay == FRAME_PACER_ADAPT_FITS && rule.switches == 1 && rule.at_one[1] > 0.99 * 120.0);
         }
         /* and the A10X at 128 players held steady keeps most of its time at one, re-measuring now and then */
         {

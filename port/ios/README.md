@@ -376,7 +376,10 @@ frames and the build has none of this.
   the period, or while the device is under its rate and one in flight keeps
   that rate, and two otherwise (`frame_pacer_adapt.h`: one in flight halved
   the iPad Air 4 to 30 frames a second at 60, and two showed the A10X iPad
-  Pro's input 25 to 35 ms later at 128 players).
+  Pro's input 25 to 35 ms later at 128 players). At one, each frame's
+  interval less the time it waited for its slot is what two would have
+  shown, so the rule leaves one as soon as it costs frames, without going
+  back to two to find out.
   `"system"` leaves the queue to the system, which allows up to three.
 - `frames_in_flight_at_30` (`"1"` or `"2"`; default empty, which follows
   `frames_in_flight`) is the limit while the frame rate in force is 30 or

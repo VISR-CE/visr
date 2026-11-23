@@ -26,6 +26,7 @@ struct frame_pacer_model_result
 	int reasons[8];                            /* switches by reason */
 	unsigned long switches;
 	double retry_delay;                        /* the rule's at the end */
+	enum frame_pacer_adapt_reason stay;        /* the kind of stay at the end (none at two) */
 };
 
 /* fixed: 1 or 2 for a fixed limit, 0 for the adaptive rule */
@@ -37,6 +38,7 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 	double shown[FRAME_PACER_MODEL_HELD], gpu_of[FRAME_PACER_MODEL_HELD];
 	unsigned long number[FRAME_PACER_MODEL_HELD];
 	int waited_of[FRAME_PACER_MODEL_HELD], held = 0;
+	double wait_of[FRAME_PACER_MODEL_HELD];
 	double start = 1.0, gpu_done = 0.0, last_shown = 0.0, last_fed = 0.0;
 	unsigned long n = 0, last_granted = 0, drain_through = 0;
 	int limit = fixed ? fixed : 2;
@@ -47,11 +49,11 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 	while (start < end)
 	{
 		int p = 0, waited = 0;
-		double ready, grant;
+		double ready, asked, grant;
 
 		while (p < count - 1 && start - 1.0 >= phases[p].until)
 			p++;
-		ready = start + phases[p].cpu;
+		ready = asked = start + phases[p].cpu;
 		for (;;)
 		{
 			/* feed every frame shown by now */
@@ -59,7 +61,7 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 			{
 				struct frame_pacer_adapt_frame f = {
 					.at = shown[0], .interval = last_fed > 0.0 ? shown[0] - last_fed : 0.0, .period = refresh * share,
-					.gpu = gpu_of[0], .grant_to_present = 0.0003, .lead = lead, .slot_waited = waited_of[0],
+					.gpu = gpu_of[0], .grant_to_present = 0.0003, .lead = lead, .slot_waited = waited_of[0], .waited = wait_of[0],
 					.transition = number[0] <= drain_through,
 				};
 				unsigned long before = adapt.switches;
@@ -87,6 +89,7 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 				memmove(number, number + 1, held * sizeof(number[0]));
 				memmove(gpu_of, gpu_of + 1, held * sizeof(gpu_of[0]));
 				memmove(waited_of, waited_of + 1, held * sizeof(waited_of[0]));
+				memmove(wait_of, wait_of + 1, held * sizeof(wait_of[0]));
 			}
 			if (held < limit)
 				break;
@@ -105,6 +108,7 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 			number[held] = n;
 			gpu_of[held] = phases[p].gpu;
 			waited_of[held] = waited;
+			wait_of[held] = grant - asked;
 			held++;
 			last_shown = at;
 		}
@@ -112,5 +116,6 @@ static inline struct frame_pacer_model_result frame_pacer_model_run(const struct
 	}
 	r.switches = adapt.switches;
 	r.retry_delay = adapt.retry_delay;
+	r.stay = adapt.stay;
 	return r;
 }
