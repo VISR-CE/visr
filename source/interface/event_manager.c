@@ -356,12 +356,15 @@ void event_manager_update(
 
 			if (state)
 			{
-				struct event_record event;
 				short button_index;
 
+				/* port: each event starts from a zeroed record, so no field one event leaves unset (a button's
+				pointer byte shares the union with a stick's y) carries a value from an earlier event or the stack */
 				if (state->sticks[_gamepad_stick_left].x != 0 ||
 					state->sticks[_gamepad_stick_left].y != 0)
 				{
+					struct event_record event = {0};
+
 					event.type = _event_type_left_stick;
 					event.data.stick = state->sticks[_gamepad_stick_left];
 					queue_event(&event, gamepad_index);
@@ -371,6 +374,8 @@ void event_manager_update(
 				if (state->sticks[_gamepad_stick_right].x != 0 ||
 					state->sticks[_gamepad_stick_right].y != 0)
 				{
+					struct event_record event = {0};
+
 					event.type = _event_type_right_stick;
 					event.data.stick = state->sticks[_gamepad_stick_right];
 					queue_event(&event, gamepad_index);
@@ -383,6 +388,8 @@ void event_manager_update(
 
 					if (value)
 					{
+						struct event_record event = {0};
+
 						event.type = _event_type_button;
 						event.data.button.index = (byte)button_index;
 						event.data.button.value = value;
