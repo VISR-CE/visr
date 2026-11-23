@@ -2603,7 +2603,8 @@ static boolean netgame_unjoin_player(
 			(and a server): else the client stays "joining" under the browser and every JOIN after
 			it is refused (network_game_client_can_initiate_join) */
 			network_game_client_reset(client, TRUE);
-			game_connection_set(0);
+			if (!global_network_game_server_get())
+				game_connection_set(0);
 		}
 		else
 			error(2, "can't request player removal from netgame_unjoin_player() unless we are in pregame");

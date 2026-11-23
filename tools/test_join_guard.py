@@ -106,7 +106,8 @@ struct network_game { struct network_player players[4]; };
 static int client_state, state_data, resets, reset_teardown, connections_set, disposes, removals, errors;
 static int client_object;
 static void *global_network_game_client_get(void) { return &client_object; }
-static void *global_network_game_server_get(void) { return NULL; }
+static int have_server;
+static void *global_network_game_server_get(void) { return have_server ? &client_object : NULL; }
 static short network_game_client_get_state(void *c, short *data) { (void)c; *data = (short)state_data; return (short)client_state; }
 static void network_game_client_reset(void *c, boolean teardown) { (void)c; resets++; reset_teardown = teardown; }
 static void game_connection_set(int v) { if (v == 0) connections_set++; }
@@ -137,6 +138,11 @@ int main(void)
 		netgame_unjoin_player(&widget, &event, &deleted);
 		if (resets != 1 || !reset_teardown || connections_set != 1 || disposes || removals) return 1;
 	}
+	/* a hosting machine's own client keeps the connection mark */
+	resets = connections_set = disposes = removals = 0; client_state = 1; state_data = 1; have_server = 1;
+	netgame_unjoin_player(&widget, &event, &deleted);
+	if (resets != 1 || connections_set != 0) return 3;
+	have_server = 0;
 	/* searching (state 0): nothing to end */
 	resets = connections_set = errors = 0; client_state = 0; state_data = 1;
 	netgame_unjoin_player(&widget, &event, &deleted);
