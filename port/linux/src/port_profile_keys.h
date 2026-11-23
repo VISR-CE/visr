@@ -100,6 +100,10 @@ PROFILE_REAL("display.hud_resolution", 0.5, 1.0)
 PROFILE_STRING("display.frame_pacing", "off|tick|refresh")
 PROFILE_STRING("display.frame_rate", "display|unlimited|#")
 PROFILE_STRING("display.frames_in_flight_at_30", "1|2")
+/* the Metal encode thread, decided once at launch for every workload: a profile turns it on for a device where a measured
+thread-against-off pair showed input shown no later and no frames lost. The adaptive frames in flight rule then decides
+how many frames wait for the display (frame_pacer_adapt.h). */
+PROFILE_STRING("display.encode_thread", "off|thread")
 PROFILE_STRING("display.async_shaders", "auto|on|off")
 PROFILE_BOOLEAN("display.allow_portrait")
 PROFILE_BOOLEAN("display.dynamic_resolution")

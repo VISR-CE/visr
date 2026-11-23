@@ -48,7 +48,8 @@ PROFILE_DOMAIN = "device-profiles-5"
 KEY_GENERATIONS = {"network.full_rate_players": (4, 5, 6),
                    "display.allow_portrait": (5,),
                    "display.effect_limits": (5, 6),
-                   "display.frames_in_flight_at_30": (5, 6)}
+                   "display.frames_in_flight_at_30": (5, 6),
+                   "display.encode_thread": (5,)}
 # Every generation published from these sources, newest first, with the keys that generation's released validators
 # refuse, derived from KEY_GENERATIONS.
 GENERATIONS = {domain: tuple(key for key, accepted in KEY_GENERATIONS.items() if int(domain.rpartition("-")[2]) not in accepted)

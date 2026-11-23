@@ -8,6 +8,7 @@ static inline int port_profile_apply_class(const char *name)
 {
 	static const struct { const char *name; int policy; } settings[] = {
 		{"debug.dynamic_resolution_shadow", PORT_PROFILE_SESSION}, /* read once when the first frame is observed */
+		{"display.encode_thread", PORT_PROFILE_SESSION}, /* the encode queue wraps the GPU backend once, at gpu_initialize */
 		{"display.allow_portrait", PORT_PROFILE_SESSION}, /* host orientation policy is read at launch */
 		{"display.dynamic_resolution", PORT_PROFILE_SESSION}, /* read once with the shadow switch */
 		{"display.dynamic_resolution_floor", PORT_PROFILE_SESSION},
