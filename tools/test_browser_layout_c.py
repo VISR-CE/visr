@@ -500,6 +500,7 @@ def test_connect_progress_belongs_to_the_joining_game_only():
     guard = source.rindex("boolean joining_chosen", 0, line)
     assert "lobby_browser.identifier" in source[guard:line]
     assert "CONNECTING..." not in source
-    assert "ui_widget_port_bar_caption(screen, _gamepad_analog_button_a" not in source
+    detail = source[source.index("static void browser_c_detail_update("):]
+    assert "ui_widget_port_bar_caption" not in detail[:detail.index("\n}\n")]
     timeout = source[source.index("could not reach the server browser's game"):]
     assert "display_error_text_deferred" in timeout[:900]
