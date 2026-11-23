@@ -260,6 +260,13 @@ static const struct config_setting config_settings[] =
 		"ambient occlusion over the level's light and, weaker, the objects), which the original game never\n"
 		"drew. Metal, one view, not multisampled and not in stereo. Enhanced graphics only: Classic and\n"
 		"Hardcore turn it off (display.graphics). debug.ssao, when set, wins over it.", _tier_player },
+	{ "display.traced_shadows", _config_boolean, "false", "HALO_TRACED_SHADOWS", _environment_value, _platform_ios,
+		"Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of\n"
+		"reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from\n"
+		"it. The game still decides which shadows fall where, how dark and how they fade. A device profile's\n"
+		"choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs\n"
+		"and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic\n"
+		"and Hardcore turn it off (display.graphics)." },
 	{ "display.shadow_props", _config_boolean, "true", "HALO_SHADOW_PROPS", _environment_value, _platform_all,
 		"Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and\n"
 		"light fixtures) a shadow of their own, which the original game never drew for scenery or devices.\n"
@@ -2012,6 +2019,27 @@ static const struct config_setting config_settings[] =
 		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over\n"
 		"the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they\n"
 		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur.", _tier_derived, "footprint|xbox" },
+	{ "debug.traced_shadows_any_gpu", _config_boolean, "false", "HALO_TRACED_SHADOWS_ANY_GPU", _environment_set_is_true,
+		_platform_ios,
+		"With display.traced_shadows: trace on any GPU Metal can trace on, also those without ray tracing\n"
+		"hardware (Apple GPU families 6 to 8, in software), to measure them." },
+	{ "debug.traced_shadows_break_only", _config_boolean, "false", "HALO_TRACED_SHADOWS_BREAK_ONLY", _environment_set_is_true,
+		_platform_ios,
+		"With display.traced_shadows: leave and reenter the scene's render pass as traced shadows do, and draw\n"
+		"the shadows from their maps as usual, to measure the cost of the pass break alone." },
+	{ "debug.traced_shadows_filter", _config_boolean, "true", "HALO_TRACED_SHADOWS_FILTER", _environment_value, _platform_ios,
+		"With display.traced_shadows: soften each traced shadow by its distance from its caster. False leaves\n"
+		"the one ray's hard edge, to compare and to measure the filter's cost." },
+	{ "debug.traced_shadows_light_angle", _config_real, "3.0", "HALO_TRACED_SHADOWS_LIGHT_ANGLE", _environment_value,
+		_platform_ios,
+		"With display.traced_shadows: the light's half-angle in degrees, which sets how fast a shadow's edge\n"
+		"widens with distance from its caster." },
+	{ "debug.traced_shadows_refit", _config_boolean, "true", "HALO_TRACED_SHADOWS_REFIT", _environment_value, _platform_ios,
+		"With display.traced_shadows: update a moving caster's acceleration structure in place. False builds\n"
+		"it again every frame, to measure which costs less." },
+	{ "debug.traced_shadows_world", _config_boolean, "true", "HALO_TRACED_SHADOWS_WORLD", _environment_value, _platform_ios,
+		"With display.traced_shadows: a shadow's ray also stops at the level's own surfaces, so a shadow does\n"
+		"not reach through a floor or a wall to a surface beyond it." },
 	{ "debug.screenshot_frames", _config_string, "\"\"", "HALO_SCREENSHOT_FRAMES", _environment_value, _platform_all,
 		"With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them);\n"
 		"empty saves every one." },

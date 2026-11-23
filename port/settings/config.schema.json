@@ -319,6 +319,16 @@
           ],
           "x-tier": "player"
         },
+        "traced_shadows": {
+          "type": "boolean",
+          "default": false,
+          "description": "Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from it. The game still decides which shadows fall where, how dark and how they fade. A device profile's choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
+          "x-environment": "HALO_TRACED_SHADOWS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "shadow_props": {
           "type": "boolean",
           "default": true,
@@ -3779,6 +3789,66 @@
           "enum": [
             "footprint",
             "xbox"
+          ]
+        },
+        "traced_shadows_any_gpu": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.traced_shadows: trace on any GPU Metal can trace on, also those without ray tracing hardware (Apple GPU families 6 to 8, in software), to measure them.",
+          "x-environment": "HALO_TRACED_SHADOWS_ANY_GPU",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_break_only": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.traced_shadows: leave and reenter the scene's render pass as traced shadows do, and draw the shadows from their maps as usual, to measure the cost of the pass break alone.",
+          "x-environment": "HALO_TRACED_SHADOWS_BREAK_ONLY",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_filter": {
+          "type": "boolean",
+          "default": true,
+          "description": "With display.traced_shadows: soften each traced shadow by its distance from its caster. False leaves the one ray's hard edge, to compare and to measure the filter's cost.",
+          "x-environment": "HALO_TRACED_SHADOWS_FILTER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_light_angle": {
+          "type": "number",
+          "default": 3.0,
+          "description": "With display.traced_shadows: the light's half-angle in degrees, which sets how fast a shadow's edge widens with distance from its caster.",
+          "x-environment": "HALO_TRACED_SHADOWS_LIGHT_ANGLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_refit": {
+          "type": "boolean",
+          "default": true,
+          "description": "With display.traced_shadows: update a moving caster's acceleration structure in place. False builds it again every frame, to measure which costs less.",
+          "x-environment": "HALO_TRACED_SHADOWS_REFIT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_world": {
+          "type": "boolean",
+          "default": true,
+          "description": "With display.traced_shadows: a shadow's ray also stops at the level's own surfaces, so a shadow does not reach through a floor or a wall to a surface beyond it.",
+          "x-environment": "HALO_TRACED_SHADOWS_WORLD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
           ]
         },
         "screenshot_frames": {

@@ -71,6 +71,7 @@ enum graphics_mode
 	X("display.shadow_props", "false", "false") \
 	X("display.ambient_occlusion", "false", "false") \
 	X("display.per_pixel_lighting", "false", "false") \
+	X("display.traced_shadows", "false", "false") \
 	/* a profile's cost caps remove original content: none in Hardcore */ \
 	X("display.dynamic_light_limit", "0", NULL) \
 	X("display.specular_light_limit", "0", NULL) \

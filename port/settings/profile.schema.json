@@ -80,6 +80,11 @@
           "default": 0,
           "description": "Device-profile floor on how small a character or vehicle may look and still cast its shadow, in pixels of the 480-line picture, 0 to 240. Shadows fade out as objects shrink toward it. 0 to 30 keep the Xbox's 30. The players' own units, vehicles, fellow riders and bodies keep their shadows. Profile values outside the accepted set are refused, not clamped."
         },
+        "traced_shadows": {
+          "type": "boolean",
+          "default": false,
+          "description": "Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from it. The game still decides which shadows fall where, how dark and how they fade. A device profile's choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics). Profile values outside the accepted set are refused, not clamped."
+        },
         "effect_resolution": {
           "type": "string",
           "enum": [
@@ -588,6 +593,11 @@
               "maximum": 1024.0,
               "default": 128,
               "description": "The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512. Profile values outside the accepted set are refused, not clamped."
+            },
+            "traced_shadows": {
+              "type": "boolean",
+              "default": false,
+              "description": "Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from it. The game still decides which shadows fall where, how dark and how they fade. A device profile's choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics). Profile values outside the accepted set are refused, not clamped."
             },
             "effect_limits": {
               "type": "string",
@@ -1711,6 +1721,94 @@
           ]
         },
         "display.shadow_minimum_size": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "display.traced_shadows": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "variable.display.traced_shadows": {
           "type": "object",
           "properties": {
             "basis": {
