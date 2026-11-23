@@ -1953,6 +1953,48 @@ static void verify_nearest_draw(const unsigned char *made)
 /* the replay's call just written to replay_call, against the live eye's calls: it takes one (live_at), or is counted
 as a call the live eye did not make; a take out of the live eye's order is counted, and fails verify for a blended
 draw */
+/* a draw pair this many 16-byte blocks apart or more is logged whole (verify_far_pair) */
+enum { VERIFY_FAR_BLOCKS = 16 };
+
+static unsigned long verify_far_logged;
+
+/* a pair whose nearest candidate is still far: both draws' packets, side by side, for telling a draw the live eye
+makes another way from a pairing mistake (the first spans' worth only) */
+static void verify_far_pair(const unsigned char *live, const unsigned char *made, unsigned long taken,
+	unsigned long candidates, unsigned long blocks, uint32_t size)
+{
+	const struct gpu_draw *x = (const struct gpu_draw *)(live + 8), *y = (const struct gpu_draw *)(made + 8);
+	const float (*xc)[4] = (const float (*)[4])(live + 8 + sizeof(struct gpu_draw));
+	const float (*yc)[4] = (const float (*)[4])(made + 8 + sizeof(struct gpu_draw));
+	char line[640];
+	int length, side;
+
+	(void)size;
+	if (!log_line || verify_far_logged >= 40 || live_count < VERIFY_BIG_SPAN_CALLS)
+		return;
+	verify_far_logged++;
+	snprintf(line, sizeof(line), "stereo replay verify far pair: replay call %lu took live call %lu of %lu candidates, "
+		"%lu blocks apart (of %u)", compare_index, taken, candidates, blocks, size / 16);
+	log_line(line);
+	for (side = 0; side < 2; side++)
+	{
+		const struct gpu_draw *d = side ? y : x;
+		const float (*c)[4] = side ? yc : xc;
+
+		length = snprintf(line, sizeof(line), "stereo replay verify far pair: %s: shaders %u/%u, color %u, depth %u, "
+			"count %u, primitive %u, blend %u %u/%u, stages %u/%u/%u/%u, streams %u+%u %u+%u, index %u+%u base %d, "
+			"c-96 %g,%g,%g c-15 %g,%g,%g,%g c0 %g,%g,%g,%g", side ? "replay" : "live", (unsigned)d->vertex_shader,
+			(unsigned)d->pixel_shader, (unsigned)d->color_target, (unsigned)d->depth_target, d->count, d->primitive,
+			d->blend.enable, d->blend.source, d->blend.destination, (unsigned)d->stages[0].texture,
+			(unsigned)d->stages[1].texture, (unsigned)d->stages[2].texture, (unsigned)d->stages[3].texture,
+			(unsigned)d->streams[0].buffer, d->streams[0].offset, (unsigned)d->streams[1].buffer, d->streams[1].offset,
+			(unsigned)d->index_buffer, d->index_offset, d->base_vertex, c[0][0], c[0][1], c[0][2], c[81][0], c[81][1],
+			c[81][2], c[81][3], c[96][0], c[96][1], c[96][2], c[96][3]);
+		(void)length;
+		log_line(line);
+	}
+}
+
 /* how far apart two calls' bytes are: the 16-byte blocks that differ (a register is one) */
 static unsigned long call_distance(const unsigned char *a, const unsigned char *b, uint32_t size)
 {
@@ -1969,6 +2011,7 @@ static void verify_compare(void)
 	const unsigned char *live, *made = replay_call.bytes;
 	uint32_t operation, size;
 	unsigned long index, scanned = 0, first_key = ULONG_MAX, taken = ULONG_MAX, nearest = ULONG_MAX, distance;
+	unsigned long candidates = 0;
 	char line[384], text[96];
 
 	memcpy(&operation, made, 4);
@@ -1986,6 +2029,7 @@ static void verify_compare(void)
 			continue;
 		if (first_key == ULONG_MAX)
 			first_key = index;
+		candidates++;
 		/* (the nearest by bytes: the eyes' equal-looking draws, the same model's parts on many objects, differ in
 		their eye's registers, so the one whose other registers are equal is the same object's) */
 		distance = call_distance(candidate + 8, made + 8, size);
@@ -2009,6 +2053,8 @@ static void verify_compare(void)
 		return;
 	}
 	live = live_calls.bytes + live_at[taken];
+	if (operation == GPU_OPERATION_draw && nearest >= VERIFY_FAR_BLOCKS)
+		verify_far_pair(live, made, taken, candidates, nearest, size);
 	if (taken != first_key)
 	{
 		tally.reordered++;
