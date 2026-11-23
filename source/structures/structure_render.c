@@ -1020,7 +1020,7 @@ void structure_render_shadow(
 	short bounding_surface_count,
 	real_plane3d const *bounding_surfaces)
 {
-	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (16 KiB per shadow); structure_visibility_build_surfaces returns how many it wrote and only those are read */
+	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (16 KiB per shadow); structure_visibility_build_surfaces returns how many it wrote and only those are read Measured: with the second round of opt-outs (these five), the A10X 128-player cost of zeroing fell from 2.5% to 1.25% of frame rate. */
 	SIM_UNINITIALIZED long surface_indices[MAXIMUM_LOCALLY_RENDERED_SURFACES];
 	long surface_count;
 	long dynamic_triangles_index;

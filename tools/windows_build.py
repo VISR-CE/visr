@@ -247,9 +247,18 @@ def inline_export_wrapper(source: Path) -> Path:
     return wrapper
 
 
+def check_auto_init(sln: Any) -> None:
+    """configure.py --guest-auto-init is applied to the Linux build and the iOS guest only;
+    a Windows build asked for it stops instead of building without it."""
+    mode = getattr(sln, "port_auto_init", "off")
+    if mode != "off":
+        raise SystemExit(f"--guest-auto-init {mode}: the Windows build does not apply it; configure without it")
+
+
 def generate_windows_build(n: Writer, sln: Any) -> None:
     if sys.platform != "win32" or not PORT_CONFIG.is_file():
         return
+    check_auto_init(sln)
     try:
         fetch_sdl()
     except OSError as error:

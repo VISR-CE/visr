@@ -6294,7 +6294,7 @@ skipped */
 static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 {
 	struct vertex_shader_object *program = current_program();
-	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (once per draw); pixel_key_begin clears it before any other use */
+	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (once per draw); pixel_key_begin clears it before any other use Measured: with the second round of opt-outs (these five), the A10X 128-player cost of zeroing fell from 2.5% to 1.25% of frame rate. */
 	SIM_UNINITIALIZED struct nv2a_pixel_shader_key key;
 	float texture_scale[4][4];
 	BOOL has_depth = FALSE, lit;

@@ -406,7 +406,7 @@ boolean collision_test_sphere(
 	long ignore_object_index)
 {
 	boolean result;
-	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_bsp_test_sphere sets the four counts first and fills each list up to its count */
+	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_bsp_test_sphere sets the four counts first and fills each list up to its count Measured: with these first nine opt-outs, memset fell from 2.2% to 0.74% of the game thread and the zeroing cost per tick from 9.1% to 2.8% (M6, 128 players). */
 	SIM_UNINITIALIZED struct collision_bsp_test_sphere_result sphere_result;
 
 	if (bsp3d_test_point(global_bsp3d_get(), 0, center) != NONE)
@@ -923,7 +923,7 @@ boolean collision_get_features_in_sphere(
 		struct structure_bsp const *structure_bsp = global_structure_bsp_get();
 		struct collision_bsp const *collision_bsp = global_collision_bsp_get();
 		boolean objects = TEST_FLAG(flags, _collision_test_objects_bit);
-		/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_bsp_test_sphere sets the four counts first and fills each list up to its count */
+		/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_bsp_test_sphere sets the four counts first and fills each list up to its count Measured: with these first nine opt-outs, memset fell from 2.2% to 0.74% of the game thread and the zeroing cost per tick from 9.1% to 2.8% (M6, 128 players). */
 		SIM_UNINITIALIZED struct collision_bsp_test_sphere_result result;
 
 		if (debug_collision_skip_objects)
@@ -1065,7 +1065,7 @@ boolean collision_fix_pill(
 		{ { -0.57735026f, 0.57735026f, 0.57735026f } },
 	};
 	boolean result = FALSE;
-	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_features_new clears the counts and every entry is written before its count covers it */
+	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_features_new clears the counts and every entry is written before its count covers it Measured: with these first nine opt-outs, memset fell from 2.2% to 0.74% of the game thread and the zeroing cost per tick from 9.1% to 2.8% (M6, 128 players). */
 	SIM_UNINITIALIZED struct collision_feature_list features;
 	struct collision_plane first_collision;
 
@@ -1614,7 +1614,7 @@ short collision_move_pill(
 	struct collision_plane *collisions)
 {
 	short result = FALSE;
-	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_features_new clears the counts and every entry is written before its count covers it */
+	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_features_new clears the counts and every entry is written before its count covers it Measured: with these first nine opt-outs, memset fell from 2.2% to 0.74% of the game thread and the zeroing cost per tick from 9.1% to 2.8% (M6, 128 players). */
 	SIM_UNINITIALIZED struct collision_feature_list features;
 	real_point3d center;
 

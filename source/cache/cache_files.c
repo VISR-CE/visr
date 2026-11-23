@@ -1535,9 +1535,8 @@ void *tag_get(
 	long group_tag,
 	long tag_index)
 {
-	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (tag_get runs for nearly every tag read); only the failed check's message reads them, after tag_to_string writes them */
-	SIM_UNINITIALIZED char expected_group[16];
-	SIM_UNINITIALIZED char returned_group[16];
+	char expected_group[16];
+	char returned_group[16];
 
 	struct cache_file_tag_instance *tag_instance = cache_get_tag_instance(tag_index);
 	match_vassert(

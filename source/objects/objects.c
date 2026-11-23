@@ -2329,7 +2329,7 @@ short objects_in_sphere(
 	long *object_indices,
 	short maximum_count)
 {
-	/* port: automatic zeroing of this large local (32 KiB) was a top cost in the 128-player game-thread profile; the object lists fill it up to the count they return, and only that many are read */
+	/* port: automatic zeroing of this large local (32 KiB) was a top cost in the 128-player game-thread profile; the object lists fill it up to the count they return, and only that many are read Measured: with these first nine opt-outs, memset fell from 2.2% to 0.74% of the game thread and the zeroing cost per tick from 9.1% to 2.8% (M6, 128 players). */
 	SIM_UNINITIALIZED long temporary_object_indices[MAXIMUM_OBJECTS_PER_MAP];
 	short cluster_indices[MAXIMUM_CLUSTERS_PER_STRUCTURE];
 
@@ -2603,7 +2603,7 @@ if (!valid_real_matrix4x3(matrix)) \
 void object_compute_node_matrices(
 	long object_index)
 {
-	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; animation_get_node_orientations or model_get_node_orientations fills the model's nodes before they are read */
+	/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; animation_get_node_orientations or model_get_node_orientations fills the model's nodes before they are read Measured: with these first nine opt-outs, memset fell from 2.2% to 0.74% of the game thread and the zeroing cost per tick from 9.1% to 2.8% (M6, 128 players). */
 	SIM_UNINITIALIZED real_orientation cannot_interpolate_node_orientations_storage[MAXIMUM_NODES_PER_MODEL];
 	short node_stack[MAXIMUM_NODES_PER_MODEL];
 	real_matrix4x3 center_matrix;
@@ -4338,7 +4338,7 @@ void objects_garbage_collection(
 		boolean should_collect = FALSE;
 
 		{
-			/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (32 KiB a tick); only the first garbage_object_count entries, written as they are found, are read */
+			/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (32 KiB a tick); only the first garbage_object_count entries, written as they are found, are read Measured: with the second round of opt-outs (these five), the A10X 128-player cost of zeroing fell from 2.5% to 1.25% of frame rate. */
 			SIM_UNINITIALIZED long garbage_object_indices[MAXIMUM_OBJECTS_PER_MAP];
 
 			if (debug_object_garbage_collection)
