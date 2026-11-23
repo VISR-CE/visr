@@ -14,8 +14,12 @@
 #include "texture_repair.h"
 #include "texture_upscale_encode.h"
 
-/* texture_repair.h's version: raised when the filter or its limits change, and every record is made again */
-#define REPAIR_RECIPE (0x5245504149520000ull | TEXTURE_REPAIR_VERSION)
+/* texture_repair.h's version: raised when the filter or its limits change, and every record is made again. The byte
+above it is the records' layout: 1 since they have a file name of their own (<key>.repair.bin; before, they shared the
+upscaled texture's), so earlier records and finished maps are dropped and done again. The finished-maps list is
+stamped with the recipe's low half, so it follows both. */
+#define REPAIR_RECIPE (0x5245504149520100ull | TEXTURE_REPAIR_VERSION)
+#define MAPS_STAMP ((unsigned)(REPAIR_RECIPE & 0xffffffffu))
 #define MANIFEST_NAME "manifest-repair.tsv"
 #define MAPS_NAME "repair-maps.tsv"
 /* A level's repair, run as it loads, is held to this long: past it only the lightmaps are made and the rest waits. */
@@ -28,7 +32,6 @@ static NSString *data_root;
 static dispatch_queue_t worker;
 static NSMutableDictionary<NSString *, NSData *> *records;   /* key -> struct texture_cache_record */
 static NSMutableDictionary<NSString *, NSString *> *map_done; /* path -> "stamp level" */
-static NSMutableSet<NSString *> *upscaled_keys;               /* textures the upscaler made a record for */
 static atomic_bool playing, stop_requested, background_queued, enabled_now;
 static atomic_uint load_serial;
 static char folder[1024];
@@ -68,7 +71,7 @@ static void load_state(void) {
     NSString *text = [NSString stringWithContentsOfFile:[@(folder) stringByAppendingPathComponent:@MAPS_NAME] encoding:NSUTF8StringEncoding error:nil];
     for (NSString *line in [text componentsSeparatedByString:@"\n"]) {
         NSArray *parts = [line componentsSeparatedByString:@"\t"];
-        if (parts.count == 3 && [parts[0] unsignedIntValue] == TEXTURE_REPAIR_VERSION) map_done[parts[2]] = parts[1];
+        if (parts.count == 3 && [parts[0] unsignedIntValue] == MAPS_STAMP) map_done[parts[2]] = parts[1];
     }
 }
 static void save_state(void) {
@@ -83,7 +86,7 @@ static void save_state(void) {
     for (NSString *path in map_done) {
         NSString *value = map_done[path];   /* "stamp:level" */
         NSArray *parts = [value componentsSeparatedByString:@":"];
-        if (parts.count == 2) [text appendFormat:@"%u\t%@\t%@\n", TEXTURE_REPAIR_VERSION, value, path];
+        if (parts.count == 2) [text appendFormat:@"%u\t%@\t%@\n", MAPS_STAMP, value, path];
     }
     [text writeToFile:[@(folder) stringByAppendingPathComponent:@MAPS_NAME] atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
@@ -91,16 +94,6 @@ static int map_level(NSString *path) {
     NSString *stamp = stamp_of(path), *value = map_done[path];
     NSArray *parts = [value componentsSeparatedByString:@":"];
     return stamp && parts.count == 2 && [parts[0] isEqual:stamp] ? [parts[1] intValue] : MAP_PENDING;
-}
-static void upscaled_listing(void) {
-    upscaled_keys = [NSMutableSet new];
-    struct texture_cache_record *loaded = NULL;
-    size_t count = 0;
-    if (!texture_cache_manifest_load(folder, &loaded, &count)) {
-        for (size_t i = 0; i < count; i++)
-            if (loaded[i].result != TEXTURE_POLICY_ORIGINAL) [upscaled_keys addObject:key_of(loaded[i].hash, loaded[i].width, loaded[i].height)];
-        free(loaded);
-    }
 }
 
 /* ---------- one map */
@@ -124,7 +117,7 @@ static int repair_texture(void *context, const struct host_texture_source *s) {
     if (atomic_load(&stop_requested) || atomic_load(&playing)) { w->stopped = YES; return 0; }
     if (!texture_repair_applies(s->format, s->width, s->height)) return 1;
     NSString *key = key_of(s->hash, s->width, s->height);
-    if (records[key] || [upscaled_keys containsObject:key]) return 1;
+    if (records[key]) return 1;
     if (w->deadline && now() > w->deadline) w->lightmaps_only = YES;
     if (w->lightmaps_only && s->format != TEXTURE_REPAIR_FORMAT_R5G6B5) { w->skipped_other = YES; return 1; }
     double start = now();
@@ -146,7 +139,7 @@ static int repair_texture(void *context, const struct host_texture_source *s) {
         struct texture_cache_record record = { s->hash, s->width, s->height, TEXTURE_POLICY_BPF, (enum texture_policy_treatment)0,
             REPAIR_RECIPE, 0, 0 };
         if (texture_upscale_encode_raw(levels, s->level_count, s->width, s->height, s->hash, REPAIR_RECIPE, &bytes, &size) == TEXTURE_UPSCALE_ENCODE_OK &&
-            !texture_cache_write_entry(folder, &record, bytes, size)) {
+            !texture_cache_write_entry_kind(folder, &record, TEXTURE_RECORD_REPAIRED, bytes, size)) {
             note(w, s->hash, s->width, s->height, TEXTURE_POLICY_BPF, size);
             w->made++;
         }
@@ -165,7 +158,6 @@ static int repair_texture(void *context, const struct host_texture_source *s) {
 static void process_map(NSString *path, double budget) {
     @autoreleasepool {
         if (!enabled_now) return;
-        upscaled_listing();
         struct walk w = { .deadline = budget > 0 ? now() + budget : 0 };
         double start = now();
         int status = host_texture_source_walk_map(path.fileSystemRepresentation, repair_texture, &w);

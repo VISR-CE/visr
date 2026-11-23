@@ -73,7 +73,8 @@ void texture_override_cache_directories(const char *first, const char *second)
 	records_format = 0;
 }
 
-static int by_record_key(const void *a, const void *b)
+/* a texture's key alone: what a lookup matches, whichever manifest listed the texture */
+static int by_texture(const void *a, const void *b)
 {
 	const struct record_entry *x = a, *y = b;
 
@@ -81,10 +82,16 @@ static int by_record_key(const void *a, const void *b)
 		return x->hash < y->hash ? -1 : 1;
 	if (x->width != y->width)
 		return x->width < y->width ? -1 : 1;
-	if (x->height != y->height)
-		return x->height < y->height ? -1 : 1;
+	return (x->height > y->height) - (x->height < y->height);
+}
+
+static int by_record_key(const void *a, const void *b)
+{
+	const struct record_entry *x = a, *y = b;
+	int texture = by_texture(a, b);
+
 	/* (the same texture in both manifests: the upscaled record sorts first and stays) */
-	return (x->source > y->source) - (x->source < y->source);
+	return texture ? texture : (x->source > y->source) - (x->source < y->source);
 }
 
 /* the sorted list without the repeats of a key: the first of each stays */
@@ -193,8 +200,9 @@ static const struct record_entry *record_entry(uint64_t hash, uint32_t width, ui
 {
 	struct record_entry key = { hash, 0, width, height, 0 };
 
+	/* (by the texture alone: the list holds one entry per texture, and the key's source would miss the repaired ones) */
 	return record_entry_count ? bsearch(&key, record_entries, record_entry_count, sizeof(*record_entries),
-		by_record_key) : NULL;
+		by_texture) : NULL;
 }
 
 void texture_override_cache_map_loaded(int enabled)
@@ -253,8 +261,8 @@ static void load_record(struct texture_replacement *record)
 	uint32_t level;
 	int length;
 
-	length = snprintf(path, sizeof(path), "%s/%016llx-%lux%lu.bin", directories[0], (unsigned long long)record->hash,
-		(unsigned long)record->width, (unsigned long)record->height);
+	length = entry ? texture_record_file_path(path, sizeof(path), directories[0], record->hash, record->width,
+		record->height, entry->source ? TEXTURE_RECORD_REPAIRED : TEXTURE_RECORD_UPSCALED) : 0;
 	file = entry && length > 0 && (size_t)length < sizeof(path) ? fopen(path, "rb") : NULL;
 	if (!file)
 	{

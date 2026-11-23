@@ -146,7 +146,10 @@ static inline uint64_t texture_cache_storage_base(int important_read, uint64_t i
 }
 uint64_t texture_cache_storage_usable(int opportunistic_read, uint64_t opportunistic, int important_read, uint64_t important,
 	int volume_read, uint64_t volume_free);
-/* <directory>/<hash>-<w>x<h>.bin through a .tmp and a rename; on any failure nothing is left behind; 0 on success */
+/* <directory>/<hash>-<w>x<h>.bin through a .tmp and a rename; on any failure nothing is left behind; 0 on success.
+texture_cache_write_entry_kind writes the texture repair's own file (TEXTURE_RECORD_REPAIRED, texture_record.h) instead. */
+int texture_cache_write_entry_kind(const char *directory, const struct texture_cache_record *record, int kind,
+	const void *bytes, size_t size);
 int texture_cache_write_entry(const char *directory, const struct texture_cache_record *record, const void *bytes,
 	size_t size);
 void texture_cache_set_write_fault(long fail_after_bytes);   /* tests only: -1 off */

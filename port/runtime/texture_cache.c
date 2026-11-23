@@ -10,6 +10,7 @@ the manifest, the storage rules and entry writes. A cache entry holds only the n
 #include <sys/stat.h>
 #include <unistd.h>
 #include "texture_override.h"
+#include "texture_record.h"
 
 static const char *const result_names[] = { "s4g", "bpf", "original" };
 
@@ -464,14 +465,22 @@ static int fill_entry(FILE *file, const void *context)
 	return fwrite(e->bytes, 1, size, file) != e->size ? -1 : 0;
 }
 
-int texture_cache_write_entry(const char *directory, const struct texture_cache_record *record, const void *bytes,
-	size_t size)
+int texture_cache_write_entry_kind(const char *directory, const struct texture_cache_record *record, int kind,
+	const void *bytes, size_t size)
 {
 	char path[1024];
 	struct entry_contents e = { bytes, size };
+	int length = texture_record_file_path(path, sizeof(path), directory, record->hash, record->width, record->height, kind);
 
-	snprintf(path, sizeof(path), "%s/%016" PRIx64 "-%ux%u.bin", directory, record->hash, record->width, record->height);
+	if (length < 0 || (size_t)length >= sizeof(path))
+		return -1;
 	return write_atomically(path, fill_entry, &e);
+}
+
+int texture_cache_write_entry(const char *directory, const struct texture_cache_record *record, const void *bytes,
+	size_t size)
+{
+	return texture_cache_write_entry_kind(directory, record, TEXTURE_RECORD_UPSCALED, bytes, size);
 }
 
 /* the cache's own files: the manifest, the entries, and the temporaries a crash can leave */
