@@ -35,6 +35,7 @@ Conventions carried over from the Xbox:
 #include "menu_scale.h"
 #include "halo_menu_screen.h"
 #include "port_config.h"
+#include "frame_rate_setting.h"
 #include "halo_host_flags.h"
 #include "port_graphics_modes.h"
 #include "halo_display.h"
@@ -160,17 +161,14 @@ static uint32_t frame_pacing_flags(void)
 static uint32_t frame_rate_flags(void)
 {
 	const char *rate = config_string("display.frame_rate");
-	char *end;
-	long cap;
+	long cap = frame_rate_setting_parse(rate);
 
-	if (!strcmp(rate, "display"))
-		return 0;
-	if (!strcmp(rate, "unlimited"))
+	if (cap == FRAME_RATE_SETTING_UNLIMITED)
 		return (uint32_t)GPU_INITIALIZE_FRAME_RATE_UNLIMITED << GPU_INITIALIZE_FRAME_RATE_SHIFT;
-	cap = strtol(rate, &end, 10);
-	if (*rate && !*end && cap >= 1 && cap <= 1000)
+	if (cap > 0)
 		return (uint32_t)cap << GPU_INITIALIZE_FRAME_RATE_SHIFT;
-	platform_log("display.frame_rate: unknown value \"%s\" (\"display\", \"unlimited\" or 1 to 1000); using \"display\"", rate);
+	if (strcmp(rate, "display"))
+		platform_log("display.frame_rate: unknown value \"%s\" (\"display\", \"unlimited\" or 1 to 1000); using \"display\"", rate);
 	return 0;
 }
 

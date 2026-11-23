@@ -726,7 +726,7 @@ and in cinematics the view blends as everything else does.
 
 Smooth motion is automatic: it is on while the frame rate in force is above 30, and off at a 30 frame
 cap or lower and in Hardcore mode, where each tick draws one frame, throttled to 30 per second.
-`display.interpolation`, set by hand or with `--set`, forces it on or off for testing; the game never writes it.
+`display.interpolation` is `"auto"` by default; `"on"` or `"off"`, set by hand or with `--set`, forces it for testing, and the game never writes it.
 If the latest release is newer, the game asks: "Do you want to update?"
 
 - Select "Yes" to update. The game downloads the release for this platform,

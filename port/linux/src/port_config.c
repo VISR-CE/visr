@@ -23,6 +23,7 @@ config_origin_decide.
 
 #include "platform.h"
 #include "port_config.h"
+#include "frame_rate_setting.h"
 #include "smooth_motion.h"
 #include "port_profile_apply.h"
 #include "port_graphics_modes.h"
@@ -910,12 +911,11 @@ static const struct config_setting config_settings[] =
 	{ "display.max_fps", _config_integer, "0", "HALO_MAX_FPS", _environment_value, _platform_desktop,
 		"With vsync off, the most frames a second: 0 for twice the display's\n"
 		"refresh rate, -1 for no limit (which can hang some Intel graphics).", _tier_player },
-	{ "display.interpolation", _config_boolean, "true", "HALO_INTERPOLATION", _environment_value, _platform_all,
+	{ "display.interpolation", _config_string, "\"auto\"", "HALO_INTERPOLATION", _environment_value, _platform_all,
 		"A testing override for smooth motion, which is automatic: frames drawn\n"
 		"between the game's 30 ticks a second whenever the frame rate in force is\n"
-		"above 30 (never in Hardcore mode). Set by hand or with --set it forces\n"
-		"smooth motion on (true) or off (false) for A/B runs; the game never\n"
-		"writes it.", _tier_tuning },
+		"above 30 (never in Hardcore mode). \"auto\" (default) leaves it so; \"on\"\n"
+		"and \"off\" force it either way for A/B runs. The game never writes it.", _tier_tuning, "auto|on|off" },
 	{ "display.direct_camera", _config_boolean, "true", "HALO_DIRECT_CAMERA", _environment_value, _platform_all,
 		"In first person, point the view where the player aims now instead of\n"
 		"where the last tick left it: the view turns the frame the stick or the\n"
@@ -3478,34 +3478,23 @@ static int config_migrate_effect_resolution(char **text, toml_datum_t table)
 }
 
 /* The SMOOTH MOTION row is gone: smooth motion follows the frame rate in force (smooth_motion.h), and
-display.interpolation is a testing override. The old menu wrote its choice to config.toml as a plain value,
-which cannot be told from one set by hand, so the line is removed once, when the file is first read by a build
-that has no row: a marker file beside config.toml records that it was done, and a value set afterwards (by hand,
-or by --set) is honored. Returns 1 when the text changed; the caller parses it again. */
+display.interpolation is a testing override with three values. The old setting was a boolean the old menu wrote:
+a boolean line is dropped, which reads as "auto" (and its origin is forgotten), since a value from the old row
+cannot be told from one set by hand. A text value stays. Returns 1 when the text changed; the caller parses it
+again. */
 static int config_migrate_smooth_motion(char **text, toml_datum_t table)
 {
-	char path[1024], folder[1024], *changed;
-	size_t size = 0;
-	char *marker;
+	char *changed;
 	long index = config_setting_index("display.interpolation");
 
-	config_folder(folder, sizeof(folder));
-	snprintf(path, sizeof(path), "%ssmooth_motion_automatic", folder);
-	marker = config_read_file(path, &size);
-	if (marker)
-	{
-		free(marker);
-		return 0;
-	}
-	config_write_file(path, "display.interpolation lines written by the old SMOOTH MOTION row were removed\n");
-	if (toml_seek(table, "display.interpolation").type == TOML_UNKNOWN)
+	if (toml_seek(table, "display.interpolation").type != TOML_BOOLEAN)
 		return 0;
 	changed = config_text_remove(*text, "display.interpolation");
 	if (!changed)
 		return 0;
 	free(*text);
 	*text = changed;
-	platform_log("settings: removed display.interpolation from config.toml (smooth motion is automatic now)");
+	platform_log("settings: removed display.interpolation from config.toml (a boolean; smooth motion is automatic now)");
 	if (index >= 0)
 	{
 		free(config_states[index].origin_literal);
@@ -3938,14 +3927,7 @@ static void config_load(void)
 	else
 	{
 		char *defaults = config_default_text();
-		toml_result_t none = toml_parse("", 0);
-		char *none_text = config_copy("", 0);
 
-		/* (a first run has no old row's value to remove: the marker is set at once) */
-		if (none.ok && none_text)
-			config_migrate_smooth_motion(&none_text, none.toptab);
-		toml_free(none);
-		free(none_text);
 		if (defaults && config_write_file(path, defaults))
 		{
 			platform_log("settings: wrote the defaults to %s", path);
@@ -4438,16 +4420,11 @@ void config_profile_safe_point(int point, int context)
 	char version[64];
 	static char snapshot[128 * 256];
 	int changed;
-	const char *rate;
-	char *end;
 	long cap;
 	if ((context & CONFIG_PROFILE_FROZEN) || point < 1 || point > 5) return;
 	if (!host_device_profile_pending(snapshot,sizeof(snapshot),version,sizeof(version))) return;
 	changed = config_profile_apply_snapshot(snapshot,version,point,context);
-	rate = config_string("display.frame_rate");
-	cap = strtol(rate,&end,10);
-	if (!strcmp(rate,"unlimited")) cap = -1;
-	else if (!*rate || *end || cap < 1 || cap > 1000) cap = 0;
+	cap = frame_rate_setting_parse(config_string("display.frame_rate"));
 	host_device_profile_applied(point,context & CONFIG_PROFILE_NETWORKED,changed,
 		!strcmp(config_string("display.upscaler"),"metalfx"),(int)cap);
 #else
@@ -4585,9 +4562,9 @@ int config_scene_string(const char *name, int scene, char *text, size_t size)
 	return index >= 0 && value != &config_values[index];
 }
 
-/* Smooth motion in the scene (smooth_motion.h): display.interpolation when it is set by hand, by --set or in
-the environment (the testing override), else on while the scene's frame rate in force is above 30. Every caller
-uses this one function: the renderer (halo_interpolation_enabled) and the performance reports' settings. */
+/* Smooth motion in the scene (smooth_motion.h): display.interpolation when it says "on" or "off" (the testing
+override, by the file, --set or the environment), else on while the scene's frame rate in force is above 30.
+Every caller uses this one function: the renderer (halo_interpolation_enabled) and the performance reports' settings. */
 static int config_smooth_motion_in(int scene, int external)
 {
 	const long override = config_setting_index("display.interpolation");
@@ -4596,11 +4573,12 @@ static int config_smooth_motion_in(int scene, int external)
 	const long max_index = config_setting_index("display.max_fps");
 	const char *rate = "";
 	long max_fps = 0;
+	int forced;
 
 	/* (no lock, no allocation: the performance reports' sampler calls this, as config_graphics_settings_snapshot says) */
-	if (override >= 0 && (config_states[override].origin == _origin_chosen ||
-		config_states[override].source == _source_environment))
-		return config_scene_value_cached((size_t)override, scene, external)->boolean != 0;
+	forced = override < 0 ? -1 : smooth_motion_override(config_scene_value_cached((size_t)override, scene, external)->string);
+	if (forced >= 0)
+		return forced;
 	if (rate_index >= 0)
 	{
 		const char *text = config_scene_value_cached((size_t)rate_index, scene, external)->string;
@@ -4610,7 +4588,8 @@ static int config_smooth_motion_in(int scene, int external)
 	if (max_index >= 0)
 		max_fps = config_scene_value_cached((size_t)max_index, scene, external)->integer;
 	return smooth_motion_automatic(smooth_motion_cap(rate,
-		vsync_index < 0 || config_scene_value_cached((size_t)vsync_index, scene, external)->boolean, max_fps));
+		vsync_index < 0 || config_scene_value_cached((size_t)vsync_index, scene, external)->boolean, max_fps,
+		halo_host_visionos()));
 }
 
 int config_smooth_motion(int scene)
@@ -4769,6 +4748,11 @@ static int graphics_setting(const char *name)
 #undef CAPTURE_NAME
 	return 0;
 }
+/* The performance reports carry smooth motion as what was drawn, a boolean: the setting's own value is "auto". */
+static int config_reports_effective_smooth_motion(const struct config_setting *setting)
+{
+	return !strcmp(setting->name, "display.interpolation");
+}
 int config_graphics_settings_snapshot(int scene, struct game_perf_graphics_snapshot *snapshot)
 {
 	int external = 0;
@@ -4793,12 +4777,12 @@ int config_graphics_settings_snapshot(int scene, struct game_perf_graphics_snaps
 		if (length == sizeof(entry->name)) goto invalid;
 		memcpy(entry->name, setting->name, length + 1);
 		const struct config_value *value = config_scene_value_cached(index, scene, external);
-		switch (setting->type)
+		const int effective = config_reports_effective_smooth_motion(setting);
+		switch (effective ? _config_boolean : setting->type)
 		{
 		case _config_boolean:
 			entry->type = GAME_PERF_GRAPHICS_BOOLEAN;
-			/* (the effective state: smooth motion is automatic, so the setting's value is no report of it) */
-			entry->value.boolean = (!strcmp(setting->name, "display.interpolation") ? config_smooth_motion_in(scene, external) : value->boolean) != 0;
+			entry->value.boolean = (effective ? config_smooth_motion_in(scene, external) : value->boolean) != 0;
 			break;
 		case _config_integer:
 			entry->type = GAME_PERF_GRAPHICS_INTEGER;
@@ -4851,10 +4835,11 @@ int config_graphics_settings_json(int scene, char *text, size_t size)
 		const struct config_value *value = config_scene_value(setting->name,setting->type,scene);
 		graphics_append(&json,"%s",count > 1 ? "," : "");
 		graphics_string(&json,setting->name); graphics_append(&json,":");
-		switch (setting->type)
+		const int effective = config_reports_effective_smooth_motion(setting);
+		switch (effective ? _config_boolean : setting->type)
 		{
 		case _config_boolean:
-			graphics_append(&json,"%s",(!strcmp(setting->name,"display.interpolation") ? config_smooth_motion(scene) : value->boolean) ? "true" : "false");
+			graphics_append(&json,"%s",(effective ? config_smooth_motion(scene) : value->boolean) ? "true" : "false");
 			break;
 		case _config_integer: graphics_append(&json,"%ld",value->integer); break;
 		case _config_real: graphics_real(&json,value->real); break;

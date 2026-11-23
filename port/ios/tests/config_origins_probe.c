@@ -123,12 +123,8 @@ static void launch(const char *profile)
 
 static void fresh(void)
 {
-	char marker[160];
-
 	unlink(path);
 	unlink(origins);
-	snprintf(marker, sizeof(marker), "%s/smooth_motion_automatic", directory);
-	unlink(marker);
 }
 
 #define TV_CLASS "display.renderer\tmetal\tclass Apple TV\n" "display.render_height\t1080\tclass Apple TV\n" \
@@ -940,16 +936,15 @@ static void check_workload_frame_rate(void)
 	{
 		config_workload_set_limited(1, limited, "30-only multiplayer map");
 		assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+		/* (the runtime drop to 30 turns smooth motion off in the scene it holds) */
+		assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
 	}
 }
 
-/* the SMOOTH MOTION row is gone: display.interpolation is a testing override. The line the old row wrote is removed
-once; a value set after that (by hand, in the environment) is honored, and the game never writes the setting */
+/* the SMOOTH MOTION row is gone: display.interpolation is a testing override, "auto", "on" or "off". A boolean line
+from the old row is dropped (it reads as "auto"); a text value is honored, and the game never writes the setting */
 static void check_smooth_motion_migration(void)
 {
-	char marker[160];
-
-	snprintf(marker, sizeof(marker), "%s/smooth_motion_automatic", directory);
 	/* a file from the old menu, either value: the line goes, the rest of the file stays, the origin is forgotten */
 	for (int value = 0; value < 2; value++)
 	{
@@ -960,21 +955,29 @@ static void check_smooth_motion_migration(void)
 		launch("");
 		assert(!file_has(path, "interpolation") && file_has(path, "\nshadow_map_size = 256\n"));
 		assert(!file_has(origins, "display.interpolation") && !config_explicit("display.interpolation"));
-		assert(strstr(logged, "removed display.interpolation") && file_has(marker, "removed"));
+		assert(strstr(logged, "removed display.interpolation"));
+		assert(!strcmp(config_string("display.interpolation"), "auto") && config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
 		/* (a second launch has nothing to remove) */
 		launch("");
 		assert(!strstr(logged, "removed display.interpolation"));
 	}
-	/* after the migration a hand-set value stays and is explicit: the testing override */
-	write_text(path, "[display]\ninterpolation = false\nshadow_map_size = 256\n");
+	/* a text value stays and is explicit: the testing override, either way, whatever the frame rate */
+	write_text(path, "[display]\ninterpolation = \"off\"\nshadow_map_size = 256\n");
 	launch("");
-	assert(file_has(path, "\ninterpolation = false\n") && config_explicit("display.interpolation"));
-	assert(!config_boolean("display.interpolation"));
-	/* a first launch writes no line for it (a tuning value) and leaves the marker */
+	assert(file_has(path, "\ninterpolation = \"off\"\n") && config_explicit("display.interpolation"));
+	assert(!strstr(logged, "removed display.interpolation") && !config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+	write_text(path, "[display]\ninterpolation = \"on\"\nframe_rate = \"30\"\nshadow_map_size = 256\n");
+	launch("");
+	assert(file_has(path, "\ninterpolation = \"on\"\n") && config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+	/* "auto" written by hand is the default, which the game drops from the file like any tuning default */
+	write_text(path, "[display]\ninterpolation = \"auto\"\nframe_rate = \"30\"\nshadow_map_size = 256\n");
+	launch("");
+	assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+	/* a first launch writes no line for it (a tuning value) */
 	fresh();
 	launch("");
-	assert(!file_has(path, "interpolation") && file_has(marker, "removed") && !config_explicit("display.interpolation"));
-	assert(config_boolean("display.interpolation"));
+	assert(!file_has(path, "interpolation") && !config_explicit("display.interpolation"));
+	assert(!strcmp(config_string("display.interpolation"), "auto"));
 	/* the effective state follows the frame rate in force, and the performance reports record it, not the setting */
 	{
 		char json[CONFIG_GRAPHICS_MAXIMUM_BYTES];
@@ -986,7 +989,7 @@ static void check_smooth_motion_migration(void)
 		{
 			assert(config_write("display.frame_rate", rates[index].rate));
 			assert(config_smooth_motion(CONFIG_SCENE_GAMEPLAY) == rates[index].on);
-			assert(config_boolean("display.interpolation"));   /* (the setting itself is still its default) */
+			assert(!strcmp(config_string("display.interpolation"), "auto"));   /* (the setting itself is still its default) */
 			assert(config_graphics_settings_json(CONFIG_SCENE_GAMEPLAY, json, sizeof(json)));
 			assert(strstr(json, rates[index].on ? "\"display.interpolation\":true" : "\"display.interpolation\":false"));
 			{
@@ -1004,7 +1007,7 @@ static void check_smooth_motion_migration(void)
 			}
 		}
 		/* the testing override wins at a 30 cap, and the report then records it */
-		setenv("HALO_INTERPOLATION", "true", 1);
+		setenv("HALO_INTERPOLATION", "on", 1);
 		launch("");
 		assert(config_write("display.frame_rate", "30") && config_explicit("display.interpolation"));
 		assert(config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
@@ -1107,7 +1110,8 @@ static void check_graphics_modes(void)
 	assert(config_integer("display.render_height") == 480 && config_integer("display.screen_width") == 640);
 	assert(config_real("display.render_scale") == 1.0 && config_scene_real("display.render_scale", CONFIG_SCENE_MENU) == 1.0);
 	assert(config_scene_real("display.render_scale", CONFIG_SCENE_CUTSCENE) == 1.0);
-	assert(!strcmp(config_string("display.frame_rate"), "30") && !config_boolean("display.interpolation"));
+	assert(!strcmp(config_string("display.frame_rate"), "30") && !strcmp(config_string("display.interpolation"), "off"));
+	assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY) && !config_smooth_motion(CONFIG_SCENE_CUTSCENE));
 	assert(!config_boolean("display.dynamic_resolution") && !config_boolean("display.direct_camera"));
 	assert(!strcmp(config_string("display.anti_aliasing"), "off") && config_integer("display.anisotropic_filtering") == 1);
 	assert(!config_boolean("display.upscaled_textures") && !config_reload_boolean("display.upscaled_textures"));

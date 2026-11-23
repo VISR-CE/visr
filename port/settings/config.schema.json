@@ -1163,16 +1163,21 @@
           "x-tier": "player"
         },
         "interpolation": {
-          "type": "boolean",
-          "default": true,
-          "description": "A testing override for smooth motion, which is automatic: frames drawn between the game's 30 ticks a second whenever the frame rate in force is above 30 (never in Hardcore mode). Set by hand or with --set it forces smooth motion on (true) or off (false) for A/B runs; the game never writes it.",
+          "type": "string",
+          "default": "auto",
+          "description": "A testing override for smooth motion, which is automatic: frames drawn between the game's 30 ticks a second whenever the frame rate in force is above 30 (never in Hardcore mode). \"auto\" (default) leaves it so; \"on\" and \"off\" force it either way for A/B runs. The game never writes it.",
           "x-environment": "HALO_INTERPOLATION",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
             "desktop"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ]
         },
         "direct_camera": {
           "type": "boolean",

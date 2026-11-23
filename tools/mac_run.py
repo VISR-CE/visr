@@ -148,6 +148,7 @@ DEFAULTS = {
     "display.vsync": "true",
     "display.renderer": '"gl"',  # (not the default, Metal: the OpenGL records check-metal compares with)
     "display.anisotropic_filtering": "1",
+    "display.interpolation": '"auto"',  # (the testing override of smooth motion, which is automatic: a --set "off" must not carry on)
     "display.shadow_map_size": "128",
     "display.dynamic_light_limit": "0",
     "display.specular_light_limit": "0",
