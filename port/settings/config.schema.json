@@ -3658,7 +3658,7 @@
         "screenshot_clock": {
           "type": "string",
           "default": "frames",
-          "description": "What debug.screenshot_every counts. \"frames\" (default): presented frames from launch, named frameNNNNN. \"ticks\": game ticks, named tickNNNNN, only in a game, so two launches of one replay with debug.fixed_timestep save the same moments under the same names however long their menus and loading took; debug.screenshot_frames then names ticks.",
+          "description": "What debug.screenshot_every counts. \"frames\" (default): presented frames from launch, named frameNNNNN. \"ticks\": game ticks, named tickNNNNN, only in a game, so two launches of one replay with debug.fixed_timestep save the same moments under the same names however long their menus and loading took; debug.screenshot_frames then names ticks. After the tick goes back (a new map, a restart, a checkpoint revert) names end -restartN.",
           "x-environment": "HALO_SCREENSHOT_CLOCK",
           "x-environment-style": "value",
           "x-platforms": [
