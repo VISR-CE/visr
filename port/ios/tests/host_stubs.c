@@ -43,6 +43,7 @@
 #include "host_frame_timeline.h"
 #include "host_game_thread.h"
 #include "host_geometry.h"
+#include "host_guest_environment.h"
 #include "host_hinge.h"
 #include "host_join_link.h"
 #include "host_lan.h"
@@ -696,6 +697,10 @@ __attribute__((weak)) void host_gpu_set_upscaler(int metalfx)
 { }
 __attribute__((weak)) int host_gpu_upscaler(void)
 { fprintf(stderr, "host_stubs: probe called host_gpu_upscaler without defining it\n"); abort(); }
+__attribute__((weak)) int host_guest_environment_host_owned(const char *entry)
+{ fprintf(stderr, "host_stubs: probe called host_guest_environment_host_owned without defining it\n"); abort(); }
+__attribute__((weak)) size_t host_guest_environment_pass_on(const char **env, size_t count, size_t capacity, char *const *launch, struct host_guest_environment_result *result, void (*note)(const char *entry, int passed))
+{ fprintf(stderr, "host_stubs: probe called host_guest_environment_pass_on without defining it\n"); abort(); }
 __attribute__((weak)) int host_guest_halt(const char *messages)
 { fprintf(stderr, "host_stubs: probe called host_guest_halt without defining it\n"); abort(); }
 __attribute__((weak)) uint32_t host_guest_invoke(uintptr_t function, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uintptr_t arena)
