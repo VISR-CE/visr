@@ -25,6 +25,11 @@ struct host_texture_source {
     uint32_t width, height, format, flags, level_count;
     const uint8_t *rgba;
     size_t rgba_size, level_offsets[13];
+    /* the texture as the map stores it, every level end to end (level_stored_offsets, in the same level order); borrowed
+     * like rgba. The texture repair reads DXT1's blocks from here: the decoded texels do not say which palette color
+     * a texel had. */
+    const uint8_t *stored;
+    size_t stored_size, level_stored_offsets[13];
 };
 typedef int (*host_texture_source_callback)(void *context, const struct host_texture_source *source);
 typedef int (*host_texture_map_callback)(void *context, const char *path);
