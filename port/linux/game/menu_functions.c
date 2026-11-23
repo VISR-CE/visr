@@ -70,6 +70,7 @@ their handlers open opens.
 #include "networking/network_game_manager.h"
 #include "saved games/player_profile.h"
 #include "saved games/saved_game_files.h"
+#include "tag_files/tag_files.h"
 #include "tag_files/tag_groups.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
@@ -7638,6 +7639,27 @@ static void menu_ready_shot_poll(void)
 	}
 }
 
+/* "menus: screen up <name> at frame N", once each time the active screen is a new one (a screen loaded, or a go-back to an
+earlier one): the capture harness reads it to know a shot was taken with its screen up and loaded, with any input (pointer
+runs set no debug.menu_ready_shot). Cheap: one pointer compare per pump. */
+static void menu_screen_up_log(void)
+{
+	static struct widget_instance *last_screen;
+	static long last_tag = NONE;
+	struct widget_instance *screen = ui_widget_port_active_screen(0);
+
+	if (screen == last_screen && (!screen || screen->definition_tag_index == last_tag))
+		return;
+	last_screen = screen;
+	last_tag = screen ? screen->definition_tag_index : NONE;
+	if (screen)
+	{
+		char const *name = tag_get_name(screen->definition_tag_index);
+
+		platform_log("menus: screen up %s at frame %lu", name ? name : "?", platform_clock_frames());
+	}
+}
+
 /* (Apple builds; every pump, sdl_platform.c) the jump a link at launch is
 waiting for, once the main menu's screen is up */
 void menu_invite_poll(void)
@@ -7647,6 +7669,7 @@ void menu_invite_poll(void)
 	if (!main_port_main_menu_loaded())
 		return;
 	menus_seen = TRUE;
+	menu_screen_up_log();
 	if (ui_widget_port_active_screen(0))
 	{
 		posix_invite_menu_ready();
