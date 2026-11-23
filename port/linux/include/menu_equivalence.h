@@ -3,34 +3,6 @@
 #define MENU_EQUIVALENCE_H
 #include <string.h>
 #include <stdlib.h>
-static char const *const menu_screen_pairs[][2] = {
-	{"ui\\shell\\main_menu\\main_menu", "pc\\main_menu\\main_menu"},
-	{"ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_select_screen", "pc\\main_menu\\multiplayer_type_select\\multiplayer_type_select_screen"},
-	{"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen"},
-	{"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\name_edit\\profile_name_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\name_edit\\profile_name_screen"},
-	{"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\color_edit\\color_select_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\color_edit\\color_select_screen"},
-	{"pc\\xbox\\settings\\video_settings\\video_settings_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\video_settings\\video_settings_screen"},
-	{"pc\\xbox\\settings\\audio_settings\\audio_settings_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\audio_settings\\audio_settings_screen"},
-	{"pc\\xbox\\settings\\network_setup\\network_settings_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\network_setup\\network_settings_screen"},
-	{"pc\\xbox\\settings\\controls_setup\\controls_settings_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\controls_setup\\controls_settings_screen"},
-	{"pc\\xbox\\settings\\mouse_settings\\mouse_settings_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\mouse_settings\\mouse_settings_screen"},
-	{"pc\\xbox\\settings\\gamepad_setup\\gamepad_setup_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\gamepad_setup\\gamepad_setup_screen"},
-	{"pc\\xbox\\settings\\about\\about_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\about\\about_screen"},
-	{"pc\\xbox\\settings\\graphics\\graphics_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\graphics\\graphics_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\join_game_screen", "pc\\main_menu\\multiplayer_type_select\\join_game\\join_game_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\filters\\filters_screen", "pc\\main_menu\\multiplayer_type_select\\join_game\\filters\\filters_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen", "pc\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen", "pc\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\direct_ip\\direct_ip_screen", "pc\\main_menu\\multiplayer_type_select\\direct_ip\\direct_ip_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen", "pc\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\coop_options\\coop_options_screen", "pc\\main_menu\\multiplayer_type_select\\coop_options\\coop_options_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen", "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\preview_screen", "pc\\main_menu\\multiplayer_type_select\\lobby\\preview_screen"},
-	{"pc\\xbox\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper", "pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"},
-	{"pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen", "pc\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen"},
-	{"pc\\xbox\\main_menu\\quit_select\\quit_screen", "pc\\main_menu\\quit_select\\quit_screen"},
-	{"pc\\xbox\\error\\confirm_join_big_modal_fullscreen", "pc\\error\\confirm_join_big_modal_fullscreen"},
-};
 static char const *const menu_screen_replaced[][2] = {
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen"},
 };
@@ -71,9 +43,6 @@ static char const *menu_screen_equivalent(char const *name)
 	for (index = 0; !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)
 		if (!strcmp(name, menu_screen_replaced[index][0]))
 			return menu_screen_replaced[index][1];
-	for (index = 0; index < sizeof(menu_screen_pairs) / sizeof(menu_screen_pairs[0]); index++)
-		if (!strcmp(name, menu_screen_pairs[index][0]) || !strcmp(name, menu_screen_pairs[index][1]))
-			return menu_screen_pairs[index][0];
 	return NULL;
 }
 #endif

@@ -2344,15 +2344,15 @@ Xbox's networking, run by the engine's port entry points
 #define PLAYLIST_READ_ONLY_BIT 0x40000000UL
 /* (a key stroke's modifier, as input_xbox.c has them: shift, control) */
 #define KEY_MODIFIER_CONTROL_BIT 1
-#define LOBBY_NAME "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"
-#define PREVIEW_NAME "pc\\main_menu\\multiplayer_type_select\\lobby\\preview_screen"
+#define LOBBY_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"
+#define PREVIEW_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\preview_screen"
 /* The browser warning uses the same widget history as the other confirm dialogs. */
-#define JOIN_BIG_NAME "pc\\error\\confirm_join_big_modal_fullscreen"
+#define JOIN_BIG_NAME "pc\\xbox\\error\\confirm_join_big_modal_fullscreen"
 /* the server browser's password screen (tools/port_settings.py), and the
 longest password */
-#define PASSWORD_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen"
+#define PASSWORD_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen"
 /* Direct Link's ENTER CODE screen (a join code or an invite link typed) */
-#define CODE_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen"
+#define CODE_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen"
 #define PASSWORD_LENGTH 32
 /* the lobby's panel's lines (the gametype, the players, the countdown, the
 invite) */
@@ -2982,7 +2982,7 @@ static struct
 	short level;
 } map_list;
 
-#define SERVER_SETUP_NAME "pc\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"
+#define SERVER_SETUP_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"
 
 static short map_step_count(void)
 {
@@ -7397,7 +7397,7 @@ void pc_menu_game_data_function_invoke(
 }
 
 #ifdef HALO_IOS
-#define JOIN_GAME_SCREEN "pc\\main_menu\\multiplayer_type_select\\join_game\\join_game_screen"
+#define JOIN_GAME_SCREEN "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\join_game_screen"
 
 boolean main_port_main_menu_loaded(void);
 boolean game_map_loaded(void);

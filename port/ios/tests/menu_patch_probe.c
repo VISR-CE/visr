@@ -1656,12 +1656,9 @@ int main(int argc, char **argv)
 			check_apple(!strcmp(mode, "tvos"));
 		{
 			long xbox = tag_loaded(UI_WIDGET_DEFINITION_TAG, MM "main_menu");
-			long pc = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\main_menu\\main_menu");
 			long open = xbox;
 			input_pad = 0;
 			check(pc_menu_screen_open(open, NULL, TRUE) == xbox, "keyboard and mouse keep the game's main menu");
-			check(pc != NONE && pc_menu_screen_open(pc, NULL, TRUE) == xbox,
-				"a screen asked for by its old name opens its counterpart");
 			input_pad = 1;
 			check(pc_menu_screen_open(open, NULL, TRUE) == xbox, "a controller keeps the game's main menu");
 			check(pc_menu_screen_open(mp_screen, NULL, TRUE) == mp_screen, "a screen with no counterpart opens itself");

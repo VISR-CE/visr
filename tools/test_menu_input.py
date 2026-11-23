@@ -12,9 +12,7 @@ def test_equivalence_generation():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     assert module.equivalence_header() == (ROOT / 'port/linux/include/menu_equivalence.h').read_text()
-    pairs = module.screen_pairs()
-    assert len({name for pair in pairs for name in pair}) == len(pairs) * 2
-    assert not any('campaign_select' in name or 'player_profiles_select' in name for pair in pairs for name in pair)
+    assert not hasattr(module, 'screen_pairs')
 
 
 def test_screen_counterparts(tmp_path):
@@ -24,16 +22,10 @@ def test_screen_counterparts(tmp_path):
 #include "menu_equivalence.h"
 int main(void) {
     assert(!menu_screen_equivalent("unpaired"));
-    char const *warning = "pc\\error\\confirm_join_big_modal_fullscreen";
-    char const *xbox_warning = "pc\\xbox\\error\\confirm_join_big_modal_fullscreen";
-    assert(!strcmp(menu_screen_equivalent(warning), xbox_warning));
-    assert(!strcmp(menu_screen_equivalent(xbox_warning), xbox_warning));
-    /* a screen asked for by a pair's second name opens its first */
-    for (unsigned int i = 0; i < sizeof(menu_screen_pairs)/sizeof(menu_screen_pairs[0]); i++) {
-        assert(menu_screen_equivalent(menu_screen_pairs[i][0]));
-        assert(!strcmp(menu_screen_equivalent(menu_screen_pairs[i][1]), menu_screen_pairs[i][0]));
-    }
-    /* a replacement that always applies wins over a pair */
+    /* the retired PC look's names open nothing */
+    assert(!menu_screen_equivalent("pc\\error\\confirm_join_big_modal_fullscreen"));
+    assert(!menu_screen_equivalent("pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"));
+    /* a replacement that always applies */
     for (unsigned int i = 0; i < sizeof(menu_screen_always)/sizeof(menu_screen_always[0]); i++)
         assert(!strcmp(menu_screen_equivalent(menu_screen_always[i][0]), menu_screen_always[i][1]));
     return 0;

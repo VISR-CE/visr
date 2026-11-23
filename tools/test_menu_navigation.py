@@ -84,8 +84,3 @@ def test_no_target_opens_the_screen_it_replaces_except_where_the_game_breaks_the
     assert loops == OPENED_BY_THEIR_TARGET
 
 
-def test_every_counterpart_pair_names_a_generated_or_disc_screen():
-    layout = ui_map_tags.load_layout()
-    generated = set(opens())
-    for first, _ in xbox_menus.screen_pairs():
-        assert first in generated or first in layout, first

@@ -718,8 +718,6 @@ def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
         label = widgets[f'{base}/legend/' + ('accept' if icon == 'a' else 'cancel')]
         assert label.get('text') == caption
         assert target.find('on[@event="left_mouse"]').get('run') == f'mouse emit {emitted} event'
-    assert (r'pc\xbox\error\confirm_join_big_modal_fullscreen',
-            r'pc\error\confirm_join_big_modal_fullscreen') in generator().screen_pairs()
 
 
 def test_keyboard_picture_is_generated_at_import_without_a_shipped_png():
@@ -1316,9 +1314,7 @@ def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_
     assert 'display.vsync' not in replaced and 'display.graphics' not in replaced
 
 
-def test_the_graphics_screen_is_shipped_and_has_its_counterpart_entry():
-    pairs = (ROOT / 'port/linux/include/menu_equivalence.h').read_text()
-    assert r'{"pc\\xbox\\settings\\graphics\\graphics_screen", ' in pairs
+def test_the_graphics_screen_is_shipped():
     manifest = json.loads((MENUS / 'menus.json').read_text())['files']
     for name in ('xbox/settings.graphics.xml',
                  'ce/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png'):
