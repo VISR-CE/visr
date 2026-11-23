@@ -991,10 +991,10 @@ static void resume_if_allowed(void) {
 }
 static void resume_if_allowed(void);
 int host_texture_upscale_delete_cache(const char *directory) {
-    if(!upscale_enabled)return texture_cache_delete_all(directory);
+    if(!upscale_enabled){int status=texture_cache_delete_all(directory);host_texture_repair_cache_deleted();return status;}
     /* stop the texture in hand; the next pump deletes before anything else */
     atomic_store(&delete_requested,true);set_stop(YES);
-    dispatch_async(upscale_worker,^{if(atomic_exchange(&delete_requested,false))delete_cache();
+    dispatch_async(upscale_worker,^{if(atomic_exchange(&delete_requested,false)){delete_cache();host_texture_repair_cache_deleted();}
         dispatch_async(dispatch_get_main_queue(),^{resume_if_allowed();});});
     return 0;
 }

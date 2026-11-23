@@ -1419,10 +1419,16 @@ run(BUILD/'texture-upscale-tiles-probe')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', '-Iport/runtime',
     '-Iport/runtime/include', '-Iport/linux/src', 'port/ios/tests/texture_upscale_driver_probe.m',
     'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c',
-    'port/runtime/texture_cache.c', 'port/ios/host/metal_gate.m', '-DMETAL_GATE_NO_METALFX',
+    'port/runtime/texture_cache.c', 'port/runtime/texture_repair.c', 'port/ios/host/metal_gate.m', '-DMETAL_GATE_NO_METALFX',
     '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'AppKit',
     '-o', BUILD/'texture-upscale-driver-probe')
 run(BUILD/'texture-upscale-driver-probe')
+# The texture repair's host side: what it keeps in memory follows a delete of the cache folder.
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/runtime',
+    '-Iport/runtime/include', '-Iport/linux/src', 'port/ios/tests/texture_repair_host_probe.m',
+    'port/runtime/texture_cache.c', 'port/runtime/texture_repair.c', '-framework', 'Foundation',
+    '-o', BUILD/'texture-repair-host-probe')
+run(BUILD/'texture-repair-host-probe')
 
 # Stereo A/B reuses pacing samples after a settling window.
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',

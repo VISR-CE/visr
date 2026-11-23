@@ -19,6 +19,8 @@ void host_texture_repair_map_will_load(const char *name);
 void host_texture_repair_game_started(int is_game);
 void host_texture_repair_paused(int paused);
 int host_texture_repair_enabled(void);
+/* the cache folder was emptied: forget every record and finished map, and repair again in the background */
+void host_texture_repair_cache_deleted(void);
 #ifdef __cplusplus
 }
 #endif

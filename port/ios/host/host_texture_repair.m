@@ -207,6 +207,22 @@ void host_texture_repair_init(const char *root) {
     });
 }
 int host_texture_repair_enabled(void) { return enabled_now; }
+/* the cache folder was emptied (Settings' delete, texture_cache_delete_all): the records and finished maps held here
+name files that are gone, so they are dropped before anything saves them back, and every map is done again */
+void host_texture_repair_cache_deleted(void) {
+    if (!worker) return;
+    atomic_store(&stop_requested, true);
+    dispatch_async(worker, ^{
+        records = [NSMutableDictionary new];
+        map_done = [NSMutableDictionary new];
+        /* (a pass the delete stopped saved its lists after the files went: write the empty ones over them) */
+        save_state();
+        atomic_store(&stop_requested, false);
+        host_logf(HOST_LOG_INFO, "Texture repair: the cache was deleted; every map is repaired again");
+        /* queued from here, after the pass the delete stopped has ended and given up its place */
+        queue_background();
+    });
+}
 void host_texture_repair_scan(void) {
     if (!worker) return;
     atomic_store(&stop_requested, false);
