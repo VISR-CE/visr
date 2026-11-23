@@ -207,11 +207,6 @@
           "default": "auto",
           "description": "How the Metal renderer compiles shaders: \"auto\" (default) on worker threads, skipping a draw for the frames until its pipeline is ready, so the game never waits on the compiler (on Apple Vision Pro a long wait ends the app); a run that must draw the same frames every time (fixed timestep, an input replay or benchmark, debug.exit_after, screenshots) compiles each at its first draw instead. \"on\" or \"off\" forces either. Changes apply on relaunch. Profile values outside the accepted set are refused, not clamped."
         },
-        "interpolation": {
-          "type": "boolean",
-          "default": true,
-          "description": "Draw a frame for every display refresh, blending between the game's 30 ticks a second; false keeps the original 30 frames a second. Profile values outside the accepted set are refused, not clamped."
-        },
         "allow_portrait": {
           "type": "boolean",
           "default": false,
@@ -2709,50 +2704,6 @@
           ]
         },
         "display.async_shaders": {
-          "type": "object",
-          "properties": {
-            "basis": {
-              "enum": [
-                "measured",
-                "assumed",
-                "inherited"
-              ]
-            },
-            "why": {
-              "type": "string",
-              "minLength": 20
-            },
-            "source": {
-              "type": "string",
-              "minLength": 10
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "basis",
-            "why"
-          ],
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "basis": {
-                    "const": "measured"
-                  }
-                },
-                "required": [
-                  "basis"
-                ]
-              },
-              "then": {
-                "required": [
-                  "source"
-                ]
-              }
-            }
-          ]
-        },
-        "display.interpolation": {
           "type": "object",
           "properties": {
             "basis": {

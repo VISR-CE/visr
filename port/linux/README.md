@@ -344,7 +344,6 @@ Apple Vision Pro's file.
 | `display.movies` | string | `"auto"` | apple | `HALO_MOVIES` | The game's intro and credits movies (bink/intro.bik and bink/credits.bik beside maps/, imported from the disc image with the maps): "auto" (default) plays them, except in a run that must draw the same frames every time (fixed timestep, an input replay or benchmark, debug.exit_after, screenshots); "on" plays them there too; "off" skips them. |
 | `display.vsync` | boolean | `true` | apple, desktop | `HALO_NO_VSYNC` | Wait for the display between frames; false draws as fast as possible. |
 | `display.max_fps` | integer | `0` | desktop | `HALO_MAX_FPS` | With vsync off, the most frames a second: 0 for twice the display's refresh rate, -1 for no limit (which can hang some Intel graphics). |
-| `display.interpolation` | boolean | `true` | apple, desktop | `HALO_INTERPOLATION` | Draw a frame for every display refresh, blending between the game's 30 ticks a second; false keeps the original 30 frames a second. |
 | `display.direct_camera` | boolean | `true` | apple, desktop | `HALO_DIRECT_CAMERA` | In first person, point the view where the player aims now instead of where the last tick left it: the view turns the frame the stick or the mouse moves, not up to two ticks (66 ms) later. |
 | `display.high_res_hud` | boolean | `true` | apple, desktop | `HALO_HIGH_RES_HUD` | Draw the HUD (meters, counters, panels, motion sensor, reticles, waypoints, scopes) from the high-res assets (8x the maps' bitmaps); false draws the maps' own bitmaps. |
 | `display.high_res_text` | boolean | `true` | apple, desktop | `HALO_HIGH_RES_TEXT` | Draw the menus' and HUD's text with the fonts in port/assets/fonts (Overpass) at the resolution the game draws at, and the menus' titles from port/assets/titles; false draws the maps' bitmap fonts and titles. |
@@ -725,8 +724,9 @@ view where the player aims at that moment (`display.direct_camera`): the
 view turns in the frame the stick or the mouse moves. In a vehicle's seat
 and in cinematics the view blends as everything else does.
 
-`interpolation = false` in `config.toml` restores the original behaviour: one frame per
-tick, throttled to 30 per second.
+Smooth motion is automatic: it is on while the frame rate in force is above 30, and off at a 30 frame
+cap or lower and in Hardcore mode, where each tick draws one frame, throttled to 30 per second.
+`display.interpolation`, set by hand or with `--set`, forces it on or off for testing; the game never writes it.
 If the latest release is newer, the game asks: "Do you want to update?"
 
 - Select "Yes" to update. The game downloads the release for this platform,
@@ -776,7 +776,7 @@ where the player aims at that time (`display.direct_camera`). Thus the view
 turns in the frame that the mouse moves. In a vehicle and in cinematics, the
 view mixes as the other things do. On Android, the view mixes as before.
 
-To get 30 frames each second, set `display.interpolation = false`.
+To get 30 frames each second, cap the frame rate at 30 (`display.frame_rate`).
 
 To see the frame rate:
 

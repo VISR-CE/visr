@@ -2199,15 +2199,6 @@ native_draws_at_the_resolution_o_8c1f93 = "Native draws at the resolution; Origi
 wait_for_the_display_between_fra_a4ff2a = "Wait for the display between frames, so that the\\npicture never tears."
 with_v_sync_off_the_most_frames__2c7d4b = "With V-Sync off, the most frames a second. Auto:\\ntwice the display's refresh rate."
 unlimited_can_tear_and_uses_more_e5d11c = "Unlimited can tear and uses more power. Applies\\nthe next time the game starts."
-draw_a_frame_for_every_display_r_872689 = "Draw a frame for every display refresh, blending\\nbetween the game's 30 ticks per second."
-
-[xbox.settings_video_settings.xbox_settings_video_settings_interpolation_shown]
-on = "ON"
-off = "OFF"
-
-[xbox.settings_video_settings.xbox_settings_video_settings_interpolation_spinner]
-s0 = "ON"
-s1 = "OFF"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_labels]
 graphics = "GRAPHICS:"
@@ -2219,7 +2210,6 @@ resolution_scaling = "RESOLUTION SCALING:"
 v_sync = "V-SYNC:"
 frame_rate_limit = "FRAME RATE LIMIT:"
 frame_rate = "FRAME RATE:"
-smooth_motion = "SMOOTH MOTION:"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_max_fps_spinner]
 s0 = "AUTO"

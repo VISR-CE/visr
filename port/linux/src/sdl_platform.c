@@ -17,6 +17,7 @@ and the debug keyboard that the game's console reads.
 #include "gl.h"
 #endif
 #include "port_config.h"
+#include "smooth_motion.h"
 #include "halo_virtual_clock.h"
 #include "p2p.h"
 #include "halo_internet.h"
@@ -516,15 +517,36 @@ BOOL platform_offer_game_data(const char *destination)
 }
 #endif
 
+int halo_scene_class(void);
+
+/* Smooth motion: automatic (smooth_motion.h: on above a 30 frame cap, off at 30 or lower, so in Hardcore mode,
+whose table fixes the cap at 30, and during a big game's runtime drop to 30), unless display.interpolation is
+set by hand, by --set or in the environment: the testing override, which wins either way */
 int halo_interpolation_enabled(void)
 {
 	static int enabled;
 	static unsigned long read_at = (unsigned long)-1;
+	static int read_class = -1;
+	int scene = halo_scene_class();
 
-	if (read_at != config_changes())
+	if (read_at != config_changes() || read_class != scene)
 	{
+		char rate[32] = "";
+		long max_fps = 0;
+
 		read_at = config_changes();
-		enabled = config_boolean("display.interpolation");
+		read_class = scene;
+		if (config_explicit("display.interpolation"))
+			enabled = config_boolean("display.interpolation");
+		else
+		{
+#ifdef HALO_ILP32
+			config_scene_string("display.frame_rate", scene, rate, sizeof(rate));
+#else
+			max_fps = config_integer("display.max_fps");
+#endif
+			enabled = smooth_motion_automatic(smooth_motion_cap(rate, config_boolean("display.vsync"), max_fps));
+		}
 	}
 	return enabled && !photo_mode_active();
 }

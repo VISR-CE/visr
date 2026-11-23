@@ -1291,7 +1291,8 @@ def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_
     import port_settings
     replaced = port_settings.graphics_replaced()
     video_settings = {row[1] for row in port_settings.SCREENS['video_settings']['rows']}
-    assert {'display.frame_rate', 'display.interpolation'} <= replaced & video_settings
+    assert {'display.frame_rate'} <= replaced & video_settings
+    assert 'display.interpolation' not in video_settings
     for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
                        (LOOKS / 'sources/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
                         'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):

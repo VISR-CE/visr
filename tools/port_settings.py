@@ -105,8 +105,6 @@ SCREENS = {
             ("FRAME RATE:", "display.frame_rate",
              [("DISPLAY", "display"), ("30", "30"), ("60", "60"), ("120", "120"), ("UNLIMITED", "unlimited")],
              "Unlimited can tear and uses more power. Applies\nthe next time the game starts.", "mac_app"),
-            ("SMOOTH MOTION:", "display.interpolation", ON_OFF,
-             "Draw a frame for every display refresh, blending\nbetween the game's 30 ticks per second.", None),
         ],
     },
     # the GRAPHICS screen (Xbox look, not the Mac, which has these rows on VIDEO): each change applies as it is made, as

@@ -147,7 +147,6 @@ DEFAULTS = {
     "display.render_height": "0",
     "display.vsync": "true",
     "display.renderer": '"gl"',  # (not the default, Metal: the OpenGL records check-metal compares with)
-    "display.interpolation": "true",
     "display.anisotropic_filtering": "1",
     "display.shadow_map_size": "128",
     "display.dynamic_light_limit": "0",

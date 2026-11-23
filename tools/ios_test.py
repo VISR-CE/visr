@@ -389,6 +389,10 @@ run(BUILD / 'config-origins-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-Iport/linux/game', 'port/ios/tests/workload_context_probe.c',
     '-o', BUILD / 'workload-context-probe')
 run(BUILD / 'workload-context-probe')
+# smooth motion's automatic rule (smooth_motion.h)
+run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-Iport/linux/src', 'port/ios/tests/smooth_motion_probe.c',
+    '-o', BUILD / 'smooth-motion-probe')
+run(BUILD / 'smooth-motion-probe')
 # Safe-point profile merges preserve choices, defer resource settings and handle removals.
 run('xcrun', 'clang', '-O2', '-fsanitize=address', '-DHALO_ILP32=1', '-Iport/linux/src', '-Iport/third_party/tomlc17',
     'port/ios/tests/profile_hot_apply_probe.c', *sdl_flags, '-o', BUILD / 'profile-hot-apply-probe')

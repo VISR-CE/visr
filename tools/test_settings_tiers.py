@@ -125,6 +125,8 @@ TUNING_OFF_HEADSET = {
     'audio.worker_priority',
     # compares the corrected interpolation lead with the old timing on every display; a measurement switch
     'display.presentation_lead',
+    # the override of smooth motion, which follows the frame rate in force (smooth_motion.h); the SMOOTH MOTION row is gone
+    'display.interpolation',
     # a safety switch, on by default; off only to compare with the Xbox's Save and Quit-only writes
     'saves.checkpoint_persist',
 }

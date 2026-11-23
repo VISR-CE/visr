@@ -4,6 +4,7 @@
 #include "config_origins_probe.c"
 #undef main
 #include "halo_display.h"
+#include "smooth_motion.h"
 #include "texture_upscale_state.h"
 
 typedef int boolean;

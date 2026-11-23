@@ -123,8 +123,12 @@ static void launch(const char *profile)
 
 static void fresh(void)
 {
+	char marker[160];
+
 	unlink(path);
 	unlink(origins);
+	snprintf(marker, sizeof(marker), "%s/smooth_motion_automatic", directory);
+	unlink(marker);
 }
 
 #define TV_CLASS "display.renderer\tmetal\tclass Apple TV\n" "display.render_height\t1080\tclass Apple TV\n" \
@@ -939,6 +943,42 @@ static void check_workload_frame_rate(void)
 	}
 }
 
+/* the SMOOTH MOTION row is gone: display.interpolation is a testing override. The line the old row wrote is removed
+once; a value set after that (by hand, in the environment) is honored, and the game never writes the setting */
+static void check_smooth_motion_migration(void)
+{
+	char marker[160];
+
+	snprintf(marker, sizeof(marker), "%s/smooth_motion_automatic", directory);
+	/* a file from the old menu, either value: the line goes, the rest of the file stays, the origin is forgotten */
+	for (int value = 0; value < 2; value++)
+	{
+		fresh();
+		write_text(path, value ? "[display]\ninterpolation = true\nshadow_map_size = 256\n" :
+			"[display]\ninterpolation = false\nshadow_map_size = 256\n");
+		write_text(origins, "display.interpolation\tchosen\n");
+		launch("");
+		assert(!file_has(path, "interpolation") && file_has(path, "\nshadow_map_size = 256\n"));
+		assert(!file_has(origins, "display.interpolation") && !config_explicit("display.interpolation"));
+		assert(strstr(logged, "removed display.interpolation") && file_has(marker, "removed"));
+		/* (a second launch has nothing to remove) */
+		launch("");
+		assert(!strstr(logged, "removed display.interpolation"));
+	}
+	/* after the migration a hand-set value stays and is explicit: the testing override */
+	write_text(path, "[display]\ninterpolation = false\nshadow_map_size = 256\n");
+	launch("");
+	assert(file_has(path, "\ninterpolation = false\n") && config_explicit("display.interpolation"));
+	assert(!config_boolean("display.interpolation"));
+	/* a first launch writes no line for it (a tuning value) and leaves the marker */
+	fresh();
+	launch("");
+	assert(!file_has(path, "interpolation") && file_has(marker, "removed") && !config_explicit("display.interpolation"));
+	assert(config_boolean("display.interpolation"));
+	/* the menus never offer it: it is not a profile setting either */
+	assert(!config_is_profile_setting((size_t)config_setting_index("display.interpolation")));
+}
+
 /* display.effect_resolution was a boolean beside display.mirror_resolution: the saved choice carries over */
 static void check_effect_resolution_migration(void)
 {
@@ -1145,6 +1185,7 @@ int main(void)
 	check_variable_only();
 	check_workload_frame_rate();
 	check_effect_resolution_migration();
+	check_smooth_motion_migration();
 	check_graphics_modes();
 	fresh();
 	rmdir(directory);

@@ -230,7 +230,8 @@ def test_reset_settings_restore_defaults_an_earlier_set_may_have_changed(tmp_pat
     assert settings["debug.gpu_debug_flat"] == "false"
     assert settings["debug.gpu_skip_vertex_shaders"] == '""'
     assert settings["debug.gpu_trace_frame"] == "-1"
-    assert settings["display.interpolation"] == "true"
+    # (smooth motion is automatic: a reset must not pin the testing override)
+    assert "display.interpolation" not in settings
     assert settings["display.render_height"] == "0"
 
 

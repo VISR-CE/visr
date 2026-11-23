@@ -910,8 +910,11 @@ static const struct config_setting config_settings[] =
 		"With vsync off, the most frames a second: 0 for twice the display's\n"
 		"refresh rate, -1 for no limit (which can hang some Intel graphics).", _tier_player },
 	{ "display.interpolation", _config_boolean, "true", "HALO_INTERPOLATION", _environment_value, _platform_all,
-		"Draw a frame for every display refresh, blending between the game's 30\n"
-		"ticks a second; false keeps the original 30 frames a second." },
+		"A testing override for smooth motion, which is automatic: frames drawn\n"
+		"between the game's 30 ticks a second whenever the frame rate in force is\n"
+		"above 30 (never in Hardcore mode). Set by hand or with --set it forces\n"
+		"smooth motion on (true) or off (false) for A/B runs; the game never\n"
+		"writes it.", _tier_tuning },
 	{ "display.direct_camera", _config_boolean, "true", "HALO_DIRECT_CAMERA", _environment_value, _platform_all,
 		"In first person, point the view where the player aims now instead of\n"
 		"where the last tick left it: the view turns the frame the stick or the\n"
@@ -3473,6 +3476,45 @@ static int config_migrate_effect_resolution(char **text, toml_datum_t table)
 	return 1;
 }
 
+/* The SMOOTH MOTION row is gone: smooth motion follows the frame rate in force (smooth_motion.h), and
+display.interpolation is a testing override. The old menu wrote its choice to config.toml as a plain value,
+which cannot be told from one set by hand, so the line is removed once, when the file is first read by a build
+that has no row: a marker file beside config.toml records that it was done, and a value set afterwards (by hand,
+or by --set) is honored. Returns 1 when the text changed; the caller parses it again. */
+static int config_migrate_smooth_motion(char **text, toml_datum_t table)
+{
+	char path[1024], folder[1024], *changed;
+	size_t size = 0;
+	char *marker;
+	long index = config_setting_index("display.interpolation");
+
+	config_folder(folder, sizeof(folder));
+	snprintf(path, sizeof(path), "%ssmooth_motion_automatic", folder);
+	marker = config_read_file(path, &size);
+	if (marker)
+	{
+		free(marker);
+		return 0;
+	}
+	config_write_file(path, "display.interpolation lines written by the old SMOOTH MOTION row were removed\n");
+	if (toml_seek(table, "display.interpolation").type == TOML_UNKNOWN)
+		return 0;
+	changed = config_text_remove(*text, "display.interpolation");
+	if (!changed)
+		return 0;
+	free(*text);
+	*text = changed;
+	platform_log("settings: removed display.interpolation from config.toml (smooth motion is automatic now)");
+	if (index >= 0)
+	{
+		free(config_states[index].origin_literal);
+		config_states[index].origin_literal = NULL;
+		config_states[index].origin = _origin_none;
+		config_origins_changed = 1;
+	}
+	return 1;
+}
+
 /* One setting the file holds (its value read into file_value, of the right
 type), against config.origins:
 
@@ -3832,6 +3874,8 @@ static void config_load(void)
 		}
 		result = toml_parse(text, (int)size);
 		migrated = result.ok && config_migrate_effect_resolution(&text, result.toptab);
+		if (result.ok && config_migrate_smooth_motion(&text, result.toptab))
+			migrated = 1;
 		if (migrated)
 		{
 			toml_free(result);
@@ -3893,7 +3937,14 @@ static void config_load(void)
 	else
 	{
 		char *defaults = config_default_text();
+		toml_result_t none = toml_parse("", 0);
+		char *none_text = config_copy("", 0);
 
+		/* (a first run has no old row's value to remove: the marker is set at once) */
+		if (none.ok && none_text)
+			config_migrate_smooth_motion(&none_text, none.toptab);
+		toml_free(none);
+		free(none_text);
 		if (defaults && config_write_file(path, defaults))
 		{
 			platform_log("settings: wrote the defaults to %s", path);

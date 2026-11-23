@@ -29,9 +29,6 @@
 		<child widget="xbox/settings/video_settings/op_vsync" x="54" y="229" />
 		<child widget="xbox/settings/video_settings/op_max_fps" x="54" y="268" platform="desktop" />
 		<child widget="xbox/settings/video_settings/op_frame_rate" x="54" y="268" platform="mac_app" />
-		<child widget="xbox/settings/video_settings/op_interpolation" x="54" y="307" />
-		<child widget="xbox/settings/video_settings/options_menu/scroll_up_arrow" x="574" y="73" />
-		<child widget="xbox/settings/video_settings/options_menu/scroll_down_arrow" x="574" y="274" />
 	</widget>
 	<widget name="xbox/settings/video_settings/op_graphics" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/graphics_label" y="5" />
@@ -153,26 +150,6 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_interpolation" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
-		<child widget="xbox/settings/video_settings/interpolation_label" y="5" />
-		<child widget="xbox/settings/video_settings/interpolation_spinner" x="286" y="6" />
-		<child widget="xbox/settings/video_settings/interpolation_replaced" x="320" y="6" />
-	</widget>
-	<widget name="xbox/settings/video_settings/interpolation_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/interpolation_shown">
-	</widget>
-	<strings name="xbox/settings/video_settings/interpolation_shown">
-		<string text="ON" id="xbox.settings_video_settings.xbox_settings_video_settings_interpolation_shown.on" />
-		<string text="OFF" id="xbox.settings_video_settings.xbox_settings_video_settings_interpolation_shown.off" />
-	</strings>
-	<widget name="xbox/settings/video_settings/interpolation_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/settings/video_settings/interpolation_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_video_settings.xbox_settings_video_settings_interpolation_spinner.s0|xbox.settings_video_settings.xbox_settings_video_settings_interpolation_spinner.s1" setting="display.interpolation" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 57 19 63" footer_bounds="7 149 19 155">
-		<on event="created" run="port setting load" />
-		<on event="left" run="port setting changed" />
-		<on event="right" run="port setting changed" />
-		<on event="stick_left" run="port setting changed" />
-		<on event="stick_right" run="port setting changed" />
-	</widget>
 	<widget name="xbox/settings/video_settings/row_help" type="text" controller="1" left="68" top="335" width="482" height="75" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="xbox/settings/video_settings/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/video_settings/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
@@ -193,7 +170,6 @@
 		<string text="V-SYNC:" id="xbox.settings_video_settings.xbox_settings_video_settings_labels.v_sync" />
 		<string text="FRAME RATE LIMIT:" id="xbox.settings_video_settings.xbox_settings_video_settings_labels.frame_rate_limit" />
 		<string text="FRAME RATE:" id="xbox.settings_video_settings.xbox_settings_video_settings_labels.frame_rate" />
-		<string text="SMOOTH MOTION:" id="xbox.settings_video_settings.xbox_settings_video_settings_labels.smooth_motion" />
 	</strings>
 	<strings name="xbox/settings/video_settings/help_strings">
 		<string text="" />
@@ -206,10 +182,7 @@
 		<string text="Wait for the display between frames, so that the\npicture never tears." id="xbox.settings_video_settings.xbox_settings_video_settings_help_strings.wait_for_the_display_between_fra_a4ff2a" />
 		<string text="With V-Sync off, the most frames a second. Auto:\ntwice the display's refresh rate." id="xbox.settings_video_settings.xbox_settings_video_settings_help_strings.with_v_sync_off_the_most_frames__2c7d4b" />
 		<string text="Unlimited can tear and uses more power. Applies\nthe next time the game starts." id="xbox.settings_video_settings.xbox_settings_video_settings_help_strings.unlimited_can_tear_and_uses_more_e5d11c" />
-		<string text="Draw a frame for every display refresh, blending\nbetween the game's 30 ticks per second." id="xbox.settings_video_settings.xbox_settings_video_settings_help_strings.draw_a_frame_for_every_display_r_872689" />
 	</strings>
-	<widget name="xbox/settings/video_settings/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
-	<widget name="xbox/settings/video_settings/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
 	<strings name="xbox/settings/video_settings/header_profile_video_settings/title">
 		<string text="VIDEO SETUP" id="xbox.settings_video_settings.xbox_settings_video_settings_header_profile_video_settings_title.video_setup" />
 	</strings>
