@@ -3025,7 +3025,9 @@ static id<MTLTexture> upscaled;
 static id<MTLFunction> clear_vertex, clear_fragment, present_vertex, present_fragment, fill_fragment;
 /* multisample_fill's pipelines, by samples and depth-stencil format */
 static NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *fill_pipelines;
-static id<MTLRenderPipelineState> companion_pipeline;
+/* the phone's companion picture while an external display shows the game (companion_present): its pipeline follows the
+phone layer's format, which layer_format_follow may have moved off BGRA8 before the display connected */
+static id<MTLFunction> companion_function;
 /* quad_pipeline's fragment functions: gpu_upscale's (the present quad into the display-sized back buffer, no depth);
 display.crt_effect's CRT television in Hardcore graphics (crt_shader.h; nil if it does not compile); the present
 dither (display.scene_precision); a copy between unlike formats (copy_as_draw) */
@@ -6841,7 +6843,7 @@ static void companion_present(BOOL main_shown)
 		float brightness = (float)host_external_companion_dim();
 		id<MTLRenderCommandEncoder> present = [buffer renderCommandEncoderWithDescriptor:pass];
 		present.label = @"companion present";
-		[present setRenderPipelineState:companion_pipeline];
+		[present setRenderPipelineState:quad_pipeline(companion_function, drawable.texture.pixelFormat)];
 		[present setViewport:(MTLViewport){(double)((drawable.texture.width-fit.width)/2),
 			(double)((drawable.texture.height-fit.height)/2), (double)fit.width, (double)fit.height, 0, 1}];
 		[present setFragmentTexture:record->texture atIndex:0];
@@ -10617,21 +10619,16 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		present_fragment = [utilities newFunctionWithName:@"present_fragment"];
 		fill_fragment = [utilities newFunctionWithName:@"fill_fragment"];
 		fill_pipelines = [NSMutableDictionary dictionary];
-		present_descriptor.vertexFunction = present_vertex;
-		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"companion_fragment"];
-		/* SDL's built-in iOS layer uses BGRA8Unorm. The external layer may
-		choose another format without changing this phone pipeline. */
-		present_descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-		companion_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
-		if (!companion_pipeline)
-			host_fatal("Metal: cannot create the companion pipeline: %s", error.description.UTF8String);
+		companion_function = [utilities newFunctionWithName:@"companion_fragment"];
 		upscale_function = [utilities newFunctionWithName:@"upscale_fragment"];
 		present_dither_function = [utilities newFunctionWithName:@"present_dither_fragment"];
 		copy_function = [utilities newFunctionWithName:@"copy_fragment"];
 		/* (the present and upscale pipelines for today's formats now, so a broken one stops the game at launch) */
 		quad_pipeline(present_fragment, layer_format);
 		quad_pipeline(upscale_function, MTLPixelFormatBGRA8Unorm);
+		quad_pipeline(companion_function, MTLPixelFormatBGRA8Unorm);
 		crt_function = [utilities newFunctionWithName:@"crt_fragment"];
+		present_descriptor.vertexFunction = present_vertex;
 		present_descriptor.fragmentFunction = crt_function;
 		present_descriptor.colorAttachments[0].pixelFormat = layer_format;
 		/* (no CRT is no reason to stop the game) */
