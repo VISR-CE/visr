@@ -156,6 +156,27 @@ def functions(path):
     return found
 
 
+def else_after_eye_block(root):
+    """problems for a port block `if (... rasterizer_other_eye_begin()) { ... }` followed by `else`: the block was
+    inserted between the game's own `if` and its `else`, so the game's `else` now runs whenever the replay is off
+    (the class behind a transparent group reporting a failed constant store every frame)"""
+    problems = []
+    for folder in FOLDERS:
+        for path in sorted((root / folder).rglob("*.c")):
+            text = path.read_text(errors="replace")
+            for match in re.finditer(r"if\s*\([^{;]*rasterizer_other_eye_begin\(\)\s*\)\s*\{", text):
+                depth, index = 1, match.end()
+                while depth and index < len(text):
+                    depth += (text[index] == "{") - (text[index] == "}")
+                    index += 1
+                if re.match(r"\s*else\b", text[index:]):
+                    line = text.count("\n", 0, match.start()) + 1
+                    problems.append(f"{path.relative_to(root).as_posix()}:{line}: a rasterizer_other_eye_begin block is "
+                                    "followed by else, which would take the game's own if: put the block after the "
+                                    "game's whole if/else")
+    return problems
+
+
 def check(root=ROOT, sites=SITES, strict=False):
     """problems (strings), and the open sites"""
     problems, open_sites, readers, bodies = [], [], set(), {}
@@ -166,6 +187,7 @@ def check(root=ROOT, sites=SITES, strict=False):
                 bodies[(relative, name)] = body
                 if READS.search(body):
                     readers.add((relative, name))
+    problems += else_after_eye_block(root)
     for site in sorted(readers):
         if site not in sites:
             problems.append(f"{site[0]}: {site[1]} reads the eye's camera, position or layer and is not in "

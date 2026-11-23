@@ -54,6 +54,32 @@ class StereoEyeSitesTests(unittest.TestCase):
         self.assertEqual(stereo_eye_sites.check(self.tree(READER), sites)[0], [])
         self.assertEqual(len(stereo_eye_sites.check(self.tree(READER), sites, strict=True)[0]), 1)
 
+    def test_an_eye_block_before_the_games_else_fails(self):
+        text = READER + """static void draw(real *out, int result)
+{
+	if (result >= 0)
+	{
+		out[0] = 1;
+	}
+	if (rasterizer_other_eye_begin())
+	{
+		build(out);
+		rasterizer_other_eye_end();
+	}
+	else
+	{
+		out[0] = 0;
+	}
+}
+"""
+        sites = {("source/site.c", "build"): ("same", "x")}
+        problems, _ = stereo_eye_sites.check(self.tree(text), sites)
+        self.assertTrue(any("followed by else" in problem for problem in problems), problems)
+        fixed = text.replace("\tif (rasterizer_other_eye_begin())", "\tif (result >= 0) { } else { }\n\tif (rasterizer_other_eye_begin())", 1)
+        fixed = fixed.replace("\telse\n\t{\n\t\tout[0] = 0;\n\t}\n", "")
+        problems, _ = stereo_eye_sites.check(self.tree(fixed), sites)
+        self.assertFalse(any("followed by else" in problem for problem in problems), problems)
+
 
 if __name__ == "__main__":
     unittest.main()

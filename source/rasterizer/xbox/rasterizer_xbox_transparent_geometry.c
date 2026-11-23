@@ -1693,6 +1693,13 @@ void rasterizer_transparent_geometry_group_draw(
 								{
 									success = TRUE;
 								}
+								else
+								{
+									success = FALSE;
+									rasterizer_error(
+										result,
+										"IDirect3DDevice8_SetVertexShaderConstant(global_d3d_device, VSH_CONSTANTS__INVERSE_OFFSET, vsh_constants__inverse, VSH_CONSTANTS__INVERSE_COUNT)");
+								}
 								/* port: the second eye's replay: view-space
 								geometry's placement from eye 1's camera */
 								if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_viewspace_bit) &&
@@ -1704,13 +1711,6 @@ void rasterizer_transparent_geometry_group_draw(
 									halo_stereo_replay_constants(VSH_CONSTANTS__INVERSE_OFFSET, eye_inverse,
 										VSH_CONSTANTS__INVERSE_COUNT);
 									rasterizer_other_eye_end();
-								}
-								else
-								{
-									success = FALSE;
-									rasterizer_error(
-										result,
-										"IDirect3DDevice8_SetVertexShaderConstant(global_d3d_device, VSH_CONSTANTS__INVERSE_OFFSET, vsh_constants__inverse, VSH_CONSTANTS__INVERSE_COUNT)");
 								}
 
 								result = IDirect3DDevice8_SetVertexShaderConstant(
