@@ -4494,7 +4494,7 @@
         "browser_show_unjoinable": {
           "type": "boolean",
           "default": false,
-          "description": "Whether the server browser lists games this build cannot join: another network version, a mode it does not play, or a join that failed this run (FILTERS' GAMES I CAN'T JOIN). Their count stays in the list's footer.",
+          "description": "Whether the server browser lists games this build cannot join: another network version, a mode it does not play, or a join that failed this run (FILTERS' UNAVAILABLE GAMES). Their count stays in the list's footer.",
           "x-environment": "HALO_NET_BROWSER_SHOW_UNJOINABLE",
           "x-environment-style": "value",
           "x-platforms": [

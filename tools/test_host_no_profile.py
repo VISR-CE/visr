@@ -16,7 +16,7 @@ def test_host_no_profile():
     player = function(source, 'static boolean multiplayer_player(short controller)')
     assert 'campaign_fail' in player
 
-    host = function(source, 'static boolean multiplayer_host(')
+    host = function(source, 'static boolean multiplayer_host_mode(')
     assert 'campaign_profile' in host
     assert 'ui_widget_port_open(widget, HOST_PROFILE_NAME' in host
     assert host.index('HOST_PROFILE_NAME') < host.index('multiplayer_host_start')

@@ -58,12 +58,12 @@
     "file": "main_menu.multiplayer_type_select.join_game.filters.xml",
     "name": "full_spinner",
     "strings": [
-      "SHOW",
-      "HIDE"
+      "ON",
+      "OFF"
     ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(2)"
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
   },
   {
     "file": "main_menu.multiplayer_type_select.join_game.filters.xml",
@@ -81,12 +81,12 @@
     "file": "main_menu.multiplayer_type_select.join_game.filters.xml",
     "name": "locked_spinner",
     "strings": [
-      "SHOW",
-      "HIDE"
+      "ON",
+      "OFF"
     ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(2)"
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
   },
   {
     "file": "main_menu.multiplayer_type_select.join_game.filters.xml",
@@ -105,12 +105,12 @@
     "file": "main_menu.multiplayer_type_select.join_game.filters.xml",
     "name": "unjoinable_spinner",
     "strings": [
-      "HIDE",
-      "SHOW"
+      "ON",
+      "OFF"
     ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(2)"
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
   },
   {
     "file": "main_menu.multiplayer_type_select.game_options_edit.xml",

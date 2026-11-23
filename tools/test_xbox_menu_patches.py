@@ -103,9 +103,9 @@ def test_multiplayer_type_has_six_rows_each_with_its_own_description_and_picture
 
 
 def test_multiplayer_modes_follow_the_row_names():
-    """`multiplayer_mode_set` (menu_functions.c) chooses the mode from the row's name."""
+    """`multiplayer_mode_named` (menu_functions.c) chooses the mode from the row's name."""
     source = (ROOT / "port/linux/game/menu_functions.c").read_text()
-    body = source[source.index("static void multiplayer_mode_set"):]
+    body = source[source.index("static short multiplayer_mode_named"):]
     body = body[:body.index("\n}\n")]
     for name, pattern in (("multiplayer_type_join_lan", "join_lan"), ("multiplayer_type_join_direct", "join_direct")):
         assert f'strstr(name, "{pattern}")' in body and pattern in name

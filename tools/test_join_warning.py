@@ -14,7 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_join_warning(tmp_path):
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     state = function(source, 'static struct\n{\n\tboolean active, opening, returning;') + ' browser_join_big;'
+    join_enum = source[source.index('enum\n{\n\t_browser_join_ok'):]
+    join_enum = join_enum[:join_enum.index('};') + 3]
     signatures = (
+        'static short browser_join_block(',
+        'static void browser_join_block_text(',
         'static long player_capacity(void)',
         'static boolean player_capacity_exceeded(long players)',
         'static boolean player_capacity_marked(long players, long maximum_players)',
@@ -28,12 +32,20 @@ def test_join_warning(tmp_path):
         'static boolean browser_select(struct widget_instance *widget, struct event_record *event, short controller,\n\tboolean *widget_deleted)\n{',
         'static boolean browser_join_big_finish(',
     )
-    production = '\n'.join(function(source, signature) for signature in signatures)
+    production = join_enum + '\n'.join(function(source, signature) for signature in signatures)
     harness = r'''
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <wchar.h>
 #include "p2p.h"
+#include "halo_network_version.h"
+#include "halo_port_limits.h"
+#define ROW_TEXT_LENGTH 128
+#define usnprintf(...) swprintf(__VA_ARGS__)
+static char const *halo_network_kind_reason(unsigned kind) { (void)kind; return NULL; }
+static wchar_t last_error[256];
+static void display_error_text_deferred(wchar_t const *text, short player) { (void)player; wcsncpy(last_error, text, 255); }
 typedef int boolean;
 typedef unsigned char byte;
 #define TRUE 1
@@ -221,7 +233,7 @@ int main(void)
     probe, binary = tmp_path / 'join_warning.c', tmp_path / 'join_warning'
     probe.write_text(program)
     subprocess.run(['clang', '-std=c11', '-Wall', '-Wextra', '-Werror',
-                    '-iquote', str(ROOT / 'port/linux/src'), str(probe),
+                    '-iquote', str(ROOT / 'port/linux/src'), '-iquote', str(ROOT / 'port/linux/include'), str(probe),
                     '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
