@@ -220,7 +220,7 @@ struct widget_instance { struct { struct { int selected_index; } list; } paramet
 struct ui_widget_definition { rectangle2d bounds; };
 struct bitmap_data { int frame; };
 struct rasterizer_dynamic_screen_geometry_parameters { int unused; };
-struct ui_mouse_target { struct widget_instance *widget; short back_arrow_end, forward_arrow_start; };
+struct ui_mouse_target { struct widget_instance *widget; };
 static int controls, step, draws, last_frame, opened;
 static struct halo_menu_row row;
 static rectangle2d drawn;
@@ -249,32 +249,33 @@ void draw_bitmap_in_rect(struct bitmap_data *bitmap, rectangle2d *bounds, rectan
 ''' + block(source, 'static void ui_widget_row_draw_toggle(') + '\n' + block(source, 'static void ui_mouse_row_step(') + r'''
 int main(void) {
  struct widget_instance widget = {0};
- struct ui_mouse_target target = {&widget, 100, 200};
+ struct ui_mouse_target target = {&widget};
  struct ui_widget_definition definition = {{0, 100, 28, 180}};
  point2d offset = {10, 20};
- ui_widget_row_draw_toggle(&widget, &definition, offset, 0, 1, 0);
+ ui_widget_row_draw_toggle(&widget, &definition, offset, 0, 1);
  assert(draws == 1 && last_frame == 1);
  assert(drawn.x0 == 158 && drawn.x1 == 190 && drawn.y0 == 25 && drawn.y1 == 42);
- ui_widget_row_draw_toggle(&widget, &definition, offset, 0, 0, 6); assert(last_frame == 0);
- assert(drawn.x0 == 152 && drawn.x1 == 184);
+ ui_widget_row_draw_toggle(&widget, &definition, offset, 0, 0); assert(last_frame == 0);
+ assert(drawn.x0 == 158 && drawn.x1 == 190);
  row.kind = HALO_ROW_TOGGLE; controls = 2;
  ui_mouse_row_step(&target, 30, 10, 11, 1); assert(step == 11);
  widget.parameters.list.selected_index = 1;
  ui_mouse_row_step(&target, 210, 10, 11, 0); assert(step == 10);
+ /* the mouse flips a switch wherever it lands: it has no arrows to hit */
  controls = 1;
- ui_mouse_row_step(&target, 201, 10, 11, 0); assert(step == 11);
+ ui_mouse_row_step(&target, 201, 10, 11, 0); assert(step == 10);
  widget.parameters.list.selected_index = 0;
- ui_mouse_row_step(&target, 95, 10, 11, 0); assert(step == 10);
+ ui_mouse_row_step(&target, 95, 10, 11, 0); assert(step == 11);
  ui_mouse_row_step(&target, 30, 10, 11, 1); assert(step == 11);
  controls = 0; ui_mouse_row_step(&target, 30, 10, 11, 1); assert(step == 10);
  row.kind = HALO_ROW_STATIC; controls = 2; step = -1;
  ui_mouse_row_step(&target, 30, 10, 11, 1); assert(step == -1);
  row.kind = HALO_ROW_ENUM; step = -1;
  ui_mouse_row_step(&target, 30, 10, 11, 0); assert(opened == 1 && step == -1);
- controls = 1; ui_mouse_row_step(&target, 95, 10, 11, 0); assert(step == 10 && opened == 1);
- ui_mouse_row_step(&target, 201, 10, 11, 1); assert(step == 11 && opened == 1);
- ui_mouse_row_step(&target, 160, 10, 11, 0); assert(opened == 2);
- controls = 0; ui_mouse_row_step(&target, 160, 10, 11, 0); assert(step == 11 && opened == 2);
+ /* the mouse opens the dropdown wherever it lands, as a finger does */
+ controls = 1; step = -1; ui_mouse_row_step(&target, 95, 10, 11, 0); assert(step == -1 && opened == 2);
+ ui_mouse_row_step(&target, 201, 10, 11, 1); assert(step == -1 && opened == 3);
+ controls = 0; ui_mouse_row_step(&target, 160, 10, 11, 0); assert(step == 11 && opened == 3);
  return 0;
 }
 '''
@@ -936,3 +937,36 @@ int main(void) {
     subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+def test_option_row_arrows_follow_the_input(tmp_path):
+    """Bug class: spinner rows not stepped by keyboard arrows, and arrows drawn where a pointer acts on the row.
+    Every option row of the menu set (toggle, enum, range, any other value list) draws its arrows for a
+    controller and a keyboard (input 0) and for no mouse (1) or touch (2); the one draw site asks this function
+    for both its arrows."""
+    source = tmp_path / 'arrows.c'
+    source.write_text('#include "halo_menu_row.h"\nint shown(int input) { return halo_menu_row_arrows_shown(input); }\n')
+    library = tmp_path / 'arrows.dylib'
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-shared', '-fPIC',
+                    '-iquote', str(ROOT / 'port/linux/include'), str(source), '-o', str(library)], check=True)
+    shown = ctypes.CDLL(str(library)).shown
+    rows = json.loads((ROOT / 'tools/fixtures/touch_menu_rows.json').read_text())
+    assert rows
+    for row in rows:
+        for pointer, arrows in ((0, True), (1, False), (2, False)):
+            assert bool(shown(pointer)) == arrows, (row['file'], row['name'], pointer)
+    # the renderer's two arrow bitmaps (header, footer) are gated by it and by nothing narrower
+    draw = (ROOT / 'source/interface/ui_widget.c').read_text()
+    assert draw.count('bitmap && halo_menu_row_arrows_shown(pointer_controls)') == 2
+
+
+def test_every_option_row_steps_with_left_and_right():
+    """Bug class: spinner rows not stepped by keyboard arrows. Every spinner of the menu set carries the flag that
+    makes left and right (dpad, arrow keys, A and D) step its list, and sits in a row that passes events on."""
+    for path in sorted((ROOT / 'port/assets/menus/xbox').glob('*.xml')):
+        tree = ET.parse(path)
+        parents = {child: parent for parent in tree.iter('widget') for child in parent.iter('widget')}
+        for widget in tree.iter('widget'):
+            if widget.get('type') == 'spinner' and widget.get('strings') is not None:
+                flags = (widget.get('flags') or '').split()
+                assert 'left_right_tabs_items' in flags, (path.name, widget.get('name'))

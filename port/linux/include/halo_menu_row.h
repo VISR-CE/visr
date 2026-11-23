@@ -75,4 +75,11 @@ static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_r
 	row.kind = HALO_ROW_RANGE;
 	return row;
 }
+/* whether an option row draws its left and right arrows: a controller and a keyboard step by them, a mouse and a
+finger act on the row itself (halo_menu_pointer_controls: 0 none, 1 mouse, 2 touch) */
+static inline int halo_menu_row_arrows_shown(int pointer_controls)
+{
+	return pointer_controls == 0;
+}
+
 #endif

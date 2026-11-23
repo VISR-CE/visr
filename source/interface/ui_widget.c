@@ -6362,9 +6362,8 @@ static void ui_widget_row_draw_chevron(struct widget_instance *widget,
 	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\dropdown_chevron", 0, &bounds, clip);
 }
 
-#define UI_TOGGLE_ARROW_GAP 6
 static void ui_widget_row_draw_toggle(struct widget_instance *widget,
-	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip, int on, int inset)
+	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip, int on)
 {
 	long tag = tag_loaded('bitm', "pc\\xbox\\bitmaps\\toggle_switch");
 	struct bitmap_data *bitmap;
@@ -6373,7 +6372,7 @@ static void ui_widget_row_draw_toggle(struct widget_instance *widget,
 	if (tag == NONE) return;
 	bitmap = bitmap_group_get_bitmap_from_sequence(tag, 0, on);
 	if (!bitmap) return;
-	bounds.x1 = definition->bounds.x1 + offset.x - inset;
+	bounds.x1 = definition->bounds.x1 + offset.x;
 	bounds.x0 = bounds.x1 - 32;
 	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 17) / 2;
 	bounds.y1 = bounds.y0 + 17;
@@ -6429,6 +6428,7 @@ static void widget_instance_render_spinner_list(
 	struct halo_menu_row row = ui_widget_row_control(widget);
 	int pointer_controls = halo_menu_pointer_controls();
 	boolean toggle = pointer_controls && row.kind == HALO_ROW_TOGGLE;
+	/* port: a mouse or a finger sees no left and right arrows on any option row: each kind is acted on directly */
 	boolean dropdown = pointer_controls && ui_widget_row_has_dropdown(widget);
 	boolean slider = pointer_controls && row.kind == HALO_ROW_RANGE;
 	long header_frame_index = 0;
@@ -6462,7 +6462,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_header_bitmap.index,
 		0,
 		header_frame_index);
-	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown || slider) && pointer_controls == 2))
+	if (bitmap && halo_menu_row_arrows_shown(pointer_controls))
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6501,7 +6501,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_footer_bitmap.index,
 		0,
 		footer_frame_index);
-	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown || slider) && pointer_controls == 2))
+	if (bitmap && halo_menu_row_arrows_shown(pointer_controls))
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6529,10 +6529,8 @@ static void widget_instance_render_spinner_list(
 	if (dropdown)
 		ui_widget_row_draw_chevron(widget, definition, offset, clip_rect);
 	if (toggle)
-		/* port: with the mouse the arrows stay, so the switch keeps the slider value's gap from the right arrow */
 		ui_widget_row_draw_toggle(widget, definition, offset, clip_rect,
-			widget->parameters.list.selected_index == row.on_index,
-			pointer_controls == 1 ? UI_TOGGLE_ARROW_GAP : 0);
+			widget->parameters.list.selected_index == row.on_index);
 	if (definition->child_widgets.count == 0)
 	{
 		wchar_t *item_text;
@@ -6709,8 +6707,6 @@ struct ui_mouse_target
 	rectangle2d bounds;
 	short kind;
 	short button_index;
-	short back_arrow_end;
-	short forward_arrow_start;
 	rectangle2d value_bounds;
 };
 
@@ -8294,8 +8290,6 @@ static void ui_mouse_note_target(
 	target->bounds = bounds;
 	target->kind = kind;
 	target->button_index = button_index;
-	target->back_arrow_end = definition->list_header_bounds.x1 + offset.x;
-	target->forward_arrow_start = definition->list_footer_bounds.x0 + offset.x;
 	target->value_bounds = definition->bounds;
 	target->value_bounds.x0 += offset.x;
 	target->value_bounds.x1 += offset.x;
@@ -8304,7 +8298,6 @@ static void ui_mouse_note_target(
 	if (spinner_string_list_extra_count(definition->text_label_string_list.index))
 	{
 		target->value_bounds.x0 -= SPINNER_EXTRA_WIDTH;
-		target->back_arrow_end -= SPINNER_EXTRA_WIDTH;
 	}
 
 	/* port: the pointer slider's wider value area and left arrow move together. */
@@ -8312,7 +8305,6 @@ static void ui_mouse_note_target(
 	{
 		int padding = MAX(0, HALO_MENU_SLIDER_WIDTH - (target->value_bounds.x1 - target->value_bounds.x0));
 		target->bounds.x0 = MIN(target->bounds.x0, target->value_bounds.x0 - padding - 10);
-		target->back_arrow_end -= padding;
 	}
 
 	return;
@@ -8813,11 +8805,7 @@ static void ui_mouse_row_step(struct ui_mouse_target *target, short x,
 {
 	if (halo_menu_pointer_controls() && ui_widget_row_has_dropdown(target->widget))
 	{
-		if (halo_menu_pointer_controls() == 1 && x >= target->back_arrow_end - 6 && x < target->back_arrow_end)
-			ui_mouse_press(back);
-		else if (halo_menu_pointer_controls() == 1 && x >= target->forward_arrow_start && x < target->forward_arrow_start + 6)
-			ui_mouse_press(forward);
-		else ui_dropdown_open(target);
+		ui_dropdown_open(target);
 		return;
 	}
 	/* port: one dispatch for each runtime row control. A row flip
@@ -8827,15 +8815,7 @@ static void ui_mouse_row_step(struct ui_mouse_target *target, short x,
 		{
 		case HALO_ROW_STATIC: break;
 		case HALO_ROW_TOGGLE:
-			if (halo_menu_pointer_controls() == 1 &&
-				x >= target->back_arrow_end - 6 &&
-				x < target->back_arrow_end)
-				ui_mouse_press(back);
-			else if (halo_menu_pointer_controls() == 1 &&
-				x >= target->forward_arrow_start &&
-				x < target->forward_arrow_start + 6)
-				ui_mouse_press(forward);
-			else ui_mouse_press(target->widget->parameters.list.selected_index ? back : forward);
+			ui_mouse_press(target->widget->parameters.list.selected_index ? back : forward);
 			break;
 		default: ui_mouse_press(first_half ? back : forward); break;
 		}
