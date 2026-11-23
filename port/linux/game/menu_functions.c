@@ -5290,8 +5290,6 @@ static void lobby_browser_update(struct widget_instance *list)
 				(short)PIN((game->player_count * 32 + game->maximum_player_count / 2) / game->maximum_player_count, 0, 32) : 0;
 			usnprintf(text, ROW_TEXT_LENGTH - 1, L"%d", game->player_count);
 			text_set(named(row, "server_item_players", 0), text);
-			usnprintf(text, ROW_TEXT_LENGTH - 1, L"/%d", game->maximum_player_count);
-			text_set(named(row, "server_item_capacity", 0), text);
 		}
 		else
 		{

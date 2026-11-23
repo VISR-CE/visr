@@ -336,7 +336,7 @@ def test_browser_code_filled_text_has_no_definition_string():
     dynamic = {name: w for name, w in widgets.items() if w.get('type') == 'text' and name not in static}
     assert {'browser_detail_name', 'browser_detail_status',
             'browser_chip_all_label', 'browser_chip_all_white', 'browser_filter_label',
-            'server_item_players', 'server_item_capacity'} <= dynamic.keys()
+            'server_item_players'} <= dynamic.keys()
     # widget_instance_render_text_box reloads a definition string every frame,
     # overwriting text_set even when that definition string is empty.
     for name, widget in dynamic.items():
@@ -344,25 +344,21 @@ def test_browser_code_filled_text_has_no_definition_string():
 
 
 def test_browser_gauge_text_fits_inside_ring():
+    """The ring is the fill and the player count sits inside it, centered; the box is as tall as the small
+    font's line (a shorter box clips the glyphs away, which is how the count went missing)."""
     _, widgets = browser_c_widgets()
     row = widgets['server_item_1']
     positions = {c.get('widget').rsplit('/', 1)[-1]: (int(c.get('x')), int(c.get('y')))
                  for c in row.findall('child')}
-    for leaf in ('server_item_players', 'server_item_capacity'):
-        text = widgets[leaf]
-        assert text.get('font') == r'ui\small_ui'
-        assert text.get('align') == 'center'
-        assert int(text.get('width')) == 34
-        assert positions[leaf][0] + 17 == positions['server_item_gauge'][0] + 21
-    assert (positions['server_item_players'][1] + int(widgets['server_item_players'].get('height'))
-            <= positions['server_item_capacity'][1])
-    # both lines sit inside the 42-unit ring, as a block centered on it (a three-digit capacity is the widest line)
+    text = widgets['server_item_players']
+    assert text.get('font') == r'ui\small_ui' and text.get('align') == 'center'
+    assert 'server_item_capacity' not in widgets
+    assert int(text.get('height')) >= int(widgets['server_item_map'].get('height'))
+    assert positions['server_item_players'][0] == positions['server_item_gauge'][0]
+    assert int(text.get('width')) == 42
     ring_top = positions['server_item_gauge'][1]
     top = positions['server_item_players'][1]
-    bottom = positions['server_item_capacity'][1] + int(widgets['server_item_capacity'].get('height'))
-    assert top >= ring_top + 3 and bottom <= ring_top + 42 - 4
-    # (the glyphs draw below their boxes, so the block sits a little above the ring's center)
-    assert abs((top + bottom) / 2 - (ring_top + 21)) <= 5
+    assert top >= ring_top + 3 and top + int(text.get('height')) <= ring_top + 42 - 3
 
 
 def test_browser_direct_link_keeps_the_legacy_table():

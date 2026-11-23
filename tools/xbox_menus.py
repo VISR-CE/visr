@@ -1844,19 +1844,18 @@ def browser_layout(root, widgets, bitmaps):
         ET.SubElement(row, 'on', event='a', run='gamespy select item')
         ET.SubElement(row, 'on', event='start', run='gamespy select item')
         for leaf, x, y in (('type', 6, 5), ('server_name', 48, 3), ('map', 48, 24),
-                           ('gauge', 222, 1), ('players', 226, 5), ('capacity', 226, 19)):
+                           ('gauge', 222, 1), ('players', 222, 11)):
             child(row, base + '/server_item_' + leaf, x=x, y=y)
     for leaf, width, height, font, color, bitmap in (
             ('type', 36, 36, None, None, 'gametype'),
             ('gauge', 42, 42, None, None, 'gauge'),
             ('server_name', 168, 24, 'large', '#ffffff', None),
             ('map', 168, 18, 'small', '#7fc4ff', None),
-            ('players', 34, 14, 'small', '#ffffff', None),
-            ('capacity', 34, 14, 'small', '#7fc4ff', None)):
+            ('players', 42, 18, 'small', '#ffffff', None)):
         attributes = dict(width=width, height=height)
         if font:
             attributes.update(type='text', font='ui\\' + font + '_ui', color=color)
-            if leaf in ('players', 'capacity'):
+            if leaf == 'players':
                 attributes['align'] = 'center'
         if bitmap:
             attributes['bitmap'] = 'xbox/browser/' + bitmap
