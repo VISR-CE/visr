@@ -273,6 +273,7 @@ def test_browser_controller_navigation(tmp_path):
         "static short browser_row_index(",
         "static void lobby_browser_focus_row(",
         "static short lobby_browser_rows(",
+        "static boolean browser_row_chosen(short row_index)\n{",
         "static void browser_focus(",
         "static void browser_c_controls_update(",
         "static void browser_c_focus(struct widget_instance *widget)\n{",

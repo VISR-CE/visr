@@ -1,0 +1,1 @@
+- Nov 23: bv3j-ci and bv3k-ci failed on the same 6 tests; fixed in 4f6dce3c6 (fixes worktree); cancelled bv3k-*; submitted bv3l (ci, ios, tvos, mac chain via gates-v3d.sh), bv3l-shots, bv3l-sweep on 4f6dce3c6. Install still waits on bv3j-mac at 70b9f8108 (ci for it failed on tests only, fixed later; coordinator to decide).

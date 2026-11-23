@@ -4019,6 +4019,9 @@ static boolean browser_item_usable(struct widget_instance *child)
 			multiplayer.mode == _multiplayer_mode_server_browser);
 }
 
+/* whether the row at this index of the window is the game chosen (defined with the browser's state, below) */
+static boolean browser_row_chosen(short row_index);
+
 /* the browser's focus, off what cannot have it (at the start, or a row whose
 game went): the first game, else the buttons (off those hidden) */
 static void browser_focus(struct widget_instance *list)
@@ -4044,8 +4047,7 @@ static void browser_focus(struct widget_instance *list)
 		/* (layout C's rows are tabs: the game chosen stays joined to the detail panel, whoever has the focus) */
 		if (named(screen_of(list), "browser_chips", 0))
 			row->animation.current_frame_index =
-				row->visible &&
-				row_index + lobby_browser.first == lobby_browser.chosen ? 1 : 0;
+				row->visible && browser_row_chosen(row_index) ? 1 : 0;
 		else
 			row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == focused) ? 1 : 0;
 	}
@@ -4388,6 +4390,11 @@ static struct
 	struct p2p_listing password_game;
 	boolean password_joined;
 } lobby_browser;
+
+static boolean browser_row_chosen(short row_index)
+{
+	return row_index + lobby_browser.first == lobby_browser.chosen;
+}
 
 /* Called by ui_widget.c for a row's text. Keep unavailable rows focusable
 so their version or unsupported-mode reason remains visible in the ticker. */
