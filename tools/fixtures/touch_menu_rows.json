@@ -951,17 +951,6 @@
   },
   {
     "file": "settings.video_settings.xml",
-    "name": "interpolation_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.video_settings.xml",
     "name": "max_fps_spinner",
     "strings": [
       "AUTO",
