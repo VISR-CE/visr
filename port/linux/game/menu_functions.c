@@ -1089,7 +1089,7 @@ static short xbox_multiplayer_map_count(short multiplayer_map_count)
 
 static void multiplayer_map_text(short map, wchar_t *text)
 {
-	string_get("pc\\main_menu\\mp_map_list", map, text);
+	string_get("pc\\xbox\\main_menu\\mp_map_list", map, text);
 }
 
 /* a Custom Edition map's name (the menus find its name, picture and
@@ -1213,7 +1213,7 @@ static boolean level_list_initialize(struct widget_instance *list, short control
 
 static void level_row_text(short level, wchar_t *text)
 {
-	string_get("pc\\main_menu\\map_list", campaign.levels[level].available ? level : LEVEL_UNAVAILABLE, text);
+	string_get("pc\\xbox\\main_menu\\map_list", campaign.levels[level].available ? level : LEVEL_UNAVAILABLE, text);
 }
 
 /* "solo map list update" */
@@ -2000,7 +2000,7 @@ static void profile_row_text(short row, wchar_t *text)
 	}
 	else
 	{
-		string_get("pc\\main_menu\\player_profiles_select\\profile_description_labels", 4, text);
+		string_get("pc\\xbox\\main_menu\\player_profiles_select\\profile_description_labels", 4, text);
 	}
 }
 
@@ -3005,12 +3005,12 @@ static void map_step_open(struct widget_instance *list, short step, short entry)
 
 static void map_level_text(short level, wchar_t *text)
 {
-	string_get("pc\\main_menu\\map_list", level, text);
+	string_get("pc\\xbox\\main_menu\\map_list", level, text);
 }
 
 static void map_difficulty_text(short difficulty, wchar_t *text)
 {
-	string_get("pc\\main_menu\\player_profiles_select\\difficulty_names", difficulty, text);
+	string_get("pc\\xbox\\main_menu\\player_profiles_select\\difficulty_names", difficulty, text);
 }
 
 /* "mp level list initialize": on the multiplayer map used last */
@@ -3830,7 +3830,7 @@ static void direct_link_status(wchar_t *text, short size, int stage, int seconds
 games found on the LAN, or (Direct Link) from internet play's peers
 (reached by an invite link, the clipboard, or Discord) */
 
-#define JOIN_GAME_LABELS "pc\\main_menu\\multiplayer_type_select\\join_game\\join_game_ticker_labels"
+#define JOIN_GAME_LABELS "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\join_game_ticker_labels"
 enum { _join_game_label_servers = 6, _join_game_label_players, _join_game_label_page };
 
 static boolean game_from_peer(struct advertised_game const *game)
@@ -4191,13 +4191,13 @@ static void map_display_name(char const *map_name, wchar_t *text)
 	{
 		if (!_stricmp(scenario_name(names[index]), scenario_name(map_name)))
 		{
-			string_get("pc\\main_menu\\mp_map_list", index, text);
+			string_get("pc\\xbox\\main_menu\\mp_map_list", index, text);
 			return;
 		}
 	}
 	if ((index = campaign_level_of(map_name)) != NONE)
 	{
-		string_get("pc\\main_menu\\map_list", index, text);
+		string_get("pc\\xbox\\main_menu\\map_list", index, text);
 		return;
 	}
 	for (index = 0; map_name[index] && index < ROW_TEXT_LENGTH - 1; index++)

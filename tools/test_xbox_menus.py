@@ -322,7 +322,7 @@ def test_browser_retains_map_names_at_the_c_updaters_lookup_paths():
     original = ET.parse(LOOKS / 'ce/strings.xml')
     for name in ('main_menu/map_list', 'main_menu/mp_map_list'):
         expected = original.find(f'strings[@name="{name}"]')
-        actual = shared.find(f'strings[@name="{name}"]')
+        actual = shared.find(f'strings[@name="xbox/{name}"]')
         assert actual is not None
         assert [e.get('text') for e in actual] == [e.get('text') for e in expected]
 
@@ -509,7 +509,7 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
 
 def test_browser_stats_keep_runtime_string_aliases():
     root = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
-    name = 'main_menu/multiplayer_type_select/join_game/join_game_ticker_labels'
+    name = 'xbox/main_menu/multiplayer_type_select/join_game/join_game_ticker_labels'
     labels = root.find(f'strings[@name="{name}"]')
     assert labels is not None
     assert [s.get('text') for s in labels][6:9] == ['SERVERS:', 'PLAYERS:', 'PAGE']

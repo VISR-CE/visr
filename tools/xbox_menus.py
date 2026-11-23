@@ -1095,12 +1095,6 @@ def multiplayer_documents(assets, bitmaps):
             if 'button_bar' in leaf:
                 c.set('y', '449')
 
-    # menu_functions.c looks up map names and browser stats by PC tag path,
-    # independently of the widgets' string_list references.
-    for name in ('main_menu/map_list', 'main_menu/mp_map_list',
-                 'main_menu/player_profiles_select/difficulty_names',
-                 MP + '/join_game/join_game_ticker_labels'):
-        shared.append(deepcopy(definitions['strings', name]))
     browser_layout(documents['main_menu.multiplayer_type_select.join_game.xml'], widgets, bitmaps)
     quit_layout(documents['main_menu.quit_select.xml'], widgets)
     map_screen_layout(documents['main_menu.multiplayer_type_select.mp_map_select.xml'], widgets,

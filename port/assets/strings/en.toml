@@ -799,60 +799,6 @@ text = "DELETE"
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_playlist_button_new]
 text = "CREATE NEW"
 
-[xbox.multiplayer_shared.main_menu_map_list]
-the_pillar_of_nautumn = "The Pillar of \\nAutumn"
-halo = "Halo"
-the_truth_and_nreconciliation = "The Truth and \\nReconciliation"
-the_silent_ncartographer = "The Silent \\nCartographer"
-assault_on_the_ncontrol_room = "Assault on the\\nControl Room"
-343_guilty_nspark = "343 Guilty \\nSpark"
-the_library = "The Library"
-two_betrayals = "Two Betrayals"
-keyes = "Keyes"
-the_maw = "The Maw"
-this_level_nunavailable = "This Level\\nUnavailable"
-
-[xbox.multiplayer_shared.main_menu_mp_map_list]
-battle_creek = "Battle Creek"
-sidewinder = "Sidewinder"
-damnation = "Damnation"
-rat_race = "Rat Race"
-prisoner = "Prisoner"
-hang_em_high = "Hang 'Em High"
-chill_out = "Chill Out"
-derelict = "Derelict"
-boarding_action = "Boarding Action"
-blood_gulch = "Blood Gulch"
-wizard = "Wizard"
-chiron_tl34 = "Chiron TL34"
-longest = "Longest"
-ice_fields = "Ice Fields"
-death_island = "Death Island"
-danger_canyon = "Danger Canyon"
-infinity = "Infinity"
-timberland = "Timberland"
-gephyrophobia = "Gephyrophobia"
-unknown_level = "Unknown Level"
-x = " "
-
-[xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels]
-players = "Players"
-rules = "Rules"
-message = "Message"
-getting_server_info = "Getting Server Info..."
-getting_message_of_the_day = "Getting Message of the Day..."
-welcome_to_halo_multiplayer = "Welcome to Halo Multiplayer!"
-servers = "SERVERS:"
-players_2 = "PLAYERS:"
-page = "PAGE"
-todo_motd_url = "TODO: MOTD URL"
-
-[xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names]
-easy = "Easy"
-normal = "Normal"
-heroic = "Heroic"
-legendary = "Legendary"
-
 [xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_a_butn_touch_caption]
 text = "OK"
 

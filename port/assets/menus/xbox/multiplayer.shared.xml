@@ -1334,60 +1334,6 @@
 		<string text="Internet" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_mode.internet" />
 		<string text="LAN" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_mode.lan" />
 	</strings>
-	<strings name="main_menu/map_list">
-		<string text="The Pillar of \nAutumn" id="xbox.multiplayer_shared.main_menu_map_list.the_pillar_of_nautumn" />
-		<string text="Halo" id="xbox.multiplayer_shared.main_menu_map_list.halo" />
-		<string text="The Truth and \nReconciliation" id="xbox.multiplayer_shared.main_menu_map_list.the_truth_and_nreconciliation" />
-		<string text="The Silent \nCartographer" id="xbox.multiplayer_shared.main_menu_map_list.the_silent_ncartographer" />
-		<string text="Assault on the\nControl Room" id="xbox.multiplayer_shared.main_menu_map_list.assault_on_the_ncontrol_room" />
-		<string text="343 Guilty \nSpark" id="xbox.multiplayer_shared.main_menu_map_list.343_guilty_nspark" />
-		<string text="The Library" id="xbox.multiplayer_shared.main_menu_map_list.the_library" />
-		<string text="Two Betrayals" id="xbox.multiplayer_shared.main_menu_map_list.two_betrayals" />
-		<string text="Keyes" id="xbox.multiplayer_shared.main_menu_map_list.keyes" />
-		<string text="The Maw" id="xbox.multiplayer_shared.main_menu_map_list.the_maw" />
-		<string text="This Level\nUnavailable" id="xbox.multiplayer_shared.main_menu_map_list.this_level_nunavailable" />
-	</strings>
-	<strings name="main_menu/mp_map_list">
-		<string text="Battle Creek" id="xbox.multiplayer_shared.main_menu_mp_map_list.battle_creek" />
-		<string text="Sidewinder" id="xbox.multiplayer_shared.main_menu_mp_map_list.sidewinder" />
-		<string text="Damnation" id="xbox.multiplayer_shared.main_menu_mp_map_list.damnation" />
-		<string text="Rat Race" id="xbox.multiplayer_shared.main_menu_mp_map_list.rat_race" />
-		<string text="Prisoner" id="xbox.multiplayer_shared.main_menu_mp_map_list.prisoner" />
-		<string text="Hang 'Em High" id="xbox.multiplayer_shared.main_menu_mp_map_list.hang_em_high" />
-		<string text="Chill Out" id="xbox.multiplayer_shared.main_menu_mp_map_list.chill_out" />
-		<string text="Derelict" id="xbox.multiplayer_shared.main_menu_mp_map_list.derelict" />
-		<string text="Boarding Action" id="xbox.multiplayer_shared.main_menu_mp_map_list.boarding_action" />
-		<string text="Blood Gulch" id="xbox.multiplayer_shared.main_menu_mp_map_list.blood_gulch" />
-		<string text="Wizard" id="xbox.multiplayer_shared.main_menu_mp_map_list.wizard" />
-		<string text="Chiron TL34" id="xbox.multiplayer_shared.main_menu_mp_map_list.chiron_tl34" />
-		<string text="Longest" id="xbox.multiplayer_shared.main_menu_mp_map_list.longest" />
-		<string text="Ice Fields" id="xbox.multiplayer_shared.main_menu_mp_map_list.ice_fields" />
-		<string text="Death Island" id="xbox.multiplayer_shared.main_menu_mp_map_list.death_island" />
-		<string text="Danger Canyon" id="xbox.multiplayer_shared.main_menu_mp_map_list.danger_canyon" />
-		<string text="Infinity" id="xbox.multiplayer_shared.main_menu_mp_map_list.infinity" />
-		<string text="Timberland" id="xbox.multiplayer_shared.main_menu_mp_map_list.timberland" />
-		<string text="Gephyrophobia" id="xbox.multiplayer_shared.main_menu_mp_map_list.gephyrophobia" />
-		<string text="Unknown Level" id="xbox.multiplayer_shared.main_menu_mp_map_list.unknown_level" />
-		<string text=" " id="xbox.multiplayer_shared.main_menu_mp_map_list.x" />
-	</strings>
-	<strings name="main_menu/player_profiles_select/difficulty_names">
-		<string text="Easy" id="xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names.easy" />
-		<string text="Normal" id="xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names.normal" />
-		<string text="Heroic" id="xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names.heroic" />
-		<string text="Legendary" id="xbox.multiplayer_shared.main_menu_player_profiles_select_difficulty_names.legendary" />
-	</strings>
-	<strings name="main_menu/multiplayer_type_select/join_game/join_game_ticker_labels">
-		<string text="Players" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players" />
-		<string text="Rules" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.rules" />
-		<string text="Message" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.message" />
-		<string text="Getting Server Info..." id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_server_info" />
-		<string text="Getting Message of the Day..." id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_message_of_the_day" />
-		<string text="Welcome to Halo Multiplayer!" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.welcome_to_halo_multiplayer" />
-		<string text="SERVERS:" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.servers" />
-		<string text="PLAYERS:" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players_2" />
-		<string text="PAGE" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.page" />
-		<string text="TODO: MOTD URL" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.todo_motd_url" />
-	</strings>
 	<widget name="xbox/error/confirm_delete_profile/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/confirm_delete_profile/legend/b_butn/touch_background" y="14" />
