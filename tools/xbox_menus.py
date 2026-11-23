@@ -2044,6 +2044,12 @@ def dialog_legend_slots(labels):
     return slots
 
 
+def dialog_slot_content_x(slot_width, caption_width):
+    """The glyph's x inside a slot: glyph and caption centered in the slot as one group, whatever the caption. The one
+    rule for every dialog legend slot, so a short OK in a standard slot sits at its slot's center."""
+    return (slot_width - (DIALOG_GLYPH + DIALOG_GLYPH_GAP + caption_width)) // 2
+
+
 def dialog_caption_width(label):
     """The caption's drawn width: the game's own font advances (ui\\large_ui), as the engine measures it."""
     return menu_text_metrics.text_width('ui\\large_ui', label)
@@ -2078,7 +2084,7 @@ def dialog_legend_targets(root, screen, base, x=None, y=None, cancel=False, acce
         target.attrib.pop('bitmap')
         pill_w = slot_w - 4
         caption_width = dialog_caption_width(label)
-        content_x = (slot_w - (DIALOG_GLYPH + DIALOG_GLYPH_GAP + caption_width)) // 2
+        content_x = dialog_slot_content_x(slot_w, caption_width)
         root.find(f"widget[@name='{caption}']").set('width', str(caption_width))
         ET.SubElement(target, 'data', input='port dialog legend update')
         touch_base = icon + '/'

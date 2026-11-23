@@ -1772,6 +1772,35 @@ def modal_legend_inks(widgets, screen):
     return result
 
 
+def test_every_modal_legend_slot_centers_its_glyph_and_caption():
+    """Bug class: a short caption in a standard-size slot sat off its slot's center, so a CANCEL and OK pair read as
+    off the panel's center. Each slot's content (glyph plus caption, as one group) is centered in the slot, for every
+    dialog and every caption, within 1 unit."""
+    widgets = layout_widgets('comfortable')
+    import xbox_menus
+    checked = 0
+    for name, spec in xbox_menus.SCREEN_LAYOUTS.items():
+        if spec['kind'] != 'K8' or spec.get('buttonless', False):
+            continue
+        screen = widgets[name]
+        for target, x, y in screen_parts(screen, widgets):
+            if target.find('data[@input="port dialog legend update"]') is None:
+                continue
+            slot_left, slot_right = x, x + int(target.get('width'))
+            ink = []
+            for c in target.findall('child'):
+                w = widgets[c.get('widget')]
+                if w.get('bitmap') == 'xbox/dialog_touch_button' or c.get('widget').endswith('touch_caption'):
+                    continue
+                left = x + int(c.get('x', 0))
+                ink.append((left, left + int(w.get('width'))))
+            ink_center = (min(a for a, b in ink) + max(b for a, b in ink)) / 2
+            assert abs(ink_center - (slot_left + slot_right) / 2) <= 1, (name, target.get('name'), ink_center,
+                                                                          slot_left, slot_right)
+            checked += 1
+    assert checked >= 20
+
+
 def test_every_modal_legend_row_is_centered_in_the_footer_band():
     """Bug class (Nov 22): a dialog's glyph and caption row straddled the footer rule and sat left of center.
 
