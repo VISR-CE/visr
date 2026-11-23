@@ -261,6 +261,9 @@ static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, 
 #include "../../linux/src/port_graphics_modes.h"
 #include <sys/stat.h>
 #include "host_frame_pacer.h"
+/* the pacer's rules and helpers are plain C, usable on every platform (host_frame_pacer.h turns the pacer itself off
+for visionOS and keeps only its stubs) */
+#include "frame_pacer.h"
 #include "frame_deadline.h"
 #include "visibility_history.h"
 #include "host_stereo.h"
