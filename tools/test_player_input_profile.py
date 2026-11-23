@@ -102,6 +102,9 @@ static struct
 static long player1_last_used_profile_index = NONE;
 static char player1_profile_path[0x100];
 #define _saved_game_file_type_player_profile 1
+#define SAVED_GAME_FILE_INDEX_MEMORY_UNIT(profile_index) (((profile_index)>>8)&0xFF)
+#define SAVED_GAME_FILE_INDEX_FILE_INDEX(profile_index) (((profile_index)>>16)&0xFFF)
+#define SAVED_GAME_FILE_INDEX_FILE_INDEX_SHIFT 16
 static long last_index = -2;
 static void set_local_player_controls_from_player_profile(short local_player_index) { (void)local_player_index; }
 
@@ -481,7 +484,7 @@ def test_deletes_are_posted_under_the_mapfile_mutex_and_drained_before_index_rea
     ui = (ROOT / 'source' / 'interface' / 'player_ui.c').read_text(encoding='latin-1').replace('\r\n', '\n')
     start = ui.index('/* end of the deletion mailbox */')
     for chunk in re.split(r'\n(?=[a-z][a-z_ ]* \*?player_ui_\w+\()', ui[:start] + '\n' + ui[start:]):
-        if '.active_profile_index' in chunk and not re.match(r'static void player_ui_(saved_game_file_deleted|find_cached|clear_active|remember_profile_path|forget_cached)', chunk) \
+        if '.active_profile_index' in chunk and not re.match(r'static void player_ui_(saved_game_file_deleted|find_cached|clear_active|clear_edit|remember_profile_path|forget_cached)', chunk) \
                 and 'player_ui_apply_pending_saved_game_file_deletions' not in chunk[:60]:
             if re.search(r'\.active_profile_index\s*(!=|==|,|\))', chunk) or 'result = ' in chunk:
                 assert 'player_ui_apply_pending_saved_game_file_deletions();' in chunk, chunk[:80]

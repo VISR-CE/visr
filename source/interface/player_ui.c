@@ -1374,7 +1374,8 @@ the last-used profile of player 1, the profile being edited) name a position in 
 in two ways: the mapfile closes up over a deleted entry (saved_game_files.c remove_nth_entry_in_mapfile), and it is
 rebuilt from the directory listing (enumerate_memory_units). Both post here, from any thread (a failed profile write
 deletes on the write thread), and the game thread applies the posts in order, at its next tick (main.c) and before it
-reads or sets a profile: player_ui_reresolve_cached_profile_indices is the one place that follows the changes. Posts
+reads or sets a profile: player_ui_apply_pending_saved_game_file_deletions (the name predates the relisting and
+failure posts) is the one place that follows the changes. Posts
 come from one producer at a time (the mapfile mutex), except the flags. */
 #define PLAYER_UI_DELETION_MAILBOX_SIZE 16
 #define PLAYER_UI_PATH_SIZE 0x100
@@ -1424,6 +1425,14 @@ void player_ui_post_saved_game_files_relisted(
 	return;
 }
 
+static void player_ui_clear_edit_profile_cache(
+	void)
+{
+	player_ui_edit_profile_path[0] = '\0';
+	player_ui_edit_profile_type = NONE;
+	return;
+}
+
 static void player_ui_remember_profile_path(
 	short local_player_index)
 {
@@ -1440,8 +1449,7 @@ static void player_ui_set_edit_profile_index(
 	long profile_index)
 {
 	player_ui_globals.edit_profile_index = profile_index;
-	player_ui_edit_profile_path[0] = '\0';
-	player_ui_edit_profile_type = NONE;
+	player_ui_clear_edit_profile_cache();
 	if (profile_index != NONE)
 	{
 		player_ui_edit_profile_type = saved_game_file_get_type(profile_index);
@@ -1470,9 +1478,9 @@ static long player_ui_index_after_deletion(
 		return NONE;
 	if (index == deleted_index)
 		return NONE;
-	if (((index >> 8) & 0xFF) == ((deleted_index >> 8) & 0xFF) &&
-		((index >> 16) & 0xFFF) > ((deleted_index >> 16) & 0xFFF))
-		return index - (1L << 16);
+	if (SAVED_GAME_FILE_INDEX_MEMORY_UNIT(index) == SAVED_GAME_FILE_INDEX_MEMORY_UNIT(deleted_index) &&
+		SAVED_GAME_FILE_INDEX_FILE_INDEX(index) > SAVED_GAME_FILE_INDEX_FILE_INDEX(deleted_index))
+		return index - (1L << SAVED_GAME_FILE_INDEX_FILE_INDEX_SHIFT);
 	return index;
 }
 
@@ -1499,8 +1507,7 @@ static void player_ui_saved_game_file_deleted(
 		player_ui_globals.edit_profile_index = player_ui_index_after_deletion(player_ui_globals.edit_profile_index, deleted_index);
 		if (player_ui_globals.edit_profile_index == NONE)
 		{
-			player_ui_edit_profile_path[0] = '\0';
-			player_ui_edit_profile_type = NONE;
+			player_ui_clear_edit_profile_cache();
 		}
 	}
 	return;
@@ -1516,8 +1523,7 @@ static void player_ui_forget_cached_profile_indices(
 		player_ui_clear_active_profile(local_player_index);
 	player1_last_used_profile_index = NONE;
 	player_ui_globals.edit_profile_index = NONE;
-	player_ui_edit_profile_path[0] = '\0';
-	player_ui_edit_profile_type = NONE;
+	player_ui_clear_edit_profile_cache();
 	return;
 }
 
@@ -1558,8 +1564,7 @@ static void player_ui_find_cached_profiles_by_path(
 				player_ui_edit_profile_path, player_ui_edit_profile_type) : NONE;
 		if (player_ui_globals.edit_profile_index == NONE)
 		{
-			player_ui_edit_profile_path[0] = '\0';
-			player_ui_edit_profile_type = NONE;
+			player_ui_clear_edit_profile_cache();
 		}
 	}
 	return;

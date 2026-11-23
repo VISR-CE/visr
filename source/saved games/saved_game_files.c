@@ -394,9 +394,6 @@ enum
 /* an enumerated saved game file is identified by a packed profile index:
    [31] and [30] are flags, [27..16] the file index within the memory unit,
    [15..8] the memory unit and [3..0] the saved game file type. */
-#define SAVED_GAME_FILE_INDEX_TYPE(profile_index) ((profile_index)&0xF)
-#define SAVED_GAME_FILE_INDEX_MEMORY_UNIT(profile_index) (((profile_index)>>8)&0xFF)
-#define SAVED_GAME_FILE_INDEX_FILE_INDEX(profile_index) (((profile_index)>>16)&0xFFF)
 #define SAVED_GAME_FILE_INDEX_BUILD(n, memory_unit_index, type) \
 	(((((n)&0xFFF)<<8)|((memory_unit_index)&0xFF))<<8|((type)&0xF))
 
