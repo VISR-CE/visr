@@ -2385,8 +2385,8 @@ void network_game_client_reset(
 	client->state = _network_game_client_state_searching;
 
 	/* (port: or one that was lost, whose socket stays until it is torn down; or a join
-	still under way, whose connection is open but not connected yet: the next join
-	connects a fresh one, as a player who backed out of it and joins another game expects) */
+	still under way whose stream was lost before the connection was marked closed: the
+	next join connects a fresh one) */
 	if (teardown_connection && client->connection &&
 		((boolean)network_connection_connected(client->connection) || join_under_way ||
 			!network_connection_active(client->connection)))

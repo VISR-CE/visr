@@ -74,7 +74,8 @@ boolean network_game_client_advertised_game_compatible(
 	struct network_game_client *client,
 	struct network_advertised_game const *game,
 	boolean tell);
-/* the guard under every join: FALSE (and logged) unless the client is idle and can start one */
+/* the guard under the menu paths that start a join (the host's own local join is exempt): FALSE
+(and logged) unless the client is idle and can start one */
 boolean network_game_client_can_initiate_join(
 	void *client,
 	void *game);
