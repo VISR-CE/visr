@@ -120,6 +120,7 @@ symbols in this file:
 #include "interface/player_ui.h"
 #include "saved games/saved_game_files.h"
 #include "saved games/player_profile.h"
+#include "player_input_profile.h"
 
 #include <xtl.h>
 
@@ -178,6 +179,19 @@ typedef char verify_player_profile_initialized_offset[
 typedef char verify_player_profile_globals_size[
 	sizeof(struct player_profile_runtime_globals) == 0x6C ? 1 : -1];
 
+/* port: what the next write thread also does about the input extension (player_input_profile.h). Kept apart
+from player_profile_runtime_globals, whose layout is size-asserted */
+static struct
+{
+	boolean write_base;
+	boolean write_input;
+	struct player_input_profile input;
+} player_profile_input_request;
+
+typedef char verify_input_region_fits_padding[
+	PLAYER_INPUT_REGION_OFFSET == sizeof(struct player_profile) + sizeof(XCALCSIG_SIGNATURE) &&
+	PLAYER_INPUT_REGION_SIZE <= sizeof(((struct player_profile_file_block *)0)->padding) ? 1 : -1];
+
 /* ---------- prototypes */
 
 static void build_default_profile(
@@ -192,7 +206,8 @@ static void player_profile_create_default_profiles_on_disk(
 	void);
 static void player_profile_write(
 	long player_profile_index,
-	struct player_profile *profile);
+	struct player_profile *profile,
+	struct player_input_profile *input);
 
 /* ---------- globals */
 
@@ -542,10 +557,79 @@ void player_profile_save(
 
 	if (player_profile_index != NONE)
 	{
-		player_profile_write(player_profile_index, profile);
+		player_profile_write(player_profile_index, profile, NULL);
 	}
 
 	return;
+}
+
+/* port: the profile and its input settings, in one write */
+void player_profile_save_with_input(
+	long player_profile_index,
+	struct player_profile *profile,
+	struct player_input_profile *input)
+{
+	if (player_profile_index != NONE)
+	{
+		player_profile_write(player_profile_index, profile, input);
+	}
+
+	return;
+}
+
+/* port: only the input settings; the record and its checksum stay as the file has them */
+void player_profile_save_input(
+	long player_profile_index,
+	struct player_input_profile *input)
+{
+	if (player_profile_index != NONE)
+	{
+		player_profile_write(player_profile_index, NULL, input);
+	}
+
+	return;
+}
+
+/* port: the input settings of a profile: its file's extension, the defaults for an older profile, a default
+profile or a damaged or newer record. TRUE when the file was read */
+boolean player_profile_get_input(
+	long player_profile_index,
+	struct player_input_profile *input)
+{
+	boolean succeeded = FALSE;
+	byte block[SAVED_GAME_FILE_BLOCK_SIZE];
+	struct file_reference file;
+	struct player_input_extension extension;
+
+	player_input_extension_defaults(&extension);
+	if (player_profile_index != NONE && TEST_FLAG(player_profile_index, _saved_game_file_index_valid_bit))
+	{
+		if (player_profile_globals.thread)
+		{
+			while (!thread_has_exited(player_profile_globals.thread))
+			{
+			}
+			dispose_thread(player_profile_globals.thread);
+			player_profile_globals.thread = NULL;
+		}
+
+		if (saved_game_files_take_mutex())
+		{
+			if (saved_game_file_open(&file, player_profile_index))
+			{
+				if (file_read(&file, SAVED_GAME_FILE_BLOCK_SIZE, block))
+				{
+					/* (the extension is its own checksummed record: a sanitized base does not discard it) */
+					player_input_extension_decode(block + PLAYER_INPUT_REGION_OFFSET, &extension);
+					succeeded = TRUE;
+				}
+				saved_game_file_close(&file, player_profile_index);
+			}
+			saved_game_files_release_mutex();
+		}
+	}
+	*input = extension.values;
+	return succeeded;
 }
 
 void player_profile_save_last_level_played(
@@ -610,7 +694,7 @@ void player_profile_save_level_completed(
 
 		profile.single_player_map_flags[level] |= FLAG(difficulty);
 
-		player_profile_write(player_profile_index, &profile);
+		player_profile_write(player_profile_index, &profile, NULL);
 
 		player_ui_set_active_player_profile(
 			local_player_index,
@@ -789,6 +873,7 @@ static unsigned long __stdcall player_profile_write_thread_proc(
 {
 	struct player_profile_write_request *request = input;
 	struct player_profile_file_block block = {0};
+	byte old_block[SAVED_GAME_FILE_BLOCK_SIZE];
 	struct file_reference file;
 
 	match_vassert("c:\\halo\\SOURCE\\saved games\\player_profile.c", 0x2D7, input, "input");
@@ -803,18 +888,62 @@ static unsigned long __stdcall player_profile_write_thread_proc(
 
 		if (saved_game_file_open(&file, player_profile_index))
 		{
-			csmemcpy(&block.profile, profile, sizeof(struct player_profile));
-			saved_game_file_generate_checksum(&block.profile, sizeof(block.profile),
-				&block.checksum);
+			/* port: what the file holds now, so that a write of the record alone keeps the input extension and a
+			write of the extension alone keeps the record and its checksum byte for byte */
+			boolean have_old = file_set_position(&file, 0) &&
+				file_read(&file, SAVED_GAME_FILE_BLOCK_SIZE, old_block);
+			boolean write = TRUE;
 
-			if (!file_set_position(&file, 0) ||
-				!file_write(&file, sizeof(block), &block))
+			if (player_profile_input_request.write_base || !have_old)
+			{
+				csmemcpy(&block.profile, profile, sizeof(struct player_profile));
+				saved_game_file_generate_checksum(&block.profile, sizeof(block.profile),
+					&block.checksum);
+			}
+			else
+			{
+				csmemcpy(&block, old_block, PLAYER_INPUT_REGION_OFFSET);
+			}
+
+			if (player_profile_input_request.write_input)
+			{
+				struct player_input_extension extension;
+
+				player_input_extension_defaults(&extension);
+				if (have_old &&
+					player_input_extension_decode(old_block + PLAYER_INPUT_REGION_OFFSET, &extension) ==
+						_player_input_newer)
+				{
+					/* a newer build's format: its settings are kept, ours are not saved */
+					csmemcpy((byte *)&block + PLAYER_INPUT_REGION_OFFSET, old_block + PLAYER_INPUT_REGION_OFFSET,
+						PLAYER_INPUT_REGION_SIZE);
+				}
+				else
+				{
+					extension.values = player_profile_input_request.input;
+					player_input_extension_encode(&extension, (byte *)&block + PLAYER_INPUT_REGION_OFFSET);
+				}
+			}
+			else if (have_old)
+			{
+				csmemcpy((byte *)&block + PLAYER_INPUT_REGION_OFFSET, old_block + PLAYER_INPUT_REGION_OFFSET,
+					PLAYER_INPUT_REGION_SIZE);
+			}
+			if (!have_old && !player_profile_input_request.write_base)
+			{
+				/* nothing to keep the record from: an extension-only write to a file that cannot be read */
+				write = FALSE;
+			}
+
+			if (write && (!file_set_position(&file, 0) ||
+				!file_write(&file, sizeof(block), &block)))
 			{
 				error(_error_silent, "failed to write player profile to file");
 				failed = TRUE;
 			}
 
 			if (saved_game_file_close(&file, player_profile_index) &&
+				player_profile_input_request.write_base &&
 				!synchronize_metadata_display_name_with_profile_name(player_profile_index, profile->player_name))
 			{
 				error(_error_silent, "metadata name may not match game display name");
@@ -862,6 +991,20 @@ static void player_profile_create_default_profiles_on_disk(
 
 		if (file_reference_create_from_path(&file, full_path, FALSE))
 		{
+			/* port: the file is rewritten at every launch; its input extension is kept */
+			{
+				byte old_block[SAVED_GAME_FILE_BLOCK_SIZE];
+
+				if (file_open(&file, FLAG(_permission_read_bit)))
+				{
+					if (file_read(&file, SAVED_GAME_FILE_BLOCK_SIZE, old_block))
+					{
+						csmemcpy((byte *)&block + PLAYER_INPUT_REGION_OFFSET, old_block + PLAYER_INPUT_REGION_OFFSET,
+							PLAYER_INPUT_REGION_SIZE);
+					}
+					file_close(&file);
+				}
+			}
 			saved_game_file_generate_checksum(&block.profile, sizeof(block.profile),
 				&block.checksum);
 
@@ -895,9 +1038,10 @@ static void player_profile_create_default_profiles_on_disk(
 
 static void player_profile_write(
 	long player_profile_index,
-	struct player_profile *profile)
+	struct player_profile *profile,
+	struct player_input_profile *input)
 {
-	match_vassert("c:\\halo\\SOURCE\\saved games\\player_profile.c", 0x2C0, profile, "profile");
+	match_vassert("c:\\halo\\SOURCE\\saved games\\player_profile.c", 0x2C0, profile || input, "profile");
 
 	if (player_profile_globals.thread)
 	{
@@ -912,10 +1056,17 @@ static void player_profile_write(
 	}
 
 	player_profile_globals.write_request.player_profile_index = player_profile_index;
-	csmemcpy(
-		&player_profile_globals.write_request.profile,
-		profile,
-		sizeof(struct player_profile));
+	player_profile_input_request.write_base = profile != NULL;
+	player_profile_input_request.write_input = input != NULL;
+	if (profile)
+	{
+		csmemcpy(
+			&player_profile_globals.write_request.profile,
+			profile,
+			sizeof(struct player_profile));
+	}
+	if (input)
+		player_profile_input_request.input = *input;
 
 	create_thread(
 		0,

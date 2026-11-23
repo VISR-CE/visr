@@ -8,7 +8,9 @@ The Xbox profile file is one 512-byte block: the 0x30-byte profile record, a
 extension sits in that padding, from offset 0x44:
 
 	"VINP"   4 bytes   magic
-	version  u16 LE    the container's; this build writes 1 and keeps a newer one
+	version  u16 LE    the writer's container version (this build writes 1)
+	reader   u16 LE    the least version that may interpret the payload; a build
+	                   older than that leaves the whole region alone
 	length   u16 LE    payload bytes
 	crc32    u32 LE    of the payload
 	payload  length    records of (tag u8, size u8, value)
@@ -37,7 +39,8 @@ u16 codes). 0x40 to 0x5F are the touch controls'.
 #define MAGIC_2 'N'
 #define MAGIC_3 'P'
 #define CONTAINER_VERSION 1
-#define HEADER_SIZE 12
+#define MINIMUM_READER_VERSION 1
+#define HEADER_SIZE 14
 
 #define TAG_MOUSE_SENSITIVITY 0x01
 #define TAG_MOUSE_VERTICAL 0x02
@@ -158,7 +161,7 @@ static unsigned short valid_binding(unsigned short code)
 
 enum player_input_decode player_input_extension_decode(const unsigned char *region, struct player_input_extension *extension)
 {
-	unsigned short version, length;
+	unsigned short version, reader, length;
 	unsigned long crc;
 	const unsigned char *payload, *end;
 
@@ -166,15 +169,18 @@ enum player_input_decode player_input_extension_decode(const unsigned char *regi
 	if (region[0] != MAGIC_0 || region[1] != MAGIC_1 || region[2] != MAGIC_2 || region[3] != MAGIC_3)
 		return _player_input_absent;
 	version = read_u16(region + 4);
-	length = read_u16(region + 6);
-	crc = (unsigned long)region[8] | ((unsigned long)region[9] << 8) | ((unsigned long)region[10] << 16) |
-		((unsigned long)region[11] << 24);
+	reader = read_u16(region + 6);
+	length = read_u16(region + 8);
+	crc = (unsigned long)region[10] | ((unsigned long)region[11] << 8) | ((unsigned long)region[12] << 16) |
+		((unsigned long)region[13] << 24);
 	if (version < 1 || length > PLAYER_INPUT_REGION_SIZE - HEADER_SIZE)
 		return _player_input_damaged;
 	payload = region + HEADER_SIZE;
 	if (crc32_of(payload, length) != crc)
 		return _player_input_damaged;
 	extension->container_version = version;
+	if (reader > CONTAINER_VERSION)
+		return _player_input_newer;
 	for (end = payload + length; payload + 2 <= end;)
 	{
 		unsigned char tag = payload[0], size = payload[1];
@@ -253,11 +259,13 @@ void player_input_extension_encode(const struct player_input_extension *extensio
 	region[3] = MAGIC_3;
 	write_u16(region + 4, extension->container_version > CONTAINER_VERSION ? extension->container_version :
 		CONTAINER_VERSION);
-	write_u16(region + 6, (unsigned short)(at - payload));
-	region[8] = (unsigned char)(crc & 0xFF);
-	region[9] = (unsigned char)((crc >> 8) & 0xFF);
-	region[10] = (unsigned char)((crc >> 16) & 0xFF);
-	region[11] = (unsigned char)((crc >> 24) & 0xFF);
+	/* (a record whose reader version is past ours is never rewritten: see _player_input_newer) */
+	write_u16(region + 6, MINIMUM_READER_VERSION);
+	write_u16(region + 8, (unsigned short)(at - payload));
+	region[10] = (unsigned char)(crc & 0xFF);
+	region[11] = (unsigned char)((crc >> 8) & 0xFF);
+	region[12] = (unsigned char)((crc >> 16) & 0xFF);
+	region[13] = (unsigned char)((crc >> 24) & 0xFF);
 }
 
 /* ---------- settings by name */
@@ -384,4 +392,22 @@ void player_input_profile_set_local_player(short local_player_index, const struc
 		local_values[local_player_index] = *values;
 	else
 		player_input_profile_defaults(&local_values[local_player_index]);
+}
+
+void player_input_profile_mouse(short local_player_index, unsigned short *sensitivity, unsigned short *vertical_sensitivity,
+	int *invert, int *aim_assist)
+{
+	const struct player_input_profile *values = player_input_profile_for_local_player(local_player_index);
+
+	*sensitivity = values->mouse_sensitivity;
+	*vertical_sensitivity = values->mouse_vertical_sensitivity;
+	*invert = values->invert_mouse;
+	*aim_assist = values->mouse_aim_assist;
+}
+
+unsigned short player_input_profile_binding(short local_player_index, short action, short slot)
+{
+	if (action < 0 || action >= PLAYER_INPUT_BINDING_ACTIONS || slot < 0 || slot >= PLAYER_INPUT_BINDING_SLOTS)
+		return PLAYER_INPUT_CODE_NONE;
+	return player_input_profile_for_local_player(local_player_index)->bindings[action][slot];
 }

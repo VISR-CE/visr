@@ -1051,65 +1051,10 @@ static const struct config_setting config_settings[] =
 		"How far a controller stick moves before it counts, from 0 to 1. At 0.27\n"
 		"(the Xbox's) the game's own square dead zone applies; lower values make a\n"
 		"round one of that size (0.1 suits most modern controllers).", _tier_player },
-	{ "input.mouse_sensitivity", _config_real, "1.0", "HALO_MOUSE_SENSITIVITY", _environment_value, _platform_desktop,
-		"How far the view turns for the mouse's movement.", _tier_player },
-	{ "input.invert_mouse", _config_boolean, "false", "HALO_MOUSE_INVERT", _environment_set_is_true, _platform_desktop,
-		"Moving the mouse forward looks down.", _tier_player },
 	{ "network.block_mouse_aim_assist", _config_boolean, "false", "HALO_NET_BLOCK_MOUSE_AIM_ASSIST", _environment_value,
 		_platform_all, "Host: disable optional mouse magnetism for mouse/keyboard players. Controllers and touch keep their own assist.", _tier_player },
-	{ "input.mouse_aim_assist", _config_boolean, "false", "HALO_MOUSE_AIM_ASSIST", _environment_value, _platform_desktop,
-		"Magnetism while aiming with the mouse, as with a controller: the view\n"
-		"slowed and dragged along by a target. The last of the mouse and the\n"
-		"right stick to move decides. The bullets' autoaim (bent toward the\n"
-		"target) stays either way.", _tier_player },
-	{ "input.mouse_vertical_sensitivity", _config_real, "0.0", "HALO_MOUSE_VERTICAL_SENSITIVITY", _environment_value,
-		_platform_desktop,
-		"How far the view turns up and down for the mouse's movement; 0 for the\n"
-		"same as input.mouse_sensitivity.", _tier_player },
 
-	/* the keyboard and mouse's own controls (port/linux/src/xinput_sdl.c) */
-	{ "controls.move_forward", _config_string, "\"W\"", "HALO_KEY_MOVE_FORWARD", _environment_value, _platform_all,
-		"The keyboard and mouse's controls, which Settings > Controls Setup\n"
-		"changes: up to two keys or buttons each, separated by a comma. Keys by\n"
-		"their names (\"W\", \"Space\", \"Left Ctrl\", \"F1\"), and \"Mouse Left\",\n"
-		"\"Mouse Right\", \"Mouse Middle\", \"Mouse 4\", \"Mouse 5\", \"Wheel\" (either\n"
-		"way), \"Wheel Up\" and \"Wheel Down\"; empty for none. Moving forward:", _tier_player },
-	{ "controls.move_backward", _config_string, "\"S\"", "HALO_KEY_MOVE_BACKWARD", _environment_value, _platform_all,
-		"Moving backward.", _tier_player },
-	{ "controls.strafe_left", _config_string, "\"A\"", "HALO_KEY_STRAFE_LEFT", _environment_value, _platform_all,
-		"Moving left.", _tier_player },
-	{ "controls.strafe_right", _config_string, "\"D\"", "HALO_KEY_STRAFE_RIGHT", _environment_value, _platform_all,
-		"Moving right.", _tier_player },
-	{ "controls.jump", _config_string, "\"Space\"", "HALO_KEY_JUMP", _environment_value, _platform_all,
-		"Jumping (and skipping cutscenes).", _tier_player },
-	{ "controls.crouch", _config_string, "\"Left Ctrl, C\"", "HALO_KEY_CROUCH", _environment_value, _platform_all,
-		"Crouching.", _tier_player },
-	{ "controls.fire", _config_string, "\"Mouse Left\"", "HALO_KEY_FIRE", _environment_value, _platform_all,
-		"Firing.", _tier_player },
-	{ "controls.throw_grenade", _config_string, "\"Mouse Right, G\"", "HALO_KEY_THROW_GRENADE", _environment_value,
-		_platform_all,
-		"Throwing a grenade.", _tier_player },
-	{ "controls.melee", _config_string, "\"F, Mouse 4\"", "HALO_KEY_MELEE", _environment_value, _platform_all,
-		"Melee attack.", _tier_player },
-	{ "controls.reload", _config_string, "\"R\"", "HALO_KEY_RELOAD", _environment_value, _platform_all,
-		"Reloading.", _tier_player },
-	{ "controls.zoom", _config_string, "\"Z, Mouse Middle\"", "HALO_KEY_ZOOM", _environment_value, _platform_all,
-		"Zooming the scope.", _tier_player },
-	{ "controls.switch_weapon", _config_string, "\"Wheel, Tab\"", "HALO_KEY_SWITCH_WEAPON", _environment_value,
-		_platform_all,
-		"Switching weapons.", _tier_player },
-	{ "controls.switch_grenade", _config_string, "\"X\"", "HALO_KEY_SWITCH_GRENADE", _environment_value, _platform_all,
-		"Switching grenades.", _tier_player },
-	{ "controls.action", _config_string, "\"E\"", "HALO_KEY_ACTION", _environment_value, _platform_all,
-		"The action: picking up (held: swapping weapons), entering and leaving\n"
-		"vehicles, pressing switches; never reloading (the controller's X does\n"
-		"when there is nothing to act on).", _tier_player },
-	{ "controls.flashlight", _config_string, "\"Q\"", "HALO_KEY_FLASHLIGHT", _environment_value, _platform_all,
-		"The flashlight.", _tier_player },
-	{ "controls.scoreboard", _config_string, "\"1\"", "HALO_KEY_SCOREBOARD", _environment_value, _platform_all,
-		"Showing the scores (the controller's Back).", _tier_player },
-	{ "controls.pause", _config_string, "\"Escape\"", "HALO_KEY_PAUSE", _environment_value, _platform_all,
-		"The pause menu (the controller's Start).", _tier_player },
+	/* (the mouse's and the keyboard's settings are the player profile's: port/linux/game/player_input_profile.c) */
 
 	{ "game.console_log", _config_string, "\"important\"", "HALO_CONSOLE_LOG", _environment_value, _platform_all,
 		"What the game's console shows on screen of what it logs: \"important\"\n"

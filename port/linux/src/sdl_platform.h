@@ -38,6 +38,9 @@ a mouse button (INPUT_MOUSE + SDL_BUTTON_*), or the wheel */
 /* an input by its name in config.toml ("W", "Mouse Left"), -1 if none */
 int halo_input_from_name(const char *name);
 void halo_input_name(int input, char *name, size_t size);
+/* a runtime input number as the stable code a profile stores (player_input_profile.h), and back; -1 for none */
+unsigned short halo_input_stable_code(int input);
+int halo_input_from_stable(unsigned short code);
 
 /* whether a menu is up (halo_ui_pointer_update, every frame) */
 void platform_menus_set_active(BOOL active);

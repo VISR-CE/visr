@@ -34,12 +34,7 @@ debug.gpu_debug_expression debug.benchmark_window_shot debug.screenshot_director
 debug.texture_dump_directory debug.texture_override_directory debug.texture_compare_directory
 debug.texture_override_name debug.texture_compare_name debug.device_profile
 paths.data paths.saves paths.custom_edition
-""".split()) | {name for name in """
-controls.move_forward controls.move_backward controls.strafe_left controls.strafe_right controls.jump
-controls.crouch controls.fire controls.throw_grenade controls.melee controls.reload controls.zoom
-controls.switch_weapon controls.switch_grenade controls.action controls.flashlight controls.scoreboard
-controls.pause
-""".split()}
+""".split())
 INTEGER = re.compile(r'^[+-]?\d+$')
 NUMBER = re.compile(r'^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$')
 

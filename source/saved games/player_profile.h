@@ -123,6 +123,18 @@ long player_profile_new(
 	wchar_t *name);
 real_argb_color player_profile_get_argb_color(
 	long color_index);
+/* port: the input settings kept in the profile file's padding (port/linux/game/player_input_profile.h) */
+struct player_input_profile;
+boolean player_profile_get_input(
+	long player_profile_index,
+	struct player_input_profile *input);
+void player_profile_save_with_input(
+	long player_profile_index,
+	struct player_profile *profile,
+	struct player_input_profile *input);
+void player_profile_save_input(
+	long player_profile_index,
+	struct player_input_profile *input);
 void player_profile_save_last_level_played(
 	short local_player_index);
 

@@ -150,6 +150,9 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-I
     '-o', BUILD / 'controller-aim-probe')
 run(BUILD / 'controller-aim-probe')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined',
+    'port/ios/tests/player_input_profile_probe.c', '-o', BUILD / 'player-input-profile-probe')
+run(BUILD / 'player-input-profile-probe')
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined',
     'port/ios/tests/first_person_arms_probe.c', '-o', BUILD / 'first-person-arms-probe')
 run(BUILD / 'first-person-arms-probe')
 

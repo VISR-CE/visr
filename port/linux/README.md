@@ -383,40 +383,11 @@ Apple Vision Pro's file.
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
 | `input.stick_dead_zone` | number | `0.27` | apple, desktop | `HALO_STICK_DEAD_ZONE` | How far a controller stick moves before it counts, from 0 to 1. |
-| `input.mouse_sensitivity` | number | `1.0` | desktop | `HALO_MOUSE_SENSITIVITY` | How far the view turns for the mouse's movement. |
-| `input.invert_mouse` | boolean | `false` | desktop | `HALO_MOUSE_INVERT` | Moving the mouse forward looks down. |
 ### network
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
 | `network.block_mouse_aim_assist` | boolean | `false` | apple, desktop | `HALO_NET_BLOCK_MOUSE_AIM_ASSIST` | Host: disable optional mouse magnetism for mouse/keyboard players. |
-### input
-
-| Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
-| --- | --- | --- | --- | --- | --- |
-| `input.mouse_aim_assist` | boolean | `false` | desktop | `HALO_MOUSE_AIM_ASSIST` | Magnetism while aiming with the mouse, as with a controller: the view slowed and dragged along by a target. |
-| `input.mouse_vertical_sensitivity` | number | `0.0` | desktop | `HALO_MOUSE_VERTICAL_SENSITIVITY` | How far the view turns up and down for the mouse's movement; 0 for the same as input.mouse_sensitivity. |
-### controls
-
-| Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
-| --- | --- | --- | --- | --- | --- |
-| `controls.move_forward` | string | `"W"` | apple, desktop | `HALO_KEY_MOVE_FORWARD` | The keyboard and mouse's controls, which Settings > Controls Setup changes: up to two keys or buttons each, separated by a comma. |
-| `controls.move_backward` | string | `"S"` | apple, desktop | `HALO_KEY_MOVE_BACKWARD` | Moving backward. |
-| `controls.strafe_left` | string | `"A"` | apple, desktop | `HALO_KEY_STRAFE_LEFT` | Moving left. |
-| `controls.strafe_right` | string | `"D"` | apple, desktop | `HALO_KEY_STRAFE_RIGHT` | Moving right. |
-| `controls.jump` | string | `"Space"` | apple, desktop | `HALO_KEY_JUMP` | Jumping (and skipping cutscenes). |
-| `controls.crouch` | string | `"Left Ctrl, C"` | apple, desktop | `HALO_KEY_CROUCH` | Crouching. |
-| `controls.fire` | string | `"Mouse Left"` | apple, desktop | `HALO_KEY_FIRE` | Firing. |
-| `controls.throw_grenade` | string | `"Mouse Right, G"` | apple, desktop | `HALO_KEY_THROW_GRENADE` | Throwing a grenade. |
-| `controls.melee` | string | `"F, Mouse 4"` | apple, desktop | `HALO_KEY_MELEE` | Melee attack. |
-| `controls.reload` | string | `"R"` | apple, desktop | `HALO_KEY_RELOAD` | Reloading. |
-| `controls.zoom` | string | `"Z, Mouse Middle"` | apple, desktop | `HALO_KEY_ZOOM` | Zooming the scope. |
-| `controls.switch_weapon` | string | `"Wheel, Tab"` | apple, desktop | `HALO_KEY_SWITCH_WEAPON` | Switching weapons. |
-| `controls.switch_grenade` | string | `"X"` | apple, desktop | `HALO_KEY_SWITCH_GRENADE` | Switching grenades. |
-| `controls.action` | string | `"E"` | apple, desktop | `HALO_KEY_ACTION` | The action: picking up (held: swapping weapons), entering and leaving vehicles, pressing switches; never reloading (the controller's X does when there is nothing to act on). |
-| `controls.flashlight` | string | `"Q"` | apple, desktop | `HALO_KEY_FLASHLIGHT` | The flashlight. |
-| `controls.scoreboard` | string | `"1"` | apple, desktop | `HALO_KEY_SCOREBOARD` | Showing the scores (the controller's Back). |
-| `controls.pause` | string | `"Escape"` | apple, desktop | `HALO_KEY_PAUSE` | The pause menu (the controller's Start). |
 ### game
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |

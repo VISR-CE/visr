@@ -43,6 +43,9 @@ long player_ui_get_active_player_profile_index(
 	short local_player_index);
 struct player_profile *player_ui_get_edit_player_profile(
 	void);
+/* port: the input settings (player_input_profile.h) of the profile being edited, or NULL */
+struct player_input_profile *player_ui_get_edit_player_input(
+	void);
 struct game_variant *player_ui_get_edit_playlist_profile(
 	void);
 /* port: the saved game file index of the profile or gametype being edited, or NONE */

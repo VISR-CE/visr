@@ -349,12 +349,22 @@ def test_menu_settings_exist():
     functions = (root / "port/linux/game/menu_functions.c").read_text()
     known = set(re.findall(r'^\t\{ "([a-z_]+\.[a-z_]+)", _config_', config, re.M))
     profile = set(re.findall(r'\{ "(profile\.[a-z_]+)", \d', functions))
+    # (the input settings of the profile: the mouse's, port/linux/game/player_input_profile.c)
+    profile |= set(re.findall(r'\{ "(profile\.[a-z_]+)", [01], offsetof',
+                              (root / "port/linux/game/player_input_profile.c").read_text()))
     for path in (MENUS / "xbox").glob("*.xml"):
         for setting in re.findall(r'setting="([^"]+)"', path.read_text()):
             assert setting in known | profile | {"host.cloud_saves"}, f"{path.name}: {setting}"
-    controls = set(re.findall(r'"(controls\.[a-z_]+)"', (root / "port/linux/src/xinput_sdl.c").read_text()))
-    assert controls == {name for name in known if name.startswith("controls.")}
-    assert controls == set(re.findall(r'\{ "(controls\.[a-z_]+)", L"', functions))
+    # the keyboard's controls are the profile's: one action list in the keyboard header, the input code's run
+    # overrides (HALO_KEY_<ACTION>) and the Controls Setup screen
+    header = (root / "port/linux/include/halo_keyboard.h").read_text()
+    actions = [name[len("HALO_KEYBOARD_"):].lower() for name in
+               re.findall(r'^\s*(HALO_KEYBOARD_[A-Z_]+),', header, re.M)]
+    assert len(actions) == 17
+    environment = re.findall(r'"HALO_KEY_([A-Z_]+)"', (root / "port/linux/src/xinput_sdl.c").read_text())
+    assert [name.lower() for name in environment] == actions
+    assert [name[len("controls."):] for name in re.findall(r'\{ "(controls\.[a-z_]+)", L"', functions)] == actions
+    assert not [name for name in known if name.startswith("controls.")]
 
 
 def test_network_settings_hide_update_toggle_on_mobile():

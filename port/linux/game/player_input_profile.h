@@ -63,7 +63,10 @@ enum player_input_decode
 	_player_input_absent,
 	_player_input_present,
 	/* the magic is there but the record is damaged: the defaults */
-	_player_input_damaged
+	_player_input_damaged,
+	/* written by a build whose format this one cannot interpret: the values are the defaults and the region
+	must be kept byte for byte, never rewritten */
+	_player_input_newer
 };
 
 void player_input_profile_defaults(struct player_input_profile *values);
@@ -88,5 +91,10 @@ int player_input_profile_default_text(const char *name, char *text, size_t size)
 /* a local player's values: those of the profile they play with, else the defaults */
 const struct player_input_profile *player_input_profile_for_local_player(short local_player_index);
 void player_input_profile_set_local_player(short local_player_index, const struct player_input_profile *values);
+
+/* plain-typed accessors for the host's input code (xinput_sdl.c), which declares them itself */
+void player_input_profile_mouse(short local_player_index, unsigned short *sensitivity, unsigned short *vertical_sensitivity,
+	int *invert, int *aim_assist);
+unsigned short player_input_profile_binding(short local_player_index, short action, short slot);
 
 #endif

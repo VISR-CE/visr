@@ -75,6 +75,7 @@ their handlers open opens.
 #include "text/text_group.h"
 #include "text/unicode.h"
 
+#include "player_input_profile.h"
 #include "halo_menus.h"
 #include "halo_menu_meta.h"
 #include "halo_network_version.h"
@@ -145,6 +146,9 @@ void platform_display_apply(void);
 void platform_binding_capture_begin(void);
 int platform_binding_capture_poll(int *input);
 void halo_input_name(int input, char *name, unsigned int size);
+int halo_input_from_name(const char *name);
+unsigned short halo_input_stable_code(int input);
+int halo_input_from_stable(unsigned short code);
 short pc_menu_string_index(long definition_index);
 
 /* the game's (port) */
@@ -416,6 +420,15 @@ static boolean setting_text(char const *name, char *text, unsigned int size, boo
 			snprintf(text, size, "%ld", value);
 		return TRUE;
 	}
+	/* the profile's input settings (player_input_profile.c) */
+	if (player_input_profile_is_setting(name))
+	{
+		struct player_input_profile *input = player_ui_get_edit_player_input();
+
+		if (default_value)
+			return player_input_profile_default_text(name, text, size);
+		return input && player_input_profile_text(input, name, text, size);
+	}
 	return FALSE;
 }
 
@@ -448,6 +461,12 @@ static boolean setting_write(char const *name, char const *value)
 			number = !number;
 		*place = (byte)number;
 		return TRUE;
+	}
+	if (player_input_profile_is_setting(name))
+	{
+		struct player_input_profile *input = player_ui_get_edit_player_input();
+
+		return input && player_input_profile_set_text(input, name, value);
 	}
 	return FALSE;
 }
@@ -2127,76 +2146,73 @@ static struct
 	boolean apply_now;
 } controls_screen = { { { { 0 } } }, 0, NONE, 0, FALSE };
 
-/* a setting's bindings ("Left Ctrl, C") into the control's */
-static void control_bindings_read(short control, char const *text)
+/* a profile's stable binding code as the name the screen shows ("" for none) */
+static void control_binding_name(unsigned short code, char *name, unsigned int size)
 {
-	short slot;
+	int input = halo_input_from_stable(code);
 
-	for (slot = 0; slot < CONTROL_BINDINGS; slot++)
-	{
-		char *binding = controls_screen.bindings[control][slot];
-		unsigned int length;
-
-		while (*text == ' ' || *text == ',')
-			text++;
-		length = (unsigned int)strcspn(text, ",");
-		if (length >= CONTROL_NAME_LENGTH)
-			length = CONTROL_NAME_LENGTH - 1;
-		memcpy(binding, text, length);
-		binding[length] = 0;
-		while (length && binding[length - 1] == ' ')
-			binding[--length] = 0;
-		text += strcspn(text, ",");
-	}
+	if (input < 0)
+		name[0] = 0;
+	else
+		halo_input_name(input, name, size);
 }
 
-static void control_bindings_text(short control, char *text, unsigned int size)
-{
-	char const *first = controls_screen.bindings[control][0];
-	char const *second = controls_screen.bindings[control][1];
-
-	snprintf(text, size, "%s%s%s", *first ? first : second, *first && *second ? ", " : "", *first ? second : "");
-}
-
-/* "controls screen init" (and "controls screen defaults": the defaults) */
+/* "controls screen init" (and "controls screen defaults": the defaults): the bindings of the profile being
+edited, or the defaults every profile starts with */
 static boolean controls_load(boolean defaults)
 {
+	struct player_input_profile fresh;
+	struct player_input_profile *input = player_ui_get_edit_player_input();
 	short control;
 
+	if (defaults || !input)
+	{
+		player_input_profile_defaults(&fresh);
+		input = &fresh;
+	}
 	for (control = 0; control < NUMBEROF(controls); control++)
 	{
-		char text[128];
+		short slot;
 
-		if (defaults)
-			config_default(controls[control].setting, text, sizeof(text));
-		else
-			snprintf(text, sizeof(text), "%s", config_string(controls[control].setting));
-		control_bindings_read(control, text);
+		for (slot = 0; slot < CONTROL_BINDINGS; slot++)
+			control_binding_name(input->bindings[control][slot], controls_screen.bindings[control][slot],
+				CONTROL_NAME_LENGTH);
 	}
 	controls_screen.capturing_control = NONE;
 	return TRUE;
 }
 
-/* "controls screen change set" (OK) */
+/* "controls screen change set" (OK): the screen's bindings into the profile being edited, which is then saved
+as every profile setting is (profile_save_now) */
+static boolean profile_save_now(void);
 static boolean controls_save(void)
 {
+	struct player_input_profile *input = player_ui_get_edit_player_input();
 	short control;
-	boolean result = TRUE;
+	boolean changed = FALSE;
 
+	if (!input)
+		return FALSE;
 	for (control = 0; control < NUMBEROF(controls); control++)
 	{
-		char text[128];
+		short slot;
 
-		control_bindings_text(control, text, sizeof(text));
-		if (strcmp(text, config_string(controls[control].setting)))
+		for (slot = 0; slot < CONTROL_BINDINGS; slot++)
 		{
-			if (config_write(controls[control].setting, text))
-				platform_log("menus: %s = %s", controls[control].setting, text);
-			else
-				result = FALSE;
+			char const *name = controls_screen.bindings[control][slot];
+			int runtime = *name ? halo_input_from_name(name) : -1;
+			unsigned short code = runtime >= 0 ? halo_input_stable_code(runtime) : PLAYER_INPUT_CODE_NONE;
+
+			if (code != input->bindings[control][slot])
+			{
+				input->bindings[control][slot] = code;
+				changed = TRUE;
+			}
 		}
 	}
-	return result;
+	if (changed)
+		platform_log("menus: the profile's controls changed");
+	return !changed || profile_save_now();
 }
 
 static struct widget_instance *control_row(struct widget_instance *widget)

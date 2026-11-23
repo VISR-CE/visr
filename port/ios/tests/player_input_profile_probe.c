@@ -31,13 +31,13 @@ static void old_and_damaged_profiles_give_defaults(void)
 	assert(player_input_extension_decode(region, &read) == _player_input_absent);
 	assert(!memcmp(&read.values, &defaults.values, sizeof(read.values)));
 	player_input_extension_encode(&defaults, region);
-	region[20] ^= 0x40;
+	region[30] ^= 0x40;
 	assert(player_input_extension_decode(region, &read) == _player_input_damaged);
 	assert(!memcmp(&read.values, &defaults.values, sizeof(read.values)));
 	/* a garbage length cannot read past the region */
 	player_input_extension_encode(&defaults, region);
-	region[6] = 0xFF;
-	region[7] = 0xFF;
+	region[8] = 0xFF;
+	region[9] = 0xFF;
 	assert(player_input_extension_decode(region, &read) == _player_input_damaged);
 }
 
@@ -46,7 +46,7 @@ static void newer_records_survive_a_save(void)
 {
 	struct player_input_extension read, again;
 	unsigned char region[PLAYER_INPUT_REGION_SIZE], again_region[PLAYER_INPUT_REGION_SIZE];
-	unsigned char *payload = region + 12;
+	unsigned char *payload = region + 14;
 	unsigned long crc;
 	size_t length = 0;
 
@@ -56,9 +56,10 @@ static void newer_records_survive_a_save(void)
 	crc = crc32_of(payload, length);
 	memcpy(region, "VINP", 4);
 	region[4] = 2;
-	region[6] = (unsigned char)length;
-	region[8] = (unsigned char)crc; region[9] = (unsigned char)(crc >> 8);
-	region[10] = (unsigned char)(crc >> 16); region[11] = (unsigned char)(crc >> 24);
+	region[6] = 1;
+	region[8] = (unsigned char)length;
+	region[10] = (unsigned char)crc; region[11] = (unsigned char)(crc >> 8);
+	region[12] = (unsigned char)(crc >> 16); region[13] = (unsigned char)(crc >> 24);
 	assert(player_input_extension_decode(region, &read) == _player_input_present);
 	assert(read.values.mouse_sensitivity == 50 && read.container_version == 2 && read.unknown_length == 5);
 	read.values.invert_mouse = 1;
@@ -66,6 +67,21 @@ static void newer_records_survive_a_save(void)
 	assert(player_input_extension_decode(again_region, &again) == _player_input_present);
 	assert(again.container_version == 2 && again.unknown_length == 5 && !memcmp(again.unknown, read.unknown, 5));
 	assert(again.values.invert_mouse == 1 && again.values.mouse_sensitivity == 50);
+}
+
+/* a record that needs a newer reader is reported as such, not read */
+static void a_newer_reader_requirement_is_reported(void)
+{
+	struct player_input_extension read;
+	unsigned char region[PLAYER_INPUT_REGION_SIZE];
+
+	memset(region, 0, sizeof(region));
+	memcpy(region, "VINP", 4);
+	region[4] = 3;
+	region[6] = 3;
+	region[10] = 0x00; region[11] = 0; region[12] = 0; region[13] = 0;
+	/* (crc of an empty payload is 0) */
+	assert(player_input_extension_decode(region, &read) == _player_input_newer);
 }
 
 static void out_of_range_values_are_repaired(void)
@@ -81,6 +97,17 @@ static void out_of_range_values_are_repaired(void)
 	assert(player_input_extension_decode(region, &read) == _player_input_present);
 	assert(read.values.mouse_sensitivity == 100 && read.values.mouse_vertical_sensitivity == 0);
 	assert(read.values.bindings[0][0] == PLAYER_INPUT_CODE_NONE);
+}
+
+/* (the defaults that were config.toml's [controls]: the weapon switches by wheel or Tab, the scores on 1) */
+static void default_bindings_are_the_ports_old_ones(void)
+{
+	struct player_input_profile values;
+
+	player_input_profile_defaults(&values);
+	assert(values.bindings[11][0] == PLAYER_INPUT_CODE_WHEEL && values.bindings[11][1] == 43);
+	assert(values.bindings[15][0] == 30 && values.bindings[16][0] == 41);
+	assert(values.bindings[6][0] == PLAYER_INPUT_CODE_MOUSE + 1 && values.bindings[0][0] == 26);
 }
 
 static void settings_by_name(void)
@@ -129,6 +156,8 @@ int main(void)
 	old_and_damaged_profiles_give_defaults();
 	newer_records_survive_a_save();
 	out_of_range_values_are_repaired();
+	a_newer_reader_requirement_is_reported();
+	default_bindings_are_the_ports_old_ones();
 	settings_by_name();
 	local_players_keep_separate_values();
 	return 0;

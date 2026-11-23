@@ -155,6 +155,7 @@ symbols in this file:
 #include "memory/data.h"
 #include "networking/network_game_globals.h"
 #include "saved games/player_profile.h"
+#include "player_input_profile.h"
 #include "saved games/playlist_profile.h"
 #include "saved games/saved_game_files.h"
 #include "interface/ui_widget.h"
@@ -180,6 +181,13 @@ struct player_ui_local_player
 	long active_profile_index;
 	boolean prejoined_multiplayer;
 };
+
+/* port: the input settings of the profile being edited, beside the 0x30-byte record */
+static struct
+{
+	struct player_input_profile current;
+	struct player_input_profile original;
+} player_ui_edit_input;
 
 union player_ui_edit_profile_data
 {
@@ -367,6 +375,14 @@ struct player_profile *player_ui_get_edit_player_profile(
 	return result;
 }
 
+struct player_input_profile *player_ui_get_edit_player_input(
+	void)
+{
+	if (saved_game_file_get_type(player_ui_globals.edit_profile_index) == _saved_game_file_type_player_profile)
+		return &player_ui_edit_input.current;
+	return NULL;
+}
+
 struct game_variant *player_ui_get_edit_playlist_profile(
 	void)
 {
@@ -409,6 +425,11 @@ boolean player_ui_edit_profile_is_dirty(
 					&player_ui_globals.edit_profile.original.player,
 					&player_ui_globals.edit_profile.current.player,
 					sizeof(struct player_profile)))
+				{
+					result = TRUE;
+				}
+				if (csmemcmp(&player_ui_edit_input.original, &player_ui_edit_input.current,
+					sizeof(player_ui_edit_input.current)))
 				{
 					result = TRUE;
 				}
@@ -844,6 +865,8 @@ void player_ui_begin_editing_profile(
 					&player_ui_globals.edit_profile.current.player,
 					&player_ui_globals.edit_profile.original.player,
 					sizeof(struct player_profile));
+				player_profile_get_input(profile_index, &player_ui_edit_input.original);
+				player_ui_edit_input.current = player_ui_edit_input.original;
 			}
 			else
 			{
@@ -902,9 +925,23 @@ boolean player_ui_save_profile(
 				error(_error_silent, "### WARNING: saving player profile even though it hasn't been changed");
 			}
 
-			player_profile_save(
+			player_profile_save_with_input(
 				player_ui_globals.edit_profile_index,
-				&player_ui_globals.edit_profile.current.player);
+				&player_ui_globals.edit_profile.current.player,
+				&player_ui_edit_input.current);
+			/* port: a local player on this profile plays with the saved values from now on */
+			{
+				short local_player_index;
+
+				for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
+				{
+					if (player_ui_globals.local_players[local_player_index].active_profile_index ==
+						player_ui_globals.edit_profile_index)
+					{
+						player_input_profile_set_local_player(local_player_index, &player_ui_edit_input.current);
+					}
+				}
+			}
 			result = TRUE;
 			break;
 
@@ -1303,6 +1340,13 @@ void player_ui_set_active_player_profile(
 		&player_ui_globals.local_players[local_player_index].profile,
 		profile,
 		sizeof(*profile));
+	/* port: and the input settings of that profile, or the defaults without one */
+	{
+		struct player_input_profile input;
+
+		player_profile_get_input(profile_index, &input);
+		player_input_profile_set_local_player(local_player_index, &input);
+	}
 	set_local_player_controls_from_player_profile(local_player_index);
 	return;
 }

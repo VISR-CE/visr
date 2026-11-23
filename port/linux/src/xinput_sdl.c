@@ -41,6 +41,10 @@ drive the controller.
 #include "port_config.h"
 /* port/linux/game/network_aim_assist.c */
 extern unsigned char network_aim_assist_block_mouse(void);
+/* port/linux/game/player_input_profile.c: the input settings of a local player's profile */
+extern void player_input_profile_mouse(short local_player_index, unsigned short *sensitivity,
+	unsigned short *vertical_sensitivity, int *invert, int *aim_assist);
+extern unsigned short player_input_profile_binding(short local_player_index, short action, short slot);
 #include "halo_keyboard.h"
 #include "halo_controller_glyphs.h"
 #include "halo_ui_pointer.h"
@@ -454,25 +458,48 @@ static Uint64 stick_aimed_ms = 0;
 worn stick's drift */
 #define STICK_AIMING_DEFLECTION 8000
 
-/* (input.mouse_vertical_sensitivity, read with it) */
-static float vertical_sensitivity = 1.0f;
-
-static float mouse_sensitivity(void)
+/* The mouse's settings are those of the profile of the player on gamepad 0 (the keyboard and mouse belong to
+the first local player). An environment variable (HALO_MOUSE_SENSITIVITY, HALO_MOUSE_VERTICAL_SENSITIVITY,
+HALO_MOUSE_INVERT, HALO_MOUSE_AIM_ASSIST) overrides the profile for a run: the tools and tests pass settings that way */
+struct mouse_values
 {
-	static float sensitivity;
-	static unsigned long read_at = (unsigned long)-1;
+	float sensitivity;
+	float vertical_sensitivity;
+	int invert;
+	int aim_assist;
+};
 
-	if (read_at != config_changes())
+static void mouse_values_read(struct mouse_values *values)
+{
+	static int environment_read;
+	static double environment_sensitivity = -1.0, environment_vertical = -1.0;
+	static int environment_invert = -1, environment_aim_assist = -1;
+	unsigned short sensitivity, vertical;
+	int invert, aim_assist;
+
+	if (!environment_read)
 	{
-		read_at = config_changes();
-		sensitivity = (float)config_real("input.mouse_sensitivity");
-		if (sensitivity <= 0.0f)
-			sensitivity = 1.0f;
-		vertical_sensitivity = (float)config_real("input.mouse_vertical_sensitivity");
-		if (vertical_sensitivity <= 0.0f)
-			vertical_sensitivity = sensitivity;
+		const char *text;
+
+		environment_read = 1;
+		if ((text = getenv("HALO_MOUSE_SENSITIVITY")) && *text)
+			environment_sensitivity = atof(text);
+		if ((text = getenv("HALO_MOUSE_VERTICAL_SENSITIVITY")) && *text)
+			environment_vertical = atof(text);
+		if ((text = getenv("HALO_MOUSE_INVERT")) && *text)
+			environment_invert = !strcmp(text, "1") || !strcmp(text, "true");
+		if ((text = getenv("HALO_MOUSE_AIM_ASSIST")) && *text)
+			environment_aim_assist = !strcmp(text, "1") || !strcmp(text, "true");
 	}
-	return sensitivity;
+	player_input_profile_mouse(0, &sensitivity, &vertical, &invert, &aim_assist);
+	values->sensitivity = environment_sensitivity > 0.0 ? (float)environment_sensitivity : sensitivity / 100.0f;
+	if (values->sensitivity <= 0.0f)
+		values->sensitivity = 1.0f;
+	values->vertical_sensitivity = environment_vertical >= 0.0 ? (float)environment_vertical : vertical / 100.0f;
+	if (values->vertical_sensitivity <= 0.0f)
+		values->vertical_sensitivity = values->sensitivity;
+	values->invert = environment_invert >= 0 ? environment_invert : invert;
+	values->aim_assist = environment_aim_assist >= 0 ? environment_aim_assist : aim_assist;
 }
 
 /* radians of yaw and pitch for the mouse motion since the last call; the
@@ -481,19 +508,14 @@ int halo_linux_mouse_look(short gamepad_index, float *yaw, float *pitch)
 {
 	/* radians per pixel of relative motion at sensitivity 1 */
 	const float scale = 0.0022f;
-	static int invert;
-	static unsigned long read_at = (unsigned long)-1;
+	struct mouse_values mouse;
 	float x, y;
 
 	*yaw = 0.0f;
 	*pitch = 0.0f;
 	if (gamepad_index != 0)
 		return FALSE;
-	if (read_at != config_changes())
-	{
-		read_at = config_changes();
-		invert = config_boolean("input.invert_mouse");
-	}
+	mouse_values_read(&mouse);
 	pthread_mutex_lock(&mouse_lock);
 	x = mouse_pending_x;
 	y = mouse_pending_y;
@@ -503,8 +525,8 @@ int halo_linux_mouse_look(short gamepad_index, float *yaw, float *pitch)
 	pthread_mutex_unlock(&mouse_lock);
 	if (x == 0.0f && y == 0.0f)
 		return FALSE;
-	*yaw = -x * scale * mouse_sensitivity();
-	*pitch = (invert ? y : -y) * scale * vertical_sensitivity;
+	*yaw = -x * scale * mouse.sensitivity;
+	*pitch = (mouse.invert ? y : -y) * scale * mouse.vertical_sensitivity;
 	return TRUE;
 }
 
@@ -513,19 +535,14 @@ right stick last did) and input.mouse_aim_assist is off: then the view's
 magnetism leaves them be (player_control.c); the bullets' autoaim stays */
 int halo_linux_mouse_aiming(short gamepad_index)
 {
-	static int aim_assist;
-	static unsigned long read_at = (unsigned long)-1;
+	struct mouse_values mouse;
 	int aiming;
 
 	if (gamepad_index != 0)
 		return FALSE;
-	if (read_at != config_changes())
-	{
-		read_at = config_changes();
-		aim_assist = config_boolean("input.mouse_aim_assist");
-	}
+	mouse_values_read(&mouse);
 	/* port: the host's policy blocks the mouse's magnetism whatever the setting */
-	if (aim_assist && !network_aim_assist_block_mouse())
+	if (mouse.aim_assist && !network_aim_assist_block_mouse())
 		return FALSE;
 	pthread_mutex_lock(&mouse_lock);
 	aiming = mouse_aimed_ms != 0 && mouse_aimed_ms >= stick_aimed_ms;
@@ -742,12 +759,13 @@ static void keys_held_over_switch(struct platform_input_state *input)
 
 #define MAXIMUM_BINDINGS 2
 
-static const char *const binding_settings[NUMBER_OF_HALO_KEYBOARD_ACTIONS] =
+/* (the environment's override of an action's bindings, HALO_KEY_<ACTION>, as the names the profile's menus show) */
+static const char *const binding_environment[NUMBER_OF_HALO_KEYBOARD_ACTIONS] =
 {
-	"controls.move_forward", "controls.move_backward", "controls.strafe_left", "controls.strafe_right",
-	"controls.jump", "controls.crouch", "controls.fire", "controls.throw_grenade", "controls.melee",
-	"controls.reload", "controls.zoom", "controls.switch_weapon", "controls.switch_grenade", "controls.action",
-	"controls.flashlight", "controls.scoreboard", "controls.pause",
+	"HALO_KEY_MOVE_FORWARD", "HALO_KEY_MOVE_BACKWARD", "HALO_KEY_STRAFE_LEFT", "HALO_KEY_STRAFE_RIGHT",
+	"HALO_KEY_JUMP", "HALO_KEY_CROUCH", "HALO_KEY_FIRE", "HALO_KEY_THROW_GRENADE", "HALO_KEY_MELEE",
+	"HALO_KEY_RELOAD", "HALO_KEY_ZOOM", "HALO_KEY_SWITCH_WEAPON", "HALO_KEY_SWITCH_GRENADE", "HALO_KEY_ACTION",
+	"HALO_KEY_FLASHLIGHT", "HALO_KEY_SCOREBOARD", "HALO_KEY_PAUSE",
 };
 
 static const struct
@@ -770,9 +788,8 @@ static const struct
 	{ "Wheel Down", INPUT_WHEEL_DOWN },
 };
 
-/* the bindings, read again when config.toml changes; -1 for none */
+/* the bindings, from the profile of the player on gamepad 0, read again at every poll; -1 for none */
 static int bindings[NUMBER_OF_HALO_KEYBOARD_ACTIONS][MAXIMUM_BINDINGS];
-static unsigned long bindings_read_at = (unsigned long)-1;
 static unsigned long keyboard_actions_held;
 
 /* (the C library's case: SDL's string functions are not the Android
@@ -827,18 +844,60 @@ void halo_input_name(int input, char *name, size_t size)
 		snprintf(name, size, "%s", "");
 }
 
+/* a profile's stable binding code (player_input_profile.h) as the runtime's input number, -1 for none */
+static int input_from_stable_code(unsigned short code)
+{
+	if (code == 0)
+		return -1;
+	if (code >= 0x200 && code < 0x200 + PLATFORM_MOUSE_BUTTON_COUNT)
+		return INPUT_MOUSE + (code - 0x200);
+	if (code == 0x300)
+		return INPUT_WHEEL;
+	if (code == 0x301)
+		return INPUT_WHEEL_UP;
+	if (code == 0x302)
+		return INPUT_WHEEL_DOWN;
+	return code < SDL_SCANCODE_COUNT ? (int)code : -1;
+}
+
+/* the runtime's input number as a stable code (0 for none) */
+unsigned short halo_input_stable_code(int input)
+{
+	if (input < 0)
+		return 0;
+	if (input < SDL_SCANCODE_COUNT)
+		return (unsigned short)input;
+	if (input >= INPUT_MOUSE && input < INPUT_WHEEL)
+		return (unsigned short)(0x200 + (input - INPUT_MOUSE));
+	if (input == INPUT_WHEEL)
+		return 0x300;
+	if (input == INPUT_WHEEL_UP)
+		return 0x301;
+	if (input == INPUT_WHEEL_DOWN)
+		return 0x302;
+	return 0;
+}
+
+int halo_input_from_stable(unsigned short code)
+{
+	return input_from_stable_code(code);
+}
+
 static void bindings_read(void)
 {
 	int action;
 
-	if (bindings_read_at == config_changes())
-		return;
-	bindings_read_at = config_changes();
 	for (action = 0; action < NUMBER_OF_HALO_KEYBOARD_ACTIONS; action++)
 	{
-		const char *text = config_string(binding_settings[action]);
+		const char *text = getenv(binding_environment[action]);
 		int slot;
 
+		if (!text)
+		{
+			for (slot = 0; slot < MAXIMUM_BINDINGS; slot++)
+				bindings[action][slot] = input_from_stable_code(player_input_profile_binding(0, (short)action, (short)slot));
+			continue;
+		}
 		for (slot = 0; slot < MAXIMUM_BINDINGS; slot++)
 		{
 			char name[64];
@@ -855,7 +914,7 @@ static void bindings_read(void)
 				name[strlen(name) - 1] = 0;
 			bindings[action][slot] = halo_input_from_name(name);
 			if (bindings[action][slot] < 0)
-				platform_log("controls: %s has no key or button named \"%s\"", binding_settings[action], name);
+				platform_log("controls: %s has no key or button named \"%s\"", binding_environment[action], name);
 			text += length;
 		}
 	}
