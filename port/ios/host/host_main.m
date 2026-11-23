@@ -855,9 +855,11 @@ int main(int argc,char **argv) {
             snprintf(env_external,sizeof(env_external),"HALO_EXTERNAL_MODE=%s",external_mode);
             env[env_count++]=env_external;
         }
-        /* a benchmark suite takes every setting from its launch's environment: each HALO_ variable the host
-           has not already set is passed on, so the run needs no change to config.toml */
-        if(benchmark_suite&&*benchmark_suite){
+        /* Every HALO_ variable of the launch's environment (devicectl's --environment-variables, Xcode's scheme) that the
+           host has not already set is passed on: a setting's variable wins over config.toml for that launch, as on the
+           Mac runner, and a benchmark suite takes every setting this way with no change to config.toml. Before, only a
+           benchmark suite's were, and any other launch's HALO_ settings were dropped without a word. */
+        {
             extern char **environ;
             for(char **launch=environ;launch&&*launch&&env_count<250;launch++){
                 if(strncmp(*launch,"HALO_",5))continue;
