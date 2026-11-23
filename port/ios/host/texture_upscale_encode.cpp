@@ -226,6 +226,13 @@ static texture_upscale_encode_result raw_record(const texture_upscale_rgba_level
     return TEXTURE_UPSCALE_ENCODE_OK;
 }
 
+texture_upscale_encode_result texture_upscale_encode_raw(const texture_upscale_rgba_level *levels, unsigned count,
+    uint32_t source_width, uint32_t source_height, uint64_t hash, uint64_t recipe_key, void **record, size_t *size)
+{
+    if (!levels || !count || count > TEXTURE_RECORD_MAXIMUM_LEVELS || !record || !size) return TEXTURE_UPSCALE_ENCODE_ERROR;
+    return raw_record(levels, count, source_width, source_height, hash, recipe_key, record, size);
+}
+
 int texture_upscale_encode_gate(const uint8_t *source, const uint8_t *decoded, size_t texels, texture_upscale_encode_metrics *metrics)
 {
     return texture_upscale_encode_gate_alpha(source, decoded, texels, TEXTURE_UPSCALE_ENCODE_ALPHA_BINARY, metrics);

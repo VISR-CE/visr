@@ -79,6 +79,7 @@
 #include "host_stereo_head.h"
 #include "host_stereo_hud.h"
 #include "host_stereo_posture.h"
+#include "host_texture_repair.h"
 #include "host_texture_settings.h"
 #include "host_texture_upscale.h"
 #include "host_theater.h"
@@ -1413,6 +1414,18 @@ __attribute__((weak)) void host_texture_cache_directory(char *text, unsigned lon
 { }
 __attribute__((weak)) void host_texture_cache_path(const char *root, char *text, size_t size)
 { }
+__attribute__((weak)) int host_texture_repair_enabled(void)
+{ fprintf(stderr, "host_stubs: probe called host_texture_repair_enabled without defining it\n"); abort(); }
+__attribute__((weak)) void host_texture_repair_game_started(int is_game)
+{ }
+__attribute__((weak)) void host_texture_repair_init(const char *root)
+{ }
+__attribute__((weak)) void host_texture_repair_map_will_load(const char *name)
+{ }
+__attribute__((weak)) void host_texture_repair_paused(int paused)
+{ }
+__attribute__((weak)) void host_texture_repair_scan(void)
+{ }
 __attribute__((weak)) void host_texture_settings_apply(const char *data_root)
 { }
 __attribute__((weak)) void host_texture_settings_observe(const char *data_root)
@@ -1721,6 +1734,8 @@ __attribute__((weak)) int texture_upscale_encode_gate(const uint8_t *source, con
 { fprintf(stderr, "host_stubs: probe called texture_upscale_encode_gate without defining it\n"); abort(); }
 __attribute__((weak)) int texture_upscale_encode_gate_alpha(const uint8_t *source, const uint8_t *decoded, size_t texels, unsigned alpha_mode, struct texture_upscale_encode_metrics *metrics)
 { fprintf(stderr, "host_stubs: probe called texture_upscale_encode_gate_alpha without defining it\n"); abort(); }
+__attribute__((weak)) enum texture_upscale_encode_result texture_upscale_encode_raw(const struct texture_upscale_rgba_level *levels, unsigned count, uint32_t source_width, uint32_t source_height, uint64_t hash, uint64_t recipe_key, void **record, size_t *size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_encode_raw without defining it\n"); abort(); }
 __attribute__((weak)) enum texture_upscale_encode_result texture_upscale_encode_record(const struct texture_upscale_rgba_level *levels, unsigned count, uint32_t source_width, uint32_t source_height, uint64_t hash, uint64_t recipe_key, uint32_t format, unsigned alpha_mode, unsigned threads, void **record, size_t *size, struct texture_upscale_encode_metrics *metrics)
 { fprintf(stderr, "host_stubs: probe called texture_upscale_encode_record without defining it\n"); abort(); }
 __attribute__((weak)) void texture_upscale_encode_set_cancel(const volatile int *flag)

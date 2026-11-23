@@ -14,6 +14,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #endif
 #import "host_texture_upscale.h"
 #import "host_astc_store.h"
+#import "host_texture_repair.h"
 #include "host_config.h"
 #include "../../linux/src/port_graphics_modes.h"
 #include <pthread/qos.h>
@@ -981,7 +982,7 @@ int host_texture_upscale_delete_cache(const char *directory) {
         dispatch_async(dispatch_get_main_queue(),^{resume_if_allowed();});});
     return 0;
 }
-void host_texture_upscale_scan(void) {if(upscale_enabled){atomic_store(&scan_pending,true);schedule_pump();}}
+void host_texture_upscale_scan(void) {host_texture_repair_scan();if(upscale_enabled){atomic_store(&scan_pending,true);schedule_pump();}}
 static BOOL text_true(const char *text) { return !strcmp(text,"true")||!strcmp(text,"1"); }
 void host_texture_upscale_resolve_profile(const char *root) {
     if(profile_upscales>=0||!root)return;
@@ -990,6 +991,7 @@ void host_texture_upscale_resolve_profile(const char *root) {
     profile_upscales=host_device_profile_peek(root,"display.upscaled_textures",text,sizeof(text))?text_true(text):1;
 }
 void host_texture_upscale_init(const char *root) {
+    host_texture_repair_init(root);
     static dispatch_once_t once;dispatch_once(&once,^{
         /* Development only: HALO_TEXTURE_UPSCALE_CLEAN removes what the generator and its export left in the data
            root, since a device's app container cannot be emptied from the Mac. */
@@ -1100,6 +1102,7 @@ static void set_priority(const char *name) {
     atomic_fetch_add(&priority_serial,1);
 }
 void host_texture_upscale_map_will_load(const char *name) {
+    host_texture_repair_map_will_load(name);
     if(name){NSString *n=map_base([@(name) stringByReplacingOccurrencesOfString:@"\\" withString:@"/"]);snprintf(loading_name,sizeof(loading_name),"%s",n.UTF8String);}
     atomic_store(&stage_map_loaded,false);
     if(!upscale_enabled)return;
@@ -1133,6 +1136,7 @@ void host_texture_upscale_stage_end(void) {
     resume_if_allowed();
 }
 void host_texture_upscale_game_started(int is_game) {
+    host_texture_repair_game_started(is_game);
     if(!upscale_enabled)return;
     /* A map pictures stage map is not gameplay: the work goes on unless memory is short. */
     if(is_game&&atomic_load(&stage_active)) {
@@ -1164,6 +1168,7 @@ void host_texture_upscale_game_started(int is_game) {
 }
 /* rule 6: a pause is not gameplay (game_time_set_paused) */
 void host_texture_upscale_paused(int paused) {
+    host_texture_repair_paused(paused);
     if(!upscale_enabled)return;
     BOOL in_game,was;
     @synchronized(activity_token){in_game=activity.in_game;was=activity.paused;texture_upscale_activity_paused(&activity,paused,now());}
