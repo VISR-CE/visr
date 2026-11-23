@@ -29,7 +29,7 @@ from port_settings import apply_now_spinner_handlers
 # Shared geometry (rows, legend, value columns, dropdown) lives in menu_geometry.py, which also writes the
 # engine's menu_geometry.h.
 from menu_geometry import (COMFORTABLE_PITCH, DROPDOWN_PITCH, FIRST_ROW, LEGEND_Y,
-                           ROW_HEIGHT)
+                           ROW_HEIGHT, RULE_Y)
 
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
@@ -94,7 +94,6 @@ LEGEND_A_X, LEGEND_B_X = 471, 326
 GLYPH_WIDTH, GLYPH_HEIGHT, CAPTION_OFFSET = 21, 26, 22
 HELP_TOP = 335
 # Both right panels end at the bottom rule (y 409, drawn by the gradient art), as the disc's panels do.
-RULE_Y = 409
 PANEL_A = {'list': (51, 78, 33), 'panel': (275, 78, 320, RULE_Y - 78)}
 PANEL_B = {'list': (48, 78, ROW_PITCH), 'panel': (323, 115, 254, RULE_Y - 115)}
 # list_field__0.png is a 2048 square whose visible panel outline fills only 1260x1288 of it, and a frame is drawn at

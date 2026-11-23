@@ -29,5 +29,7 @@
 #define MENU_BAR_GLYPH_HEIGHT      26 /* a bar action's glyph */
 #define MENU_BAR_CAPTION_OFFSET    22 /* a bar action's caption, right of its glyph's left edge */
 #define MENU_BAR_CAPTION_HEIGHT    22 /* a bar action's caption */
+#define MENU_BAR_GLYPH_RAISE       3 /* a bar action's glyph, up from the center of its box onto its caption's capitals */
+#define MENU_BAR_RULE_Y            409 /* the bar's top rule */
 
 #endif

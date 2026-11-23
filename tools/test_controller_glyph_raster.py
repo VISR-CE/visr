@@ -11,7 +11,7 @@ def test_native_glyph_coverage(tmp_path):
     source = ROOT / 'port/ios/host/host_controller_glyphs.m'
     binary = tmp_path / 'glyph-raster'
     subprocess.run(['xcrun', 'clang', '-fobjc-arc', '-DHALO_NATIVE_MAC=1', '-Wall', '-Werror',
-                    '-framework', 'AppKit', '-framework', 'Foundation', '-framework', 'GameController',
+                    '-iquote', str(ROOT / 'port/linux/include'), '-framework', 'AppKit', '-framework', 'Foundation', '-framework', 'GameController',
                     str(source), str(ROOT / 'port/ios/tests/controller_glyph_raster_probe.m'),
                     '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

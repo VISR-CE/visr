@@ -34,6 +34,8 @@ PICTURE_ROW_HEIGHT = 32
 PICTURE_ROW_SHIFT = (COMFORTABLE_ROW_ART - PICTURE_ROW_HEIGHT) // 2
 # The bottom bar: legend y (glyphs and captions) and the y below which nothing of a list is drawn.
 LEGEND_Y = 414
+# the bottom bar's top rule (its last row); the legend's glyphs and captions hang below it
+RULE_Y = 409
 # A value column: the measured widest value plus this margin on each side, at least the minimum width. The margin
 # keeps a centered value clear of the touch dropdown's chevron, drawn CHEVRON_INSET in from the column's right
 # edge and CHEVRON_WIDTH wide.
@@ -61,6 +63,10 @@ BAR_GLYPH_WIDTH = 21
 BAR_GLYPH_HEIGHT = 26
 BAR_CAPTION_OFFSET = 22
 BAR_CAPTION_HEIGHT = 22
+# A glyph's box is taller than its caption's, so centered in its box the glyph sits below the capitals of
+# BAR_FONT's text; measured once against that font's cap height in the caption box. It raises the glyph's box
+# and the clip it draws under together (controller_glyph_legend_raise).
+BAR_GLYPH_RAISE = 3
 
 
 def bar_slots():
@@ -104,6 +110,8 @@ HEADER_VALUES = (
     ('MENU_BAR_GLYPH_HEIGHT', BAR_GLYPH_HEIGHT, "a bar action's glyph"),
     ('MENU_BAR_CAPTION_OFFSET', BAR_CAPTION_OFFSET, "a bar action's caption, right of its glyph's left edge"),
     ('MENU_BAR_CAPTION_HEIGHT', BAR_CAPTION_HEIGHT, "a bar action's caption"),
+    ('MENU_BAR_GLYPH_RAISE', BAR_GLYPH_RAISE, "a bar action's glyph, up from the center of its box onto its caption's capitals"),
+    ('MENU_BAR_RULE_Y', RULE_Y, "the bar's top rule"),
 )
 
 

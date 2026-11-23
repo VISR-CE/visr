@@ -105,13 +105,14 @@ def test_hud_glyph_layout_color_and_fallback(tmp_path):
 
 
 def test_legend_glyph_raise_keeps_box_inside_clip(tmp_path):
-    """Bug class: legend glyph clipped by its box or strip."""
+    """Bug class: legend glyph clipped by its box or clip, or off its caption's cap height."""
     if not shutil.which('xcrun'):
         import pytest
         pytest.skip('Apple compiler and frameworks are required')
     binary = tmp_path / 'fit'
     subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-fsanitize=address,undefined',
-                    '-iquote', str(ROOT / 'source'), str(ROOT / 'port/ios/tests/controller_glyph_fit_probe.c'),
+                    '-iquote', str(ROOT / 'port/linux/include'), '-iquote', str(ROOT / 'source'),
+                    str(ROOT / 'port/ios/tests/controller_glyph_fit_probe.c'),
                     '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
