@@ -42,6 +42,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchmark_routes  # noqa: E402
+import set_check  # noqa: E402
 
 # a debug.gpu_stats summary (d3d8_device.c), after platform_log's prefix
 STATS = re.compile(r"frame \d+: (.*)$")
@@ -1754,6 +1755,11 @@ def main():
     inputs_parser.add_argument("a", type=Path)
     inputs_parser.add_argument("b", type=Path)
     args = parser.parse_args()
+    if args.command == "run" and args.set:
+        # a value the game does not accept runs as its default, so the run would not be the one asked for
+        refused = set_check.problems(args.set, bare_strings=True)
+        if refused:
+            sys.exit("\n".join(f"--set: {text}" for text in refused))
     if args.command == "run":
         run(args)
     elif args.command == "compare-inputs":
