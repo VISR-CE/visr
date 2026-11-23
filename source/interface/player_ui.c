@@ -1352,6 +1352,34 @@ void player_ui_set_active_player_profile(
 	return;
 }
 
+/* port: the mapfile closed up over a deleted entry (saved_game_files.c remove_nth_entry_in_mapfile), so every entry
+after it has an index one lower: a local player's active index follows its profile. A local player on the deleted
+profile has no profile and the default input settings; they keep playing with the record they have */
+void player_ui_saved_game_file_deleted(
+	long deleted_index)
+{
+	short local_player_index;
+
+	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
+	{
+		long active = player_ui_globals.local_players[local_player_index].active_profile_index;
+
+		if (active == NONE)
+			continue;
+		if (active == deleted_index)
+		{
+			player_ui_globals.local_players[local_player_index].active_profile_index = NONE;
+			player_input_profile_set_local_player(local_player_index, NULL);
+		}
+		else if (((active >> 8) & 0xFF) == ((deleted_index >> 8) & 0xFF) &&
+			((active >> 16) & 0xFFF) > ((deleted_index >> 16) & 0xFFF))
+		{
+			player_ui_globals.local_players[local_player_index].active_profile_index = active - (1L << 16);
+		}
+	}
+	return;
+}
+
 /* port: the record of the profile a local player already plays with, saved again with a level finished or a last level
 played: the input settings are not read again, which would wait for that save to finish */
 void player_ui_update_active_player_profile_record(

@@ -120,6 +120,9 @@ void player_ui_update_active_player_profile_record(
 	short local_player_index,
 	long profile_index,
 	struct player_profile *profile);
+/* port: a saved game file was deleted and the later entries' indices moved down: local players follow */
+void player_ui_saved_game_file_deleted(
+	long deleted_index);
 void player_ui_set_active_player_profile(
 	short local_player_index,
 	long profile_index,

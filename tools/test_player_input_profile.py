@@ -86,6 +86,7 @@ PROGRAM = r'''
 #include <string.h>
 #include "../../port/linux/game/player_input_profile.c"
 #define MAXIMUM_NUMBER_OF_LOCAL_PLAYERS 4
+#define NONE (-1)
 #define csmemcpy memcpy
 #define match_assert(...) ((void)0)
 typedef int boolean;
@@ -99,38 +100,46 @@ static struct
 static long last_index = -2;
 static void set_local_player_controls_from_player_profile(short local_player_index) { (void)local_player_index; }
 
-/* the saved profiles as the mapfile lists them: an index is a position, and a delete moves the later ones up */
+/* the saved profiles as the mapfile lists them: an index holds the position (saved_game_files.c's
+SAVED_GAME_FILE_INDEX_BUILD: position << 16, memory unit << 8, type in the low bits, the valid bit above), and a
+delete closes the list up */
+#define INDEX_OF(n) ((((long)(n)) << 16) | 0x40000000L)
 static struct player_input_profile files[16];
 static int count;
 static long profile_create(const struct player_input_profile *input)
 {
 	files[count] = *input;
-	return count++;
-}
-static void profile_delete(long index)
-{
-	int i;
-	for (i = (int)index; i + 1 < count; i++)
-		files[i] = files[i + 1];
-	count--;
+	return INDEX_OF(count++);
 }
 boolean player_profile_get_input(long index, struct player_input_profile *input)
 {
-	if (index < 0 || index >= count)
+	int n = (int)((index >> 16) & 0xFFF);
+	if (index == NONE || n >= count)
 		return 0;
-	*input = files[index];
+	*input = files[n];
 	return 1;
 }
-/* FUNCTION */
+/* FUNCTIONS */
+/* player_profile_delete: the entry goes, the players follow */
+static void profile_delete(long index)
+{
+	int i, n = (int)((index >> 16) & 0xFFF);
+	for (i = n; i + 1 < count; i++)
+		files[i] = files[i + 1];
+	count--;
+	player_ui_saved_game_file_deleted(index);
+}
+static long active_of(int player) { return player_ui_globals.local_players[player].active_profile_index; }
 int main(void)
 {
 	struct player_profile record = { 0 };
-	struct player_input_profile a, b, defaults;
-	long index_a, index_b;
+	struct player_input_profile a, b, c, defaults;
+	long index_a, index_b, index_c;
 
 	player_input_profile_defaults(&defaults);
 	a = defaults; a.mouse_sensitivity = 300; a.invert_mouse = 1; a.bindings[6][0] = 33;
 	b = defaults; b.mouse_sensitivity = 175; b.mouse_aim_assist = 1;
+	c = defaults; c.mouse_sensitivity = 60;
 
 	/* a profile deleted while active, then a new one created at its index */
 	index_a = profile_create(&a);
@@ -144,6 +153,7 @@ int main(void)
 
 	/* the one after it moves up into the deleted profile's index */
 	count = 0;
+	player_ui_globals.local_players[0].active_profile_index = NONE;
 	index_a = profile_create(&a);
 	index_b = profile_create(&b);
 	player_ui_set_active_player_profile(0, index_a, &record);
@@ -154,6 +164,45 @@ int main(void)
 	player_ui_set_active_player_profile(1, index_a, &record);
 	assert(player_input_profile_for_local_player(1)->mouse_sensitivity == 175);
 	assert(player_input_profile_for_local_player(2)->mouse_sensitivity == 100);
+
+	/* delete a profile two local players do not play with, save another: nobody holds the deleted profile's
+	input, and a player's active index still names their own profile after the list closes up */
+	count = 0;
+	memset(&player_ui_globals, 0, sizeof(player_ui_globals));
+	player_ui_globals.local_players[0].active_profile_index = NONE;
+	player_ui_globals.local_players[1].active_profile_index = NONE;
+	player_ui_globals.local_players[2].active_profile_index = NONE;
+	player_ui_globals.local_players[3].active_profile_index = NONE;
+	index_a = profile_create(&a);
+	index_b = profile_create(&b);
+	index_c = profile_create(&c);
+	player_ui_set_active_player_profile(0, index_a, &record);
+	player_ui_set_active_player_profile(1, index_b, &record);
+	player_ui_set_active_player_profile(2, index_c, &record);
+	profile_delete(index_a);
+	/* the player on the deleted profile has none and the defaults */
+	assert(active_of(0) == NONE);
+	assert(!memcmp(player_input_profile_for_local_player(0), &defaults, sizeof(defaults)));
+	/* the others' indices moved down with their profiles */
+	assert(active_of(1) == INDEX_OF(0) && active_of(2) == INDEX_OF(1));
+	assert(!memcmp(player_input_profile_for_local_player(1), &b, sizeof(b)));
+	assert(!memcmp(player_input_profile_for_local_player(2), &c, sizeof(c)));
+	/* saving the profile now at index 0 (B) reaches only the player on it: the deleted profile's old index is
+	nobody's */
+	{
+		int player, matches = 0;
+		for (player = 0; player < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; player++)
+			if (active_of(player) == INDEX_OF(0))
+				matches |= 1 << player;
+		assert(matches == (1 << 1));
+		/* (a profile created now takes the freed last position, which nobody holds either) */
+		index_a = profile_create(&a);
+		matches = 0;
+		for (player = 0; player < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; player++)
+			if (active_of(player) == index_a)
+				matches |= 1 << player;
+		assert(matches == 0);
+	}
 	return 0;
 }
 '''
@@ -168,16 +217,22 @@ def _activation_status(tmp_path, ui_source, mutate=None):
     compiler = shutil.which('clang') or shutil.which('cc')
     if not compiler:
         pytest.skip('A C compiler is required')
-    function = _function(ui_source.replace('\r\n', '\n'), 'void player_ui_set_active_player_profile(')
+    ui_source = ui_source.replace('\r\n', '\n')
+    functions = _function(ui_source, 'void player_ui_set_active_player_profile(')
+    # (the delete hook is new in the branch: a source without it gets an empty one, which the probe must reject)
+    if 'void player_ui_saved_game_file_deleted(' in ui_source:
+        functions += '\n' + _function(ui_source, 'void player_ui_saved_game_file_deleted(')
+    else:
+        functions += '\nvoid player_ui_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }\n'
     if mutate:
-        function = mutate(function)
+        functions = mutate(functions)
     folder = tmp_path / 'probe'
     folder.mkdir()
     program = folder / 'probe.c'
-    program.write_text(PROGRAM.replace('/* FUNCTION */', function).replace('"../../port/', '"' + str(ROOT) + '/port/'))
+    program.write_text(PROGRAM.replace('/* FUNCTIONS */', functions).replace('"../../port/', '"' + str(ROOT) + '/port/'))
     binary = folder / 'probe'
-    subprocess.run([compiler, '-std=gnu99', '-Wall', '-Wno-unused-function', '-fsanitize=address,undefined',
-                    str(program), '--output=' + str(binary)], check=True)
+    subprocess.run([compiler, '-std=gnu99', '-Wall', '-Wno-unused-function', '-Wno-unused-variable',
+                    '-fsanitize=address,undefined', str(program), '--output=' + str(binary)], check=True)
     return subprocess.run([str(binary)], capture_output=True).returncode
 
 
@@ -197,3 +252,13 @@ def test_the_reused_index_probe_catches_a_skipped_read(tmp_path):
         return function.replace(read, 'if (profile_index != last_index) { ' + read + ' last_index = profile_index; }')
 
     assert _activation_status(tmp_path, ui, skip_unchanged_index) != 0
+
+
+def test_the_probe_catches_a_delete_that_leaves_active_indices_stale(tmp_path):
+    ui = (ROOT / 'source/interface/player_ui.c').read_text(encoding='latin-1')
+
+    def stale_indices(functions):
+        start = functions.index('void player_ui_saved_game_file_deleted(')
+        return functions[:start] + 'void player_ui_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }\n'
+
+    assert _activation_status(tmp_path, ui, stale_indices) != 0
