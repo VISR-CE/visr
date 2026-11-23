@@ -90,6 +90,13 @@ BAR_SLOT_BOUNDS = bar_slots()
 # Link table keeps the disc's rows.
 _MP = 'xbox/main_menu/multiplayer_type_select'
 BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT = 46, 43
+# The server browser's rows are tabs, as the gametype editor's: the tab (BROWSER_TAB_WIDTH wide) is outlined all around
+# and the chosen game's reaches BROWSER_TAB_REACH, over the detail panel's left border, in the panel's own fill, so
+# tab and panel are one shape. The panel is drawn first so the tab lies over it.
+BROWSER_LIST_X, BROWSER_PANEL_LEFT = 24, 304
+BROWSER_TAB_WIDTH, BROWSER_TAB_REACH = 270, 284
+BROWSER_PANEL_FILL = '#0d2c57'
+assert BROWSER_LIST_X + BROWSER_TAB_WIDTH < BROWSER_PANEL_LEFT < BROWSER_LIST_X + BROWSER_TAB_REACH
 OWN_GEOMETRY_ROW_LISTS = {
     f'{_MP}/join_game/join_game_items_list': (BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT,
                                               'server browser: the approved mockup C list'),

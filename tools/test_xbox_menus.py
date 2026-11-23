@@ -2189,3 +2189,17 @@ def test_no_bar_action_runs_a_handler_that_takes_its_mode_from_the_widget_name()
     for path in sorted((MENUS / 'xbox').glob('*.xml')):
         for action in ET.parse(path).iter('action'):
             assert action.get('run') not in by_name, (path.name, action.get('slot'))
+
+
+def test_browser_row_tabs_reach_into_the_detail_panel_from_one_set_of_numbers():
+    """The tab-and-panel join rests on one relation (the tab ends short of the panel, its reach passes the panel's
+    left edge) between numbers that live in `menu_geometry`; the generated widgets and art follow them."""
+    import browser_assets
+    import menu_geometry as g
+    _, widgets = browser_c_widgets()
+    assert g.BROWSER_LIST_X + g.BROWSER_TAB_WIDTH < g.BROWSER_PANEL_LEFT < g.BROWSER_LIST_X + g.BROWSER_TAB_REACH
+    assert int(widgets['browser_detail'].get('left')) == g.BROWSER_PANEL_LEFT
+    for index in range(1, 7):
+        assert int(widgets[f'server_item_{index}'].get('width')) == g.BROWSER_TAB_REACH
+    assert (browser_assets.ROW_TAB_WIDTH, browser_assets.ROW_ART_WIDTH) == (g.BROWSER_TAB_WIDTH, g.BROWSER_TAB_REACH)
+    assert browser_assets.PANEL_FILL == g.BROWSER_PANEL_FILL

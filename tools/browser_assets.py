@@ -9,15 +9,20 @@ Widget dimensions in tools/xbox_menus.py must match the menu-unit sizes here.
 import argparse
 import math
 import subprocess
+import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import menu_geometry  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parent.parent
 ART = ROOT / "port/assets/menus/xbox/art/browser"
 SCALE = 4
-# The server browser rows (tools/menu_geometry.py): the tab is ROW_TAB_WIDTH wide and the art reaches ROW_ART_WIDTH.
-ROW_HEIGHT, ROW_TAB_WIDTH, ROW_ART_WIDTH = 43, 270, 284
+ROW_HEIGHT, ROW_TAB_WIDTH, ROW_ART_WIDTH = (menu_geometry.BROWSER_ROW_HEIGHT, menu_geometry.BROWSER_TAB_WIDTH,
+                                            menu_geometry.BROWSER_TAB_REACH)
+PANEL_FILL = menu_geometry.BROWSER_PANEL_FILL
 GAMETYPES = ("coop", "ctf", "slayer", "oddball", "king", "race")
 SVG_NS = "http://www.w3.org/2000/svg"
 
@@ -73,8 +78,8 @@ def generate(output, icons):
          f'fill="#0a2245" stroke="#1f5fae" stroke-width="{stroke}"/>'))
     draw("row__1", ROW_ART_WIDTH, height, svg(ROW_ART_WIDTH, height,
          f'<rect x="{half}" y="{half}" width="{ROW_ART_WIDTH - half}" height="{height - stroke}" rx="{radius}" '
-         f'fill="#0d2c57"/>'
-         f'<rect x="{ROW_ART_WIDTH - 8}" y="0" width="8" height="{height}" fill="#0d2c57"/>'
+         f'fill="{PANEL_FILL}"/>'
+         f'<rect x="{ROW_ART_WIDTH - 8}" y="0" width="8" height="{height}" fill="{PANEL_FILL}"/>'
          f'<path d="M{ROW_ART_WIDTH} {half} H{radius + half} a{radius - half} {radius - half} 0 0 0 {-(radius - half)} '
          f'{radius - half} V{height - radius - half} a{radius - half} {radius - half} 0 0 0 {radius - half} {radius - half} '
          f'H{ROW_ART_WIDTH}" fill="none" stroke="#7fc4ff" stroke-width="{stroke}"/>'))
@@ -90,7 +95,7 @@ def generate(output, icons):
 
     # (transparent, so 1x: thirty preview frames fall back to it, and at 4x they cost the Apple TV HD about 90 MB)
     draw("preview_none", 310, 155, svg(310, 155, ""), scale=1)
-    draw("detail", 312, 273, rounded(312, 273, "#0d2c57", "#4aa8ff", radius=9))
+    draw("detail", 312, 273, rounded(312, 273, PANEL_FILL, "#4aa8ff", radius=9))
     draw("big", 294, 20, rounded(294, 20, "#e8b520", radius=3))
     # The detail panel's pills: normal (HUD blue) and blocked (grayed as the disabled rows are, never red).
     for index, border in enumerate(("#1f5fae", "#4b5663")):
@@ -99,9 +104,6 @@ def generate(output, icons):
     draw("lock", 12, 14, svg(12, 14,
          '<path d="M3 6V4.5a3 3 0 0 1 6 0V6" fill="none" stroke="#cfe8ff" stroke-width="1.4"/>'
          '<rect x="1" y="6" width="10" height="7.2" rx="1.4" fill="#cfe8ff"/>'))
-    for index, (fill, border) in enumerate((("none", "none"),
-                                           ("#174b89", "#cfe8ff"))):
-        draw(f"join__{index}", 140, 45, rounded(140, 45, fill, border))
 
     for index, name in enumerate(GAMETYPES):
         icon = ET.parse(icons / f"{name}-nobg.svg").getroot()

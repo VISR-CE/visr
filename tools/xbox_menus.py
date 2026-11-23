@@ -1797,7 +1797,7 @@ def browser_layout(root, widgets, bitmaps):
         root.append(copied)
         root.remove(original)
     for name, width, height, frames in (
-            ('c_row', 284, 43, ['row__0', 'row__1']),
+            ('c_row', menu_geometry.BROWSER_TAB_REACH, menu_geometry.BROWSER_ROW_HEIGHT, ['row__0', 'row__1']),
             ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
             ('gametype_large', 124, 100, [f'gametype_large__{i}' for i in range(7)]),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
@@ -1839,8 +1839,8 @@ def browser_layout(root, widgets, bitmaps):
                        ('down', 'port browser rows down'), ('stick_down', 'port browser rows down')):
         ET.SubElement(rows, 'on', event=event, run=run)
     for index in range(6):
-        child(rows, base + f'/server_item_{index + 1}', x=24, y=110 + index * menu_geometry.BROWSER_ROW_PITCH)
-        row = widget(root, base + f'/server_item_{index + 1}', width=284, height=menu_geometry.BROWSER_ROW_HEIGHT,
+        child(rows, base + f'/server_item_{index + 1}', x=menu_geometry.BROWSER_LIST_X, y=110 + index * menu_geometry.BROWSER_ROW_PITCH)
+        row = widget(root, base + f'/server_item_{index + 1}', width=menu_geometry.BROWSER_TAB_REACH, height=menu_geometry.BROWSER_ROW_HEIGHT,
                      bitmap='xbox/browser/c_row', color='#FFFFFF')
         ET.SubElement(row, 'on', event='a', run='gamespy select item')
         ET.SubElement(row, 'on', event='start', run='gamespy select item')
@@ -1879,12 +1879,12 @@ def browser_layout(root, widgets, bitmaps):
         child(chip, base + '/' + leaf + '_white', y=29)
         widget(root, base + '/' + leaf + '_white', type='text',
                width=width, height=23, font=r'ui\small_ui', color='#ffffff', align='center')
-    detail = widget(root, base + '/browser_detail', type='column_list', left=304, top=110, width=312, height=273,
+    detail = widget(root, base + '/browser_detail', type='column_list', left=menu_geometry.BROWSER_PANEL_LEFT, top=110, width=312, height=273,
                     bitmap='xbox/browser/detail', flags='pass_unhandled_to_focused_child')
     for event in ('left', 'stick_left'):
         ET.SubElement(detail, 'on', event=event, run='port browser chips navigation')
     # A content container breaks focus inheritance so descriptive colors stay blue.
-    content = widget(root, base + '/browser_detail_content', left=304, top=110, width=312, height=273,
+    content = widget(root, base + '/browser_detail_content', left=menu_geometry.BROWSER_PANEL_LEFT, top=110, width=312, height=273,
                      flags='no_focused_child')
     # Child coordinates are absolute menu coordinates: bounds do not offset children.
     for leaf, art, source, count in (
