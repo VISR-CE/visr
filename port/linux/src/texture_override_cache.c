@@ -329,12 +329,12 @@ static void load_record(struct texture_replacement *record)
 	}
 	free(bytes);
 	if (texture)
-		platform_log("texture cache %016llx: %ux%u %s, %u levels, %.2f MB, in place of %lux%lu",
+		platform_log("texture cache %016llx: %ux%u %s, %u levels, %.2f MB, in place of %lux%lu (%s)",
 			(unsigned long long)record->hash, layout.width, layout.height,
 			layout.format == TEXTURE_RECORD_BC7 ? "BC7" : layout.format == TEXTURE_RECORD_BGRA8 ? "BGRA8" : "ASTC 4x4",
 			layout.levels,
 			(double)layout.payload_size / (1024.0 * 1024.0), (unsigned long)record->width,
-			(unsigned long)record->height);
+			(unsigned long)record->height, entry->source ? "repaired" : "upscaled");
 	else
 		platform_log("texture cache %016llx: the device made no texture for %s", (unsigned long long)record->hash, path);
 	record->recipe_key = layout.recipe_key;
