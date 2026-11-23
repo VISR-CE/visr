@@ -1799,7 +1799,7 @@ def browser_layout(root, widgets, bitmaps):
     for name, width, height, frames in (
             ('c_row', 270, 50, ['row__0', 'row__1']),
             ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
-            ('gametype_large', 145, 118, [f'gametype_large__{i}' for i in range(7)]),
+            ('gametype_large', 124, 100, [f'gametype_large__{i}' for i in range(7)]),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
             ('detail', 312, 273, ['detail']),
             ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge__0', 'badge__1']), ('lock', 12, 14, ['lock']),
@@ -1897,9 +1897,9 @@ def browser_layout(root, widgets, bitmaps):
             # The Xbox's map pictures are 140x114 in the corner of a 256x128 texture.
             # Xbox has thirteen map pictures, then its unknown-map picture.
             frame = min(index, 13) if art == 'preview_mp' else index
-            # The picture shares the panel with the gametype picture, so it is 145x118: the 140x114
-            # corner scaled by 118/114, which makes the whole 256x128 texture 265x133.
-            geometry = dict(x='0', y='0', width='265', height='133')
+            # The picture shares the panel with the gametype picture, so the widget (124x100) shows the 140x114
+            # corner of the 256x128 texture whole: the texture drawn 227x113 (scaled by 100/114 and 124/140).
+            geometry = dict(x='0', y='0', width='227', height='113')
             ET.SubElement(bitmap, 'frame', map=source, index=str(frame), png='xbox/art/browser/preview_none.png',
                           **geometry)
     child(content, base + '/browser_detail_gametype', x=485, y=111)

@@ -312,13 +312,13 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     assert picture.get('bitmap') == 'xbox/browser/gametype_large'
     assert (picture.get('width'), picture.get('height')) == ('124', '100')
     placed = {c.get('widget').rsplit('/', 1)[-1]: c for c in content.findall('child')}
-    assert int(placed['lobby_map_pic'].get('x')) + 145 < int(placed['browser_detail_gametype'].get('x'))
+    assert int(placed['lobby_map_pic'].get('x')) + 124 < int(placed['browser_detail_gametype'].get('x'))
     assert placed['browser_detail_gametype'].get('y') == placed['lobby_map_pic'].get('y')
     for leaf, art, count in (('lobby_map_pic', 'preview_mp', 20), ('replay_level_right_pic', 'preview_sp', 10)):
         assert widgets[leaf].get('bitmap') == 'xbox/browser/' + art
         frames = bitmaps['xbox/browser/' + art].findall('frame')
         assert len(frames) == count
-        assert all((f.get('x'), f.get('y'), f.get('width'), f.get('height')) == ('0', '0', '265', '133')
+        assert all((f.get('x'), f.get('y'), f.get('width'), f.get('height')) == ('0', '0', '227', '113')
                    for f in frames)
         assert (widgets[leaf].get('width'), widgets[leaf].get('height')) == ('124', '100')
         assert all(f.get('map') and f.get('png') for f in frames)
