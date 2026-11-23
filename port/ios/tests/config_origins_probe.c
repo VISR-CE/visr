@@ -906,8 +906,11 @@ static void check_workload_frame_rate(void)
 	launch(TV_MODEL);
 	config_workload_set_limited(1, 1, "large multiplayer map");
 	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+	/* the runtime drop to 30 turns smooth motion off in gameplay and leaves the menus' */
+	assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY) && config_smooth_motion(CONFIG_SCENE_MENU));
 	config_workload_set(0, "main menu");
 	assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "display"));
+	assert(config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
 	/* A 30-only profile keeps its measured rate on either side of its player threshold. The warning uses
 	full_rate_players independently of this cap (menu_functions.c, player_capacity_exceeded). */
 	fresh();
@@ -936,7 +939,6 @@ static void check_workload_frame_rate(void)
 	{
 		config_workload_set_limited(1, limited, "30-only multiplayer map");
 		assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
-		/* (the runtime drop to 30 turns smooth motion off in the scene it holds) */
 		assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
 	}
 }

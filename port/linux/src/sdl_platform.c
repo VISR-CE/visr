@@ -520,7 +520,8 @@ int halo_scene_class(void);
 
 /* Smooth motion: automatic (smooth_motion.h: on above a 30 frame cap, off at 30 or lower, so in Hardcore mode,
 whose table fixes the cap at 30, and during a big game's runtime drop to 30), unless display.interpolation is
-set by hand, by --set or in the environment: the testing override, which wins either way */
+set to "on" or "off" by hand, by --set or in the environment: the testing override, which wins over the rule (the
+Hardcore mode's table sets it "off") */
 int halo_interpolation_enabled(void)
 {
 	static int enabled;
