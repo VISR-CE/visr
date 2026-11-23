@@ -497,36 +497,6 @@ def test_backdrop_has_bottom_rule_above_the_legend_strip():
     assert 'bitmap="xbox/browser/filters_backdrop"' in filters
 
 
-def test_every_detail_widget_the_empty_panel_hides_is_shown_or_hidden_for_a_game():
-    """Bug class (the pills missing on first open): the panel blanks widgets when no game is chosen, and a game
-    chosen later must set each of them itself instead of relying on what an earlier state left."""
-    import re
-    from pathlib import Path
-    source = (Path(__file__).resolve().parents[1] / "port/linux/game/menu_functions.c").read_text()
-    start = source.index("\tif (!present)\n\t{\n\t\tchar const *const blank[]")
-    end = source.index("\n}\n", start)
-    body = source[start:end]
-    hidden = re.search(r"hidden\[\] = \{([^}]*)\}", body).group(1)
-    names = re.findall(r'"(\w+)"', hidden)
-    after = body[body.index("game = &lobby_browser.games"):]
-    for name in names:
-        assert re.search(r'visible_set\(\s*named\(detail, "%s", 0\)' % name, after), name
-
-
-def test_connect_progress_belongs_to_the_joining_game_only():
-    """Bug class (the panel showed another game's details with "Connecting to X..."): progress is the joining
-    game's row and one line in its own panel, a failed join is a dialog, and the legend never repeats it."""
-    from pathlib import Path
-    source = (Path(__file__).resolve().parents[1] / "port/linux/game/menu_functions.c").read_text()
-    assert source.count('L"Connecting to %s..."') == 1
-    line = source.index('L"Connecting to %s..."')
-    guard = source.rindex("boolean joining_chosen", 0, line)
-    assert "lobby_browser.identifier" in source[guard:line]
-    assert "CONNECTING..." not in source
-    detail = source[source.index("static void browser_c_detail_update("):]
-    assert "ui_widget_port_bar_caption" not in detail[:detail.index("\n}\n")]
-    timeout = source[source.index("could not reach the server browser's game"):]
-    assert "display_error_text_deferred" in timeout[:900]
 
 
 def test_deferred_error_text_is_copied_not_borrowed():
@@ -578,3 +548,171 @@ int main(void)
         subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", str(path),
                         "--output", str(Path(temporary) / "probe")], check=True)
         subprocess.run([str(Path(temporary) / "probe")], check=True)
+
+
+def test_detail_panel_pills_and_connect_line_follow_the_chosen_game(tmp_path):
+    """Behavior of `browser_c_detail_update` on a stub widget tree. Bug classes: the pills went missing after the
+    empty panel hid them (so every pill is set for every game, whatever came before), and another game's panel
+    showed the joining game's connect line (it belongs to the joining game alone)."""
+    source = (ROOT / "port/linux/game/menu_functions.c").read_text()
+    join_enum = source[source.index("enum\n{\n\t_browser_join_ok"):]
+    join_enum = join_enum[:join_enum.index("};") + 3]
+    signatures = (
+        "static short browser_join_block(",
+        "static void browser_join_block_text(",
+        "static boolean browser_listing_cooperative(",
+        "static void browser_detail_gametype_set(",
+        "static void browser_c_detail_update(",
+    )
+    production = join_enum + "\n".join(function(source, signature) for signature in signatures)
+    harness = r'''
+#define HALO_IOS 1
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <wchar.h>
+#include "p2p.h"
+#include "halo_network_content.h"
+#include "halo_network_version.h"
+typedef int boolean;
+#define FALSE 0
+#define TRUE 1
+#define NONE (-1)
+#define ROW_TEXT_LENGTH 128
+#define NUMBEROF(a) ((short)(sizeof(a) / sizeof((a)[0])))
+#define PIN(v, lo, hi) ((v) < (lo) ? (lo) : (v) > (hi) ? (hi) : (v))
+#include <stdarg.h>
+#define _gamepad_analog_button_a 0
+struct widget_instance
+{
+	char name[40];
+	struct widget_instance *parent, *child, *next;
+	boolean visible, disabled;
+	struct { short current_frame_index; } animation;
+	wchar_t text[ROW_TEXT_LENGTH * 2];
+};
+static struct { short count, chosen; boolean joining; unsigned char identifier[6]; char name[P2P_LISTING_NAME_SIZE + 1];
+	struct p2p_listing games[4]; } lobby_browser;
+static struct widget_instance screen, detail, content, widgets[32];
+static short widget_count;
+static boolean online = TRUE, dimmed;
+/* the engine's formatter: %s is a wide string (the host's swprintf takes %ls for that) */
+static int usnprintf(wchar_t *out, size_t size, wchar_t const *format, ...)
+{
+	wchar_t fixed[256];
+	size_t n = 0;
+	va_list arguments;
+	int result;
+
+	for (wchar_t const *scan = format; *scan && n < 250; scan++)
+	{
+		fixed[n++] = *scan;
+		if (*scan == L'%' && scan[1] == L's') { fixed[n++] = L'l'; }
+	}
+	fixed[n] = 0;
+	va_start(arguments, format);
+	result = vswprintf(out, size, fixed, arguments);
+	va_end(arguments);
+	return result;
+}
+static struct widget_instance *add(struct widget_instance *parent, char const *name)
+{
+	struct widget_instance *w = parent == &screen && !strcmp(name, "browser_detail") ? &detail : &widgets[widget_count++];
+	struct widget_instance **tail = &parent->child;
+
+	snprintf(w->name, sizeof(w->name), "%s", name);
+	w->parent = parent;
+	w->visible = TRUE;
+	while (*tail)
+		tail = &(*tail)->next;
+	*tail = w;
+	return w;
+}
+static struct widget_instance *named(struct widget_instance *w, char const *name, int unused)
+{
+	(void)unused;
+	if (!w) return NULL;
+	if (!strcmp(w->name, name)) return w;
+	for (struct widget_instance *c = w->child; c; c = c->next) { struct widget_instance *r = named(c, name, 0); if (r) return r; }
+	return NULL;
+}
+static struct widget_instance *screen_of(struct widget_instance *w) { while (w->parent) w = w->parent; return w; }
+static void visible_set(struct widget_instance *w, int v) { if (w) w->visible = v; }
+static void text_set(struct widget_instance *w, wchar_t const *t) { if (w) { wcsncpy(w->text, t, ROW_TEXT_LENGTH * 2 - 1); } }
+static void ui_widget_port_text_ellipsize(struct widget_instance *c, wchar_t *t, int n) { (void)c; (void)t; (void)n; }
+static void browser_name_set(struct widget_instance *w, wchar_t *t) { text_set(w, t); }
+static void text_to_wide(char const *t, wchar_t *o, short n) { swprintf(o, n, L"%s", t); }
+static void map_display_name(char const *m, wchar_t *o) { swprintf(o, 64, L"%s", m); }
+static void lobby_map_show(struct widget_instance *d, char const *m) { (void)d; (void)m; }
+static void ui_widget_port_bar_dim(struct widget_instance *s, int slot, boolean d) { (void)s; (void)slot; dimmed = d; }
+static int config_boolean(char const *k) { return !strcmp(k, "network.online") ? online : 1; }
+static long browser_target_fps(void) { return 60; }
+enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *g) { (void)g; return P2P_SERVER_PLAYER; }
+static boolean player_capacity_marked(long p, long m) { (void)p; (void)m; return FALSE; }
+''' + "\n" + production + r'''
+static struct widget_instance *pill(char const *name) { return named(&detail, name, 0); }
+int main(void)
+{
+	char const *const leaves[] = { "browser_detail_content", "browser_detail_name", "browser_detail_type",
+		"browser_rules_label", "browser_detail_rules", "browser_equipment_label", "browser_detail_equipment",
+		"browser_host_label", "browser_detail_host", "browser_connection_status", "browser_detail_big",
+		"browser_join_reason", "browser_detail_net", "browser_detail_net_blocked", "browser_detail_password",
+		"browser_detail_lock", "lobby_map_pic", "browser_detail_gametype" };
+	struct widget_instance *list = add(&screen, "join_game_items_list");
+
+	snprintf(screen.name, sizeof(screen.name), "screen");
+	snprintf(detail.name, sizeof(detail.name), "browser_detail");
+	detail.parent = &screen; screen.child = list; list->next = &detail;
+	add(&screen, "browser_list_status"); add(&screen, "browser_list_hint");
+	snprintf(content.name, sizeof(content.name), "browser_detail_content");
+	content.parent = &detail; detail.child = &content;
+	for (unsigned i = 1; i < NUMBEROF(leaves); i++) add(&content, leaves[i]);
+
+	for (int i = 0; i < 4; i++) { lobby_browser.games[i].network_version = HALO_PORT_NETWORK_VERSION; lobby_browser.games[i].joinable = 1; lobby_browser.games[i].open = 1; }
+	lobby_browser.count = 4;
+	lobby_browser.games[0].engine_type = 2;
+	lobby_browser.games[1].locked = 1; lobby_browser.games[1].engine_type = 2;
+	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION + 5;
+	lobby_browser.games[3].engine_type = 2;
+	for (int i = 0; i < 4; i++) lobby_browser.games[i].identifier[0] = (unsigned char)(i + 1);
+
+	/* no game chosen: everything hidden; then a game chosen must show every pill again */
+	lobby_browser.chosen = NONE;
+	browser_c_detail_update(list, L"");
+	assert(!detail.visible && !pill("browser_detail_net")->visible);
+	lobby_browser.chosen = 0;
+	browser_c_detail_update(list, L"");
+	assert(detail.visible && pill("browser_detail_net")->visible && !pill("browser_detail_net_blocked")->visible);
+	assert(!pill("browser_detail_password")->visible && !pill("browser_detail_lock")->visible);
+	assert(!wcscmp(pill("browser_detail_net")->text, L"NET v38") && pill("browser_detail_net")->animation.current_frame_index == 0);
+	assert(!dimmed);
+	/* a password game: the pill and its lock */
+	lobby_browser.chosen = 1; browser_c_detail_update(list, L"");
+	assert(pill("browser_detail_password")->visible && pill("browser_detail_lock")->visible);
+	/* a game on a version this build cannot join: the pill grays (second frame, its own gray text), the panel says nothing more */
+	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
+	assert(pill("browser_detail_net")->animation.current_frame_index == 1 && !pill("browser_detail_net")->text[0]);
+	assert(pill("browser_detail_net_blocked")->visible && !wcscmp(pill("browser_detail_net_blocked")->text, L"NET v43"));
+	assert(!pill("browser_join_reason")->visible && dimmed);
+	/* and back to a joinable one: nothing grayed is left behind */
+	lobby_browser.chosen = 3; browser_c_detail_update(list, L"");
+	assert(pill("browser_detail_net")->animation.current_frame_index == 0 && !pill("browser_detail_net_blocked")->visible && !dimmed);
+
+	/* joining game 0: its panel carries the connect line; another chosen game's does not */
+	lobby_browser.joining = TRUE; lobby_browser.identifier[0] = 1; snprintf(lobby_browser.name, sizeof(lobby_browser.name), "ALPHA");
+	lobby_browser.chosen = 0; browser_c_detail_update(list, L"");
+	assert(pill("browser_connection_status")->visible && !wcscmp(pill("browser_connection_status")->text, L"Connecting to ALPHA..."));
+	assert(dimmed);
+	lobby_browser.chosen = 3; browser_c_detail_update(list, L"");
+	assert(!pill("browser_connection_status")->visible);
+	puts("browser detail pills and connect line passed");
+	return 0;
+}
+'''
+    probe, binary = tmp_path / "detail.c", tmp_path / "detail"
+    probe.write_text(harness)
+    subprocess.run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-iquote",
+                    str(ROOT / "port/linux/src"), "-iquote", str(ROOT / "port/linux/include"), str(probe),
+                    "--output=" + str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
