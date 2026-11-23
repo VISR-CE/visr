@@ -115,6 +115,11 @@ void player_ui_remember_player1_profile(
 	boolean save);
 void player_ui_begin_editing_profile(
 	long profile_index);
+/* port: only the record, for the profile already active (a level saved) */
+void player_ui_update_active_player_profile_record(
+	short local_player_index,
+	long profile_index,
+	struct player_profile *profile);
 void player_ui_set_active_player_profile(
 	short local_player_index,
 	long profile_index,

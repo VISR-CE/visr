@@ -182,9 +182,6 @@ struct player_ui_local_player
 	boolean prejoined_multiplayer;
 };
 
-/* port: whether each local player's input settings have been read from their profile */
-static boolean player_ui_input_loaded[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
-
 /* port: the input settings of the profile being edited, beside the 0x30-byte record */
 static struct
 {
@@ -1331,8 +1328,6 @@ void player_ui_set_active_player_profile(
 	long profile_index,
 	struct player_profile *profile)
 {
-	long previous_profile_index;
-
 	match_assert(
 		"c:\\halo\\SOURCE\\interface\\player_ui.c",
 		0xE2,
@@ -1340,23 +1335,41 @@ void player_ui_set_active_player_profile(
 		(local_player_index<MAXIMUM_NUMBER_OF_LOCAL_PLAYERS) &&
 		(profile != NULL));
 
-	previous_profile_index = player_ui_globals.local_players[local_player_index].active_profile_index;
 	player_ui_globals.local_players[local_player_index].active_profile_index = profile_index;
 	csmemcpy(
 		&player_ui_globals.local_players[local_player_index].profile,
 		profile,
 		sizeof(*profile));
-	/* port: and the input settings of that profile, or the defaults without one. Saving the same profile again (a
-	level completed) does not change them, and reading them would wait for that save to finish; a profile edit
-	updates them itself (player_ui_save_profile) */
-	if (!player_ui_input_loaded[local_player_index] || previous_profile_index != profile_index)
+	/* port: and the input settings of that profile, or the defaults without one. Always read: a profile's index
+	can be reused by another profile after a delete */
 	{
 		struct player_input_profile input;
 
 		player_profile_get_input(profile_index, &input);
 		player_input_profile_set_local_player(local_player_index, &input);
-		player_ui_input_loaded[local_player_index] = TRUE;
 	}
+	set_local_player_controls_from_player_profile(local_player_index);
+	return;
+}
+
+/* port: the record of the profile a local player already plays with, saved again with a level finished or a last level
+played: the input settings are not read again, which would wait for that save to finish */
+void player_ui_update_active_player_profile_record(
+	short local_player_index,
+	long profile_index,
+	struct player_profile *profile)
+{
+	match_assert(
+		"c:\\halo\\SOURCE\\interface\\player_ui.c",
+		0xE2,
+		(local_player_index>=0) &&
+		(local_player_index<MAXIMUM_NUMBER_OF_LOCAL_PLAYERS) &&
+		(profile != NULL));
+
+	csmemcpy(
+		&player_ui_globals.local_players[local_player_index].profile,
+		profile,
+		sizeof(*profile));
 	set_local_player_controls_from_player_profile(local_player_index);
 	return;
 }

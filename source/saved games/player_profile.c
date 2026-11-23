@@ -658,7 +658,7 @@ void player_profile_save_last_level_played(
 				player_profile_save(player_profile_index, &profile);
 			}
 
-			player_ui_set_active_player_profile(
+			player_ui_update_active_player_profile_record(
 				local_player_index,
 				player_profile_index,
 				&profile);
@@ -697,7 +697,7 @@ void player_profile_save_level_completed(
 
 		player_profile_write(player_profile_index, &profile, NULL);
 
-		player_ui_set_active_player_profile(
+		player_ui_update_active_player_profile_record(
 			local_player_index,
 			player_profile_index,
 			&profile);

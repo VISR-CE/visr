@@ -64,3 +64,17 @@ def test_the_write_thread_builds_its_block_with_the_merge_the_probe_tests():
     # the default profiles, rewritten at every launch, keep their extension as well
     defaults = source[source.index('player_profile_create_default_profiles_on_disk(\n\tvoid)\n{'):]
     assert 'PLAYER_INPUT_REGION_OFFSET' in defaults[:defaults.index('player_profile_write(\n\tlong')]
+
+
+def test_activating_a_profile_always_reads_its_input_settings():
+    """A profile's index can be reused after a delete, so activation never skips the read; only the two level-save
+    paths (same profile, record only) use the record-only update."""
+    ui = (ROOT / 'source/interface/player_ui.c').read_text(encoding='latin-1')
+    activate = ui[ui.index('void player_ui_set_active_player_profile('):]
+    activate = activate[:activate.index('\n}')]
+    assert 'player_profile_get_input(profile_index, &input);' in activate and 'if (' not in activate.split('csmemcpy')[1]
+    update = ui[ui.index('void player_ui_update_active_player_profile_record('):]
+    assert 'player_profile_get_input' not in update[:update.index('\n}')]
+    saves = (ROOT / 'source/saved games/player_profile.c').read_text(encoding='latin-1')
+    assert saves.count('player_ui_update_active_player_profile_record(') == 2
+    assert 'player_ui_set_active_player_profile(' not in saves
