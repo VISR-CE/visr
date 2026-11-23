@@ -1440,7 +1440,9 @@ static void *widget_build(long widget_index)
 	else if (build.spinner_tags[widget_index] != NONE)
 	{
 		reference_set(&definition->text_label_string_list, UNICODE_STRING_LIST_TAG, build.spinner_tags[widget_index]);
-		definition->list_flags |= FLAG(_list_items_generated_from_string_list_tag_bit);
+		/* (a spinner's items; a text of a setting shows the one string its index names) */
+		if (definition->type == _widget_type_spinner_list)
+			definition->list_flags |= FLAG(_list_items_generated_from_string_list_tag_bit);
 	}
 	else if (source->string_list)
 	{
@@ -1476,8 +1478,11 @@ static void *widget_build(long widget_index)
 	/* the list */
 	definition->list_flags |= flags_parse(source->list_flags, list_flag_names, NUMBEROF(list_flag_names),
 		source->file, source->line);
-	if (source->strings && (definition->type != _widget_type_spinner_list || source->first_child != HALO_MENU_NONE))
-		problem(source->file, source->line, "strings are for a spinner with no children:", source->name);
+	/* (strings are a spinner's, or the state word of a row that opens a screen: a text of a setting) */
+	if (source->strings && (!(definition->type == _widget_type_spinner_list ||
+		(definition->type == _widget_type_text_box && source->setting)) || source->first_child != HALO_MENU_NONE))
+		problem(source->file, source->line, "strings are for a spinner, or a text of a setting, with no children:",
+			source->name);
 	if (TEST_FLAG(definition->list_flags, _list_items_generated_from_string_list_tag_bit) &&
 		(definition->type != _widget_type_spinner_list || source->first_child != HALO_MENU_NONE ||
 			definition->text_label_string_list.index == NONE))
