@@ -85,11 +85,65 @@ int main(void)
     assert subprocess.run([str(executable)]).returncode == 0
 
 
-def test_backing_out_of_a_join_under_way_resets_the_client():
-    start = UI.index("static boolean netgame_unjoin_player(")
-    body = UI[start:UI.index("\nboolean ui_widget_port_unjoin_player(", start)]
-    # the branch tests the client's state (the return value), not the state's data (the timeout percent)
-    assert "short client_state = network_game_client_get_state(client, &state);" in body
-    assert "else if (client_state == 1)" in body and "state == 1" not in body.replace("client_state == 1", "")
-    joining = body[body.index("else if (client_state == 1)"):]
-    assert "network_game_client_reset(client, TRUE);" in joining[:600]
+def test_backing_out_of_a_join_under_way_resets_the_client(tmp_path):
+    # the production netgame_unjoin_player against stubs: while the client is joining, whatever the
+    # state's data (the timeout percent) says, the join is ended by resetting the client, once
+    start = UI.rindex("static boolean netgame_unjoin_player(\n")  # the definition, after the forward declaration
+    production = UI[start:UI.index("\n}\n", start) + 3]
+    program = tmp_path / "unjoin.c"
+    program.write_text(r"""
+#include <stdio.h>
+typedef int boolean;
+#define TRUE 1
+#define FALSE 0
+#define NONE (-1)
+#define NUMBEROF(a) (sizeof(a) / sizeof((a)[0]))
+#define match_vassert(file, line, expr, text) do { if (!(expr)) return 99; } while (0)
+struct widget_instance { int x; };
+struct event_record { short controller_index; };
+struct network_player { short machine_index, controller_index; };
+struct network_game { struct network_player players[4]; };
+static int client_state, state_data, resets, reset_teardown, connections_set, disposes, removals, errors;
+static int client_object;
+static void *global_network_game_client_get(void) { return &client_object; }
+static void *global_network_game_server_get(void) { return NULL; }
+static short network_game_client_get_state(void *c, short *data) { (void)c; *data = (short)state_data; return (short)client_state; }
+static void network_game_client_reset(void *c, boolean teardown) { (void)c; resets++; reset_teardown = teardown; }
+static void game_connection_set(int v) { if (v == 0) connections_set++; }
+static void dispose_global_network_game_client(void) { disposes++; }
+static void dispose_global_network_game_server(void) { disposes++; }
+static void error(int level, char const *text) { (void)level; (void)text; errors++; }
+static struct network_game *network_game_client_get_game(void *c) { (void)c; static struct network_game g; return &g; }
+static short network_game_client_get_local_machine_index(void) { return NONE; }
+static int network_player_is_valid(struct network_player *p) { (void)p; return 0; }
+static boolean network_game_client_request_remove_player(void *c, void *p) { (void)c; (void)p; removals++; return TRUE; }
+static void player_ui_clear_multiplayer_autojoin_for_local_player(short c) { (void)c; }
+static void player_ui_autojoin_players_to_next_multiplayer_game(void) { }
+static void network_game_server_pause_countdown(void *s, boolean b) { (void)s; (void)b; }
+static boolean network_game_should_accept_remote_connections(void) { return FALSE; }
+""" + production + r"""
+int main(void)
+{
+	struct widget_instance widget = {0};
+	struct event_record event = {0};
+	boolean deleted = FALSE;
+	short data;
+
+	/* joining (state 1): reset once with the connection torn down, whatever the timeout percent */
+	for (data = 0; data <= 100; data += (data < 2 ? 1 : 49))
+	{
+		resets = connections_set = disposes = removals = errors = 0;
+		client_state = 1; state_data = data;
+		netgame_unjoin_player(&widget, &event, &deleted);
+		if (resets != 1 || !reset_teardown || connections_set != 1 || disposes || removals) return 1;
+	}
+	/* searching (state 0): nothing to end */
+	resets = connections_set = errors = 0; client_state = 0; state_data = 1;
+	netgame_unjoin_player(&widget, &event, &deleted);
+	if (resets || connections_set) return 2;
+	return 0;
+}
+""")
+    executable = tmp_path / "unjoin"
+    subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function", "-o", str(executable), str(program)], check=True)
+    assert subprocess.run([str(executable)]).returncode == 0
