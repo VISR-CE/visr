@@ -2010,7 +2010,7 @@ static const struct config_setting config_settings[] =
 		"in a game, so two launches of one replay with debug.fixed_timestep save the\n"
 		"same moments under the same names however long their menus and loading\n"
 		"took; debug.screenshot_frames then names ticks. After the tick goes back (a\n"
-		"new map, a restart, a checkpoint revert) names end -restartN." },
+		"new map, a restart, a checkpoint revert) names end -restartN.", _tier_derived, "frames|ticks" },
 	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
 		_platform_all,
 		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },

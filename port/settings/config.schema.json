@@ -3664,6 +3664,10 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "frames",
+            "ticks"
           ]
         },
         "screenshot_scene_only": {
