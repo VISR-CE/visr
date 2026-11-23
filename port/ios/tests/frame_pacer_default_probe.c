@@ -156,9 +156,9 @@ int main(void)
             frame_pacer_in_flight_at_30_set(cases[index].at_30);
             frame_pacer_refresh(1000.0, 1.0 / 60.0);
             frame_pacer_gpu_time(0.020);
-            frame_pacer_frame_start();
+            frame_pacer_frame_start(0);
             frame_pacer_frame_begin(&frame[0], 1, 0.0, 1);
-            frame_pacer_frame_start();
+            frame_pacer_frame_start(0);
             frame_pacer_frame_begin(&frame[1], 2, 0.0, 1);
             CHECK(frame[0].slot);
             CHECK(!!frame[1].slot == cases[index].second_slot);
@@ -191,15 +191,15 @@ int main(void)
             rate_target = phase == 1 ? 30.0 : 60.0;
             for (int count = 0; count < frames; count++)
             {
-                frame_pacer_frame_start();
+                frame_pacer_frame_start(0);
                 frame_pacer_frame_begin(&frame[0], number++, 0.0, 1);
                 at += step;
                 frame_pacer_presented(&frame[0], at);
             }
         }
-        frame_pacer_frame_start();
+        frame_pacer_frame_start(0);
         frame_pacer_frame_begin(&frame[0], number++, 0.0, 1);
-        frame_pacer_frame_start();
+        frame_pacer_frame_start(0);
         frame_pacer_frame_begin(&frame[1], number++, 0.0, 1);
         CHECK(frame[0].slot && frame[1].slot);
         frame_pacer_stop();
