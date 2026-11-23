@@ -107,6 +107,10 @@ struct config_setting
 	unsigned platforms;
 	const char *comment;
 	enum config_tier tier;
+	/* a string setting's accepted values as "a|b|#" (an empty name first: empty is accepted; # a whole number in quotes,
+	   30 to 1000), or NULL when any text is: tools/settings_schema.py reads it, and tools/set_check.py refuses the rest
+	   before a run launches (the parsers below fall back to a default without a word) */
+	const char *choices;
 };
 
 #ifdef HALO_IOS
@@ -143,7 +147,7 @@ static const struct config_setting config_settings[] =
 		"the Xbox's limits, nothing added. The mode wins\n"
 		"over the settings it replaces (port_graphics_modes.h), which keep their\n"
 		"values for when it changes back. The picture's size and rate change at\n"
-		"the next level.", _tier_player },
+		"the next level.", _tier_player, "enhanced|classic|hardcore" },
 	{ "display.crt_effect", _config_boolean, "false", "HALO_CRT_EFFECT", _environment_value, _platform_ios,
 		"With display.graphics = \"hardcore\": show the 640x480 picture as a\n"
 		"composite CRT television did, with scanlines, a phosphor mask, soft\n"
@@ -157,7 +161,7 @@ static const struct config_setting config_settings[] =
 		"\"fullscreen\" takes the display (at display.resolution's mode),\n"
 		"\"borderless\" is a window over the whole desktop, \"windowed\" a window\n"
 		"(display.window_size). Empty: display.fullscreen's (true: borderless).\n"
-		"F11 switches to the window and back.", _tier_player },
+		"F11 switches to the window and back.", _tier_player, "|fullscreen|borderless|windowed" },
 	{ "display.resolution", _config_string, "\"native\"", "HALO_RESOLUTION", _environment_value, _platform_desktop,
 		"What fullscreen and borderless draw at: \"native\", the display's own, or\n"
 		"\"<width>x<height>\" (\"1920x1080\"), 640x480 or more. Fullscreen sets the\n"
@@ -166,7 +170,7 @@ static const struct config_setting config_settings[] =
 		_platform_desktop,
 		"\"native\" draws at the window's resolution (fullscreen, the display's or\n"
 		"display.resolution); \"original\" draws the Xbox's 640x480 and scales it\n"
-		"up.", _tier_player },
+		"up.", _tier_player, "native|original" },
 	{ "display.window_size", _config_string, "\"\"", "HALO_WINDOW_SIZE", _environment_value, _platform_desktop,
 		"The window's size, \"<width>x<height>\" (\"1920x1080\"), 640x480 or more (it\n"
 		"can be resized). Empty: display.window_scale's.", _tier_player },
@@ -319,7 +323,7 @@ static const struct config_setting config_settings[] =
 		"Apple Vision Pro: \"off\" (flat), \"head\" (in stereo, the head turns the view),\n"
 		"\"screen\" (in stereo on the theater screen), or \"side_by_side\" (a debug view\n"
 		"of both eyes in the window). Enter VR uses \"head\" while this is \"off\", and\n"
-		"this mode otherwise.", _tier_player },
+		"this mode otherwise.", _tier_player, "off|head|screen|side_by_side" },
 	{ "display.frame_repeat", _config_integer, "0", "HALO_FRAME_REPEAT", _environment_value, _platform_visionos,
 		"Apple Vision Pro, display.stereo = \"head\" or \"screen\": how many extra\n"
 		"display refreshes each frame stays up, 0 to 3: 0 draws a frame every\n"
@@ -428,7 +432,7 @@ static const struct config_setting config_settings[] =
 		"size, and the screen's bottom edge cuts the weapon like a window frame;\n"
 		"\"wide\" shows the flat game's wider view, everything a quarter smaller\n"
 		"and the whole weapon in view. Cutscenes fill the screen either way.\n"
-		"Read at start.", _tier_player },
+		"Read at start.", _tier_player, "band|wide" },
 	{ "display.stereo_vehicle_screen", _config_boolean, "false", "HALO_STEREO_VEHICLE_SCREEN", _environment_value,
 		_platform_visionos,
 		"With display.stereo = \"head\": put third-person cameras (a vehicle's chase\n"
@@ -504,7 +508,7 @@ static const struct config_setting config_settings[] =
 	{ "input.turn", _config_string, "\"snap\"", "HALO_TURN", _environment_value, _platform_visionos,
 		"With display.stereo = \"head\": how the right stick turns the view: \"snap\"\n"
 		"(default; a flick turns input.snap_angle at once), \"smooth\" (steadily, at\n"
-		"input.smooth_turn_speed), or \"off\" (it doesn't; turn your body).", _tier_player },
+		"input.smooth_turn_speed), or \"off\" (it doesn't; turn your body).", _tier_player, "snap|smooth|off" },
 	{ "input.snap_angle", _config_real, "30.0", "HALO_SNAP_ANGLE", _environment_value, _platform_visionos,
 		"With input.turn = \"snap\": degrees per snap (5 to 180).", _tier_player },
 	{ "input.smooth_turn_speed", _config_real, "120.0", "HALO_SMOOTH_TURN_SPEED", _environment_value, _platform_visionos,
@@ -521,7 +525,7 @@ static const struct config_setting config_settings[] =
 		"play, aim holds its last valid hand direction through input.aim_loss_grace,\n"
 		"then uses the head until the hand is tracked again (and before the\n"
 		"first tracked pose); a seat uses stick aim. Anything else aims with the\n"
-		"head.", _tier_player },
+		"head.", _tier_player, "auto|controller|head" },
 	{ "input.aim_loss_grace", _config_real, "0.5", "HALO_AIM_LOSS_GRACE", _environment_value, _platform_visionos,
 		"With input.aim = \"controller\": seconds of lost hand tracking during\n"
 		"which the last hand aim is held, in local and network play, before the\n"
@@ -529,7 +533,7 @@ static const struct config_setting config_settings[] =
 		"it for the device; it is not a player choice." },
 	{ "input.aim_hand", _config_string, "\"right\"", "HALO_AIM_HAND", _environment_value, _platform_visionos,
 		"With input.aim = \"controller\": the aiming hand, \"right\" (default) or\n"
-		"\"left\" (the buttons mirror).", _tier_player },
+		"\"left\" (the buttons mirror).", _tier_player, "right|left" },
 	{ "input.aim_pitch_offset", _config_real, "0.0", "HALO_AIM_PITCH_OFFSET", _environment_value, _platform_visionos,
 		"With input.aim = \"controller\": degrees the barrel ray and gun tilt down\n"
 		"from the aim axis (-10 to 45), for aiming from the hip with the forearm\n"
@@ -579,7 +583,7 @@ static const struct config_setting config_settings[] =
 		"(always). In any mode it shows while the gun's line passes something\n"
 		"the eye's line doesn't. With debug.sense_tuning_chord, hold Back (Create) and pull the right trigger\n"
 		"to cycle off, close and on for the session; the trigger doesn't fire\n"
-		"while Back is held.", _tier_tuning },
+		"while Back is held.", _tier_tuning, "off|close|on" },
 	{ "input.reticle_ease", _config_real, "0.05", "HALO_RETICLE_EASE", _environment_value, _platform_visionos,
 		"HEAD mode with controller aim: the time, in seconds, over which the\n"
 		"reticle moves along the gun's line when that line goes from a far\n"
@@ -614,7 +618,7 @@ static const struct config_setting config_settings[] =
 		"input.arms_roll_limit, the hands stay on it and the arms bend to\n"
 		"follow. The reticle and the shots follow the hand in every mode.\n"
 		"With debug.sense_tuning_chord, hold Back (Create) and push the left stick right or left to cycle the\n"
-		"modes for the session.", _tier_tuning },
+		"modes for the session.", _tier_tuning, "turned|limited|solved" },
 	{ "input.arms_follow", _config_real, "0.5", "HALO_ARMS_FOLLOW", _environment_value, _platform_visionos,
 		"HEAD mode with controller aim, input.first_person_arms \"solved\":\n"
 		"how much of the hand's movement away from its usual place (its\n"
@@ -709,7 +713,7 @@ static const struct config_setting config_settings[] =
 		_platform_ios,
 		"The Sense controllers' pose correction from ARKit: \"none\" (default)\n"
 		"or \"rendered\" (aligned with passthrough), to compare the two for lag\n"
-		"and swim." },
+		"and swim.", _tier_derived, "none|rendered" },
 	{ "debug.controller_axes", _config_boolean, "false", "HALO_CONTROLLER_AXES", _environment_set_is_true,
 		_platform_ios,
 		"HEAD mode with Sense controllers (visionOS 27): log the right\n"
@@ -790,7 +794,7 @@ static const struct config_setting config_settings[] =
 	{ "display.theater_environment", _config_string, "\"passthrough\"", "HALO_THEATER_ENVIRONMENT", _environment_value,
 		_platform_visionos,
 		"With display.immersive: around the screen, \"passthrough\" (the room) or\n"
-		"\"dark\" (black).", _tier_player },
+		"\"dark\" (black).", _tier_player, "passthrough|dark" },
 	{ "display.renderer", _config_string, "\"metal\"", "HALO_RENDERER", _environment_value, _platform_ios,
 		"What draws the game: \"metal\" (default) Metal, or \"gl\" OpenGL ES, for\n"
 		"debugging only: it lacks the Metal renderer's performance work and\n"
@@ -834,14 +838,14 @@ static const struct config_setting config_settings[] =
 		"off to starting at once whenever frames take too long or vary. \"true\" or\n"
 		"\"false\"; empty (default): on in the Mac app, off on an iPhone, iPad or\n"
 		"Apple TV. The Mac app's F8 switches it while playing. Not on a Vision Pro,\n"
-		"and not when frames don't wait for the display (display.frame_rate).", _tier_player },
+		"and not when frames don't wait for the display (display.frame_rate).", _tier_player, "|true|false" },
 	{ "display.frame_source", _config_string, "\"\"", "HALO_FRAME_SOURCE", _environment_value, _platform_ios,
 		"Where the Metal renderer's frames get their place on the display:\n"
 		"\"clock\" asks for one when a frame is ready and applies\n"
 		"display.frames_in_flight and display.frame_spacing itself; \"system\"\n"
 		"takes one from the system for each refresh (iOS 17, tvOS 17, macOS 14\n"
 		"and later, and only with display.frame_rate = \"display\"; elsewhere\n"
-		"\"clock\" is used). Empty (default): \"clock\". Not on a Vision Pro.", _tier_player },
+		"\"clock\" is used). Empty (default): \"clock\". Not on a Vision Pro.", _tier_player, "|clock|system" },
 	{ "display.frames_in_flight", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT", _environment_value, _platform_ios,
 		"How many frames the Metal renderer may have on their way to the display\n"
 		"at once, \"1\" to \"3\": a frame isn't started on its way until fewer than\n"
@@ -851,7 +855,7 @@ static const struct config_setting config_settings[] =
 		"system (up to 3). Empty (default): \"2\", or \"1\" with debug.encode_thread =\n"
 		"\"thread\". Not on a Vision Pro, which paces\n"
 		"frames itself, and not for frames that don't wait for the display\n"
-		"(display.frame_rate).", _tier_player },
+		"(display.frame_rate).", _tier_player, "|1|2|3|system" },
 	{ "display.frame_spacing", _config_boolean, "true", "HALO_FRAME_SPACING", _environment_value, _platform_ios,
 		"Keep each frame on screen for its share of the display's time before the\n"
 		"next may replace it (the Metal renderer), so frames show evenly spaced:\n"
@@ -884,7 +888,7 @@ static const struct config_setting config_settings[] =
 		"(default) plays them, except in a run that must draw the same frames\n"
 		"every time (fixed timestep, an input replay or benchmark,\n"
 		"debug.exit_after, screenshots); \"on\" plays them there too; \"off\" skips\n"
-		"them. A build without the movie decoder always skips them.", _tier_player },
+		"them. A build without the movie decoder always skips them.", _tier_player, "auto|on|off" },
 	{ "display.vsync", _config_boolean, "true", "HALO_NO_VSYNC", _environment_set_is_false, _platform_all,
 		"Wait for the display between frames; false draws as fast as possible.", _tier_player },
 	{ "display.max_fps", _config_integer, "0", "HALO_MAX_FPS", _environment_value, _platform_desktop,
@@ -926,14 +930,14 @@ static const struct config_setting config_settings[] =
 	{ "display.menus", _config_string, "\"auto\"", "HALO_MENUS", _environment_value, _platform_all,
 		"The menus: \"auto\" (default) follows the input device at screen changes: PC\n"
 		"for keyboard and mouse, Xbox for controller or touch. \"pc\" and \"xbox\"\n"
-		"keep a fixed look. A menus folder here overrides port/assets/menus.", _tier_player },
+		"keep a fixed look. A menus folder here overrides port/assets/menus.", _tier_player, "auto|pc|xbox" },
 	{ "display.player_names", _config_string, "\"none\"", "HALO_PLAYER_NAMES", _environment_value, _platform_all,
 		"In multiplayer, whose names are drawn above their heads: \"none\" (the\n"
 		"Xbox's: the name of the player under the reticle shows, and teammates\n"
 		"have the game's marker), \"all\", \"allies\" or \"enemies\". An enemy's shows only within the\n"
 		"motion sensor's reach, in sight and not camouflaged; none show if the\n"
 		"gametype's motion tracker shows no players, only allies' if it shows\n"
-		"only friends.", _tier_player },
+		"only friends.", _tier_player, "none|all|allies|enemies" },
 	{ "display.player_name_scale", _config_real, "1.0", "HALO_PLAYER_NAME_SCALE", _environment_value, _platform_all,
 		"How large the players' names are drawn: 1.0 three quarters of the size of\n"
 		"the HUD's text, 0.25 to 4.", _tier_player },
@@ -941,7 +945,7 @@ static const struct config_setting config_settings[] =
 		_platform_all,
 		"How the scoreboard lists a team game's players: \"teams\" in a column for\n"
 		"each team (red on the left, blue on the right), \"score\" all in order of\n"
-		"score.", _tier_player },
+		"score.", _tier_player, "teams|score" },
 	{ "display.scoreboard_background", _config_boolean, "true", "HALO_SCOREBOARD_BACKGROUND", _environment_value,
 		_platform_all,
 		"Draw a panel behind the multiplayer scoreboard, for clearer text.", _tier_player },
@@ -953,13 +957,13 @@ static const struct config_setting config_settings[] =
 		"Hide offensive words in names and text from other players, maps, and mods as stars.", _tier_player },
 	{ "streamer.slurs", _config_string, "\"mild\"", "HALO_STREAMER_SLURS", _environment_value, _platform_all,
 		"With streamer.enabled, hide slurs at the selected severity: \"off\", \"severe\",\n"
-		"\"strong\", or \"mild\" (all).", _tier_player },
+		"\"strong\", or \"mild\" (all).", _tier_player, "off|mild|strong|severe" },
 	{ "streamer.swearing", _config_string, "\"strong\"", "HALO_STREAMER_SWEARING", _environment_value, _platform_all,
 		"With streamer.enabled, hide swearing at the selected severity: \"off\",\n"
-		"\"severe\", \"strong\", or \"mild\" (all).", _tier_player },
+		"\"severe\", \"strong\", or \"mild\" (all).", _tier_player, "off|mild|strong|severe" },
 	{ "streamer.insults", _config_string, "\"off\"", "HALO_STREAMER_INSULTS", _environment_value, _platform_all,
 		"With streamer.enabled, hide insults at the selected severity: \"off\",\n"
-		"\"severe\", \"strong\", or \"mild\" (all).", _tier_player },
+		"\"severe\", \"strong\", or \"mild\" (all).", _tier_player, "off|mild|strong|severe" },
 
 	{ "audio.enabled", _config_boolean, "true", "HALO_NO_AUDIO", _environment_set_is_false, _platform_all,
 		"Play sound.", _tier_player },
@@ -998,7 +1002,7 @@ static const struct config_setting config_settings[] =
 		"the cores. \"interactive\" (default) is the game thread's class,\n"
 		"\"realtime\" a time-constraint policy of one callback's period, and\n"
 		"\"default\" leaves the thread at the system's default. Read when the\n"
-		"game starts.", _tier_tuning },
+		"game starts.", _tier_tuning, "interactive|realtime|default" },
 	{ "audio.loose_sounds", _config_boolean, "false", "HALO_LOOSE_SOUNDS", _environment_value, _platform_all,
 		"For those making sounds: play each of a map's sounds that has a Halo PC\n"
 		"sound tag file of its name under the data root's tags folder\n"
@@ -1075,11 +1079,11 @@ static const struct config_setting config_settings[] =
 		"(bans, players dropped for cheating, what refuses a command, and the\n"
 		"asserts that stop the game), \"all\" (every line, the game's own\n"
 		"chatter too), or \"none\" (the asserts that stop the game only). What\n"
-		"a command prints shows whatever this is, and debug.txt has every line.", _tier_player },
+		"a command prints shows whatever this is, and debug.txt has every line.", _tier_player, "important|all|none" },
 
 	{ "game.language", _config_string, "\"\"", "HALO_LANGUAGE", _environment_value, _platform_all,
 		"The language the game asks the Xbox for: \"ja\", \"de\", \"fr\", \"es\" or \"it\";\n"
-		"empty for English. The game data decides what is translated.", _tier_player },
+		"empty for English. The game data decides what is translated.", _tier_player, "|en|ja|de|fr|es|it" },
 	{ "game.loading_screen", _config_string, "\"auto\"", "HALO_LOADING_SCREEN", _environment_value, _platform_all,
 		"The loading screen over a campaign level's load: the last frame blurring\n"
 		"away, the ring's picture lit from left to right as the load goes, and\n"
@@ -1088,7 +1092,7 @@ static const struct config_setting config_settings[] =
 		"time (fixed timestep, an input replay or benchmark, debug.exit_after,\n"
 		"screenshots) and except in stereo; \"on\" or \"off\" forces either. The\n"
 		"picture is your disc's: a maps folder imported before the importer took\n"
-		"it gets it from tools/loading_picture.py.", _tier_player },
+		"it gets it from tools/loading_picture.py.", _tier_player, "auto|on|off" },
 	{ "game.loading_screen_seconds", _config_real, "1.5", "HALO_LOADING_SCREEN_SECONDS", _environment_value, _platform_all,
 		"The least time the loading screen stays up, in seconds (0 to 30), so a\n"
 		"level that is ready at once doesn't flash it.", _tier_player },
@@ -1097,7 +1101,7 @@ static const struct config_setting config_settings[] =
 		"sees are removed: \"raised\" (default) four times the Xbox's in a game on\n"
 		"this device alone, the Xbox's in a network game and while an input\n"
 		"recording is made or replayed; \"xbox\" the Xbox's always (30 to 50 for\n"
-		"16 players). Hardcore uses \"xbox\" (display.graphics).", _tier_player },
+		"16 players). Hardcore uses \"xbox\" (display.graphics).", _tier_player, "raised|xbox" },
 	{ "game.enhanced_animations", _config_boolean, "true", "HALO_ENHANCED_ANIMATIONS", _environment_value, _platform_all,
 		"The player bipeds' grenade throws keep their legs moving (crouched,\n"
 		"in the air and in a vehicle's seat too), riders' hands leave the grips\n"
@@ -1168,7 +1172,7 @@ static const struct config_setting config_settings[] =
 		"System link by broadcast, which finds games of every system: \"auto\" where\n"
 		"this device may (the Mac; an iPhone, iPad or Vision Pro only with Apple's\n"
 		"multicast entitlement), \"on\" or \"off\". Bonjour finds other Apple devices\n"
-		"either way.", _tier_player },
+		"either way.", _tier_player, "auto|on|off" },
 	{ "network.online", _config_boolean, DEFAULT_INTERNET_PLAY, "HALO_NET_ONLINE", _environment_value, _platform_all,
 		"Internet play: hosting makes an invite link (logged, and put on the\n"
 		"clipboard) that lets whoever has it join over the internet; opening a\n"
@@ -1322,7 +1326,7 @@ static const struct config_setting config_settings[] =
 		"Whether the players of an online co-op game hurt each other: \"off\",\n"
 		"\"on\", \"shields_only\" or \"explosives_only\" (CO-OP OPTIONS' FRIENDLY\n"
 		"FIRE in co-op, which writes its choice here). Damage to AI allies is\n"
-		"controlled separately by network.coop_ally_friendly_fire.", _tier_player },
+		"controlled separately by network.coop_ally_friendly_fire.", _tier_player, "off|on|shields_only|explosives_only" },
 	{ "network.coop_own_friendly_fire", _config_boolean, "true", "HALO_NET_COOP_OWN_FRIENDLY_FIRE",
 		_environment_value, _platform_all,
 		"Whether this machine's players hurt, and are hurt by, the other players\n"
@@ -1347,7 +1351,7 @@ static const struct config_setting config_settings[] =
 		"enemies grows by coop_enemies for each player past the first) or\n"
 		"\"multiplier\" (each is coop_enemies_multiplier times as large, for any\n"
 		"number of players). CO-OP OPTIONS' EXTRA ENEMIES in co-op writes its\n"
-		"choice here.", _tier_player },
+		"choice here.", _tier_player, "none|per_player|multiplier" },
 	{ "network.coop_enemies", _config_integer, "50", "HALO_NET_COOP_ENEMIES", _environment_value, _platform_all,
 		"Online co-op's extra enemies per player, a percentage: for each player\n"
 		"past the first, each squad of enemies a level places gets this much of\n"
@@ -1449,7 +1453,7 @@ static const struct config_setting config_settings[] =
 		"Fail on purpose 150 frames after the game starts, to check crash reports:\n"
 		"\"halt\" (a failed assertion), \"fault\" (a memory fault in game code), \"trap\"\n"
 		"(a trap instruction) or \"abort\" (the game runtime's fatal error); \"map\" fails\n"
-		"the first level load instead, which shows a message; empty, never." },
+		"the first level load instead, which shows a message; empty, never.", _tier_derived, "|halt|fault|trap|abort|map" },
 	{ "debug.upscaled_textures_toggle", _config_boolean, "false", "HALO_UPSCALED_TEXTURES_TOGGLE", _environment_value,
 		_platform_ios,
 		"While Back is held, the D-pad's up switches all of the level's textures\n"
@@ -1501,7 +1505,7 @@ static const struct config_setting config_settings[] =
 		"\"quick\" or \"full\" runs the device benchmark and quits: the suite's\n"
 		"scenes, several times over at different settings, with a report in\n"
 		"the data folder's benchmark folder (port/linux/src/benchmark_suite.c);\n"
-		"empty for none." },
+		"empty for none.", _tier_derived },
 	{ "debug.benchmark_offscreen", _config_boolean, "false", "HALO_BENCHMARK_OFFSCREEN", _environment_set_is_true, _platform_ios,
 		"With debug.benchmark_suite set at launch: draw each frame of the suite\n"
 		"into a texture that is never shown, with no wait for the display, one\n"
@@ -1517,7 +1521,7 @@ static const struct config_setting config_settings[] =
 		"the CPU and the GPU take turns and the CPU time counts the GPU's;\n"
 		"\"pipelined\" takes every answer from three frames before, the same every\n"
 		"run, so frames overlap as they do on screen: frames a second near\n"
-		"1/max(CPU, GPU), for comparing settings' costs, not for frame rate tiers." },
+		"1/max(CPU, GPU), for comparing settings' costs, not for frame rate tiers.", _tier_derived, "serialized|pipelined" },
 	{ "debug.benchmark_virtual_display", _config_boolean, "false", "HALO_BENCHMARK_VIRTUAL_DISPLAY", _environment_set_is_true,
 		_platform_ios,
 		"With debug.benchmark_offscreen: every run of the suite is drawn\n"
@@ -1683,7 +1687,7 @@ static const struct config_setting config_settings[] =
 		"vertical angle and narrows the horizontal one; \"horizontal_70\" and\n"
 		"\"match_landscape\" widen it to 70 and 73.5 degrees horizontal. Where\n"
 		"portrait is allowed, hold Back and press L1 to cycle the four modes\n"
-		"until the app quits." },
+		"until the app quits.", _tier_derived, "|horizontal_minimum|hold|horizontal_70|match_landscape" },
 	{ "debug.portrait_fov_button", _config_boolean, "false", "HALO_PORTRAIT_FOV_BUTTON", _environment_value, _platform_ios,
 		"Shows a small FOV button at the bottom center of the touch controls\n"
 		"in gameplay that cycles the portrait field of view like the Back + L1\n"
@@ -1702,11 +1706,11 @@ static const struct config_setting config_settings[] =
 		"rendering off the headset." },
 	{ "debug.update_answer", _config_string, "\"\"", "HALO_UPDATE_ANSWER", _environment_value, _platform_desktop,
 		"The answer to the new version question, for automated tests: \"yes\",\n"
-		"\"no\" or \"never\" (do not ask again, confirmed); empty asks." },
+		"\"no\" or \"never\" (do not ask again, confirmed); empty asks.", _tier_derived, "|yes|no|never" },
 	{ "debug.link_consent_answer", _config_string, "\"\"", "HALO_LINK_CONSENT_ANSWER", _environment_value, _platform_ios,
 		"The answer to \"Join this game over the internet?\" and to \"Turn on\n"
 		"Internet Play?\" for automated tests: \"join\" (Join, Turn On) or\n"
-		"\"cancel\"; empty asks." },
+		"\"cancel\"; empty asks.", _tier_derived, "|join|cancel" },
 	{ "debug.exit_after", _config_real, "0.0", "HALO_EXIT_AFTER", _environment_value, _platform_all,
 		"Quit this many seconds after the window opens (of game time under\n"
 		"debug.fixed_timestep); 0 never." },
@@ -1768,7 +1772,7 @@ static const struct config_setting config_settings[] =
 		"and check that it changes nothing. \"thread\": an encode thread reads the\n"
 		"queue and calls the renderer while the game thread goes on; each frame's\n"
 		"present waits for it, so input is read as late as with \"off\". Needs\n"
-		"the game thread. Not on visionOS or Mac Catalyst." },
+		"the game thread. Not on visionOS or Mac Catalyst.", _tier_derived, "off|inline|thread" },
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
 		"With debug.encode_thread on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },
@@ -1811,7 +1815,7 @@ static const struct config_setting config_settings[] =
 		"they aim for otherwise (120 to 60, 60 to 30, never under 30) and menus\n"
 		"keep the display's pace: \"true\" (default); \"false\" keeps the rate in\n"
 		"Low Power Mode; \"always\" acts as if Low Power Mode were on, for testing.\n"
-		"Not on a Vision Pro." },
+		"Not on a Vision Pro.", _tier_derived, "true|false|always" },
 	{ "debug.frame_load_gpu", _config_integer, "0", "HALO_FRAME_LOAD_GPU", _environment_value, _platform_ios,
 		"Made-up GPU work added to every frame: that many extra full-size draws\n"
 		"(the Metal renderer), with debug.frame_load_cpu. 0 (default): none." },
@@ -1850,7 +1854,7 @@ static const struct config_setting config_settings[] =
 		"substitutes, ignores or skips something is named and counted in the log.\n"
 		"\"off\", \"log\" (each distinct cause once, with the draw it first happened\n"
 		"in, and a summary with counts) or \"strict\" (the first failure or fallback\n"
-		"ends the run with exit status 3)." },
+		"ends the run with exit status 3).", _tier_derived, "off|log|strict|reject" },
 	{ "debug.render_capture", _config_string, "\"\"", "HALO_RENDER_CAPTURE", _environment_value, _platform_ios,
 		"In a build made with render validation: a folder (in the data folder\n"
 		"unless a full path) where the frames named by render_capture_frames are\n"
@@ -1970,7 +1974,7 @@ static const struct config_setting config_settings[] =
 		"translate each at startup into its replay folder; empty none." },
 	{ "debug.gpu_shader_replay_dialect", _config_string, "\"\"", "HALO_GPU_SHADER_REPLAY_DIALECT", _environment_value, _platform_all,
 		"The dialect gpu_shader_replay translates into: empty the context's, \"450\" desktop GLSL,\n"
-		"\"msl\" Metal (which the Metal renderer also compiles)." },
+		"\"msl\" Metal (which the Metal renderer also compiles).", _tier_derived, "|450|msl" },
 	{ "debug.gpu_debug_expression", _config_string, "\"\"", "HALO_GPU_DEBUG_EXPR", _environment_value, _platform_all,
 		"A GLSL expression every pixel shader shows instead of its result." },
 	{ "debug.gpu_debug_texture0", _config_boolean, "false", "HALO_GPU_DEBUG_T0", _environment_set_is_true, _platform_all,
@@ -1995,7 +1999,7 @@ static const struct config_setting config_settings[] =
 	{ "debug.shadow_blur", _config_string, "\"footprint\"", "HALO_SHADOW_BLUR", _environment_value, _platform_all,
 		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over\n"
 		"the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they\n"
-		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur." },
+		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur.", _tier_derived, "footprint|xbox" },
 	{ "debug.screenshot_frames", _config_string, "\"\"", "HALO_SCREENSHOT_FRAMES", _environment_value, _platform_all,
 		"With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them);\n"
 		"empty saves every one." },
@@ -2050,14 +2054,14 @@ static const struct config_setting config_settings[] =
 		"edges need; false to measure what that costs (neither then runs)." },
 	{ "debug.texture_astc", _config_string, "\"auto\"", "HALO_TEXTURE_ASTC", _environment_value, _platform_ios,
 		"DXT-to-ASTC texture preparation: \"auto\" (default) converts on GPUs without BC\n"
-		"once the release enables it, \"force\" emulates a GPU without BC for validation, \"off\" disables it. Requires compressed_textures." },
+		"once the release enables it, \"force\" emulates a GPU without BC for validation, \"off\" disables it. Requires compressed_textures.", _tier_derived, "auto|force|off" },
 	{ "debug.texture_astc_sync", _config_boolean, "false", "HALO_TEXTURE_ASTC_SYNC", _environment_set_is_true, _platform_ios,
 		"Wait for ASTC map preparation before loading, for screenshot validation only." },
 	{ "debug.texture_upscale_generate", _config_string, "\"auto\"", "HALO_TEXTURE_UPSCALE_GENERATE", _environment_value, _platform_ios,
 		"Make upscaled textures on this device: \"auto\" (default) where the device's profile\n"
 		"and the display.upscaled_textures switch both say so and Core ML has a Neural Engine\n"
 		"(at import, in menus, loading and pauses, never in gameplay), \"force\" whatever the\n"
-		"profile says, \"off\" never." },
+		"profile says, \"off\" never.", _tier_derived, "auto|force|off" },
 	{ "debug.texture_upscale_export", _config_boolean, "false", "HALO_TEXTURE_UPSCALE_EXPORT", _environment_set_is_true, _platform_ios,
 		"Export the generator's policy table and uncompressed textures for parity checks." },
 	{ "debug.texture_dump_directory", _config_string, "\"\"", "HALO_TEXTURE_DUMP", _environment_value, _platform_all,
@@ -2095,7 +2099,7 @@ static const struct config_setting config_settings[] =
 		"frames a second, the 95th and 99th percentile frame times, late frames,\n"
 		"the render size, the scene class, the map, memory and thermal state, so a\n"
 		"session played by hand can be read afterwards (tools/frame_log.py).\n"
-		"\"auto\" (default) logs on an Apple TV only; \"on\" and \"off\" force it." },
+		"\"auto\" (default) logs on an Apple TV only; \"on\" and \"off\" force it.", _tier_derived, "auto|on|off" },
 	{ "debug.test_win_level", _config_real, "0.0", "HALO_TEST_WIN_LEVEL", _environment_value, _platform_ios,
 		"Win the level after this many seconds of its game time, once, as when\n"
 		"the player reaches its end: a run nobody plays then goes through the\n"
@@ -2114,7 +2118,7 @@ static const struct config_setting config_settings[] =
 		_platform_all,
 		"\"start\": from the first frame until the first map change; \"game\":\n"
 		"each game that is not the main menu, a recording each, until its map\n"
-		"goes." },
+		"goes.", _tier_derived, "start|game" },
 	{ "debug.profile_memory", _config_integer, "256", "HALO_PROFILE_MEMORY", _environment_value, _platform_all,
 		"Megabytes a recording keeps in memory, 4 to 1024: two halves, each\n"
 		"written out as a part when it fills." },

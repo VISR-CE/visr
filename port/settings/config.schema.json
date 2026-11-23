@@ -16,7 +16,12 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "enhanced",
+            "classic",
+            "hardcore"
+          ]
         },
         "crt_effect": {
           "type": "boolean",
@@ -49,7 +54,13 @@
           "x-platforms": [
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "",
+            "fullscreen",
+            "borderless",
+            "windowed"
+          ]
         },
         "resolution": {
           "type": "string",
@@ -71,7 +82,11 @@
           "x-platforms": [
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "native",
+            "original"
+          ]
         },
         "window_size": {
           "type": "string",
@@ -265,6 +280,10 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "raised",
+            "xbox"
           ]
         },
         "shadow_map_size": {
@@ -310,6 +329,11 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "xbox",
+            "half",
+            "full"
           ]
         },
         "model_lod": {
@@ -321,6 +345,10 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "max",
+            "auto"
           ]
         },
         "lod_scale": {
@@ -403,6 +431,11 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "off",
+            "fxaa",
+            "smaa"
           ]
         },
         "upscaler": {
@@ -413,6 +446,10 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "bilinear",
+            "metalfx"
           ]
         },
         "immersive": {
@@ -435,7 +472,13 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "head",
+            "screen",
+            "side_by_side"
+          ]
         },
         "frame_repeat": {
           "type": "integer",
@@ -674,7 +717,11 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "band",
+            "wide"
+          ]
         },
         "stereo_vehicle_screen": {
           "type": "boolean",
@@ -882,7 +929,11 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "passthrough",
+            "dark"
+          ]
         },
         "renderer": {
           "type": "string",
@@ -892,6 +943,10 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "gl",
+            "metal"
           ]
         },
         "frame_deadline": {
@@ -913,6 +968,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "off",
+            "tick",
+            "refresh"
           ]
         },
         "stereo_flare_counting": {
@@ -959,7 +1019,12 @@
           "x-platforms": [
             "apple"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "",
+            "true",
+            "false"
+          ]
         },
         "frame_source": {
           "type": "string",
@@ -970,7 +1035,12 @@
           "x-platforms": [
             "apple"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "",
+            "clock",
+            "system"
+          ]
         },
         "frames_in_flight": {
           "type": "string",
@@ -981,7 +1051,14 @@
           "x-platforms": [
             "apple"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "",
+            "1",
+            "2",
+            "3",
+            "system"
+          ]
         },
         "frame_spacing": {
           "type": "boolean",
@@ -1002,6 +1079,17 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "oneOf": [
+            {
+              "enum": [
+                "display",
+                "unlimited"
+              ]
+            },
+            {
+              "pattern": "^(?:[3-9][0-9]|[1-9][0-9]{2}|1000)$"
+            }
           ]
         },
         "async_shaders": {
@@ -1012,6 +1100,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "auto",
+            "on",
+            "off"
           ]
         },
         "movies": {
@@ -1023,7 +1116,12 @@
           "x-platforms": [
             "apple"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ]
         },
         "vsync": {
           "type": "boolean",
@@ -1150,7 +1248,12 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "pc",
+            "xbox"
+          ]
         },
         "player_names": {
           "type": "string",
@@ -1162,7 +1265,13 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "none",
+            "all",
+            "allies",
+            "enemies"
+          ]
         },
         "player_name_scale": {
           "type": "number",
@@ -1186,7 +1295,11 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "teams",
+            "score"
+          ]
         },
         "scoreboard_background": {
           "type": "boolean",
@@ -1262,7 +1375,12 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "snap",
+            "smooth",
+            "off"
+          ]
         },
         "snap_angle": {
           "type": "number",
@@ -1306,7 +1424,12 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "controller",
+            "head"
+          ]
         },
         "aim_loss_grace": {
           "type": "number",
@@ -1327,7 +1450,11 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "right",
+            "left"
+          ]
         },
         "aim_pitch_offset": {
           "type": "number",
@@ -1416,7 +1543,12 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "enum": [
+            "off",
+            "close",
+            "on"
+          ]
         },
         "reticle_ease": {
           "type": "number",
@@ -1471,7 +1603,12 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "enum": [
+            "turned",
+            "limited",
+            "solved"
+          ]
         },
         "arms_follow": {
           "type": "number",
@@ -1714,6 +1851,10 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "none",
+            "rendered"
           ]
         },
         "controller_axes": {
@@ -2061,6 +2202,14 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "",
+            "halt",
+            "fault",
+            "trap",
+            "abort",
+            "map"
           ]
         },
         "upscaled_textures_toggle": {
@@ -2221,6 +2370,10 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "serialized",
+            "pipelined"
           ]
         },
         "benchmark_virtual_display": {
@@ -2605,6 +2758,13 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "",
+            "horizontal_minimum",
+            "hold",
+            "horizontal_70",
+            "match_landscape"
           ]
         },
         "portrait_fov_button": {
@@ -2646,6 +2806,12 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
+          ],
+          "enum": [
+            "",
+            "yes",
+            "no",
+            "never"
           ]
         },
         "link_consent_answer": {
@@ -2656,6 +2822,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "",
+            "join",
+            "cancel"
           ]
         },
         "exit_after": {
@@ -2815,6 +2986,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "off",
+            "inline",
+            "thread"
           ]
         },
         "encode_thread_timing": {
@@ -2915,6 +3091,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "true",
+            "false",
+            "always"
           ]
         },
         "frame_load_gpu": {
@@ -3006,6 +3187,12 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "off",
+            "log",
+            "strict",
+            "reject"
           ]
         },
         "render_capture": {
@@ -3350,6 +3537,11 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "",
+            "450",
+            "msl"
           ]
         },
         "gpu_debug_expression": {
@@ -3460,6 +3652,10 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "footprint",
+            "xbox"
           ]
         },
         "screenshot_frames": {
@@ -3685,6 +3881,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "auto",
+            "force",
+            "off"
           ]
         },
         "texture_astc_sync": {
@@ -3705,6 +3906,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "auto",
+            "force",
+            "off"
           ]
         },
         "texture_upscale_export": {
@@ -3823,6 +4029,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "auto",
+            "on",
+            "off"
           ]
         },
         "test_win_level": {
@@ -3867,7 +4078,11 @@
             "apple",
             "desktop"
           ],
-          "x-profiling-build": true
+          "x-profiling-build": true,
+          "enum": [
+            "start",
+            "game"
+          ]
         },
         "profile_memory": {
           "type": "integer",
@@ -3909,7 +4124,13 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "mild",
+            "strong",
+            "severe"
+          ]
         },
         "swearing": {
           "type": "string",
@@ -3921,7 +4142,13 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "mild",
+            "strong",
+            "severe"
+          ]
         },
         "insults": {
           "type": "string",
@@ -3933,7 +4160,13 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "mild",
+            "strong",
+            "severe"
+          ]
         }
       },
       "additionalProperties": false
@@ -4034,7 +4267,12 @@
           "x-platforms": [
             "apple"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "enum": [
+            "interactive",
+            "realtime",
+            "default"
+          ]
         },
         "loose_sounds": {
           "type": "boolean",
@@ -4099,7 +4337,12 @@
           "x-platforms": [
             "apple"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ]
         },
         "online": {
           "type": "boolean",
@@ -4415,7 +4658,13 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "on",
+            "shields_only",
+            "explosives_only"
+          ]
         },
         "coop_own_friendly_fire": {
           "type": "boolean",
@@ -4463,7 +4712,12 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "none",
+            "per_player",
+            "multiplier"
+          ]
         },
         "coop_enemies": {
           "type": "integer",
@@ -4739,7 +4993,12 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "important",
+            "all",
+            "none"
+          ]
         },
         "language": {
           "type": "string",
@@ -4751,7 +5010,16 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "",
+            "en",
+            "ja",
+            "de",
+            "fr",
+            "es",
+            "it"
+          ]
         },
         "loading_screen": {
           "type": "string",
@@ -4763,7 +5031,12 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ]
         },
         "loading_screen_seconds": {
           "type": "number",
@@ -4787,7 +5060,11 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "raised",
+            "xbox"
+          ]
         },
         "enhanced_animations": {
           "type": "boolean",
