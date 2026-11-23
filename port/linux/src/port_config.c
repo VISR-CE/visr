@@ -4588,19 +4588,40 @@ int config_scene_string(const char *name, int scene, char *text, size_t size)
 /* Smooth motion in the scene (smooth_motion.h): display.interpolation when it is set by hand, by --set or in
 the environment (the testing override), else on while the scene's frame rate in force is above 30. Every caller
 uses this one function: the renderer (halo_interpolation_enabled) and the performance reports' settings. */
-int config_smooth_motion(int scene)
+static int config_smooth_motion_in(int scene, int external)
 {
-	char rate[32] = "";
+	const long override = config_setting_index("display.interpolation");
+	const long rate_index = config_setting_index("display.frame_rate");
+	const long vsync_index = config_setting_index("display.vsync");
+	const long max_index = config_setting_index("display.max_fps");
+	const char *rate = "";
 	long max_fps = 0;
 
-	if (config_explicit("display.interpolation"))
-		return config_scene_boolean("display.interpolation", scene);
+	/* (no lock, no allocation: the performance reports' sampler calls this, as config_graphics_settings_snapshot says) */
+	if (override >= 0 && (config_states[override].origin == _origin_chosen ||
+		config_states[override].source == _source_environment))
+		return config_scene_value_cached((size_t)override, scene, external)->boolean != 0;
+	if (rate_index >= 0)
+	{
+		const char *text = config_scene_value_cached((size_t)rate_index, scene, external)->string;
+
+		rate = text ? text : "";
+	}
+	if (max_index >= 0)
+		max_fps = config_scene_value_cached((size_t)max_index, scene, external)->integer;
+	return smooth_motion_automatic(smooth_motion_cap(rate,
+		vsync_index < 0 || config_scene_value_cached((size_t)vsync_index, scene, external)->boolean, max_fps));
+}
+
+int config_smooth_motion(int scene)
+{
+	int external = 0;
+
+	(void)config_boolean("debug.settings_dump");   /* the first load */
 #ifdef HALO_ILP32
-	config_scene_string("display.frame_rate", scene, rate, sizeof(rate));
-#else
-	max_fps = config_integer("display.max_fps");
+	external = host_external_active();
 #endif
-	return smooth_motion_automatic(smooth_motion_cap(rate, config_boolean("display.vsync"), max_fps));
+	return config_smooth_motion_in(scene, external);
 }
 
 const char *config_scene_name(int scene)
@@ -4777,7 +4798,7 @@ int config_graphics_settings_snapshot(int scene, struct game_perf_graphics_snaps
 		case _config_boolean:
 			entry->type = GAME_PERF_GRAPHICS_BOOLEAN;
 			/* (the effective state: smooth motion is automatic, so the setting's value is no report of it) */
-			entry->value.boolean = (!strcmp(setting->name, "display.interpolation") ? config_smooth_motion(scene) : value->boolean) != 0;
+			entry->value.boolean = (!strcmp(setting->name, "display.interpolation") ? config_smooth_motion_in(scene, external) : value->boolean) != 0;
 			break;
 		case _config_integer:
 			entry->type = GAME_PERF_GRAPHICS_INTEGER;

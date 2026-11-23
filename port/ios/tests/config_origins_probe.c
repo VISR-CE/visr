@@ -989,6 +989,19 @@ static void check_smooth_motion_migration(void)
 			assert(config_boolean("display.interpolation"));   /* (the setting itself is still its default) */
 			assert(config_graphics_settings_json(CONFIG_SCENE_GAMEPLAY, json, sizeof(json)));
 			assert(strstr(json, rates[index].on ? "\"display.interpolation\":true" : "\"display.interpolation\":false"));
+			{
+				struct game_perf_graphics_snapshot snapshot;
+				int found = 0;
+
+				assert(config_graphics_settings_snapshot(CONFIG_SCENE_GAMEPLAY, &snapshot));
+				for (unsigned entry = 0; entry < snapshot.count; entry++)
+					if (!strcmp(snapshot.entries[entry].name, "display.interpolation"))
+					{
+						found = 1;
+						assert((snapshot.entries[entry].value.boolean != 0) == rates[index].on);
+					}
+				assert(found);
+			}
 		}
 		/* the testing override wins at a 30 cap, and the report then records it */
 		setenv("HALO_INTERPOLATION", "true", 1);
