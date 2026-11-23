@@ -5,19 +5,24 @@ besides the saved-games mutex), over 20000 reads of a file in the temp folder. *
 #include <assert.h>
 #include <unistd.h>
 #include <time.h>
+#include "test_tmpdir.h"
 int main(void)
 {
 	unsigned char block[512] = { 0 }, read_back[512];
 	struct player_input_extension extension, decoded;
-	char path[] = "/tmp/pip-read-time.XXXXXX";
-	int fd = mkstemp(path), i, n = 20000;
+	char folder[PATH_MAX], path[PATH_MAX + 16];
+	FILE *out;
+	int i, n = 20000;
 	struct timespec start, end;
 	double worst = 0.0, total = 0.0;
 
 	player_input_extension_defaults(&extension);
 	player_input_extension_encode(&extension, block + PLAYER_INPUT_REGION_OFFSET);
-	assert(write(fd, block, 512) == 512);
-	close(fd);
+	assert(test_mkdtemp(folder, sizeof(folder), "pip-read-time"));
+	snprintf(path, sizeof(path), "%s/profile", folder);
+	out = fopen(path, "wb");
+	assert(out && fwrite(block, 1, 512, out) == 512);
+	fclose(out);
 	for (i = 0; i < n; i++)
 	{
 		double us;
@@ -34,7 +39,6 @@ int main(void)
 		if (us > worst)
 			worst = us;
 	}
-	unlink(path);
 	printf("profile input read: mean %.1f us, worst %.1f us over %d reads\n", total / n, worst, n);
 	return 0;
 }
