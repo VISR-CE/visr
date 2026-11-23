@@ -12,11 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
 
 
-def selected_documents(compact):
-    files = list((MENUS / 'xbox').glob('*.xml'))
-    return [p for p in files if ('.compact.' in p.name if compact else '.compact.' not in p.name)
-            or (compact and '.compact.' not in p.name
-                and not p.with_suffix('.compact.xml').exists())]
+def documents():
+    return [ET.parse(p).getroot() for p in (MENUS / 'xbox').glob('*.xml')]
 
 
 def test_pitch_constants():
@@ -40,14 +37,13 @@ def test_no_compact_variant_is_generated_or_listed():
     assert not [path for path in manifest if '.compact.' in path]
 
 
-@pytest.mark.parametrize('compact', [False])
-def test_selected_density_has_unique_definitions_and_tiled_tap_bands(compact):
-    documents = [ET.parse(p).getroot() for p in selected_documents(compact)]
-    definitions = [(e.tag, e.get('name')) for root in documents for e in root if e.get('name')]
+def test_menus_have_unique_definitions_and_tiled_tap_bands():
+    roots = documents()
+    definitions = [(e.tag, e.get('name')) for root in roots for e in root if e.get('name')]
     assert len(definitions) == len(set(definitions))
-    widgets = {w.get('name'): w for root in documents for w in root.iter('widget')}
-    bitmaps = {b.get('name'): b for root in documents for b in root.iter('bitmap')}
-    pitch = 30 if compact else 39
+    widgets = {w.get('name'): w for root in roots for w in root.iter('widget')}
+    bitmaps = {b.get('name'): b for root in roots for b in root.iter('bitmap')}
+    pitch = 39
     seen = 0
     for options in widgets.values():
         if options.get('type') != 'column_list':
@@ -67,7 +63,7 @@ def test_selected_density_has_unique_definitions_and_tiled_tap_bands(compact):
             if row.get('bitmap'):
                 heights = {f.get('height') for f in bitmaps[row.get('bitmap')].findall('frame')}
                 # Padded option art is drawn taller so its band is 36/39 units.
-                assert heights <= ({'28'} if compact else {'36', '59', '53', '56', '52'})
+                assert heights <= {'36', '59', '53', '56', '52'}
         visible = int(options.get('visible_rows', len(slots)))
         assert slots[0] + visible * pitch <= (338 if options.get('name').endswith('/join_game_items_list') else 414)
     assert seen >= 5

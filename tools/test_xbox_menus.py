@@ -395,7 +395,7 @@ def test_selection_rows_end_above_footer():
 
 
 def test_multiplayer_definitions_are_unique_and_browser_colors_match_xbox():
-    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name
+    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml')
              for e in ET.parse(p).getroot() if e.get('name')]
     assert len(names) == len(set(names))
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
@@ -427,10 +427,7 @@ def shown_children(options):
 def test_scrolling_lists_fit_above_their_help():
     seen = []
     for path in (MENUS / 'xbox').glob('*.xml'):
-        compact = '.compact.' in path.name
-        files = [p for p in (MENUS / 'xbox').glob('*.xml')
-                 if ('.compact.' in p.name if compact else '.compact.' not in p.name)
-                 or (compact and '.compact.' not in p.name and not p.with_suffix('.compact.xml').exists())]
+        files = list((MENUS / 'xbox').glob('*.xml'))
         widgets = {w.get('name'): w for p in files for w in ET.parse(p).iter('widget')}
         for w in list(ET.parse(path).getroot().iter('widget')):
             if w.get('type') != 'column_list' or 'visible_rows' not in w.attrib:
@@ -1623,7 +1620,7 @@ def test_a_bar_key_that_is_a_letter_waits_only_for_the_key():
 
 
 def layout_widgets(density):
-    files = {p.name: p for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name}
+    files = {p.name: p for p in (MENUS / 'xbox').glob('*.xml')}
     return {w.get('name'): w for p in files.values() for w in ET.parse(p).iter('widget')}
 
 

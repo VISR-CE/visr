@@ -26,11 +26,10 @@ typedef int boolean;
 #define FALSE 0
 #define NONE -1
 #define UI_WIDGET_DEFINITION_TAG 0
-static struct { int loaded, xbox_set; } menu_tags = {1, 1};
+static struct { int loaded; } menu_tags = {1};
 static char const *tag_name, *setting = "";
 static int calls, abort_calls, actual_code, actual_flag;
 static char const *actual_variant;
-static int menu_use_xbox(void) { return 1; }
 static int platform_menu_keyboard(void) { return 0; }
 static void menu_profile_description(int unused) {}
 static char const *tag_get_name(long tag) { return tag_name; }
