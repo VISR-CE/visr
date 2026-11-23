@@ -482,7 +482,7 @@ static void adapt_frame(const struct frame_pacer_frame *frame, double at, double
 		.grant_to_present = frame->granted > 0.0 && frame->presenting >= frame->granted ? frame->presenting - frame->granted :
 			-1.0,
 		/* (the late start's lead where it runs, else its starting lead: the compositor's share either way) */
-		.lead = pacer.late_start ? frame_pacer_late_lead(&pacer.late) : FRAME_PACER_LATE_LEAD,
+		.lead = pacer.late_start == LATE_START_CLASSIC ? frame_pacer_late_lead(&pacer.late) : FRAME_PACER_LATE_LEAD,
 		.slot_waited = frame->slot_waited,
 		.waited = frame->wait_began > 0.0 && frame->granted >= frame->wait_began ? frame->granted - frame->wait_began : 0.0,
 		.transition = frame->number <= pacer.drain_through,
