@@ -18,7 +18,6 @@
 #include <string.h>
 #include <time.h>
 #include "halo_host_pointer.h"
-#include "halo_pointer_gate.h"
 #include "halo_ui_drag.h"
 
 /* in points */
@@ -94,8 +93,6 @@ struct host_menu_pointer {
     int moved, left_clicks, right_clicks, wheel_steps;
     /* the latest input was a finger (1) or a look and pinch (2; it needs the reach), or a pointer device (0) */
     int touch;
-    /* tells a real mouse movement from the position report that follows a focus or pointer-enter change */
-    struct halo_pointer_gate gate;
 };
 
 /* A system text prompt belongs to direct touch, never a mouse, gaze, or a hardware keyboard. */
@@ -206,16 +203,17 @@ static inline void host_menu_pointer_touch_cancel(struct host_menu_pointer *m, i
 /* a pointer device */
 static inline void host_menu_pointer_device_move(struct host_menu_pointer *m, float x, float y) {
     if (!host_menu_pointer_listening(m)) return;
-    int real = halo_pointer_gate_motion(&m->gate, x, y);
     m->x = x;
     m->y = y;
-    if (!real) return;
     m->moved = 1;
     m->touch = 0;
 }
-/* the window gained or lost focus, or the pointer entered or left it: the next position report is not movement */
-static inline void host_menu_pointer_window_changed(struct host_menu_pointer *m) {
-    halo_pointer_gate_window_changed(&m->gate);
+/* a position report that is not the mouse moving (a focus or pointer-enter change, halo_pointer_gate.h): the pointer
+   learns where the cursor is and nothing else changes: no hover step, and the last input stays as it was */
+static inline void host_menu_pointer_device_report(struct host_menu_pointer *m, float x, float y) {
+    if (!host_menu_pointer_listening(m)) return;
+    m->x = x;
+    m->y = y;
 }
 /* A complete synthetic click for scripts and callers without separate button events. */
 static inline void host_menu_pointer_device_click(struct host_menu_pointer *m, int right, float x, float y) {

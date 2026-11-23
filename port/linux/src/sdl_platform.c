@@ -10,7 +10,6 @@ and the debug keyboard that the game's console reads.
 */
 
 #include "halo_controller_glyphs.h"
-#include "halo_pointer_gate.h"
 #include "platform.h"
 #include "sdl_platform.h"
 #ifndef HALO_IOS
@@ -76,7 +75,6 @@ static unsigned char mouse_buttons_pressed[PLATFORM_MOUSE_BUTTON_COUNT];
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
 /* the menus' pointer (platform_ui_pointer_set_active), under input_lock */
 static struct platform_ui_pointer ui_pointer;
-static struct halo_pointer_gate ui_pointer_gate;
 static float ui_pointer_wheel;
 #endif
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -1734,8 +1732,7 @@ void platform_pump_events(void)
 	pthread_mutex_lock(&input_lock);
 	while (SDL_PollEvent(&event))
 	{
-		/* focus changes always reach the menus' input tracking: the first mouse report after one is no movement */
-		if (input_state.focused || event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) halo_controller_glyph_input_event(&event);
+		if (input_state.focused) halo_controller_glyph_input_event(&event);
 		switch (event.type)
 		{
 		case SDL_EVENT_QUIT:
@@ -1844,8 +1841,7 @@ void platform_pump_events(void)
 			{
 				ui_pointer.x = event.motion.x;
 				ui_pointer.y = event.motion.y;
-				if (halo_pointer_gate_motion(&ui_pointer_gate, event.motion.x, event.motion.y))
-					ui_pointer.moved = TRUE;
+				ui_pointer.moved = TRUE;
 				break;
 			}
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
@@ -1965,12 +1961,7 @@ void platform_pump_events(void)
 #endif
 			input_state.mouse_wheel += event.wheel.y;
 			break;
-		case SDL_EVENT_WINDOW_MOUSE_ENTER:
-		case SDL_EVENT_WINDOW_MOUSE_LEAVE:
-			halo_pointer_gate_window_changed(&ui_pointer_gate);
-			break;
 		case SDL_EVENT_WINDOW_FOCUS_LOST:
-			halo_pointer_gate_window_changed(&ui_pointer_gate);
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
 			ui_pointer.held = FALSE;
 #endif
@@ -1988,7 +1979,6 @@ void platform_pump_events(void)
 #endif
 			break;
 		case SDL_EVENT_WINDOW_FOCUS_GAINED:
-			halo_pointer_gate_window_changed(&ui_pointer_gate);
 			input_state.focused = TRUE;
 			look_at_clipboard = TRUE;
 #ifndef HALO_ILP32

@@ -135,36 +135,21 @@ static void devices(void) {
     assert(take(&m).radius == 0);
 }
 
-/* only real mouse movement is movement: a window or pointer-enter change makes the system report the cursor's
-   position again, and that report (synthetic, zero or warp delta) must not read as the mouse */
-static void activation(void) {
+/* a position report (focus or pointer-enter change) moves the pointer's position and nothing else */
+static void position_report(void) {
     struct host_menu_pointer m = fresh();
     struct host_ui_pointer p;
-    host_menu_pointer_device_move(&m, 30, 40);
-    assert(take(&m).moved);
-    host_menu_pointer_device_move(&m, 35, 40);
-    assert(take(&m).moved);
-    host_menu_pointer_device_move(&m, 35, 40);      /* a zero-delta report */
-    assert(!take(&m).moved);
-    /* Cmd-Tab away and back: the system reports the position, same or warped */
-    host_menu_pointer_window_changed(&m);
-    host_menu_pointer_device_move(&m, 35, 40);
-    assert(!take(&m).moved);
-    host_menu_pointer_window_changed(&m);
-    host_menu_pointer_device_move(&m, 300, 200);
-    p = take(&m);
-    assert(!p.moved && p.x == 300 && p.y == 200 && p.radius == 0);
-    host_menu_pointer_device_move(&m, 301, 200);    /* the user's mouse moves */
-    assert(take(&m).moved);
-    /* a finger's mode survives a position report after activation, and a real move still takes over */
     host_menu_pointer_touch_begin(&m, 1, 1, 1);
     host_menu_pointer_touch_end(&m, 1);
     (void)take(&m);
-    host_menu_pointer_window_changed(&m);
-    host_menu_pointer_device_move(&m, 301, 200);
-    assert(take(&m).radius == HOST_MENU_POINTER_RADIUS);
-    host_menu_pointer_device_move(&m, 310, 200);
-    assert(take(&m).radius == 0);
+    host_menu_pointer_device_report(&m, 300, 200);
+    p = take(&m);
+    assert(!p.moved && p.x == 300 && p.y == 200 && p.radius == HOST_MENU_POINTER_RADIUS);
+    /* scripted moves and clicks stay real, even at an unchanged position */
+    host_menu_pointer_device_move(&m, 300, 200);
+    host_menu_pointer_device_click(&m, 0, 300, 200);
+    p = take(&m);
+    assert(p.moved && p.left_clicks == 1 && p.radius == 0);
 }
 
 /* the menus' point (mx, my) drawn by the display blit, and back */
@@ -320,7 +305,7 @@ int main(void) {
     fingers();
     gates();
     devices();
-    activation();
+    position_report();
     mapping();
     portrait_mapping();
     puts("menu pointer: passed");

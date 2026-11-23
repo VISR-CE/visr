@@ -152,7 +152,7 @@ def test_controller_glyph_requests(tmp_path):
     probe.write_text(program)
     subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-Wno-unused-variable',
                     '-fsanitize=address,undefined', '-iquote', str(ROOT / 'port/linux/include'),
-                    '-iquote', str(ROOT / 'port/runtime/include'), '-iquote', str(ROOT / 'port/linux/src'),
+                    '-iquote', str(ROOT / 'port/runtime/include'), '-iquote', str(ROOT / 'port/linux/src'), '-iquote', str(ROOT / 'port/ios/host'),
                     *subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True).split(),
                     str(probe), '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
