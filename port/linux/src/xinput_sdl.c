@@ -43,6 +43,7 @@ drive the controller.
 extern unsigned char network_aim_assist_block_mouse(void);
 #include "halo_keyboard.h"
 #include "halo_controller_glyphs.h"
+#include "halo_pointer_gate.h"
 #include "halo_ui_pointer.h"
 #ifdef HALO_IOS
 #include "halo_host_pointer.h"
@@ -66,6 +67,9 @@ static int glyph_mouse_active;
 #ifdef HALO_IOS
 static int glyph_menus_active;
 static struct halo_glyph_input glyph_menu_input;
+#ifdef HALO_IOS
+static struct halo_pointer_gate glyph_mouse_gate;
+#endif
 static int glyph_x_destructive;
 #endif
 #define VK_OEM_3_BACKQUOTE 0xc0
@@ -1478,8 +1482,16 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 		break;
 	case SDL_EVENT_MOUSE_MOTION:
 		source = HALO_GLYPH_INPUT_MOUSE;
-		active = event->motion.which != SDL_TOUCH_MOUSEID && event->motion.which != SDL_PEN_MOUSEID &&
+		/* the gate records every motion's position, even one that cannot count */
+		active = halo_pointer_gate_motion(&glyph_mouse_gate, event->motion.x, event->motion.y);
+		active = active && event->motion.which != SDL_TOUCH_MOUSEID && event->motion.which != SDL_PEN_MOUSEID &&
 			halo_glyph_mouse_motion_active(event->motion.xrel, event->motion.yrel);
+		break;
+	case SDL_EVENT_WINDOW_FOCUS_GAINED:
+	case SDL_EVENT_WINDOW_FOCUS_LOST:
+	case SDL_EVENT_WINDOW_MOUSE_ENTER:
+	case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+		halo_pointer_gate_window_changed(&glyph_mouse_gate);
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		source = HALO_GLYPH_INPUT_MOUSE;

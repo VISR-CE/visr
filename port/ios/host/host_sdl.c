@@ -1641,6 +1641,9 @@ static void menu_pointer_event(const SDL_Event *event)
 	SDL_Window *window;
 	int width = 0, height = 0;
 
+	if (event->type == SDL_EVENT_WINDOW_FOCUS_GAINED || event->type == SDL_EVENT_WINDOW_FOCUS_LOST ||
+		event->type == SDL_EVENT_WINDOW_MOUSE_ENTER || event->type == SDL_EVENT_WINDOW_MOUSE_LEAVE)
+		host_menu_pointer_window_changed(&menu_pointer);
 	/* Software keyboard keys must not change the last physical input. */
 	if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
 		(event->type == SDL_EVENT_GAMEPAD_AXIS_MOTION && abs(event->gaxis.value) > 16000))

@@ -11,6 +11,7 @@ typedef char CHAR;
 #include "halo_host_pointer.h"
 typedef struct {unsigned short wButtons;unsigned char bAnalogButtons[8];short sThumbLX,sThumbLY,sThumbRX,sThumbRY;} XINPUT_GAMEPAD;
 #include "halo_controller_glyphs.h"
+#include "halo_pointer_gate.h"
 #include "halo_keyboard.h"
 #define PORT_COUNT 4
 #define MAXIMUM_BINDINGS 2
@@ -23,6 +24,7 @@ static int glyph_mouse_active;
 static int glyph_menus_active;
 static int glyph_x_destructive;
 static struct halo_glyph_input glyph_menu_input;
+static struct halo_pointer_gate glyph_mouse_gate;
 static int bindings[17][2];
 static unsigned long bindings_read_at=(unsigned long)-1, generation;
 static const char *configured="Q";
@@ -146,5 +148,29 @@ int main(void) {
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==1);
  event.key.repeat=0;halo_controller_glyph_input_event(&event);
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==3);
+ /* Reactivation (Cmd-Tab back): focus and pointer-enter changes, then the system's position report, a zero-delta
+    or warped motion, never move the menus off the keyboard; a real move does. */
+ {
+  SDL_Event motion;
+  memset(&motion,0,sizeof(motion));
+  motion.type=SDL_EVENT_MOUSE_MOTION;motion.motion.which=1;
+  motion.motion.x=100;motion.motion.y=100;motion.motion.xrel=0;motion.motion.yrel=0;
+  halo_controller_glyph_input_event(&motion);               /* learn the position */
+  event.type=SDL_EVENT_KEY_DOWN;event.key.repeat=0;halo_controller_glyph_input_event(&event);
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+  event.type=SDL_EVENT_WINDOW_FOCUS_GAINED;halo_controller_glyph_input_event(&event);
+  event.type=SDL_EVENT_WINDOW_MOUSE_ENTER;halo_controller_glyph_input_event(&event);
+  motion.motion.xrel=0;motion.motion.yrel=0;halo_controller_glyph_input_event(&motion);
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+  event.type=SDL_EVENT_WINDOW_FOCUS_GAINED;halo_controller_glyph_input_event(&event);
+  motion.motion.x=500;motion.motion.y=400;motion.motion.xrel=400;motion.motion.yrel=300;
+  halo_controller_glyph_input_event(&motion);               /* a warp or recenter */
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+  halo_controller_glyph_input_event(&motion);               /* no change of position */
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+  motion.motion.x=510;motion.motion.xrel=10;motion.motion.yrel=0;
+  halo_controller_glyph_input_event(&motion);               /* the user moves the mouse */
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_MOUSE);
+ }
  return 0;
 }
