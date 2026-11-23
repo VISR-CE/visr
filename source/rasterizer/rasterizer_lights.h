@@ -38,6 +38,9 @@ void rasterizer_lens_flare_submit_for_cluster(
 	short cluster_index);
 void rasterizer_lens_flares_submit_occlusion_tests(
 	void);
+/* port: the second eye's replay did not replay: drop the flares queued for eye 1 */
+void rasterizer_lens_flares_replay_failed(
+	void);
 void rasterizer_lens_flares_draw(
 	void);
 void rasterizer_sun_glow_draw(

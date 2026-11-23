@@ -732,6 +732,8 @@ enum { HALO_STEREO_REPLAY_BOTH, HALO_STEREO_REPLAY_EYE_0, HALO_STEREO_REPLAY_EYE
 int halo_stereo_replay_wanted(void);
 int halo_stereo_replay_begin(void);
 void halo_stereo_replay_eye(int eye);
+/* the open span replays eye 0's calls into eye 1 (not verify, which draws eye 1 as well) */
+int halo_stereo_replay_replays(void);
 void halo_stereo_replay_constants(int reg, const void *values, unsigned long count);
 int halo_stereo_replay_end(void);
 void halo_stereo_replay_live_end(void);

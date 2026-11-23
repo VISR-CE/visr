@@ -423,6 +423,16 @@ boolean rasterizer_other_eye_begin(
 	void);
 void rasterizer_other_eye_end(
 	void);
+/* port: eye 0's pass draws eye 1's own draws too, and not through constants
+(the replay is on, not verify): a site that queues and draws for each eye (lens
+flares) does so only then */
+boolean rasterizer_other_eye_draws(
+	void);
+/* port: run draw once for eye 0 and, when the replay draws for both eyes
+(rasterizer_other_eye_draws), once more for eye 1 inside
+rasterizer_other_eye_begin and _end, each pass's records marked for its eye */
+void rasterizer_for_each_eye(
+	void (*draw)(void));
 /* port: node matrices a site builds from the eye's own position (the sky,
 far scenery): in eye 0's pass of a replay, build is called again between
 rasterizer_other_eye_begin and _end (halo_stereo_eye_position then answers

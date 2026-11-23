@@ -349,6 +349,12 @@ static real lens_flare_evaluate_corona_rotation_function(
 	struct rasterizer_lens_flare_submit_parameters const *lens_flare_parameters);
 static void lens_flare_data_error(
 	char const *problem);
+static void lens_flare_submit_for_window(
+	struct rasterizer_lens_flare_submit_parameters const *parameters);
+static void lens_flares_submit_occlusion_tests_for_window(
+	void);
+static void lens_flares_draw_for_window(
+	void);
 
 /* ---------- globals */
 
@@ -356,6 +362,14 @@ static struct lens_flare_occlusion_test_results local_lens_flare_occlusion_test_
 static byte local_lens_flare_occlusion_test_results2[MAXIMUM_LENS_FLARE_MARKERS_PER_STRUCTURE+MAXIMUM_QUEUED_LENS_FLARES][MAXIMUM_WINDOWS];
 static struct rasterizer_lens_flare_submit_parameters local_lens_flare_parameters[MAXIMUM_LENS_FLARES_PER_FRAME] = {0};
 static long local_lens_flare_count = 0;
+/* port: eye 1's copies of the flares in local_lens_flare_parameters (the second eye's replay) */
+static byte local_lens_flare_replayed[MAXIMUM_LENS_FLARES_PER_FRAME] = {0};
+enum
+{
+	_lens_flare_not_replayed = 0,
+	_lens_flare_replayed_copy,
+	_lens_flare_dropped_copy
+};
 extern short global_screenshot_count;
 
 /* ---------- private code */
@@ -537,7 +551,34 @@ void rasterizer_lights_reset_for_new_map(
 	return;
 }
 
+/* port: the second eye's replay (rasterizer_other_eye_draws): eye 0's pass
+draws eye 1's flares too, so each flare is queued twice, the second time from
+eye 1's camera with eye 1's occlusion slot (lens_flare_window_index), and the
+tests and the draws below run once for each eye, their records marked for it.
+The queued copies of eye 1's are dropped again when the replay ends without
+replaying (rasterizer_lens_flares_replay_failed): eye 1's own pass then queues
+them */
 void rasterizer_lens_flare_submit(
+	struct rasterizer_lens_flare_submit_parameters const *parameters)
+{
+	long first_count = local_lens_flare_count;
+
+	lens_flare_submit_for_window(parameters);
+	if (rasterizer_other_eye_draws() && local_lens_flare_count > first_count && rasterizer_other_eye_begin())
+	{
+		long eye_0_count = local_lens_flare_count;
+
+		lens_flare_submit_for_window(parameters);
+		rasterizer_other_eye_end();
+		/* (eye 0's own copy is kept by the count it had; eye 1's, if queued, follows it) */
+		for (; eye_0_count < local_lens_flare_count; eye_0_count++)
+			local_lens_flare_replayed[eye_0_count] = _lens_flare_replayed_copy;
+	}
+
+	return;
+}
+
+static void lens_flare_submit_for_window(
 	struct rasterizer_lens_flare_submit_parameters const *parameters)
 {
 	static boolean warned = FALSE;
@@ -657,8 +698,15 @@ void rasterizer_lights_begin_for_new_frame(
 		for (lens_flare_index= 0; lens_flare_index<local_lens_flare_count; lens_flare_index++)
 		{
 			struct rasterizer_lens_flare_submit_parameters *lens_flare_parameters= lens_flare_parameters_get(lens_flare_index);
-			byte *occlusion_test_result= lens_flare_occlusion_test_results_get(lens_flare_parameters);
+			byte *occlusion_test_result;
 			byte latest_visibility;
+
+			/* port: a copy for eye 1 the replay did not draw */
+			if (local_lens_flare_replayed[lens_flare_index]==_lens_flare_dropped_copy)
+			{
+				continue;
+			}
+			occlusion_test_result= lens_flare_occlusion_test_results_get(lens_flare_parameters);
 
 			if (lens_flare_parameters->internal__occlusion_pixels>0)
 			{
@@ -709,6 +757,7 @@ void rasterizer_lights_begin_for_new_frame(
 		}
 
 		local_lens_flare_count= 0;
+		memset(local_lens_flare_replayed, 0, sizeof(local_lens_flare_replayed));
 	}
 
 	rasterizer_profile_end(_rasterizer_profile_lens_flare_occlusion_query);
@@ -844,6 +893,14 @@ void rasterizer_lens_flare_submit_for_cluster(
 void rasterizer_lens_flares_submit_occlusion_tests(
 	void)
 {
+	rasterizer_for_each_eye(lens_flares_submit_occlusion_tests_for_window);
+
+	return;
+}
+
+static void lens_flares_submit_occlusion_tests_for_window(
+	void)
+{
 	rasterizer_profile_begin(_rasterizer_profile_lens_flare_occlusion_submit);
 
 	if (rasterizer_debug_options.draw_lens_flares && !screenshot_in_progress() &&
@@ -916,6 +973,34 @@ void rasterizer_lens_flares_submit_occlusion_tests(
 void rasterizer_lens_flares_draw(
 	void)
 {
+	rasterizer_for_each_eye(lens_flares_draw_for_window);
+
+	return;
+}
+
+/* port: the replay's flares drop eye 1's copies when the span is not replayed:
+a copy keeps its place in the list (the tests already submitted are numbered by
+it) with a window no pass draws, and the frame's results skip it */
+void rasterizer_lens_flares_replay_failed(
+	void)
+{
+	long index;
+
+	for (index = 0; index < local_lens_flare_count; index++)
+	{
+		if (local_lens_flare_replayed[index] == _lens_flare_replayed_copy)
+		{
+			local_lens_flare_parameters[index].compressed_window_index |= _lens_flare_window_index_mask;
+			local_lens_flare_replayed[index] = _lens_flare_dropped_copy;
+		}
+	}
+
+	return;
+}
+
+static void lens_flares_draw_for_window(
+	void)
+{
 	rasterizer_profile_begin(_rasterizer_profile_lens_flares);
 
 	if (rasterizer_debug_options.draw_lens_flares &&
@@ -930,8 +1015,16 @@ void rasterizer_lens_flares_draw(
 		{
 			struct rasterizer_lens_flare_submit_parameters *lens_flare_parameters =
 				lens_flare_parameters_get(lens_flare_index);
-			byte *occlusion_test_result = lens_flare_occlusion_test_results_get(lens_flare_parameters);
-			real_vector3d direction = uncompress_int32_to_real_vector3d(lens_flare_parameters->compressed_direction);
+			byte *occlusion_test_result;
+			real_vector3d direction;
+
+			/* port: a copy for eye 1 the replay did not draw */
+			if (local_lens_flare_replayed[lens_flare_index] == _lens_flare_dropped_copy)
+			{
+				continue;
+			}
+			occlusion_test_result = lens_flare_occlusion_test_results_get(lens_flare_parameters);
+			direction = uncompress_int32_to_real_vector3d(lens_flare_parameters->compressed_direction);
 
 			if ((lens_flare_parameters->compressed_window_index & _lens_flare_window_index_mask) ==
 				lens_flare_window_index() /* port */)

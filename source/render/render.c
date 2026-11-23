@@ -965,7 +965,12 @@ static void render_player_frame_stereo(
 			rasterizer_stereo_replay_eye(NULL, NULL);
 			/* (a span that cannot be replayed: eye 1 draws itself) */
 			if (!halo_stereo_replay_end())
+			{
+				/* (and the flares queued for eye 1 in eye 0's pass are not wanted: eye 1's own pass queues its own) */
+				if (replay == HALO_STEREO_REPLAY_ON)
+					rasterizer_lens_flares_replay_failed();
 				replay = HALO_STEREO_REPLAY_OFF;
+			}
 			replayed = replay == HALO_STEREO_REPLAY_ON;
 		}
 		else if (eye == 1 && replay == HALO_STEREO_REPLAY_VERIFY)

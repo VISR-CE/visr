@@ -3050,6 +3050,31 @@ void rasterizer_other_eye_end(
 	return;
 }
 
+boolean rasterizer_other_eye_draws(
+	void)
+{
+	return other_eye_ready && !other_eye_swapped && halo_stereo_replay_replays();
+}
+
+void rasterizer_for_each_eye(
+	void (*draw)(void))
+{
+	boolean both = rasterizer_other_eye_draws();
+
+	if (both)
+		halo_stereo_replay_eye(HALO_STEREO_REPLAY_EYE_0);
+	draw();
+	if (both && rasterizer_other_eye_begin())
+	{
+		halo_stereo_replay_eye(HALO_STEREO_REPLAY_EYE_1);
+		draw();
+		rasterizer_other_eye_end();
+	}
+	if (both)
+		halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);
+	return;
+}
+
 /* port: the second eye's replay: node matrices built from the eye's own
 position (rasterizer_eye_matrices), eye 0's beside eye 1's, for this window.
 A skinning whose matrices equal a pair's eye 0 matrices, whatever array they

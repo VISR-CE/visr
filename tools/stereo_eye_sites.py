@@ -5,8 +5,8 @@ gives eye 1 its value there.
 
 While eye 0's pass draws for both eyes, a value computed from the eye is eye
 0's unless the site computes eye 1's too: through rasterizer_other_eye_begin
-and _end (a constant block or a draw for eye 1), or rasterizer_eye_matrices
-(node matrices built from the eye's position). A new reader that is not in
+and _end (a constant block), rasterizer_for_each_eye (the whole pass again for eye 1, its records marked for it),
+or rasterizer_eye_matrices (node matrices built from the eye's position). A new reader that is not in
 SITES fails the check, so a site cannot skip the mechanism unnoticed.
 
 Kinds:
@@ -32,7 +32,7 @@ FOLDERS = ("source", "port/linux/game")
 READS = re.compile(
     r"global_window_parameters\.(?:camera|frustum|fog\.plane)|halo_stereo_eye_position\(\)|"
     r"halo_stereo_current_layer\(\)|halo_stereo_repeat_pass\(\)")
-ROUTES = ("rasterizer_other_eye_begin(", "rasterizer_eye_matrices(")
+ROUTES = ("rasterizer_other_eye_begin(", "rasterizer_eye_matrices(", "rasterizer_for_each_eye(")
 DEFINITION = re.compile(r"^(?:static\s+|extern\s+)?[A-Za-z_][\w\s\*]*?\b([A-Za-z_]\w*)\s*\(")
 
 X = "source/rasterizer/xbox/"
@@ -120,13 +120,16 @@ SITES = {
     (X + "rasterizer_xbox_environment_fog.c", "_rasterizer_environment_fog_screen_begin"): (
         "open", "fog screen: eye 1's constants and history"),
     ("source/rasterizer/rasterizer_lights.c", "lens_flare_window_index"): (
-        "open", "lens flares: both eyes' window indices at submission"),
+        "per-eye", "eye 1's flares take their own occlusion slot",
+        ["lens_flare_submit_for_window", "lens_flares_submit_occlusion_tests_for_window", "lens_flares_draw_for_window"]),
     ("source/rasterizer/rasterizer_lights.c", "lens_flare_evaluate_corona_rotation_function"): (
-        "open", "lens flares: both-eye emission"),
-    ("source/rasterizer/rasterizer_lights.c", "rasterizer_lens_flare_submit"): ("open", "lens flares: both-eye emission"),
-    ("source/rasterizer/rasterizer_lights.c", "rasterizer_lens_flares_submit_occlusion_tests"): (
-        "open", "lens flares: both eyes' occlusion tests"),
-    ("source/rasterizer/rasterizer_lights.c", "rasterizer_lens_flares_draw"): ("open", "lens flares: both-eye emission"),
+        "per-eye", "the corona's rotation from this eye", ["lens_flares_draw_for_window"]),
+    ("source/rasterizer/rasterizer_lights.c", "lens_flare_submit_for_window"): (
+        "per-eye", "queues the flare from this eye's camera", ["rasterizer_lens_flare_submit"]),
+    ("source/rasterizer/rasterizer_lights.c", "lens_flares_submit_occlusion_tests_for_window"): (
+        "per-eye", "this eye's occlusion tests", ["rasterizer_lens_flares_submit_occlusion_tests"]),
+    ("source/rasterizer/rasterizer_lights.c", "lens_flares_draw_for_window"): (
+        "per-eye", "this eye's flares", ["rasterizer_lens_flares_draw"]),
     (X + "rasterizer_xbox_lights.c", "rasterizer_sun_glow_draw"): ("open", "sun glow: both-eye emission"),
     (X + "rasterizer_xbox_lights.c", "rasterizer_project_billboard"): ("open", "sprite3d: both-eye emission"),
     (X + "rasterizer_xbox_widgets.c", "rasterizer_widget_project_billboard"): ("open", "sprite3d: both-eye emission"),

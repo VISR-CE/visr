@@ -1297,6 +1297,17 @@ if eye_set < 0 or render_source.rfind('structure_visibility_find_mirror', 0, eye
                      "around the eye's render_window, and clear it after")
 if 'halo_stereo_eye_position()' not in (ROOT / 'source/render/render_sky.c').read_text():
     raise SystemExit("render_sky.c: render_sky must center the sky on the eye's position in an eye pass")
+# the second eye's replay queues, tests and draws each lens flare for eye 1 too (its occlusion slot, its camera), and
+# drops eye 1's copies when the span is not replayed, so eye 1's own pass does not draw them twice
+flare_source = (ROOT / 'source/rasterizer/rasterizer_lights.c').read_text()
+for needle in ('rasterizer_for_each_eye(lens_flares_draw_for_window)',
+               'rasterizer_for_each_eye(lens_flares_submit_occlusion_tests_for_window)',
+               'rasterizer_other_eye_draws() && local_lens_flare_count > first_count'):
+    if needle not in flare_source:
+        raise SystemExit(f'rasterizer_lights.c: the second eye replay needs {needle}')
+if 'rasterizer_lens_flares_replay_failed();' not in render_source:
+    raise SystemExit('render.c: a span that is not replayed must drop the flares queued for eye 1 '
+                     '(rasterizer_lens_flares_replay_failed)')
 # far scenery (a10's ring) moves with the eye, so it too sits at infinity (the probe includes
 # port/linux/game/stereo_far.c), and render_objects.c hands it every object's node matrices
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',

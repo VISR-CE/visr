@@ -4691,6 +4691,8 @@ of them where the game next stores that register itself, and maps eye 0's screen
 
 #ifdef HALO_ILP32
 static int replay_open;
+/* the mode the open span was begun in (HALO_STEREO_REPLAY_ON or _VERIFY) */
+static int replay_open_mode;
 /* the registers whose eye 1 value the replay holds (gpu_queue.h's overrides) */
 static uint64_t replay_overridden[(XGPU_VERTEX_CONSTANT_COUNT + 63) / 64];
 static int replay_any_overridden;
@@ -4724,11 +4726,21 @@ int halo_stereo_replay_begin(void)
 	IMMEDIATE_FLUSH();
 	mode = host_stereo_replay_begin();
 	replay_open = mode != HALO_STEREO_REPLAY_OFF;
+	replay_open_mode = (int)mode;
 	memset(replay_overridden, 0, sizeof(replay_overridden));
 	replay_any_overridden = 0;
 	return (int)mode;
 #else
 	return HALO_STEREO_REPLAY_OFF;
+#endif
+}
+
+int halo_stereo_replay_replays(void)
+{
+#ifdef HALO_ILP32
+	return replay_open && replay_open_mode == HALO_STEREO_REPLAY_ON;
+#else
+	return 0;
 #endif
 }
 
