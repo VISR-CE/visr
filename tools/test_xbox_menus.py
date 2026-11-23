@@ -1769,9 +1769,6 @@ def test_legends_share_y_and_spacing(density):
         # DEFAULTS stays in its separate global-action slot; B/A use the standard pair.
         if name.startswith('xbox/settings/') and 'defaults_x' in spec:
             expected = {'x': spec['defaults_x'], 'b': 326, 'a': 471}
-        if name.endswith('/lobby/lobby_screen'):
-            # Touch has no slot for SHARE: it sits where its caption centers in B's (empty) slot.
-            expected = {**expected, 'left_thumb': module.LOBBY_SHARE_X}
         for button, x, y in items:
             assert (x, y) == (expected[button], 414), f'{name}: {button} legend at {(x, y)}'
     lobby = widgets[f'xbox/{module.MP}/lobby/lobby_list']
@@ -1811,10 +1808,6 @@ def pill_spans(positions, widths):
     return sorted((x - 8, x + 22 + widths.get(b, 90) + 8) for b, x in positions.items())
 
 
-def captions_text_center(module):
-    return module.LEGEND_CAPTION_WIDTHS['SHARE'] // 2
-
-
 def assert_pills_fit(name, positions, widths):
     spans = pill_spans(positions, widths)
     assert spans[0][0] >= 0 and spans[-1][1] <= 640, f'{name}: legend pill off screen {spans}'
@@ -1850,13 +1843,6 @@ def test_generated_legend_pills_do_not_overlap(density):
         assert set(captions) == {b for b, _, _ in items}, f'{name}: legend caption not found'
         positions = {b: x for b, x, _ in items}
         captions = legend_caption_widths(widgets[name], widgets, items)
-        if name.endswith('/lobby/lobby_screen'):
-            # The engine draws A, B, Y and X in fixed slots and centers SHARE's pill on its text:
-            # in touch's B slot (x 329..441), clear of the Y slot (ends 317) and the A slot (from 453).
-            share = positions.pop('left_thumb')
-            captions.pop('left_thumb')
-            center = share + module.CAPTION_OFFSET + captions_text_center(module)
-            assert 329 + 40 <= center <= 441 - 40 + 0, f'{name}: SHARE pill leaves the B slot'
         assert_pills_fit(name, positions, captions)
 
 
