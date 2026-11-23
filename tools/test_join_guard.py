@@ -85,7 +85,11 @@ int main(void)
     assert subprocess.run([str(executable)]).returncode == 0
 
 
-def test_backing_out_of_a_join_under_way_ends_it():
+def test_backing_out_of_a_join_under_way_resets_the_client():
     start = UI.index("static boolean netgame_unjoin_player(")
     body = UI[start:UI.index("\nboolean ui_widget_port_unjoin_player(", start)]
-    assert "else if (state == 1)" in body and "network_game_abort();" in body
+    # the branch tests the client's state (the return value), not the state's data (the timeout percent)
+    assert "short client_state = network_game_client_get_state(client, &state);" in body
+    assert "else if (client_state == 1)" in body and "state == 1" not in body.replace("client_state == 1", "")
+    joining = body[body.index("else if (client_state == 1)"):]
+    assert "network_game_client_reset(client, TRUE);" in joining[:600]

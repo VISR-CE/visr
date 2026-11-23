@@ -2533,8 +2533,10 @@ static boolean netgame_unjoin_player(
 	if (client)
 	{
 		short state;
+		/* (the state is the return value; "state" is its data: while joining, how far through the timeout) */
+		short client_state = network_game_client_get_state(client, &state);
 
-		if (network_game_client_get_state(client, &state) == 2)
+		if (client_state == 2)
 		{
 			struct network_game *game = network_game_client_get_game(client);
 			short machine_index;
@@ -2595,12 +2597,13 @@ static boolean netgame_unjoin_player(
 				}
 			}
 		}
-		else if (state == 1)
+		else if (client_state == 1)
 		{
-			/* port: backing out while the join is still under way ends it, as the
-			failed-join path does; else the client stays "joining" under the browser
-			and every JOIN after it is refused (network_game_client_can_initiate_join) */
-			network_game_abort();
+			/* port: backing out while the join is still under way ends it, keeping the browser
+			(and a server): else the client stays "joining" under the browser and every JOIN after
+			it is refused (network_game_client_can_initiate_join) */
+			network_game_client_reset(client, TRUE);
+			game_connection_set(0);
 		}
 		else
 			error(2, "can't request player removal from netgame_unjoin_player() unless we are in pregame");

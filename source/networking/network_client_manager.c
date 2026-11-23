@@ -2161,8 +2161,8 @@ static enum halo_network_join_refusal network_game_client_join_refusal(
 		game && game->platform == network_game_get_local_platform());
 }
 
-/* port: the one guard under every path that starts a join (server browser, Direct IP,
-invites, LAN): FALSE, with the clause in the network log, while a join is under way or
+/* port: the one guard under the menu paths that start a join (server browser, Direct IP,
+invites, LAN; the host's own local join in idle_searching is exempt): FALSE, with the clause in the network log, while a join is under way or
 the client is not idle. A request refused here is ignored; the join under way goes on. */
 boolean network_game_client_can_initiate_join(
 	void *client,
