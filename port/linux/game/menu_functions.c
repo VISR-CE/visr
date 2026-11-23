@@ -920,16 +920,11 @@ static boolean campaign_fail(void)
 	return FALSE;
 }
 
-/* the description's level: its name, picture and words, and the
-difficulties it has been finished on (finished: New Game's, NULL for a level
-not reached), or (saved_difficulty, not NONE: Load Game's) the saved game's
-difficulty */
-static void level_description(struct widget_instance *description, char const *prefix, short level, boolean in_progress,
-	boolean const *finished, short saved_difficulty)
+/* the description's level: its name, picture and words */
+static void level_description(struct widget_instance *description, char const *prefix, short level, boolean in_progress)
 {
 	char name[64];
 	struct widget_instance *widget;
-	short marker;
 
 	snprintf(name, sizeof(name), "%s_right_name", prefix);
 	if ((widget = named(description, name, 0)) != NULL)
@@ -938,23 +933,8 @@ static void level_description(struct widget_instance *description, char const *p
 	if ((widget = named(description, name, 0)) != NULL)
 		widget->animation.current_frame_index = level;
 	snprintf(name, sizeof(name), "%s_right_data", prefix);
-	if ((widget = named(description, name, 0)) != NULL && saved_difficulty != NONE)
-	{
-		wchar_t text[ROW_TEXT_LENGTH];
-
-		string_get("pc\\main_menu\\player_profiles_select\\difficulty_names", saved_difficulty, text);
-		text_set(widget, text);
-	}
-	else if (widget)
+	if ((widget = named(description, name, 0)) != NULL)
 		widget->parameters.text_box.string_list_index = in_progress ? LEVEL_IN_PROGRESS : level;
-	for (marker = 0; marker < 3; marker++)
-	{
-		if ((widget = named(description, "difficulty_indicator", marker)) != NULL)
-		{
-			widget->visible = saved_difficulty != NONE ? marker == 0 : finished && finished[marker];
-			widget->animation.current_frame_index = saved_difficulty != NONE ? saved_difficulty : marker + 1;
-		}
-	}
 }
 
 /* player 1's profile's name (the active one, else the one used last: the
@@ -1139,7 +1119,6 @@ by its display index (a multiplayer map's, or a Custom Edition map's), or
 static void map_description_show(struct widget_instance *description, short level, short map)
 {
 	struct widget_instance *widget;
-	short marker;
 
 	visible_set(named(description, "replay_level_right_name", 0), level != NONE);
 	visible_set(named(description, "replay_level_right_pic", 0), level != NONE);
@@ -1147,11 +1126,6 @@ static void map_description_show(struct widget_instance *description, short leve
 	visible_set(named(description, "mp_map_right_name", 0), map != NONE);
 	visible_set(named(description, "mp_map_right_pic", 0), map != NONE);
 	visible_set(named(description, "mp_map_right_data", 0), map != NONE);
-	if (level == NONE)
-	{
-		for (marker = 0; marker < 3; marker++)
-			visible_set(named(description, "difficulty_indicator", marker), FALSE);
-	}
 	if (map == NONE)
 		return;
 	if ((widget = named(description, "mp_map_right_name", 0)) != NULL)
@@ -1272,8 +1246,7 @@ static void level_list_update(struct widget_instance *list)
 	level = campaign.shown_level;
 	if (!campaign.levels[level].available)
 		level = LEVEL_UNAVAILABLE;
-	level_description(description, "replay_level", level, level == campaign.saved_level,
-		level == LEVEL_UNAVAILABLE ? NULL : campaign.levels[level].finished, NONE);
+	level_description(description, "replay_level", level, level == campaign.saved_level);
 	profile_name_show(description);
 }
 
@@ -2676,7 +2649,6 @@ static void text_field_finish(boolean advance)
 		if (!strcmp(row->name, "op_server_address"))
 		{
 			next = named(screen, "op_server_port", 0);
-			if (!next) next = named(screen, "op_server_password", 0);
 		}
 		if (!strcmp(row->name, "op_server_name")) next = named(screen, "op_password", 0);
 		if (next && next->visible) action = next;
@@ -3090,7 +3062,7 @@ static void map_list_update(struct widget_instance *list)
 	if (kind == MAP_KIND_SINGLEPLAYER)
 	{
 		map_description_show(description, shown, NONE);
-		level_description(description, "replay_level", shown, FALSE, NULL, NONE);
+		level_description(description, "replay_level", shown, FALSE);
 	}
 	else
 	{
@@ -3176,7 +3148,6 @@ static void gametype_bank_read(short bank)
 /* "mp profiles list initialize": on the gametype used last */
 static boolean gametype_list_initialize(struct widget_instance *list)
 {
-	struct widget_instance *spinner = named(list, "list_item_0_chooser_spinner", 0);
 	short last, index;
 
 	multiplayer.gametype_count = ui_widget_port_gametypes(multiplayer.gametypes, MAXIMUM_GAMETYPES, &last);
@@ -3189,8 +3160,6 @@ static boolean gametype_list_initialize(struct widget_instance *list)
 	}
 	multiplayer.gametype_first = (short)PIN(multiplayer.gametype_chosen - GAMETYPE_ROWS / 2, 0,
 		MAX(0, multiplayer.bank_count - GAMETYPE_ROWS));
-	if (spinner)
-		spinner->parameters.list.selected_index = multiplayer.bank_shown;
 	focus_row(list, (short)(1 + multiplayer.gametype_chosen - multiplayer.gametype_first));
 	return TRUE;
 }
@@ -3221,13 +3190,10 @@ the gametype chosen: its name, picture and rules */
 static void gametype_list_update(struct widget_instance *list)
 {
 	struct widget_instance *description = list->parameters.list.extended_description;
-	struct widget_instance *spinner = named(list, "list_item_0_chooser_spinner", 0);
 	struct widget_instance *row;
 	struct widget_instance *widget;
 	short row_index = 0, focused = NONE, count;
 
-	if (spinner && spinner->parameters.list.selected_index != multiplayer.bank_shown)
-		gametype_bank_read(spinner->parameters.list.selected_index);
 	count = (short)MIN(multiplayer.bank_count, GAMETYPE_ROWS);
 	/* (the rows after the spinner's: scrolled as list_scroll does) */
 	for (row = list->child; row; row = row->next, row_index++)
