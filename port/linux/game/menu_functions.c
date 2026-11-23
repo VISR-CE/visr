@@ -80,6 +80,7 @@ their handlers open opens.
 #include "halo_network_content.h"
 #include "custom_edition_cache.h"
 #include "custom_edition_maps.h"
+#include "../../runtime/stock_maps.h"
 #include "text_filter.h"
 /* (internet play's server browser: the platform layer's) */
 #include "../src/p2p.h"
@@ -4625,25 +4626,27 @@ static short browser_fake_games(struct p2p_listing *games)
 {
 	static struct
 	{
-		char const *name, *map, *gametype, *region;
+		char const *name, *gametype, *region;
 		unsigned char players, maximum, engine, open, locked, dedicated, master, joinable;
 		short version;
 	} const fakes[] = {
-		{ "Spartan Wars", "bloodgulch", "Ranked TS", "na-east", 13, 128, 2, 1, 0, 1, 1, 1, 0 },
-		{ "24/7 Campaign", "b40", "Co-op", "", 16, 16, 0, 1, 1, 0, 0, 1, 0 },
-		{ "Dungeon Soup", "c10", "Co-op", "", 4, 16, 0, 1, 1, 0, 0, 1, 0 },
-		{ "MLG TS 2v2 US4", "chillout", "MLG 2v2", "na-east", 4, 4, 2, 0, 0, 1, 1, 1, 0 },
-		{ "MLG TS 2v2 US1", "hangemhigh", "MLG 2v2", "na-east", 0, 4, 2, 1, 0, 1, 1, 1, 0 },
-		{ "OpenCE CTF", "sidewinder", "CTF", "eu", 6, 127, 1, 1, 0, 1, 1, 1, 0 },
-		{ "OpenCE Mix", "ratrace", "Oddball", "eu", 2, 127, 3, 1, 0, 1, 1, 1, 0 },
-		{ "Friday Night Halo", "damnation", "Slayer", "", 7, 16, 2, 1, 1, 0, 0, 1, 0 },
-		{ "Toasted's Curse", "bloodgulch", "Slayer", "na-west", 9, 12, 2, 1, 0, 0, 0, 1, 0 },
-		{ "Urdatorn Hejlaa", "bloodgulch", "Slayer", "", 1, 16, 2, 1, 1, 0, 0, 1, 0 },
-		{ "Beaver Creek Kings", "beavercreek", "King", "", 3, 8, 4, 1, 0, 0, 0, 1, 0 },
-		{ "Halo Night (v42)", "prisoner", "Slayer", "", 5, 16, 2, 1, 0, 0, 0, 0, 42 },
-		{ "Pillar of Autumn", "a10", "Co-op", "", 4, 4, 0, 1, 0, 0, 0, 1, 0 },
-		{ "Race Day", "ratrace", "Race", "eu", 0, 16, 5, 1, 0, 1, 1, 1, 0 },
+		{ "Spartan Wars", "Ranked TS", "na-east", 13, 128, 2, 1, 0, 1, 1, 1, 0 },
+		{ "24/7 Campaign", "Co-op", "", 16, 16, 0, 1, 1, 0, 0, 1, 0 },
+		{ "Dungeon Soup", "Co-op", "", 4, 16, 0, 1, 1, 0, 0, 1, 0 },
+		{ "MLG TS 2v2 US4", "MLG 2v2", "na-east", 4, 4, 2, 0, 0, 1, 1, 1, 0 },
+		{ "MLG TS 2v2 US1", "MLG 2v2", "na-east", 0, 4, 2, 1, 0, 1, 1, 1, 0 },
+		{ "OpenCE CTF", "CTF", "eu", 6, 127, 1, 1, 0, 1, 1, 1, 0 },
+		{ "OpenCE Mix", "Oddball", "eu", 2, 127, 3, 1, 0, 1, 1, 1, 0 },
+		{ "Friday Night Halo", "Slayer", "", 7, 16, 2, 1, 1, 0, 0, 1, 0 },
+		{ "Toasted's Curse", "Slayer", "na-west", 9, 12, 2, 1, 0, 0, 0, 1, 0 },
+		{ "Urdatorn Hejlaa", "Slayer", "", 1, 16, 2, 1, 1, 0, 0, 1, 0 },
+		{ "Beaver Creek Kings", "King", "", 3, 8, 4, 1, 0, 0, 0, 1, 0 },
+		{ "Halo Night (v42)", "Slayer", "", 5, 16, 2, 1, 0, 0, 0, 0, 42 },
+		{ "Pillar of Autumn", "Co-op", "", 4, 4, 0, 1, 0, 0, 0, 1, 0 },
+		{ "Race Day", "Race", "eu", 0, 16, 5, 1, 0, 1, 1, 1, 0 },
 	};
+	int stock_count;
+	struct stock_map const *stock = stock_maps(&stock_count);
 	short index;
 
 	for (index = 0; index < (short)NUMBEROF(fakes); index++)
@@ -4654,7 +4657,8 @@ static short browser_fake_games(struct p2p_listing *games)
 		fake->identifier[0] = 0xFA;
 		fake->identifier[5] = (unsigned char)(index + 1);
 		snprintf(fake->name, sizeof(fake->name), "%s", fakes[index].name);
-		snprintf(fake->map, sizeof(fake->map), "%s", fakes[index].map);
+		/* (a stock map, by place in the stock table, which the fake list does not write out again) */
+		snprintf(fake->map, sizeof(fake->map), "%s", stock[1 + (index * 5) % (stock_count - 1)].file);
 		snprintf(fake->gametype, sizeof(fake->gametype), "%s", fakes[index].gametype);
 		snprintf(fake->region, sizeof(fake->region), "%s", fakes[index].region);
 		fake->player_count = fakes[index].players;
@@ -4804,7 +4808,8 @@ static void browser_c_controls_update(struct widget_instance *list)
 
 		if (!chip)
 			continue;
-		chip->animation.current_frame_index = (short)((selected ? 1 : 0) + (focused ? 2 : 0));
+		chip->animation.current_frame_index = (short)((selected ? 1 : 0) +
+			(ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, focused) ? 2 : 0));
 		snprintf(label, sizeof(label), "%s_label", browser_chip_names[index]);
 		usnprintf(text, NUMBEROF(text) - 1, L"%s %d", labels[index], lobby_browser.chip_counts[index]);
 		text_set(named(chip, label, 0), text);
@@ -4818,7 +4823,8 @@ static void browser_c_controls_update(struct widget_instance *list)
 		boolean focused = chips->parent->focused_child == chips && chips->focused_child == filter;
 
 		if (filter)
-			filter->animation.current_frame_index = (short)(focused ? 2 : 0);
+			filter->animation.current_frame_index =
+				(short)(ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, focused) ? 2 : 0);
 		text_set(named(chips, "browser_filter_label", 0), browser_filter_label);
 	}
 }
@@ -5094,7 +5100,8 @@ static void browser_filters_button_update(struct widget_instance *list)
 		else
 			usnprintf(text, NUMBEROF(text) - 1, L"FILTERS");
 		text_set(named(button, "browser_filters_label", 0), text);
-		button->animation.current_frame_index = list->focused_child == button ? 1 : 0;
+		button->animation.current_frame_index =
+			ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, list->focused_child == button) ? 1 : 0;
 	}
 	/* (the column title with the focus drawn white, as a focused item's text is: the engine whitens only a list's
 	focused child, so each title's own list points at its text while the title has the focus) */

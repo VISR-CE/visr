@@ -608,6 +608,8 @@ __attribute__((weak)) void host_frame_cpu_split(double *simulation, double *rend
 { }
 __attribute__((weak)) double host_frame_rate_cap(void)
 { fprintf(stderr, "host_stubs: probe called host_frame_rate_cap without defining it\n"); abort(); }
+__attribute__((weak)) double host_frame_rate_display_target(void)
+{ fprintf(stderr, "host_stubs: probe called host_frame_rate_display_target without defining it\n"); abort(); }
 __attribute__((weak)) double host_frame_rate_effective(void)
 { fprintf(stderr, "host_stubs: probe called host_frame_rate_effective without defining it\n"); abort(); }
 __attribute__((weak)) double host_frame_rate_limit(void)

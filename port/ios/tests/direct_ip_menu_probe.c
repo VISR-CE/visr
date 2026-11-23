@@ -67,9 +67,6 @@ static int platform_clipboard_get(char *text, int size) { snprintf(text, size, "
 static int p2p_join_invite(const char *text) { assert(!strcmp(text, "invite")); clipboard_joins++; return 1; }
 static void platform_log(const char *text) { (void)text; }
 
-static struct widget_instance *screen_of(struct widget_instance *w) { return w; }
-static void direct_ip_touch_legend_update(struct widget_instance *screen) { (void)screen; }
-
 /* PRODUCTION */
 
 int main(void)

@@ -1211,11 +1211,11 @@ static const struct config_setting config_settings[] =
 		_platform_all,
 		"The server browser's order: \"players\" (most first), \"name\", \"map\"\n"
 		"or \"game\" (A to Z). Games this build can join always come before\n"
-		"those it cannot. A column title, or SORT BY in FILTERS, writes it.", _tier_player },
+		"those it cannot. A column title, or SORT BY in FILTERS, writes it.", _tier_player, "players|name|map|game" },
 	{ "network.browser_games", _config_string, "\"all\"", "HALO_NET_BROWSER_GAMES", _environment_value,
 		_platform_all,
 		"Which games the server browser lists: \"all\", \"multiplayer\" or\n"
-		"\"coop\" (FILTERS' GAMES writes it).", _tier_player },
+		"\"coop\" (FILTERS' GAMES writes it).", _tier_player, "all|multiplayer|coop" },
 	{ "network.browser_show_full", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_FULL", _environment_value,
 		_platform_all,
 		"Whether the server browser lists full or closed games (FILTERS' FULL\n"

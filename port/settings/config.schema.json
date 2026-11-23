@@ -4442,7 +4442,13 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "players",
+            "name",
+            "map",
+            "game"
+          ]
         },
         "browser_games": {
           "type": "string",
@@ -4454,7 +4460,12 @@
             "apple",
             "desktop"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "enum": [
+            "all",
+            "multiplayer",
+            "coop"
+          ]
         },
         "browser_show_full": {
           "type": "boolean",
