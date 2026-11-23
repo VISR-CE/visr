@@ -1708,6 +1708,8 @@ static BOOL scene_color_role(const D3DSurface *surface, int layer, unsigned char
 	{
 		scene_precision_current = scene_precision_wanted();
 		scene_precision_known = TRUE;
+		platform_log("scene precision: %s", scene_precision_current ? "the scene's color targets are high precision (16-bit)" :
+			"the scene's color targets are 8-bit");
 	}
 	return scene_precision_current && !foveated_eye && surface->Data == device.back_buffer.Data &&
 		(layer == HALO_STEREO_LAYER_MONO || layer == HALO_STEREO_LAYER_NATIVE);
@@ -8505,6 +8507,7 @@ static void scene_precision_frame(void)
 	if (!scene_precision_known || wanted == scene_precision_current)
 		return;
 	scene_precision_current = wanted;
+	platform_log("scene precision: now %s; the scene's targets are made again", wanted ? "16-bit" : "8-bit");
 	recent_render_targets_forget();
 	while (*link)
 	{
