@@ -940,24 +940,39 @@ int main(void) {
 
 
 def test_option_row_arrows_follow_the_input(tmp_path):
-    """Bug class: spinner rows not stepped by keyboard arrows, and arrows drawn where a pointer acts on the row.
-    Every option row of the menu set (toggle, enum, range, any other value list) draws its arrows for a
-    controller and a keyboard (input 0) and for no mouse (1) or touch (2); the one draw site asks this function
-    for both its arrows."""
-    source = tmp_path / 'arrows.c'
-    source.write_text('#include "halo_menu_row.h"\nint shown(int input) { return halo_menu_row_arrows_shown(input); }\n')
-    library = tmp_path / 'arrows.dylib'
+    """Bug class: arrows drawn for an input that does not use them. Runs the function the renderer draws every
+    option row from (halo_menu_row_look) over each row kind (static, toggle, enum, range), with and without a
+    dropdown, for each input: a controller and a keyboard (0) get the arrows and no direct control; a mouse (1)
+    and a finger (2) get no arrows and exactly the control that acts on the row."""
+    source = tmp_path / 'look.c'
+    source.write_text('#include "halo_menu_row.h"\n'
+                      'int look(int kind, int dropdown, int input, int *out) {\n'
+                      ' struct halo_menu_row_look l = halo_menu_row_look((enum halo_menu_row_kind)kind, dropdown, input);\n'
+                      ' out[0] = l.arrows; out[1] = l.toggle; out[2] = l.dropdown; out[3] = l.slider; return 0; }\n')
+    library = tmp_path / 'look.dylib'
     subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-shared', '-fPIC',
                     '-iquote', str(ROOT / 'port/linux/include'), str(source), '-o', str(library)], check=True)
-    shown = ctypes.CDLL(str(library)).shown
-    rows = json.loads((ROOT / 'tools/fixtures/touch_menu_rows.json').read_text())
-    assert rows
-    for row in rows:
-        for pointer, arrows in ((0, True), (1, False), (2, False)):
-            assert bool(shown(pointer)) == arrows, (row['file'], row['name'], pointer)
-    # the renderer's two arrow bitmaps (header, footer) are gated by it and by nothing narrower
+    look = ctypes.CDLL(str(library)).look
+    look.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
+    static, toggle, enum, range_ = 0, 1, 2, 3
+    for kind in (static, toggle, enum, range_):
+        for dropdown in (0, 1):
+            for pointer in (0, 1, 2):
+                out = (ctypes.c_int * 4)()
+                look(kind, dropdown, pointer, out)
+                arrows, has_toggle, has_dropdown, has_slider = (bool(value) for value in out)
+                where = (kind, dropdown, pointer)
+                assert arrows == (pointer == 0), where
+                if pointer == 0:
+                    assert not (has_toggle or has_dropdown or has_slider), where
+                else:
+                    assert has_toggle == (kind == toggle), where
+                    assert has_slider == (kind == range_), where
+                    assert has_dropdown == bool(dropdown), where
+    # the renderer draws both arrow bitmaps and the controls from that one function
     draw = (ROOT / 'source/interface/ui_widget.c').read_text()
-    assert draw.count('bitmap && halo_menu_row_arrows_shown(pointer_controls)') == 2
+    assert draw.count('bitmap && look.arrows') == 2
+    assert 'halo_menu_row_arrows_shown(' not in draw
 
 
 def test_every_option_row_steps_with_left_and_right():
@@ -967,6 +982,10 @@ def test_every_option_row_steps_with_left_and_right():
         tree = ET.parse(path)
         parents = {child: parent for parent in tree.iter('widget') for child in parent.iter('widget')}
         for widget in tree.iter('widget'):
-            if widget.get('type') == 'spinner' and widget.get('strings') is not None:
+            # (a list of choices is spelled out in `strings` or read from a `string_list` tag)
+            if widget.get('type') == 'spinner' and (widget.get('strings') is not None or widget.get('string_list') is not None):
                 flags = (widget.get('flags') or '').split()
                 assert 'left_right_tabs_items' in flags, (path.name, widget.get('name'))
+                parent = parents.get(widget)
+                if parent is not None and parent.get('type') in (None, 'column_list') and parent.get('flags') is not None:
+                    assert 'pass_unhandled_to_focused_child' in parent.get('flags').split(), (path.name, widget.get('name'))

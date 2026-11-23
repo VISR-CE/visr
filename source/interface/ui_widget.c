@@ -6427,10 +6427,11 @@ static void widget_instance_render_spinner_list(
 {
 	struct halo_menu_row row = ui_widget_row_control(widget);
 	int pointer_controls = halo_menu_pointer_controls();
-	boolean toggle = pointer_controls && row.kind == HALO_ROW_TOGGLE;
+	struct halo_menu_row_look look = halo_menu_row_look(row.kind, ui_widget_row_has_dropdown(widget), pointer_controls);
+	boolean toggle = look.toggle;
 	/* port: a mouse or a finger sees no left and right arrows on any option row: each kind is acted on directly */
-	boolean dropdown = pointer_controls && ui_widget_row_has_dropdown(widget);
-	boolean slider = pointer_controls && row.kind == HALO_ROW_RANGE;
+	boolean dropdown = look.dropdown;
+	boolean slider = look.slider;
 	long header_frame_index = 0;
 	long footer_frame_index = 0;
 	real alpha_modifier = widget_instance_get_cumulative_alpha_modifier(widget);
@@ -6462,7 +6463,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_header_bitmap.index,
 		0,
 		header_frame_index);
-	if (bitmap && halo_menu_row_arrows_shown(pointer_controls))
+	if (bitmap && look.arrows)
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6501,7 +6502,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_footer_bitmap.index,
 		0,
 		footer_frame_index);
-	if (bitmap && halo_menu_row_arrows_shown(pointer_controls))
+	if (bitmap && look.arrows)
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);

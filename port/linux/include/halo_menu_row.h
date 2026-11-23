@@ -75,11 +75,26 @@ static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_r
 	row.kind = HALO_ROW_RANGE;
 	return row;
 }
-/* whether an option row draws its left and right arrows: a controller and a keyboard step by them, a mouse and a
-finger act on the row itself (halo_menu_pointer_controls: 0 none, 1 mouse, 2 touch) */
+/* how an option row is drawn and acted on for an input (halo_menu_pointer_controls: 0 none, 1 mouse, 2 touch): a
+controller and a keyboard step by the left and right arrows; a mouse and a finger see none and act on the row
+itself, with a switch, a dropdown or a slider. The renderer draws from this and nothing else. */
+struct halo_menu_row_look { int arrows, toggle, dropdown, slider; };
+
 static inline int halo_menu_row_arrows_shown(int pointer_controls)
 {
 	return pointer_controls == 0;
+}
+
+static inline struct halo_menu_row_look halo_menu_row_look(enum halo_menu_row_kind kind, int has_dropdown,
+	int pointer_controls)
+{
+	struct halo_menu_row_look look;
+
+	look.arrows = halo_menu_row_arrows_shown(pointer_controls);
+	look.toggle = pointer_controls && kind == HALO_ROW_TOGGLE;
+	look.dropdown = pointer_controls && has_dropdown;
+	look.slider = pointer_controls && kind == HALO_ROW_RANGE;
+	return look;
 }
 
 #endif
