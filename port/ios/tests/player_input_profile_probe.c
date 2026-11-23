@@ -84,6 +84,105 @@ static void a_newer_reader_requirement_is_reported(void)
 	assert(player_input_extension_decode(region, &read) == _player_input_newer);
 }
 
+/* a payload as a newer build writes it: records of (tag, size, bytes), the container's header and checksum */
+static void make_region(unsigned char *region, unsigned version, unsigned reader, const unsigned char *payload, size_t length)
+{
+	unsigned long crc = crc32_of(payload, length);
+
+	memset(region, 0, PLAYER_INPUT_REGION_SIZE);
+	memcpy(region + 14, payload, length);
+	memcpy(region, "VINP", 4);
+	region[4] = (unsigned char)version;
+	region[6] = (unsigned char)reader;
+	region[8] = (unsigned char)length; region[9] = (unsigned char)(length >> 8);
+	region[10] = (unsigned char)crc; region[11] = (unsigned char)(crc >> 8);
+	region[12] = (unsigned char)(crc >> 16); region[13] = (unsigned char)(crc >> 24);
+}
+
+static size_t add_record(unsigned char *payload, size_t length, unsigned tag, unsigned size, unsigned seed)
+{
+	unsigned i;
+
+	payload[length++] = (unsigned char)tag;
+	payload[length++] = (unsigned char)size;
+	for (i = 0; i < size; i++)
+		payload[length++] = (unsigned char)(seed + i * 7);
+	return length;
+}
+
+/* unknown records of any size a region can hold survive a decode and encode (an older build saving a newer
+build's profile), byte for byte, even when they fill the whole payload and our own records have no room left */
+static void large_unknown_records_survive(void)
+{
+	unsigned char payload[PLAYER_INPUT_REGION_SIZE], region[PLAYER_INPUT_REGION_SIZE], again[PLAYER_INPUT_REGION_SIZE];
+	struct player_input_extension read, second;
+	size_t length = 0;
+
+	length = add_record(payload, length, 0x41, 200, 1);
+	length = add_record(payload, length, 0x42, 150, 9);
+	payload[length++] = TAG_MOUSE_SENSITIVITY; payload[length++] = 2; payload[length++] = 80; payload[length++] = 0;
+	make_region(region, 2, 1, payload, length);
+	assert(player_input_extension_decode(region, &read) == _player_input_present);
+	assert(read.values.mouse_sensitivity == 80 && read.unknown_length == 354);
+	player_input_extension_encode(&read, again);
+	assert(player_input_extension_decode(again, &second) == _player_input_present);
+	assert(second.unknown_length == 354 && !memcmp(second.unknown, read.unknown, 354) && second.container_version == 2);
+	assert(second.values.mouse_sensitivity == 80);
+	/* the payload full of records of ours too: nothing unknown is lost (ours that do not fit are dropped) */
+	length = 0;
+	length = add_record(payload, length, 0x41, 200, 3);
+	length = add_record(payload, length, 0x42, 200, 5);
+	length = add_record(payload, length, 0x43, 24, 7);
+	assert(length == PLAYER_INPUT_REGION_SIZE - 14);
+	make_region(region, 5, 1, payload, length);
+	assert(player_input_extension_decode(region, &read) == _player_input_present && read.unknown_length == length);
+	player_input_extension_encode(&read, again);
+	assert(player_input_extension_decode(again, &second) == _player_input_present);
+	assert(second.unknown_length == length && !memcmp(second.unknown, read.unknown, length));
+}
+
+/* the write thread's block: replaced parts are the new ones, the rest is the file's own, byte for byte */
+static void block_merge_keeps_what_it_does_not_replace(void)
+{
+	unsigned char old_block[512], base[PLAYER_INPUT_REGION_OFFSET], block[512], payload[64], region[PLAYER_INPUT_REGION_SIZE];
+	struct player_input_profile input;
+	struct player_input_extension read;
+	size_t length = 0, i;
+
+	for (i = 0; i < sizeof(old_block); i++)
+		old_block[i] = (unsigned char)(i * 31 + 1);
+	for (i = 0; i < sizeof(base); i++)
+		base[i] = (unsigned char)(200 - i);
+	length = add_record(payload, length, 0x41, 9, 4);
+	make_region(region, 1, 1, payload, length);
+	memcpy(old_block + PLAYER_INPUT_REGION_OFFSET, region, PLAYER_INPUT_REGION_SIZE);
+	player_input_profile_defaults(&input);
+	input.mouse_sensitivity = 250;
+	/* a record write keeps the extension */
+	assert(player_input_block_merge(old_block, base, NULL, block));
+	assert(!memcmp(block, base, sizeof(base)) && !memcmp(block + 0x44, old_block + 0x44, PLAYER_INPUT_REGION_SIZE));
+	/* an extension write keeps the record and checksum as they are (a corrupt one stays corrupt) and a newer build's records */
+	assert(player_input_block_merge(old_block, NULL, &input, block));
+	assert(!memcmp(block, old_block, 0x44));
+	assert(player_input_extension_decode(block + 0x44, &read) == _player_input_present);
+	assert(read.values.mouse_sensitivity == 250 && read.unknown_length == 11 && !memcmp(read.unknown, payload, 11));
+	/* both */
+	assert(player_input_block_merge(old_block, base, &input, block) && !memcmp(block, base, sizeof(base)));
+	/* a file that could not be read: only a record write can be built, with the extension absent */
+	assert(!player_input_block_merge(NULL, NULL, &input, block));
+	assert(player_input_block_merge(NULL, base, NULL, block));
+	assert(!memcmp(block, base, sizeof(base)));
+	for (i = 0x44; i < 512; i++)
+		assert(block[i] == 0);
+	assert(player_input_block_merge(NULL, base, &input, block));
+	assert(player_input_extension_decode(block + 0x44, &read) == _player_input_present && read.values.mouse_sensitivity == 250);
+	/* a record that needs a newer reader is never rewritten */
+	make_region(region, 4, 3, payload, length);
+	memcpy(old_block + 0x44, region, PLAYER_INPUT_REGION_SIZE);
+	assert(player_input_block_merge(old_block, base, &input, block));
+	assert(!memcmp(block + 0x44, region, PLAYER_INPUT_REGION_SIZE));
+}
+
 static void out_of_range_values_are_repaired(void)
 {
 	struct player_input_extension read, bad;
@@ -155,6 +254,8 @@ int main(void)
 	round_trip();
 	old_and_damaged_profiles_give_defaults();
 	newer_records_survive_a_save();
+	large_unknown_records_survive();
+	block_merge_keeps_what_it_does_not_replace();
 	out_of_range_values_are_repaired();
 	a_newer_reader_requirement_is_reported();
 	default_bindings_are_the_ports_old_ones();

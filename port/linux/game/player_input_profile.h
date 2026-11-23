@@ -22,7 +22,8 @@ base record, 0x30 bytes, and its 20-byte checksum), and its size */
 #define PLAYER_INPUT_REGION_SIZE (512 - PLAYER_INPUT_REGION_OFFSET)
 #define PLAYER_INPUT_BINDING_ACTIONS 17
 #define PLAYER_INPUT_BINDING_SLOTS 2
-#define PLAYER_INPUT_UNKNOWN_SIZE 256
+/* room for every byte of a payload this build does not understand: a region's whole payload */
+#define PLAYER_INPUT_UNKNOWN_SIZE (PLAYER_INPUT_REGION_SIZE - 14)
 #define PLAYER_INPUT_LOCAL_PLAYERS 4
 
 /* a binding's stable code: the SDL scancode (the USB HID usage), 0x200 + the
@@ -77,6 +78,13 @@ enum player_input_decode player_input_extension_decode(const unsigned char *regi
 	struct player_input_extension *extension);
 /* fills the whole region (the rest zero) */
 void player_input_extension_encode(const struct player_input_extension *extension, unsigned char *region);
+
+/* The profile file's next 512-byte block, as the write thread makes it, from the block now in the file (old_block, NULL
+when it could not be read), a new record and checksum (base: the first PLAYER_INPUT_REGION_OFFSET bytes, NULL to keep
+the file's), and new input values (input, NULL to keep the file's extension). Everything not replaced is kept byte for
+byte, including what a newer build wrote. Returns 0 only when there is nothing to build on (no old block and no base) */
+int player_input_block_merge(const unsigned char *old_block, const unsigned char *base,
+	const struct player_input_profile *input, unsigned char *block);
 
 /* a profile setting by name ("profile.mouse_sensitivity") as text, the way the
 menus read and write them; 0 for a name that is none of these. Sensitivities

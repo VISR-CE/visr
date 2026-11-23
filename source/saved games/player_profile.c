@@ -190,6 +190,7 @@ static struct
 
 typedef char verify_input_region_fits_padding[
 	PLAYER_INPUT_REGION_OFFSET == sizeof(struct player_profile) + sizeof(XCALCSIG_SIGNATURE) &&
+	offsetof(struct player_profile_file_block, checksum) == sizeof(struct player_profile) &&
 	PLAYER_INPUT_REGION_SIZE <= sizeof(((struct player_profile_file_block *)0)->padding) ? 1 : -1];
 
 /* ---------- prototypes */
@@ -873,7 +874,7 @@ static unsigned long __stdcall player_profile_write_thread_proc(
 {
 	struct player_profile_write_request *request = input;
 	struct player_profile_file_block block = {0};
-	byte old_block[SAVED_GAME_FILE_BLOCK_SIZE];
+	byte old_block[SAVED_GAME_FILE_BLOCK_SIZE], new_block[SAVED_GAME_FILE_BLOCK_SIZE];
 	struct file_reference file;
 
 	match_vassert("c:\\halo\\SOURCE\\saved games\\player_profile.c", 0x2D7, input, "input");
@@ -894,49 +895,20 @@ static unsigned long __stdcall player_profile_write_thread_proc(
 				file_read(&file, SAVED_GAME_FILE_BLOCK_SIZE, old_block);
 			boolean write = TRUE;
 
-			if (player_profile_input_request.write_base || !have_old)
+			if (player_profile_input_request.write_base)
 			{
 				csmemcpy(&block.profile, profile, sizeof(struct player_profile));
 				saved_game_file_generate_checksum(&block.profile, sizeof(block.profile),
 					&block.checksum);
 			}
-			else
-			{
-				csmemcpy(&block, old_block, PLAYER_INPUT_REGION_OFFSET);
-			}
-
-			if (player_profile_input_request.write_input)
-			{
-				struct player_input_extension extension;
-
-				player_input_extension_defaults(&extension);
-				if (have_old &&
-					player_input_extension_decode(old_block + PLAYER_INPUT_REGION_OFFSET, &extension) ==
-						_player_input_newer)
-				{
-					/* a newer build's format: its settings are kept, ours are not saved */
-					csmemcpy((byte *)&block + PLAYER_INPUT_REGION_OFFSET, old_block + PLAYER_INPUT_REGION_OFFSET,
-						PLAYER_INPUT_REGION_SIZE);
-				}
-				else
-				{
-					extension.values = player_profile_input_request.input;
-					player_input_extension_encode(&extension, (byte *)&block + PLAYER_INPUT_REGION_OFFSET);
-				}
-			}
-			else if (have_old)
-			{
-				csmemcpy((byte *)&block + PLAYER_INPUT_REGION_OFFSET, old_block + PLAYER_INPUT_REGION_OFFSET,
-					PLAYER_INPUT_REGION_SIZE);
-			}
-			if (!have_old && !player_profile_input_request.write_base)
-			{
-				/* nothing to keep the record from: an extension-only write to a file that cannot be read */
-				write = FALSE;
-			}
+			/* port: the new block is the old one with the record and/or the input extension replaced */
+			write = player_input_block_merge(have_old ? old_block : NULL,
+				player_profile_input_request.write_base ? (byte *)&block : NULL,
+				player_profile_input_request.write_input ? &player_profile_input_request.input : NULL,
+				new_block);
 
 			if (write && (!file_set_position(&file, 0) ||
-				!file_write(&file, sizeof(block), &block)))
+				!file_write(&file, sizeof(new_block), new_block)))
 			{
 				error(_error_silent, "failed to write player profile to file");
 				failed = TRUE;

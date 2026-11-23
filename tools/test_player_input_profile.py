@@ -53,14 +53,14 @@ def test_every_profile_input_setting_has_a_menu_row_and_every_row_a_setting():
     assert fields and fields == rows
 
 
-def test_a_base_profile_save_keeps_the_extension():
-    """player_profile_save is a base-only write: it must carry the file's extension over (the write thread reads
-    the old block and copies the region), never write the padding as zeros."""
+def test_the_write_thread_builds_its_block_with_the_merge_the_probe_tests():
+    """The write thread's block comes from player_input_block_merge (behavior: port/ios/tests/player_input_profile_probe.c,
+    which covers a base-only write, an extension-only write, an unreadable file and a newer record)."""
     source = (ROOT / 'source/saved games/player_profile.c').read_text(encoding='latin-1')
     thread = source[source.index('player_profile_write_thread_proc(\n\tvoid *input)\n{'):]
     thread = thread[:thread.index('player_profile_create_default_profiles_on_disk(\n\tvoid)\n{')]
-    assert 'else if (have_old)' in thread and 'old_block + PLAYER_INPUT_REGION_OFFSET' in thread
-    assert 'player_profile_input_request.write_base' in thread
-    # the default profiles, rewritten at every launch, keep theirs as well
+    assert 'player_input_block_merge(' in thread and 'file_write(&file, sizeof(new_block), new_block)' in thread
+    assert 'player_profile_input_request.write_input ? &player_profile_input_request.input : NULL' in thread
+    # the default profiles, rewritten at every launch, keep their extension as well
     defaults = source[source.index('player_profile_create_default_profiles_on_disk(\n\tvoid)\n{'):]
     assert 'PLAYER_INPUT_REGION_OFFSET' in defaults[:defaults.index('player_profile_write(\n\tlong')]

@@ -218,40 +218,42 @@ enum player_input_decode player_input_extension_decode(const unsigned char *regi
 	return _player_input_present;
 }
 
+/* a record, if there is room for it before the end of the payload */
+static unsigned char *emit(unsigned char *at, const unsigned char *end, unsigned char tag, unsigned char size,
+	const unsigned char *value)
+{
+	if (at + 2 + size > end)
+		return at;
+	*at++ = tag;
+	*at++ = size;
+	memcpy(at, value, size);
+	return at + size;
+}
+
 void player_input_extension_encode(const struct player_input_extension *extension, unsigned char *region)
 {
-	unsigned char *payload = region + HEADER_SIZE, *at = payload;
+	unsigned char *payload = region + HEADER_SIZE, *at = payload, *end = region + PLAYER_INPUT_REGION_SIZE;
 	const struct player_input_profile *values = &extension->values;
+	unsigned char value[BINDINGS_SIZE];
 	unsigned long crc;
 	int action, slot;
 
 	memset(region, 0, PLAYER_INPUT_REGION_SIZE);
-	*at++ = TAG_MOUSE_SENSITIVITY;
-	*at++ = 2;
-	write_u16(at, values->mouse_sensitivity);
-	at += 2;
-	*at++ = TAG_MOUSE_VERTICAL;
-	*at++ = 2;
-	write_u16(at, values->mouse_vertical_sensitivity);
-	at += 2;
-	*at++ = TAG_INVERT_MOUSE;
-	*at++ = 1;
-	*at++ = values->invert_mouse != 0;
-	*at++ = TAG_MOUSE_AIM_ASSIST;
-	*at++ = 1;
-	*at++ = values->mouse_aim_assist != 0;
-	*at++ = TAG_BINDINGS;
-	*at++ = BINDINGS_SIZE;
-	for (action = 0; action < PLAYER_INPUT_BINDING_ACTIONS; action++)
-	{
-		for (slot = 0; slot < PLAYER_INPUT_BINDING_SLOTS; slot++)
-		{
-			write_u16(at, values->bindings[action][slot]);
-			at += 2;
-		}
-	}
+	/* what a newer build wrote comes first and in full: if the region cannot hold it with ours, ours give way */
 	memcpy(at, extension->unknown, extension->unknown_length);
 	at += extension->unknown_length;
+	write_u16(value, values->mouse_sensitivity);
+	at = emit(at, end, TAG_MOUSE_SENSITIVITY, 2, value);
+	write_u16(value, values->mouse_vertical_sensitivity);
+	at = emit(at, end, TAG_MOUSE_VERTICAL, 2, value);
+	value[0] = values->invert_mouse != 0;
+	at = emit(at, end, TAG_INVERT_MOUSE, 1, value);
+	value[0] = values->mouse_aim_assist != 0;
+	at = emit(at, end, TAG_MOUSE_AIM_ASSIST, 1, value);
+	for (action = 0; action < PLAYER_INPUT_BINDING_ACTIONS; action++)
+		for (slot = 0; slot < PLAYER_INPUT_BINDING_SLOTS; slot++)
+			write_u16(value + (action * PLAYER_INPUT_BINDING_SLOTS + slot) * 2, values->bindings[action][slot]);
+	at = emit(at, end, TAG_BINDINGS, BINDINGS_SIZE, value);
 	crc = crc32_of(payload, (size_t)(at - payload));
 	region[0] = MAGIC_0;
 	region[1] = MAGIC_1;
@@ -259,13 +261,45 @@ void player_input_extension_encode(const struct player_input_extension *extensio
 	region[3] = MAGIC_3;
 	write_u16(region + 4, extension->container_version > CONTAINER_VERSION ? extension->container_version :
 		CONTAINER_VERSION);
-	/* (a record whose reader version is past ours is never rewritten: see _player_input_newer) */
 	write_u16(region + 6, MINIMUM_READER_VERSION);
 	write_u16(region + 8, (unsigned short)(at - payload));
 	region[10] = (unsigned char)(crc & 0xFF);
 	region[11] = (unsigned char)((crc >> 8) & 0xFF);
 	region[12] = (unsigned char)((crc >> 16) & 0xFF);
 	region[13] = (unsigned char)((crc >> 24) & 0xFF);
+}
+
+int player_input_block_merge(const unsigned char *old_block, const unsigned char *base,
+	const struct player_input_profile *input, unsigned char *block)
+{
+	unsigned char *region = block + PLAYER_INPUT_REGION_OFFSET;
+
+	if (!base && !old_block)
+		return 0;
+	memset(block, 0, PLAYER_INPUT_REGION_OFFSET + PLAYER_INPUT_REGION_SIZE);
+	memcpy(block, base ? base : old_block, PLAYER_INPUT_REGION_OFFSET);
+	if (input)
+	{
+		struct player_input_extension extension;
+
+		player_input_extension_defaults(&extension);
+		if (old_block &&
+			player_input_extension_decode(old_block + PLAYER_INPUT_REGION_OFFSET, &extension) == _player_input_newer)
+		{
+			/* a format this build cannot interpret: its settings are kept, these are not saved */
+			memcpy(region, old_block + PLAYER_INPUT_REGION_OFFSET, PLAYER_INPUT_REGION_SIZE);
+		}
+		else
+		{
+			extension.values = *input;
+			player_input_extension_encode(&extension, region);
+		}
+	}
+	else if (old_block)
+	{
+		memcpy(region, old_block + PLAYER_INPUT_REGION_OFFSET, PLAYER_INPUT_REGION_SIZE);
+	}
+	return 1;
 }
 
 /* ---------- settings by name */
