@@ -555,7 +555,7 @@ def fake_open(monkeypatch, stdout, stderr, status=0):
 
     monkeypatch.setattr(mac_run.subprocess, "Popen", Opener)
     monkeypatch.setattr(mac_run, "native_pids", lambda app: [])
-    monkeypatch.setattr(mac_run, "console_user", lambda: "steve")
+    monkeypatch.setattr(mac_run, "console_user", lambda: "player")
 
 
 def test_launch_native_copies_the_open_logs_into_out_and_replaces_the_old_ones(tmp_path, monkeypatch):
@@ -607,21 +607,21 @@ def test_wait_for_previous_instance_is_silent_when_nothing_runs(capsys):
 def test_open_failure_prints_open_s_stderr_not_the_login_hint(tmp_path):
     (tmp_path / "open-stderr.log").write_text(
         "The application cannot be opened.\nRBSRequestErrorDomain Code=5 (POSIX 162)\n")
-    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="steve")
+    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="player")
     assert "RBSRequestErrorDomain Code=5" in message
     assert "RBS/launchd error text" in message
     assert "logged in" not in message
 
 
 def test_open_failure_gives_the_login_hint_only_without_a_console_user(tmp_path):
-    for user, hinted in (("root", True), ("loginwindow", True), ("steve", False)):
+    for user, hinted in (("root", True), ("loginwindow", True), ("player", False)):
         message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user=user)
         assert ("nobody is logged in" in message) is hinted
         assert "open wrote nothing to stderr" in message
 
 
 def test_open_failure_reports_free_space(tmp_path):
-    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="steve")
+    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="player")
     assert "free space on the data volume:" in message
 
 

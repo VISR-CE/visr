@@ -242,7 +242,7 @@ static void hand_built_table_turns_damage_off(void)
 	assert(t.damage_measure_version == 1);
 }
 
-/* Steve, 2026-10-26: the main menu's art (the big HALO logo, ui\\shell\\...) is upscaled; the in-game HUD (ui\\hud\\...,
+/* 2026-10-26: the main menu's art (the big HALO logo, ui\\shell\\...) is upscaled; the in-game HUD (ui\\hud\\...,
    replaced by its own high-resolution art) and bitmaps in formats the upscaler cannot read stay original */
 static void main_menu_art(void)
 {

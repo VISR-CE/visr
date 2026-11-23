@@ -379,7 +379,7 @@ static void check_unprofiled_models(const char *shipped)
 {
 	struct host_profile profile;
 
-	/* iPhone 15 Pro Max (A17 Pro, 120 Hz): its own profile, 120 in a predictable workload (Steve, 2026-10-27). */
+	/* iPhone 15 Pro Max (A17 Pro, 120 Hz): its own profile, 120 in a predictable workload (2026-10-27). */
 	profile = resolve_model(shipped, "ios", "iPhone16,2", 9, 7655, 2796, 1290, 120);
 	assert(!profile.inherited && !strcmp(profile.model_file, "iphone-15-pro.toml") && has(&profile, "display.frame_rate", "120"));
 	/* iPhone 16 (A18, 5-core GPU): the A17 Pro profile just below it, inside its 60 Hz and pixel envelope. */
@@ -402,7 +402,7 @@ static void check_unprofiled_models(const char *shipped)
 	assert(!profile.model_file[0] && !strcmp(profile.class_file, "iphone-ipad.toml") &&
 		has(&profile, "display.render_height", "720") &&
 		has(&profile, "display.frame_rate", "30"));
-	/* iPhone 17 (120 Hz): matched by the 15 Pro's profile, 120 in a predictable workload (Steve, 2026-10-27). */
+	/* iPhone 17 (120 Hz): matched by the 15 Pro's profile, 120 in a predictable workload (2026-10-27). */
 	profile = resolve_model(shipped, "ios", "iPhone18,3", 10, 7600, 2622, 1206, 120);
 	assert(!profile.inherited && !strcmp(profile.model_file, "iphone-15-pro.toml") && has(&profile, "display.frame_rate", "120"));
 	/* iPhone 16 Pro (A18 Pro, 120 Hz): matched by the 15 Pro's profile itself, 120 in a predictable workload. */
@@ -436,7 +436,7 @@ static void check_unprofiled_models(const char *shipped)
 	/* iPad Air 5 (M1) shares the measured iPad Pro chip. */
 	profile = resolve_model(shipped, "ios", "iPad13,16", 7, 7600, 2360, 1640, 60);
 	assert(profile.inherited && !strcmp(profile.model_file, "ipad-pro-m1.toml"));
-	/* Upscaled textures on Apple TVs (Steve, 2026-10-25): on for the 4K 3rd generation and anything newer, off for
+	/* Upscaled textures on Apple TVs (2026-10-25): on for the 4K 3rd generation and anything newer, off for
 	   the HD, the 4K 1st generation and the 4K 2nd generation, whose value is the Apple TV class's. */
 	profile = resolve_model(shipped, "tvos", "AppleTV14,1", 8, 4096, 3840, 2160, 60);
 	assert(!profile.inherited && !strcmp(profile.model_file, "apple-tv-4k-3rd.toml") && has(&profile, "display.upscaled_textures", "true"));

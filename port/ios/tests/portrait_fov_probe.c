@@ -24,7 +24,7 @@ int main(void)
 	check(2, duo, base, 70.0f, 89.7f);   /* the 4:3 view's width */
 	check(3, duo, base, 73.5f, 93.0f);   /* match landscape, past 90 vertical */
 
-	/* the default (empty or unset) is horizontal minimum, Steve's pick; hold is the override */
+	/* the default (empty or unset) is horizontal minimum, the chosen default; hold is the override */
 	assert(portrait_fov_mode_from_name(NULL) == 1);
 	assert(portrait_fov_mode_from_name("") == 1);
 	assert(portrait_fov_mode_from_name("horizontal_minimum") == 1);

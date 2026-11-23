@@ -35,7 +35,7 @@ FILE_ONLY_PLAYER = {
     'display.immersive', 'display.stereo', 'display.theater_width', 'display.theater_distance',
     'display.theater_environment', 'input.aim', 'input.aim_hand',
     # TODO(comfort and aim design, phase 2): input.comfort's COMFORT row replaces these five, which then become
-    # tuning overrides (decided by the coordinator, may be revisited); display.screen_framing waits on Steve
+    # tuning overrides (decided by the coordinator, may be revisited); display.screen_framing waits on a decision
     'input.turn', 'input.snap_angle', 'input.smooth_turn_speed', 'input.comfort_vignette',
     'display.stereo_vehicle_screen', 'display.screen_framing',
     # input

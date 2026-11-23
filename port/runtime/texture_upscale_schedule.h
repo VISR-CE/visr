@@ -1,12 +1,12 @@
 /* When the on-device upscaler may run (spec 2026-10-24-halo-ce-ios-on-device-upscaling-design.md, "When it runs",
-and Steve's rules of 2026-10-24): the profile is asked first, and gameplay always wins. Header-only, so a host
+and the rules of 2026-10-24): the profile is asked first, and gameplay always wins. Header-only, so a host
 probe can check the rules without the app. */
 #pragma once
 #include <string.h>
 #include <stdio.h>
 #include "stock_maps.h"
 
-/* The order the work goes through the maps: the main menu's map first (Steve, 2026-10-26: the main menu's textures
+/* The order the work goes through the maps: the main menu's map first (2026-10-26: the main menu's textures
    are the first thing the player sees, so they are made before anything else), then the campaign in order, then the
    multiplayer maps, then community maps by name. base is the map's file name without folder or extension, lowercase. */
 #define TEXTURE_UPSCALE_MENU_MAP "ui"
@@ -224,7 +224,7 @@ static inline double texture_upscale_activity_wait(const struct texture_upscale_
 	return -1;
 }
 
-/* The pre-level wait (spec 2026-10-04's "Upscaling assets", kept by Steve on 2026-10-24): what the loading
+/* The pre-level wait (spec 2026-10-04's "Upscaling assets", kept on 2026-10-24): what the loading
    screen shows while a level's missing textures are made before its load. */
 enum texture_upscale_level_wait
 {

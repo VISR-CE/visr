@@ -1,6 +1,6 @@
 /* The device profile's workload context (port/linux/game/workload_context.h): which games are predictable
  * (single-player campaign and small LAN co-op at standard settings) and which variable, with the reason the log
- * gives. Steve's rules of 2026-10-26: split screen is variable for now; LAN co-op is predictable at 1x with four
+ * gives. The rules of 2026-10-26: split screen is variable for now; LAN co-op is predictable at 1x with four
  * players or fewer; online co-op, multiplayer maps and any enemy multiplier are variable. */
 #include "workload_context.h"
 #include <assert.h>

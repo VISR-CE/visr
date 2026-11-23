@@ -347,7 +347,7 @@ def test_menu_screen_matches_the_drawn_screen(probe, sequence):
 
 
 def test_duo_outer_landscape_zooms_below_one(probe):
-    """The case Steve saw: the margins alone would cover only the zoom's share of the width."""
+    """The reported case: the margins alone would cover only the zoom's share of the width."""
     output = subprocess.check_output([str(probe), DUO_OUTER_LANDSCAPE], text=True)
     zoom = float(output.split("zoom ")[1].split()[0])
     assert zoom == pytest.approx(712 * (1 - 2 * 0.1239) / 640, abs=0.002)
