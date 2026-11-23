@@ -204,7 +204,7 @@ lan_lobby = "LAN LOBBY"
 text = "BACK"
 
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_x]
-text = "DIRECT IP"
+text = "IP ADDRESS"
 
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_y]
 text = "CREATE"

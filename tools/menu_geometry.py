@@ -50,7 +50,7 @@ DROPDOWN_PITCH = 52
 # and then trims padding, so the four slots fit the screen.
 BAR_FONT = 'ui\\large_ui'
 BAR_SLOTS = 'xyba'
-BAR_WIDEST = {'a': 'START GAME', 'b': 'CANCEL', 'y': 'CREATE GAME', 'x': 'DEFAULTS'}
+BAR_WIDEST = {'a': 'START GAME', 'b': 'CANCEL', 'y': 'CREATE GAME', 'x': 'IP ADDRESS'}
 BAR_RIGHT = 592
 BAR_SCREEN_RIGHT = 628
 BAR_LEFT_MARGIN = 12

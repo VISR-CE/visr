@@ -1940,7 +1940,7 @@ def browser_layout(root, widgets, bitmaps):
     widget(root, base + '/browser_join_caption', type='text', width=106, height=26,
            font=r'ui\large_ui', color='#4aa8ff')
     # IP ADDRESS and CREATE are screen-wide actions, BACK the way back (the engine places the bar)
-    bar(screen, [('x', 'global', 'DIRECT IP', {'run': 'port browser ip open'}),
+    bar(screen, [('x', 'global', 'IP ADDRESS', {'run': 'port browser ip open'}),
                  ('y', 'global', 'CREATE', {'run': 'join controller to mp game'}),
                  ('b', 'back', 'BACK', {'run': 'gamespy back handler'})])
 

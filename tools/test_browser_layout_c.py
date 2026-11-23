@@ -258,7 +258,6 @@ def test_browser_controller_navigation(tmp_path):
         "static boolean browser_chips_navigation(",
         "static boolean browser_rows_navigation(",
         "static boolean browser_detail_navigation(",
-        "static boolean browser_legend_navigation(",
     )
     production = "\n".join(function(source, signature) for signature in signatures)
     harness = r'''
@@ -371,7 +370,7 @@ int main(void)
         assert(list->focused_child==&rows[5] && screen.focused_child==list);
     }
     browser_rows_navigation(&rows[5],TRUE);
-    assert(screen.focused_child==&sections[3] && sections[3].focused_child==&legend[0]);
+    assert(screen.focused_child==list && list->focused_child==&rows[5]);
     assert(lobby_browser.first==3 && lobby_browser.chosen==8);
     browser_chips_navigation(&legend[0]);
     assert(screen.focused_child==list && list->focused_child==&rows[5]);
@@ -412,33 +411,10 @@ int main(void)
     list->focused_child=NULL; lobby_browser.chosen=0; expected_post_row=&rows[0];
     browser_c_focus(&chips[2]); browser_ready_post(list);
     assert(posts==3 && list->focused_child==&rows[0]);
+    /* With no games the chips' down stays on the chips (the actions are the engine's bar, not focus targets). */
     lobby_browser.count=0;
     browser_chips_navigation(&chips[0]);
-    assert(screen.focused_child==&sections[3] && sections[3].focused_child==&legend[0]);
-    browser_chips_navigation(&legend[0]);
     assert(screen.focused_child==&sections[0] && sections[0].focused_child==&chips[0]);
-    struct event_record event={.type=0,.data.button.index=_gamepad_binary_button_dpad_right};
-    for (int i=0;i<3;i++)
-    {
-        browser_legend_navigation(&legend[i],&event);
-        assert(sections[3].focused_child==&legend[(i+1)%3]);
-    }
-    event.data.button.index=0;
-    for (int i=0;i<3;i++)
-    {
-        browser_legend_navigation(&legend[i],&event);
-        assert(sections[3].focused_child==&legend[(i+2)%3]);
-    }
-    event.type=EVENT_LEFT_STICK; event.data.stick.x=1;
-    browser_legend_navigation(&legend[2],&event); assert(sections[3].focused_child==&legend[0]);
-    event.data.stick.x=-1;
-    browser_legend_navigation(&legend[0],&event); assert(sections[3].focused_child==&legend[2]);
-    /* Touch hides BACK (the chevron does it), so the cycle steps past it. */
-    legend[2].visible=FALSE;
-    event.data.stick.x=1;
-    browser_legend_navigation(&legend[1],&event); assert(sections[3].focused_child==&legend[0]);
-    event.data.stick.x=-1;
-    browser_legend_navigation(&legend[0],&event); assert(sections[3].focused_child==&legend[1]);
 }
 '''
     _compile_probe(tmp_path, "browser_navigation", harness.replace("/* PRODUCTION */", production))
