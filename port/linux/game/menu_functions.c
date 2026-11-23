@@ -7639,25 +7639,30 @@ static void menu_ready_shot_poll(void)
 	}
 }
 
-/* "menus: screen up <name> at frame N", once each time the active screen is a new one (a screen loaded, or a go-back to an
-earlier one): the capture harness reads it to know a shot was taken with its screen up and loaded, with any input (pointer
-runs set no debug.menu_ready_shot). Cheap: one pointer compare per pump. */
+/* "menus: screen up <name> at frame N" each time the active screen is a new instance (a screen loaded, or an earlier one
+reloaded), and "menus: screen down at frame N" when none is active: the capture harness reads them to know a shot was taken with
+its screen up and loaded, with any input (pointer runs set no debug.menu_ready_shot). An instance is its address, definition tag
+and creation time, so a widget reallocated at a freed one's address is still new. One compare per pump, no per-frame lines. */
 static void menu_screen_up_log(void)
 {
 	static struct widget_instance *last_screen;
-	static long last_tag = NONE;
+	static long last_tag = NONE, last_created;
 	struct widget_instance *screen = ui_widget_port_active_screen(0);
 
-	if (screen == last_screen && (!screen || screen->definition_tag_index == last_tag))
+	if (screen == last_screen && (!screen ||
+		(screen->definition_tag_index == last_tag && screen->creation_time == last_created)))
 		return;
 	last_screen = screen;
 	last_tag = screen ? screen->definition_tag_index : NONE;
+	last_created = screen ? screen->creation_time : 0;
 	if (screen)
 	{
 		char const *name = tag_get_name(screen->definition_tag_index);
 
 		platform_log("menus: screen up %s at frame %lu", name ? name : "?", platform_clock_frames());
 	}
+	else
+		platform_log("menus: screen down at frame %lu", platform_clock_frames());
 }
 
 /* (Apple builds; every pump, sdl_platform.c) the jump a link at launch is
@@ -7666,10 +7671,10 @@ void menu_invite_poll(void)
 {
 	struct widget_instance *screen;
 
+	menu_screen_up_log();   /* before the gate: a game's start and end are logged too */
 	if (!main_port_main_menu_loaded())
 		return;
 	menus_seen = TRUE;
-	menu_screen_up_log();
 	if (ui_widget_port_active_screen(0))
 	{
 		posix_invite_menu_ready();

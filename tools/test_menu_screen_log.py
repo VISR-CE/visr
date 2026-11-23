@@ -14,8 +14,8 @@ HARNESS = r'''
 #include <stdio.h>
 #include <stdarg.h>
 #define NONE (-1)
-struct widget_instance { long definition_tag_index; };
-static struct widget_instance a = {1}, b = {2}, *active;
+struct widget_instance { long definition_tag_index; long creation_time; };
+static struct widget_instance a = {1, 100}, b = {2, 200}, a2 = {1, 300}, *active;
 static unsigned long frames;
 struct widget_instance *ui_widget_port_active_screen(short p) { (void)p; return active; }
 char *tag_get_name(long t) { return t == 1 ? "ui\\shell\\main_menu" : t == 2 ? "ui\\shell\\settings" : 0; }
@@ -24,8 +24,8 @@ void platform_log(char const *f, ...) { va_list v; va_start(v, f); vprintf(f, v)
 %s
 int main(void)
 {
-	struct widget_instance *script[] = { 0, &a, &a, &b, &b, 0, &a };
-	for (int i = 0; i < 7; i++) { frames = 10 * i; active = script[i]; menu_screen_up_log(); }
+	struct widget_instance *script[] = { 0, &a, &a, &b, &b, 0, &a, &a2 };
+	for (int i = 0; i < 8; i++) { frames = 10 * i; active = script[i]; menu_screen_up_log(); }
 	return 0;
 }
 '''
@@ -46,9 +46,12 @@ def test_logs_once_per_new_screen():
     assert lines == [
         "menus: screen up ui\\shell\\main_menu at frame 10",
         "menus: screen up ui\\shell\\settings at frame 30",
+        "menus: screen down at frame 50",
         "menus: screen up ui\\shell\\main_menu at frame 60",
+        "menus: screen up ui\\shell\\main_menu at frame 70",
     ]
 
 
 def test_polled_by_the_menu_pump():
-    assert "menu_screen_up_log();" in SOURCE[SOURCE.index("void menu_invite_poll"):]
+    poll = SOURCE[SOURCE.index("void menu_invite_poll"):]
+    assert poll.index("menu_screen_up_log();") < poll.index("main_port_main_menu_loaded()")   # before the gate
