@@ -309,13 +309,14 @@ DEFAULTS = {
 }
 
 
-def reset_settings(documents, screenshot_every, dump_shaders, replay):
+def reset_settings(documents, screenshot_every, dump_shaders, replay, screenshot_clock="frames"):
     """the settings of a run before its --set ones: requested outputs go into
     runner/, the rest are off, and everything else is at its default"""
     runner = Path(documents) / "runner"
     return {
         **DEFAULTS,
         "debug.screenshot_every": str(screenshot_every),
+        "debug.screenshot_clock": f'"{screenshot_clock}"',
         "debug.screenshot_directory": f'"{runner}/shots"' if screenshot_every else '""',
         "debug.gpu_dump_shaders": f'"{runner}/shaders"' if dump_shaders else '""',
         "debug.gpu_shader_replay": f'"{runner}/replay"' if replay else '""',
@@ -1047,7 +1048,8 @@ def prepare(args, documents, rewrite=False):
     if args.replay:
         shutil.copytree(args.replay, runner / "replay",
                         ignore=lambda folder, names: [n for n in names if not n.endswith((".vsh", ".key"))])
-    settings = reset_settings(documents, args.screenshot_every, args.dump_shaders, bool(args.replay))
+    settings = reset_settings(documents, args.screenshot_every, args.dump_shaders, bool(args.replay),
+                              getattr(args, "screenshot_clock", "frames"))
     if getattr(args, "record_shader_lists", False):
         settings["debug.shader_list_record"] = f'"{runner}/shader-lists"'
     settings["debug.exit_after"] = f"{float(args.exit_after)}"
@@ -1718,7 +1720,11 @@ def main():
                                  "it, 90 minutes by default) and its journal, runs and report.json land in OUT/benchmark")
     run_parser.add_argument("--init", action="append", default=[], metavar="COMMAND",
                             help="a console command for init.txt, e.g. 'map_name a10' (repeatable)")
-    run_parser.add_argument("--screenshot-every", type=int, default=0, metavar="FRAMES")
+    run_parser.add_argument("--screenshot-every", type=int, default=0, metavar="N")
+    run_parser.add_argument("--screenshot-clock", choices=("frames", "ticks"), default="frames",
+                            help="what --screenshot-every counts (debug.screenshot_clock): presented frames from launch "
+                                 "(frameNNNNN, the default) or game ticks (tickNNNNN). Use ticks to compare launches of one "
+                                 "replay: the frames before the game starts vary between launches, the ticks do not")
     run_parser.add_argument("--dump-shaders", action="store_true")
     run_parser.add_argument("--record-shader-lists", action="store_true",
                             help="append the shaders and pipelines made while drawing to runner/shader-lists/MAP.txt "

@@ -2004,6 +2004,12 @@ static const struct config_setting config_settings[] =
 	{ "debug.screenshot_frames", _config_string, "\"\"", "HALO_SCREENSHOT_FRAMES", _environment_value, _platform_all,
 		"With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them);\n"
 		"empty saves every one." },
+	{ "debug.screenshot_clock", _config_string, "\"frames\"", "HALO_SCREENSHOT_CLOCK", _environment_value, _platform_all,
+		"What debug.screenshot_every counts. \"frames\" (default): presented frames\n"
+		"from launch, named frameNNNNN. \"ticks\": game ticks, named tickNNNNN, only\n"
+		"in a game, so two launches of one replay with debug.fixed_timestep save the\n"
+		"same moments under the same names however long their menus and loading\n"
+		"took; debug.screenshot_frames then names ticks." },
 	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
 		_platform_all,
 		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },

@@ -47,6 +47,9 @@ with their unit, and with what it rides.
 #include "../src/input_replay.h"
 #include "interpolation_lead.h"
 
+/* main.c */
+boolean main_port_main_menu_loaded(void);
+
 /* port/linux/src/port_config.c */
 int config_boolean(const char *name);
 unsigned long config_changes(void);
@@ -551,6 +554,13 @@ void render_interpolation_clock_read(void)
 	loop_frame++;
 	loop_clock_read_milliseconds = halo_frame_trace_milliseconds();
 	loop_frame_ticked = FALSE;
+}
+
+/* the game tick the frame being drawn shows, -1 outside a game: debug.screenshot_clock = "ticks" names shots by it
+(port/linux/src/screenshot_schedule.h) */
+long render_interpolation_shown_tick(void)
+{
+	return game_time_initialized() && game_in_progress() && !main_port_main_menu_loaded() ? game_time_get() : -1;
 }
 
 void render_interpolation_next_frame_due(unsigned long microseconds)
