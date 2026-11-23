@@ -165,9 +165,9 @@ const struct menu_file_embedded menu_files_embedded[] =
 {
 	{ "xbox/patches.xml", (const unsigned int *)patches_xml, sizeof(patches_xml) - 1 },
 	{ "xbox/test.xml", (const unsigned int *)screen_xml, sizeof(screen_xml) - 1 },
-	{ "ce/probe.xml", (const unsigned int *)pc_xml, sizeof(pc_xml) - 1 },
+	{ "sources/probe.xml", (const unsigned int *)pc_xml, sizeof(pc_xml) - 1 },
 	{ "xbox/art/shipped.png", (const unsigned int *)shipped_png, 1 },
-	{ "ce/language.xml", (const unsigned int *)language_xml, sizeof(language_xml) - 1 },
+	{ "sources/language.xml", (const unsigned int *)language_xml, sizeof(language_xml) - 1 },
 };
 const unsigned int menu_files_embedded_count = 5;
 
@@ -1512,9 +1512,9 @@ static void language_probe(char const *name)
 		char path[400];
 		FILE *file;
 
-		snprintf(path, sizeof(path), "mkdir -p '%smenus/ce'", folder);
+		snprintf(path, sizeof(path), "mkdir -p '%smenus/sources'", folder);
 		check(system(path) == 0, "the folder is made");
-		snprintf(path, sizeof(path), "%smenus/ce/language.xml", folder);
+		snprintf(path, sizeof(path), "%smenus/sources/language.xml", folder);
 		file = fopen(path, "w");
 		check(file != NULL, "the mismatched pipe list is written");
 		if (file)

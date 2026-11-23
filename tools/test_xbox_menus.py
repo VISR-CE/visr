@@ -24,13 +24,13 @@ def generator():
 
 
 def looks():
-    """The generator's source rows written out as files under `ce/`, beside the generated `xbox/`: the tests that
+    """The generator's source rows written out as files under `sources/`, beside the generated `xbox/`: the tests that
     compare a screen with its source read both the same way."""
     folder = Path(tempfile.mkdtemp())
-    (folder / 'ce').mkdir()
+    (folder / 'sources').mkdir()
     module = generator()
     for name in module.source_names():
-        (folder / 'ce' / name).write_text(ET.tostring(module.source(name), encoding='unicode'), encoding='utf-8')
+        (folder / 'sources' / name).write_text(ET.tostring(module.source(name), encoding='unicode'), encoding='utf-8')
     (folder / 'xbox').symlink_to(MENUS / 'xbox')
     return folder
 
@@ -83,14 +83,14 @@ def test_generation_is_deterministic_and_checked_in(tmp_path):
         for frame in ET.parse(file).iter('frame'):
             assert frame.get('png') in manifest
     assert manifest == module.manifest_files(assets)
-    assert not [name for name in manifest if name.startswith('ce/') and name.endswith('.xml')]
+    assert not [name for name in manifest if name.startswith('sources/') and name.endswith('.xml')]
     assert 'pictures/port/pause/pausebox_center__1.png' in manifest
 
 
 def test_settings_keep_pc_values_and_handlers():
     module = generator()
     for folder in module.PAGES:
-        source = ET.parse(LOOKS / 'ce' / f'{module.PE.replace("/", ".")}.{folder}.xml')
+        source = ET.parse(LOOKS / 'sources' / f'{module.PE.replace("/", ".")}.{folder}.xml')
         output = ET.parse(MENUS / 'xbox' / f'settings.{folder}.xml')
         expected = {w.get('setting'): (w.get('values'), w.get('strings'))
                     for w in source.iter('widget') if w.get('setting')
@@ -213,7 +213,7 @@ MP_FILES = tuple('main_menu.multiplayer_type_select.' + name for name in (
 def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
     module = generator()
     for filename in MP_FILES:
-        source = ET.parse(LOOKS / 'ce' / (filename + '.xml'))
+        source = ET.parse(LOOKS / 'sources' / (filename + '.xml'))
         path = MENUS / 'xbox' / (filename + '.xml')
         assert path.is_file(), filename
         output = ET.parse(path)
@@ -319,7 +319,7 @@ def test_browser_uses_density_row_list_and_description_panel():
 
 def test_browser_retains_map_names_at_the_c_updaters_lookup_paths():
     shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
-    original = ET.parse(LOOKS / 'ce/strings.xml')
+    original = ET.parse(LOOKS / 'sources/strings.xml')
     for name in ('main_menu/map_list', 'main_menu/mp_map_list'):
         expected = original.find(f'strings[@name="{name}"]')
         actual = shared.find(f'strings[@name="xbox/{name}"]')
@@ -827,7 +827,7 @@ def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
     data = root.find(f'widget[@name="{base}/mp_map_right_data"]')
     counts = root.find(f'strings[@name="{data.get("string_list")}"]')
     assert counts is not None
-    source = ET.parse(LOOKS / 'ce/strings.xml').find(
+    source = ET.parse(LOOKS / 'sources/strings.xml').find(
         'strings[@name="main_menu/multiplayer_type_select/mp_map_select/map_data"]')
     assert len(counts) == len(source)
     for actual, original in zip(counts, source):
@@ -839,12 +839,12 @@ def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
     assert panel.find('child[@widget="xbox/main_menu/solo_level_select/replay_level_right_data"]') is not None
     shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
     campaign = shared.find('strings[@name="xbox/main_menu/solo_level_select/map_data"]')
-    pc_campaign = ET.parse(LOOKS / 'ce/strings.xml').find(
+    pc_campaign = ET.parse(LOOKS / 'sources/strings.xml').find(
         'strings[@name="main_menu/solo_level_select/map_data"]')
     assert [s.get('text') for s in campaign] == [s.get('text') for s in pc_campaign]
 
 
-@pytest.mark.parametrize('look', ('ce', 'xbox'))
+@pytest.mark.parametrize('look', ('sources', 'xbox'))
 def test_server_setup_rows_invite_and_gametype_editor(look):
     base = ('xbox/' if look == 'xbox' else '') + 'main_menu/multiplayer_type_select/server_settings'
     root = ET.parse(LOOKS / look / 'main_menu.multiplayer_type_select.server_settings.xml')
@@ -908,7 +908,7 @@ def test_merged_rows_and_bindings():
     import port_settings
     BASE = 'main_menu/multiplayer_type_select/coop_options/'
     NAME = 'main_menu.multiplayer_type_select.coop_options.xml'
-    for look in ('ce', 'xbox'):
+    for look in ('sources', 'xbox'):
         prefix = 'xbox/' if look == 'xbox' else ''
         base = prefix + BASE
         root = ET.parse(LOOKS / look / NAME).getroot()
@@ -934,7 +934,7 @@ def test_merged_rows_and_bindings():
                 for event in ('left', 'right', 'stick_left', 'stick_right'):
                     assert spinner.find(f"on[@event='{event}']").get('run') == 'coop options changed'
         assert widgets[base + 'coop_options_screen'].find("on[@event='created']").get('run') == 'coop options init'
-        if look == 'ce':
+        if look == 'sources':
             action = widgets[base + 'button_ok']
             for event in ('a', 'start'):
                 assert action.find(f"on[@event='{event}']").get('run') == 'coop options save'
@@ -1235,7 +1235,7 @@ def test_graphics_screen_applies_each_change_with_the_modes_help():
 
 def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_row_beneath_it():
     for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
-                       (LOOKS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
+                       (LOOKS / 'sources/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
                         'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
         widgets = settings_widgets(path)
         rows = [c.get('widget').rsplit('/', 1)[-1] for c in widgets[f'{base}/options_menu'].findall('child')]
@@ -1245,7 +1245,7 @@ def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_r
         assert widgets[f'{base}/options_menu'].get('row_pitch'), path
 
 
-@pytest.mark.parametrize('look', ['ce', 'xbox'])
+@pytest.mark.parametrize('look', ['sources', 'xbox'])
 @pytest.mark.parametrize('page', ['video_settings', 'graphics'])
 def test_hires_rows_are_absent_and_remaining_rows_keep_their_layout_and_strings(look, page):
     import port_settings
@@ -1291,7 +1291,7 @@ def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_
     video_settings = {row[1] for row in port_settings.SCREENS['video_settings']['rows']}
     assert {'display.frame_rate', 'display.interpolation'} <= replaced & video_settings
     for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
-                       (LOOKS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
+                       (LOOKS / 'sources/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
                         'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
         root = ET.parse(path).getroot()
         widgets = {w.get('name'): w for w in root.iter('widget')}

@@ -377,7 +377,7 @@ class Art:
                 self.xbox_frames.append((name, tag, XBOX_FRAMES[name]))
                 lines.append(f"\t\t<frame{attributes([('map', tag), ('index', XBOX_FRAMES[name])])}/>")
                 continue
-            png = f"ce/{relative}__{index}.png"
+            png = f"pictures/{relative}__{index}.png"
             self.draw(relative, index, len(data), width, height, MENUS / png, self.shown.get(tag, []))
             self.pngs.append(png)
             lines.append(f"\t\t<frame{attributes([('png', png), ('width', width), ('height', height)])}/>")
