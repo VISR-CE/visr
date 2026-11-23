@@ -12,15 +12,15 @@ Settings app's switch sets (host_texture_settings.m), keeping every other line. 
 #include <stdlib.h>
 #include <string.h>
 
-/* a benchmark suite's launch environment, which wins over the file as it does in the game: HALO_ and the
-key in capitals, bar the two settings the game names otherwise */
+/* the launch's environment (any launch, not only a benchmark suite's), which wins over the file as it does in the
+game: HALO_ and the key in capitals, bar the two settings the game names otherwise */
 static const char *launch_value(const char *name)
 {
-	const char *suite = getenv("HALO_BENCHMARK_SUITE"), *dot = strchr(name, '.');
+	const char *dot = strchr(name, '.');
 	char variable[96];
 	size_t index;
 
-	if (!suite || !*suite || !dot)
+	if (!dot)
 		return NULL;
 	if (!strcmp(name, "display.mode"))
 		return getenv("HALO_DISPLAY_MODE");
@@ -146,7 +146,7 @@ int host_config_graphics_mode(void)
 	return graphics_mode_effective(mode < 0 ? GRAPHICS_MODE_ENHANCED : mode, head);
 }
 
-/* section.key's value text: a benchmark suite's launch environment, then the graphics mode where it replaces
+/* section.key's value text: the launch's environment, then the graphics mode where it replaces
 the setting, then config.toml */
 static int config_value(const char *name, char *value, size_t size)
 {
