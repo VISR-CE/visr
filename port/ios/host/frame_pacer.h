@@ -35,6 +35,8 @@ counted: every refresh at 60 Hz, every other at 120. */
 #pragma once
 
 #include <math.h>
+#include <stdatomic.h>
+#include <stdint.h>
 #include <string.h>
 
 /* ---------- frames in flight */
@@ -820,6 +822,41 @@ struct frame_pacer_extended_frames
 		struct frame_pacer_extended_frame frame;
 	} places[FRAME_PACER_EXTENDED_FRAMES];
 };
+
+/* each frame's own GPU time, summed by the handlers of its command buffers on other threads: a slot holds the
+frame's number (its low 32 bits, high half) and the nanoseconds so far (low half, saturating). A frame's first
+buffer takes the slot from the frame eight earlier, and a buffer of that earlier frame completing after this is
+counted toward nothing, so a late handler never lands on the frame eight later */
+static inline void frame_pacer_gpu_add(_Atomic uint64_t *slot, unsigned long frame, uint64_t nanoseconds)
+{
+	uint32_t tag = (uint32_t)frame;
+	uint64_t seen = atomic_load(slot);
+
+	for (;;)
+	{
+		uint32_t held = (uint32_t)(seen >> 32);
+		uint64_t sum, next;
+
+		if (held != tag && (int32_t)(tag - held) < 0)
+			return;
+		sum = held == tag ? (seen & 0xffffffffu) + nanoseconds : nanoseconds;
+		next = ((uint64_t)tag << 32) | (sum > 0xffffffffu ? 0xffffffffu : sum);
+		if (atomic_compare_exchange_weak(slot, &seen, next))
+			return;
+	}
+}
+
+/* the frame's sum, and the slot's count starts again; 0 for a frame that never added */
+static inline uint64_t frame_pacer_gpu_take(_Atomic uint64_t *slot, unsigned long frame)
+{
+	uint32_t tag = (uint32_t)frame;
+	uint64_t seen = atomic_load(slot);
+
+	while ((uint32_t)(seen >> 32) == tag)
+		if (atomic_compare_exchange_weak(slot, &seen, (uint64_t)tag << 32))
+			return seen & 0xffffffffu;
+	return 0;
+}
 
 /* a frame at its Present: began, cpu, aim and allowed as struct frame_pacer_extended_frame */
 static inline void frame_pacer_extended_frames_add(struct frame_pacer_extended_frames *frames, unsigned long number,

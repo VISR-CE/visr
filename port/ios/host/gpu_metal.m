@@ -504,10 +504,10 @@ static void frame_gpu_count(unsigned long frame, id<MTLCommandBuffer> completed,
 	CFTimeInterval counted = gpu_busy_count(completed);
 
 	if (counted > 0.0)
-		atomic_fetch_add(&frame_gpu_nanoseconds[frame % FRAME_PACER_EXTENDED_FRAMES], (uint64_t)(counted * 1e9));
+		frame_pacer_gpu_add(&frame_gpu_nanoseconds[frame % FRAME_PACER_EXTENDED_FRAMES], frame, (uint64_t)(counted * 1e9));
 	if (frame_end)
 	{
-		uint64_t nanoseconds = atomic_exchange(&frame_gpu_nanoseconds[frame % FRAME_PACER_EXTENDED_FRAMES], 0);
+		uint64_t nanoseconds = frame_pacer_gpu_take(&frame_gpu_nanoseconds[frame % FRAME_PACER_EXTENDED_FRAMES], frame);
 
 		frame_pacer_frame_finished(frame, counted >= 0.0 ? completed.GPUEndTime : 0.0, (double)nanoseconds / 1e9, waited);
 	}

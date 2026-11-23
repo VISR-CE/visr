@@ -666,6 +666,25 @@ int main(int argc, char **argv)
 			CHECK(unknown.misses == 3 * FRAME_PACER_EXTENDED_LEAD_MISSES && unknown.lead_misses == 0);
 			CHECK(unknown.lead_failed == 0.0 && fabs(frame_pacer_extended_lead(&unknown) - FRAME_PACER_EXTENDED_LEAD) < 1e-12);
 		}
+		/* each frame's GPU sum by its slot's tag: a late buffer of a frame whose slot went to the frame eight later is
+		counted toward nothing, and a take for a frame that never added is 0 */
+		{
+			_Atomic uint64_t slot;
+			unsigned long frame = 13, later = frame + FRAME_PACER_EXTENDED_FRAMES;
+
+			atomic_init(&slot, 0);
+			frame_pacer_gpu_add(&slot, frame, 3000000);
+			frame_pacer_gpu_add(&slot, frame, 2000000);
+			CHECK(frame_pacer_gpu_take(&slot, frame) == 5000000 && frame_pacer_gpu_take(&slot, frame) == 0);
+			frame_pacer_gpu_add(&slot, frame, 1000000);
+			frame_pacer_gpu_add(&slot, later, 4000000);
+			frame_pacer_gpu_add(&slot, frame, 7000000);
+			CHECK(frame_pacer_gpu_take(&slot, frame) == 0 && frame_pacer_gpu_take(&slot, later) == 4000000);
+			CHECK(frame_pacer_gpu_take(&slot, later + FRAME_PACER_EXTENDED_FRAMES) == 0);
+			frame_pacer_gpu_add(&slot, frame + 2 * FRAME_PACER_EXTENDED_FRAMES, 0xffffffffu);
+			frame_pacer_gpu_add(&slot, frame + 2 * FRAME_PACER_EXTENDED_FRAMES, 5);
+			CHECK(frame_pacer_gpu_take(&slot, frame + 2 * FRAME_PACER_EXTENDED_FRAMES) == 0xffffffffu);
+		}
 		/* the frames between Present and shown, by number (what the host keeps): a place goes to the frame
 		FRAME_PACER_EXTENDED_FRAMES later, after which the earlier frame's reports are a frame that is gone */
 		{
