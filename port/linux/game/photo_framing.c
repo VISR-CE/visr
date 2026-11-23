@@ -1,5 +1,6 @@
 /* Numeric framing files shared by photo mode and asset-free native probes. */
 #include "photo_framing.h"
+#include "../../runtime/stock_maps.h"
 #include <ctype.h>
 #include <limits.h>
 #include <math.h>
@@ -93,16 +94,12 @@ int photo_map_key(const char *scenario, int custom, const unsigned char *hash, c
 
 int photo_stock_scenario(const char *name)
 {
-	static const char *stock[] = {
-		"a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40",
-		"beavercreek", "bloodgulch", "boardingaction", "carousel", "chillout", "damnation",
-		"hangemhigh", "longest", "prisoner", "putput", "ratrace", "sidewinder", "wizard"
-	};
 	char key[256];
-	size_t i;
+	const struct stock_map *stock;
 	if (!photo_map_key(name,0,NULL,key,sizeof(key))) return 0;
-	for (i=0;i<sizeof(stock)/sizeof(stock[0]);i++) if (!strcmp(key+6,stock[i])) return 1;
-	return 0;
+	/* (the Xbox disc's levels: its campaign and multiplayer maps) */
+	stock = stock_map_named(key+6, strlen(key+6));
+	return stock && (stock->flags & (STOCK_MAP_CAMPAIGN | STOCK_MAP_XBOX_MULTIPLAYER)) && !strcmp(key+6, stock->file);
 }
 
 static int key_valid(const char *key)

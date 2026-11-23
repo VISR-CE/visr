@@ -115,6 +115,8 @@ double halo_frame_trace_milliseconds(void);
 extern int halo_controller_run_aimed(void);
 extern int halo_controller_aim_configured(void);
 extern int halo_controller_unit_state(float position[3], float *facing_yaw, float *aim_yaw);
+/* debug.benchmark_own_input in force (mp_benchmark_context.c) */
+extern int mp_benchmark_probe_own_input(void);
 
 #define RECORDING_HEADER "halo input recording 1"
 /* how long after the last recorded state a replay ends, in ticks */
@@ -1187,7 +1189,10 @@ void input_replay_filter(XINPUT_GAMEPAD *pad)
 	ticks = game_ticks();
 	if (ticks < 0.0)
 		return;
-	/* the suite: nobody plays; a scene with no recording stands still */
+	/* the suite: nobody plays; a scene with no recording stands still. With debug.benchmark_own_input the
+	controller plays the running game (mp_benchmark_probe_own_input, the same answer the scripted override gives) */
+	if (replay.suite && !*replay.replay_path && mp_benchmark_probe_own_input())
+		return;
 	if (replay.suite && (!*replay.replay_path || replay.replay_finished))
 	{
 		memset(pad, 0, sizeof(*pad));

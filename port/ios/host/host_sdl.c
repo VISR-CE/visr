@@ -11,6 +11,7 @@ so the audio callback is handed to a thread that has one.
 */
 
 #include <mach/mach.h>
+#include <mach/mach_time.h>
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 #if TARGET_OS_VISION
@@ -26,6 +27,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_open_website.h"
 #include "host_frame_pacer.h"
 #include "host_game_thread.h"
+#include "host_controller_age.h"
 #include "host_main_thread.h"
 #include "host_startup.h"
 
@@ -659,10 +661,19 @@ static int synthetic_key(SDL_Event *event)
 static int next_event(SDL_Event *event)
 {
 	if (!host_game_thread_enabled())
-		return SDL_PollEvent(event);
+	{
+		int more = SDL_PollEvent(event);
+
+		host_controller_refreshed();
+		return more;
+	}
 	/* Phase 4 pumps from the main run loop while the game drains events. */
 	if (host_on_main_thread())
 		host_event_pump();
+	else
+		/* the game thread's own poll: SDL reads controller hardware only when asked, so
+		this keeps what the game reads as old as the poll, not as old as the main timer */
+		host_controller_refresh_bounded();
 	return SDL_PeepEvents(event, 1, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST) == 1;
 }
 
@@ -796,15 +807,61 @@ void host_sdl_rumble_hold(int hold)
 	SDL_free(ids);
 }
 
+/* A controller read never waits on the main thread: the main thread can be busy for a long time,
+and the wait sits right before the game uses what it read. The gamepad entry points below run in
+host_main_thread.h's no-wait zone; the first wait made in one is logged as an error. Shared state
+they read is atomic or SDL's own (taken under SDL's joystick lock), never main's. A development build
+stops there (as the GPU owner check does). tools/test_sdl_event_callbacks.py checks the same statically. */
+static void pad_read_begin(void)
+{
+	host_main_wait_forbid();
+}
+
+static void pad_read_end(void)
+{
+	static atomic_int logged;
+
+	host_main_wait_allow();
+	if (host_main_forbidden_waits() && !atomic_exchange(&logged, 1))
+	{
+		host_logf(HOST_LOG_ERROR, "a controller read waited on the main thread (%lu so far): reads must not",
+			host_main_forbidden_waits());
+#ifdef HALO_DEVELOPMENT_HOOKS
+		host_crash("a controller read waited on the main thread");
+#endif
+	}
+}
+
 int host_sdl_get_gamepads(uint32_t *ids, int capacity)
 {
-	return host_ios_gamepads(ids, capacity);
+	int count;
+
+	pad_read_begin();
+	count = host_ios_gamepads(ids, capacity);
+	pad_read_end();
+	return count;
+}
+
+/* The game's controller reads (XInputGetState, the late look's stick read) call this first: the poll's
+2 ms gate and a long frame can leave them a frame behind, and only the game thread can bring the state
+up to date for them (the main thread's pump does, on its timer). */
+void host_sdl_update_joysticks(void)
+{
+	pad_read_begin();
+	if (host_game_thread_enabled() && !host_on_main_thread())
+		host_controller_refresh_for_read();
+	else
+		host_controller_sample();
+	pad_read_end();
 }
 
 uint32_t host_sdl_open_gamepad(uint32_t id)
 {
-	SDL_Gamepad *gamepad = SDL_OpenGamepad((SDL_JoystickID)id);
+	SDL_Gamepad *gamepad;
 
+	pad_read_begin();
+	gamepad = SDL_OpenGamepad((SDL_JoystickID)id);
+	pad_read_end();
 	if (gamepad)
 		host_logf(HOST_LOG_INFO, "gamepad %u: %s (type %d, %04x:%04x)", (unsigned)id, SDL_GetGamepadName(gamepad),
 			(int)SDL_GetGamepadType(gamepad), SDL_GetGamepadVendor(gamepad), SDL_GetGamepadProduct(gamepad));
@@ -819,24 +876,36 @@ uint32_t host_sdl_gamepad_from_id(uint32_t id)
 int host_sdl_gamepad_axis(uint32_t gamepad, int axis)
 {
 	SDL_Gamepad *object = handle_get(gamepad, _handle_gamepad);
+	int value;
 
+	pad_read_begin();
 	/* (at rest while a share sheet is up) */
-	return object && !host_window_up() && !host_audio_output_up() ? host_ios_gamepad_axis(object, axis) : 0;
+	value = object && !host_window_up() && !host_audio_output_up() ? host_ios_gamepad_axis(object, axis) : 0;
+	pad_read_end();
+	return value;
 }
 
 int host_sdl_gamepad_button(uint32_t gamepad, int button)
 {
 	SDL_Gamepad *object = handle_get(gamepad, _handle_gamepad);
+	int value;
 
+	pad_read_begin();
 	/* (none pressed while a share sheet is up) */
-	return object && !host_window_up() && !host_audio_output_up() ? host_ios_gamepad_button(object, button) : 0;
+	value = object && !host_window_up() && !host_audio_output_up() ? host_ios_gamepad_button(object, button) : 0;
+	pad_read_end();
+	return value;
 }
 
 int host_sdl_gamepad_type(uint32_t gamepad)
 {
 	SDL_Gamepad *object = handle_get(gamepad, _handle_gamepad);
+	int type;
 
-	return object ? host_ios_gamepad_type(object) : SDL_GAMEPAD_TYPE_UNKNOWN;
+	pad_read_begin();
+	type = object ? host_ios_gamepad_type(object) : SDL_GAMEPAD_TYPE_UNKNOWN;
+	pad_read_end();
+	return type;
 }
 
 /* The guest's handle can name the virtual pad merging touch and hardware.
@@ -992,11 +1061,51 @@ static void audio_callback_timing(struct audio_binding *binding, int additional,
 
 static __thread struct audio_binding *audio_worker_binding;
 
+/* audio.worker_priority: SDL's own audio thread is time-critical and waits on this worker for each callback's
+sound, so a worker at default priority (below the game thread, which is user-interactive) holds it up whenever
+the cores are busy. "interactive" (default) is the game thread's class, "realtime" a time-constraint policy of
+the device's period (what Core Audio's I/O threads use), "default" leaves the thread alone. */
+static const char *audio_worker_set_priority(void)
+{
+	char mode[24];
+
+	host_config_string("audio.worker_priority", "interactive", mode, sizeof(mode));
+	if (!strcmp(mode, "default"))
+		return "default";
+	if (!strcmp(mode, "realtime"))
+	{
+		mach_timebase_info_data_t timebase;
+		thread_time_constraint_policy_data_t policy;
+		double to_absolute;
+
+		mach_timebase_info(&timebase);
+		to_absolute = 1.0e6 * (double)timebase.denom / (double)timebase.numer; /* absolute units a millisecond */
+		policy.period = (uint32_t)(10.667 * to_absolute);
+		policy.computation = (uint32_t)(2.0 * to_absolute);
+		policy.constraint = (uint32_t)(8.0 * to_absolute);
+		policy.preemptible = 1;
+		{
+			mach_port_t self = mach_thread_self();
+			kern_return_t result = thread_policy_set(self, THREAD_TIME_CONSTRAINT_POLICY, (thread_policy_t)&policy,
+				THREAD_TIME_CONSTRAINT_POLICY_COUNT);
+
+			mach_port_deallocate(mach_task_self(), self);
+			return result == KERN_SUCCESS ? "realtime" : "realtime refused";
+		}
+	}
+	if (strcmp(mode, "interactive"))
+		host_logf(HOST_LOG_WARN, "audio.worker_priority \"%s\" is not default, interactive or realtime; using interactive", mode);
+	return host_thread_interactive() == 0 ? "interactive" : "interactive refused";
+}
+
 static void *audio_thread(void *context)
 {
 	struct audio_binding *binding = context;
 
+	/* (named, so per-thread CPU lists show the game's sound mixing under its own name) */
+	pthread_setname_np("audio mix");
 	audio_worker_binding = binding;
+	host_logf(HOST_LOG_INFO, "audio mix worker priority: %s", audio_worker_set_priority());
 	pthread_mutex_lock(&binding->lock);
 	for (;;)
 	{
@@ -1249,6 +1358,13 @@ uint32_t host_sdl_open_audio_stream(uint32_t device, const void *spec, uint32_t 
 		if (SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(stream), &device_spec, &device_frames))
 			host_logf(HOST_LOG_INFO, "audio device: %d Hz, %d channels, format 0x%x, %d sample frames",
 				device_spec.freq, device_spec.channels, (unsigned)device_spec.format, device_frames);
+		/* a separate line: tools/mac_run.py compares "audio device:" between runners and these values differ per run */
+		{
+			char granted[256];
+
+			host_audio_session_describe(granted, sizeof(granted));
+			host_logf(HOST_LOG_INFO, "audio device timing: %s", granted);
+		}
 	}
 	/* the device starts paused, so no callback can run before this */
 	pthread_mutex_lock(&audio_life_lock);
@@ -1442,6 +1558,22 @@ look and pinch drives it (host_menu_gaze.h); the Apple TV has none, and its
 menus stay as they were. */
 
 static struct host_menu_pointer menu_pointer;
+/* the window's points, and the drawable the picture is fit into (host_picture_drawable, as for touches), else
+the window's pixels */
+static void menu_pointer_note_geometry(SDL_Window *window, int surface_width, int surface_height)
+{
+	float width = 0.0f, height = 0.0f;
+	int pixel_width = 0, pixel_height = 0;
+
+	host_picture_drawable(&width, &height);
+	if (width < 1.0f || height < 1.0f)
+	{
+		host_sdl_window_pixels(window, &pixel_width, &pixel_height);
+		width = (float)pixel_width;
+		height = (float)pixel_height;
+	}
+	host_menu_pointer_set_geometry(&menu_pointer, (float)surface_width, (float)surface_height, width, height);
+}
 static void (*pointer_feedback)(int);
 static void (*pointer_menus_changed)(int);
 
@@ -1557,7 +1689,7 @@ static void menu_pointer_event(const SDL_Event *event)
 		return;
 	}
 	if (window && window_size(window, &width, &height))
-		host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
+		menu_pointer_note_geometry(window, width, height);
 	switch (event->type)
 	{
 	case SDL_EVENT_MOUSE_MOTION:
@@ -1649,7 +1781,8 @@ void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const flo
 	/* each pinch the menus take, as it begins and ends (the move between is the hand's travel) */
 	if (taken && !tracking)
 		host_logf(HOST_LOG_INFO, "menu pointer: a pinch at %.0f, %.0f of %.0f by %.0f points on the menus",
-			gaze.down_x, gaze.down_y, menu_pointer.surface_width, menu_pointer.surface_height);
+			gaze.down_x, gaze.down_y, host_pointer_geometry_snapshot(&menu_pointer.geometry).surface_width,
+			host_pointer_geometry_snapshot(&menu_pointer.geometry).surface_height);
 	else if (tracking && !gaze.tracking)
 		host_logf(HOST_LOG_INFO, "menu pointer: the pinch %s", phase == HOST_MENU_GAZE_CANCELLED ? "was canceled" :
 			menu_pointer.left_clicks > clicks ? "let go without travel: a press" : "let go after a drag");
@@ -1836,7 +1969,7 @@ static void menu_script_run(void)
 		return;
 	if ((menu_script.kind == 6 || menu_script.kind == 7) && menu_script_pinch())
 		return;
-	host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
+	menu_pointer_note_geometry(window, width, height);
 	t = menu_script.kind == 8 ? fminf(1.0f, (float)menu_script.step / 6.0f) :
 		menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
 	x = (menu_script.x0 + (menu_script.x1 - menu_script.x0) * t) * (float)width;

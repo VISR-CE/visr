@@ -1,5 +1,5 @@
 /* texture_override.h: the hash and file checks of debug.texture_override_directory
-(xbox_textures.c), which step-tools/texture-upscale.py's files must pass */
+(xbox_textures.c), which the files of a texture-upscale tool (not in this repository) must pass */
 #include "texture_override.h"
 #include <assert.h>
 #include <stdio.h>

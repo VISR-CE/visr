@@ -21,10 +21,21 @@ static inline void host_lifecycle_wait_set(struct host_lifecycle_wait *wait, _At
 }
 
 /* Only the worker calls this. Timeout also rechecks a clear from a future
-   caller that forgets to signal. Spurious wakes must not release the hold. */
-static inline void host_lifecycle_wait_until_foreground(struct host_lifecycle_wait *wait, _Atomic int *backgrounded)
+   caller that forgets to signal. Spurious wakes must not release the hold.
+   before_waiting (may be NULL) runs once, before any wait, when the hold
+   sees the flag set under the mutex. It runs with the mutex released (the
+   main thread takes it in its notifications and must never block on the game
+   thread); a flag cleared meanwhile is seen by the loop, and one set later is
+   a new hold's. */
+static inline void host_lifecycle_wait_until_foreground(struct host_lifecycle_wait *wait, _Atomic int *backgrounded,
+    void (*before_waiting)(void))
 {
     pthread_mutex_lock(&wait->mutex);
+    if (before_waiting && atomic_load(backgrounded)) {
+        pthread_mutex_unlock(&wait->mutex);
+        before_waiting();
+        pthread_mutex_lock(&wait->mutex);
+    }
     while (atomic_load(backgrounded)) {
         struct timespec deadline;
         clock_gettime(CLOCK_REALTIME, &deadline);

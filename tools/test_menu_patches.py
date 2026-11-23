@@ -33,7 +33,8 @@ def build(directory: Path) -> Path:
     shutil.copytree(ROOT / "port/ios/tests/menu_patch", directory, dirs_exist_ok=True)
     for source in ("port/linux/game/menu_tags.c", "port/linux/src/menu_files.c", "port/linux/src/menu_files.h",
                    "port/linux/src/menu_platform.h", "port/linux/include/halo_menus.h",
-                   "port/linux/include/menu_equivalence.h",
+                   "port/linux/include/menu_equivalence.h", "port/linux/include/menu_geometry.h",
+                   "port/linux/include/halo_menu_meta.h",
                    "port/ios/tests/menu_patch_probe.c"):
         shutil.copy2(ROOT / source, directory)
     binary = directory / "menu_patch_probe"
@@ -82,7 +83,7 @@ def test_menu_patches(tmp_path):
         result = subprocess.run([str(binary), f"language-{language}", str(tmp_path)], capture_output=True, text=True)
         print(result.stdout + result.stderr)
         assert result.returncode == 0, f"menu language probe failed ({language})"
-    for mode in ("apple", "tvos", "compact", "override0", "override1", "bad"):
+    for mode in ("apple", "tvos", "bad"):
         result = subprocess.run([str(binary), mode, str(tmp_path)], capture_output=True, text=True)
         print(result.stdout + result.stderr)
         assert result.returncode == 0, f"menu patch probe failed ({mode})"

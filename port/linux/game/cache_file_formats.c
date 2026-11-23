@@ -2204,6 +2204,79 @@ enum cache_file_status cache_file_resource_maps_needed(
 	return _cache_file_status_ok;
 }
 
+enum cache_file_status cache_file_tag_names(
+	struct cache_file_source *source,
+	cache_file_tag_name_proc visit,
+	void *context)
+{
+	struct cache_file_identity identity;
+	uint8_t *tag_data;
+	uint32_t instances_offset;
+	int32_t tag_count;
+	int32_t tag_index_value;
+	uint32_t scenario_handle;
+	enum cache_file_status status = cache_file_identify(source, &identity);
+
+	if (status == _cache_file_status_ok && identity.format != _cache_file_format_custom_edition_cache)
+	{
+		status = _cache_file_status_unsupported_version;
+	}
+	if (status != _cache_file_status_ok)
+	{
+		return status;
+	}
+	if (identity.tag_data_size < TAG_INDEX_BYTES)
+	{
+		return _cache_file_status_bad_tag_data_range;
+	}
+	tag_data = malloc(identity.tag_data_size);
+	if (!tag_data)
+	{
+		return _cache_file_status_out_of_memory;
+	}
+	if (!source->read(source->context, identity.tag_data_offset, identity.tag_data_size, tag_data))
+	{
+		free(tag_data);
+		return _cache_file_status_read_failed;
+	}
+	status = _cache_file_status_ok;
+	tag_count = read_s32(tag_data + TAG_INDEX_COUNT_OFFSET);
+	instances_offset = read_u32(tag_data + TAG_INDEX_INSTANCES_OFFSET) - CUSTOM_EDITION_TAG_CACHE_ADDRESS;
+	scenario_handle = read_u32(tag_data + TAG_INDEX_SCENARIO_OFFSET);
+	if (read_u32(tag_data + TAG_INDEX_SIGNATURE_OFFSET) != TAG_INDEX_SIGNATURE)
+	{
+		status = _cache_file_status_bad_tag_index_signature;
+	}
+	else if (tag_count <= 0 || (uint32_t)tag_count > ABSOLUTE_INDEX_MASK + 1 ||
+		read_u32(tag_data + TAG_INDEX_INSTANCES_OFFSET) < CUSTOM_EDITION_TAG_CACHE_ADDRESS ||
+		!range_fits(instances_offset, (uint32_t)tag_count * TAG_INSTANCE_BYTES, identity.tag_data_size))
+	{
+		status = _cache_file_status_bad_tag_instances_range;
+	}
+	for (tag_index_value = 0; status == _cache_file_status_ok && tag_index_value < tag_count; tag_index_value++)
+	{
+		uint8_t const *instance = tag_data + instances_offset + (uint32_t)tag_index_value * TAG_INSTANCE_BYTES;
+		uint32_t name_address = read_u32(instance + TAG_INSTANCE_NAME_OFFSET);
+		uint32_t name_offset = name_address - CUSTOM_EDITION_TAG_CACHE_ADDRESS;
+
+		/* (a name inside the tag data, ended there) */
+		if (name_address < CUSTOM_EDITION_TAG_CACHE_ADDRESS || name_offset >= identity.tag_data_size ||
+			!memchr(tag_data + name_offset, 0, identity.tag_data_size - name_offset))
+		{
+			status = _cache_file_status_bad_tag_name;
+			break;
+		}
+		if (!visit(context, read_u32(instance + TAG_INSTANCE_GROUP_OFFSET), (char const *)tag_data + name_offset,
+			((read_u32(instance + TAG_INSTANCE_HANDLE_OFFSET) ^ scenario_handle) & ABSOLUTE_INDEX_MASK) == 0))
+		{
+			break;
+		}
+	}
+	free(tag_data);
+
+	return status;
+}
+
 void resource_map_close(
 	struct resource_map *map)
 {

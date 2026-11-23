@@ -97,7 +97,7 @@ static struct {
 } shader_list;
 static struct { int gl_ready; unsigned long frame; } device;
 static struct { int msl; } shader_dialect;
-static struct { int vertex_bgra; } device_capabilities;
+static struct { int vertex_bgra; int ambient_occlusion; int soft_particles; } device_capabilities;
 static int shader_list_warming;
 static void nv2a_pixel_shader_key_canonicalize(struct nv2a_pixel_shader_key *key) { (void)key; }
 ''' + function((ROOT / 'port/linux/src/xgpu.h').read_text(), 'static inline unsigned long nv2a_pixel_shader_key_size(') + r'''
@@ -307,6 +307,10 @@ int main(int argc, char **argv) {
     check_live_lighting();
     device.gl_ready = 1;
     shader_dialect.msl = !(mode_flags & 16);
+    /* 64: a GPU that cannot draw ambient occlusion (gpu_capabilities.ambient_occlusion 0) */
+    device_capabilities.ambient_occlusion = !(mode_flags & 64);
+    /* 128: a GPU that cannot run the soft particle pass (gpu_capabilities.soft_particles 0) */
+    device_capabilities.soft_particles = !(mode_flags & 128);
     stereo.mode = mode_flags & 8 ? HALO_STEREO_HEAD : 0;
     halo_shader_list_warm("levels/test/testmap");
     assert(vertex_count == expected_vertices);
@@ -314,8 +318,8 @@ int main(int argc, char **argv) {
     assert(pipeline_count == expected_pipelines);
     printf("PASS: %u vertex, %u pixel, %u pipeline warmups\n", vertex_count, pixel_count, pipeline_count);
 #ifdef HALO_ILP32
-    assert(ssao_prepared == (shader_dialect.msl && (mode_flags & 4) ? 1u : 0u));
-    assert(soft_prepared == (shader_dialect.msl && (mode_flags & 2) && !(mode_flags & 8) ? 1u : 0u));
+    assert(ssao_prepared == (shader_dialect.msl && (mode_flags & 4) && !(mode_flags & 64) ? 1u : 0u));
+    assert(soft_prepared == (shader_dialect.msl && (mode_flags & 2) && !(mode_flags & 8) && !(mode_flags & 128) ? 1u : 0u));
 #else
     assert(!ssao_prepared && !soft_prepared);
 #endif
@@ -344,12 +348,15 @@ int main(int argc, char **argv) {
             ("bundled-only", f"# bundled only\n\n{entries('1111111111111111', '00')}", "", (1, 1, 1)),
             ("empty", "", "", (0, 0, 0)),
             ("empty-host-programs", "", "", (0, 0, 0), 7),
+            ("empty-host-programs-no-ssao-gpu", "", "", (0, 0, 0), 71),
             ("lit-derived", entries('1111111111111111', '00'), "", (2, 2, 2), 1),
             ("unlit-program", entries('3333333333333333', '00'), "", (1, 1, 1), 1),
             ("soft-derived", entries('1111111111111111', '00').replace(
                 "0 1 2 3 15 0 0", "1 4 5 0 15 0 1"), "", (1, 2, 2), 2),
             ("both-derived", entries('1111111111111111', '00').replace(
                 "0 1 2 3 15 0 0", "1 4 5 0 15 0 1"), "", (2, 3, 3), 7),
+            ("soft-no-soft-gpu", entries('1111111111111111', '00').replace(
+                "0 1 2 3 15 0 0", "1 4 5 0 15 0 1"), "", (1, 1, 1), 130),
             ("observation-capture", entries('1111111111111111', '00').replace(
                 "0 1 2 3 15 0 0", "1 4 5 0 15 0 1"), "", (2, 3, 3), 39),
             ("head-stereo", entries('1111111111111111', '00').replace(

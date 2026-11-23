@@ -74,9 +74,14 @@ def scene_keys(text=None):
     return set(re.findall(r'^PROFILE_SCENE\("([a-z_]+\.[a-z0-9_]+)"\)\s*$', KEYS.read_text() if text is None else text, re.M))
 
 
+def variable_only_keys(text=None):
+    """the settings a profile may set for the variable workload context and nowhere else (PROFILE_VARIABLE_ONLY)"""
+    return set(re.findall(r'^PROFILE_VARIABLE_ONLY\("([a-z_]+\.[a-z0-9_]+)"\)\s*$', KEYS.read_text() if text is None else text, re.M))
+
+
 def variable_keys(text=None):
     """the settings a profile may also set for the variable workload context (PROFILE_VARIABLE)"""
-    return set(re.findall(r'^PROFILE_VARIABLE\("([a-z_]+\.[a-z0-9_]+)"\)\s*$', KEYS.read_text() if text is None else text, re.M))
+    return set(re.findall(r'^PROFILE_VARIABLE(?:_ONLY)?\("([a-z_]+\.[a-z0-9_]+)"\)\s*$', KEYS.read_text() if text is None else text, re.M))
 
 
 def external_keys(text=None):
@@ -170,6 +175,7 @@ def check_profile(path, keys, drop_in=False, scenes=None):
     """the problems in one profile, and its parsed table (None if it does not parse)"""
     problems = []
     scenes = scene_keys() if scenes is None else scenes
+    variable_only = variable_only_keys()
     if path.stat().st_size > MAXIMUM_BYTES:
         problems.append(f"is over {MAXIMUM_BYTES} bytes; the app does not read it")
     try:
@@ -250,6 +256,9 @@ def check_profile(path, keys, drop_in=False, scenes=None):
                 if not external and name == "display.output_height" and (
                         scene is not None or match.get("platform") != "tvos"):
                     problems.append(f"{shown} is valid only in an external section, or in a tvOS profile's [display]")
+                    continue
+                if name in variable_only and not variable:
+                    problems.append(f"{shown} is valid only in [variable.{section}] (see port/linux/src/port_profile_keys.h)")
                     continue
                 if variable and name not in variable_keys():
                     problems.append(f"{shown}: {name} cannot change by workload (PROFILE_VARIABLE in port_profile_keys.h)")

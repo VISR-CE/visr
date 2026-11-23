@@ -15,15 +15,20 @@
 #include "host_external_session.h"
 #include "host_external_splash.h"
 #include "host_hinge.h"
+#include "host_panel.h"
+#include "host_topology_model.h"
 #include "host_posture_layout.h"
 #include "host_output_cap.h"
 #include "host_geometry.h"
 #include "renderer_build.h"
 #include "host_audio_route.h"
 #include "host_audio_stall.h"
+#include "host_audio_session.h"
 #include "host_config.h"
 #include "host_profile.h"
 
+/* declared before the posture code (iPhone only) that calls it */
+static void snapshot_output(int external,int width,int height,const char *reason);
 #if !TARGET_OS_VISION
 static struct host_external_snapshot snapshot;
 static pthread_mutex_t snapshot_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -79,10 +84,12 @@ static void posture_picture_commit(void) {
     CAMetalLayer *target=laptop?(CAMetalLayer *)posture_picture.layer:(__bridge CAMetalLayer *)phone_layer;
     if(laptop!=posture_output || (laptop &&
         (width!=output_width || height!=output_height))) {
-        if(!gpu_metal_output((__bridge void *)target,NULL,width,height))return;
+        if(!host_gpu_output((__bridge void *)target,NULL,width,height))return;
         output_width=width;output_height=height;
         posture_output=laptop;
         publish_size();
+        /* a posture change resizes the output: the generation moves, so a benchmark run that spans it is marked */
+        snapshot_output(snapshot.external,output_width,output_height,"posture");
     }
     picture_layout=next;
     posture_picture.hidden=!laptop;
@@ -123,12 +130,13 @@ static void posture_picture_commit_threaded(void) {
         }
     });
     if(!target)return;
-    int accepted=gpu_metal_output((__bridge void *)target,NULL,width,height);
+    int accepted=host_gpu_output((__bridge void *)target,NULL,width,height);
     host_main_sync(^{
         if(!accepted)return;
         output_width=width;output_height=height;
         posture_output=laptop;
         publish_size();
+        snapshot_output(snapshot.external,output_width,output_height,"posture");
         picture_layout=next;
         posture_picture.hidden=!laptop;
         safe_insets_refresh();
@@ -172,11 +180,11 @@ static int screen_is_external(UIScreen *screen) {
 }
 /* A switch the renderer cannot take yet (before it starts) stays pending and is logged once. */
 static int output_switch(void *layer,UIScreen *screen,int width,int height) {
-    /* gpu_metal_output restarts pacing through host_external_screen before
+    /* the Metal backend's output change restarts pacing through host_external_screen before
        returning, so publish the destination for that call and roll back on refusal. */
     UIScreen *previous_screen=output_screen;
     output_screen=screen;
-    if(gpu_metal_output(layer,(__bridge void *)screen,width,height)) {
+    if(host_gpu_output(layer,(__bridge void *)screen,width,height)) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
         posture_output=0;
         posture_picture.hidden=YES;
@@ -513,7 +521,6 @@ void host_external_menu_splash(void) {
     }
 #endif
 }
-static void snapshot_output(int external,int width,int height,const char *reason);
 void host_external_attach(void *window_pointer,int metal) {
     host_main_sync(^{
         SDL_Window *window=window_pointer;
@@ -579,6 +586,25 @@ void host_external_snapshot(struct host_external_snapshot *out) {
             snprintf(out->reason,sizeof(out->reason),"preferred");
         }
     });
+}
+/* The device's own screen as the report describes it: the screen of the app's window scene (the panel the app is
+   on), which on the iPhone Duo is not always UIScreen.mainScreen. valid is 0 where there is no such window. */
+void host_external_device_screen(struct host_device_screen *out) {
+    memset(out,0,sizeof(*out));
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    host_main_sync(^{
+        UIScreen *screen=phone_window.windowScene.screen;
+        /* (an iPad's window dragged to a monitor under Stage Manager is not this device's own screen) */
+        if(!screen || screen_is_external(screen))return;
+        struct host_hinge_snapshot hinge;
+        host_hinge_snapshot(&hinge);
+        out->valid=1;
+        out->width=screen.nativeBounds.size.width;
+        out->height=screen.nativeBounds.size.height;
+        out->maximum_frames=(long)screen.maximumFramesPerSecond;
+        snprintf(out->panel,sizeof(out->panel),"%s",host_panel_name(host_panel_from_hinge(&hinge)));
+    });
+#endif
 }
 int host_external_active(void) {
     if(!host_game_thread_enabled())return snapshot.external;
@@ -796,6 +822,13 @@ static void safe_insets_refresh(void) {
             next[2]=(float)(inset.top/size.height);next[3]=(float)(inset.bottom/size.height);
         }
     }
+    /* debug only: HALO_DEBUG_SAFE_INSETS="left,right,top,bottom" (fractions of the window) stands in for a display's
+       cutout on a simulator or the Mac runner, which have none (the iPhone Duo's outer display in landscape is about
+       "0.1239,0,0,0.073") */
+    const char *forced=getenv("HALO_DEBUG_SAFE_INSETS");
+    float forced_insets[4];
+    if(forced && sscanf(forced,"%f,%f,%f,%f",&forced_insets[0],&forced_insets[1],&forced_insets[2],&forced_insets[3])==4)
+        memcpy(next,forced_insets,sizeof(next));
     /* debug only: HALO_DEBUG_MIRROR_SAFE_INSETS swaps left and right to stand in for the opposite landscape orientation on a simulator that cannot rotate */
     if(getenv("HALO_DEBUG_MIRROR_SAFE_INSETS")){float t=next[0];next[0]=next[1];next[1]=t;}
     pthread_mutex_lock(&safe_insets_lock);
@@ -809,12 +842,141 @@ void host_external_safe_insets(float *insets) {
     memcpy(insets,safe_insets,sizeof(safe_insets));
     pthread_mutex_unlock(&safe_insets_lock);
 }
+/* what the system reports about displays, copied into plain data (host_topology.h). Main thread. */
+static void topology_facts_collect(struct host_topology_facts *out) {
+    memset(out,0,sizeof(*out));
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    struct host_topology_facts facts;
+    memset(&facts,0,sizeof(facts));
+    facts.now=CACurrentMediaTime();
+    UIUserInterfaceIdiom idiom=UIDevice.currentDevice.userInterfaceIdiom;
+    facts.idiom=idiom==UIUserInterfaceIdiomPhone?HOST_FACTS_IDIOM_PHONE:idiom==UIUserInterfaceIdiomPad?HOST_FACTS_IDIOM_PAD:
+        HOST_FACTS_IDIOM_OTHER;
+    facts.ios_app_on_mac=NSProcessInfo.processInfo.iOSAppOnMac;
+    facts.metal=metal_enabled;
+    UIScreen *app_screen=phone_window.windowScene.screen;
+    facts.app_scene.present=app_screen!=nil;
+    facts.app_scene.screen=(unsigned)(((uintptr_t)(__bridge void *)app_screen)>>4);
+    facts.app_scene.main_screen=(unsigned)(((uintptr_t)(__bridge void *)UIScreen.mainScreen)>>4);
+    facts.app_scene.main_is_app=app_screen==UIScreen.mainScreen;
+    UIWindowScene *external_scene=external_window.windowScene;
+    if(candidate_screen || external_scene) {
+        facts.external_scene.present=1;
+        facts.external_scene.negotiating=session_state.negotiating;
+        facts.external_scene.screen=(unsigned)(((uintptr_t)(__bridge void *)candidate_screen)>>4);
+        facts.external_scene.scene=(unsigned)(((uintptr_t)(__bridge void *)external_scene)>>4);
+        facts.external_scene.width=(int)candidate_screen.currentMode.size.width;
+        facts.external_scene.height=(int)candidate_screen.currentMode.size.height;
+        facts.external_scene.hertz=(int)candidate_screen.maximumFramesPerSecond;
+    }
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+    if(@available(iOS 27.0,*)) {
+        UISceneAccessoryRegistration *registration=accessory_registration;
+        facts.accessory.registered=registration!=nil;
+        facts.accessory.available=registration.available?1:0;
+        facts.accessory.offered_since=accessory_offer_since>0?accessory_offer_since:0;
+    }
+#endif
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    for(UIScreen *screen in UIScreen.screens)
+        host_topology_facts_add_screen(&facts,(unsigned)(((uintptr_t)(__bridge void *)screen)>>4),
+            screen.mirroredScreen!=nil,(int)screen.nativeBounds.size.width,(int)screen.nativeBounds.size.height,
+            (int)screen.maximumFramesPerSecond);
+#pragma clang diagnostic pop
+    struct host_hinge_snapshot hinge;
+    host_hinge_snapshot(&hinge);
+    facts.hinge_available=hinge.available;
+    facts.hinge_status=hinge.status;
+    struct host_posture_snapshot posture;
+    host_posture_snapshot(&posture);
+    facts.posture=posture.posture;
+    for(AVAudioSessionPortDescription *port in AVAudioSession.sharedInstance.currentRoute.outputs) {
+        int kind=host_route_port_kind(port.portType.UTF8String);
+        host_topology_facts_add_output(&facts,kind);
+        if(!facts.display_port_name[0] && (kind==HOST_ROUTE_HDMI || kind==HOST_ROUTE_DISPLAYPORT || kind==HOST_ROUTE_AIRPLAY))
+            snprintf(facts.display_port_name,sizeof(facts.display_port_name),"%s",port.portName.UTF8String?:"");
+    }
+    *out=facts;
+#endif
+}
+/* Today's deciders against the model, one question each (host_topology_shadow_check): the answers are compared in
+   the poll, once they have held for a second, and a disagreement is logged. */
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+static unsigned topology_screen_id(UIScreen *screen) { return (unsigned)(((uintptr_t)(__bridge void *)screen)>>4); }
+static int topology_hash(const char *text) { unsigned h=5381;for(;text && *text;text++)h=h*33+(unsigned char)*text;return (int)(h&0x7fffffff); }
+static void topology_shadow_compare(const struct host_topology *model,double now) {
+    static struct host_topology_shadow shadow;
+    struct host_external_displays displays;
+    host_external_displays_main(&displays);
+    const struct { const char *name; int legacy, model; } questions[]={
+        {"external context",snapshot.external,model->external_context},
+        {"mirrored",displays.use==HOST_EXTERNAL_DISPLAY_MIRRORED,model->mirrored},
+        {"other screens",displays.other_screens,model->other_screens},
+        {"mirroring screens",displays.mirroring_screens,model->mirroring_screens},
+        {"game screen",(int)(topology_screen_id(output_screen)&0x7fffffff),
+            model->game>=0?(int)(model->displays[model->game].screen&0x7fffffff):0},
+        {"external display name",snapshot.external?topology_hash(port_name().UTF8String):0,
+            snapshot.external && model->external_context?topology_hash(model->name):0},
+    };
+    for(int i=0;i<(int)(sizeof(questions)/sizeof(questions[0]));i++)
+        if(host_topology_shadow_check(&shadow,i,now,questions[i].legacy,questions[i].model))
+            host_logf(HOST_LOG_WARN,"topology mismatch: %s legacy=%d model=%d",questions[i].name,questions[i].legacy,
+                questions[i].model);
+}
+#endif
+/* debug.topology_facts: the facts written when a field changes, the topology derived from them (a line when it
+   changes) and compared with today's deciders. Read on main in the poll; with the setting off the poll does nothing. */
+static void topology_facts_poll(void) {
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    static int enabled=-1;
+    static struct host_topology_observer observer;
+    static struct host_topology topology;
+    static int have_topology,dropped_logged;
+    if(enabled<0) {
+        char value[16];
+        host_config_string("debug.topology_facts","false",value,sizeof(value));
+        enabled=!strcmp(value,"true");
+    }
+    if(!enabled)return;
+    struct host_topology_facts facts;
+    topology_facts_collect(&facts);
+    if(facts.screens_dropped && !dropped_logged) {
+        dropped_logged=1;
+        host_logf(HOST_LOG_INFO,"topology facts: %d screens beyond the first %d are not listed",facts.screens_dropped,
+            HOST_FACTS_SCREENS);
+    }
+    if(host_topology_observe(&observer,&facts)) {
+        char line[768];
+        host_topology_facts_format(&facts,line,sizeof(line));
+        host_logf(HOST_LOG_INFO,"%s",line);
+    }
+    struct host_topology next;
+    host_topology_derive(&facts,have_topology?&topology:NULL,&next);
+    if(!have_topology || next.generation!=topology.generation) {
+        char line[320];
+        host_topology_format(&next,line,sizeof(line));
+        host_logf(HOST_LOG_INFO,"%s",line);
+    }
+    topology=next;have_topology=1;
+    topology_shadow_compare(&topology,facts.now);
+#endif
+}
+/* The topology as the facts read now give it, for the benchmark report's block (main thread work, any caller). */
+void host_external_topology_now(struct host_topology *out) {
+    host_main_sync(^{
+        struct host_topology_facts facts;
+        topology_facts_collect(&facts);
+        host_topology_derive(&facts,NULL,out);
+    });
+}
 static void host_external_poll_main(void) {
     host_hinge_poll();
 #if TARGET_OS_IOS && !TARGET_OS_TV
     host_geometry_poll();
 #endif
     host_posture_poll();
+    topology_facts_poll();
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
     host_ios_touch_posture_changed();
 #endif
@@ -829,6 +991,8 @@ static void host_external_poll_main(void) {
         host_logf(HOST_LOG_INFO,"audio route: category=%s mode=%s output=%s rate=%.0f Hz latency=%.3f s",
             audio.category.UTF8String,audio.mode.UTF8String,audio_route_text().UTF8String,
             audio.sampleRate,audio.outputLatency);
+        {char granted[256];host_audio_session_describe(granted,sizeof(granted));
+            host_logf(HOST_LOG_INFO,"audio route: timing: %s",granted);}
         if(candidate_screen) {
             pthread_mutex_lock(&snapshot_lock);
             snprintf(snapshot.name,sizeof(snapshot.name),"%s",port_name().UTF8String);
@@ -1004,14 +1168,15 @@ static void host_external_poll_main(void) {
    frame_slots or calls renderer code while the worker waits for it. A scene
    change during the drain leaves a new pending transaction for the next frame. */
 static void external_commit_threaded_output(int allow_pause) {
-    gpu_metal_output_cap_commit();
+    /* (asked every frame: the commit waits for the encode queue, so it is made only when a cap is pending) */
+    if(!host_gpu_output_cap_settled())host_gpu_output_cap_commit();
 #if TARGET_OS_MACCATALYST
     host_main_sync(^{ test_output_frame++; });
 #endif
     __block CAMetalLayer *destination=nil;
     __block UIScreen *screen=nil;
     __block UIScreen *previous=nil;
-    __block int width=0,height=0,companion=0,was_external=0;
+    __block int width=0,height=0,companion=0,was_external=0,moved=0;
     __block unsigned generation=0;
     struct { char reason[32]; } plan_storage;
     char *reason=plan_storage.reason;
@@ -1045,11 +1210,12 @@ static void external_commit_threaded_output(int allow_pause) {
             destination=(__bridge CAMetalLayer *)phone_layer;
             screen=phone_window.windowScene.screen;
             SDL_GetWindowSizeInPixels(host_sdl_window(),&width,&height);
+            moved=1;
         }
         if(destination)output_screen=screen; /* pacing_start reads this destination on main */
     });
     if(!destination)return;
-    int accepted=gpu_metal_output((__bridge void *)destination,(__bridge void *)screen,width,height);
+    int accepted=host_gpu_output((__bridge void *)destination,(__bridge void *)screen,width,height);
     host_main_sync(^{
         if(!accepted){output_screen=previous;return;}
         output_failures=0;output_screen=screen;output_width=width;output_height=height;companion_on=companion;
@@ -1081,6 +1247,9 @@ static void external_commit_threaded_output(int allow_pause) {
         (void)generation;(void)was_external;(void)allow_pause;
 #endif
         snapshot_output(screen_is_external(screen),width,height,reason);
+        /* (the main-thread form below logs the same move; the game thread's own had said nothing) */
+        if(moved)host_logf(HOST_LOG_INFO,"external display: window moved to %dx%d at %ld Hz",width,height,
+            (long)screen.maximumFramesPerSecond);
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
         if(companion && scene_current) {
             pthread_mutex_lock(&snapshot_lock);
@@ -1098,7 +1267,7 @@ static void external_commit_threaded_output(int allow_pause) {
     });
 }
 
-/* Called by gpu_metal_output on main, after the worker has drained every slot.
+/* Called by gpu_metal.m's output change on main, after the worker has drained every slot.
    A stale destination from a disconnected scene is retained by the renderer but
    must not resize the replacement scene's view. */
 void host_external_output_resize(void *target,int width,int height) {
@@ -1123,11 +1292,12 @@ void host_external_commit(int allow_pause) {
     (void)allow_pause;
     /* (a benchmark display variant's built-in output cap, before the frame's first draw) */
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
-    BOOL cap_pending=!gpu_metal_output_cap_settled();
+    BOOL cap_pending=!host_gpu_output_cap_settled();
 #endif
-    gpu_metal_output_cap_commit();
+    /* (asked every frame: the commit waits for the encode queue, so it is made only when a cap is pending) */
+    if(!host_gpu_output_cap_settled())host_gpu_output_cap_commit();
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
-    if(cap_pending && gpu_metal_output_cap_settled()) {
+    if(cap_pending && host_gpu_output_cap_settled()) {
         posture_output=0;
         publish_size();
         posture_picture.hidden=YES;
@@ -1299,11 +1469,17 @@ void * host_external_phone_layer(void) {
 #else
 void host_external_output_resize(void *target,int width,int height) {(void)target;(void)width;(void)height;}
 void host_external_install(void) {}
+void host_external_topology_now(struct host_topology *out) {
+    struct host_topology_facts facts;
+    memset(&facts,0,sizeof(facts));
+    host_topology_derive(&facts,NULL,out);
+}
 void host_external_menu_splash(void) {}
 void host_external_attach(void *window,int metal) { (void)window;(void)metal; }
 void host_external_poll(void) {}
 void host_external_commit(int allow_pause) { (void)allow_pause; }
 int host_external_active(void) { return 0; }
+void host_external_device_screen(struct host_device_screen *out) { memset(out,0,sizeof(*out)); }
 void host_external_displays(struct host_external_displays *out) {
     memset(out,0,sizeof(*out));out->accessory_available=-1;out->use=HOST_EXTERNAL_DISPLAY_NONE;
 }

@@ -28,12 +28,19 @@ dynamic_resolution = true
 dynamic_resolution_floor = 720
 
 [variable.display]
+frames_in_flight_at_30 = "1"
 dynamic_resolution = true
 dynamic_resolution_floor = 540
+effect_limits = "xbox"
 
 [network]
 player_capacity = 128
 full_rate_players = 6
+
+[evidence."variable.display.frames_in_flight_at_30"]
+basis = "measured"
+why = "Under the 30 frame cap one frame in flight cut the time from the controller read to the screen from 82.7 to 83.0 ms to 65.7 to 65.8 ms at 16 and 64 players (p95 83 to 66 ms), a 17 ms drop, with 0.999 of frames on time and no failed GPU command buffers in any arm. Shown rate was 29.8 to 29.9 frames a second with one in flight against 30.4 with two, a 2% lower rate. The GPU takes 21 to 25 ms a frame here, so a frame waits for its refreshes either way and the second frame in flight only added a refresh of delay. Only the variable workload takes it: no campaign arm was measured, and a GPU-bound case can lose frames with one in flight, so the predictable workload keeps two."
+source = "VISR input latency matrix, build 20261121.215044 (main 049a67d6c with debug logging added), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22"
 
 [evidence."display.upscaled_textures"]
 basis = "assumed"
@@ -129,3 +136,8 @@ source = "docs/benchmarks/results.csv, VISR 0.6.8 (2026-11-02) and 0.6.10 (2026-
 basis = "measured"
 why = "Campaign at 1x on a50-hangar, presented, with the unit cool at the start: fixed 720 lines held 99.9% of frames on time (GPU median 13.6 ms), fixed 810 held 77.2% and fixed 1080 held 63% or less (GPU median 24 ms against a 16.7 ms budget). The window therefore runs from the 1080-line ceiling down to a 720-line floor, so the hangar can drop to the lines it needs while the other campaign windows stay at the ceiling. Earlier runs with the floor at 720 on 0.6.10 reached only 98.5% and 89.7% on time; the later cool-start fixed-720 runs are the measurements the floor rests on. A second cool-start set on 2026-11-18 held 95.1% at fixed 720 and 95.9% with dynamic resolution held at 720 under the 1080 ceiling, so the window costs nothing over a fixed 720 lines; the same 2026-11-17 build held 94.3% that day."
 source = "presented a50-hangar fixed-resolution runs on Apple TV 4K (3rd generation), main build 20261116.081127, 2026-11-17; fixed and dynamic 720 runs on main build 20261118.055944 and a repeat of 20261116.081127, 2026-11-18; pair on 0.6.10, 2026-11-05"
+
+[evidence."variable.display.effect_limits"]
+basis = "inherited"
+why = "This device holds 16 players or fewer at full rate; the measured iPad Pro 12.9 (2nd generation) gained 13% of its frame rate in a 128-player fight from the Xbox's decal set. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "`ipad-pro-12-9-2nd.toml` variable.display.effect_limits evidence, main 1a41b6f59, 2026-11-20"

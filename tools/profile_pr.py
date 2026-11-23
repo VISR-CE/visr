@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Turn a benchmark report into a device profile pull request: the profile change, the check, before and after
-Mac-runner screenshots, the signed tester shards and the pull request text."""
+Mac-runner screenshots, the signed tester shards and the pull request text.
+
+The screenshot step submits a job through a launcher program named by the environment variable VISR_RUN_JOB
+(a path to an executable taking --kind, --host, --fetch, LABEL, WORKTREE and a command). Without it, use
+--dry-run --skip-screenshots."""
 import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -34,12 +39,22 @@ FEED = Path("docs/site/packs/tester")
 PACKS = Path("docs/site/packs")
 # this source's device-profile feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
 PROFILE_DOMAIN = "device-profiles-5"
+# The profile keys a released validator does not know, and the feed generations whose validators accept each: a
+# validator refuses a whole shard that names a key it does not know. Record a new key here when it is added to
+# port_profile_keys.h (tools/test_profile_feed.py fails until it is), with the generations that will read it.
+# 0.6.4 to 0.6.7 read generation 3 and know none of these; 0.6.8 to 0.6.21 read generation 4 and know network.full_rate_players;
+# 0.6.22 reads generation 6: generation 4's keys, display.effect_limits and display.frames_in_flight_at_30 (cut from the
+# 0.6 line with this key's pacer change), but not display.allow_portrait; builds of main read generation 5 and know all.
+KEY_GENERATIONS = {"network.full_rate_players": (4, 5, 6),
+                   "display.allow_portrait": (5,),
+                   "display.effect_limits": (5, 6),
+                   "display.frames_in_flight_at_30": (5, 6)}
 # Every generation published from these sources, newest first, with the keys that generation's released validators
-# refuse: 0.6.4 to 0.6.7 read device-profiles-3 and refuse a whole shard that names network.full_rate_players.
-GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-4": ("display.allow_portrait",),
-               "device-profiles-3": ("network.full_rate_players", "display.allow_portrait")}
+# refuse, derived from KEY_GENERATIONS.
+GENERATIONS = {domain: tuple(key for key, accepted in KEY_GENERATIONS.items() if int(domain.rpartition("-")[2]) not in accepted)
+               for domain in (PROFILE_DOMAIN, "device-profiles-6", "device-profiles-4", "device-profiles-3")}
 RECEIPT = FEED / "publication.json"
-RUN_JOB = Path.home() / "code/halovision/step-tools/run-job.sh"
+RUN_JOB = os.environ.get("VISR_RUN_JOB", "")
 REPOSITORY = "VISR-CE/visr"
 ASSETS_BRANCH = "profile-pr-assets"
 # the cost model's name for a knob, where the profile's differs
@@ -189,7 +204,9 @@ def render_screenshots(label, sets, folder, options, run):
         steps.append(" ".join(shlex.quote(str(part)) for part in command))
     steps.append(f'rm -R "{private}"')
     folder.mkdir(parents=True, exist_ok=True)
-    result = run(RUN_JOB, "--kind", "runner", *(["--host", options.host] if options.host else []), "--fetch", f"{remote}={folder}", label, options.worktree,
+    if not RUN_JOB:
+        raise Failure("set VISR_RUN_JOB to the job launcher, or use --dry-run --skip-screenshots")
+    result = run(Path(RUN_JOB), "--kind", "runner", *(["--host", options.host] if options.host else []), "--fetch", f"{remote}={folder}", label, options.worktree,
                  "bash", "-ec", "\n".join(steps))
     if result.returncode:
         raise Failure(f"the screenshot job {label} failed (exit {result.returncode})")
@@ -217,23 +234,41 @@ def manifest_sequence(shard):
 
 
 def strip_keys(text, keys):
-    """A profile's text without these settings or their evidence; everything else stays byte for byte."""
+    """A profile's text without these settings or their evidence; everything else stays byte for byte. A table
+    left with no setting by this (a [variable.display] that held only a stripped key) goes too, with the blank
+    line after it."""
     names = set()
     for key in keys:
         section, _, name = key.partition(".")
         names.update({f"{section}/{name}", f"variable.{section}/{name}"})
     evidence = {f'evidence."{prefix}{key}"' for key in keys for prefix in ("", "variable.")}
     lines, section = [], ""
+    # the table being read: where its header is in lines, whether it lost a setting and whether it keeps one
+    table = None
+
+    def close():
+        if table and table["lost"] and not table["kept"]:
+            del lines[table["at"]:table["at"] + 1]
+            if table["at"] < len(lines) and not lines[table["at"]].strip():
+                del lines[table["at"]]
+
     for line in text.splitlines(keepends=True):
         header = re.fullmatch(r"\s*\[([^\[\]]+)\]\s*(#.*)?", line.rstrip("\n"))
         if header:
+            close()
             section = header[1].strip()
+            table = None if section in evidence else {"at": len(lines), "lost": False, "kept": False}
         if section in evidence:
             continue
         setting = re.match(r"\s*([A-Za-z0-9_]+)\s*=", line)
         if setting and f"{section}/{setting[1]}" in names:
+            table["lost"] = True
             continue
+        if table and not header and line.strip():
+            # (anything left in the table, a comment or a key of another shape too, keeps its header)
+            table["kept"] = True
         lines.append(line)
+    close()
     return "".join(lines)
 
 

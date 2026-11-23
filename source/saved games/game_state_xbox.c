@@ -102,6 +102,13 @@ symbols in this file:
 #include "saved games/game_state.h"
 #include "sound/sound_manager.h"
 #include <xtl.h>
+#ifdef HALO_IOS
+/* port: on the Apple builds the session's checkpoint is a copy the host keeps in memory, not the file
+z:\savegame.bin: the game's thread wrote 21 MB to the disk at every checkpoint (about 180 ms on an Apple TV HD).
+The four file functions below keep their names and their flags; the desktop builds, which have no host, keep
+the file. */
+#include "saved_game_persist.h"
+#endif
 
 /* ---------- constants */
 
@@ -228,6 +235,10 @@ void game_state_create_or_open_file(
 		87,
 		!xbox_game_state_globals.file_open);
 
+#ifdef HALO_IOS
+	/* port: there is no file to open (see the top of this file) */
+	xbox_game_state_globals.file_open = TRUE;
+#else
 	xbox_game_state_globals.handle = CreateFileA("z:\\savegame.bin",
 		GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_ALWAYS,
 		FILE_FLAG_NO_BUFFERING|FILE_FLAG_SEQUENTIAL_SCAN, NULL);
@@ -247,6 +258,7 @@ void game_state_create_or_open_file(
 			csprintf(temporary, "couldn't open or create saved game file (#%d)",
 				GetLastError()));
 	}
+#endif
 
 	return;
 }
@@ -258,7 +270,9 @@ void game_state_close_file(
 		"c:\\halo\\SOURCE\\saved games\\game_state_xbox.c",
 		106,
 		xbox_game_state_globals.file_open);
+#ifndef HALO_IOS
 	CloseHandle(xbox_game_state_globals.handle);
+#endif
 	xbox_game_state_globals.file_open = FALSE;
 
 	return;
@@ -279,11 +293,17 @@ boolean game_state_write_to_file(
 		121,
 		xbox_game_state_globals.file_open);
 
+#ifdef HALO_IOS
+	/* port: copied, and written to the profile's saved game by the host's thread when it is to be kept */
+	(void)bytes_written;
+	if (saved_game_persist_checkpoint_store(xbox_game_state_globals.buffer, xbox_game_state_globals.buffer_size))
+#else
 	if (SetFilePointer(xbox_game_state_globals.handle, 0, NULL, FILE_BEGIN) !=
 			INVALID_SET_FILE_POINTER &&
 		WriteFile(xbox_game_state_globals.handle, xbox_game_state_globals.buffer,
 			xbox_game_state_globals.buffer_size, &bytes_written, NULL) &&
 		bytes_written == xbox_game_state_globals.buffer_size)
+#endif
 	{
 		xbox_game_state_globals.file_valid_for_read = TRUE;
 		result = TRUE;
@@ -322,6 +342,17 @@ boolean game_state_read_from_file(
 
 	/* port: read beside the game state, and taken once checked */
 	image = malloc(xbox_game_state_globals.buffer_size);
+#ifdef HALO_IOS
+	(void)bytes_read;
+	/* port: no checkpoint kept this session is no error of a disk: the caller starts the map over */
+	if (image && !saved_game_persist_checkpoint_load(image, xbox_game_state_globals.buffer_size))
+	{
+		free(image);
+		return FALSE;
+	}
+	if (image &&
+		game_state_image_accept(image, xbox_game_state_globals.buffer_size))
+#else
 	if (image &&
 		SetFilePointer(xbox_game_state_globals.handle, 0, NULL, FILE_BEGIN) !=
 			INVALID_SET_FILE_POINTER &&
@@ -329,6 +360,7 @@ boolean game_state_read_from_file(
 			xbox_game_state_globals.buffer_size, &bytes_read, NULL) &&
 		bytes_read == xbox_game_state_globals.buffer_size &&
 		game_state_image_accept(image, xbox_game_state_globals.buffer_size))
+#endif
 	{
 		result = TRUE;
 	}

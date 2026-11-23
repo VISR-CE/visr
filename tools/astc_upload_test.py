@@ -50,9 +50,10 @@ def main():
     start = backend.index('compressed_textures = astc_textures = NO;')
     end = backend.index('\n\n\t\t/*', start)
     initialization = backend[start:end]
-    initialization = re.sub(r'@available\([^)]*\)', 'fixture_bc_api', initialization)
-    initialization = initialization.replace('device.supportsBCTextureCompression', 'fixture_bc')
-    initialization = initialization.replace('[device supportsFamily:MTLGPUFamilyApple2]', 'fixture_astc')
+    # The gate's answers (metal_gate.h) stand in for the device; it answers no for BC where the OS cannot ask.
+    initialization = initialization.replace('metal_feature(METAL_FEATURE_BC_TEXTURES)', '(fixture_bc_api && fixture_bc)')
+    initialization = initialization.replace('metal_feature(METAL_FEATURE_ASTC_TEXTURES)', 'fixture_astc')
+    assert 'metal_feature' not in initialization and 'fixture_bc' in initialization and 'fixture_astc' in initialization
     for token, value in {
         'DESCRIPTION': description, 'FORMATS': formats, 'LAYOUT': layout,
         'CACHE': cache, 'HELPERS': helpers,

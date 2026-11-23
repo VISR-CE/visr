@@ -38,6 +38,16 @@ def test_table_check_does_not_write(tmp_path):
     assert path.read_text() == 'old'
 
 
+def test_table_check_compares_bytes_so_crlf_is_stale(tmp_path):
+    m = engine()
+    path = tmp_path / 'results.csv'
+    path.write_bytes(b'a,b\r\n1,2\r\n')
+    assert m.write_page(path, 'a,b\n1,2\n', check=True) == 1
+    assert m.write_page(path, 'a,b\n1,2\n') == 0
+    assert path.read_bytes() == b'a,b\n1,2\n'
+    assert m.write_page(path, 'a,b\n1,2\n', check=True) == 0
+
+
 def test_public_failure_reasons_are_codes():
     m = engine()
     assert m.failure_code(FileNotFoundError('/Users/private/app')) == 'missing-file'

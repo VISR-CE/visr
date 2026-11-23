@@ -45,6 +45,7 @@ with their unit, and with what it rides.
 #include "units/units.h"
 #include "../src/halo_stereo.h"
 #include "../src/input_replay.h"
+#include "interpolation_lead.h"
 
 /* port/linux/src/port_config.c */
 int config_boolean(const char *name);
@@ -163,6 +164,8 @@ static struct interpolated_object *interpolated_objects;
 static struct interpolated_camera interpolated_cameras[MAXIMUM_LOCAL_PLAYERS];
 static struct interpolated_first_person interpolated_first_person[MAXIMUM_LOCAL_PLAYERS];
 static long interpolation_tick;
+/* a tick ran since the loop clock's last read (the display's schedule, below) */
+static int loop_frame_ticked;
 static long interpolation_frame;
 static boolean interpolation_rendering;
 static real interpolation_fraction = 1.0f;
@@ -407,6 +410,8 @@ void render_interpolation_tick(void)
 	struct object_datum *object;
 	long previous_tick = interpolation_tick++;
 
+	/* this loop frame ran a tick (fraction_for_display's estimate) */
+	loop_frame_ticked = TRUE;
 	if (!halo_interpolation_enabled())
 		return;
 	/* the cameras' corrections a tick on, as the objects' (below) */
@@ -518,47 +523,180 @@ void render_interpolation_reset(void)
 
 /* ---------- the display's schedule
 
-A backend that schedules its frames on the display's refreshes (Metal,
-port/ios/host/gpu_metal.m) says at each present when the next frame is due on
-screen. The game clock was read when the frame began, but the frame is seen
-some time later, and that time varies from frame to frame (how far ahead the
-CPU ran, how long the frame took). So the blend is advanced by how far this
-frame's lead time is from its average: the world then moves by the same
-amount between any two refreshes, a constant latency later. Without a
-schedule (GL, the fixed timestep) the fraction is the clock's. */
+A backend that schedules its frames on the display's refreshes says when each
+frame will be on screen: Metal's flat present (port/ios/host/gpu_metal.m) at
+each present, for the next frame, and the Compositor (stereo.c, from
+host_stereo_frame) when the frame opens. The game clock was read when the loop
+began (main_update_time_unthrottled), but the frame is seen some time later,
+and that time varies from frame to frame (how far ahead the CPU ran, whether
+the frame ran a tick, how long the Compositor made it wait). So the blend is
+advanced by how far this frame's lead (its presentation minus the clock's
+read) is from its average: the world then moves by the same amount between
+any two presentations, a constant latency later (interpolation_lead.h).
+Without a schedule (GL, the fixed timestep) the fraction is the clock's. */
 
-static double next_frame_due_milliseconds; /* when the next frame shows, on halo_frame_trace_milliseconds' clock */
-static double average_lead_milliseconds = -1.0;
+static struct interpolation_lead display_lead = { -1.0, { 0.0, 0.0 }, { 0, 0 }, 0, 0.0 };
+static struct interpolation_lead stereo_lead = { -1.0, { 0.0, 0.0 }, { 0, 0 }, 0, 0.0 };
+static double next_frame_due_milliseconds; /* when the next flat frame shows, on halo_frame_trace_milliseconds' clock */
+static double stereo_presentation_milliseconds; /* when this loop frame's Compositor frame shows */
+static unsigned long stereo_presentation_frame;
+static int stereo_leading; /* the last frame opened a Compositor frame: stereo's lead is in charge */
+static unsigned long loop_frame; /* the loop clock's reads */
+static double loop_clock_read_milliseconds;
 static double frame_lead_milliseconds;
+static double frame_lead_average_milliseconds;
+
+void render_interpolation_clock_read(void)
+{
+	loop_frame++;
+	loop_clock_read_milliseconds = halo_frame_trace_milliseconds();
+	loop_frame_ticked = FALSE;
+}
 
 void render_interpolation_next_frame_due(unsigned long microseconds)
 {
+	/* a frame that opened a Compositor frame has its lead from there (render_interpolation_presentation_due); a
+	present's schedule is the window's, so only a frame that showed in the window (no eyes, a two-eye frame that
+	fell through to it, or the first after the eyes stopped without saying so) moves it */
+	if (stereo_leading && stereo_presentation_frame == loop_frame)
+		return;
 	if (microseconds == 0 || platform_fixed_timestep())
 	{
 		next_frame_due_milliseconds = 0.0;
-		average_lead_milliseconds = -1.0;
+		interpolation_lead_reset(&display_lead);
 		return;
 	}
 	next_frame_due_milliseconds = halo_frame_trace_milliseconds() + (double)microseconds / 1000.0;
 }
 
+void render_interpolation_presentation_due(unsigned long microseconds)
+{
+	if (microseconds == 0 || platform_fixed_timestep())
+	{
+		/* the space closed, or the frame has no eyes: the flat present's
+		schedule again, from its next present */
+		if (stereo_leading)
+			interpolation_lead_reset(&stereo_lead);
+		stereo_leading = FALSE;
+		stereo_presentation_milliseconds = 0.0;
+		return;
+	}
+	if (!stereo_leading)
+	{
+		/* the space opened: a fresh average, and the window's schedule is
+		stale by the time it comes back */
+		interpolation_lead_reset(&stereo_lead);
+		next_frame_due_milliseconds = 0.0;
+		interpolation_lead_reset(&display_lead);
+		stereo_leading = TRUE;
+	}
+	stereo_presentation_milliseconds = halo_frame_trace_milliseconds() + (double)microseconds / 1000.0;
+	stereo_presentation_frame = loop_frame;
+}
+
+/* "interpolation: stereo lead" every 600 stereo frames (the headset cadence
+measurements): the lead from the loop clock's read to the presentation, which
+is also the controller's age at the presentation, by kind of frame, and the
+largest correction. Once a loop frame */
+static void stereo_lead_summary(double lead, double correction)
+{
+	static unsigned long counted_frame, frames, kind_frames[2];
+	static double kind_sum[2], shortest, longest, largest;
+	int kind = loop_frame_ticked ? 1 : 0;
+
+	if (counted_frame == loop_frame)
+		return;
+	counted_frame = loop_frame;
+	if (frames == 0 || lead < shortest)
+		shortest = lead;
+	if (frames == 0 || lead > longest)
+		longest = lead;
+	if (fabs(correction) > largest)
+		largest = fabs(correction);
+	kind_sum[kind] += lead;
+	kind_frames[kind]++;
+	if (++frames < 600)
+		return;
+	platform_log("interpolation: stereo lead from the loop clock's read to the presentation: %.1f ms with a tick "
+		"(%lu frames), %.1f ms without (%lu), %.1f to %.1f ms; correction up to %.1f ms",
+		kind_frames[1] ? kind_sum[1] / (double)kind_frames[1] : 0.0, kind_frames[1],
+		kind_frames[0] ? kind_sum[0] / (double)kind_frames[0] : 0.0, kind_frames[0], shortest, longest, largest);
+	frames = kind_frames[0] = kind_frames[1] = 0;
+	kind_sum[0] = kind_sum[1] = largest = 0.0;
+}
+
+/* display.presentation_lead: off is the timing before the lead was measured
+from the loop clock's read, for comparing the two in the headset (the
+cadence session's knob, halo_presentation_lead_toggle): stereo frames get no
+correction, and flat frames measure their lead from the moment the fraction is
+asked for, averaging each time. The stereo lead is still measured and logged */
+static int presentation_lead_setting = -1;
+
+static int presentation_lead_enabled(void)
+{
+	if (presentation_lead_setting < 0)
+	{
+		presentation_lead_setting = config_boolean("display.presentation_lead") ? 1 : 0;
+		if (!presentation_lead_setting)
+			platform_log("interpolation: display.presentation_lead off: the lead is measured as before Nov 21");
+	}
+	return presentation_lead_setting;
+}
+
+void halo_presentation_lead_toggle(void)
+{
+	presentation_lead_setting = !presentation_lead_enabled();
+	interpolation_lead_reset(&display_lead);
+	interpolation_lead_reset(&stereo_lead);
+	platform_log("interpolation: presentation lead %s (toggled)", presentation_lead_setting ? "on" : "off");
+}
+
 static real fraction_for_display(real fraction)
 {
-	double lead;
+	struct interpolation_lead *state;
+	double presentation, clock_read, correction;
+	static unsigned long legacy_calls;
+	int enabled = presentation_lead_enabled();
+	unsigned long frame = loop_frame;
 
 	frame_lead_milliseconds = 0.0;
+	/* (a stereo schedule no frame has reported for since the last one: its frames stopped without saying so) */
+	if (stereo_leading && loop_frame - stereo_presentation_frame > 1)
+		render_interpolation_presentation_due(0);
 	/* 1 while the game is paused */
-	if (next_frame_due_milliseconds == 0.0 || fraction >= 1.0f)
+	if (fraction >= 1.0f)
 		return fraction;
-	lead = next_frame_due_milliseconds - halo_frame_trace_milliseconds();
-	/* a frame that began after its slot (a load, a hitch) */
-	if (lead < 0.0)
-		lead = 0.0;
-	if (average_lead_milliseconds < 0.0)
-		average_lead_milliseconds = lead;
-	average_lead_milliseconds += (lead - average_lead_milliseconds) * 0.05;
-	frame_lead_milliseconds = lead;
-	fraction += (real)((lead - average_lead_milliseconds) / 1000.0 * TICKS_PER_SECOND * game_time_get_speed());
+	if (stereo_leading)
+	{
+		/* not opened yet this frame (game_time_update's call): the estimate */
+		state = &stereo_lead;
+		presentation = stereo_presentation_frame == loop_frame ? stereo_presentation_milliseconds : 0.0;
+	}
+	else
+	{
+		if (next_frame_due_milliseconds == 0.0)
+			return fraction;
+		state = &display_lead;
+		presentation = next_frame_due_milliseconds;
+	}
+	clock_read = loop_clock_read_milliseconds > 0.0 ? loop_clock_read_milliseconds : halo_frame_trace_milliseconds();
+	if (!enabled && !stereo_leading)
+	{
+		/* (off: from now, a sample each call) */
+		clock_read = halo_frame_trace_milliseconds();
+		frame = ~0ul - legacy_calls++;
+	}
+	correction = interpolation_lead_correction(state, frame, loop_frame_ticked, clock_read, presentation);
+	if (presentation != 0.0)
+	{
+		frame_lead_milliseconds = state->lead;
+		if (stereo_leading)
+			stereo_lead_summary(state->lead, correction);
+	}
+	frame_lead_average_milliseconds = state->average;
+	if (!enabled && stereo_leading)
+		return fraction;
+	fraction += (real)(correction / 1000.0 * TICKS_PER_SECOND * game_time_get_speed());
 	return PIN(fraction, 0.0f, 1.0f);
 }
 
@@ -750,7 +888,7 @@ static void trace_camera(struct interpolated_camera const *camera, struct observ
 {
 	platform_log("frame trace: %.3f ms tick %ld t %.3f lead %.2f (average %.2f) ms yaw %.2f (previous %.2f latest %.2f) %s",
 		halo_frame_trace_milliseconds(), interpolation_tick, interpolation_fraction,
-		frame_lead_milliseconds, average_lead_milliseconds,
+		frame_lead_milliseconds, frame_lead_average_milliseconds,
 		trace_yaw(&drawn->forward), trace_yaw(&camera->previous.forward), trace_yaw(&camera->latest.forward), how);
 }
 

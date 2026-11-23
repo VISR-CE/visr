@@ -14,6 +14,9 @@ foveation = true
 anti_aliasing = "smaa"
 render_quality = 0.6
 
+[network]
+full_rate_players = 48
+
 [evidence."display.anti_aliasing"]
 basis = "assumed"
 why = "Taken from the M2 headset's measured default, in vision-pro-m2.toml."
@@ -30,3 +33,7 @@ why = "Taken from the M2 headset's sweep; a newer headset likely holds more and 
 basis = "measured"
 why = "visionOS has no OpenGL ES: the app sets HALO_RENDERER=metal at launch for the flat window and the headset alike, so the profile only states what the app already does. The M2 headset runs measured in vision-pro-m2.toml used Metal."
 source = "Headset foveation sweep, a10 benchmark, 2026-10-07"
+
+[evidence."network.full_rate_players"]
+basis = "assumed"
+why = "Taken from the M2 headset, where 48 players was the largest count that held 90 Hz on 99.5% of frames; a newer headset likely holds more and should get its own measurement."

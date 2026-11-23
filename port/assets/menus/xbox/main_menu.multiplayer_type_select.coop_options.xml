@@ -7,8 +7,9 @@
 		<on event="back" back="true" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/options_menu" />
-		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/b_butn" x="326" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/cancel" x="348" y="414" />
+		<bar>
+			<action slot="b" scope="back" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_coop_options_screen_bar_b.text" focus="true" />
+		</bar>
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options">
 	</widget>
@@ -21,7 +22,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/op_player_collisions" x="54" y="151" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/op_fireteam" x="54" y="190" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_friendly_fire" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_friendly_fire" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/friendly_fire_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/friendly_fire_spinner" x="285" y="6" />
 	</widget>
@@ -34,7 +35,7 @@
 		<on event="stick_left" run="coop options changed" />
 		<on event="stick_right" run="coop options changed" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_extra_enemies" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_extra_enemies" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/extra_enemies_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/extra_enemies_spinner" x="285" y="6" />
 	</widget>
@@ -47,7 +48,7 @@
 		<on event="stick_left" run="coop options changed" />
 		<on event="stick_right" run="coop options changed" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_player_collisions" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_player_collisions" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/player_collisions_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/player_collisions_spinner" x="285" y="6" />
 	</widget>
@@ -61,7 +62,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_fireteam" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_fireteam" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/fireteam_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/fireteam_spinner" x="286" y="6" />
 	</widget>
@@ -75,6 +76,8 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/cancel" type="text" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_coop_options_screen_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<strings name="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options/title">
+		<string text="CO-OP OPTIONS" id="xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_header_coop_options_title.co_op_options" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options" strings="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options/title" />
 </menus>

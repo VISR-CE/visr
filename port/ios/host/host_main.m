@@ -23,6 +23,7 @@
 #include "host_benchmark.h"
 #include "host_external.h"
 #include "host_cloud_saves.h"
+#include "host_save_writer.h"
 #include "host_shader_upload.h"
 #include "host_perf_reports.h"
 #include "host_perf_hooks.h"
@@ -120,6 +121,8 @@ void host_exit(int code) {
 #endif
     host_logf(HOST_LOG_INFO,"game exit %d",code);
     host_spatial_rumble_hold(1);
+    /* a checkpoint being written to the saved game finishes first: the game has stopped, so this wait holds nothing up */
+    host_save_writer_wait(2);
     /* a save made just before the app is left still goes up (nothing without HALO_CLOUD_SAVES) */
     host_cloud_saves_leaving(3);
     host_shader_upload_suspend();
@@ -353,7 +356,7 @@ static void *game_thread_main(void *context) {
         struct game_thread_start start = *(struct game_thread_start *)context;
         free(context);
         if (pthread_setname_np("game") ||
-            pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0))
+            host_thread_interactive())
             host_crash("could not configure game thread");
         if (host_crash_thread_install()) host_crash("could not install game crash stack");
         host_guest_on_stack(start.entry, start.boot, start.arena, start.stack);
@@ -535,6 +538,8 @@ int main(int argc,char **argv) {
 #endif
         /* iCloud saves (nothing without HALO_CLOUD_SAVES): begun before the import screen, whose
            time on a new or purged device is also the time the saves take to come back */
+        /* the saved game's writer, before either the game or the sync of saves can look at a slot */
+        host_save_writer_start(save_root);
         host_cloud_saves_start(data_root,save_root);
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
         /* a runner's run (tools/mac_run.py sets HALO_RUNNER) must not slow down when its window is covered

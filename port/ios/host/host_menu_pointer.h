@@ -13,6 +13,8 @@
 #ifndef HALO_HOST_MENU_POINTER_H
 #define HALO_HOST_MENU_POINTER_H
 #include <math.h>
+#include <stdatomic.h>
+#include <stdint.h>
 #include <string.h>
 #include <time.h>
 #include "halo_host_pointer.h"
@@ -36,9 +38,48 @@
 #define HOST_MENU_POINTER_GAZE_RADIUS 30.0f
 #define HOST_MENU_POINTER_GAZE_SLOP 20.0f
 
+/* The surface's size in points and the drawable's in pixels (0: unknown), written on whichever thread sees the
+   view change and read on the game thread at each tap: a sequence lock publishes the four as one snapshot, so a tap
+   never maps through one size's width and another's height. */
+struct host_pointer_geometry {
+    float surface_width, surface_height, drawable_width, drawable_height;
+};
+struct host_pointer_geometry_lock {
+    atomic_flag writing;
+    _Atomic unsigned sequence;
+    _Atomic uint32_t bits[4];
+};
+
+static inline void host_pointer_geometry_publish(struct host_pointer_geometry_lock *lock,
+                                                 const struct host_pointer_geometry *g) {
+    uint32_t bits[4];
+    memcpy(bits, g, sizeof(bits));
+    while (atomic_flag_test_and_set_explicit(&lock->writing, memory_order_acquire)) {}
+    unsigned sequence = atomic_load_explicit(&lock->sequence, memory_order_relaxed);
+    atomic_store_explicit(&lock->sequence, sequence + 1, memory_order_relaxed);
+    atomic_thread_fence(memory_order_release);
+    for (int i = 0; i < 4; i++) atomic_store_explicit(&lock->bits[i], bits[i], memory_order_relaxed);
+    atomic_store_explicit(&lock->sequence, sequence + 2, memory_order_release);
+    atomic_flag_clear_explicit(&lock->writing, memory_order_release);
+}
+
+static inline struct host_pointer_geometry host_pointer_geometry_snapshot(struct host_pointer_geometry_lock *lock) {
+    struct host_pointer_geometry g;
+    uint32_t bits[4];
+    unsigned before, after;
+    do {
+        before = atomic_load_explicit(&lock->sequence, memory_order_acquire);
+        for (int i = 0; i < 4; i++) bits[i] = atomic_load_explicit(&lock->bits[i], memory_order_relaxed);
+        atomic_thread_fence(memory_order_acquire);
+        after = atomic_load_explicit(&lock->sequence, memory_order_relaxed);
+    } while ((before & 1) || before != after);
+    memcpy(&g, bits, sizeof(g));
+    return g;
+}
+
 struct host_menu_pointer {
     int menus_active, blocked;
-    float surface_width, surface_height;
+    struct host_pointer_geometry_lock geometry;
     /* the finger being followed, if any */
     int tracking, device_held;
     intptr_t finger;
@@ -66,9 +107,15 @@ static inline void host_menu_pointer_clear(struct host_menu_pointer *m) {
     m->swiped = m->back_swipes = 0;
     m->moved = m->left_clicks = m->right_clicks = m->wheel_steps = 0;
 }
+/* the surface the pointer's points are on, and the drawable the picture is fit into there (0x0: unknown) */
+static inline void host_menu_pointer_set_geometry(struct host_menu_pointer *m, float surface_width,
+                                                  float surface_height, float drawable_width,
+                                                  float drawable_height) {
+    struct host_pointer_geometry g = {surface_width, surface_height, drawable_width, drawable_height};
+    host_pointer_geometry_publish(&m->geometry, &g);
+}
 static inline void host_menu_pointer_set_surface(struct host_menu_pointer *m, float width, float height) {
-    m->surface_width = width;
-    m->surface_height = height;
+    host_menu_pointer_set_geometry(m, width, height, 0.0f, 0.0f);
 }
 /* a menu coming up or going away drops whatever was in flight */
 static inline void host_menu_pointer_set_menus(struct host_menu_pointer *m, int active) {
@@ -126,11 +173,13 @@ static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, int
         m->scrolling = 1;
         m->anchor_y = m->down_y;
     }
+    /* a dragging finger also moves the pointer, so the row under it takes the highlight */
+    m->moved = 1;
     float travel = y - m->anchor_y;
     int steps = (int)(travel / HOST_MENU_POINTER_NOTCH);
     if (steps) {
-        /* the list follows the finger as a scrolled page does: a finger moving up brings the later items (the wheel's
-           steps are positive away from the user, up the list) */
+        /* the list follows the finger as a scrolled page does: a finger moving up brings the later items (the host's
+           steps are positive down the screen; the guest negates them, halo_ui_wheel_steps_from_host) */
         m->wheel_steps -= steps;
         m->anchor_y += (float)steps * HOST_MENU_POINTER_NOTCH;
     }
@@ -195,8 +244,11 @@ static inline void host_menu_pointer_read(struct host_menu_pointer *m, struct ho
     out->y = m->y;
     out->click_x = m->click_x;
     out->click_y = m->click_y;
-    out->surface_width = m->surface_width;
-    out->surface_height = m->surface_height;
+    struct host_pointer_geometry g = host_pointer_geometry_snapshot(&m->geometry);
+    out->surface_width = g.surface_width;
+    out->surface_height = g.surface_height;
+    out->drawable_width = g.drawable_width;
+    out->drawable_height = g.drawable_height;
     out->radius = m->touch == 2 ? HOST_MENU_POINTER_GAZE_RADIUS : m->touch ? HOST_MENU_POINTER_RADIUS : 0.0f;
     out->picture = m->touch == 2;
     if (!host_menu_pointer_listening(m)) {

@@ -66,6 +66,8 @@ of MAXIMUM_QUEUED; the rest is dropped (hosts publish again).
 #include "delta_list.h"
 #include "delta_platform.h"
 #include "halo_delta_peer.h"
+#include "halo_host_flags.h"
+#include "../../runtime/stock_maps.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1281,12 +1283,6 @@ void p2p_lobby_delta_games(const struct delta_game *games, int count)
 
 #ifdef HALO_IOS
 void host_sdl_app_version(char *buffer, unsigned int size);
-
-static int delta_host_flag(const char *name)
-{
-	const char *value = getenv(name);
-	return value && !strcmp(value, "1");
-}
 #endif
 
 int p2p_lobby_delta_wanted(struct delta_announce *announce)
@@ -1308,8 +1304,8 @@ int p2p_lobby_delta_wanted(struct delta_announce *announce)
 	announce->teams = (lobby.flags & _listing_has_teams) != 0;
 	announce->version = delta_legacy_announce_version();
 #ifdef HALO_IOS
-	delta_platform_key(announce->platform_key, delta_platform_current(delta_host_flag("HALO_HOST_MAC"),
-		delta_host_flag("HALO_HOST_TVOS"), delta_host_flag("HALO_HOST_VISIONOS")), 0, 0, 0);
+	delta_platform_key(announce->platform_key, delta_platform_current(halo_host_flag("HALO_HOST_MAC"),
+		halo_host_flag("HALO_HOST_TVOS"), halo_host_visionos()), 0, 0, 0);
 	host_sdl_app_version(announce->build, sizeof(announce->build));
 #else
 	delta_platform_key(announce->platform_key, delta_platform_current(0, 0, 0), 0, 0, 0);
@@ -1347,43 +1343,17 @@ int p2p_listing_unlock(struct p2p_listing *listing, const char *password)
 	return opened;
 }
 
-/* the game's own maps (every region's are named alike): the multiplayer
-maps, and the campaign levels a co-op game is on */
-static const char *const stock_maps[] =
-{
-	"beavercreek", "bloodgulch", "boardingaction", "carousel", "chillout", "damnation", "hangemhigh",
-	"longest", "prisoner", "putput", "ratrace", "sidewinder", "wizard",
-	"a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40",
-};
-
-/* (ASCII, ignoring case: the listing's names are ASCII) */
-static int same_name(const char *a, const char *b)
-{
-	for (; *a && *b; a++, b++)
-	{
-		char x = *a >= 'A' && *a <= 'Z' ? (char)(*a - 'A' + 'a') : *a;
-		char y = *b >= 'A' && *b <= 'Z' ? (char)(*b - 'A' + 'a') : *b;
-
-		if (x != y)
-			return 0;
-	}
-	return !*a && !*b;
-}
-
 int p2p_listing_map_kind(const struct p2p_listing *listing)
 {
-	size_t index;
+	const struct stock_map *stock;
 
 	if (listing->map_family == P2P_MAP_FAMILY_OTHER)
 		return P2P_MAP_UNSUPPORTED;
-	if (listing->map_family == P2P_MAP_FAMILY_XBOX)
-	{
-		for (index = 0; index < sizeof(stock_maps) / sizeof(stock_maps[0]); index++)
-		{
-			if (same_name(listing->map, stock_maps[index]))
-				return P2P_MAP_STOCK;
-		}
-	}
+	/* (the game's own maps, every region's named alike: the multiplayer
+	maps, and the campaign levels a co-op game is on) */
+	stock = listing->map_family == P2P_MAP_FAMILY_XBOX ? stock_map_named(listing->map, strlen(listing->map)) : NULL;
+	if (stock && (stock->flags & (STOCK_MAP_XBOX_MULTIPLAYER | STOCK_MAP_CAMPAIGN)))
+		return P2P_MAP_STOCK;
 	return P2P_MAP_CUSTOM;
 }
 

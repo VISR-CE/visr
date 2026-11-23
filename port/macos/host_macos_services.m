@@ -7,6 +7,7 @@
 #include "host_macos.h"
 #include "ios_host.h"
 #include "host_external.h"
+#include "host_topology_model.h"
 #include "host_external_session.h"
 #include "host_benchmark.h"
 #include "host_shader_upload.h"
@@ -215,7 +216,7 @@ int host_ios_gamepad_axis(SDL_Gamepad *pad, int axis) { return SDL_GetGamepadAxi
 int host_ios_gamepad_button(SDL_Gamepad *pad, int button) { return SDL_GetGamepadButton(pad, (SDL_GamepadButton)button); }
 void host_lifecycle_install(void) {}
 int host_lifecycle_in_background(void) { return 0; }
-void host_lifecycle_hold(void) {}
+void host_lifecycle_hold(void (*before_waiting)(void)) { (void)before_waiting; }
 /* Native Mac play keeps running outside the foreground; its guest clock never subtracts suspended time. */
 unsigned long long host_lifecycle_background_milliseconds(void) { return 0; }
 void host_external_install(void) {}
@@ -247,6 +248,12 @@ void host_external_snapshot(struct host_external_snapshot *out) {
     });
 }
 /* (the Mac game window is a window: no external display and nothing to mirror) */
+void host_external_device_screen(struct host_device_screen *out) { memset(out, 0, sizeof(*out)); }
+void host_external_topology_now(struct host_topology *out) {
+    struct host_topology_facts facts;
+    memset(&facts, 0, sizeof(facts));
+    host_topology_derive(&facts, NULL, out);
+}
 void host_external_displays(struct host_external_displays *out) {
     memset(out, 0, sizeof(*out));
     out->accessory_available = -1;

@@ -128,6 +128,7 @@ host_soft_depth_finish
 host_stereo_frame
 host_stereo_entered
 host_stereo_render_quality
+host_stereo_frame_repeat_set
 host_stereo_ab_change
 # spatial (halo_spatial.h)
 host_spatial_sample
@@ -161,6 +162,7 @@ host_external_mode_label
 # Dynamic resolution's lines for the next frame (host_perf_hooks.c)
 host_dynamic_resolution_lines
 host_dynamic_resolution_scene
+host_frames_in_flight_scene
 
 host_touch_replay_active
 host_memory_pressure_poll
@@ -202,3 +204,8 @@ host_astc_texture_key
 host_astc_texture_read
 host_astc_texture_generation
 host_texture_record_rgba
+host_sdl_update_joysticks
+host_save_checkpoint_store
+host_save_checkpoint_load
+host_save_write_now
+host_save_withdraw_folder

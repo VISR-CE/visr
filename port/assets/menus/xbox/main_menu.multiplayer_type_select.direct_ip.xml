@@ -22,10 +22,10 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
 		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip" />
 		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_menu" />
-		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/b_butn" x="326" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/cancel" x="348" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/a_butn" x="471" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/accept" x="493" y="414" />
+		<bar>
+			<action slot="b" scope="back" text="CANCEL" text_id="xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_bar_b.text" focus="true" />
+			<action slot="a" scope="select" text="SELECT" text_id="xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_bar_a.text" focus="true" />
+		</bar>
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip">
 	</widget>
@@ -51,8 +51,8 @@
 		<on event="a" run="direct ip edit field" />
 		<on event="start" run="direct ip edit field" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/cancel" type="text" text="CANCEL" text_id="xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/accept" type="text" text="SELECT" text_id="xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip/title">
+		<string text="DIRECT IP" id="xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_header_direct_ip_title.direct_ip" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip" strings="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip/title" />
 </menus>

@@ -4,8 +4,7 @@ Console windows start the level as a one-player hosted game (`debug.network_test
 `debug.init_after` until the level runs, so `init.txt` can carry console commands. The hosted game sets
 `network.coop_enemies_mode = "none"`: with the default extra enemies the workload context is "variable" (the profile's
 multiplayer frame rate and settings), while the other ports and a single-player start run the "predictable" campaign
-context at standard settings. Used by the device runner in
-step-tools; the in-app VISR suite is not involved.
+context at standard settings. Used by the maintainer's device runner (not in this repository); the in-app VISR suite is not involved.
 """
 from __future__ import annotations
 

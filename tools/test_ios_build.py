@@ -5,7 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from tools import ios_build
+from tools import apple_game_mode, ios_build
+
+
+@pytest.fixture(autouse=True)
+def built_objects_not_read(monkeypatch):
+    """these tests replace the build with a stub, so there is no gpu_metal.o for the entry point check to read
+    (tools/test_gpu_metal_entry_points.py tests the check)"""
+    monkeypatch.setattr(ios_build, 'entry_points_check', lambda build, configuration: None)
+    from tools import macos_build
+    monkeypatch.setattr(macos_build, 'entry_points_check', lambda: None)
 
 
 def test_ipad_multitasking_declares_all_distribution_required_orientations():
@@ -322,11 +331,11 @@ def test_data_pack_cli_settings_reach_the_cmake_configuration(monkeypatch, tmp_p
     assert '-DHALO_RECORDING_FEED_URL=https://packs.example/recordings.json' in configure
 
 
-@pytest.mark.parametrize('name', ['Info.plist', 'Info-macOS.plist', 'Info-tvOS.plist', 'Info-visionOS.plist'])
+@pytest.mark.parametrize('name', sorted(apple_game_mode.PLISTS))
 def test_data_pack_public_configuration_is_embedded_in_every_app_plist(name):
     import plistlib
     from pathlib import Path
-    values = plistlib.loads((Path(__file__).resolve().parents[1] / 'port/ios' / name).read_bytes())
+    values = plistlib.loads((Path(__file__).resolve().parents[1] / name).read_bytes())
     for key, setting in [('HaloDataPackPublicKey', 'HALO_DATA_PACK_PUBLIC_KEY'),
                          ('HaloProfileFeedURL', 'HALO_PROFILE_FEED_URL'),
                          ('HaloRecordingFeedURL', 'HALO_RECORDING_FEED_URL'),
@@ -449,10 +458,10 @@ def test_manual_upload_package_without_profile_is_refused():
         )
 
 
-@pytest.mark.parametrize('name', ['Info.plist', 'Info-macOS.plist', 'Info-tvOS.plist', 'Info-visionOS.plist'])
+@pytest.mark.parametrize('name', sorted(apple_game_mode.PLISTS))
 def test_every_apple_app_declares_exempt_encryption(name):
     import plistlib
-    values = plistlib.loads((ios_build.ROOT / 'port/ios' / name).read_bytes())
+    values = plistlib.loads((ios_build.ROOT / name).read_bytes())
     assert values.get('ITSAppUsesNonExemptEncryption') is False
     assert 'ITSEncryptionExportComplianceCode' not in values
 

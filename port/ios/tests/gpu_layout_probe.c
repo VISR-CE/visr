@@ -30,6 +30,8 @@ int main(void)
 	FIELD(gpu_capabilities, shader_language);
 	FIELD(gpu_capabilities, astc);
 	FIELD(gpu_capabilities, max_samples);
+	FIELD(gpu_capabilities, ambient_occlusion);
+	FIELD(gpu_capabilities, soft_particles);
 	FIELD(gpu_capabilities, max_texture_size);
 	SIZE(gpu_texture_description);
 	FIELD(gpu_texture_description, foveated_eye);
@@ -128,6 +130,7 @@ int main(void)
 	FIELD(halo_stereo_frame, foveated);
 	FIELD(halo_stereo_frame, foveated_width);
 	FIELD(halo_stereo_frame, foveated_height);
+	FIELD(halo_stereo_frame, presentation_lead_microseconds);
 	SIZE(halo_spatial_location);
 	FIELD(halo_spatial_location, forward);
 	FIELD(halo_spatial_location, left);

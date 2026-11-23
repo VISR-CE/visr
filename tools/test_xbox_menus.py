@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import tempfile
 import zlib
 from xml.etree import ElementTree as ET
 
@@ -22,6 +23,21 @@ def generator():
     return module
 
 
+def looks():
+    """The generator's source rows written out as files under `sources/`, beside the generated `xbox/`: the tests that
+    compare a screen with its source read both the same way."""
+    folder = Path(tempfile.mkdtemp())
+    (folder / 'sources').mkdir()
+    module = generator()
+    for name in module.source_names():
+        (folder / 'sources' / name).write_text(ET.tostring(module.source(name), encoding='unicode'), encoding='utf-8')
+    (folder / 'xbox').symlink_to(MENUS / 'xbox')
+    return folder
+
+
+LOOKS = looks()
+
+
 def test_shared_layout_geometry_is_used():
     module = generator()
     coop = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.coop_options.xml')
@@ -31,9 +47,15 @@ def test_shared_layout_geometry_is_used():
     for page in module.PAGES:
         root = ET.parse(MENUS / f'xbox/settings.{page}.xml')
         screen = root.find('widget')
-        for button, x in (('b', 326), ('a', 471)):
-            placed = next(c for c in screen.findall('child') if c.get('widget').endswith('/' + button + '_butn'))
-            assert (int(placed.get('x')), int(placed.get('y'))) == (x, 414), page
+        # (the bar is declared; the engine places it in the shared slots, menu_geometry.h)
+        assert bar_actions(screen) == ({'b': 'back', 'a': 'select'} if page == 'about' else
+                                       {'x': 'global', 'b': 'back', 'a': 'select'}), page
+        assert not [c for c in screen.findall('child') if c.get('widget').endswith('_butn')], page
+
+
+def bar_actions(screen):
+    """{slot: scope} of a screen's declared button bar"""
+    return {action.get('slot'): action.get('scope') for action in screen.iterfind('bar/action')}
 
 
 def snapshot(path):
@@ -42,7 +64,7 @@ def snapshot(path):
 
 def test_generation_is_deterministic_and_checked_in(tmp_path):
     assets = tmp_path / 'menus'
-    shutil.copytree(MENUS / 'ce', assets / 'ce')
+    shutil.copytree(MENUS / 'pictures', assets / 'pictures')
     # (the art the generator draws from: tools/xbox_menu_art.py's)
     shutil.copytree(MENUS / 'xbox/art', assets / 'xbox/art')
     shutil.copy(MENUS / 'menus.json', assets / 'menus.json')
@@ -60,32 +82,34 @@ def test_generation_is_deterministic_and_checked_in(tmp_path):
         assert file.relative_to(assets).as_posix() in manifest
         for frame in ET.parse(file).iter('frame'):
             assert frame.get('png') in manifest
-    # ce_menus passes its newly drawn PNG list through the same retention step.
-    retained = module.retain_xbox_files(assets, ['ce/bitmaps.xml'])
-    assert set(manifest) & {p for p in manifest if p.startswith('xbox/')} <= set(retained)
-    assert 'ce/port/pause/pausebox_center__1.png' in retained
+    assert manifest == module.manifest_files(assets)
+    assert not [name for name in manifest if name.startswith('sources/') and name.endswith('.xml')]
+    assert 'pictures/port/pause/pausebox_center__1.png' in manifest
 
 
 def test_settings_keep_pc_values_and_handlers():
     module = generator()
     for folder in module.PAGES:
-        source = ET.parse(MENUS / 'ce' / f'{module.PE.replace("/", ".")}.{folder}.xml')
+        source = ET.parse(LOOKS / 'sources' / f'{module.PE.replace("/", ".")}.{folder}.xml')
         output = ET.parse(MENUS / 'xbox' / f'settings.{folder}.xml')
         expected = {w.get('setting'): (w.get('values'), w.get('strings'))
                     for w in source.iter('widget') if w.get('setting')
                     and w.get('name').rsplit('/', 1)[-1] not in module.XBOX_DROPPED_ROWS.get(folder, ())}
-        actual = {w.get('setting'): (w.get('values'), w.get('strings'))
+        # (the clones for the advanced page say ON|OFF where the controls page says YES|NO: a switch's state word)
+        actual = {w.get('setting'): (w.get('values'),
+                                     expected[w.get('setting')][1] if w.get('name').endswith('_spinner_advanced')
+                                     and w.get('strings') == 'ON|OFF' and expected.get(w.get('setting'), ('', ''))[1] == 'YES|NO'
+                                     else w.get('strings'))
                   for w in output.iter('widget') if w.get('setting')}
         assert actual == expected
         retained = {e.get('run') for e in source.iter('on') if e.get('run')} - {
-            'port settings save', 'port settings defaults', 'port setting preview', 'port setting revert',
+            'port settings save', 'port settings defaults',
             'controls screen change set',
-            'controls screen defaults', 'controls screen init'}
-        assert retained <= {e.get('run') for e in output.iter('on') if e.get('run')}
-        names = {w.get('name').rsplit('/', 1)[-1] for w in output.iter('widget')}
-        # (the About screen's A does nothing: its legend is the way back alone)
-        assert ({'b_butn', 'cancel'} if folder == 'about' else
-                {'a_butn', 'b_butn', 'accept', 'cancel'}) <= names
+            'controls screen defaults', 'controls screen init',
+            'mouse emit accept event'}  # (the PC page's button click: a bar action takes clicks by its slot)
+        assert retained <= {e.get('run') for e in output.iter('on') if e.get('run')} | {
+            action.get('run') for action in output.iter('action') if action.get('run')}
+        assert {'b': 'back', 'a': 'select'}.items() <= bar_actions(output.find('widget')).items(), folder
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
     video = ET.parse(MENUS / 'xbox/settings.video_settings.xml')
     assert not [w for w in video.iter('widget') if w.get('setting') == 'display.resolution_scaling']
@@ -121,16 +145,16 @@ def test_settings_apply_without_save_and_offer_defaults_on_x():
         widgets = {w.get('name'): w for w in root.iter('widget')}
         screen = root.find('widget')
         assert not any(w.get('text') == 'SAVE' for w in widgets.values())
-        assert screen.find('on[@event="x"][@run]') is not None
+        defaults = screen.find("bar/action[@slot='x']")
+        assert defaults.get('scope') == 'global' and defaults.get('text') == 'DEFAULTS' and defaults.get('run')
         for event in ('b', 'back'):
             assert screen.find(f'on[@event="{event}"][@back="true"]') is not None
         captions = {w.get('text') for w in widgets.values() if w.get('type') == 'text'}
+        captions |= {action.get('text') for action in screen.iterfind('bar/action')}
         assert {'SELECT', 'DEFAULTS', 'BACK'} <= captions
         assert not any(text and '=' in text for text in captions)
-        defaults = next(w for n, w in widgets.items() if n.endswith('/button_defaults'))
-        assert defaults.find('on[@event="left_mouse"]') is not None
-        assert defaults.find('on[@event="a"][@run]').get('run') == screen.find('on[@event="x"]').get('run')
-        assert any(w.get('bitmap') == 'xbox/browser/x_butn' for w in widgets.values())
+        # (the bar's X runs on the key, a click and a tap alike: no second handler on the screen)
+        assert screen.find('on[@event="x"]') is None
         for spinner in root.iter('widget'):
             if not spinner.get('setting'):
                 continue
@@ -189,7 +213,7 @@ MP_FILES = tuple('main_menu.multiplayer_type_select.' + name for name in (
 def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
     module = generator()
     for filename in MP_FILES:
-        source = ET.parse(MENUS / 'ce' / (filename + '.xml'))
+        source = ET.parse(LOOKS / 'sources' / (filename + '.xml'))
         path = MENUS / 'xbox' / (filename + '.xml')
         assert path.is_file(), filename
         output = ET.parse(path)
@@ -354,30 +378,29 @@ def test_browser_direct_link_keeps_the_legacy_table():
 
 def test_browser_retains_map_names_at_the_c_updaters_lookup_paths():
     shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
-    original = ET.parse(MENUS / 'ce/strings.xml')
+    original = ET.parse(LOOKS / 'sources/strings.xml')
     for name in ('main_menu/map_list', 'main_menu/mp_map_list'):
         expected = original.find(f'strings[@name="{name}"]')
-        actual = shared.find(f'strings[@name="{name}"]')
+        actual = shared.find(f'strings[@name="xbox/{name}"]')
         assert actual is not None
         assert [e.get('text') for e in actual] == [e.get('text') for e in expected]
 
 
-def test_browser_legend_routes_shortcuts_without_broadcasting_row_actions():
-    _, widgets = browser_c_widgets()
+def test_browser_actions_are_a_bar_and_the_list_takes_only_its_own_keys():
+    root, widgets = browser_c_widgets()
     actions = widgets['button_refresh_create_inter']
-    # X is IP ADDRESS on the whole screen; the filter screen opens from its chip.
-    assert not actions.findall('on[@event="x"]')
-    assert widgets['join_game_screen'].find('on[@event="x"][@run="port browser ip open"]') is not None
-    assert widgets['browser_ip_address'].find('on[@event="a"][@run="port browser ip open"]') is not None
-    assert not widgets['join_game_screen'].findall('on[@event="y"]')
-    for target, event in ((actions, 'y'), (widgets['browser_create_inter'], 'a')):
-        handlers = target.findall(f'on[@event="{event}"]')
-        assert [h.get('run') for h in handlers] == ['join controller to mp game', 'mp type set mode']
-        assert handlers[1].get('open') == r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper'
+    # the screen-wide actions are the declared bar's (the engine places them and routes their keys), so no widget
+    # of the screen handles X or Y itself
+    assert not actions.findall('on[@event="x"]') and not actions.findall('on[@event="y"]')
+    screen = widgets['join_game_screen']
+    assert not screen.findall('on[@event="x"]') and not screen.findall('on[@event="y"]')
+    bar = {a.get('slot'): a for a in screen.find('bar').findall('action')}
+    assert bar['x'].get('run') == 'port browser ip open'
+    assert bar['y'].get('run') == 'join controller to mp game'
+    assert bar['b'].get('scope') == 'back'
     assert actions.get('flags') == 'pass_unhandled_to_focused_child'
     assert [c.get('widget').rsplit('/', 1)[-1] for c in actions.findall('child')] == [
-        'join_game_items_list', 'browser_chips', 'browser_detail',
-        'browser_ip_address', 'browser_create_inter', 'browser_back']
+        'join_game_items_list', 'browser_chips', 'browser_detail']
     rows = widgets['join_game_items_list']
     assert rows.find('on[@event="up"][@run="port browser rows up"]') is not None
     assert rows.find('on[@event="down"][@run="port browser rows down"]') is not None
@@ -438,7 +461,7 @@ def test_selection_rows_end_above_footer():
 
 
 def test_multiplayer_definitions_are_unique_and_browser_colors_match_xbox():
-    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name
+    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml')
              for e in ET.parse(p).getroot() if e.get('name')]
     assert len(names) == len(set(names))
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
@@ -471,10 +494,7 @@ def shown_children(options):
 def test_scrolling_lists_fit_above_their_help():
     seen = []
     for path in (MENUS / 'xbox').glob('*.xml'):
-        compact = '.compact.' in path.name
-        files = [p for p in (MENUS / 'xbox').glob('*.xml')
-                 if ('.compact.' in p.name if compact else '.compact.' not in p.name)
-                 or (compact and '.compact.' not in p.name and not p.with_suffix('.compact.xml').exists())]
+        files = list((MENUS / 'xbox').glob('*.xml'))
         widgets = {w.get('name'): w for p in files for w in ET.parse(p).iter('widget')}
         for w in list(ET.parse(path).getroot().iter('widget')):
             if w.get('type') != 'column_list' or 'visible_rows' not in w.attrib:
@@ -556,31 +576,20 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
 
 def test_browser_stats_keep_runtime_string_aliases():
     root = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
-    name = 'main_menu/multiplayer_type_select/join_game/join_game_ticker_labels'
+    name = 'xbox/main_menu/multiplayer_type_select/join_game/join_game_ticker_labels'
     labels = root.find(f'strings[@name="{name}"]')
     assert labels is not None
     assert [s.get('text') for s in labels][6:9] == ['SERVERS:', 'PLAYERS:', 'PAGE']
 
 
-def test_browser_buttons_draw_map_art_with_large_caption_targets():
+def test_browser_join_button_draws_map_art_with_a_large_caption_target():
     root, widgets = browser_c_widgets()
     bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
-    for leaf, button in (('browser_join', 'a'), ('browser_back', 'b'),
-                         ('browser_ip_address', 'x'), ('browser_create_inter', 'y')):
-        icon = widgets[leaf + '_icon']
-        frame = bitmaps[icon.get('bitmap')].find('frame')
-        assert frame.get('map') == 'ui\\shell\\bitmaps\\' + button + '_butn'
-        assert (MENUS / frame.get('png')).is_file()
-        assert (frame.get('width'), frame.get('height')) == ('32', '32')
-        if button != 'a':
-            assert int(widgets[leaf].get('height')) >= 45
-            assert widgets[leaf].find('on[@event="a"]') is not None
-    children = widgets['button_refresh_create_inter'].findall('child')
-    legend = [c for c in children if c.get('widget').rsplit('/', 1)[-1] in
-              ('browser_ip_address', 'browser_create_inter', 'browser_back')]
-    assert len(legend) == 3
-    assert all(int(c.get('y')) == 398 for c in legend)
-    assert int(legend[-1].get('x')) + int(widgets['browser_back'].get('width')) == 461
+    icon = widgets['browser_join_icon']
+    frame = bitmaps[icon.get('bitmap')].find('frame')
+    assert frame.get('map') == 'ui\\shell\\bitmaps\\a_butn'
+    assert (MENUS / frame.get('png')).is_file()
+    assert (frame.get('width'), frame.get('height')) == ('32', '32')
     join = [c for c in widgets['browser_detail'].findall('child') if c.get('widget').endswith('join_game_button_join')][0]
     assert (int(join.get('x')), int(join.get('y'))) == (476, 398)
     assert 476 + int(widgets['join_game_button_join'].get('width')) == 616
@@ -618,15 +627,14 @@ def test_sort_filter_has_four_large_rows_reset_and_done():
         assert spinner.get('footer_bounds') == '20 214 34 226'
     assert widgets['filters_screen'].get('type') == 'column_list'
     assert widgets['sort_spinner'].get('strings') == 'MOST PLAYERS|NAME|MAP|GAME'
-    assert widgets['filters_screen'].find('on[@event="x"][@run="port browser filters reset"]') is not None
     assert widgets['filters_screen'].find('data[@input="port browser filters update"]') is not None
-    for leaf in ('browser_reset', 'browser_done'):
-        assert int(widgets[leaf].get('height')) >= 45
-    assert widgets['browser_done_caption'].get('text') == 'DONE'
+    bar = {a.get('slot'): a for a in widgets['filters_screen'].find('bar').findall('action')}
+    assert (bar['x'].get('text'), bar['x'].get('run')) == ('RESET', 'port browser filters reset')
+    assert (bar['b'].get('text'), bar['b'].get('scope')) == ('DONE', 'back')
 
 
-def test_main_menus_never_open_quit_but_keep_the_dialog():
-    for folder in ('ce', 'xbox'):
+def test_no_screen_opens_quit_but_the_dialog_stays():
+    for folder in ('xbox',):
         for path in (MENUS / folder).glob('*.xml'):
             root = ET.parse(path)
             assert not [e.attrib for e in root.iter() if 'quit_select' in e.get('open', '')], path
@@ -636,11 +644,6 @@ def test_main_menus_never_open_quit_but_keep_the_dialog():
                             ('main menu quit game', 'port quit game')], path
         dialog = ET.parse(MENUS / folder / 'main_menu.quit_select.xml')
         assert any(w.get('name', '').endswith('/quit_screen') for w in dialog.iter('widget'))
-    main = ET.parse(MENUS / 'ce/main_menu.xml')
-    rows = main.find("widget[@name='main_menu/main_menu_select_list']").findall('child')
-    assert len(rows) == 4
-    assert [int(c.get('y')) for c in rows] == [247, 283, 319, 355]
-    assert not any('quit' in w.get('name', '') for w in main.iter('widget'))
 
 
 def test_quit_panel_matches_delete_confirmation_padding():
@@ -658,14 +661,14 @@ def test_quit_panel_matches_delete_confirmation_padding():
 def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
     """Description drawings ship as 4x RGBA PNGs; Xbox rows and hub slots share their sources."""
     manifest = json.loads((MENUS / 'menus.json').read_text())['files']
-    for name in ('audio', 'video', 'internet', 'about', 'mouse'):
+    for name in ('audio', 'video', 'internet', 'about'):
         svg = (MENUS / f'xbox/art/{name}.svg').read_text()
         assert 'width="512" height="256"' in svg
         png = (MENUS / f'xbox/art/{name}.png').read_bytes()
         assert png[:8] == b'\x89PNG\r\n\x1a\n' and png[24:26] == bytes((8, 6)), '8-bit RGBA'
         assert (int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')) == (2048, 1024)
         assert f'xbox/art/{name}.png' in manifest
-        assert f'xbox/art/{name}.png' in generator().retain_xbox_files(MENUS, [])
+        assert f'xbox/art/{name}.png' in generator().manifest_files(MENUS)
     patches = ET.parse(MENUS / 'xbox/patches.xml')
     wired = {row.get('name'): row.get('picture') for row in patches.iter('row') if row.get('picture')}
     assert wired['profile_item_video'] == 'png:xbox/art/video.png'
@@ -702,8 +705,8 @@ def test_hub_has_the_profile_editors_framed_panel():
     assert options.get('description') == 'xbox/settings/description'
     assert options.find('data').get('input') == 'plyr prof edit select menu upd8'
     panel = hub.find("widget[@name='xbox/settings/description']")
-    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('275', '78', '320', '311')
-    assert panel.get('bitmap') == 'xbox/bitmaps/list_field'
+    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('275', '78', '320', '331')
+    assert panel.get('bitmap') == 'xbox/panel_a/list_field'
     # the description update takes the first child for the text and the second for the picture
     assert [c.get('widget').rsplit('/', 1)[-1] for c in panel.findall('child')] == [
         'description_text', 'description_picture']
@@ -791,8 +794,6 @@ def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
         label = widgets[f'{base}/legend/' + ('accept' if icon == 'a' else 'cancel')]
         assert label.get('text') == caption
         assert target.find('on[@event="left_mouse"]').get('run') == f'mouse emit {emitted} event'
-    assert (r'pc\xbox\error\confirm_join_big_modal_fullscreen',
-            r'pc\error\confirm_join_big_modal_fullscreen') in generator().screen_pairs()
 
 
 def test_keyboard_picture_is_generated_at_import_without_a_shipped_png():
@@ -925,7 +926,7 @@ def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
     data = root.find(f'widget[@name="{base}/mp_map_right_data"]')
     counts = root.find(f'strings[@name="{data.get("string_list")}"]')
     assert counts is not None
-    source = ET.parse(MENUS / 'ce/strings.xml').find(
+    source = ET.parse(LOOKS / 'sources/strings.xml').find(
         'strings[@name="main_menu/multiplayer_type_select/mp_map_select/map_data"]')
     assert len(counts) == len(source)
     for actual, original in zip(counts, source):
@@ -937,15 +938,15 @@ def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
     assert panel.find('child[@widget="xbox/main_menu/solo_level_select/replay_level_right_data"]') is not None
     shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
     campaign = shared.find('strings[@name="xbox/main_menu/solo_level_select/map_data"]')
-    pc_campaign = ET.parse(MENUS / 'ce/strings.xml').find(
+    pc_campaign = ET.parse(LOOKS / 'sources/strings.xml').find(
         'strings[@name="main_menu/solo_level_select/map_data"]')
     assert [s.get('text') for s in campaign] == [s.get('text') for s in pc_campaign]
 
 
-@pytest.mark.parametrize('look', ('ce', 'xbox'))
+@pytest.mark.parametrize('look', ('sources', 'xbox'))
 def test_server_setup_rows_invite_and_gametype_editor(look):
     base = ('xbox/' if look == 'xbox' else '') + 'main_menu/multiplayer_type_select/server_settings'
-    root = ET.parse(MENUS / look / 'main_menu.multiplayer_type_select.server_settings.xml')
+    root = ET.parse(LOOKS / look / 'main_menu.multiplayer_type_select.server_settings.xml')
     widgets = {w.get('name'): w for w in root.iter('widget')}
     options = widgets[base + '/options_menu']
     screen = widgets[base + '/server_settings_screen']
@@ -995,9 +996,6 @@ def test_server_setup_rows_invite_and_gametype_editor(look):
     # Hard-coded help and label indices remain available to the runtime.
     import port_settings
     generated_text = '\n'.join(port_settings.multiplayer_files()['main_menu.multiplayer_type_select.server_settings.xml'])
-    if look == 'ce':
-        import menu_catalog
-        assert menu_catalog.STRIP.sub('', (MENUS / look / 'main_menu.multiplayer_type_select.server_settings.xml').read_text()) == generated_text
     generated = ET.fromstring(generated_text)
     for name in ('labels', 'help_strings'):
         expected = generated.find(f'strings[@name="main_menu/multiplayer_type_select/server_settings/{name}"]')
@@ -1009,10 +1007,10 @@ def test_merged_rows_and_bindings():
     import port_settings
     BASE = 'main_menu/multiplayer_type_select/coop_options/'
     NAME = 'main_menu.multiplayer_type_select.coop_options.xml'
-    for look in ('ce', 'xbox'):
+    for look in ('sources', 'xbox'):
         prefix = 'xbox/' if look == 'xbox' else ''
         base = prefix + BASE
-        root = ET.parse(MENUS / look / NAME).getroot()
+        root = ET.parse(LOOKS / look / NAME).getroot()
         widgets = {w.get('name'): w for w in root.findall('widget')}
         rows = widgets[base + 'options_menu'].findall('child')
         assert [c.get('widget').removeprefix(base) for c in rows] == [
@@ -1035,7 +1033,7 @@ def test_merged_rows_and_bindings():
                 for event in ('left', 'right', 'stick_left', 'stick_right'):
                     assert spinner.find(f"on[@event='{event}']").get('run') == 'coop options changed'
         assert widgets[base + 'coop_options_screen'].find("on[@event='created']").get('run') == 'coop options init'
-        if look == 'ce':
+        if look == 'sources':
             action = widgets[base + 'button_ok']
             for event in ('a', 'start'):
                 assert action.find(f"on[@event='{event}']").get('run') == 'coop options save'
@@ -1043,29 +1041,24 @@ def test_merged_rows_and_bindings():
                    for name in ('op_ally_friendly_fire', 'op_enemies_per_player', 'op_enemies_multiplier'))
 
 
-def test_settings_legends_have_global_button_bindings():
-    module = generator()
+def test_settings_bars_offer_defaults_on_x_and_no_focusable_buttons():
+    """Bug class: a screen-wide action built as a focusable list item (DEFAULTS was a row of the options list, so the
+    d-pad stopped on it and touch drew no pill). Every settings page declares X DEFAULTS as a global bar action, and
+    no button row is left in its options list."""
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':
             continue
         root = ET.parse(path).getroot()
         widgets = {w.get('name'): w for w in root.iter('widget')}
-        screen = next(w for name, w in widgets.items() if name.endswith('_screen'))
-        # (each change applies and saves as it is made: X DEFAULTS is the bar's only action)
-        assert not any(name.endswith('/button_ok') for name in widgets), path
+        screen = root.find('widget')
+        # (each change applies and saves as it is made: no SAVE, no Y)
+        assert not any(name.endswith(('/button_ok', '/button_defaults', '/button_bar')) for name in widgets), path
         assert screen.find('on[@event="y"]') is None, path
-        for button, target in (('x', 'button_defaults'),):
-            action = next(w for name, w in widgets.items() if name.endswith('/' + target))
-            handler = action.find(f'on[@event="{button}"]')
-            assert handler is not None, (path, button)
-            global_handler = screen.find(f'on[@event="{button}"]')
-            assert global_handler is not None
-            assert global_handler.get('run') == handler.get('run')
-            assert global_handler.get('back') == handler.get('back')
-            assert any(name.endswith('/' + button + '_butn') for name in widgets)
-            for event in ('a', 'start'):
-                assert action.find(f'on[@event="{event}"]').get('run') == handler.get('run')
-
+        assert bar_actions(screen) == {'x': 'global', 'b': 'back', 'a': 'select'}, path
+        run = screen.find("bar/action[@slot='x']").get('run')
+        assert run in ('port settings defaults apply', 'port controls defaults'), path
+        assert not [c for w in widgets.values() for c in w.findall('child')
+                    if c.get('widget').rsplit('/', 1)[-1] in ('button_bar', 'button_defaults', 'button_ok')], path
 
 def test_generated_menu_text_and_names_do_not_contain_equals():
     for path in (MENUS / 'xbox').glob('*.xml'):
@@ -1136,21 +1129,38 @@ def test_legend_touch_rectangles_fit_without_overlapping():
                     assert rect[0] >= previous[2] or previous[0] >= rect[2] or rect[1] >= previous[3] or previous[1] >= rect[3], (screen, name, rect, previous)
                 screen_rectangles.setdefault(screen, []).append(rect)
             count += 1
-    assert count > 40
+    # (the placed legends left; declared bars are placed by the engine and checked by
+    # test_declared_bar_captions_fit_their_slots and the touch legend probe)
+    assert count > 7
 
 
-def test_settings_footer_focus_only_visits_actions():
-    module = generator()
-    for path in (MENUS / 'xbox').glob('settings.*.xml'):
-        if path.name == 'settings.about.xml':
-            continue
-        widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
-        bar = next(w for name, w in widgets.items() if name.endswith('/button_bar'))
-        assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults']
-        for placement in bar.findall('child'):
-            action = widgets[placement.get('widget')]
-            assert action.find('on[@event="a"]') is not None
-            assert len(action.findall('child')) == 2
+def test_declared_bar_captions_fit_their_slots():
+    """Bug class: a caption that does not fit its button (CREATE GAME), and two actions in one place. Every declared
+    bar action's caption fits its slot in the bar's caption font, both as a touch pill (the caption and the minimum
+    padding) and beside its controller glyph, and a screen declares each slot once."""
+    import menu_geometry
+    import menu_text_metrics
+
+    count = 0
+    for path in sorted((MENUS / 'xbox').glob('*.xml')):
+        for screen in ET.parse(path).iter('widget'):
+            for bar in screen.findall('bar'):
+                slots = [action.get('slot') for action in bar.findall('action')]
+                assert len(slots) == len(set(slots)), (path.name, screen.get('name'))
+                for action in bar.findall('action'):
+                    x0, x1 = menu_geometry.BAR_SLOT_BOUNDS[action.get('slot')]
+                    room = x1 - x0 - 2 * menu_geometry.BAR_INSET - menu_geometry.BAR_CAPTION_OFFSET
+                    # (every caption a run-time one can show)
+                    for caption in (action.get('text') or action.get('strings')).split('|'):
+                        width = menu_text_metrics.text_width(menu_geometry.BAR_FONT, caption)
+                        assert width <= room, (screen.get('name'), caption, width, room)
+                        assert width + 2 * 12 <= x1 - x0, (screen.get('name'), caption)
+                    count += 1
+    assert count >= 25
+    # the slots run left to right X, Y, B, A, apart, inside the screen
+    bounds = [menu_geometry.BAR_SLOT_BOUNDS[slot] for slot in 'xyba']
+    assert all(left[1] + menu_geometry.BAR_GAP <= right[0] for left, right in zip(bounds, bounds[1:]))
+    assert bounds[0][0] >= 0 and bounds[-1][1] <= 640
 
 
 def test_every_legend_button_has_a_key_and_action():
@@ -1286,7 +1296,7 @@ def test_graphics_screen_applies_each_change_with_the_modes_help():
     base = 'xbox/settings/graphics'
     options = widgets[f'{base}/options_menu']
     assert [c.get('widget').rsplit('/', 1)[-1] for c in options.findall('child')] == [
-        'op_graphics', 'op_crt_effect', 'button_bar']
+        'op_graphics', 'op_crt_effect']
     # the CRT effect is an Apple setting, shown by the game only while the mode row shows Hardcore
     assert options.findall('child')[1].get('platform') == 'apple'
     mode = widgets[f'{base}/graphics_spinner']
@@ -1313,9 +1323,9 @@ def test_graphics_screen_applies_each_change_with_the_modes_help():
     # each change applies as it is made, as on the other settings screens: B just leaves, X restores the defaults
     screen = widgets[f'{base}/graphics_screen']
     assert screen.find('on[@event="b"]').get('back') == 'true'
-    assert screen.find('on[@event="x"]').get('run') == 'port settings defaults apply'
-    assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' in widgets
-    assert widgets[f'{base}/cancel'].get('text') == 'BACK'
+    assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' not in widgets
+    assert screen.find("bar/action[@slot='x']").get('run') == 'port settings defaults apply'
+    assert screen.find("bar/action[@slot='b']").get('text') == 'BACK'
     for spinner in (mode, crt):
         assert spinner.find('on[@event="left"][@run="port setting changed"]') is not None
         assert spinner.find('on[@event="deleted"]') is None
@@ -1324,7 +1334,7 @@ def test_graphics_screen_applies_each_change_with_the_modes_help():
 
 def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_row_beneath_it():
     for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
-                       (MENUS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
+                       (LOOKS / 'sources/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
                         'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
         widgets = settings_widgets(path)
         rows = [c.get('widget').rsplit('/', 1)[-1] for c in widgets[f'{base}/options_menu'].findall('child')]
@@ -1334,14 +1344,14 @@ def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_r
         assert widgets[f'{base}/options_menu'].get('row_pitch'), path
 
 
-@pytest.mark.parametrize('look', ['ce', 'xbox'])
+@pytest.mark.parametrize('look', ['sources', 'xbox'])
 @pytest.mark.parametrize('page', ['video_settings', 'graphics'])
 def test_hires_rows_are_absent_and_remaining_rows_keep_their_layout_and_strings(look, page):
     import port_settings
 
     base = f'xbox/settings/{page}' if look == 'xbox' else f'{port_settings.PE}/{page}'
     filename = f'settings.{page}.xml' if look == 'xbox' else base.replace('/', '.') + '.xml'
-    root = ET.parse(MENUS / look / filename).getroot()
+    root = ET.parse(LOOKS / look / filename).getroot()
     widgets = {w.get('name'): w for w in root.iter('widget')}
     assert not any('high_res_' in name for name in widgets)
     assert not any(w.get('setting') in ('display.high_res_hud', 'display.high_res_text')
@@ -1380,7 +1390,7 @@ def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_
     video_settings = {row[1] for row in port_settings.SCREENS['video_settings']['rows']}
     assert {'display.frame_rate', 'display.interpolation'} <= replaced & video_settings
     for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
-                       (MENUS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
+                       (LOOKS / 'sources/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
                         'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
         root = ET.parse(path).getroot()
         widgets = {w.get('name'): w for w in root.iter('widget')}
@@ -1403,12 +1413,10 @@ def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_
     assert 'display.vsync' not in replaced and 'display.graphics' not in replaced
 
 
-def test_the_pc_looks_graphics_screen_is_the_xbox_looks_source_and_pairs_with_it():
-    pairs = (ROOT / 'port/linux/include/menu_equivalence.h').read_text()
-    assert r'{"pc\\xbox\\settings\\graphics\\graphics_screen", ' in pairs
+def test_the_graphics_screen_is_shipped():
     manifest = json.loads((MENUS / 'menus.json').read_text())['files']
-    for name in ('xbox/settings.graphics.xml', 'ce/main_menu.settings_select.player_setup.player_profile_edit.graphics.xml',
-                 'ce/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png'):
+    for name in ('xbox/settings.graphics.xml',
+                 'pictures/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png'):
         assert name in manifest, name
 
 
@@ -1475,7 +1483,7 @@ def test_hub_profiles_row_reaches_the_picker_without_looping():
     body = source[source.index('long pc_menu_screen_open('):]
     body = body[:body.index('\n}\n')]
     skip = body.index('if (from_hub && strcmp(name, target))')
-    assert body.index('from_hub = menu_hub_open;') < body.index('menu_screen_equivalent(name, use_xbox)') < skip
+    assert body.index('from_hub = menu_hub_open;') < body.index('menu_screen_equivalent(name)') < skip
     assert 'return tag_index;' in body[skip:skip + 120]
     # the flow stays set across the picker and the edit screen, so a chosen profile opens the editor and back returns
     assert 'menu_hub_open = TRUE;' in body[skip:skip + 120]
@@ -1641,8 +1649,9 @@ def test_profile_editor_removes_save_after_inserting_settings():
     root = ET.parse(MENUS / 'xbox/patches.xml').getroot()
     edit = next(p for p in root.findall('patch') if p.get('list') == module.PEP + 'profile_edit_select_list')
     operations = list(edit)
-    assert operations[-1].tag == 'remove'
-    assert operations[-1].get('child') == module.PEP + 'save_changes_profile_item'
+    removes = [r for r in operations if r.tag == 'remove']
+    assert operations[-2:] == removes
+    assert [r.get('child') for r in removes] == [module.PEP + 'save_changes_profile_item', module.PEP + 'profile_edit_button_bar']
     assert {r.get('text') for r in operations if r.tag == 'row'} >= {'AUDIO', 'VIDEO', 'NETWORK'}
     assert not any(r.get('text') == 'SAVE CHANGES' for r in operations)
     # (other lists' patches may remove their own rows, e.g. the gametype editor's INDICATORS and the item screen's
@@ -1651,57 +1660,64 @@ def test_profile_editor_removes_save_after_inserting_settings():
                    for p in root.findall('patch') if p is not edit for r in p.findall('remove'))
 
 @pytest.mark.parametrize('kind', ('password', 'code'))
-def test_password_and_code_legend_caption_follows_the_row(kind):
-    """A opens the keyboard until text is held, so the legend's A caption is a two-string list
-    (EDIT, JOIN GAME) that menu_functions.c's legend_accept_caption switches; taps still join."""
+def test_password_and_code_bar_captions_follow_the_row(kind):
+    """A opens the keyboard until text is held, so the bar's A action has two captions (EDIT, JOIN GAME) that
+    menu_functions.c's legend_accept_caption picks by slot through ui_widget_port_bar_caption; the focused row takes
+    A. The password's X hides or shows the text; its key is a letter while typing, which the action declares
+    (while_typing="pointer"), so no screen branches on how X arrived."""
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.port.xml').getroot()
-    base = f'xbox/main_menu/multiplayer_type_select/join_game/{kind}/{kind}_screen/legend'
-    accept = next(w for w in root.iter('widget') if w.get('name') == base + '/accept')
-    assert accept.get('text') is None
-    strings = next(s for s in root.iter('strings') if s.get('name') == accept.get('string_list'))
-    assert [s.get('text') for s in strings] == ['EDIT', 'JOIN GAME']
-    assert accept.get('string_index') == '1'
-    assert accept.find('on[@event="left_mouse"]').get('run') == f'port {kind} accept'
-    screen = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0])
-    assert screen.find('on[@event="y"]') is None
+    name = f'xbox/main_menu/multiplayer_type_select/join_game/{kind}/{kind}_screen'
+    screen = next(w for w in root.iter('widget') if w.get('name') == name)
+    actions = {a.get('slot'): a for a in screen.find('bar').findall('action')}
+    assert actions['a'].get('strings') == 'EDIT|JOIN GAME' and actions['a'].get('index') == '1'
+    assert actions['a'].get('focus') == 'true' and actions['a'].get('scope') == 'select'
+    assert actions['b'].get('text') == 'CANCEL' and actions['b'].get('focus') == 'true'
+    assert screen.find('on[@event="b"]').get('run') == f'port {kind} back'
+    assert screen.find('on[@event="y"]') is None and screen.find('on[@event="x"]') is None
+    # no placed legend: nothing is found by a leaf name any more
+    assert not [w for w in root.iter('widget') if w.get('name', '').startswith(name + '/legend')]
     # JOIN GAME is its own row under the field; A on the field edits, A on the row joins
-    options = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0].rsplit('/', 1)[0] + '/options_menu')
+    options = next(w for w in root.iter('widget') if w.get('name') == name.rsplit('/', 1)[0] + '/options_menu')
     leaves = [c.get('widget').rsplit('/', 1)[1] for c in options.findall('child')]
     assert leaves == [f'op_{kind}', 'button_ok']
     ok = next(w for w in root.iter('widget') if w.get('name', '').endswith(f'/{kind}/button_ok'))
     assert ok.find('on[@event="a"]').get('run') == f'port {kind} join'
     field = next(w for w in root.iter('widget') if w.get('name', '').endswith(f'/op_{kind}'))
     assert field.find('on[@event="a"]').get('run') == f'port {kind} edit'
-    assert f'"port {kind} accept"' in (ROOT / 'port/linux/game/menu_tags.c').read_text()
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
-    assert f'legend_accept_caption(list, join_row_focused(list))' in source
+    assert 'legend_accept_caption(list, join_row_focused(list))' in source
+    assert 'ui_widget_port_bar_caption(screen, _gamepad_analog_button_a' in source
+    assert 'named(screen, "accept"' not in source and 'named(screen, "x_hide"' not in source
     assert 'config_string("debug.menu_text_seed")' in source
-    # X hides or shows the password (password screen only): HIDE while plain, SHOW while stars
-    x_names = [w.get('name') for w in root.iter('widget') if w.get('name', '').startswith(base + '/x_')]
     if kind == 'code':
-        assert x_names == []
+        assert 'x' not in actions
         return
-    assert screen.find('on[@event="x"]').get('run') == 'port password togglehide'
-    hide = next(w for w in root.iter('widget') if w.get('name') == base + '/x_hide')
-    assert hide.get('text') is None and hide.get('string_index') == '0'
-    strings = next(s for s in root.iter('strings') if s.get('name') == hide.get('string_list'))
-    assert [s.get('text') for s in strings] == ['HIDE', 'SHOW']
-    for leaf in ('x_butn', 'x_hide'):
-        entry = next(w for w in root.iter('widget') if w.get('name') == f'{base}/{leaf}')
-        assert entry.find('on[@event="left_mouse"]').get('run') == 'port password togglehide click'
-        assert screen.find(f'child[@widget="{base}/{leaf}"]') is not None
+    x = actions['x']
+    assert x.get('strings') == 'HIDE|SHOW' and x.get('scope') == 'global'
+    assert x.get('run') == 'port password togglehide' and x.get('while_typing') == 'pointer'
     assert 'password_screen.hidden = FALSE' in source
     assert 'stars[index] = password_screen.hidden' in source
-    assert '"port password togglehide click"' in (ROOT / 'port/linux/game/menu_tags.c').read_text()
+    assert 'togglehide click' not in source + (ROOT / 'port/linux/game/menu_tags.c').read_text()
     # the hosting Server Settings password stays masked
     assert 'text_field_begin_masked(row, multiplayer.game_password' in source
 
 
+def test_a_bar_key_that_is_a_letter_waits_only_for_the_key():
+    """while_typing="pointer" is data the engine reads (ui_bar_key_is_letter), for every screen: the key's press
+    waits while a field is typed in, a tap or a click (event_manager_post_pointer_button) still runs."""
+    engine = (ROOT / 'source/interface/ui_widget.c').read_text()
+    check = engine[engine.index('static boolean ui_bar_key_is_letter(\n\tstruct widget_instance *screen,\n\tstruct event_record const *event)\n{'):]
+    check = check[:check.index('\n}\n')]
+    assert 'event->data.button.pointer' in check and 'HALO_MENU_TYPING_POINTER' in check
+    assert 'ui_widget_port_text_editing()' in check
+    dispatch = engine[engine.index('if (ui_widget_port_disabled_row_activation(widget, handler->event_type))'):]
+    assert dispatch.index('ui_bar_key_is_letter(widget, event)') < dispatch.index('_event_handler_run_function_bit')
+    # (a tap's or a click's press is marked; the port's own posted presses, ui_widget_port_post_button, are not)
+    assert 'event_manager_post_pointer_button(claim_controller != NONE ? claim_controller : controller_index,\n\t\t\t\tui_mouse_presses[0]);' in engine
+
+
 def layout_widgets(density):
-    files = {p.name: p for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name}
-    if density == 'compact':
-        for p in (MENUS / 'xbox').glob('*.compact.xml'):
-            files[p.name.replace('.compact.xml', '.xml')] = p
+    files = {p.name: p for p in (MENUS / 'xbox').glob('*.xml')}
     return {w.get('name'): w for p in files.values() for w in ET.parse(p).iter('widget')}
 
 
@@ -1737,7 +1753,7 @@ def test_every_generated_screen_declares_a_layout_kind():
     assert {s['kind'] for s in module.NATIVE_SCREEN_LAYOUTS.values()} >= {'K3', 'K4', 'K9', 'K10', 'K11'}
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_layout_kinds_control_help_rows_and_panels(density):
     module = generator()
     widgets = layout_widgets(density)
@@ -1754,22 +1770,13 @@ def test_layout_kinds_control_help_rows_and_panels(density):
         options = widgets.get(spec.get('options'))
         if options is not None:
             placed = module.density_rows(options, widgets)
-            if spec.get('side_spacer_rows'):
-                placed = [c for c in options.findall('child') if '/op_' in c.get('widget')]
             if spec['kind'] == 'K2-A':
                 placed = [c for c in options.findall('child') if '/scroll_' not in c.get('widget')
-                          and c.get('widget') in widgets and (name == 'xbox/settings/settings_screen'
+                          and c.get('widget') in widgets and (module.is_picture_row(widgets[c.get('widget')])
                                                               or 'list_item_' in c.get('widget'))]
             ys = sorted({int(c.get('y')) for c in placed})
             pitch = spec.get('row_pitch', kind.get('row_pitch'))
-            if isinstance(pitch, dict):
-                # Shared screens without a compact variant retain their comfortable rows.
-                path = next(p for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name
-                            and any(w.get('name') == name for w in ET.parse(p).iter('widget')))
-                compact_exists = path.with_name(path.stem + '.compact.xml').exists()
-                pitch = pitch[density if compact_exists else 'comfortable']
-            expected = list(spec['side_spacer_rows']) if 'side_spacer_rows' in spec else [
-                ys[0] + i * pitch for i in range(len(ys))]
+            expected = [ys[0] + i * pitch for i in range(len(ys))]
             assert ys == expected, f'{name}: {density} row pitch {ys}, expected {expected}'
             if spec['kind'] == 'K1':
                 base = spec['options'].rsplit('/', 1)[0]
@@ -1777,18 +1784,18 @@ def test_layout_kinds_control_help_rows_and_panels(density):
                                 and n.rsplit('/', 1)[-1] in ('help', 'row_help', 'graphics_help',
                                                            'vehicle_options_help', 'teamplay_options_help')]
                 for help_widget in help_widgets:
-                    top = spec.get('help', (module.HELP_TOP[density if compact_exists else 'comfortable'],))[0]
+                    top = spec.get('help', (module.HELP_TOP,))[0]
                     assert int(help_widget.get('top')) == top, f'{name}: help top'
         if spec['kind'] in ('K2-A', 'K2-B'):
             expected = tuple(kind['panel']['panel'])
             panels = [w for w, _, _ in screen_parts(screen, widgets)
-                      if w.get('bitmap') == 'xbox/bitmaps/list_field']
+                      if w.get('bitmap', '').endswith('/list_field')]
             assert panels, f'{name}: missing panel'
             for w in panels:
                 assert tuple(int(w.get(k)) for k in ('left', 'top', 'width', 'height')) == expected, name
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_k8_panels_headers_and_adaptive_targets(density):
     module = generator()
     widgets = layout_widgets(density)
@@ -1839,7 +1846,7 @@ def legend_items(screen, widgets):
     return result
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_legends_share_y_and_spacing(density):
     module = generator()
     widgets = layout_widgets(density)
@@ -1915,7 +1922,7 @@ def test_shared_legend_slots_pack_by_caption_width(buttons, widths, expected):
     assert_pills_fit(buttons, positions, widths)
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_generated_legend_pills_do_not_overlap(density):
     module = generator()
     widgets = layout_widgets(density)
@@ -1928,12 +1935,14 @@ def test_generated_legend_pills_do_not_overlap(density):
             continue
         captions = legend_caption_widths(widgets[name], widgets, items)
         assert set(captions) == {b for b, _, _ in items}, f'{name}: legend caption not found'
-        assert_pills_fit(name, {b: x for b, x, _ in items}, legend_caption_widths(widgets[name], widgets, items))
+        positions = {b: x for b, x, _ in items}
+        captions = legend_caption_widths(widgets[name], widgets, items)
+        assert_pills_fit(name, positions, captions)
 
 
-@pytest.mark.parametrize('density', ('comfortable', 'compact'))
+@pytest.mark.parametrize('density', ('comfortable',))
 def test_legend_pills_clear_info_panels(density):
-    """A touch pill never touches or enters a list-field box (info panel, stats box)."""
+    """A list-field box ends at the bottom rule, not below it, where the touch pill sits (info panel, stats box)."""
     module = generator()
     widgets = layout_widgets(density)
     checked = 0
@@ -1951,13 +1960,14 @@ def test_legend_pills_clear_info_panels(density):
             if 'list_field' not in w.get('bitmap', '') or not w.get('height'):
                 continue
             right, bottom = x + int(w.get('width', 0)), y + int(w.get('height'))
-            if bottom <= pill_top:
+            if bottom <= module.RULE_Y:
                 checked += 1
             for left_edge, right_edge in spans:
                 if right_edge <= x or left_edge >= right:
                     continue
-                assert bottom <= module.LEGEND_CLEAR_Y, (
-                    f'{name}: {w.get("name")} ends at y {bottom}, touching the legend pill {left_edge}..{right_edge}')
+                # the panel runs to the bottom rule, as the disc's do; the pill straddles the rule
+                assert bottom <= module.RULE_Y, (
+                    f'{name}: {w.get("name")} ends at y {bottom}, below the rule and over the legend pill {left_edge}..{right_edge}')
     assert checked, 'no info panels found above any legend'
 
 
@@ -2020,3 +2030,145 @@ def test_dialog_touch_buttons_sit_inside_their_dialog_box():
     screen = widgets['xbox/' + gen.MP + '/join_game_legacy/gamespy_error_fullscreen']
     assert screen.get('bitmap') != 'xbox/bitmaps/black'
     assert widgets['xbox/error/error_text_box'].get('bitmap') == 'xbox/bitmaps/alert_bkd'
+
+
+def test_panel_frames_fit_their_panels():
+    """A frame is drawn at its own size, so the panel art's 1260x1288 outline (of 2048) must fill the panel's bounds."""
+    module = generator()
+    for key, spec in (('a', module.PANEL_A), ('b', module.PANEL_B)):
+        width, height = module.panel_frame_size(spec['panel'])
+        assert abs(width * module.FIELD_ART[0] / module.FIELD_PNG - spec['panel'][2]) < 0.5
+        assert abs(height * module.FIELD_ART[1] / module.FIELD_PNG - spec['panel'][3]) < 0.5
+        assert module.PANEL_BITMAPS[key].endswith('/list_field')
+
+
+def gametype_editor():
+    """(module, the generated gametype editor's widgets by name, its list)"""
+    module = generator()
+    document = ET.parse(MENUS / 'xbox/main_menu.settings_select.multiplayer_setup.playlist_edit.xml').getroot()
+    widgets = {w.get('name'): w for w in document.iter('widget')}
+    screen = widgets[module.GAMETYPE_EDIT_SCREEN]
+    (options,) = [widgets[c.get('widget')] for c in screen.findall('child')
+                  if widgets.get(c.get('widget'), ET.Element('x')).get('type') == 'column_list']
+    return module, widgets, options
+
+
+def test_the_game_s_gametype_editor_and_create_new_open_the_generated_one():
+    """The game's editor and CREATE NEW's screen (which holds only that editor) both open ours, on every
+    platform, so the game's rows (GAME TYPE, INDICATOR OPTIONS) are never shown."""
+    module = generator()
+    always = {source: target for source, target in module.SCREEN_ALWAYS}
+    disc = 'ui/shell/main_menu/settings_select/multiplayer_setup/'
+    for source in (disc + 'playlist_edit/gametype_edit_screen', disc + 'create_and_edit_new_gametype_screen'):
+        assert always[source] == 'pc/' + module.GAMETYPE_EDIT_SCREEN
+
+
+def test_gametype_editor_has_one_game_options_row_that_reaches_every_rules_page():
+    """GAME OPTIONS (the game's GAME TYPE row, its picture and description kept) opens the shared game settings
+    page and there is no GAME row; that page's TYPE row for each gametype opens its rules page, so no gametype's
+    rules are unreachable."""
+    module, widgets, options = gametype_editor()
+    rows = [widgets[c.get('widget')] for c in options.findall('child')]
+    texts = [r.get('text') for r in rows]
+    assert 'GAME' not in texts and texts.count('GAME OPTIONS') == 1
+    row = rows[texts.index('GAME OPTIONS')]
+    page = {on.get('open') for on in row.findall('on') if on.get('event') in ('a', 'start')}
+    assert page == {'xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen'}
+    # (the game's GAME TYPE row's picture and description: frame and string 1 of its lists)
+    (entry,) = [e for e in module.GAMETYPE_EDIT_ROWS if e[1] == 'GAME OPTIONS']
+    assert entry[5] == (module.GAMETYPE_OPTIONS_PICTURES, 1) and entry[6].startswith('Specify the type of game')
+    opened = set()
+    for widget in ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.game_options_edit.xml').getroot().iter(
+            'widget'):
+        if widget.get('name', '').rsplit('/', 1)[-1].startswith('op_type_'):
+            opened.update(h.get('open') for h in widget.iter('on') if h.get('event') == 'a')
+    for engine in ('ctf', 'koth', 'slayer', 'oddball', 'race'):
+        assert any(o and o.endswith(f'playlist_edit/{engine}_edit/{engine}_options_screen') for o in opened), engine
+
+
+def test_gametype_editor_panel_follows_the_rows_on_every_platform():
+    """The description update shows string and frame N for the Nth row shown, so the descriptions and pictures are
+    filtered by the same platforms as the rows, in the same order, and each row runs the game's handler it had
+    (rename, save) or the port's (delete)."""
+    module, widgets, options = gametype_editor()
+    document = ET.parse(MENUS / 'xbox/main_menu.settings_select.multiplayer_setup.playlist_edit.xml').getroot()
+    strings = document.find(f"strings[@name='{module.GAMETYPE_EDIT}/descriptions']")
+    pictures = document.find(f"bitmap[@name='{module.GAMETYPE_EDIT}/pictures']")
+    children = options.findall('child')
+    assert [c.get('platform') for c in children] == [s.get('platform') for s in strings] == [
+        f.get('platform') for f in pictures]
+    assert len(children) == len(module.GAMETYPE_EDIT_ROWS) == 7
+    assert [c.get('platform') for c in children].count('tvos') == 1  # (DELETE GAMETYPE)
+    runs = {widgets[c.get('widget')].get('text'): {on.get('run') for on in widgets[c.get('widget')].findall('on')}
+            for c in children}
+    assert runs['CHANGE NAME'] == {'mp profile change name'}
+    assert runs['SAVE CHANGES'] == {'mp profile save changes'}
+    assert runs['DELETE GAMETYPE'] == {'port delete request'}
+    screen = widgets[module.GAMETYPE_EDIT_SCREEN]
+    assert screen.find("on[@event='created']").get('run') == 'close if not editing profile'
+    # (every description ends on the line the gametype's name sits beside)
+    assert all(s.get('text').endswith('This gametype:') and s.get('text').count('\\n') == 4 for s in strings)
+
+
+def test_gametype_editor_rows_are_tall_picture_rows():
+    """The rows are the standard tall picture row (the row_36 art, 39 units apart), as the settings hub's are."""
+    module, widgets, options = gametype_editor()
+    children = options.findall('child')
+    ys = [int(c.get('y')) for c in children]
+    assert ys == [ys[0] + i * 39 for i in range(len(ys))]
+    # (each device's rows end above the panel's bottom rule: six, and the Apple TV's seven with DELETE GAMETYPE)
+    for active in (set(), {'tvos'}, {'mac_app', 'keyboard'}):
+        shown = [c for c in children if not c.get('platform') or (c.get('platform').lstrip('!') in active) != c.get(
+            'platform').startswith('!')]
+        assert max(int(c.get('y')) for c in shown) + 39 <= module.RULE_Y, active
+    for c in children:
+        row = widgets[c.get('widget')]
+        assert row.get('height') == '39' and row.get('row') == 'tall', row.get('name')
+        assert row.get('bitmap').startswith('xbox/bitmaps/row_36/list_item_bkd'), row.get('bitmap')
+
+
+def test_every_title_picture_sets_its_title_at_the_same_height_and_size_inside_its_frame():
+    """Bug class: a title picture whose text sits higher or lower in its 512x64 frame than the others draws above or
+    below the title band (the gametype editor's, made from the game's one-line 512x32 header, drew half off the top
+    of the screen). Every shipped header picture of the standard title size centers what it draws at one height."""
+    # (stdlib only: CI has no Pillow or NumPy)
+    from mac_run import read_png
+
+    over = bytes(255 if value > 200 else 0 for value in range(256))
+    seen = bytes(0 if value == 0 else 255 for value in range(256))
+
+    def span(mask):
+        """first and last index of a nonzero byte, or None"""
+        first = len(mask) - len(mask.lstrip(b'\0'))
+        return None if first == len(mask) else (first, len(mask.rstrip(b'\0')) - 1)
+
+    centers, letters, edges = {}, {}, {}
+    for frame in ET.parse(MENUS / 'xbox' / 'bitmaps.xml').getroot().iter('frame'):
+        png = frame.get('png') or ''
+        if png.rsplit('/', 1)[-1].startswith('header') and (frame.get('width'), frame.get('height')) == ('512', '64'):
+            if (MENUS / png).is_file():
+                width, height, bgra = read_png((MENUS / png).read_bytes())
+                stride = width * 4
+                rows = [bgra[y * stride:(y + 1) * stride] for y in range(height)]
+                alpha = [row[3::4] for row in rows]
+                drawn = [y for y in range(height) if span(alpha[y].translate(seen))]
+                centers[png] = (drawn[0] + drawn[-1] + 1) / 2 / height
+                # (and its letters: the bright blue of the text, at 4x)
+                left, top, bottom = width, None, None
+                for y, row in enumerate(rows):
+                    mask = (int.from_bytes(row[0::4].translate(over), 'big') &
+                            int.from_bytes(alpha[y].translate(over), 'big')).to_bytes(width, 'big')
+                    found = span(mask)
+                    if found:
+                        left, top, bottom = min(left, found[0]), y if top is None else top, y
+                letters[png] = (left, top, bottom)
+                edges[png] = max(max(alpha[0]), max(alpha[-1]), max(a[0] for a in alpha), max(a[-1] for a in alpha))
+    assert len(centers) >= 30
+    reference = sorted(centers.values())[len(centers) // 2]
+    assert {png: center for png, center in centers.items() if abs(center - reference) > 0.01} == {}
+    # the same left edge and cap top, and the standard cap height unless the title is set smaller to fit (the game's
+    # one-line header for the gametype editor was set at half the height)
+    assert {png: box for png, box in letters.items()
+            if not (110 <= box[0] <= 135 and 128 <= box[1] <= 138 and 70 <= box[2] - box[1] <= 92)} == {}
+    # and its plate fades out inside the picture, on every side
+    assert {png: edge for png, edge in edges.items() if edge > 4} == {}

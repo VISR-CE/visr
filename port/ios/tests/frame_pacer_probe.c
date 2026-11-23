@@ -33,6 +33,42 @@ int main(void)
 	CHECK(frame_pacer_in_flight_setting("4", 2) == 2);
 	CHECK(frame_pacer_in_flight_setting("12", 2) == 2);
 	CHECK(frame_pacer_in_flight_setting("system", 2) == 0);
+	/* the default: two, one with the encode thread (no frame of queue added between the controller and the screen) */
+	CHECK(frame_pacer_in_flight_default(0) == 2);
+	CHECK(frame_pacer_in_flight_default(1) == 1);
+	CHECK(frame_pacer_in_flight_setting("", frame_pacer_in_flight_default(1)) == 1);
+	CHECK(frame_pacer_in_flight_setting("2", frame_pacer_in_flight_default(1)) == 2);
+
+	/* the frames in flight at a 30 frame rate: only a lower limit, only at 30 or under, never above the base */
+	CHECK(frame_pacer_in_flight_for(30.0, 2, 1) == 1);
+	CHECK(frame_pacer_in_flight_for(29.97, 2, 1) == 1);
+	CHECK(frame_pacer_in_flight_for(60.0, 2, 1) == 2);
+	CHECK(frame_pacer_in_flight_for(0.0, 2, 1) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 2, 0) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 2, 2) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 1, 2) == 1);
+	CHECK(frame_pacer_in_flight_for(30.0, 3, 2) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 2, 0) == 2);
+	CHECK(frame_pacer_in_flight_for(30.0, 0, 1) == 0);
+
+	/* the limit lowered while two frames hold slots (a 30 frame rate begins): no new frame until both are shown, and the
+	count stays balanced */
+	{
+		struct frame_pacer_flight flight = { 2, 0 };
+
+		CHECK(frame_pacer_flight_take(&flight));
+		CHECK(frame_pacer_flight_take(&flight));
+		flight.limit = 1;
+		CHECK(!frame_pacer_flight_take(&flight));
+		frame_pacer_flight_give(&flight);
+		CHECK(!frame_pacer_flight_take(&flight));
+		frame_pacer_flight_give(&flight);
+		CHECK(flight.count == 0);
+		CHECK(frame_pacer_flight_take(&flight));
+		CHECK(!frame_pacer_flight_take(&flight));
+		frame_pacer_flight_give(&flight);
+		CHECK(flight.count == 0);
+	}
 
 	/* frames in flight: a limit of 2 lets two start, holds the third until one is shown */
 	{

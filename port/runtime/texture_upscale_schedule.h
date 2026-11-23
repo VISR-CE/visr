@@ -1,23 +1,31 @@
 /* When the on-device upscaler may run (spec 2026-10-24-halo-ce-ios-on-device-upscaling-design.md, "When it runs",
-and Steve's rules of 2026-10-24): the profile is asked first, and gameplay always wins. Header-only, so a host
+and the rules of 2026-10-24): the profile is asked first, and gameplay always wins. Header-only, so a host
 probe can check the rules without the app. */
 #pragma once
 #include <string.h>
 #include <stdio.h>
+#include "stock_maps.h"
 
-/* The order the work goes through the maps: the main menu's map first (Steve, 2026-10-26: the main menu's textures
+/* The order the work goes through the maps: the main menu's map first (2026-10-26: the main menu's textures
    are the first thing the player sees, so they are made before anything else), then the campaign in order, then the
    multiplayer maps, then community maps by name. base is the map's file name without folder or extension, lowercase. */
 #define TEXTURE_UPSCALE_MENU_MAP "ui"
 static inline int texture_upscale_map_rank(const char *base, int in_custom_maps)
 {
-	static const char *const campaign[] = { TEXTURE_UPSCALE_MENU_MAP, "a10", "a30", "a50", "b30", "b40", "c10", "c20",
-		"c40", "d20", "d40" };
+	int count;
+	const struct stock_map *maps = stock_maps(&count);
 	int i;
+	int rank = 0;
 
-	for (i = 0; i < (int)(sizeof(campaign) / sizeof(campaign[0])); i++)
-		if (!strcmp(base, campaign[i]))
-			return i;
+	/* (the menus' map, then the campaign, in the table's order) */
+	for (i = 0; i < count; i++)
+	{
+		if (!(maps[i].flags & (STOCK_MAP_INTERFACE | STOCK_MAP_CAMPAIGN)))
+			continue;
+		if (!strcmp(base, maps[i].file))
+			return rank;
+		rank++;
+	}
 	return in_custom_maps ? 2000 : 1000;
 }
 
@@ -216,7 +224,7 @@ static inline double texture_upscale_activity_wait(const struct texture_upscale_
 	return -1;
 }
 
-/* The pre-level wait (spec 2026-10-04's "Upscaling assets", kept by Steve on 2026-10-24): what the loading
+/* The pre-level wait (spec 2026-10-04's "Upscaling assets", kept on 2026-10-24): what the loading
    screen shows while a level's missing textures are made before its load. */
 enum texture_upscale_level_wait
 {

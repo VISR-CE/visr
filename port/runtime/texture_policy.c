@@ -1,4 +1,4 @@
-/* The device classifier: step-tools/upscale_lib/policy.py and xbox_map.py in C (texture_policy.h). Keep the two in
+/* The device classifier: the Python reference implementation (not in this repository, policy.py and xbox_map.py) in C (texture_policy.h). Keep the two in
 step: the plan's Task 6 compares their tables over all 24 maps. */
 #include "texture_policy.h"
 #include "menu_picture_upscaled.h"

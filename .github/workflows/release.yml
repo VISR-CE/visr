@@ -42,6 +42,14 @@ on:
 permissions:
   contents: read
 
+env:
+  # The guest's hash depends on the compiler that builds it, and Homebrew serves different llvm builds on different
+  # runners, so every job that builds installs from this fixed homebrew-core commit and stops unless the compiler is
+  # the one the reviewed policy names (RELEASE_BUILD_POLICY.guest_compiler_version). Changing the compiler means
+  # changing both lines and the policy.
+  RELEASE_HOMEBREW_CORE_PIN: 424196fcd6ddcff867054edf33034db4d0c248c4
+  RELEASE_COMPILER_VERSION: Homebrew clang version 23.1.4
+
 concurrency:
   group: ${{ inputs.mode == 'validate' && format('visr-validate-{0}', inputs.source_sha) || inputs.mode == 'unsigned' && format('visr-unsigned-{0}', inputs.resume_tag) || 'visr-release' }}
   cancel-in-progress: false
@@ -66,6 +74,30 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: '0.11.8'
+      - name: Require the policy to name the pinned compiler
+        env:
+          RELEASE_BUILD_POLICY: ${{ vars.RELEASE_BUILD_POLICY }}
+        run: |
+          set -euo pipefail
+          policy_compiler="$(python3 -c 'import json, os; print(json.loads(os.environ["RELEASE_BUILD_POLICY"]).get("guest_compiler_version", ""))')"
+          test "$policy_compiler" = "$RELEASE_COMPILER_VERSION" || { echo "The policy names '$policy_compiler'; the workflow pins '$RELEASE_COMPILER_VERSION'" >&2; exit 1; }
+      - name: Install the pinned build toolchain
+        run: |
+          set -euo pipefail
+          export HOMEBREW_NO_INSTALL_FROM_API=1 HOMEBREW_NO_AUTO_UPDATE=1
+          core="$(brew --repo homebrew/core)"
+          rm -rf "$core"
+          mkdir -p "$core"
+          git -C "$core" init --quiet
+          git -C "$core" remote add origin https://github.com/Homebrew/homebrew-core.git
+          git -C "$core" fetch --quiet --filter=blob:none origin main
+          git -C "$core" checkout --quiet --force "$RELEASE_HOMEBREW_CORE_PIN"
+          brew uninstall --force --ignore-dependencies llvm lld
+          for formula in cmake ninja llvm lld sdl3 pkgconf; do
+            brew list --formula --versions "$formula" > /dev/null 2>&1 || brew install "$formula"
+          done
+          actual="$("$(brew --prefix llvm)/bin/clang" --version | head -n 1)"
+          test "$actual" = "$RELEASE_COMPILER_VERSION" || { echo "The toolchain is '$actual'; the release pins '$RELEASE_COMPILER_VERSION'" >&2; exit 1; }
       - name: Build unsigned optimized tester provenance without publishing
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
@@ -74,7 +106,6 @@ jobs:
           RELEASE_WORKFLOW_MODE: ${{ inputs.mode }}
           VALIDATE_GUEST_EPOCH: ${{ inputs.guest_source_date_epoch }}
         run: |
-          brew install cmake ninja llvm lld sdl3 pkgconf
           epoch_args=()
           if [ -n "$VALIDATE_GUEST_EPOCH" ]; then
             test "$RELEASE_WORKFLOW_MODE" = validate
@@ -288,8 +319,23 @@ jobs:
           persist-credentials: false
       - name: Select an accepted Xcode build
         run: python3 tools/xcode_select.py
-      - name: Install build dependencies
-        run: brew install cmake ninja llvm lld sdl3 pkgconf
+      - name: Install the pinned build toolchain
+        run: |
+          set -euo pipefail
+          export HOMEBREW_NO_INSTALL_FROM_API=1 HOMEBREW_NO_AUTO_UPDATE=1
+          core="$(brew --repo homebrew/core)"
+          rm -rf "$core"
+          mkdir -p "$core"
+          git -C "$core" init --quiet
+          git -C "$core" remote add origin https://github.com/Homebrew/homebrew-core.git
+          git -C "$core" fetch --quiet --filter=blob:none origin main
+          git -C "$core" checkout --quiet --force "$RELEASE_HOMEBREW_CORE_PIN"
+          brew uninstall --force --ignore-dependencies llvm lld
+          for formula in cmake ninja llvm lld sdl3 pkgconf; do
+            brew list --formula --versions "$formula" > /dev/null 2>&1 || brew install "$formula"
+          done
+          actual="$("$(brew --prefix llvm)/bin/clang" --version | head -n 1)"
+          test "$actual" = "$RELEASE_COMPILER_VERSION" || { echo "The toolchain is '$actual'; the release pins '$RELEASE_COMPILER_VERSION'" >&2; exit 1; }
       - name: Select the reviewed release controller without changing the application tag
         env:
           CONTROLLER_SHA: ${{ github.sha }}
@@ -329,8 +375,23 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: '0.11.8'
-      - name: Install build dependencies
-        run: brew install cmake ninja llvm lld sdl3 pkgconf
+      - name: Install the pinned build toolchain
+        run: |
+          set -euo pipefail
+          export HOMEBREW_NO_INSTALL_FROM_API=1 HOMEBREW_NO_AUTO_UPDATE=1
+          core="$(brew --repo homebrew/core)"
+          rm -rf "$core"
+          mkdir -p "$core"
+          git -C "$core" init --quiet
+          git -C "$core" remote add origin https://github.com/Homebrew/homebrew-core.git
+          git -C "$core" fetch --quiet --filter=blob:none origin main
+          git -C "$core" checkout --quiet --force "$RELEASE_HOMEBREW_CORE_PIN"
+          brew uninstall --force --ignore-dependencies llvm lld
+          for formula in cmake ninja llvm lld sdl3 pkgconf; do
+            brew list --formula --versions "$formula" > /dev/null 2>&1 || brew install "$formula"
+          done
+          actual="$("$(brew --prefix llvm)/bin/clang" --version | head -n 1)"
+          test "$actual" = "$RELEASE_COMPILER_VERSION" || { echo "The toolchain is '$actual'; the release pins '$RELEASE_COMPILER_VERSION'" >&2; exit 1; }
       - name: Select the reviewed release controller without changing the application tag
         env:
           CONTROLLER_SHA: ${{ github.sha }}

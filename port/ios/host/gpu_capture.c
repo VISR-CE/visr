@@ -921,6 +921,14 @@ static uint32_t capture_compiles_outstanding(void)
 	return capture.backend.compiles_outstanding();
 }
 
+/* the host's own operations (gpu_backend.h) pass through: a capture holds gpu.h's calls only */
+#define CAPTURE_HOST_F(type, name, parameters, arguments) \
+	static type capture_##name parameters { return capture.backend.name arguments; }
+#define CAPTURE_HOST_P(name, parameters, arguments) static void capture_##name parameters { capture.backend.name arguments; }
+GPU_HOST_OPERATIONS(CAPTURE_HOST_F, CAPTURE_HOST_P)
+#undef CAPTURE_HOST_F
+#undef CAPTURE_HOST_P
+
 static void capture_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
 	capture.backend.initialize(flags, capabilities);
@@ -972,7 +980,7 @@ void gpu_capture_install(struct gpu_backend *table, const struct gpu_capture_hos
 	capture.installed = 1;
 #define INSTALL_FUNCTION(type, name, parameters, arguments) table->name = capture_##name;
 #define INSTALL_PROCEDURE(name, parameters, arguments) table->name = capture_##name;
-	GPU_FUNCTIONS(INSTALL_FUNCTION, INSTALL_PROCEDURE)
+	GPU_BACKEND_FUNCTIONS(INSTALL_FUNCTION, INSTALL_PROCEDURE)
 #undef INSTALL_FUNCTION
 #undef INSTALL_PROCEDURE
 	atexit(gpu_capture_finish);

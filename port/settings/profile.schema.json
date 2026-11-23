@@ -188,6 +188,15 @@
           "default": "display",
           "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn, and with display.interpolation off it draws 30 frames a second at most. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
         },
+        "frames_in_flight_at_30": {
+          "type": "string",
+          "enum": [
+            "1",
+            "2"
+          ],
+          "default": "",
+          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" or \"2\", while the frame rate in force is 30 or lower (a 30 cap, a big multiplayer game held to 30, a scene class's 30). One frame in flight cuts the delay between the game and the screen by a third when a frame's CPU and GPU work together fit the 33 ms, and never raises display.frames_in_flight. Empty (default): display.frames_in_flight throughout. Not on a Vision Pro. Profile values outside the accepted set are refused, not clamped."
+        },
         "async_shaders": {
           "type": "string",
           "enum": [
@@ -206,7 +215,7 @@
         "allow_portrait": {
           "type": "boolean",
           "default": false,
-          "description": "When true, gameplay and menus follow the device into portrait. Device profiles turn it on where portrait play is supported (the iPhone Duo); on other devices set it in config.toml for testing. Read at launch. Profile values outside the accepted set are refused, not clamped."
+          "description": "When true, gameplay and menus follow the device into portrait on any of its screens at least 640 points wide in portrait, where a menu unit is at least a point; a narrower screen stays in landscape. Device profiles turn it on where portrait play is supported (the iPhone Duo); on other devices set it in config.toml for testing. Read at launch. Profile values outside the accepted set are refused, not clamped."
         },
         "dynamic_resolution": {
           "type": "boolean",
@@ -268,7 +277,7 @@
             "const": 1
           },
           "default": 0,
-          "description": "The most multiplayer slots this device holds at 60 fps and variable quality, or at 30 when the first rung cannot hold 60, 2 to 128; 0 (default) leaves it unlimited. Above this threshold, gameplay is held to at most 30 frames a second for the whole map, using the game's maximum players at map load. Campaign, co-op, split screen and the main menu are unaffected. A player's explicit display.frame_rate choice still wins. Vision Pro paces its own frames. A positive value also sets the hosted-game default and the warning threshold in Server Setup and the browsers, taking precedence over network.player_capacity. The browser marks a larger game BIG once it is at least half this threshold full; joining then asks for confirmation. A profile sets this at or below player_capacity. Profile values outside the accepted set are refused, not clamped."
+          "description": "The most multiplayer slots this device holds at 60 fps and variable quality, or at 30 when the first rung cannot hold 60, 2 to 128; 0 (default) leaves it unlimited. Above this threshold, gameplay is held to at most 30 frames a second for the whole map, using the game's maximum players at map load. Campaign, co-op, split screen and the main menu are unaffected. A player's explicit display.frame_rate choice still wins. Vision Pro paces its own frames, so there the value sets only what follows. A positive value also sets the hosted-game default and the warning threshold in Server Setup and the browsers, taking precedence over network.player_capacity. The browser marks a larger game BIG once it is at least half this threshold full; joining then asks for confirmation. A profile sets this at or below player_capacity. Profile values outside the accepted set are refused, not clamped."
         }
       },
       "additionalProperties": false
@@ -578,6 +587,15 @@
               "default": 128,
               "description": "The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512. Profile values outside the accepted set are refused, not clamped."
             },
+            "effect_limits": {
+              "type": "string",
+              "enum": [
+                "raised",
+                "xbox"
+              ],
+              "default": "raised",
+              "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics). A device profile may set \"xbox\" for multiplayer and the other variable workloads on devices that big games overload. Profile values outside the accepted set are refused, not clamped."
+            },
             "anti_aliasing": {
               "type": "string",
               "enum": [
@@ -603,6 +621,15 @@
               ],
               "default": "display",
               "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn, and with display.interpolation off it draws 30 frames a second at most. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
+            },
+            "frames_in_flight_at_30": {
+              "type": "string",
+              "enum": [
+                "1",
+                "2"
+              ],
+              "default": "",
+              "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" or \"2\", while the frame rate in force is 30 or lower (a 30 cap, a big multiplayer game held to 30, a scene class's 30). One frame in flight cuts the delay between the game and the screen by a third when a frame's CPU and GPU work together fit the 33 ms, and never raises display.frames_in_flight. Empty (default): display.frames_in_flight throughout. Not on a Vision Pro. Profile values outside the accepted set are refused, not clamped."
             },
             "dynamic_resolution": {
               "type": "boolean",
@@ -1753,6 +1780,50 @@
             }
           ]
         },
+        "variable.display.effect_limits": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
         "display.model_lod": {
           "type": "object",
           "properties": {
@@ -2506,6 +2577,94 @@
           ]
         },
         "variable.display.frame_rate": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "display.frames_in_flight_at_30": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "variable.display.frames_in_flight_at_30": {
           "type": "object",
           "properties": {
             "basis": {

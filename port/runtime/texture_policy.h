@@ -1,5 +1,5 @@
 /* The per-texture upscale policy on the device (spec 2026-10-04-halo-ce-ios-texture-upscale-policy-design.md):
-the same rules as step-tools/upscale_lib/policy.py, over the imported maps, keyed by (level-0 hash, width, height)
+the same rules as the Python reference implementation (not in this repository, policy.py), over the imported maps, keyed by (level-0 hash, width, height)
 as the runtime override lookup is. Host-side C; the import pipeline (piece 3) calls it. */
 #pragma once
 #include <stddef.h>
@@ -52,7 +52,7 @@ struct texture_policy_table
 	when enabled, structure_loss(S4g) >= damage_structure_loss; and to the original when, enabled, bpf loses markedly
 	more structure than a plain resize, structure_loss(bpf) - structure_loss(resize) >= damage_bpf_structure_loss.
 	A negative value is a test turned off (null in the policy file). damage_measure_version is the measures'
-	definition version. The Mac reference is step-tools/upscale_lib/damage.py (damage_share, structure_loss) and its
+	definition version. The Mac reference is damage.py in a reference implementation (not in this repository) (damage_share, structure_loss) and its
 	policy/final.tsv; the device's measure (piece 3, a GPU reduction beside the bpf pass) must match damage_share
 	within 0.005, and its tests cover every key within 0.02 of the threshold. Until piece 3, the device carries only
 	these parameters (in the cache recipe key) and the table's results stay the classifier's. */
@@ -68,7 +68,7 @@ struct texture_policy_table
 	for the first-person treatment (its Mac base is already 4x), and twice that when doubled: its kind's bit is in
 	doubled_kinds (1 << enum texture_policy_kind), its treatment's in doubled_treatments (1 << enum
 	texture_policy_treatment), one of its tags is in doubled_tags, or its key is in doubled_textures. The shipping
-	selection (step-tools texture-resolution-set.py compose, sets/policy-game-selective-round3) is locked to it by
+	selection (composed by a tool outside this repository) is locked to it by
 	port/assets/texture-selection-lock.tsv. */
 	uint32_t scale_base, scale_first_person;
 	unsigned doubled_kinds, doubled_treatments;

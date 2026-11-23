@@ -92,6 +92,15 @@ static void *memory_pool_block_new(
 	long size);
 static void memory_pool_verify(
 	struct memory_pool *pool);
+/* port: a game tick puts the walk of the blocks off to its end (debug.verify_once_a_tick,
+port/linux/game/tick_verify.c) */
+static void memory_pool_verify_put_off(
+	void *pool);
+static void memory_pool_verify_block(
+	struct memory_pool *pool,
+	struct memory_pool_block *block);
+boolean tick_verify_put_off(void *subject, void (*verify)(void *subject));
+void tick_verify_flush(void *subject);
 static struct memory_pool_block *memory_pool_block_get(
 	struct memory_pool *pool,
 	void **reference);
@@ -142,6 +151,8 @@ void memory_pool_delete(
 	struct memory_pool *pool)
 {
 	memory_pool_verify(pool);
+	/* port: (a walk put off happens here: the pool is gone after this) */
+	tick_verify_flush(pool);
 	csmemset(pool, 0, sizeof(*pool));
 	match_free("c:\\halo\\SOURCE\\memory\\memory_pool.c", 85, pool);
 	return;
@@ -160,6 +171,20 @@ boolean memory_pool_block_allocate(
 		actual_size = (actual_size|3)+1;
 	memory_pool_verify(pool);
 	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 124, size>=0);
+	/* port: with the walk put off (debug.verify_once_a_tick), the end of the list is checked before the new
+	block is linked to it, which would write over a wrong link there */
+	if (tick_verify_put_off(pool, memory_pool_verify_put_off))
+	{
+		if (pool->last_block)
+		{
+			memory_pool_verify_block(pool, pool->last_block);
+			match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 353, !pool->last_block->next_block);
+		}
+		else
+		{
+			match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 353, !pool->first_block);
+		}
+	}
 
 	block = pool->last_block
 		? (struct memory_pool_block *)((byte *)pool->last_block+pool->last_block->size)
@@ -219,6 +244,8 @@ void memory_pool_compact(
 	struct memory_pool_block *block;
 	struct memory_pool_block *previous_block;
 
+	/* port: compacting writes every link again, so a walk put off (debug.verify_once_a_tick) is made first */
+	tick_verify_flush(pool);
 	block = pool->first_block;
 	if (block)
 	{
@@ -338,6 +365,12 @@ static void *memory_pool_block_new(
 		: NULL;
 }
 
+static void memory_pool_verify_put_off(
+	void *pool)
+{
+	memory_pool_verify((struct memory_pool *)pool);
+}
+
 static void memory_pool_verify(
 	struct memory_pool *pool)
 {
@@ -347,6 +380,10 @@ static void memory_pool_verify(
 	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 340, pool->signature==POOL_SIGNATURE);
 	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 341, pool->size>0);
 
+	if (tick_verify_put_off(pool, memory_pool_verify_put_off))
+	{
+		return;
+	}
 	previous_block = NULL;
 	for (block = pool->first_block; block; block = block->next_block)
 	{
@@ -361,6 +398,41 @@ static void memory_pool_verify(
 	return;
 }
 
+/* port: what the walk asserts of one block, for a block about to leave the list or be linked to while the walk
+is put off (debug.verify_once_a_tick): its signatures, that it lies in the pool, and its links to its neighbors,
+each neighbor known to lie in the pool before it is read */
+static void memory_pool_verify_block(
+	struct memory_pool *pool,
+	struct memory_pool_block *block)
+{
+	byte *first = (byte *)pool->base_address;
+	byte *last = first+pool->size-sizeof(*block);
+
+	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 358, (byte *)block>=first && (byte *)block<=last);
+	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 355, block->header_signature==BLOCK_HEADER_SIGNATURE);
+	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 356, block->trailer_signature==BLOCK_TRAILER_SIGNATURE);
+	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 359, (byte *)block+block->size<=first+pool->size);
+	if (block->previous_block)
+	{
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 352, (byte *)block->previous_block>=first && (byte *)block->previous_block<=last);
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 352, block->previous_block->next_block==block);
+	}
+	else
+	{
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 352, pool->first_block==block);
+	}
+	if (block->next_block)
+	{
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 353, (byte *)block->next_block>=first && (byte *)block->next_block<=last);
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 353, block->next_block->previous_block==block);
+	}
+	else
+	{
+		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 353, pool->last_block==block);
+	}
+	return;
+}
+
 static struct memory_pool_block *memory_pool_block_get(
 	struct memory_pool *pool,
 	void **reference)
@@ -371,6 +443,12 @@ static struct memory_pool_block *memory_pool_block_get(
 	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 372, reference && (*reference));
 	memory_pool_verify(pool);
 	block = (struct memory_pool_block *)((byte *)*reference-sizeof(*block));
+	/* port: with the walk put off (debug.verify_once_a_tick), the block asked for is checked here: it may be
+	freed before the walk at the end of the tick, which would then no longer find it */
+	if (tick_verify_put_off(pool, memory_pool_verify_put_off))
+	{
+		memory_pool_verify_block(pool, block);
+	}
 	match_vassert(
 		"c:\\halo\\SOURCE\\memory\\memory_pool.c",
 		379,

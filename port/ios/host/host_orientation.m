@@ -6,6 +6,9 @@
 #import <QuartzCore/QuartzCore.h>
 #include <pthread.h>
 #include <SDL3/SDL.h>
+#include <math.h>
+#include <stdatomic.h>
+#include "host_portrait_rule.h"
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -14,6 +17,9 @@
 /* UIKit may ask before host_main.m installs the profile. Only configure
    after that point; early queries keep the existing landscape policy. */
 static BOOL allow_portrait;
+/* whether the screen the game's scene is on fits portrait (host_portrait_rule.h): -1 before the first check,
+   which leaves the device's own answer */
+static _Atomic int screen_portrait = -1;
 static struct host_geometry_debounce geometry_debounce;
 static struct host_geometry settled_geometry;
 static unsigned settled_generation;
@@ -32,33 +38,112 @@ unsigned host_geometry_settled_size(double *width, double *height) {
     return generation;
 }
 
-int host_ios_portrait_allowed(void) { return allow_portrait ? 1 : 0; }
+int host_ios_portrait_allowed(void) { return allow_portrait && atomic_load(&screen_portrait) != 0 ? 1 : 0; }
 
 BOOL host_ios_allows_portrait(void) {
-    return allow_portrait;
+    return host_ios_portrait_allowed() != 0;
 }
 
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION
-static char debug_orientation[16];
+static UIWindowScene *game_window_scene(void) {
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+        if ([scene isKindOfClass:UIWindowScene.class] &&
+            [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication])
+            return (UIWindowScene *)scene;
+    return nil;
+}
+
+static void update_orientation_preferences(UIWindowScene *windowScene) {
+    for (UIWindow *window in windowScene.windows) {
+        UIViewController *controller = window.rootViewController;
+        while (controller) {
+            [controller setNeedsUpdateOfSupportedInterfaceOrientations];
+            if (@available(iOS 26.0, *)) [controller setNeedsUpdateOfPrefersInterfaceOrientationLocked];
+            controller = controller.presentedViewController;
+        }
+    }
+}
+
+/* Main thread: take the portrait answer again for the screen the game's scene is on now (a move between the
+   cover and inner screens changes it), and when it changes, tell SDL and UIKit; a scene in portrait on a screen
+   that no longer allows it turns to landscape. */
+static void portrait_screen_check(void) {
+    UIWindowScene *windowScene = game_window_scene();
+    UIScreen *screen = windowScene.screen;
+    CGSize size = screen ? screen.bounds.size : CGSizeZero;
+    struct host_portrait_step step = host_portrait_check(atomic_load(&screen_portrait), allow_portrait, screen != nil,
+        size.width, size.height, UIInterfaceOrientationIsPortrait(windowScene.effectiveGeometry.interfaceOrientation));
+    if (!step.changed) return;
+    int fits = step.answer;
+    atomic_store(&screen_portrait, fits);
+    host_logf(HOST_LOG_INFO, "portrait: %s on this %.0fx%.0f pt screen (at least %.0f pt wide in portrait)",
+        fits ? "allowed" : "not allowed", size.width, size.height, HOST_PORTRAIT_MINIMUM_POINTS);
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, fits ? "Portrait PortraitUpsideDown LandscapeLeft LandscapeRight" :
+        "LandscapeLeft LandscapeRight");
+    update_orientation_preferences(windowScene);
+    if (step.turn_to_landscape)
+        for (UIWindow *window in windowScene.windows)
+            if (!window.hidden && window.rootViewController) { host_ios_require_landscape(window); break; }
+}
+#endif
+
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION
+/* debug.orientation: one orientation, or a timed sequence ("portrait,landscape@20"): the first is requested
+   once the first window scene is active, each later one at its seconds after that. */
+#define DEBUG_ORIENTATION_STEPS 4
+static char debug_orientation[64];
+static struct { BOOL portrait; double seconds; } debug_steps[DEBUG_ORIENTATION_STEPS];
+static int debug_step_count;
 static BOOL orientation_requested;
 
-static void request_debug_orientation(UIWindowScene *scene) {
-    if (orientation_requested || !debug_orientation[0] ||
-        scene.activationState != UISceneActivationStateForegroundActive ||
-        ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) return;
-    orientation_requested = YES;
-    BOOL portrait = !strcmp(debug_orientation, "portrait");
+static BOOL debug_orientation_parse(const char *text) {
+    char copy[sizeof(debug_orientation)];
+    snprintf(copy, sizeof(copy), "%s", text);
+    debug_step_count = 0;
+    for (char *save = NULL, *item = strtok_r(copy, ",", &save); item; item = strtok_r(NULL, ",", &save)) {
+        if (debug_step_count == DEBUG_ORIENTATION_STEPS) return NO;
+        char *at = strchr(item, '@');
+        double seconds = 0;
+        if (at) { *at = 0; seconds = atof(at + 1); }
+        if (strcmp(item, "portrait") && strcmp(item, "landscape")) return NO;
+        if (debug_step_count && seconds <= debug_steps[debug_step_count - 1].seconds) return NO;
+        debug_steps[debug_step_count].portrait = !strcmp(item, "portrait");
+        debug_steps[debug_step_count].seconds = seconds;
+        debug_step_count++;
+    }
+    return debug_step_count > 0 && debug_steps[0].seconds == 0;
+}
+
+static void request_debug_step(UIWindowScene *scene, int step) {
+    BOOL portrait = debug_steps[step].portrait;
     if (portrait && !allow_portrait) {
         host_logf(HOST_LOG_INFO, "orientation request: portrait requires display.allow_portrait");
         return;
     }
     UIInterfaceOrientationMask mask = portrait ? UIInterfaceOrientationMaskPortrait : UIInterfaceOrientationMaskLandscape;
-    host_logf(HOST_LOG_INFO, "orientation request: %s", debug_orientation);
+    host_logf(HOST_LOG_INFO, "orientation request: %s (step %d of %d)", portrait ? "portrait" : "landscape",
+        step + 1, debug_step_count);
     UIWindowSceneGeometryPreferencesIOS *geometry = [[UIWindowSceneGeometryPreferencesIOS alloc]
         initWithInterfaceOrientations:mask];
     [scene requestGeometryUpdateWithPreferences:geometry errorHandler:^(NSError *error) {
         host_logf(HOST_LOG_WARN, "orientation request: %s", error.localizedDescription.UTF8String);
     }];
+}
+
+static void request_debug_orientation(UIWindowScene *scene) {
+    if (orientation_requested || !debug_step_count ||
+        scene.activationState != UISceneActivationStateForegroundActive ||
+        ![scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) return;
+    orientation_requested = YES;
+    request_debug_step(scene, 0);
+    for (int step = 1; step < debug_step_count; step++) {
+        __weak UIWindowScene *weak_scene = scene;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(debug_steps[step].seconds * NSEC_PER_SEC)),
+            dispatch_get_main_queue(), ^{
+                UIWindowScene *target = weak_scene;
+                if (target) request_debug_step(target, step);
+            });
+    }
 }
 #endif
 
@@ -77,30 +162,28 @@ void host_ios_orientation_configure(void) {
     environment = getenv("HALO_ORIENTATION");
     host_config_string("debug.orientation", "", debug_orientation, sizeof(debug_orientation));
     if (environment) snprintf(debug_orientation, sizeof(debug_orientation), "%s", environment);
-    if (debug_orientation[0] && strcmp(debug_orientation, "portrait") && strcmp(debug_orientation, "landscape")) {
+    if (debug_orientation[0] && !debug_orientation_parse(debug_orientation)) {
         host_logf(HOST_LOG_WARN, "orientation request: unknown orientation %s", debug_orientation);
         debug_orientation[0] = 0;
+        debug_step_count = 0;
     }
     if (allow_portrait)
         SDL_SetHint(SDL_HINT_ORIENTATIONS, "Portrait PortraitUpsideDown LandscapeLeft LandscapeRight");
     dispatch_async(dispatch_get_main_queue(), ^{
+        portrait_screen_check();
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if (![scene isKindOfClass:UIWindowScene.class]) continue;
             UIWindowScene *windowScene = (UIWindowScene *)scene;
-            for (UIWindow *window in windowScene.windows) {
-                UIViewController *controller = window.rootViewController;
-                while (controller) {
-                    [controller setNeedsUpdateOfSupportedInterfaceOrientations];
-                    if (@available(iOS 26.0, *)) [controller setNeedsUpdateOfPrefersInterfaceOrientationLocked];
-                    controller = controller.presentedViewController;
-                }
-            }
+            update_orientation_preferences(windowScene);
             request_debug_orientation(windowScene);
         }
         [NSNotificationCenter.defaultCenter addObserverForName:UISceneDidActivateNotification object:nil
             queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *notification) {
-                if ([notification.object isKindOfClass:UIWindowScene.class])
+                if ([notification.object isKindOfClass:UIWindowScene.class]) {
+                    /* (the first check above finds no scene when configure runs before one connects) */
+                    portrait_screen_check();
                     request_debug_orientation(notification.object);
+                }
             }];
     });
 #endif
@@ -173,11 +256,14 @@ static void relayout_to_scene(void) {
             CGSize want = CGSizeMake(round(bounds.size.width * scale), round(bounds.size.height * scale));
             int width = 0, height = 0;
             SDL_GetWindowSize(sdl, &width, &height);
-            BOOL layer_off = !CGSizeEqualToSize(layer.drawableSize, want);
+            /* (a pixel either way is the rounding of a fractional bounds times the scale, which UIKit and SDL
+               round their own way: correcting it each frame fought them forever) */
+            BOOL layer_off = fabs(layer.drawableSize.width - want.width) > 1.0 ||
+                             fabs(layer.drawableSize.height - want.height) > 1.0;
             int pw = 0, ph = 0;
             SDL_GetWindowSizeInPixels(sdl, &pw, &ph);
             BOOL sdl_off = width != (int)bounds.size.width || height != (int)bounds.size.height ||
-                           pw != (int)want.width || ph != (int)want.height;
+                           abs(pw - (int)want.width) > 1 || abs(ph - (int)want.height) > 1;
             if (changed) { [view setNeedsLayout]; [view layoutIfNeeded]; }
             if (layer.contentsScale != scale) layer.contentsScale = scale;
             double now = CACurrentMediaTime();
@@ -210,6 +296,9 @@ void host_geometry_poll(void) {
         settled_geometry = geometry;
         unsigned generation = ++settled_generation;
         pthread_mutex_unlock(&geometry_lock);
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION
+        portrait_screen_check();
+#endif
         relayout_to_scene();
         relayout_again_at = now + 0.4;    /* the display move and rotation can finish after the first settle */
         host_logf(HOST_LOG_INFO, "scene geometry settled %.0fx%.0f orientation=%d (%s) generation=%u",

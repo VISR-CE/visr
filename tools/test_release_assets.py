@@ -320,26 +320,6 @@ def test_signed_asset_payload_passes_the_publisher_and_native_contract(
             validation.verify_feed(bad, kind, {**pins, "shader_feed_sha256": sha})
 
 
-def test_immutable_source_rechecks_the_exact_target_argument(tmp_path):
-    source = tmp_path / "application"
-    package = source / "tools"
-    package.mkdir(parents=True)
-    (package / "__init__.py").write_text("")
-    (package / "release_validation.py").write_text(
-        "def verify_feed(data, kind, policy, *, profile_target):\n"
-        ' assert data == b"signed shard" and kind == "profile"\n'
-        ' assert profile_target == "ios/iPhone18,1/_"\n'
-        ' assert policy == {"fixture": "policy"}\n'
-    )
-    validation.verify_feed(
-        b"signed shard",
-        "profile",
-        {"fixture": "policy"},
-        root=source,
-        profile_target="ios/iPhone18,1/_",
-    )
-
-
 @pytest.mark.parametrize("value", [None, True, 0, "NO", "false"])
 def test_release_rejects_missing_or_nonboolean_exemption(value):
     from tools import release

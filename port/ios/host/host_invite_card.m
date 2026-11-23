@@ -1,6 +1,7 @@
 /* The invite over the game's window, including visionOS theater mode.
    p2p.c sends changes from its locked network thread; only copied strings
    cross onto the main thread, never guest pointers or synchronous UIKit work. */
+#include <stdatomic.h>
 #import <UIKit/UIKit.h>
 #include <TargetConditionals.h>
 #include <SDL3/SDL.h>
@@ -67,6 +68,8 @@ static UIColor *inviteColor(unsigned rgb) {
 @end
 
 static UIWindow *invite_window;
+/* invite_window!=nil, for host_invite_card_up (host_window_up), which pad reads ask off main */
+static atomic_int invite_up;
 
 @implementation HaloInviteCardController
 #if !TARGET_OS_TV
@@ -193,6 +196,7 @@ static UIWindow *invite_window;
     host_dismiss_share_sheet();
     UIWindow *window = invite_window;
     invite_window = nil;
+    atomic_store(&invite_up, 0);
     host_dismiss_window(window);
     host_present_input_update();
 }
@@ -206,7 +210,7 @@ static UIWindow *invite_window;
 }
 @end
 
-int host_invite_card_up(void) { return invite_window != nil; }
+int host_invite_card_up(void) { return atomic_load(&invite_up); }
 
 int posix_show_invite(const char *link, const char *code) {
     if (!NSThread.isMainThread || !link || !*link) return 0;
@@ -227,6 +231,7 @@ int posix_show_invite(const char *link, const char *code) {
     card.scene = window.windowScene;
     window.rootViewController = card;
     invite_window = window;
+    atomic_store(&invite_up, 1);
     host_present_input_update();
     return 1;
 }

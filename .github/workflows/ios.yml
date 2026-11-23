@@ -186,6 +186,14 @@ jobs:
         run: |
           xcrun --sdk appletvos --show-sdk-path
           xcrun --sdk appletvsimulator --show-sdk-path
+      # Every host source, compiled unoptimized for iPhone, Apple TV, Vision Pro and macOS (no link), and a
+      # check that each guest import is defined by a compiled object, so a platform-only `#if` block that
+      # does not compile, or an import defined only under one, fails here and not in a later build. The
+      # Apple TV build below regenerates everything this step stubs.
+      - name: Compile every host source on every platform
+        run: |
+          python3 tools/test_host_syntax_check.py
+          python3 tools/host_syntax_check.py --prepare
       # Like iOS, the app ships no game data: it imports the player's XISO
       # over the local network (port/ios/host/host_tv_import.m).
       - name: Build unsigned Apple TV IPA

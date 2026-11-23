@@ -23,7 +23,6 @@ static int frame_floor = 540;
 int host_config_profile_installed(void) { return profile_installed; }
 int host_perf_metal_timing_supported(void) { return stage_timing; }
 int host_external_active(void) { return external_on; }
-void host_logf(int priority, const char *format, ...) { (void)priority; (void)format; }
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     /* the device profile's value, once installed */
     if (profile_on && profile_installed && !strcmp(name, "display.dynamic_resolution")) { snprintf(out, size, "true"); return; }
@@ -38,7 +37,6 @@ void host_perf_reports_frame(const game_perf_frame *frame) {
     if (frame->drs.action == DYNAMIC_RESOLUTION_DROP || frame->drs.action == DYNAMIC_RESOLUTION_PANIC) drops++;
     if (frame->drs.action == DYNAMIC_RESOLUTION_RECOVER) recoveries++;
 }
-void host_perf_reports_event(const game_perf_event *event) { (void)event; }
 /* The GPU: a fixed 2 ms plus 11 ms a ceiling's worth of pixels, times the
  * load; upscale and HUD 1 ms. Late when over the 16.7 ms budget. */
 void host_perf_metal_join(game_perf_frame *frame) {

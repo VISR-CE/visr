@@ -41,7 +41,11 @@ static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_r
 		}
 	}
 	if (count < 4) return row;
-	for (index = 0; index < count; index++)
+	/* a range may start with a word for nothing ("NONE", "OFF") below its numbers: NONE, 1, 2, 3, 4 is a range of
+	five, its first value zero. Any other word ("SAME", "AUTO", "DISPLAY") is a choice of its own, not an end of
+	the range, so such a list stays a list of choices. */
+	index = halo_menu_row_word(string(context, 0), "NONE") || halo_menu_row_word(string(context, 0), "OFF") ? 1 : 0;
+	for (; index < count; index++)
 	{
 		/* Parse ASCII numbers directly: guest wchar_t is UTF-16, host wchar_t may not be. */
 		char number[96], *end;
@@ -62,7 +66,9 @@ static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_r
 		if (end != number && (*end == 'x' || *end == 'X') && !end[1]) unit = 1;
 		else if (end != number && *end == '%' && !end[1]) unit = 2;
 		else if (end == number || *end) return row;
-		if (!isfinite(value) || (index && value <= previous) || (suffix >= 0 && unit != suffix)) return row;
+		if (!isfinite(value) || (suffix >= 0 && value <= previous) || (suffix >= 0 && unit != suffix)) return row;
+		/* (the numbers after a leading word for nothing are above it) */
+		if (suffix < 0 && index && value <= 0) return row;
 		suffix = unit;
 		previous = value;
 	}

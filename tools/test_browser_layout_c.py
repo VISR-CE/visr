@@ -270,6 +270,8 @@ def test_browser_controller_navigation(tmp_path):
 typedef int boolean;
 #define TRUE 1
 #define FALSE 0
+#define HALO_MENU_FOCUS_ROW 0
+static int ui_widget_port_draws_focus(int kind, int focused) { (void)kind; return focused; }
 #define NONE -1
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #define MIN(a,b) ((a)<(b)?(a):(b))

@@ -16,7 +16,7 @@ A gameplay profile that only holds 30 is never proposed: when nothing holds 60 t
 marked "below target". On a display that refreshes at 100 Hz or more, the proposal still aims for 60 and adds
 a line on whether the display's highest rate is within reach.
 
-`from-runs` builds a report from result folders of one-launch runs (step-tools/device-run.py with
+`from-runs` builds a report from result folders of one-launch runs (from the device runner, with
 debug.gpu_stats), whose logs carry a summary every 600 frames and no per-frame times, so that measurements made
 before the benchmark existed can be read the same way.
 """

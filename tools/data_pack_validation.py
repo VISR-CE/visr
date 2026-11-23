@@ -12,6 +12,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+# the shader feed's compatibility string: one definition, in the record contract's header
+SHADER_LISTS_FORMAT = re.search(
+    r'#define SHADER_RECORD_FORMAT "([^"]+)"',
+    (Path(__file__).resolve().parent.parent / "port/runtime/shader_record.h").read_text(),
+)[1]
+
 if __package__:
     from . import data_pack
 else:
@@ -189,7 +195,7 @@ def validate_payload(payload: bytes, kind: str, compatibility: str, *, shader_as
     if set(decoded) != {"files"} or not isinstance(decoded["files"], dict):
         raise ValueError("Pack payload has invalid fields")
     encoded = decoded["files"]
-    if kind == "shaders" and compatibility == "shader-lists-2":
+    if kind == "shaders" and compatibility == SHADER_LISTS_FORMAT:
         index = shader_index(payload)
         if shader_assets is None:
             raise ValueError("Shader index requires its compressed map assets")

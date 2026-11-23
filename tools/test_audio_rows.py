@@ -73,8 +73,7 @@ def test_committed_audio_menus_match_generator():
     import port_settings
     expected = [row[0] for row in port_settings.SCREENS["audio_settings"]["rows"]] if "audio_settings" in port_settings.SCREENS else None
     assert expected, "audio_settings screen missing from port_settings.SCREENS"
-    for path in [ROOT / "port/assets/menus/xbox/settings.audio_settings.xml",
-                 ROOT / "port/assets/menus/ce/main_menu.settings_select.player_setup.player_profile_edit.audio_settings.xml"]:
+    for path in [ROOT / "port/assets/menus/xbox/settings.audio_settings.xml"]:
         text = path.read_text()
         labels = [t for t in re.findall(r'<string text="([^"]*:)"', text) if t in expected]
         assert labels == expected, path.name

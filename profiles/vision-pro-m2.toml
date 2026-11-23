@@ -11,6 +11,9 @@ foveation = true
 anti_aliasing = "smaa"
 render_quality = 0.6
 
+[network]
+full_rate_players = 48
+
 [evidence."display.anti_aliasing"]
 basis = "measured"
 why = "SMAA was picked in a Vision Pro session on 2026-10-30; off looked clearly worse and the methods looked alike. GPU median at quality 0.6 in ms, off then SMAA: b30 7.5, 7.6; c10 8.4, 9.8; b40 8.4, 9.8, under the 11.1 ms budget at 90 Hz."
@@ -25,3 +28,8 @@ source = "Headset foveation sweep, a10 benchmark, 2026-10-07"
 basis = "measured"
 why = "Every quality from 0.4 to 0.8 had a median frame of 11.1 ms; the 99th percentile was 13.7 ms at 0.6, 14.6 at 0.7, 14.4 at 0.8 and 22.4 at 0.9."
 source = "Headset foveation sweep, a10 benchmark, 2026-10-07"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At 90 Hz with the repeat count at 0, Blood Gulch with 48 players put 99.93% of frames on time after the first 600-frame report (100% in the last). 64 players put 99.83% over the run but fell to 99.3%, 98.8% and 98.8% in the last report of three runs as the game filled, under the 99.5% bar. After the first report, 96 players dropped to 81% (50% in the last report) and 128 players to 55% (24%). The frames that miss are the ones that run a game tick: at 96 players a tick frame needs 11 to 13 ms of CPU against the 11.1 ms refresh while the GPU median stays at 7.4 to 8.3 ms. visionOS does not hold 30 frames a second for this key; it sets the warning, the browser mark and the MAXIMUM PLAYERS notice. 48 is the largest count measured to hold the bar."
+source = "Headset cadence measurements M1 to M3, development build 20261121.213147 (frame cadence instrumentation over main), Blood Gulch simulated players, immersive stereo at render quality 0.6 with SMAA, thermal state nominal, 2026-11-21"

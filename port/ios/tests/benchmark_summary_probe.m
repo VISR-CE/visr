@@ -5,7 +5,6 @@
 #include <stdarg.h>
 #define HALO_BENCHMARK_CLOUD "iCloud.org.steverice.visr"
 #include "../host/host_benchmark_send.m"
-void host_logf(int priority, const char *format, ...) { (void)priority; (void)format; }
 static NSData *encode(id value) { return [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingSortedKeys error:nil]; }
 static NSData *failed_encode(id self, SEL selector, id value, NSJSONWritingOptions options, NSError **error) {
     (void)self; (void)selector; (void)value; (void)options; (void)error; return nil;

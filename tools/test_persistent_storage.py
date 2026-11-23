@@ -29,15 +29,17 @@ def probe(tmp_path_factory):
     storage = (source_root / "source/saved games/game_state_xbox.c").read_text()
     state = (source_root / "source/saved games/game_state.c").read_text()
     ui = (source_root / "source/interface/ui_widget_event_handler_functions.c").read_text()
+    persist = (source_root / "port/linux/game/saved_game_persist.c").read_text()
     functions = "\n".join([
         function(storage, "game_state_open_persistent_storage"),
-        function(storage, "game_state_write_to_persistent_storage"),
+        function(persist, "saved_game_persist_allowed"),
         function(state, "game_state_save_to_persistent_storage"),
         function(ui, "pause_game_quit_to_main_menu"),
     ])
     harness = (ROOT / "tools/harness/tests/persistent_storage.c").read_text()
     source = folder / "probe.c"
-    source.write_text(harness.replace("/* PRODUCTION FUNCTIONS */", functions))
+    # (the Apple path: the host writes the file; the desktop builds keep the in-place write)
+    source.write_text(harness.replace("/* PRODUCTION FUNCTIONS */", "#define HALO_IOS 1\n" + functions))
     binary = folder / ("probe.exe" if os.name == "nt" else "probe")
     compiler = shutil.which(os.environ.get("CC", "clang"))
     assert compiler, "clang is required for the persistent-storage regression"
@@ -118,7 +120,7 @@ def test_save_quit_preflight_failure_keeps_session(probe, tmp_path, fault):
     path.write_bytes(original)
     result, _ = run(probe, tmp_path, mode="quit", fault=fault)
     assert result["ok"] == "0"
-    assert result["notes"] == result["reverts"] == result["menus"] == result["writes"] == "0"
+    assert result["notes"] == result["reverts"] == result["menus"] == result["writes"] == result["host_writes"] == "0"
     assert result["dialogs"] == result["paused"] == "1"
     assert result["live"] == "0"
     assert path.read_bytes() == original
@@ -130,9 +132,11 @@ def test_successful_save_quit(probe, tmp_path, exists):
     if exists:
         path.write_bytes(b"v" * SIZE)
     result, _ = run(probe, tmp_path, mode="quit")
-    assert result["ok"] == result["notes"] == result["reverts"] == result["menus"] == "1"
+    assert result["ok"] == result["notes"] == result["reverts"] == result["menus"] == result["host_writes"] == "1"
     assert result["dialogs"] == result["live"] == "0"
-    assert path.read_bytes()[64:] == b"c" * (SIZE - 64)
+    # the game itself writes nothing into the saved game: the host's writer replaces it whole
+    assert result["writes"] == ("0" if exists else "1")
+    assert path.read_bytes() == b"c" * SIZE
 
 
 def test_save_quit_without_profile_returns_to_menu(probe, tmp_path):
@@ -141,27 +145,43 @@ def test_save_quit_without_profile_returns_to_menu(probe, tmp_path):
     path.write_bytes(original)
     result, _ = run(probe, tmp_path, mode="quit", fault="no_profile")
     assert result["ok"] == result["menus"] == "1"
-    assert result["writes"] == result["notes"] == result["reverts"] == result["dialogs"] == "0"
+    assert result["writes"] == result["notes"] == result["reverts"] == result["dialogs"] == result["host_writes"] == "0"
     assert result["live"] == "0"
+    assert path.read_bytes() == original
+
+
+@pytest.mark.parametrize("fault", ["replay", "scripted"])
+def test_save_quit_in_a_replay_or_scripted_run_leaves_the_saved_game(probe, tmp_path, fault):
+    """A replay plays under the device's own profile: Save and Quit there must not replace its saved game."""
+    path = tmp_path / "savegame.bin"
+    original = b"v" * SIZE
+    path.write_bytes(original)
+    result, _ = run(probe, tmp_path, mode="quit", fault=fault)
+    assert result["ok"] == result["menus"] == "1"
+    assert result["writes"] == result["host_writes"] == result["reverts"] == result["dialogs"] == result["live"] == "0"
     assert path.read_bytes() == original
 
 
 @pytest.mark.parametrize("fault", ["write", "short", "seek", "header_write"])
 def test_write_failure_does_not_quit(probe, tmp_path, fault):
-    (tmp_path / "savegame.bin").write_bytes(b"v" * SIZE)
-    result, message = run(probe, tmp_path, mode="quit", fault=fault)
+    path = tmp_path / "savegame.bin"
+    path.write_bytes(b"v" * SIZE)
+    result, _ = run(probe, tmp_path, mode="quit", fault=fault)
     assert result["ok"] == result["menus"] == result["live"] == "0"
-    assert result["dialogs"] == result["reverts"] == result["paused"] == "1"
-    assert message
+    assert result["dialogs"] == result["reverts"] == result["paused"] == result["host_writes"] == "1"
+    # the game writes nothing in place, so a failed save leaves the saved game that was there
+    assert result["writes"] == "0"
+    assert path.read_bytes() == b"v" * SIZE
 
 
-def test_save_reuses_preflight_handle(probe, tmp_path):
+def test_save_replaces_whatever_is_at_the_path(probe, tmp_path):
+    """The saved game is replaced whole by path; the handle of the check before the revert is closed, not written."""
     (tmp_path / "savegame.bin").write_bytes(b"v" * SIZE)
     result, _ = run(probe, tmp_path, mode="quit", fault="replace")
-    assert result["ok"] == "1"
-    assert (tmp_path / "savegame.bin").read_bytes() == b"replacement"
-    assert (tmp_path / "original.bin").read_bytes()[64:] == b"c" * (SIZE - 64)
-    assert result["live"] == "0"
+    assert result["ok"] == result["host_writes"] == "1"
+    assert (tmp_path / "savegame.bin").read_bytes() == b"c" * SIZE
+    assert (tmp_path / "original.bin").read_bytes() == b"v" * SIZE
+    assert result["live"] == result["writes"] == "0"
 
 
 def test_explicit_directory_rejected(probe, tmp_path):

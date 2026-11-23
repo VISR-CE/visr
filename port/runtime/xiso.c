@@ -38,6 +38,7 @@ and names that could leave the destination folder are refused.
 #include <unistd.h>
 
 #include "loading_picture.h"
+#include "stock_maps.h"
 #include "xiso.h"
 
 #define SECTOR 2048u
@@ -61,10 +62,8 @@ static const uint64_t partition_bases[] = {
     0, 0x02080000u, 0x02090000u, 0x0FD90000u, 0x18300000u, 0x89D80000u,
 };
 
-static const char *const campaign_maps[] = {
-    "ui.map", "a10.map", "a30.map", "a50.map", "b30.map", "b40.map",
-    "c10.map", "c20.map", "c40.map", "d20.map", "d40.map",
-};
+/* the maps a disc's import must hold: the menus' map and the campaign (stock_maps.h) */
+#define REQUIRED_MAP_FLAGS (STOCK_MAP_INTERFACE | STOCK_MAP_CAMPAIGN)
 /* the map releases the game accepts: the build text in a map's header */
 static const char *const supported_builds[] = {"01.10.12.2276", "01.01.14.2342"};
 
@@ -107,9 +106,12 @@ static int has_prefix_folded(const unsigned char *name, size_t length, const cha
 int xiso_maps_ready(const char *maps, char *error, size_t error_size) {
     char build[33] = {0};
     int have_build = 0;
-    size_t i, j;
+    int count, i;
+    const struct stock_map *rows = stock_maps(&count);
+    size_t j;
 
-    for (i = 0; i < COUNT(campaign_maps); i++) {
+    for (i = 0; i < count; i++) {
+        char name[64];
         char path[4096];
         unsigned char header[SECTOR];
         char text[33] = {0};
@@ -117,18 +119,20 @@ int xiso_maps_ready(const char *maps, char *error, size_t error_size) {
         FILE *file;
         size_t got;
 
-        snprintf(path, sizeof(path), "%s/%s", maps, campaign_maps[i]);
-        if (stat(path, &info) || !S_ISREG(info.st_mode)) return fail(error, error_size, "%s is missing.", campaign_maps[i]);
+        if (!(rows[i].flags & REQUIRED_MAP_FLAGS)) continue;
+        snprintf(name, sizeof(name), "%s.map", rows[i].file);
+        snprintf(path, sizeof(path), "%s/%s", maps, name);
+        if (stat(path, &info) || !S_ISREG(info.st_mode)) return fail(error, error_size, "%s is missing.", name);
         file = fopen(path, "rb");
-        if (!file) return fail(error, error_size, "%s could not be read.", campaign_maps[i]);
+        if (!file) return fail(error, error_size, "%s could not be read.", name);
         got = fread(header, 1, sizeof(header), file);
         fclose(file);
         if (got != sizeof(header) || memcmp(header, "daeh", 4) || memcmp(header + SECTOR - 4, "toof", 4) || read32(header + 4) != 5)
-            return fail(error, error_size, "%s is not an original Xbox Halo map.", campaign_maps[i]);
+            return fail(error, error_size, "%s is not an original Xbox Halo map.", name);
         memcpy(text, header + 64, 32);
         for (j = 0; j < COUNT(supported_builds); j++) if (!strcmp(text, supported_builds[j])) break;
         if (j == COUNT(supported_builds))
-            return fail(error, error_size, "Unsupported Xbox map build %.32s in %s.", text, campaign_maps[i]);
+            return fail(error, error_size, "Unsupported Xbox map build %.32s in %s.", text, name);
         if (have_build && strcmp(build, text)) return fail(error, error_size, "The maps are from mixed map releases.");
         memcpy(build, text, sizeof(build));
         have_build = 1;

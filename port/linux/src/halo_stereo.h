@@ -139,6 +139,9 @@ struct halo_stereo_frame
 	the map. 0 when the eyes render unfoveated at eye_width by eye_height
 	(composite-only foveation, or none) */
 	int32_t foveated_width, foveated_height;
+	/* microseconds from when the Compositor's frame opened to its predicted
+	presentation; 0 without one (the interpolation's lead, render_interpolation.c) */
+	int32_t presentation_lead_microseconds;
 };
 
 /* The stereo mode in effect, from display.stereo's (configured) and whether

@@ -107,6 +107,7 @@ def build_native(args, data_packs):
     if APP.is_symlink():
         APP.unlink()
     ios_build.run(*build)
+    entry_points_check()
     if getattr(args, 'unsigned', False):
         print(f'App (unsigned, compile check only): {APP}')
         return
@@ -116,6 +117,15 @@ def build_native(args, data_packs):
     print(f'App: {APP}')
     if args.app_store_package:
         package(args, ios_build)
+
+
+def entry_points_check():
+    """the Metal backend's exported functions are all classed (tools/gpu_metal_entry_points.py)"""
+    if __package__:
+        from . import gpu_metal_entry_points
+    else:
+        import gpu_metal_entry_points
+    gpu_metal_entry_points.check_build(BUILD, 'Release')
 
 
 def package(args, ios_build):

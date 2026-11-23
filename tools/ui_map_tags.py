@@ -229,6 +229,9 @@ def check_menus(folder, assets=None, inventory=None):
                 resolve_map(path, value, "DeLa", key)
             elif element.tag == "widget" and key == "name" and "\\" in value:
                 errors.append(f"{path}: name={value} names a map widget in an Xbox-look file")
+            elif element.tag == "title" and key == "widget" and "\\" in value:
+                # (a disc screen's title, named by its path as a patch names its list)
+                resolve_map(path, value, "DeLa", key)
             elif not patch and key in ("widget", "description", "root"):
                 if "\\" in value:
                     errors.append(f"{path}: {key}={value!r} names a map widget in an Xbox-look file")
@@ -247,12 +250,38 @@ def check_menus(folder, assets=None, inventory=None):
     return errors
 
 
+LAYOUT = Path(__file__).resolve().parents[1] / "tools/fixtures/disc_menu_layout.json"
+# What the layout manifest keeps of each widget: structure only. The widgets' own text (`text`) is left out, and
+# string lists, bitmaps and fonts appear by tag path alone.
+LAYOUT_KEYS = ("type", "controller", "bounds", "flags", "list_flags", "bitmap", "font", "header_bitmap",
+               "footer_bitmap", "text_list", "string_index", "game_data_inputs", "handlers", "children",
+               "conditionals", "description")
+
+
+def layout_text(inventory):
+    """The disc menus' structure as the checked-in manifest holds it: one widget to a line, by tag path."""
+    lines = []
+    for path in sorted(inventory["widgets"]):
+        widget = inventory["widgets"][path]
+        entry = {key: widget[key] for key in LAYOUT_KEYS if key in widget}
+        lines.append(f" {json.dumps(path)}: {json.dumps(entry, ensure_ascii=True, separators=(',', ':'))}")
+    return "{\n" + ",\n".join(lines) + "\n}\n"
+
+
+def load_layout(path=LAYOUT):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("map", type=Path, nargs="?", help="an Xbox ui.map (version 5)")
     parser.add_argument("--output", type=Path, help="write JSON here instead of stdout")
     parser.add_argument("--check-menus", type=Path, help="check an Xbox menu XML folder")
     parser.add_argument("--assets", type=Path, help="PNG base folder (default: menu folder's parent)")
+    parser.add_argument("--write-layout", action="store_true",
+                        help="rewrite tools/fixtures/disc_menu_layout.json from the map (structure only)")
+    parser.add_argument("--check-layout", action="store_true",
+                        help="fail when tools/fixtures/disc_menu_layout.json differs from the map")
     args = parser.parse_args(argv)
     if args.map is None and args.check_menus is None:
         parser.error("provide a map or --check-menus")
@@ -263,6 +292,15 @@ def main(argv=None):
             if errors:
                 print("\n".join(errors), file=sys.stderr)
                 return 1
+        if args.write_layout or args.check_layout:
+            if inventory is None:
+                parser.error("--write-layout and --check-layout need a map")
+            if args.write_layout:
+                LAYOUT.write_text(layout_text(inventory), encoding="utf-8")
+            elif not LAYOUT.is_file() or LAYOUT.read_text(encoding="utf-8") != layout_text(inventory):
+                print(f"{LAYOUT} does not match the map; run --write-layout", file=sys.stderr)
+                return 1
+            return 0
         if inventory is not None:
             output = json.dumps(inventory, indent=2, ensure_ascii=False) + "\n"
             if args.output:

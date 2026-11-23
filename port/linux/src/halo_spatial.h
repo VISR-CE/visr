@@ -9,6 +9,26 @@ fixed-width fields only, and tools/ios_test.py pins their layouts
 
 #include <stdint.h>
 
+/* input.aim's value asks for a tracked hand: "auto" (the default: the tracked
+controller when one is connected, the head otherwise) and "controller" do;
+"head", and anything else, aim with the head. The host (host_spatial.m) and
+the guest (controller_aim_game.c) both read it through this. (No string.h:
+the layout probe compiles this header freestanding) */
+static inline int halo_spatial_aim_value_is(const char *value, const char *name)
+{
+	while (*value && *value == *name)
+	{
+		value++;
+		name++;
+	}
+	return *value == *name;
+}
+
+static inline int halo_spatial_aim_tracks_hand(const char *value)
+{
+	return value && (halo_spatial_aim_value_is(value, "auto") || halo_spatial_aim_value_is(value, "controller"));
+}
+
 enum halo_spatial_state
 {
 	HALO_SPATIAL_NONE,          /* not connected */
@@ -21,7 +41,7 @@ enum halo_spatial_state
 enum halo_spatial_reason
 {
 	HALO_SPATIAL_READY,          /* controller aim can run */
-	HALO_SPATIAL_OFF,            /* input.aim isn't "controller" */
+	HALO_SPATIAL_OFF,            /* input.aim aims with the head (halo_spatial_aim_tracks_hand) */
 	HALO_SPATIAL_NO_CONTROLLERS,
 	HALO_SPATIAL_ONE_CONTROLLER,
 	HALO_SPATIAL_NEEDS_27,

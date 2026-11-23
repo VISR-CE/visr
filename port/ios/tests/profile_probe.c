@@ -379,7 +379,7 @@ static void check_unprofiled_models(const char *shipped)
 {
 	struct host_profile profile;
 
-	/* iPhone 15 Pro Max (A17 Pro, 120 Hz): its own profile, 120 in a predictable workload (Steve, 2026-10-27). */
+	/* iPhone 15 Pro Max (A17 Pro, 120 Hz): its own profile, 120 in a predictable workload (2026-10-27). */
 	profile = resolve_model(shipped, "ios", "iPhone16,2", 9, 7655, 2796, 1290, 120);
 	assert(!profile.inherited && !strcmp(profile.model_file, "iphone-15-pro.toml") && has(&profile, "display.frame_rate", "120"));
 	/* iPhone 16 (A18, 5-core GPU): the A17 Pro profile just below it, inside its 60 Hz and pixel envelope. */
@@ -402,7 +402,7 @@ static void check_unprofiled_models(const char *shipped)
 	assert(!profile.model_file[0] && !strcmp(profile.class_file, "iphone-ipad.toml") &&
 		has(&profile, "display.render_height", "720") &&
 		has(&profile, "display.frame_rate", "30"));
-	/* iPhone 17 (120 Hz): matched by the 15 Pro's profile, 120 in a predictable workload (Steve, 2026-10-27). */
+	/* iPhone 17 (120 Hz): matched by the 15 Pro's profile, 120 in a predictable workload (2026-10-27). */
 	profile = resolve_model(shipped, "ios", "iPhone18,3", 10, 7600, 2622, 1206, 120);
 	assert(!profile.inherited && !strcmp(profile.model_file, "iphone-15-pro.toml") && has(&profile, "display.frame_rate", "120"));
 	/* iPhone 16 Pro (A18 Pro, 120 Hz): matched by the 15 Pro's profile itself, 120 in a predictable workload. */
@@ -436,7 +436,7 @@ static void check_unprofiled_models(const char *shipped)
 	/* iPad Air 5 (M1) shares the measured iPad Pro chip. */
 	profile = resolve_model(shipped, "ios", "iPad13,16", 7, 7600, 2360, 1640, 60);
 	assert(profile.inherited && !strcmp(profile.model_file, "ipad-pro-m1.toml"));
-	/* Upscaled textures on Apple TVs (Steve, 2026-10-25): on for the 4K 3rd generation and anything newer, off for
+	/* Upscaled textures on Apple TVs (2026-10-25): on for the 4K 3rd generation and anything newer, off for
 	   the HD, the 4K 1st generation and the 4K 2nd generation, whose value is the Apple TV class's. */
 	profile = resolve_model(shipped, "tvos", "AppleTV14,1", 8, 4096, 3840, 2160, 60);
 	assert(!profile.inherited && !strcmp(profile.model_file, "apple-tv-4k-3rd.toml") && has(&profile, "display.upscaled_textures", "true"));
@@ -501,11 +501,13 @@ static void check_shipped(const char *shipped)
 	profile = resolve(shipped, device("tvos", "AppleTV14,1", "", 8), NULL, "");
 	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.anisotropic_filtering", "16") &&
 		!strcmp(profile.model_file, "apple-tv-4k-3rd.toml"));
-	/* Vision Pro: the headset sweep's values, which are the built-in defaults too, and SMAA */
+	/* Vision Pro: the headset sweep's values, which are the built-in defaults too, SMAA, and full rate up to 48
+	players (the warnings' threshold, measured on the M2 headset; the class profile carries it for newer headsets
+	too, so both layers set it: 9 values) */
 	profile = resolve(shipped, device("visionos", "RealityDevice14,1", "", 8), NULL, "");
 	assert(has(&profile, "display.render_quality", "0.6") && has(&profile, "display.foveation", "true"));
-	assert(!strcmp(profile.model_file, "vision-pro-m2.toml") && profile.count == 7 && has(&profile, "display.anti_aliasing", "smaa") &&
-		has(&profile, "display.renderer", "metal"));
+	assert(!strcmp(profile.model_file, "vision-pro-m2.toml") && profile.count == 9 && has(&profile, "display.anti_aliasing", "smaa") &&
+		has(&profile, "display.renderer", "metal") && has(&profile, "network.full_rate_players", "48"));
 	/* iPhone 17 Pro, iPad Pro (M1) and the Macs: values equal to the built-in defaults, and the iPhone and iPad
 	class profile's Metal; the M1 iPad Pro targets 120 frames a second in a predictable workload and the 17 Pro takes the
 	ladder's 60 (120 at 1080 lines missed on the Maw) */
@@ -570,8 +572,10 @@ static void check_shipped(const char *shipped)
 	profile = resolve(shipped, device("ios", "iPhone18,9", "", 15), NULL, "");
 	assert(has(&profile, "display.renderer", "metal") && has(&profile, "display.render_height", "720") &&
 		!strcmp(profile.class_file, "iphone-ipad.toml"));
+	/* (the class's full rate up to 48 players is the M2's figure, until the newer headset is measured) */
 	profile = resolve(shipped, device("visionos", "RealityDevice99,1", "", 15), NULL, "");
-	assert(profile.count == 4 && has(&profile, "display.anti_aliasing", "smaa") && !profile.model_file[0] && has(&profile, "display.renderer", "metal"));
+	assert(profile.count == 5 && has(&profile, "display.anti_aliasing", "smaa") && !profile.model_file[0] && has(&profile, "display.renderer", "metal") &&
+		has(&profile, "network.full_rate_players", "48"));
 	check_unprofiled_models(shipped);
 }
 
@@ -802,6 +806,23 @@ static void check_variable(void)
 	assert(host_profile_scene_value(&profile, "display.dynamic_resolution", "variable", value, sizeof(value)) &&
 		!strcmp(value, "true"));
 	assert(!host_profile_scene_value(&profile, "display.render_height", "variable", value, sizeof(value)));
+	snprintf(path, sizeof(path), "%s/variable.toml", folder); unlink(path);
+	/* a PROFILE_VARIABLE_ONLY setting (display.effect_limits): the variable context's value is carried; as the
+	profile's own value or a scene class's it is refused and named, and the rest of the profile stands */
+	write_file("variable.toml", "schema = 1\nname = \"Variable\"\nkind = \"model\"\n[match]\nplatform = \"ios\"\n"
+		"models = [\"Variable1,1\"]\n[display]\nrender_height = 1080\neffect_limits = \"xbox\"\n"
+		"[scene.menu.display]\neffect_limits = \"xbox\"\n"
+		"[variable.display]\neffect_limits = \"xbox\"\n");
+	logged[0] = 0;
+	profile = resolve(folder, device("ios", "Variable1,1", "", 5), NULL, "");
+	host_profile_encode(&profile, encoded, sizeof(encoded));
+	assert(strstr(encoded, "display.effect_limits\txbox\tmodel Variable\tvariable\n"));
+	assert(!strstr(encoded, "display.effect_limits\txbox\tmodel Variable\n") &&
+		!strstr(encoded, "display.effect_limits\txbox\tmodel Variable\tmenu\n"));
+	assert(strstr(logged, "display.effect_limits can be set for the variable workload only; ignored"));
+	assert(!has(&profile, "display.effect_limits", "xbox") && has(&profile, "display.render_height", "1080"));
+	assert(host_profile_scene_value(&profile, "display.effect_limits", "variable", value, sizeof(value)) && !strcmp(value, "xbox"));
+	assert(!host_profile_scene_value(&profile, "display.effect_limits", "menu", value, sizeof(value)));
 	snprintf(path, sizeof(path), "%s/variable.toml", folder); unlink(path);
 }
 

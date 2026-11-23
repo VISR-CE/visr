@@ -10,6 +10,7 @@
    device or its owner, an address, a path or game assets. Shader compilation descriptors accompany the measurements. */
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#include "metal_gate.h"
 #if HALO_NATIVE_MAC
 #import <AppKit/AppKit.h>
 #include "host_macos.h"
@@ -24,6 +25,7 @@
 #import <QuartzCore/CAMediaTiming.h>
 #include "host_benchmark_page_policy.h"
 #include "host_benchmark_offscreen.h"
+#include "host_stereo_measure.h"
 #import "host_benchmark_presentation.h"
 #import "host_benchmark_snapshot.h"
 #import "host_data_updates.h"
@@ -32,11 +34,13 @@
 #include "host_profile.h"
 #include "host_config.h"
 #include "host_external.h"
+#include "host_topology_model.h"
 #include "host_external_session.h"
 #include "host_low_power.h"
 #include "benchmark_metrics.h"
 #include "benchmark_plan.h"
 #include "../../runtime/graphics_capture.h"
+#include "../../runtime/stock_maps.h"
 #include <limits.h>
 #include <math.h>
 #include <mach/mach.h>
@@ -247,7 +251,15 @@ static NSDictionary *output_now(void) {
        own size ("display_use": "mirrored") is neither a built-in run nor an external one (host_external_session.h) */
     struct host_external_displays displays;
     host_external_displays(&displays);
-    return @{ @"kind": output.external ? @"external" : @"builtin", @"width": @(output.width),
+    /* the display topology as the system's facts give it now (host_topology_model.h; shadow mode, nothing decides
+       from it yet): which display the game is on, how it is carried, which panel the device is on */
+    struct host_topology topology;
+    host_external_topology_now(&topology);
+    char topology_json[256];
+    host_topology_json(&topology, topology_json, sizeof(topology_json));
+    NSDictionary *topology_block = [NSJSONSerialization JSONObjectWithData:[NSData dataWithBytes:topology_json length:strlen(topology_json)]
+        options:0 error:nil] ?: @{};
+    return @{ @"topology": topology_block, @"kind": output.external ? @"external" : @"builtin", @"width": @(output.width),
         @"display_use": @(host_external_display_use_name((enum host_external_display_use)displays.use)),
         @"other_screens": @(displays.other_screens), @"mirroring_screens": @(displays.mirroring_screens),
         @"video_route": @(displays.video_route), @"accessory_available": @(displays.accessory_available),
@@ -332,6 +344,31 @@ int host_benchmark_running(void) {
 
 static unsigned upscaler_requests, upscaler_paths;
 static uint64_t upscaler_frames[5];
+/* the open run's frames that the Compositor paced (visionOS's immersive space), the view of the last and the size
+   of the picture the GPU shaded for it; under the lock */
+static unsigned long compositor_frames;
+static int compositor_view, compositor_width, compositor_height;
+
+void host_benchmark_compositor_frame(int view, int width, int height)
+{
+    if (!atomic_load(&running)) return;
+    os_unfair_lock_lock(&lock);
+    if (window_open) {
+        compositor_frames++;
+        compositor_view = view;
+        if (width > 0 && height > 0) { compositor_width = width; compositor_height = height; }
+    }
+    os_unfair_lock_unlock(&lock);
+}
+
+/* what a run's frames were drawn at: the Compositor frames' picture where the run had them (the guest's window size
+   is then the eyes' logical size, or the flat window's), else the size the guest opened the window with */
+static void run_render_size(int *width, int *height) {
+    BOOL compositor = compositor_frames && compositor_width > 0 && compositor_height > 0;
+    *width = compositor ? compositor_width : window_width;
+    *height = compositor ? compositor_height : window_height;
+}
+
 void host_benchmark_upscaler(const char *requested, unsigned effective_paths)
 {
     if (!atomic_load(&running)) return;
@@ -536,7 +573,7 @@ int host_benchmark_presented(int on) {
     if (!host_benchmark_offscreen_requested()) return 0;
     if (atomic_exchange(&presented_now, on) != on) {
         host_benchmark_overlay_presented(on);
-        gpu_metal_benchmark_realtime(on);
+        host_gpu_benchmark_realtime(on);
         host_logf(HOST_LOG_INFO, "benchmark: frames %s", on ? "shown in real time" : "drawn offscreen, time-compressed");
     }
     return 1;
@@ -647,58 +684,6 @@ static double process_cpu_seconds(void) {
         (double)usage.ru_stime.tv_usec / 1e6;
 }
 
-/* debug.frame_cpu_probe: every 600 frames, the app's busiest threads' CPU time since the last time, in the log */
-static void thread_cpu_log(void) {
-    enum { KEPT = 64 };
-    static struct { uint64_t id; double seconds; } before[KEPT];
-    static int kept;
-    struct { uint64_t id; double seconds, used; char name[32]; } now[KEPT];
-    int count = 0, index, other;
-    thread_act_array_t threads;
-    mach_msg_type_number_t thread_count;
-    char line[512];
-    size_t length;
-
-    if (task_threads(mach_task_self(), &threads, &thread_count) != KERN_SUCCESS) return;
-    for (mach_msg_type_number_t at = 0; at < thread_count; at++) {
-        thread_basic_info_data_t basic;
-        thread_identifier_info_data_t identity;
-        mach_msg_type_number_t size = THREAD_BASIC_INFO_COUNT, id_size = THREAD_IDENTIFIER_INFO_COUNT;
-
-        if (count < KEPT && thread_info(threads[at], THREAD_BASIC_INFO, (thread_info_t)&basic, &size) == KERN_SUCCESS &&
-            thread_info(threads[at], THREAD_IDENTIFIER_INFO, (thread_info_t)&identity, &id_size) == KERN_SUCCESS) {
-            thread_extended_info_data_t extended;
-            mach_msg_type_number_t extended_size = THREAD_EXTENDED_INFO_COUNT;
-
-            now[count].id = identity.thread_id;
-            now[count].seconds = basic.user_time.seconds + basic.user_time.microseconds / 1e6 +
-                basic.system_time.seconds + basic.system_time.microseconds / 1e6;
-            now[count].used = now[count].seconds;
-            for (other = 0; other < kept; other++)
-                if (before[other].id == identity.thread_id) { now[count].used -= before[other].seconds; break; }
-            /* (the kernel's copy of the name: a pthread's own may be freed if the thread has just exited) */
-            now[count].name[0] = 0;
-            if (thread_info(threads[at], THREAD_EXTENDED_INFO, (thread_info_t)&extended, &extended_size) == KERN_SUCCESS)
-                snprintf(now[count].name, sizeof(now[count].name), "%s", extended.pth_name);
-            count++;
-        }
-        mach_port_deallocate(mach_task_self(), threads[at]);
-    }
-    vm_deallocate(mach_task_self(), (vm_address_t)threads, thread_count * sizeof(*threads));
-    for (index = 0; index < count; index++) { before[index].id = now[index].id; before[index].seconds = now[index].seconds; }
-    kept = count;
-    length = (size_t)snprintf(line, sizeof(line), "benchmark: busiest threads, CPU ms since the last line:");
-    for (int shown = 0; shown < 8 && length < sizeof(line) - 64; shown++) {
-        int best = -1;
-        for (index = 0; index < count; index++) if (now[index].used >= 0 && (best < 0 || now[index].used > now[best].used)) best = index;
-        if (best < 0 || now[best].used <= 0.0005) break;
-        length += (size_t)snprintf(line + length, sizeof(line) - length, " %s#%llu %.0f", now[best].name[0] ? now[best].name : "?",
-            (unsigned long long)now[best].id, now[best].used * 1e3);
-        now[best].used = -1.0;
-    }
-    host_logf(HOST_LOG_INFO, "%s", line);
-}
-
 static _Atomic uint64_t worker_waited_microseconds;
 
 void host_benchmark_worker_wait(uint32_t microseconds) {
@@ -728,14 +713,11 @@ void host_benchmark_frame_probe(void) {
         if (setting) host_logf(HOST_LOG_INFO, "benchmark: debug.frame_cpu_probe: thread, process and clock probe per frame");
     }
     if (!setting) return;
-    static unsigned long probed;
     double thread_now = (double)clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) / 1e9, process_now = process_cpu_seconds();
     double probe = clock_probe_microseconds();
     double thread_cpu = thread_before >= 0.0 ? thread_now - thread_before : -1.0;
     double process_cpu = process_before >= 0.0 && process_now >= 0.0 ? process_now - process_before : -1.0;
 
-    /* (after this frame's readings, so its own cost falls in the next frame's) */
-    if (++probed % 600 == 0) thread_cpu_log();
     thread_before = (double)clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) / 1e9;
     process_before = process_cpu_seconds();
     if (!atomic_load(&running) || thread_cpu < 0.0) return;
@@ -802,6 +784,7 @@ static void sampler_start(void) {
 }
 
 static double screen_rate(void);
+static struct host_device_screen device_screen(void);
 /* the output's highest rate (an external display's, else the screen's), with the run's cap on top
    (benchmark_run_budget_hertz) */
 static double run_budget_hertz(void) {
@@ -810,7 +793,6 @@ static double run_budget_hertz(void) {
     return benchmark_run_budget_hertz(output.refresh_hertz > 0 ? (double)output.refresh_hertz : screen_rate(),
         refresh_hertz > 0.0 ? refresh_hertz : screen_hertz, host_frame_rate_cap());
 }
-static void screen_size(double *width, double *height);
 
 /* ---------- the report */
 
@@ -862,21 +844,6 @@ static NSString *platform_name(void) {
 #endif
 }
 
-/* the highest Apple GPU family the device supports, probed by number so a family newer than the SDK counts */
-static int gpu_family(id<MTLDevice> device) {
-    int family, highest = 0;
-
-    for (family = 1; family <= 20; family++)
-        if ([device supportsFamily:(MTLGPUFamily)(1000 + family)]) highest = family;
-    return highest;
-}
-
-/* whether the GPU samples BC1-3 natively; without it, original textures are decoded or converted to ASTC */
-static BOOL bc_textures(id<MTLDevice> device) {
-    if (@available(iOS 16.4, tvOS 16.4, visionOS 1.0, *))
-        return device.supportsBCTextureCompression;
-    return NO;
-}
 
 /* the report's first members: the device, the app and the suite; never a name or an identifier of the device */
 /* whether the pinned snapshot's catalog came from a signed recordings pack */
@@ -892,7 +859,9 @@ static NSString *report_header(void) {
     id<MTLDevice> gpu = MTLCreateSystemDefaultDevice();
     double screen_width, screen_height;
 
-    screen_size(&screen_width, &screen_height);
+    struct host_device_screen device = device_screen();
+    screen_width = device.width;
+    screen_height = device.height;
     NSDateFormatter *minutes = [NSDateFormatter new];
     char chip[128] = "";
     size_t chip_size = sizeof(chip);
@@ -908,7 +877,7 @@ static NSString *report_header(void) {
     return [NSString stringWithFormat:@"\"format\":%d,\"code\":%@,\"suite\":%d,\"mode\":\"%s\",\"started\":\"%@\","
         "\"device\":{\"model\":%@,\"chip\":%@,\"platform\":\"%@\",\"host\":\"%@\",\"os\":\"%ld.%ld.%ld\",\"os_build\":%@,"
         "\"gpu\":%@,\"gpu_family\":%d,\"bc_textures\":%s,\"memory_mb\":%llu,"
-        "\"screen\":{\"width\":%.0f,\"height\":%.0f,\"maximum_frames_a_second\":%ld,\"frame_rate_cap\":%ld}},"
+        "\"screen\":{\"width\":%.0f,\"height\":%.0f,\"maximum_frames_a_second\":%ld,\"frame_rate_cap\":%ld,\"panel\":%@}},"
         "\"external_modes_complete\":%s,\"output\":%@,\"output_reports\":%@,\"requested_output\":%@,\"app\":{\"version\":%@,\"build\":%@,\"image\":\"%s\"},"
         "\"profile\":{\"selection\":%@,\"source_hardware\":%@,\"target_hardware\":%@,\"source_tier\":%d,\"target_tier\":%d,\"catalog_version\":%@,\"class\":%@,\"model\":%@,\"drop_in\":%s,\"drawable_lines\":%ld,\"render_lines\":%ld,\"anisotropic_filtering\":%ld,\"shadow_map_size\":%ld,"
         "\"model_lod\":\"%s\"},\"data_updates\":%@,\"recording_snapshot\":%@,\"profile_sha256\":%@,"
@@ -920,8 +889,10 @@ static NSString *report_header(void) {
         /* "Version 26.6 (Build 23M5311a)": the build's name alone */
         json_string([[process.operatingSystemVersionString componentsSeparatedByString:@"Build "].lastObject
             stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@")"]]),
-        json_string(gpu.name), gpu ? gpu_family(gpu) : 0, bc_textures(gpu) ? "true" : "false", process.physicalMemory >> 20,
-        screen_width, screen_height, (long)screen_rate(), lround(host_frame_rate_cap()),
+        json_string(gpu.name), gpu ? metal_gate_family() : 0,
+        /* whether the GPU samples BC1-3 natively; without it, original textures are decoded or converted to ASTC */
+        gpu && metal_feature(METAL_FEATURE_BC_TEXTURES) ? "true" : "false", process.physicalMemory >> 20,
+        screen_width, screen_height, device.maximum_frames, lround(host_frame_rate_cap()), json_string(@(device.panel)),
         external_modes.count && external_mode_index + 1 < external_modes.count ? "false" : "true",
         json_object(suite_output ?: output_now()), json_object(output_reports ?: @[]),
         json_string(external_modes.count ? external_modes[external_mode_index] : @""),
@@ -990,6 +961,7 @@ static void reset_run_record(void) {
     run_capped = window_presented = 0;
     os_unfair_lock_lock(&lock);
     window_open = window_interrupted = window_width = window_height = 0;
+    compositor_frames = 0; compositor_view = compositor_width = compositor_height = 0;
     dynamic_line_count = dynamic_line_other = 0;
     upscaler_requests = upscaler_paths = 0;
     memset(upscaler_frames, 0, sizeof(upscaler_frames));
@@ -1008,12 +980,12 @@ static void reset_run_record(void) {
    "on" or "off", the other switches "true" or "false"; render_lines, filtering, shadows and detail are the run's own. */
 static void record_applied_settings(NSMutableDictionary *settings, const struct benchmark_scene *scene, char stage) {
     static const char *const switches[] = { "debug.collision_type_filter", "debug.sphere_query_type_filter",
-        "debug.static_light_relink", "debug.collision_candidates" };
+        "debug.static_light_relink", "debug.collision_candidates", "debug.verify_once_a_tick" };
     const struct benchmark_knobs *knobs = &scene->knobs;
     unsigned mask = stage == 'A' ? knobs->mask : 0;
 
     /* (each switch's default in port_config.c, for a configuration that does not name it) */
-    static const char *const defaults[] = { "true", "true", "false", "true" };
+    static const char *const defaults[] = { "true", "true", "false", "true", "true" };
     for (unsigned bit = 0; bit < sizeof(switches) / sizeof(switches[0]); bit++) {
         NSString *configured = configured_text(switches[bit], defaults[bit]);
         BOOL enabled = scene->sim_experiments_mask & (1u << bit) ?
@@ -1045,6 +1017,8 @@ static void record_applied_settings(NSMutableDictionary *settings, const struct 
 static BOOL write_run(const struct benchmark_run *finished, enum benchmark_status status, NSString *note,
     const char *measurements, NSDictionary *presentation) {
     const struct benchmark_scene *scene = &plan.scenes[finished->scene];
+    int render_width, render_height;
+    run_render_size(&render_width, &render_height);
     NSString *text = [NSString stringWithFormat:@"{\"index\":%d,\"stage\":\"%c\",\"scene\":\"%s\",\"map\":\"%s\","
         "\"difficulty\":\"%s\",\"recording\":%@,\"kind\":\"%s\",\"settings\":{\"render_lines\":%ld,"
         "\"anisotropic_filtering\":%ld,\"shadow_map_size\":%ld,\"model_lod\":\"%s\"},\"status\":\"%s\",\"note\":%@,"
@@ -1054,9 +1028,9 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
         scene->kind == BENCHMARK_SCENE_MENU ? "menu" : scene->kind == BENCHMARK_SCENE_CUTSCENE ? "cutscene" :
             scene->kind == BENCHMARK_SCENE_MULTIPLAYER ? "multiplayer_synthetic" : "gameplay",
         /* (a baseline run leaves the size to the profile: what it drew at is the setting it ran with) */
-        finished->lines ? finished->lines : (long)window_height, finished->anisotropy, finished->shadow_size,
+        finished->lines ? finished->lines : (long)render_height, finished->anisotropy, finished->shadow_size,
         finished->model_lod_max ? "max" : "auto",
-        benchmark_status_name(status), json_string(note), window_width, window_height, json_object(run_output ?: suite_output ?: output_now()),
+        benchmark_status_name(status), json_string(note), render_width, render_height, json_object(run_output ?: suite_output ?: output_now()),
         json_object(@{ @"start": run_environment_start ?: @{}, @"end": run_environment_end ?: environment_now() }), measurements ? "," : "",
         measurements ?: ""];
 
@@ -1117,8 +1091,18 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
         !virtual_display_setting;
     int pacing = host_benchmark_pacing_of(host_benchmark_offscreen_requested(), offscreen, offscreen_pipelined,
         virtual_display_setting);
+    /* (a run the Compositor paced: its intervals are between the Compositor's presentation times; the guest's own
+       window size, the eyes' logical size, stays beside the picture's) */
+    if (pacing == HOST_BENCHMARK_PACING_PRESENTED && compositor_frames) {
+        pacing = HOST_BENCHMARK_PACING_COMPOSITOR;
+        record[@"compositor"] = @{ @"frames": @(compositor_frames),
+            @"view": @(host_compositor_view_name(compositor_view)),
+            @"picture_size": @[ @(compositor_width), @(compositor_height) ],
+            @"guest_render_size": @[ @(window_width), @(window_height) ] };
+    }
     /* (a virtual display's run is measured as a shown one: pacing_mode tells them apart) */
-    record[@"presented"] = @(pacing == HOST_BENCHMARK_PACING_PRESENTED || pacing == HOST_BENCHMARK_PACING_VIRTUAL_DISPLAY);
+    record[@"presented"] = @(pacing == HOST_BENCHMARK_PACING_PRESENTED || pacing == HOST_BENCHMARK_PACING_VIRTUAL_DISPLAY ||
+        pacing == HOST_BENCHMARK_PACING_COMPOSITOR);
     record[@"reality_check"] = @(finished->stage == 'P');
     record[@"measured_ticks"] = @(atomic_load(&window_ticks));
     record[@"capped"] = @(run_capped != 0);
@@ -1240,28 +1224,44 @@ static void flag(NSString *name) {
     if (![flags containsObject:name]) [flags addObject:name];
 }
 
-/* the main screen's highest rate and its size in pixels; visionOS has no screen (UIScreen): its displays run at 90 */
-static double screen_rate(void) {
-#if HALO_NATIVE_MAC
-    return host_macos_refresh_rate();
-#elif TARGET_OS_VISION
-    return 90.0;
-#else
-    return (double)UIScreen.mainScreen.maximumFramesPerSecond;
-#endif
+/* debug.benchmark_own_input (the environment's value first, as the game reads it): a person played controller 1, so
+   the report is not a benchmark result: flagged, kept in report.json, never queued or sent */
+static int own_input_requested(void) {
+    const char *environment = getenv("HALO_BENCHMARK_OWN_INPUT");
+    char text[16];
+
+    if (environment && *environment) return !strcmp(environment, "true") || !strcmp(environment, "1");
+    host_config_string("debug.benchmark_own_input", "false", text, sizeof(text));
+    return !strcmp(text, "true");
 }
 
-static void screen_size(double *width, double *height) {
+/* The screen the app's window is on (host_external_device_screen), in one read so its size, rate and panel agree:
+   on the iPhone Duo UIScreen.mainScreen can be the panel the game is not on. Before the window exists, or where
+   there is none, the main screen. visionOS has no screen (UIScreen): its displays run at 90. */
+static struct host_device_screen device_screen(void) {
+    struct host_device_screen device = {0};
 #if HALO_NATIVE_MAC
-    int w=0,h=0;
+    int w = 0, h = 0;
     host_macos_screen_size(&w, &h);
-    *width=w;*height=h;
+    device.width = w;
+    device.height = h;
+    device.maximum_frames = (long)host_macos_refresh_rate();
 #elif TARGET_OS_VISION
-    *width = *height = 0.0;
+    device.maximum_frames = 90;
 #else
-    *width = UIScreen.mainScreen.nativeBounds.size.width;
-    *height = UIScreen.mainScreen.nativeBounds.size.height;
+    host_external_device_screen(&device);
+    if (!device.valid) {
+        device.width = UIScreen.mainScreen.nativeBounds.size.width;
+        device.height = UIScreen.mainScreen.nativeBounds.size.height;
+        device.maximum_frames = (long)UIScreen.mainScreen.maximumFramesPerSecond;
+    }
 #endif
+    if (!device.panel[0]) snprintf(device.panel, sizeof(device.panel), "panel");
+    return device;
+}
+
+static double screen_rate(void) {
+    return (double)device_screen().maximum_frames;
 }
 
 static int cooled(void) {
@@ -1421,8 +1421,8 @@ static int variant_wanted_upscaler(void) {
 /* puts the pass's display in force: the upscaler at once, the output cap between frames (host_benchmark_next waits
    for it, then has the game plan again for the new drawable); 1 when the cap is to change */
 static int variant_display_apply(void) {
-    if (gpu_metal_upscaler() != variant_wanted_upscaler()) {
-        gpu_metal_set_upscaler(variant_wanted_upscaler());
+    if (host_gpu_upscaler() != variant_wanted_upscaler()) {
+        host_gpu_set_upscaler(variant_wanted_upscaler());
         host_logf(HOST_LOG_INFO, "benchmark: variant %s: upscaler %s", suite_variants[variant_index].id,
             variant_wanted_upscaler() ? "metalfx" : "bilinear");
     }
@@ -1437,15 +1437,15 @@ static int variant_display_apply(void) {
     }
     host_logf(HOST_LOG_INFO, "benchmark: variant %s: built-in output cap %d", suite_variants[variant_index].id,
         variant_wanted_cap());
-    gpu_metal_request_output_cap(variant_wanted_cap());
+    host_gpu_request_output_cap(variant_wanted_cap());
     return 1;
 }
 
 /* the display the app started with, after the last pass or a suite ended early */
 static void variant_display_restore(void) {
-    if (launch_upscaler >= 0 && gpu_metal_upscaler() != launch_upscaler) gpu_metal_set_upscaler(launch_upscaler);
+    if (launch_upscaler >= 0 && host_gpu_upscaler() != launch_upscaler) host_gpu_set_upscaler(launch_upscaler);
     if (launch_output_cap >= 0 && host_sdl_output_cap_requested() != launch_output_cap)
-        gpu_metal_request_output_cap(launch_output_cap);
+        host_gpu_request_output_cap(launch_output_cap);
 }
 
 static void variant_state_write(void) {
@@ -1506,7 +1506,7 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
     if (atomic_load(&running)) return 1;
     /* (an output cap still being put in force, a variant suite's last restore among them: the suite starts once it
        has taken, from host_benchmark_next) */
-    if (!gpu_metal_output_cap_settled()) {
+    if (!host_gpu_output_cap_settled()) {
         variant_waiting = 1;
         variant_wait_started = CFAbsoluteTimeGetCurrent();
         atomic_store(&running, 1);
@@ -1537,7 +1537,7 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
         if (!launch_display_known) {
             launch_display_known = 1;
             launch_output_cap = host_sdl_output_cap_requested();
-            launch_upscaler = gpu_metal_upscaler();
+            launch_upscaler = host_gpu_upscaler();
         }
     }
     if (low_power_now()) {
@@ -1569,10 +1569,10 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
            was written with */
         int cap = variant_resume_cap, upscaler = variant_resume_upscaler;
         variant_resume_cap = variant_resume_upscaler = -1;
-        if (upscaler >= 0 && gpu_metal_upscaler() != upscaler) gpu_metal_set_upscaler(upscaler);
+        if (upscaler >= 0 && host_gpu_upscaler() != upscaler) host_gpu_set_upscaler(upscaler);
         if (cap >= 0 && host_sdl_output_cap_requested() != cap) {
             host_logf(HOST_LOG_INFO, "benchmark: carrying on: the pass's built-in output cap %d first", cap);
-            gpu_metal_request_output_cap(cap);
+            host_gpu_request_output_cap(cap);
             variant_waiting = 1;
             variant_wait_started = CFAbsoluteTimeGetCurrent();
             atomic_store(&running, 1);
@@ -1590,6 +1590,7 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
     if (!pinned_snapshot) return 0;
     flags = [NSMutableArray array];
     if (host_benchmark_offscreen_requested()) flag(@"benchmark_offscreen");
+    if (own_input_requested()) flag(@"benchmark_own_input");
     started = NSDate.date;
     /* "quick:a10-crew,c40-bridge": only the scenes named after the colon */
     NSArray<NSString *> *only = strchr(mode, ':') ? [@(strchr(mode, ':') + 1) componentsSeparatedByString:@","] : nil;
@@ -1718,21 +1719,9 @@ static double reality_check_seconds(const struct benchmark_scene *scene) {
 
 /* a scene by a name a player knows: the level, or the map and its players */
 static NSString *scene_title(const struct benchmark_scene *scene) {
-    static NSDictionary<NSString *, NSString *> *names;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        names = @{ @"a10": @"The Pillar of Autumn", @"a30": @"Halo", @"a50": @"The Truth and Reconciliation",
-            @"b30": @"The Silent Cartographer", @"b40": @"Assault on the Control Room", @"c10": @"343 Guilty Spark",
-            @"c20": @"The Library", @"c40": @"Two Betrayals", @"d20": @"Keyes", @"d40": @"The Maw",
-            @"beavercreek": @"Battle Creek", @"bloodgulch": @"Blood Gulch", @"boardingaction": @"Boarding Action",
-            @"carousel": @"Derelict", @"chillout": @"Chill Out", @"damnation": @"Damnation", @"dangercanyon": @"Danger Canyon",
-            @"deathisland": @"Death Island", @"gephyrophobia": @"Gephyrophobia", @"hangemhigh": @"Hang 'Em High",
-            @"icefields": @"Ice Fields", @"infinity": @"Infinity", @"longest": @"Longest", @"prisoner": @"Prisoner",
-            @"putput": @"Chiron TL34", @"ratrace": @"Rat Race", @"sidewinder": @"Sidewinder", @"timberland": @"Timberland",
-            @"wizard": @"Wizard" };
-    });
     NSString *map = @(scene->map).lastPathComponent.lowercaseString;
-    NSString *name = names[map];
+    const struct stock_map *stock = stock_map_named(map.UTF8String, strlen(map.UTF8String));
+    NSString *name = stock && !(stock->flags & STOCK_MAP_INTERFACE) ? @(stock->display_name) : nil;
     if (scene->kind == BENCHMARK_SCENE_MULTIPLAYER)
         return [NSString stringWithFormat:@"%@, %d players", name ?: @"Multiplayer", scene->players];
     if (scene->kind == BENCHMARK_SCENE_MENU) return @"Main menu";
@@ -1784,12 +1773,12 @@ int host_benchmark_next(char *text, unsigned int size) {
         if (atomic_load(&finish_requested)) {
             /* (finished from the screen while the display changed: kept for the start that follows) */
             variant_finish_pending = 1;
-            gpu_metal_request_output_cap(-1);
+            host_gpu_request_output_cap(-1);
         }
-        if (!gpu_metal_output_cap_settled() && CFAbsoluteTimeGetCurrent() - variant_wait_started < 5.0) return 3;
-        if (!gpu_metal_output_cap_settled()) {
+        if (!host_gpu_output_cap_settled() && CFAbsoluteTimeGetCurrent() - variant_wait_started < 5.0) return 3;
+        if (!host_gpu_output_cap_settled()) {
             host_logf(HOST_LOG_INFO, "benchmark: the display variant's output cap did not take; measuring as it is");
-            gpu_metal_request_output_cap(-1);
+            host_gpu_request_output_cap(-1);
             variant_display_failed = variant_index + 1;
         }
         variant_waiting = 0;
@@ -1907,15 +1896,19 @@ int host_benchmark_next(char *text, unsigned int size) {
         NSString *summary = report_summary();
         host_benchmark_overlay_show(0);
         NSError *preservation_error=nil;
-        BOOL preserved=host_benchmark_outbox_store(@FOLDER "/outbox",[NSData dataWithContentsOfFile:@REPORT],&preservation_error)!=nil;
-        if(!preserved)host_logf(HOST_LOG_INFO,"benchmark: report remains at report.json; outbox preservation failed: %s",
+        BOOL own_input=[flags containsObject:@"benchmark_own_input"];
+        BOOL preserved=!own_input && host_benchmark_outbox_store(@FOLDER "/outbox",[NSData dataWithContentsOfFile:@REPORT],&preservation_error)!=nil;
+        if(own_input)host_logf(HOST_LOG_INFO,"benchmark: a person played (debug.benchmark_own_input): the report stays in report.json, never queued or sent");
+        else if(!preserved)host_logf(HOST_LOG_INFO,"benchmark: report remains at report.json; outbox preservation failed: %s",
             preservation_error.localizedDescription.UTF8String ?: "unknown error");
 #ifdef HALO_BENCHMARK_CLOUD
         /* Tester benchmarks deliver automatically; scripted builds opt in with
            their existing launch setting. The outbox precedes every attempt. */
+        if (!own_input
 #ifndef HALO_TESTER_BUILD
-        if (getenv("HALO_BENCHMARK_SEND"))
+            && getenv("HALO_BENCHMARK_SEND")
 #endif
+            )
         {
             char message[256];
 
@@ -2029,6 +2022,7 @@ int host_benchmark_next(char *text, unsigned int size) {
     run_capped = 0;
     os_unfair_lock_lock(&lock);
     window_open = window_interrupted = window_width = window_height = 0;
+    compositor_frames = 0; compositor_view = compositor_width = compositor_height = 0;
     dynamic_line_count = dynamic_line_other = 0;
     benchmark_live_reset(&live);
     /* <= 2 GiB devices retain a 4 MiB collector; others allow 16 MiB. */
@@ -2108,7 +2102,7 @@ void host_benchmark_end(const char *status_name, const char *note) {
     if (output.generation != run_output_generation) {
         interrupted = 1;
         flag(@"output_changed");
-        note = "the display connected, disconnected, or changed mode during this run";
+        note = "the display connected, disconnected, or changed mode, or the posture changed, during this run";
     }
     /* (mirroring starts and stops without the output changing: a run mirrored at its start or its end is marked
        mirrored, and is not evidence for the built-in screen's targets) */
@@ -2222,10 +2216,12 @@ static BOOL finish_run(NSDictionary *presentation) {
     benchmark_journal_end(JOURNAL, run.index, &outcome);
     run_open = 0;
     if (outcome_count < BENCHMARK_RUNS_MAXIMUM) outcomes[outcome_count++] = outcome;
+    int logged_width, logged_height;
+    run_render_size(&logged_width, &logged_height);
     host_logf(HOST_LOG_INFO, "benchmark: run %d %s: %zu submissions, %.1f a second, submission interval 90th %.1f ms, 99th %.1f ms, CPU 95th %.1f, GPU 95th %.1f, "
         "at %.1f Hz, %dx%d, least memory left %ld MB", run.index, benchmark_status_name(outcome.status), summary.frames,
-        summary.frames_a_second, summary.interval.p90, outcome.interval_p99, outcome.cpu_p95, outcome.gpu_p95, outcome.refresh_hertz, window_width,
-        window_height, outcome.left_least);
+        summary.frames_a_second, summary.interval.p90, outcome.interval_p99, outcome.cpu_p95, outcome.gpu_p95, outcome.refresh_hertz, logged_width,
+        logged_height, outcome.left_least);
     host_logf(HOST_LOG_INFO, "benchmark: run %d offered %lu submissions; %lu had no drawable and %lu no picture", run.index,
         pending_offered, pending_no_drawable, pending_no_picture);
     /* (the OpenGL ES renderer measures no GPU time: its GPU 95th of 0.0 is no measurement) */

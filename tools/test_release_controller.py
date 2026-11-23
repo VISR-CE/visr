@@ -284,10 +284,12 @@ def test_publish_reads_archive_after_xcode_consumes_normal_product(
         validation, "toolchain", lambda _, **kw: {"root": str(kw["root"])}
     )
     monkeypatch.setattr(
-        validation,
-        "check_feeds",
-        lambda _, **kw: (
-            None if kw["root"] == application else pytest.fail("feeds use controller")
+        publisher,
+        "run_in_source",
+        lambda root, check: (
+            None
+            if (root, check) == (application, "check_feeds")
+            else pytest.fail("feeds use controller")
         ),
     )
     commands = []
@@ -401,25 +403,6 @@ def test_publish_reads_archive_after_xcode_consumes_normal_product(
     )
     assert not github.replies and not apple.replies
     assert git(application, "status", "--porcelain") == ""
-
-
-def test_source_contract_subprocess_ignores_controller_module_roots(tmp_path: Path):
-    source = tmp_path / "application"
-    package = source / "tools"
-    package.mkdir(parents=True)
-    (package / "__init__.py").write_text("")
-    (package / "release_validation.py").write_text(
-        "from pathlib import Path\n"
-        "def verify_feed(data, kind, policy):\n"
-        " assert data == b'signed envelope' and kind == 'profile' and policy == {'fixture': 'policy'}\n"
-        " (Path(__file__).parents[1] / 'verified-source.txt').write_text(str(Path(__file__).resolve()))\n"
-    )
-    release_validation.verify_feed(
-        b"signed envelope", "profile", {"fixture": "policy"}, root=source
-    )
-    assert (source / "verified-source.txt").read_text() == str(
-        package / "release_validation.py"
-    )
 
 
 def test_publish_cli_requires_explicit_source_root():

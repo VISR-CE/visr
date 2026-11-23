@@ -42,7 +42,13 @@ int classify(int count, wchar_t const **strings, int *on) {
                               (['1', '2', '3', 'inf'], 2, -1), (['1', '2', '3', '4%'], 2, -1),
                               (['0.5x', '1x', '1.25x', '2X'], 3, -1), (['25%', '50%', '75%', '100%'], 3, -1),
                               (['1x', '2x', '3', '4x'], 2, -1), (['1x', '2%', '3x', '4x'], 2, -1),
-                              (['1x', '2x', 'x', '4x'], 2, -1)]:
+                              (['1x', '2x', 'x', '4x'], 2, -1),
+                              # a word for nothing below the numbers is the range's zero; any other word is a choice
+                              (['NONE', '1', '2', '3', '4'], 3, -1), (['off', '25%', '50%', '75%'], 3, -1),
+                              (['NONE', '0', '1', '2'], 2, -1), (['NONE', '2', '1', '3'], 2, -1),
+                              (['NONE', '1', '2'], 2, -1), (['NONE', '1', '2', 'NONE'], 2, -1),
+                              (['SAME', '1', '2', '3'], 2, -1), (['AUTO', '30', '60', '120', 'NONE'], 2, -1),
+                              (['1', 'NONE', '2', '3'], 2, -1), (['NONE', '1x', '2', '3x'], 2, -1)]:
         check(strings, kind, on)
     rows = json.loads((ROOT / 'tools/fixtures/touch_menu_rows.json').read_text())
     actual_rows = {(path.name, widget.get('name').split('/')[-1])
@@ -57,6 +63,78 @@ int classify(int count, wchar_t const **strings, int *on) {
         assert widget.get('strings').split('|') == strings
         expected = row['kind']
         check(strings, expected, row['on_index'])
+
+
+def test_standard_rows_are_chosen_by_data(tmp_path):
+    """Bug class: a row's control chosen by reading a tag's name. A spinner is a standard row's value when it
+    comes from the menus' own files or sits in a row made a standard tall row, whatever it is called, and its
+    values alone choose switch, dropdown or slider."""
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    program = r"""
+#include <assert.h>
+#include <stddef.h>
+#include <wchar.h>
+#include "halo_menu_row.h"
+#define TRUE 1
+#define FALSE 0
+#define NONE -1
+typedef int boolean;
+struct reference { long index; };
+struct block { long count; };
+struct ui_widget_definition { struct block child_widgets; struct reference text_label_string_list; };
+struct string_list { struct block strings; };
+struct widget_instance { long definition_tag_index; struct widget_instance *parent;
+ struct { struct { int number_of_items; } list; } parameters; };
+/* tags: 0-2 are the map's rows, 3-8 its spinners; 9 is a spinner of the menus' own files */
+static wchar_t const *lists[][6] = {
+ {L"5", L"10", L"15", L"25", L"50"}, {L"YES", L"NO"}, {L"SLAYER", L"ODDBALL", L"RACE"},
+ {L"50%", L"100%", L"150%", L"200%"}, {L"NONE", L"1", L"2", L"3", L"4"}};
+static int counts[] = {5, 2, 3, 4, 5};
+static struct ui_widget_definition definitions[10];
+static struct string_list string_lists[5];
+static int own_from = 9, tall[10];
+boolean pc_menu_tag(long tag) { return tag >= own_from; }
+boolean pc_menu_row_tall(long tag) { return tall[tag]; }
+struct ui_widget_definition *ui_widget_definition_get(long tag) { return &definitions[tag]; }
+struct string_list *unicode_string_list_definition_get(long list) { string_lists[list].strings.count = counts[list]; return &string_lists[list]; }
+static long spinner_string_list_extra_count(long list) { (void)list; return 0; }
+static wchar_t const *spinner_string_list_get_string(long list, short index) { return lists[list][index]; }
+""" + block(source, 'static wchar_t const *ui_widget_row_string(') + block(source, 'static boolean ui_widget_row_is_standard(') + \
+        block(source, 'static struct halo_menu_row ui_widget_row_control(') + \
+        block(source, 'static boolean ui_widget_row_has_dropdown(') + r"""
+int main(void) {
+ struct widget_instance rows[3] = {{0}, {1}, {2}}, spinner = {0};
+ int kinds[] = {HALO_ROW_RANGE, HALO_ROW_TOGGLE, HALO_ROW_ENUM, HALO_ROW_RANGE, HALO_ROW_RANGE};
+ int list;
+ tall[0] = 1;
+ for (list = 0; list < 5; list++) {
+  definitions[3 + list].text_label_string_list.index = list;
+  spinner.definition_tag_index = 3 + list; spinner.parameters.list.number_of_items = counts[list];
+  /* the map's spinner in a standard tall row: its values choose the control */
+  spinner.parent = &rows[0];
+  assert(ui_widget_row_control(&spinner).kind == kinds[list]);
+  assert(ui_widget_row_has_dropdown(&spinner) == (kinds[list] == HALO_ROW_ENUM));
+  /* the same spinner in a row left as the map has it keeps the map's arrows */
+  spinner.parent = &rows[1];
+  assert(ui_widget_row_control(&spinner).kind == HALO_ROW_ENUM && !ui_widget_row_has_dropdown(&spinner));
+  spinner.parent = NULL;
+  assert(ui_widget_row_control(&spinner).kind == HALO_ROW_ENUM && !ui_widget_row_has_dropdown(&spinner));
+ }
+ /* a spinner of the menus' own files is standard wherever it sits */
+ definitions[9].text_label_string_list.index = 4;
+ spinner.definition_tag_index = 9; spinner.parent = &rows[2];
+ assert(ui_widget_row_control(&spinner).kind == HALO_ROW_RANGE);
+ /* a carousel holds its items as children and keeps its own behavior */
+ definitions[9].child_widgets.count = 3;
+ assert(ui_widget_row_control(&spinner).kind == HALO_ROW_ENUM && !ui_widget_row_has_dropdown(&spinner));
+ return 0;
+}
+"""
+    probe, binary = tmp_path / 'standard.c', tmp_path / 'standard'
+    probe.write_text(program)
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
+                    str(probe), '-o', str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
 
 
 def test_pointer_control_activity(tmp_path):
@@ -293,7 +371,12 @@ struct widget_instance {
 struct ui_widget_definition { struct { int index; } text_font, text_label_string_list; };
 static struct ui_widget_definition test_definition;
 struct ui_widget_definition *ui_widget_definition_get(int tag) { (void)tag; return &test_definition; }
-float ui_redraw_safe_left_units(long width) { (void)width; return 0; }
+#define TRUE 1
+struct halo_menu_screen { long x0, y0, x1, y1, safe_x0, safe_y0, safe_x1, safe_y1; };
+void halo_screen_menu_screen_rect(int zoomed, struct halo_menu_screen *screen) {
+ struct halo_menu_screen whole = {-36, 0, 676, 480, 0, 0, 640, 480};
+ (void)zoomed; *screen = whole;
+}
 void const *spinner_string_list_get_string(int list, short index) { (void)list; (void)index; return 0; }
 int ui_widget_port_font_text_width(int font, void const *text) { (void)font; (void)text; return 0; }
 struct bounds { int x0, y0, x1, y1; };
@@ -573,10 +656,10 @@ int main(void) {
  struct halo_menu_slider s;
  struct halo_slider_rect thumb;
  halo_menu_slider_geometry(&s, 100, 20, 265, 48);
- assert(s.left == 110 && s.right == 213 && s.y == 34);
+ assert(s.left == 110 && s.right == 201 && s.y == 34);
  assert(halo_menu_slider_value(&s, -100, 11) == 0);
  assert(halo_menu_slider_value(&s, 900, 11) == 10);
- assert(halo_menu_slider_value(&s, 161, 11) == 5);
+ assert(halo_menu_slider_value(&s, 156, 11) == 5);
  assert(halo_menu_slider_value(&s, 200, 1) == 0);
  thumb = halo_menu_slider_thumb(&s, 5, 11);
  assert(thumb.x1 - thumb.x0 == 15 && thumb.y1 - thumb.y0 == 15);
@@ -588,8 +671,9 @@ int main(void) {
  assert(halo_menu_slider_dragged(100, 20, 105, 20));
  assert(halo_menu_slider_hit(&s, 110, 34));
  assert(!halo_menu_slider_hit(&s, 250, 34));
+ assert(265 - s.right >= 60);
  halo_menu_slider_geometry(&s, 185, 20, 265, 48);
- assert(s.left == 110 && s.right == 213);
+ assert(s.left == 110 && s.right == 201);
  return 0;
 }
 ''')
@@ -607,7 +691,7 @@ def test_slider_held_pointer_and_layout(tmp_path):
 #include "host_menu_pointer.h"
 int main(void) {
  struct host_menu_pointer m = {0}; struct host_ui_pointer p;
- assert(sizeof(p) == 64 && offsetof(struct host_ui_pointer, held) == 60);
+ assert(sizeof(p) == 72 && offsetof(struct host_ui_pointer, held) == 60 && offsetof(struct host_ui_pointer, drawable_height) == 68);
  host_menu_pointer_set_menus(&m, 1);
  host_menu_pointer_touch_begin(&m, 1, 100, 100);
  host_menu_pointer_read(&m, &p); assert(p.held && p.moved);
@@ -773,7 +857,7 @@ def test_slider_pointer_abi_for_guest_and_host(tmp_path):
 #include <stddef.h>
 #include "halo_host_pointer.h"
 #include "halo_ui_pointer.h"
-_Static_assert(sizeof(struct host_ui_pointer) == 64, "host size");
+_Static_assert(sizeof(struct host_ui_pointer) == 72, "host size");
 _Static_assert(offsetof(struct host_ui_pointer, x) == 20, "position offset");
 _Static_assert(offsetof(struct host_ui_pointer, picture) == 48, "picture offset");
 _Static_assert(offsetof(struct host_ui_pointer, held) == 60, "held offset");
@@ -809,13 +893,13 @@ void ui_dropdown_bitmap(struct widget_instance *widget, char const *name, short 
  (void)widget; assert(!frame && clip);
  if (!draws) {
   assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_track"));
-  assert(bounds->x0 == 120 && bounds->x1 == 223 && bounds->y0 == 52 && bounds->y1 == 57);
+  assert(bounds->x0 == 120 && bounds->x1 == 211 && bounds->y0 == 52 && bounds->y1 == 57);
  } else if (draws == 1) {
   assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_fill"));
-  assert(bounds->x0 == 120 && bounds->x1 == 171 && bounds->y1 - bounds->y0 == 5);
+  assert(bounds->x0 == 120 && bounds->x1 == 165 && bounds->y1 - bounds->y0 == 5);
  } else {
   assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_thumb"));
-  assert(bounds->x0 == 159 && bounds->x1 == 184 && bounds->y0 == 42 && bounds->y1 == 67);
+  assert(bounds->x0 == 153 && bounds->x1 == 178 && bounds->y0 == 42 && bounds->y1 == 67);
  }
  draws++;
 }
@@ -828,7 +912,7 @@ wchar_t *spinner_string_list_get_string(int tag, short index) {
 void rasterizer_draw_unicode_string(rectangle2d *bounds, rectangle2d *clip, void *cursor,
  int flags, wchar_t const *text) {
  assert(clip && !cursor && !flags && !wcscmp(text, L"5"));
- assert(bounds->x0 == 238 && bounds->x1 == 275 && bounds->y0 == 40 && bounds->y1 == 68); strings++;
+ assert(bounds->x0 == 217 && bounds->x1 == 275 && bounds->y0 == 40 && bounds->y1 == 68); strings++;
 }
 ''' + block(source, 'static void ui_widget_row_draw_slider(') + r'''
 int main(void) {

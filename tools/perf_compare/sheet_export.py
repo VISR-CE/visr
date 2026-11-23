@@ -47,7 +47,11 @@ RELEASE_PAGES = {
     "opence-web": "https://halocombatevolved.com/",
     "corece": "https://github.com/mastercheese-dev/CoreCE/releases/tag/build-{build}",
     "chupathingy": "https://github.com/ChupathingyCE/chupathingyce/releases/tag/{tag}",
+    "opence-bitmoda": "https://github.com/bitmoda/MeshCE/releases/tag/opence-build-{build}",
+    "meshce": "https://github.com/bitmoda/MeshCE/releases/tag/build-{build}",
+    "halo-content-evolved": "https://github.com/Watanoge/halo-content-evolved/releases/tag/build-{build}",
     "halo-og": "https://github.com/pfista/halo-og/releases/tag/{tag}",
+    "openh1": "https://github.com/OpenH1/OpenH1/releases/tag/build-{build}",
     "beeman": "https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v{bare}",
     "chupathingyce-ios": "https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/{tag}",
     "halopad": "https://github.com/chrissotraidis/projectreach/releases/tag/{tag}",
@@ -70,7 +74,7 @@ def release_url(port: str, version: str, build: str = "") -> str:
     if not template or ("{build}" in template and not build):
         return ""
     bare = version.removeprefix("apple-").removeprefix("visr-").removeprefix("v")
-    if port != "opence-web" and not bare[:1].isdigit():
+    if port != "opence-web" and not bare[:1].isdigit() and not version.startswith("build-"):
         return ""  # a pre-release build such as VISR main has no release page
     return template.format(tag="v" + bare, bare=bare, build=build)
 

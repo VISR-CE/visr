@@ -99,13 +99,14 @@ def test_catalog_accepts_experimental_simulation_settings(tmp_path):
     cases = _cases(players=2)
     cases["mp-chillout-proof"]["settings"] = {"debug.collision_type_filter": True, "debug.static_light_relink": False}
     cases["a10-opening"]["settings"] = {"debug.sphere_query_type_filter": True,
-                                        "debug.collision_candidates": True}
+                                        "debug.collision_candidates": True, "debug.verify_once_a_tick": True}
     _write_catalog(tmp_path, cases)
     loaded = {case["id"]: case for case in benchmark_catalog.load_catalog(tmp_path)}
     assert loaded["mp-chillout-proof"]["settings"] == {"debug.collision_type_filter": True,
                                                        "debug.static_light_relink": False}
     assert loaded["a10-opening"]["settings"] == {"debug.sphere_query_type_filter": True,
-                                                 "debug.collision_candidates": True}
+                                                 "debug.collision_candidates": True,
+                                                 "debug.verify_once_a_tick": True}
 
 
 @pytest.mark.parametrize("settings", [

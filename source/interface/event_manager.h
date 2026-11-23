@@ -27,6 +27,8 @@ struct event_record
 		{
 			byte index;
 			byte value;
+			/* port: posted for a tap or a click on a button's picture, not its key (event_manager_post_pointer_button) */
+			byte pointer;
 		} button;
 		long value;
 	} data;
@@ -59,6 +61,11 @@ void event_manager_update(
 /* a press of a button, as if the controller had just pressed it (the menus'
 mouse pointer, ui_widget.c) */
 void event_manager_post_button(
+	short controller_index,
+	short button_index);
+
+/* port: a button pressed by a tap or a click on its picture (the event's button.pointer is set) */
+void event_manager_post_pointer_button(
 	short controller_index,
 	short button_index);
 

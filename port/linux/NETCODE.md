@@ -473,13 +473,40 @@ its name alone beside it, has its name given back as the map lists find it.
   have named the map, and for a game in progress until it is downloaded; in
   the lobby they join at once, and the host's start waits for the machine to
   precache the map, as it waits for any machine.
+- **What is sent.** Map sharing sends community maps only: never Custom
+  Edition's resource maps (bitmaps.map, sounds.map, loc.map) and never one of
+  Custom Edition's stock maps, whatever the file is named
+  (`map_share_policy.c`). A file is judged by what it is: a resource map by
+  the kind it is sent as, its name (without the hash digits a second version's
+  ends in) or its header; a stock map by its content hash, which covers
+  everything but the cache header, so a copy with an edited header checksum is
+  still known (`map_share_content_hash`, `port/runtime/stock_maps.h`); a
+  singleplayer conversion of a campaign level by its header and tag paths,
+  whatever the file is named: its header says it is a singleplayer map, and
+  its scenario's tag, or any structure BSP's, lies in a campaign level's
+  folder (`levels\a10\...`). A multiplayer map is sent whatever campaign
+  level's geometry, shaders or sounds it is built on, and its tags are not
+  read. The check is best effort: tag paths are names the game does not read,
+  so a conversion whose scenario and structure BSPs were renamed out of those
+  folders (by hand or by a map protection tool) is not recognized, and the
+  scenario type sits in the header, outside the content hash, so a conversion
+  whose header was edited to say multiplayer is sent as a multiplayer map. A
+  singleplayer map whose tags cannot be read is not sent, and the log says so.
+  The header must be a valid Custom Edition cache. A community map that reuses
+  a stock map's name but differs in content is sent. The catalog every whole
+  file is sent from takes no other file (`map_share_file_hash`) and sends one
+  only once its content is judged, after it is hashed; a map's content hash is
+  kept for its size and time written, so it is not hashed again. A download's
+  file is passed on only once its first piece, the header, its pieces' hashes
+  and, for a singleplayer map, the pieces holding its tag data say it may be.
 - **The offer.** A host that shares maps (`network.map_share`) hashes the
-  map, and the resource maps the map needs (its tag index says which: a tag
+  map on a thread of its own and answers with its size and hash (`_offer`,
+  or why it does not: sharing off, or not a map it sends). A client that
+  also lacks a resource map the map needs (its tag index says which: a tag
   whose entry's word at 0x18 is set is held whole by bitmaps.map for a
   bitmap, sounds.map for a sound, loc.map for a font, string list or HUD
-  message text) that the client lacks, on a thread of their own, and
-  answers with each file's size and hash (`_offer`, or why it does not:
-  sharing off, or not the game's map), and which of its other machines may
+  message text) is offered nothing, since it could not play the map. The
+  host also says which of its other machines may
   have them (`_sources`: an address on a LAN, internet play's key hash on the
   internet), again every ten seconds. A map that is not of the game's version is
   not offered. The client checks that the map is of the game's version, and
@@ -501,8 +528,8 @@ its name alone beside it, has its name given back as the map lists find it.
   against the file's hash; a frame of none is refused. Each piece is
   checked against its own as it arrives, and an end that sends a wrong one
   is not asked again. A machine
-  sends of the game's files (its map, the resource maps the map needs, a
-  download's pieces) no faster than `network.map_share_upload` (the host,
+  sends of the game's files (its map, if it is a community map, and a
+  download's pieces of one) no faster than `network.map_share_upload` (the host,
   1024 KB/s) or `network.map_seed_upload` (a player, 256 KB/s), round all
   its connections a 16 KiB block at a time, so that the game's own traffic
   keeps the rest of the upload; `network.map_seed = false` sends none. A
@@ -885,6 +912,36 @@ The host logs to `debug.txt` when a player on another machine presses the
 action button where the host has nothing for them to pick up, with where it
 has them and the nearest item: a client that sees a pickup the host does
 not.
+
+## Replication contract
+
+What host and clients must agree on once play has settled, and what is the
+host's alone. State outside the first list may differ between machines, and
+tests do not compare it.
+
+- **Must match:** the roster (each player record's absolute index, machine,
+  seat in the machine table, team and quit state, and its unit; clients number
+  player identifiers themselves, so a player is matched by absolute index);
+  for every networked object (bipeds, vehicles, weapons and equipment, at the
+  same indices on every machine) its existence, definition, parent and seat,
+  dead flag and resting position within 0.05 world units; every carried
+  weapon's magazine counts and age; each unit's grenade counts, weapons and
+  current weapon; device positions and power; which units something drives
+  (an actor on the host, the host's control on a client).
+- **Host-only:** the magazine counts and age of weapons nobody carries (they
+  are sent only in a unit's inventory, and the host's count is taken when a
+  weapon is picked up); item owner fields; AI internals; the checkpoint
+  itself; script state.
+
+`debug.coop_census` (`port/linux/game/coop_census.c`) logs a census of that
+state every so many seconds of game time, the same ticks on every machine:
+one `coop census:` line per player record, networked object and device.
+`tools/coop_census_compare.py HOST_LOG CLIENT_LOG` pairs two machines'
+censuses by tick and reports every difference in the first list that lasts
+two censuses in a row (a client learns of a change a round trip late, so one
+census can catch it in flight), comparing positions only for objects at rest
+on both machines. Differences in the second list are printed as notes and
+never fail the comparison.
 
 ## Apple port: version 26
 

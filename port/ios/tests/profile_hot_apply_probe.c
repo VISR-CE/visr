@@ -7,7 +7,6 @@
 #include <unistd.h>
 #define __HALO_LINUX_PLATFORM_H
 void platform_log(const char *format, ...) { (void)format; }
-int host_external_active(void) { return 0; }
 static const char *pending;
 static int pending_reads, last_cap, applies;
 int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long size)

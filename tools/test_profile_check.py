@@ -122,6 +122,18 @@ refused(VARIABLE.replace("[variable.display]", "[variable.network]"), "[variable
 refused(VARIABLE.replace('[evidence."variable.display.shadow_map_size"]', '[evidence."display.shadow_map_size"]'),
         'variable.display.shadow_map_size needs an [evidence."variable.display.shadow_map_size"]')
 refused(SCENE.replace("[scene.menu.display]", "[scene.variable.display]"), 'scene class "variable"')
+# a setting of the variable workload alone (display.effect_limits): accepted in [variable.display] and refused as the
+# profile's own (predictable) value, in a scene class and by output
+LIMITS = '[evidence."variable.display.effect_limits"]\nbasis = "assumed"\nwhy = "Big games overload this device; the Xbox set is cheaper."\n'
+assert problems(VARIABLE.replace("shadow_map_size = 128\n", 'shadow_map_size = 128\neffect_limits = "xbox"\n', 1) + LIMITS)[0] == []
+refused(GOOD.replace("[display]\n", '[display]\neffect_limits = "xbox"\n', 1), "display.effect_limits is valid only in [variable.display]")
+refused(SCENE.replace("render_scale = 0.75", 'render_scale = 0.75\neffect_limits = "xbox"'), "valid only in [variable.display]")
+refused(VARIABLE.replace("shadow_map_size = 128\n", 'shadow_map_size = 128\neffect_limits = "half"\n', 1) + LIMITS, "effect_limits")
+# (every such setting is a variable-context setting; the app's validators read the same list: profile_probe.c and
+# config_origins_probe.c test what they do with it)
+assert profile_check.variable_only_keys() == {"display.effect_limits"} <= profile_check.variable_keys()
+assert profile_check.variable_only_keys('PROFILE_VARIABLE("a.b")\nPROFILE_VARIABLE_ONLY("c.d")\n') == {"c.d"}
+assert profile_check.variable_keys('PROFILE_VARIABLE("a.b")\nPROFILE_VARIABLE_ONLY("c.d")\n') == {"a.b", "c.d"}
 refused(GOOD + "[split.2.display]\nrender_scale = 0.5\n", "split.2 is not a setting")
 
 refused(SCENE.replace("[scene.menu.display]", "[scene.gameplay.display]"), 'scene class "gameplay"')

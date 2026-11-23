@@ -5,6 +5,7 @@ is read by the listing worker. All datagrams go through xnet.c's tunnel path. */
 #include "delta_peer.h"
 #include "delta_platform.h"
 #include "halo_delta_peer.h"
+#include "halo_host_flags.h"
 #include "../../../source/networking/network_game_protocol.h"
 #include <stdio.h>
 #include <string.h>
@@ -37,19 +38,14 @@ int delta_peer_host_open(void)
 }
 #ifdef HALO_IOS
 void host_sdl_app_version(char *buffer, unsigned int size);
-static int host_flag(const char *name)
-{
-	const char *value = getenv(name);
-	return value && !strcmp(value, "1");
-}
 #endif
 static void identity_make(struct delta_peer_packet *p)
 {
 	memset(p, 0, sizeof(*p)); p->major = DELTA_MAJOR; p->capabilities = DELTA_CAP_PLATFORM;
 	p->legacy = HALO_PORT_NETWORK_VERSION; p->machine = 255;
 #ifdef HALO_IOS
-	delta_platform_key(p->key, delta_platform_current(host_flag("HALO_HOST_MAC"),
-		host_flag("HALO_HOST_TVOS"), host_flag("HALO_HOST_VISIONOS")), 0, 0, 0);
+	delta_platform_key(p->key, delta_platform_current(halo_host_flag("HALO_HOST_MAC"),
+		halo_host_flag("HALO_HOST_TVOS"), halo_host_visionos()), 0, 0, 0);
 	host_sdl_app_version(p->build, sizeof(p->build));
 #else
 	delta_platform_key(p->key, delta_platform_current(0, 0, 0), 0, 0, 0);

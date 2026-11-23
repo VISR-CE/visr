@@ -16,6 +16,7 @@ Thread stacks are freed by a reaper thread once the thread has fully exited.
 
 #include "host.h"
 #include "ios_host.h"
+#include "host_config.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -192,6 +193,17 @@ int host_native_thread_create(void *(*function)(void *), void *argument, size_t 
 
 static void *guest_thread_main(void *guest_thread)
 {
+	char value[8];
+	uint64_t id = 0;
+
+	/* debug.thread_cpu_log lists threads by ID: which ID this guest thread has (xbox_kernel.c says what it runs) */
+	host_config_string("debug.thread_cpu_log", "false", value, sizeof(value));
+	if (!strcmp(value, "true"))
+	{
+		pthread_threadid_np(NULL, &id);
+		host_logf(HOST_LOG_INFO, "thread cpu: thread-%llu is guest thread 0x%x", (unsigned long long)id,
+			(unsigned)(uintptr_t)guest_thread);
+	}
 	host_call_guest(host_image.header->thread_start, (uint32_t)(uintptr_t)guest_thread, 0, 0, 0);
 	return NULL;
 }
@@ -199,6 +211,11 @@ static void *guest_thread_main(void *guest_thread)
 int host_thread_create(uint32_t guest_thread, uint32_t stack_size)
 {
 	return host_native_thread_create(guest_thread_main, (void *)(uintptr_t)guest_thread, stack_size);
+}
+
+int host_thread_interactive(void)
+{
+	return pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
 }
 
 /* Used only by speculative decoding, never by game or audio workers. */

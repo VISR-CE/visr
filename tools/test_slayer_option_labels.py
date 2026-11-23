@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TABLE = (ROOT / "port/linux/game/menu_functions.c").read_text()
 LABELS = ["DEATH BONUS", "KILL PENALTY", "KILL IN ORDER", "KILLS TO WIN", "TEAM PLAY"]
-STRINGS = (ROOT / "port/assets/menus/ce/strings.xml").read_text()
+STRINGS = (ROOT / "tools/menu_sources/strings.xml").read_text()
 
 
 def field(key):

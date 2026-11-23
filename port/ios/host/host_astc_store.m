@@ -1,6 +1,7 @@
 /* Apache-2.0. The disk walker never borrows guest memory or renderer entries. */
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#include "metal_gate.h"
 #import <TargetConditionals.h>
 #if TARGET_OS_OSX
 #import <AppKit/AppKit.h>
@@ -453,11 +454,10 @@ void host_astc_store_init(const char *root) {
         host_config_string("paths.custom_edition","",install,sizeof(install));install_root=@(install);
         host_texture_upscale_init(root);
         host_config_string("debug.texture_astc","auto",setting,sizeof(setting));if(getenv("HALO_TEXTURE_ASTC"))snprintf(setting,sizeof(setting),"%s",getenv("HALO_TEXTURE_ASTC"));
-        id<MTLDevice> device=MTLCreateSystemDefaultDevice();BOOL bc=NO;
-        if(@available(iOS 16.4,tvOS 16.4,macOS 11.0,*))bc=device.supportsBCTextureCompression;
+        BOOL bc=metal_feature(METAL_FEATURE_BC_TEXTURES);
         char compressed[16];host_config_string("display.compressed_textures","true",compressed,sizeof(compressed));if(getenv("HALO_COMPRESSED_TEXTURES"))snprintf(compressed,sizeof(compressed),"%s",getenv("HALO_COMPRESSED_TEXTURES"));
         /* astc_policy.h decides; the release flag VISR_ASTC_AUTOMATIC gates "auto". */
-        enabled=astc_policy_converts(setting,bc)&&(!strcmp(compressed,"true")||!strcmp(compressed,"1"))&&[device supportsFamily:MTLGPUFamilyApple2];
+        enabled=astc_policy_converts(setting,bc)&&(!strcmp(compressed,"true")||!strcmp(compressed,"1"))&&metal_feature(METAL_FEATURE_ASTC_TEXTURES);
         if(!enabled)return;
         char sync[16];host_config_string("debug.texture_astc_sync","false",sync,sizeof(sync));if(getenv("HALO_TEXTURE_ASTC_SYNC"))snprintf(sync,sizeof(sync),"%s",getenv("HALO_TEXTURE_ASTC_SYNC"));synchronous=!strcmp(sync,"true");
         char model[128]={0};size_t length=sizeof(model);sysctlbyname("hw.machine",model,&length,NULL,0);

@@ -43,6 +43,12 @@ static void membership(void) {
     CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_LEFT, 0));
     CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_NEW, 1));
     CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_OFF, 1));
+    /* with the encode thread, only a member ends or restarts the interval: the joined thread, or a game thread that
+       joined as well */
+    CHECK(frame_deadline_interval_member(1, 0));
+    CHECK(frame_deadline_interval_member(0, 1));
+    CHECK(!frame_deadline_interval_member(0, 0));
+    CHECK(!frame_deadline_interval_member(0, -1));
     /* a shown frame rejoins; an offscreen benchmark frame, or a thread never joined, does not */
     CHECK(frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 0, 0));
     CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 1, 0));

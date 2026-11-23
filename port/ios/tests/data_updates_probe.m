@@ -5,7 +5,6 @@
 #import <objc/runtime.h>
 extern NSDictionary *host_data_updates_menu_state(void);
 extern void host_data_updates_menu_finish(void);
-void host_logf(int priority, const char *format, ...) { (void)priority; (void)format; }
 void host_device_identify(struct host_device *d) { memset(d,0,sizeof(*d)); strcpy(d->platform,"ios"); strcpy(d->model,"iPhone18,1"); }
 static NSString *blockedPath;
 static dispatch_semaphore_t readEntered, resumeRead;

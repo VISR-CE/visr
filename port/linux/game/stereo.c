@@ -85,6 +85,9 @@ void platform_log(const char *format, ...);
 int platform_fixed_timestep(void);
 unsigned long platform_clock_frames(void);
 double halo_frame_trace_milliseconds(void);
+/* render_interpolation.c: when this frame's Compositor frame shows, in
+microseconds from now; 0: none this frame */
+void render_interpolation_presentation_due(unsigned long microseconds);
 /* port/linux/src/d3d8_device.c */
 void halo_screen_commit_stereo_scale(void);
 /* source/main/main.c: the player windows, more than one in split screen */
@@ -1035,7 +1038,9 @@ void halo_stereo_seat_look_fade(float *dim, float *blur)
 	*blur = seat_look_fade_blur_setting ? fminf(1.0f, 2.0f * fade) : 0.0f;
 }
 
-void halo_stereo_frame_begin(void)
+/* the frame's state; *presentation_lead: microseconds to the Compositor frame's presentation when this frame draws
+its eyes into one (render_interpolation_presentation_due), else left 0 */
+static void stereo_frame_begin(unsigned long *presentation_lead)
 {
 	int film, screen, on_screen, head_look_frame = 0, cutscene, live_reason, settle_frame = 0;
 	/* split screen keeps the mono path: render.c's eye loop runs only with
@@ -1372,6 +1377,9 @@ void halo_stereo_frame_begin(void)
 #ifdef HALO_IOS
 		host_stereo_frame(&stereo_frame);
 #endif
+		/* the frame's presentation, for the blend between ticks */
+		if (stereo_frame.eye_count == 2 && one_window && stereo_frame.presentation_lead_microseconds > 0)
+			*presentation_lead = (unsigned long)stereo_frame.presentation_lead_microseconds;
 		/* no Compositor frame (the space isn't open): mono, in the window.
 		Split screen: mono too, though the frame is still opened (its picture
 		goes on the UI's quad, as for any frame without eyes) */
@@ -1483,6 +1491,17 @@ void halo_stereo_frame_begin(void)
 	/* the eyes' picture size from this frame on, not the next */
 	if (stereo_mode != HALO_STEREO_OFF)
 		halo_screen_commit_stereo_scale();
+}
+
+/* Every frame reports its presentation to the blend between ticks exactly once, whichever way it leaves: a frame
+without a Compositor frame's eyes (mono, split screen, the window after leaving VR, side-by-side) reports 0, which
+hands the blend back to the flat present's schedule */
+void halo_stereo_frame_begin(void)
+{
+	unsigned long presentation_lead = 0;
+
+	stereo_frame_begin(&presentation_lead);
+	render_interpolation_presentation_due(presentation_lead);
 }
 
 int halo_stereo_film(void)

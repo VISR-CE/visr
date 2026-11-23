@@ -21,9 +21,11 @@ def test_host_no_profile():
     assert 'ui_widget_port_open(widget, HOST_PROFILE_NAME' in host
     assert host.index('HOST_PROFILE_NAME') < host.index('multiplayer_host_start')
 
-    assert 'HOST_PROFILE_NAME "pc\\\\main_menu\\\\profile_manager\\\\player_profile_manager"' in source
+    # the picker is the game's own (the campaign's), not a screen of the port's
+    assert ('HOST_PROFILE_NAME "ui\\\\shell\\\\main_menu\\\\player_profiles_select\\\\'
+            'solo_game_player_profile_select_screen"') in source
 
-    poll = function(source, 'static void host_profile_poll(struct widget_instance *list)\n{')
+    poll = function(source, 'void ui_widget_port_host_profile_poll(struct widget_instance *list)\n{')
     assert 'virtual_keyboard_active()' in poll
     assert 'campaign_profile' in poll
     assert 'host_profile_continue' in poll
@@ -38,9 +40,8 @@ def test_host_no_profile():
     assert 'port host profile' not in tags
     equiv = (ROOT / 'port/linux/include/menu_equivalence.h').read_text()
     assert 'host_profile_screen' not in equiv
-    for look in ('ce', 'xbox'):
-        xml = (ROOT / f'port/assets/menus/{look}/main_menu.multiplayer_type_select.lobby.xml').read_text()
-        assert 'host_profile' not in xml
+    xml = (ROOT / 'port/assets/menus/xbox/main_menu.multiplayer_type_select.lobby.xml').read_text()
+    assert 'host_profile' not in xml
 
 
 if __name__ == '__main__':

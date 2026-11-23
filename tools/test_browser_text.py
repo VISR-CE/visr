@@ -151,13 +151,3 @@ int main(void) {
     subprocess.run(['clang', '-std=c11', '-Wall', '-Werror', '-iquote',
                     str(ROOT / 'port/linux/src'), str(probe), '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
-
-
-def test_pc_browser_region_header_matches_generator():
-    import sys
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import port_settings
-    name = 'main_menu/multiplayer_type_select/join_game/join_game_column_headers'
-    strings = ET.parse(ROOT / 'port/assets/menus/ce/strings.xml').find(f"strings[@name='{name}']")
-    assert strings[-1].get('text') == 'Region'
-    assert port_settings.STRING_OVERRIDES[name][-1] == 'Region'

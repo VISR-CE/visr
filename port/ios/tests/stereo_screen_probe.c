@@ -53,6 +53,7 @@ void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[
 int platform_fixed_timestep(void) { return 1; }
 unsigned long platform_clock_frames(void) { return clock_frames; }
 double halo_frame_trace_milliseconds(void) { return 0.0; }
+void render_interpolation_presentation_due(unsigned long microseconds) { (void)microseconds; }
 void platform_log(const char *format, ...)
 {
 	va_list arguments;
@@ -112,8 +113,6 @@ void config_graphics_head_stereo(int head) { (void)head; }
 /* host_stereo.m's SCREEN eyes: 64 mm apart about the head's offset, 4 m in
 front of a screen 4.618 m wide (the theater's default), frusta through its
 edges */
-/* the player never entered VR from the window: display.stereo's mode */
-int host_stereo_entered(void) { return 0; }
 
 void host_stereo_frame(struct halo_stereo_frame *frame)
 {

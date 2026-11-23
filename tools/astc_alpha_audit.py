@@ -144,7 +144,9 @@ def build_probe(tree, build):
     includes += [f'--include-directory={build}']
     sources = [tree / p for p in ('port/linux/src/astc_rewrite.c', 'port/runtime/astc_store.c',
                'port/ios/host/host_map_identity.m', 'port/ios/tests/astc_alpha_audit.m',
-               'port/linux/src/astc_encode.cpp', 'port/ios/host/host_astc_texture.c')]
+               'port/linux/src/astc_encode.cpp', 'port/ios/host/host_astc_texture.c',
+               # the GPU-family gate answers host_astc_store.m's BC and ASTC questions
+               'port/ios/host/metal_gate.m')]
     sources += sorted((tree / 'port/third_party/astcenc').glob('*.cpp'))
     sources += [build / 'bridge.cpp', build / 'reference.c']
     objects = []
@@ -156,7 +158,7 @@ def build_probe(tree, build):
         if cxx:
             command += ['-std=c++14']
         if source.suffix == '.m':
-            command += ['-fobjc-arc', '-fblocks']
+            command += ['-fobjc-arc', '-fblocks', '-DMETAL_GATE_NO_METALFX']
         subprocess.run([*command, '-c', str(source), '--output', str(obj)], check=True)
         objects.append(str(obj))
     executable = build / 'audit'

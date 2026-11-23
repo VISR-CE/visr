@@ -30,10 +30,7 @@ void platform_log(const char *format, ...)
 		strcat(logged, "\n");
 }
 
-int host_external_active(void) { return 0; }
 
-int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long size) { (void)values; (void)capacity; (void)version; (void)size; return 0; }
-void host_device_profile_applied(int point, int networked, int changed, int metalfx, int frame_rate) { (void)point; (void)networked; (void)changed; (void)metalfx; (void)frame_rate; }
 #include "port_config.c"
 #include "tomlc17.c"
 
@@ -83,7 +80,7 @@ static void check_every_setting(toml_datum_t table)
 		const struct config_setting *setting = &config_settings[index];
 		struct config_value expected = { 0 }, read = { 0 };
 
-		if (!(setting->platforms & CONFIG_PLATFORM))
+		if (!config_written(index))
 			continue;
 		if (toml_seek(table, setting->name).type == TOML_UNKNOWN)
 		{
@@ -131,8 +128,10 @@ static void check_written_file(void)
 	assert(toml_seek(result.toptab, "display.render_quality").type == TOML_FP64);
 	assert(toml_seek(result.toptab, "debug.foveation_eye_passes").type == TOML_BOOLEAN);
 	assert(toml_seek(result.toptab, "debug.rate_map_test").type == TOML_BOOLEAN);
-	assert(toml_seek(result.toptab, "input.turn").type == TOML_STRING);
+	assert(toml_seek(result.toptab, "input.aim").type == TOML_STRING);
 	assert(toml_seek(result.toptab, "input.stick_dead_zone").type == TOML_FP64);
+	/* (a tuning value is not written) */
+	assert(toml_seek(result.toptab, "input.aim_steady").type == TOML_UNKNOWN);
 #endif
 	/* nothing to fold in it */
 	assert(!config_fold_repeats(text));
@@ -259,7 +258,7 @@ static void check_reading(void)
 	assert(result.ok);
 	for (index = 0; index < NUMBER_OF_CONFIG_SETTINGS; index++)
 	{
-		if (config_settings[index].platforms & CONFIG_PLATFORM)
+		if (config_written(index))
 			assert(toml_seek(result.toptab, config_settings[index].name).type != TOML_UNKNOWN);
 	}
 	toml_free(result);
@@ -298,6 +297,9 @@ static void check_reading(void)
 
 int main(void)
 {
+	/* (an Apple build writes as Apple Vision Pro, which writes the most settings; tuning values never: see
+	config_origins_probe.c's check_tiers) */
+	setenv("HALO_HOST_VISIONOS", "1", 1);
 	check_written_file();
 	check_folding();
 #ifdef HALO_IOS

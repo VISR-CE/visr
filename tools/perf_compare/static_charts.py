@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import charts
-from site_page import MERMAID, SITE, slug
+from site_page import MERMAID, SITE, static_chart
 
 
 def main() -> int:
@@ -27,15 +27,14 @@ def main() -> int:
         page.add_script_tag(path=str(SITE / "benchmarks/benchmarks.js"))
         page.evaluate("mermaid.initialize(mermaidConfig(true))")  # the dark chart theme the live page uses
         for spec in specs:
-            text = charts.source(spec, charts.model(rows, spec["query"], charts.DEFAULT_SUITE, spec.get("box")), charts.DEFAULT_SUITE)
-            target = SITE / f"benchmarks/static-{slug(spec)}.svg"
+            target, text = static_chart(spec, rows)
             if text is None:
                 target.unlink(missing_ok=True)
                 continue
             # benchmarks.js adds the gridlines and the even margin (finishChartSvg), as the live page does.
             svg = page.evaluate("async (s) => finishChartSvg((await mermaid.render('static', s)).svg, s)", text)
             # The value labels use `currentColor`, which an `<img>` resolves to black: set the dark theme's ink on the root.
-            svg = svg.replace("<svg ", '<svg color="#e8f6fa" ', 1)
+            svg = svg.replace("<svg ", f'<svg color="#e8f6fa" {charts.STATIC_STAMP}="{charts.static_source_stamp(text)}" ', 1)
             target.write_text(svg + "\n", encoding="utf-8")
             print("wrote", target.relative_to(charts.ROOT))
         browser.close()

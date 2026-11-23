@@ -41,7 +41,8 @@ def test_offscreen_ignored_on_stereo(probe):
 
 def present_function():
     source = (ROOT / "port/ios/host/gpu_metal.m").read_text()
-    start = source.index("static uint32_t gpu_metal_present(gpu_texture back_buffer)")
+    # (gpu_metal_present stamps the producer's streams around present_frame, which does the frame's work)
+    start = source.index("static uint32_t present_frame(gpu_texture back_buffer)")
     return source[start:source.index("\n}\n", start)]
 
 
@@ -151,7 +152,7 @@ def test_progress_for_all_offscreen_suites():
     assert "plan.mode==BENCHMARK_UNIFIED || host_benchmark_offscreen_requested()" in host
     # The UI hides before the renderer can submit a presented frame, without a timer delay.
     switch = host[host.index("int host_benchmark_presented(int on)"):]
-    assert switch.index("host_benchmark_overlay_presented(on)") < switch.index("gpu_metal_benchmark_realtime(on)")
+    assert switch.index("host_benchmark_overlay_presented(on)") < switch.index("host_gpu_benchmark_realtime(on)")
     ui = (ROOT / "port/ios/host/host_benchmark_page.m").read_text()
     assert "self.view.hidden=progress.presented!=0;" in ui
     assert "host_main_sync(update)" in ui

@@ -20,7 +20,7 @@ def test_per_map_shader_publisher_is_deterministic_and_incremental(tmp_path):
     output = tmp_path / "shaders.json"
     args = ["--kind", "shaders", "--channel", "tester", "--sequence", "1",
             "--compatibility", "shader-lists-2", "--input", str(source),
-            "--output", str(output), "--signing-key", str(seed)]
+            "--output", str(output), "--signing-key", str(seed), "--released-apps", "skip"]
     data_pack.main(args)
     first = output.read_bytes()
     envelope = json.loads(first)
@@ -99,7 +99,7 @@ def test_pages_requires_complete_authenticated_shader_asset_set(tmp_path, monkey
     seed.chmod(0o600)
     data_pack.main(["--kind", "shaders", "--channel", "tester", "--sequence", "1",
         "--compatibility", "shader-lists-2", "--input", str(source), "--output", str(tmp_path / "shaders.json"),
-        "--signing-key", str(seed)])
+        "--signing-key", str(seed), "--released-apps", "skip"])
     public = subprocess.check_output([str(data_pack.sign_helper()), "--public-key", str(seed)]).decode().strip()
     monkeypatch.setattr(pages.validation, "DATA_PACK_PUBLIC_KEY", public)
     assets = {pages.SHADER: (tmp_path / "shaders.json").read_bytes(),
@@ -130,7 +130,7 @@ def test_pages_requires_complete_authenticated_shader_asset_set(tmp_path, monkey
     (source / "a10.txt").write_bytes(b"vs 0000000000000002 1 0\n")
     data_pack.main(["--kind", "shaders", "--channel", "tester", "--sequence", "2",
         "--compatibility", "shader-lists-2", "--input", str(source), "--output", str(tmp_path / "shaders.json"),
-        "--signing-key", str(seed)])
+        "--signing-key", str(seed), "--released-apps", "skip"])
     next_index = data_pack_validation.shader_index(base64.b64decode(json.loads((tmp_path / "shaders.json").read_bytes())["payload"]))
     selected_name = next_index["a10.txt"][2] + ".zlib"
     following = {pages.SHADER: (tmp_path / "shaders.json").read_bytes(),
@@ -148,3 +148,24 @@ def test_pages_requires_complete_authenticated_shader_asset_set(tmp_path, monkey
     staged = pages.stage_site(asset_commit="b" * 40, destination=tmp_path / "site-output")
     assert {path.name for path in (staged / "packs/tester/shader-maps").iterdir()} == {selected_name}
     assert (staged / "packs/tester/shaders.json").read_bytes() == following[pages.SHADER]
+
+
+def test_the_publisher_runs_in_a_checkout_without_tags_and_refuses_unless_told_to_skip(tmp_path, monkeypatch):
+    """CI's checkout has no release tags: the gate must say so, not crash, and the tests that are not about it opt out"""
+    import subprocess
+    import pytest
+    checkout = tmp_path / "checkout"
+    subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
+    monkeypatch.setattr(data_pack, "RELEASE_REPOSITORY", checkout)
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "a10.txt").write_bytes(b"vs 0000000000000001 1 0\n")
+    seed = tmp_path / "seed"
+    seed.write_bytes(bytes(range(32)))
+    seed.chmod(0o600)
+    args = ["--kind", "shaders", "--channel", "tester", "--sequence", "1", "--compatibility", "shader-lists-2",
+            "--input", str(source), "--output", str(tmp_path / "shaders.json"), "--signing-key", str(seed)]
+    with pytest.raises(ValueError, match="floor tag visr-v0.6.15 is not in this checkout"):
+        data_pack.main(args)
+    data_pack.main([*args, "--released-apps", "skip"])
+    assert (tmp_path / "shaders.json").exists()

@@ -33,7 +33,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/button_bar/button_ok" x="471" y="0" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/button_bar/common_button_cancel" x="326" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_captures_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_captures_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/captures_to_win_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/captures_to_win_spinner" x="286" y="6" />
 	</widget>
@@ -42,7 +42,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/captures_to_win_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="1|3|5|10|15" strings_ids="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_captures_to_win_spinner.s0|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_captures_to_win_spinner.s1|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_captures_to_win_spinner.s2|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_captures_to_win_spinner.s3|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_captures_to_win_spinner.s4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_koth_score_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_koth_score_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/koth_score_to_win_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/koth_score_to_win_spinner" x="286" y="6" />
 	</widget>
@@ -51,7 +51,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/koth_score_to_win_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="1 MINUTE|2 MINUTES|5 MINUTES|10 MINUTES|15 MINUTES" strings_ids="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_score_to_win_spinner.s0|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_score_to_win_spinner.s1|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_score_to_win_spinner.s2|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_score_to_win_spinner.s3|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_score_to_win_spinner.s4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_score_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_score_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/score_to_win_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/score_to_win_spinner" x="286" y="6" />
 	</widget>
@@ -60,7 +60,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/score_to_win_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="1|2|5|10|15" strings_ids="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_score_to_win_spinner.s0|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_score_to_win_spinner.s1|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_score_to_win_spinner.s2|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_score_to_win_spinner.s3|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_score_to_win_spinner.s4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_laps_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_laps_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/laps_to_win_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/laps_to_win_spinner" x="286" y="6" />
 	</widget>
@@ -69,7 +69,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/laps_to_win_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="1|3|5|10|15|25" strings_ids="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner.s0|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner.s1|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner.s2|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner.s3|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner.s4|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner.s5" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_kills_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_kills_to_win" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/kills_to_win_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/kills_to_win_spinner" x="286" y="6" />
 	</widget>
@@ -78,7 +78,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/kills_to_win_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="5|10|15|25|50|75|100|150|200|250|500" strings_ids="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s0|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s1|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s2|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s3|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s4|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s5|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s6|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s7|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s8|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s9|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner.s10" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_time_limit" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_time_limit" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/time_limit_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/time_limit_spinner" x="286" y="6" />
 	</widget>
@@ -87,7 +87,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/time_limit_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|10 MINUTES|15 MINUTES|20 MINUTES|25 MINUTES|30 MINUTES|45 MINUTES" strings_ids="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner.s0|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner.s1|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner.s2|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner.s3|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner.s4|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner.s5|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner.s6" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_team_play" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_team_play" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/team_play_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/team_play_spinner" x="286" y="6" />
 	</widget>
@@ -96,7 +96,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/team_play_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_team_play_spinner.s0|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_team_play_spinner.s1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_koth_team_play" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_koth_team_play" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/koth_team_play_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/koth_team_play_spinner" x="286" y="6" />
 	</widget>
@@ -105,7 +105,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/koth_team_play_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_team_play_spinner.s0|xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_koth_team_play_spinner.s1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_teams_hud" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_teams_hud" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<on event="a" open="xbox/main_menu/multiplayer_type_select/teams_hud_edit/teams_hud_screen" />
 		<on event="start" open="xbox/main_menu/multiplayer_type_select/teams_hud_edit/teams_hud_screen" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -117,7 +117,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/teams_hud_state" type="text" controller="1" width="148" height="22" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4">
 		<data input="port teams hud state" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_ctf" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_ctf" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<on event="a" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_screen" />
 		<on event="start" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_screen" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -125,7 +125,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/type_ctf_label" type="text" controller="1" width="512" height="22" string_list="xbox/main_menu/multiplayer_type_select/game_options_edit/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_slayer" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_slayer" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<on event="a" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_screen" />
 		<on event="start" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_screen" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -133,7 +133,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/type_slayer_label" type="text" controller="1" width="512" height="22" string_list="xbox/main_menu/multiplayer_type_select/game_options_edit/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_oddball" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_oddball" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<on event="a" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_screen" />
 		<on event="start" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_screen" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -141,7 +141,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/type_oddball_label" type="text" controller="1" width="512" height="22" string_list="xbox/main_menu/multiplayer_type_select/game_options_edit/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_koth" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_koth" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<on event="a" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_options_screen" />
 		<on event="start" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_options_screen" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -149,7 +149,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/type_koth_label" type="text" controller="1" width="512" height="22" string_list="xbox/main_menu/multiplayer_type_select/game_options_edit/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_race" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/game_options_edit/op_type_race" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<on event="a" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_screen" />
 		<on event="start" open="xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_screen" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -194,4 +194,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/game_options_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/game_options_edit/header_game_options/title">
+		<string text="GAME" id="xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_header_game_options_title.game" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/game_options_edit/header_game_options" strings="xbox/main_menu/multiplayer_type_select/game_options_edit/header_game_options/title" />
 </menus>

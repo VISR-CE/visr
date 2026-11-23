@@ -3,7 +3,7 @@ SIM_EXPERIMENTS.C
 
 The simulation speed-ups (debug.collision_type_filter,
 debug.sphere_query_type_filter, debug.static_light_relink,
-debug.collision_candidates). Static light relink defaults to off; the rest default to on. A setting is read again at the start of each game tick, so one can
+debug.collision_candidates, debug.verify_once_a_tick). Static light relink defaults to off; the rest default to on. A setting is read again at the start of each game tick, so one can
 be flipped while the game runs (a console toggle or a settings change) and
 the simulation keeps one value for the whole tick. Every one changes how
 much work a query does and not what it returns.
@@ -20,6 +20,7 @@ static const char *const sim_experiment_names[] =
 	"debug.sphere_query_type_filter",
 	"debug.static_light_relink",
 	"debug.collision_candidates",
+	"debug.verify_once_a_tick",
 };
 #define SIM_EXPERIMENT_COUNT ((long)(sizeof(sim_experiment_names) / sizeof(sim_experiment_names[0])))
 

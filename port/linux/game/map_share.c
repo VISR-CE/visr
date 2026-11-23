@@ -8,7 +8,9 @@ A client joining a game on a map it does not have asks the host, over its
 connection (_distributed_message_map_share_request: the level, and which
 of its files it lacks: the map, bitmaps.map, sounds.map, loc.map). A host
 that shares maps (network.map_share) hashes them (map_share_files.c) and
-answers with each file's size and hash (_offer), and which of the game's
+answers with each file's size and hash (_offer), if it may send them all
+(map_share_policy.c: community maps only, never Custom Edition's resource maps
+or its stock maps), and which of the game's
 other machines may have them (_sources, again every few seconds: they are
 the tracker's). The client then fetches the files from all of them at once,
 as a torrent's peers do, over connections of their own on MAP_SHARE_PORT:
@@ -19,8 +21,8 @@ as a torrent's peers do, over connections of their own on MAP_SHARE_PORT:
   and checks each against its hash (the pieces' hashes come from any of
   them: they are checked against the file's hash, the host's word); a
   machine that sends a wrong piece is not asked again;
-- a machine sends what it has of the game's files (its map, the resource
-  maps the map needs, a download's pieces) no faster than its limit
+- a machine sends what it has of the game's files (its map, and a
+  download's pieces, of a community map only) no faster than its limit
   (network.map_share_upload for the host, network.map_seed_upload for the
   others, network.map_seed turning that off), so the game's own traffic
   keeps the rest of the upload.
@@ -261,6 +263,15 @@ enum
 	_file_complete,
 };
 
+/* whether a download's file may be passed on to other players
+(map_share_file_judge), judged once its first piece and its tag data are had */
+enum
+{
+	_sendable_unknown,
+	_sendable_yes,
+	_sendable_no,
+};
+
 enum
 {
 	_connection_connecting,
@@ -352,6 +363,8 @@ struct download_file
 	char part_path[MAP_SHARE_PATH_SIZE];
 	char final_path[MAP_SHARE_PATH_SIZE];
 	FILE *stream;
+	/* _sendable_* */
+	short sendable;
 };
 
 /* a machine the host named */
@@ -790,6 +803,79 @@ static short download_file_with_hash(
 	return NONE;
 }
 
+/* ---------- what this machine sends of a connection's file */
+
+/* whether the download has every piece from `first` to `last` */
+static boolean download_file_has_pieces(
+	struct download_file const *file,
+	long first,
+	long last)
+{
+	long piece;
+
+	for (piece = first; piece <= last; piece++)
+	{
+		if (piece < 0 || piece >= file->piece_count || !(file->have[piece >> 3] & (1 << (piece & 7))))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+/* Whether the download's file may be passed on (map_share_file_judge):
+judged from its header, its content hash and, a singleplayer map's, its
+tags once its first piece and the pieces of its tag data are had (the later
+pieces' hashes are known and checked before any piece is), and until then
+not. */
+static boolean download_file_sendable(
+	struct download_file *file)
+{
+	byte header[CACHE_FILE_HEADER_BYTES];
+	byte content[MAP_SHARE_POLICY_CONTENT_BYTES];
+	unsigned long bytes = MIN((unsigned long)sizeof(header), file->size);
+	long first_tag_piece;
+	long last_tag_piece;
+
+	/* (a header that names no tag data to read is judged at once: a
+	multiplayer map's, whose tags are not read, or one refused as no Custom
+	Edition cache's) */
+	if (file->sendable == _sendable_unknown && file->have && (file->have[0] & 1) && file->stream &&
+		file->piece_hashes && fseek(file->stream, 0, SEEK_SET) == 0 &&
+		fread(header, 1, bytes, file->stream) == bytes &&
+		(!map_share_tag_data_pieces(header, (long)bytes, file->size, &first_tag_piece, &last_tag_piece) ||
+		download_file_has_pieces(file, first_tag_piece, last_tag_piece)) &&
+		map_share_content_read(file->stream, file->size, file->piece_hashes, file->piece_count, content))
+	{
+		file->sendable = map_share_policy_may_send(map_share_file_judge(file->final_path, file->kind, file->size,
+			header, (long)bytes, content, map_share_campaign_read(file->stream, file->size))) ?
+			_sendable_yes : _sendable_no;
+	}
+	return file->sendable == _sendable_yes;
+}
+
+/* What this machine sends of a connection's file: the catalog's file, whole
+(the catalog holds only files map sharing may send, map_share_file_hash), or
+the download's, the pieces it has, once it may be passed on. Every path that
+sends a file's pieces, their hashes or what this machine has of it takes the
+file from these two alone. */
+static struct map_share_file *sent_catalog_file(
+	struct connection *connection,
+	short index)
+{
+	struct map_share_file *file = map_share_file_get(connection->catalog_file[index]);
+
+	return file && file->ready && map_share_sending() && map_share_file_unchanged(file) ? file : NULL;
+}
+
+static struct download_file *sent_download_file(
+	struct connection *connection,
+	short index)
+{
+	struct download_file *file = connection->download_file[index] != NONE ?
+		&map_share_globals.download.files[connection->download_file[index]] : NULL;
+
+	return file && download_file_sendable(file) ? file : NULL;
+}
+
 /* ---------- connections: frames */
 
 static void connection_close(
@@ -857,9 +943,10 @@ static void send_state(
 {
 	struct download *download = &map_share_globals.download;
 	short download_file = connection->download_file[index];
+	struct download_file *sent_file = sent_download_file(connection, index);
 	byte *body;
 
-	if (connection->catalog_file[index] != NONE)
+	if (sent_catalog_file(connection, index))
 	{
 		if (!frame_room(connection, 2))
 			return;
@@ -867,9 +954,9 @@ static void send_state(
 		body[0] = (byte)index;
 		body[1] = _have_all;
 	}
-	else if (download_file != NONE && download->files[download_file].state == _file_transferring)
+	else if (sent_file && sent_file->state == _file_transferring)
 	{
-		struct download_file *file = &download->files[download_file];
+		struct download_file *file = sent_file;
 		long bytes = (file->piece_count + 7) / 8;
 
 		if (!frame_room(connection, 2 + bytes))
@@ -879,13 +966,28 @@ static void send_state(
 		body[1] = _have_pieces;
 		csmemcpy(body + 2, file->have, bytes);
 	}
-	else if (download_file != NONE && download->files[download_file].state == _file_complete)
+	else if (sent_file && sent_file->state == _file_complete)
 	{
 		if (!frame_room(connection, 2))
 			return;
 		body = frame_begin(connection, _frame_state, 2);
 		body[0] = (byte)index;
 		body[1] = _have_all;
+	}
+	else if (download_file != NONE && download->files[download_file].sendable == _sendable_no)
+	{
+		/* (a download's file that may not be passed on: being downloaded,
+		with no piece to give. Never _have_none, which the other end, of
+		this build or one before, takes for nothing to do with this one
+		and closes the connection its download needs) */
+		long bytes = (download->files[download_file].piece_count + 7) / 8;
+
+		if (!frame_room(connection, 2 + bytes))
+			return;
+		body = frame_begin(connection, _frame_state, 2 + bytes);
+		body[0] = (byte)index;
+		body[1] = _have_pieces;
+		csmemset(body + 2, 0, bytes);
 	}
 	else
 	{
@@ -1820,7 +1922,9 @@ static void download_piece_had(
 	download->done_bytes += bytes;
 	download->window_bytes += bytes;
 	download->progress_at = system_milliseconds();
-	for (index = 0; index < MAXIMUM_CONNECTIONS; index++)
+	/* (the others told of it only if it may be passed on: once that is
+	known, send_state says what this machine has of it) */
+	for (index = 0; index < MAXIMUM_CONNECTIONS && download_file_sendable(file); index++)
 	{
 		struct connection *connection = &globals->connections[index];
 		short connection_file;
@@ -2206,17 +2310,13 @@ static boolean piece_sendable(
 	short index,
 	long piece)
 {
-	struct download *download = &map_share_globals.download;
-	struct map_share_file *catalog_file = map_share_file_get(connection->catalog_file[index]);
+	struct map_share_file *catalog_file = sent_catalog_file(connection, index);
+	struct download_file *file = sent_download_file(connection, index);
 
-	if (catalog_file && catalog_file->ready && map_share_sending())
+	if (catalog_file)
 		return piece >= 0 && piece < catalog_file->piece_count;
-	if (connection->download_file[index] != NONE)
-	{
-		struct download_file *file = &download->files[connection->download_file[index]];
-
+	if (file)
 		return piece >= 0 && piece < file->piece_count && (file->have[piece >> 3] & (1 << (piece & 7)));
-	}
 	return FALSE;
 }
 
@@ -2482,27 +2582,28 @@ static void connection_flush(
 static void connection_send_hashes(
 	struct connection *connection)
 {
-	struct download *download = &map_share_globals.download;
 	short index;
 
 	for (index = 0; index < connection->file_count; index++)
 	{
 		byte const *hashes = NULL;
 		long piece_count = 0;
-		struct map_share_file *catalog_file = map_share_file_get(connection->catalog_file[index]);
+		struct map_share_file *catalog_file;
+		struct download_file *file;
 
 		if (connection->hashes_next[index] == NONE)
 			continue;
-		if (catalog_file && catalog_file->ready)
+		catalog_file = sent_catalog_file(connection, index);
+		file = sent_download_file(connection, index);
+		if (catalog_file)
 		{
 			hashes = catalog_file->piece_hashes;
 			piece_count = catalog_file->piece_count;
 		}
-		else if (connection->download_file[index] != NONE &&
-			download->files[connection->download_file[index]].piece_hashes)
+		else if (file && file->piece_hashes)
 		{
-			hashes = download->files[connection->download_file[index]].piece_hashes;
-			piece_count = download->files[connection->download_file[index]].piece_count;
+			hashes = file->piece_hashes;
+			piece_count = file->piece_count;
 		}
 		if (!hashes)
 		{
@@ -2536,13 +2637,13 @@ static unsigned long serving_file_size(
 	struct connection *connection,
 	short index)
 {
-	struct download *download = &map_share_globals.download;
-	struct map_share_file *catalog_file = map_share_file_get(connection->catalog_file[index]);
+	struct map_share_file *catalog_file = sent_catalog_file(connection, index);
+	struct download_file *file = sent_download_file(connection, index);
 
-	if (catalog_file && catalog_file->ready && map_share_sending())
+	if (catalog_file)
 		return catalog_file->size;
-	if (connection->download_file[index] != NONE)
-		return download->files[connection->download_file[index]].size;
+	if (file)
+		return file->size;
 	return 0;
 }
 
@@ -2553,22 +2654,22 @@ static boolean block_read(
 	byte *buffer,
 	unsigned long *bytes)
 {
-	struct download *download = &map_share_globals.download;
-	struct map_share_file *catalog_file = map_share_file_get(connection->catalog_file[serving->file]);
+	struct map_share_file *catalog_file = sent_catalog_file(connection, serving->file);
+	struct download_file *file = sent_download_file(connection, serving->file);
 	unsigned long size;
 	unsigned long offset = (unsigned long)serving->piece * MAP_SHARE_PIECE_BYTES + serving->offset;
 	FILE *stream;
 	boolean read;
 
-	if (catalog_file && catalog_file->ready && map_share_sending())
+	if (catalog_file)
 	{
 		size = catalog_file->size;
 		stream = fopen(catalog_file->path, "rb");
 	}
-	else if (connection->download_file[serving->file] != NONE)
+	else if (file)
 	{
-		size = download->files[connection->download_file[serving->file]].size;
-		stream = download->files[connection->download_file[serving->file]].stream;
+		size = file->size;
+		stream = file->stream;
 		if (!stream)
 			return FALSE;
 		*bytes = MIN(MAP_SHARE_BLOCK_BYTES, MIN(size - offset, MAP_SHARE_PIECE_BYTES - serving->offset));
@@ -3064,6 +3165,29 @@ static void host_sources(
 
 /* a machine's request: its files asked to be hashed, the answer given once
 they are */
+/* whether a file the machine asked for will not be sent (gone from the
+catalog, or failed: unreadable, or refused once hashed, a stock map's
+content), and whether all of them are hashed */
+static boolean host_files_failed(
+	struct host_machine const *machine,
+	boolean *ready)
+{
+	boolean failed = FALSE;
+	short file_index;
+
+	*ready = TRUE;
+	for (file_index = 0; file_index < machine->file_count; file_index++)
+	{
+		struct map_share_file const *file = map_share_file_get(machine->catalog_files[file_index]);
+
+		if (!file || file->failed)
+			failed = TRUE;
+		else if (!file->ready)
+			*ready = FALSE;
+	}
+	return failed;
+}
+
 static void host_request(
 	long machine_index,
 	struct distributed_map_share_request const *request)
@@ -3115,12 +3239,22 @@ static void host_request(
 	{
 		if (!TEST_FLAG(request->wanted, kind) || !TEST_FLAG(needed, kind))
 			continue;
-		if (kind != _map_share_file_map && !custom_edition_resource_map_file_path(kind, path))
-			continue;
-		machine->catalog_files[machine->file_count] = map_share_file_hash(path, kind);
+		machine->catalog_files[machine->file_count] =
+			kind == _map_share_file_map || custom_edition_resource_map_file_path(kind, path) ?
+			map_share_file_hash(path, kind) : NONE;
 		machine->file_kinds[machine->file_count] = kind;
-		if (machine->catalog_files[machine->file_count] != NONE)
-			machine->file_count++;
+		/* (a file the machine needs that this one does not send, which the
+		catalog does not take, map_share_file_hash: the rest would be of no
+		use to it, so none is offered) */
+		if (machine->catalog_files[machine->file_count] == NONE)
+		{
+			error(_error_silent, "map sharing: machine #%ld asks for %s, whose %s%s this machine does not send",
+				machine_index, request->level_name, kind == _map_share_file_map ? "map" :
+				resource_map_type_describe((enum resource_map_type)kind), kind == _map_share_file_map ? "" : ".map");
+			machine->file_count = 0;
+			break;
+		}
+		machine->file_count++;
 		/* (the map's path again, after a resource map's) */
 		custom_edition_map_file_path(request->level_name, path);
 	}
@@ -3189,21 +3323,10 @@ static void host_update(
 		}
 		if (machine->asked)
 		{
-			boolean ready = TRUE;
+			boolean ready;
 			boolean failed = FALSE;
 
-			for (file_index = 0; file_index < machine->file_count; file_index++)
-			{
-				struct map_share_file *file = map_share_file_get(machine->catalog_files[file_index]);
-
-				if (!file)
-					failed = TRUE;
-				else if (file->failed)
-					failed = TRUE;
-				else if (!file->ready)
-					ready = FALSE;
-			}
-			if (failed)
+			if (host_files_failed(machine, &ready))
 			{
 				host_offer(index, _offer_unavailable);
 				machine->downloading = FALSE;

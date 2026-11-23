@@ -1,6 +1,6 @@
 /* The device profile's workload context (port/linux/game/workload_context.h): which games are predictable
  * (single-player campaign and small LAN co-op at standard settings) and which variable, with the reason the log
- * gives. Steve's rules of 2026-10-26: split screen is variable for now; LAN co-op is predictable at 1x with four
+ * gives. The rules of 2026-10-26: split screen is variable for now; LAN co-op is predictable at 1x with four
  * players or fewer; online co-op, multiplayer maps and any enemy multiplier are variable. */
 #include "workload_context.h"
 #include <assert.h>
@@ -103,6 +103,11 @@ int main(void)
 	mp.local_players = 1;
 	mp.main_menu = 1;
 	assert(!workload_hold_30(&mp, 2));
+	/* visionOS: the Vision Pro profile sets the threshold for the warning; the Compositor keeps the pacing */
+	mp.main_menu = 0;
+	assert(workload_hold_30(&mp, 2));
+	mp.compositor_paced = 1;
+	assert(!workload_hold_30(&mp, 2) && !workload_hold_30(&mp, 48));
 	puts("PASS: workload contexts: solo, multiplier, LAN co-op by size, online co-op, split screen, multiplayer maps");
 	return 0;
 }

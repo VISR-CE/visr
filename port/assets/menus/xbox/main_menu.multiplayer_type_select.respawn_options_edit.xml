@@ -24,7 +24,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/button_bar/button_ok" x="471" y="0" />
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/button_bar/common_button_cancel" x="326" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/op_respawn_time" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/op_respawn_time" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/respawn_time_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/respawn_time_spinner" x="286" y="6" />
 	</widget>
@@ -33,7 +33,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/respawn_time_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="INSTANT|5 SECONDS|10 SECONDS|15 SECONDS" strings_ids="xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_spinner.s0|xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_spinner.s1|xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_spinner.s2|xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_spinner.s3" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/op_respawn_time_growth" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/op_respawn_time_growth" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/respawn_time_growth_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/respawn_time_growth_spinner" x="286" y="6" />
 	</widget>
@@ -42,7 +42,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/respawn_time_growth_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|5 SECONDS|10 SECONDS|15 SECONDS" strings_ids="xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_growth_spinner.s0|xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_growth_spinner.s1|xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_growth_spinner.s2|xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_growth_spinner.s3" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/op_odd_man_out" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/op_odd_man_out" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/odd_man_out_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/odd_man_out_spinner" x="286" y="6" />
 	</widget>
@@ -51,7 +51,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/odd_man_out_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_odd_man_out_spinner.s0|xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_odd_man_out_spinner.s1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/op_suicide_penalty" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/op_suicide_penalty" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/suicide_penalty_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/suicide_penalty_spinner" x="286" y="6" />
 	</widget>
@@ -105,4 +105,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/respawn_options_edit/header_respawn_options/title">
+		<string text="RESPAWN OPTIONS" id="xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_header_respawn_options_title.respawn_options" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/respawn_options_edit/header_respawn_options" strings="xbox/main_menu/multiplayer_type_select/respawn_options_edit/header_respawn_options/title" />
 </menus>

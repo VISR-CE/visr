@@ -2077,7 +2077,7 @@ static boolean coop_player_has_living_unit(
 	return unit && !TEST_FLAG(unit->object.damage_flags, _object_dead_bit);
 }
 
-/* game_state.c calls only after the checkpoint file was written. This
+/* game_state.c calls only after the checkpoint was kept. This
 metadata stays outside the saved image, as the live machine table does. */
 void network_coop_checkpoint_saved(
 	void)

@@ -40,6 +40,16 @@ counted: every refresh at 60 Hz, every other at 120. */
 
 enum { FRAME_PACER_IN_FLIGHT_MAXIMUM = 3 };
 
+/* frames in flight when display.frames_in_flight is empty (port/ios/README.md has the measurements behind two): one
+with the encode thread (debug.encode_thread = "thread"). Its game thread starts the next frame while the encode
+thread finishes this one, so on a GPU-bound device a second frame in flight is a frame of queue between the controller
+and the screen: on the A10X iPad Pro at 128 players, two frames in flight showed gameplay 25 to 35 ms later than the
+queue off, and one showed it no later, with more frames on time. */
+static inline int frame_pacer_in_flight_default(int encode_thread)
+{
+	return encode_thread ? 1 : 2;
+}
+
 /* display.frames_in_flight: "1" to "3"; "system" is 0, no limit of the
 pacer's (the renderer's own queue); anything else, fallback */
 static inline int frame_pacer_in_flight_setting(const char *value, int fallback)
@@ -49,6 +59,17 @@ static inline int frame_pacer_in_flight_setting(const char *value, int fallback)
 	if (value[0] >= '1' && value[0] <= '0' + FRAME_PACER_IN_FLIGHT_MAXIMUM && !value[1])
 		return value[0] - '0';
 	return fallback;
+}
+
+/* The frames in flight a frame starts under: display.frames_in_flight's limit (base; 0 is the system's), or while the
+frame rate in force is 30 or lower (target, 0 for none) the lower of that and display.frames_in_flight_at_30's
+(at_30, 1 or 2; 0 leaves base). It never goes above base, which sized the renderer's buffers when the pacer
+started, and a base of 0 (no limit) keeps 0 and its own queue: the pacer's slots do not exist to resize. */
+static inline int frame_pacer_in_flight_for(double target, int base, int at_30)
+{
+	if (!base || target <= 0.0 || target > 30.5)
+		return base;
+	return at_30 > 0 && at_30 < base ? at_30 : base;
 }
 
 struct frame_pacer_flight

@@ -39,6 +39,8 @@ the floor to the ceiling; 0 when dynamic resolution is off, and the targets
 stay as before. -1 asks only whether it is on: 1 or 0 */
 int host_dynamic_resolution_lines(int ceiling_lines);
 void host_dynamic_resolution_scene(int enabled, int floor_lines);
+/* the frames in flight in force while the frame rate is 30 or lower (port/ios/host/host_frame_pacer.c): 1 or 2, 0 for display.frames_in_flight's */
+void host_frames_in_flight_scene(int at_30);
 
 /* Only gameplay touch controls are suppressed; native dialogs remain interactive. */
 void host_touch_replay_active(int active);
@@ -216,6 +218,8 @@ index of the one pressed, or -1 */
 int host_sdl_show_message_box(unsigned int flags, const char *title, const char *message, const char *first,
 	const char *second);
 int host_sdl_get_gamepads(unsigned int *ids, int capacity);
+/* the game thread's controller reads (xinput_sdl.c) bring SDL's controller state up to date first */
+void host_sdl_update_joysticks(void);
 int host_menu_keyboard(void);
 int host_menu_touch(void);
 int host_menu_controller(void);
@@ -301,6 +305,8 @@ HEAD mode (halo_stereo_mode_entered); 0 on every other platform */
 int host_stereo_entered(void);
 /* Negative quality queries the runtime target; nonnegative quality sets it. */
 float host_stereo_render_quality(float quality);
+/* debug.knob_cycle's cadence: the Compositor's frame repeat count (0 to 3), from the next frame; logged when it lands */
+void host_stereo_frame_repeat_set(int repeat);
 void host_stereo_ab_change(const char *method, float quality, int shadows);
 
 
@@ -335,6 +341,18 @@ void host_bink_audio_skip(unsigned int position);
 int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
+/* The saved game's one writer (port/runtime/save_writer.h). Paths are host paths (platform_translate_path);
+   session_path is any path in the session folder. checkpoint_store: the host keeps a copy of the image as the
+   session's checkpoint (1; 0 when it cannot), and a target_path makes it the profile's saved game too, written
+   by a host thread (NULL: it stays a checkpoint only). checkpoint_load: that copy, into image, for a revert (0:
+   there is none). write_now is Save and Quit: the image is the saved game before it returns 1; 0, and the saved
+   game is the one it was. */
+int host_save_checkpoint_store(const void *image, unsigned int size, const char *session_path, const char *target_path);
+int host_save_checkpoint_load(void *image, unsigned int size);
+int host_save_write_now(const char *session_path, const char *target_path, const void *image, unsigned int size);
+/* A profile is about to be deleted (XDeleteSaveGame), before its folder's files are listed: a checkpoint
+   still being written to its saved game is withdrawn and waited for, so the folder can be emptied and go. */
+void host_save_withdraw_folder(const char *folder_path);
 /* the menus' SEND LOG row: starts the upload of the log to iCloud; the row's text (its progress, the code or why not) */
 void host_sdl_send_log_start(void);
 /* the About screen's website row: opens https://visr.gg/ in the default browser (not on the Apple TV) */

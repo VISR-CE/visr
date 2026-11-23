@@ -1,957 +1,6 @@
 # English menu text, extracted from the generated XML by tools/menu_catalog.py.
 # Do not edit: change the generator and run `python3 tools/menu_catalog.py --write`.
 
-[ce.main_menu_multiplayer_type_select_coop.main_menu_multiplayer_type_select_coop_player_2_help]
-text = "Player 2: choose with your controller."
-
-[ce.main_menu_multiplayer_type_select_coop_options.main_menu_multiplayer_type_select_coop_options_extra_enemies_spinner]
-s0 = "NONE"
-s1 = "+25% PER PLAYER"
-s2 = "+50% PER PLAYER"
-s3 = "+100% PER PLAYER"
-s4 = "+150% PER PLAYER"
-s5 = "+200% PER PLAYER"
-s6 = "2X"
-s7 = "4X"
-s8 = "8X"
-s9 = "16X"
-s10 = "32X"
-
-[ce.main_menu_multiplayer_type_select_coop_options.main_menu_multiplayer_type_select_coop_options_fireteam_spinner]
-s0 = "DROP-IN"
-s1 = "CLASSIC"
-
-[ce.main_menu_multiplayer_type_select_coop_options.main_menu_multiplayer_type_select_coop_options_friendly_fire_spinner]
-s0 = "OFF"
-s1 = "PLAYERS ONLY"
-s2 = "AI ALLIES ONLY"
-s3 = "ON"
-
-[ce.main_menu_multiplayer_type_select_coop_options.main_menu_multiplayer_type_select_coop_options_player_collisions_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_captures_to_win_spinner]
-s0 = "1"
-s1 = "3"
-s2 = "5"
-s3 = "10"
-s4 = "15"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_help_strings]
-how_much_a_player_or_team_must_s_fbe60f = "How much a player or team must score\\nto win the game."
-how_long_the_game_lasts_before_t_e5e0fc = "How long the game lasts before the\\nleader wins."
-whether_players_play_as_teams = "Whether players play as teams."
-team_colors_and_which_indicators_622cb4 = "Team colors and which indicators show\\non the HUD."
-the_options_of_this_game_type = "The options of this game type."
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_kills_to_win_spinner]
-s0 = "5"
-s1 = "10"
-s2 = "15"
-s3 = "25"
-s4 = "50"
-s5 = "75"
-s6 = "100"
-s7 = "150"
-s8 = "200"
-s9 = "250"
-s10 = "500"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_koth_score_to_win_spinner]
-s0 = "1 MINUTE"
-s1 = "2 MINUTES"
-s2 = "5 MINUTES"
-s3 = "10 MINUTES"
-s4 = "15 MINUTES"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_koth_team_play_spinner]
-s0 = "YES"
-s1 = "NO"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_labels]
-score_to_win = "SCORE TO WIN:"
-time_limit = "TIME LIMIT:"
-team_play = "TEAM PLAY:"
-teams_amp_hud = "TEAMS & HUD:"
-type_options = "TYPE OPTIONS"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner]
-s0 = "1"
-s1 = "3"
-s2 = "5"
-s3 = "10"
-s4 = "15"
-s5 = "25"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_score_to_win_spinner]
-s0 = "1"
-s1 = "2"
-s2 = "5"
-s3 = "10"
-s4 = "15"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_team_play_spinner]
-s0 = "YES"
-s1 = "NO"
-
-[ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_time_limit_spinner]
-s0 = "NONE"
-s1 = "10 MINUTES"
-s2 = "15 MINUTES"
-s3 = "20 MINUTES"
-s4 = "25 MINUTES"
-s5 = "30 MINUTES"
-s6 = "45 MINUTES"
-
-[ce.main_menu_multiplayer_type_select_join_game_filters.main_menu_multiplayer_type_select_join_game_filters_full_spinner]
-s0 = "SHOW"
-s1 = "HIDE"
-
-[ce.main_menu_multiplayer_type_select_join_game_filters.main_menu_multiplayer_type_select_join_game_filters_games_spinner]
-s0 = "ALL"
-s1 = "MULTIPLAYER"
-s2 = "CO-OP"
-
-[ce.main_menu_multiplayer_type_select_join_game_filters.main_menu_multiplayer_type_select_join_game_filters_help_strings]
-the_order_of_the_list_ngames_you_267fad = "The order of the list.\\nGames you can join always come first."
-multiplayer_games_co_op_campaign_1677ef = "Multiplayer games, co-op campaigns, or both."
-games_that_are_full_or_about_to_start = "Games that are full or about to start."
-games_that_need_a_password_to_join = "Games that need a password to join."
-games_on_another_network_version_67b7b3 = "Games on another network version, in a mode\\nVISR does not play, or that failed to connect."
-
-[ce.main_menu_multiplayer_type_select_join_game_filters.main_menu_multiplayer_type_select_join_game_filters_labels]
-sort_by = "SORT BY"
-games = "GAMES"
-full_games = "FULL GAMES"
-password_games = "PASSWORD GAMES"
-games_i_can_t_join = "GAMES I CAN'T JOIN"
-
-[ce.main_menu_multiplayer_type_select_join_game_filters.main_menu_multiplayer_type_select_join_game_filters_locked_spinner]
-s0 = "SHOW"
-s1 = "HIDE"
-
-[ce.main_menu_multiplayer_type_select_join_game_filters.main_menu_multiplayer_type_select_join_game_filters_sort_spinner]
-s0 = "PLAYERS"
-s1 = "NAME"
-s2 = "MAP"
-s3 = "GAME"
-
-[ce.main_menu_multiplayer_type_select_join_game_filters.main_menu_multiplayer_type_select_join_game_filters_unjoinable_spinner]
-s0 = "HIDE"
-s1 = "SHOW"
-
-[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_button_clipboard]
-text = "ENTER CODE"
-
-[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_code_button_ok]
-text = "JOIN GAME"
-
-[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_code_help_strings]
-type_the_join_code_your_friend_s_71ed39 = "Type the join code your friend's lobby shows,\\nor a whole invite link, then JOIN GAME."
-that_is_not_a_join_code_eight_le_74b529 = "That is not a join code (eight letters and digits)\\nor an invite link. Try again."
-
-[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_code_labels]
-join_code = "JOIN CODE:"
-
-[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_button_ok]
-text = "JOIN GAME"
-
-[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_help_strings]
-this_game_has_a_password_nenter__2e5444 = "This game has a password.\\nEnter it, then select JOIN GAME."
-that_is_not_the_game_s_password__d97395 = "That is not the game's password. Try again."
-could_not_join_the_game = "Could not join the game."
-
-[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_labels]
-password = "PASSWORD:"
-
-[ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_lobby_button_add]
-text = "ADD PLAYER"
-
-[ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_lobby_button_leave]
-text = "LEAVE"
-
-[ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_lobby_button_start]
-text = "START NOW"
-
-[ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_lobby_button_team]
-text = "SWITCH TEAM"
-
-[ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_player_profile_help]
-text = "The new player's profile."
-
-[ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_preview_button_add]
-text = "ADD PLAYER"
-
-[ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_preview_button_back]
-text = "BACK"
-
-[ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_preview_button_join]
-text = "JOIN GAME"
-
-[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_help_strings]
-after_you_die_you_ll_be_able_to__bb6af7 = "After you die, you'll be able to respawn immediately."
-when_you_die_there_will_be_a_fiv_8b9c5f = "When you die, there will be a five-second wait before\\nyou can rejoin the game."
-you_ll_wait_ten_seconds_after_yo_990660 = "You'll wait ten seconds after you perish before you\\ncan return to the game."
-when_you_die_you_must_wait_fifte_ef503c = "When you die, you must wait fifteen seconds before\\nyou can respawn. This will give you an idea of what\\neternity is like."
-respawn_time_will_always_remain__d7b6f9 = "Respawn time will always remain at its initial\\nsetting."
-every_time_you_die_your_respawn__b5be1a = "Every time you die your respawn time will increase\\nby five seconds. Every time you kill someone your\\nrespawn time will decrease by five seconds."
-your_respawn_time_increases_by_t_5ff174 = "Your respawn time increases by ten seconds each\\ntime you die, and decreases by ten seconds each\\ntime you kill someone."
-every_time_you_die_you_ll_add_fi_77251e = "Every time you die you'll add fifteen seconds to your\\nrespawn time. Every time you kill someone you'll\\nsubtract fifteen seconds."
-when_he_dies_the_odd_man_out_can_fa115e = "When he dies, the Odd Man Out cannot respawn until\\nsomeone else assumes the shameful burden of Odd\\nMan Out by dying."
-when_you_die_you_will_respawn_im_773175 = "When you die, you will respawn immediately without\\nwaiting for someone else to repeat your mistakes."
-you_pay_no_price_for_ending_your_abd4ea = "You pay no price for ending your own life prematurely."
-every_time_you_cause_your_own_de_a58b50 = "Every time you cause your own death, there will be a \\nfive-second wait before you can rejoin the game. "
-you_ll_wait_ten_seconds_after_yo_b3a1d4 = "You'll wait ten seconds after you cause your own \\ndeath before you can return to the game."
-when_you_suicide_you_must_wait_f_bf856f = "When you suicide, you must wait fifteen seconds \\nbefore you can respawn. This will give you an idea of \\nwhat eternity is like."
-
-[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_labels]
-respawn_time = "RESPAWN TIME:"
-respawn_time_growth = "RESPAWN TIME GROWTH:"
-odd_man_out = "ODD MAN OUT:"
-suicide_penalty = "SUICIDE PENALTY:"
-
-[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_odd_man_out_spinner]
-s0 = "YES"
-s1 = "NO"
-
-[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_growth_spinner]
-s0 = "NONE"
-s1 = "5 SECONDS"
-s2 = "10 SECONDS"
-s3 = "15 SECONDS"
-
-[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_spinner]
-s0 = "INSTANT"
-s1 = "5 SECONDS"
-s2 = "10 SECONDS"
-s3 = "15 SECONDS"
-
-[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_suicide_penalty_spinner]
-s0 = "NONE"
-s1 = "5 SECONDS"
-s2 = "10 SECONDS"
-s3 = "15 SECONDS"
-
-[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_game_type_label]
-text = "GAME TYPE:"
-
-[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_gametype_options_label]
-text = "GAMETYPE OPTIONS"
-
-[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings]
-the_name_the_game_shows_in_the_l_02355d = "The name the game shows in the lists of games.\\nEnter changes it."
-the_most_players_the_game_takes__b1404e = "The most players the game takes (up to 128)."
-players_join_this_game_by_its_in_d8c035 = "Players join this game by its invite link, or your\\nDiscord invite. Enter copies the link again."
-the_gametype_and_its_rules_for_this_game = "The gametype and its rules, for this game."
-lives_health_shields_and_respawn_fd6e31 = "Lives, health, shields, and respawning, for this game."
-weapons_grenades_and_starting_eq_dcef83 = "Weapons, grenades, and starting equipment, for\\nthis game."
-each_team_s_vehicles_and_their_r_e519eb = "Each team's vehicles and their respawn time, for\\nthis game."
-the_motion_tracker_and_nav_point_068ddb = "The motion tracker and nav points, for this game."
-friendly_fire_and_team_balance_f_45fde7 = "Friendly fire and team balance, for this game."
-anyone_can_see_and_join_your_gam_a1abb6 = "Anyone can see and join your game: it is listed\\nin everyone's Server Browser."
-only_players_with_your_invite_li_415dce = "Only players with your invite link can join."
-players_can_not_be_hurt_by_weapo_b1fe5a = "Players can not be hurt by weapons and explosives\\nfired by the other players."
-players_can_be_hurt_by_weapons_o_463425 = "Players can be hurt by weapons or explosives\\nfired by the other players."
-damage_from_the_other_players_wi_2b0912 = "Damage from the other players will only reduce\\nshields. Health will be unaffected."
-players_can_be_hurt_by_damage_fr_77574c = "Players can be hurt by damage from explosives\\nfired by the other players."
-enemy_squads_are_as_the_campaign_d70796 = "Enemy squads are as the campaign has them."
-enemy_squads_grow_with_the_playe_07d0cc = "Enemy squads grow with the players: by the amount\\nbelow for each player past the first."
-enemy_squads_are_the_amount_belo_bb28c5 = "Enemy squads are the amount below times as large,\\nhowever many players there are."
-for_each_player_past_the_first_e_dd3b7c = "For each player past the first, enemy squads get\\nthis much more of themselves (100%: as many again)."
-each_enemy_squad_is_this_many_ti_3fde70 = "Each enemy squad is this many times as large."
-players_bump_into_each_other_as__7d4c37 = "Players bump into each other, as in the campaign."
-players_walk_through_each_other__e60f23 = "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block."
-players_from_the_server_browser__7a213c = "Players from the Server Browser must type it to\\njoin (an invite link needs none). Enter sets it."
-players_who_join_without_the_gam_14bc86 = "Players who join without the game's Custom Edition\\nmap download it from you and the other players."
-players_who_join_without_the_map_f1dea5 = "Players who join without the map cannot play."
-players_can_hurt_friendly_ai_and_12a5ff = "Players can hurt friendly AI and vehicles."
-friendly_ai_and_vehicles_are_pro_79b665 = "Friendly AI and vehicles are protected from players.\\nPlayer-to-player friendly fire keeps its own rules."
-more_players_than_recommended_fo_920d0b = "More players than recommended for this device.\\nIt may run slowly."
-players_can_leave_and_join_at_an_05bccd = "Players can leave and join at any time.\\nPlayers always respawn in place upon death."
-fireteam_cannot_change_after_lev_165e9e = "Fireteam cannot change after level start.\\nIf the whole team dies, revert to checkpoint."
-friendly_fire_extra_enemies_play_1ab4c1 = "Friendly fire, extra enemies, player collisions\\nand what happens when everyone dies."
-players_and_friendly_ai_are_prot_2ef829 = "Players and friendly AI are protected from\\nplayers' weapons and explosives."
-players_can_hurt_each_other_frie_84b445 = "Players can hurt each other. Friendly AI is\\nprotected from players."
-players_can_hurt_friendly_ai_and_5f8631 = "Players can hurt friendly AI and vehicles.\\nPlayers are protected from each other."
-players_can_hurt_each_other_frie_7507b4 = "Players can hurt each other, friendly AI and\\nvehicles."
-
-[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels]
-game_name = "GAME NAME:"
-maximum_players = "MAXIMUM PLAYERS:"
-invite_link = "INVITE LINK:"
-game_type = "GAME TYPE:"
-player_options = "PLAYER OPTIONS:"
-item_options = "ITEM OPTIONS:"
-vehicle_options = "VEHICLE OPTIONS:"
-indicator_options = "INDICATOR OPTIONS:"
-teamplay_options = "TEAMPLAY OPTIONS:"
-public_game = "PUBLIC GAME:"
-friendly_fire = "FRIENDLY FIRE:"
-extra_enemies = "EXTRA ENEMIES:"
-per_player = "PER PLAYER:"
-multiplier = "MULTIPLIER:"
-player_collisions = "PLAYER COLLISIONS:"
-password = "PASSWORD:"
-share_maps = "SHARE MAPS:"
-ally_friendly_fire = "ALLY FRIENDLY FIRE:"
-fireteam = "FIRETEAM:"
-co_op_options = "CO-OP OPTIONS"
-
-[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_listing_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_max_players_spinner]
-s0 = "2"
-s1 = "4"
-s2 = "8"
-s3 = "12"
-s4 = "16"
-s5 = "24"
-s6 = "32"
-s7 = "48"
-s8 = "64"
-s9 = "96"
-s10 = "128"
-
-[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_op_start_game]
-text = "START GAME"
-
-[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_autobalance_spinner]
-s0 = "NO"
-s1 = "YES"
-
-[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_penalty_spinner]
-s0 = "NONE"
-s1 = "5 SECONDS"
-s2 = "10 SECONDS"
-s3 = "15 SECONDS"
-
-[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_spinner]
-s0 = "OFF"
-s1 = "ON"
-s2 = "SHIELD ONLY"
-s3 = "EXPLOSIVES ONLY"
-
-[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_help_strings]
-players_can_not_be_hurt_by_weapo_f42723 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
-players_can_be_hurt_by_weapons_o_a40947 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
-damage_from_friendly_fire_will_o_d99200 = "Damage from friendly fire will only reduce shields.\\nHealth will be unaffected."
-players_can_be_hurt_by_damage_fr_2e04b2 = "Players can be hurt by damage from explosives \\nfired by their teammates."
-no_respawn_time_penalty_will_be__49a8c9 = "No respawn time penalty will be assessed to players\\nwho kill a teammate."
-players_who_kill_a_teammate_will_9888f4 = "Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die."
-players_who_kill_a_teammate_will_551ffb = "Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die."
-players_who_kill_a_teammate_will_c8e1b7 = "Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die."
-team_autobalancing_will_be_disab_52927b = "Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish."
-team_autobalancing_will_be_enabl_62458a = "Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team."
-the_game_s_objectives_hills_flag_999404 = "The game's objectives (hills, flags, balls and the like)\\nwill appear in your Motion Tracker."
-the_game_s_objectives_will_have__dc6a6c = "The game's objectives will have special markers\\ndisplayed over them on screen."
-the_game_s_objectives_will_not_b_ff68d4 = "The game's objectives will not be visible in your\\nMotion Tracker or on screen."
-all_other_players_in_the_game_wi_2eed11 = "All other players in the game will show up on your \\nMotion Tracker when mobile."
-other_friendly_players_in_the_ga_568d12 = "Other friendly players in the game will show up on \\nyour Motion Tracker when mobile."
-other_players_in_the_game_will_n_93323d = "Other players in the game will never show up on your\\nMotion Tracker."
-green_triangles_will_appear_over_f13744 = "Green triangles will appear over the heads of your\\nteammates as a reminder that you should not shoot\\nthem."
-your_teammates_will_only_be_deno_5c8d39 = "Your teammates will only be denoted by the color of\\ntheir armor."
-
-[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_friends_on_screen_spinner]
-s0 = "YES"
-s1 = "NO"
-
-[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner]
-s0 = "ALL"
-s1 = "FRIENDS"
-s2 = "NO"
-
-[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_radar_display_spinner]
-s0 = "MOTION TRACKER"
-s1 = "NAV POINTS"
-s2 = "NONE"
-
-[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_labels]
-friendly_fire = "FRIENDLY FIRE:"
-friendly_fire_penalty = "FRIENDLY FIRE PENALTY:"
-autobalance = "AUTOBALANCE:"
-radar_display = "RADAR DISPLAY:"
-players_on_radar = "PLAYERS ON RADAR:"
-friends_on_screen = "FRIENDS ON SCREEN:"
-
-[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_banshee_spinner]
-s0 = "NONE"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-
-[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_cgturret_spinner]
-s0 = "NONE"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-
-[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_ghost_spinner]
-s0 = "NONE"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-
-[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_help_strings]
-no_warthogs_will_spawn_in_the_map = "No Warthogs will spawn in the map."
-up_to_one_warthog_will_spawn_in_the_map = "Up to one Warthog will spawn in the map."
-up_to_two_warthogs_will_spawn_in_the_map = "Up to two Warthogs will spawn in the map."
-up_to_three_warthogs_will_spawn__486c11 = "Up to three Warthogs will spawn in the map."
-up_to_four_warthogs_will_spawn_i_bad715 = "Up to four Warthogs will spawn in the map."
-no_ghosts_will_spawn_in_the_map = "No Ghosts will spawn in the map."
-up_to_one_ghost_will_spawn_in_the_map = "Up to one Ghost will spawn in the map."
-up_to_two_ghosts_will_spawn_in_the_map = "Up to two Ghosts will spawn in the map."
-up_to_three_ghosts_will_spawn_in_the_map = "Up to three Ghosts will spawn in the map."
-up_to_four_ghosts_will_spawn_in_the_map = "Up to four Ghosts will spawn in the map."
-no_scorpions_will_spawn_in_the_map = "No Scorpions will spawn in the map."
-up_to_one_scorpion_will_spawn_in_the_map = "Up to one Scorpion will spawn in the map."
-up_to_two_scorpions_will_spawn_i_1fa24a = "Up to two Scorpions will spawn in the map."
-up_to_three_scorpions_will_spawn_6e2029 = "Up to three Scorpions will spawn in the map."
-up_to_four_scorpions_will_spawn__da7dc3 = "Up to four Scorpions will spawn in the map."
-no_rocket_warthogs_will_spawn_in_the_map = "No Rocket Warthogs will spawn in the map."
-up_to_one_rocket_warthog_will_sp_537e9d = "Up to one Rocket Warthog will spawn in the map."
-up_to_two_rocket_warthogs_will_s_4edaea = "Up to two Rocket Warthogs will spawn in the map."
-up_to_three_rocket_warthogs_will_3e6806 = "Up to three Rocket Warthogs will spawn in the map."
-up_to_four_rocket_warthogs_will__ae7ff3 = "Up to four Rocket Warthogs will spawn in the map."
-no_banshees_will_spawn_in_the_map = "No Banshees will spawn in the map."
-up_to_one_banshee_will_spawn_in_the_map = "Up to one Banshee will spawn in the map."
-up_to_two_banshees_will_spawn_in_the_map = "Up to two Banshees will spawn in the map."
-up_to_three_banshees_will_spawn__758065 = "Up to three Banshees will spawn in the map."
-up_to_four_banshees_will_spawn_i_83579e = "Up to four Banshees will spawn in the map."
-no_gun_turrets_will_spawn_in_the_map = "No Gun Turrets will spawn in the map."
-up_to_one_gun_turret_will_spawn__874122 = "Up to one Gun Turret will spawn in the map."
-up_to_two_gun_turrets_will_spawn_a7ad86 = "Up to two Gun Turrets will spawn in the map."
-up_to_three_gun_turrets_will_spa_4e6358 = "Up to three Gun Turrets will spawn in the map."
-up_to_four_gun_turrets_will_spaw_2e6640 = "Up to four Gun Turrets will spawn in the map."
-
-[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_labels]
-warthog = "WARTHOG:"
-ghost = "GHOST:"
-scorpion = "SCORPION:"
-rocket_warthog = "ROCKET WARTHOG:"
-banshee = "BANSHEE:"
-gun_turret = "GUN TURRET:"
-
-[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_rwarthog_spinner]
-s0 = "NONE"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-
-[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_scorpion_spinner]
-s0 = "NONE"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-
-[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_warthog_spinner]
-s0 = "NONE"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-
-[ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_help_strings]
-everyone_starts_with_no_weapon_n_306286 = "Everyone starts with no weapon\\nas a primary weapon."
-everyone_starts_with_a_random_we_b88a5d = "Everyone starts with a random weapon\\nas a primary weapon."
-everyone_starts_with_the_assault_824b5b = "Everyone starts with the assault rifle\\nas a primary weapon."
-everyone_starts_with_the_pistol__16b583 = "Everyone starts with the pistol\\nas a primary weapon."
-everyone_starts_with_the_shotgun_ff0841 = "Everyone starts with the shotgun\\nas a primary weapon."
-everyone_starts_with_the_sniper__aa408e = "Everyone starts with the sniper rifle\\nas a primary weapon."
-everyone_starts_with_the_rocket__1a063e = "Everyone starts with the rocket launcher\\nas a primary weapon."
-everyone_starts_with_the_plasma__8a89b4 = "Everyone starts with the plasma pistol\\nas a primary weapon."
-everyone_starts_with_the_plasma__25989c = "Everyone starts with the plasma rifle\\nas a primary weapon."
-everyone_starts_with_the_needler_c86a6a = "Everyone starts with the needler\\nas a primary weapon."
-everyone_starts_with_no_weapon_n_60d78b = "Everyone starts with no weapon\\nas a secondary weapon."
-everyone_starts_with_a_random_we_70125c = "Everyone starts with a random weapon\\nas a secondary weapon."
-everyone_starts_with_the_assault_8bc0b6 = "Everyone starts with the assault rifle\\nas a secondary weapon."
-everyone_starts_with_the_pistol__0daa97 = "Everyone starts with the pistol\\nas a secondary weapon."
-everyone_starts_with_the_shotgun_4c8d14 = "Everyone starts with the shotgun\\nas a secondary weapon."
-everyone_starts_with_the_sniper__2e9c8b = "Everyone starts with the sniper rifle\\nas a secondary weapon."
-everyone_starts_with_the_rocket__60fbc1 = "Everyone starts with the rocket launcher\\nas a secondary weapon."
-everyone_starts_with_the_plasma__6d35d1 = "Everyone starts with the plasma pistol\\nas a secondary weapon."
-everyone_starts_with_the_plasma__269736 = "Everyone starts with the plasma rifle\\nas a secondary weapon."
-everyone_starts_with_the_needler_ec53e4 = "Everyone starts with the needler\\nas a secondary weapon."
-
-[ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_labels]
-primary_weapon = "PRIMARY WEAPON:"
-secondary_weapon = "SECONDARY WEAPON:"
-
-[ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner]
-s0 = "NONE"
-s1 = "RANDOM"
-s2 = "ASSAULT RIFLE"
-s3 = "PISTOL"
-s4 = "SHOTGUN"
-s5 = "SNIPER RIFLE"
-s6 = "ROCKET LAUNCHER"
-s7 = "PLASMA PISTOL"
-s8 = "PLASMA RIFLE"
-s9 = "NEEDLER"
-
-[ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_secondary_weapon_spinner]
-s0 = "NONE"
-s1 = "RANDOM"
-s2 = "ASSAULT RIFLE"
-s3 = "PISTOL"
-s4 = "SHOTGUN"
-s5 = "SNIPER RIFLE"
-s6 = "ROCKET LAUNCHER"
-s7 = "PLASMA PISTOL"
-s8 = "PLASMA RIFLE"
-s9 = "NEEDLER"
-
-[ce.main_menu_new_select_port.main_menu_new_select_var_map_kinds]
-singleplayer = "SINGLEPLAYER"
-multiplayer = "MULTIPLAYER"
-custom_singleplayer = "CUSTOM SINGLEPLAYER"
-custom_multiplayer = "CUSTOM MULTIPLAYER"
-
-[ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons]
-yes = "YES"
-no = "NO"
-
-[ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons]
-custom = "CUSTOM"
-generic = "GENERIC"
-as_specified = "AS SPECIFIED"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_button_back]
-text = "BACK"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_help]
-text = "Halo, Halo: Combat Evolved, Master Chief, and the related names\\nand logos are trademarks of Microsoft Corporation. Halo: Combat\\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\\nproject. It is not affiliated with, sponsored by, or endorsed by\\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\\nIndustries), or Bungie."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_labels]
-build = "BUILD"
-online = "ONLINE"
-privacy = "PRIVACY"
-license = "LICENSE"
-open_source_notices = "OPEN SOURCE NOTICES"
-send_log = "SEND LOG"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_values]
-visr_gg = "visr.gg"
-visr_gg_privacy = "visr.gg/privacy"
-apache_2_0 = "Apache-2.0"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_effects_volume_spinner]
-s0 = "0"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-s5 = "5"
-s6 = "6"
-s7 = "7"
-s8 = "8"
-s9 = "9"
-s10 = "10"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_enabled_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_help_strings]
-turn_all_game_sound_on_or_off = "Turn all game sound on or off."
-the_volume_of_everything = "The volume of everything."
-the_volume_of_every_other_sound__6a8da4 = "The volume of every other sound: effects and\\nspeech."
-turn_the_music_on_or_off_off_let_3ae03c = "Turn the music on or off. Off lets other apps'\\nmusic play at full volume."
-the_music_s_volume = "The music's volume."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_labels]
-sound = "SOUND:"
-master_volume = "MASTER VOLUME:"
-effects_volume = "EFFECTS VOLUME:"
-music = "MUSIC:"
-music_volume = "MUSIC VOLUME:"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_music_enabled_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_music_volume_spinner]
-s0 = "0"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-s5 = "5"
-s6 = "6"
-s7 = "7"
-s8 = "8"
-s9 = "9"
-s10 = "10"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_volume_spinner]
-s0 = "0"
-s1 = "1"
-s2 = "2"
-s3 = "3"
-s4 = "4"
-s5 = "5"
-s6 = "6"
-s7 = "7"
-s8 = "8"
-s9 = "9"
-s10 = "10"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_controls_setup.main_menu_settings_select_player_setup_player_profile_edit_controls_setup_group_label]
-text = "SHOW:"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_controls_setup.main_menu_settings_select_player_setup_player_profile_edit_controls_setup_group_spinner]
-s0 = "MOVEMENT"
-s1 = "WEAPONS"
-s2 = "ACTIONS"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_controls_setup.main_menu_settings_select_player_setup_player_profile_edit_controls_setup_help_strings]
-choose_what_to_show_with_left_and_right = "Choose what to show, with left and right."
-enter_sets_the_key_chosen_left_a_eae99c = "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button."
-press_a_key_a_mouse_button_or_tu_3e4db1 = "Press a key, a mouse button, or turn the wheel...\\nEscape cancels, Delete clears it."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_autocenter_spinner]
-s0 = "YES"
-s1 = "NO"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_button_preset_spinner]
-s0 = "DEFAULT"
-s1 = "SWAP TRIGGERS"
-s2 = "SWAP A, L TRIGGER"
-s3 = "SWAP B, L TRIGGER"
-s4 = "SWAP B, R STICK"
-s5 = "BUMPER JUMPER"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_flight_inversion_spinner]
-s0 = "YES"
-s1 = "NO"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_help_strings]
-how_fast_the_right_stick_turns_the_view = "How fast the right stick turns the view."
-pushing_the_right_stick_up_looks_down = "Pushing the right stick up looks down."
-flying_vehicles_pitch_as_aircraf_e02060 = "Flying vehicles pitch as aircraft do: pushing up\\nflies down."
-level_the_view_while_walking = "Level the view while walking."
-which_of_the_controller_s_button_65bfb2 = "Which of the controller's buttons does what (not\\nthe keyboard's: Controls Setup sets those)."
-which_stick_moves_and_which_looks = "Which stick moves and which looks."
-rumble_the_controller = "Rumble the controller."
-show_the_game_s_hints_about_its_controls = "Show the game's hints about its controls."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_ingame_help_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_invert_look_spinner]
-s0 = "YES"
-s1 = "NO"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_joystick_preset_spinner]
-s0 = "DEFAULT"
-s1 = "SOUTHPAW"
-s2 = "LEGACY"
-s3 = "LEGACY SOUTHPAW"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_labels]
-look_sensitivity = "LOOK SENSITIVITY:"
-invert_look = "INVERT LOOK:"
-invert_flight = "INVERT FLIGHT:"
-auto_center_look = "AUTO-CENTER LOOK:"
-button_layout = "BUTTON LAYOUT:"
-stick_layout = "STICK LAYOUT:"
-vibration = "VIBRATION:"
-in_game_help = "IN-GAME HELP:"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_look_sensitivity_spinner]
-s0 = "1"
-s1 = "2"
-s2 = "3"
-s3 = "4"
-s4 = "5"
-s5 = "6"
-s6 = "7"
-s7 = "8"
-s8 = "9"
-s9 = "10"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_vibration_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.main_menu_settings_select_player_setup_player_profile_edit_graphics_crt_effect_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.main_menu_settings_select_player_setup_player_profile_edit_graphics_graphics_help_strings]
-the_original_xbox_exactly_640x48_1593d7 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added."
-the_original_xbox_look_at_this_d_c2a18e = "The original Xbox look at this device's resolution\\nand frame rate, with sharper textures and HUD."
-tastefully_enhanced_the_original_e35827 = "Tastefully enhanced: the original game with soft\\nshading where things meet the ground and shadows\\nunder props."
-the_original_xbox_exactly_640x48_452a4c = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added. In VR, Hardcore draws as\\nClassic."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.main_menu_settings_select_player_setup_player_profile_edit_graphics_graphics_spinner]
-s0 = "HARDCORE"
-s1 = "CLASSIC"
-s2 = "ENHANCED"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.main_menu_settings_select_player_setup_player_profile_edit_graphics_help_strings]
-the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.main_menu_settings_select_player_setup_player_profile_edit_graphics_labels]
-mode = "MODE:"
-crt_effect = "CRT EFFECT:"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_direct_camera_shown]
-on = "ON"
-off = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_direct_camera_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_help_strings]
-how_fast_the_view_turns_side_to__e7b8fc = "How fast the view turns side to side for the\\nmouse's movement."
-how_fast_the_view_turns_up_and_d_ce0a38 = "How fast the view turns up and down; Same\\nturns it as fast as side to side."
-moving_the_mouse_forward_looks_down = "Moving the mouse forward looks down."
-slow_and_drag_the_view_along_wit_ccedca = "Slow and drag the view along with a target while\\naiming with the mouse, as with a controller."
-in_first_person_turn_the_view_th_17a6eb = "In first person, turn the view the moment the\\nmouse moves, not up to two ticks later."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_invert_mouse_spinner]
-s0 = "YES"
-s1 = "NO"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_labels]
-horizontal_sensitivity = "HORIZONTAL SENSITIVITY:"
-vertical_sensitivity = "VERTICAL SENSITIVITY:"
-invert_vertical_axis = "INVERT VERTICAL AXIS:"
-aim_assist = "AIM ASSIST:"
-instant_aim = "INSTANT AIM:"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_mouse_aim_assist_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_mouse_sensitivity_spinner]
-s0 = "0.25"
-s1 = "0.5"
-s2 = "0.75"
-s3 = "1"
-s4 = "1.25"
-s5 = "1.5"
-s6 = "1.75"
-s7 = "2"
-s8 = "2.5"
-s9 = "3"
-s10 = "4"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_mouse_vertical_sensitivity_spinner]
-s0 = "SAME"
-s1 = "0.25"
-s2 = "0.5"
-s3 = "0.75"
-s4 = "1"
-s5 = "1.25"
-s6 = "1.5"
-s7 = "1.75"
-s8 = "2"
-s9 = "2.5"
-s10 = "3"
-s11 = "4"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_allow_upnp_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_auto_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_cloud_saves_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_custom_maps_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_enabled_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_help_strings]
-host_and_join_games_over_the_int_073f36 = "Host and join games over the internet by invite\\nlinks; off keeps to the local network."
-let_internet_play_ask_the_router_93ab6c = "Let internet play ask the router to forward its\\nport, for networks that stop connections."
-join_the_game_of_an_invite_link__48a726 = "Join the game of an invite link copied before\\nswitching to the game."
-look_for_a_new_version_when_the__dbc4f7 = "Look for a new version when the game starts."
-sync_saves_with_icloud_turning_o_9960ef = "Sync saves with iCloud. Turning on applies next\\nlaunch; turning off stops syncing now."
-in_multiplayer_whose_names_are_d_56dd26 = "In multiplayer, whose names are drawn above their\\nheads."
-how_large_the_players_names_are_drawn = "How large the players' names are drawn."
-a_team_game_s_scoreboard_on_a_co_aa6c55 = "A team game's scoreboard: on, a column for each\\nteam; off, every player in order of score."
-draw_a_panel_behind_the_scoreboa_6a6448 = "Draw a panel behind the scoreboard, for clearer\\ntext."
-experimental_show_games_on_custo_85c92c = "Experimental: show games on Custom Edition maps.\\nThese are not fully supported yet."
-joining_a_game_on_a_custom_editi_be4229 = "Joining a game on a Custom Edition map you do not\\nhave: download it from the players (if shared)."
-in_another_s_game_send_its_map_t_5aab2d = "In another's game, send its map to players who\\njoin without it, as a torrent's peers do."
-the_most_you_send_of_maps_to_oth_0c720a = "The most you send of maps to other players, so\\nthat the game keeps the rest of your upload."
-hide_offensive_words_in_names_an_3dfd19 = "Hide offensive words in names and text from\\nother players, maps, and mods as stars."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_join_from_clipboard_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_labels]
-internet_play = "INTERNET PLAY:"
-upnp_port_forwarding = "UPNP PORT FORWARDING:"
-join_from_clipboard = "JOIN FROM CLIPBOARD:"
-check_for_updates = "CHECK FOR UPDATES:"
-icloud_saves = "ICLOUD SAVES:"
-player_names = "PLAYER NAMES:"
-player_name_size = "PLAYER NAME SIZE:"
-group_by_team = "GROUP BY TEAM:"
-scoreboard_panel = "SCOREBOARD PANEL:"
-custom_maps = "CUSTOM MAPS:"
-download_maps = "DOWNLOAD MAPS:"
-help_send_maps = "HELP SEND MAPS:"
-map_upload_limit = "MAP UPLOAD LIMIT:"
-streamer_mode = "STREAMER MODE:"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_map_download_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_map_seed_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_map_seed_upload_spinner]
-s0 = "64 KB/S"
-s1 = "128 KB/S"
-s2 = "256 KB/S"
-s3 = "512 KB/S"
-s4 = "1 MB/S"
-s5 = "2 MB/S"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_online_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_player_name_scale_spinner]
-s0 = "0.5x"
-s1 = "0.75x"
-s2 = "1x"
-s3 = "1.25x"
-s4 = "1.5x"
-s5 = "2x"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_player_names_spinner]
-s0 = "ALL"
-s1 = "ALLIES"
-s2 = "ENEMIES"
-s3 = "NONE"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_scoreboard_background_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_scoreboard_team_layout_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_crt_effect_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_frame_rate_shown]
-display = "DISPLAY"
-30 = "30"
-60 = "60"
-120 = "120"
-unlimited = "UNLIMITED"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_frame_rate_spinner]
-s0 = "DISPLAY"
-s1 = "30"
-s2 = "60"
-s3 = "120"
-s4 = "UNLIMITED"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_graphics_help_strings]
-the_original_xbox_exactly_640x48_1593d7 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added."
-the_original_xbox_look_at_this_d_c2a18e = "The original Xbox look at this device's resolution\\nand frame rate, with sharper textures and HUD."
-tastefully_enhanced_the_original_e35827 = "Tastefully enhanced: the original game with soft\\nshading where things meet the ground and shadows\\nunder props."
-the_original_xbox_exactly_640x48_452a4c = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added. In VR, Hardcore draws as\\nClassic."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_graphics_spinner]
-s0 = "HARDCORE"
-s1 = "CLASSIC"
-s2 = "ENHANCED"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_help_strings]
-the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
-fullscreen_takes_the_display_bor_0977db = "Fullscreen takes the display; borderless covers it\\nwith a window. F11 switches to the window."
-what_fullscreen_and_borderless_d_22a37a = "What fullscreen and borderless draw at. Fullscreen\\nsets the display to it; borderless scales it."
-the_window_s_size_4_3_then_16_10_1411a2 = "The window's size: 4:3, then 16:10, 16:9 and 21:9\\n(its edges can also be dragged)."
-native_draws_at_the_resolution_o_8c1f93 = "Native draws at the resolution; Original draws\\nthe Xbox's 640x480 and scales it up."
-wait_for_the_display_between_fra_a4ff2a = "Wait for the display between frames, so that the\\npicture never tears."
-with_v_sync_off_the_most_frames__2c7d4b = "With V-Sync off, the most frames a second. Auto:\\ntwice the display's refresh rate."
-unlimited_can_tear_and_uses_more_e5d11c = "Unlimited can tear and uses more power. Applies\\nthe next time the game starts."
-draw_a_frame_for_every_display_r_872689 = "Draw a frame for every display refresh, blending\\nbetween the game's 30 ticks per second."
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_interpolation_shown]
-on = "ON"
-off = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_interpolation_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_labels]
-graphics = "GRAPHICS:"
-crt_effect = "CRT EFFECT:"
-display_mode = "DISPLAY MODE:"
-resolution = "RESOLUTION:"
-window_size = "WINDOW SIZE:"
-resolution_scaling = "RESOLUTION SCALING:"
-v_sync = "V-SYNC:"
-frame_rate_limit = "FRAME RATE LIMIT:"
-frame_rate = "FRAME RATE:"
-smooth_motion = "SMOOTH MOTION:"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_max_fps_spinner]
-s0 = "AUTO"
-s1 = "30"
-s2 = "60"
-s3 = "120"
-s4 = "144"
-s5 = "165"
-s6 = "240"
-s7 = "NONE"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_mode_spinner]
-s0 = "FULLSCREEN"
-s1 = "BORDERLESS"
-s2 = "WINDOWED"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_resolution_scaling_shown]
-native = "NATIVE"
-original = "ORIGINAL"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_resolution_scaling_spinner]
-s0 = "NATIVE"
-s1 = "ORIGINAL"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_resolution_spinner]
-s0 = "NATIVE"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_vsync_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_window_size_spinner]
-s0 = "1280 x 960"
-
 [xbox.dialogs.xbox_error_error_abort_to_dashboard_a_butn_touch_caption]
 text = "OK"
 
@@ -1012,7 +61,7 @@ text = "OK"
 [xbox.dialogs.xbox_error_error_nonmodal_qtrscreen_accept]
 text = "OK"
 
-[xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_coop_options_screen_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_coop_options_screen_bar_b]
 text = "BACK"
 
 [xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_extra_enemies_spinner]
@@ -1038,6 +87,9 @@ s1 = "PLAYERS ONLY"
 s2 = "AI ALLIES ONLY"
 s3 = "ON"
 
+[xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_header_coop_options_title]
+co_op_options = "CO-OP OPTIONS"
+
 [xbox.main_menu_multiplayer_type_select_coop_options.xbox_main_menu_multiplayer_type_select_coop_options_player_collisions_spinner]
 s0 = "ON"
 s1 = "OFF"
@@ -1045,11 +97,14 @@ s1 = "OFF"
 [xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_button_join]
 text = "JOIN GAME"
 
-[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_legend_accept]
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_bar_a]
 text = "SELECT"
 
-[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_bar_b]
 text = "CANCEL"
+
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_header_direct_ip_title]
+direct_ip = "DIRECT IP"
 
 [xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_server_port_label]
 text = "SERVER PORT"
@@ -1060,6 +115,9 @@ s1 = "3"
 s2 = "5"
 s3 = "10"
 s4 = "15"
+
+[xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_header_game_options_title]
+game = "GAME"
 
 [xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_help_strings]
 how_much_a_player_or_team_must_s_fbe60f = "How much a player or team must score\\nto win the game."
@@ -1127,23 +185,29 @@ s4 = "25 MINUTES"
 s5 = "30 MINUTES"
 s6 = "45 MINUTES"
 
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_back_caption]
-text = "BACK"
-
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_create_inter_caption]
-text = "CREATE"
-
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_equipment_label]
 text = "EQUIPMENT"
 
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_host_label]
 text = "HOST"
 
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_ip_address_caption]
-text = "IP ADDRESS"
-
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_rules_label]
 text = "RULES"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_header_internet_title]
+internet_lobby = "INTERNET LOBBY"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_header_lan_title]
+lan_lobby = "LAN LOBBY"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_b]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_x]
+text = "DIRECT IP"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_y]
+text = "CREATE"
 
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_browser_filters_label]
 text = "FILTERS"
@@ -1157,6 +221,12 @@ text = "OK"
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_error_legend_accept]
 text = "OK"
 
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_header_internet_title]
+internet_lobby = "INTERNET LOBBY"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_header_lan_title]
+lan_lobby = "LAN LOBBY"
+
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_join_game_button_refresh]
 text = "REFRESH"
 
@@ -1166,10 +236,10 @@ text = "SELECT"
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_legend_cancel]
 text = "BACK"
 
-[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_browser_done_caption]
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_b]
 text = "DONE"
 
-[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_browser_reset_caption]
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_x]
 text = "RESET"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_full_spinner]
@@ -1180,6 +250,9 @@ s1 = "HIDE"
 s0 = "ALL"
 s1 = "MULTIPLAYER"
 s2 = "CO-OP"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_header_filters_title]
+sort_amp_filter = "SORT & FILTER"
 
 [xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings]
 the_order_of_the_list_ngames_you_267fad = "The order of the list.\\nGames you can join always come first."
@@ -1215,12 +288,15 @@ text = "ENTER CODE"
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_button_ok]
 text = "JOIN GAME"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_accept_captions]
-edit = "EDIT"
-join_game = "JOIN GAME"
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_bar_a]
+s0 = "EDIT"
+s1 = "JOIN GAME"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_bar_b]
 text = "CANCEL"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_header_direct_link_title]
+direct_link = "DIRECT LINK"
 
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings]
 type_the_join_code_your_friend_s_71ed39 = "Type the join code your friend's lobby shows,\\nor a whole invite link, then JOIN GAME."
@@ -1229,8 +305,17 @@ that_is_not_a_join_code_eight_le_74b529 = "That is not a join code (eight letter
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_labels]
 join_code = "JOIN CODE:"
 
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_header_direct_link_title]
+direct_link = "DIRECT LINK"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_header_server_browser_title]
+server_browser = "SERVER BROWSER"
+
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_button_ok]
 text = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_header_password_title]
+password = "PASSWORD"
 
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_help_strings]
 this_game_has_a_password_nenter__2e5444 = "This game has a password.\\nEnter it, then select JOIN GAME."
@@ -1240,16 +325,22 @@ could_not_join_the_game = "Could not join the game."
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_labels]
 password = "PASSWORD:"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_accept_captions]
-edit = "EDIT"
-join_game = "JOIN GAME"
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_a]
+s0 = "EDIT"
+s1 = "JOIN GAME"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_b]
 text = "CANCEL"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_hide_captions]
-hide = "HIDE"
-show = "SHOW"
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_x]
+s0 = "HIDE"
+s1 = "SHOW"
+
+[xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_header_add_player_title]
+add_player = "ADD PLAYER"
+
+[xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_header_lobby_title]
+game_lobby = "GAME LOBBY"
 
 [xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_add_caption]
 text = "ADD PLAYER"
@@ -1269,10 +360,10 @@ text = "SWITCH TEAM"
 [xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_player_profile_help]
 text = "The new player's profile."
 
-[xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_player_profile_screen_legend_accept]
+[xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_player_profile_screen_bar_a]
 text = "SELECT"
 
-[xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_player_profile_screen_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_player_profile_screen_bar_b]
 text = "BACK"
 
 [xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_preview_button_add]
@@ -1293,6 +384,9 @@ text = "JOIN GAME"
 [xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_preview_button_join]
 text = "JOIN GAME"
 
+[xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_header_select_map_title]
+select_map = "SELECT MAP"
+
 [xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line]
 the_pillar_of_autumn = "The Pillar of Autumn"
 halo = "Halo"
@@ -1306,10 +400,10 @@ keyes = "Keyes"
 the_maw = "The Maw"
 this_level_unavailable = "This Level Unavailable"
 
-[xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_mp_map_select_screen_legend_accept]
+[xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_mp_map_select_screen_bar_a]
 text = "SELECT"
 
-[xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_mp_map_select_screen_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_mp_map_select_screen_bar_b]
 text = "BACK"
 
 [xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts]
@@ -1332,6 +426,9 @@ text = "BACK"
 4_16_players_8 = "4-16 players"
 4_16_players_9 = "4-16 players"
 2_12_players = "2-12 players"
+
+[xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_header_respawn_options_title]
+respawn_options = "RESPAWN OPTIONS"
 
 [xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_help_strings]
 after_you_die_you_ll_be_able_to__bb6af7 = "After you die, you'll be able to respawn immediately."
@@ -1382,6 +479,9 @@ text = "GAME TYPE:"
 
 [xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_gametype_options_label]
 text = "GAMETYPE OPTIONS"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_header_server_settings_title]
+server_setup = "SERVER SETUP"
 
 [xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_help_strings]
 the_name_the_game_shows_in_the_l_02355d = "The name the game shows in the lists of games.\\nEnter changes it."
@@ -1487,6 +587,9 @@ s1 = "ON"
 s2 = "SHIELD ONLY"
 s3 = "EXPLOSIVES ONLY"
 
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_header_teams_hud_title]
+teams_amp_hud = "TEAMS & HUD"
+
 [xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_help_strings]
 players_can_not_be_hurt_by_weapo_f42723 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
 players_can_be_hurt_by_weapons_o_a40947 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
@@ -1550,6 +653,9 @@ s2 = "2"
 s3 = "3"
 s4 = "4"
 
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_header_vehicle_types_title]
+vehicle_types = "VEHICLE TYPES"
+
 [xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_help_strings]
 no_warthogs_will_spawn_in_the_map = "No Warthogs will spawn in the map."
 up_to_one_warthog_will_spawn_in_the_map = "Up to one Warthog will spawn in the map."
@@ -1610,6 +716,9 @@ s1 = "1"
 s2 = "2"
 s3 = "3"
 s4 = "4"
+
+[xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_header_weapons_title]
+choose_weapons = "CHOOSE WEAPONS"
 
 [xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_help_strings]
 everyone_starts_with_no_weapon_n_306286 = "Everyone starts with no weapon\\nas a primary weapon."
@@ -1703,6 +812,48 @@ as_specified = "AS SPECIFIED"
 [xbox.main_menu_settings_select_multiplayer_setup_player_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_player_options_edit_respawn_label]
 text = "RESPAWN"
 
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_delete]
+text = "DELETE GAMETYPE"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_descriptions]
+rename_this_gametype_using_nthe__b046da = "Rename this gametype using\\nthe virtual keyboard.\\n\\n\\nThis gametype:"
+specify_the_type_of_game_you_nwa_654e47 = "Specify the type of game you\\nwant to play and the rules\\nthat apply to it.\\n\\nThis gametype:"
+choose_the_player_settings_and_n_66d1f6 = "Choose the player settings and\\nrestrictions that apply to\\nthis gametype.\\n\\nThis gametype:"
+choose_the_weapons_vehicles_nand_5bae0c = "Choose the weapons, vehicles\\nand other items that appear in\\nthis gametype.\\n\\nThis gametype:"
+which_vehicles_are_on_the_map_n__8a41a1 = "Which vehicles are on the map.\\n\\n\\n\\nThis gametype:"
+save_changes_you_ve_made_to_nthi_3cc1a0 = "Save changes you've made to\\nthis gametype and return to\\nthe previous screen.\\n\\nThis gametype:"
+delete_this_gametype_n_n_n_nthis_1b4626 = "Delete this gametype.\\n\\n\\n\\nThis gametype:"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_game_options]
+text = "GAME OPTIONS"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_gametype_edit_screen_bar_a]
+text = "SELECT"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_gametype_edit_screen_bar_b]
+text = "CANCEL"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_header_title]
+edit_multiplayer_gametype = "EDIT MULTIPLAYER GAMETYPE"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_item_options]
+text = "ITEM OPTIONS"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_name]
+text = "CHANGE NAME"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_player_options]
+text = "PLAYER OPTIONS"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_save]
+text = "SAVE CHANGES"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_edit.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_vehicles]
+text = "VEHICLES"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_header_select_gametype_to_edit_title]
+select_gametype_to_edit = "SELECT GAMETYPE TO EDIT"
+
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_legend_back]
 text = "BACK"
 
@@ -1714,54 +865,6 @@ text = "DELETE"
 
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_playlist_button_new]
 text = "CREATE NEW"
-
-[xbox.multiplayer_shared.main_menu_map_list]
-the_pillar_of_nautumn = "The Pillar of \\nAutumn"
-halo = "Halo"
-the_truth_and_nreconciliation = "The Truth and \\nReconciliation"
-the_silent_ncartographer = "The Silent \\nCartographer"
-assault_on_the_ncontrol_room = "Assault on the\\nControl Room"
-343_guilty_nspark = "343 Guilty \\nSpark"
-the_library = "The Library"
-two_betrayals = "Two Betrayals"
-keyes = "Keyes"
-the_maw = "The Maw"
-this_level_nunavailable = "This Level\\nUnavailable"
-
-[xbox.multiplayer_shared.main_menu_mp_map_list]
-battle_creek = "Battle Creek"
-sidewinder = "Sidewinder"
-damnation = "Damnation"
-rat_race = "Rat Race"
-prisoner = "Prisoner"
-hang_em_high = "Hang 'Em High"
-chill_out = "Chill Out"
-derelict = "Derelict"
-boarding_action = "Boarding Action"
-blood_gulch = "Blood Gulch"
-wizard = "Wizard"
-chiron_tl34 = "Chiron TL34"
-longest = "Longest"
-ice_fields = "Ice Fields"
-death_island = "Death Island"
-danger_canyon = "Danger Canyon"
-infinity = "Infinity"
-timberland = "Timberland"
-gephyrophobia = "Gephyrophobia"
-unknown_level = "Unknown Level"
-x = " "
-
-[xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels]
-players = "Players"
-rules = "Rules"
-message = "Message"
-getting_server_info = "Getting Server Info..."
-getting_message_of_the_day = "Getting Message of the Day..."
-welcome_to_halo_multiplayer = "Welcome to Halo Multiplayer!"
-servers = "SERVERS:"
-players_2 = "PLAYERS:"
-page = "PAGE"
-todo_motd_url = "TODO: MOTD URL"
 
 [xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_a_butn_touch_caption]
 text = "OK"
@@ -1995,6 +1098,9 @@ off = "OFF"
 3_minutes = "3 MINUTES"
 5_minutes = "5 MINUTES"
 10_minutes = "10 MINUTES"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_game_type_select_header_rules_title]
+step_2_set_game_rules = "STEP 2: SET GAME RULES"
 
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth]
 during_the_course_of_the_game_th_e2679f = "During the course of the game, the Hill will teleport to\\na random location."
@@ -2265,6 +1371,9 @@ up_to_two_gun_turrets_will_spawn_a7ad86 = "Up to two Gun Turrets will spawn in t
 up_to_three_gun_turrets_will_spa_4e6358 = "Up to three Gun Turrets will spawn in the map."
 up_to_four_gun_turrets_will_spaw_2e6640 = "Up to four Gun Turrets will spawn in the map."
 
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_header_vehicle_options_title]
+vehicle_options = "VEHICLE OPTIONS"
+
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_team]
 red_team = "RED TEAM"
 blue_team = "BLUE TEAM"
@@ -2389,18 +1498,6 @@ you_must_have_nadministrator_pri_ba2dfe = "You must have\\nAdministrator privile
 are_you_sure_you_want_to_ndelete_761379 = "Are you sure you want to\\ndelete this saved game?"
 this_game_allows_more_nplayers_t_33cd0c = "This game allows more\\nplayers than this device\\nruns smoothly.\\nJoin anyway?"
 
-[xbox.patches.gametype_item_delete]
-text = "DELETE GAMETYPE"
-description = "Delete this gametype."
-
-[xbox.patches.gametype_item_game]
-text = "GAME"
-description = "Score, time limit, and team rules."
-
-[xbox.patches.gametype_item_vehicles]
-text = "VEHICLES"
-description = "Which vehicles are on the map."
-
 [xbox.patches.multiplayer_type_internet]
 text = "INTERNET"
 description = "Browse games on the Internet,\\njoin one, or host your own."
@@ -2418,14 +1515,33 @@ text = "SYSTEM LINK PLAY"
 
 [xbox.patches.multiplayer_type_split_need_pad]
 text = "SPLIT SCREEN"
-description = "Split screen on iPhone needs a game\\ncontroller for each extra player."
+description = "Split screen on iPhone needs\\ncontrollers for extra players."
+
+[xbox.patches.op_autocenter]
+help0 = "The view returns to center when you let\\ngo of the thumbstick."
+help1 = "The view stays where you leave it."
 
 [xbox.patches.op_choose_weapons]
 help0 = "Choose the primary and secondary weapons\\neveryone starts with."
 
+[xbox.patches.op_controller_vibration]
+help0 = "The controller vibrates during play."
+help1 = "The controller does not vibrate."
+
+[xbox.patches.op_flight_inversion]
+help0 = "Flight controls are inverted in aircraft."
+help1 = "Flight controls are not inverted."
+
 [xbox.patches.op_ingame_help]
 help0 = "The game shows hints about its controls\\nas you play."
 help1 = "The game does not show hints about its\\ncontrols."
+
+[xbox.patches.op_invert_joystick]
+help0 = "Pushing the thumbstick up looks down, and\\npulling it down looks up."
+help1 = "Pushing the thumbstick up looks up."
+
+[xbox.patches.op_look_sensitivity]
+help0 = "How fast the thumbstick turns your view."
 
 [xbox.patches.op_map_weapons]
 help0 = "Weapons are lying around the map\\nto pick up."
@@ -2467,20 +1583,17 @@ description = "Online play, custom maps\\nand player names.\\n\\nCurrent Profile
 text = "VIDEO"
 description = "Frame rate, resolution, and how\\nthe picture is drawn.\\n\\nCurrent Profile:"
 
-[xbox.settings.xbox_settings_accept]
-text = "SELECT"
-
 [xbox.settings.xbox_settings_audio]
 text = "AUDIO"
-
-[xbox.settings.xbox_settings_cancel]
-text = "BACK"
 
 [xbox.settings.xbox_settings_controls]
 text = "CONTROLS"
 
 [xbox.settings.xbox_settings_graphics]
 text = "GRAPHICS"
+
+[xbox.settings.xbox_settings_header_title]
+edit_profile_settings = "EDIT PROFILE SETTINGS"
 
 [xbox.settings.xbox_settings_hub_descriptions]
 look_sensitivity_vibration_and_n_ceed49 = "Look, sensitivity, vibration and\\nthe button layout.\\n\\nCurrent Profile:"
@@ -2500,14 +1613,23 @@ text = "NETWORK"
 [xbox.settings.xbox_settings_profiles]
 text = "PROFILES"
 
+[xbox.settings.xbox_settings_settings_screen_bar_a]
+text = "SELECT"
+
+[xbox.settings.xbox_settings_settings_screen_bar_b]
+text = "BACK"
+
 [xbox.settings.xbox_settings_video]
 text = "VIDEO"
 
-[xbox.settings_about.xbox_settings_about_accept]
+[xbox.settings_about.xbox_settings_about_about_screen_bar_a]
 text = "SELECT"
 
-[xbox.settings_about.xbox_settings_about_cancel]
+[xbox.settings_about.xbox_settings_about_about_screen_bar_b]
 text = "BACK"
+
+[xbox.settings_about.xbox_settings_about_header_about_title]
+about = "ABOUT"
 
 [xbox.settings_about.xbox_settings_about_help]
 text = "Halo, Halo: Combat Evolved, Master Chief, and the related names\\nand logos are trademarks of Microsoft Corporation. Halo: Combat\\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\\nproject. It is not affiliated with, sponsored by, or endorsed by\\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\\nIndustries), or Bungie."
@@ -2520,8 +1642,8 @@ license = "LICENSE"
 open_source_notices = "OPEN SOURCE NOTICES"
 send_log = "SEND LOG"
 
-[xbox.settings_about.xbox_settings_about_notices_cancel]
-text = "BACK"
+[xbox.settings_about.xbox_settings_about_notices_header_title]
+open_source_notices = "OPEN SOURCE NOTICES"
 
 [xbox.settings_about.xbox_settings_about_notices_help_strings]
 licensed_under_the_apache_licens_ec793e = "Licensed under the Apache License, Version 2.0."
@@ -2579,6 +1701,9 @@ opence_font = "OPENCE FONT"
 newtown = "NEWTOWN"
 orbitron = "ORBITRON"
 
+[xbox.settings_about.xbox_settings_about_notices_screen_bar_b]
+text = "BACK"
+
 [xbox.settings_about.xbox_settings_about_notices_values]
 apache_2_0 = "APACHE-2.0"
 cc0_1_0 = "CC0 1.0"
@@ -2630,14 +1755,14 @@ text = "Your log goes to the\\nVISR team via iCloud."
 [xbox.settings_about.xbox_settings_send_log_confirm_title]
 text = "SEND LOG?"
 
-[xbox.settings_audio_settings.xbox_settings_audio_settings_accept]
+[xbox.settings_audio_settings.xbox_settings_audio_settings_audio_settings_screen_bar_a]
 text = "SELECT"
 
-[xbox.settings_audio_settings.xbox_settings_audio_settings_button_defaults_caption]
-text = "DEFAULTS"
-
-[xbox.settings_audio_settings.xbox_settings_audio_settings_cancel]
+[xbox.settings_audio_settings.xbox_settings_audio_settings_audio_settings_screen_bar_b]
 text = "BACK"
+
+[xbox.settings_audio_settings.xbox_settings_audio_settings_audio_settings_screen_bar_x]
+text = "DEFAULTS"
 
 [xbox.settings_audio_settings.xbox_settings_audio_settings_effects_volume_spinner]
 s0 = "0"
@@ -2655,6 +1780,9 @@ s10 = "10"
 [xbox.settings_audio_settings.xbox_settings_audio_settings_enabled_spinner]
 s0 = "ON"
 s1 = "OFF"
+
+[xbox.settings_audio_settings.xbox_settings_audio_settings_header_profile_audio_settings_title]
+audio_setup = "AUDIO SETUP"
 
 [xbox.settings_audio_settings.xbox_settings_audio_settings_help_strings]
 turn_all_game_sound_on_or_off = "Turn all game sound on or off."
@@ -2700,14 +1828,14 @@ s8 = "8"
 s9 = "9"
 s10 = "10"
 
-[xbox.settings_controls_setup.xbox_settings_controls_setup_accept]
+[xbox.settings_controls_setup.xbox_settings_controls_setup_controls_settings_screen_bar_a]
 text = "SELECT"
 
-[xbox.settings_controls_setup.xbox_settings_controls_setup_button_defaults_caption]
-text = "DEFAULTS"
-
-[xbox.settings_controls_setup.xbox_settings_controls_setup_cancel]
+[xbox.settings_controls_setup.xbox_settings_controls_setup_controls_settings_screen_bar_b]
 text = "BACK"
+
+[xbox.settings_controls_setup.xbox_settings_controls_setup_controls_settings_screen_bar_x]
+text = "DEFAULTS"
 
 [xbox.settings_controls_setup.xbox_settings_controls_setup_group_label]
 text = "SHOW:"
@@ -2717,6 +1845,9 @@ s0 = "MOVEMENT"
 s1 = "WEAPONS"
 s2 = "ACTIONS"
 
+[xbox.settings_controls_setup.xbox_settings_controls_setup_header_profile_controls_settings_title]
+controls_setup = "CONTROLS SETUP"
+
 [xbox.settings_controls_setup.xbox_settings_controls_setup_help_strings]
 choose_what_to_show_with_left_and_right = "Choose what to show, with left and right."
 enter_sets_the_key_chosen_left_a_eae99c = "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button."
@@ -2725,15 +1856,13 @@ press_a_key_a_mouse_button_or_tu_3e4db1 = "Press a key, a mouse button, or turn 
 [xbox.settings_controls_setup.xbox_settings_controls_setup_mouse_setup]
 text = "MOUSE SETUP"
 
-[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_accept]
-text = "SELECT"
-
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_autocenter_spinner]
 s0 = "YES"
 s1 = "NO"
 
-[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_defaults_caption]
-text = "DEFAULTS"
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_autocenter_spinner_advanced]
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_preset_spinner]
 s0 = "DEFAULT"
@@ -2743,12 +1872,25 @@ s3 = "SWAP B, L TRIGGER"
 s4 = "SWAP B, R STICK"
 s5 = "BUMPER JUMPER"
 
-[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_cancel]
-text = "BACK"
-
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_flight_inversion_spinner]
 s0 = "YES"
 s1 = "NO"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_flight_inversion_spinner_advanced]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_gamepad_setup_screen_bar_a]
+text = "SELECT"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_gamepad_setup_screen_bar_b]
+text = "BACK"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_gamepad_setup_screen_bar_x]
+text = "DEFAULTS"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_header_profile_controller_setting_title]
+controller_setup = "CONTROLLER SETUP"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings]
 how_fast_the_right_stick_turns_the_view = "How fast the right stick turns the view."
@@ -2771,6 +1913,10 @@ s1 = "OFF"
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_invert_look_spinner]
 s0 = "YES"
 s1 = "NO"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_invert_look_spinner_advanced]
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_joystick_preset_spinner]
 s0 = "DEFAULT"
@@ -2800,18 +1946,25 @@ s7 = "8"
 s8 = "9"
 s9 = "10"
 
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner_advanced]
+s0 = "1"
+s1 = "2"
+s2 = "3"
+s3 = "4"
+s4 = "5"
+s5 = "6"
+s6 = "7"
+s7 = "8"
+s8 = "9"
+s9 = "10"
+
 [xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_vibration_spinner]
 s0 = "ON"
 s1 = "OFF"
 
-[xbox.settings_graphics.xbox_settings_graphics_accept]
-text = "SELECT"
-
-[xbox.settings_graphics.xbox_settings_graphics_button_defaults_caption]
-text = "DEFAULTS"
-
-[xbox.settings_graphics.xbox_settings_graphics_cancel]
-text = "BACK"
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_vibration_spinner_advanced]
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.settings_graphics.xbox_settings_graphics_crt_effect_spinner]
 s0 = "ON"
@@ -2823,10 +1976,22 @@ the_original_xbox_look_at_this_d_c2a18e = "The original Xbox look at this device
 tastefully_enhanced_the_original_e35827 = "Tastefully enhanced: the original game with soft\\nshading where things meet the ground and shadows\\nunder props."
 the_original_xbox_exactly_640x48_452a4c = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added. In VR, Hardcore draws as\\nClassic."
 
+[xbox.settings_graphics.xbox_settings_graphics_graphics_screen_bar_a]
+text = "SELECT"
+
+[xbox.settings_graphics.xbox_settings_graphics_graphics_screen_bar_b]
+text = "BACK"
+
+[xbox.settings_graphics.xbox_settings_graphics_graphics_screen_bar_x]
+text = "DEFAULTS"
+
 [xbox.settings_graphics.xbox_settings_graphics_graphics_spinner]
 s0 = "HARDCORE"
 s1 = "CLASSIC"
 s2 = "ENHANCED"
+
+[xbox.settings_graphics.xbox_settings_graphics_header_graphics_title]
+graphics = "GRAPHICS"
 
 [xbox.settings_graphics.xbox_settings_graphics_help_strings]
 the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
@@ -2835,15 +2000,6 @@ the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showe
 mode = "MODE:"
 crt_effect = "CRT EFFECT:"
 
-[xbox.settings_mouse_settings.xbox_settings_mouse_settings_accept]
-text = "SELECT"
-
-[xbox.settings_mouse_settings.xbox_settings_mouse_settings_button_defaults_caption]
-text = "DEFAULTS"
-
-[xbox.settings_mouse_settings.xbox_settings_mouse_settings_cancel]
-text = "BACK"
-
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_shown]
 on = "ON"
 off = "OFF"
@@ -2851,6 +2007,9 @@ off = "OFF"
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_spinner]
 s0 = "ON"
 s1 = "OFF"
+
+[xbox.settings_mouse_settings.xbox_settings_mouse_settings_header_profile_mouse_settings_title]
+mouse_setup = "MOUSE SETUP"
 
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings]
 how_fast_the_view_turns_side_to__e7b8fc = "How fast the view turns side to side for the\\nmouse's movement."
@@ -2887,6 +2046,15 @@ s8 = "2.5"
 s9 = "3"
 s10 = "4"
 
+[xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_settings_screen_bar_a]
+text = "SELECT"
+
+[xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_settings_screen_bar_b]
+text = "BACK"
+
+[xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_settings_screen_bar_x]
+text = "DEFAULTS"
+
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_mouse_vertical_sensitivity_spinner]
 s0 = "SAME"
 s1 = "0.25"
@@ -2901,9 +2069,6 @@ s9 = "2.5"
 s10 = "3"
 s11 = "4"
 
-[xbox.settings_network_setup.xbox_settings_network_setup_accept]
-text = "SELECT"
-
 [xbox.settings_network_setup.xbox_settings_network_setup_allow_upnp_spinner]
 s0 = "ON"
 s1 = "OFF"
@@ -2911,12 +2076,6 @@ s1 = "OFF"
 [xbox.settings_network_setup.xbox_settings_network_setup_auto_spinner]
 s0 = "ON"
 s1 = "OFF"
-
-[xbox.settings_network_setup.xbox_settings_network_setup_button_defaults_caption]
-text = "DEFAULTS"
-
-[xbox.settings_network_setup.xbox_settings_network_setup_cancel]
-text = "BACK"
 
 [xbox.settings_network_setup.xbox_settings_network_setup_cloud_saves_spinner]
 s0 = "ON"
@@ -2929,6 +2088,9 @@ s1 = "OFF"
 [xbox.settings_network_setup.xbox_settings_network_setup_enabled_spinner]
 s0 = "ON"
 s1 = "OFF"
+
+[xbox.settings_network_setup.xbox_settings_network_setup_header_profile_network_settings_title]
+network_setup = "NETWORK SETUP"
 
 [xbox.settings_network_setup.xbox_settings_network_setup_help_strings]
 host_and_join_games_over_the_int_073f36 = "Host and join games over the internet by invite\\nlinks; off keeps to the local network."
@@ -2982,6 +2144,15 @@ s3 = "512 KB/S"
 s4 = "1 MB/S"
 s5 = "2 MB/S"
 
+[xbox.settings_network_setup.xbox_settings_network_setup_network_settings_screen_bar_a]
+text = "SELECT"
+
+[xbox.settings_network_setup.xbox_settings_network_setup_network_settings_screen_bar_b]
+text = "BACK"
+
+[xbox.settings_network_setup.xbox_settings_network_setup_network_settings_screen_bar_x]
+text = "DEFAULTS"
+
 [xbox.settings_network_setup.xbox_settings_network_setup_online_spinner]
 s0 = "ON"
 s1 = "OFF"
@@ -3007,15 +2178,6 @@ s1 = "OFF"
 [xbox.settings_network_setup.xbox_settings_network_setup_scoreboard_team_layout_spinner]
 s0 = "ON"
 s1 = "OFF"
-
-[xbox.settings_video_settings.xbox_settings_video_settings_accept]
-text = "SELECT"
-
-[xbox.settings_video_settings.xbox_settings_video_settings_button_defaults_caption]
-text = "DEFAULTS"
-
-[xbox.settings_video_settings.xbox_settings_video_settings_cancel]
-text = "BACK"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_crt_effect_spinner]
 s0 = "ON"
@@ -3045,6 +2207,9 @@ the_original_xbox_exactly_640x48_452a4c = "The original Xbox exactly: 640x480 at
 s0 = "HARDCORE"
 s1 = "CLASSIC"
 s2 = "ENHANCED"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_header_profile_video_settings_title]
+video_setup = "VIDEO SETUP"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_help_strings]
 the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
@@ -3099,9 +2264,97 @@ original = "ORIGINAL"
 [xbox.settings_video_settings.xbox_settings_video_settings_resolution_spinner]
 s0 = "NATIVE"
 
+[xbox.settings_video_settings.xbox_settings_video_settings_video_settings_screen_bar_a]
+text = "SELECT"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_video_settings_screen_bar_b]
+text = "BACK"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_video_settings_screen_bar_x]
+text = "DEFAULTS"
+
 [xbox.settings_video_settings.xbox_settings_video_settings_vsync_spinner]
 s0 = "ON"
 s1 = "OFF"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_window_size_spinner]
 s0 = "1280 x 960"
+
+[xbox.titles.ui_shell_main_menu_difficulty_select_header_choose_difficulty_title]
+choose_difficulty = "CHOOSE DIFFICULTY"
+
+[xbox.titles.ui_shell_main_menu_gametype_select_header_select_gametype_title]
+select_gametype = "SELECT GAMETYPE"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_connected_4way_profile_select_header_select_profile_title]
+select_profile = "SELECT PROFILE"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_connected_pregame_header_select_teams_title]
+select_teams = "SELECT TEAMS"
+enlisted_players = "ENLISTED PLAYERS"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_connected_server_list_header_found_games_title]
+system_link_games = "SYSTEM LINK GAMES"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_coop_header_select_profile_player_1_title]
+select_profile_player_1 = "SELECT PROFILE: PLAYER 1"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_coop_header_select_profile_player_2_title]
+select_profile_player_2 = "SELECT PROFILE: PLAYER 2"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_header_multiplayer_title]
+multiplayer = "MULTIPLAYER"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_mp_map_select_header_select_map_title]
+select_map = "SELECT MAP"
+
+[xbox.titles.ui_shell_main_menu_multiplayer_type_select_split_screen_4way_profile_select_header_select_profile_title]
+select_profile = "SELECT PROFILE"
+
+[xbox.titles.ui_shell_main_menu_player_profiles_select_header_select_profile_title]
+select_profile = "SELECT PROFILE"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_indicator_options_edit_header_indicator_options_title]
+indicator_options = "INDICATOR OPTIONS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_item_options_edit_header_item_options_title]
+item_options = "ITEM OPTIONS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_name_edit_header_gametype_name_title]
+gametype_name = "GAMETYPE NAME"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_player_options_edit_header_player_options_title]
+player_options = "PLAYER OPTIONS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_playlist_edit_game_type_select_header_rules_title]
+step_2_set_game_rules = "STEP 2: SET GAME RULES"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_playlist_edit_header_edit_multiplayer_gametype_title]
+edit_multiplayer_gametype = "EDIT MULTIPLAYER GAMETYPE"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_playlist_edit_header_set_options_title]
+step_1_select_game = "STEP 1: SELECT GAME"
+
+[xbox.titles.ui_shell_main_menu_settings_select_multiplayer_setup_playlist_select_header_select_gametype_to_edit_title]
+select_gametype_to_edit = "SELECT GAMETYPE TO EDIT"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_header_select_profile_to_edit_title]
+select_profile_to_edit = "SELECT PROFILE TO EDIT"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_advanced_controls_header_advanced_controls_title]
+advanced_controls = "ADVANCED CONTROLS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_color_edit_header_profile_color_title]
+multiplayer_color = "MULTIPLAYER COLOR"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_controller_edit_header_profile_controller_setting_title]
+controller_setup = "CONTROLLER SETUP"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_header_profile_settings_title]
+edit_profile_settings = "EDIT PROFILE SETTINGS"
+
+[xbox.titles.ui_shell_main_menu_settings_select_player_setup_player_profile_edit_name_edit_header_profile_name_title]
+profile_name = "PROFILE NAME"
+
+[xbox.titles.ui_shell_main_menu_solo_level_select_header_replay_level_title]
+load_level = "LOAD LEVEL"

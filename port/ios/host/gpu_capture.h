@@ -30,7 +30,7 @@ Host only, 64-bit.
 
 #include <stddef.h>
 #include <stdint.h>
-#include "gpu.h"
+#include "gpu_backend.h"
 
 #define GPU_CAPTURE_MAGIC "VISRCAP"
 enum { GPU_CAPTURE_FORMAT = 1 };

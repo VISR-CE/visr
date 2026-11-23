@@ -42,6 +42,8 @@ void host_data_updates_menu_start(void) {
 }
 void host_data_updates_menu_finish(void) {}
 void host_logf(int priority, const char *format, ...) {}
+/* no external display here (the shared host stubs do not build for Mac Catalyst, so this probe keeps its own) */
+void host_external_menu_splash(void) {}
 void benchmark_journal_load(const char *path, struct benchmark_journal *journal) { memset(journal, 0, sizeof(*journal)); }
 const char *benchmark_mode_name(enum benchmark_mode mode) { return "full-unified"; }
 NSString *host_recording_update_folder(NSString *bundled) { return bundled; }
@@ -72,6 +74,10 @@ static void refresh(HaloBenchmarkMenuController *controller) {
 @implementation ProbeDelegate
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options { return YES; }
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
+    /* the runner tells a scene UIKit could not make, which ends the app before this, from the probe itself
+       (tools/uikit_probe_app.py) */
+    printf("benchmark menu probe: started\n");
+    fflush(stdout);
     feed_state = @{ @"ready": @NO, @"loading": @YES, @"reason": @"" };
     HaloBenchmarkMenuController *controller = [HaloBenchmarkMenuController new];
     controller.heading = @"VISR"; controller.detail = benchmark_menu_detail();

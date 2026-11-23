@@ -132,6 +132,29 @@ def run(*args: str | Path, capture: bool = False, root: Path | None = None,
     return result.stdout.strip() if capture else ""
 
 
+def run_in_source(root: Path, check: str) -> None:
+    """Run a `release_validation` check with the application checkout's own tools.
+
+    A check that reads a constant the source defines (the profile feed generation, its bundled profiles, the data pack
+    key table) must judge the policy against the source being released, not against the controller's newer or older
+    copy: a controller on main that has opened generation 5 rejects a policy that is right for a release branch still
+    on generation 4. `release_validation.SOURCE_BOUND_CHECKS` names them; `tools/test_release_source_checks.py` keeps
+    the controller from calling one directly."""
+    if __package__:
+        from . import release_validation as validation
+    else:
+        import release_validation as validation
+    if check not in validation.SOURCE_BOUND_CHECKS:
+        raise ValueError(f"{check} is not a source-bound release check")
+    # -I and an explicit sys.path entry load the checkout's own `tools`, whatever PYTHONPATH or an installed package says
+    code = (
+        "import os, sys; sys.path.insert(0, os.getcwd()); from tools import release_validation as v; "
+        "getattr(v, sys.argv[1])(v.load_policy(os.environ['RELEASE_BUILD_POLICY']))"
+    )
+    child = {k: os.environ[k] for k in ("PATH", "HOME", "RELEASE_BUILD_POLICY", "GITHUB_ACTIONS", "CI") if k in os.environ}
+    run(sys.executable, "-I", "-c", code, check, root=root, env=child)
+
+
 def require_ci() -> None:
     if (
         os.environ.get("GITHUB_ACTIONS") != "true"
@@ -997,7 +1020,6 @@ def prepare(args: argparse.Namespace) -> None:
         require_metadata_only_release()
         require_trusted_source(source, branch)
     else:
-        validation.require_asset_policy(policy)
         validation.require_guest_epoch_policy(policy)
         fetch_release_refs(branch, required=True)
         # Any reviewed commit may be released; main can keep moving during the run.
@@ -1005,6 +1027,7 @@ def prepare(args: argparse.Namespace) -> None:
         if branch != "main" and not is_ancestor(source, "refs/remotes/origin/main"):
             release_branch_summary(source, branch)
         run("git", "checkout", "--detach", source)
+        run_in_source(ROOT, "require_asset_policy")
         catalog_context = validation.validate_recording_summary_context(
             os.environ.get("RELEASE_RECORDING_CONTEXT", ""), policy
         )
@@ -1674,7 +1697,7 @@ def publish(args: argparse.Namespace) -> None:
     if policy != manifest["build_policy"]:
         raise ValueError("Build policy differs from the immutable release manifest")
     validation.toolchain(manifest["platforms"], root=root)
-    validation.check_feeds(policy, root=root)
+    run_in_source(root, "check_feeds")
     journal = read_journal(release["body"], notes)
     # before any signed build or upload: a signed, mismatched or incomplete unsigned build stops the release here
     unsigned = unsigned_release_assets(args, manifest)

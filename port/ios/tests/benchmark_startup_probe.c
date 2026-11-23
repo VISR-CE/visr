@@ -179,6 +179,8 @@ void halo_benchmark_renderer_observations(long *shadow, long *anisotropy) { *sha
 void halo_model_lod_set(int max) { override_lod=max; }
 int halo_model_lod_override_state(void) { return override_lod; }
 int halo_model_lod_effective(void) { return override_lod > 0; }
+int halo_ambient_occlusion_effective(void) { return 0; }
+int halo_soft_particles_effective(void) { return 0; }
 
 static void reset(void) {
     map_pictures_import_pending = 0;

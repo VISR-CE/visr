@@ -9,6 +9,19 @@ from unittest import SkipTest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+FAKE_SDL = r'''
+#pragma once
+#include <stdlib.h>
+typedef int SDL_JoystickID;
+typedef struct { int id; int axes[6]; unsigned char buttons[32]; } SDL_Gamepad;
+static SDL_JoystickID SDL_GetGamepadID(SDL_Gamepad *pad);
+static SDL_Gamepad *SDL_GetGamepadFromID(SDL_JoystickID id);
+static __attribute__((unused)) SDL_JoystickID *SDL_GetGamepads(int *count) { *count = 0; return NULL; }
+static __attribute__((unused)) SDL_Gamepad *SDL_OpenGamepad(SDL_JoystickID id) { return SDL_GetGamepadFromID(id); }
+static __attribute__((unused)) void SDL_free(void *memory) { free(memory); }
+'''
+
+
 def test_paused_touch_input_and_shared_hardware():
     source = (ROOT / "port/ios/host/host_touch.m").read_text()
     start = source.find("static int touch_menu_up(")
@@ -24,6 +37,7 @@ def test_paused_touch_input_and_shared_hardware():
     frame_reset = source[frame_start:reset_end]
     glyph_state = next(line for line in source.splitlines()
                        if line.startswith("static atomic_int glyph_touch_active"))
+    primary_pad = next(line for line in source.splitlines() if line.startswith("static SDL_Gamepad *primary_pad("))
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         raise SkipTest("A C compiler is required for the touch pause probe")
@@ -38,7 +52,6 @@ def test_paused_touch_input_and_shared_hardware():
 typedef int BOOL;
 typedef short Sint16;
 enum { NO, YES };
-typedef struct { int id; int axes[6]; unsigned char buttons[32]; } SDL_Gamepad;
 enum { SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WEST, SDL_GAMEPAD_BUTTON_NORTH,
        SDL_GAMEPAD_BUTTON_BACK, SDL_GAMEPAD_BUTTON_GUIDE, SDL_GAMEPAD_BUTTON_START,
        SDL_GAMEPAD_BUTTON_LEFT_STICK, SDL_GAMEPAD_BUTTON_RIGHT_STICK, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,
@@ -48,21 +61,25 @@ enum { SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WES
        SDL_GAMEPAD_BUTTON_LEFT_PADDLE2, SDL_GAMEPAD_BUTTON_TOUCHPAD, SDL_GAMEPAD_BUTTON_MISC2,
        SDL_GAMEPAD_BUTTON_MISC3, SDL_GAMEPAD_BUTTON_MISC4, SDL_GAMEPAD_BUTTON_MISC5,
        SDL_GAMEPAD_BUTTON_MISC6, SDL_GAMEPAD_BUTTON_COUNT };
-static int pause_pending;
+static atomic_int pause_pending;
 __GLYPH_STATE__
 enum { SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, SDL_GAMEPAD_AXIS_RIGHTX,
        SDL_GAMEPAD_AXIS_RIGHTY, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, SDL_GAMEPAD_AXIS_COUNT };
 __LATCHES__
 static struct host_touch_replay_gate replay_gate;
-static int touch_id = 1, primary_hardware, paused, sheet_up, audio_panel_up;
+static int paused, sheet_up, audio_panel_up;
+/* the real host_gamepad_merge.h (over the fake SDL3/SDL.h below): the touch pad is id 1, the hardware controller 2 */
+#include "host_gamepad_merge.h"
+static struct host_gamepad_merge merge = {.virtual_id = 1};
 static int host_window_up(void) { return sheet_up; }
 static int host_audio_output_up(void) { return audio_panel_up; }
 static SDL_Gamepad touch = {1, {12000, -18000, 14000, -20000, 9000, 15000}, {0}};
 static SDL_Gamepad hardware = {2, {-24000, 26000, -28000, 30000, 18000, 21000}, {0}};
 static int SDL_GetGamepadButton(SDL_Gamepad *pad, int button) { return pad->buttons[button]; }
-static int SDL_GetGamepadID(SDL_Gamepad *pad) { return pad->id; }
+static SDL_JoystickID SDL_GetGamepadID(SDL_Gamepad *pad) { return pad->id; }
 static int SDL_GetGamepadAxis(SDL_Gamepad *pad, int axis) { return pad->axes[axis]; }
-static SDL_Gamepad *SDL_GetGamepadFromID(int id) { assert(id == 2); return &hardware; }
+static SDL_Gamepad *SDL_GetGamepadFromID(SDL_JoystickID id) { assert(id == 2); return &hardware; }
+__PRIMARY_PAD__
 static int __attribute__((unused)) SDL_GetHintBoolean(const char *name, int fallback) {
     assert(!strcmp(name, "VISR_PAUSE_MENU")); (void)fallback; return paused;
 }
@@ -85,24 +102,24 @@ int main(void) {
         assert(host_ios_gamepad_axis(&touch, axis) == touch.axes[axis]);
     assert(host_ios_gamepad_axis(&touch, 4) == 0);
     assert(host_ios_gamepad_axis(&touch, 5) == 0);
-    primary_hardware = 2;
+    merge.primary = 2;
     for (int axis = 0; axis < 6; axis++) {
         assert(host_ios_gamepad_axis(&touch, axis) == hardware.axes[axis]);
         assert(host_ios_gamepad_axis(&hardware, axis) == hardware.axes[axis]);
     }
     assert(atomic_load(&glyph_touch_active) == 0);
-    paused = 0; primary_hardware = 0;
+    paused = 0; merge.primary = 0;
     for (int axis = 0; axis < 6; axis++)
         assert(host_ios_gamepad_axis(&touch, axis) == touch.axes[axis]);
     atomic_store(&replay_gate.active, 1);
     for (int axis = 0; axis < 6; axis++)
         assert(host_ios_gamepad_axis(&touch, axis) == 0);
-    primary_hardware = 2; paused = 1;
+    merge.primary = 2; paused = 1;
     for (int axis = 0; axis < 6; axis++)
         assert(host_ios_gamepad_axis(&touch, axis) == hardware.axes[axis]);
 
     /* Buttons: every touch button down; hardware idle. */
-    primary_hardware = 0; atomic_store(&replay_gate.active, 0);
+    merge.primary = 0; atomic_store(&replay_gate.active, 0);
     for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; b++) touch.buttons[b] = 1;
     paused = 0;
     for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; b++)
@@ -116,10 +133,10 @@ int main(void) {
         assert(host_ios_gamepad_button(&touch, b) == menu);
     }
     /* Hardware buttons still merge into the shared pad while paused. */
-    primary_hardware = 2; touch.buttons[SDL_GAMEPAD_BUTTON_WEST] = 0;
+    merge.primary = 2; touch.buttons[SDL_GAMEPAD_BUTTON_WEST] = 0;
     hardware.buttons[SDL_GAMEPAD_BUTTON_WEST] = 1;
     assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_WEST) == 1);
-    primary_hardware = 0;
+    merge.primary = 0;
     /* The pause button still works from touch while a menu is up. */
     touch.buttons[SDL_GAMEPAD_BUTTON_START] = 0; pause_pending = 1;
     assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_START) == 1);
@@ -229,7 +246,7 @@ int main(void) {
     hardware.axes[SDL_GAMEPAD_AXIS_RIGHT_TRIGGER] = 0;
     assert(host_ios_gamepad_button(&hardware, SDL_GAMEPAD_BUTTON_SOUTH) == 0);
     assert(host_ios_gamepad_axis(&hardware, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) == 0);
-    primary_hardware = 2;
+    merge.primary = 2;
     assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_WEST) == 1);
     assert(host_ios_gamepad_axis(&touch, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) == 18000);
     return 0;
@@ -240,8 +257,11 @@ int main(void) {
         executable = Path(temporary) / "touch_pause"
         probe.write_text(harness.replace("__READER__", reader).replace("__GLYPH_STATE__", glyph_state)
                          .replace("__LATCHES__", latches).replace("__SETTERS__", setters)
-                         .replace("__FRAME_RESET__", frame_reset))
-        subprocess.run([compiler, "-O2", "-Wall", "-Wextra", "-Werror", "-I" + str(ROOT / "port/ios/host"),
+                         .replace("__FRAME_RESET__", frame_reset).replace("__PRIMARY_PAD__", primary_pad))
+        # SDL itself is not needed (nor installed on every CI runner): host_gamepad_merge.h gets these few names
+        (Path(temporary) / "SDL3").mkdir()
+        (Path(temporary) / "SDL3/SDL.h").write_text(FAKE_SDL)
+        subprocess.run([compiler, "-O2", "-Wall", "-Wextra", "-Werror", "-I" + temporary, "-I" + str(ROOT / "port/ios/host"),
                         str(probe), "-o", str(executable)], check=True)
         subprocess.run([str(executable)], check=True)
 

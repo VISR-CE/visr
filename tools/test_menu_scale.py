@@ -62,6 +62,9 @@ def test_widget_viewport_and_pointer_round_trip(tmp_path, apple):
 #include <string.h>
 #include "menu_scale.h"
 #include "halo_ui_pointer.h"
+#include "halo_ui_layout.h"
+#include "halo_menu_screen.h"
+#include "halo_host_flags.h"
 #define CONFIG_SCENE_MENU 1
 static int enabled = 1, scene = 1, height = 402, width = 1044;
 int config_boolean(const char *name) { (void)name; return enabled; }

@@ -27,7 +27,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/button_bar/button_ok" x="471" y="0" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/button_bar/common_button_cancel" x="326" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_warthog" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_warthog" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/warthog_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/warthog_spinner" x="286" y="6" />
 	</widget>
@@ -36,7 +36,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/warthog_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|1|2|3|4" strings_ids="xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_warthog_spinner.s0|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_warthog_spinner.s1|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_warthog_spinner.s2|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_warthog_spinner.s3|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_warthog_spinner.s4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_ghost" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_ghost" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/ghost_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/ghost_spinner" x="286" y="6" />
 	</widget>
@@ -45,7 +45,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/ghost_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|1|2|3|4" strings_ids="xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_ghost_spinner.s0|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_ghost_spinner.s1|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_ghost_spinner.s2|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_ghost_spinner.s3|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_ghost_spinner.s4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_scorpion" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_scorpion" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/scorpion_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/scorpion_spinner" x="286" y="6" />
 	</widget>
@@ -54,7 +54,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/scorpion_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|1|2|3|4" strings_ids="xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_scorpion_spinner.s0|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_scorpion_spinner.s1|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_scorpion_spinner.s2|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_scorpion_spinner.s3|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_scorpion_spinner.s4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_rwarthog" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_rwarthog" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/rwarthog_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/rwarthog_spinner" x="286" y="6" />
 	</widget>
@@ -63,7 +63,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/rwarthog_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|1|2|3|4" strings_ids="xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_rwarthog_spinner.s0|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_rwarthog_spinner.s1|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_rwarthog_spinner.s2|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_rwarthog_spinner.s3|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_rwarthog_spinner.s4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_banshee" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_banshee" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/banshee_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/banshee_spinner" x="286" y="6" />
 	</widget>
@@ -72,7 +72,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/banshee_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|1|2|3|4" strings_ids="xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_banshee_spinner.s0|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_banshee_spinner.s1|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_banshee_spinner.s2|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_banshee_spinner.s3|xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_banshee_spinner.s4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_cgturret" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/op_cgturret" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/cgturret_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/cgturret_spinner" x="286" y="6" />
 	</widget>
@@ -144,4 +144,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/header_vehicle_types/title">
+		<string text="VEHICLE TYPES" id="xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_header_vehicle_types_title.vehicle_types" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/header_vehicle_types" strings="xbox/main_menu/multiplayer_type_select/vehicle_types_edit/header_vehicle_types/title" />
 </menus>

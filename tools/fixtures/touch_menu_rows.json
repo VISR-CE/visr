@@ -390,7 +390,7 @@
       "3",
       "4"
     ],
-    "kind": 2,
+    "kind": 3,
     "on_index": -1,
     "reference_kind": 2
   },
@@ -404,7 +404,7 @@
       "3",
       "4"
     ],
-    "kind": 2,
+    "kind": 3,
     "on_index": -1,
     "reference_kind": 2
   },
@@ -418,7 +418,7 @@
       "3",
       "4"
     ],
-    "kind": 2,
+    "kind": 3,
     "on_index": -1,
     "reference_kind": 2
   },
@@ -432,7 +432,7 @@
       "3",
       "4"
     ],
-    "kind": 2,
+    "kind": 3,
     "on_index": -1,
     "reference_kind": 2
   },
@@ -446,7 +446,7 @@
       "3",
       "4"
     ],
-    "kind": 2,
+    "kind": 3,
     "on_index": -1,
     "reference_kind": 2
   },
@@ -460,7 +460,7 @@
       "3",
       "4"
     ],
-    "kind": 2,
+    "kind": 3,
     "on_index": -1,
     "reference_kind": 2
   },
@@ -583,18 +583,6 @@
     "kind": 3,
     "on_index": -1,
     "reference_kind": "range"
-  },
-  {
-    "file": "settings.controls_setup.compact.xml",
-    "name": "group_spinner",
-    "strings": [
-      "MOVEMENT",
-      "WEAPONS",
-      "ACTIONS"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(3)"
   },
   {
     "file": "settings.controls_setup.xml",
@@ -1089,5 +1077,68 @@
     "kind": 0,
     "on_index": -1,
     "reference_kind": "enum(1)"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "invert_look_spinner_advanced",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "look_sensitivity_spinner_advanced",
+    "strings": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10"
+    ],
+    "kind": 3,
+    "on_index": -1,
+    "reference_kind": "range"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "vibration_spinner_advanced",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "flight_inversion_spinner_advanced",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "autocenter_spinner_advanced",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
   }
 ]

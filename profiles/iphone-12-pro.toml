@@ -22,7 +22,9 @@ model_lod = "max"
 dynamic_resolution = true
 
 [variable.display]
+frames_in_flight_at_30 = "1"
 frame_rate = "30"
+effect_limits = "xbox"
 
 [network]
 player_capacity = 64
@@ -32,6 +34,11 @@ full_rate_players = 32
 basis = "measured"
 why = "At 60 frames a second and 900 lines the Maw fight put 99.96% and 99.96% of frames on time and a10-heroic 99.87% and 99.97% (two rounds each, 0 to 2 stalls over 50 ms, thermal state 0 throughout); at 720 lines 99.98% and 99.98% and 99.87% and 99.93%. The earlier sweep (build 20261024.122832) put 71.8% and 72.7% on time at 60 and 720 lines, which contradicts these runs; the new build passed at both sizes. 60 holds with margin at 1x enemies; 1.5x, 2x and multiplayer were measured at 30 only, so the variable workload keeps 30."
 source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-29 to 2026-10-30"
+
+[evidence."variable.display.frames_in_flight_at_30"]
+basis = "measured"
+why = "While the frame rate in force is 30 (the variable workload, where this profile holds 30), one frame in flight cut the time from the controller read to the screen from 80 to 81 ms to 64 to 65 ms (p95 81 to 82 ms down to 65 ms) at 16, 32 and 64 players, with 0.997 to 0.999 of frames on time against 0.999 to 1.0 with two in flight, and 29.6 to 29.8 frames a second shown against 30.1 to 30.4. The GPU takes 22 to 25 ms a frame at 900 lines here, so a frame waits for its refreshes either way and the second frame in flight only added a refresh (17 ms) of delay. The campaign's 60 is unchanged: the key applies only at 30 or lower, and the predictable workload was not in this matrix. Only the variable workload takes it: no campaign arm was measured, and a GPU-bound case can lose frames with one in flight, so the predictable workload keeps two."
+source = "VISR input latency matrix, build 20261121.214648 (main 049a67d6c with debug logging added), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22"
 
 [evidence."variable.display.frame_rate"]
 basis = "measured"
@@ -83,3 +90,8 @@ source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Bloo
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."
+
+[evidence."variable.display.effect_limits"]
+basis = "measured"
+why = "In a 128-player Blood Gulch fight at 30 frames a second the Xbox's decal set took 27.4 ms of CPU a frame where the raised set took 29.1 (two and three interleaved rounds; paired rounds 1.7 and 2.2 ms less), and put 99.8% and 99.6% of frames on time where the raised set put 99.3%, 99.4% and 97.7%. GPU time was the same. The raised set keeps about four times the marks; a small game fills neither. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "VISR main 1a41b6f59 with debug.verify_once_a_tick on, iPhone 12 Pro, cost:mp128-bloodgulch-1029-p60 presented, 2026-11-20"

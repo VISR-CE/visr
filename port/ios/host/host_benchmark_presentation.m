@@ -232,6 +232,19 @@ NSDictionary *host_benchmark_measurement_record(NSDictionary *record, NSDictiona
         @"cpu_ms": @"cpu_duration", @"gpu_ms": @"gpu_duration", @"simulation_cpu_ms": @"simulation_cpu_duration",
         @"render_cpu_ms": @"render_cpu_duration", @"translation_cpu_ms": @"translation_cpu_duration",
         @"ticks_per_frame": @"simulation_ticks_per_frame", @"percentiles": @"nearest_rank_measured_samples", @"decision_basis": @"submission_timing" };
+    /* a run visionOS's Compositor paced: its intervals are between the Compositor's predicted presentation times,
+       and its render time leaves out the wait for the Compositor's frame */
+    if (pacing == HOST_BENCHMARK_PACING_COMPOSITOR) {
+        NSMutableDictionary *semantics = [result[@"measurement_semantics"] mutableCopy];
+        for (NSString *key in @[ @"interval_ms", @"frame_interval", @"decision_basis" ])
+            semantics[key] = @"compositor_predicted_presentation_times";
+        semantics[@"frames_a_second"] = @"compositor_presentation_throughput";
+        for (NSString *key in @[ @"shown_refreshes", @"on_time_full", @"on_time_half" ])
+            semantics[key] = @"refresh_bins_from_compositor_presentation_times";
+        semantics[@"render_cpu_ms"] = @"render_cpu_duration_without_compositor_wait";
+        semantics[@"gpu_ms"] = @"gpu_busy_union_game_and_presenter";
+        result[@"measurement_semantics"] = semantics;
+    }
     result[@"presentation"] = presentation ?: @{ @"supported": NSNull.null, @"capability": @"unknown",
         @"status": @"unavailable_recovered_run" };
     return result;

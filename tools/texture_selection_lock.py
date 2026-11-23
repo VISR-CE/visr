@@ -4,7 +4,7 @@ set itself, for the lock test of port/assets/texture-policy.json's "scales" rule
 
   texture_selection_lock.py SET_DIR CLASSIFIED_MANIFEST [OUTPUT]
 
-SET_DIR is the composed set (step-tools texture-upscale/sets/policy-game-selective-round3): its
+SET_DIR is the composed set (built outside this repository): its
 manifest-selective.json names each texture, and each <hash>.rgba file's header gives the replacement's size.
 CLASSIFIED_MANIFEST is the manifest.json of the set it doubled from (sets/policy-game-double), which carries each
 texture's original size, kind, treatment and tags. A row's scale is the replacement's width over the original's.

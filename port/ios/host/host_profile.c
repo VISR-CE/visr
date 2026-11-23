@@ -109,6 +109,28 @@ static const char *const variable_keys[] =
 #undef PROFILE_EXTERNAL
 };
 
+/* those of them it may set for that context alone (PROFILE_VARIABLE_ONLY) */
+static const char *const variable_only_keys[] =
+{
+#define PROFILE_BOOLEAN(name)
+#define PROFILE_INTEGER(name, minimum, maximum)
+#define PROFILE_REAL(name, minimum, maximum)
+#define PROFILE_STRING(name, choices)
+#define PROFILE_SCENE(name)
+#define PROFILE_VARIABLE(name)
+#define PROFILE_VARIABLE_ONLY(name) name,
+#define PROFILE_EXTERNAL(name)
+#include "../../linux/src/port_profile_keys.h"
+#undef PROFILE_BOOLEAN
+#undef PROFILE_INTEGER
+#undef PROFILE_REAL
+#undef PROFILE_STRING
+#undef PROFILE_SCENE
+#undef PROFILE_VARIABLE
+#undef PROFILE_VARIABLE_ONLY
+#undef PROFILE_EXTERNAL
+};
+
 static const char *const scene_classes[] = { "menu", "cutscene" };
 
 static int name_in(const char *name, const char *const *names, size_t count)
@@ -314,6 +336,12 @@ static void profile_add_settings(struct host_profile *profile, toml_datum_t tabl
 				(!external && !strcmp(value.name, "display.output_height") && (scene || !builtin_output)))
 			{
 				profile_logf(log, "device profile: %s: %s cannot be set in this output context; ignored", label, value.name);
+				continue;
+			}
+			if (name_in(value.name, variable_only_keys, sizeof(variable_only_keys) / sizeof(variable_only_keys[0])) &&
+				!(scene && !strcmp(scene, "variable")))
+			{
+				profile_logf(log, "device profile: %s: %s can be set for the variable workload only; ignored", label, value.name);
 				continue;
 			}
 			if (scene && !(strcmp(scene, "variable") ?
@@ -1033,7 +1061,7 @@ int host_profile_validate_feed_folder(const char *folder, const struct host_devi
 	void (*log_line)(const char *))
 {
     char key[192];
-    if (!device || generation < 1 || generation > 5 || !host_profile_device_key(device, key, sizeof(key))) return 0;
+    if (!device || generation < 1 || generation > 6 || !host_profile_device_key(device, key, sizeof(key))) return 0;
     return profile_validate_folder(folder, device, generation >= 2 ? 2 : 0, log_line);
 }
 int host_profile_validate_device_folder(const char *folder, const struct host_device *device, void (*log_line)(const char *))

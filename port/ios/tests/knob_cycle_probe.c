@@ -29,7 +29,7 @@ int main(void)
 	int shadow = find("display.shadow_map_size");
 
 	knob_state_reset(&state);
-	assert(KNOB_COUNT == 12 && shadow >= 0);
+	assert(KNOB_COUNT == 13 && shadow >= 0);
 	/* choosing a knob shows it at the setting's value and changes nothing */
 	assert(!knob_cycle_press(&state, shadow, 0, current, label, sizeof(label), &name, &value));
 	assert(!strcmp(label, "shadow map 512") && state.selected == shadow);
@@ -61,8 +61,19 @@ int main(void)
 	assert(knob_value_find(&knob_table[quality], "0.68") == 2);
 	/* the graphics mode, lowest first */
 	int graphics = find("display.graphics");
-	assert(graphics == KNOB_COUNT - 1 && knob_table[graphics].count == 3);
+	assert(graphics == KNOB_COUNT - 2 && knob_table[graphics].count == 3);
 	assert(!strcmp(knob_table[graphics].values[0], "hardcore") && !strcmp(knob_table[graphics].values[2], "enhanced"));
+	/* the headset's cadence: repeat counts 0, 1, 2 shown as letters; a session starts the chord on it */
+	int cadence = find("display.frame_repeat");
+	assert(cadence == KNOB_COUNT - 1 && knob_table[cadence].count == 3 && knob_table[cadence].kind == KNOB_INTEGER);
+	assert(!strcmp(knob_table[cadence].values[1], "1") && !strcmp(knob_table[cadence].shown[1], "B"));
+	assert(knob_find("display.frame_repeat") == cadence && knob_find("nope") == -1 && knob_find(NULL) == -1);
+	knob_state_start(&state, "display.frame_repeat");
+	assert(state.selected == cadence && state.value[cadence] == -1);
+	assert(knob_cycle_press(&state, 0, 1, current, label, sizeof(label), &name, &value));
+	assert(!strcmp(name, "display.frame_repeat") && !strcmp(value, "1") && !strcmp(label, "cadence B"));
+	knob_state_start(&state, "");
+	assert(state.selected == 0);
 	puts("PASS: knob cycle selects, steps, stops at the ends and wraps");
 	return 0;
 }

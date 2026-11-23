@@ -1,13 +1,25 @@
 #include "host_config.h"
 #include "host_game_thread.h"
+#include "host_controller_age.h"
 #include <SDL3/SDL_events.h>
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 static const char *configured;
 static int config_reads, pumps, polls, peeps, window_refreshes;
 static int on_main = 1, peep_result = 1;
+static int controller_refreshes, controller_pump_notes;
+
+/* the game thread brings the controllers up to date at its own poll, the main pump only notes it */
+void host_controller_refresh(void) {}
+void host_controller_refresh_bounded(void) { controller_refreshes++; }
+static int read_samples;
+void host_controller_sample(void) { read_samples++; }
+void host_controller_refreshed(void) { controller_pump_notes++; }
+static int read_refreshes;
+void host_controller_refresh_for_read(void) { read_refreshes++; }
 
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     assert(strcmp(name, "debug.game_thread") == 0);
@@ -45,6 +57,11 @@ int SDL_PeepEvents(SDL_Event *event, int count, SDL_EventAction action, Uint32 f
     return peep_result;
 }
 
+/* host_sdl.c's no-wait zone around controller reads (host_main_thread.h), stubbed with it */
+static int pad_reads_open;
+static void pad_read_begin(void) { pad_reads_open++; }
+static void pad_read_end(void) { assert(pad_reads_open > 0); pad_reads_open--; }
+
 /* tools/ios_test.py extracts the production helper without the rest of host_sdl.c. */
 #include "game_thread_next_event.inc"
 
@@ -75,6 +92,19 @@ int main(int argc, char **argv) {
     assert(pumps == (expected ? 4 : 1));
     assert(polls == (expected ? 0 : 4));
     assert(peeps == (expected ? 4 : 0));
+    /* class: a read on the game thread never relies on the main timer's pump */
+    assert(controller_refreshes == (expected ? 1 : 0));
+    /* a controller read the poll's gate left behind: the game thread's own read refreshes, main's and the
+       thread-off build's do not */
+    host_sdl_update_joysticks();
+    assert(read_refreshes == (expected ? 1 : 0) && read_samples == (expected ? 0 : 1));
+    on_main = 1;
+    host_sdl_update_joysticks();
+    assert(read_refreshes == (expected ? 1 : 0) && read_samples == (expected ? 1 : 2));
+    on_main = 0;
+    /* both reads ran inside the no-wait zone, and left it */
+    assert(pad_reads_open == 0);
+    assert(controller_pump_notes == pumps + (expected ? 0 : polls));
     assert(config_reads == 1);
     assert(window_refreshes == pumps);
     puts("PASS: cached game-thread flag; legacy poll or main pump and peep drain");

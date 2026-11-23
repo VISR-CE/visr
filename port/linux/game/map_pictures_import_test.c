@@ -116,8 +116,21 @@ static void run_maps(void)
 static void ordering(void)
 {
 	const char *campaign[] = { "a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40" };
+	/* the render order players have always seen: the campaign in order, then multiplayer alphabetically */
+	const char *scenarios[] = {
+		"levels\\a10\\a10", "levels\\a30\\a30", "levels\\a50\\a50", "levels\\b30\\b30", "levels\\b40\\b40",
+		"levels\\c10\\c10", "levels\\c20\\c20", "levels\\c40\\c40", "levels\\d20\\d20", "levels\\d40\\d40",
+		"levels\\test\\beavercreek\\beavercreek", "levels\\test\\bloodgulch\\bloodgulch",
+		"levels\\test\\boardingaction\\boardingaction", "levels\\test\\carousel\\carousel",
+		"levels\\test\\chillout\\chillout", "levels\\test\\damnation\\damnation",
+		"levels\\test\\hangemhigh\\hangemhigh", "levels\\test\\longest\\longest",
+		"levels\\test\\prisoner\\prisoner", "levels\\test\\putput\\putput",
+		"levels\\test\\ratrace\\ratrace", "levels\\test\\sidewinder\\sidewinder",
+		"levels\\test\\wizard\\wizard",
+	};
 	int seen[23] = {0}, i;
 	assert(map_pictures_scenario_count() == 23);
+	for (i = 0; i < 23; i++) assert(!strcmp(map_pictures_scenario_name(i), scenarios[i]));
 	assert(map_pictures_scenario_import_index(-1) == -1);
 	assert(map_pictures_scenario_import_index(23) == -1);
 	for (i = 0; i < 23; i++)

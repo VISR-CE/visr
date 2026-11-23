@@ -121,6 +121,7 @@ void platform_log(const char *format, ...);
 const char *config_string(const char *name);
 double config_real(const char *name);
 int config_boolean(const char *name);
+int config_set_unsaved(const char *name, const char *value);
 /* port/linux/game/cinematic_screen.c */
 int halo_look_disabled_first_person(void);
 #ifdef HALO_IOS
@@ -387,7 +388,7 @@ static struct
 
 /* the settings, read once (settings) */
 static int settings_read;
-static int aim_controller;          /* input.aim = "controller" */
+static int aim_controller;          /* input.aim tracks a hand ("auto" or "controller") */
 static int test_controller;         /* debug.test_controller or debug.controller_replay set */
 static int aim_trace;               /* debug.aim_trace: a line every drawn frame while a hand aims */
 static float pitch_offset_degrees;  /* input.aim_pitch_offset; the live chord steps it */
@@ -482,7 +483,7 @@ static void settings(void)
 	if (settings_read)
 		return;
 	settings_read = 1;
-	aim_controller = !strcmp(config_string("input.aim"), "controller");
+	aim_controller = halo_spatial_aim_tracks_hand(config_string("input.aim"));
 	/* a replayed pose stream (debug.controller_replay) is checked like a synthetic one */
 	test_controller = config_string("debug.test_controller")[0] != 0 || config_string("debug.controller_replay")[0] != 0;
 	aim_trace = config_boolean("debug.aim_trace");
@@ -1636,9 +1637,10 @@ void halo_controller_origin_raise_step(int direction)
 	settings();
 	origin_raise_message_pending = 1;
 	origin_raise = controller_origin_raise_step(origin_raise, direction);
-	/* kept for the next launch (the file's value is what settings() reads) */
+	/* for this run only: a tuning value never reaches the player's config.toml (the
+	log line below records it for the session) */
 	snprintf(value, sizeof(value), "%.1f", origin_raise);
-	config_write("input.aim_origin_raise", value);
+	config_set_unsaved("input.aim_origin_raise", value);
 	platform_log("controller aim: aim origin raise %.2f tick %ld frame %lu", origin_raise, (long)game_time_get(),
 		platform_clock_frames());
 }

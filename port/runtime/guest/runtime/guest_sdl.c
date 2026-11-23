@@ -233,6 +233,11 @@ SDL_Gamepad *SDL_OpenGamepad(SDL_JoystickID id)
 	return (SDL_Gamepad *)host_sdl_open_gamepad(id);
 }
 
+void SDL_UpdateJoysticks(void)
+{
+	host_sdl_update_joysticks();
+}
+
 SDL_Gamepad *SDL_GetGamepadFromID(SDL_JoystickID id)
 {
 	return (SDL_Gamepad *)host_sdl_gamepad_from_id(id);

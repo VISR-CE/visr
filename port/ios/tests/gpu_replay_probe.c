@@ -104,6 +104,10 @@ static void mock_compile_progress(uint32_t action, struct gpu_compile_progress *
 	progress->sealed = 1;
 }
 static uint32_t mock_compiles_outstanding(void) { return 0; }
+/* the host's own operations (gpu_backend.h) do nothing */
+#define GPU_NOTHING_PREFIX mock_
+GPU_DO_NOTHING(GPU_HOST_OPERATIONS)
+#undef GPU_NOTHING_PREFIX
 static uint8_t mock_astc;
 static void mock_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
@@ -117,7 +121,7 @@ static void mock_initialize(uint32_t flags, struct gpu_capabilities *capabilitie
 
 #define MOCK_FUNCTION(type, name, parameters, arguments) .name = mock_##name,
 #define MOCK_PROCEDURE(name, parameters, arguments) .name = mock_##name,
-static const struct gpu_backend mock = { GPU_FUNCTIONS(MOCK_FUNCTION, MOCK_PROCEDURE) };
+static const struct gpu_backend mock = { GPU_BACKEND_FUNCTIONS(MOCK_FUNCTION, MOCK_PROCEDURE) };
 
 /* ---------- the probe */
 

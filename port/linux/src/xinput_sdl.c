@@ -51,6 +51,7 @@ extern unsigned char network_aim_assist_block_mouse(void);
 #include "benchmark_mp_arena.h"
 #include "halo_spatial.h"
 #include "knob_cycle.h"
+#include "test_focus_walk.h"
 
 #include <SDL3/SDL.h>
 #include <math.h>
@@ -241,7 +242,7 @@ static void knob_cycle_chord(XINPUT_GAMEPAD *pad)
 	if (enabled < 0)
 	{
 		enabled = config_boolean("debug.knob_cycle");
-		knob_state_reset(&state);
+		knob_state_start(&state, config_string("debug.knob_cycle_start"));
 	}
 	if (!enabled)
 		return;
@@ -574,17 +575,17 @@ static void text_typing_update(void)
 	text_typing = typing;
 }
 
-void platform_text_typing(int typing)
-{
-	text_typing_keyboard = typing != 0;
-	text_typing_update();
-}
-
 #ifdef HALO_IOS
 /* (guest_sdl.c: the host's system keyboard) */
 void halo_host_text_input(int on, const char *title, const char *text, int masked);
 int halo_host_text_result(char *buffer, unsigned int size);
 #endif
+
+void platform_text_typing(int typing)
+{
+	text_typing_keyboard = typing != 0;
+	text_typing_update();
+}
 /* the field's text taken whole from the system's dialog: Done presses
 Start once (typing_gamepad), as Enter does */
 static BOOL text_typing_submit;
@@ -948,7 +949,9 @@ next press */
 
 /* "press:BUTTON@POLL BUTTON@POLL ...": prefix a button with k for keyboard
 input (ka, kb, kdown); an unprefixed button is controller input. "none"
-changes only the input class. Each BUTTON (start, back, a, b, x, y, up, down,
+changes only the input class. "focus:LABEL@POLL[:DEADLINE]" (spaces in LABEL written as _) holds Down from POLL until the focused
+menu row's text is LABEL, instead of counting rows; it fails the run ("WALK FAIL" in the log, exit status
+TEST_FOCUS_EXIT_STATUS) when the list has no such row or the next scripted press comes first. Each BUTTON (start, back, a, b, x, y, up, down,
 left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
 else is pressed (a menu walked by script). Presses at the same POLL are held
 together: "back@100 down@100" is debug.knob_cycle's chord */
@@ -961,6 +964,9 @@ static struct
 	unsigned long poll;
 } test_presses[TEST_PRESS_MAX];
 static int test_press_count;
+#define TEST_FOCUS_MAX 8
+static struct test_focus_walk test_focus_walks[TEST_FOCUS_MAX];
+static int test_focus_count;
 
 static void test_input_presses_parse(const char *text)
 {
@@ -968,11 +974,76 @@ static void test_input_presses_parse(const char *text)
 	unsigned long poll;
 	int used;
 
-	while (test_press_count < TEST_PRESS_MAX && sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
+	while (test_press_count < TEST_PRESS_MAX)
 	{
-		strcpy(test_presses[test_press_count].button, button);
-		test_presses[test_press_count++].poll = poll;
-		text += used;
+		char label[TEST_FOCUS_LABEL_MAX];
+
+		/* "focus:LABEL@POLL", the walk to a row by its text */
+		if (test_focus_count < TEST_FOCUS_MAX && sscanf(text, " focus:%47[^@ ]@%lu%n", label, &poll, &used) == 2)
+		{
+			for (char *c = label; *c; c++)
+				if (*c == '_')
+					*c = ' ';
+			test_focus_walk_begin(&test_focus_walks[test_focus_count++], label, poll);
+			if (test_focus_count == 1)   /* the capture tools fail a screen that walks by label when a build does not say this */
+				platform_log("test_input: focus walk supported");
+			text += used;
+			/* "focus:LABEL@POLL:DEADLINE": the walk must have landed by DEADLINE even when no press follows it */
+			if (*text == ':' && sscanf(text, ":%lu%n", &poll, &used) == 1)
+			{
+				test_focus_walks[test_focus_count - 1].deadline = poll;
+				test_focus_walks[test_focus_count - 1].hold_to_end = 1;
+				text += used;
+			}
+		}
+		else if (sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
+		{
+			strcpy(test_presses[test_press_count].button, button);
+			test_presses[test_press_count++].poll = poll;
+			text += used;
+		}
+		else
+			break;
+	}
+	if (text[strspn(text, " ")])   /* a step that did not parse, or one past the limits, would drop every press after it unseen */
+	{
+		platform_log("WALK FAIL: debug.test_input has text it cannot use: \"%s\"", text);
+		exit(TEST_FOCUS_EXIT_STATUS);
+	}
+	/* a walk must land before the next scripted press */
+	for (int walk = 0; walk < test_focus_count; walk++)
+		for (int press = 0; press < test_press_count; press++)
+			if (test_presses[press].poll > test_focus_walks[walk].start &&
+				(!test_focus_walks[walk].deadline || test_presses[press].poll < test_focus_walks[walk].deadline))
+				test_focus_walks[walk].deadline = test_presses[press].poll;
+}
+
+/* the focus walks' Down presses; a failed walk ends the run */
+static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
+{
+	for (int index = 0; index < test_focus_count; index++)
+	{
+		struct test_focus_walk *walk = &test_focus_walks[index];
+		char seen[TEST_FOCUS_LABEL_MAX];
+		int have = 0, was_finished = walk->finished, action;
+
+		if (test_focus_walk_wants_look(walk, poll))
+			have = menu_test_focus_text(seen, sizeof(seen));
+		if (have)   /* every row the walk looks at, so a failed or a new walk can be read off the log */
+			platform_log("walk: focus %s: the focused row is \"%s\"", walk->label, seen);
+		action = test_focus_walk_poll(walk, poll, have ? seen : NULL);
+		if (action == TEST_FOCUS_DOWN)
+			pad->wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
+		else if (action == TEST_FOCUS_DONE && !was_finished)
+			platform_log("walk: focus %s landed at poll %lu", walk->label, poll);
+		else if (action >= TEST_FOCUS_FAIL_STUCK && (!was_finished || action == TEST_FOCUS_FAIL_LOST))
+		{
+			platform_log("WALK FAIL: focus %s (%s); the focus was on \"%s\", it began on \"%s\"", walk->label,
+				action == TEST_FOCUS_FAIL_STUCK ? "Down no longer moves it" : action == TEST_FOCUS_FAIL_WRAP ? "the list wrapped" :
+				action == TEST_FOCUS_FAIL_LATE ? "the next press came first" :
+				action == TEST_FOCUS_FAIL_LOST ? "the focus left the row before the deadline" : "no screen with a focused row", walk->last, walk->first);
+			exit(TEST_FOCUS_EXIT_STATUS);
+		}
 	}
 }
 
@@ -983,11 +1054,9 @@ static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
 	for (index = 0; index < test_press_count; index++)
 	{
 		const char *button = test_presses[index].button;
-		extern void platform_menu_activity(int pad, float dx, float dy, int motion);
 
 		if (poll < test_presses[index].poll || poll >= test_presses[index].poll + TEST_PRESS_POLLS)
 			continue;
-		platform_menu_activity(button[0] != 'k', 0, 0, 0);
 		if (button[0] == 'k') button++;
 		if (!strcmp(button, "start"))
 			pad->wButtons |= XINPUT_GAMEPAD_START;
@@ -1089,7 +1158,8 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 	}
 	if (pressing)
 	{
-		test_input_presses(pad, press_polls++);
+		test_input_presses(pad, press_polls);
+		test_input_focus_walks(pad, press_polls++);
 		return;
 	}
 	if (unarmed_start >= 0)
@@ -1241,6 +1311,8 @@ static enum mp_benchmark_probe_input_policy mp_benchmark_probe_or_test_gamepad(X
 {
 	enum mp_benchmark_probe_input_policy policy = mp_benchmark_probe_current_policy();
 
+	if (port == 0 && mp_benchmark_probe_own_input())
+		policy = mp_benchmark_probe_ordinary_input;
 	if (policy == mp_benchmark_probe_scripted_input)
 		mp_benchmark_probe_gamepad(pad, port);
 	else if (policy == mp_benchmark_probe_neutral_input)
@@ -1273,6 +1345,16 @@ static void wheel_update(void)
 }
 
 /* ---------- SDL gamepads */
+
+/* a controller read starts from current state: on the Apple hosts' game thread SDL updates its controllers
+only when asked (the main thread's timer does, up to a frame earlier); the host skips the update when
+another read of this poll just made it */
+static void controllers_update(void)
+{
+#ifdef HALO_ILP32
+	SDL_UpdateJoysticks();
+#endif
+}
 
 /* the SDL gamepads in connection order, at most one per port */
 static int sdl_gamepads(SDL_Gamepad *gamepads[PORT_COUNT])
@@ -1689,17 +1771,6 @@ static void stick_dead_zone(SHORT *x, SHORT *y)
 	*y = through_game_dead_zone(fy * scale);
 }
 
-static void menu_gamepad_activity(XINPUT_GAMEPAD const *pad)
-{
-	extern void platform_menu_activity(int pad, float dx, float dy, int motion);
-	int index;
-	for (index = 0; index < 8; index++)
-		if (pad->bAnalogButtons[index]) break;
-	if (pad->wButtons || index < 8 ||
-		abs(pad->sThumbLX) > GAME_STICK_DEAD_RANGE || abs(pad->sThumbLY) > GAME_STICK_DEAD_RANGE ||
-		abs(pad->sThumbRX) > GAME_STICK_DEAD_RANGE || abs(pad->sThumbRY) > GAME_STICK_DEAD_RANGE)
-		platform_menu_activity(1, 0, 0, 0);
-}
 
 static void sdl_gamepad_state(SDL_Gamepad *gamepad, XINPUT_GAMEPAD *pad)
 {
@@ -1916,6 +1987,7 @@ int halo_look_stick_latest(float *read_x, float *read_y, float *now_x, float *no
 	if (!look_read.valid)
 		return 0;
 	platform_pump_events();
+	controllers_update();
 	count = sdl_gamepads(gamepads);
 	gamepad = port_gamepad(gamepads, count, 0);
 	if (!gamepad)
@@ -1941,6 +2013,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	if (port < 0)
 		return ERROR_DEVICE_NOT_CONNECTED;
 	platform_pump_events();
+	controllers_update();
 	count = sdl_gamepads(gamepads);
 	if (port == 0)
 	{
@@ -1970,7 +2043,6 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		{
 			XINPUT_GAMEPAD activity = {0};
 			sdl_gamepad_state(gamepads[0], &activity);
-			menu_gamepad_activity(&activity);
 			if (glyph_gamepad_active(&activity)) glyph_keyboard_active = 0;
 			sdl_gamepad_state(gamepads[0], &state->Gamepad);
 		}
@@ -2025,7 +2097,6 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	else if (port_gamepad(gamepads, count, port))
 	{
 		sdl_gamepad_state(port_gamepad(gamepads, count, port), &state->Gamepad);
-		menu_gamepad_activity(&state->Gamepad);
 	}
 
 	if (memcmp(&state->Gamepad, &controllers[port].previous, sizeof(state->Gamepad)))

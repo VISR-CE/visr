@@ -165,6 +165,11 @@ struct cloud_notice
 
 struct cloud_engine;
 
+/* Tests: the I/O the engine's writes of save files go through (save_writer.h); NULL for the real files.
+   Set before any engine runs. */
+struct save_writer_io;
+void cloud_saves_set_save_io(const struct save_writer_io *io);
+
 struct cloud_engine *cloud_engine_create(const struct cloud_config *config, const struct cloud_store *store);
 void cloud_engine_destroy(struct cloud_engine *engine);
 
@@ -186,10 +191,32 @@ int cloud_local_slot_count(const char *save_root);
 /* The game removed a slot's directory (an explicit delete, not a purge): written at once to a
    journal beside the state file, which the engine's next pass takes. Safe from any thread. */
 void cloud_note_local_delete(const char *state_path, const char *slot);
-/* A hash of the slots' file names, sizes and times (and of a deletion waiting in the journal):
-   unchanged since a pass that ended idle means a running pass has nothing to send, so the host
-   can skip it and the network request it starts with. */
+/* Hashes of the slots' file names, sizes and times (and of a deletion waiting in the journal). "all"
+   unchanged since a pass that ended idle means a running pass has nothing to send. "other" is the same
+   without what a checkpoint changes (the saved game's size and time, the folder's time), so it tells a
+   change that is only a new checkpoint from any other. */
+struct cloud_local_signatures { char all[CLOUD_HASH_SIZE], other[CLOUD_HASH_SIZE]; };
+void cloud_local_signatures(const char *save_root, const char *state_path, struct cloud_local_signatures *signatures);
 void cloud_local_signature(const char *save_root, const char *state_path, char hash[CLOUD_HASH_SIZE]);
+
+/* When a pass while the game runs is worth making: each begins by asking the cloud what it holds, and reads
+   and hashes every saved game that changed. The host keeps one of these, asks cloud_pacing_due before a
+   CLOUD_PASS_RUNNING pass and calls cloud_pacing_passed after every pass of any kind. Passes at launch and
+   on leaving are always made. */
+#define CLOUD_RETRY_SECONDS 60         /* between tries while something waits and no save has changed */
+#define CLOUD_CHECKPOINT_SECONDS 300   /* between uploads while only saved games (checkpoints) change */
+struct cloud_pacing
+{
+	char idle[CLOUD_HASH_SIZE], idle_other[CLOUD_HASH_SIZE];   /* at the last pass, when it ended idle; else "" */
+	char tried[CLOUD_HASH_SIZE];                                /* at the last pass */
+	long long last_pass;                                        /* seconds on the host's clock */
+	int passed;
+};
+/* leaving_the_screen: the app is going to the background (it may not come back): checkpoints are not held */
+int cloud_pacing_due(const struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, long long now,
+	int leaving_the_screen);
+void cloud_pacing_passed(struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, enum cloud_state state,
+	long long now);
 /* path is a slot's directory under save_root: writes its id and returns 1 */
 int cloud_slot_of_path(const char *save_root, const char *path, char *slot);
 

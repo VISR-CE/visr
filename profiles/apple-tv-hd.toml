@@ -36,6 +36,10 @@ shadow_map_size = 128
 dynamic_resolution = true
 dynamic_resolution_floor = 480
 
+[variable.display]
+effect_limits = "xbox"
+frames_in_flight_at_30 = "1"
+
 [network]
 player_capacity = 16
 full_rate_players = 2
@@ -44,6 +48,11 @@ full_rate_players = 2
 basis = "measured"
 why = "Decided for this device: gameplay holds no tier of the ladder at 60. Presented at 540 lines with the cheapest settings, 97.7 to 99.4% of frames came within two refreshes, so uncapped play alternates between 60 and 30. Capped at 30, each frame stays up two refreshes, as cutscenes already do. The menu keeps the display's rate."
 source = "Apple TV HD presented runs of a10 and d40 at 540 lines and minimum settings, settings sweep of 2026-10-24 and 25"
+
+[evidence."variable.display.frames_in_flight_at_30"]
+basis = "measured"
+why = "This device does not hold 30 either way (22 frames a second at 16 players and 16 at 32 by the report's rate, soft particles off, which the profile does not set). One frame in flight cut the time from the controller read to the screen from 129 to 82 ms at 16 players (p95 140 to 99 ms) and from 147 to 97 ms at 32 players (p95 180 to 115 ms) at almost the same frame rate (22.4 to 22.0 and 15.8 to 15.8 by the report). The cost: at 16 players the share of on-time frames fell from 0.77 to 0.60 (at 32 players it rose from 0.13 to 0.16). Only the variable workload (multiplayer, co-op, split screen, more enemies) takes it: campaign was not in this matrix, and a GPU-bound case can lose frames with one in flight (the iPhone Duo did), so the predictable workload keeps two. A campaign pair can widen it. The profile takes the 47 to 50 ms for that cost, because input latency outranks a few frames."
+source = "VISR input latency matrix, build 20261121.215044 (main 049a67d6c with debug logging added), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22"
 
 [evidence."display.dynamic_resolution"]
 basis = "measured"
@@ -121,3 +130,8 @@ source = "VISR settings sweep capacity ladder, build 20261029.212036 (main e77a2
 basis = "measured"
 why = "At the real variable settings (540-line ceiling, dynamic resolution down to 480, 128 shadows, 4x filtering, automatic model detail and full effects), 8 players fail at 60 frames a second (Blood Gulch median 6.85%) and at 30 (94.485%). The 16-player probes also fail. The 30-fps follow-up holds 2 players: Blood Gulch 99.86% and 99.83%, median 99.845%; Sidewinder 99.75% and 99.55%, median 99.65%. Four holds Blood Gulch narrowly (99.525%) but fails Sidewinder (98.26%). Each score uses two valid presented rounds. Two is the largest count confirmed on both maps at the 99.5% bar; its margin is thin."
 source = "VISR toobig sweep and 2/4-player follow-up, build 20261029.212036 (main e77a24957), Metal, Blood Gulch and Sidewinder, 2026-10-31 to 2026-11-01"
+
+[evidence."variable.display.effect_limits"]
+basis = "inherited"
+why = "This device holds 16 players or fewer at full rate; the measured iPad Pro 12.9 (2nd generation) gained 13% of its frame rate in a 128-player fight from the Xbox's decal set. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "`ipad-pro-12-9-2nd.toml` variable.display.effect_limits evidence, main 1a41b6f59, 2026-11-20"

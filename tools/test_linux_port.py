@@ -191,7 +191,7 @@ MENU_ATTRIBUTES = {
                "color", "align", "description", "string_list", "list_flags", "text_flags", "header_bitmap",
                "footer_bitmap", "header_bounds", "footer_bounds", "child_controller", "x", "y", "left", "top",
                "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows",
-               "row_top", "row_pitch", "id", "text_id", "description_id", "strings_ids", "help_ids"},
+               "row_top", "row_pitch", "row", "id", "text_id", "description_id", "strings_ids", "help_ids"},
     "child": {"widget", "controller", "x", "y", "platform"},
     "on": {"event", "run", "script", "open", "replace", "close", "widget", "focus", "reload", "sound", "otherwise",
            "label", "back", "branch", "platform"},
@@ -201,10 +201,15 @@ MENU_ATTRIBUTES = {
     "replace": {"search", "function", "platform", "child", "model", "name", "text", "run", "open", "created",
                 "id", "text_id", "description_id"},
     # (a <patch>'s, port/assets/menus/README.md)
-    "patch": {"list", "screen", "footer"},
+    "patch": {"list", "screen", "footer", "rows", "row_kind", "tall_art", "tall_top_art"},
     "row": {"after", "before", "model", "name", "text", "run", "open", "created", "description", "picture", "pitch",
             "platform", "widget", "help", "bitmap", "id", "text_id", "description_id", "help_ids"},
     "remove": {"child", "pitch", "platform"},
+    # (a screen's button bar, port/assets/menus/README.md)
+    "bar": {"kind"},
+    "title": {"widget", "strings"},
+    "action": {"slot", "scope", "text", "text_id", "strings", "strings_ids", "index", "while_typing", "run", "open",
+               "focus", "platform"},
 }
 
 
@@ -220,8 +225,7 @@ MENU_INTEGER_ATTRIBUTES = {"auto_close", "auto_close_fade", "height", "index", "
                            "text_y", "top", "visible_rows", "row_top", "row_pitch", "width", "x", "y"}
 
 
-@pytest.mark.parametrize('compact', [False, True])
-def test_menus_are_well_formed(compact):
+def test_menus_are_well_formed():
     """What port/linux/src/menu_files.c and port/linux/game/menu_tags.c check
     when the game loads them, but the map's own names (paths with backslashes),
     which only the map has."""
@@ -242,9 +246,7 @@ def test_menus_are_well_formed(compact):
         sorted(name for name in listed if name.endswith(".xml"))
     # The runtime loads one density variant, with shared definitions only once.
     files = [path for path in files
-             if ('.compact.' in path.name if compact else '.compact.' not in path.name)
-             or (compact and '.compact.' not in path.name
-                 and not path.with_suffix('.compact.xml').exists())]
+             ]
     widgets, bitmaps, strings, references, roots = {}, {}, {}, [], []
     for path in files:
         tree = ElementTree.parse(path)
@@ -313,12 +315,24 @@ def test_menus_are_well_formed(compact):
             elif element.tag == "on":
                 assert set(element.get("event").split()) <= set(events), where
                 run = element.get("run")
-                assert run is None or run in functions or run.startswith("unwired "), where
+                assert run is None or run in functions, where
                 assert element.get("otherwise") is None or run, where
                 for attribute in ("open", "replace", "focus", "widget", "otherwise"):
                     references.append((where, widgets, element.get(attribute)))
+            elif element.tag == "action":
+                assert element.get("slot") in ("x", "y", "b", "a"), where
+                assert element.get("scope") in ("global", "select", "back"), where
+                assert element.get("focus") in (None, "true"), where
+                assert sum(element.get(key) is not None for key in ("focus", "run", "open")) == 1, where
+                assert (element.get("text") is None) != (element.get("strings") is None), where
+                assert element.get("index") is None or (element.get("strings") and
+                                                        int(element.get("index")) < len(element.get("strings").split("|"))), where
+                assert element.get("while_typing") in (None, "pointer"), where
+                run = element.get("run")
+                assert run is None or run in functions, where
+                references.append((where, widgets, element.get("open")))
             elif element.tag == "data":
-                assert element.get("input") in inputs or element.get("input").startswith("unwired "), where
+                assert element.get("input") in inputs, where
     assert all(root_name in widgets for root_name in roots)
     for where, names, name in references:
         if name and "\\" not in name:
@@ -335,7 +349,7 @@ def test_menu_settings_exist():
     functions = (root / "port/linux/game/menu_functions.c").read_text()
     known = set(re.findall(r'^\t\{ "([a-z_]+\.[a-z_]+)", _config_', config, re.M))
     profile = set(re.findall(r'\{ "(profile\.[a-z_]+)", \d', functions))
-    for path in (MENUS / "ce").glob("*.xml"):
+    for path in (MENUS / "xbox").glob("*.xml"):
         for setting in re.findall(r'setting="([^"]+)"', path.read_text()):
             assert setting in known | profile | {"host.cloud_saves"}, f"{path.name}: {setting}"
     controls = set(re.findall(r'"(controls\.[a-z_]+)"', (root / "port/linux/src/xinput_sdl.c").read_text()))
@@ -350,12 +364,7 @@ def test_network_settings_hide_update_toggle_on_mobile():
     files = port_settings.settings_files()
     name = "main_menu.settings_select.player_setup.player_profile_edit.network_setup.xml"
     generated = "\n".join(files[name])
-    asset = MENUS / "ce" / name
-    repository = Path(__file__).resolve().parent.parent
-    assert menu_catalog.STRIP.sub("", asset.read_text(encoding="utf-8")) == generated
-    assert asset.relative_to(repository) in embed_assets.hud_asset_inputs()
-
-    root = ElementTree.fromstring(asset.read_text(encoding="utf-8"))
+    root = ElementTree.fromstring(generated)
     options_name = "main_menu/settings_select/player_setup/player_profile_edit/network_setup/options_menu"
     options = root.find(f".//widget[@name='{options_name}']")
     assert options is not None
@@ -592,7 +601,6 @@ def test_icloud_setting_and_status_share_network_screen():
 
     name = "main_menu.settings_select.player_setup.player_profile_edit.network_setup.xml"
     generated = "\n".join(port_settings.settings_files()[name])
-    assert menu_catalog.STRIP.sub("", (MENUS / "ce" / name).read_text()) == generated
     root = ElementTree.fromstring(generated)
     base = f"{port_settings.PE}/network_setup"
     row = root.find(f"widget[@name='{base}/op_cloud_saves']")
@@ -638,8 +646,7 @@ def test_settings_lists_pack_rows_and_keep_a_window():
     import xml.etree.ElementTree as ElementTree
 
     for folder in ("video_settings", "audio_settings", "mouse_settings", "gamepad_setup"):
-        for look, name in (("ce", f"{port_settings.PE.replace('/', '.')}.{folder}.xml"),
-                           ("xbox", f"settings.{folder}.xml")):
+        for look, name in (("xbox", f"settings.{folder}.xml"),):
             root = ElementTree.parse(MENUS / look / name).getroot()
             options = next(w for w in root.findall("widget") if w.get("name").endswith("/options_menu"))
             assert options.get("row_top") == "73" and int(options.get("row_pitch")) in (26, 30, 39), (look, folder)

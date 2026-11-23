@@ -48,6 +48,7 @@ Each map can have, beside it in its folder:
 #include "custom_edition_cache.h"
 #include "custom_edition_maps.h"
 #include "map_share.h"
+#include "../../runtime/stock_maps.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,11 +77,9 @@ custom campaigns' and ui_widget.c's spinner descriptions' (0x7000). */
 pictures (the campaign menu's, one frame per level in order). */
 #define FIRST_CAMPAIGN_DISPLAY_INDEX 0x3000
 #define CAMPAIGN_LEVEL_PICTURES_TAG_NAME "ui\\shell\\bitmaps\\sp_levels"
-static wchar_t campaign_level_names[NUMBER_OF_SINGLE_PLAYER_LEVELS][32] =
-{
-	L"The Pillar of Autumn", L"Halo", L"The Truth and Reconciliation", L"The Silent Cartographer",
-	L"Assault on the Control Room", L"343 Guilty Spark", L"The Library", L"Two Betrayals", L"Keyes", L"The Maw",
-};
+#define CAMPAIGN_LEVEL_NAME_LENGTH 32
+/* filled from the stock table's campaign rows (stock_maps.h) when first asked for */
+static wchar_t campaign_level_names[NUMBER_OF_SINGLE_PLAYER_LEVELS][CAMPAIGN_LEVEL_NAME_LENGTH];
 static wchar_t campaign_level_description[] = L"A campaign level, played co-op";
 
 /* The level pictures tag, the picture shape (140x114 in the menus' 640x480;
@@ -149,18 +148,6 @@ struct custom_edition_maps_globals
 
 static struct custom_edition_maps_globals custom_edition_maps_globals;
 
-/* Halo PC's own multiplayer maps (not on the Xbox), with their menu names
-from ui.map's mp_map_list. They are listed as VANILLA. */
-static struct
-{
-	char const *file;
-	wchar_t const *name;
-} const stock_maps[] =
-{
-	{ "icefields", L"Ice Fields" }, { "deathisland", L"Death Island" }, { "dangercanyon", L"Danger Canyon" },
-	{ "infinity", L"Infinity" }, { "timberland", L"Timberland" }, { "gephyrophobia", L"Gephyrophobia" },
-};
-
 /* for a map without a description file */
 static wchar_t const default_description[] = L"Halo Custom\r\nEdition map";
 
@@ -188,19 +175,28 @@ static void custom_edition_maps_forget(
 	return;
 }
 
-/* the map's index in stock_maps, or NONE (by its name without its hash) */
-static short stock_map_index(
+/* Halo PC's own multiplayer map (not on the Xbox) of this name, without its
+hash (stock_maps.h), or NULL: listed as VANILLA, by its menu name from
+ui.map's mp_map_list */
+static struct stock_map const *stock_map_find(
 	char const *name)
 {
-	short length = map_share_name_base_length(name);
-	short index;
+	struct stock_map const *map = stock_map_named(name, (size_t)map_share_name_base_length(name));
 
-	for (index = 0; index < NUMBEROF(stock_maps); index++)
-	{
-		if ((short)csstrlen(stock_maps[index].file) == length && !_strnicmp(name, stock_maps[index].file, length))
-			return index;
-	}
-	return NONE;
+	return map && (map->flags & STOCK_MAP_PC_MULTIPLAYER) ? map : NULL;
+}
+
+/* a stock map's menu name (ASCII) as a wide string of at most `size` characters with its terminator */
+static void stock_display_name_widen(
+	struct stock_map const *stock,
+	wchar_t *display_name,
+	int size)
+{
+	int index;
+
+	for (index = 0; index < size - 1 && stock->display_name[index]; index++)
+		display_name[index] = (wchar_t)(unsigned char)stock->display_name[index];
+	display_name[index] = 0;
 }
 
 /* A map's menu name: Halo PC's name for its own maps, otherwise the file
@@ -211,12 +207,13 @@ static void display_name_make(
 	wchar_t *display_name)
 {
 	boolean word_start = TRUE;
-	short index = stock_map_index(name);
+	struct stock_map const *stock = stock_map_find(name);
 	short length = map_share_name_base_length(name);
+	short index;
 
-	if (index != NONE)
+	if (stock)
 	{
-		ustrcpy(display_name, stock_maps[index].name);
+		stock_display_name_widen(stock, display_name, MAXIMUM_MAP_NAME_LENGTH + 8);
 		return;
 	}
 
@@ -653,6 +650,29 @@ static short campaign_level_from_name(
 	return NONE;
 }
 
+/* the menu name of the stock campaign level `level` (0 is a10), from the stock table */
+static wchar_t *campaign_level_name(
+	short level)
+{
+	int count, row, campaign = 0;
+	struct stock_map const *maps = stock_maps(&count);
+
+	if (!campaign_level_names[level][0])
+	{
+		for (row = 0; row < count; row++)
+		{
+			if (!(maps[row].flags & STOCK_MAP_CAMPAIGN)) continue;
+			if (campaign++ == level)
+			{
+				stock_display_name_widen(&maps[row], campaign_level_names[level], CAMPAIGN_LEVEL_NAME_LENGTH);
+				break;
+			}
+		}
+	}
+
+	return campaign_level_names[level];
+}
+
 /* ---------- public code */
 
 char **custom_edition_maps_level_list(
@@ -847,7 +867,7 @@ boolean custom_edition_maps_stock(
 {
 	struct custom_edition_map *map = custom_edition_map_get(display_index);
 
-	return map && stock_map_index(map->name) != NONE;
+	return map && stock_map_find(map->name) != NULL;
 }
 
 wchar_t *custom_edition_maps_name(
@@ -858,7 +878,7 @@ wchar_t *custom_edition_maps_name(
 
 	if (level != NONE)
 	{
-		return campaign_level_names[level];
+		return campaign_level_name(level);
 	}
 
 	return map ? map->display_name : NULL;
@@ -881,13 +901,6 @@ wchar_t *custom_edition_maps_description(
 /* map_pictures_render.c: the stock map's persistent rendered picture, a BMP file */
 extern int map_pictures_render_picture_read(const char *base_name, uint8_t **data, uint32_t *size);
 extern void map_pictures_render_picture_free(uint8_t *data);
-
-/* the stock multiplayer maps, in mp_map_grafix's frame order */
-static char const *const stock_map_picture_names[] =
-{
-	"beavercreek", "sidewinder", "damnation", "ratrace", "prisoner", "hangemhigh", "chillout",
-	"carousel", "boardingaction", "bloodgulch", "wizard", "putput", "longest",
-};
 
 #define RENDERED_PICTURES_MAXIMUM 32
 static struct
@@ -957,9 +970,9 @@ static struct bitmap_data *rendered_picture_for_frame(
 	{
 		return rendered_picture_get(tag_name_strip_path(main_get_solo_level_name(level)));
 	}
-	if (map_pictures && frame_index >= 0 && frame_index < NUMBEROF(stock_map_picture_names))
+	if (map_pictures && stock_map_with_picture(frame_index))
 	{
-		return rendered_picture_get(stock_map_picture_names[frame_index]);
+		return rendered_picture_get(stock_map_with_picture(frame_index)->file);
 	}
 	if (level_pictures && frame_index >= 0 && frame_index < NUMBER_OF_SINGLE_PLAYER_LEVELS)
 	{

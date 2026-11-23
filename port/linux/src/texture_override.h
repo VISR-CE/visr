@@ -2,7 +2,7 @@
 TEXTURE_OVERRIDE.H
 
 debug.texture_override_directory: textures drawn in place of the game's, for
-judging upscaled textures in game (step-tools/texture-upscale.py writes them).
+judging upscaled textures in game (a tool outside this repository writes them).
 A texture is found by a hash of its first mip level's bytes as the map holds
 them, 64-bit FNV-1a, written as 16 lowercase hex digits in the file's name:
 <hash>.rgba. The file is three little-endian 32-bit words (width, height,

@@ -15,6 +15,12 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "enhanced",
+            "classic",
+            "hardcore"
           ]
         },
         "crt_effect": {
@@ -25,7 +31,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "fullscreen": {
           "type": "boolean",
@@ -35,7 +42,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "mode": {
           "type": "string",
@@ -45,6 +53,13 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "",
+            "fullscreen",
+            "borderless",
+            "windowed"
           ]
         },
         "resolution": {
@@ -55,7 +70,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "resolution_scaling": {
           "type": "string",
@@ -65,6 +81,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "native",
+            "original"
           ]
         },
         "window_size": {
@@ -75,7 +96,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "window_scale": {
           "type": "integer",
@@ -85,7 +107,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "screen_width": {
           "type": "integer",
@@ -95,7 +118,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "render_height": {
           "type": "integer",
@@ -127,7 +151,20 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
+        },
+        "decal_dense_upload": {
+          "type": "boolean",
+          "default": true,
+          "description": "A batched decal draw (display.decal_batching) uploads only the vertices it draws: the same picture for far less data sent to the GPU in a long fight. False uploads every vertex between its first and last decal, to compare.",
+          "x-environment": "HALO_DECAL_DENSE_UPLOAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "x-tier": "player"
         },
         "light_volume_batching": {
           "type": "boolean",
@@ -138,7 +175,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "shadow_batching": {
           "type": "boolean",
@@ -149,7 +187,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "per_pixel_lighting": {
           "type": "boolean",
@@ -160,7 +199,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "point_light_highlight": {
           "type": "integer",
@@ -171,7 +211,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "point_light_limit": {
           "type": "integer",
@@ -182,7 +223,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "shadow_minimum_size": {
           "type": "integer",
@@ -226,17 +268,22 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "effect_limits": {
           "type": "string",
           "default": "raised",
-          "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics).",
+          "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics). A device profile may set \"xbox\" for multiplayer and the other variable workloads on devices that big games overload.",
           "x-environment": "HALO_EFFECT_LIMITS",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "raised",
+            "xbox"
           ]
         },
         "shadow_map_size": {
@@ -258,7 +305,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "shadow_props": {
           "type": "boolean",
@@ -269,7 +317,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "effect_resolution": {
           "type": "string",
@@ -280,6 +329,11 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "xbox",
+            "half",
+            "full"
           ]
         },
         "model_lod": {
@@ -291,6 +345,10 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "max",
+            "auto"
           ]
         },
         "lod_scale": {
@@ -300,7 +358,7 @@
           "x-environment": "HALO_LOD_SCALE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "compressed_textures": {
@@ -331,7 +389,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "dynamic_resolution": {
           "type": "boolean",
@@ -346,7 +405,7 @@
         "allow_portrait": {
           "type": "boolean",
           "default": false,
-          "description": "When true, gameplay and menus follow the device into portrait. Device profiles turn it on where portrait play is supported (the iPhone Duo); on other devices set it in config.toml for testing. Read at launch.",
+          "description": "When true, gameplay and menus follow the device into portrait on any of its screens at least 640 points wide in portrait, where a menu unit is at least a point; a narrower screen stays in landscape. Device profiles turn it on where portrait play is supported (the iPhone Duo); on other devices set it in config.toml for testing. Read at launch.",
           "x-environment": "HALO_ALLOW_PORTRAIT",
           "x-environment-style": "value",
           "x-platforms": [
@@ -372,6 +431,11 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "off",
+            "fxaa",
+            "smaa"
           ]
         },
         "upscaler": {
@@ -382,6 +446,10 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "bilinear",
+            "metalfx"
           ]
         },
         "immersive": {
@@ -391,8 +459,9 @@
           "x-environment": "HALO_IMMERSIVE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "stereo": {
           "type": "string",
@@ -401,7 +470,14 @@
           "x-environment": "HALO_STEREO",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "head",
+            "screen",
+            "side_by_side"
           ]
         },
         "frame_repeat": {
@@ -411,7 +487,7 @@
           "x-environment": "HALO_FRAME_REPEAT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "foveation": {
@@ -421,7 +497,7 @@
           "x-environment": "HALO_FOVEATION",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "render_quality": {
@@ -431,7 +507,7 @@
           "x-environment": "HALO_RENDER_QUALITY",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "first_person_body": {
@@ -441,8 +517,9 @@
           "x-environment": "HALO_FIRST_PERSON_BODY",
           "x-environment-style": "set_is_true",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "first_person_body_offset": {
           "type": "number",
@@ -451,8 +528,9 @@
           "x-environment": "HALO_FIRST_PERSON_BODY_OFFSET",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "first_person_body_seats": {
           "type": "boolean",
@@ -461,8 +539,9 @@
           "x-environment": "HALO_FIRST_PERSON_BODY_SEATS",
           "x-environment-style": "set_is_true",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "first_person_body_seat_offset": {
           "type": "number",
@@ -471,8 +550,9 @@
           "x-environment": "HALO_FIRST_PERSON_BODY_SEAT_OFFSET",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_offset_down": {
           "type": "number",
@@ -481,8 +561,9 @@
           "x-environment": "HALO_WEAPON_OFFSET_DOWN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_offset_back": {
           "type": "number",
@@ -491,8 +572,9 @@
           "x-environment": "HALO_WEAPON_OFFSET_BACK",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "eye_height_offset": {
           "type": "number",
@@ -501,8 +583,9 @@
           "x-environment": "HALO_EYE_HEIGHT_OFFSET",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "seat_look_fade": {
           "type": "boolean",
@@ -511,8 +594,9 @@
           "x-environment": "HALO_SEAT_LOOK_FADE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "seat_look_fade_start": {
           "type": "number",
@@ -521,8 +605,9 @@
           "x-environment": "HALO_SEAT_LOOK_FADE_START",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "seat_look_fade_black": {
           "type": "number",
@@ -531,8 +616,9 @@
           "x-environment": "HALO_SEAT_LOOK_FADE_BLACK",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "pod_look_fade_start": {
           "type": "number",
@@ -541,8 +627,9 @@
           "x-environment": "HALO_POD_LOOK_FADE_START",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "pod_look_fade_end": {
           "type": "number",
@@ -551,8 +638,9 @@
           "x-environment": "HALO_POD_LOOK_FADE_END",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "pod_look_fade_dim": {
           "type": "number",
@@ -561,8 +649,9 @@
           "x-environment": "HALO_POD_LOOK_FADE_DIM",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "seat_look_fade_blur": {
           "type": "boolean",
@@ -571,8 +660,9 @@
           "x-environment": "HALO_SEAT_LOOK_FADE_BLUR",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "film_depth_share": {
           "type": "number",
@@ -581,8 +671,9 @@
           "x-environment": "HALO_FILM_DEPTH_SHARE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "film_convergence": {
           "type": "number",
@@ -591,8 +682,9 @@
           "x-environment": "HALO_FILM_CONVERGENCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "screen_depth_share": {
           "type": "number",
@@ -601,8 +693,9 @@
           "x-environment": "HALO_SCREEN_DEPTH_SHARE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "screen_convergence": {
           "type": "number",
@@ -611,8 +704,9 @@
           "x-environment": "HALO_SCREEN_CONVERGENCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "screen_framing": {
           "type": "string",
@@ -621,7 +715,12 @@
           "x-environment": "HALO_SCREEN_FRAMING",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "band",
+            "wide"
           ]
         },
         "stereo_vehicle_screen": {
@@ -631,8 +730,9 @@
           "x-environment": "HALO_STEREO_VEHICLE_SCREEN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "hud_corner_across": {
           "type": "number",
@@ -641,8 +741,9 @@
           "x-environment": "HALO_HUD_CORNER_ACROSS",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_corner_up": {
           "type": "number",
@@ -651,8 +752,9 @@
           "x-environment": "HALO_HUD_CORNER_UP",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_tracker_down": {
           "type": "number",
@@ -661,8 +763,9 @@
           "x-environment": "HALO_HUD_TRACKER_DOWN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_messages_up": {
           "type": "number",
@@ -671,8 +774,9 @@
           "x-environment": "HALO_HUD_MESSAGES_UP",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_scale": {
           "type": "number",
@@ -681,8 +785,9 @@
           "x-environment": "HALO_HUD_SCALE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_distance": {
           "type": "number",
@@ -691,8 +796,9 @@
           "x-environment": "HALO_HUD_DISTANCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth": {
           "type": "boolean",
@@ -701,8 +807,9 @@
           "x-environment": "HALO_HUD_DEPTH",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_share": {
           "type": "number",
@@ -711,8 +818,9 @@
           "x-environment": "HALO_HUD_DEPTH_SHARE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_floor": {
           "type": "number",
@@ -721,8 +829,9 @@
           "x-environment": "HALO_HUD_DEPTH_FLOOR",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_pull_in": {
           "type": "number",
@@ -731,8 +840,9 @@
           "x-environment": "HALO_HUD_DEPTH_PULL_IN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_relax": {
           "type": "number",
@@ -741,8 +851,9 @@
           "x-environment": "HALO_HUD_DEPTH_RELAX",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_depth_relax_delay": {
           "type": "number",
@@ -751,8 +862,9 @@
           "x-environment": "HALO_HUD_DEPTH_RELAX_DELAY",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "hud_resolution": {
           "type": "number",
@@ -761,7 +873,7 @@
           "x-environment": "HALO_HUD_RESOLUTION",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "texture_idle_seconds": {
@@ -793,8 +905,9 @@
           "x-environment": "HALO_THEATER_WIDTH",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "theater_distance": {
           "type": "number",
@@ -803,8 +916,9 @@
           "x-environment": "HALO_THEATER_DISTANCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "theater_environment": {
           "type": "string",
@@ -813,7 +927,12 @@
           "x-environment": "HALO_THEATER_ENVIRONMENT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "passthrough",
+            "dark"
           ]
         },
         "renderer": {
@@ -824,6 +943,10 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "gl",
+            "metal"
           ]
         },
         "frame_deadline": {
@@ -834,7 +957,8 @@
           "x-environment-style": "set_is_true",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "frame_pacing": {
           "type": "string",
@@ -844,6 +968,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "off",
+            "tick",
+            "refresh"
           ]
         },
         "stereo_flare_counting": {
@@ -853,8 +982,9 @@
           "x-environment": "HALO_STEREO_FLARE_COUNTING",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "late_look": {
           "type": "boolean",
@@ -865,7 +995,20 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
+        },
+        "presentation_lead": {
+          "type": "boolean",
+          "default": true,
+          "description": "Time the blend between game ticks by when each frame is shown, measured from when the frame read the game clock, so moving things step evenly whatever the display's cadence. Off measures it as earlier builds did, for comparison; the Vision Pro then gets no correction.",
+          "x-environment": "HALO_PRESENTATION_LEAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "x-tier": "tuning"
         },
         "late_start": {
           "type": "string",
@@ -875,6 +1018,12 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "",
+            "true",
+            "false"
           ]
         },
         "frame_source": {
@@ -885,16 +1034,44 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "",
+            "clock",
+            "system"
           ]
         },
         "frames_in_flight": {
           "type": "string",
           "default": "",
-          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" to \"3\": a frame isn't started on its way until fewer than that many are waiting to be shown. \"1\" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; \"system\" leaves the queue to the system (up to 3). Empty (default): \"2\". Not on a Vision Pro, which paces frames itself, and not for frames that don't wait for the display (display.frame_rate).",
+          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" to \"3\": a frame isn't started on its way until fewer than that many are waiting to be shown. \"1\" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; \"system\" leaves the queue to the system (up to 3). Empty (default): \"2\", or \"1\" with debug.encode_thread = \"thread\". Not on a Vision Pro, which paces frames itself, and not for frames that don't wait for the display (display.frame_rate).",
           "x-environment": "HALO_FRAMES_IN_FLIGHT",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "",
+            "1",
+            "2",
+            "3",
+            "system"
+          ]
+        },
+        "frames_in_flight_at_30": {
+          "type": "string",
+          "default": "",
+          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" or \"2\", while the frame rate in force is 30 or lower (a 30 cap, a big multiplayer game held to 30, a scene class's 30). One frame in flight cuts the delay between the game and the screen by a third when a frame's CPU and GPU work together fit the 33 ms, and never raises display.frames_in_flight. Empty (default): display.frames_in_flight throughout. Not on a Vision Pro.",
+          "x-environment": "HALO_FRAMES_IN_FLIGHT_AT_30",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ],
+          "enum": [
+            "1",
+            "2"
           ]
         },
         "frame_spacing": {
@@ -905,7 +1082,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "frame_rate": {
           "type": "string",
@@ -915,6 +1093,17 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "oneOf": [
+            {
+              "enum": [
+                "display",
+                "unlimited"
+              ]
+            },
+            {
+              "pattern": "^(?:[3-9][0-9]|[1-9][0-9]{2}|1000)$"
+            }
           ]
         },
         "async_shaders": {
@@ -925,6 +1114,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "auto",
+            "on",
+            "off"
           ]
         },
         "movies": {
@@ -935,6 +1129,12 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "on",
+            "off"
           ]
         },
         "vsync": {
@@ -946,7 +1146,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "max_fps": {
           "type": "integer",
@@ -956,7 +1157,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "interpolation": {
           "type": "boolean",
@@ -978,7 +1180,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "high_res_hud": {
           "type": "boolean",
@@ -1011,7 +1214,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "ui_redraw_pictures": {
           "type": "string",
@@ -1022,7 +1226,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "upscaled_textures": {
           "type": "boolean",
@@ -1044,18 +1249,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
-        },
-        "menus": {
-          "type": "string",
-          "default": "auto",
-          "description": "The menus: \"auto\" (default) follows the input device at screen changes: PC for keyboard and mouse, Xbox for controller or touch. \"pc\" and \"xbox\" keep a fixed look. A menus folder here overrides port/assets/menus.",
-          "x-environment": "HALO_MENUS",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "player_names": {
           "type": "string",
@@ -1066,6 +1261,13 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "none",
+            "all",
+            "allies",
+            "enemies"
           ]
         },
         "player_name_scale": {
@@ -1077,7 +1279,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "scoreboard_team_layout": {
           "type": "string",
@@ -1088,6 +1291,11 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "teams",
+            "score"
           ]
         },
         "scoreboard_background": {
@@ -1099,7 +1307,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "scoreboard_background_color": {
           "type": "string",
@@ -1110,7 +1319,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "first_person_legs": {
           "type": "boolean",
@@ -1121,7 +1331,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "first_person_legs_seat_shift": {
           "type": "number",
@@ -1132,7 +1343,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -1148,7 +1360,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "turn": {
           "type": "string",
@@ -1157,7 +1370,13 @@
           "x-environment": "HALO_TURN",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "snap",
+            "smooth",
+            "off"
           ]
         },
         "snap_angle": {
@@ -1167,8 +1386,9 @@
           "x-environment": "HALO_SNAP_ANGLE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "smooth_turn_speed": {
           "type": "number",
@@ -1177,8 +1397,9 @@
           "x-environment": "HALO_SMOOTH_TURN_SPEED",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "comfort_vignette": {
           "type": "boolean",
@@ -1187,17 +1408,24 @@
           "x-environment": "HALO_COMFORT_VIGNETTE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "player"
         },
         "aim": {
           "type": "string",
-          "default": "controller",
-          "description": "With display.stereo = \"head\": what aims, \"head\" (the view's center) or \"controller\" (default; the aiming hand's Sense controller). Aiming uses the head when tracking is unavailable in local play. In network play, aim holds its last valid hand direction through input.aim_loss_grace, then uses the head until the hand is tracked again (and before the first tracked pose); a seat uses stick aim. Anything else aims with the head.",
+          "default": "auto",
+          "description": "With display.stereo = \"head\": what aims, \"auto\" (default: the aiming hand's Sense controller when one is connected, else the head), \"controller\" (the same) or \"head\" (the view's center). Aiming uses the head when tracking is unavailable in local play. In network play, aim holds its last valid hand direction through input.aim_loss_grace, then uses the head until the hand is tracked again (and before the first tracked pose); a seat uses stick aim. Anything else aims with the head.",
           "x-environment": "HALO_AIM",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "controller",
+            "head"
           ]
         },
         "aim_loss_grace": {
@@ -1207,7 +1435,7 @@
           "x-environment": "HALO_AIM_LOSS_GRACE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
           ]
         },
         "aim_hand": {
@@ -1217,7 +1445,12 @@
           "x-environment": "HALO_AIM_HAND",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "right",
+            "left"
           ]
         },
         "aim_pitch_offset": {
@@ -1227,8 +1460,9 @@
           "x-environment": "HALO_AIM_PITCH_OFFSET",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_assist": {
           "type": "number",
@@ -1237,8 +1471,9 @@
           "x-environment": "HALO_AIM_ASSIST",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_steady": {
           "type": "number",
@@ -1247,8 +1482,9 @@
           "x-environment": "HALO_AIM_STEADY",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_steady_zoom_2x": {
           "type": "number",
@@ -1257,8 +1493,9 @@
           "x-environment": "HALO_AIM_STEADY_ZOOM_2X",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_steady_zoom_8x": {
           "type": "number",
@@ -1267,8 +1504,9 @@
           "x-environment": "HALO_AIM_STEADY_ZOOM_8X",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "controller_rumble": {
           "type": "number",
@@ -1278,7 +1516,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "blast_rumble": {
           "type": "boolean",
@@ -1289,7 +1528,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "laser": {
           "type": "string",
@@ -1298,7 +1538,13 @@
           "x-environment": "HALO_LASER",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
+          ],
+          "x-tier": "tuning",
+          "enum": [
+            "off",
+            "close",
+            "on"
           ]
         },
         "reticle_ease": {
@@ -1308,8 +1554,9 @@
           "x-environment": "HALO_RETICLE_EASE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_turn_limit": {
           "type": "number",
@@ -1318,8 +1565,9 @@
           "x-environment": "HALO_WEAPON_TURN_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_roll_limit": {
           "type": "number",
@@ -1328,8 +1576,9 @@
           "x-environment": "HALO_WEAPON_ROLL_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "weapon_smoothing": {
           "type": "number",
@@ -1338,8 +1587,9 @@
           "x-environment": "HALO_WEAPON_SMOOTHING",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "first_person_arms": {
           "type": "string",
@@ -1348,7 +1598,13 @@
           "x-environment": "HALO_FIRST_PERSON_ARMS",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
+            "visionos"
+          ],
+          "x-tier": "tuning",
+          "enum": [
+            "turned",
+            "limited",
+            "solved"
           ]
         },
         "arms_follow": {
@@ -1358,8 +1614,9 @@
           "x-environment": "HALO_ARMS_FOLLOW",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_turn_limit": {
           "type": "number",
@@ -1368,8 +1625,9 @@
           "x-environment": "HALO_ARMS_TURN_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_up_limit": {
           "type": "number",
@@ -1378,8 +1636,9 @@
           "x-environment": "HALO_ARMS_UP_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_down_limit": {
           "type": "number",
@@ -1388,8 +1647,9 @@
           "x-environment": "HALO_ARMS_DOWN_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "arms_roll_limit": {
           "type": "number",
@@ -1398,8 +1658,9 @@
           "x-environment": "HALO_ARMS_ROLL_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "head_magnetism": {
           "type": "boolean",
@@ -1408,8 +1669,9 @@
           "x-environment": "HALO_HEAD_MAGNETISM",
           "x-environment-style": "set_is_true",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "zoom_takeover": {
           "type": "boolean",
@@ -1418,8 +1680,9 @@
           "x-environment": "HALO_ZOOM_TAKEOVER",
           "x-environment-style": "set_is_true",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "aim_origin_raise": {
           "type": "number",
@@ -1428,8 +1691,9 @@
           "x-environment": "HALO_AIM_ORIGIN_RAISE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "laser_distance": {
           "type": "number",
@@ -1438,8 +1702,9 @@
           "x-environment": "HALO_LASER_DISTANCE",
           "x-environment-style": "value",
           "x-platforms": [
-            "apple"
-          ]
+            "visionos"
+          ],
+          "x-tier": "tuning"
         },
         "stick_dead_zone": {
           "type": "number",
@@ -1450,7 +1715,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "mouse_sensitivity": {
           "type": "number",
@@ -1460,7 +1726,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "invert_mouse": {
           "type": "boolean",
@@ -1470,7 +1737,8 @@
           "x-environment-style": "set_is_true",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "mouse_aim_assist": {
           "type": "boolean",
@@ -1480,7 +1748,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "mouse_vertical_sensitivity": {
           "type": "number",
@@ -1490,7 +1759,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -1523,7 +1793,7 @@
         "orientation": {
           "type": "string",
           "default": "",
-          "description": "Request \"portrait\" or \"landscape\" once the first window scene is active; empty leaves the device's orientation alone. Portrait requires display.allow_portrait. For simulator captures. Read at launch.",
+          "description": "Request \"portrait\" or \"landscape\" once the first window scene is active; empty leaves the device's orientation alone. A comma list with seconds (\"portrait,landscape@20\") requests each later one that long after the first, to test a rotation. Portrait requires display.allow_portrait. For simulator captures. Read at launch.",
           "x-environment": "HALO_ORIENTATION",
           "x-environment-style": "value",
           "x-platforms": [
@@ -1578,6 +1848,10 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "none",
+            "rendered"
           ]
         },
         "controller_axes": {
@@ -1709,6 +1983,28 @@
             "desktop"
           ]
         },
+        "decal_dense_check": {
+          "type": "boolean",
+          "default": false,
+          "description": "Checks every vertex and color a batched decal draw uploads (display.decal_dense_upload) against the game's own and logs how many draws it checked and how many corners differ. Slow; for testing.",
+          "x-environment": "HALO_DECAL_DENSE_CHECK",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "verify_once_a_tick": {
+          "type": "boolean",
+          "default": true,
+          "description": "Walks each block cache's and memory pool's block list once at the end of a game tick or game frame, where it walked the whole list at every allocation and free inside one. A list gone wrong still stops the game by the end of that tick or frame, and a block is checked as it leaves the list. On by default. Read again each tick, so it can be flipped while the game runs.",
+          "x-environment": "HALO_VERIFY_ONCE_A_TICK",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "aim_steady_level": {
           "type": "number",
           "default": -1.0,
@@ -1717,6 +2013,28 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ]
+        },
+        "checkpoint_every": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Ask for a checkpoint every this many seconds of game time (the game takes it when it is safe to), to measure what a checkpoint costs in a scene nobody plays; 0 never.",
+          "x-environment": "HALO_CHECKPOINT_EVERY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "scripted_run_saves": {
+          "type": "boolean",
+          "default": false,
+          "description": "A replay or a scripted run (a test, a benchmark, a runner) may write the active profile's saved game, at checkpoints and from Save and Quit, as the player's own game does: for tests and measurements of saving. A level started without the menu (the console's map_name) then plays as the last profile used, whose saved game it replaces; without a profile on the device nothing is saved. The profile's own file can change too (inverted look, levels finished), so never on a device someone plays.",
+          "x-environment": "HALO_SCRIPTED_RUN_SAVES",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple",
+            "desktop"
           ]
         },
         "external_mode": {
@@ -1769,6 +2087,16 @@
             "apple"
           ]
         },
+        "controller_age_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Every 5 seconds log how old the controller state was when the game read it, before the read's own refresh, as reads, mean, p50, p99 and max in milliseconds (the time since SDL last updated the controllers; the game thread updates them at its poll and at each read when older than 0.25 ms). Off by default.",
+          "x-environment": "HALO_CONTROLLER_AGE_LOG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "graphics_cycle": {
           "type": "integer",
           "default": 0,
@@ -1782,8 +2110,18 @@
         "knob_cycle": {
           "type": "boolean",
           "default": false,
-          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight, point light limit) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
+          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight, point light limit, ambient occlusion, graphics, and on Vision Pro the cadence: the Compositor's frame repeat count 0, 1 or 2, shown as A, B, C) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
           "x-environment": "HALO_KNOB_CYCLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "knob_cycle_start": {
+          "type": "string",
+          "default": "",
+          "description": "The setting debug.knob_cycle's chord starts on, by its config name (for example \"display.frame_repeat\"), so a session's comparison needs only left and right. Empty or unknown: the first.",
+          "x-environment": "HALO_KNOB_CYCLE_START",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
@@ -1861,6 +2199,14 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "",
+            "halt",
+            "fault",
+            "trap",
+            "abort",
+            "map"
           ]
         },
         "upscaled_textures_toggle": {
@@ -2021,6 +2367,10 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "serialized",
+            "pipelined"
           ]
         },
         "benchmark_virtual_display": {
@@ -2049,6 +2399,17 @@
           "default": "",
           "description": "Automated system link sessions for testing (port/linux/game/network_test.c): \"host:<map>\" hosts a game on that map, \"join\" joins the first game found; \"browse-only\" logs public games without joining, \"browse-empty\" joins an empty master-listed server; empty for none.",
           "x-environment": "HALO_NETWORK_TEST",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "benchmark_own_input": {
+          "type": "boolean",
+          "default": false,
+          "description": "Once a multiplayer benchmark game is running, controller 1 plays the local player instead of the benchmark's scripted input, for a guided session inside the benchmark's simulated players. The report is flagged benchmark_own_input and stays in report.json: never queued or sent.",
+          "x-environment": "HALO_BENCHMARK_OWN_INPUT",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
@@ -2192,6 +2553,17 @@
           "default": 2323,
           "description": "The port of the script console (telnet_console); the Xbox's was 23, which only the administrator can listen on.",
           "x-environment": "HALO_TELNET_CONSOLE_PORT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "coop_census": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Every this many seconds of a network game, each machine logs every player record, networked object and device it has (coop census: lines), for tools/coop_census_compare.py to compare host and client; 0 never.",
+          "x-environment": "HALO_COOP_CENSUS",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
@@ -2383,6 +2755,13 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "",
+            "horizontal_minimum",
+            "hold",
+            "horizontal_70",
+            "match_landscape"
           ]
         },
         "portrait_fov_button": {
@@ -2424,6 +2803,12 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
+          ],
+          "enum": [
+            "",
+            "yes",
+            "no",
+            "never"
           ]
         },
         "link_consent_answer": {
@@ -2434,6 +2819,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "",
+            "join",
+            "cancel"
           ]
         },
         "exit_after": {
@@ -2575,6 +2965,71 @@
             "apple"
           ]
         },
+        "gpu_call_hash": {
+          "type": "boolean",
+          "default": false,
+          "description": "Logs, for every frame, a hash of every command the Metal or OpenGL ES renderer received: each call, its arguments and the bytes they point to, and one hash for each kind of call. The hashes compare frames within one run, as when the same frames are hashed at two points; two runs of the same recording can differ (texture numbering, values the game leaves in unused constant lanes). With debug.encode_thread on, the commands the queue carries are hashed again behind it and compared with the same commands in front of it, and frames that differ are logged. For checking changes to how drawing reaches the renderer.",
+          "x-environment": "HALO_GPU_CALL_HASH",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "encode_thread": {
+          "type": "string",
+          "default": "off",
+          "description": "How the Metal renderer's commands reach it. \"off\" (default): the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. \"thread\": an encode thread reads the queue and calls the renderer while the game thread goes on; each frame's present waits for it, so input is read as late as with \"off\". Needs the game thread. Not on visionOS or Mac Catalyst.",
+          "x-environment": "HALO_ENCODE_THREAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ],
+          "enum": [
+            "off",
+            "inline",
+            "thread"
+          ]
+        },
+        "encode_thread_timing": {
+          "type": "boolean",
+          "default": false,
+          "description": "With debug.encode_thread on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames.",
+          "x-environment": "HALO_ENCODE_THREAD_TIMING",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "latency_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Logs a latency line every 300 frames: how old the controller state was when the game read it, and the time from that read to the frame's submission and to when the display showed it (median and 95th percentile), the frame's display wait, and frames never shown.",
+          "x-environment": "HALO_LATENCY_LOG",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "thread_cpu_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Logs, every 300 frames, the CPU time a frame of the whole app, the main thread, the drawing thread and each other busy thread, and the app's context switches, to see how busy each core is.",
+          "x-environment": "HALO_THREAD_CPU_LOG",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "main_sync_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Logs, every 300 frames, how long the game thread waited on the main thread a frame and how many times it asked, to size those waits.",
+          "x-environment": "HALO_MAIN_SYNC_LOG",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "frame_load_cpu": {
           "type": "number",
           "default": 0.0,
@@ -2615,6 +3070,16 @@
             "apple"
           ]
         },
+        "topology_facts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Logs what the system reports about displays (the screens and whether each mirrors, the game's and the external scene, the scene accessory, the hinge and posture, the audio route's outputs) once at launch and again whenever one of them changes, not at every poll, then the display topology derived from them (a \"topology N:\" line when it changes) and a \"topology mismatch:\" line where it disagrees with the game's own decision for a second or more. Nothing decides from it; for recording what a device reports across a connect, a fold or a rotation. false (default): off.",
+          "x-environment": "HALO_TOPOLOGY_FACTS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "low_power_frame_rate": {
           "type": "string",
           "default": "true",
@@ -2623,6 +3088,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "true",
+            "false",
+            "always"
           ]
         },
         "frame_load_gpu": {
@@ -2714,6 +3184,12 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "off",
+            "log",
+            "strict",
+            "reject"
           ]
         },
         "render_capture": {
@@ -2859,17 +3335,6 @@
             "desktop"
           ]
         },
-        "menu_density": {
-          "type": "integer",
-          "default": -1,
-          "description": "Menu list row density, fixed at load: -1 uses the platform default, 0 uses comfortable rows, 1 uses compact rows. Fixed settings stay comfortable; key bindings follow list density.",
-          "x-environment": "HALO_MENU_DENSITY",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ]
-        },
         "menu_open": {
           "type": "string",
           "default": "",
@@ -2879,6 +3344,16 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ]
+        },
+        "pointer_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log one line per menu tap or click: the surface's size in points, the drawable's in pixels, the tap there and where it landed in menu units, then one line for what the tap hit (target kind, widget, button, bounds) or a back swipe.",
+          "x-environment": "HALO_POINTER_LOG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
           ]
         },
         "menu_ready_shot": {
@@ -3059,6 +3534,11 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "",
+            "450",
+            "msl"
           ]
         },
         "gpu_debug_expression": {
@@ -3169,6 +3649,10 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "enum": [
+            "footprint",
+            "xbox"
           ]
         },
         "screenshot_frames": {
@@ -3394,6 +3878,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "auto",
+            "force",
+            "off"
           ]
         },
         "texture_astc_sync": {
@@ -3414,6 +3903,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "auto",
+            "force",
+            "off"
           ]
         },
         "texture_upscale_export": {
@@ -3440,7 +3934,7 @@
         "texture_override_directory": {
           "type": "string",
           "default": "",
-          "description": "A folder of replacement textures, <hash>.rgba (step-tools/texture-upscale.py), each drawn in place of the texture whose first mip level hashes to <hash>; empty none.",
+          "description": "A folder of replacement textures, <hash>.rgba, each drawn in place of the texture whose first mip level hashes to <hash>; empty none.",
           "x-environment": "HALO_TEXTURE_OVERRIDE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3532,6 +4026,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "auto",
+            "on",
+            "off"
           ]
         },
         "test_win_level": {
@@ -3576,7 +4075,11 @@
             "apple",
             "desktop"
           ],
-          "x-profiling-build": true
+          "x-profiling-build": true,
+          "enum": [
+            "start",
+            "game"
+          ]
         },
         "profile_memory": {
           "type": "integer",
@@ -3605,7 +4108,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "slurs": {
           "type": "string",
@@ -3616,6 +4120,13 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "mild",
+            "strong",
+            "severe"
           ]
         },
         "swearing": {
@@ -3627,6 +4138,13 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "mild",
+            "strong",
+            "severe"
           ]
         },
         "insults": {
@@ -3638,6 +4156,13 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "mild",
+            "strong",
+            "severe"
           ]
         }
       },
@@ -3655,7 +4180,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "volume": {
           "type": "number",
@@ -3666,7 +4192,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "music_volume": {
           "type": "number",
@@ -3677,7 +4204,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "music_enabled": {
           "type": "boolean",
@@ -3688,7 +4216,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "effects_volume": {
           "type": "number",
@@ -3699,6 +4228,47 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player"
+        },
+        "fast_filter": {
+          "type": "boolean",
+          "default": true,
+          "description": "The mixer's resampling filter (nearly all of the mixing thread's work in a big game) adds each voice's frames in four running sums instead of one, and a mono voice computes only one channel: the same sound to within 0.000002 of full scale, and about a quarter less mixing CPU (0.81 to 0.59 ms a 10.7 ms callback with 55 voices, M3 Max). Off gives the earlier loop. Read again when Settings changes it.",
+          "x-environment": "HALO_FAST_AUDIO_FILTER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "x-tier": "player"
+        },
+        "rate_bus": {
+          "type": "boolean",
+          "default": true,
+          "description": "Sounds playing at exactly their own pitch (nearly all of them; the sound files are 22,050 and 44,100 Hz) are added together at that rate and resampled to the output's 48,000 Hz once a rate, instead of each one separately: the same sound (a ramping voice differs by about 3e-5 of its own level, the rounding of the way the old mixer ramped a gain; a sound may start up to 45 microseconds later) and far less mixing CPU. Sounds with a changed pitch, and stereo sounds panned towards where they are, are mixed as before, with audio.fast_filter. Read again when Settings changes it (turning it off moves sounds already playing to the old path at the next callback); with it on, audio.fast_filter does not change a nominal sound.",
+          "x-environment": "HALO_RATE_BUS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "x-tier": "player"
+        },
+        "worker_priority": {
+          "type": "string",
+          "default": "interactive",
+          "description": "The priority of the thread that mixes the game's sound. SDL's own audio thread, which is time-critical, waits on it for each callback, so at the default priority it is held up whenever the game and render threads fill the cores. \"interactive\" (default) is the game thread's class, \"realtime\" a time-constraint policy of one callback's period, and \"default\" leaves the thread at the system's default. Read when the game starts.",
+          "x-environment": "HALO_AUDIO_WORKER_PRIORITY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ],
+          "x-tier": "tuning",
+          "enum": [
+            "interactive",
+            "realtime",
+            "default"
           ]
         },
         "loose_sounds": {
@@ -3710,7 +4280,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -3727,7 +4298,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "address": {
           "type": "string",
@@ -3738,7 +4310,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "broadcast": {
           "type": "string",
@@ -3749,7 +4322,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "lan_broadcast": {
           "type": "string",
@@ -3759,6 +4333,12 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "on",
+            "off"
           ]
         },
         "online": {
@@ -3774,7 +4354,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "online_ask": {
           "type": "boolean",
@@ -3784,7 +4365,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
-          ]
+          ],
+          "x-tier": "player"
         },
         "join_from_clipboard": {
           "type": "boolean",
@@ -3799,7 +4381,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "tunnel_port": {
           "type": "integer",
@@ -3810,7 +4393,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "allow_upnp": {
           "type": "boolean",
@@ -3821,7 +4405,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "background_grace": {
           "type": "integer",
@@ -3832,7 +4417,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "public_lobby": {
           "type": "boolean",
@@ -3843,7 +4429,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "browser_sort": {
           "type": "string",
@@ -3854,7 +4441,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "browser_games": {
           "type": "string",
@@ -3865,7 +4453,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "browser_show_full": {
           "type": "boolean",
@@ -3876,7 +4465,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "browser_show_locked": {
           "type": "boolean",
@@ -3887,7 +4477,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "browser_show_unjoinable": {
           "type": "boolean",
@@ -3898,7 +4489,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_browse": {
           "type": "boolean",
@@ -3909,7 +4501,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_table": {
           "type": "boolean",
@@ -3920,7 +4513,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_peer": {
           "type": "boolean",
@@ -3931,7 +4525,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_announce": {
           "type": "boolean",
@@ -3942,7 +4537,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "delta_url": {
           "type": "string",
@@ -3953,7 +4549,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "host_public": {
           "type": "boolean",
@@ -3968,7 +4565,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "host_version": {
           "type": "integer",
@@ -3979,7 +4577,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "player_capacity": {
           "type": "integer",
@@ -3995,7 +4594,7 @@
         "full_rate_players": {
           "type": "integer",
           "default": 0,
-          "description": "The most multiplayer slots this device holds at 60 fps and variable quality, or at 30 when the first rung cannot hold 60, 2 to 128; 0 (default) leaves it unlimited. Above this threshold, gameplay is held to at most 30 frames a second for the whole map, using the game's maximum players at map load. Campaign, co-op, split screen and the main menu are unaffected. A player's explicit display.frame_rate choice still wins. Vision Pro paces its own frames. A positive value also sets the hosted-game default and the warning threshold in Server Setup and the browsers, taking precedence over network.player_capacity. The browser marks a larger game BIG once it is at least half this threshold full; joining then asks for confirmation. A profile sets this at or below player_capacity.",
+          "description": "The most multiplayer slots this device holds at 60 fps and variable quality, or at 30 when the first rung cannot hold 60, 2 to 128; 0 (default) leaves it unlimited. Above this threshold, gameplay is held to at most 30 frames a second for the whole map, using the game's maximum players at map load. Campaign, co-op, split screen and the main menu are unaffected. A player's explicit display.frame_rate choice still wins. Vision Pro paces its own frames, so there the value sets only what follows. A positive value also sets the hosted-game default and the warning threshold in Server Setup and the browsers, taking precedence over network.player_capacity. The browser marks a larger game BIG once it is at least half this threshold full; joining then asks for confirmation. A profile sets this at or below player_capacity.",
           "x-environment": "HALO_NET_FULL_RATE_PLAYERS",
           "x-environment-style": "value",
           "x-platforms": [
@@ -4005,13 +4604,14 @@
         "map_share": {
           "type": "boolean",
           "default": true,
-          "description": "Hosting: send a player who joins without the game's Custom Edition map the map (from custom_maps), and the resource maps it needs that the player lacks (bitmaps.map, sounds.map, loc.map). The game's other players help (network.map_seed).",
+          "description": "Hosting: send a player who joins without the game's Custom Edition map the map (from custom_maps), if it is a community map. Custom Edition's own maps and resource maps (bitmaps.map, sounds.map, loc.map) are never sent: a player who lacks them is sent nothing. The game's other players help (network.map_seed).",
           "x-environment": "HALO_NET_MAP_SHARE",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "map_share_upload": {
           "type": "integer",
@@ -4022,7 +4622,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "map_seed": {
           "type": "boolean",
@@ -4037,7 +4638,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "map_seed_upload": {
           "type": "integer",
@@ -4048,7 +4650,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "custom_maps": {
           "type": "boolean",
@@ -4059,7 +4662,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "map_download": {
           "type": "boolean",
@@ -4074,7 +4678,8 @@
           "x-defaults": {
             "apple": false,
             "desktop": true
-          }
+          },
+          "x-tier": "player"
         },
         "coop_public": {
           "type": "boolean",
@@ -4085,7 +4690,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_late_join": {
           "type": "boolean",
@@ -4096,7 +4702,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_friendly_fire": {
           "type": "string",
@@ -4107,6 +4714,13 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "off",
+            "on",
+            "shields_only",
+            "explosives_only"
           ]
         },
         "coop_own_friendly_fire": {
@@ -4118,7 +4732,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_ally_friendly_fire": {
           "type": "boolean",
@@ -4129,7 +4744,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_player_collisions": {
           "type": "boolean",
@@ -4140,7 +4756,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_enemies_mode": {
           "type": "string",
@@ -4151,6 +4768,12 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "none",
+            "per_player",
+            "multiplier"
           ]
         },
         "coop_enemies": {
@@ -4162,7 +4785,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "coop_enemies_multiplier": {
           "type": "integer",
@@ -4173,7 +4797,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "brokers_file": {
           "type": "string",
@@ -4184,7 +4809,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "stun_servers": {
           "type": "string",
@@ -4195,7 +4821,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4212,7 +4839,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "move_backward": {
           "type": "string",
@@ -4223,7 +4851,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "strafe_left": {
           "type": "string",
@@ -4234,7 +4863,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "strafe_right": {
           "type": "string",
@@ -4245,7 +4875,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "jump": {
           "type": "string",
@@ -4256,7 +4887,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "crouch": {
           "type": "string",
@@ -4267,7 +4899,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "fire": {
           "type": "string",
@@ -4278,7 +4911,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "throw_grenade": {
           "type": "string",
@@ -4289,7 +4923,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "melee": {
           "type": "string",
@@ -4300,7 +4935,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "reload": {
           "type": "string",
@@ -4311,7 +4947,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "zoom": {
           "type": "string",
@@ -4322,7 +4959,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "switch_weapon": {
           "type": "string",
@@ -4333,7 +4971,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "switch_grenade": {
           "type": "string",
@@ -4344,7 +4983,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "action": {
           "type": "string",
@@ -4355,7 +4995,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "flashlight": {
           "type": "string",
@@ -4366,7 +5007,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "scoreboard": {
           "type": "string",
@@ -4377,7 +5019,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "pause": {
           "type": "string",
@@ -4388,7 +5031,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4405,6 +5049,12 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "important",
+            "all",
+            "none"
           ]
         },
         "language": {
@@ -4416,6 +5066,16 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "",
+            "en",
+            "ja",
+            "de",
+            "fr",
+            "es",
+            "it"
           ]
         },
         "loading_screen": {
@@ -4427,6 +5087,12 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "auto",
+            "on",
+            "off"
           ]
         },
         "loading_screen_seconds": {
@@ -4438,7 +5104,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "garbage_limit": {
           "type": "string",
@@ -4449,6 +5116,11 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "player",
+          "enum": [
+            "raised",
+            "xbox"
           ]
         },
         "enhanced_animations": {
@@ -4460,7 +5132,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "custom_edition": {
           "type": "boolean",
@@ -4471,7 +5144,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4487,7 +5161,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "saves": {
           "type": "string",
@@ -4497,7 +5172,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         },
         "custom_edition": {
           "type": "string",
@@ -4507,7 +5183,25 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
+        }
+      },
+      "additionalProperties": false
+    },
+    "saves": {
+      "type": "object",
+      "properties": {
+        "checkpoint_persist": {
+          "type": "boolean",
+          "default": true,
+          "description": "Each campaign checkpoint also becomes the profile's saved game, so the game resumes from the last checkpoint however the app ended. The file is copied on a thread of its own and replaced whole. Off, the saved game is written only by Save and Quit, as on the Xbox. Replays, benchmarks, scripted test runs, co-op and network games never write one. Read at each checkpoint.",
+          "x-environment": "HALO_CHECKPOINT_PERSIST",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ],
+          "x-tier": "tuning"
         }
       },
       "additionalProperties": false
@@ -4523,7 +5217,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -4539,7 +5234,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "desktop"
-          ]
+          ],
+          "x-tier": "player"
         }
       },
       "additionalProperties": false

@@ -15,9 +15,6 @@ log around frame_pacer.h's rules. */
 /* host_gpu.c's, which writes the guest's log */
 void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
-/* frames in flight when display.frames_in_flight is empty: port/ios/README.md
-has the measurements behind it */
-#define IN_FLIGHT_DEFAULT 2
 /* a frame goes ahead without a slot after this long: the window may be
 hidden, and a presented notice that never comes mustn't stop the game */
 #define SLOT_WAIT_SECONDS 0.1
@@ -30,6 +27,7 @@ static struct
 	int system_wanted;               /* display.frame_source = "system", and frames wait for the display */
 	int system_source;               /* the renderer's system pacer runs: no slots or spacing of ours */
 	int in_flight;                   /* display.frames_in_flight (0: no limit) */
+	int in_flight_at_30;             /* display.frames_in_flight_at_30 in force (host_frames_in_flight_scene); 0: none */
 	int spacing;                     /* display.frame_spacing */
 	int times;                       /* debug.present_times */
 	double load;                     /* debug.frame_load_cpu, in seconds */
@@ -80,7 +78,7 @@ void frame_pacer_start(int fixed_timestep)
 	if (fixed_timestep)
 		return;
 	host_config_string("display.frames_in_flight", "", value, sizeof(value));
-	limit = frame_pacer_in_flight_setting(value, IN_FLIGHT_DEFAULT);
+	limit = frame_pacer_in_flight_setting(value, frame_pacer_in_flight_default(host_gpu_encode_thread_on()));
 #if TARGET_OS_SIMULATOR
 	/* a simulator's drawables never say when they were shown */
 	limit = 0;
@@ -124,6 +122,16 @@ void frame_pacer_start(int fixed_timestep)
 			pacer.load_every > 0.0 ? ", on and off (debug.frame_load_every)" : "");
 }
 
+/* A guest import, when the workload context, the scene class or the settings change: display.frames_in_flight_at_30
+as the game resolves it (1 or 2; 0 for none), which a profile may set for the variable workload alone, so the host's
+own config reads could not see it. Frame_pacer_frame_start applies it while the frame rate in force is 30 or lower. */
+void frame_pacer_in_flight_at_30_set(int at_30)
+{
+	pthread_mutex_lock(&pacer.lock);
+	pacer.in_flight_at_30 = at_30 == 1 || at_30 == 2 ? at_30 : 0;
+	pthread_mutex_unlock(&pacer.lock);
+}
+
 void frame_pacer_stop(void)
 {
 	pthread_mutex_lock(&pacer.lock);
@@ -140,6 +148,20 @@ void frame_pacer_frame_start(void)
 		return;
 	now = now_seconds();
 	pthread_mutex_lock(&pacer.lock);
+	/* (the limit follows the frame rate in force, which changes with the map's workload and the scene class; frames
+	already holding a slot give it back whatever the limit is) */
+	if (!pacer.system_source && pacer.flight.limit)
+	{
+		int limit = frame_pacer_in_flight_for(host_frame_rate_target(), pacer.in_flight, pacer.in_flight_at_30);
+
+		if (limit != pacer.flight.limit)
+		{
+			pacer.flight.limit = limit;
+			platform_log("frame pacer: %d frame%s in flight (display.frames_in_flight%s)", limit, limit == 1 ? "" : "s",
+				limit == pacer.in_flight ? "" : "_at_30, for a frame rate of 30 or lower");
+			pthread_cond_broadcast(&pacer.shown_or_ticked);
+		}
+	}
 	/* only for frames shown in step with the display, by the pacer's own
 	rules: drawing faster than the display there is nothing to be in time
 	for, and the system's pacer keeps its own time; and only while a frame's
@@ -389,3 +411,10 @@ uint32_t frame_pacer_vertical_blank_wait(void)
 }
 
 #endif
+
+/* A guest import, so defined whether or not the pacer is compiled in (the Vision Pro build has none: the compositor
+paces frames, and the value has nothing to limit). */
+void host_frames_in_flight_scene(int at_30)
+{
+	frame_pacer_in_flight_at_30_set(at_30);
+}

@@ -43,8 +43,9 @@ Custom Edition maps after the Xbox levels have their display indices
 (port/linux/game/menu_tags.c) */
 #define LEVEL_NAMES_TAG_NAME "ui\\shell\\main_menu\\mp_map_list"
 #define LEVEL_DESCRIPTIONS_TAG_NAME "ui\\shell\\main_menu\\multiplayer_type_select\\mp_map_select\\map_data"
-#define PC_LEVEL_NAMES_TAG_NAME "pc\\main_menu\\mp_map_list"
-#define PC_LEVEL_DESCRIPTIONS_TAG_NAME "pc\\main_menu\\multiplayer_type_select\\mp_map_select\\map_data"
+/* (the port's menus' copies of the two, which the menus' own code reads too) */
+#define PORT_LEVEL_NAMES_TAG_NAME "pc\\xbox\\main_menu\\mp_map_list"
+#define PORT_LEVEL_DESCRIPTIONS_TAG_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\mp_map_select\\map_data"
 
 /* ui\multiplayer_game_text holds 184 strings in the PAL release's maps
 (01.01.14.2342, the build this code is), but only the first 36 in the NTSC
@@ -216,9 +217,9 @@ static wchar_t *fallback_string(long tag_index, short string_index)
 	short fallback_index = string_index - FIRST_FALLBACK_MULTIPLAYER_GAME_TEXT_STRING;
 
 	/* (a Custom Edition map's name or description, by its display index) */
-	if (!csstrcasecmp(tag_name, LEVEL_NAMES_TAG_NAME) || !csstrcasecmp(tag_name, PC_LEVEL_NAMES_TAG_NAME))
+	if (!csstrcasecmp(tag_name, LEVEL_NAMES_TAG_NAME) || !csstrcasecmp(tag_name, PORT_LEVEL_NAMES_TAG_NAME))
 		return custom_edition_maps_name(string_index);
-	if (!csstrcasecmp(tag_name, LEVEL_DESCRIPTIONS_TAG_NAME) || !csstrcasecmp(tag_name, PC_LEVEL_DESCRIPTIONS_TAG_NAME))
+	if (!csstrcasecmp(tag_name, LEVEL_DESCRIPTIONS_TAG_NAME) || !csstrcasecmp(tag_name, PORT_LEVEL_DESCRIPTIONS_TAG_NAME))
 		return custom_edition_maps_description(string_index);
 	if (fallback_index < 0 ||
 		fallback_index >= (short)NUMBEROF(fallback_multiplayer_game_text_strings) ||

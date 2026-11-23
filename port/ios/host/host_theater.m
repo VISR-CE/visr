@@ -70,9 +70,17 @@ static BOOL open_anchored[MAXIMUM_DRAWABLES];
 the Compositor's frames since the last take, and the open frame's
 presentation time */
 static CFTimeInterval frame_waited;
+/* whether the latest of those waits began a frame at the game's frame begin (fresh), inside its render span */
+static int frame_waited_in_render;
 static CFTimeInterval open_presentation;
 /* when the Compositor wants the open frame submitted by (CACurrentMediaTime's clock) */
 static CFTimeInterval open_deadline;
+/* host_theater_set_frame_repeat's count until the next frame opens; -1 for none */
+static _Atomic int repeat_pending = -1;
+static void frame_repeat_apply(void);
+/* when the open frame's wait ended and it opened, which is when its poses are read (the same clock): measured,
+not the predicted optimal input time, so a frame opened late shows in the lead */
+static CFTimeInterval open_input;
 
 /* forgets the open frame without ending it: the space closed under it */
 static void frame_drop(void)
@@ -831,6 +839,7 @@ int host_theater_frame_begin(int fresh)
 		if (!host_theater_active() || cp_layer_renderer_get_state(layer_renderer) != cp_layer_renderer_state_running)
 			return 0;
 		/* waits for the Compositor's next frame, which paces the game to it */
+		frame_repeat_apply();
 		CFTimeInterval wait_began = CACurrentMediaTime();
 		cp_frame_t frame = cp_layer_renderer_query_next_frame(layer_renderer);
 		if (!frame)
@@ -843,8 +852,10 @@ int host_theater_frame_begin(int fresh)
 		/* the poses are freshest at the optimal input time */
 		cp_time_wait_until(cp_frame_timing_get_optimal_input_time(timing));
 		frame_waited += CACurrentMediaTime() - wait_began;
+		frame_waited_in_render = fresh;
 		open_presentation = cp_time_to_cf_time_interval(cp_frame_timing_get_presentation_time(timing));
 		open_deadline = cp_time_to_cf_time_interval(cp_frame_timing_get_rendering_deadline(timing));
+		open_input = CACurrentMediaTime();
 		cp_frame_start_submission(frame);
 		cp_drawable_array_t drawables = cp_frame_query_drawables(frame);
 		size_t count = cp_drawable_array_get_count(drawables);
@@ -911,11 +922,14 @@ cp_drawable_t host_theater_drawable(size_t index, simd_float4x4 *origin_from_dev
 	return open_drawables[index];
 }
 
-double host_theater_take_waited(void)
+double host_theater_take_waited(int *in_render)
 {
 	CFTimeInterval waited = frame_waited;
 
+	if (in_render)
+		*in_render = frame_waited_in_render;
 	frame_waited = 0.0;
+	frame_waited_in_render = 0;
 	return waited;
 }
 
@@ -924,9 +938,36 @@ double host_theater_presentation_time(void)
 	return open_frame ? open_presentation : 0.0;
 }
 
+double host_theater_last_presentation_time(void)
+{
+	return open_presentation;
+}
+
 double host_theater_rendering_deadline(void)
 {
 	return open_frame ? open_deadline : 0.0;
+}
+
+double host_theater_opened_time(void)
+{
+	return open_frame ? open_input : 0.0;
+}
+
+void host_theater_set_frame_repeat(int repeat)
+{
+	atomic_store(&repeat_pending, repeat < 0 ? 0 : repeat > 3 ? 3 : repeat);
+}
+
+/* the frame thread, before it asks for the next frame */
+static void frame_repeat_apply(void)
+{
+	int repeat = atomic_exchange(&repeat_pending, -1);
+
+	if (repeat < 0 || !layer_renderer)
+		return;
+	cp_layer_renderer_set_minimum_frame_repeat_count(layer_renderer, repeat);
+	host_logf(HOST_LOG_INFO, "stereo: the frame repeat count is %d (asked %d, live): a frame every %d refresh%s",
+		cp_layer_renderer_get_minimum_frame_repeat_count(layer_renderer), repeat, repeat + 1, repeat ? "es" : "");
 }
 
 int host_theater_frame_repeat(void)

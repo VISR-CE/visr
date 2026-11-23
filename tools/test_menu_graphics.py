@@ -26,6 +26,7 @@ typedef unsigned short word;
 #define MAXIMUM_STRINGS 64
 #define NUMBEROF(a) ((long)(sizeof(a) / sizeof((a)[0])))
 #include "PORT_GRAPHICS_MODES"
+#include "HALO_HOST_FLAGS"
 struct widget_instance
 {
     long definition_tag_index;
@@ -123,6 +124,9 @@ struct event_record { short type; union { struct { short index, value; } button;
 struct ui_widget_definition { long flags, list_flags; struct { long count; } event_handlers, child_widgets; };
 static int refusals;
 static void ui_play_audio_feedback_sound(short sound) { if (sound == 4) refusals++; else assert(sound == 1); }
+static struct widget_instance const *disabled_row;
+static boolean ui_widget_port_disabled_row_activation(struct widget_instance const *widget, short event_type)
+{ return disabled_row && widget == disabled_row && event_type == _gamepad_analog_button_a; }
 static void error(int level, char const *message, ...) { abort(); }
 static struct widget_instance *widget_instance_get_topmost_parent(struct widget_instance *widget)
 { return screen_of(widget); }
@@ -345,6 +349,27 @@ int main(void)
         assert(motion->parameters.list.selected_index == i);
     }
     assert(refusals == 22);
+    /* a disabled row (grayed INTERNET or SPLIT SCREEN) refuses A with exactly one failure sound, and nothing else */
+    {
+        struct event_record event = { .type = _event_type_button, .data.button = { _gamepad_analog_button_a, 1 } };
+        int before = refusals;
+
+        disabled_row = op_sync;
+        assert(widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+        event.data.button.index = _widget_event_dpad_left;
+        assert(!widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+        event.type = _event_type_left_stick;
+        event.data.stick.x = 32767;
+        assert(!widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+        event.type = _event_type_button;
+        event.data.button.index = _gamepad_analog_button_a;
+        event.data.button.value = 0;
+        assert(!widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+        event.data.button.value = 1;
+        assert(!widget_instance_port_refuse_graphics_edit(list, &event) && refusals == before + 1);
+        disabled_row = NULL;
+        assert(!widget_instance_port_refuse_graphics_edit(op_sync, &event) && refusals == before + 1);
+    }
     /* vertical sync is no setting the mode replaces */
     assert(sync->visible && !op_sync->disabled);
     /* a fixed row can be chosen, for its help, and says what it is fixed to */
@@ -491,7 +516,12 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         'static void graphics_help_text(', 'static void graphics_fixed_help(', 'static void graphics_apply_shown(',
         'static void graphics_rows_show('))
     functions = block((ROOT / 'port/linux/src/menu_files.c').read_text(), 'long halo_menus_utf16(') + '\n' + functions
+    # (menu_functions.c's declaration of the engine's focus rule, compiled below from ui_widget.c)
+    functions = ('enum halo_menu_focus_item { HALO_MENU_FOCUS_ROW, HALO_MENU_FOCUS_CARD };\n'
+                 'int ui_widget_port_draws_focus(enum halo_menu_focus_item item, int focused);\n' + functions)
     ui = (ROOT / 'source/interface/ui_widget.c').read_text()
+    # (the lists draw their focus only for a controller or a mouse: 0, no pointer)
+    functions += '\nstatic int halo_menu_pointer_controls(void) { return 0; }\n'
     functions += '\n' + '\n'.join(block(ui[ui.rindex(marker):], marker) for marker in (
         'static __inline boolean widget_instance_can_handle_events(',
         'static boolean widget_instance_port_is_label(',
@@ -506,6 +536,9 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         'static boolean widget_instance_port_refuse_graphics_edit(',
         'boolean widget_event_function_list_widget_goto_next_item(',
         'boolean widget_event_function_list_widget_goto_previous_item(',
+        'int ui_widget_port_draws_focus(',
+        'static enum halo_menu_focus_item ui_list_focus_item(',
+        'static boolean ui_list_child_draws_focus(',
         'static void column_list_update(', 'static void widget_instance_port_focus_child(',
         'static void widget_instance_tab_to_next_valid_widget(',
         'static void widget_instance_tab_to_previous_valid_widget('))
@@ -515,6 +548,7 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
     assert 'graphics_state_show(widget)' in invoke and 'hub_status_show(widget)' in invoke
     assert invoke.index('graphics_rows_show(widget)') < invoke.index('settings_help(widget)')
     program = PROGRAM.replace('PORT_GRAPHICS_MODES', str(ROOT / 'port/linux/src/port_graphics_modes.h')).replace(
+        'HALO_HOST_FLAGS', str(ROOT / 'port/linux/src/halo_host_flags.h')).replace(
         '/* PRODUCTION */', functions)
     probe, binary = tmp_path / 'graphics.c', tmp_path / 'graphics'
     probe.write_text(program)
@@ -566,7 +600,8 @@ int main(void)
     return 0;
 }
 '''
-    program = program.replace('PORT_GRAPHICS_MODES', str(ROOT / 'port/linux/src/port_graphics_modes.h'))
+    program = program.replace('PORT_GRAPHICS_MODES', str(ROOT / 'port/linux/src/port_graphics_modes.h')).replace(
+        'HALO_HOST_FLAGS', str(ROOT / 'port/linux/src/halo_host_flags.h'))
     probe, binary = tmp_path / "help.c", tmp_path / "help"
     probe.write_text(program)
     subprocess.run(['cc', '-Wall', '-Werror', '-Wno-unused-function', '-Wno-unused-variable',

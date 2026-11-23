@@ -51,6 +51,10 @@ static const struct knob knob_table[] = {
 	level) */
 	{ "graphics", "display.graphics", KNOB_STRING, 3, { "hardcore", "classic", "enhanced" },
 		{ "hardcore", "classic", "enhanced" } },
+	/* Vision Pro: the Compositor's frame repeat count, set live between frames (host_stereo_frame_repeat_set): a
+	frame every refresh (90 Hz, or the uneven cadence when frames run long), every second (steady 45) or every third
+	(steady 30). Shown by letter so a comparison does not lead with the rate */
+	{ "cadence", "display.frame_repeat", KNOB_INTEGER, 3, { "0", "1", "2" }, { "A", "B", "C" } },
 };
 #define KNOB_COUNT ((int)(sizeof(knob_table) / sizeof(*knob_table)))
 
@@ -68,6 +72,28 @@ static inline void knob_state_reset(struct knob_state *state)
 	state->selected = 0;
 	for (index = 0; index < KNOB_COUNT; index++)
 		state->value[index] = -1;
+}
+
+/* the knob for a setting's config name, or -1 */
+static inline int knob_find(const char *name)
+{
+	int index;
+
+	for (index = 0; name && index < KNOB_COUNT; index++)
+		if (!strcmp(knob_table[index].name, name))
+			return index;
+	return -1;
+}
+
+/* debug.knob_cycle_start: the chord starts on this setting's knob (a session's comparison needs no up or down
+presses); an empty or unknown name starts on the first */
+static inline void knob_state_start(struct knob_state *state, const char *name)
+{
+	int index = knob_find(name);
+
+	knob_state_reset(state);
+	if (index >= 0)
+		state->selected = index;
 }
 
 /* the position of the setting's value text among the knob's values: an exact match, else for numbers the nearest */

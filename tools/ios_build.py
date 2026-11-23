@@ -76,6 +76,16 @@ def run(*args):
 EXTENDED_ADDRESSING_MAC_ERROR = '--extended-virtual-addressing is for device builds, not --mac'
 
 
+def entry_points_check(build, configuration):
+    """the Metal backend's exported symbols in the object just built are all classed
+    (tools/gpu_metal_entry_points.py): each platform's build sees its own conditional exports"""
+    if __package__:
+        from . import gpu_metal_entry_points
+    else:
+        import gpu_metal_entry_points
+    gpu_metal_entry_points.check_build(build, configuration)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
@@ -133,7 +143,7 @@ def main():
                              'routes are shown to hold on other devices)')
     parser.add_argument('--local-routes', action='store_true',
                         help='native Mac development builds: run the unsigned benchmark/local-routes catalog '
-                             '(tools/replay_check.py, step-tools replay review) without bundling recordings')
+                             '(tools/replay_check.py, a replay review outside this repository) without bundling recordings')
     parser.add_argument('--archive-only', action='store_true',
                         help='with --app-store-package: stop after the archive. The export that follows is what '
                              'makes the distribution certificate and App Store profile')
@@ -407,6 +417,7 @@ def main():
                      '-destination',f'platform={system},id={args.register_device}','-quiet',
                      '-allowProvisioningUpdates','-allowProvisioningDeviceRegistration',f'SYMROOT={build}','build']
     run(*command)
+    entry_points_check(build, f'Release-{sdk}')
     app = build/f'Release-{sdk}/VISR.app'
     print(f'App: {app}')
     if args.ipa:

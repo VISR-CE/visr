@@ -113,6 +113,19 @@ static void game_state_revert(void) {
     }
 }
 static boolean network_coop_active(void) { return FALSE; }
+static unsigned char input_replay_playing(void) { return !strcmp(fault,"replay"); }
+static int config_scripted_run(void) { return !strcmp(fault,"scripted"); }
+static int config_boolean(const char *name) { (void)name; return 0; }
+/* the host's writer (port/runtime/save_writer.c, under port/ios/tests/save_writer_probe.c): the whole image or nothing */
+static int host_writes;
+static boolean saved_game_persist_write_now(const void *image, long size) {
+    char path[300]; FILE *file;
+    host_writes++;
+    if (!strcmp(fault,"write") || !strcmp(fault,"short") || !strcmp(fault,"seek") || !strcmp(fault,"header_write")) return FALSE;
+    snprintf(path,sizeof(path),"%ssavegame.bin",profile_directory);
+    file=fopen(path,"wb"); assert(file); assert(fwrite(image,1,(size_t)size,file)==(size_t)size); fclose(file);
+    return TRUE;
+}
 static void network_game_client_local_player_quit(short index) {}
 static long main_get_current_solo_level(void) { return 0; }
 static long player_ui_get_active_player_profile_index(short player) { (void)player; return !strcmp(fault,"no_profile") ? NONE : 0; }
@@ -131,7 +144,7 @@ int main(int argc, char **argv) {
         HANDLE file=game_state_open_persistent_storage(!strcmp(argv[2],"directory") ? profile_directory : NULL); ok=file!=INVALID_HANDLE_VALUE;
         if (ok) CloseHandle(file);
     }
-    printf("ok=%d writes=%d live=%d deletes=%d notes=%d reverts=%d menus=%d dialogs=%d paused=%d\n",
-        ok,writes,live,deletes,notes,reverts,menus,dialogs,paused);
+    printf("ok=%d writes=%d live=%d deletes=%d notes=%d reverts=%d menus=%d dialogs=%d paused=%d host_writes=%d\n",
+        ok,writes,live,deletes,notes,reverts,menus,dialogs,paused,host_writes);
     return 0;
 }

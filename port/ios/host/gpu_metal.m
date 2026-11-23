@@ -38,9 +38,14 @@ but never returns to its run loop, which would otherwise drain them.
 #include "ios_host.h"
 #include "metal_state_cache.h"
 #include "metal_scene_park.h"
+#include "metal_compute_grid.h"
+#include "metal_gate.h"
 /* GPU_VALIDATION_REPORT: this backend's fallbacks and skips, by name, in a
 build with render validation; nothing otherwise */
 #include "gpu_validate.h"
+#include "gpu_stream_ring.h"
+#include "frame_waits.h"
+#include "host_frame_timeline.h"
 #include "metal_compile_async.h"
 #include "metal_compile_progress.h"
 #include "host.h"
@@ -51,6 +56,7 @@ build with render validation; nothing otherwise */
 #include "halo_display.h"
 #include "host_output_cap.h"
 #include "host_output_sync.h"
+#include "host_window_stats.h"
 #include "host_game_thread.h"
 #include "host_external.h"
 
@@ -83,8 +89,10 @@ void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)))
 
 /* frames in flight, as gpu_gl.c's STREAM_BUFFER_RING */
 #define FRAMES 3
-/* the size of a transient chunk: gpu_gl.c's STREAM_BUFFER_SIZE */
+/* the size of a stream or snapshot chunk: gpu_gl.c's STREAM_BUFFER_SIZE */
 #define CHUNK_SIZE (16 * 1024 * 1024)
+/* the size of a chunk of the encoder's own fan and loop indices: a few hundred KB a frame at most */
+#define ENCODE_CHUNK_SIZE (2 * 1024 * 1024)
 /* constant buffer offsets: Metal's strictest alignment on any family */
 #define CONSTANT_ALIGNMENT 256
 
@@ -259,6 +267,9 @@ static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, 
 #if TARGET_OS_VISION
 #include "host_theater.h"
 #include "host_stereo_hud.h"
+#include "host_stereo_measure.h"
+/* a Compositor-paced frame's measurements, from every present path that shows one (with the stereo frame times) */
+static void stereo_pacing_count(int view, id<MTLTexture> picture);
 /* the cut's fade through black (gpu_metal_present_stereo) */
 static float stereo_cut_brightness(int view, int covered, int requested);
 #endif
@@ -335,7 +346,7 @@ static void msaa_options(void)
 	direct = getenv("HALO_MSAA_FILL_DIRECT");
 	msaa_keep_samples = keep && *keep == '1';
 	msaa_fill_direct = direct && *direct == '1';
-	msaa_stencil_export = [device supportsFamily:MTLGPUFamilyApple5] || [device supportsFamily:MTLGPUFamilyMac2];
+	msaa_stencil_export = metal_pass(METAL_PASS_MSAA_STENCIL_FILL);
 	platform_log("Metal: multisampling keeps %s samples between passes and fills them from %s; stencil %s written by "
 		"a fragment shader", msaa_keep_samples ? "every target's" : "depth's and stencil's",
 		msaa_fill_direct ? "the resolved texture itself" : "a copy of it", msaa_stencil_export ? "can be" : "cannot be");
@@ -522,7 +533,7 @@ static inline BOOL gpu_metal_gpu_spans(uint64_t *used, uint64_t *refused)
 	*refused = now_refused;
 	return measured;
 }
-static CFTimeInterval pacing_waited;
+/* (a frame's waits, which are not its work, are frame_waits.h's: taken by every present, shown or not) */
 
 #if TARGET_OS_VISION
 /* the presenters' command buffers (host_stereo.m, host_theater.m): their GPU
@@ -582,17 +593,25 @@ static struct
 	} slots[GPU_VISIBILITY_SLOTS];
 } visibility;
 
-/* ---------- transient memory: a frame slot's streams and constant snapshots,
-in chunks that live until the slot's frame comes around again */
+/* ---------- transient memory: a frame slot's constant snapshots and the
+indices the encoder writes for fans and loops, in chunks that live until the
+slot's frame comes around again. The front end's streams are the producer's
+(producer_streams, below) */
 
 struct transient
 {
 	/* chunk handles in the buffer table */
-	gpu_buffer chunks[64];
+	gpu_buffer chunks[GPU_STREAM_RING_CHUNKS];
 	unsigned long chunk_count, chunk, offset;
+	/* the smallest chunk made */
+	unsigned long chunk_size;
 };
 
-static struct transient streams[FRAMES], snapshots[FRAMES];
+static struct transient encode_streams[FRAMES] = {
+	[0 ... FRAMES - 1] = { .chunk_size = ENCODE_CHUNK_SIZE },
+}, snapshots[FRAMES] = {
+	[0 ... FRAMES - 1] = { .chunk_size = CHUNK_SIZE },
+};
 
 /* a handle's record, or nil: an array read, with no message. Macros, not functions: a function returning the
 record makes ARC retain it for the return and release it after, even inlined (about a sixth of a draw's own
@@ -603,7 +622,7 @@ __unsafe_unretained variable or passed on is not retained, and one assigned to a
 #define texture_record(handle) ((MetalTexture *)table_get(textures, (handle)))
 
 /* room for size bytes at alignment in the current chunk, moving to the next
-(created as needed, never smaller than CHUNK_SIZE) when it doesn't fit; never
+(created as needed, never smaller than its chunk_size) when it doesn't fit; never
 wraps, since recorded draws may still read what is behind */
 static MetalBuffer *transient_room(struct transient *memory, uint32_t size, uint32_t alignment)
 {
@@ -624,25 +643,11 @@ static MetalBuffer *transient_room(struct transient *memory, uint32_t size, uint
 		if (memory->chunk_count == sizeof(memory->chunks) / sizeof(memory->chunks[0]))
 			host_crash("Metal: a frame streamed more than %lu chunks", memory->chunk_count);
 		record = [MetalBuffer new];
-		record->buffer = [device newBufferWithLength:size > CHUNK_SIZE ? size : CHUNK_SIZE
+		record->buffer = [device newBufferWithLength:size > memory->chunk_size ? size : memory->chunk_size
 			options:MTLResourceStorageModeShared];
 		record->transient = YES;
 		memory->chunks[memory->chunk_count++] = [buffers add:record];
 	}
-}
-
-/* copies size bytes into transient memory; returns the offset and sets
-*buffer to the chunk's handle */
-static uint32_t transient_copy(struct transient *memory, const void *data, uint32_t size, uint32_t alignment,
-	gpu_buffer *buffer)
-{
-	MetalBuffer *record = transient_room(memory, size, alignment);
-	uint32_t offset = (uint32_t)memory->offset;
-
-	memcpy((unsigned char *)record->buffer.contents + offset, data, size);
-	memory->offset += size;
-	*buffer = memory->chunks[memory->chunk];
-	return offset;
 }
 
 static void transient_reset(struct transient *memory)
@@ -668,6 +673,31 @@ static unsigned perf_scene_lines;
 static CFTimeInterval perf_gpu_waited;
 static uint64_t perf_presentation_budget;
 
+/* development builds: the per-frame state (the frame slot, the open command buffer) is touched by one thread, the
+one that began the first frame (the encode queue's consumer, gpu_owner_check.h, checks the operations; this checks
+the backend's own paths into it, such as an output change run on another thread). Reported once */
+#ifdef HALO_DEVELOPMENT_HOOKS
+static pthread_t encode_owner;
+static BOOL encode_owner_known, encode_owner_reported;
+
+/* (frame_begin runs at the start of every command_buffer() call, so its check covers every path that encodes) */
+static void encode_thread_check(const char *where)
+{
+	if (!encode_owner_known)
+	{
+		encode_owner = pthread_self();
+		encode_owner_known = YES;
+	}
+	else if (!pthread_equal(encode_owner, pthread_self()) && !encode_owner_reported)
+	{
+		encode_owner_reported = YES;
+		platform_log("Metal: %s ran on a thread other than the one encoding frames (reported once)", where);
+	}
+}
+#else
+#define encode_thread_check(where) ((void)0)
+#endif
+
 /* waits for the frame slot about to be reused, once per frame, before
 anything writes into its transient memory */
 
@@ -675,12 +705,13 @@ static void frame_begin(void)
 {
 	CFTimeInterval waited;
 
+	encode_thread_check("frame_begin");
 	if (frame_started)
 		return;
 	waited = CACurrentMediaTime();
 	dispatch_semaphore_wait(frame_slots, DISPATCH_TIME_FOREVER);
-	pacing_waited += CACurrentMediaTime() - waited;
-	transient_reset(&streams[frame_slot]);
+	frame_waits_add_slot(waited, CACurrentMediaTime());
+	transient_reset(&encode_streams[frame_slot]);
 	transient_reset(&snapshots[frame_slot]);
 	frame_upscale_paths = 0;
 	perf_group = HOST_PERF_SCENE;
@@ -953,11 +984,18 @@ static void async_frame_end(void);
 
 /* commits the open command buffer; the frame's last one (at Present) also
 frees its frame slot when it completes */
+/* the serial of the command buffer that ended the last frame (commit(YES)): the frame's streams are free once it
+completes */
+static uint64_t frame_end_serial;
+
 static void commit(BOOL frame_end)
 {
 	id<MTLCommandBuffer> committed;
 	uint64_t serial = current_serial;
-	uint64_t perf_frame = host_perf_hooks_gpu_reserve();
+	uint64_t perf_frame;
+
+	encode_thread_check("commit");
+	perf_frame = host_perf_hooks_gpu_reserve();
 
 	NSData *pending = visibility.pending;
 	id<MTLBuffer> results = visibility_buffer;
@@ -1035,6 +1073,8 @@ static void commit(BOOL frame_end)
 	[committed commit];
 	last_committed = committed;
 	commands = nil;
+	if (frame_end)
+		frame_end_serial = serial;
 	current_serial++;
 	write_epoch = ++epochs;
 	if (frame_end)
@@ -1739,7 +1779,8 @@ static void gpu_metal_buffer_write(gpu_buffer buffer, uint32_t offset, uint32_t 
 	{
 		MetalBuffer *record = buffer_record(buffer);
 
-		if (!record || offset > record->buffer.length || size > record->buffer.length - offset)
+		/* (a stream chunk is the producer's: written only by gpu_metal_stream, never renamed) */
+		if (!record || record->transient || offset > record->buffer.length || size > record->buffer.length - offset)
 			return;
 		/* a range no queued draw reads (GPU_WRITE_UNUSED), or a buffer nothing
 		recorded or running uses, takes the write in place; otherwise the
@@ -1759,31 +1800,120 @@ static void gpu_metal_buffer_write(gpu_buffer buffer, uint32_t offset, uint32_t 
 	}
 }
 
+/* ---------- the producer's streams (gpu_stream_ring.h): touched only by
+the caller of stream, stream_reserve and stream_frame_end, never by the
+encoder, which marks a chunk used when a draw names it. Each chunk's record is
+made at initialize, so the buffer table changes only on the encoder's side;
+the producer assigns a record its buffer before any record naming the chunk
+is written. PRODUCER_LEAD: frames the producer may run ahead of the encoder:
+none, since a frame ahead would read input a refresh earlier than the display
+needs it (the present is a barrier; the encode thread design's revision 4) */
+#define PRODUCER_LEAD 0
+/* the most sets the ring may get (the encode queue on); with it off, FRAMES (gpu_stream_ring_set_count) */
+#define PRODUCER_FRAMES (FRAMES + 1 + PRODUCER_LEAD)
+_Static_assert(PRODUCER_FRAMES <= GPU_STREAM_RING_SETS, "the producer's ring has room for its sets");
+
+static struct gpu_stream_ring producer_streams;
+static gpu_buffer producer_handles[PRODUCER_FRAMES][GPU_STREAM_RING_CHUNKS];
+static __unsafe_unretained MetalBuffer *producer_records[PRODUCER_FRAMES][GPU_STREAM_RING_CHUNKS];
+
+static int producer_grow(void *context, unsigned set, unsigned index, uint32_t size, struct gpu_stream_chunk *chunk)
+{
+	__unsafe_unretained MetalBuffer *record = producer_records[set][index];
+
+	(void)context;
+	record->buffer = [device newBufferWithLength:size > CHUNK_SIZE ? size : CHUNK_SIZE
+		options:MTLResourceStorageModeShared];
+	if (!record->buffer)
+		return 0;
+	chunk->handle = producer_handles[set][index];
+	chunk->contents = record->buffer.contents;
+	chunk->length = record->buffer.length;
+	return 1;
+}
+
+static uint64_t producer_completed(void *context)
+{
+	(void)context;
+	return atomic_load(&completed_serial);
+}
+
+/* (rare: the ring has a set more than the frames in flight) */
+static void producer_wait(void *context, uint64_t serial)
+{
+	CFTimeInterval waited = CACurrentMediaTime();
+
+	(void)context;
+	while (atomic_load(&completed_serial) < serial)
+	{
+		static BOOL reported;
+
+		/* (as frame_begin waits for a frame slot without a limit; a command buffer that never completes is logged) */
+		if (!reported && CACurrentMediaTime() - waited > 1.0)
+		{
+			reported = YES;
+			platform_log("Metal: the stream ring has waited over 1 s for command buffer %llu (reported once)",
+				(unsigned long long)serial);
+		}
+		usleep(100);
+	}
+	frame_waits_add_game(CACurrentMediaTime() - waited);
+}
+
+static void producer_log(void *context, const char *line)
+{
+	(void)context;
+	platform_log("Metal: %s", line);
+}
+
+/* (a present came without its stream_frame_end, or the producer ran a ring ahead: the set's streams may still be
+read, so going on would draw with overwritten vertices) */
+static void producer_unstamped(void *context, unsigned long frame)
+{
+	(void)context;
+	host_crash("Metal: frame %lu's stream set was met before its present was encoded", frame);
+}
+
+static void producer_streams_initialize(void)
+{
+	struct gpu_stream_ring_owner owner = {
+		.grow = producer_grow, .completed = producer_completed, .wait = producer_wait, .log = producer_log,
+		.unstamped = producer_unstamped, .lead = PRODUCER_LEAD,
+	};
+	unsigned set, index, sets = gpu_stream_ring_set_count(FRAMES, PRODUCER_LEAD, host_gpu_encode_queue_on());
+
+	for (set = 0; set < sets; set++)
+		for (index = 0; index < GPU_STREAM_RING_CHUNKS; index++)
+		{
+			MetalBuffer *record = [MetalBuffer new];
+
+			record->transient = YES;
+			producer_records[set][index] = record;
+			producer_handles[set][index] = [buffers add:record];
+		}
+	gpu_stream_ring_init(&producer_streams, sets, &owner);
+}
+
 static void gpu_metal_stream_reserve(uint32_t vertex_bytes, uint32_t index_bytes)
 {
-	@autoreleasepool
-	{
-		/* a new chunk never discards the frame's earlier streams, so there is
-		nothing to keep together; only the slot must be ours */
-		frame_begin();
-	}
+	(void)vertex_bytes;
+	(void)index_bytes;
+	/* a new chunk never discards the frame's earlier streams, so there is nothing to keep together; only the set
+	must be free */
+	gpu_stream_ring_reserve(&producer_streams);
 }
 
 static uint32_t gpu_metal_stream(uint32_t kind, const void *data, uint32_t size, gpu_buffer *buffer)
 {
-	@autoreleasepool
-	{
-		__unsafe_unretained MetalBuffer *record;
-		uint32_t offset;
+	/* copies size bytes and keeps the next stream 16-aligned (gpu_gl.c copies the rounded size, reading past the
+	caller's data) */
+	uint32_t offset = gpu_stream_ring_copy(&producer_streams, data, size, 16, buffer);
 
-		frame_begin();
-		/* copies size bytes and keeps the next stream 16-aligned (gpu_gl.c
-		copies the rounded size, reading past the caller's data) */
-		offset = transient_copy(&streams[frame_slot], data, size, 16, buffer);
-		record = buffer_record(*buffer);
-		use_buffer(record);
-		return offset;
-	}
+	(void)kind;
+	if (offset == UINT32_MAX)
+		host_crash("Metal: no room for a %u-byte stream (a frame streamed more than %d chunks, or a chunk could not be "
+			"made)", size, GPU_STREAM_RING_CHUNKS);
+	return offset;
 }
 
 /* ---------- shaders */
@@ -2073,7 +2203,7 @@ static NSArray *test_map(NSUInteger width, NSUInteger height)
 		float side = sides[0], top = tops[0];
 		int index, tried;
 
-		if (![device supportsRasterizationRateMapWithLayerCount:1])
+		if (!metal_pass(METAL_PASS_RATE_MAP))
 		{
 			platform_log("Metal: debug.rate_map_test: this GPU has no rate maps");
 			rate_map_test = NO;
@@ -2572,7 +2702,7 @@ static id<MTLRenderPipelineState> crt_pipeline;
 
 /* The guest commits the effective mode and switch before rendering, including unsaved previews. */
 static BOOL crt_enabled;
-void gpu_metal_set_crt(int enabled)
+static void gpu_metal_set_crt(int enabled)
 {
 	if (crt_enabled != (enabled != 0))
 		platform_log("Metal: CRT effect %s", enabled ? "on" : "off");
@@ -3326,6 +3456,9 @@ static void draw_attributes_decide(const struct gpu_draw *draw, struct draw_attr
 
 		attributes->records[index] = attribute->stream < GPU_STREAM_CONSTANT ?
 			buffer_record(draw->streams[attribute->stream].buffer) : nil;
+		/* (a producer chunk's record made at initialize has no buffer until the ring grows into it) */
+		if (attributes->records[index] && !attributes->records[index]->buffer)
+			attributes->records[index] = nil;
 		attributes->kinds[index] = attributes->records[index] ? attribute->format : 0;
 	}
 }
@@ -3439,7 +3572,7 @@ static void archive_open(void)
 	NSUInteger index;
 
 	/* binary archives need GPU family Apple3 (an A9) or a Mac */
-	if (![device supportsFamily:MTLGPUFamilyApple3] && ![device supportsFamily:MTLGPUFamilyMac2])
+	if (!metal_feature(METAL_FEATURE_BINARY_ARCHIVES))
 	{
 		platform_log("Metal: no pipeline archive (this GPU has no binary archives); every launch compiles its pipelines");
 		return;
@@ -3812,6 +3945,12 @@ static void gpu_metal_compile_progress(uint32_t action, struct gpu_compile_progr
 static uint32_t gpu_metal_compiles_outstanding(void)
 {
 	return (uint32_t)atomic_load(&compiles_outstanding);
+}
+
+/* the frame's streams end (gpu_backend.h's GPU_HOST_OPERATIONS): its set waits for its present's stamp */
+static void gpu_metal_stream_frame_end(void)
+{
+	gpu_stream_ring_frame_end(&producer_streams);
 }
 
 /* ---------- compiling at map load (gpu.h; the front end's shader_list.c) */
@@ -4522,7 +4661,7 @@ the vertex count, 0 if there's nothing to draw */
 handle and offset, and where to write them */
 static uint32_t *stream_indices(uint32_t count, gpu_buffer *buffer, uint32_t *offset)
 {
-	struct transient *memory = &streams[frame_slot];
+	struct transient *memory = &encode_streams[frame_slot];
 	MetalBuffer *record = transient_room(memory, count * (uint32_t)sizeof(uint32_t), 4);
 	uint32_t *indices = (uint32_t *)((unsigned char *)record->buffer.contents + memory->offset);
 
@@ -4853,7 +4992,8 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 		{
 			__unsafe_unretained MetalBuffer *record = buffer_record(draw->index_buffer);
 
-			if (!record)
+			/* (a producer chunk's record has no buffer until the ring grows into it) */
+			if (!record || !record->buffer)
 			{
 				GPU_VALIDATION_REPORT(GPU_VALIDATION_DRAW_DROPPED, 3, "Metal: index buffer %u does not exist; the draw is "
 					"dropped", draw->index_buffer);
@@ -5160,12 +5300,10 @@ static int compare_times(const void *a, const void *b)
 /* the median and 95th percentile of count times, in milliseconds (sorts them) */
 static void pacing_percentiles(double *times, unsigned long count, double *median, double *high)
 {
-	*median = *high = 0.0;
-	if (!count)
-		return;
-	qsort(times, count, sizeof(*times), compare_times);
-	*median = times[count / 2] * 1000.0;
-	*high = times[count * 95 / 100] * 1000.0;
+	struct host_window_stats stats = host_window_stats(times, count);
+
+	*median = stats.median * 1000.0;
+	*high = stats.high * 1000.0;
 }
 
 static void frame_log_start(void);
@@ -5547,7 +5685,7 @@ __attribute__((unused)) static int virtual_display_present(id<MTLCommandBuffer> 
 real time for a while, paced by the display as a presented launch's are, and then not again. The pacing
 thread starts at the first such frame and stays */
 static BOOL fixed_timestep_launch;
-void gpu_metal_benchmark_realtime(int on)
+static void gpu_metal_benchmark_realtime(int on)
 {
 	if (!fixed_timestep_launch)
 		return;
@@ -5842,7 +5980,7 @@ static void frame_context_wait(void)
 		while (atomic_load(&refresh_count) < presented_at + (unsigned long)refreshes && CACurrentMediaTime() - began < 0.25)
 			usleep(500);
 		/* (not the frame's work: the CPU times in the log leave it out) */
-		pacing_waited += CACurrentMediaTime() - began;
+		frame_waits_add_display(CACurrentMediaTime() - began);
 	}
 	presented_at = atomic_load(&refresh_count);
 }
@@ -5872,10 +6010,12 @@ static struct
 {
 	int state;               /* FRAME_DEADLINE_*: 0 not set up, 1 joined, 2 left (rejoins at the next frame), -1 off */
 	os_workgroup_interval_t interval;
-	struct os_workgroup_join_token_opaque_s token;
+	struct os_workgroup_join_token_opaque_s token, producer_token;
 	pthread_t thread;        /* the thread that joined: a workgroup is left on the thread that joined it */
+	int producer_joined;     /* with the encode thread, the game thread joined as well (frame_deadline_join) */
 	int open, start_failed;
 	int held;                /* a UIKit dialog is up over the game: no frame joins (gpu_metal_frame_deadline_hold) */
+	uint64_t deadline;       /* the open interval's deadline (mach time) */
 	mach_timebase_info_data_t timebase;
 } frame_deadline;
 
@@ -5945,14 +6085,54 @@ static void frame_deadline_begin(BOOL offscreen)
 			NULL);
 
 		frame_deadline.open = started == 0;
+		frame_deadline.deadline = now + (uint64_t)(period * 1e9 * (double)frame_deadline.timebase.denom /
+			(double)frame_deadline.timebase.numer);
 		if (started && !frame_deadline.start_failed++)
 			host_logf(HOST_LOG_ERROR, "Metal: a frame's deadline was refused (os_workgroup_interval_start %d)", started);
 	}
 }
 
-/* the frame's work ends now (Present is about to wait, or the dispatch to hold in the background) */
+/* the pacer's late start slept this long after the interval began at Present's return: the frame's work begins now,
+toward the same deadline */
+/* With the encode thread (debug.encode_thread = "thread") Present runs there, so that thread joins and starts each
+frame's interval; the game thread, whose translation is the frame's other half, joins the same workgroup at its next
+frame start. The two never touch the interval at once: the game thread does (frame_deadline_late_start) only after
+the present barrier, while the encode thread waits for the next frame's records. */
+static void frame_deadline_join(void)
+{
+	if (frame_deadline.state != FRAME_DEADLINE_JOINED || frame_deadline.producer_joined ||
+		pthread_equal(frame_deadline.thread, pthread_self()))
+		return;
+	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+		frame_deadline.producer_joined = os_workgroup_join(frame_deadline.interval, &frame_deadline.producer_token) ? -1 :
+			1;
+}
+
+static void frame_deadline_late_start(double slept)
+{
+	if (slept < 0.0002 || !frame_deadline.open)
+		return;
+	if (!frame_deadline_interval_member(pthread_equal(frame_deadline.thread, pthread_self()),
+			frame_deadline.producer_joined))
+		return;
+	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+	{
+		uint64_t now = mach_absolute_time();
+
+		os_workgroup_interval_finish(frame_deadline.interval, NULL);
+		frame_deadline.open = now < frame_deadline.deadline &&
+			!os_workgroup_interval_start(frame_deadline.interval, now, frame_deadline.deadline, NULL);
+	}
+}
+
+/* the frame's work ends now (Present is about to wait, or the dispatch to hold in the background). With the encode
+thread, a game thread that has not joined (before its first late start, or a join that failed) leaves the end to the
+encode thread's present (frame_deadline_interval_member). */
 void gpu_metal_frame_deadline_end(void)
 {
+	if (!frame_deadline_interval_member(pthread_equal(frame_deadline.thread, pthread_self()),
+			frame_deadline.producer_joined))
+		return;
 	if (frame_deadline.open)
 	{
 		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
@@ -6015,14 +6195,17 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	CFTimeInterval now = CACurrentMediaTime(), period, hold, interval;
 	long context_refreshes;
 	uint64_t gpu_total = atomic_load(&pacing_gpu_nanoseconds);
-	double cpu, gpu, simulation_cpu, render_cpu, translation_cpu;
+	double cpu, gpu, simulation_cpu, render_cpu, translation_cpu, waited;
+	struct frame_waits_taken waits;
 	long lower, up;
 	int ticks;
 	BOOL gpu_measured;
 
 	*next_frame_due = 0;
 	host_frame_cpu_split(&simulation_cpu, &render_cpu, &translation_cpu, &ticks);
-	cpu = pacing.work_started > 0.0 ? now - pacing.work_started - pacing_waited : 0.0;
+	waits = frame_waits_take(host_gpu_present_called());
+	waited = waits.cpu;
+	cpu = pacing.work_started > 0.0 ? now - pacing.work_started - waited : 0.0;
 	/* (shadow mode's CPU input also leaves out readback and visibility waits;
 	pacing, the benchmark and reports without it keep the plain figure) */
 	{
@@ -6036,8 +6219,10 @@ static CFTimeInterval pacing_schedule(BOOL shown, uint32_t *next_frame_due)
 	pacing.gpu_counted = gpu_total;
 	/* (no measurement, not an idle GPU: the benchmark keeps it apart) */
 	gpu_measured = gpu_metal_gpu_spans(&pacing.gpu_used, &pacing.gpu_refused);
-	host_perf_hooks_pacing(pacing_waited > 0.0 ? (uint64_t)(pacing_waited * 1e6) : 0);
-	pacing_waited = 0.0;
+	host_perf_hooks_pacing(waited > 0.0 ? (uint64_t)(waited * 1e6) : 0);
+	/* (the row's display wait is inside the frame: not the late start, which is before the controller read; with the
+	encode thread, the part of the barrier that is not encoding) */
+	host_frame_timeline_waits(waits.display, -1.0);
 	interval = pacing.last_present > 0.0 ? now - pacing.last_present : 0.0;
 	pacing.last_present = now;
 	os_unfair_lock_lock(&pacing_lock);
@@ -6331,6 +6516,7 @@ static void gpu_metal_frame_start(void)
 {
 #if HALO_FRAME_PACING
 	static uint64_t counted;
+	double slept;
 	uint64_t total = atomic_load(&pacing_gpu_nanoseconds);
 
 	frame_pacer_gpu_time((double)(total - counted) / 1e9);
@@ -6378,8 +6564,19 @@ static void gpu_metal_frame_start(void)
 	}
 	counted = total;
 	/* (debug.benchmark_offscreen: nothing waits on the display) */
+	slept = CACurrentMediaTime();
 	if (!render_offscreen_active())
 		frame_pacer_frame_start();
+	slept = CACurrentMediaTime() - slept;
+	/* the late start's sleep is a wait, not the frame's work: it leaves the frame's CPU time, and the frame's deadline
+	interval starts after it (the input latency audit, revision 2 item 1) */
+	frame_waits_add_game(slept);
+#if !TARGET_OS_VISION
+	frame_deadline_join();
+	frame_deadline_late_start(slept);
+	if (!render_offscreen_active())
+		host_frame_timeline_late_start(slept);
+#endif
 #endif
 }
 
@@ -6574,7 +6771,7 @@ static int output_change(void *new_layer, void *screen, int width, int height, i
     return applied;
 }
 
-int gpu_metal_output(void *new_layer, void *screen, int width, int height)
+static int gpu_metal_output(void *new_layer, void *screen, int width, int height)
 {
     return output_change(new_layer,screen,width,height,0);
 }
@@ -6608,7 +6805,7 @@ static BOOL output_cap_layer(CAMetalLayer *target, int width, int height)
 	return changed;
 }
 
-void gpu_metal_request_output_cap(int cap)
+static void gpu_metal_request_output_cap(int cap)
 {
 	/* (below zero: forget one still waiting) */
 	if(host_game_thread_enabled())host_output_request_set(&output_cap_request,cap);
@@ -6617,13 +6814,13 @@ void gpu_metal_request_output_cap(int cap)
 
 /* (a cap is for the built-in output: while an external output is in use one asked for waits, and counts as settled,
    until the game is back on the device's own screen) */
-int gpu_metal_output_cap_settled(void)
+static int gpu_metal_output_cap_settled(void)
 {
 	return (host_game_thread_enabled()?host_output_request_cap(host_output_request_read(&output_cap_request)):
         atomic_load(&output_cap_pending)) < 0 || host_external_active();
 }
 
-void gpu_metal_output_cap_commit(void)
+static void gpu_metal_output_cap_commit(void)
 {
 #if TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST)
 	int threaded=host_game_thread_enabled();
@@ -6672,7 +6869,7 @@ void gpu_metal_output_cap_commit(void)
 #endif
 }
 
-void gpu_metal_set_upscaler(int metalfx)
+static void gpu_metal_set_upscaler(int metalfx)
 {
 	metalfx_requested = metalfx != 0;
 #ifdef HAVE_METALFX
@@ -6682,7 +6879,7 @@ void gpu_metal_set_upscaler(int metalfx)
 #endif
 }
 
-int gpu_metal_upscaler(void)
+static int gpu_metal_upscaler(void)
 {
 	return metalfx_requested ? 1 : 0;
 }
@@ -7764,6 +7961,20 @@ static struct
 	unsigned long passes;
 } ssao;
 
+/* ssao_gather trades its neighbors' positions with simd_shuffle, a SIMD-scoped permute: Apple GPU family 6 (A13) and
+later, and Macs. Earlier GPUs draw without ambient occlusion (gpu_capabilities.ambient_occlusion). */
+static BOOL ssao_supported(void)
+{
+	return metal_pass(METAL_PASS_AMBIENT_OCCLUSION);
+}
+
+/* soft particle edges (host_soft_depth_prepare) take the Metal gate's answer for the pass (the SOFT_PARTICLES row in
+metal_gate.h holds the floor and the reason); gpu_capabilities.soft_particles tells the front end and the reports */
+static BOOL soft_particles_supported(void)
+{
+	return metal_pass(METAL_PASS_SOFT_PARTICLES);
+}
+
 static BOOL ssao_programs(void)
 {
 	NSError *error = nil;
@@ -7776,6 +7987,11 @@ static BOOL ssao_programs(void)
 		return !ssao.failed;
 	ssao.tried = YES;
 	ssao.failed = YES;
+	if (!ssao_supported())
+	{
+		platform_log("ssao: this GPU has no SIMD-group permutes (Apple GPU family 6), so there is no ambient occlusion");
+		return NO;
+	}
 	library = [device newLibraryWithSource:ssao_source options:nil error:&error];
 	if (!library)
 	{
@@ -7867,8 +8083,7 @@ static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePip
 	unsigned long width, unsigned long height)
 {
 	[compute setComputePipelineState:pipeline];
-	[compute dispatchThreadgroups:MTLSizeMake((width + 7) / 8, (height + 7) / 8, 1)
-		threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
+	metal_dispatch_grid(compute, MTLSizeMake(width, height, 1), MTLSizeMake(8, 8, 1));
 }
 
 
@@ -7895,7 +8110,7 @@ static BOOL ssao_timing_on(void)
 		id<MTLCounterSet> timestamps = nil;
 
 		ssao_timing.state = -1;
-		if (!getenv("HALO_SSAO_TIMING") || ![device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary])
+		if (!getenv("HALO_SSAO_TIMING") || !metal_feature(METAL_FEATURE_COUNTER_SAMPLING_STAGE))
 			return NO;
 		for (id<MTLCounterSet> set in device.counterSets)
 			if ([set.name isEqualToString:MTLCommonCounterSetTimestamp])
@@ -7985,16 +8200,20 @@ static id<MTLComputeCommandEncoder> ssao_encoder(id<MTLComputeCommandEncoder> sh
 	return [command_buffer() computeCommandEncoderWithDescriptor:pass];
 }
 
-void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count)
+/* (the guest's host_ssao_apply with no values: a level's warm-up, which needs only the programs, before any render
+target exists) */
+static void gpu_metal_ssao_warm(void)
 {
 	@autoreleasepool
 	{
-		/* Level-load warming needs only the programs, before any render resources are available. */
-		if (count == 0)
-		{
-			ssao_programs();
-			return;
-		}
+		ssao_programs();
+	}
+}
+
+static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count)
+{
+	@autoreleasepool
+	{
 		MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
 		struct ssao_parameters p;
 		struct ssao_composite_parameters c;
@@ -8486,7 +8705,7 @@ static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, NSUInteger conten
 			descriptor.outputTextureFormat = back_buffer.pixelFormat;
 			/* the game's colors are display-encoded, not linear */
 			descriptor.colorProcessingMode = MTLFXSpatialScalerColorProcessingModePerceptual;
-			if (![MTLFXSpatialScalerDescriptor supportsDevice:device] ||
+			if (!metal_pass(METAL_PASS_METALFX_SPATIAL) ||
 				!(upscaler = [descriptor newSpatialScalerWithDevice:device]))
 			{
 				platform_log("Metal: MetalFX's spatial scaler is unavailable; the picture is scaled bilinearly");
@@ -8894,11 +9113,14 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 	}
 }
 
-static uint32_t gpu_metal_present(gpu_texture back_buffer)
+static uint32_t present_frame(gpu_texture back_buffer)
 {
 	@autoreleasepool
 	{
 		MetalTexture *record = texture_record(back_buffer);
+		/* (the frame's slot first: frame_begin resets perf_group, and a frame whose first command is its present
+		would otherwise lose the HUD group set here) */
+		frame_begin();
         perf_group = HOST_PERF_HUD;
         static BOOL perf_capability_noted;
         if (host_perf_hooks_dynamic_enabled()) {
@@ -8918,7 +9140,7 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
         if (host_perf_hooks_dynamic_enabled() && !perf_capability_noted) {
             if (!host_perf_metal_stage_supported())
                 platform_log("DRS: no stage-boundary GPU timing; the planner uses command-buffer GPU spans (coarse)");
-            else if (![device supportsCounterSampling:MTLCounterSamplingPointAtDrawBoundary])
+            else if (!metal_feature(METAL_FEATURE_COUNTER_SAMPLING_DRAW))
                 platform_log("DRS shadow: sampling separate upscale and HUD stages");
             perf_capability_noted = YES;
         }
@@ -8954,6 +9176,7 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 			use_texture(record);
 			commit(YES);
 			host_stereo_present_ui(queue, record->texture, nil, stereo_cut_brightness(HOST_STEREO_VIEW_UI, 0, 0));
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_UI_QUAD, record->texture);
 			frames++;
 			pacing.work_started = CACurrentMediaTime();
 		perf_gpu_waited = 0.0;
@@ -8988,6 +9211,8 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 			use_texture(record);
 			commit(YES);
 			host_theater_present(queue, picture);
+			/* (the picture the GPU shaded, before the upscale to the screen's size) */
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_THEATER_SCREEN, source_picture);
 			frames++;
 			pacing.work_started = CACurrentMediaTime();
 		perf_gpu_waited = 0.0;
@@ -9053,11 +9278,7 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 			os_unfair_lock_unlock(&pacing_lock);
 			usleep((useconds_t)((period >= 1.0 / 240.0 && period <= 1.0 / 20.0 ? period : 1.0 / 60.0) * 1e6));
 		}
-		pacing_waited += CACurrentMediaTime() - waited;
-		/* (a frame not shown isn't scheduled, so its waits aren't taken up
-		there: they mustn't count against the next frame that is) */
-		if (unsynced && !drawable)
-			pacing_waited = 0.0;
+		frame_waits_add_display(CACurrentMediaTime() - waited);
 		if (drawable)
 			target = drawable.texture;
 		/* nil in the background (or held, or unsynchronized with none ready):
@@ -9161,6 +9382,17 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 					gpu_metal_presentation_observe(drawable, CACurrentMediaTime(), frame_context.scene_class == 2,
 						presentation_transition);
 #if !TARGET_OS_SIMULATOR
+					/* (debug.latency_log only: the frame timeline row's shown time) */
+					if (host_frame_timeline_logging())
+					{
+						uint64_t timeline_frame = host_frame_timeline_frame_id();
+
+						[drawable addPresentedHandler:^(id<MTLDrawable> shown) {
+							host_frame_timeline_shown(timeline_frame, shown.presentedTime);
+						}];
+					}
+#endif
+#if !TARGET_OS_SIMULATOR
                     /* (shadow mode only: no block or callback per frame otherwise) */
                     if (host_perf_hooks_dynamic_enabled())
                     {
@@ -9209,7 +9441,12 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 			}
 		}
 		else
+		{
+			/* (a frame not shown isn't scheduled, but its waits are still its own: its row gets its display wait,
+			and nothing lands on the next frame's) */
+			host_frame_timeline_waits(frame_waits_take(host_gpu_present_called()).display, -1.0);
 			host_benchmark_frame_unshown(drawable || offscreen || virtual_texture >= 0 ? 1 : 0);
+		}
 		/* (a virtual display's texture the frame had no picture for goes back) */
 		if (virtual_texture >= 0)
 		{
@@ -9360,31 +9597,130 @@ static struct
 	long before the presentation that deadline was */
 	double lateness[PACING_TIMED_FRAMES];
 	double deadline_lead;
+	/* the display's refresh period as the last report measured it (90 Hz's before the first) */
+	CFTimeInterval period;
+	uint64_t gpu_used, gpu_refused;
 	unsigned long timed, frames, late;
+	/* the cadence line: whether each frame ran a tick, its tick and render seconds (the render: its CPU time less
+	the tick's), and the distance from its opening (its poses) to the presentation */
+	char ticked[PACING_TIMED_FRAMES];
+	double tick_times[PACING_TIMED_FRAMES], render_times[PACING_TIMED_FRAMES];
+	double pose_leads[PACING_TIMED_FRAMES];
 } stereo_pacing;
 
-static void stereo_pacing_count(void)
+/* the refreshes a stereo frame was shown for, from its interval: 1 to most */
+static long stereo_refreshes_shown(double interval, CFTimeInterval period, long most)
 {
-	CFTimeInterval now = CACurrentMediaTime();
-	CFTimeInterval waited = host_theater_take_waited();
-	CFTimeInterval presentation = host_theater_presentation_time();
-	CFTimeInterval interval = 0.0;
+	long up = lround(interval / period);
+
+	return up < 1 ? 1 : up > most ? most : up;
+}
+
+/* the cadence line's percentiles over the frames that did (ticked 1) or did not (0) run a tick; -1: all frames */
+static void stereo_cadence_percentiles(const double *times, int ticked, double *median, double *high)
+{
+	static double picked[PACING_TIMED_FRAMES];
+	unsigned long index, count = 0;
+
+	for (index = 0; index < stereo_pacing.timed; index++)
+		if (ticked < 0 || stereo_pacing.ticked[index] == ticked)
+			picked[count++] = times[index];
+	pacing_percentiles(picked, count, median, high);
+}
+
+/* "stereo: cadence" (the headset cadence measurements): frames with and without a tick against the refreshes
+they were shown for, so the report says whether the tick frames are the ones that miss. A frame's presentation is
+predicted when it opens, after its tick and the previous frame's render and GPU work, so a late frame's own work is
+its tick plus the previous frame's render and GPU time; a late frame whose own work fit one refresh was paced by
+the system and is counted apart. (The previous record is the previous frame except after a load or the background,
+which the record skips.) */
+static void stereo_cadence_report(CFTimeInterval period)
+{
+	unsigned long shown[2][4] = { { 0 } }, paced = 0, index;
+	double tick_median, tick_high, render_tick_median, render_tick_high, render_median, render_high;
+	double pose_median, pose_high;
+
+	for (index = 0; index < stereo_pacing.timed; index++)
+	{
+		long up = stereo_refreshes_shown(stereo_pacing.intervals[index], period, 3);
+
+		shown[stereo_pacing.ticked[index] ? 1 : 0][up]++;
+		if (up >= 2 && index > 0 && stereo_pacing.tick_times[index] + stereo_pacing.render_times[index - 1] <= period &&
+			stereo_pacing.gpu_times[index - 1] <= period)
+			paced++;
+	}
+	stereo_cadence_percentiles(stereo_pacing.tick_times, 1, &tick_median, &tick_high);
+	stereo_cadence_percentiles(stereo_pacing.render_times, 1, &render_tick_median, &render_tick_high);
+	stereo_cadence_percentiles(stereo_pacing.render_times, 0, &render_median, &render_high);
+	stereo_cadence_percentiles(stereo_pacing.pose_leads, -1, &pose_median, &pose_high);
+	platform_log("stereo: cadence: tick frames shown for 1/2/3+ refreshes %lu/%lu/%lu, other frames %lu/%lu/%lu, "
+		"%lu of the late ones paced by the Compositor; tick %.1f ms (95th %.1f), render %.1f ms (95th %.1f) with a "
+		"tick and %.1f ms (95th %.1f) without; pose to presentation %.1f ms (95th %.1f)", shown[1][1], shown[1][2],
+		shown[1][3], shown[0][1], shown[0][2], shown[0][3], paced, tick_median, tick_high, render_tick_median,
+		render_tick_high, render_median, render_high, pose_median, pose_high);
+}
+
+/* One Compositor-paced frame's measurements. Every present path that hands a picture to the Compositor calls this
+once for its frame, with the view it showed (host_stereo_measure.h): the eyes and the screens are a benchmark run's
+frames (host_benchmark_frame, which also feeds the overlay and the performance reports), the UI's quad is not and
+feeds only those two. picture is what the GPU shaded for the view (an eye, or the theater's picture), for the run's
+render size.
+
+The mono entry's paths call it after their present, which is where the theater screen's picture opens its
+Compositor frame; the stereo entry's call it before the presenter's encode, as they always have. Where the
+Compositor's wait fell (the game's render span or the present) is the theater code's to say, since a mono present
+can also show a frame the game's frame begin already opened. */
+static void stereo_pacing_count(int view, id<MTLTexture> picture)
+{
+	int wait_in_render = 0;
+	double waited_for_frame = host_theater_take_waited(&wait_in_render);
+	struct host_stereo_measure_in reading = { view, CACurrentMediaTime(), pacing.work_started,
+		host_theater_last_presentation_time(), stereo_pacing.last_presentation, waited_for_frame, wait_in_render,
+		-1.0, -1.0, -1.0 };
+	int ticks = 0;
 	uint64_t gpu_total = atomic_load(&pacing_gpu_nanoseconds);
-	double cpu = pacing.work_started > 0.0 ? now - pacing.work_started - waited : 0.0;
+	double translation_cpu;
+
+	host_frame_cpu_split(&reading.simulation, &reading.render, &translation_cpu, &ticks);
+	reading.translation = translation_cpu;
+	struct host_stereo_measure_out measured = host_stereo_measure(&reading);
+	CFTimeInterval now = reading.now, waited = reading.waited, presentation = reading.presentation;
+	CFTimeInterval interval = measured.interval;
+	double cpu = measured.cpu;
 	double perf_cpu = cpu - (host_perf_hooks_dynamic_enabled() ? perf_gpu_waited : 0.0);
+	double frame_gpu_waited = perf_gpu_waited;
 	perf_gpu_waited = 0.0;
 	double gpu = (double)(gpu_total - stereo_pacing.gpu_counted) / 1e9;
+	BOOL gpu_measured = gpu_metal_gpu_spans(&stereo_pacing.gpu_used, &stereo_pacing.gpu_refused);
+	/* (taken on every frame, so a menu's waits do not land on the run's first frame) */
+	double worker_waited = host_benchmark_worker_waited_take();
 
 	host_perf_hooks_pacing(waited > 0.0 ? (uint64_t)(waited * 1e6) : 0);
 	stereo_pacing.gpu_counted = gpu_total;
-	if (presentation > 0.0 && stereo_pacing.last_presentation > 0.0)
-		interval = presentation - stereo_pacing.last_presentation;
 	if (presentation > 0.0)
 		stereo_pacing.last_presentation = presentation;
+	if (measured.run_frame)
+	{
+		/* the device benchmark (host_benchmark.m): every Compositor frame while a run's window is open. It feeds
+		the overlay (host_frame_counter_sample) and the performance reports' CPU time itself. */
+		host_benchmark_compositor_frame(view, picture ? (int)picture.width : 0, picture ? (int)picture.height : 0);
+		host_benchmark_upscaler(metalfx_requested ? "metalfx" : "bilinear", frame_upscale_paths ?: HOST_UPSCALER_NONE);
+		host_benchmark_frame(interval, cpu > 0.0 ? cpu : -1.0, gpu_measured ? gpu : -1.0,
+			stereo_pacing.period > 0.0 ? stereo_pacing.period : 1.0 / 90.0, reading.simulation, measured.render,
+			reading.translation, ticks);
+		host_benchmark_frame_waits(frame_gpu_waited, worker_waited);
+		host_benchmark_frame_probe();
+	}
+	else
+		/* Reuse stereo pacing samples for the opt-in host overlay, without GPU queries. */
+		host_frame_counter_sample(interval, cpu, gpu);
+	/* (after host_benchmark_frame, whose own figure is the frame's whole CPU time: dynamic resolution's shadow
+	mode leaves out the frame's waits for the GPU) */
 	host_perf_hooks_cpu(perf_cpu >= 0.0 ? (uint64_t)(perf_cpu * 1e6) : UINT64_MAX);
-	/* Reuse stereo pacing samples for the opt-in host overlay, without GPU queries. */
-	host_frame_counter_sample(interval, cpu, gpu);
 	host_stereo_ab_sample(gpu);
+	/* (the log's reports below stay the eyes' frames, as the scripts that read them expect) */
+	if (view != HOST_COMPOSITOR_VIEW_FULL && view != HOST_COMPOSITOR_VIEW_STEREO_SCREEN)
+		return;
 	/* a quarter second or more is a load or the background, not a frame */
 	if (interval > 0.0 && interval < 0.25 && cpu > 0.0 && stereo_pacing.timed < PACING_TIMED_FRAMES)
 	{
@@ -9393,6 +9729,15 @@ static void stereo_pacing_count(void)
 		stereo_pacing.intervals[stereo_pacing.timed] = interval;
 		stereo_pacing.cpu_times[stereo_pacing.timed] = cpu;
 		stereo_pacing.gpu_times[stereo_pacing.timed] = gpu;
+		{
+			double tick = ticks > 0 && reading.simulation > 0.0 ? reading.simulation : 0.0;
+			CFTimeInterval input = host_theater_opened_time();
+
+			stereo_pacing.ticked[stereo_pacing.timed] = ticks > 0;
+			stereo_pacing.tick_times[stereo_pacing.timed] = tick;
+			stereo_pacing.render_times[stereo_pacing.timed] = cpu > tick ? cpu - tick : 0.0;
+			stereo_pacing.pose_leads[stereo_pacing.timed] = input > 0.0 && presentation > input ? presentation - input : 0.0;
+		}
 		{
 			CFTimeInterval deadline = host_theater_rendering_deadline();
 
@@ -9416,31 +9761,26 @@ static void stereo_pacing_count(void)
 
 		if (period < 1.0 / 120.0 || period > 1.0 / 60.0)
 			period = 1.0 / 90.0;
+		stereo_pacing.period = period;
 		for (index = 0; index < stereo_pacing.timed; index++)
 		{
-			long up = lround(stereo_pacing.intervals[index] / period);
-
-			shown[up < 1 ? 1 : up > 5 ? 5 : up]++;
+			shown[stereo_refreshes_shown(stereo_pacing.intervals[index], period, 5)]++;
 		}
+		/* (before the percentiles below sort the CPU times out of frame order) */
+		stereo_cadence_report(period);
 		pacing_percentiles(stereo_pacing.cpu_times, stereo_pacing.timed, &cpu_median, &cpu_high);
 		pacing_percentiles(stereo_pacing.gpu_times, stereo_pacing.timed, &gpu_median, &gpu_high);
-		/* the system's state with each report, when it changes: the Compositor ran whole stretches at 45 Hz with the
-		GPU well under the 90 Hz budget, a state that crossed relaunches and came and went in a launch */
+		/* the system's state with every report: the Compositor ran whole stretches at 45 Hz with the GPU well under
+		the 90 Hz budget, a state that crossed relaunches and came and went in a launch, and a report without its
+		thermal state cannot be judged afterwards */
 		{
-			static int logged_thermal = -1, logged_low_power = -1;
+			static const char *names[] = { "nominal", "fair", "serious", "critical" };
 			int thermal = (int)NSProcessInfo.processInfo.thermalState;
 			int low_power = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
 
-			if (thermal != logged_thermal || low_power != logged_low_power)
-			{
-				static const char *names[] = { "nominal", "fair", "serious", "critical" };
-
-				platform_log("stereo: thermal state %s, Low Power Mode %s, presentations %.1f ms apart at the shortest",
-					thermal >= 0 && thermal < 4 ? names[thermal] : "unknown", low_power ? "on" : "off",
-					stereo_pacing.shortest * 1000.0);
-				logged_thermal = thermal;
-				logged_low_power = low_power;
-			}
+			platform_log("stereo: thermal state %s, Low Power Mode %s, presentations %.1f ms apart at the shortest",
+				thermal >= 0 && thermal < 4 ? names[thermal] : "unknown", low_power ? "on" : "off",
+				stereo_pacing.shortest * 1000.0);
 		}
 		platform_log("stereo: frames shown for 1/2/3/4/5+ refreshes at %.1f Hz: %lu/%lu/%lu/%lu/%lu (repeat count %d); "
 			"frame CPU %.1f ms, GPU %.1f ms (medians; 95th %.1f, %.1f)", 1.0 / period, shown[1], shown[2], shown[3],
@@ -9463,7 +9803,7 @@ static void stereo_pacing_count(void)
 }
 #endif
 
-static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *present)
+static uint32_t present_stereo_frame(const struct gpu_stereo_present *present)
 {
     /* Vision Pro DRS remains an experiment; clear a preceding mono frame's eligibility. */
     if (host_perf_hooks_dynamic_enabled())
@@ -9517,7 +9857,7 @@ static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *presen
 			if (zoom && zoom->texture)
 				use_texture(zoom);
 			commit(YES);
-			stereo_pacing_count();
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_FULL, color[0]->texture);
 			struct host_stereo_hud_aim aim = { present->reticle_world != 0, present->reticle_distance,
 				present->reticle_dim != 0, present->laser != 0,
 				{ present->laser_from[0], present->laser_from[1], present->laser_from[2] }, present->laser_opacity,
@@ -9550,6 +9890,7 @@ static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *presen
 			use_texture(color[0]);
 			use_texture(hud);
 			commit(YES);
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_UI_QUAD, picture);
 			host_stereo_present_ui(queue, picture, hud->texture,
 				stereo_cut_brightness(HOST_STEREO_VIEW_UI, present->cut_covered, 0));
 			frames++;
@@ -9572,7 +9913,7 @@ static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *presen
 			if (hud && hud->texture)
 				use_texture(hud);
 			commit(YES);
-			stereo_pacing_count();
+			stereo_pacing_count(HOST_COMPOSITOR_VIEW_STEREO_SCREEN, color[0]->texture);
 			host_theater_present_eyes(queue, left, right, hud ? hud->texture : nil,
 				present->fade, stereo_cut_brightness(HOST_STEREO_VIEW_SCREEN, present->cut_covered, 0));
 			frames++;
@@ -9584,7 +9925,35 @@ static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *presen
 	}
 #endif
 	/* (the window: eye 0, or a zoomed frame's picture in its place) */
-	return gpu_metal_present(present->zoom ? present->zoom : present->eye_color[0]);
+	return present_frame(present->zoom ? present->zoom : present->eye_color[0]);
+}
+
+/* the frame's streams are read by the command buffers up to the one carrying its present, which every present path
+commits: the producer may reuse their set once that one completes */
+static void stamp_streams(void)
+{
+#ifdef HALO_DEVELOPMENT_HOOKS
+	/* (every present path ends its frame with commit(YES); one that did not would stamp too early a serial) */
+	if (frame_started)
+		host_crash("Metal: a present returned with its frame still open");
+#endif
+	gpu_stream_ring_presented(&producer_streams, frame_end_serial);
+}
+
+static uint32_t gpu_metal_present(gpu_texture back_buffer)
+{
+	uint32_t next_frame_due = present_frame(back_buffer);
+
+	stamp_streams();
+	return next_frame_due;
+}
+
+static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *present)
+{
+	uint32_t next_frame_due = present_stereo_frame(present);
+
+	stamp_streams();
+	return next_frame_due;
 }
 
 static uint32_t gpu_metal_call_count_take(void)
@@ -9676,6 +10045,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		});
 		textures = [MetalTable new];
 		buffers = [MetalTable new];
+		producer_streams_initialize();
 		shaders = [MetalTable new];
 		frame_slots = dispatch_semaphore_create(FRAMES);
 		clear_pipelines = [NSMutableDictionary dictionary];
@@ -9755,7 +10125,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 			metal-pixel-math in the data folder (as tools make stderr.log), names
 			the mode for one run: safe, relaxed or fast. For comparing pictures
 			and measuring; a GPU without relaxed math compiles relaxed as safe. */
-			BOOL relaxed_available = [device supportsFamily:MTLGPUFamilyApple4] || [device supportsFamily:MTLGPUFamilyMac2];
+			BOOL relaxed_available = metal_feature(METAL_FEATURE_RELAXED_MATH);
 			char wanted[16] = "";
 			const char *math = getenv("HALO_METAL_PIXEL_MATH");
 			FILE *file = math ? NULL : fopen("metal-pixel-math", "r");
@@ -9779,7 +10149,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 			height there, and its frames differ from safe math's by one or two
 			levels in under 7% of the pixels (three pixels of 518,400 by more),
 			as they do on a Mac. An A9 or A10 keeps safe math until measured. */
-			else if (![device supportsFamily:MTLGPUFamilyApple3])
+			else if (metal_gate_family() < 3)
 				pixel_compile_options.mathMode = MTLMathModeFast;
 			if (wanted[0] || !relaxed_available)
 				platform_log("Metal: pixel shaders compile with %s math%s",
@@ -9814,17 +10184,26 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		/* the class shows whether Metal's API validation wraps the device
 		(MTLDebugDevice; tools/mac_run.py run --metal-validation) */
 		platform_log("Metal on %s (%s)", device.name.UTF8String, NSStringFromClass([device class]).UTF8String);
+		{
+			/* what this GPU may do, resolved once (metal_gate.h) */
+			char block[1024];
+
+			metal_gate_describe(metal_gate(), block, sizeof(block));
+			platform_log("%s", block);
+			metal_gate_describe_features(metal_gate(), block, sizeof(block));
+			platform_log("%s", block);
+		}
 		compressed_textures = astc_textures = NO;
 		if (flags & GPU_INITIALIZE_COMPRESSED_TEXTURES)
 		{
 			char astc[16];
 
 			host_config_string("debug.texture_astc", "auto", astc, sizeof(astc));
-			if (@available(iOS 16.4, tvOS 16.4, visionOS 1.0, *))
-				compressed_textures = device.supportsBCTextureCompression;
+			/* (metal_gate.m answers no for BC before iOS and tvOS 16.4, which cannot ask) */
+			compressed_textures = metal_feature(METAL_FEATURE_BC_TEXTURES);
 			/* astc_policy.h: "auto" converts only without BC, behind VISR_ASTC_AUTOMATIC. */
 			astc_textures = astc_policy_converts(astc, compressed_textures) &&
-				[device supportsFamily:MTLGPUFamilyApple2];
+				metal_feature(METAL_FEATURE_ASTC_TEXTURES);
 			/* Force the no-BC path on an Apple silicon Mac for screenshot comparisons. */
 			if (!strcmp(astc, "force"))
 				compressed_textures = NO;
@@ -9841,9 +10220,8 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 			BOOL bc = NO;
 
 			host_config_string("debug.texture_astc", "auto", astc, sizeof(astc));
-			if (@available(iOS 16.4, tvOS 16.4, visionOS 1.0, *))
-				bc = device.supportsBCTextureCompression && strcmp(astc, "force");
-			upscaled_format = bc ? GPU_FORMAT_BC7 : [device supportsFamily:MTLGPUFamilyApple2] ?
+			bc = metal_feature(METAL_FEATURE_BC_TEXTURES) && strcmp(astc, "force");
+			upscaled_format = bc ? GPU_FORMAT_BC7 : metal_feature(METAL_FEATURE_ASTC_TEXTURES) ?
 				GPU_FORMAT_ASTC4X4 : 0;
 			platform_log("Metal: upscaled textures' records are %s", upscaled_format == GPU_FORMAT_BC7 ? "BC7" :
 				upscaled_format ? "ASTC 4x4" : "not drawable here");
@@ -9863,7 +10241,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		GL does. (vertex_bgra needs no such test: it is the shaders' own
 		fetch, not a vertex descriptor's format.) */
 		base_vertex_draws = !(flags & GPU_INITIALIZE_NO_BASE_VERTEX) &&
-			([device supportsFamily:MTLGPUFamilyApple3] || [device supportsFamily:MTLGPUFamilyMac2]);
+			metal_feature(METAL_FEATURE_BASE_VERTEX_DRAWS);
 		if (!base_vertex_draws && !(flags & GPU_INITIALIZE_NO_BASE_VERTEX))
 			platform_log("Metal: this GPU has no base vertex drawing (below family Apple3); indices are rebased per draw");
 		capabilities->base_vertex = base_vertex_draws ? 1 : 0;
@@ -9875,7 +10253,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 #if HALO_FRAME_PACING && !TARGET_OS_SIMULATOR
 		system_frames_start();
 #endif
-		visibility_counts = [device supportsFamily:MTLGPUFamilyApple3] || [device supportsFamily:MTLGPUFamilyMac2];
+		visibility_counts = metal_feature(METAL_FEATURE_COUNTING_OCCLUSION);
 		{
 			/* debug.visibility_any_sample: the yes-or-no answer everywhere, to compare */
 			char value[8];
@@ -9890,11 +10268,13 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		capabilities->upscaled_format = upscaled_format;
 		/* border colors stay inside the backend: the front end doesn't read
 		border_clamp, and a GL run and a Metal run report the same line */
-		border_colors = [device supportsFamily:MTLGPUFamilyApple7] || [device supportsFamily:MTLGPUFamilyMac2];
+		border_colors = metal_feature(METAL_FEATURE_BORDER_COLOR);
 		capabilities->border_clamp = 0;
-		/* 8192 on an A8 (the Apple TV HD), the one Apple GPU family below Apple3 that still runs */
-		capabilities->max_texture_size = [device supportsFamily:MTLGPUFamilyApple3] ||
-			[device supportsFamily:MTLGPUFamilyMac2] ? 16384 : 8192;
+		capabilities->ambient_occlusion = ssao_supported() ? 1 : 0;
+		capabilities->soft_particles = soft_particles_supported() ? 1 : 0;
+		/* 8192 on an A8 (the Apple TV HD), the one Apple GPU family below Apple3 that still runs; at most 16384,
+		which is all the front end asks for, though Apple10 and later take 32768 */
+		capabilities->max_texture_size = MIN(metal_limit(METAL_LIMIT_TEXTURE_2D_SIZE), 16384);
 		/* multisampling's most samples a pixel, which every target format
 		takes (display.anti_aliasing) */
 		{
@@ -9939,9 +10319,9 @@ static NSString *const soft_depth_source =
 	"using namespace metal;\n"
 	"kernel void soft_depth_linearize(depth2d<float, access::read> depth [[texture(0)]],\n"
 	"\ttexture2d<float, access::write> distances [[texture(1)]], texture2d<uint, access::read> stencil [[texture(2)]],\n"
-	"\tconstant float4 &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"\tconstant float4 &p [[buffer(0)]], constant uint2 &size [[buffer(1)]], uint2 gid [[thread_position_in_grid]])\n"
 	"{\n"
-	"\tif (gid.x >= distances.get_width() || gid.y >= distances.get_height())\n"
+	"\tif (gid.x >= size.x || gid.y >= size.y || gid.x >= distances.get_width() || gid.y >= distances.get_height())\n"
 	"\t\treturn;\n"
 	"\tuint scale = uint(p.w);\n"
 	"\tuint2 last = uint2(depth.get_width() - 1, depth.get_height() - 1);\n"
@@ -9967,6 +10347,9 @@ static BOOL soft_depth_program(void)
 	id<MTLLibrary> library;
 	id<MTLFunction> function;
 
+	/* every entry (the level warm-up, soft_depth_usable, the prepare) goes through here: off where the GPU faults */
+	if (!soft_particles_supported())
+		return NO;
 	if (soft.tried)
 		return !soft.failed;
 	soft.tried = YES;
@@ -9984,13 +10367,38 @@ static BOOL soft_depth_program(void)
 	return YES;
 }
 
-uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
+/* (the guest's host_soft_depth_prepare with no values: a level's warm-up, which compiles the program and leaves the
+current view's soft-depth state alone) */
+static uint32_t gpu_metal_soft_depth_warm(void)
 {
 	@autoreleasepool
 	{
-		/* Compile-only warming must preserve the current view's active soft-depth state. */
-		if (count == 0)
-			return soft_depth_program();
+		return soft_depth_program();
+	}
+}
+
+/* the depth target and values soft_depth_prepare can use: what it checks before it allocates anything, and what
+soft_depth_ready answers */
+static BOOL soft_depth_usable(MetalTexture *record, uint32_t count)
+{
+	return count >= 5 && record && record->texture && record->description.format == GPU_FORMAT_DEPTH_STENCIL &&
+		!record->samples && !foveation_map(record) && (record->texture.usage & MTLTextureUsagePixelFormatView) &&
+		soft_depth_program();
+}
+
+static uint32_t gpu_metal_soft_depth_ready(gpu_texture depth, const float *values, uint32_t count)
+{
+	(void)values;
+	@autoreleasepool
+	{
+		return soft_depth_usable(texture_record(depth), count);
+	}
+}
+
+static uint32_t gpu_metal_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
+{
+	@autoreleasepool
+	{
 		MetalTexture *record = texture_record(depth);
 		id<MTLComputeCommandEncoder> compute;
 		MTLTextureDescriptor *descriptor;
@@ -9999,9 +10407,7 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		NSUInteger content_width, content_height;
 
 		soft.active = NO;
-		if (count < 5 || !record || !record->texture || record->description.format != GPU_FORMAT_DEPTH_STENCIL ||
-			record->samples || foveation_map(record) || !(record->texture.usage & MTLTextureUsagePixelFormatView) ||
-			!soft_depth_program())
+		if (!soft_depth_usable(record, count))
 			return 0;
 		/* the level's stencil mark, shared with SSAO */
 		soft.stencil_view = level_stencil_view(record->texture);
@@ -10050,18 +10456,34 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		[compute setTexture:soft.distances atIndex:1];
 		[compute setTexture:soft.stencil_view atIndex:2];
 		[compute setBytes:soft.parameters length:sizeof(soft.parameters) atIndex:0];
-		[compute dispatchThreads:MTLSizeMake(width, height, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+		{
+			/* the scene's part of the target: whole threadgroups run past it, and those threads write nothing */
+			uint32_t size[2] = { (uint32_t)width, (uint32_t)height };
+
+			[compute setBytes:size length:sizeof(size) atIndex:1];
+		}
+		metal_dispatch_grid(compute, MTLSizeMake(width, height, 1), MTLSizeMake(16, 16, 1));
 		[compute endEncoding];
 		soft.active = YES;
 		return 1;
 	}
 }
 
-void host_soft_depth_finish(void)
+static void gpu_metal_soft_depth_finish(void)
 {
 	soft.active = NO;
 }
 
 #define GPU_METAL_FUNCTION(type, name, parameters, arguments) .name = gpu_metal_##name,
 #define GPU_METAL_PROCEDURE(name, parameters, arguments) .name = gpu_metal_##name,
-const struct gpu_backend gpu_backend_metal = { GPU_FUNCTIONS(GPU_METAL_FUNCTION, GPU_METAL_PROCEDURE) };
+const struct gpu_backend gpu_backend_metal = { GPU_BACKEND_FUNCTIONS(GPU_METAL_FUNCTION, GPU_METAL_PROCEDURE) };
+
+/* The drawable the game's picture is fit into, which the game's view shows stretched to its bounds: the game's layer
+   (the companion mirror draws into it too), read where the presenter reads it. 0x0 when there is none yet. Every
+   pointer source (touches, the mouse, scripted taps) maps through this one. */
+void host_picture_drawable(float *width, float *height) {
+    CAMetalLayer *layer = (__bridge CAMetalLayer *)host_sdl_metal_layer();
+    CGSize drawable = [layer isKindOfClass:CAMetalLayer.class] ? layer.drawableSize : CGSizeZero;
+    *width = (float)drawable.width;
+    *height = (float)drawable.height;
+}

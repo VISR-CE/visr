@@ -29,6 +29,7 @@ dynamic_resolution_floor = 1080
 
 [variable.display]
 dynamic_resolution_floor = 540
+effect_limits = "xbox"
 
 [network]
 player_capacity = 64
@@ -87,3 +88,8 @@ source = "`iphone-12-pro.toml` network.full_rate_players evidence, main e77a2495
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."
+
+[evidence."variable.display.effect_limits"]
+basis = "inherited"
+why = "This device holds 32 players at full rate, as the measured iPhone 12 Pro does, which spent 6% less CPU a frame in a 128-player fight with the Xbox's decal set. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "`iphone-12-pro.toml` variable.display.effect_limits evidence, main 1a41b6f59, 2026-11-20"

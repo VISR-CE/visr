@@ -1,4 +1,4 @@
-/* texture_refine.m against the Mac's NumPy reference (step-tools/upscale_lib/consistency.py, bump.refine):
+/* texture_refine.m against the Mac's NumPy reference (consistency.py in a reference implementation (not in this repository), bump.refine):
    no argument: synthetic checks; a folder: every <name>.trf fixture there, PSNR over 40 dB */
 #import <Foundation/Foundation.h>
 #include <assert.h>
@@ -57,7 +57,7 @@ static void synthetic(struct texture_refine_context *context)
 }
 
 /* a 1-texel-wide original (8 x 1, scale 2, wrap, bpf): every upsampled buffer must be the full 16 x 2, as NumPy's
-   broadcast of its skipped axis makes it. Expected values from step-tools' consistency.py and the bump rule's steps
+   broadcast of its skipped axis makes it. Expected values from that reference's consistency.py and the bump rule's steps
    (bump.refine after its h_orig, which is given here); generated once and pasted */
 static void one_wide(struct texture_refine_context *context)
 {

@@ -4,6 +4,7 @@ help of every row fits the help's three lines."""
 from pathlib import Path
 import re
 import shutil
+import tempfile
 import sys
 import textwrap
 from xml.etree import ElementTree as ET
@@ -17,7 +18,10 @@ import port_settings  # noqa: E402
 import notices_text  # noqa: E402
 import xbox_menus  # noqa: E402
 
-PC_SCREEN = MENUS / "ce/main_menu.settings_select.player_setup.player_profile_edit.about.xml"
+# the generator's source screen (tools/port_settings.py writes it in memory; no file is kept), as a file to parse
+SOURCE_NAME = "main_menu.settings_select.player_setup.player_profile_edit.about.xml"
+PC_SCREEN = Path(tempfile.mkdtemp()) / SOURCE_NAME
+PC_SCREEN.write_text("\n".join(port_settings.settings_files()[SOURCE_NAME]))
 XBOX_SCREEN = MENUS / "xbox/settings.about.xml"
 
 # NOTICE.md's components that are in the Apple apps, by the words of the entry that covers each
@@ -73,11 +77,6 @@ def test_notice_is_exact_fits_and_has_the_copyright_sign():
     assert about_data.NOTICE.startswith("Halo, Halo: Combat Evolved, Master Chief")
 
 
-def test_pc_screen_is_what_the_generator_writes():
-    expected = "\n".join(port_settings.settings_files()["main_menu.settings_select.player_setup.player_profile_edit.about.xml"])
-    assert menu_catalog.STRIP.sub("", PC_SCREEN.read_text()) == expected
-
-
 def labels(path, prefix):
     root = ET.parse(path).getroot()
     lists = {s.get("name"): [x.get("text") for x in s] for s in root.iter("strings")}
@@ -99,9 +98,7 @@ def test_both_looks_list_the_same_rows():
             assert text.count(f'run="port open {tag}" platform="!tvos"') == 2
 
 
-def test_the_profile_editor_opens_it_in_both_looks():
-    pc = (MENUS / "ce/main_menu.settings_select.player_setup.player_profile_edit.xml").read_text()
-    assert re.search(r'about_item".*?<on event="a" open="[^"]*/about/about_screen"/>', pc, re.S)
+def test_the_profile_editor_opens_it():
     patches = (MENUS / "xbox/patches.xml").read_text()
     assert 'name="profile_item_about"' in patches and 'open="xbox/settings/about/about_screen"' in patches
 
@@ -243,8 +240,8 @@ def test_notices_screen_rows_scroll_help_and_back():
         arrow = base + f"/options_menu/scroll_{direction}_arrow"
         assert options.find(f'child[@widget="{arrow}"]').get("y") == str(y)
         assert widgets[arrow].get("bitmap") == f"xbox/bitmaps/arrow_sm_{direction}"
-    assert widgets[base + "/cancel"].get("text") == "BACK"
-    assert base + "/a_butn" not in widgets
+    assert [(action.get("slot"), action.get("scope"), action.get("text")) for action in screen.iterfind("bar/action")] == \
+        [("b", "back", "BACK")]
     assert all("=" not in w.get("text", "") for name, w in widgets.items() if name.startswith(base + "/"))
 
 
@@ -271,7 +268,7 @@ def test_about_and_notices_layout_clears_help_and_legend():
 def test_xbox_about_is_current(tmp_path):
     # (the whole generator runs: row density, legends and spinners are passes over every document)
     assets = tmp_path / "menus"
-    shutil.copytree(MENUS / "ce", assets / "ce")
+    shutil.copytree(MENUS / "pictures", assets / "pictures")
     shutil.copytree(MENUS / "xbox/art", assets / "xbox/art")
     shutil.copy(MENUS / "menus.json", assets / "menus.json")
     xbox_menus.generate(assets)

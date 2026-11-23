@@ -8,6 +8,7 @@ enum { game_engine_slayer = 2 };
 struct scenario { int type; };
 struct game_variant { int game_engine_index; };
 
+static int own_input;
 static int requested, initialized, in_progress, scoring, forced_single, postgame;
 static int local_count, connection, getter_calls, tick_calls;
 static int suite_suspended;
@@ -16,7 +17,11 @@ static const char *network_test, *suite, *record, *replay, *map, *requested_map;
 static struct scenario scenario;
 static struct game_variant variant;
 
-int config_boolean(const char *name) { return !strcmp(name, "debug.multiplayer_benchmark_probe") ? requested : 0; }
+int config_boolean(const char *name)
+{
+	if (!strcmp(name, "debug.benchmark_own_input")) return own_input;
+	return !strcmp(name, "debug.multiplayer_benchmark_probe") ? requested : 0;
+}
 const char *config_string(const char *name)
 {
 	if (!strcmp(name, "debug.network_test")) return network_test;
@@ -117,6 +122,17 @@ int main(void)
 	local_count = 1; suite_suspended = proof_active = 1;
 	mp_benchmark_probe_set_suite_requested(1);
 	CHECK(mp_benchmark_probe_active() && mp_benchmark_probe_current_policy() == mp_benchmark_probe_scripted_input);
+	/* debug.benchmark_own_input: in force only while the benchmark's game runs; the policy itself is unchanged */
+	CHECK(!mp_benchmark_probe_own_input());
+	own_input = 1;
+	CHECK(mp_benchmark_probe_own_input());
+	CHECK(mp_benchmark_probe_current_policy() == mp_benchmark_probe_scripted_input);
+	suite_suspended = 0;
+	CHECK(!mp_benchmark_probe_active() && !mp_benchmark_probe_own_input());
+	suite_suspended = 1;
+	mp_benchmark_probe_set_suite_requested(0);
+	CHECK(!mp_benchmark_probe_own_input());
+	mp_benchmark_probe_set_suite_requested(1); own_input = 0;
 	proof_active = 0;
 	CHECK(!mp_benchmark_probe_active());
 	proof_active = 1; map = "levels\\test\\bloodgulch\\bloodgulch";

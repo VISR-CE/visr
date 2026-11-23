@@ -32,6 +32,14 @@ static inline int frame_deadline_leave_wanted(int state, int on_joined_thread)
 	return state == FRAME_DEADLINE_JOINED && on_joined_thread;
 }
 
+/* whether the calling thread may end or restart the frame's interval: the thread that joined, or with the encode
+   thread a game thread whose own join succeeded (producer_joined 1; 0 not tried, -1 refused). A finish from a
+   non-member fails, and the interval would read closed while still open, refusing the next start. */
+static inline int frame_deadline_interval_member(int on_joined_thread, int producer_joined)
+{
+	return on_joined_thread || producer_joined == 1;
+}
+
 /* a frame that is shown joins again after a leave; an offscreen benchmark frame has no deadline and stays out, and so
    does every frame while a UIKit dialog is up over the game (held: gpu_metal_frame_deadline_hold), whose animations
    run in the event pump between the game's frames */

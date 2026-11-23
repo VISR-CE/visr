@@ -11,8 +11,9 @@ their meaning.
 A file holds <menus> with <bitmap> (holding <frame>s), <strings> (holding
 <string>s) and <widget> elements; a <widget> holds <widget> and <child>
 (its children), <on> (an event handler), <data> (a game data input),
-<conditional> and <replace> elements. A <patch> changes a list of the
-map's own (the Xbox look's, in ui.map): its <row>, <remove> and <replace>
+<conditional>, <replace> and <bar> elements (a <bar> holds the screen's
+<action>s, which the reader makes into the bar's glyphs and captions). A
+<patch> changes a list of the map's own (the Xbox look's, in ui.map): its <row>, <remove> and <replace>
 elements add, take out and swap the list's rows. port/assets/menus/README.md
 describes them.
 */
@@ -113,10 +114,18 @@ struct halo_menu_widget
 	char const *name, *type, *controller, *flags, *bitmap, *text, *strings, *values, *setting, *font, *color,
 		*align, *description, *string_list, *list_flags, *text_flags, *header_bitmap, *footer_bitmap,
 		*header_bounds, *footer_bounds;
+	/* what the widget is, for the engine: row="tall" is a standard tall row (36 units of row art in its 39-unit
+	tap band) */
+	char const *row;
 	long x, y, left, top, width, height, text_x, text_y, auto_close, auto_close_fade, string_index;
 	long has_width, has_height;
 	/* a column list's rows shown at once (0: all) */
 	long visible_rows;
+	/* a glyph or caption the reader made from a screen's <bar> <action>: the action's slot and scope (enum
+	halo_menu_slot and halo_menu_scope, halo_menu_meta.h; 0: not a bar's) */
+	long bar_slot, bar_scope;
+	/* its key while a text field is being typed in (enum halo_menu_typing, halo_menu_meta.h; 0: the key acts) */
+	long bar_typing;
 	/* a settings list's rows (children named op_*): the first one's y and the
 	pitch they are packed at, so rows for another platform leave no gap (0: as
 	placed) */
@@ -132,6 +141,11 @@ first_row in the patch rows */
 struct halo_menu_patch
 {
 	char const *list, *screen;
+	/* rows="tall": every row of the list, the map's own included, becomes a standard tall row at the standard
+	pitch from the first row's place, in order; tall_art names the bitmap of ours the map's rows then draw, and
+	tall_top_art (optional) the one the first row draws (a picture list's first row has the tab that joins the
+	panel); row_kind ("option" or "picture") picks the kind's geometry (menu_tags.c, menu_row_geometry) */
+	char const *rows, *tall_art, *tall_top_art, *row_kind;
 	/* the y the rows stay above (footer=), else the screen's a_butn's */
 	long footer, has_footer;
 	long first_row, row_count;
@@ -165,6 +179,16 @@ struct halo_menu_patch_row
 	long line;
 };
 
+/* <title widget="..." strings="..."/>: a screen's title, a widget (ours, or the map's by its path with backslashes)
+whose text is a string list of the menus' (one string for each frame its picture had); the engine draws it with the
+title element's look (halo_menu_meta.h's HALO_MENU_ROLE_TITLE) */
+struct halo_menu_title
+{
+	char const *widget, *strings;
+	char const *file;
+	long line;
+};
+
 struct halo_menus
 {
 	struct halo_menu_bitmap *bitmaps;
@@ -191,14 +215,14 @@ struct halo_menus
 	long patch_count;
 	struct halo_menu_patch_row *patch_rows;
 	long patch_row_count;
+	struct halo_menu_title *titles;
+	long title_count;
 	/* the main menu: <menus root="..."> (the last given), else "main_menu" */
 	char const *root;
 };
 
 /* the menus, read from the files (once; the same each call after); NULL if
 there are none, or a file has an error (logged) */
-/* Select before the first load; cached menus keep their original density. */
-void halo_menus_set_compact_density(int compact);
 struct halo_menus const *halo_menus_load(void);
 /* text as UTF-16, its terminator included, "\n" written as the game's line
 breaks ("\r\n"): the number of characters written (at most capacity) */

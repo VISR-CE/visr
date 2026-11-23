@@ -22,6 +22,7 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.shadow_map_size", PORT_PROFILE_LEVEL}, /* atlas target recreation */
 		{"display.shadow_minimum_size", PORT_PROFILE_HOT},
 		{"display.effect_resolution", PORT_PROFILE_LEVEL},
+		{"display.effect_limits", PORT_PROFILE_LEVEL}, /* the decal set is chosen as a map loads */
 		{"display.model_lod", PORT_PROFILE_HOT},
 		{"display.lod_scale", PORT_PROFILE_HOT},
 		{"display.compressed_textures", PORT_PROFILE_SESSION}, /* GPU initialization capability */
@@ -35,6 +36,7 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.hud_resolution", PORT_PROFILE_LEVEL},
 		{"display.frame_pacing", PORT_PROFILE_SESSION}, /* session clock setup */
 		{"display.frame_rate", PORT_PROFILE_HOT},
+		{"display.frames_in_flight_at_30", PORT_PROFILE_HOT}, /* the game hands the value in force to the pacer when the context or scene changes */
 		{"display.async_shaders", PORT_PROFILE_SESSION},
 		{"display.interpolation", PORT_PROFILE_LEVEL}, /* interpolation touches tick presentation */
 		{"input.aim_loss_grace", PORT_PROFILE_LOCAL_INPUT},

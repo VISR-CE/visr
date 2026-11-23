@@ -27,6 +27,9 @@ frame_rate = "60"
 [scene.cutscene.display]
 render_height = 0
 
+[variable.display]
+effect_limits = "xbox"
+
 [network]
 player_capacity = 64
 full_rate_players = 16
@@ -76,3 +79,8 @@ why = "Menus render at native resolution (0), as in the class profile."
 [evidence."scene.cutscene.display.render_height"]
 basis = "assumed"
 why = "Cutscenes render at native resolution (0), as in the class profile."
+
+[evidence."variable.display.effect_limits"]
+basis = "inherited"
+why = "This device holds 16 players or fewer at full rate; the measured iPad Pro 12.9 (2nd generation) gained 13% of its frame rate in a 128-player fight from the Xbox's decal set. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "`ipad-pro-12-9-2nd.toml` variable.display.effect_limits evidence, main 1a41b6f59, 2026-11-20"

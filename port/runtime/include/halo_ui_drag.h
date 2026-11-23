@@ -176,4 +176,23 @@ static inline void halo_ui_drag_glide(struct halo_ui_drag *d, float target)
 	d->state = HALO_UI_DRAG_SETTLING;
 }
 
+/* The host's wheel steps are positive down the screen (a finger dragging up, a wheel turned toward the user); the
+menus' are positive up the list, clamped to 8. */
+static inline int halo_ui_wheel_steps_from_host(int host_steps)
+{
+	return host_steps < -8 ? 8 : host_steps > 8 ? -8 : -host_steps;
+}
+
+/* A list of rows that moves by the menus' wheel steps (positive up the list). Returns how far to move the highlight
+toward the list's end (positive) or start (negative). A wheel moves it as the d-pad would: up is back. A finger
+dragging down makes positive steps and the highlight goes down with it, so the sign flips; a finger over a row leaves
+the highlight to the pointer (hover), so it moves nothing until the finger is past the rows. (A dropdown's panel moves
+its content with the finger and takes the wheel's sign: -steps for both.) */
+static inline int halo_ui_list_wheel_steps(int wheel_steps, int finger, int over_row)
+{
+	if (!finger)
+		return -wheel_steps;
+	return over_row ? 0 : wheel_steps;
+}
+
 #endif

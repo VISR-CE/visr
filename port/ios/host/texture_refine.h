@@ -1,4 +1,4 @@
-/* bp and bpf (step-tools/upscale_lib/consistency.py; bump.refine for bump maps) as Metal compute passes; the NumPy
+/* bp and bpf (consistency.py in a reference implementation (not in this repository); bump.refine for bump maps) as Metal compute passes; the NumPy
    code is the specification and the probe holds this to it at over 40 dB */
 #pragma once
 

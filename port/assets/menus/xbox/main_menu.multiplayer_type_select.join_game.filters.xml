@@ -6,11 +6,12 @@
 		<on event="back" back="true" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/options_menu" />
-		<on event="x" run="port browser filters reset" />
+		<bar>
+			<action slot="x" scope="global" text="RESET" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_x.text" run="port browser filters reset" />
+			<action slot="b" scope="back" text="DONE" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_b.text" focus="true" />
+		</bar>
 		<data input="port browser filters update" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_filter_status" x="310" y="48" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_reset" x="342" y="398" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_done" x="490" y="398" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/browser/header_sort_filter">
 	</widget>
@@ -105,18 +106,8 @@
 		<frame png="xbox/art/browser/backdrop.png" width="4" height="480" />
 	</bitmap>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_filter_status" type="text" width="276" height="22" font="ui\small_ui" color="#7fc4ff" align="right" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_reset" width="132" height="45" flags="pass_unhandled_to_focused_child">
-		<on event="a" run="port browser filters reset" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_reset_icon" x="0" y="16" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_reset_caption" x="34" y="17" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_reset_icon" width="28" height="28" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_reset_caption" type="text" text="RESET" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_browser_reset_caption.text" font="ui\large_ui" color="#4aa8ff" width="98" height="26" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_done" width="126" height="45" flags="pass_unhandled_to_focused_child">
-		<on event="a" run="mouse emit back event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_done_icon" x="0" y="16" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_done_caption" x="34" y="17" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_done_icon" width="28" height="28" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_done_caption" type="text" text="DONE" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_browser_done_caption.text" font="ui\large_ui" color="#4aa8ff" width="92" height="26" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters/title">
+		<string text="SORT &amp; FILTER" id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_header_filters_title.sort_amp_filter" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters" strings="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters/title" />
 </menus>

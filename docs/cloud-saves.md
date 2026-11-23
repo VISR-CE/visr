@@ -6,7 +6,7 @@ A build made with `--cloud-saves` copies your profiles and campaign saves to the
 
 | | |
 | --- | --- |
-| Copied | Profiles (name, armor color, control settings), which campaign levels are finished, the checkpoint that **Save and Quit** writes, and custom game types |
+| Copied | Profiles (name, armor color, control settings), which campaign levels are finished, the campaign's saved game (the last checkpoint reached, which **Save and Quit** also writes), and custom game types |
 | Never copied | The game data from your disc, upscaled textures, movies, logs, `config.toml`, and which profile or map this device used last |
 
 On disk these are the folders under `save/u/UDATA`. A profile is half a kilobyte; a checkpoint is 20 MB on disk and usually well under 1 MB once compressed.
@@ -14,7 +14,7 @@ On disk these are the folders under `save/u/UDATA`. A profile is half a kilobyte
 ## How it behaves
 
 - **At launch**, before the game starts, VISR compares the saves on the device with the ones in iCloud. Missing ones are restored and newer ones downloaded. It waits up to 8 seconds for iCloud, or 20 on a device that has no saves; after that the game starts with what is on the device.
-- **While you play**, saves are uploaded within about 15 seconds of the game writing them, again when the app leaves the screen, and once more as it exits. Nothing is downloaded during play, so another device's progress shows up at the next launch.
+- **While you play**, profiles and game types are uploaded within about 15 seconds of the game writing them. The saved game changes at every checkpoint, so while nothing else changes it is uploaded at most once every five minutes. Whatever waits is uploaded when the app leaves the screen, and once more as it exits. Nothing is downloaded during play, so another device's progress shows up at the next launch.
 - **If two devices were played separately**, the save that is further along is kept: for a profile, the one with more levels finished; for a checkpoint, the one on the later level; otherwise the more recent. The other is set aside in iCloud, and the next launch says which was kept and offers **Use the other one**. The five most recent set-aside copies of each profile and checkpoint are kept.
 - **Checkpoints belong to a version of the game and to its map files.** A checkpoint only loads in a build with the same saved-game layout, against the same map file. Each combination has its own checkpoint in iCloud, so an older build on one device does not replace a newer build's checkpoint on another, and a device with a different disc import or replacement maps keeps its own. On such a device you see the profile and its finished levels, and no checkpoint to continue until you make one there. Profiles and finished levels are shared by all of them.
 - **Deleting a profile** in the game deletes it on your other devices at their next launch, unless one of them has played it since. The deleted profile stays in iCloud and can be restored.

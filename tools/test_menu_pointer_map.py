@@ -10,7 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.mark.parametrize("probe", ["menu_pointer_probe", "menu_gaze_probe"])
+@pytest.mark.parametrize("probe", ["menu_pointer_probe", "menu_gaze_probe", "portrait_rule_probe"])
 def test_menu_pointer_mapping(probe, tmp_path):
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:

@@ -332,7 +332,7 @@ shadow_map_size = 128        # 128 (as on the Xbox) to 512
 effect_resolution = "half" # Mirror and camouflage target: "xbox" (320x240), "half" or "full" of the screen's resolution
 frame_pacing = "off"         # Experimental: "tick" or "refresh" hold every frame for whole refreshes
 frame_rate = "display"       # Mac app: a cap ("60", "240") or "unlimited"; see below
-frames_in_flight = ""        # Metal: frames on their way to the display at once, "1" to "3" or "system" (empty: "2"); see below
+frames_in_flight = ""        # Metal: frames on their way to the display at once, "1" to "3" or "system" (empty: "2", "1" with the encode thread); see below
 frame_spacing = true         # Metal: each frame stays up for its share of the display's time; see below
 frame_source = ""            # Metal: "clock" (default) or "system" (iOS 17, tvOS 17, macOS 14); see below
 late_start = ""              # Metal: start frames late, "true" or "false" (empty: on in the Mac app); see below
@@ -365,12 +365,24 @@ option `HALO_FRAME_PACING` (`tools/ios_build.py --frame-pacing on|off`), on by
 default everywhere except a Vision Pro build: there the Compositor paces
 frames and the build has none of this.
 
-- `frames_in_flight` (`"1"` to `"3"`, or `"system"`; default `"2"`) is how many
-  frames may be on their way to the display at once. A frame is not started
+- `frames_in_flight` (`"1"` to `"3"`, or `"system"`; default `"2"`, or `"1"`
+  with `debug.encode_thread = "thread"`, whose game thread otherwise queues a
+  frame ahead of a GPU-bound display) is how many frames may be on their way to
+  the display at once. A frame is not started
   on its way until fewer than that many are waiting to be shown. `"1"` gives
   the shortest delay between the game and the screen, and costs frames
   whenever a frame's CPU and GPU work together take longer than one refresh.
   `"system"` leaves the queue to the system, which allows up to three.
+- `frames_in_flight_at_30` (`"1"` or `"2"`; default empty, which follows
+  `frames_in_flight`) is the limit while the frame rate in force is 30 or
+  lower: a 30 cap, a big multiplayer game held to 30, a scene class's 30. It
+  never exceeds `frames_in_flight`. A profile may set it for the variable
+  workload (multiplayer, co-op, split screen, more enemies) alone. Under a 30 cap `"1"` cuts the time from
+  the controller read to the screen from about 98 to 65 ms on devices whose
+  CPU and GPU work together fit the 33 ms, with no loss of frames (the
+  iPhone Duo and the A10X iPad Pro at 16 players; the iPhone 12 Pro gained
+  21% for a 2% lower shown rate; the iPhone Duo under heavy multiplayer is
+  GPU-bound and loses frames, so its profile does not set it). A device profile sets it.
 - `frame_spacing` (default `true`) keeps each frame on screen for its share
   of the display's time before the next may replace it: one refresh, or with
   a `frame_rate` cap under the display's rate, the cap's (two refreshes for

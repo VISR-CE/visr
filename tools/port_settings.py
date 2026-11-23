@@ -1,5 +1,5 @@
 """The port's settings screens, which tools/ce_menus.py writes in place of the
-PC version's (port/assets/menus/ce): laid out as its are (rows of a label and
+PC version's (tools/menu_sources): laid out as its are (rows of a label and
 a spinner over its row backgrounds, a line of help for the row chosen,
 Defaults, OK and Cancel), with what this port has to set instead of what the
 PC version had (no connection speed or texture quality: a window or the full
@@ -21,15 +21,6 @@ from xml.sax.saxutils import quoteattr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import about_data  # noqa: E402
-
-# PC-look rows heard before OK (menu_functions.c "port setting preview"):
-# each step writes the value, and closing without OK writes the opening value
-# back ("port setting revert" on the spinner's deleted event)
-PREVIEW_SETTINGS = ("audio.volume", "audio.music_volume", "audio.effects_volume")
-PREVIEW_HANDLERS = [f'<on event="{event}" run="port setting preview"/>'
-                    for event in ("left", "right", "stick_left", "stick_right")] + \
-    ['<on event="deleted" run="port setting revert"/>']
-
 
 # The dispatcher steps a spinner before its direction handlers run. Xbox pages
 # add these handlers to save that value; PC pages keep their explicit OK flow.
@@ -414,8 +405,7 @@ def _setting_screen(folder: str, spec: dict) -> list:
                           ("color", "#FF2896FF"), ("align", "center"), ("text_y", 1),
                           ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
                           ("header_bounds", "7 -6 19 0"), ("footer_bounds", "7 150 19 156")],
-                         ['<on event="created" run="port setting load"/>']
-                         + (PREVIEW_HANDLERS if setting in PREVIEW_SETTINGS else []))
+                         ['<on event="created" run="port setting load"/>'])
     if spec.get("cloud_status"):
         extra += _widget(f"{base}/cloud_saves_status",
                          [("type", "text"), ("controller", 1), ("left", 68), ("top", spec.get("cloud_status_top", 332)),
@@ -595,7 +585,7 @@ def _about_screen() -> list:
 
 
 def settings_files() -> dict:
-    """the files of the port's screens, by their names in ce/"""
+    """the files of the port's screens, by their names in the original PC menu data"""
     files = {}
     for folder, spec in SCREENS.items():
         files[f"{PE}/{folder}".replace("/", ".") + ".xml"] = _setting_screen(folder, spec)

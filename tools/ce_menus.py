@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Writes the PC version's menus (Halo Custom Edition's) as the port's menu
-files (port/assets/menus/ce, read by port/linux/src/menu_files.c):
+"""Imports the PC version's widgets (Halo Custom Edition's) as source rows for the
+menu generator (tools/menu_sources, read only by tools/xbox_menus.py; the game
+never loads them), and draws the menus' art (port/assets/menus/pictures/*.png):
 
     python tools/ce_menus.py --tags .../halopc-restored/tags \\
         --definitions .../invader/src/tag/hek/definition \\
@@ -56,7 +57,7 @@ import xbox_menus  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 MENUS = ROOT / "port/assets/menus"
-CE = MENUS / "ce"
+CE = ROOT / "tools/menu_sources"
 SVG_COPIES = MENUS / "svg"
 MAIN_MENU = "ui\\shell\\main_menu\\main_menu"
 TITLE_FONT = ROOT / "port/assets/fonts/OpenCE-Regular.ttf"
@@ -150,11 +151,6 @@ XBOX_FRAMES = {
 }
 PLACEHOLDER_SCALE = 2
 
-# the Xbox's functions that the PC version rewrote for its own widgets (its
-# column lists where the Xbox had spinners, and other children), which stop
-# this engine on the PC widgets: written as "unwired <name>", which does
-# nothing (UNWIRED.md)
-INCOMPATIBLE = set()
 # the PC version's own functions that menu_functions.c does what they do
 # (and its campaign's: the Xbox's of those names, which take the Xbox's
 # widgets, menu_functions.c's for ours)
@@ -328,7 +324,7 @@ class Art:
         cap_top = font.getbbox("H")[1]
         draw.text((port_settings.TITLE_LEFT * scale, port_settings.TITLE_TOP * scale - cap_top), text,
                   font=font, fill=port_settings.TITLE_COLOR)
-        png = f"ce/port/{name}.png"
+        png = f"pictures/port/{name}.png"
         (MENUS / png).parent.mkdir(parents=True, exist_ok=True)
         image.save(MENUS / png, optimize=True)
         self.pngs.append(png)
@@ -344,7 +340,7 @@ class Art:
             svg = MENUS / "port_svg" / f"{name}__{index}.svg"
             svg.parent.mkdir(parents=True, exist_ok=True)
             svg.write_text(text)
-            png = f"ce/port/{name}__{index}.png"
+            png = f"pictures/port/{name}__{index}.png"
             (MENUS / png).parent.mkdir(parents=True, exist_ok=True)
             Image.fromarray(render_svg(svg, SCALE), "RGBA").save(MENUS / png, optimize=True)
             self.pngs.append(png)
@@ -381,7 +377,7 @@ class Art:
                 self.xbox_frames.append((name, tag, XBOX_FRAMES[name]))
                 lines.append(f"\t\t<frame{attributes([('map', tag), ('index', XBOX_FRAMES[name])])}/>")
                 continue
-            png = f"ce/{relative}__{index}.png"
+            png = f"pictures/{relative}__{index}.png"
             self.draw(relative, index, len(data), width, height, MENUS / png, self.shown.get(tag, []))
             self.pngs.append(png)
             lines.append(f"\t\t<frame{attributes([('png', png), ('width', width), ('height', height)])}/>")
@@ -510,7 +506,7 @@ def widget_xml(tag: str, widget: dict, tags: Tags, functions: list, inputs: list
     inner = indent + "\t"
     for data in widget["game data inputs"]:
         name = inputs[data["function"]]
-        lines.append(f"{inner}<data{attributes([('input', f'unwired {name}' if name in INCOMPATIBLE else name)])}/>")
+        lines.append(f"{inner}<data{attributes([('input', name)])}/>")
     lines += [f"{inner}<data{attributes([('input', name)])}/>" for name in patch.get("inputs", [])]
     lines += [f"{inner}{line}" for line in patch.get("handlers", [])]
     for handler in widget["event handlers"] if "handlers" not in patch else []:
@@ -519,7 +515,7 @@ def widget_xml(tag: str, widget: dict, tags: Tags, functions: list, inputs: list
         handler_pairs = [("event", EVENTS[handler["event type"]])]
         if flags >> 7 & 1:
             name = functions[handler["function"]]
-            handler_pairs.append(("run", f"unwired {name}" if name in INCOMPATIBLE else name))
+            handler_pairs.append(("run", name))
         if flags >> 10 & 1:
             handler_pairs.append(("script", handler["script"]))
         elif handler["script"]:
@@ -632,8 +628,7 @@ def main() -> None:
             lines += port_settings.JOIN_BIG_WIDGETS.strip("\n").splitlines()
         lines.append("</menus>")
         (CE / f"{folder.replace('/', '.')}.xml").write_text("\n".join(lines) + "\n")
-    for name, lines in [*port_settings.settings_files().items(), *port_settings.multiplayer_files().items()]:
-        (CE / name).write_text(menu_catalog.add_ids("\n".join(lines), Path(name).stem, 'ce'))
+    # (the settings and multiplayer screens of tools/port_settings.py are not written: xbox_menus reads them in memory)
     # their strings
     lines = ['<?xml version="1.0" encoding="UTF-8"?>',
              "<!-- The PC version's menus' text (tools/ce_menus.py) -->", "<menus>"]
@@ -666,92 +661,6 @@ def main() -> None:
         ('<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4" viewBox="0 0 4 4"/>\n', 4, 4)]))
     lines.append("</menus>")
     (CE / "bitmaps.xml").write_text("\n".join(lines) + "\n")
-    # what is not hand-drawn
-    report = [
-        "# Menu pictures that are not redraws",
-        "",
-        "The menus' bitmaps are drawn from the high-res redraws (`svg/`, from ui-svg-handmade) where there is",
-        "one. The PC version's pictures that have none (3D renders, screenshots and logos) are not in this",
-        "repository.",
-        "",
-        "## From the Xbox's map",
-        "",
-        "These have the same pictures, in the same order, in the Xbox's `ui.map`, which the menus draw them",
-        "from (the player's own; nothing is shipped). `mp_map_grafix`: the Xbox's has the 13 Xbox maps' pictures",
-        "(the PC version's first 13) and its \"?\"; the PC version's other 8 are its own maps'.",
-        "",
-    ]
-    report += [f"- `{tag}`" for tag in sorted(XBOX_BITMAPS)]
-    report += [
-        "",
-        "These frames are drawn from a frame of the Xbox map's bitmap of the same name, whose other frames differ:",
-        "the same picture, or for the profile settings the Xbox's picture for the same thing.",
-        "",
-        "| The PC version's frame | The Xbox's frame |",
-        "| --- | --- |",
-    ]
-    report += [f"| `{name}.png` | `{tag}` frame {index} |" for name, tag, index in sorted(art.xbox_frames)]
-    report += [
-        "",
-        "These frames are added after a bitmap's, drawn scaled from the Xbox map's (the profile settings'",
-        "picture of Gamepad Setup: the Xbox's Controller Setup's pictures of the button settings).",
-        "",
-        "| Our bitmap | The Xbox's frame |",
-        "| --- | --- |",
-    ]
-    report += [f"| `{name}` | `{tag}` frame {index} |" for name, tag, index in art.added_frames]
-    report += r"""
-## PC description pictures
-
-`tools/ce_menus.py` resolves the PC description frames before considering a placeholder.
-The profile editor's ABOUT row uses our information emblem (`xbox/art/about.svg`),
-in the palette and line weights of VIDEO, AUDIO, and INTERNET, in both looks (the Xbox's
-own list has no ABOUT row; `xbox/patches.xml` adds it). MOUSE SETUP uses our mouse
-drawing (`xbox/art/mouse.svg`) with the same palette, glow, and line weights.
-
-The other gaps use the player's `ui.map` pictures with a transparent fallback and
-runtime extraction into `cache/pc/v1`, as the Xbox settings hub does. No game art ships.
-
-| PC bitmap | Frames and sources |
-| --- | --- |
-| `mp_options` | 0 → Xbox 0; 1 → Xbox 1; 2 → INTERNET (invite-link join) |
-| `gametype_options` | 0 → Xbox 0; 3 and 4 → Xbox 3 (equipment/vehicles); 6 → Xbox 2 (players/teams); 7 → Xbox 5 (save) |
-| `profile_options` | 1 → Xbox 0 (keyboard); 3 → MOUSE; 4 → AUDIO; 5 → VIDEO; 6 → INTERNET; 8 → ABOUT |
-
-All 13 former placeholder PNGs have been removed. The original redraw for the
-PC gametype chooser's frame 1 and the existing Xbox frame mappings remain.
-
-The PC version's `ui\gamespy` and `ui\ticker` fonts are drawn with `ui\small_ui`, which
-the Xbox's map has.
-""".splitlines()
-    (MENUS / "NON_HANDDRAWN.md").write_text("\n".join(report))
-    # what is not wired
-    used = Counter()
-    for path in CE.glob("*.xml"):
-        import re
-        for name in re.findall(r'(?:run|input)="([^"]*)"', path.read_text()):
-            used[name] += 1
-    pc_functions = set(functions[102:]) | set(inputs[41:])
-    unwired = sorted((name[8:] if name.startswith("unwired ") else name, count) for name, count in used.items()
-                     if name.startswith("unwired ") or (name in pc_functions and name not in WIRED))
-    report = [
-        "# Menu functions that are not wired yet",
-        "",
-        "The PC version's menus (`ce/`, from `tools/ce_menus.py`) run functions of the game's. These do nothing",
-        "yet (`port/linux/game/menu_functions.c`), so what they fill in (lists, values) is empty, and what they",
-        "do (save a setting, join a game) does not happen; the screens open and close as the PC version's.",
-        "",
-        "- The PC version's own functions, which the Xbox's game has not.",
-        "- The Xbox's functions that the PC version rewrote for its own widgets, written `unwired <name>` in the",
-        "  files: run on the PC widgets, the Xbox's would stop the game.",
-        "",
-        "| Function | Uses | |",
-        "| --- | --- | --- |",
-    ]
-    report += [f"| `{name}` | {count} | {'Xbox function, PC widgets' if name in INCOMPATIBLE else 'PC function'} |"
-               for name, count in unwired]
-    report += ["", "Wired: " + ", ".join(f"`{name}`" for name in sorted(WIRED)) + ".", ""]
-    (MENUS / "UNWIRED.md").write_text("\n".join(report))
     # (every header is drawn at its picture's size, as the Xbox look's are)
     frames = xbox_menus.header_frames(MENUS)
     for path in sorted(CE.glob("*.xml")):
@@ -759,13 +668,9 @@ the Xbox's map has.
         fixed = xbox_menus.native_header_text(text, frames)
         if fixed != text:
             path.write_text(fixed)
-    files = sorted(path.relative_to(MENUS).as_posix() for path in MENUS.rglob("*.xml"))
-    files += sorted(art.pngs)
-    files = xbox_menus.retain_xbox_files(MENUS, files)
-    (MENUS / "menus.json").write_text(json.dumps({
-        "comment": "The menus' files the game embeds (tools/ce_menus.py, tools/embed_assets.py).",
-        "files": files,
-    }, indent=1) + "\n")
+    # (the generator writes the screens and menus.json, which lists what the game embeds)
+    xbox_menus.generate()
+    files = xbox_menus.manifest_files(MENUS)
     size = sum((MENUS / name).stat().st_size for name in files)
     print(f"{len(widgets)} widgets in {len(folders)} files, {len(string_lists)} string lists, {len(bitmaps)} bitmaps "
           f"({len(art.pngs)} frames, {len(art.pictures)} not redrawn); {size // 1024} KB; fonts {dict(fonts)}")

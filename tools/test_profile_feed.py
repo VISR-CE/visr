@@ -9,6 +9,8 @@ import shutil
 import pytest
 
 import data_pack
+import pages_asset_overlay
+import profile_check
 import ios_build
 import profile_pr
 import profile_revision
@@ -22,20 +24,30 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # new table here.
 # Generation 2 had not shipped when PROFILE_VARIABLE was added (no release read it, no shard was signed), so its table
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
+# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits. 0.6.22, cut from
+# the 0.6 line, reads device-profiles-6 (generation 4's keys and that one; tools/profile_pr.py, GENERATIONS).
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "f0c2dda38e02337e445792dcfb883d4b60249c0cda6eaa1ef43ccc7b2323bcd4"}
+                   5: "7c1ad753008291544061b8b70c118d95e4bac87b58feaf7f42749ad2b83ab69d"}
 
 
 def key_table_sha256(text):
-    lines = [" ".join(line.split()) for line in text.splitlines() if re.fullmatch(r"PROFILE_[A-Z]+\(.*\)\s*", line)]
+    lines = [" ".join(line.split()) for line in text.splitlines() if re.fullmatch(r"PROFILE_[A-Z_]+\(.*\)\s*", line)]
     return hashlib.sha256(("\n".join(lines) + "\n").encode()).hexdigest()
 
 
 def test_profile_keys_match_the_feed_generation():
     assert key_table_sha256(KEYS.read_text()) == GENERATION_KEYS[data_pack.PROFILE_FEED_GENERATION], (
         "port_profile_keys.h changed: bump the profile feed generation (see GENERATION_KEYS)")
+
+
+def test_every_published_generation_can_be_signed_validated_and_served():
+    probe = (ROOT / "port/ios/tests/profile_delivery_probe.c").read_text()
+    for domain in profile_pr.GENERATIONS:
+        generation = int(domain.rsplit("-", 1)[1])
+        assert domain in data_pack.DEVICE_PROFILE_DOMAINS and pages_asset_overlay.PROFILE_DIRECTORIES[domain] == domain
+        assert f'"validate-{generation}"' in probe, domain
 
 
 def test_generation_constants_agree():
@@ -47,7 +59,7 @@ def test_generation_constants_agree():
     pages = (ROOT / "tools/pages_asset_overlay.py").read_text()
     assert domain == data_pack.PROFILE_FEED_DOMAIN == ios_build.PROFILE_FEED_DIRECTORY == profile_pr
     assert f'"{domain}": "{domain}"' in pages
-    assert data_pack.DEVICE_PROFILE_DOMAINS[-1] == domain
+    assert domain in data_pack.DEVICE_PROFILE_DOMAINS
 
 
 def test_repository_revision_matches_the_profiles():
@@ -228,11 +240,83 @@ def test_stripping_leaves_other_text_alone():
         "schema = 1\n" + FULL_RATE[0] + '[variable.network]\nother = 1\n\n[evidence."x"]\nwhy = "y"\n')
 
 
+def test_stripping_a_table_of_its_only_setting_removes_the_table():
+    text = ('[display]\nrender_height = 900\n\n[variable.display]\neffect_limits = "xbox"\n\n[network]\nplayer_capacity = 8\n\n'
+            '[evidence."variable.display.effect_limits"]\nwhy = "y"\n')
+    assert profile_pr.strip_keys(text, ("display.effect_limits",)) == (
+        "[display]\nrender_height = 900\n\n[network]\nplayer_capacity = 8\n\n")
+    # (a table that keeps another setting stays, and one that never held the key is untouched even when empty)
+    kept = '[variable.display]\nshadow_map_size = 128\neffect_limits = "xbox"\n\n[variable.other]\n'
+    assert profile_pr.strip_keys(kept, ("display.effect_limits",)) == "[variable.display]\nshadow_map_size = 128\n\n[variable.other]\n"
+    # (so does one that keeps a comment, a quoted key or a dotted key: without its header those would join the table before)
+    for rest in ("# why\n", '"quoted key" = 1\n', "dotted.key = 1\n"):
+        text = '[display]\nrender_height = 900\n\n[variable.display]\neffect_limits = "xbox"\n' + rest
+        assert profile_pr.strip_keys(text, ("display.effect_limits",)) == "[display]\nrender_height = 900\n\n[variable.display]\n" + rest
+
+
+def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
+    """The class: a profile value must reach the builds that understand it and no others. A released build refuses a
+    whole shard that names a key it does not know, so each generation's sources must name none of its refused keys,
+    in the profile's own tables, in [variable.display] or in the evidence, and must still pass the profile checker."""
+    assert any("effect_limits" in path.read_text() for path in (ROOT / "profiles").glob("*.toml"))
+    assert set(profile_pr.GENERATIONS) == {"device-profiles-3", "device-profiles-4", "device-profiles-5", "device-profiles-6"}
+    for domain, refused in profile_pr.GENERATIONS.items():
+        sources = profile_pr.generation_profiles(ROOT / "profiles", domain, tmp_path / domain)
+        texts = {path.name: path.read_text() for path in sources.glob("*.toml")}
+        for key in refused:
+            name = key.partition(".")[2]
+            assert not [file for file, text in texts.items() if re.search(rf"^\s*{name}\s*=|{re.escape(key)}", text, re.M)], (domain, key)
+        for key in set(profile_pr.KEY_GENERATIONS) - set(refused):
+            name = key.partition(".")[2]
+            assert [file for file, text in texts.items() if re.search(rf"^\s*{name}\s*=", text, re.M)], (domain, key)
+        for file, text in texts.items():
+            assert profile_check.check_profile(sources / file, profile_check.profile_keys())[0] == [], (domain, file)
+    # 0.6.22's generation: the variable decal limit without the portrait key
+    six = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-6", tmp_path / "six")
+    assert 'effect_limits = "xbox"' in (six / "ipad-pro-12-9-2nd.toml").read_text()
+    assert 'frames_in_flight_at_30 = "1"' in (six / "ipad-pro-12-9-2nd.toml").read_text()    # (0.6.22 carries the key)
+    four = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-4", tmp_path / "four")
+    assert "effect_limits" not in (four / "ipad-pro-12-9-2nd.toml").read_text()
+    assert profile_revision.read(four)[0] == profile_revision.read(ROOT / "profiles")[0]
+
+
+PROFILE_KEY_NAME = re.compile(r'^PROFILE_[A-Z_]+\("([^"]+)"', re.M)
+# The sha256 of the sorted profile key names that every released validator knows (the table less KEY_GENERATIONS).
+KNOWN_TO_EVERY_GENERATION = "572d9f816d259eefcb6c439e22c14c3919531604c37e2c1ee56138b56978db22"
+
+
+def test_every_profile_key_has_its_generations_recorded():
+    """The class: a key added to port_profile_keys.h that no strip list names reaches released validators, which refuse
+    the whole shard. profile_pr.KEY_GENERATIONS must name it with the generations that will read it."""
+    names = set(PROFILE_KEY_NAME.findall(KEYS.read_text()))
+    assert set(profile_pr.KEY_GENERATIONS) <= names
+    known = hashlib.sha256("\n".join(sorted(names - set(profile_pr.KEY_GENERATIONS))).encode()).hexdigest()
+    assert known == KNOWN_TO_EVERY_GENERATION, (
+        "port_profile_keys.h changed: record the new key in profile_pr.KEY_GENERATIONS (the generations that read it)")
+    # 0.6.22's generation carries every key this branch adds except the portrait one
+    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait",)
+    assert profile_pr.GENERATIONS[profile_pr.PROFILE_DOMAIN] == ()
+
+
+@pytest.mark.skipif("visr-v0.6.21" not in tags(), reason="needs the release tags")
+def test_strip_lists_match_the_release_tags_key_tables():
+    """A released generation refuses exactly the keys its release's table does not have."""
+    import subprocess
+
+    def table(tag):
+        text = subprocess.run(["git", "-C", str(ROOT), "show", f"{tag}:port/linux/src/port_profile_keys.h"],
+                              capture_output=True, text=True, check=True).stdout
+        return set(PROFILE_KEY_NAME.findall(text))
+    current = set(PROFILE_KEY_NAME.findall(KEYS.read_text()))
+    for domain, tag in (("device-profiles-3", "visr-v0.6.7"), ("device-profiles-4", "visr-v0.6.21")):
+        assert set(profile_pr.GENERATIONS[domain]) == current - table(tag), domain
+
+
 def test_generations_without_the_key_sign_from_the_sources_themselves(tmp_path):
     profiles = tmp_path / "profiles"
     shutil.copytree(ROOT / "profiles", profiles)
     for path in profiles.glob("*.toml"):
-        path.write_text(profile_pr.strip_keys(path.read_text(), ("network.full_rate_players", "display.allow_portrait")))
+        path.write_text(profile_pr.strip_keys(path.read_text(), tuple(profile_pr.KEY_GENERATIONS)))
     for domain in profile_pr.GENERATIONS:
         assert profile_pr.generation_profiles(profiles, domain, tmp_path / domain) == profiles
 

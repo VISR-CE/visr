@@ -22,7 +22,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar/button_ok" x="471" y="0" />
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar/common_button_cancel" x="326" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/op_primary_weapon" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/op_primary_weapon" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_spinner" x="286" y="6" />
 	</widget>
@@ -31,7 +31,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/primary_weapon_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|RANDOM|ASSAULT RIFLE|PISTOL|SHOTGUN|SNIPER RIFLE|ROCKET LAUNCHER|PLASMA PISTOL|PLASMA RIFLE|NEEDLER" strings_ids="xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s0|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s1|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s2|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s3|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s4|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s5|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s6|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s7|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s8|xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner.s9" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/op_secondary_weapon" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/weapons_edit/op_secondary_weapon" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/secondary_weapon_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/secondary_weapon_spinner" x="286" y="6" />
 	</widget>
@@ -89,4 +89,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/weapons_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons/title">
+		<string text="CHOOSE WEAPONS" id="xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_header_weapons_title.choose_weapons" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons" strings="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons/title" />
 </menus>

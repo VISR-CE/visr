@@ -28,7 +28,8 @@ launch takes its settings from the environment alone: nothing is written to conf
 the saves go to benchmark/run/save in the data folder, and init.txt is read from benchmark/run/ */
 int config_benchmark_isolated(void);
 /* sets a setting from its value as text ("true", "60", "1.5", "all"), and
-writes it into config.toml (only its line changes); 1 on success */
+writes it into config.toml (only its line changes); 1 on success. A tuning
+value is set for this run only (port_config.c's _tier_tuning) */
 int config_write(const char *name, const char *value);
 int config_write_boolean(const char *name, int value);
 /* a setting's value as text ("true", "60", "1.5", "all"); 0 if there is no
@@ -56,6 +57,8 @@ The environment still wins; Hardcore acts as Classic in head-tracked stereo. */
 int config_boolean_in_graphics_mode(const char *name, int mode);
 /* the mode by name for this run only, unsaved (debug.knob_cycle): 0 for a name that is no mode */
 int config_graphics_try(const char *name);
+/* a setting set from its value as text for this run only (not written), applied live like config_write */
+int config_set_unsaved(const char *name, const char *value);
 /* a boolean set for this run only (not written), applied live like config_write_boolean */
 int config_set_boolean_unsaved(const char *name, int value);
 /* 1 while the frames are head-tracked stereo (Apple Vision Pro), where Hardcore acts as Classic */
@@ -81,6 +84,8 @@ enum
 /* context is a CONFIG_PROFILE_* bit mask; the game helper supplies exclusions. */
 void config_profile_safe_point(int point, int context);
 int config_profile_apply_snapshot(const char *snapshot, const char *version, int point, int context);
+/* Whether this launch's settings script it (source/game/game.c). */
+int config_scripted_run(void);
 /* Game-side eligibility, shared by the level, cinematic and local player hooks. */
 void config_profile_game_safe_point(int point);
 

@@ -1,5 +1,8 @@
 /* The cloud save rules (cloud_saves.h). */
 #include "cloud_saves.h"
+#include "saved_game_image.h"
+#include "save_writer.h"
+#include "stock_maps.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -19,6 +22,14 @@
 #define VARIANT_FILE "blam.lst"
 #define SAVE_FILE_SIZE 512
 #define TEMP_PREFIX ".cloud-"
+
+/* every file this engine puts under the save root goes through the one writer of save files */
+static const struct save_writer_io *cloud_save_io = &save_writer_posix_io;
+
+void cloud_saves_set_save_io(const struct save_writer_io *io)
+{
+	cloud_save_io = io ? io : &save_writer_posix_io;
+}
 #define PAYLOAD_MAGIC "VISRSAV1"
 #define MAX_BASES (CLOUD_MAX_SLOTS * 3)
 #define MAX_NOTICES 16
@@ -286,83 +297,62 @@ static long long meta_number(const char *meta, const char *key)
 
 /* ---------- the game's files */
 
-static const char *const campaign_maps[10] = { "a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40" };
-static const char *const campaign_titles[10] = { "The Pillar of Autumn", "Halo", "The Truth and Reconciliation",
-	"The Silent Cartographer", "Assault on the Control Room", "343 Guilty Spark", "The Library", "Two Betrayals",
-	"Keyes", "The Maw" };
-
+/* the campaign level a map is (its order in the campaign, stock_maps.h), or -1 */
 static int campaign_level(const char *map)
 {
 	const char *name = strrchr(map, '\\');
+	int count;
+	const struct stock_map *maps = stock_maps(&count);
 	int i;
+	int level = 0;
 
 	name = name ? name + 1 : map;
-	for (i = 0; i < 10; i++)
-		if (!strcmp(name, campaign_maps[i]))
-			return i;
+	for (i = 0; i < count; i++)
+	{
+		if (!(maps[i].flags & STOCK_MAP_CAMPAIGN))
+			continue;
+		if (!strcmp(name, maps[i].file))
+			return level;
+		level++;
+	}
 	return -1;
 }
 
 const char *cloud_level_title(const char *map)
 {
-	int level = campaign_level(map);
+	const char *name = strrchr(map, '\\');
+	const struct stock_map *stock;
 
-	return level < 0 ? map : campaign_titles[level];
+	name = name ? name + 1 : map;
+	stock = campaign_level(map) < 0 ? NULL : stock_map_named(name, strlen(name));
+	return stock ? stock->display_name : map;
 }
 
-/* source/memory/crc.c */
-static uint32_t game_crc(uint32_t crc, const uint8_t *data, size_t size)
-{
-	static uint32_t table[256];
-	size_t i;
-
-	if (!table[1])
-	{
-		uint32_t n;
-		int bit;
-
-		for (n = 0; n < 256; n++)
-		{
-			uint32_t value = n;
-
-			for (bit = 0; bit < 8; bit++)
-				value = (value & 1) ? (value >> 1) ^ 0xEDB88320u : value >> 1;
-			table[n] = value;
-		}
-	}
-	for (i = 0; i < size; i++)
-		crc = (crc >> 8) ^ table[(data[i] ^ crc) & 0xff];
-	return crc;
-}
-
-/* struct game_state_header (source/saved games/game_state.h) */
+/* the saved game's header and checksum (saved_game_image.h, shared with the saved game writer) */
 enum
 {
-	HEADER_LAYOUT = 0,
-	HEADER_MAP = 4,
-	HEADER_MAP_SIZE = 256,
-	HEADER_BUILD = 0x104,
-	HEADER_BUILD_SIZE = 32,
-	HEADER_DIFFICULTY = 0x126,
-	HEADER_MAP_CHECKSUM = 0x128,
-	HEADER_CHECKSUM = 0x148,
-	HEADER_SIZE = 0x14c,
+	HEADER_LAYOUT = SAVED_GAME_HEADER_LAYOUT,
+	HEADER_MAP = SAVED_GAME_HEADER_MAP,
+	HEADER_MAP_SIZE = SAVED_GAME_HEADER_MAP_SIZE,
+	HEADER_BUILD = SAVED_GAME_HEADER_BUILD,
+	HEADER_BUILD_SIZE = SAVED_GAME_HEADER_BUILD_SIZE,
+	HEADER_DIFFICULTY = SAVED_GAME_HEADER_DIFFICULTY,
+	HEADER_MAP_CHECKSUM = SAVED_GAME_HEADER_MAP_CHECKSUM,
+	HEADER_CHECKSUM = SAVED_GAME_HEADER_CHECKSUM,
+	HEADER_SIZE = SAVED_GAME_HEADER_SIZE,
 };
 
 static uint32_t read_u32(const uint8_t *p) { return p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24; }
 
 int cloud_checkpoint_check(const uint8_t *data, size_t size)
 {
-	static const uint8_t zero[4] = { 0 };
 	uint32_t crc;
 	size_t i;
 
 	if (size < HEADER_SIZE)
 		return -1;
 	/* the checksum is over the file with its own field zero */
-	crc = game_crc(0xFFFFFFFFu, data, HEADER_CHECKSUM);
-	crc = game_crc(crc, zero, 4);
-	crc = game_crc(crc, data + HEADER_CHECKSUM + 4, size - HEADER_CHECKSUM - 4);
+	crc = saved_game_image_checksum(data, size);
 	if (crc == read_u32(data + HEADER_CHECKSUM) && data[HEADER_MAP])
 		return 1;
 	for (i = 0; i < size; i++)
@@ -1061,15 +1051,16 @@ int cloud_local_slot_count(const char *save_root)
 	return found;
 }
 
-void cloud_local_signature(const char *save_root, const char *state_path, char hash[CLOUD_HASH_SIZE])
+void cloud_local_signatures(const char *save_root, const char *state_path, struct cloud_local_signatures *signatures)
 {
 	char ids[CLOUD_MAX_SLOTS][CLOUD_SLOT_ID_SIZE], directory[1100], path[1400], line[1500];
 	int count = local_slot_ids(save_root, ids, CLOUD_MAX_SLOTS), i;
-	struct sha256 sha;
+	struct sha256 all, other;
 	uint8_t digest[32];
 	struct stat st;
 
-	sha256_begin(&sha);
+	sha256_begin(&all);
+	sha256_begin(&other);
 	for (i = 0; i < count; i++)
 	{
 		struct dirent *entry;
@@ -1081,8 +1072,10 @@ void cloud_local_signature(const char *save_root, const char *state_path, char h
 			continue;
 		if (stat(directory, &st) == 0)
 		{
+			/* (a saved game replaced whole changes its folder's time, so "other" leaves the time out: a
+			   file added or removed still shows there, by its name) */
 			snprintf(line, sizeof(line), "%s %lld.%ld\n", ids[i], (long long)st.st_mtimespec.tv_sec, (long)st.st_mtimespec.tv_nsec);
-			sha256_add(&sha, line, strlen(line));
+			sha256_add(&all, line, strlen(line));
 		}
 		while ((entry = readdir(dir)) != NULL)
 		{
@@ -1092,7 +1085,10 @@ void cloud_local_signature(const char *save_root, const char *state_path, char h
 			/* (the directory's order is not sorted, and need not be: it is the same until something changes) */
 			snprintf(line, sizeof(line), "%s/%s %lld %lld.%ld\n", ids[i], entry->d_name, (long long)st.st_size,
 				(long long)st.st_mtimespec.tv_sec, (long)st.st_mtimespec.tv_nsec);
-			sha256_add(&sha, line, strlen(line));
+			sha256_add(&all, line, strlen(line));
+			if (!strcmp(entry->d_name, CHECKPOINT_FILE))
+				snprintf(line, sizeof(line), "%s/%s\n", ids[i], entry->d_name);
+			sha256_add(&other, line, strlen(line));
 		}
 		closedir(dir);
 	}
@@ -1100,10 +1096,53 @@ void cloud_local_signature(const char *save_root, const char *state_path, char h
 	if (stat(path, &st) == 0)
 	{
 		snprintf(line, sizeof(line), "deleted %lld\n", (long long)st.st_size);
-		sha256_add(&sha, line, strlen(line));
+		sha256_add(&all, line, strlen(line));
+		sha256_add(&other, line, strlen(line));
 	}
-	sha256_end(&sha, digest);
-	hex_of(digest, 32, hash);
+	sha256_end(&all, digest);
+	hex_of(digest, 32, signatures->all);
+	sha256_end(&other, digest);
+	hex_of(digest, 32, signatures->other);
+}
+
+void cloud_local_signature(const char *save_root, const char *state_path, char hash[CLOUD_HASH_SIZE])
+{
+	struct cloud_local_signatures signatures;
+
+	cloud_local_signatures(save_root, state_path, &signatures);
+	memcpy(hash, signatures.all, CLOUD_HASH_SIZE);
+}
+
+int cloud_pacing_due(const struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, long long now,
+	int leaving_the_screen)
+{
+	long long since = now - pacing->last_pass;
+
+	/* nothing changed since a pass that left nothing to do */
+	if (!strcmp(signatures->all, pacing->idle))
+		return 0;
+	/* something still waits (no network, files being written) and nothing changed since the last try */
+	if (!pacing->idle[0] && pacing->passed && since < CLOUD_RETRY_SECONDS && !strcmp(signatures->all, pacing->tried))
+		return 0;
+	/* only saved games changed since a pass that left nothing to do: the game replaces one at every
+	   checkpoint, and each would cost a read of the whole file, its hash and an upload. An app that is
+	   leaving the screen may not come back, so the newest one goes then */
+	if (!leaving_the_screen && pacing->idle[0] && since < CLOUD_CHECKPOINT_SECONDS &&
+		!strcmp(signatures->other, pacing->idle_other))
+		return 0;
+	return 1;
+}
+
+void cloud_pacing_passed(struct cloud_pacing *pacing, const struct cloud_local_signatures *signatures, enum cloud_state state,
+	long long now)
+{
+	int idle = state == CLOUD_STATE_IDLE;
+
+	pacing->passed = 1;
+	pacing->last_pass = now;
+	memcpy(pacing->tried, signatures->all, CLOUD_HASH_SIZE);
+	memcpy(pacing->idle, idle ? signatures->all : "", idle ? CLOUD_HASH_SIZE : 1);
+	memcpy(pacing->idle_other, idle ? signatures->other : "", idle ? CLOUD_HASH_SIZE : 1);
 }
 
 int cloud_slot_of_path(const char *save_root, const char *path, char *slot)
@@ -1133,39 +1172,16 @@ int cloud_slot_of_path(const char *save_root, const char *path, char *slot)
 	return cloud_slot_id_valid(slot);
 }
 
-/* writes one file through a temporary name in the same directory */
+/* Writes one file through a temporary name in the same directory (a name this engine never lists, and
+   clears at the next launch), by the one writer of save files (save_writer.h): to the disk before it takes
+   the old file's place, so a launch cut short leaves the old file or the new one. */
 static int write_file(const char *directory, const char *name, const uint8_t *data, size_t size)
 {
 	char temp[1300], path[1300];
-	size_t used = 0;
-	int fd;
 
 	snprintf(temp, sizeof(temp), "%s/%s%s", directory, TEMP_PREFIX, name);
 	snprintf(path, sizeof(path), "%s/%s", directory, name);
-	fd = open(temp, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	if (fd < 0)
-		return 0;
-	while (used < size)
-	{
-		ssize_t put = write(fd, data + used, size - used);
-
-		if (put <= 0)
-			break;
-		used += (size_t)put;
-	}
-	if (used != size || fsync(fd) != 0)
-	{
-		close(fd);
-		unlink(temp);
-		return 0;
-	}
-	close(fd);
-	if (rename(temp, path) != 0)
-	{
-		unlink(temp);
-		return 0;
-	}
-	return 1;
+	return save_writer_replace_with_data(cloud_save_io, temp, path, data, size) == SAVE_WRITER_REPLACED;
 }
 
 static int make_slot_directory(const char *save_root, const char *id, char *directory, size_t size)

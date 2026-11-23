@@ -648,6 +648,10 @@ static void *thread_main(void *context)
 	pthread_mutex_unlock(&handle->lock);
 
 	thread_is_worker = TRUE;
+	/* debug.thread_cpu_log lists threads by ID; the host logs which ID each guest thread has (host_thread.c) */
+	if (config_boolean("debug.thread_cpu_log"))
+		platform_log("thread cpu: guest thread %p runs a game thread started at %p (parameter %p)", (void *)pthread_self(),
+			(void *)thread->start, thread->parameter);
 	exit_code = thread->start(thread->parameter);
 
 	pthread_mutex_lock(&handle->lock);

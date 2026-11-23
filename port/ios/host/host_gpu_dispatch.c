@@ -8,7 +8,7 @@ GPU_INITIALIZE_METAL (display.renderer = "metal"), Metal (gpu_metal.m).
 visionOS has no OpenGL ES, and its build leaves the GL backend out.
 */
 
-#include "gpu.h"
+#include "gpu_backend.h"
 #include "ios_host.h"
 #include "host_data_updates.h"
 #include <string.h>
@@ -16,6 +16,13 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_perf_hooks.h"
 #include "host_external.h"
 #include "host_config.h"
+#include "gpu_call_hash.h"
+#include "host_frame_timeline.h"
+#include <pthread.h>
+#include "gpu_queue.h"
+#include "gpu_owner_check.h"
+#include "host_thread_cpu.h"
+#include "host_main_sync_log.h"
 #include "host_low_power.h"
 #include "host_stereo.h"
 #include "low_power.h"
@@ -76,6 +83,8 @@ static void data_updates_presented(void)
 Metal backend reports its own, with the GPU's time (gpu_metal.m's pacing_schedule), and this must not count them twice.
 The interval is from one Present's return to the next's; the CPU time is the game's work between them. */
 static int metal_backend;
+/* debug.encode_thread is not off (hash_and_queue_wrap) */
+static int encode_queue_on;
 
 int host_gpu_metal_active(void)
 {
@@ -90,19 +99,62 @@ static double uptime_seconds(void)
 static void low_power_frame(void);
 static void low_power_scene(uint32_t scene_class);
 
-static uint32_t present_wrapped(gpu_texture back_buffer)
+/* when the game thread last called its present (uptime_seconds, CACurrentMediaTime's clock): set before the present
+is recorded, so the encode thread reads this frame's when it makes that present */
+static double present_called;
+/* 1 with debug.encode_thread = "thread" */
+static int encode_thread_on;
+
+double host_gpu_present_called(void)
+{
+	return encode_thread_on ? present_called : -1.0;
+}
+
+int host_gpu_encode_thread_on(void)
+{
+	return encode_thread_on;
+}
+
+/* the backend's present for each kind of frame, made between present_frame's steps (frame: what the wrapper was
+handed) */
+static uint32_t make_present(const void *frame)
+{
+	return wrapped_backend->present(*(const gpu_texture *)frame);
+}
+
+static uint32_t make_present_stereo(const void *frame)
+{
+	return wrapped_backend->present_stereo(frame);
+}
+
+/* Every present path, mono or stereo, goes through here, so each frame gets the same steps around the backend's
+present whatever its kind (tools/test_present_paths.py): when the game thread called it (the encode thread's slot
+wait), the end of the frame's deadline interval, the background hold (with the encode thread, after the queue's
+drain), the frame's stream end, and after it the timeline row's seal (on the game thread after the backend's present
+returned: the timeline spec's decision note) and the per-frame bookkeeping. */
+static uint32_t present_frame(uint32_t (*make)(const void *frame), const void *frame)
 {
 	static double last_returned;
 	uint32_t next_frame_due;
 	double called = uptime_seconds();
 
+	present_called = called;
+
 	/* (the frame's work ends here: a background hold mustn't count against its deadline) */
 	if (metal_backend)
 		gpu_metal_frame_deadline_end();
-	host_lifecycle_hold();
+	/* (with the encode thread, the frame's records so far reach the GPU before the hold waits, not while in the
+	background) */
+	host_lifecycle_hold(encode_queue_on ? gpu_queue_drain : NULL);
 	host_perf_hooks_context(1, metal_backend ? 1 : 2);
 	host_perf_hooks_present_begin();
-	next_frame_due = wrapped_backend->present(back_buffer);
+	/* (the frame's streams end before its present is written, in every queue mode, so stream handles are the same
+	with the queue off and on) */
+	wrapped_backend->stream_frame_end();
+	next_frame_due = make(frame);
+	if (encode_queue_on)
+		host_frame_timeline_barrier(gpu_queue_barrier_waited());
+	host_frame_timeline_seal();
 	host_perf_hooks_present_end();
 	data_updates_presented();
 	/* (between frames: Low Power Mode's frame rate for the next one) */
@@ -120,26 +172,30 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 				translation, ticks);
 		last_returned = returned;
 	}
+	host_thread_cpu_frame();
+	host_main_sync_log_frame();
 	if (frame_counter)
 		host_frame_counter_show(presented++);
 	return next_frame_due;
 }
 
+static uint32_t present_wrapped(gpu_texture back_buffer)
+{
+	return present_frame(make_present, &back_buffer);
+}
+
+/* the game reads the controllers next (halo_frame_start has returned, late start included): the frame timeline's
+controller read */
+static void frame_start_wrapped(void)
+{
+	wrapped_backend->frame_start();
+	host_frame_timeline_controller_read();
+}
+
 /* a stereo frame is a Present too */
 static uint32_t present_stereo_wrapped(const struct gpu_stereo_present *present)
 {
-	uint32_t next_frame_due;
-
-	host_lifecycle_hold();
-	host_perf_hooks_context(1, metal_backend ? 1 : 2);
-	host_perf_hooks_present_begin();
-	next_frame_due = wrapped_backend->present_stereo(present);
-	host_perf_hooks_present_end();
-	data_updates_presented();
-	low_power_frame();
-	if (frame_counter)
-		host_frame_counter_show(presented++);
-	return next_frame_due;
+	return present_frame(make_present_stereo, present);
 }
 
 /* the scene class's frame rate is the backend's to hold; Low Power Mode's cap follows the class at once (menus keep
@@ -615,6 +671,145 @@ static const struct gpu_backend *capture_wrap(const struct gpu_backend *chosen, 
 }
 #endif
 
+/* debug.gpu_call_hash (gpu_call_hash.h): one line a frame from the wrapper the game's calls reach first, so a run
+with the queue and one without log hashes that compare. With debug.encode_thread on, a second wrapper sits behind
+the queue and every frame's hash there must equal the recorded hash in front: the queue dropped, reordered or
+changed nothing it carries */
+/* (frames the back of the queue may trail the front by, and the room for a frame's per-operation hashes) */
+#define CALL_HASH_FRAMES 64
+#define CALL_HASH_PARTS 640
+static int call_hash_on;
+static struct
+{
+	pthread_mutex_t lock;
+	/* the recorded hashes in front of the queue that the back has not reached yet, by frame number */
+	struct { unsigned long frame; uint64_t recorded; char parts[CALL_HASH_PARTS]; } front[CALL_HASH_FRAMES];
+	unsigned long checked, differ;
+} call_hash_check = { .lock = PTHREAD_MUTEX_INITIALIZER };
+
+static void call_hash_log(const struct gpu_call_hash_frame *frame)
+{
+	if (frame->second_thread)
+		platform_log("gpu call hash: a command came from a second thread by frame %lu", frame->frame);
+	platform_log("gpu call hash: frame %lu calls %u hash %016llx %s", frame->frame, frame->calls,
+		(unsigned long long)frame->hash, frame->parts);
+}
+
+/* in front of the queue: the line every run logs, and the recorded hash for the back to compare */
+static void call_hash_front(const struct gpu_call_hash_frame *frame)
+{
+	unsigned slot = (unsigned)(frame->frame % CALL_HASH_FRAMES);
+
+	call_hash_log(frame);
+	pthread_mutex_lock(&call_hash_check.lock);
+	call_hash_check.front[slot].frame = frame->frame;
+	call_hash_check.front[slot].recorded = frame->recorded;
+	snprintf(call_hash_check.front[slot].parts, sizeof(call_hash_check.front[slot].parts), "%s", frame->parts);
+	pthread_mutex_unlock(&call_hash_check.lock);
+}
+
+/* behind it: every command there must be a recorded one, so its whole hash is compared */
+static void call_hash_back(const struct gpu_call_hash_frame *frame)
+{
+	unsigned slot = (unsigned)(frame->frame % CALL_HASH_FRAMES);
+	int same, known;
+	char front_parts[CALL_HASH_PARTS];
+	uint64_t front_recorded;
+	unsigned long checked, differ;
+
+	if (frame->second_thread)
+		platform_log("gpu call hash: behind the queue a command came from a second thread by frame %lu", frame->frame);
+	pthread_mutex_lock(&call_hash_check.lock);
+	known = call_hash_check.front[slot].frame == frame->frame;
+	front_recorded = call_hash_check.front[slot].recorded;
+	snprintf(front_parts, sizeof(front_parts), "%s", call_hash_check.front[slot].parts);
+	same = known && front_recorded == frame->hash;
+	checked = ++call_hash_check.checked;
+	differ = call_hash_check.differ += !same;
+	pthread_mutex_unlock(&call_hash_check.lock);
+	if (!same && differ <= 20)
+		platform_log("gpu call hash: frame %lu differs across the queue: recorded in front %016llx %s; behind "
+			"%016llx (%u calls) %s", frame->frame, known ? (unsigned long long)front_recorded : 0ull,
+			known ? front_parts : "(not seen)", (unsigned long long)frame->hash, frame->calls, frame->parts);
+	if (checked % 300 == 0)
+		platform_log("gpu call hash: queue check: %lu frames, %lu differ", checked, differ);
+}
+
+/* debug.encode_thread (gpu_queue.h): the Metal backend's commands go through the queue; not on visionOS or in the
+Catalyst test host, which have no game thread */
+static void encode_queue_log(const char *line)
+{
+	platform_log("%s", line);
+}
+
+static int encode_queue_mode(int *timing)
+{
+#if TARGET_OS_VISION || TARGET_OS_MACCATALYST
+	(void)timing;
+	return GPU_QUEUE_OFF;
+#else
+	char value[32];
+	int mode;
+
+	host_config_string("debug.encode_thread", "off", value, sizeof(value));
+	mode = gpu_queue_mode_parse(value);
+	if (mode < 0)
+	{
+		platform_log("debug.encode_thread: \"%s\" is not one of off, inline and thread; it is off", value);
+		mode = GPU_QUEUE_OFF;
+	}
+	/* the encode thread needs a game thread: on the main thread the present barrier would hold the main thread while
+	the backend's main-thread work (drawable size, host_main_sync) waits for it */
+	if (mode == GPU_QUEUE_THREAD && pthread_main_np())
+	{
+		platform_log("debug.encode_thread: \"thread\" needs the game thread (debug.game_thread); it is inline");
+		mode = GPU_QUEUE_INLINE;
+	}
+	if (mode == GPU_QUEUE_OFF)
+		return mode;
+	platform_log("debug.encode_thread: %s", mode == GPU_QUEUE_THREAD ? "thread" : "inline");
+	host_config_string("debug.encode_thread_timing", "false", value, sizeof(value));
+	*timing = !strcmp(value, "true");
+	return mode;
+#endif
+}
+
+int host_gpu_encode_queue_on(void)
+{
+	return encode_queue_on;
+}
+
+/* a development build stops at the first call from the wrong thread */
+#ifdef HALO_DEVELOPMENT_HOOKS
+#define OWNER_CHECK_STOPS 1
+#else
+#define OWNER_CHECK_STOPS 0
+#endif
+
+/* chosen with the call hash (debug.gpu_call_hash) and, on Metal, the encode queue in front of it: the hash wraps
+what the game calls; with the queue, a second hash behind the queue sees only the recorded commands */
+static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *chosen, int metal)
+{
+	char value[16];
+	int mode, timing = 0;
+	const struct gpu_backend *behind;
+
+	host_config_string("debug.gpu_call_hash", "false", value, sizeof(value));
+	call_hash_on = !strcmp(value, "true");
+	call_hash_check.checked = call_hash_check.differ = 0;
+	mode = metal ? encode_queue_mode(&timing) : GPU_QUEUE_OFF;
+	encode_queue_on = mode != GPU_QUEUE_OFF;
+	encode_thread_on = mode == GPU_QUEUE_THREAD;
+	if (mode == GPU_QUEUE_OFF)
+		return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
+	/* each call from the thread its class says (gpu_owner_check.h); a development build stops at the first that is
+	not */
+	chosen = gpu_owner_check_wrap(chosen, encode_queue_log, OWNER_CHECK_STOPS);
+	behind = call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_back) : chosen;
+	behind = gpu_queue_wrap(behind, chosen, mode, timing, encode_queue_log, gpu_owner_check_bind_consumer);
+	return call_hash_on ? gpu_call_hash_wrap(1, behind, call_hash_front) : behind;
+}
+
 void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
 #if defined(HALO_METAL_ONLY)
@@ -637,10 +832,12 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 	backend = capture_wrap(backend, flags);
 #endif
 	metal_backend = TARGET_OS_VISION || (flags & GPU_INITIALIZE_METAL) ? 1 : 0;
+	backend = hash_and_queue_wrap(backend, metal_backend);
 	wrapped_backend = backend;
 	wrapped = *backend;
 	wrapped.present = present_wrapped;
 	wrapped.present_stereo = present_stereo_wrapped;
+	wrapped.frame_start = frame_start_wrapped;
 	if (backend->frame_context)
 		wrapped.frame_context = frame_context_wrapped;
 	backend = &wrapped;
@@ -650,6 +847,8 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 	if (frame_counter)
 		host_frame_counter_start((flags & GPU_INITIALIZE_FIXED_TIMESTEP) != 0, (flags & GPU_INITIALIZE_METAL) != 0);
 	host_lifecycle_install();
+	host_thread_cpu_install();
+	host_main_sync_log_install();
 	frame_rate_initialize(flags);
 	/* (before the backend starts its pacing: the display link asks for Low Power Mode's rate from the first frame) */
 	low_power_install();
@@ -660,6 +859,20 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 #define DISPATCH_FUNCTION(type, name, parameters, arguments) type gpu_##name parameters { return backend->name arguments; }
 #define DISPATCH_PROCEDURE(name, parameters, arguments) void gpu_##name parameters { backend->name arguments; }
 GPU_OPERATIONS(DISPATCH_FUNCTION, DISPATCH_PROCEDURE)
+
+/* The Metal backend's side operations (gpu_backend.h's GPU_HOST_SIDE_OPERATIONS), host_gpu_<name>: once Metal draws,
+through the same wrappers as gpu.h's calls (the encode queue among them), so they reach the backend in order with the
+draws; before gpu_initialize, or while OpenGL ES draws, straight to the Metal backend, as they always went */
+static const struct gpu_backend *side_backend(void)
+{
+	return host_gpu_metal_active() ? wrapped_backend : &gpu_backend_metal;
+}
+#define SIDE_FUNCTION(type, name, parameters, arguments) type host_gpu_##name parameters { return side_backend()->name arguments; }
+#define SIDE_PROCEDURE(name, parameters, arguments) void host_gpu_##name parameters { side_backend()->name arguments; }
+GPU_HOST_SIDE_OPERATIONS(SIDE_FUNCTION, SIDE_PROCEDURE)
+#undef SIDE_FUNCTION
+#undef SIDE_PROCEDURE
+#include "gpu_side_imports.h"
 
 /* The guest resolver includes unsaved graphics previews and environment overrides. */
 void host_graphics_apply(int metalfx, int crt, int frame_rate)
@@ -676,8 +889,8 @@ void host_graphics_apply(int metalfx, int crt, int frame_rate)
 		return;
 	if (previous_upscaler != metalfx)
 	{
-		gpu_metal_set_upscaler(metalfx);
+		host_gpu_set_upscaler(metalfx);
 		previous_upscaler = metalfx;
 	}
-	gpu_metal_set_crt(crt);
+	host_gpu_set_crt(crt);
 }

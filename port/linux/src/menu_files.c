@@ -18,6 +18,8 @@ high-res HUD's are (hud_hires.c).
 */
 
 #include "halo_menus.h"
+#include "halo_menu_meta.h"
+#include "menu_geometry.h"
 #include "hud_hires.h"
 #include "menu_files.h"
 #include "menu_platform.h"
@@ -268,6 +270,9 @@ enum element
 	_element_replace,
 	_element_patch,
 	_element_patch_row,
+	_element_bar,
+	_element_action,
+	_element_title,
 };
 
 /* an attribute an element may have: its text (text) or number (number,
@@ -871,7 +876,7 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 		{ "list_flags", &widget.list_flags }, { "text_flags", &widget.text_flags },
 		{ "header_bitmap", &widget.header_bitmap }, { "footer_bitmap", &widget.footer_bitmap },
 		{ "header_bounds", &widget.header_bounds }, { "footer_bounds", &widget.footer_bounds },
-		{ "child_controller", &child_controller },
+		{ "child_controller", &child_controller }, { "row", &widget.row },
 		{ "x", NULL, &widget.x }, { "y", NULL, &widget.y }, { "left", NULL, &widget.left },
 		{ "top", NULL, &widget.top }, { "width", NULL, &widget.width, &widget.has_width },
 		{ "height", NULL, &widget.height, &widget.has_height }, { "text_x", NULL, &widget.text_x },
@@ -983,6 +988,205 @@ static void read_input(struct reader *reader, const XML_Char **attributes, long 
 	LIST_ADD(reader, owner, first_input, last_input, inputs, index);
 }
 
+/* a screen's button bar (<bar>): its <action>s become the bar's widgets as they are read. Each action has a
+slot (x, y, b or a: its button, and its fixed place in the bar), a scope (global, select or back: where it shows on
+each input, ui_widget.c), a caption, and what it does: focus="true" sends the slot's button to the focused widget
+(select and back today), run= or open= is the screen's handler for that button. The reader places the glyph and
+the caption in the slot (menu_geometry.h) and notes the slot and scope on both widgets, which menu_tags.c keeps in
+the menus' meta records; nothing about an action is read off a widget's name. */
+static const struct
+{
+	const char *name;
+	long slot, x0, x1;
+} bar_slots[] =
+{
+	{ "x", HALO_MENU_SLOT_X, MENU_BAR_SLOT_X_X0, MENU_BAR_SLOT_X_X1 },
+	{ "y", HALO_MENU_SLOT_Y, MENU_BAR_SLOT_Y_X0, MENU_BAR_SLOT_Y_X1 },
+	{ "b", HALO_MENU_SLOT_B, MENU_BAR_SLOT_B_X0, MENU_BAR_SLOT_B_X1 },
+	{ "a", HALO_MENU_SLOT_A, MENU_BAR_SLOT_A_X0, MENU_BAR_SLOT_A_X1 },
+};
+
+static const struct
+{
+	const char *name;
+	long scope;
+} bar_scopes[] =
+{
+	{ "global", HALO_MENU_SCOPE_GLOBAL }, { "select", HALO_MENU_SCOPE_SELECT }, { "back", HALO_MENU_SCOPE_BACK },
+};
+
+static void read_bar(struct reader *reader, const XML_Char **attributes)
+{
+	const char *kind = NULL;
+	struct attribute table[] = { { "kind", &kind } };
+
+	read_attributes(reader, "bar", attributes, table, sizeof(table) / sizeof(*table));
+	if (!reader->failed && kind && strcmp(kind, "screen"))
+		reader_error(reader, "a <bar>'s kind is \"screen\"");
+}
+
+/* one of the bar's widgets, made as a <widget> nested in the screen would be (attributes: name/value pairs) */
+static void bar_widget_add(struct reader *reader, const XML_Char **attributes, long screen, long slot, long scope,
+	long typing)
+{
+	struct halo_menus *menus = &reader->menus;
+
+	read_widget(reader, attributes, screen);
+	if (!reader->failed)
+	{
+		menus->widgets[menus->widget_count - 1].bar_slot = slot;
+		menus->widgets[menus->widget_count - 1].bar_scope = scope;
+		menus->widgets[menus->widget_count - 1].bar_typing = typing;
+	}
+}
+
+/* an action's captions that change at run time (strings="EDIT|JOIN GAME"): a string list named for its caption,
+which the engine's ui_widget_port_bar_caption picks from by the action's slot */
+static void bar_captions_add(struct reader *reader, const char *name, const char *strings, const char *ids)
+{
+	const XML_Char *list[] = { "name", name, NULL };
+	const char *text = strings, *id = ids;
+
+	read_strings(reader, list);
+	while (!reader->failed && text)
+	{
+		const char *text_end = strchr(text, '|'), *id_end = id ? strchr(id, '|') : NULL;
+		char *piece = copy_length(text, text_end ? (size_t)(text_end - text) : strlen(text));
+		char *piece_id = id ? copy_length(id, id_end ? (size_t)(id_end - id) : strlen(id)) : NULL;
+		const XML_Char *string[] = { "text", piece, piece_id ? "id" : NULL, piece_id, NULL };
+
+		read_string(reader, string, reader->menus.string_list_count - 1);
+		free(piece);
+		free(piece_id);
+		text = text_end ? text_end + 1 : NULL;
+		id = id_end ? id_end + 1 : NULL;
+	}
+}
+
+static void read_action(struct reader *reader, const XML_Char **attributes, long screen)
+{
+	struct halo_menus *menus = &reader->menus;
+	const char *slot = NULL, *scope = NULL, *text = NULL, *text_id = NULL, *run = NULL, *open = NULL, *focus = NULL;
+	const char *strings = NULL, *strings_ids = NULL, *index = NULL, *while_typing = NULL;
+	struct attribute table[] =
+	{
+		{ "slot", &slot }, { "scope", &scope }, { "text", &text }, { "text_id", &text_id }, { "run", &run },
+		{ "open", &open }, { "focus", &focus }, { "strings", &strings }, { "strings_ids", &strings_ids },
+		{ "index", &index }, { "while_typing", &while_typing },
+	};
+	char glyph_name[256], caption_name[256], captions_name[256], bitmap[32], x[16], y[16], width[16], height[16];
+	char caption_x[16], caption_width[16], caption_height[16];
+	size_t slot_index, scope_index;
+	long widget, does, typing = HALO_MENU_TYPING_KEY;
+
+	read_attributes(reader, "action", attributes, table, sizeof(table) / sizeof(*table));
+	if (reader->failed)
+		return;
+	for (slot_index = 0; slot && slot_index < sizeof(bar_slots) / sizeof(*bar_slots); slot_index++)
+		if (!strcmp(slot, bar_slots[slot_index].name)) break;
+	for (scope_index = 0; scope && scope_index < sizeof(bar_scopes) / sizeof(*bar_scopes); scope_index++)
+		if (!strcmp(scope, bar_scopes[scope_index].name)) break;
+	if (!slot || slot_index == sizeof(bar_slots) / sizeof(*bar_slots))
+	{
+		reader_error(reader, "an <action>'s slot is \"x\", \"y\", \"b\" or \"a\"");
+		return;
+	}
+	if (!scope || scope_index == sizeof(bar_scopes) / sizeof(*bar_scopes))
+	{
+		reader_error(reader, "an <action>'s scope is \"global\", \"select\" or \"back\"");
+		return;
+	}
+	if ((text != NULL) + (strings != NULL) != 1)
+	{
+		reader_error(reader, "an <action> has text, or strings for a caption that changes");
+		return;
+	}
+	if (index && !strings)
+	{
+		reader_error(reader, "an <action>'s index picks one of its strings");
+		return;
+	}
+	strings_ids = ids_usable(reader, "strings_ids", strings_ids, strings);
+	if (while_typing && strcmp(while_typing, "pointer"))
+	{
+		reader_error(reader, "while_typing is \"pointer\" (the key is a letter then: a tap or a click runs it), or not given");
+		return;
+	}
+	if (while_typing)
+		typing = HALO_MENU_TYPING_POINTER;
+	if (focus && strcmp(focus, "true"))
+	{
+		reader_error(reader, "focus is \"true\", or not given");
+		return;
+	}
+	does = (focus != NULL) + (run != NULL) + (open != NULL);
+	if (does != 1)
+	{
+		reader_error(reader, "an <action> has one of focus=\"true\", run= and open=");
+		return;
+	}
+	/* the focused widget takes A as its select and B as its back (ui_widget.c) */
+	if (focus && bar_slots[slot_index].slot != HALO_MENU_SLOT_A && bar_slots[slot_index].slot != HALO_MENU_SLOT_B)
+	{
+		reader_error(reader, "focus=\"true\" is for the a and b slots");
+		return;
+	}
+	for (widget = 0; widget < menus->widget_count; widget++)
+	{
+		if (menus->widgets[widget].parent == screen && menus->widgets[widget].bar_slot == bar_slots[slot_index].slot)
+		{
+			reader_error(reader, "a screen has one action for each slot");
+			return;
+		}
+	}
+	if (strlen(menus->widgets[screen].name) + sizeof("/bar/x_captions") > sizeof(glyph_name))
+	{
+		reader_error(reader, "the screen's name is too long for its bar");
+		return;
+	}
+	snprintf(glyph_name, sizeof(glyph_name), "%s/bar/%s_butn", menus->widgets[screen].name, slot);
+	snprintf(caption_name, sizeof(caption_name), "%s/bar/%s_caption", menus->widgets[screen].name, slot);
+	snprintf(captions_name, sizeof(captions_name), "%s/bar/%s_captions", menus->widgets[screen].name, slot);
+	snprintf(bitmap, sizeof(bitmap), "xbox/browser/%s_butn", slot);
+	snprintf(x, sizeof(x), "%ld", bar_slots[slot_index].x0 + MENU_BAR_INSET);
+	snprintf(y, sizeof(y), "%d", MENU_LEGEND_Y);
+	snprintf(width, sizeof(width), "%d", MENU_BAR_GLYPH_WIDTH);
+	snprintf(height, sizeof(height), "%d", MENU_BAR_GLYPH_HEIGHT);
+	snprintf(caption_x, sizeof(caption_x), "%ld", bar_slots[slot_index].x0 + MENU_BAR_INSET + MENU_BAR_CAPTION_OFFSET);
+	snprintf(caption_width, sizeof(caption_width), "%ld", bar_slots[slot_index].x1 - MENU_BAR_INSET -
+		(bar_slots[slot_index].x0 + MENU_BAR_INSET + MENU_BAR_CAPTION_OFFSET));
+	snprintf(caption_height, sizeof(caption_height), "%d", MENU_BAR_CAPTION_HEIGHT);
+	{
+		const XML_Char *glyph[] =
+		{
+			"name", glyph_name, "type", "container", "bitmap", bitmap, "width", width, "height", height,
+			"x", x, "y", y, NULL,
+		};
+		const XML_Char *caption[] =
+		{
+			"name", caption_name, "type", "text", "font", "ui\\large_ui", "color", "#FF2896FF",
+			"width", caption_width, "height", caption_height, "x", caption_x, "y", y,
+			text ? "text" : "string_list", text ? text : captions_name,
+			/* (text's catalog ID, or which of the strings shows first) */
+			text ? (text_id ? "text_id" : NULL) : "string_index", text ? text_id : (index ? index : "0"), NULL,
+		};
+
+		if (strings)
+			bar_captions_add(reader, captions_name, strings, strings_ids);
+		if (!reader->failed)
+			bar_widget_add(reader, glyph, screen, bar_slots[slot_index].slot, bar_scopes[scope_index].scope, typing);
+		if (!reader->failed)
+			bar_widget_add(reader, caption, screen, bar_slots[slot_index].slot, bar_scopes[scope_index].scope,
+				typing);
+	}
+	if (!reader->failed && (run || open))
+	{
+		const XML_Char *handler[] = { "event", slot, run ? "run" : "open", run ? run : open, NULL };
+
+		read_handler(reader, handler, screen);
+	}
+}
+
 static void read_conditional(struct reader *reader, const XML_Char **attributes, long owner)
 {
 	struct halo_menus *menus = &reader->menus;
@@ -1034,6 +1238,8 @@ static void read_patch(struct reader *reader, const XML_Char **attributes)
 	struct attribute table[] =
 	{
 		{ "list", &patch.list }, { "screen", &patch.screen }, { "footer", NULL, &patch.footer, &patch.has_footer },
+		{ "rows", &patch.rows }, { "tall_art", &patch.tall_art }, { "tall_top_art", &patch.tall_top_art },
+		{ "row_kind", &patch.row_kind },
 	};
 
 	memset(&patch, 0, sizeof(patch));
@@ -1047,6 +1253,22 @@ static void read_patch(struct reader *reader, const XML_Char **attributes)
 		reader_error(reader, "a <patch>'s list and screen are the map's (paths, with backslashes)");
 	GROW(reader, menus->patches, menus->patch_count);
 	menus->patches[menus->patch_count++] = patch;
+}
+
+static void read_title(struct reader *reader, const XML_Char **attributes)
+{
+	struct halo_menus *menus = &reader->menus;
+	struct halo_menu_title title;
+	struct attribute table[] = { { "widget", &title.widget }, { "strings", &title.strings } };
+
+	memset(&title, 0, sizeof(title));
+	title.file = reader->file;
+	title.line = current_line(reader);
+	read_attributes(reader, "title", attributes, table, sizeof(table) / sizeof(*table));
+	if (!reader->failed && (!title.widget || !title.strings))
+		reader_error(reader, "a <title> needs a widget and its strings");
+	GROW(reader, menus->titles, menus->title_count);
+	menus->titles[menus->title_count++] = title;
 }
 
 /* a picture: a frame of the description's own bitmap by its number, or
@@ -1198,6 +1420,11 @@ static void XMLCALL element_start(void *data, const XML_Char *name, const XML_Ch
 		element = _element_string;
 		read_string(reader, attributes, owner);
 	}
+	else if (!strcmp(name, "title") && parent == _element_menus)
+	{
+		element = _element_title;
+		read_title(reader, attributes);
+	}
 	else if (!strcmp(name, "patch") && parent == _element_menus)
 	{
 		element = _element_patch;
@@ -1252,6 +1479,16 @@ static void XMLCALL element_start(void *data, const XML_Char *name, const XML_Ch
 			element = _element_replace;
 			read_replace(reader, attributes, owner);
 		}
+		else if (!strcmp(name, "bar"))
+		{
+			element = _element_bar;
+			read_bar(reader, attributes);
+		}
+	}
+	else if (!strcmp(name, "action") && parent == _element_bar)
+	{
+		element = _element_action;
+		read_action(reader, attributes, owner);
 	}
 	if (element == _element_none)
 	{
@@ -1320,13 +1557,6 @@ static int read_file(struct reader *reader, const struct menu_file *file)
 
 /* ---------- public code */
 
-static int compact_density;
-
-void halo_menus_set_compact_density(int compact)
-{
-	compact_density = compact != 0;
-}
-
 struct halo_menus const *halo_menus_load(void)
 {
 	static int read;
@@ -1346,20 +1576,7 @@ struct halo_menus const *halo_menus_load(void)
 	{
 		size_t length = strlen(files[index].path);
 
-		char twin[1024];
-		int is_compact = length > 12 && !strcmp(files[index].path + length - 12, ".compact.xml");
-
-		/* A twin defines the same tags: read exactly one density, including shared rows. */
 		if (length <= 4 || strcmp(files[index].path + length - 4, ".xml")) continue;
-		if (is_compact)
-		{
-			if (!compact_density) continue;
-		}
-		else if (compact_density && length + 9 < sizeof(twin))
-		{
-			snprintf(twin, sizeof(twin), "%.*s.compact.xml", (int)(length - 4), files[index].path);
-			if (file_find(twin) >= 0) continue;
-		}
 		read_file(&reader, &files[index]);
 	}
 	free(reader.last_child);

@@ -785,3 +785,27 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+STATIC_STAMP = "data-source-sha256"
+
+
+def static_source_stamp(source_text: str) -> str:
+    """The hash `static_charts.py` writes into each SVG: of the chart source it rendered."""
+    import hashlib
+    return hashlib.sha256(source_text.encode("utf-8")).hexdigest()
+
+
+def static_svg_problems(source_text: str | None, svg: str | None) -> list[str]:
+    """What a pre-rendered chart SVG got wrong compared with the chart source it should show.
+
+    The browser render is not byte-stable across machines, so each SVG carries the hash of the source it was rendered
+    from. A missing chart is only right when the source draws none.
+    """
+    if source_text is None:
+        return [] if svg is None else ["chart source draws nothing but an SVG exists"]
+    if svg is None:
+        return ["no SVG for a chart that is drawn"]
+    if f'{STATIC_STAMP}="{static_source_stamp(source_text)}"' not in svg:
+        return ["rendered from a different chart source (rerun tools/perf_compare/static_charts.py)"]
+    return []

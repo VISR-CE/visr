@@ -63,7 +63,7 @@ static inline void halo_ui_pointer_map(const struct halo_ui_pointer_geometry *g,
 	}
 	else
 	{
-		*x = (short)floorf(screen_x - (float)(g->screen_width - 640) / 2.0f);
+		*x = (short)floorf(screen_x - (float)halo_ui_layout_margin(g->screen_width));
 		*y = (short)floorf(screen_y);
 	}
 }
@@ -87,7 +87,7 @@ static inline void halo_ui_pointer_map_picture(float u, float v, int screen_widt
 	}
 	else
 	{
-		*x = (short)floorf(u * (float)screen_width - (float)(screen_width - 640) / 2.0f);
+		*x = (short)floorf(u * (float)screen_width - (float)halo_ui_layout_margin(screen_width));
 		*y = (short)floorf(v * 480.0f);
 	}
 }

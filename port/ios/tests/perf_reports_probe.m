@@ -4,20 +4,13 @@
 #include "../host/host_perf_reports.m"
 static uint64_t probe_frame_id=1;
 uint64_t host_perf_hooks_frame_id(void) {return probe_frame_id;}
-void host_perf_hooks_dynamic_flush(void) {}
 int host_perf_hooks_dynamic_enabled(void) {return 1;}
-void host_perf_hooks_dynamic_pause(void) {}
-void host_perf_hooks_dynamic_ignore(unsigned reason) {(void)reason;}
-void host_map_identity_init(void) {}
-uint64_t host_perf_metal_dropped(void) {return 0;}
-void host_perf_metal_join(game_perf_frame *frame) {(void)frame;}
 void host_perf_hooks_gpu_join(game_perf_frame *frame) {frame->gpu_us=1234;frame->flags &= ~GAME_PERF_GPU_UNAVAILABLE;}
 NSDictionary *host_shader_upload_map_identity(const char *name) {
     return name && !strcmp(name,"/resolved/custom.map")?@{@"fingerprint":@"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",@"format":@"cache-7"}:nil;
 }
 NSTimeInterval host_shader_upload_retry(NSUInteger attempt,NSTimeInterval cloud,double jitter) {(void)attempt;(void)jitter;return MAX(60,cloud);}
 void host_device_profile_copy(struct host_profile *profile) {*profile=(struct host_profile){0};}
-int host_benchmark_running(void) {return 0;}
 int main(void) {@autoreleasepool {
     NSString *directory=[NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
     assert([NSFileManager.defaultManager createDirectoryAtPath:directory withIntermediateDirectories:YES attributes:nil error:nil]);

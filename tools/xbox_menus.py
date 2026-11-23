@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 import argparse
 import about_data
+import menu_titles
 from copy import deepcopy
 import json
 import re
@@ -23,21 +24,40 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 import menu_catalog
+import menu_geometry
+import port_settings
 from port_settings import apply_now_spinner_handlers
-# Dropdown option row pitch in menu units; matches HALO_DROPDOWN_PITCH in halo_menu_dropdown.h.
-DROPDOWN_PITCH = 52
+# Shared geometry (rows, legend, value columns, dropdown) lives in menu_geometry.py, which also writes the
+# engine's menu_geometry.h.
+from menu_geometry import (COMFORTABLE_PITCH, DROPDOWN_PITCH, FIRST_ROW, LEGEND_Y,
+                           ROW_HEIGHT)
 
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
+# The generator's own source rows: widget definitions it builds the screens from. They are input to this tool only
+# and are not shipped or read by the game. The settings and multiplayer screens come from tools/port_settings.py in
+# memory; the rest are the XML files in this folder.
+SOURCES = ROOT / 'tools/menu_sources'
+
+
+def generated_sources():
+    return {**port_settings.settings_files(), **port_settings.multiplayer_files()}
+
+
+def source_names():
+    return sorted({path.name for path in SOURCES.glob('*.xml')} | set(generated_sources()))
+
+
+def source(name):
+    """A source document's root element, parsed anew each call so a caller may change it."""
+    lines = generated_sources().get(name)
+    if lines is not None:
+        return ET.fromstring('\n'.join(lines))
+    return ET.parse(SOURCES / name).getroot()
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
-# the Xbox's option rows: where the first sits and the pitch to the next
-FIRST_ROW, ROW_HEIGHT = 73, 28
 # fields under the header rule sit this far down, leaving a gap below the rule
 FIELD_GAP = 8
-FIELD_Y = 73 + FIELD_GAP
-COMFORTABLE_PITCH = 39
-COMPACT_PITCH = 30
-DENSITY_PITCH = {'compact': COMPACT_PITCH, 'comfortable': COMFORTABLE_PITCH}
+FIELD_Y = FIRST_ROW + FIELD_GAP
 ROW_PITCH = COMFORTABLE_PITCH
 # the scroll arrows sit to the right of the 512-wide rows
 ARROW_X = 574
@@ -71,12 +91,23 @@ MAP_BITMAPS = {'gradient', 'list_field', 'list_item_bkd_top', 'list_item_bkd',
 # Shared geometry is in the game's 640x480 menu space. Row art remains 36
 # units tall inside a comfortable 39-unit tap band.
 TITLE = (35, 11, 512, 64)
-LEGEND_Y, LEGEND_A_X, LEGEND_B_X = 414, 471, 326
+LEGEND_A_X, LEGEND_B_X = 471, 326
 GLYPH_WIDTH, GLYPH_HEIGHT, CAPTION_OFFSET = 21, 26, 22
-HELP_TOP = {'comfortable': 335, 'compact': 350}
-# Both right panels end at y 389, 8 units above the touch legend pills (y 397).
-PANEL_A = {'list': (51, 78, 33), 'panel': (275, 78, 320, 311)}
-PANEL_B = {'list': (48, 78, ROW_PITCH), 'panel': (323, 115, 254, 274)}
+HELP_TOP = 335
+# Both right panels end at the bottom rule (y 409, drawn by the gradient art), as the disc's panels do.
+RULE_Y = 409
+PANEL_A = {'list': (51, 78, 33), 'panel': (275, 78, 320, RULE_Y - 78)}
+PANEL_B = {'list': (48, 78, ROW_PITCH), 'panel': (323, 115, 254, RULE_Y - 115)}
+# list_field__0.png is a 2048 square whose visible panel outline fills only 1260x1288 of it, and a frame is drawn at
+# its own width and height: a panel's own frame size makes the outline fill the panel's bounds exactly (the stock
+# 512 frame leaves it 315x322 units, so the taller panels ended short of the rule and the narrower ones lost their
+# right and bottom edges). The leaf stays list_field for ui_redraw.
+FIELD_PNG, FIELD_ART = 2048, (1260, 1288)
+PANEL_BITMAPS = {'a': 'xbox/panel_a/list_field', 'b': 'xbox/panel_b/list_field'}
+
+
+def panel_frame_size(panel):
+    return (round(FIELD_PNG * panel[2] / FIELD_ART[0]), round(FIELD_PNG * panel[3] / FIELD_ART[1]))
 DIALOG_PANEL = (192, 176, 239, 159)
 DIALOG_HEADER = (9, 4)
 DIALOG_HEADER_POSITION = tuple(a + b for a, b in zip(DIALOG_PANEL[:2], DIALOG_HEADER))
@@ -110,7 +141,7 @@ def panel(spec):
 # Caption boxes for known legend labels, in small_ui units. The touch pill
 # runs from the glyph to the caption box's right edge plus 8 units each side,
 # so these widths decide how tightly a bar packs.
-LEGEND_CAPTION_WIDTHS = {'START NOW': 90, 'SWITCH TEAM': 100, 'ADD PLAYER': 100,
+LEGEND_CAPTION_WIDTHS = {'START NOW': 90, 'SWITCH TEAM': 100, 'ADD PLAYER': 108,
                          'LEAVE': 50, 'SHARE': 55}
 LEGEND_RIGHT = 608
 LEGEND_PILL_PAD, LEGEND_GAP = 8, 4
@@ -168,8 +199,9 @@ def validate(root, assets):
         if element.tag == 'widget' and '\\' in element.get('name', ''):
             raise ValueError(f"map widget definition: {element.get('name')}")
         for key in ('widget', 'description', 'root'):
-            # (a patch row's description is text, whose "\n" is a line break)
-            if element.tag == 'row' and key == 'description':
+            # (a patch row's description is text, whose "\n" is a line break; a <title> names a disc screen's
+            # title widget by its path, as a patch names its list)
+            if (element.tag == 'row' and key == 'description') or (element.tag == 'title' and key == 'widget'):
                 continue
             if '\\' in element.get(key, ''):
                 raise ValueError(f'map widget dependency: {element.get(key)}')
@@ -182,12 +214,13 @@ def serialize(root):
             + ET.tostring(root, encoding='unicode', short_empty_elements=True) + '\n')
 
 
-def retain_xbox_files(menus, files):
-    """Keep Xbox XML and its PNG dependencies when ce_menus rewrites the manifest."""
-    names = set(files)
-    # PC description panels share the drawings too, including ABOUT.
-    for path in sorted((menus / 'ce').glob('*.xml')):
-        names.update(frame.get('png') for frame in ET.parse(path).iter('frame') if frame.get('png'))
+# PNGs the game names itself (port/linux/game/menu_tags.c), beside those the XML's frames name.
+RUNTIME_PNGS = ('pictures/port/blank__0.png',)
+
+
+def manifest_files(menus):
+    """The files the game embeds: the generated XML and every PNG it or the game names."""
+    names = set(RUNTIME_PNGS)
     for path in sorted((menus / 'xbox').glob('*.xml')):
         names.add(path.relative_to(menus).as_posix())
         root = ET.parse(path).getroot()
@@ -198,9 +231,34 @@ def retain_xbox_files(menus, files):
     return sorted(names)
 
 
-def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None, buttons=None):
-    """A/B icons post buttons to the current focus, as the Xbox legend does."""
+def bar(screen, actions):
+    """The screen's button bar: what each action does, never where it goes (the engine places it, menu_files.c).
+
+    actions: (slot, scope, caption, what) with slot x, y, b or a; scope global, select or back; caption a string,
+    or a list of captions the port picks from at run time (ui_widget_port_bar_caption; what's 'index' is the first
+    shown); what is {'focus': 'true'} (the focused widget takes the button) or {'run': ...} / {'open': ...}, plus
+    'while_typing': 'pointer' for an action whose key is a letter while a field is being typed in.
+    """
+    element = ET.SubElement(screen, 'bar')
+    for slot, scope, caption, what in actions:
+        text = {'strings': '|'.join(caption)} if isinstance(caption, (list, tuple)) else {'text': caption}
+        ET.SubElement(element, 'action', {'slot': slot, 'scope': scope, **text, **what})
+    return element
+
+
+def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None, buttons=None,
+           declared=True, extra=()):
+    """A/B icons post buttons to the current focus, as the Xbox legend does.
+
+    A plain SELECT/BACK legend is a declared bar (`bar`); declared=False keeps the placed glyphs and captions for
+    the callers that still read them by name (a caption that changes at run time, dialogs).
+    """
     hosting = screen.get('name').endswith('/server_settings_screen')
+    if declared and buttons is None and not hosting and not accept_platform:
+        bar(screen, list(extra) + [(slot, scope, label, {'focus': 'true'})
+                                   for slot, scope, label in (('b', 'back', cancel), ('a', 'select', accept))
+                                   if label is not None])
+        return
     if buttons is None:
         buttons = [('b', 'cancel', cancel), ('a', 'accept', accept)]
     buttons = [item for item in buttons if item[2] is not None]
@@ -247,33 +305,23 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform
 
 
 def footer(root, base, defaults):
-    # X is a screen-level shortcut, so it works while an option row is focused.
-    # Each change applies and saves as it is made, so the bar has no SAVE.
+    """A settings page's bar: X DEFAULTS (a screen-wide action, so it works whichever row has the focus), B BACK and A
+    SELECT. Each change applies and saves as it is made, so the bar has no SAVE."""
     screen = root[0]
-    bar = widget(root, f'{base}/button_bar', type='column_list', width=320, height=28,
-                 flags='pass_unhandled_to_focused_child left_right_tabs_items')
-    for button, target, caption, x, width, run in (
-            ('x', 'button_defaults', 'DEFAULTS', 40, 132, defaults),):
-        icon = f'{base}/{button}_butn'
-        child(bar, f'{base}/{target}', x=x)
-        action = widget(root, f'{base}/{target}', width=21 + width, height=26)
-        child(action, icon)
-        child(action, f'{base}/{target}_caption', x=CAPTION_OFFSET)
-        widget(root, icon, width=21, height=26, bitmap=f'xbox/browser/{button}_butn')
-        text_widget(root, f'{base}/{target}_caption', caption, width=width, height=26)
-        for event in ('a', 'start', button):
-            ET.SubElement(action, 'on', event=event, run=run)
-        ET.SubElement(screen, 'on', event=button, run=run)
-        ET.SubElement(action, 'on', event='left_mouse', run='mouse emit accept event')
-    legend(root, screen, base, cancel='BACK')
+    # (the PC page's own button row, a focusable item of the options list, is not this look's)
+    for parent in root.iter('widget'):
+        for c in list(parent.findall('child')):
+            if c.get('widget') == f'{base}/button_bar':
+                parent.remove(c)
+    legend(root, screen, base, cancel='BACK', extra=[('x', 'global', 'DEFAULTS', {'run': defaults})])
 
 
 def apply_now_spinners(root):
     for spinner in root.iter('widget'):
         if spinner.get('type') != 'spinner' or not spinner.get('setting'):
             continue
-        # (the PC look's preview and revert handlers go too: the Xbox look writes each step and keeps it)
-        for on in list(spinner.findall('on[@event="deleted"]')) + list(spinner.findall('on[@run="port setting preview"]')):
+        # (each step is written and kept, so nothing is saved as the screen closes)
+        for on in list(spinner.findall('on[@event="deleted"]')):
             spinner.remove(on)
         for handler in apply_now_spinner_handlers():
             spinner.append(ET.fromstring(handler))
@@ -373,8 +421,7 @@ XBOX_DROPPED_ROWS = {
 
 
 def settings_page(assets, folder, bitmaps):
-    source = ET.parse(assets / 'ce' / f'{PE.replace("/", ".")}.{folder}.xml').getroot()
-    root = deepcopy(source)
+    root = source(f'{PE.replace("/", ".")}.{folder}.xml')
     pending = None
     prefix = f'{PE}/{folder}'
     base = f'xbox/settings/{folder}'
@@ -409,7 +456,7 @@ def settings_page(assets, folder, bitmaps):
         if element.get('bitmap') == 'xbox/bitmaps/option_bkds':
             element.set('height', str(ROW_HEIGHT))
         if element.get('name') == f'{base}/help' and folder != 'about':
-            element.attrib.update({k: str(v) for k, v in help_box(HELP_TOP['comfortable']).items()})
+            element.attrib.update({k: str(v) for k, v in help_box(HELP_TOP).items()})
         if element.get('name') == f'{base}/cloud_saves_status':
             element.set('top', '393')
             element.set('height', '20')
@@ -471,7 +518,7 @@ def notices_screen(root, bitmaps):
                      visible_rows=7, description=prefix + '/help',
                      flags='pass_unhandled_to_focused_child up_down_tabs_children')
     ET.SubElement(options, 'data', input='port settings help')
-    widget(root, prefix + '/help', type='text', **help_box(HELP_TOP['comfortable']),
+    widget(root, prefix + '/help', type='text', **help_box(HELP_TOP),
            string_list=prefix + '/help_strings', font=r'ui\small_ui', color='#FFFFFFFF')
     for index, _ in enumerate(about_data.LICENSES):
         row = prefix + f'/op_{index}'
@@ -588,7 +635,7 @@ def item_options_document(assets, bitmaps, folder=None, io_rows=None):
     The Xbox's functions for the screen know only its own rows, so each row sets and saves its spinners itself.
     """
     folder, io_rows = folder or IO, io_rows or IO_ROWS
-    root = deepcopy(ET.parse(assets / 'ce' / (folder.replace('/', '.') + '.port.xml')).getroot())
+    root = source(folder.replace('/', '.') + '.port.xml')
     labels = {f'xbox/{folder}/{label}': caption for _, label, caption in io_rows}
     for element in root.iter():
         for key, value in list(element.attrib.items()):
@@ -732,7 +779,7 @@ def settings_hub(bitmaps, assets=MENUS):
     # The panel: the frame, then (in this order, which the list's description update expects) the text and the
     # picture, at the Xbox's places
     description = widget(root, f'{base}/description', **panel(PANEL_A),
-                   bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+                   bitmap=PANEL_BITMAPS['a'])
     child(description, f'{base}/description_text')
     child(description, f'{base}/description_picture', x=4)
     widget(root, f'{base}/description_text', type='text', left=294, top=290, width=296, height=95,
@@ -757,8 +804,100 @@ def settings_hub(bitmaps, assets=MENUS):
     return root
 
 
+# The gametype editor (EDIT MULTIPLAYER GAMETYPE): the screen the game's gametype list and SERVER SETUP open to edit
+# one gametype, in place of the game's own (SCREEN_ALWAYS). Its rows, in order: key, caption, the screen the row
+# opens, the function run first, platform, the picture (the map's bitmap and frame) and the description. The
+# game's rows keep their pictures and descriptions (the map's playlist_edit_list_extended_dsc_text, whose last
+# line names the gametype beside gametype_label); GAME OPTIONS, the game's GAME TYPE row, opens the shared game
+# settings page, whose TYPE rows reach each gametype's rules.
+GAMETYPE_EDIT = 'xbox/main_menu/settings_select/multiplayer_setup/playlist_edit'
+GAMETYPE_EDIT_SCREEN = f'{GAMETYPE_EDIT}/gametype_edit_screen'
+MP_SETUP = 'ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\'
+GAMETYPE_OPTIONS_PICTURES = MP_SETUP + 'playlist_edit\\gametype_options'
+GAMETYPE_PICTURE = ('ui\\shell\\main_menu\\multiplayer_type_select\\mp_options', 3)
+THIS_GAMETYPE = '\\n\\nThis gametype:'
+GAMETYPE_EDIT_ROWS = (
+    ('name', 'CHANGE NAME', MP_SETUP + 'name_edit\\gametype_name_screen',
+     'mp profile change name', None, (GAMETYPE_OPTIONS_PICTURES, 0),
+     'Rename this gametype using\\nthe virtual keyboard.\\n' + THIS_GAMETYPE),
+    ('game_options', 'GAME OPTIONS', 'xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen',
+     None, None, (GAMETYPE_OPTIONS_PICTURES, 1),
+     'Specify the type of game you\\nwant to play and the rules\\nthat apply to it.' + THIS_GAMETYPE),
+    ('player_options', 'PLAYER OPTIONS', MP_SETUP + 'player_options_edit\\player_options_screen',
+     None, None, (GAMETYPE_OPTIONS_PICTURES, 2),
+     'Choose the player settings and\\nrestrictions that apply to\\nthis gametype.' + THIS_GAMETYPE),
+    ('item_options', 'ITEM OPTIONS', MP_SETUP + 'item_options_edit\\item_options_screen',
+     None, None, (GAMETYPE_OPTIONS_PICTURES, 3),
+     'Choose the weapons, vehicles\\nand other items that appear in\\nthis gametype.' + THIS_GAMETYPE),
+    ('vehicles', 'VEHICLES', 'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen',
+     None, None, GAMETYPE_PICTURE, 'Which vehicles are on the map.\\n\\n' + THIS_GAMETYPE),
+    ('save', 'SAVE CHANGES', 'ui\\shell\\error\\warning_saving_file_screen',
+     'mp profile save changes', None, (GAMETYPE_OPTIONS_PICTURES, 5),
+     "Save changes you've made to\\nthis gametype and return to\\nthe previous screen." + THIS_GAMETYPE),
+    # (the Apple TV's: its Siri Remote has no Y button for the gametype list's DELETE)
+    ('delete', 'DELETE GAMETYPE', 'xbox/error/confirm_delete_gametype_modal_fullscreen',
+     'port delete request', 'tvos', GAMETYPE_PICTURE, 'Delete this gametype.\\n\\n' + THIS_GAMETYPE),
+)
+
+
+def gametype_editor(bitmaps):
+    """The gametype editor: the settings hub's layout (a list of tall picture rows, and the framed panel with the
+    focused row's picture and description, the gametype's name on its last line), with the game's title."""
+    root = ET.Element('menus')
+    base = GAMETYPE_EDIT
+    strings = ET.SubElement(root, 'strings', name=f'{base}/descriptions')
+    pictures = ET.SubElement(root, 'bitmap', name=f'{base}/pictures')
+    width, height = PICTURE_SIZE
+    for _, _, _, _, platform, (tag, index), description in GAMETYPE_EDIT_ROWS:
+        attrs = {'platform': platform} if platform else {}
+        ET.SubElement(strings, 'string', text=description, **attrs)
+        ET.SubElement(pictures, 'frame', map=tag, index=str(index), png=NONE_PNG, width=str(width),
+                      height=str(height), **attrs)
+    screen = widget(root, GAMETYPE_EDIT_SCREEN, width=640, height=480, flags='pass_unhandled_to_focused_child',
+                    bitmap=bitmap_ref('bitmaps/gradient', bitmaps))
+    # (the game's: the screen closes at once unless a gametype is being edited)
+    ET.SubElement(screen, 'on', event='created', run='close if not editing profile')
+    for event in ('b', 'back'):
+        ET.SubElement(screen, 'on', event=event, back='true')
+    child(screen, f'{base}/header')
+    child(screen, f'{base}/gametype_list')
+    child(screen, f'{base}/gametype_label', x=433, y=360)
+    # (the game's title, 512 by 32, at the top of the standard title box's picture)
+    widget(root, f'{base}/header', **title(),
+           bitmap=bitmap_ref('main_menu/settings_select/multiplayer_setup/playlist_edit/header_edit_multiplayer_gametype',
+                             bitmaps))
+    label = widget(root, f'{base}/gametype_label', type='text', width=160, height=22, font=r'ui\large_ui',
+                   color='#FFFFFFFF')
+    ET.SubElement(label, 'data', input='get edit game settings name')
+    # The panel: the frame, then the text and the picture (the order the list's description update expects), at
+    # the game's places for this screen, whose descriptions run a line longer than the hub's
+    description = widget(root, f'{base}/description', **panel(PANEL_A), bitmap=PANEL_BITMAPS['a'])
+    child(description, f'{base}/description_text')
+    child(description, f'{base}/description_picture')
+    widget(root, f'{base}/description_text', type='text', left=294, top=276, width=296, height=124,
+           string_list=f'{base}/descriptions', font=r'ui\large_ui', color=BLUE)
+    widget(root, f'{base}/description_picture', left=290, top=80, width=284, height=208, bitmap=f'{base}/pictures')
+    options = widget(root, f'{base}/gametype_list', type='column_list', width=640, height=480,
+                     flags='pass_unhandled_to_focused_child up_down_tabs_children', description=f'{base}/description')
+    ET.SubElement(options, 'data', input='plyr prof edit select menu upd8')
+    x, y, pitch = PANEL_A['list']
+    for index, (key, caption, opens, run, platform, _, _) in enumerate(GAMETYPE_EDIT_ROWS):
+        attrs = {'platform': platform} if platform else {}
+        child(options, f'{base}/{key}', x=x, y=y + index * pitch, **attrs)
+        art = 'bitmaps/list_item_bkd_top' if index == 0 else 'bitmaps/list_item_bkd'
+        row = text_widget(root, f'{base}/{key}', caption, width=232, height=32, bitmap=bitmap_ref(art, bitmaps),
+                          text_x=13, text_y=4)
+        for event in ('a', 'start'):
+            handler = ET.SubElement(row, 'on', event=event)
+            if run:
+                handler.set('run', run)
+            handler.set('open', opens)
+    legend(root, screen, base)
+    return root
+
+
 def bitmap_document(assets, names):
-    source = {b.get('name'): b for b in ET.parse(assets / 'ce/bitmaps.xml').getroot()}
+    source_bitmaps = {b.get('name'): b for b in source('bitmaps.xml')}
     root = ET.Element('menus')
     for name in sorted(names | {f'pause/pausebox_{side}' for side in ('left', 'center', 'right')} | {'pause/pause_row'}):
         if name == 'browser/header_sort_filter':
@@ -767,9 +906,9 @@ def bitmap_document(assets, names):
         if '\\' in name:
             bitmap = ET.SubElement(root, 'bitmap', name='xbox/map/' + name.replace('\\', '/'))
             ET.SubElement(bitmap, 'frame', map=name, index='0',
-                          png='ce/shell/bitmaps/game_type_grafix__5.png', width='256', height='128')
+                          png='pictures/shell/bitmaps/game_type_grafix__5.png', width='256', height='128')
             continue
-        bitmap = deepcopy(source[name])
+        bitmap = deepcopy(source_bitmaps[name])
         if not name.startswith('pause/'):
             bitmap.set('name', 'xbox/' + name)
         for index, frame in enumerate(bitmap):
@@ -777,6 +916,11 @@ def bitmap_document(assets, names):
                 frame.set('map', 'ui\\shell\\' + name.replace('/', '\\'))
                 frame.set('index', str(index))
         root.append(bitmap)
+    for key, panel_box in (('a', PANEL_A['panel']), ('b', PANEL_B['panel'])):
+        bitmap = ET.SubElement(root, 'bitmap', name=PANEL_BITMAPS[key])
+        width, height = panel_frame_size(panel_box)
+        ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\list_field', index='0',
+                      png='pictures/shell/bitmaps/list_field__0.png', width=str(width), height=str(height))
     # Borrow the Multiplayer diagrams and gametype figure through single-frame bitmaps.
     for name, index in (('gametype', 3),):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
@@ -812,20 +956,20 @@ def multiplayer_documents(assets, bitmaps):
     Native editor opens are the only map-widget references (never children).
     """
     definitions = {}
-    for path in sorted((assets / 'ce').glob('*.xml')):
-        for element in ET.parse(path).getroot():
+    for name in source_names():
+        for element in source(name):
             if element.get('name'):
                 definitions[element.tag, element.get('name')] = element
     documents = {}
     owned = set()
     for filename in MP_PAGES:
-        root = deepcopy(ET.parse(assets / 'ce' / (filename + '.xml')).getroot())
+        root = source(filename + '.xml')
         documents[filename + '.xml'] = root
         owned.update((e.tag, e.get('name')) for e in root)
     # new_select.port supplies the chooser, not a screen. The lobby borrows the PC solo list's map picture and
     # name widgets.
     campaign = documents['main_menu.new_select.port.xml']
-    for e in ET.parse(assets / 'ce/main_menu.solo_level_select.xml').getroot():
+    for e in source('main_menu.solo_level_select.xml'):
         if e.get('name') in LOBBY_MAP_WIDGETS:
             campaign.append(deepcopy(e))
             owned.add((e.tag, e.get('name')))
@@ -855,7 +999,7 @@ def multiplayer_documents(assets, bitmaps):
                    'playlist_edit.ctf_edit', 'playlist_edit.koth_edit', 'playlist_edit.oddball_edit',
                    'playlist_edit.race_edit', 'playlist_edit.slayer_edit'):
         filename = 'main_menu.settings_select.multiplayer_setup.' + folder + '.xml'
-        for e in ET.parse(assets / 'ce' / filename).getroot():
+        for e in source(filename):
             shared.append(deepcopy(e))
             owned.add((e.tag, e.get('name')))
     # Match the Xbox modal: fixed button art inside the alert, with A handled by the modal itself. The join
@@ -943,7 +1087,7 @@ def multiplayer_documents(assets, bitmaps):
                     desc.set('height', '60')
                 limit = int(desc.get('top'))
             w.set('height', str(limit))
-            if w.get('name') == 'xbox/' + MP + '/server_settings/options_menu':
+            if w.get('name') in HOSTED_LISTS:
                 for c in w.findall('child'):
                     if c.get('y') and 'button_bar' not in c.get('widget'):
                         # Preserve the co-op/competitive shared slots, using
@@ -957,11 +1101,6 @@ def multiplayer_documents(assets, bitmaps):
             if 'button_bar' in leaf:
                 c.set('y', '449')
 
-    # menu_functions.c looks up map names and browser stats by PC tag path,
-    # independently of the widgets' string_list references.
-    for name in ('main_menu/map_list', 'main_menu/mp_map_list',
-                 MP + '/join_game/join_game_ticker_labels'):
-        shared.append(deepcopy(definitions['strings', name]))
     browser_layout(documents['main_menu.multiplayer_type_select.join_game.xml'], widgets, bitmaps)
     quit_layout(documents['main_menu.quit_select.xml'], widgets)
     map_screen_layout(documents['main_menu.multiplayer_type_select.mp_map_select.xml'], widgets,
@@ -1005,51 +1144,22 @@ def multiplayer_documents(assets, bitmaps):
         for w in list(root.findall('widget')):
             name = w.get('name', '')
             if name.endswith(('/password_screen', '/code_screen')):
-                # The footer legend carries JOIN GAME / CANCEL like every other
-                # screen. The screen's own button bar is hidden, so tapping the
-                # legend runs what the bar's buttons did (Enter in the field
-                # joins too).
+                # The screen's own button bar is hidden; its declared bar below
+                # carries CANCEL and JOIN GAME (Enter in the field joins too).
                 kind = 'password' if name.endswith('/password_screen') else 'code'
-                base = name + '/legend'
-                legend(root, w, base, accept='JOIN GAME')
-                # The caption follows the selected row (menu_functions.c's
+                # The bar: A follows the selected row (menu_functions.c's
                 # legend_accept_caption): EDIT on the field, JOIN GAME on the
-                # JOIN GAME row, like SERVER SETUP's START GAME.
-                strings = ET.SubElement(root, 'strings', name=f'{base}/accept_captions')
-                for caption in ('EDIT', 'JOIN GAME'):
-                    ET.SubElement(strings, 'string', text=caption)
-                for target in root.iter('widget'):
-                    if target.get('name') == f'{base}/accept':
-                        del target.attrib['text']
-                        target.set('string_list', f'{base}/accept_captions')
-                        target.set('string_index', '1')
+                # JOIN GAME row, like SERVER SETUP's START GAME; the focused row
+                # takes it. B is the screen's own back (port <kind> back). The
+                # password's X hides or shows the text (plain by default); its
+                # key is a letter while typing, so only a tap or a click runs it
+                # then.
+                actions = [('b', 'back', 'CANCEL', {'focus': 'true'}),
+                           ('a', 'select', ['EDIT', 'JOIN GAME'], {'focus': 'true', 'index': '1'})]
                 if kind == 'password':
-                    # X hides or shows the password (plain text by default); the
-                    # caption follows menu_functions.c's password_screen.hidden.
-                    # Screen-level X ignores the key while typing (E is a letter
-                    # then); a click on the legend always toggles.
-                    hide = ET.SubElement(root, 'strings', name=f'{base}/hide_captions')
-                    for caption in ('HIDE', 'SHOW'):
-                        ET.SubElement(hide, 'string', text=caption)
-                    for leaf, x in (('x_butn', 60), ('x_hide', 82)):
-                        child(w, f'{base}/{leaf}', x=x, y=414)
-                        if leaf == 'x_hide':
-                            text_widget(root, f'{base}/{leaf}', 'HIDE', width=60, height=22)
-                        else:
-                            widget(root, f'{base}/{leaf}', type='container', width=21, height=26,
-                                   bitmap='xbox/browser/x_butn')
-                        target = next(t for t in root.iter('widget') if t.get('name') == f'{base}/{leaf}')
-                        if leaf == 'x_hide':
-                            del target.attrib['text']
-                            target.set('string_list', f'{base}/hide_captions')
-                            target.set('string_index', '0')
-                        ET.SubElement(target, 'on', event='left_mouse', run='port password togglehide click')
-                    ET.SubElement(w, 'on', event='x', run='port password togglehide')
-                for leaf, run in (('a_butn', f'port {kind} accept'), ('accept', f'port {kind} accept'),
-                                  ('b_butn', f'port {kind} back'), ('cancel', f'port {kind} back')):
-                    for target in root.iter('widget'):
-                        if target.get('name') == f'{base}/{leaf}':
-                            ET.SubElement(target, 'on', event='left_mouse', run=run)
+                    actions.insert(0, ('x', 'global', ['HIDE', 'SHOW'],
+                                       {'run': 'port password togglehide', 'while_typing': 'pointer'}))
+                bar(w, actions)
                 # JOIN GAME is a row below the field (SERVER SETUP's START GAME
                 # style); A activates whichever row is selected.
                 dir_ = name.rsplit('/', 1)[0]
@@ -1077,9 +1187,11 @@ def multiplayer_documents(assets, bitmaps):
                 continue
             if name.endswith('_screen'):
                 # (co-op options apply as they change: no A action, so no A in the legend)
+                # (the filters keep the original bar's lower line, y 430: they convert with the dense bars)
                 legend(root, w, name + '/legend',
                        accept=None if filename == 'coop_options' else 'SELECT',
-                       cancel='BACK' if filename in ('server_settings', 'coop_options') else 'CANCEL')
+                       cancel='BACK' if filename in ('server_settings', 'coop_options') else 'CANCEL',
+                       declared=filename != 'join_game.filters')
     lobby_action_layout(documents['main_menu.multiplayer_type_select.lobby.xml'])
     filters_layout(documents['main_menu.multiplayer_type_select.join_game.filters.xml'], widgets)
     return documents
@@ -1098,7 +1210,9 @@ def filters_layout(root, widgets):
     for w in list(root.iter('widget')):  # the dropped legend's widgets would be orphans
         if w.get('name', '').startswith(base + '/filters_screen/legend'):
             root.remove(w)
-    ET.SubElement(screen, 'on', event='x', run='port browser filters reset')
+    # RESET is a screen-wide action, DONE the way back (the engine places the bar)
+    bar(screen, [('x', 'global', 'RESET', {'run': 'port browser filters reset'}),
+                 ('b', 'back', 'DONE', {'focus': 'true'})])
     ET.SubElement(screen, 'data', input='port browser filters update')
     # The title takes the same place as the server browser's (26 units above its original spot);
     # the count sits inside the panel, between the band and the first row.
@@ -1129,9 +1243,6 @@ def filters_layout(root, widgets):
     widgets[base + '/help'].attrib.update(top='317', height='80', font=r'ui\small_ui', color='#7fc4ff')
     # The title is generated without map data by browser_title_assets().
     widgets[base + '/header_filters'].attrib.update(bitmap='xbox/browser/header_sort_filter', width='512', height='64')
-    browser_legend(root, screen, base, (
-        ('browser_reset', 'x', 'RESET', 342, 132, 'port browser filters reset'),
-        ('browser_done', 'b', 'DONE', 490, 126, 'mouse emit back event')))
 
 
 def direct_ip_layout(root, dir_):
@@ -1172,10 +1283,15 @@ def direct_ip_layout(root, dir_):
             root.remove(t)
 
 
+# The option lists hosting_layout lays out: their rows share slots between the co-op and competitive variants
+HOSTED_LISTS = set()
+
+
 def hosting_layout(root, widgets, page):
     """Use one option-row geometry while preserving the PC runtime bindings."""
     base = 'xbox/' + MP + '/' + page
     options = widgets[base + '/options_menu']
+    HOSTED_LISTS.add(options.get('name'))
     for c in list(options.findall('child')):
         if c.get('widget') == base + '/button_bar':
             options.remove(c)
@@ -1278,10 +1394,12 @@ def lobby_action_layout(root):
     for c in list(screen.findall('child')):
         if '/legend/' in c.get('widget'):
             screen.remove(c)
+    for declared in screen.findall('bar'):
+        screen.remove(declared)
     for w in list(root.findall('widget')):
         if w.get('name').startswith(base + '/lobby_screen/legend/'):
             root.remove(w)
-    # Eleven compact roster bands end at 408, above the shared legend.
+    # The roster's bands end at 408, above the shared legend.
     rows = widgets[base + '/lobby_list']
     rows.find(f"child[@widget='{bar.get('name')}']").set('y', str(LEGEND_Y))
     bar.set('height', '53')
@@ -1301,6 +1419,8 @@ def lobby_action_layout(root):
     )
     widths = {button: legend_caption_width(caption) for _, button, caption, _ in actions}
     positions = legend_positions(('x', 'y', 'left_thumb', 'b', 'a'), widths)
+    # Touch draws SHARE in B's standard slot (`ui_touch_legend_slot_for_button`: B's LEAVE is the title's chevron
+    # there), wherever the controller legend packs it.
     for action, button, caption, run in actions:
         x, width = positions[button], widths[button]
         name = base + '/lobby_button_' + action
@@ -1386,7 +1506,8 @@ def action_bar_legends(documents):
         # A remaining SELECT legend acts on the focused list row.
         keep_accept = 'a' not in used and any(
             '/legend/' in c.get('widget') and c.get('widget').endswith('/a_butn')
-            for t in targets for c in widgets[t].findall('child'))
+            for t in targets for c in widgets[t].findall('child')) or 'a' not in used and any(
+            action.get('slot') == 'a' for t in targets for action in widgets[t].iterfind('bar/action'))
         if keep_accept:
             order.append('a')
         # Captions come from the originals; text read only at runtime keeps 90.
@@ -1448,6 +1569,14 @@ def action_bar_legends(documents):
                         screen.remove(c)
                     else:
                         c.set('y', '430' if legacy else str(LEGEND_Y))
+            # a declared bar loses the same actions: the action bar holds the screen's back, and its select
+            # unless the screen keeps one
+            for declared in list(screen.findall('bar')):
+                for action in list(declared):
+                    if action.get('slot') == 'b' or (len(actions) > 2 if legacy else not keep_accept):
+                        declared.remove(action)
+                if not len(declared):
+                    screen.remove(declared)
         referenced = {c.get('widget') for w in widgets.values() for c in w.findall('child')}
         for target_name in targets:
             for candidate in list(owners[target_name].findall('widget')):
@@ -1482,10 +1611,10 @@ def selection_layout(widgets, bitmaps):
             w.set('width', '256')
         elif leaf in ('lobby_right_item', 'replay_level_right_item'):
             w.attrib.update({k: str(v) for k, v in panel(PANEL_B).items()},
-                            bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+                            bitmap=PANEL_BITMAPS['b'])
         elif leaf == 'sel_list_desc_bkd':
             w.attrib.update({k: str(v) for k, v in panel(PANEL_B).items()},
-                            bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+                            bitmap=PANEL_BITMAPS['b'])
         elif leaf in ('lobby_map_pic', 'replay_level_right_pic', 'mp_map_right_pic'):
             # connected_pregame remote column + xbox_graphic offset (12,27).
             w.attrib.update(left='335', top='142')
@@ -1560,7 +1689,7 @@ def gametype_select_layout(root, widgets, bitmaps):
     left, top, width, height = GT_PANEL
     description = widgets[GT + '/gametype_extended_desc']
     description.attrib.update(left=str(left), top=str(top), width=str(width), height=str(height),
-                              bitmap='xbox/bitmaps/list_field')
+                              bitmap=PANEL_BITMAPS['a'])
     for c in description.findall('child'):
         c.set('x', '0')
         c.set('y', '0')
@@ -1628,30 +1757,10 @@ def browser_bitmap(root, name, width, height, frames):
                       width=str(width), height=str(height))
 
 
-def browser_legend(root, screen, base, entries, navigate=False):
-    """Give the complete icon and caption one finger-sized action target."""
-    for leaf, button, caption, x, width, run in entries:
-        target = widget(root, base + '/' + leaf, width=width, height=45,
-                        flags='pass_unhandled_to_focused_child')
-        ET.SubElement(target, 'on', event='a', run=run)
-        if navigate:
-            for event in ('up', 'stick_up'):
-                ET.SubElement(target, 'on', event=event, run='port browser chips navigation')
-            for event in ('left', 'stick_left', 'right', 'stick_right'):
-                ET.SubElement(target, 'on', event=event, run='port browser legend navigation')
-        child(target, base + '/' + leaf + '_icon', x=0, y=16)
-        widget(root, base + '/' + leaf + '_icon', width=28, height=28,
-               bitmap='xbox/browser/' + button + '_butn')
-        child(target, base + '/' + leaf + '_caption', x=34, y=17)
-        widget(root, base + '/' + leaf + '_caption', type='text', text=caption,
-               font=r'ui\large_ui', color='#4aa8ff', width=width - 34, height=26)
-        child(screen, target.get('name'), x=x, y=398)
-
-
 def browser_title_assets(root):
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/header_sort_filter')
     ET.SubElement(bitmap, 'frame',
-                  png='ce/port/' + MP + '/join_game/filters/header_sort_filter.png', width='512', height='64')
+                  png='pictures/port/' + MP + '/join_game/filters/header_sort_filter.png', width='512', height='64')
 
 
 def redraw_browser_title():
@@ -1663,6 +1772,10 @@ def redraw_browser_title():
     art = object.__new__(Art)
     art.pngs = []
     art.title(name, TITLES[name])
+
+
+# the browser's status box: its drawing's size (xbox/art/browser_status__0.png), which the box takes too
+BROWSER_STATUS = (544, 64)
 
 
 def browser_layout(root, widgets, bitmaps):
@@ -1696,8 +1809,7 @@ def browser_layout(root, widgets, bitmaps):
     screen = widget(root, base + '/join_game_screen', type='column_list', width=640, height=480,
                     flags='pass_unhandled_to_focused_child', bitmap='xbox/browser/backdrop')
     for event, run in (('created', 'gamespy screen init'), ('deleted', 'gamespy screen dispose'),
-                       ('b', 'gamespy back handler'), ('back', 'gamespy back handler'),
-                       ('x', 'port browser ip open')):
+                       ('back', 'gamespy back handler')):
         ET.SubElement(screen, 'on', event=event, run=run)
     child(screen, base + '/header_join_game')
     # Reuse title widgets verbatim, including the updater's mode-specific names.
@@ -1707,9 +1819,6 @@ def browser_layout(root, widgets, bitmaps):
     child(screen, base + '/button_refresh_create_inter')
     actions = widget(root, base + '/button_refresh_create_inter', width=640, height=480,
                      flags='pass_unhandled_to_focused_child')
-    ET.SubElement(actions, 'on', event='y', run='join controller to mp game')
-    ET.SubElement(actions, 'on', event='y', run='mp type set mode',
-                  open=r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper')
     child(actions, base + '/join_game_items_list')
     child(actions, base + '/browser_chips')
     child(actions, base + '/browser_detail')
@@ -1830,13 +1939,10 @@ def browser_layout(root, widgets, bitmaps):
     child(join, base + '/browser_join_caption', x=34, y=17)
     widget(root, base + '/browser_join_caption', type='text', width=106, height=26,
            font=r'ui\large_ui', color='#4aa8ff')
-    browser_legend(root, actions, base, (
-        ('browser_ip_address', 'x', 'IP ADDRESS', 24, 190, 'port browser ip open'),
-        ('browser_create_inter', 'y', 'CREATE', 230, 130, 'join controller to mp game'),
-        ('browser_back', 'b', 'BACK', 371, 90, 'mouse emit back event')), navigate=True)
-    create = root.find(f"widget[@name='{base}/browser_create_inter']")
-    ET.SubElement(create, 'on', event='a', run='mp type set mode',
-                  open=r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper')
+    # IP ADDRESS and CREATE are screen-wide actions, BACK the way back (the engine places the bar)
+    bar(screen, [('x', 'global', 'DIRECT IP', {'run': 'port browser ip open'}),
+                 ('y', 'global', 'CREATE', {'run': 'join controller to mp game'}),
+                 ('b', 'back', 'BACK', {'run': 'gamespy back handler'})])
 
 
 def legacy_browser_layout(root, widgets, bitmaps):
@@ -1853,7 +1959,7 @@ def legacy_browser_layout(root, widgets, bitmaps):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{art}')
         for index in range(frames):
             ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + art, index=str(index),
-                          png=f'ce/shell/bitmaps/{art}__{index}.png',
+                          png=f'pictures/shell/bitmaps/{art}__{index}.png',
                           width=str(width), height=str(height))
 
     # The Xbox's nine-row list needs a wider column for the PC browser's
@@ -1951,7 +2057,9 @@ def legacy_browser_layout(root, widgets, bitmaps):
     for leaf in ('ticker_player_info', 'ticker_rules_info'):
         get(leaf).attrib.update(width='518', height='24', color='#FFFFFFFF')
     panel = get('screen_stats_container')
-    panel.attrib.update(left='48', top='328', width='544', height='61',
+    # (the box is as large as its drawing: a widget cuts its picture to its own size, and a shorter box lost the
+    # drawing's bottom border)
+    panel.attrib.update(left='48', top='328', width=str(BROWSER_STATUS[0]), height=str(BROWSER_STATUS[1]),
                         bitmap='xbox/browser/browser_status')
     # Bounds do not translate children: stats stay over the column headers,
     # while the description background sits below the ninth server row.
@@ -1975,7 +2083,8 @@ def legacy_browser_layout(root, widgets, bitmaps):
     for c in screen.findall('child'):
         if c.get('widget', '').endswith('/header_join_game'):
             c.attrib.pop('y', None)
-    legend(root, screen, base + '/legend', cancel='BACK')
+    # a four-button bar whose X is the list's own refresh widget: converts with the dense bars
+    legend(root, screen, base + '/legend', cancel='BACK', declared=False)
     # ui.map's 32x32 button textures include transparent padding; button_key
     # draws them at native size and advances 21 pixels to each caption.
     # The PNG redraws are needed only in maps without these Xbox bitmaps.
@@ -1987,7 +2096,8 @@ def legacy_browser_layout(root, widgets, bitmaps):
         ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + art, index='0',
                       png=f'xbox/art/{button[0]}_butn.png', **size)
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/browser_status')
-    ET.SubElement(bitmap, 'frame', png='xbox/art/browser_status__0.png', width='544', height='64')
+    ET.SubElement(bitmap, 'frame', png='xbox/art/browser_status__0.png', width=str(BROWSER_STATUS[0]),
+                  height=str(BROWSER_STATUS[1]))
     # A shared, inset redraw keeps the cap and right edge inside every row.
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/row')
     for index in (0, 1):
@@ -2033,10 +2143,10 @@ WAIT_DIALOGS = ('warning_creating_player_profile_screen', 'warning_saving_file_s
 # Every generated screen names its layout. Native layouts declare their kind
 # here too, but their map-tag geometry is owned by the game.
 LAYOUT_KINDS = {
-    'K1': {'legend_y': LEGEND_Y, 'help_top': HELP_TOP, 'row_pitch': DENSITY_PITCH},
-    'K2-A': {'legend_y': LEGEND_Y, 'row_pitch': DENSITY_PITCH, 'panel': PANEL_A},
-    'K2-B': {'legend_y': LEGEND_Y, 'row_pitch': DENSITY_PITCH, 'panel': PANEL_B},
-    'K6': {'legend_y': LEGEND_Y, 'row_pitch': DENSITY_PITCH},
+    'K1': {'legend_y': LEGEND_Y, 'help_top': HELP_TOP, 'row_pitch': ROW_PITCH},
+    'K2-A': {'legend_y': LEGEND_Y, 'row_pitch': ROW_PITCH, 'panel': PANEL_A},
+    'K2-B': {'legend_y': LEGEND_Y, 'row_pitch': ROW_PITCH, 'panel': PANEL_B},
+    'K6': {'legend_y': LEGEND_Y, 'row_pitch': ROW_PITCH},
     'K8': {'panel': DIALOG_PANEL, 'header': DIALOG_HEADER, 'button': DIALOG_BUTTON,
            'button_step': DIALOG_BUTTON_STEP,
            # Targets fit the panel's width; their lower 12 units extend below it so the message keeps its room.
@@ -2049,6 +2159,7 @@ SCREEN_LAYOUTS = {
                                       'controls_settings_screen', 'mouse_settings_screen', 'gamepad_setup_screen',
                                       'about_screen', 'graphics_screen'))},
     'xbox/settings/settings_screen': {'kind': 'K2-A', 'options': 'xbox/settings/settings_list'},
+    GAMETYPE_EDIT_SCREEN: {'kind': 'K2-A', 'options': f'{GAMETYPE_EDIT}/gametype_list'},
     # ABOUT keeps its version line and taller legal help below the scrolling actions.
     'xbox/settings/about/about_screen': {'kind': 'K1', 'options': 'xbox/settings/about/options_menu',
                                          'help': (286, 120), 'first_row': 102},
@@ -2098,10 +2209,9 @@ SCREEN_LAYOUTS = {
        for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS},
     **{f'xbox/error/confirm_{name}_modal_fullscreen': {'kind': 'K8'}
        for name in ('delete_profile', 'delete_gametype', 'join_big')},
-    # SIDE's original spacer and vehicle positions are retained; this adapter moves only the bar.
+    # VEHICLE OPTIONS: its rows are the standard rows of an option list (the PC version's spacer before SIDE is gone).
     'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen': {
-        'kind': 'K1', 'options': 'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu',
-        'side_spacer_rows': (73, 126, 152, 178)},
+        'kind': 'K1', 'options': 'xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu'},
 }
 # These settings parameters preserve supplemental content rather than moving it into help.
 SCREEN_LAYOUTS['xbox/settings/video_settings/video_settings_screen']['frame_rate_row'] = 307  # VIDEO's Mac frame-rate row.
@@ -2131,10 +2241,10 @@ for page in PAGES:
         next(spec for name, spec in SCREEN_LAYOUTS.items() if name.startswith(f'xbox/settings/{page}/'))['defaults_x'] = 40
 
 LIST_LAYOUTS = {spec['options']: spec for spec in SCREEN_LAYOUTS.values() if 'options' in spec}
-OPTION_LIST_LAYOUTS = {name: spec for name, spec in LIST_LAYOUTS.items() if spec['kind'] == 'K1' and 'side_spacer_rows' not in spec}
+OPTION_LIST_LAYOUTS = {name: spec for name, spec in LIST_LAYOUTS.items() if spec['kind'] == 'K1'}
 
 
-def layout_geometry(documents, density):
+def layout_geometry(documents):
     """Apply shared help and title bounds before fitting the rows to the viewport."""
     for root in documents.values():
         widgets = {w.get('name'): w for w in root.findall('widget')}
@@ -2157,7 +2267,7 @@ def layout_geometry(documents, density):
                     continue
                 leaf = w.get('name').rsplit('/', 1)[-1]
                 if leaf in ('help', 'row_help', 'graphics_help', 'vehicle_options_help', 'teamplay_options_help'):
-                    geometry = help_box(HELP_TOP[density])
+                    geometry = help_box(HELP_TOP)
                     if 'help' in spec:
                         geometry.update(top=spec['help'][0], height=spec['help'][1])
                     w.attrib.update({k: str(v) for k, v in geometry.items()})
@@ -2198,7 +2308,7 @@ def dialog_legend_targets(root, screen, base, x=None, y=None, cancel=False, acce
         x = DIALOG_PANEL[0] + DIALOG_BUTTON[0]
     if y is None:
         y = DIALOG_PANEL[1] + DIALOG_BUTTON[1]
-    legend(root, screen, base, accept=accept)
+    legend(root, screen, base, accept=accept, declared=False)
     for button, label in (('a', accept), ('b', 'CANCEL')):
         icon, caption = f'{base}/{button}_butn', f'{base}/' + ('accept' if button == 'a' else 'cancel')
         if button == 'b' and not cancel:
@@ -2234,7 +2344,7 @@ def dialog_document():
     """Keep display_error's first two children stable while sharing the Xbox art."""
     root = ET.Element('menus')
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/dialog_touch_button')
-    ET.SubElement(bitmap, 'frame', png='ce/shell/bitmaps/text_button_background__1.png',
+    ET.SubElement(bitmap, 'frame', png='pictures/shell/bitmaps/text_button_background__1.png',
                   width='128', height='32')  # the png is 512x128; the widget scales it to the drawn pill
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS:
         base = 'xbox/error/' + name
@@ -2320,8 +2430,45 @@ def patch(root, list_path, screen_path):
     return ET.SubElement(root, 'patch', {'list': list_path, 'screen': screen_path, 'footer': '414'})
 
 
+# The advanced controls page: (patch row name, the original's row tag, the controls page's key, help text)
+ADVANCED_ROWS = (
+    ('op_invert_joystick', 'op_invert_joystick', 'invert_look',
+     'Pushing the thumbstick up looks down, and\\npulling it down looks up.|Pushing the thumbstick up looks up.'),
+    ('op_look_sensitivity', 'op_controller_sensitivity', 'look_sensitivity',
+     'How fast the thumbstick turns your view.'),
+    ('op_controller_vibration', 'op_controller_vibration', 'vibration',
+     'The controller vibrates during play.|The controller does not vibrate.'),
+    ('op_flight_inversion', 'op_flight_stick_controls', 'flight_inversion',
+     'Flight controls are inverted in aircraft.|Flight controls are not inverted.'),
+    ('op_autocenter', 'op_auto_center', 'autocenter',
+     'The view returns to center when you let\\ngo of the thumbstick.|The view stays where you leave it.'),
+    ('op_ingame_help', 'op_ingame_help', 'ingame_help',
+     'The game shows hints about its controls\\nas you play.|The game does not show hints about its\\ncontrols.'),
+)
+
+
 def patch_row(parent, tag='row', **attributes):
     return ET.SubElement(parent, tag, {k: str(v) for k, v in attributes.items()})
+
+
+def add_advanced_clones(documents):
+    """IN-GAME HELP on the Xbox's advanced setup page (a patch row): the row of the controls page, its spinner where
+    the Xbox's advanced rows have theirs. Copied after the density pass so each clone has its original's row height
+    and art (a copy made earlier kept the 28-unit pill)."""
+    gamepad = documents['settings.gamepad_setup.xml']
+    for _, _, key, _ in ADVANCED_ROWS:
+        row = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/op_{key}'))
+        row.set('name', f'xbox/settings/gamepad_setup/op_{key}_advanced')
+        spinner = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/{key}_spinner'))
+        spinner.set('name', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
+        # a switch's state word is ON or OFF, as on the Xbox's advanced rows; the words live here, in the catalog
+        if spinner.get('strings') == 'YES|NO':
+            spinner.set('strings', 'ON|OFF')
+        for part in row.findall('child'):
+            if part.get('widget', '').endswith(f'{key}_spinner'):
+                part.set('widget', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
+        gamepad.append(spinner)
+        gamepad.append(row)
 
 
 def patch_document(names):
@@ -2350,7 +2497,7 @@ def patch_document(names):
     # DIRECT LINK's, then removed; ui_widget_game_data_input_functions.c shows it for the split row
     patch_row(mp, after=MPT + 'multiplayer_type_split_item', name='multiplayer_type_split_need_pad', text='SPLIT SCREEN',
               run='mp type set mode', open=browser, picture=1,
-              description='Split screen on iPhone needs a game\\ncontroller for each extra player.')
+              description='Split screen on iPhone needs\\ncontrollers for extra players.')
     patch_row(mp, 'remove', child='multiplayer_type_split_need_pad')
     # Insert settings while the map's SAVE CHANGES anchor still exists, then remove it.
     # Apple TV keeps a DELETE PROFILE row because its remote has no X.
@@ -2384,12 +2531,24 @@ def patch_document(names):
               open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=3,
               description='Delete this profile and\\neverything saved with it.' + current)
     patch_row(edit, 'remove', child=PEP + 'save_changes_profile_item')
+    # The original's OK / CANCEL bar has no buttons left in the Xbox look (B leaves, rows save as they change);
+    # its empty frame would draw a rule and a band under the list
+    patch_row(edit, 'remove', child=PEP + 'profile_edit_button_bar')
     # Advanced setup: IN-GAME HELP, which the game keeps in the profile
     advanced = patch(root, PEP + 'advanced_controls\\advanced_controls_menu',
                      PEP + 'advanced_controls\\advanced_controls_screen')
-    patch_row(advanced, after=PEP + 'advanced_controls\\op_auto_center', name='op_ingame_help',
-              widget='xbox/settings/gamepad_setup/op_ingame_help_advanced',
-              help='The game shows hints about its controls\\nas you play.|The game does not show hints about its\\ncontrols.')
+    # The Xbox look draws the controls page's own rows here (tall rows, ON/OFF switches): the original's five
+    # rows are replaced by clones of it, in the original's order
+    first = PEP + 'advanced_controls\\' + ADVANCED_ROWS[0][1]
+    previous = None
+    for name, original, key, help in ADVANCED_ROWS:
+        position = {'before': first} if previous is None else {'after': previous}
+        patch_row(advanced, name=name, widget=f'xbox/settings/gamepad_setup/op_{key}_advanced',
+                  pitch=COMFORTABLE_PITCH, help=help, **position)
+        previous = name
+    for name, original, key, _ in ADVANCED_ROWS:
+        if name != 'op_ingame_help':
+            patch_row(advanced, 'remove', child=PEP + 'advanced_controls\\' + original)
     # Item Options (Server Setup's, and a gametype's): the port's rows after the Xbox's four, above the help text
     options = patch(root, MM + 'settings_select\\multiplayer_setup\\item_options_edit\\item_options_menu',
                     MM + 'settings_select\\multiplayer_setup\\item_options_edit\\item_options_screen')
@@ -2409,29 +2568,59 @@ def patch_document(names):
         patch_row(player, 'remove', child=poe + key)
     # (STARTING EQUIPMENT's rows replace the Xbox's own)
     patch_row(options, 'remove', child=MM + 'settings_select\\multiplayer_setup\\item_options_edit\\op_starting_equipment')
-    # Gametype edit: DELETE GAMETYPE on the Apple TV
-    gametype = patch(root, GTE + 'edit_playlist_select_list', GTE + 'gametype_edit_screen')
-    patch_row(gametype, after=GTE + 'save_settings_item', platform='tvos', pitch=COMFORTABLE_PITCH,
-              name='gametype_item_delete', text='DELETE GAMETYPE', run='port delete request',
-              open='xbox/error/confirm_delete_gametype_modal_fullscreen', picture='bitmap:xbox/pictures/gametype',
-              description='Delete this gametype.')
-    # The GAME screen holds the rules the type-specific pages used to (score, time limit, teams); the indicators
-    # row moved into it as TEAMS HUD, and VEHICLES opens the vehicle options screen.
-    patch_row(gametype, after=GTE + 'playlist_edit_game_type_item', pitch=COMFORTABLE_PITCH,
-              name='gametype_item_game', text='GAME',
-              open='xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen',
-              picture='bitmap:xbox/pictures/gametype', description='Score, time limit, and team rules.')
-    patch_row(gametype, 'remove', child=GTE + 'playlist_edit_indicators_item')
-    patch_row(gametype, after=GTE + 'playlist_edit_items_list_item', pitch=COMFORTABLE_PITCH,
-              name='gametype_item_vehicles', text='VEHICLES',
-              open='xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen',
-              picture='bitmap:xbox/pictures/gametype', description='Which vehicles are on the map.')
     return root
+
+
+# The tall copies of the disc's row art for each row kind the engine makes tall (written with the first generated
+# row that uses them): the art every row draws, and the first row's where the kind has a top variant.
+TALL_ROW_ART = 'xbox/bitmaps/row_36/option_bkds'
+TALL_ART = {'option': (TALL_ROW_ART, None),
+            'picture': ('xbox/bitmaps/row_36/list_item_bkd', 'xbox/bitmaps/row_36/list_item_bkd_top')}
+# Disc lists of a standard row kind that keep the disc's rows, with the reason.
+DISC_LIST_EXEMPTIONS = {
+    # (the System Link server list: 9 rows that do not fit tall and have no scrolling window; the 0.7.0 browser
+    # redesign replaces the screen)
+    MM + 'multiplayer_type_select\\connected\\server_list\\server_list':
+        'System Link server list: 9 rows, no scrolling window; replaced by the 0.7.0 browser',
+}
+
+
+def tall_disc_rows(documents):
+    """Every row of every screen the game shows is the standard tall row, the disc's own included: each disc list
+    of a standard row kind (disc_contract.row_kind: option rows, picture-list rows) on a screen the game can show
+    (disc_contract.reachable_screens: not one a redirect replaces) that fits with tall rows is marked rows="tall"
+    with its row kind and tall art (the game restacks it at the standard pitch and restyles the disc's rows,
+    port/linux/game/menu_tags.c), on its patch, or on an empty patch where it had none. A list that would pass its
+    limit is left as the disc has it (tools/test_disc_contract.py lists those), and so is one in
+    DISC_LIST_EXEMPTIONS."""
+    import disc_contract
+    import ui_map_tags
+
+    root = documents['patches.xml']
+    layout = ui_map_tags.load_layout()
+    ours = {w.get('name'): w for document in documents.values() for w in document.iter('widget')}
+    bitmaps = {b.get('name') for document in documents.values() for b in document.iter('bitmap')}
+    redirects = {source.replace('/', '\\'): target.replace('/', '\\') for source, target in SCREEN_ALWAYS + SCREEN_REPLACED}
+    shown = disc_contract.reachable_screens(layout, root, ours, redirects, disc_contract.screens_named_in_the_game())
+    patches = {p.get('list'): p for p in root.iter('patch')}
+    for path, (_, bottom, limit, screen, kind) in sorted(disc_contract.standard_lists_tall(layout, root, ours).items()):
+        if bottom > limit or screen not in shown or path in DISC_LIST_EXEMPTIONS:
+            continue
+        element = patches.get(path)
+        if element is None:
+            element = ET.SubElement(root, 'patch', {'list': path, 'screen': screen, 'footer': str(limit)})
+        art, top_art = TALL_ART[kind]
+        assert {art, top_art} - {None} <= bitmaps, (path, art, top_art)
+        element.set('rows', 'tall')
+        element.set('row_kind', kind)
+        element.set('tall_art', art)
+        if top_art:
+            element.set('tall_top_art', top_art)
 
 
 def header_frames(assets):
     """each bitmap's first frame, by name, from the PC look's bitmaps"""
-    return {b.get('name'): b.find('frame') for b in ET.parse(Path(assets) / 'ce/bitmaps.xml').getroot()}
+    return {b.get('name'): b.find('frame') for b in source('bitmaps.xml')}
 
 
 def native_header_size(name, bitmap, widget_type, frames):
@@ -2480,38 +2669,6 @@ def native_header_text(text, frames):
     return re.sub(r'<widget\b[^>]*>', fix, text)
 
 
-# Safe pairs from the design inventory, sections 1 and 4. Campaign and profile
-# selection have different init paths and deliberately keep their own flows.
-def screen_pairs():
-    pe = PE + '/'
-    pairs = [('ui/shell/main_menu/main_menu', 'main_menu/main_menu'),
-             ('ui/shell/' + MP + '/multiplayer_type_select_screen', MP + '/multiplayer_type_select_screen')]
-    for suffix in ('player_profile_edit_screen', 'name_edit/profile_name_screen', 'color_edit/color_select_screen'):
-        pairs.append(('ui/shell/' + pe + suffix, pe + suffix))
-    for page, screen in (('video_settings', 'video_settings_screen'), ('audio_settings', 'audio_settings_screen'),
-                         ('network_setup', 'network_settings_screen'), ('controls_setup', 'controls_settings_screen'),
-                         ('mouse_settings', 'mouse_settings_screen'), ('gamepad_setup', 'gamepad_setup_screen'),
-                         ('about', 'about_screen'),
-                         ('graphics', 'graphics_screen')):
-        pairs.append(('pc/xbox/settings/' + page + '/' + screen, pe + page + '/' + screen))
-    for suffix in ('join_game/join_game_screen', 'join_game/filters/filters_screen',
-                   'join_game/password/password_screen', 'join_game/code/code_screen',
-                   'direct_ip/direct_ip_screen', 'server_settings/server_settings_screen',
-                   'coop_options/coop_options_screen', 'lobby/lobby_screen',
-                   'connected/connected_map_select_wrapper'):
-        pairs.append(('pc/xbox/' + MP + '/' + suffix, MP + '/' + suffix))
-    pairs.append(('pc/xbox/main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen',
-                  'main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen'))
-    pairs.append(('pc/xbox/main_menu/quit_select/quit_screen', 'main_menu/quit_select/quit_screen'))
-    pairs.append(('pc/xbox/error/confirm_join_big_modal_fullscreen', 'error/confirm_join_big_modal_fullscreen'))
-    pairs.append(('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen',
-                  'main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen'))
-    for group in ('vehicle', 'teamplay'):
-        name = f'main_menu/settings_select/multiplayer_setup/{group}_options_edit/{group}_options_screen'
-        pairs.append(('ui/shell/' + name, name))
-    return [(x.replace('/', '\\'), ('pc/' + pc).replace('/', '\\')) for x, pc in pairs]
-
-
 SCREEN_REPLACED = (('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen',
                     'pc/xbox/main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen'),)
 
@@ -2522,6 +2679,21 @@ SCREEN_ALWAYS = (('ui/shell/' + MP + '/connected/connected_map_select_wrapper',
                 ('ui/shell/' + PE + '/player_profile_edit_screen', 'pc/xbox/settings/settings_screen'),
                 ('ui/shell/main_menu/settings_select/player_setup/player_profile_select_screen',
                  'pc/xbox/settings/settings_screen')) + tuple(
+    # (one set of rule screens: the game's own, which the type list and SERVER SETUP's GAME TYPE row open, hold
+    # the score and team play rows that GAME has; ours are the same rules without them)
+    (f'ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/{kind}_edit/{kind}_options_screen',
+     f'pc/xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/{kind}_edit/{kind}_options_screen')
+    for kind in ('ctf', 'koth', 'oddball', 'race', 'slayer')) + (
+    # (the game's own list of the five gametypes, "step 1": GAME OPTIONS holds the same five TYPE rows, so
+    # whatever still asks for the list, as SERVER SETUP's GAME TYPE row does, gets that page)
+    ('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_screen',
+     'pc/xbox/main_menu/multiplayer_type_select/game_options_edit/game_options_screen'),
+    # (the game's gametype editor, and CREATE NEW's screen, which holds only that editor as its child: ours has
+    # its rows as tall picture rows, GAME OPTIONS in GAME TYPE's place)
+    ('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen',
+     'pc/' + GAMETYPE_EDIT_SCREEN),
+    ('ui/shell/main_menu/settings_select/multiplayer_setup/create_and_edit_new_gametype_screen',
+     'pc/' + GAMETYPE_EDIT_SCREEN),) + tuple(
     (f'ui/shell/error/{name}', f'pc/xbox/error/{name}')
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS + ('confirm_delete_profile_modal_fullscreen',
                                                       'confirm_delete_gametype_modal_fullscreen'))
@@ -2531,46 +2703,60 @@ def equivalence_header():
     lines = ['/* Generated by tools/xbox_menus.py from the Xbox menu design inventory. */',
              '#ifndef MENU_EQUIVALENCE_H', '#define MENU_EQUIVALENCE_H', '#include <string.h>',
              '#include <stdlib.h>',
-             'static char const *const menu_screen_pairs[][2] = {']
-    for xbox, pc in screen_pairs():
-        lines.append('\t{' + json.dumps(xbox) + ', ' + json.dumps(pc) + '},')
-    # (the game's own screens that an Xbox-look screen of ours replaces: not on the Apple TV, whose
-    # Siri Remote has no X and Y buttons for CREATE NEW and DELETE)
-    lines += ['};', 'static char const *const menu_screen_replaced[][2] = {']
+             # (the game's own screens that an Xbox-look screen of ours replaces: not on the Apple TV, whose
+             # Siri Remote has no X and Y buttons for CREATE NEW and DELETE)
+             'static char const *const menu_screen_replaced[][2] = {']
     for original, ours in SCREEN_REPLACED:
         lines.append('\t{' + json.dumps(original.replace('/', '\\')) + ', ' + json.dumps(ours.replace('/', '\\')) + '},')
     lines += ['};', 'static char const *const menu_screen_always[][2] = {']
     for original, ours in SCREEN_ALWAYS:
         lines.append('\t{' + json.dumps(original.replace('/', '\\')) + ', ' + json.dumps(ours.replace('/', '\\')) + '},')
-    lines += ['};', 'static char const *menu_screen_equivalent(char const *name, int use_xbox)', '{',
+    lines += ['};', 'static char const *menu_screen_equivalent(char const *name)', '{',
               '\tunsigned int index;',
-              '\tfor (index = 0; use_xbox && index < sizeof(menu_screen_always) / sizeof(menu_screen_always[0]); index++)',
+              '\tfor (index = 0; index < sizeof(menu_screen_always) / sizeof(menu_screen_always[0]); index++)',
               '\t\tif (!strcmp(name, menu_screen_always[index][0]))',
               '\t\t\treturn menu_screen_always[index][1];',
               '\tchar const *tv = getenv("HALO_HOST_TVOS");',
-              '\tfor (index = 0; use_xbox && !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)',
+              '\tfor (index = 0; !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)',
               '\t\tif (!strcmp(name, menu_screen_replaced[index][0]))',
-              '\t\t\treturn menu_screen_replaced[index][1];',
-              '\tfor (index = 0; index < sizeof(menu_screen_pairs) / sizeof(menu_screen_pairs[0]); index++)',
-              '\t\tif (!strcmp(name, menu_screen_pairs[index][0]) || !strcmp(name, menu_screen_pairs[index][1]))',
-              '\t\t\treturn menu_screen_pairs[index][use_xbox ? 0 : 1];', '\treturn NULL;', '}', '#endif', '']
+              '\t\t\treturn menu_screen_replaced[index][1];', '\treturn NULL;', '}', '#endif', '']
     return '\n'.join(lines)
 
 
-# Long lists and their shared definitions must select the same density.
-LIST_DOCUMENTS = (
-    'main_menu.multiplayer_type_select.join_game.xml',
-    'main_menu.multiplayer_type_select.lobby.xml',
-    'main_menu.new_select.port.xml',
-    'main_menu.multiplayer_type_select.mp_map_select.xml',
-    'main_menu.settings_select.multiplayer_setup.playlist_select.xml',
-    'multiplayer.shared.xml', 'patches.xml',
-    # Controls Setup is also the paged key-binding editor.
-    'settings.controls_setup.xml',
-)
+# Generated option lists that keep their own row geometry, with the reason. Every other generated list whose
+# rows are option rows (the option_bkds row art) takes the standard row: tall (36 units of art on the 39 pitch),
+# so a row is tall because it is a generated row, never because its screen asked.
+OPTION_LIST_EXEMPTIONS = {
+    # the browser's server rows: its own row art, pitch and pager (browser_layout)
+    f'xbox/{MP}/join_game/join_game_items_list': 'server rows, laid out by browser_layout',
+    # the entry forms: their help sits right under the field rows; tall rows need the help moved first
+    f'xbox/{MP}/join_game/password/options_menu': 'entry form; help box at 156 needs moving',
+    f'xbox/{MP}/join_game/code/options_menu': 'entry form; help box at 156 needs moving',
+    f'xbox/{MP}/direct_ip/direct_ip_menu': 'entry form; help box needs moving',
+}
+
+
+def is_option_row(row):
+    """A list child drawn as an option row: the option_bkds art, or a comfortable copy of it."""
+    return row is not None and row.get('bitmap', '').rsplit('/', 1)[-1] in ('option_bkds', 'option_bkds_sm')
+
+
+def is_picture_row(row):
+    """A list child drawn as a picture-list row (the list_item_bkd art of lists with a picture panel beside them)."""
+    return row is not None and row.get('bitmap', '').rsplit('/', 1)[-1] in ('list_item_bkd', 'list_item_bkd_top')
+
+
+def is_option_list(options, widgets):
+    """A generated column list of option rows, not exempted."""
+    # (a bar of buttons side by side, left_right_tabs_items, is not a list of rows)
+    return (options.get('type') == 'column_list' and options.get('name') not in OPTION_LIST_EXEMPTIONS
+            and 'left_right_tabs_items' not in options.get('flags', '')
+            and any(is_option_row(widgets.get(c.get('widget'))) for c in options.findall('child')
+                    if 'button_bar' not in c.get('widget', '') and '/scroll_' not in c.get('widget', '')))
 
 
 def density_rows(options, widgets):
+    option_list = is_option_list(options, widgets)
     # The server browser (list + detail), its legacy table and its filters have their own fixed geometry.
     if '/multiplayer_type_select/join_game' in options.get('name', ''):
         return []
@@ -2578,13 +2764,77 @@ def density_rows(options, widgets):
             if c.get('y') is not None and c.get('widget') in widgets
             and (re.fullmatch(r'(?:list_item_|server_item_)\d+(?:_map_kind)?',
                               c.get('widget').rsplit('/', 1)[-1])
-                 or (options.get('name') in OPTION_LIST_LAYOUTS
-                     and '/scroll_' not in c.get('widget') and 'button_bar' not in c.get('widget'))
-                 or (options.get('name') == 'xbox/settings/settings_list'
-                     and '/scroll_' not in c.get('widget'))
+                 or ((options.get('name') in OPTION_LIST_LAYOUTS or option_list)
+                     and '/scroll_' not in c.get('widget') and 'button_bar' not in c.get('widget')
+                     and int(c.get('y')) < LEGEND_Y)
+                 or (is_picture_row(widgets.get(c.get('widget'))) and '/scroll_' not in c.get('widget'))
                  or (options.get('name', '').startswith('xbox/settings/')
                      and options.get('name', '').endswith('/options_menu')
                      and 'button_bar' not in c.get('widget') and '/scroll_' not in c.get('widget')))]
+
+
+def make_row_tall(row, bitmaps, documents, selected):
+    """Draw a row 36 units tall inside its 39-unit tap band (its art swapped for the row_36 variant, its text and
+    parts moved down to match). Every row that sits on the comfortable pitch takes this, whichever list or patch
+    row puts it there."""
+    drawn = 36 if row.get('height') == str(COMFORTABLE_PITCH) else 28
+    # The game's own option_bkds art (128 px, transparent padding) has a 96 px
+    # band when unselected and 112 px when selected: draw the frame taller so the
+    # visible band is 36 and 39 units (59 and 53 units drawn, scaled from the measured 94 px band against 102 px), centered on the pitch.
+    fitted = (drawn == 36 and row.get('bitmap') is not None
+              and bitmaps[row.get('bitmap')].find('frame') is not None
+              and all(f.get('map') and f.get('png', '').endswith(('option_bkds__0.png', 'option_bkds__1.png'))
+                      for f in bitmaps[row.get('bitmap')].findall('frame')))
+    small = (drawn == 36 and row.get('bitmap') is not None
+             and bitmaps[row.get('bitmap')].find('frame') is not None
+             and all(not f.get('map') and f.get('png', '').endswith(('option_bkds_sm__0.png', 'option_bkds_sm__1.png'))
+                     for f in bitmaps[row.get('bitmap')].findall('frame')))
+    shift = 5 if fitted else (drawn - 28) // 2
+    if not shift:
+        return
+    if row.get('type') == 'text' or row.get('text_y') is not None:
+        row.set('text_y', str(int(row.get('text_y', 0)) + shift))
+    for part in row.findall('child'):
+        part.set('y', str(int(part.get('y', 0)) + shift))
+    name = row.get('bitmap')
+    if name:
+        # Keep the leaf name so ui_redraw recognizes the frame.
+        prefix, leaf = name.rsplit('/', 1)
+        variant = f'{prefix}/row_{drawn}/{leaf}'
+        owner = next((r for r in selected if any(
+            b.get('name') == name for b in r.findall('bitmap'))), documents['bitmaps.xml'])
+        if not any(b.get('name') == variant for b in owner.findall('bitmap')):
+            bitmap = deepcopy(bitmaps[name])
+            bitmap.set('name', variant)
+            for index, frame in enumerate(bitmap.findall('frame')):
+                if fitted or small:
+                    # Heights span the measured visible band (36 unselected, 39
+                    # selected), so the padding around it is transparent overlap.
+                    height = (59, 53)[index] if fitted else (56, 52)[index]
+                    frame.set('height', str(height))
+                    frame.set('y', str((-10, -7)[index] if fitted else (-9, -7)[index]))
+                else:
+                    frame.set('height', str(drawn))
+            owner.append(bitmap)
+        row.set('bitmap', variant)
+        if drawn == 36:
+            # (said to the engine outright: it draws the art 36 units tall in the 39-unit band)
+            row.set('row', 'tall')
+
+
+def tall_patch_widgets(documents, bitmaps):
+    """The widgets patch rows put into the disc's lists sit on no list of ours, so the density pass never reaches
+    them: each is made the standard tall row, as the rows of the lists that do. The game restacks the list itself
+    (rows="tall" on the patch), so the disc's rows and ours stand a standard pitch apart together."""
+    selected = list(documents.values())
+    widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
+    for row in documents['patches.xml'].iter('row'):
+        widget = widgets.get(row.get('widget'))
+        if widget is None or widget.get('row') == 'tall':
+            continue
+        widget.set('height', str(COMFORTABLE_PITCH))
+        widget.set('top', '0')
+        make_row_tall(widget, bitmaps, documents, selected)
 
 
 def apply_density(documents, pitch, bitmaps, settings=False):
@@ -2621,7 +2871,8 @@ def apply_density(documents, pitch, bitmaps, settings=False):
             if desc is None and is_settings:
                 # ABOUT's legal help is fixed text; its rows still stop above it.
                 desc = widgets.get(options.get('name').rsplit('/', 1)[0] + '/help')
-            if desc is not None and (is_settings or options.get('name') in OPTION_LIST_LAYOUTS):
+            if desc is not None and desc.get('top') is not None and (
+                    is_settings or options.get('name') in OPTION_LIST_LAYOUTS or is_option_list(options, widgets)):
                 limit = int(desc.get('top'))
             fit = max(1, (limit - first) // row_pitch)
             for c in list(options.findall('child')):
@@ -2636,10 +2887,10 @@ def apply_density(documents, pitch, bitmaps, settings=False):
                         if int(c.get('y')) >= first + fit * row_pitch:
                             options.remove(c)
                 options.attrib.pop('visible_rows', None)
-                if options.get('name') == 'xbox/settings/settings_list':
+                platforms = {c.get('platform') for c in placements}
+                if any(platforms) and all(is_picture_row(widgets.get(c.get('widget'))) for c in placements):
                     # Pack platform-filtered rows even when every row fits: the window is the most rows one
                     # platform shows, and a row and its '!platform' twin never show together.
-                    platforms = {c.get('platform') for c in placements}
                     twins = sum(1 for p in platforms if p and p.startswith('!') and p[1:] in platforms)
                     options.set('visible_rows', str(len(placements) - twins))
                 elif browser:
@@ -2681,6 +2932,7 @@ def generate(assets=MENUS):
     names = set()
     documents = {f'settings.{page}.xml': settings_page(assets, page, names) for page in PAGES}
     documents['settings.xml'] = settings_hub(names, assets)
+    documents['main_menu.settings_select.multiplayer_setup.playlist_edit.xml'] = gametype_editor(names)
     # Keyboard and mouse form one entry from the hub and profile edit screen.
     keyboard = documents['settings.controls_setup.xml']
     base = 'xbox/settings/controls_setup'
@@ -2691,18 +2943,6 @@ def generate(assets=MENUS):
                         bitmap=bitmap_ref('bitmaps/option_bkds', names), text_x=13, text_y=4)
     for event in ('a', 'start'):
         ET.SubElement(mouse, 'on', event=event, open='xbox/settings/mouse_settings/mouse_settings_screen')
-    # IN-GAME HELP on the Xbox's advanced setup page (a patch row): the row of the controls page, its spinner where
-    # the Xbox's advanced rows have theirs
-    gamepad = documents['settings.gamepad_setup.xml']
-    row = deepcopy(next(w for w in gamepad if w.get('name') == 'xbox/settings/gamepad_setup/op_ingame_help'))
-    row.set('name', 'xbox/settings/gamepad_setup/op_ingame_help_advanced')
-    spinner = deepcopy(next(w for w in gamepad if w.get('name') == 'xbox/settings/gamepad_setup/ingame_help_spinner'))
-    spinner.set('name', 'xbox/settings/gamepad_setup/ingame_help_spinner_advanced')
-    for part in row.findall('child'):
-        if part.get('widget', '').endswith('ingame_help_spinner'):
-            part.set('widget', 'xbox/settings/gamepad_setup/ingame_help_spinner_advanced')
-    gamepad.append(spinner)
-    gamepad.append(row)
     documents.update(multiplayer_documents(assets, names))
     documents['dialogs.xml'] = dialog_document()
     shared = documents['multiplayer.shared.xml']
@@ -2735,96 +2975,44 @@ def generate(assets=MENUS):
     documents['bitmaps.xml'] = bitmap_document(assets, names)
     browser_error_layout(documents)
     action_bar_legends(documents)
-    layout_geometry(documents, 'comfortable')
+    layout_geometry(documents)
     standardize_spinners(documents)
     apply_density(documents, COMFORTABLE_PITCH, names, settings=True)
-    compact = {name: deepcopy(documents[name]) for name in LIST_DOCUMENTS}
-    layout_geometry(compact, 'compact')
-    apply_density(compact, COMPACT_PITCH, names)
-    apply_density(compact, COMPACT_PITCH, names, settings=True)
-    for row in compact['patches.xml'].iter('row'):
-        if row.get('pitch'):
-            row.set('pitch', str(COMPACT_PITCH))
     apply_density(documents, COMFORTABLE_PITCH, names)
     for name, document in documents.items():
         if name.startswith('settings.'):
             lead_kept_rows(document)
-    documents.update({name.removesuffix('.xml') + '.compact.xml': root for name, root in compact.items()})
-    # Separate frame placements keep the compact artwork at 28 units while
-    # comfortable rows draw 36 units inside their full 39-unit tap bands.
+    # The shared row art stays 28 units; a tall row draws its own 36-unit copy inside the full 39-unit tap band.
     bitmaps = {b.get('name'): b for root in documents.values() for b in root.findall('bitmap')}
-    row_art = set()
-    for compact_mode in (False, True):
-        selected = [root for name, root in documents.items()
-                    if ('.compact.' in name if compact_mode else '.compact.' not in name)
-                    or (compact_mode and '.compact.' not in name
-                        and name.removesuffix('.xml') + '.compact.xml' not in documents)]
-        widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
-        row_art.update(widgets[c.get('widget')].get('bitmap')
-                       for root in selected for options in root.iter('widget')
-                       if options.get('type') == 'column_list' for c in density_rows(options, widgets))
+    selected = list(documents.values())
+    widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
+    row_art = {widgets[c.get('widget')].get('bitmap')
+               for root in selected for options in root.iter('widget')
+               if options.get('type') == 'column_list' for c in density_rows(options, widgets)}
     for root in documents.values():
         for bitmap in root.findall('bitmap'):
             if bitmap.get('name') in row_art:
                 for frame in bitmap.findall('frame'):
                     frame.set('height', '28')
     adjusted = set()
-    for compact_mode in (False, True):
-        selected = [root for name, root in documents.items()
-                    if ('.compact.' in name if compact_mode else '.compact.' not in name)
-                    or (compact_mode and '.compact.' not in name
-                        and name.removesuffix('.xml') + '.compact.xml' not in documents)]
-        widgets = {w.get('name'): w for root in selected for w in root.iter('widget')}
-        for root in selected:
-            for options in root.iter('widget'):
-                if options.get('type') != 'column_list':
+    for root in selected:
+        for options in root.iter('widget'):
+            if options.get('type') != 'column_list':
+                continue
+            for c in density_rows(options, widgets):
+                row = widgets[c.get('widget')]
+                if id(row) in adjusted:
                     continue
-                for c in density_rows(options, widgets):
-                    row = widgets[c.get('widget')]
-                    if id(row) in adjusted:
-                        continue
-                    adjusted.add(id(row))
-                    drawn = 36 if row.get('height') == str(COMFORTABLE_PITCH) else 28
-                    # The game's own option_bkds art (128 px, transparent padding) has a 96 px
-                    # band when unselected and 112 px when selected: draw the frame taller so the
-                    # visible band is 36 and 39 units (59 and 53 units drawn, scaled from the measured 94 px band against 102 px), centered on the pitch.
-                    fitted = (drawn == 36 and row.get('bitmap') is not None
-                              and bitmaps[row.get('bitmap')].find('frame') is not None
-                              and all(f.get('map') and f.get('png', '').endswith(('option_bkds__0.png', 'option_bkds__1.png'))
-                                      for f in bitmaps[row.get('bitmap')].findall('frame')))
-                    small = (drawn == 36 and row.get('bitmap') is not None
-                             and bitmaps[row.get('bitmap')].find('frame') is not None
-                             and all(not f.get('map') and f.get('png', '').endswith(('option_bkds_sm__0.png', 'option_bkds_sm__1.png'))
-                                     for f in bitmaps[row.get('bitmap')].findall('frame')))
-                    shift = 5 if fitted else (drawn - 28) // 2
-                    if not shift:
-                        continue
-                    if row.get('type') == 'text' or row.get('text_y') is not None:
-                        row.set('text_y', str(int(row.get('text_y', 0)) + shift))
-                    for part in row.findall('child'):
-                        part.set('y', str(int(part.get('y', 0)) + shift))
-                    name = row.get('bitmap')
-                    if name:
-                        # Keep the leaf name so ui_redraw recognizes the frame.
-                        prefix, leaf = name.rsplit('/', 1)
-                        variant = f'{prefix}/row_{drawn}/{leaf}'
-                        owner = next((r for r in selected if any(
-                            b.get('name') == name for b in r.findall('bitmap'))), documents['bitmaps.xml'])
-                        if not any(b.get('name') == variant for b in owner.findall('bitmap')):
-                            bitmap = deepcopy(bitmaps[name])
-                            bitmap.set('name', variant)
-                            for index, frame in enumerate(bitmap.findall('frame')):
-                                if fitted or small:
-                                    # Heights span the measured visible band (36 unselected, 39
-                                    # selected), so the padding around it is transparent overlap.
-                                    height = (59, 53)[index] if fitted else (56, 52)[index]
-                                    frame.set('height', str(height))
-                                    frame.set('y', str((-10, -7)[index] if fitted else (-9, -7)[index]))
-                                else:
-                                    frame.set('height', str(drawn))
-                            owner.append(bitmap)
-                        row.set('bitmap', variant)
+                adjusted.add(id(row))
+                make_row_tall(row, bitmaps, documents, selected)
+    add_advanced_clones(documents)
+    tall_disc_rows(documents)
+    tall_patch_widgets(documents, bitmaps)
     native_header_sizes(documents, assets)
+    # every screen's title as text (tools/menu_titles.py): the generated screens' beside their widgets, the disc's
+    # in a file of their own
+    documents['titles.xml'] = ET.Element('menus')
+    menu_titles.declare(documents, documents['titles.xml'])
     for root in documents.values():
         validate(root, assets)
     output = assets / 'xbox'
@@ -2833,7 +3021,8 @@ def generate(assets=MENUS):
         (output / filename).write_text(menu_catalog.add_ids(serialize(root), Path(filename).stem, 'xbox'), encoding='utf-8')
     manifest_path = assets / 'menus.json'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-    manifest['files'] = retain_xbox_files(assets, manifest['files'])
+    manifest['comment'] = "The menus' files the game embeds (tools/xbox_menus.py, tools/embed_assets.py)."
+    manifest['files'] = manifest_files(assets)
     manifest_path.write_text(json.dumps(manifest, indent=1) + '\n', encoding='utf-8')
 
 
@@ -2847,6 +3036,7 @@ def main():
         redraw_browser_title()
     generate(args.menus)
     (ROOT / 'port/linux/include/menu_equivalence.h').write_text(equivalence_header(), encoding='utf-8')
+    menu_geometry.HEADER.write_text(menu_geometry.header(), encoding='utf-8')
 
 
 if __name__ == '__main__':

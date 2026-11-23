@@ -71,6 +71,14 @@ enum mp_benchmark_probe_input_policy mp_benchmark_probe_current_policy(void)
 	return mp_benchmark_probe_policy(requested, requested && mp_benchmark_probe_active());
 }
 
+/* debug.benchmark_own_input: controller 1 plays the local player once the benchmark's game is running (a guided
+session inside the simulated players); before that, and for the other controllers, the benchmark's own policy. The
+one answer for every input stage: the scripted override (xinput_sdl.c) and the suite's replay filter (input_replay.c). */
+int mp_benchmark_probe_own_input(void)
+{
+	return mp_benchmark_probe_requested() && config_boolean("debug.benchmark_own_input") && mp_benchmark_probe_active();
+}
+
 long mp_benchmark_probe_tick(void)
 {
 	return mp_benchmark_probe_active() ? game_time_get() : -1;

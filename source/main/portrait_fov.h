@@ -42,7 +42,7 @@ static inline float portrait_fov_tangent(int mode, float aspect, float base_tang
 }
 
 /* The mode debug.portrait_field_of_view names. Empty or unset is the default, 1 (horizontal
-minimum: a 60 degree horizontal angle at least, Steve's pick); "hold" keeps the game's vertical
+minimum: a 60 degree horizontal angle at least, the chosen default); "hold" keeps the game's vertical
 angle; an unknown name is the default too. */
 static inline int portrait_fov_mode_from_name(const char *name)
 {

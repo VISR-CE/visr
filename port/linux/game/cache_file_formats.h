@@ -160,6 +160,14 @@ struct cache_file_source
 	uint32_t size;
 };
 
+/* a cache header's scenario type */
+enum
+{
+	_cache_file_scenario_type_solo = 0,
+	_cache_file_scenario_type_multiplayer,
+	_cache_file_scenario_type_main_menu
+};
+
 struct cache_file_identity
 {
 	enum cache_file_format format;
@@ -171,6 +179,7 @@ struct cache_file_identity
 	uint32_t compressed_file_length;
 	uint32_t tag_data_offset;
 	uint32_t tag_data_size;
+	/* what the map is played as (_cache_file_scenario_type_solo and on) */
 	int16_t scenario_type;
 	uint32_t checksum;
 	char name[CACHE_FILE_STRING_BYTES];
@@ -355,6 +364,21 @@ map: port/linux/game/map_share.c). */
 enum cache_file_status cache_file_resource_maps_needed(
 	struct cache_file_source *source,
 	uint32_t *types);
+
+/* Each tag of a Custom Edition cache, from its tag index and names alone:
+`visit` is given the tag's group (as a four-character code, 'sbsp'), its
+path ("levels\a10\a10a") and whether it is the scenario's tag (by the
+handle the tag index names, whatever group it was given), until it returns
+0. Reads the tag data once. */
+typedef int (*cache_file_tag_name_proc)(
+	void *context,
+	uint32_t group,
+	char const *name,
+	int is_scenario);
+enum cache_file_status cache_file_tag_names(
+	struct cache_file_source *source,
+	cache_file_tag_name_proc visit,
+	void *context);
 
 /* The format of a cache header already in memory (CACHE_FILE_HEADER_BYTES
 bytes), from its signatures and version alone: for callers that hold a

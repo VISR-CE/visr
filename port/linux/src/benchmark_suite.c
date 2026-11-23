@@ -92,6 +92,8 @@ void halo_benchmark_renderer_observations(long *shadow_target_size, long *anisot
 void halo_model_lod_set(int is_max);
 int halo_model_lod_override_state(void);
 int halo_model_lod_effective(void);
+int halo_ambient_occlusion_effective(void);
+int halo_soft_particles_effective(void);
 /* sdl_platform.c */
 void platform_video_drawable_size(int *width, int *height);
 /* xbox_kernel.c: milliseconds of real time */
@@ -532,10 +534,11 @@ static int benchmark_graphics_snapshot_json(int scene, char *json, size_t size)
 		",\"applied_overrides\":{\"render_lines\":%ld,\"shadow_map_size\":%ld,\"anisotropic_filtering\":%ld,\"model_lod\":\"%s\"},"
 		"\"renderer_state\":{\"shadow_target_size\":%s,\"anisotropic_sampler_max\":%s,\"model_lod\":\"%s\","
 		"\"texture_replacement_selections\":%llu,\"texture_replacement_source\":\"%s\","
-		"\"upscaled_texture_assets\":\"unavailable\"}}",
+		"\"upscaled_texture_assets\":\"unavailable\",\"ambient_occlusion\":%s,\"soft_particles\":%s}}",
 		render_lines,shadow_override,anisotropy_override,lod_override ? "max" : "auto",
 		shadow_text,sampler_text,halo_model_lod_effective() ? "max" : "auto",texture_replacement_selections,
-		texture_replacement_selections ? "debug_directory" : "unavailable");
+		texture_replacement_selections ? "debug_directory" : "unavailable",
+		halo_ambient_occlusion_effective() ? "true" : "false", halo_soft_particles_effective() ? "true" : "false");
 	if (written < 0 || (size_t)written >= size-length+1) goto invalid;
 	return 1;
 invalid:

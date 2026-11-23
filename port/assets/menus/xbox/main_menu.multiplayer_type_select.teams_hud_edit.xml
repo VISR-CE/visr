@@ -26,7 +26,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/button_bar/button_ok" x="471" y="0" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/button_bar/common_button_cancel" x="326" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_friendly_fire" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_friendly_fire" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/friendly_fire_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/friendly_fire_spinner" x="285" y="6" />
 	</widget>
@@ -35,7 +35,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/friendly_fire_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|ON|SHIELD ONLY|EXPLOSIVES ONLY" strings_ids="xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_spinner.s0|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_spinner.s1|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_spinner.s2|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_spinner.s3" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_friendly_fire_penalty" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_friendly_fire_penalty" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/friendly_fire_penalty_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/friendly_fire_penalty_spinner" x="285" y="6" />
 	</widget>
@@ -44,7 +44,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/friendly_fire_penalty_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|5 SECONDS|10 SECONDS|15 SECONDS" strings_ids="xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_penalty_spinner.s0|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_penalty_spinner.s1|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_penalty_spinner.s2|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_penalty_spinner.s3" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_autobalance" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_autobalance" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/autobalance_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/autobalance_spinner" x="285" y="6" />
 	</widget>
@@ -53,7 +53,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/autobalance_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NO|YES" strings_ids="xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_autobalance_spinner.s0|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_autobalance_spinner.s1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 54 19 60" footer_bounds="7 146 19 152" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_radar display" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_radar display" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_radar display_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_radar display_spinner" x="285" y="6" />
 	</widget>
@@ -62,7 +62,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_radar display_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="MOTION TRACKER|NAV POINTS|NONE" strings_ids="xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_radar_display_spinner.s0|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_radar_display_spinner.s1|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_radar_display_spinner.s2" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -9 19 -3" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_players_on_radar" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_players_on_radar" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_players_on_radar_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_players_on_radar_spinner" x="286" y="6" />
 	</widget>
@@ -71,7 +71,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_players_on_radar_spinner" type="spinner" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ALL|FRIENDS|NO" strings_ids="xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner.s0|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner.s1|xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner.s2" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 42 19 48" footer_bounds="7 157 19 163" left="51">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_friends_on_screen_row" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/op_indicator_options_friends_on_screen_row" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_friends_on_screen_label" y="5" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/indicator_options_friends_on_screen_spinner" x="285" y="6" />
 	</widget>
@@ -131,4 +131,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/button_bar/common_button_cancel/b_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/button_bar/common_button_cancel/caption" x="22" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/header_teams_hud/title">
+		<string text="TEAMS &amp; HUD" id="xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_header_teams_hud_title.teams_amp_hud" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/teams_hud_edit/header_teams_hud" strings="xbox/main_menu/multiplayer_type_select/teams_hud_edit/header_teams_hud/title" />
 </menus>

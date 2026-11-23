@@ -118,13 +118,13 @@ int main(int argc, char **argv) {
     capturing=1; assert(!config_graphics_settings_snapshot(CONFIG_SCENE_MENU,&snapshot)); capturing=0;
     assert(!snapshot.valid && !snapshot.count && !capture_calls);
     config_values[scale].real = 0.5;
-    long menus = config_setting_index("display.menus");
+    long menus = config_setting_index("display.effect_limits");
     char oversized[CONFIG_GRAPHICS_MAXIMUM_STRING_BYTES+2]; memset(oversized,'x',sizeof(oversized)-1); oversized[sizeof(oversized)-1] = 0;
     free(config_values[menus].string); config_values[menus].string = strdup(oversized); config_states[menus].source = _source_file;
     assert(!config_graphics_settings_json(CONFIG_SCENE_MENU,text,sizeof(text)) && !text[0]);
     capturing=1; assert(!config_graphics_settings_snapshot(CONFIG_SCENE_MENU,&snapshot)); capturing=0;
     assert(!snapshot.valid && !snapshot.count && !capture_calls);
-    free(config_values[menus].string); config_values[menus].string = strdup("classic");
+    free(config_values[menus].string); config_values[menus].string = strdup("raised");
     char small[8] = "unsafe";
     assert(!config_graphics_settings_json(CONFIG_SCENE_MENU,small,sizeof(small)) && !small[0]);
     return 0;
@@ -163,8 +163,9 @@ int main(int argc, char **argv) {
         assert type(values["display.render_quality"]) is float
         assert values["display.upscaler"] in ("bilinear","metalfx")
         required = {"display.anti_aliasing", "display.lod_scale", "display.interpolation", "display.frame_pacing",
-                    "display.vsync", "display.frame_rate", "display.frame_repeat", "display.effect_resolution",
-                    "display.shadow_batching", "display.decal_batching", "display.compressed_textures",
+                    "display.vsync", "display.frame_rate", "display.frame_repeat", "display.effect_resolution", "display.effect_limits",
+                    "display.shadow_batching", "display.decal_batching", "display.decal_dense_upload",
+                    "display.compressed_textures",
                     "display.upscaled_textures", "display.native_hud", "display.high_res_hud", "display.high_res_text",
                     "display.stereo", "display.foveation", "display.render_quality"}
         assert required <= values.keys()
@@ -192,3 +193,20 @@ def test_performance_graphics_context_has_identical_guest_and_host_layout(tmp_pa
               "--include-directory=" + str(ROOT / "port/runtime"), str(source)]
     subprocess.run(common, check=True)
     subprocess.run([*common, "--target=i386-unknown-none"], check=True)
+
+
+def test_reports_carry_every_display_setting_a_profile_can_set():
+    """The class: a setting a device profile can change that a performance report does not record, so two reports
+    with different settings look the same and share a profile hash. The host keeps its own list of the names a
+    report carries (host_perf_reports.m); every display.* key in the profile key table must be on it."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import profile_check
+
+    source = (ROOT / "port/ios/host/host_perf_reports.m").read_text()
+    start = source.index('NSArray *keys=@[@"display.renderer"')
+    carried = set(re.findall(r'@"([a-z_]+\.[a-z0-9_]+)"', source[start:source.index("];", start)]))
+    assert len(carried) > 40, "the report key list was not found where this test reads it"
+    settable = {name for name in profile_check.profile_keys() if name.startswith("display.")}
+    assert len(settable) > 20
+    missing = sorted(settable - carried)
+    assert not missing, f"host_perf_reports.m: add these profile settings to the report's graphics keys: {missing}"

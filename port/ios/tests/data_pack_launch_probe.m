@@ -14,12 +14,8 @@
 @end
 static HostDataPackStore *launchStore;
 static int healthSignals;
-void host_logf(int priority, const char *format, ...) { (void)priority; (void)format; }
 void platform_log(const char *format, ...) { (void)format; }
 const struct gpu_backend gpu_backend_metal = {0}, gpu_backend_gl = {0};
-void host_lifecycle_hold(void) {}
-void gpu_metal_frame_deadline_end(void) {}
-void gpu_metal_frame_deadline_leave(void) {}
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     (void)name; snprintf(out, size, "%s", fallback);
 }
@@ -27,31 +23,29 @@ void host_config_string(const char *name, const char *fallback, char *out, size_
 static int fake_low_power, fake_limited;
 static unsigned long fake_notices;
 static double fake_display = 60.0;
-void host_low_power_install(void) {}
 int host_low_power_enabled(void) { return fake_low_power; }
 unsigned long host_low_power_notices(void) { return fake_notices; }
 static unsigned fake_output;
 double host_low_power_display_rate(unsigned *output) { *output = fake_output; return fake_display; }
 int host_low_power_display_limited(void) { return fake_limited; }
 static void notice(int on) { fake_low_power = on; fake_notices++; }
-/* Presentation timing also runs in shadow-only builds. */
-void host_perf_hooks_context(unsigned field, uint64_t value) { (void)field; (void)value; }
-void host_perf_hooks_present_begin(void) {}
-void host_perf_hooks_present_end(void) {}
 void host_external_snapshot(struct host_external_snapshot *out) { memset(out, 0, sizeof(*out)); }
-void host_frame_counter_show(unsigned long frame) { (void)frame; }
-void host_benchmark_frame(double interval, double cpu, double gpu, double refresh, double simulation, double render,
-    double translation, int ticks) {
-    (void)interval; (void)cpu; (void)gpu; (void)refresh; (void)simulation; (void)render; (void)translation; (void)ticks;
-}
 void host_frame_cpu_split(double *simulation, double *render, double *translation, int *ticks) {
     *simulation = *render = *translation = -1.0; *ticks = 0;
 }
 void host_data_updates_healthy(void) { healthSignals++; [launchStore markHealthy]; }
-static uint32_t Present(gpu_texture picture) { (void)picture; assert(healthSignals == 0); return 0; }
-static uint32_t PresentStereo(const struct gpu_stereo_present *picture) { (void)picture; assert(healthSignals == 0); return 0; }
+/* present_wrapped and present_stereo_wrapped end the frame's streams once before each present */
+static int streamFrameEnds;
+static void StreamFrameEnd(void) { streamFrameEnds++; }
+static uint32_t Present(gpu_texture picture) {
+    (void)picture; assert(healthSignals == 0); assert(streamFrameEnds == 1); streamFrameEnds = 0; return 0;
+}
+static uint32_t PresentStereo(const struct gpu_stereo_present *picture) {
+    (void)picture; assert(healthSignals == 0); assert(streamFrameEnds == 1); streamFrameEnds = 0; return 0;
+}
 static void Context(uint32_t scene, uint32_t rate, const char *level) { (void)scene; (void)rate; (void)level; }
-static const struct gpu_backend renderer = {.present = Present, .present_stereo = PresentStereo, .frame_context = Context};
+static const struct gpu_backend renderer = {.present = Present, .present_stereo = PresentStereo, .frame_context = Context,
+    .stream_frame_end = StreamFrameEnd};
 
 static HostDataPackStore *Store(NSString *root, NSData *key) {
     return [[HostDataPackStore alloc] initWithRoot:root bundled:@"/bundled" kind:@"profiles" channel:@"stable"

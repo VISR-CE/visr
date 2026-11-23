@@ -6,6 +6,7 @@
  * See Apple's "Converting GPU timestamps into CPU time" for clock calibration.
  */
 #import "host_perf_metal.h"
+#include "metal_gate.h"
 #include "host_perf_hooks.h"
 #include "host_perf_reports.h"
 #include "game_perf.h"
@@ -83,8 +84,9 @@ void host_perf_metal_initialize(id<MTLDevice> device) {
     if (device) metal_seen = 1;
     if (counter_device || !device || !(host_perf_reports_enabled() || host_perf_hooks_dynamic_enabled())) return;
     counter_device = device;
-    if ([device supportsCounterSampling:MTLCounterSamplingPointAtDrawBoundary]) mode = 1;
-    else if ([device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary]) mode = 2;
+    /* the device is the system's, whose answers the gate holds (metal_gate.h) */
+    if (metal_feature(METAL_FEATURE_COUNTER_SAMPLING_DRAW)) mode = 1;
+    else if (metal_feature(METAL_FEATURE_COUNTER_SAMPLING_STAGE)) mode = 2;
     if (!mode) return;
     id<MTLCounterSet> timestamps = nil;
     for (id<MTLCounterSet> set in device.counterSets) {
@@ -153,7 +155,7 @@ void host_perf_metal_frame_touch(uint64_t frame) {
     if (frame && host_perf_hooks_dynamic_enabled()) frame_prepare(frame);
 }
 int host_perf_metal_stage_supported(void) {
-    return counter_device && mode && [counter_device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary];
+    return counter_device && mode && metal_feature(METAL_FEATURE_COUNTER_SAMPLING_STAGE);
 }
 void host_perf_metal_unavailable(unsigned group) {
     if (!host_perf_hooks_dynamic_enabled()) return;

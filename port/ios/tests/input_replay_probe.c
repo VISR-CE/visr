@@ -36,6 +36,7 @@ int host_development_hooks(void) { return probe_development_hooks; }
 int halo_controller_unit_state(float position[3], float *facing_yaw, float *aim_yaw)
 { (void)position; (void)facing_yaw; (void)aim_yaw; return 0; }
 int halo_controller_run_aimed(void) { return 0; }
+int mp_benchmark_probe_own_input(void) { return 0; }
 static int controller_configured;
 static const char *replay_probe_stereo_mode = "";
 int halo_controller_aim_configured(void) { return controller_configured; }

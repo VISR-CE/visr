@@ -26,11 +26,15 @@ Conventions carried over from the Xbox:
 */
 
 #include "xgpu.h"
+#include "quad_ranges.h"
 #include "sdl_platform.h"
+#include "halo_ui_drag.h"
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
 #include "menu_scale.h"
+#include "halo_menu_screen.h"
 #include "port_config.h"
+#include "halo_host_flags.h"
 #include "port_graphics_modes.h"
 #include "halo_display.h"
 #ifdef HALO_ILP32
@@ -234,8 +238,7 @@ Compositor's eyes (menus, loads, the mono layer), the last one a frame
 without them took: the theater picture's, which the mono presenter puts on
 the screen; 0 until one is known */
 static float screen_scale_mono[2];
-/* dynamic resolution (host_dynamic_resolution_lines, the design in
-agent-specs' dynamic-resolution design): while screen_dynamic, the mono
+/* dynamic resolution (host_dynamic_resolution_lines): while screen_dynamic, the mono
 screen's targets are allocated once at screen_scale_ceiling, the profile's
 render size, and the scene renders in their top left at screen_scale, which
 the planner lowers under load and raises again, between frames only. The
@@ -603,7 +606,7 @@ void halo_screen_ui_offset(unsigned char centered)
 
 	ui_scale = centered ? halo_ui_layout_scale(width) : 1.0f;
 	ui_y_offset = centered ? halo_ui_layout_y_offset(width) : 0.0f;
-	ui_offset = centered && width >= 640 ? (width - 640) / 2 : 0;
+	ui_offset = centered && width >= 640 ? halo_ui_layout_margin(width) : 0;
 }
 
 unsigned char halo_screen_ui_portrait(void)
@@ -620,7 +623,7 @@ void halo_screen_ui_backdrop(unsigned char cover)
 	{
 		ui_scale = 1.0f;
 		ui_y_offset = 0.0f;
-		ui_offset = (halo_screen_width() - 640) / 2;
+		ui_offset = halo_ui_layout_margin(halo_screen_width());
 	}
 	else
 		halo_screen_ui_offset(TRUE);
@@ -653,8 +656,7 @@ static void menu_window_geometry(float *top, float *zoom)
 		return;
 #ifdef HALO_ILP32
 	/* A spatial surface has its own apparent size, unrelated to window points. */
-	const char *vision = getenv("HALO_HOST_VISIONOS");
-	if (vision && !strcmp(vision, "1"))
+	if (halo_host_visionos())
 		return;
 	height = host_sdl_menu_height_points();
 #else
@@ -696,9 +698,26 @@ static void menu_window_geometry(float *top, float *zoom)
 		}
 		if (safe_zoom > 0.25f && *zoom > safe_zoom)
 		{
+			float visible, padded_top, padded_bottom, want;
+
 			*zoom = safe_zoom;
 			menu_scale_window(480.0f / *zoom, menu_content_top, menu_content_bottom,
 				top, &bottom, &points_per_unit);
+			/* The window is taller than the menu space at this zoom, so the scale
+			call top-aligns the content. Center the padded content in the safe band
+			instead, so a bottom inset does not cut the bottom band. */
+			visible = 480.0f / *zoom;
+			padded_top = menu_content_top > MENU_PAD_TOP ? menu_content_top - MENU_PAD_TOP : 0.0f;
+			padded_bottom = menu_content_bottom + MENU_PAD_BOTTOM;
+			if (padded_bottom > 480.0f)
+				padded_bottom = 480.0f;
+			want = (padded_top + padded_bottom) * 0.5f -
+				(insets[2] + 1.0f - insets[3]) * 0.5f * visible;
+			if (want > 0.0f)
+				want = 0.0f;
+			if (want < 480.0f - visible)
+				want = 480.0f - visible;
+			*top = want;
 		}
 	}
 }
@@ -731,6 +750,68 @@ float halo_screen_menu_pixel_scale(void)
 	return halo_screen_pixel_scale() * zoom;
 }
 
+/* The screen in menu units (halo_menu_screen.h). The menus are 640 columns centered on the screen, scaled by
+the menu window's zoom about column 320 and from its top row (the drawing coefficients in this file and
+menu_window_pointer, which inverts them), or, in portrait, fitted to the width and centered down the screen
+(halo_ui_layout.h). A screen column s in the centered design's units, -halo_ui_layout_margin at the left edge,
+is menu column c + (s - c) / zoom, about the screen's center c (halo_ui_layout_center); a screen row r is menu row top + r / zoom. The safe area takes the
+larger side inset on both sides, as the zoom does. */
+void halo_screen_menu_screen_rect(int zoomed, struct halo_menu_screen *screen)
+{
+	float width = (float)halo_screen_width();
+	float insets[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	float side, margin, left, right, center, top_row = 0.0f, zoom = 1.0f, x[4], y[4];
+
+	platform_video_safe_insets(insets);
+	side = insets[0] > insets[1] ? insets[0] : insets[1];
+	if (width < 640.0f)
+	{
+		/* portrait: the design fits the width, centered down the screen; the screen is that tall in menu rows */
+		float fit = halo_ui_layout_scale((int)width), offset = halo_ui_layout_y_offset((int)width);
+
+		x[0] = 0.0f;
+		x[1] = 640.0f;
+		x[2] = side * width / fit;
+		x[3] = 640.0f - side * width / fit;
+		y[0] = -offset / fit;
+		y[1] = (480.0f - offset) / fit;
+		y[2] = (insets[2] * 480.0f - offset) / fit;
+		y[3] = ((1.0f - insets[3]) * 480.0f - offset) / fit;
+	}
+	else
+	{
+		if (zoomed && menu_window_drawing)
+		{
+			top_row = menu_draw_top;
+			zoom = menu_draw_zoom;
+		}
+		else if (zoomed)
+			menu_window_geometry(&top_row, &zoom);
+		if (zoom <= 0.0f)
+			zoom = 1.0f;
+		margin = (float)halo_ui_layout_margin(halo_screen_width());
+		left = -margin;
+		right = width - margin;
+		center = halo_ui_layout_center(halo_screen_width());
+		x[0] = center + (left - center) / zoom;
+		x[1] = center + (right - center) / zoom;
+		x[2] = center + (left + side * width - center) / zoom;
+		x[3] = center + (right - side * width - center) / zoom;
+		y[0] = top_row;
+		y[1] = top_row + 480.0f / zoom;
+		y[2] = top_row + insets[2] * 480.0f / zoom;
+		y[3] = top_row + (1.0f - insets[3]) * 480.0f / zoom;
+	}
+	screen->x0 = (long)floorf(x[0]);
+	screen->x1 = (long)ceilf(x[1]);
+	screen->y0 = (long)floorf(y[0]);
+	screen->y1 = (long)ceilf(y[1]);
+	screen->safe_x0 = (long)ceilf(x[2]);
+	screen->safe_x1 = (long)floorf(x[3]);
+	screen->safe_y0 = (long)ceilf(y[2]);
+	screen->safe_y1 = (long)floorf(y[3]);
+}
+
 /* Menu-space limits of the widget viewport, including minimum-scale crop. */
 void halo_screen_menu_visible_bounds(float *top, float *bottom)
 {
@@ -743,11 +824,13 @@ void halo_screen_menu_visible_bounds(float *top, float *bottom)
 widescreen centering have been undone by halo_ui_pointer_map. */
 static void menu_window_pointer(struct halo_ui_pointer *pointer)
 {
-	float top, zoom;
+	float top, zoom, center;
 	menu_window_geometry(&top, &zoom);
-	pointer->x = (short)floorf(320.0f + (pointer->x - 320.0f) / zoom);
+	/* the zoom is about the screen's center */
+	center = halo_ui_layout_center(halo_screen_width());
+	pointer->x = (short)floorf(center + (pointer->x - center) / zoom);
 	pointer->y = (short)floorf(top + pointer->y / zoom);
-	pointer->click_x = (short)floorf(320.0f + (pointer->click_x - 320.0f) / zoom);
+	pointer->click_x = (short)floorf(center + (pointer->click_x - center) / zoom);
 	pointer->click_y = (short)floorf(top + pointer->click_y / zoom);
 	pointer->radius = (short)ceilf(pointer->radius / zoom);
 }
@@ -2673,6 +2756,16 @@ int halo_knob_apply(const char *name, const char *value)
 		ssao_live = atoi(value);
 	else if (!strcmp(name, "display.graphics"))
 		return config_graphics_try(value);
+	else if (!strcmp(name, "display.frame_repeat"))
+	{
+		/* (the Compositor's, between frames; nothing to allocate again) */
+#ifdef HALO_ILP32
+		host_stereo_frame_repeat_set(atoi(value));
+#else
+		platform_log("stereo: the frame repeat count changes only on Vision Pro");
+#endif
+		return 1;
+	}
 	else
 		return 0;
 	knob_ab_changed();
@@ -2875,7 +2968,7 @@ void halo_render_scene_end(void)
 /* what the shader translators emit for this context */
 static struct nv2a_dialect shader_dialect;
 
-/* ---------- debug.ssao (spike): screen-space ambient occlusion (~/code/agent-specs, 2026-11-05 ssao design)
+/* ---------- debug.ssao (spike): screen-space ambient occlusion
 
 Right after the level's lightmap pass (render_window, source/render/render.c) the frame holds the level's lightmap
 light (multiplied by the diffuse textures later) and the objects' finished pixels, and its depth buffer has every
@@ -2891,12 +2984,40 @@ static int ssao_mode(void)
 {
 	long debug;
 
+	/* a GPU that cannot run it (gpu_capabilities.ambient_occlusion) has none, whatever the settings say */
+	if (!device_capabilities.ambient_occlusion)
+		return 0;
 	if (ssao_live >= 0)
 		return ssao_live;
 	/* debug.ssao (the spike's modes) wins; otherwise the player's setting, which the graphics mode turns off
 	outside Enhanced */
 	debug = config_integer("debug.ssao");
 	return debug ? (int)debug : config_boolean("display.ambient_occlusion") ? 1 : 0;
+}
+
+/* whether ambient occlusion is being drawn, as reports record it (benchmark_suite.c's renderer_state): off where the
+GPU cannot run it, outside Enhanced, without Metal, and in stereo */
+int halo_ambient_occlusion_effective(void)
+{
+	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+
+	return device.gl_ready && shader_dialect.msl && ssao_mode() > 0 && stereo->mode == HALO_STEREO_OFF;
+}
+
+/* whether soft particle edges are on for the frame: Metal, a GPU that can run the pass (gpu_capabilities.soft_particles),
+the live setting (which the graphics mode turns off where it does not apply), and no stereo. The draw-time check
+(soft_view_wanted) adds the view's own targets; reports (benchmark_suite.c's renderer_state) record this answer */
+static BOOL soft_particles_enabled(void)
+{
+	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+
+	return device.gl_ready && shader_dialect.msl && device_capabilities.soft_particles &&
+		config_boolean("display.soft_particles") && stereo->mode == HALO_STEREO_OFF && !stereo->eye_count;
+}
+
+int halo_soft_particles_effective(void)
+{
+	return soft_particles_enabled();
 }
 
 /* whether the view being drawn takes AO: the same answer at the mark and at the pass */
@@ -3002,12 +3123,9 @@ static unsigned long soft_groups;
 
 static BOOL soft_view_wanted(void)
 {
-	const struct halo_stereo_frame *stereo = halo_stereo_frame();
 	struct render_target_entry *color, *depth;
 
-	if (!native_scene || !device.gl_ready || !shader_dialect.msl || !config_boolean("display.soft_particles"))
-		return FALSE;
-	if (stereo->mode != HALO_STEREO_OFF || stereo->eye_count)
+	if (!native_scene || !soft_particles_enabled())
 		return FALSE;
 	color = render_target_get(device.render_target);
 	depth = render_target_get(device.depth_stencil);
@@ -3569,18 +3687,32 @@ void halo_host_pointer_read(struct host_ui_pointer *pointer);
 void halo_host_pointer_feedback(int kind);
 void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer);
 
-/* a point on the host's surface (points) in the menus' coordinates: the
-surface's aspect is all that matters, so it stands for both the window and
-the drawable, scaled to keep the fractions of a point */
+/* the host's surface (points, scaled to keep the fractions of a point) and the
+drawable the picture is fit into there (pixels), which the surface shows
+stretched to its own size; a host that does not know the drawable gives the
+surface's own shape */
 #define UI_POINTER_SCALE 8.0f
+static int ui_surface_geometry(const struct host_ui_pointer *host, struct halo_ui_pointer_geometry *g)
+{
+	int width = (int)(host->surface_width * UI_POINTER_SCALE), height = (int)(host->surface_height * UI_POINTER_SCALE);
+	int pixel_width = width, pixel_height = height;
+
+	if (host->drawable_width >= 1.0f && host->drawable_height >= 1.0f)
+	{
+		pixel_width = (int)host->drawable_width;
+		pixel_height = (int)host->drawable_height;
+	}
+	return ui_pointer_geometry(g, width, height, pixel_width, pixel_height);
+}
+
+/* a point on the host's surface (points) in the menus' coordinates */
 static void ui_point_from_surface(const struct host_ui_pointer *host, float surface_x, float surface_y, short *x,
 	short *y)
 {
 	struct halo_ui_pointer_geometry g;
-	int width = (int)(host->surface_width * UI_POINTER_SCALE), height = (int)(host->surface_height * UI_POINTER_SCALE);
 
 	*x = *y = -1;
-	if (ui_pointer_geometry(&g, width, height, width, height))
+	if (ui_surface_geometry(host, &g))
 		halo_ui_pointer_map(&g, surface_x * UI_POINTER_SCALE, surface_y * UI_POINTER_SCALE, x, y);
 }
 
@@ -3654,7 +3786,6 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	if (host.surface_width > 0.0f && host.surface_height > 0.0f)
 	{
 		struct halo_ui_pointer_geometry g;
-		int width = (int)(host.surface_width * UI_POINTER_SCALE), height = (int)(host.surface_height * UI_POINTER_SCALE);
 
 		if (host.picture)
 		{
@@ -3677,7 +3808,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		{
 			ui_point_from_surface(&host, host.x, host.y, &pointer->x, &pointer->y);
 			ui_point_from_surface(&host, host.click_x, host.click_y, &pointer->click_x, &pointer->click_y);
-			if (host.radius > 0.0f && ui_pointer_geometry(&g, width, height, width, height))
+			if (host.radius > 0.0f && ui_surface_geometry(&host, &g))
 			{
 				float radius = halo_ui_pointer_length(&g, host.radius * UI_POINTER_SCALE);
 
@@ -3686,13 +3817,22 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		}
 	}
 	menu_window_pointer(pointer);
+	if (host.left_clicks > 0 && config_boolean("debug.pointer_log"))
+	{
+		float top, zoom;
+
+		menu_window_geometry(&top, &zoom);
+		platform_log("pointer: tap at %.1f,%.1f on a %.0fx%.0f pt surface, drawable %.0fx%.0f px, screen width %ld, "
+			"menu zoom %.3f top %.1f: menu %d,%d", host.click_x, host.click_y, host.surface_width, host.surface_height,
+			host.drawable_width, host.drawable_height, halo_screen_width(), zoom, top, pointer->click_x,
+			pointer->click_y);
+	}
 	pointer->held = host.held != 0;
 	pointer->moved = host.moved != 0;
 	pointer->down = host.down != 0;
 	pointer->left_clicks = (unsigned char)(host.left_clicks < 0 ? 0 : host.left_clicks < 255 ? host.left_clicks : 255);
 	pointer->right_clicks = (unsigned char)(host.right_clicks < 0 ? 0 : host.right_clicks < 255 ? host.right_clicks : 255);
-	/* (the host's steps are positive down the screen; the menus' are positive up the list) */
-	pointer->wheel_steps = (signed char)(host.wheel_steps < -8 ? 8 : host.wheel_steps > 8 ? -8 : -host.wheel_steps);
+	pointer->wheel_steps = (signed char)halo_ui_wheel_steps_from_host(host.wheel_steps);
 	pointer->back_swipes = (unsigned char)(host.back_swipes < 0 ? 0 : host.back_swipes < 255 ? host.back_swipes : 255);
 	return 1;
 }
@@ -5149,7 +5289,8 @@ static BOOL shader_list_warm_remember(struct shader_list_warm_record **records, 
 static void shader_list_host_prepare(BOOL soft)
 {
 #ifdef HALO_ILP32
-	if (shader_dialect.msl && config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED))
+	if (shader_dialect.msl && device_capabilities.ambient_occlusion &&
+		config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED))
 		host_ssao_apply(0, 0, NULL, 0);
 	if (soft)
 		(void)host_soft_depth_prepare(0, NULL, 0);
@@ -5252,7 +5393,7 @@ void halo_shader_list_warm(char const *map_name)
 		return;
 	}
 	lit_wanted = shader_dialect.msl && config_boolean_in_graphics_mode("display.per_pixel_lighting", GRAPHICS_MODE_ENHANCED);
-	soft_wanted = shader_dialect.msl && halo_stereo_frame()->mode != HALO_STEREO_HEAD &&
+	soft_wanted = shader_dialect.msl && device_capabilities.soft_particles && halo_stereo_frame()->mode != HALO_STEREO_HEAD &&
 		(config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_CLASSIC) ||
 		 config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_ENHANCED));
 	size = gpu_warm_list_read(shader_list.map, NULL, 0);
@@ -7003,10 +7144,43 @@ static BOOL stream_has_colors(const struct vertex_shader_object *declaration, un
 	return FALSE;
 }
 
+/* a draw of gathered ranges (quad_ranges.h's dense layout): the ranges and, when debug.decal_dense_check asks, the
+draw's indices to check each gathered stream against */
+struct gathered_ranges
+{
+	struct quad_ranges ranges;
+	const unsigned short *check_indices;
+	unsigned long mismatches;
+};
+
+/* the vertices of a stream that the ranges draw, one range after another (until the next call) */
+static const unsigned char *quad_ranges_gathered(struct gathered_ranges *gathered, const unsigned char *source,
+	unsigned long stride, unsigned long bytes)
+{
+	static unsigned char *vertices;
+	static unsigned long capacity;
+
+	if (bytes > capacity)
+	{
+		free(vertices);
+		capacity = bytes * 2;
+		vertices = malloc(capacity);
+	}
+	quad_ranges_gather(&gathered->ranges, source, stride, vertices);
+	if (gathered->check_indices)
+		gathered->mismatches += quad_ranges_mismatches(&gathered->ranges, gathered->check_indices, source, stride,
+			vertices, NULL, NULL);
+	return vertices;
+}
+
 /* upload vertices [first, first + count) of every stream the declaration
 uses into the packet's streams and point its attributes at them; attribute
-data then starts at vertex 0 of the uploaded range */
-static void setup_streams(struct gpu_draw *draw, unsigned long first, unsigned long count)
+data then starts at vertex 0 of the uploaded range. With gathered, the
+vertices are those of its ranges instead, one range after another (count is
+their total, quad_ranges.h): they are always uploaded, since the mirror holds
+them where the game put them */
+static void setup_streams(struct gpu_draw *draw, unsigned long first, unsigned long count,
+	struct gathered_ranges *gathered)
 {
 	struct vertex_shader_object *declaration = device.vertex_shader;
 	struct gpu_vertex_stream *streams = draw->streams;
@@ -7030,7 +7204,7 @@ static void setup_streams(struct gpu_draw *draw, unsigned long first, unsigned l
 		streams[stream].buffer = 0;
 		streams[stream].stride = (uint32_t)stride;
 		base = (unsigned long)PLATFORM_PHYSICAL_TO_VIRTUAL(device.streams[stream].data) + first * stride;
-		if ((device_capabilities.vertex_bgra || !stream_has_colors(declaration, stream)) &&
+		if (!gathered && (device_capabilities.vertex_bgra || !stream_has_colors(declaration, stream)) &&
 			mirror_range(base, bytes, &streams[stream].buffer, &offset, NULL))
 		{
 			streams[stream].offset = (uint32_t)offset;
@@ -7053,6 +7227,11 @@ static void setup_streams(struct gpu_draw *draw, unsigned long first, unsigned l
 			const unsigned char *base = PLATFORM_PHYSICAL_TO_VIRTUAL(device.streams[stream].data);
 			unsigned long bytes = stride ? stride * count : 64;
 
+			if (gathered && stride)
+			{
+				base = quad_ranges_gathered(gathered, base, stride, bytes);
+				first = 0;
+			}
 			streams[stream].offset = (uint32_t)(device_capabilities.vertex_bgra ?
 				stream_upload(base + first * stride, bytes, &streams[stream].buffer) :
 				stream_upload_swizzled(declaration, stream, base + first * stride, bytes, stride, &streams[stream].buffer));
@@ -7234,7 +7413,7 @@ void WINAPI D3DDevice_DrawVertices(D3DPRIMITIVETYPE primitive_type, UINT start_v
 	if (target_hud_measured)
 		hud_draw_extent(NULL, 0);
 	trace_draw("draw", primitive_type, vertex_count, NULL);
-	setup_streams(draw, start_vertex, vertex_count);
+	setup_streams(draw, start_vertex, vertex_count, NULL);
 	if (primitive_type == D3DPT_QUADLIST)
 	{
 		unsigned long count;
@@ -7255,10 +7434,16 @@ void WINAPI D3DDevice_DrawVertices(D3DPRIMITIVETYPE primitive_type, UINT start_v
 /* port: a run of quad lists from the current stream that differ only in one
 constant attribute (the decals of a texture, rasterizer_xbox_decals.c, each
 with its own color in register 9), as one draw: the ranges' quads in order,
-indexed from the lowest range, with the attribute given per vertex from a
-stream of its own, at the float value set_attribute would have set. The
-picture is the same: the quads blend in the order the separate draws had.
-colors holds a red, green, blue and alpha byte for each range. */
+with the attribute given per vertex from a stream of its own, at the float
+value set_attribute would have set. The picture is the same: the quads blend
+in the order the separate draws had. colors holds a red, green, blue and
+alpha byte for each range.
+
+The draw uploads only the vertices it draws (quad_ranges.h's dense layout).
+The ranges of a run lie anywhere in the decals' vertex cache, so the span
+between the lowest and the highest, which display.decal_dense_upload = false
+still uploads to compare, was megabytes a draw in a long fight for a few
+hundred vertices drawn. */
 void halo_draw_quad_ranges(const UINT *first_vertex, const UINT *quad_count, const BYTE (*colors)[4], UINT count,
 	INT color_reg)
 {
@@ -7266,62 +7451,63 @@ void halo_draw_quad_ranges(const UINT *first_vertex, const UINT *quad_count, con
 	struct gpu_draw *draw = &draw_packet;
 	static float *values = NULL;
 	static unsigned long value_capacity = 0;
-	unsigned long low = ~0UL, high = 0, span, index_count = 0, range, vertex, offset;
+	static int dense_setting = -1, check_setting = -1;
+	struct gathered_ranges gathered = { { first_vertex, quad_count, count }, NULL, 0 };
+	const struct quad_ranges *ranges = &gathered.ranges;
+	unsigned long low, span, drawn, vertices, index_count, offset;
+	BOOL dense;
 	WORD *indices;
 	int stream;
 
 	if (!count || color_reg < 0 || color_reg >= XGPU_VERTEX_ATTRIBUTE_COUNT)
 		return;
-	for (range = 0; range < count; range++)
+	if (dense_setting < 0)
 	{
-		if (first_vertex[range] < low)
-			low = first_vertex[range];
-		if (first_vertex[range] + quad_count[range] * 4 > high)
-			high = first_vertex[range] + quad_count[range] * 4;
-		index_count += quad_count[range] * 6;
+		dense_setting = config_boolean("display.decal_dense_upload") != FALSE;
+		check_setting = config_boolean("debug.decal_dense_check") != FALSE;
+		if (check_setting)
+			platform_log("decal dense check: on (dense upload %s)", dense_setting ? "on" : "off, so nothing to check");
 	}
-	span = high - low;
-	if (!index_count || span > 65535 || !prepare_draw(draw, FALSE))
+	drawn = quad_ranges_vertex_count(ranges);
+	quad_ranges_span(ranges, &low, &span);
+	dense = quad_ranges_dense(dense_setting, drawn);
+	vertices = dense ? drawn : span;
+	if (!drawn || vertices > QUAD_RANGES_MAXIMUM_VERTICES || !prepare_draw(draw, FALSE))
 		return;
 	if (target_hud_measured)
 		hud_draw_extent(NULL, 0);
-	trace_draw("quad ranges", D3DPT_QUADLIST, span, NULL);
-	setup_streams(draw, low, span);
+	trace_draw("quad ranges", D3DPT_QUADLIST, vertices, NULL);
+	indices = index_scratch(_index_scratch_quads, drawn / 4 * 6);
+	index_count = quad_ranges_indices(ranges, dense, low, indices);
+	if (dense && check_setting)
+		gathered.check_indices = indices;
+	setup_streams(draw, dense ? 0 : low, vertices, dense ? &gathered : NULL);
 	/* a stream the declaration leaves free */
 	for (stream = 15; stream > 0 && device.streams[stream].data; stream--)
 		;
-	if (span * 4 > value_capacity)
+	if (vertices * 4 > value_capacity)
 	{
-		value_capacity = span * 4;
+		value_capacity = vertices * 4;
 		free(values);
 		values = malloc(value_capacity * sizeof(float));
 	}
-	indices = index_scratch(_index_scratch_quads, index_count);
-	index_count = 0;
-	for (range = 0; range < count; range++)
+	quad_ranges_colors(ranges, dense, low, colors, values);
+	if (gathered.check_indices)
 	{
-		unsigned long first = first_vertex[range] - low, quad;
+		static unsigned long checked, failures, reported_failures, reported_checked;
 
-		for (vertex = first; vertex < first + quad_count[range] * 4; vertex++)
+		checked++;
+		failures += gathered.mismatches + quad_ranges_mismatches(ranges, indices, NULL, 0, NULL, colors, values);
+		/* a line when a corner differs, and one every so often either way, so a clean run shows the check ran */
+		if (failures != reported_failures || checked - reported_checked >= 100000)
 		{
-			values[vertex * 4 + 0] = colors[range][0] / 255.0f;
-			values[vertex * 4 + 1] = colors[range][1] / 255.0f;
-			values[vertex * 4 + 2] = colors[range][2] / 255.0f;
-			values[vertex * 4 + 3] = colors[range][3] / 255.0f;
-		}
-		for (quad = 0; quad < quad_count[range]; quad++)
-		{
-			WORD v0 = (WORD)(first + quad * 4);
-
-			indices[index_count++] = v0;
-			indices[index_count++] = (WORD)(v0 + 1);
-			indices[index_count++] = (WORD)(v0 + 2);
-			indices[index_count++] = v0;
-			indices[index_count++] = (WORD)(v0 + 2);
-			indices[index_count++] = (WORD)(v0 + 3);
+			reported_failures = failures;
+			reported_checked = checked;
+			platform_log("decal dense check: %lu draws checked, %lu corners differ from the game's own vertices or colors",
+				checked, failures);
 		}
 	}
-	offset = stream_upload(values, span * 4 * sizeof(float), &draw->streams[stream].buffer);
+	offset = stream_upload(values, vertices * 4 * sizeof(float), &draw->streams[stream].buffer);
 	draw->streams[stream].offset = (uint32_t)offset;
 	draw->streams[stream].stride = 4 * sizeof(float);
 	draw->attributes[color_reg].format = GPU_ATTRIBUTE_FLOAT4;
@@ -7353,7 +7539,7 @@ void WINAPI D3DDevice_DrawIndexedVertices(D3DPRIMITIVETYPE primitive_type, UINT 
 	index_extent(index_data, vertex_count, generation, mirrored, &minimum, &maximum);
 	trace_draw("indexed", primitive_type, vertex_count, NULL);
 	/* (the streams from the base vertex on: index i is vertex base + i) */
-	setup_streams(draw, device.base_vertex_index + minimum, maximum - minimum + 1);
+	setup_streams(draw, device.base_vertex_index + minimum, maximum - minimum + 1, NULL);
 	draw->primitive = packet_primitive(primitive_type);
 	if (mirrored)
 	{
@@ -8496,6 +8682,13 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		{
 			if (config_graphics_settings_snapshot(scene, &perf_graphics))
 			{
+				uint32_t entry;
+
+				/* ambient occlusion as drawn: off where the GPU cannot run it, whatever the setting says */
+				for (entry = 0; entry < perf_graphics.count; entry++)
+					if (perf_graphics.entries[entry].type == GAME_PERF_GRAPHICS_BOOLEAN &&
+						!strcmp(perf_graphics.entries[entry].name, "display.ambient_occlusion"))
+						perf_graphics.entries[entry].value.boolean = halo_ambient_occlusion_effective();
 				host_perf_reports_graphics_snapshot(&perf_graphics);
 				perf_revision = revision; perf_scene = scene; perf_external = external;
 			}
@@ -8806,6 +8999,8 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 			halo_stereo_reticle(present.reticle);
 			stereo_reticle_aimed(&present);
 			halo_stereo_hud_tangents(present.hud_tangents);
+			/* (a frame shown by the Compositor has its lead from there, and the
+			schedule ignores this; one that fell through to the window does not) */
 			render_interpolation_next_frame_due(gpu_present_stereo(&present));
 		}
 		else

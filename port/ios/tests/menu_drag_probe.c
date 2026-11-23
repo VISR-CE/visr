@@ -139,7 +139,35 @@ static void host_down(void) {
     assert(!p.held && p.left_clicks == 1);
 }
 
+/* the class, host to guest: a drag down moves the highlight down (rows) once past the rows, and moves a dropdown's
+   content with the finger (first falls); over a row nothing moves; a wheel keeps the d-pad's direction */
+static void list_follows_finger(void) {
+    struct host_menu_pointer m;
+    struct host_ui_pointer p;
+    int guest;
+    memset(&m, 0, sizeof(m));
+    host_menu_pointer_set_surface(&m, 874, 402);
+    host_menu_pointer_set_menus(&m, 1);
+    host_menu_pointer_touch_begin(&m, 1, 100, 300);
+    host_menu_pointer_read(&m, &p);
+    host_menu_pointer_touch_move(&m, 1, 100, 300.0f + 10.0f + 2 * HOST_MENU_POINTER_NOTCH + 3);   /* down */
+    host_menu_pointer_read(&m, &p);
+    assert(p.moved);
+    guest = halo_ui_wheel_steps_from_host(p.wheel_steps);
+    assert(halo_ui_list_wheel_steps(guest, 1, 0) > 0);    /* rows: the highlight goes down with the finger */
+    assert(halo_ui_list_wheel_steps(guest, 1, 1) == 0);   /* over a row: hover owns the highlight */
+    assert(-guest < 0);                                   /* dropdown: first falls, the options move down with it */
+    host_menu_pointer_touch_move(&m, 1, 100, 100);   /* up */
+    host_menu_pointer_read(&m, &p);
+    guest = halo_ui_wheel_steps_from_host(p.wheel_steps);
+    assert(halo_ui_list_wheel_steps(guest, 1, 0) < 0 && -guest > 0);
+    /* a wheel turned toward the user (host steps positive) goes on down the list, as the d-pad does */
+    assert(halo_ui_list_wheel_steps(halo_ui_wheel_steps_from_host(3), 0, 1) == 3);
+    assert(halo_ui_wheel_steps_from_host(99) == -8 && halo_ui_wheel_steps_from_host(-99) == 8);
+}
+
 int main(void) {
+    list_follows_finger();
     tap();
     slow_drag();
     flick();

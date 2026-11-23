@@ -2902,11 +2902,22 @@ static uint32_t gpu_gl_compiles_outstanding(void)
 	return 0;
 }
 
+/* GL streams into buffers it orphans as it goes, so a frame's end changes nothing */
+static void gpu_gl_stream_frame_end(void)
+{
+}
+
+/* the Metal backend's side operations (gpu_backend.h): the host sends them to Metal alone (host_gpu_dispatch.c), so
+here they do nothing and answer 0 */
+#define GPU_NOTHING_PREFIX gpu_gl_
+GPU_DO_NOTHING(GPU_HOST_SIDE_OPERATIONS)
+#undef GPU_NOTHING_PREFIX
+
 /* ---------- the backend */
 
 #define GPU_GL_FUNCTION(type, name, parameters, arguments) .name = gpu_gl_##name,
 #define GPU_GL_PROCEDURE(name, parameters, arguments) .name = gpu_gl_##name,
-const struct gpu_backend gpu_backend_gl = { GPU_FUNCTIONS(GPU_GL_FUNCTION, GPU_GL_PROCEDURE) };
+const struct gpu_backend gpu_backend_gl = { GPU_BACKEND_FUNCTIONS(GPU_GL_FUNCTION, GPU_GL_PROCEDURE) };
 #undef GPU_GL_FUNCTION
 #undef GPU_GL_PROCEDURE
 
@@ -2915,7 +2926,7 @@ const struct gpu_backend gpu_backend_gl = { GPU_FUNCTIONS(GPU_GL_FUNCTION, GPU_G
 dispatches between backends: port/ios/host/host_gpu_dispatch.c) */
 #define GPU_GL_FUNCTION(type, name, parameters, arguments) type gpu_##name parameters { return gpu_gl_##name arguments; }
 #define GPU_GL_PROCEDURE(name, parameters, arguments) void gpu_##name parameters { gpu_gl_##name arguments; }
-GPU_FUNCTIONS(GPU_GL_FUNCTION, GPU_GL_PROCEDURE)
+GPU_ENTRY_POINTS(GPU_GL_FUNCTION, GPU_GL_PROCEDURE)
 #undef GPU_GL_FUNCTION
 #undef GPU_GL_PROCEDURE
 #endif

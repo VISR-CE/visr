@@ -3,6 +3,7 @@
 #include "host_main_thread.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#include "metal_gate.h"
 #if HALO_NATIVE_MAC
 #include <SDL3/SDL.h>
 #endif
@@ -66,18 +67,12 @@ void host_device_identify(struct host_device *device)
 	@autoreleasepool
 	{
 		id<MTLDevice> gpu = MTLCreateSystemDefaultDevice();
-		int family;
 
 		if (gpu)
 		{
 			snprintf(device->gpu_name, sizeof(device->gpu_name), "%s", gpu.name.UTF8String ?: "");
-			/* MTLGPUFamilyApple1 is 1001 and each later family the next number: asked by number, so a
-			   family newer than the SDK this was built with still counts */
-			for (family = 20; family >= 1 && !device->gpu_family; family--)
-			{
-				if ([gpu supportsFamily:(MTLGPUFamily)(1000 + family)])
-					device->gpu_family = family;
-			}
+			/* the highest Apple family (metal_gate.m asks by number, so a family newer than the SDK counts) */
+			device->gpu_family = metal_gate_family();
 		}
 #if HALO_NATIVE_MAC || !TARGET_OS_VISION
         if (host_on_main_thread())
@@ -152,8 +147,8 @@ void host_device_profile_applied(int point, int networked, int changed, int meta
     host_frame_rate_profile(frame_rate);
     /* Level loading permits the scaler's lazy allocation on the next presentation.
        The guest supplies the effective setting so explicit user overrides still win. */
-    if (point == 1 && host_gpu_metal_active() && gpu_metal_upscaler() != (metalfx != 0))
-        gpu_metal_set_upscaler(metalfx);
+    if (point == 1 && host_gpu_metal_active() && host_gpu_upscaler() != (metalfx != 0))
+        host_gpu_set_upscaler(metalfx);
     if (changed) {
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC, &now);

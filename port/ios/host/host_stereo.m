@@ -36,12 +36,15 @@ Elsewhere host_stereo_frame leaves the frame mono. */
 #if TARGET_OS_VISION
 #import <CompositorServices/CompositorServices.h>
 #import <Metal/Metal.h>
+#include "metal_gate.h"
 #include <os/proc.h>
 #include <simd/simd.h>
 #include <stdatomic.h>
 #include "host_theater.h"
 #include "host_stereo_head.h"
+#include "host_stereo_posture.h"
 #include "host_stereo_vignette.h"
+#import <UIKit/UIKit.h>
 #include "host_stereo_hud.h"
 #include "halo_stereo_window.h"
 #include "halo_stereo_cutscene.h"
@@ -88,6 +91,10 @@ static NSTimeInterval memory_last_frame_at;
 static struct host_stereo_head head;
 static atomic_int world_recenter_active, world_recenter_pending;
 static float head_last_back[3], head_last_position[3];
+/* the posture the head's height would choose, logged only (host_stereo_posture.h) */
+static struct host_stereo_posture posture;
+/* the system's Reduce Motion, read on the main thread at Enter VR and on its change */
+static atomic_int reduce_motion = -1;
 static unsigned long stereo_frames;
 /* frames on the screen, presents, and whether the depth range warning was
 logged, since the space opened: the once-only logs repeat for each opening
@@ -808,12 +815,18 @@ static BOOL prepare(id<MTLDevice> device, MTLPixelFormat color, MTLPixelFormat d
 	pipeline_color = color;
 	pipeline_depth = depth;
 	{
-		id<MTLFunction> reduce = [library newFunctionWithName:@"hud_depth_reduce"];
+		/* hud_depth_reduce sums with simd_sum and simd_max, SIMD-scoped reductions: Apple GPU family 7 (A14, M1) and
+		later, and Macs. Every Vision Pro has them; the gate's STEREO_HUD_DEPTH pass keeps the rule. */
+		BOOL reductions = metal_pass(METAL_PASS_STEREO_HUD_DEPTH);
+		id<MTLFunction> reduce = reductions ? [library newFunctionWithName:@"hud_depth_reduce"] : nil;
 
 		hud_depth_pipeline = reduce ? [device newComputePipelineStateWithFunction:reduce error:&error] : nil;
-		if (!hud_depth_pipeline)
+		if (!reductions)
+			host_logf(HOST_LOG_INFO, "stereo: this GPU has no SIMD-group reductions (Apple GPU family 7), so the HUD "
+				"rests at its distance");
+		else if (!hud_depth_pipeline)
 			host_logf(HOST_LOG_ERROR, "stereo: the HUD depth's pipeline failed, so the HUD rests at its distance: %s",
-				error.description.UTF8String);
+				error ? error.description.UTF8String : "no function");
 	}
 	/* the eyes write the game's depth as it is; the HUD draws over them,
 	depth test off */
@@ -902,6 +915,33 @@ static simd_float2 stereo_depth_range(float near_meters, float far_meters, float
 	return (simd_float2){ far_meters, near };
 }
 
+/* the posture the head's height would choose (host_stereo_posture.h), logged
+at the first head frame after Enter VR or a level load, at a recenter and when
+it changes; nothing acts on it yet. The height is the device's over ARKit's
+origin, which may or may not be the floor: these lines are how to tell */
+static void posture_sample(int restart, const float back[3])
+{
+	double now = NSProcessInfo.processInfo.systemUptime;
+	struct host_stereo_posture_event event;
+	/* (the device looks along -back; its pitch is that direction's elevation) */
+	float pitch = asinf(fmaxf(-1.0f, fminf(1.0f, -back[1]))) * 180.0f / (float)M_PI;
+	int motion = atomic_load(&reduce_motion);
+
+	if (restart)
+		host_stereo_posture_start(&posture, now);
+	if (!host_stereo_posture_sample(&posture, now, head_last_position[1], pitch, &event))
+		return;
+	if (event.decided == 1)
+		host_logf(HOST_LOG_INFO, "stereo: posture: head %.2f m above the origin (median of %d samples over %.1f s, "
+			"%d pitched down left out); it would choose %s (standing above %.2f m); Reduce Motion %s",
+			event.height, event.sample_count, (double)POSTURE_WINDOW_SECONDS, event.skipped,
+			host_stereo_posture_name(event.posture), (double)POSTURE_STANDING_HEIGHT,
+			motion < 0 ? "unknown" : motion ? "on" : "off");
+	else
+		host_logf(HOST_LOG_INFO, "stereo: posture: head %.2f m above the origin for %.1f s; it would change to %s",
+			event.height, (double)POSTURE_CHANGE_SECONDS, host_stereo_posture_name(event.posture));
+}
+
 /* the head's turn since the last frame and its roll now, from the device's
 pose in the room (host_stereo_head.c) */
 static void head_turn(struct halo_stereo_frame *frame, simd_float4x4 origin_from_device)
@@ -911,6 +951,8 @@ static void head_turn(struct halo_stereo_frame *frame, simd_float4x4 origin_from
 	float back[3] = { origin_from_device.columns[2].x, origin_from_device.columns[2].y, origin_from_device.columns[2].z };
 	int recenter_active = atomic_load(&world_recenter_active);
 	int recenter_pending = !recenter_active && atomic_exchange(&world_recenter_pending, 0);
+
+	int first = !head.known;
 
 	if (recenter_active || recenter_pending)
 		host_stereo_head_recenter(&head);
@@ -922,6 +964,7 @@ static void head_turn(struct halo_stereo_frame *frame, simd_float4x4 origin_from
 	head_last_position[0] = origin_from_device.columns[3].x;
 	head_last_position[1] = origin_from_device.columns[3].y;
 	head_last_position[2] = origin_from_device.columns[3].z;
+	posture_sample(first || recenter_pending, back);
 }
 
 /* debug.head_sweep, read once (head_sweep): the synthetic head's amplitude
@@ -1174,6 +1217,13 @@ static void stereo_frame(struct halo_stereo_frame *frame) API_AVAILABLE(visionos
 	}
 	cp_drawable_t drawable = host_theater_drawable(0, &origin_from_device, &anchored);
 	head_frame_open = head_configured();
+	/* the presentation's distance from now, the end of the Compositor's
+	wait: the guest adds it to its own clock (render_interpolation.c) */
+	{
+		double lead = (host_theater_presentation_time() - CACurrentMediaTime()) * 1e6;
+
+		frame->presentation_lead_microseconds = lead >= 1.0 ? (int32_t)MIN(lead, 1e6) : 1;
+	}
 	{
 		NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
 
@@ -1375,9 +1425,31 @@ static int mode_configured(void)
 	return configured;
 }
 
+#if TARGET_OS_VISION
+/* Reduce Motion now, logged when it changes (main thread) */
+static void reduce_motion_read(void)
+{
+	int now = UIAccessibilityIsReduceMotionEnabled() ? 1 : 0;
+
+	if (atomic_exchange(&reduce_motion, now) != now)
+		host_logf(HOST_LOG_INFO, "stereo: Reduce Motion is %s", now ? "on" : "off");
+}
+#endif
+
 void host_stereo_set_entered(int entered)
 {
 #if TARGET_OS_VISION
+	static dispatch_once_t observing;
+
+	dispatch_once(&observing, ^{
+		[NSNotificationCenter.defaultCenter addObserverForName:UIAccessibilityReduceMotionStatusDidChangeNotification
+			object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+				(void)note;
+				reduce_motion_read();
+			}];
+	});
+	if (entered)
+		reduce_motion_read();
 	atomic_store(&entered_requested, entered != 0);
 #else
 	(void)entered;
@@ -1414,6 +1486,7 @@ void host_stereo_frame(struct halo_stereo_frame *frame)
 	frame->foveated = 0;
 	frame->foveated_width = 0;
 	frame->foveated_height = 0;
+	frame->presentation_lead_microseconds = 0;
 #if TARGET_OS_VISION
 	head_frame_open = 0;
 	host_spatial_frame(NULL, NULL);
@@ -2776,6 +2849,16 @@ float host_stereo_render_quality(float quality)
 	if (quality >= 0.0f && !logged++)
 		host_logf(HOST_LOG_INFO, "stereo: runtime render quality is unavailable on this platform");
 	return (float)host_config_real("display.render_quality", 0.6);
+#endif
+}
+
+void host_stereo_frame_repeat_set(int repeat)
+{
+#if TARGET_OS_VISION
+	host_theater_set_frame_repeat(repeat);
+#else
+	(void)repeat;
+	host_logf(HOST_LOG_INFO, "stereo: the frame repeat count changes only on Vision Pro");
 #endif
 }
 

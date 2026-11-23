@@ -70,13 +70,23 @@ int host_theater_foveation_state(float *quality, float *runtime, float *default_
 	const char **offered);
 /* for stereo's frame times (gpu_metal.m): the seconds the game spent
 waiting for the Compositor's frames (host_theater_frame_begin) since the
-last call; the open frame's presentation time and the time the Compositor
+last call, and in *in_render (may be NULL) whether that wait opened a
+frame at the game's frame begin, inside its render span, and not inside
+a present; the open frame's presentation time and the time the Compositor
 wants it submitted by, its rendering deadline (CACurrentMediaTime's clock,
-0 without a frame); and the layer's frame repeat count */
-double host_theater_take_waited(void);
+0 without a frame); the presentation time of the last frame opened, which
+a path that opens and ends its frame inside its present reads afterwards
+(0 before any); and the layer's frame repeat count */
+double host_theater_take_waited(int *in_render);
 double host_theater_presentation_time(void);
+double host_theater_last_presentation_time(void);
 double host_theater_rendering_deadline(void);
+/* when the open frame's wait ended and it opened, which is when its poses are read (the same clock; 0 without a frame) */
+double host_theater_opened_time(void);
 int host_theater_frame_repeat(void);
+/* sets the layer's frame repeat count (clamped to 0..3) as the next frame opens, from any thread, and logs the count
+the Compositor reports; the space opening sets display.frame_repeat's again (host_stereo_space_opened) */
+void host_theater_set_frame_repeat(int repeat);
 /* the screen's pose in the room for the open frame's drawable (placed first
 if a present hasn't placed it yet) and its half width and half height in
 meters, at the picture's shape (host_theater_picture_size); the screen's

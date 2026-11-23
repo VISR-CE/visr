@@ -42,17 +42,18 @@ def test_scripted_x_and_y_emit_analog_buttons_for_exact_press_window() -> None:
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
+#include "FOCUS_HEADER"
+void platform_log(const char *format, ...) { (void)format; }
+int menu_test_focus_text(char *text, int size) { (void)text; (void)size; return 0; }
 enum { XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y };
 enum { XINPUT_GAMEPAD_START = 1, XINPUT_GAMEPAD_DPAD_UP = 2, XINPUT_GAMEPAD_DPAD_DOWN = 4,
        XINPUT_GAMEPAD_DPAD_LEFT = 8, XINPUT_GAMEPAD_DPAD_RIGHT = 16, XINPUT_GAMEPAD_BACK = 32 };
-static int menu_pad;
-void platform_menu_activity(int pad, float dx, float dy, int motion) {
-    (void)dx; (void)dy; (void)motion; menu_pad = pad;
-}
 typedef struct { unsigned short wButtons; unsigned char bAnalogButtons[8]; } XINPUT_GAMEPAD;
 #define CHECK(condition) do { if (!(condition)) { fprintf(stderr, "shortcut line %d: %s\n", __LINE__, #condition); exit(1); } } while (0)
-''' + production + r'''
+'''.replace("FOCUS_HEADER", str(ROOT / "port/linux/include/test_focus_walk.h")) + production + r'''
 int main(void) {
+    (void)test_input_focus_walks;   /* the focus walks live in the same region; their own probe is test_focus_walk_probe.c */
     test_input_presses_parse("x@8 y@16 a@24 b@32 start@40 up@48 down@56 left@64 right@72");
     CHECK(test_press_count == 9);
     for (unsigned long poll = 0; poll < 80; poll++) {
@@ -69,6 +70,15 @@ int main(void) {
             poll >= 72 && poll < 76 ? XINPUT_GAMEPAD_DPAD_RIGHT : 0;
         CHECK(pad.wButtons == expected);
     }
+    /* focus:LABEL@POLL[:DEADLINE] reads its label (underscore is a space) and deadline, and a press after it sets the walk's deadline */
+    test_press_count = 0;
+    test_input_presses_parse("focus:ABC_DEF@8:40 focus:GHI@8 a@30");
+    CHECK(test_focus_count == 2 && !strcmp(test_focus_walks[0].label, "ABC DEF") && test_focus_walks[0].start == 8);
+    CHECK(test_focus_walks[0].deadline == 30 && test_focus_walks[1].deadline == 30 && test_press_count == 1);
+    test_focus_count = 0;
+    test_input_presses_parse("focus:ABC@8:20 a@30");
+    CHECK(test_focus_walks[0].deadline == 20 && test_press_count == 2);
+    test_focus_count = 0;
     test_press_count = 0;
     test_input_presses_parse("x@0 y@0");
     XINPUT_GAMEPAD pad = {0};
@@ -86,12 +96,10 @@ int main(void) {
     test_input_presses_parse("ka@0 none@8 knone@16");
     pad = (XINPUT_GAMEPAD){0};
     test_input_presses(&pad, 0);
-    CHECK(!menu_pad && pad.bAnalogButtons[XINPUT_GAMEPAD_A] == 255);
+    CHECK(pad.bAnalogButtons[XINPUT_GAMEPAD_A] == 255);
     pad = (XINPUT_GAMEPAD){0};
     test_input_presses(&pad, 8);
-    CHECK(menu_pad && !pad.wButtons && !pad.bAnalogButtons[XINPUT_GAMEPAD_A]);
-    test_input_presses(&pad, 16);
-    CHECK(!menu_pad);
+    CHECK(!pad.wButtons && !pad.bAnalogButtons[XINPUT_GAMEPAD_A]);
     return 0;
 }
 ''')

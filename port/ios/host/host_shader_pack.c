@@ -1,5 +1,6 @@
 /* Strict admission for online shader descriptors, shared by the host and publisher. */
 #include "host_shader_pack.h"
+#include "../../runtime/shader_record.h"
 #include <dirent.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -9,85 +10,37 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-struct record { int kind; char key[64], vertex[64], pixel[64], line[640]; };
-static int hex_digit(char c) { return c >= '0' && c <= '9' ? c-'0' : c >= 'a' && c <= 'f' ? c-'a'+10 : -1; }
-static int hex(const char *s, size_t count, unsigned char *bytes)
+/* A record as the loader keeps it: its names (for dependencies and conflicts) and its line in current form. The
+   record's definition, its ranges and its text form are shader_record.h's; this file adds the file, merge and
+   limit rules. */
+struct record { int kind, line_no; char key[64], vertex[64], pixel[64], line[640]; };
+/* where a problem goes when a caller wants every one of them, not only whether the folder is admitted */
+struct reporter { host_shader_report fn; void *context; int reported; };
+static void report(struct reporter *r, const char *file, int line_no, const char *message)
 {
-    if (strlen(s) != count * 2) return 0;
-    for (size_t i = 0; i < count; i++) {
-        int a = hex_digit(s[2*i]), b = hex_digit(s[2*i+1]);
-        if (a < 0 || b < 0) return 0;
-        bytes[i] = (unsigned char)(a*16+b);
-    }
-    return 1;
+    char text[1400];
+    if (!r || !r->fn) return;
+    r->reported++;
+    if (line_no) snprintf(text, sizeof(text), "%s:%d: %s", file, line_no, message);
+    else snprintf(text, sizeof(text), "%s: %s", file, message);
+    r->fn(r->context, text);
 }
-static int number(const char *s, unsigned maximum, unsigned *out, int radix)
+static int parse(const char *line, struct record *r, struct shader_record_problem *problem)
 {
-    unsigned long n = 0;
-    if (!*s || strlen(s) > 10) return 0;
-    for (; *s; s++) {
-        int v = radix == 16 ? hex_digit(*s) : *s >= '0' && *s <= '9' ? *s-'0' : -1;
-        if (v < 0 || (unsigned)v > maximum || n > (maximum - (unsigned)v) / (unsigned)radix) return 0;
-        n = n * (unsigned)radix + (unsigned)v;
-    }
-    *out = (unsigned)n; return 1;
-}
-static int hash_valid(const char *s) { unsigned char b[8]; return hex(s, 8, b); }
-static int vertex_key(const char *s, char *key)
-{
-    char hash[17], variant[12], mask[12], tail;
-    unsigned v, m;
-    if (sscanf(s, "%16[^.].%11[^.].%11s%c", hash, variant, mask, &tail) != 3 ||
-        !hash_valid(hash) || !number(variant, 1, &v, 10) || !number(mask, 65535, &m, 16) || (v && m)) return 0;
-    snprintf(key, 64, "vs %s.%u.%x", hash, v, m); return 1;
-}
-static int parse(char *line, struct record *r)
-{
-    char *fields[14], *save = NULL, *token = strtok_r(line, " \t\r", &save);
-    int n = 0;
-    while (token && n < 14) { fields[n++] = token; token = strtok_r(NULL, " \t\r", &save); }
-    if (token || !n) return 0;
+    struct shader_record s;
+    char text[SHADER_RECORD_LINE_MAX];
+    if (!shader_record_parse(line, &s, problem) || !shader_record_admit(&s, problem)) return 0;
     memset(r, 0, sizeof(*r));
-    if (!strcmp(fields[0], "vs")) {
-        unsigned variant, mask;
-        if (n != 4 || !hash_valid(fields[1]) || !number(fields[2], 1, &variant, 10) ||
-            !number(fields[3], 65535, &mask, 16) || (variant && mask)) return 0;
-        r->kind = 0;
-        snprintf(r->key, sizeof(r->key), "vs %s.%u.%x", fields[1], variant, mask);
-        snprintf(r->line, sizeof(r->line), "vs %s %u %x", fields[1], variant, mask);
-    } else if (!strcmp(fields[0], "ps")) {
-        unsigned char bytes[252]; uint64_t h = UINT64_C(14695981039346656037);
-        char hashed[17];
-        if (n != 3 || !hash_valid(fields[1]) || !hex(fields[2], sizeof(bytes), bytes)) return 0;
-        for (size_t i = 0; i < sizeof(bytes); i++) h = (h ^ bytes[i]) * UINT64_C(1099511628211);
-        snprintf(hashed, sizeof(hashed), "%016llx", (unsigned long long)h);
-        if (strcmp(hashed, fields[1])) return 0;
-        /* Fixed guest ABI: 57 combiner words, texture modes, then bounded byte fields. */
-        /* Texture modes run to 5 (PS_TEXTUREMODES_CLIPPLANE, which the pixel shader translator handles). */
-        for (int i = 232; i < 236; i++) if (bytes[i] > 5) return 0;
-        for (int i = 236; i < 240; i++) if (bytes[i] > 1) return 0;
-        for (int i = 240; i < 244; i++) if (bytes[i] > 15) return 0;
-        unsigned comparison = bytes[244] | ((unsigned)bytes[245] << 8) | ((unsigned)bytes[246] << 16) | ((unsigned)bytes[247] << 24);
-        /* Xbox D3DCMP_NEVER..ALWAYS are 0x200..0x207 (xdk_pdb.h), not desktop D3D's 1..8. */
-        if ((comparison && (comparison < 512 || comparison > 519)) || bytes[248] > 1 ||
-            bytes[249] > 3 || bytes[250] > 1 || bytes[251] > 3) return 0;
-        r->kind = 1;
-        snprintf(r->key, sizeof(r->key), "ps %s", fields[1]);
-        snprintf(r->line, sizeof(r->line), "ps %s %s", fields[1], fields[2]);
-    } else if (!strcmp(fields[0], "pipeline")) {
-        unsigned values[9]; unsigned char kinds[16];
-        const unsigned maximum[] = {1,14,14,4,15,15,1,14,14};
-        if ((n != 11 && n != 13) || !vertex_key(fields[1], r->vertex) || !hash_valid(fields[2]) ||
-            !hex(fields[10], 16, kinds)) return 0;
-        for (int i = 0; i < 16; i++) if (kinds[i] > 19) return 0;
-        for (int i = 0; i < 7; i++) if (!number(fields[i+3], maximum[i], &values[i], 10)) return 0;
-        values[7] = values[1]; values[8] = values[2];
-        if (n == 13 && (!number(fields[11],14,&values[7],10) || !number(fields[12],14,&values[8],10))) return 0;
-        r->kind = 2;
-        snprintf(r->pixel, sizeof(r->pixel), "ps %s", fields[2]);
-        snprintf(r->line, sizeof(r->line), "pipeline %s %s %u %u %u %u %u %u %u %s %u %u",
-            r->vertex + 3, fields[2], values[0],values[1],values[2],values[3],values[4],values[5],values[6],fields[10],values[7],values[8]);
-    } else return 0;
+    r->kind = s.kind;
+    if (s.kind == SHADER_RECORD_PIPELINE) {
+        shader_record_vertex_name(&s, r->vertex, sizeof(r->vertex));
+        shader_record_pixel_name(&s, r->pixel, sizeof(r->pixel));
+    } else shader_record_name(&s, r->key, sizeof(r->key));
+    {
+        size_t length = shader_record_format(&s, text);
+        if (length >= sizeof(r->line)) return 0;
+        memcpy(r->line, text, length + 1);
+    }
     return 1;
 }
 static int compare_key(const void *a, const void *b) { return strcmp(((const struct record *)a)->key, ((const struct record *)b)->key); }
@@ -96,19 +49,39 @@ static int compare_line(const void *a, const void *b)
     const struct record *x = a, *y = b;
     return x->kind != y->kind ? x->kind - y->kind : strcmp(x->line, y->line);
 }
-static int load(const char *text, size_t size, struct record *records, size_t *count)
+static int load(const char *text, size_t size, struct record *records, size_t *count, const char *file,
+    struct reporter *rep)
 {
-    char *copy, *cursor; size_t first = *count;
-    if (!text || size > HOST_SHADER_PACK_MAX_FILE_BYTES || memchr(text, 0, size)) return 0;
+    char *copy, *cursor; size_t first = *count; int line_no = 0, valid = 1;
+    if (!text || size > HOST_SHADER_PACK_MAX_FILE_BYTES || memchr(text, 0, size)) {
+        report(rep, file, 0, "empty, too large, or holds a NUL byte");
+        return 0;
+    }
     copy = malloc(size + 1); if (!copy) return 0;
     memcpy(copy, text, size); copy[size] = 0; cursor = copy;
     while (*cursor) {
         char *line = cursor, *next = strchr(cursor, '\n');
+        struct shader_record_problem problem;
+        line_no++;
         if (next) { *next = 0; cursor = next+1; } else cursor += strlen(cursor);
-        if (strlen(line) > 1023) { free(copy); return 0; }
+        if (strlen(line) > 1023) {
+            report(rep, file, line_no, "line longer than 1023 bytes");
+            if (!rep) { free(copy); return 0; }
+            valid = 0; continue;
+        }
         while (*line == ' ' || *line == '\t' || *line == '\r') line++;
         if (!*line || *line == '#') continue;
-        if (*count-first == HOST_SHADER_LIST_MAX_RECORDS || !parse(line, &records[*count])) { free(copy); return 0; }
+        if (*count-first == HOST_SHADER_LIST_MAX_RECORDS) {
+            report(rep, file, line_no, "more than 8192 records");
+            free(copy); return 0;
+        }
+        if (!parse(line, &records[*count], &problem)) {
+            char message[200];
+            report(rep, file, line_no, shader_record_problem_text(&problem, message, sizeof(message)));
+            if (!rep) { free(copy); return 0; }
+            valid = 0; continue;
+        }
+        records[*count].line_no = line_no;
         (*count)++;
     }
     free(copy);
@@ -116,16 +89,31 @@ static int load(const char *text, size_t size, struct record *records, size_t *c
     qsort(records+first,n,sizeof(*records),compare_key);
     for (size_t i = first; i < *count; i++) {
         struct record *r = records+i;
-        if (r->kind < 2 && i > first && !strcmp(r->key,records[i-1].key) && strcmp(r->line,records[i-1].line)) return 0;
+        if (r->kind < 2 && i > first && !strcmp(r->key,records[i-1].key) && strcmp(r->line,records[i-1].line)) {
+            report(rep, file, r->line_no, "two different records named the same");
+            if (!rep) return 0;
+            valid = 0;
+        }
         if (r->kind == 2) {
             struct record key = {0};
+            char message[120];
             snprintf(key.key,sizeof(key.key),"%s",r->vertex);
-            if (!bsearch(&key,records+first,n,sizeof(*records),compare_key)) return 0;
+            if (!bsearch(&key,records+first,n,sizeof(*records),compare_key)) {
+                snprintf(message,sizeof(message),"missing dependency %s",r->vertex);
+                report(rep, file, r->line_no, message);
+                if (!rep) return 0;
+                valid = 0;
+            }
             snprintf(key.key,sizeof(key.key),"%s",r->pixel);
-            if (!bsearch(&key,records+first,n,sizeof(*records),compare_key)) return 0;
+            if (!bsearch(&key,records+first,n,sizeof(*records),compare_key)) {
+                snprintf(message,sizeof(message),"missing dependency %s",r->pixel);
+                report(rep, file, r->line_no, message);
+                if (!rep) return 0;
+                valid = 0;
+            }
         }
     }
-    return n > 0;
+    return valid && n > 0;
 }
 /* Ordinary-play batches contain only a few descriptors. Reserve their actual
    record count instead of the maximum catalog size on every worker checkpoint. */
@@ -144,8 +132,8 @@ static int record_capacity(const char *text, size_t size, size_t *count)
     *count += lines;
     return 1;
 }
-int host_shader_list_merge(const char *base, size_t base_size, const char *additions, size_t additions_size,
-    char **merged, size_t *merged_size)
+static int merge(const char *base, size_t base_size, const char *base_name, const char *additions, size_t additions_size,
+    const char *additions_name, struct reporter *rep, char **merged, size_t *merged_size)
 {
     size_t capacity = 0;
     struct record *r = NULL;
@@ -154,7 +142,7 @@ int host_shader_list_merge(const char *base, size_t base_size, const char *addit
     if (merged_size) *merged_size = 0;
     if (!record_capacity(base,base_size,&capacity) || !record_capacity(additions,additions_size,&capacity) || !capacity) goto done;
     r = calloc(capacity,sizeof(*r));
-    if (!r || (base && !load(base,base_size,r,&n)) || (additions && !load(additions,additions_size,r,&n)) || !n) goto done;
+    if (!r || (base && !load(base,base_size,r,&n,base_name,rep)) || (additions && !load(additions,additions_size,r,&n,additions_name,rep)) || !n) goto done;
     qsort(r,n,sizeof(*r),compare_key);
     for (size_t i = 1; i < n; i++) if (r[i].kind < 2 && !strcmp(r[i].key,r[i-1].key) && strcmp(r[i].line,r[i-1].line)) goto done;
     qsort(r,n,sizeof(*r),compare_line);
@@ -171,6 +159,11 @@ int host_shader_list_merge(const char *base, size_t base_size, const char *addit
     valid = 1;
 done:
     free(r); return valid;
+}
+int host_shader_list_merge(const char *base, size_t base_size, const char *additions, size_t additions_size,
+    char **merged, size_t *merged_size)
+{
+    return merge(base,base_size,"base",additions,additions_size,"additions",NULL,merged,merged_size);
 }
 int host_shader_map_name_valid(const char *name)
 {
@@ -195,28 +188,48 @@ char *host_shader_list_read_file(const char *path, size_t *size)
 done:
     close(fd); return bytes;
 }
-int host_shader_pack_validate(const char *folder, const char *bundled, void (*log)(const char *))
+int host_shader_pack_check(const char *folder, const char *bundled, void (*log)(const char *),
+    host_shader_report report_problem, void *context)
 {
-    struct stat st; DIR *dir = NULL; struct dirent *e; int valid = 0; size_t total = 0, files = 0;
+    struct stat st; DIR *dir = NULL; struct dirent *e; int valid = 0, bad = 0; size_t total = 0, files = 0;
+    struct reporter rep = { report_problem, context, 0 }, *reporter = report_problem ? &rep : NULL;
     if (lstat(folder,&st) || !S_ISDIR(st.st_mode) || !(dir = opendir(folder))) goto done;
     while ((e = readdir(dir))) {
         const char *name = e->d_name; size_t length = strlen(name), size = 0, base_size = 0;
-        char map[64], path[1200];
+        char map[64], path[1200], base_path[1200];
         if (!strcmp(name,".") || !strcmp(name,"..")) continue;
-        if (length < 5 || length >= sizeof(map)+4 || strcmp(name+length-4,".txt")) goto done;
+        if (length < 5 || length >= sizeof(map)+4 || strcmp(name+length-4,".txt")) {
+            report(reporter,name,0,"not a MAP.txt file name");
+            if (!reporter) goto done;
+            bad = 1; continue;
+        }
         memcpy(map,name,length-4); map[length-4] = 0;
-        if (!host_shader_map_name_valid(map) || ++files > HOST_SHADER_PACK_MAX_MAPS) goto done;
+        if (!host_shader_map_name_valid(map) || ++files > HOST_SHADER_PACK_MAX_MAPS) {
+            report(reporter,name,0,"not a valid map name, or more than 32 maps");
+            if (!reporter) goto done;
+            bad = 1; continue;
+        }
         snprintf(path,sizeof(path),"%s/%s",folder,name);
         char *bytes = host_shader_list_read_file(path,&size), *base = NULL;
-        if (bundled) { snprintf(path,sizeof(path),"%s/%s",bundled,name); base = host_shader_list_read_file(path,&base_size); }
-        int accepted = bytes && size <= HOST_SHADER_PACK_MAX_TOTAL_BYTES-total && host_shader_list_merge(base,base_size,bytes,size,NULL,NULL);
+        base_path[0] = 0;
+        if (bundled) { snprintf(base_path,sizeof(base_path),"%s/%s",bundled,name); base = host_shader_list_read_file(base_path,&base_size); }
+        int before = reporter ? reporter->reported : 0;
+        int accepted = bytes && size <= HOST_SHADER_PACK_MAX_TOTAL_BYTES-total &&
+            merge(base,base_size,base_path,bytes,size,path,reporter,NULL,NULL);
+        if (!bytes) report(reporter,path,0,"cannot be read as a regular file of 1 byte to 4 MiB");
+        else if (size > HOST_SHADER_PACK_MAX_TOTAL_BYTES-total) report(reporter,path,0,"the snapshot exceeds 16 MiB");
         free(bytes); free(base);
-        if (!accepted) goto done;
+        if (!accepted && reporter && reporter->reported == before) report(reporter,path,0,"records not admitted");
+        if (!accepted) { if (!reporter) goto done; bad = 1; continue; }
         total += size;
     }
-    valid = files > 0;
+    valid = files > 0 && !bad;
 done:
     if (dir) closedir(dir);
     if (!valid && log) log("shader update: invalid map descriptors or dependencies");
     return valid;
+}
+int host_shader_pack_validate(const char *folder, const char *bundled, void (*log)(const char *))
+{
+    return host_shader_pack_check(folder,bundled,log,NULL,NULL);
 }

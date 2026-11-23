@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
+#include "menu_geometry.h"
 typedef int boolean;
 typedef struct {short y0,x0,y1,x1;} rectangle2d;
 typedef struct {short x,y;} point2d;
@@ -13,11 +14,12 @@ typedef struct {short x,y;} point2d;
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define ABS(a) ((a)<0?-(a):(a))
 #define UI_MOUSE_MAXIMUM_TARGETS 96
-enum {_ui_mouse_target_item,_ui_mouse_target_value,_ui_mouse_target_list_slot,_ui_mouse_target_button};
+enum {_ui_mouse_target_item,_ui_mouse_target_value,_ui_mouse_target_list_slot,_ui_mouse_target_button,_ui_mouse_target_action};
 enum {_ui_widget_type_text_box, _ui_widget_type_spinner_list, _widget_event_dpad_up=8, _widget_event_dpad_down};
 enum {_gamepad_analog_button_a,_gamepad_analog_button_b,_gamepad_analog_button_x,_gamepad_analog_button_y};
 struct string_list_ref {long index;};
-struct ui_widget_definition {rectangle2d bounds,list_header_bounds,list_footer_bounds;struct string_list_ref text_label_string_list;struct {long index;} text_font;};
+struct ui_widget_definition {rectangle2d bounds,list_header_bounds,list_footer_bounds;struct string_list_ref text_label_string_list;struct {long index;} text_font;short horizontal_offset,justification;};
+enum {_text_justification_left,_text_justification_right,_text_justification_center};
 struct widget_instance {
  struct widget_instance *parent,*child,*next;
  short type,definition_tag_index,disabled,visible,horizontal_offset,vertical_offset,local_player_index,button;
@@ -110,7 +112,7 @@ int main(void) {
  ui_mouse_note_target(&button,&definitions[0],offset);
  struct ui_mouse_target *target=&ui_mouse_targets[0];
  assert(target->button_index==1 && target->kind==_ui_mouse_target_button);
- /* B's slot (118 wide with 24 padding each side around a 70-wide caption) sits second from the right.
+ /* B's slot (the bar's, menu_geometry.h) sits second from the right.
   Its pointer target runs from the button's top (412) to the screen's bottom edge (480): 68 units,
   53 pt at 375/480 pt per unit, and never reaches above the bar's top rule (404). */
  assert(target->bounds.y1-target->bounds.y0>=60);
@@ -121,15 +123,14 @@ int main(void) {
  assert(ui_mouse_target_at(420,479)==target);
  assert(!ui_mouse_target_at(420,398));
  assert(!ui_mouse_target_at(480,427));
- /* The visible button is 40 units tall and is the slot itself (338-468 .. 344-462 plus padding),
+ /* The visible button is 40 units tall and is the slot itself (MENU_BAR_SLOT_B_X0 .. _X1),
   with its caption centered by the legend's caption shift, and is inside its pointer target. */
  rectangle2d visual,hit=definitions[0].bounds;
  assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual,NULL));
  assert(!memcmp(&hit,&target->bounds,sizeof(hit)));
  assert(visual.y1-visual.y0==40 && visual.y0>=404 && visual.y1<=456);
  assert(visual.x0>=hit.x0 && visual.x1<=hit.x1 && visual.y0>=hit.y0 && visual.y1<=hit.y1);
- assert(visual.x1-visual.x0==118 && visual.x1==592-118-12);
- assert((visual.x0+visual.x1)/2==368+70/2+ui_touch_legend_caption_shift(&caption)*0);
+ assert(visual.x0==MENU_BAR_SLOT_B_X0 && visual.x1==MENU_BAR_SLOT_B_X1);
  assert(ui_touch_legend_caption_shift(&caption)==(visual.x0+visual.x1)/2-70/2-368);
  /* Every slot has the same place on every screen: the A, B, X and Y buttons' pointer targets never
   overlap each other, stay below the bar's top rule, reach the screen's bottom and are 44 pt tall,

@@ -40,6 +40,10 @@ import time
 import zlib
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import benchmark_routes  # noqa: E402
+import set_check  # noqa: E402
+
 # a debug.gpu_stats summary (d3d8_device.c), after platform_log's prefix
 STATS = re.compile(r"frame \d+: (.*)$")
 # the GL call total at the end of a debug.gpu_stats summary
@@ -150,11 +154,13 @@ DEFAULTS = {
     "display.specular_light_limit": "0",
     "display.shadow_minimum_size": "0",
     "display.effect_resolution": '"xbox"',
+    "display.effect_limits": '"raised"',
     "display.compressed_textures": "false",
     "debug.texture_astc": '"off"',
     "debug.texture_astc_sync": "false",
     "display.frame_pacing": '"off"',
     "display.frame_rate": '"display"',
+    "display.frames_in_flight_at_30": '""',
     # (a runner run sets debug.exit_after, so "auto" compiles at each first draw, as before)
     "display.async_shaders": '"auto"',
     "display.movies": '"auto"',
@@ -283,6 +289,7 @@ DEFAULTS = {
     "debug.network_test_pickup": "0.0",
     "debug.network_test_pickup_weapon": '""',
     "debug.network_test_weapon": '""',
+    "debug.coop_census": "0.0",
     "debug.network_latency": "0.0",
     "debug.network_loss": "0.0",
     # ("auto" is off in a runner run, which sets debug.exit_after)
@@ -1092,11 +1099,22 @@ def collect(documents, out):
     if (documents / "recordings").is_dir():
         shutil.copytree(documents / "recordings", out / "recordings", dirs_exist_ok=True)
     # the device benchmark's journal, runs and report (--benchmark-suite), without the recordings it replayed
+    # (a reused --out keeps nothing of an earlier suite: benchmark_suite_check reads only this run's)
+    shutil.rmtree(out / "benchmark", ignore_errors=True)
     if (documents / "benchmark").is_dir():
         (out / "benchmark").mkdir(exist_ok=True)
         for file in sorted((documents / "benchmark").iterdir()):
             if file.is_file():
                 shutil.copy2(file, out / "benchmark" / file.name)
+
+
+def benchmark_suite_check(args):
+    """exits with the reason when a --benchmark-suite run measured nothing"""
+    if not getattr(args, "benchmark_suite", None):
+        return
+    problem = benchmark_routes.suite_problem(Path(args.out) / "benchmark")
+    if problem:
+        sys.exit(f"{problem}; logs are in {args.out}")
 
 
 def simulator_pattern(udid):
@@ -1140,6 +1158,7 @@ def run_simulator(args):
     collect(documents, args.out)
     if not finished:
         sys.exit(f"the game was still running {limit} seconds after launch and was stopped; logs are in {args.out}")
+    benchmark_suite_check(args)
     print(f"results: {args.out}")
 
 
@@ -1384,7 +1403,7 @@ def seed_native_data(args, data):
     """seed a data folder that has no `seeded` marker: play two throwaway runs, then write the marker.
     The a10 run comes first: a host's first a10 GL run in a newly seeded folder has fallen behind on
     two of the build hosts. The menu run comes second: the first menu run in a new folder
-    writes last_language.dat and savegame.bin and precaches the ui map once more, so it differs from
+    writes last_language.dat and precaches the ui map once more, so it differs from
     every later menu run, and the iPad runner's container is always past that state. A folder without
     maps is cloned from --maps first (into maps.partial, renamed when complete, so an interrupted
     clone is redone); a failed throwaway run then unseeds it. A folder that already has maps (made some
@@ -1602,6 +1621,7 @@ def run_native(args):
         reports = collect_crash_reports(args.app, launched, args.out)
         crashed = f"; crash report: {', '.join(str(path) for path in reports)}" if reports else ""
         sys.exit(f"the game did not exit cleanly (game exit {status}); logs are in {args.out}{crashed}")
+    benchmark_suite_check(args)
     print(f"results: {args.out}")
 
 
@@ -1651,6 +1671,7 @@ def run(args):
     if not finished:
         sys.exit(f"{TARGET} was still running {limit} seconds after launch and was killed; "
                  f"logs are in {args.out}")
+    benchmark_suite_check(args)
     print(f"results: {args.out}")
 
 
@@ -1735,6 +1756,11 @@ def main():
     inputs_parser.add_argument("a", type=Path)
     inputs_parser.add_argument("b", type=Path)
     args = parser.parse_args()
+    if args.command == "run" and args.set:
+        # a value the game does not accept runs as its default, so the run would not be the one asked for
+        refused = set_check.problems(args.set, bare_strings=True)
+        if refused:
+            sys.exit("\n".join(f"--set: {text}" for text in refused))
     if args.command == "run":
         run(args)
     elif args.command == "compare-inputs":

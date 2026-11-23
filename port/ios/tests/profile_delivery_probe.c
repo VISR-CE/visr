@@ -1,4 +1,4 @@
-/* The publisher invokes the runtime hardware-key and shard validators (validate: generation 1, validate-2, validate-3, validate-4, validate-5). */
+/* The publisher invokes the runtime hardware-key and shard validators (validate: generation 1, validate-2, validate-3, validate-4, validate-5, validate-6). */
 #include "../host/host_profile.h"
 #include <stdio.h>
 #include <string.h>
@@ -17,6 +17,7 @@ int main(int argc, char **argv)
     if (!strcmp(argv[1],"validate-3") && argc == 6) return host_profile_validate_feed_folder(argv[2],&d,3,diagnostic) ? 0 : 1;
     if (!strcmp(argv[1],"validate-4") && argc == 6) return host_profile_validate_feed_folder(argv[2],&d,4,diagnostic) ? 0 : 1;
     if (!strcmp(argv[1],"validate-5") && argc == 6) return host_profile_validate_feed_folder(argv[2],&d,5,diagnostic) ? 0 : 1;
+    if (!strcmp(argv[1],"validate-6") && argc == 6) return host_profile_validate_feed_folder(argv[2],&d,6,diagnostic) ? 0 : 1;
     if (!strcmp(argv[1],"select") && argc == 6) {
         struct host_profile p; d.gpu_family = 1;
         host_profile_resolve(&d,argv[2],NULL,NULL,NULL,&p);

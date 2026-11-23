@@ -24,10 +24,8 @@ calls them from PC_MENU_FUNCTION_BASE on):
   "profile.<field>" the controller's in the profile being edited;
 - "port setting save", on its deleted event, writes the value shown back,
   if the player changed it;
-- the settings screens' (tools/port_settings.py): "port settings save"
-  (OK) writes those changed and applies the window's (the rest follow
-  config.toml themselves), "port settings defaults" shows the defaults,
-  "port settings help" the help of the row chosen (and Video Setup's
+- the settings screens' (tools/port_settings.py): "port settings help"
+  shows the help of the row chosen (and Video Setup's
   Resolution or Window Size, for the display mode shown), and the About
   screen's "port about version" and "port about build" (and its SEND LOG row's "port send log" and "port send log status");
 - Xbox settings (tools/xbox_menus.py) run "port setting changed" after each
@@ -36,17 +34,15 @@ calls them from PC_MENU_FUNCTION_BASE on):
 - Controls Setup's: the keyboard and mouse's controls, two bindings each,
   shown a group at a time ("controls update menu"); "controls begin
   binding" takes the next key or button pressed for the binding left and
-  right choose ("controls binding slot"); OK ("controls screen change set")
-  writes them, "controls screen defaults" shows the defaults. The Xbox
-  screen ("port controls init") saves each capture or clear; "port controls
-  defaults" resets and saves.
+  right choose ("controls binding slot"). The screen ("port controls
+  init") saves each capture or clear; "port controls defaults" resets and
+  saves.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
 
-The PC version's campaign menus, on player 1's profile (the active one, else
-the one last used, else the first) and the game's saved game in it:
-- "campaign menu continue" goes on with the saved game;
+The map lists, on player 1's profile (the active one, else the one last
+used, else the first) and the game's saved game in it:
 - New Game's list of levels ("initialize sp level list solo", "solo map
   list update", "solo level set map") has those the profile has reached, and
   marks those it has finished on Normal, Heroic and Legendary, as the
@@ -54,19 +50,11 @@ the one last used, else the first) and the game's saved game in it:
   its difficulty. Its first row's chooser shows MULTIPLAYER's maps
   instead, one chosen played alone at once;
 - the difficulty menu: "difficulty item select" (a difficulty chosen) and
-  "set difficulty" (its OK button: the difficulty shown) start the game;
-- Load Game's list ("load game menu init", "load game list update", "load
-  game menu activated") has each profile's saved game, and "load game menu
-  delete request" and "delete finish" delete one.
+  "set difficulty" (its OK button: the difficulty shown) start the game.
 The Xbox's functions of those names take the Xbox's widgets (a spinner of
 levels, the difficulty list itself), so ours run instead (menu_tags.c).
 
-Co-op (the Xbox's Cooperative Play, Multiplayer's CO-OP CAMPAIGN): "port coop
-begin" makes two players, player 1 on its profile; "port coop player 2"
-gives player 2 the profile chosen and the controller that chose it; then the
-campaign's New Game and difficulty start the game for both.
-
-The rest are the PC version's, which its menus (port/assets/menus/ce)
+The rest are the PC version's, which its menus (the sources in tools/menu_sources)
 name and the Xbox's has not: they do nothing yet, and succeed, so that what
 their handlers open opens.
 */
@@ -87,6 +75,7 @@ their handlers open opens.
 #include "text/unicode.h"
 
 #include "halo_menus.h"
+#include "halo_menu_meta.h"
 #include "halo_network_version.h"
 #include "halo_network_content.h"
 #include "custom_edition_cache.h"
@@ -95,6 +84,7 @@ their handlers open opens.
 /* (internet play's server browser: the platform layer's) */
 #include "../src/p2p.h"
 #include "../src/port_graphics_modes.h"
+#include "../src/halo_host_flags.h"
 #include "../src/halo_internet.h"
 #include "../src/halo_direct_ip.h"
 #include "../include/menu_gametype.h"
@@ -161,6 +151,8 @@ boolean ui_widget_port_dispatch_event(struct widget_instance *widget, short even
 	boolean *deleted);
 void ui_widget_port_go_back(struct widget_instance *widget);
 short ui_widget_port_list_index(struct widget_instance *list_widget);
+/* which of its captions the screen's bar action on the button shows (its strings=) */
+void ui_widget_port_bar_caption(struct widget_instance *screen, short button, short index);
 boolean ui_widget_port_saved_game(char const **map_name, short *level, short *difficulty);
 char const *ui_widget_event_handler_function_name(long function_index);
 short main_get_solo_level_from_name(char const *name);
@@ -655,14 +647,6 @@ struct campaign_level
 	boolean finished[3];
 };
 
-struct campaign_saved_game
-{
-	long profile_index;
-	wchar_t profile_name[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH + 1];
-	short level;
-	short difficulty;
-};
-
 static struct
 {
 	struct campaign_level levels[NUMBER_OF_SINGLE_PLAYER_LEVELS];
@@ -670,11 +654,6 @@ static struct
 	short saved_level;
 	/* the level and saved game the lists' descriptions last showed */
 	short shown_level;
-	short shown_saved_game;
-	/* Load Game's */
-	struct campaign_saved_game saved_games[MAXIMUM_ROWS];
-	short saved_game_count;
-	short saved_game_to_delete;
 } campaign;
 
 /* the descendant of the widget with the name (a widget's name is its
@@ -699,6 +678,62 @@ static struct widget_instance *descendant(struct widget_instance *widget, char c
 static struct widget_instance *named(struct widget_instance *widget, char const *name, long nth)
 {
 	return widget ? descendant(widget, name, &nth) : NULL;
+}
+
+/* ---------- test input */
+
+/* The text of the row the focus is on, as its widget draws it (a text box's text is the string it rendered last, search
+and replace done): the first text box under the deepest focused widget that has one, ASCII, in `text`. 1 when there is
+such a row, 0 when no screen is up or nothing in it has the focus. This is how debug.test_input's "focus:LABEL" walk
+reads the menu (test_focus_walk.h), whatever the screen: no table of rows, no names of screens. */
+static struct widget_instance *first_text_box(struct widget_instance *widget)
+{
+	struct widget_instance *child;
+
+	for (child = widget->child; child; child = child->next)
+	{
+		struct widget_instance *found;
+
+		if (child->type == 1 && child->visible && child->parameters.text_box.text && child->parameters.text_box.text[0])
+			return child;
+		found = first_text_box(child);
+		if (found)
+			return found;
+	}
+	return NULL;
+}
+
+/* (game thread only: it reads the text boxes the thread that renders them resizes) */
+int menu_test_focus_text(char *text, int size)
+{
+	struct widget_instance *screen = ui_widget_port_active_screen(0);
+	struct widget_instance *focused, *box = NULL;
+	struct widget_instance *chain[16];
+	int depth = 0, index;
+	wchar_t const *wide;
+
+	if (!screen || size < 2)
+		return 0;
+	/* the focus chain, screen to deepest focused widget */
+	for (focused = screen->focused_child; focused && depth < 16; focused = focused->focused_child)
+		chain[depth++] = focused;
+	/* the row is the focused child of a list (a column list or a spinner list): its label is its first text box; with no list in
+	the chain, the deepest focused widget that has a text box under it */
+	for (index = 0; index < depth && !box; index++)
+	{
+		if (chain[index]->parent && (chain[index]->parent->type == 2 || chain[index]->parent->type == 3))
+			box = chain[index]->type == 1 && chain[index]->parameters.text_box.text && chain[index]->parameters.text_box.text[0] ?
+				chain[index] : first_text_box(chain[index]);
+	}
+	if (!box && depth)   /* no list in the chain: the deepest focused widget's own text, never an ancestor's */
+		box = first_text_box(chain[depth - 1]);
+	if (!box)
+		return 0;
+	wide = box->parameters.text_box.text;
+	for (index = 0; wide[index] && index < size - 1; index++)
+		text[index] = wide[index] < 128 ? (char)wide[index] : '?';
+	text[index] = 0;
+	return 1;
 }
 
 /* the text box's own text (as the server list sets its items'), in a
@@ -808,8 +843,7 @@ static void rows_update(struct widget_instance *list, short count, void (*row_te
 }
 
 /* player 1's profile, read again (the active one, else the one last used,
-else the first), on the controller (in co-op, on the one that chose co-op:
-coop_begin); FALSE if there is none */
+else the first), on the controller; FALSE if there is none */
 static boolean campaign_profile(short controller, struct player_profile *profile)
 {
 	long profile_index = player_ui_get_active_player_profile_index(0);
@@ -888,16 +922,11 @@ static boolean campaign_fail(void)
 	return FALSE;
 }
 
-/* the description's level: its name, picture and words, and the
-difficulties it has been finished on (finished: New Game's, NULL for a level
-not reached), or (saved_difficulty, not NONE: Load Game's) the saved game's
-difficulty */
-static void level_description(struct widget_instance *description, char const *prefix, short level, boolean in_progress,
-	boolean const *finished, short saved_difficulty)
+/* the description's level: its name, picture and words */
+static void level_description(struct widget_instance *description, char const *prefix, short level, boolean in_progress)
 {
 	char name[64];
 	struct widget_instance *widget;
-	short marker;
 
 	snprintf(name, sizeof(name), "%s_right_name", prefix);
 	if ((widget = named(description, name, 0)) != NULL)
@@ -906,23 +935,8 @@ static void level_description(struct widget_instance *description, char const *p
 	if ((widget = named(description, name, 0)) != NULL)
 		widget->animation.current_frame_index = level;
 	snprintf(name, sizeof(name), "%s_right_data", prefix);
-	if ((widget = named(description, name, 0)) != NULL && saved_difficulty != NONE)
-	{
-		wchar_t text[ROW_TEXT_LENGTH];
-
-		string_get("pc\\main_menu\\player_profiles_select\\difficulty_names", saved_difficulty, text);
-		text_set(widget, text);
-	}
-	else if (widget)
+	if ((widget = named(description, name, 0)) != NULL)
 		widget->parameters.text_box.string_list_index = in_progress ? LEVEL_IN_PROGRESS : level;
-	for (marker = 0; marker < 3; marker++)
-	{
-		if ((widget = named(description, "difficulty_indicator", marker)) != NULL)
-		{
-			widget->visible = saved_difficulty != NONE ? marker == 0 : finished && finished[marker];
-			widget->animation.current_frame_index = saved_difficulty != NONE ? saved_difficulty : marker + 1;
-		}
-	}
 }
 
 /* player 1's profile's name (the active one, else the one used last: the
@@ -954,30 +968,6 @@ static void profile_name_show(struct widget_instance *description)
 		read_time = system_milliseconds();
 	}
 	text_set(named(description, "current_profile_name", 0), profile.player_name);
-}
-
-/* (Campaign's menu) "campaign menu init": player 1's profile and saved
-game, for its items */
-static boolean campaign_menu_initialize(short controller)
-{
-	struct player_profile profile;
-
-	if (campaign_profile(controller, &profile))
-		campaign_levels_read(&profile);
-	return TRUE;
-}
-
-/* "campaign menu continue": the saved game goes on */
-static boolean campaign_continue(short controller)
-{
-	struct player_profile profile;
-	char const *map_name;
-	short level, difficulty;
-
-	if (!campaign_profile(controller, &profile) || !ui_widget_port_saved_game(&map_name, &level, &difficulty))
-		return campaign_fail();
-	campaign_start(map_name, difficulty, controller);
-	return TRUE;
 }
 
 /* ---- the map lists (New Game's and the Map screen's): their first row's
@@ -1101,7 +1091,7 @@ static short xbox_multiplayer_map_count(short multiplayer_map_count)
 
 static void multiplayer_map_text(short map, wchar_t *text)
 {
-	string_get("pc\\main_menu\\mp_map_list", map, text);
+	string_get("pc\\xbox\\main_menu\\mp_map_list", map, text);
 }
 
 /* a Custom Edition map's name (the menus find its name, picture and
@@ -1131,7 +1121,6 @@ by its display index (a multiplayer map's, or a Custom Edition map's), or
 static void map_description_show(struct widget_instance *description, short level, short map)
 {
 	struct widget_instance *widget;
-	short marker;
 
 	visible_set(named(description, "replay_level_right_name", 0), level != NONE);
 	visible_set(named(description, "replay_level_right_pic", 0), level != NONE);
@@ -1139,11 +1128,6 @@ static void map_description_show(struct widget_instance *description, short leve
 	visible_set(named(description, "mp_map_right_name", 0), map != NONE);
 	visible_set(named(description, "mp_map_right_pic", 0), map != NONE);
 	visible_set(named(description, "mp_map_right_data", 0), map != NONE);
-	if (level == NONE)
-	{
-		for (marker = 0; marker < 3; marker++)
-			visible_set(named(description, "difficulty_indicator", marker), FALSE);
-	}
 	if (map == NONE)
 		return;
 	if ((widget = named(description, "mp_map_right_name", 0)) != NULL)
@@ -1231,7 +1215,7 @@ static boolean level_list_initialize(struct widget_instance *list, short control
 
 static void level_row_text(short level, wchar_t *text)
 {
-	string_get("pc\\main_menu\\map_list", campaign.levels[level].available ? level : LEVEL_UNAVAILABLE, text);
+	string_get("pc\\xbox\\main_menu\\map_list", campaign.levels[level].available ? level : LEVEL_UNAVAILABLE, text);
 }
 
 /* "solo map list update" */
@@ -1264,8 +1248,7 @@ static void level_list_update(struct widget_instance *list)
 	level = campaign.shown_level;
 	if (!campaign.levels[level].available)
 		level = LEVEL_UNAVAILABLE;
-	level_description(description, "replay_level", level, level == campaign.saved_level,
-		level == LEVEL_UNAVAILABLE ? NULL : campaign.levels[level].finished, NONE);
+	level_description(description, "replay_level", level, level == campaign.saved_level);
 	profile_name_show(description);
 }
 
@@ -1350,135 +1333,6 @@ static short sibling_index(struct widget_instance *widget)
 	return index;
 }
 
-/* Load Game's list: each profile's saved game (read with the profile as
-player 1's, which then is again) */
-static void saved_games_read(short controller)
-{
-	struct player_profile profile, active;
-	long profiles[MAXIMUM_PROFILES];
-	long active_index;
-	word count = MAXIMUM_PROFILES;
-	short index;
-
-	campaign.saved_game_count = 0;
-	if (!campaign_profile(controller, &active))
-		return;
-	active_index = player_ui_get_active_player_profile_index(0);
-	player_profiles_enumerate_available_to_local_player_index(NONE, &count, profiles, FALSE);
-	for (index = 0; index < (short)count && campaign.saved_game_count < MAXIMUM_ROWS; index++)
-	{
-		struct campaign_saved_game *saved_game = &campaign.saved_games[campaign.saved_game_count];
-		char const *map_name;
-
-		if (!((unsigned long)profiles[index] & PROFILE_VALID_BIT) || !player_profile_get(profiles[index], &profile))
-			continue;
-		player_ui_set_active_player_profile(0, profiles[index], &profile);
-		if (ui_widget_port_saved_game(&map_name, &saved_game->level, &saved_game->difficulty))
-		{
-			saved_game->profile_index = profiles[index];
-			ustrncpy(saved_game->profile_name, profile.player_name, MAXIMUM_PLAYER_PROFILE_NAME_LENGTH);
-			saved_game->profile_name[MAXIMUM_PLAYER_PROFILE_NAME_LENGTH] = 0;
-			campaign.saved_game_count++;
-		}
-	}
-	player_ui_set_active_player_profile(0, active_index, &active);
-	campaign_levels_read(&active);
-}
-
-/* "load game menu init" */
-static boolean saved_game_list_initialize(struct widget_instance *list, short controller)
-{
-	short index;
-
-	saved_games_read(controller);
-	campaign.shown_saved_game = 0;
-	for (index = 0; index < campaign.saved_game_count; index++)
-	{
-		if (campaign.saved_games[index].profile_index == player_ui_get_active_player_profile_index(0))
-			campaign.shown_saved_game = index;
-	}
-	focus_row(list, campaign.saved_game_count ? campaign.shown_saved_game : NONE);
-	return TRUE;
-}
-
-static void saved_game_row_text(short row, wchar_t *text)
-{
-	ustrncpy(text, campaign.saved_games[row].profile_name, ROW_TEXT_LENGTH - 1);
-	text[ROW_TEXT_LENGTH - 1] = 0;
-}
-
-/* "load game list update" */
-static void saved_game_list_update(struct widget_instance *list)
-{
-	struct widget_instance *description = list->parameters.list.extended_description;
-	struct widget_instance *item = named(description, "load_level_right_item", 0);
-	short row = focused_row(list);
-
-	rows_update(list, campaign.saved_game_count, saved_game_row_text);
-	if (row != NONE && row < campaign.saved_game_count)
-		campaign.shown_saved_game = row;
-	if (campaign.shown_saved_game >= campaign.saved_game_count)
-		campaign.shown_saved_game = campaign.saved_game_count - 1;
-	if (item)
-		item->visible = campaign.saved_game_count > 0;
-	if (campaign.saved_game_count > 0)
-	{
-		struct campaign_saved_game const *saved_game = &campaign.saved_games[campaign.shown_saved_game];
-
-		level_description(description, "load_level", saved_game->level, FALSE, NULL, saved_game->difficulty);
-	}
-	else if (row != NONE)
-	{
-		focus_row(list, NONE);
-	}
-	profile_name_show(description);
-}
-
-/* "load game menu activated": the saved game goes on, with its profile as
-player 1's */
-static boolean saved_game_continue(short controller)
-{
-	struct campaign_saved_game const *saved_game;
-	struct player_profile profile;
-
-	if (campaign.shown_saved_game < 0 || campaign.shown_saved_game >= campaign.saved_game_count)
-		return campaign_fail();
-	saved_game = &campaign.saved_games[campaign.shown_saved_game];
-	if (!player_profile_get(saved_game->profile_index, &profile))
-		return campaign_fail();
-	player_ui_set_active_player_profile(0, saved_game->profile_index, &profile);
-	campaign_start(main_get_solo_level_name(saved_game->level), saved_game->difficulty, controller);
-	return TRUE;
-}
-
-/* "load game menu delete request" (before its question) and "delete
-finish" (its OK): the saved game shown goes */
-static boolean saved_game_delete_request(void)
-{
-	if (campaign.shown_saved_game < 0 || campaign.shown_saved_game >= campaign.saved_game_count)
-		return campaign_fail();
-	campaign.saved_game_to_delete = campaign.shown_saved_game;
-	return TRUE;
-}
-
-static boolean saved_game_delete(short controller)
-{
-	char path[256];
-
-	if (campaign.saved_game_to_delete < 0 || campaign.saved_game_to_delete >= campaign.saved_game_count ||
-		!player_profile_get_enclosing_directory_path(campaign.saved_games[campaign.saved_game_to_delete].profile_index,
-			path) || strlen(path) + strlen("savegame.bin") >= sizeof(path))
-	{
-		return campaign_fail();
-	}
-	strcat(path, "savegame.bin");
-	if (!DeleteFileA(path))
-		platform_log("menus: could not delete %s", path);
-	campaign.saved_game_to_delete = NONE;
-	saved_games_read(controller);
-	return TRUE;
-}
-
 /* the settings' screens (tools/port_settings.py): every spinner of a
 setting in the screen */
 static void settings_each(struct widget_instance *widget, boolean (*visit)(struct widget_instance *spinner,
@@ -1533,15 +1387,11 @@ static boolean setting_changed_save(struct widget_instance *spinner, struct pc_m
 	}
 	platform_log("menus: %s = %s", setting->setting, setting->values[index]);
 #ifdef HALO_IOS
-	/* (Apple builds) internet play turned on starts now; turned off, it stops
-	at the next start (p2p has no stop) */
-	if (!strcmp(setting->setting, "network.online"))
-	{
-		if (!strcmp(setting->values[index], "true"))
-			xnet_start_internet_play();
-		else
-			platform_show_message("Internet Play", "Internet Play turns off the next time VISR starts.");
-	}
+	/* (Apple builds) internet play turned on starts now. Turned off, the menus act on the setting at once (the
+	rows go gray, hosting and joining refuse); p2p itself has no stop, but nothing the player does depends on it,
+	so no restart message */
+	if (!strcmp(setting->setting, "network.online") && !strcmp(setting->values[index], "true"))
+		xnet_start_internet_play();
 #endif
 #ifdef HALO_IOS
 	if (!strcmp(setting->setting, "host.cloud_saves"))
@@ -1569,10 +1419,7 @@ static boolean profile_save_now(void)
 
 boolean pc_menu_profile_auto_save_enabled(void)
 {
-	extern int platform_menu_pad(void);
-	char const *menus = config_string("display.menus");
-
-	return !strcmp(menus, "xbox") || (strcmp(menus, "pc") && platform_menu_pad());
+	return TRUE;
 }
 
 /* The native Xbox hub's Back handler calls this before ending editing.
@@ -1616,55 +1463,7 @@ static boolean setting_apply_now(struct widget_instance *spinner, struct pc_menu
 	return TRUE;
 }
 
-/* PC-look rows whose change is heard before OK: written as the spinner
-moves ("port setting preview"), and written back to the value the screen
-opened with when it closes without OK ("port setting revert", on the
-spinner's deleted event; OK sets the loaded index first, so nothing reverts) */
-static char const *const preview_settings[] = {"audio.volume", "audio.music_volume", "audio.effects_volume"};
-
-static boolean setting_previewed(char const *name)
-{
-	short index;
-
-	for (index = 0; index < NUMBEROF(preview_settings); index++)
-		if (!strcmp(name, preview_settings[index]))
-			return TRUE;
-	return FALSE;
-}
-
-static boolean setting_write_value(struct pc_menu_setting *setting, short index, char const *why)
-{
-	char current[300];
-
-	if (index < 0 || index >= setting->value_count)
-		return TRUE;
-	if (setting_text(setting->setting, current, sizeof(current), FALSE) && !strcmp(current, setting->values[index]))
-		return TRUE;
-	if (!setting_write(setting->setting, setting->values[index]))
-	{
-		platform_log("menus: could not set %s", setting->setting);
-		return FALSE;
-	}
-	platform_log("menus: %s = %s (%s)", setting->setting, setting->values[index], why);
-	return TRUE;
-}
-
-static boolean setting_preview(struct widget_instance *spinner, struct pc_menu_setting *setting)
-{
-	if (!setting_previewed(setting->setting))
-		return TRUE;
-	return setting_write_value(setting, spinner->parameters.list.selected_index, "preview");
-}
-
-static boolean setting_revert(struct widget_instance *spinner, struct pc_menu_setting *setting)
-{
-	(void)spinner;
-	if (!setting_previewed(setting->setting) || setting->loaded_index == NONE)
-		return TRUE;
-	return setting_write_value(setting, setting->loaded_index, "canceled");
-}
-
-/* "port settings defaults" */
+/* "port settings defaults apply" */
 static boolean setting_default_show(struct widget_instance *spinner, struct pc_menu_setting *setting)
 {
 	char text[300];
@@ -1829,9 +1628,7 @@ boolean ui_widget_port_graphics_locked(struct widget_instance *widget)
 /* the Apple Vision Pro's host (menu_platform.h), where a stereo view cannot be the Xbox's 4:3 picture */
 static boolean graphics_in_vr(void)
 {
-	char const *vision = getenv("HALO_HOST_VISIONOS");
-
-	return vision && !strcmp(vision, "1");
+	return halo_host_visionos() ? TRUE : FALSE;
 }
 
 /* what the device is called in a row's help (menu_platform.h's host variables) */
@@ -1951,7 +1748,7 @@ static void graphics_rows_show(struct widget_instance *list)
 		/* column_list_update runs before event navigation. Match the outline to the focus used for help
 		during this draw, including when hiding the CRT row moves focus back to GRAPHICS. */
 		if (row->animation.number_of_sprite_frames == 2)
-			row->animation.current_frame_index = row == list->focused_child ? 1 : 0;
+			row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == list->focused_child) ? 1 : 0;
 		for (part = row->child; part; part = part->next)
 		{
 			if (strstr(part->name, "_replaced"))
@@ -2094,38 +1891,8 @@ static void video_rows_show(struct widget_instance *list)
 	}
 }
 
-/* ---------- Change Color: the profile's color, from a list of the
-game's colors (more than its rows: it scrolls), by the Xbox's names for
-its spinner's functions */
-
+/* the game's player colors */
 #define COLOR_COUNT 18
-#define COLOR_ROWS 11
-
-static struct
-{
-	/* the color on the first row, and the color chosen */
-	short first;
-	short color;
-} color_list;
-
-static void color_row_text(short row, wchar_t *text)
-{
-	string_get("pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\color_edit\\colors_list",
-		(short)(color_list.first + row), text);
-}
-
-/* "color picker menu initialize": on the profile's color */
-static boolean color_list_initialize(struct widget_instance *list)
-{
-	struct player_profile *profile = player_ui_get_edit_player_profile();
-
-	if (!profile)
-		return FALSE;
-	color_list.color = (short)PIN(profile->primary_color_index, 0, COLOR_COUNT - 1);
-	color_list.first = (short)PIN(color_list.color - COLOR_ROWS / 2, 0, COLOR_COUNT - COLOR_ROWS);
-	focus_row(list, (short)(color_list.color - color_list.first));
-	return TRUE;
-}
 
 /* a list of more items than its rows: the row chosen kept off its ends
 while there are more past them, the list moving instead; the item chosen,
@@ -2145,35 +1912,6 @@ static short list_scroll(struct widget_instance *list, short *first, short count
 		focus_row(list, ++row);
 	}
 	return row == NONE || row >= rows ? NONE : (short)(*first + row);
-}
-
-/* "color picker update": the list scrolled on at its ends, the color's
-name and picture */
-static void color_list_update(struct widget_instance *list)
-{
-	struct widget_instance *description = list->parameters.list.extended_description;
-	struct widget_instance *widget;
-	short color = list_scroll(list, &color_list.first, COLOR_COUNT, COLOR_ROWS);
-
-	if (color != NONE)
-		color_list.color = color;
-	rows_update(list, COLOR_ROWS, color_row_text);
-	if ((widget = named(description, "color_right_name", 0)) != NULL)
-		widget->parameters.text_box.string_list_index = color_list.color;
-	if ((widget = named(description, "color_right_pic", 0)) != NULL)
-		widget->animation.current_frame_index = color_list.color;
-	profile_name_show(description);
-}
-
-/* "color picker select color" */
-static boolean color_choose(void)
-{
-	struct player_profile *profile = player_ui_get_edit_player_profile();
-
-	if (!profile)
-		return FALSE;
-	profile->primary_color_index = color_list.color;
-	return pc_menu_profile_save_on_back();
 }
 
 /* ---------- Edit Profile Settings: its picture of Gamepad Setup, the
@@ -2207,11 +1945,9 @@ static void profile_gamepad_layout(struct widget_instance *picture)
 
 /* ---------- Profiles: the player profiles, and a row to make one (as the
 PC version's list has them, but by the Xbox's names for its spinner's
-functions); choosing one makes it player 1's, the profile the campaign and
-Settings use; deleting one asks first */
+functions), for the lobby's ADD PLAYER list */
 
 #define PROFILE_ROWS 11
-#define PROFILE_DEFAULT_BIT 0x40000000UL
 
 static struct
 {
@@ -2221,7 +1957,6 @@ static struct
 	short count;
 	short first;
 	short chosen;
-	long to_delete;
 } profile_list;
 
 /* the profiles, read again when they are not those read last */
@@ -2256,30 +1991,6 @@ static short profile_list_rows(void)
 	return (short)MIN(profile_list.count + 1, PROFILE_ROWS);
 }
 
-static void host_profile_visit(void);
-
-/* "player profile list initialize": on player 1's profile */
-static boolean profile_list_initialize(struct widget_instance *list)
-{
-	host_profile_visit();
-	long active = player_ui_get_active_player_profile_index(0);
-	short index;
-
-	profile_list_read(TRUE);
-	if (active == NONE)
-		active = player_ui_get_player1_last_used_profile_index();
-	profile_list.chosen = 0;
-	for (index = 0; index < profile_list.count; index++)
-	{
-		if (profile_list.indices[index] == active)
-			profile_list.chosen = index;
-	}
-	profile_list.first = (short)PIN(profile_list.chosen - PROFILE_ROWS / 2, 0,
-		MAX(0, profile_list.count + 1 - PROFILE_ROWS));
-	focus_row(list, (short)(profile_list.chosen - profile_list.first));
-	return TRUE;
-}
-
 static void profile_row_text(short row, wchar_t *text)
 {
 	short item = (short)(profile_list.first + row);
@@ -2291,7 +2002,7 @@ static void profile_row_text(short row, wchar_t *text)
 	}
 	else
 	{
-		string_get("pc\\main_menu\\player_profiles_select\\profile_description_labels", 4, text);
+		string_get("pc\\xbox\\main_menu\\player_profiles_select\\profile_description_labels", 4, text);
 	}
 }
 
@@ -2322,7 +2033,7 @@ static void dialog_legend_update(struct widget_instance *widget)
 
 /* "3wide player profile list update": the rows, and the profile chosen:
 its name, colour, current level, best difficulty and controls */
-static void host_profile_poll(struct widget_instance *list);
+void ui_widget_port_host_profile_poll(struct widget_instance *list);
 
 static void profile_list_update(struct widget_instance *list)
 {
@@ -2332,7 +2043,7 @@ static void profile_list_update(struct widget_instance *list)
 	boolean profile;
 
 	profile_list_read(FALSE);
-	host_profile_poll(list);
+	ui_widget_port_host_profile_poll(list);
 	item = list_scroll(list, &profile_list.first, (short)(profile_list.count + 1), profile_list_rows());
 	if (item != NONE)
 		profile_list.chosen = item;
@@ -2371,134 +2082,6 @@ static void profile_list_update(struct widget_instance *list)
 		}
 	}
 	profile_name_show(description);
-}
-
-/* "profile manager select": the profile chosen made player 1's (and the
-one used last); FALSE for the row that makes one (its handler then asks) */
-static boolean profile_choose(short controller)
-{
-	struct player_profile profile;
-
-	if (profile_list.chosen >= profile_list.count ||
-		!player_profile_get(profile_list.indices[profile_list.chosen], &profile))
-	{
-		return FALSE;
-	}
-	player_ui_set_active_player_profile(0, profile_list.indices[profile_list.chosen], &profile);
-	player_ui_set_single_player_local_player_controller(0, controller);
-	player_ui_remember_player1_profile(TRUE);
-	return TRUE;
-}
-
-/* "request del player profile" (before its question) */
-static boolean profile_delete_request(void)
-{
-	if (profile_list.chosen >= profile_list.count)
-		return campaign_fail();
-	profile_list.to_delete = profile_list.indices[profile_list.chosen];
-	return TRUE;
-}
-
-/* "final del player profile" (its OK): deleted, and if it was player 1's,
-the first left is */
-static boolean profile_delete(void)
-{
-	long index = profile_list.to_delete;
-	boolean active = index == player_ui_get_active_player_profile_index(0);
-
-	profile_list.to_delete = NONE;
-	if (index == NONE || ((unsigned long)index & PROFILE_DEFAULT_BIT))
-		return campaign_fail();
-	player_profile_delete(index);
-	profile_list_read(TRUE);
-	if (active)
-	{
-		struct player_profile profile;
-
-		if (profile_list.count && player_profile_get(profile_list.indices[0], &profile))
-		{
-			player_ui_set_active_player_profile(0, profile_list.indices[0], &profile);
-			player_ui_remember_player1_profile(TRUE);
-		}
-		else
-		{
-			memset(&profile, 0, sizeof(profile));
-			player_ui_set_active_player_profile(0, NONE, &profile);
-		}
-	}
-	return TRUE;
-}
-
-/* ---------- Co-op: the campaign for two players on this machine, in split
-screen (the Xbox's Cooperative Play, which the PC version has not):
-Multiplayer's CO-OP CAMPAIGN ("port coop begin"), player 2's profile, chosen
-with player 2's controller ("port coop player 2"), then New Game's levels
-(those either has reached) and difficulty, with either player's controller
-(ui_widget.c, widget_takes_events_of_controller). The main menu and
-Multiplayer go back to one player (main_menu_initialize,
-multiplayer_type_menu_initialize).
-With one gamepad, it is player 2's (pc_menu_split_players) */
-
-/* "port coop begin": two players, player 1 on its profile (campaign_profile)
-and the controller that chose co-op */
-static boolean coop_begin(short controller)
-{
-	struct player_profile profile;
-
-	player_spawn_count = 1;
-	player_ui_reset_single_player_local_player_controllers();
-	if (!campaign_profile(controller, &profile))
-		return campaign_fail();
-	player_spawn_count = 2;
-	return TRUE;
-}
-
-/* "port coop player 2 list initialize": on player 2's profile, else the first
-that is not player 1's */
-static boolean coop_player2_list_initialize(struct widget_instance *list)
-{
-	long player1 = player_ui_get_active_player_profile_index(0);
-	long player2 = player_ui_get_active_player_profile_index(1);
-	short index;
-
-	profile_list_read(TRUE);
-	profile_list.chosen = 0;
-	for (index = profile_list.count - 1; index >= 0; index--)
-	{
-		if (profile_list.indices[index] != player1)
-			profile_list.chosen = index;
-	}
-	for (index = 0; index < profile_list.count && player2 != NONE; index++)
-	{
-		if (profile_list.indices[index] == player2)
-			profile_list.chosen = index;
-	}
-	profile_list.first = (short)PIN(profile_list.chosen - PROFILE_ROWS / 2, 0,
-		MAX(0, profile_list.count + 1 - PROFILE_ROWS));
-	focus_row(list, (short)(profile_list.chosen - profile_list.first));
-	return TRUE;
-}
-
-/* "port coop player 2": the profile chosen made player 2's, on the controller
-that chose it, which must not be player 1's */
-static boolean coop_player2_choose(short controller)
-{
-	struct player_profile profile;
-
-	if (player_spawn_count < 2 || profile_list.chosen >= profile_list.count ||
-		!player_profile_get(profile_list.indices[profile_list.chosen], &profile))
-	{
-		return campaign_fail();
-	}
-	if (controller == player_ui_get_single_player_local_player_controller(0))
-	{
-		display_error_text_deferred(L"Player 2 chooses their\r\nprofile with their own\r\ncontroller.",
-			NONE);
-		return campaign_fail();
-	}
-	player_ui_set_single_player_local_player_controller(1, controller);
-	player_ui_set_active_player_profile(1, profile_list.indices[profile_list.chosen], &profile);
-	return TRUE;
 }
 
 /* ---------- Controls Setup: the keyboard and mouse's controls
@@ -2763,19 +2346,19 @@ Xbox's networking, run by the engine's port entry points
 #define PLAYLIST_READ_ONLY_BIT 0x40000000UL
 /* (a key stroke's modifier, as input_xbox.c has them: shift, control) */
 #define KEY_MODIFIER_CONTROL_BIT 1
-#define LOBBY_NAME "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"
-#define PREVIEW_NAME "pc\\main_menu\\multiplayer_type_select\\lobby\\preview_screen"
+#define LOBBY_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"
+#define PREVIEW_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\preview_screen"
 /* The browser warning uses the same widget history as the other confirm dialogs. */
-#define JOIN_BIG_NAME "pc\\error\\confirm_join_big_modal_fullscreen"
+#define JOIN_BIG_NAME "pc\\xbox\\error\\confirm_join_big_modal_fullscreen"
 /* the server browser's password screen (tools/port_settings.py), and the
 longest password */
-#define PASSWORD_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen"
+#define PASSWORD_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen"
 /* Direct Link's ENTER CODE screen (a join code or an invite link typed) */
-#define CODE_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen"
+#define CODE_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen"
 /* the server browser's FILTERS screen (tools/port_settings.py): its sort and filters */
-#define FILTERS_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\filters\\filters_screen"
+#define FILTERS_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\filters\\filters_screen"
 /* join by address: the DIRECT IP screen, opened from the server browser's X */
-#define DIRECT_IP_NAME "pc\\main_menu\\multiplayer_type_select\\direct_ip\\direct_ip_screen"
+#define DIRECT_IP_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\direct_ip\\direct_ip_screen"
 #define PASSWORD_LENGTH 32
 /* the lobby's panel's lines (the gametype, the players, the countdown, the
 invite) */
@@ -2969,6 +2552,12 @@ static boolean text_field_editing(struct widget_instance *row)
 	return text_field.row && (!row || text_field.row == row);
 }
 
+/* a text field is being typed in (ui_widget.c: a bar action's key that is a letter then waits) */
+boolean ui_widget_port_text_editing(void)
+{
+	return text_field_editing(NULL);
+}
+
 /* the field's title for the system's dialog (an Apple TV's), by its row */
 static char const *text_field_title(struct widget_instance const *row)
 {
@@ -3067,7 +2656,6 @@ static void text_field_finish(boolean advance)
 		if (!strcmp(row->name, "op_server_address"))
 		{
 			next = named(screen, "op_server_port", 0);
-			if (!next) next = named(screen, "op_server_password", 0);
 		}
 		if (!strcmp(row->name, "op_server_name")) next = named(screen, "op_password", 0);
 		if (next && next->visible) action = next;
@@ -3212,6 +2800,22 @@ static boolean split_item_off(struct widget_instance const *widget)
 	return name && strstr(name, "multiplayer_type_split") && menu_split_screen_needs_controller();
 }
 
+/* Whether an activation (A, which mouse clicks and taps arrive as, or the custom activation) lands on a disabled
+row: the grayed INTERNET and SPLIT SCREEN rows, whether the handler sits on the row or on a screen or list above it
+(the row in focus is found down the focused children). The menus then refuse the press with the error sound
+(ui_widget.c) and run no handler, so no screen opens. Focus is not an activation: the panel text still shows. */
+boolean ui_widget_port_disabled_row_activation(struct widget_instance const *widget, short event_type)
+{
+	if (event_type != BUTTON_A && event_type != EVENT_CUSTOM_ACTIVATION)
+		return FALSE;
+	for (; widget; widget = widget->focused_child)
+	{
+		if (internet_item_off(widget) || split_item_off(widget))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 /* "mp type set mode": the item's (by its name) */
 static void multiplayer_mode_set(struct widget_instance *widget)
 {
@@ -3265,13 +2869,14 @@ static boolean multiplayer_player(short controller)
 	return ui_widget_port_multiplayer_player(controller, player_ui_get_active_player_profile_index(0));
 }
 
-#define HOST_PROFILE_NAME "pc\\main_menu\\profile_manager\\player_profile_manager"
+#define HOST_PROFILE_NAME "ui\\shell\\main_menu\\player_profiles_select\\solo_game_player_profile_select_screen"
 #define HOST_MAP_SELECT_NAME "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"
 
 /* Create Game with no profile (a fresh install): the game's own profile
-screen (the one the campaign and Settings open, with its Create New Player
-Profile row) asks for one first, and the controller that pressed it hosts.
-Hosting goes on to the map once the profile exists (host_profile_poll) */
+picker (the one the campaign opens, with its new-profile card) asks for one
+first, and the controller that pressed it hosts. Hosting goes on to the map
+once the profile exists (host_profile_poll, from the picker's list update),
+before the picker's own next step (the campaign's levels) can be chosen */
 static struct
 {
 	short controller;
@@ -3281,7 +2886,8 @@ static struct
 /* the profile screen's list opened: the first open is the host's own. The list
 opens again after the name keyboard and the saving screen, so later opens do
 not end the host's turn; host_profile_continue does, once the profile exists */
-static void host_profile_visit(void)
+void ui_widget_port_host_profile_visit(void);
+void ui_widget_port_host_profile_visit(void)
 {
 	if (host_profile.controller != NONE)
 		host_profile.visited = TRUE;
@@ -3343,7 +2949,7 @@ static boolean host_profile_continue(struct widget_instance *widget, struct even
 /* (from the profile list's update) once the profile screen's New Player
 Profile made one (the game's own name keyboard and saving screens ran), the
 host goes on */
-static void host_profile_poll(struct widget_instance *list)
+void ui_widget_port_host_profile_poll(struct widget_instance *list)
 {
 	struct player_profile profile;
 	struct event_record event;
@@ -3387,7 +2993,7 @@ static struct
 	short level;
 } map_list;
 
-#define SERVER_SETUP_NAME "pc\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"
+#define SERVER_SETUP_NAME "pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"
 
 static short map_step_count(void)
 {
@@ -3410,12 +3016,12 @@ static void map_step_open(struct widget_instance *list, short step, short entry)
 
 static void map_level_text(short level, wchar_t *text)
 {
-	string_get("pc\\main_menu\\map_list", level, text);
+	string_get("pc\\xbox\\main_menu\\map_list", level, text);
 }
 
 static void map_difficulty_text(short difficulty, wchar_t *text)
 {
-	string_get("pc\\main_menu\\player_profiles_select\\difficulty_names", difficulty, text);
+	string_get("pc\\xbox\\main_menu\\player_profiles_select\\difficulty_names", difficulty, text);
 }
 
 /* "mp level list initialize": on the multiplayer map used last */
@@ -3467,7 +3073,7 @@ static void map_list_update(struct widget_instance *list)
 	if (kind == MAP_KIND_SINGLEPLAYER)
 	{
 		map_description_show(description, shown, NONE);
-		level_description(description, "replay_level", shown, FALSE, NULL, NONE);
+		level_description(description, "replay_level", shown, FALSE);
 	}
 	else
 	{
@@ -3553,7 +3159,6 @@ static void gametype_bank_read(short bank)
 /* "mp profiles list initialize": on the gametype used last */
 static boolean gametype_list_initialize(struct widget_instance *list)
 {
-	struct widget_instance *spinner = named(list, "list_item_0_chooser_spinner", 0);
 	short last, index;
 
 	multiplayer.gametype_count = ui_widget_port_gametypes(multiplayer.gametypes, MAXIMUM_GAMETYPES, &last);
@@ -3566,8 +3171,6 @@ static boolean gametype_list_initialize(struct widget_instance *list)
 	}
 	multiplayer.gametype_first = (short)PIN(multiplayer.gametype_chosen - GAMETYPE_ROWS / 2, 0,
 		MAX(0, multiplayer.bank_count - GAMETYPE_ROWS));
-	if (spinner)
-		spinner->parameters.list.selected_index = multiplayer.bank_shown;
 	focus_row(list, (short)(1 + multiplayer.gametype_chosen - multiplayer.gametype_first));
 	return TRUE;
 }
@@ -3598,13 +3201,10 @@ the gametype chosen: its name, picture and rules */
 static void gametype_list_update(struct widget_instance *list)
 {
 	struct widget_instance *description = list->parameters.list.extended_description;
-	struct widget_instance *spinner = named(list, "list_item_0_chooser_spinner", 0);
 	struct widget_instance *row;
 	struct widget_instance *widget;
 	short row_index = 0, focused = NONE, count;
 
-	if (spinner && spinner->parameters.list.selected_index != multiplayer.bank_shown)
-		gametype_bank_read(spinner->parameters.list.selected_index);
 	count = (short)MIN(multiplayer.bank_count, GAMETYPE_ROWS);
 	/* (the rows after the spinner's: scrolled as list_scroll does) */
 	for (row = list->child; row; row = row->next, row_index++)
@@ -4241,7 +3841,7 @@ static void direct_link_status(wchar_t *text, short size, int stage, int seconds
 games found on the LAN, or (Direct Link) from internet play's peers
 (reached by an invite link, the clipboard, or Discord) */
 
-#define JOIN_GAME_LABELS "pc\\main_menu\\multiplayer_type_select\\join_game\\join_game_ticker_labels"
+#define JOIN_GAME_LABELS "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\join_game_ticker_labels"
 enum { _join_game_label_servers = 6, _join_game_label_players, _join_game_label_page };
 
 static boolean game_from_peer(struct advertised_game const *game)
@@ -4414,7 +4014,7 @@ static void browser_focus(struct widget_instance *list)
 	for (row = list->child; row; row = row->next)
 	{
 		if (browser_row_index(row) != NONE)
-			row->animation.current_frame_index = row == focused ? 1 : 0;
+			row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == focused) ? 1 : 0;
 	}
 	if (named(screen_of(list), "browser_chips", 0) && list->parent->focused_child != list)
 		return;
@@ -4693,13 +4293,13 @@ static void map_display_name(char const *map_name, wchar_t *text)
 	{
 		if (!_stricmp(scenario_name(names[index]), scenario_name(map_name)))
 		{
-			string_get("pc\\main_menu\\mp_map_list", index, text);
+			string_get("pc\\xbox\\main_menu\\mp_map_list", index, text);
 			return;
 		}
 	}
 	if ((index = campaign_level_of(map_name)) != NONE)
 	{
-		string_get("pc\\main_menu\\map_list", index, text);
+		string_get("pc\\xbox\\main_menu\\map_list", index, text);
 		return;
 	}
 	for (index = 0; map_name[index] && index < ROW_TEXT_LENGTH - 1; index++)
@@ -5432,8 +5032,7 @@ static boolean browser_chips_navigation(struct widget_instance *widget)
 		browser_c_focus(list->focused_child);
 	}
 	else
-		browser_c_focus(named(screen, !strncmp(widget->name, "browser_chip", 12) ?
-			"browser_ip_address" : "browser_chip_all", 0));
+		browser_c_focus(named(screen, "browser_chip_all", 0));
 	return TRUE;
 }
 
@@ -5457,8 +5056,6 @@ static boolean browser_rows_navigation(struct widget_instance *widget, boolean d
 	{
 		if (lobby_browser.first + rows < lobby_browser.count)
 			lobby_browser.first++;
-		else
-			browser_c_focus(named(screen, "browser_ip_address", 0));
 	}
 	else
 		lobby_browser_focus_row(list, (short)PIN(row + (down ? 1 : -1), 0, rows - 1));
@@ -5475,37 +5072,6 @@ static boolean browser_detail_navigation(struct widget_instance *widget)
 	return TRUE;
 }
 
-static boolean browser_legend_navigation(struct widget_instance *widget, struct event_record *event)
-{
-	struct widget_instance *screen = screen_of(widget);
-	char const *const names[] = { "browser_ip_address", "browser_create_inter", "browser_back" };
-	boolean right = event->type == EVENT_LEFT_STICK ? event->data.stick.x > 0 :
-		event->data.button.index == _gamepad_binary_button_dpad_right;
-	short index;
-
-	for (index = 0; index < NUMBEROF(names); index++)
-	{
-		if (!strcmp(widget->name, names[index]))
-		{
-			short step;
-
-			/* step past targets touch hides (BACK is the chevron there) */
-			for (step = 1; step < NUMBEROF(names); step++)
-			{
-				struct widget_instance *target =
-					named(screen, names[(index + (right ? step : NUMBEROF(names) - step)) % NUMBEROF(names)], 0);
-				if (target && target->visible)
-				{
-					browser_c_focus(target);
-					break;
-				}
-			}
-			break;
-		}
-	}
-	return TRUE;
-}
-
 /* Touch follows the global-vs-contextual rule: global actions keep their own
 buttons without controller glyphs, BACK is only the top-left chevron, and the
 main contextual action has no button because tapping the item does it. */
@@ -5519,96 +5085,22 @@ static boolean menu_touch_active(struct widget_instance *widget)
 	return controller_glyph_hidden(owner, BUTTON_A) ? TRUE : FALSE;
 }
 
-/* Caption x inside a legend button, from the menu XML (the glyph sits at 0). */
-#define BROWSER_LEGEND_CAPTION_X 34
-
-/* A global legend glyph and caption pair: the glyph hides on touch and the caption,
-normally caption_x past the glyph, takes the glyph's place. */
-static void touch_legend_pair(struct widget_instance *screen, char const *icon_name,
-	char const *caption_name, short caption_x, boolean touch)
+/* Touch follows the global-vs-contextual rule: the main contextual action has no
+button because tapping the item does it, so JOIN GAME (in the detail panel, whose
+update shows it with the panel each frame, so this runs after that update and only
+ever hides it) is not drawn on touch. */
+static void browser_touch_join_update(struct widget_instance *screen)
 {
-	struct widget_instance *icon = named(screen, icon_name, 0);
-	struct widget_instance *caption = named(screen, caption_name, 0);
-
-	if (!icon || !caption)
-		return;
-	icon->visible = !touch;
-	caption->horizontal_offset = (short)(icon->horizontal_offset + (touch ? 0 : caption_x));
-}
-
-static void touch_legend_button(struct widget_instance *screen, char const *icon_name,
-	char const *caption_name, boolean touch)
-{
-	touch_legend_pair(screen, icon_name, caption_name, BROWSER_LEGEND_CAPTION_X, touch);
-}
-
-static void browser_touch_legend_update(struct widget_instance *screen)
-{
-	struct widget_instance *back = named(screen, "browser_back", 0);
 	struct widget_instance *join = named(screen, "join_game_button_join", 0);
 	struct widget_instance *focus;
-	boolean touch;
 
-	if (!screen || (!back && !join))
+	if (!screen || !join || !menu_touch_active(screen))
 		return;
-	touch = menu_touch_active(screen);
-	touch_legend_button(screen, "browser_ip_address_icon", "browser_ip_address_caption", touch);
-	touch_legend_button(screen, "browser_create_inter_icon", "browser_create_inter_caption", touch);
-	visible_set(back, !touch);
-	/* JOIN GAME sits in the detail panel, whose update shows it with the panel each
-	   frame, so this runs after that update and only ever hides it */
-	if (touch)
-		visible_set(join, FALSE);
+	visible_set(join, FALSE);
 	for (focus = screen; focus->focused_child; focus = focus->focused_child)
 		;
-	if (touch && focus && (focus == back || focus == join))
-		browser_c_focus(named(screen, "browser_ip_address", 0));
-}
-
-/* Direct IP: the A (accept) legend goes, since tapping JOIN GAME does it. The B (cancel)
-legend stays for the touch layer, which skips drawing it and draws the top-left BACK
-chevron in its place; this screen has no B handler of its own to give the chevron. */
-static void direct_ip_touch_legend_update(struct widget_instance *screen)
-{
-	char const *const names[] = { "a_butn", "accept" };
-	boolean touch;
-	short index;
-
-	if (!screen)
-		return;
-	touch = menu_touch_active(screen);
-	for (index = 0; index < NUMBEROF(names); index++)
-		visible_set(named(screen, names[index], 0), !touch);
-}
-
-/* Filters: RESET is global and keeps its button; DONE is BACK, which the chevron does. */
-static void browser_filters_touch_legend_update(struct widget_instance *screen)
-{
-	boolean touch;
-
-	if (!screen)
-		return;
-	touch = menu_touch_active(screen);
-	touch_legend_button(screen, "browser_reset_icon", "browser_reset_caption", touch);
-	visible_set(named(screen, "browser_done", 0), !touch);
-}
-
-/* Password: HIDE/SHOW is global and keeps its caption; the A (accept) and B (back)
-legends go, since tapping the row and the chevron do them. */
-#define PASSWORD_LEGEND_CAPTION_X 22
-
-static void password_touch_legend_update(struct widget_instance *screen)
-{
-	char const *const names[] = { "a_butn", "accept", "b_butn", "cancel" };
-	boolean touch;
-	short index;
-
-	if (!screen)
-		return;
-	touch = menu_touch_active(screen);
-	for (index = 0; index < NUMBEROF(names); index++)
-		visible_set(named(screen, names[index], 0), !touch);
-	touch_legend_pair(screen, "x_butn", "x_hide", PASSWORD_LEGEND_CAPTION_X, touch);
+	if (focus == join)
+		browser_c_focus(named(screen, "browser_chip_all", 0));
 }
 
 static void browser_filters_update(struct widget_instance *widget)
@@ -5620,7 +5112,6 @@ static void browser_filters_update(struct widget_instance *widget)
 	usnprintf(text, NUMBEROF(text) - 1, L"SHOWING %d OF %d", lobby_browser.count,
 		lobby_browser.count + lobby_browser.hidden);
 	text_set(named(screen_of(widget), "browser_filter_status", 0), text);
-	browser_filters_touch_legend_update(screen_of(widget));
 }
 
 static boolean browser_filters_reset(struct widget_instance *widget)
@@ -6110,20 +5601,16 @@ static void password_screen_done(char const *text)
 	snprintf(password_screen.text, sizeof(password_screen.text), "%s", text);
 }
 
-/* The legend's A caption on the password and code screens follows the
-selected row, like SERVER SETUP's: EDIT on the field (A opens or closes the
-keyboard), JOIN GAME on the JOIN GAME row. */
+/* The bar's A caption on the password and code screens follows the selected
+row, like SERVER SETUP's: EDIT on the field (A opens or closes the keyboard),
+JOIN GAME on the JOIN GAME row. The password screen's X: HIDE while the text
+shows, SHOW while stars. (A screen without that action is left alone.) */
 static void legend_accept_caption(struct widget_instance *list, boolean join)
 {
 	struct widget_instance *screen = screen_of(list);
-	struct widget_instance *caption = named(screen, "accept", 0);
 
-	if (caption)
-		caption->parameters.text_box.string_list_index = (short)(join ? 1 : 0);
-	/* the password screen's X legend: HIDE while the text shows, SHOW while stars */
-	caption = named(screen, "x_hide", 0);
-	if (caption)
-		caption->parameters.text_box.string_list_index = (short)(password_screen.hidden ? 1 : 0);
+	ui_widget_port_bar_caption(screen, _gamepad_analog_button_a, (short)(join ? 1 : 0));
+	ui_widget_port_bar_caption(screen, _gamepad_analog_button_x, (short)(password_screen.hidden ? 1 : 0));
 }
 
 /* the JOIN GAME row has the focus (the screen's list) */
@@ -6179,7 +5666,6 @@ static void password_screen_update(struct widget_instance *list)
 	if (help)
 		help->parameters.text_box.string_list_index = password_screen.help;
 	legend_accept_caption(list, join_row_focused(list));
-	password_touch_legend_update(screen_of(list));
 }
 
 /* "port password join" (JOIN GAME, and Enter: password_screen_edit) */
@@ -6234,26 +5720,12 @@ static boolean password_screen_edit(struct widget_instance *row, boolean *widget
 	return TRUE;
 }
 
-/* "port password accept" (the legend's A caption, clicked): what A does on the selected row */
-static boolean password_screen_accept(struct widget_instance *widget, boolean *widget_deleted)
+/* "port password togglehide" (X, the bar's HIDE / SHOW): the text as stars
+or plain. While typing, X's key is a letter (a keyboard's E), so the bar's
+action is declared while_typing="pointer" and only a tap or a click arrives
+here then (ui_widget.c). */
+static boolean password_screen_togglehide(void)
 {
-	struct widget_instance *screen = screen_of(widget);
-	struct widget_instance *list = named(screen, "options_menu", 0);
-	struct widget_instance *row = named(screen, "op_password", 0);
-
-	if (list ? join_row_focused(list) : FALSE)
-		return password_screen_join(widget, widget_deleted);
-	return row ? password_screen_edit(row, widget_deleted) : FALSE;
-}
-
-/* "port password togglehide" (X, the legend's HIDE / SHOW): the text as
-stars or plain. The X key event is ignored while typing (a keyboard's E is a
-letter then); a click on the legend, "port password togglehide click", always
-works. */
-static boolean password_screen_togglehide(boolean typing_ok)
-{
-	if (!typing_ok && text_field_editing(NULL))
-		return FALSE;
 	password_screen.hidden = !password_screen.hidden;
 	if (text_field_editing(NULL))
 		text_field.masked = password_screen.hidden;
@@ -6269,10 +5741,13 @@ static void browser_update(struct widget_instance *list)
 	struct widget_instance *stats = list->parameters.list.extended_description;
 	short focused = browser_row_index(list->focused_child);
 
+	/* (back on the list of games: a host that left the profile picker without a profile is not waiting any more) */
+	host_profile.controller = NONE;
+
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
 	{
 		lobby_browser_update(list);
-		browser_touch_legend_update(screen_of(list));
+		browser_touch_join_update(screen_of(list));
 		return;
 	}
 	browser_games_read();
@@ -6554,18 +6029,6 @@ static boolean direct_ip_edit(struct widget_instance *widget)
 	return TRUE;
 }
 
-/* "port code accept" (the legend's A caption, clicked): what A does on the selected row */
-static boolean code_screen_accept(struct widget_instance *widget, boolean *widget_deleted)
-{
-	struct widget_instance *screen = screen_of(widget);
-	struct widget_instance *list = named(screen, "options_menu", 0);
-	struct widget_instance *row = named(screen, "op_code", 0);
-
-	if (list ? join_row_focused(list) : FALSE)
-		return code_screen_join(widget, widget_deleted);
-	return row ? code_screen_edit(row, widget_deleted) : FALSE;
-}
-
 static boolean direct_ip_initialize(struct widget_instance *list)
 {
 	struct widget_instance *row = named(list, "op_server_address", 0);
@@ -6581,7 +6044,6 @@ static void direct_ip_update(struct widget_instance *list)
 {
 	struct widget_instance *address = named(list, "op_server_address", 0);
 	struct widget_instance *port = named(list, "op_server_port", 0);
-	direct_ip_touch_legend_update(screen_of(list));
 	text_field_show(named(list, "server_address_value_label", 0), direct_address,
 		address && text_field_editing(address));
 	text_field_show(named(list, "server_port_value_label", 0), direct_port,
@@ -8114,6 +7576,8 @@ static void gametype_edit_name(struct widget_instance *text_box)
 /* "game settings lists text update": the help of the option with the
 focus, for its value (the description's strings are each option's values'
 helps in turn), as the Xbox's, which stops the game on the buttons' row */
+boolean ui_patched_options_help_update(struct widget_instance *list);
+
 static void gametype_option_help(struct widget_instance *list)
 {
 	struct widget_instance *description = list->parameters.list.extended_description;
@@ -8128,6 +7592,9 @@ static void gametype_option_help(struct widget_instance *list)
 
 		visible_set(named(list, "op_choose_weapons", 0), custom);
 	}
+	/* (a list a patch changed numbers its rows' helps itself: ui_widget_game_data_input_functions.c) */
+	if (ui_patched_options_help_update(list))
+		return;
 	/* (the server browser's filters, hidden: their helps are fewer than
 	their values) */
 	if (!description || !list->focused_child || !strncmp(list->name, "filters", 7))
@@ -8142,8 +7609,6 @@ static void gametype_option_help(struct widget_instance *list)
 		{
 			if (spinner)
 				description->parameters.text_box.string_list_index = (short)(index + spinner->parameters.list.selected_index);
-			else if (!strcmp(row->name, "op_respawn"))
-				description->parameters.text_box.string_list_index = index; /* (the line after the spinners') */
 			return;
 		}
 		if (spinner)
@@ -8346,8 +7811,6 @@ boolean pc_menu_event_function_invoke(
 			return browser_rows_navigation(widget, TRUE);
 		else if (!strcmp(name, "port browser detail navigation"))
 			return browser_detail_navigation(widget);
-		else if (!strcmp(name, "port browser legend navigation"))
-			return browser_legend_navigation(widget, event);
 		else if (!strcmp(name, "port browser filters reset"))
 			return browser_filters_reset(widget);
 		else if (!strcmp(name, "port browser filters open"))
@@ -8513,21 +7976,9 @@ boolean pc_menu_event_function_invoke(
 		{
 			return password_screen_join(widget, widget_deleted);
 		}
-		else if (!strcmp(name, "port password accept"))
-		{
-			return password_screen_accept(widget, widget_deleted);
-		}
 		else if (!strcmp(name, "port password togglehide"))
 		{
-			return password_screen_togglehide(FALSE);
-		}
-		else if (!strcmp(name, "port password togglehide click"))
-		{
-			return password_screen_togglehide(TRUE);
-		}
-		else if (!strcmp(name, "port code accept"))
-		{
-			return code_screen_accept(widget, widget_deleted);
+			return password_screen_togglehide();
 		}
 		else if (!strcmp(name, "port password back"))
 		{
@@ -8603,51 +8054,9 @@ boolean pc_menu_event_function_invoke(
 		{
 			coop_options_save(screen_of(widget));
 		}
-		else if (!strcmp(name, "coop options save"))
-		{
-			settings_each(screen_of(widget), setting_changed_save);
-			coop_options_save(screen_of(widget));
-		}
-		else if (!strcmp(name, "port settings save"))
-		{
-			settings_each(screen_of(widget), setting_changed_save);
-			platform_display_apply();
-		}
-		else if (!strcmp(name, "port settings defaults"))
-		{
-			settings_each(screen_of(widget), setting_default_show);
-			settings_each(screen_of(widget), setting_preview);
-		}
-		else if (!strcmp(name, "port setting preview") || !strcmp(name, "port setting revert"))
-		{
-			struct pc_menu_setting *setting = pc_menu_setting_get(widget->definition_tag_index);
-
-			if (spinner_item(widget))
-				return TRUE;
-			if (!setting)
-				return FALSE;
-			return strcmp(name, "port setting revert") ? setting_preview(widget, setting) : setting_revert(widget, setting);
-		}
-		else if (!strcmp(name, "controls screen init") || !strcmp(name, "controls screen defaults"))
-		{
-			controls_screen.apply_now = FALSE;
-			return controls_load(!strcmp(name, "controls screen defaults"));
-		}
-		else if (!strcmp(name, "controls screen change set"))
-		{
-			return controls_save();
-		}
 		else if (!strcmp(name, "controls begin binding"))
 		{
 			return control_capture_begin(widget);
-		}
-		else if (!strcmp(name, "player profile list initialize"))
-		{
-			return profile_list_initialize(widget);
-		}
-		else if (!strcmp(name, "profile manager select"))
-		{
-			return profile_choose(controller);
 		}
 		else if (!strcmp(name, "port lobby open"))
 		{
@@ -8681,45 +8090,9 @@ boolean pc_menu_event_function_invoke(
 		{
 			return preview_leave(controller);
 		}
-		else if (!strcmp(name, "port coop begin"))
-		{
-			return coop_begin(controller);
-		}
-		else if (!strcmp(name, "port coop player 2 list initialize"))
-		{
-			return coop_player2_list_initialize(widget);
-		}
-		else if (!strcmp(name, "port coop player 2"))
-		{
-			return coop_player2_choose(controller);
-		}
-		else if (!strcmp(name, "request del player profile"))
-		{
-			return profile_delete_request();
-		}
-		else if (!strcmp(name, "final del player profile"))
-		{
-			return profile_delete();
-		}
-		else if (!strcmp(name, "color picker menu initialize"))
-		{
-			return color_list_initialize(widget);
-		}
-		else if (!strcmp(name, "color picker select color"))
-		{
-			return color_choose();
-		}
 		else if (!strcmp(name, "controls binding slot"))
 		{
 			controls_screen.slot = (short)!controls_screen.slot;
-		}
-		else if (!strcmp(name, "campaign menu init"))
-		{
-			return campaign_menu_initialize(controller);
-		}
-		else if (!strcmp(name, "campaign menu continue"))
-		{
-			return campaign_continue(controller);
 		}
 		else if (!strcmp(name, "port option row init"))
 		{
@@ -8768,24 +8141,7 @@ boolean pc_menu_event_function_invoke(
 		{
 			main_set_difficulty(PIN(difficulty_shown(widget), 0, 3));
 		}
-		else if (!strcmp(name, "load game menu init"))
-		{
-			return saved_game_list_initialize(widget, controller);
-		}
-		else if (!strcmp(name, "load game menu activated"))
-		{
-			return saved_game_continue(controller);
-		}
-		else if (!strcmp(name, "load game menu delete request"))
-		{
-			return saved_game_delete_request();
-		}
-		else if (!strcmp(name, "load game menu delete finish"))
-		{
-			return saved_game_delete(controller);
-		}
-		else if (!strcmp(name, "controls back handler") || !strcmp(name, "gamespy back handler") ||
-			!strcmp(name, "gamespy dismiss error") || !strcmp(name, "gamespy dismiss filters"))
+		else if (!strcmp(name, "gamespy back handler") || !strcmp(name, "gamespy dismiss error"))
 		{
 			ui_widget_port_go_back(widget);
 			*widget_deleted = TRUE;
@@ -8869,18 +8225,14 @@ void pc_menu_game_data_function_invoke(
 	}
 	else if (!strcmp(name, "controls update menu"))
 		controls_update(widget);
-	else if (!strcmp(name, "color picker update"))
-		color_list_update(widget);
 	else if (!strcmp(name, "3wide player profile list update"))
 		profile_list_update(widget);
-	else if (!strcmp(name, "load game list update"))
-		saved_game_list_update(widget);
 	else if (!strcmp(name, "port gamepad layout preview"))
 		profile_gamepad_layout(widget);
 }
 
 #ifdef HALO_IOS
-#define JOIN_GAME_SCREEN "pc\\main_menu\\multiplayer_type_select\\join_game\\join_game_screen"
+#define JOIN_GAME_SCREEN "pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\join_game_screen"
 
 boolean main_port_main_menu_loaded(void);
 boolean game_map_loaded(void);

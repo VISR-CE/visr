@@ -8,11 +8,9 @@ rows, the screens' children, the descriptions' strings and frames and pc_menu_pa
 argv[1]: "apple" (a keyboard, no Apple TV), "tvos" (the Apple TV, no keyboard) or "bad" (a malformed patch, which
 fails the files). */
 
-static int input_pad = 1, input_keyboard = 1, input_compact, input_density_override = -1;
-static char const *menu_mode = "xbox";
+static int input_pad = 1, input_keyboard = 1;
 int platform_menu_pad(void) { return input_pad; }
-int platform_menu_compact_density(void) { return input_compact; }
-long config_integer(char const *name) { (void)name; return input_density_override; }
+long config_integer(char const *name) { (void)name; return 0; }
 int platform_menu_keyboard(void) { return input_keyboard; }
 
 #include "menu_tags.c"
@@ -39,10 +37,10 @@ static char const patches_xml[] =
 	"  <remove child=\"multiplayer_type_internet_off\"/>\n"
 	"  <row after=\"multiplayer_type_internet\" name=\"multiplayer_type_join_direct\" text=\"DIRECT LINK\"\n"
 	"       run=\"mp type set mode\" open=\"xbox/test_screen\" description=\"Join a game by its code.\"\n"
-	"       picture=\"png:ce/port/blank__0.png\"/>\n"
+	"       picture=\"png:pictures/port/blank__0.png\"/>\n"
 	"  <row after=\"ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_split_item\"\n"
 	"       name=\"multiplayer_type_split_need_pad\" text=\"SPLIT\" run=\"mp type set mode\"\n"
-	"       description=\"Split screen on iPhone needs a game\\ncontroller for each extra player.\" picture=\"1\"/>\n"
+	"       description=\"Split screen on iPhone needs\\ncontrollers for extra players.\" picture=\"1\"/>\n"
 	"  <remove child=\"multiplayer_type_split_need_pad\"/>\n"
 	"</patch>\n"
 	/* Insert settings and the Apple TV delete row before removing SAVE CHANGES. */
@@ -73,6 +71,18 @@ static char const patches_xml[] =
 	"<patch list=\"ui\\shell\\adopt\\adopt_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
 	"  <row after=\"ui\\shell\\adopt\\adopt_item_1\" name=\"adopted\" widget=\"xbox/test_row\" help=\"Help A|Help B\"/>\n"
 	"</patch>\n"
+	/* a row with a spinner out of an option list: the rows after it keep their own help lines */
+	"<patch list=\"ui\\shell\\options\\options_list\" screen=\"ui\\shell\\options\\options_screen\""
+	" rows=\"tall\" row_kind=\"option\" tall_art=\"xbox/test_picture\">\n"
+	"  <remove child=\"ui\\shell\\options\\op_first\"/>\n"
+	"</patch>\n"
+	/* a picture list (text rows placed by their own bounds, the last after a gap) made tall in place */
+	"<patch list=\"ui\\shell\\pictures\\picture_list\" screen=\"ui\\shell\\pictures\\picture_screen\""
+	" footer=\"414\" rows=\"tall\" row_kind=\"picture\" tall_art=\"xbox/test_picture\" tall_top_art=\"xbox/test_cached\">\n"
+	/* (copies of the map's rows: one in a row's place, one added after it) */
+	"  <replace child=\"ui\\shell\\pictures\\picture_item_1\" name=\"picture_replaced\" text=\"R\" open=\"xbox/test_screen\"/>\n"
+	"  <row after=\"picture_replaced\" name=\"picture_added\" text=\"A\" open=\"xbox/test_screen\"/>\n"
+	"</patch>\n"
 	"<patch list=\"ui\\shell\\adopt\\adopt_other_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
 	"  <row after=\"ui\\shell\\adopt\\adopt_other_item\" name=\"adopted_missing\" widget=\"xbox/no_such_screen\"/>\n"
 	"</patch>\n"
@@ -87,6 +97,11 @@ static char const patches_xml[] =
 	/* too many rows for the screen: not made, its tags left empty */
 	"<patch list=\"ui\\shell\\overflow\\overflow_list\" screen=\"ui\\shell\\overflow\\overflow_screen\">\n"
 	"  <row after=\"ui\\shell\\overflow\\overflow_item_0\" name=\"overflow_a\" text=\"A\" open=\"xbox/test_screen\"/>\n"
+	"</patch>\n"
+	/* rows="tall" that would pass the footer once tall: not made, and the map's rows stay as they were */
+	"<patch list=\"ui\\shell\\tall_overflow\\tall_overflow_list\" screen=\"ui\\shell\\tall_overflow\\tall_overflow_screen\""
+	" rows=\"tall\" row_kind=\"option\" tall_art=\"xbox/test_picture\">\n"
+	"  <remove child=\"ui\\shell\\tall_overflow\\tall_overflow_item_0\"/>\n"
 	"</patch>\n"
 	/* a list the map has not got: not made, nothing used */
 	"<patch list=\"ui\\shell\\missing\\missing_list\" screen=\"ui\\shell\\missing\\missing_screen\">\n"
@@ -122,13 +137,23 @@ static char const screen_xml[] =
 	"<on event=\"left\" run=\"port setting changed\"/><on event=\"right\" run=\"port setting changed\"/>"
 	"<on event=\"stick_left\" run=\"port setting changed\"/><on event=\"stick_right\" run=\"port setting changed\"/></widget>"
 	"<widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
+	"<bitmap name=\"xbox/browser/b_butn\"><frame png=\"xbox/art/shipped.png\" width=\"32\" height=\"32\"/></bitmap>"
+	"<bitmap name=\"xbox/browser/y_butn\"><frame png=\"xbox/art/shipped.png\" width=\"32\" height=\"32\"/></bitmap>"
+	"<bitmap name=\"xbox/browser/a_butn\"><frame png=\"xbox/art/shipped.png\" width=\"32\" height=\"32\"/></bitmap>"
+	"<bitmap name=\"xbox/browser/x_butn\"><frame png=\"xbox/art/shipped.png\" width=\"32\" height=\"32\"/></bitmap>"
+	"<widget name=\"xbox/bar_screen\" width=\"640\" height=\"480\"><bar>"
+	"<action slot=\"x\" scope=\"global\" strings=\"HIDE|SHOW\" index=\"1\" run=\"port password togglehide\""
+	" while_typing=\"pointer\"/>"
+	"<action slot=\"b\" scope=\"back\" text=\"BACK\" focus=\"true\"/>"
+	"<action slot=\"y\" scope=\"global\" text=\"CREATE NEW\" run=\"port settings defaults apply\"/>"
+	"<action slot=\"a\" scope=\"select\" text=\"SELECT\" focus=\"true\"/></bar></widget>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
 static char const pc_xml[] =
 	"<menus><widget name=\"main_menu/main_menu\"/>"
-	"<strings name=\"main_menu/settings_select/player_setup/player_profile_edit/profile_edit_descriptions\">"
+	"<strings name=\"xbox/main_menu/settings_select/player_setup/player_profile_edit/profile_edit_descriptions\">"
 	"<string text=\"Rename this profile.\"/></strings>"
-	"<strings name=\"main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_list_extended_dsc_text\">"
+	"<strings name=\"xbox/main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_list_extended_dsc_text\">"
 	"<string text=\"Rename this gametype.\"/></strings></menus>";
 
 /* (embedded as tools/embed_assets.py has them; the malformed patch is a file of the same name in the menus folder,
@@ -136,25 +161,27 @@ which replaces it) */
 /* (a picture's "files": the first byte is the texture the stand-in PNG decoder gives, 0 being one that cannot be
 drawn) */
 static const char shipped_png[] = "S";
-static char const density_xml[] = "<menus><widget name=\"xbox/density_probe\" height=\"39\"/></menus>";
-static char const compact_xml[] = "<menus><widget name=\"xbox/density_probe\" height=\"30\"/></menus>";
 const struct menu_file_embedded menu_files_embedded[] =
 {
-	{ "xbox/density.xml", (const unsigned int *)density_xml, sizeof(density_xml) - 1 },
-	{ "xbox/density.compact.xml", (const unsigned int *)compact_xml, sizeof(compact_xml) - 1 },
 	{ "xbox/patches.xml", (const unsigned int *)patches_xml, sizeof(patches_xml) - 1 },
 	{ "xbox/test.xml", (const unsigned int *)screen_xml, sizeof(screen_xml) - 1 },
-	{ "ce/probe.xml", (const unsigned int *)pc_xml, sizeof(pc_xml) - 1 },
+	{ "sources/probe.xml", (const unsigned int *)pc_xml, sizeof(pc_xml) - 1 },
 	{ "xbox/art/shipped.png", (const unsigned int *)shipped_png, 1 },
-	{ "ce/language.xml", (const unsigned int *)language_xml, sizeof(language_xml) - 1 },
+	{ "sources/language.xml", (const unsigned int *)language_xml, sizeof(language_xml) - 1 },
 };
-const unsigned int menu_files_embedded_count = 7;
+const unsigned int menu_files_embedded_count = 5;
 
 /* ---------- what the game and the platform layer give */
 
 static char mode[32];
 static char folder[256];
 static long failures;
+
+/* (a development build halts on a patch that overflows its footer; the probe is not one, and checks the list stays the map's) */
+int host_development_hooks(void)
+{
+	return 0;
+}
 
 void platform_log(char const *format, ...)
 {
@@ -169,8 +196,6 @@ void platform_log(char const *format, ...)
 
 char const *config_string(char const *name)
 {
-	if (!strcmp(name, "display.menus"))
-		return menu_mode;
 	if (!strcmp(name, "debug.language"))
 		return language_name;
 	return "";
@@ -497,13 +522,17 @@ static long panel_add(char const *name, char const *picture_name, char const *te
 #define MM "ui\\shell\\main_menu\\"
 
 static long mp_screen, mp_list, mp_blueline, mp_key, pe_screen, pe_list, pe_blueline, mm_screen, mm_list;
-static long st_screen, st_list, ov_list, other_list;
+static long st_screen, st_list, ov_list, other_list, to_list, to_rows[5];
 
 static void adopt_build(void);
+static void options_build(void);
+static void pictures_build(void);
 
 static void map_build(void)
 {
 	adopt_build();
+	options_build();
+	pictures_build();
 	/* The spinner resolves its default font, but this probe does not render it. */
 	map_add(FONT_TAG, "ui\\large_ui", calloc(1, 1));
 	/* the multiplayer type screen (bounds and offsets as the Xbox's ui.map has them) */
@@ -558,6 +587,9 @@ static void map_build(void)
 		/* a screen child that is no list row: a patch takes it out */
 		children[8] = widget_add(PE "profile_edit_button_bar", _widget_type_container, 0, 0, 640, 60);
 		pe_screen = widget_add(PE "player_profile_edit_screen", _widget_type_container, 0, 0, 640, 480);
+		/* the hub and a settings page of the Xbox look, for the BACK walk below */
+		widget_add("pc\\xbox\\settings\\settings_screen", _widget_type_container, 0, 0, 640, 480);
+		widget_add("pc\\xbox\\settings\\video_settings\\video_settings_screen", _widget_type_container, 0, 0, 640, 480);
 		children_set(pe_screen, 9, children, screen_xs, screen_ys);
 	}
 	/* the main menu */
@@ -618,6 +650,30 @@ static void map_build(void)
 		children_set(widget_add("ui\\shell\\overflow\\overflow_screen", _widget_type_container, 0, 0, 640, 480),
 			2, children, screen_xs, screen_ys);
 	}
+	/* a list whose rows fit at 27 units apart (the last ends at the footer) but not on the standard tall pitch */
+	{
+		long children[2];
+		short const xs[5] = { 0, 0, 0, 0, 0 }, ys[5] = { 300, 327, 354, 381, 408 };
+		short const screen_xs[2] = { 0, 300 }, screen_ys[2] = { 0, 414 };
+		char name[64];
+		long row;
+
+		for (row = 0; row < 5; row++)
+		{
+			snprintf(name, sizeof(name), "ui\\shell\\tall_overflow\\tall_overflow_item_%ld", row);
+			to_rows[row] = row_add(strdup(name), 51, 0, 283, 26, 0);
+		}
+		to_list = widget_add("ui\\shell\\tall_overflow\\tall_overflow_list", _widget_type_column_list, 0, 0, 640, 480);
+		children_set(to_list, 5, to_rows, xs, ys);
+		children[0] = to_list;
+		long legend = widget_add("ui\\shell\\tall_overflow\\a_butn", _widget_type_container, 0, 7, 21, 33);
+		short const legend_x[1] = { 0 }, legend_y[1] = { 7 };
+
+		children[1] = widget_add("ui\\shell\\tall_overflow\\button_key_options", _widget_type_container, 0, 0, 300, 26);
+		children_set(children[1], 1, &legend, legend_x, legend_y);
+		children_set(widget_add("ui\\shell\\tall_overflow\\tall_overflow_screen", _widget_type_container, 0, 0, 640, 480),
+			2, children, screen_xs, screen_ys);
+	}
 }
 
 static long ad_screen, ad_list, ad_other_list, ad_map_list, ad_bitmap_list, ad_text;
@@ -653,6 +709,71 @@ static void adopt_build(void)
 	children[3] = ad_bitmap_list;
 	ad_screen = widget_add("ui\\shell\\adopt\\adopt_screen", _widget_type_container, 0, 0, 640, 480);
 	children_set(ad_screen, 4, children, screen_xs, screen_ys);
+}
+
+static long op_list, op_rows[3];
+
+/* an option list as the gametype editor's are: three rows, each with a spinner of 2, 3 and 2 values, and a
+description of one text whose seven strings are the rows' values' helps in turn */
+static void options_build(void)
+{
+	static char const *const names[3] = { "first", "second", "third" };
+	long const values[3] = { 2, 3, 2 };
+	long rows[3], children[1], text, row;
+	short const xs[3] = { 54, 54, 54 }, ys[3] = { 73, 103, 133 }, zero[1] = { 0 };
+
+	for (row = 0; row < 3; row++)
+	{
+		char name[96];
+		long spinner;
+
+		snprintf(name, sizeof(name), "ui\\shell\\options\\%s_spinner", names[row]);
+		/* (as the map's are: each as wide as its author made it, here 100, 60 and 100) */
+		spinner = widget_add(name, _widget_type_spinner_list, 300, 0, row == 1 ? 360 : 400, 28);
+		definition_of(spinner)->text_font.index = 0;
+		snprintf(name, sizeof(name), "ui\\shell\\options\\%s_values", names[row]);
+		reference_set(&definition_of(spinner)->text_label_string_list, UNICODE_STRING_LIST_TAG,
+			strings_add(strdup(name), values[row]));
+		snprintf(name, sizeof(name), "ui\\shell\\options\\op_%s", names[row]);
+		rows[row] = row_add(strdup(name), 54, 0, 566, 28, 0);
+		children_set(rows[row], 1, &spinner, zero, zero);
+	}
+	op_list = widget_add("ui\\shell\\options\\options_list", _widget_type_column_list, 0, 0, 640, 480);
+	children_set(op_list, 3, rows, xs, ys);
+	memcpy(op_rows, rows, sizeof(op_rows));
+	text = widget_add("ui\\shell\\options\\options_help", _widget_type_text_box, 68, 321, 550, 400);
+	reference_set(&definition_of(text)->text_label_string_list, UNICODE_STRING_LIST_TAG,
+		strings_add("ui\\shell\\options\\options_help_strings", 7));
+	reference_set(&definition_of(op_list)->extended_description_widget, UI_WIDGET_DEFINITION_TAG, text);
+	children[0] = op_list;
+	children_set(widget_add("ui\\shell\\options\\options_screen", _widget_type_container, 0, 0, 640, 480),
+		1, children, zero, zero);
+}
+
+static long pic_list, pic_rows[4], pic_line, pic_screen;
+
+/* a picture list as the multiplayer type list is: four text rows 32 units tall on a 33 pitch, placed by their own
+bounds (the list's offsets 0), the last 22 units further down, the first drawing the top art */
+static void pictures_build(void)
+{
+	long children[2], row;
+	short const xs[4] = { 0, 0, 0, 0 }, ys[4] = { 0, 0, 0, 22 }, zero[2] = { 0, 0 };
+
+	for (row = 0; row < 4; row++)
+	{
+		char name[96];
+
+		snprintf(name, sizeof(name), "ui\\shell\\pictures\\picture_item_%ld", row);
+		pic_rows[row] = row_add(strdup(name), 51, (short)(78 + row * 33), 283, (short)(110 + row * 33), 0);
+		definition_of(pic_rows[row])->vertical_offset = 3;
+	}
+	pic_list = widget_add("ui\\shell\\pictures\\picture_list", _widget_type_column_list, 0, 0, 640, 480);
+	children_set(pic_list, 4, pic_rows, xs, ys);
+	children[0] = pic_list;
+	/* (and a line in the gap before the last row, as the multiplayer type screen has) */
+	children[1] = pic_line = widget_add("ui\\shell\\pictures\\picture_line", _widget_type_container, 64, 190, 256, 192);
+	pic_screen = widget_add("ui\\shell\\pictures\\picture_screen", _widget_type_container, 0, 0, 640, 480);
+	children_set(pic_screen, 2, children, zero, zero);
 }
 
 /* ---------- the checks */
@@ -763,6 +884,102 @@ static void check_row_copy(long list, long row, char const *name, char const *te
 	check(handlers_ok, "row %s has A and Start, running %ld and opening %lx", name, run, (unsigned long)open);
 }
 
+/* a declared bar (<bar>): the reader makes each action's glyph and caption in its slot on the legend line, the engine
+is told each one's slot and scope, and a run= action is the screen's handler for its button */
+static void check_bar(void)
+{
+	static struct
+	{
+		char const *glyph, *caption;
+		unsigned char slot, scope;
+		short x;
+	} const actions[] =
+	{
+		{ "pc\\xbox\\bar_screen\\bar\\x_butn", "pc\\xbox\\bar_screen\\bar\\x_caption", HALO_MENU_SLOT_X, HALO_MENU_SCOPE_GLOBAL,
+			MENU_BAR_SLOT_X_X0 + MENU_BAR_INSET },
+		{ "pc\\xbox\\bar_screen\\bar\\b_butn", "pc\\xbox\\bar_screen\\bar\\b_caption", HALO_MENU_SLOT_B, HALO_MENU_SCOPE_BACK,
+			MENU_BAR_SLOT_B_X0 + MENU_BAR_INSET },
+		{ "pc\\xbox\\bar_screen\\bar\\y_butn", "pc\\xbox\\bar_screen\\bar\\y_caption", HALO_MENU_SLOT_Y, HALO_MENU_SCOPE_GLOBAL,
+			MENU_BAR_SLOT_Y_X0 + MENU_BAR_INSET },
+		{ "pc\\xbox\\bar_screen\\bar\\a_butn", "pc\\xbox\\bar_screen\\bar\\a_caption", HALO_MENU_SLOT_A, HALO_MENU_SCOPE_SELECT,
+			MENU_BAR_SLOT_A_X0 + MENU_BAR_INSET },
+	};
+	long screen = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\bar_screen");
+	long defaults = PC_MENU_FUNCTION_BASE + name_index("port settings defaults apply", port_function_names,
+		NUMBEROF(port_function_names));
+	long togglehide = PC_MENU_FUNCTION_BASE + name_index("port password togglehide", port_function_names,
+		NUMBEROF(port_function_names));
+	struct ui_widget_definition const *definition;
+	struct ui_widget_event_handler_reference const *handlers;
+	long action, handler, y_handlers = 0, x_handlers = 0, other_handlers = 0;
+	long x_caption = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\bar_screen\\bar\\x_caption");
+
+	check(screen != NONE, "the bar's screen is in the table");
+	if (screen == NONE)
+		return;
+	check(child_count(screen) == 8, "four actions, a glyph and a caption each (%ld children)", child_count(screen));
+	/* strings= is a caption the port picks at run time (ui_widget_port_bar_caption): a list, index= shown first */
+	if (x_caption != NONE)
+	{
+		struct ui_widget_definition const *caption = definition_of(x_caption);
+		struct string_list const *strings = tag_get(UNICODE_STRING_LIST_TAG, caption->text_label_string_list.index);
+
+		check(strings && strings->strings.count == 2 && string_is(strings, 0, "HIDE") && string_is(strings, 1, "SHOW"),
+			"an action's strings are its caption's list");
+		check(caption->string_list_index == 1, "index= is the caption shown first (%d)", caption->string_list_index);
+	}
+	for (action = 0; action < 4; action++)
+	{
+		long parts[2];
+		int part;
+
+		parts[0] = tag_loaded(UI_WIDGET_DEFINITION_TAG, actions[action].glyph);
+		parts[1] = tag_loaded(UI_WIDGET_DEFINITION_TAG, actions[action].caption);
+		for (part = 0; part < 2; part++)
+		{
+			struct halo_menu_meta const *meta = pc_menu_meta(parts[part]);
+			long child, found = NONE;
+
+			check(parts[part] != NONE, "%s is made", part ? actions[action].caption : actions[action].glyph);
+			if (parts[part] == NONE)
+				continue;
+			check(meta->role == HALO_MENU_ROLE_BAR_ACTION && meta->slot == actions[action].slot &&
+				meta->scope == actions[action].scope, "%s: slot and scope are noted (%d %d %d)",
+				part ? actions[action].caption : actions[action].glyph, meta->role, meta->slot, meta->scope);
+			/* while_typing="pointer" is noted on X's parts only: its key is a letter while typing */
+			check(meta->typing == (actions[action].slot == HALO_MENU_SLOT_X ? HALO_MENU_TYPING_POINTER :
+				HALO_MENU_TYPING_KEY), "%s: what its key does while typing is noted (%d)",
+				part ? actions[action].caption : actions[action].glyph, meta->typing);
+			for (child = 0; child < child_count(screen); child++)
+				if (children_of(screen)[child].widget_tag.index == parts[part]) found = child;
+			check(found != NONE, "a bar action is the screen's child");
+			if (found != NONE)
+				check(children_of(screen)[found].horizontal_offset == actions[action].x + part * MENU_BAR_CAPTION_OFFSET &&
+					children_of(screen)[found].vertical_offset == MENU_LEGEND_Y,
+					"a bar action sits in its slot on the legend line (%d, %d)",
+					children_of(screen)[found].horizontal_offset, children_of(screen)[found].vertical_offset);
+		}
+	}
+	check(tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\bar_screen\\bar\\y_caption_2") == NONE,
+		"a bar has only the actions it declares");
+	definition = definition_of(screen);
+	handlers = definition->event_handlers.address;
+	for (handler = 0; handler < definition->event_handlers.count; handler++)
+	{
+		if (handlers[handler].event_type == 3 && TEST_FLAG(handlers[handler].flags, _event_handler_run_function_bit) &&
+			handlers[handler].function == defaults)
+			y_handlers++;
+		else if (handlers[handler].event_type == 2 &&
+			TEST_FLAG(handlers[handler].flags, _event_handler_run_function_bit) && handlers[handler].function == togglehide)
+			x_handlers++;
+		else
+			other_handlers++;
+	}
+	check(y_handlers == 1 && x_handlers == 1 && other_handlers == 0,
+		"the Y and X actions run on their buttons; focus actions add no handler (%ld, %ld, %ld)",
+		y_handlers, x_handlers, other_handlers);
+}
+
 static void check_apple(boolean tvos)
 {
 	long test_screen = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\test_screen");
@@ -771,6 +988,7 @@ static void check_apple(boolean tvos)
 	long counted, used, index, empty = 0;
 
 	check(test_screen != NONE, "our screen is in the table");
+	check_bar();
 	/* the multiplayer type list: SYSTEM LINK (replaced), INTERNET, DIRECT LINK, then EDIT GAMETYPES 66 lower */
 	{
 		short const tops[6] = { 78, 111, 144, 177, 210, 265 };
@@ -802,7 +1020,7 @@ static void check_apple(boolean tvos)
 		check(string_is(strings, 3, "map 3"), "string 3 is the map's");
 		check(string_is(strings, 4, "Browse and host games on the Internet."), "string 4 is the internet description");
 		check(string_is(strings, 6, "Join a game by its code."), "string 6 is the direct description");
-		check(string_is(strings, 7, "Split screen on iPhone needs a game\\ncontroller for each extra player."), "string 7 is the split need-controller text");
+		check(string_is(strings, 7, "Split screen on iPhone needs\\ncontrollers for extra players."), "string 7 is the split need-controller text");
 		check(group->bitmaps.count == 8 && sequence->bitmap_count == 8 && sequence->first_bitmap_index == 0,
 			"the picture has eight frames in its sequence (%ld, %d)", group->bitmaps.count, sequence->bitmap_count);
 		check(frames[4].pixels_offset == frames[3].pixels_offset && frames[4].width == frames[3].width &&
@@ -883,6 +1101,27 @@ static void check_apple(boolean tvos)
 
 		check_rows("overflow", ov_list, tops, 2);
 		check(!pc_menu_patch_list_index(ov_list, NONE, &description), "the overflowing list is not patched");
+		/* (a tall patch is worked out whole before it changes a row: one that fails leaves the map's rows alone) */
+		{
+			short const tall_tops[5] = { 300, 327, 354, 381, 408 };
+			long row;
+
+			check_rows("tall overflow", to_list, tall_tops, 5);
+			check(!pc_menu_patch_list_index(to_list, NONE, &description), "the list too tall for its footer is not patched");
+			for (row = 0; row < 5; row++)
+			{
+				struct ui_widget_definition const *definition = definition_of(to_rows[row]);
+
+				check(definition->bounds.y1 - definition->bounds.y0 == 26,
+					"a failed tall patch leaves the map's row its height (row %ld: %d)", row,
+					definition->bounds.y1 - definition->bounds.y0);
+				check(definition->background_bitmap.index == NONE, "a failed tall patch leaves the map's row its art (row %ld)", row);
+				check(!pc_menu_row_tall(to_rows[row]) && pc_menu_meta(to_rows[row])->role == HALO_MENU_ROLE_NONE,
+					"a failed tall patch says nothing of the map's row (row %ld)", row);
+			}
+		}
+		check(pc_menu_meta(NONE)->title_strings == NONE && pc_menu_meta(to_rows[0])->title_strings == NONE,
+			"a tag that is not a title has no title text");
 		check(!pc_menu_patch_list_index(other_list, NONE, &description) && child_count(other_list) == 1,
 			"the list whose row runs no function is not patched");
 		check(!pc_menu_patch_list_index(mm_screen, NONE, &description), "a screen is not a patched list");
@@ -909,6 +1148,115 @@ static void check_apple(boolean tvos)
 				string_is(help, 5, "Help B"), "the adopted row's help strings follow the description's own (%ld)",
 				help->strings.count);
 		}
+		{
+			short help_line = 99, help_length = 99;
+
+			/* (the help updater asks for a row's first line: the map's rows keep theirs, none for a row
+			with no spinner; an added row's follows the description's own lines) */
+			check(pc_menu_patch_row_help(ad_list, children_of(ad_list)[0].widget_tag.index, &help_line, &help_length) &&
+				help_line == 0 && help_length == 0, "a map row with no spinner keeps line 0 and has no lines (%d, %d)",
+				help_line, help_length);
+			check(pc_menu_patch_row_help(ad_list, children_of(ad_list)[2].widget_tag.index, &help_line, &help_length) &&
+				help_line == 4 && help_length == 2, "the adopted row's two help lines follow the description's own (%d, %d)",
+				help_line, help_length);
+			check(!pc_menu_patch_row_help(ad_other_list, NONE, &help_line, &help_length) && help_line == NONE,
+				"a list no patch changed has no help lines of its own");
+		}
+		{
+			short help_line = 99, help_length = 99;
+
+			/* (the INVISIBLE PLAYERS case: a row with a spinner removed above it. The disc's updater summed the
+			value counts of the rows above, which a removed row no longer adds; the patch's numbering does) */
+			check(child_count(op_list) == 2, "the option list lost its first row (%ld)", child_count(op_list));
+			check(pc_menu_patch_row_help(op_list, children_of(op_list)[0].widget_tag.index, &help_line, &help_length) &&
+				help_line == 2 && help_length == 3,
+				"the row after a removed spinner row keeps its first help line and its three values (%d, %d)",
+				help_line, help_length);
+			check(pc_menu_patch_row_help(op_list, children_of(op_list)[1].widget_tag.index, &help_line, &help_length) &&
+				help_line == 5 && help_length == 2, "the last row keeps its first help line and its two values (%d, %d)",
+				help_line, help_length);
+		}
+		{
+			/* rows="tall": the map's own rows are made tall where they are, so everything that finds a row by its
+			tag or its tag's name (the game's option handlers, the help numbering above) still finds it */
+			long art = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\test_picture");
+			long row;
+
+			for (row = 0; row < 2 && child_count(op_list) == 2; row++)
+			{
+				struct ui_widget_child_reference const *placed = &children_of(op_list)[row];
+				struct ui_widget_definition const *definition = definition_of(placed->widget_tag.index);
+				struct ui_widget_child_reference const *parts = definition->child_widgets.address;
+
+				check(placed->widget_tag.index == op_rows[row + 1], "a tall row keeps the map's tag (row %ld)", row);
+				check(!strcmp(strrchr(tag_get_name(placed->widget_tag.index), '\\') + 1, row ? "op_third" : "op_second"),
+					"a tall row keeps its tag's name (%s)", tag_get_name(placed->widget_tag.index));
+				check(placed->vertical_offset == 73 + row * 39, "tall rows stand a standard pitch apart from the first row's place (%d)",
+					placed->vertical_offset);
+				check(definition->bounds.y1 - definition->bounds.y0 == 39, "a tall row is the standard tap band tall (%d)",
+					definition->bounds.y1 - definition->bounds.y0);
+				check(art != NONE && definition->background_bitmap.index == art, "a tall row draws the tall art");
+				check(definition->child_widgets.count == 1 && parts[0].vertical_offset == 5,
+					"a tall row's value moves down with it (%d)", parts[0].vertical_offset);
+				check(pc_menu_row_tall(placed->widget_tag.index), "the engine is told the row is tall");
+				check(pc_menu_meta(placed->widget_tag.index)->role == HALO_MENU_ROLE_ROW &&
+					pc_menu_meta(placed->widget_tag.index)->tag_index == placed->widget_tag.index,
+					"a tall row's record says it is a row");
+				/* Bug class: a standard row's value drawn in whatever width the map gave its spinner. The rows share
+				one value column: as wide as the widest value (5 letters of 8) and its margins, ending where the
+				widest spinner ended (400). */
+				{
+					struct ui_widget_definition const *spinner = definition_of(parts[0].widget_tag.index);
+
+					check(spinner->bounds.x1 - spinner->bounds.x0 == 40 + 2 * MENU_VALUE_MARGIN,
+						"a tall row's value has the standard column's width (row %ld: %d)", row,
+						spinner->bounds.x1 - spinner->bounds.x0);
+					check(parts[0].horizontal_offset + spinner->bounds.x1 == 400,
+						"tall rows' values end at one edge (row %ld: %d)", row,
+						parts[0].horizontal_offset + spinner->bounds.x1);
+				}
+			}
+			check(!pc_menu_row_tall(op_rows[0]), "a row the patch removed is not made tall");
+			check(pc_menu_meta(op_rows[0])->tag_index == NONE && !pc_menu_meta(op_rows[0])->role &&
+				!pc_menu_meta(NONE)->tall, "a tag the menus say nothing of has the record of nothing");
+			check(!pc_menu_row_tall(children_of(ad_list)[0].widget_tag.index), "a list whose patch does not ask keeps its rows");
+		}
+		{
+			/* rows="tall" row_kind="picture": the rows keep their tags and order, stand a standard pitch apart from
+			the first row's place with the map's 22-unit gap kept, are the tap band tall, draw the tall art (the
+			first the top art), and their text moves down by the kind's shift */
+			long art = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\test_picture");
+			long top_art = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\test_cached");
+			short const tops[5] = { 78, 117, 156, 195, 256 };
+			long row;
+
+			check(child_count(pic_list) == 5, "the picture list has its four rows and the one added (%ld)",
+				child_count(pic_list));
+			for (row = 0; row < 5 && child_count(pic_list) == 5; row++)
+			{
+				struct ui_widget_child_reference const *placed = &children_of(pic_list)[row];
+				struct ui_widget_definition const *definition = definition_of(placed->widget_tag.index);
+
+				/* (the replaced and the added rows are copies of the map's, tall as well) */
+				check((row == 1 || row == 2) != (placed->widget_tag.index == pic_rows[row < 2 ? row : row - 1]),
+					"a tall picture row keeps the map's tag, a copy has its own (row %ld)", row);
+				check(placed->vertical_offset + definition->bounds.y0 == tops[row],
+					"a tall picture row stands where the pitch and the map's gap put it (row %ld: %d)", row,
+					placed->vertical_offset + definition->bounds.y0);
+				check(definition->bounds.y1 - definition->bounds.y0 == 39, "a tall picture row is the tap band tall (%d)",
+					definition->bounds.y1 - definition->bounds.y0);
+				check(definition->background_bitmap.index == (row ? art : top_art) && art != NONE && top_art != NONE,
+					"a tall picture row draws the tall art, the first the top art (row %ld)", row);
+				check(definition && definition->vertical_offset == 3 + MENU_PICTURE_ROW_SHIFT,
+					"a tall picture row's text moves down by the kind's shift (%d)", definition->vertical_offset);
+				check(pc_menu_row_tall(placed->widget_tag.index), "the engine is told the picture row is tall");
+			}
+			/* (the line, 9 above the last row, moved down 33 with it when a row was added, to 223 above it at 232,
+			and follows it to 256: 57 in all) */
+			check(children_of(pic_screen)[1].widget_tag.index == pic_line && children_of(pic_screen)[1].vertical_offset == 57,
+				"a line in the gap between picture rows moves with the row below it (%d)",
+				children_of(pic_screen)[1].vertical_offset);
+		}
 		check(!pc_menu_patch_list_index(ad_other_list, NONE, &description) && child_count(ad_other_list) == 1,
 			"a row of a widget there is none of is not made");
 		check(!pc_menu_patch_list_index(ad_map_list, NONE, &description) && child_count(ad_map_list) == 1,
@@ -930,48 +1278,29 @@ static void check_apple(boolean tvos)
 		check(pc_menus_screen(postgame) == postgame, "the postgame map select stays the Xbox's for system link");
 		probe_lan = FALSE;
 		{
-			char const *const pc_pregame = "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
-			char const *const pc_postgame = "pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper";
-			char const *const xbox_pregame = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
-			struct
+			char const *const lobby = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
+			int pad;
+			for (pad = 0; pad < 2; pad++)
 			{
-				char const *mode;
-				int pad, lan;
-				char const *pregame, *postgame;
-			} const cases[] =
-			{
-				{ "auto", 0, FALSE, pc_pregame, pc_postgame },
-				{ "auto", 0, TRUE, pc_pregame, pc_postgame },
-				{ "auto", 1, FALSE, xbox_pregame, postgame },
-				{ "auto", 1, TRUE, pregame, postgame },
-				{ "pc", 1, FALSE, pc_pregame, pc_postgame },
-				{ "pc", 1, TRUE, pc_pregame, pc_postgame },
-				{ "xbox", 0, FALSE, xbox_pregame, postgame },
-				{ "xbox", 0, TRUE, pregame, postgame },
-			};
-			long index;
-			for (index = 0; index < NUMBEROF(cases); index++)
-			{
-				menu_mode = cases[index].mode;
-				input_pad = cases[index].pad;
-				probe_lan = cases[index].lan;
-				/* A newly loaded map or the previous screen may hold the other look. */
-				menu_tags.xbox_set = !input_pad;
-				check(!strcmp(pc_menus_screen(pregame), cases[index].pregame),
-					"%s pregame follows current input or override (pad %d, LAN %d)", menu_mode, input_pad, probe_lan);
-				check(!strcmp(pc_menus_screen(postgame), cases[index].postgame),
-					"%s postgame follows current input or override (pad %d, LAN %d)", menu_mode, input_pad, probe_lan);
+				input_pad = pad;
+				probe_lan = FALSE;
+				check(!strcmp(pc_menus_screen(pregame), lobby) && pc_menus_screen(postgame) == postgame,
+					"an Internet or Direct Link pregame is the generated lobby whatever the input (pad %d)", pad);
+				probe_lan = TRUE;
+				check(pc_menus_screen(pregame) == pregame && pc_menus_screen(postgame) == postgame,
+					"system link keeps the game's pregame whatever the input (pad %d)", pad);
 			}
-			menu_mode = "xbox";
 			input_pad = 1;
 			probe_lan = FALSE;
-			menu_tags.xbox_set = TRUE;
 		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* Six widgets, two bitmaps, spinner strings, the two PC description lists and the language file's two widgets and list (5 tags) precede patch tags. */
-	counted = 9 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 2) + 2 + 5;
-	used = 9 + 2 * (3 + 4 + 1 + 2) + 2 + 5;
+	/* Five widgets, two bitmaps, spinner strings, the two PC description lists and the language file's two widgets and list (5 tags) precede patch tags. */
+	/* (the last 2 rows: the picture list's copies, one replacing a row and one added) */
+	/* (and the bar's screen: the screen, four glyphs, four captions, the three text captions' string lists and the
+	X's strings list, and the glyphs' four bitmaps: 17 tags) */
+	counted = 8 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 2 + 2) + 2 + 5 + 17;
+	used = 8 + 2 * (3 + 4 + 1 + 2 + 2) + 2 + 5 + 17;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -979,7 +1308,7 @@ static void check_apple(boolean tvos)
 	check(empty == 2, "the overflowing patch's two tags are empty (%ld)", empty);
 	check(tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\patch\\multiplayer_type_internet") ==
 		children_of(mp_list)[3].widget_tag.index, "a row's tag is named pc\\patch\\<name>");
-	check(textures_made == 1, "one texture made, DIRECT LINK's picture (%ld)", textures_made);
+	check(textures_made == 5, "five textures made, DIRECT LINK's picture and the bar's four glyphs (%ld)", textures_made);
 }
 
 /* A failed bitmap build must leave both map blocks and the sequence intact. */
@@ -1003,7 +1332,7 @@ static void check_panel_failure(void)
 	work->panel.base = work->panel.frames = 1;
 	work->added_count = 1;
 	work->added_descriptions[0] = "New description";
-	work->added_pictures[0] = "png:ce/port/blank__0.png";
+	work->added_pictures[0] = "png:pictures/port/blank__0.png";
 	reject_texture = TRUE;
 	check(!patch_panel_write(work), "a failed bitmap build rejects the panel");
 	reject_texture = FALSE;
@@ -1183,9 +1512,9 @@ static void language_probe(char const *name)
 		char path[400];
 		FILE *file;
 
-		snprintf(path, sizeof(path), "mkdir -p '%smenus/ce'", folder);
+		snprintf(path, sizeof(path), "mkdir -p '%smenus/sources'", folder);
 		check(system(path) == 0, "the folder is made");
-		snprintf(path, sizeof(path), "%smenus/ce/language.xml", folder);
+		snprintf(path, sizeof(path), "%smenus/sources/language.xml", folder);
 		file = fopen(path, "w");
 		check(file != NULL, "the mismatched pipe list is written");
 		if (file)
@@ -1291,9 +1620,6 @@ int main(int argc, char **argv)
 			fclose(file);
 		}
 	}
-	input_compact = !strcmp(mode, "compact") || !strcmp(mode, "override0");
-	if (!strcmp(mode, "override0")) input_density_override = 0;
-	if (!strcmp(mode, "override1")) input_density_override = 1;
 	map_build();
 	menu_tags_loaded("ui");
 	if (!strcmp(mode, "bad"))
@@ -1326,48 +1652,44 @@ int main(int argc, char **argv)
 				name_index("port settings close", port_function_names, NUMBEROF(port_function_names)),
 				"Video applies when deleted");
 		}
-		{
-			struct halo_menus const *menus = halo_menus_load();
-			long i, found = 0;
-			for (i = 0; menus && i < menus->widget_count; i++)
-				if (!strcmp(menus->widgets[i].name, "xbox/density_probe"))
-				{
-					found++;
-					check(menus->widgets[i].height == ((input_density_override < 0 ? input_compact : input_density_override) ? 30 : 39), "selected density's tap band");
-				}
-			check(found == 1, "exactly one density definition loaded");
-			halo_menus_set_compact_density(!input_compact);
-			check(halo_menus_load() == menus, "density stays fixed after the first load");
-		}
 		if (menu_tags.loaded)
 			check_apple(!strcmp(mode, "tvos"));
 		{
 			long xbox = tag_loaded(UI_WIDGET_DEFINITION_TAG, MM "main_menu");
-			long pc = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\main_menu\\main_menu");
 			long open = xbox;
-			menu_mode = "auto";
 			input_pad = 0;
-			check(pc != NONE, "both looks loaded together");
-			check(open == xbox, "input changes do not mutate an open screen");
-			check(pc_menu_screen_open(open, NULL, TRUE) == pc && !menu_tags.xbox_set, "next open takes keyboard look");
+			check(pc_menu_screen_open(open, NULL, TRUE) == xbox, "keyboard and mouse keep the game's main menu");
 			input_pad = 1;
-			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox && menu_tags.xbox_set, "back to main takes pad look");
-			check(pc_menu_screen_open(mp_screen, NULL, TRUE) == mp_screen && menu_tags.xbox_set,
-				"an unavailable counterpart holds the look");
-			menu_mode = "pc";
-			check(pc_menu_screen_open(xbox, NULL, TRUE) == pc, "fixed PC overrides pad input");
-			menu_mode = "xbox";
+			check(pc_menu_screen_open(open, NULL, TRUE) == xbox, "a controller keeps the game's main menu");
+			check(pc_menu_screen_open(mp_screen, NULL, TRUE) == mp_screen, "a screen with no counterpart opens itself");
 			input_pad = 0;
-			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox, "fixed Xbox overrides keyboard input");
+			/* BACK reopens the screen below by name: from a settings page opened in the profile's page, BACK must land on
+			the profile's page (itself), not the hub the always-redirect sends a fresh open to */
+			{
+				long hub = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\settings\\settings_screen");
+				long video = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\settings\\video_settings\\video_settings_screen");
+				long main_menu = tag_loaded(UI_WIDGET_DEFINITION_TAG, MM "main_menu");
+
+				check(hub != NONE && video != NONE && pe_screen != NONE, "the hub walk's screens are in the map");
+				pc_menu_screen_open(main_menu, NULL, TRUE);
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == hub, "the profile page opened from the main menu is the hub");
+				check(pc_menu_screen_open(hub, NULL, TRUE) == hub, "the hub opens as itself");
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == pe_screen, "the profile page opened from the hub is itself");
+				check(pc_menu_screen_open(video, NULL, TRUE) == video, "a settings page opens as itself");
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == pe_screen, "BACK from a settings page opens the profile page, not the hub");
+				check(pc_menu_screen_open(hub, NULL, TRUE) == hub, "BACK from the profile page opens the hub");
+				pc_menu_screen_open(main_menu, NULL, TRUE);
+				check(pc_menu_screen_open(pe_screen, NULL, TRUE) == hub, "the main menu ends the hub flow");
+			}
 			input_keyboard = 0;
 			pc_menu_screen_open(xbox, NULL, TRUE);
 			{
 				struct string_list *list = tag_get(UNICODE_STRING_LIST_TAG,
-					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
+					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\xbox\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
 				check(string_is(list, 0, "Rename this profile using\\nthe virtual keyboard.\\n\\nCurrent Profile:"),
 					"keyboard removal changes the next screen's description");
 				struct string_list *gametype = tag_get(UNICODE_STRING_LIST_TAG,
-					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\playlist_edit_list_extended_dsc_text"));
+					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\playlist_edit_list_extended_dsc_text"));
 				check(string_is(gametype, 0, "Rename this gametype using\\nthe virtual keyboard.\\n\\nThis gametype:"),
 					"virtual keyboard caption keeps the gametype label on the fourth line");
 				input_keyboard = 1;

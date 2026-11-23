@@ -39,6 +39,7 @@ frame_rate = "30"), which it holds frames for and names in its frame log
 #include "scenario/scenario_definitions.h"
 #include "main/main.h"
 #include "../src/gpu.h"
+#include "../src/halo_host_flags.h"
 #include "../src/halo_stereo.h"
 #include "../src/port_config.h"
 #include "bungie_net/network/transport.h"
@@ -58,6 +59,8 @@ void platform_log(const char *format, ...);
 #ifdef HALO_ILP32
 /* port/ios/host/host_perf_hooks.c, a guest import */
 void host_dynamic_resolution_scene(int enabled, int floor_lines);
+/* port/ios/host/host_frame_pacer.c, a guest import */
+void host_frames_in_flight_scene(int at_30);
 /* port/ios/host/host_benchmark.m: the decision the map actually uses, even when its context did not change. */
 void host_benchmark_workload(int variable);
 #endif
@@ -125,7 +128,6 @@ void halo_workload_decide(void)
 	short connection = game_connection();
 	struct network_game *game = network_game_get_game();
 	long full_rate_players = config_integer("network.full_rate_players");
-	const char *visionos = getenv("HALO_HOST_VISIONOS");
 	int hold_30, variable;
 	char reasons[160];
 
@@ -144,9 +146,10 @@ void halo_workload_decide(void)
 	which adds enemies for each player past the first; a host's mode adds none while it is the only player) */
 	inputs.coop_extra_enemies = workload_coop_extra_enemies(connection == _game_connection_network_client,
 		config_string("network.coop_enemies_mode"), inputs.network_players);
-	variable = workload_variable(&inputs, reasons, sizeof(reasons));
 	/* The compositor owns visionOS pacing, including when its profile sets this threshold. */
-	hold_30 = !(visionos && atoi(visionos)) && workload_hold_30(&inputs, full_rate_players);
+	inputs.compositor_paced = halo_host_visionos();
+	variable = workload_variable(&inputs, reasons, sizeof(reasons));
+	hold_30 = workload_hold_30(&inputs, full_rate_players);
 	if (hold_30)
 		snprintf(reasons, sizeof(reasons), "multiplayer map; %d players, %d on this device; above %ld at full rate: 30 fps",
 			workload_game_players(&inputs), inputs.local_players, full_rate_players);
@@ -268,6 +271,14 @@ int halo_scene_class(void)
 			told_drs_changes = changes;
 			host_dynamic_resolution_scene(config_scene_boolean("display.dynamic_resolution", scene_class),
 				(int)config_scene_integer("display.dynamic_resolution_floor", scene_class));
+			/* (display.frames_in_flight_at_30 may differ by workload context, which the host's own config reads do not
+			see: the pacer takes the value in force from here) */
+			{
+				char limit[8];
+
+				config_scene_string("display.frames_in_flight_at_30", scene_class, limit, sizeof(limit));
+				host_frames_in_flight_scene(!strcmp(limit, "1") ? 1 : !strcmp(limit, "2") ? 2 : 0);
+			}
 		}
 	}
 #endif

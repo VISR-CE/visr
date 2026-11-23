@@ -44,9 +44,14 @@ struct host_ui_pointer
 	int32_t down;
 	/* Persistent finger/pinch or left mouse button state; reads do not clear it. */
 	int32_t held;
+	/* the pixels of the drawable the picture is fit into on that surface, which the
+	surface then shows stretched to its own size: a drawable whose shape lags the
+	surface's (a rotation, a move between screens) moves where the picture lands.
+	0 when unknown: the surface's own shape */
+	float drawable_width, drawable_height;
 };
 
-_Static_assert(sizeof(struct host_ui_pointer) == 64, "host_ui_pointer crosses between the guest and the host");
+_Static_assert(sizeof(struct host_ui_pointer) == 72, "host_ui_pointer crosses between the guest and the host");
 
 /* host_ui_pointer_feedback(kind) */
 enum host_ui_pointer_feedback_kind

@@ -6,13 +6,11 @@
 		<on event="back" run="port password back" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/header_password" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/options_menu" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/b_butn" x="314" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/cancel" x="336" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/a_butn" x="459" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/accept" x="481" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/x_butn" x="60" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/x_hide" x="82" y="414" />
-		<on event="x" run="port password togglehide" />
+		<bar>
+			<action slot="x" scope="global" strings="HIDE|SHOW" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_x.s0|xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_x.s1" run="port password togglehide" while_typing="pointer" />
+			<action slot="b" scope="back" text="CANCEL" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_b.text" focus="true" />
+			<action slot="a" scope="select" strings="EDIT|JOIN GAME" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_a.s0|xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_bar_a.s1" focus="true" index="1" />
+		</bar>
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/header_password" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_password">
 	</widget>
@@ -72,10 +70,10 @@
 		<on event="back" run="port code back" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/options_menu" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/b_butn" x="314" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/cancel" x="336" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/a_butn" x="459" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/accept" x="481" y="414" />
+		<bar>
+			<action slot="b" scope="back" text="CANCEL" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_bar_b.text" focus="true" />
+			<action slot="a" scope="select" strings="EDIT|JOIN GAME" strings_ids="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_bar_a.s0|xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_bar_a.s1" focus="true" index="1" />
+		</bar>
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link">
 	</widget>
@@ -120,46 +118,20 @@
 		<string text="Type the join code your friend's lobby shows,\nor a whole invite link, then JOIN GAME." id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings.type_the_join_code_your_friend_s_71ed39" />
 		<string text="That is not a join code (eight letters and digits)\nor an invite link. Try again." id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings.that_is_not_a_join_code_eight_le_74b529" />
 	</strings>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn">
-		<on event="left_mouse" run="port password back" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/cancel" type="text" text="CANCEL" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22">
-		<on event="left_mouse" run="port password back" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn">
-		<on event="left_mouse" run="port password accept" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/accept" type="text" font="ui\large_ui" color="#FF2896FF" width="112" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/accept_captions" string_index="1">
-		<on event="left_mouse" run="port password accept" />
-	</widget>
-	<strings name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/accept_captions">
-		<string text="EDIT" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_accept_captions.edit" />
-		<string text="JOIN GAME" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_accept_captions.join_game" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/password/header_password/title">
+		<string text="PASSWORD" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_header_password_title.password" />
 	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/hide_captions">
-		<string text="HIDE" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_hide_captions.hide" />
-		<string text="SHOW" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_hide_captions.show" />
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/password/header_password" strings="xbox/main_menu/multiplayer_type_select/join_game/password/header_password/title" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/header_server_browser/title">
+		<string text="SERVER BROWSER" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_header_server_browser_title.server_browser" />
 	</strings>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/x_butn" type="container" width="21" height="26" bitmap="xbox/browser/x_butn">
-		<on event="left_mouse" run="port password togglehide click" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/x_hide" type="text" font="ui\large_ui" color="#FF2896FF" width="60" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/hide_captions" string_index="0">
-		<on event="left_mouse" run="port password togglehide click" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn">
-		<on event="left_mouse" run="port code back" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/cancel" type="text" text="CANCEL" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22">
-		<on event="left_mouse" run="port code back" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn">
-		<on event="left_mouse" run="port code accept" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/accept" type="text" font="ui\large_ui" color="#FF2896FF" width="112" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/accept_captions" string_index="1">
-		<on event="left_mouse" run="port code accept" />
-	</widget>
-	<strings name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/accept_captions">
-		<string text="EDIT" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_accept_captions.edit" />
-		<string text="JOIN GAME" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_accept_captions.join_game" />
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/header_server_browser" strings="xbox/main_menu/multiplayer_type_select/join_game/header_server_browser/title" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link/title">
+		<string text="DIRECT LINK" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_header_direct_link_title.direct_link" />
 	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link" strings="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link/title" />
+	<strings name="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link/title">
+		<string text="DIRECT LINK" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_header_direct_link_title.direct_link" />
+	</strings>
+	<title widget="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link" strings="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link/title" />
 </menus>

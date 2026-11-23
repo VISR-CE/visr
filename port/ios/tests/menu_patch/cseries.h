@@ -20,6 +20,8 @@ enum
 #define TRUE 1
 #define FALSE 0
 #define NONE -1
+/* the game's halt: the probe's host_development_hooks is 0, so it is never reached */
+#define match_vhalt(file, line, string) abort()
 #define CEILING(n, ceiling) ((n) > (ceiling) ? (ceiling) : (n))
 #define PIN(n, floor, ceiling) ((n) < (floor) ? (floor) : CEILING((n), (ceiling)))
 #define FLAG(b) (1 << (b))

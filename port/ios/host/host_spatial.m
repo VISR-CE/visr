@@ -171,8 +171,8 @@ static void read_settings(void)
 	char value[64];
 
 	settings_read = 1;
-	host_config_string("input.aim", "controller", value, sizeof(value));
-	aim_controller = !strcmp(value, "controller");
+	host_config_string("input.aim", "auto", value, sizeof(value));
+	aim_controller = halo_spatial_aim_tracks_hand(value);
 	if (!aim_controller && strcmp(value, "head"))
 		host_logf(HOST_LOG_WARN, "controller aim: input.aim \"%s\" is not recognized; aiming with the head", value);
 	host_config_string("input.aim_hand", "right", value, sizeof(value));

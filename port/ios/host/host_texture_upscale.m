@@ -5,6 +5,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #include "host_startup.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
+#include "metal_gate.h"
 #import <TargetConditionals.h>
 #if TARGET_OS_OSX
 #import <AppKit/AppKit.h>
@@ -1074,9 +1075,9 @@ void host_texture_upscale_init(const char *root) {
         [NSFileManager.defaultManager createDirectoryAtPath:cache_directory() withIntermediateDirectories:YES attributes:nil error:nil];
         [[NSURL fileURLWithPath:cache_directory()] setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
         texture_cache_manifest_load(cache_directory().fileSystemRepresentation,&manifest,&manifest_count);
-        id<MTLDevice> device=MTLCreateSystemDefaultDevice();record_format=TEXTURE_RECORD_ASTC4X4;
+        record_format=TEXTURE_RECORD_ASTC4X4;
         /* rule 7: ASTC 4x4 where the GPU has no BC */
-        if(@available(iOS 16.4,tvOS 16.4,macOS 11.0,*))if(device.supportsBCTextureCompression)record_format=TEXTURE_RECORD_BC7;
+        if(metal_feature(METAL_FEATURE_BC_TEXTURES))record_format=TEXTURE_RECORD_BC7;
 #ifdef HALO_DEVELOPMENT_HOOKS
         /* Development only: HALO_TEXTURE_UPSCALE_RECORDS=astc makes ASTC 4x4 records on a GPU with BC, as a phone without BC does */
         if(getenv("HALO_TEXTURE_UPSCALE_RECORDS")&&!strcmp(getenv("HALO_TEXTURE_UPSCALE_RECORDS"),"astc"))record_format=TEXTURE_RECORD_ASTC4X4;
@@ -1426,8 +1427,8 @@ static int level_ready_without_generator(void) {
     NSData *keys=path?classify_map_keys(path,name,NULL):nil;
     int ready=0;
     if(keys){
-        if(!record_format){id<MTLDevice> device=MTLCreateSystemDefaultDevice();record_format=TEXTURE_RECORD_ASTC4X4;
-            if(@available(iOS 16.4,tvOS 16.4,macOS 11.0,*))if(device.supportsBCTextureCompression)record_format=TEXTURE_RECORD_BC7;}
+        if(!record_format){record_format=TEXTURE_RECORD_ASTC4X4;
+            if(metal_feature(METAL_FEATURE_BC_TEXTURES))record_format=TEXTURE_RECORD_BC7;}
         struct texture_recipe_globals globals=recipe_globals();struct texture_cache_progress p={0};
         texture_cache_progress(keys.bytes,keys.length/sizeof(struct texture_cache_key),saved,saved_count,records,record_count,&globals,&p);
         ready=p.ready==p.textures;

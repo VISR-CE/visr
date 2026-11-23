@@ -73,7 +73,7 @@ def compile_run(tmp_path, source):
     path = tmp_path / 'hud.c'
     path.write_text(source)
     binary = tmp_path / 'hud'
-    subprocess.run(['cc', '-std=c11', '-DHALO_IOS=1', '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-unused-const-variable',
+    subprocess.run(['cc', '-std=c11', '-D_POSIX_C_SOURCE=200809L', '-DHALO_IOS=1', '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-unused-const-variable',
                     '-fsanitize=address,undefined', '-pthread', '--include-directory=' + str(ROOT / 'port/linux/src'),
                     str(path), '-lz', '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

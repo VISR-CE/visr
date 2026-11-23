@@ -15,6 +15,14 @@ void host_external_menu_splash(void);
 void host_external_attach(void *sdl_window, int metal);
 void host_external_poll(void);
 void host_external_commit(int allow_pause);
+/* The screen the app's own window is on: its pixel size, highest rate and panel name ("panel", "panel_cover" or
+   "panel_inner", from the hinge). valid is 0 until the window exists and where there is no such window. */
+struct host_device_screen { int valid; double width, height; long maximum_frames; char panel[16]; };
+void host_external_device_screen(struct host_device_screen *out);
+/* The display topology derived from what the system reports now (host_topology_model.h): shadow mode, for the
+   report's topology block; nothing decides from it yet. */
+struct host_topology;
+void host_external_topology_now(struct host_topology *out);
 int host_external_active(void);
 int host_external_size(int *width, int *height);
 /* the built-in display's safe-area insets as fractions of the window: left, right, top, bottom (zeros on an external display) */
@@ -39,8 +47,9 @@ int host_external_cycle(int direction);
 int host_external_force(const char *mode);
 int host_external_ready(void);
 void host_external_mode_label(char *text, size_t size);
-/* gpu_metal.m: drains the old output before exchanging layers. */
-int gpu_metal_output(void *layer, void *screen, int width, int height);
+/* host_gpu_dispatch.c, the Metal backend's output side operation (gpu_backend.h): drains the old output before
+   exchanging layers. Game thread. */
+int host_gpu_output(void *layer, void *screen, int width, int height);
 /* Main-only layer geometry update, inside the renderer's drained output fence. */
 void host_external_output_resize(void *layer, int width, int height);
 /* host_sdl.c: close and reopen the output streams (and so the device) after an audio route change. */

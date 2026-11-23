@@ -159,6 +159,13 @@ time stereo.c reads it (once a frame) */
 static unsigned long probe_clock;
 unsigned long platform_clock_frames(void) { return ++probe_clock; }
 double halo_frame_trace_milliseconds(void) { return 0.0; }
+/* render_interpolation.c's import: each report, and the last one */
+static unsigned long presentation_reports, presentation_reported;
+void render_interpolation_presentation_due(unsigned long microseconds)
+{
+	presentation_reports++;
+	presentation_reported = microseconds;
+}
 int halo_third_person_camera(void) { return game_third_person; }
 /* The focused dead-camera probe can replace this with the production
 camera procedure and network predicate. */
@@ -226,6 +233,7 @@ void host_stereo_frame(struct halo_stereo_frame *frame)
 		return;
 	}
 	frame->eye_count = 2;
+	frame->presentation_lead_microseconds = 30000;
 	if (host_unanchored)
 		host_stereo_head_hold(&head, frame);
 	else
@@ -2565,6 +2573,39 @@ static void expansion_window(void)
 eyes only with one), so the frame has no eyes and no hook acts on them,
 while the Compositor's frame is still asked for (its picture goes on the
 UI's quad, as for a frame without eyes) */
+/* every frame reports its presentation to the blend between ticks exactly once, whichever way it leaves; only a
+frame drawing the Compositor's eyes reports a lead, so leaving VR hands the blend back to the window's schedule */
+static void presentation_reported_once(void)
+{
+	unsigned long before;
+	const char *stereo = setting_stereo;
+
+	printf("presentation reports:\n");
+	restart("snap", 30.0, 120.0, 0);
+	before = presentation_reports;
+	halo_stereo_frame_begin();
+	check(presentation_reports == before + 1 && presentation_reported == 30000, "HEAD with eyes: the lead, once");
+	host_closed = 1;
+	halo_stereo_frame_begin();
+	check(presentation_reports == before + 2 && presentation_reported == 0, "the space closed: 0, once");
+	host_closed = 0;
+	probe_windows = 2;
+	halo_stereo_frame_begin();
+	check(presentation_reports == before + 3 && presentation_reported == 0, "split screen: 0, once");
+	probe_windows = 1;
+	setting_stereo = "off";
+	stereo_configured = -1;
+	halo_stereo_frame_begin();
+	check(presentation_reports == before + 4 && presentation_reported == 0, "left VR (stereo off): 0, once");
+	setting_stereo = "side_by_side";
+	stereo_configured = -1;
+	probe_drawable[0] = probe_drawable[1] = 0;
+	halo_stereo_frame_begin();
+	check(presentation_reports == before + 5 && presentation_reported == 0, "side by side without a drawable: 0, once");
+	setting_stereo = stereo;
+	stereo_configured = -1;
+}
+
 static void split_screen(void)
 {
 	float yaw, pitch;
@@ -3359,6 +3400,7 @@ int main(int argc, char **argv)
 	cutscene_rulings();
 	immersive_cutscene();
 	split_screen();
+	presentation_reported_once();
 	if (failures)
 	{
 		printf("stereo head probe: %d failed\n", failures);

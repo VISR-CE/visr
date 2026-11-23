@@ -30,7 +30,8 @@ static long ui_mouse_target_count = 0;
 static short ui_mouse_radius = 0;
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define ABS(a) ((a) < 0 ? -(a) : (a))
-enum { _ui_mouse_target_item, _ui_mouse_target_value, _ui_mouse_target_list_slot, _ui_mouse_target_button };
+enum { _ui_mouse_target_item, _ui_mouse_target_value, _ui_mouse_target_list_slot, _ui_mouse_target_button,
+       _ui_mouse_target_action };
 static long ui_redraw_touch_target_units(void) { return 0; }
 __SEARCH__
 static void add(short x0, short y0, short x1, short y1) {
@@ -95,21 +96,6 @@ def test_scroll_arrows_are_targets():
     assert 'strcmp(widget->name, "scroll_down_arrow")' in note and "_widget_event_dpad_down" in note
 
 
-def test_pointer_synthesizes_no_input_activity():
-    # touch-made mouse events must not count as mouse activity, and the menu's own presses (posted to the
-    # event manager) must not reach the input class
-    platform = (ROOT / "port/linux/src/sdl_platform.c").read_text()
-    motion = platform[platform.index("case SDL_EVENT_MOUSE_MOTION:"):]
-    motion = motion[:motion.index("#ifndef HALO_ILP32")]
-    assert "SDL_TOUCH_MOUSEID" in motion and "SDL_PEN_MOUSEID" in motion
-    assert "SDL_TOUCH_MOUSEID || event.button.which == SDL_PEN_MOUSEID" in platform
-    host = (ROOT / "port/ios/host/host_sdl.c").read_text()
-    pointer = host[host.index("static void menu_pointer_event("):host.index("HALO_MENU_POINTER_SCRIPT")]
-    assert "platform_menu_activity" not in pointer
-    widget = (ROOT / "source/interface/ui_widget.c").read_text()
-    assert "platform_menu_activity" not in widget
-
-
 def test_carousel_peeks_are_targets():
     source = (ROOT / "source/interface/ui_widget.c").read_text()
     helper = source[source.index("static void ui_mouse_note_carousel_peeks("):]
@@ -132,6 +118,8 @@ def test_touch_legend_labels_have_minimum_tap_bounds(tmp_path):
     program = (ROOT / "port/ios/tests/menu_legend_touch_probe.c").read_text()
     slots = source[source.index("/* port: the touch legend's four fixed slots."):
                    source.index("/* port: the touch legend's button. `drawn`")]
+    program = program.replace('#include "menu_geometry.h"',
+                              (ROOT / "port/linux/include/menu_geometry.h").read_text())
     program = program.replace("/* SLOTS */", slots)
     program = program.replace("/* GEOMETRY */", block(source, "static boolean ui_mouse_legend_bounds("))
     program = program.replace("/* SLICE */", block(source, "static void ui_widget_draw_touch_legend_slice("))
@@ -145,6 +133,6 @@ def test_touch_legend_labels_have_minimum_tap_bounds(tmp_path):
         raise SkipTest("A C compiler is required for the legend tap probe")
     probe, binary = tmp_path / "legend.c", tmp_path / "legend"
     probe.write_text(program)
-    subprocess.run([compiler, "-Wall", "-Werror", "-fsanitize=address,undefined",
+    subprocess.run([compiler, "-Wall", "-Werror", "-Wno-unused-function", "-fsanitize=address,undefined",
                     str(probe), "--output=" + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

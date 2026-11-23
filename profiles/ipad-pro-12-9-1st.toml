@@ -20,6 +20,9 @@ shadow_map_size = 128
 anisotropic_filtering = 4
 model_lod = "auto"
 
+[variable.display]
+effect_limits = "xbox"
+
 [network]
 player_capacity = 64
 full_rate_players = 16
@@ -69,3 +72,8 @@ source = "VISR presented capacity ladder, main e77a24957, build 20261029.192128,
 basis = "measured"
 why = "At 60 frames a second, the real 720-line variable settings (128 shadows, 4x filtering, automatic model detail, full effects and fixed resolution) hold 16 players on Blood Gulch: 99.85% and 99.81% of frames on time, median 99.83%. The 24-player rung fails at 99.05% and 98.95% (median 99.00%); the 32-player probe also fails (median 91.245%). Sidewinder confirms 16 at 99.92% and 99.90% (median 99.91%). Each count has two valid presented rounds; 16 is the largest passing ladder count confirmed on both maps."
 source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Blood Gulch and Sidewinder, 2026-10-31"
+
+[evidence."variable.display.effect_limits"]
+basis = "inherited"
+why = "This device holds 16 players or fewer at full rate; the measured iPad Pro 12.9 (2nd generation) gained 13% of its frame rate in a 128-player fight from the Xbox's decal set. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
+source = "`ipad-pro-12-9-2nd.toml` variable.display.effect_limits evidence, main 1a41b6f59, 2026-11-20"

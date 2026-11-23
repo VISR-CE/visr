@@ -169,17 +169,17 @@ add_executable(VISR MACOSX_BUNDLE
     "${ROOT}/port/runtime/texture_policy.c" "${ROOT}/port/runtime/texture_cache.c"
     "${CMAKE_CURRENT_BINARY_DIR}/texture_policy_table.c" "${CMAKE_CURRENT_BINARY_DIR}/texture_title_replacements.c"
     host/host_main.m host/host_crash.c host/host_memory.c host/host_loader.c host/host_syscall.c host/guest_call.S
-    host/host_thread.c host/host_controller_glyphs.m host/host_sdl.c host/host_audio_output.m host/host_audio_session.m host/host_gpu.c host/host_external.m host/host_hinge.m host/host_posture.m host/host_external_mode.c host/host_gpu_dispatch.c host/host_low_power.m host/host_frame_pacer.c host/gpu_metal.m host/host_frame_counter.m host/host_main_thread.c host/host_game_thread.c host/host_startup.c host/host_startup_platform.m host/host_frame_counter_stats.c host/host_lifecycle.m
+    host/host_thread.c host/host_controller_glyphs.m host/host_sdl.c host/host_audio_output.m host/host_audio_session.m host/host_gpu.c host/host_external.m host/host_hinge.m host/host_posture.m host/host_external_mode.c host/host_gpu_dispatch.c host/gpu_call_hash.c host/gpu_queue.c host/gpu_owner_check.c host/gpu_stream_ring.c host/host_thread_cpu.c host/host_low_power.m host/host_frame_pacer.c host/frame_waits.c host/host_main_sync_log.c host/host_window_stats.c host/gpu_metal.m host/metal_gate.m host/host_frame_counter.m host/host_main_thread.c host/host_game_thread.c host/host_controller_age.c host/host_startup.c host/host_startup_platform.m host/host_frame_counter_stats.c host/host_lifecycle.m
     host/host_join_link.c host/host_config.c host/host_bink.c host/host_bonjour.m host/host_https.m host/host_share.m host/host_qr.m host/host_invite_card.m host/host_lan.c host/host_profile.c host/host_profile_catalog.c host/host_profile_delivery.c host/host_device.m host/host_memory_pressure.m
     "${ROOT}/port/third_party/tomlc17/tomlc17.c"
     host/host_shader_pack.c host/host_data_pack.m host/host_data_updates.m host/host_recording_pack.c host/host_benchmark_snapshot.m host/host_benchmark_catalog.m
     "${ROOT}/port/third_party/monocypher/monocypher.c"
     "${ROOT}/port/third_party/monocypher/monocypher-ed25519.c"
-    host/host_shader_upload.m host/host_map_identity.m "${ROOT}/port/runtime/shader_observations.c"
-    host/host_perf_reports.m host/host_perf_hooks.c host/host_perf_metal.m host/host_perf_validation.m host/host_report_delivery.m host/host_log_file.c host/host_open_website.m host/host_log_send.m "${ROOT}/port/runtime/game_perf.c"
-    host/host_benchmark.m host/host_benchmark_outbox.m host/host_benchmark_presentation.m host/host_benchmark_page.m "${ROOT}/port/runtime/benchmark_metrics.c" "${ROOT}/port/runtime/benchmark_presentation.c"
+    host/host_shader_upload.m host/host_map_identity.m "${ROOT}/port/runtime/shader_observations.c" "${ROOT}/port/runtime/shader_record.c"
+    host/host_perf_reports.m host/host_perf_hooks.c host/host_perf_metal.m host/host_perf_validation.m host/host_report_delivery.m host/host_save_writer.c "${ROOT}/port/runtime/save_writer.c" host/host_log_file.c host/host_open_website.m host/host_log_send.m "${ROOT}/port/runtime/game_perf.c"
+    host/host_benchmark.m host/host_benchmark_outbox.m host/host_benchmark_presentation.m host/host_benchmark_page.m "${ROOT}/port/runtime/benchmark_metrics.c" "${ROOT}/port/runtime/benchmark_presentation.c" "${ROOT}/port/runtime/frame_timeline.c" host/host_frame_timeline.c
     "${ROOT}/port/runtime/benchmark_plan.c" "${ROOT}/port/runtime/benchmark_journal.c"
-    host/host_stereo.m host/host_stereo_head.c host/host_stereo_hud.c
+    host/host_stereo.m host/host_stereo_head.c host/host_stereo_posture.c host/host_stereo_hud.c
     host/host_spatial.m host/host_spatial_pose.c host/host_spatial_record.c
     "${ROOT}/port/linux/src/delta_legacy_runtime.c"
     "${ROOT}/port/linux/src/posix_files.c" host/posix_net.c host/host_socket_revival.c host/host_natpmp.c host/host_natpmp_packets.c
@@ -470,7 +470,7 @@ set_source_files_properties("${HALO_PRIVACY_MANIFEST}" PROPERTIES MACOSX_PACKAGE
 # starts. Off, the suite has only the scenes that play by themselves and the app carries no recording: the first
 # tester builds are made so, until recorded routes are shown to hold on other devices
 # On with routes off (the native Mac development build): the app carries no recordings but still runs the unsigned
-# benchmark/local-routes catalog that tools/replay_check.py and step-tools/watch-windows.py write
+# benchmark/local-routes catalog that tools/replay_check.py and a window-watching tool outside this repository write
 option(HALO_BENCHMARK_LOCAL_ROUTES "Run benchmark/local-routes without bundling recordings" OFF)
 option(HALO_BENCHMARK_ROUTES "Bundle the device benchmark's recorded routes and run them as scenes" ON)
 if(HALO_BENCHMARK_ROUTES)

@@ -61,6 +61,9 @@ def remote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     runner = clone(origin, tmp_path / "runner")
     monkeypatch.setattr(release, "ROOT", runner)
     monkeypatch.setattr(release, "require_ci", lambda: None)
+    # these fixture checkouts hold no `tools/`; `run_in_source` itself is tested in test_release_source_checks.py
+    source_checks: list[tuple[Path, str]] = []
+    monkeypatch.setattr(release, "run_in_source", lambda root, check: source_checks.append((root, check)))
     outputs: list[tuple[str, str]] = []
     monkeypatch.setattr(release, "output", lambda *pair: outputs.append(pair))
     return {
@@ -70,6 +73,7 @@ def remote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         "wanted": wanted,
         "later": later,
         "outputs": outputs,
+        "source_checks": source_checks,
         "tmp": tmp_path,
     }
 
@@ -133,6 +137,7 @@ def test_release_an_older_main_commit_without_touching_main(remote, monkeypatch:
     assert manifest["source_sha"] == remote["wanted"]
     assert manifest["source_branch"] == "main"
     assert ("tag", "visr-v0.6.2") in remote["outputs"]
+    assert remote["source_checks"] == [(runner, "require_asset_policy")]
 
     # Recovery works while main is still ahead and before the metadata reaches it.
     commit_file(remote["seed"], "other.txt", "x\n", "📝 docs(other): unrelated work")

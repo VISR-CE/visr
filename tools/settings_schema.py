@@ -52,7 +52,8 @@ def config_settings(text=None):
                 macros.setdefault(macro, {})[build] = c_string(literal)
     pattern = (r'\{\s*(' + C_STRING + r')\s*,\s*_config_(boolean|integer|real|string)\s*,\s*('
                + C_STRING + r'|DEFAULT_\w+)\s*,\s*(' + C_STRING + r')\s*,\s*'
-               r'(_environment_\w+)\s*,\s*(_platform_\w+)\s*,\s*((?:' + C_STRING + r'\s*)+)\}')
+               r'(_environment_\w+)\s*,\s*(_platform_\w+)\s*,\s*((?:' + C_STRING + r'\s*)+)(?:,\s*(_tier_\w+)\s*)?'
+               r'(?:,\s*(' + C_STRING + r')\s*)?\}')
     # a profiling build's own settings (configure.py --profile): a block of the table that only it compiles
     profile_spans = [match.span() for match in re.finditer(r'^#ifdef HALO_PROFILE$.*?^#endif$', table, re.M | re.S)]
     entries = list(re.finditer(pattern, table))
@@ -62,7 +63,7 @@ def config_settings(text=None):
         raise ValueError('unrecognized config_settings syntax; update the generator')
     result = {}
     for entry in entries:
-        name, kind, default, environment, style, platform, comment = entry.groups()
+        name, kind, default, environment, style, platform, comment, tier, choices = entry.groups()
         name = c_string(name)
         if name in result:
             raise ValueError(f'duplicate setting {name}')
@@ -74,7 +75,10 @@ def config_settings(text=None):
             values = dict.fromkeys(('apple', 'desktop'), c_string(default))
         defaults = {build: json.loads(value) for build, value in values.items()}
         platforms = {'_platform_all': ['apple', 'desktop'], '_platform_ios': ['apple'],
-                     '_platform_desktop': ['desktop'], '_platform_windows': ['windows']}[platform]
+                     '_platform_desktop': ['desktop'], '_platform_windows': ['windows'],
+                     '_platform_visionos': ['visionos']}[platform]
+        if tier not in (None, '_tier_derived', '_tier_player', '_tier_tuning'):
+            raise ValueError(f'{name}: unknown tier {tier}')
         item = {'type': {'real': 'number'}.get(kind, kind), 'default': defaults['apple'],
                 'description': ' '.join(c_string(comment).split()),
                 'x-environment': c_string(environment), 'x-environment-style': style.removeprefix('_environment_'),
@@ -83,8 +87,26 @@ def config_settings(text=None):
             item['x-defaults'] = defaults
         if any(start <= entry.start() < end for start, end in profile_spans):
             item['x-profiling-build'] = True
+        # (only the stored tiers: profile and debug are derived, see setting_tier)
+        if tier and tier != '_tier_derived':
+            item['x-tier'] = tier.removeprefix('_tier_')
+        if choices:
+            if kind != 'string':
+                raise ValueError(f'{name}: choices on a {kind} setting')
+            item['x-choices'] = c_string(choices)
         result[name] = item
     return result
+
+
+def setting_tier(name, item, profile_keys=None):
+    """A setting's tier as port_config.c's enum config_tier describes it: 'profile' for a setting
+    port_profile_keys.h lists (a debug.* one included), 'debug' for another debug.* setting, else the
+    stored 'player' or 'tuning'; None when a setting that needs a stored tier has none."""
+    if name in (profile_check.profile_keys() if profile_keys is None else profile_keys):
+        return 'profile'
+    if name.startswith('debug.'):
+        return 'debug'
+    return item.get('x-tier')
 
 
 def object_schema(properties=None, required=()):
@@ -102,10 +124,35 @@ def nested(settings):
     return object_schema(sections)
 
 
+def setting_choices(name, settings):
+    """a string setting's accepted names as a list ('#' stands for a whole number in quotes, 30 to 1000, as in
+    port_profile_keys.h), or None when any text is accepted: the table's own choices, else the profile table's"""
+    if settings[name].get('x-choices'):
+        return settings[name]['x-choices'].split('|')
+    key = profile_check.profile_keys().get(name)
+    return key[3] if key and key[3] else None
+
+
+def with_choices(settings):
+    """settings with each closed string setting's names as a JSON Schema enum (x-choices replaced by it)"""
+    result = {}
+    for name, item in settings.items():
+        item = {key: value for key, value in item.items() if key != 'x-choices'}
+        names = setting_choices(name, settings)
+        if names:
+            named = [choice for choice in names if choice != '#']
+            if '#' in names:
+                item['oneOf'] = [{'enum': named}, {'pattern': r'^(?:[3-9][0-9]|[1-9][0-9]{2}|1000)$'}]
+            else:
+                item['enum'] = named
+        result[name] = item
+    return result
+
+
 def config_schema(settings):
     # Profile limits are intentionally narrower than config limits. Until the C
     # config table supplies general bounds, expose only its types and defaults.
-    return {'$schema': DRAFT, 'title': 'VISR config.toml', **nested(settings)}
+    return {'$schema': DRAFT, 'title': 'VISR config.toml', **nested(with_choices(settings))}
 
 
 def profile_value(name, key, settings):
@@ -144,7 +191,7 @@ def profile_schema(settings):
         return nested({name: values[name] for name in values if name in names})
     def scene_schema(names):
         return object_schema({scene: context(names & scenes) for scene in profile_check.SCENES})
-    properties = context(set(values))['properties']
+    properties = context(set(values) - profile_check.variable_only_keys())['properties']
     properties.update({
         'schema': {'type': 'integer', 'const': 1},
         'name': {'type': 'string', 'minLength': 1, 'maxLength': 63, 'pattern': r'^[^\x00-\x1f\x7f]+$'},
@@ -160,7 +207,7 @@ def profile_schema(settings):
     })
     evidence = {}
     for name in values:
-        contexts = [name]
+        contexts = [] if name in profile_check.variable_only_keys() else [name]
         if name in scenes:
             contexts += [f'scene.{scene}.{name}' for scene in profile_check.SCENES]
         if name in variable:
@@ -230,7 +277,8 @@ def markdown(kind, settings):
         return '`' + json.dumps(value, ensure_ascii=False) + '`'
     keys = profile_check.profile_keys()
     rows = []
-    names = list(settings) if kind == 'config' else list(keys)
+    # (a tuning value is read when set but is no player setting: the public reference leaves it out)
+    names = [name for name in settings if settings[name].get('x-tier') != 'tuning'] if kind == 'config' else list(keys)
     section = None
     for name in names:
         current = name.split('.')[0]
@@ -255,6 +303,8 @@ def markdown(kind, settings):
             if choices:
                 accepted += ': ' + ', '.join('quoted 30 to 1000' if c == '#' else f'`{c}`' for c in choices)
             contexts = ['tvOS built-in'] if name == 'display.output_height' else ['gameplay']
+            if name in profile_check.variable_only_keys():
+                contexts = []
             if name in profile_check.variable_keys():
                 contexts.append('variable')
             if name in profile_check.scene_keys():

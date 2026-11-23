@@ -674,7 +674,6 @@ void halo_screen_menu_visible_bounds(float *top, float *bottom);
 static void ui_widget_menu_content(struct widget_instance *widget);
 void ui_redraw_note(char const *tag_name, void const *hardware_format, long width, long height);
 long ui_redraw_touch_target_units(void);
-long ui_redraw_safe_left_units(long width);
 #include "rasterizer/rasterizer.h"
 #include "saved games/player_profile.h"
 #include "saved games/playlist_profile.h"
@@ -696,6 +695,8 @@ long ui_redraw_safe_left_units(long width);
 #include "halo_menu_dropdown.h"
 #include "halo_menu_slider.h"
 #include "halo_controller_glyphs.h"
+#include "menu_geometry.h"
+#include "halo_menu_meta.h"
 #include "halo_menus.h"
 #include "../../port/runtime/include/halo_ui_carousel.h" /* shared with the host and probes; not on the guest include path */
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
@@ -1386,6 +1387,9 @@ static void event_handler_dispatch(
 static boolean ui_widget_load_children_recursive(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition);
+/* port: a standard tall row, as the menus' files or a patch said (menu_tags.c) */
+boolean pc_menu_row_tall(
+	long tag_index);
 /* port: whether the tag is one of the menus' (port/linux/game/menu_tags.c) */
 boolean pc_menu_tag(
 	long tag_index);
@@ -1403,9 +1407,20 @@ boolean pc_menu_patch_list_index(
 (port/linux/game/menu_functions.c), and draw in gray. */
 boolean ui_widget_port_browser_row_unavailable(
 	struct widget_instance *widget);
+/* port: a disabled row (grayed INTERNET or SPLIT SCREEN) refuses an activation (menu_functions.c) */
+boolean ui_widget_port_disabled_row_activation(
+	struct widget_instance const *widget,
+	short event_type);
 /* port: a graphics-mode override locks editing without disabling the row (menu_functions.c). */
 boolean ui_widget_port_graphics_locked(
 	struct widget_instance *widget);
+/* port: a text field is being typed in (menu_functions.c) */
+boolean ui_widget_port_text_editing(
+	void);
+/* port: whether the screen's bar action on the event's button waits while typing (its key is a letter then) */
+static boolean ui_bar_key_is_letter(
+	struct widget_instance *screen,
+	struct event_record const *event);
 /* port: where in its widget, and how large, the menus draw a frame of
 ui.map's that they scale (port/linux/game/menu_tags.c) */
 boolean pc_menu_frame_placement(
@@ -3075,7 +3090,13 @@ static boolean widget_instance_port_refuse_graphics_edit(
 		 event->data.button.index == _widget_event_dpad_left || event->data.button.index == _widget_event_dpad_right);
 
 	edit = edit || (event->type == _event_type_left_stick && event->data.stick.x != 0);
-	if (!edit || !ui_widget_port_graphics_locked(widget))
+	if (!edit)
+		return FALSE;
+	/* a disabled row (grayed INTERNET or SPLIT SCREEN) is refused by A, whichever input made it (controller,
+	keyboard, mouse click or touch tap) */
+	if (!(event->type == _event_type_button && event->data.button.index == _gamepad_analog_button_a &&
+		ui_widget_port_disabled_row_activation(widget, _gamepad_analog_button_a)) &&
+		!ui_widget_port_graphics_locked(widget))
 		return FALSE;
 	ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
 	return TRUE;
@@ -3799,6 +3820,16 @@ static void event_handler_dispatch(
 	boolean close_current = FALSE;
 	boolean close_all = FALSE;
 
+	/* port: a disabled row does nothing when chosen (the press is normally refused earlier, with the same sound) */
+	if (ui_widget_port_disabled_row_activation(widget, handler->event_type))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+		return;
+	}
+	/* port: a bar action declared while_typing="pointer" (the password's X): its key is a letter while a field is
+	being typed in, so only a tap or a click on the action runs it */
+	if (ui_bar_key_is_letter(widget, event))
+		return;
 	if (TEST_FLAG(handler->flags, _event_handler_run_scenario_script_bit) &&
 		handler->script[0])
 	{
@@ -4343,6 +4374,11 @@ boolean ui_widget_port_dispatch_event(
 	/* (deleted: a handler deleted the widget's screen, opening another or
 	going back; the callers' widgets are gone with it) */
 	*deleted = FALSE;
+	if (ui_widget_port_disabled_row_activation(widget, event_type))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+		return TRUE;
+	}
 
 	for (handler_index = 0; handler_index < definition->event_handlers.count; handler_index++)
 	{
@@ -5644,6 +5680,35 @@ static __inline real widget_instance_get_cumulative_alpha_modifier(
 	return alpha_modifier;
 }
 
+/* port: the one rule for drawing focus (a row's selected frame, white text, the plasma, a card's outline): whether a
+focused item of a kind (halo_menu_meta.h) draws as focused. A list's rows draw their focus on every input, touch
+too, so a touch player sees which row the panel describes. A carousel card draws no focus outline while the last
+input is touch: a finger does not move focus and a tap acts on the card it lands on. Every place that draws focus
+asks this (ui_list_child_draws_focus for a list's child, the carousel's cards, and the port's own lists in
+menu_functions.c); tools/test_focus_draw_rule.py fails on one that does not. */
+int ui_widget_port_draws_focus(
+	enum halo_menu_focus_item item,
+	int focused)
+{
+	return focused && (item == HALO_MENU_FOCUS_ROW || halo_menu_pointer_controls() != 2);
+}
+
+/* port: the kind of item a list's children are (halo_menu_meta.h): a carousel's are cards, any other list's rows.
+The list updaters and the carousel both ask this, so one widget never has two rules. */
+static enum halo_menu_focus_item ui_list_focus_item(
+	struct widget_instance *list)
+{
+	return ui_widget_is_carousel(list) ? HALO_MENU_FOCUS_CARD : HALO_MENU_FOCUS_ROW;
+}
+
+/* port: whether a list draws its child as focused (ui_widget_port_draws_focus) */
+static boolean ui_list_child_draws_focus(
+	struct widget_instance *list,
+	struct widget_instance *child)
+{
+	return ui_widget_port_draws_focus(ui_list_focus_item(list), child == list->focused_child);
+}
+
 static boolean widget_instance_text_box_is_focused(
 	struct widget_instance *widget)
 {
@@ -5948,6 +6013,42 @@ from a string list resizes that block every render, and pool_resize_pointer halt
 other pointer. */
 static wchar_t *ui_text_box_render_override = NULL;
 
+/* draw_string's flag to wrap a line too wide for its box at a space (_draw_text_wrap_horizontally_bit, draw_string.c) */
+#define UI_DRAW_TEXT_WRAP_HORIZONTALLY FLAG(0)
+
+/* port: on touch, the disc's menu strings that name a controller button ("Press %a-button or
+%y-button to start your own game") draw that button as an empty gap, since touch has no glyph for it:
+each such string reachable on touch reads in words for a tap instead. The SELECT PROFILE slots'
+press_start_to_join strings depend on the slot and have their own touch text. NULL keeps the disc's
+string (any other string, or not touch). tools/test_menu_standard.py checks the table against the map. */
+static wchar_t const *ui_touch_disc_text(
+	long string_list_tag_index,
+	short string_list_index)
+{
+	static struct
+	{
+		char const *list;
+		short index;
+		wchar_t const *text;
+	} const touch_strings[] =
+	{
+		{ "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\server_list\\looking_for_servers_message", 1,
+			L"Looking for games...\r\n\r\nTap CREATE GAME to start\r\nyour own game" },
+	};
+	char const *name;
+	long index;
+
+	if (halo_menu_pointer_controls() != 2 || string_list_tag_index == NONE)
+		return NULL;
+	name = tag_get_name(string_list_tag_index);
+	for (index = 0; name && index < (long)NUMBEROF(touch_strings); index++)
+	{
+		if (touch_strings[index].index == string_list_index && !strcmp(name, touch_strings[index].list))
+			return touch_strings[index].text;
+	}
+	return NULL;
+}
+
 static void widget_instance_render_text_box(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -5979,6 +6080,13 @@ static void widget_instance_render_text_box(
 		string = widget == ui_widget_port_error_text_box && ui_widget_port_error_text ?
 			(wchar_t *)ui_widget_port_error_text :
 			unicode_string_list_get_string(definition->text_label_string_list.index, string_list_index);
+		/* port: on touch, a disc string that names a button in words a tap can act on instead */
+		{
+			wchar_t const *touch_text = ui_touch_disc_text(definition->text_label_string_list.index, string_list_index);
+
+			if (touch_text)
+				string = (wchar_t *)touch_text;
+		}
 		/* port: the description of a spinner's extra item */
 		if (string_list_index >= SPINNER_EXTRA_DESCRIPTION_BASE &&
 			string_list_index < SPINNER_EXTRA_DESCRIPTION_BASE + (short)NUMBEROF(kills_to_win_extra_descriptions))
@@ -6116,7 +6224,19 @@ static void widget_instance_render_text_box(
 		color.alpha *= halo_ui_carousel_fade((visible_x0 + visible_x1) * 0.5f,
 			(real)ui_carousel_clip->x0, (real)ui_carousel_clip->x1);
 	}
-	draw_string_set_draw_mode(font_index, NONE, justification, 0, &color);
+	/* port: a text box with room for two lines wraps a line too wide for it at a space, so no
+	description or panel text ever loses its end; draw_string would otherwise stop drawing a line at
+	the first letter past the box (MULTIPLAYER's panel showed "needs a g"). A box one line tall keeps
+	its line as it is (its text is sized to fit: tools/test_menu_standard.py). */
+	{
+		struct font_header *font_header = font_definition_get(font_index);
+		short line_height = (short)(font_header->ascending_height + font_header->descending_height +
+			font_header->leading_height);
+
+		draw_string_set_draw_mode(font_index, NONE, justification,
+			line_height > 0 && bounds.y1 - bounds.y0 - definition->vertical_offset >= 2 * line_height ?
+			UI_DRAW_TEXT_WRAP_HORIZONTALLY : 0, &color);
+	}
 	/* port: the port's own error text, wrapped to its dialog: the box its
 	background draws (narrower than the text box; its picture is padded to a
 	power of two, so a margin of the text's offset on each side and as much
@@ -6177,14 +6297,23 @@ static wchar_t const *ui_widget_row_string(void *context, int index)
 	return spinner_string_list_get_string(definition->text_label_string_list.index, (short)index);
 }
 
+/* port: whether a spinner is a standard row's value, drawn as a switch, a dropdown or a slider under touch and
+mouse (halo_menu_row.h decides which from its values): any spinner of the menus' own files, and the map's own
+spinner in a row that was made a standard tall row (pc_menu_row_tall: the disc's option lists). Said by the menus'
+data, never read off a tag's name. */
+static boolean ui_widget_row_is_standard(struct widget_instance *widget)
+{
+	return pc_menu_tag(widget->definition_tag_index) ||
+		(widget->parent && pc_menu_row_tall(widget->parent->definition_tag_index));
+}
+
 static struct halo_menu_row ui_widget_row_control(struct widget_instance *widget)
 {
 	struct halo_menu_row row = { HALO_ROW_ENUM, -1 };
 	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
-	char const *name = tag_get_name(widget->definition_tag_index);
 	struct string_list *strings;
-	/* Keep the original PC look and carousels intact. */
-	if (!name || (strncmp(name, "pc\\xbox\\", 8) && strncmp(name, "xbox/", 5)) ||
+	/* (carousels, which hold their items as children, keep their own behavior) */
+	if (!ui_widget_row_is_standard(widget) ||
 		definition->child_widgets.count || definition->text_label_string_list.index == NONE)
 		return row;
 	strings = unicode_string_list_definition_get(definition->text_label_string_list.index);
@@ -6199,8 +6328,7 @@ fallback enum also covers PC lists and carousels, which retain their behavior. *
 static boolean ui_widget_row_has_dropdown(struct widget_instance *widget)
 {
 	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
-	char const *name = tag_get_name(widget->definition_tag_index);
-	return name && (!strncmp(name, "pc\\xbox\\", 8) || !strncmp(name, "xbox/", 5)) &&
+	return ui_widget_row_is_standard(widget) &&
 		!definition->child_widgets.count && definition->text_label_string_list.index != NONE &&
 		widget->parameters.list.number_of_items > 1 && ui_widget_row_control(widget).kind == HALO_ROW_ENUM;
 }
@@ -6235,8 +6363,8 @@ static void ui_widget_row_draw_chevron(struct widget_instance *widget,
 	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip)
 {
 	rectangle2d bounds;
-	bounds.x1 = definition->bounds.x1 + offset.x - 8;
-	bounds.x0 = bounds.x1 - 12;
+	bounds.x1 = definition->bounds.x1 + offset.x - MENU_CHEVRON_INSET;
+	bounds.x0 = bounds.x1 - MENU_CHEVRON_WIDTH;
 	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 8) / 2;
 	bounds.y1 = bounds.y0 + 8;
 	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\dropdown_chevron", 0, &bounds, clip);
@@ -6291,7 +6419,7 @@ static void ui_widget_row_draw_slider(struct widget_instance *widget,
 	bounds.y0 = thumb.y0 - 5; bounds.y1 = bounds.y0 + 25;
 	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\slider_thumb", 0, &bounds, clip);
 	bounds = definition->bounds;
-	bounds.x0 = slider.right + 15; bounds.x1 += offset.x;
+	bounds.x0 = slider.right + HALO_MENU_SLIDER_VALUE_GAP; bounds.x1 += offset.x;
 	bounds.y0 += offset.y; bounds.y1 += offset.y;
 	color.alpha *= widget_instance_get_cumulative_alpha_modifier(widget);
 	draw_string_set_draw_mode(definition->text_font.index, NONE, 1, 0, &color);
@@ -6423,7 +6551,9 @@ static void widget_instance_render_spinner_list(
 			wchar_t *string = spinner_string_list_get_string(
 				definition->text_label_string_list.index,
 				string_index);
-			unsigned long length = ustrlen(string);
+			unsigned long length;
+
+			length = ustrlen(string);
 
 			item_text = pool_new_pointer(
 				widget_memory_pool,
@@ -6575,7 +6705,10 @@ enum ui_mouse_target_kind
 	_ui_mouse_target_list_slot,
 	_ui_mouse_target_carousel_peek,
 	/* a button's icon and label in a screen's key: a click presses it */
-	_ui_mouse_target_button
+	_ui_mouse_target_button,
+	/* an action drawn outside the widget tree (the scores' QUIT and PICK GAME): it has no widget, and a click is
+	kept for the code that drew it (ui_widget_port_postgame_pressed) instead of posted as a button */
+	_ui_mouse_target_action
 };
 
 struct ui_mouse_target
@@ -6672,6 +6805,7 @@ static long ui_mouse_press_count = 0;
 static boolean ui_mouse_hover_pending = FALSE;
 static boolean ui_mouse_click_pending = FALSE;
 static short ui_mouse_hover_x, ui_mouse_hover_y;
+static boolean ui_mouse_hover_dragging;
 static short ui_mouse_click_x, ui_mouse_click_y;
 /* port: the touch legend button a tap just hit, drawn brighter for a few frames */
 static struct widget_instance *ui_touch_legend_pressed = NULL;
@@ -6886,22 +7020,18 @@ static short ui_mouse_legend_label_width(
 /* port: the touch legend's four fixed slots. Every Xbox-look screen's bottom bar
 draws its A, B, Y and X buttons in the same four places, right to left (A, B, Y,
 X), so a button never drifts from screen to screen and an unused slot stays empty.
-Each slot is as wide as the widest caption ever shown on that button plus padding,
-measured in the caption's own font. */
+The slots are the button bar's (menu_geometry.h: as wide as the widest caption each
+ever holds, in the bar's caption font, plus padding). A button is one standard
+element: its screen gives only the caption and the button, and the legend owns the
+pill's place and size (the slot, or the caption's measured width plus the minimum
+padding when a caption is wider than its slot) and centers the caption in it. */
 #define UI_TOUCH_LEGEND_SLOTS 4
-#define UI_TOUCH_LEGEND_RIGHT 592
-#define UI_TOUCH_LEGEND_GAP 12
-#define UI_TOUCH_LEGEND_LEFT_MARGIN 12 /* the leftmost slot stays this far inside the screen's left edge */
-#define UI_TOUCH_LEGEND_SCREEN_RIGHT 628 /* and the rightmost this far inside the right edge */
-#define UI_TOUCH_LEGEND_PADDING 24
+#define UI_TOUCH_LEGEND_GAP MENU_BAR_GAP /* between two slots: each pointer target takes half */
+#define UI_TOUCH_LEGEND_MINIMUM_PADDING 12 /* a caption wider than its slot keeps this much on each side */
 #define UI_TOUCH_LEGEND_BAR_Y 395 /* a bar's buttons are centered at or below this */
 #define UI_TOUCH_LEGEND_BAR_TOP 404 /* the bar's top rule: a hit area never reaches above it */
 #define UI_TOUCH_LEGEND_MINIMUM_POINTS 44.0f
 #define UI_TOUCH_LEGEND_CAPTION_SHIFTS 16
-
-/* the widest caption each slot ever holds: A (START GAME), B (CANCEL), Y (CREATE GAME), X (DEFAULTS) */
-static wchar_t const *const ui_touch_legend_widest[UI_TOUCH_LEGEND_SLOTS] =
-	{ L"START GAME", L"CANCEL", L"CREATE GAME", L"DEFAULTS" };
 
 void halo_screen_menu_visible_bottom(float *bottom_unit, float *points_per_unit);
 
@@ -6944,7 +7074,9 @@ static void ui_touch_legend_note_caption_shift(
 	ui_touch_legend_caption_shift_count = MAX(ui_touch_legend_caption_shift_count, i + 1);
 }
 
-/* the slot (0 = A ... 3 = X) a legend button owns, or NONE for the keys that have none */
+/* the slot (0 = A ... 3 = X) a legend button owns. Any other button of a bar (a fifth action such
+as the lobby's SHARE on the left stick, or the original screens' START, BACK, BLACK and WHITE) takes B's
+slot, the extra slot: a touch bar never draws B, whose BACK, CANCEL or LEAVE is the title's chevron */
 static short ui_touch_legend_slot_for_button(
 	short button)
 {
@@ -6954,52 +7086,46 @@ static short ui_touch_legend_slot_for_button(
 	case _gamepad_analog_button_b: return 1;
 	case _gamepad_analog_button_y: return 2;
 	case _gamepad_analog_button_x: return 3;
+	case NONE: return NONE;
 	}
-	return NONE;
+	return 1;
 }
 
-/* the slot's x range, measured with `font`; the slots sit right to left from the A slot's right edge */
+/* where a caption's text starts, from the caption's box and its justification (the text is
+`text_width` wide, as ui_widget_port_text_width measures it, leading width included) */
+static short ui_touch_legend_text_x0(
+	struct ui_widget_definition const *label_definition,
+	rectangle2d const *label_bounds,
+	short text_width)
+{
+	short x0 = label_bounds->x0 + label_definition->horizontal_offset;
+
+	switch (label_definition->justification)
+	{
+	case _text_justification_right:
+		return label_bounds->x1 - text_width;
+	case _text_justification_center:
+		return x0 + (label_bounds->x1 - x0 - text_width) / 2;
+	}
+	return x0;
+}
+
+/* the slot's x range (0 = A ... 3 = X) */
 static void ui_touch_legend_slot_bounds(
-	long font,
 	short slot,
 	short *x0,
 	short *x1)
 {
-	long old_font = draw_string_get_font();
-	short i, right = UI_TOUCH_LEGEND_RIGHT, padding = UI_TOUCH_LEGEND_PADDING;
-	short widths[UI_TOUCH_LEGEND_SLOTS], total = 0, overflow, shift;
-
-	draw_string_set_font(font);
-	draw_string_set_format(NONE, 0, 0);
-	draw_string_set_indents(0, 0);
-	for (i = 0; i < UI_TOUCH_LEGEND_SLOTS; i++)
+	static short const slots[UI_TOUCH_LEGEND_SLOTS][2] =
 	{
-		widths[i] = ui_widget_port_text_width(ui_touch_legend_widest[i]);
-		total += widths[i];
-	}
-	/* keep the whole row inside the screen: first slide it right into the margin, then trim padding */
-	overflow = (UI_TOUCH_LEGEND_RIGHT - (total + 2 * padding * UI_TOUCH_LEGEND_SLOTS +
-		UI_TOUCH_LEGEND_GAP * (UI_TOUCH_LEGEND_SLOTS - 1))) * -1 + UI_TOUCH_LEGEND_LEFT_MARGIN;
-	if (overflow > 0)
-	{
-		shift = MIN(overflow, UI_TOUCH_LEGEND_SCREEN_RIGHT - UI_TOUCH_LEGEND_RIGHT);
-		right += shift;
-		overflow -= shift;
-		if (overflow > 0)
-			padding = MAX(8, padding - (overflow + 2 * UI_TOUCH_LEGEND_SLOTS - 1) / (2 * UI_TOUCH_LEGEND_SLOTS));
-	}
-	for (i = 0; i <= slot; i++)
-	{
-		short width = widths[i] + 2 * padding;
+		{ MENU_BAR_SLOT_A_X0, MENU_BAR_SLOT_A_X1 },
+		{ MENU_BAR_SLOT_B_X0, MENU_BAR_SLOT_B_X1 },
+		{ MENU_BAR_SLOT_Y_X0, MENU_BAR_SLOT_Y_X1 },
+		{ MENU_BAR_SLOT_X_X0, MENU_BAR_SLOT_X_X1 },
+	};
 
-		*x1 = right;
-		*x0 = right - width;
-		right = *x0 - UI_TOUCH_LEGEND_GAP;
-	}
-	if (old_font != NONE)
-		draw_string_set_font(old_font);
-
-	return;
+	*x0 = slots[slot][0];
+	*x1 = slots[slot][1];
 }
 
 /* port: the touch legend's button. `drawn` is the visible button: 40 units tall, in
@@ -7080,14 +7206,21 @@ static boolean ui_mouse_legend_bounds(
 			short x0, x1;
 			float visible_bottom, points_per_unit, minimum_units;
 
-			ui_touch_legend_slot_bounds(label_definition->text_font.index, slot, &x0, &x1);
+			ui_touch_legend_slot_bounds(slot, &x0, &x1);
 			center_x = (x0 + x1) / 2;
+			/* a caption wider than its slot widens the pill, centered on the slot */
+			if (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING > x1 - x0)
+			{
+				x0 = center_x - (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING) / 2;
+				x1 = x0 + text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING;
+			}
 			drawn->x0 = x0;
 			drawn->x1 = x1;
 			drawn->y0 = center_y - 15;
 			drawn->y1 = drawn->y0 + 40;
-			/* the caption is centered in the slot, wherever its screen put it */
-			ui_touch_legend_note_caption_shift(label, center_x - text_width / 2 - label_bounds.x0);
+			/* the caption is centered in the pill, wherever its screen put it and however it is justified */
+			ui_touch_legend_note_caption_shift(label, center_x - text_width / 2 -
+				ui_touch_legend_text_x0(label_definition, &label_bounds, text_width));
 			halo_screen_menu_visible_bottom(&visible_bottom, &points_per_unit);
 			minimum_units = UI_TOUCH_LEGEND_MINIMUM_POINTS / (points_per_unit > 0.0f ? points_per_unit : 0.78125f);
 			bounds->x0 = x0 - UI_TOUCH_LEGEND_GAP / 2;
@@ -7150,13 +7283,79 @@ static struct widget_instance *ui_legend_save_caption(struct widget_instance *wi
 	return caption && ui_text_is_commit_caption(caption->parameters.text_box.text) ? caption : NULL;
 }
 
+/* the button of a bar's slot (halo_menu_meta.h) */
+static short ui_bar_slot_button(unsigned char slot)
+{
+	switch (slot)
+	{
+	case HALO_MENU_SLOT_X: return _gamepad_analog_button_x;
+	case HALO_MENU_SLOT_Y: return _gamepad_analog_button_y;
+	case HALO_MENU_SLOT_B: return _gamepad_analog_button_b;
+	case HALO_MENU_SLOT_A: return _gamepad_analog_button_a;
+	}
+	return NONE;
+}
+
+/* the screen's bar widget (glyph or caption, a direct child) of an action on the button, or NULL */
+static struct widget_instance *ui_bar_action_widget(
+	struct widget_instance *screen,
+	short button,
+	boolean caption)
+{
+	struct widget_instance *child;
+
+	for (child = screen ? screen->child : NULL; child; child = child->next)
+	{
+		struct halo_menu_meta const *meta = pc_menu_meta(child->definition_tag_index);
+
+		if (meta->role == HALO_MENU_ROLE_BAR_ACTION && ui_bar_slot_button(meta->slot) == button &&
+			(child->type == _ui_widget_type_text_box) == caption)
+			return child;
+	}
+	return NULL;
+}
+
+static boolean ui_bar_key_is_letter(
+	struct widget_instance *screen,
+	struct event_record const *event)
+{
+	struct widget_instance *action;
+
+	if (!event || event->type != _event_type_button || event->data.button.pointer)
+		return FALSE;
+	action = ui_bar_action_widget(screen, event->data.button.index, FALSE);
+	return action && pc_menu_meta(action->definition_tag_index)->typing == HALO_MENU_TYPING_POINTER &&
+		ui_widget_port_text_editing();
+}
+
+/* port: which of its captions a bar action shows (its strings=, halo_menus' <action>), by the action's button;
+the one place the port changes a caption at run time */
+void ui_widget_port_bar_caption(
+	struct widget_instance *screen,
+	short button,
+	short index)
+{
+	struct widget_instance *caption = ui_bar_action_widget(screen, button, TRUE);
+
+	if (caption)
+		caption->parameters.text_box.string_list_index = index;
+}
+
 static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 {
 	short button = ui_mouse_key_button(widget);
+	struct halo_menu_meta const *meta = pc_menu_meta(widget->definition_tag_index);
 	char const *name;
 	char const *leaf;
 	short owner;
 
+	owner = widget->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+	/* a bar's action (the menus' data says its slot and scope): on touch, select is a tap on the item and back is
+	the title's chevron, so neither is drawn; a screen-wide action is */
+	if (meta->role == HALO_MENU_ROLE_BAR_ACTION)
+		return (meta->scope == HALO_MENU_SCOPE_SELECT || meta->scope == HALO_MENU_SCOPE_BACK) &&
+			controller_glyph_hidden(owner, ui_bar_slot_button(meta->slot)) != 0;
 	if (button != _gamepad_analog_button_a && button != _gamepad_analog_button_b &&
 		button != _gamepad_analog_button_x) return FALSE;
 	name = tag_get_name(widget->definition_tag_index);
@@ -7172,8 +7371,6 @@ static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 			return FALSE;
 	}
 	if (button == _gamepad_analog_button_a && ui_legend_save_caption(widget)) return FALSE;
-	owner = widget->local_player_index == NONE ?
-		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
 	return controller_glyph_hidden(owner, button) != 0;
 }
 
@@ -7263,6 +7460,95 @@ static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d c
 	if (x1 - x0 > cap * 2.0f)
 		ui_widget_draw_touch_legend_slice(bitmap, x0 + cap, x1 - cap, y0, y1, cap_u, 1.0f - cap_u, argb);
 	ui_widget_draw_touch_legend_slice(bitmap, x1 - cap, x1, y0, y1, 1.0f - cap_u, 1.0f, argb);
+}
+
+/* port: the scores after a game (game_engine.c, game_engine_post_rasterize_post_game) are not a widget screen: the
+game draws "quit" and "pick game" as one string with button glyphs and reads the gamepads itself. On touch the
+glyphs are hidden and nothing could be tapped, so the two actions are drawn here as the standard legend buttons, in
+B's and A's slots, and noted as pointer targets; a tap is handed to the game through ui_widget_port_postgame_pressed.
+Returns FALSE when the game should draw its own prompt (a controller, or keyboard and mouse). */
+static struct widget_instance *ui_mouse_menu(void);
+static short ui_postgame_pending = NONE;
+static short ui_postgame_pressed = NONE;
+static short ui_postgame_pressed_frames = 0;
+
+boolean ui_widget_port_postgame_legend(
+	long font_index,
+	real alpha,
+	boolean pick_game)
+{
+	static wchar_t const *const captions[2] = { L"PICK GAME", L"QUIT" };
+	static short const buttons[2] = { _gamepad_analog_button_a, _gamepad_analog_button_b };
+	real_argb_color color = { 1.0f, 1.0f, 1.0f, 1.0f };
+	short index;
+
+	if (halo_menu_pointer_controls() != 2 || font_index == NONE)
+		return FALSE;
+	/* (a menu over the scores, a dialog or the pause menu, takes the pointer: no buttons under it) */
+	if (ui_mouse_menu())
+	{
+		ui_postgame_pending = NONE;
+		return FALSE;
+	}
+	color.alpha = alpha;
+	for (index = pick_game ? 0 : 1; index < 2; index++)
+	{
+		rectangle2d drawn, text_bounds;
+		short x0, x1, text_width, center_x;
+		boolean pressed = ui_postgame_pressed == buttons[index] && ui_postgame_pressed_frames > 0;
+
+		ui_touch_legend_slot_bounds(index, &x0, &x1);
+		draw_string_set_font(font_index);
+		draw_string_set_format(NONE, 0, 0);
+		draw_string_set_indents(0, 0);
+		text_width = ui_widget_port_text_width(captions[index]);
+		center_x = (short)((x0 + x1) / 2);
+		if (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING > x1 - x0)
+		{
+			x0 = (short)(center_x - (text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING) / 2);
+			x1 = (short)(x0 + text_width + 2 * UI_TOUCH_LEGEND_MINIMUM_PADDING);
+		}
+		drawn.x0 = x0;
+		drawn.x1 = x1;
+		drawn.y0 = MENU_LEGEND_Y - 2;
+		drawn.y1 = drawn.y0 + 40;
+		ui_widget_draw_touch_legend(&drawn, NULL, alpha, pressed);
+		text_bounds = drawn;
+		text_bounds.x0 = (short)(center_x - text_width / 2);
+		text_bounds.y0 = (short)(drawn.y0 + 9);
+		draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
+		rasterizer_draw_unicode_string(&text_bounds, NULL, NULL, 0, captions[index]);
+		if (ui_mouse_target_count < UI_MOUSE_MAXIMUM_TARGETS)
+		{
+			struct ui_mouse_target *target = &ui_mouse_targets[ui_mouse_target_count++];
+
+			csmemset(target, 0, sizeof(*target));
+			target->widget = NULL;
+			target->kind = _ui_mouse_target_action;
+			target->button_index = buttons[index];
+			target->bounds = drawn;
+			/* (at least the 60 units a finger gets on the menus' buttons) */
+			target->bounds.y0 -= 10;
+			target->bounds.y1 += 10;
+			target->bounds.x0 -= UI_TOUCH_LEGEND_GAP / 2;
+			target->bounds.x1 += UI_TOUCH_LEGEND_GAP / 2;
+		}
+	}
+	/* (a press the game did not take while its button showed pressed is dropped, so it cannot fire at the next
+	scores) */
+	if (ui_postgame_pressed_frames > 0 && --ui_postgame_pressed_frames == 0)
+		ui_postgame_pending = NONE;
+	return TRUE;
+}
+
+/* whether the button (A: pick game, B: quit) was tapped on the scores since the last call for it */
+boolean ui_widget_port_postgame_pressed(
+	short button)
+{
+	if (ui_postgame_pending != button)
+		return FALSE;
+	ui_postgame_pending = NONE;
+	return TRUE;
 }
 
 /* port: whether B does something on this screen: its tag has a B or back handler, or has none and the
@@ -7358,6 +7644,17 @@ static void ui_touch_screen_x_scan(
 			return;
 }
 
+/* port: the leftmost menu column a control at the left edge of a clip from
+column x0 may use: clear of a camera cutout or rounded corner, in the menu
+window's own units under its safe-area zoom (halo_screen_menu_screen_rect) */
+static long ui_widget_safe_left(long x0)
+{
+	struct halo_menu_screen screen;
+
+	halo_screen_menu_screen_rect(TRUE, &screen);
+	return MAX(x0, screen.safe_x0);
+}
+
 /* port: the touch BACK chevron: left of the title's helmet, or top left of the screen when it has none, in the HUD blue of the touch legend,
 with a tap target at least as tall as input.ui_touch_target */
 static void ui_touch_back_chevron_draw(
@@ -7367,12 +7664,15 @@ static void ui_touch_back_chevron_draw(
 	long arm = 10, thickness = 4, index;
 	long reach = MAX(ui_redraw_touch_target_units(), 2 * arm + 12);
 	long cy, cx;
-	long safe = ui_redraw_safe_left_units(clip->x1 - clip->x0);
+	long safe_left = ui_widget_safe_left(clip->x0);
 	rectangle2d hit;
 
 	if (!(ui_touch_back_seen || ui_touch_back_generic) || ui_mouse_radius <= 0 ||
 		ui_mouse_target_count >= UI_MOUSE_MAXIMUM_TARGETS)
 		return;
+	/* drawn in the menu window, like its tap target, the title's helmet it sits beside and the
+	safe edge it keeps clear of (ui_widget_safe_left): all in the window's units */
+	halo_screen_menu_window(1);
 	if (ui_touch_title_seen)
 	{
 		/* (the title group itself moves clear of the safe inset, menu_title_touch_shift) */
@@ -7381,10 +7681,13 @@ static void ui_touch_back_chevron_draw(
 	}
 	else
 	{
-		cy = clip->y0 + reach / 2 + 4;
+		struct halo_menu_screen screen;
+
+		halo_screen_menu_screen_rect(TRUE, &screen);
+		cy = MAX(clip->y0, screen.safe_y0) + reach / 2 + 4;
 		cx = clip->x0 + reach / 2 + 4;
 		/* never under a camera cutout or rounded corner: the menu clip can run wider than the screen's safe area */
-		cx = MAX(cx, clip->x0 + safe + reach / 2 + 2);
+		cx = MAX(cx, safe_left + reach / 2 + 2);
 	}
 	for (index = -arm; index <= arm; index++)
 	{
@@ -7396,7 +7699,7 @@ static void ui_touch_back_chevron_draw(
 		row.x1 = (short)(row.x0 + thickness);
 		draw_quad(&row, 0xff2996ff);
 	}
-	hit.x0 = (short)MAX(cx - reach / 2, clip->x0 + safe);
+	hit.x0 = (short)MAX(cx - reach / 2, safe_left);
 	hit.x1 = (short)(cx + reach / 2);
 	hit.y0 = (short)(cy - reach / 2);
 	hit.y1 = (short)(cy + reach / 2);
@@ -7405,6 +7708,7 @@ static void ui_touch_back_chevron_draw(
 	ui_mouse_targets[ui_mouse_target_count].kind = _ui_mouse_target_button;
 	ui_mouse_targets[ui_mouse_target_count].button_index = _gamepad_analog_button_b;
 	ui_mouse_target_count++;
+	halo_screen_menu_window(0);
 }
 
 /* port: the press-and-hold feedback and the context menu, drawn over the screen: the held item's outline
@@ -7675,7 +7979,7 @@ static void ui_hold_popup_draw(
 	if (row_font_index == NONE)
 		row_font_index = font_index;
 	anchor = ui_popup_anchor;
-	safe_left = (short)(clip->x0 + MAX(8, ui_redraw_safe_left_units(clip->x1 - clip->x0)));
+	safe_left = (short)MAX(clip->x0 + 8, ui_widget_safe_left(clip->x0));
 	top = 8;
 
 	name = ui_popup_widget_name(ui_popup_widget, 0);
@@ -7698,11 +8002,13 @@ static void ui_hold_popup_draw(
 		/* the rest of the screen dims around the lifted item: the whole screen, past the
 		menu clip into the backdrop margins and safe-area insets (draw_quad does not clip) */
 		rectangle2d screen = *clip;
+		struct halo_menu_screen reach;
 
-		screen.x0 = (short)(clip->x0 - 4000);
-		screen.y0 = (short)(clip->y0 - 4000);
-		screen.x1 = (short)(clip->x1 + 4000);
-		screen.y1 = (short)(clip->y1 + 4000);
+		halo_screen_menu_screen_rect(TRUE, &reach);
+		screen.x0 = (short)MIN(clip->x0, reach.x0);
+		screen.y0 = (short)MIN(clip->y0, reach.y0);
+		screen.x1 = (short)MAX(clip->x1, reach.x1);
+		screen.y1 = (short)MAX(clip->y1, reach.y1);
 		part = screen;
 		part.y1 = anchor.y0;
 		draw_quad(&part, 0x99000000);
@@ -8075,7 +8381,8 @@ static struct ui_mouse_target *ui_mouse_target_at(
 			long distance = ABS((long)y - center);
 
 			if ((ui_mouse_targets[index].kind != _ui_mouse_target_item &&
-					ui_mouse_targets[index].kind != _ui_mouse_target_button) ||
+					ui_mouse_targets[index].kind != _ui_mouse_target_button &&
+					ui_mouse_targets[index].kind != _ui_mouse_target_action) ||
 				x < bounds->x0 || x >= bounds->x1 || distance > half)
 			{
 				continue;
@@ -8285,7 +8592,7 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 	2 units above that line so its border never touches it. */
 	for (index = 0; index < ui_mouse_target_count; index++)
 		if (ui_mouse_targets[index].kind == _ui_mouse_target_button &&
-			ui_mouse_key_button(ui_mouse_targets[index].widget) != NONE &&
+			ui_mouse_targets[index].widget && ui_mouse_key_button(ui_mouse_targets[index].widget) != NONE &&
 			ui_mouse_targets[index].bounds.y0 >= target->value_bounds.y1)
 			limit_bottom = MIN(limit_bottom,
 				ui_mouse_targets[index].bounds.y0 - UI_DROPDOWN_LEGEND_CLEARANCE);
@@ -8297,7 +8604,12 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 	{
 		/* port: size to the widest label in the font the rows draw in, plus the row's text insets (6 left, 22 right incl. the checkmark) and border */
 		struct ui_widget_definition *definition = ui_widget_definition_get(target->widget->definition_tag_index);
-		int widest = 0, min_x = MAX(8, (int)ui_redraw_safe_left_units(640));
+		struct halo_menu_screen screen;
+		int widest = 0, min_x, max_x;
+
+		halo_screen_menu_screen_rect(TRUE, &screen);
+		min_x = (int)MAX(8, screen.safe_x0);
+		max_x = (int)MIN(640 - 8, screen.safe_x1);
 		for (index = 0; index < target->widget->parameters.list.number_of_items; index++)
 		{
 			void const *label = spinner_string_list_get_string(definition->text_label_string_list.index, (short)index);
@@ -8308,7 +8620,7 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 			target->value_bounds.y0, target->value_bounds.y1,
 			target->widget->parameters.list.number_of_items,
 			target->widget->parameters.list.selected_index, limit_top, limit_bottom,
-			halo_menu_dropdown_panel_width(widest), min_x, 640 - 8);
+			halo_menu_dropdown_panel_width(widest), min_x, max_x);
 	}
 }
 
@@ -8627,6 +8939,26 @@ static void ui_carousel_activate(struct ui_mouse_target *target)
 	ui_mouse_press(_gamepad_analog_button_a);
 }
 
+/* port: debug.pointer_log's second line for a tap: what it hit (the kind of target, the widget and the button it
+presses), so a tap that went back can be told from one that opened a row: the BACK chevron and a screen's B legend
+are button targets that press B, a swipe in from the left edge is "back swipe" */
+static void ui_mouse_log_dispatch(
+	char const *what,
+	struct ui_mouse_target const *target)
+{
+	extern int config_boolean(char const *);
+	extern void platform_log(char const *, ...);
+
+	if (!config_boolean("debug.pointer_log"))
+		return;
+	if (!target)
+		platform_log("pointer: %s", what);
+	else
+		platform_log("pointer: %s kind %d widget %s button %d bounds %d,%d-%d,%d", what, (int)target->kind,
+			target->widget && target->widget->name ? target->widget->name : "(none)", (int)target->button_index,
+			target->bounds.x0, target->bounds.y0, target->bounds.x1, target->bounds.y1);
+}
+
 static void ui_widgets_process_mouse(
 	void)
 {
@@ -8681,6 +9013,8 @@ static void ui_widgets_process_mouse(
 			ui_mouse_hover_pending = TRUE;
 			ui_mouse_hover_x = pointer.x;
 			ui_mouse_hover_y = pointer.y;
+			/* a finger already dragging (no longer a tap candidate) */
+			ui_mouse_hover_dragging = pointer.radius > 0 && !pointer.down;
 		}
 		if (pointer.left_clicks)
 		{
@@ -8877,6 +9211,7 @@ static void ui_widgets_process_mouse(
 		}
 		if (pointer.back_swipes && (ui_touch_back_seen || ui_touch_back_generic) && ui_mouse_menu_drawn)
 		{
+			ui_mouse_log_dispatch("back swipe", NULL);
 			halo_ui_pointer_feedback(2);
 			ui_mouse_press(_gamepad_analog_button_b);
 		}
@@ -8885,12 +9220,24 @@ static void ui_widgets_process_mouse(
 			struct widget_instance *widget = ui_mouse_wheel_widget(ui_mouse_menu());
 			short back = _widget_event_dpad_up, forward = _widget_event_dpad_down;
 			long step;
+			boolean finger = pointer.radius > 0, over_row = FALSE;
+			long steps;
 
 			if (widget)
 				ui_mouse_list_directions(widget, &back, &forward);
-			for (step = 0; step < ABS(pointer.wheel_steps) && step < 4; step++)
-				ui_mouse_press(pointer.wheel_steps > 0 ? back : forward);
-			halo_ui_pointer_feedback(1);
+			if (finger && back == _widget_event_dpad_up)
+			{
+				struct ui_mouse_target *under = ui_mouse_target_at(pointer.x, pointer.y);
+
+				over_row = under && (under->kind == _ui_mouse_target_item || under->kind == _ui_mouse_target_value);
+			}
+			else
+				finger = FALSE; /* a horizontal list keeps the wheel's direction */
+			steps = halo_ui_list_wheel_steps(pointer.wheel_steps, finger, over_row);
+			for (step = 0; step < ABS(steps) && step < 4; step++)
+				ui_mouse_press(steps < 0 ? back : forward);
+			if (steps)
+				halo_ui_pointer_feedback(1);
 		}
 		if (!ui_mouse_press_count && ui_mouse_hover_pending)
 		{
@@ -8910,6 +9257,8 @@ static void ui_widgets_process_mouse(
 					ui_mouse_give_focus(target->widget);
 					break;
 				case _ui_mouse_target_list_slot:
+					if (ui_mouse_hover_dragging)
+						break; /* carousels drag-scroll by the wheel */
 					/* hovering a slot focuses that slot, as it does an item. Only pointer
 					motion hovers, so a card that slides under a still pointer does not
 					step the list again. */
@@ -8930,6 +9279,7 @@ static void ui_widgets_process_mouse(
 		{
 			ui_mouse_click_pending = FALSE;
 			target = ui_mouse_target_at(ui_mouse_click_x, ui_mouse_click_y);
+			ui_mouse_log_dispatch(target ? "tap hit" : "tap hit nothing", target);
 			if (target)
 			{
 				if (target->kind == _ui_mouse_target_button)
@@ -8979,6 +9329,12 @@ static void ui_widgets_process_mouse(
 					halo_ui_pointer_feedback(2);
 					ui_mouse_press(target->button_index);
 					break;
+				case _ui_mouse_target_action:
+					/* (the scores' own buttons: the game takes them, ui_widget_port_postgame_pressed) */
+					halo_ui_pointer_feedback(2);
+					ui_postgame_pending = ui_postgame_pressed = target->button_index;
+					ui_postgame_pressed_frames = 8;
+					break;
 				}
 			}
 			else
@@ -9020,7 +9376,8 @@ static void ui_widgets_process_mouse(
 	post_pointer_presses:
 		if (ui_mouse_press_count)
 		{
-			event_manager_post_button(claim_controller != NONE ? claim_controller : controller_index, ui_mouse_presses[0]);
+			event_manager_post_pointer_button(claim_controller != NONE ? claim_controller : controller_index,
+				ui_mouse_presses[0]);
 			claim_controller = NONE;
 			csmemmove(ui_mouse_presses, ui_mouse_presses + 1, --ui_mouse_press_count * sizeof(ui_mouse_presses[0]));
 		}
@@ -9176,30 +9533,21 @@ static void column_list_window_end(
 		child->visible = saved[index++];
 }
 
-/* port: the VISR helmet left of a screen's title. The titles are pictures
-(header_*, in ui.map and in the menus' files, of both looks), 64 units high,
-whose capitals stand 22 units tall from 33 units down and start 30 units in.
-The picture (xbox/bitmaps/visr_title_icon, tools/xbox_menus.py) is 36 units
-square; the helmet in it is 22 units tall like the capitals and 29 wide, and
-the picture is centered on them with 11 units between the helmet and the first
-letter.
-Dialogs' headers (ui\\shell\\error\\...) are not screens' titles. */
+/* port: the VISR helmet left of a screen's title. A title is the widget the
+menus' data says is one (halo_menu_meta.h's HALO_MENU_ROLE_TITLE, a <title>
+in the menus' files); nothing about it is read off its name or its picture.
+Its picture is 64 units high, the capitals stand 22 units tall from 33 units
+down and start 30 units in. The helmet's picture (xbox/bitmaps/visr_title_icon,
+tools/xbox_menus.py) is 36 units square; the helmet in it is 22 units tall
+like the capitals and 29 wide, and the picture is centered on them with 11
+units between the helmet and the first letter. */
 static struct bitmap_data *menu_title_icon(
-	long bitmap_tag,
+	struct widget_instance const *widget,
 	struct bitmap_data const *picture)
 {
-	char const *name;
-	char const *leaf;
 	long icon_tag;
 
-	if (bitmap_tag == NONE || !picture || picture->height != 64 || picture->width < 256)
-		return NULL;
-	name = tag_get_name(bitmap_tag);
-	if (!name || (strncmp(name, "ui\\shell\\", 9) && strncmp(name, "pc\\", 3)) || strstr(name, "\\error\\"))
-		return NULL;
-	leaf = strrchr(name, '\\');
-	leaf = leaf ? leaf + 1 : name;
-	if (strncmp(leaf, "header", 6))
+	if (!picture || pc_menu_meta(widget->definition_tag_index)->role != HALO_MENU_ROLE_TITLE)
 		return NULL;
 	icon_tag = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\bitmaps\\visr_title_icon");
 	return icon_tag == NONE ? NULL : bitmap_group_get_bitmap_from_sequence(icon_tag, 0, 0);
@@ -9209,27 +9557,27 @@ static struct bitmap_data *menu_title_icon(
 screen's safe inset leaves no room for it there, the chevron, helmet and title
 move right together, by how far the chevron's tap target would cross the inset */
 static short menu_title_touch_shift(
-	long bitmap_tag,
+	struct widget_instance const *widget,
 	struct bitmap_data const *picture,
 	rectangle2d const *bounds,
 	rectangle2d const *clip)
 {
-	long reach, safe, scale_x = 1, helmet_left, needed;
+	long reach, safe_left, scale_x = 1, helmet_left, needed;
 
-	if (ui_mouse_radius <= 0 || !clip || !menu_title_icon(bitmap_tag, picture))
+	if (ui_mouse_radius <= 0 || !clip || !menu_title_icon(widget, picture))
 		return 0;
 	reach = MAX(ui_redraw_touch_target_units(), 32);
-	safe = ui_redraw_safe_left_units(clip->x1 - clip->x0);
+	safe_left = ui_widget_safe_left(clip->x0);
 	if (bounds->x1 - bounds->x0 > picture->width)
 		scale_x = (bounds->x1 - bounds->x0) / picture->width;
 	helmet_left = bounds->x0 + (30 - 11 - 29) * scale_x - (36 - 29) * scale_x / 2;
 	/* the chevron's center is reach / 2 + 14 left of the helmet; its tap target must clear the inset by 2 */
-	needed = clip->x0 + safe + 2 + reach + 14 - helmet_left;
+	needed = safe_left + 2 + reach + 14 - helmet_left;
 	return (short)MAX(needed, 0);
 }
 
 static void menu_title_icon_draw(
-	long bitmap_tag,
+	struct widget_instance const *widget,
 	struct bitmap_data const *picture,
 	rectangle2d const *bounds,
 	rectangle2d *clip,
@@ -9239,7 +9587,7 @@ static void menu_title_icon_draw(
 	rectangle2d rect;
 	long scale_x = 1, scale_y = 1, size, left;
 
-	icon = menu_title_icon(bitmap_tag, picture);
+	icon = menu_title_icon(widget, picture);
 	if (!icon)
 		return;
 	/* (a picture smaller than its widget is drawn stretched over it) */
@@ -9331,7 +9679,6 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 	rectangle2d *saved_clip = ui_carousel_clip;
 	/* port: a finger does not move focus, so touch draws no selected card (no focus border,
 	no animated background); mouse, controller and keyboard keep both. */
-	int pointer_controls = halo_menu_pointer_controls();
 	frame = state->frame;
 	ui_carousel_clip = &frame;
 	halo_ui_carousel_visible_range(state->drag.offset / HALO_UI_CAROUSEL_PITCH, count, &begin, &end);
@@ -9353,7 +9700,8 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 			ui_carousel_rebind(list);
 			for (child = list->child; child; child = child->next)
 				if (child->animation.number_of_sprite_frames == 2)
-					child->animation.current_frame_index = pointer_controls != 2 && child == list->focused_child ? 1 : 0;
+					child->animation.current_frame_index =
+						ui_list_child_draws_focus(list, child) ? 1 : 0;
 		}
 		slot = item - state->binding_first;
 		card = widget_instance_get_nth_child(list, slot);
@@ -9363,7 +9711,8 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 		card_offset.x = (short)roundf(left) - card_definition->bounds.x0 - card->horizontal_offset;
 		ui_mouse_noting_targets = FALSE;
 		widget_instance_render_recursive(card, &frame, card_offset,
-			pointer_controls != 2 && item == saved_selected, pointer_controls != 2 && item == saved_selected);
+			ui_widget_port_draws_focus(ui_list_focus_item(list), item == saved_selected),
+			ui_widget_port_draws_focus(ui_list_focus_item(list), item == saved_selected));
 		ui_mouse_noting_targets = noting;
 		if (noting && card->visible && !card->disabled && !list->disabled &&
 			widget_instance_can_receive_events(list) && left >= frame.x0 &&
@@ -9392,6 +9741,50 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 	spinner_list_update(list);
 	ui_carousel_clip = saved_clip;
 	ui_mouse_noting_targets = noting;
+}
+
+/* port: whether a widget's background is a full-screen fill, which reaches the
+whole screen rather than the centered 640x480 design: bounds over the whole
+design and a flat picture (the dims and the menus' vertical gradient band, at
+most 16 texels wide; a picture is drawn texel for texel, so wider bounds would
+shift it, as on the loading screen). Across when the screen reaches past the
+design's columns; down and up only for a picture flat both ways (a dim), since
+the band's rules sit at its picture's own rows. Not in portrait, whose
+full-screen pictures cover the screen by height instead. */
+static void ui_widget_screen_fill_kind(
+	rectangle2d const *bounds,
+	long bitmap_width,
+	long bitmap_height,
+	struct halo_menu_screen const *screen,
+	boolean *wide,
+	boolean *tall)
+{
+	boolean full_design = bounds->x0 <= 0 && bounds->y0 <= 0 &&
+		bounds->x1 >= 640 && bounds->y1 >= 480 && bitmap_width <= 16 &&
+		halo_screen_width() >= 640;
+
+	*wide = full_design && (screen->x0 < 0 || screen->x1 > 640);
+	*tall = full_design && bitmap_height <= 16 && (screen->y0 < 0 || screen->y1 > 480);
+}
+
+/* port: a full-screen fill's rectangle (its bounds, or with at_edges its
+clip, only on the sides where the clip is at the design's edge) out to the
+screen's (halo_screen_menu_screen_rect) */
+static void ui_widget_screen_fill_extend(
+	rectangle2d *rect,
+	struct halo_menu_screen const *screen,
+	boolean wide,
+	boolean tall,
+	boolean at_edges)
+{
+	if (wide && (!at_edges || rect->x0 <= 0))
+		rect->x0 = (short)MIN(rect->x0, screen->x0);
+	if (wide && (!at_edges || rect->x1 >= 640))
+		rect->x1 = (short)MAX(rect->x1, screen->x1);
+	if (tall && (!at_edges || rect->y0 <= 0))
+		rect->y0 = (short)MIN(rect->y0, screen->y0);
+	if (tall && (!at_edges || rect->y1 >= 480))
+		rect->y1 = (short)MAX(rect->y1, screen->y1);
 }
 
 static void widget_instance_render_recursive(
@@ -9560,10 +9953,8 @@ static void widget_instance_render_recursive(
 		/* port: generated comfortable row art draws 36 units inside the
 		39-unit tap band. Frame placement changes texture coordinates, so
 		the quad also needs its own bounds (tools/xbox_menus.py). */
-		const char *row_bitmap_name = tag_get_name(definition->background_bitmap.index);
-		if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
-			strstr(row_bitmap_name, "\\row_36\\")))
-			bounds.y1 = MIN(bounds.y1, bounds.y0 + 36);
+		if (pc_menu_row_tall(widget->definition_tag_index))
+			bounds.y1 = MIN(bounds.y1, bounds.y0 + MENU_COMFORTABLE_ROW_ART);
 
 		/* port: a widget whose bounds cover the whole 640x480 design space (the
 		 * pause menu's dim, for example) should cover the whole screen too,
@@ -9572,12 +9963,16 @@ static void widget_instance_render_recursive(
 		 * widened symmetrically below, before the centering offset is
 		 * added. Only flat fills (the dims, and the menus' vertical
 		 * gradient, at most 16 texels wide): a picture is drawn texel for
-		 * texel, so wider bounds would shift it (the loading screen). */
-		boolean widen_to_screen =
-			bounds.x0 <= 0 && bounds.y0 <= 0 &&
-			bounds.x1 >= 640 && bounds.y1 >= 480 &&
-			bitmap->width <= 16 &&
-			halo_screen_width() > 640;
+		 * texel, so wider bounds would shift it (the loading screen).
+		 * How far is the screen's reach in this draw, which grows when the
+		 * safe-area zoom shrinks the menus: the margins alone would leave
+		 * the screen's edges uncovered (ui_widget_screen_fill_kind). */
+		struct halo_menu_screen screen;
+		boolean widen_to_screen, heighten_to_screen;
+
+		halo_screen_menu_screen_rect(TRUE, &screen);
+		ui_widget_screen_fill_kind(&bounds, bitmap->width, bitmap->height, &screen,
+			&widen_to_screen, &heighten_to_screen);
 
 		if (use_nifty_plasma_fx)
 		{
@@ -9586,12 +9981,7 @@ static void widget_instance_render_recursive(
 			ui_plasma_effect_color.green = 0.05f;
 			ui_plasma_effect_color.blue = 0.05f;
 		}
-		if (widen_to_screen)
-		{
-			long extra = (halo_screen_width() - 640) / 2;
-			bounds.x0 -= (short)extra;
-			bounds.x1 = (short)(640 + extra);
-		}
+		ui_widget_screen_fill_extend(&bounds, &screen, widen_to_screen, heighten_to_screen, FALSE);
 		bounds.x0 += offset.x;
 		bounds.x1 += offset.x;
 		bounds.y0 += offset.y;
@@ -9605,17 +9995,10 @@ static void widget_instance_render_recursive(
 			clip->y0 += offset.y;
 			clip->y1 += offset.y;
 		}
-		if (widen_to_screen && clip)
-		{
-			/* widen the clip by the same amount (it is offset-shifted but
-			 * still 640-wide at the edges) so the dim is not clipped back
-			 * to the centered columns */
-			long extra = (halo_screen_width() - 640) / 2;
-			if (clip->x0 <= 0)
-				clip->x0 -= (short)extra;
-			if (clip->x1 >= 640)
-				clip->x1 = (short)(clip->x1 + extra);
-		}
+		/* the clip as far (it is offset-shifted but still 640-wide at the
+		 * edges), so the dim is not clipped back to the centered columns */
+		if (clip)
+			ui_widget_screen_fill_extend(clip, &screen, widen_to_screen, heighten_to_screen, TRUE);
 		if (TEST_FLAG(definition->flags, _widget_flash_background_bitmap_bit))
 		{
 			alpha = (((real)cos(
@@ -9660,8 +10043,7 @@ static void widget_instance_render_recursive(
 				bounds.y0 += frame_y > 0 ? frame_y : 0;
 				/* port: a taller row frame (tools/xbox_menus.py) is drawn at its
 				own height, over the clamp above, so its visible band fills the row */
-				if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
-					strstr(row_bitmap_name, "\\row_36\\")))
+				if (pc_menu_row_tall(widget->definition_tag_index))
 					bounds.y1 = bounds.y0 + frame_height;
 				texels.x0 = (short)((long)shift_x * bitmap->width / frame_width);
 				texels.y0 = (short)((long)shift_y * bitmap->height / frame_height);
@@ -9695,7 +10077,7 @@ static void widget_instance_render_recursive(
 				ui_hold_grow_card(widget, &bounds);
 				if (!custom_edition_picture)
 				{
-					short shift = menu_title_touch_shift(definition->background_bitmap.index, bitmap, &bounds, clip);
+					short shift = menu_title_touch_shift(widget, bitmap, &bounds, clip);
 
 					bounds.x0 += shift;
 					bounds.x1 += shift;
@@ -9757,7 +10139,7 @@ static void widget_instance_render_recursive(
 				if (portrait_backdrop)
 					halo_screen_ui_backdrop(FALSE);
 				if (!custom_edition_picture)
-					menu_title_icon_draw(definition->background_bitmap.index, bitmap, &bounds, clip, color);
+					menu_title_icon_draw(widget, bitmap, &bounds, clip, color);
 			}
 		}
 		if (use_nifty_plasma_fx)
@@ -9855,7 +10237,8 @@ static void widget_instance_render_recursive(
 			window_children = column_list_window_begin(widget, definition, window, window_saved);
 		for (child = widget->child; child; child = child->next)
 		{
-			focus = child == widget->focused_child;
+			focus = widget->type == _ui_widget_type_spinner_list || widget->type == _ui_widget_type_column_list ?
+				ui_list_child_draws_focus(widget, child) : child == widget->focused_child;
 			use_nifty_plasma_fx = focus &&
 				(widget->type == _ui_widget_type_spinner_list ||
 				widget->type == _ui_widget_type_column_list);
@@ -10080,9 +10463,12 @@ void render_ui_widgets(
 		{
 			real alpha;
 
-			/* the whole screen, around the centered 640 columns */
-			bounds.x0 = (short)(-(halo_screen_width() - 640) / 2);
-			bounds.x1 = (short)(640 + (halo_screen_width() - 640) / 2);
+			/* the whole screen, around the centered 640 columns (outside the menu window) */
+			struct halo_menu_screen screen;
+
+			halo_screen_menu_screen_rect(FALSE, &screen);
+			bounds.x0 = (short)MIN(0, screen.x0);
+			bounds.x1 = (short)MAX(640, screen.x1);
 			bounds.y0 = 0;
 			bounds.y1 = 480;
 			if (widget_globals.fade_to_black >= 0.95f)
@@ -10102,7 +10488,14 @@ void render_ui_widgets(
 	}
 	else
 	{
+		/* port: the in-game keyboard is a menu screen too: the safe-area zoom keeps it clear of
+		a camera cutout (halo_screen_menu_window), over the game as well as in the menus, with
+		the menus' usual content span (it has no widgets to give one) */
+		halo_screen_menu_content(MENU_CONTENT_TOP, MENU_CONTENT_BOTTOM);
+		halo_screen_menu_window(1);
 		virtual_keyboard_render();
+		halo_screen_menu_window(0);
+		halo_screen_menu_content(0.0f, 0.0f);
 	}
 
 	return;
@@ -10193,7 +10586,7 @@ static void widget_instance_render_column_list(
 				clip_rect,
 				offset,
 				focus,
-				item_index == widget->parameters.list.selected_index);
+				ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, item_index == widget->parameters.list.selected_index));
 			item_index++;
 		}
 	}
@@ -10221,7 +10614,7 @@ static __inline void spinner_list_update(
 	for (child = widget->child; child; child = child->next)
 	{
 		child->animation.current_frame_index = 0;
-		if (child == widget->focused_child &&
+		if (ui_list_child_draws_focus(widget, child) &&
 			child->animation.number_of_sprite_frames == 2)
 		{
 			child->animation.current_frame_index = 1;
@@ -10243,7 +10636,7 @@ static void column_list_update(
 
 	for (child = widget->child; child; child = child->next)
 	{
-		if (child == widget->focused_child)
+		if (ui_list_child_draws_focus(widget, child))
 		{
 			if (child->animation.number_of_sprite_frames == 2)
 				child->animation.current_frame_index = 1;

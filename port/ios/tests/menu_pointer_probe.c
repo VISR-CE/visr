@@ -1,6 +1,7 @@
 /* Fingers and pointer devices on the menus: the state machine (host_menu_pointer.h) and the
    mapping from a surface to the menus' coordinates (halo_ui_pointer_map.h). */
 #include <assert.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,7 +49,7 @@ static void drag(void) {
     take(&m);
     host_menu_pointer_touch_move(&m, 1, 100, 215);   /* past the slop: scrolling, no notch yet */
     p = take(&m);
-    assert(!p.wheel_steps && !p.moved);
+    assert(!p.wheel_steps && p.moved && p.x == 100 && p.y == 215 && !p.down);   /* the pointer follows the dragging finger */
     host_menu_pointer_touch_move(&m, 1, 100, 200 + 10.0f + 2 * HOST_MENU_POINTER_NOTCH + 3);   /* two notches down */
     p = take(&m);
     assert(p.wheel_steps == -2);
@@ -249,7 +250,37 @@ static void portrait_mapping(void) {
     assert(!halo_ui_layout_clip_rect(0.5f, 120, outside, viewport, fitted));
 }
 
+/* The geometry is written on one thread while taps read it on another: every read is one of the sizes written, never
+   one size's width with another's height or surface. */
+static struct host_menu_pointer shared;
+static _Atomic int writing_done;
+static void *write_sizes(void *unused) {
+    (void)unused;
+    for (int i = 0; i < 200000; i++) {
+        if (i & 1) host_menu_pointer_set_geometry(&shared, 457, 678, 1371, 2034);
+        else host_menu_pointer_set_geometry(&shared, 678, 457, 2034, 1371);
+    }
+    atomic_store(&writing_done, 1);
+    return NULL;
+}
+static void geometry_snapshots(void) {
+    pthread_t writer;
+    host_menu_pointer_set_geometry(&shared, 678, 457, 2034, 1371);
+    pthread_create(&writer, NULL, write_sizes, NULL);
+    long reads = 0;
+    while (!atomic_load(&writing_done)) {
+        struct host_pointer_geometry g = host_pointer_geometry_snapshot(&shared.geometry);
+        int portrait = g.surface_width == 457;
+        assert(g.surface_height == (portrait ? 678 : 457));
+        assert(g.drawable_width == (portrait ? 1371 : 2034) && g.drawable_height == (portrait ? 2034 : 1371));
+        reads++;
+    }
+    pthread_join(writer, NULL);
+    assert(reads > 0);
+}
+
 int main(void) {
+    geometry_snapshots();
     edge_swipe();
     hold_down();
     tap();

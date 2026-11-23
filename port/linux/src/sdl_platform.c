@@ -12,7 +12,6 @@ and the debug keyboard that the game's console reads.
 #include "halo_controller_glyphs.h"
 #include "platform.h"
 #include "sdl_platform.h"
-#include "menu_input.h"
 #ifndef HALO_IOS
 /* on iOS the GL backend, and GL, run in the host (gpu_gl.c, step 4) */
 #include "gl.h"
@@ -41,48 +40,7 @@ void win32_window_borderless_apply(SDL_Window *window);
 #include <unistd.h>
 #endif
 
-static struct menu_input_tracker menu_input;
-static int menu_ignore_warp;
-static float menu_warp_x, menu_warp_y;
 
-int platform_menu_compact_density(void)
-{
-#if defined(__APPLE__) && !defined(HALO_IOS)
-	return 1;
-#elif defined(HALO_IOS) && defined(HALO_ILP32)
-	return menu_input_env("HALO_HOST_MAC");
-#else
-	return 0;
-#endif
-}
-
-int platform_menu_pad(void)
-{
-	if (!menu_input.initialized)
-	{
-		int count = 0;
-		SDL_JoystickID *ids = SDL_GetGamepads(&count);
-		int mobile = 0;
-#ifdef HALO_IOS
-		extern int host_menu_controller(void);
-		count = host_menu_controller();
-#endif
-#if defined(HALO_ILP32) || defined(HALO_ANDROID)
-		mobile = !menu_input_env("HALO_HOST_MAC");
-#endif
-		menu_input_start(&menu_input, mobile,
-			menu_input_env("HALO_HOST_TVOS") || menu_input_env("HALO_HOST_VISIONOS"), count > 0);
-		SDL_free(ids);
-	}
-	return menu_input.pad;
-}
-void platform_menu_activity(int pad, float dx, float dy, int motion)
-{
-	int previous = platform_menu_pad();
-	menu_input_activity(&menu_input, pad, dx, dy, motion);
-	if (previous != menu_input.pad)
-		platform_log("menus: input class %s", menu_input.pad ? "pad" : "keyboard_mouse");
-}
 int platform_menu_keyboard(void)
 {
 #if defined(HALO_IOS)
@@ -1785,7 +1743,6 @@ void platform_pump_events(void)
 		case SDL_EVENT_FINGER_MOTION:
 			if (event.type == SDL_EVENT_FINGER_DOWN)
 				input_press_count++;
-			platform_menu_activity(1, 0, 0, 0);
 			break;
 		case SDL_EVENT_KEY_DOWN:
 		case SDL_EVENT_KEY_UP:
@@ -1831,12 +1788,6 @@ void platform_pump_events(void)
 			{
 				if (key_counts_as_press(event.key.scancode, event.key.mod))
 					input_press_count++;
-#ifdef HALO_IOS
-				/* UIKit also sends key events for the on-screen keyboard. */
-				extern int host_menu_keyboard(void);
-				if (host_menu_keyboard())
-#endif
-					platform_menu_activity(0, 0, 0, 0);
 			}
 			if (event.key.scancode < SDL_SCANCODE_COUNT)
 			{
@@ -1884,13 +1835,6 @@ void platform_pump_events(void)
 #endif
 			break;
 		case SDL_EVENT_MOUSE_MOTION:
-			if (event.motion.which != SDL_TOUCH_MOUSEID && event.motion.which != SDL_PEN_MOUSEID)
-			{
-				if (menu_ignore_warp && event.motion.x == menu_warp_x && event.motion.y == menu_warp_y)
-					menu_ignore_warp = 0;
-				else
-					platform_menu_activity(0, event.motion.xrel, event.motion.yrel, 1);
-			}
 #ifndef HALO_ILP32
 			/* in the menus the mouse moves the pointer, not the view */
 			if (input_state.ui_pointer)
@@ -1916,8 +1860,6 @@ void platform_pump_events(void)
 		case SDL_EVENT_MOUSE_BUTTON_UP:
 			if (event.button.down)
 				input_press_count++;
-			if (event.button.down)
-				platform_menu_activity(event.button.which == SDL_TOUCH_MOUSEID || event.button.which == SDL_PEN_MOUSEID, 0, 0, 0);
 			if (event.button.button < 32)
 			{
 				if (event.button.down)
@@ -1975,7 +1917,6 @@ void platform_pump_events(void)
 			}
 			break;
 		case SDL_EVENT_MOUSE_WHEEL:
-			if (event.wheel.x || event.wheel.y) platform_menu_activity(0, 0, 0, 0);
 			if (binding_capture == _binding_capture_waiting && event.wheel.y != 0.0f)
 			{
 				binding_capture = _binding_capture_taken;
@@ -2140,10 +2081,7 @@ void platform_ui_pointer_set_active(BOOL active)
 		int width, height;
 
 		SDL_GetWindowSize(platform_window, &width, &height);
-		menu_ignore_warp = 1;
-		menu_warp_x = width * 0.5f;
-		menu_warp_y = height * 0.5f;
-		SDL_WarpMouseInWindow(platform_window, menu_warp_x, menu_warp_y);
+		SDL_WarpMouseInWindow(platform_window, width * 0.5f, height * 0.5f);
 		pthread_mutex_lock(&input_lock);
 		ui_pointer.x = width * 0.5f;
 		ui_pointer.y = height * 0.5f;

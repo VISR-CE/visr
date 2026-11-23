@@ -1,6 +1,7 @@
 """Tests for the Mac runner's pure helpers (tools/mac_run.py)."""
 
 import argparse
+import json
 import os
 import plistlib
 import shutil
@@ -554,7 +555,7 @@ def fake_open(monkeypatch, stdout, stderr, status=0):
 
     monkeypatch.setattr(mac_run.subprocess, "Popen", Opener)
     monkeypatch.setattr(mac_run, "native_pids", lambda app: [])
-    monkeypatch.setattr(mac_run, "console_user", lambda: "steve")
+    monkeypatch.setattr(mac_run, "console_user", lambda: "player")
 
 
 def test_launch_native_copies_the_open_logs_into_out_and_replaces_the_old_ones(tmp_path, monkeypatch):
@@ -606,21 +607,21 @@ def test_wait_for_previous_instance_is_silent_when_nothing_runs(capsys):
 def test_open_failure_prints_open_s_stderr_not_the_login_hint(tmp_path):
     (tmp_path / "open-stderr.log").write_text(
         "The application cannot be opened.\nRBSRequestErrorDomain Code=5 (POSIX 162)\n")
-    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="steve")
+    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="player")
     assert "RBSRequestErrorDomain Code=5" in message
     assert "RBS/launchd error text" in message
     assert "logged in" not in message
 
 
 def test_open_failure_gives_the_login_hint_only_without_a_console_user(tmp_path):
-    for user, hinted in (("root", True), ("loginwindow", True), ("steve", False)):
+    for user, hinted in (("root", True), ("loginwindow", True), ("player", False)):
         message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user=user)
         assert ("nobody is logged in" in message) is hinted
         assert "open wrote nothing to stderr" in message
 
 
 def test_open_failure_reports_free_space(tmp_path):
-    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="steve")
+    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="player")
     assert "free space on the data volume:" in message
 
 
@@ -883,6 +884,12 @@ def input_run(folder, log=INPUT_LOG, root="/data"):
     (folder / "stderr.log").write_text(log)
     (folder / "config.toml").write_text(INPUT_CONFIG.format(root=root))
     return folder
+
+
+def test_audio_timing_lines_differ_per_run_so_they_are_not_compared_inputs():
+    log = INPUT_LOG + "halo-ios: audio device timing: io_buffer=21.33 ms output_latency=9.10 ms\n"
+    log += "halo-ios: audio route: timing: buffer_frames=512 device_latency=0\n"
+    assert not any("timing" in line for line in mac_run.input_lines(log))
 
 
 def test_input_lines_keep_the_lines_that_name_a_run_s_inputs():
@@ -1533,3 +1540,52 @@ def test_the_appkit_runner_seeds_from_the_active_family_s_catalyst_folder(tmp_pa
 ])
 def test_toml_value_quotes_bare_strings(raw, expected):
     assert mac_run.toml_value(raw) == expected
+
+
+def _benchmark_out(tmp_path, report=None, statuses=()):
+    folder = tmp_path / "benchmark"
+    folder.mkdir(parents=True)
+    if report is not None:
+        (folder / "report.json").write_text(json.dumps(report))
+    for index, status in enumerate(statuses):
+        (folder / f"run-{index:02d}.json").write_text(json.dumps({"index": index, "status": status}))
+    return tmp_path
+
+
+def test_a_refused_benchmark_catalog_fails_the_run_with_its_reason(tmp_path):
+    out = _benchmark_out(tmp_path, {"benchmark_catalog": {
+        "status": "unavailable", "note": "The signed benchmark catalog is missing, malformed, or noncanonical."}})
+    args = argparse.Namespace(benchmark_suite="cost:mp64-bloodgulch-1029", out=out)
+    with pytest.raises(SystemExit) as exit:
+        mac_run.benchmark_suite_check(args)
+    assert "ran no benchmark cases" in str(exit.value) and "noncanonical" in str(exit.value)
+
+
+@pytest.mark.parametrize("report, statuses, expected", [
+    ({"benchmark_catalog": {"status": "available"}}, (), "made no runs"),
+    (None, (), "wrote no report"),
+    ({"benchmark_catalog": {"status": "available"}}, ("skipped", "failed"), "no benchmark run was measured: failed, skipped"),
+    (["not", "an", "object"], ("ok",), "not a JSON object"),
+])
+def test_a_benchmark_suite_that_measured_nothing_fails(tmp_path, report, statuses, expected):
+    out = _benchmark_out(tmp_path, report, statuses)
+    with pytest.raises(SystemExit) as exit:
+        mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite="cost:x", out=out))
+    assert expected in str(exit.value)
+
+
+def test_a_benchmark_suite_with_a_measured_run_passes(tmp_path):
+    out = _benchmark_out(tmp_path, {"benchmark_catalog": {"status": "available"}}, ("skipped", "partial"))
+    mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite="cost:x", out=out))
+    mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite=None, out=tmp_path / "none"))
+
+
+def test_collect_drops_an_earlier_suites_benchmark_files(tmp_path):
+    out = _benchmark_out(tmp_path / "out", {"benchmark_catalog": {"status": "available"}}, ("ok",))
+    documents = tmp_path / "documents"
+    (documents / "benchmark").mkdir(parents=True)
+    (documents / "benchmark" / "report.json").write_text(json.dumps({"benchmark_catalog": {"status": "available"}}))
+    mac_run.collect(documents, out)
+    with pytest.raises(SystemExit) as exit:
+        mac_run.benchmark_suite_check(argparse.Namespace(benchmark_suite="cost:x", out=out))
+    assert "made no runs" in str(exit.value)

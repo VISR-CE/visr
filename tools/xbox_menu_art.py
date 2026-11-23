@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Draw the Xbox look's fallback art: button glyphs, row outline and the redrawn pictures (needs rsvg-convert).
+"""Draw the Xbox look's fallback art: button glyphs, row outline, the redrawn pictures and the titles the game has no
+picture for (needs rsvg-convert).
 
     python3 tools/xbox_menu_art.py
 
@@ -143,6 +144,50 @@ def slider_art(output):
         Image.open(png).convert('RGBA').save(png)
 
 
+# the titles of screens the Xbox look makes that the game has no title picture for at the standard size: picture
+# (in xbox/art), text
+TITLES = {
+    'header_edit_multiplayer_gametype': 'EDIT MULTIPLAYER GAMETYPE',
+}
+# a title's plate fades out before the picture's right edge: the most alpha (of 255) its last column may keep
+TITLE_EDGE_ALPHA = 4
+
+
+def title_art(output, titles=None):
+    """Each title set as the port's titles are (OpenCE at TITLE_CAP from TITLE_LEFT, over title_backdrop: see
+    tools/port_settings.py), 512 by 64 units at 4x. A title too long for its plate to fade out inside the picture is
+    set smaller, in steps of 2%, until it does."""
+    import sys
+
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFont
+
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import port_settings
+
+    scale = 4
+    face = ROOT / 'port/assets/fonts/OpenCE-Regular.ttf'
+    probe = ImageFont.truetype(str(face), 1000)
+    _, h_top, _, h_bottom = probe.getbbox('H')
+    for name, text in (titles or TITLES).items():
+        cap = port_settings.TITLE_CAP
+        while True:
+            font = ImageFont.truetype(str(face), round(cap * scale * 1000 / (h_bottom - h_top)))
+            svg = output / f'{name}.svg'
+            svg.write_text(port_settings.title_backdrop(font.getlength(text) / scale))
+            png = output / f'{name}.png'
+            subprocess.run(['rsvg-convert', '--zoom', str(scale), '--output', str(png), str(svg)], check=True)
+            image = Image.open(png).convert('RGBA')
+            draw = ImageDraw.Draw(image)
+            draw.text((port_settings.TITLE_LEFT * scale, port_settings.TITLE_TOP * scale - font.getbbox('H')[1]), text,
+                      font=font, fill=port_settings.TITLE_COLOR)
+            if int(np.asarray(image)[:, -1, 3].max()) <= TITLE_EDGE_ALPHA or cap < port_settings.TITLE_CAP / 2:
+                break
+            cap *= 0.98
+        svg.unlink()
+        image.save(png, optimize=True)
+
+
 def generate(menus=MENUS):
     menus = Path(menus)
     output = menus / 'xbox/art'
@@ -153,6 +198,7 @@ def generate(menus=MENUS):
     browser_art(output)
     redraw_art(output)
     title_icon(output)
+    title_art(output)
 
 
 def main():

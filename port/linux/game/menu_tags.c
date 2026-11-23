@@ -38,17 +38,19 @@ no screen pauses the game (a network game's clock runs on).
 
 #include "halo_menus.h"
 #include "menu_equivalence.h"
+#include "menu_geometry.h"
+#include "halo_menu_meta.h"
 #include "../../runtime/menu_picture_upscaled.h"
 
 #include <stdlib.h>
 #include <string.h>
 
+extern int host_development_hooks(void);
+
 /* the platform layer's (port/linux/src) */
 void platform_log(char const *format, ...);
 char const *config_string(char const *name);
 long config_integer(char const *name);
-int platform_menu_pad(void);
-int platform_menu_compact_density(void);
 int platform_display_resolutions(long *widths, long *heights, int maximum);
 int platform_window_sizes(long *widths, long *heights, int maximum);
 
@@ -70,11 +72,13 @@ char const *pc_menu_debug_screen_name(char const *open);
 char const *pc_menu_function_name(long function_index);
 char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
+boolean pc_menu_row_tall(long tag_index);
 /* whether the multiplayer mode chosen is system link (menu_functions.c) */
 boolean pc_menu_multiplayer_lan(void);
 boolean pc_menu_xbox_look(void);
 short pc_menu_list_window(long tag_index);
 boolean pc_menu_patch_list_index(long list_tag, long row_tag, short *description);
+boolean pc_menu_patch_row_help(long list_tag, long row_tag, short *help, short *length);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
 void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, boolean block, boolean load);
 
@@ -120,7 +124,7 @@ adds to */
 /* the tags pause_patch adds: two buttons and their texts */
 #define PAUSE_PATCH_TAGS 4
 /* what a frame of ui.map's is drawn as in a game map, which has not got it */
-#define BLANK_PNG "ce/port/blank__0.png"
+#define BLANK_PNG "pictures/port/blank__0.png"
 #define UI_WIDGET_DEFINITION_TAG 'DeLa'
 #define UNICODE_STRING_LIST_TAG 'ustr'
 #define FONT_TAG 'font'
@@ -306,6 +310,9 @@ struct menu_patch_index
 	long list_tag;
 	long row_tag;
 	short description;
+	/* the row's first line in the list's description text, or NONE, and its number of lines (one a
+	value, or one for the whole row) */
+	short help, help_length;
 };
 
 /* a spinner bound to a setting (menu_functions.c) */
@@ -376,7 +383,7 @@ widgets run instead of the Xbox's (those take the Xbox's widgets: a spinner
 of levels, the difficulty list itself) */
 static char const *const port_function_names[] =
 {
-	"port quit game", "port setting load", "port setting save", "unwired",
+	"port quit game", "port setting load", "port setting save",
 	"exit gracefully to xbox dashboard", "pause game invert pitch", "start new coop game",
 	"pause game invert spinner get", "pause game invert spinner set", "main menu quit game",
 	"mouse emit accept event", "mouse emit back event", "mouse emit dpad left event",
@@ -412,7 +419,7 @@ static char const *const port_function_names[] =
 	"port lobby preview join",
 	"port browser join big confirm", "port browser join big back",
 	"port browser chip select", "port browser chips navigation", "port browser rows up", "port browser rows down",
-	"port browser detail navigation", "port browser legend navigation",
+	"port browser detail navigation",
 	"port browser filters reset", "port browser filters open", "port browser ip open",
 	"port setup edit",
 	"port map list back",
@@ -437,11 +444,11 @@ static char const *const port_function_names[] =
 	settings' screens having written theirs to config.toml) */
 	"player profile save changes",
 	/* (the server browser's password screen) */
-	"port password init", "port password edit", "port password join", "port password back", "port password accept", "port password togglehide", "port password togglehide click",
+	"port password init", "port password edit", "port password join", "port password back", "port password togglehide",
 	/* (Settings begins editing after its new profile is created) */
 	"new campaign decision",
 	/* (Direct Link's ENTER CODE screen: a join code or an invite link) */
-	"port code open", "port code init", "port code edit", "port code join", "port code back", "port code accept",
+	"port code open", "port code init", "port code edit", "port code join", "port code back",
 	/* (the lobby's Y: the invite link in the share sheet, Apple builds) */
 	"port lobby share",
 	/* (the Apple TV's DELETE PROFILE and DELETE GAMETYPE rows: the one being edited is the one the Xbox's
@@ -468,7 +475,6 @@ static char const *const port_function_names[] =
 PC_MENU_FUNCTION_BASE (menu_functions.c) */
 static char const *const port_game_data_input_names[] =
 {
-	"unwired",
 	"pause game set textbox inverted", "dim unless two controllers", "controls update menu",
 	"video menu update", "gamespy screen update", "port browser filters update", "common button bar update", "gamepad update menu",
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
@@ -508,13 +514,11 @@ static struct
 	none), which their descriptions are shown by (pc_menu_patch_list_index) */
 	struct menu_patch_index *patch_indices;
 	long patch_index_count;
-	/* the column lists that show a window of their rows (visible_rows=) */
-	struct { long tag_index; short rows; } *windows;
-	long window_count;
+	/* what the menus' data says of a widget, by tag (halo_menu_meta.h): a standard tall row (row="tall", and the
+	map's rows a patch made tall), a list's window of rows (visible_rows=) */
+	struct halo_menu_meta *meta;
+	long meta_count;
 	boolean loaded;
-	/* the Xbox look's set (display.menus not "pc"), else the PC version's */
-	boolean xbox_set;
-	char root[300];
 } menu_tags;
 
 /* the build under way */
@@ -537,7 +541,6 @@ static struct
 	/* a multiplayer map's build (the pause menu's SETTINGS): what the map
 	has not got is none, not a failure */
 	boolean game_map;
-	boolean xbox_set;
 } build;
 
 /* ---------- private code */
@@ -704,14 +707,6 @@ static long tag_named(long group_tag, char const *name, char const *file, long l
 	return index;
 }
 
-/* "unwired <name>": a function the PC version has for these widgets, not
-yet written for this engine (port/assets/menus/UNWIRED.md), which does
-nothing */
-static boolean unwired(char const *name)
-{
-	return !strncmp(name, "unwired ", 8);
-}
-
 /* an event handler function by its name (the port's, else the game's), or
 NONE */
 static long function_lookup(char const *name)
@@ -719,8 +714,6 @@ static long function_lookup(char const *name)
 	char const *function_name;
 	long index;
 
-	if (unwired(name))
-		name = "unwired";
 	index = name_index(name, port_function_names, NUMBEROF(port_function_names));
 	if (index != NONE)
 		return PC_MENU_FUNCTION_BASE + index;
@@ -745,8 +738,6 @@ static long game_data_input_index(char const *name, char const *file, long line)
 {
 	long index;
 
-	if (unwired(name))
-		name = "unwired";
 	/* (ours first, as for the event handlers) */
 	index = name_index(name, port_game_data_input_names, NUMBEROF(port_game_data_input_names));
 	if (index != NONE)
@@ -1298,6 +1289,65 @@ static void rows_pack(struct halo_menu_widget const *source, struct ui_widget_ch
 		children[placed].flags &= ~0x80000000UL;
 }
 
+/* the record of a tag to write to, made if the tag has none (NULL: out of memory, and the tag stays unsaid) */
+static struct halo_menu_meta *meta_note(long tag_index)
+{
+	struct halo_menu_meta *grown;
+	long index;
+
+	for (index = 0; index < menu_tags.meta_count; index++)
+	{
+		if (menu_tags.meta[index].tag_index == tag_index)
+			return &menu_tags.meta[index];
+	}
+	grown = realloc(menu_tags.meta, (menu_tags.meta_count + 1) * sizeof(*grown));
+	if (!grown)
+		return NULL;
+	menu_tags.meta = grown;
+	memset(&grown[menu_tags.meta_count], 0, sizeof(*grown));
+	grown[menu_tags.meta_count].tag_index = tag_index;
+	grown[menu_tags.meta_count].title_strings = NONE;
+	return &grown[menu_tags.meta_count++];
+}
+
+/* the menus' <title>s: each widget noted as its screen's title, with its text (a widget of the map's that this map
+does not have, a disc screen's title while a game map is loaded, is left alone) */
+static void titles_note(void)
+{
+	struct halo_menus const *menus = build.menus;
+	long index;
+
+	for (index = 0; index < menus->title_count && !build.failed; index++)
+	{
+		struct halo_menu_title const *title = &menus->titles[index];
+		long widget = strchr(title->widget, '\\') ? tag_loaded(UI_WIDGET_DEFINITION_TAG, title->widget) :
+			tag_named(UI_WIDGET_DEFINITION_TAG, title->widget, title->file, title->line);
+		long strings = tag_named(UNICODE_STRING_LIST_TAG, title->strings, title->file, title->line);
+		struct halo_menu_meta *meta;
+
+		if (widget == NONE || strings == NONE)
+			continue;
+		meta = meta_note(widget);
+		if (meta)
+		{
+			meta->role = HALO_MENU_ROLE_TITLE;
+			meta->title_strings = strings;
+		}
+	}
+}
+
+/* a widget noted as a standard tall row */
+static void row_tall_note(long tag_index)
+{
+	struct halo_menu_meta *meta = tag_index == NONE ? NULL : meta_note(tag_index);
+
+	if (meta)
+	{
+		meta->role = HALO_MENU_ROLE_ROW;
+		meta->tall = TRUE;
+	}
+}
+
 static void *widget_build(long widget_index)
 {
 	struct halo_menus const *menus = build.menus;
@@ -1444,15 +1494,36 @@ static void *widget_build(long widget_index)
 		else
 			setting_add(source, build.widget_tags[widget_index]);
 	}
+	if (source->row)
+	{
+		if (strcmp(source->row, "tall"))
+			problem(source->file, source->line, "row is tall, or not given:", source->name);
+		else
+			row_tall_note(build.widget_tags[widget_index]);
+	}
+	if (source->bar_slot)
+	{
+		/* a glyph or caption of a screen's bar (menu_files.c, read_action) */
+		struct halo_menu_meta *meta = meta_note(build.widget_tags[widget_index]);
+
+		if (meta)
+		{
+			meta->role = HALO_MENU_ROLE_BAR_ACTION;
+			meta->slot = (unsigned char)source->bar_slot;
+			meta->scope = (unsigned char)source->bar_scope;
+			meta->typing = (unsigned char)source->bar_typing;
+		}
+	}
 	if (source->visible_rows)
 	{
 		if (definition->type != _widget_type_column_list || source->visible_rows < 1 || source->visible_rows > 64)
 			problem(source->file, source->line, "visible_rows is 1 to 64, for a column list:", source->name);
 		else
 		{
-			menu_tags.windows = realloc(menu_tags.windows, (menu_tags.window_count + 1) * sizeof(*menu_tags.windows));
-			menu_tags.windows[menu_tags.window_count].tag_index = build.widget_tags[widget_index];
-			menu_tags.windows[menu_tags.window_count++].rows = (short)source->visible_rows;
+			struct halo_menu_meta *meta = meta_note(build.widget_tags[widget_index]);
+
+			if (meta)
+				meta->visible_rows = (short)source->visible_rows;
 		}
 	}
 	reference_clear(&definition->list_header_bitmap, BITMAP_GROUP_TAG);
@@ -1696,8 +1767,8 @@ static void menu_tags_release(void)
 		free(menu_tags.settings);
 	if (menu_tags.patch_indices)
 		free(menu_tags.patch_indices);
-	if (menu_tags.windows)
-		free(menu_tags.windows);
+	if (menu_tags.meta)
+		free(menu_tags.meta);
 	memset(&menu_tags, 0, sizeof(menu_tags));
 }
 
@@ -1715,10 +1786,8 @@ pausebox2 pieces), the box is the port's taller one (pause/pausebox_*:
 tools/port_settings.py), centred where the old one was; on a custom map's,
 what is below the list moves down. */
 
-/* the screen SETTINGS opens, by set: the PC version's profile edit screen,
-or the Xbox look's own hub (a game map has not got ui.map's screens) */
-#define PAUSE_SETTINGS_SCREEN_PC "main_menu/settings_select/player_setup/player_profile_edit/player_profile_edit_screen"
-#define PAUSE_SETTINGS_SCREEN_XBOX "xbox/settings/settings_screen"
+/* the screen SETTINGS opens: the settings hub (a game map has not got ui.map's screens) */
+#define PAUSE_SETTINGS_SCREEN "xbox/settings/settings_screen"
 #define PAUSE_BUTTON_SPACING 35
 /* the Xbox look's comfortable row (xbox/settings.xml's hub rows): 36 units
 drawn on a 39 pitch, in a 232 wide list (the pause row picture: a band closed at both ends) */
@@ -1853,7 +1922,7 @@ static long pause_list_patch(struct cache_file_tag_instance *instances, struct u
 	long count = list->child_widgets.count, added = host ? 2 : 1, child;
 	struct ui_widget_child_reference *grown = allocate((count + added) * sizeof(struct ui_widget_child_reference));
 	struct ui_widget_definition const *model = tag_get(UI_WIDGET_DEFINITION_TAG, children[quit].widget_tag.index);
-	long settings_widget = widget_named(build.xbox_set ? PAUSE_SETTINGS_SCREEN_XBOX : PAUSE_SETTINGS_SCREEN_PC);
+	long settings_widget = widget_named(PAUSE_SETTINGS_SCREEN);
 	short spacing = count >= 2 ? (short)(children[count - 1].vertical_offset - children[count - 2].vertical_offset) :
 		PAUSE_BUTTON_SPACING;
 	void *buttons[2];
@@ -2112,12 +2181,23 @@ struct patch_work
 	/* each row's tag in the map (a replaced row's too), NONE for one added */
 	long map_tags[PATCH_MAXIMUM_ROWS];
 	short descriptions[PATCH_MAXIMUM_ROWS];
+	/* each row's first help line in the description text: a map row's where the map put it (its
+	spinner's own strings follow those of the rows before it in the map's order), an added row's
+	after the map's own lines, NONE for a row with none */
+	short help_lines[PATCH_MAXIMUM_ROWS];
+	/* and how many lines it has: one a value, or one for the whole row */
+	short help_lengths[PATCH_MAXIMUM_ROWS];
 	long count;
 	short *screen_y;
 	short footer, right;
 	/* the rows made: their tags, definitions, names and texts */
 	long made_widgets[PATCH_MAXIMUM_ROWS], made_texts[PATCH_MAXIMUM_ROWS];
 	struct ui_widget_definition *made_definitions[PATCH_MAXIMUM_ROWS];
+	/* rows="tall": each row's definition to make tall when the patch is written (NULL: none, ours or already
+	tall), and its art; a patch that fails before it is written leaves the map's rows as they were */
+	struct ui_widget_definition *tall_definitions[PATCH_MAXIMUM_ROWS];
+	long tall_art[PATCH_MAXIMUM_ROWS];
+	short tall_shift;
 	char const *made_names[PATCH_MAXIMUM_ROWS], *made_strings[PATCH_MAXIMUM_ROWS];
 	long made_count;
 	/* the help strings of the rows that are our widgets, added in order to the description's text */
@@ -2404,10 +2484,52 @@ static struct ui_widget_definition const *patch_model(struct patch_work const *w
 	return tag_get(UI_WIDGET_DEFINITION_TAG, tag);
 }
 
+/* the help lines a map row's values have in its list's description: its spinner's own strings */
+static short patch_row_help_count(struct ui_widget_definition const *row)
+{
+	struct ui_widget_child_reference const *children = row->child_widgets.address;
+
+	for (long child = 0; child < row->child_widgets.count; child++)
+	{
+		struct ui_widget_definition const *part;
+		struct string_list const *strings;
+
+		if (children[child].widget_tag.index == NONE)
+			continue;
+		part = tag_get(UI_WIDGET_DEFINITION_TAG, children[child].widget_tag.index);
+		if (!part || part->type != _widget_type_spinner_list || part->text_label_string_list.index == NONE)
+			continue;
+		strings = tag_get(UNICODE_STRING_LIST_TAG, part->text_label_string_list.index);
+		return strings ? (short)strings->strings.count : 0;
+	}
+	return 0;
+}
+
+/* the lines a help= takes (one per '|'-separated value) */
+static long patch_help_text_pieces(char const *help)
+{
+	long pieces = 1;
+
+	for (char const *bar = strchr(help, '|'); bar; bar = strchr(bar + 1, '|'))
+		pieces++;
+	return pieces;
+}
+
+/* the lines the helps added so far take */
+static long patch_help_pieces(struct patch_work const *work)
+{
+	long pieces = 0;
+
+	for (long index = 0; index < work->help_count; index++)
+		pieces += patch_help_text_pieces(work->helps[index]);
+	return pieces;
+}
+
 static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row const *source)
 {
 	char const *anchor_name = source->after ? source->after : source->before;
 	long anchor = patch_row_find(work, anchor_name), at, row, widget_tag;
+	short help_line = NONE, help_length = 0;
 	struct ui_widget_definition const *model;
 	struct ui_widget_definition *definition;
 	struct ui_widget_child_reference reference;
@@ -2449,6 +2571,9 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 					source->name);
 			work->help_strings = tag_get(UNICODE_STRING_LIST_TAG, text->text_label_string_list.index);
 			work->helps[work->help_count++] = source->help;
+			/* (its lines follow the map's own and those of the rows added before it) */
+			help_length = (short)patch_help_text_pieces(source->help);
+			help_line = (short)(work->help_strings->strings.count + patch_help_pieces(work) - help_length);
 		}
 	}
 	else
@@ -2501,7 +2626,11 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 		work->names[row] = work->names[row - 1];
 		work->map_tags[row] = work->map_tags[row - 1];
 		work->descriptions[row] = work->descriptions[row - 1];
+		work->help_lines[row] = work->help_lines[row - 1];
+		work->help_lengths[row] = work->help_lengths[row - 1];
 	}
+	work->help_lines[at] = help_line;
+	work->help_lengths[at] = help_length;
 	work->rows[at] = reference;
 	work->definitions[at] = definition;
 	work->names[at] = source->name;
@@ -2561,6 +2690,8 @@ static boolean patch_row_remove(struct patch_work *work, struct halo_menu_patch_
 		work->names[row] = work->names[row + 1];
 		work->map_tags[row] = work->map_tags[row + 1];
 		work->descriptions[row] = work->descriptions[row + 1];
+		work->help_lines[row] = work->help_lines[row + 1];
+		work->help_lengths[row] = work->help_lengths[row + 1];
 		work->rows[row].vertical_offset = (short)(work->rows[row].vertical_offset - pitch);
 	}
 	work->count--;
@@ -2593,6 +2724,8 @@ static boolean patch_row_replace(struct patch_work *work, struct halo_menu_patch
 	work->rows[replaced].horizontal_offset = (short)(x - work->list_x - definition->bounds.x0);
 	work->definitions[replaced] = definition;
 	work->names[replaced] = source->name;
+	work->help_lines[replaced] = NONE;
+	work->help_lengths[replaced] = 0;
 	return TRUE;
 }
 
@@ -2800,12 +2933,172 @@ static void patch_remote_legends(void)
 /* one patch: worked out whole, then written (the list's rows, the
 screen's children's offsets, the rows' tags, the description's strings and
 frames), or not made at all */
+/* The standard tall row's geometry for each kind of the map's rows a patch makes tall: how far the row's content
+(an option row's label and value, a picture row's text) moves down in the taller row, and whether the list keeps
+the extra space the map leaves between some of its rows (a picture list's gap before its last row). */
+struct menu_row_kind
+{
+	char const *name;
+	short content_shift;
+	boolean keep_gaps;
+};
+
+static struct menu_row_kind const menu_row_kinds[] =
+{
+	{ "option", MENU_COMFORTABLE_ROW_SHIFT, FALSE },
+	{ "picture", MENU_PICTURE_ROW_SHIFT, TRUE },
+};
+
+static struct menu_row_kind const *menu_row_geometry(char const *kind)
+{
+	for (long index = 0; kind && index < NUMBEROF(menu_row_kinds); index++)
+	{
+		if (!strcmp(kind, menu_row_kinds[index].name))
+			return &menu_row_kinds[index];
+	}
+	return NULL;
+}
+
+static long patch_tall_art(char const *name)
+{
+	long index = name ? find(name, build.menus->bitmap_count, bitmap_name) : NONE;
+
+	return index == NONE ? NONE : build.bitmap_tags[index];
+}
+
+/* rows="tall": every row of the list becomes a standard tall row, in the order the patch left them. The rows
+are set at the standard pitch from the first row's place (a picture list keeps the map's extra gaps: each row's
+space above it beyond the list's closest pitch). A row of the map's own is changed where it is, so its tag and its
+name stay what the game's handlers and the patch's own numbering look it up by: its height becomes the pitch, its
+background the tall art (the first row's the top art, where given), and its content moves down by its kind's
+shift. A row of ours is tall already. Done once for a row that several lists share. */
+/* the row's definition if the patch made it as a copy of a map row (a <row> or <replace> without widget=), whose
+tag is not yet in the map's tags; NULL for the map's own rows and for our widgets */
+static struct ui_widget_definition *patch_row_copy(struct patch_work *work, long row)
+{
+	for (long made = 0; made < work->made_count; made++)
+	{
+		if (work->made_definitions[made] == work->definitions[row])
+			return work->made_definitions[made];
+	}
+	return NULL;
+}
+
+/* the screen's widgets that stand in a gap between the list's rows (left of the list's right edge, below the first
+row's top and above the last's), such as the line in the multiplayer type list's gap: each moves with the row below
+it, from where the rows stood (was) to where they stand now */
+static void patch_gap_widgets_follow(struct patch_work *work, short const *was)
+{
+	struct ui_widget_child_reference const *children = work->screen->child_widgets.address;
+	long child, row;
+
+	for (child = 0; child < work->screen->child_widgets.count && work->count > 1; child++)
+	{
+		struct ui_widget_definition const *definition;
+		short y, x;
+
+		if (child == work->list_child || children[child].widget_tag.index == NONE)
+			continue;
+		definition = tag_get(UI_WIDGET_DEFINITION_TAG, children[child].widget_tag.index);
+		y = (short)(definition->bounds.y0 + work->screen_y[child]);
+		x = (short)(definition->bounds.x0 + children[child].horizontal_offset);
+		if (x >= work->right || y <= was[0] || y >= was[work->count - 1])
+			continue;
+		for (row = 1; row < work->count && was[row] <= y; row++)
+			;
+		work->screen_y[child] = (short)(work->screen_y[child] + patch_row_y(work, row) - was[row]);
+	}
+}
+
+/* rows="tall", written: the rows patch_rows_tall chose made tall, each noted as a standard tall row */
+static void patch_rows_tall_write(struct patch_work *work)
+{
+	long row;
+
+	for (row = 0; row < work->count; row++)
+	{
+		struct ui_widget_definition *definition = work->tall_definitions[row];
+		long tag = work->rows[row].widget_tag.index;
+
+		/* (a map row the list shows twice is made tall once) */
+		if (definition && !(tag != NONE && pc_menu_row_tall(tag)))
+		{
+			struct ui_widget_child_reference *parts = definition->child_widgets.address;
+			long part;
+
+			definition->bounds.y1 = (short)(definition->bounds.y0 + MENU_COMFORTABLE_PITCH);
+			reference_set(&definition->background_bitmap, BITMAP_GROUP_TAG, work->tall_art[row]);
+			if (definition->type == _widget_type_text_box)
+				definition->vertical_offset = (short)(definition->vertical_offset + work->tall_shift);
+			for (part = 0; part < definition->child_widgets.count; part++)
+				parts[part].vertical_offset = (short)(parts[part].vertical_offset + work->tall_shift);
+		}
+		if (tag != NONE)
+			row_tall_note(tag);
+	}
+}
+
+/* rows="tall", worked out: where each row stands on the standard pitch and which definitions become tall (written
+by patch_rows_tall_write, after the patch's last failure) */
+static boolean patch_rows_tall(struct patch_work *work)
+{
+	struct halo_menu_patch const *patch = work->patch;
+	struct menu_row_kind const *kind = menu_row_geometry(patch->row_kind);
+	long art = patch_tall_art(patch->tall_art), top_art = patch->tall_top_art ? patch_tall_art(patch->tall_top_art) : art;
+	long row;
+	short first, closest = 32767, y[PATCH_MAXIMUM_ROWS];
+
+	if (strcmp(patch->rows, "tall"))
+		return patch_fail(work, patch->file, patch->line, "rows is tall, or not given:", patch->rows);
+	if (!kind)
+		return patch_fail(work, patch->file, patch->line, "rows=\"tall\" needs row_kind, option or picture:",
+			patch->row_kind ? patch->row_kind : patch->list);
+	if (art == NONE || top_art == NONE)
+		return patch_fail(work, patch->file, patch->line, "rows=\"tall\" needs tall_art (and tall_top_art), bitmaps of ours:",
+			art == NONE ? (patch->tall_art ? patch->tall_art : patch->list) : patch->tall_top_art);
+	if (work->count < 1)
+		return TRUE;
+	for (row = 0; row < work->count; row++)
+	{
+		y[row] = patch_row_y(work, row);
+		if (row > 0 && y[row] - y[row - 1] > 0 && y[row] - y[row - 1] < closest)
+			closest = (short)(y[row] - y[row - 1]);
+	}
+	for (row = 1, first = y[0]; row < work->count; row++)
+	{
+		if (y[row] < first)
+			first = y[row];
+	}
+	for (row = 0; row < work->count; row++)
+	{
+		long tag = work->rows[row].widget_tag.index;
+		short gap = row > 0 && kind->keep_gaps && y[row] - y[row - 1] > closest ? (short)(y[row] - y[row - 1] - closest) : 0;
+		short top = row > 0 ? (short)(patch_row_y(work, row - 1) + MENU_COMFORTABLE_PITCH + gap) : first;
+
+		struct ui_widget_definition *definition = patch_row_copy(work, row);
+
+		work->rows[row].vertical_offset = (short)(top - work->list_y - work->definitions[row]->bounds.y0);
+		/* (the map's own row, once, where several lists show it; a copy made from one; never one of our widgets,
+		which are tall already) */
+		if (!definition && work->map_tags[row] == tag && tag != NONE && !pc_menu_row_tall(tag))
+			definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+		work->tall_definitions[row] = definition;
+		work->tall_art[row] = row == 0 ? top_art : art;
+	}
+	work->tall_shift = kind->content_shift;
+	patch_gap_widgets_follow(work, y);
+	return TRUE;
+}
+
+static void option_columns_fit(struct ui_widget_definition const *list, char const *name);
+
 static void patch_apply(struct cache_file_tag_instance *instances, struct halo_menu_patch const *patch)
 {
 	struct halo_menus const *menus = build.menus;
 	struct patch_work *work = malloc(sizeof(*work));
 	struct ui_widget_child_reference *children, *grown;
 	long screen_tag, row, child, made, bottom;
+	short help_line = 0;
 
 	if (!work)
 	{
@@ -2905,6 +3198,9 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 		work->definitions[row] = tag_get(UI_WIDGET_DEFINITION_TAG, work->rows[row].widget_tag.index);
 		work->map_tags[row] = work->rows[row].widget_tag.index;
 		work->descriptions[row] = (short)row;
+		work->help_lines[row] = help_line;
+		work->help_lengths[row] = patch_row_help_count(work->definitions[row]);
+		help_line = (short)(help_line + work->help_lengths[row]);
 		right = (short)(work->list_x + work->definitions[row]->bounds.x1 + work->rows[row].horizontal_offset);
 		if (right > work->right)
 			work->right = right;
@@ -2919,10 +3215,13 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 		if (!done)
 			goto done;
 	}
+	if (patch->rows && !patch_rows_tall(work))
+		goto done;
 	/* (the rows above the footer) */
 	for (row = 0, bottom = -32768; row < work->count; row++)
 	{
-		long row_bottom = patch_row_y(work, row) + work->definitions[row]->bounds.y1 - work->definitions[row]->bounds.y0;
+		long row_bottom = patch_row_y(work, row) + (work->tall_definitions[row] ? MENU_COMFORTABLE_PITCH :
+			work->definitions[row]->bounds.y1 - work->definitions[row]->bounds.y0);
 
 		if (row_bottom > bottom)
 			bottom = row_bottom;
@@ -2933,6 +3232,10 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 
 		snprintf(detail, sizeof(detail), "%ld > %d", bottom, work->footer);
 		patch_fail(work, patch->file, patch->line, "the rows pass the footer:", detail);
+		/* (the generator's tests lay every patch out and fail on this, so it means a patch table that was not
+		checked: a development build stops at it, naming the list; a release leaves the list the map's, as logged) */
+		if (host_development_hooks())
+			match_vhalt("menu_tags.c", __LINE__, patch->list);
 		goto done;
 	}
 	/* written: the rows' tags first, which the list names */
@@ -2969,6 +3272,12 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 	memcpy(grown, work->rows, work->count * sizeof(*grown));
 	work->list->child_widgets.address = grown;
 	work->list->child_widgets.count = work->count;
+	if (patch->rows)
+		patch_rows_tall_write(work);
+	/* standard tall rows keep the standard value column: as wide as the list's widest value, so a switch, a
+	dropdown or a slider has the room the menus' own rows give it, whatever width the map gave each spinner */
+	if (patch->rows)
+		option_columns_fit(work->list, patch->list);
 	/* (the list draws within its bounds) */
 	if (bottom - work->list_y > work->list->bounds.y1)
 		work->list->bounds.y1 = (short)(bottom - work->list_y);
@@ -2981,6 +3290,8 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 		index->list_tag = work->list_tag;
 		index->row_tag = work->rows[row].widget_tag.index;
 		index->description = work->descriptions[row];
+		index->help = work->help_lines[row];
+		index->help_length = work->help_lengths[row];
 	}
 	platform_log("menus: %s: %ld rows patched (%ld made)", patch->list, work->count, work->made_count);
 
@@ -3006,12 +3317,13 @@ static long patch_tag_count(struct halo_menus const *menus)
 own measure, with its glyphs' overhang) */
 short ui_widget_port_font_text_width(long font_index, void const *text);
 
-/* the space a settings spinner keeps between its text and each arrow */
-#define OPTION_VALUE_MARGIN 16
-#define OPTION_VALUE_MINIMUM_WIDTH 80
+/* the space a settings spinner keeps between its text and each arrow, which also keeps a centered value
+clear of the touch dropdown's chevron (menu_geometry.h) */
+#define OPTION_VALUE_MARGIN MENU_VALUE_MARGIN
+#define OPTION_VALUE_MINIMUM_WIDTH MENU_VALUE_MINIMUM_WIDTH
 #define OPTION_MAX(a, b) ((a) > (b) ? (a) : (b))
 
-/* a settings list's value column (each op_ row's spinner) as wide as the
+/* a settings list's value column (each row's spinner) as wide as the
 widest value of any of its rows, measured in its font, and the same for
 every row; the column keeps its right edge, so the spinners and their
 arrows stay where the rows' ends are and the labels keep the rest. Values
@@ -3035,7 +3347,8 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 		struct ui_widget_child_reference *pieces;
 		long piece;
 
-		if (strncmp(rows[row].name, "op_", 3) || rows[row].widget_tag.index == NONE)
+		/* (any row: one with no spinner only tells how far its label reaches) */
+		if (rows[row].widget_tag.index == NONE)
 			continue;
 		definition = tag_get(UI_WIDGET_DEFINITION_TAG, rows[row].widget_tag.index);
 		pieces = definition->child_widgets.address;
@@ -3128,24 +3441,12 @@ void menu_tags_loaded(
 	/* (ui.map, and a multiplayer map: its pause menu's SETTINGS) */
 	if (game_map && tag_loaded('Soul', MULTIPLAYER_COLLECTION) == NONE)
 		return;
-	/* Keep the first choice across map loads and input changes. */
-	{
-		static int density = -1;
-		if (density < 0)
-		{
-			long override = config_integer("debug.menu_density");
-			density = override == 0 || override == 1 ? (int)override : platform_menu_compact_density();
-			halo_menus_set_compact_density(density);
-			platform_log("menus: row density %s", density ? "compact" : "comfortable");
-		}
-	}
 	menus = halo_menus_load();
 	if (!menus)
 		return;
 	memset(&build, 0, sizeof(build));
 	build.menus = menus;
 	build.game_map = game_map;
-	build.xbox_set = strcmp(config_string("display.menus"), "pc") != 0;
 	patching = !game_map && menus->patch_count;
 	widget_count = menus->widget_count;
 	build.widget_tags = malloc((widget_count + 1) * sizeof(long));
@@ -3238,6 +3539,7 @@ void menu_tags_loaded(
 	cache_files_set_tag_instances(instances, build.first_index + total);
 	for (index = 0; index < widget_count && !build.failed; index++)
 		instances[DATUM_INDEX_TO_ABSOLUTE_INDEX(build.widget_tags[index])].base_address = widget_build(index);
+	titles_note();
 	if (build.failed)
 		goto failed;
 	for (index = 0; index < widget_count; index++)
@@ -3252,24 +3554,10 @@ void menu_tags_loaded(
 	}
 	else
 	{
-		/* (the Xbox look's root is the map's own main menu) */
-		menu_tags.root[0] = '\0';
+		/* (the root is the map's own main menu) */
 		patch_remote_legends();
 		for (index = 0; patching && index < menus->patch_count && !build.failed; index++)
 			patch_apply(instances, &menus->patches[index]);
-	}
-	if (!game_map && strcmp(config_string("display.menus"), "xbox") && widget_named(menus->root) != NONE)
-	{
-		snprintf(menu_tags.root, sizeof(menu_tags.root), "%s%s", PC_MENU_TAG_PREFIX, menus->root);
-		for (index = 0; menu_tags.root[index]; index++)
-		{
-			if (menu_tags.root[index] == '/')
-				menu_tags.root[index] = '\\';
-		}
-	}
-	else if (!game_map && !build.xbox_set)
-	{
-		platform_log("menus: there is no widget named %s, the main menu", menus->root);
 	}
 	if (build.failed)
 		goto failed;
@@ -3282,7 +3570,6 @@ void menu_tags_loaded(
 	cache_files_set_tag_instances(instances, build.first_index + build.next);
 	menu_pictures_pending = !game_map;
 	menu_tags.loaded = TRUE;
-	menu_tags.xbox_set = build.xbox_set;
 	platform_log("menus: %ld widgets, %ld string lists and %ld bitmaps added to the map's %ld tags",
 		widget_count, own_lists + menus->string_list_count, menus->bitmap_count, build.first_index);
 	goto done;
@@ -3391,18 +3678,6 @@ static void menu_profile_description(int keyboard)
 	}
 }
 
-static int menu_use_xbox(void)
-{
-	char const *setting = config_string("display.menus");
-
-	return !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());
-}
-
-boolean pc_menu_xbox_look(void)
-{
-	return menu_use_xbox();
-}
-
 static boolean menu_delete_from_select;
 
 boolean pc_menu_delete_from_select(void)
@@ -3412,13 +3687,25 @@ boolean pc_menu_delete_from_select(void)
 
 static boolean menu_hub_open;
 
+/* the screens the hub reaches and BACK returns to: its settings pages (pc\\xbox\\settings\\...), the profile screens
+(picker, edit, name and color edits) and the error and confirm screens they raise (the delete modal's CANCEL) */
+static boolean menu_screen_in_hub_flow(char const *name)
+{
+	static char const settings[] = "pc\\xbox\\settings\\";
+	static char const profiles[] = "ui\\shell\\main_menu\\settings_select\\player_setup\\";
+	static char const errors[] = "ui\\shell\\error\\";
+	static char const xbox_errors[] = "pc\\xbox\\error\\";
+
+	return !strncmp(name, settings, sizeof(settings) - 1) || !strncmp(name, profiles, sizeof(profiles) - 1) ||
+		!strncmp(name, errors, sizeof(errors) - 1) || !strncmp(name, xbox_errors, sizeof(xbox_errors) - 1);
+}
+
 long pc_menu_screen_open(long tag_index, char const *requested_name, boolean root)
 {
 	boolean from_hub;
 	extern int platform_menu_keyboard(void);
 	char const *name, *target;
 	long replacement;
-	int use_xbox;
 	if (!menu_tags.loaded) return tag_index;
 	/* Split-pane originals may be absent from ui.map during screenshots. */
 	name = tag_index == NONE ? requested_name : tag_get_name(tag_index);
@@ -3431,11 +3718,10 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 		strstr(name, "\\confirm_delete_gametype_modal_fullscreen")))
 		menu_delete_from_select = !strcmp(name, "ui\\shell\\error\\confirm_delete_profile_modal_fullscreen");
 	if (root) menu_profile_description(platform_menu_keyboard());
-	use_xbox = menu_use_xbox();
 	/* The hub's PROFILES row opens the profile picker, and choosing a profile there opens the edit screen: both are always-redirects to the hub from the main menu, so while the hub flow is up (the hub, the picker and the edit screen opened from it, and back through them) they open as themselves. Any other root screen ends the flow. */
 	from_hub = menu_hub_open;
 	menu_hub_open = FALSE;
-	target = menu_screen_equivalent(name, use_xbox);
+	target = menu_screen_equivalent(name);
 	if (target && !strcmp(target, "pc\\xbox\\settings\\settings_screen"))
 	{
 		if (from_hub && strcmp(name, target))
@@ -3447,14 +3733,16 @@ long pc_menu_screen_open(long tag_index, char const *requested_name, boolean roo
 	}
 	if (!strcmp(name, "pc\\xbox\\settings\\settings_screen"))
 		menu_hub_open = TRUE;
-	/* The pause hub exists only in the Xbox look; PC pause settings edit the active profile. */
-	if (!use_xbox && !strcmp(name, "pc\\xbox\\settings\\settings_screen"))
-		target = "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen";
+	/* BACK reopens the screen below by name (the widget stack keeps no instance), so the flow has to outlast every
+	screen the hub reaches: a settings page opened from the profile's page is part of it, or BACK from that page would
+	open the profile's page as a root screen again and the always-redirect above would send it to the hub. The flow
+	ends with a screen outside the hub's own (the main menu and the rest). */
+	if (from_hub && menu_screen_in_hub_flow(name))
+		menu_hub_open = TRUE;
 	if (!target) return tag_index;
 	replacement = tag_loaded(UI_WIDGET_DEFINITION_TAG, target);
 	if (replacement == NONE) return tag_index;
-	menu_tags.xbox_set = use_xbox;
-	platform_log("menus: screen %s -> %s (%s)", name, target, use_xbox ? "pad" : "keyboard_mouse");
+	platform_log("menus: screen %s -> %s", name, target);
 	return replacement;
 }
 
@@ -3566,7 +3854,7 @@ char const *pc_menus_root_name(
 		if (name)
 			return name;
 	}
-	return menu_tags.loaded && menu_tags.root[0] ? menu_tags.root : "ui\\shell\\main_menu\\main_menu";
+	return "ui\\shell\\main_menu\\main_menu";
 }
 
 /* whether the list is one a patch changed (the patch table), and then the
@@ -3589,6 +3877,36 @@ boolean pc_menu_patch_list_index(
 		if (row_tag != NONE && menu_tags.patch_indices[index].row_tag == row_tag)
 		{
 			*description = menu_tags.patch_indices[index].description;
+			break;
+		}
+	}
+	return patched;
+}
+
+/* whether the list is one a patch changed, and then the row's first line in the list's
+description text (NONE: the row has none) and its number of lines. A patch removes, moves and adds rows, so the
+disc's way of counting the lines (each row's spinner's strings, in the rows' order) and
+its rows each with a spinner no longer hold. */
+boolean pc_menu_patch_row_help(
+	long list_tag,
+	long row_tag,
+	short *help,
+	short *length)
+{
+	long index;
+	boolean patched = FALSE;
+
+	*help = NONE;
+	*length = 0;
+	for (index = 0; menu_tags.loaded && list_tag != NONE && index < menu_tags.patch_index_count; index++)
+	{
+		if (menu_tags.patch_indices[index].list_tag != list_tag)
+			continue;
+		patched = TRUE;
+		if (row_tag != NONE && menu_tags.patch_indices[index].row_tag == row_tag)
+		{
+			*help = menu_tags.patch_indices[index].help;
+			*length = menu_tags.patch_indices[index].help_length;
 			break;
 		}
 	}
@@ -3625,17 +3943,33 @@ boolean pc_menu_tag(
 
 /* how many rows of a menu file's column list show at once
 (visible_rows=); 0: all of them (ui_widget.c scrolls the rest in) */
+struct halo_menu_meta const *pc_menu_meta(
+	long tag_index)
+{
+	static struct halo_menu_meta const nothing = { NONE, 0, 0, 0, 0, 0, 0, NONE };
+	long index;
+
+	/* (read while the tags are built too: a patch asks whether a row it shares is tall already) */
+	for (index = 0; tag_index != NONE && index < menu_tags.meta_count; index++)
+	{
+		if (menu_tags.meta[index].tag_index == tag_index)
+			return &menu_tags.meta[index];
+	}
+	return &nothing;
+}
 short pc_menu_list_window(
 	long tag_index)
 {
-	long index;
+	return pc_menu_meta(tag_index)->visible_rows;
+}
 
-	for (index = 0; menu_tags.loaded && tag_index != NONE && index < menu_tags.window_count; index++)
-	{
-		if (menu_tags.windows[index].tag_index == tag_index)
-			return menu_tags.windows[index].rows;
-	}
-	return 0;
+/* whether the widget is a standard tall row: its art is drawn MENU_COMFORTABLE_ROW_ART units tall in its
+MENU_COMFORTABLE_PITCH tap band (ui_widget.c). Said by the menus' files (row="tall") and by the patches that make
+a list's rows tall, never guessed from a name. */
+boolean pc_menu_row_tall(
+	long tag_index)
+{
+	return pc_menu_meta(tag_index)->tall;
 }
 
 /* where in its widget, and how large, a frame of ui.map's that a menu file
@@ -3685,37 +4019,16 @@ these map-select and pregame screens are not in the equivalence table. */
 char const *pc_menus_screen(
 	char const *name)
 {
-	static struct
-	{
-		char const *game_name;
-		char const *menu_name;
-	} const screens[] =
-	{
-		{ "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_postgame_wrapper",
-			"pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper" },
-		{ "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\pregame\\connected_pregame_screen",
-			"pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen" },
-	};
-	/* (the Xbox look's lobby, for games that are not system link) */
-	static char const xbox_lobby[] = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
-	short index;
+	static char const pregame[] =
+		"ui\\shell\\main_menu\\multiplayer_type_select\\connected\\pregame\\connected_pregame_screen";
+	/* (the generated lobby, for games that are not system link) */
+	static char const lobby[] = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
 
-	if (!menu_tags.loaded)
-		return name;
-	if (menu_use_xbox())
-	{
-		/* (the Xbox's screens, but the pregame of an Internet or Direct Link game: the lobby, which has the
-		invites, the password and the players to add; system link keeps the Xbox's) */
-		if (!strcmp(name, screens[1].game_name) && !pc_menu_multiplayer_lan() &&
-			tag_loaded(UI_WIDGET_DEFINITION_TAG, xbox_lobby) != NONE)
-			return xbox_lobby;
-		return name;
-	}
-	for (index = 0; index < NUMBEROF(screens); index++)
-	{
-		if (!strcmp(name, screens[index].game_name))
-			return screens[index].menu_name;
-	}
+	/* (the game's own screens, but the pregame of an Internet or Direct Link game: the lobby, which has the
+	invites, the password and the players to add; system link keeps the game's) */
+	if (menu_tags.loaded && !strcmp(name, pregame) && !pc_menu_multiplayer_lan() &&
+		tag_loaded(UI_WIDGET_DEFINITION_TAG, lobby) != NONE)
+		return lobby;
 	return name;
 }
 

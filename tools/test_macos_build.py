@@ -56,12 +56,14 @@ def test_build_native_signs_and_verifies_bundle_before_reporting_success(monkeyp
     monkeypatch.setattr(macos_build, 'native_commands', lambda args, packs: (['configure'], ['build']))
     monkeypatch.setattr(ios_build, 'run', lambda *command: events.append(('run', command)))
     monkeypatch.setattr(builtins, 'print', lambda *args, **kwargs: events.append(('print', args)))
+    monkeypatch.setattr(macos_build, 'entry_points_check', lambda: events.append(('entry points checked',)))
 
     macos_build.build_native(options(), [])
 
     assert events == [
         ('run', ('configure',)),
         ('run', ('build',)),
+        ('entry points checked',),
         ('run', ('codesign', '--force', '--sign', '-', app)),
         ('run', ('codesign', '--verify', '--deep', '--strict', app)),
         ('print', (f'App: {app}',)),
@@ -107,6 +109,7 @@ def test_team_package_archives_for_macos_and_exports_an_installer_package(monkey
     monkeypatch.setattr(macos_build, 'native_commands', lambda args, packs: (['configure'], ['build']))
     monkeypatch.setattr(ios_build, 'run', lambda *command: events.append(command))
     monkeypatch.setattr(builtins, 'print', lambda *args, **kwargs: None)
+    monkeypatch.setattr(macos_build, 'entry_points_check', lambda: None)
     macos_build.build_native(options(team='TEAM', bundle_id='org.steverice.visr', signing_profile='UUID',
                                      app_store_package=tmp_path, internal_only=True), [])
     app = macos_build.APP
@@ -169,6 +172,7 @@ def test_build_native_does_not_report_success_when_strict_verification_fails(mon
 
     monkeypatch.setattr(ios_build, 'run', run)
     monkeypatch.setattr(builtins, 'print', lambda *args, **kwargs: events.append(('print', *args)))
+    monkeypatch.setattr(macos_build, 'entry_points_check', lambda: None)
 
     with pytest.raises(subprocess.CalledProcessError):
         macos_build.build_native(options(), [])

@@ -245,17 +245,42 @@ def write_outputs(page_path, summary, check=False):
         legal = MarkdownIt('commonmark', {'html': False}).render(load_facts()['shared']['legal']).rstrip()
         (ROOT / 'docs/site/benchmarks').mkdir(exist_ok=True)
         status |= write_page(ROOT / 'docs/site/benchmarks.html', site_page.render_site_page(summary, rows, specs, legal), check)
-        status |= write_page(ROOT / 'docs/site/benchmarks/results.csv', charts.SNAPSHOT.read_text(encoding='utf-8'), check)
+        snapshot = charts.SNAPSHOT.read_bytes()
+        if b'\r' in snapshot:
+            print(f'{charts.SNAPSHOT.name}: carriage returns; the snapshot uses LF line endings', file=sys.stderr)
+            status |= 1
+        status |= write_page(ROOT / 'docs/site/benchmarks/results.csv', snapshot.decode('utf-8'), check)
+        if check:
+            status |= static_chart_status(rows, specs, charts, site_page)
+    return status
+
+
+def static_chart_status(rows, specs, charts, site_page):
+    """Fail when a pre-rendered chart SVG was not rendered from the current chart source (rerun `tools/perf_compare/static_charts.py`)."""
+    status = 0
+    expected = set()
+    for spec in specs:
+        path, text = site_page.static_chart(spec, rows)
+        expected.add(path.name)
+        problems = charts.static_svg_problems(text, path.read_text(encoding='utf-8') if path.exists() else None)
+        if problems:
+            print(f'stale static chart: {path.name}: ' + '; '.join(problems), file=sys.stderr)
+            status = 1
+    for path in sorted((ROOT / 'docs/site/benchmarks').glob('static-*.svg')):
+        if path.name not in expected:
+            print(f'orphan static chart: {path.name} has no chart spec', file=sys.stderr)
+            status = 1
     return status
 
 
 def write_page(path, content, check=False):
     if check:
-        if not path.exists() or path.read_text() != content:
+        # Compare bytes: text mode folds CRLF into LF and would pass a file the byte-for-byte tests reject.
+        if not path.exists() or path.read_bytes() != content.encode('utf-8'):
             print(f'stale generated file: {path.name}', file=sys.stderr)
             return 1
         return 0
-    path.write_text(content)
+    path.write_bytes(content.encode('utf-8'))
     return 0
 
 

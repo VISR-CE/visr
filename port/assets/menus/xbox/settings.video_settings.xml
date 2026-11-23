@@ -9,11 +9,11 @@
 		<child widget="xbox/settings/video_settings/graphics_help" />
 		<child widget="xbox/settings/video_settings/row_help" />
 		<on event="deleted" run="port settings close" />
-		<on event="x" run="port settings defaults apply" />
-		<child widget="xbox/settings/video_settings/b_butn" x="326" y="414" />
-		<child widget="xbox/settings/video_settings/cancel" x="348" y="414" />
-		<child widget="xbox/settings/video_settings/a_butn" x="471" y="414" />
-		<child widget="xbox/settings/video_settings/accept" x="493" y="414" />
+		<bar>
+			<action slot="x" scope="global" text="DEFAULTS" text_id="xbox.settings_video_settings.xbox_settings_video_settings_video_settings_screen_bar_x.text" run="port settings defaults apply" />
+			<action slot="b" scope="back" text="BACK" text_id="xbox.settings_video_settings.xbox_settings_video_settings_video_settings_screen_bar_b.text" focus="true" />
+			<action slot="a" scope="select" text="SELECT" text_id="xbox.settings_video_settings.xbox_settings_video_settings_video_settings_screen_bar_a.text" focus="true" />
+		</bar>
 	</widget>
 	<widget name="xbox/settings/video_settings/header_profile_video_settings" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings">
 	</widget>
@@ -30,11 +30,10 @@
 		<child widget="xbox/settings/video_settings/op_max_fps" x="54" y="268" platform="desktop" />
 		<child widget="xbox/settings/video_settings/op_frame_rate" x="54" y="268" platform="mac_app" />
 		<child widget="xbox/settings/video_settings/op_interpolation" x="54" y="307" />
-		<child widget="xbox/settings/video_settings/button_bar" y="414" />
 		<child widget="xbox/settings/video_settings/options_menu/scroll_up_arrow" x="574" y="73" />
 		<child widget="xbox/settings/video_settings/options_menu/scroll_down_arrow" x="574" y="274" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_graphics" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/video_settings/op_graphics" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/graphics_label" y="5" />
 		<child widget="xbox/settings/video_settings/graphics_spinner" x="286" y="6" />
 	</widget>
@@ -47,7 +46,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_crt_effect" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="apple" top="0">
+	<widget name="xbox/settings/video_settings/op_crt_effect" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="apple" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/crt_effect_label" y="5" />
 		<child widget="xbox/settings/video_settings/crt_effect_spinner" x="286" y="6" />
 	</widget>
@@ -60,7 +59,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_mode" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0">
+	<widget name="xbox/settings/video_settings/op_mode" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/mode_label" y="5" />
 		<child widget="xbox/settings/video_settings/mode_spinner" x="286" y="6" />
 	</widget>
@@ -73,7 +72,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_resolution" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0">
+	<widget name="xbox/settings/video_settings/op_resolution" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/resolution_label" y="5" />
 		<child widget="xbox/settings/video_settings/resolution_spinner" x="286" y="6" />
 	</widget>
@@ -86,7 +85,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_window_size" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0">
+	<widget name="xbox/settings/video_settings/op_window_size" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/window_size_label" y="5" />
 		<child widget="xbox/settings/video_settings/window_size_spinner" x="286" y="6" />
 	</widget>
@@ -105,7 +104,7 @@
 		<string text="NATIVE" id="xbox.settings_video_settings.xbox_settings_video_settings_resolution_scaling_shown.native" />
 		<string text="ORIGINAL" id="xbox.settings_video_settings.xbox_settings_video_settings_resolution_scaling_shown.original" />
 	</strings>
-	<widget name="xbox/settings/video_settings/op_vsync" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/video_settings/op_vsync" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/vsync_label" y="5" />
 		<child widget="xbox/settings/video_settings/vsync_spinner" x="286" y="6" />
 	</widget>
@@ -118,7 +117,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_max_fps" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0">
+	<widget name="xbox/settings/video_settings/op_max_fps" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/max_fps_label" y="5" />
 		<child widget="xbox/settings/video_settings/max_fps_spinner" x="286" y="6" />
 	</widget>
@@ -131,7 +130,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_frame_rate" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="mac_app" top="0">
+	<widget name="xbox/settings/video_settings/op_frame_rate" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="mac_app" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/frame_rate_label" y="5" />
 		<child widget="xbox/settings/video_settings/frame_rate_spinner" x="286" y="6" />
 		<child widget="xbox/settings/video_settings/frame_rate_replaced" x="320" y="6" />
@@ -154,7 +153,7 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_interpolation" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+	<widget name="xbox/settings/video_settings/op_interpolation" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0" row="tall">
 		<child widget="xbox/settings/video_settings/interpolation_label" y="5" />
 		<child widget="xbox/settings/video_settings/interpolation_spinner" x="286" y="6" />
 		<child widget="xbox/settings/video_settings/interpolation_replaced" x="320" y="6" />
@@ -209,23 +208,10 @@
 		<string text="Unlimited can tear and uses more power. Applies\nthe next time the game starts." id="xbox.settings_video_settings.xbox_settings_video_settings_help_strings.unlimited_can_tear_and_uses_more_e5d11c" />
 		<string text="Draw a frame for every display refresh, blending\nbetween the game's 30 ticks per second." id="xbox.settings_video_settings.xbox_settings_video_settings_help_strings.draw_a_frame_for_every_display_r_872689" />
 	</strings>
-	<widget name="xbox/settings/video_settings/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
-		<child widget="xbox/settings/video_settings/button_defaults" x="40" />
-	</widget>
-	<widget name="xbox/settings/video_settings/button_defaults" width="153" height="26">
-		<child widget="xbox/settings/video_settings/x_butn" />
-		<child widget="xbox/settings/video_settings/button_defaults_caption" x="22" />
-		<on event="a" run="port settings defaults apply" />
-		<on event="start" run="port settings defaults apply" />
-		<on event="x" run="port settings defaults apply" />
-		<on event="left_mouse" run="mouse emit accept event" />
-	</widget>
-	<widget name="xbox/settings/video_settings/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/settings/video_settings/button_defaults_caption" type="text" text="DEFAULTS" text_id="xbox.settings_video_settings.xbox_settings_video_settings_button_defaults_caption.text" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
-	<widget name="xbox/settings/video_settings/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/video_settings/cancel" type="text" text="BACK" text_id="xbox.settings_video_settings.xbox_settings_video_settings_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/settings/video_settings/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/settings/video_settings/accept" type="text" text="SELECT" text_id="xbox.settings_video_settings.xbox_settings_video_settings_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/video_settings/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/video_settings/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<strings name="xbox/settings/video_settings/header_profile_video_settings/title">
+		<string text="VIDEO SETUP" id="xbox.settings_video_settings.xbox_settings_video_settings_header_profile_video_settings_title.video_setup" />
+	</strings>
+	<title widget="xbox/settings/video_settings/header_profile_video_settings" strings="xbox/settings/video_settings/header_profile_video_settings/title" />
 </menus>

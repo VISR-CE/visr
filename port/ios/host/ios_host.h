@@ -46,6 +46,8 @@ int host_invite_card_up(void);
 #endif
 /* the CAMetalLayer of a Metal window's view (host_sdl.c), or NULL */
 void *host_sdl_metal_layer(void);
+/* the drawable the game's picture is fit into on its view, in pixels (0x0: none yet; gpu_metal.m) */
+void host_picture_drawable(float *width, float *height);
 void host_ios_touch_initialize(void);
 void host_ios_prepare_assets(const char *documents);
 /* The import window stays up while the guest prepares pictures in flat offscreen frames. */
@@ -94,7 +96,11 @@ the game holds at its next Present until the app is back, since iOS ends an
 app that submits GPU work in the background and a closed visionOS window only
 backgrounds the app */
 void host_lifecycle_install(void);
-void host_lifecycle_hold(void);
+/* before_waiting (may be NULL): runs once when the hold is about to wait (with the encode thread, the queue's drain,
+so the frame's records reach the GPU before the wait and not during it) */
+void host_lifecycle_hold(void (*before_waiting)(void));
+/* 1 while the app is in the background (host_lifecycle_hold would hold) */
+int host_lifecycle_in_background(void);
 /* gpu_metal.m (display.frame_deadline): the frame's work has ended; nothing on a Vision Pro */
 void gpu_metal_frame_deadline_end(void);
 /* the calling thread is about to run UIKit's own loop: leave the frame workgroup, join again at the next frame */
@@ -114,18 +120,28 @@ int host_sdl_output_cap(int *width, int *height);
 void host_sdl_output_native(int width, int height, int requested_cap);
 void host_sdl_native_output(int *width, int *height);
 int host_sdl_output_cap_requested(void);
-/* gpu_metal.m: a built-in output cap (0: none) or upscaler (0 bilinear, 1 MetalFX) to change to as the game runs, the
-   cap between frames (host_external_commit), a cap below zero forgetting one still waiting; 1 once nothing asked for
-   is still waiting. The benchmark's display
-   variants use them (host_benchmark.m). */
-void gpu_metal_request_output_cap(int cap);
-void gpu_metal_output_cap_commit(void);
-int gpu_metal_output_cap_settled(void);
+/* host_gpu_dispatch.c, the Metal backend's side operations (gpu_backend.h): a built-in output cap (0: none) or
+   upscaler (0 bilinear, 1 MetalFX) to change to as the game runs, the cap between frames (host_external_commit), a cap
+   below zero forgetting one still waiting; 1 once nothing asked for is still waiting. The benchmark's display
+   variants use them (host_benchmark.m). Game thread. */
+void host_gpu_request_output_cap(int cap);
+void host_gpu_output_cap_commit(void);
+int host_gpu_output_cap_settled(void);
 /* Game-thread query after GPU initialization, including validation wrappers. */
 int host_gpu_metal_active(void);
-void gpu_metal_set_upscaler(int metalfx);
-void gpu_metal_set_crt(int enabled);
-int gpu_metal_upscaler(void);
+/* 1 when debug.encode_thread put the encode queue in front of the Metal backend (decided before the backend's
+initialize, which sizes its stream ring by it) */
+int host_gpu_encode_queue_on(void);
+/* with debug.encode_thread = "thread", when the game thread last called its present (CACurrentMediaTime's clock): the
+encode thread's frame-slot wait after it is a wait at the present barrier (frame_waits.h). -1 without the encode
+thread, where the game thread encodes the frame itself. */
+double host_gpu_present_called(void);
+/* 1 with debug.encode_thread = "thread" (decided before the backend's initialize): the frame pacer's default frames
+in flight */
+int host_gpu_encode_thread_on(void);
+void host_gpu_set_upscaler(int metalfx);
+void host_gpu_set_crt(int enabled);
+int host_gpu_upscaler(void);
 /* display.frame_rate (host_gpu_dispatch.c), any cap or "unlimited" in the Mac
 app, a cap under the display's rate on an iPhone, an iPad or an Apple TV:
 whether frames come as fast as they are drawn; the cap, 0 for none; and the

@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <zlib.h>
 #include "cloud_saves.h"
+#include "save_writer.h"
 
 #define SLOT "C7201D882DAE"
 #define SLOT2 "0123456789AB"
@@ -470,9 +471,92 @@ static void remove_tree(const char *path)
 	nftw(path, remove_entry, 16, FTW_DEPTH | FTW_PHYS);
 }
 
+/* The class of bug: a save file written by anything but the game or the one writer of save files (a file
+   written in place can be cut short and destroy the one before it). The probe keeps what each file under
+   a device's u/UDATA held when the game (put_file) or the writer (a rename through the engine's I/O
+   table) last put it there; whenever a device ends, every file there must be one of those, byte for byte. */
+static struct { char path[512]; uint64_t hash; } ledger[512];
+static int ledger_count;
+static unsigned long ledger_writer_files, ledger_checked;
+
+static int file_hash(const char *path, uint64_t *hash)
+{
+	FILE *file = fopen(path, "rb");
+	int c;
+
+	if (!file)
+		return 0;
+	*hash = 1469598103934665603ull;
+	while ((c = fgetc(file)) != EOF)
+		*hash = (*hash ^ (uint64_t)c) * 1099511628211ull;
+	fclose(file);
+	return 1;
+}
+
+static void ledger_note(const char *path)
+{
+	int i;
+
+	if (!strstr(path, "/u/UDATA/"))
+		return;
+	for (i = 0; i < ledger_count && strcmp(ledger[i].path, path); i++)
+		;
+	if (i == ledger_count)
+	{
+		assert(ledger_count < (int)(sizeof(ledger) / sizeof(ledger[0])) && strlen(path) < sizeof(ledger[0].path));
+		strcpy(ledger[ledger_count++].path, path);
+	}
+	assert(file_hash(path, &ledger[i].hash));
+}
+
+static int ledger_rename(void *context, const char *from, const char *to)
+{
+	int result = save_writer_posix_io.rename(context, from, to);
+
+	if (result == 0)
+	{
+		ledger_writer_files++;
+		ledger_note(to);
+	}
+	return result;
+}
+
+static int ledger_check_entry(const char *path, const struct stat *st, int type, struct FTW *walk)
+{
+	uint64_t hash;
+	int i;
+
+	(void)st; (void)walk;
+	if (type != FTW_F || !strstr(path, "/u/UDATA/"))
+		return 0;
+	for (i = 0; i < ledger_count && strcmp(ledger[i].path, path); i++)
+		;
+	if (i == ledger_count || !file_hash(path, &hash) || hash != ledger[i].hash)
+	{
+		fprintf(stderr, "a save file neither the game nor the writer put there: %s\n", path);
+		abort();
+	}
+	ledger_checked++;
+	return 0;
+}
+
+static void ledger_check(const struct device *device)
+{
+	int i, kept = 0;
+	size_t length = strlen(device->root);
+
+	nftw(device->root, ledger_check_entry, 16, FTW_PHYS);
+	/* the device's files are about to go */
+	for (i = 0; i < ledger_count; i++)
+		if (strncmp(ledger[i].path, device->root, length) || ledger[i].path[length] != '/')
+			ledger[kept++] = ledger[i];
+	ledger_count = kept;
+}
+
 static void device_end(struct device *device)
 {
 	cloud_engine_destroy(device->engine);
+	ledger_check(device);
 	remove_tree(device->root);
 }
 
@@ -480,6 +564,7 @@ static void device_end(struct device *device)
 static void device_purge(struct device *device)
 {
 	cloud_engine_destroy(device->engine);
+	ledger_check(device);
 	remove_tree(device->root);
 	mkdir(device->root, 0755);
 	mkdir(device->save_root, 0755);
@@ -505,6 +590,7 @@ static void put_file(const struct device *device, const char *slot, const char *
 	file = fopen(path, "wb");
 	assert(file && fwrite(data, 1, size, file) == size);
 	fclose(file);
+	ledger_note(path);
 	times[0].tv_sec = times[1].tv_sec = (time_t)(clock_now - age);
 	times[0].tv_usec = times[1].tv_usec = 0;
 	assert(utimes(path, times) == 0);
@@ -1519,6 +1605,95 @@ static void test_files_must_be_still(void)
 	device_end(&a);
 }
 
+/* What the host does every 15 s while the game runs (cloud_pacing_due, then a pass). The class: work
+   and network use that grow with how often the game saves. The game replaces the saved game at every
+   checkpoint, and a pass per checkpoint would read and hash the whole file and upload it each time. */
+static int paced_pass(struct device *device, struct cloud_pacing *pacing)
+{
+	struct cloud_local_signatures signatures;
+
+	cloud_local_signatures(device->save_root, device->state_path, &signatures);
+	if (!cloud_pacing_due(pacing, &signatures, clock_now, 0))
+		return 0;
+	cloud_pacing_passed(pacing, &signatures, running(device), clock_now);
+	return 1;
+}
+
+static void test_checkpoints_are_paced(void)
+{
+	struct device a;
+	struct cloud_pacing pacing = { 0 };
+	int saves, passes = 0, uploads, second;
+
+	cloud_reset();
+	device_make(&a, "iPhone");
+	put_profile(&a, SLOT, "Chief", 2, 1, 10);
+	put_saved_game(&a, SLOT, "a30", 1, 10);
+	CHECK(paced_pass(&a, &pacing) && cloud.count == 2);
+	CHECK(!paced_pass(&a, &pacing));
+	saves = cloud.saves;
+	/* twenty minutes of play with a checkpoint every 40 s, the host looking every 15 s */
+	for (second = 15; second <= 1200; second += 15)
+	{
+		clock_now += 15;
+		if (second % 40 < 15)
+			put_saved_game(&a, SLOT, "a30", second, 3);
+		passes += paced_pass(&a, &pacing);
+	}
+	uploads = cloud.saves - saves;
+	CHECK(passes >= 3 && passes <= 1200 / CLOUD_CHECKPOINT_SECONDS + 1);
+	CHECK(uploads >= 3 && uploads <= passes);
+	/* a profile that changes is not held back by that, and takes the newest checkpoint with it */
+	clock_now += 15;
+	put_saved_game(&a, SLOT, "a30", 5000, 3);
+	saves = cloud.saves;
+	CHECK(!paced_pass(&a, &pacing));
+	put_profile(&a, SLOT, "Chief", 3, 1, 3);
+	CHECK(paced_pass(&a, &pacing) && cloud.saves == saves + 2);
+	/* the last checkpoint before the app leaves always goes: the pass as the app leaves the screen is
+	   not held (nor made when nothing changed), and the leaving pass asks nobody */
+	clock_now += 15;
+	put_saved_game(&a, SLOT, "a30", 6000, 0);
+	CHECK(!paced_pass(&a, &pacing));
+	{
+		struct cloud_local_signatures signatures;
+
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		CHECK(cloud_pacing_due(&pacing, &signatures, clock_now, 1));
+		CHECK(!strcmp(signatures.other, pacing.idle_other) && strcmp(signatures.all, pacing.idle));
+		memcpy(signatures.all, pacing.idle, CLOUD_HASH_SIZE);
+		CHECK(!cloud_pacing_due(&pacing, &signatures, clock_now, 1));
+	}
+	saves = cloud.saves;
+	a.game_started = 1;
+	CHECK(cloud_engine_sync(a.engine, CLOUD_PASS_LEAVING) == CLOUD_STATE_IDLE && cloud.saves == saves + 1);
+	/* a deletion is not held back either */
+	{
+		struct cloud_local_signatures signatures;
+
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		cloud_pacing_passed(&pacing, &signatures, CLOUD_STATE_IDLE, clock_now);
+		CHECK(!cloud_pacing_due(&pacing, &signatures, clock_now + 15, 0));
+		cloud_note_local_delete(a.state_path, SLOT2);
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		CHECK(cloud_pacing_due(&pacing, &signatures, clock_now + 15, 0));
+	}
+	/* while something waits (no network), a try a minute as before, whatever changed */
+	{
+		struct cloud_pacing waiting = { 0 };
+		struct cloud_local_signatures signatures;
+
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		cloud_pacing_passed(&waiting, &signatures, CLOUD_STATE_PENDING, clock_now);
+		CHECK(!cloud_pacing_due(&waiting, &signatures, clock_now + CLOUD_RETRY_SECONDS - 1, 0));
+		CHECK(cloud_pacing_due(&waiting, &signatures, clock_now + CLOUD_RETRY_SECONDS, 0));
+		put_saved_game(&a, SLOT, "a30", 7000, 1);   /* (another time than the last one written) */
+		cloud_local_signatures(a.save_root, a.state_path, &signatures);
+		CHECK(cloud_pacing_due(&waiting, &signatures, clock_now + 1, 0));
+	}
+	device_end(&a);
+}
+
 static void test_saved_game_that_is_not_one(void)
 {
 	struct device a, b;
@@ -1771,6 +1946,7 @@ int main(int argc, char **argv)
 		{ "unfinished slots stay home", test_unfinished_slots_stay_home },
 		{ "foreign files are left alone", test_foreign_files_are_left_alone },
 		{ "files must be still", test_files_must_be_still },
+		{ "checkpoints are paced", test_checkpoints_are_paced },
 		{ "a saved game that is not one", test_saved_game_that_is_not_one },
 		{ "layouts keep their own saved games", test_layouts_keep_their_own_saved_games },
 		{ "a saved game of another size", test_saved_game_of_another_size },
@@ -1783,6 +1959,13 @@ int main(int argc, char **argv)
 
 	clock_now = (long long)time(NULL) + 5;
 	verbose = argc > 1 && !strcmp(argv[1], "--verbose");
+	{
+		static struct save_writer_io io;
+
+		io = save_writer_posix_io;
+		io.rename = ledger_rename;
+		cloud_saves_set_save_io(&io);
+	}
 	for (i = 0; i < sizeof(tests) / sizeof(tests[0]); i++)
 	{
 		if (argc > 2 && !strstr(tests[i].name, argv[2]))
@@ -1793,6 +1976,8 @@ int main(int argc, char **argv)
 		tests[i].run();
 	}
 	cloud_reset();
+	/* (a run of every test: the engine wrote save files, and every one of them was the writer's) */
+	assert(argc > 2 || (ledger_writer_files > 20 && ledger_checked > ledger_writer_files));
 	printf("cloud_saves_probe: ok (%zu tests)\n", sizeof(tests) / sizeof(tests[0]));
 	return 0;
 }

@@ -15,7 +15,6 @@ void host_config_string(const char *name, const char *fallback, char *out, size_
     reads++;
     snprintf(out, size, "%s", !strcmp(name, "debug.knob_cycle") ? enabled ? "true" : "false" : fallback);
 }
-double host_config_real(const char *name, double fallback) { (void)name; return fallback; }
 void host_logf(int priority, const char *format, ...)
 {
     (void)priority;

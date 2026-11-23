@@ -2,6 +2,7 @@
    halo_ui_pointer_update reads the result through host_ui_pointer_read). The recognizer sits on the SDL
    root view beside the touch controls, takes no touch from them and cancels none. */
 #import <UIKit/UIKit.h>
+#import <QuartzCore/QuartzCore.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
 #include "host_main_thread.h"
@@ -49,7 +50,10 @@ static UIImpactFeedbackGenerator *medium_feedback;
     struct host_posture_layout layout;
     host_posture_layout_snapshot(&layout);
     host_menu_pointer_set_blocked(&pointer_state,host_ios_touch_blocked() || layout.laptop);
-    host_menu_pointer_set_surface(&pointer_state,(float)root.bounds.size.width,(float)root.bounds.size.height);
+    float width=0,height=0;
+    host_picture_drawable(&width,&height);
+    host_menu_pointer_set_geometry(&pointer_state,(float)root.bounds.size.width,(float)root.bounds.size.height,
+                                   width,height);
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [self track];
