@@ -10053,8 +10053,9 @@ static void widget_instance_render_recursive(
 				/* port: the legend's icon box is taller than its caption's, so the
 				glyph, centered in the box, sits below the caption's cap height;
 				raise it to center on the capitals */
-				rectangle2d glyph_bounds = controller_glyph_legend_bounds(&bounds, clip);
-				if (controller_glyph_draw(owner, NONE, ui_mouse_key_button(widget), &glyph_bounds, clip, glyph_color, _controller_glyph_blend_menu))
+				rectangle2d glyph_bounds = controller_glyph_legend_raise(&bounds);
+				rectangle2d glyph_clip = clip ? controller_glyph_legend_raise(clip) : glyph_bounds;
+				if (controller_glyph_draw(owner, NONE, ui_mouse_key_button(widget), &glyph_bounds, clip ? &glyph_clip : NULL, glyph_color, _controller_glyph_blend_menu))
 					shown = FALSE;
 			}
 			if (shown)

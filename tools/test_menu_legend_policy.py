@@ -64,9 +64,10 @@ def test_legend_glyphs_center_on_caption_cap_height():
     source = (ROOT / 'source/interface/ui_widget.c').read_text()
     header = (ROOT / 'source/interface/controller_glyphs.h').read_text()
     assert '#define LEGEND_GLYPH_RAISE 3' in header
-    assert 'box.y0 -= LEGEND_GLYPH_RAISE;' in header
-    assert 'controller_glyph_legend_bounds(&bounds, clip)' in source
-    assert '&glyph_bounds, clip, glyph_color, _controller_glyph_blend_menu' in source
+    assert 'raised.y0 -= LEGEND_GLYPH_RAISE;' in header
+    assert 'controller_glyph_legend_raise(&bounds)' in source
+    assert 'controller_glyph_legend_raise(clip)' in source
+    assert '&glyph_bounds, clip ? &glyph_clip : NULL, glyph_color, _controller_glyph_blend_menu' in source
 
 
 def test_mouse_legend_lights_the_acting_button_and_touch_hides_select_and_back():

@@ -104,7 +104,7 @@ def test_hud_glyph_layout_color_and_fallback(tmp_path):
     subprocess.run([str(binary)], check=True)
 
 
-def test_legend_glyph_fit_bounds_stays_inside_clip(tmp_path):
+def test_legend_glyph_raise_keeps_box_inside_clip(tmp_path):
     """Bug class: legend glyph clipped by its box or strip."""
     if not shutil.which('xcrun'):
         import pytest
