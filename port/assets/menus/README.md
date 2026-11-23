@@ -141,8 +141,8 @@ and what to do.
 | `label` | Kept as the script's name, not run (as the tags keep it) |
 | `sound` | A sound tag of the map to play |
 
-On the keyboard, A is Enter or Space, B is Backspace or F, Start is Escape and
-Back is F1; Delete or E is the secondary action (X). The mouse's focus follows
+On the keyboard, A is Enter or Space, B is Escape or F, Start is Escape and
+Back is F1; Backspace, Delete or E is the secondary action (X). The mouse's focus follows
 the pointer, a left click acts on the item (A), a right click is the item's
 secondary action (X, never back) and the wheel scrolls lists without moving
 focus.

@@ -222,18 +222,6 @@ def test_keyboard_symbol_and_original_legend_policy(tmp_path):
     subprocess.run([str(binary)], check=True)
 
 
-if __name__ == '__main__':
-    with tempfile.TemporaryDirectory() as directory:
-        test_keyboard_symbol_and_original_legend_policy(Path(directory))
-        test_controller_glyph_policy(Path(directory))
-        test_controller_glyph_requests(Path(directory))
-        test_controller_glyph_draw_cache_and_clipping(Path(directory))
-        test_hud_glyph_layout_color_and_fallback(Path(directory))
-        test_native_controller_bridge_mapping(Path(directory))
-        test_virtual_keyboard_fallback_and_legend_patches(Path(directory))
-        test_initial_keyboard_owner(Path(directory))
-
-
 def test_backspace_is_the_secondary_menu_key_and_still_edits_text(tmp_path):
     """Backspace (the key Mac keyboards label "delete") triggers a list screen's secondary action, forward
     delete is an alias, and on a text-entry screen neither reaches the menu. Runs the real keyboard_gamepad."""
@@ -253,3 +241,16 @@ def test_backspace_is_the_secondary_menu_key_and_still_edits_text(tmp_path):
                     *subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True).split(),
                     str(probe), '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+if __name__ == '__main__':
+    with tempfile.TemporaryDirectory() as directory:
+        test_keyboard_symbol_and_original_legend_policy(Path(directory))
+        test_controller_glyph_policy(Path(directory))
+        test_controller_glyph_requests(Path(directory))
+        test_controller_glyph_draw_cache_and_clipping(Path(directory))
+        test_hud_glyph_layout_color_and_fallback(Path(directory))
+        test_native_controller_bridge_mapping(Path(directory))
+        test_virtual_keyboard_fallback_and_legend_patches(Path(directory))
+        test_initial_keyboard_owner(Path(directory))
+        test_backspace_is_the_secondary_menu_key_and_still_edits_text(Path(directory))

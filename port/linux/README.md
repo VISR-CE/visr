@@ -150,12 +150,12 @@ In the menus, the mouse moves a pointer:
 - A left click selects the item. On a setting with values, a click on the
   left or right half changes the value. On a button in the key of a screen
   (for example "B = Back"), a click pushes that button.
-- A right click is the secondary action (X) of the item under the pointer. It is never back; escape, backspace and mouse button 4 go back.
+- A right click is the secondary action (X) of the item under the pointer. It is never back; escape and mouse button 4 go back.
 - The mouse wheel moves through the items.
 
 The keyboard also operates the menus, with keys of its own: the arrow keys
-(and W, A, S, D) move, space or enter selects, escape or backspace goes
-back (escape resumes the game from the pause menu), delete (or E) is the secondary action, such as deleting. When the game continues, the mouse aims again. A mouse button that you hold from the menu does not fire until
+(and W, A, S, D) move, space or enter selects, escape goes
+back (it resumes the game from the pause menu), backspace, delete (or E) is the secondary action, such as deleting. When the game continues, the mouse aims again. A mouse button that you hold from the menu does not fire until
 you push it again.
 
 ## Menus
