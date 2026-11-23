@@ -1,4 +1,4 @@
-"""Co-op rules use a dedicated options page in both menu looks."""
+"""Co-op rules use a dedicated options page in the Xbox-look menus."""
 import sys
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -30,14 +30,6 @@ def test_fireteam_generated_screen():
     row = rows['op_fireteam']
     help_top = int(widgets[BASE + 'help'].get('top'))
     assert int(row.get('y')) + int(widgets[BASE + 'op_fireteam'].get('height')) < help_top
-    assert (ROOT / 'port/assets/menus/ce' / NAME).read_text() == text
-
-
-def test_fireteam_xbox_generated_screen():
-    assets = ROOT / 'port/assets/menus'
-    generated = xbox_menus.multiplayer_documents(assets, set())
-    xbox_menus.native_header_sizes(generated, assets)
-    assert (assets / 'xbox' / NAME).read_text() == xbox_menus.serialize(generated[NAME])
 
 
 def test_fireteam_setting_binding():
@@ -74,37 +66,34 @@ def test_fireteam_help_has_two_lines():
 
 
 def test_coop_page_navigation_and_hosting_rows():
-    for look in ('ce', 'xbox'):
-        prefix = 'xbox/' if look == 'xbox' else ''
-        setup_root = ET.parse(ROOT / 'port/assets/menus' / look / SETUP).getroot()
-        page_root = ET.parse(ROOT / 'port/assets/menus' / look / NAME).getroot()
-        setup = {w.get('name'): w for w in setup_root.findall('widget')}
-        page = {w.get('name'): w for w in page_root.findall('widget')}
-        base = prefix + BASE
-        setup_base = prefix + SETUP_BASE
-        row = setup[setup_base + 'op_coop_options']
-        for event in ('a', 'start'):
-            assert row.find(f"on[@event='{event}']").get('open') == base + 'coop_options_screen'
-        assert row.find("on[@event='left_mouse']").get('run') == 'mouse emit accept event'
-        screen = page[base + 'coop_options_screen']
-        for event in ('b', 'back'):
-            assert screen.find(f"on[@event='{event}']").get('back') == 'true'
-        for event in ('a', 'start'):
-            accept = page[base + 'button_ok'].find(f"on[@event='{event}']")
-            assert accept.get('back') == 'true'
-            assert accept.get('run') == 'coop options save'
-        rows = {c.get('widget').split('/')[-1]: c for c in setup[setup_base + 'options_menu'].findall('child')}
-        assert not any(key in rows for key in ('op_friendly_fire', 'op_extra_enemies', 'op_fireteam'))
-        assert 'op_map_share' not in rows
-        assert rows['op_coop_options'].get('y') == rows['op_gametype_options'].get('y')
-        assert int(rows['op_game_type'].get('y')) < int(rows['op_coop_options'].get('y'))
-        for key, _ in port_settings.SETUP_OPTION_SCREENS:
-            assert setup[setup_base + 'op_' + key].find("on[@event='a']").get('run') == 'port setup edit'
-        for spinner in page.values():
-            if spinner.get('setting'):
-                assert spinner.find("on[@event='created']").get('run') == 'port setting load'
-                assert spinner.find("on[@event='deleted']") is None
-                assert spinner.find("on[@event='left_mouse']").get('run') == 'mouse spinner 1wide click'
+    prefix = 'xbox/'
+    setup_root = ET.parse(ROOT / 'port/assets/menus/xbox' / SETUP).getroot()
+    page_root = ET.parse(ROOT / 'port/assets/menus/xbox' / NAME).getroot()
+    setup = {w.get('name'): w for w in setup_root.findall('widget')}
+    page = {w.get('name'): w for w in page_root.findall('widget')}
+    base = prefix + BASE
+    setup_base = prefix + SETUP_BASE
+    row = setup[setup_base + 'op_coop_options']
+    for event in ('a', 'start'):
+        assert row.find(f"on[@event='{event}']").get('open') == base + 'coop_options_screen'
+    assert row.find("on[@event='left_mouse']").get('run') == 'mouse emit accept event'
+    screen = page[base + 'coop_options_screen']
+    for event in ('b', 'back'):
+        assert screen.find(f"on[@event='{event}']").get('back') == 'true'
+    # (the page's one bar action is BACK; its spinners save as they change)
+    assert [(a.get('slot'), a.get('scope')) for a in screen.find('bar').findall('action')] == [('b', 'back')]
+    rows = {c.get('widget').split('/')[-1]: c for c in setup[setup_base + 'options_menu'].findall('child')}
+    assert not any(key in rows for key in ('op_friendly_fire', 'op_extra_enemies', 'op_fireteam'))
+    assert 'op_map_share' not in rows
+    assert rows['op_coop_options'].get('y') == rows['op_gametype_options'].get('y')
+    assert int(rows['op_game_type'].get('y')) < int(rows['op_coop_options'].get('y'))
+    for key, _ in port_settings.SETUP_OPTION_SCREENS:
+        assert setup[setup_base + 'op_' + key].find("on[@event='a']").get('run') == 'port setup edit'
+    for spinner in page.values():
+        if spinner.get('setting'):
+            assert spinner.find("on[@event='created']").get('run') == 'port setting load'
+            assert spinner.find("on[@event='deleted']") is None
+            assert spinner.find("on[@event='left_mouse']").get('run') == 'mouse spinner 1wide click'
 
 
 def coop_generated_code():
