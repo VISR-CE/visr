@@ -16,6 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ART = ROOT / "port/assets/menus/xbox/art/browser"
 SCALE = 4
+# The server browser rows (tools/menu_geometry.py): the tab is ROW_TAB_WIDTH wide and the art reaches ROW_ART_WIDTH.
+ROW_HEIGHT, ROW_TAB_WIDTH, ROW_ART_WIDTH = 43, 270, 284
 GAMETYPES = ("coop", "ctf", "slayer", "oddball", "king", "race")
 SVG_NS = "http://www.w3.org/2000/svg"
 
@@ -59,8 +61,23 @@ def generate(output, icons):
 
     for index, (fill, border) in enumerate((("#0a2245", "none"),
                                            ("#12396e", "#7fc4ff"))):
-        draw(f"row__{index}", 270, 50, rounded(270, 50, fill, border))
         draw(f"option__{index}", 532, 54, rounded(532, 54, fill, border))
+
+    # The game rows are tabs, as the gametype editor's: outlined all around, and the selected one open on its right
+    # edge and filled as the detail panel is, reaching into the panel (drawn over its left border) so tab and panel
+    # are one shape. The art is ROW_ART_WIDTH wide, the tab itself ROW_TAB_WIDTH of it.
+    height, radius, stroke = ROW_HEIGHT, 7, 1.5
+    half = stroke / 2
+    draw("row__0", ROW_ART_WIDTH, height, svg(ROW_ART_WIDTH, height,
+         f'<rect x="{half}" y="{half}" width="{ROW_TAB_WIDTH - stroke}" height="{height - stroke}" rx="{radius}" '
+         f'fill="#0a2245" stroke="#1f5fae" stroke-width="{stroke}"/>'))
+    draw("row__1", ROW_ART_WIDTH, height, svg(ROW_ART_WIDTH, height,
+         f'<rect x="{half}" y="{half}" width="{ROW_ART_WIDTH - half}" height="{height - stroke}" rx="{radius}" '
+         f'fill="#0d2c57"/>'
+         f'<rect x="{ROW_ART_WIDTH - 8}" y="0" width="8" height="{height}" fill="#0d2c57"/>'
+         f'<path d="M{ROW_ART_WIDTH} {half} H{radius + half} a{radius - half} {radius - half} 0 0 0 {-(radius - half)} '
+         f'{radius - half} V{height - radius - half} a{radius - half} {radius - half} 0 0 0 {radius - half} {radius - half} '
+         f'H{ROW_ART_WIDTH}" fill="none" stroke="#7fc4ff" stroke-width="{stroke}"/>'))
 
     # Four states let code distinguish focus from the selected type chip.
     states = (("none", "#1f5fae"), ("#12396e", "#7fc4ff"),

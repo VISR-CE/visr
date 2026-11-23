@@ -501,8 +501,8 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/create" type="text" text="CREATE GAME" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_create.text" font="ui\small_ui" color="#FF2896FF" width="110" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
 	<bitmap name="xbox/browser/c_row">
-		<frame png="xbox/art/browser/row__0.png" width="270" height="50" />
-		<frame png="xbox/art/browser/row__1.png" width="270" height="50" />
+		<frame png="xbox/art/browser/row__0.png" width="284" height="43" />
+		<frame png="xbox/art/browser/row__1.png" width="284" height="43" />
 	</bitmap>
 	<bitmap name="xbox/browser/gametype">
 		<frame png="xbox/art/browser/gametype__0.png" width="36" height="36" />
@@ -634,9 +634,9 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" width="640" height="480" flags="pass_unhandled_to_focused_child">
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chips" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chips" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" type="text" width="222" height="66" font="ui\large_ui" color="#7fc4ff" text_flags="wrap" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" type="text" width="222" height="66" font="ui\large_ui" color="#2f73c4" text_flags="wrap" />
@@ -653,7 +653,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_5" x="24" y="294" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_6" x="24" y="340" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_1" width="270" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_1" width="284" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
 		<on event="a" run="gamespy select item" />
 		<on event="start" run="gamespy select item" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_type" x="6" y="5" />
@@ -662,7 +662,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_gauge" x="222" y="1" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_players" x="222" y="11" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_2" width="270" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_2" width="284" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
 		<on event="a" run="gamespy select item" />
 		<on event="start" run="gamespy select item" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_type" x="6" y="5" />
@@ -671,7 +671,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_gauge" x="222" y="1" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_players" x="222" y="11" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_3" width="270" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_3" width="284" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
 		<on event="a" run="gamespy select item" />
 		<on event="start" run="gamespy select item" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_type" x="6" y="5" />
@@ -680,7 +680,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_gauge" x="222" y="1" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_players" x="222" y="11" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_4" width="270" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_4" width="284" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
 		<on event="a" run="gamespy select item" />
 		<on event="start" run="gamespy select item" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_type" x="6" y="5" />
@@ -689,7 +689,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_gauge" x="222" y="1" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_players" x="222" y="11" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_5" width="270" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_5" width="284" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
 		<on event="a" run="gamespy select item" />
 		<on event="start" run="gamespy select item" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_type" x="6" y="5" />
@@ -698,7 +698,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_gauge" x="222" y="1" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_players" x="222" y="11" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_6" width="270" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_6" width="284" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
 		<on event="a" run="gamespy select item" />
 		<on event="start" run="gamespy select item" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_type" x="6" y="5" />

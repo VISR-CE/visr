@@ -271,11 +271,11 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
     for index in range(1, 7):
         row = widgets[f'server_item_{index}']
-        assert (row.get('width'), row.get('height')) == ('270', '43')
+        assert (row.get('width'), row.get('height')) == ('284', '43')  # the tab (270) and its reach into the panel
         assert row.get('bitmap') == 'xbox/browser/c_row'
         assert row.find('on[@event="a"][@run="gamespy select item"]') is not None
         for frame in bitmaps[row.get('bitmap')]:
-            assert (frame.get('width'), frame.get('height')) == ('270', '50')
+            assert (frame.get('width'), frame.get('height')) == ('284', '43')
     assert [c.get('widget').rsplit('/', 1)[-1] for c in widgets['browser_chips'].findall('child')] == [
         'browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_filter']
     for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_filter'):
@@ -396,7 +396,7 @@ def test_browser_actions_are_a_bar_and_the_list_takes_only_its_own_keys():
     assert bar['b'].get('scope') == 'back'
     assert actions.get('flags') == 'pass_unhandled_to_focused_child'
     assert [c.get('widget').rsplit('/', 1)[-1] for c in actions.findall('child')] == [
-        'join_game_items_list', 'browser_chips', 'browser_detail']
+        'browser_detail', 'browser_chips', 'join_game_items_list']  # (the panel first: the selected tab draws over its border)
     rows = widgets['join_game_items_list']
     assert rows.find('on[@event="up"][@run="port browser rows up"]') is not None
     assert rows.find('on[@event="down"][@run="port browser rows down"]') is not None
@@ -584,7 +584,7 @@ def test_browser_highlight_has_one_shape_for_every_row():
     assert len({r.get('bitmap') for r in rows}) == 1
     bitmap = root.find(f"bitmap[@name='{rows[0].get('bitmap')}']")
     for frame in bitmap.findall('frame'):
-        assert (frame.get('width'), frame.get('height')) == ('270', '50')
+        assert (frame.get('width'), frame.get('height')) == ('284', '43')
 
 
 def test_sort_filter_has_four_large_rows_reset_and_done():

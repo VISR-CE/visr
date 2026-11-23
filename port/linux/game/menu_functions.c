@@ -4037,7 +4037,16 @@ static void browser_focus(struct widget_instance *list)
 	three: normal, focused, selected) */
 	for (row = list->child; row; row = row->next)
 	{
-		if (browser_row_index(row) != NONE)
+		short row_index = browser_row_index(row);
+
+		if (row_index == NONE)
+			continue;
+		/* (layout C's rows are tabs: the game chosen stays joined to the detail panel, whoever has the focus) */
+		if (named(screen_of(list), "browser_chips", 0))
+			row->animation.current_frame_index =
+				multiplayer.mode == _multiplayer_mode_server_browser && row->visible &&
+				row_index + lobby_browser.first == lobby_browser.chosen ? 1 : 0;
+		else
 			row->animation.current_frame_index = ui_widget_port_draws_focus(HALO_MENU_FOCUS_ROW, row == focused) ? 1 : 0;
 	}
 	if (named(screen_of(list), "browser_chips", 0) && list->parent->focused_child != list)

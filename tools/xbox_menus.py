@@ -1797,7 +1797,7 @@ def browser_layout(root, widgets, bitmaps):
         root.append(copied)
         root.remove(original)
     for name, width, height, frames in (
-            ('c_row', 270, 50, ['row__0', 'row__1']),
+            ('c_row', 284, 43, ['row__0', 'row__1']),
             ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
             ('gametype_large', 124, 100, [f'gametype_large__{i}' for i in range(7)]),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
@@ -1822,9 +1822,10 @@ def browser_layout(root, widgets, bitmaps):
     child(screen, base + '/button_refresh_create_inter')
     actions = widget(root, base + '/button_refresh_create_inter', width=640, height=480,
                      flags='pass_unhandled_to_focused_child')
-    child(actions, base + '/join_game_items_list')
-    child(actions, base + '/browser_chips')
+    # (the panel is drawn first: the selected game's tab reaches over its left border, joining it)
     child(actions, base + '/browser_detail')
+    child(actions, base + '/browser_chips')
+    child(actions, base + '/join_game_items_list')
     # With no games the list area says why, as the Xbox's own empty list does.
     # Row-sized text, inset 36 units from both edges of the 294-wide list column, wrapping to a few lines.
     child(screen, base + '/browser_list_status', x=36, y=112)
@@ -1839,7 +1840,7 @@ def browser_layout(root, widgets, bitmaps):
         ET.SubElement(rows, 'on', event=event, run=run)
     for index in range(6):
         child(rows, base + f'/server_item_{index + 1}', x=24, y=110 + index * menu_geometry.BROWSER_ROW_PITCH)
-        row = widget(root, base + f'/server_item_{index + 1}', width=270, height=menu_geometry.BROWSER_ROW_HEIGHT,
+        row = widget(root, base + f'/server_item_{index + 1}', width=284, height=menu_geometry.BROWSER_ROW_HEIGHT,
                      bitmap='xbox/browser/c_row', color='#FFFFFF')
         ET.SubElement(row, 'on', event='a', run='gamespy select item')
         ET.SubElement(row, 'on', event='start', run='gamespy select item')
