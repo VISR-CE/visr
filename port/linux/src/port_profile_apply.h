@@ -35,7 +35,6 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.frame_repeat", PORT_PROFILE_SESSION},
 		{"display.hud_resolution", PORT_PROFILE_LEVEL},
 		{"display.frame_pacing", PORT_PROFILE_SESSION}, /* session clock setup */
-		{"display.late_start", PORT_PROFILE_SESSION}, /* read when the frame pacer starts */
 		{"display.frame_rate", PORT_PROFILE_HOT},
 		{"display.frames_in_flight_at_30", PORT_PROFILE_HOT}, /* the game hands the value in force to the pacer when the context or scene changes */
 		{"display.async_shaders", PORT_PROFILE_SESSION},

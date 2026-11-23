@@ -842,10 +842,17 @@ static const struct config_setting config_settings[] =
 		"each frame at the refresh after the frames already on their way to the\n"
 		"display; it acts only while the game runs at 60 frames a second or fewer\n"
 		"(a cap, a scene class's rate or a 60 Hz display), where it was measured\n"
+<<<<<<< HEAD
 		"to halve the time to the screen or better, and a device profile may set\n"
 		"it. \"extended_all\" is the same at any frame rate, for measuring. The Mac\n"
 		"app's F8 switches it while playing. Not on a Vision Pro, and not when\n"
 		"frames don't wait for the display (display.frame_rate).", _tier_player, "|true|false|extended|extended_all" },
+=======
+		"to halve the time to the screen or better. \"extended_all\" is the same\n"
+		"at any frame rate, for measuring. The Mac app's F8 switches it while\n"
+		"playing. Not on a Vision Pro, and not when frames don't wait for the\n"
+		"display (display.frame_rate).", _tier_player },
+>>>>>>> aea03152b (⏪ revert(profiles): take `display.late_start` back out of the profile keys — a change to `port_profile_keys.h` needs a new profile feed generation (`test_profile_keys_match_the_feed_generation`), which is a release step of its own. The setting and its 60-frames-a-second rule stay; the key joins the table with the next generation)
 	{ "display.frame_source", _config_string, "\"\"", "HALO_FRAME_SOURCE", _environment_value, _platform_ios,
 		"Where the Metal renderer's frames get their place on the display:\n"
 		"\"clock\" asks for one when a frame is ready and applies\n"

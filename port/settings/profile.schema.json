@@ -172,15 +172,6 @@
           "default": "off",
           "description": "How the Metal renderer times frames: \"off\" (default) shows each frame as soon as it's drawn; \"tick\" shows every frame for the same whole number of display refreshes, at a rate that is a multiple of the game's 30 ticks a second (90 or 30 at 90 Hz, 60 or 30 at 60 Hz), dropping to the next rate when frames take too long; \"refresh\" allows any whole number of refreshes (45 at 90 Hz). Experimental: in a visionOS window the pacing can't yet see when frames show. Profile values outside the accepted set are refused, not clamped."
         },
-        "late_start": {
-          "type": "string",
-          "enum": [
-            "false",
-            "extended"
-          ],
-          "default": "",
-          "description": "Start each frame's work as late as it can be and still be done for the next refresh of the display, so the controller is read later and what you do reaches the screen sooner (the Metal renderer's frame pacer). It backs off to starting at once whenever frames take too long or vary. \"true\" or \"false\"; empty (default): on in the Mac app, off on an iPhone, iPad or Apple TV. \"extended\" also starts late when a frame's work is longer than one refresh, under dynamic resolution and under frame rate caps, and aims each frame at the refresh after the frames already on their way to the display; it acts only while the game runs at 60 frames a second or fewer (a cap, a scene class's rate or a 60 Hz display), where it was measured to halve the time to the screen or better, and a device profile may set it. \"extended_all\" is the same at any frame rate, for measuring. The Mac app's F8 switches it while playing. Not on a Vision Pro, and not when frames don't wait for the display (display.frame_rate). Profile values outside the accepted set are refused, not clamped."
-        },
         "frame_rate": {
           "type": "string",
           "oneOf": [
@@ -2410,50 +2401,6 @@
           ]
         },
         "display.frame_pacing": {
-          "type": "object",
-          "properties": {
-            "basis": {
-              "enum": [
-                "measured",
-                "assumed",
-                "inherited"
-              ]
-            },
-            "why": {
-              "type": "string",
-              "minLength": 20
-            },
-            "source": {
-              "type": "string",
-              "minLength": 10
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "basis",
-            "why"
-          ],
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "basis": {
-                    "const": "measured"
-                  }
-                },
-                "required": [
-                  "basis"
-                ]
-              },
-              "then": {
-                "required": [
-                  "source"
-                ]
-              }
-            }
-          ]
-        },
-        "display.late_start": {
           "type": "object",
           "properties": {
             "basis": {

@@ -408,7 +408,7 @@ frames and the build has none of this.
   after the frames already on their way to the display, and the CPU's work on
   it overlaps the GPU's work on the frame before. It acts only while the game
   runs at 60 frames a second or fewer (a cap, a scene class's rate, or a
-  60 Hz display), and a device profile may set it. Measured on a 120 Hz
+  60 Hz display). Measured on a 120 Hz
   iPhone, from a frame's start to the screen: 98 ms became 33 ms under a
   30 cap for about one more late frame in 1,000, and 48 ms became 20 ms at
   60 for about eight more. At 120 frames a second it did not hold, so it is
