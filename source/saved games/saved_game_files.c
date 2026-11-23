@@ -470,7 +470,8 @@ static boolean set_nth_entry_in_mapfile(
 	struct enumerated_saved_game_file *file);
 static boolean remove_nth_entry_in_mapfile(
 	word memory_unit_index,
-	word n);
+	word n,
+	long deleted_index);
 static boolean append_entry_to_mapfile(
 	word memory_unit_index,
 	struct enumerated_saved_game_file *file,
@@ -1542,15 +1543,10 @@ boolean delete_enumerated_saved_game_file(
 						}
 					}
 
-					if (!remove_nth_entry_in_mapfile(memory_unit, n))
+					if (!remove_nth_entry_in_mapfile(memory_unit, n, profile_index))
 					{
 						error(_error_silent, "remove_nth_entry_in_mapfile() failed");
 						success = FALSE;
-					}
-					else
-					{
-						/* port: the entries after it moved down: the game thread's local players follow */
-						player_ui_post_saved_game_file_deleted(profile_index);
 					}
 
 					if (memory_unit != _memory_unit_hard_drive)
@@ -2454,7 +2450,8 @@ static boolean append_entry_to_mapfile(
 
 static boolean remove_nth_entry_in_mapfile(
 	word memory_unit_index,
-	word n)
+	word n,
+	long deleted_index)
 {
 	struct enumerated_saved_game_file file;
 	unsigned long mapfile_size;
@@ -2511,6 +2508,13 @@ static boolean remove_nth_entry_in_mapfile(
 			{
 				success = file_set_eof(&saved_game_files_globals.memory_unit_mapfile,
 					mapfile_size-sizeof(struct enumerated_saved_game_file));
+			}
+
+			if (success)
+			{
+				/* port: the entries after it moved down: the game thread's local players follow. Posted under the
+				mapfile mutex, so posts are single-producer and in the order the mapfile changed */
+				player_ui_post_saved_game_file_deleted(deleted_index);
 			}
 
 			if (!file_close(&saved_game_files_globals.memory_unit_mapfile))

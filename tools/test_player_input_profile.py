@@ -266,6 +266,19 @@ int main(void)
 		player_ui_apply_pending_saved_game_file_deletions();
 		assert(active_of(0) == NONE && active_of(2) == NONE);
 		assert(!memcmp(player_input_profile_for_local_player(0), &defaults, sizeof(defaults)));
+
+		/* after an overflow the next ordinary delete is still seen (the ring keeps its place) */
+		count = 0;
+		memset(&player_ui_globals, 0, sizeof(player_ui_globals));
+		player_ui_globals.local_players[1].active_profile_index = NONE;
+		player_ui_globals.local_players[2].active_profile_index = NONE;
+		player_ui_globals.local_players[3].active_profile_index = NONE;
+		index_a = profile_create(&a);
+		index_b = profile_create(&b);
+		player_ui_set_active_player_profile(0, index_b, &record);
+		profile_delete(index_a);
+		player_ui_apply_pending_saved_game_file_deletions();
+		assert(active_of(0) == INDEX_OF(0));
 	}
 	return 0;
 }
@@ -330,3 +343,19 @@ def test_the_probe_catches_a_delete_that_leaves_active_indices_stale(tmp_path):
         return functions[:start] + 'static void player_ui_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }' + functions[end:]
 
     assert _activation_status(tmp_path, ui, stale_indices) != 0
+
+
+def test_deletes_are_posted_under_the_mapfile_mutex_and_drained_before_index_reads():
+    files = (ROOT / 'source' / 'saved games' / 'saved_game_files.c').read_text(encoding='latin-1')
+    body = files[files.index('static boolean remove_nth_entry_in_mapfile(\r\n\tword memory_unit_index,\r\n\tword n,\r\n\tlong deleted_index)\r\n{') if '\r\n' in files else files.index('static boolean remove_nth_entry_in_mapfile(\n\tword memory_unit_index,\n\tword n,\n\tlong deleted_index)\n{'):]
+    body = body[:body.index('saved_game_files_release_mapfile_mutex();')]
+    assert 'player_ui_post_saved_game_file_deleted(deleted_index)' in body
+    assert 'player_ui_apply_pending_saved_game_file_deletions' in (ROOT / 'source' / 'main' / 'main.c').read_text(encoding='latin-1')
+    # every function in player_ui.c that reads an active index drains first
+    ui = (ROOT / 'source' / 'interface' / 'player_ui.c').read_text(encoding='latin-1').replace('\r\n', '\n')
+    start = ui.index('/* end of the deletion mailbox */')
+    for chunk in re.split(r'\n(?=[a-z][a-z_ ]* \*?player_ui_\w+\()', ui[:start] + '\n' + ui[start:]):
+        if '.active_profile_index' in chunk and 'player_ui_saved_game_file_deleted(' not in chunk[:60] \
+                and 'player_ui_apply_pending_saved_game_file_deletions' not in chunk[:60]:
+            if re.search(r'\.active_profile_index\s*(!=|==|,|\))', chunk) or 'result = ' in chunk:
+                assert 'player_ui_apply_pending_saved_game_file_deletions();' in chunk, chunk[:80]

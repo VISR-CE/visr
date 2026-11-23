@@ -499,6 +499,7 @@ void player_ui_port_apply_last_profile_controls(
 		previous_time = now;
 		return;
 	}
+	player_ui_apply_pending_saved_game_file_deletions();
 	previous_time = now;
 	if (player_ui_globals.local_players[0].active_profile_index != NONE)
 		return;
@@ -649,6 +650,7 @@ boolean player_ui_get_path_to_local_player_profile_directory(
 	short local_player_index,
 	char *path)
 {
+	player_ui_apply_pending_saved_game_file_deletions();
 	if (local_player_index >= 0 && local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS)
 		return player_profile_get_enclosing_directory_path(
 			player_ui_globals.local_players[local_player_index].active_profile_index,
@@ -679,6 +681,7 @@ void player_ui_activate_all_solo_levels(
 	}
 	while (++level_index < 10);
 
+	player_ui_apply_pending_saved_game_file_deletions();
 	if (player_ui_globals.local_players[0].active_profile_index != NONE)
 		player_profile_save(
 			player_ui_globals.local_players[0].active_profile_index,
@@ -822,6 +825,7 @@ boolean player_ui_edit_profile_is_default_profile(
 void player_ui_remember_player1_profile(
 	boolean save)
 {
+	player_ui_apply_pending_saved_game_file_deletions();
 	if (player1_last_used_profile_index != player_ui_globals.local_players[0].active_profile_index)
 	{
 		if (player_ui_globals.local_players[0].active_profile_index==NONE ||
@@ -931,6 +935,7 @@ boolean player_ui_save_profile(
 				player_ui_globals.edit_profile_index,
 				&player_ui_globals.edit_profile.current.player,
 				&player_ui_edit_input.current);
+			player_ui_apply_pending_saved_game_file_deletions();
 			/* port: a local player on this profile plays with the saved values from now on */
 			{
 				short local_player_index;
@@ -1359,21 +1364,29 @@ void player_ui_set_active_player_profile(
 remove_nth_entry_in_mapfile), so every entry after it has an index one lower and a local player's active index must
 follow its profile. A delete can run on any thread (a failed profile write deletes on the write thread), and the local
 players belong to the game thread: a delete posts its index here, and the game thread applies the posts in order, at
-its next tick (main.c) and before it reads or sets a profile. Posting is lock-free and safe from any thread. */
+its next tick (main.c) and before it reads or sets a profile. Posts come from one producer at a time (the mapfile mutex). */
 #define PLAYER_UI_DELETION_MAILBOX_SIZE 16
 static long player_ui_deletion_mailbox[PLAYER_UI_DELETION_MAILBOX_SIZE];
-static volatile long player_ui_deletion_head;
+static long player_ui_deletion_head;
 static long player_ui_deletion_tail;
 static volatile long player_ui_deletion_overflow;
 
 void player_ui_post_saved_game_file_deleted(
 	long deleted_index)
 {
-	long slot = __sync_fetch_and_add(&player_ui_deletion_head, 1) % PLAYER_UI_DELETION_MAILBOX_SIZE;
+	/* (single producer: the mapfile mutex; the index is stored plus one, zero marks an empty slot) */
+	long slot = player_ui_deletion_head % PLAYER_UI_DELETION_MAILBOX_SIZE;
 
-	/* (the index is stored plus one: zero marks an empty slot) */
-	if (!__sync_bool_compare_and_swap(&player_ui_deletion_mailbox[slot], 0, deleted_index + 1))
+	if (__atomic_load_n(&player_ui_deletion_mailbox[slot], __ATOMIC_ACQUIRE) != 0)
+	{
+		/* full: the head stays, so the ring keeps its place once the game thread has drained */
 		player_ui_deletion_overflow = 1;
+	}
+	else
+	{
+		__atomic_store_n(&player_ui_deletion_mailbox[slot], deleted_index + 1, __ATOMIC_RELEASE);
+		player_ui_deletion_head++;
+	}
 	return;
 }
 
@@ -1411,9 +1424,9 @@ void player_ui_apply_pending_saved_game_file_deletions(
 {
 	long entry;
 
-	while ((entry = player_ui_deletion_mailbox[player_ui_deletion_tail % PLAYER_UI_DELETION_MAILBOX_SIZE]) != 0)
+	while ((entry = __atomic_load_n(&player_ui_deletion_mailbox[player_ui_deletion_tail % PLAYER_UI_DELETION_MAILBOX_SIZE], __ATOMIC_ACQUIRE)) != 0)
 	{
-		player_ui_deletion_mailbox[player_ui_deletion_tail % PLAYER_UI_DELETION_MAILBOX_SIZE] = 0;
+		__atomic_store_n(&player_ui_deletion_mailbox[player_ui_deletion_tail % PLAYER_UI_DELETION_MAILBOX_SIZE], 0, __ATOMIC_RELEASE);
 		player_ui_deletion_tail++;
 		player_ui_saved_game_file_deleted(entry - 1);
 	}
@@ -1446,6 +1459,7 @@ void player_ui_update_active_player_profile_record(
 		(local_player_index<MAXIMUM_NUMBER_OF_LOCAL_PLAYERS) &&
 		(profile != NULL));
 
+	player_ui_apply_pending_saved_game_file_deletions();
 	csmemcpy(
 		&player_ui_globals.local_players[local_player_index].profile,
 		profile,
