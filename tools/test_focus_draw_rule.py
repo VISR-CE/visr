@@ -3,7 +3,7 @@
 Bug class: focus drawn by a place that decides on its own, so one kind of item looks different from another on the
 same input. The rule decides by the kind of item: a list row (the engine's list rows, a generated list item's plasma
 and white text, the port's own rows such as Video Setup and the server browser) draws its focus on every input, touch
-too (Steve, Nov 22); a carousel card draws no focus outline on touch. Focus is drawn in several places (the engine's
+too; a carousel card draws no focus outline on touch. Focus is drawn in several places (the engine's
 list updaters, its render loop and carousel, and the port's own lists in menu_functions.c). This test reads every
 focus-drawing site in both files and fails on one that decides without the rule.
 """

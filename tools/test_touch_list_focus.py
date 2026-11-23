@@ -1,6 +1,6 @@
 """Executes the menu lists' focus drawing from source/interface/ui_widget.c for each input.
 
-Bug class: a list row's focus drawn differently by input. Steve (Nov 22): a list's rows keep their focus frame on
+Bug class: a list row's focus drawn differently by input. A list's rows keep their focus frame on
 touch, as on every other input, so a touch player sees which row the panel describes. Every row of a column or spinner
 list draws its focus (selected frame, white text) on every input, at any depth (a row's text inside a row), and the
 list keeps its focused child. A carousel card is the exception: no focus outline while the last input is touch.
