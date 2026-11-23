@@ -242,7 +242,10 @@ def bar(screen, actions):
     element = ET.SubElement(screen, 'bar')
     for slot, scope, caption, what in actions:
         text = {'strings': '|'.join(caption)} if isinstance(caption, (list, tuple)) else {'text': caption}
-        ET.SubElement(element, 'action', {'slot': slot, 'scope': scope, **text, **what})
+        # a caption too wide for the slot in the large font fits in the small one (menu_geometry.bar_caption_font)
+        font = menu_geometry.bar_caption_font(slot, caption if isinstance(caption, (list, tuple)) else [caption])
+        fit = {} if font == 'large' else {'size': font}
+        ET.SubElement(element, 'action', {'slot': slot, 'scope': scope, **text, **fit, **what})
     return element
 
 

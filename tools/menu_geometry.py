@@ -49,8 +49,9 @@ DROPDOWN_PITCH = 52
 # a controller glyph and its caption sit BAR_INSET inside it. The row first slides right into the screen's margin
 # and then trims padding, so the four slots fit the screen.
 BAR_FONT = 'ui\\large_ui'
+BAR_SMALL_FONT = 'ui\\small_ui'   # a caption too wide for its slot in BAR_FONT is drawn in this (bar_caption_font)
 BAR_SLOTS = 'xyba'
-BAR_WIDEST = {'a': 'START GAME', 'b': 'CANCEL', 'y': 'CREATE GAME', 'x': 'IP ADDRESS'}
+BAR_WIDEST = {'a': 'START GAME', 'b': 'CANCEL', 'y': 'CREATE GAME', 'x': 'DEFAULTS'}
 BAR_RIGHT = 592
 BAR_SCREEN_RIGHT = 628
 BAR_LEFT_MARGIN = 12
@@ -82,6 +83,20 @@ def bar_slots():
 
 
 BAR_SLOT_BOUNDS = bar_slots()
+
+
+def bar_caption_room(slot):
+    x0, x1 = BAR_SLOT_BOUNDS[slot]
+    return x1 - x0 - 2 * BAR_INSET - BAR_CAPTION_OFFSET
+
+
+def bar_caption_font(slot, captions):
+    """'large', or 'small' when a caption (any a run-time one can show) does not fit the slot in the large font; the
+    one rule for every bar caption. A caption that fits in neither is an error."""
+    for font, name in ((BAR_FONT, 'large'), (BAR_SMALL_FONT, 'small')):
+        if all(menu_text_metrics.text_width(font, caption) <= bar_caption_room(slot) for caption in captions):
+            return name
+    raise ValueError(f'{captions} do not fit the {slot} slot in either font')
 
 HEADER_VALUES = (
     ('MENU_FIRST_ROW', FIRST_ROW, "the first option row's y"),

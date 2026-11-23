@@ -217,6 +217,8 @@ does, never where it goes:
   caption that changes at run time has `strings="EDIT|JOIN GAME"` (and
   `strings_ids`) instead, with `index` the one shown first; the port picks
   one by the action's button (`ui_widget_port_bar_caption`).
+- `size`: `large` (the default) or `small`, for a caption too wide for its slot in the large font. The generator
+  picks it by measuring (`menu_geometry.bar_caption_font`), so no screen sizes its own captions.
 - `while_typing="pointer"`: while a text field is being typed in, the
   action's key is a letter (a keyboard's E is X), so only a tap or a click
   on the action runs it then.

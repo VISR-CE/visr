@@ -15,13 +15,13 @@
 #define MENU_VALUE_MARGIN          24 /* beside the widest value in a value column */
 #define MENU_VALUE_MINIMUM_WIDTH   80 /* a value column at its narrowest */
 #define MENU_DROPDOWN_PITCH        52 /* a pointer dropdown option row */
-#define MENU_BAR_SLOT_X_X0         12 /* the bar's X slot: its left edge */
-#define MENU_BAR_SLOT_X_X1         157 /* the bar's X slot: its right edge */
-#define MENU_BAR_SLOT_Y_X0         169 /* the bar's Y slot: its left edge */
-#define MENU_BAR_SLOT_Y_X1         337 /* the bar's Y slot: its right edge */
-#define MENU_BAR_SLOT_B_X0         349 /* the bar's B slot: its left edge */
-#define MENU_BAR_SLOT_B_X1         458 /* the bar's B slot: its right edge */
-#define MENU_BAR_SLOT_A_X0         470 /* the bar's A slot: its left edge */
+#define MENU_BAR_SLOT_X_X0         17 /* the bar's X slot: its left edge */
+#define MENU_BAR_SLOT_X_X1         151 /* the bar's X slot: its right edge */
+#define MENU_BAR_SLOT_Y_X0         163 /* the bar's Y slot: its left edge */
+#define MENU_BAR_SLOT_Y_X1         333 /* the bar's Y slot: its right edge */
+#define MENU_BAR_SLOT_B_X0         345 /* the bar's B slot: its left edge */
+#define MENU_BAR_SLOT_B_X1         456 /* the bar's B slot: its right edge */
+#define MENU_BAR_SLOT_A_X0         468 /* the bar's A slot: its left edge */
 #define MENU_BAR_SLOT_A_X1         628 /* the bar's A slot: its right edge */
 #define MENU_BAR_GAP               12 /* between two slots of the bar */
 #define MENU_BAR_INSET             4 /* a controller glyph and its caption, in from their slot's edges */

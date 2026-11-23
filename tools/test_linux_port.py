@@ -208,7 +208,7 @@ MENU_ATTRIBUTES = {
     # (a screen's button bar, port/assets/menus/README.md)
     "bar": {"kind"},
     "title": {"widget", "strings"},
-    "action": {"slot", "scope", "text", "text_id", "strings", "strings_ids", "index", "while_typing", "run", "open",
+    "action": {"slot", "scope", "size", "text", "text_id", "strings", "strings_ids", "index", "while_typing", "run", "open",
                "focus", "platform"},
 }
 

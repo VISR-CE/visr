@@ -1067,12 +1067,12 @@ static void read_action(struct reader *reader, const XML_Char **attributes, long
 {
 	struct halo_menus *menus = &reader->menus;
 	const char *slot = NULL, *scope = NULL, *text = NULL, *text_id = NULL, *run = NULL, *open = NULL, *focus = NULL;
-	const char *strings = NULL, *strings_ids = NULL, *index = NULL, *while_typing = NULL;
+	const char *strings = NULL, *strings_ids = NULL, *index = NULL, *while_typing = NULL, *size = NULL;
 	struct attribute table[] =
 	{
 		{ "slot", &slot }, { "scope", &scope }, { "text", &text }, { "text_id", &text_id }, { "run", &run },
 		{ "open", &open }, { "focus", &focus }, { "strings", &strings }, { "strings_ids", &strings_ids },
-		{ "index", &index }, { "while_typing", &while_typing },
+		{ "index", &index }, { "while_typing", &while_typing }, { "size", &size },
 	};
 	char glyph_name[256], caption_name[256], captions_name[256], bitmap[32], x[16], y[16], width[16], height[16];
 	char caption_x[16], caption_width[16], caption_height[16];
@@ -1114,6 +1114,11 @@ static void read_action(struct reader *reader, const XML_Char **attributes, long
 	}
 	if (while_typing)
 		typing = HALO_MENU_TYPING_POINTER;
+	if (size && strcmp(size, "large") && strcmp(size, "small"))
+	{
+		reader_error(reader, "an <action>'s size is \"large\" (the default) or \"small\", for a caption too wide for its slot");
+		return;
+	}
 	if (focus && strcmp(focus, "true"))
 	{
 		reader_error(reader, "focus is \"true\", or not given");
@@ -1164,7 +1169,7 @@ static void read_action(struct reader *reader, const XML_Char **attributes, long
 		};
 		const XML_Char *caption[] =
 		{
-			"name", caption_name, "type", "text", "font", "ui\\large_ui", "color", "#FF2896FF",
+			"name", caption_name, "type", "text", "font", size && !strcmp(size, "small") ? "ui\\small_ui" : "ui\\large_ui", "color", "#FF2896FF",
 			"width", caption_width, "height", caption_height, "x", caption_x, "y", y,
 			text ? "text" : "string_list", text ? text : captions_name,
 			/* (text's catalog ID, or which of the strings shows first) */

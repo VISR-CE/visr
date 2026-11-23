@@ -1150,9 +1150,14 @@ def test_declared_bar_captions_fit_their_slots():
                 for action in bar.findall('action'):
                     x0, x1 = menu_geometry.BAR_SLOT_BOUNDS[action.get('slot')]
                     room = x1 - x0 - 2 * menu_geometry.BAR_INSET - menu_geometry.BAR_CAPTION_OFFSET
-                    # (every caption a run-time one can show)
-                    for caption in (action.get('text') or action.get('strings')).split('|'):
-                        width = menu_text_metrics.text_width(menu_geometry.BAR_FONT, caption)
+                    captions = (action.get('text') or action.get('strings')).split('|')
+                    # the font is the large one unless some caption (a run-time one can show any) does not fit in it,
+                    # and then the small one, which every caption fits in
+                    font = action.get('size', 'large')
+                    assert font == menu_geometry.bar_caption_font(action.get('slot'), captions), (screen.get('name'), captions)
+                    face = menu_geometry.BAR_FONT if font == 'large' else menu_geometry.BAR_SMALL_FONT
+                    for caption in captions:
+                        width = menu_text_metrics.text_width(face, caption)
                         assert width <= room, (screen.get('name'), caption, width, room)
                         assert width + 2 * 12 <= x1 - x0, (screen.get('name'), caption)
                     count += 1
@@ -2172,3 +2177,22 @@ def test_every_title_picture_sets_its_title_at_the_same_height_and_size_inside_i
             if not (110 <= box[0] <= 135 and 128 <= box[1] <= 138 and 70 <= box[2] - box[1] <= 92)} == {}
     # and its plate fades out inside the picture, on every side
     assert {png: edge for png, edge in edges.items() if edge > 4} == {}
+
+
+def test_a_caption_too_wide_for_its_slot_in_the_large_font_takes_the_small_one():
+    """Bug class: a caption that does not fit its standard slot (IP ADDRESS in X's). The slots stay one size for
+    every screen; the caption is the one that adapts, by one rule (`bar_caption_font`) over every caption."""
+    import menu_geometry
+    import menu_text_metrics
+
+    assert menu_geometry.bar_caption_font('x', ['DEFAULTS']) == 'large'
+    assert menu_geometry.bar_caption_font('x', ['IP ADDRESS']) == 'small'
+    assert menu_geometry.bar_caption_font('x', ['HIDE', 'IP ADDRESS']) == 'small'
+    assert menu_text_metrics.text_width(menu_geometry.BAR_FONT, 'IP ADDRESS') > menu_geometry.bar_caption_room('x')
+    assert menu_geometry.BAR_WIDEST['x'] == 'DEFAULTS'
+    try:
+        menu_geometry.bar_caption_font('x', ['A CAPTION FAR TOO WIDE FOR ANY ONE SLOT OF THE BAR'])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('a caption that fits in neither font must be refused')
