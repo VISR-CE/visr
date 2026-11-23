@@ -186,7 +186,8 @@ struct halo_ui_pointer;
 void halo_menu_pointer_activity(struct halo_ui_pointer const *pointer);
 int halo_controller_glyph_request(short player, short semantic, short physical, char *label, unsigned int size);
 struct host_ui_pointer;
-/* the screen's secondary action (X) is destructive: the keyboard legend reads Delete */
+/* the screen's secondary action (X) is destructive (it deletes): the keyboard legend names Backspace, and only then do
+Backspace and forward delete press X; on any other screen X is a plain action (E) and Backspace does nothing */
 void halo_controller_glyph_x_destructive(int destructive);
 void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer);
 #endif

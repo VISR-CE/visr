@@ -120,9 +120,9 @@ DIALOG_HIT = (122, 118, 112, 53)
 DIALOG_RULE, DIALOG_BOTTOM = 130, 159
 DIALOG_GLYPH_Y = (DIALOG_RULE + DIALOG_BOTTOM - 26) // 2
 DIALOG_GLYPH, DIALOG_GLYPH_GAP = 21, 4
-# Slots hug glyph + caption (measured in the menu font) + padding, 60 wide at least (tap area), and the row is
-# centered as a group.
-DIALOG_SLOT_PAD, DIALOG_SLOT_GAP, DIALOG_SLOT_MIN = 8, 6, 60
+# Every slot is the standard size (DIALOG_HIT wide, the standard pill inside it), the gap between slots is 6, and the row
+# is centered as a group; DIALOG_SLOT_MIN is the tap minimum (44 pt) a slot never goes under.
+DIALOG_SLOT_GAP, DIALOG_SLOT_MIN = 6, 60
 
 
 def title():
@@ -2032,11 +2032,10 @@ def browser_error_layout(documents):
 def dialog_legend_slots(labels):
     """Slots (panel-relative x, width) for a dialog's legend buttons, in the order given.
 
-    Each slot is as wide as its glyph and caption plus padding (never under the tap minimum), and the
-    row is centered as a group on the panel, so a short OK beside a long CANCEL is not left-heavy.
+    Every slot is the standard size, whatever its caption (the engine fits the text), and the row is centered as a
+    group on the panel.
     """
-    widths = [max(DIALOG_SLOT_MIN, DIALOG_GLYPH + DIALOG_GLYPH_GAP + dialog_caption_width(label) + 2 * DIALOG_SLOT_PAD)
-              for label in labels]
+    widths = [DIALOG_HIT[2] for _ in labels]
     x = (DIALOG_PANEL[2] - sum(widths) - DIALOG_SLOT_GAP * (len(widths) - 1)) // 2
     slots = []
     for width in widths:

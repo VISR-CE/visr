@@ -10474,6 +10474,8 @@ void render_ui_widgets(
 					ui_touch_title_seen = FALSE;
 					ui_touch_x_seen = FALSE;
 					ui_touch_x_playlist_widget = NULL;
+					/* a screen with no destructive X must not keep the last screen's (Backspace deletes only there) */
+					halo_controller_glyph_x_destructive(FALSE);
 					ui_touch_back_generic = ui_touch_screen_back_acts(widget);
 					ui_touch_screen_x_scan(widget);
 				}

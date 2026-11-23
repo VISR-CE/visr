@@ -23,6 +23,7 @@ typedef short SHORT;
 typedef struct {unsigned short wButtons;unsigned char bAnalogButtons[8];short sThumbLX,sThumbLY,sThumbRX,sThumbRY;} XINPUT_GAMEPAD;
 #include "sdl_platform.h"
 #include "halo_controller_glyphs.h"
+static int glyph_x_destructive;
 static BOOL text_typing, text_typing_enter_armed, text_typing_submit;
 /* ANALOG */
 /* TYPING */
@@ -34,8 +35,9 @@ int main(void)
 	XINPUT_GAMEPAD pad;
 	int scancode;
 
-	/* a menu list: Backspace and forward delete are X and only X */
+	/* a list whose X deletes (profiles, gametypes): Backspace and forward delete are X and only X */
 	text_typing = FALSE;
+	glyph_x_destructive = TRUE;
 	int const secondary[] = {SDL_SCANCODE_BACKSPACE, SDL_SCANCODE_DELETE};
 	for (scancode = 0; scancode < 2; scancode++)
 	{
@@ -47,8 +49,21 @@ int main(void)
 	press(&input, SDL_SCANCODE_ESCAPE); memset(&pad, 0, sizeof(pad));
 	keyboard_gamepad(&input, &pad);
 	assert(pad.bAnalogButtons[XINPUT_GAMEPAD_B] == 0xff && pad.bAnalogButtons[XINPUT_GAMEPAD_X] == 0);
+	/* a screen whose X is a plain action (DEFAULTS applies and saves): Backspace and forward delete do nothing, E
+	still presses X */
+	glyph_x_destructive = FALSE;
+	for (scancode = 0; scancode < 2; scancode++)
+	{
+		press(&input, secondary[scancode]); memset(&pad, 0, sizeof(pad));
+		keyboard_gamepad(&input, &pad);
+		assert(pad.bAnalogButtons[XINPUT_GAMEPAD_X] == 0 && pad.bAnalogButtons[XINPUT_GAMEPAD_B] == 0 && !pad.wButtons);
+	}
+	press(&input, SDL_SCANCODE_E); memset(&pad, 0, sizeof(pad));
+	keyboard_gamepad(&input, &pad);
+	assert(pad.bAnalogButtons[XINPUT_GAMEPAD_X] == 0xff);
 	/* a text-entry screen: Backspace edits the text, the menu sees no action */
 	text_typing = TRUE;
+	glyph_x_destructive = TRUE;
 	for (scancode = 0; scancode < 2; scancode++)
 	{
 		press(&input, secondary[scancode]); memset(&pad, 0, sizeof(pad));

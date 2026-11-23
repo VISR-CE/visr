@@ -10,7 +10,7 @@
 		<on event="b" run="gamespy dismiss error" />
 		<on event="back" run="gamespy dismiss error" />
 		<child widget="xbox/error/browser_error_panel" x="0" y="0" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn" x="276" y="294" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn" x="255" y="294" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_internet" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">
 	</widget>
@@ -489,17 +489,17 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/y_butn" width="21" height="26" bitmap="xbox/browser/y_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/create" type="text" text="CREATE GAME" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_create.text" font="ui\small_ui" color="#FF2896FF" width="110" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn" type="container" width="71" height="53">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_background" x="2" y="14" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_caption" x="2" y="14" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn_glyph" x="8" y="13" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/accept" x="33" y="15" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn_glyph" x="28" y="13" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/accept" type="text" text="OK" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_error_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="30" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_background" width="67" height="25" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_error_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="67" height="24" align="center" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_background" width="108" height="25" bitmap="xbox/dialog_touch_button" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_error_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="108" height="24" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<bitmap name="xbox/browser/row_36/row">
 		<frame png="xbox/art/browser_row__0.png" width="544" height="36" />

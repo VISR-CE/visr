@@ -1793,8 +1793,12 @@ def test_every_modal_legend_row_is_centered_in_the_footer_band():
                 f'{name}: legend glyph crosses the footer rule or leaves the panel')
             band_center = (gen.DIALOG_RULE + gen.DIALOG_BOTTOM) / 2
             assert abs((ink_top + ink_bottom) / 2 - top - band_center) <= 2, f'{name}: legend off the band center'
-        group_left, group_right = min(i[0] for i in inks), max(i[1] for i in inks)
+        # the standard slots (the tap targets) are centered as a group; a caption's ink is centered in its own slot
+        slots = [(x, x + int(w.get('width'))) for w, x, y in parts
+                 if w.find('data[@input="port dialog legend update"]') is not None]
+        group_left, group_right = min(a for a, b in slots), max(b for a, b in slots)
         assert abs((group_left - left) - (left + 239 - group_right)) <= 2, f'{name}: legend group off center'
+        assert len({b - a for a, b in slots}) == 1, f'{name}: slots are not one standard size'
         checked += 1
     assert checked >= 8
 

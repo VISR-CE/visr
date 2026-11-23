@@ -748,10 +748,13 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 	/* the system back key (gesture or button) backs out of menus */
 	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_AC_BACK]);
 #endif
-	/* the one place a key becomes the secondary action; typing_gamepad (text entry) returned above, so
-	Backspace edits text there and never deletes a profile */
+	/* the one place Backspace and forward delete become the secondary action, and only where that action is
+	destructive (the screen's X deletes a profile or a gametype): elsewhere X is a plain action such as DEFAULTS, a
+	key the legend names E, so a stray Backspace changes nothing. typing_gamepad (text entry) returned above, so
+	Backspace edits text there. */
 #define SECONDARY_DOWN(scancode) || k[scancode]
-	pad->bAnalogButtons[XINPUT_GAMEPAD_X] |= analog(0 HALO_GLYPH_MENU_SECONDARY_KEYS(SECONDARY_DOWN));
+	if (glyph_x_destructive)
+		pad->bAnalogButtons[XINPUT_GAMEPAD_X] |= analog(0 HALO_GLYPH_MENU_SECONDARY_KEYS(SECONDARY_DOWN));
 #undef SECONDARY_DOWN
 }
 
@@ -1631,11 +1634,7 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 or pinch, and an installed but idle pointer does not change the source. */
 void halo_controller_glyph_x_destructive(int destructive)
 {
-#ifdef HALO_IOS
 	glyph_x_destructive = destructive;
-#else
-	(void)destructive;
-#endif
 }
 
 void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer)
