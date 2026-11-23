@@ -29,7 +29,7 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "94be3acdf827e8d20aab56c41f4d6299734b7fe6ed3c7d2b18ef991e96c74185"}
+                   5: "4276494321176ad90ecf666779b7637276aaab3497a64ed0baf01d13dffbe99d"}
 
 
 def key_table_sha256(text):
@@ -293,8 +293,9 @@ def test_every_profile_key_has_its_generations_recorded():
     known = hashlib.sha256("\n".join(sorted(names - set(profile_pr.KEY_GENERATIONS))).encode()).hexdigest()
     assert known == KNOWN_TO_EVERY_GENERATION, (
         "port_profile_keys.h changed: record the new key in profile_pr.KEY_GENERATIONS (the generations that read it)")
-    # 0.6.22's generation carries every key this branch adds except the portrait one
-    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait",)
+    # 0.6.22's generation carries every key this branch adds except the portrait one and the encode thread (landed on main,
+    # not on the 0.6 line: record it as (5, 6) in profile_pr.KEY_GENERATIONS if it is cherry-picked there)
+    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait", "display.encode_thread")
     assert profile_pr.GENERATIONS[profile_pr.PROFILE_DOMAIN] == ()
 
 

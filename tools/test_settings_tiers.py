@@ -129,8 +129,6 @@ TUNING_OFF_HEADSET = {
     'display.interpolation',
     # a safety switch, on by default; off only to compare with the Xbox's Save and Quit-only writes
     'saves.checkpoint_persist',
-    # the Metal encode thread, chosen per device from measured pairs; a device profile will carry it
-    'display.encode_thread',
     # the import-time texture repair, on until device profiles can turn it off (that step adds the profile key and its
     # feed generation)
     'display.repaired_textures',
