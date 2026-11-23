@@ -929,6 +929,37 @@ static void test_replacement_with_the_same_size_and_time_is_a_change(void)
 	device_end(&a); device_end(&b);
 }
 
+/* the profile's input extension (padding to older builds) survives an older build's save arriving from the cloud */
+static void test_older_build_save_keeps_the_input_extension(void)
+{
+	struct device a, b;
+	char path[512];
+	uint8_t profile[512] = { 0 }, *data;
+	size_t size = 0, i;
+
+	two_in_step(&a, &b);
+	/* b's profile carries an extension; a (an older build) saves a profile with zeros there */
+	slot_path(&b, SLOT, "blam.sav", path, sizeof(path));
+	data = file_bytes(path, &size);
+	assert(data && size == 512);
+	memcpy(profile, data, 512);
+	free(data);
+	memcpy(profile + 0x44, "VINP", 4);
+	for (i = 4; i < 20; i++)
+		profile[0x44 + i] = (uint8_t)(0x50 + i);
+	put_file(&b, SLOT, "blam.sav", profile, sizeof(profile), 5);
+	put_profile(&a, SLOT, "Chief", 5, 1, 10);
+	CHECK(running(&a) == CLOUD_STATE_IDLE);
+	/* both changed since the sync: a has more levels finished, so its profile wins on b */
+	CHECK(launch(&b) == CLOUD_STATE_IDLE);
+	slot_path(&b, SLOT, "blam.sav", path, sizeof(path));
+	data = file_bytes(path, &size);
+	assert(data && size == 512);
+	CHECK(data[0x1c + 4] == 0x2 && !memcmp(data + 0x44, profile + 0x44, 20));
+	free(data);
+	device_end(&a); device_end(&b);
+}
+
 static void test_one_device_moves_on(void)
 {
 	struct device a, b;
@@ -1976,6 +2007,7 @@ int main(int argc, char **argv)
 		{ "purge", test_purge },
 		{ "one device moves on", test_one_device_moves_on },
 		{ "a replacement of the same size and time is a change", test_replacement_with_the_same_size_and_time_is_a_change },
+		{ "an older build save keeps the input extension", test_older_build_save_keeps_the_input_extension },
 		{ "the game starting stops local writes", test_game_started_stops_local_writes },
 		{ "conflict, this device further along", test_conflict_local_wins },
 		{ "conflict, the cloud further along", test_conflict_cloud_wins },

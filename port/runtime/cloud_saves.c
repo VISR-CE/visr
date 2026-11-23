@@ -1214,6 +1214,41 @@ static int make_slot_directory(const char *save_root, const char *id, char *dire
 	return mkdir(directory, 0755) == 0 || errno == EEXIST;
 }
 
+/* The profile file's input extension (port/linux/game/player_input_profile.h, from offset 0x44) is padding to a build
+   from before it, which writes zeros there. A profile arriving without one therefore means "no opinion", not
+   "defaults": when the file on this device has the extension, it is kept in the copy that is written. */
+#define PROFILE_BLOCK_SIZE 512
+#define PROFILE_EXTENSION_OFFSET 0x44
+
+static int has_extension(const uint8_t *block)
+{
+	return block[PROFILE_EXTENSION_OFFSET] == 'V' && block[PROFILE_EXTENSION_OFFSET + 1] == 'I' &&
+		block[PROFILE_EXTENSION_OFFSET + 2] == 'N' && block[PROFILE_EXTENSION_OFFSET + 3] == 'P';
+}
+
+/* fills grafted (a profile block) with the incoming one and this device's extension; 1 when it did */
+static int graft_local_extension(const char *directory, const struct unit_file *incoming, uint8_t *grafted)
+{
+	char path[1300];
+	uint8_t local[PROFILE_BLOCK_SIZE];
+	FILE *file;
+	size_t count;
+
+	if (strcmp(incoming->name, PROFILE_FILE) || incoming->size != PROFILE_BLOCK_SIZE || has_extension(incoming->data))
+		return 0;
+	snprintf(path, sizeof(path), "%s/%s", directory, PROFILE_FILE);
+	file = fopen(path, "rb");
+	if (!file)
+		return 0;
+	count = fread(local, 1, sizeof(local), file);
+	fclose(file);
+	if (count != PROFILE_BLOCK_SIZE || !has_extension(local))
+		return 0;
+	memcpy(grafted, incoming->data, PROFILE_BLOCK_SIZE);
+	memcpy(grafted + PROFILE_EXTENSION_OFFSET, local + PROFILE_EXTENSION_OFFSET, PROFILE_BLOCK_SIZE - PROFILE_EXTENSION_OFFSET);
+	return 1;
+}
+
 /* Makes the slot's profile files those given: each written whole, SaveMeta.xbx (which makes the
    directory a save the game lists) last, and the profile files that are not among them removed. */
 static int local_write_profile(struct cloud_engine *engine, const char *id, const struct unit_files *files)
@@ -1227,9 +1262,15 @@ static int local_write_profile(struct cloud_engine *engine, const char *id, cons
 		return 0;
 	for (pass = 0; pass < 2; pass++)
 		for (i = 0; i < files->count; i++)
-			if ((strcmp(files->files[i].name, META_FILE) == 0) == pass &&
-				!write_file(directory, files->files[i].name, files->files[i].data, files->files[i].size))
-				return 0;
+			if ((strcmp(files->files[i].name, META_FILE) == 0) == pass)
+			{
+				uint8_t grafted[PROFILE_BLOCK_SIZE];
+				int graft = graft_local_extension(directory, &files->files[i], grafted);
+
+				if (!write_file(directory, files->files[i].name, graft ? grafted : files->files[i].data,
+					files->files[i].size))
+					return 0;
+			}
 	dir = opendir(directory);
 	while (dir && (entry = readdir(dir)) != NULL)
 	{
