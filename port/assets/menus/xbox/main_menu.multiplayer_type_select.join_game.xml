@@ -612,7 +612,7 @@
 			<action slot="x" scope="global" text="IP ADDRESS" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_x.text" run="port browser ip open" />
 			<action slot="y" scope="global" text="CREATE" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_y.text" run="port browser create" />
 			<action slot="b" scope="back" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_b.text" run="gamespy back handler" />
-			<action slot="a" scope="select" strings="JOIN GAME|CONNECTING" strings_ids="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_a.s0|xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_a.s1" focus="true" />
+			<action slot="a" scope="select" text="JOIN GAME" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_a.text" focus="true" />
 		</bar>
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_internet" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">

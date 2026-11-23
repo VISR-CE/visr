@@ -488,3 +488,18 @@ def test_every_detail_widget_the_empty_panel_hides_is_shown_or_hidden_for_a_game
     after = body[body.index("game = &lobby_browser.games"):]
     for name in names:
         assert re.search(r'visible_set\(\s*named\(detail, "%s", 0\)' % name, after), name
+
+
+def test_connect_progress_belongs_to_the_joining_game_only():
+    """Bug class (the panel showed another game's details with "Connecting to X..."): progress is the joining
+    game's row and one line in its own panel, a failed join is a dialog, and the legend never repeats it."""
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] / "port/linux/game/menu_functions.c").read_text()
+    assert source.count('L"Connecting to %s..."') == 1
+    line = source.index('L"Connecting to %s..."')
+    guard = source.rindex("boolean joining_chosen", 0, line)
+    assert "lobby_browser.identifier" in source[guard:line]
+    assert "CONNECTING..." not in source
+    assert "ui_widget_port_bar_caption(screen, _gamepad_analog_button_a" not in source
+    timeout = source[source.index("could not reach the server browser's game"):]
+    assert "display_error_text_deferred" in timeout[:900]

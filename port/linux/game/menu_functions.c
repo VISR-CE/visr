@@ -4348,7 +4348,6 @@ wait is longer) */
 /* how long the browser looks before it says it found none, and shows a
 join that failed */
 #define LOBBY_BROWSER_LOOK_TIME 6000
-#define LOBBY_BROWSER_FAILED_TIME 8000
 
 static struct
 {
@@ -4373,7 +4372,6 @@ static struct
 	unsigned long ready_time;
 	/* the last that failed, and when */
 	char failed_name[P2P_LISTING_NAME_SIZE + 1];
-	unsigned long failed_time;
 	boolean failed_nat_strict;
 	/* a game with a password chosen: the password screen's (its own copy:
 	the rows' are read again each frame), and a join it began, which the
@@ -4914,10 +4912,18 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	text_set(named(screen, "browser_list_status", 0), status);
 	visible_set(named(screen, "browser_list_hint", 0), !present);
 	text_set(named(screen, "browser_list_hint", 0), L"Select CREATE to start your own game.");
-	visible_set(named(detail, "browser_connection_status", 0), present && (lobby_browser.joining ||
-		(lobby_browser.failed_time && system_milliseconds() - lobby_browser.failed_time < LOBBY_BROWSER_FAILED_TIME)));
-	usnprintf(text, NUMBEROF(text) - 1, L"%s", status ? status : L"");
-	browser_name_set(named(detail, "browser_connection_status", 0), text);
+	/* (the connect line is the joining game's alone: another game chosen meanwhile shows its own details) */
+	{
+		boolean joining_chosen = present && lobby_browser.joining &&
+			!memcmp(lobby_browser.games[lobby_browser.chosen].identifier, lobby_browser.identifier,
+				sizeof(lobby_browser.identifier));
+		wchar_t name[P2P_LISTING_NAME_SIZE + 1];
+
+		visible_set(named(detail, "browser_connection_status", 0), joining_chosen);
+		text_to_wide(lobby_browser.name, name, NUMBEROF(name));
+		usnprintf(text, NUMBEROF(text) - 1, L"Connecting to %s...", name);
+		browser_name_set(named(detail, "browser_connection_status", 0), text);
+	}
 	if (!present)
 	{
 		char const *const blank[] = { "browser_detail_name", "browser_detail_type", "browser_detail_rules",
@@ -4936,7 +4942,6 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		visible_set(named(detail, "browser_detail_equipment", 0), FALSE);
 		visible_set(named(detail, "browser_host_label", 0), TRUE);
 		visible_set(named(detail, "browser_detail_host", 0), TRUE);
-		ui_widget_port_bar_caption(screen, _gamepad_analog_button_a, 0);
 		ui_widget_port_bar_dim(screen, _gamepad_analog_button_a, TRUE);
 		return;
 	}
@@ -5003,10 +5008,9 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 			text[0] = 0;	/* (the pill says it) */
 		else
 			usnprintf(text, NUMBEROF(text) - 1, game->failed ? L"COULDN'T REACH THIS GAME" :
-				!game->open ? L"THIS GAME IS FULL OR STARTING" : lobby_browser.joining ? L"CONNECTING..." : L"");
+				!game->open ? L"THIS GAME IS FULL OR STARTING" : L"");
 		/* the action always reads JOIN GAME (CONNECTING while joining, dimmed when unusable); why it is
 		   unusable shows in the detail box */
-		ui_widget_port_bar_caption(screen, _gamepad_analog_button_a, lobby_browser.joining ? 1 : 0);
 		ui_widget_port_bar_dim(screen, _gamepad_analog_button_a, !usable);
 		visible_set(named(detail, "browser_join_reason", 0), !usable && text[0] != 0);
 		browser_name_set(named(detail, "browser_join_reason", 0), text);
@@ -5283,6 +5287,9 @@ static void lobby_browser_update(struct widget_instance *list)
 			map_display_name(game->map, map);
 			text_to_wide(game->gametype, save, NUMBEROF(save));
 			usnprintf(text, NUMBEROF(text) - 1, L"%s%s%s", save, save[0] ? L" · " : L"", map);
+			/* (the game being joined says so on its own row) */
+			if (lobby_browser.joining && !memcmp(game->identifier, lobby_browser.identifier, sizeof(game->identifier)))
+				usnprintf(text, NUMBEROF(text) - 1, L"Connecting...");
 			browser_name_set(named(row, "server_item_map", 0), text);
 			if (icon)
 				icon->animation.current_frame_index = (short)PIN(game->engine_type, 0, 5);
@@ -5352,11 +5359,19 @@ static void lobby_browser_update(struct widget_instance *list)
 			if (!lobby_browser.from_delta)
 				p2p_lobby_mark_failed(lobby_browser.identifier);
 			csmemcpy(lobby_browser.failed_name, lobby_browser.name, sizeof(lobby_browser.failed_name));
-			lobby_browser.failed_time = now ? now : 1;
 			lobby_browser.failed_nat_strict = p2p_nat_strict();
 			lobby_browser.joining = FALSE;
 			platform_log("menus: could not reach the server browser's game %s", lobby_browser.name);
-			ui_play_audio_feedback_sound(SOUND_ERROR);
+			/* (a failed join says so and why, in a dialog, not a line that a moved selection hides) */
+			{
+				wchar_t message[ROW_TEXT_LENGTH * 3], failed[P2P_LISTING_NAME_SIZE + 1];
+
+				text_to_wide(lobby_browser.failed_name, failed, NUMBEROF(failed));
+				usnprintf(message, NUMBEROF(message) - 1, lobby_browser.failed_nat_strict ?
+					L"Couldn't reach %s. Your network may be blocking it. Try turning on UPnP Port Forwarding in Network Settings." :
+					L"Couldn't reach %s.", failed);
+				display_error_text_deferred(message, NONE);
+			}
 		}
 	}
 	/* the line below the rows */
@@ -5365,20 +5380,6 @@ static void lobby_browser_update(struct widget_instance *list)
 
 		if (!config_boolean("network.public_lobby"))
 			usnprintf(text, NUMBEROF(text) - 1, L"The public game list is turned off.");
-		else if (lobby_browser.joining)
-		{
-			text_to_wide(lobby_browser.name, name, NUMBEROF(name));
-			usnprintf(text, NUMBEROF(text) - 1, L"Connecting to %s...", name);
-		}
-		else if (lobby_browser.failed_time && now - lobby_browser.failed_time < LOBBY_BROWSER_FAILED_TIME)
-		{
-			text_to_wide(lobby_browser.failed_name, name, NUMBEROF(name));
-			/* (and why, when this network's NAT is what stops it: the router's
-			UPnP, or a forwarded network.tunnel_port, lets it through) */
-			usnprintf(text, NUMBEROF(text) - 1, lobby_browser.failed_nat_strict ?
-				L"Couldn't reach %s. Your network may be blocking it. Try turning on UPnP Port Forwarding in Network Settings." :
-				L"Couldn't reach %s.", name);
-		}
 		else if (!lobby_browser.count && lobby_browser.hidden)
 		{
 			usnprintf(text, NUMBEROF(text) - 1, L"No games match your filters. %d are hidden.",
@@ -5562,7 +5563,15 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 		return campaign_fail();
 	game = confirmed ? &browser_join_big.game : &lobby_browser.games[index];
 	if (!game->open || !game->joinable || !config_boolean("network.online"))
+	{
+		/* (a join that cannot start says why, in a dialog: the error sound alone does not) */
+		display_error_text_deferred(
+			halo_network_kind_reason(game->kind) ? L"VISR does not play this kind of game." :
+			!config_boolean("network.online") ? L"Turn on Internet play in Settings to join games." :
+			!game->joinable ? L"This game is on a network version this build cannot join." :
+			L"This game is full or starting.", NONE);
 		return campaign_fail();
+	}
 	if (!confirmed && player_capacity_marked(game->player_count, game->maximum_player_count))
 		return browser_join_big_ask(widget, controller, game, NULL, widget_deleted);
 	/* (a game with a password: its screen asks for it, then joins) */

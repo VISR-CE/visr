@@ -39,7 +39,7 @@ def test_browser_actions_are_a_declared_bar():
         'x': ('global', 'IP ADDRESS', 'port browser ip open'),
         'y': ('global', 'CREATE', 'port browser create'),
         'b': ('back', 'BACK', 'gamespy back handler'),
-        'a': ('select', None, None)}
+        'a': ('select', 'JOIN GAME', None)}
 
 
 def test_filters_actions_are_a_declared_bar():
@@ -55,11 +55,12 @@ def test_browser_has_no_placed_legend_widgets():
             assert f'/{name}' not in text, (xml, name)
 
 
-def test_join_game_is_the_bars_select_action_with_a_run_time_caption():
+def test_join_game_is_the_bars_select_action_and_never_changes_its_caption():
     root = ET.parse(MENUS / BROWSER_XML).getroot()
     action = next(a for a in root.iter('action') if a.get('slot') == 'a')
     assert action.get('scope') == 'select' and action.get('focus') == 'true'
-    assert action.get('strings') == 'JOIN GAME|CONNECTING'
+    # (connect progress shows on the joining game's row and one panel line, never on the legend)
+    assert action.get('text') == 'JOIN GAME' and action.get('strings') is None
     # no placed copy of it, and no touch code of its own: the bar leaves a select action undrawn on touch
     text = (MENUS / BROWSER_XML).read_text()
     assert 'xbox/main_menu/multiplayer_type_select/join_game/join_game_button_join' not in text and 'browser_join_' not in text.replace('browser_join_reason', '')
