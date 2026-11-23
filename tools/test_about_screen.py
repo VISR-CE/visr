@@ -3,6 +3,7 @@ license file it names, the screens in both looks are what tools/port_settings.py
 help of every row fits the help's three lines."""
 from pathlib import Path
 import re
+import atexit
 import shutil
 import tempfile
 import sys
@@ -20,7 +21,9 @@ import xbox_menus  # noqa: E402
 
 # the generator's source screen (tools/port_settings.py writes it in memory; no file is kept), as a file to parse
 SOURCE_NAME = "main_menu.settings_select.player_setup.player_profile_edit.about.xml"
-PC_SCREEN = Path(tempfile.mkdtemp()) / SOURCE_NAME
+PC_SCREEN_FOLDER = Path(tempfile.mkdtemp())
+atexit.register(shutil.rmtree, PC_SCREEN_FOLDER, ignore_errors=True)
+PC_SCREEN = PC_SCREEN_FOLDER / SOURCE_NAME
 PC_SCREEN.write_text("\n".join(port_settings.settings_files()[SOURCE_NAME]))
 XBOX_SCREEN = MENUS / "xbox/settings.about.xml"
 

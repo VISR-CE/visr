@@ -18,6 +18,7 @@
 #include <zlib.h>
 #include "cloud_saves.h"
 #include "save_writer.h"
+#include "test_tmpdir.h"
 
 #define SLOT "C7201D882DAE"
 #define SLOT2 "0123456789AB"
@@ -446,13 +447,13 @@ static void device_restart(struct device *device)
 
 static void device_make(struct device *device, const char *label)
 {
-	char template[] = "/tmp/cloud-saves-probe-XXXXXX";
+	char template[PATH_MAX];
 
 	memset(device, 0, sizeof(*device));
 	snprintf(device->label, sizeof(device->label), "%s", label);
 	snprintf(device->image, sizeof(device->image), "image-one");
 	device->saved_game_version = 1;
-	assert(mkdtemp(template));
+	assert(test_mkdtemp(template, sizeof(template), "cloud-saves-probe"));
 	snprintf(device->root, sizeof(device->root), "%s", template);
 	snprintf(device->save_root, sizeof(device->save_root), "%s/save", device->root);
 	snprintf(device->state_path, sizeof(device->state_path), "%s/cloud-saves.state", device->root);

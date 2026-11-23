@@ -36,8 +36,9 @@ int host_device_profile_pending(char *values, unsigned long capacity, char *vers
 void host_device_profile_applied(int point, int networked, int changed, int metalfx, int frame_rate) { (void)point; (void)networked; (void)changed; (void)metalfx; (void)frame_rate; }
 #include "port_config.c"
 #include "tomlc17.c"
+#include "test_tmpdir.h"
 
-static char directory[64], path[128], origins[128];
+static char directory[PATH_MAX], path[PATH_MAX + 32], origins[PATH_MAX + 32];
 
 static void write_text(const char *file, const char *text)
 {
@@ -1119,8 +1120,7 @@ static void check_graphics_modes(void)
 
 int main(void)
 {
-	snprintf(directory, sizeof(directory), "/tmp/config-origins-probe-XXXXXX");
-	if (!mkdtemp(directory))
+	if (!test_mkdtemp(directory, sizeof(directory), "config-origins-probe"))
 	{
 		perror("mkdtemp");
 		return 1;

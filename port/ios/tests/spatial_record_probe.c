@@ -8,18 +8,17 @@
 #include <unistd.h>
 
 #include "../host/host_spatial_record.c"
+#include "test_tmpdir.h"
 
 
 int main(void)
 {
-	char name[] = "/tmp/visr-spatial-record-XXXXXX";
-	char path[sizeof(name) + sizeof(".poses")];
+	char folder[PATH_MAX], name[PATH_MAX];
+	char path[PATH_MAX + sizeof(".poses")];
 	struct halo_spatial_sample game = {0}, draw = {0}, read = {0};
-	int fd = mkstemp(name);
 
-	assert(fd >= 0);
-	close(fd);
-	unlink(name);
+	assert(test_mkdtemp(folder, sizeof(folder), "visr-spatial-record"));
+	snprintf(name, sizeof(name), "%s/record", folder);
 	snprintf(path, sizeof(path), "%s.poses", name);
 	game.reason = HALO_SPATIAL_READY;
 	game.hands[1].held = 1;

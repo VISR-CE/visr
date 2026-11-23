@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "test_tmpdir.h"
 
 static const char *fp = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 static void append_orphan(const char *root)
@@ -21,8 +22,8 @@ static void append_orphan(const char *root)
 }
 int main(void)
 {
-	char root[] = "/tmp/astc-store-XXXXXX";
-	assert(mkdtemp(root));
+	char root[PATH_MAX];
+	assert(test_mkdtemp(root, sizeof(root), "astc-store"));
 	unsigned char source[32] = {1}, output[32] = {2};
 	struct astc_store_span spans[] = {{source, 16}, {source + 16, 16}};
 	struct astc_store_key key, changed;

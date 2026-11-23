@@ -1,6 +1,7 @@
 """Xbox settings generation preserves wiring and needs no extracted assets."""
 import importlib.util
 import json
+import atexit
 from pathlib import Path
 import shutil
 import sys
@@ -27,6 +28,7 @@ def looks():
     """The generator's source rows written out as files under `sources/`, beside the generated `xbox/`: the tests that
     compare a screen with its source read both the same way."""
     folder = Path(tempfile.mkdtemp())
+    atexit.register(shutil.rmtree, folder, ignore_errors=True)
     (folder / 'sources').mkdir()
     module = generator()
     for name in module.source_names():

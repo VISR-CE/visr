@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "test_tmpdir.h"
 
 static char logged[1 << 16];
 
@@ -21,7 +22,7 @@ static void log_line(const char *line)
 	strcat(logged, "\n");
 }
 
-static char folder[64];
+static char folder[PATH_MAX];
 
 static void write_file(const char *name, const char *text)
 {
@@ -85,12 +86,12 @@ static int descriptor_count(void)
 
 static void check_file_read_paths(void)
 {
-	char root[] = "/tmp/profile-file-read-XXXXXX";
+	char root[PATH_MAX];
 	char hardware[256], catalog[256], catalog_target[256], profile_path[256], drop_in[256];
 	FILE *file;
 	struct host_profile profile;
 
-	assert(mkdtemp(root));
+	assert(test_mkdtemp(root, sizeof(root), "profile-file-read"));
 	snprintf(hardware, sizeof(hardware), "%s/hardware", root);
 	assert(!mkdir(hardware, 0700));
 	snprintf(catalog, sizeof(catalog), "%s/catalog.toml", hardware);
@@ -828,10 +829,10 @@ static void check_variable(void)
 
 static void check_and_newer(void)
 {
-	char previous[64], path[256];
+	char previous[PATH_MAX], path[PATH_MAX + 64];
 	struct host_profile profile;
 	snprintf(previous, sizeof(previous), "%s", folder);
-	snprintf(folder, sizeof(folder), "/tmp/profile-newer-XXXXXX"); assert(mkdtemp(folder));
+	assert(test_mkdtemp(folder, sizeof(folder), "profile-newer"));
 	write_file("a-old.toml", "schema=1\nname=\"Older rule\"\nkind=\"model\"\n[match]\nplatform=\"ios\"\nmodels=[\"iPhone18,1\",\"iPhone18,2\"]\nand_newer=true\n[display]\nshadow_map_size=256\n[external.display]\noutput_height=720\n");
 	write_file("b-new.toml", "schema=1\nname=\"Newer rule\"\nkind=\"model\"\n[match]\nplatform=\"ios\"\nmodels=[\"iPhone19,1\"]\nand_newer=true\n[display]\nshadow_map_size=512\n");
 	profile = resolve(folder, device("ios", "iPhone20,2", "", 10), NULL, "");
@@ -893,13 +894,13 @@ static void check_and_newer(void)
 
 static void check_long_profile_path(void)
 {
-	char root[] = "/tmp/profile-path-XXXXXX", folder_path[1024], next[1024];
+	char root[PATH_MAX], folder_path[1024], next[1024];
 	char filename[64], component[181];
 	size_t root_length, folder_length;
 	char *separator;
 	int directory, file, accepted, reported;
 
-	assert(mkdtemp(root));
+	assert(test_mkdtemp(root, sizeof(root), "profile-path"));
 	root_length = strlen(root);
 	strcpy(folder_path, root);
 	while ((folder_length = strlen(folder_path)) < 960)
@@ -969,8 +970,7 @@ int main(int argc, char **argv)
     hot_apply_merge();
 	char command[128];
 
-	snprintf(folder, sizeof(folder), "/tmp/profile-probe-XXXXXX");
-	if (!mkdtemp(folder))
+	if (!test_mkdtemp(folder, sizeof(folder), "profile-probe"))
 	{
 		perror("mkdtemp");
 		return 1;

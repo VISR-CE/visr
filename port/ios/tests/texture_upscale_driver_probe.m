@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <sys/stat.h>
+#include "test_tmpdir.h"
 const struct texture_policy_table texture_policy_embedded={.low=12,.high=30,.sigma=1,.iterations=3,.damage_share=.1f,
     .damage_structure_loss=-1,.damage_bpf_structure_loss=-1,.damage_measure_version=1};
 int host_config_graphics_mode(void) {return GRAPHICS_MODE_ENHANCED;}
@@ -101,7 +102,7 @@ static int retry_progress(void *opaque,const struct host_texture_upscale_import_
     test->presses++;return HOST_TEXTURE_UPSCALE_TRY_AGAIN;
 }
 int main(void) {@autoreleasepool {
-    char pattern[]="/tmp/visr-upscale-driver-XXXXXX";char *directory=mkdtemp(pattern);assert(directory);
+    char pattern[PATH_MAX];char *directory=test_mkdtemp(pattern, sizeof(pattern), "visr-upscale-driver");assert(directory);
     /* "auto" (the setting here) stays out of a measured run */
     setenv("HALO_INPUT_REPLAY","a10-bench",1);
     host_texture_upscale_init(directory);

@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include "test_tmpdir.h"
 
 static int failures, checks;
 #define CHECK(condition) do { checks++; if (!(condition)) { failures++; \
@@ -834,8 +836,10 @@ static void test_unified_catalog_pass(void) {
     CHECK(!benchmark_plan_next(&plan,outcomes,3,&next));
     CHECK(!strcmp(benchmark_mode_name(BENCHMARK_UNIFIED),"full-unified"));
     CHECK(!strcmp(benchmark_status_name(BENCHMARK_PARTIAL),"partial"));
-    char path[]="/tmp/visr-unified-journal-XXXXXX";
-    int fd=mkstemp(path); CHECK(fd>=0); if(fd>=0)close(fd);
+    char folder[PATH_MAX], path[PATH_MAX];
+    CHECK(test_mkdtemp(folder,sizeof(folder),"visr-unified-journal"));
+    snprintf(path,sizeof(path),"%s/journal",folder);
+    FILE *created=fopen(path,"w"); CHECK(created!=NULL); if(created)fclose(created);
     CHECK(benchmark_journal_start(path,BENCHMARK_UNIFIED,"UNIFIED",&plan.device,benchmark_plan_signature(&plan)));
     struct benchmark_journal journal;
     benchmark_journal_load(path,&journal);
@@ -869,12 +873,15 @@ static void test_unified_catalog_pass(void) {
 
 /* A full outcomes array of skipped runs must remain resumable without retrying a rung. */
 static void test_skipped_journal_at_capacity(void) {
-    char path[] = "/tmp/visr-skipped-journal-XXXXXX";
-    int descriptor = mkstemp(path);
+    char folder[PATH_MAX], path[PATH_MAX];
+    int descriptor;
     struct benchmark_device device = { 0 };
     struct benchmark_outcome skipped = { .status = BENCHMARK_SKIPPED, .left_least = -1 };
     struct benchmark_journal journal;
 
+    CHECK(test_mkdtemp(folder, sizeof(folder), "visr-skipped-journal"));
+    snprintf(path, sizeof(path), "%s/journal", folder);
+    descriptor = open(path, O_CREAT | O_WRONLY, 0600);
     CHECK(descriptor >= 0);
     if (descriptor < 0) return;
     close(descriptor);

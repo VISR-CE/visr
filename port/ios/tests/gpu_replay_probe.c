@@ -20,6 +20,7 @@ HALO_RENDER_VALIDATION=1 under the address sanitizer (tools/ios_test.py).
 #include <string.h>
 #include <unistd.h>
 #include <zlib.h>
+#include "test_tmpdir.h"
 
 /* ---------- a backend that notes each call: its name and a hash of what
 it was given, with handles and stream offsets left out (a replay's differ) */
@@ -317,7 +318,7 @@ static void fuzz_mutated(void *context, uint32_t operation, int refused)
 
 int main(void)
 {
-	char folder[] = "/tmp/gpu-replay-probe-XXXXXX", path[256], damaged[256], expected[1 << 15], replayed[1 << 15];
+	char folder[PATH_MAX], path[256], damaged[256], expected[1 << 15], replayed[1 << 15];
 	struct gpu_capture_host capture_host = { log_line, folder, "1+2,5+2", 0x1234abcd, 0x5678, "guest", "probe" };
 	struct gpu_replay_host replay_host = { log_line, NULL, same_flags, NULL, NULL, NULL, 0x1234abcd, 0x5678, 0 };
 	struct gpu_replay_result result;
@@ -328,7 +329,7 @@ int main(void)
 	long file_size;
 	char error[256];
 
-	if (!mkdtemp(folder))
+	if (!test_mkdtemp(folder, sizeof(folder), "gpu-replay-probe"))
 		return 2;
 	snprintf(path, sizeof(path), "%s/frames-00001.capture", folder);
 	snprintf(damaged, sizeof(damaged), "%s/damaged.capture", folder);

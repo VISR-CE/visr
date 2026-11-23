@@ -1,5 +1,7 @@
 """The patched disc lists still meet what the disc's code requires of them (tools/disc_contract.py)."""
+import atexit
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 from xml.etree import ElementTree as ET
@@ -53,7 +55,9 @@ def synthetic_patch(list_path, ops):
     patch = ET.SubElement(patches, 'patch', list=list_path, screen=list_path)
     for tag, attributes in ops:
         ET.SubElement(patch, tag, attributes)
-    file = Path(tempfile.mkdtemp()) / 'patches.xml'
+    folder = Path(tempfile.mkdtemp())
+    atexit.register(shutil.rmtree, folder, ignore_errors=True)
+    file = folder / 'patches.xml'
     ET.ElementTree(patches).write(file)
     return file
 

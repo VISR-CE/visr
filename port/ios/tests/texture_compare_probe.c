@@ -9,6 +9,7 @@ refuse, and a device that makes no texture. */
 #include <sys/stat.h>
 #include <unistd.h>
 #include "texture_override_cache.h"
+#include "test_tmpdir.h"
 
 struct gpu_capabilities device_capabilities = { .max_texture_size = 8192 };
 static unsigned created, destroyed, live, uploads, last_width;
@@ -61,10 +62,10 @@ static void next_map(void)
 }
 int main(void)
 {
-	char root[] = "/tmp/texture-compare-XXXXXX", first[512], second[512], path[512];
+	char root[PATH_MAX], first[512], second[512], path[512];
 	struct texture_override_reference reference = { 0 };
 	unsigned long levels; int fallback; gpu_texture a, b; uint64_t freed;
-	assert(mkdtemp(root));
+	assert(test_mkdtemp(root, sizeof(root), "texture-compare"));
 	snprintf(first, sizeof(first), "%s/first", root); assert(!mkdir(first, 0700));
 	snprintf(second, sizeof(second), "%s/second", root); assert(!mkdir(second, 0700));
 	/* before the cache exists nothing is replaced */

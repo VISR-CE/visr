@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "test_tmpdir.h"
 
 static struct delta_legacy_key key;
 static unsigned char secret[64];
@@ -189,13 +190,13 @@ static void offer_checks(void)
 }
 static void cache_checks(void)
 {
-	char directory[] = "/tmp/delta-legacy-XXXXXX", path[256];
+	char directory[PATH_MAX], path[256];
 	unsigned char bytes[DELTA_LEGACY_SIGNED_MAX];
 	struct dirent *entry;
 	DIR *dir;
 	FILE *file;
 	size_t size;
-	assert(mkdtemp(directory));
+	assert(test_mkdtemp(directory, sizeof(directory), "delta-legacy"));
 	snprintf(path, sizeof(path), "%s/delta_legacy.signed", directory);
 	delta_legacy_initialize(1, directory, &key, 1);
 	size = sign_document(valid); assert(delta_legacy_offer(signed_table, size));

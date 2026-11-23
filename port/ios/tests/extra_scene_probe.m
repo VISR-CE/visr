@@ -58,6 +58,7 @@ static BOOL close_extra_window_scenes(void) {
     return closed;
 }
 #include "extra_scene.inc"
+#include "test_tmpdir.h"
 
 static void check_directory(void) {
     char directory[1024];
@@ -116,8 +117,8 @@ int main(void) {
     assert(!host_game_thread_enabled());
     char original[1024];
     assert(getcwd(original, sizeof(original)));
-    char temporary[] = "/tmp/visr-extra-scene-XXXXXX";
-    assert(mkdtemp(temporary));
+    char temporary[PATH_MAX];
+    assert(test_mkdtemp(temporary, sizeof(temporary), "visr-extra-scene"));
     assert(realpath(temporary, data_root));
     assert(snprintf(other_root, sizeof(other_root), "%s/scene", data_root) < (int)sizeof(other_root));
     assert(!mkdir(other_root, 0700));
