@@ -266,7 +266,7 @@ def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
         for key in refused:
             name = key.partition(".")[2]
             assert not [file for file, text in texts.items() if re.search(rf"^\s*{name}\s*=|{re.escape(key)}", text, re.M)], (domain, key)
-        for key in {"display.effect_limits", "display.allow_portrait", "network.full_rate_players"} - set(refused):
+        for key in set(profile_pr.KEY_GENERATIONS) - set(refused):
             name = key.partition(".")[2]
             assert [file for file, text in texts.items() if re.search(rf"^\s*{name}\s*=", text, re.M)], (domain, key)
         for file, text in texts.items():
@@ -274,17 +274,49 @@ def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
     # 0.6.22's generation: the variable decal limit without the portrait key
     six = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-6", tmp_path / "six")
     assert 'effect_limits = "xbox"' in (six / "ipad-pro-12-9-2nd.toml").read_text()
+    assert 'frames_in_flight_at_30 = "1"' in (six / "ipad-pro-12-9-2nd.toml").read_text()    # (0.6.22 carries the key)
     four = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-4", tmp_path / "four")
     assert "effect_limits" not in (four / "ipad-pro-12-9-2nd.toml").read_text()
     assert profile_revision.read(four)[0] == profile_revision.read(ROOT / "profiles")[0]
+
+
+PROFILE_KEY_NAME = re.compile(r'^PROFILE_[A-Z_]+\("([^"]+)"', re.M)
+# The sha256 of the sorted profile key names that every released validator knows (the table less KEY_GENERATIONS).
+KNOWN_TO_EVERY_GENERATION = "572d9f816d259eefcb6c439e22c14c3919531604c37e2c1ee56138b56978db22"
+
+
+def test_every_profile_key_has_its_generations_recorded():
+    """The class: a key added to port_profile_keys.h that no strip list names reaches released validators, which refuse
+    the whole shard. profile_pr.KEY_GENERATIONS must name it with the generations that will read it."""
+    names = set(PROFILE_KEY_NAME.findall(KEYS.read_text()))
+    assert set(profile_pr.KEY_GENERATIONS) <= names
+    known = hashlib.sha256("\n".join(sorted(names - set(profile_pr.KEY_GENERATIONS))).encode()).hexdigest()
+    assert known == KNOWN_TO_EVERY_GENERATION, (
+        "port_profile_keys.h changed: record the new key in profile_pr.KEY_GENERATIONS (the generations that read it)")
+    # 0.6.22's generation carries every key this branch adds except the portrait one
+    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait",)
+    assert profile_pr.GENERATIONS[profile_pr.PROFILE_DOMAIN] == ()
+
+
+@pytest.mark.skipif("visr-v0.6.21" not in tags(), reason="needs the release tags")
+def test_strip_lists_match_the_release_tags_key_tables():
+    """A released generation refuses exactly the keys its release's table does not have."""
+    import subprocess
+
+    def table(tag):
+        text = subprocess.run(["git", "-C", str(ROOT), "show", f"{tag}:port/linux/src/port_profile_keys.h"],
+                              capture_output=True, text=True, check=True).stdout
+        return set(PROFILE_KEY_NAME.findall(text))
+    current = set(PROFILE_KEY_NAME.findall(KEYS.read_text()))
+    for domain, tag in (("device-profiles-3", "visr-v0.6.7"), ("device-profiles-4", "visr-v0.6.21")):
+        assert set(profile_pr.GENERATIONS[domain]) == current - table(tag), domain
 
 
 def test_generations_without_the_key_sign_from_the_sources_themselves(tmp_path):
     profiles = tmp_path / "profiles"
     shutil.copytree(ROOT / "profiles", profiles)
     for path in profiles.glob("*.toml"):
-        path.write_text(profile_pr.strip_keys(path.read_text(), ("network.full_rate_players", "display.allow_portrait",
-                                                                  "display.effect_limits", "display.frames_in_flight_at_30")))
+        path.write_text(profile_pr.strip_keys(path.read_text(), tuple(profile_pr.KEY_GENERATIONS)))
     for domain in profile_pr.GENERATIONS:
         assert profile_pr.generation_profiles(profiles, domain, tmp_path / domain) == profiles
 

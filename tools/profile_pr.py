@@ -39,13 +39,20 @@ FEED = Path("docs/site/packs/tester")
 PACKS = Path("docs/site/packs")
 # this source's device-profile feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
 PROFILE_DOMAIN = "device-profiles-5"
+# The profile keys a released validator does not know, and the feed generations whose validators accept each: a
+# validator refuses a whole shard that names a key it does not know. Record a new key here when it is added to
+# port_profile_keys.h (tools/test_profile_feed.py fails until it is), with the generations that will read it.
+# 0.6.4 to 0.6.7 read generation 3 and know none of these; 0.6.8 to 0.6.21 read generation 4 and know network.full_rate_players;
+# 0.6.22 reads generation 6: generation 4's keys, display.effect_limits and display.frames_in_flight_at_30 (cut from the
+# 0.6 line with this key's pacer change), but not display.allow_portrait; builds of main read generation 5 and know all.
+KEY_GENERATIONS = {"network.full_rate_players": (4, 5, 6),
+                   "display.allow_portrait": (5,),
+                   "display.effect_limits": (5, 6),
+                   "display.frames_in_flight_at_30": (5, 6)}
 # Every generation published from these sources, newest first, with the keys that generation's released validators
-# refuse: 0.6.4 to 0.6.7 read device-profiles-3 and refuse a whole shard that names network.full_rate_players.
-# 0.6.22 reads device-profiles-6: generation 4's keys and display.effect_limits, which 0.6.8 to 0.6.21 refuse.
-GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-6": ("display.allow_portrait", "display.frames_in_flight_at_30"),
-               "device-profiles-4": ("display.allow_portrait", "display.effect_limits", "display.frames_in_flight_at_30"),
-               "device-profiles-3": ("network.full_rate_players", "display.allow_portrait", "display.effect_limits",
-                                       "display.frames_in_flight_at_30")}
+# refuse, derived from KEY_GENERATIONS.
+GENERATIONS = {domain: tuple(key for key, accepted in KEY_GENERATIONS.items() if int(domain.rpartition("-")[2]) not in accepted)
+               for domain in (PROFILE_DOMAIN, "device-profiles-6", "device-profiles-4", "device-profiles-3")}
 RECEIPT = FEED / "publication.json"
 RUN_JOB = os.environ.get("VISR_RUN_JOB", "")
 REPOSITORY = "VISR-CE/visr"
