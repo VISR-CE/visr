@@ -2168,7 +2168,7 @@ boolean network_game_client_can_initiate_join(
 	void *client,
 	void *game)
 {
-	struct network_join_parameters present;
+	struct network_join_parameters present = {0};
 	enum halo_network_join_refusal refusal = network_game_client_join_refusal(
 		client, game, &present);
 
