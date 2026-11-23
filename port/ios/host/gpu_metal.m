@@ -495,20 +495,19 @@ static CFTimeInterval gpu_busy_count(id<MTLCommandBuffer> completed)
 
 /* Each frame's own GPU time, for the pacer's extended late start (frame_pacer_frame_finished): what its command
 buffers added to the union, summed as they complete, by the frame's number. The frame's last buffer takes the sum.
-frame_gpu_waited is the frame's wait for the display inside its Present, set there before that buffer is committed. */
-enum { FRAME_GPU_FRAMES = 8 };
-static _Atomic uint64_t frame_gpu_nanoseconds[FRAME_GPU_FRAMES];
-static double frame_gpu_waited;
+frame_display_waited is the frame's wait for the display inside its Present, set there before that buffer is committed. */
+static _Atomic uint64_t frame_gpu_nanoseconds[FRAME_PACER_EXTENDED_FRAMES];
+static double frame_display_waited;
 
 static void frame_gpu_count(unsigned long frame, id<MTLCommandBuffer> completed, BOOL frame_end, double waited)
 {
 	CFTimeInterval counted = gpu_busy_count(completed);
 
 	if (counted > 0.0)
-		atomic_fetch_add(&frame_gpu_nanoseconds[frame % FRAME_GPU_FRAMES], (uint64_t)(counted * 1e9));
+		atomic_fetch_add(&frame_gpu_nanoseconds[frame % FRAME_PACER_EXTENDED_FRAMES], (uint64_t)(counted * 1e9));
 	if (frame_end)
 	{
-		uint64_t nanoseconds = atomic_exchange(&frame_gpu_nanoseconds[frame % FRAME_GPU_FRAMES], 0);
+		uint64_t nanoseconds = atomic_exchange(&frame_gpu_nanoseconds[frame % FRAME_PACER_EXTENDED_FRAMES], 0);
 
 		frame_pacer_frame_finished(frame, counted >= 0.0 ? completed.GPUEndTime : 0.0, (double)nanoseconds / 1e9, waited);
 	}
@@ -1036,9 +1035,9 @@ static void commit(BOOL frame_end)
 		perf_scene_open = 0;
 	/* (the pacer's cost of the frame: frame_gpu_count) */
 	unsigned long gpu_frame = frames;
-	double gpu_frame_waited = frame_end ? frame_gpu_waited : 0.0;
+	double gpu_frame_waited = frame_end ? frame_display_waited : 0.0;
 	if (frame_end)
-		frame_gpu_waited = 0.0;
+		frame_display_waited = 0.0;
 	[committed addCompletedHandler:^(id<MTLCommandBuffer> completed)
 	{
 		if (span_frame && completed.status == MTLCommandBufferStatusCompleted && completed.GPUStartTime > 0.0)
@@ -5981,11 +5980,13 @@ static void gpu_metal_frame_context(uint32_t scene_class, uint32_t frame_rate, c
 at 60 Hz, 3 at 90; 1 without a rate or when the display is no faster */
 static long frame_context_refreshes(CFTimeInterval period)
 {
+	/* the pacer's own count (frame_pacer_share), so the scene-class wait and the pacer cannot disagree on a
+	rate that does not divide the display's */
 	double refreshes;
 
 	if (!frame_context.rate || period <= 0.0)
 		return 1;
-	refreshes = ceil(1.0 / (period * (double)frame_context.rate) - 0.05);
+	refreshes = frame_pacer_share(period, (double)frame_context.rate);
 	return refreshes < 1.0 ? 1 : refreshes > 8.0 ? 8 : (long)refreshes;
 }
 
@@ -9394,7 +9395,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 				if (!offscreen)
 					frame_context_wait(frame_pacer_aimed(&paced));
 				/* (the frame's waits for the display, for the pacer's cost of it: pacing_schedule clears them) */
-				frame_gpu_waited = frame_waits_display(host_gpu_present_called());
+				frame_display_waited = frame_waits_display(host_gpu_present_called());
 				hold = pacing_schedule(drawable != nil || virtual_texture >= 0, &next_frame_due);
 				/* (offscreen: nothing is shown, so nothing is paced or presented) */
 #if HALO_FRAME_PACING
