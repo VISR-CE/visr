@@ -684,6 +684,16 @@ int main(int argc, char **argv)
 			frame_pacer_gpu_add(&slot, frame + 2 * FRAME_PACER_EXTENDED_FRAMES, 0xffffffffu);
 			frame_pacer_gpu_add(&slot, frame + 2 * FRAME_PACER_EXTENDED_FRAMES, 5);
 			CHECK(frame_pacer_gpu_take(&slot, frame + 2 * FRAME_PACER_EXTENDED_FRAMES) == 0xffffffffu);
+			/* the frame number's low 32 bits wrap: a late buffer of the frame before the wrap is still dropped */
+			{
+				unsigned long before = 0xfffffff8ul, after = before + FRAME_PACER_EXTENDED_FRAMES;
+
+				atomic_init(&slot, 0);
+				frame_pacer_gpu_add(&slot, before, 1000000);
+				frame_pacer_gpu_add(&slot, after, 6000000);
+				frame_pacer_gpu_add(&slot, before, 9000000);
+				CHECK(frame_pacer_gpu_take(&slot, after) == 6000000 && frame_pacer_gpu_take(&slot, before) == 0);
+			}
 		}
 		/* the frames between Present and shown, by number (what the host keeps): a place goes to the frame
 		FRAME_PACER_EXTENDED_FRAMES later, after which the earlier frame's reports are a frame that is gone */

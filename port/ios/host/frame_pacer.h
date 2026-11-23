@@ -823,6 +823,19 @@ struct frame_pacer_extended_frames
 	} places[FRAME_PACER_EXTENDED_FRAMES];
 };
 
+/* the refreshes a frame stays up for a scene class's frame rate, rounded up so the rate is a ceiling and never
+exceeded (30 on a 100 Hz display is 4 refreshes, 25 frames a second; 60 on 144 Hz is 3, 48): 1 without a rate or
+when the display is no faster, at most 8. The pacer's own share of a cap (frame_pacer_share) rounds to nearest */
+static inline long frame_pacer_scene_refreshes(double period, double rate)
+{
+	double refreshes;
+
+	if (rate <= 0.0 || period <= 0.0)
+		return 1;
+	refreshes = ceil(1.0 / (period * rate) - 0.05);
+	return refreshes < 1.0 ? 1 : refreshes > 8.0 ? 8 : (long)refreshes;
+}
+
 /* each frame's own GPU time, summed by the handlers of its command buffers on other threads: a slot holds the
 frame's number (its low 32 bits, high half) and the nanoseconds so far (low half, saturating). A frame's first
 buffer takes the slot from the frame eight earlier, and a buffer of that earlier frame completing after this is

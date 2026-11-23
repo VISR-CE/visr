@@ -5980,14 +5980,7 @@ static void gpu_metal_frame_context(uint32_t scene_class, uint32_t frame_rate, c
 at 60 Hz, 3 at 90; 1 without a rate or when the display is no faster */
 static long frame_context_refreshes(CFTimeInterval period)
 {
-	/* the pacer's own count (frame_pacer_share), so the scene-class wait and the pacer cannot disagree on a
-	rate that does not divide the display's */
-	double refreshes;
-
-	if (!frame_context.rate || period <= 0.0)
-		return 1;
-	refreshes = frame_pacer_share(period, (double)frame_context.rate);
-	return refreshes < 1.0 ? 1 : refreshes > 8.0 ? 8 : (long)refreshes;
+	return frame_pacer_scene_refreshes(period, (double)frame_context.rate);
 }
 
 /* Holding a frame up for the scene class's refreshes (presentDrawable:afterMinimumDuration:) does
