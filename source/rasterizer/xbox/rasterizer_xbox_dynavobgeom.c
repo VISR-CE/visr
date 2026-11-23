@@ -448,7 +448,7 @@ void _rasterizer_psuedo_dynamic_screen_quad_draw(
 
 		pixel_shader.constant_0[0] = meter->gradient_min_color;
 		pixel_shader.constant_1[0] =
-			real_alpha_to_pixel32(1.0f / MAX(meter->gradient * 8.0f, 1.0f)) |
+			real_alpha_to_pixel32_pinned(1.0f / MAX(meter->gradient * 8.0f, 1.0f)) |
 			(meter->gradient_max_color & 0x00FFFFFF);
 		pixel_shader.alpha_inputs[0] = 0x12081208;
 		pixel_shader.rgb_inputs[0] = 0x1120E820;

@@ -873,7 +873,7 @@ void _rasterizer_screen_effect(
 					pixel_shader.combiner_count = 4;
 
 					pixel_shader.constant_0[0] =
-						real_alpha_to_pixel32(PIN(parameters->video_noise_intensity, 0.0f, 1.0f));
+						real_alpha_to_pixel32_pinned(PIN(parameters->video_noise_intensity, 0.0f, 1.0f));
 					pixel_shader.alpha_inputs[0] = 0x3120111a;
 					pixel_shader.alpha_outputs[0] = 0x00000c00;
 					pixel_shader.rgb_inputs[0] = 0x3120110a;
@@ -990,7 +990,7 @@ void _rasterizer_screen_effect(
 						pixel_shader.texture_modes = 0x00008421;
 						pixel_shader.rgb_inputs[0] = 0x89208a20;
 						pixel_shader.rgb_outputs[0] = 0x00000c00;
-						pixel_shader.constant_0[1] = real_alpha_to_pixel32(1.0f / 3.0f);
+						pixel_shader.constant_0[1] = real_alpha_to_pixel32_pinned(1.0f / 3.0f);
 						pixel_shader.rgb_inputs[1] = 0xcc118b11;
 						pixel_shader.rgb_outputs[1] = 0x00000c00;
 						pixel_shader.rgb_inputs[2] = 0xcc20a020;
@@ -1021,9 +1021,9 @@ void _rasterizer_screen_effect(
 				light_enhancement_input = parameters->filter_light_enhancement_uses_convolution_mask ? 0x68 : 0x20;
 				desaturation_input = parameters->filter_desaturation_uses_convolution_mask ? 0x68 : 0x20;
 				pixel_shader.constant_0[combiner_count] =
-					real_alpha_to_pixel32(parameters->filter_light_enhancement_intensity);
+					real_alpha_to_pixel32_pinned(parameters->filter_light_enhancement_intensity);
 				pixel_shader.constant_1[combiner_count] =
-					real_alpha_to_pixel32(parameters->filter_desaturation_intensity);
+					real_alpha_to_pixel32_pinned(parameters->filter_desaturation_intensity);
 				pixel_shader.alpha_inputs[combiner_count] =
 					(light_enhancement_input << 16) |
 					desaturation_input |
@@ -1056,7 +1056,7 @@ void _rasterizer_screen_effect(
 					if (parameters->filter_light_enhancement_intensity > 0.0f)
 					{
 						pixel_shader.constant_0[combiner_count] =
-							real_alpha_to_pixel32(parameters->filter_light_enhancement_intensity);
+							real_alpha_to_pixel32_pinned(parameters->filter_light_enhancement_intensity);
 						pixel_shader.rgb_inputs[combiner_count] = 0x3c0c1c2d;
 						pixel_shader.rgb_outputs[combiner_count] = 0x00000c00;
 						combiner_count++;

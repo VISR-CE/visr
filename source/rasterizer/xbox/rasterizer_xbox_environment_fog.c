@@ -1487,7 +1487,7 @@ void _rasterizer_environment_fog_screen_begin(
 				pixel_shader.texture_modes = 1;
 				pixel_shader.combiner_count = 1;
 				alpha = screen->near_density / screen->far_density;
-				pixel_shader.constant_0[0] = real_alpha_to_pixel32(alpha);
+				pixel_shader.constant_0[0] = real_alpha_to_pixel32_pinned(alpha);
 				pixel_shader.alpha_inputs[0] = 0x28110820;
 				pixel_shader.alpha_outputs[0] = 0xC00;
 				pixel_shader.final_combiner_inputs_efg = 0x3C00;

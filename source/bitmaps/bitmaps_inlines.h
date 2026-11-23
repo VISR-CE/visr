@@ -6,6 +6,7 @@ file has inline function assertions.
 
 #ifndef __BITMAPS_INLINES_H
 #define __BITMAPS_INLINES_H
+#include "alpha_pin.h" /* port */
 #pragma once
 
 /* ---------- headers */
@@ -125,5 +126,12 @@ __inline pixel32 real_alpha_to_pixel32(
 	result = (pixel32)((long)__builtin_rint((double)alpha * scale) << 24);
 
 	return result;
+}
+
+/* port: for a value that comes from a tag or a division, which can leave 0 to 1 (alpha_pin.h) */
+__inline pixel32 real_alpha_to_pixel32_pinned(
+	real alpha)
+{
+	return real_alpha_to_pixel32(alpha_pin(alpha));
 }
 #endif // __BITMAPS_INLINES_H

@@ -650,6 +650,15 @@ run(BUILD/'natpmp-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/away_probe.c', '-o', BUILD/'away-probe')
 run(BUILD/'away-probe')
+# the alpha pin of the Xbox renderer's constants (alpha_pin.h): no value leaves 0 to 1
+run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/game',
+    'port/ios/tests/alpha_pin_probe.c', '-o', BUILD/'alpha-pin-probe')
+run(BUILD/'alpha-pin-probe')
+# no Xbox rasterizer file calls the asserting real_alpha_to_pixel32 (tag values can leave 0 to 1): use the _pinned one
+import re as _re
+_unpinned = [str(f) for f in Path('source/rasterizer/xbox').glob('*.c')
+             if _re.search(r'(?<![_\w])real_alpha_to_pixel32\(', f.read_text(errors='replace').split('*/', 1)[-1])]
+assert not _unpinned, f'unpinned real_alpha_to_pixel32 in {_unpinned}'
 # The master response is verified over exact capture bytes; malformed entries stay isolated.
 run('xcrun', 'clang', '-std=gnu11', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined',
     '-Iport/linux/src', '-Iport/third_party/monocypher', 'port/ios/tests/master_list_probe.c',

@@ -896,7 +896,7 @@ void _rasterizer_environment_lightmap_draw(
 					? 0x00018021
 					: 0x00018421;
 			pixel_shader.combiner_count = 0x00011106;
-			pixel_shader.constant_0[0] = real_alpha_to_pixel32(plasma_value);
+			pixel_shader.constant_0[0] = real_alpha_to_pixel32_pinned(plasma_value);
 			pixel_shader.alpha_inputs[0] = 0x1120B920;
 			pixel_shader.alpha_outputs[0] = 0x00000C00;
 			pixel_shader.rgb_inputs[0] = 0x1920B120;
@@ -1768,7 +1768,7 @@ void _rasterizer_environment_diffuse_texture_draw(
 					break;
 
 				case _rasterizer_drawing_mode_overdraw:
-					pixel_shader.final_combiner_constant_0 = real_alpha_to_pixel32(0.33f);
+					pixel_shader.final_combiner_constant_0 = real_alpha_to_pixel32_pinned(0.33f);
 					pixel_shader.final_combiner_inputs_abcd = 0x0C110000;
 					break;
 
@@ -2043,10 +2043,10 @@ void _rasterizer_environment_specular_light_draw(
 				&texture_transform_constants[2].l);
 			D3DDevice_SetVertexShaderConstant(-84, texture_transform_constants, 3);
 
-			pixel_shader.constant_0[2] = real_alpha_to_pixel32(
+			pixel_shader.constant_0[2] = real_alpha_to_pixel32_pinned(
 				rasterizer_environment_globals.specular_light_brightness *
 				shader_environment->environment.specular.brightness);
-			pixel_shader.constant_1[2] = real_alpha_to_pixel32(
+			pixel_shader.constant_1[2] = real_alpha_to_pixel32_pinned(
 				rasterizer_environment_globals.specular_light_brightness *
 				shader_environment->environment.specular.brightness);
 			pixel_shader.constant_0[3] =
@@ -2313,9 +2313,9 @@ void _rasterizer_environment_specular_lightmap_draw(
 			D3DDevice_SetVertexShaderConstant(-84, texture_transform_constants, 3);
 
 			pixel_shader.constant_0[2] =
-				real_alpha_to_pixel32(shader_environment->environment.specular.brightness);
+				real_alpha_to_pixel32_pinned(shader_environment->environment.specular.brightness);
 			pixel_shader.constant_1[2] =
-				real_alpha_to_pixel32(shader_environment->environment.specular.brightness);
+				real_alpha_to_pixel32_pinned(shader_environment->environment.specular.brightness);
 			pixel_shader.constant_0[3] =
 				real_rgb_color_to_pixel32(&shader_environment->environment.specular.view_perpendicular_color);
 			pixel_shader.constant_1[3] =
@@ -2524,7 +2524,7 @@ void _rasterizer_environment_reflection_lightmap_mask_draw(
 			D3DDevice_SetVertexShaderConstant(-84, texture_transform_constants, 3);
 			D3DDevice_SetRenderState(
 				D3DRS_PSCONSTANT1_0,
-				real_alpha_to_pixel32(
+				real_alpha_to_pixel32_pinned(
 					shader_environment->environment.reflection.lightmap_brightness_scale));
 
 			rasterizer_draw_dynamic_triangles_static_vertices2(

@@ -886,7 +886,7 @@ void rasterizer_active_camouflage_draw(
 			PS_REGISTER_DISCARD,
 			PS_REGISTER_R0,
 			0);
-		pixel_shader.final_combiner_constant_0 = real_alpha_to_pixel32(group->effect.intensity);
+		pixel_shader.final_combiner_constant_0 = real_alpha_to_pixel32_pinned(group->effect.intensity);
 		pixel_shader.final_combiner_inputs_abcd = PS_COMBINERINPUTS(
 			PS_REGISTER_T2,
 			PS_REGISTER_R0,
