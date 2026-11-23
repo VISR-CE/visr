@@ -653,3 +653,53 @@ int texture_repair_worth_storing(const struct texture_repair_stats *stats, int l
 		return 1;
 	return stats->flagged * 4 >= stats->texels && stats->stepped_pairs * 32 >= stats->flagged;
 }
+
+int texture_repair_applies(unsigned format, unsigned width, unsigned height)
+{
+	return (format == TEXTURE_REPAIR_FORMAT_R5G6B5 || format == TEXTURE_REPAIR_FORMAT_DXT1) && width && height &&
+		(unsigned long)width * height <= TEXTURE_REPAIR_MAXIMUM_TEXELS;
+}
+
+int texture_repair_texture(unsigned format, unsigned width, unsigned height, unsigned level_count, const uint8_t *rgba,
+	const size_t *level_offsets, const uint8_t *stored, const size_t *level_stored_offsets, uint8_t *out,
+	struct texture_repair_stats *sum)
+{
+	struct texture_repair_stats total = { 0 };
+	size_t offset = 0;
+	unsigned level;
+
+	if (!texture_repair_applies(format, width, height) || !level_count || !rgba || !level_offsets || !out ||
+		(format == TEXTURE_REPAIR_FORMAT_DXT1 && (!stored || !level_stored_offsets)))
+		return -1;
+	for (level = 0; level < level_count; level++)
+	{
+		unsigned w = width >> level ? width >> level : 1, h = height >> level ? height >> level : 1;
+		struct texture_repair_stats stats = { 0 };
+		int status;
+
+		if (format == TEXTURE_REPAIR_FORMAT_R5G6B5)
+			status = texture_repair_r5g6b5(rgba + level_offsets[level], w, h, 0, out + offset, &stats);
+		else if (w >= 4 && h >= 4)
+			status = texture_repair_dxt1(stored + level_stored_offsets[level], w, h, 0, out + offset, &stats);
+		else
+		{
+			memcpy(out + offset, rgba + level_offsets[level], (size_t)w * h * 4);
+			status = 0;
+		}
+		if (status)
+			return -1;
+		total.texels += stats.texels;
+		total.flagged += stats.flagged;
+		total.changed += stats.changed;
+		total.stepped_pairs += stats.stepped_pairs;
+		offset += (size_t)w * h * 4;
+	}
+	if (sum)
+	{
+		sum->texels += total.texels;
+		sum->flagged += total.flagged;
+		sum->changed += total.changed;
+		sum->stepped_pairs += total.stepped_pairs;
+	}
+	return texture_repair_worth_storing(&total, format == TEXTURE_REPAIR_FORMAT_R5G6B5);
+}

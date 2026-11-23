@@ -24,6 +24,17 @@ edges span more). The smoothing never uses a neighbor that differs from the texe
 #define TEXTURE_REPAIR_WINDOW_RADIUS 2
 #define TEXTURE_REPAIR_PASSES 10
 
+/* Raised whenever what this file and texture_repair.c produce for a texture changes (the filter, its limits, which
+textures it applies to, the storing rule): the repair's own records and every upscaled texture are made again, since the
+upscaler works from the repaired source (its global recipe carries this number). tools/test_texture_repair.py keeps the
+digest of both files for each version, so a change to them fails until the version is raised. */
+#define TEXTURE_REPAIR_VERSION 1u
+
+/* the maps' bitmap formats the repair takes, and its largest texture */
+#define TEXTURE_REPAIR_FORMAT_R5G6B5 6u
+#define TEXTURE_REPAIR_FORMAT_DXT1 14u
+#define TEXTURE_REPAIR_MAXIMUM_TEXELS (1024u * 1024u)
+
 struct texture_repair_stats
 {
 	unsigned long texels;        /* opaque texels */
@@ -56,6 +67,19 @@ void texture_repair_dxt1_decode(const uint8_t *blocks, unsigned width, unsigned 
 areas hold steps (flagged texels are at least a quarter of the opaque ones and a stepped pair comes at least every 32
 flagged texels). */
 int texture_repair_worth_storing(const struct texture_repair_stats *stats, int lightmap);
+
+/* Whether the repair takes a texture of this map format and size. */
+int texture_repair_applies(unsigned format, unsigned width, unsigned height);
+
+/* A whole texture, every level: rgba is the upload's decode and stored the map's bytes (DXT1 reads its blocks), each
+level at its offset. out gets the levels end to end, level i being max(1, width >> i) x max(1, height >> i) x 4 bytes
+(a DXT1 level under 4 texels across is the decode as it is). Returns 1 when the repair changes the texture (what both
+the repair's records and the upscaler's sources use), 0 when it leaves it as it is (out is then not meant to be used),
+-1 when the repair does not apply or a level is refused. sum (may be NULL) gets every level's stats added. The
+lightmap rule of texture_repair_worth_storing goes with R5G6B5. */
+int texture_repair_texture(unsigned format, unsigned width, unsigned height, unsigned level_count, const uint8_t *rgba,
+	const size_t *level_offsets, const uint8_t *stored, const size_t *level_stored_offsets, uint8_t *out,
+	struct texture_repair_stats *sum);
 
 /* The property tests, independent of the filter's tables. Each returns the number of violating texels (0: a repair, not a
 repaint), or -1 for a bad argument. R5G6B5: every texel rounds back (exact rational rounding, no tie) to the stored value,

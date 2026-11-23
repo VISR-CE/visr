@@ -20,6 +20,9 @@ struct texture_recipe_globals
 	global key carries these and the bpf parameters above: a change to any of them redoes every such entry. */
 	float damage_share, damage_structure_loss, damage_bpf_structure_loss;
 	uint32_t damage_measure_version;
+	/* texture_repair.h's TEXTURE_REPAIR_VERSION: the upscaler's sources are the texture repair's output wherever it
+	changes them, so a repair change redoes every upscaled entry; 0 (no repair first) keeps the keys made before it */
+	uint32_t repair_version;
 };
 struct texture_recipe
 {

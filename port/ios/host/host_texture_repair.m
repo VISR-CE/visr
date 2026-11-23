@@ -14,14 +14,12 @@
 #include "texture_repair.h"
 #include "texture_upscale_encode.h"
 
-/* Raised when the filter or its limit changes: every record is made again. */
-#define REPAIR_VERSION 1u
-#define REPAIR_RECIPE (0x5245504149520000ull | REPAIR_VERSION)
+/* texture_repair.h's version: raised when the filter or its limits change, and every record is made again */
+#define REPAIR_RECIPE (0x5245504149520000ull | TEXTURE_REPAIR_VERSION)
 #define MANIFEST_NAME "manifest-repair.tsv"
 #define MAPS_NAME "repair-maps.tsv"
 /* A level's repair, run as it loads, is held to this long: past it only the lightmaps are made and the rest waits. */
 #define LOAD_BUDGET_SECONDS 2.0
-#define MAXIMUM_TEXELS (1024u * 1024u)
 #define SAVE_EVERY 48
 
 enum { MAP_PENDING = 0, MAP_LIGHTMAPS = 1, MAP_COMPLETE = 2 };
@@ -70,7 +68,7 @@ static void load_state(void) {
     NSString *text = [NSString stringWithContentsOfFile:[@(folder) stringByAppendingPathComponent:@MAPS_NAME] encoding:NSUTF8StringEncoding error:nil];
     for (NSString *line in [text componentsSeparatedByString:@"\n"]) {
         NSArray *parts = [line componentsSeparatedByString:@"\t"];
-        if (parts.count == 3 && [parts[0] unsignedIntValue] == REPAIR_VERSION) map_done[parts[2]] = parts[1];
+        if (parts.count == 3 && [parts[0] unsignedIntValue] == TEXTURE_REPAIR_VERSION) map_done[parts[2]] = parts[1];
     }
 }
 static void save_state(void) {
@@ -85,7 +83,7 @@ static void save_state(void) {
     for (NSString *path in map_done) {
         NSString *value = map_done[path];   /* "stamp:level" */
         NSArray *parts = [value componentsSeparatedByString:@":"];
-        if (parts.count == 2) [text appendFormat:@"%u\t%@\t%@\n", REPAIR_VERSION, value, path];
+        if (parts.count == 2) [text appendFormat:@"%u\t%@\t%@\n", TEXTURE_REPAIR_VERSION, value, path];
     }
     [text writeToFile:[@(folder) stringByAppendingPathComponent:@MAPS_NAME] atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }
@@ -124,33 +122,27 @@ static void note(struct walk *w, uint64_t hash, uint32_t width, uint32_t height,
 static int repair_texture(void *context, const struct host_texture_source *s) {
     struct walk *w = context;
     if (atomic_load(&stop_requested) || atomic_load(&playing)) { w->stopped = YES; return 0; }
-    if (s->format != 6 && s->format != 14) return 1;
-    if ((uint64_t)s->width * s->height > MAXIMUM_TEXELS) return 1;
+    if (!texture_repair_applies(s->format, s->width, s->height)) return 1;
     NSString *key = key_of(s->hash, s->width, s->height);
     if (records[key] || [upscaled_keys containsObject:key]) return 1;
     if (w->deadline && now() > w->deadline) w->lightmaps_only = YES;
-    if (w->lightmaps_only && s->format != 6) { w->skipped_other = YES; return 1; }
+    if (w->lightmaps_only && s->format != TEXTURE_REPAIR_FORMAT_R5G6B5) { w->skipped_other = YES; return 1; }
     double start = now();
-    struct texture_upscale_rgba_level *levels = calloc(s->level_count, sizeof(*levels));
-    uint8_t **repaired = calloc(s->level_count, sizeof(*repaired));
-    struct texture_repair_stats sum = { 0 };
-    BOOL ok = levels && repaired;
-    for (unsigned level = 0; ok && level < s->level_count; level++) {
-        uint32_t lw = s->width >> level ? s->width >> level : 1, lh = s->height >> level ? s->height >> level : 1;
-        repaired[level] = malloc((size_t)lw * lh * 4);
-        struct texture_repair_stats stats = { 0 };
-        int status = -1;
-        if (!repaired[level]) { ok = NO; break; }
-        if (s->format == 6) status = texture_repair_r5g6b5(s->rgba + s->level_offsets[level], lw, lh, 0, repaired[level], &stats);
-        else if (lw >= 4 && lh >= 4) status = texture_repair_dxt1(s->stored + s->level_stored_offsets[level], lw, lh, 0, repaired[level], &stats);
-        else { memcpy(repaired[level], s->rgba + s->level_offsets[level], (size_t)lw * lh * 4); status = 0; }
-        if (status) { ok = NO; break; }
-        sum.texels += stats.texels; sum.flagged += stats.flagged; sum.changed += stats.changed; sum.stepped_pairs += stats.stepped_pairs;
-        levels[level] = (struct texture_upscale_rgba_level){ repaired[level], lw, lh };
-    }
-    if (ok && texture_repair_worth_storing(&sum, s->format == 6)) {
+    size_t bytes_all = 0;
+    for (unsigned level = 0; level < s->level_count; level++)
+        bytes_all += (size_t)(s->width >> level ? s->width >> level : 1) * (s->height >> level ? s->height >> level : 1) * 4;
+    uint8_t *repaired = malloc(bytes_all ? bytes_all : 1);
+    struct texture_upscale_rgba_level *levels = calloc(s->level_count ? s->level_count : 1, sizeof(*levels));
+    int status = repaired && levels ? texture_repair_texture(s->format, s->width, s->height, s->level_count, s->rgba, s->level_offsets,
+        s->stored, s->level_stored_offsets, repaired, NULL) : -1;
+    if (status == 1) {
         void *bytes = NULL;
-        size_t size = 0;
+        size_t size = 0, offset = 0;
+        for (unsigned level = 0; level < s->level_count; level++) {
+            uint32_t lw = s->width >> level ? s->width >> level : 1, lh = s->height >> level ? s->height >> level : 1;
+            levels[level] = (struct texture_upscale_rgba_level){ repaired + offset, lw, lh };
+            offset += (size_t)lw * lh * 4;
+        }
         struct texture_cache_record record = { s->hash, s->width, s->height, TEXTURE_POLICY_BPF, (enum texture_policy_treatment)0,
             REPAIR_RECIPE, 0, 0 };
         if (texture_upscale_encode_raw(levels, s->level_count, s->width, s->height, s->hash, REPAIR_RECIPE, &bytes, &size) == TEXTURE_UPSCALE_ENCODE_OK &&
@@ -160,11 +152,10 @@ static int repair_texture(void *context, const struct host_texture_source *s) {
         }
         else host_logf(HOST_LOG_WARN, "Texture repair %016llx: could not write the record", (unsigned long long)s->hash);
         free(bytes);
-    } else if (ok) {
+    } else if (status == 0) {
         note(w, s->hash, s->width, s->height, TEXTURE_POLICY_ORIGINAL, 0);
         w->unchanged++;
     }
-    for (unsigned level = 0; repaired && level < s->level_count; level++) free(repaired[level]);
     free(repaired);
     free(levels);
     w->seconds += now() - start;

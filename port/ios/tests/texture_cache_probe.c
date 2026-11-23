@@ -65,6 +65,20 @@ static void invalidation_table(void)
 	/* the model or the encoder: every upscaled entry */
 	assert(after(&g, TEXTURE_POLICY_S4G, &model, TEXTURE_POLICY_S4G, TEXTURE_POLICY_COLOR) == TEXTURE_CACHE_REDO_BLOCKING);
 	assert(after(&g, TEXTURE_POLICY_BPF, &encoder, TEXTURE_POLICY_BPF, TEXTURE_POLICY_MULTIPURPOSE) == TEXTURE_CACHE_REDO_BLOCKING);
+	/* the texture repair (the upscaler's sources are repaired first): every upscaled entry, whatever its treatment */
+	{
+		struct texture_recipe_globals repaired = g, repaired_again = g;
+		enum texture_policy_treatment t;
+
+		repaired.repair_version = 1;
+		repaired_again.repair_version = 2;
+		for (t = TEXTURE_POLICY_COLOR; t <= TEXTURE_POLICY_BUMP_MAP; t++)
+		{
+			assert(after(&g, TEXTURE_POLICY_S4G, &repaired, TEXTURE_POLICY_S4G, t) == TEXTURE_CACHE_REDO_BLOCKING);
+			assert(after(&g, TEXTURE_POLICY_BPF, &repaired, TEXTURE_POLICY_BPF, t) == TEXTURE_CACHE_REDO_BLOCKING);
+			assert(after(&repaired, TEXTURE_POLICY_BPF, &repaired_again, TEXTURE_POLICY_BPF, t) == TEXTURE_CACHE_REDO_BLOCKING);
+		}
+	}
 	/* a stale global recipe and a result change at once: never mix recipes */
 	assert(after(&g, TEXTURE_POLICY_S4G, &model, TEXTURE_POLICY_BPF, TEXTURE_POLICY_COLOR) == TEXTURE_CACHE_REDO_BLOCKING);
 }

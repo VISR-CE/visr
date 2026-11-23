@@ -40,6 +40,8 @@ uint64_t texture_recipe_global_key(const struct texture_recipe_globals *g, enum 
 			g->damage_share < 0 ? -1.0 : (double)g->damage_share,
 			g->damage_structure_loss < 0 ? -1.0 : (double)g->damage_structure_loss,
 			g->damage_bpf_structure_loss < 0 ? -1.0 : (double)g->damage_bpf_structure_loss, g->damage_measure_version);
+	if (g->repair_version && (size_t)length < sizeof(text) - 1)
+		length += snprintf(text + length, sizeof(text) - (size_t)length, ";repair=%u", g->repair_version);
 	if ((size_t)length >= sizeof(text))
 		length = (int)sizeof(text) - 1;
 	return texture_override_hash((const unsigned char *)text, (size_t)length);

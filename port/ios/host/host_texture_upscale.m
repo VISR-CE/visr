@@ -21,6 +21,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #include "texture_upscale_priority.h"
 #include "ios_host.h"
 #include "texture_cache.h"
+#include "texture_repair.h"
 #include "texture_record.h"
 #include "texture_upscale_generate.h"
 #include "texture_upscale_schedule.h"
@@ -69,6 +70,8 @@ static enum texture_upscale_mode upscale_mode;
 static int profile_upscales=-1, player_upscales=1;
 /* pumps that ended without another queued: the import phase ends at one that began after it did */
 static atomic_uint pumps_ended;
+/* textures this launch upscaled from the texture repair's output (texture_repair.h) rather than the map's decode */
+static atomic_uint repaired_sources;
 /* how the last pump ended (enum texture_upscale_end): the import phase and the log say so; some retry later */
 static atomic_int last_end=TEXTURE_UPSCALE_END_QUEUE_EMPTY;
 /* one retry timer at a time (texture_upscale_end_retries_on_timer) */
@@ -307,7 +310,7 @@ static struct texture_recipe_globals recipe_globals(void) {
     return (struct texture_recipe_globals){.model_id="S4g: PBRify SPAN V4 per channel",
         .model_sha256="d1f1fa1af7a5ab23fcf143e75aac4951e6c52d56bf77d9ccd4d004a4831d0461",.pipeline_version={1,1,1,1,1,1},
         .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=9,
-        .encoder=texture_upscale_encoder_name(record_format),.damage_share=policy->damage_share,.damage_structure_loss=policy->damage_structure_loss,
+        .repair_version=TEXTURE_REPAIR_VERSION,.encoder=texture_upscale_encoder_name(record_format),.damage_share=policy->damage_share,.damage_structure_loss=policy->damage_structure_loss,
         .damage_bpf_structure_loss=policy->damage_bpf_structure_loss,.damage_measure_version=(uint32_t)policy->damage_measure_version};
 }
 /* One map's texture keys, from its own classification: what a level needs ready to play upscaled. Cached per map
@@ -545,6 +548,16 @@ static int generate_source(void *opaque,const struct host_texture_source *source
         menu_picture_trace_source(owned,d->width,d->height)>=11))||
         (d->result==TEXTURE_POLICY_S4G&&large);
     if(input.synthetic)host_logf(HOST_LOG_INFO,"Upscale %016llx: redrawn from the source, no model prediction",(unsigned long long)d->hash);
+    /* The model works from the repaired texture wherever the repair changes it (the same rule as the repair's own
+       records), so an upscaled lightmap or sky does not carry the 5:6:5 steps four times larger. Part of the global recipe
+       (recipe_globals' repair_version). A redrawn picture keeps the map's own pixels. */
+    if(!input.synthetic&&texture_repair_applies(source->format,source->width,source->height)){
+        if(texture_repair_texture(source->format,source->width,source->height,source->level_count,source->rgba,source->level_offsets,
+            source->stored,source->level_stored_offsets,owned,NULL)==1)atomic_fetch_add(&repaired_sources,1);
+        else{uint32_t w=d->width,h=d->height;size_t offset=0;
+            for(unsigned i=0;i<source->level_count;i++){memcpy(owned+offset,source->rgba+source->level_offsets[i],(size_t)w*h*4);
+                offset+=(size_t)w*h*4;w=MAX(1u,w/2);h=MAX(1u,h/2);}}
+    }
     char error[512]={0};double start=now();
     dispatch_group_enter(work_group);
     atomic_store(&work_hash,d->hash);atomic_store(&work_stage,"predictions");
@@ -1329,8 +1342,9 @@ resume_import:
     atomic_store(&import_shown,-1);
     struct texture_cache_progress p=progress_of(nil);
     BOOL finished=!skipped&&end==TEXTURE_UPSCALE_END_QUEUE_EMPTY;
-    host_logf(HOST_LOG_INFO,"Upscale import: %s after %.1f s, %zu of %zu textures ready%s%s",skipped?"skipped":finished?"finished":"stopped",
-        now()-start,p.ready,p.textures,skipped||finished?"":": ",skipped||finished?"":texture_upscale_end_name(end));
+    host_logf(HOST_LOG_INFO,"Upscale import: %s after %.1f s, %zu of %zu textures ready, %u made from repaired sources this launch%s%s",
+        skipped?"skipped":finished?"finished":"stopped",now()-start,p.ready,p.textures,atomic_load(&repaired_sources),
+        skipped||finished?"":": ",skipped||finished?"":texture_upscale_end_name(end));
     atomic_fetch_sub(&urgent,1);
     return 1;
 }

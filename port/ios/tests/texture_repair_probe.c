@@ -297,6 +297,30 @@ static void test_verify_catches_repaint(void)
 	assert(texture_repair_verify_r5g6b5(source, repaired, W, H, 0) > 0);
 }
 
+/* the whole-texture call the repair's records and the upscaler's sources share: each level as the level call makes it,
+end to end, and the storing rule's answer */
+static void test_whole_texture(void)
+{
+	static uint8_t source[W * H * 4 + (W / 2) * (H / 2) * 4], out[sizeof(source)], level0[W * H * 4];
+	size_t offsets[2] = { 0, (size_t)W * H * 4 };
+	unsigned x, y;
+
+	make_lightmap(source);
+	for (y = 0; y < H / 2; y++)
+		for (x = 0; x < W / 2; x++)
+			memcpy(source + offsets[1] + ((size_t)y * (W / 2) + x) * 4, source + ((size_t)(y * 2) * W + x * 2) * 4, 4);
+	assert(texture_repair_applies(TEXTURE_REPAIR_FORMAT_R5G6B5, W, H));
+	assert(texture_repair_applies(TEXTURE_REPAIR_FORMAT_DXT1, 1024, 1024));
+	assert(!texture_repair_applies(TEXTURE_REPAIR_FORMAT_DXT1, 2048, 1024));
+	assert(!texture_repair_applies(0, W, H));
+	assert(texture_repair_texture(0, W, H, 2, source, offsets, NULL, NULL, out, NULL) == -1);
+	/* a lightmap whose repair changed anything is stored */
+	assert(texture_repair_texture(TEXTURE_REPAIR_FORMAT_R5G6B5, W, H, 2, source, offsets, NULL, NULL, out, NULL) == 1);
+	assert(texture_repair_r5g6b5(source, W, H, 0, level0, NULL) == 0);
+	assert(!memcmp(out, level0, sizeof(level0)));
+	assert(texture_repair_verify_r5g6b5(source + offsets[1], out + offsets[1], W / 2, H / 2, 0) == 0);
+}
+
 int main(void)
 {
 	test_intervals();
@@ -307,6 +331,7 @@ int main(void)
 	test_dxt1_gradient();
 	test_dxt1_spacing_limit();
 	test_verify_catches_repaint();
+	test_whole_texture();
 	puts("texture repair: ok");
 	return 0;
 }
