@@ -303,6 +303,8 @@ HEAD mode (halo_stereo_mode_entered); 0 on every other platform */
 int host_stereo_entered(void);
 /* Negative quality queries the runtime target; nonnegative quality sets it. */
 float host_stereo_render_quality(float quality);
+/* debug.knob_cycle's present dither (debug.present_dither): 0 off, 1 where the frame has more bits than the layer */
+void host_present_dither_set(int on);
 /* debug.knob_cycle's cadence: the Compositor's frame repeat count (0 to 3), from the next frame; logged when it lands */
 void host_stereo_frame_repeat_set(int repeat);
 void host_stereo_ab_change(const char *method, float quality, int shadows);

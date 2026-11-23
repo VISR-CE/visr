@@ -1676,6 +1676,40 @@ void halo_shadow_atlas_forget(D3DSurface *surface)
 eye, the HUD and the zoomed picture have their own textures (the one layer
 key: a new layer is a change to halo_stereo.h), else the one the game
 always had */
+/* display.scene_precision: 16 gives the targets that hold the scene's color the scene-color role
+(GPU_FORMAT_SCENE_COLOR, a higher-precision format the backend picks), so the dozen blends that make up a frame stop
+rounding each other to 8 bits. debug.scene_format names a measurement format in its place (any but "bgra8" takes the
+role). Read when targets are made; scene_precision_frame frees the role's targets when the answer changes (a graphics
+mode switch: Hardcore keeps 8). */
+/* debug.knob_cycle's scene precision, -1 until the chord sets it */
+static int scene_precision_live = -1;
+
+static BOOL scene_precision_wanted(void)
+{
+	const char *format = config_string("debug.scene_format");
+
+	if (scene_precision_live >= 0)
+		return scene_precision_live >= 16;
+	if (*format)
+		return strcmp(format, "bgra8") != 0;
+	return config_integer("display.scene_precision") >= 16;
+}
+
+static BOOL scene_precision_current, scene_precision_known;
+
+/* the targets that take the role: the back buffer's color in mono (the scene at any scale, and the display-sized
+one the HUD draws into). Not yet the stereo layers or a foveated eye, whose resolve and Compositor paths are BGRA8 */
+static BOOL scene_color_role(const D3DSurface *surface, int layer, unsigned char foveated_eye)
+{
+	if (!scene_precision_known)
+	{
+		scene_precision_current = scene_precision_wanted();
+		scene_precision_known = TRUE;
+	}
+	return scene_precision_current && !foveated_eye && surface->Data == device.back_buffer.Data &&
+		(layer == HALO_STEREO_LAYER_MONO || layer == HALO_STEREO_LAYER_NATIVE);
+}
+
 static int render_target_layer(void)
 {
 	return halo_stereo_frame()->eye_count == 2 ? halo_stereo_current_layer() : HALO_STEREO_LAYER_MONO;
@@ -1903,7 +1937,8 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 		struct gpu_texture_description texture = { 0 };
 
 		texture.type = GPU_TEXTURE_2D;
-		texture.format = depth ? GPU_FORMAT_DEPTH_STENCIL : GPU_FORMAT_BGRA8;
+		entry->scene_color = !depth && scene_color_role(surface, layer, foveated_eye);
+		texture.format = depth ? GPU_FORMAT_DEPTH_STENCIL : entry->scene_color ? GPU_FORMAT_SCENE_COLOR : GPU_FORMAT_BGRA8;
 		texture.usage = GPU_USAGE_RENDER_TARGET;
 		texture.foveated_eye = foveated_eye;
 		texture.width = (uint32_t)entry->target.allocated_width;
@@ -2779,6 +2814,17 @@ static int knob_live_apply(const char *name, const char *value, int apply, char 
 	}
 	else if (!strcmp(name, "debug.ssao"))
 		;   /* (ssao_mode reads it each frame) */
+	else if (!strcmp(name, "display.scene_precision"))
+		scene_precision_live = atoi(value);
+	else if (!strcmp(name, "debug.present_dither"))
+	{
+#ifdef HALO_ILP32
+		host_present_dither_set(strcmp(value, "off") != 0);
+#else
+		platform_log("Metal: the present dither changes only with the Metal backend");
+#endif
+		return 1;
+	}
 	else if (!strcmp(name, "display.graphics"))
 	{
 		/* (the mode's own anti-aliasing and model detail draw, not an earlier chord's or knob's) */
@@ -5143,10 +5189,12 @@ static void shader_list_take_pipelines(void)
 #endif
 		for (index = 0; index < GPU_ATTRIBUTE_COUNT; index++)
 			snprintf(kinds + 2 * index, 3, "%02x", built.attribute_kinds[index]);
-		snprintf(line, sizeof(line), "pipeline %016llx.%u.%lx %016llx %u %u %u %u %u %u %u %s %u %u",
+		/* (the color role only when it is not the scene's: older lines read as the scene's) */
+		snprintf(line, sizeof(line), built.color_role ? "pipeline %016llx.%u.%lx %016llx %u %u %u %u %u %u %u %s %u %u %u" :
+			"pipeline %016llx.%u.%lx %016llx %u %u %u %u %u %u %u %s %u %u",
 			(unsigned long long)vertex->hash, vertex->variant, vertex->packed_mask, (unsigned long long)pixel->hash,
 			built.blend, built.source, built.destination, built.operation, built.write_mask, built.exact_borders,
-			built.depth, kinds, built.alpha_source, built.alpha_destination);
+			built.depth, kinds, built.alpha_source, built.alpha_destination, built.color_role);
 		shader_list_made(line);
 	}
 }
@@ -5487,7 +5535,7 @@ void halo_shader_list_warm(char const *map_name)
 		for (line = text; line && *line; line = next)
 		{
 			char kind[16], first[600], second[64];
-			unsigned int values[9];
+			unsigned int values[10];
 
 			next = strchr(line, '\n');
 			if (next)
@@ -5561,9 +5609,10 @@ void halo_shader_list_warm(char const *map_name)
 				int fields, attribute;
 
 				memset(&description, 0, sizeof(description));
-				fields = sscanf(line, "pipeline %llx.%u.%lx %llx %u %u %u %u %u %u %u %63s %u %u", &vertex_hash, &variant,
+				values[9] = 0;
+				fields = sscanf(line, "pipeline %llx.%u.%lx %llx %u %u %u %u %u %u %u %63s %u %u %u", &vertex_hash, &variant,
 					&mask, &pixel_hash, &values[0], &values[1], &values[2], &values[3], &values[4], &values[5], &values[6],
-					kinds, &values[7], &values[8]);
+					kinds, &values[7], &values[8], &values[9]);
 				/* (a line from before the alpha factors were listed blends
 				alpha as color) */
 				if (fields == 12)
@@ -5571,7 +5620,7 @@ void halo_shader_list_warm(char const *map_name)
 					values[7] = values[1];
 					values[8] = values[2];
 				}
-				if ((fields != 12 && fields != 14) || variant > 3 ||
+				if ((fields != 12 && fields != 14 && fields != 15) || values[9] > 1 || variant > 3 ||
 					(variant >= 2 && !shader_dialect.msl) || strlen(kinds) != 2 * GPU_ATTRIBUTE_COUNT ||
 					!hex_bytes(kinds, description.attribute_kinds, GPU_ATTRIBUTE_COUNT) ||
 					!(description.pixel_shader = shader_list_pixel((uint64_t)pixel_hash)))
@@ -5597,6 +5646,7 @@ void halo_shader_list_warm(char const *map_name)
 				description.depth = (uint8_t)values[6];
 				description.alpha_source = (uint8_t)values[7];
 				description.alpha_destination = (uint8_t)values[8];
+				description.color_role = (uint8_t)values[9];
 				/* (one for each object compiled with the line's variant and mask) */
 				while ((program = shader_list_program(program, (uint64_t)vertex_hash, (int)variant, mask, TRUE)))
 				{
@@ -8440,6 +8490,39 @@ static void screen_targets_release(int pooled)
 		platform_log("dynamic resolution: freed %lu %s screen and effect targets", freed, pooled ? "pooled" : "plain");
 }
 
+/* display.scene_precision changed (a graphics mode switch, or the first frame): every target with or without the
+scene-color role that no longer matches goes, and is made again in the other format when next drawn into (the
+backend holds a texture until the frames using it are done) */
+static void scene_precision_frame(void)
+{
+	BOOL wanted = scene_precision_wanted();
+	struct render_target_entry **link = &render_targets;
+	unsigned long freed = 0;
+
+	if (!scene_precision_known || wanted == scene_precision_current)
+		return;
+	scene_precision_current = wanted;
+	recent_render_targets_forget();
+	while (*link)
+	{
+		struct render_target_entry *entry = *link;
+		/* (the role's test on the entry's own surface and layer: a target that has the role and should not, or
+		should and does not) */
+		BOOL role = !entry->target.depth && entry->target.data == device.back_buffer.Data &&
+			!entry->target.foveated_eye && (entry->layer == HALO_STEREO_LAYER_MONO || entry->layer == HALO_STEREO_LAYER_NATIVE);
+
+		if (!role || entry->scene_color == wanted)
+		{
+			link = &entry->next;
+			continue;
+		}
+		*link = entry->next;
+		render_target_entry_free(entry);
+		freed++;
+	}
+	platform_log("scene precision: %s bits a channel for the scene's color; freed %lu targets", wanted ? "16" : "8", freed);
+}
+
 /* debug.knob_cycle: the shadow, effect and mirror targets (128x128 and 320x240) whose size is not the one in force
 now are freed, once, two seconds after a change (the new ones have been allocated by then; the backend holds a
 texture until the frames using it are done) */
@@ -9064,6 +9147,7 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 	render_scale_sweep_frame();
 	if (knob_release_frame && device.frame >= knob_release_frame)
 		knob_targets_release();
+	scene_precision_frame();
 	device.frame++;
 	input_replay_frame(lroundf(screen_width * screen_scale[0]), lroundf(SCREEN_HEIGHT * screen_scale[1]));
 	/* (dynamic resolution: the run's size is its ceiling; the lines per frame are

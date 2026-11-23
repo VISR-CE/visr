@@ -240,6 +240,10 @@ static const struct config_setting config_settings[] =
 		"Smoke, dust and plasma fade where they meet the ground and walls instead of\n"
 		"cutting a hard line (camera-facing particles; Metal, not in stereo or with\n"
 		"multisampling). Hardcore turns it off (display.graphics).", _tier_player },
+	{ "display.scene_precision", _config_integer, "8", "HALO_SCENE_PRECISION", _environment_value, _platform_all,
+		"Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal),\n"
+		"with a 10-bit layer where the display takes one. Read at launch and at a graphics mode switch.\n"
+		"Hardcore keeps 8 (display.graphics).", _tier_tuning },
 	{ "display.effect_limits", _config_string, "\"raised\"", "HALO_EFFECT_LIMITS", _environment_value, _platform_all,
 		"How many bullet holes, scorch marks and blood stains a level keeps, and how\n"
 		"many particles each split-screen player sees of an effect: \"raised\" (default)\n"
@@ -2021,6 +2025,25 @@ static const struct config_setting config_settings[] =
 		"drawing, saves one picture to benchmark_window_shot, and exits; nothing is timed." },
 	{ "debug.benchmark_shot_tick", _config_integer, "0", "HALO_BENCHMARK_SHOT_TICK", _environment_value, _platform_all,
 		"With benchmark_shot_pass, the tick after the window opens to take the picture at; 0 is the window's end." },
+	{ "debug.scene_format", _config_string, "\"\"", "HALO_SCENE_FORMAT", _environment_value, _platform_all,
+		"Measurement: the pixel format of the targets that hold the scene's color (Metal, mono), in place of\n"
+		"display.scene_precision's: bgra8, rgba16, rgba16f, rgb10a2 (timing only: two bits of alpha) or bgra10_xr;\n"
+		"empty follows display.scene_precision.", _tier_derived, "|bgra8|rgba16|rgba16f|rgb10a2|bgra10_xr" },
+	{ "debug.output_format", _config_string, "\"\"", "HALO_OUTPUT_FORMAT", _environment_value, _platform_all,
+		"Measurement: the Metal layer's pixel format in place of the one display.scene_precision picks: bgra8,\n"
+		"bgr10a2, bgr10_xr, bgra10_xr or rgba16f; empty follows display.scene_precision.", _tier_derived,
+		"|bgra8|bgr10a2|bgr10_xr|bgra10_xr|rgba16f" },
+	{ "debug.present_dither", _config_string, "\"auto\"", "HALO_PRESENT_DITHER", _environment_value, _platform_all,
+		"The fixed blue-noise dither where the present pass writes a 16-bit frame to a layer with fewer bits: auto\n"
+		"(on whenever that is so) or off. debug.knob_cycle's chord changes it as the game runs (the Apple TV grain\n"
+		"check).", _tier_derived, "auto|off" },
+	{ "debug.precision_ramp", _config_boolean, "false", "HALO_PRECISION_RAMP", _environment_value, _platform_all,
+		"The present pass draws the display-depth test ramp in place of the picture: the darkest sixteen 8-bit\n"
+		"levels left to right, the top third rounded to 8 bits, the middle third at the layer's depth, the bottom\n"
+		"third dithered (Metal; with display.scene_precision 16 the layer is 10-bit where it can be)." },
+	{ "debug.screenshot_raw", _config_boolean, "false", "HALO_SCREENSHOT_RAW", _environment_value, _platform_all,
+		"With screenshot_directory: a read of a scene target that is not BGRA8 also saves the target's own values\n"
+		"as rawNNNNN.<format> (for banding analysis)." },
 	{ "debug.screenshot_directory", _config_string, "\"\"", "HALO_SCREENSHOT_DIR", _environment_value, _platform_all,
 		"A folder to save frames to (with screenshot_every); empty none." },
 	{ "debug.shadow_scenery", _config_integer, "0", "HALO_SHADOW_SCENERY", _environment_value, _platform_all,

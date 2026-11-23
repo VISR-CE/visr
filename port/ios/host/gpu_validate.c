@@ -477,7 +477,8 @@ static gpu_texture validate_texture_create(const struct gpu_texture_description 
 		REPORT(TEXTURE_DESCRIPTION_INVALID, description->type | description->usage << 8 | description->format << 16,
 			"type %u format %u usage %u, %ux%ux%u", description->type, description->format, description->usage,
 			description->width, description->height, description->depth);
-	if (description->format < GPU_FORMAT_BGRA8 || description->format > GPU_FORMAT_ASTC4X4 ||
+	if (description->format == GPU_FORMAT_SCENE_COLOR ? description->usage != GPU_USAGE_RENDER_TARGET :
+		description->format < GPU_FORMAT_BGRA8 || description->format > GPU_FORMAT_ASTC4X4 ||
 		(description->format >= GPU_FORMAT_BC1 && description->format <= GPU_FORMAT_BC3 &&
 			(!validation.capabilities.s3tc || description->usage == GPU_USAGE_RENDER_TARGET)) ||
 		(description->format == GPU_FORMAT_ASTC4X4 && (!validation.capabilities.astc ||
@@ -957,7 +958,7 @@ static int check_targets(gpu_texture color, gpu_texture depth, uint32_t *width, 
 			color_entry ? color_entry->description.usage : 0, depth, depth_entry ? depth_entry->description.usage : 0);
 		fine = 0;
 	}
-	if ((color_entry && (color_entry->description.format != GPU_FORMAT_BGRA8 || color_entry->description.type != GPU_TEXTURE_2D)) ||
+	if ((color_entry && (!gpu_format_color_target(color_entry->description.format) || color_entry->description.type != GPU_TEXTURE_2D)) ||
 		(depth_entry && (depth_entry->description.format != GPU_FORMAT_DEPTH_STENCIL ||
 			depth_entry->description.type != GPU_TEXTURE_2D)))
 	{
@@ -1686,7 +1687,7 @@ static void check_picture(gpu_texture texture, const char *name, int color)
 	const struct texture_entry *entry = texture_entry(texture);
 
 	if (!entry || entry->description.usage != GPU_USAGE_RENDER_TARGET || entry->description.type != GPU_TEXTURE_2D ||
-		(entry->description.format == GPU_FORMAT_BGRA8) != (color != 0))
+		gpu_format_color_target(entry->description.format) != (color != 0))
 		REPORT(PRESENT_INVALID, entry != NULL, "%s %u is not a live %s target", name, texture, color ? "color" : "depth");
 }
 

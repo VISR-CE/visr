@@ -134,6 +134,8 @@ TUNING_OFF_HEADSET = {
     # the import-time texture repair, on until device profiles can turn it off (that step adds the profile key and its
     # feed generation)
     'display.repaired_textures',
+    # the 16-bit scene, 8 until device profiles set it (that step adds the profile key and its feed generation)
+    'display.scene_precision',
 }
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
                    'display.theater_width', 'input.aim', 'input.aim_hand',

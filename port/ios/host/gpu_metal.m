@@ -53,6 +53,7 @@ build with render validation; nothing otherwise */
 #include "host_benchmark_offscreen.h"
 #import "host_data_updates.h"
 #include "gpu_metal_presentation.h"
+#include "blue_noise.h"
 #include "halo_display.h"
 #include "host_output_cap.h"
 #include "host_output_sync.h"
@@ -1170,9 +1171,137 @@ static unsigned long level_dimension(uint32_t size, unsigned long level)
 	return size >> level ? size >> level : 1;
 }
 
+/* display.scene_precision: the pixel format of the targets with the scene-color role (GPU_FORMAT_SCENE_COLOR, which
+the front end gives the back buffer's color when the setting is 16), and the layer's format that goes with them.
+RGBA16Unorm, not float: it clamps at 1.0 after every blend as BGRA8 does, so the picture is today's with finer steps,
+and it has the real alpha that the game's destination-alpha blends need. debug.scene_format and debug.output_format
+name measurement formats in their place. */
+static MTLPixelFormat scene_format = MTLPixelFormatRGBA16Unorm, output_format_override = MTLPixelFormatInvalid;
+/* (MTLPixelFormatBGRA10_XR and BGR10_XR by value: the simulator's and Catalyst's headers mark them unavailable) */
+#define FORMAT_BGRA10_XR ((MTLPixelFormat)552)
+#define FORMAT_BGR10_XR ((MTLPixelFormat)554)
+
+/* the scene-color targets alive now (texture_format and texture destruction count them): while any is, the scene's
+draws are in scene_format, otherwise BGRA8 (display.scene_precision 8) */
+static _Atomic(int) scene_color_targets;
+
+static MTLPixelFormat scene_color_format(void)
+{
+	return atomic_load(&scene_color_targets) > 0 ? scene_format : MTLPixelFormatBGRA8Unorm;
+}
+
+/* debug.present_dither (auto: on where the frame has more bits than the layer; off), changed live by the knob chord
+(host_present_dither_set); debug.precision_ramp draws the display-depth test ramp in place of the picture */
+static _Atomic(int) present_dither_on = 1;
+static BOOL precision_ramp;
+/* debug.screenshot_raw: a read of a scene target in another format also saves its own values */
+static BOOL screenshot_raw;
+
+/* (a guest import: guest_host.h) */
+void host_present_dither_set(int on);
+void host_present_dither_set(int on)
+{
+	atomic_store(&present_dither_on, on != 0);
+	platform_log("Metal: the present dither is %s", on ? "on where the frame has more bits than the layer" : "off");
+}
+
+static void scene_formats_read(void)
+{
+	char value[32];
+
+	host_config_string("debug.present_dither", "auto", value, sizeof(value));
+	atomic_store(&present_dither_on, strcmp(value, "off") != 0);
+	host_config_string("debug.precision_ramp", "false", value, sizeof(value));
+	precision_ramp = !strcmp(value, "true");
+	host_config_string("debug.screenshot_raw", "false", value, sizeof(value));
+	screenshot_raw = !strcmp(value, "true");
+
+	host_config_string("debug.scene_format", "", value, sizeof(value));
+	scene_format = !strcmp(value, "rgba16f") ? MTLPixelFormatRGBA16Float : !strcmp(value, "rgb10a2") ?
+		MTLPixelFormatRGB10A2Unorm : !strcmp(value, "bgra10_xr") ? FORMAT_BGRA10_XR : MTLPixelFormatRGBA16Unorm;
+	host_config_string("debug.output_format", "", value, sizeof(value));
+	output_format_override = !strcmp(value, "bgra8") ? MTLPixelFormatBGRA8Unorm : !strcmp(value, "bgr10a2") ?
+		MTLPixelFormatBGR10A2Unorm : !strcmp(value, "bgr10_xr") ? FORMAT_BGR10_XR : !strcmp(value, "bgra10_xr") ?
+		FORMAT_BGRA10_XR : !strcmp(value, "rgba16f") ? MTLPixelFormatRGBA16Float : MTLPixelFormatInvalid;
+}
+
+/* the built-in display's layer format for a frame whose back buffer is in format: 10 bits where the picture has
+more than 8 and the platform's layer takes them (the Mac BGR10A2Unorm; iPhone and iPad BGR10_XR, which spends its
+bits on an extended range: about 510 levels from black to white), else BGRA8Unorm. Apple TV, the Vision Pro and
+external displays stay 8-bit in this version. */
+static MTLPixelFormat output_format_for(MTLPixelFormat picture)
+{
+	if (output_format_override != MTLPixelFormatInvalid)
+		return output_format_override;
+	if (picture == MTLPixelFormatBGRA8Unorm)
+		return MTLPixelFormatBGRA8Unorm;
+#if HALO_NATIVE_MAC || TARGET_OS_MACCATALYST
+	return MTLPixelFormatBGR10A2Unorm;
+#elif TARGET_OS_IOS && !TARGET_OS_SIMULATOR
+	return FORMAT_BGR10_XR;
+#else
+	return MTLPixelFormatBGRA8Unorm;
+#endif
+}
+
+/* the built-in layer's format as last asked (layer_format_follow), and the formats it refused */
+static MTLPixelFormat layer_format_asked = MTLPixelFormatBGRA8Unorm;
+static _Atomic(uint32_t) layer_formats_refused;
+
+static uint32_t layer_format_bit(MTLPixelFormat format)
+{
+	switch (format)
+	{
+	case MTLPixelFormatBGR10A2Unorm: return 1;
+	case FORMAT_BGR10_XR: return 2;
+	case FORMAT_BGRA10_XR: return 4;
+	case MTLPixelFormatRGBA16Float: return 8;
+	default: return 0;
+	}
+}
+
+/* the levels from black to white a color channel of format holds (the present dither's step) */
+static float format_levels(MTLPixelFormat format)
+{
+	switch (format)
+	{
+	case MTLPixelFormatBGR10A2Unorm: case MTLPixelFormatRGB10A2Unorm: return 1023.0f;
+	case FORMAT_BGR10_XR: case FORMAT_BGRA10_XR: return 510.0f;
+	case MTLPixelFormatRGBA16Unorm: return 65535.0f;
+	case MTLPixelFormatRGBA16Float: return 2048.0f;
+	default: return 255.0f;
+	}
+}
+
+/* what a format test means, asked of the format: ClampToZero's border is transparent only with alpha
+(zero_border_eligible). The color target formats only: BGRA8, and the scene-color role's */
+static BOOL format_has_alpha(MTLPixelFormat format)
+{
+	return format == MTLPixelFormatBGRA8Unorm || format == MTLPixelFormatRGBA16Unorm ||
+		format == MTLPixelFormatRGBA16Float || format == MTLPixelFormatRGB10A2Unorm ||
+		format == (MTLPixelFormat)552 /* BGRA10_XR */;
+}
+
+static const char *pixel_format_name(MTLPixelFormat format)
+{
+	switch (format)
+	{
+	case MTLPixelFormatBGRA8Unorm: return "bgra8";
+	case MTLPixelFormatRGBA16Unorm: return "rgba16";
+	case MTLPixelFormatRGBA16Float: return "rgba16f";
+	case MTLPixelFormatRGB10A2Unorm: return "rgb10a2";
+	case MTLPixelFormatBGR10A2Unorm: return "bgr10a2";
+	case FORMAT_BGRA10_XR: return "bgra10_xr";
+	case FORMAT_BGR10_XR: return "bgr10_xr";
+	default: return "other";
+	}
+}
+
 /* Creation and upload must agree: an accepted format needs storage on its first upload. */
 static BOOL format_supported(const struct gpu_texture_description *description)
 {
+	if (description->format == GPU_FORMAT_SCENE_COLOR)
+		return description->usage == GPU_USAGE_RENDER_TARGET;
 	if (description->format == GPU_FORMAT_BGRA8 || description->format == GPU_FORMAT_DEPTH_STENCIL)
 		return YES;
 	if (description->usage != GPU_USAGE_UPLOAD)
@@ -1190,6 +1319,8 @@ static MTLPixelFormat texture_format(const struct gpu_texture_description *descr
 {
 	if (description->format == GPU_FORMAT_DEPTH_STENCIL)
 		return MTLPixelFormatDepth32Float_Stencil8;
+	if (description->format == GPU_FORMAT_SCENE_COLOR)
+		return scene_format;
 	if (description->format == GPU_FORMAT_ASTC4X4)
 		return MTLPixelFormatASTC_4x4_LDR;
 	/* compressed_textures and upscaled_format's BC7 are set only where these exist */
@@ -1347,6 +1478,8 @@ static gpu_texture gpu_metal_texture_create(const struct gpu_texture_description
 		{
 			record->texture = texture_storage(record);
 			target_zero(record->texture);
+			if (description->format == GPU_FORMAT_SCENE_COLOR)
+				atomic_fetch_add(&scene_color_targets, 1);
 		}
 		return [textures add:record];
 	}
@@ -1430,6 +1563,12 @@ static void gpu_metal_texture_destroy(gpu_texture texture)
 		if (texture && (texture == pass_color || texture == pass_depth || texture == native_pass.color ||
 			texture == native_pass.depth))
 			pass_end();
+		{
+			MetalTexture *record = texture_record(texture);
+
+			if (record && record->texture && record->description.format == GPU_FORMAT_SCENE_COLOR)
+				atomic_fetch_sub(&scene_color_targets, 1);
+		}
 		[textures remove:texture];
 	}
 }
@@ -1456,6 +1595,106 @@ static void texture_content(const MetalTexture *record, id<MTLTexture> texture, 
 	*height = record && record->content_height ? record->content_height : texture.height;
 }
 
+/* reads a scene target that is not BGRA8 (RGBA16Unorm, RGBA16Float, RGB10A2Unorm, BGRA10_XR) into BGRA8
+bytes, rounding to nearest, and with debug.screenshot_raw writes its own values to debug.screenshot_directory as
+rawNNNNN.<format>: a 16-byte
+header (the characters VSRF, width, height, 1 for rgba16f or 2 for rgba16 or 3 for rgb10a2 or 4 for bgra10_xr, each a
+little-endian uint32) and then the texture's bytes, rows from the top. NNNNN counts these reads from 0. */
+static uint32_t scene_read_converted(MetalTexture *record, void *pixels, unsigned long width, unsigned long height)
+{
+	MTLPixelFormat format = record->texture.pixelFormat;
+	unsigned long bytes = format == MTLPixelFormatRGB10A2Unorm ? 4 : 8, index;
+	id<MTLBuffer> staging = [device newBufferWithLength:width * height * bytes options:MTLResourceStorageModeShared];
+	id<MTLBlitCommandEncoder> blit;
+	unsigned char *out = pixels;
+	uint32_t code = format == MTLPixelFormatRGBA16Float ? 1 : format == MTLPixelFormatRGBA16Unorm ? 2 :
+		format == MTLPixelFormatRGB10A2Unorm ? 3 : 4;
+	static unsigned sequence;
+	char directory[1024];
+
+	pass_end();
+	blit = [command_buffer() blitCommandEncoder];
+	[blit copyFromTexture:record->texture sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+		sourceSize:MTLSizeMake(width, height, 1) toBuffer:staging destinationOffset:0
+		destinationBytesPerRow:width * bytes destinationBytesPerImage:width * height * bytes];
+	[blit endEncoding];
+	use_texture(record);
+	{
+		id<MTLCommandBuffer> waited = commands;
+
+		commit(NO);
+		[waited waitUntilCompleted];
+	}
+	for (index = 0; index < width * height; index++)
+	{
+		float rgba[4];
+		int channel;
+
+		if (code == 1)
+		{
+			const _Float16 *half = (const _Float16 *)staging.contents + index * 4;
+
+			for (channel = 0; channel < 4; channel++)
+				rgba[channel] = (float)half[channel];
+		}
+		else if (code == 2)
+		{
+			const uint16_t *word = (const uint16_t *)staging.contents + index * 4;
+
+			for (channel = 0; channel < 4; channel++)
+				rgba[channel] = (float)word[channel] / 65535.0f;
+		}
+		else if (code == 3)
+		{
+			uint32_t word = ((const uint32_t *)staging.contents)[index];
+
+			rgba[0] = (float)(word & 0x3ff) / 1023.0f;
+			rgba[1] = (float)((word >> 10) & 0x3ff) / 1023.0f;
+			rgba[2] = (float)((word >> 20) & 0x3ff) / 1023.0f;
+			rgba[3] = (float)(word >> 30) / 3.0f;
+		}
+		else
+		{
+			/* BGRA10_XR: each 16-bit word holds 10 bits in its top bits, (value - 384) / 510 */
+			const uint16_t *word = (const uint16_t *)staging.contents + index * 4;
+
+			rgba[2] = ((float)(word[0] >> 6) - 384.0f) / 510.0f;
+			rgba[1] = ((float)(word[1] >> 6) - 384.0f) / 510.0f;
+			rgba[0] = ((float)(word[2] >> 6) - 384.0f) / 510.0f;
+			rgba[3] = ((float)(word[3] >> 6) - 384.0f) / 510.0f;
+		}
+		for (channel = 0; channel < 4; channel++)
+		{
+			float value = rgba[channel];
+
+			value = value != value || value < 0.0f ? 0.0f : value > 1.0f ? 1.0f : value;
+			/* BGRA order out */
+			out[index * 4 + (channel == 0 ? 2 : channel == 2 ? 0 : channel)] = (unsigned char)(value * 255.0f + 0.5f);
+		}
+	}
+	if (screenshot_raw)
+		host_config_string("debug.screenshot_directory", "", directory, sizeof(directory));
+	if (screenshot_raw && *directory)
+	{
+		char path[1200];
+		FILE *file;
+		uint32_t header[4] = { 0x46525356u, (uint32_t)width, (uint32_t)height, code };
+
+		snprintf(path, sizeof(path), "%s/raw%05u.%s", directory, sequence, pixel_format_name(format));
+		file = fopen(path, "wb");
+		if (file)
+		{
+			fwrite(header, sizeof(header), 1, file);
+			fwrite(staging.contents, bytes, width * height, file);
+			fclose(file);
+		}
+		platform_log("Metal: raw read %u (%s %lux%lu) %s %s", sequence, pixel_format_name(format), width, height,
+			file ? "saved to" : "could not be saved to", path);
+	}
+	sequence++;
+	return 1;
+}
+
 static uint32_t gpu_metal_texture_read(gpu_texture texture, void *pixels, uint32_t size)
 {
 	@autoreleasepool
@@ -1467,7 +1706,7 @@ static uint32_t gpu_metal_texture_read(gpu_texture texture, void *pixels, uint32
 		id<MTLBlitCommandEncoder> blit;
 
 		if (!record || !record->texture || description->type != GPU_TEXTURE_2D ||
-			(description->format != GPU_FORMAT_BGRA8 && description->format != GPU_FORMAT_DEPTH_STENCIL) ||
+			(!gpu_format_color_target(description->format) && description->format != GPU_FORMAT_DEPTH_STENCIL) ||
 			(description->format == GPU_FORMAT_DEPTH_STENCIL && description->usage != GPU_USAGE_RENDER_TARGET))
 		{
 			GPU_VALIDATION_REPORT(GPU_VALIDATION_READ_UNSUPPORTED, 0, "Metal: texture %u cannot be read back", texture);
@@ -1548,6 +1787,10 @@ static uint32_t gpu_metal_texture_read(gpu_texture texture, void *pixels, uint32
 				depth[index] = reversed_depth(depth[index]);
 			return 1;
 		}
+		/* a scene target in another format is converted to BGRA8 for the caller (debug.screenshot_raw: its own
+		values are saved beside the screenshots) */
+		if (record->texture.pixelFormat != MTLPixelFormatBGRA8Unorm)
+			return scene_read_converted(record, pixels, width, height);
 		/* BGRA8Unorm is already the BGRA byte order gpu.h reads back, and row
 		0 is the top */
 		if (description->usage != GPU_USAGE_RENDER_TARGET)
@@ -1631,6 +1874,46 @@ static BOOL texture_make_linear(MetalTexture *record)
 	return YES;
 }
 
+static id<MTLRenderPipelineState> quad_pipeline(id<MTLFunction> fragment, MTLPixelFormat format);
+static id<MTLFunction> copy_function;
+
+/* a copy between textures of unlike formats (a scene-color target and a BGRA8 one: Metal's blits need equal formats)
+as a draw of the source's texels into the destination's rectangle, so a target the scene-color role missed still
+copies rightly, only at the destination's precision */
+static void copy_as_draw(MetalTexture *from, uint32_t x, uint32_t y, uint32_t width, uint32_t height, MetalTexture *to,
+	uint32_t level, uint32_t to_x, uint32_t to_y)
+{
+	MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+	id<MTLRenderCommandEncoder> encoder;
+	int32_t offset[4] = { (int32_t)x - (int32_t)to_x, (int32_t)y - (int32_t)to_y, 0, 0 };
+	static BOOL logged;
+
+	if (!logged)
+	{
+		logged = YES;
+		platform_log("Metal: a copy from %s into %s is drawn", pixel_format_name(from->texture.pixelFormat),
+			pixel_format_name(to->texture.pixelFormat));
+	}
+	pass_end();
+	pass.colorAttachments[0].texture = to->texture;
+	pass.colorAttachments[0].level = level;
+	pass.colorAttachments[0].loadAction = MTLLoadActionLoad;
+	pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+	encoder = [command_buffer() renderCommandEncoderWithDescriptor:pass];
+	if (metal_debug)
+		encoder.label = @"copy as a draw";
+	[encoder setRenderPipelineState:quad_pipeline(copy_function, to->texture.pixelFormat)];
+	[encoder setViewport:(MTLViewport){ (double)to_x, (double)to_y, (double)width, (double)height, 0.0, 1.0 }];
+	[encoder setScissorRect:(MTLScissorRect){ to_x, to_y, width, height }];
+	[encoder setFragmentTexture:from->texture atIndex:0];
+	[encoder setFragmentBytes:offset length:sizeof(offset) atIndex:0];
+	[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+	[encoder endEncoding];
+	use_texture(from);
+	use_texture(to);
+	texture_written(to);
+}
+
 static void gpu_metal_texture_copy_rects(gpu_texture source, const struct gpu_texture_copy *copies, uint32_t count)
 {
 	@autoreleasepool
@@ -1699,6 +1982,16 @@ static void gpu_metal_texture_copy_rects(gpu_texture source, const struct gpu_te
 					continue;
 				}
 			}
+			if (from->texture.pixelFormat != to->texture.pixelFormat)
+			{
+				if (blit)
+				{
+					[blit endEncoding];
+					blit = nil;
+				}
+				copy_as_draw(from, copy->x, copy->y, copy->width, copy->height, to, 0, 0, 0);
+				continue;
+			}
 			if (!blit)
 			{
 				pass_end();
@@ -1740,6 +2033,11 @@ static void gpu_metal_texture_copy_level(gpu_texture source, gpu_texture destina
 		{
 			GPU_VALIDATION_REPORT(GPU_VALIDATION_COPY_IGNORED, 2, "Metal: texture %u is smaller than level %u of texture %u",
 				source, level, destination);
+			return;
+		}
+		if (from->texture.pixelFormat != to->texture.pixelFormat)
+		{
+			copy_as_draw(from, 0, 0, (uint32_t)width, (uint32_t)height, to, level, 0, 0);
 			return;
 		}
 		pass_end();
@@ -2728,11 +3026,13 @@ static id<MTLTexture> upscaled;
 static id<MTLFunction> clear_vertex, clear_fragment, present_vertex, present_fragment, fill_fragment;
 /* multisample_fill's pipelines, by samples and depth-stencil format */
 static NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *fill_pipelines;
-static id<MTLRenderPipelineState> present_pipeline, companion_pipeline;
-/* gpu_upscale's: the present quad into a BGRA8 render target with no depth */
-static id<MTLRenderPipelineState> upscale_pipeline;
-/* display.crt_effect: the present pass's CRT television in Hardcore graphics (crt_shader.h) */
-static id<MTLRenderPipelineState> crt_pipeline;
+static id<MTLRenderPipelineState> companion_pipeline;
+/* quad_pipeline's fragment functions: gpu_upscale's (the present quad into the display-sized back buffer, no depth);
+display.crt_effect's CRT television in Hardcore graphics (crt_shader.h; nil if it does not compile); the present
+dither (display.scene_precision); a copy between unlike formats (copy_as_draw) */
+static id<MTLFunction> upscale_function, crt_function, present_dither_function;
+/* the present dither's noise (blue_noise.h) */
+static id<MTLTexture> dither_noise;
 
 /* The guest commits the effective mode and switch before rendering, including unsaved previews. */
 static BOOL crt_enabled;
@@ -2770,6 +3070,39 @@ static NSString *const utility_source =
 	"{\n"
 	"\treturn float4(picture.sample(linear, in.coordinates).rgb, 1.0);\n"
 	"}\n"
+	/* display.scene_precision: the present pass from a picture with more bits than the drawable. Two blue-noise masks
+	(blue_noise.h, fixed: a changing pattern is moving grain on a TV and noise a video encoder never stops coding)
+	make triangular noise one level of the drawable wide on each side (dither.x, 1 / its levels), faded to nothing
+	within a level of black and white so neither is lifted or dimmed. debug.precision_ramp draws the test ramp
+	(dither.y 1): the darkest sixteen 8-bit levels left to right, the top third rounded to 8 bits, the middle third as
+	the frame holds it, the bottom third dithered */
+	"fragment float4 present_dither_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n"
+	"\tsampler linear [[sampler(0)]], texture2d<float> noise [[texture(1)]], constant float4 &dither [[buffer(0)]])\n"
+	"{\n"
+	"\tfloat3 color = picture.sample(linear, in.coordinates).rgb;\n"
+	"\tbool dithered = true;\n"
+	"\tif (dither.y > 0.5)\n"
+	"\t{\n"
+	"\t\tcolor = float3(in.coordinates.x * 16.0 / 255.0);\n"
+	"\t\tif (in.coordinates.y < 1.0 / 3.0)\n"
+	"\t\t\tcolor = floor(color * 255.0 + 0.5) / 255.0;\n"
+	"\t\tdithered = in.coordinates.y >= 2.0 / 3.0;\n"
+	"\t}\n"
+	"\tif (dithered && dither.x > 0.0)\n"
+	"\t{\n"
+	"\t\tuint2 size = uint2(noise.get_width(), noise.get_height());\n"
+	"\t\tfloat2 masks = (noise.read(uint2(in.position.xy) % size).rg * 255.0 + 0.5) / 256.0;\n"
+	"\t\tfloat3 room = clamp(min(color, 1.0 - color) / dither.x, 0.0, 1.0);\n"
+	"\t\tcolor += (masks.x + masks.y - 1.0) * dither.x * room;\n"
+	"\t}\n"
+	"\treturn float4(color, 1.0);\n"
+	"}\n"
+	/* a copy between unlike formats (copy_as_draw): the source's texel at the destination pixel's offset */
+	"fragment float4 copy_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n"
+	"\tconstant int4 &offset [[buffer(0)]])\n"
+	"{\n"
+	"\treturn picture.read(uint2(int2(in.position.xy) + offset.xy));\n"
+	"}\n"
 	"fragment float4 companion_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n"
 	"\tsampler linear [[sampler(0)]], constant float &brightness [[buffer(0)]])\n"
 	"{ return float4(picture.sample(linear, in.coordinates).rgb * brightness, 1.0); }\n"
@@ -2790,6 +3123,35 @@ static NSString *const utility_source =
 	"}\n"
 	/* display.crt_effect (crt_shader.h) */
 	CRT_SHADER_SOURCE;
+
+/* the backend's full-screen passes (the present quad with one of utility_source's fragment functions), one pipeline
+per function and color format: no pass names a format, each asks its target's (a scene-color target is RGBA16Unorm
+with display.scene_precision 16, and the layer follows it) */
+static NSMutableDictionary<NSString *, id<MTLRenderPipelineState>> *quad_pipelines;
+
+static id<MTLRenderPipelineState> quad_pipeline(id<MTLFunction> fragment, MTLPixelFormat format)
+{
+	NSString *key = [NSString stringWithFormat:@"%@/%lu", fragment.name, (unsigned long)format];
+	id<MTLRenderPipelineState> pipeline = quad_pipelines[key];
+
+	if (!pipeline && fragment)
+	{
+		MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
+		NSError *error = nil;
+
+		descriptor.vertexFunction = present_vertex;
+		descriptor.fragmentFunction = fragment;
+		descriptor.colorAttachments[0].pixelFormat = format;
+		pipeline = [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+		if (!pipeline)
+			host_crash("Metal: cannot create the %s pipeline for %s: %s", fragment.name.UTF8String,
+				pixel_format_name(format), error.description.UTF8String);
+		if (!quad_pipelines)
+			quad_pipelines = [NSMutableDictionary dictionary];
+		quad_pipelines[key] = pipeline;
+	}
+	return pipeline;
+}
 
 static id<MTLRenderPipelineState> clear_pipeline(MTLPixelFormat color, MTLPixelFormat depth, uint32_t mask,
 	uint32_t samples)
@@ -3015,7 +3377,11 @@ static void multisample_fill(MetalTexture *record, uint32_t samples, MTLPixelFor
 {
 	BOOL color = sources->color != nil, stencil = fill_stencil && sources->stencil != nil;
 	int kind = fill_depth || stencil ? (stencil ? 2 : 1) : 0;
-	NSNumber *key = @(((uint64_t)samples << 32) | ((uint64_t)depth << 4) | (uint64_t)(kind << 1) | (color ? 1 : 0));
+	/* (the color attachment's format is the target's: a scene-color target may be RGBA16Unorm) */
+	MTLPixelFormat color_format = record->texture && !record->description.foveated_eye &&
+		record->description.format != GPU_FORMAT_DEPTH_STENCIL ? record->texture.pixelFormat : MTLPixelFormatBGRA8Unorm;
+	NSNumber *key = @(((uint64_t)color_format << 44) | ((uint64_t)samples << 32) | ((uint64_t)depth << 4) |
+		(uint64_t)(kind << 1) | (color ? 1 : 0));
 	id<MTLRenderPipelineState> pipeline = fill_pipelines[key];
 
 	if (fill_stencil && !stencil)
@@ -3044,7 +3410,7 @@ static void multisample_fill(MetalTexture *record, uint32_t samples, MTLPixelFor
 
 		descriptor.vertexFunction = present_vertex;
 		descriptor.fragmentFunction = kind == 2 ? fill_stencil_fragment : kind == 1 ? fill_depth_fragment : fill_fragment;
-		descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+		descriptor.colorAttachments[0].pixelFormat = color_format;
 		descriptor.colorAttachments[0].writeMask = color ? MTLColorWriteMaskAll : MTLColorWriteMaskNone;
 		descriptor.depthAttachmentPixelFormat = depth;
 		descriptor.stencilAttachmentPixelFormat = depth;
@@ -3194,7 +3560,7 @@ static void gpu_metal_clear(const struct gpu_clear *clear, const struct gpu_rect
 		color_value[3] = (float)(clear->color >> 24) / 255.0f;
 		/* every pass has a BGRA8 color attachment: a depth-only pass a scratch
 		one (pass_begin), which a clear leaves alone */
-		[encoder setRenderPipelineState:clear_pipeline(MTLPixelFormatBGRA8Unorm,
+		[encoder setRenderPipelineState:clear_pipeline(color && color->texture ? color->texture.pixelFormat : MTLPixelFormatBGRA8Unorm,
 			depth && depth->texture ? depth->texture.pixelFormat : MTLPixelFormatInvalid, color ? mask : 0, pass_samples)];
 		[encoder setDepthStencilState:clear_depth_state((flags & GPU_CLEAR_DEPTH) != 0, (flags & GPU_CLEAR_STENCIL) != 0)];
 		[encoder setStencilReferenceValue:clear->stencil & 0xff];
@@ -3776,6 +4142,8 @@ static void pipeline_describe(const struct pipeline_key *key, struct gpu_pipelin
 	description->write_mask = key->write_mask;
 	description->exact_borders = key->exact_borders;
 	description->depth = key->depth_format != MTLPixelFormatInvalid;
+	/* (a BGRA8 draw while the scene is in another format is one into a target that stays BGRA8) */
+	description->color_role = key->color_format == MTLPixelFormatBGRA8Unorm && scene_color_format() != MTLPixelFormatBGRA8Unorm;
 	memcpy(description->attribute_kinds, key->attribute_kinds, sizeof(description->attribute_kinds));
 }
 
@@ -3798,9 +4166,10 @@ static void pipeline_key_from_description(const struct gpu_pipeline_description 
 	}
 	key->write_mask = description->write_mask & 0xf;
 	key->exact_borders = description->exact_borders & 0xf;
-	/* every pass draws to BGRA8 (pass_begin's scratch color in a depth-only
-	one) and depth-stencil targets are Depth32Float_Stencil8 */
-	key->color_format = (uint32_t)MTLPixelFormatBGRA8Unorm;
+	/* a draw into the scene's color is in the scene's format in force (display.scene_precision); every other
+	draw is BGRA8 (pass_begin's scratch color in a depth-only one), and depth-stencil targets are
+	Depth32Float_Stencil8 */
+	key->color_format = (uint32_t)(description->color_role ? MTLPixelFormatBGRA8Unorm : scene_color_format());
 	key->depth_format = (uint32_t)(description->depth ? MTLPixelFormatDepth32Float_Stencil8 : MTLPixelFormatInvalid);
 	memcpy(key->attribute_kinds, description->attribute_kinds, sizeof(key->attribute_kinds));
 }
@@ -4420,7 +4789,7 @@ static BOOL zero_border_eligible(const struct gpu_stage *packet, MetalTexture *r
 {
 	return !border_colors && packet->type == GPU_TEXTURE_2D && record && record->texture &&
 		!record->description.foveated_eye && record->texture.textureType == MTLTextureType2D &&
-		record->texture.pixelFormat == MTLPixelFormatBGRA8Unorm && packet->sampler.border_color == 0 &&
+		format_has_alpha(record->texture.pixelFormat) && packet->sampler.border_color == 0 &&
 		(packet->sampler.address_u == GPU_ADDRESS_BORDER || packet->sampler.address_v == GPU_ADDRESS_BORDER);
 }
 
@@ -4793,12 +5162,15 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 		}
 #endif
 		draw_attributes_decide(draw, &attributes);
+		MTLPixelFormat draw_color_format = MTLPixelFormatBGRA8Unorm;
 		{
 			__unsafe_unretained MetalTexture *color = texture_record(draw->color_target);
 
 			samples = color ? color->samples : depth ? depth->samples : 0;
+			if (color && color->texture)
+				draw_color_format = color->texture.pixelFormat;
 		}
-		pipeline = (__bridge id<MTLRenderPipelineState>)draw_pipeline(draw, &attributes, vertex, pixel, exact, MTLPixelFormatBGRA8Unorm,
+		pipeline = (__bridge id<MTLRenderPipelineState>)draw_pipeline(draw, &attributes, vertex, pixel, exact, draw_color_format,
 			depth && depth->texture ? depth->texture.pixelFormat : MTLPixelFormatInvalid, samples, &pending);
 		/* display.async_shaders: a draw whose pipeline is still building is
 		skipped this frame, as one that can't be made is; the runs of draws
@@ -6781,7 +7153,8 @@ static int output_change(void *new_layer, void *screen, int width, int height, i
         host_main_sync(^{
             /* Both scale and drawable size change after the old frames complete. */
             if(change_scale && !output_cap_layer(layer,width,height)){applied=NO;return;}
-            layer.device=device;layer.pixelFormat=MTLPixelFormatBGRA8Unorm;layer.framebufferOnly=YES;
+            /* (BGRA8 until layer_format_follow asks again: an external display's layer stays BGRA8 in this version) */
+            layer.device=device;layer.pixelFormat=MTLPixelFormatBGRA8Unorm;layer.framebufferOnly=YES;layer_format_asked=MTLPixelFormatBGRA8Unorm;
 #if !HALO_NATIVE_MAC && !TARGET_OS_VISION
             if(host_game_thread_enabled())host_external_output_resize(new_layer,width,height);
 #endif
@@ -6950,7 +7323,7 @@ static void frame_load_draw(id<MTLTexture> picture)
 		uint32_t perf_token = host_perf_metal_prepare(commands, pass, 1, HOST_PERF_HUD);
 		load = [commands renderCommandEncoderWithDescriptor:pass];
 		host_perf_metal_begin(perf_token, load);
-		[load setRenderPipelineState:present_pipeline];
+		[load setRenderPipelineState:quad_pipeline(present_fragment, frame_load_target.pixelFormat)];
 		[load setFragmentTexture:picture atIndex:0];
 		[load setFragmentSamplerState:present_sampler atIndex:0];
 		[load drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
@@ -7209,11 +7582,12 @@ static struct
 	each size of target */
 	id<MTLFunction> fxaa, upscale_fxaa;
 	id<MTLLibrary> smaa;
-	/* FXAA's pipeline, and SMAA's for each size ("WxH" and the pass) */
+	/* FXAA's pipeline, and SMAA's for each size ("WxH", the pass and the target's format), as made for BGRA8
+	targets (the programs' readiness); post_format_pipeline makes them for the target's own format */
 	id<MTLRenderPipelineState> fxaa_pipeline;
 	/* gpu_upscale's with FXAA folded in: all four channels written */
 	id<MTLRenderPipelineState> upscale_fxaa_pipeline;
-	NSMutableDictionary<NSString *, id<MTLRenderPipelineState>> *smaa_pipelines;
+	NSMutableDictionary<NSString *, id<MTLRenderPipelineState>> *smaa_pipelines, *format_pipelines;
 	/* FXAA's, and SMAA's, programs or textures could not be made */
 	BOOL failed[2];
 	/* the target's pixels before the pass, and SMAA's edges and blending
@@ -7243,12 +7617,27 @@ static id<MTLRenderPipelineState> post_pipeline(id<MTLFunction> fragment, MTLPix
 	return pipeline;
 }
 
-/* SMAA's pipeline for a pass and a size of target, made the first time */
-static id<MTLRenderPipelineState> smaa_pipeline(int which, unsigned long width, unsigned long height)
+/* a post pipeline (FXAA's, or gpu_upscale's with FXAA) for a target's format, made the first time */
+static id<MTLRenderPipelineState> post_format_pipeline(id<MTLFunction> fragment, MTLPixelFormat format, BOOL color_only)
+{
+	NSString *key = [NSString stringWithFormat:@"%@/%lu/%d", fragment.name, (unsigned long)format, color_only ? 1 : 0];
+	id<MTLRenderPipelineState> pipeline = post.format_pipelines[key];
+
+	if (!pipeline && fragment && (pipeline = post_pipeline(fragment, format, color_only)))
+	{
+		if (!post.format_pipelines)
+			post.format_pipelines = [NSMutableDictionary dictionary];
+		post.format_pipelines[key] = pipeline;
+	}
+	return pipeline;
+}
+
+/* SMAA's pipeline for a pass, a size of target and its format, made the first time */
+static id<MTLRenderPipelineState> smaa_pipeline(int which, unsigned long width, unsigned long height, MTLPixelFormat format)
 {
 	static NSString *const names[POST_PROGRAMS] =
 		{ nil, @"smaa_edges_fragment", @"smaa_weights_fragment", @"smaa_blend_fragment" };
-	NSString *key = [NSString stringWithFormat:@"%lux%lu/%d", width, height, which];
+	NSString *key = [NSString stringWithFormat:@"%lux%lu/%d/%lu", width, height, which, (unsigned long)format];
 	id<MTLRenderPipelineState> pipeline = post.smaa_pipelines[key];
 
 	if (!pipeline)
@@ -7266,7 +7655,7 @@ static id<MTLRenderPipelineState> smaa_pipeline(int which, unsigned long width, 
 			return nil;
 		}
 		pipeline = post_pipeline(fragment, which == POST_SMAA_EDGES ? MTLPixelFormatRG8Unorm :
-			which == POST_SMAA_WEIGHTS ? MTLPixelFormatRGBA8Unorm : MTLPixelFormatBGRA8Unorm, which == POST_SMAA_BLEND);
+			which == POST_SMAA_WEIGHTS ? MTLPixelFormatRGBA8Unorm : format, which == POST_SMAA_BLEND);
 		if (!pipeline)
 			return nil;
 		post.smaa_pipelines[key] = pipeline;
@@ -7313,10 +7702,10 @@ static uint32_t gpu_metal_anti_alias_prepare(uint32_t method, const char *smaa_s
 		}
 		if (!smaa)
 		{
-			if (!post.fxaa_pipeline && !(post.fxaa_pipeline = post_pipeline(post.fxaa, MTLPixelFormatBGRA8Unorm, YES)))
+			if (!post.fxaa_pipeline && !(post.fxaa_pipeline = post_format_pipeline(post.fxaa, MTLPixelFormatBGRA8Unorm, YES)))
 				post.failed[0] = YES;
 			if (!post.failed[0] && !post.upscale_fxaa_pipeline)
-				post.upscale_fxaa_pipeline = post_pipeline(post.upscale_fxaa, MTLPixelFormatBGRA8Unorm, NO);
+				post.upscale_fxaa_pipeline = post_format_pipeline(post.upscale_fxaa, MTLPixelFormatBGRA8Unorm, NO);
 			return post.failed[0] ? 0 : 1;
 		}
 		if (!post.smaa)
@@ -7983,6 +8372,9 @@ static struct
 	BOOL tried, failed;
 	id<MTLComputePipelineState> prepare, gather, blur, upsample, prepare_v1, gather_v1;
 	id<MTLRenderPipelineState> multiply, replace, debug, multiply_half;
+	/* the composites' library and the color format they were made for (ssao_composites) */
+	id<MTLLibrary> library;
+	MTLPixelFormat color_format;
 	id<MTLSamplerState> linear_clamp;
 	id<MTLDepthStencilState> level, objects, everything;
 	/* half resolution: depth with the class in its sign (R32Float), raw and blurred AO (R16Float); full: AO (R8), the
@@ -8007,11 +8399,52 @@ static BOOL soft_particles_supported(void)
 	return metal_pass(METAL_PASS_SOFT_PARTICLES);
 }
 
+/* the composite pipelines for a scene target's format (BGRA8, or RGBA16Unorm with display.scene_precision 16), made
+again when the format changes (a graphics mode switch); NO if one cannot be made */
+static BOOL ssao_composites(MTLPixelFormat format)
+{
+	NSError *error = nil;
+	id<MTLLibrary> library = ssao.library;
+	MTLRenderPipelineDescriptor *pipeline;
+
+	if (ssao.color_format == format && ssao.replace)
+		return YES;
+	ssao.color_format = format;
+	pipeline = [MTLRenderPipelineDescriptor new];
+	pipeline.vertexFunction = [library newFunctionWithName:@"ssao_vertex"];
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite"];
+	pipeline.colorAttachments[0].pixelFormat = format;
+	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
+	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	ssao.replace = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.colorAttachments[0].blendingEnabled = YES;
+	pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
+	pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
+	pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
+	pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
+	pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
+	pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
+	ssao.multiply = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite_half"];
+	ssao.multiply_half = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.colorAttachments[0].blendingEnabled = NO;
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_debug"];
+	ssao.debug = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	if (!ssao.replace || !ssao.multiply || !ssao.debug || !ssao.multiply_half)
+	{
+		platform_log("ssao: a composite pipeline cannot be made for %s: %s", pixel_format_name(format),
+			error ? error.localizedDescription.UTF8String : "?");
+		ssao.replace = nil;
+		return NO;
+	}
+	return YES;
+}
+
 static BOOL ssao_programs(void)
 {
 	NSError *error = nil;
 	id<MTLLibrary> library;
-	MTLRenderPipelineDescriptor *pipeline;
 	MTLDepthStencilDescriptor *state;
 	MTLStencilDescriptor *stencil;
 
@@ -8039,27 +8472,8 @@ static BOOL ssao_programs(void)
 		error:&error];
 	ssao.gather_v1 = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"ssao_gather_v1"]
 		error:&error];
-	pipeline = [MTLRenderPipelineDescriptor new];
-	pipeline.vertexFunction = [library newFunctionWithName:@"ssao_vertex"];
-	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite"];
-	pipeline.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
-	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
-	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
-	ssao.replace = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
-	pipeline.colorAttachments[0].blendingEnabled = YES;
-	pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
-	pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
-	pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
-	pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
-	pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
-	pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
-	ssao.multiply = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
-	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite_half"];
-	ssao.multiply_half = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
-	pipeline.colorAttachments[0].blendingEnabled = NO;
-	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_debug"];
-	ssao.debug = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	ssao.library = library;
+	ssao_composites(MTLPixelFormatBGRA8Unorm);
 	{
 		MTLSamplerDescriptor *sampler = [MTLSamplerDescriptor new];
 
@@ -8257,10 +8671,11 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 		static BOOL refused_logged;
 
 		if (count < 18 || !color_record || !color_record->texture || !depth_record || !depth_record->texture ||
-			color_record->description.format != GPU_FORMAT_BGRA8 ||
+			!gpu_format_color_target(color_record->description.format) ||
 			depth_record->description.format != GPU_FORMAT_DEPTH_STENCIL || color_record->samples ||
 			depth_record->samples || foveation_map(color_record) || foveation_map(depth_record) ||
-			!(depth_record->texture.usage & MTLTextureUsagePixelFormatView) || !ssao_programs())
+			!(depth_record->texture.usage & MTLTextureUsagePixelFormatView) || !ssao_programs() ||
+			!ssao_composites(color_record->texture.pixelFormat))
 		{
 			if (!refused_logged)
 				platform_log("ssao: skipped (targets %s, stencil view %s)", color_record && depth_record ? "ok" : "missing",
@@ -8471,8 +8886,8 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 		struct gpu_rect physical_rect;
 		id<MTLBlitCommandEncoder> blit;
 
-		if (!record || !record->texture || record->description.format != GPU_FORMAT_BGRA8 ||
-			(smaa ? !post.smaa : !post.fxaa_pipeline))
+		if (!record || !record->texture || !gpu_format_color_target(record->description.format) ||
+			(smaa ? !post.smaa : !post.fxaa_pipeline || !post_format_pipeline(post.fxaa, record->texture.pixelFormat, YES)))
 		{
 			static BOOL skipped_logged;
 
@@ -8522,7 +8937,8 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 		width = record->texture.width;
 		height = record->texture.height;
 		pass_end();
-		if (!post.color || post.color.width != width || post.color.height != height)
+		if (!post.color || post.color.width != width || post.color.height != height ||
+			post.color.pixelFormat != record->texture.pixelFormat)
 		{
 			id<MTLTexture> color = post.color, edges = post.edges, weights = post.weights;
 
@@ -8532,7 +8948,8 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 			post.other_color = color;
 			post.other_edges = edges;
 			post.other_weights = weights;
-			if (!post.color || post.color.width != width || post.color.height != height)
+			if (!post.color || post.color.width != width || post.color.height != height ||
+				post.color.pixelFormat != record->texture.pixelFormat)
 			{
 				if (post.color)
 				{
@@ -8545,7 +8962,7 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 						if ([key hasPrefix:prefix])
 							[post.smaa_pipelines removeObjectForKey:key];
 				}
-				post.color = post_texture(MTLPixelFormatBGRA8Unorm, width, height, YES);
+				post.color = post_texture(record->texture.pixelFormat, width, height, YES);
 				post.edges = post.weights = nil;
 			}
 		}
@@ -8591,14 +9008,14 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 					((float)(area.x + area.width) - 0.5f) / (float)width, ((float)(area.y + area.height) - 0.5f) / (float)height },
 			};
 
-			post_pass(record->texture, NO, post.fxaa_pipeline, area, @[ post.color ], &parameters, sizeof(parameters),
-				@"FXAA");
+			post_pass(record->texture, NO, post_format_pipeline(post.fxaa, record->texture.pixelFormat, YES), area,
+				@[ post.color ], &parameters, sizeof(parameters), @"FXAA");
 			return;
 		}
 		{
-			id<MTLRenderPipelineState> edges = smaa_pipeline(POST_SMAA_EDGES, width, height);
-			id<MTLRenderPipelineState> weights = smaa_pipeline(POST_SMAA_WEIGHTS, width, height);
-			id<MTLRenderPipelineState> blend = smaa_pipeline(POST_SMAA_BLEND, width, height);
+			id<MTLRenderPipelineState> edges = smaa_pipeline(POST_SMAA_EDGES, width, height, record->texture.pixelFormat);
+			id<MTLRenderPipelineState> weights = smaa_pipeline(POST_SMAA_WEIGHTS, width, height, record->texture.pixelFormat);
+			id<MTLRenderPipelineState> blend = smaa_pipeline(POST_SMAA_BLEND, width, height, record->texture.pixelFormat);
 
 			if (!edges || !weights || !blend)
 			{
@@ -8711,6 +9128,41 @@ static void scene_scaler_encode(id<MTLTexture> color, NSUInteger content_width, 
 }
 #endif
 
+#ifdef HAVE_METALFX
+/* a scene format MetalFX's spatial scaler refused, and scaler_input's RGBA16Float copy of the picture for it */
+static MTLPixelFormat metalfx_refused_format = MTLPixelFormatInvalid;
+static id<MTLTexture> scaler_float;
+
+static id<MTLTexture> scaler_input(id<MTLTexture> picture)
+{
+	MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+	id<MTLRenderCommandEncoder> encoder;
+	int32_t offset[4] = { 0, 0, 0, 0 };
+
+	if (!scaler_float || scaler_float.width != picture.width || scaler_float.height != picture.height)
+	{
+		MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float
+			width:picture.width height:picture.height mipmapped:NO];
+
+		descriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+		descriptor.storageMode = MTLStorageModePrivate;
+		scaler_float = [device newTextureWithDescriptor:descriptor];
+	}
+	pass.colorAttachments[0].texture = scaler_float;
+	pass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+	pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+	encoder = [command_buffer() renderCommandEncoderWithDescriptor:pass];
+	if (metal_debug)
+		encoder.label = @"MetalFX input";
+	[encoder setRenderPipelineState:quad_pipeline(copy_function, MTLPixelFormatRGBA16Float)];
+	[encoder setFragmentTexture:picture atIndex:0];
+	[encoder setFragmentBytes:offset length:sizeof(offset) atIndex:0];
+	[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+	[encoder endEncoding];
+	return scaler_float;
+}
+#endif
+
 /* (output: a texture of that size to scale into in place of the scaler's
 own, if its usage allows; the result says which was written. The picture is
 content_width x content_height at the back buffer's top left: the whole of
@@ -8723,8 +9175,13 @@ static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, NSUInteger conten
 	{
 		if (!metalfx_wanted || (long)content_width >= width || (long)content_height >= height)
 			return back_buffer;
+		/* a scene format the scaler refused (display.scene_precision's RGBA16Unorm: MetalFX does not document it)
+		is converted to RGBA16Float first, which it takes */
+		if (metalfx_refused_format != MTLPixelFormatInvalid && back_buffer.pixelFormat == metalfx_refused_format)
+			back_buffer = scaler_input(back_buffer);
 		if (!upscaler || upscaler.inputWidth != back_buffer.width || upscaler.inputHeight != back_buffer.height ||
-			upscaler.outputWidth != (NSUInteger)width || upscaler.outputHeight != (NSUInteger)height)
+			upscaler.outputWidth != (NSUInteger)width || upscaler.outputHeight != (NSUInteger)height ||
+			upscaler.colorTextureFormat != back_buffer.pixelFormat)
 		{
 			MTLFXSpatialScalerDescriptor *descriptor = [MTLFXSpatialScalerDescriptor new];
 			MTLTextureDescriptor *output;
@@ -8737,8 +9194,19 @@ static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, NSUInteger conten
 			descriptor.outputTextureFormat = back_buffer.pixelFormat;
 			/* the game's colors are display-encoded, not linear */
 			descriptor.colorProcessingMode = MTLFXSpatialScalerColorProcessingModePerceptual;
-			if (!metal_pass(METAL_PASS_METALFX_SPATIAL) ||
-				!(upscaler = [descriptor newSpatialScalerWithDevice:device]))
+			upscaler = metal_pass(METAL_PASS_METALFX_SPATIAL) ? [descriptor newSpatialScalerWithDevice:device] : nil;
+			if (!upscaler && metal_pass(METAL_PASS_METALFX_SPATIAL) && back_buffer.pixelFormat != MTLPixelFormatBGRA8Unorm &&
+				back_buffer.pixelFormat != MTLPixelFormatRGBA16Float)
+			{
+				platform_log("Metal: MetalFX's spatial scaler refuses %s; the picture is converted to rgba16f for it",
+					pixel_format_name(back_buffer.pixelFormat));
+				metalfx_refused_format = back_buffer.pixelFormat;
+				back_buffer = scaler_input(back_buffer);
+				descriptor.colorTextureFormat = back_buffer.pixelFormat;
+				descriptor.outputTextureFormat = back_buffer.pixelFormat;
+				upscaler = [descriptor newSpatialScalerWithDevice:device];
+			}
+			if (!upscaler)
 			{
 				platform_log("Metal: MetalFX's spatial scaler is unavailable; the picture is scaled bilinearly");
 				GPU_VALIDATION_REPORT(GPU_VALIDATION_UPSCALER_UNAVAILABLE, 0, "Metal: MetalFX's spatial scaler is unavailable; "
@@ -9020,6 +9488,7 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		scene.width = (int32_t)((unsigned long)(scissor.x + scissor.width) * content_width / target.width) - scene.x;
 		scene.height = (int32_t)((unsigned long)(scissor.y + scissor.height) * content_height / target.height) - scene.y;
 		fxaa = anti_alias == GPU_ANTI_ALIAS_FXAA && post.upscale_fxaa_pipeline &&
+			post_format_pipeline(post.upscale_fxaa, target.pixelFormat, NO) &&
 			!(whole && metalfx_wanted && (content_width < target.width || content_height < target.height));
 		if (anti_alias == GPU_ANTI_ALIAS_FXAA && !fxaa)
 			gpu_metal_anti_alias(GPU_ANTI_ALIAS_FXAA, source, &scene);
@@ -9086,7 +9555,8 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 			[pass_log appendFormat:@"; upscale: texture %u %lux%lu into %lux%lu at %lu,%lu", source,
 				(unsigned long)picture.width, (unsigned long)picture.height, (unsigned long)scissor.width,
 				(unsigned long)scissor.height, (unsigned long)scissor.x, (unsigned long)scissor.y];
-		[encoder setRenderPipelineState:fxaa ? post.upscale_fxaa_pipeline : upscale_pipeline];
+		[encoder setRenderPipelineState:fxaa ? post_format_pipeline(post.upscale_fxaa, target.pixelFormat, NO) :
+			quad_pipeline(upscale_function, target.pixelFormat)];
 		[encoder setCullMode:MTLCullModeNone];
 		[encoder setDepthBias:0.0f slopeScale:0.0f clamp:0.0f];
 		[encoder setViewport:(MTLViewport){ 0.0, 0.0, (double)target.width, (double)target.height, 0.0, 1.0 }];
@@ -9143,6 +9613,44 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		/* the next draw sets everything again */
 		metal_state_reset(&state_cache);
 	}
+}
+
+/* the built-in layer's format, changed on the main thread when a frame's picture asks for another
+(output_format_for): drawables taken after the change carry the new format, and the present pass's pipeline follows
+the drawable's (quad_pipeline), so no frame mismatches. A format the layer refuses (an exception, or another format
+read back) is logged once and never asked for again; that layer stays BGRA8, so no platform ships 8-bit silently. */
+
+static void layer_format_follow(MTLPixelFormat wanted)
+{
+	CAMetalLayer *target = layer;
+
+	if (atomic_load(&layer_formats_refused) & layer_format_bit(wanted))
+		wanted = MTLPixelFormatBGRA8Unorm;
+	if (wanted == layer_format_asked || !target)
+		return;
+	layer_format_asked = wanted;
+	host_main_async(^{
+		MTLPixelFormat reported = MTLPixelFormatInvalid;
+
+		@try
+		{
+			target.pixelFormat = wanted;
+			reported = target.pixelFormat;
+		}
+		@catch (NSException *exception)
+		{
+			platform_log("Metal: the layer refused %s: %s", pixel_format_name(wanted), exception.reason.UTF8String);
+		}
+		if (reported != wanted)
+		{
+			atomic_fetch_or(&layer_formats_refused, layer_format_bit(wanted));
+			target.pixelFormat = MTLPixelFormatBGRA8Unorm;
+			platform_log("Metal: the layer reports %s (%lu) for %s; the output stays bgra8", pixel_format_name(reported),
+				(unsigned long)reported, pixel_format_name(wanted));
+		}
+		else
+			platform_log("Metal: the layer is %s (%lu)", pixel_format_name(wanted), (unsigned long)wanted);
+	});
 }
 
 static uint32_t present_frame(gpu_texture back_buffer)
@@ -9265,6 +9773,9 @@ static uint32_t present_frame(gpu_texture back_buffer)
 				platform_log("Metal: the level's first %.1f s (%u frames): %u held for pipelines still compiling, %u shown with "
 					"draws skipped", start_hold.elapsed, start_hold.frames, start_hold.held, start_hold.shown);
 		}
+		/* display.scene_precision: the built-in display's layer follows the picture's precision */
+		if (record && record->texture && perf_output == 1)
+			layer_format_follow(output_format_for(record->texture.pixelFormat));
 		unsynced = frame_rate_sync();
 		gpu_metal_presentation_configure(layer);
 #if !TARGET_OS_VISION
@@ -9363,15 +9874,28 @@ static uint32_t present_frame(gpu_texture back_buffer)
 					load_name(pass.colorAttachments[0].loadAction), store_name(pass.colorAttachments[0].storeAction)];
 			/* (the CRT only over Hardcore's 480-line picture: until the next level a mode change can leave the
 			picture at the device's size) */
-			if (crt_pipeline && picture.height <= 540 && crt_enabled)
+			/* (each pipeline for the drawable's format, which follows the picture's: layer_format_follow) */
+			if (crt_function && picture.height <= 540 && crt_enabled)
 			{
 				float sizes[4] = { (float)picture.width, (float)picture.height, (float)width, (float)height };
 
-				[present setRenderPipelineState:crt_pipeline];
+				[present setRenderPipelineState:quad_pipeline(crt_function, target.pixelFormat)];
 				[present setFragmentBytes:sizes length:sizeof(sizes) atIndex:0];
 			}
+			/* display.scene_precision: the dither where the picture has more bits than the drawable (never from an
+			8-bit frame: nothing is left to dither), and debug.precision_ramp's test ramp */
+			else if (precision_ramp || (atomic_load(&present_dither_on) &&
+				format_levels(picture.pixelFormat) > format_levels(target.pixelFormat)))
+			{
+				float dither[4] = { atomic_load(&present_dither_on) ? 1.0f / format_levels(target.pixelFormat) : 0.0f,
+					precision_ramp ? 1.0f : 0.0f, 0.0f, 0.0f };
+
+				[present setRenderPipelineState:quad_pipeline(present_dither_function, target.pixelFormat)];
+				[present setFragmentBytes:dither length:sizeof(dither) atIndex:0];
+				[present setFragmentTexture:dither_noise atIndex:1];
+			}
 			else
-				[present setRenderPipelineState:present_pipeline];
+				[present setRenderPipelineState:quad_pipeline(present_fragment, target.pixelFormat)];
 			[present setViewport:(MTLViewport){ (double)((window_width - width) / 2), (double)((window_height - height) / 2),
 				(double)width, (double)height, 0.0, 1.0 }];
 			[present setFragmentTexture:picture atIndex:0];
@@ -10007,6 +10531,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		MTLSamplerDescriptor *linear = [MTLSamplerDescriptor new];
 
 		memset(capabilities, 0, sizeof(*capabilities));
+		scene_formats_read();
 		metal_debug = (flags & GPU_INITIALIZE_DEBUG) != 0;
 		visibility_wait = fixed_timestep_launch = (flags & GPU_INITIALIZE_FIXED_TIMESTEP) != 0;
 		metalfx_requested = metalfx_wanted = (flags & GPU_INITIALIZE_METALFX) != 0;
@@ -10094,11 +10619,6 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		fill_fragment = [utilities newFunctionWithName:@"fill_fragment"];
 		fill_pipelines = [NSMutableDictionary dictionary];
 		present_descriptor.vertexFunction = present_vertex;
-		present_descriptor.fragmentFunction = present_fragment;
-		present_descriptor.colorAttachments[0].pixelFormat = layer_format;
-		present_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
-		if (!present_pipeline)
-			host_fatal("Metal: cannot create the present pipeline: %s", error.description.UTF8String);
 		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"companion_fragment"];
 		/* SDL's built-in iOS layer uses BGRA8Unorm. The external layer may
 		choose another format without changing this phone pipeline. */
@@ -10106,17 +10626,30 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		companion_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
 		if (!companion_pipeline)
 			host_fatal("Metal: cannot create the companion pipeline: %s", error.description.UTF8String);
-		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"upscale_fragment"];
-		present_descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-		upscale_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
-		if (!upscale_pipeline)
-			host_fatal("Metal: cannot create the upscale pipeline: %s", error.description.UTF8String);
-		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"crt_fragment"];
-		present_descriptor.colorAttachments[0].pixelFormat = layer.pixelFormat;
-		crt_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
+		upscale_function = [utilities newFunctionWithName:@"upscale_fragment"];
+		present_dither_function = [utilities newFunctionWithName:@"present_dither_fragment"];
+		copy_function = [utilities newFunctionWithName:@"copy_fragment"];
+		/* (the present and upscale pipelines for today's formats now, so a broken one stops the game at launch) */
+		quad_pipeline(present_fragment, layer_format);
+		quad_pipeline(upscale_function, MTLPixelFormatBGRA8Unorm);
+		crt_function = [utilities newFunctionWithName:@"crt_fragment"];
+		present_descriptor.fragmentFunction = crt_function;
+		present_descriptor.colorAttachments[0].pixelFormat = layer_format;
 		/* (no CRT is no reason to stop the game) */
-		if (!crt_pipeline)
+		if (![device newRenderPipelineStateWithDescriptor:present_descriptor error:&error])
+		{
 			platform_log("Metal: cannot create the CRT pipeline: %s", error.description.UTF8String);
+			crt_function = nil;
+		}
+		{
+			MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRG8Unorm
+				width:BLUE_NOISE_SIZE height:BLUE_NOISE_SIZE mipmapped:NO];
+
+			descriptor.usage = MTLTextureUsageShaderRead;
+			dither_noise = [device newTextureWithDescriptor:descriptor];
+			[dither_noise replaceRegion:MTLRegionMake2D(0, 0, BLUE_NOISE_SIZE, BLUE_NOISE_SIZE) mipmapLevel:0
+				withBytes:blue_noise_rg bytesPerRow:BLUE_NOISE_SIZE * 2];
+		}
 		linear.minFilter = MTLSamplerMinMagFilterLinear;
 		linear.magFilter = MTLSamplerMinMagFilterLinear;
 		present_sampler = [device newSamplerStateWithDescriptor:linear];

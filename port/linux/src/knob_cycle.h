@@ -49,6 +49,11 @@ static const struct knob knob_table[] = {
 	{ "point lights", "display.point_light_limit", KNOB_INTEGER, 4, { "2", "4", "6", "8" }, { "2", "4", "6", "8" } },
 	/* debug.ssao (spike): off, on, the AO term alone (d3d8_device.c) */
 	{ "ambient occlusion", "debug.ssao", KNOB_INTEGER, 3, { "0", "1", "2" }, { "setting", "on", "AO only" } },
+	/* display.scene_precision: the scene's targets are made again in the other format from the next frame
+	(scene_precision_frame); debug.present_dither: the present pass's dither where the frame has more bits than the
+	layer, on or off from the next frame (the Apple TV grain check) */
+	{ "scene precision", "display.scene_precision", KNOB_INTEGER, 2, { "8", "16" }, { "8 bits", "16 bits" } },
+	{ "present dither", "debug.present_dither", KNOB_STRING, 2, { "off", "auto" }, { "off", "on" } },
 	/* (display.graphics: per-frame settings change on the next frame; Hardcore's picture size and rate at the next
 	level) */
 	{ "graphics", "display.graphics", KNOB_STRING, 3, { "hardcore", "classic", "enhanced" },

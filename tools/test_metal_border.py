@@ -28,6 +28,7 @@ def test_zero_border_resource_transitions_select_and_bind_the_correct_sampler():
     for signature in (
         "static MTLSamplerBorderColor border_color(",
         "static unsigned exact_borders(",
+        "static BOOL format_has_alpha(",
         "static BOOL zero_border_eligible(",
         "static id<MTLSamplerState> sampler_state(",
         "static void *sampler_state(",   # (unretained since the draw path's ARC change)

@@ -64,6 +64,8 @@ enum graphics_mode
 	X("display.effect_limits", "xbox", NULL) \
 	X("game.garbage_limit", "xbox", NULL) \
 	X("display.soft_particles", "false", NULL) \
+	/* the Xbox's 8-bit frame and its banding: no 16-bit scene, no 10-bit layer, no present dither */ \
+	X("display.scene_precision", "8", NULL) \
 	/* additions the Xbox never drew: off in Classic too */ \
 	X("display.first_person_legs", "false", "false") \
 	X("display.shadow_props", "false", "false") \

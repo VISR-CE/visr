@@ -271,6 +271,18 @@
           ],
           "x-tier": "player"
         },
+        "scene_precision": {
+          "type": "integer",
+          "default": 8,
+          "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Read at launch and at a graphics mode switch. Hardcore keeps 8 (display.graphics).",
+          "x-environment": "HALO_SCENE_PRECISION",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "x-tier": "tuning"
+        },
         "effect_limits": {
           "type": "string",
           "default": "raised",
@@ -3672,6 +3684,81 @@
           "default": 0,
           "description": "With benchmark_shot_pass, the tick after the window opens to take the picture at; 0 is the window's end.",
           "x-environment": "HALO_BENCHMARK_SHOT_TICK",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "scene_format": {
+          "type": "string",
+          "default": "",
+          "description": "Measurement: the pixel format of the targets that hold the scene's color (Metal, mono), in place of display.scene_precision's: bgra8, rgba16, rgba16f, rgb10a2 (timing only: two bits of alpha) or bgra10_xr; empty follows display.scene_precision.",
+          "x-environment": "HALO_SCENE_FORMAT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "enum": [
+            "",
+            "bgra8",
+            "rgba16",
+            "rgba16f",
+            "rgb10a2",
+            "bgra10_xr"
+          ]
+        },
+        "output_format": {
+          "type": "string",
+          "default": "",
+          "description": "Measurement: the Metal layer's pixel format in place of the one display.scene_precision picks: bgra8, bgr10a2, bgr10_xr, bgra10_xr or rgba16f; empty follows display.scene_precision.",
+          "x-environment": "HALO_OUTPUT_FORMAT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "enum": [
+            "",
+            "bgra8",
+            "bgr10a2",
+            "bgr10_xr",
+            "bgra10_xr",
+            "rgba16f"
+          ]
+        },
+        "present_dither": {
+          "type": "string",
+          "default": "auto",
+          "description": "The fixed blue-noise dither where the present pass writes a 16-bit frame to a layer with fewer bits: auto (on whenever that is so) or off. debug.knob_cycle's chord changes it as the game runs (the Apple TV grain check).",
+          "x-environment": "HALO_PRESENT_DITHER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "enum": [
+            "auto",
+            "off"
+          ]
+        },
+        "precision_ramp": {
+          "type": "boolean",
+          "default": false,
+          "description": "The present pass draws the display-depth test ramp in place of the picture: the darkest sixteen 8-bit levels left to right, the top third rounded to 8 bits, the middle third at the layer's depth, the bottom third dithered (Metal; with display.scene_precision 16 the layer is 10-bit where it can be).",
+          "x-environment": "HALO_PRECISION_RAMP",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "screenshot_raw": {
+          "type": "boolean",
+          "default": false,
+          "description": "With screenshot_directory: a read of a scene target that is not BGRA8 also saves the target's own values as rawNNNNN.<format> (for banding analysis).",
+          "x-environment": "HALO_SCREENSHOT_RAW",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
