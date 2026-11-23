@@ -182,6 +182,8 @@ __attribute__((weak)) void frame_waits_add_game(double seconds)
 { }
 __attribute__((weak)) void frame_waits_add_slot(double started, double ended)
 { }
+__attribute__((weak)) double frame_waits_display(double present_called)
+{ fprintf(stderr, "host_stubs: probe called frame_waits_display without defining it\n"); abort(); }
 __attribute__((weak)) struct frame_waits_taken frame_waits_take(double present_called)
 { fprintf(stderr, "host_stubs: probe called frame_waits_take without defining it\n"); abort(); }
 __attribute__((weak)) const struct gpu_backend * gpu_call_hash_wrap(unsigned instance, const struct gpu_backend *chosen, gpu_call_hash_report report)
