@@ -24,6 +24,7 @@ from xml.etree import ElementTree as ET
 
 import menu_catalog
 import menu_geometry
+import menu_text_metrics
 import port_settings
 from port_settings import apply_now_spinner_handlers
 # Shared geometry (rows, legend, value columns, dropdown) lives in menu_geometry.py, which also writes the
@@ -119,9 +120,8 @@ DIALOG_HIT = (122, 118, 112, 53)
 DIALOG_RULE, DIALOG_BOTTOM = 130, 159
 DIALOG_GLYPH_Y = (DIALOG_RULE + DIALOG_BOTTOM - 26) // 2
 DIALOG_GLYPH, DIALOG_GLYPH_GAP = 21, 4
-# large_ui capitals run about 12.5 units each; slots hug glyph + caption + padding, 60 wide at least (tap area),
-# and the row is centered as a group.
-DIALOG_CAPTION_CHAR = 12.5
+# Slots hug glyph + caption (measured in the menu font) + padding, 60 wide at least (tap area), and the row is
+# centered as a group.
 DIALOG_SLOT_PAD, DIALOG_SLOT_GAP, DIALOG_SLOT_MIN = 8, 6, 60
 
 
@@ -2046,7 +2046,8 @@ def dialog_legend_slots(labels):
 
 
 def dialog_caption_width(label):
-    return math.ceil(len(label) * DIALOG_CAPTION_CHAR)
+    """The caption's drawn width: the game's own font advances (ui\\large_ui), as the engine measures it."""
+    return menu_text_metrics.text_width('ui\\large_ui', label)
 
 
 def dialog_legend_targets(root, screen, base, x=None, y=None, cancel=False, accept='OK'):

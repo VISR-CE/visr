@@ -1761,9 +1761,12 @@ def modal_legend_inks(widgets, screen):
                 continue
             left = x + int(c.get('x', 0))
             top = y + int(c.get('y', 0))
-            width = gen.dialog_caption_width(w.get('text') or 'OK') if w.get('type') == 'text' else int(w.get('width'))
-            if w.get('type') == 'text' and not w.get('text'):
-                width = int(w.get('width'))
+            width = int(w.get('width'))
+            if w.get('type') == 'text':  # the caption box is exactly as wide as the text the font draws
+                label = next(widgets[t.get('widget')].get('text') for t in target.findall('child')
+                             if t.get('widget').endswith('touch_caption'))
+                import menu_text_metrics
+                assert width == menu_text_metrics.text_width('large', label), label
             ink.append((left, left + width, top, top + int(w.get('height'))))
         result.append((min(i[0] for i in ink), max(i[1] for i in ink), min(i[2] for i in ink), max(i[3] for i in ink)))
     return result
@@ -1791,7 +1794,7 @@ def test_every_modal_legend_row_is_centered_in_the_footer_band():
             band_center = (gen.DIALOG_RULE + gen.DIALOG_BOTTOM) / 2
             assert abs((ink_top + ink_bottom) / 2 - top - band_center) <= 2, f'{name}: legend off the band center'
         group_left, group_right = min(i[0] for i in inks), max(i[1] for i in inks)
-        assert abs((group_left - left) - (left + 239 - group_right)) <= 4, f'{name}: legend group off center'
+        assert abs((group_left - left) - (left + 239 - group_right)) <= 2, f'{name}: legend group off center'
         checked += 1
     assert checked >= 8
 
@@ -1802,15 +1805,16 @@ def test_modal_message_lines_fit_above_the_footer_rule():
     gen = generator()
     strings = ET.parse(ROOT / 'tools/menu_sources/strings.xml').getroot()
     group = next(g for g in strings.iter('strings') if g.get('name') == 'strings/displayed_error_messages')
-    wide = 239 - 18
+    import menu_text_metrics as metrics
     items = list(group.iter('string'))
     used = {int(w.get('string_index')) for path in (MENUS / 'xbox').glob('*.xml') for w in ET.parse(path).iter('widget')
             if w.get('string_list', '').endswith('strings/displayed_error_messages') and w.get('string_index')}
     assert {24, 25, 60} <= used  # the delete and join confirmations
     for index in sorted(used):
         text = (items[index].get('text') or '').replace('%controller', '1')
-        lines = sum(max(1, math.ceil(len(part.strip()) * 9.0 / wide)) for part in text.split('\\n'))
-        assert 36 + 21 * lines <= gen.DIALOG_RULE + 4, f'{text!r} runs into the legend row ({lines} lines)'
+        lines, complete = metrics.layout('large', text.replace('\\n', '\n'), 239 - 9, True)
+        bottom = 36 + len(lines) * metrics.line_height('large')
+        assert complete and bottom <= gen.DIALOG_RULE, f'{text!r} runs into the legend row ({len(lines)} lines)'
 
 
 def legend_items(screen, widgets):
