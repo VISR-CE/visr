@@ -115,7 +115,9 @@ there is static: the backend's operations are reached through its table, gpu_bac
 others). tools/gpu_metal_entry_points.py checks the built gpu_metal.o's functions against this list after every
 iOS, tvOS and macOS build (tools/ios_build.py, tools/macos_build.py): a new one needs a row, or a place in the table.
 - THREAD_SAFE: reads or counts through atomics, or reads a switch set for the run, from any thread
-  (gpu_metal_count_gpu_time: a command buffer that host_stereo.m or host_theater.m committed itself).
+  (gpu_metal_count_gpu_time: a command buffer that host_stereo.m or host_theater.m committed itself), or sets
+  such a switch with an atomic store the presenter reads at its next present (host_present_dither_set: the guest's
+  knob chord).
 - WORKGROUP: acts on the frame-deadline workgroup the presenting thread joined (the dispatch, the benchmark pages,
   share sheets, cloud saves, host_tv.m). They stay direct calls with the encode thread, which joins the workgroup and
   starts the interval at its present's return, before the barrier lets the game thread go: the game thread's end comes
@@ -127,6 +129,7 @@ iOS, tvOS and macOS build (tools/ios_build.py, tools/macos_build.py): a new one 
 	E(gpu_metal_async_compiles, THREAD_SAFE) \
 	E(gpu_metal_count_gpu_time, THREAD_SAFE) \
 	E(gpu_metal_gpu_spans_summary, THREAD_SAFE) \
+	E(host_present_dither_set, THREAD_SAFE) \
 	E(gpu_metal_frame_deadline_end, WORKGROUP) \
 	E(gpu_metal_frame_deadline_leave, WORKGROUP) \
 	E(gpu_metal_frame_deadline_hold, WORKGROUP) \
