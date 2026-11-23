@@ -80,8 +80,8 @@ Planned releases and the work in each are tracked as milestones: https://github.
 - [x] Sharing the host's invite through the system share sheet on iPhone, iPad and Vision Pro
 - [ ] Sharing the host's invite from Apple TV, as a QR code ([#75](https://github.com/VISR-CE/visr/issues/75))
 - [ ] Internet play on by default ([#93](https://github.com/VISR-CE/visr/issues/93))
-- [x] Custom Edition maps downloaded from a game's players, from OpenCE; off by default (`network.map_download`, DOWNLOAD MAPS in Settings > Network Setup)
-- [x] Helping send a Custom Edition map to other players is off by default (`network.map_seed`, HELP SEND MAPS in Settings > Network Setup)
+- [x] Custom Edition maps downloaded from a game's players, from OpenCE; off by default (`network.map_download`, MAPS > DOWNLOAD MAPS in Settings > Network Setup)
+- [x] Helping send a Custom Edition map to other players is off by default (`network.map_seed`, MAPS > HELP SEND MAPS in Settings > Network Setup)
 - [ ] A question with the map's name and size before a map download starts, then downloads on by default ([#94](https://github.com/VISR-CE/visr/issues/94))
 - [x] Network version 38 compatibility: versions 33 (co-op ally friendly fire), 34 (scenery shields and tripmines) and 37 implemented; the formats of 35, 36 and 38 accepted while their new gametypes are refused and stock shield effects are drawn and hosted
 

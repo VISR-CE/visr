@@ -937,9 +937,9 @@ listings again.
 The Server Browser shows the games on the game's own maps (its multiplayer
 maps, and the campaign levels of a co-op game). A game on any other map is
 a game on a Custom Edition map, and is shown only with CUSTOM MAPS
-(experimental) on in Network Setup (`network.custom_maps`, off
+(experimental) on (MAPS > CUSTOM MAPS in Settings > Network Setup, `network.custom_maps`, off
 by default), and then if `custom_maps` has a map of that name or map
-downloads are on (`network.map_download`, DOWNLOAD MAPS). A game on the map
+downloads are on (`network.map_download`, MAPS > DOWNLOAD MAPS). A game on the map
 of a map pack (Delta's
 list says that the family of the map is `pack`, such as CE+'s
 `wizard@cex`) is never shown. On joining, a client takes only a Custom
@@ -1059,16 +1059,16 @@ you leave the game, and the main menu tells you why. If the downloaded map
 cannot be played, the game deletes the files that it downloaded, and you
 leave the game.
 
-All the players help (HELP SEND MAPS in Settings > Network Setup,
+All the players help (MAPS > HELP SEND MAPS in Settings > Network Setup,
 `network.map_seed`), as the peers of a torrent do:
 the downloaded map comes in pieces from the host and from each player who
 has it or has a part of it. The game checks each piece against its hash, so
 a player cannot send a different map. A player who sends a bad piece is not
 asked again. To keep the upload free for the game, the host sends at most
 `network.map_share_upload` (1024 KB/s, in `config.toml`) and each other
-player at most `network.map_seed_upload` (256 KB/s: MAP UPLOAD LIMIT in
-Settings > Network Setup). Set these lower on
-a slow connection. DOWNLOAD MAPS there (`network.map_download`) turns
+player at most `network.map_seed_upload` (256 KB/s; not a menu row, set it in
+`config.toml`). Set these lower on
+a slow connection. MAPS > DOWNLOAD MAPS in Settings > Network Setup (`network.map_download`) turns
 downloading off: you then leave a game whose map you do not have.
 
 Maps keep their names. A game is on a map by its name (`hugeass`), and says
@@ -1198,7 +1198,7 @@ one that the router gives, and the game asks again after half of it. It
 asks again too when it comes back from the background.
 
 To stop all UPnP, NAT-PMP and PCP requests, set `network.allow_upnp` to
-`false`.
+`false` in `config.toml` (it is not a menu row).
 
 In the game, each machine has an address in 100.64.0.0/10:
 

@@ -978,8 +978,9 @@ into the guest unchanged. What differs on Apple platforms:
   those calls pass in or hand back. A machine listens on TCP port 5153 only
   in a game on a Custom Edition map, while it shares (`network.map_share`,
   `network.map_seed`) or downloads.
-- **Settings.** DOWNLOAD MAPS, HELP SEND MAPS and MAP UPLOAD LIMIT are rows
-  of Settings > Network Setup, and SHARE MAPS a row of Server Setup; the
+- **Settings.** DOWNLOAD MAPS and HELP SEND MAPS are rows of the MAPS
+  screen (Settings > Network Setup), `network.map_seed_upload` is a
+  `config.toml` key, and SHARE MAPS a row of Server Setup; the
   host's upload limit is `network.map_share_upload` in `config.toml`.
 
 What a machine checks of a download, all of it upstream's: the map's name
@@ -993,10 +994,10 @@ map's name, and the map loader then reads it. There is no check of free
 disk space and no question before a download starts, so
 `network.map_download` is off by default on Apple builds: joining a game on
 a map the device lacks then leaves the game, and the main menu says which
-map is missing and that DOWNLOAD MAPS in Settings > Network Setup turns
+map is missing and that MAPS > DOWNLOAD MAPS in Settings > Network Setup turns
 downloads on. The switch governs receiving only; `network.map_share` (a
 host) and `network.map_seed` (a player in another's game) govern sending.
-`network.map_seed` is off by default on Apple builds too (HELP SEND MAPS in
+`network.map_seed` is off by default on Apple builds too (MAPS > HELP SEND MAPS in
 Settings > Network Setup turns it on): a player's device then opens no
 listening port and sends no map to other players. `network.map_share` stays
 on: a host on a Custom Edition map listens on TCP port 5153 for its own
