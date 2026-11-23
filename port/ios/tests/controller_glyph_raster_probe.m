@@ -29,5 +29,23 @@ int main(void) {
   assert(!host_controller_glyph_raster(2,"a.circle",1024,64,pixels));
   assert(!host_controller_glyph_raster(3,"",64,64,pixels));
  }
+ /* Bug class: legend glyph clipped by its box. Every glyph the legends draw keeps a clear margin to the box edge
+    at the legend's box size (21x26 design units) at each screen scale, so its outline is never cut flat. */
+ {
+  const char *labels[] = {"Mouse Left","Mouse Right","Escape","A","Return","Delete","Space","Tab"};
+  for (int scale = 1; scale <= 4; scale++) {
+   int w = 21*scale, h = 26*scale;
+   unsigned char *box = malloc((size_t)w*h*4);
+   for (size_t i = 0; i < sizeof(labels)/sizeof(labels[0]); i++) {
+    if (!host_controller_glyph_raster(3,labels[i],w,h,box)) continue;
+    int x0=w,y0=h,x1=-1,y1=-1;
+    for (int y=0;y<h;y++) for (int x=0;x<w;x++) if (box[(y*w+x)*4+3]>8) {
+     if (x<x0)x0=x; if (x>x1)x1=x; if (y<y0)y0=y; if (y>y1)y1=y; }
+    assert(x1>=0);
+    assert(x0>=1 && y0>=1 && x1<=w-2 && y1<=h-2);
+   }
+   free(box);
+  }
+ }
  return 0;
 }

@@ -1734,9 +1734,6 @@ void controller_glyph_blit(struct bitmap_data *bitmap, rectangle2d const *bounds
 	rasterizer_psuedo_dynamic_screen_quad_draw(&parameters, vertices);
 }
 
-/* design units a legend glyph is raised to sit on its caption's cap height */
-#define LEGEND_GLYPH_RAISE 3
-
 int controller_glyph_draw(short player, short semantic, short physical,
 	rectangle2d const *bounds, rectangle2d const *clip, pixel32 color, short blend)
 {
@@ -10056,9 +10053,7 @@ static void widget_instance_render_recursive(
 				/* port: the legend's icon box is taller than its caption's, so the
 				glyph, centered in the box, sits below the caption's cap height;
 				raise it to center on the capitals */
-				rectangle2d glyph_bounds = bounds;
-				glyph_bounds.y0 -= LEGEND_GLYPH_RAISE;
-				glyph_bounds.y1 -= LEGEND_GLYPH_RAISE;
+				rectangle2d glyph_bounds = controller_glyph_legend_bounds(&bounds, clip);
 				if (controller_glyph_draw(owner, NONE, ui_mouse_key_button(widget), &glyph_bounds, clip, glyph_color, _controller_glyph_blend_menu))
 					shown = FALSE;
 			}
