@@ -94,6 +94,16 @@ def test_coop_page_navigation_and_hosting_rows():
             assert spinner.find("on[@event='created']").get('run') == 'port setting load'
             assert spinner.find("on[@event='deleted']") is None
             assert spinner.find("on[@event='left_mouse']").get('run') == 'mouse spinner 1wide click'
+    # (the page saves as a value changes: the two rule spinners through the co-op rules, the setting spinners
+    # through their settings, on left and right by pad or stick)
+    spinners = {w.get('name').removeprefix(base): w for w in page.values() if w.get('type') == 'spinner'}
+    saves = {name: 'port setting changed' if spinner.get('setting') else 'coop options changed'
+             for name, spinner in spinners.items()}
+    assert [name for name, save in saves.items() if save == 'coop options changed'] == [
+        'friendly_fire_spinner', 'extra_enemies_spinner']
+    for name, spinner in spinners.items():
+        for event in ('left', 'right', 'stick_left', 'stick_right'):
+            assert spinner.find(f"on[@event='{event}']").get('run') == saves[name], (name, event)
 
 
 def coop_generated_code():
