@@ -120,9 +120,12 @@ void player_ui_update_active_player_profile_record(
 	short local_player_index,
 	long profile_index,
 	struct player_profile *profile);
-/* port: a saved game file was deleted and the later entries' indices moved down: local players follow */
-void player_ui_saved_game_file_deleted(
+/* port: a saved game file was deleted and the later entries' indices moved down. Post it from any thread; the game
+thread applies posts at its tick (main.c) and before it reads or sets a profile */
+void player_ui_post_saved_game_file_deleted(
 	long deleted_index);
+void player_ui_apply_pending_saved_game_file_deletions(
+	void);
 void player_ui_set_active_player_profile(
 	short local_player_index,
 	long profile_index,

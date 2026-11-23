@@ -84,6 +84,7 @@ PROGRAM = r'''
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 #include "../../port/linux/game/player_input_profile.c"
 #define MAXIMUM_NUMBER_OF_LOCAL_PLAYERS 4
 #define NONE (-1)
@@ -120,14 +121,24 @@ boolean player_profile_get_input(long index, struct player_input_profile *input)
 	return 1;
 }
 /* FUNCTIONS */
-/* player_profile_delete: the entry goes, the players follow */
-static void profile_delete(long index)
+/* delete_enumerated_saved_game_file: the entry goes and the game's thread is told (it applies the post at its next
+tick, or before it reads or sets a profile) */
+static void profile_remove(long index)
 {
 	int i, n = (int)((index >> 16) & 0xFFF);
 	for (i = n; i + 1 < count; i++)
 		files[i] = files[i + 1];
 	count--;
-	player_ui_saved_game_file_deleted(index);
+}
+static void profile_delete(long index)
+{
+	profile_remove(index);
+	player_ui_post_saved_game_file_deleted(index);
+}
+static void *delete_on_another_thread(void *argument)
+{
+	profile_delete(*(long *)argument);
+	return NULL;
 }
 static long active_of(int player) { return player_ui_globals.local_players[player].active_profile_index; }
 int main(void)
@@ -180,6 +191,7 @@ int main(void)
 	player_ui_set_active_player_profile(1, index_b, &record);
 	player_ui_set_active_player_profile(2, index_c, &record);
 	profile_delete(index_a);
+	player_ui_apply_pending_saved_game_file_deletions();
 	/* the player on the deleted profile has none and the defaults */
 	assert(active_of(0) == NONE);
 	assert(!memcmp(player_input_profile_for_local_player(0), &defaults, sizeof(defaults)));
@@ -203,6 +215,58 @@ int main(void)
 				matches |= 1 << player;
 		assert(matches == 0);
 	}
+
+	/* a delete on another thread (a failed profile write): the post is applied by the game thread, and not before */
+	{
+		pthread_t thread;
+		count = 0;
+		memset(&player_ui_globals, 0, sizeof(player_ui_globals));
+		player_ui_globals.local_players[1].active_profile_index = NONE;
+		player_ui_globals.local_players[2].active_profile_index = NONE;
+		player_ui_globals.local_players[3].active_profile_index = NONE;
+		index_a = profile_create(&a);
+		index_b = profile_create(&b);
+		player_ui_set_active_player_profile(0, index_a, &record);
+		player_ui_set_active_player_profile(1, index_b, &record);
+		pthread_create(&thread, NULL, delete_on_another_thread, &index_a);
+		pthread_join(thread, NULL);
+		assert(player_ui_globals.local_players[0].active_profile_index == index_a);	/* (nothing applied off the game thread) */
+		player_ui_apply_pending_saved_game_file_deletions();
+		assert(active_of(0) == NONE && active_of(1) == INDEX_OF(0));
+		assert(!memcmp(player_input_profile_for_local_player(0), &defaults, sizeof(defaults)));
+		assert(!memcmp(player_input_profile_for_local_player(1), &b, sizeof(b)));
+	}
+
+	/* two deletes before the tick apply in order */
+	count = 0;
+	memset(&player_ui_globals, 0, sizeof(player_ui_globals));
+	player_ui_globals.local_players[0].active_profile_index = NONE;
+	player_ui_globals.local_players[1].active_profile_index = NONE;
+	player_ui_globals.local_players[2].active_profile_index = NONE;
+	player_ui_globals.local_players[3].active_profile_index = NONE;
+	index_a = profile_create(&a);
+	index_b = profile_create(&b);
+	index_c = profile_create(&c);
+	player_ui_set_active_player_profile(1, index_b, &record);
+	player_ui_set_active_player_profile(2, index_c, &record);
+	profile_delete(index_a);
+	profile_delete(INDEX_OF(0));	/* B, now first */
+	player_ui_apply_pending_saved_game_file_deletions();
+	assert(active_of(1) == NONE && active_of(2) == INDEX_OF(0));
+	assert(!memcmp(player_input_profile_for_local_player(2), &c, sizeof(c)));
+
+	/* more deletes between ticks than the mailbox holds: nobody can be trusted to hold a profile */
+	{
+		int i;
+		count = 0;
+		index_a = profile_create(&a);
+		player_ui_set_active_player_profile(0, index_a, &record);
+		for (i = 0; i < 40; i++)
+			player_ui_post_saved_game_file_deleted(INDEX_OF(9));
+		player_ui_apply_pending_saved_game_file_deletions();
+		assert(active_of(0) == NONE && active_of(2) == NONE);
+		assert(!memcmp(player_input_profile_for_local_player(0), &defaults, sizeof(defaults)));
+	}
 	return 0;
 }
 '''
@@ -219,11 +283,13 @@ def _activation_status(tmp_path, ui_source, mutate=None):
         pytest.skip('A C compiler is required')
     ui_source = ui_source.replace('\r\n', '\n')
     functions = _function(ui_source, 'void player_ui_set_active_player_profile(')
-    # (the delete hook is new in the branch: a source without it gets an empty one, which the probe must reject)
-    if 'void player_ui_saved_game_file_deleted(' in ui_source:
-        functions += '\n' + _function(ui_source, 'void player_ui_saved_game_file_deleted(')
+    # (the deletion mailbox is new in the branch: a source without it gets empty posts, which the probe must reject)
+    if '/* port: saved game file deletion mailbox' in ui_source:
+        start = ui_source.index('/* port: saved game file deletion mailbox')
+        functions = ui_source[start:ui_source.index('/* end of the deletion mailbox */')] + '\n' + functions
     else:
-        functions += '\nvoid player_ui_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }\n'
+        functions = ('void player_ui_post_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }\n'
+                     'void player_ui_apply_pending_saved_game_file_deletions(void) { }\n') + functions
     if mutate:
         functions = mutate(functions)
     folder = tmp_path / 'probe'
@@ -232,7 +298,7 @@ def _activation_status(tmp_path, ui_source, mutate=None):
     program.write_text(PROGRAM.replace('/* FUNCTIONS */', functions).replace('"../../port/', '"' + str(ROOT) + '/port/'))
     binary = folder / 'probe'
     subprocess.run([compiler, '-std=gnu99', '-Wall', '-Wno-unused-function', '-Wno-unused-variable',
-                    '-fsanitize=address,undefined', str(program), '--output=' + str(binary)], check=True)
+                    '-fsanitize=address,undefined', '-pthread', str(program), '--output=' + str(binary)], check=True)
     return subprocess.run([str(binary)], capture_output=True).returncode
 
 
@@ -258,7 +324,9 @@ def test_the_probe_catches_a_delete_that_leaves_active_indices_stale(tmp_path):
     ui = (ROOT / 'source/interface/player_ui.c').read_text(encoding='latin-1')
 
     def stale_indices(functions):
-        start = functions.index('void player_ui_saved_game_file_deleted(')
-        return functions[:start] + 'void player_ui_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }\n'
+        # (the hook that moves the players does nothing: the stale-index bug)
+        start = functions.index('static void player_ui_saved_game_file_deleted(')
+        end = functions.index('\n}', start) + 2
+        return functions[:start] + 'static void player_ui_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }' + functions[end:]
 
     assert _activation_status(tmp_path, ui, stale_indices) != 0

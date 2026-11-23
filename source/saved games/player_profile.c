@@ -288,12 +288,6 @@ void player_profile_delete(
 			"player_profile_delete() failed (profile index= #0x%lX)",
 			player_profile_index);
 	}
-	else if (player_profile_index != NONE)
-	{
-		/* port: the mapfile closed up over the entry, so every later index moved down by one: the local players'
-		active indices follow (and the deleted profile's players leave it), with their input settings */
-		player_ui_saved_game_file_deleted(player_profile_index);
-	}
 
 	return;
 }

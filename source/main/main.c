@@ -3970,6 +3970,8 @@ void main_loop(
 			network_away_update(main_globals.main_menu_scenario_loaded);
 			/* port: apply and replicate the host's mouse aim-assist policy. */
 			network_aim_assist_update();
+			/* port: local players follow a deleted profile's index (player_ui.c) */
+			player_ui_apply_pending_saved_game_file_deletions();
 			profile_scope_exit(main_port_network_section)
 			profile_scope_enter(main_network_start_frame_section)
 			connection = main_globals.connection;

@@ -317,6 +317,7 @@ symbols in this file:
 #include "text/unicode.h"
 #include "interface/ui_widget.h"
 #include "interface/ui_widget_event_handler_functions.h"
+#include "interface/player_ui.h"
 #include "saved games/game_state.h"
 #include "saved games/player_profile.h"
 #include "saved games/playlist_profile.h"
@@ -1545,6 +1546,11 @@ boolean delete_enumerated_saved_game_file(
 					{
 						error(_error_silent, "remove_nth_entry_in_mapfile() failed");
 						success = FALSE;
+					}
+					else
+					{
+						/* port: the entries after it moved down: the game thread's local players follow */
+						player_ui_post_saved_game_file_deleted(profile_index);
 					}
 
 					if (memory_unit != _memory_unit_hard_drive)

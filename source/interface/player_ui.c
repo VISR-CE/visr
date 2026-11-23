@@ -356,6 +356,7 @@ long player_ui_get_active_player_profile_index(
 {
 	long result;
 
+	player_ui_apply_pending_saved_game_file_deletions();
 	if (local_player_index >= 0 && local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS)
 		result = player_ui_globals.local_players[local_player_index].active_profile_index;
 	else
@@ -661,6 +662,7 @@ void player_ui_get_active_player_profile(
 {
 	match_assert("c:\\halo\\SOURCE\\interface\\player_ui.c", 238, (local_player_index>=0) && (local_player_index<MAXIMUM_NUMBER_OF_LOCAL_PLAYERS) && (profile != NULL));
 
+	player_ui_apply_pending_saved_game_file_deletions();
 	csmemcpy(profile, &player_ui_globals.local_players[local_player_index].profile, 0x30);
 	return;
 }
@@ -1335,6 +1337,7 @@ void player_ui_set_active_player_profile(
 		(local_player_index<MAXIMUM_NUMBER_OF_LOCAL_PLAYERS) &&
 		(profile != NULL));
 
+	player_ui_apply_pending_saved_game_file_deletions();
 	player_ui_globals.local_players[local_player_index].active_profile_index = profile_index;
 	csmemcpy(
 		&player_ui_globals.local_players[local_player_index].profile,
@@ -1352,10 +1355,31 @@ void player_ui_set_active_player_profile(
 	return;
 }
 
-/* port: the mapfile closed up over a deleted entry (saved_game_files.c remove_nth_entry_in_mapfile), so every entry
-after it has an index one lower: a local player's active index follows its profile. A local player on the deleted
-profile has no profile and the default input settings; they keep playing with the record they have */
-void player_ui_saved_game_file_deleted(
+/* port: saved game file deletion mailbox. The mapfile closes up over a deleted entry (saved_game_files.c
+remove_nth_entry_in_mapfile), so every entry after it has an index one lower and a local player's active index must
+follow its profile. A delete can run on any thread (a failed profile write deletes on the write thread), and the local
+players belong to the game thread: a delete posts its index here, and the game thread applies the posts in order, at
+its next tick (main.c) and before it reads or sets a profile. Posting is lock-free and safe from any thread. */
+#define PLAYER_UI_DELETION_MAILBOX_SIZE 16
+static long player_ui_deletion_mailbox[PLAYER_UI_DELETION_MAILBOX_SIZE];
+static volatile long player_ui_deletion_head;
+static long player_ui_deletion_tail;
+static volatile long player_ui_deletion_overflow;
+
+void player_ui_post_saved_game_file_deleted(
+	long deleted_index)
+{
+	long slot = __sync_fetch_and_add(&player_ui_deletion_head, 1) % PLAYER_UI_DELETION_MAILBOX_SIZE;
+
+	/* (the index is stored plus one: zero marks an empty slot) */
+	if (!__sync_bool_compare_and_swap(&player_ui_deletion_mailbox[slot], 0, deleted_index + 1))
+		player_ui_deletion_overflow = 1;
+	return;
+}
+
+/* a local player follows one deleted entry: the player on it has no profile and the default input settings (they
+keep the record they have), and every entry after it has an index one lower */
+static void player_ui_saved_game_file_deleted(
 	long deleted_index)
 {
 	short local_player_index;
@@ -1379,6 +1403,34 @@ void player_ui_saved_game_file_deleted(
 	}
 	return;
 }
+
+/* the game thread applies what was posted; a mailbox that overflowed (more deletes between ticks than it holds)
+cannot say which indices moved, so every local player then has no profile */
+void player_ui_apply_pending_saved_game_file_deletions(
+	void)
+{
+	long entry;
+
+	while ((entry = player_ui_deletion_mailbox[player_ui_deletion_tail % PLAYER_UI_DELETION_MAILBOX_SIZE]) != 0)
+	{
+		player_ui_deletion_mailbox[player_ui_deletion_tail % PLAYER_UI_DELETION_MAILBOX_SIZE] = 0;
+		player_ui_deletion_tail++;
+		player_ui_saved_game_file_deleted(entry - 1);
+	}
+	if (player_ui_deletion_overflow)
+	{
+		short local_player_index;
+
+		player_ui_deletion_overflow = 0;
+		for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
+		{
+			player_ui_globals.local_players[local_player_index].active_profile_index = NONE;
+			player_input_profile_set_local_player(local_player_index, NULL);
+		}
+	}
+	return;
+}
+/* end of the deletion mailbox */
 
 /* port: the record of the profile a local player already plays with, saved again with a level finished or a last level
 played: the input settings are not read again, which would wait for that save to finish */
