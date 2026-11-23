@@ -1197,8 +1197,7 @@ static BOOL precision_ramp;
 /* debug.screenshot_raw: a read of a scene target in another format also saves its own values */
 static BOOL screenshot_raw;
 
-/* (a guest import: guest_host.h) */
-void host_present_dither_set(int on);
+/* (a guest import: guest_host.h, declared in ios_host.h) */
 void host_present_dither_set(int on)
 {
 	atomic_store(&present_dither_on, on != 0);

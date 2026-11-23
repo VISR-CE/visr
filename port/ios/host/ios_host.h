@@ -48,6 +48,8 @@ int host_invite_card_up(void);
 void *host_sdl_metal_layer(void);
 /* the drawable the game's picture is fit into on its view, in pixels (0x0: none yet; gpu_metal.m) */
 void host_picture_drawable(float *width, float *height);
+/* the present pass's dither on or off as the game runs (debug.present_dither, the knob chord; gpu_metal.m) */
+void host_present_dither_set(int on);
 void host_ios_touch_initialize(void);
 void host_ios_prepare_assets(const char *documents);
 /* The import window stays up while the guest prepares pictures in flat offscreen frames. */

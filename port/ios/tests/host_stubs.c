@@ -1022,6 +1022,8 @@ __attribute__((weak)) void host_posture_poll(void)
 { }
 __attribute__((weak)) void host_posture_snapshot(struct host_posture_snapshot *out)
 { }
+__attribute__((weak)) void host_present_dither_set(int on)
+{ }
 #if (defined(__OBJC__) && !HALO_NATIVE_MAC)
 __attribute__((weak)) void host_present_input_update(void)
 { }
@@ -1313,8 +1315,6 @@ __attribute__((weak)) void host_stereo_frame(struct halo_stereo_frame *frame)
 __attribute__((weak)) int host_stereo_frame_repeat(void)
 { fprintf(stderr, "host_stubs: probe called host_stereo_frame_repeat without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_frame_repeat_set(int repeat)
-{ }
-__attribute__((weak)) void host_present_dither_set(int on)
 { }
 __attribute__((weak)) void host_stereo_head_hold(const struct host_stereo_head *head, struct halo_stereo_frame *frame)
 { }

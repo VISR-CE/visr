@@ -1077,6 +1077,9 @@ struct render_target_entry
 	pixel it is drawn with (gpu_texture_multisample), 0 for none */
 	BOOL screen_buffer;
 	uint32_t samples;
+	/* made with the scene-color role (scene_color_role): GPU_FORMAT_SCENE_COLOR, freed when display.scene_precision
+	changes (scene_precision_frame) */
+	BOOL scene_color;
 };
 
 /* every draw looks up its targets and whether its textures are render
