@@ -1535,7 +1535,7 @@ static struct
 } eye;
 
 static _Atomic unsigned long eye_spans, eye_replayed, eye_unreplayable, eye_verified, eye_verify_differ,
-	eye_verify_reordered;
+	eye_verify_reordered, eye_verify_substituted_wrong;
 /* the replays' time (the walk and the backend calls it makes), for the statistics line */
 static _Atomic uint64_t replay_ns, replay_records;
 
@@ -1599,6 +1599,11 @@ static void override_end(const unsigned char *payload)
 /* draws a replay skipped as eye 0's alone (eye-0-only records: the frame's shadow generation), for verify */
 static unsigned long replay_skipped_draws;
 
+/* the eye flags of the record the replay is making calls for (RECORD_EYE_0, RECORD_EYE_1 or neither): verify indexes
+the plain pass's calls by shared record only, so an eye's own records (the flare sites' eye 0 and eye 1 draws) do not
+shift the plain call it compares with for every call after them */
+static uint32_t replayed_record_eye;
+
 static void replay_span(const struct gpu_backend *next)
 {
 	struct chunk *chunk = eye.first_chunk;
@@ -1628,7 +1633,9 @@ static void replay_span(const struct gpu_backend *next)
 		{
 			int skip = (header->operation & eye.replay.skip) != 0;
 
+			replayed_record_eye = header->operation & (RECORD_EYE_0 | RECORD_EYE_1);
 			consume_record(&eye.replay, operation, payload, skip);
+			replayed_record_eye = 0;
 			if (skip && operation == GPU_OPERATION_draw)
 				replay_skipped_draws++;
 			records++;
@@ -1662,6 +1669,8 @@ static size_t *live_at;
 static unsigned char *live_taken;
 static unsigned long live_count, live_capacity, live_first;
 static unsigned long compare_index, compare_differ, compare_unmatched_logged;
+/* the replay's calls of shared records so far (replayed_record_eye) */
+static unsigned long compare_shared, compare_plain = ULONG_MAX;
 /* the call key fields verify_nearest_draw tells apart */
 enum { NEAREST_INDEX_BUFFER, NEAREST_INDEX_OFFSET, NEAREST_BASE_VERTEX, NEAREST_STREAM_BUFFER, NEAREST_STREAM_OFFSET,
 	NEAREST_FIELDS };
@@ -1837,6 +1846,8 @@ static void verify_draw_differs(const unsigned char *live, const unsigned char *
 			class = CLASS_LEFTOVER;
 		else
 			class = CLASS_NOT_SUBSTITUTED;
+		if (class == CLASS_SUBSTITUTED_WRONG)
+			atomic_fetch_add(&eye_verify_substituted_wrong, 1);
 		if (!tally.registers[class][index]++)
 		{
 			memcpy(tally.example[class][index][0], a, 16);
@@ -2037,7 +2048,7 @@ static void verify_far_pair(const unsigned char *live, const unsigned char *made
 		(void)length;
 		log_line(line);
 	}
-	verify_far_registers(live, made, plain_call(compare_index - 1, GPU_OPERATION_draw, size));
+	verify_far_registers(live, made, plain_call(compare_plain, GPU_OPERATION_draw, size));
 }
 
 /* how far apart two calls' bytes are: the 16-byte blocks that differ (a register is one) */
@@ -2062,6 +2073,7 @@ static void verify_compare(void)
 	memcpy(&operation, made, 4);
 	memcpy(&size, made + 4, 4);
 	compare_index++;
+	compare_plain = replayed_record_eye & RECORD_EYE_1 ? ULONG_MAX : compare_shared++;
 	tally.calls++;
 	for (index = live_first; index < live_count && scanned < VERIFY_LOOK_AHEAD; index++)
 	{
@@ -2118,7 +2130,7 @@ static void verify_compare(void)
 	compare_differ++;
 	tally.differ++;
 	if (operation == GPU_OPERATION_draw)
-		verify_draw_differs(live, made, plain_call(compare_index - 1, operation, size));
+		verify_draw_differs(live, made, plain_call(compare_plain, operation, size));
 	else
 	{
 		snprintf(line, sizeof(line), "stereo replay verify: call %lu (operation %u) differs at byte %zu", compare_index,
@@ -2197,7 +2209,7 @@ static void verify_summary(void)
 	size_t at; \
 	if (verify_phase == VERIFY_COMPARE) \
 		replay_call.size = 0; \
-	else if (verify_phase == VERIFY_PLAIN) \
+	else if (verify_phase == VERIFY_PLAIN && !(replayed_record_eye & RECORD_EYE_0)) \
 		plain_at_put(plain_calls.size); \
 	at = entry_begin(log, GPU_OPERATION_##name)
 #define VERIFY_END() \
@@ -2584,7 +2596,7 @@ static void verify_live_end(void)
 	replay_span(&verify_backend);
 	verify_restart(0);
 	verify_phase = VERIFY_COMPARE;
-	compare_index = compare_differ = compare_unmatched_logged = 0;
+	compare_index = compare_differ = compare_unmatched_logged = compare_shared = 0;
 	replay_skipped_draws = 0;
 	replay_span(&verify_backend);
 	verify_phase = VERIFY_TEE;
@@ -2758,6 +2770,7 @@ void gpu_queue_eye_statistics(struct gpu_queue_eye_statistics *statistics)
 	statistics->verified = atomic_load(&eye_verified);
 	statistics->verify_differ = atomic_load(&eye_verify_differ);
 	statistics->verify_reordered = atomic_load(&eye_verify_reordered);
+	statistics->verify_substituted_wrong = atomic_load(&eye_verify_substituted_wrong);
 }
 
 /* everything published so far */

@@ -319,7 +319,34 @@ static void run(int mode, const char *name)
 			"%s: %lu draws taken out of order, expected the first replay draw to take the second live one", name,
 			after.verify_reordered - nearest_before.verify_reordered);
 	}
-	CHECK(after.spans - before.spans == 10 && after.replayed - before.replayed == 2 &&
+	/* ---------- an eye's own record before a shared one: verify compares the shared draw with eye 0's call of the same
+	shared record, not the call of the same position (eye 0's own draw), so a register no pass substitutes is not
+	called substituted wrong */
+	{
+		struct gpu_queue_eye_statistics shifted_before;
+
+		gpu_queue_eye_statistics(&shifted_before);
+		CHECK(gpu_queue_eye_span_begin(1), "%s: no shifted verify span", name);
+		store_set(&store, 0, 2.0f);
+		gpu_queue_eye_only(GPU_QUEUE_EYE_0);
+		draw(10, 50, 1, &store);
+		gpu_queue_eye_only(GPU_QUEUE_EYE_BOTH);
+		store_set(&store, 0, 3.0f);
+		draw(10, 0, 1, &store);
+		CHECK(gpu_queue_eye_span_end(&map) == 1, "%s: a shifted verify span is not replayed", name);
+		store_set(&store, 0, 4.0f);
+		draw(11, 0, 1, &store);
+		gpu_queue_eye_live_end();
+		queue->present_stereo(&present);
+		gpu_queue_drain();
+		gpu_queue_eye_statistics(&after);
+		CHECK(after.verify_differ - shifted_before.verify_differ == 1, "%s: %lu differing calls in the shifted span",
+			name, after.verify_differ - shifted_before.verify_differ);
+		CHECK(after.verify_substituted_wrong == shifted_before.verify_substituted_wrong,
+			"%s: %lu registers called substituted wrong against eye 0's own draw", name,
+			after.verify_substituted_wrong - shifted_before.verify_substituted_wrong);
+	}
+	CHECK(after.spans - before.spans == 11 && after.replayed - before.replayed == 2 &&
 		after.unreplayable - before.unreplayable == 1, "%s: %lu spans, %lu replayed, %lu not", name,
 		after.spans - before.spans, after.replayed - before.replayed, after.unreplayable - before.unreplayable);
 	/* the queue off opens no span */
