@@ -131,6 +131,9 @@ TUNING_OFF_HEADSET = {
     'saves.checkpoint_persist',
     # the Metal encode thread, chosen per device from measured pairs; a device profile will carry it
     'display.encode_thread',
+    # the import-time texture repair, on until device profiles can turn it off (that step adds the profile key and its
+    # feed generation)
+    'display.repaired_textures',
 }
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
                    'display.theater_width', 'input.aim', 'input.aim_hand',

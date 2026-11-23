@@ -1274,7 +1274,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-tier": "tuning"
         },
         "upscaled_textures_memory": {
           "type": "integer",

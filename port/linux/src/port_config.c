@@ -956,7 +956,7 @@ static const struct config_setting config_settings[] =
 		"5 or 6 bits a channel, so they show steps, and the repair rebuilds the gradient\n"
 		"they were rounded from without moving a texel farther than the rounding could have.\n"
 		"Runs on every device, with or without upscaled textures; Hardcore draws the maps'\n"
-		"own textures (display.graphics). Takes effect at the next level load." },
+		"own textures (display.graphics). Takes effect at the next level load.", _tier_tuning },
 	{ "display.upscaled_textures_memory", _config_integer, "0", "HALO_UPSCALED_TEXTURES_MEMORY", _environment_value,
 		_platform_all,
 		"The most memory the upscaled textures may take, in MB; 0 (default) picks\n"

@@ -29,7 +29,6 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.high_res_hud", PORT_PROFILE_LEVEL},
 		{"display.high_res_text", PORT_PROFILE_LEVEL},
 		{"display.upscaled_textures", PORT_PROFILE_LEVEL},
-		{"display.repaired_textures", PORT_PROFILE_LEVEL},
 		{"display.anti_aliasing", PORT_PROFILE_LEVEL},
 		{"display.foveation", PORT_PROFILE_SESSION}, /* compositor layer creation */
 		{"display.render_quality", PORT_PROFILE_SESSION},

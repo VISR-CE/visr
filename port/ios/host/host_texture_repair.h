@@ -2,7 +2,7 @@
 lightmaps and gradient textures, rebuilt without the banding their 5:6:5 values carry (port/runtime/texture_repair.h),
 kept as records beside the upscaler's (texture-cache/manifest-repair.tsv, a texture's own size, uncompressed) and drawn
 by the same replacement cache. A CPU step: it runs on every device, with or without upscaled textures, behind its own
-profile key display.repaired_textures, and never during gameplay (a pause is fine). */
+setting display.repaired_textures (a profile key once device profiles set it), and never during gameplay (a pause is fine). */
 #pragma once
 #include <stddef.h>
 #ifdef __cplusplus
