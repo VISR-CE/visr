@@ -6905,6 +6905,17 @@ static void respawn_state_show(struct widget_instance *text_box)
 	text_set_length(text_box, text, NUMBEROF(text));
 }
 
+/* "port setting state": a text of a setting (tools/port_settings.py's rows that open a screen of their own, like
+NETWORK's MAPS) shows the string of the setting's value, as a spinner of it would */
+static void setting_state_show(struct widget_instance *text_box)
+{
+	struct pc_menu_setting *setting = pc_menu_setting_get(text_box->definition_tag_index);
+	char current[300];
+
+	if (setting && setting_text(setting->setting, current, sizeof(current), FALSE))
+		text_box->parameters.text_box.string_list_index = setting_value_index(setting, current);
+}
+
 /* "port teams hud state": the GAME screen's TEAMS & HUD row's state word, the friendly-fire rule */
 static void teams_hud_state_show(struct widget_instance *text_box)
 {
@@ -7385,6 +7396,8 @@ void pc_menu_game_data_function_invoke(
 		teams_hud_state_show(widget);
 	else if (!strcmp(name, "port respawn state"))
 		respawn_state_show(widget);
+	else if (!strcmp(name, "port setting state"))
+		setting_state_show(widget);
 	else if (!strcmp(name, "port cloud saves status"))
 		cloud_saves_status_show(widget);
 	else if (!strcmp(name, "port send log status"))

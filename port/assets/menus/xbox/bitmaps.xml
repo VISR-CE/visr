@@ -218,6 +218,9 @@
 	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/header_edit_profile_settings">
 		<frame png="pictures/shell/main_menu/settings_select/player_setup/player_profile_edit/header_edit_profile_settings__0.png" width="512" height="64" />
 	</bitmap>
+	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/maps/header_maps">
+		<frame png="pictures/port/main_menu/settings_select/player_setup/player_profile_edit/maps/header_maps.png" width="512" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/header_profile_mouse_settings">
 		<frame png="pictures/shell/main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/header_profile_mouse_settings__0.png" width="512" height="64" />
 	</bitmap>

@@ -1979,6 +1979,40 @@ the_picture_as_a_crt_television__ce68fa = "The picture as a CRT television showe
 mode = "MODE:"
 crt_effect = "CRT EFFECT:"
 
+[xbox.settings_maps.xbox_settings_maps_custom_maps_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_maps.xbox_settings_maps_header_maps_title]
+maps = "MAPS"
+
+[xbox.settings_maps.xbox_settings_maps_help_strings]
+experimental_show_games_on_custo_85c92c = "Experimental: show games on Custom Edition maps.\\nThese are not fully supported yet."
+joining_a_game_on_a_custom_editi_be4229 = "Joining a game on a Custom Edition map you do not\\nhave: download it from the players (if shared)."
+in_another_s_game_send_its_map_t_5aab2d = "In another's game, send its map to players who\\njoin without it, as a torrent's peers do."
+
+[xbox.settings_maps.xbox_settings_maps_labels]
+custom_maps = "CUSTOM MAPS:"
+download_maps = "DOWNLOAD MAPS:"
+help_send_maps = "HELP SEND MAPS:"
+
+[xbox.settings_maps.xbox_settings_maps_map_download_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_maps.xbox_settings_maps_map_seed_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_maps.xbox_settings_maps_maps_screen_bar_a]
+text = "SELECT"
+
+[xbox.settings_maps.xbox_settings_maps_maps_screen_bar_b]
+text = "BACK"
+
+[xbox.settings_maps.xbox_settings_maps_maps_screen_bar_x]
+text = "DEFAULTS"
+
 [xbox.settings_mouse_settings.xbox_settings_mouse_settings_direct_camera_shown]
 on = "ON"
 off = "OFF"
@@ -2048,10 +2082,6 @@ s9 = "2.5"
 s10 = "3"
 s11 = "4"
 
-[xbox.settings_network_setup.xbox_settings_network_setup_allow_upnp_spinner]
-s0 = "ON"
-s1 = "OFF"
-
 [xbox.settings_network_setup.xbox_settings_network_setup_auto_spinner]
 s0 = "ON"
 s1 = "OFF"
@@ -2060,7 +2090,7 @@ s1 = "OFF"
 s0 = "ON"
 s1 = "OFF"
 
-[xbox.settings_network_setup.xbox_settings_network_setup_custom_maps_spinner]
+[xbox.settings_network_setup.xbox_settings_network_setup_custom_maps_state]
 s0 = "ON"
 s1 = "OFF"
 
@@ -2073,18 +2103,11 @@ network_setup = "NETWORK SETUP"
 
 [xbox.settings_network_setup.xbox_settings_network_setup_help_strings]
 host_and_join_games_over_the_int_073f36 = "Host and join games over the internet by invite\\nlinks; off keeps to the local network."
-let_internet_play_ask_the_router_93ab6c = "Let internet play ask the router to forward its\\nport, for networks that stop connections."
 join_the_game_of_an_invite_link__48a726 = "Join the game of an invite link copied before\\nswitching to the game."
 look_for_a_new_version_when_the__dbc4f7 = "Look for a new version when the game starts."
 sync_saves_with_icloud_turning_o_9960ef = "Sync saves with iCloud. Turning on applies next\\nlaunch; turning off stops syncing now."
 in_multiplayer_whose_names_are_d_56dd26 = "In multiplayer, whose names are drawn above their\\nheads."
-how_large_the_players_names_are_drawn = "How large the players' names are drawn."
-a_team_game_s_scoreboard_on_a_co_aa6c55 = "A team game's scoreboard: on, a column for each\\nteam; off, every player in order of score."
-draw_a_panel_behind_the_scoreboa_6a6448 = "Draw a panel behind the scoreboard, for clearer\\ntext."
-experimental_show_games_on_custo_85c92c = "Experimental: show games on Custom Edition maps.\\nThese are not fully supported yet."
-joining_a_game_on_a_custom_editi_be4229 = "Joining a game on a Custom Edition map you do not\\nhave: download it from the players (if shared)."
-in_another_s_game_send_its_map_t_5aab2d = "In another's game, send its map to players who\\njoin without it, as a torrent's peers do."
-the_most_you_send_of_maps_to_oth_0c720a = "The most you send of maps to other players, so\\nthat the game keeps the rest of your upload."
+experimental_games_on_custom_edi_810bdd = "Experimental: games on Custom Edition maps, and\\nsharing those maps. Select to change it."
 hide_offensive_words_in_names_an_3dfd19 = "Hide offensive words in names and text from\\nother players, maps, and mods as stars."
 
 [xbox.settings_network_setup.xbox_settings_network_setup_join_from_clipboard_spinner]
@@ -2093,35 +2116,12 @@ s1 = "OFF"
 
 [xbox.settings_network_setup.xbox_settings_network_setup_labels]
 internet_play = "INTERNET PLAY:"
-upnp_port_forwarding = "UPNP PORT FORWARDING:"
 join_from_clipboard = "JOIN FROM CLIPBOARD:"
 check_for_updates = "CHECK FOR UPDATES:"
 icloud_saves = "ICLOUD SAVES:"
 player_names = "PLAYER NAMES:"
-player_name_size = "PLAYER NAME SIZE:"
-group_by_team = "GROUP BY TEAM:"
-scoreboard_panel = "SCOREBOARD PANEL:"
-custom_maps = "CUSTOM MAPS:"
-download_maps = "DOWNLOAD MAPS:"
-help_send_maps = "HELP SEND MAPS:"
-map_upload_limit = "MAP UPLOAD LIMIT:"
+maps = "MAPS:"
 streamer_mode = "STREAMER MODE:"
-
-[xbox.settings_network_setup.xbox_settings_network_setup_map_download_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[xbox.settings_network_setup.xbox_settings_network_setup_map_seed_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[xbox.settings_network_setup.xbox_settings_network_setup_map_seed_upload_spinner]
-s0 = "64 KB/S"
-s1 = "128 KB/S"
-s2 = "256 KB/S"
-s3 = "512 KB/S"
-s4 = "1 MB/S"
-s5 = "2 MB/S"
 
 [xbox.settings_network_setup.xbox_settings_network_setup_network_settings_screen_bar_a]
 text = "SELECT"
@@ -2136,27 +2136,11 @@ text = "DEFAULTS"
 s0 = "ON"
 s1 = "OFF"
 
-[xbox.settings_network_setup.xbox_settings_network_setup_player_name_scale_spinner]
-s0 = "0.5x"
-s1 = "0.75x"
-s2 = "1x"
-s3 = "1.25x"
-s4 = "1.5x"
-s5 = "2x"
-
 [xbox.settings_network_setup.xbox_settings_network_setup_player_names_spinner]
 s0 = "ALL"
 s1 = "ALLIES"
 s2 = "ENEMIES"
 s3 = "NONE"
-
-[xbox.settings_network_setup.xbox_settings_network_setup_scoreboard_background_spinner]
-s0 = "ON"
-s1 = "OFF"
-
-[xbox.settings_network_setup.xbox_settings_network_setup_scoreboard_team_layout_spinner]
-s0 = "ON"
-s1 = "OFF"
 
 [xbox.settings_video_settings.xbox_settings_video_settings_crt_effect_spinner]
 s0 = "ON"

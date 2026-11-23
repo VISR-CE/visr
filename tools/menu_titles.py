@@ -90,6 +90,7 @@ VISR = {
     f'{PE}/controls_setup/header_profile_controls_settings': 'CONTROLS SETUP',
     f'{PE}/controller_edit/header_profile_controller_setting': 'CONTROLLER SETUP',
     f'{PE}/graphics/header_graphics': 'GRAPHICS',
+    f'{PE}/maps/header_maps': 'MAPS',
     f'{PE}/mouse_settings/header_profile_mouse_settings': 'MOUSE SETUP',
     f'{PE}/network_setup/header_profile_network_settings': 'NETWORK SETUP',
     f'{PE}/video_settings/header_profile_video_settings': 'VIDEO SETUP',
