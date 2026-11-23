@@ -4,6 +4,9 @@
 
 static char cache_root[512];
 static int walks;
+/* a measured run (host_texture_measured_run in host_texture_upscale.m, which the upscaler's driver probe covers) */
+static const char *measured;
+const char *host_texture_measured_run(void) { return measured; }
 void host_logf(int level, const char *format, ...) { (void)level; (void)format; }
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) { (void)name; snprintf(out, size, "%s", fallback); }
 int host_device_profile_peek(const char *root, const char *name, char *text, size_t size) { (void)root; (void)name; (void)text; (void)size; return 0; }
@@ -35,7 +38,19 @@ int main(void) { @autoreleasepool {
     /* a record from an earlier launch, current recipe */
     struct texture_cache_record held = { .hash = 0x71, .width = 4, .height = 4, .recipe_key = REPAIR_RECIPE, .bytes = 16 };
     assert(!texture_cache_manifest_save_named(cache_root, MANIFEST_NAME, &held, 1));
+    /* a measured run (bug class: background work running behind a benchmark's numbers): no walk at launch, none at a
+       level's load, none at the menus; the records already made stay listed */
+    measured = "benchmark suite";
     host_texture_repair_init(root);
+    settle();
+    host_texture_repair_map_will_load("a10");
+    host_texture_repair_game_started(0);
+    host_texture_repair_scan();
+    settle();
+    assert(walks == 0 && records.count == 1 && map_done.count == 0);
+    /* not measured: the next scan does the work */
+    measured = NULL;
+    host_texture_repair_scan();
     settle();
     assert(walks == 1 && records.count == 1 && map_done.count == 1);
     /* Settings' delete (bug class: a delete that leaves another owner's in-memory copy of the folder's contents): the
@@ -48,5 +63,5 @@ int main(void) { @autoreleasepool {
     assert(!texture_cache_manifest_load_named(cache_root, MANIFEST_NAME, &loaded, &count) && count == 0);
     free(loaded);
     [NSFileManager.defaultManager removeItemAtPath:@(root) error:nil];
-    puts("texture repair host: records and finished maps follow a cache delete PASS");
+    puts("texture repair host: no work in a measured run; records and finished maps follow a cache delete PASS");
 } return 0; }

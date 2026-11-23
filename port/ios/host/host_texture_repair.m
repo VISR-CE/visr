@@ -49,6 +49,8 @@ static BOOL text_true(const char *text) { return !strcmp(text, "true") || !strcm
 /* display.repaired_textures as this launch has it: the profile's value and the player's (the graphics mode's layer is in
    host_config_string), either off turning it off */
 static BOOL read_enabled(void) {
+    /* a measured run: no repair work behind the numbers (records already made are still drawn) */
+    if (host_texture_measured_run()) return NO;
     char text[32] = "true", profile[32] = "true";
     if (data_root.length && host_device_profile_peek(data_root.fileSystemRepresentation, "display.repaired_textures", profile, sizeof(profile)) && !text_true(profile))
         return NO;
@@ -202,6 +204,8 @@ void host_texture_repair_init(const char *root) {
         [NSFileManager.defaultManager createDirectoryAtPath:@(folder) withIntermediateDirectories:YES attributes:nil error:nil];
         worker = dispatch_queue_create("org.visr.texture-repair", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0));
         enabled_now = read_enabled();
+        const char *measured = host_texture_measured_run();
+        if (measured) host_logf(HOST_LOG_INFO, "Texture repair: no repair work in this measured run (%s)", measured);
         dispatch_async(worker, ^{ load_state(); });
         queue_background();
     });
@@ -226,8 +230,8 @@ void host_texture_repair_cache_deleted(void) {
 void host_texture_repair_scan(void) {
     if (!worker) return;
     atomic_store(&stop_requested, false);
-    dispatch_async(worker, ^{ enabled_now = read_enabled(); });
-    queue_background();
+    /* queued after the setting is read again, so a scan that turns the repair on starts the work */
+    dispatch_async(worker, ^{ enabled_now = read_enabled(); queue_background(); });
 }
 static NSString *resolve(NSString *name) {
     NSString *base = [[name stringByReplacingOccurrencesOfString:@"\\" withString:@"/"] lastPathComponent];
@@ -240,6 +244,8 @@ static NSString *resolve(NSString *name) {
 }
 void host_texture_repair_map_will_load(const char *name) {
     if (!worker || !name || !*name) return;
+    /* (a measured run's load does no repair, and does not wait on the worker) */
+    if (!enabled_now && host_texture_measured_run()) return;
     unsigned serial = atomic_fetch_add(&load_serial, 1) + 1;
     NSString *requested = @(name);
     atomic_store(&playing, false);

@@ -1000,6 +1000,22 @@ int host_texture_upscale_delete_cache(const char *directory) {
 }
 void host_texture_upscale_scan(void) {host_texture_repair_scan();if(upscale_enabled){atomic_store(&scan_pending,true);schedule_pump();}}
 static BOOL text_true(const char *text) { return !strcmp(text,"true")||!strcmp(text,"1"); }
+/* Whether this launch is a measured run, and why: a benchmark suite, a benchmark, any input replay, or a run that must
+   draw the same frames every time (a fixed timestep, screenshots). Background texture work (the upscaler's generator,
+   the texture repair) does none of its work in one, so it cannot run behind the numbers. NULL when not measured. */
+const char *host_texture_measured_run(void) {
+    char suite[32]="",replay[256]="",bench[16]="",fixed[16]="",shots[16]="";const char *e=getenv("HALO_BENCHMARK_SUITE");
+    if(e)snprintf(suite,sizeof(suite),"%s",e);else host_config_string("debug.benchmark_suite","",suite,sizeof(suite));
+    e=getenv("HALO_INPUT_REPLAY");if(e)snprintf(replay,sizeof(replay),"%s",e);else host_config_string("debug.input_replay","",replay,sizeof(replay));
+    e=getenv("HALO_BENCHMARK");if(e)snprintf(bench,sizeof(bench),"%s",e);else host_config_string("debug.benchmark","false",bench,sizeof(bench));
+    e=getenv("HALO_FIXED_TIMESTEP");if(e)snprintf(fixed,sizeof(fixed),"%s",e);else host_config_string("debug.fixed_timestep","false",fixed,sizeof(fixed));
+    e=getenv("HALO_SCREENSHOT_EVERY");if(e)snprintf(shots,sizeof(shots),"%s",e);else host_config_string("debug.screenshot_every","0",shots,sizeof(shots));
+    if(suite[0])return "benchmark suite";
+    if(replay[0])return "input replay";
+    if(text_true(bench))return "benchmark";
+    if(text_true(fixed)||atoi(shots)>0)return "fixed timestep or screenshots";
+    return NULL;
+}
 void host_texture_upscale_resolve_profile(const char *root) {
     if(profile_upscales>=0||!root)return;
     char text[32]="";
@@ -1047,23 +1063,12 @@ void host_texture_upscale_init(const char *root) {
         const char *environment=getenv("HALO_TEXTURE_UPSCALE_GENERATE");
         if(environment)snprintf(mode,sizeof(mode),"%s",environment);else host_config_string("debug.texture_upscale_generate","auto",mode,sizeof(mode));
         upscale_mode=texture_upscale_mode_parse(mode);
-        /* "auto" stays out of measured runs (a benchmark suite, a benchmark replay, any input replay, a fixed timestep,
-           screenshots): their menus
-           would otherwise heat the device and draw on the Neural Engine between takes. "force" still runs. */
-        if(upscale_mode==TEXTURE_UPSCALE_MODE_AUTO){
-            char suite[32]="",replay[256]="",bench[16]="";const char *e=getenv("HALO_BENCHMARK_SUITE");
-            if(e)snprintf(suite,sizeof(suite),"%s",e);else host_config_string("debug.benchmark_suite","",suite,sizeof(suite));
-            e=getenv("HALO_INPUT_REPLAY");if(e)snprintf(replay,sizeof(replay),"%s",e);else host_config_string("debug.input_replay","",replay,sizeof(replay));
-            e=getenv("HALO_BENCHMARK");if(e)snprintf(bench,sizeof(bench),"%s",e);else host_config_string("debug.benchmark","false",bench,sizeof(bench));
-            /* (and the runs that must draw the same frames every time: a fixed timestep or screenshots) */
-            char fixed[16]="",shots[16]="";
-            e=getenv("HALO_FIXED_TIMESTEP");if(e)snprintf(fixed,sizeof(fixed),"%s",e);else host_config_string("debug.fixed_timestep","false",fixed,sizeof(fixed));
-            e=getenv("HALO_SCREENSHOT_EVERY");if(e)snprintf(shots,sizeof(shots),"%s",e);else host_config_string("debug.screenshot_every","0",shots,sizeof(shots));
-            BOOL deterministic=text_true(fixed)||atoi(shots)>0;
-            if(suite[0]||replay[0]||text_true(bench)||deterministic){
-                host_logf(HOST_LOG_INFO,"Upscale: off for this measured run (%s)",suite[0]?"benchmark suite":replay[0]?"input replay":text_true(bench)?"benchmark":"fixed timestep or screenshots");
-                upscale_mode=TEXTURE_UPSCALE_MODE_OFF;
-            }
+        /* "auto" stays out of measured runs (host_texture_measured_run): their menus would otherwise heat the device and
+           draw on the Neural Engine between takes. "force" still runs. */
+        const char *measured=upscale_mode==TEXTURE_UPSCALE_MODE_AUTO?host_texture_measured_run():NULL;
+        if(measured){
+            host_logf(HOST_LOG_INFO,"Upscale: off for this measured run (%s)",measured);
+            upscale_mode=TEXTURE_UPSCALE_MODE_OFF;
         }
         host_texture_upscale_resolve_profile(root);
         environment=getenv("HALO_UPSCALED_TEXTURES");

@@ -64,3 +64,14 @@ def test_texture_repair_properties(tmp_path):
     result = subprocess.run([str(probe)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "texture repair: ok"
+
+
+def test_background_texture_work_stays_out_of_measured_runs():
+    """Bug class: background work running behind a benchmark's numbers. Every host file that starts background texture
+    work asks the one measured-run check, and nothing else reads the measured-run settings on its own."""
+    host = ROOT / "port/ios/host"
+    for name in ("host_texture_upscale.m", "host_texture_repair.m"):
+        assert "host_texture_measured_run()" in (host / name).read_text(), f"{name} does not ask host_texture_measured_run"
+    readers = [path.name for path in host.glob("host_texture_*.m")
+               if "HALO_FIXED_TIMESTEP" in path.read_text() or "debug.input_replay" in path.read_text()]
+    assert readers == ["host_texture_upscale.m"], f"measured-run settings read outside host_texture_measured_run: {readers}"
