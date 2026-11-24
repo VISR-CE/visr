@@ -1022,7 +1022,7 @@ menu_source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
 save = body_of(menu_source, 'setting_changed_save')
 if not 0 <= save.find('platform_internet_play_request();') < save.find('setting_write(setting->setting'):
     raise SystemExit("menu_functions.c: the Settings switch must ask before network.online is written true")
-if 'menu_internet_screen_opened();' not in body_of(menu_source, 'multiplayer_mode_set') or \
+if 'menu_internet_screen_opened();' not in body_of(menu_source, 'multiplayer_mode_apply') or \
         'platform_internet_play_request();' not in body_of(menu_source, 'menu_internet_screen_opened'):
     raise SystemExit('menu_functions.c: choosing an internet screen must go through menu_internet_screen_opened, '
                      "which asks for the question where network.online_ask owes it")
