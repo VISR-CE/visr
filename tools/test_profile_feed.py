@@ -294,7 +294,7 @@ def test_every_profile_key_has_its_generations_recorded():
     assert known == KNOWN_TO_EVERY_GENERATION, (
         "port_profile_keys.h changed: record the new key in profile_pr.KEY_GENERATIONS (the generations that read it)")
     # 0.6.22's generation carries every key this branch adds except the portrait one
-    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait",)
+    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait", "display.encode_thread")
     assert profile_pr.GENERATIONS[profile_pr.PROFILE_DOMAIN] == ()
 
 
