@@ -51,6 +51,7 @@ int halo_traced_shadows_window_begin(float p11);
 void halo_traced_shadows_window_end(void);
 void halo_traced_shadows_key(int on);
 void halo_traced_shadows_basis(float values[4]);
+void halo_traced_shadows_cover(float x0, float y0, float x1, float y1);
 const void *halo_vertex_buffer_bytes(const void *buffer);
 /* rasterizer_xbox.c (port): a part's own nodes, for a model of more nodes than the constants hold */
 short custom_edition_part_palette(struct vertex_buffer const *vertex_buffer, byte const **nodes);
@@ -486,6 +487,49 @@ void traced_shadow_casters_commit(
 		host_traced_shadows_data(TRACED_SHADOWS_COMMIT, 0, NULL, 0);
 }
 
+/* What the shadow can darken on screen, for the resolve's rectangle: its volume (r along forward and left, 4 r along
+up, as the apply draw's texture coordinates span it) projected by the window's camera, in normalized device
+coordinates with y down. A volume reaching the near plane, a mirrored camera or no projection covers the window. */
+static void traced_shadow_cover(
+	real_matrix4x3 const *shadow_matrix,
+	real radius)
+{
+	struct render_frustum const *frustum = &global_window_parameters.frustum;
+	real bounds[4] = { 1.f, 1.f, -1.f, -1.f };
+	long corner;
+
+	if (!frustum->projection_valid || global_window_parameters.camera.mirrored)
+	{
+		halo_traced_shadows_cover(-1.f, -1.f, 1.f, 1.f);
+		return;
+	}
+	for (corner = 0; corner < 8; corner++)
+	{
+		real a = corner & 1 ? radius : -radius, b = corner & 2 ? radius : -radius, c = corner & 4 ? 4.f * radius : -4.f * radius;
+		real_point3d world, view;
+		real inverse_depth, x, y;
+
+		world.x = shadow_matrix->position.x + shadow_matrix->forward.i * a + shadow_matrix->left.i * b + shadow_matrix->up.i * c;
+		world.y = shadow_matrix->position.y + shadow_matrix->forward.j * a + shadow_matrix->left.j * b + shadow_matrix->up.j * c;
+		world.z = shadow_matrix->position.z + shadow_matrix->forward.k * a + shadow_matrix->left.k * b + shadow_matrix->up.k * c;
+		matrix4x3_transform_point(&frustum->world_to_view, &world, &view);
+		if (view.z > -frustum->z_near)
+		{
+			halo_traced_shadows_cover(-1.f, -1.f, 1.f, 1.f);
+			return;
+		}
+		/* (render_camera_view_to_screen's projection, without its clip) */
+		inverse_depth = -1.f / view.z;
+		x = (frustum->projection_matrix[0][0] * view.x + frustum->projection_matrix[2][0] * view.z) * inverse_depth;
+		y = -(frustum->projection_matrix[1][1] * view.y + frustum->projection_matrix[2][1] * view.z) * inverse_depth;
+		bounds[0] = x < bounds[0] ? x : bounds[0];
+		bounds[1] = y < bounds[1] ? y : bounds[1];
+		bounds[2] = x > bounds[2] ? x : bounds[2];
+		bounds[3] = y > bounds[3] ? y : bounds[3];
+	}
+	halo_traced_shadows_cover(bounds[0], bounds[1], bounds[2], bounds[3]);
+}
+
 void traced_shadow_apply(
 	unsigned long id,
 	real_matrix4x3 const *shadow_matrix,
@@ -515,6 +559,7 @@ void traced_shadow_apply(
 	basis[15] = traced.world ? 1.f : 0.f;
 	halo_traced_shadows_basis(&basis[16]);
 	host_traced_shadows_data(TRACED_SHADOWS_APPLY, (uint32_t)id, basis, sizeof(basis));
+	traced_shadow_cover(shadow_matrix, radius);
 	halo_traced_shadows_key(1);
 }
 

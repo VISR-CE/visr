@@ -3217,6 +3217,7 @@ static struct
 	float rect[4];              /* the window in the target's texels */
 	float pixels_per_unit;      /* at distance 1 */
 	float radius;               /* the largest penumbra radius, pixels */
+	float cover[4];             /* what the window's shadows can darken, in its texels: left, top, right, bottom */
 	unsigned long windows;      /* since the last log line */
 } traced_shadows;
 
@@ -3330,6 +3331,9 @@ int halo_traced_shadows_window_begin(float p11)
 	gpu_clear(&clear, &rect, 1);
 	traced_shadows.pixels_per_unit = p11 * 0.5f * traced_shadows.rect[3];
 	traced_shadows.radius = fmaxf(1.0f, 0.03f * traced_shadows.rect[3]);
+	/* (nothing covered yet: left and top past the right and bottom) */
+	traced_shadows.cover[0] = traced_shadows.cover[1] = 1e30f;
+	traced_shadows.cover[2] = traced_shadows.cover[3] = -1e30f;
 	traced_shadows.window = TRUE;
 	if (!traced_shadows.windows++ || !(traced_shadows.windows % 7200))
 		platform_log("traced shadows: window %lu, %gx%g at %g,%g, largest penumbra %g pixels", traced_shadows.windows,
@@ -3356,8 +3360,24 @@ void halo_traced_shadows_window_end(void)
 		return;
 	memset(values, 0, sizeof(values));
 	memcpy(&values[TRACED_SHADOWS_RESOLVE_WINDOW], traced_shadows.rect, sizeof(traced_shadows.rect));
-	/* (the window: the shadows' own rectangles are not gathered yet) */
-	memcpy(&values[TRACED_SHADOWS_RESOLVE_COVERED], traced_shadows.rect, sizeof(traced_shadows.rect));
+	/* what the shadows cover, widened by twice the largest radius: a pixel within one radius of a shadow blurs taps
+	up to another radius away, and every pixel past that keeps its white term (the resolve clips it to the window) */
+	if (!break_only)
+	{
+		float pad = 2.0f * traced_shadows.radius;
+		float left = floorf(traced_shadows.cover[0] - pad), top = floorf(traced_shadows.cover[1] - pad);
+		float right = ceilf(traced_shadows.cover[2] + pad), bottom = ceilf(traced_shadows.cover[3] + pad);
+
+		/* (no apply draw: nothing to resolve) */
+		if (right <= left || bottom <= top)
+			return;
+		values[TRACED_SHADOWS_RESOLVE_COVERED] = left;
+		values[TRACED_SHADOWS_RESOLVE_COVERED + 1] = top;
+		values[TRACED_SHADOWS_RESOLVE_COVERED + 2] = right - left;
+		values[TRACED_SHADOWS_RESOLVE_COVERED + 3] = bottom - top;
+	}
+	else
+		memcpy(&values[TRACED_SHADOWS_RESOLVE_COVERED], traced_shadows.rect, sizeof(traced_shadows.rect));
 	values[TRACED_SHADOWS_RESOLVE_RADIUS] = traced_shadows.radius;
 	values[TRACED_SHADOWS_RESOLVE_FILTER] = config_boolean("debug.traced_shadows_filter") ? 1.0f : 0.0f;
 	values[TRACED_SHADOWS_RESOLVE_BREAK_ONLY] = break_only ? 1.0f : 0.0f;
@@ -3366,6 +3386,26 @@ void halo_traced_shadows_window_end(void)
 	host_traced_shadows_resolve(color->target.texture, depth->target.texture, break_only ? 0 : traced_shadows.term, values,
 		TRACED_SHADOWS_RESOLVE_FLOATS);
 #endif
+}
+
+/* a shadow's screen bounds (traced_shadow_casters.c's traced_shadow_cover), in normalized device coordinates with y
+down: added to what the window's shadows cover */
+void halo_traced_shadows_cover(float x0, float y0, float x1, float y1)
+{
+	const float *r = traced_shadows.rect;
+
+	if (!traced_shadows.window)
+		return;
+	x0 = fmaxf(x0, -1.0f);
+	y0 = fmaxf(y0, -1.0f);
+	x1 = fminf(x1, 1.0f);
+	y1 = fminf(y1, 1.0f);
+	if (x1 < x0 || y1 < y0)
+		return;
+	traced_shadows.cover[0] = fminf(traced_shadows.cover[0], r[0] + (x0 + 1.0f) * 0.5f * r[2]);
+	traced_shadows.cover[1] = fminf(traced_shadows.cover[1], r[1] + (y0 + 1.0f) * 0.5f * r[3]);
+	traced_shadows.cover[2] = fmaxf(traced_shadows.cover[2], r[0] + (x1 + 1.0f) * 0.5f * r[2]);
+	traced_shadows.cover[3] = fmaxf(traced_shadows.cover[3], r[1] + (y1 + 1.0f) * 0.5f * r[3]);
 }
 
 /* the draws that follow are (on) or are no longer a traced shadow's apply draws */
