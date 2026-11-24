@@ -18,6 +18,7 @@
 #include "host_display_pin.h"
 #include "host_output_cap.h"
 #include "host_config.h"
+#include "host_guest_environment.h"
 #include "host_profile.h"
 #include "host_join_link.h"
 #include "host_benchmark.h"
@@ -183,6 +184,11 @@ static void install_apple_events_timer(void) {
 }
 #endif
 
+/* each launch variable the game gets or is refused, by name only (a value may be a path) */
+static void launch_variable_note(const char *entry,int passed) {
+    const char *equals=strchr(entry,'=');
+    host_logf(HOST_LOG_INFO,"launch environment: %s %.*s",passed?"passed on":"refused (the host's own)",(int)(equals?equals-entry:0),entry);
+}
 static uint32_t copy_string(const char *text) {
     char *p=host_low_map(strlen(text)+1,PROT_READ|PROT_WRITE);
     if(!p)host_crash("out of guest memory");strcpy(p,text);return guest_pointer(p);
@@ -824,15 +830,6 @@ int main(int argc,char **argv) {
             snprintf(env_benchmark,sizeof(env_benchmark),"HALO_BENCHMARK_SUITE=%s",benchmark_suite);
             env[env_count++]=env_benchmark;
         }
-        /* The game gets only the variables named here, not the app's own environment, so a launch's
-           HALO_ANTI_ALIASING (devicectl's --environment-variables) would otherwise never reach
-           display.anti_aliasing: it is passed on, for comparing FXAA with a launch that lacks it. */
-        char env_anti_aliasing[48];
-        const char *launch_anti_aliasing=getenv("HALO_ANTI_ALIASING");
-        if(launch_anti_aliasing&&*launch_anti_aliasing){
-            snprintf(env_anti_aliasing,sizeof(env_anti_aliasing),"HALO_ANTI_ALIASING=%s",launch_anti_aliasing);
-            env[env_count++]=env_anti_aliasing;
-        }
 #if HALO_NATIVE_MAC && defined(HALO_DEVELOPMENT_HOOKS)
         /* photo mode (development builds): the guest gets only named variables, so HALO_PHOTO_MODE from the launch must be passed on */
         static char env_photo[sizeof("HALO_PHOTO_MODE=")+16];
@@ -849,26 +846,16 @@ int main(int argc,char **argv) {
             env[env_count++]=env_map_pictures;
         }
 #endif
-        static char env_external[sizeof("HALO_EXTERNAL_MODE=")+512];
-        const char *external_mode=getenv("HALO_EXTERNAL_MODE");
-        if(external_mode && *external_mode) {
-            snprintf(env_external,sizeof(env_external),"HALO_EXTERNAL_MODE=%s",external_mode);
-            env[env_count++]=env_external;
-        }
-        /* a benchmark suite takes every setting from its launch's environment: each HALO_ variable the host
-           has not already set is passed on, so the run needs no change to config.toml */
-        if(benchmark_suite&&*benchmark_suite){
+        /* Every other HALO_ variable of the launch's environment (devicectl's --environment-variables, Xcode's scheme)
+           is passed on: a setting's variable wins over config.toml for that launch, as on the Mac runner, and a
+           benchmark suite takes every setting this way. Names the host owns are refused (host_guest_environment.c). */
+        {
             extern char **environ;
-            for(char **launch=environ;launch&&*launch&&env_count<250;launch++){
-                if(strncmp(*launch,"HALO_",5))continue;
-                const char *equals=strchr(*launch,'=');
-                if(!equals)continue;
-                size_t name_length=(size_t)(equals-*launch);
-                int known=0;
-                for(size_t i=0;i<env_count;i++)
-                    if(!strncmp(env[i],*launch,name_length)&&env[i][name_length]=='=')known=1;
-                if(!known)env[env_count++]=*launch;
-            }
+            struct host_guest_environment_result passed;
+            env_count=host_guest_environment_pass_on(env,env_count,sizeof(env)/sizeof(env[0])-2,environ,&passed,launch_variable_note);
+            if(passed.passed||passed.refused||passed.dropped)
+                host_logf(passed.dropped?HOST_LOG_WARN:HOST_LOG_INFO,"launch environment: %zu HALO_ variables passed on to the game, %zu refused (the host's own), %zu dropped (no room)",
+                    passed.passed,passed.refused,passed.dropped);
         }
         env[env_count++]="TZ=UTC0";env[env_count++]=NULL;
         uint32_t *environment=host_low_map(sizeof(uint32_t)*env_count,PROT_READ|PROT_WRITE);

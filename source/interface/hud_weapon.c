@@ -738,6 +738,10 @@ static void hud_update_weapon_local_player(
 	if (!unit)
 		goto finished;
 
+	/* port: tag_get halts on NONE; callers check, and this is the last guard */
+	if (hud_index == NONE)
+		goto finished;
+
 	crosshair = get_crosshair_state(player->local_player_index);
 	root_definition = weapon_hud_interface_definition_get(hud_index);
 	if (weapon_index != NONE)
@@ -2072,13 +2076,17 @@ void hud_update_weapon(
 			else if (!clear_to_default && !unit_get_weapon_count(unit_index))
 			{
 				struct weapon_interface_state weapon_state = { 0 };
+				/* port: a map whose globals name no default weapon HUD has nothing to update (tag_get halts on NONE) */
 				long hud_index = hud_globals->defaults.default_weapon_hud.index;
 
-				hud_update_weapon_local_player(
-					local_player_index,
-					NONE,
-					hud_index,
-					&weapon_state);
+				if (hud_index != NONE)
+				{
+					hud_update_weapon_local_player(
+						local_player_index,
+						NONE,
+						hud_index,
+						&weapon_state);
+				}
 			}
 
 			get_hud_state(local_player_index)->last_weapon_index = weapon_index;

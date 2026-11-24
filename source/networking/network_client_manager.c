@@ -394,6 +394,7 @@ symbols in this file:
 #include "map_share.h" /* port: port/linux/game/map_share.c */
 #include "custom_edition_cache.h" /* port: port/linux/game/custom_edition_cache.c */
 void platform_show_message(char const *title, char const *message);
+#include "halo_network_join_guard.h"
 #include "halo_network_version.h" /* port: port/linux/include/halo_network_version.h */
 #include "halo_delta.h" /* port: Delta advertisement metadata */
 #include "../../port/linux/src/input_replay.h" /* port: recordings keep the original simulation */
@@ -2144,6 +2145,38 @@ boolean network_game_client_add_player_to_game(
 	return success;
 }
 
+/* port: which clause of network_game_client_initiate_join_game's assertion fails */
+static enum halo_network_join_refusal network_game_client_join_refusal(
+	struct network_game_client *client,
+	struct network_advertised_game *game,
+	struct network_join_parameters *join_parameters)
+{
+	return halo_network_join_refusal(
+		client != NULL,
+		client && client->state == _network_game_client_state_searching,
+		game != NULL,
+		join_parameters != NULL,
+		client && client->connection,
+		client && client->connection && network_connection_connected(client->connection),
+		game && game->platform == network_game_get_local_platform());
+}
+
+/* port: the one guard under the menu paths that start a join (server browser, Direct IP,
+invites, LAN; the host's own local join in idle_searching is exempt): FALSE, with the clause in the network log, while a join is under way or
+the client is not idle. A request refused here is ignored; the join under way goes on. */
+boolean network_game_client_can_initiate_join(
+	void *client,
+	void *game)
+{
+	struct network_join_parameters present = {0};
+	enum halo_network_join_refusal refusal = network_game_client_join_refusal(
+		client, game, &present);
+
+	if (refusal != HALO_NETWORK_JOIN_OK)
+		network_event("%s", halo_network_join_refusal_name(refusal));
+	return refusal == HALO_NETWORK_JOIN_OK;
+}
+
 boolean network_game_client_initiate_join_game(
 	struct network_game_client *client,
 	struct network_advertised_game *game,
@@ -2152,10 +2185,18 @@ boolean network_game_client_initiate_join_game(
 {
 	boolean success;
 
-	match_assert(
-		"c:\\halo\\SOURCE\\networking\\network_client_manager.c",
-		0x157,
-		client && (client->state == _network_game_client_state_searching) && game && join_parameters && client->connection && !network_connection_connected(client->connection) && (game->platform == network_game_get_local_platform()));
+	/* port: the assertion's clauses, one verdict that names the failing one (the
+	callers ask network_game_client_can_initiate_join first and ignore a join
+	request that cannot start) */
+	{
+		enum halo_network_join_refusal refusal = network_game_client_join_refusal(client, game, join_parameters);
+
+		match_vassert(
+			"c:\\halo\\SOURCE\\networking\\network_client_manager.c",
+			0x157,
+			refusal == HALO_NETWORK_JOIN_OK,
+			halo_network_join_refusal_name(refusal));
+	}
 
 	client->join_in_progress = TRUE;
 	client->connect_process = 0;
@@ -2333,6 +2374,8 @@ void network_game_client_reset(
 		0x4EE,
 		client);
 
+	boolean join_under_way = client->state == _network_game_client_state_joining;
+
 	/* port: a new game gets a new Delta session, even at the same address. */
 	delta_peer_game_client_stop();
 
@@ -2341,9 +2384,11 @@ void network_game_client_reset(
 	client->machine_index = NONE;
 	client->state = _network_game_client_state_searching;
 
-	/* (port: or one that was lost, whose socket stays until it is torn down) */
+	/* (port: or one that was lost, whose socket stays until it is torn down; or a join
+	still under way whose stream was lost before the connection was marked closed: the
+	next join connects a fresh one) */
 	if (teardown_connection && client->connection &&
-		((boolean)network_connection_connected(client->connection) ||
+		((boolean)network_connection_connected(client->connection) || join_under_way ||
 			!network_connection_active(client->connection)))
 	{
 		if (network_connection_disconnect(client->connection))

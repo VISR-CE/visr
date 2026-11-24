@@ -389,13 +389,13 @@ void rasterizer_water_build_bumpmap(
 			"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox_water.c",
 			160,
 			ripples[2].contibution_factor + ripples[3].contibution_factor>0.0f);
-		pixel_shader.constant_0[0] = real_alpha_to_pixel32(
+		pixel_shader.constant_0[0] = real_alpha_to_pixel32_pinned(
 			ripples[0].contibution_factor /
 			(ripples[0].contibution_factor + ripples[1].contibution_factor));
-		pixel_shader.constant_0[1] = real_alpha_to_pixel32(
+		pixel_shader.constant_0[1] = real_alpha_to_pixel32_pinned(
 			ripples[2].contibution_factor /
 			(ripples[2].contibution_factor + ripples[3].contibution_factor));
-		pixel_shader.constant_0[2] = real_alpha_to_pixel32(
+		pixel_shader.constant_0[2] = real_alpha_to_pixel32_pinned(
 			(ripples[0].contibution_factor + ripples[1].contibution_factor) /
 			(ripples[0].contibution_factor + ripples[1].contibution_factor +
 			ripples[2].contibution_factor + ripples[3].contibution_factor));
@@ -405,7 +405,7 @@ void rasterizer_water_build_bumpmap(
 		for (mipmap_index = 0; mipmap_index < mipmap_level_count; mipmap_index++)
 		{
 			if (water->ripple_mipmap_levels > 1)
-				pixel_shader.final_combiner_constant_0 = real_alpha_to_pixel32(
+				pixel_shader.final_combiner_constant_0 = real_alpha_to_pixel32_pinned(
 					(real)mipmap_index / (real)(water->ripple_mipmap_levels - 1) *
 					water->ripple_mipmap_fade_factor) | 0x8080FF;
 			else
@@ -770,9 +770,9 @@ void rasterizer_water_draw(
 				csmemset(&pixel_shader, 0, sizeof(pixel_shader));
 				pixel_shader.texture_modes = 0x61;
 				pixel_shader.combiner_count = 2;
-				pixel_shader.constant_0[0] = real_alpha_to_pixel32(
+				pixel_shader.constant_0[0] = real_alpha_to_pixel32_pinned(
 					water->view_perpendicular_tint_color.alpha);
-				pixel_shader.constant_1[0] = real_alpha_to_pixel32(
+				pixel_shader.constant_1[0] = real_alpha_to_pixel32_pinned(
 					water->view_parallel_tint_color.alpha);
 				pixel_shader.alpha_inputs[0] = 0x29120911;
 				pixel_shader.alpha_outputs[0] = 0xC00;

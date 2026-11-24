@@ -1945,6 +1945,9 @@ static boolean network_game_join_game_from_server_list(
 						which is the newer, and stays in the list) */
 						if (!network_game_client_advertised_game_compatible(global_network_game_client_get(), server, TRUE))
 							return FALSE;
+						/* port: a second press while a join is under way is ignored */
+						if (!network_game_client_can_initiate_join(global_network_game_client_get(), server))
+							return FALSE;
 						transport_client_start(server + 0x18, server + 8, server, 0x141E, &address);
 						if (address.address.long_words[0] != zero && address.port != zero)
 						{
@@ -2530,8 +2533,10 @@ static boolean netgame_unjoin_player(
 	if (client)
 	{
 		short state;
+		/* (the state is the return value; "state" is its data: while joining, how far through the timeout) */
+		short client_state = network_game_client_get_state(client, &state);
 
-		if (network_game_client_get_state(client, &state) == 2)
+		if (client_state == 2)
 		{
 			struct network_game *game = network_game_client_get_game(client);
 			short machine_index;
@@ -2591,6 +2596,15 @@ static boolean netgame_unjoin_player(
 						result = FALSE;
 				}
 			}
+		}
+		else if (client_state == 1)
+		{
+			/* port: backing out while the join is still under way ends it, keeping the browser
+			(and a server): else the client stays "joining" under the browser and every JOIN after
+			it is refused (network_game_client_can_initiate_join) */
+			network_game_client_reset(client, TRUE);
+			if (!global_network_game_server_get())
+				game_connection_set(0);
 		}
 		else
 			error(2, "can't request player removal from netgame_unjoin_player() unless we are in pregame");
@@ -6084,6 +6098,14 @@ static boolean ui_widget_port_join_at_port(
 	if (*(short *)(server + 0xDE) != 0 ||
 		!network_game_client_advertised_game_compatible(global_network_game_client_get(), server, TRUE))
 	{
+		return FALSE;
+	}
+	/* port: a second JOIN while a join is under way (or on a client that is not idle)
+	is ignored: it must not reach the assertion in network_game_client_initiate_join_game,
+	and the failure path below (network_game_abort) would end the join under way */
+	if (!network_game_client_can_initiate_join(global_network_game_client_get(), server))
+	{
+		ui_play_audio_feedback_sound(4);
 		return FALSE;
 	}
 	transport_client_start(server + 0x18, server + 8, server, port, &address);

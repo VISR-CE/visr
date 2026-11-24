@@ -2931,7 +2931,7 @@ void rasterizer_transparent_geometry_group_draw(
 									_render_model_effect_type_active_camouflage)
 								{
 									pixel_shader.constant_1[0] =
-										real_alpha_to_pixel32(group->effect_intensity);
+										real_alpha_to_pixel32_pinned(group->effect_intensity);
 									pixel_shader.alpha_inputs[0] = 0x14320000;
 									pixel_shader.alpha_outputs[0] = 0x40;
 								}
@@ -3119,7 +3119,7 @@ void rasterizer_transparent_geometry_group_draw(
 									_render_model_effect_type_active_camouflage)
 								{
 									pixel_shader.constant_1[1] =
-										real_alpha_to_pixel32(group->effect_intensity);
+										real_alpha_to_pixel32_pinned(group->effect_intensity);
 									pixel_shader.alpha_inputs[1] = 0x14320000;
 									pixel_shader.alpha_outputs[1] = 0x40;
 								}

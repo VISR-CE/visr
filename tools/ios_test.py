@@ -650,6 +650,15 @@ run(BUILD/'natpmp-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/away_probe.c', '-o', BUILD/'away-probe')
 run(BUILD/'away-probe')
+# the alpha pin of the Xbox renderer's constants (alpha_pin.h): no value leaves 0 to 1
+run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/game',
+    'port/ios/tests/alpha_pin_probe.c', '-o', BUILD/'alpha-pin-probe')
+run(BUILD/'alpha-pin-probe')
+# no Xbox rasterizer file calls the asserting real_alpha_to_pixel32 (tag values can leave 0 to 1): use the _pinned one
+import re as _re
+_unpinned = [str(f) for f in Path('source/rasterizer/xbox').glob('*.c')
+             if _re.search(r'(?<![_\w])real_alpha_to_pixel32\(', f.read_text(errors='replace').split('*/', 1)[-1])]
+assert not _unpinned, f'unpinned real_alpha_to_pixel32 in {_unpinned}'
 # The master response is verified over exact capture bytes; malformed entries stay isolated.
 run('xcrun', 'clang', '-std=gnu11', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined',
     '-Iport/linux/src', '-Iport/third_party/monocypher', 'port/ios/tests/master_list_probe.c',
@@ -1109,6 +1118,11 @@ run(BUILD/'texture-upscale-continued-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
     'port/ios/tests/texture_upscale_priority_probe.c', '-o', BUILD/'texture-upscale-priority-probe')
 run(BUILD/'texture-upscale-priority-probe')
+# which HALO_ variables of a launch the game gets (port/ios/host/host_guest_environment.c)
+run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
+    '-Iport/ios/host', 'port/ios/tests/guest_environment_probe.c', 'port/ios/host/host_guest_environment.c',
+    '-o', BUILD/'guest-environment-probe')
+run(BUILD/'guest-environment-probe')
 # the host's write of one setting into config.toml, for the Settings app's switch (port/ios/host/host_config.c)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host', 'port/ios/tests/host_config_write_probe.c',
     'port/ios/host/host_config.c', '-o', BUILD/'host-config-write-probe')

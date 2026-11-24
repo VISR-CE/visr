@@ -84,6 +84,14 @@ int main(void)
 		assert(host_config_graphics_mode() == GRAPHICS_MODE_CLASSIC);
 		unsetenv("HALO_GRAPHICS");
 		unsetenv("HALO_BENCHMARK_SUITE");
+		/* any launch's setting variable wins over the file for the host's readers too, not only a suite's (bug class:
+		a launch variable the game honors while the host still reads config.toml) */
+		setenv("HALO_VSYNC", "false", 1);
+		host_config_string("display.vsync", "true", text, sizeof(text));
+		assert(!strcmp(text, "false"));
+		unsetenv("HALO_VSYNC");
+		host_config_string("display.vsync", "false", text, sizeof(text));
+		assert(!strcmp(text, "true"));
 		/* a mode a newer build has: Enhanced */
 		file = fopen("config.toml", "w");
 		fputs("[display]\ngraphics = \"rt\"\nrender_scale = 0.5\n", file);
