@@ -1823,6 +1823,17 @@
             "desktop"
           ]
         },
+        "map_pictures_scan": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run the launch check of the map pictures even in a runner's run (it is skipped there otherwise), so a stale or missing picture brings up the preparing maps stage from the main menu. For testing the refresh.",
+          "x-environment": "HALO_MAP_PICTURES_SCAN",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "orientation": {
           "type": "string",
           "default": "",
