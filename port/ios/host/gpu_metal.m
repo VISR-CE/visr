@@ -6582,13 +6582,16 @@ thread. When the encode thread is the first member, the game thread, the second,
 again after a switch (a refused join is not final). */
 void gpu_metal_frame_deadline_before_switch(void)
 {
-	if (frame_deadline_game_thread_leaves_before_switch(frame_deadline.state,
-			pthread_equal(frame_deadline.thread, pthread_self()), frame_deadline.producer_joined))
+	int leaves = frame_deadline_game_thread_leaves_before_switch(frame_deadline.state,
+		pthread_equal(frame_deadline.thread, pthread_self()), frame_deadline.producer_joined);
+
+	if (leaves)
 	{
 		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
 			os_workgroup_leave(frame_deadline.interval, &frame_deadline.producer_token);
 	}
-	frame_deadline.producer_joined = 0;
+	/* (the encode thread's own join, when it is the second member, stays recorded: its end hook leaves it) */
+	frame_deadline.producer_joined = frame_deadline_second_after_before_switch(leaves, frame_deadline.producer_joined);
 }
 
 /* The encode thread ends (gpu_queue_set_consumer_ending), on the encode thread: it leaves what it joined, since a thread

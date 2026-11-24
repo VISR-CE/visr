@@ -123,6 +123,9 @@ iOS, tvOS and macOS build (tools/ios_build.py, tools/macos_build.py): a new one 
   starts the interval at its present's return, before the barrier lets the game thread go: the game thread's end comes
   before its present is recorded and the encode thread's present ends it again, a non-member's end does nothing, and
   _leave and _hold return early with a game thread.
+- SWITCH: the dispatch's rewrap calls it on the game thread at a frame boundary, with the queue drained and the encode
+  thread idle, as the encode thread starts or ends (host_gpu_dispatch.c, encode_queue_rewrap). The encode thread's end
+  hook (gpu_metal_frame_deadline_encode_thread_ending) is WORKGROUP: it leaves, on the encode thread, what that thread joined.
 - SURFACE: reads the game layer's drawable size where the presenter reads it (host_picture_drawable: every pointer
   source maps through it). */
 #define GPU_METAL_DIRECT_ENTRY_POINTS(E) \
@@ -133,6 +136,9 @@ iOS, tvOS and macOS build (tools/ios_build.py, tools/macos_build.py): a new one 
 	E(gpu_metal_frame_deadline_end, WORKGROUP) \
 	E(gpu_metal_frame_deadline_leave, WORKGROUP) \
 	E(gpu_metal_frame_deadline_hold, WORKGROUP) \
+	E(gpu_metal_frame_deadline_before_switch, SWITCH) \
+	E(gpu_metal_frame_deadline_encode_thread_ending, WORKGROUP) \
+	E(gpu_metal_encode_owner_reset, SWITCH) \
 	E(host_picture_drawable, SURFACE)
 
 #define GPU_OPERATION_PASTE_(a, b) a##b

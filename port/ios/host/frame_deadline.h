@@ -57,8 +57,8 @@ static inline int frame_deadline_encode_thread_ending(int state, int on_joined_t
 {
 	if (state == FRAME_DEADLINE_JOINED && on_joined_thread)
 		return FRAME_DEADLINE_ENDING_LEAVE_FIRST;
-	return state == FRAME_DEADLINE_JOINED && second_joined == 1 ? FRAME_DEADLINE_ENDING_LEAVE_SECOND :
-		FRAME_DEADLINE_ENDING_NONE;
+	/* (a second member leaves whatever became of the first: its join is its own) */
+	return !on_joined_thread && second_joined == 1 ? FRAME_DEADLINE_ENDING_LEAVE_SECOND : FRAME_DEADLINE_ENDING_NONE;
 }
 
 /* Before that switch, on the game thread: when the encode thread is the first member, the game thread (the second) leaves
@@ -66,6 +66,14 @@ static inline int frame_deadline_encode_thread_ending(int state, int on_joined_t
 static inline int frame_deadline_game_thread_leaves_before_switch(int state, int on_joined_thread, int second_joined)
 {
 	return state == FRAME_DEADLINE_JOINED && !on_joined_thread && second_joined == 1;
+}
+
+/* The second member's record after the game thread's step before a switch: the game thread's own leave clears it; a refused
+   try (-1) is tried again after the switch; a join by the encode thread (1) stays for the encode thread's end hook to see,
+   which leaves it. */
+static inline int frame_deadline_second_after_before_switch(int game_thread_left, int second_joined)
+{
+	return game_thread_left || second_joined < 0 ? 0 : second_joined;
 }
 
 /* a frame that is shown joins again after a leave; an offscreen benchmark frame has no deadline and stays out, and so
