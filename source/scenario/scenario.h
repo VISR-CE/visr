@@ -99,6 +99,8 @@ void scenario_unload(
 	void);
 struct scenario *global_scenario_get(void);
 struct scenario *global_scenario_try_and_get(void);
+/* port: a scenario is loaded and it is a level (solo or multiplayer), not the main menu's */
+boolean global_scenario_is_level(void);
 struct structure_bsp *global_structure_bsp_get(void);
 struct collision_bsp *global_collision_bsp_get(void);
 struct bsp3d *global_bsp3d_get(void);

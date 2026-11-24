@@ -134,7 +134,7 @@ void halo_workload_decide(void)
 	char reasons[160];
 
 	memset(&inputs, 0, sizeof(inputs));
-	inputs.main_menu = !global_scenario || global_scenario->type == _scenario_type_main_menu;
+	inputs.main_menu = !global_scenario_is_level();
 	inputs.multiplayer_map = global_scenario && global_scenario->type == _scenario_type_multiplayer;
 	inputs.networked = connection == _game_connection_network_server || connection == _game_connection_network_client;
 	inputs.online = workload_online(connection);

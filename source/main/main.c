@@ -1345,6 +1345,13 @@ boolean main_menu_fade_active(
 	return main_globals.map_change_load_timer != 0;
 }
 
+/* port: a map change is waiting to run at the top of the next main loop pass (console.c) */
+boolean main_port_map_change_pending(
+	void)
+{
+	return main_globals.defer_map_change;
+}
+
 /* port: whether the main menu's scenario is loaded (menu_functions.c) */
 boolean main_port_main_menu_loaded(
 	void)

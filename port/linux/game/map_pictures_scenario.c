@@ -100,11 +100,8 @@ int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_
 
 int map_pictures_scenario_in_game(void)
 {
-	struct scenario *scenario;
-
 	if (!game_time_initialized() || !game_in_progress()) return 0;
-	scenario = global_scenario_try_and_get();
-	return scenario && scenario->type != _scenario_type_main_menu;
+	return global_scenario_is_level();
 }
 
 int map_pictures_scenario_in_cinematic(void)

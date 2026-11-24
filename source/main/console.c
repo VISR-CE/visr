@@ -63,8 +63,8 @@ symbols in this file:
 #include "input/input.h"
 #include "interface/terminal.h"
 #include "math/real_math.h"
+#include "main/main.h"
 #include "scenario/scenario.h"
-#include "scenario/scenario_definitions.h"
 
 /* ---------- constants */
 
@@ -449,8 +449,7 @@ void console_startup_update(
 	}
 	/* (the main menu is a game in progress too: init_after can run map_name over it, and the menu's own game must not take
 	the level's lines, whose names it does not know) */
-	else if (console_startup_rest && game_in_progress() && global_scenario &&
-		global_scenario->type != _scenario_type_main_menu)
+	else if (console_startup_rest && game_in_progress() && global_scenario_is_level() && !main_port_map_change_pending())
 	{
 		FILE *rest = console_startup_rest;
 
@@ -484,29 +483,60 @@ static void console_startup_run(
 	return;
 }
 
+/* port: reads init.txt's next command into buffer (size bytes, as fgets takes it): 1 a line (its \r and \n removed, tabs
+made spaces, so the original strtok no longer cuts a line at a tab), 0 at the end of the file, -1 a line that does not fit,
+at most size - 2 bytes before its newline: skipped whole, the rest of it read and dropped, because each piece of a cut line
+ran as a command of its own (a cut script placed half its AI, or halted the game on a piece like "(object_teleport )") */
+static int console_startup_read_line(
+	FILE *file,
+	char *buffer,
+	int size)
+{
+	char *cursor;
+	int c;
+
+	if (!fgets(buffer, size, file))
+	{
+		return 0;
+	}
+	if (!strchr(buffer, '\n') && !feof(file))
+	{
+		while ((c = fgetc(file)) != EOF && c != '\n')
+		{
+		}
+		return -1;
+	}
+	buffer[strcspn(buffer, "\r\n")] = '\0';
+	for (cursor = buffer; *cursor; cursor++)
+	{
+		if (*cursor == '\t')
+		{
+			*cursor = ' ';
+		}
+	}
+	return 1;
+}
+
 static void console_startup_run_lines(
 	FILE *file)
 {
 	char buffer[200];
 	short newest_previous_command_index;
 	boolean defer_rest = FALSE;
+	int read;
 
-	while (!defer_rest && fgets(buffer, NUMBEROF(buffer)-1, file))
+	while (!defer_rest && (read = console_startup_read_line(file, buffer, NUMBEROF(buffer)-1)) != 0)
 	{
-		/* port: a line longer than the buffer is skipped whole: its pieces would each run as a command of their own (a cut
-		script places half its AI, or halts the game on a piece like "(object_teleport )") */
-		if (!strchr(buffer, '\n') && !feof(file))
+		if (read < 0)
 		{
-			int c;
-
-			while ((c = fgetc(file)) != EOF && c != '\n')
-			{
-			}
-			error(_error_log, "init.txt: a line longer than %d bytes was skipped: %.40s...", (int)NUMBEROF(buffer) - 2, buffer);
-			platform_log("init.txt: a line longer than %d bytes was skipped: %.40s...", (int)NUMBEROF(buffer) - 2, buffer);
+			error(_error_log, "init.txt: a line longer than %d bytes was skipped: %.40s...", (int)NUMBEROF(buffer) - 3, buffer);
+			platform_log("init.txt: a line longer than %d bytes was skipped: %.40s...", (int)NUMBEROF(buffer) - 3, buffer);
 			continue;
 		}
-		strtok(buffer, "\r\n\t");
+		if (!buffer[0])
+		{
+			continue;
+		}
 		newest_previous_command_index = (console_globals.newest_previous_command_index + 1) % MAXIMUM_NUMBER_OF_PREVIOUS_COMMANDS;
 
 		console_globals.newest_previous_command_index = newest_previous_command_index;

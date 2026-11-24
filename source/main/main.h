@@ -114,6 +114,10 @@ void main_menu_ensure_player_queues_exist(
 boolean main_menu_fade_active(
 	void);
 
+/* port: a map change is waiting to run at the top of the next main loop pass (console.c) */
+boolean main_port_map_change_pending(
+	void);
+
 void main_menu_switch_to_single_player(
 	void);
 
