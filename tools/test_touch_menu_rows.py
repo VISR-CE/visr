@@ -137,72 +137,7 @@ int main(void) {
     subprocess.run([str(binary)], check=True)
 
 
-def test_pointer_control_activity(tmp_path):
-    source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
-    functions = '\n'.join(block(source, marker) for marker in (
-        'void halo_controller_glyph_pointer_activity(', 'static void glyph_keyboard_activity(',
-        'int halo_menu_input_kind(', 'int halo_menu_pointer_controls(', 'void halo_menu_pointer_activity('))
-    program = r'''
-#include <assert.h>
-#include <string.h>
-#define HALO_IOS 1
-#define PLATFORM_MOUSE_BUTTON_COUNT 3
-#define SDL_SCANCODE_COUNT 4
-#include "halo_controller_glyphs.h"
-#include "halo_ui_pointer.h"
-static int glyph_keyboard_active, glyph_mouse_active, glyph_menus_active, dev, keyboard = 1;
-static struct halo_glyph_input glyph_menu_input;
-static char const *family = "";
-struct host_ui_pointer { int active, moved, left_clicks, right_clicks, wheel_steps; float radius; };
-#define SDL_EVENT_MOUSE_BUTTON_DOWN 0x401
-typedef union SDL_Event { unsigned type; struct { unsigned which; } button; } SDL_Event;
-void halo_controller_glyph_input_event(SDL_Event const *event) { (void)event; }
-struct platform_input_state { int focused, mouse_released, mouse_buttons[3], keys[4]; float mouse_dx, mouse_dy, mouse_wheel; };
-int platform_menu_keyboard(void) { return keyboard; }
-int host_development_hooks(void) { return dev; }
-char const *config_string(char const *key) { (void)key; return family; }
-''' + functions + r'''
-int main(void) {
- struct host_ui_pointer pointer = {1, 1, 0, 0, 0, 0};
- struct halo_ui_pointer menu_pointer = {0};
- struct platform_input_state input = {0};
- assert(halo_menu_pointer_controls() == 0);
- glyph_menu_input.source = HALO_GLYPH_INPUT_MOUSE; /* the SDL mouse motion event notes the mouse first */
- halo_controller_glyph_pointer_activity(1, &pointer);
- assert(halo_menu_pointer_controls() == 1 && halo_menu_input_kind() == HALO_INPUT_KEYBOARD);
- input.focused = 1; input.keys[0] = 1;
- glyph_keyboard_activity(&input); assert(halo_menu_pointer_controls() == 0);
- halo_controller_glyph_pointer_activity(1, &pointer); assert(halo_menu_pointer_controls() == 1);
- pointer.radius = 22; halo_controller_glyph_pointer_activity(1, &pointer);
- assert(halo_menu_pointer_controls() == 2);
- keyboard = 0; glyph_keyboard_activity(&input); assert(halo_menu_pointer_controls() == 2);
- pointer.moved = 0; pointer.radius = 0;
- halo_controller_glyph_pointer_activity(1, &pointer); assert(halo_menu_pointer_controls() == 2);
- pointer.left_clicks = 1; halo_controller_glyph_pointer_activity(1, &pointer);
- assert(halo_menu_pointer_controls() == 1);
- glyph_keyboard_active = 0; assert(halo_menu_pointer_controls() == 0);
- input.keys[0] = 0; input.mouse_dx = 4;
- glyph_keyboard_activity(&input); assert(halo_menu_pointer_controls() == 1);
- input.mouse_dx = 0; input.mouse_buttons[0] = 1;
- glyph_keyboard_activity(&input); assert(halo_menu_pointer_controls() == 1);
- menu_pointer.moved = 1;
- glyph_keyboard_active = 0; halo_menu_pointer_activity(&menu_pointer);
- assert(halo_menu_pointer_controls() == 1);
- menu_pointer.radius = 22; halo_menu_pointer_activity(&menu_pointer);
- assert(halo_menu_pointer_controls() == 2);
- menu_pointer.radius = 0; halo_menu_pointer_activity(&menu_pointer);
- family = "touch"; assert(halo_menu_pointer_controls() == 1);
- dev = 1; assert(halo_menu_pointer_controls() == 2);
- family = "keyboard"; assert(halo_menu_pointer_controls() == 0);
- family = "xbox"; assert(halo_menu_pointer_controls() == 0);
- return 0;
-}
-'''
-    probe, binary = tmp_path / 'input.c', tmp_path / 'input'
-    probe.write_text(program)
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
-                    str(probe), '-o', str(binary)], check=True)
-    subprocess.run([str(binary)], check=True)
+# (which input the rows' controls follow, and every event that may or may not change it: tools/test_menu_input_switch.py)
 
 
 def test_toggle_drawing_and_step_dispatch(tmp_path):
