@@ -246,6 +246,11 @@ struct nv2a_pixel_shader_key
 	(nv2a_psh.c's traced block). Never listed, recorded or observed: a key of this size exists only while a frame
 	traces */
 	uint32_t traced_shadow;
+	/* (interim, like traced_shadow) a dynamic light's draw over the level that traces it (debug.traced_light_blocking,
+	d3d8_device.c's halo_traced_light_key; Metal only): 1 when the light reaches only the points a ray from it
+	does, against the level and the frame's shadow casters (nv2a_psh.c's traced light block). Never listed,
+	recorded or observed */
+	uint32_t traced_light;
 };
 
 /* the struct is the table's record: every field at its offset and size, no padding, and the three key sizes
@@ -292,7 +297,7 @@ NV2A_PIXEL_SHADER_KEY_BASE_SIZE bytes, as it was recorded */
 
 static inline unsigned long nv2a_pixel_shader_key_size(const struct nv2a_pixel_shader_key *key)
 {
-	if (key->traced_shadow)
+	if (key->traced_shadow || key->traced_light)
 		return sizeof(*key);
 	if (key->lighting_program[0] || key->lighting_program[1])
 		return NV2A_PIXEL_SHADER_KEY_LIT_SIZE;

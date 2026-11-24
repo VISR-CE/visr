@@ -154,6 +154,7 @@ symbols in this file:
 #include "rasterizer/rasterizer_environment.h"
 #include "rasterizer/common/rasterizer_common.h"
 #include "rasterizer/rasterizer_geometry.h"
+#include "traced_shadow_casters.h" /* port/linux/game */
 #include "rasterizer/rasterizer_lights.h"
 #include "rasterizer/rasterizer_memory_pool.h"
 #include "rasterizer/rasterizer_transparent_geometry.h"
@@ -1197,6 +1198,8 @@ void _rasterizer_environment_lightmap_begin(
 void _rasterizer_environment_diffuse_light_end(
 	void)
 {
+	/* port: debug.traced_light_blocking */
+	traced_light_end();
 	return;
 }
 
@@ -1296,6 +1299,8 @@ void _rasterizer_environment_diffuse_light_begin(
 		D3DDevice_SetRenderState(
 			D3DRS_PSCONSTANT0_0,
 			real_rgb_color_to_pixel32(&light->color));
+		/* port: debug.traced_light_blocking: the light reaches only what a ray from it does */
+		traced_light_begin(&light->position, light->radius);
 	}
 	return;
 }

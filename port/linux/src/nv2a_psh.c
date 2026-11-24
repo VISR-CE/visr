@@ -750,6 +750,48 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t\tt0 = vec4(covered);\n"
 			"\t}\n");
 
+	/* A dynamic light that walls and characters block (nv2a_pixel_shader_key traced_light; Metal): the level's diffuse
+	light pass (rasterizer_xbox_environment.c) draws each light's surfaces once more, additively. The lit point is
+	rebuilt from the distance attenuation coordinates, which the game's vertex shader makes as
+	0.5 - (light - point) / (2 radius); a ray from it to the light against the level (instance mask 2), and when
+	traced_light[1].y is set, a second against the frame's shadow casters (mask 1), which stops traced_light[1].z
+	short of the light so that the carrier of a flashlight does not block its own beam. A blocked point gets none
+	of the light. traced_light: traced_shadows_format.h */
+	if (dialect->msl && key->traced_light)
+		xgpu_text_append(&text,
+			"\tfloat traced_lit = 1.0;\n"
+			"\tif (traced_light[2].x < 0.5)\n"
+			"\t{\n"
+			"\t\tfloat3 p = traced_light[0].xyz + (xT2.xyz - 0.5) * (2.0 * traced_light[0].w);\n"
+			"\t\tfloat3 to_light = traced_light[0].xyz - p;\n"
+			"\t\tfloat span = length(to_light);\n"
+			"\t\tif (span > 2.0 * traced_light[1].x)\n"
+			"\t\t{\n"
+			"\t\t\tfloat3 direction = to_light / span;\n"
+			"\t\t\tmetal::raytracing::intersector<metal::raytracing::triangle_data, metal::raytracing::instancing> tracer;\n"
+			"\t\t\ttracer.assume_geometry_type(metal::raytracing::geometry_type::triangle);\n"
+			"\t\t\ttracer.force_opacity(metal::raytracing::forced_opacity::opaque);\n"
+			"\t\t\ttracer.accept_any_intersection(true);\n"
+			"\t\t\tint repeats = clamp(int(traced_light[2].y), 1, 64);\n"
+			"\t\t\tfloat blocked = 0.0;\n"
+			"\t\t\tfor (int repeat = 0; repeat < 64; repeat++)\n"
+			"\t\t\t{\n"
+			"\t\t\t\tif (repeat >= repeats)\n"
+			"\t\t\t\t\tbreak;\n"
+			"\t\t\t\tfloat nudge = 1.0e-4 * float(repeat);\n"
+			"\t\t\t\tmetal::raytracing::ray world_ray(p, direction, traced_light[1].x + nudge, span - traced_light[1].x);\n"
+			"\t\t\t\tbool hit = tracer.intersect(world_ray, traced_blockers, 2u).type != metal::raytracing::intersection_type::none;\n"
+			"\t\t\t\tif (!hit && traced_light[1].y > 0.5 && span > traced_light[1].x + traced_light[1].z)\n"
+			"\t\t\t\t{\n"
+			"\t\t\t\t\tmetal::raytracing::ray caster_ray(p, direction, traced_light[1].x + nudge, span - traced_light[1].z);\n"
+			"\t\t\t\t\thit = tracer.intersect(caster_ray, traced_blockers, 1u).type != metal::raytracing::intersection_type::none;\n"
+			"\t\t\t\t}\n"
+			"\t\t\t\tblocked = hit ? 1.0 : blocked;\n"
+			"\t\t\t}\n"
+			"\t\t\ttraced_lit = 1.0 - blocked;\n"
+			"\t\t}\n"
+			"\t}\n");
+
 	/* the fog register: rgb is the fog color, alpha the fog factor */
 	if (key->fog_enable)
 	{
@@ -881,6 +923,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		xgpu_text_append(&text, "\tatomicCounterIncrement(visible_samples);\n");
 	if (writes_depth && !dialect->msl)
 		xgpu_text_append(&text, "\tgl_FragDepth = replaced_depth;\n");
+	/* (a traced light reaches only the points its ray did) */
+	if (dialect->msl && key->traced_light)
+		xgpu_text_append(&text, "\tresult.rgb *= traced_lit;\n");
 	xgpu_text_append(&text, "\tfragment_color = clamp(result, 0.0, 1.0);\n");
 	if (dialect->msl)
 	{

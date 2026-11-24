@@ -35,5 +35,11 @@ void traced_shadow_casters_commit(void);
 /* the next draws apply shadow id, of this matrix and radius, until traced_shadow_apply_end */
 void traced_shadow_apply(unsigned long id, real_matrix4x3 const *shadow_matrix, real radius);
 void traced_shadow_apply_end(void);
+/* debug.traced_light_blocking: the next draws are a dynamic light's over the level, lit only where a ray from the
+point reaches the light; FALSE when they are drawn as the game draws them. traced_light_end after them */
+boolean traced_light_begin(real_point3d const *position, real radius);
+void traced_light_end(void);
+/* whether every object casts for the traced light, however faint its own shadow */
+boolean traced_light_every_caster(void);
 
 #endif

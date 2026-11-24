@@ -172,6 +172,9 @@ Handles index tables of these; 0 is none. */
 	acceleration structure and basis (traced_draw_bind), and its pipelines keep the smallest penumbra radius in
 	alpha (pipeline_descriptor) */
 	BOOL traced_shadow;
+	/* a pixel shader that traces a dynamic light (nv2a_psh.c's traced light block): its draws bind the blockers
+	and the light (traced_light_bind) */
+	BOOL traced_light;
 	/* a vertex shader's library, and its function specialized for each set
 	of attribute kinds it is drawn with (vertex_function) */
 	id<MTLLibrary> library;
@@ -2468,6 +2471,7 @@ static gpu_shader gpu_metal_shader_create(uint32_t stage, const char *source)
 		record->compiled = dispatch_group_create();
 		record->reads_constants = stage != GPU_SHADER_VERTEX && strstr(source, "constant float4 *c [[buffer(4)]]") != NULL;
 		record->traced_shadow = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_SHADOW 1") != NULL;
+		record->traced_light = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_LIGHT 1") != NULL;
 		/* (each on a worker thread, compiled synchronously there: not with
 		newLibraryWithSource's completion handler, which runs on Metal's
 		compiler queue, where shader_finish's newFunctionWithName waits on
@@ -5785,6 +5789,144 @@ static void traced_commit(void)
 	}
 }
 
+/* ---------- dynamic lights that walls and characters block (debug.traced_light_blocking; traced_shadow_casters.c's
+traced_light_begin, nv2a_psh.c's traced light block)
+
+The level's diffuse light pass draws each dynamic light's surfaces once more; with this on, those draws trace a ray
+from each lit point to the light. What blocks it is one instance structure a frame: the level's structure (mask 2)
+and every caster structure this frame's shadows built (mask 1, identity transforms: their triangles are skinned
+into world space). It is made at the frame's first traced light draw, after every waiting build and refit is
+encoded, and made again when more casters were committed since. A caster's structure is taken afresh each time
+(a slot's structure is replaced when its caster grows). */
+static struct
+{
+	float light[TRACED_SHADOWS_LIGHT_FLOATS];
+	unsigned long frame;      /* the frame the instances were made in */
+	uint32_t made_with;       /* the casters they hold */
+	uint32_t count;           /* their instances, the level's included */
+	unsigned long draws, builds, skipped; /* since the last log line */
+	int ab;                   /* HALO_RT_LIGHT_AB: every second block of 300 frames skips the rays (cost runs) */
+} traced_lights = { .frame = (unsigned long)-1, .ab = -1 };
+static __strong id<MTLAccelerationStructure> traced_light_instances[FRAMES];
+static __strong id<MTLBuffer> traced_light_descriptors[FRAMES], traced_light_scratch[FRAMES];
+static __strong NSMutableArray<id<MTLAccelerationStructure>> *traced_light_members[FRAMES];
+
+static void traced_light_take(const void *bytes, uint32_t size)
+{
+	if (bytes && size == sizeof(traced_lights.light))
+		memcpy(traced_lights.light, bytes, sizeof(traced_lights.light));
+}
+
+/* the blockers' instance structure, made in the frame's command buffer between passes. NO: the light is drawn as
+the game draws it */
+static BOOL traced_light_ready(void)
+{
+	uint32_t shadow, casters = 0;
+
+	if (atomic_load(&traced_failed) || !traced_world)
+	{
+		traced_lights.skipped++;
+		return NO;
+	}
+	traced_frame_check();
+	/* (every waiting build and refit first, in this command buffer) */
+	traced_commit();
+	if (frames != traced_lights.frame && (frames % 600) == 0 && traced_lights.frame != (unsigned long)-1)
+	{
+		platform_log("traced lights: frame %lu: %lu traced light draws, %lu instance builds, %lu draws left untraced "
+			"since the last line", frames, traced_lights.draws, traced_lights.builds, traced_lights.skipped);
+		traced_lights.draws = traced_lights.builds = traced_lights.skipped = 0;
+	}
+	for (shadow = 0; shadow < TRACED_SHADOWS_SHADOWS; shadow++)
+		casters += traced.shadow_slot[shadow] && traced_structures[traced.shadow_slot[shadow] - 1];
+	if (frames != traced_lights.frame || casters != traced_lights.made_with || !traced_light_instances[frame_slot])
+	{
+		@autoreleasepool
+		{
+			NSMutableArray<id<MTLAccelerationStructure>> *members = [NSMutableArray arrayWithObject:traced_world];
+			MTLInstanceAccelerationStructureDescriptor *descriptor = [MTLInstanceAccelerationStructureDescriptor descriptor];
+			MTLAccelerationStructureInstanceDescriptor *instances;
+			MTLAccelerationStructureSizes sizes;
+			id<MTLAccelerationStructureCommandEncoder> build;
+			uint32_t index;
+
+			for (shadow = 0; shadow < TRACED_SHADOWS_SHADOWS; shadow++)
+			{
+				if (traced.shadow_slot[shadow] && traced_structures[traced.shadow_slot[shadow] - 1])
+					[members addObject:traced_structures[traced.shadow_slot[shadow] - 1]];
+			}
+			if (!traced_light_descriptors[frame_slot] ||
+				traced_light_descriptors[frame_slot].length < members.count * sizeof(*instances))
+				traced_light_descriptors[frame_slot] = [device newBufferWithLength:
+					(members.count + 64) * sizeof(*instances) options:MTLResourceStorageModeShared];
+			if (!traced_light_descriptors[frame_slot])
+			{
+				traced_fail("the traced lights' instance list could not be allocated");
+				return NO;
+			}
+			instances = (MTLAccelerationStructureInstanceDescriptor *)traced_light_descriptors[frame_slot].contents;
+			for (index = 0; index < members.count; index++)
+			{
+				memset(&instances[index], 0, sizeof(instances[index]));
+				instances[index].transformationMatrix.columns[0] = (MTLPackedFloat3){ 1.0f, 0.0f, 0.0f };
+				instances[index].transformationMatrix.columns[1] = (MTLPackedFloat3){ 0.0f, 1.0f, 0.0f };
+				instances[index].transformationMatrix.columns[2] = (MTLPackedFloat3){ 0.0f, 0.0f, 1.0f };
+				instances[index].options = MTLAccelerationStructureInstanceOptionOpaque;
+				instances[index].mask = index ? 1u : 2u;
+				instances[index].accelerationStructureIndex = index;
+			}
+			descriptor.instancedAccelerationStructures = members;
+			descriptor.instanceCount = members.count;
+			descriptor.instanceDescriptorBuffer = traced_light_descriptors[frame_slot];
+			descriptor.usage = MTLAccelerationStructureUsagePreferFastBuild;
+			sizes = [device accelerationStructureSizesWithDescriptor:descriptor];
+			if (!traced_light_instances[frame_slot] ||
+				traced_light_instances[frame_slot].size < sizes.accelerationStructureSize)
+				traced_light_instances[frame_slot] =
+					[device newAccelerationStructureWithSize:sizes.accelerationStructureSize * 2];
+			if (!traced_light_scratch[frame_slot] || traced_light_scratch[frame_slot].length < sizes.buildScratchBufferSize)
+				traced_light_scratch[frame_slot] = [device newBufferWithLength:sizes.buildScratchBufferSize * 2 + 256
+					options:MTLResourceStorageModePrivate];
+			if (!traced_light_instances[frame_slot] || !traced_light_scratch[frame_slot])
+			{
+				traced_fail("the traced lights' instance structure could not be allocated");
+				return NO;
+			}
+			pass_end();
+			build = [command_buffer() accelerationStructureCommandEncoder];
+			[build buildAccelerationStructure:traced_light_instances[frame_slot] descriptor:descriptor
+				scratchBuffer:traced_light_scratch[frame_slot] scratchBufferOffset:0];
+			[build endEncoding];
+			traced_light_members[frame_slot] = members;
+			traced_lights.frame = frames;
+			traced_lights.made_with = casters;
+			traced_lights.count = (uint32_t)members.count;
+			traced_lights.builds++;
+		}
+	}
+	traced_lights.draws++;
+	return YES;
+}
+
+static void traced_light_bind(void)
+{
+	float light[TRACED_SHADOWS_LIGHT_FLOATS];
+
+	memcpy(light, traced_lights.light, sizeof(light));
+	if (traced_lights.ab < 0)
+		traced_lights.ab = getenv("HALO_RT_LIGHT_AB") != NULL;
+	light[8] = traced_lights.ab && ((frames / 300) & 1) ? 1.0f : 0.0f;
+	/* (an instance structure's members are not bound with it: each is made resident for the fragment stage) */
+	for (id<MTLAccelerationStructure> member in traced_light_members[frame_slot])
+		[encoder useResource:member usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
+	[encoder setFragmentAccelerationStructure:traced_light_instances[frame_slot] atBufferIndex:6];
+	metal_state_always(&state_cache);
+	[encoder setFragmentAccelerationStructure:traced_world atBufferIndex:7];
+	metal_state_always(&state_cache);
+	[encoder setFragmentBytes:light length:sizeof(light) atIndex:8];
+	metal_state_always(&state_cache);
+}
+
 static void gpu_metal_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
 {
 	if (!gpu_metal_traced_shadows_ready(1))
@@ -5813,6 +5955,9 @@ static void gpu_metal_traced_shadows_data(uint32_t kind, uint32_t id, const void
 			traced.apply = id;
 			memcpy(traced.basis, bytes, sizeof(traced.basis));
 		}
+		break;
+	case TRACED_SHADOWS_LIGHT:
+		traced_light_take(bytes, size);
 		break;
 	default:
 		break;
@@ -6174,6 +6319,10 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 		nothing */
 		if (pixel->traced_shadow && !traced_draw_ready())
 			return 1;
+		/* a traced light's draw: its blockers' instance structure first, between passes; without the level's
+		structure the shader cannot run, and the light is not drawn this frame */
+		if (pixel->traced_light && !traced_light_ready())
+			return 1;
 		/* display.native_hud and debug.metal_scene_park (native_pass): a
 		draw outside the display-sized or scene pass that samples its targets,
 		or anything written earlier in its command buffer (parked: that
@@ -6339,6 +6488,8 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 		}
 		if (pixel->traced_shadow)
 			traced_draw_bind();
+		if (pixel->traced_light)
+			traced_light_bind();
 		bind_constants(constants, uniforms, pixel && pixel->reads_constants);
 		bind_attributes(draw, &attributes);
 		pass_commands++;

@@ -1653,8 +1653,10 @@ static void render_object(
 			level_of_detail_pixels = object_get_level_of_detail_pixels(data->object_index);
 			shadow_darkness = 1.f - real_rgb_color_brightness(&data->lighting->shadow_color);
 
+			/* port: debug.traced_light_blocking 3: an object in the dark, whose own shadow is too faint to draw,
+			still blocks a dynamic light (traced_shadow_casters.c) */
 			if (level_of_detail_pixels > minimum_pixels &&
-				shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS)
+				(shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS || traced_light_every_caster()))
 			{
 				real size_fraction =
 					shadow_minimum_size_fraction(level_of_detail_pixels, minimum_pixels);

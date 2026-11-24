@@ -33,6 +33,8 @@ enum
 	TRACED_SHADOWS_COMMIT,
 	/* id: the shadow the next traced draws apply. Bytes: TRACED_SHADOWS_BASIS_FLOATS floats */
 	TRACED_SHADOWS_APPLY,
+	/* id: unused. Bytes: TRACED_SHADOWS_LIGHT_FLOATS floats, the light the next traced light draws come from */
+	TRACED_SHADOWS_LIGHT,
 };
 
 enum
@@ -43,6 +45,7 @@ enum
 	TRACED_SHADOWS_PART_VERTICES = 65535,
 	TRACED_SHADOWS_NODE_FLOATS = 13,
 	TRACED_SHADOWS_BASIS_FLOATS = 24,
+	TRACED_SHADOWS_LIGHT_FLOATS = 12,
 };
 
 /* a model part at rest: vertex_count traced_shadows_vertex, then triangle_count * 3 16-bit indices (padded to a
@@ -89,6 +92,12 @@ struct traced_shadows_world
 3 the shadow's position and whether the level's structure stops the ray;
 4 x the tangent of the light's half-angle, y pixels a world unit at distance 1 (the projection's y scale times half
 the view's height), z one over the largest penumbra radius in pixels, w unused; 5 unused */
+
+/* TRACED_SHADOWS_LIGHT's floats (debug.traced_light_blocking; nv2a_psh.c's traced light block), four a row:
+0 the light's position and radius; 1 x the ray's start past the lit point and its end short of the light,
+y whether the frame's shadow casters block it too, z how near the light a caster may be and still not block it
+(the unit that carries a flashlight stands at it), w unused; 2 x 1 to skip the rays this draw (the cost runs'
+in-run comparison), y how many times the rays are traced (cost runs), z w unused */
 
 /* traced_shadows_resolve's values (gpu_backend.h): the window's rectangle in the target's texels (x, y, width,
 height), the padded rectangle the shadows cover (x, y, width, height), the largest penumbra radius in pixels,

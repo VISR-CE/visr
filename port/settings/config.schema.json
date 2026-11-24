@@ -3791,6 +3791,36 @@
             "xbox"
           ]
         },
+        "traced_light_blocking": {
+          "type": "integer",
+          "default": 0,
+          "description": "With display.traced_shadows: dynamic lights (the flashlight, plasma, muzzle flashes) light the level only where a ray from the surface reaches the light. 1 the level's surfaces block; 2 the objects that cast shadows block too; 3 every object blocks, however faint its own shadow; 0 off.",
+          "x-environment": "HALO_TRACED_LIGHT_BLOCKING",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_owner": {
+          "type": "number",
+          "default": 0.3,
+          "description": "With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not block it, so the character carrying a flashlight does not shadow its own beam.",
+          "x-environment": "HALO_TRACED_LIGHT_OWNER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_repeat": {
+          "type": "integer",
+          "default": 1,
+          "description": "For cost measurements: trace debug.traced_light_blocking's rays this many times over (1 to 64); the picture is the same.",
+          "x-environment": "HALO_TRACED_LIGHT_REPEAT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "traced_shadows_any_gpu": {
           "type": "boolean",
           "default": false,

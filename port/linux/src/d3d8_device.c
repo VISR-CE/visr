@@ -3211,6 +3211,7 @@ static struct
 	BOOL window;                /* a window's shadows are being traced */
 	BOOL break_window;          /* debug.traced_shadows_break_only: the window ends with the pass break alone */
 	BOOL key;                   /* the draws being made are a traced shadow's apply draws */
+	BOOL light;                 /* the draws being made are a dynamic light's that walls and characters block */
 	gpu_texture term;
 	unsigned long term_width, term_height;
 	gpu_texture scene_color;    /* the window's */
@@ -3406,6 +3407,13 @@ void halo_traced_shadows_cover(float x0, float y0, float x1, float y1)
 	traced_shadows.cover[1] = fminf(traced_shadows.cover[1], r[1] + (y0 + 1.0f) * 0.5f * r[3]);
 	traced_shadows.cover[2] = fmaxf(traced_shadows.cover[2], r[0] + (x1 + 1.0f) * 0.5f * r[2]);
 	traced_shadows.cover[3] = fmaxf(traced_shadows.cover[3], r[1] + (y1 + 1.0f) * 0.5f * r[3]);
+}
+
+/* the draws that follow are (on) or are no longer a dynamic light's draws that walls and characters block
+(debug.traced_light_blocking; traced_shadow_casters.c's traced_light_begin) */
+void halo_traced_light_key(int on)
+{
+	traced_shadows.light = on && traced_shadows_frame_on();
 }
 
 /* the draws that follow are (on) or are no longer a traced shadow's apply draws */
@@ -5541,7 +5549,7 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 
 	/* (a multisampled alpha test's shader is not listed or observed: the
 	lists and catalogs hold the shaders of draws without multisampling) */
-	if (!name || key->alpha_test_samples || key->soft_depth || key->traced_shadow)
+	if (!name || key->alpha_test_samples || key->soft_depth || key->traced_shadow || key->traced_light)
 		return;
 	name->kind = 2;
 	name->hash = hash64(key, nv2a_pixel_shader_key_size(key));
@@ -6746,6 +6754,9 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 		key->traced_shadow = 1;
 		key->soft_depth = 0;
 	}
+	/* a dynamic light's draw that walls and characters block (halo_traced_light_key) */
+	else if (traced_shadows.light && shader_dialect.msl)
+		key->traced_light = 1;
 	key->fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key->fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
 	key->count_samples = device.visibility_test_active &&

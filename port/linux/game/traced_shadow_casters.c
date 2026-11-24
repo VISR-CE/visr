@@ -33,6 +33,9 @@ only: the records go to gpu_metal.m.
 #include "tag_files/tag_groups.h"
 
 int config_boolean(const char *name); /* port/linux/src/port_config.c */
+long config_integer(const char *name);
+double config_real(const char *name);
+void platform_log(const char *format, ...);
 #include "traced_shadow_casters.h"
 
 #include <xtl.h>
@@ -51,6 +54,7 @@ void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uin
 int halo_traced_shadows_window_begin(float p11);
 void halo_traced_shadows_window_end(void);
 void halo_traced_shadows_key(int on);
+void halo_traced_light_key(int on);
 void halo_traced_shadows_basis(float values[4]);
 void halo_traced_shadows_cover(float x0, float y0, float x1, float y1);
 const void *halo_vertex_buffer_bytes(const void *buffer);
@@ -693,6 +697,65 @@ void traced_shadow_apply_end(
 	halo_traced_shadows_key(0);
 }
 
+/* debug.traced_light_blocking: 0 off; 1 the level's surfaces block dynamic lights; 2 the frame's shadow casters
+too; 3 as 2, and every object casts for it however faint its own shadow (render_objects.c) */
+static long traced_light_mode(
+	void)
+{
+	static unsigned __int64 frame = (unsigned __int64)-1;
+	static long mode;
+
+	if (frame != rasterizer_globals.fps_accumulation_frame_index)
+	{
+		frame = rasterizer_globals.fps_accumulation_frame_index;
+		mode = config_integer("debug.traced_light_blocking");
+	}
+	return mode;
+}
+
+boolean traced_light_every_caster(
+	void)
+{
+	return traced_light_mode() > 2;
+}
+
+boolean traced_light_begin(
+	real_point3d const *position,
+	real radius)
+{
+	static unsigned long calls;
+	long mode = traced_light_mode();
+	float light[TRACED_SHADOWS_LIGHT_FLOATS];
+
+	/* (the level's structure goes with a window's traced shadows, this frame's) */
+	if (mode <= 0 || !traced.world || traced.frame != rasterizer_globals.fps_accumulation_frame_index)
+		return FALSE;
+	memset(light, 0, sizeof(light));
+	light[0] = position->x;
+	light[1] = position->y;
+	light[2] = position->z;
+	light[3] = radius;
+	light[4] = 0.01f; /* the ray's start past the lit point and its end short of the light, world units (3 cm) */
+	light[5] = mode > 1 ? 1.f : 0.f;
+	light[6] = (float)config_real("debug.traced_light_owner");
+	if (light[6] < light[4])
+		light[6] = light[4];
+	light[9] = (float)config_integer("debug.traced_light_repeat");
+	/* (where the light sits against the eye: a light inside a wall the player hugs blocks itself) */
+	if ((calls++ % 600) == 0)
+		platform_log("traced light: %.2f %.2f %.2f radius %.1f, %.3f from the eye", position->x, position->y,
+			position->z, radius, (float)distance3d(position, &render.camera.position));
+	host_traced_shadows_data(TRACED_SHADOWS_LIGHT, 0, light, sizeof(light));
+	halo_traced_light_key(1);
+	return TRUE;
+}
+
+void traced_light_end(
+	void)
+{
+	halo_traced_light_key(0);
+}
+
 #else
 
 void traced_shadow_casters_new_map(void) { }
@@ -706,5 +769,8 @@ void traced_shadow_casters_commit(void) { }
 void traced_shadow_apply(unsigned long id, real_matrix4x3 const *shadow_matrix, real radius)
 	{ (void)id; (void)shadow_matrix; (void)radius; }
 void traced_shadow_apply_end(void) { }
+boolean traced_light_every_caster(void) { return FALSE; }
+boolean traced_light_begin(real_point3d const *position, real radius) { (void)position; (void)radius; return FALSE; }
+void traced_light_end(void) { }
 
 #endif

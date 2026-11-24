@@ -105,7 +105,8 @@ COUNT elements of SIZE bytes; a multi-byte element is little-endian. */
 	X(lighting_point_lights, 255, 1, 1, 0, 0, SHADER_RECORD_EXTENDED, "display.point_light_limit's extra lights") \
 	X(lighting_program, 256, 4, 2, 0, 0, SHADER_RECORD_EXTENDED, \
 		"the lit vertex program's hash, low word first; 0 unlit") \
-	X(traced_shadow, 264, 4, 1, 0, 0, SHADER_RECORD_EXTENDED, "a traced object shadow's apply draw; never recorded")
+	X(traced_shadow, 264, 4, 1, 0, 0, SHADER_RECORD_EXTENDED, "a traced object shadow's apply draw; never recorded") \
+	X(traced_light, 268, 4, 1, 0, 0, SHADER_RECORD_EXTENDED, "a dynamic light's traced draw; never recorded")
 
 /* A pipeline's numeric fields, required ones first: X(name, maximum, default, source). Each is 0..MAXIMUM. A
 field whose DEFAULT is another field is optional in the line (the 13-field form) and takes that field's value

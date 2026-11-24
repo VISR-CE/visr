@@ -2019,6 +2019,16 @@ static const struct config_setting config_settings[] =
 		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over\n"
 		"the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they\n"
 		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur.", _tier_derived, "footprint|xbox" },
+	{ "debug.traced_light_blocking", _config_integer, "0", "HALO_TRACED_LIGHT_BLOCKING", _environment_value, _platform_ios,
+		"With display.traced_shadows: dynamic lights (the flashlight, plasma, muzzle flashes) light the level\n"
+		"only where a ray from the surface reaches the light. 1 the level's surfaces block; 2 the objects that\n"
+		"cast shadows block too; 3 every object blocks, however faint its own shadow; 0 off." },
+	{ "debug.traced_light_owner", _config_real, "0.3", "HALO_TRACED_LIGHT_OWNER", _environment_value, _platform_ios,
+		"With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not\n"
+		"block it, so the character carrying a flashlight does not shadow its own beam." },
+	{ "debug.traced_light_repeat", _config_integer, "1", "HALO_TRACED_LIGHT_REPEAT", _environment_value, _platform_ios,
+		"For cost measurements: trace debug.traced_light_blocking's rays this many times over (1 to 64); the\n"
+		"picture is the same." },
 	{ "debug.traced_shadows_any_gpu", _config_boolean, "false", "HALO_TRACED_SHADOWS_ANY_GPU", _environment_set_is_true,
 		_platform_ios,
 		"With display.traced_shadows: trace on any GPU Metal can trace on, also those without ray tracing\n"

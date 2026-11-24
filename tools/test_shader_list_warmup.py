@@ -73,6 +73,7 @@ struct nv2a_pixel_shader_key {
     unsigned char lighting_point_lights, pad[3];
     unsigned int lighting_program[2];
     unsigned int traced_shadow;
+    unsigned int traced_light;
 };
 #define NV2A_PIXEL_SHADER_KEY_BASE_SIZE offsetof(struct nv2a_pixel_shader_key, alpha_test_samples)
 #define NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE offsetof(struct nv2a_pixel_shader_key, lighting_program)
