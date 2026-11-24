@@ -206,7 +206,7 @@ def test_anisotropy_returns_to_the_setting_when_the_benchmark_clears_its_value(t
     source = (ROOT / "port/linux/src/d3d8_device.c").read_text()
     fixture = r'''
 #include <assert.h>
-static long benchmark_anisotropy, knob_anisotropy;
+static long benchmark_anisotropy;
 static long config_integer(const char *name){ (void)name; return 8; }
 static unsigned long config_changes(void) { return 0; }
 ''' + function(source, "static long anisotropy_in_force(") + r'''
@@ -216,8 +216,6 @@ int main(void){
  assert(anisotropy_in_force()==2);
  benchmark_anisotropy=0;
  assert(anisotropy_in_force()==8);
- knob_anisotropy=4;
- assert(anisotropy_in_force()==4);
  benchmark_anisotropy=1;
  assert(anisotropy_in_force()==1);
  return 0;

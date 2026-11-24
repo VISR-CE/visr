@@ -385,6 +385,11 @@ for name, defines in (('config-probe-ios', ['-DHALO_ILP32=1']), ('config-probe-d
 run('xcrun', 'clang', '-O2', '-fsanitize=address', '-DHALO_ILP32=1', '-Iport/linux/src', '-Iport/third_party/tomlc17',
     'port/ios/tests/config_origins_probe.c', *sdl_flags, '-o', BUILD / 'config-origins-probe')
 run(BUILD / 'config-origins-probe')
+# config_set_live (visr_set, debug.knob_cycle): a set that reports success has changed the value in force, and a
+# refusal changes nothing
+run('xcrun', 'clang', '-O2', '-fsanitize=address', '-DHALO_ILP32=1', '-Iport/linux/src', '-Iport/third_party/tomlc17',
+    'port/ios/tests/config_live_probe.c', *sdl_flags, '-o', BUILD / 'config-live-probe')
+run(BUILD / 'config-live-probe')
 # the device profile's workload context: which games are predictable and which variable (workload_context.h)
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-Iport/linux/game', 'port/ios/tests/workload_context_probe.c',
     '-o', BUILD / 'workload-context-probe')

@@ -29,8 +29,10 @@ the shadow map and effect targets are allocated again at their new size on first
 allocated until the app quits. Not here because they cannot change while the game runs: display.upscaled_textures,
 display.compressed_textures, display.renderer and display.foveation. */
 static const struct knob knob_table[] = {
-	{ "render lines", "display.render_height", KNOB_INTEGER, 5, { "0", "540", "720", "900", "1080" },
-		{ "profile", "540", "720", "900", "1080" } },
+	/* (no "profile" step: a live set is the player's own choice for this run, which a profile's value never
+	replaces again until the app quits) */
+	{ "render lines", "display.render_height", KNOB_INTEGER, 4, { "540", "720", "900", "1080" },
+		{ "540", "720", "900", "1080" } },
 	{ "shadow map", "display.shadow_map_size", KNOB_INTEGER, 3, { "128", "256", "512" },
 		{ "128", "256", "512" } },
 	{ "anisotropy", "display.anisotropic_filtering", KNOB_INTEGER, 5, { "1", "2", "4", "8", "16" },

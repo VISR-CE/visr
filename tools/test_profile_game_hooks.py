@@ -131,9 +131,9 @@ def test_level_target_and_sampler_defaults_refresh(tmp_path):
 typedef unsigned long DWORD;
 enum { D3DFMT_R5G6B5=1, D3DFMT_LIN_R5G6B5 };
 static unsigned long revision;
-static long shadow=256, anisotropy=2, benchmark_shadow_size, knob_shadow_size;
-static long benchmark_anisotropy, knob_anisotropy;
-static int effect=1, knob_effect_level=-1;
+static long shadow=256, anisotropy=2, benchmark_shadow_size;
+static long benchmark_anisotropy;
+static int effect=1, benchmark_effect_level=-1;
 static unsigned long config_changes(void) { return revision; }
 static long config_integer(const char *name) { return !strcmp(name,"display.shadow_map_size") ? shadow : anisotropy; }
 enum { CONFIG_SCENE_GAMEPLAY };
@@ -165,12 +165,12 @@ int main(void) {
     assert(scale[0]==1 && anisotropy_in_force()==1);
     benchmark_shadow_size=benchmark_anisotropy=0;
     assert(anisotropy_in_force()==8);
-    /* (a size above 512, from a setting or profile, is used as 512 and logged; a knob or benchmark one just clamps) */
+    /* (a size above 512, from a setting or profile, is used as 512 and logged; a benchmark one just clamps) */
     assert(!clamp_logs);
     shadow=2048; revision++;
     offscreen_target_scale(128,128,D3DFMT_R5G6B5,scale);
     assert(scale[0]==4 && clamp_logs==1);
-    shadow=512; knob_shadow_size=1024; revision++;
+    shadow=512; benchmark_shadow_size=1024; revision++;
     offscreen_target_scale(128,128,D3DFMT_R5G6B5,scale);
     assert(scale[0]==4);
 }

@@ -261,7 +261,11 @@ static void knob_cycle_chord(XINPUT_GAMEPAD *pad)
 			char note[160];
 
 			if (!config_set_live(name, value, note, sizeof(note)))
+			{
+				/* (refused: the knob reads the setting in force again at its next press) */
 				snprintf(label, sizeof(label), "%s", note);
+				state.value[state.selected] = -1;
+			}
 			platform_log("knob: %s", note);
 		}
 		halo_knob_message(label);

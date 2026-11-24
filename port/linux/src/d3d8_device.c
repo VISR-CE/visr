@@ -263,12 +263,10 @@ size and the anisotropy; 0 leaves the setting in force */
 /* port: the largest shadow map; larger values (settings, profiles, benchmark and knob overrides) clamp to it */
 #define SHADOW_MAP_SIZE_MAX 512
 static long benchmark_render_lines, benchmark_shadow_size, benchmark_anisotropy;
-/* debug.knob_cycle (config_set_live, knob_live_apply): the same settings changed while the game runs, in place of the settings; the
-benchmark's values come first. 0 leaves the setting in force, and for the effect target -1 */
-static long knob_render_lines, knob_shadow_size, knob_anisotropy;
 /* the frame the offscreen targets of an older size are freed on (knob_targets_release); 0 for none */
 static unsigned long knob_release_frame;
-static int knob_effect_level = -1;
+/* a cost run's effect resolution (halo_benchmark_knobs) in place of the setting, -1 for none */
+static int benchmark_effect_level = -1;
 /* Values observed in renderer operations since the current benchmark run began.
    Zero means this run has not established an actual shadow target or sampler. */
 static long benchmark_shadow_target_observed, benchmark_sampler_max_observed;
@@ -420,7 +418,7 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 		takes the scale's place */
 		double render_scale = render_scale_now();
 
-		if (benchmark_render_lines > 0 || knob_render_lines > 0)
+		if (benchmark_render_lines > 0)
 			render_scale = 1.0;
 		if (render_scale >= 0.25 && render_scale < 1.0 && !(head_eyes_frame() && halo_stereo_frame()->foveated))
 		{
@@ -429,7 +427,7 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 		}
 	}
 	pixels = halo_display_render_size(drawable_width, drawable_height, *width,
-		requested_width, benchmark_render_lines > 0 ? benchmark_render_lines : knob_render_lines > 0 ? knob_render_lines :
+		requested_width, benchmark_render_lines > 0 ? benchmark_render_lines :
 		config_scene_integer("display.render_height", halo_scene_class()), screen_maximum_texture_size, allow_portrait);
 	{
 		/* head-tracked stereo: the screen's targets are the eyes' pictures,
@@ -1555,16 +1553,16 @@ static float offscreen_target_scale(unsigned long width, unsigned long height, D
 	}
 	if (width == 128 && height == 128 && (format == D3DFMT_R5G6B5 || format == D3DFMT_LIN_R5G6B5))
 	{
-		long size = benchmark_shadow_size > 0 ? benchmark_shadow_size : knob_shadow_size > 0 ? knob_shadow_size : shadow_size;
+		long size = benchmark_shadow_size > 0 ? benchmark_shadow_size : shadow_size;
 
 		scale[0] = scale[1] = (float)(size > SHADOW_MAP_SIZE_MAX ? SHADOW_MAP_SIZE_MAX : size) / 128.0f;
 	}
-	else if (width == 320 && height == 240 && (knob_effect_level >= 0 ? knob_effect_level : effect_level) > 0)
+	else if (width == 320 && height == 240 && (benchmark_effect_level >= 0 ? benchmark_effect_level : effect_level) > 0)
 	{
 		float dense[2];
 		/* "half": the screen's resolution halved each way, as the Xbox had it; "full": the screen's resolution,
 		twice that */
-		float factor = (knob_effect_level >= 0 ? knob_effect_level : effect_level) == 2 ? 2.0f : 1.0f;
+		float factor = (benchmark_effect_level >= 0 ? benchmark_effect_level : effect_level) == 2 ? 2.0f : 1.0f;
 
 		/* (foveated eye passes: at the eyes' density without foveation, not
 		the rate maps' screen size, which the full-rate center reaches only
@@ -2705,7 +2703,7 @@ static void knob_ab_changed(void)
 		char method[32];
 		config_scene_string("display.anti_aliasing", halo_scene_class(), method, sizeof(method));
 		host_stereo_ab_change(anti_aliasing_live_text[0] ? anti_aliasing_live_text : method,
-			host_stereo_render_quality(-1.0f), knob_shadow_size > 0 ? knob_shadow_size : config_integer("display.shadow_map_size"));
+			host_stereo_render_quality(-1.0f), config_scene_integer("display.shadow_map_size", CONFIG_SCENE_GAMEPLAY));
 	}
 #endif
 }
@@ -2721,24 +2719,52 @@ float halo_knob_render_quality(void)
 }
 
 /* The renderer's side of a live set (config_set_live's hook: debug.knob_cycle's chord in xinput_sdl.c and the script
-console's visr_set), by config name and value text: the overrides below follow the setting's new value.
+console's visr_set), by config name and value text, called once the value is in force. The setting itself is what
+draws: this clears an override that would hide it (the FXAA chord's method, a model detail override) and starts the
+stereo A/B window, and holds no value of its own, so the graphics mode still replaces what it replaces.
 The targets that depend on it are allocated again on the next frame; changes last until the app quits.
 Render height does not affect foveated eyes, whose size comes from the Compositor's rate maps. */
 /* debug.knob_cycle's "ambient occlusion" (debug.ssao spike, halo_ssao_after_lightmaps), -1: the setting */
 static int ssao_live = -1;
 
-static int knob_live_apply(const char *name, const char *value)
+int benchmark_suite_running(void);
+
+/* 0 and why when the renderer would draw another value than name's new one: a cost run's override, or a size above
+the largest it draws */
+static int knob_live_allowed(const char *name, const char *value, char *why, size_t why_size)
 {
-	if (!strcmp(name, "display.render_height"))
-		knob_render_lines = atol(value);
-	else if (!strcmp(name, "display.shadow_map_size"))
-		knob_shadow_size = atol(value);
-	else if (!strcmp(name, "display.anisotropic_filtering"))
-		knob_anisotropy = atol(value);
+	if ((!strcmp(name, "display.render_height") && benchmark_render_lines > 0) ||
+		(!strcmp(name, "display.shadow_map_size") && benchmark_shadow_size > 0) ||
+		(!strcmp(name, "display.anisotropic_filtering") && benchmark_anisotropy > 0) ||
+		(!strcmp(name, "display.effect_resolution") && benchmark_effect_level >= 0) ||
+		((!strcmp(name, "display.anti_aliasing") || !strcmp(name, "display.model_lod")) && benchmark_suite_running()))
+	{
+		snprintf(why, why_size, "a benchmark sets it");
+		return 0;
+	}
+	if (!strcmp(name, "display.shadow_map_size") && atol(value) > SHADOW_MAP_SIZE_MAX)
+	{
+		snprintf(why, why_size, "above %d, the largest shadow map this build draws", SHADOW_MAP_SIZE_MAX);
+		return 0;
+	}
+	return 1;
+}
+
+static int knob_live_apply(const char *name, const char *value, int apply, char *why, size_t why_size)
+{
+	if (!apply)
+		return knob_live_allowed(name, value, why, why_size);
+	if (!strcmp(name, "display.render_height") || !strcmp(name, "display.shadow_map_size") ||
+		!strcmp(name, "display.anisotropic_filtering") || !strcmp(name, "display.effect_resolution"))
+		;   /* (read again from the setting on the next frame: config_changes) */
 	else if (!strcmp(name, "display.model_lod"))
-		halo_model_lod_set(strcmp(value, "auto") != 0);
+		halo_model_lod_set(-1);
 	else if (!strcmp(name, "display.anti_aliasing"))
-		anti_aliasing_live_set(value);
+	{
+		anti_aliasing_live_text[0] = 0;
+		if (device.gl_ready)
+			anti_aliasing_read();
+	}
 	else if (!strcmp(name, "display.render_quality"))
 	{
 #ifdef HALO_ILP32
@@ -2752,8 +2778,6 @@ static int knob_live_apply(const char *name, const char *value)
 		}
 #endif
 	}
-	else if (!strcmp(name, "display.effect_resolution"))
-		knob_effect_level = effect_resolution_level(value);
 	else if (!strcmp(name, "debug.ssao"))
 		ssao_live = atoi(value);
 	else if (!strcmp(name, "display.frame_repeat"))
@@ -2767,7 +2791,7 @@ static int knob_live_apply(const char *name, const char *value)
 		return 1;
 	}
 	else
-		return 0;
+		return 1;
 	knob_ab_changed();
 	/* the new targets are allocated by the next frames; the old ones go two seconds on */
 	knob_release_frame = device.frame + 120;
@@ -2789,7 +2813,7 @@ void halo_benchmark_knobs(int anti_aliasing, int effect_level, double render_sca
 		if (device.gl_ready)
 			anti_aliasing_read();
 	}
-	knob_effect_level = effect_level >= 0 && effect_level <= 2 ? effect_level : -1;
+	benchmark_effect_level = effect_level >= 0 && effect_level <= 2 ? effect_level : -1;
 	render_scale_live = render_scale >= 0.25 && render_scale <= 1.0 ? render_scale : -1.0;
 	knob_release_frame = device.frame + 120;
 }
@@ -3264,10 +3288,8 @@ static int dynamic_resolution_refused(void)
 		said = why;
 		return 2;
 	}
-	if (knob_render_lines > 0)
-		why = "debug.knob_cycle sets the lines";
 	/* (debug.dynamic_resolution_validate: a benchmark case's lines are the ceiling) */
-	else if ((benchmark_render_lines > 0 || benchmark_suite_running()) && !config_boolean("debug.dynamic_resolution_validate"))
+	if ((benchmark_render_lines > 0 || benchmark_suite_running()) && !config_boolean("debug.dynamic_resolution_validate"))
 		why = "a benchmark sets the lines";
 	else if (render_scale_live >= 0.0)
 		why = "the render scale was changed by hand";
@@ -5729,7 +5751,7 @@ static long anisotropy_in_force(void)
 		setting = setting < 1 ? 1 : setting > 16 ? 16 : setting;
 		read_at = revision;
 	}
-	return benchmark_anisotropy > 0 ? benchmark_anisotropy : knob_anisotropy > 0 ? knob_anisotropy : setting;
+	return benchmark_anisotropy > 0 ? benchmark_anisotropy : setting;
 }
 
 /* the sampler state of a stage; without mipmaps the mip filter is none */

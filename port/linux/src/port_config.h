@@ -64,8 +64,11 @@ setting, a launch-only one, a value that is not the setting's type or not one of
 through config_graphics_try; the value wins over the profile's scene, external and variable values. Then reads back
 the value in force and returns 1 only when it is the one asked for; note says which, or why not. */
 int config_set_live(const char *name, const char *value, char *note, size_t note_size);
-/* the renderer's own live state for a setting (d3d8_device.c's debug.knob_cycle overrides), told each live set */
-void config_set_live_hook(int (*hook)(const char *name, const char *value));
+/* the renderer's side of a live set (d3d8_device.c's knob_live_apply): with apply 0, before anything changes, 0 and
+why when the renderer would draw another value (a benchmark's override, a size above its largest); with apply 1, once
+the value is in force, clearing what would hide it */
+typedef int config_live_hook_function(const char *name, const char *value, int apply, char *why, size_t why_size);
+void config_set_live_hook(config_live_hook_function *hook);
 /* 0 for a setting the running game does not read again (config_launch_only) or no setting at all */
 int config_setting_is_live(const char *name);
 /* a boolean set for this run only (not written), applied live like config_write_boolean */

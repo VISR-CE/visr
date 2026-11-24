@@ -6,10 +6,22 @@
 #undef main
 
 static char hooked[256];
-static int hook_calls;
+static int hook_calls, hook_checks;
+/* a setting the probe's renderer refuses, as a benchmark's override makes the real one */
+static const char *hook_refuses = "";
 
-static int probe_hook(const char *name, const char *value)
+static int probe_hook(const char *name, const char *value, int apply, char *why, size_t why_size)
 {
+	if (!apply)
+	{
+		hook_checks++;
+		if (!strcmp(name, hook_refuses))
+		{
+			snprintf(why, why_size, "a benchmark sets it");
+			return 0;
+		}
+		return 1;
+	}
 	snprintf(hooked, sizeof(hooked), "%s=%s", name, value);
 	hook_calls++;
 	return 1;
@@ -38,11 +50,14 @@ static void check_graphics(void)
 	assert(!live("display.graphics", "ultra", note, sizeof(note)));
 	assert(strstr(note, "is not one of"));
 	assert(config_graphics_mode() == GRAPHICS_MODE_CLASSIC);
-	/* (head-tracked stereo draws Hardcore as Classic: the set is not what is in force, so it is refused) */
+	/* (head-tracked stereo draws Hardcore as Classic: refused before the mode changes, from any mode) */
+	assert(live("display.graphics", "enhanced", note, sizeof(note)));
 	config_graphics_head_stereo(1);
 	assert(!live("display.graphics", "hardcore", note, sizeof(note)));
-	assert(!strcmp(note, "display.graphics stays classic"));
+	assert(!strcmp(note, "display.graphics stays enhanced: hardcore draws as classic here"));
+	assert(config_graphics_mode() == GRAPHICS_MODE_ENHANCED);
 	config_graphics_head_stereo(0);
+	assert(config_graphics_mode() == GRAPHICS_MODE_ENHANCED && !strcmp(config_string("display.graphics"), "enhanced"));
 	/* (for this run only: nothing written) */
 	assert(!file_has(path, "graphics = \"classic\""));
 }
@@ -56,10 +71,26 @@ static void check_mode_replaced(void)
 	launch("");
 	assert(config_graphics_try("hardcore"));
 	assert(!config_boolean("display.soft_particles"));
+	hook_calls = 0;
 	assert(!live("display.soft_particles", "true", note, sizeof(note)));
 	assert(!strcmp(note, "display.soft_particles stays false: hardcore graphics replaces it"));
 	assert(!config_boolean("display.soft_particles"));
+	/* (a refusal changes nothing: the renderer is not told, and the stored value does not wait for the mode to go) */
+	assert(hook_calls == 0);
 	assert(config_graphics_try("enhanced"));
+	assert(config_boolean("display.soft_particles"));
+	{
+		long enhanced = config_integer("display.shadow_map_size"), wanted = enhanced == 256 ? 512 : 256;
+		char text[16];
+
+		snprintf(text, sizeof(text), "%ld", wanted);
+		assert(config_graphics_try("hardcore"));
+		assert(config_graphics_replaces("display.shadow_map_size"));
+		assert(!live("display.shadow_map_size", text, note, sizeof(note)) && strstr(note, "hardcore graphics replaces it"));
+		assert(config_graphics_try("enhanced"));
+		assert(config_integer("display.shadow_map_size") == enhanced);
+	}
+	assert(hook_calls == 0);
 }
 
 /* a profile's variable-workload value would beat a bare stored value; a live set wins over it, as a player's does */
@@ -103,6 +134,14 @@ static void check_refusals(void)
 	assert(!live("display.no_such_setting", "1", note, sizeof(note)) && !strcmp(note, "no setting display.no_such_setting"));
 	assert(!live("display.hud_scale", "1.5", note, sizeof(note)) && strstr(note, "read at start"));
 	assert(!config_setting_is_live("display.hud_scale") && config_setting_is_live("display.shadow_map_size"));
+	assert(!live("display.shadow_map_size", "-7", note, sizeof(note)) && strstr(note, "outside 128 to 1024"));
+	assert(!live("display.shadow_map_size", "4096", note, sizeof(note)) && strstr(note, "outside"));
+	assert(!live("display.render_quality", "9", note, sizeof(note)) && strstr(note, "outside"));
+	/* (the renderer's refusal, a benchmark's override in the real one, comes before anything changes) */
+	hook_refuses = "display.anisotropic_filtering";
+	assert(!live("display.anisotropic_filtering", "4", note, sizeof(note)));
+	assert(!strcmp(note, "display.anisotropic_filtering: a benchmark sets it"));
+	hook_refuses = "";
 	assert(config_changes() == before && hook_calls == 0);
 	assert(config_integer("display.shadow_map_size") != 0);
 	/* (a profile setting's choices are port_profile_keys.h's, as tools/set_check.py checks --set: multisampling is

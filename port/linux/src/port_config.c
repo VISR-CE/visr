@@ -2289,6 +2289,26 @@ static const struct { const char *name; const char *choices; } config_profile_ch
 #undef PROFILE_EXTERNAL
 };
 
+/* the range a profile's number setting accepts (port_profile_keys.h), which config_set_live holds a live value to */
+static const struct { const char *name; double minimum, maximum; } config_profile_ranges[] =
+{
+#define PROFILE_BOOLEAN(name)
+#define PROFILE_INTEGER(name, minimum, maximum) { name, minimum, maximum },
+#define PROFILE_REAL(name, minimum, maximum) { name, minimum, maximum },
+#define PROFILE_STRING(name, choices)
+#define PROFILE_SCENE(name)
+#define PROFILE_VARIABLE(name)
+#define PROFILE_EXTERNAL(name)
+#include "port_profile_keys.h"
+#undef PROFILE_BOOLEAN
+#undef PROFILE_INTEGER
+#undef PROFILE_REAL
+#undef PROFILE_STRING
+#undef PROFILE_SCENE
+#undef PROFILE_VARIABLE
+#undef PROFILE_EXTERNAL
+};
+
 static const char *const config_scene_keys[] =
 {
 #define PROFILE_BOOLEAN(name)
@@ -4311,9 +4331,9 @@ int config_set_unsaved(const char *name, const char *value)
 
 static const struct config_value *config_scene_value_cached(size_t index, int scene, int external);
 
-static int (*config_live_hook)(const char *name, const char *value);
+static config_live_hook_function *config_live_hook;
 
-void config_set_live_hook(int (*hook)(const char *name, const char *value))
+void config_set_live_hook(config_live_hook_function *hook)
 {
 	config_live_hook = hook;
 }
@@ -4371,6 +4391,7 @@ static int config_parse_live(size_t index, const char *text, struct config_value
 {
 	char *rest = NULL;
 	const char *choices;
+	size_t entry;
 
 	why[0] = 0;
 	memset(value, 0, sizeof(*value));
@@ -4400,6 +4421,17 @@ static int config_parse_live(size_t index, const char *text, struct config_value
 			snprintf(why, why_size, "%s is not one of %s", text, choices);
 		value->string = (char *)text;
 		break;
+	}
+	/* (a number a profile may set is held to the profile's range) */
+	if (!why[0] && (config_settings[index].type == _config_integer || config_settings[index].type == _config_real))
+	{
+		double number = config_settings[index].type == _config_integer ? (double)value->integer : value->real;
+
+		for (entry = 0; entry < sizeof(config_profile_ranges) / sizeof(config_profile_ranges[0]); entry++)
+			if (!strcmp(config_profile_ranges[entry].name, config_settings[index].name) &&
+				(number < config_profile_ranges[entry].minimum || number > config_profile_ranges[entry].maximum))
+				snprintf(why, why_size, "%s is outside %g to %g", text, config_profile_ranges[entry].minimum,
+					config_profile_ranges[entry].maximum);
 	}
 	return !why[0];
 }
@@ -4442,7 +4474,8 @@ static void config_value_text(enum config_type type, const struct config_value *
 int config_set_live(const char *name, const char *value, char *note, size_t note_size)
 {
 	long index = config_setting_index(name);
-	struct config_value wanted;
+	struct config_value wanted, saved;
+	enum config_source saved_source;
 	const struct config_value *in_force;
 	const char *mode;
 	char why[200], text[300];
@@ -4466,7 +4499,16 @@ int config_set_live(const char *name, const char *value, char *note, size_t note
 	(void)config_value(name, config_settings[index].type);   /* the first load */
 	if (!strcmp(name, "display.graphics"))
 	{
-		/* (the mode in force is its own layer: config_graphics_try, read back as the mode's name) */
+		/* (the mode in force is its own layer, read back as the mode's name; one head-tracked stereo would draw as
+		another is refused before anything changes) */
+		int requested = graphics_mode_parse(value);
+
+		if (requested < 0 || graphics_mode_effective(requested, config_graphics_head) != requested)
+		{
+			snprintf(note, note_size, "display.graphics stays %s: %s draws as %s here", config_graphics_mode_name(),
+				value, requested < 0 ? "nothing" : graphics_mode_names[graphics_mode_effective(requested, config_graphics_head)]);
+			return 0;
+		}
 		if (!config_graphics_try(value) || strcmp(config_graphics_mode_name(), value))
 		{
 			snprintf(note, note_size, "display.graphics stays %s", config_graphics_mode_name());
@@ -4475,17 +4517,31 @@ int config_set_live(const char *name, const char *value, char *note, size_t note
 		snprintf(note, note_size, "display.graphics = %s", config_graphics_mode_name());
 		return 1;
 	}
+	/* refusals that change nothing: the graphics mode replaces the setting, or the renderer would draw another value */
+	mode = config_graphics_replaces(name);
+	if (mode)
+	{
+		config_text(name, text, sizeof(text));
+		snprintf(note, note_size, "%s stays %s: %s graphics replaces it", name, text, mode);
+		return 0;
+	}
+	why[0] = 0;
+	if (config_live_hook && !config_live_hook(name, value, 0, why, sizeof(why)))
+	{
+		snprintf(note, note_size, "%s: %s", name, why[0] ? why : "the renderer refuses it");
+		return 0;
+	}
 	pthread_mutex_lock(&config_lock);
+	saved = config_values[index];
+	saved_source = config_states[index].source;
 	config_set_from_text(&config_values[index], config_settings[index].type, value);
 	/* (a session's choice wins over the profile's scene, external and variable values, as a player's does) */
 	if (config_states[index].source != _source_environment)
 		config_states[index].source = _source_file;
 	config_change_count++;
 	pthread_mutex_unlock(&config_lock);
-	/* (the renderer's own live state for the setting, such as debug.knob_cycle's overrides, follows the value) */
-	if (config_live_hook)
-		config_live_hook(name, value);
-	/* the value in force: the graphics mode's, the environment's, else a scene's (gameplay) */
+	/* the value in force: the graphics mode's, else a scene's (gameplay; with this source no scene, external or
+	variable value applies) */
 #ifdef HALO_ILP32
 	external = host_external_active();
 #endif
@@ -4493,15 +4549,18 @@ int config_set_live(const char *name, const char *value, char *note, size_t note
 	config_value_text(config_settings[index].type, in_force, text, sizeof(text));
 	if (!config_values_equal(config_settings[index].type, in_force, &wanted))
 	{
-		mode = config_graphics_replaces(name);
-		if (mode)
-			snprintf(note, note_size, "%s stays %s: %s graphics replaces it", name, text, mode);
-		else if (config_states[index].source == _source_environment)
-			snprintf(note, note_size, "%s stays %s: the environment sets it", name, text);
-		else
-			snprintf(note, note_size, "%s stays %s", name, text);
+		/* (put back as it was: a refusal changes nothing) */
+		pthread_mutex_lock(&config_lock);
+		config_values[index] = saved;
+		config_states[index].source = saved_source;
+		config_change_count++;
+		pthread_mutex_unlock(&config_lock);
+		snprintf(note, note_size, "%s stays %s", name, text);
 		return 0;
 	}
+	/* (the renderer's own state for the setting follows the value in force) */
+	if (config_live_hook)
+		config_live_hook(name, value, 1, why, sizeof(why));
 	snprintf(note, note_size, "%s = %s", name, text);
 	return 1;
 }
