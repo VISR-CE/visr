@@ -60,9 +60,20 @@ int main(void) { @autoreleasepool {
     host_texture_repair_cache_deleted();
     settle();
     assert(walks == 2 && records.count == 0 && map_done.count == 1);
+    /* a suite chosen after the work started (a tester build's launch screen; bug class: background work running behind
+       a benchmark's numbers): from then on a load, the menus and a delete's fresh pass walk nothing */
+    measured = "benchmark suite chosen at launch";
+    host_texture_repair_measured_run_began();
+    assert(!texture_cache_delete_all(cache_root));
+    host_texture_repair_cache_deleted();
+    host_texture_repair_map_will_load("a10");
+    host_texture_repair_game_started(0);
+    host_texture_repair_scan();
+    settle();
+    assert(walks == 2 && map_done.count == 0);
     struct texture_cache_record *loaded = NULL; size_t count = 9;
     assert(!texture_cache_manifest_load_named(cache_root, MANIFEST_NAME, &loaded, &count) && count == 0);
     free(loaded);
     [NSFileManager.defaultManager removeItemAtPath:@(root) error:nil];
-    puts("texture repair host: no work in a measured run; records and finished maps follow a cache delete PASS");
+    puts("texture repair host: no work in a measured run, including one chosen after the start; records and finished maps follow a cache delete PASS");
 } return 0; }

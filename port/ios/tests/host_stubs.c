@@ -1416,6 +1416,8 @@ __attribute__((weak)) void host_texture_cache_path(const char *root, char *text,
 { }
 __attribute__((weak)) const char * host_texture_measured_run(void)
 { fprintf(stderr, "host_stubs: probe called host_texture_measured_run without defining it\n"); abort(); }
+__attribute__((weak)) void host_texture_measured_run_began(void)
+{ }
 __attribute__((weak)) void host_texture_repair_cache_deleted(void)
 { }
 __attribute__((weak)) int host_texture_repair_enabled(void)
@@ -1425,6 +1427,8 @@ __attribute__((weak)) void host_texture_repair_game_started(int is_game)
 __attribute__((weak)) void host_texture_repair_init(const char *root)
 { }
 __attribute__((weak)) void host_texture_repair_map_will_load(const char *name)
+{ }
+__attribute__((weak)) void host_texture_repair_measured_run_began(void)
 { }
 __attribute__((weak)) void host_texture_repair_paused(int paused)
 { }

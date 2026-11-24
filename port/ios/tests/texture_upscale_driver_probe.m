@@ -21,6 +21,8 @@ void host_texture_repair_game_started(int is_game) {(void)is_game;}
 void host_texture_repair_paused(int paused) {(void)paused;}
 int host_texture_repair_enabled(void) {return 0;}
 void host_texture_repair_cache_deleted(void) {repair_cache_deletes++;}
+static int repair_measured_calls;
+void host_texture_repair_measured_run_began(void) {repair_measured_calls++;}
 void host_logf(int level,const char *format,...) {
     (void)level;if(strstr(format,"Upscale import: Try Again:"))retry_logs++;
 }
@@ -233,5 +235,12 @@ int main(void) {@autoreleasepool {
     unsetenv("HALO_TEXTURE_UPSCALE_CAPACITY_FILE");unsetenv("HALO_TEXTURE_UPSCALE_THERMAL_STATE");upscale_enabled=NO;
     free(decisions);free(manifest);decisions=NULL;manifest=NULL;
     assert([NSFileManager.defaultManager removeItemAtPath:upscale_root error:nil]);
-    puts("texture upscale driver: publication rollback, original reconciliation, failure JSON, unavailable model, menu wake, gameplay stop, pause, level wait, readiness, the no-mix rule, storage estimates, import retry and the repair told of a delete PASS");
+    /* a benchmark suite chosen on a tester build's launch screen, after init: "auto" turns off, the generator stops,
+       and the repair is told (bug class: background work running behind a benchmark's numbers) */
+    upscale_mode=TEXTURE_UPSCALE_MODE_AUTO;upscale_enabled=YES;
+    assert(!host_texture_measured_run());
+    host_texture_measured_run_began();host_texture_measured_run_began();
+    assert(upscale_mode==TEXTURE_UPSCALE_MODE_OFF&&!upscale_enabled&&stop_flag&&host_texture_measured_run()&&repair_measured_calls==1);
+    upscale_enabled=NO;
+    puts("texture upscale driver: publication rollback, original reconciliation, failure JSON, unavailable model, menu wake, gameplay stop, pause, level wait, readiness, the no-mix rule, storage estimates, import retry, the repair told of a delete and a suite chosen after init PASS");
 }}

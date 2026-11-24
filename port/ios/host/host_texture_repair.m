@@ -227,6 +227,14 @@ void host_texture_repair_cache_deleted(void) {
         queue_background();
     });
 }
+/* host_texture_measured_run_began: the run became a measured one after init; a pass under way stops at its next
+texture, and nothing starts again (every entry point reads the setting again, now off) */
+void host_texture_repair_measured_run_began(void) {
+    if (!worker) return;
+    atomic_store(&enabled_now, false);
+    atomic_store(&stop_requested, true);
+    host_logf(HOST_LOG_INFO, "Texture repair: no repair work in this measured run (%s)", host_texture_measured_run() ?: "measured");
+}
 void host_texture_repair_scan(void) {
     if (!worker) return;
     atomic_store(&stop_requested, false);

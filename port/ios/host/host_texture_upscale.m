@@ -1003,7 +1003,9 @@ static BOOL text_true(const char *text) { return !strcmp(text,"true")||!strcmp(t
 /* Whether this launch is a measured run, and why: a benchmark suite, a benchmark, any input replay, or a run that must
    draw the same frames every time (a fixed timestep, screenshots). Background texture work (the upscaler's generator,
    the texture repair) does none of its work in one, so it cannot run behind the numbers. NULL when not measured. */
+static atomic_bool suite_chosen_at_launch;
 const char *host_texture_measured_run(void) {
+    if(atomic_load(&suite_chosen_at_launch))return "benchmark suite chosen at launch";
     char suite[32]="",replay[256]="",bench[16]="",fixed[16]="",shots[16]="";const char *e=getenv("HALO_BENCHMARK_SUITE");
     if(e)snprintf(suite,sizeof(suite),"%s",e);else host_config_string("debug.benchmark_suite","",suite,sizeof(suite));
     e=getenv("HALO_INPUT_REPLAY");if(e)snprintf(replay,sizeof(replay),"%s",e);else host_config_string("debug.input_replay","",replay,sizeof(replay));
@@ -1015,6 +1017,18 @@ const char *host_texture_measured_run(void) {
     if(text_true(bench))return "benchmark";
     if(text_true(fixed)||atoi(shots)>0)return "fixed timestep or screenshots";
     return NULL;
+}
+/* A tester build's launch screen chose a benchmark suite after the upscaler and the repair had started (host_main.m):
+   that choice reaches only the guest's environment, so the host is told here. The generator in "auto" stops and stays
+   off as it would had the suite been set at launch; the repair stops its pass and does no more work. */
+void host_texture_measured_run_began(void) {
+    if(atomic_exchange(&suite_chosen_at_launch,true))return;
+    if(upscale_mode==TEXTURE_UPSCALE_MODE_AUTO){
+        upscale_mode=TEXTURE_UPSCALE_MODE_OFF;
+        if(upscale_enabled){set_stop(YES);upscale_enabled=NO;}
+        host_logf(HOST_LOG_INFO,"Upscale: off for this measured run (%s)",host_texture_measured_run());
+    }
+    host_texture_repair_measured_run_began();
 }
 void host_texture_upscale_resolve_profile(const char *root) {
     if(profile_upscales>=0||!root)return;

@@ -21,6 +21,8 @@ void host_texture_repair_paused(int paused);
 int host_texture_repair_enabled(void);
 /* the cache folder was emptied: forget every record and finished map, and repair again in the background */
 void host_texture_repair_cache_deleted(void);
+/* the run became a measured one after init (host_texture_measured_run_began): stop and do no more work */
+void host_texture_repair_measured_run_began(void);
 #ifdef __cplusplus
 }
 #endif
