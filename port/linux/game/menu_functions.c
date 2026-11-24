@@ -2440,6 +2440,7 @@ boolean network_game_is_splitscreen_local(void);
 struct advertised_game *network_game_client_get_available_games(void *client);
 boolean network_game_client_advertised_game_is_valid(struct advertised_game *game);
 short network_game_client_get_state(void *client, short *state_data);
+boolean network_game_client_can_initiate_join(void *client, void *game);
 struct network_game *network_game_client_get_game(void *client);
 struct network_game *network_game_server_get_game(void *server);
 short network_game_client_get_local_machine_index(void);
@@ -4517,6 +4518,23 @@ static boolean browser_listing_cooperative(struct p2p_listing const *game)
 	return game->engine_type == 0;
 }
 
+/* Whether a join is under way: the browser's own first stage (the game's host being reached, which names the game
+the lines below mark) or the network client's, which is no longer idle once it has started one (the state
+network_game_client_can_initiate_join reads). What the panel and rows show, and what a second press does, follow this
+one answer, so a join started elsewhere (an invite, Direct IP) is as busy as one started here. */
+static boolean browser_client_join_under_way(void)
+{
+	void *client = global_network_game_client_get();
+	short state_data;
+
+	return client && network_game_client_get_state(client, &state_data) != _client_state_searching;
+}
+
+static boolean browser_join_under_way(void)
+{
+	return lobby_browser.joining || browser_client_join_under_way();
+}
+
 /* Why a listing cannot be joined (the one answer the JOIN GAME action, the detail panel's line, the dialog a
 refused join opens and the list's order all take), or none. The enum is the ranking, most incompatible first, and
 a listing shows only the first reason that holds: a network version this build cannot join (nothing about the game
@@ -5061,7 +5079,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	visible_set(named(detail, "browser_detail_lock", 0), game->locked);
 	{
 		short block = browser_join_block(game);
-		boolean usable = block == _browser_join_ok && !lobby_browser.joining;
+		boolean usable = block == _browser_join_ok && !browser_join_under_way();
 
 		/* (JOIN GAME is the screen's bar action on A: dimmed when unusable, and A on a row says why instead) */
 		browser_join_block_text(game, block, text, NUMBEROF(text));
@@ -5410,7 +5428,7 @@ static void lobby_browser_update(struct widget_instance *list)
 			lobby_browser.ready_time = now;
 			browser_ready_post(list);
 		}
-		else if (now - lobby_browser.join_time > LOBBY_BROWSER_JOIN_TIMEOUT)
+		else if (now - lobby_browser.join_time > LOBBY_BROWSER_JOIN_TIMEOUT && !browser_client_join_under_way())
 		{
 			if (!lobby_browser.from_delta)
 				p2p_lobby_mark_failed(lobby_browser.identifier);
@@ -5577,6 +5595,9 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 		lobby_browser.joining = lobby_browser.ready = FALSE;
 		if (!found || !network_game_client_advertised_game_compatible(global_network_game_client_get(), found, TRUE))
 			return campaign_fail();
+		/* (a join under way, or a client that is not idle: the request is ignored, the join goes on) */
+		if (!network_game_client_can_initiate_join(global_network_game_client_get(), found))
+			return TRUE;
 		if (advertised_in_progress(found))
 		{
 			/* (player 1 joining it: others join them there) */
@@ -5610,7 +5631,7 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 	}
 	if (row == NONE && !confirmed && !strstr(widget->name, "button_join"))
 		return TRUE;
-	if (lobby_browser.joining)
+	if (browser_join_under_way())
 		return TRUE;
 	index = row != NONE ? (short)(lobby_browser.first + row) : lobby_browser.chosen;
 	if (index < 0 || index >= lobby_browser.count)

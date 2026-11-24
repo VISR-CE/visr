@@ -562,6 +562,8 @@ def test_detail_panel_pills_and_connect_line_follow_the_chosen_game(tmp_path):
     join_enum = source[source.index("enum\n{\n\t_browser_join_ok"):]
     join_enum = join_enum[:join_enum.index("};") + 3]
     signatures = (
+        "static boolean browser_client_join_under_way(void)",
+        "static boolean browser_join_under_way(void)",
         "static short browser_join_block(",
         "static void browser_join_block_text(",
         "static boolean browser_listing_cooperative(",
@@ -601,6 +603,10 @@ static struct { short count, chosen; boolean joining; unsigned char identifier[6
 static struct widget_instance screen, detail, content, widgets[32];
 static short widget_count;
 static boolean online = TRUE, dimmed;
+enum { _client_state_searching, _client_state_joining };
+static short client_state = _client_state_searching;
+static void *global_network_game_client_get(void) { return &lobby_browser; }
+static short network_game_client_get_state(void *c, short *d) { (void)c; (void)d; return client_state; }
 /* the engine's formatter: %s is a wide string (the host's swprintf takes %ls for that) */
 static int usnprintf(wchar_t *out, size_t size, wchar_t const *format, ...)
 {
@@ -707,6 +713,14 @@ int main(void)
 	lobby_browser.chosen = 3; browser_c_detail_update(list, L"");
 	assert(!pill("browser_join_reason")->visible && !dimmed);
 
+	/* a join the client itself has under way (started by an invite, say): JOIN is as busy as for the browser's own */
+	client_state = _client_state_joining;
+	lobby_browser.chosen = 3; browser_c_detail_update(list, L"");
+	assert(dimmed);
+	client_state = _client_state_searching;
+	lobby_browser.chosen = 3; browser_c_detail_update(list, L"");
+	assert(!dimmed);
+
 	/* joining game 0: its panel carries the connect line; another chosen game's does not */
 	lobby_browser.joining = TRUE; lobby_browser.identifier[0] = 1; snprintf(lobby_browser.name, sizeof(lobby_browser.name), "ALPHA");
 	lobby_browser.chosen = 0; browser_c_detail_update(list, L"");
@@ -724,3 +738,15 @@ int main(void)
                     str(ROOT / "port/linux/src"), "-iquote", str(ROOT / "port/linux/include"), str(probe),
                     "--output=" + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+def test_the_browser_asks_the_join_guard_before_it_starts_a_join():
+    """Bug class (the join-reentry crash): a second JOIN while one is under way reached the join assertion. Every
+    path of the browser that starts a join asks `network_game_client_can_initiate_join` first and ignores the request
+    when it says no, and what is shown as busy follows the client's state, not only the browser's own flag."""
+    source = (ROOT / "port/linux/game/menu_functions.c").read_text()
+    select = function(source, "static boolean lobby_browser_select(struct widget_instance *widget, short controller, short row,\n\tboolean *widget_deleted, boolean confirmed)\n{")
+    assert select.index("network_game_client_can_initiate_join(") < select.index("ui_widget_port_join(")
+    assert "browser_join_under_way()" in select
+    update = function(source, "static void lobby_browser_update(struct widget_instance *list)\n{")
+    assert "!browser_client_join_under_way()" in update, "no failure dialog over a join the client has under way"

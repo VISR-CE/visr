@@ -17,6 +17,8 @@ def test_join_warning(tmp_path):
     join_enum = source[source.index('enum\n{\n\t_browser_join_ok'):]
     join_enum = join_enum[:join_enum.index('};') + 3]
     signatures = (
+        'static boolean browser_client_join_under_way(void)',
+        'static boolean browser_join_under_way(void)',
         'static short browser_join_block(',
         'static void browser_join_block_text(',
         'static long player_capacity(void)',
@@ -95,6 +97,11 @@ static long config_integer(char const *key) { return !strcmp(key,"network.full_r
 static int config_boolean(char const *key) { (void)key; return 1; }
 static int campaign_fail(void) { failures++; return 0; }
 static void *global_network_game_client_get(void) { return &multiplayer; }
+enum { _client_state_searching };
+static short client_state = _client_state_searching;
+static short network_game_client_get_state(void *c, short *d) { (void)c; (void)d; return client_state; }
+static int guard_allows = 1;
+static int network_game_client_can_initiate_join(void *c, void *g) { (void)c; (void)g; return guard_allows; }
 static int network_game_client_advertised_game_compatible(void *c, struct advertised_game *g, int tell) { (void)c; (void)tell; return g->valid; }
 static int advertised_in_progress(struct advertised_game *g) { return g->live; }
 static int multiplayer_player(short c) { controller_seen=c; return 1; }
