@@ -182,6 +182,7 @@ int halo_model_lod_override_state(void) { return override_lod; }
 int halo_model_lod_effective(void) { return override_lod > 0; }
 int halo_ambient_occlusion_effective(void) { return 0; }
 int halo_soft_particles_effective(void) { return 0; }
+int halo_traced_shadows_effective(void) { return 0; }
 
 static void reset(void) {
     map_pictures_import_pending = 0;

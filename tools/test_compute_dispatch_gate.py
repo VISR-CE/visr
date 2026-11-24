@@ -12,7 +12,8 @@ HOST = ROOT / "port/ios/host"
 
 # file -> (number of compute encoders, what gates them)
 LEDGER = {
-    "gpu_metal.m": (3, "metal_pass: SSAO (AMBIENT_OCCLUSION) and soft particles (SOFT_PARTICLES, soft_particles_supported)"),
+    "gpu_metal.m": (4, "metal_pass: SSAO (AMBIENT_OCCLUSION), soft particles (SOFT_PARTICLES, soft_particles_supported) "
+                       "and the traced shadows filter (TRACED_SHADOWS, through gpu_metal_traced_shadows_ready)"),
     "host_stereo.m": (1, "metal_pass(METAL_PASS_STEREO_HUD_DEPTH)"),
     "texture_refine.m": (2, "Neural Engine: the generator needs the model (texture_upscale_model_create), so no refine "
                             "runs without one; the A8 and A10X have none"),
