@@ -1801,7 +1801,7 @@ void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const flo
 
 /* HALO_MENU_POINTER_SCRIPT, for runs with no finger: ops separated by ';', each "FRAME KIND ARGS", where FRAME counts
 the frames a menu has been up (reads), and positions are fractions of the window: "60 tap 0.5 0.4", "90 drag 0.5 0.7
-0.5 0.3" (or "90 drag 0.5 0.7 0.5 0.3 600" to hold the finger down 600 frames at the end), "120 click 0.5 0.4", "130 right 0.5 0.4", "140 wheel 2". A tap is a finger down, then up on the next frame;
+0.5 0.3" (or "90 drag 0.5 0.7 0.5 0.3 600" to hold the finger down 600 frames at the end), "120 click 0.5 0.4", "130 right 0.5 0.4", "135 move 0.5 0.4" (hover, no click), "140 wheel 2". A tap is a finger down, then up on the next frame;
 a drag moves in six steps. On the Vision Pro, "150 pinch 0.5 0.4" looks at that fraction of the menus' surface in
 the room (from where the eyes were when it was drawn) and pinches, letting go on the next frame or after a count of
 frames given after the position ("150 pinch 0.5 0.4 90"), and "160 pinchdrag 0.5 0.4 0 6" pinches there and
@@ -1845,6 +1845,12 @@ static void menu_script_next(void)
 	if (!strcmp(kind, "tap") || !strcmp(kind, "click") || !strcmp(kind, "right"))
 	{
 		menu_script.kind = !strcmp(kind, "tap") ? 1 : !strcmp(kind, "click") ? 3 : 4;
+		sscanf(menu_script.cursor, "%f %f%n", &menu_script.x0, &menu_script.y0, &used);
+	}
+	else if (!strcmp(kind, "move"))
+	{
+		/* "move x y": the mouse pointer moves there and stays (a hover, no click) */
+		menu_script.kind = 9;
 		sscanf(menu_script.cursor, "%f %f%n", &menu_script.x0, &menu_script.y0, &used);
 	}
 	else if (!strcmp(kind, "hold"))
@@ -2006,6 +2012,9 @@ static void menu_script_run(void)
 	case 4:
 		host_menu_pointer_device_move(&menu_pointer, x, y);
 		host_menu_pointer_device_click(&menu_pointer, menu_script.kind == 4, x, y);
+		break;
+	case 9:
+		host_menu_pointer_device_move(&menu_pointer, x, y);
 		break;
 	default:
 		host_menu_pointer_device_wheel(&menu_pointer, (int)menu_script.x0);
