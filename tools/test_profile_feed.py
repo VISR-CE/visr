@@ -274,7 +274,8 @@ def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
     # 0.6.22's generation: the variable decal limit without the portrait key
     six = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-6", tmp_path / "six")
     assert 'effect_limits = "xbox"' in (six / "ipad-pro-12-9-2nd.toml").read_text()
-    assert 'frames_in_flight_at_30 = "1"' in (six / "ipad-pro-12-9-2nd.toml").read_text()    # (0.6.22 carries the key)
+    for stripped in ("frames_in_flight_at_30", "encode_thread"):    # (0.6.22 carries neither: the pacer change and the encode thread first ship in 0.7.0)
+        assert stripped not in (six / "ipad-pro-12-9-2nd.toml").read_text()
     four = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-4", tmp_path / "four")
     assert "effect_limits" not in (four / "ipad-pro-12-9-2nd.toml").read_text()
     assert profile_revision.read(four)[0] == profile_revision.read(ROOT / "profiles")[0]
@@ -294,7 +295,7 @@ def test_every_profile_key_has_its_generations_recorded():
     assert known == KNOWN_TO_EVERY_GENERATION, (
         "port_profile_keys.h changed: record the new key in profile_pr.KEY_GENERATIONS (the generations that read it)")
     # 0.6.22's generation carries every key this branch adds except the portrait one
-    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait", "display.encode_thread")
+    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait", "display.frames_in_flight_at_30", "display.encode_thread")
     assert profile_pr.GENERATIONS[profile_pr.PROFILE_DOMAIN] == ()
 
 
