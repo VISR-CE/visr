@@ -208,6 +208,10 @@ __attribute__((weak)) void gpu_metal_count_gpu_time(id<MTLCommandBuffer> command
 #endif
 __attribute__((weak)) void gpu_metal_encode_owner_reset(void)
 { }
+__attribute__((weak)) void gpu_metal_frame_deadline_before_switch(void)
+{ }
+__attribute__((weak)) void gpu_metal_frame_deadline_encode_thread_ending(void)
+{ }
 __attribute__((weak)) void gpu_metal_frame_deadline_end(void)
 { }
 __attribute__((weak)) void gpu_metal_frame_deadline_hold(int held)
@@ -258,6 +262,8 @@ __attribute__((weak)) int gpu_queue_mode_on_main_thread(int mode, const char *de
 { fprintf(stderr, "host_stubs: probe called gpu_queue_mode_on_main_thread without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_queue_mode_parse(const char *value)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_mode_parse without defining it\n"); abort(); }
+__attribute__((weak)) void gpu_queue_set_consumer_ending(void (*ending)(void))
+{ }
 __attribute__((weak)) const struct gpu_backend * gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode, int timing, void (*log)(const char *line), void (*consumer_started)(void))
 { fprintf(stderr, "host_stubs: probe called gpu_queue_wrap without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_replay_header(const char *path, struct gpu_capture_header *header, char *error, size_t size)

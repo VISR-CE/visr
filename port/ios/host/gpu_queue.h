@@ -53,6 +53,10 @@ thread when GPU_QUEUE_THREAD starts it (the owner check binds its consumer there
 const struct gpu_backend *gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode,
 	int timing, void (*log)(const char *line), void (*consumer_started)(void));
 
+/* runs on the encode thread as it ends (a wrap that ends it, or a wrap to off), before it returns: for what must be undone
+on the thread that did it, such as leaving a workgroup the thread joined. NULL: none. */
+void gpu_queue_set_consumer_ending(void (*ending)(void));
+
 /* every record written so far has reached the backend: for a caller that reaches the backend outside gpu.h */
 void gpu_queue_drain(void);
 

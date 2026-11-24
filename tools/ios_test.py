@@ -742,6 +742,10 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined',
     '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/frame_pacer_default_probe.c',
     'port/ios/host/host_frame_pacer.c', '-o', BUILD/'frame-pacer-default-probe')
 run(BUILD/'frame-pacer-default-probe')
+# when a change of workload context switches the encode thread (encode_switch.h)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    'port/ios/tests/encode_switch_probe.c', '-o', BUILD/'encode-switch-probe')
+run(BUILD/'encode-switch-probe')
 # adaptive frames in flight (frame_pacer_adapt.h): where the rule settles for each kind of stream
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/frame_pacer_adapt_probe.c', '-o', BUILD/'frame-pacer-adapt-probe')

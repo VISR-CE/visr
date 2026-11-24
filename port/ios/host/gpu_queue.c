@@ -2828,6 +2828,13 @@ static uint64_t worker_backlog(void)
 	return atomic_load(&worker.written) - atomic_load(&worker.consumed);
 }
 
+static void (*consumer_ending)(void);
+
+void gpu_queue_set_consumer_ending(void (*ending)(void))
+{
+	consumer_ending = ending;
+}
+
 static void *worker_main(void *unused)
 {
 	(void)unused;
@@ -2866,6 +2873,8 @@ static void *worker_main(void *unused)
 		atomic_store(&worker.sleeping, 0);
 		pthread_mutex_unlock(&worker.lock);
 	}
+	if (consumer_ending)
+		consumer_ending();
 	return NULL;
 }
 

@@ -145,6 +145,10 @@ void host_stereo_replay_live_end(void);
 int host_gpu_encode_queue_possible(void);
 /* the encode thread was switched on or off: a development build's one-thread check starts again */
 void gpu_metal_encode_owner_reset(void);
+/* the frame deadline workgroup around a switch of the encode thread (gpu_metal.m): before it, on the game thread, and as
+the encode thread ends, on that thread */
+void gpu_metal_frame_deadline_before_switch(void);
+void gpu_metal_frame_deadline_encode_thread_ending(void);
 /* with debug.encode_thread = "thread", when the game thread last called its present (CACurrentMediaTime's clock): the
 encode thread's frame-slot wait after it is a wait at the present barrier (frame_waits.h). -1 without the encode
 thread, where the game thread encodes the frame itself. */

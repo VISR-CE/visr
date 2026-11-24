@@ -28,6 +28,32 @@ static void periods(void) {
     CHECK(NEAR(frame_deadline_period(1000.0, 1.0 / 60.0), 1.0 / 60.0));
 }
 
+/* the encode thread started mid-session or ended by a switch: who joins and who leaves, on which thread */
+static void switching(void) {
+    /* first member the game thread (the thread started mid-session): the encode thread joins as the second, once */
+    CHECK(frame_deadline_second_join_wanted(FRAME_DEADLINE_JOINED, 0, 0));
+    CHECK(!frame_deadline_second_join_wanted(FRAME_DEADLINE_JOINED, 0, 1));
+    CHECK(!frame_deadline_second_join_wanted(FRAME_DEADLINE_JOINED, 0, -1));   /* (refused: not tried again until a switch) */
+    CHECK(!frame_deadline_second_join_wanted(FRAME_DEADLINE_JOINED, 1, 0));
+    CHECK(!frame_deadline_second_join_wanted(FRAME_DEADLINE_LEFT, 0, 0));
+    CHECK(!frame_deadline_second_join_wanted(FRAME_DEADLINE_NEW, 0, 0));
+    /* the encode thread ends as the second member: it leaves its own join */
+    CHECK(frame_deadline_encode_thread_ending(FRAME_DEADLINE_JOINED, 0, 1) == FRAME_DEADLINE_ENDING_LEAVE_SECOND);
+    /* as the first member (it started with the app): it leaves the join and the game thread rejoins as first */
+    CHECK(frame_deadline_encode_thread_ending(FRAME_DEADLINE_JOINED, 1, 1) == FRAME_DEADLINE_ENDING_LEAVE_FIRST);
+    CHECK(frame_deadline_encode_thread_ending(FRAME_DEADLINE_JOINED, 1, 0) == FRAME_DEADLINE_ENDING_LEAVE_FIRST);
+    /* never joined, refused or not tried: nothing to leave (a leave without a join is fatal) */
+    CHECK(frame_deadline_encode_thread_ending(FRAME_DEADLINE_JOINED, 0, 0) == FRAME_DEADLINE_ENDING_NONE);
+    CHECK(frame_deadline_encode_thread_ending(FRAME_DEADLINE_JOINED, 0, -1) == FRAME_DEADLINE_ENDING_NONE);
+    CHECK(frame_deadline_encode_thread_ending(FRAME_DEADLINE_LEFT, 0, 1) == FRAME_DEADLINE_ENDING_NONE);
+    CHECK(frame_deadline_encode_thread_ending(FRAME_DEADLINE_OFF, 0, 1) == FRAME_DEADLINE_ENDING_NONE);
+    /* the game thread, before the switch, leaves only as the second member of an encode-thread-first group */
+    CHECK(frame_deadline_game_thread_leaves_before_switch(FRAME_DEADLINE_JOINED, 0, 1));
+    CHECK(!frame_deadline_game_thread_leaves_before_switch(FRAME_DEADLINE_JOINED, 1, 1));
+    CHECK(!frame_deadline_game_thread_leaves_before_switch(FRAME_DEADLINE_JOINED, 0, 0));
+    CHECK(!frame_deadline_game_thread_leaves_before_switch(FRAME_DEADLINE_LEFT, 0, 1));
+}
+
 /* leaving the workgroup before UIKit's loop (host_benchmark_menu.m's ask), joining again at the next shown frame */
 static void membership(void) {
     /* only the joined thread leaves, and only while joined */
@@ -100,6 +126,7 @@ int main(void) {
 
     periods();
     membership();
+    switching();
     if (__builtin_available(macOS 11.0, *)) {
         CHECK(pthread_create(&thread, NULL, frames, NULL) == 0);
         pthread_join(thread, NULL);

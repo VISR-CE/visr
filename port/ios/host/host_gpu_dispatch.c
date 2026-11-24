@@ -21,6 +21,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_frame_pacer.h"
 #include <pthread.h>
 #include "gpu_queue.h"
+#include "encode_switch.h"
 #include "gpu_owner_check.h"
 #include "host_thread_cpu.h"
 #include "host_main_sync_log.h"
@@ -933,14 +934,14 @@ static void encode_queue_rewrap(void)
 {
 	int was = encode_thread_on;
 
-	if (!metal_backend || !queue_unwrapped || debug_encode_set || scene_thread < 0)
-		return;
 	/* (a thread the host cannot deliver is no change: the stream ring has no set for the queue, or the renderer is on the
 	main thread, where the present barrier would hold the main thread; visionOS and Mac Catalyst never) */
-	if (scene_thread == 1 && (!encode_queue_possible || pthread_main_np()))
+	if (!encode_switch_wanted(metal_backend, queue_unwrapped != NULL, debug_encode_set, scene_thread, encode_queue_possible,
+			pthread_main_np() != 0, was))
 		return;
-	if ((scene_thread == 1) == (was != 0))
-		return;
+	/* (the frame deadline's workgroup follows: the game thread leaves first when the encode thread is the first member, and
+	the encode thread, as it ends, leaves what it joined) */
+	gpu_metal_frame_deadline_before_switch();
 	wrapped_install(hash_and_queue_wrap(queue_unwrapped, 1));
 	gpu_metal_encode_owner_reset();
 	platform_log("display.encode_thread: %s (the workload context or a setting changed it)", encode_thread_on ? "thread" : "off");
@@ -981,6 +982,7 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 #endif
 	metal_backend = TARGET_OS_VISION || (flags & GPU_INITIALIZE_METAL) ? 1 : 0;
 	queue_unwrapped = backend;
+	gpu_queue_set_consumer_ending(gpu_metal_frame_deadline_encode_thread_ending);
 	wrapped_install(hash_and_queue_wrap(backend, metal_backend));
 	encode_queue_possible = encode_queue_on || encode_queue_for_variable_workload();
 	backend = &wrapped;

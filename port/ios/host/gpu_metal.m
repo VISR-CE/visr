@@ -6432,6 +6432,8 @@ static struct
 	mach_timebase_info_data_t timebase;
 } frame_deadline;
 
+static void frame_deadline_join(void);
+
 /* the frame's work begins now (Present has returned) */
 static void frame_deadline_begin(BOOL offscreen)
 {
@@ -6478,6 +6480,8 @@ static void frame_deadline_begin(BOOL offscreen)
 			}
 		}
 	}
+	/* (the encode thread, presenting, joins beside the game thread that joined first when it started mid-session) */
+	frame_deadline_join();
 	if (frame_deadline.state != FRAME_DEADLINE_JOINED || offscreen)
 		return;
 	os_unfair_lock_lock(&pacing_lock);
@@ -6513,8 +6517,8 @@ frame start. The two never touch the interval at once: the game thread does (fra
 the present barrier, while the encode thread waits for the next frame's records. */
 static void frame_deadline_join(void)
 {
-	if (frame_deadline.state != FRAME_DEADLINE_JOINED || frame_deadline.producer_joined ||
-		pthread_equal(frame_deadline.thread, pthread_self()))
+	if (!frame_deadline_second_join_wanted(frame_deadline.state, pthread_equal(frame_deadline.thread, pthread_self()),
+			frame_deadline.producer_joined))
 		return;
 	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
 		frame_deadline.producer_joined = os_workgroup_join(frame_deadline.interval, &frame_deadline.producer_token) ? -1 :
@@ -6573,6 +6577,44 @@ void gpu_metal_frame_deadline_leave(void)
 	frame_deadline.state = FRAME_DEADLINE_LEFT;
 }
 
+/* The encode thread is about to end or start again (a change of workload context: host_gpu_dispatch.c's rewrap), on the game
+thread. When the encode thread is the first member, the game thread, the second, leaves first. The second's try starts
+again after a switch (a refused join is not final). */
+void gpu_metal_frame_deadline_before_switch(void)
+{
+	if (frame_deadline_game_thread_leaves_before_switch(frame_deadline.state,
+			pthread_equal(frame_deadline.thread, pthread_self()), frame_deadline.producer_joined))
+	{
+		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+			os_workgroup_leave(frame_deadline.interval, &frame_deadline.producer_token);
+	}
+	frame_deadline.producer_joined = 0;
+}
+
+/* The encode thread ends (gpu_queue_set_consumer_ending), on the encode thread: it leaves what it joined, since a thread
+that ends in a workgroup brings the process down. As the first member it ends the interval it started, and the game thread
+joins as the first at its next frame (state "left"). */
+void gpu_metal_frame_deadline_encode_thread_ending(void)
+{
+	int action = frame_deadline_encode_thread_ending(frame_deadline.state,
+		pthread_equal(frame_deadline.thread, pthread_self()), frame_deadline.producer_joined);
+
+	if (action == FRAME_DEADLINE_ENDING_NONE)
+		return;
+	if (frame_deadline.open)
+	{
+		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+			os_workgroup_interval_finish(frame_deadline.interval, NULL);
+		frame_deadline.open = 0;
+	}
+	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+		os_workgroup_leave(frame_deadline.interval, action == FRAME_DEADLINE_ENDING_LEAVE_FIRST ? &frame_deadline.token :
+			&frame_deadline.producer_token);
+	if (action == FRAME_DEADLINE_ENDING_LEAVE_FIRST)
+		frame_deadline.state = FRAME_DEADLINE_LEFT;
+	frame_deadline.producer_joined = 0;
+}
+
 /* A UIKit dialog goes up over the game, which keeps presenting frames while it is up (host_tv.m's text dialog): the
    game's event pump runs the dialog's animations between frames, and UIKit raises from its own interval there as in
    gpu_metal_frame_deadline_leave (an Apple TV crashed as the text dialog came up). Held, the thread leaves the
@@ -6589,6 +6631,14 @@ void gpu_metal_frame_deadline_hold(int held)
 }
 #else
 void gpu_metal_frame_deadline_end(void)
+{
+}
+
+void gpu_metal_frame_deadline_before_switch(void)
+{
+}
+
+void gpu_metal_frame_deadline_encode_thread_ending(void)
 {
 }
 
