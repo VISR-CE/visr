@@ -3091,6 +3091,11 @@
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
+          ],
+          "enum": [
+            "off",
+            "on",
+            "verify"
           ]
         },
         "latency_log": {
