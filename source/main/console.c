@@ -63,6 +63,8 @@ symbols in this file:
 #include "input/input.h"
 #include "interface/terminal.h"
 #include "math/real_math.h"
+#include "scenario/scenario.h"
+#include "scenario/scenario_definitions.h"
 
 /* ---------- constants */
 
@@ -445,7 +447,10 @@ void console_startup_update(
 		platform_log("init.txt: running its commands (debug.init_after)");
 		console_startup_run();
 	}
-	else if (console_startup_rest && game_in_progress())
+	/* (the main menu is a game in progress too: init_after can run map_name over it, and the menu's own game must not take
+	the level's lines, whose names it does not know) */
+	else if (console_startup_rest && game_in_progress() && global_scenario &&
+		global_scenario->type != _scenario_type_main_menu)
 	{
 		FILE *rest = console_startup_rest;
 
@@ -488,6 +493,19 @@ static void console_startup_run_lines(
 
 	while (!defer_rest && fgets(buffer, NUMBEROF(buffer)-1, file))
 	{
+		/* port: a line longer than the buffer is skipped whole: its pieces would each run as a command of their own (a cut
+		script places half its AI, or halts the game on a piece like "(object_teleport )") */
+		if (!strchr(buffer, '\n') && !feof(file))
+		{
+			int c;
+
+			while ((c = fgetc(file)) != EOF && c != '\n')
+			{
+			}
+			error(_error_log, "init.txt: a line longer than %d bytes was skipped: %.40s...", (int)NUMBEROF(buffer) - 2, buffer);
+			platform_log("init.txt: a line longer than %d bytes was skipped: %.40s...", (int)NUMBEROF(buffer) - 2, buffer);
+			continue;
+		}
 		strtok(buffer, "\r\n\t");
 		newest_previous_command_index = (console_globals.newest_previous_command_index + 1) % MAXIMUM_NUMBER_OF_PREVIOUS_COMMANDS;
 
