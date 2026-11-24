@@ -707,6 +707,48 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	{
 		xgpu_text_append(&text, "\tt3.rgb += ppl_highlight;\n");
 	}
+	/* A traced object shadow (nv2a_pixel_shader_key traced_shadow; Metal). Stage 0 is the shadow map, white where
+	the caster covers this point of the receiver. In its place, one ray from the point toward the light, against
+	the shadow's up axis (the game's shadow vector points from the caster to its receivers, render_objects.c),
+	against the caster's triangles alone: white where it hits. The point is rebuilt from the apply vertex shader's
+	outputs (the game's shadow vertex shader, rasterizer_xbox_shadows.c's constants -81 to -78): xT0.xy are
+	0.5 (1 + forward.d / r) and 0.5 (1 - left.d / r), xT1.x is up.d / (4 r), for d the point less the shadow's
+	position. With the level's structure (traced_basis[3].w) a hit counts only if no surface of the level stops
+	the ray first, so a shadow does not pass through a floor.
+	traced_radius is the penumbra's radius at this pixel, as a fraction of the largest: the blocker's distance times
+	the tangent of the light's half-angle, in pixels at this depth (traced_position.w is 1 / the view distance).
+	It leaves in alpha (below), where the shadows' blend keeps the smallest; 1 where nothing was hit.
+	traced_basis: traced_shadows_format.h */
+	if (dialect->msl && key->traced_shadow)
+		xgpu_text_append(&text,
+			"\tfloat traced_radius = 1.0;\n"
+			"\t{\n"
+			"\t\tfloat r = traced_basis[0].w;\n"
+			"\t\tfloat3 p = traced_basis[3].xyz + traced_basis[0].xyz * (r * (2.0 * xT0.x - 1.0)) +\n"
+			"\t\t\ttraced_basis[1].xyz * (r * (1.0 - 2.0 * xT0.y)) + traced_basis[2].xyz * (4.0 * r * xT1.x);\n"
+			"\t\tfloat3 direction = normalize(-traced_basis[2].xyz);\n"
+			"\t\tmetal::raytracing::intersector<metal::raytracing::triangle_data> tracer;\n"
+			"\t\ttracer.assume_geometry_type(metal::raytracing::geometry_type::triangle);\n"
+			"\t\ttracer.force_opacity(metal::raytracing::forced_opacity::opaque);\n"
+			"\t\tmetal::raytracing::ray caster_ray(p, direction, traced_basis[1].w, traced_basis[2].w);\n"
+			"\t\tauto hit = tracer.intersect(caster_ray, traced_caster);\n"
+			"\t\tfloat covered = 0.0;\n"
+			"\t\tif (hit.type != metal::raytracing::intersection_type::none)\n"
+			"\t\t{\n"
+			"\t\t\tcovered = 1.0;\n"
+			"\t\t\tif (traced_basis[3].w > 0.5)\n"
+			"\t\t\t{\n"
+			"\t\t\t\tmetal::raytracing::ray world_ray(p, direction, traced_basis[1].w, hit.distance);\n"
+			"\t\t\t\ttracer.accept_any_intersection(true);\n"
+			"\t\t\t\tif (tracer.intersect(world_ray, traced_world).type != metal::raytracing::intersection_type::none)\n"
+			"\t\t\t\t\tcovered = 0.0;\n"
+			"\t\t\t}\n"
+			"\t\t\tif (covered > 0.0)\n"
+			"\t\t\t\ttraced_radius = clamp(hit.distance * traced_basis[4].x * traced_basis[4].y * traced_position.w *\n"
+			"\t\t\t\t\ttraced_basis[4].z, 0.0, 1.0);\n"
+			"\t\t}\n"
+			"\t\tt0 = vec4(covered);\n"
+			"\t}\n");
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */
 	if (key->fog_enable)
@@ -826,6 +868,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			xgpu_text_append(&text, "\tif (!(floor(clamp(result.a, 0.0, 1.0) * 255.0 + 0.5) %s alpha_reference)) discard;\n", comparison);
 		}
 	}
+	/* (a traced shadow's alpha, after the game's alpha test read the shader's own) */
+	if (dialect->msl && key->traced_shadow)
+		xgpu_text_append(&text, "\tresult.a = traced_radius;\n");
 	if (dialect->debug_expression && *dialect->debug_expression)
 		xgpu_text_append(&text, "\tresult = vec4(vec3(%s), 1.0);\n", dialect->debug_expression);
 	if (dialect->debug_texture0)

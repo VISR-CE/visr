@@ -240,10 +240,17 @@ struct nv2a_pixel_shader_key
 	low word first; 0 unlit. Its shader replaces xD0, xD1 and xT3 with the
 	program's lighting, run per pixel (nv2a_lighting_slice) */
 	uint32_t lighting_program[2];
+	/* (later still: nv2a_pixel_shader_key_size) an object shadow's apply draw that traces its caster
+	(display.traced_shadows, d3d8_device.c's halo_traced_shadows_key; Metal only): 1 when stage 0, the shadow map's
+	lookup, is a ray against the caster's acceleration structure instead, and the penumbra's radius goes to alpha
+	(nv2a_psh.c's traced block). Never listed, recorded or observed: a key of this size exists only while a frame
+	traces */
+	uint32_t traced_shadow;
 };
 
 /* the struct is the table's record: every field at its offset and size, no padding, and the three key sizes
-(what a list holds, what a multisampled or soft key adds, what a lit key adds) */
+(what a list holds, what a multisampled or soft key adds, what a lit key adds; a traced key, the whole struct, is
+never a record) */
 #define SHADER_RECORD_ASSERT(name, offset, size, count, minimum, maximum, rule, source) \
 	_Static_assert(offsetof(struct nv2a_pixel_shader_key, name) == (offset), \
 		#name " is not at its offset in shader_record.h's SHADER_RECORD_PS_FIELDS"); \
@@ -253,7 +260,7 @@ SHADER_RECORD_PS_FIELDS(SHADER_RECORD_ASSERT)
 #undef SHADER_RECORD_ASSERT
 #define SHADER_RECORD_SUM(name, offset, size, count, minimum, maximum, rule, source) + (size) * (count)
 _Static_assert(0 SHADER_RECORD_PS_FIELDS(SHADER_RECORD_SUM) == sizeof(struct nv2a_pixel_shader_key) &&
-	sizeof(struct nv2a_pixel_shader_key) == SHADER_RECORD_KEY_LIT_SIZE,
+	offsetof(struct nv2a_pixel_shader_key, traced_shadow) == SHADER_RECORD_KEY_LIT_SIZE,
 	"struct nv2a_pixel_shader_key has a member shader_record.h's SHADER_RECORD_PS_FIELDS does not list");
 #undef SHADER_RECORD_SUM
 _Static_assert(offsetof(struct nv2a_pixel_shader_key, alpha_test_samples) == SHADER_RECORD_KEY_BASE_SIZE &&
@@ -280,10 +287,15 @@ NV2A_PIXEL_SHADER_KEY_BASE_SIZE bytes, as it was recorded */
 /* ... and the keys recorded before lighting_program, as the keys with it 0 */
 #define NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE offsetof(struct nv2a_pixel_shader_key, lighting_program)
 
+/* ... and a lit key, which a key that does not trace a shadow never passes */
+#define NV2A_PIXEL_SHADER_KEY_LIT_SIZE offsetof(struct nv2a_pixel_shader_key, traced_shadow)
+
 static inline unsigned long nv2a_pixel_shader_key_size(const struct nv2a_pixel_shader_key *key)
 {
-	if (key->lighting_program[0] || key->lighting_program[1])
+	if (key->traced_shadow)
 		return sizeof(*key);
+	if (key->lighting_program[0] || key->lighting_program[1])
+		return NV2A_PIXEL_SHADER_KEY_LIT_SIZE;
 	return key->alpha_test_samples || key->soft_depth ? NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE
 		: NV2A_PIXEL_SHADER_KEY_BASE_SIZE;
 }

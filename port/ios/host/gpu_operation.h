@@ -101,6 +101,10 @@ off, so input is read no earlier and no later) */
 #define GPU_OPERATION_CLASS_soft_depth_finish RECORDED
 #define GPU_OPERATION_CLASS_ssao_warm AT_ONCE
 #define GPU_OPERATION_CLASS_ssao_apply RECORDED
+/* (the gate's answer and one atomic flag) */
+#define GPU_OPERATION_CLASS_traced_shadows_ready THREAD_SAFE
+#define GPU_OPERATION_CLASS_traced_shadows_data RECORDED
+#define GPU_OPERATION_CLASS_traced_shadows_resolve RECORDED
 #define GPU_OPERATION_CLASS_set_upscaler RECORDED
 #define GPU_OPERATION_CLASS_upscaler QUERY
 #define GPU_OPERATION_CLASS_set_crt RECORDED

@@ -212,6 +212,7 @@ struct deferred_shadow
 	real_matrix4x3 matrix;
 	real_rgb_color color;
 	real radius;
+	unsigned long traced_id; /* port: display.traced_shadows; TRACED_SHADOW_NONE when it is drawn into its map */
 };
 
 static struct deferred_shadow deferred_shadows[DEFERRED_SHADOW_ENTRIES];
@@ -238,6 +239,12 @@ boolean rasterizer_shadow_prepass_select(short tile);
 boolean rasterizer_shadow_blur_select_prepassed(short tile);
 float halo_shadow_target_scale(void);
 int halo_shadow_blur_footprint(void);
+
+/* port: display.traced_shadows (port/linux/game/traced_shadow_casters.c): in a window that traces, a shadow's
+models are named to the backend as they would be drawn into its map, nothing is drawn or blurred, and its apply
+draws trace them. traced_shadow_id is the shadow being generated or applied, TRACED_SHADOW_NONE for one of a map */
+#include "traced_shadow_casters.h"
+static unsigned long traced_shadow_id = TRACED_SHADOW_NONE;
 
 /* port: the footprint blur, for shadow maps larger than the game's 128 texels (display.shadow_map_size;
 halo_shadow_blur_footprint, d3d8_device.c). The game's blur takes four taps half a 128-texel map's texel apart
@@ -327,6 +334,7 @@ boolean _rasterizer_environment_shadow_begin(
 
 	deferred_shadow_reused = FALSE;
 	deferred_shadow_current = NONE;
+	traced_shadow_id = TRACED_SHADOW_NONE; /* port */
 	if (deferred_shadows_generating)
 	{
 		short index;
@@ -347,6 +355,7 @@ boolean _rasterizer_environment_shadow_begin(
 			deferred_shadows[index].color = *shadow_color;
 			deferred_shadow_current = index;
 			deferred_shadow_reused = TRUE;
+			traced_shadow_id = TRACED_SHADOW_NONE;
 			if (shadow_volume_bounding_radius)
 				*shadow_volume_bounding_radius = object_bounding_radius;
 			return TRUE;
@@ -364,6 +373,7 @@ boolean _rasterizer_environment_shadow_begin(
 			entry->matrix = *shadow_matrix;
 			entry->color = *shadow_color;
 			entry->radius = object_bounding_radius;
+			entry->traced_id = TRACED_SHADOW_NONE;
 			deferred_shadow_current = deferred_shadow_count++;
 			deferred_shadows_drawn = TRUE;
 			cleared_tile = deferred_shadows_in_atlas();
@@ -476,6 +486,11 @@ boolean _rasterizer_environment_shadow_begin(
 		shadow_setup = FALSE;
 		shadow_used = FALSE;
 		shadow_restored = FALSE;
+
+		/* port: display.traced_shadows: its casters are named as its models are drawn */
+		traced_shadow_id = traced_shadow_casters_begin(object_index);
+		if (deferred_shadow_current != NONE)
+			deferred_shadows[deferred_shadow_current].traced_id = traced_shadow_id;
 
 		if (rasterizer_debug_options.statistics_mode ==
 			_rasterizer_statistics_mode_enabled)
@@ -652,11 +667,15 @@ void _rasterizer_environment_shadow_model_draw(
 					NUMBEROF(vertex_constants));
 			}
 
-			rasterizer_draw_static_triangles_static_vertices(
-				triangle_buffer,
-				0,
-				triangle_buffer->count,
-				vertex_buffer);
+			/* port: display.traced_shadows */
+			if (traced_shadow_id != TRACED_SHADOW_NONE)
+				traced_shadow_casters_part(triangle_buffer, vertex_buffer, &local_parameters->skinning);
+			else
+				rasterizer_draw_static_triangles_static_vertices(
+					triangle_buffer,
+					0,
+					triangle_buffer->count,
+					vertex_buffer);
 
 			if (rasterizer_debug_options.statistics_mode ==
 				_rasterizer_statistics_mode_enabled)
@@ -735,7 +754,8 @@ void _rasterizer_environment_shadow_draw(
 		if (!shadow_setup)
 		{
 			/* port: (a deferred shadow was blurred when it was generated) */
-			if (rasterizer_debug_options.shadow_convolution_enabled && !deferred_shadow_applying)
+			if (rasterizer_debug_options.shadow_convolution_enabled && !deferred_shadow_applying &&
+				traced_shadow_id == TRACED_SHADOW_NONE)
 			{
 				if (halo_shadow_blur_footprint())
 					rasterizer_shadow_convolve_footprint();
@@ -975,11 +995,16 @@ void _rasterizer_environment_shadow_draw(
 		}
 
 		rasterizer_set_stencil_mode(RASTERIZER_STENCIL_MODE_REJECT);
+		/* port: display.traced_shadows: traced against the shadow's casters */
+		if (traced_shadow_id != TRACED_SHADOW_NONE)
+			traced_shadow_apply(traced_shadow_id, &local_shadow_matrix, local_object_bounding_radius);
 		rasterizer_draw_dynamic_triangles_static_vertices(
 			dynamic_triangle_buffer_index,
 			first_triangle_index,
 			triangle_count,
 			vertex_buffer);
+		if (traced_shadow_id != TRACED_SHADOW_NONE)
+			traced_shadow_apply_end();
 
 		if (rasterizer_debug_options.statistics_mode ==
 			_rasterizer_statistics_mode_enabled)
@@ -1047,12 +1072,16 @@ void rasterizer_environment_shadow_generate_end(
 {
 	if (deferred_shadow_current != NONE && !deferred_shadow_reused)
 	{
+		boolean traced = traced_shadow_id != TRACED_SHADOW_NONE;
+
+		if (traced)
+			traced_shadow_casters_end();
 		if (!shadow_used)
 		{
 			error(_error_silent, "### WARNING empty shadow has been cast");
 		}
 		/* (from the atlas, once the window's are all drawn: rasterizer_environment_shadows_defer_end) */
-		if (rasterizer_debug_options.shadow_convolution_enabled && !deferred_shadows_in_atlas())
+		if (rasterizer_debug_options.shadow_convolution_enabled && !deferred_shadows_in_atlas() && !traced)
 		{
 			rasterizer_shadow_convolve();
 		}
@@ -1062,6 +1091,14 @@ void rasterizer_environment_shadow_generate_end(
 }
 
 /* the window's shadows are generated: back to the picture, once */
+/* port: whether the window's new shadows were traced (all or none: a window traces or it does not) */
+static boolean deferred_shadows_traced(
+	void)
+{
+	return deferred_shadow_count > deferred_shadow_window_first &&
+		deferred_shadows[deferred_shadow_window_first].traced_id != TRACED_SHADOW_NONE;
+}
+
 void rasterizer_environment_shadows_defer_end(
 	void)
 {
@@ -1069,7 +1106,8 @@ void rasterizer_environment_shadows_defer_end(
 	/* the window's new shadows, blurred out of their atlas tiles into blur pages' tiles, which then become their
 	slots' second targets; if they cannot, each is blurred into its slot, a render pass each, with the game's blur.
 	The footprint blur's pre-pass goes first, a run of as many atlas pages as there are pre-pass pages at a time */
-	if (deferred_shadows_drawn && deferred_shadows_in_atlas())
+	/* (display.traced_shadows: a window that traces drew nothing into the maps, and nothing samples them) */
+	if (deferred_shadows_drawn && deferred_shadows_in_atlas() && !deferred_shadows_traced())
 	{
 		boolean footprint = halo_shadow_blur_footprint();
 		boolean pages = rasterizer_shadow_blur_capacity() > 0;
@@ -1144,6 +1182,7 @@ void rasterizer_environment_shadow_apply_begin(
 	local_shadow_matrix = entry->matrix;
 	local_shadow_color = entry->color;
 	local_object_bounding_radius = entry->radius;
+	traced_shadow_id = entry->traced_id;
 	local_parameters = NULL;
 	shadow_setup = FALSE;
 	shadow_used = TRUE;

@@ -293,6 +293,10 @@ static void play(const struct gpu_backend *backend)
 			{
 				side_values[2] = (float)random32();
 				backend->ssao_apply(texture, texture + 1, side_values, 18 + frame % 10);
+				/* traced object shadows' records (with bytes and with none) and their resolve */
+				backend->traced_shadows_data(1 + frame % 6, (uint32_t)index, (frame & 4) ? NULL : side_values,
+					(frame & 4) ? 0 : 6 * (uint32_t)sizeof(float));
+				backend->traced_shadows_resolve(texture, texture + 1, texture + 2, side_values, 11);
 				/* an output change between draws: the frame's commands so far reach the backend first */
 				if (index % 6 == 0)
 					(void)backend->output(NULL, NULL, 800, 600 + (int)index);

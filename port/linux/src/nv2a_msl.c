@@ -337,6 +337,11 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 			"struct FragmentWithDepth { float4 color [[color(0)]]; float depth [[depth(any)]]; };\n");
 	else if (key->alpha_test_samples)
 		xgpu_text_append(text, "struct FragmentOut { float4 color [[color(0)]]; uint sample_mask [[sample_mask]]; };\n");
+	/* an object shadow's apply draw that traces its caster (nv2a_pixel_shader_key traced_shadow): the caster's
+	acceleration structure (buffer 6), the level's (7) and the shadow's basis (8, traced_shadows_format.h), which
+	gpu_metal.m binds to such a draw (traced_draw_bind). The define is how the backend knows the shader */
+	if (key->traced_shadow)
+		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_SHADOW 1\n");
 	xgpu_text_append(text, "fragment %s fragment_main(FragmentIn in [[stage_in]], constant Uniforms &u [[buffer(0)]]",
 		writes_depth ? "FragmentWithDepth" : key->alpha_test_samples ? "FragmentOut" : "float4");
 	for (stage = 0; stage < 4; stage++)
@@ -358,6 +363,10 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	if (key->soft_depth)
 		xgpu_text_append(text, ",\n\ttexture2d<float, access::read> soft_depth [[texture(8)]],"
 			"\n\tconstant float4 &soft [[buffer(5)]], float4 soft_position [[position]]");
+	if (key->traced_shadow)
+		xgpu_text_append(text, ",\n\tmetal::raytracing::primitive_acceleration_structure traced_caster [[buffer(6)]],"
+			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"
+			"\n\tconstant float4 *traced_basis [[buffer(8)]], float4 traced_position [[position]]");
 	/* per-pixel lighting reads the vertex constants (gpu_metal.m binds them
 	to every pixel shader at buffer 4) */
 	if (lighting)

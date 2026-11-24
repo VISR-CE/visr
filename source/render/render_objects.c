@@ -660,6 +660,7 @@ static void render_far_scenery_eye_matrices(
 	return;
 }
 real_matrix4x3 const *first_person_legs_shadow_node_matrices(long object_index, real_matrix4x3 const *nodes);
+#include "traced_shadow_casters.h"
 
 void render_object_shadows(
 	void)
@@ -680,6 +681,9 @@ void render_object_shadows(
 		if (shadow_batching_enabled() && rasterizer_environment_shadows_defer_begin())
 		{
 			short index;
+			/* port: display.traced_shadows (port/linux/game/traced_shadow_casters.c): this window's shadows are
+			traced, not drawn into maps */
+			boolean traced = traced_shadow_casters_window_begin(render.frustum.projection_matrix[1][1]);
 
 			deferred_shadow_apply_count = 0;
 			/* port: the second eye's replay: the frame's shadows are generated in eye 0's pass alone (eye 1's
@@ -690,6 +694,8 @@ void render_object_shadows(
 			render_shadows_deferring = FALSE;
 			rasterizer_environment_shadows_defer_end();
 			halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);
+			if (traced)
+				traced_shadow_casters_commit();
 			for (index = 0; index < deferred_shadow_apply_count; index++)
 			{
 				struct deferred_shadow_apply *apply = &deferred_shadow_applies[index];
@@ -712,6 +718,8 @@ void render_object_shadows(
 				}
 			}
 			rasterizer_environment_shadows_apply_end();
+			if (traced)
+				traced_shadow_casters_window_end();
 		}
 		else
 		{

@@ -132,6 +132,10 @@ host_stereo_replay_constants
 host_stereo_replay_constants_end
 host_stereo_replay_end
 host_stereo_replay_live_end
+# traced object shadows (display.traced_shadows; port/linux/game/rt_object_shadows.c, d3d8_device.c, gpu_metal.m)
+host_traced_shadows_ready
+host_traced_shadows_data
+host_traced_shadows_resolve
 # stereo (halo_stereo.h)
 host_stereo_frame
 host_stereo_entered

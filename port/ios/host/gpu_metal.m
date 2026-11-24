@@ -168,6 +168,10 @@ Handles index tables of these; 0 is none. */
 	/* a pixel shader lit per pixel (nv2a_lighting_pixel_block): it reads the
 	vertex constants at fragment buffer 4 (bind_constants) */
 	BOOL reads_constants;
+	/* a pixel shader that traces an object shadow (nv2a_psh.c's traced block): its draws bind the shadow's
+	acceleration structure and basis (traced_draw_bind), and its pipelines keep the smallest penumbra radius in
+	alpha (pipeline_descriptor) */
+	BOOL traced_shadow;
 	/* a vertex shader's library, and its function specialized for each set
 	of attribute kinds it is drawn with (vertex_function) */
 	id<MTLLibrary> library;
@@ -2463,6 +2467,7 @@ static gpu_shader gpu_metal_shader_create(uint32_t stage, const char *source)
 
 		record->compiled = dispatch_group_create();
 		record->reads_constants = stage != GPU_SHADER_VERTEX && strstr(source, "constant float4 *c [[buffer(4)]]") != NULL;
+		record->traced_shadow = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_SHADOW 1") != NULL;
 		/* (each on a worker thread, compiled synchronously there: not with
 		newLibraryWithSource's completion handler, which runs on Metal's
 		compiler queue, where shader_finish's newFunctionWithName waits on
@@ -3990,6 +3995,13 @@ static MTLRenderPipelineDescriptor *pipeline_descriptor(const struct pipeline_ke
 		attachment.destinationRGBBlendFactor = blend_factor(key->destination);
 		attachment.destinationAlphaBlendFactor = blend_factor(key->alpha_destination);
 		attachment.rgbBlendOperation = attachment.alphaBlendOperation = blend_operation(key->operation);
+		/* a traced shadow's draw writes its penumbra radius to alpha: where shadows overlap, the smallest stays, so
+		a shadow close to its caster keeps its hard edge inside a wide one */
+		if (pixel->traced_shadow)
+		{
+			attachment.alphaBlendOperation = MTLBlendOperationMin;
+			attachment.sourceAlphaBlendFactor = attachment.destinationAlphaBlendFactor = MTLBlendFactorOne;
+		}
 	}
 	descriptor.depthAttachmentPixelFormat = (MTLPixelFormat)key->depth_format;
 	descriptor.stencilAttachmentPixelFormat = (MTLPixelFormat)key->depth_format;
@@ -5177,6 +5189,671 @@ static uint32_t convert_primitive(const struct gpu_draw *draw, MTLPrimitiveType 
 	return converted;
 }
 
+/* ---------- traced object shadows (display.traced_shadows; port/linux/game/traced_shadow_casters.c, d3d8_device.c)
+
+Characters' and vehicles' shadows traced against their models instead of read from shadow maps, on GPUs with ray
+tracing hardware (the Metal gate's TRACED_SHADOWS pass). The game sends records (traced_shadows_format.h) through
+traced_shadows_data, in order with its draws:
+- a model part once a map (rest vertices kept here, its triangles in a Metal buffer);
+- a shadow's caster each frame: the parts under their node matrices. traced_shadows.h's cache says whether its
+  acceleration structure is reused, updated in place or built; one that needs work is skinned here, straight into
+  the frame's vertex buffer, and its build or refit waits for the next commit;
+- a commit: every waiting build and refit, encoded in one encoder between render passes;
+- the shadow the next traced draws apply, with its basis.
+A draw whose pixel shader traces (MetalShader traced_shadow; nv2a_psh.c) binds its shadow's structure at fragment
+buffer 6, the level's at 7 and the basis at 8, and is dropped when its shadow has no structure. Those draws go to
+the traced term, a target of the front end's, which traced_shadows_resolve then multiplies into the scene.
+Everything is encoded in the frame's own command buffer and nothing waits for the GPU. */
+#include "traced_shadows.h"
+
+enum
+{
+	TRACED_VERTEX_BYTES = 1 << 22, /* a frame's skinned positions, to start with */
+	TRACED_PENDING = TRACED_SHADOWS_SHADOWS,
+};
+
+static NSString *const traced_source =
+	@"#include <metal_stdlib>\n"
+	"using namespace metal;\n"
+	"\n"
+	"struct traced_vertex_out\n"
+	"{\n"
+	"\tfloat4 position [[position]];\n"
+	"};\n"
+	"\n"
+	"vertex traced_vertex_out traced_vertex(uint id [[vertex_id]])\n"
+	"{\n"
+	"\ttraced_vertex_out out;\n"
+	"\tfloat2 uv = float2((id << 1) & 2, id & 2);\n"
+	"\tout.position = float4(uv * 2.0 - 1.0, 0.0, 1.0);\n"
+	"\treturn out;\n"
+	"}\n"
+	"\n"
+	"/* the window's rectangle, and what to show: 0 the term's color (the product of the shadows' darkening), 1 the\n"
+	"term's color alone, 2 the penumbra radius alone (both for looking at the term) */\n"
+	"struct traced_composite_parameters\n"
+	"{\n"
+	"\tuint ox, oy, w, h;\n"
+	"\tuint view;\n"
+	"\tuint pad[3];\n"
+	"};\n"
+	"\n"
+	"fragment float4 traced_composite(traced_vertex_out in [[stage_in]], texture2d<float, access::read> term [[texture(0)]],\n"
+	"\tconstant traced_composite_parameters &c [[buffer(0)]])\n"
+	"{\n"
+	"\tuint2 q = clamp(uint2(in.position.xy), uint2(c.ox, c.oy), uint2(c.ox + c.w - 1, c.oy + c.h - 1));\n"
+	"\tfloat4 t = term.read(q);\n"
+	"\tif (c.view == 2)\n"
+	"\t\treturn float4(t.a, t.a, t.a, 1.0);\n"
+	"\treturn float4(t.rgb, 1.0);\n"
+	"}\n";
+
+static struct
+{
+	BOOL tried, programs_failed;
+	uint32_t epoch;
+	unsigned long frame;
+	struct traced_caster_cache cache;
+	/* parts, by the game's id */
+	struct traced_shadows_vertex *part_vertices[TRACED_SHADOWS_PARTS];
+	uint32_t part_vertex_count[TRACED_SHADOWS_PARTS], part_triangle_count[TRACED_SHADOWS_PARTS];
+	/* each caster slot's structure: the size it was made with and the scratch a refit of it needs */
+	uint64_t structure_size[TRACED_CASTER_SLOTS], refit_scratch[TRACED_CASTER_SLOTS];
+	/* this frame's shadows: 0 none, else its caster slot + 1 */
+	uint16_t shadow_slot[TRACED_SHADOWS_SHADOWS];
+	/* builds and refits waiting for a commit */
+	uint32_t pending_count;
+	uint16_t pending_slot[TRACED_PENDING];
+	uint8_t pending_refit[TRACED_PENDING];
+	uint64_t pending_scratch[TRACED_PENDING], pending_scratch_total;
+	size_t vertices_used;
+	BOOL world_pending;
+	uint32_t world_triangles;
+	/* the shadow being applied */
+	uint32_t apply;
+	float basis[TRACED_SHADOWS_BASIS_FLOATS];
+	/* since the last log line */
+	unsigned long log_casters, log_triangles, log_dropped;
+	uint64_t structure_bytes;
+} traced;
+/* set from the encoder's thread when an allocation fails, read by traced_shadows_ready on the game's */
+static atomic_int traced_failed;
+static __strong id<MTLBuffer> traced_part_indices[TRACED_SHADOWS_PARTS];
+static __strong id<MTLAccelerationStructure> traced_structures[TRACED_CASTER_SLOTS];
+static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_pending_descriptors[TRACED_PENDING];
+static __strong id<MTLBuffer> traced_vertices[FRAMES];
+static __strong id<MTLBuffer> traced_scratch[FRAMES];
+static __strong id<MTLAccelerationStructure> traced_world;
+static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_world_descriptor;
+static __strong id<MTLRenderPipelineState> traced_multiply, traced_replace;
+static __strong id<MTLDepthStencilState> traced_level, traced_everything;
+
+/* (the Metal gate's row holds the floor and the reason; any_gpu is debug.traced_shadows_any_gpu, for measuring GPUs
+that trace in software) */
+static uint32_t gpu_metal_traced_shadows_ready(uint32_t any_gpu)
+{
+	if (atomic_load_explicit(&traced_failed, memory_order_relaxed))
+		return 0;
+	return metal_pass(METAL_PASS_TRACED_SHADOWS) || (any_gpu && metal_feature(METAL_FEATURE_RAYTRACING_RENDER)) ? 1 : 0;
+}
+
+/* debug.traced_shadows_refit: a moved caster's structure is updated in place; off, it is built again every frame
+(for measuring what refitting saves) */
+static int traced_refit_allowed(void)
+{
+	static int flag = -1;
+
+	if (flag < 0)
+	{
+		char value[32];
+
+		host_config_string("debug.traced_shadows_refit", "true", value, sizeof(value));
+		flag = strcmp(value, "false") != 0;
+	}
+	return flag;
+}
+
+static void traced_fail(const char *what)
+{
+	if (!atomic_exchange_explicit(&traced_failed, 1, memory_order_relaxed))
+		platform_log("traced shadows: %s; shadows are drawn from their maps from the next frame", what);
+}
+
+static void traced_frame_check(void)
+{
+	if (traced.frame == frames)
+		return;
+	if (traced.log_casters && (frames % 600) == 0)
+	{
+		platform_log("traced shadows: frame %lu: %lu casters and %lu triangles updated in 600 frames (%u built, %u "
+			"refitted, %u reused, %u refused), %lu draws dropped, %.1f MB of structures", frames, traced.log_casters,
+			traced.log_triangles, traced.cache.builds, traced.cache.refits, traced.cache.reuses, traced.cache.refused,
+			traced.log_dropped, (double)traced.structure_bytes / 1048576.0);
+		traced.log_casters = traced.log_triangles = traced.log_dropped = 0;
+		traced.cache.builds = traced.cache.refits = traced.cache.reuses = traced.cache.refused = 0;
+	}
+	traced.frame = frames;
+	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
+	/* (a frame's builds are committed before it ends; one that never was is dropped with its descriptors) */
+	while (traced.pending_count)
+		traced_pending_descriptors[--traced.pending_count] = nil;
+	traced.pending_scratch_total = 0;
+	traced.vertices_used = 0;
+	traced.apply = TRACED_SHADOWS_SHADOWS;
+	traced_cache_frame(&traced.cache, frames);
+}
+
+static void traced_reset(uint32_t epoch)
+{
+	uint32_t index;
+
+	for (index = 0; index < TRACED_SHADOWS_PARTS; index++)
+	{
+		free(traced.part_vertices[index]);
+		traced.part_vertices[index] = NULL;
+		traced.part_vertex_count[index] = traced.part_triangle_count[index] = 0;
+		traced_part_indices[index] = nil;
+	}
+	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
+		traced_structures[index] = nil;
+	while (traced.pending_count)
+		traced_pending_descriptors[--traced.pending_count] = nil;
+	traced.pending_scratch_total = 0;
+	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
+	memset(traced.structure_size, 0, sizeof(traced.structure_size));
+	traced_cache_reset(&traced.cache);
+	traced_world = nil;
+	traced_world_descriptor = nil;
+	traced.world_pending = NO;
+	traced.structure_bytes = 0;
+	traced.epoch = epoch;
+}
+
+static void traced_part(uint32_t id, const void *bytes, uint32_t size)
+{
+	const struct traced_shadows_part *part;
+	const struct traced_shadows_vertex *vertices;
+	const uint16_t *triangles;
+	struct traced_shadows_vertex *kept;
+
+	if (id >= TRACED_SHADOWS_PARTS || !traced_part_read(bytes, size, &part, &vertices, &triangles) ||
+		part->epoch != traced.epoch)
+		return;
+	kept = malloc((size_t)part->vertex_count * sizeof(*kept));
+	if (!kept)
+		return;
+	memcpy(kept, vertices, (size_t)part->vertex_count * sizeof(*kept));
+	free(traced.part_vertices[id]);
+	traced.part_vertices[id] = kept;
+	traced.part_vertex_count[id] = part->vertex_count;
+	traced.part_triangle_count[id] = part->triangle_count;
+	traced_part_indices[id] = [device newBufferWithBytes:triangles length:(NSUInteger)part->triangle_count * 3 * sizeof(uint16_t)
+		options:MTLResourceStorageModeShared];
+	if (!traced_part_indices[id])
+		traced.part_triangle_count[id] = 0;
+}
+
+/* room for size more bytes of skinned positions in the frame's vertex buffer; a buffer outgrown mid-frame stays with
+the descriptors that already name it */
+static float *traced_vertex_room(size_t size, size_t *offset)
+{
+	id<MTLBuffer> buffer = traced_vertices[frame_slot];
+
+	if (!buffer || traced.vertices_used + size > buffer.length)
+	{
+		size_t length = MAX((size_t)TRACED_VERTEX_BYTES, (buffer ? (size_t)buffer.length : 0) * 2);
+
+		while (length < size)
+			length *= 2;
+		buffer = [device newBufferWithLength:length options:MTLResourceStorageModeShared];
+		if (!buffer)
+			return NULL;
+		traced_vertices[frame_slot] = buffer;
+		traced.vertices_used = 0;
+	}
+	*offset = traced.vertices_used;
+	traced.vertices_used += (size + 15) & ~(size_t)15;
+	return (float *)((uint8_t *)buffer.contents + *offset);
+}
+
+static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
+{
+	const struct traced_shadows_caster *caster;
+	const uint32_t *shape;
+	const float *pose;
+	uint32_t model, at = 0, triangles = 0, vertices = 0, slot = 0;
+	int released = 0;
+	enum traced_decision decision;
+
+	if (shadow >= TRACED_SHADOWS_SHADOWS || !traced_caster_read(bytes, size, &caster, &shape, &pose) ||
+		caster->epoch != traced.epoch)
+		return;
+	/* every part is one the map defined */
+	for (model = 0; model < caster->model_count; model++)
+	{
+		uint32_t part_count = shape[at + 1], part;
+
+		for (part = 0; part < part_count; part++)
+		{
+			uint32_t id = shape[at + 2 + part];
+
+			if (id >= TRACED_SHADOWS_PARTS || !traced.part_triangle_count[id])
+				return;
+			triangles += traced.part_triangle_count[id];
+			vertices += traced.part_vertex_count[id];
+		}
+		at += 2 + part_count;
+	}
+	if (!triangles)
+		return;
+	decision = traced_cache_decide(&traced.cache, caster->object, shape, caster->shape_size, pose, caster->pose_size,
+		triangles, traced_refit_allowed(), &slot, &released);
+	if (released)
+	{
+		traced.structure_bytes -= MIN(traced.structure_bytes, traced.structure_size[slot]);
+		traced_structures[slot] = nil;
+		traced.structure_size[slot] = 0;
+	}
+	if (decision == TRACED_REFUSED)
+		return;
+	if (decision == TRACED_REUSE)
+	{
+		/* (its structure, or the build of it that waits for this frame's commit) */
+		if (traced.structure_size[slot])
+			traced.shadow_slot[shadow] = (uint16_t)(slot + 1);
+		return;
+	}
+	@autoreleasepool
+	{
+		NSMutableArray<MTLAccelerationStructureGeometryDescriptor *> *geometries = [NSMutableArray array];
+		MTLPrimitiveAccelerationStructureDescriptor *descriptor = [MTLPrimitiveAccelerationStructureDescriptor descriptor];
+		size_t offset = 0;
+		float *positions = traced_vertex_room((size_t)vertices * 3 * sizeof(float), &offset);
+		id<MTLBuffer> buffer = traced_vertices[frame_slot];
+		const float *matrices = pose;
+		BOOL refit = decision == TRACED_REFIT && traced_structures[slot] && traced.structure_size[slot];
+
+		if (!positions || traced.pending_count >= TRACED_PENDING)
+		{
+			traced.cache.slots[slot].updated = 0;
+			traced.cache.slots[slot].pose_size = 0;
+			return;
+		}
+		for (model = 0, at = 0; model < caster->model_count; model++)
+		{
+			uint32_t node_count = shape[at], part_count = shape[at + 1], part;
+
+			for (part = 0; part < part_count; part++)
+			{
+				uint32_t id = shape[at + 2 + part];
+				MTLAccelerationStructureTriangleGeometryDescriptor *geometry =
+					[MTLAccelerationStructureTriangleGeometryDescriptor descriptor];
+
+				traced_skin(traced.part_vertices[id], traced.part_vertex_count[id], matrices, node_count, positions);
+				geometry.vertexBuffer = buffer;
+				geometry.vertexBufferOffset = offset;
+				geometry.vertexStride = 3 * sizeof(float);
+				geometry.vertexFormat = MTLAttributeFormatFloat3;
+				geometry.indexBuffer = traced_part_indices[id];
+				geometry.indexType = MTLIndexTypeUInt16;
+				geometry.triangleCount = traced.part_triangle_count[id];
+				geometry.opaque = YES;
+				[geometries addObject:geometry];
+				positions += (size_t)traced.part_vertex_count[id] * 3;
+				offset += (size_t)traced.part_vertex_count[id] * 3 * sizeof(float);
+			}
+			matrices += (size_t)node_count * TRACED_SHADOWS_NODE_FLOATS;
+			at += 2 + part_count;
+		}
+		descriptor.geometryDescriptors = geometries;
+		descriptor.usage = MTLAccelerationStructureUsageRefit | MTLAccelerationStructureUsagePreferFastBuild;
+		if (!refit)
+		{
+			MTLAccelerationStructureSizes sizes = [device accelerationStructureSizesWithDescriptor:descriptor];
+
+			if (!traced_structures[slot] || traced.structure_size[slot] < sizes.accelerationStructureSize)
+			{
+				traced.structure_bytes -= MIN(traced.structure_bytes, traced.structure_size[slot]);
+				traced_structures[slot] = [device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
+				traced.structure_size[slot] = traced_structures[slot] ? sizes.accelerationStructureSize : 0;
+				traced.structure_bytes += traced.structure_size[slot];
+			}
+			if (!traced_structures[slot])
+			{
+				traced.cache.slots[slot].updated = 0;
+				traced.cache.slots[slot].pose_size = 0;
+				traced_fail("an acceleration structure could not be allocated");
+				return;
+			}
+			traced.refit_scratch[slot] = sizes.refitScratchBufferSize;
+			traced.pending_scratch[traced.pending_count] = sizes.buildScratchBufferSize;
+		}
+		else
+			traced.pending_scratch[traced.pending_count] = traced.refit_scratch[slot];
+		traced.pending_scratch[traced.pending_count] = (traced.pending_scratch[traced.pending_count] + 255) & ~(uint64_t)255;
+		traced.pending_scratch_total += traced.pending_scratch[traced.pending_count];
+		traced.pending_slot[traced.pending_count] = (uint16_t)slot;
+		traced.pending_refit[traced.pending_count] = refit;
+		traced_pending_descriptors[traced.pending_count++] = descriptor;
+		traced.shadow_slot[shadow] = (uint16_t)(slot + 1);
+		traced.log_casters++;
+		traced.log_triangles += triangles;
+	}
+}
+
+static void traced_world_take(const void *bytes, uint32_t size)
+{
+	const struct traced_shadows_world *world = bytes;
+
+	if (!bytes || size < sizeof(*world) || world->epoch != traced.epoch || !world->triangle_count ||
+		(uint64_t)sizeof(*world) + (uint64_t)world->triangle_count * 9 * sizeof(float) != size)
+		return;
+	@autoreleasepool
+	{
+		MTLAccelerationStructureTriangleGeometryDescriptor *geometry =
+			[MTLAccelerationStructureTriangleGeometryDescriptor descriptor];
+		MTLAccelerationStructureSizes sizes;
+
+		geometry.vertexBuffer = [device newBufferWithBytes:world + 1 length:(NSUInteger)world->triangle_count * 9 * sizeof(float)
+			options:MTLResourceStorageModeShared];
+		geometry.vertexStride = 3 * sizeof(float);
+		geometry.vertexFormat = MTLAttributeFormatFloat3;
+		geometry.triangleCount = world->triangle_count;
+		geometry.opaque = YES;
+		traced_world_descriptor = [MTLPrimitiveAccelerationStructureDescriptor descriptor];
+		traced_world_descriptor.geometryDescriptors = @[ geometry ];
+		sizes = [device accelerationStructureSizesWithDescriptor:traced_world_descriptor];
+		traced_world = geometry.vertexBuffer ? [device newAccelerationStructureWithSize:sizes.accelerationStructureSize] : nil;
+		traced.world_pending = traced_world != nil;
+		traced.world_triangles = world->triangle_count;
+		if (!traced_world)
+			traced_world_descriptor = nil;
+		platform_log("traced shadows: the level's structure, %u triangles, %.1f MB", world->triangle_count,
+			(double)sizes.accelerationStructureSize / 1048576.0);
+	}
+}
+
+/* every build and refit that waits, in one encoder between passes, each with its own range of the scratch buffer
+(they may run at the same time). The level's structure is built once, with scratch of its own */
+static void traced_commit(void)
+{
+	if (!traced.pending_count && !traced.world_pending)
+		return;
+	@autoreleasepool
+	{
+		id<MTLAccelerationStructureCommandEncoder> build;
+		id<MTLBuffer> scratch = traced_scratch[frame_slot], world_scratch = nil;
+		uint64_t offset = 0;
+		uint32_t index;
+
+		/* (a refit may need no scratch at all: then the total is 0 and there is nothing to allocate) */
+		if (!traced.pending_scratch_total)
+			scratch = nil;
+		else if (!scratch || scratch.length < traced.pending_scratch_total)
+		{
+			scratch = [device newBufferWithLength:(NSUInteger)traced.pending_scratch_total * 2
+				options:MTLResourceStorageModePrivate];
+			traced_scratch[frame_slot] = scratch;
+		}
+		if (traced.world_pending)
+			world_scratch = [device newBufferWithLength:
+				[device accelerationStructureSizesWithDescriptor:traced_world_descriptor].buildScratchBufferSize
+				options:MTLResourceStorageModePrivate];
+		if ((traced.pending_scratch_total && !scratch) || (traced.world_pending && !world_scratch))
+		{
+			traced_fail("a scratch buffer could not be allocated");
+			for (index = 0; index < traced.pending_count; index++)
+			{
+				/* (not built: no shadow from it, and its slot is made again next time) */
+				traced.cache.slots[traced.pending_slot[index]].updated = 0;
+				traced.cache.slots[traced.pending_slot[index]].pose_size = 0;
+				traced.structure_size[traced.pending_slot[index]] = 0;
+				traced_structures[traced.pending_slot[index]] = nil;
+				traced_pending_descriptors[index] = nil;
+			}
+			traced.pending_count = 0;
+			traced.pending_scratch_total = 0;
+			traced.world_pending = NO;
+			traced_world = nil;
+			return;
+		}
+		pass_end();
+		build = [command_buffer() accelerationStructureCommandEncoder];
+		for (index = 0; index < traced.pending_count; index++)
+		{
+			id<MTLAccelerationStructure> structure = traced_structures[traced.pending_slot[index]];
+
+			if (traced.pending_refit[index])
+				[build refitAccelerationStructure:structure descriptor:traced_pending_descriptors[index] destination:nil
+					scratchBuffer:traced.pending_scratch[index] ? scratch : nil scratchBufferOffset:(NSUInteger)offset];
+			else
+				[build buildAccelerationStructure:structure descriptor:traced_pending_descriptors[index]
+					scratchBuffer:scratch scratchBufferOffset:(NSUInteger)offset];
+			offset += traced.pending_scratch[index];
+			traced_pending_descriptors[index] = nil;
+		}
+		if (traced.world_pending)
+		{
+			[build buildAccelerationStructure:traced_world descriptor:traced_world_descriptor scratchBuffer:world_scratch
+				scratchBufferOffset:0];
+			/* (the structure holds its triangles: the descriptor and its vertex buffer go) */
+			traced_world_descriptor = nil;
+			traced.world_pending = NO;
+		}
+		[build endEncoding];
+		if (pass_log)
+			[pass_log appendFormat:@"\n  traced shadows: %u structures built or refitted", traced.pending_count];
+		traced.pending_count = 0;
+		traced.pending_scratch_total = 0;
+	}
+}
+
+static void gpu_metal_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
+{
+	if (!gpu_metal_traced_shadows_ready(1))
+		return;
+	traced_frame_check();
+	switch (kind)
+	{
+	case TRACED_SHADOWS_RESET:
+		traced_reset(id);
+		break;
+	case TRACED_SHADOWS_PART:
+		traced_part(id, bytes, size);
+		break;
+	case TRACED_SHADOWS_CASTER:
+		traced_caster(id, bytes, size);
+		break;
+	case TRACED_SHADOWS_WORLD:
+		traced_world_take(bytes, size);
+		break;
+	case TRACED_SHADOWS_COMMIT:
+		traced_commit();
+		break;
+	case TRACED_SHADOWS_APPLY:
+		if (bytes && size == sizeof(traced.basis))
+		{
+			traced.apply = id;
+			memcpy(traced.basis, bytes, sizeof(traced.basis));
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+/* a traced draw's shadow has a structure to trace; its builds are encoded first, between passes (call before the
+draw's pass begins). NO: the draw is dropped */
+static BOOL traced_draw_ready(void)
+{
+	traced_frame_check();
+	if (traced.apply >= TRACED_SHADOWS_SHADOWS || !traced.shadow_slot[traced.apply] ||
+		!traced_structures[traced.shadow_slot[traced.apply] - 1])
+	{
+		traced.log_dropped++;
+		return NO;
+	}
+	traced_commit();
+	return YES;
+}
+
+static void traced_draw_bind(void)
+{
+	id<MTLAccelerationStructure> caster = traced_structures[traced.shadow_slot[traced.apply] - 1];
+	float basis[TRACED_SHADOWS_BASIS_FLOATS];
+
+	memcpy(basis, traced.basis, sizeof(basis));
+	/* (without the level's structure the shader never traces buffer 7: the caster stands in) */
+	if (!traced_world)
+		basis[15] = 0.0f;
+	[encoder setFragmentAccelerationStructure:caster atBufferIndex:6];
+	metal_state_always(&state_cache);
+	[encoder setFragmentAccelerationStructure:traced_world ? traced_world : caster atBufferIndex:7];
+	metal_state_always(&state_cache);
+	[encoder setFragmentBytes:basis length:sizeof(basis) atIndex:8];
+	metal_state_always(&state_cache);
+}
+
+static BOOL traced_programs(void)
+{
+	NSError *error = nil;
+	id<MTLLibrary> library;
+	MTLRenderPipelineDescriptor *pipeline;
+	MTLDepthStencilDescriptor *state;
+	MTLStencilDescriptor *stencil;
+
+	if (traced.tried)
+		return !traced.programs_failed;
+	traced.tried = YES;
+	traced.programs_failed = YES;
+	library = [device newLibraryWithSource:traced_source options:nil error:&error];
+	if (!library)
+	{
+		platform_log("traced shadows: the resolve's shaders do not compile: %s", error.localizedDescription.UTF8String);
+		return NO;
+	}
+	pipeline = [MTLRenderPipelineDescriptor new];
+	pipeline.vertexFunction = [library newFunctionWithName:@"traced_vertex"];
+	pipeline.fragmentFunction = [library newFunctionWithName:@"traced_composite"];
+	pipeline.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
+	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	traced_replace = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.colorAttachments[0].blendingEnabled = YES;
+	pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
+	pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
+	pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
+	pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
+	pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
+	pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
+	traced_multiply = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	if (!traced_replace || !traced_multiply)
+	{
+		platform_log("traced shadows: the resolve's pipeline cannot be made: %s",
+			error ? error.localizedDescription.UTF8String : "?");
+		return NO;
+	}
+	state = [MTLDepthStencilDescriptor new];
+	state.depthCompareFunction = MTLCompareFunctionAlways;
+	state.depthWriteEnabled = NO;
+	traced_everything = [device newDepthStencilStateWithDescriptor:state];
+	/* the level's pixels: the lightmap pass's mark (0x10, halo_traced_shadows_lightmaps_mark), and not the game's
+	own mark (1), as the ambient occlusion pass tests them */
+	stencil = [MTLStencilDescriptor new];
+	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
+	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
+		MTLStencilOperationKeep;
+	stencil.writeMask = 0;
+	stencil.readMask = 0x11;
+	state.frontFaceStencil = state.backFaceStencil = stencil;
+	traced_level = [device newDepthStencilStateWithDescriptor:state];
+	traced.programs_failed = NO;
+	return YES;
+}
+
+/* The traced term (the front end's target, which the shadows' apply draws went to: the product of their darkening
+in its color) multiplied into the scene's color over the level's pixels, as the first draw of the scene's pass,
+loaded again. values are traced_shadows_format.h's */
+static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count)
+{
+	@autoreleasepool
+	{
+		MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
+		MetalTexture *term_record = texture_record(term);
+		struct { uint32_t ox, oy, w, h, view, pad[3]; } c;
+		struct gpu_rect rect;
+		MTLScissorRect window, covered;
+		unsigned long width, height;
+		int view;
+
+		if (count < TRACED_SHADOWS_RESOLVE_FLOATS || !values || !color_record || !color_record->texture || !depth_record ||
+			!depth_record->texture || color_record->samples || depth_record->samples)
+			return;
+		/* the pass break alone (debug.traced_shadows_break_only): the scene's pass ends and begins again */
+		if (values[TRACED_SHADOWS_RESOLVE_BREAK_ONLY] != 0.0f)
+		{
+			pass_end();
+			(void)pass_begin(color, depth, NULL);
+			return;
+		}
+		if (!term_record || !term_record->texture || color_record->description.format != GPU_FORMAT_BGRA8 ||
+			term_record->description.format != GPU_FORMAT_BGRA8 || term_record->samples ||
+			depth_record->description.format != GPU_FORMAT_DEPTH_STENCIL || foveation_map(color_record) ||
+			foveation_map(depth_record) || term_record->texture.width != color_record->texture.width ||
+			term_record->texture.height != color_record->texture.height || !traced_programs())
+		{
+			traced_fail("the resolve's targets or programs are not usable");
+			return;
+		}
+		width = color_record->content_width ? color_record->content_width : color_record->texture.width;
+		height = color_record->content_height ? color_record->content_height : color_record->texture.height;
+		rect = (struct gpu_rect){ (int32_t)values[TRACED_SHADOWS_RESOLVE_WINDOW], (int32_t)values[TRACED_SHADOWS_RESOLVE_WINDOW + 1],
+			(int32_t)values[TRACED_SHADOWS_RESOLVE_WINDOW + 2], (int32_t)values[TRACED_SHADOWS_RESOLVE_WINDOW + 3] };
+		if (!clamp_rect(&rect, width, height, &window))
+			return;
+		rect = (struct gpu_rect){ (int32_t)values[TRACED_SHADOWS_RESOLVE_COVERED], (int32_t)values[TRACED_SHADOWS_RESOLVE_COVERED + 1],
+			(int32_t)values[TRACED_SHADOWS_RESOLVE_COVERED + 2], (int32_t)values[TRACED_SHADOWS_RESOLVE_COVERED + 3] };
+		{
+			/* (what the shadows cover, within the window) */
+			long left = MAX((long)rect.x, (long)window.x), top = MAX((long)rect.y, (long)window.y);
+			long right = MIN((long)rect.x + rect.width, (long)(window.x + window.width));
+			long bottom = MIN((long)rect.y + rect.height, (long)(window.y + window.height));
+
+			if (right <= left || bottom <= top)
+				return;
+			covered = (MTLScissorRect){ (NSUInteger)left, (NSUInteger)top, (NSUInteger)(right - left), (NSUInteger)(bottom - top) };
+		}
+		/* the term's pass ends (its color is read below), and the scene's begins again, loaded */
+		pass_end();
+		if (pass_log)
+			[pass_log appendFormat:@"\n  traced shadows resolve: %lux%lu at %lu,%lu", (unsigned long)covered.width,
+				(unsigned long)covered.height, (unsigned long)covered.x, (unsigned long)covered.y];
+		if (!pass_begin(color, depth, NULL) || !encoder)
+			return;
+		view = (int)values[TRACED_SHADOWS_RESOLVE_VIEW];
+		c.ox = (uint32_t)window.x;
+		c.oy = (uint32_t)window.y;
+		c.w = (uint32_t)window.width;
+		c.h = (uint32_t)window.height;
+		c.view = (uint32_t)view;
+		c.pad[0] = c.pad[1] = c.pad[2] = 0;
+		[encoder setViewport:(MTLViewport){ (double)covered.x, (double)covered.y, (double)covered.width,
+			(double)covered.height, 0.0, 1.0 }];
+		[encoder setScissorRect:covered];
+		[encoder setCullMode:MTLCullModeNone];
+		[encoder setRenderPipelineState:view ? traced_replace : traced_multiply];
+		[encoder setDepthStencilState:view ? traced_everything : traced_level];
+		[encoder setStencilReferenceValue:0x10];
+		[encoder setFragmentTexture:term_record->texture atIndex:0];
+		[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+		/* the game's next draw sets everything again */
+		metal_state_reset(&state_cache);
+	}
+}
+
 static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_constant_store *constants,
 	const struct gpu_uniforms *uniforms)
 {
@@ -5254,6 +5931,10 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 					draw->vertex_shader, draw->pixel_shader);
 			return 0;
 		}
+		/* a traced shadow's draw: its shadow's structure built first, between passes; one without a structure draws
+		nothing */
+		if (pixel->traced_shadow && !traced_draw_ready())
+			return 1;
 		/* display.native_hud and debug.metal_scene_park (native_pass): a
 		draw outside the display-sized or scene pass that samples its targets,
 		or anything written earlier in its command buffer (parked: that
@@ -5417,6 +6098,8 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 			[encoder setFragmentBytes:soft.parameters length:sizeof(soft.parameters) atIndex:5];
 			metal_state_always(&state_cache);
 		}
+		if (pixel->traced_shadow)
+			traced_draw_bind();
 		bind_constants(constants, uniforms, pixel && pixel->reads_constants);
 		bind_attributes(draw, &attributes);
 		pass_commands++;

@@ -1053,7 +1053,8 @@ static void level_stencil_mark_begin(
 
 	level_stencil_saved_mode = -1;
 	/* (both are asked, each remembering its own answer for the view) */
-	if (!(halo_ssao_lightmaps_mark(TRUE) | halo_soft_particles_lightmaps_mark(TRUE)))
+	if (!(halo_ssao_lightmaps_mark(TRUE) | halo_soft_particles_lightmaps_mark(TRUE) |
+		halo_traced_shadows_lightmaps_mark(TRUE)))
 		return;
 	mode = rasterizer_get_stencil_mode();
 	/* (0 none, 2 REJECT: rasterizer_xbox.c's modes) */

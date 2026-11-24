@@ -3841,6 +3841,16 @@
             "apple"
           ]
         },
+        "traced_shadows_view": {
+          "type": "integer",
+          "default": 0,
+          "description": "With display.traced_shadows: 1 shows the traced term's color in place of the scene, 2 its penumbra radius, for looking at what the filter is given.",
+          "x-environment": "HALO_TRACED_SHADOWS_VIEW",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "traced_shadows_world": {
           "type": "boolean",
           "default": true,

@@ -2037,6 +2037,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.traced_shadows_refit", _config_boolean, "true", "HALO_TRACED_SHADOWS_REFIT", _environment_value, _platform_ios,
 		"With display.traced_shadows: update a moving caster's acceleration structure in place. False builds\n"
 		"it again every frame, to measure which costs less." },
+	{ "debug.traced_shadows_view", _config_integer, "0", "HALO_TRACED_SHADOWS_VIEW", _environment_value, _platform_ios,
+		"With display.traced_shadows: 1 shows the traced term's color in place of the scene, 2 its penumbra\n"
+		"radius, for looking at what the filter is given." },
 	{ "debug.traced_shadows_world", _config_boolean, "true", "HALO_TRACED_SHADOWS_WORLD", _environment_value, _platform_ios,
 		"With display.traced_shadows: a shadow's ray also stops at the level's own surfaces, so a shadow does\n"
 		"not reach through a floor or a wall to a surface beyond it." },

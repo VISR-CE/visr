@@ -3,7 +3,7 @@ TRACED_SHADOWS_FORMAT.H
 
 The records the game sends the Metal backend for traced object shadows
 (display.traced_shadows): what gpu_backend.h's traced_shadows_data carries, by
-kind. Written by port/linux/game/rt_object_shadows.c, read by
+kind. Written by port/linux/game/traced_shadow_casters.c, read by
 port/ios/host/traced_shadows.h and gpu_metal.m. Fixed-width and little-endian,
 <stdint.h> alone, so the 32-bit guest, the 64-bit host and the probes compile
 it alike.
@@ -92,7 +92,8 @@ the view's height), z one over the largest penumbra radius in pixels, w unused; 
 
 /* traced_shadows_resolve's values (gpu_backend.h): the window's rectangle in the target's texels (x, y, width,
 height), the padded rectangle the shadows cover (x, y, width, height), the largest penumbra radius in pixels,
-whether to filter (0 composites the traced term as it is), and whether only the pass break is wanted */
+whether to filter (0 composites the traced term as it is), whether only the pass break is wanted, and what to show
+(debug.traced_shadows_view: 0 the scene with its shadows, 1 the term's color alone, 2 its penumbra radius alone) */
 enum
 {
 	TRACED_SHADOWS_RESOLVE_WINDOW = 0,
@@ -100,6 +101,7 @@ enum
 	TRACED_SHADOWS_RESOLVE_RADIUS = 8,
 	TRACED_SHADOWS_RESOLVE_FILTER,
 	TRACED_SHADOWS_RESOLVE_BREAK_ONLY,
+	TRACED_SHADOWS_RESOLVE_VIEW,
 	TRACED_SHADOWS_RESOLVE_FLOATS,
 };
 

@@ -1014,6 +1014,32 @@ static void queued_ssao_apply(gpu_texture color, gpu_texture depth, const float 
 	record_end();
 }
 
+/* traced object shadows: { kind, id } then the record's bytes (traced_shadows_format.h), and for the resolve
+{ color, depth, term } then its values */
+static void queued_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
+{
+	struct writer writer;
+	uint32_t header[2] = { kind, id };
+
+	writer.at = record_begin(GPU_OPERATION_traced_shadows_data, 8 + bytes_size(size));
+	put(&writer, header, 8);
+	put_bytes(&writer, bytes, size);
+	record_end();
+}
+
+static void queued_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count)
+{
+	struct writer writer;
+	uint32_t header[4] = { color, depth, term, 0 };
+	uint32_t size = count * (uint32_t)sizeof(*values);
+
+	writer.at = record_begin(GPU_OPERATION_traced_shadows_resolve, 16 + bytes_size(size));
+	put(&writer, header, 16);
+	put_bytes(&writer, values, size);
+	record_end();
+}
+
 /* the switches (gpu_backend.h's GPU_HOST_SWITCH_OPERATIONS) */
 #define QUEUED_SWITCH(name) \
 	static void queued_##name(int value) \
@@ -1401,6 +1427,24 @@ static void consume_ssao_apply(struct reader *reader)
 
 	reader->consumer->next->ssao_apply(mapped(reader->consumer, header[0]), mapped(reader->consumer, header[1]), values,
 		size / (uint32_t)sizeof(float));
+}
+
+static void consume_traced_shadows_data(struct reader *reader)
+{
+	const uint32_t *header = take(reader, 8);
+	uint32_t size;
+	const void *bytes = take_bytes(reader, &size);
+
+	reader->consumer->next->traced_shadows_data(header[0], header[1], bytes, size);
+}
+
+static void consume_traced_shadows_resolve(struct reader *reader)
+{
+	const uint32_t *header = take(reader, 16);
+	uint32_t size;
+	const void *values = take_bytes(reader, &size);
+
+	reader->consumer->next->traced_shadows_resolve(header[0], header[1], header[2], values, size / (uint32_t)sizeof(float));
 }
 
 #define CONSUME_SWITCH(name) \

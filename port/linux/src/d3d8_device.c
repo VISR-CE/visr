@@ -3186,6 +3186,204 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 #endif
 }
 
+/* ---------- traced object shadows (display.traced_shadows)
+
+On a GPU with ray tracing hardware, characters' and vehicles' shadows are traced against their models instead of
+read from shadow maps (port/linux/game/traced_shadow_casters.c names the casters; gpu_metal.m keeps their
+acceleration structures). The game's apply draws are kept: each takes the traced pixel shader key
+(halo_traced_shadows_key; nv2a_pixel_shader_key traced_shadow), whose stage 0 is a ray, and goes to the traced term
+instead of the scene: a target of the scene's size, white before a window's shadows, in which the game's own blend
+leaves the product of the shadows' darkening and the smallest penumbra radius. After the window's last shadow
+(halo_traced_shadows_window_end) the backend softens the term by that radius and multiplies it into the scene over
+the level's pixels, which the lightmap pass marked in stencil (0x10) as it does for ambient occlusion.
+
+Whether a frame traces is decided once, here, before anything of it is drawn that way: the setting (which the
+graphics mode turns off outside Enhanced), Metal, the backend's answer (the Metal gate's TRACED_SHADOWS pass, and no
+failure so far), and no stereo. A window then traces when its targets allow it (not multisampled) and the term is
+ready; otherwise its shadows are drawn from their maps, whole. Off: nothing changes. */
+#include "traced_shadows_format.h"
+
+static struct
+{
+	unsigned long frame;        /* device.frame + 1 of the decision */
+	BOOL frame_on;
+	BOOL marked;                /* the view's lightmap pass marked the level */
+	BOOL window;                /* a window's shadows are being traced */
+	BOOL break_window;          /* debug.traced_shadows_break_only: the window ends with the pass break alone */
+	BOOL key;                   /* the draws being made are a traced shadow's apply draws */
+	gpu_texture term;
+	unsigned long term_width, term_height;
+	gpu_texture scene_color;    /* the window's */
+	float rect[4];              /* the window in the target's texels */
+	float pixels_per_unit;      /* at distance 1 */
+	float radius;               /* the largest penumbra radius, pixels */
+	unsigned long windows;      /* since the last log line */
+} traced_shadows;
+
+static BOOL traced_shadows_frame_on(void)
+{
+	if (traced_shadows.frame != device.frame + 1)
+	{
+		const struct halo_stereo_frame *stereo = halo_stereo_frame();
+		BOOL on = device.gl_ready && shader_dialect.msl && config_boolean("display.traced_shadows") &&
+			stereo->mode == HALO_STEREO_OFF && !stereo->eye_count;
+
+#ifdef HALO_ILP32
+		on = on && host_traced_shadows_ready(config_boolean("debug.traced_shadows_any_gpu") ? 1 : 0) != 0;
+#else
+		on = FALSE;
+#endif
+		traced_shadows.frame = device.frame + 1;
+		traced_shadows.frame_on = on;
+	}
+	return traced_shadows.frame_on;
+}
+
+/* whether object shadows are being traced, as reports record it (benchmark_suite.c's renderer_state) */
+int halo_traced_shadows_effective(void)
+{
+	return traced_shadows_frame_on() && !config_boolean("debug.traced_shadows_break_only");
+}
+
+/* whether the view being drawn can trace: the same answer at the mark and at the window */
+static BOOL traced_shadows_view_wanted(void)
+{
+	struct render_target_entry *color, *depth;
+
+	if (!native_scene || !traced_shadows_frame_on())
+		return FALSE;
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	if (!color || !depth || !depth->target.depth || color->samples || depth->samples || color->target.foveated_eye)
+		return FALSE;
+	return TRUE;
+}
+
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark its pixels in stencil (0x10) */
+int halo_traced_shadows_lightmaps_mark(int begin)
+{
+	if (begin)
+		traced_shadows.marked = traced_shadows_view_wanted();
+	return traced_shadows.marked;
+}
+
+/* a window's shadows begin (render_object_shadows): 1 when they are traced; halo_traced_shadows_window_end follows
+either way. p11 is the projection's y scale */
+int halo_traced_shadows_window_begin(float p11)
+{
+	struct render_target_entry *color;
+	struct gpu_clear clear;
+	struct gpu_rect rect;
+
+	traced_shadows.window = traced_shadows.break_window = FALSE;
+	traced_shadows.key = FALSE;
+	if (!traced_shadows.marked || !traced_shadows_view_wanted())
+		return 0;
+	IMMEDIATE_FLUSH();
+	color = render_target_get(device.render_target);
+	traced_shadows.scene_color = color->target.texture;
+	traced_shadows.rect[0] = floorf((float)native_scene_bounds[0] * color->target.scale[0] + 0.5f);
+	traced_shadows.rect[1] = floorf((float)native_scene_bounds[1] * color->target.scale[1] + 0.5f);
+	traced_shadows.rect[2] = floorf((float)native_scene_bounds[2] * color->target.scale[0] + 0.5f) - traced_shadows.rect[0];
+	traced_shadows.rect[3] = floorf((float)native_scene_bounds[3] * color->target.scale[1] + 0.5f) - traced_shadows.rect[1];
+	if (traced_shadows.rect[2] <= 0.0f || traced_shadows.rect[3] <= 0.0f)
+		return 0;
+	if (config_boolean("debug.traced_shadows_break_only"))
+	{
+		traced_shadows.break_window = TRUE;
+		return 0;
+	}
+	/* the term, the size the scene's target is allocated at */
+	if (!traced_shadows.term || traced_shadows.term_width != color->target.allocated_width ||
+		traced_shadows.term_height != color->target.allocated_height)
+	{
+		struct gpu_texture_description texture = { 0 };
+
+		if (traced_shadows.term)
+			gpu_texture_destroy(traced_shadows.term);
+		texture.type = GPU_TEXTURE_2D;
+		texture.format = GPU_FORMAT_BGRA8;
+		texture.usage = GPU_USAGE_RENDER_TARGET;
+		texture.width = (uint32_t)color->target.allocated_width;
+		texture.height = (uint32_t)color->target.allocated_height;
+		texture.depth = 1;
+		texture.levels = 1;
+		traced_shadows.term = gpu_texture_create(&texture);
+		traced_shadows.term_width = color->target.allocated_width;
+		traced_shadows.term_height = color->target.allocated_height;
+		if (!traced_shadows.term)
+		{
+			traced_shadows.term_width = traced_shadows.term_height = 0;
+			return 0;
+		}
+	}
+	/* no shadow yet: white, and the largest radius */
+	memset(&clear, 0, sizeof(clear));
+	clear.color_target = traced_shadows.term;
+	clear.flags = GPU_CLEAR_COLOR;
+	clear.channel_mask = GPU_CHANNEL_RED | GPU_CHANNEL_GREEN | GPU_CHANNEL_BLUE | GPU_CHANNEL_ALPHA;
+	clear.color = 0xffffffffu;
+	rect.x = (int32_t)traced_shadows.rect[0];
+	rect.y = (int32_t)traced_shadows.rect[1];
+	rect.width = (int32_t)traced_shadows.rect[2];
+	rect.height = (int32_t)traced_shadows.rect[3];
+	gpu_clear(&clear, &rect, 1);
+	traced_shadows.pixels_per_unit = p11 * 0.5f * traced_shadows.rect[3];
+	traced_shadows.radius = fmaxf(1.0f, 0.03f * traced_shadows.rect[3]);
+	traced_shadows.window = TRUE;
+	if (!traced_shadows.windows++ || !(traced_shadows.windows % 7200))
+		platform_log("traced shadows: window %lu, %gx%g at %g,%g, largest penumbra %g pixels", traced_shadows.windows,
+			(double)traced_shadows.rect[2], (double)traced_shadows.rect[3], (double)traced_shadows.rect[0],
+			(double)traced_shadows.rect[1], (double)traced_shadows.radius);
+	return 1;
+}
+
+/* the window's last shadow is applied: the term goes into the scene */
+void halo_traced_shadows_window_end(void)
+{
+	struct render_target_entry *color, *depth;
+	float values[TRACED_SHADOWS_RESOLVE_FLOATS];
+	BOOL traced = traced_shadows.window, break_only = traced_shadows.break_window;
+
+	traced_shadows.window = traced_shadows.break_window = FALSE;
+	traced_shadows.key = FALSE;
+	if (!traced && !break_only)
+		return;
+	IMMEDIATE_FLUSH();
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	if (!color || !depth || color->target.texture != traced_shadows.scene_color)
+		return;
+	memset(values, 0, sizeof(values));
+	memcpy(&values[TRACED_SHADOWS_RESOLVE_WINDOW], traced_shadows.rect, sizeof(traced_shadows.rect));
+	/* (the window: the shadows' own rectangles are not gathered yet) */
+	memcpy(&values[TRACED_SHADOWS_RESOLVE_COVERED], traced_shadows.rect, sizeof(traced_shadows.rect));
+	values[TRACED_SHADOWS_RESOLVE_RADIUS] = traced_shadows.radius;
+	values[TRACED_SHADOWS_RESOLVE_FILTER] = config_boolean("debug.traced_shadows_filter") ? 1.0f : 0.0f;
+	values[TRACED_SHADOWS_RESOLVE_BREAK_ONLY] = break_only ? 1.0f : 0.0f;
+	values[TRACED_SHADOWS_RESOLVE_VIEW] = (float)config_integer("debug.traced_shadows_view");
+#ifdef HALO_ILP32
+	host_traced_shadows_resolve(color->target.texture, depth->target.texture, break_only ? 0 : traced_shadows.term, values,
+		TRACED_SHADOWS_RESOLVE_FLOATS);
+#endif
+}
+
+/* the draws that follow are (on) or are no longer a traced shadow's apply draws */
+void halo_traced_shadows_key(int on)
+{
+	traced_shadows.key = on && traced_shadows.window;
+}
+
+/* traced_shadows_format.h's basis row 4: the tangent of the light's half-angle, pixels a world unit at distance 1,
+one over the largest penumbra radius */
+void halo_traced_shadows_basis(float values[4])
+{
+	values[0] = tanf((float)config_real("debug.traced_shadows_light_angle") * 3.14159265f / 180.0f);
+	values[1] = traced_shadows.pixels_per_unit;
+	values[2] = 1.0f / traced_shadows.radius;
+	values[3] = 0.0f;
+}
+
 /* ---------- soft particle edges (display.soft_particles)
 
 Before a view's transparent geometry (render_window, source/render/render.c), every opaque surface is in the depth
@@ -3504,7 +3702,7 @@ static void shader_replay(const char *directory)
 				(size - 2 * sizeof(DWORD)) / (4 * sizeof(DWORD)) == header[0])
 				source = nv2a_vertex_shader_translate(&dialect, header + 2, header[0], header[1]);
 		}
-		else if (pixel && data && (size == sizeof(struct nv2a_pixel_shader_key) ||
+		else if (pixel && data && (size == NV2A_PIXEL_SHADER_KEY_LIT_SIZE ||
 			size == NV2A_PIXEL_SHADER_KEY_BASE_SIZE))
 		{
 			/* (a key as recorded before its later fields: those are 0) */
@@ -5303,7 +5501,7 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 
 	/* (a multisampled alpha test's shader is not listed or observed: the
 	lists and catalogs hold the shaders of draws without multisampling) */
-	if (!name || key->alpha_test_samples || key->soft_depth)
+	if (!name || key->alpha_test_samples || key->soft_depth || key->traced_shadow)
 		return;
 	name->kind = 2;
 	name->hash = hash64(key, nv2a_pixel_shader_key_size(key));
@@ -5753,7 +5951,7 @@ void halo_shader_list_warm(char const *map_name)
 
 				memset(&key, 0, sizeof(key));
 				if (sscanf(line, "ps %63s %599s", second, first) != 2 ||
-					(strlen(first) != 2 * sizeof(key) && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE &&
+					(strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_LIT_SIZE && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE &&
 						strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_BASE_SIZE) ||
 					!hex_bytes(first, bytes, strlen(first) / 2))
 				{
@@ -6502,6 +6700,12 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 		key->alpha_test_samples = (unsigned char)target_samples;
 	/* soft particle edges (halo_soft_particles_mode): Metal's translation only */
 	key->soft_depth = shader_dialect.msl ? (unsigned char)soft_draw_mode : 0;
+	/* a traced object shadow's apply draw (halo_traced_shadows_key) */
+	if (traced_shadows.key && shader_dialect.msl)
+	{
+		key->traced_shadow = 1;
+		key->soft_depth = 0;
+	}
 	key->fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key->fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
 	key->count_samples = device.visibility_test_active &&
@@ -6585,6 +6789,9 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		VALIDATION_NOTE(FRONT_NO_TARGET, 0, 0);
 		return FALSE;
 	}
+	/* a traced object shadow's apply draw goes to the traced term, with the scene's depth and stencil */
+	if (traced_shadows.key && draw->color_target == traced_shadows.scene_color)
+		draw->color_target = traced_shadows.term;
 	has_depth = draw->depth_target != 0;
 	if (target_native && ((D3D__RenderState[D3DRS_ZENABLE] && D3D__RenderState[D3DRS_ZFUNC] != D3DCMP_ALWAYS) ||
 		D3D__RenderState[D3DRS_STENCILENABLE]))

@@ -303,6 +303,13 @@ void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *va
 void host_stereo_replay_constants_end(uint32_t first, uint32_t count);
 uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to);
 void host_stereo_replay_live_end(void);
+/* traced object shadows (display.traced_shadows; port/linux/game/traced_shadow_casters.c, d3d8_device.c, gpu_metal.m):
+whether the GPU can trace them (any_gpu: also without ray tracing hardware); one record of
+port/linux/src/traced_shadows_format.h; and the traced term filtered and multiplied into the scene's color */
+uint32_t host_traced_shadows_ready(uint32_t any_gpu);
+void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size);
+void host_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count);
 
 /* ---------- stereo (port/linux/game/stereo.c; the host's port/ios/host/host_stereo.m)
 

@@ -1637,6 +1637,8 @@ static void main_new_map(
 #endif
 	/* port: compile the map's shaders and pipelines before its first frame */
 	halo_shader_list_warm(options->map_name);
+	/* port: display.traced_shadows: the last map's model parts are forgotten */
+	traced_shadow_casters_new_map();
 #ifdef HALO_IOS
 	map_pictures_render_stage(3);
 #endif
