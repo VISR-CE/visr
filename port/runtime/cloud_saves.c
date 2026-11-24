@@ -1100,8 +1100,9 @@ void cloud_local_signatures(const char *save_root, const char *state_path, struc
 			if (entry->d_name[0] == '.' || stat(path, &st) != 0)
 				continue;
 			/* (the directory's order is not sorted, and need not be: it is the same until something changes) */
-			snprintf(line, sizeof(line), "%s/%s %lld %lld.%ld\n", ids[i], entry->d_name, (long long)st.st_size,
-				(long long)st.st_mtimespec.tv_sec, (long)st.st_mtimespec.tv_nsec);
+			/* (the file's number too: a replaced file of the same size and whole-second time is still another file) */
+			snprintf(line, sizeof(line), "%s/%s %lld %lld.%ld %llu\n", ids[i], entry->d_name, (long long)st.st_size,
+				(long long)st.st_mtimespec.tv_sec, (long)st.st_mtimespec.tv_nsec, (unsigned long long)st.st_ino);
 			sha256_add(&all, line, strlen(line));
 			if (!strcmp(entry->d_name, CHECKPOINT_FILE))
 				snprintf(line, sizeof(line), "%s/%s\n", ids[i], entry->d_name);

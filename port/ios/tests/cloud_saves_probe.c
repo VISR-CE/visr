@@ -885,6 +885,50 @@ static void test_purge(void)
 	device_end(&a); device_end(&b);
 }
 
+/* A saved game replaced by another of the same size and the same whole-second time (what a volume that keeps whole seconds
+   makes of two writes in one second) is still a change: the cache and the pacing signature must not take it for the file
+   they described. The replacement is a new file renamed over the old one, as the game's writer does. */
+static void replace_saved_game_same_time(const struct device *device, const char *slot, int variation)
+{
+	char path[512], other[512];
+	struct stat st;
+	struct timeval times[2];
+	uint8_t *data = malloc(STATE_SIZE);
+	FILE *file;
+
+	slot_path(device, slot, "savegame.bin", path, sizeof(path));
+	assert(stat(path, &st) == 0 && (size_t)st.st_size == STATE_SIZE);
+	snprintf(other, sizeof(other), "%s/replacement.tmp", device->root);
+	make_saved_game(data, STATE_SIZE, "a30", 0x11111111, variation);
+	file = fopen(other, "wb");
+	assert(file && fwrite(data, 1, STATE_SIZE, file) == STATE_SIZE);
+	fclose(file);
+	free(data);
+	times[0].tv_sec = times[1].tv_sec = st.st_mtimespec.tv_sec;
+	times[0].tv_usec = times[1].tv_usec = 0;
+	assert(utimes(other, times) == 0 && utimes(path, times) == 0);
+	assert(rename(other, path) == 0);
+	ledger_note(path);
+	assert(stat(path, &st) == 0 && st.st_mtimespec.tv_nsec == 0);
+}
+
+static void test_replacement_with_the_same_size_and_time_is_a_change(void)
+{
+	struct device a, b;
+	struct cloud_local_signatures before, after;
+
+	two_in_step(&a, &b);
+	/* a's cache holds the file as read by its launch; the new one has its size and time */
+	cloud_local_signatures(a.save_root, a.state_path, &before);
+	replace_saved_game_same_time(&a, SLOT, 2);
+	cloud_local_signatures(a.save_root, a.state_path, &after);
+	CHECK(strcmp(before.all, after.all));
+	CHECK(running(&a) == CLOUD_STATE_IDLE);
+	CHECK(launch(&b) == CLOUD_STATE_IDLE);
+	CHECK(file_variation(&b, SLOT, "savegame.bin") == 2);
+	device_end(&a); device_end(&b);
+}
+
 static void test_one_device_moves_on(void)
 {
 	struct device a, b;
@@ -1931,6 +1975,7 @@ int main(int argc, char **argv)
 		{ "first upload and a new device", test_first_upload_and_new_device },
 		{ "purge", test_purge },
 		{ "one device moves on", test_one_device_moves_on },
+		{ "a replacement of the same size and time is a change", test_replacement_with_the_same_size_and_time_is_a_change },
 		{ "the game starting stops local writes", test_game_started_stops_local_writes },
 		{ "conflict, this device further along", test_conflict_local_wins },
 		{ "conflict, the cloud further along", test_conflict_cloud_wins },
