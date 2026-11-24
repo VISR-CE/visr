@@ -588,6 +588,24 @@ int main(void)
 			gpu_owner_check_violations());
 	}
 
+	/* the encode thread to off and back to the thread, as a change of workload context at a map load wraps it: off ends the
+	thread and gives the backend itself, the game's calls reach it directly, and the thread started again hashes the same
+	commands as the first run's */
+	{
+		const struct gpu_backend *queue = gpu_queue_wrap(&counted, &counted, GPU_QUEUE_OFF, 0, quiet, NULL);
+		unsigned long frame_index;
+
+		CHECK(queue == &counted, "wrapped to off, the queue did not hand back the backend itself");
+		play(queue);
+		frames_seen = 0;
+		play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_THREAD, 0, quiet, NULL));
+		CHECK(frames_seen == FRAMES, "thread, off, thread: %lu frames presented after the restart", frames_seen);
+		for (frame_index = 0; frame_index < FRAMES && frame_index < frames_seen; frame_index++)
+			CHECK(frames[frame_index].hash == direct[frame_index].recorded &&
+				frames[frame_index].calls == direct[frame_index].recorded_calls,
+				"thread, off, thread: frame %lu hashes differently after the restart", frame_index);
+	}
+
 	/* with the encode thread behind: the late start (frame_start) and a query each come after every record the game
 	wrote before them is made, and a present returns only once it is made, with the backend's answer, the game thread
 	having waited for it at the barrier */

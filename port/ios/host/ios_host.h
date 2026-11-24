@@ -131,8 +131,8 @@ void host_gpu_output_cap_commit(void);
 int host_gpu_output_cap_settled(void);
 /* Game-thread query after GPU initialization, including validation wrappers. */
 int host_gpu_metal_active(void);
-/* 1 when debug.encode_thread put the encode queue in front of the Metal backend (decided before the backend's
-initialize, which sizes its stream ring by it) */
+/* 1 when the encode queue is in front of the Metal backend now (it is chosen before the backend's initialize and may
+change at a frame start after a map load: host_encode_thread_scene) */
 int host_gpu_encode_queue_on(void);
 /* debug.stereo_replay: the guest's imports for d3d8_device.c's halo_stereo_replay_* (guest_host.h), on the encode
 queue's spans (gpu_queue.h) */
@@ -143,12 +143,14 @@ void host_stereo_replay_constants_end(uint32_t first, uint32_t count);
 uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to);
 void host_stereo_replay_live_end(void);
 int host_gpu_encode_queue_possible(void);
+/* the encode thread was switched on or off: a development build's one-thread check starts again */
+void gpu_metal_encode_owner_reset(void);
 /* with debug.encode_thread = "thread", when the game thread last called its present (CACurrentMediaTime's clock): the
 encode thread's frame-slot wait after it is a wait at the present barrier (frame_waits.h). -1 without the encode
 thread, where the game thread encodes the frame itself. */
 double host_gpu_present_called(void);
-/* 1 with debug.encode_thread = "thread" (decided before the backend's initialize): the frame pacer's default frames
-in flight */
+/* 1 with the encode thread in force now (debug.encode_thread, else display.encode_thread for the workload context): the
+frame pacer's default frames in flight */
 int host_gpu_encode_thread_on(void);
 /* a guest import: display.encode_thread as the game resolved it for the workload context (1 thread, 0 off); the mode
 changes at the next frame start (host_gpu_dispatch.c) */

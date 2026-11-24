@@ -103,6 +103,10 @@ __attribute__((weak)) void astc_store_map_arrived(const char *path)
 __attribute__((weak)) void astc_store_map_will_load(const char *name)
 { }
 #if (HALO_FRAME_PACING)
+__attribute__((weak)) void frame_pacer_encode_mode_changed(void)
+{ }
+#endif
+#if (HALO_FRAME_PACING)
 __attribute__((weak)) int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long number, double began, int waits_for_display)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_frame_begin without defining it\n"); abort(); }
 #endif
@@ -202,6 +206,8 @@ __attribute__((weak)) int gpu_metal_async_compiles(void)
 __attribute__((weak)) void gpu_metal_count_gpu_time(id<MTLCommandBuffer> commands)
 { }
 #endif
+__attribute__((weak)) void gpu_metal_encode_owner_reset(void)
+{ }
 __attribute__((weak)) void gpu_metal_frame_deadline_end(void)
 { }
 __attribute__((weak)) void gpu_metal_frame_deadline_hold(int held)
@@ -558,6 +564,8 @@ __attribute__((weak)) int host_dynamic_resolution_lines(int ceiling_lines)
 { fprintf(stderr, "host_stubs: probe called host_dynamic_resolution_lines without defining it\n"); abort(); }
 __attribute__((weak)) void host_dynamic_resolution_scene(int enabled, int floor_lines)
 { }
+__attribute__((weak)) void host_encode_thread_scene(int thread)
+{ }
 __attribute__((weak)) int host_errno(void)
 { fprintf(stderr, "host_stubs: probe called host_errno without defining it\n"); abort(); }
 __attribute__((weak)) void host_event_pump(void)
@@ -676,8 +684,6 @@ __attribute__((weak)) void host_frame_timeline_waits(double display_wait, double
 { }
 __attribute__((weak)) void host_frames_in_flight_scene(int at_30)
 { }
-__attribute__((weak)) void host_encode_thread_scene(int thread)
-{ }
 #if defined(__OBJC__)
 __attribute__((weak)) BOOL host_framings_validate_file(NSString *path)
 { fprintf(stderr, "host_stubs: probe called host_framings_validate_file without defining it\n"); abort(); }
@@ -694,6 +700,8 @@ __attribute__((weak)) void host_gpu_benchmark_realtime(int on)
 { }
 __attribute__((weak)) int host_gpu_encode_queue_on(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) int host_gpu_encode_queue_possible(void)
+{ fprintf(stderr, "host_stubs: probe called host_gpu_encode_queue_possible without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_encode_thread_on(void)
 { fprintf(stderr, "host_stubs: probe called host_gpu_encode_thread_on without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_metal_active(void)

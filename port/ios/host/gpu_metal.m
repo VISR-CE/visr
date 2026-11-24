@@ -720,8 +720,17 @@ static void encode_thread_check(const char *where)
 		platform_log("Metal: %s ran on a thread other than the one encoding frames (reported once)", where);
 	}
 }
+
+/* the encode thread was switched (host_gpu_dispatch.c): the next frame's thread is the owner from here */
+void gpu_metal_encode_owner_reset(void)
+{
+	encode_owner_known = encode_owner_reported = NO;
+}
 #else
 #define encode_thread_check(where) ((void)0)
+void gpu_metal_encode_owner_reset(void)
+{
+}
 #endif
 
 /* waits for the frame slot about to be reused, once per frame, before

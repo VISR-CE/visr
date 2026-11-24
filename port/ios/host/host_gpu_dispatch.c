@@ -787,14 +787,26 @@ int host_gpu_encode_queue_on(void)
 	return encode_queue_on;
 }
 
-/* whether this build can run the encode queue at all: the Metal backend's stream ring keeps the extra set the queue needs
-whenever it can, since a map load may start the queue after the ring was made */
+/* whether the encode queue can run in this session: the Metal backend's stream ring is made with the extra set the queue
+needs when it is on at launch or the device profile asks for it in the variable workload (a map load starts it after the
+ring was made); gpu_initialize decides it once. Not on visionOS or Mac Catalyst, which have no game thread. */
+static int encode_queue_possible;
+
 int host_gpu_encode_queue_possible(void)
+{
+	return encode_queue_possible;
+}
+
+static int encode_queue_for_variable_workload(void)
 {
 #if TARGET_OS_VISION || TARGET_OS_MACCATALYST
 	return 0;
 #else
-	return metal_backend;
+	char value[32];
+
+	/* (the installed device profile's value for the variable workload: the base configuration does not see it) */
+	host_config_string("variable.display.encode_thread", "", value, sizeof(value));
+	return metal_backend && !strcmp(value, "thread");
 #endif
 }
 
@@ -921,10 +933,17 @@ static void encode_queue_rewrap(void)
 {
 	int was = encode_thread_on;
 
-	if (!metal_backend || !queue_unwrapped || debug_encode_set || scene_thread < 0 || (scene_thread == 1) == (was != 0))
+	if (!metal_backend || !queue_unwrapped || debug_encode_set || scene_thread < 0)
+		return;
+	/* (a thread the host cannot deliver is no change: the stream ring has no set for the queue, or the renderer is on the
+	main thread, where the present barrier would hold the main thread; visionOS and Mac Catalyst never) */
+	if (scene_thread == 1 && (!encode_queue_possible || pthread_main_np()))
+		return;
+	if ((scene_thread == 1) == (was != 0))
 		return;
 	wrapped_install(hash_and_queue_wrap(queue_unwrapped, 1));
-	platform_log("display.encode_thread: %s for this workload context (a map load changed it)", encode_thread_on ? "thread" : "off");
+	gpu_metal_encode_owner_reset();
+	platform_log("display.encode_thread: %s (the workload context or a setting changed it)", encode_thread_on ? "thread" : "off");
 	frame_pacer_encode_mode_changed();
 }
 
@@ -963,6 +982,7 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 	metal_backend = TARGET_OS_VISION || (flags & GPU_INITIALIZE_METAL) ? 1 : 0;
 	queue_unwrapped = backend;
 	wrapped_install(hash_and_queue_wrap(backend, metal_backend));
+	encode_queue_possible = encode_queue_on || encode_queue_for_variable_workload();
 	backend = &wrapped;
 	host_frame_counter_stop();
 	presented = 0;
