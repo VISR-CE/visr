@@ -3,33 +3,35 @@
 #ifndef MENU_GEOMETRY_H
 #define MENU_GEOMETRY_H
 
-#define MENU_FIRST_ROW             73 /* the first option row's y */
-#define MENU_ROW_HEIGHT            28 /* the disc's option row height */
-#define MENU_COMFORTABLE_PITCH     39 /* a comfortable option row: its tap band and pitch */
-#define MENU_COMFORTABLE_ROW_ART   36 /* a comfortable option row's drawn art */
-#define MENU_COMFORTABLE_ROW_SHIFT 5 /* a comfortable row's label and value, moved down */
-#define MENU_PICTURE_ROW_SHIFT     2 /* a picture-list row's text, moved down in the taller row */
-#define MENU_LEGEND_Y              414 /* the bottom bar's glyphs and captions */
-#define MENU_CHEVRON_INSET         8 /* the dropdown chevron, in from the value column's right edge */
-#define MENU_CHEVRON_WIDTH         12 /* the dropdown chevron */
-#define MENU_VALUE_MARGIN          24 /* beside the widest value in a value column */
-#define MENU_VALUE_MINIMUM_WIDTH   80 /* a value column at its narrowest */
-#define MENU_DROPDOWN_PITCH        52 /* a pointer dropdown option row */
-#define MENU_BAR_SLOT_X_X0         12 /* the bar's X slot: its left edge */
-#define MENU_BAR_SLOT_X_X1         157 /* the bar's X slot: its right edge */
-#define MENU_BAR_SLOT_Y_X0         169 /* the bar's Y slot: its left edge */
-#define MENU_BAR_SLOT_Y_X1         337 /* the bar's Y slot: its right edge */
-#define MENU_BAR_SLOT_B_X0         349 /* the bar's B slot: its left edge */
-#define MENU_BAR_SLOT_B_X1         458 /* the bar's B slot: its right edge */
-#define MENU_BAR_SLOT_A_X0         470 /* the bar's A slot: its left edge */
-#define MENU_BAR_SLOT_A_X1         628 /* the bar's A slot: its right edge */
-#define MENU_BAR_GAP               12 /* between two slots of the bar */
-#define MENU_BAR_INSET             4 /* a controller glyph and its caption, in from their slot's edges */
-#define MENU_BAR_GLYPH_WIDTH       21 /* a bar action's glyph */
-#define MENU_BAR_GLYPH_HEIGHT      26 /* a bar action's glyph */
-#define MENU_BAR_CAPTION_OFFSET    22 /* a bar action's caption, right of its glyph's left edge */
-#define MENU_BAR_CAPTION_HEIGHT    22 /* a bar action's caption */
-#define MENU_BAR_GLYPH_RAISE       3 /* a bar action's glyph, up from the center of its box onto its caption's capitals */
-#define MENU_BAR_RULE_Y            409 /* the bar's top rule */
+#define MENU_FIRST_ROW              73 /* the first option row's y */
+#define MENU_ROW_HEIGHT             28 /* the disc's option row height */
+#define MENU_COMFORTABLE_PITCH      39 /* a comfortable option row: its tap band and pitch */
+#define MENU_COMFORTABLE_ROW_ART    36 /* a comfortable option row's drawn art */
+#define MENU_COMFORTABLE_ROW_SHIFT  5 /* a comfortable row's label and value, moved down */
+#define MENU_PICTURE_ROW_SHIFT      2 /* a picture-list row's text, moved down in the taller row */
+#define MENU_LEGEND_Y               414 /* the bottom bar's glyphs and captions */
+#define MENU_CHEVRON_INSET          8 /* the dropdown chevron, in from the value column's right edge */
+#define MENU_CHEVRON_WIDTH          12 /* the dropdown chevron */
+#define MENU_VALUE_MARGIN           24 /* beside the widest value in a value column */
+#define MENU_VALUE_MINIMUM_WIDTH    80 /* a value column at its narrowest */
+#define MENU_DROPDOWN_PITCH         52 /* a pointer dropdown option row */
+#define MENU_BAR_SLOT_X_X0          12 /* the bar's X slot: its left edge */
+#define MENU_BAR_SLOT_X_X1          157 /* the bar's X slot: its right edge */
+#define MENU_BAR_SLOT_Y_X0          169 /* the bar's Y slot: its left edge */
+#define MENU_BAR_SLOT_Y_X1          337 /* the bar's Y slot: its right edge */
+#define MENU_BAR_SLOT_B_X0          349 /* the bar's B slot: its left edge */
+#define MENU_BAR_SLOT_B_X1          458 /* the bar's B slot: its right edge */
+#define MENU_BAR_SLOT_A_X0          470 /* the bar's A slot: its left edge */
+#define MENU_BAR_SLOT_A_X1          628 /* the bar's A slot: its right edge */
+#define MENU_BAR_GAP                12 /* between two slots of the bar */
+#define MENU_BAR_INSET              4 /* a controller glyph and its caption, in from their slot's edges */
+#define MENU_BAR_GLYPH_WIDTH        21 /* a bar action's glyph */
+#define MENU_BAR_GLYPH_HEIGHT       26 /* a bar action's glyph */
+#define MENU_BAR_CAPTION_OFFSET     22 /* a bar action's caption, right of its glyph's left edge */
+#define MENU_BAR_CAPTION_HEIGHT     22 /* a bar action's caption */
+#define MENU_BAR_GLYPH_RAISE        3 /* a bar action's glyph, up from the center of its box onto its caption's capitals */
+#define MENU_BAR_RULE_Y             409 /* the bar's top rule */
+#define MENU_BROWSER_PICTURE_WIDTH  512 /* the server browser's map picture, whole (2:1) */
+#define MENU_BROWSER_PICTURE_HEIGHT 256 /* the server browser's map picture, whole (2:1) */
 
 #endif

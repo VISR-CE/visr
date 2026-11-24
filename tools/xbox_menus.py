@@ -1798,7 +1798,9 @@ def browser_layout(root, widgets, bitmaps):
     for name, width, height, frames in (
             ('c_row', menu_geometry.BROWSER_TAB_REACH, menu_geometry.BROWSER_ROW_HEIGHT, ['row__0', 'row__1']),
             ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
-            ('gametype_large', 124, 100, [f'gametype_large__{i}' for i in range(7)]),
+            ('gametype_large', menu_geometry.BROWSER_BADGE_WIDTH, menu_geometry.BROWSER_BADGE_HEIGHT,
+             [f'gametype_large__{i}' for i in range(7)]),
+            ('scrim', menu_geometry.BROWSER_PREVIEW_WIDTH, menu_geometry.BROWSER_SCRIM_HEIGHT, ['scrim']),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
             ('detail', 312, 273, ['detail']),
             ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge__0']), ('lock', 12, 14, ['lock']),
@@ -1889,34 +1891,49 @@ def browser_layout(root, widgets, bitmaps):
     for leaf, art, source, count in (
             ('lobby_map_pic', 'preview_mp', r'ui\shell\bitmaps\mp_map_grafix', 20),
             ('replay_level_right_pic', 'preview_sp', r'ui\shell\bitmaps\sp_levels', 10)):
-        child(content, base + '/' + leaf, x=313, y=111)
-        widget(root, base + '/' + leaf, width=124, height=100, bitmap='xbox/browser/' + art)
+        child(content, base + '/' + leaf, x=menu_geometry.BROWSER_PREVIEW_X, y=menu_geometry.BROWSER_PREVIEW_Y)
+        widget(root, base + '/' + leaf, width=menu_geometry.BROWSER_PREVIEW_WIDTH, height=menu_geometry.BROWSER_PREVIEW_HEIGHT,
+               bitmap='xbox/browser/' + art)
         bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/' + art)
         for index in range(count):
             # The Xbox's map pictures are 140x114 in the corner of a 256x128 texture.
             # Xbox has thirteen map pictures, then its unknown-map picture.
             frame = min(index, 13) if art == 'preview_mp' else index
-            # The picture shares the panel with the gametype picture, so the widget (124x100) shows the 140x114
-            # corner of the 256x128 texture whole: the texture drawn 227x113 (scaled by 100/114 and 124/140).
-            geometry = dict(x='0', y='0', width='227', height='113')
+            # The widget shows the 2:1 picture whole. A stock frame (only drawn when the map has no rendered picture)
+            # shows the middle band, 2:1, of the 140x114 corner of its 256x128 texture: the texture drawn
+            # at the widget's width over 140 texels, slid up by the band's top.
+            scale = menu_geometry.BROWSER_PREVIEW_WIDTH / 140
+            band_top = (114 - 140 * menu_geometry.BROWSER_PREVIEW_HEIGHT / menu_geometry.BROWSER_PREVIEW_WIDTH) / 2
+            geometry = dict(x='0', y=str(-round(band_top * scale)), width=str(round(256 * scale)),
+                            height=str(round(128 * scale)))
             ET.SubElement(bitmap, 'frame', map=source, index=str(frame), png='xbox/art/browser/preview_none.png',
                           **geometry)
-    child(content, base + '/browser_detail_gametype', x=485, y=111)
-    widget(root, base + '/browser_detail_gametype', width=124, height=100, bitmap='xbox/browser/gametype_large')
+    # the scrim (a darkened band over the picture's foot, under the name and the gametype line), then the
+    # gametype's silhouette over the picture's top right
+    child(content, base + '/browser_detail_scrim', x=menu_geometry.BROWSER_PREVIEW_X, y=menu_geometry.BROWSER_SCRIM_TOP)
+    widget(root, base + '/browser_detail_scrim', width=menu_geometry.BROWSER_PREVIEW_WIDTH,
+           height=menu_geometry.BROWSER_SCRIM_HEIGHT, bitmap='xbox/browser/scrim')
+    child(content, base + '/browser_detail_gametype',
+          x=menu_geometry.BROWSER_PREVIEW_X + menu_geometry.BROWSER_PREVIEW_WIDTH - menu_geometry.BROWSER_BADGE_WIDTH
+          - menu_geometry.BROWSER_BADGE_INSET,
+          y=menu_geometry.BROWSER_PREVIEW_Y + menu_geometry.BROWSER_BADGE_INSET)
+    widget(root, base + '/browser_detail_gametype', width=menu_geometry.BROWSER_BADGE_WIDTH,
+           height=menu_geometry.BROWSER_BADGE_HEIGHT, bitmap='xbox/browser/gametype_large')
+    g = menu_geometry
     for leaf, x, y, width, height, font, color, text in (
-            ('browser_detail_name', 313, 214, 294, 25, 'large', '#ffffff', ''),
-            ('browser_detail_type', 313, 238, 294, 20, 'small', '#7fc4ff', ''),
-            ('browser_rules_label', 313, 258, 76, 18, 'small', '#2f73c4', 'RULES'),
-            ('browser_detail_rules', 389, 258, 218, 18, 'small', '#cfe8ff', ''),
-            ('browser_equipment_label', 313, 278, 76, 18, 'small', '#2f73c4', 'EQUIPMENT'),
-            ('browser_detail_equipment', 389, 278, 218, 18, 'small', '#cfe8ff', ''),
-            ('browser_host_label', 313, 278, 76, 18, 'small', '#2f73c4', 'HOST'),
-            ('browser_detail_host', 389, 278, 218, 18, 'small', '#cfe8ff', ''),
-            ('browser_connection_status', 313, 296, 294, 26, 'small', '#7fc4ff', ''),
-            ('browser_detail_big', 313, 318, 294, 20, 'small', '#0a2245', ''),
-            ('browser_join_reason', 313, 318, 294, 38, 'small', '#7fc4ff', ''),
-            ('browser_detail_password', 313, 360, 120, 18, 'small', '#cfe8ff', ''),
-            ('browser_detail_lock', 320, 358, 12, 14, None, None, ''),
+            ('browser_detail_name', 313, g.BROWSER_NAME_Y, 294, g.BROWSER_NAME_HEIGHT, 'large', '#ffffff', ''),
+            ('browser_detail_type', 313, g.BROWSER_TYPE_Y, 294, g.BROWSER_TYPE_HEIGHT, 'small', '#7fc4ff', ''),
+            ('browser_rules_label', 313, g.BROWSER_RULES_Y, 76, 18, 'small', '#2f73c4', 'RULES'),
+            ('browser_detail_rules', 389, g.BROWSER_RULES_Y, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_equipment_label', 313, g.BROWSER_HOST_Y, 76, 18, 'small', '#2f73c4', 'EQUIPMENT'),
+            ('browser_detail_equipment', 389, g.BROWSER_HOST_Y, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_host_label', 313, g.BROWSER_HOST_Y, 76, 18, 'small', '#2f73c4', 'HOST'),
+            ('browser_detail_host', 389, g.BROWSER_HOST_Y, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_connection_status', 313, g.BROWSER_STATUS_Y, 294, 26, 'small', '#7fc4ff', ''),
+            ('browser_detail_big', 313, g.BROWSER_NOTICE_Y, 294, 20, 'small', '#0a2245', ''),
+            ('browser_join_reason', 313, g.BROWSER_NOTICE_Y, 294, g.BROWSER_NOTICE_HEIGHT, 'small', '#7fc4ff', ''),
+            ('browser_detail_password', 313, g.BROWSER_PILL_Y, 120, 18, 'small', '#cfe8ff', ''),
+            ('browser_detail_lock', 320, g.BROWSER_PILL_Y - 2, 12, 14, None, None, ''),
             ('browser_detail_status', 317, 213, 286, 160, 'small', '#7fc4ff', '')):
         child(detail if leaf == 'browser_detail_status' else content, base + '/' + leaf, x=x, y=y)
         if leaf == 'browser_detail_lock':

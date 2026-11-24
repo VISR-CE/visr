@@ -5022,7 +5022,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 			"browser_detail_host", "browser_detail_equipment", "browser_detail_big", "browser_join_reason",
 			"browser_detail_password" };
 		char const *const hidden[] = { "browser_equipment_label", "browser_detail_big", "browser_join_reason",
-			"browser_detail_password", "browser_detail_lock" };
+			"browser_detail_password", "browser_detail_lock", "browser_detail_scrim" };
 		short index;
 
 		lobby_map_show(detail, "");
@@ -5039,6 +5039,8 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	}
 	game = &lobby_browser.games[lobby_browser.chosen];
 	lobby_map_show(detail, game->map);
+	/* (the name and the gametype line are drawn over the scrim along the picture's foot: it goes with them) */
+	visible_set(named(detail, "browser_detail_scrim", 0), TRUE);
 	/* The row icon's frames, drawn large; frame 6 is the "?" for no game. */
 	browser_detail_gametype_set(detail, PIN(game->engine_type, 0, 5));
 	text_to_wide(game->name, text, ROW_TEXT_LENGTH);

@@ -651,7 +651,8 @@ static struct widget_instance *screen_of(struct widget_instance *w) { while (w->
 static void visible_set(struct widget_instance *w, int v) { if (w) w->visible = v; }
 static void text_set(struct widget_instance *w, wchar_t const *t) { if (w) { wcsncpy(w->text, t, ROW_TEXT_LENGTH * 2 - 1); } }
 static void ui_widget_port_text_ellipsize(struct widget_instance *c, wchar_t *t, int n) { (void)c; (void)t; (void)n; }
-static void browser_name_set(struct widget_instance *w, wchar_t *t) { text_set(w, t); }
+static char ellipsized[16384];
+static void browser_name_set(struct widget_instance *w, wchar_t *t) { if (w) { strncat(ellipsized, w->name, 60); strcat(ellipsized, ";"); } text_set(w, t); }
 static void text_to_wide(char const *t, wchar_t *o, short n) { swprintf(o, n, L"%s", t); }
 static void map_display_name(char const *m, wchar_t *o) { swprintf(o, 64, L"%s", m); }
 static void lobby_map_show(struct widget_instance *d, char const *m) { (void)d; (void)m; }
@@ -668,7 +669,7 @@ int main(void)
 		"browser_rules_label", "browser_detail_rules", "browser_equipment_label", "browser_detail_equipment",
 		"browser_host_label", "browser_detail_host", "browser_connection_status", "browser_detail_big",
 		"browser_join_reason", "browser_detail_password",
-		"browser_detail_lock", "lobby_map_pic", "browser_detail_gametype" };
+		"browser_detail_lock", "lobby_map_pic", "browser_detail_gametype", "browser_detail_scrim" };
 	struct widget_instance *list = add(&screen, "join_game_items_list");
 
 	snprintf(screen.name, sizeof(screen.name), "screen");
@@ -691,8 +692,14 @@ int main(void)
 	lobby_browser.chosen = NONE;
 	browser_c_detail_update(list, L"");
 	assert(!detail.visible && !pill("browser_detail_password")->visible);
+	assert(!pill("browser_detail_scrim")->visible);
 	lobby_browser.chosen = 0;
+	ellipsized[0] = 0;
 	browser_c_detail_update(list, L"");
+	/* the name and the gametype line are laid over the scrim, so both go through the ellipsizing setter (a long
+	   server name or a long map name is cut to the width of the band, not drawn past it) and the scrim shows */
+	assert(strstr(ellipsized, "browser_detail_name;") && strstr(ellipsized, "browser_detail_type;"));
+	assert(pill("browser_detail_scrim")->visible);
 	assert(detail.visible && !pill("browser_detail_password")->visible && !pill("browser_detail_lock")->visible);
 	assert(!pill("browser_join_reason")->visible && !dimmed);
 	/* a password game: the pill and its lock */

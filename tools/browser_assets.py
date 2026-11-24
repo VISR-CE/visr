@@ -126,14 +126,24 @@ def generate(output, icons):
         icon.set("height", "36")
         draw(f"gametype__{index}", 36, 36, ET.tostring(icon, encoding="unicode"))
 
-    # The detail panel's gametype picture: the same redraws at the map picture's 124x100, then the
-    # original "?" frame of game_type_grafix for when no game is chosen. Two pixels per unit keeps
-    # seven frames cheap on small devices.
+    # The detail panel's gametype picture, over the map picture's top right: the same redraws at the badge's size
+    # (menu_geometry), then the original "?" frame of game_type_grafix for when no game is chosen.
+    badge = (menu_geometry.BROWSER_BADGE_WIDTH, menu_geometry.BROWSER_BADGE_HEIGHT)
     for index, name in enumerate(GAMETYPES + ("unknown",)):
         icon = ET.parse(icons / f"{name}-nobg.svg").getroot()
-        icon.set("width", "124")
-        icon.set("height", "100")
-        draw(f"gametype_large__{index}", 124, 100, ET.tostring(icon, encoding="unicode"), scale=2)
+        icon.set("width", str(badge[0]))
+        icon.set("height", str(badge[1]))
+        draw(f"gametype_large__{index}", *badge, ET.tostring(icon, encoding="unicode"))
+
+    # The scrim along the map picture's foot, under the server name and the gametype line: a dark band, a little
+    # lighter at its top so it reads as shading of the picture, not a box.
+    scrim_width, scrim_height = menu_geometry.BROWSER_PREVIEW_WIDTH, menu_geometry.BROWSER_SCRIM_HEIGHT
+    draw("scrim", scrim_width, scrim_height, svg(scrim_width, scrim_height,
+         '<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1">'
+         '<stop offset="0" stop-color="#030c1c" stop-opacity="0.45"/>'
+         '<stop offset="0.35" stop-color="#030c1c" stop-opacity="0.78"/>'
+         '<stop offset="1" stop-color="#030c1c" stop-opacity="0.86"/></linearGradient></defs>'
+         f'<rect width="{scrim_width}" height="{scrim_height}" fill="url(#s)"/>'))
 
     circumference = 2 * math.pi * 17.5
     for index in range(33):

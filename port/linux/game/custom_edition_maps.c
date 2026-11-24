@@ -49,6 +49,7 @@ Each map can have, beside it in its folder:
 #include "custom_edition_maps.h"
 #include "map_share.h"
 #include "../../runtime/stock_maps.h"
+#include "menu_geometry.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,6 +91,13 @@ the lobby's is 139x113), and the unknown level's frame
 #define LEVEL_PICTURE_SHAPE_HEIGHT 114
 #define UNKNOWN_LEVEL_FRAME 13
 
+/* The server browser's picture is the map's whole 2:1 picture (the rendered one is 512x256), not the 140x114 crop
+of the other menus: a texture of that shape (menu_geometry.h) */
+#define WIDE_PICTURE_TEXTURE_WIDTH MENU_BROWSER_PICTURE_WIDTH
+#define WIDE_PICTURE_TEXTURE_HEIGHT MENU_BROWSER_PICTURE_HEIGHT
+#define BROWSER_MAP_PICTURES_TAG_NAME "pc\\xbox\\browser\\preview_mp"
+#define BROWSER_LEVEL_PICTURES_TAG_NAME "pc\\xbox\\browser\\preview_sp"
+
 #define PICTURE_EXTENSION ".bmp"
 /* a 4K screenshot is 25 MB as a bmp file */
 #define MAXIMUM_PICTURE_FILE_BYTES 0x04000000L
@@ -127,8 +135,8 @@ struct custom_edition_map
 	/* (and room for a version's number, " (2)") */
 	wchar_t display_name[MAXIMUM_MAP_NAME_LENGTH + 8];
 	wchar_t description[MAXIMUM_DESCRIPTION_LENGTH + 1];
-	boolean picture_read;
-	struct bitmap_data *picture;
+	boolean picture_read, wide_picture_read;
+	struct bitmap_data *picture, *wide_picture;
 };
 
 struct custom_edition_maps_globals
@@ -163,11 +171,15 @@ static void custom_edition_maps_forget(
 	{
 		if (globals->maps[map_index].picture)
 			bitmap_delete(globals->maps[map_index].picture);
+		if (globals->maps[map_index].wide_picture)
+			bitmap_delete(globals->maps[map_index].wide_picture);
 	}
 	for (map_index = 0; map_index < globals->campaign_count; map_index++)
 	{
 		if (globals->campaigns[map_index].picture)
 			bitmap_delete(globals->campaigns[map_index].picture);
+		if (globals->campaigns[map_index].wide_picture)
+			bitmap_delete(globals->campaigns[map_index].wide_picture);
 	}
 	globals->map_count = 0;
 	globals->campaign_count = 0;
@@ -528,7 +540,8 @@ Returns NULL if it can't be shown (logged, naming it by label). */
 static struct bitmap_data *custom_edition_picture_new(
 	uint8_t const *file,
 	uint32_t size,
-	char const *label)
+	char const *label,
+	boolean wide)
 {
 	struct bmp_file_picture picture;
 	enum bmp_file_status status = bmp_file_open(file, size, &picture);
@@ -539,16 +552,18 @@ static struct bitmap_data *custom_edition_picture_new(
 		error(_error_silent, "custom edition: the picture '%s' cannot be shown: %s", label, bmp_file_status_describe(status));
 		return NULL;
 	}
-	bitmap = bitmap_2d_new(PICTURE_TEXTURE_SIZE, PICTURE_TEXTURE_SIZE, 0, _bitmap_format_a8r8g8b8);
+	/* (the browser's: the whole picture's own shape, from the middle of a file of another one) */
+	bitmap = bitmap_2d_new(wide ? WIDE_PICTURE_TEXTURE_WIDTH : PICTURE_TEXTURE_SIZE,
+		wide ? WIDE_PICTURE_TEXTURE_HEIGHT : PICTURE_TEXTURE_SIZE, 0, _bitmap_format_a8r8g8b8);
 	if (bitmap && bitmap->base_address)
 	{
 		bmp_file_fit(
 			file,
 			&picture,
-			LEVEL_PICTURE_SHAPE_WIDTH,
-			LEVEL_PICTURE_SHAPE_HEIGHT,
-			PICTURE_TEXTURE_SIZE,
-			PICTURE_TEXTURE_SIZE,
+			wide ? WIDE_PICTURE_TEXTURE_WIDTH : LEVEL_PICTURE_SHAPE_WIDTH,
+			wide ? WIDE_PICTURE_TEXTURE_HEIGHT : LEVEL_PICTURE_SHAPE_HEIGHT,
+			wide ? WIDE_PICTURE_TEXTURE_WIDTH : PICTURE_TEXTURE_SIZE,
+			wide ? WIDE_PICTURE_TEXTURE_HEIGHT : PICTURE_TEXTURE_SIZE,
 			XBOX_POINTER(uint32_t, bitmap->base_address));
 		bitmap_rebuild(bitmap);
 	}
@@ -564,7 +579,8 @@ static struct bitmap_data *custom_edition_picture_new(
 /* Loads the map's picture as a texture. Returns NULL if it has none, or if
 it can't be shown (logged). */
 static struct bitmap_data *custom_edition_map_picture_read(
-	struct custom_edition_map const *map)
+	struct custom_edition_map const *map,
+	boolean wide)
 {
 	char path[MAXIMUM_FILENAME_LENGTH + 1];
 	struct bitmap_data *bitmap = NULL;
@@ -605,7 +621,7 @@ static struct bitmap_data *custom_edition_map_picture_read(
 		return NULL;
 	}
 
-	bitmap = custom_edition_picture_new(file, (uint32_t)size, path);
+	bitmap = custom_edition_picture_new(file, (uint32_t)size, path, wide);
 	free(file);
 
 	return bitmap;
@@ -906,6 +922,7 @@ extern void map_pictures_render_picture_free(uint8_t *data);
 static struct
 {
 	char name[32];
+	boolean wide;
 	struct bitmap_data *picture;
 } rendered_pictures[RENDERED_PICTURES_MAXIMUM];
 static short rendered_picture_count;
@@ -913,7 +930,8 @@ static short rendered_picture_count;
 /* The stock map's cached picture (by its base name) as a texture; NULL without
 one, so the stock frame shows. Missing pictures are checked again next time. */
 static struct bitmap_data *rendered_picture_get(
-	char const *name)
+	char const *name,
+	boolean wide)
 {
 	uint8_t *file = NULL;
 	uint32_t size = 0;
@@ -925,7 +943,7 @@ static struct bitmap_data *rendered_picture_get(
 	}
 	for (index = 0; index < rendered_picture_count; index++)
 	{
-		if (!csstrcasecmp(rendered_pictures[index].name, name))
+		if (!csstrcasecmp(rendered_pictures[index].name, name) && rendered_pictures[index].wide == wide)
 		{
 			return rendered_pictures[index].picture;
 		}
@@ -942,7 +960,8 @@ static struct bitmap_data *rendered_picture_get(
 	}
 	index = rendered_picture_count++;
 	strcpy(rendered_pictures[index].name, name);
-	rendered_pictures[index].picture = custom_edition_picture_new(file, size, name);
+	rendered_pictures[index].wide = wide;
+	rendered_pictures[index].picture = custom_edition_picture_new(file, size, name, wide);
 	map_pictures_render_picture_free(file);
 
 	return rendered_pictures[index].picture;
@@ -957,26 +976,28 @@ static struct bitmap_data *rendered_picture_for_frame(
 {
 	char const *tag_name;
 	short level = campaign_level_get(frame_index);
-	boolean map_pictures, level_pictures;
+	boolean map_pictures, level_pictures, wide;
 
 	if (bitmap_tag_index == NONE)
 	{
 		return NULL;
 	}
 	tag_name = tag_get_name(bitmap_tag_index);
-	map_pictures = !csstrcasecmp(tag_name, LEVEL_PICTURES_TAG_NAME);
-	level_pictures = !csstrcasecmp(tag_name, CAMPAIGN_LEVEL_PICTURES_TAG_NAME);
+	/* (the server browser's own aliases of the two: the same pictures, whole and 2:1) */
+	wide = !csstrcasecmp(tag_name, BROWSER_MAP_PICTURES_TAG_NAME) || !csstrcasecmp(tag_name, BROWSER_LEVEL_PICTURES_TAG_NAME);
+	map_pictures = wide ? !csstrcasecmp(tag_name, BROWSER_MAP_PICTURES_TAG_NAME) : !csstrcasecmp(tag_name, LEVEL_PICTURES_TAG_NAME);
+	level_pictures = wide ? !csstrcasecmp(tag_name, BROWSER_LEVEL_PICTURES_TAG_NAME) : !csstrcasecmp(tag_name, CAMPAIGN_LEVEL_PICTURES_TAG_NAME);
 	if (map_pictures && level != NONE)
 	{
-		return rendered_picture_get(tag_name_strip_path(main_get_solo_level_name(level)));
+		return rendered_picture_get(tag_name_strip_path(main_get_solo_level_name(level)), wide);
 	}
 	if (map_pictures && stock_map_with_picture(frame_index))
 	{
-		return rendered_picture_get(stock_map_with_picture(frame_index)->file);
+		return rendered_picture_get(stock_map_with_picture(frame_index)->file, wide);
 	}
 	if (level_pictures && frame_index >= 0 && frame_index < NUMBER_OF_SINGLE_PLAYER_LEVELS)
 	{
-		return rendered_picture_get(tag_name_strip_path(main_get_solo_level_name(frame_index)));
+		return rendered_picture_get(tag_name_strip_path(main_get_solo_level_name(frame_index)), wide);
 	}
 
 	return NULL;
@@ -1010,8 +1031,8 @@ struct bitmap_data *custom_edition_maps_picture(
 	short level = campaign_level_get(*frame_index);
 	/* Layout C aliases need the same installed custom-map pictures as the lobby. */
 	char const *name = bitmap_tag_index != NONE ? tag_get_name(bitmap_tag_index) : NULL;
-	boolean level_pictures = name && (!csstrcasecmp(name, LEVEL_PICTURES_TAG_NAME) ||
-		!csstrcasecmp(name, "pc\\xbox\\browser\\preview_mp"));
+	boolean wide = name && !csstrcasecmp(name, BROWSER_MAP_PICTURES_TAG_NAME);
+	boolean level_pictures = name && (!csstrcasecmp(name, LEVEL_PICTURES_TAG_NAME) || wide);
 
 #ifdef HALO_IOS
 	{
@@ -1045,9 +1066,19 @@ struct bitmap_data *custom_edition_maps_picture(
 	{
 		return NULL;
 	}
+	/* (the browser's picture is its own texture, whole and 2:1) */
+	if (wide)
+	{
+		if (!map->wide_picture_read)
+		{
+			map->wide_picture = custom_edition_map_picture_read(map, TRUE);
+			map->wide_picture_read = TRUE;
+		}
+		return map->wide_picture;
+	}
 	if (!map->picture_read)
 	{
-		map->picture = custom_edition_map_picture_read(map);
+		map->picture = custom_edition_map_picture_read(map, FALSE);
 		map->picture_read = TRUE;
 	}
 

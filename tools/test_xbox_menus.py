@@ -264,6 +264,7 @@ def browser_c_widgets():
 
 
 def test_browser_c_has_six_large_rows_chips_and_detail_panel():
+    import menu_geometry as g
     root, widgets = browser_c_widgets()
     rows = widgets['join_game_items_list'].findall('child')
     assert len(rows) == 6
@@ -312,17 +313,15 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     assert len(bitmaps['xbox/browser/gametype_large'].findall('frame')) == 7
     picture = widgets['browser_detail_gametype']
     assert picture.get('bitmap') == 'xbox/browser/gametype_large'
-    assert (picture.get('width'), picture.get('height')) == ('124', '100')
+    assert (picture.get('width'), picture.get('height')) == (str(g.BROWSER_BADGE_WIDTH), str(g.BROWSER_BADGE_HEIGHT))
     placed = {c.get('widget').rsplit('/', 1)[-1]: c for c in content.findall('child')}
-    assert int(placed['lobby_map_pic'].get('x')) + 124 < int(placed['browser_detail_gametype'].get('x'))
-    assert placed['browser_detail_gametype'].get('y') == placed['lobby_map_pic'].get('y')
+    assert int(placed['browser_detail_gametype'].get('x')) > int(placed['lobby_map_pic'].get('x'))
     for leaf, art, count in (('lobby_map_pic', 'preview_mp', 20), ('replay_level_right_pic', 'preview_sp', 10)):
         assert widgets[leaf].get('bitmap') == 'xbox/browser/' + art
         frames = bitmaps['xbox/browser/' + art].findall('frame')
         assert len(frames) == count
-        assert all((f.get('x'), f.get('y'), f.get('width'), f.get('height')) == ('0', '0', '227', '113')
-                   for f in frames)
-        assert (widgets[leaf].get('width'), widgets[leaf].get('height')) == ('124', '100')
+        assert len({(f.get('x'), f.get('y'), f.get('width'), f.get('height')) for f in frames}) == 1
+        assert (widgets[leaf].get('width'), widgets[leaf].get('height')) == (str(g.BROWSER_PREVIEW_WIDTH), str(g.BROWSER_PREVIEW_HEIGHT))
         assert all(f.get('map') and f.get('png') for f in frames)
     assert [int(f.get('index')) for f in bitmaps['xbox/browser/preview_mp']] == list(range(13)) + [13] * 7
     for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_filter'):
@@ -2223,3 +2222,53 @@ def test_browser_tab_and_panel_each_own_their_edges_of_the_seam():
     assert color == g.BROWSER_PANEL_BORDER and float(width) == g.BROWSER_BORDER
     assert g.BROWSER_PANEL_BORDER in browser_assets.detail_panel_svg() and f'stroke-width="{g.BROWSER_BORDER}"' in browser_assets.detail_panel_svg()
     assert g.BROWSER_SEAM <= g.BROWSER_TAB_REACH < g.BROWSER_SEAM + 1, 'the fill covers the border, no more'
+
+
+def test_browser_preview_scrim_and_text_come_from_one_set_of_numbers():
+    """The detail panel's preview: the 2:1 picture whole, the scrim over its foot with the name and the gametype
+    line inside it (and drawn after it), the gametype's silhouette inside the picture's top right, the rows below
+    clear of the picture, the explainer and the password pill inside the panel. Every number is `menu_geometry`'s."""
+    import menu_geometry as g
+    import menu_text_metrics
+    _, widgets = browser_c_widgets()
+    content = widgets['browser_detail_content']
+    order = [c.get('widget').rsplit('/', 1)[-1] for c in content.findall('child')]
+    placed = {c.get('widget').rsplit('/', 1)[-1]: (int(c.get('x')), int(c.get('y'))) for c in content.findall('child')}
+    size = lambda leaf: (int(widgets[leaf].get('width')), int(widgets[leaf].get('height')))
+    px, py, pw, ph = g.BROWSER_PREVIEW_X, g.BROWSER_PREVIEW_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_PREVIEW_HEIGHT
+    assert pw == 2 * ph, 'the picture is shown whole at its own 2:1 shape: no crop'
+    assert placed['lobby_map_pic'] == placed['replay_level_right_pic'] == (px, py)
+    assert size('lobby_map_pic') == size('replay_level_right_pic') == (pw, ph)
+    # the scrim lies along the picture's foot, full width, after the picture and before the text it shades
+    assert placed['browser_detail_scrim'] == (px, py + ph - g.BROWSER_SCRIM_HEIGHT)
+    assert size('browser_detail_scrim') == (pw, g.BROWSER_SCRIM_HEIGHT)
+    for text in ('browser_detail_name', 'browser_detail_type'):
+        x, y = placed[text]
+        w, h = size(text)
+        assert x >= px and x + w <= px + pw and y >= placed['browser_detail_scrim'][1] and y + h <= py + ph, text
+        assert order.index('browser_detail_scrim') < order.index(text) and order.index('lobby_map_pic') < order.index('browser_detail_scrim')
+    assert order.index('browser_detail_gametype') > order.index('browser_detail_scrim')
+    # the gametype's silhouette: inside the picture, top right, above the scrim
+    bx, by = placed['browser_detail_gametype']
+    bw, bh = size('browser_detail_gametype')
+    assert px + pw - bx - bw == g.BROWSER_BADGE_INSET and by - py == g.BROWSER_BADGE_INSET
+    assert by + bh <= placed['browser_detail_scrim'][1]
+    # the rows below the picture, then the notice (the explainer is two lines) and the pill, inside the panel
+    assert placed['browser_detail_rules'][1] >= py + ph and placed['browser_rules_label'][1] >= py + ph
+    panel_bottom = int(widgets['browser_detail'].get('top')) + int(widgets['browser_detail'].get('height'))
+    for leaf in ('browser_join_reason', 'browser_detail_big', 'browser_detail_password'):
+        assert placed[leaf][1] + size(leaf)[1] <= panel_bottom, leaf
+    assert placed['browser_join_reason'][1] >= placed['browser_connection_status'][1] + 20
+    # the text fits its widget: the lines the panel states itself, in two lines at most (the explainer's box)
+    line = menu_text_metrics.text_width('ui\\small_ui', 'VISR is not compatible with this network version.')
+    assert line <= 2 * size('browser_join_reason')[0]
+
+
+def test_browser_picture_texture_is_the_pictures_own_shape():
+    """The browser's picture is loaded whole (the rendered picture's 512x256 menu copy, 2:1), so the texture the
+    engine makes for it has the widget's shape: a stretched texture of another shape would distort the map."""
+    import menu_geometry as g
+    w, h = g.BROWSER_PICTURE_TEXTURE
+    assert w * g.BROWSER_PREVIEW_HEIGHT == h * g.BROWSER_PREVIEW_WIDTH
+    header = (ROOT / 'port/linux/include/menu_geometry.h').read_text() if 'ROOT' in globals() else ''
+    assert f'MENU_BROWSER_PICTURE_WIDTH' in header and str(w) in header
