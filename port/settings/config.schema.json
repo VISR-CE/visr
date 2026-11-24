@@ -2577,7 +2577,7 @@
         "telnet_console": {
           "type": "boolean",
           "default": false,
-          "description": "Listen on 127.0.0.1 (port telnet_console_port) for a script console that runs what it is sent as the game's console does, with no password; false none.",
+          "description": "Listen on 127.0.0.1 (port telnet_console_port) for a script console that runs what it is sent as the game's console does, with no password; false none. Development builds also take \"visr_set SECTION.KEY VALUE\" there, which sets a setting for this run only (nothing is written).",
           "x-environment": "HALO_TELNET_CONSOLE",
           "x-environment-style": "set_is_true",
           "x-platforms": [
