@@ -19,8 +19,8 @@ are neither the mouse nor a reason to forget that a position report is pending.
 
 #include <SDL3/SDL.h>
 
-/* SDL's own ID for motion the platform reports without a pointing device (SDL_cocoawindow.m); it is not public */
-#define HALO_POINTER_GATE_GLOBAL_MOUSE_ID 0
+/* The mouse ID tells nothing here: outside relative mode SDL rewrites every pointer event's ID to its global ID
+(SDL_mouse.c, "all mouse events are global mouse events"), real movement and the system's position reports alike. */
 
 struct halo_pointer_gate
 {
@@ -31,10 +31,8 @@ struct halo_pointer_gate
 
 /* Classifies one event. Returns 1 for a motion that is real mouse movement. Any other motion from a mouse
 device is made inert (zero deltas) and returns 0; focus and pointer-enter/leave events arm the settle rule and
-return 0. synthetic_global_id is set where the platform marks its own position reports with
-the global mouse ID (Cocoa) rather than the pointing device's ID. */
-static inline int halo_pointer_gate_classify(struct halo_pointer_gate *gate, SDL_Event *event,
-	int synthetic_global_id)
+return 0. */
+static inline int halo_pointer_gate_classify(struct halo_pointer_gate *gate, SDL_Event *event)
 {
 	int real;
 
@@ -54,7 +52,6 @@ static inline int halo_pointer_gate_classify(struct halo_pointer_gate *gate, SDL
 	if (event->motion.which == SDL_TOUCH_MOUSEID || event->motion.which == SDL_PEN_MOUSEID) return 0;
 	real = !gate->settle && (!gate->known || event->motion.x != gate->x || event->motion.y != gate->y ||
 		event->motion.xrel != 0.0f || event->motion.yrel != 0.0f);
-	if (synthetic_global_id && event->motion.which == HALO_POINTER_GATE_GLOBAL_MOUSE_ID) real = 0;
 	gate->settle = 0;
 	gate->known = 1;
 	gate->x = event->motion.x;

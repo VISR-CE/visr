@@ -766,12 +766,7 @@ int host_sdl_poll_event(void *event)
 	/* one classification per event: the menu pointer takes real_motion, the game's legend reads the zeroed deltas */
 	{
 		static struct halo_pointer_gate pointer_gate;
-#if HALO_NATIVE_MAC
-		/* Cocoa marks its own position reports with the global mouse ID; UIKit's IDs are not checked for it */
-		int real_motion = halo_pointer_gate_classify(&pointer_gate, &host_event, 1);
-#else
-		int real_motion = halo_pointer_gate_classify(&pointer_gate, &host_event, 0);
-#endif
+		int real_motion = halo_pointer_gate_classify(&pointer_gate, &host_event);
 
 		menu_pointer_event(&host_event, real_motion);
 	}
