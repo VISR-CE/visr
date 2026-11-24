@@ -95,7 +95,7 @@
           "minimum": 8.0,
           "maximum": 16.0,
           "default": 8,
-          "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Read at launch and at a graphics mode switch. Hardcore keeps 8 (display.graphics). Profile values outside the accepted set are refused, not clamped."
+          "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Changes at a graphics mode switch, and at a map load into the other workload context. Hardcore keeps 8 (display.graphics). Profile values outside the accepted set are refused, not clamped."
         },
         "model_lod": {
           "type": "string",
@@ -603,7 +603,7 @@
               "minimum": 8.0,
               "maximum": 16.0,
               "default": 8,
-              "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Read at launch and at a graphics mode switch. Hardcore keeps 8 (display.graphics). Profile values outside the accepted set are refused, not clamped."
+              "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Changes at a graphics mode switch, and at a map load into the other workload context. Hardcore keeps 8 (display.graphics). Profile values outside the accepted set are refused, not clamped."
             },
             "anti_aliasing": {
               "type": "string",

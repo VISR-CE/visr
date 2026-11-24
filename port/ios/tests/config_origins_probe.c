@@ -784,6 +784,28 @@ static void check_variable_only(void)
 	config_workload_set(0, "campaign");
 }
 
+/* display.scene_precision, a profile key for both workloads (port_profile_keys.h): the renderer reads the gameplay value
+in force (config_scene_integer, d3d8_device.c scene_precision_wanted), so the profile's own 16 holds in the predictable
+workload, its variable 8 while a map is variable, Hardcore keeps 8 in both, and a value the player chose wins in both */
+static void check_scene_precision_workloads(void)
+{
+	fresh();
+	launch(TV_MODEL "display.scene_precision\t16\tmodel Apple TV HD\n" "display.scene_precision\t8\tmodel Apple TV HD\tvariable\n");
+	assert(!strstr(logged, "sets display.scene_precision for the variable workload, which this build cannot"));
+	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 16);
+	config_workload_set(1, "multiplayer map");
+	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 8);
+	config_workload_set(0, "campaign");
+	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 16);
+	assert(config_write("display.graphics", "hardcore"));
+	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 8);
+	assert(config_write("display.graphics", "enhanced"));
+	assert(config_write("display.scene_precision", "16"));
+	config_workload_set(1, "multiplayer map");
+	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 16);
+	config_workload_set(0, "campaign");
+}
+
 /* the workload context: [variable.display] under the scene classes while a map is variable, the profile's own
 values while it is predictable; chosen and environment values win in both, external values over it */
 static void check_workload(void)
@@ -1224,6 +1246,7 @@ int main(void)
 	check_external();
 	check_workload();
 	check_variable_only();
+	check_scene_precision_workloads();
 	check_workload_frame_rate();
 	check_effect_resolution_migration();
 	check_smooth_motion_migration();

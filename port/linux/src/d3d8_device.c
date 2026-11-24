@@ -1683,7 +1683,7 @@ always had */
 (GPU_FORMAT_SCENE_COLOR, a higher-precision format the backend picks), so the dozen blends that make up a frame stop
 rounding each other to 8 bits. debug.scene_format names a measurement format in its place (any but "bgra8" takes the
 role). Read when targets are made; scene_precision_frame frees the role's targets when the answer changes (a graphics
-mode switch: Hardcore keeps 8). */
+mode switch: Hardcore keeps 8; a map load into the other workload context: a profile's [variable.display] value). */
 /* debug.knob_cycle's scene precision, -1 until the chord sets it */
 static int scene_precision_live = -1;
 
@@ -8668,7 +8668,7 @@ static void screen_targets_release(int pooled)
 		platform_log("dynamic resolution: freed %lu %s screen and effect targets", freed, pooled ? "pooled" : "plain");
 }
 
-/* display.scene_precision changed (a graphics mode switch, or the first frame): every target with or without the
+/* display.scene_precision changed (a graphics mode switch, a map load into the other workload context, or the first frame): every target with or without the
 scene-color role that no longer matches goes, and is made again in the other format when next drawn into (the
 backend holds a texture until the frames using it are done) */
 static void scene_precision_frame(void)

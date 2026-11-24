@@ -242,8 +242,8 @@ static const struct config_setting config_settings[] =
 		"multisampling). Hardcore turns it off (display.graphics).", _tier_player },
 	{ "display.scene_precision", _config_integer, "8", "HALO_SCENE_PRECISION", _environment_value, _platform_all,
 		"Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal),\n"
-		"with a 10-bit layer where the display takes one. Read at launch and at a graphics mode switch.\n"
-		"Hardcore keeps 8 (display.graphics).", _tier_tuning },
+		"with a 10-bit layer where the display takes one. Changes at a graphics mode switch, and at a map\n"
+		"load into the other workload context. Hardcore keeps 8 (display.graphics).", _tier_tuning },
 	{ "display.effect_limits", _config_string, "\"raised\"", "HALO_EFFECT_LIMITS", _environment_value, _platform_all,
 		"How many bullet holes, scorch marks and blood stains a level keeps, and how\n"
 		"many particles each split-screen player sees of an effect: \"raised\" (default)\n"

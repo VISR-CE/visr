@@ -274,7 +274,7 @@
         "scene_precision": {
           "type": "integer",
           "default": 8,
-          "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Read at launch and at a graphics mode switch. Hardcore keeps 8 (display.graphics).",
+          "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Changes at a graphics mode switch, and at a map load into the other workload context. Hardcore keeps 8 (display.graphics).",
           "x-environment": "HALO_SCENE_PRECISION",
           "x-environment-style": "value",
           "x-platforms": [
