@@ -165,7 +165,13 @@ static int inside_bsp(struct photo_shot *shot)
 	struct structure_bsp *bsp;
 	int i;
 	if (shot->bsp != global_structure_bsp_index_get() || !(bsp = global_structure_bsp_get())) return 0;
-	for (i=0;i<3;i++) if (shot->position[i] < bsp->world_bounds.n[i*2] || shot->position[i] > bsp->world_bounds.n[i*2+1]) return 0;
+	for (i=0;i<3;i++) if (shot->position[i] < bsp->world_bounds.n[i*2] || shot->position[i] > bsp->world_bounds.n[i*2+1])
+	{
+		error(_error_silent, "photo mode: position %c=%.3f outside BSP %d bounds [%.3f, %.3f] by %.3f", "xyz"[i], shot->position[i], shot->bsp,
+			bsp->world_bounds.n[i*2], bsp->world_bounds.n[i*2+1],
+			shot->position[i] < bsp->world_bounds.n[i*2] ? bsp->world_bounds.n[i*2] - shot->position[i] : shot->position[i] - bsp->world_bounds.n[i*2+1]);
+		return 0;
+	}
 	return 1;
 }
 
