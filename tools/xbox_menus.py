@@ -1752,6 +1752,9 @@ def gametype_select_layout(root, widgets, bitmaps):
             root.remove(existing)
 
 
+JOINTS = tuple(str(row) for row in range(menu_geometry.BROWSER_ROWS)) + ('none',)
+
+
 def browser_bitmap(root, name, width, height, frames):
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/' + name)
     for filename in frames:
@@ -1802,7 +1805,6 @@ def browser_layout(root, widgets, bitmaps):
              [f'gametype_large__{i}' for i in range(7)]),
             ('scrim', menu_geometry.BROWSER_PREVIEW_WIDTH, menu_geometry.BROWSER_SCRIM_HEIGHT, ['scrim']),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
-            ('detail', 312, 273, ['detail']),
             ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge__0']), ('lock', 12, 14, ['lock']),
             ('option', 532, 54, ['option__0', 'option__1'])):
         browser_bitmap(root, name, width, height, frames)
@@ -1823,7 +1825,10 @@ def browser_layout(root, widgets, bitmaps):
     child(screen, base + '/button_refresh_create_inter')
     actions = widget(root, base + '/button_refresh_create_inter', width=640, height=480,
                      flags='pass_unhandled_to_focused_child')
-    # (the panel is drawn first: the selected game's tab reaches over its left border, joining it)
+    # (the panel and the chosen game's tab are one outline, drawn first: one joint widget shows at a time, the one
+    # for the chosen visible row, or for none, "port browser" updating it with the details)
+    for name in JOINTS:
+        child(actions, base + '/browser_joint_' + name)
     child(actions, base + '/browser_detail')
     child(actions, base + '/browser_chips')
     child(actions, base + '/join_game_items_list')
@@ -1880,8 +1885,12 @@ def browser_layout(root, widgets, bitmaps):
         child(chip, base + '/' + leaf + '_white', y=29)
         widget(root, base + '/' + leaf + '_white', type='text',
                width=width, height=23, font=r'ui\small_ui', color='#ffffff', align='center')
+    for name in JOINTS:
+        widget(root, base + '/browser_joint_' + name, left=menu_geometry.BROWSER_LIST_X, top=menu_geometry.BROWSER_PANEL_TOP,
+               width=menu_geometry.BROWSER_JOINT_WIDTH, height=menu_geometry.BROWSER_DETAIL_HEIGHT, bitmap='xbox/browser/joint_' + name)
+        browser_bitmap(root, 'joint_' + name, menu_geometry.BROWSER_JOINT_WIDTH, menu_geometry.BROWSER_DETAIL_HEIGHT, ['joint__' + name])
     detail = widget(root, base + '/browser_detail', type='column_list', left=menu_geometry.BROWSER_PANEL_LEFT, top=110, width=312, height=273,
-                    bitmap='xbox/browser/detail', flags='pass_unhandled_to_focused_child')
+                    flags='pass_unhandled_to_focused_child')
     for event in ('left', 'stick_left'):
         ET.SubElement(detail, 'on', event=event, run='port browser chips navigation')
     # A content container breaks focus inheritance so descriptive colors stay blue.

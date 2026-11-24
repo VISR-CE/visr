@@ -397,7 +397,8 @@ def test_browser_actions_are_a_bar_and_the_list_takes_only_its_own_keys():
     assert bar['b'].get('scope') == 'back'
     assert actions.get('flags') == 'pass_unhandled_to_focused_child'
     assert [c.get('widget').rsplit('/', 1)[-1] for c in actions.findall('child')] == [
-        'browser_detail', 'browser_chips', 'join_game_items_list']  # (the panel first: the selected tab draws over its border)
+        *[f'browser_joint_{row}' for row in range(6)], 'browser_joint_none',
+        'browser_detail', 'browser_chips', 'join_game_items_list']  # (the joined panel outline first, then the text)
     rows = widgets['join_game_items_list']
     assert rows.find('on[@event="up"][@run="port browser rows up"]') is not None
     assert rows.find('on[@event="down"][@run="port browser rows down"]') is not None
@@ -2207,21 +2208,70 @@ def test_browser_row_tabs_reach_into_the_detail_panel_from_one_set_of_numbers():
     assert browser_assets.PANEL_FILL == g.BROWSER_PANEL_FILL
 
 
-def test_browser_tab_and_panel_each_own_their_edges_of_the_seam():
-    """Bug class: two pieces of art drawing the same edge (the chosen tab's rules ran on past the panel's border into
-    the panel, in another blue). Each shared edge has one owner: the panel owns its left border, the chosen tab owns
-    the opening in it and ends its rules at the border's far edge, in the border's own color."""
-    import re
-    import browser_assets
+def test_browser_tab_and_panel_are_one_joined_outline_with_one_fill():
+    """Bug class: two shapes that merely touch (the tab's rules overran the panel's rounded corner, the panel's corner
+    left a stray arc beside a first or last tab, the tab and the panel filled differently). One path draws the panel
+    with the chosen tab merged in, for each visible row, and one translucent fill covers it: pixel checks on the
+    committed art at the seam, at the corners the first and last tabs share, and on the fill."""
+    from PIL import Image
     import menu_geometry as g
-    chosen = browser_assets.chosen_row_svg()
-    path = re.search(r'<path d="M([\d.]+) [^"]*H([\d.]+)" fill="none" stroke="(#[0-9a-fA-F]+)" stroke-width="([\d.]+)"', chosen)
-    assert path, 'the chosen tab draws its outline as one path'
-    start, end, color, width = path.groups()
-    assert float(start) == float(end) == g.BROWSER_SEAM, 'both rules end at the border\'s far edge, none past it'
-    assert color == g.BROWSER_PANEL_BORDER and float(width) == g.BROWSER_BORDER
-    assert g.BROWSER_PANEL_BORDER in browser_assets.detail_panel_svg() and f'stroke-width="{g.BROWSER_BORDER}"' in browser_assets.detail_panel_svg()
-    assert g.BROWSER_SEAM <= g.BROWSER_TAB_REACH < g.BROWSER_SEAM + 1, 'the fill covers the border, no more'
+    px = 4
+
+    def art(name):
+        return Image.open(ROOT / 'port/assets/menus/xbox/art/browser' / f'joint__{name}.png').convert('RGBA')
+
+    def at(image, x, y):  # menu units
+        return image.getpixel((round(x * px), round(y * px)))
+
+    def border(pixel):
+        want = tuple(int(g.BROWSER_PANEL_BORDER[i:i + 2], 16) for i in (1, 3, 5))
+        return pixel[3] > 230 and all(abs(pixel[i] - want[i]) < 24 for i in range(3))
+
+    left = g.BROWSER_PANEL_LEFT - g.BROWSER_LIST_X + g.BROWSER_BORDER / 2  # the panel's left line
+    mid = lambda row: row * g.BROWSER_ROW_PITCH + g.BROWSER_ROW_HEIGHT / 2
+    right_side = g.BROWSER_JOINT_WIDTH - 40
+    for chosen in range(g.BROWSER_ROWS):
+        image = art(chosen)
+        assert image.size == (g.BROWSER_JOINT_WIDTH * px, g.BROWSER_DETAIL_HEIGHT * px)
+        for row in range(g.BROWSER_ROWS):
+            # the panel's left line is open along the chosen tab and drawn along every other row
+            assert border(at(image, left, mid(row))) == (row != chosen), (chosen, row)
+        # one fill under the tab and the panel, translucent
+        tab, panel = at(image, 100, mid(chosen)), at(image, right_side, mid(chosen))
+        assert tab == panel and 0 < tab[3] < 255, (chosen, tab, panel)
+        assert abs(tab[3] / 255 - g.BROWSER_PANEL_FILL_OPACITY) < 0.03
+        # the tab's rules and the panel's edges meet: the top rule of a tab above the panel's top reaches the panel
+        # border without a gap, and the same for the bottom
+        top, bottom = chosen * g.BROWSER_ROW_PITCH + 0.75, chosen * g.BROWSER_ROW_PITCH + g.BROWSER_ROW_HEIGHT - 0.75
+        for y in (top, bottom):
+            assert all(border(at(image, x, y)) for x in range(12, int(left) + 1)), (chosen, y)
+        # the first and the last tab share the panel's top and bottom: one straight edge the whole way across, and no
+        # remnant of the panel's rounded corner inside it
+        for edge, rows in ((0.75, (0,)), (g.BROWSER_DETAIL_HEIGHT - 0.75, (g.BROWSER_ROWS - 1,))):
+            if chosen in rows:
+                assert all(border(at(image, x, edge)) for x in range(12, g.BROWSER_JOINT_WIDTH - 12)), (chosen, edge)
+                inner = edge + 3 if edge < 100 else edge - 3
+                assert not any(border(at(image, x / 4, inner)) for x in range(int(left * 4) - 4, int(left * 4) + 40)), \
+                    (chosen, 'a stray corner arc')
+        # and the panel's outer corners, where no tab shares them, stay rounded: its far top corner is clear of border
+        assert not border(at(image, g.BROWSER_JOINT_WIDTH - 1.5, 1.5)), chosen
+    alone = art('none')
+    assert all(border(at(alone, left, mid(row))) for row in range(g.BROWSER_ROWS)), 'no tab: the left line is whole'
+    assert not border(at(alone, left + 0.5, 1.0)), 'no tab: its top left corner is rounded'
+    assert at(alone, right_side, 100) == at(art(2), right_side, mid(2)), 'the same fill with and without a tab'
+
+
+def test_browser_joint_widgets_replace_the_detail_panel_art():
+    """Exactly one widget per visible row plus one for no game carries the joined art; the panel and the tab widgets
+    draw no outline of their own."""
+    import menu_geometry as g
+    _, widgets = browser_c_widgets()
+    names = [f'browser_joint_{row}' for row in range(g.BROWSER_ROWS)] + ['browser_joint_none']
+    for name in names:
+        widget = widgets[name]
+        assert (int(widget.get('left')), int(widget.get('top'))) == (g.BROWSER_LIST_X, g.BROWSER_PANEL_TOP)
+        assert (int(widget.get('width')), int(widget.get('height'))) == (g.BROWSER_JOINT_WIDTH, g.BROWSER_DETAIL_HEIGHT)
+    assert widgets['browser_detail'].get('bitmap') is None
 
 
 def test_browser_preview_scrim_and_text_come_from_one_set_of_numbers():

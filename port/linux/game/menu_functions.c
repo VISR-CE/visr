@@ -111,6 +111,7 @@ void host_sdl_send_log_status(char *buffer, unsigned int size);
 #include <stdlib.h>
 #include <string.h>
 #include <xtl.h>
+#include "menu_geometry.h"
 
 /* the platform layer's (port/linux/src) */
 void platform_log(char const *format, ...);
@@ -4979,6 +4980,25 @@ static void browser_detail_gametype_set(struct widget_instance *detail, short fr
 		picture->animation.current_frame_index = frame;
 }
 
+/* The chosen game's tab and the detail panel are one outline: one of the "joint" widgets (a visible row's, or the
+panel alone) is shown and the others hidden. */
+static void browser_joint_show(struct widget_instance *screen, short row)
+{
+	short index;
+	char name[32];
+
+	if (row < 0 || row >= MENU_BROWSER_ROWS)
+		row = MENU_BROWSER_ROWS;
+	for (index = 0; index <= MENU_BROWSER_ROWS; index++)
+	{
+		if (index == MENU_BROWSER_ROWS)
+			snprintf(name, sizeof(name), "browser_joint_none");
+		else
+			snprintf(name, sizeof(name), "browser_joint_%d", index);
+		visible_set(named(screen, name, 0), index == row);
+	}
+}
+
 static void browser_c_detail_update(struct widget_instance *list, wchar_t const *status)
 {
 	struct widget_instance *screen = screen_of(list);
@@ -4991,6 +5011,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 
 	if (!detail)
 		return;
+	browser_joint_show(screen, present ? lobby_browser.chosen - lobby_browser.first : NONE);
 	/* This color-preserving wrapper is display-only, not a column-list pointer target. */
 	child = named(detail, "browser_detail_content", 0);
 	if (child)

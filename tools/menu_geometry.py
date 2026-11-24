@@ -100,15 +100,23 @@ BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT = 46, 43
 # and the chosen game's reaches BROWSER_TAB_REACH, over the detail panel's left border, in the panel's own fill, so
 # tab and panel are one shape. The panel is drawn first so the tab lies over it.
 BROWSER_LIST_X, BROWSER_PANEL_LEFT = 24, 304
-BROWSER_BORDER = 1.5  # the detail panel's outline, and the tab's
-# The seam: the panel owns its left border, the chosen tab owns the opening in it. The tab's rules end at the
-# border's far edge (BROWSER_SEAM), where they meet the border above and below the opening instead of running
-# on into the panel, and its fill (BROWSER_TAB_REACH, a whole unit count) covers the border's width.
-BROWSER_SEAM = BROWSER_PANEL_LEFT - BROWSER_LIST_X + BROWSER_BORDER
+BROWSER_BORDER = 1.5  # the joined outline's stroke
+# The tab and the panel are ONE shape: browser_assets.joined_outline_path draws the panel with the chosen game's tab
+# merged into its left side, as a single outlined, singly filled path (the "joint" art, one per visible row, plus one
+# for no chosen game). The tab's own widget draws nothing while chosen, so no outline or fill is drawn twice and the
+# translucent fill cannot double up where the two meet.
+BROWSER_ROWS = 6
 BROWSER_TAB_WIDTH, BROWSER_TAB_REACH = 270, 282
+BROWSER_PANEL_WIDTH, BROWSER_PANEL_RADIUS, BROWSER_TAB_RADIUS = 312, 9, 7
+BROWSER_PANEL_TOP = 110
+BROWSER_JOINT_WIDTH = BROWSER_PANEL_LEFT - BROWSER_LIST_X + BROWSER_PANEL_WIDTH  # from the tab's left to the panel's right
+# The panel's fill is the menu's own translucent blue (the backdrop's opacity), so the animated scene shows through
+# the tab and the panel alike.
 BROWSER_PANEL_FILL = '#0d2c57'
+BROWSER_PANEL_FILL_OPACITY = 0.69
 BROWSER_PANEL_BORDER = '#4aa8ff'  # the panel's outline and the chosen tab's rules: one line where they meet
-assert BROWSER_SEAM <= BROWSER_TAB_REACH < BROWSER_SEAM + 1
+assert BROWSER_PANEL_TOP + (BROWSER_ROWS - 1) * BROWSER_ROW_PITCH + BROWSER_ROW_HEIGHT == BROWSER_PANEL_TOP + 273, \
+    'the first and last rows reach the panel top and bottom: the joint merges their edges'
 assert BROWSER_LIST_X + BROWSER_TAB_WIDTH < BROWSER_PANEL_LEFT < BROWSER_LIST_X + BROWSER_TAB_REACH
 # The detail panel's preview, one set of numbers for the art, the widgets, the text and the pictures the engine loads.
 # The map's picture is the photo-mode frame, 2:1 and whole (its native shape: no crop), inset in the panel; the
@@ -177,6 +185,7 @@ HEADER_VALUES = (
     ('MENU_BAR_CAPTION_HEIGHT', BAR_CAPTION_HEIGHT, "a bar action's caption"),
     ('MENU_BAR_GLYPH_RAISE', BAR_GLYPH_RAISE, "a bar action's glyph, up from the center of its box onto its caption's capitals"),
     ('MENU_BAR_RULE_Y', RULE_Y, "the bar's top rule"),
+    ('MENU_BROWSER_ROWS', BROWSER_ROWS, "the server browser's visible rows, one joined panel outline for each"),
     ('MENU_BROWSER_PICTURE_WIDTH', BROWSER_PICTURE_TEXTURE[0], "the server browser's map picture, whole (2:1)"),
     ('MENU_BROWSER_PICTURE_HEIGHT', BROWSER_PICTURE_TEXTURE[1], "the server browser's map picture, whole (2:1)"),
 )

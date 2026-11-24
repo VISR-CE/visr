@@ -568,6 +568,7 @@ def test_detail_panel_pills_and_connect_line_follow_the_chosen_game(tmp_path):
         "static void browser_join_block_text(",
         "static boolean browser_listing_cooperative(",
         "static void browser_detail_gametype_set(",
+        "static void browser_joint_show(",
         "static void browser_c_detail_update(",
     )
     production = join_enum + "\n".join(function(source, signature) for signature in signatures)
@@ -586,6 +587,7 @@ typedef int boolean;
 #define TRUE 1
 #define NONE (-1)
 #define ROW_TEXT_LENGTH 128
+#define MENU_BROWSER_ROWS 6
 #define NUMBEROF(a) ((short)(sizeof(a) / sizeof((a)[0])))
 #define PIN(v, lo, hi) ((v) < (lo) ? (lo) : (v) > (hi) ? (hi) : (v))
 #include <stdarg.h>
@@ -598,7 +600,7 @@ struct widget_instance
 	struct { short current_frame_index; } animation;
 	wchar_t text[ROW_TEXT_LENGTH * 2];
 };
-static struct { short count, chosen; boolean joining; unsigned char identifier[6]; char name[P2P_LISTING_NAME_SIZE + 1];
+static struct { short count, chosen, first; boolean joining; unsigned char identifier[6]; char name[P2P_LISTING_NAME_SIZE + 1];
 	struct p2p_listing games[4]; } lobby_browser;
 static struct widget_instance screen, detail, content, widgets[32];
 static short widget_count;
@@ -676,6 +678,8 @@ int main(void)
 	snprintf(detail.name, sizeof(detail.name), "browser_detail");
 	detail.parent = &screen; screen.child = list; list->next = &detail;
 	add(&screen, "browser_list_status"); add(&screen, "browser_list_hint");
+	for (int i = 0; i < 6; i++) { char joint[24]; snprintf(joint, sizeof(joint), "browser_joint_%d", i); add(&screen, joint); }
+	add(&screen, "browser_joint_none");
 	snprintf(content.name, sizeof(content.name), "browser_detail_content");
 	content.parent = &detail; detail.child = &content;
 	for (unsigned i = 1; i < NUMBEROF(leaves); i++) add(&content, leaves[i]);
@@ -693,9 +697,27 @@ int main(void)
 	browser_c_detail_update(list, L"");
 	assert(!detail.visible && !pill("browser_detail_password")->visible);
 	assert(!pill("browser_detail_scrim")->visible);
+	assert(named(&screen, "browser_joint_none", 0)->visible); /* no game: the panel's outline alone */
+	assert(!named(&screen, "browser_joint_0", 0)->visible && !named(&screen, "browser_joint_5", 0)->visible);
 	lobby_browser.chosen = 0;
 	ellipsized[0] = 0;
 	browser_c_detail_update(list, L"");
+	/* the chosen game's tab and the panel are one outline: exactly the chosen visible row's joint shows, also when the list is scrolled */
+	{
+		static char const *const joints[] = { "browser_joint_0", "browser_joint_1", "browser_joint_2", "browser_joint_3",
+			"browser_joint_4", "browser_joint_5", "browser_joint_none" };
+		short shown = 0, which = -1;
+
+		for (int i = 0; i < 7; i++) if (named(&screen, joints[i], 0)->visible) { shown++; which = (short)i; }
+		assert(shown == 1 && which == 0);
+		lobby_browser.first = 0; lobby_browser.chosen = 3;
+		browser_c_detail_update(list, L"");
+		shown = 0; which = -1;
+		for (int i = 0; i < 7; i++) if (named(&screen, joints[i], 0)->visible) { shown++; which = (short)i; }
+		assert(shown == 1 && which == 3);
+		lobby_browser.chosen = 0;
+		browser_c_detail_update(list, L"");
+	}
 	/* the name and the gametype line are laid over the scrim, so both go through the ellipsizing setter (a long
 	   server name or a long map name is cut to the width of the band, not drawn past it) and the scrim shows */
 	assert(strstr(ellipsized, "browser_detail_name;") && strstr(ellipsized, "browser_detail_type;"));

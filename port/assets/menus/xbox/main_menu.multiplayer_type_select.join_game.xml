@@ -559,9 +559,6 @@
 		<frame png="xbox/art/browser/gauge__31.png" width="42" height="42" />
 		<frame png="xbox/art/browser/gauge__32.png" width="42" height="42" />
 	</bitmap>
-	<bitmap name="xbox/browser/detail">
-		<frame png="xbox/art/browser/detail.png" width="312" height="273" />
-	</bitmap>
 	<bitmap name="xbox/browser/big">
 		<frame png="xbox/art/browser/big.png" width="294" height="20" />
 	</bitmap>
@@ -636,6 +633,13 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" width="640" height="480" flags="pass_unhandled_to_focused_child">
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_0" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_2" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_3" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_4" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_5" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_none" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chips" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" />
@@ -750,7 +754,35 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_filter_label" type="text" width="174" height="23" font="ui\small_ui" color="#7fc4ff" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_filter_white" type="text" width="174" height="23" font="ui\small_ui" color="#ffffff" align="center" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail" type="column_list" left="304" top="110" width="312" height="273" bitmap="xbox/browser/detail" flags="pass_unhandled_to_focused_child">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_0" left="24" top="110" width="592" height="273" bitmap="xbox/browser/joint_0" />
+	<bitmap name="xbox/browser/joint_0">
+		<frame png="xbox/art/browser/joint__0.png" width="592" height="273" />
+	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_1" left="24" top="110" width="592" height="273" bitmap="xbox/browser/joint_1" />
+	<bitmap name="xbox/browser/joint_1">
+		<frame png="xbox/art/browser/joint__1.png" width="592" height="273" />
+	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_2" left="24" top="110" width="592" height="273" bitmap="xbox/browser/joint_2" />
+	<bitmap name="xbox/browser/joint_2">
+		<frame png="xbox/art/browser/joint__2.png" width="592" height="273" />
+	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_3" left="24" top="110" width="592" height="273" bitmap="xbox/browser/joint_3" />
+	<bitmap name="xbox/browser/joint_3">
+		<frame png="xbox/art/browser/joint__3.png" width="592" height="273" />
+	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_4" left="24" top="110" width="592" height="273" bitmap="xbox/browser/joint_4" />
+	<bitmap name="xbox/browser/joint_4">
+		<frame png="xbox/art/browser/joint__4.png" width="592" height="273" />
+	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_5" left="24" top="110" width="592" height="273" bitmap="xbox/browser/joint_5" />
+	<bitmap name="xbox/browser/joint_5">
+		<frame png="xbox/art/browser/joint__5.png" width="592" height="273" />
+	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_none" left="24" top="110" width="592" height="273" bitmap="xbox/browser/joint_none" />
+	<bitmap name="xbox/browser/joint_none">
+		<frame png="xbox/art/browser/joint__none.png" width="592" height="273" />
+	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail" type="column_list" left="304" top="110" width="312" height="273" flags="pass_unhandled_to_focused_child">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_content" />
 		<on event="left" run="port browser chips navigation" />
 		<on event="stick_left" run="port browser chips navigation" />

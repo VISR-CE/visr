@@ -46,25 +46,43 @@ def render(output, name, width, height, document, scale=SCALE):
                     str(output / f"{name}.png")], input=document.encode(), check=True)
 
 
-def detail_panel_svg():
-    """The detail panel: it owns its whole outline, including its left border along the chosen tab."""
-    return rounded(312, 273, PANEL_FILL, menu_geometry.BROWSER_PANEL_BORDER, radius=9,
-                   stroke_width=menu_geometry.BROWSER_BORDER)
+def joined_outline_path(chosen):
+    """The panel and the chosen game's tab as ONE outline (a path, in menu units from the tab's left and the panel's top).
+
+    chosen is the visible row (0 to BROWSER_ROWS - 1) or None for the panel alone. The tab reaches from the left edge
+    into the panel's left side; the first and last rows share the panel's top and bottom, so there the edge runs
+    straight across with no panel corner left behind. Every other row meets the panel's left side at a square inside
+    corner. The stroke is inset by half its width so it is not clipped."""
+    g, h = menu_geometry, menu_geometry.BROWSER_BORDER / 2
+    right = g.BROWSER_JOINT_WIDTH - h
+    bottom = g.BROWSER_DETAIL_HEIGHT - h
+    big, small = g.BROWSER_PANEL_RADIUS, g.BROWSER_TAB_RADIUS
+    left_x = g.BROWSER_PANEL_LEFT - g.BROWSER_LIST_X + h  # the panel's left line
+    if chosen is None:
+        return (f'M{left_x + big} {h} H{right - big} a{big} {big} 0 0 1 {big} {big} V{bottom - big} '
+                f'a{big} {big} 0 0 1 {-big} {big} H{left_x + big} a{big} {big} 0 0 1 {-big} {-big} '
+                f'V{h + big} a{big} {big} 0 0 1 {big} {-big} Z')
+    top = chosen * g.BROWSER_ROW_PITCH + h
+    low = top - h + g.BROWSER_ROW_HEIGHT - h
+    d = f'M{h} {top + small} a{small} {small} 0 0 1 {small} {-small}'
+    if chosen == 0:
+        d += f' H{right - big}'
+    else:
+        d += f' H{left_x} V{h + big} a{big} {big} 0 0 1 {big} {-big} H{right - big}'
+    d += f' a{big} {big} 0 0 1 {big} {big} V{bottom - big} a{big} {big} 0 0 1 {-big} {big}'
+    if chosen == g.BROWSER_ROWS - 1:
+        d += f' H{h + small}'
+    else:
+        d += f' H{left_x + big} a{big} {big} 0 0 1 {-big} {-big} V{low} H{h + small}'
+    return d + f' a{small} {small} 0 0 1 {-small} {-small} Z'
 
 
-def chosen_row_svg():
-    """The chosen game's tab: open on its right, in the panel's fill over the panel's left border, its rules ending
-    at that border's far edge (menu_geometry.BROWSER_SEAM) in the border's own color."""
-    height, radius, stroke = ROW_HEIGHT, 7, menu_geometry.BROWSER_BORDER
-    half = stroke / 2
-    seam = menu_geometry.BROWSER_SEAM
-    return svg(ROW_ART_WIDTH, height,
-               f'<rect x="{half}" y="{half}" width="{ROW_ART_WIDTH - half}" height="{height - stroke}" rx="{radius}" '
-               f'fill="{PANEL_FILL}"/>'
-               f'<rect x="{ROW_ART_WIDTH - 8}" y="0" width="8" height="{height}" fill="{PANEL_FILL}"/>'
-               f'<path d="M{seam} {half} H{radius + half} a{radius - half} {radius - half} 0 0 0 {-(radius - half)} '
-               f'{radius - half} V{height - radius - half} a{radius - half} {radius - half} 0 0 0 {radius - half} {radius - half} '
-               f'H{seam}" fill="none" stroke="{menu_geometry.BROWSER_PANEL_BORDER}" stroke-width="{stroke}"/>')
+def joint_svg(chosen):
+    g = menu_geometry
+    return svg(g.BROWSER_JOINT_WIDTH, g.BROWSER_DETAIL_HEIGHT,
+               f'<path d="{joined_outline_path(chosen)}" fill="{PANEL_FILL}" '
+               f'fill-opacity="{g.BROWSER_PANEL_FILL_OPACITY}" stroke="{g.BROWSER_PANEL_BORDER}" '
+               f'stroke-width="{g.BROWSER_BORDER}" stroke-linejoin="round"/>')
 
 
 def generate(output, icons):
@@ -94,11 +112,11 @@ def generate(output, icons):
     # are one shape. The art is ROW_ART_WIDTH wide, the tab itself ROW_TAB_WIDTH of it.
     height, radius, stroke = ROW_HEIGHT, 7, menu_geometry.BROWSER_BORDER
     half = stroke / 2
-    seam = menu_geometry.BROWSER_SEAM
     draw("row__0", ROW_ART_WIDTH, height, svg(ROW_ART_WIDTH, height,
          f'<rect x="{half}" y="{half}" width="{ROW_TAB_WIDTH - stroke}" height="{height - stroke}" rx="{radius}" '
          f'fill="#0a2245" stroke="#1f5fae" stroke-width="{stroke}"/>'))
-    draw("row__1", ROW_ART_WIDTH, ROW_HEIGHT, chosen_row_svg())
+    # (the chosen game's tab is drawn by its joint, with the panel: this frame draws nothing)
+    draw("row__1", ROW_ART_WIDTH, ROW_HEIGHT, svg(ROW_ART_WIDTH, ROW_HEIGHT, ""))
 
     # Four states let code distinguish focus from the selected type chip.
     states = (("none", "#1f5fae"), ("#12396e", "#7fc4ff"),
@@ -111,7 +129,9 @@ def generate(output, icons):
 
     # (transparent, so 1x: thirty preview frames fall back to it, and at 4x they cost the Apple TV HD about 90 MB)
     draw("preview_none", 310, 155, svg(310, 155, ""), scale=1)
-    draw("detail", 312, 273, detail_panel_svg())
+    for chosen in (*range(menu_geometry.BROWSER_ROWS), None):
+        draw(f"joint__{'none' if chosen is None else chosen}", menu_geometry.BROWSER_JOINT_WIDTH,
+             menu_geometry.BROWSER_DETAIL_HEIGHT, joint_svg(chosen))
     draw("big", 294, 20, rounded(294, 20, "#e8b520", radius=3))
     # The detail panel's password pill (HUD blue)
     draw("badge__0", 120, 18, rounded(120, 18, "none", "#1f5fae", radius=3))
