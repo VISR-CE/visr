@@ -116,6 +116,33 @@ def test_helper_removes_its_folder_however_the_program_ends(program, tmp_path, e
     assert list(tmp_path.iterdir()) == []
 
 
+def test_keep_test_tmp_leaves_the_folder_for_debugging(program, tmp_path):
+    environment = {"TMPDIR": str(tmp_path), "PATH": "/usr/bin:/bin", "KEEP_TEST_TMP": "1"}
+    subprocess.run([str(program), "return"], env=environment, check=True)
+    assert len(list(tmp_path.iterdir())) == 1
+
+
+def test_a_real_probe_leaves_nothing_in_its_temp_root(tmp_path):
+    """The class check on a real probe, built the way ios_test.py builds it: its folders are gone after it ends."""
+    binary = tmp_path / "config-probe"
+    root = tmp_path / "root"
+    root.mkdir()
+    try:
+        flags = subprocess.check_output(["pkg-config", "--cflags", "--libs", "sdl3"], text=True).split()
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip("sdl3 is not installed")
+    build = subprocess.run([shutil.which("clang") or "cc", "-O2", "-Wl,-dead_strip", "-DHALO_ILP32=1", "-I" + str(ROOT / "port/linux/src"),
+                            "-I" + str(ROOT / "port/third_party/tomlc17"), str(ROOT / "port/ios/tests/config_probe.c"),
+                            *flags, "-o", str(binary)], capture_output=True, text=True)
+    assert build.returncode == 0, build.stderr[-500:]
+    environment = {"TMPDIR": str(root), "PATH": "/usr/bin:/bin"}
+    run = subprocess.run([str(binary)], env=environment, capture_output=True, cwd=ROOT)
+    assert run.returncode == 0, run.stderr
+    assert list(root.iterdir()) == []
+    subprocess.run([str(binary)], env={**environment, "KEEP_TEST_TMP": "1"}, capture_output=True, cwd=ROOT, check=True)
+    assert list(root.iterdir()) != []   # negative control: the folder the probe made is visible when kept
+
+
 @pytest.mark.parametrize("language", ["c", "c++", "objective-c"])
 def test_helper_compiles_as_every_language_the_tests_use(tmp_path, language):
     source = tmp_path / "probe.c"

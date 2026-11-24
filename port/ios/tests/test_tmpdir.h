@@ -1,5 +1,5 @@
 /* Temporary folders for native test programs: made under $TMPDIR (/tmp when it is unset) and removed when the
-program ends, whether it returns, calls exit (a failed CHECK) or aborts (a failed assert). A test that made its own
+program ends (unless KEEP_TEST_TMP is set, for debugging), whether it returns, calls exit (a failed CHECK) or aborts (a failed assert). A test that made its own
 folder under a hard-coded /tmp path and removed it only on the success path left one behind per failed or aborted
 run. tools/test_harness_tmp_clean.py refuses any test source that makes a folder another way. */
 #ifndef TEST_TMPDIR_H
@@ -52,6 +52,8 @@ static void test_tmpdir_cleanup(void)
 	int index;
 
 	if (getpid() != test_tmpdir_owner)
+		return;
+	if (getenv("KEEP_TEST_TMP") && *getenv("KEEP_TEST_TMP"))   /* debugging: leave the folders for inspection */
 		return;
 	for (index = 0; index < test_tmpdir_count; index++)
 		test_tmpdir_remove(test_tmpdir_made[index]);
