@@ -37,6 +37,7 @@ int config_boolean(const char *name); /* port/linux/src/port_config.c */
 
 #include <xtl.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -76,8 +77,27 @@ struct traced_part
 	void const *triangle_hardware;
 	boolean palette;
 	boolean valid;
+	byte left_out; /* why it is not valid (TRACED_LEFT_OUT_*) */
 	unsigned short id;
 };
+
+/* why a draw, a part or a shadow was left out (traced_left_out) */
+enum
+{
+	TRACED_LEFT_OUT_NO_NODES,
+	TRACED_LEFT_OUT_VERTEX_TYPE,
+	TRACED_LEFT_OUT_TRIANGLE_TYPE,
+	TRACED_LEFT_OUT_PART_SIZE,
+	TRACED_LEFT_OUT_PART_BYTES,
+	TRACED_LEFT_OUT_PART_EMPTY,
+	TRACED_LEFT_OUT_PART_TABLE,
+	TRACED_LEFT_OUT_SHAPE,
+	TRACED_LEFT_OUT_SHADOW_EMPTY,
+	TRACED_LEFT_OUT_SHADOW_LIMIT,
+	TRACED_LEFT_OUT_REASONS
+};
+
+void platform_log(const char *format, ...);
 
 static struct
 {
@@ -103,7 +123,40 @@ static struct
 	/* the level's surfaces, as last sent */
 	struct structure_bsp *world_bsp;
 	void const *world_first_vertices;
+	/* what was left out since the last log line, by reason (traced_left_out) */
+	unsigned long left_out[TRACED_LEFT_OUT_REASONS], frames;
 } traced;
+
+/* Nothing a shadow leaves out is silent: a shadow without a caster has its apply draws dropped by the backend, so it
+is missing from the picture. Each reason is counted and logged every 600 traced frames in which any occurred. */
+static void traced_left_out(
+	long reason)
+{
+	traced.left_out[reason]++;
+}
+
+static void traced_left_out_log(
+	void)
+{
+	static char const *const names[TRACED_LEFT_OUT_REASONS] = { "draws without node matrices", "parts of another vertex type",
+		"parts of another triangle type", "parts too large or past the part limit", "parts whose buffers cannot be read",
+		"parts with no triangles", "part table full", "models past a shadow's shape or pose limit", "shadows with no parts",
+		"shadows past the frame's limit" };
+	char text[512];
+	long reason, at = 0;
+
+	if (++traced.frames < 600)
+		return;
+	traced.frames = 0;
+	for (reason = 0; reason < TRACED_LEFT_OUT_REASONS; reason++)
+	{
+		if (traced.left_out[reason] && at < (long)sizeof(text) - 80)
+			at += snprintf(text + at, sizeof(text) - at, "%s%lu %s", at ? ", " : "", traced.left_out[reason], names[reason]);
+		traced.left_out[reason] = 0;
+	}
+	if (at)
+		platform_log("traced shadows: left out in 600 frames: %s", text);
+}
 
 void traced_shadow_casters_new_map(
 	void)
@@ -206,6 +259,7 @@ boolean traced_shadow_casters_window_begin(
 	{
 		traced.frame = rasterizer_globals.fps_accumulation_frame_index;
 		traced.next_id = 0;
+		traced_left_out_log();
 	}
 	if (!traced.reset_sent)
 	{
@@ -250,16 +304,23 @@ static boolean part_send(
 	else if (vertex_buffer->type == _rasterizer_vertex_type_model_uncompressed)
 		stride = sizeof(struct model_vertex_uncompressed);
 	else
+	{
+		part->left_out = TRACED_LEFT_OUT_VERTEX_TYPE;
 		return FALSE;
+	}
 	if (triangle_buffer->type == _triangle_buffer_type_precompiled_strip)
 		index_count = triangle_buffer->count + 2;
 	else if (triangle_buffer->type == _triangle_buffer_type_triangles)
 		index_count = triangle_buffer->count * 3;
 	else
+	{
+		part->left_out = TRACED_LEFT_OUT_TRIANGLE_TYPE;
 		return FALSE;
+	}
 	if (vertex_buffer->count <= 0 || triangle_buffer->count <= 0 || vertex_buffer->count > TRACED_SHADOWS_PART_VERTICES ||
 		traced.part_count >= TRACED_SHADOWS_PARTS)
 	{
+		part->left_out = TRACED_LEFT_OUT_PART_SIZE;
 		return FALSE;
 	}
 	/* (a model of more nodes than the constants hold: the part's vertices name its own nodes,
@@ -270,8 +331,13 @@ static boolean part_send(
 		((sizeof(unsigned short) * 3 * index_count + 3) & ~3ul);
 	record = malloc(size);
 	if (!record)
+	{
+		part->left_out = TRACED_LEFT_OUT_PART_BYTES;
 		return FALSE;
+	}
 	memset(record, 0, size);
+	/* (until it is sent: its buffers could not be read, or it has no triangle) */
+	part->left_out = TRACED_LEFT_OUT_PART_BYTES;
 	vertices = (byte const *)halo_vertex_buffer_bytes(vertex_buffer->hardware_format);
 	IDirect3DIndexBuffer8_Lock((IDirect3DIndexBuffer8 *)triangle_buffer->hardware_format, 0, 0, &indices, D3DLOCK_READONLY);
 	if (vertices && indices)
@@ -338,6 +404,7 @@ static boolean part_send(
 			triangles[triangle_count * 3 + 2] = c;
 			triangle_count++;
 		}
+		part->left_out = TRACED_LEFT_OUT_PART_EMPTY;
 		if (triangle_count)
 		{
 			record->epoch = (uint32_t)traced.epoch;
@@ -378,6 +445,8 @@ static struct traced_part *part_get(
 			part->vertex_hardware == vertex_buffer->hardware_format &&
 			part->triangle_hardware == triangle_buffer->hardware_format && part->palette == palette)
 		{
+			if (!part->valid)
+				traced_left_out(part->left_out);
 			return part->valid ? part : NULL;
 		}
 		if (!part->vertex_buffer)
@@ -388,9 +457,12 @@ static struct traced_part *part_get(
 			part->triangle_hardware = triangle_buffer->hardware_format;
 			part->palette = palette;
 			part->valid = part_send(part, triangle_buffer, vertex_buffer);
+			if (!part->valid)
+				traced_left_out(part->left_out);
 			return part->valid ? part : NULL;
 		}
 	}
+	traced_left_out(TRACED_LEFT_OUT_PART_TABLE);
 	return NULL;
 }
 
@@ -404,7 +476,10 @@ unsigned long traced_shadow_casters_begin(
 	if (!traced.pose)
 		traced.pose = malloc(sizeof(real_matrix4x3) * POSE_NODES);
 	if (!traced.shape || !traced.pose || traced.next_id >= TRACED_SHADOWS_SHADOWS)
+	{
+		traced_left_out(TRACED_LEFT_OUT_SHADOW_LIMIT);
 		return TRACED_SHADOW_NONE;
+	}
 	traced.generating = TRUE;
 	traced.id = traced.next_id++;
 	traced.object_index = object_index;
@@ -424,10 +499,13 @@ void traced_shadow_casters_part(
 {
 	struct traced_part *part;
 
-	if (!traced.generating || !skinning || !skinning->node_matrices || skinning->node_matrix_count <= 0 ||
+	if (!traced.generating)
+		return;
+	if (!skinning || !skinning->node_matrices || skinning->node_matrix_count <= 0 ||
 		skinning->node_matrix_count > 255 || !triangle_buffer || !vertex_buffer || !triangle_buffer->hardware_format ||
 		!vertex_buffer->hardware_format)
 	{
+		traced_left_out(TRACED_LEFT_OUT_NO_NODES);
 		return;
 	}
 	part = part_get(triangle_buffer, vertex_buffer, skinning->node_matrix_count >= RASTERIZER_MAXIMUM_NODES_PER_MODEL);
@@ -437,7 +515,10 @@ void traced_shadow_casters_part(
 	if (skinning->node_matrices != traced.model_matrices || skinning->node_matrix_count != traced.model_matrix_count)
 	{
 		if (traced.shape_words + 3 > SHAPE_WORDS || traced.pose_nodes + skinning->node_matrix_count > POSE_NODES)
+		{
+			traced_left_out(TRACED_LEFT_OUT_SHAPE);
 			return;
+		}
 		traced.model_matrices = skinning->node_matrices;
 		traced.model_matrix_count = skinning->node_matrix_count;
 		traced.model_at = traced.shape_words;
@@ -449,7 +530,10 @@ void traced_shadow_casters_part(
 		traced.model_count++;
 	}
 	if (traced.shape_words >= SHAPE_WORDS)
+	{
+		traced_left_out(TRACED_LEFT_OUT_SHAPE);
 		return;
+	}
 	traced.shape[traced.shape_words++] = part->id;
 	traced.shape[traced.model_at + 1]++;
 }
@@ -466,7 +550,10 @@ void traced_shadow_casters_end(
 	shape_size = sizeof(uint32_t) * traced.shape_words;
 	pose_size = sizeof(real_matrix4x3) * traced.pose_nodes;
 	if (!traced.model_count || !(record = malloc(sizeof(*record) + shape_size + pose_size)))
+	{
+		traced_left_out(TRACED_LEFT_OUT_SHADOW_EMPTY);
 		return;
+	}
 	record->epoch = (uint32_t)traced.epoch;
 	record->object = (uint32_t)traced.object_index;
 	record->model_count = (uint32_t)traced.model_count;
