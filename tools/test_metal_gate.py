@@ -62,7 +62,7 @@ def apple_table():
 
 CAPABILITY_CHECK = re.compile(r"supportsFamily[:(]|supportsBCTextureCompression|supports32BitFloatFiltering|"
                               r"supportsRasterizationRateMapWithLayerCount:|supportsCounterSampling:|"
-                              r"MTLFXSpatialScalerDescriptor supportsDevice:")
+                              r"MTLFXSpatialScalerDescriptor supportsDevice:|supportsRaytracing")
 
 
 def raw_capability_checks(source):
@@ -169,6 +169,7 @@ class MetalGateTests(unittest.TestCase):
                      "if (![device supportsRasterizationRateMapWithLayerCount:1])",
                      "mode = [device supportsCounterSampling:MTLCounterSamplingPointAtDrawBoundary];",
                      "if (![MTLFXSpatialScalerDescriptor supportsDevice:device] ||",
+                     "capable = [device supportsRaytracing] && [device supportsRaytracingFromRender];",
                      "let ok = device.supportsFamily(.apple7)"):
             with self.subTest(line=line):
                 self.assertEqual(len(raw_capability_checks("int a;\n" + line + "\n")), 1)

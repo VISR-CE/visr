@@ -92,7 +92,7 @@ MetalFX frame interpolation	5	features
 MetalFX denoised upscaling	9	features	
 Fast resource loading	2	features	
 Ray tracing in compute pipelines	6	features	
-Ray tracing in render pipelines	6	features	
+Ray tracing in render pipelines	6	features	RAYTRACING_RENDER
 Floating-point atomics	7	features	
 Texture atomics	6	features	
 64-bit atomics	9	features	

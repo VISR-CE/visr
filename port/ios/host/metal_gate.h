@@ -33,7 +33,8 @@ GPUs); every other query can only turn a feature off. */
 	X(RATE_MAP, 0) \
 	X(METALFX_SPATIAL, 0) \
 	X(COUNTERS_STAGE, 0) \
-	X(COUNTERS_DRAW, 0)
+	X(COUNTERS_DRAW, 0) \
+	X(RAYTRACING_RENDER, 0)
 
 /* (name, first Apple family, on Macs, runtime query or NONE, edition) */
 #define METAL_FEATURES(X) \
@@ -60,7 +61,8 @@ GPUs); every other query can only turn a feature off. */
 	X(ASTC_TEXTURES, 2, 0, NONE, 20261023) \
 	X(FLOAT32_FILTERING, 9, 1, FLOAT32_FILTER, 20261023) \
 	X(COUNTER_SAMPLING_STAGE, 2, 1, COUNTERS_STAGE, 20261023) \
-	X(COUNTER_SAMPLING_DRAW, 2, 1, COUNTERS_DRAW, 20261023)
+	X(COUNTER_SAMPLING_DRAW, 2, 1, COUNTERS_DRAW, 20261023) \
+	X(RAYTRACING_RENDER, 6, 1, RAYTRACING_RENDER, 20261023)
 
 /* Limits that vary by family: (name, Apple2, Apple3, ..., Apple11, Macs without an Apple family). A family below
 Apple2 (a simulator that reports none) takes Apple2's. */
@@ -86,7 +88,10 @@ resolve calls read it).
 Soft particles: the A8 (Apple TV HD) faults its GPU on the pass's compute dispatch whatever the kernel reads
 (known-bugs, Nov 21, 2026), and the A10X iPad Pro (Apple3) had failed command buffers in 11 of 24 latency-lane arms
 with the pass on and none in 24 arms with it off (Nov 22), so the floor is Apple4. No fleet device of Apple4 (A11) has
-run it; the Apple7 Air 4 (A14) is the fleet device that confirms it runs clean above the floor. */
+run it; the Apple7 Air 4 (A14) is the fleet device that confirms it runs clean above the floor.
+Traced shadows: Metal traces rays in render pipelines from Apple6, but only Apple9 and later GPUs (A17 Pro, M3) have
+hardware for it; earlier ones run the same API in software at about a quarter of the speed, so the floor is Apple9 and
+they keep the shadow maps. No fleet device of Apple9 or later has run it; the M3 and M6 Macs have. */
 #define METAL_PASSES(X) \
 	X(SOFT_PARTICLES, METAL_NEEDS(STENCIL_TEXTURE_VIEWS), METAL_BLOCKED_BY(COMPUTE_DISPATCH_FAULT), 4, \
 		METAL_FLOOR_DOCUMENTED, 1, "soft particles", "hard particle edges") \
@@ -101,7 +106,9 @@ run it; the Apple7 Air 4 (A14) is the fleet device that confirms it runs clean a
 	X(RATE_MAP, METAL_NEEDS(RASTERIZATION_RATE_MAPS), 0, 6, METAL_FLOOR_DOCUMENTED, 1, \
 		"rate map test", "no rate map") \
 	X(STEREO_HUD_DEPTH, METAL_NEEDS(SIMD_REDUCTIONS), 0, 7, METAL_FLOOR_DOCUMENTED, 1, \
-		"stereo HUD depth", "the HUD rests at its distance")
+		"stereo HUD depth", "the HUD rests at its distance") \
+	X(TRACED_SHADOWS, METAL_NEEDS(RAYTRACING_RENDER), 0, 9, METAL_FLOOR_DOCUMENTED, 1, \
+		"traced object shadows", "shadow maps")
 
 enum metal_query
 {
