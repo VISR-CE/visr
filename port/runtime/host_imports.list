@@ -170,6 +170,7 @@ host_external_mode_label
 host_dynamic_resolution_lines
 host_dynamic_resolution_scene
 host_frames_in_flight_scene
+host_encode_thread_scene
 
 host_touch_replay_active
 host_memory_pressure_poll

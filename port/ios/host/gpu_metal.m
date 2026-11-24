@@ -2211,7 +2211,7 @@ static void producer_streams_initialize(void)
 		.grow = producer_grow, .completed = producer_completed, .wait = producer_wait, .log = producer_log,
 		.unstamped = producer_unstamped, .lead = PRODUCER_LEAD,
 	};
-	unsigned set, index, sets = gpu_stream_ring_set_count(FRAMES, PRODUCER_LEAD, host_gpu_encode_queue_on());
+	unsigned set, index, sets = gpu_stream_ring_set_count(FRAMES, PRODUCER_LEAD, host_gpu_encode_queue_possible());
 
 	for (set = 0; set < sets; set++)
 		for (index = 0; index < GPU_STREAM_RING_CHUNKS; index++)

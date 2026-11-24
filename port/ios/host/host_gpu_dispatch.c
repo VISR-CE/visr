@@ -18,6 +18,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_config.h"
 #include "gpu_call_hash.h"
 #include "host_frame_timeline.h"
+#include "host_frame_pacer.h"
 #include <pthread.h>
 #include "gpu_queue.h"
 #include "gpu_owner_check.h"
@@ -84,6 +85,13 @@ The interval is from one Present's return to the next's; the CPU time is the gam
 static int metal_backend;
 /* debug.encode_thread is not off (hash_and_queue_wrap) */
 static int encode_queue_on;
+/* the backend before the encode queue wrapped it (gpu_initialize): a map load's switch of the encode thread wraps it
+again (encode_queue_rewrap) */
+static const struct gpu_backend *queue_unwrapped;
+/* display.encode_thread as the game resolved it for the workload context in force (host_encode_thread_scene): -1 not
+told yet, 0 off, 1 thread; encode_queue_mode takes it over the base configuration's value unless debug.encode_thread is
+set. rewrap_pending: the next frame start applies it */
+static int scene_thread = -1, rewrap_pending, debug_encode_set;
 
 int host_gpu_metal_active(void)
 {
@@ -185,8 +193,16 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 
 /* the game reads the controllers next (halo_frame_start has returned, late start included): the frame timeline's
 controller read */
+static void encode_queue_rewrap(void);
+
 static void frame_start_wrapped(void)
 {
+	/* (between frames, on the game thread: a map load's change of workload context switches the encode thread here) */
+	if (rewrap_pending)
+	{
+		rewrap_pending = 0;
+		encode_queue_rewrap();
+	}
 	wrapped_backend->frame_start();
 	host_frame_timeline_controller_read();
 }
@@ -738,6 +754,11 @@ static int encode_queue_mode(int *timing)
 
 	host_config_string("debug.encode_thread", "", debug, sizeof(debug));
 	host_config_string("display.encode_thread", "off", display, sizeof(display));
+	debug_encode_set = debug[0] != 0;
+	/* (the workload context's value, once the game has told the host: a profile sets it for the variable workload alone,
+	which the base configuration read above does not see) */
+	if (!debug[0] && scene_thread >= 0)
+		snprintf(display, sizeof(display), "%s", scene_thread ? "thread" : "off");
 	mode = gpu_queue_mode_choose(debug, display, &from);
 	if (mode < 0)
 	{
@@ -764,6 +785,17 @@ static int encode_queue_mode(int *timing)
 int host_gpu_encode_queue_on(void)
 {
 	return encode_queue_on;
+}
+
+/* whether this build can run the encode queue at all: the Metal backend's stream ring keeps the extra set the queue needs
+whenever it can, since a map load may start the queue after the ring was made */
+int host_gpu_encode_queue_possible(void)
+{
+#if TARGET_OS_VISION || TARGET_OS_MACCATALYST
+	return 0;
+#else
+	return metal_backend;
+#endif
 }
 
 /* a development build stops at the first call from the wrong thread */
@@ -868,6 +900,45 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 	return call_hash_on ? gpu_call_hash_wrap(1, behind, call_hash_front) : behind;
 }
 
+/* the table the game's calls reach: the chosen backend (the encode queue's, when it is on) with the host's own steps
+around the present, the frame start and the frame context. In place, so a rewrap changes what the calls reach. */
+static void wrapped_install(const struct gpu_backend *chosen)
+{
+	wrapped_backend = chosen;
+	wrapped = *chosen;
+	wrapped.present = present_wrapped;
+	wrapped.present_stereo = present_stereo_wrapped;
+	wrapped.frame_start = frame_start_wrapped;
+	if (chosen->frame_context)
+		wrapped.frame_context = frame_context_wrapped;
+}
+
+/* A map load changed the workload context (host_encode_thread_scene) and the encode thread's mode in force is not the
+one it asks for: wrap the backend again (gpu_queue_wrap drains the queue, ends the old thread and starts the new one),
+with the pacer's frames in flight rule started again for the new mode. Frame boundary, game thread. debug.encode_thread,
+when set, decided the mode and a context does not change it. */
+static void encode_queue_rewrap(void)
+{
+	int was = encode_thread_on;
+
+	if (!metal_backend || !queue_unwrapped || debug_encode_set || scene_thread < 0 || (scene_thread == 1) == (was != 0))
+		return;
+	wrapped_install(hash_and_queue_wrap(queue_unwrapped, 1));
+	platform_log("display.encode_thread: %s for this workload context (a map load changed it)", encode_thread_on ? "thread" : "off");
+	frame_pacer_encode_mode_changed();
+}
+
+/* a guest import (guest_host.h), when the workload context, the scene class or the settings change: display.encode_thread as
+the game resolves it (1 thread, 0 off). The mode changes at the next frame start. */
+void host_encode_thread_scene(int thread)
+{
+	thread = thread ? 1 : 0;
+	if (scene_thread == thread)
+		return;
+	scene_thread = thread;
+	rewrap_pending = 1;
+}
+
 void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 {
 #if defined(HALO_METAL_ONLY)
@@ -890,14 +961,8 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 	backend = capture_wrap(backend, flags);
 #endif
 	metal_backend = TARGET_OS_VISION || (flags & GPU_INITIALIZE_METAL) ? 1 : 0;
-	backend = hash_and_queue_wrap(backend, metal_backend);
-	wrapped_backend = backend;
-	wrapped = *backend;
-	wrapped.present = present_wrapped;
-	wrapped.present_stereo = present_stereo_wrapped;
-	wrapped.frame_start = frame_start_wrapped;
-	if (backend->frame_context)
-		wrapped.frame_context = frame_context_wrapped;
+	queue_unwrapped = backend;
+	wrapped_install(hash_and_queue_wrap(backend, metal_backend));
 	backend = &wrapped;
 	host_frame_counter_stop();
 	presented = 0;

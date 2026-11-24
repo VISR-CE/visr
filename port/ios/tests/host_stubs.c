@@ -676,6 +676,8 @@ __attribute__((weak)) void host_frame_timeline_waits(double display_wait, double
 { }
 __attribute__((weak)) void host_frames_in_flight_scene(int at_30)
 { }
+__attribute__((weak)) void host_encode_thread_scene(int thread)
+{ }
 #if defined(__OBJC__)
 __attribute__((weak)) BOOL host_framings_validate_file(NSString *path)
 { fprintf(stderr, "host_stubs: probe called host_framings_validate_file without defining it\n"); abort(); }

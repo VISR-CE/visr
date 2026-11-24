@@ -131,7 +131,7 @@ refused(SCENE.replace("render_scale = 0.75", 'render_scale = 0.75\neffect_limits
 refused(VARIABLE.replace("shadow_map_size = 128\n", 'shadow_map_size = 128\neffect_limits = "half"\n', 1) + LIMITS, "effect_limits")
 # (every such setting is a variable-context setting; the app's validators read the same list: profile_probe.c and
 # config_origins_probe.c test what they do with it)
-assert profile_check.variable_only_keys() == {"display.effect_limits"} <= profile_check.variable_keys()
+assert profile_check.variable_only_keys() == {"display.effect_limits", "display.encode_thread"} <= profile_check.variable_keys()
 assert profile_check.variable_only_keys('PROFILE_VARIABLE("a.b")\nPROFILE_VARIABLE_ONLY("c.d")\n') == {"c.d"}
 assert profile_check.variable_keys('PROFILE_VARIABLE("a.b")\nPROFILE_VARIABLE_ONLY("c.d")\n') == {"a.b", "c.d"}
 refused(GOOD + "[split.2.display]\nrender_scale = 0.5\n", "split.2 is not a setting")

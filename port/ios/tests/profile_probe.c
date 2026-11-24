@@ -825,6 +825,20 @@ static void check_variable(void)
 	assert(host_profile_scene_value(&profile, "display.effect_limits", "variable", value, sizeof(value)) && !strcmp(value, "xbox"));
 	assert(!host_profile_scene_value(&profile, "display.effect_limits", "menu", value, sizeof(value)));
 	snprintf(path, sizeof(path), "%s/variable.toml", folder); unlink(path);
+	/* display.encode_thread is the other: a profile starts the encode thread for the variable workload alone, so the
+	single-player campaign keeps the setting's own value */
+	write_file("variable.toml", "schema = 1\nname = \"Variable\"\nkind = \"model\"\n[match]\nplatform = \"ios\"\n"
+		"models = [\"Variable1,1\"]\n[display]\nrender_height = 1080\nencode_thread = \"thread\"\n"
+		"[variable.display]\nencode_thread = \"thread\"\n");
+	logged[0] = 0;
+	profile = resolve(folder, device("ios", "Variable1,1", "", 5), NULL, "");
+	host_profile_encode(&profile, encoded, sizeof(encoded));
+	assert(strstr(encoded, "display.encode_thread\tthread\tmodel Variable\tvariable\n"));
+	assert(!strstr(encoded, "display.encode_thread\tthread\tmodel Variable\n"));
+	assert(strstr(logged, "display.encode_thread can be set for the variable workload only; ignored"));
+	assert(!has(&profile, "display.encode_thread", "thread"));
+	assert(host_profile_scene_value(&profile, "display.encode_thread", "variable", value, sizeof(value)) && !strcmp(value, "thread"));
+	snprintf(path, sizeof(path), "%s/variable.toml", folder); unlink(path);
 }
 
 static void check_and_newer(void)

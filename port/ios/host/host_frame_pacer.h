@@ -92,6 +92,8 @@ int frame_pacer_in_flight(void);
 
 /* display.frames_in_flight_at_30 as the game resolves it: 1 or 2, 0 for none (host_frames_in_flight_scene) */
 void frame_pacer_in_flight_at_30_set(int at_30);
+/* the encode thread was switched between frames: the frames in flight rule starts again for the mode now in force */
+void frame_pacer_encode_mode_changed(void);
 
 /* a refresh of the display: its time and the display's refresh period, in
 seconds on the clock frame_pacer_presented's times use (CACurrentMediaTime's);
@@ -192,6 +194,10 @@ static inline void frame_pacer_start(int fixed_timestep)
 }
 
 static inline void frame_pacer_stop(void)
+{
+}
+
+static inline void frame_pacer_encode_mode_changed(void)
 {
 }
 

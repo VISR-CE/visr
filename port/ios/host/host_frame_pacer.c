@@ -189,6 +189,19 @@ void frame_pacer_in_flight_at_30_set(int at_30)
 	pthread_mutex_unlock(&pacer.lock);
 }
 
+/* The encode thread was switched on or off between frames (a map load changed the workload context): the frames in flight
+rule starts again for the mode now in force, as a restart does (the count of frames handed to the display goes on). */
+void frame_pacer_encode_mode_changed(void)
+{
+	int started;
+
+	pthread_mutex_lock(&pacer.lock);
+	started = pacer.started;
+	pthread_mutex_unlock(&pacer.lock);
+	if (started)
+		frame_pacer_start(0);
+}
+
 void frame_pacer_stop(void)
 {
 	pthread_mutex_lock(&pacer.lock);

@@ -24,12 +24,12 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # new table here.
 # Generation 2 had not shipped when PROFILE_VARIABLE was added (no release read it, no shard was signed), so its table
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
-# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic). 0.6.22, cut from
+# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic), and when display.encode_thread became a variable-workload setting. 0.6.22, cut from
 # the 0.6 line, reads device-profiles-6 (generation 4's keys and that one; tools/profile_pr.py, GENERATIONS).
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "4276494321176ad90ecf666779b7637276aaab3497a64ed0baf01d13dffbe99d"}
+                   5: "d7d0e0400a7b8f4b81c333c3ffbf5b4c8e4e1466f48465fdeab3fcc92229c4ba"}
 
 
 def key_table_sha256(text):

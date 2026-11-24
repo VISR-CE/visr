@@ -863,8 +863,10 @@ static const struct config_setting config_settings[] =
 		"Whether the Metal renderer's commands go through an encode thread.\n"
 		"\"off\" (default): the game thread calls the renderer. \"thread\": an encode\n"
 		"thread calls the renderer while the game thread goes on; each frame's\n"
-		"present waits for it. A device profile turns it on where it measures\n"
-		"better. debug.encode_thread overrides it. Needs the game thread; not on\n"
+		"present waits for it. A device profile turns it on for multiplayer and\n"
+		"the other variable workloads where it measures better; single-player\n"
+		"campaign keeps this setting, and a map's start switches the thread.\n"
+		"debug.encode_thread overrides it. Needs the game thread; not on\n"
 		"visionOS or Mac Catalyst." },
 	{ "display.frames_in_flight", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT", _environment_value, _platform_ios,
 		"How many frames the Metal renderer may have on their way to the display\n"

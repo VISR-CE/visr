@@ -197,15 +197,6 @@
           "default": "",
           "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" or \"2\", while the frame rate in force is 30 or lower (a 30 cap, a big multiplayer game held to 30, a scene class's 30). One frame in flight cuts the delay between the game and the screen by a third when a frame's CPU and GPU work together fit the 33 ms, and never raises display.frames_in_flight. Empty (default): display.frames_in_flight throughout. Not on a Vision Pro. Profile values outside the accepted set are refused, not clamped."
         },
-        "encode_thread": {
-          "type": "string",
-          "enum": [
-            "off",
-            "thread"
-          ],
-          "default": "off",
-          "description": "Whether the Metal renderer's commands go through an encode thread. \"off\" (default): the game thread calls the renderer. \"thread\": an encode thread calls the renderer while the game thread goes on; each frame's present waits for it. A device profile turns it on where it measures better. debug.encode_thread overrides it. Needs the game thread; not on visionOS or Mac Catalyst. Profile values outside the accepted set are refused, not clamped."
-        },
         "async_shaders": {
           "type": "string",
           "enum": [
@@ -634,6 +625,15 @@
               ],
               "default": "",
               "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" or \"2\", while the frame rate in force is 30 or lower (a 30 cap, a big multiplayer game held to 30, a scene class's 30). One frame in flight cuts the delay between the game and the screen by a third when a frame's CPU and GPU work together fit the 33 ms, and never raises display.frames_in_flight. Empty (default): display.frames_in_flight throughout. Not on a Vision Pro. Profile values outside the accepted set are refused, not clamped."
+            },
+            "encode_thread": {
+              "type": "string",
+              "enum": [
+                "off",
+                "thread"
+              ],
+              "default": "off",
+              "description": "Whether the Metal renderer's commands go through an encode thread. \"off\" (default): the game thread calls the renderer. \"thread\": an encode thread calls the renderer while the game thread goes on; each frame's present waits for it. A device profile turns it on for multiplayer and the other variable workloads where it measures better; single-player campaign keeps this setting, and a map's start switches the thread. debug.encode_thread overrides it. Needs the game thread; not on visionOS or Mac Catalyst. Profile values outside the accepted set are refused, not clamped."
             },
             "dynamic_resolution": {
               "type": "boolean",
@@ -2712,7 +2712,7 @@
             }
           ]
         },
-        "display.encode_thread": {
+        "variable.display.encode_thread": {
           "type": "object",
           "properties": {
             "basis": {

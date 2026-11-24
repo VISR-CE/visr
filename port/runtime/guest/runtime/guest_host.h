@@ -41,6 +41,8 @@ int host_dynamic_resolution_lines(int ceiling_lines);
 void host_dynamic_resolution_scene(int enabled, int floor_lines);
 /* the frames in flight in force while the frame rate is 30 or lower (port/ios/host/host_frame_pacer.c): 1 or 2, 0 for display.frames_in_flight's */
 void host_frames_in_flight_scene(int at_30);
+/* display.encode_thread in force for the workload context: 1 thread, 0 off; the host switches at the next frame start (port/ios/host/host_gpu_dispatch.c) */
+void host_encode_thread_scene(int thread);
 
 /* Only gameplay touch controls are suppressed; native dialogs remain interactive. */
 void host_touch_replay_active(int active);
