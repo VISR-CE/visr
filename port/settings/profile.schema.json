@@ -90,6 +90,13 @@
           "default": "half",
           "description": "The resolution of the 320x240 target the reflections in mirror floors and the active camouflage are drawn into: \"xbox\" keeps the Xbox's 320x240, \"half\" is half the screen's resolution each way, and \"full\" the screen's resolution (sharper; up to a whole second render of the scene's pixels where a mirror shows). Profile values outside the accepted set are refused, not clamped."
         },
+        "scene_precision": {
+          "type": "integer",
+          "minimum": 8.0,
+          "maximum": 16.0,
+          "default": 8,
+          "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Read at launch and at a graphics mode switch. Hardcore keeps 8 (display.graphics). Profile values outside the accepted set are refused, not clamped."
+        },
         "model_lod": {
           "type": "string",
           "enum": [
@@ -590,6 +597,13 @@
               ],
               "default": "raised",
               "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics). A device profile may set \"xbox\" for multiplayer and the other variable workloads on devices that big games overload. Profile values outside the accepted set are refused, not clamped."
+            },
+            "scene_precision": {
+              "type": "integer",
+              "minimum": 8.0,
+              "maximum": 16.0,
+              "default": 8,
+              "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Read at launch and at a graphics mode switch. Hardcore keeps 8 (display.graphics). Profile values outside the accepted set are refused, not clamped."
             },
             "anti_aliasing": {
               "type": "string",
@@ -1785,6 +1799,94 @@
           ]
         },
         "variable.display.effect_limits": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "display.scene_precision": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "variable.display.scene_precision": {
           "type": "object",
           "properties": {
             "basis": {

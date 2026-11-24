@@ -24,6 +24,7 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.shadow_minimum_size", PORT_PROFILE_HOT},
 		{"display.effect_resolution", PORT_PROFILE_LEVEL},
 		{"display.effect_limits", PORT_PROFILE_LEVEL}, /* the decal set is chosen as a map loads */
+		{"display.scene_precision", PORT_PROFILE_LEVEL}, /* the scene's color targets are remade when the value in force changes */
 		{"display.model_lod", PORT_PROFILE_HOT},
 		{"display.lod_scale", PORT_PROFILE_HOT},
 		{"display.compressed_textures", PORT_PROFILE_SESSION}, /* GPU initialization capability */

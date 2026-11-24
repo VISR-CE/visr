@@ -1695,7 +1695,8 @@ static BOOL scene_precision_wanted(void)
 		return scene_precision_live >= 16;
 	if (*format)
 		return strcmp(format, "bgra8") != 0;
-	return config_integer("display.scene_precision") >= 16;
+	/* (the value in force for gameplay: a profile's [variable.display] may give multiplayer another one) */
+	return config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) >= 16;
 }
 
 static BOOL scene_precision_current, scene_precision_known;

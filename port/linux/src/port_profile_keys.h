@@ -89,6 +89,11 @@ PROFILE_INTEGER("display.shadow_map_size", 128, 1024)
 PROFILE_INTEGER("display.shadow_minimum_size", 0, 240)
 PROFILE_STRING("display.effect_resolution", "xbox|half|full")
 PROFILE_STRING("display.effect_limits", "raised|xbox")
+/* the scene's color targets at 8 or 16 bits a channel: 16 on a device where a measured pair showed the tier held, the
+lines unchanged and the GPU margin kept. Its own value is the campaign's; [variable.display] may keep 8 for multiplayer
+and the other variable workloads until they are measured. The renderer remakes the targets when the value in force
+changes (scene_precision_frame), so a map load may switch it. Values between 8 and 16 act as 8. */
+PROFILE_INTEGER("display.scene_precision", 8, 16)
 PROFILE_STRING("display.model_lod", "max|auto")
 PROFILE_REAL("display.lod_scale", 0.5, 4.0)
 PROFILE_BOOLEAN("display.compressed_textures")
@@ -127,6 +132,7 @@ PROFILE_VARIABLE("display.frames_in_flight_at_30")
 PROFILE_VARIABLE("display.render_height")
 PROFILE_VARIABLE("display.render_scale")
 PROFILE_VARIABLE("display.anti_aliasing")
+PROFILE_VARIABLE("display.scene_precision")
 PROFILE_VARIABLE("display.shadow_map_size")
 PROFILE_VARIABLE("display.dynamic_resolution")
 PROFILE_VARIABLE("display.dynamic_resolution_floor")
