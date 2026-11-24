@@ -694,6 +694,7 @@ long ui_redraw_touch_target_units(void);
 #include "halo_menu_row.h" /* port: runtime settings control policy */
 #include "halo_menu_dropdown.h"
 #include "halo_menu_slider.h"
+#include "halo_menu_focus.h" /* port: the links a focus change must keep */
 #include "halo_controller_glyphs.h"
 #include "menu_geometry.h"
 #include "halo_menu_meta.h"
@@ -2998,13 +2999,44 @@ static struct widget_instance *widget_instance_find_by_tag_index_recursive(
 	return result;
 }
 
+/* port: the focus rule shared with its probe (halo_menu_focus.h): the links inside a list item, an option row's to its
+spinner, are the row's own and survive the focus moving away */
+#define UI_WIDGET_IS_LIST(node) \
+	((node)->type == _ui_widget_type_spinner_list || (node)->type == _ui_widget_type_column_list)
+HALO_MENU_FOCUS_DEFINE(ui_focus, struct widget_instance, UI_WIDGET_IS_LIST)
+
+/* port: the rule checked where it shows: a drawn list item that sends its events to its focused child and has none,
+with a child that could take them. Logged once for a widget, as "menus: focus invariant broken <name>", which the
+capture tools fail a run on, so every sweep tests every screen it opens
+on every input */
+static void ui_focus_check_item(
+	struct widget_instance *item)
+{
+	extern void platform_log(char const *, ...);
+	static long reported[16];
+	static int reported_count;
+	struct widget_instance *child;
+	int index, has_event_child = 0;
+
+	if (!ui_focus_is_list_item(item) || item->focused_child || !item->visible || item->disabled)
+		return;
+	for (child = item->child; child && !has_event_child; child = child->next)
+		has_event_child = child->visible && widget_instance_can_handle_events(child);
+	if (!ui_focus_item_lost_focus(item, TEST_FLAG(ui_widget_definition_get(item->definition_tag_index)->flags,
+			_widget_pass_unhandled_events_to_children_bit), has_event_child))
+		return;
+	for (index = 0; index < reported_count; index++)
+		if (reported[index] == item->definition_tag_index)
+			return;
+	if (reported_count < (int)NUMBEROF(reported))
+		reported[reported_count++] = item->definition_tag_index;
+	platform_log("menus: focus invariant broken %s", item->name ? item->name : "?");
+}
+
 static void widget_instance_give_focus_directly(
 	struct widget_instance *widget,
 	struct widget_instance *new_focus)
 {
-	struct widget_instance *focused_child =
-		widget_instance_get_topmost_parent(widget)->focused_child;
-
 	if (new_focus->disabled == TRUE)
 	{
 		struct widget_instance *substitute;
@@ -3033,27 +3065,11 @@ static void widget_instance_give_focus_directly(
 		if (substitute)
 			new_focus = substitute;
 	}
-	if (focused_child)
-	{
-		if (new_focus &&
-			focused_child->parent == new_focus->parent &&
-			focused_child->parent)
-		{
-			new_focus->parent->focused_child = new_focus;
-
-			return;
-		}
-		while (focused_child)
-		{
-			focused_child->parent->focused_child = NULL;
-			focused_child = focused_child->focused_child;
-		}
-	}
-	while (new_focus->parent)
-	{
-		new_focus->parent->focused_child = new_focus;
-		new_focus = new_focus->parent;
-	}
+	/* port: the game's focus change, from halo_menu_focus.h, where its probe runs it: the old chain's links are
+	cleared as the game cleared them, except those inside a list item. Every input's focus change comes through
+	here (the pointer, a list's item steps, a handler's focus), and the game's own loop left each option row the
+	focus moved off without its spinner */
+	ui_focus_give(widget_instance_get_topmost_parent(widget), new_focus);
 
 	return;
 }
@@ -10209,6 +10225,7 @@ static void widget_instance_render_recursive(
 			use_nifty_plasma_fx = focus &&
 				(widget->type == _ui_widget_type_spinner_list ||
 				widget->type == _ui_widget_type_column_list);
+			ui_focus_check_item(child);
 			widget_instance_render_recursive(
 				child,
 				clip_rect,
