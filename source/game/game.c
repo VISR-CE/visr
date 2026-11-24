@@ -959,6 +959,13 @@ void game_precache_new_map(
 {
 	long map_status;
 
+	/* port: every map load starts here, before the old map is disposed and
+	unloaded. A movie still playing (the startup intro, under a join link or
+	an init.txt map_name) holds the texture cache's stolen memory, which the
+	precache takes again (xbox_texture_cache.c), and scenario_unload asserts
+	that no movie plays: end it first, without its return to the main menu */
+	bink_playback_stop_for_map_change();
+
 	if (!cache_files_precache_map_loaded(map_name))
 	{
 		if (cache_files_precache_in_progress() &&

@@ -34,6 +34,7 @@ boolean bink_playback_ui_rendering_inhibited(void);
 boolean bink_playback_in_progress(void);
 void bink_playback_initialize(void);
 void bink_playback_stop(void);
+void bink_playback_stop_for_map_change(void);
 void bink_playback_dispose(void);
 void bink_playback_render(void);
 void bink_playback_start(const char *full_pathname, unsigned long flags);
