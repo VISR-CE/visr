@@ -2213,12 +2213,23 @@ def test_browser_tab_and_panel_are_one_joined_outline_with_one_fill():
     left a stray arc beside a first or last tab, the tab and the panel filled differently). One path draws the panel
     with the chosen tab merged in, for each visible row, and one translucent fill covers it: pixel checks on the
     committed art at the seam, at the corners the first and last tabs share, and on the fill."""
-    from PIL import Image
+    import mac_run  # (reads the PNG with the standard library: the CI environment has no Pillow)
     import menu_geometry as g
     px = 4
 
+    class Art:
+        def __init__(self, name):
+            data = (ROOT / 'port/assets/menus/xbox/art/browser' / f'joint__{name}.png').read_bytes()
+            self.size = mac_run.read_png(data)[:2]
+            self.bgra = mac_run.read_png(data)[2]
+
+        def getpixel(self, point):
+            offset = (point[1] * self.size[0] + point[0]) * 4
+            blue, green, red, alpha = self.bgra[offset:offset + 4]
+            return (red, green, blue, alpha)
+
     def art(name):
-        return Image.open(ROOT / 'port/assets/menus/xbox/art/browser' / f'joint__{name}.png').convert('RGBA')
+        return Art(name)
 
     def at(image, x, y):  # menu units
         return image.getpixel((round(x * px), round(y * px)))
