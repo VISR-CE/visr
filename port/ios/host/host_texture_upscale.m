@@ -984,6 +984,8 @@ static void stop_for_gameplay(const char *why) {
 }
 /* Re-reads whether the work may run now (activity), and resumes it if so. */
 static void resume_if_allowed(void) {
+    /* (a resume already pending when the generator turned off mid-launch, host_texture_measured_run_began: nothing to resume) */
+    if(!upscale_enabled)return;
     BOOL may;double wait;
     @synchronized(activity_token){may=texture_upscale_activity_may_run(&activity,now());wait=texture_upscale_activity_wait(&activity,now());}
     if(may){set_stop(NO);schedule_pump();return;}

@@ -116,7 +116,8 @@ static void note(struct walk *w, uint64_t hash, uint32_t width, uint32_t height,
 
 static int repair_texture(void *context, const struct host_texture_source *s) {
     struct walk *w = context;
-    if (atomic_load(&stop_requested) || atomic_load(&playing)) { w->stopped = YES; return 0; }
+    /* (off now, too: a measured run that began mid-pass, whatever cleared the stop since) */
+    if (atomic_load(&stop_requested) || atomic_load(&playing) || !atomic_load(&enabled_now)) { w->stopped = YES; return 0; }
     if (!texture_repair_applies(s->format, s->width, s->height)) return 1;
     NSString *key = key_of(s->hash, s->width, s->height);
     if (records[key]) return 1;
@@ -181,7 +182,7 @@ static void background_pass(void) {
         NSMutableArray<NSString *> *paths = [NSMutableArray new];
         host_texture_source_scan(data_root.fileSystemRepresentation, collect, (__bridge void *)paths);
         for (NSString *path in paths) {
-            if (atomic_load(&playing) || atomic_load(&stop_requested)) break;
+            if (atomic_load(&playing) || atomic_load(&stop_requested) || !atomic_load(&enabled_now)) break;
             if (map_level(path) == MAP_COMPLETE) continue;
             process_map(path, 0);
         }
