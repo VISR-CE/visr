@@ -280,8 +280,7 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ],
-          "x-tier": "tuning"
+          ]
         },
         "effect_limits": {
           "type": "string",

@@ -786,7 +786,8 @@ static void check_variable_only(void)
 
 /* display.scene_precision, a profile key for both workloads (port_profile_keys.h): the renderer reads the gameplay value
 in force (config_scene_integer, d3d8_device.c scene_precision_wanted), so the profile's own 16 holds in the predictable
-workload, its variable 8 while a map is variable, Hardcore keeps 8 in both, and a value the player chose wins in both */
+workload, its variable 8 while a map is variable, and Hardcore keeps 8 in both (a chosen value winning in every
+workload is check_variable_only's and check_workload's) */
 static void check_scene_precision_workloads(void)
 {
 	fresh();
@@ -800,10 +801,12 @@ static void check_scene_precision_workloads(void)
 	assert(config_write("display.graphics", "hardcore"));
 	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 8);
 	assert(config_write("display.graphics", "enhanced"));
-	assert(config_write("display.scene_precision", "16"));
 	config_workload_set(1, "multiplayer map");
-	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 16);
+	assert(config_write("display.graphics", "hardcore"));
+	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 8);
+	assert(config_write("display.graphics", "enhanced"));
 	config_workload_set(0, "campaign");
+	assert(config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) == 16);
 }
 
 /* the workload context: [variable.display] under the scene classes while a map is variable, the profile's own

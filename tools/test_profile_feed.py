@@ -24,12 +24,12 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # new table here.
 # Generation 2 had not shipped when PROFILE_VARIABLE was added (no release read it, no shard was signed), so its table
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
-# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic), and when display.encode_thread became a variable-workload setting. 0.6.22, cut from
+# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic), when display.encode_thread became a variable-workload setting, and when display.scene_precision became a profile key. 0.6.22, cut from
 # the 0.6 line, reads device-profiles-6 (generation 4's keys and that one; tools/profile_pr.py, GENERATIONS).
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "d7d0e0400a7b8f4b81c333c3ffbf5b4c8e4e1466f48465fdeab3fcc92229c4ba"}
+                   5: "f831beba6c6d080351e8081164999169d87d75a6b46cc0cc2f3a3c410e11ae5e"}
 
 
 def key_table_sha256(text):
@@ -295,7 +295,8 @@ def test_every_profile_key_has_its_generations_recorded():
     assert known == KNOWN_TO_EVERY_GENERATION, (
         "port_profile_keys.h changed: record the new key in profile_pr.KEY_GENERATIONS (the generations that read it)")
     # 0.6.22's generation carries every key this branch adds except the portrait one
-    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait", "display.frames_in_flight_at_30", "display.encode_thread")
+    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait", "display.frames_in_flight_at_30", "display.encode_thread",
+                                                             "display.scene_precision")
     assert profile_pr.GENERATIONS[profile_pr.PROFILE_DOMAIN] == ()
 
 
