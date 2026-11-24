@@ -1221,7 +1221,7 @@ def filters_layout(root, widgets):
     title = screen.find(f"child[@widget='{base}/header_filters']")
     if title is not None:
         pass  # the standard title position
-    child(screen, base + '/browser_filter_status', x=310, y=48)
+    child(screen, base + '/browser_filter_status', x=310, y=48 + menu_geometry.BROWSER_CONTENT_SHIFT)
     widget(root, base + '/browser_filter_status', type='text', width=276, height=22,
            font=r'ui\small_ui', color='#7fc4ff', align='right')
     menu = widgets[base + '/options_menu']
@@ -1229,7 +1229,7 @@ def filters_layout(root, widgets):
         if c.get('widget') in (base + '/button_bar', base + '/op_games'):
             menu.remove(c)
     for index, key in enumerate(('sort', 'full', 'locked', 'unjoinable')):
-        menu.find(f"child[@widget='{base}/op_{key}']").attrib.update(x='54', y=str(73 + index * 58))
+        menu.find(f"child[@widget='{base}/op_{key}']").attrib.update(x='54', y=str(73 + menu_geometry.BROWSER_CONTENT_SHIFT + index * 58))
         row = widgets[base + '/op_' + key]
         row.attrib.update(width='532', height='54', bitmap='xbox/browser/option')
         row.find(f"child[@widget='{base}/{key}_spinner']").attrib.update(x='302', y='0')
@@ -1834,9 +1834,9 @@ def browser_layout(root, widgets, bitmaps):
     child(actions, base + '/join_game_items_list')
     # With no games the list area says why, as the Xbox's own empty list does.
     # Row-sized text, inset 36 units from both edges of the 294-wide list column, wrapping to a few lines.
-    child(screen, base + '/browser_list_status', x=36, y=112)
+    child(screen, base + '/browser_list_status', x=36, y=menu_geometry.BROWSER_PANEL_TOP + 2)
     widget(root, base + '/browser_list_status', type='text', width=222, height=66, font=r'ui\large_ui', color='#7fc4ff', text_flags='wrap')
-    child(screen, base + '/browser_list_hint', x=36, y=186)
+    child(screen, base + '/browser_list_hint', x=36, y=menu_geometry.BROWSER_PANEL_TOP + 76)
     widget(root, base + '/browser_list_hint', type='text', width=222, height=66, font=r'ui\large_ui', color='#2f73c4', text_flags='wrap')
     rows = widget(root, base + '/join_game_items_list', type='column_list', width=294, height=421,
                   visible_rows=6, flags='pass_unhandled_to_focused_child')
@@ -1845,7 +1845,7 @@ def browser_layout(root, widgets, bitmaps):
                        ('down', 'port browser rows down'), ('stick_down', 'port browser rows down')):
         ET.SubElement(rows, 'on', event=event, run=run)
     for index in range(6):
-        child(rows, base + f'/server_item_{index + 1}', x=menu_geometry.BROWSER_LIST_X, y=110 + index * menu_geometry.BROWSER_ROW_PITCH)
+        child(rows, base + f'/server_item_{index + 1}', x=menu_geometry.BROWSER_LIST_X, y=menu_geometry.BROWSER_PANEL_TOP + index * menu_geometry.BROWSER_ROW_PITCH)
         row = widget(root, base + f'/server_item_{index + 1}', width=menu_geometry.BROWSER_TAB_REACH, height=menu_geometry.BROWSER_ROW_HEIGHT,
                      bitmap='xbox/browser/c_row', color='#FFFFFF')
         ET.SubElement(row, 'on', event='a', run='gamespy select item')
@@ -1876,7 +1876,7 @@ def browser_layout(root, widgets, bitmaps):
             ('browser_chip_multiplayer', 'chip_multiplayer', 107, 144),
             ('browser_chip_coop', 'chip_coop', 256, 100),
             ('browser_filter', 'toggle', 442, 174)):
-        child(chips, base + '/' + leaf, x=x, y=50)
+        child(chips, base + '/' + leaf, x=x, y=50 + menu_geometry.BROWSER_CONTENT_SHIFT)
         chip = widget(root, base + '/' + leaf, width=width, height=54, bitmap='xbox/browser/' + art)
         ET.SubElement(chip, 'on', event='a', run='port browser filters open' if leaf == 'browser_filter' else 'port browser chip select')
         child(chip, base + '/' + leaf + '_label', y=29)
@@ -1889,12 +1889,12 @@ def browser_layout(root, widgets, bitmaps):
         widget(root, base + '/browser_joint_' + name, left=menu_geometry.BROWSER_LIST_X, top=menu_geometry.BROWSER_PANEL_TOP,
                width=menu_geometry.BROWSER_JOINT_WIDTH, height=menu_geometry.BROWSER_DETAIL_HEIGHT, bitmap='xbox/browser/joint_' + name)
         browser_bitmap(root, 'joint_' + name, menu_geometry.BROWSER_JOINT_WIDTH, menu_geometry.BROWSER_DETAIL_HEIGHT, ['joint__' + name])
-    detail = widget(root, base + '/browser_detail', type='column_list', left=menu_geometry.BROWSER_PANEL_LEFT, top=110, width=312, height=273,
+    detail = widget(root, base + '/browser_detail', type='column_list', left=menu_geometry.BROWSER_PANEL_LEFT, top=menu_geometry.BROWSER_PANEL_TOP, width=312, height=273,
                     flags='pass_unhandled_to_focused_child')
     for event in ('left', 'stick_left'):
         ET.SubElement(detail, 'on', event=event, run='port browser chips navigation')
     # A content container breaks focus inheritance so descriptive colors stay blue.
-    content = widget(root, base + '/browser_detail_content', left=menu_geometry.BROWSER_PANEL_LEFT, top=110, width=312, height=273,
+    content = widget(root, base + '/browser_detail_content', left=menu_geometry.BROWSER_PANEL_LEFT, top=menu_geometry.BROWSER_PANEL_TOP, width=312, height=273,
                      flags='no_focused_child')
     # Child coordinates are absolute menu coordinates: bounds do not offset children.
     for leaf, art, source, count in (

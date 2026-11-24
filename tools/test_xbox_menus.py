@@ -270,7 +270,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     assert len(rows) == 6
     assert widgets['join_game_items_list'].get('visible_rows') == '6'
     assert [(int(c.get('x')), int(c.get('y'))) for c in rows] == [
-        (24, 110 + 46 * i) for i in range(6)]
+        (24, __import__('menu_geometry').BROWSER_PANEL_TOP + 46 * i) for i in range(6)]
     bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
     for index in range(1, 7):
         row = widgets[f'server_item_{index}']
@@ -286,7 +286,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
         run = 'port browser filters open' if key == 'browser_filter' else 'port browser chip select'
         assert widgets[key].find('on[@event="a"][@run="%s"]' % run) is not None
     panel = widgets['browser_detail']
-    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('304', '110', '312', '273')
+    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('304', str(__import__('menu_geometry').BROWSER_PANEL_TOP), '312', '273')
     assert all(len(name.rsplit('/', 1)[-1]) <= 31 for name in widgets)
     assert widgets['browser_connection_status'].get('height') == '26'
     assert widgets['join_game_screen'].get('type') == 'column_list'
@@ -296,7 +296,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     content = widgets['browser_detail_content']
     assert content.get('flags') == 'no_focused_child'
     assert (content.get('left'), content.get('top'), content.get('width'), content.get('height')) == (
-        '304', '110', '312', '273')
+        '304', str(__import__('menu_geometry').BROWSER_PANEL_TOP), '312', '273')
     names = {c.get('widget').rsplit('/', 1)[-1] for c in content.findall('child')}
     assert {'lobby_map_pic', 'replay_level_right_pic', 'browser_connection_status',
             'browser_rules_label', 'browser_detail_rules', 'browser_detail_name'} <= names
@@ -595,7 +595,7 @@ def test_sort_filter_has_four_large_rows_reset_and_done():
     children = widgets['options_menu'].findall('child')
     assert [c.get('widget').rsplit('/', 1)[-1] for c in children] == [
         'op_sort', 'op_full', 'op_locked', 'op_unjoinable']
-    assert [int(c.get('y')) for c in children] == [73, 131, 189, 247]
+    assert [int(c.get('y')) for c in children] == [73 + (shift := __import__('menu_geometry').BROWSER_CONTENT_SHIFT) + 58 * i for i in range(4)]
     for c in children:
         assert widgets[c.get('widget').rsplit('/', 1)[-1]].get('height') == '54'
     for key in ('sort', 'full', 'locked', 'unjoinable'):
@@ -798,7 +798,8 @@ def test_filters_title_sits_with_the_other_titles_and_the_count_inside_the_panel
     # Both titles keep the standard position inside the shared content frame.
     assert placed['header_filters'] == (None, None)
     x, y = (int(v) for v in placed['browser_filter_status'])
-    assert 44 <= y and y + 22 <= 73  # below the band line, above the first option row
+    shift = __import__('menu_geometry').BROWSER_CONTENT_SHIFT
+    assert 44 + shift <= y and y + 22 <= 73 + shift  # below the band line, above the first option row
     assert x + 276 <= 586  # right-aligned to the option rows' edge
 
 
@@ -2333,3 +2334,49 @@ def test_browser_picture_texture_is_the_pictures_own_shape():
     assert w * g.BROWSER_PREVIEW_HEIGHT == h * g.BROWSER_PREVIEW_WIDTH
     header = (ROOT / 'port/linux/include/menu_geometry.h').read_text() if 'ROOT' in globals() else ''
     assert f'MENU_BROWSER_PICTURE_WIDTH' in header and str(w) in header
+
+
+def test_title_rule_leaves_the_discs_gap_under_the_capitals_on_every_generated_backdrop():
+    """Bug class: a generated backdrop drew its rule where the title's capitals end, so the descenders touched it (the
+    server browser, its filters). One constant places the rule: the capitals' bottom plus the disc's measured gap; every
+    generated backdrop art starts its rule on that row, and the content below starts a clear gap under it."""
+    import menu_geometry as g
+    import mac_run
+    assert g.TITLE_RULE_Y - g.TITLE_CAPS_BOTTOM == g.TITLE_RULE_GAP >= 5
+    for name in ('backdrop',):
+        data = (ROOT / 'port/assets/menus/xbox/art/browser' / f'{name}.png').read_bytes()
+        width, height, bgra = mac_run.read_png(data)
+        scale = height // 480
+        alpha = [bgra[(y * width) * 4 + 3] for y in range(height)]
+        first = next(y for y, a in enumerate(alpha) if a > 150)
+        assert first == g.TITLE_RULE_Y * scale, (name, first / scale, g.TITLE_RULE_Y)
+        assert not any(alpha[:first]), 'nothing is drawn above the rule'
+    _, widgets = browser_c_widgets()
+    chip_tops = {int(c.get('y')) for c in widgets['browser_chips'].findall('child')}
+    assert min(chip_tops) - 50 == g.BROWSER_CONTENT_SHIFT, 'the chips moved down with the rule'
+    assert g.BROWSER_PANEL_TOP - 110 == g.BROWSER_CONTENT_SHIFT, 'the rows and the panel moved with it'
+    assert g.BROWSER_PANEL_TOP + g.BROWSER_DETAIL_HEIGHT < g.RULE_Y, 'and still end above the bottom bar'
+
+
+def test_browser_map_picture_sits_inside_the_panel_outline_in_every_joint():
+    """Bug class: a picture placed by a hand-written offset overlapped the panel's outline stroke by a fraction of a
+    unit (the map picture sat one pixel high, over the top border). The picture's rect must lie wholly inside the
+    joined outline's interior: none of its edge pixels is a border pixel, in every joint art."""
+    import mac_run
+    import menu_geometry as g
+    px = 4
+    left, top = g.BROWSER_PREVIEW_X - g.BROWSER_LIST_X, g.BROWSER_PREVIEW_Y - g.BROWSER_PANEL_TOP
+    right, bottom = left + g.BROWSER_PREVIEW_WIDTH, top + g.BROWSER_PREVIEW_HEIGHT
+    assert top >= g.BROWSER_BORDER and g.BROWSER_JOINT_WIDTH - right >= g.BROWSER_BORDER
+    border = tuple(int(g.BROWSER_PANEL_BORDER[i:i + 2], 16) for i in (1, 3, 5))
+    for name in [*range(g.BROWSER_ROWS), 'none']:
+        data = (ROOT / 'port/assets/menus/xbox/art/browser' / f'joint__{name}.png').read_bytes()
+        width, height, bgra = mac_run.read_png(data)
+
+        def is_border(x, y):
+            b, gr, r, a = bgra[(y * width + x) * 4:(y * width + x) * 4 + 4]
+            return a > 200 and abs(r - border[0]) < 40 and abs(gr - border[1]) < 40 and abs(b - border[2]) < 40
+        for x in range(round(left * px), round(right * px)):
+            assert not is_border(x, round(top * px)) and not is_border(x, round(bottom * px) - 1), (name, x)
+        for y in range(round(top * px), round(bottom * px)):
+            assert not is_border(round(left * px), y) and not is_border(round(right * px) - 1, y), (name, y)

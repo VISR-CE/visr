@@ -11,7 +11,7 @@
 			<action slot="b" scope="back" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_bar_b.text" focus="true" />
 		</bar>
 		<data input="port browser filters update" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_filter_status" x="310" y="48" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_filter_status" x="310" y="53" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/browser/header_sort_filter">
 	</widget>
@@ -19,10 +19,10 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/options_menu" type="column_list" width="640" height="305" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/join_game/filters/help">
 		<data input="port settings help" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/op_sort" x="54" y="73" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/op_full" x="54" y="131" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/op_locked" x="54" y="189" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/op_unjoinable" x="54" y="247" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/op_sort" x="54" y="78" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/op_full" x="54" y="136" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/op_locked" x="54" y="194" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/op_unjoinable" x="54" y="252" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/button_ok" x="380" y="1" />

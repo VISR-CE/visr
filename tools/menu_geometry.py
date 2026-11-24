@@ -10,6 +10,7 @@ draws a row's dropdown chevron with them).
 """
 from __future__ import annotations
 
+import math
 import argparse
 from pathlib import Path
 import sys
@@ -95,6 +96,17 @@ BAR_SLOT_BOUNDS = bar_slots()
 # hide a drift. The server browser's rows are the approved mockup's (a list beside a detail panel); the legacy Direct
 # Link table keeps the disc's rows.
 _MP = 'xbox/main_menu/multiplayer_type_select'
+# The title's rule. The title picture is 64 units high at TITLE_TOP; its capitals stand 22 units tall from 33 units
+# down (ui_widget.c menu_title_icon), so they end at TITLE_CAPS_BOTTOM. The disc's screens (measured on the Direct IP
+# screen) leave TITLE_RULE_GAP units between the capitals and the rule under them. Every generated backdrop draws its
+# rule at TITLE_RULE_Y, and a screen's content starts TITLE_RULE_Y - TITLE_RULE_LEGACY below where it did when the
+# rule sat on the capitals (the server browser's and its filters'), BROWSER_CONTENT_SHIFT.
+TITLE_TOP = 11
+TITLE_CAPS_BOTTOM = TITLE_TOP + 33 + 22
+TITLE_RULE_GAP = 5
+TITLE_RULE_Y = TITLE_CAPS_BOTTOM + TITLE_RULE_GAP
+TITLE_RULE_LEGACY = 66  # where the rule was drawn before, touching the capitals
+BROWSER_CONTENT_SHIFT = TITLE_RULE_Y - TITLE_RULE_LEGACY
 BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT = 46, 43
 # The server browser's rows are tabs, as the gametype editor's: the tab (BROWSER_TAB_WIDTH wide) is outlined all around
 # and the chosen game's reaches BROWSER_TAB_REACH, over the detail panel's left border, in the panel's own fill, so
@@ -108,7 +120,7 @@ BROWSER_BORDER = 1.5  # the joined outline's stroke
 BROWSER_ROWS = 6
 BROWSER_TAB_WIDTH, BROWSER_TAB_REACH = 270, 282
 BROWSER_PANEL_WIDTH, BROWSER_PANEL_RADIUS, BROWSER_TAB_RADIUS = 312, 9, 7
-BROWSER_PANEL_TOP = 110
+BROWSER_PANEL_TOP = 110 + BROWSER_CONTENT_SHIFT
 BROWSER_JOINT_WIDTH = BROWSER_PANEL_LEFT - BROWSER_LIST_X + BROWSER_PANEL_WIDTH  # from the tab's left to the panel's right
 # The panel's fill is the menu's own translucent blue (the backdrop's opacity), so the animated scene shows through
 # the tab and the panel alike.
@@ -122,7 +134,10 @@ assert BROWSER_LIST_X + BROWSER_TAB_WIDTH < BROWSER_PANEL_LEFT < BROWSER_LIST_X 
 # The map's picture is the photo-mode frame, 2:1 and whole (its native shape: no crop), inset in the panel; the
 # server name and the gametype line sit over a darkened band (the scrim) along its foot, the gametype's silhouette
 # over its top right; the rules and the host follow it, then the room for the explainer and the password pill.
-BROWSER_PREVIEW_X, BROWSER_PREVIEW_Y = 313, 111
+# The picture starts inside the panel's outline: a whole unit past its stroke (BROWSER_BORDER, 1.5), never over it.
+BROWSER_PICTURE_INSET = math.ceil(BROWSER_BORDER)
+BROWSER_PREVIEW_X, BROWSER_PREVIEW_Y = 313, BROWSER_PANEL_TOP + BROWSER_PICTURE_INSET
+assert BROWSER_PREVIEW_Y >= BROWSER_PANEL_TOP + BROWSER_BORDER, 'the picture clears the panel outline'
 BROWSER_PREVIEW_WIDTH, BROWSER_PREVIEW_HEIGHT = 294, 147
 BROWSER_PICTURE_TEXTURE = (512, 256)  # the picture's menu copy (map_pictures_render.c writes a 512x256 BMP)
 BROWSER_SCRIM_HEIGHT = 44
@@ -141,7 +156,7 @@ assert BROWSER_PREVIEW_WIDTH * BROWSER_PICTURE_TEXTURE[1] == BROWSER_PREVIEW_HEI
     'the preview shows the picture whole, at its own shape'
 assert BROWSER_NAME_Y + BROWSER_NAME_HEIGHT <= BROWSER_TYPE_Y + 1 and BROWSER_TYPE_Y + BROWSER_TYPE_HEIGHT \
     <= BROWSER_PREVIEW_Y + BROWSER_PREVIEW_HEIGHT, 'the name and the gametype line sit inside the scrim'
-assert BROWSER_PILL_Y + 18 <= 110 + BROWSER_DETAIL_HEIGHT, 'the pill stays inside the panel'
+assert BROWSER_PILL_Y + 18 <= BROWSER_PANEL_TOP + BROWSER_DETAIL_HEIGHT, 'the pill stays inside the panel'
 OWN_GEOMETRY_ROW_LISTS = {
     f'{_MP}/join_game/join_game_items_list': (BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT,
                                               'server browser: the approved mockup C list'),
@@ -184,6 +199,7 @@ HEADER_VALUES = (
     ('MENU_BAR_CAPTION_OFFSET', BAR_CAPTION_OFFSET, "a bar action's caption, right of its glyph's left edge"),
     ('MENU_BAR_CAPTION_HEIGHT', BAR_CAPTION_HEIGHT, "a bar action's caption"),
     ('MENU_BAR_GLYPH_RAISE', BAR_GLYPH_RAISE, "a bar action's glyph, up from the center of its box onto its caption's capitals"),
+    ('MENU_TITLE_RULE_Y', TITLE_RULE_Y, "the rule under a screen's title"),
     ('MENU_BAR_RULE_Y', RULE_Y, "the bar's top rule"),
     ('MENU_BROWSER_ROWS', BROWSER_ROWS, "the server browser's visible rows, one joined panel outline for each"),
     ('MENU_BROWSER_PICTURE_WIDTH', BROWSER_PICTURE_TEXTURE[0], "the server browser's map picture, whole (2:1)"),

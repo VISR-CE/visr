@@ -94,12 +94,13 @@ def generate(output, icons):
     # Backdrop band: transparent under the title, a bright rule, then the dark
     # blue fill to the bottom of the screen, behind the legend. The menu widens
     # it to the display and it stretches over the 480 design lines.
+    rule = menu_geometry.TITLE_RULE_Y
     draw("backdrop", 4, 480, svg(4, 480,
          '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
          '<stop offset="0" stop-color="#072751" stop-opacity="0.69"/>'
          '<stop offset="1" stop-color="#062348" stop-opacity="0.69"/></linearGradient></defs>'
-         '<rect x="0" y="66" width="4" height="343" fill="url(#g)"/>'
-         '<rect x="0" y="66" width="4" height="1" fill="#36afff"/>'
+         f'<rect x="0" y="{rule}" width="4" height="{409 - rule}" fill="url(#g)"/>'
+         f'<rect x="0" y="{rule}" width="4" height="1" fill="#36afff"/>'
          '<rect x="0" y="409" width="4" height="1" fill="#2896ff"/>'
          '<rect x="0" y="410" width="4" height="34" fill="#000000" fill-opacity="0.696"/>'), scale=2)
 
