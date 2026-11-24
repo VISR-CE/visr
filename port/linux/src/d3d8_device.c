@@ -2724,8 +2724,6 @@ draws: this clears an override that would hide it (the FXAA chord's method, a mo
 stereo A/B window, and holds no value of its own, so the graphics mode still replaces what it replaces.
 The targets that depend on it are allocated again on the next frame; changes last until the app quits.
 Render height does not affect foveated eyes, whose size comes from the Compositor's rate maps. */
-/* debug.knob_cycle's "ambient occlusion" (debug.ssao spike, halo_ssao_after_lightmaps), -1: the setting */
-static int ssao_live = -1;
 
 int benchmark_suite_running(void);
 
@@ -2737,7 +2735,8 @@ static int knob_live_allowed(const char *name, const char *value, char *why, siz
 		(!strcmp(name, "display.shadow_map_size") && benchmark_shadow_size > 0) ||
 		(!strcmp(name, "display.anisotropic_filtering") && benchmark_anisotropy > 0) ||
 		(!strcmp(name, "display.effect_resolution") && benchmark_effect_level >= 0) ||
-		((!strcmp(name, "display.anti_aliasing") || !strcmp(name, "display.model_lod")) && benchmark_suite_running()))
+		((!strcmp(name, "display.anti_aliasing") || !strcmp(name, "display.model_lod") ||
+			!strcmp(name, "display.graphics")) && benchmark_suite_running()))
 	{
 		snprintf(why, why_size, "a benchmark sets it");
 		return 0;
@@ -2779,7 +2778,15 @@ static int knob_live_apply(const char *name, const char *value, int apply, char 
 #endif
 	}
 	else if (!strcmp(name, "debug.ssao"))
-		ssao_live = atoi(value);
+		;   /* (ssao_mode reads it each frame) */
+	else if (!strcmp(name, "display.graphics"))
+	{
+		/* (the mode's own anti-aliasing and model detail draw, not an earlier chord's or knob's) */
+		anti_aliasing_live_text[0] = 0;
+		if (device.gl_ready)
+			anti_aliasing_read();
+		halo_model_lod_set(-1);
+	}
 	else if (!strcmp(name, "display.frame_repeat"))
 	{
 		/* (the Compositor's, between frames; nothing to allocate again) */
@@ -3011,8 +3018,6 @@ static int ssao_mode(void)
 	/* a GPU that cannot run it (gpu_capabilities.ambient_occlusion) has none, whatever the settings say */
 	if (!device_capabilities.ambient_occlusion)
 		return 0;
-	if (ssao_live >= 0)
-		return ssao_live;
 	/* debug.ssao (the spike's modes) wins; otherwise the player's setting, which the graphics mode turns off
 	outside Enhanced */
 	debug = config_integer("debug.ssao");

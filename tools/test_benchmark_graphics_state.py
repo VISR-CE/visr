@@ -86,7 +86,7 @@ def test_reports_record_ambient_occlusion_as_drawn():
     device = (ROOT / "port/linux/src/d3d8_device.c").read_text()
     mode = device[device.index("static int ssao_mode(void)"):]
     mode = mode[:mode.index("\n}\n")]
-    assert mode.index("!device_capabilities.ambient_occlusion") < mode.index("ssao_live"), mode
+    assert mode.index("!device_capabilities.ambient_occlusion") < mode.index("config_integer(\"debug.ssao\")"), mode
     snapshot = device[device.index("config_graphics_settings_snapshot(scene, &perf_graphics)"):]
     snapshot = snapshot[:snapshot.index("host_perf_reports_graphics_snapshot(&perf_graphics)")]
     assert '"display.ambient_occlusion"' in snapshot and "halo_ambient_occlusion_effective()" in snapshot

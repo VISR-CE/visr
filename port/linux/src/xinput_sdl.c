@@ -215,12 +215,13 @@ static void knob_current(const struct knob *knob, char *text, unsigned long size
 {
 	if (knob->kind == KNOB_REAL)
 		snprintf(text, size, "%.2f", halo_knob_render_quality());
+	/* (the value that draws in gameplay: a profile's scene or variable value until the knob sets one) */
 	else if (knob->kind == KNOB_INTEGER)
-		snprintf(text, size, "%ld", config_integer(knob->name));
+		snprintf(text, size, "%ld", config_scene_integer(knob->name, CONFIG_SCENE_GAMEPLAY));
 	else if (knob->kind == KNOB_BOOLEAN)
-		snprintf(text, size, "%s", config_boolean(knob->name) ? "true" : "false");
+		snprintf(text, size, "%s", config_scene_boolean(knob->name, CONFIG_SCENE_GAMEPLAY) ? "true" : "false");
 	else
-		snprintf(text, size, "%s", config_string(knob->name));
+		config_scene_string(knob->name, CONFIG_SCENE_GAMEPLAY, text, size);
 }
 
 /* debug.knob_cycle: while Back is held, the D-pad's up and down choose a quality setting (render lines, shadow map

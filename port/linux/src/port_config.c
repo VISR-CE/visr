@@ -4509,11 +4509,19 @@ int config_set_live(const char *name, const char *value, char *note, size_t note
 				value, requested < 0 ? "nothing" : graphics_mode_names[graphics_mode_effective(requested, config_graphics_head)]);
 			return 0;
 		}
+		why[0] = 0;
+		if (config_live_hook && !config_live_hook(name, value, 0, why, sizeof(why)))
+		{
+			snprintf(note, note_size, "%s: %s", name, why[0] ? why : "the renderer refuses it");
+			return 0;
+		}
 		if (!config_graphics_try(value) || strcmp(config_graphics_mode_name(), value))
 		{
 			snprintf(note, note_size, "display.graphics stays %s", config_graphics_mode_name());
 			return 0;
 		}
+		if (config_live_hook)
+			config_live_hook(name, value, 1, why, sizeof(why));
 		snprintf(note, note_size, "display.graphics = %s", config_graphics_mode_name());
 		return 1;
 	}

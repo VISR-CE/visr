@@ -118,8 +118,11 @@ typedef struct { WORD wButtons; BYTE bAnalogButtons[8]; short sThumbRY; } XINPUT
 static char applied[64], message[96], logged[64];
 static int applications;
 static int config_boolean(const char *name){ (void)name; return @ENABLED@; }
-static long config_integer(const char *name){ return !strcmp(name, "display.shadow_map_size") ? 512 : 0; }
 static const char *config_string(const char *name){ (void)name; return "max"; }
+enum { CONFIG_SCENE_GAMEPLAY };
+static long config_scene_integer(const char *name, int scene){ (void)scene; return !strcmp(name, "display.shadow_map_size") ? 512 : 0; }
+static int config_scene_boolean(const char *name, int scene){ (void)name; (void)scene; return 0; }
+static int config_scene_string(const char *name, int scene, char *text, unsigned long size){ (void)name; (void)scene; snprintf(text, size, "max"); return 0; }
 static float halo_knob_render_quality(void){ return 0.6f; }
 static int config_set_live(const char *name, const char *value, char *note, size_t size){ snprintf(applied, sizeof(applied), "%s=%s", name, value); snprintf(note, size, "%s = %s", name, value); applications++; return 1; }
 static void halo_knob_message(const char *text){ snprintf(message, sizeof(message), "%s", text); }
