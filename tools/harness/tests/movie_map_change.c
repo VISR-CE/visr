@@ -4,6 +4,7 @@ takes the texture cache's stolen memory again and before scenario_unload
 asserts that no movie plays, and it does not send the game back to the main
 menu in the middle of the load. */
 #include "harness.h"
+#include <strings.h>
 #undef match_assert
 #define match_assert(file, line, condition) CHECK(condition, "%s:%d", file, line)
 #define match_vassert(file, line, condition, message) CHECK(condition, "%s:%d: %s", file, line, message)
@@ -36,24 +37,43 @@ static short player_spawn_count = 1;
 
 void platform_log(const char *format, ...) { (void)format; }
 static long platform_input_press_count(void) { return 0; }
-static void event_manager_suppress(boolean suppress) { (void)suppress; }
+static boolean events_suppressed;
+static void event_manager_suppress(boolean suppress) { events_suppressed = suppress; }
 static void BinkClose(HBINK bink) { (void)bink; movie_closes++; }
 static void bink_free_texture_cache(void) { stolen_memory = FALSE; }
 static void main_menu_load(void) { menu_loads++; }
 static void attract_mode_reset_timer(void) {}
 
-static boolean cache_files_precache_map_loaded(char *name) { (void)name; return map_precached; }
+static boolean cache_files_precache_map_loaded(const char *name) { (void)name; return map_precached; }
 static boolean cache_files_precache_in_progress(void) { return precache_begins && !map_precached; }
-static boolean cache_files_precache_is_copying_map(char *name) { (void)name; return TRUE; }
-static void cache_files_precache_map_end(void) { map_precached = TRUE; }
+static boolean cache_files_precache_is_copying_map(const char *name) { (void)name; return TRUE; }
+static void cache_files_precache_map_end(void) { map_precached = TRUE; stolen_memory = FALSE; }
 static void cache_files_precache_map_queue_end(void) {}
-static boolean cache_files_precache_map_begin(char *name, boolean blocking)
+/* what the real cache_files_precache_map_begin reads */
+struct cache_file_header { long file_length; short scenario_type; char name[32]; };
+static struct { boolean copy_in_progress; short copying_to_map_file_index; char copying_to_map_file_name[32]; } cache_file_globals;
+static struct cached_map_file { struct cache_file_header header; } map_files[1];
+static const char *tag_name_strip_path(const char *name) { const char *slash = strrchr(name, '\\'); return slash ? slash + 1 : name; }
+static boolean custom_edition_level_name(const char *name) { (void)name; return FALSE; }
+static boolean custom_edition_cache_playable(const char *name) { (void)name; return TRUE; }
+static boolean cache_file_read_header_from_dvd(const char *name, struct cache_file_header *header)
+{ memset(header, 0, sizeof(*header)); strncpy(header->name, name, sizeof(header->name) - 1); header->file_length = 1; return TRUE; }
+static long cache_copy_buffer_size(boolean copy_map) { (void)copy_map; return 1; }
+static short cached_map_files_find_free_map(long length, short type) { (void)length; (void)type; return 0; }
+static struct cached_map_file *cached_map_file_get(short index) { return &map_files[index]; }
+static void *texture_cache_steal_memory(long size)
 {
-	(void)name; (void)blocking;
+	(void)size;
 	CHECK(!stolen_memory, "the precache took the texture cache's memory while a movie held it");
-	precache_begins++;
-	return TRUE;
+	stolen_memory = TRUE;
+	return &stolen_memory;
 }
+static void cache_file_get_map_path(const char *name, char *path) { strcpy(path, name); }
+static long cached_map_file_get_handle(short index) { return index; }
+static long cached_map_file_get_size(short index) { (void)index; return 1; }
+static void cache_copy_begin(void *buffer, long size, long handle, long file_size, char *path)
+{ (void)buffer; (void)size; (void)handle; (void)file_size; (void)path; precache_begins++; }
+#define _stricmp strcasecmp
 static long cache_files_precache_map_status(real *progress) { *progress = 1.0f; return 1; }
 static void cache_files_precache_set_priority(boolean blocking) { (void)blocking; }
 static void main_queue_map_name(char *name) { (void)name; }
@@ -86,6 +106,8 @@ static void play_intro(void)
 		FLAG(_bink_playback_dont_allow_skipping_if_filesystem_check_thread_is_active_bit) |
 		FLAG(_bink_playback_eat_up_memory_like_a_goddamn_beaver_bit);
 	stolen_memory = TRUE;
+	events_suppressed = TRUE;
+	global_frame_rate_throttle = FALSE;
 }
 
 /* main.c's main_change_map_name and network_game_manager.c's load: the
@@ -113,6 +135,8 @@ int main(int argc, char **argv)
 		CHECK(!stolen_memory, "the movie kept the texture cache's memory");
 		CHECK(menu_loads == 0, "the main menu loaded in the middle of a map load");
 		CHECK(precache_begins == 1, "precache began %d times", precache_begins);
+		CHECK(!events_suppressed, "the menu's events stayed suppressed");
+		CHECK(global_frame_rate_throttle == bink_saved_frame_rate_throttle, "the frame rate throttle was not restored");
 	}
 	else if (!strcmp(c, "intro-map-already-read"))
 	{
@@ -121,6 +145,18 @@ int main(int argc, char **argv)
 		change_map();
 		CHECK(!bink_playback_active(), "the movie still plays");
 		CHECK(menu_loads == 0, "the main menu loaded in the middle of a map load");
+	}
+	else if (!strcmp(c, "lobby-precache"))
+	{
+		/* a joined lobby's background precache (cache_files_give_time_to_precache)
+		begins without game_precache_new_map */
+		static char map_name[] = "levels\\test\\bloodgulch\\bloodgulch";
+
+		play_intro();
+		CHECK(cache_files_precache_map_begin(map_name, FALSE), "the precache did not begin");
+		CHECK(!bink_playback_active(), "the movie still plays");
+		CHECK(menu_loads == 0, "the main menu loaded in the middle of a map load");
+		CHECK(precache_begins == 1, "precache began %d times", precache_begins);
 	}
 	else if (!strcmp(c, "no-movie"))
 	{
