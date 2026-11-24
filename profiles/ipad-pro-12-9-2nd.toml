@@ -117,6 +117,6 @@ why = "At this profile's 30 frames a second and 900 lines, the 16-bit scene held
 source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"
 
 [evidence."variable.display.scene_precision"]
-basis = "measured"
+basis = "assumed"
 why = "Multiplayer and the other variable workloads were not measured at 16 bits (larger games, wider dynamic resolution), so they keep the 8-bit scene until a pair there shows the cost."
 source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"
