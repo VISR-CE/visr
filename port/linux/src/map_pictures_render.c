@@ -33,6 +33,7 @@ void dsound_set_capture_mute(int on);
 int host_map_pictures_import_stage(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
+int host_map_pictures_begin_refresh(void);
 void host_texture_cache_directory(char *text, unsigned long size);
 /* port/linux/game/benchmark_scenario.c: an empty map is the main menu */
 void benchmark_scenario_load(const char *map, const char *difficulty);
@@ -92,7 +93,9 @@ with a warning in the log. */
 enum render_state
 {
 	STATE_START, STATE_WAIT_MENU, STATE_LOADING, STATE_SETTLE, STATE_CAPTURING, STATE_FRAME_WAIT,
-	STATE_FRAME_PENDING, STATE_LEAVING, STATE_DONE
+	STATE_FRAME_PENDING, STATE_LEAVING, STATE_DONE,
+	/* a launch with no import stage: waits for the main menu, then looks for a stale or missing picture */
+	STATE_SCAN
 };
 
 static struct
@@ -267,6 +270,35 @@ static void finish(void)
 	render.state = STATE_LEAVING;
 }
 
+/* the request that renders a map's picture as the current framings and renderer would make it: 1 with
+render.key and render.request filled, 0 when the map has no key or hash (framing_revision is for the log) */
+static int build_request(int scenario, char directory[1100], uint32_t *revision)
+{
+	char hash[65];
+	uint32_t framing_hash = 0;
+	struct map_pictures_metadata *meta = &render.request.metadata;
+
+	*revision = 0;
+	if (!map_pictures_scenario_identity(scenario, render.key, sizeof(render.key), hash, revision, &framing_hash))
+		return 0;
+	memset(&render.request, 0, sizeof(render.request));
+	snprintf(meta->map_key, sizeof(meta->map_key), "%s", render.key);
+	memcpy(meta->map_hash, hash, sizeof(meta->map_hash));
+	meta->framing = *revision ? MAP_PICTURES_CURATED : MAP_PICTURES_AUTO;
+	meta->framing_revision = *revision;
+	meta->framing_hash = *revision ? framing_hash : 0;
+	meta->auto_version = *revision ? 0 : AUTO_VERSION;
+	meta->renderer_version = RENDERER_VERSION;
+	meta->texture_set = MAP_PICTURES_ORIGINAL;
+	meta->width = PICTURE_WIDTH;
+	meta->height = PICTURE_HEIGHT;
+	meta->pre_game = 0;
+	render.request.settle_ticks = REQUEST_SETTLE_TICKS;
+	if (!map_directory(directory, 1100, render.key))
+		directory[0] = 0;
+	return 1;
+}
+
 /* loads the next map that needs a picture, or goes back to the menu after the last */
 static void next_map(void)
 {
@@ -274,34 +306,21 @@ static void next_map(void)
 
 	for (; render.index < count; render.index++)
 	{
-		char hash[65], directory[1100];
+		char directory[1100];
 		uint32_t revision = 0;
 		double checked = now();
 		int scenario = render.import_mode ? map_pictures_scenario_import_index(render.index) : render.index;
-		struct map_pictures_metadata *meta = &render.request.metadata;
 
 		if (render.import_mode)
 			host_map_pictures_import_progress(render.index, count, map_pictures_scenario_name(scenario));
-		if (!map_pictures_scenario_identity(scenario, render.key, sizeof(render.key), hash, &revision))
+		if (!build_request(scenario, directory, &revision))
 		{
 			platform_log("map pictures: %s: no key or map hash, skipped (%.1f s, framing revision %u)",
 				map_pictures_scenario_name(scenario), (now() - checked) / 1000.0, revision);
 			render.failed++;
 			continue;
 		}
-		memset(&render.request, 0, sizeof(render.request));
-		snprintf(meta->map_key, sizeof(meta->map_key), "%s", render.key);
-		memcpy(meta->map_hash, hash, sizeof(meta->map_hash));
-		meta->framing = revision ? MAP_PICTURES_CURATED : MAP_PICTURES_AUTO;
-		meta->framing_revision = revision;
-		meta->auto_version = revision ? 0 : AUTO_VERSION;
-		meta->renderer_version = RENDERER_VERSION;
-		meta->texture_set = MAP_PICTURES_ORIGINAL;
-		meta->width = PICTURE_WIDTH;
-		meta->height = PICTURE_HEIGHT;
-		meta->pre_game = 0;
-		render.request.settle_ticks = REQUEST_SETTLE_TICKS;
-		if (map_directory(directory, sizeof(directory), render.key) && cached_fresh(directory, &render.request))
+		if (directory[0] && cached_fresh(directory, &render.request))
 		{
 			platform_log("map pictures: %s: picture is current, skipped (%.1f s, framing revision %u)",
 				render.key, (now() - checked) / 1000.0, revision);
@@ -370,6 +389,29 @@ static void skip_map(const char *why)
 	advance();
 }
 
+/* the run's setup once something enables it: the cache folder, the keep-awake and mute, the first menu wait */
+static void start_run(double time)
+{
+	if (!cache_root(render.root, sizeof(render.root)))
+	{
+		platform_log("map pictures: no cache folder; nothing rendered");
+		platform_log("map pictures: done in %.1f s: 0 rendered, 0 cached, %d failed",
+			(now() - time) / 1000.0, map_pictures_scenario_count());
+		render.enabled = 0;
+		if (render.import_mode)
+			host_map_pictures_import_done(0, 0, map_pictures_scenario_count());
+		render.state = STATE_DONE;
+		return;
+	}
+	render.run_start = time;
+	host_map_pictures_keep_awake(1);
+	if (render.import_mode)
+		dsound_set_capture_mute(1);
+	if (render.import_mode)
+		host_map_pictures_import_progress(0, map_pictures_scenario_count(), "");
+	wait_menu();
+}
+
 void map_pictures_render_update(void)
 {
 	double time = now();
@@ -382,28 +424,55 @@ void map_pictures_render_update(void)
 		render.enabled = (config_boolean("debug.map_pictures_render") && host_photo_mode_available()) || render.import_mode;
 		if (!render.enabled)
 		{
-			render.state = STATE_DONE;
+			/* no import stage and no development switch: after the menu is up, a launch with a stale or
+			missing picture starts the stage itself (STATE_SCAN) */
+			render.index = 0;
+			/* a benchmark suite owns map loading for its whole run */
+			render.state = config_string("debug.benchmark_suite")[0] ? STATE_DONE : STATE_SCAN;
 			return;
 		}
-		if (!cache_root(render.root, sizeof(render.root)))
-		{
-			platform_log("map pictures: no cache folder; nothing rendered");
-			platform_log("map pictures: done in %.1f s: 0 rendered, 0 cached, %d failed",
-				(now() - time) / 1000.0, map_pictures_scenario_count());
-			render.enabled = 0;
-			if (render.import_mode)
-				host_map_pictures_import_done(0, 0, map_pictures_scenario_count());
-			render.state = STATE_DONE;
-			return;
-		}
-		render.run_start = time;
-		host_map_pictures_keep_awake(1);
-		if (render.import_mode)
-			dsound_set_capture_mute(1);
-		if (render.import_mode)
-			host_map_pictures_import_progress(0, map_pictures_scenario_count(), "");
-		wait_menu();
+		start_run(time);
 		return;
+	case STATE_SCAN:
+	{
+		char directory[1100];
+		uint32_t revision;
+
+		/* never during play: a game that started before the scan ended leaves it for the next launch */
+		if (map_pictures_scenario_in_game())
+		{
+			render.state = STATE_DONE;
+			return;
+		}
+		if (!benchmark_scenario_at_menu() || filesystem_check_thread_is_active() || bink_playback_in_progress() ||
+			cache_files_precache_in_progress())
+			return;
+		if (render.index == 0 && !cache_root(render.root, sizeof(render.root)))
+		{
+			render.state = STATE_DONE;
+			return;
+		}
+		if (render.index >= map_pictures_scenario_count())
+		{
+			render.state = STATE_DONE;
+			return;
+		}
+		/* one map a frame: a map's hash is a fraction of a second the first time (map_share_map_hash) */
+		if (!build_request(render.index++, directory, &revision) || (directory[0] && cached_fresh(directory, &render.request)))
+			return;
+		platform_log("map pictures: %s is missing or stale (framing revision %u, renderer %u): preparing maps",
+			render.key, revision, RENDERER_VERSION);
+		if (!host_map_pictures_begin_refresh())
+		{
+			render.state = STATE_DONE;
+			return;
+		}
+		render.import_mode = host_map_pictures_import_stage();
+		render.enabled = 1;
+		render.index = 0;
+		start_run(time);
+		return;
+	}
 	case STATE_WAIT_MENU:
 	{
 		int menu = benchmark_scenario_at_menu(), check = filesystem_check_thread_is_active(),

@@ -134,6 +134,7 @@ static void test_staleness(void)
 #define STALE_CHANGE(change) do { wanted.metadata = cached; change; assert(map_pictures_is_stale(&cached, &wanted)); } while (0)
 	STALE_CHANGE(wanted.metadata.framing_revision++);
 	STALE_CHANGE(wanted.metadata.renderer_version++);
+	STALE_CHANGE(wanted.metadata.framing_hash++); /* the same revision, an edited framing */
 	STALE_CHANGE(wanted.metadata.map_hash[0] = 'b');
 	STALE_CHANGE(wanted.metadata.map_key[6] = 'x');
 	STALE_CHANGE(wanted.metadata.width++);

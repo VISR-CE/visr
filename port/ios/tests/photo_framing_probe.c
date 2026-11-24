@@ -27,6 +27,23 @@ int main(int argc, char **argv)
         return photo_fragment_write_from(argv[2], argv[3], &shot, atoi(argv[4])) ? 0 : 1;
     assert(argc == 2);
     {
+        /* the fingerprint a cached picture is compared by: stable, never 0, and every edited part changes it */
+        struct photo_shot edit = shot;
+        unsigned int base = photo_shot_hash(&shot);
+        assert(base && base == photo_shot_hash(&edit));
+        edit.position[0] = 1.001f; assert(photo_shot_hash(&edit) != base);
+        edit = shot; edit.fov = 1.2f; assert(photo_shot_hash(&edit) != base);
+        edit = shot; edit.forward[1] = 0.01f; assert(photo_shot_hash(&edit) != base);
+        edit = shot; edit.bsp = 1; assert(photo_shot_hash(&edit) != base);
+        edit = shot; edit.settle_ticks = 31; assert(photo_shot_hash(&edit) != base);
+        edit = shot; edit.safe[0] = 0.2f; assert(photo_shot_hash(&edit) != base);
+        edit = shot; strcpy(edit.variant, "ctf"); assert(photo_shot_hash(&edit) != base);
+        edit = shot; edit.has_mp = 1; edit.mp.teams = 1; assert(photo_shot_hash(&edit) != base);
+        edit = shot; edit.moved_vehicle_count = 1; strcpy(edit.moved_vehicles[0].tag, "vehicles\\warthog"); assert(photo_shot_hash(&edit) != base);
+        edit = shot; edit.position[0] = 0.f; shot.position[0] = -0.f; assert(photo_shot_hash(&edit) == photo_shot_hash(&shot));
+        shot.position[0] = 1;
+    }
+    {
         float d[3];
         photo_fly_step(PHOTO_FLY_FORWARD | PHOTO_FLY_LEFT | PHOTO_FLY_UP, 0.5f, 0, d);
         assert(fabsf(d[0] - 0.75f) < 1e-6f && fabsf(d[1] - 0.75f) < 1e-6f && fabsf(d[2] - 0.75f) < 1e-6f);

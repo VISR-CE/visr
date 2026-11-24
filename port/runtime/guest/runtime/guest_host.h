@@ -57,6 +57,7 @@ void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, fl
 void host_map_pictures_keep_awake(int on);
 /* Persisted disc-import stage; progress and completion are posted from the game thread. */
 int host_map_pictures_import_stage(void);
+int host_map_pictures_begin_refresh(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
 /* The framings feed's verified map-framings.json for a custom map's "blake2b:" key: 1 with its path, else 0. */

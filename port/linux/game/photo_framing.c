@@ -398,6 +398,65 @@ int photo_framing_feed_lookup(const char *key, struct photo_shot *shot, int *rev
 	if (strncmp(key,"blake2b:",8) || !host_map_framings_feed_path(key,path,sizeof path)) return 0;
 	return photo_fragment_read(path,key,shot,revision);
 }
+static unsigned int hash_bytes(unsigned int h, const void *data, size_t size)
+{
+	const unsigned char *p = data;
+	while (size--) { h ^= *p++; h *= 16777619u; }
+	return h;
+}
+static size_t text_length(const char *t, size_t max)
+{
+	size_t n = 0;
+	while (n < max && t[n]) n++;
+	return n;
+}
+static unsigned int hash_floats(unsigned int h, const float *v, int count)
+{
+	int i;
+	for (i = 0; i < count; i++)
+	{
+		float f = v[i] + 0.0f; /* -0 and 0 are one value */
+		h = hash_bytes(h, &f, sizeof(f));
+	}
+	return h;
+}
+static unsigned int hash_ints(unsigned int h, const int *v, int count)
+{
+	int i;
+	for (i = 0; i < count; i++)
+	{
+		unsigned char b[4] = { (unsigned char)v[i], (unsigned char)(v[i] >> 8), (unsigned char)(v[i] >> 16), (unsigned char)(v[i] >> 24) };
+		h = hash_bytes(h, b, 4);
+	}
+	return h;
+}
+unsigned int photo_shot_hash(const struct photo_shot *s)
+{
+	unsigned int h = 2166136261u;
+	int i, ints[3];
+	h = hash_floats(h, s->position, 3); h = hash_floats(h, s->forward, 3); h = hash_floats(h, s->up, 3);
+	h = hash_floats(h, &s->fov, 1); h = hash_floats(h, s->focus, 2); h = hash_floats(h, s->safe, 4);
+	ints[0] = s->bsp; ints[1] = s->settle_ticks; ints[2] = s->erase_ai;
+	h = hash_ints(h, ints, 3);
+	h = hash_bytes(h, s->variant, text_length(s->variant, sizeof(s->variant)));
+	h = hash_ints(h, &s->has_mp, 1);
+	if (s->has_mp)
+	{
+		const struct photo_mp_scene *m = &s->mp;
+		h = hash_ints(h, &m->teams, 7); /* teams .. infinite_grenades, contiguous ints */
+		h = hash_ints(h, m->vehicle_sets, 2);
+		h = hash_ints(h, &m->vehicle_counts[0][0], 2 * PHOTO_VARIANT_VEHICLES);
+		h = hash_ints(h, &m->loadout, 5);
+	}
+	h = hash_ints(h, &s->moved_vehicle_count, 1);
+	for (i = 0; i < s->moved_vehicle_count && i < PHOTO_MAX_MOVED_VEHICLES; i++)
+	{
+		const struct photo_moved_vehicle *v = &s->moved_vehicles[i];
+		h = hash_bytes(h, v->tag, text_length(v->tag, sizeof(v->tag)));
+		h = hash_floats(h, v->position, 3); h = hash_floats(h, v->forward, 3); h = hash_floats(h, v->up, 3);
+	}
+	return h ? h : 1u;
+}
 int photo_framing_lookup(const char *fragment_path, const char *bundle_path, const char *key,
 	struct photo_shot *shot, int *revision)
 {

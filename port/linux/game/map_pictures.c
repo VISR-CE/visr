@@ -37,21 +37,22 @@ static int metadata_valid(const struct map_pictures_metadata *m)
 
 int map_pictures_meta_write(char *buf, size_t size, const struct map_pictures_metadata *m)
 {
-	char framing[32];
+	char framing[32], hash_field[40] = "";
 	int length;
 	if (!buf || !size) return 0;
 	buf[0] = 0;
 	if (!metadata_valid(m)) return 0;
+	if (m->framing_hash) snprintf(hash_field, sizeof(hash_field), ",\"framing_hash\":%lu", (unsigned long)m->framing_hash);
 	if (m->framing == MAP_PICTURES_AUTO)
 		snprintf(framing, sizeof(framing), "auto:%lu", (unsigned long)m->auto_version);
 	else strcpy(framing, "curated");
 	length = snprintf(buf, size,
 		"{\"schema\":1,\"map_key\":\"%s\",\"framing_revision\":%lu,"
 		"\"renderer_version\":%lu,\"texture_set\":\"%s\",\"map_hash\":\"%s\","
-		"\"width\":%lu,\"height\":%lu,\"framing\":\"%s\",\"pre_game\":%s}",
+		"\"width\":%lu,\"height\":%lu,\"framing\":\"%s\",\"pre_game\":%s%s}",
 		m->map_key, (unsigned long)m->framing_revision, (unsigned long)m->renderer_version,
 		m->texture_set == MAP_PICTURES_UPSCALED ? "upscaled" : "original", m->map_hash,
-		(unsigned long)m->width, (unsigned long)m->height, framing, m->pre_game ? "true" : "false");
+		(unsigned long)m->width, (unsigned long)m->height, framing, m->pre_game ? "true" : "false", hash_field);
 	if (length < 0 || (size_t)length >= size || length >= MAP_PICTURES_META_SIZE)
 	{
 		buf[0] = 0;
@@ -112,7 +113,7 @@ static int unsigned_read(struct reader *r, uint32_t *out)
 int map_pictures_meta_parse(const char *json, size_t length, struct map_pictures_metadata *out)
 {
 	static const char *fields[] = {"schema", "map_key", "framing_revision", "renderer_version",
-		"texture_set", "map_hash", "width", "height", "framing", "pre_game"};
+		"texture_set", "map_hash", "width", "height", "framing", "pre_game", "framing_hash"};
 	struct map_pictures_metadata m = {0};
 	struct reader r;
 	unsigned int seen = 0;
@@ -163,12 +164,13 @@ int map_pictures_meta_parse(const char *json, size_t length, struct map_pictures
 			else if (r.end - r.p >= 5 && !memcmp(r.p, "false", 5)) r.p += 5;
 			else return 0;
 			break;
+		case 10: if (!unsigned_read(&r, &m.framing_hash)) return 0; break; /* optional */
 		}
 		if (take(&r, '}')) break;
 		if (!take(&r, ',')) return 0;
 	}
 	whitespace(&r);
-	if (r.p != r.end || seen != (1u << 10) - 1 || !metadata_valid(&m)) return 0;
+	if (r.p != r.end || (seen & ((1u << 10) - 1)) != (1u << 10) - 1 || !metadata_valid(&m)) return 0;
 	*out = m;
 	return 1;
 }
@@ -181,7 +183,8 @@ int map_pictures_is_stale(const struct map_pictures_metadata *cached, const stru
 	/* (texture_set is recorded but never compared: pictures are always rendered with the original textures,
 	so a finished upscaled set must not send a map back to be rendered) */
 	return strcmp(cached->map_key, m->map_key) || strcmp(cached->map_hash, m->map_hash) ||
-		cached->framing_revision != m->framing_revision || cached->renderer_version != m->renderer_version ||
+		cached->framing_revision != m->framing_revision || cached->framing_hash != m->framing_hash ||
+		cached->renderer_version != m->renderer_version ||
 		cached->width != m->width || cached->height != m->height ||
 		cached->framing != m->framing || cached->auto_version != m->auto_version ||
 		(cached->pre_game && (wanted->settle_ticks || wanted->erase_ai));

@@ -11,6 +11,7 @@ host_photo_mode_available
 host_photo_mode_overlay
 host_map_pictures_keep_awake
 host_map_pictures_import_stage
+host_map_pictures_begin_refresh
 host_map_pictures_import_progress
 host_map_pictures_import_done
 host_map_framings_feed_path

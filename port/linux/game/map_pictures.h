@@ -16,6 +16,10 @@ struct map_pictures_metadata
 {
 	char map_key[MAP_PICTURES_KEY_SIZE];
 	uint32_t framing_revision, renderer_version;
+	/* photo_shot_hash of the framing the picture was rendered from: a framing edited without a revision change
+	   (an external tool, a hand edit) still makes the picture stale. 0 for the automatic camera and for metadata
+	   written before the field existed, which therefore reads as stale against any saved framing. */
+	uint32_t framing_hash;
 	enum map_pictures_texture_set texture_set;
 	char map_hash[65]; /* BLAKE2b-256, lowercase hexadecimal. */
 	uint32_t width, height;

@@ -900,6 +900,8 @@ __attribute__((weak)) void host_map_identity_wait(void)
 { }
 __attribute__((weak)) void host_map_load_failed(const char *map_name, const char *messages)
 { abort(); }
+__attribute__((weak)) int host_map_pictures_begin_refresh(void)
+{ fprintf(stderr, "host_stubs: probe called host_map_pictures_begin_refresh without defining it\n"); abort(); }
 __attribute__((weak)) void host_map_pictures_import_done(int rendered, int cached, int failed)
 { }
 __attribute__((weak)) void host_map_pictures_import_progress(int done, int total, const char *name)

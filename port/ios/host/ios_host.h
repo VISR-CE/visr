@@ -54,6 +54,9 @@ void host_ios_touch_initialize(void);
 void host_ios_prepare_assets(const char *documents);
 /* The import window stays up while the guest prepares pictures in flat offscreen frames. */
 int host_map_pictures_import_stage(void);
+/* A launch with a stale or missing picture starts the same stage from the main menu: 1 once it is up, 0 where the
+   host has none (tvOS, visionOS). */
+int host_map_pictures_begin_refresh(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
 int host_map_framings_feed_path(const char *key, char *path, unsigned int size);

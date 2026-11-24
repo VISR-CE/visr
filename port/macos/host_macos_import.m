@@ -232,6 +232,19 @@ static void pictures_phase(NSString *root) {
     host_texture_upscale_stage_begin(root.fileSystemRepresentation);
 }
 int host_map_pictures_import_stage(void) { return atomic_load(&pictures_pending); }
+/* A launch whose cached pictures are stale or missing (the guest found out at the main menu): the same stage a disc
+   import runs, started from the menu. The marker lets a quit during it resume at the next launch. 1 once it is up. */
+int host_map_pictures_begin_refresh(void) {
+    __block int started=0;
+    void (^begin)(void)=^{
+        if(atomic_load(&pictures_pending)){started=1;return;}
+        if(!pictures_marker.length)return;
+        NSString *root=pictures_marker.stringByDeletingLastPathComponent;
+        pictures_mark_pending(root);pictures_phase(root);started=1;
+    };
+    if(NSThread.isMainThread)begin();else dispatch_sync(dispatch_get_main_queue(),begin);
+    return started;
+}
 void host_map_pictures_import_progress(int done,int total,const char *name) {
     (void)name;
     dispatch_async(dispatch_get_main_queue(),^{

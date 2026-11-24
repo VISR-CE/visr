@@ -46,6 +46,9 @@ float photo_roll_from_up(const float forward[3], const float up[3]);
 int photo_stock_scenario(const char *name);
 int photo_map_key(const char *scenario, int custom, const unsigned char *hash, char *key, size_t size);
 int photo_shot_valid(const struct photo_shot *shot);
+/* A 32-bit fingerprint of everything a shot frames or sets up (never 0), so a framing edited without a
+revision change still reads as changed. Valid shots only. */
+unsigned int photo_shot_hash(const struct photo_shot *shot);
 int photo_fragment_read(const char *path, const char *key, struct photo_shot *shot, int *revision);
 int photo_fragment_write(const char *path, const char *key, const struct photo_shot *shot);
 /* Like photo_fragment_write, but a new file starts above base_revision (the bundled framing it replaces). */

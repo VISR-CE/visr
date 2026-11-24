@@ -77,7 +77,8 @@ int map_pictures_scenario_import_index(int position)
 }
 
 #ifdef HALO_IOS
-int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_hex[65], uint32_t *revision)
+int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_hex[65], uint32_t *revision,
+	uint32_t *framing_hash)
 {
 	const char *name = map_pictures_scenario_name(index);
 	char path[256];
@@ -85,7 +86,7 @@ int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_
 	struct photo_shot shot;
 	int saved = 0, i;
 
-	*revision = 0;
+	*revision = 0; *framing_hash = 0;
 	if (!name || !photo_map_key(name, 0, NULL, key, size) || strncmp(key, "stock:", 6)) return 0;
 	if (snprintf(path, sizeof(path), "d:\\maps\\%s.map", key + 6) >= (int)sizeof(path) ||
 		!map_share_map_hash(path, hash)) return 0;
@@ -94,7 +95,10 @@ int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_
 	/* the same sources photo mode loads from (photo_mode.c): the data folder's fragment, then the bundle */
 	if (snprintf(path, sizeof(path), "d:\\framings\\%s.json", key) < (int)sizeof(path) &&
 		photo_framing_lookup(path, "d:\\map-framings.json", key, &shot, &saved) != PHOTO_FRAMING_NONE && saved > 0)
+	{
 		*revision = (uint32_t)saved;
+		*framing_hash = photo_shot_hash(&shot);
+	}
 	return 1;
 }
 

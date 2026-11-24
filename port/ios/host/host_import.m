@@ -20,6 +20,8 @@
 
 /* Kept in the data root, beside maps, so a relaunch resumes an interrupted stage. */
 static NSString *pictures_marker;
+/* the data folder host_ios_prepare_assets was given, for a stage started later from the main menu */
+static NSString *import_documents;
 static atomic_int pictures_pending;
 static UIWindow *pictures_window;
 static BOOL pictures_previous_idle_timer;
@@ -467,6 +469,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
 
 void host_ios_prepare_assets(const char *root) {
     NSString *documents=[NSString stringWithUTF8String:root];
+    import_documents=documents;
     pictures_marker=[documents stringByAppendingPathComponent:@".map-pictures-pending"];
     NSFileManager *files=NSFileManager.defaultManager;
     NSString *maps=[documents stringByAppendingPathComponent:@"maps"];
@@ -541,6 +544,27 @@ void host_ios_prepare_assets(const char *root) {
 }
 
 int host_map_pictures_import_stage(void) { return atomic_load(&pictures_pending); }
+/* A launch whose cached pictures are stale or missing (the guest found out at the main menu): the same stage a disc
+   import runs, started from the menu. The marker lets a quit during it resume at the next launch. 1 once it is up. */
+int host_map_pictures_begin_refresh(void) {
+    __block int started=0;
+    if(!pictures_supported())return 0;
+    host_main_sync(^{
+        if(atomic_load(&pictures_pending)){started=1;return;}
+        if(!import_documents.length)return;
+        UIWindowScene *scene=nil;
+        for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
+            if ([candidate isKindOfClass:UIWindowScene.class]) {scene=(UIWindowScene *)candidate;break;}
+        if(!scene)return;
+        HaloImportController *controller=[HaloImportController new];controller.documents=import_documents;
+        UIWindow *window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
+        window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
+        pictures_mark_pending(import_documents);
+        [controller prepareMaps];
+        pictures_window=window;started=1;
+    });
+    return started;
+}
 void host_map_pictures_import_progress(int done,int total,const char *name) {
     (void)name;
     dispatch_async(dispatch_get_main_queue(),^{
