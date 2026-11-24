@@ -499,7 +499,8 @@ void map_pictures_render_update(void)
 			missing picture starts the stage itself (STATE_SCAN) */
 			render.index = 0;
 			/* a benchmark suite owns map loading for its whole run */
-			render.state = (config_string("debug.benchmark_suite")[0] || getenv("HALO_RUNNER")) ? STATE_DONE : STATE_SCAN;
+			render.state = (config_string("debug.benchmark_suite")[0] ||
+				(getenv("HALO_RUNNER") && !config_boolean("debug.map_pictures_scan"))) ? STATE_DONE : STATE_SCAN;
 			return;
 		}
 		start_run(time);

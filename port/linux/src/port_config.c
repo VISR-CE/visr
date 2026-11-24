@@ -682,6 +682,9 @@ static const struct config_setting config_settings[] =
 		"Enable developer map framing controls in the development AppKit Mac host." },
 	{ "debug.map_pictures_render", _config_boolean, "false", "HALO_MAP_PICTURES_RENDER", _environment_value, _platform_all,
 		"At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. Development AppKit Mac host only." },
+	{ "debug.map_pictures_scan", _config_boolean, "false", "HALO_MAP_PICTURES_SCAN", _environment_value, _platform_all,
+		"Run the launch check of the map pictures even in a runner's run (it is skipped there otherwise), so a stale or missing\n"
+		"picture brings up the preparing maps stage from the main menu. For testing the refresh." },
 	{ "debug.orientation", _config_string, "\"\"", "HALO_ORIENTATION", _environment_value, _platform_ios,
 		"Request \"portrait\" or \"landscape\" once the first window scene is active;\n"
 		"empty leaves the device's orientation alone. A comma list with seconds\n"
