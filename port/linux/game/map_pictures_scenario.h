@@ -14,6 +14,8 @@ framing's revision and content fingerprint (photo_shot_hash; both 0 without a fr
 hash cannot be had. */
 int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_hex[65], uint32_t *revision,
 	uint32_t *framing_hash);
+/* 1 while a network game or lobby exists. */
+int map_pictures_scenario_network_active(void);
 /* 1 while a non-menu map is loaded and its game is running. */
 int map_pictures_scenario_in_game(void);
 /* 1 while a cinematic (a campaign map's opening cutscene) is playing. */

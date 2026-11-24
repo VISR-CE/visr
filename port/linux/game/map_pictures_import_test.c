@@ -91,6 +91,8 @@ int map_pictures_scenario_identity(int index, char *key, size_t size, char hash[
 	memset(hash, 'a', 64); hash[64] = 0; *revision = (uint32_t)stub_revision; *framing_hash = (uint32_t)stub_hash;
 	return 1;
 }
+static int network;
+int map_pictures_scenario_network_active(void) { return network; }
 int map_pictures_scenario_in_game(void) { return game; }
 int map_pictures_scenario_in_cinematic(void) { return 0; }
 long map_pictures_scenario_ticks(void) { return 0; }
@@ -101,14 +103,15 @@ void photo_mode_prepare_variant(const char *key) { (void)key; }
 void photo_mode_clear_variant(void) { }
 void dsound_set_capture_mute(int on) { (void)on; }
 void photo_mode_capture_begin(void) { }
-int photo_mode_capture_state(int *framed, int *revision) { *framed = 1; *revision = stub_revision; return 1; }
+static int refuse_framing;
+int photo_mode_capture_state(int *framed, int *revision) { *framed = !refuse_framing; *revision = stub_revision; return 1; }
 
 static void reset(int import, int dev, int photo)
 {
 	memset(&render, 0, sizeof(render));
 	pending = import; development = dev; available = photo; menu = 1; game = 0;
 	done_calls = progress_calls = progress_done = identities = completed = identity_fails = 0;
-	refresh_ok = refresh_calls = 0; stub_revision = 7; stub_hash = 4242;
+	refresh_ok = refresh_calls = 0; network = refuse_framing = 0; stub_revision = 7; stub_hash = 4242;
 }
 
 static void run_maps(void)
@@ -188,6 +191,8 @@ static void seed_cache(int revision, int hash, void (*change)(const char *key, s
 		assert(file_write(path, json, strlen(json)));
 		snprintf(path, sizeof(path), "%spicture.bmp", directory);
 		assert(file_write(path, "bmp", 3));
+		snprintf(path, sizeof(path), "%sattempt.txt", directory);
+		unlink(path);
 	}
 }
 static void old_renderer_a30(const char *key, struct map_pictures_metadata *m)
@@ -208,6 +213,20 @@ static void launch_refresh(void)
 	/* a game already running: the scan never starts, so nothing loads during play */
 	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; game = 1; menu = 0; run_maps();
 	assert(!identities && !refresh_calls && !render.rendered);
+	/* a lobby or network game exists: the scan never starts */
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4244; network = 1; run_maps();
+	assert(!identities && !refresh_calls && !render.rendered);
+	/* a saved framing the game refuses is drawn by the automatic camera: the first launch renders it, the next
+	finds the recorded attempt and queues nothing (the class: a map that cannot match its request must not bring
+	the stage up at every launch) */
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4244; refuse_framing = 1; run_maps();
+	assert(refresh_calls == 1 && render.rendered == 23);
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4244; run_maps();
+	assert(!refresh_calls && !render.rendered && identities == 23);
+	/* ... until the framing changes again */
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4245; run_maps();
+	assert(refresh_calls == 1 && render.rendered == 23);
+	seed_cache(8, 4243, NULL);
 	/* a framing edited without a revision change: every picture is rendered again, through the stage */
 	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4244; run_maps();
 	assert(refresh_calls == 1 && done_calls == 1 && render.rendered == 23 && !pending && progress_done == 23);

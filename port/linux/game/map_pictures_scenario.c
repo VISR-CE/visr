@@ -17,6 +17,7 @@ which maps, their keys, hashes and saved framings, and whether a map's game runs
 #include "scenario/scenario_definitions.h"
 #include "photo_framing.h"
 #include "map_share.h"
+#include "networking/network_game_globals.h"
 #endif
 
 /* The maps a launch render covers, from the stock table (stock_maps.h): the campaign levels in order, then the Xbox
@@ -100,6 +101,12 @@ int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_
 		*framing_hash = photo_shot_hash(&shot);
 	}
 	return 1;
+}
+
+/* 1 while a network game or lobby exists (hosted, joined or joining): a launch refresh never starts then */
+int map_pictures_scenario_network_active(void)
+{
+	return network_game_is_active() ? 1 : 0;
 }
 
 int map_pictures_scenario_in_game(void)

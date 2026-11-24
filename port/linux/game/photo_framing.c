@@ -430,6 +430,9 @@ static unsigned int hash_ints(unsigned int h, const int *v, int count)
 	}
 	return h;
 }
+/* photo_shot_hash reads photo_mp_scene by position: a new field must be added there (and to these sizes) */
+typedef char photo_mp_scene_size_checked[sizeof(struct photo_mp_scene) ==
+	sizeof(int) * (7 + 2 + 2 * PHOTO_VARIANT_VEHICLES + 5) ? 1 : -1];
 unsigned int photo_shot_hash(const struct photo_shot *s)
 {
 	unsigned int h = 2166136261u;

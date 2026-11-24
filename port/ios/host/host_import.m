@@ -34,11 +34,15 @@ static BOOL pictures_supported(void) {
     return YES;
 #endif
 }
-static void pictures_mark_pending(NSString *root) {
-    if (!pictures_supported()) return;
+/* NO when the marker cannot be saved (a full disk); a refresh from the main menu then does not start */
+static BOOL pictures_try_mark_pending(NSString *root,NSError **error) {
+    if (!pictures_supported()) return YES;
     pictures_marker=[root stringByAppendingPathComponent:@".map-pictures-pending"];
+    return [@"VISR map pictures v1" writeToFile:pictures_marker atomically:YES encoding:NSUTF8StringEncoding error:error];
+}
+static void pictures_mark_pending(NSString *root) {
     NSError *error=nil;
-    if (![@"VISR map pictures v1" writeToFile:pictures_marker atomically:YES encoding:NSUTF8StringEncoding error:&error])
+    if (!pictures_try_mark_pending(root,&error))
         host_fatal("Could not save map preparation progress: %s",error.localizedDescription.UTF8String);
 }
 
@@ -559,7 +563,11 @@ int host_map_pictures_begin_refresh(void) {
         HaloImportController *controller=[HaloImportController new];controller.documents=import_documents;
         UIWindow *window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
         window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
-        pictures_mark_pending(import_documents);
+        NSError *error=nil;
+        if(!pictures_try_mark_pending(import_documents,&error)){
+            host_logf(HOST_LOG_WARN,"Map refresh not started: %s",error.localizedDescription.UTF8String);
+            window.hidden=YES;window.rootViewController=nil;return;
+        }
         [controller prepareMaps];
         pictures_window=window;started=1;
     });

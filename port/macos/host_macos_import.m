@@ -206,10 +206,14 @@ static NSTextField *pictures_status;
 static VISRUpscaleBar *pictures_bar;
 static id pictures_activity;
 static NSString *pictures_root;
-static void pictures_mark_pending(NSString *root) {
+/* NO when the marker cannot be saved (a full disk); a refresh from the main menu then does not start */
+static BOOL pictures_try_mark_pending(NSString *root,NSError **error) {
     pictures_marker=[root stringByAppendingPathComponent:@".map-pictures-pending"];
+    return [@"VISR map pictures v1" writeToFile:pictures_marker atomically:YES encoding:NSUTF8StringEncoding error:error];
+}
+static void pictures_mark_pending(NSString *root) {
     NSError *error=nil;
-    if(![@"VISR map pictures v1" writeToFile:pictures_marker atomically:YES encoding:NSUTF8StringEncoding error:&error])
+    if(!pictures_try_mark_pending(root,&error))
         host_fatal("Could not save map preparation progress: %s",error.localizedDescription.UTF8String);
 }
 static void pictures_phase(NSString *root) {
@@ -240,7 +244,11 @@ int host_map_pictures_begin_refresh(void) {
         if(atomic_load(&pictures_pending)){started=1;return;}
         if(!pictures_marker.length)return;
         NSString *root=pictures_marker.stringByDeletingLastPathComponent;
-        pictures_mark_pending(root);pictures_phase(root);started=1;
+        NSError *error=nil;
+        if(!pictures_try_mark_pending(root,&error)){
+            host_logf(HOST_LOG_WARN,"Map refresh not started: %s",error.localizedDescription.UTF8String);return;
+        }
+        pictures_phase(root);started=1;
     };
     if(NSThread.isMainThread)begin();else dispatch_sync(dispatch_get_main_queue(),begin);
     return started;

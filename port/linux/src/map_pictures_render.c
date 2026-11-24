@@ -226,6 +226,8 @@ static int map_directory(char *directory, size_t size, const char *key)
 	return render.root[0] && map_pictures_cache_path(directory, size, render.root, key);
 }
 
+static int attempt_matches(const char *directory, const struct map_pictures_request *request);
+
 /* 1 when the map's cached meta.json describes the picture this request would render */
 static int cached_fresh(const char *directory, const struct map_pictures_request *request)
 {
@@ -250,7 +252,50 @@ static int cached_fresh(const char *directory, const struct map_pictures_request
 		}
 	}
 	free(json);
-	return fresh;
+	return fresh || attempt_matches(directory, request);
+}
+
+/* A map whose picture could not be made as asked (the capture failed, the saved framing was refused) leaves a
+record of the request it was tried for, so the launch scan treats it as current until the request changes
+(a new framing, map or renderer) instead of bringing the stage up at every launch. */
+static int attempt_text(char *text, size_t size, const struct map_pictures_request *request)
+{
+	const struct map_pictures_metadata *m = &request->metadata;
+
+	return snprintf(text, size, "%lu:%lu:%lu:%s", (unsigned long)m->renderer_version,
+		(unsigned long)m->framing_revision, (unsigned long)m->framing_hash, m->map_hash) < (int)size;
+}
+
+static void attempt_write(const struct map_pictures_request *request)
+{
+	char directory[1100], path[1200], text[160];
+
+	if (map_directory(directory, sizeof(directory), render.key) && make_directories(directory) &&
+		attempt_text(text, sizeof(text), request))
+	{
+		snprintf(path, sizeof(path), "%sattempt.txt", directory);
+		file_write(path, text, strlen(text));
+	}
+}
+
+static int attempt_matches(const char *directory, const struct map_pictures_request *request)
+{
+	char path[1200], text[160], saved[160];
+	uint32_t size = 0;
+	uint8_t *data;
+	int match = 0;
+
+	snprintf(path, sizeof(path), "%sattempt.txt", directory);
+	if (!(data = file_read(path, &size)))
+		return 0;
+	if (size < sizeof(saved) && attempt_text(text, sizeof(text), request))
+	{
+		memcpy(saved, data, size);
+		saved[size] = 0;
+		match = !strcmp(saved, text);
+	}
+	free(data);
+	return match;
 }
 
 /* waits for the menu before the next map */
@@ -384,6 +429,7 @@ static void skip_map(const char *why)
 	platform_log("map pictures: %s: %s, skipped (%.1f s, framing revision %u)", render.key, why,
 		(now() - render.map_start) / 1000.0, render.request.metadata.framing_revision);
 	render.failed++;
+	attempt_write(&render.request);
 	photo_mode_end();
 	render.wants_frame = 0;
 	advance();
@@ -428,7 +474,7 @@ void map_pictures_render_update(void)
 			missing picture starts the stage itself (STATE_SCAN) */
 			render.index = 0;
 			/* a benchmark suite owns map loading for its whole run */
-			render.state = config_string("debug.benchmark_suite")[0] ? STATE_DONE : STATE_SCAN;
+			render.state = (config_string("debug.benchmark_suite")[0] || getenv("HALO_RUNNER")) ? STATE_DONE : STATE_SCAN;
 			return;
 		}
 		start_run(time);
@@ -439,7 +485,7 @@ void map_pictures_render_update(void)
 		uint32_t revision;
 
 		/* never during play: a game that started before the scan ended leaves it for the next launch */
-		if (map_pictures_scenario_in_game())
+		if (map_pictures_scenario_in_game() || map_pictures_scenario_network_active())
 		{
 			render.state = STATE_DONE;
 			return;
@@ -561,7 +607,9 @@ void map_pictures_render_update(void)
 			{
 				/* the saved framing was refused: what was drawn is the automatic camera's */
 				render.request.metadata.framing = MAP_PICTURES_AUTO;
+				attempt_write(&render.request); /* (before the request becomes the automatic one) */
 				render.request.metadata.framing_revision = 0;
+				render.request.metadata.framing_hash = 0;
 				render.request.metadata.auto_version = AUTO_VERSION;
 			}
 			render.captured = time;
