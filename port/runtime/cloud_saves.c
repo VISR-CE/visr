@@ -797,7 +797,7 @@ static void local_free(struct local_slot *local)
 
 /* what identifies one version of the saved game file. A modification time alone is not enough: a volume that keeps
    whole seconds (HFS+) gives a rewrite of the same size within the same second the old signature, so a cache keyed on it
-   returned the old bytes' hash after the engine had replaced them. The file's number changes with each replace
+   returned the old bytes' hash after the engine had replaced them. The inode number changes with each replace
    (the write is a rename of a new file), and the engine also forgets its cache for a file it writes (cache_forget). */
 static void file_signature(const struct stat *st, char *signature, size_t size)
 {
@@ -1270,6 +1270,7 @@ static int local_remove_slot(struct cloud_engine *engine, const char *id)
 		unlink(path);
 	}
 	closedir(dir);
+	cache_forget(engine, id);
 	return rmdir(directory) == 0;
 }
 
@@ -2088,6 +2089,7 @@ static void unit_sync(struct cloud_engine *engine, struct unit *unit, int remova
 
 					slot_directory(engine->save_root, slot, directory, sizeof(directory));
 					snprintf(path, sizeof(path), "%s/%s", directory, CHECKPOINT_FILE);
+					cache_forget(engine, slot);
 					if (unlink(path) == 0)
 						engine_log(engine, "removed %s's saved game from this device: its profile was deleted on another", slot);
 				}
