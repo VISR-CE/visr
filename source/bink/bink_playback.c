@@ -480,6 +480,25 @@ void bink_playback_stop(
 	return;
 }
 
+/* port: a map load ends a playing movie (game_precache_new_map). The map
+being loaded replaces the main menu, so a movie that would return to it
+(the startup intro) does not: main_menu_load here would load the menu's map
+in the middle of another map's load */
+void bink_playback_stop_for_map_change(
+	void)
+{
+	extern void platform_log(const char *format, ...);
+
+	if (!bink_globals.initialized || !bink_globals.bink)
+		return;
+
+	platform_log("Bink: a map load ends the movie");
+	SET_FLAG(bink_globals.flags, _bink_playback_return_to_main_menu_when_finished_bit, FALSE);
+	bink_playback_stop();
+
+	return;
+}
+
 void bink_playback_dispose(
 	void)
 {
