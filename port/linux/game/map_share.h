@@ -100,6 +100,12 @@ if it cannot be read. */
 boolean map_share_map_hash(
 	char const *path,
 	byte *hash);
+/* A map file's size and write time as text ("size:modified"), what map_share_map_hash keys its remembered hashes
+by: a hash taken under the same stamp stands for the file. FALSE if the file cannot be stamped. */
+boolean map_share_map_stamp(
+	char const *path,
+	char *stamp,
+	unsigned long size);
 /* ... a hash known otherwise (a download's) kept */
 void map_share_map_hash_remember(
 	char const *path,

@@ -851,6 +851,19 @@ void map_share_map_hash_remember(
 	csmemcpy(known->hash, hash, MAP_SHARE_HASH_BYTES);
 }
 
+boolean map_share_map_stamp(
+	char const *path,
+	char *stamp,
+	unsigned long length)
+{
+	unsigned long size;
+	unsigned long modified;
+
+	if (!file_stamp(path, &size, &modified) || size > MAXIMUM_FILE_BYTES)
+		return FALSE;
+	return snprintf(stamp, length, "%lu:%lu", size, modified) < (int)length;
+}
+
 boolean map_share_map_hash(
 	char const *path,
 	byte *hash)

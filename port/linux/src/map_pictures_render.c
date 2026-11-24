@@ -315,20 +315,45 @@ static void finish(void)
 	render.state = STATE_LEAVING;
 }
 
+/* the cached picture's metadata for a map directory: 1 when meta.json parses */
+static int cached_meta(const char *directory, struct map_pictures_metadata *cached)
+{
+	char path[1200];
+	uint32_t size = 0;
+	uint8_t *json;
+	int ok;
+
+	snprintf(path, sizeof(path), "%smeta.json", directory);
+	if (!(json = file_read(path, &size)))
+		return 0;
+	memset(cached, 0, sizeof(*cached));
+	ok = map_pictures_meta_parse((const char *)json, size, cached);
+	free(json);
+	return ok;
+}
+
 /* the request that renders a map's picture as the current framings and renderer would make it: 1 with
-render.key and render.request filled, 0 when the map has no key or hash (framing_revision is for the log) */
+render.key and render.request filled, 0 when the map has no key or hash (framing_revision is for the log).
+The map's hash is the cached picture's while the map file still has the stamp it was taken under. */
 static int build_request(int scenario, char directory[1100], uint32_t *revision)
 {
-	char hash[65];
+	char hash[65], stamp[MAP_PICTURES_STAMP_SIZE];
 	uint32_t framing_hash = 0;
-	struct map_pictures_metadata *meta = &render.request.metadata;
+	struct map_pictures_metadata cached, *meta = &render.request.metadata;
+	int have_cache = 0;
 
 	*revision = 0;
-	if (!map_pictures_scenario_identity(scenario, render.key, sizeof(render.key), hash, revision, &framing_hash))
+	directory[0] = 0;
+	if (map_pictures_scenario_key(scenario, render.key, sizeof(render.key)) &&
+		map_directory(directory, 1100, render.key))
+		have_cache = cached_meta(directory, &cached);
+	if (!map_pictures_scenario_identity(scenario, render.key, sizeof(render.key), hash, stamp,
+		have_cache ? cached.map_stamp : "", have_cache ? cached.map_hash : "", revision, &framing_hash))
 		return 0;
 	memset(&render.request, 0, sizeof(render.request));
 	snprintf(meta->map_key, sizeof(meta->map_key), "%s", render.key);
 	memcpy(meta->map_hash, hash, sizeof(meta->map_hash));
+	snprintf(meta->map_stamp, sizeof(meta->map_stamp), "%s", stamp);
 	meta->framing = *revision ? MAP_PICTURES_CURATED : MAP_PICTURES_AUTO;
 	meta->framing_revision = *revision;
 	meta->framing_hash = *revision ? framing_hash : 0;

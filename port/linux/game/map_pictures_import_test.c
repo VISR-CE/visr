@@ -80,15 +80,26 @@ short cache_file_requests_pending(void) { return 0; }
 unsigned long cache_file_reads_started(void) { return 0; }
 unsigned int gpu_compiles_outstanding(void) { return 0; }
 uint32_t halo_pipelines_built(void) { return 0; }
-int map_pictures_scenario_identity(int index, char *key, size_t size, char hash[65], uint32_t *revision,
-	uint32_t *framing_hash)
+static int hashes;
+static char stub_stamp[MAP_PICTURES_STAMP_SIZE] = "100:200";
+int map_pictures_scenario_key(int index, char *key, size_t size)
 {
 	const char *name = map_pictures_scenario_name(index), *base = strrchr(name, '\\') + 1;
-	assert(index == (pending ? map_pictures_scenario_import_index(identities) : identities));
-	identities++;
 	if (identity_fails) return 0;
 	snprintf(key, size, "stock:%s", base);
-	memset(hash, 'a', 64); hash[64] = 0; *revision = (uint32_t)stub_revision; *framing_hash = (uint32_t)stub_hash;
+	return 1;
+}
+int map_pictures_scenario_identity(int index, char *key, size_t size, char hash[65], char stamp[MAP_PICTURES_STAMP_SIZE],
+	const char *known_stamp, const char *known_hash, uint32_t *revision, uint32_t *framing_hash)
+{
+	assert(index == (pending ? map_pictures_scenario_import_index(identities) : identities));
+	identities++;
+	if (!map_pictures_scenario_key(index, key, size)) return 0;
+	snprintf(stamp, MAP_PICTURES_STAMP_SIZE, "%s", stub_stamp);
+	/* the production decision (scenario.c uses the same function): hash the file only when the cache cannot stand in */
+	if (map_pictures_hash_known(stamp, known_stamp, known_hash)) memcpy(hash, known_hash, 65);
+	else { hashes++; memset(hash, 'a', 64); hash[64] = 0; }
+	*revision = (uint32_t)stub_revision; *framing_hash = (uint32_t)stub_hash;
 	return 1;
 }
 static int network;
@@ -111,7 +122,7 @@ static void reset(int import, int dev, int photo)
 	memset(&render, 0, sizeof(render));
 	pending = import; development = dev; available = photo; menu = 1; game = 0;
 	done_calls = progress_calls = progress_done = identities = completed = identity_fails = 0;
-	refresh_ok = refresh_calls = 0; network = refuse_framing = 0; stub_revision = 7; stub_hash = 4242;
+	refresh_ok = refresh_calls = hashes = 0; strcpy(stub_stamp, "100:200"); network = refuse_framing = 0; stub_revision = 7; stub_hash = 4242;
 }
 
 static void run_maps(void)
@@ -184,6 +195,7 @@ static void seed_cache(int revision, int hash, void (*change)(const char *key, s
 		m.framing = MAP_PICTURES_CURATED; m.framing_revision = (uint32_t)revision; m.framing_hash = (uint32_t)hash;
 		m.renderer_version = RENDERER_VERSION; m.texture_set = MAP_PICTURES_ORIGINAL;
 		m.width = PICTURE_WIDTH; m.height = PICTURE_HEIGHT;
+		snprintf(m.map_stamp, sizeof(m.map_stamp), "100:200");
 		if (change) change(key, &m);
 		assert(map_pictures_meta_write(json, sizeof(json), &m));
 		assert(map_pictures_cache_path(directory, sizeof(directory), test_root, key) && make_directories(directory));
@@ -194,6 +206,10 @@ static void seed_cache(int revision, int hash, void (*change)(const char *key, s
 		snprintf(path, sizeof(path), "%sattempt.txt", directory);
 		unlink(path);
 	}
+}
+static void no_stamps(const char *key, struct map_pictures_metadata *m)
+{
+	(void)key; m->map_stamp[0] = 0;
 }
 static void old_renderer_a30(const char *key, struct map_pictures_metadata *m)
 {
@@ -210,6 +226,17 @@ static void launch_refresh(void)
 	seed_cache(8, 4243, NULL);
 	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; run_maps();
 	assert(identities == 23 && !refresh_calls && !pending && !done_calls && !render.rendered);
+	/* the class: a launch whose pictures are current reads no map at all (every hash comes from the cache) */
+	assert(hashes == 0);
+	/* a map file replaced under a new stamp is hashed again, and a cache without stamps (older metadata) too */
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; strcpy(stub_stamp, "101:200"); run_maps();
+	assert(hashes == 23 && !refresh_calls);
+	seed_cache(8, 4243, no_stamps);
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; run_maps();
+	assert(hashes == 23 && !refresh_calls);
+	seed_cache(8, 4243, NULL);
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; run_maps();
+	assert(hashes == 0);
 	/* a game already running: the scan never starts, so nothing loads during play */
 	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; game = 1; menu = 0; run_maps();
 	assert(!identities && !refresh_calls && !render.rendered);

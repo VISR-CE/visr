@@ -17,6 +17,7 @@ which maps, their keys, hashes and saved framings, and whether a map's game runs
 #include "scenario/scenario_definitions.h"
 #include "photo_framing.h"
 #include "map_share.h"
+#include "map_pictures.h"
 #include "networking/network_game_globals.h"
 #endif
 
@@ -78,21 +79,33 @@ int map_pictures_scenario_import_index(int position)
 }
 
 #ifdef HALO_IOS
-int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_hex[65], uint32_t *revision,
-	uint32_t *framing_hash)
+int map_pictures_scenario_key(int index, char *key, size_t size)
 {
 	const char *name = map_pictures_scenario_name(index);
+
+	return name && photo_map_key(name, 0, NULL, key, size) && !strncmp(key, "stock:", 6);
+}
+
+int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_hex[65], char stamp[MAP_PICTURES_STAMP_SIZE],
+	const char *known_stamp, const char *known_hash, uint32_t *revision, uint32_t *framing_hash)
+{
 	char path[256];
 	byte hash[32];
 	struct photo_shot shot;
 	int saved = 0, i;
 
 	*revision = 0; *framing_hash = 0;
-	if (!name || !photo_map_key(name, 0, NULL, key, size) || strncmp(key, "stock:", 6)) return 0;
+	if (!map_pictures_scenario_key(index, key, size)) return 0;
 	if (snprintf(path, sizeof(path), "d:\\maps\\%s.map", key + 6) >= (int)sizeof(path) ||
-		!map_share_map_hash(path, hash)) return 0;
-	for (i = 0; i < 32; i++) sprintf(hash_hex + i * 2, "%02x", hash[i]);
-	hash_hex[64] = 0;
+		!map_share_map_stamp(path, stamp, MAP_PICTURES_STAMP_SIZE)) return 0;
+	if (map_pictures_hash_known(stamp, known_stamp, known_hash))
+		memcpy(hash_hex, known_hash, 65);
+	else
+	{
+		if (!map_share_map_hash(path, hash)) return 0;
+		for (i = 0; i < 32; i++) sprintf(hash_hex + i * 2, "%02x", hash[i]);
+		hash_hex[64] = 0;
+	}
 	/* the same sources photo mode loads from (photo_mode.c): the data folder's fragment, then the bundle */
 	if (snprintf(path, sizeof(path), "d:\\framings\\%s.json", key) < (int)sizeof(path) &&
 		photo_framing_lookup(path, "d:\\map-framings.json", key, &shot, &saved) != PHOTO_FRAMING_NONE && saved > 0)

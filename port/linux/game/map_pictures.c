@@ -37,22 +37,23 @@ static int metadata_valid(const struct map_pictures_metadata *m)
 
 int map_pictures_meta_write(char *buf, size_t size, const struct map_pictures_metadata *m)
 {
-	char framing[32], hash_field[40] = "";
+	char framing[32], hash_field[40] = "", stamp_field[MAP_PICTURES_STAMP_SIZE + 16] = "";
 	int length;
 	if (!buf || !size) return 0;
 	buf[0] = 0;
 	if (!metadata_valid(m)) return 0;
 	if (m->framing_hash) snprintf(hash_field, sizeof(hash_field), ",\"framing_hash\":%lu", (unsigned long)m->framing_hash);
+	if (m->map_stamp[0]) snprintf(stamp_field, sizeof(stamp_field), ",\"map_stamp\":\"%s\"", m->map_stamp);
 	if (m->framing == MAP_PICTURES_AUTO)
 		snprintf(framing, sizeof(framing), "auto:%lu", (unsigned long)m->auto_version);
 	else strcpy(framing, "curated");
 	length = snprintf(buf, size,
 		"{\"schema\":1,\"map_key\":\"%s\",\"framing_revision\":%lu,"
 		"\"renderer_version\":%lu,\"texture_set\":\"%s\",\"map_hash\":\"%s\","
-		"\"width\":%lu,\"height\":%lu,\"framing\":\"%s\",\"pre_game\":%s%s}",
+		"\"width\":%lu,\"height\":%lu,\"framing\":\"%s\",\"pre_game\":%s%s%s}",
 		m->map_key, (unsigned long)m->framing_revision, (unsigned long)m->renderer_version,
 		m->texture_set == MAP_PICTURES_UPSCALED ? "upscaled" : "original", m->map_hash,
-		(unsigned long)m->width, (unsigned long)m->height, framing, m->pre_game ? "true" : "false", hash_field);
+		(unsigned long)m->width, (unsigned long)m->height, framing, m->pre_game ? "true" : "false", hash_field, stamp_field);
 	if (length < 0 || (size_t)length >= size || length >= MAP_PICTURES_META_SIZE)
 	{
 		buf[0] = 0;
@@ -113,7 +114,7 @@ static int unsigned_read(struct reader *r, uint32_t *out)
 int map_pictures_meta_parse(const char *json, size_t length, struct map_pictures_metadata *out)
 {
 	static const char *fields[] = {"schema", "map_key", "framing_revision", "renderer_version",
-		"texture_set", "map_hash", "width", "height", "framing", "pre_game", "framing_hash"};
+		"texture_set", "map_hash", "width", "height", "framing", "pre_game", "framing_hash", "map_stamp"};
 	struct map_pictures_metadata m = {0};
 	struct reader r;
 	unsigned int seen = 0;
@@ -165,6 +166,7 @@ int map_pictures_meta_parse(const char *json, size_t length, struct map_pictures
 			else return 0;
 			break;
 		case 10: if (!unsigned_read(&r, &m.framing_hash)) return 0; break; /* optional */
+		case 11: if (!string_read(&r, m.map_stamp, sizeof(m.map_stamp))) return 0; break; /* optional */
 		}
 		if (take(&r, '}')) break;
 		if (!take(&r, ',')) return 0;
@@ -172,6 +174,15 @@ int map_pictures_meta_parse(const char *json, size_t length, struct map_pictures
 	whitespace(&r);
 	if (r.p != r.end || (seen & ((1u << 10) - 1)) != (1u << 10) - 1 || !metadata_valid(&m)) return 0;
 	*out = m;
+	return 1;
+}
+
+int map_pictures_hash_known(const char *stamp, const char *known_stamp, const char *known_hash)
+{
+	size_t i;
+	if (!stamp || !known_stamp || !known_hash || !stamp[0] || strcmp(stamp, known_stamp) || strlen(known_hash) != 64) return 0;
+	for (i = 0; i < 64; i++)
+		if (!((known_hash[i] >= '0' && known_hash[i] <= '9') || (known_hash[i] >= 'a' && known_hash[i] <= 'f'))) return 0;
 	return 1;
 }
 
