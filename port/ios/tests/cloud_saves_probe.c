@@ -10,6 +10,7 @@
 #include <ftw.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -31,6 +32,15 @@ static const char *test_name = "";
 
 #define CHECK(condition) do { if (!(condition)) { \
 	fprintf(stderr, "cloud_saves_probe: %s: line %d: %s\n", test_name, __LINE__, #condition); exit(1); } } while (0)
+
+/* A restore that fails reports the status it returned and errno, so a flake names the failing step. */
+#define CHECK_RESTORE(engine, unit, expected) do { \
+	errno = 0; \
+	enum cloud_status restore_status_ = cloud_engine_restore_copy((engine), (unit)); \
+	int restore_errno_ = errno; \
+	if (restore_status_ != (expected)) { \
+		fprintf(stderr, "cloud_saves_probe: %s: line %d: cloud_engine_restore_copy(%s, %s) returned status %d, expected %d (errno %d: %s)\n", \
+			test_name, __LINE__, #engine, #unit, (int)restore_status_, (int)(expected), restore_errno_, strerror(restore_errno_)); exit(1); } } while (0)
 
 /* ---------- the fake cloud */
 
@@ -1094,8 +1104,8 @@ static void first_opt_in_conflict(int local_wins)
 		cloud_engine_notice_done(local_device.engine);
 	}
 	CHECK(!notices(&local_device, NULL));
-	CHECK(cloud_engine_restore_copy(local_device.engine, "slot-" SLOT) == CLOUD_OK);
-	CHECK(cloud_engine_restore_copy(local_device.engine, checkpoint) == CLOUD_OK);
+	CHECK_RESTORE(local_device.engine, "slot-" SLOT, CLOUD_OK);
+	CHECK_RESTORE(local_device.engine, checkpoint, CLOUD_OK);
 	CHECK(same_file(&local_device, local_wins ? &cloud_device : &original, SLOT, "blam.sav"));
 	CHECK(same_file(&local_device, local_wins ? &cloud_device : &original, SLOT, "SaveMeta.xbx"));
 	CHECK(same_file(&local_device, local_wins ? &cloud_device : &original, SLOT, "savegame.bin"));
@@ -1453,13 +1463,13 @@ static void test_restore_deleted(void)
 	CHECK(running(&a) == CLOUD_STATE_IDLE && launch(&b) == CLOUD_STATE_IDLE && !has_file(&b, SLOT, "blam.sav"));
 	/* "Restore the last set-aside save" brings the profile back, and its saved game with the next pass */
 	device_restart(&b);
-	CHECK(cloud_engine_restore_copy(b.engine, NULL) == CLOUD_OK);
+	CHECK_RESTORE(b.engine, NULL, CLOUD_OK);
 	CHECK(has_file(&b, SLOT, "blam.sav") && !cloud_is_deleted("slot-" SLOT) && !cloud_is_deleted(saved_game_unit(SLOT)));
 	CHECK(cloud_engine_sync(b.engine, CLOUD_PASS_LAUNCH) == CLOUD_STATE_IDLE && has_file(&b, SLOT, "savegame.bin"));
 	CHECK(launch(&a) == CLOUD_STATE_IDLE && same_file(&a, &b, SLOT, "blam.sav") && same_file(&a, &b, SLOT, "savegame.bin"));
 	/* nothing set aside: says so */
 	device_restart(&b);
-	CHECK(cloud_engine_restore_copy(b.engine, NULL) == CLOUD_NOT_FOUND);
+	CHECK_RESTORE(b.engine, NULL, CLOUD_NOT_FOUND);
 	device_end(&a); device_end(&b);
 }
 
@@ -1476,13 +1486,13 @@ static void test_use_the_other_one(void)
 	CHECK(launch(&b) == CLOUD_STATE_IDLE && file_variation(&b, SLOT, "blam.sav") == 1);
 	/* the notice's second button, for the profile: this device's own version is current again */
 	device_restart(&b);
-	CHECK(cloud_engine_restore_copy(b.engine, "slot-" SLOT) == CLOUD_OK);
+	CHECK_RESTORE(b.engine, "slot-" SLOT, CLOUD_OK);
 	CHECK(file_variation(&b, SLOT, "blam.sav") == 2 && cloud_copies("slot-" SLOT) == 1);
 	CHECK(cloud_engine_sync(b.engine, CLOUD_PASS_LAUNCH) == CLOUD_STATE_IDLE);
 	CHECK(launch(&a) == CLOUD_STATE_IDLE && file_variation(&a, SLOT, "blam.sav") == 2);
 	/* and for the saved game */
 	device_restart(&b);
-	CHECK(cloud_engine_restore_copy(b.engine, saved_game_unit(SLOT)) == CLOUD_OK);
+	CHECK_RESTORE(b.engine, saved_game_unit(SLOT), CLOUD_OK);
 	CHECK(file_variation(&b, SLOT, "savegame.bin") == 2 && cloud_copies(saved_game_unit(SLOT)) == 1);
 	CHECK(launch(&a) == CLOUD_STATE_IDLE && file_variation(&a, SLOT, "savegame.bin") == 2);
 	/* pressed again: back to the other, nothing lost on the way */
