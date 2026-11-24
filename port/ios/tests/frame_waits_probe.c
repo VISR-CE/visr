@@ -25,6 +25,9 @@ int main(void)
 	not in the row's display wait (the barrier's 6 ms less those 4 leaves an encoder tail of 2, host_frame_timeline) */
 	frame_waits_add_game(0.005);
 	frame_waits_add_display(0.004);
+	/* (the display wait read before the take is the take's, and stays in place) */
+	CHECK(fabs(frame_waits_display(10.0) - 0.004) < 1e-9 && fabs(frame_waits_display(10.0) - 0.004) < 1e-9,
+		"display wait before the take: %.3f ms, expected 4", frame_waits_display(10.0) * 1e3);
 	expect("late start and display", frame_waits_take(10.0), 0.009, 0.004);
 
 	/* the game thread encodes the frame: its whole 3 ms slot wait is a wait */

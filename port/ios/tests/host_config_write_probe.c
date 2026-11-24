@@ -7,6 +7,7 @@ mode over the settings it replaces, as the game reads them (port/linux/src/port_
 #include <unistd.h>
 #include "host_config.h"
 #include "../../linux/src/port_graphics_modes.h"
+#include "test_tmpdir.h"
 
 static int head;
 static int head_now(void) { return head; }
@@ -24,10 +25,10 @@ static char *slurp(const char *path)
 
 int main(void)
 {
-	char directory[] = "/tmp/host-config-XXXXXX";
+	char directory[PATH_MAX];
 	FILE *file;
 
-	assert(mkdtemp(directory) && chdir(directory) == 0);   /* host_config reads config.toml in the working directory */
+	assert(test_mkdtemp(directory, sizeof(directory), "host-config") && chdir(directory) == 0);   /* host_config reads config.toml in the working directory */
 	file = fopen("config.toml", "w");
 	fputs("# mine\n[display]\nhigh_res_hud = true\nupscaled_textures = true\n[debug]\ntexture_log = false\n", file);
 	fclose(file);

@@ -135,6 +135,23 @@ static void devices(void) {
     assert(take(&m).radius == 0);
 }
 
+/* a position report (focus or pointer-enter change) moves the pointer's position and nothing else */
+static void position_report(void) {
+    struct host_menu_pointer m = fresh();
+    struct host_ui_pointer p;
+    host_menu_pointer_touch_begin(&m, 1, 1, 1);
+    host_menu_pointer_touch_end(&m, 1);
+    (void)take(&m);
+    host_menu_pointer_device_report(&m, 300, 200);
+    p = take(&m);
+    assert(!p.moved && p.x == 300 && p.y == 200 && p.radius == HOST_MENU_POINTER_RADIUS);
+    /* scripted moves and clicks stay real, even at an unchanged position */
+    host_menu_pointer_device_move(&m, 300, 200);
+    host_menu_pointer_device_click(&m, 0, 300, 200);
+    p = take(&m);
+    assert(p.moved && p.left_clicks == 1 && p.radius == 0);
+}
+
 /* the menus' point (mx, my) drawn by the display blit, and back */
 static void mapping(void) {
     static const int pictures[][2] = { {330, 480}, {320, 480}, {640, 480}, {854, 480}, {1280, 720}, {1920, 1080}, {2560, 1080}, {3840, 1600} };
@@ -288,6 +305,7 @@ int main(void) {
     fingers();
     gates();
     devices();
+    position_report();
     mapping();
     portrait_mapping();
     puts("menu pointer: passed");

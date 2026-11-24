@@ -1,6 +1,7 @@
 """Xbox settings generation preserves wiring and needs no extracted assets."""
 import importlib.util
 import json
+import atexit
 from pathlib import Path
 import shutil
 import sys
@@ -27,6 +28,7 @@ def looks():
     """The generator's source rows written out as files under `sources/`, beside the generated `xbox/`: the tests that
     compare a screen with its source read both the same way."""
     folder = Path(tempfile.mkdtemp())
+    atexit.register(shutil.rmtree, folder, ignore_errors=True)
     (folder / 'sources').mkdir()
     module = generator()
     for name in module.source_names():
@@ -1376,7 +1378,8 @@ def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_
     import port_settings
     replaced = port_settings.graphics_replaced()
     video_settings = {row[1] for row in port_settings.SCREENS['video_settings']['rows']}
-    assert {'display.frame_rate', 'display.interpolation'} <= replaced & video_settings
+    assert {'display.frame_rate'} <= replaced & video_settings
+    assert 'display.interpolation' not in video_settings
     for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
                        (LOOKS / 'sources/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
                         'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
@@ -1558,9 +1561,9 @@ def test_video_setup_rows_keep_the_leading_places_on_every_platform(platform):
     assert options.get('row_pitch') == '39'
     assert options.get('row_top') == rows[0].get('y')
     if platform is None:
-        assert names == ['op_graphics', 'op_vsync', 'op_interpolation']
+        assert names == ['op_graphics', 'op_vsync']
     if platform == 'mac_app':
-        assert names == ['op_graphics', 'op_vsync', 'op_frame_rate', 'op_interpolation']
+        assert names == ['op_graphics', 'op_vsync', 'op_frame_rate']
 
 
 def test_frame_rate_spinner_fits_the_longest_value_inside_the_row():

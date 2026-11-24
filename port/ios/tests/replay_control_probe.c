@@ -5,6 +5,7 @@
 #include "input_replay_probe.c"
 #undef main
 #include <math.h>
+#include "test_tmpdir.h"
 
 typedef float real;
 typedef unsigned char boolean;
@@ -113,8 +114,8 @@ static void camera_noted(float yaw, const char *source, int held) { (void)yaw; (
 
 int main(void)
 {
-	char folder[] = "/tmp/visr-control-probe-XXXXXX";
-	assert(mkdtemp(folder) && !chdir(folder));
+	char folder[PATH_MAX];
+	assert(test_mkdtemp(folder, sizeof(folder), "visr-control-probe") && !chdir(folder));
 	FILE *file = fopen("camera.input", "w");
 	assert(file);
 	fputs("halo input recording 1\n0 0 0 0 0 0 0 0 0 0 0 0 0 0\n", file); fclose(file);

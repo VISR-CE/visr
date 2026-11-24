@@ -27,6 +27,7 @@ Conventions carried over from the Xbox:
 
 #include "xgpu.h"
 #include "quad_ranges.h"
+#include "screenshot_schedule.h"
 #include "sdl_platform.h"
 #include "halo_ui_drag.h"
 #include "halo_ui_pointer.h"
@@ -34,6 +35,7 @@ Conventions carried over from the Xbox:
 #include "menu_scale.h"
 #include "halo_menu_screen.h"
 #include "port_config.h"
+#include "frame_rate_setting.h"
 #include "halo_host_flags.h"
 #include "port_graphics_modes.h"
 #include "halo_display.h"
@@ -67,6 +69,8 @@ void d3d8_surface_initialize(D3DSurface *surface, D3DFORMAT format, unsigned lon
 void d3d8_surface_resize(D3DSurface *surface, D3DFORMAT format, unsigned long width, unsigned long height);
 /* port/linux/game/render_interpolation.c */
 void render_interpolation_next_frame_due(unsigned long microseconds);
+/* the game tick the frame being drawn shows, -1 outside a game (render_interpolation.c) */
+long render_interpolation_shown_tick(void);
 /* input_replay.c */
 void input_replay_frame(long width, long height);
 /* benchmark_suite.c: the device benchmark's suite, once a presented frame */
@@ -157,17 +161,14 @@ static uint32_t frame_pacing_flags(void)
 static uint32_t frame_rate_flags(void)
 {
 	const char *rate = config_string("display.frame_rate");
-	char *end;
-	long cap;
+	long cap = frame_rate_setting_parse(rate);
 
-	if (!strcmp(rate, "display"))
-		return 0;
-	if (!strcmp(rate, "unlimited"))
+	if (cap == FRAME_RATE_SETTING_UNLIMITED)
 		return (uint32_t)GPU_INITIALIZE_FRAME_RATE_UNLIMITED << GPU_INITIALIZE_FRAME_RATE_SHIFT;
-	cap = strtol(rate, &end, 10);
-	if (*rate && !*end && cap >= 1 && cap <= 1000)
+	if (cap > 0)
 		return (uint32_t)cap << GPU_INITIALIZE_FRAME_RATE_SHIFT;
-	platform_log("display.frame_rate: unknown value \"%s\" (\"display\", \"unlimited\" or 1 to 1000); using \"display\"", rate);
+	if (strcmp(rate, "display"))
+		platform_log("display.frame_rate: unknown value \"%s\" (\"display\", \"unlimited\" or 1 to 1000); using \"display\"", rate);
 	return 0;
 }
 
@@ -6294,7 +6295,8 @@ skipped */
 static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 {
 	struct vertex_shader_object *program = current_program();
-	struct nv2a_pixel_shader_key key;
+	/* port: automatic zeroing of this local was a top remaining cost in the 128-player profile of the zeroing build (once per draw); pixel_key_begin clears it before any other use Measured: with the second round of opt-outs (these five), the A10X 128-player cost of zeroing fell from 2.5% to 1.25% of frame rate. */
+	SIM_UNINITIALIZED struct nv2a_pixel_shader_key key;
 	float texture_scale[4][4];
 	BOOL has_depth = FALSE, lit;
 	int stage;
@@ -7827,12 +7829,14 @@ void WINAPI D3DDevice_Clear(DWORD count, CONST D3DRECT *rectangles, DWORD flags,
 
 /* ---------- presentation */
 
-/* suffix: "" for the usual frameNNNNN.png, else e.g. "-left" */
-static void write_screenshot_channel(struct render_target_entry *target, const char *suffix, int alpha);
+/* stem: the shot's name (screenshot_schedule.h: frameNNNNN or tickNNNNN); suffix: "" for the usual stem.png,
+else e.g. "-left" */
+static void write_screenshot_channel(struct render_target_entry *target, const char *stem, const char *suffix,
+	int alpha);
 
-static void write_screenshot(struct render_target_entry *target, const char *suffix)
+static void write_screenshot(struct render_target_entry *target, const char *stem, const char *suffix)
 {
-	write_screenshot_channel(target, suffix, 0);
+	write_screenshot_channel(target, stem, suffix, 0);
 }
 
 /* debug.menu_ready_shot: 1 once the menus ask for a frame, 2 once it is
@@ -7894,13 +7898,13 @@ static uint32_t target_read(const struct render_target_entry *target, void *pixe
 	return ok;
 }
 
-/* a screenshot's BGRA pixels, rows from the top, as directory/frameNNNNN<suffix>.png */
-static void screenshot_file(const char *directory, const char *suffix, const unsigned char *pixels,
+/* a screenshot's BGRA pixels, rows from the top, as directory/<stem><suffix>.png */
+static void screenshot_file(const char *directory, const char *stem, const char *suffix, const unsigned char *pixels,
 	unsigned long width, unsigned long height)
 {
 	char path[512];
 
-	snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
+	snprintf(path, sizeof(path), "%s/%s%s.png", directory, stem, suffix);
 	png_write_bgra(path, pixels, width, height, width * 4);
 	/* the benchmark reducer drops the frame-log entry holding a capture frame */
 	platform_log("capture: frame %lu%s", device.frame, suffix);
@@ -7908,7 +7912,8 @@ static void screenshot_file(const char *directory, const char *suffix, const uns
 
 /* the target's color, or with alpha its alpha channel as gray (stereo's HUD
 layer: the picture's transmittance, hud_layer_blend) */
-static void write_screenshot_channel(struct render_target_entry *target, const char *suffix, int alpha)
+static void write_screenshot_channel(struct render_target_entry *target, const char *stem, const char *suffix,
+	int alpha)
 {
 	const char *directory = window_shot_directory ? window_shot_directory :
 		*config_string("debug.screenshot_directory") ? config_string("debug.screenshot_directory") : NULL;
@@ -7933,7 +7938,7 @@ static void write_screenshot_channel(struct render_target_entry *target, const c
 			pixels[row * 4] = pixels[row * 4 + 1] = pixels[row * 4 + 2] = pixels[row * 4 + 3];
 		pixels[row * 4 + 3] = 0xff;
 	}
-	screenshot_file(directory, suffix, pixels, width, height);
+	screenshot_file(directory, stem, suffix, pixels, width, height);
 	free(pixels);
 }
 
@@ -7943,7 +7948,7 @@ film: what HEAD mode's presenter would show the left eye
 (halo_stereo_window.h), over the eye's fixed frustum. The film: its picture
 on the theater's default screen. The expansion: the eye's picture inside
 the growing window, black on its bars. Gray around, for the room */
-static void write_window_screenshot(struct render_target_entry *target)
+static void write_window_screenshot(struct render_target_entry *target, const char *stem)
 {
 	const char *directory = *config_string("debug.screenshot_directory") ?
 		config_string("debug.screenshot_directory") : NULL;
@@ -8004,7 +8009,7 @@ static void write_window_screenshot(struct render_target_entry *target)
 			out[3] = 0xff;
 		}
 	}
-	screenshot_file(directory, "-window", pixels, width, height);
+	screenshot_file(directory, stem, "-window", pixels, width, height);
 	free(picture);
 	free(pixels);
 }
@@ -8016,7 +8021,8 @@ frustum. Inside the director's frame the eye's picture, sharp, with the HUD
 layer (titles, bars) whole on the frame; outside, the picture at a quarter
 of its size, blurred, desaturated and darkened by debug.cutscene_outside_dim,
 eased over the soft edge. As host_stereo.m's shader does it, in C */
-static void write_cutscene_screenshot(struct render_target_entry *target, struct render_target_entry *hud)
+static void write_cutscene_screenshot(struct render_target_entry *target, struct render_target_entry *hud,
+	const char *stem)
 {
 	const char *directory = *config_string("debug.screenshot_directory") ?
 		config_string("debug.screenshot_directory") : NULL;
@@ -8155,7 +8161,7 @@ static void write_cutscene_screenshot(struct render_target_entry *target, struct
 			out[3] = 0xff;
 		}
 	}
-	screenshot_file(directory, "-cutscene", pixels, width, height);
+	screenshot_file(directory, stem, "-cutscene", pixels, width, height);
 	free(picture);
 	free(pixels);
 	free(small);
@@ -8201,7 +8207,7 @@ static float depth_empty_share(struct render_target_entry *target)
 frameNNNNN-left-depth.png. Reverse-Z, as the Compositor gets it (near is
 bright); black only where nothing drew, which the Compositor treats as
 empty, and anything drawn at least a dark gray, so the two can't be confused */
-static void write_depth_screenshot(struct render_target_entry *target, const char *suffix)
+static void write_depth_screenshot(struct render_target_entry *target, const char *stem, const char *suffix)
 {
 	const char *directory = *config_string("debug.screenshot_directory") ?
 		config_string("debug.screenshot_directory") : NULL;
@@ -8231,7 +8237,7 @@ static void write_depth_screenshot(struct render_target_entry *target, const cha
 		pixels[index * 4 + 3] = 0xff;
 	}
 	free(depth);
-	snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
+	snprintf(path, sizeof(path), "%s/%s%s.png", directory, stem, suffix);
 	png_write_bgra(path, pixels, width, height, width * 4);
 	platform_log("frame %lu: %s: %.1f%% of the depth is empty", device.frame, suffix,
 		100.0f * (float)empty / (float)(width * height));
@@ -8254,7 +8260,7 @@ reticle's layer, which has none), logged with the box its drawn pixels
 rectangle, and saved as frameNNNNN-SUFFIX.png: the rectangle and a margin,
 or for the reticle the drawn pixels' box and a margin */
 static void hud_target_check(struct render_target_entry *target, const char *name, const float *rectangle,
-	const char *suffix)
+	const char *stem, const char *suffix)
 {
 	const char *directory = *config_string("debug.screenshot_directory") ?
 		config_string("debug.screenshot_directory") : NULL;
@@ -8332,7 +8338,7 @@ static void hud_target_check(struct render_target_entry *target, const char *nam
 				}
 				pixel[3] = 0xff;
 			}
-		snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
+		snprintf(path, sizeof(path), "%s/%s%s.png", directory, stem, suffix);
 		png_write_bgra(path, pixels + ((unsigned long)crop[1] * width + (unsigned long)crop[0]) * 4, crop_width,
 			crop_height, width * 4);
 	}
@@ -8696,14 +8702,16 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 	}
 #endif
 
-	static long screenshot_every = -1;
+	static struct screenshot_schedule screenshot_schedule;
+	unsigned long screenshot_number = 0;
 
 	(void)source_rectangle;
 	(void)destination_rectangle;
 	(void)unused;
 	(void)unused2;
-	if (screenshot_every < 0)
-		screenshot_every = config_integer("debug.screenshot_every");
+	if (!screenshot_schedule.ready)
+		screenshot_schedule_init(&screenshot_schedule, config_string("debug.screenshot_clock"),
+			config_integer("debug.screenshot_every"), platform_log);
 
 	if (device.gl_ready)
 	{
@@ -8806,64 +8814,70 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 				back_buffer->target.texture);
 		if (__atomic_load_n(&ready_screenshot, __ATOMIC_ACQUIRE) == 1)
 		{
-			write_screenshot(back_buffer, ready_screenshot_suffix);
+			char stem[SCREENSHOT_NAME_SIZE];
+
+			screenshot_name_frame(stem, sizeof(stem), device.frame);
+			write_screenshot(back_buffer, stem, ready_screenshot_suffix);
 			window_shot_directory = NULL;
 			__atomic_store_n(&ready_screenshot, 2, __ATOMIC_RELAXED);
 		}
-		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0 && screenshot_frame_wanted(device.frame))
+		if (screenshot_schedule_due(&screenshot_schedule, device.frame, render_interpolation_shown_tick, &screenshot_number) &&
+			screenshot_frame_wanted(screenshot_number))
 		{
+			const char *stem = screenshot_schedule.name;
+
 			/* debug.screenshot_scene_only: only the scene as drawn when it has its own target (clip captures) */
 			if (!(config_boolean("debug.screenshot_scene_only") && back_buffer->layer == HALO_STEREO_LAYER_NATIVE &&
 				back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO)))
-				write_screenshot(back_buffer, "");
+				write_screenshot(back_buffer, stem, "");
 			if (companion && companion_capture)
-				write_screenshot(companion, "-companion");
+				write_screenshot(companion, stem, "-companion");
 			/* display.native_hud: and the scene as drawn, before its stretch */
 			if (back_buffer->layer == HALO_STEREO_LAYER_NATIVE && back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO))
-				write_screenshot(back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO), "-scene");
+				write_screenshot(back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO), stem, "-scene");
 			/* and each picture of a stereo frame, to free-view or inspect: the
 			eyes', or a zoomed frame's one picture for both (its eyes weren't
 			drawn) */
 			if (stereo_frame)
 			{
 				if (zoom)
-					write_screenshot(zoom, "-zoom");
+					write_screenshot(zoom, stem, "-zoom");
 				else
 				{
-					write_screenshot(back_buffer, "-left");
-					write_screenshot(render_target_get_layer(&device.back_buffer, 1), "-right");
-					write_depth_screenshot(render_target_get_layer(&device.depth_buffer, 0), "-left-depth");
-					write_window_screenshot(back_buffer);
-					write_cutscene_screenshot(back_buffer, hud);
+					write_screenshot(back_buffer, stem, "-left");
+					write_screenshot(render_target_get_layer(&device.back_buffer, 1), stem, "-right");
+					write_depth_screenshot(render_target_get_layer(&device.depth_buffer, 0), stem, "-left-depth");
+					write_window_screenshot(back_buffer, stem);
+					write_cutscene_screenshot(back_buffer, hud, stem);
 				}
 				if (hud)
 				{
-					write_screenshot(hud, "-hud");
-					write_screenshot_channel(hud, "-hud-alpha", 1);
+					write_screenshot(hud, stem, "-hud");
+					write_screenshot_channel(hud, stem, "-hud-alpha", 1);
 				}
 				if (ui)
 				{
-					write_screenshot(ui, "-ui");
-					write_screenshot_channel(ui, "-ui-alpha", 1);
+					write_screenshot(ui, stem, "-ui");
+					write_screenshot_channel(ui, stem, "-ui-alpha", 1);
 				}
 				/* the reticle's layer and each HUD group's target, cropped,
 				with their pixels checked against their rectangles */
 				if (reticle)
-					hud_target_check(reticle, "reticle", NULL, "-reticle");
+					hud_target_check(reticle, "reticle", NULL, stem, "-reticle");
 				for (group = 0; group < HALO_HUD_GROUP_COUNT; group++)
 					if (hud_groups[group])
 					{
 						char suffix[32];
 
 						snprintf(suffix, sizeof(suffix), "-hud-%s", hud_group_name(group));
-						hud_target_check(hud_groups[group], hud_group_name(group), hud_group_rectangles[group], suffix);
+						hud_target_check(hud_groups[group], hud_group_name(group), hud_group_rectangles[group], stem, suffix);
 					}
 				if (hud)
 				{
 					float none[4];
 
 					halo_hud_group_rectangle(HALO_HUD_GROUP_NONE, none);
-					hud_target_check(hud, "none", none, "-hud-none");
+					hud_target_check(hud, "none", none, stem, "-hud-none");
 				}
 			}
 		}

@@ -47,6 +47,9 @@ with their unit, and with what it rides.
 #include "../src/input_replay.h"
 #include "interpolation_lead.h"
 
+/* main.c */
+boolean main_port_main_menu_loaded(void);
+
 /* port/linux/src/port_config.c */
 int config_boolean(const char *name);
 unsigned long config_changes(void);
@@ -1470,4 +1473,11 @@ real render_interpolation_game_time_sec(long ticks)
 		return (real)ticks * (1.0f / TICKS_PER_SECOND);
 	time = ((real)ticks - 1.0f + interpolation_fraction) * (1.0f / TICKS_PER_SECOND);
 	return time > 0.0f ? time : 0.0f;
+}
+
+/* the game tick the frame being drawn shows, -1 outside a game: debug.screenshot_clock = "ticks" names shots by it
+(port/linux/src/screenshot_schedule.h) */
+long render_interpolation_shown_tick(void)
+{
+	return game_time_initialized() && game_in_progress() && !main_port_main_menu_loaded() ? game_time_get() : -1;
 }

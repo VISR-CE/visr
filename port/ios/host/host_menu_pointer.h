@@ -208,6 +208,13 @@ static inline void host_menu_pointer_device_move(struct host_menu_pointer *m, fl
     m->moved = 1;
     m->touch = 0;
 }
+/* a position report that is not the mouse moving (a focus or pointer-enter change, halo_pointer_gate.h): the pointer
+   learns where the cursor is and nothing else changes: no hover step, and the last input stays as it was */
+static inline void host_menu_pointer_device_report(struct host_menu_pointer *m, float x, float y) {
+    if (!host_menu_pointer_listening(m)) return;
+    m->x = x;
+    m->y = y;
+}
 /* A complete synthetic click for scripts and callers without separate button events. */
 static inline void host_menu_pointer_device_click(struct host_menu_pointer *m, int right, float x, float y) {
     if (!host_menu_pointer_listening(m)) return;

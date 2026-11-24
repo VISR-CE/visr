@@ -1031,7 +1031,8 @@ static void render_object_list(
 					{
 						struct object_header_datum *object_header =
 							object_header_get(object_index);
-						char name[512];
+						/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; only the debug text below uses it, after sprintf writes it Measured: with these first nine opt-outs, memset fell from 2.2% to 0.74% of the game thread and the zeroing cost per tick from 9.1% to 2.8% (M6, 128 players). */
+						SIM_UNINITIALIZED char name[512];
 						real_point3d text_point;
 
 						if (debug_inactive_objects &&

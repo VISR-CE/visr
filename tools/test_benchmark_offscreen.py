@@ -53,7 +53,7 @@ def test_offscreen_frame_skips_the_display():
     guard = body.rindex("if (offscreen)", 0, acquire)
     assert "offscreen_target(" in body[guard:acquire]
     assert re.search(r"if \(!offscreen\)\s*\n\s*host_frame_rate_limit\(\);", body)
-    assert re.search(r"if \(!offscreen\)\s*\n\s*frame_context_wait\(\);", body)
+    assert re.search(r"if \(!offscreen\)\s*\n\s*frame_context_wait\(frame_pacer_aimed\(&paced\)\);", body)
     # the frame's GPU time is still counted: the same command buffer commits
     assert "commit(YES);" in body[acquire:]
 

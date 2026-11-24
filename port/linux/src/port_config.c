@@ -23,6 +23,8 @@ config_origin_decide.
 
 #include "platform.h"
 #include "port_config.h"
+#include "frame_rate_setting.h"
+#include "smooth_motion.h"
 #include "port_profile_apply.h"
 #include "port_graphics_modes.h"
 #include "halo_host_flags.h"
@@ -837,8 +839,15 @@ static const struct config_setting config_settings[] =
 		"do reaches the screen sooner (the Metal renderer's frame pacer). It backs\n"
 		"off to starting at once whenever frames take too long or vary. \"true\" or\n"
 		"\"false\"; empty (default): on in the Mac app, off on an iPhone, iPad or\n"
-		"Apple TV. The Mac app's F8 switches it while playing. Not on a Vision Pro,\n"
-		"and not when frames don't wait for the display (display.frame_rate).", _tier_player, "|true|false" },
+		"Apple TV. \"extended\" also starts late when a frame's work is longer than\n"
+		"one refresh, under dynamic resolution and under frame rate caps, and aims\n"
+		"each frame at the refresh after the frames already on their way to the\n"
+		"display; it acts only while the game runs at 60 frames a second or fewer\n"
+		"(a cap, a scene class's rate or a 60 Hz display), where it was measured\n"
+		"to halve the time to the screen or better. \"extended_all\" is the same\n"
+		"at any frame rate, for measuring. The Mac app's F8 switches it while\n"
+		"playing. Not on a Vision Pro, and not when frames don't wait for the\n"
+		"display (display.frame_rate).", _tier_player, "|true|false|extended|extended_all" },
 	{ "display.frame_source", _config_string, "\"\"", "HALO_FRAME_SOURCE", _environment_value, _platform_ios,
 		"Where the Metal renderer's frames get their place on the display:\n"
 		"\"clock\" asks for one when a frame is ready and applies\n"
@@ -846,16 +855,25 @@ static const struct config_setting config_settings[] =
 		"takes one from the system for each refresh (iOS 17, tvOS 17, macOS 14\n"
 		"and later, and only with display.frame_rate = \"display\"; elsewhere\n"
 		"\"clock\" is used). Empty (default): \"clock\". Not on a Vision Pro.", _tier_player, "|clock|system" },
+	{ "display.encode_thread", _config_string, "\"off\"", "HALO_DISPLAY_ENCODE_THREAD", _environment_value, _platform_ios,
+		"Whether the Metal renderer's commands go through an encode thread.\n"
+		"\"off\" (default): the game thread calls the renderer. \"thread\": an encode\n"
+		"thread calls the renderer while the game thread goes on; each frame's\n"
+		"present waits for it. A device profile turns it on where it measures\n"
+		"better. debug.encode_thread overrides it. Needs the game thread; not on\n"
+		"visionOS or Mac Catalyst.", _tier_tuning, "|off|thread" },
 	{ "display.frames_in_flight", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT", _environment_value, _platform_ios,
 		"How many frames the Metal renderer may have on their way to the display\n"
 		"at once, \"1\" to \"3\": a frame isn't started on its way until fewer than\n"
 		"that many are waiting to be shown. \"1\" gives the least delay between the\n"
 		"game and the screen, and costs frames when a frame's CPU and GPU work\n"
 		"together take longer than a refresh; \"system\" leaves the queue to the\n"
-		"system (up to 3). Empty (default): \"2\", or \"1\" with debug.encode_thread =\n"
-		"\"thread\". Not on a Vision Pro, which paces\n"
+		"system (up to 3). \"auto\": \"1\" while a frame's GPU work and present fit\n"
+		"the period or the device is under its rate anyway, else \"2\". Empty\n"
+		"(default): \"2\", or \"auto\" with the encode thread on\n"
+		"(display.encode_thread). Not on a Vision Pro, which paces\n"
 		"frames itself, and not for frames that don't wait for the display\n"
-		"(display.frame_rate).", _tier_player, "|1|2|3|system" },
+		"(display.frame_rate).", _tier_player, "|1|2|3|system|auto" },
 	{ "display.frames_in_flight_at_30", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT_AT_30", _environment_value, _platform_ios,
 		"How many frames the Metal renderer may have on their way to the display\n"
 		"at once, \"1\" or \"2\", while the frame rate in force is 30 or lower (a\n"
@@ -880,8 +898,8 @@ static const struct config_setting config_settings[] =
 		"Apple TV a number under the display's highest rate runs the display at\n"
 		"it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the\n"
 		"display's rate. The game still runs at 30 ticks a second whatever is\n"
-		"drawn, and with display.interpolation off it draws 30 frames a second at\n"
-		"most. A Vision Pro paces frames itself and ignores this." },
+		"drawn; at a cap of 30 or lower it draws one frame for each tick, with no\n"
+		"smooth motion. A Vision Pro paces frames itself and ignores this." },
 	{ "display.async_shaders", _config_string, "\"auto\"", "HALO_ASYNC_SHADERS", _environment_value, _platform_ios,
 		"How the Metal renderer compiles shaders: \"auto\" (default) on worker\n"
 		"threads, skipping a draw for the frames until its pipeline is ready, so\n"
@@ -902,9 +920,11 @@ static const struct config_setting config_settings[] =
 	{ "display.max_fps", _config_integer, "0", "HALO_MAX_FPS", _environment_value, _platform_desktop,
 		"With vsync off, the most frames a second: 0 for twice the display's\n"
 		"refresh rate, -1 for no limit (which can hang some Intel graphics).", _tier_player },
-	{ "display.interpolation", _config_boolean, "true", "HALO_INTERPOLATION", _environment_value, _platform_all,
-		"Draw a frame for every display refresh, blending between the game's 30\n"
-		"ticks a second; false keeps the original 30 frames a second." },
+	{ "display.interpolation", _config_string, "\"auto\"", "HALO_INTERPOLATION", _environment_value, _platform_all,
+		"A testing override for smooth motion, which is automatic: frames drawn\n"
+		"between the game's 30 ticks a second whenever the frame rate in force is\n"
+		"above 30 (never in Hardcore mode). \"auto\" (default) leaves it so; \"on\"\n"
+		"and \"off\" force it either way for A/B runs. The game never writes it.", _tier_tuning, "auto|on|off" },
 	{ "display.direct_camera", _config_boolean, "true", "HALO_DIRECT_CAMERA", _environment_value, _platform_all,
 		"In first person, point the view where the player aims now instead of\n"
 		"where the last tick left it: the view turns the frame the stick or the\n"
@@ -1787,20 +1807,21 @@ static const struct config_setting config_settings[] =
 		"and one hash for each kind of call. The hashes compare frames within one\n"
 		"run, as when the same frames are hashed at two points; two runs of the\n"
 		"same recording can differ (texture numbering, values the game leaves in\n"
-		"unused constant lanes). With debug.encode_thread on, the commands the\n"
+		"unused constant lanes). With the encode queue on, the commands the\n"
 		"queue carries are hashed again behind it and compared with the same\n"
 		"commands in front of it, and frames that differ are logged. For checking\n"
 		"changes to how drawing reaches the renderer." },
-	{ "debug.encode_thread", _config_string, "\"off\"", "HALO_ENCODE_THREAD", _environment_value, _platform_ios,
-		"How the Metal renderer's commands reach it. \"off\" (default): the game\n"
+	{ "debug.encode_thread", _config_string, "\"\"", "HALO_ENCODE_THREAD", _environment_value, _platform_ios,
+		"Overrides display.encode_thread, for measurement. Empty (default): follow\n"
+		"display.encode_thread. How the Metal renderer's commands reach it. \"off\": the game\n"
 		"thread calls the renderer. \"inline\": the game thread writes each command\n"
 		"into a queue and reads it back at once, to measure what the queue costs\n"
 		"and check that it changes nothing. \"thread\": an encode thread reads the\n"
 		"queue and calls the renderer while the game thread goes on; each frame's\n"
 		"present waits for it, so input is read as late as with \"off\". Needs\n"
-		"the game thread. Not on visionOS or Mac Catalyst.", _tier_derived, "off|inline|thread" },
+		"the game thread. Not on visionOS or Mac Catalyst.", _tier_derived, "|off|inline|thread" },
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
-		"With debug.encode_thread on: also time the renderer's share of the\n"
+		"With the encode queue on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },
 	{ "debug.latency_log", _config_boolean, "false", "HALO_LATENCY_LOG", _environment_set_is_true, _platform_ios,
 		"Logs a latency line every 300 frames: how old the controller state was\n"
@@ -2032,6 +2053,13 @@ static const struct config_setting config_settings[] =
 	{ "debug.screenshot_frames", _config_string, "\"\"", "HALO_SCREENSHOT_FRAMES", _environment_value, _platform_all,
 		"With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them);\n"
 		"empty saves every one." },
+	{ "debug.screenshot_clock", _config_string, "\"frames\"", "HALO_SCREENSHOT_CLOCK", _environment_value, _platform_all,
+		"What debug.screenshot_every counts. \"frames\" (default): presented frames\n"
+		"from launch, named frameNNNNN. \"ticks\": game ticks, named tickNNNNN, only\n"
+		"in a game, so two launches of one replay with debug.fixed_timestep save the\n"
+		"same moments under the same names however long their menus and loading\n"
+		"took; debug.screenshot_frames then names ticks. After the tick goes back (a\n"
+		"new map, a restart, a checkpoint revert) names end -restartN.", _tier_derived, "frames|ticks" },
 	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
 		_platform_all,
 		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },
@@ -3487,6 +3515,34 @@ static int config_migrate_effect_resolution(char **text, toml_datum_t table)
 	return 1;
 }
 
+/* The SMOOTH MOTION row is gone: smooth motion follows the frame rate in force (smooth_motion.h), and
+display.interpolation is a testing override with three values. The old setting was a boolean the old menu wrote:
+a boolean line is dropped, which reads as "auto" (and its origin is forgotten), since a value from the old row
+cannot be told from one set by hand. A text value stays. Returns 1 when the text changed; the caller parses it
+again. */
+static int config_migrate_smooth_motion(char **text, toml_datum_t table)
+{
+	char *changed;
+	long index = config_setting_index("display.interpolation");
+
+	if (toml_seek(table, "display.interpolation").type != TOML_BOOLEAN)
+		return 0;
+	changed = config_text_remove(*text, "display.interpolation");
+	if (!changed)
+		return 0;
+	free(*text);
+	*text = changed;
+	platform_log("settings: removed display.interpolation from config.toml (a boolean; smooth motion is automatic now)");
+	if (index >= 0)
+	{
+		free(config_states[index].origin_literal);
+		config_states[index].origin_literal = NULL;
+		config_states[index].origin = _origin_none;
+		config_origins_changed = 1;
+	}
+	return 1;
+}
+
 /* One setting the file holds (its value read into file_value, of the right
 type), against config.origins:
 
@@ -3846,6 +3902,8 @@ static void config_load(void)
 		}
 		result = toml_parse(text, (int)size);
 		migrated = result.ok && config_migrate_effect_resolution(&text, result.toptab);
+		if (result.ok && config_migrate_smooth_motion(&text, result.toptab))
+			migrated = 1;
 		if (migrated)
 		{
 			toml_free(result);
@@ -4400,16 +4458,11 @@ void config_profile_safe_point(int point, int context)
 	char version[64];
 	static char snapshot[128 * 256];
 	int changed;
-	const char *rate;
-	char *end;
 	long cap;
 	if ((context & CONFIG_PROFILE_FROZEN) || point < 1 || point > 5) return;
 	if (!host_device_profile_pending(snapshot,sizeof(snapshot),version,sizeof(version))) return;
 	changed = config_profile_apply_snapshot(snapshot,version,point,context);
-	rate = config_string("display.frame_rate");
-	cap = strtol(rate,&end,10);
-	if (!strcmp(rate,"unlimited")) cap = -1;
-	else if (!*rate || *end || cap < 1 || cap > 1000) cap = 0;
+	cap = frame_rate_setting_parse(config_string("display.frame_rate"));
 	host_device_profile_applied(point,context & CONFIG_PROFILE_NETWORKED,changed,
 		!strcmp(config_string("display.upscaler"),"metalfx"),(int)cap);
 #else
@@ -4545,6 +4598,47 @@ int config_scene_string(const char *name, int scene, char *text, size_t size)
 	snprintf(text, size, "%s", value->string ? value->string : "");
 	/* Context strings are copied rather than returned through the base string API. */
 	return index >= 0 && value != &config_values[index];
+}
+
+/* Smooth motion in the scene (smooth_motion.h): display.interpolation when it says "on" or "off" (the testing
+override, by the file, --set or the environment), else on while the scene's frame rate in force is above 30.
+Every caller uses this one function: the renderer (halo_interpolation_enabled) and the performance reports' settings. */
+static int config_smooth_motion_in(int scene, int external)
+{
+	const long override = config_setting_index("display.interpolation");
+	const long rate_index = config_setting_index("display.frame_rate");
+	const long vsync_index = config_setting_index("display.vsync");
+	const long max_index = config_setting_index("display.max_fps");
+	const char *rate = "";
+	long max_fps = 0;
+	int forced;
+
+	/* (no lock, no allocation: the performance reports' sampler calls this, as config_graphics_settings_snapshot says) */
+	forced = override < 0 ? -1 : smooth_motion_override(config_scene_value_cached((size_t)override, scene, external)->string);
+	if (forced >= 0)
+		return forced;
+	if (rate_index >= 0)
+	{
+		const char *text = config_scene_value_cached((size_t)rate_index, scene, external)->string;
+
+		rate = text ? text : "";
+	}
+	if (max_index >= 0)
+		max_fps = config_scene_value_cached((size_t)max_index, scene, external)->integer;
+	return smooth_motion_automatic(smooth_motion_cap(rate,
+		vsync_index < 0 || config_scene_value_cached((size_t)vsync_index, scene, external)->boolean, max_fps,
+		halo_host_visionos()));
+}
+
+int config_smooth_motion(int scene)
+{
+	int external = 0;
+
+	(void)config_boolean("debug.settings_dump");   /* the first load */
+#ifdef HALO_ILP32
+	external = host_external_active();
+#endif
+	return config_smooth_motion_in(scene, external);
 }
 
 const char *config_scene_name(int scene)
@@ -4710,6 +4804,11 @@ static int graphics_setting(const char *name)
 #undef CAPTURE_NAME
 	return 0;
 }
+/* The performance reports carry smooth motion as what was drawn, a boolean: the setting's own value is "auto". */
+static int config_reports_effective_smooth_motion(const struct config_setting *setting)
+{
+	return !strcmp(setting->name, "display.interpolation");
+}
 int config_graphics_settings_snapshot(int scene, struct game_perf_graphics_snapshot *snapshot)
 {
 	int external = 0;
@@ -4734,11 +4833,12 @@ int config_graphics_settings_snapshot(int scene, struct game_perf_graphics_snaps
 		if (length == sizeof(entry->name)) goto invalid;
 		memcpy(entry->name, setting->name, length + 1);
 		const struct config_value *value = config_scene_value_cached(index, scene, external);
-		switch (setting->type)
+		const int effective = config_reports_effective_smooth_motion(setting);
+		switch (effective ? _config_boolean : setting->type)
 		{
 		case _config_boolean:
 			entry->type = GAME_PERF_GRAPHICS_BOOLEAN;
-			entry->value.boolean = value->boolean != 0;
+			entry->value.boolean = (effective ? config_smooth_motion_in(scene, external) : value->boolean) != 0;
 			break;
 		case _config_integer:
 			entry->type = GAME_PERF_GRAPHICS_INTEGER;
@@ -4791,9 +4891,12 @@ int config_graphics_settings_json(int scene, char *text, size_t size)
 		const struct config_value *value = config_scene_value(setting->name,setting->type,scene);
 		graphics_append(&json,"%s",count > 1 ? "," : "");
 		graphics_string(&json,setting->name); graphics_append(&json,":");
-		switch (setting->type)
+		const int effective = config_reports_effective_smooth_motion(setting);
+		switch (effective ? _config_boolean : setting->type)
 		{
-		case _config_boolean: graphics_append(&json,"%s",value->boolean ? "true" : "false"); break;
+		case _config_boolean:
+			graphics_append(&json,"%s",(effective ? config_smooth_motion(scene) : value->boolean) ? "true" : "false");
+			break;
 		case _config_integer: graphics_append(&json,"%ld",value->integer); break;
 		case _config_real: graphics_real(&json,value->real); break;
 		case _config_string: graphics_string(&json,value->string); break;

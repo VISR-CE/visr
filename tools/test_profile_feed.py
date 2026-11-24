@@ -24,12 +24,12 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # new table here.
 # Generation 2 had not shipped when PROFILE_VARIABLE was added (no release read it, no shard was signed), so its table
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
-# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits. 0.6.22, cut from
+# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic). 0.6.22, cut from
 # the 0.6 line, reads device-profiles-6 (generation 4's keys and that one; tools/profile_pr.py, GENERATIONS).
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "7c1ad753008291544061b8b70c118d95e4bac87b58feaf7f42749ad2b83ab69d"}
+                   5: "94be3acdf827e8d20aab56c41f4d6299734b7fe6ed3c7d2b18ef991e96c74185"}
 
 
 def key_table_sha256(text):
@@ -282,7 +282,7 @@ def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
 
 PROFILE_KEY_NAME = re.compile(r'^PROFILE_[A-Z_]+\("([^"]+)"', re.M)
 # The sha256 of the sorted profile key names that every released validator knows (the table less KEY_GENERATIONS).
-KNOWN_TO_EVERY_GENERATION = "572d9f816d259eefcb6c439e22c14c3919531604c37e2c1ee56138b56978db22"
+KNOWN_TO_EVERY_GENERATION = "5a06850edd9ee065d189fe0e01dcbff3b3c821bec7598d022dff522f585ebc86"
 
 
 def test_every_profile_key_has_its_generations_recorded():

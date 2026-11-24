@@ -1013,7 +1013,7 @@
         "late_start": {
           "type": "string",
           "default": "",
-          "description": "Start each frame's work as late as it can be and still be done for the next refresh of the display, so the controller is read later and what you do reaches the screen sooner (the Metal renderer's frame pacer). It backs off to starting at once whenever frames take too long or vary. \"true\" or \"false\"; empty (default): on in the Mac app, off on an iPhone, iPad or Apple TV. The Mac app's F8 switches it while playing. Not on a Vision Pro, and not when frames don't wait for the display (display.frame_rate).",
+          "description": "Start each frame's work as late as it can be and still be done for the next refresh of the display, so the controller is read later and what you do reaches the screen sooner (the Metal renderer's frame pacer). It backs off to starting at once whenever frames take too long or vary. \"true\" or \"false\"; empty (default): on in the Mac app, off on an iPhone, iPad or Apple TV. \"extended\" also starts late when a frame's work is longer than one refresh, under dynamic resolution and under frame rate caps, and aims each frame at the refresh after the frames already on their way to the display; it acts only while the game runs at 60 frames a second or fewer (a cap, a scene class's rate or a 60 Hz display), where it was measured to halve the time to the screen or better. \"extended_all\" is the same at any frame rate, for measuring. The Mac app's F8 switches it while playing. Not on a Vision Pro, and not when frames don't wait for the display (display.frame_rate).",
           "x-environment": "HALO_LATE_START",
           "x-environment-style": "value",
           "x-platforms": [
@@ -1023,7 +1023,9 @@
           "enum": [
             "",
             "true",
-            "false"
+            "false",
+            "extended",
+            "extended_all"
           ]
         },
         "frame_source": {
@@ -1042,10 +1044,26 @@
             "system"
           ]
         },
+        "encode_thread": {
+          "type": "string",
+          "default": "off",
+          "description": "Whether the Metal renderer's commands go through an encode thread. \"off\" (default): the game thread calls the renderer. \"thread\": an encode thread calls the renderer while the game thread goes on; each frame's present waits for it. A device profile turns it on where it measures better. debug.encode_thread overrides it. Needs the game thread; not on visionOS or Mac Catalyst.",
+          "x-environment": "HALO_DISPLAY_ENCODE_THREAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ],
+          "x-tier": "tuning",
+          "enum": [
+            "",
+            "off",
+            "thread"
+          ]
+        },
         "frames_in_flight": {
           "type": "string",
           "default": "",
-          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" to \"3\": a frame isn't started on its way until fewer than that many are waiting to be shown. \"1\" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; \"system\" leaves the queue to the system (up to 3). Empty (default): \"2\", or \"1\" with debug.encode_thread = \"thread\". Not on a Vision Pro, which paces frames itself, and not for frames that don't wait for the display (display.frame_rate).",
+          "description": "How many frames the Metal renderer may have on their way to the display at once, \"1\" to \"3\": a frame isn't started on its way until fewer than that many are waiting to be shown. \"1\" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; \"system\" leaves the queue to the system (up to 3). \"auto\": \"1\" while a frame's GPU work and present fit the period or the device is under its rate anyway, else \"2\". Empty (default): \"2\", or \"auto\" with the encode thread on (display.encode_thread). Not on a Vision Pro, which paces frames itself, and not for frames that don't wait for the display (display.frame_rate).",
           "x-environment": "HALO_FRAMES_IN_FLIGHT",
           "x-environment-style": "value",
           "x-platforms": [
@@ -1057,7 +1075,8 @@
             "1",
             "2",
             "3",
-            "system"
+            "system",
+            "auto"
           ]
         },
         "frames_in_flight_at_30": {
@@ -1088,7 +1107,7 @@
         "frame_rate": {
           "type": "string",
           "default": "display",
-          "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn, and with display.interpolation off it draws 30 frames a second at most. A Vision Pro paces frames itself and ignores this.",
+          "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn; at a cap of 30 or lower it draws one frame for each tick, with no smooth motion. A Vision Pro paces frames itself and ignores this.",
           "x-environment": "HALO_FRAME_RATE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -1161,14 +1180,20 @@
           "x-tier": "player"
         },
         "interpolation": {
-          "type": "boolean",
-          "default": true,
-          "description": "Draw a frame for every display refresh, blending between the game's 30 ticks a second; false keeps the original 30 frames a second.",
+          "type": "string",
+          "default": "auto",
+          "description": "A testing override for smooth motion, which is automatic: frames drawn between the game's 30 ticks a second whenever the frame rate in force is above 30 (never in Hardcore mode). \"auto\" (default) leaves it so; \"on\" and \"off\" force it either way for A/B runs. The game never writes it.",
           "x-environment": "HALO_INTERPOLATION",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
             "desktop"
+          ],
+          "x-tier": "tuning",
+          "enum": [
+            "auto",
+            "on",
+            "off"
           ]
         },
         "direct_camera": {
@@ -2968,7 +2993,7 @@
         "gpu_call_hash": {
           "type": "boolean",
           "default": false,
-          "description": "Logs, for every frame, a hash of every command the Metal or OpenGL ES renderer received: each call, its arguments and the bytes they point to, and one hash for each kind of call. The hashes compare frames within one run, as when the same frames are hashed at two points; two runs of the same recording can differ (texture numbering, values the game leaves in unused constant lanes). With debug.encode_thread on, the commands the queue carries are hashed again behind it and compared with the same commands in front of it, and frames that differ are logged. For checking changes to how drawing reaches the renderer.",
+          "description": "Logs, for every frame, a hash of every command the Metal or OpenGL ES renderer received: each call, its arguments and the bytes they point to, and one hash for each kind of call. The hashes compare frames within one run, as when the same frames are hashed at two points; two runs of the same recording can differ (texture numbering, values the game leaves in unused constant lanes). With the encode queue on, the commands the queue carries are hashed again behind it and compared with the same commands in front of it, and frames that differ are logged. For checking changes to how drawing reaches the renderer.",
           "x-environment": "HALO_GPU_CALL_HASH",
           "x-environment-style": "set_is_true",
           "x-platforms": [
@@ -2977,14 +3002,15 @@
         },
         "encode_thread": {
           "type": "string",
-          "default": "off",
-          "description": "How the Metal renderer's commands reach it. \"off\" (default): the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. \"thread\": an encode thread reads the queue and calls the renderer while the game thread goes on; each frame's present waits for it, so input is read as late as with \"off\". Needs the game thread. Not on visionOS or Mac Catalyst.",
+          "default": "",
+          "description": "Overrides display.encode_thread, for measurement. Empty (default): follow display.encode_thread. How the Metal renderer's commands reach it. \"off\": the game thread calls the renderer. \"inline\": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. \"thread\": an encode thread reads the queue and calls the renderer while the game thread goes on; each frame's present waits for it, so input is read as late as with \"off\". Needs the game thread. Not on visionOS or Mac Catalyst.",
           "x-environment": "HALO_ENCODE_THREAD",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
           ],
           "enum": [
+            "",
             "off",
             "inline",
             "thread"
@@ -2993,7 +3019,7 @@
         "encode_thread_timing": {
           "type": "boolean",
           "default": false,
-          "description": "With debug.encode_thread on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames.",
+          "description": "With the encode queue on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames.",
           "x-environment": "HALO_ENCODE_THREAD_TIMING",
           "x-environment-style": "set_is_true",
           "x-platforms": [
@@ -3664,6 +3690,21 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ]
+        },
+        "screenshot_clock": {
+          "type": "string",
+          "default": "frames",
+          "description": "What debug.screenshot_every counts. \"frames\" (default): presented frames from launch, named frameNNNNN. \"ticks\": game ticks, named tickNNNNN, only in a game, so two launches of one replay with debug.fixed_timestep save the same moments under the same names however long their menus and loading took; debug.screenshot_frames then names ticks. After the tick goes back (a new map, a restart, a checkpoint revert) names end -restartN.",
+          "x-environment": "HALO_SCREENSHOT_CLOCK",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "enum": [
+            "frames",
+            "ticks"
           ]
         },
         "screenshot_scene_only": {

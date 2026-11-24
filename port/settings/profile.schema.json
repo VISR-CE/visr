@@ -186,7 +186,7 @@
             }
           ],
           "default": "display",
-          "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn, and with display.interpolation off it draws 30 frames a second at most. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
+          "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn; at a cap of 30 or lower it draws one frame for each tick, with no smooth motion. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
         },
         "frames_in_flight_at_30": {
           "type": "string",
@@ -206,11 +206,6 @@
           ],
           "default": "auto",
           "description": "How the Metal renderer compiles shaders: \"auto\" (default) on worker threads, skipping a draw for the frames until its pipeline is ready, so the game never waits on the compiler (on Apple Vision Pro a long wait ends the app); a run that must draw the same frames every time (fixed timestep, an input replay or benchmark, debug.exit_after, screenshots) compiles each at its first draw instead. \"on\" or \"off\" forces either. Changes apply on relaunch. Profile values outside the accepted set are refused, not clamped."
-        },
-        "interpolation": {
-          "type": "boolean",
-          "default": true,
-          "description": "Draw a frame for every display refresh, blending between the game's 30 ticks a second; false keeps the original 30 frames a second. Profile values outside the accepted set are refused, not clamped."
         },
         "allow_portrait": {
           "type": "boolean",
@@ -407,7 +402,7 @@
                     }
                   ],
                   "default": "display",
-                  "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn, and with display.interpolation off it draws 30 frames a second at most. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
+                  "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn; at a cap of 30 or lower it draws one frame for each tick, with no smooth motion. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
                 }
               },
               "additionalProperties": false
@@ -449,7 +444,7 @@
                     }
                   ],
                   "default": "display",
-                  "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn, and with display.interpolation off it draws 30 frames a second at most. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
+                  "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn; at a cap of 30 or lower it draws one frame for each tick, with no smooth motion. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
                 }
               },
               "additionalProperties": false
@@ -620,7 +615,7 @@
                 }
               ],
               "default": "display",
-              "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn, and with display.interpolation off it draws 30 frames a second at most. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
+              "description": "The most frames a second: \"display\" (default) draws one frame for each refresh of the display; a number (\"60\", \"240\") holds that rate; \"unlimited\" draws as fast as it can. In the Mac app, above the display's refresh rate and with \"unlimited\", frames no longer wait for the display, so the picture can tear and the Mac uses more power; each frame still waits for a free drawable from the window server. On iPhone, iPad and Apple TV a number under the display's highest rate runs the display at it (\"60\" on a 120 Hz screen); a higher number and \"unlimited\" keep the display's rate. The game still runs at 30 ticks a second whatever is drawn; at a cap of 30 or lower it draws one frame for each tick, with no smooth motion. A Vision Pro paces frames itself and ignores this. Profile values outside the accepted set are refused, not clamped."
             },
             "frames_in_flight_at_30": {
               "type": "string",
@@ -2709,50 +2704,6 @@
           ]
         },
         "display.async_shaders": {
-          "type": "object",
-          "properties": {
-            "basis": {
-              "enum": [
-                "measured",
-                "assumed",
-                "inherited"
-              ]
-            },
-            "why": {
-              "type": "string",
-              "minLength": 20
-            },
-            "source": {
-              "type": "string",
-              "minLength": 10
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "basis",
-            "why"
-          ],
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "basis": {
-                    "const": "measured"
-                  }
-                },
-                "required": [
-                  "basis"
-                ]
-              },
-              "then": {
-                "required": [
-                  "source"
-                ]
-              }
-            }
-          ]
-        },
-        "display.interpolation": {
           "type": "object",
           "properties": {
             "basis": {

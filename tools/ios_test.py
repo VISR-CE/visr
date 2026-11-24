@@ -389,6 +389,10 @@ run(BUILD / 'config-origins-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-Iport/linux/game', 'port/ios/tests/workload_context_probe.c',
     '-o', BUILD / 'workload-context-probe')
 run(BUILD / 'workload-context-probe')
+# smooth motion's automatic rule (smooth_motion.h)
+run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-Iport/linux/src', 'port/ios/tests/smooth_motion_probe.c',
+    '-o', BUILD / 'smooth-motion-probe')
+run(BUILD / 'smooth-motion-probe')
 # Safe-point profile merges preserve choices, defer resource settings and handle removals.
 run('xcrun', 'clang', '-O2', '-fsanitize=address', '-DHALO_ILP32=1', '-Iport/linux/src', '-Iport/third_party/tomlc17',
     'port/ios/tests/profile_hot_apply_probe.c', *sdl_flags, '-o', BUILD / 'profile-hot-apply-probe')
@@ -715,6 +719,19 @@ run(BUILD/'qr-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/frame_pacer_probe.c', '-o', BUILD/'frame-pacer-probe')
 run(BUILD/'frame-pacer-probe')
+# the extended late start in a model of the whole paced loop (frame_pacer_sim.h), with dynamic resolution's planner
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    'port/ios/tests/frame_pacer_sim_probe.c', '-o', BUILD/'frame-pacer-sim-probe')
+run(BUILD/'frame-pacer-sim-probe')
+# the pacer's default frames in flight as host_frame_pacer.c reads it: one with the encode thread
+run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-DHALO_FRAME_PACING=1',
+    '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/frame_pacer_default_probe.c',
+    'port/ios/host/host_frame_pacer.c', '-o', BUILD/'frame-pacer-default-probe')
+run(BUILD/'frame-pacer-default-probe')
+# adaptive frames in flight (frame_pacer_adapt.h): where the rule settles for each kind of stream
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    'port/ios/tests/frame_pacer_adapt_probe.c', '-o', BUILD/'frame-pacer-adapt-probe')
+run(BUILD/'frame-pacer-adapt-probe')
 # dynamic resolution's planner, with synthetic per-frame costs and presentation feedback
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/dynamic_resolution_probe.c', '-o', BUILD/'dynamic-resolution-probe')

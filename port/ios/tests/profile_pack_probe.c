@@ -6,8 +6,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "test_tmpdir.h"
 
-static char root[128];
+static char root[PATH_MAX];
 static void put(const char *name, const char *text)
 {
 	char path[256]; snprintf(path, sizeof(path), "%s/%s", root, name);
@@ -18,7 +19,7 @@ int main(int argc, char **argv)
 	assert(argc == 2 && host_profile_validate_folder(argv[1], NULL));
 	/* the repository's profiles carry a revision; an invalid one fails the whole folder */
 	assert(host_profile_revision_read(argv[1], NULL) >= 1);
-	snprintf(root, sizeof(root), "/tmp/profile-pack-XXXXXX"); assert(mkdtemp(root));
+	assert(test_mkdtemp(root, sizeof(root), "profile-pack"));
 	char path[256]; snprintf(path, sizeof(path), "%s/hardware", root); assert(!mkdir(path, 0700));
 	put("hardware/catalog.toml", "schema=1\nversion=\"test\"\nhardware=[]\nfallback=[]\n");
 	const char *platforms[] = { "ios", "tvos", "visionos", "mac" };

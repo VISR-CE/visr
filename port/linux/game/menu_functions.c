@@ -70,6 +70,7 @@ their handlers open opens.
 #include "networking/network_game_manager.h"
 #include "saved games/player_profile.h"
 #include "saved games/saved_game_files.h"
+#include "tag_files/tag_files.h"
 #include "tag_files/tag_groups.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
@@ -1675,7 +1676,6 @@ static void graphics_fixed_help(struct widget_instance *help, short mode, char c
 {
 	char message[200], name[16];
 	char const *what = !strcmp(setting, "display.frame_rate") ? "Fixed to %s FPS in %s mode." :
-		!strcmp(setting, "display.interpolation") ? "Frames are drawn at the game's 30 ticks per second in %.0s%s mode." :
 		"Fixed to %s in %s mode.";
 
 	snprintf(name, sizeof(name), "%s", graphics_mode_names[mode]);
@@ -8554,12 +8554,41 @@ static void menu_ready_shot_poll(void)
 	}
 }
 
+/* "menus: screen up <name> at frame N" each time the active screen is a new instance (a screen loaded, or an earlier one
+reloaded), and "menus: screen down at frame N" when none is active: the capture harness reads them to know a shot was taken with
+its screen active, with any input (pointer runs set no debug.menu_ready_shot). An instance is its address, definition tag
+and creation time, so a widget reallocated at a freed one's address is still new. Local player 0's screen only (a split-screen
+pause menu of players 2 to 4 is not logged). One compare per pump, no per-frame lines. "Active" is when the instance becomes the
+active one, before a frame with it is presented. */
+static void menu_screen_up_log(void)
+{
+	static struct widget_instance *last_screen;
+	static long last_tag = NONE, last_created;
+	struct widget_instance *screen = ui_widget_port_active_screen(0);
+
+	if (screen == last_screen && (!screen ||
+		(screen->definition_tag_index == last_tag && screen->creation_time == last_created)))
+		return;
+	last_screen = screen;
+	last_tag = screen ? screen->definition_tag_index : NONE;
+	last_created = screen ? screen->creation_time : 0;
+	if (screen)
+	{
+		char const *name = tag_get_name(screen->definition_tag_index);
+
+		platform_log("menus: screen up %s at frame %lu", name ? name : "?", platform_clock_frames());
+	}
+	else
+		platform_log("menus: screen down at frame %lu", platform_clock_frames());
+}
+
 /* (Apple builds; every pump, sdl_platform.c) the jump a link at launch is
 waiting for, once the main menu's screen is up */
 void menu_invite_poll(void)
 {
 	struct widget_instance *screen;
 
+	menu_screen_up_log();   /* before the gate: a game's start and end are logged too */
 	if (!main_port_main_menu_loaded())
 		return;
 	menus_seen = TRUE;

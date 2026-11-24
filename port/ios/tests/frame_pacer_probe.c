@@ -171,6 +171,16 @@ int main(void)
 	CHECK(near(frame_pacer_share(1.0 / 60.0, 30.0), 2.0));
 	/* (a cap above the display's rate is never asked about, and is one refresh) */
 	CHECK(near(frame_pacer_share(1.0 / 60.0, 240.0), 1.0));
+	/* a rate that does not divide the display's: the pacer's own share of a cap */
+	CHECK(near(frame_pacer_share(1.0 / 60.0, 50.0), 1.0));
+	CHECK(near(frame_pacer_share(1.0 / 120.0, 50.0), 2.0));
+	CHECK(near(frame_pacer_share(1.0 / 60.0, 45.0), 1.0));
+	/* a scene class's rate is a ceiling: rounded up to whole refreshes, never run faster */
+	CHECK(frame_pacer_scene_refreshes(1.0 / 144.0, 60.0) == 3 && near(144.0 / 3.0, 48.0));
+	CHECK(frame_pacer_scene_refreshes(1.0 / 100.0, 30.0) == 4 && near(100.0 / 4.0, 25.0));
+	CHECK(frame_pacer_scene_refreshes(1.0 / 60.0, 30.0) == 2 && frame_pacer_scene_refreshes(1.0 / 90.0, 30.0) == 3);
+	CHECK(frame_pacer_scene_refreshes(1.0 / 60.0, 0.0) == 1 && frame_pacer_scene_refreshes(1.0 / 60.0, 120.0) == 1);
+	CHECK(frame_pacer_scene_refreshes(1.0 / 240.0, 10.0) == 8);
 
 	/* the minimum time on screen: half a refresh short of the share */
 	CHECK(near(frame_pacer_minimum_duration(1, 1, 1.0 / 60.0, 0.0), 0.5 / 60.0));

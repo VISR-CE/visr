@@ -19,6 +19,7 @@
 #undef halo_frame_trace_milliseconds
 #define main stereo_fixture_main
 #include "stereo_head_probe.c"
+#include "test_tmpdir.h"
 #undef main
 
 static void input_frame(float facing[2])
@@ -35,8 +36,8 @@ static void input_frame(float facing[2])
 
 int main(void)
 {
-	char folder[] = "/tmp/visr-replay-head-XXXXXX";
-	assert(mkdtemp(folder) && !chdir(folder));
+	char folder[PATH_MAX];
+	assert(test_mkdtemp(folder, sizeof(folder), "visr-replay-head") && !chdir(folder));
 	FILE *file = fopen("camera.input", "w"); assert(file);
 	fputs("halo input recording 1\n0 0 0 0 0 0 0 0 0 0 0 0 0 0\n", file); fclose(file);
 	file = fopen("camera.actions", "w"); assert(file);

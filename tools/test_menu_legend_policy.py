@@ -62,9 +62,11 @@ def test_virtual_keyboard_separator_patch_preserves_the_typed_key():
 
 def test_legend_glyphs_center_on_caption_cap_height():
     source = (ROOT / 'source/interface/ui_widget.c').read_text()
-    assert '#define LEGEND_GLYPH_RAISE 3' in source
-    assert 'glyph_bounds.y0 -= LEGEND_GLYPH_RAISE;' in source
-    assert '&glyph_bounds, clip, glyph_color, _controller_glyph_blend_menu' in source
+    header = (ROOT / 'source/interface/controller_glyphs.h').read_text()
+    assert 'raised.y0 -= MENU_BAR_GLYPH_RAISE;' in header
+    assert 'controller_glyph_legend_raise(&bounds)' in source
+    assert 'controller_glyph_legend_raise(clip)' in source
+    assert '&glyph_bounds, clip ? &glyph_clip : NULL, glyph_color, _controller_glyph_blend_menu' in source
 
 
 def test_mouse_legend_lights_the_acting_button_and_touch_hides_select_and_back():

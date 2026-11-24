@@ -335,7 +335,7 @@ frame_rate = "display"       # Mac app: a cap ("60", "240") or "unlimited"; see 
 frames_in_flight = ""        # Metal: frames on their way to the display at once, "1" to "3" or "system" (empty: "2", "1" with the encode thread); see below
 frame_spacing = true         # Metal: each frame stays up for its share of the display's time; see below
 frame_source = ""            # Metal: "clock" (default) or "system" (iOS 17, tvOS 17, macOS 14); see below
-late_start = ""              # Metal: start frames late, "true" or "false" (empty: on in the Mac app); see below
+late_start = ""              # Metal: start frames late, "true", "extended" or "false" (empty: on in the Mac app); see below
 async_shaders = "auto"       # Compile shaders off the game thread, skipping a draw until it's ready ("off": wait)
 direct_camera = true         # On foot, the view follows the stick every frame
 ```
@@ -365,13 +365,21 @@ option `HALO_FRAME_PACING` (`tools/ios_build.py --frame-pacing on|off`), on by
 default everywhere except a Vision Pro build: there the Compositor paces
 frames and the build has none of this.
 
-- `frames_in_flight` (`"1"` to `"3"`, or `"system"`; default `"2"`, or `"1"`
-  with `debug.encode_thread = "thread"`, whose game thread otherwise queues a
-  frame ahead of a GPU-bound display) is how many frames may be on their way to
-  the display at once. A frame is not started
+- `frames_in_flight` (`"1"` to `"3"`, `"system"` or `"auto"`; default `"2"`,
+  or `"auto"` with the encode thread on (`display.encode_thread`), whose game
+  thread otherwise queues a frame ahead of a GPU-bound display) is how many
+  frames may be on their way to the display at once. A frame is not started
   on its way until fewer than that many are waiting to be shown. `"1"` gives
   the shortest delay between the game and the screen, and costs frames
   whenever a frame's CPU and GPU work together take longer than one refresh.
+  `"auto"` runs one frame in flight while a frame's GPU work and present fit
+  the period, or while the device is under its rate and one in flight keeps
+  that rate, and two otherwise (`frame_pacer_adapt.h`: one in flight halved
+  the iPad Air 4 to 30 frames a second at 60, and two showed the A10X iPad
+  Pro's input 25 to 35 ms later at 128 players). At one, each frame's
+  interval less the time it waited for its slot is what two would have
+  shown, so the rule leaves one as soon as it costs frames, without going
+  back to two to find out.
   `"system"` leaves the queue to the system, which allows up to three.
 - `frames_in_flight_at_30` (`"1"` or `"2"`; default empty, which follows
   `frames_in_flight`) is the limit while the frame rate in force is 30 or
@@ -403,6 +411,16 @@ frames and the build has none of this.
   the last 32 frames plus a margin it learns, and goes back to starting at
   once for a couple of seconds whenever a frame costs more than it allowed
   for or is shown late. The Mac app's F8 switches it while playing.
+  `late_start = "extended"` keeps starting late when a frame's work is longer
+  than one refresh and under frame rate caps: each frame aims at the refresh
+  after the frames already on their way to the display, and the CPU's work on
+  it overlaps the GPU's work on the frame before. It acts only while the game
+  runs at 60 frames a second or fewer (a cap, a scene class's rate, or a
+  60 Hz display). Measured on a 120 Hz
+  iPhone, from a frame's start to the screen: 98 ms became 33 ms under a
+  30 cap for about one more late frame in 1,000, and 48 ms became 20 ms at
+  60 for about eight more. At 120 frames a second it did not hold, so it is
+  left off there; `"extended_all"` runs it at any rate, for measuring.
 
 None of it applies when frames do not wait for the display (`frame_rate =
 "unlimited"`, or a cap above the display's rate): a minimum time on screen

@@ -25,10 +25,11 @@ void host_device_profile_applied(int point, int networked, int changed, int meta
 }
 #include "port_config.c"
 #include "tomlc17.c"
+#include "test_tmpdir.h"
 int main(void)
 {
-	char folder[] = "/tmp/visr-hot-profile-XXXXXX";
-	assert(mkdtemp(folder));
+	char folder[PATH_MAX];
+	assert(test_mkdtemp(folder, sizeof(folder), "visr-hot-profile"));
 	assert(!chdir(folder));
 	setenv("HALO_DEVICE_PROFILE_VALUES", "display.render_height\t900\told\ndisplay.shadow_map_size\t256\told\ndisplay.model_lod\tauto\told\n", 1);
 	assert(config_integer("display.render_height") == 900);

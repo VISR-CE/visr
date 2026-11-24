@@ -1,6 +1,8 @@
 """Exercise the real contrail renderer's unsupported-type branch with allocated buffers."""
 
 import os
+import shutil
+import atexit
 import subprocess
 import sys
 import tempfile
@@ -31,6 +33,7 @@ def generated(fault=None):
 def build_native(generated_files):
     """The cleanup branch has no ABI layout dependency; macOS hosts lack a 32-bit C runtime."""
     work = Path(tempfile.mkdtemp(prefix="contrail-cleanup-"))
+    atexit.register(shutil.rmtree, work, ignore_errors=True)
     for name, contents in generated_files:
         (work / name).write_text(contents)
     executable = work / "contrail_cleanup"

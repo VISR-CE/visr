@@ -1,6 +1,8 @@
 """A particle is drawn once a tick's update has passed, as at 30 Hz: the plasma bolts are never drawn between ticks."""
 
 import os
+import shutil
+import atexit
 import re
 import subprocess
 import sys
@@ -36,6 +38,7 @@ def generated(fault=None):
 def build_native(generated_files):
     """Only floats and the particle's own fields; macOS hosts lack a 32-bit C runtime."""
     work = Path(tempfile.mkdtemp(prefix="particle-draw-gate-"))
+    atexit.register(shutil.rmtree, work, ignore_errors=True)
     for name, contents in generated_files:
         (work / name).write_text(contents)
     executable = work / "particle_draw_gate"

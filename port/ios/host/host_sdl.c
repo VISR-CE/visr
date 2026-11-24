@@ -50,6 +50,7 @@ so the audio callback is handed to a thread that has one.
 #include "../../linux/include/halo_controller_glyphs.h"
 #include "host_audio_output.h"
 #include "halo_host_pointer.h"
+#include "halo_pointer_gate.h"
 #include "host_menu_pointer.h"
 #include "host_menu_gaze.h"
 
@@ -120,7 +121,7 @@ static void *handle_get(uint32_t handle, int type)
 /* ---------- general */
 
 static void menu_pointer_hint(void *userdata, const char *name, const char *old_value, const char *value);
-static void menu_pointer_event(const SDL_Event *event);
+static void menu_pointer_event(const SDL_Event *event, int real_motion);
 static void menu_pointer_sync(void);
 static void touch_gameplay_hint(void *userdata, const char *name, const char *old_value, const char *value);
 
@@ -762,7 +763,18 @@ int host_sdl_poll_event(void *event)
 #else
 	while (held_back(&host_event));
 #endif
-	menu_pointer_event(&host_event);
+	/* one classification per event: the menu pointer takes real_motion, the game's legend reads the zeroed deltas */
+	{
+		static struct halo_pointer_gate pointer_gate;
+#if HALO_NATIVE_MAC
+		/* Cocoa marks its own position reports with the global mouse ID; UIKit's IDs are not checked for it */
+		int real_motion = halo_pointer_gate_classify(&pointer_gate, &host_event, 1);
+#else
+		int real_motion = halo_pointer_gate_classify(&pointer_gate, &host_event, 0);
+#endif
+
+		menu_pointer_event(&host_event, real_motion);
+	}
 #if HALO_NATIVE_MAC
     host_macos_normalize_event(&host_event);
 #endif
@@ -1640,7 +1652,7 @@ void host_menu_pointer_block(int blocked)
 	host_menu_pointer_set_blocked(&menu_pointer, blocked);
 }
 
-static void menu_pointer_event(const SDL_Event *event)
+static void menu_pointer_event(const SDL_Event *event, int real_motion)
 {
 	static float wheel;
 	SDL_Window *window;
@@ -1660,6 +1672,7 @@ static void menu_pointer_event(const SDL_Event *event)
 	/* the Vision Pro's menus are on a surface in the room, not in the window a mouse moves in; a look and pinch
 	drives them (host_menu_gaze_spatial_event) */
 	(void)event;
+	(void)real_motion;
 	(void)wheel;
 	(void)window;
 	(void)width;
@@ -1693,7 +1706,10 @@ static void menu_pointer_event(const SDL_Event *event)
 	switch (event->type)
 	{
 	case SDL_EVENT_MOUSE_MOTION:
-		host_menu_pointer_device_move(&menu_pointer, event->motion.x, event->motion.y);
+		if (real_motion)
+			host_menu_pointer_device_move(&menu_pointer, event->motion.x, event->motion.y);
+		else
+			host_menu_pointer_device_report(&menu_pointer, event->motion.x, event->motion.y);
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 	case SDL_EVENT_MOUSE_BUTTON_UP:

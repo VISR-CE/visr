@@ -5,19 +5,20 @@
 #include <string.h>
 #include <unistd.h>
 #include "loading_picture_upscaled.h"
+#include "test_tmpdir.h"
 
 int main(void)
 {
 	unsigned char *gray = malloc(LOADING_PICTURE_UPSCALED_SOURCE_PIXELS), *larger = malloc(LOADING_PICTURE_UPSCALED_PIXELS);
 	unsigned char *file = malloc(LOADING_PICTURE_UPSCALED_FILE_BYTES), *loaded = malloc(LOADING_PICTURE_UPSCALED_FILE_BYTES);
-	char directory[] = "/tmp/loading-picture-probe-XXXXXX", path[256], tga[256];
+	char directory[PATH_MAX], path[256], tga[256];
 	unsigned char header[18] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 1, 240, 0, 24, 0 }, row[3 * 320];
 	uint64_t hash;
 	FILE *handle;
 	size_t i;
 	int x, y;
 
-	assert(gray && larger && file && loaded && mkdtemp(directory));
+	assert(gray && larger && file && loaded && test_mkdtemp(directory, sizeof(directory), "loading-picture-probe"));
 	assert(LOADING_PICTURE_UPSCALED_WIDTH == 1280 && LOADING_PICTURE_UPSCALED_HEIGHT == 960);
 	assert(LOADING_PICTURE_UPSCALED_FILE_BYTES == 40 + 1228800);
 	for (i = 0; i < LOADING_PICTURE_UPSCALED_SOURCE_PIXELS; i++)

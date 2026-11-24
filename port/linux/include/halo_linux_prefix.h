@@ -74,6 +74,10 @@ always runs and the handler is compiled out. */
 
 #include "halo_port_limits.h"
 
+/* ---------- locals left out of automatic zeroing (configure.py --guest-auto-init) */
+
+#include "halo_sim_uninitialized.h"
+
 /* the Xbox Winsock headers' fd_set in game units (platform units see glibc's,
 which is larger) */
 #ifndef HALO_LINUX_PLATFORM_LAYER

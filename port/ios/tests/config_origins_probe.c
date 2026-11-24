@@ -36,8 +36,9 @@ int host_device_profile_pending(char *values, unsigned long capacity, char *vers
 void host_device_profile_applied(int point, int networked, int changed, int metalfx, int frame_rate) { (void)point; (void)networked; (void)changed; (void)metalfx; (void)frame_rate; }
 #include "port_config.c"
 #include "tomlc17.c"
+#include "test_tmpdir.h"
 
-static char directory[64], path[128], origins[128];
+static char directory[PATH_MAX], path[PATH_MAX + 32], origins[PATH_MAX + 32];
 
 static void write_text(const char *file, const char *text)
 {
@@ -910,8 +911,11 @@ static void check_workload_frame_rate(void)
 	launch(TV_MODEL);
 	config_workload_set_limited(1, 1, "large multiplayer map");
 	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+	/* the runtime drop to 30 turns smooth motion off in gameplay and leaves the menus' */
+	assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY) && config_smooth_motion(CONFIG_SCENE_MENU));
 	config_workload_set(0, "main menu");
 	assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "display"));
+	assert(config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
 	/* A 30-only profile keeps its measured rate on either side of its player threshold. The warning uses
 	full_rate_players independently of this cap (menu_functions.c, player_capacity_exceeded). */
 	fresh();
@@ -940,7 +944,84 @@ static void check_workload_frame_rate(void)
 	{
 		config_workload_set_limited(1, limited, "30-only multiplayer map");
 		assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+		assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
 	}
+}
+
+/* the SMOOTH MOTION row is gone: display.interpolation is a testing override, "auto", "on" or "off". A boolean line
+from the old row is dropped (it reads as "auto"); a text value is honored, and the game never writes the setting */
+static void check_smooth_motion_migration(void)
+{
+	/* a file from the old menu, either value: the line goes, the rest of the file stays, the origin is forgotten */
+	for (int value = 0; value < 2; value++)
+	{
+		fresh();
+		write_text(path, value ? "[display]\ninterpolation = true\nshadow_map_size = 256\n" :
+			"[display]\ninterpolation = false\nshadow_map_size = 256\n");
+		write_text(origins, "display.interpolation\tchosen\n");
+		launch("");
+		assert(!file_has(path, "interpolation") && file_has(path, "\nshadow_map_size = 256\n"));
+		assert(!file_has(origins, "display.interpolation") && !config_explicit("display.interpolation"));
+		assert(strstr(logged, "removed display.interpolation"));
+		assert(!strcmp(config_string("display.interpolation"), "auto") && config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+		/* (a second launch has nothing to remove) */
+		launch("");
+		assert(!strstr(logged, "removed display.interpolation"));
+	}
+	/* a text value stays and is explicit: the testing override, either way, whatever the frame rate */
+	write_text(path, "[display]\ninterpolation = \"off\"\nshadow_map_size = 256\n");
+	launch("");
+	assert(file_has(path, "\ninterpolation = \"off\"\n") && config_explicit("display.interpolation"));
+	assert(!strstr(logged, "removed display.interpolation") && !config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+	write_text(path, "[display]\ninterpolation = \"on\"\nframe_rate = \"30\"\nshadow_map_size = 256\n");
+	launch("");
+	assert(file_has(path, "\ninterpolation = \"on\"\n") && config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+	/* "auto" written by hand is the default, which the game drops from the file like any tuning default */
+	write_text(path, "[display]\ninterpolation = \"auto\"\nframe_rate = \"30\"\nshadow_map_size = 256\n");
+	launch("");
+	assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+	/* a first launch writes no line for it (a tuning value) */
+	fresh();
+	launch("");
+	assert(!file_has(path, "interpolation") && !config_explicit("display.interpolation"));
+	assert(!strcmp(config_string("display.interpolation"), "auto"));
+	/* the effective state follows the frame rate in force, and the performance reports record it, not the setting */
+	{
+		char json[CONFIG_GRAPHICS_MAXIMUM_BYTES];
+		static const struct { const char *rate; int on; } rates[] = {
+			{ "display", 1 }, { "unlimited", 1 }, { "120", 1 }, { "60", 1 }, { "30", 0 },
+		};
+
+		for (size_t index = 0; index < sizeof(rates) / sizeof(rates[0]); index++)
+		{
+			assert(config_write("display.frame_rate", rates[index].rate));
+			assert(config_smooth_motion(CONFIG_SCENE_GAMEPLAY) == rates[index].on);
+			assert(!strcmp(config_string("display.interpolation"), "auto"));   /* (the setting itself is still its default) */
+			assert(config_graphics_settings_json(CONFIG_SCENE_GAMEPLAY, json, sizeof(json)));
+			assert(strstr(json, rates[index].on ? "\"display.interpolation\":true" : "\"display.interpolation\":false"));
+			{
+				struct game_perf_graphics_snapshot snapshot;
+				int found = 0;
+
+				assert(config_graphics_settings_snapshot(CONFIG_SCENE_GAMEPLAY, &snapshot));
+				for (unsigned entry = 0; entry < snapshot.count; entry++)
+					if (!strcmp(snapshot.entries[entry].name, "display.interpolation"))
+					{
+						found = 1;
+						assert((snapshot.entries[entry].value.boolean != 0) == rates[index].on);
+					}
+				assert(found);
+			}
+		}
+		/* the testing override wins at a 30 cap, and the report then records it */
+		setenv("HALO_INTERPOLATION", "on", 1);
+		launch("");
+		assert(config_write("display.frame_rate", "30") && config_explicit("display.interpolation"));
+		assert(config_smooth_motion(CONFIG_SCENE_GAMEPLAY));
+		unsetenv("HALO_INTERPOLATION");
+	}
+	/* the menus never offer it: it is not a profile setting either */
+	assert(!config_is_profile_setting((size_t)config_setting_index("display.interpolation")));
 }
 
 /* display.effect_resolution was a boolean beside display.mirror_resolution: the saved choice carries over */
@@ -1036,7 +1117,8 @@ static void check_graphics_modes(void)
 	assert(config_integer("display.render_height") == 480 && config_integer("display.screen_width") == 640);
 	assert(config_real("display.render_scale") == 1.0 && config_scene_real("display.render_scale", CONFIG_SCENE_MENU) == 1.0);
 	assert(config_scene_real("display.render_scale", CONFIG_SCENE_CUTSCENE) == 1.0);
-	assert(!strcmp(config_string("display.frame_rate"), "30") && !config_boolean("display.interpolation"));
+	assert(!strcmp(config_string("display.frame_rate"), "30") && !strcmp(config_string("display.interpolation"), "off"));
+	assert(!config_smooth_motion(CONFIG_SCENE_GAMEPLAY) && !config_smooth_motion(CONFIG_SCENE_CUTSCENE));
 	assert(!config_boolean("display.dynamic_resolution") && !config_boolean("display.direct_camera"));
 	assert(!strcmp(config_string("display.anti_aliasing"), "off") && config_integer("display.anisotropic_filtering") == 1);
 	assert(!config_boolean("display.upscaled_textures") && !config_reload_boolean("display.upscaled_textures"));
@@ -1124,8 +1206,7 @@ static void check_graphics_modes(void)
 
 int main(void)
 {
-	snprintf(directory, sizeof(directory), "/tmp/config-origins-probe-XXXXXX");
-	if (!mkdtemp(directory))
+	if (!test_mkdtemp(directory, sizeof(directory), "config-origins-probe"))
 	{
 		perror("mkdtemp");
 		return 1;
@@ -1150,6 +1231,7 @@ int main(void)
 	check_variable_only();
 	check_workload_frame_rate();
 	check_effect_resolution_migration();
+	check_smooth_motion_migration();
 	check_graphics_modes();
 	fresh();
 	rmdir(directory);

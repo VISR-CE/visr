@@ -194,6 +194,10 @@ def main():
     parser.add_argument('--pgo', choices=('use', 'off'), default='use',
                         help='profile-guided optimization of the game code: use (the default) builds it with the '
                              'profile in pgo/, off builds it without')
+    parser.add_argument('--guest-auto-init', choices=('off', 'zero', 'pattern'), default='off',
+                        help='automatic initialization of the game\'s stack locals (configure.py --guest-auto-init): '
+                             'off (the default) leaves them as the stack holds them, zero clears them, pattern fills '
+                             'them with a pattern (the determinism check)')
     parser.add_argument('--lto', choices=('full', 'off'), default='full',
                         help='link-time optimization of the game code: full (the default) optimizes the game, the '
                              'platform layer and the bundled libraries as one module, off compiles each file alone')
@@ -318,7 +322,7 @@ def main():
             url=f'https://raw.githubusercontent.com/KhronosGroup/{registry}/{revision}/{source}'
             target.write_bytes(urllib.request.urlopen(url,timeout=30).read())
     validation = args.render_validation == 'on'
-    run(sys.executable,'configure.py','--ios',f'--pgo={args.pgo}',f'--lto={args.lto}','--ios-llvm',args.llvm,'--ios-lld',args.lld,
+    run(sys.executable,'configure.py','--ios',f'--pgo={args.pgo}',f'--lto={args.lto}',f'--guest-auto-init={args.guest_auto_init}','--ios-llvm',args.llvm,'--ios-lld',args.lld,
         *(['--render-validation'] if validation else []),*(['--collision-log'] if args.collision_log else []),
         *(['--profile'] if args.profile else []))
     run('ninja','ios_guest','-j',args.jobs)

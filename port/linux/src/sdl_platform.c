@@ -516,15 +516,24 @@ BOOL platform_offer_game_data(const char *destination)
 }
 #endif
 
+int halo_scene_class(void);
+
+/* Smooth motion: automatic (smooth_motion.h: on above a 30 frame cap, off at 30 or lower, so in Hardcore mode,
+whose table fixes the cap at 30, and during a big game's runtime drop to 30), unless display.interpolation is
+set to "on" or "off" by hand, by --set or in the environment: the testing override, which wins over the rule (the
+Hardcore mode's table sets it "off") */
 int halo_interpolation_enabled(void)
 {
 	static int enabled;
 	static unsigned long read_at = (unsigned long)-1;
+	static int read_class = -1;
+	int scene = halo_scene_class();
 
-	if (read_at != config_changes())
+	if (read_at != config_changes() || read_class != scene)
 	{
 		read_at = config_changes();
-		enabled = config_boolean("display.interpolation");
+		read_class = scene;
+		enabled = config_smooth_motion(scene);
 	}
 	return enabled && !photo_mode_active();
 }

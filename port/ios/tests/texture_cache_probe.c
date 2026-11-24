@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "texture_cache.h"
+#include "test_tmpdir.h"
 
 static struct texture_recipe_globals globals(void)
 {
@@ -125,14 +126,14 @@ static void damage_keys(void)
 
 static void manifest_round_trip(void)
 {
-	char directory[] = "/tmp/texture-cache-probe-XXXXXX";
+	char directory[PATH_MAX];
 	struct texture_recipe_globals g = globals();
 	struct texture_cache_record records[2] = { record(&g, TEXTURE_POLICY_S4G, TEXTURE_POLICY_COLOR),
 		record(&g, TEXTURE_POLICY_BPF, TEXTURE_POLICY_BUMP_MAP) }, *loaded;
 	char path[256];
 	size_t count;
 
-	assert(mkdtemp(directory));
+	assert(test_mkdtemp(directory, sizeof(directory), "texture-cache-probe"));
 	records[1].hash = 0xfedcba9876543210ull;
 	assert(texture_cache_manifest_save(directory, records, 2) == 0);
 	assert(texture_cache_manifest_load(directory, &loaded, &count) == 0 && count == 2);
@@ -228,11 +229,11 @@ static void storage(void)
 
 static void write_fails_cleanly(void)
 {
-	char directory[] = "/tmp/texture-cache-write-XXXXXX", path[256];
+	char directory[PATH_MAX], path[256];
 	struct texture_cache_record r = { 0xabc, 4, 4, TEXTURE_POLICY_BPF, TEXTURE_POLICY_COLOR, 1, 2, 64 };
 	unsigned char bytes[64] = { 1 };
 
-	assert(mkdtemp(directory));
+	assert(test_mkdtemp(directory, sizeof(directory), "texture-cache-write"));
 	assert(texture_cache_write_entry(directory, &r, bytes, sizeof(bytes)) == 0);
 	snprintf(path, sizeof(path), "%s/0000000000000abc-4x4.bin", directory);
 	assert(access(path, F_OK) == 0);
@@ -249,12 +250,12 @@ static void write_fails_cleanly(void)
 
 static void size_and_delete(void)
 {
-	char directory[] = "/tmp/texture-cache-size-XXXXXX", path[256];
+	char directory[PATH_MAX], path[256];
 	struct texture_cache_record r = { 0xabc, 4, 4, TEXTURE_POLICY_BPF, TEXTURE_POLICY_COLOR, 1, 2, 64 };
 	unsigned char bytes[100] = { 0 };
 	FILE *other;
 
-	assert(mkdtemp(directory));
+	assert(test_mkdtemp(directory, sizeof(directory), "texture-cache-size"));
 	assert(texture_cache_size(directory) == 0);
 	assert(texture_cache_write_entry(directory, &r, bytes, sizeof(bytes)) == 0);
 	assert(texture_cache_manifest_save(directory, &r, 1) == 0);
@@ -313,7 +314,7 @@ static void progress(void)
 /* the decisions beside the manifest: round trip in classify order, refused when damaged, deleted with the cache */
 static void decisions(void)
 {
-	char directory[] = "/tmp/texture-cache-decisions-XXXXXX", path[256];
+	char directory[PATH_MAX], path[256];
 	struct texture_policy_decision d[2] = {
 		{ 0x30, 16, 16, TEXTURE_POLICY_SURFACE, TEXTURE_POLICY_BPF, TEXTURE_POLICY_COLOR, 1, 0, 0, 2 },
 		{ 0x10, 64, 64, TEXTURE_POLICY_GRAPHIC, TEXTURE_POLICY_ORIGINAL, TEXTURE_POLICY_BUMP_MAP, 1, 0, 0, 1 } };
@@ -321,7 +322,7 @@ static void decisions(void)
 	size_t count = 0;
 	FILE *file;
 
-	assert(mkdtemp(directory));
+	assert(test_mkdtemp(directory, sizeof(directory), "texture-cache-decisions"));
 	assert(texture_cache_decisions_load(directory, &loaded, &count) == -1 && !loaded);
 	assert(texture_cache_decisions_save(directory, d, 2) == 0);
 	assert(texture_cache_decisions_load(directory, &loaded, &count) == 0 && count == 2);

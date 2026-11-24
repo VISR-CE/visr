@@ -21,6 +21,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include "test_tmpdir.h"
 
 #define CHECK(condition) do { if (!(condition)) { \
 	fprintf(stderr, "%s:%d: %s failed in %s\n", __FILE__, __LINE__, #condition, test_name); exit(1); } } while (0)
@@ -696,12 +697,10 @@ static void test_worker(void)
 
 int main(void)
 {
-	const char *temporary = getenv("TMPDIR");
 	char meta[700];
 	uint8_t byte = 0;
 
-	snprintf(root, sizeof(root), "%s/save-writer-probe-XXXXXX", temporary && *temporary ? temporary : "/tmp");
-	CHECK(mkdtemp(root));
+	CHECK(test_mkdtemp(root, sizeof(root), "save-writer-probe"));
 	snprintf(session, sizeof(session), "%s/z", root);
 	snprintf(slot, sizeof(slot), "%s/u", root);
 	CHECK(mkdir(session, 0755) == 0 && mkdir(slot, 0755) == 0);

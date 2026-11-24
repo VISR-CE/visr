@@ -27,6 +27,7 @@ typedef struct {
 void platform_log(const char *format, ...);
 
 #include "input_replay.c"
+#include "test_tmpdir.h"
 
 #ifdef HALO_ILP32
 static int probe_development_hooks;
@@ -288,14 +289,14 @@ static void remove_recording_fixture_files(void);
 
 static int check_auto_record_suite_camera(int expect_auto_record_collision)
 {
-	char folder[] = "/tmp/visr-auto-camera-XXXXXX";
+	char folder[PATH_MAX];
 	float facing[2] = { -2.0f, 0.7f };
 	short zoom = -1;
 	unsigned int action[ACTION_WORDS] = {0};
 	XINPUT_GAMEPAD pad = {0};
 	FILE *file;
 
-	assert(mkdtemp(folder) && !chdir(folder));
+	assert(test_mkdtemp(folder, sizeof(folder), "visr-auto-camera") && !chdir(folder));
 	assert(!mkdir("recordings", 0700));
 	file = fopen("probe.input", "w");
 	assert(file);
@@ -770,8 +771,8 @@ int main(int argc, char **argv)
 		return check_auto_record_suite_camera(0);
 	if (argc == 2 && !strcmp(argv[1], "--auto-record-suite-camera-baseline"))
 		return check_auto_record_suite_camera(1);
-	char folder[] = "/tmp/visr-replay-probe-XXXXXX";
-	assert(mkdtemp(folder));
+	char folder[PATH_MAX];
+	assert(test_mkdtemp(folder, sizeof(folder), "visr-replay-probe"));
 	assert(!chdir(folder));
 	if (argc == 2 && !strcmp(argv[1], "--replay-environment")) {
         check_replayed_environment();

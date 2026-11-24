@@ -19,6 +19,7 @@ int platform_ready_screenshot_taken(void);
 static _Noreturn void probe_exit(int status);
 #define exit probe_exit
 #include "benchmark_suite.c"
+#include "test_tmpdir.h"
 #undef exit
 
 static double now;
@@ -210,8 +211,8 @@ static int frame(double milliseconds) {
     exit_armed = 0; return exit_status;
 }
 int main(void) {
-    char folder[] = "/tmp/visr-benchmark-startup-XXXXXX";
-    assert(mkdtemp(folder) && !chdir(folder));
+    char folder[PATH_MAX];
+    assert(test_mkdtemp(folder, sizeof(folder), "visr-benchmark-startup") && !chdir(folder));
     assert(!mkdir("benchmark", 0700));
     assert(!mkdir("benchmark/recordings", 0700));
     FILE *recording = fopen("benchmark/recordings/probe.input", "w");

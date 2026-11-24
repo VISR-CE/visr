@@ -57,7 +57,7 @@ def test_the_xbox_picture_size_and_rate():
     table = {name: hardcore for name, hardcore, _ in rows()}
     assert table['display.screen_width'] == '640' and table['display.render_height'] == '480'
     assert table['display.render_scale'] == '1.0' and table['display.resolution_scaling'] == 'original'
-    assert table['display.frame_rate'] == '30' and table['display.interpolation'] == 'false'
+    assert table['display.frame_rate'] == '30' and table['display.interpolation'] == 'off'
     assert table['display.dynamic_resolution'] == 'false' and table['display.anti_aliasing'] == 'off'
 
 

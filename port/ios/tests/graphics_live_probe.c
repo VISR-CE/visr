@@ -4,6 +4,7 @@
 #include "config_origins_probe.c"
 #undef main
 #include "halo_display.h"
+#include "smooth_motion.h"
 #include "texture_upscale_state.h"
 
 typedef int boolean;
@@ -85,6 +86,7 @@ static void texture_upscale_map_loaded(void)
 	texture_upscale_read_at = config_changes();
 }
 #include "graphics_live_consumers.h"
+#include "test_tmpdir.h"
 
 /* the additions each mode keeps: limits and soft edges in Classic and Enhanced, per-pixel lighting in Enhanced */
 static void check_additions(int mode)
@@ -195,8 +197,7 @@ static void check_boolean_modes(void)
 int main(void)
 {
 	assert(config_origins_main() == 0);
-	snprintf(directory, sizeof(directory), "/tmp/graphics-live-probe-XXXXXX");
-	assert(mkdtemp(directory));
+	assert(test_mkdtemp(directory, sizeof(directory), "graphics-live-probe"));
 	setenv("HALO_DATA_ROOT", directory, 1);
 	snprintf(path, sizeof(path), "%s/config.toml", directory);
 	snprintf(origins, sizeof(origins), "%s/config.origins", directory);

@@ -104,6 +104,19 @@ def test_hud_glyph_layout_color_and_fallback(tmp_path):
     subprocess.run([str(binary)], check=True)
 
 
+def test_legend_glyph_raise_keeps_box_inside_clip(tmp_path):
+    """Bug class: legend glyph clipped by its box or clip, or off its caption's cap height."""
+    if not shutil.which('xcrun'):
+        import pytest
+        pytest.skip('Apple compiler and frameworks are required')
+    binary = tmp_path / 'fit'
+    subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-fsanitize=address,undefined',
+                    '-iquote', str(ROOT / 'port/linux/include'), '-iquote', str(ROOT / 'source'),
+                    str(ROOT / 'port/ios/tests/controller_glyph_fit_probe.c'),
+                    '--output=' + str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
+
+
 def test_controller_glyph_draw_cache_and_clipping(tmp_path):
     if not shutil.which('xcrun'):
         import pytest
@@ -152,7 +165,7 @@ def test_controller_glyph_requests(tmp_path):
     probe.write_text(program)
     subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-Wno-unused-variable',
                     '-fsanitize=address,undefined', '-iquote', str(ROOT / 'port/linux/include'),
-                    '-iquote', str(ROOT / 'port/runtime/include'), '-iquote', str(ROOT / 'port/linux/src'),
+                    '-iquote', str(ROOT / 'port/runtime/include'), '-iquote', str(ROOT / 'port/linux/src'), '-iquote', str(ROOT / 'port/ios/host'),
                     *subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True).split(),
                     str(probe), '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

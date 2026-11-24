@@ -13,6 +13,7 @@ void texture_upscale_reader_probe(const char *directory, uint32_t format, const 
 #include <cstring>
 #include <vector>
 #include <unistd.h>
+#include "test_tmpdir.h"
 
 
 struct chain
@@ -93,8 +94,8 @@ static void roundtrip(uint32_t format)
     assert(!texture_record_check(bytes, size, size, 0x93, 129, 65, format, &layout));
     assert(!texture_record_check_payload(&layout, bytes + layout.header_size));
     assert(layout.recipe_key == 0xabc && layout.levels == input.levels.size());
-    char directory[] = "/tmp/upscale-encode-XXXXXX";
-    assert(mkdtemp(directory));
+    char directory[PATH_MAX];
+    assert(test_mkdtemp(directory, sizeof(directory), "upscale-encode"));
     texture_cache_record entry { 0x93, 129, 65, TEXTURE_POLICY_S4G, TEXTURE_POLICY_COLOR, 0xabc, 0xdef, size };
     assert(!texture_cache_write_entry(directory, &entry, record, size));
     assert(!texture_cache_manifest_save(directory, &entry, 1));
@@ -306,8 +307,8 @@ static void generator_to_reader(uint32_t format)
     texture_record_layout layout {};
     assert(!texture_record_check(bytes, size, size, 0x71, 4, 4, format, &layout));
     assert(!texture_record_check_payload(&layout, bytes + layout.header_size));
-    char directory[] = "/tmp/upscale-generator-reader-XXXXXX";
-    assert(mkdtemp(directory));
+    char directory[PATH_MAX];
+    assert(test_mkdtemp(directory, sizeof(directory), "upscale-generator-reader"));
     texture_cache_record entry { 0x71, 4, 4, output.result, input.decision.treatment, 0x999, 0x888, size };
     assert(!texture_cache_write_entry(directory, &entry, record, size));
     assert(!texture_cache_manifest_save(directory, &entry, 1));

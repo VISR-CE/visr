@@ -19,6 +19,7 @@ void platform_log(const char *format, ...)
 #include <assert.h>
 #include <dirent.h>
 #include <unistd.h>
+#include "test_tmpdir.h"
 
 static void write_file(const char *path, const char *text)
 {
@@ -41,13 +42,13 @@ static int entries(const char *directory)
 
 int main(void)
 {
-	char directory[] = "/tmp/benchmark-isolation-XXXXXX", path[1100], origins[1100];
+	char directory[PATH_MAX], path[1100], origins[1100];
 	const char *text = "[display]\nanisotropic_filtering = 4\n";
 	char *after;
 	size_t size = 0;
 	int before_count;
 
-	assert(mkdtemp(directory));
+	assert(test_mkdtemp(directory, sizeof(directory), "benchmark-isolation"));
 	snprintf(path, sizeof(path), "%s/config.toml", directory);
 	snprintf(origins, sizeof(origins), "%s/config.origins", directory);
 	setenv("HALO_DATA_ROOT", directory, 1);

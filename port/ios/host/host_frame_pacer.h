@@ -7,6 +7,7 @@ same pacer:
 
 	frame_pacer_frame_start   as the game starts a frame, before it reads input (may wait)
 	frame_pacer_frame_begin   before a frame asks for its drawable (may wait)
+	frame_pacer_frame_finished when the GPU finished the frame, with its times
 	frame_pacer_present       as the frame is presented: how long it must stay up
 	frame_pacer_presented     when the display showed it, with the time
 	frame_pacer_frame_dropped the frame had nothing to show after all
@@ -43,7 +44,21 @@ struct frame_pacer_frame
 	uint8_t waits_for_display;
 	uint8_t slot;            /* holds one of the frames in flight */
 	uint8_t watched;         /* frame_pacer_presented wants to hear of it */
+	unsigned long sequence;  /* its place among the frames handed to the display, from 1; 0: it was not */
+	uint8_t in_flight;       /* frames handed to the display and not yet shown, before this one */
+	uint8_t start_state;     /* frame_pacer.h's frame_pacer_start_state */
+	uint8_t slot_waited;     /* found every slot taken (a frame still in flight) and waited for one */
+	uint8_t others_in_flight; /* frames that held a slot when it got its own (1 at two in flight: the second slot) */
+	double granted;          /* when it got its slot or went on without one (the pacer's clock); 0: never asked */
+	double wait_began;       /* when it began waiting for a slot; 0: it did not wait */
+	double presenting;       /* when frame_pacer_present was asked its hold; 0: it was not */
 };
+
+/* frame_pacer_frame_start's time, aim, allowed cost and state wait in one place for the frame's Present, so the game
+must not start a frame while an earlier one's Present is still to come: the frames a renderer's producer may run ahead
+of its Present (gpu_metal.m's PRODUCER_LEAD, checked there). A renderer that lets the producer lead must pass a frame's
+start values along with the frame instead. */
+#define FRAME_PACER_START_LEAD 0
 
 #if HALO_FRAME_PACING
 
@@ -91,8 +106,38 @@ the controllers and steps the blend between ticks (d3d8_device.c's
 halo_frame_start, through gpu_frame_start). With display.late_start, waits
 until the frame's work would be done just in time for the next refresh
 (frame_pacer.h, "a late start"); otherwise only notes the time. Nothing
-under debug.fixed_timestep, where the pacer isn't started. */
-void frame_pacer_frame_start(void);
+under debug.fixed_timestep, where the pacer isn't started. may_wait: 0 when
+something else decides how long this frame stays up (display.frame_pacing's
+whole-refresh holds), and the frame starts at once. */
+void frame_pacer_frame_start(int may_wait);
+/* whether the frame's late start gave it a refresh to aim at: its waiting for
+the display was done before the input read, and a renderer's own wait for a
+frame rate's refreshes inside its present is skipped */
+static inline int frame_pacer_aimed(const struct frame_pacer_frame *frame)
+{
+	return frame->aim > 0.0;
+}
+/* the renderer handed the frame's slot and count to its presented handler
+(a copy of the frame): this copy holds neither any more */
+static inline void frame_pacer_frame_handed(struct frame_pacer_frame *frame)
+{
+	frame->slot = 0;
+	frame->sequence = 0;
+}
+/* The GPU finished the frame's last command buffer (any thread). number: the
+frame's, as given to frame_pacer_frame_begin; gpu_end: when, on the pacer's
+clock (0 unknown); gpu_seconds: the GPU's time on this frame's own command
+buffers; waited: how long the frame waited for the display inside its present
+(a slot, a drawable, a frame rate's refreshes). The extended late start's
+cost of a frame (frame_pacer.h). */
+void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu_seconds, double waited);
+/* the picture has ratio times the pixels from the next frame on (dynamic
+resolution changed its lines): the extended late start allows for the GPU's
+longer work before the first such frame starts */
+void frame_pacer_pixels(double ratio);
+/* what the frame's start decided, as a word for a log or the frame timeline
+row: "engaged", "no_fit", "holdoff" or "off" */
+const char *frame_pacer_start_state_name(int state);
 
 /* the GPU's time on the frames it has finished since the last call, in
 seconds: a renderer's measure for the late start's guess (0 if it has none) */
@@ -116,7 +161,7 @@ int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long numbe
 /* the frame is being presented: the least time it must stay on screen after
 the frame before it, in seconds (presentDrawable:afterMinimumDuration:), or 0
 to present it as it comes */
-double frame_pacer_present(const struct frame_pacer_frame *frame);
+double frame_pacer_present(struct frame_pacer_frame *frame);
 
 /* whether frame_pacer_presented must be called for this frame once it is
 shown (a renderer that can't say when frames are shown leaves the frame's
@@ -175,8 +220,34 @@ static inline void frame_pacer_refresh(double timestamp, double period)
 	(void)period;
 }
 
-static inline void frame_pacer_frame_start(void)
+static inline void frame_pacer_frame_start(int may_wait)
 {
+	(void)may_wait;
+}
+static inline int frame_pacer_aimed(const struct frame_pacer_frame *frame)
+{
+	(void)frame;
+	return 0;
+}
+static inline void frame_pacer_frame_handed(struct frame_pacer_frame *frame)
+{
+	(void)frame;
+}
+static inline void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu_seconds, double waited)
+{
+	(void)number;
+	(void)gpu_end;
+	(void)gpu_seconds;
+	(void)waited;
+}
+static inline void frame_pacer_pixels(double ratio)
+{
+	(void)ratio;
+}
+static inline const char *frame_pacer_start_state_name(int state)
+{
+	(void)state;
+	return "off";
 }
 
 static inline void frame_pacer_gpu_time(double seconds)
@@ -198,7 +269,7 @@ static inline int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsig
 	return 1;
 }
 
-static inline double frame_pacer_present(const struct frame_pacer_frame *frame)
+static inline double frame_pacer_present(struct frame_pacer_frame *frame)
 {
 	(void)frame;
 	return 0.0;

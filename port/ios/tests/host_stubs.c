@@ -109,7 +109,11 @@ __attribute__((weak)) void frame_pacer_frame_dropped(struct frame_pacer_frame *f
 { }
 #endif
 #if (HALO_FRAME_PACING)
-__attribute__((weak)) void frame_pacer_frame_start(void)
+__attribute__((weak)) void frame_pacer_frame_finished(unsigned long number, double gpu_end, double gpu_seconds, double waited)
+{ }
+#endif
+#if (HALO_FRAME_PACING)
+__attribute__((weak)) void frame_pacer_frame_start(int may_wait)
 { }
 #endif
 #if (HALO_FRAME_PACING)
@@ -133,7 +137,11 @@ __attribute__((weak)) void frame_pacer_panel_period(double period)
 { }
 #endif
 #if (HALO_FRAME_PACING)
-__attribute__((weak)) double frame_pacer_present(const struct frame_pacer_frame *frame)
+__attribute__((weak)) void frame_pacer_pixels(double ratio)
+{ }
+#endif
+#if (HALO_FRAME_PACING)
+__attribute__((weak)) double frame_pacer_present(struct frame_pacer_frame *frame)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_present without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
@@ -147,6 +155,10 @@ __attribute__((weak)) void frame_pacer_refresh(double timestamp, double period)
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) void frame_pacer_start(int fixed_timestep)
 { }
+#endif
+#if (HALO_FRAME_PACING)
+__attribute__((weak)) const char * frame_pacer_start_state_name(int state)
+{ fprintf(stderr, "host_stubs: probe called frame_pacer_start_state_name without defining it\n"); abort(); }
 #endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) void frame_pacer_stop(void)
@@ -170,6 +182,8 @@ __attribute__((weak)) void frame_waits_add_game(double seconds)
 { }
 __attribute__((weak)) void frame_waits_add_slot(double started, double ended)
 { }
+__attribute__((weak)) double frame_waits_display(double present_called)
+{ fprintf(stderr, "host_stubs: probe called frame_waits_display without defining it\n"); abort(); }
 __attribute__((weak)) struct frame_waits_taken frame_waits_take(double present_called)
 { fprintf(stderr, "host_stubs: probe called frame_waits_take without defining it\n"); abort(); }
 __attribute__((weak)) const struct gpu_backend * gpu_call_hash_wrap(unsigned instance, const struct gpu_backend *chosen, gpu_call_hash_report report)
@@ -216,6 +230,10 @@ __attribute__((weak)) unsigned long gpu_queue_drains(void)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_drains without defining it\n"); abort(); }
 __attribute__((weak)) unsigned long gpu_queue_keyframes_checked(unsigned long *differ)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_keyframes_checked without defining it\n"); abort(); }
+__attribute__((weak)) int gpu_queue_mode_choose(const char *debug, const char *display, const char **from)
+{ fprintf(stderr, "host_stubs: probe called gpu_queue_mode_choose without defining it\n"); abort(); }
+__attribute__((weak)) int gpu_queue_mode_on_main_thread(int mode, const char *debug)
+{ fprintf(stderr, "host_stubs: probe called gpu_queue_mode_on_main_thread without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_queue_mode_parse(const char *value)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_mode_parse without defining it\n"); abort(); }
 __attribute__((weak)) const struct gpu_backend * gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode, int timing, void (*log)(const char *line), void (*consumer_started)(void))

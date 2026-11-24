@@ -19,6 +19,7 @@ void platform_log(const char *format, ...)
 #include "port_config.c"
 #include <assert.h>
 #include <unistd.h>
+#include "test_tmpdir.h"
 
 static void write_file(const char *path, const char *text)
 {
@@ -30,7 +31,7 @@ static void write_file(const char *path, const char *text)
 
 int main(void)
 {
-	char directory[] = "/tmp/config-reload-XXXXXX", path[1100];
+	char directory[PATH_MAX], path[1100];
 	const char *name = "display.upscaled_textures";
 
 	{
@@ -46,7 +47,7 @@ int main(void)
 		assert(config_setting_index("") == -1);
 		assert(config_setting_index("display.upscaled_textures_") == -1);
 	}
-	assert(mkdtemp(directory));
+	assert(test_mkdtemp(directory, sizeof(directory), "config-reload"));
 	snprintf(path, sizeof(path), "%s/config.toml", directory);
 	setenv("HALO_DATA_ROOT", directory, 1);
 	unsetenv("HALO_UPSCALED_TEXTURES");

@@ -33,6 +33,7 @@ void platform_log(const char *format, ...)
 
 #include "port_config.c"
 #include "tomlc17.c"
+#include "test_tmpdir.h"
 
 static int count(const char *text, const char *needle)
 {
@@ -200,7 +201,7 @@ static void reload(void)
 file kept, and the file written back folded */
 static void check_reading(void)
 {
-	char directory[] = "/tmp/config-probe-XXXXXX";
+	char directory[PATH_MAX];
 	char path[256];
 	char *text;
 	size_t size;
@@ -208,7 +209,7 @@ static void check_reading(void)
 	size_t index;
 	int written;
 
-	if (!mkdtemp(directory))
+	if (!test_mkdtemp(directory, sizeof(directory), "config-probe"))
 	{
 		perror("mkdtemp");
 		exit(1);

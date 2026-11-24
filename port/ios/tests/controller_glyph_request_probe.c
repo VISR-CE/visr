@@ -11,6 +11,8 @@ typedef char CHAR;
 #include "halo_host_pointer.h"
 typedef struct {unsigned short wButtons;unsigned char bAnalogButtons[8];short sThumbLX,sThumbLY,sThumbRX,sThumbRY;} XINPUT_GAMEPAD;
 #include "halo_controller_glyphs.h"
+#include "halo_pointer_gate.h"
+#include "host_menu_pointer.h"
 #include "halo_keyboard.h"
 #define PORT_COUNT 4
 #define MAXIMUM_BINDINGS 2
@@ -146,5 +148,61 @@ int main(void) {
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==1);
  event.key.repeat=0;halo_controller_glyph_input_event(&event);
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==3);
+ /* Reactivation (Cmd-Tab back): the host classifies each event once; the legend and the menu pointer read it. */
+ {
+  struct halo_pointer_gate gate;
+  struct host_menu_pointer pointer;
+  SDL_Event e, motion;
+  struct host_ui_pointer out;
+  memset(&gate,0,sizeof(gate));memset(&pointer,0,sizeof(pointer));
+  host_menu_pointer_set_surface(&pointer,874,402);host_menu_pointer_set_menus(&pointer,1);
+  memset(&motion,0,sizeof(motion));
+#define FEED(ev,mac) do { int real_=halo_pointer_gate_classify(&gate,&(ev),(mac)); \
+   halo_controller_glyph_input_event(&(ev)); \
+   if((ev).type==SDL_EVENT_MOUSE_MOTION && (ev).motion.which!=SDL_TOUCH_MOUSEID) { \
+    if(real_) host_menu_pointer_device_move(&pointer,(ev).motion.x,(ev).motion.y); \
+    else host_menu_pointer_device_report(&pointer,(ev).motion.x,(ev).motion.y); } } while(0)
+#define MOTION(px,py,rx,ry,id) do { memset(&motion,0,sizeof(motion)); motion.type=SDL_EVENT_MOUSE_MOTION; \
+   motion.motion.which=(id);motion.motion.x=(px);motion.motion.y=(py);motion.motion.xrel=(rx);motion.motion.yrel=(ry); \
+   e=motion; FEED(e,1); } while(0)
+#define KEY() do { memset(&e,0,sizeof(e)); e.type=SDL_EVENT_KEY_DOWN; FEED(e,1); } while(0)
+#define WINDOW(t) do { memset(&e,0,sizeof(e)); e.type=(t); FEED(e,1); } while(0)
+#define TAKE() host_menu_pointer_read(&pointer,&out)
+  MOTION(100,100,5,5,1);                                  /* a real mouse */
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_MOUSE);
+  KEY();TAKE();
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+  /* focus change, then the system's report: zero delta, then a warp, with Cocoa's global ID or not */
+  WINDOW(SDL_EVENT_WINDOW_FOCUS_GAINED);WINDOW(SDL_EVENT_WINDOW_MOUSE_ENTER);
+  MOTION(100,100,0,0,1);TAKE();
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD && !out.moved);
+  WINDOW(SDL_EVENT_WINDOW_FOCUS_GAINED);
+  MOTION(500,400,400,300,1);TAKE();                       /* a warp or recenter */
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD && !out.moved && out.x==500);
+  MOTION(500,400,0,0,1);TAKE();                           /* no change of position */
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD && !out.moved);
+  MOTION(510,400,10,0,0);TAKE();                          /* Cocoa's synthetic report carries the global ID */
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD && !out.moved);
+  /* touch-synthesized motion neither counts nor consumes the pending position report */
+  WINDOW(SDL_EVENT_WINDOW_FOCUS_GAINED);
+  MOTION(520,400,20,0,SDL_TOUCH_MOUSEID);TAKE();
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD && !out.moved);
+  MOTION(900,400,380,0,1);TAKE();                         /* still the pending report */
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD && !out.moved);
+  /* pointer-enter before focus gained or after: either order leaves one report pending */
+  WINDOW(SDL_EVENT_WINDOW_MOUSE_ENTER);WINDOW(SDL_EVENT_WINDOW_FOCUS_GAINED);
+  MOTION(900,400,0,0,1);TAKE();
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD && !out.moved);
+  /* the user moves the mouse: both consumers switch on the same event */
+  MOTION(910,400,10,0,1);TAKE();
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_MOUSE && out.moved && out.radius==0);
+  /* a relative-mode look (position fixed, deltas real) is movement */
+  MOTION(910,400,6,0,1);TAKE();
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_MOUSE && out.moved);
+  /* the same events on a platform without the global-ID rule: the ID alone does not reject */
+  KEY();
+  memset(&e,0,sizeof(e));e.type=SDL_EVENT_MOUSE_MOTION;e.motion.which=0;e.motion.x=1;e.motion.y=1;e.motion.xrel=9;
+  assert(halo_pointer_gate_classify(&gate,&e,0)==1);
+ }
  return 0;
 }

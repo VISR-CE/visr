@@ -3033,7 +3033,8 @@ static void biped_update_physics(
 			{
 				real radius = definition->biped.collision_height_standing * 0.5f;
 				real_point3d center = physics->new_position;
-				struct collision_feature_list features;
+				/* port: automatic zeroing of this large local was a top cost in the 128-player game-thread profile; collision_features_new clears the counts and every entry is written before its count covers it Measured: with these first nine opt-outs, memset fell from 2.2% to 0.74% of the game thread and the zeroing cost per tick from 9.1% to 2.8% (M6, 128 players). */
+				SIM_UNINITIALIZED struct collision_feature_list features;
 
 				center.z += radius;
 				if (collision_get_features_in_sphere(

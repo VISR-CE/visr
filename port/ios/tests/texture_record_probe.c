@@ -11,6 +11,7 @@ second set of debug.texture_compare_directory beside the cache. */
 #include <unistd.h>
 #include "texture_override_cache.h"
 #include "texture_record.h"
+#include "test_tmpdir.h"
 
 struct gpu_capabilities device_capabilities = { .max_texture_size = 8192 };
 static unsigned created, live, uploads, last_format, last_levels, last_width;
@@ -97,7 +98,7 @@ static gpu_texture find(uint64_t hash, uint32_t w, uint32_t h, unsigned long *le
 
 int main(void)
 {
-	char root[] = "/tmp/texture-record-XXXXXX", cache[512], second[512], path[512];
+	char root[PATH_MAX], cache[512], second[512], path[512];
 	unsigned long levels;
 	uint64_t bc7, astc, raw;
 	FILE *manifest;
@@ -108,7 +109,7 @@ int main(void)
 		unsigned char words[16] = { 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0 };
 		assert(texture_record_checksum(words, 16) == (3ull ^ (5ull << 32)));
 	}
-	assert(mkdtemp(root));
+	assert(test_mkdtemp(root, sizeof(root), "texture-record"));
 	snprintf(cache, sizeof(cache), "%s/texture-cache", root); assert(!mkdir(cache, 0700));
 	snprintf(second, sizeof(second), "%s/second", root); assert(!mkdir(second, 0700));
 	bc7 = record(cache, 0x11, 64, 32, 8, TEXTURE_RECORD_BC7, 0xabc, 0);         /* 8x: 512x256, 10 levels */

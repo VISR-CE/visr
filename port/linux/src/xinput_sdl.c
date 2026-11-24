@@ -1478,6 +1478,7 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 		break;
 	case SDL_EVENT_MOUSE_MOTION:
 		source = HALO_GLYPH_INPUT_MOUSE;
+		/* the host classified this event once (halo_pointer_gate_classify): a position report arrives with zero deltas */
 		active = event->motion.which != SDL_TOUCH_MOUSEID && event->motion.which != SDL_PEN_MOUSEID &&
 			halo_glyph_mouse_motion_active(event->motion.xrel, event->motion.yrel);
 		break;

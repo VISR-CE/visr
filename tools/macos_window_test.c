@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "../port/ios/host/host_sdl.c"
+#include "../port/ios/tests/test_tmpdir.h"
 
 static SDL_WindowFlags captured;
 static char captured_title[32];
@@ -36,7 +37,7 @@ static void create(int fullscreen) {
 }
 int main(void) {
     char cwd[4096];assert(getcwd(cwd,sizeof(cwd)));
-    char directory[]="/tmp/visr-native-window-XXXXXX";assert(mkdtemp(directory));assert(chdir(directory)==0);
+    char directory[PATH_MAX];assert(test_mkdtemp(directory,sizeof(directory),"visr-native-window"));assert(chdir(directory)==0);
     unsetenv("HALO_FULLSCREEN");unsetenv("HALO_DISPLAY_MODE");
     config("[display]\n");create(0); /* Shared ILP32 guest always requests fullscreen; native default must override it. */
     config("[display]\nfullscreen = true\n");create(1);

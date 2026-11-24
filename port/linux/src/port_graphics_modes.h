@@ -43,7 +43,7 @@ enum graphics_mode
 	X("display.upscaler", "bilinear", NULL) \
 	X("display.dynamic_resolution", "false", NULL) \
 	X("display.frame_rate", "30", NULL) \
-	X("display.interpolation", "false", NULL) \
+	X("display.interpolation", "off", NULL) \
 	X("display.direct_camera", "false", NULL) \
 	X("display.native_hud", "false", NULL) \
 	X("display.anti_aliasing", "off", NULL) \

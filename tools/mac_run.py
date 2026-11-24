@@ -147,8 +147,8 @@ DEFAULTS = {
     "display.render_height": "0",
     "display.vsync": "true",
     "display.renderer": '"gl"',  # (not the default, Metal: the OpenGL records check-metal compares with)
-    "display.interpolation": "true",
     "display.anisotropic_filtering": "1",
+    "display.interpolation": '"auto"',  # (the testing override of smooth motion, which is automatic: a --set "off" must not carry on)
     "display.shadow_map_size": "128",
     "display.dynamic_light_limit": "0",
     "display.specular_light_limit": "0",
@@ -309,13 +309,18 @@ DEFAULTS = {
 }
 
 
-def reset_settings(documents, screenshot_every, dump_shaders, replay):
+# debug.screenshot_clock's default: shots counted and named by presented frame (port/linux/src/screenshot_schedule.h)
+SCREENSHOT_CLOCK_DEFAULT = "frames"
+
+
+def reset_settings(documents, screenshot_every, dump_shaders, replay, screenshot_clock=SCREENSHOT_CLOCK_DEFAULT):
     """the settings of a run before its --set ones: requested outputs go into
     runner/, the rest are off, and everything else is at its default"""
     runner = Path(documents) / "runner"
     return {
         **DEFAULTS,
         "debug.screenshot_every": str(screenshot_every),
+        "debug.screenshot_clock": f'"{screenshot_clock}"',
         "debug.screenshot_directory": f'"{runner}/shots"' if screenshot_every else '""',
         "debug.gpu_dump_shaders": f'"{runner}/shaders"' if dump_shaders else '""',
         "debug.gpu_shader_replay": f'"{runner}/replay"' if replay else '""',
@@ -1047,7 +1052,8 @@ def prepare(args, documents, rewrite=False):
     if args.replay:
         shutil.copytree(args.replay, runner / "replay",
                         ignore=lambda folder, names: [n for n in names if not n.endswith((".vsh", ".key"))])
-    settings = reset_settings(documents, args.screenshot_every, args.dump_shaders, bool(args.replay))
+    settings = reset_settings(documents, args.screenshot_every, args.dump_shaders, bool(args.replay),
+                              getattr(args, "screenshot_clock", SCREENSHOT_CLOCK_DEFAULT))
     if getattr(args, "record_shader_lists", False):
         settings["debug.shader_list_record"] = f'"{runner}/shader-lists"'
     settings["debug.exit_after"] = f"{float(args.exit_after)}"
@@ -1718,7 +1724,11 @@ def main():
                                  "it, 90 minutes by default) and its journal, runs and report.json land in OUT/benchmark")
     run_parser.add_argument("--init", action="append", default=[], metavar="COMMAND",
                             help="a console command for init.txt, e.g. 'map_name a10' (repeatable)")
-    run_parser.add_argument("--screenshot-every", type=int, default=0, metavar="FRAMES")
+    run_parser.add_argument("--screenshot-every", type=int, default=0, metavar="N")
+    run_parser.add_argument("--screenshot-clock", choices=(SCREENSHOT_CLOCK_DEFAULT, "ticks"), default=SCREENSHOT_CLOCK_DEFAULT,
+                            help="what --screenshot-every counts (debug.screenshot_clock): presented frames from launch "
+                                 "(frameNNNNN, the default) or game ticks (tickNNNNN). Use ticks to compare launches of one "
+                                 "replay: the frames before the game starts vary between launches, the ticks do not")
     run_parser.add_argument("--dump-shaders", action="store_true")
     run_parser.add_argument("--record-shader-lists", action="store_true",
                             help="append the shaders and pipelines made while drawing to runner/shader-lists/MAP.txt "

@@ -274,4 +274,9 @@ for malformed in ({"hardware": {}}, {"hardware": [None]},
                   {"hardware": [{"tier": 1, "platform": "ios", "models": [42]}]}):
     assert profile_check.check_full_rate_order(fallback, malformed) == []
 
+# the encode thread reaches profiles only as display.encode_thread, whose "thread" leaves frames in flight to the
+# adaptive rule; debug.encode_thread is a measurement override, and with it a fixed one frame in flight once held an
+# iPad Air 4 at 30 frames a second where two showed 60 (frame_pacer_adapt.h)
+assert "debug.encode_thread" not in KEYS, "debug.encode_thread must not be a profile key: use display.encode_thread"
+
 print("PASS: profile_check.py validates settings, evidence, scene coverage and catalog player-threshold order")

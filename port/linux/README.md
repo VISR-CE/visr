@@ -336,7 +336,7 @@ Apple Vision Pro's file.
 | `display.late_look` | boolean | `false` | apple, desktop | `HALO_LATE_LOOK` | Read the controller's look stick again just before a frame's camera is built and turn the first-person view by what it has done since the game read it, a few milliseconds on the frames that run a game tick. |
 | `display.late_start` | string | `""` | apple | `HALO_LATE_START` | Start each frame's work as late as it can be and still be done for the next refresh of the display, so the controller is read later and what you do reaches the screen sooner (the Metal renderer's frame pacer). |
 | `display.frame_source` | string | `""` | apple | `HALO_FRAME_SOURCE` | Where the Metal renderer's frames get their place on the display: "clock" asks for one when a frame is ready and applies display.frames_in_flight and display.frame_spacing itself; "system" takes one from the system for each refresh (iOS 17, tvOS 17, macOS 14 and later, and only with display.frame_rate = "display"; elsewhere "clock" is used). |
-| `display.frames_in_flight` | string | `""` | apple | `HALO_FRAMES_IN_FLIGHT` | How many frames the Metal renderer may have on their way to the display at once, "1" to "3": a frame isn't started on its way until fewer than that many are waiting to be shown. "1" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; "system" leaves the queue to the system (up to 3). |
+| `display.frames_in_flight` | string | `""` | apple | `HALO_FRAMES_IN_FLIGHT` | How many frames the Metal renderer may have on their way to the display at once, "1" to "3": a frame isn't started on its way until fewer than that many are waiting to be shown. "1" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; "system" leaves the queue to the system (up to 3). "auto": "1" while a frame's GPU work and present fit the period or the device is under its rate anyway, else "2". |
 | `display.frames_in_flight_at_30` | string | `""` | apple | `HALO_FRAMES_IN_FLIGHT_AT_30` | How many frames the Metal renderer may have on their way to the display at once, "1" or "2", while the frame rate in force is 30 or lower (a 30 cap, a big multiplayer game held to 30, a scene class's 30). |
 | `display.frame_spacing` | boolean | `true` | apple | `HALO_FRAME_SPACING` | Keep each frame on screen for its share of the display's time before the next may replace it (the Metal renderer), so frames show evenly spaced: one refresh, or with a display.frame_rate cap under the display's rate, the cap's. |
 | `display.frame_rate` | string | `"display"` | apple | `HALO_FRAME_RATE` | The most frames a second: "display" (default) draws one frame for each refresh of the display; a number ("60", "240") holds that rate; "unlimited" draws as fast as it can. |
@@ -344,7 +344,6 @@ Apple Vision Pro's file.
 | `display.movies` | string | `"auto"` | apple | `HALO_MOVIES` | The game's intro and credits movies (bink/intro.bik and bink/credits.bik beside maps/, imported from the disc image with the maps): "auto" (default) plays them, except in a run that must draw the same frames every time (fixed timestep, an input replay or benchmark, debug.exit_after, screenshots); "on" plays them there too; "off" skips them. |
 | `display.vsync` | boolean | `true` | apple, desktop | `HALO_NO_VSYNC` | Wait for the display between frames; false draws as fast as possible. |
 | `display.max_fps` | integer | `0` | desktop | `HALO_MAX_FPS` | With vsync off, the most frames a second: 0 for twice the display's refresh rate, -1 for no limit (which can hang some Intel graphics). |
-| `display.interpolation` | boolean | `true` | apple, desktop | `HALO_INTERPOLATION` | Draw a frame for every display refresh, blending between the game's 30 ticks a second; false keeps the original 30 frames a second. |
 | `display.direct_camera` | boolean | `true` | apple, desktop | `HALO_DIRECT_CAMERA` | In first person, point the view where the player aims now instead of where the last tick left it: the view turns the frame the stick or the mouse moves, not up to two ticks (66 ms) later. |
 | `display.high_res_hud` | boolean | `true` | apple, desktop | `HALO_HIGH_RES_HUD` | Draw the HUD (meters, counters, panels, motion sensor, reticles, waypoints, scopes) from the high-res assets (8x the maps' bitmaps); false draws the maps' own bitmaps. |
 | `display.high_res_text` | boolean | `true` | apple, desktop | `HALO_HIGH_RES_TEXT` | Draw the menus' and HUD's text with the fonts in port/assets/fonts (Overpass) at the resolution the game draws at, and the menus' titles from port/assets/titles; false draws the maps' bitmap fonts and titles. |
@@ -591,8 +590,8 @@ Apple Vision Pro's file.
 | `debug.frame_cpu_probe` | boolean | `false` | apple | `HALO_FRAME_CPU_PROBE` | Benchmark reports also carry, for every frame, the drawing thread's own CPU time, the whole app's, and how long a fixed loop took (which falls as the core's clock rises), to tell a slow clock or another thread's work from waiting. |
 | `debug.visibility_any_sample` | boolean | `false` | apple | `HALO_VISIBILITY_ANY_SAMPLE` | The Metal renderer's visibility tests (lens flares) only say whether anything was visible, as before they counted how much: a light that is mostly hidden then flares at full strength. |
 | `debug.gpu_call_hash` | boolean | `false` | apple | `HALO_GPU_CALL_HASH` | Logs, for every frame, a hash of every command the Metal or OpenGL ES renderer received: each call, its arguments and the bytes they point to, and one hash for each kind of call. |
-| `debug.encode_thread` | string | `"off"` | apple | `HALO_ENCODE_THREAD` | How the Metal renderer's commands reach it. "off" (default): the game thread calls the renderer. "inline": the game thread writes each command into a queue and reads it back at once, to measure what the queue costs and check that it changes nothing. "thread": an encode thread reads the queue and calls the renderer while the game thread goes on; each frame's present waits for it, so input is read as late as with "off". |
-| `debug.encode_thread_timing` | boolean | `false` | apple | `HALO_ENCODE_THREAD_TIMING` | With debug.encode_thread on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames. |
+| `debug.encode_thread` | string | `""` | apple | `HALO_ENCODE_THREAD` | Overrides display.encode_thread, for measurement. |
+| `debug.encode_thread_timing` | boolean | `false` | apple | `HALO_ENCODE_THREAD_TIMING` | With the encode queue on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames. |
 | `debug.latency_log` | boolean | `false` | apple | `HALO_LATENCY_LOG` | Logs a latency line every 300 frames: how old the controller state was when the game read it, and the time from that read to the frame's submission and to when the display showed it (median and 95th percentile), the frame's display wait, and frames never shown. |
 | `debug.thread_cpu_log` | boolean | `false` | apple | `HALO_THREAD_CPU_LOG` | Logs, every 300 frames, the CPU time a frame of the whole app, the main thread, the drawing thread and each other busy thread, and the app's context switches, to see how busy each core is. |
 | `debug.main_sync_log` | boolean | `false` | apple | `HALO_MAIN_SYNC_LOG` | Logs, every 300 frames, how long the game thread waited on the main thread a frame and how many times it asked, to size those waits. |
@@ -655,6 +654,7 @@ Apple Vision Pro's file.
 | `debug.shadow_scenery` | integer | `0` | apple, desktop | `HALO_SHADOW_SCENERY` | For experiments: classes of object that cast a shadow whatever display.shadow_props says (bit 1 all scenery, bit 2 all devices, bit 4 equipment and garbage). |
 | `debug.shadow_blur` | string | `"footprint"` | apple, desktop | `HALO_SHADOW_BLUR` | How object shadows larger than 128 texels (display.shadow_map_size) are blurred: "footprint" over the area the game's blur covers at 128, "xbox" the game's taps at their fixed offsets (at 512 they fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur. |
 | `debug.screenshot_frames` | string | `""` | apple, desktop | `HALO_SCREENSHOT_FRAMES` | With screenshot_every: save only frames in these ranges, "900-1200;1800-2100" ("," also separates them); empty saves every one. |
+| `debug.screenshot_clock` | string | `"frames"` | apple, desktop | `HALO_SCREENSHOT_CLOCK` | What debug.screenshot_every counts. "frames" (default): presented frames from launch, named frameNNNNN. "ticks": game ticks, named tickNNNNN, only in a game, so two launches of one replay with debug.fixed_timestep save the same moments under the same names however long their menus and loading took; debug.screenshot_frames then names ticks. |
 | `debug.screenshot_scene_only` | boolean | `false` | apple, desktop | `HALO_SCREENSHOT_SCENE_ONLY` | With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame. |
 | `debug.soft_particle_distance` | number | `0.06` | apple, desktop | `HALO_SOFT_PARTICLE_DISTANCE` | With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet). |
 | `debug.soft_particle_scale` | integer | `2` | apple, desktop | `HALO_SOFT_PARTICLE_SCALE` | With display.soft_particles: the scene distances the particles fade against, at full resolution (1) or half (2, the nearest level surface of each 2x2 block). |
@@ -730,8 +730,9 @@ view where the player aims at that moment (`display.direct_camera`): the
 view turns in the frame the stick or the mouse moves. In a vehicle's seat
 and in cinematics the view blends as everything else does.
 
-`interpolation = false` in `config.toml` restores the original behaviour: one frame per
-tick, throttled to 30 per second.
+Smooth motion is automatic: it is on while the frame rate in force is above 30, and off at a 30 frame
+cap or lower and in Hardcore mode, where each tick draws one frame, throttled to 30 per second.
+`display.interpolation` is `"auto"` by default; `"on"` or `"off"`, set by hand or with `--set`, forces it for testing, and the game never writes it.
 If the latest release is newer, the game asks: "Do you want to update?"
 
 - Select "Yes" to update. The game downloads the release for this platform,
@@ -781,7 +782,7 @@ where the player aims at that time (`display.direct_camera`). Thus the view
 turns in the frame that the mouse moves. In a vehicle and in cinematics, the
 view mixes as the other things do. On Android, the view mixes as before.
 
-To get 30 frames each second, set `display.interpolation = false`.
+To get 30 frames each second, cap the frame rate at 30 (`display.frame_rate`).
 
 To see the frame rate:
 

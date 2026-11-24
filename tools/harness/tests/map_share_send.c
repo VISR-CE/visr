@@ -170,6 +170,7 @@ static boolean file_stamp(char const *path, unsigned long *size, unsigned long *
 }
 
 #include "under_test.inc"
+#include "../../../port/ios/tests/test_tmpdir.h"
 
 /* ---------- the files */
 
@@ -422,8 +423,7 @@ static void unreadable_file(char const *name, char const *header_name, int scena
 
 static void folder_make(void)
 {
-	strcpy(fake_folder, "/tmp/map-share-send-XXXXXX");
-	CHECK(mkdtemp(fake_folder) != NULL, "no temporary folder");
+	CHECK(test_mkdtemp(fake_folder, sizeof(fake_folder), "map-share-send") != NULL, "no temporary folder");
 }
 
 /* whether the catalog refuses the file before hashing it (by its kind, name

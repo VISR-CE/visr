@@ -102,7 +102,7 @@ static void low_power_scene(uint32_t scene_class);
 /* when the game thread last called its present (uptime_seconds, CACurrentMediaTime's clock): set before the present
 is recorded, so the encode thread reads this frame's when it makes that present */
 static double present_called;
-/* 1 with debug.encode_thread = "thread" */
+/* 1 with the encode thread in force (gpu_queue_mode_choose: debug.encode_thread, else display.encode_thread) */
 static int encode_thread_on;
 
 double host_gpu_present_called(void)
@@ -748,26 +748,29 @@ static int encode_queue_mode(int *timing)
 	(void)timing;
 	return GPU_QUEUE_OFF;
 #else
-	char value[32];
+	char value[32], debug[32], display[32];
+	const char *from = "debug.encode_thread";
 	int mode;
 
-	host_config_string("debug.encode_thread", "off", value, sizeof(value));
-	mode = gpu_queue_mode_parse(value);
+	host_config_string("debug.encode_thread", "", debug, sizeof(debug));
+	host_config_string("display.encode_thread", "off", display, sizeof(display));
+	mode = gpu_queue_mode_choose(debug, display, &from);
 	if (mode < 0)
 	{
-		platform_log("debug.encode_thread: \"%s\" is not one of off, inline and thread; it is off", value);
+		platform_log("%s: \"%s\" is not one it takes; the encode queue is off", from, debug[0] ? debug : display);
 		mode = GPU_QUEUE_OFF;
 	}
 	/* the encode thread needs a game thread: on the main thread the present barrier would hold the main thread while
 	the backend's main-thread work (drawable size, host_main_sync) waits for it */
 	if (mode == GPU_QUEUE_THREAD && pthread_main_np())
 	{
-		platform_log("debug.encode_thread: \"thread\" needs the game thread (debug.game_thread); it is inline");
-		mode = GPU_QUEUE_INLINE;
+		mode = gpu_queue_mode_on_main_thread(mode, debug);
+		platform_log("%s: \"thread\" needs the game thread (debug.game_thread); it is %s", from,
+			mode == GPU_QUEUE_OFF ? "off" : "inline");
 	}
 	if (mode == GPU_QUEUE_OFF)
 		return mode;
-	platform_log("debug.encode_thread: %s", mode == GPU_QUEUE_THREAD ? "thread" : "inline");
+	platform_log("%s: %s", from, mode == GPU_QUEUE_THREAD ? "thread" : "inline");
 	host_config_string("debug.encode_thread_timing", "false", value, sizeof(value));
 	*timing = !strcmp(value, "true");
 	return mode;

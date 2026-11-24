@@ -38,7 +38,6 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.frame_rate", PORT_PROFILE_HOT},
 		{"display.frames_in_flight_at_30", PORT_PROFILE_HOT}, /* the game hands the value in force to the pacer when the context or scene changes */
 		{"display.async_shaders", PORT_PROFILE_SESSION},
-		{"display.interpolation", PORT_PROFILE_LEVEL}, /* interpolation touches tick presentation */
 		{"input.aim_loss_grace", PORT_PROFILE_LOCAL_INPUT},
 		{"display.texture_idle_seconds", PORT_PROFILE_HOT},
 		{"display.clutter_distance", PORT_PROFILE_HOT},
