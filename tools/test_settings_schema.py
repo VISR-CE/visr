@@ -178,3 +178,14 @@ def test_host_read_keys_are_in_the_schema():
     host = Path(__file__).resolve().parent.parent / 'port/ios/host/host_game_thread.c'
     assert 'debug.game_thread' in host.read_text()
     assert 'debug.game_thread' in names
+
+
+def test_read_at_start_settings_are_not_live():
+    """every setting whose comment says it is read at start is in config_launch_only (x-live false), so visr_set
+    refuses it instead of reporting a change the game never reads"""
+    settings = schema.config_settings()
+    read_at_start = {name for name, item in settings.items() if 'Read at start' in item['description']}
+    launch_only = {name for name, item in settings.items() if item.get('x-live') is False}
+    assert read_at_start
+    assert read_at_start <= launch_only, sorted(read_at_start - launch_only)
+    assert {'debug.texture_override_directory', 'debug.telnet_console'} <= launch_only

@@ -2,17 +2,21 @@
 CONSOLE_CONFIG.C
 
 The script console's `visr_set SECTION.KEY VALUE` line, which sets one
-setting for this run only (config_set_unsaved: nothing is written), so a
+setting for this run only through config_set_live (nothing is written), so a
 look comparison can switch a setting live and shoot every value at the same
 frozen tick instead of relaunching once per value. Development builds only
 (host_development_hooks): a distribution build answers that the command is
 not available and changes nothing.
 
 VALUE is the rest of the line, written as in a settings file: a quoted
-string loses its quotes (display.graphics "enhanced"), and an `=` between
-the key and the value is accepted (debug.edge_fades=31). Settings read once
-at launch keep their launch value; the command changes what config_value()
-and its typed readers return from then on.
+string loses its quotes (display.anti_aliasing "smaa"), and an `=` between
+the key and the value is accepted (display.shadow_map_size=256).
+
+The reply is the value in force, read back after the set
+("visr_set: display.shadow_map_size = 256"), or "visr_set: refused: " and
+why: no such setting, a launch-only one, a value of the wrong type or not
+one of the setting's choices, or a value that does not take (the graphics
+mode replaces the setting, for one).
 */
 
 #include <ctype.h>
@@ -22,7 +26,7 @@ and its typed readers return from then on.
 
 #include "console_config.h"
 
-int config_set_unsaved(const char *name, const char *value);
+int config_set_live(const char *name, const char *value, char *note, size_t note_size);
 
 #ifdef HALO_ILP32
 /* port/runtime/guest/runtime/guest_host.h */
@@ -86,9 +90,13 @@ int console_config_command(const char *line, char *reply, unsigned long reply_si
 	}
 	memcpy(value, cursor, length);
 	value[length] = 0;
-	if (!config_set_unsaved(name, value))
-		snprintf(reply, reply_size, CONSOLE_CONFIG_COMMAND ": no setting %s", name);
-	else
-		snprintf(reply, reply_size, CONSOLE_CONFIG_COMMAND ": %s = %s", name, value);
+	{
+		char note[400];
+
+		if (config_set_live(name, value, note, sizeof(note)))
+			snprintf(reply, reply_size, CONSOLE_CONFIG_COMMAND ": %s", note);
+		else
+			snprintf(reply, reply_size, CONSOLE_CONFIG_COMMAND ": refused: %s", note);
+	}
 	return 1;
 }

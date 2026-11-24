@@ -121,9 +121,9 @@ static int config_boolean(const char *name){ (void)name; return @ENABLED@; }
 static long config_integer(const char *name){ return !strcmp(name, "display.shadow_map_size") ? 512 : 0; }
 static const char *config_string(const char *name){ (void)name; return "max"; }
 static float halo_knob_render_quality(void){ return 0.6f; }
-static int halo_knob_apply(const char *name, const char *value){ snprintf(applied, sizeof(applied), "%s=%s", name, value); applications++; return 1; }
+static int config_set_live(const char *name, const char *value, char *note, size_t size){ snprintf(applied, sizeof(applied), "%s=%s", name, value); snprintf(note, size, "%s = %s", name, value); applications++; return 1; }
 static void halo_knob_message(const char *text){ snprintf(message, sizeof(message), "%s", text); }
-static void platform_log(const char *format, const char *name, const char *value){ (void)format; snprintf(logged, sizeof(logged), "knob: %s=%s", name, value); }
+static void platform_log(const char *format, const char *note){ (void)format; snprintf(logged, sizeof(logged), "knob: %s", note); }
 '''
 
 
@@ -171,7 +171,7 @@ int main(void){
  pad.wButtons=XINPUT_GAMEPAD_BACK|XINPUT_GAMEPAD_DPAD_LEFT;
  knob_cycle_chord(&pad);
  knob_cycle_chord(&pad);
- assert(applications==1 && !strcmp(applied, "display.shadow_map_size=256") && !strcmp(logged, "knob: display.shadow_map_size=256"));
+ assert(applications==1 && !strcmp(applied, "display.shadow_map_size=256") && !strcmp(logged, "knob: display.shadow_map_size = 256"));
  assert(!strcmp(message, "shadow map 256") && pad.wButtons==XINPUT_GAMEPAD_BACK);
  return 0;
 }

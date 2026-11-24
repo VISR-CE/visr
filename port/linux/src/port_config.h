@@ -59,6 +59,15 @@ int config_boolean_in_graphics_mode(const char *name, int mode);
 int config_graphics_try(const char *name);
 /* a setting set from its value as text for this run only (not written), applied live like config_write */
 int config_set_unsaved(const char *name, const char *value);
+/* the one live set by name for this run only (not written): visr_set and debug.knob_cycle. Refuses an unknown
+setting, a launch-only one, a value that is not the setting's type or not one of its choices; display.graphics goes
+through config_graphics_try; the value wins over the profile's scene, external and variable values. Then reads back
+the value in force and returns 1 only when it is the one asked for; note says which, or why not. */
+int config_set_live(const char *name, const char *value, char *note, size_t note_size);
+/* the renderer's own live state for a setting (d3d8_device.c's debug.knob_cycle overrides), told each live set */
+void config_set_live_hook(int (*hook)(const char *name, const char *value));
+/* 0 for a setting the running game does not read again (config_launch_only) or no setting at all */
+int config_setting_is_live(const char *name);
 /* a boolean set for this run only (not written), applied live like config_write_boolean */
 int config_set_boolean_unsaved(const char *name, int value);
 /* 1 while the frames are head-tracked stereo (Apple Vision Pro), where Hardcore acts as Classic */

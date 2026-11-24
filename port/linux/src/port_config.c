@@ -2165,6 +2165,48 @@ static const struct config_setting config_settings[] =
 
 #define NUMBER_OF_CONFIG_SETTINGS (sizeof(config_settings) / sizeof(config_settings[0]))
 
+/* the settings a running game does not read again: config_set_live refuses them (relaunch to change one), and
+tools/settings_schema.py exports them as "x-live": false. Every setting whose comment says "Read at start." is
+here (tools/test_settings_schema.py checks it), and these others: the script console's own two, and the texture
+override folder, applied as each texture uploads. Any other setting is taken to be read while the game runs. */
+static const char *const config_launch_only[] =
+{
+	"display.lod_scale",
+	"display.first_person_body_offset",
+	"display.weapon_offset_down",
+	"display.weapon_offset_back",
+	"display.eye_height_offset",
+	"display.seat_look_fade",
+	"display.seat_look_fade_start",
+	"display.seat_look_fade_black",
+	"display.pod_look_fade_start",
+	"display.pod_look_fade_end",
+	"display.pod_look_fade_dim",
+	"display.seat_look_fade_blur",
+	"display.film_depth_share",
+	"display.film_convergence",
+	"display.screen_depth_share",
+	"display.screen_convergence",
+	"display.screen_framing",
+	"display.stereo_vehicle_screen",
+	"display.hud_corner_across",
+	"display.hud_corner_up",
+	"display.hud_tracker_down",
+	"display.hud_messages_up",
+	"display.hud_scale",
+	"display.hud_distance",
+	"display.hud_depth",
+	"display.hud_depth_share",
+	"display.hud_depth_floor",
+	"display.hud_depth_pull_in",
+	"display.hud_depth_relax",
+	"display.hud_depth_relax_delay",
+	"display.hud_resolution",
+	"debug.telnet_console",
+	"debug.telnet_console_port",
+	"debug.texture_override_directory",
+};
+
 /* the settings this build reads: on Apple builds, Apple Vision Pro's too
 (config_written says which a device writes) */
 #ifdef HALO_ILP32
@@ -2213,6 +2255,27 @@ static const char *const config_profile_keys[] =
 #define PROFILE_INTEGER(name, minimum, maximum) name,
 #define PROFILE_REAL(name, minimum, maximum) name,
 #define PROFILE_STRING(name, choices) name,
+#define PROFILE_SCENE(name)
+#define PROFILE_VARIABLE(name)
+#define PROFILE_EXTERNAL(name)
+#include "port_profile_keys.h"
+#undef PROFILE_BOOLEAN
+#undef PROFILE_INTEGER
+#undef PROFILE_REAL
+#undef PROFILE_STRING
+#undef PROFILE_SCENE
+#undef PROFILE_VARIABLE
+#undef PROFILE_EXTERNAL
+};
+
+/* the names a profile's string setting accepts ("a|b", port_profile_keys.h), for config_set_live's check of a string
+setting whose own table entry has no choices */
+static const struct { const char *name; const char *choices; } config_profile_choices[] =
+{
+#define PROFILE_BOOLEAN(name)
+#define PROFILE_INTEGER(name, minimum, maximum)
+#define PROFILE_REAL(name, minimum, maximum)
+#define PROFILE_STRING(name, choices) { name, choices },
 #define PROFILE_SCENE(name)
 #define PROFILE_VARIABLE(name)
 #define PROFILE_EXTERNAL(name)
@@ -4241,6 +4304,205 @@ int config_set_unsaved(const char *name, const char *value)
 	config_set_from_text(&config_values[index], config_settings[index].type, value);
 	config_change_count++;
 	pthread_mutex_unlock(&config_lock);
+	return 1;
+}
+
+/* ---------- the one live set by name (visr_set, debug.knob_cycle) */
+
+static const struct config_value *config_scene_value_cached(size_t index, int scene, int external);
+
+static int (*config_live_hook)(const char *name, const char *value);
+
+void config_set_live_hook(int (*hook)(const char *name, const char *value))
+{
+	config_live_hook = hook;
+}
+
+/* whether text is one of choices ("a|b|#": an empty name accepts empty text, # a whole number 30 to 1000) */
+static int config_choice_accepted(const char *choices, const char *text)
+{
+	const char *start = choices;
+
+	for (;;)
+	{
+		const char *end = strchr(start, '|');
+		size_t length = end ? (size_t)(end - start) : strlen(start);
+
+		if (length == 1 && *start == '#')
+		{
+			char *rest;
+			long number = strtol(text, &rest, 10);
+
+			if (*text && !*rest && number >= 30 && number <= 1000)
+				return 1;
+		}
+		else if (strlen(text) == length && !strncmp(start, text, length))
+			return 1;
+		if (!end)
+			return 0;
+		start = end + 1;
+	}
+}
+
+static const char *config_string_choices(size_t index)
+{
+	size_t entry;
+
+	if (config_settings[index].choices)
+		return config_settings[index].choices;
+	for (entry = 0; entry < sizeof(config_profile_choices) / sizeof(config_profile_choices[0]); entry++)
+		if (!strcmp(config_profile_choices[entry].name, config_settings[index].name))
+			return config_profile_choices[entry].choices;
+	return NULL;
+}
+
+int config_setting_is_live(const char *name)
+{
+	size_t entry;
+
+	for (entry = 0; entry < sizeof(config_launch_only) / sizeof(config_launch_only[0]); entry++)
+		if (!strcmp(config_launch_only[entry], name))
+			return 0;
+	return config_setting_index(name) >= 0;
+}
+
+/* text as the setting's type, or why not (an empty why: it parsed) */
+static int config_parse_live(size_t index, const char *text, struct config_value *value, char *why, size_t why_size)
+{
+	char *rest = NULL;
+	const char *choices;
+
+	why[0] = 0;
+	memset(value, 0, sizeof(*value));
+	switch (config_settings[index].type)
+	{
+	case _config_boolean:
+		if (config_text_is_false(text))
+			value->boolean = 0;
+		else if (!strcmp(text, "true") || !strcmp(text, "1") || !strcmp(text, "yes") || !strcmp(text, "on"))
+			value->boolean = 1;
+		else
+			snprintf(why, why_size, "%s is not true or false", text);
+		break;
+	case _config_integer:
+		value->integer = strtol(text, &rest, 10);
+		if (!*text || *rest)
+			snprintf(why, why_size, "%s is not a whole number", text);
+		break;
+	case _config_real:
+		value->real = strtod(text, &rest);
+		if (!*text || *rest || !isfinite(value->real))
+			snprintf(why, why_size, "%s is not a number", text);
+		break;
+	case _config_string:
+		choices = config_string_choices(index);
+		if (choices && !config_choice_accepted(choices, text))
+			snprintf(why, why_size, "%s is not one of %s", text, choices);
+		value->string = (char *)text;
+		break;
+	}
+	return !why[0];
+}
+
+static int config_values_equal(enum config_type type, const struct config_value *a, const struct config_value *b)
+{
+	switch (type)
+	{
+	case _config_boolean:
+		return !a->boolean == !b->boolean;
+	case _config_integer:
+		return a->integer == b->integer;
+	case _config_real:
+		return a->real == b->real;
+	case _config_string:
+		return !strcmp(a->string ? a->string : "", b->string ? b->string : "");
+	}
+	return 0;
+}
+
+static void config_value_text(enum config_type type, const struct config_value *value, char *text, size_t size)
+{
+	switch (type)
+	{
+	case _config_boolean:
+		snprintf(text, size, "%s", value->boolean ? "true" : "false");
+		break;
+	case _config_integer:
+		snprintf(text, size, "%ld", value->integer);
+		break;
+	case _config_real:
+		snprintf(text, size, "%.15g", value->real);
+		break;
+	case _config_string:
+		snprintf(text, size, "%s", value->string ? value->string : "");
+		break;
+	}
+}
+
+int config_set_live(const char *name, const char *value, char *note, size_t note_size)
+{
+	long index = config_setting_index(name);
+	struct config_value wanted;
+	const struct config_value *in_force;
+	const char *mode;
+	char why[200], text[300];
+	int external = 0;
+
+	if (index < 0)
+	{
+		snprintf(note, note_size, "no setting %s", name);
+		return 0;
+	}
+	if (!config_setting_is_live(name))
+	{
+		snprintf(note, note_size, "%s is read at start: relaunch to change it", name);
+		return 0;
+	}
+	if (!config_parse_live((size_t)index, value, &wanted, why, sizeof(why)))
+	{
+		snprintf(note, note_size, "%s: %s", name, why);
+		return 0;
+	}
+	(void)config_value(name, config_settings[index].type);   /* the first load */
+	if (!strcmp(name, "display.graphics"))
+	{
+		/* (the mode in force is its own layer: config_graphics_try, read back as the mode's name) */
+		if (!config_graphics_try(value) || strcmp(config_graphics_mode_name(), value))
+		{
+			snprintf(note, note_size, "display.graphics stays %s", config_graphics_mode_name());
+			return 0;
+		}
+		snprintf(note, note_size, "display.graphics = %s", config_graphics_mode_name());
+		return 1;
+	}
+	pthread_mutex_lock(&config_lock);
+	config_set_from_text(&config_values[index], config_settings[index].type, value);
+	/* (a session's choice wins over the profile's scene, external and variable values, as a player's does) */
+	if (config_states[index].source != _source_environment)
+		config_states[index].source = _source_file;
+	config_change_count++;
+	pthread_mutex_unlock(&config_lock);
+	/* (the renderer's own live state for the setting, such as debug.knob_cycle's overrides, follows the value) */
+	if (config_live_hook)
+		config_live_hook(name, value);
+	/* the value in force: the graphics mode's, the environment's, else a scene's (gameplay) */
+#ifdef HALO_ILP32
+	external = host_external_active();
+#endif
+	in_force = config_scene_value_cached((size_t)index, CONFIG_SCENE_GAMEPLAY, external);
+	config_value_text(config_settings[index].type, in_force, text, sizeof(text));
+	if (!config_values_equal(config_settings[index].type, in_force, &wanted))
+	{
+		mode = config_graphics_replaces(name);
+		if (mode)
+			snprintf(note, note_size, "%s stays %s: %s graphics replaces it", name, text, mode);
+		else if (config_states[index].source == _source_environment)
+			snprintf(note, note_size, "%s stays %s: the environment sets it", name, text);
+		else
+			snprintf(note, note_size, "%s stays %s", name, text);
+		return 0;
+	}
+	snprintf(note, note_size, "%s = %s", name, text);
 	return 1;
 }
 

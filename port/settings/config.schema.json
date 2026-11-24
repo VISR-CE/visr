@@ -359,7 +359,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "visionos"
-          ]
+          ],
+          "x-live": false
         },
         "compressed_textures": {
           "type": "boolean",
@@ -530,7 +531,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "first_person_body_seats": {
           "type": "boolean",
@@ -563,7 +565,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "weapon_offset_back": {
           "type": "number",
@@ -574,7 +577,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "eye_height_offset": {
           "type": "number",
@@ -585,7 +589,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "seat_look_fade": {
           "type": "boolean",
@@ -596,7 +601,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "seat_look_fade_start": {
           "type": "number",
@@ -607,7 +613,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "seat_look_fade_black": {
           "type": "number",
@@ -618,7 +625,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "pod_look_fade_start": {
           "type": "number",
@@ -629,7 +637,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "pod_look_fade_end": {
           "type": "number",
@@ -640,7 +649,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "pod_look_fade_dim": {
           "type": "number",
@@ -651,7 +661,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "seat_look_fade_blur": {
           "type": "boolean",
@@ -662,7 +673,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "film_depth_share": {
           "type": "number",
@@ -673,7 +685,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "film_convergence": {
           "type": "number",
@@ -684,7 +697,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "screen_depth_share": {
           "type": "number",
@@ -695,7 +709,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "screen_convergence": {
           "type": "number",
@@ -706,7 +721,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "screen_framing": {
           "type": "string",
@@ -718,6 +734,7 @@
             "visionos"
           ],
           "x-tier": "player",
+          "x-live": false,
           "enum": [
             "band",
             "wide"
@@ -732,7 +749,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "x-live": false
         },
         "hud_corner_across": {
           "type": "number",
@@ -743,7 +761,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_corner_up": {
           "type": "number",
@@ -754,7 +773,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_tracker_down": {
           "type": "number",
@@ -765,7 +785,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_messages_up": {
           "type": "number",
@@ -776,7 +797,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_scale": {
           "type": "number",
@@ -787,7 +809,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_distance": {
           "type": "number",
@@ -798,7 +821,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth": {
           "type": "boolean",
@@ -809,7 +833,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_share": {
           "type": "number",
@@ -820,7 +845,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_floor": {
           "type": "number",
@@ -831,7 +857,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_pull_in": {
           "type": "number",
@@ -842,7 +869,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_relax": {
           "type": "number",
@@ -853,7 +881,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_relax_delay": {
           "type": "number",
@@ -864,7 +893,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_resolution": {
           "type": "number",
@@ -874,7 +904,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "visionos"
-          ]
+          ],
+          "x-live": false
         },
         "texture_idle_seconds": {
           "type": "number",
@@ -2583,7 +2614,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-live": false
         },
         "telnet_console_port": {
           "type": "integer",
@@ -2594,7 +2626,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-live": false
         },
         "coop_census": {
           "type": "number",
@@ -3982,7 +4015,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-live": false
         },
         "texture_compare_directory": {
           "type": "string",

@@ -263,7 +263,7 @@ size and the anisotropy; 0 leaves the setting in force */
 /* port: the largest shadow map; larger values (settings, profiles, benchmark and knob overrides) clamp to it */
 #define SHADOW_MAP_SIZE_MAX 512
 static long benchmark_render_lines, benchmark_shadow_size, benchmark_anisotropy;
-/* debug.knob_cycle (halo_knob_apply): the same settings changed while the game runs, in place of the settings; the
+/* debug.knob_cycle (config_set_live, knob_live_apply): the same settings changed while the game runs, in place of the settings; the
 benchmark's values come first. 0 leaves the setting in force, and for the effect target -1 */
 static long knob_render_lines, knob_shadow_size, knob_anisotropy;
 /* the frame the offscreen targets of an older size are freed on (knob_targets_release); 0 for none */
@@ -2720,13 +2720,14 @@ float halo_knob_render_quality(void)
 #endif
 }
 
-/* One setting of debug.knob_cycle's chord (xinput_sdl.c), by its config name and value text.
+/* The renderer's side of a live set (config_set_live's hook: debug.knob_cycle's chord in xinput_sdl.c and the script
+console's visr_set), by config name and value text: the overrides below follow the setting's new value.
 The targets that depend on it are allocated again on the next frame; changes last until the app quits.
 Render height does not affect foveated eyes, whose size comes from the Compositor's rate maps. */
 /* debug.knob_cycle's "ambient occlusion" (debug.ssao spike, halo_ssao_after_lightmaps), -1: the setting */
 static int ssao_live = -1;
 
-int halo_knob_apply(const char *name, const char *value)
+static int knob_live_apply(const char *name, const char *value)
 {
 	if (!strcmp(name, "display.render_height"))
 		knob_render_lines = atol(value);
@@ -2755,8 +2756,6 @@ int halo_knob_apply(const char *name, const char *value)
 		knob_effect_level = effect_resolution_level(value);
 	else if (!strcmp(name, "debug.ssao"))
 		ssao_live = atoi(value);
-	else if (!strcmp(name, "display.graphics"))
-		return config_graphics_try(value);
 	else if (!strcmp(name, "display.frame_repeat"))
 	{
 		/* (the Compositor's, between frames; nothing to allocate again) */
@@ -3597,6 +3596,7 @@ HRESULT WINAPI Direct3D_CreateDevice(UINT adapter, D3DDEVTYPE device_type, void 
 	if (!device.created)
 	{
 		memset(&device, 0, sizeof(device));
+		config_set_live_hook(knob_live_apply);
 		if (presentation_parameters)
 			device.presentation = *presentation_parameters;
 		width = device.presentation.BackBufferWidth ? device.presentation.BackBufferWidth : 640;

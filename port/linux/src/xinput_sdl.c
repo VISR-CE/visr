@@ -207,7 +207,6 @@ static void back_dpad(XINPUT_GAMEPAD *pad)
 		XINPUT_GAMEPAD_DPAD_RIGHT);
 }
 /* d3d8_device.c */
-int halo_knob_apply(const char *name, const char *value);
 void halo_knob_message(const char *text);
 
 float halo_knob_render_quality(void);
@@ -259,8 +258,11 @@ static void knob_cycle_chord(XINPUT_GAMEPAD *pad)
 	{
 		if (knob_cycle_press(&state, select_delta, value_delta, knob_current, label, sizeof(label), &name, &value))
 		{
-			halo_knob_apply(name, value);
-			platform_log("knob: %s=%s", name, value);
+			char note[160];
+
+			if (!config_set_live(name, value, note, sizeof(note)))
+				snprintf(label, sizeof(label), "%s", note);
+			platform_log("knob: %s", note);
 		}
 		halo_knob_message(label);
 	}
