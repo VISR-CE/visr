@@ -18,6 +18,7 @@ platform = "ios"
 models = ["iPhone17,5"]
 
 [display]
+scene_precision = 16
 upscaled_textures = true
 frame_rate = "60"
 render_height = 0
@@ -28,6 +29,7 @@ dynamic_resolution = true
 dynamic_resolution_floor = 1080
 
 [variable.display]
+scene_precision = 8
 dynamic_resolution_floor = 540
 effect_limits = "xbox"
 
@@ -93,3 +95,13 @@ why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPa
 basis = "inherited"
 why = "This device holds 32 players at full rate, as the measured iPhone 12 Pro does, which spent 6% less CPU a frame in a 128-player fight with the Xbox's decal set. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
 source = "`iphone-12-pro.toml` variable.display.effect_limits evidence, main 1a41b6f59, 2026-11-20"
+
+[evidence."display.scene_precision"]
+basis = "assumed"
+why = "Not measured on this device. Every measured device kept its tier at 16 bits: the A10X iPad Pro at 30 frames a second (GPU +2.1 ms at the 95th percentile of 33.3 ms), the A14 iPad Air and iPhone 12 Pro at 60 (+0.3 and +0.8 ms), and the M1 iPad Pro at 60 (no measurable cost), all with on-time frames unchanged. This chip is faster than the A14, so it is expected to hold its tier too; a report from the device corrects it."
+source = "Inferred from the measured pairs on the A10X iPad Pro, iPad Air (4th generation), iPhone 12 Pro and M1 iPad Pro: VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"
+
+[evidence."variable.display.scene_precision"]
+basis = "assumed"
+why = "Multiplayer and the other variable workloads were not measured at 16 bits (larger games, wider dynamic resolution), so they keep the 8-bit scene until a pair there shows the cost."
+source = "Inferred from the measured pairs on the A10X iPad Pro, iPad Air (4th generation), iPhone 12 Pro and M1 iPad Pro: VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"

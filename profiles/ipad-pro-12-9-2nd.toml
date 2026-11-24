@@ -14,6 +14,7 @@ platform = "ios"
 models = ["iPad7,2"]
 
 [display]
+scene_precision = 16
 upscaled_textures = true
 frame_rate = "30"
 render_height = 900
@@ -23,6 +24,7 @@ model_lod = "max"
 dynamic_resolution = true
 
 [variable.display]
+scene_precision = 8
 effect_limits = "xbox"
 frames_in_flight_at_30 = "1"
 encode_thread = "thread"
@@ -108,3 +110,13 @@ why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPa
 basis = "measured"
 why = "In a 128-player Blood Gulch fight the Xbox's decal set held 19.4 frames a second where the raised set held 17.2 (three interleaved rounds each): 7.0 ms less CPU a frame, 3.9 of it in the simulation's decal allocation and 3.2 in drawing, and 3.0 ms less GPU. The raised set keeps about four times the marks; a small game fills neither. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
 source = "VISR main 1a41b6f59 with debug.verify_once_a_tick on, iPad Pro 12.9 (2nd generation), cost:mp128-bloodgulch-1029-p60 presented, 2026-11-20"
+
+[evidence."display.scene_precision"]
+basis = "measured"
+why = "At this profile's 30 frames a second and 900 lines, the 16-bit scene held 99.87% of frames on time in both rounds, the same as 8 bits, with lines unchanged at 900. The GPU time rose 1.5 ms at the median (12.7 to 13.3 ms against 14.1 to 14.8 ms) and 2.1 ms at the 95th percentile (16.6 to 17.5 ms against 19.1 to 19.2 ms) of a 33.3 ms frame, and the peak footprint 27 MB (795 to 822 MB). Thermal state stayed nominal."
+source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"
+
+[evidence."variable.display.scene_precision"]
+basis = "measured"
+why = "Multiplayer and the other variable workloads were not measured at 16 bits (larger games, wider dynamic resolution), so they keep the 8-bit scene until a pair there shows the cost."
+source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"
