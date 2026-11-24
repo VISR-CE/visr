@@ -2,7 +2,8 @@
 #pragma once
 #define CONFIG_GRAPHICS_MAXIMUM_BYTES (32 * 1024)
 #define CONFIG_GRAPHICS_MAXIMUM_STRING_BYTES 256
-#define CONFIG_GRAPHICS_MAXIMUM_KEYS 128
+/* Keep equal to GAME_PERF_GRAPHICS_MAX_KEYS (a test checks); raise both when the key-count test fails. */
+#define CONFIG_GRAPHICS_MAXIMUM_KEYS 192
 /* Every display.* setting, and these: debug settings that change what is drawn or how it is timed, and
    game.enhanced_animations, which the graphics mode (display.graphics) turns off in Hardcore */
 #define GRAPHICS_CAPTURE_DEBUG_KEYS(X) \
