@@ -4517,14 +4517,16 @@ static boolean browser_listing_cooperative(struct p2p_listing const *game)
 	return game->engine_type == 0;
 }
 
-/* Why a listing cannot be joined (the one answer the JOIN GAME action, the detail panel's line and its network
-pill, the dialog a refused join opens and the list's order all take), or none: a kind of game this build does not
-play, a network version it cannot join, internet play off, a join that failed this run, a game full or starting */
+/* Why a listing cannot be joined (the one answer the JOIN GAME action, the detail panel's line, the dialog a
+refused join opens and the list's order all take), or none. The enum is the ranking, most incompatible first, and
+a listing shows only the first reason that holds: a network version this build cannot join (nothing about the game
+can be trusted), a kind of game it does not play, internet play off, a join that failed this run, a game full or
+starting */
 enum
 {
 	_browser_join_ok,
-	_browser_join_kind,
 	_browser_join_version,
+	_browser_join_kind,
 	_browser_join_offline,
 	_browser_join_failed,
 	_browser_join_full,
@@ -4532,10 +4534,10 @@ enum
 
 static short browser_join_block(struct p2p_listing const *game)
 {
-	if (halo_network_kind_reason(game->kind))
-		return _browser_join_kind;
 	if (!game->joinable)
 		return _browser_join_version;
+	if (halo_network_kind_reason(game->kind))
+		return _browser_join_kind;
 	if (!config_boolean("network.online"))
 		return _browser_join_offline;
 	if (game->failed)
@@ -4543,9 +4545,8 @@ static short browser_join_block(struct p2p_listing const *game)
 	return game->open ? _browser_join_ok : _browser_join_full;
 }
 
-/* the reason in words (a version's is left out of the detail panel, whose network pill says it) */
-static void browser_join_block_text(struct p2p_listing const *game, short block, boolean pill_says_version,
-	wchar_t *text, short size)
+/* the reason in words */
+static void browser_join_block_text(struct p2p_listing const *game, short block, wchar_t *text, short size)
 {
 	text[0] = 0;
 	switch (block)
@@ -4554,9 +4555,7 @@ static void browser_join_block_text(struct p2p_listing const *game, short block,
 		usnprintf(text, size - 1, L"%hs", halo_network_kind_reason(game->kind));
 		break;
 	case _browser_join_version:
-		if (!pill_says_version)
-			usnprintf(text, size - 1, L"This game is on network version %d, and VISR joins versions %d to %d.",
-				game->network_version, HALO_PORT_NETWORK_OLDEST_JOINABLE, HALO_PORT_NETWORK_VERSION);
+		usnprintf(text, size - 1, L"VISR is not compatible with this network version.");
 		break;
 	case _browser_join_offline:
 		usnprintf(text, size - 1, L"Turn on Internet play in Settings to join games.");
@@ -5003,9 +5002,9 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	{
 		char const *const blank[] = { "browser_detail_name", "browser_detail_type", "browser_detail_rules",
 			"browser_detail_host", "browser_detail_equipment", "browser_detail_big", "browser_join_reason",
-			"browser_detail_net", "browser_detail_password" };
+			"browser_detail_password" };
 		char const *const hidden[] = { "browser_equipment_label", "browser_detail_big", "browser_join_reason",
-			"browser_detail_net", "browser_detail_net_blocked", "browser_detail_password", "browser_detail_lock" };
+			"browser_detail_password", "browser_detail_lock" };
 		short index;
 
 		lobby_map_show(detail, "");
@@ -5051,35 +5050,21 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	visible_set(named(detail, "browser_detail_host", 0), text[0] != 0);
 	usnprintf(text, NUMBEROF(text) - 1, L"BIG GAME · MAY NOT HOLD %ld FPS", browser_target_fps());
 	browser_name_set(named(detail, "browser_detail_big", 0), text);
+	/* (a game that cannot be joined shows why in the line below, in this notice's place) */
 	visible_set(named(detail, "browser_detail_big", 0),
-		player_capacity_marked(game->player_count, game->maximum_player_count));
-	/* The pills (one style, in states: normal, blue; blocked by the network version, gray as the disabled rows
-	are; a password's carries a lock). Every pill is set on every update, shown or not, so none depends on what
-	an earlier game or screen left (the panel's blanking above hides them all). */
-	{
-		struct widget_instance *net = named(detail, "browser_detail_net", 0);
-		struct widget_instance *blocked_text = named(detail, "browser_detail_net_blocked", 0);
-		short join_block = browser_join_block(game);
-		boolean blocked = join_block == _browser_join_kind || join_block == _browser_join_version;
-
-		usnprintf(text, NUMBEROF(text) - 1, L"NET v%d", game->network_version);
-		/* (the pill widget carries the frame and the normal text; a blocked pill's text is the gray overlay's) */
-		text_set(net, blocked ? L"" : text);
-		text_set(blocked_text, text);
-		if (net)
-			net->animation.current_frame_index = blocked ? 1 : 0;
-		visible_set(named(detail, "browser_detail_net", 0), TRUE);
-		visible_set(named(detail, "browser_detail_net_blocked", 0), blocked);
-		text_set(named(detail, "browser_detail_password", 0), L"PASSWORD");
-		visible_set(named(detail, "browser_detail_password", 0), game->locked);
-		visible_set(named(detail, "browser_detail_lock", 0), game->locked);
-	}
+		player_capacity_marked(game->player_count, game->maximum_player_count) &&
+		browser_join_block(game) == _browser_join_ok);
+	/* The password pill (one style, with a lock). Set on every update, shown or not, so it does not depend on
+	what an earlier game or screen left (the panel's blanking above hides it). */
+	text_set(named(detail, "browser_detail_password", 0), L"PASSWORD");
+	visible_set(named(detail, "browser_detail_password", 0), game->locked);
+	visible_set(named(detail, "browser_detail_lock", 0), game->locked);
 	{
 		short block = browser_join_block(game);
 		boolean usable = block == _browser_join_ok && !lobby_browser.joining;
 
 		/* (JOIN GAME is the screen's bar action on A: dimmed when unusable, and A on a row says why instead) */
-		browser_join_block_text(game, block, TRUE, text, NUMBEROF(text));
+		browser_join_block_text(game, block, text, NUMBEROF(text));
 		/* the action always reads JOIN GAME (CONNECTING while joining, dimmed when unusable); why it is
 		   unusable shows in the detail box */
 		ui_widget_port_bar_dim(screen, _gamepad_analog_button_a, !usable);
@@ -5636,7 +5621,7 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 		/* (a join that cannot start says why, in a dialog: the error sound alone does not) */
 		wchar_t reason[ROW_TEXT_LENGTH * 2];
 
-		browser_join_block_text(game, browser_join_block(game), FALSE, reason, NUMBEROF(reason));
+		browser_join_block_text(game, browser_join_block(game), reason, NUMBEROF(reason));
 		display_error_text_deferred(reason, NONE);
 		return campaign_fail();
 	}

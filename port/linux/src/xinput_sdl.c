@@ -67,6 +67,7 @@ static int glyph_mouse_active;
 static int glyph_menus_active;
 static struct halo_glyph_input glyph_menu_input;
 static int glyph_x_destructive;
+static int glyph_x_global;
 #endif
 #define VK_OEM_3_BACKQUOTE 0xc0
 
@@ -1515,6 +1516,15 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 
 /* Native pointer activity is authoritative: a positive radius is a finger
 or pinch, and an installed but idle pointer does not change the source. */
+void halo_controller_glyph_x_global(int global)
+{
+#ifdef HALO_IOS
+	glyph_x_global = global;
+#else
+	(void)global;
+#endif
+}
+
 void halo_controller_glyph_x_destructive(int destructive)
 {
 #ifdef HALO_IOS
@@ -1675,7 +1685,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	if (kind != HALO_GLYPH_KEYCAP || (player != 0 && !glyph_menus_active && strcmp(family, "keyboard")))
 		return kind == HALO_GLYPH_KEYCAP ? HALO_GLYPH_ORIGINAL : kind;
 	/* The mouse legend lights the button that acts: left for the main action, right for the secondary. */
-	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && (semantic == 28 || physical == 2))
+	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && (semantic == 28 || (physical == 2 && !glyph_x_global)))
 	{
 		snprintf(label, size, semantic == 28 ? "Mouse Left" : "Mouse Right");
 		return HALO_GLYPH_KEYCAP;

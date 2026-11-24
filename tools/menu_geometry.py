@@ -100,8 +100,15 @@ BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT = 46, 43
 # and the chosen game's reaches BROWSER_TAB_REACH, over the detail panel's left border, in the panel's own fill, so
 # tab and panel are one shape. The panel is drawn first so the tab lies over it.
 BROWSER_LIST_X, BROWSER_PANEL_LEFT = 24, 304
-BROWSER_TAB_WIDTH, BROWSER_TAB_REACH = 270, 284
+BROWSER_BORDER = 1.5  # the detail panel's outline, and the tab's
+# The seam: the panel owns its left border, the chosen tab owns the opening in it. The tab's rules end at the
+# border's far edge (BROWSER_SEAM), where they meet the border above and below the opening instead of running
+# on into the panel, and its fill (BROWSER_TAB_REACH, a whole unit count) covers the border's width.
+BROWSER_SEAM = BROWSER_PANEL_LEFT - BROWSER_LIST_X + BROWSER_BORDER
+BROWSER_TAB_WIDTH, BROWSER_TAB_REACH = 270, 282
 BROWSER_PANEL_FILL = '#0d2c57'
+BROWSER_PANEL_BORDER = '#4aa8ff'  # the panel's outline and the chosen tab's rules: one line where they meet
+assert BROWSER_SEAM <= BROWSER_TAB_REACH < BROWSER_SEAM + 1
 assert BROWSER_LIST_X + BROWSER_TAB_WIDTH < BROWSER_PANEL_LEFT < BROWSER_LIST_X + BROWSER_TAB_REACH
 OWN_GEOMETRY_ROW_LISTS = {
     f'{_MP}/join_game/join_game_items_list': (BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT,

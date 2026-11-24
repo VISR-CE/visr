@@ -273,11 +273,11 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
     for index in range(1, 7):
         row = widgets[f'server_item_{index}']
-        assert (row.get('width'), row.get('height')) == ('284', '43')  # the tab (270) and its reach into the panel
+        assert (row.get('width'), row.get('height')) == (str(__import__('menu_geometry').BROWSER_TAB_REACH), '43')  # the tab (270) and its reach into the panel
         assert row.get('bitmap') == 'xbox/browser/c_row'
         assert row.find('on[@event="a"][@run="gamespy select item"]') is not None
         for frame in bitmaps[row.get('bitmap')]:
-            assert (frame.get('width'), frame.get('height')) == ('284', '43')
+            assert (frame.get('width'), frame.get('height')) == (str(__import__('menu_geometry').BROWSER_TAB_REACH), '43')
     assert [c.get('widget').rsplit('/', 1)[-1] for c in widgets['browser_chips'].findall('child')] == [
         'browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_filter']
     for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_filter'):
@@ -586,7 +586,7 @@ def test_browser_highlight_has_one_shape_for_every_row():
     assert len({r.get('bitmap') for r in rows}) == 1
     bitmap = root.find(f"bitmap[@name='{rows[0].get('bitmap')}']")
     for frame in bitmap.findall('frame'):
-        assert (frame.get('width'), frame.get('height')) == ('284', '43')
+        assert (frame.get('width'), frame.get('height')) == (str(__import__('menu_geometry').BROWSER_TAB_REACH), '43')
 
 
 def test_sort_filter_has_four_large_rows_reset_and_done():
@@ -2206,3 +2206,20 @@ def test_browser_row_tabs_reach_into_the_detail_panel_from_one_set_of_numbers():
         assert int(widgets[f'server_item_{index}'].get('width')) == g.BROWSER_TAB_REACH
     assert (browser_assets.ROW_TAB_WIDTH, browser_assets.ROW_ART_WIDTH) == (g.BROWSER_TAB_WIDTH, g.BROWSER_TAB_REACH)
     assert browser_assets.PANEL_FILL == g.BROWSER_PANEL_FILL
+
+
+def test_browser_tab_and_panel_each_own_their_edges_of_the_seam():
+    """Bug class: two pieces of art drawing the same edge (the chosen tab's rules ran on past the panel's border into
+    the panel, in another blue). Each shared edge has one owner: the panel owns its left border, the chosen tab owns
+    the opening in it and ends its rules at the border's far edge, in the border's own color."""
+    import re
+    import browser_assets
+    import menu_geometry as g
+    chosen = browser_assets.chosen_row_svg()
+    path = re.search(r'<path d="M([\d.]+) [^"]*H([\d.]+)" fill="none" stroke="(#[0-9a-fA-F]+)" stroke-width="([\d.]+)"', chosen)
+    assert path, 'the chosen tab draws its outline as one path'
+    start, end, color, width = path.groups()
+    assert float(start) == float(end) == g.BROWSER_SEAM, 'both rules end at the border\'s far edge, none past it'
+    assert color == g.BROWSER_PANEL_BORDER and float(width) == g.BROWSER_BORDER
+    assert g.BROWSER_PANEL_BORDER in browser_assets.detail_panel_svg() and f'stroke-width="{g.BROWSER_BORDER}"' in browser_assets.detail_panel_svg()
+    assert g.BROWSER_SEAM <= g.BROWSER_TAB_REACH < g.BROWSER_SEAM + 1, 'the fill covers the border, no more'

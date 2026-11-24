@@ -65,3 +65,16 @@ def test_join_game_is_the_bars_select_action_and_never_changes_its_caption():
     text = (MENUS / BROWSER_XML).read_text()
     assert 'xbox/main_menu/multiplayer_type_select/join_game/join_game_button_join' not in text and 'browser_join_' not in text.replace('browser_join_reason', '')
     assert 'browser_touch_join_update' not in SOURCE.read_text()
+
+
+def test_a_global_x_action_is_never_the_items_secondary_action():
+    """Bug class: right-click is the secondary action only (menu-global-contextual-actions), but the browser's global X
+    (IP ADDRESS) was treated as the focused game's: its legend lit the right mouse button and a right-click or hold
+    offered it as an item action. The engine names a screen-wide X in one place and every X consumer asks it."""
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    assert 'static boolean ui_widget_is_global_x_action(' in source
+    scan = source[source.index('static void ui_touch_screen_x_scan('):]
+    scan = scan[:scan.index('\n}\n')]
+    assert 'ui_screen_has_global_x_action(' in scan
+    assert source.count('!ui_widget_is_global_x_action(widget)') == 2, 'both draw-time X notes skip a global X'
+    assert 'halo_controller_glyph_x_global(ui_widget_is_global_x_action(widget))' in source

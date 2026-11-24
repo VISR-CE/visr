@@ -145,13 +145,16 @@ int main(void)
         g=listing(2,4); g.open=1; g.joinable=1; g.failed=0; online=1;
         assert(browser_join_block(&g)==_browser_join_ok);
         g.open=0; assert(browser_join_block(&g)==_browser_join_full);
-        browser_join_block_text(&g,_browser_join_full,1,words,128); assert(!wcscmp(words,L"This game is full or starting."));
+        browser_join_block_text(&g,_browser_join_full,words,128); assert(!wcscmp(words,L"This game is full or starting."));
         g.open=1; g.failed=1; assert(browser_join_block(&g)==_browser_join_failed);
-        browser_join_block_text(&g,_browser_join_failed,1,words,128); assert(!wcscmp(words,L"Couldn't reach this game."));
+        browser_join_block_text(&g,_browser_join_failed,words,128); assert(!wcscmp(words,L"Couldn't reach this game."));
         online=0; assert(browser_join_block(&g)==_browser_join_offline);
         g.joinable=0; assert(browser_join_block(&g)==_browser_join_version);
-        browser_join_block_text(&g,_browser_join_version,1,words,128); assert(!words[0]);
-        browser_join_block_text(&g,_browser_join_version,0,words,128); assert(wcsstr(words,L"network version"));
+        browser_join_block_text(&g,_browser_join_version,words,128); assert(!wcscmp(words,L"VISR is not compatible with this network version."));
+        /* one explainer, ranked: a version this build cannot join outranks a kind it does not play (and both outrank the rest) */
+        g.kind=1; assert(browser_join_block(&g)==_browser_join_version);
+        g.joinable=1; assert(browser_join_block(&g)==_browser_join_kind);
+        g.kind=0;
         online=1; g=listing(2,4); g.joinable=1;
     }
     unsigned const unsupported[]={1,2,3,4,0x80,0xff};
@@ -658,7 +661,7 @@ int main(void)
 	char const *const leaves[] = { "browser_detail_content", "browser_detail_name", "browser_detail_type",
 		"browser_rules_label", "browser_detail_rules", "browser_equipment_label", "browser_detail_equipment",
 		"browser_host_label", "browser_detail_host", "browser_connection_status", "browser_detail_big",
-		"browser_join_reason", "browser_detail_net", "browser_detail_net_blocked", "browser_detail_password",
+		"browser_join_reason", "browser_detail_password",
 		"browser_detail_lock", "lobby_map_pic", "browser_detail_gametype" };
 	struct widget_instance *list = add(&screen, "join_game_items_list");
 
@@ -678,27 +681,31 @@ int main(void)
 	lobby_browser.games[3].engine_type = 2;
 	for (int i = 0; i < 4; i++) lobby_browser.games[i].identifier[0] = (unsigned char)(i + 1);
 
-	/* no game chosen: everything hidden; then a game chosen must show every pill again */
+	/* no game chosen: everything hidden; then a game chosen must show its pills again */
 	lobby_browser.chosen = NONE;
 	browser_c_detail_update(list, L"");
-	assert(!detail.visible && !pill("browser_detail_net")->visible);
+	assert(!detail.visible && !pill("browser_detail_password")->visible);
 	lobby_browser.chosen = 0;
 	browser_c_detail_update(list, L"");
-	assert(detail.visible && pill("browser_detail_net")->visible && !pill("browser_detail_net_blocked")->visible);
-	assert(!pill("browser_detail_password")->visible && !pill("browser_detail_lock")->visible);
-	assert(!wcscmp(pill("browser_detail_net")->text, L"NET v38") && pill("browser_detail_net")->animation.current_frame_index == 0);
-	assert(!dimmed);
+	assert(detail.visible && !pill("browser_detail_password")->visible && !pill("browser_detail_lock")->visible);
+	assert(!pill("browser_join_reason")->visible && !dimmed);
 	/* a password game: the pill and its lock */
 	lobby_browser.chosen = 1; browser_c_detail_update(list, L"");
 	assert(pill("browser_detail_password")->visible && pill("browser_detail_lock")->visible);
-	/* a game on a version this build cannot join: the pill grays (second frame, its own gray text), the panel says nothing more */
+	/* a game on a version this build cannot join: ONE explainer (the version's, though its kind is unsupported too),
+	   the join action dimmed, and no password pill left behind */
+	lobby_browser.games[2].kind = 1;
 	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
-	assert(pill("browser_detail_net")->animation.current_frame_index == 1 && !pill("browser_detail_net")->text[0]);
-	assert(pill("browser_detail_net_blocked")->visible && !wcscmp(pill("browser_detail_net_blocked")->text, L"NET v43"));
-	assert(!pill("browser_join_reason")->visible && dimmed);
-	/* and back to a joinable one: nothing grayed is left behind */
+	assert(pill("browser_join_reason")->visible && !wcscmp(pill("browser_join_reason")->text, L"VISR is not compatible with this network version."));
+	assert(!pill("browser_detail_password")->visible && dimmed);
+	/* the same game on a version it can join: the kind's explainer instead */
+	lobby_browser.games[2].joinable = 1;
+	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
+	assert(!wcscmp(pill("browser_join_reason")->text, L"SWAT rules are not supported by VISR."));
+	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].kind = 0;
+	/* and back to a joinable one: nothing is left behind */
 	lobby_browser.chosen = 3; browser_c_detail_update(list, L"");
-	assert(pill("browser_detail_net")->animation.current_frame_index == 0 && !pill("browser_detail_net_blocked")->visible && !dimmed);
+	assert(!pill("browser_join_reason")->visible && !dimmed);
 
 	/* joining game 0: its panel carries the connect line; another chosen game's does not */
 	lobby_browser.joining = TRUE; lobby_browser.identifier[0] = 1; snprintf(lobby_browser.name, sizeof(lobby_browser.name), "ALPHA");

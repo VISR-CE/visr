@@ -6749,6 +6749,38 @@ ui_touch_screen_back_acts), so the chevron and swipe work on screens with no B l
 static boolean ui_touch_back_generic = FALSE;
 static rectangle2d ui_touch_title_icon;
 
+/* port: whether this widget is the legend button of a screen-wide (global) bar action in the X slot. X is the
+secondary action of the focused item only when the screen says so (select scope); a global X, like the
+server browser's IP ADDRESS, acts on the screen, so it is neither a press-and-hold or right-click context
+menu nor drawn with the mouse's right-button glyph (the legend is clicked) */
+static boolean ui_widget_is_global_x_action(
+	struct widget_instance *widget)
+{
+	struct halo_menu_meta const *meta;
+
+	if (ui_mouse_key_button(widget) != _gamepad_analog_button_x)
+		return FALSE;
+	meta = pc_menu_meta(widget->definition_tag_index);
+	return meta->role == HALO_MENU_ROLE_BAR_ACTION && meta->scope == HALO_MENU_SCOPE_GLOBAL;
+}
+
+/* whether the screen, or a child of it, carries a global X bar action */
+static boolean ui_screen_has_global_x_action(
+	struct widget_instance *widget,
+	long depth)
+{
+	struct widget_instance *child;
+
+	if (!widget || depth > 3)
+		return FALSE;
+	if (ui_widget_is_global_x_action(widget))
+		return TRUE;
+	for (child = widget->child; child; child = child->next)
+		if (ui_screen_has_global_x_action(child, depth + 1))
+			return TRUE;
+	return FALSE;
+}
+
 /* port: the secondary action (X) of the screen's items. The screen's X legend button and its caption
 (DELETE, RENAME) are noted as it draws; a press-and-hold on touch, or a right-click, opens a context
 menu attached to the item: a panel with the item's name and one row per action, the row pressing X.
@@ -7656,6 +7688,8 @@ static void ui_touch_screen_x_scan(
 {
 	long depth;
 
+	if (ui_screen_has_global_x_action(widget, 0))
+		return;
 	for (depth = 0; widget && depth < 8; depth++, widget = widget->focused_child)
 		if (ui_touch_widget_x_scan(widget))
 			return;
@@ -9860,7 +9894,7 @@ static void widget_instance_render_recursive(
 		/* touch draws no X legend, so the secondary action (X) is known from the screen's own X button
 		even when it is hidden: its caption widget labels the press-and-hold context menu */
 		if (ui_mouse_noting_targets && widget->parent &&
-			ui_mouse_key_button(widget) == _gamepad_analog_button_x)
+			ui_mouse_key_button(widget) == _gamepad_analog_button_x && !ui_widget_is_global_x_action(widget))
 		{
 			struct widget_instance *sibling, *caption = NULL;
 			short best = 0x7fff;
@@ -9897,7 +9931,8 @@ static void widget_instance_render_recursive(
 		if (ui_mouse_noting_targets && ui_mouse_key_button(widget) == _gamepad_analog_button_b &&
 			ui_touch_legend_suppressed(widget))
 			ui_touch_back_seen = TRUE;
-		if (ui_mouse_noting_targets && ui_mouse_key_button(widget) == _gamepad_analog_button_x)
+		if (ui_mouse_noting_targets && ui_mouse_key_button(widget) == _gamepad_analog_button_x &&
+			!ui_widget_is_global_x_action(widget))
 		{
 			struct widget_instance *caption = NULL;
 
@@ -10085,6 +10120,7 @@ static void widget_instance_render_recursive(
 				raise it to center on the capitals */
 				rectangle2d glyph_bounds = controller_glyph_legend_raise(&bounds);
 				rectangle2d glyph_clip = clip ? controller_glyph_legend_raise(clip) : glyph_bounds;
+				halo_controller_glyph_x_global(ui_widget_is_global_x_action(widget));
 				if (controller_glyph_draw(owner, NONE, ui_mouse_key_button(widget), &glyph_bounds, clip ? &glyph_clip : NULL, glyph_color, _controller_glyph_blend_menu))
 					shown = FALSE;
 			}

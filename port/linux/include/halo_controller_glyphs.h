@@ -94,5 +94,8 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 struct host_ui_pointer;
 /* the screen's secondary action (X) is destructive: the keyboard legend reads Delete */
 void halo_controller_glyph_x_destructive(int destructive);
+/* the X legend being drawn is a screen-wide action, not the focused item's secondary: the mouse legend reads
+the keyboard key, never the right button (right-click is the secondary action only) */
+void halo_controller_glyph_x_global(int global);
 void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer);
 #endif

@@ -24,6 +24,7 @@ static int glyph_keyboard_active;
 static int glyph_mouse_active;
 static int glyph_menus_active;
 static int glyph_x_destructive;
+static int glyph_x_global;
 static struct halo_glyph_input glyph_menu_input;
 static int bindings[17][2];
 static unsigned long bindings_read_at=(unsigned long)-1, generation;
@@ -90,6 +91,13 @@ int main(void) {
  assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==3 && last_menus==1);
  assert(halo_controller_glyph_request(1,18,2,label,sizeof(label))==3);
  assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
+ assert(halo_controller_glyph_request(0,2,2,label,sizeof(label))==3 && !strcmp(label,"Mouse Right"));
+ /* a screen-wide X (the server browser's IP ADDRESS) is not the secondary action: right-click does not run it, so
+    its legend never lights the right button; the focused item's secondary still does */
+ glyph_x_global=1;
+ assert(halo_controller_glyph_request(0,2,2,label,sizeof(label))!=3 || strcmp(label,"Mouse Right"));
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
+ glyph_x_global=0;
  assert(halo_controller_glyph_request(0,2,2,label,sizeof(label))==3 && !strcmp(label,"Mouse Right"));
  halo_controller_glyph_pointer_activity(0,NULL);
  assert(halo_controller_glyph_request(0,13,13,label,sizeof(label))==3 && !strcmp(label,"T"));

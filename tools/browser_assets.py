@@ -46,6 +46,27 @@ def render(output, name, width, height, document, scale=SCALE):
                     str(output / f"{name}.png")], input=document.encode(), check=True)
 
 
+def detail_panel_svg():
+    """The detail panel: it owns its whole outline, including its left border along the chosen tab."""
+    return rounded(312, 273, PANEL_FILL, menu_geometry.BROWSER_PANEL_BORDER, radius=9,
+                   stroke_width=menu_geometry.BROWSER_BORDER)
+
+
+def chosen_row_svg():
+    """The chosen game's tab: open on its right, in the panel's fill over the panel's left border, its rules ending
+    at that border's far edge (menu_geometry.BROWSER_SEAM) in the border's own color."""
+    height, radius, stroke = ROW_HEIGHT, 7, menu_geometry.BROWSER_BORDER
+    half = stroke / 2
+    seam = menu_geometry.BROWSER_SEAM
+    return svg(ROW_ART_WIDTH, height,
+               f'<rect x="{half}" y="{half}" width="{ROW_ART_WIDTH - half}" height="{height - stroke}" rx="{radius}" '
+               f'fill="{PANEL_FILL}"/>'
+               f'<rect x="{ROW_ART_WIDTH - 8}" y="0" width="8" height="{height}" fill="{PANEL_FILL}"/>'
+               f'<path d="M{seam} {half} H{radius + half} a{radius - half} {radius - half} 0 0 0 {-(radius - half)} '
+               f'{radius - half} V{height - radius - half} a{radius - half} {radius - half} 0 0 0 {radius - half} {radius - half} '
+               f'H{seam}" fill="none" stroke="{menu_geometry.BROWSER_PANEL_BORDER}" stroke-width="{stroke}"/>')
+
+
 def generate(output, icons):
     output.mkdir(parents=True, exist_ok=True)
 
@@ -71,18 +92,13 @@ def generate(output, icons):
     # The game rows are tabs, as the gametype editor's: outlined all around, and the selected one open on its right
     # edge and filled as the detail panel is, reaching into the panel (drawn over its left border) so tab and panel
     # are one shape. The art is ROW_ART_WIDTH wide, the tab itself ROW_TAB_WIDTH of it.
-    height, radius, stroke = ROW_HEIGHT, 7, 1.5
+    height, radius, stroke = ROW_HEIGHT, 7, menu_geometry.BROWSER_BORDER
     half = stroke / 2
+    seam = menu_geometry.BROWSER_SEAM
     draw("row__0", ROW_ART_WIDTH, height, svg(ROW_ART_WIDTH, height,
          f'<rect x="{half}" y="{half}" width="{ROW_TAB_WIDTH - stroke}" height="{height - stroke}" rx="{radius}" '
          f'fill="#0a2245" stroke="#1f5fae" stroke-width="{stroke}"/>'))
-    draw("row__1", ROW_ART_WIDTH, height, svg(ROW_ART_WIDTH, height,
-         f'<rect x="{half}" y="{half}" width="{ROW_ART_WIDTH - half}" height="{height - stroke}" rx="{radius}" '
-         f'fill="{PANEL_FILL}"/>'
-         f'<rect x="{ROW_ART_WIDTH - 8}" y="0" width="8" height="{height}" fill="{PANEL_FILL}"/>'
-         f'<path d="M{ROW_ART_WIDTH} {half} H{radius + half} a{radius - half} {radius - half} 0 0 0 {-(radius - half)} '
-         f'{radius - half} V{height - radius - half} a{radius - half} {radius - half} 0 0 0 {radius - half} {radius - half} '
-         f'H{ROW_ART_WIDTH}" fill="none" stroke="#7fc4ff" stroke-width="{stroke}"/>'))
+    draw("row__1", ROW_ART_WIDTH, ROW_HEIGHT, chosen_row_svg())
 
     # Four states let code distinguish focus from the selected type chip.
     states = (("none", "#1f5fae"), ("#12396e", "#7fc4ff"),
@@ -95,11 +111,10 @@ def generate(output, icons):
 
     # (transparent, so 1x: thirty preview frames fall back to it, and at 4x they cost the Apple TV HD about 90 MB)
     draw("preview_none", 310, 155, svg(310, 155, ""), scale=1)
-    draw("detail", 312, 273, rounded(312, 273, PANEL_FILL, "#4aa8ff", radius=9))
+    draw("detail", 312, 273, detail_panel_svg())
     draw("big", 294, 20, rounded(294, 20, "#e8b520", radius=3))
-    # The detail panel's pills: normal (HUD blue) and blocked (grayed as the disabled rows are, never red).
-    for index, border in enumerate(("#1f5fae", "#4b5663")):
-        draw(f"badge__{index}", 120, 18, rounded(120, 18, "none", border, radius=3))
+    # The detail panel's password pill (HUD blue)
+    draw("badge__0", 120, 18, rounded(120, 18, "none", "#1f5fae", radius=3))
     # The lock inside the password pill.
     draw("lock", 12, 14, svg(12, 14,
          '<path d="M3 6V4.5a3 3 0 0 1 6 0V6" fill="none" stroke="#cfe8ff" stroke-width="1.4"/>'
