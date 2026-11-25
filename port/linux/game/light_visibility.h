@@ -45,10 +45,10 @@ says the light does not reach); object_lights.c */
 void light_visibility_next(int path, float strength);
 /* An owner family is an object, its parents and its children (a unit, the weapon it holds, the vehicle it rides and
 that vehicle's other riders): its casters never block its own lights (a partner's flashlight is inside his body).
-Each family with a light this frame takes one bit of the traced lights' instance mask, from
-LIGHT_VISIBILITY_FAMILY_FIRST, when the frame's table is made (light_visibility_families_prepare); past the last,
-its lights fall back to the owner distance (debug.traced_light_owner).
-The family bit of the object's family this frame, 0 none (object_lights.c) */
+Each family with a light takes one bit of the traced lights' instance mask, from LIGHT_VISIBILITY_FAMILY_FIRST,
+and keeps it while its root object lives (light_visibility_families_update); past the last, its lights fall back to
+the owner distance (debug.traced_light_owner).
+The family bit of the object's family, 0 none (object_lights.c) */
 int light_visibility_family(long object_index);
 
 enum
@@ -100,9 +100,9 @@ static inline int light_visibility_caster_type(
 	return object_type == 0 || object_type == 1 || (object_type >= 6 && object_type <= 9);
 }
 
-/* the family bit for a family root, assigning the next free bit (roots[] of count, at most the bits there are); 0
-when none is left. root -1 (NONE) is no family; any other value is a handle, and the guest's 32-bit handles with the
-salt's high bit set are negative */
+/* the family bit for a family root, assigning a free bit (roots[] of count, at most the bits there are; a slot holding
+-1 is free); 0 when none is left. root -1 (NONE) is no family; any other value is a handle, and the guest's 32-bit
+handles with the salt's high bit set are negative */
 static inline int light_visibility_family_bit(
 	long *roots,
 	int *count,
@@ -116,25 +116,39 @@ static inline int light_visibility_family_bit(
 	for (i = 0; i < *count; i++)
 		if (roots[i] == root)
 			return LIGHT_VISIBILITY_FAMILY_FIRST + i;
-	if (!assign || *count > LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST)
+	if (!assign)
+		return 0;
+	for (i = 0; i < *count; i++)
+		if (roots[i] == -1)
+		{
+			roots[i] = root;
+			return LIGHT_VISIBILITY_FAMILY_FIRST + i;
+		}
+	if (*count > LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST)
 		return 0;
 	roots[*count] = root;
 	return LIGHT_VISIBILITY_FAMILY_FIRST + (*count)++;
 }
 
-/* the frame's family table, made before anything asks for a bit: every owner root of a light this frame (owners[] of
-count, -1 for none) in the lights' order takes the next free bit. A caster record can be sent before its owner's light
-is chosen (split screen reuses window 0's shadow records in window 1), so it looks its bit up here and finds the one
-the light will take; families past the last bit get 0 on both sides and fall back to the owner distance */
-static inline void light_visibility_families_prepare(
+/* the family table, brought up to date before anything asks for a bit in a frame. A family keeps its bit while its
+root lives (alive[i] for roots[i]; a dead root's slot is freed): a caster's record outlives the frame it was sent in
+(the game reuses an unchanged shadow, and split screen reuses window 0's records in window 1), so a bit that moved
+between frames would leave an old record masked out of another family's light. Then every owner root of a light
+this frame (owners[] of owner_count, -1 for none) in order takes a bit if it has none, so a caster record sent before
+its owner's light is chosen finds the bit the light takes. Families past the last bit get 0 on both sides and fall
+back to the owner distance */
+static inline void light_visibility_families_update(
 	long *roots,
 	int *count,
+	unsigned char const *alive,
 	long const *owners,
 	int owner_count)
 {
 	int i;
 
-	*count = 0;
+	for (i = 0; i < *count; i++)
+		if (!alive[i])
+			roots[i] = -1;
 	for (i = 0; i < owner_count; i++)
 		light_visibility_family_bit(roots, count, owners[i], 1);
 }

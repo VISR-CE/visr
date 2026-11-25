@@ -1823,9 +1823,9 @@ static struct
 	unsigned char path, family;
 	float strength;
 } light_visibility_pending;
-/* this frame's owner families of lights (light_visibility.h), made at the frame's first lookup and only read after:
-one table for every window and for casters and lights alike, so a caster record sent before its owner's light is
-chosen, or one window's record another reuses, has the bit the light takes */
+/* the owner families of lights (light_visibility.h): one table for every window and every frame, brought up to date at
+a frame's first lookup and only read after, so a caster record sent before its owner's light is chosen, or reused in
+a later frame or another window, has the bit the light takes */
 static struct
 {
 	unsigned __int64 frame;
@@ -1833,7 +1833,6 @@ static struct
 	long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
 } light_visibility_families = { (unsigned __int64)-1 };
 
-/* the root of an object's owner family, NONE for none or one that blocks no light (a projectile's) */
 static long light_visibility_family_root(
 	long object_index)
 {
@@ -1853,7 +1852,8 @@ static int light_visibility_family_of(
 	if (light_visibility_families.frame != rasterizer_globals.fps_accumulation_frame_index)
 	{
 		long owners[256], light_index;
-		int owner_count = 0, pass;
+		int owner_count = 0, pass, i;
+		unsigned char alive[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
 
 		/* (every light with an owner, before any window chooses or any caster record is sent: light_visibility.h;
 		the players' own first-person lights first, so that they keep a bit when there are more families than bits) */
@@ -1869,9 +1869,12 @@ static int light_visibility_family_of(
 					owners[owner_count++] = light_visibility_family_root(light->object_index);
 			}
 		}
+		for (i = 0; i < light_visibility_families.count; i++)
+			alive[i] = light_visibility_families.roots[i] != NONE
+				&& object_try_and_get(light_visibility_families.roots[i]) != NULL;
 		light_visibility_families.frame = rasterizer_globals.fps_accumulation_frame_index;
-		light_visibility_families_prepare(light_visibility_families.roots, &light_visibility_families.count, owners,
-			owner_count);
+		light_visibility_families_update(light_visibility_families.roots, &light_visibility_families.count, alive,
+			owners, owner_count);
 	}
 	return light_visibility_family_bit(light_visibility_families.roots, &light_visibility_families.count,
 		light_visibility_family_root(object_index), FALSE);

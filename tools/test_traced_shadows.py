@@ -209,9 +209,10 @@ def test_a_caster_sent_before_its_owners_light_gets_the_lights_bit(tmp_path):
     """The class: a family bit that depends on which side asks first. Split screen reuses window 0's caster records
     in window 1, so a caster's record can go out before its owner's light is chosen; had the light assigned the bit,
     the record kept 0 while the light's keep-clear shrank to a centimeter, and the owner blocked his own light. The
-    frame's table is made from every light's owner before anything asks, and both sides only look it up."""
+    table is brought up to date from every light's owner before anything asks, and both sides only look it up."""
     _run_rule_program(tmp_path, r'''
     long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    unsigned char alive[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1] = { 0 };
     long owners[40];
     int count = 0, i, caster, light;
     long player = (long)(int)0xe4a9023au;
@@ -219,7 +220,7 @@ def test_a_caster_sent_before_its_owners_light_gets_the_lights_bit(tmp_path):
     for (i = 1; i < 40; i++)
         owners[i] = 1000 + i;
     owners[5] = -1;
-    light_visibility_families_prepare(roots, &count, owners, 40);
+    light_visibility_families_update(roots, &count, alive, owners, 40);
     assert(count == LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
     caster = light_visibility_family_bit(roots, &count, player, 0);
     light = light_visibility_family_bit(roots, &count, player, 0);
@@ -227,14 +228,44 @@ def test_a_caster_sent_before_its_owners_light_gets_the_lights_bit(tmp_path):
     /* past the last bit: 0 on both sides, so the owner distance applies to the light */
     assert(light_visibility_family_bit(roots, &count, 1039, 0) == 0);
     assert(light_visibility_family_bit(roots, &count, 1039, 0) == 0);
-    /* a new frame starts the table again */
-    light_visibility_families_prepare(roots, &count, owners + 10, 3);
-    assert(count == 3 && light_visibility_family_bit(roots, &count, player, 0) == 0);
     ''')
     lights = (ROOT / "source/objects/object_lights.c").read_text()
     assert lights.count("light_visibility_family_bit(") == 1
     assert "light_visibility_family_root(object_index), FALSE);" in lights
-    assert "light_visibility_families_prepare(light_visibility_families.roots" in lights
+    assert "light_visibility_families_update(light_visibility_families.roots" in lights
+
+
+def test_a_family_keeps_its_bit_across_frames_while_its_root_lives(tmp_path):
+    """The class: a family bit that moves between frames. The game reuses a caster's record while its shadow is
+    unchanged, so the record keeps the bit of the frame it was sent in; when the table was made again each frame in
+    light order, bits shifted, an old record carried another family's bit, and that family's light masked the
+    caster out (the Flood's shadow on the a10 pillar went from 93,863 darkened pixels to 64). A root keeps its bit
+    until it dies, a freed bit goes to the next new family, and a live family never takes another's bit."""
+    _run_rule_program(tmp_path, r'''
+    long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    unsigned char alive[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    long first[3] = { 50, 51, 52 }, reordered[3] = { 52, -1, 50 }, later[2] = { 53, 52 };
+    int count = 0, i;
+    for (i = 0; i < LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1; i++)
+        alive[i] = 1;
+    light_visibility_families_update(roots, &count, alive, first, 3);
+    assert(light_visibility_family_bit(roots, &count, 51, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    /* a later frame lists the lights in another order and 51 has no light: every bit stays */
+    light_visibility_families_update(roots, &count, alive, reordered, 3);
+    assert(light_visibility_family_bit(roots, &count, 50, 0) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    assert(light_visibility_family_bit(roots, &count, 51, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(light_visibility_family_bit(roots, &count, 52, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 2);
+    /* 51 dies: its bit is freed and goes to the next new family; the others keep theirs */
+    alive[1] = 0;
+    light_visibility_families_update(roots, &count, alive, later, 2);
+    assert(count == 3);
+    assert(light_visibility_family_bit(roots, &count, 51, 0) == 0);
+    assert(light_visibility_family_bit(roots, &count, 53, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(light_visibility_family_bit(roots, &count, 50, 0) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    assert(light_visibility_family_bit(roots, &count, 52, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 2);
+    ''')
+    lights = (ROOT / "source/objects/object_lights.c").read_text()
+    assert "object_try_and_get(light_visibility_families.roots[i])" in lights
 
 
 def test_the_light_instances_rebuild_when_the_caster_set_changes():
