@@ -159,7 +159,7 @@ def test_controller_glyph_requests(tmp_path):
     first = source.index('static const char *const binding_environment[')
     settings = source[first:source.index('};', first)+2]
     program = program.replace('/* BINDING SETTINGS */', settings).replace('/* BINDINGS READ */', block(source, 'static void bindings_read(void)'))
-    activity = '\n'.join(block(source, marker) for marker in ('static void glyph_input_note(', 'void halo_controller_glyph_pointer_activity(', 'static unsigned int glyph_gamepad_controls(', 'static void glyph_pad_activity(', 'void halo_controller_glyph_input_event('))
+    activity = '\n'.join(block(source, marker) for marker in ('static void glyph_input_note(', 'void halo_controller_glyph_pointer_activity(', 'static unsigned int glyph_gamepad_controls(', 'static void glyph_pad_activity(', 'static int glyph_axis_event_started(', 'void halo_controller_glyph_input_event('))
     program = program.replace('/* ACTIVITY */', activity)
     probe, binary = tmp_path / 'request.c', tmp_path / 'request'
     probe.write_text(program)

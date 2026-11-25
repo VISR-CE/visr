@@ -1547,6 +1547,31 @@ int xinput_sdl_has_physical_gamepad(void)
 	return 0;
 }
 
+#ifdef HALO_IOS
+/* SDL sends an axis event for each change of a stick's value, so a stick held over keeps sending them as its value
+wavers. An axis counts when it crosses the dead zone, the rule a polled pad's controls follow
+(halo_glyph_held_started), kept for each of the pads last heard from. */
+static int glyph_axis_event_started(unsigned int gamepad, int axis, int value)
+{
+	static struct { unsigned int gamepad; struct halo_glyph_held held; } pads[PORT_COUNT];
+	static unsigned int next;
+	unsigned int controls;
+	int index;
+
+	if (axis < 0 || axis >= 32) return 0;
+	for (index = 0; index < PORT_COUNT && pads[index].gamepad != gamepad; index++);
+	if (index == PORT_COUNT)
+	{
+		index = (int)(next++ % PORT_COUNT);
+		pads[index].gamepad = gamepad;
+		pads[index].held.controls = 0;
+	}
+	controls = pads[index].held.controls & ~(1u << axis);
+	if (halo_glyph_axis_active(value, axis >= SDL_GAMEPAD_AXIS_LEFT_TRIGGER)) controls |= 1u << axis;
+	return halo_glyph_held_started(&pads[index].held, controls);
+}
+#endif
+
 /* Menu hints follow the last actual device event, including a second pad.
 The game's port assignment remains unchanged. */
 void halo_controller_glyph_input_event(union SDL_Event const *event)
@@ -1587,8 +1612,7 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 		break;
 	case SDL_EVENT_GAMEPAD_AXIS_MOTION:
 		gamepad = event->gaxis.which;
-		active = event->gaxis.axis >= SDL_GAMEPAD_AXIS_LEFT_TRIGGER ?
-			event->gaxis.value > 9000 : abs(event->gaxis.value) > 9000;
+		active = glyph_axis_event_started(event->gaxis.which, event->gaxis.axis, event->gaxis.value);
 		break;
 	default:
 		break;
@@ -1666,7 +1690,7 @@ static unsigned int glyph_gamepad_controls(XINPUT_GAMEPAD const *pad)
 	for (index = 0; index < 8; index++)
 		if (pad->bAnalogButtons[index] > 64) controls |= 1u << (16 + index);
 	for (index = 0; index < 4; index++)
-		if (abs(sticks[index]) > HALO_GLYPH_STICK_DEAD_ZONE) controls |= 1u << (24 + index);
+		if (halo_glyph_axis_active(sticks[index], 0)) controls |= 1u << (24 + index);
 	return controls;
 }
 

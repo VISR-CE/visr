@@ -65,6 +65,7 @@ APPLE = r'''
 #include <SDL3/SDL.h> /* apple-only */
 #define HALO_IOS 1
 #define DESKTOP 0
+#define PORT_COUNT 4
 typedef struct { unsigned short wButtons; unsigned char bAnalogButtons[8]; short sThumbLX, sThumbLY, sThumbRX, sThumbRY; } XINPUT_GAMEPAD;
 #include "halo_controller_glyphs.h"
 #include "halo_ui_pointer.h"
@@ -92,6 +93,12 @@ static void key(int scancode, unsigned modifiers, int repeat)
 static void button(void)
 {
 	SDL_Event event; memset(&event, 0, sizeof(event)); event.type = SDL_EVENT_MOUSE_BUTTON_DOWN; feed(event);
+}
+static void axis(unsigned which, int axis, int value)
+{
+	SDL_Event event; memset(&event, 0, sizeof(event)); event.type = SDL_EVENT_GAMEPAD_AXIS_MOTION;
+	event.gaxis.which = which; event.gaxis.axis = (Uint8)axis; event.gaxis.value = (Sint16)value;
+	feed(event);
 }
 static void command_tab(float x, float y)
 {
@@ -189,6 +196,29 @@ int main(void)
 	pad.wButtons = 0; pad.bAnalogButtons[2] = 0; pad.sThumbLX = pad.sThumbRY = 0;
 	glyph_pad_activity(&pad_use, &pad); expect(MOUSE);            /* letting go is not using the pad */
 	pad.wButtons = 1; glyph_pad_activity(&pad_use, &pad); expect(PAD);
+	/* a stick's events count when the stick crosses the dead zone, not while it is held over and its value wavers */
+	axis(21, SDL_GAMEPAD_AXIS_LEFTX, 3000); expect(PAD);
+	motion(640, 400, 20, 0, 0); expect(MOUSE);
+	axis(21, SDL_GAMEPAD_AXIS_LEFTX, 8000); expect(MOUSE);            /* inside the dead zone */
+	axis(21, SDL_GAMEPAD_AXIS_LEFTX, -20000); expect(PAD); assert(glyph_menu_input.gamepad == 21);
+	motion(660, 400, 20, 0, 0); expect(MOUSE);
+	for (from = 0; from < 8; from++) { axis(21, SDL_GAMEPAD_AXIS_LEFTX, -20000 - 100 * from); expect(MOUSE); }
+	key(SDL_SCANCODE_DOWN, 0, 0); axis(21, SDL_GAMEPAD_AXIS_LEFTX, -19000); expect(KEYS);
+	axis(21, SDL_GAMEPAD_AXIS_LEFTY, 15000); expect(PAD);             /* the stick's other axis starts */
+	motion(680, 400, 20, 0, 0); expect(MOUSE);
+	axis(22, SDL_GAMEPAD_AXIS_RIGHTX, 15000); expect(PAD); assert(glyph_menu_input.gamepad == 22);   /* another pad */
+	motion(700, 400, 20, 0, 0); axis(22, SDL_GAMEPAD_AXIS_RIGHTX, 16000); axis(21, SDL_GAMEPAD_AXIS_LEFTY, 16000);
+	expect(MOUSE);
+	axis(21, SDL_GAMEPAD_AXIS_LEFTX, 0); axis(21, SDL_GAMEPAD_AXIS_LEFTY, 0); expect(MOUSE);   /* letting go */
+	axis(21, SDL_GAMEPAD_AXIS_LEFTX, -20000); expect(PAD);            /* and pushing it over again */
+	motion(720, 400, 20, 0, 0); expect(MOUSE);
+	axis(21, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, -20000); expect(MOUSE);  /* a trigger reads one way */
+	axis(21, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, 20000); expect(PAD);
+	motion(740, 400, 20, 0, 0); axis(21, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, 25000); expect(MOUSE);
+	axis(21, SDL_GAMEPAD_AXIS_LEFTX, 0); axis(21, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, 0);
+	axis(22, SDL_GAMEPAD_AXIS_RIGHTX, 0); expect(MOUSE);
+	memset(&event, 0, sizeof(event)); event.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN; event.gbutton.which = 21;
+	feed(event); expect(PAD);
 	/* a capture's override stands in for the record for every reader at once, in development builds only */
 	family = "keyboard"; expect(PAD);
 	dev = 1; assert(halo_menu_input_kind() == HALO_INPUT_KEYBOARD && halo_menu_pointer_controls() == 0);
@@ -302,7 +332,8 @@ def test_apple_builds_follow_one_input_through_every_event(tmp_path):
     if not shutil.which('pkg-config') or subprocess.run(['pkg-config', '--exists', 'sdl3']).returncode:
         pytest.skip('SDL3 headers are required')
     flags = subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True).split()
-    output = run(tmp_path, 'apple', APPLE, SHARED + ('void halo_controller_glyph_input_event(',), flags)
+    output = run(tmp_path, 'apple', APPLE, SHARED + ('static int glyph_axis_event_started(',
+                                                   'void halo_controller_glyph_input_event('), flags)
     assert 'steps' in output
 
 

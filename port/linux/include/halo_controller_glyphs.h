@@ -154,6 +154,12 @@ static inline int halo_glyph_edge(struct halo_glyph_edge *edge, int held)
 /* A pad read once a frame has a bit for each control in use (a button, a trigger, a stick's axis), and one counts
 when it starts though others are held: a button pressed with a stick still pushed over is the player using the pad. */
 #define HALO_GLYPH_STICK_DEAD_ZONE 9000
+
+/* a stick's axis reads both ways, a trigger's one */
+static inline int halo_glyph_axis_active(int value, int trigger)
+{
+	return value > HALO_GLYPH_STICK_DEAD_ZONE || (!trigger && value < -HALO_GLYPH_STICK_DEAD_ZONE);
+}
 struct halo_glyph_held { unsigned int controls; };
 
 static inline int halo_glyph_held_started(struct halo_glyph_held *held, unsigned int controls)
