@@ -364,3 +364,58 @@ def test_there_is_one_record_of_the_input():
     assert 'glyph_keyboard_active' not in source and 'glyph_mouse_active' not in source
     writes = [line for line in source.splitlines() if re.search(r'glyph_menu_input(\.\w+)?\s*=[^=]', line)]
     assert writes == ['\tglyph_menu_input = halo_glyph_input_note(glyph_menu_input, source, gamepad, active);'], writes
+
+
+SCRIPT = r'''
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <SDL3/SDL.h> /* apple-only */
+#define HOST_LOG_INFO 0
+#define host_logf(level, ...) ((void)0)
+/* FUNCTIONS */
+
+int main(int argc, char **argv)
+{
+	(void)argc;
+	event_script.cursor = argv[1];
+	for (;;)
+	{
+		event_script_next();
+		if (!event_script.kind) break;
+		printf("%lu %d %d %.2f %.2f\n", event_script.start, event_script.kind, (int)event_script.scancode,
+			event_script.x1, event_script.y1);
+	}
+	return 0;
+}
+'''
+
+
+def test_the_event_script_reads_ops_that_end_at_a_semicolon(tmp_path):
+    """Bug class: a script word read to the next space, so an op without numbers after its word ("key down",
+    "focus") swallowed the ';' and the next op's frame, and the script stopped at its first key. The probe reads
+    scripts through the host's own `event_script_next`, the transition check's among them."""
+    if not shutil.which('pkg-config') or subprocess.run(['pkg-config', '--exists', 'sdl3']).returncode:
+        pytest.skip('SDL3 headers are required')
+    flags = subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True).split()
+    source = (ROOT / 'port/ios/host/host_sdl.c').read_text()
+    start = source.index('static struct\n{\n\tint loaded;\n\tconst char *cursor;\n\tunsigned long frame, start;\n\tint kind, step;')
+    state = source[start:source.index('} event_script;', start) + len('} event_script;')]
+    probe, binary = tmp_path / 'script.c', tmp_path / 'script'
+    probe.write_text(SCRIPT.replace('/* FUNCTIONS */', state + '\n' + block(source, 'static void event_script_next(void)')))
+    subprocess.run([shutil.which('cc'), '-std=gnu11', '-Wall', '-Werror', *flags, str(probe), '-o', str(binary)],
+                   check=True)
+
+    def read(script):
+        lines = subprocess.run([str(binary), script], check=True, capture_output=True, text=True).stdout.splitlines()
+        return [(int(frame), int(kind), int(key), float(x), float(y))
+                for frame, kind, key, x, y in (line.split() for line in lines)]
+
+    down, up = 81, 82   # SDL_SCANCODE_DOWN, SDL_SCANCODE_UP
+    assert read('60 key down;75 key up;160 focus;250 move 0.5 0.17;270 move 0.5 0.80;380 key down;395 key up') == [
+        (60, 2, down, 0, 0), (75, 2, up, 0, 0), (160, 3, up, 0, 0), (250, 1, up, 0.5, 0.17), (270, 1, up, 0.5, 0.8),
+        (380, 2, down, 0, 0), (395, 2, up, 0, 0)]
+    # every op kind before a ';', spaces around it, and a ';' at the end
+    assert [op[:2] for op in read('10 leave;20 enter ; 30 focus;40 key return;;50 move 0.1 0.2;')] == [
+        (10, 4), (20, 5), (30, 3), (40, 2), (50, 1)]
+    assert read('10 key sideways;20 focus') == [] and read('10 hover;20 focus') == []

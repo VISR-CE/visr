@@ -2036,11 +2036,12 @@ static void event_script_next(void)
 	int used = 0;
 
 	event_script.kind = 0;
-	while (event_script.cursor && *event_script.cursor == ';')
+	while (event_script.cursor && (*event_script.cursor == ';' || *event_script.cursor == ' '))
 		event_script.cursor++;
 	if (!event_script.cursor || !*event_script.cursor)
 		return;
-	if (sscanf(event_script.cursor, "%lu %15s%n", &frame, kind, &used) < 2)
+	/* (a word ends at the ';' that ends its op as well as at a space: "90 key down;120 focus;130 leave") */
+	if (sscanf(event_script.cursor, "%lu %15[^; \t]%n", &frame, kind, &used) < 2)
 	{
 		event_script.cursor = NULL;
 		return;
@@ -2065,7 +2066,7 @@ static void event_script_next(void)
 		event_script.kind = 2;
 		event_script.scancode = SDL_SCANCODE_UNKNOWN;
 		name[0] = 0;
-		sscanf(event_script.cursor, "%15s%n", name, &used);
+		sscanf(event_script.cursor, " %15[^; \t]%n", name, &used);
 		for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); i++)
 			if (!strcmp(name, keys[i].name))
 				event_script.scancode = keys[i].scancode;
