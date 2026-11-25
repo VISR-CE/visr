@@ -33,7 +33,7 @@ enum
 	TRACED_SHADOWS_COMMIT,
 	/* id: the shadow the next traced draws apply. Bytes: TRACED_SHADOWS_BASIS_FLOATS floats */
 	TRACED_SHADOWS_APPLY,
-	/* id: unused. Bytes: TRACED_SHADOWS_LIGHT_FLOATS floats, the light the next traced light draws come from */
+	/* id: unused. Bytes: struct traced_shadows_light, the light the next traced light draws come from */
 	TRACED_SHADOWS_LIGHT,
 };
 
@@ -96,12 +96,65 @@ struct traced_shadows_world
 4 x the tangent of the light's half-angle, y pixels a world unit at distance 1 (the projection's y scale times half
 the view's height), z one over the largest penumbra radius in pixels, w unused; 5 unused */
 
-/* TRACED_SHADOWS_LIGHT's floats (debug.traced_light_blocking; nv2a_psh.c's traced light block), four a row:
-0 the light's position and radius; 1 x the ray's start past the lit point and its end short of the light,
-y whether the frame's shadow casters block it too, z how near the light a caster may be and still not block it
-(the unit that carries a flashlight stands at it), w how far short of the light every ray stops when the viewer
-carries it (0 otherwise); 2 x 1 to skip the rays this draw (the cost runs'
-in-run comparison), y how many times the rays are traced (cost runs), z w unused */
+/* TRACED_SHADOWS_LIGHT's record: the light the next traced light draws come from (traced_shadow_casters.c writes
+it, gpu_metal.m sets skip and foveated, nv2a_psh.c's traced light block reads it). One list makes the C struct and
+the shader's, so neither side counts floats. Each field is 1, 3 or 4 floats (a float, packed_float3 or
+packed_float4 in the shader, 4-byte aligned on both sides):
+- position, attenuation_radius: the light, and the radius its pass's attenuation coordinate was made with
+- ray_start: world units past the lit point a ray starts; casters: 1 when the frame's casters block it too;
+  keep_clear: how near the light a caster may be and still not block it (the owner's, when it has no family);
+  stop_short: how far short of the light every ray stops
+- skip: 1 to skip the rays this draw (cost runs, host); repeats: how many times the rays are traced (cost runs);
+  strength: how fully a blocked ray darkens (the cap's ease); family: the owner's mask bit, 0 none
+- camera: the eye's position (the side a pixel is seen from); attenuation_stage: the texture stage of the pass's
+  attenuation coordinate, LIGHT_VISIBILITY_STAGE_NONE for none (light_visibility.h)
+- view_rect: the view in the target's pixels (x, y, width, height); depth_p22, depth_p32: the projection's
+  GL-style depth row; p00, p11, p20, p21: its x and y; foveated: 1 on a foveated pass (host); depth_point_mode:
+  debug.traced_light_depth_point
+- view_forward, view_left, view_up (scaled) and view_x, view_y, view_z: view_to_world, to rebuild a point from depth
+- depth_bias: the fraction of its view distance a point rebuilt from depth starts its ray off its surface */
+#define TRACED_SHADOWS_LIGHT_FIELDS(F) \
+	F(3, position) F(1, attenuation_radius) \
+	F(1, ray_start) F(1, casters) F(1, keep_clear) F(1, stop_short) \
+	F(1, skip) F(1, repeats) F(1, strength) F(1, family) \
+	F(3, camera) F(1, attenuation_stage) \
+	F(4, view_rect) \
+	F(1, depth_p22) F(1, depth_p32) F(1, p00) F(1, p11) \
+	F(1, p20) F(1, p21) F(1, foveated) F(1, depth_point_mode) \
+	F(3, view_forward) F(1, view_x) F(3, view_left) F(1, view_y) \
+	F(3, view_up) F(1, view_z) \
+	F(1, depth_bias) F(3, reserved)
+
+#define TRACED_SHADOWS_LIGHT_C_1(name) float name;
+#define TRACED_SHADOWS_LIGHT_C_3(name) float name[3];
+#define TRACED_SHADOWS_LIGHT_C_4(name) float name[4];
+#define TRACED_SHADOWS_LIGHT_C_FIELD(count, name) TRACED_SHADOWS_LIGHT_C_##count(name)
+#define TRACED_SHADOWS_LIGHT_MSL_1 "float"
+#define TRACED_SHADOWS_LIGHT_MSL_3 "packed_float3"
+#define TRACED_SHADOWS_LIGHT_MSL_4 "packed_float4"
+#define TRACED_SHADOWS_LIGHT_MSL_FIELD(count, name) "\t" TRACED_SHADOWS_LIGHT_MSL_##count " " #name ";\n"
+
+struct traced_shadows_light
+{
+	TRACED_SHADOWS_LIGHT_FIELDS(TRACED_SHADOWS_LIGHT_C_FIELD)
+};
+
+/* the traced lights' instance mask: casters of no family, the level, then one bit a light family (the family field
+of a caster or light record), from FIRST to LAST */
+enum
+{
+	TRACED_SHADOWS_MASK_NO_FAMILY = 1u,
+	TRACED_SHADOWS_MASK_LEVEL = 2u,
+	TRACED_SHADOWS_FAMILY_FIRST = 2,
+	TRACED_SHADOWS_FAMILY_LAST = 31,
+};
+
+/* the same record in the shader, bound at fragment buffer 8 as `constant traced_shadows_light &traced_light` */
+#define TRACED_SHADOWS_LIGHT_MSL \
+	"struct traced_shadows_light\n{\n" TRACED_SHADOWS_LIGHT_FIELDS(TRACED_SHADOWS_LIGHT_MSL_FIELD) "};\n"
+
+typedef char traced_shadows_light_size_check[sizeof(struct traced_shadows_light) == TRACED_SHADOWS_LIGHT_FLOATS * 4
+	? 1 : -1];
 
 /* traced_shadows_resolve's values (gpu_backend.h): the window's rectangle in the target's texels (x, y, width,
 height), the padded rectangle the shadows cover (x, y, width, height), the largest penumbra radius in pixels,

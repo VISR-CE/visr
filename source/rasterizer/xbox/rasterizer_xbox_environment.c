@@ -169,6 +169,7 @@ symbols in this file:
 #include "rasterizer/xbox/rasterizer_xbox_pixel_shader.h"
 #include "rasterizer_xbox_draw_primitives.h"
 #include "rasterizer_xbox_internal.h"
+#include "light_visibility.h" /* port: the attenuation stages */
 
 /* ---------- constants */
 
@@ -1301,7 +1302,7 @@ void _rasterizer_environment_diffuse_light_begin(
 			D3DRS_PSCONSTANT0_0,
 			real_rgb_color_to_pixel32(&light->color));
 		/* port: the light reaches only what its visibility source says (light_visibility.h) */
-		light_visibility_begin(&light->position, light->radius, 2, light->radius);
+		light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_DIFFUSE, light->radius);
 	}
 	return;
 }
@@ -1980,7 +1981,7 @@ void _rasterizer_environment_specular_light_begin(
 			rasterizer_set_pixel_shader(&pixel_shader);
 			/* port: the highlight reaches only what its visibility source says (light_visibility.h); its
 			attenuation coordinate is stage 1's, over the specular radius */
-			light_visibility_begin(&light->position, light->radius, 1,
+			light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_SPECULAR,
 				light->definition->geometry.specular_radius_multiplier * light->radius);
 		}
 	}
@@ -3414,7 +3415,7 @@ static void rasterizer_environment_specular_spot_light_begin(
 		rasterizer_set_pixel_shader(&pixel_shader);
 		/* port: the highlight reaches only what its visibility source says (light_visibility.h); without an
 		attenuation coordinate, its lit point comes from depth */
-		light_visibility_begin(&light->position, light->radius, 0, radius);
+		light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_NONE, radius);
 	}
 	return;
 }

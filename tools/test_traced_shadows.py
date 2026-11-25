@@ -176,10 +176,10 @@ def test_an_owner_family_never_blocks_its_own_light(tmp_path):
     assert(light_visibility_family_bit(roots, &count, 71, 1) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
     ''')
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
-    assert "0xFFFFFFFDu & ~(family >= 2u && family <= 31u ? (1u << family) : 0u)" in shader
+    assert "uint caster_mask = ~%uu & ~(family >= %uu && family <= %uu ? (1u << family) : 0u);" in shader
     assert "traced_blockers, caster_mask)" in shader
     host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
-    assert "instances[index].mask = index ? masks[index] : 2u;" in host
+    assert "instances[index].mask = index ? masks[index] : (uint32_t)TRACED_SHADOWS_MASK_LEVEL;" in host
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
     assert "record->family = (uint32_t)light_visibility_family(traced.object_index);" in game
 
@@ -253,18 +253,36 @@ def test_every_traced_light_pass_runs_the_one_visibility_function():
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     emitter = shader[shader.index("static void light_visibility_emit"):]
     emitter = emitter[:emitter.index("\n}\n")]
-    assert shader.count("traced_blockers, 2u)") == 1 and "traced_blockers, 2u)" in emitter
+    assert shader.count("traced_blockers, %uu)") == 1 and "traced_blockers, %uu)" in emitter
     assert shader.count("light_visibility_emit(&text,") >= 1
-    for rule in ("bool black = max(max(result.r, result.g), result.b) < 1.0 / 512.0;",
+    for rule in ("bool black = max(max(result.r, result.g), result.b) < %.9g;",
                  "bool facing = dot(n, to_light) > 0.0;",
-                 "n = dot(n, traced_light[3].xyz - p) < 0.0 ? -n : n;",
+                 "n = dot(n, float3(traced_light.camera) - p) < 0.0 ? -n : n;",
                  "!black && facing"):
         assert rule in emitter
     # (the normal comes from derivatives taken before any branch: every pixel of the quad still runs there)
     assert shader.index("cross(dfdx(traced_point), dfdy(traced_point))") < shader.index("light_visibility_emit(&text,")
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
-    assert "light[7] = (float)(0.02f * radius > 0.05f ? 0.02f * radius : 0.05f);" in game
-    assert "light[7] = carried > light[7] ? carried : light[7];" in game
+    assert "light.stop_short = (float)(0.02f * radius > 0.05f ? 0.02f * radius : 0.05f);" in game
+    assert "light.stop_short = carried > light.stop_short ? carried : light.stop_short;" in game
+
+
+def test_the_light_record_is_read_and_written_by_field_name():
+    """The class: a light record indexed by bare float numbers in three files (the game writes it, the host sets two
+    fields, the shader reads it), where one shifted index reads another field. One field list in
+    traced_shadows_format.h makes the C struct and the shader's; no side counts floats."""
+    header = (ROOT / "port/linux/src/traced_shadows_format.h").read_text()
+    assert "TRACED_SHADOWS_LIGHT_FIELDS(TRACED_SHADOWS_LIGHT_C_FIELD)" in header
+    assert "TRACED_SHADOWS_LIGHT_FIELDS(TRACED_SHADOWS_LIGHT_MSL_FIELD)" in header
+    assert "sizeof(struct traced_shadows_light) == TRACED_SHADOWS_LIGHT_FLOATS * 4" in header
+    for path in ("port/linux/src/nv2a_psh.c", "port/linux/src/nv2a_msl.c"):
+        assert not re.search(r"traced_light\[\d", (ROOT / path).read_text()), path
+    assert "constant traced_shadows_light &traced_light [[buffer(8)]]" in (ROOT / "port/linux/src/nv2a_msl.c").read_text()
+    game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
+    assert not re.search(r"\blight\[\d", game)
+    host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
+    bind = host[host.index("static void traced_light_bind(void)"):]
+    assert not re.search(r"\blight\[\d", bind[:bind.index("\n}\n")])
 
 
 def test_the_visibility_function_compiles_for_metal(tmp_path):
@@ -277,21 +295,33 @@ def test_the_visibility_function_compiles_for_metal(tmp_path):
         return "".join(ast.literal_eval(m) for m in re.findall(r'"(?:[^"\\]|\\.)*"', chunk))
 
     emitter = shader[shader.index("static void light_visibility_emit"):]
-    emitter = emitter[:emitter.index("point, normal, bias);")]
-    body = literals(emitter[emitter.index("xgpu_text_append(text,"):]) % ("traced_point", "traced_normal", "traced_bias")
+    emitter = emitter[:emitter.index("point, normal, bias, LIGHT_VISIBILITY_BLACK")]
+    body = literals(emitter[emitter.index("xgpu_text_append(text,"):]) % (
+        "traced_point", "traced_normal", "traced_bias", 1.0 / 512.0, 2, 2, 31, 2)
+    first = shader.index('"\\tbool traced_has_coordinate')
+    stages = literals(shader[first:shader.index(");", first)]) % (0, 2)
     at = shader.index("float3 traced_point = ")
     before = shader[shader.rindex("xgpu_text_append(&text,", 0, at):]
     before = literals(before[:before.index('");') + 1])
+    # (the light record's shader struct, as the header makes it)
+    program = tmp_path / "record.c"
+    program.write_text('#include <stdio.h>\n#include "traced_shadows_format.h"\n'
+                       'int main(void) { fputs(TRACED_SHADOWS_LIGHT_MSL, stdout); return 0; }\n')
+    compiler = shutil.which("cc") or shutil.which("clang")
+    subprocess.run([compiler, "-std=c99", "-Wall", "-Wextra", "-Werror", "-I", str(ROOT / "port/linux/src"),
+                    str(program), "-o", str(tmp_path / "record")], check=True)
+    record = subprocess.run([str(tmp_path / "record")], capture_output=True, text=True, check=True).stdout
     source = tmp_path / "light.metal"
     source.write_text(
         "#include <metal_stdlib>\nusing namespace metal;\n#include <metal_raytracing>\ntypedef float4 vec4;\n"
+        + record +
         "struct FragmentIn { float4 xT1 [[user(xT1)]]; float4 xT2 [[user(xT2)]]; };\n"
         "fragment float4 fragment_main(FragmentIn in [[stage_in]],\n"
         " metal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],\n"
         " metal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],\n"
-        " constant float4 *traced_light [[buffer(8)]], float4 light_position [[position]],\n"
+        " constant traced_shadows_light &traced_light [[buffer(8)]], float4 light_position [[position]],\n"
         " constant rasterization_rate_map_data &rate_map [[buffer(1)]])\n{\n\tfloat4 xT1 = in.xT1, xT2 = in.xT2;\n"
-        + before + "\tfloat4 result = xT2;\n" + body + "\tresult.rgb *= traced_lit;\n\treturn result;\n}\n")
+        + stages + before + "\tfloat4 result = xT2;\n" + body + "\tresult.rgb *= traced_lit;\n\treturn result;\n}\n")
     subprocess.run(["xcrun", "--sdk", "macosx", "metal", "-c", str(source), "-o", str(tmp_path / "light.air")],
                    check=True)
 
@@ -301,15 +331,15 @@ def test_highlights_are_blocked_where_the_diffuse_light_is():
     takes the light's visibility like the diffuse pass, with its own attenuation stage and radius; the spot pass,
     which has no attenuation coordinate, is drawn as the game draws it until its depth path lands."""
     environment = (ROOT / "source/rasterizer/xbox/rasterizer_xbox_environment.c").read_text()
-    assert "light_visibility_begin(&light->position, light->radius, 2, light->radius);" in environment
-    assert ("light_visibility_begin(&light->position, light->radius, 1,\n"
+    assert "light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_DIFFUSE, light->radius);" in environment
+    assert ("light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_SPECULAR,\n"
             "\t\t\t\tlight->definition->geometry.specular_radius_multiplier * light->radius);") in environment
     end = environment[environment.index("void _rasterizer_environment_specular_light_end("):]
     assert "light_visibility_end();" in end[:end.index("\n}\n")]
     lights = (ROOT / "source/objects/object_lights.c").read_text()
     assert lights.count("light_visibility_for_slot(light_index, &path, &strength);") == 2
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
-    assert "(traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz)" in shader
+    assert "(traced_diffuse ? xT2.xyz : xT1.xyz)" in shader
 
 
 def test_a_depth_point_decodes_the_depth_the_xbox_conversion_stores():
@@ -318,9 +348,9 @@ def test_a_depth_point_decodes_the_depth_the_xbox_conversion_stores():
     0-1 range without remapping, and Metal stores its reverse. Decoding it as a near-to-far range of the frustum's
     near and far halved every distance, so the spot pass's rays started inside the floor."""
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
-    assert "float light_z = traced_light[5].y / (traced_light[5].x + 1.0 - light_position.z);" in shader
+    assert "float light_z = traced_light.depth_p32 / (traced_light.depth_p22 + 1.0 - light_position.z);" in shader
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
-    assert "light[20] = projection[2][2];" in game and "light[21] = projection[3][2];" in game
+    assert "light->depth_p22 = projection[2][2];" in game and "light->depth_p32 = projection[3][2];" in game
     near, far = 0.0078125, 1024.0
     p22 = -(near + far) / (far - near)
     p32 = -2.0 * near * far / (far - near)
@@ -336,22 +366,22 @@ def test_a_pass_without_an_attenuation_coordinate_rebuilds_its_point_from_depth(
     debug.traced_light_depth_point runs the same path in every pass, so stills prove it matches the attenuation
     point."""
     environment = (ROOT / "source/rasterizer/xbox/rasterizer_xbox_environment.c").read_text()
-    assert "light_visibility_begin(&light->position, light->radius, 0, radius);" in environment
+    assert "light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_NONE, radius);" in environment
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     assert "light_decoder.map_physical_to_screen_coordinates(light_position.xy)" in shader
-    assert "bool traced_from_depth = !(traced_light[3].w > 0.5 && traced_light[6].w < 0.5);" in shader
+    assert "bool traced_from_depth = !(traced_has_coordinate && traced_light.depth_point_mode < 0.5);" in shader
     assert "float3 traced_point = traced_from_depth ? traced_depth_point : traced_attenuation_point;" in shader
     # (a rebuilt point lies within a fraction of its distance of its surface: its ray starts that far off it, along
     # the normal turned toward the camera, so the surface under it never blocks it; an exact point is not moved)
-    assert "float traced_bias = traced_from_depth ? traced_light[10].x * light_z : 0.0;" in shader
+    assert "float traced_bias = traced_from_depth ? traced_light.depth_bias * light_z : 0.0;" in shader
     emitter = shader[shader.index("static void light_visibility_emit"):]
     emitter = emitter[:emitter.index("\n}\n")]
-    assert emitter.index("n = dot(n, traced_light[3].xyz - p) < 0.0 ? -n : n;") < emitter.index("p += n_length > 0.0")
-    assert emitter.index("p += n_length > 0.0") < emitter.index("float3 to_light = traced_light[0].xyz - p;")
+    assert emitter.index("n = dot(n, float3(traced_light.camera) - p) < 0.0 ? -n : n;") < emitter.index("p += n_length > 0.0")
+    assert emitter.index("p += n_length > 0.0") < emitter.index("float3 to_light = float3(traced_light.position) - p;")
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
     replay = game[game.index("if (rasterizer_other_eye_draws())"):]
     replay = replay[:replay.index("halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);")]
-    assert replay.index("HALO_STEREO_REPLAY_EYE_1") < replay.index("traced_light_view(light);")
+    assert replay.index("HALO_STEREO_REPLAY_EYE_1") < replay.index("traced_light_view(&light);")
     assert "global_window_parameters.camera.position.x" in game
     host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
-    assert "light[26] = pass_rate_map_data ? 1.0f : 0.0f;" in host
+    assert "light.foveated = pass_rate_map_data ? 1.0f : 0.0f;" in host

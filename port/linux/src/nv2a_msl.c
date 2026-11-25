@@ -347,7 +347,7 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	instance structure (buffer 6, with the level's structure as an instance of its own), the level's (7) and the
 	light (8, traced_shadows_format.h), which gpu_metal.m binds (traced_light_bind) */
 	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
-		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_LIGHT 1\n");
+		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_LIGHT 1\n" TRACED_SHADOWS_LIGHT_MSL);
 	xgpu_text_append(text, "fragment %s fragment_main(FragmentIn in [[stage_in]], constant Uniforms &u [[buffer(0)]]",
 		writes_depth ? "FragmentWithDepth" : key->alpha_test_samples ? "FragmentOut" : "float4");
 	for (stage = 0; stage < 4; stage++)
@@ -376,7 +376,7 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(text, ",\n\tmetal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],"
 			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"
-			"\n\tconstant float4 *traced_light [[buffer(8)]], float4 light_position [[position]]");
+			"\n\tconstant traced_shadows_light &traced_light [[buffer(8)]], float4 light_position [[position]]");
 	/* (a traced light rebuilt from depth on a foveated pass decodes the eye's rate map: gpu_metal.m binds the pass's
 	map at buffer 1, or a stand-in on a pass without one) */
 	if (key->light_visibility == LIGHT_VISIBILITY_TRACED && !foveated)

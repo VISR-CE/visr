@@ -31,6 +31,8 @@ The rest is plain C with no game state, so tools/test_traced_shadows.py compiles
 #ifndef __LIGHT_VISIBILITY_H
 #define __LIGHT_VISIBILITY_H
 
+#include "../src/traced_shadows_format.h" /* the instance mask's family bits */
+
 enum
 {
 	LIGHT_VISIBILITY_NONE = 0,
@@ -52,10 +54,16 @@ int light_visibility_family(long object_index);
 enum
 {
 	LIGHT_VISIBILITY_MAXIMUM = 128, /* MAXIMUM_RENDERED_LIGHTS, the game's lights in a view */
+	/* light_visibility_begin's attenuation stage: the texture stage holding the pass's distance attenuation
+	coordinate (the specular point pass's xT1, the diffuse pass's xT2), or none (the specular spot pass), whose lit
+	point is rebuilt from depth */
+	LIGHT_VISIBILITY_STAGE_NONE = 0,
+	LIGHT_VISIBILITY_STAGE_SPECULAR = 1,
+	LIGHT_VISIBILITY_STAGE_DIFFUSE = 2,
 	LIGHT_VISIBILITY_EASE_MILLISECONDS = 100,
-	/* the instance mask: bit 0 casters of no family, bit 1 the level, then one bit a family */
-	LIGHT_VISIBILITY_FAMILY_FIRST = 2,
-	LIGHT_VISIBILITY_FAMILY_LAST = 31,
+	/* the families' bits of the traced lights' instance mask (traced_shadows_format.h) */
+	LIGHT_VISIBILITY_FAMILY_FIRST = TRACED_SHADOWS_FAMILY_FIRST,
+	LIGHT_VISIBILITY_FAMILY_LAST = TRACED_SHADOWS_FAMILY_LAST,
 	/* object_types.h: biped, vehicle, weapon, equipment, garbage, projectile come before scenery */
 	LIGHT_VISIBILITY_LAST_BLOCKED_OWNER_TYPE = 5,
 };

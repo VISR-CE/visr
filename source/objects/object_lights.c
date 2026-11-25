@@ -1813,10 +1813,10 @@ lights_globals.scene_point_lights */
 static struct
 {
 	short count;
-	long light_index[128];
-	unsigned char path[128];
-	unsigned char family[128];
-	float strength[128];
+	long light_index[LIGHT_VISIBILITY_MAXIMUM];
+	unsigned char path[LIGHT_VISIBILITY_MAXIMUM];
+	unsigned char family[LIGHT_VISIBILITY_MAXIMUM];
+	float strength[LIGHT_VISIBILITY_MAXIMUM];
 } light_visibility_windows[MAXIMUM_WINDOWS];
 static struct
 {
@@ -1886,10 +1886,10 @@ int light_visibility_family(
 void lights_choose_visibility(
 	void)
 {
-	struct light_visibility_candidate candidates[128];
-	short slots[128], count = 0, i;
-	float traced[128];
-	unsigned char diffuse[128], specular[128];
+	struct light_visibility_candidate candidates[LIGHT_VISIBILITY_MAXIMUM];
+	short slots[LIGHT_VISIBILITY_MAXIMUM], count = 0, i;
+	float traced[LIGHT_VISIBILITY_MAXIMUM];
+	unsigned char diffuse[LIGHT_VISIBILITY_MAXIMUM], specular[LIGHT_VISIBILITY_MAXIMUM];
 	boolean limited = lights_select_level(diffuse, specular);
 	short window = render.window_index;
 
@@ -2020,7 +2020,7 @@ boolean light_visibility_begin(
 	switch (path)
 	{
 	case LIGHT_VISIBILITY_TRACED:
-		return attenuation_stage >= 0 && attenuation_stage <= 2
+		return attenuation_stage >= LIGHT_VISIBILITY_STAGE_NONE && attenuation_stage <= LIGHT_VISIBILITY_STAGE_DIFFUSE
 			? traced_light_begin(position, radius, strength, family, attenuation_stage, attenuation_radius)
 			: FALSE;
 	default:

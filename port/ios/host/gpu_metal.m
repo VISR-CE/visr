@@ -5586,7 +5586,8 @@ static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
 	if (shadow >= TRACED_SHADOWS_SHADOWS || !traced_caster_read(bytes, size, &caster, &shape, &pose) ||
 		caster->epoch != traced.epoch)
 		return;
-	traced.shadow_family[shadow] = caster->family >= 2 && caster->family <= 31 ? (uint8_t)caster->family : 0;
+	traced.shadow_family[shadow] = caster->family >= TRACED_SHADOWS_FAMILY_FIRST && caster->family <= TRACED_SHADOWS_FAMILY_LAST
+		? (uint8_t)caster->family : 0;
 	/* every part is one the map defined */
 	for (model = 0; model < caster->model_count; model++)
 	{
@@ -5814,7 +5815,7 @@ encoded, and made again when more casters were committed since. A caster's struc
 (a slot's structure is replaced when its caster grows). */
 static struct
 {
-	float light[TRACED_SHADOWS_LIGHT_FLOATS];
+	struct traced_shadows_light light;
 	unsigned long frame;      /* the frame the instances were made in */
 	uint64_t made_with;       /* the casters they hold and their families (traced_light_casters) */
 	uint32_t count;           /* their instances, the level's included */
@@ -5828,7 +5829,7 @@ static __strong NSMutableArray<id<MTLAccelerationStructure>> *traced_light_membe
 static void traced_light_take(const void *bytes, uint32_t size)
 {
 	if (bytes && size == sizeof(traced_lights.light))
-		memcpy(traced_lights.light, bytes, sizeof(traced_lights.light));
+		memcpy(&traced_lights.light, bytes, sizeof(traced_lights.light));
 }
 
 /* what the blockers' instance structure holds: each caster's shadow, structure and family. A window (or a second
@@ -5889,7 +5890,8 @@ static BOOL traced_light_ready(void)
 				if (traced.shadow_slot[shadow] && traced_structures[traced.shadow_slot[shadow] - 1])
 				{
 					/* (a caster of a light family takes that family's bit: its own lights' rays leave it out) */
-					masks[members.count] = traced.shadow_family[shadow] ? 1u << traced.shadow_family[shadow] : 1u;
+					masks[members.count] = traced.shadow_family[shadow] ? 1u << traced.shadow_family[shadow]
+						: (uint32_t)TRACED_SHADOWS_MASK_NO_FAMILY;
 					[members addObject:traced_structures[traced.shadow_slot[shadow] - 1]];
 				}
 			}
@@ -5910,7 +5912,7 @@ static BOOL traced_light_ready(void)
 				instances[index].transformationMatrix.columns[1] = (MTLPackedFloat3){ 0.0f, 1.0f, 0.0f };
 				instances[index].transformationMatrix.columns[2] = (MTLPackedFloat3){ 0.0f, 0.0f, 1.0f };
 				instances[index].options = MTLAccelerationStructureInstanceOptionOpaque;
-				instances[index].mask = index ? masks[index] : 2u;
+				instances[index].mask = index ? masks[index] : (uint32_t)TRACED_SHADOWS_MASK_LEVEL;
 				instances[index].accelerationStructureIndex = index;
 			}
 			descriptor.instancedAccelerationStructures = members;
@@ -5948,15 +5950,14 @@ static BOOL traced_light_ready(void)
 
 static void traced_light_bind(void)
 {
-	float light[TRACED_SHADOWS_LIGHT_FLOATS];
+	struct traced_shadows_light light = traced_lights.light;
 
-	memcpy(light, traced_lights.light, sizeof(light));
 	if (traced_lights.ab < 0)
 		traced_lights.ab = getenv("HALO_RT_LIGHT_AB") != NULL;
-	light[8] = traced_lights.ab && ((frames / 300) & 1) ? 1.0f : 0.0f;
+	light.skip = traced_lights.ab && ((frames / 300) & 1) ? 1.0f : 0.0f;
 	/* (the pass's rate map, for a lit point rebuilt from depth on a foveated pass; a stand-in on any other, which
 	the shader declares but does not read) */
-	light[26] = pass_rate_map_data ? 1.0f : 0.0f;
+	light.foveated = pass_rate_map_data ? 1.0f : 0.0f;
 	if (!stages_rate_map)
 	{
 		static __strong id<MTLBuffer> stand_in;
@@ -5973,7 +5974,7 @@ static void traced_light_bind(void)
 	metal_state_always(&state_cache);
 	[encoder setFragmentAccelerationStructure:traced_world atBufferIndex:7];
 	metal_state_always(&state_cache);
-	[encoder setFragmentBytes:light length:sizeof(light) atIndex:8];
+	[encoder setFragmentBytes:&light length:sizeof(light) atIndex:8];
 	metal_state_always(&state_cache);
 }
 
