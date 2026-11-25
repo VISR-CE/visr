@@ -120,13 +120,23 @@ static inline int halo_glyph_input_pointer_controls(struct halo_glyph_input inpu
 	return input.source == HALO_GLYPH_INPUT_MOUSE ? 1 : input.source == HALO_GLYPH_INPUT_TOUCH ? 2 : 0;
 }
 
+/* SDL's numbers for the modifier keys, which this header cannot include SDL for (xinput_sdl.c, which does, asserts
+them): the scancodes of the left and right Control, Shift, Alt and GUI keys are one run, and the GUI key (Command, or
+the Windows key) has a modifier bit for each side. */
+#define HALO_GLYPH_SCANCODE_MODIFIER_FIRST 224
+#define HALO_GLYPH_SCANCODE_LEFT_GUI 227
+#define HALO_GLYPH_SCANCODE_RIGHT_GUI 231
+#define HALO_GLYPH_SCANCODE_MODIFIER_LAST 231
+#define HALO_GLYPH_KEY_MODIFIER_GUI 0x0C00u
+
 /* Whether a key going down is the player using the keyboard: not a repeat, a hardware keyboard (a software one's
 keys stay touch input), and not a modifier alone or a chord with Command or the Windows key, which belong to the
-system (the Command of Command-Tab is not the player choosing the keyboard). Scancodes and modifier bits are SDL's:
-224-231 are the left and right Control, Shift, Alt and GUI keys; 0x0C00 is SDL_KMOD_GUI. */
+system (the Command of Command-Tab is not the player choosing the keyboard). */
 static inline int halo_glyph_key_active(int scancode, unsigned int modifiers, int repeat, int hardware_keyboard)
 {
-	return !repeat && hardware_keyboard && !(scancode >= 224 && scancode <= 231) && !(modifiers & 0x0C00);
+	return !repeat && hardware_keyboard &&
+		!(scancode >= HALO_GLYPH_SCANCODE_MODIFIER_FIRST && scancode <= HALO_GLYPH_SCANCODE_MODIFIER_LAST) &&
+		!(modifiers & HALO_GLYPH_KEY_MODIFIER_GUI);
 }
 
 /* Held state read once a frame (a pad's sticks and buttons, a desktop build's keys) counts when it starts, never

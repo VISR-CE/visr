@@ -65,6 +65,11 @@ extern unsigned short player_input_profile_binding(short local_player_index, sho
 #include <stdint.h>
 
 #define PORT_COUNT 4
+/* halo_controller_glyphs.h's modifier keys are SDL's */
+_Static_assert(HALO_GLYPH_SCANCODE_MODIFIER_FIRST == SDL_SCANCODE_LCTRL &&
+	HALO_GLYPH_SCANCODE_MODIFIER_LAST == SDL_SCANCODE_RGUI && HALO_GLYPH_SCANCODE_LEFT_GUI == SDL_SCANCODE_LGUI &&
+	HALO_GLYPH_SCANCODE_RIGHT_GUI == SDL_SCANCODE_RGUI && SDL_SCANCODE_RGUI - SDL_SCANCODE_LCTRL == 7 &&
+	HALO_GLYPH_KEY_MODIFIER_GUI == SDL_KMOD_GUI, "the modifier keys' numbers are SDL's");
 /* The input the menus and the prompts follow: the one record of it (halo_controller_glyphs.h), on every platform.
 It changes only through glyph_input_note, called by: the SDL event classifier (halo_controller_glyph_input_event,
 Apple builds), the host's pointer for what makes no SDL event (halo_controller_glyph_pointer_activity: fingers,
