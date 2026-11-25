@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "test_tmpdir.h"
+#include "test_wait.h"
 
 #define CHECK(condition) do { if (!(condition)) { \
 	fprintf(stderr, "%s:%d: %s failed in %s\n", __FILE__, __LINE__, #condition, test_name); exit(1); } } while (0)
@@ -467,17 +468,12 @@ static void *open_gate_soon(void *unused)
 
 static void wait_for_gate(void)
 {
-	int tries = 0;
-
-	/* a cap for a hung worker, not an expectation: a loaded host can take many seconds for one full sync */
-	while (!atomic_load(&gate_reached) && tries++ < 60000)
-		usleep(1000);
-	CHECK(atomic_load(&gate_reached));
+	CHECK(TEST_WAIT_UNTIL(atomic_load(&gate_reached)));
 }
 
 /* the worker's own signal that it is idle (nothing queued, nothing being written); the cap is wall time and
    only catches a hung worker, so a slow disk or a busy host cannot fail the probe */
-static int wait_idle(void) { return save_writer_wait(120); }
+static int wait_idle(void) { return save_writer_wait(TEST_WAIT_CAP_SECONDS); }
 
 static void close_gate(void) { atomic_store(&gate_reached, 0); atomic_store(&gate_closed, 1); }
 

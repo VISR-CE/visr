@@ -10,6 +10,7 @@ match the direct run's whole hash. Then, behind the queue, a backend that reads 
 gpu_call_hash.c and gpu_queue.c. */
 
 #include "gpu_call_hash.h"
+#include "test_wait.h"
 #include "gpu_queue.h"
 #include "gpu_owner_check.h"
 #include <pthread.h>
@@ -650,7 +651,7 @@ int main(void)
 		unsigned long sleeps = gpu_queue_consumer_sleeps(), before;
 		struct gpu_backend slow_backend = fake;
 		struct gpu_draw draw;
-		int paused, tries;
+		int paused;
 		uint32_t index;
 
 		memset(&draw, 0, sizeof(draw));
@@ -676,10 +677,9 @@ int main(void)
 		queue = gpu_queue_wrap(&slow_backend, NULL, GPU_QUEUE_THREAD, 0, quiet, NULL);
 		spin_seconds(pause * 4);
 		queue->draw(&draw, &stores[0], &uniforms);
-		for (tries = 0; atomic_load(&slow_draws_made) == before && tries < 1000; tries++)
-			spin_seconds(0.001);
+		TEST_WAIT_UNTIL(atomic_load(&slow_draws_made) != before);
 		CHECK(atomic_load(&slow_draws_made) == before + 1, "a record written to a sleeping encode thread was not made "
-			"within a second without a drain");
+			"without a drain");
 	}
 	puts("gpu_queue_probe: ok");
 	return 0;

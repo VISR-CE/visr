@@ -1,4 +1,5 @@
 /* Exercise the real UIKit controller with a feed that completes after presentation. */
+#include "test_wait.h"
 #import <UIKit/UIKit.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +31,7 @@ int host_benchmark_send(const char *report_path, const char *summary, char *mess
         check(visible_menu() != nil, "Launch menu is visible before pending delivery begins");
     });
     atomic_store(&sender_started, true);
-    check(dispatch_semaphore_wait(sender_gate, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) == 0,
+    check(dispatch_semaphore_wait(sender_gate, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0,
         "Play returns while pending iCloud delivery is still waiting");
     snprintf(message, size, "Pending upload retried");
     return 1;

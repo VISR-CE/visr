@@ -1,4 +1,5 @@
 /* Exercise the production wait and hold routing without UIKit or an app. */
+#include "test_wait.h"
 #include <assert.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -40,10 +41,7 @@ static void pause_briefly(void)
 }
 static void wait_for(unsigned count)
 {
-    for (unsigned tries = 0; atomic_load(&waits) < count; tries++) {
-        assert(tries < 2000);
-        pause_briefly();
-    }
+    assert(TEST_WAIT_UNTIL(atomic_load(&waits) >= count));
 }
 /* the work a hold does before it waits (the encode queue's drain): counted, with the background flag it saw */
 static _Atomic unsigned befores, befores_in_background;
@@ -71,7 +69,7 @@ static void *hold(void *unused)
 }
 int main(void)
 {
-    alarm(20);
+    alarm(TEST_WAIT_WATCHDOG_SECONDS);
     /* Clear before entry must return immediately, including off main. */
     host_lifecycle_hold(NULL);
     assert(!spins && !atomic_load(&waits));

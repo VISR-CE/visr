@@ -1,5 +1,6 @@
 /* Exercise the real SDL stream lock and the host's cross-thread PCM handoff.
    A stalled callback is a failure (alarm), not an indefinitely hanging test. */
+#include "test_wait.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,7 +86,7 @@ int main(void)
     press.type=SDL_EVENT_KEY_UP;
     assert(!held_back(&press));
     panel_open=0;
-    alarm(10);
+    alarm(TEST_WAIT_WATCHDOG_SECONDS);
     SDL_SetHint(SDL_HINT_AUDIO_DRIVER, "dummy");
     assert(SDL_Init(SDL_INIT_AUDIO));
     SDL_AudioSpec spec = {SDL_AUDIO_F32, 2, 48000};

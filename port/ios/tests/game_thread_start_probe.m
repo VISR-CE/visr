@@ -1,4 +1,5 @@
 /* Exercise startup and shutdown without SDL, a window, or game data. */
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #include <assert.h>
@@ -87,10 +88,10 @@ static uint32_t host_guest_on_stack(uintptr_t start, uint32_t boot, uintptr_t ar
         assert(startup_returned);
 #endif
     });
-    while (!atomic_load(&pumps)) usleep(1000);
+    assert(TEST_WAIT_UNTIL(atomic_load(&pumps)));
     if (quit_mode) {
         assert(!kill(getpid(), SIGTERM));
-        while (!atomic_load(&quit_events)) usleep(1000);
+        assert(TEST_WAIT_UNTIL(atomic_load(&quit_events)));
         if (quit_mode == 2) for (;;) pause();
     }
     host_exit(23);
@@ -111,7 +112,7 @@ int main(void) {
     for (quit_mode = 0; quit_mode < 3; quit_mode++) {
         pid_t child = fork(); assert(child >= 0);
         if (!child) {
-            alarm(5);
+            alarm(TEST_WAIT_WATCHDOG_SECONDS);
             assert(host_quit_signals_install(dispatch_get_main_queue(), quit_signal));
             startup.maximum_frames_per_second = quit_mode == 0 ? 60 : (quit_mode == 1 ? 120 : 240);
             game_thread_run(123, 456, 789, (void *)1024);

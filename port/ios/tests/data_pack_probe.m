@@ -1,3 +1,4 @@
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <CommonCrypto/CommonDigest.h>
 #import "../host/host_data_pack.h"
@@ -74,11 +75,7 @@ static NSURLSessionConfiguration *ProbeConfiguration(id object, SEL selector) {
     return configuration;
 }
 static void WaitForPending(NSString *root) {
-    for (int attempt = 0; attempt < 200; attempt++) {
-        NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@"state.json"]] options:0 error:NULL];
-        if ([state[@"pending"] length]) return;
-        [NSThread sleepForTimeInterval:0.01];
-    }
+    TEST_WAIT_UNTIL([[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@"state.json"]] options:0 error:NULL][@"pending"] length]);
 }
 static NSString *NewRoot(void) {
     return [NSTemporaryDirectory() stringByAppendingPathComponent:[@"visr-pack-probe-" stringByAppendingString:NSUUID.UUID.UUIDString]];
@@ -106,7 +103,7 @@ static BOOL FailsClosedPromptly(NSString *root) {
     child.executableURL = [NSURL fileURLWithPath:NSProcessInfo.processInfo.arguments[0]];
     child.arguments = @[@"--read-fifo", root];
     if (![child launchAndReturnError:NULL]) return NO;
-    for (int attempt = 0; attempt < 200 && child.isRunning; attempt++) [NSThread sleepForTimeInterval:0.01];
+    for (int attempt = 0; attempt < 200 && child.isRunning; attempt++) [NSThread sleepForTimeInterval:0.01];   /* TEST_WAIT_SHORT_ON_PURPOSE: a read of a fifo nobody writes must fail promptly */
     BOOL finished = !child.isRunning;
     if (!finished) [child terminate];
     [child waitUntilExit];
@@ -345,9 +342,9 @@ int main(int argc, const char **argv) { @autoreleasepool {
         checkSucceeded = success; dispatch_semaphore_signal(checked);
     }];
     WaitForPending(root);
-    for (int attempt = 0; attempt < 200 && ![[NSFileManager defaultManager] fileExistsAtPath:[root stringByAppendingPathComponent:@"feed-validator.txt"]]; attempt++) [NSThread sleepForTimeInterval:0.01];
+    TEST_WAIT_UNTIL([[NSFileManager defaultManager] fileExistsAtPath:[root stringByAppendingPathComponent:@"feed-validator.txt"]]);
     CHECK(requests == 1, "HTTPS update is fetched once");
-    CHECK(dispatch_semaphore_wait(checked, dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC)) == 0 && checkSucceeded,
+    CHECK(dispatch_semaphore_wait(checked, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0 && checkSucceeded,
         "successful staging completes the readiness check");
     CHECK([[store beginLaunch] isEqual:@"/bundled"], "network update does not hot swap");
     store = Store(root);
@@ -357,23 +354,23 @@ int main(int argc, const char **argv) { @autoreleasepool {
     [store checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"] completion:^(BOOL success) {
         checkSucceeded = success; dispatch_semaphore_signal(checked);
     }];
-    for (int attempt = 0; attempt < 200 && requests < 2; attempt++) [NSThread sleepForTimeInterval:0.01];
+    TEST_WAIT_UNTIL(requests >= 2);
     CHECK(requests == 2, "every launch checks the feed again");
-    for (int attempt = 0; attempt < 200 && !notModified; attempt++) [NSThread sleepForTimeInterval:0.01];
+    TEST_WAIT_UNTIL(notModified);
     CHECK(notModified == 1, "an unchanged feed answers the saved validator with 304");
-    CHECK(dispatch_semaphore_wait(checked, dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC)) == 0 && checkSucceeded,
+    CHECK(dispatch_semaphore_wait(checked, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0 && checkSucceeded,
         "a valid cached 304 completes successfully despite response cancellation");
     CHECK([[store beginLaunch] isEqual:[Store(root) beginLaunch]], "a 304 leaves the snapshot in use");
-    [NSThread sleepForTimeInterval:0.3];
+    [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause for the activation that follows the completion callback */
     [[NSFileManager defaultManager] removeItemAtPath:[root stringByAppendingPathComponent:@"feed-validator.txt"] error:NULL];
     networkStatus = 500;
     [store checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"]];
-    for (int attempt = 0; attempt < 200 && requests < 3; attempt++) [NSThread sleepForTimeInterval:0.01];
-    [NSThread sleepForTimeInterval:0.3];
+    TEST_WAIT_UNTIL(requests >= 3);
+    [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause to show that no further request is made */
     networkFails = YES;
     [store checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"]];
-    for (int attempt = 0; attempt < 200 && requests < 4; attempt++) [NSThread sleepForTimeInterval:0.01];
-    [NSThread sleepForTimeInterval:0.3];
+    TEST_WAIT_UNTIL(requests >= 4);
+    [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause to show that no further request is made */
     if (requests != 4) fprintf(stderr, "requests = %ld\n", (long)requests);
     CHECK(requests == 4, "an HTTP error and a network failure each end one check without retrying");
     CHECK(loggedHTTPFailure && loggedNetworkFailure, "feed failures reach the runtime logger");
@@ -388,7 +385,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
         networkEnvelope = Envelope(1, nil, nil);
         dispatch_semaphore_t done = dispatch_semaphore_create(0);
         [purged checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"] completion:^(BOOL success) { (void)success; dispatch_semaphore_signal(done); }];
-        CHECK(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC)) == 0, "purged 304: the first check completes");
+        CHECK(dispatch_semaphore_wait(done, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0, "purged 304: the first check completes");
         purged = Store(purgedRoot); [purged beginLaunch]; [purged markHealthy];
         // The system purges every generation folder but leaves state.json and feed-validator.txt.
         for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:purgedRoot error:NULL])
@@ -397,9 +394,9 @@ int main(int argc, const char **argv) { @autoreleasepool {
         NSInteger notModifiedBefore = notModified;
         __block BOOL refetched = NO;
         [purged checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"] completion:^(BOOL success) { refetched = success; dispatch_semaphore_signal(done); }];
-        CHECK(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC)) == 0 && refetched, "purged 304: the check downloads the pack again");
+        CHECK(dispatch_semaphore_wait(done, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0 && refetched, "purged 304: the check downloads the pack again");
         CHECK(notModified == notModifiedBefore, "purged 304: no conditional request is sent for a snapshot that is gone");
-        [NSThread sleepForTimeInterval:0.3];
+        [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause for the activation that follows the completion callback */
         purged = Store(purgedRoot);
         CHECK(![[purged beginLaunch] isEqual:@"/bundled"], "purged 304: the re-downloaded pack activates");
         [NSFileManager.defaultManager removeItemAtPath:purgedRoot error:NULL];
@@ -422,16 +419,11 @@ int main(int argc, const char **argv) { @autoreleasepool {
                 return [[NSFileManager defaultManager] fileExistsAtPath:[folder stringByAppendingPathComponent:@"large-3.input"]];
             }];
         [largeStore checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/recordings.json"]];
-        for (int attempt = 0; attempt < 1500; attempt++) {
-            NSDictionary *state = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:
-                [recordingRoot stringByAppendingPathComponent:@"state.json"]] options:0 error:NULL];
-            if ([state[@"pending"] length]) break;
-            [NSThread sleepForTimeInterval:0.01];
-        }
+        WaitForPending(recordingRoot);
         CHECK(largeStore.resourceTimeout >= 300, "a recording download gets minutes, not the 30 s of the small feeds");
         CHECK([HostDataPackStore resourceTimeoutForKind:@"profiles"] == 30 && [HostDataPackStore resourceTimeoutForKind:@"latest"] == 30,
             "small feeds keep the short resource limit");
-        for (int attempt = 0; attempt < 500 && (largeStore.downloadReceived || largeStore.downloadExpected); attempt++) [NSThread sleepForTimeInterval:0.01];
+        TEST_WAIT_UNTIL(!largeStore.downloadReceived && !largeStore.downloadExpected);
         CHECK(!largeStore.downloadReceived && !largeStore.downloadExpected, "download progress resets when the check ends");
         NSString *generation = [largeStore beginLaunch];
         CHECK(![generation isEqual:@"/bundled"], "large recording pack downloads, verifies and activates");
@@ -442,8 +434,8 @@ int main(int argc, const char **argv) { @autoreleasepool {
         networkFails = YES;
         NSInteger before = requests;
         [largeStore checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/recordings.json"]];
-        for (int attempt = 0; attempt < 300 && requests == before; attempt++) [NSThread sleepForTimeInterval:0.01];
-        [NSThread sleepForTimeInterval:0.3];
+        TEST_WAIT_UNTIL(requests != before);
+        [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause to show that no further request is made */
         HostDataPackStore *again = [[HostDataPackStore alloc] initWithRoot:recordingRoot bundled:@"/bundled"
             kind:@"recordings" channel:@"stable" publicKey:[NSData dataWithBytes:publicKey length:32]
             compatibility:compatibility validator:^BOOL(NSString *folder, NSError **error) {

@@ -1,5 +1,6 @@
 /* Apache-2.0. The Mac apps' quit signals (port/ios/host/host_quit_signals.c): SIGTERM, SIGINT and SIGHUP reach the
    handler on its queue, and the process is not ended by them. */
+#include "test_wait.h"
 #include "host_quit_signals.h"
 #include <assert.h>
 #include <signal.h>
@@ -23,12 +24,12 @@ int main(void)
 	received = dispatch_semaphore_create(0);
 	assert(host_quit_signals_install(queue, handler));
 	assert(host_quit_signals_install(queue, handler));   /* (a second install keeps the first) */
-	usleep(200000);   /* (the sources are registered with the kernel asynchronously) */
+	usleep(200000);   /* TEST_WAIT_SHORT_ON_PURPOSE: the sources are registered with the kernel asynchronously and nothing reports it */
 	for (unsigned i = 0; i < sizeof(numbers) / sizeof(numbers[0]); i++)
 	{
 		last = 0;
 		kill(getpid(), numbers[i]);
-		assert(!dispatch_semaphore_wait(received, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)));
+		assert(!dispatch_semaphore_wait(received, TEST_WAIT_SEMAPHORE_TIMEOUT));
 		assert(last == numbers[i]);
 	}
 	puts("quit_signals_probe: ok");

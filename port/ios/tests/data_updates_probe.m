@@ -1,4 +1,5 @@
 /* Exercise manager identity and retention without writing to the app cache. */
+#include "test_wait.h"
 #import "../host/host_data_updates.m"
 #include <assert.h>
 #include <unistd.h>
@@ -54,13 +55,7 @@ static NSURLSessionConfiguration *stubbedEphemeral(id object, SEL selector)
 }
 static void waitForMenuChecks(void)
 {
-    for (int i = 0; i < 3000; i++) {
-        __block BOOL busy;
-        dispatch_sync(updatesQueue(), ^{ busy = profileChecking || recordingChecking; });
-        if (!busy) return;
-        usleep(10000);
-    }
-    assert(!"menu checks finished");
+    assert(TEST_WAIT_UNTIL(({ __block BOOL busy; dispatch_sync(updatesQueue(), ^{ busy = profileChecking || recordingChecking; }); !busy; })));
 }
 int main(int argc, char **argv)
 {
@@ -173,10 +168,10 @@ int main(int argc, char **argv)
             publishMenuSnapshot(YES, @{@"folder": current, @"metadata": before});
             dispatch_semaphore_signal(published);
         });
-        assert(dispatch_semaphore_wait(readEntered, dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC)) == 0);
+        assert(dispatch_semaphore_wait(readEntered, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0);
         host_data_updates_menu_finish();
         dispatch_semaphore_signal(resumeRead);
-        assert(dispatch_semaphore_wait(published, dispatch_time(DISPATCH_TIME_NOW, 2*NSEC_PER_SEC)) == 0);
+        assert(dispatch_semaphore_wait(published, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0);
         method_setImplementation(readMethod, originalRead);
         blockedPath = nil;
         assert([host_data_updates_metadata()[@"profiles"][@"sha256"] length] == 64);
@@ -207,7 +202,7 @@ int main(int argc, char **argv)
         host_profile_updates_watch([base stringByAppendingPathComponent:@"device-profile.toml"], ^(NSString *folder, NSDictionary *offeredIdentity) {
             (void)offeredIdentity; offeredFolder = folder; dispatch_semaphore_signal(offered);
         });
-        assert(dispatch_semaphore_wait(offered, dispatch_time(DISPATCH_TIME_NOW, 3*NSEC_PER_SEC)) == 0);
+        assert(dispatch_semaphore_wait(offered, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0);
         assert(profiles == watched && [offeredFolder isEqual:current]);
         // While the menu is up, a failed check retries quietly with growing delays, and a model the feed has no
         // profile for (404) benchmarks with its bundled profiles.
@@ -355,7 +350,7 @@ int main(int argc, char **argv)
             dispatch_group_enter(answered); dispatch_group_enter(answered);
             [joined checkForUpdateAtURL:url completion:^(BOOL success) { (void)success; firstStatus = joined.lastFeedStatus; dispatch_group_leave(answered); }];
             [joined checkForUpdateAtURL:url completion:^(BOOL success) { (void)success; secondStatus = joined.lastFeedStatus; dispatch_group_leave(answered); }];
-            assert(dispatch_group_wait(answered, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)) == 0);
+            assert(dispatch_group_wait(answered, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0);
             assert(firstStatus == 404 && secondStatus == 404);
             stubDelay = 0;
             puts("PASS: a feed check asked for during another joins it");

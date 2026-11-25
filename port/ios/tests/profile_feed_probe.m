@@ -6,6 +6,7 @@
    (LIVE_PROFILES is tester/profiles of a VISR-CE/visr-feeds checkout: the live device-profiles-1 shards) */
 #import "../host/host_data_updates.m"
 #include <stdarg.h>
+#include "test_wait.h"
 #import <objc/runtime.h>
 void host_logf(int priority, const char *format, ...)
 {
@@ -203,11 +204,7 @@ int main(int argc, char **argv)
             }
             refreshMenuKinds(YES, NO);
         });
-        for (int i = 0; i < 3000; i++) {
-            __block BOOL busy; dispatch_sync(updatesQueue(), ^{ busy = profileChecking; });
-            if (!busy) break;
-            usleep(10000);
-        }
+        TEST_WAIT_UNTIL(({ __block BOOL busy; dispatch_sync(updatesQueue(), ^{ busy = profileChecking; }); !busy; }));
         __block BOOL ready; __block NSString *selected;
         dispatch_sync(updatesQueue(), ^{ @synchronized(selectionLock()) { ready = profileReady; selected = profileFolder; } });
         CHECK(ready && menu.lastFeedSuperseded && [selected isEqual:bundled], "the menu is ready with the bundled profiles when the feed is older");

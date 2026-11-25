@@ -9,6 +9,7 @@
    argv[1] "unfixed": the thread stays joined, as before the fix; UIKit's exception ends the app (the control). The
    exception's reason is logged before abort(); the control then leaves from its SIGABRT handler with _exit(3), so
    the expected crash writes no crash report on the machine running the tests. */
+#include "test_wait.h"
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
 #include <mach/mach_time.h>

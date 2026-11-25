@@ -105,7 +105,7 @@ def compile_probe(tmp_path, *, missing_failure_signal=False):
 
 
 def run_case(binary, mode):
-    return subprocess.run([str(binary), str(mode)], capture_output=True, text=True, timeout=2)
+    return subprocess.run([str(binary), str(mode)], capture_output=True, text=True, timeout=120)
 
 
 def test_dialog_failure_cancel_and_extraction_retry(tmp_path):
