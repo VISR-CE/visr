@@ -442,7 +442,7 @@ static int file_action(int action, struct flying_camera *camera)
 	char host_path[1024], host_camera_path[1024];
 	/* the game's CRT maps d:\ to platform_data_root(); a host path here would be prefixed with that root again */
 	if (snprintf(folder,sizeof(folder),"d:\\framings") >= (int)sizeof(folder) ||
-		snprintf(path,sizeof(path),"%s\\%s.json",folder,key) >= (int)sizeof(path) ||
+		snprintf(path,sizeof(path),"%s\\%s%s.json",folder,key,action == PHOTO_LOAD_CANDIDATE ? ".solved" : "") >= (int)sizeof(path) ||
 		snprintf(camera_path,sizeof(camera_path),"d:\\camera.txt") >= (int)sizeof(camera_path)) return 0;
 	platform_translate_path(path,host_path,sizeof(host_path));
 	platform_translate_path(camera_path,host_camera_path,sizeof(host_camera_path));
@@ -468,7 +468,10 @@ static int file_action(int action, struct flying_camera *camera)
 		if (file) fclose(file);
 		int previous_bsp = global_structure_bsp_index_get();
 		shot.has_mp=0; shot.moved_vehicle_count=0;
-		source = photo_framing_lookup(path,bundle_path,key,&shot,&revision);
+		/* Debug-only: J loads framings/<map>.solved.json, the candidate a tool wrote beside the active framing. Tools never
+		write the active <map>.json; choosing a candidate is J, then the save key. */
+		if (action == PHOTO_LOAD_CANDIDATE && !exists) { error(_error_silent, "photo mode: no solved framing %s", host_path); return 0; }
+		source = photo_framing_lookup(path,action == PHOTO_LOAD_CANDIDATE ? NULL : bundle_path,key,&shot,&revision);
 		/* A scripted capture uses only the map's own framing, never the last camera.txt. */
 		if (source == PHOTO_FRAMING_NONE && !exists && scripted) return 0;
 		if (!(source != PHOTO_FRAMING_NONE || (!exists && photo_camera_read(camera_path,&shot))) ||
@@ -981,7 +984,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 		return;
 	}
 	fly(controls_active,seconds,facing,translation,camera);
-	if (action == PHOTO_SAVE || action == PHOTO_LOAD) file_action(action,camera);
+	if (action == PHOTO_SAVE || action == PHOTO_LOAD || action == PHOTO_LOAD_CANDIDATE) file_action(action,camera);
 	if (action == PHOTO_TELEPORT) teleport_player(camera);
 	if (action == PHOTO_RENDER_CHECK) error(_error_silent, "photo mode: render check not implemented (phase 5)");
 	host_photo_mode_overlay(fov,speed_step,guides,metadata.focus[0],metadata.focus[1],roll * 180.f / 3.14159265f);
