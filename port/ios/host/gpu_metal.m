@@ -1225,12 +1225,22 @@ static void scene_formats_read(void)
 	screenshot_raw = !strcmp(value, "true");
 
 	host_config_string("debug.scene_format", "", value, sizeof(value));
+	if (value[0] && strcmp(value, "bgra8") && strcmp(value, "rgba16") && strcmp(value, "rgba16f") && strcmp(value, "rgb10a2") &&
+		strcmp(value, "bgra10_xr"))
+		platform_log("Metal: debug.scene_format \"%s\" is not a scene format (bgra8, rgba16, rgba16f, rgb10a2, bgra10_xr): "
+			"ignored", value);
 	scene_format = !strcmp(value, "rgba16f") ? MTLPixelFormatRGBA16Float : !strcmp(value, "rgb10a2") ?
 		MTLPixelFormatRGB10A2Unorm : !strcmp(value, "bgra10_xr") ? FORMAT_BGRA10_XR : MTLPixelFormatRGBA16Unorm;
 	host_config_string("debug.output_format", "", value, sizeof(value));
 	output_format_override = !strcmp(value, "bgra8") ? MTLPixelFormatBGRA8Unorm : !strcmp(value, "bgr10a2") ?
 		MTLPixelFormatBGR10A2Unorm : !strcmp(value, "bgr10_xr") ? FORMAT_BGR10_XR : !strcmp(value, "bgra10_xr") ?
 		FORMAT_BGRA10_XR : !strcmp(value, "rgba16f") ? MTLPixelFormatRGBA16Float : MTLPixelFormatInvalid;
+	if (value[0] && output_format_override == MTLPixelFormatInvalid)
+		platform_log("Metal: debug.output_format \"%s\" is not a layer format (bgra8, bgr10a2, bgr10_xr, bgra10_xr, "
+			"rgba16f): ignored, the layer follows display.scene_precision", value);
+	else if (output_format_override != MTLPixelFormatInvalid)
+		platform_log("Metal: debug.output_format %s: the built-in layer asks for it in place of display.scene_precision's",
+			value);
 }
 
 /* the built-in display's layer format for a frame whose back buffer is in format: 10 bits where the picture has
