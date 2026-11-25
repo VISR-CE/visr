@@ -574,6 +574,17 @@ void traced_shadow_casters_end(
 	record->shape_size = (uint32_t)shape_size;
 	record->pose_size = (uint32_t)pose_size;
 	record->family = (uint32_t)light_visibility_family(traced.object_index);
+	if (config_boolean("debug.traced_light_family_log"))
+	{
+		static unsigned __int64 logged_frame = (unsigned __int64)-1;
+
+		if (logged_frame != rasterizer_globals.fps_accumulation_frame_index)
+		{
+			logged_frame = rasterizer_globals.fps_accumulation_frame_index;
+			platform_log("traced light family: frame %llu: caster object %lx sent with family bit %lu",
+				(unsigned long long)logged_frame, (unsigned long)traced.object_index, (unsigned long)record->family);
+		}
+	}
 	memcpy(record + 1, traced.shape, shape_size);
 	memcpy((byte *)(record + 1) + shape_size, traced.pose, pose_size);
 	host_traced_shadows_data(TRACED_SHADOWS_CASTER, (uint32_t)traced.id, record,
@@ -871,7 +882,7 @@ boolean traced_light_begin(
 	light[9] = (float)config_integer("debug.traced_light_repeat");
 	light[10] = (float)strength;
 	light[11] = (float)family;
-	light[27] = config_boolean("debug.traced_light_depth_point") ? 1.f : 0.f;
+	light[27] = (float)config_integer("debug.traced_light_depth_point");
 	/* every ray ends this short of the light, so that a light resting on a surface (a stuck plasma grenade) or inside
 	a projectile's model is not blocked by what it touches */
 	light[7] = (float)(0.02f * radius > 0.05f ? 0.02f * radius : 0.05f);

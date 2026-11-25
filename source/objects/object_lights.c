@@ -186,6 +186,7 @@ symbols in this file:
 
 /* port: port/linux/src (halo.log) */
 void platform_log(const char *format, ...);
+int config_boolean(const char *name); /* port/linux/src/port_config.c */
 
 /* ---------- constants */
 
@@ -1913,6 +1914,18 @@ void lights_choose_visibility(
 			light_visibility_windows[window].strength[slots[i]] = traced[i];
 			light_visibility_windows[window].family[slots[i]] = (unsigned char)light_visibility_family_of(
 				light_get(lights_globals.scene_point_lights[slots[i]])->object_index, TRUE);
+			if (config_boolean("debug.traced_light_family_log"))
+			{
+				struct light_datum *light = light_get(lights_globals.scene_point_lights[slots[i]]);
+				real from_eye = distance3d(&light->position, &render.camera.position);
+
+				if (from_eye < 1.5f)
+					platform_log("traced light family: window %d light %lx %.2f from the eye: owner %lx (type %d), "
+						"root %lx, bit %d", (int)window, (unsigned long)lights_globals.scene_point_lights[slots[i]],
+						(double)from_eye, (unsigned long)light->object_index, candidates[i].owner_type,
+						(unsigned long)light_visibility_family_root(light->object_index),
+						(int)light_visibility_windows[window].family[slots[i]]);
+			}
 		}
 	}
 }

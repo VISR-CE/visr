@@ -3821,10 +3821,20 @@
             "apple"
           ]
         },
-        "traced_light_depth_point": {
+        "traced_light_family_log": {
           "type": "boolean",
           "default": false,
-          "description": "With display.traced_lights: every traced light pass rebuilds its lit points from depth, as the specular spot pass must, instead of from its attenuation coordinate; stills with and without it prove the two agree.",
+          "description": "With display.traced_lights: log each traced light near the eye with its owner, the owner's family root and mask bit, and each caster sent with a family bit (at most a line a frame of each).",
+          "x-environment": "HALO_TRACED_LIGHT_FAMILY_LOG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_depth_point": {
+          "type": "integer",
+          "default": 0,
+          "description": "With display.traced_lights: 1 every traced light pass rebuilds its lit points from depth, as the specular spot pass must, instead of from its attenuation coordinate, so that stills with and without it prove the two agree; 2 the passes with an attenuation coordinate draw how far the depth point is from it (red, 1 at a world unit; green where the depth point lies behind the camera).",
           "x-environment": "HALO_TRACED_LIGHT_DEPTH_POINT",
           "x-environment-style": "value",
           "x-platforms": [

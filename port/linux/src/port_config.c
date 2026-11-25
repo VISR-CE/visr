@@ -2033,9 +2033,14 @@ static const struct config_setting config_settings[] =
 	{ "debug.traced_lights_fixtures", _config_boolean, "false", "HALO_TRACED_LIGHTS_FIXTURES", _environment_value, _platform_ios,
 		"With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and\n"
 		"devices, which display.traced_lights leaves as the game draws them), for stills and measurements." },
-	{ "debug.traced_light_depth_point", _config_boolean, "false", "HALO_TRACED_LIGHT_DEPTH_POINT", _environment_value, _platform_ios,
-		"With display.traced_lights: every traced light pass rebuilds its lit points from depth, as the specular\n"
-		"spot pass must, instead of from its attenuation coordinate; stills with and without it prove the two agree." },
+	{ "debug.traced_light_family_log", _config_boolean, "false", "HALO_TRACED_LIGHT_FAMILY_LOG", _environment_value, _platform_ios,
+		"With display.traced_lights: log each traced light near the eye with its owner, the owner's family root\n"
+		"and mask bit, and each caster sent with a family bit (at most a line a frame of each)." },
+	{ "debug.traced_light_depth_point", _config_integer, "0", "HALO_TRACED_LIGHT_DEPTH_POINT", _environment_value, _platform_ios,
+		"With display.traced_lights: 1 every traced light pass rebuilds its lit points from depth, as the specular\n"
+		"spot pass must, instead of from its attenuation coordinate, so that stills with and without it prove the two\n"
+		"agree; 2 the passes with an attenuation coordinate draw how far the depth point is from it (red, 1 at a world\n"
+		"unit; green where the depth point lies behind the camera)." },
 	{ "debug.traced_light_owner", _config_real, "0.3", "HALO_TRACED_LIGHT_OWNER", _environment_value, _platform_ios,
 		"With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not\n"
 		"block it, so the character carrying a flashlight does not shadow its own beam." },

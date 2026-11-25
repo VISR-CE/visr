@@ -269,7 +269,7 @@ def test_a_pass_without_an_attenuation_coordinate_rebuilds_its_point_from_depth(
     assert "light_visibility_begin(&light->position, light->radius, 0, radius);" in environment
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     assert "light_decoder.map_physical_to_screen_coordinates(light_position.xy)" in shader
-    assert "if (traced_light[3].w > 0.5 && traced_light[6].w < 0.5)" in shader
+    assert "traced_light[3].w > 0.5 && traced_light[6].w < 0.5 ? traced_attenuation_point : traced_depth_point" in shader
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
     replay = game[game.index("if (rasterizer_other_eye_draws())"):]
     replay = replay[:replay.index("halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);")]

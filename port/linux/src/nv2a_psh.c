@@ -832,10 +832,10 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\tfloat light_z = traced_light[5].x * traced_light[5].y / (traced_light[5].y - light_far_side * (traced_light[5].y - traced_light[5].x));\n"
 			"\tfloat3 light_view = float3((light_ndc.x + traced_light[6].x) / traced_light[5].z * light_z,\n"
 			"\t\t(light_ndc.y + traced_light[6].y) / traced_light[5].w * light_z, -light_z);\n"
-			"\tfloat3 traced_point = float3(traced_light[7].w, traced_light[8].w, traced_light[9].w) + traced_light[7].xyz * light_view.x +\n"
+			"\tfloat3 traced_depth_point = float3(traced_light[7].w, traced_light[8].w, traced_light[9].w) + traced_light[7].xyz * light_view.x +\n"
 			"\t\ttraced_light[8].xyz * light_view.y + traced_light[9].xyz * light_view.z;\n"
-			"\tif (traced_light[3].w > 0.5 && traced_light[6].w < 0.5)\n"
-			"\t\ttraced_point = traced_light[0].xyz + ((traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz) - 0.5) * (2.0 * traced_light[0].w);\n"
+			"\tfloat3 traced_attenuation_point = traced_light[0].xyz + ((traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz) - 0.5) * (2.0 * traced_light[0].w);\n"
+			"\tfloat3 traced_point = traced_light[3].w > 0.5 && traced_light[6].w < 0.5 ? traced_attenuation_point : traced_depth_point;\n"
 			"\tfloat3 traced_normal = cross(dfdx(traced_point), dfdy(traced_point));\n");
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */
@@ -974,6 +974,11 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	{
 		light_visibility_emit(&text, "traced_point", "traced_normal");
 		xgpu_text_append(&text, "\tresult.rgb *= traced_lit;\n");
+		/* (debug.traced_light_depth_point 2: a pass with an attenuation coordinate shows how far its depth point is
+		from it, red 1 at a world unit, and green where the depth point lies behind the camera) */
+		xgpu_text_append(&text,
+			"\tif (traced_light[6].w > 1.5 && traced_light[3].w > 0.5)\n"
+			"\t\tresult = float4(saturate(length(traced_depth_point - traced_attenuation_point)), light_view.z > 0.0 ? 1.0 : 0.0, 0.0, 1.0);\n");
 	}
 	xgpu_text_append(&text, "\tfragment_color = clamp(result, 0.0, 1.0);\n");
 	if (dialect->msl)
