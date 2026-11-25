@@ -106,7 +106,7 @@ int main(void)
 {
 	SDL_Event event;
 	XINPUT_GAMEPAD pad = {0};
-	struct halo_glyph_edge pad_use = {0};
+	struct halo_glyph_held pad_use = {0};
 	struct host_ui_pointer pointer = {0};
 	struct halo_ui_pointer menu_pointer = {0};
 	int from;
@@ -178,7 +178,16 @@ int main(void)
 	pad.sThumbLX = 20000; glyph_pad_activity(&pad_use, &pad); expect(PAD);
 	motion(560, 400, 20, 0, 0); expect(MOUSE);
 	glyph_pad_activity(&pad_use, &pad); glyph_pad_activity(&pad_use, &pad); expect(MOUSE);
-	pad.sThumbLX = 0; glyph_pad_activity(&pad_use, &pad); expect(MOUSE);
+	/* a control counts when it starts though another is held: a button pressed with the stick still over */
+	pad.wButtons = 1; glyph_pad_activity(&pad_use, &pad); expect(PAD);
+	motion(580, 400, 20, 0, 0); expect(MOUSE);
+	glyph_pad_activity(&pad_use, &pad); expect(MOUSE);
+	pad.bAnalogButtons[2] = 255; glyph_pad_activity(&pad_use, &pad); expect(PAD);   /* a trigger, both still held */
+	motion(600, 400, 20, 0, 0); expect(MOUSE);
+	pad.sThumbRY = -20000; glyph_pad_activity(&pad_use, &pad); expect(PAD);         /* the other stick */
+	motion(620, 400, 20, 0, 0); expect(MOUSE);
+	pad.wButtons = 0; pad.bAnalogButtons[2] = 0; pad.sThumbLX = pad.sThumbRY = 0;
+	glyph_pad_activity(&pad_use, &pad); expect(MOUSE);            /* letting go is not using the pad */
 	pad.wButtons = 1; glyph_pad_activity(&pad_use, &pad); expect(PAD);
 	/* a capture's override stands in for the record for every reader at once, in development builds only */
 	family = "keyboard"; expect(PAD);
@@ -212,7 +221,7 @@ int main(void)
 	struct platform_input_state input = {0};
 	struct halo_ui_pointer menu_pointer = {0};
 	XINPUT_GAMEPAD pad = {0};
-	struct halo_glyph_edge pad_use = {0};
+	struct halo_glyph_held pad_use = {0};
 	int frame;
 
 	input.focused = 1;
@@ -259,14 +268,18 @@ int main(void)
 	pad.sThumbLX = 20000; glyph_pad_activity(&pad_use, &pad); expect(PAD);
 	menu_pointer.radius = 0; halo_menu_pointer_activity(&menu_pointer); expect(MOUSE);
 	glyph_pad_activity(&pad_use, &pad); expect(MOUSE);
-	pad.sThumbLX = 0; glyph_pad_activity(&pad_use, &pad);
+	/* a control counts when it starts though another is held: a button pressed with the stick still over */
+	pad.wButtons = 0x1000; glyph_pad_activity(&pad_use, &pad); expect(PAD);
+	halo_menu_pointer_activity(&menu_pointer); expect(MOUSE);
+	glyph_pad_activity(&pad_use, &pad); expect(MOUSE);
+	pad.wButtons = 0; pad.sThumbLX = 0; glyph_pad_activity(&pad_use, &pad); expect(MOUSE);
 	pad.bAnalogButtons[0] = 255; glyph_pad_activity(&pad_use, &pad); expect(PAD);
 	printf("%d steps\n", step);
 	return 0;
 }
 '''
 
-SHARED = ('static void glyph_input_note(', 'static int glyph_gamepad_active(', 'static void glyph_pad_activity(',
+SHARED = ('static void glyph_input_note(', 'static unsigned int glyph_gamepad_controls(', 'static void glyph_pad_activity(',
           'static struct halo_glyph_input glyph_input_shown(', 'int halo_menu_input_kind(',
           'void halo_menu_pointer_activity(', 'int halo_menu_pointer_controls(',
           'void halo_controller_glyph_pointer_activity(')

@@ -1656,21 +1656,26 @@ static void glyph_polled_activity(struct platform_input_state const *input)
 }
 #endif
 
-static int glyph_gamepad_active(XINPUT_GAMEPAD const *pad)
+/* a bit for each of a pad's controls in use: its sixteen buttons, eight analog buttons and four stick axes */
+static unsigned int glyph_gamepad_controls(XINPUT_GAMEPAD const *pad)
 {
+	short const sticks[] = { pad->sThumbLX, pad->sThumbLY, pad->sThumbRX, pad->sThumbRY };
+	unsigned int controls = pad->wButtons;
 	int index;
-	if (pad->wButtons || abs(pad->sThumbLX) > 9000 || abs(pad->sThumbLY) > 9000 ||
-		abs(pad->sThumbRX) > 9000 || abs(pad->sThumbRY) > 9000) return 1;
+
 	for (index = 0; index < 8; index++)
-		if (pad->bAnalogButtons[index] > 64) return 1;
-	return 0;
+		if (pad->bAnalogButtons[index] > 64) controls |= 1u << (16 + index);
+	for (index = 0; index < 4; index++)
+		if (abs(sticks[index]) > HALO_GLYPH_STICK_DEAD_ZONE) controls |= 1u << (24 + index);
+	return controls;
 }
 
-/* A pad read once a frame (controller 1's, the Sense controllers) counts when its use starts. An event may already
-have named the pad in use (a second pad's): the record keeps it. */
-static void glyph_pad_activity(struct halo_glyph_edge *edge, XINPUT_GAMEPAD const *pad)
+/* A pad read once a frame (controller 1's, the Sense controllers) counts when the use of any of its controls starts
+(halo_glyph_held_started). An event may already have named the pad in use (a second pad's): the record keeps it. */
+static void glyph_pad_activity(struct halo_glyph_held *held, XINPUT_GAMEPAD const *pad)
 {
-	if (halo_glyph_edge(edge, glyph_gamepad_active(pad)) && glyph_menu_input.source != HALO_GLYPH_INPUT_CONTROLLER)
+	if (halo_glyph_held_started(held, glyph_gamepad_controls(pad)) &&
+		glyph_menu_input.source != HALO_GLYPH_INPUT_CONTROLLER)
 		glyph_input_note(HALO_GLYPH_INPUT_CONTROLLER, 0, 1);
 }
 
@@ -2148,7 +2153,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		}
 		if (port_gamepad(gamepads, count, 0))
 		{
-			static struct halo_glyph_edge pad_use;
+			static struct halo_glyph_held pad_use;
 			XINPUT_GAMEPAD activity = {0};
 			sdl_gamepad_state(gamepads[0], &activity);
 			glyph_pad_activity(&pad_use, &activity);
@@ -2160,7 +2165,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		sense_gamepad_state(input.menus != FALSE, &state->Gamepad);
 #ifdef HALO_IOS
 		{
-			static struct halo_glyph_edge sense_use;
+			static struct halo_glyph_held sense_use;
 			XINPUT_GAMEPAD activity = {0};
 			sense_gamepad_state(input.menus != FALSE, &activity);
 			glyph_pad_activity(&sense_use, &activity);

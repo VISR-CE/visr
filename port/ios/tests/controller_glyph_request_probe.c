@@ -117,13 +117,17 @@ int main(void) {
  halo_controller_glyph_input_event(&event);assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
  /* a pad read once a frame counts when its use starts, not while a stick stays held */
  {
-  struct halo_glyph_edge use={0};
-  assert(!glyph_gamepad_active(&pad));glyph_pad_activity(&use,&pad);
+  struct halo_glyph_held use={0};
+  assert(!glyph_gamepad_controls(&pad));glyph_pad_activity(&use,&pad);
   assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
-  pad.sThumbRX=10000;assert(glyph_gamepad_active(&pad));glyph_pad_activity(&use,&pad);
+  pad.sThumbRX=10000;assert(glyph_gamepad_controls(&pad));glyph_pad_activity(&use,&pad);
   assert(glyph_menu_input.source==HALO_GLYPH_INPUT_CONTROLLER);
   halo_controller_glyph_input_event(&event);glyph_pad_activity(&use,&pad);
   assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+  /* a button pressed with the stick still held is the pad again */
+  pad.wButtons=0x1000;glyph_pad_activity(&use,&pad);
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_CONTROLLER);
+  pad.wButtons=0;
  }
  memset(&event,0,sizeof(event));
  event.type=SDL_EVENT_GAMEPAD_BUTTON_DOWN;event.gbutton.which=22;
