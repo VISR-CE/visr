@@ -1805,7 +1805,7 @@ def browser_layout(root, widgets, bitmaps):
              [f'gametype_large__{i}' for i in range(7)]),
             ('scrim', menu_geometry.BROWSER_PREVIEW_WIDTH, menu_geometry.BROWSER_SCRIM_HEIGHT, ['scrim']),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
-            ('big', 294, 20, ['big']), ('badge', menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT, ['badge__0', 'badge__1']), ('lock', 12, 14, ['lock']),
+            ('big', menu_geometry.BROWSER_PREVIEW_WIDTH, 20, ['big']), ('badge', menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT, ['badge__0', 'badge__1']), ('lock', 12, 14, ['lock']),
             ('option', 532, 54, ['option__0', 'option__1'])):
         browser_bitmap(root, name, width, height, frames)
     for name, width in (('chip_all', 78), ('chip_multiplayer', 144), ('chip_coop', 100), ('toggle', 174)):
@@ -1930,22 +1930,22 @@ def browser_layout(root, widgets, bitmaps):
            height=menu_geometry.BROWSER_BADGE_HEIGHT, bitmap='xbox/browser/gametype_large')
     g = menu_geometry
     for leaf, x, y, width, height, font, color, text in (
-            ('browser_detail_name', 313, g.BROWSER_NAME_Y, 294, g.BROWSER_NAME_HEIGHT, 'large', '#ffffff', ''),
-            ('browser_detail_type', 313, g.BROWSER_TYPE_Y, 294, g.BROWSER_TYPE_HEIGHT, 'small', '#7fc4ff', ''),
-            ('browser_rules_label', 313, g.BROWSER_RULES_Y, 76, 18, 'small', '#2f73c4', 'RULES'),
-            ('browser_detail_rules', 389, g.BROWSER_RULES_Y, 218, 18, 'small', '#cfe8ff', ''),
-            ('browser_equipment_label', 313, g.BROWSER_HOST_Y, 76, 18, 'small', '#2f73c4', 'EQUIPMENT'),
-            ('browser_detail_equipment', 389, g.BROWSER_HOST_Y, 218, 18, 'small', '#cfe8ff', ''),
-            ('browser_host_label', 313, g.BROWSER_HOST_Y, 76, 18, 'small', '#2f73c4', 'HOST'),
-            ('browser_detail_host', 389, g.BROWSER_HOST_Y, 218, 18, 'small', '#cfe8ff', ''),
-            ('browser_connection_status', 313, g.BROWSER_STATUS_Y, 294, 26, 'small', '#7fc4ff', ''),
-            ('browser_detail_big', 313, g.BROWSER_NOTICE_Y, 294, 20, 'small', '#0a2245', ''),
-            ('browser_join_reason', 313, g.BROWSER_NOTICE_Y, 294, g.BROWSER_NOTICE_HEIGHT, 'small', '#7fc4ff', ''),
+            ('browser_detail_name', g.BROWSER_PREVIEW_X, g.BROWSER_NAME_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_NAME_HEIGHT, 'large', '#ffffff', ''),
+            ('browser_detail_type', g.BROWSER_PREVIEW_X, g.BROWSER_TYPE_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_TYPE_HEIGHT, 'small', '#7fc4ff', ''),
+            ('browser_rules_label', g.BROWSER_PREVIEW_X, g.BROWSER_RULES_Y, 76, g.BROWSER_DETAIL_LINE, 'small', '#2f73c4', 'RULES'),
+            ('browser_detail_rules', g.BROWSER_PREVIEW_X + 76, g.BROWSER_RULES_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#cfe8ff', ''),
+            ('browser_equipment_label', g.BROWSER_PREVIEW_X, g.BROWSER_HOST_Y, 76, g.BROWSER_DETAIL_LINE, 'small', '#2f73c4', 'EQUIPMENT'),
+            ('browser_detail_equipment', g.BROWSER_PREVIEW_X + 76, g.BROWSER_HOST_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#cfe8ff', ''),
+            ('browser_host_label', g.BROWSER_PREVIEW_X, g.BROWSER_HOST_Y, 76, g.BROWSER_DETAIL_LINE, 'small', '#2f73c4', 'HOST'),
+            ('browser_detail_host', g.BROWSER_PREVIEW_X + 76, g.BROWSER_HOST_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#cfe8ff', ''),
+            ('browser_connection_status', g.BROWSER_PREVIEW_X, g.BROWSER_STATUS_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_DETAIL_LINE, 'small', '#7fc4ff', ''),
+            ('browser_detail_big', g.BROWSER_PREVIEW_X, g.BROWSER_NOTICE_Y, g.BROWSER_PREVIEW_WIDTH, 20, 'small', '#0a2245', ''),
+            ('browser_join_reason', g.BROWSER_PREVIEW_X, g.BROWSER_NOTICE_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_NOTICE_HEIGHT, 'small', '#7fc4ff', ''),
             ('browser_detail_net', g.BROWSER_NET_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#cfe8ff', ''),
             ('browser_detail_net_blocked', g.BROWSER_NET_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#7b8794', ''),
             ('browser_detail_password', g.BROWSER_PASSWORD_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#cfe8ff', ''),
             ('browser_detail_lock', g.BROWSER_PASSWORD_PILL_X + 7, g.BROWSER_PILL_Y - 2, 12, 14, None, None, ''),
-            ('browser_detail_status', 317, 213, 286, 160, 'small', '#7fc4ff', '')):
+            ('browser_detail_status', g.BROWSER_PREVIEW_X + 4, g.BROWSER_PANEL_TOP + 103, g.BROWSER_PREVIEW_WIDTH - 8, 160, 'small', '#7fc4ff', '')):
         child(detail if leaf == 'browser_detail_status' else content, base + '/' + leaf, x=x, y=y)
         if leaf == 'browser_detail_lock':
             widget(root, base + '/' + leaf, width=width, height=height, bitmap='xbox/browser/lock')

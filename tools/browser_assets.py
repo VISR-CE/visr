@@ -133,7 +133,7 @@ def generate(output, icons):
     for chosen in (*range(menu_geometry.BROWSER_ROWS), None):
         draw(f"joint__{'none' if chosen is None else chosen}", menu_geometry.BROWSER_JOINT_WIDTH,
              menu_geometry.BROWSER_DETAIL_HEIGHT, joint_svg(chosen))
-    draw("big", 294, 20, rounded(294, 20, "#e8b520", radius=3))
+    draw("big", menu_geometry.BROWSER_PREVIEW_WIDTH, 20, rounded(menu_geometry.BROWSER_PREVIEW_WIDTH, 20, "#e8b520", radius=3))
     # The detail panel's password pill (HUD blue)
     # The detail panel's info pills: normal (HUD blue) and blocked (grayed as the disabled rows are, never red).
     for index, border in enumerate(("#1f5fae", "#4a5563")):

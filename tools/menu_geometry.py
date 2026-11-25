@@ -134,23 +134,27 @@ assert BROWSER_LIST_X + BROWSER_TAB_WIDTH < BROWSER_PANEL_LEFT < BROWSER_LIST_X 
 # The map's picture is the photo-mode frame, 2:1 and whole (its native shape: no crop), inset in the panel; the
 # server name and the gametype line sit over a darkened band (the scrim) along its foot, the gametype's silhouette
 # over its top right; the rules and the host follow it, then the room for the explainer and the password pill.
-# The picture starts inside the panel's outline: a whole unit past its stroke (BROWSER_BORDER, 1.5), never over it.
-BROWSER_PICTURE_INSET = math.ceil(BROWSER_BORDER)
-BROWSER_PREVIEW_X, BROWSER_PREVIEW_Y = 313, BROWSER_PANEL_TOP + BROWSER_PICTURE_INSET
-assert BROWSER_PREVIEW_Y >= BROWSER_PANEL_TOP + BROWSER_BORDER, 'the picture clears the panel outline'
-BROWSER_PREVIEW_WIDTH, BROWSER_PREVIEW_HEIGHT = 294, 147
+# Everything in the panel keeps BROWSER_PANEL_INSET units from its edges (more than the outline's stroke, BROWSER_BORDER
+# 1.5): the picture's top, left and right, the rows' left, and the pills' bottom. One number, so a layout change moves all.
+BROWSER_PANEL_INSET = 8
+BROWSER_PREVIEW_X = BROWSER_PANEL_LEFT + BROWSER_PANEL_INSET
+BROWSER_PREVIEW_Y = BROWSER_PANEL_TOP + BROWSER_PANEL_INSET
+BROWSER_PANEL_WIDTH_UNITS = 312
+BROWSER_PREVIEW_WIDTH = BROWSER_PANEL_WIDTH_UNITS - 2 * BROWSER_PANEL_INSET
+BROWSER_PREVIEW_HEIGHT = BROWSER_PREVIEW_WIDTH // 2  # the picture is 2:1
+assert BROWSER_PANEL_INSET > BROWSER_BORDER, 'the content clears the panel outline'
 BROWSER_PICTURE_TEXTURE = (512, 256)  # the picture's menu copy (map_pictures_render.c writes a 512x256 BMP)
 BROWSER_SCRIM_HEIGHT = 44
 BROWSER_SCRIM_TOP = BROWSER_PREVIEW_Y + BROWSER_PREVIEW_HEIGHT - BROWSER_SCRIM_HEIGHT
 BROWSER_NAME_Y, BROWSER_NAME_HEIGHT = BROWSER_SCRIM_TOP, 25
 BROWSER_TYPE_Y, BROWSER_TYPE_HEIGHT = BROWSER_NAME_Y + 24, 20
 BROWSER_BADGE_WIDTH, BROWSER_BADGE_HEIGHT, BROWSER_BADGE_INSET = 62, 50, 6
-BROWSER_DETAIL_LINE = 20  # the pitch of the rows below the picture
-BROWSER_RULES_Y = BROWSER_PREVIEW_Y + BROWSER_PREVIEW_HEIGHT + 4
+BROWSER_DETAIL_LINE = 18  # the pitch of the rows below the picture
+BROWSER_RULES_Y = BROWSER_PREVIEW_Y + BROWSER_PREVIEW_HEIGHT + 1
 BROWSER_HOST_Y = BROWSER_RULES_Y + BROWSER_DETAIL_LINE
 BROWSER_STATUS_Y = BROWSER_HOST_Y + BROWSER_DETAIL_LINE
-BROWSER_NOTICE_Y, BROWSER_NOTICE_HEIGHT = BROWSER_STATUS_Y + 20, 38  # the explainer (two lines) or the big-game notice
-BROWSER_PILL_Y = BROWSER_NOTICE_Y + BROWSER_NOTICE_HEIGHT + 2
+BROWSER_NOTICE_Y, BROWSER_NOTICE_HEIGHT = BROWSER_STATUS_Y + BROWSER_DETAIL_LINE, 36  # the explainer (two lines) or the big-game notice
+BROWSER_PILL_Y = BROWSER_NOTICE_Y + BROWSER_NOTICE_HEIGHT
 BROWSER_PILL_WIDTH, BROWSER_PILL_HEIGHT, BROWSER_PILL_GAP = 120, 18, 8
 BROWSER_NET_PILL_X = BROWSER_PREVIEW_X  # the network version's pill, then the password's beside it
 BROWSER_PASSWORD_PILL_X = BROWSER_NET_PILL_X + BROWSER_PILL_WIDTH + BROWSER_PILL_GAP
@@ -160,7 +164,8 @@ assert BROWSER_PREVIEW_WIDTH * BROWSER_PICTURE_TEXTURE[1] == BROWSER_PREVIEW_HEI
     'the preview shows the picture whole, at its own shape'
 assert BROWSER_NAME_Y + BROWSER_NAME_HEIGHT <= BROWSER_TYPE_Y + 1 and BROWSER_TYPE_Y + BROWSER_TYPE_HEIGHT \
     <= BROWSER_PREVIEW_Y + BROWSER_PREVIEW_HEIGHT, 'the name and the gametype line sit inside the scrim'
-assert BROWSER_PILL_Y + 18 <= BROWSER_PANEL_TOP + BROWSER_DETAIL_HEIGHT, 'the pill stays inside the panel'
+assert BROWSER_PILL_Y + BROWSER_PILL_HEIGHT + BROWSER_PANEL_INSET <= BROWSER_PANEL_TOP + BROWSER_DETAIL_HEIGHT, \
+    'the pills keep the panel inset above its bottom edge'
 OWN_GEOMETRY_ROW_LISTS = {
     f'{_MP}/join_game/join_game_items_list': (BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT,
                                               'server browser: the approved mockup C list'),

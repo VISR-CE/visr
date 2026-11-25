@@ -288,7 +288,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     panel = widgets['browser_detail']
     assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('304', str(__import__('menu_geometry').BROWSER_PANEL_TOP), '312', '273')
     assert all(len(name.rsplit('/', 1)[-1]) <= 31 for name in widgets)
-    assert widgets['browser_connection_status'].get('height') == '26'
+    assert widgets['browser_connection_status'].get('height') == str(__import__('menu_geometry').BROWSER_DETAIL_LINE)
     assert widgets['join_game_screen'].get('type') == 'column_list'
     assert widgets['browser_detail'].get('type') == 'column_list'
     assert [c.get('widget').rsplit('/', 1)[-1] for c in panel.findall('child')] == [
@@ -2320,7 +2320,7 @@ def test_browser_preview_scrim_and_text_come_from_one_set_of_numbers():
     panel_bottom = int(widgets['browser_detail'].get('top')) + int(widgets['browser_detail'].get('height'))
     for leaf in ('browser_join_reason', 'browser_detail_big', 'browser_detail_password'):
         assert placed[leaf][1] + size(leaf)[1] <= panel_bottom, leaf
-    assert placed['browser_join_reason'][1] >= placed['browser_connection_status'][1] + 20
+    assert placed['browser_join_reason'][1] >= placed['browser_connection_status'][1] + g.BROWSER_DETAIL_LINE
     # the text fits its widget: the lines the panel states itself, in two lines at most (the explainer's box)
     line = menu_text_metrics.text_width('ui\\small_ui', 'VISR is not compatible with this network version.')
     assert line <= 2 * size('browser_join_reason')[0]
@@ -2399,6 +2399,11 @@ def test_every_detail_panel_element_stays_inside_the_panel():
         x1, y1 = x0 + int(widget.get('width')), y0 + int(widget.get('height'))
         assert left <= x0 and x1 <= right and top <= y0 and y1 <= bottom, (name, (x0, y0, x1, y1), (left, top, right, bottom))
         placed[name] = (x0, y0, x1, y1)
+    inset = g.BROWSER_PANEL_INSET
+    assert placed['lobby_map_pic'][1] - top >= inset and placed['lobby_map_pic'][0] - left >= inset, 'the map picture keeps the inset at the top and left'
+    assert right - placed['lobby_map_pic'][2] >= inset, 'and on the right'
+    for pill in ('browser_detail_net', 'browser_detail_net_blocked', 'browser_detail_password'):
+        assert bottom - placed[pill][3] >= inset, (pill, 'keeps the inset above the panel bottom')
     for pill in ('browser_detail_net', 'browser_detail_net_blocked', 'browser_detail_password'):
         assert pill in placed, pill
     assert placed['browser_detail_net'][2] <= placed['browser_detail_password'][0], 'the two pills side by side'
