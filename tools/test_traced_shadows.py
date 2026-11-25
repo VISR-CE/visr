@@ -268,6 +268,54 @@ def test_a_family_keeps_its_bit_across_frames_while_its_root_lives(tmp_path):
     assert "object_try_and_get(light_visibility_families.roots[i])" in lights
 
 
+def test_more_live_families_than_bits_get_no_family_never_a_shared_bit(tmp_path):
+    """The class: a family bit two live families share. A big match has more live families with lights than there
+    are bits; one past the last gets 0 on both sides (it casts on every light, and its own lights fall back to the
+    owner distance), never a bit another live family holds, and it takes a bit only once a family holding one dies."""
+    _run_rule_program(tmp_path, r'''
+    enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1 };
+    long roots[BITS], owners[BITS + 8];
+    unsigned char alive[BITS];
+    int count = 0, i, j, bit, seen[64] = { 0 };
+    for (i = 0; i < BITS; i++)
+        alive[i] = 1;
+    for (i = 0; i < BITS + 8; i++)
+        owners[i] = 2000 + i;
+    light_visibility_families_update(roots, &count, alive, owners, BITS + 8);
+    assert(count == BITS);
+    for (i = 0; i < BITS + 8; i++)
+    {
+        bit = light_visibility_family_bit(roots, &count, owners[i], 0);
+        if (i < BITS)
+        {
+            assert(bit >= LIGHT_VISIBILITY_FAMILY_FIRST && bit <= LIGHT_VISIBILITY_FAMILY_LAST && !seen[bit]);
+            seen[bit] = 1;
+        }
+        else
+            assert(bit == 0);
+    }
+    /* the next frame lists the overflowed families first: they still get 0, the holders keep their bits */
+    for (j = 0; j < 2; j++)
+    {
+        long reversed[BITS + 8];
+        for (i = 0; i < BITS + 8; i++)
+            reversed[i] = owners[BITS + 7 - i];
+        light_visibility_families_update(roots, &count, alive, reversed, BITS + 8);
+        for (i = 0; i < BITS + 8; i++)
+            assert(light_visibility_family_bit(roots, &count, owners[i], 0) ==
+                (i < BITS ? LIGHT_VISIBILITY_FAMILY_FIRST + i : 0));
+    }
+    /* a holder dies: one overflowed family takes its bit, the rest stay at 0 */
+    alive[3] = 0;
+    light_visibility_families_update(roots, &count, alive, owners + BITS, 8);
+    alive[3] = 1;
+    assert(light_visibility_family_bit(roots, &count, owners[3], 0) == 0);
+    assert(light_visibility_family_bit(roots, &count, owners[BITS], 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 3);
+    for (i = BITS + 1; i < BITS + 8; i++)
+        assert(light_visibility_family_bit(roots, &count, owners[i], 0) == 0);
+    ''')
+
+
 def test_the_light_instances_rebuild_when_the_caster_set_changes():
     """The class: a window reusing another window's blockers because it holds as many casters (stale families or
     shadows). The rebuild is keyed on each caster's shadow, structure and family, not on their count."""
