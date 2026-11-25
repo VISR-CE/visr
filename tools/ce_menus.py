@@ -50,23 +50,11 @@ from xml.sax.saxutils import quoteattr
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hud_assets import bleed, render_svg  # noqa: E402
 import menu_catalog  # noqa: E402
+from menu_probe_build import engine_names  # noqa: E402
 import port_settings  # noqa: E402
 import xbox_menus  # noqa: E402
-
-
-
-def render_svg(*args, **kwargs):
-    """hud_assets.render_svg, imported on first use: it needs numpy, which name lookups (engine_names) do not"""
-    from hud_assets import render_svg as render
-    return render(*args, **kwargs)
-
-
-def bleed(*args, **kwargs):
-    """hud_assets.bleed, imported on first use (see render_svg)"""
-    from hud_assets import bleed as bleed_pixels
-    return bleed_pixels(*args, **kwargs)
-
 
 ROOT = Path(__file__).resolve().parent.parent
 MENUS = ROOT / "port/assets/menus"
@@ -571,14 +559,6 @@ def widget_xml(tag: str, widget: dict, tags: Tags, functions: list, inputs: list
     lines += [f"{inner}{line}" for line in patch.get("children", [])]
     lines.append(f"{indent}</widget>")
     return lines
-
-
-def engine_names(source: Path, start: str, count: int) -> list:
-    """the names a table of the game's functions gives them, in order"""
-    import re
-    text = source.read_text(encoding="latin-1")
-    text = text[text.index(start):]
-    return re.findall(r'"([^"\\]*)"', text[:text.index("}")])[:count]
 
 
 def main() -> None:

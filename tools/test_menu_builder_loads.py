@@ -14,8 +14,7 @@ import subprocess
 import sys
 import tempfile
 
-from ce_menus import engine_names
-from menu_probe_build import build_probe
+from menu_probe_build import build_probe, engine_names
 
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / "port/assets/menus"
