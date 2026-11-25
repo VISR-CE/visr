@@ -1572,7 +1572,9 @@ static const struct config_setting config_settings[] =
 		"Listen on 127.0.0.1 (port telnet_console_port) for a script console that\n"
 		"runs what it is sent as the game's console does, with no password; false\n"
 		"none. Development builds also take \"visr_set SECTION.KEY VALUE\" there,\n"
-		"which sets a setting for this run only (nothing is written)." },
+		"which sets a setting for this run only (nothing is written), and\n"
+		"\"visr_cinematic [skip]\", which says whether a cinematic runs and can be\n"
+		"skipped, and asks to skip it as the skip button does." },
 	{ "debug.telnet_console_port", _config_integer, "2323", "HALO_TELNET_CONSOLE_PORT", _environment_value,
 		_platform_all,
 		"The port of the script console (telnet_console); the Xbox's was 23, which\n"

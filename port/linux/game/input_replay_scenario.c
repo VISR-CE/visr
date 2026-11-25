@@ -10,6 +10,7 @@ recording skipped it.
 */
 
 #include "cseries.h"
+#include "cinematic_skip.h"
 #include "ai/actors.h"
 #include "ai/ai_script.h"
 #include "ai/ai_scenario_definitions.h"
@@ -131,13 +132,12 @@ unsigned char input_replay_fight_state(float *body, float *shield, long *actors,
 	return 1;
 }
 
-/* 1 if there was a cinematic to skip and it was asked to end */
+/* 1 if there was a cinematic to skip and it was asked to end, through the one skip request (cinematic_skip.c) */
 unsigned char input_replay_skip_cinematic(void)
 {
-	if (!cinematic_can_be_skipped())
-		return 0;
-	main_skip_cinematic();
-	return 1;
+	enum cinematic_skip_result result = cinematic_skip_request(CINEMATIC_SKIP_REPLAY);
+
+	return result == CINEMATIC_SKIP_REQUESTED || result == CINEMATIC_SKIP_VOTED;
 }
 
 /* The same operations as switch_bsp, object_teleport (player0), ai_place and the two AI sight commands in
