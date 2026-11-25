@@ -2236,3 +2236,15 @@ def test_no_dialog_legend_part_leaves_its_button_rect():
                 assert y + int(child.get('height')) <= height, f'{name}: {child.get("name")} drops below its button rect'
                 checked += 1
     assert checked >= 40, checked
+
+
+def test_a_touch_pill_widget_is_as_large_as_its_bitmap_frame():
+    """Bug class (Nov 24: every dialog touch pill lost its right end): the engine samples a bitmap widget's width and
+    height of the bitmap's frame, so a frame larger than the widget crops the picture and a smaller one stretches it."""
+    root = ET.parse(Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox/dialogs.xml').getroot()
+    frames = {b.get('name'): b.find('frame') for b in root.findall('bitmap')}
+    pill = frames['xbox/dialog_touch_button']
+    pills = [w for w in root.iter('widget') if w.get('bitmap') == 'xbox/dialog_touch_button']
+    assert len(pills) >= 10
+    for w in pills:
+        assert (w.get('width'), w.get('height')) == (pill.get('width'), pill.get('height')), w.get('name')

@@ -2101,7 +2101,9 @@ def dialog_document():
     root = ET.Element('menus')
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/dialog_touch_button')
     ET.SubElement(bitmap, 'frame', png='pictures/shell/bitmaps/text_button_background__1.png',
-                  width='512', height='128')  # the png is 512x128: declare its real size so the widget's source rectangle covers the whole picture
+                  width=str(DIALOG_BUTTON[2]), height=str(DIALOG_BUTTON[3]))
+    # (the engine samples a widget's own width and height of the bitmap's frame, so the frame is declared at the pill's drawn size:
+    # a larger frame shows only the picture's top-left part, a smaller one stretches it)
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS:
         base = 'xbox/error/' + name
         width = 320 if 'qtrscreen' in name else 640
