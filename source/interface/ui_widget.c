@@ -3033,6 +3033,60 @@ static void ui_focus_check_item(
 	platform_log("menus: focus invariant broken %s", item->name ? item->name : "?");
 }
 
+/* port: whether choosing a widget does anything: it or something in it is a list (a spinner) or has a handler for
+a controller event (the first 24 event types: buttons, the pad and the sticks) that does something. A row with only
+empty handlers and text, as a row that shows a value, does not. */
+static boolean ui_focus_widget_acts(
+	struct widget_instance *widget)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+	struct ui_widget_event_handler_reference *handlers = definition->event_handlers.address;
+	struct widget_instance *child;
+	long index;
+
+	if (widget->type == _ui_widget_type_spinner_list || widget->type == _ui_widget_type_column_list)
+		return TRUE;
+	for (index = 0; index < definition->event_handlers.count; index++)
+		if (handlers[index].event_type < 24 && handlers[index].flags)
+			return TRUE;
+	for (child = widget->child; child; child = child->next)
+		if (ui_focus_widget_acts(child))
+			return TRUE;
+	return FALSE;
+}
+
+/* port: a list draws its focus on a row that does nothing when chosen, though the list has a row that does: a
+read-only row took the focus. Logged once for a widget, as "menus: focus on a read-only row <name>" (a list whose
+rows all do nothing, which the focus only scrolls, is not this). Only a report for now: nothing in the menus says
+which rows act, so the focus cannot yet pass over them (the lists' windows, their descriptions and the pointer
+count rows the same way). */
+static void ui_focus_check_draw(
+	struct widget_instance *list,
+	struct widget_instance *item)
+{
+	extern void platform_log(char const *, ...);
+	static long reported[16];
+	static int reported_count;
+	struct widget_instance *other;
+	int index;
+
+	if (list->type != _ui_widget_type_column_list || item->type == _ui_widget_type_column_list ||
+		ui_focus_widget_acts(item))
+		return;
+	for (other = list->child; other; other = other->next)
+		if (other != item && other->visible && other->type != _ui_widget_type_column_list &&
+			ui_focus_widget_acts(other))
+			break;
+	if (!other)
+		return;
+	for (index = 0; index < reported_count; index++)
+		if (reported[index] == item->definition_tag_index)
+			return;
+	if (reported_count < (int)NUMBEROF(reported))
+		reported[reported_count++] = item->definition_tag_index;
+	platform_log("menus: focus on a read-only row %s", item->name ? item->name : "?");
+}
+
 static void widget_instance_give_focus_directly(
 	struct widget_instance *widget,
 	struct widget_instance *new_focus)
@@ -10226,6 +10280,8 @@ static void widget_instance_render_recursive(
 				(widget->type == _ui_widget_type_spinner_list ||
 				widget->type == _ui_widget_type_column_list);
 			ui_focus_check_item(child);
+			if (focus && use_nifty_plasma_fx)
+				ui_focus_check_draw(widget, child);
 			widget_instance_render_recursive(
 				child,
 				clip_rect,
