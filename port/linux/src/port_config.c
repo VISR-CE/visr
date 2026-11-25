@@ -2026,6 +2026,10 @@ static const struct config_setting config_settings[] =
 	{ "debug.traced_light_owner", _config_real, "0.3", "HALO_TRACED_LIGHT_OWNER", _environment_value, _platform_ios,
 		"With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not\n"
 		"block it, so the character carrying a flashlight does not shadow its own beam." },
+	{ "debug.traced_light_viewer", _config_real, "1.0", "HALO_TRACED_LIGHT_VIEWER", _environment_value, _platform_ios,
+		"With debug.traced_light_blocking: a light within this many world units of the eye (the flashlight the\n"
+		"viewer carries) is traced toward the eye, so it is not lost on a wall the player stands against; 0\n"
+		"traces every light toward its own position." },
 	{ "debug.traced_light_repeat", _config_integer, "1", "HALO_TRACED_LIGHT_REPEAT", _environment_value, _platform_ios,
 		"For cost measurements: trace debug.traced_light_blocking's rays this many times over (1 to 64); the\n"
 		"picture is the same." },

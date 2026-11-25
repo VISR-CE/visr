@@ -3811,6 +3811,16 @@
             "apple"
           ]
         },
+        "traced_light_viewer": {
+          "type": "number",
+          "default": 1.0,
+          "description": "With debug.traced_light_blocking: a light within this many world units of the eye (the flashlight the viewer carries) is traced toward the eye, so it is not lost on a wall the player stands against; 0 traces every light toward its own position.",
+          "x-environment": "HALO_TRACED_LIGHT_VIEWER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "traced_light_repeat": {
           "type": "integer",
           "default": 1,

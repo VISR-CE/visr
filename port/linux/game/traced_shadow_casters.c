@@ -741,6 +741,15 @@ boolean traced_light_begin(
 	if (light[6] < light[4])
 		light[6] = light[4];
 	light[9] = (float)config_integer("debug.traced_light_repeat");
+	/* a light the viewer carries (within debug.traced_light_viewer of the eye) is traced toward the eye */
+	{
+		real from_eye = distance3d(position, &render.camera.position);
+		real_point3d const *aim = from_eye < (real)config_real("debug.traced_light_viewer") ? &render.camera.position : position;
+
+		light[12] = aim->x;
+		light[13] = aim->y;
+		light[14] = aim->z;
+	}
 	/* (where the light sits against the eye: a light inside a wall the player hugs blocks itself) */
 	if ((calls++ % 600) == 0)
 		platform_log("traced light: %.2f %.2f %.2f radius %.1f, %.3f from the eye", position->x, position->y,
