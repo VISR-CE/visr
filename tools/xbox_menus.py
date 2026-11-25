@@ -2029,19 +2029,16 @@ def browser_error_layout(documents):
     dialog_legend_targets(root, screen, base + '/error_legend')
 
 
-def dialog_legend_slots(labels):
-    """Slots (panel-relative x, width) for a dialog's legend buttons, in the order given.
+def dialog_slots():
+    """The dialog legend's fixed slots: {button: (panel-relative x, width)}, B (CANCEL) on the left and A (OK) on the right.
 
-    Every slot is the standard size, whatever its caption (the engine fits the text), and the row is centered as a
-    group on the panel.
+    Every slot is the standard size, whatever its caption (the engine fits the text), and the pair is centered as a group
+    on the panel. A dialog with one button takes that button's own slot: a lone OK sits exactly where OK sits beside
+    CANCEL.
     """
-    widths = [DIALOG_HIT[2] for _ in labels]
-    x = (DIALOG_PANEL[2] - sum(widths) - DIALOG_SLOT_GAP * (len(widths) - 1)) // 2
-    slots = []
-    for width in widths:
-        slots.append((x, width))
-        x += width + DIALOG_SLOT_GAP
-    return slots
+    width = DIALOG_HIT[2]
+    x = (DIALOG_PANEL[2] - 2 * width - DIALOG_SLOT_GAP) // 2
+    return {'b': (x, width), 'a': (x + width + DIALOG_SLOT_GAP, width)}
 
 
 def dialog_slot_content_x(slot_width, caption_width):
@@ -2066,8 +2063,7 @@ def dialog_legend_targets(root, screen, base, x=None, y=None, cancel=False, acce
         y = DIALOG_PANEL[1] + DIALOG_BUTTON[1]
     top = y - DIALOG_BUTTON[1]
     legend(root, screen, base, accept=accept, declared=False)
-    order = [('b', 'CANCEL'), ('a', accept)] if cancel else [('a', accept)]
-    slots = dict(zip((b for b, _ in order), dialog_legend_slots([label for _, label in order])))
+    slots = dialog_slots()
     for button, label in (('a', accept), ('b', 'CANCEL')):
         icon, caption = f'{base}/{button}_butn', f'{base}/' + ('accept' if button == 'a' else 'cancel')
         if button == 'b' and not cancel:
@@ -2105,7 +2101,7 @@ def dialog_document():
     root = ET.Element('menus')
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/dialog_touch_button')
     ET.SubElement(bitmap, 'frame', png='pictures/shell/bitmaps/text_button_background__1.png',
-                  width='128', height='32')  # the png is 512x128; the widget scales it to the drawn pill
+                  width='512', height='128')  # the png is 512x128: declare its real size so the widget's source rectangle covers the whole picture
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS:
         base = 'xbox/error/' + name
         width = 320 if 'qtrscreen' in name else 640

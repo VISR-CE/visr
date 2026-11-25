@@ -367,7 +367,7 @@ def test_multiplayer_list_viewports_stop_before_help_and_footer():
 def test_quit_uses_confirm_button_positions():
     root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
     modal = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_screen'))
-    slots = dict(zip('ba', generator().dialog_legend_slots(['CANCEL', 'OK'])))
+    slots = generator().dialog_slots()
     for button, (x, width) in slots.items():
         placed = modal.find(f"child[@widget='xbox/main_menu/quit_select/legend/{button}_butn']")
         assert (int(placed.get('x')), int(placed.get('y'))) == (192 + x, 176 + generator().DIALOG_HIT[1])
@@ -717,7 +717,7 @@ def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
                for s in ET.parse(path).iter('strings')}
     assert strings[text.get('string_list')][int(text.get('string_index'))].get('text').replace(r'\n', ' ') == (
         'This game allows more players than this device runs smoothly. Join anyway?')
-    slots = dict(zip('ba', generator().dialog_legend_slots(['CANCEL', 'OK'])))
+    slots = generator().dialog_slots()
     for icon, caption, emitted in (('b', 'CANCEL', 'back'), ('a', 'OK', 'accept')):
         target = widgets[f'{base}/legend/{icon}_butn']
         assert (target.get('width'), target.get('height')) == (str(slots[icon][1]), '53')
@@ -1459,7 +1459,7 @@ def test_dialog_ok_has_a_rounded_touch_button_and_adaptive_legend():
 def test_delete_confirmation_has_adaptive_a_and_b_touch_targets():
     widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox/multiplayer.shared.xml').iter('widget')}
     base = 'xbox/error/confirm_delete_profile/legend'
-    slots = dict(zip('ba', generator().dialog_legend_slots(['CANCEL', 'OK'])))
+    slots = generator().dialog_slots()
     for button, label in (('a', 'OK'), ('b', 'CANCEL')):
         target = widgets[f'{base}/{button}_butn']
         assert target.find('data[@input="port dialog legend update"]') is not None
@@ -1743,8 +1743,9 @@ def test_k8_panels_headers_and_adaptive_targets(density):
         for (_, right), (next_left, _) in zip(slots, slots[1:]):
             assert right <= next_left, f'{name}: B and A tap areas overlap'
         if slots:
-            # The row is centered on the panel as a group.
-            assert abs((slots[0][0] - left) - (left + 239 - slots[-1][1])) <= 1, f'{name}: legend row off center'
+            # Each button sits in its own fixed slot (B left, A right), the pair centered on the panel.
+            fixed = sorted((left + x, left + x + w) for x, w in generator().dialog_slots().values())
+            assert all(slot in fixed for slot in slots), f'{name}: legend slot is not one of the fixed slots'
 
 
 def modal_legend_inks(widgets, screen):
@@ -1822,11 +1823,11 @@ def test_every_modal_legend_row_is_centered_in_the_footer_band():
                 f'{name}: legend glyph crosses the footer rule or leaves the panel')
             band_center = (gen.DIALOG_RULE + gen.DIALOG_BOTTOM) / 2
             assert abs((ink_top + ink_bottom) / 2 - top - band_center) <= 2, f'{name}: legend off the band center'
-        # the standard slots (the tap targets) are centered as a group; a caption's ink is centered in its own slot
+        # the standard slots (the tap targets) are the two fixed slots; a caption's ink is centered in its own slot
         slots = [(x, x + int(w.get('width'))) for w, x, y in parts
                  if w.find('data[@input="port dialog legend update"]') is not None]
-        group_left, group_right = min(a for a, b in slots), max(b for a, b in slots)
-        assert abs((group_left - left) - (left + 239 - group_right)) <= 2, f'{name}: legend group off center'
+        fixed = sorted((left + x, left + x + w) for x, w in gen.dialog_slots().values())
+        assert all(slot in fixed for slot in slots), f'{name}: legend slot is not one of the fixed slots'
         assert len({b - a for a, b in slots}) == 1, f'{name}: slots are not one standard size'
         checked += 1
     assert checked >= 8
@@ -2189,3 +2190,49 @@ def test_every_title_picture_sets_its_title_at_the_same_height_and_size_inside_i
             if not (110 <= box[0] <= 135 and 128 <= box[1] <= 138 and 70 <= box[2] - box[1] <= 92)} == {}
     # and its plate fades out inside the picture, on every side
     assert {png: edge for png, edge in edges.items() if edge > 4} == {}
+
+
+def test_a_lone_ok_sits_in_the_slot_where_ok_sits_beside_cancel():
+    """Standard slots: A (OK) is always the right slot and B (CANCEL) the left, so a single-button dialog's OK has the
+    pair's OK rect, never the panel's center. Checked on every K8 dialog."""
+    gen = generator()
+    slots = gen.dialog_slots()
+    (ok_x, width), (cancel_x, _) = slots['a'], slots['b']
+    assert ok_x - (cancel_x + width) == gen.DIALOG_SLOT_GAP and ok_x > cancel_x
+    widgets = layout_widgets('comfortable')
+    seen = {'lone': 0, 'pair': 0}
+    for name, spec in gen.SCREEN_LAYOUTS.items():
+        if spec['kind'] != 'K8' or spec.get('buttonless', False):
+            continue
+        parts = list(screen_parts(widgets[name], widgets))
+        left = [x for w, x, y in parts if w.get('bitmap') == 'xbox/bitmaps/alert_bkd'][0]
+        buttons = {w.get('name').rsplit('/', 1)[-1]: (x - left, int(w.get('width'))) for w, x, y in parts
+                   if w.find('data[@input="port dialog legend update"]') is not None}
+        assert buttons['a_butn'] == (ok_x, width), f'{name}: OK is not in the A slot: {buttons}'
+        if 'b_butn' in buttons:
+            assert buttons['b_butn'] == (cancel_x, width), f'{name}: CANCEL is not in the B slot'
+        seen['pair' if 'b_butn' in buttons else 'lone'] += 1
+    assert seen['lone'] >= 3 and seen['pair'] >= 3, seen
+
+
+def test_no_dialog_legend_part_leaves_its_button_rect():
+    """A dialog button's tap rect is the clip for what it draws: the touch pill, its caption, the glyph and the
+    caption beside it must each lie inside it, so no pill is cut off. Every K8 dialog, every button."""
+    gen = generator()
+    widgets = layout_widgets('comfortable')
+    checked = 0
+    for name, spec in gen.SCREEN_LAYOUTS.items():
+        if spec['kind'] != 'K8' or spec.get('buttonless', False):
+            continue
+        for part, px, py in screen_parts(widgets[name], widgets):
+            if part.find('data[@input="port dialog legend update"]') is None:
+                continue
+            width, height = int(part.get('width')), int(part.get('height'))
+            for c in part.findall('child'):
+                child = widgets[c.get('widget')]
+                x, y = int(c.get('x', 0)), int(c.get('y', 0))
+                assert x >= 0 and y >= 0, f'{name}: {child.get("name")} starts outside its button'
+                assert x + int(child.get('width')) <= width, f'{name}: {child.get("name")} runs past its button rect'
+                assert y + int(child.get('height')) <= height, f'{name}: {child.get("name")} drops below its button rect'
+                checked += 1
+    assert checked >= 40, checked
