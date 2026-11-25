@@ -231,9 +231,14 @@ static void launch_refresh(void)
 	/* a map file replaced under a new stamp is hashed again, and a cache without stamps (older metadata) too */
 	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; strcpy(stub_stamp, "101:200"); run_maps();
 	assert(hashes == 23 && !refresh_calls);
+	/* the class: that launch wrote the new stamps beside the current pictures, so the next one reads no map */
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; strcpy(stub_stamp, "101:200"); run_maps();
+	assert(hashes == 0 && !refresh_calls && !render.rendered);
 	seed_cache(8, 4243, no_stamps);
-	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; run_maps();
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; strcpy(stub_stamp, "101:200"); run_maps();
 	assert(hashes == 23 && !refresh_calls);
+	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; strcpy(stub_stamp, "101:200"); run_maps();
+	assert(hashes == 0 && !refresh_calls);
 	seed_cache(8, 4243, NULL);
 	reset(0, 0, 0); refresh_ok = 1; stub_revision = 8; stub_hash = 4243; run_maps();
 	assert(hashes == 0);

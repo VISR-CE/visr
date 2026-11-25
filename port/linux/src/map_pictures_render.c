@@ -101,6 +101,9 @@ enum render_state
 static struct
 {
 	enum render_state state;
+	/* the current map's cached meta.json, parsed once by build_request for the freshness check */
+	struct map_pictures_metadata cached_meta;
+	int have_cached_meta;
 	int enabled, import_mode, index, rendered, cached, failed, updates, fast_forwarding;
 	/* 1 while a map loads straight from the last one, with no menu between them (the import stage) */
 	int direct;
@@ -228,21 +231,16 @@ static int map_directory(char *directory, size_t size, const char *key)
 
 static int attempt_matches(const char *directory, const struct map_pictures_request *request);
 
-/* 1 when the map's cached meta.json describes the picture this request would render */
+/* 1 when the map's cached meta.json (parsed by build_request) describes the picture this request would render.
+A current picture whose meta.json holds another stamp (made before stamps, or the file was copied or restored) gets
+the request's stamp written, so the next launch hashes nothing for it. */
 static int cached_fresh(const char *directory, const struct map_pictures_request *request)
 {
-	char path[1100];
-	struct map_pictures_metadata cached;
-	uint32_t size = 0;
-	uint8_t *json;
+	char path[1100], text[MAP_PICTURES_META_SIZE];
 	int fresh = 0;
 	FILE *bmp;
 
-	snprintf(path, sizeof(path), "%smeta.json", directory);
-	if (!(json = file_read(path, &size)))
-		return 0;
-	memset(&cached, 0, sizeof(cached));
-	if (map_pictures_meta_parse((const char *)json, size, &cached) && !map_pictures_is_stale(&cached, request))
+	if (render.have_cached_meta && !map_pictures_is_stale(&render.cached_meta, request))
 	{
 		snprintf(path, sizeof(path), "%spicture.bmp", directory);
 		if ((bmp = fopen(path, "rb")))
@@ -251,7 +249,12 @@ static int cached_fresh(const char *directory, const struct map_pictures_request
 			fclose(bmp);
 		}
 	}
-	free(json);
+	if (fresh && request->metadata.map_stamp[0] && strcmp(render.cached_meta.map_stamp, request->metadata.map_stamp) &&
+		map_pictures_meta_write(text, sizeof(text), &request->metadata) > 0)
+	{
+		snprintf(path, sizeof(path), "%smeta.json", directory);
+		file_write(path, text, strlen(text));
+	}
 	return fresh || attempt_matches(directory, request);
 }
 
@@ -339,16 +342,17 @@ static int build_request(int scenario, char directory[1100], uint32_t *revision)
 {
 	char hash[65], stamp[MAP_PICTURES_STAMP_SIZE];
 	uint32_t framing_hash = 0;
-	struct map_pictures_metadata cached, *meta = &render.request.metadata;
+	struct map_pictures_metadata *cached = &render.cached_meta, *meta = &render.request.metadata;
 	int have_cache = 0;
 
 	*revision = 0;
 	directory[0] = 0;
 	if (map_pictures_scenario_key(scenario, render.key, sizeof(render.key)) &&
 		map_directory(directory, 1100, render.key))
-		have_cache = cached_meta(directory, &cached);
+		have_cache = cached_meta(directory, cached);
+	render.have_cached_meta = have_cache;
 	if (!map_pictures_scenario_identity(scenario, render.key, sizeof(render.key), hash, stamp,
-		have_cache ? cached.map_stamp : "", have_cache ? cached.map_hash : "", revision, &framing_hash))
+		have_cache ? cached->map_stamp : "", have_cache ? cached->map_hash : "", revision, &framing_hash))
 		return 0;
 	memset(&render.request, 0, sizeof(render.request));
 	snprintf(meta->map_key, sizeof(meta->map_key), "%s", render.key);
