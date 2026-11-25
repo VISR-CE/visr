@@ -322,6 +322,35 @@ def test_lookup_order(tmp_path, native_probe):
     assert lookup(native_probe, None, BUNDLE, 'stock:a10')[0] == 2
 
 
+def test_candidate_never_resolves_until_chosen(tmp_path, native_probe):
+    """Class: what the game resolves for a map is only ever the active fragment, and a solved candidate beside it
+    changes that only when the author makes it active (load it, then save)."""
+    key = 'stock:example'
+    bundle = tmp_path / 'bundle.json'
+    data = good()
+    data['maps'][key]['revision'] = 9
+    bundle.write_text(json.dumps(data))
+    active = tmp_path / 'stock:example.json'
+    candidate = tmp_path / 'stock:example.solved.json'
+    hand = good()
+    hand['maps'][key]['revision'] = 2
+    active.write_text(json.dumps(hand))
+    solved = good()
+    solved['maps'][key]['revision'] = 7
+    candidate.write_text(json.dumps(solved))
+    assert lookup(native_probe, active, bundle, key) == (1, 2)
+    # no active fragment: the candidate is still not a source
+    active.unlink()
+    assert lookup(native_probe, active, bundle, key) == (2, 9)
+    # choosing it is making it the active fragment
+    active.write_text(candidate.read_text())
+    assert lookup(native_probe, active, bundle, key) == (1, 7)
+    # a photo-mode save records provenance and continues the revision
+    subprocess.run([str(native_probe), '--write-from', str(active), key, '7'], check=True)
+    assert json.loads(active.read_text())['maps'][key]['shots'][0]['source'] == 'hand'
+    assert lookup(native_probe, active, bundle, key) == (1, 8)
+
+
 def test_bundled_framings_resolve_through_game_lookup(native_probe):
     """Every built-in map resolves to its bundled framing (not the automatic camera) via the game's resolver."""
     root = Path(__file__).resolve().parents[1]

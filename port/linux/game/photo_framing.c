@@ -500,7 +500,7 @@ int photo_fragment_write_from(const char *path, const char *key, const struct ph
 	fputs(",\n        \"up\": ",f); vector_write(f,s->up,3);
 	fprintf(f,",\n        \"fov\": %.9g,\n        \"bsp\": %d,\n        \"focus\": ",s->fov,s->bsp); vector_write(f,s->focus,2);
 	fputs(",\n        \"safe\": ",f); vector_write(f,s->safe,4);
-	fprintf(f,",\n        \"settle_ticks\": %d,\n        \"scene\": {\"ai\": \"%s\", \"variant\": \"",s->settle_ticks,s->erase_ai ? "erase" : "keep");
+	fprintf(f,",\n        \"settle_ticks\": %d,\n        \"source\": \"hand\",\n        \"scene\": {\"ai\": \"%s\", \"variant\": \"",s->settle_ticks,s->erase_ai ? "erase" : "keep");
 	/* Engine variant names are printable identifiers, never arbitrary JSON text. */
 	{ const unsigned char *p = (const unsigned char *)s->variant;
 	  for (; *p; p++) { if (*p < 32 || *p == '"' || *p == '\\') { fclose(f); remove(temp); return 0; } fputc(*p,f); } }
