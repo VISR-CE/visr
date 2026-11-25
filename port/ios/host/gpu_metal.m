@@ -1281,6 +1281,42 @@ static float format_levels(MTLPixelFormat format)
 	}
 }
 
+/* What the present pass does with the picture's bits (debug.present_dither, display.scene_precision): the one
+decision the pass's pipeline choice and its log line both take, from the pass's real inputs (the picture after the
+upscale, the drawable's format, whether the CRT effect draws this frame). */
+enum present_dither_state
+{
+	PRESENT_DITHER_ON,			/* the picture has more bits than the drawable: dithered */
+	PRESENT_DITHER_NOT_NEEDED,	/* the drawable holds the picture's bits */
+	PRESENT_DITHER_OFF,			/* debug.present_dither off (the knob chord) */
+	PRESENT_DITHER_RAMP,		/* debug.precision_ramp's test ramp in place of the picture */
+	PRESENT_DITHER_CRT,			/* Hardcore's CRT effect draws the frame: no dither pass */
+};
+
+static enum present_dither_state present_dither_state(MTLPixelFormat picture, MTLPixelFormat drawable, BOOL crt)
+{
+	if (crt)
+		return PRESENT_DITHER_CRT;
+	if (precision_ramp)
+		return PRESENT_DITHER_RAMP;
+	if (!atomic_load(&present_dither_on))
+		return PRESENT_DITHER_OFF;
+	return format_levels(picture) > format_levels(drawable) ? PRESENT_DITHER_ON : PRESENT_DITHER_NOT_NEEDED;
+}
+
+static const char *present_dither_state_name(enum present_dither_state state)
+{
+	switch (state)
+	{
+	case PRESENT_DITHER_ON: return "on";
+	case PRESENT_DITHER_NOT_NEEDED: return "not needed";
+	case PRESENT_DITHER_OFF: return "off";
+	case PRESENT_DITHER_RAMP: return "replaced by the precision ramp";
+	case PRESENT_DITHER_CRT: return "replaced by the CRT effect";
+	}
+	return "unknown";
+}
+
 /* what a format test means, asked of the format: ClampToZero's border is transparent only with alpha
 (zero_border_eligible). The color target formats only: BGRA8, and the scene-color role's */
 static BOOL format_has_alpha(MTLPixelFormat format)
@@ -9683,23 +9719,12 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 the drawable's (quad_pipeline), so no frame mismatches. A format the layer refuses (an exception, or another format
 read back) is logged once and never asked for again; that layer stays BGRA8, so no platform ships 8-bit silently. */
 
-static void layer_format_follow(MTLPixelFormat wanted, MTLPixelFormat picture)
+static void layer_format_follow(MTLPixelFormat wanted)
 {
 	CAMetalLayer *target = layer;
-	static BOOL stated;
 
 	if (atomic_load(&layer_formats_refused) & layer_format_bit(wanted))
 		wanted = MTLPixelFormatBGRA8Unorm;
-	/* the first frame states the format in force even when it is the layer's initial BGRA8, which no change below
-	logs: a session checking for an 8-bit layer (debug.output_format bgra8) or a 10-bit one reads it here */
-	if (!stated && target)
-	{
-		stated = YES;
-		platform_log("Metal: layer format %s for a %s picture (%s); present dither %s", pixel_format_name(wanted),
-			pixel_format_name(picture), output_format_override != MTLPixelFormatInvalid ? "debug.output_format" :
-			"display.scene_precision", !atomic_load(&present_dither_on) ? "off" :
-			format_levels(picture) > format_levels(wanted) ? "on" : "not needed (the layer has the picture's bits)");
-	}
 	if (wanted == layer_format_asked || !target)
 		return;
 	layer_format_asked = wanted;
@@ -9725,6 +9750,31 @@ static void layer_format_follow(MTLPixelFormat wanted, MTLPixelFormat picture)
 		else
 			platform_log("Metal: the layer is %s (%lu)", pixel_format_name(wanted), (unsigned long)wanted);
 	});
+}
+
+/* The present pass's state as a session judges it (the drawable's format, the picture's, the dither), logged from
+the pass itself whenever the tuple (output, layer, drawable format, picture format, dither state) differs from the
+last one stated, so the first frame, the precision and dither knobs, a recreated layer, an external display and a
+refused format all show the state in force. Render thread. */
+static void present_state_log(void *output_layer, MTLPixelFormat drawable, MTLPixelFormat picture,
+	enum present_dither_state dither)
+{
+	static void *last_layer;
+	static int last_output = -1;
+	static MTLPixelFormat last_drawable, last_picture;
+	static enum present_dither_state last_dither;
+
+	if (output_layer == last_layer && perf_output == last_output && drawable == last_drawable &&
+		picture == last_picture && dither == last_dither)
+		return;
+	last_layer = output_layer;
+	last_output = perf_output;
+	last_drawable = drawable;
+	last_picture = picture;
+	last_dither = dither;
+	platform_log("Metal: present: drawable %s, picture %s, present dither %s (output %d, layer %p)",
+		pixel_format_name(drawable), pixel_format_name(picture), present_dither_state_name(dither), perf_output,
+		output_layer);
 }
 
 static uint32_t present_frame(gpu_texture back_buffer)
@@ -9849,7 +9899,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 		}
 		/* display.scene_precision: the built-in display's layer follows the picture's precision */
 		if (record && record->texture && perf_output == 1)
-			layer_format_follow(output_format_for(record->texture.pixelFormat), record->texture.pixelFormat);
+			layer_format_follow(output_format_for(record->texture.pixelFormat));
 		unsynced = frame_rate_sync();
 		gpu_metal_presentation_configure(layer);
 #if !TARGET_OS_VISION
@@ -9949,7 +9999,12 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			/* (the CRT only over Hardcore's 480-line picture: until the next level a mode change can leave the
 			picture at the device's size) */
 			/* (each pipeline for the drawable's format, which follows the picture's: layer_format_follow) */
-			if (crt_function && picture.height <= 540 && crt_enabled)
+			enum present_dither_state dither_state = present_dither_state(picture.pixelFormat, target.pixelFormat,
+				crt_function && picture.height <= 540 && crt_enabled);
+
+			present_state_log(drawable ? (__bridge void *)drawable.layer : NULL, target.pixelFormat, picture.pixelFormat,
+				dither_state);
+			if (dither_state == PRESENT_DITHER_CRT)
 			{
 				float sizes[4] = { (float)picture.width, (float)picture.height, (float)width, (float)height };
 
@@ -9958,8 +10013,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 			}
 			/* display.scene_precision: the dither where the picture has more bits than the drawable (never from an
 			8-bit frame: nothing is left to dither), and debug.precision_ramp's test ramp */
-			else if (precision_ramp || (atomic_load(&present_dither_on) &&
-				format_levels(picture.pixelFormat) > format_levels(target.pixelFormat)))
+			else if (dither_state == PRESENT_DITHER_ON || dither_state == PRESENT_DITHER_RAMP)
 			{
 				float dither[4] = { atomic_load(&present_dither_on) ? 1.0f / format_levels(target.pixelFormat) : 0.0f,
 					precision_ramp ? 1.0f : 0.0f, 0.0f, 0.0f };

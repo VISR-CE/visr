@@ -62,16 +62,38 @@ def test_dither_keeps_the_mean_and_the_ends():
             assert abs(mean - color) < 0.1 * step, (levels, color, mean)
 
 
-def test_the_first_frame_states_the_layer_format_and_the_dither():
-    """Bug class: image-precision state that a session judges (the layer's format, whether the dither is on) logged only
-    when it changes, so its starting value is silent and a session cannot tell an 8-bit layer or a dithered frame from
-    a missing log (the grain rehearsal, Nov 25). The first call of layer_format_follow logs both before the
-    early return that skips an unchanged format."""
+
+def function_body(source, signature):
+    start = source.index(signature)
+    return source[start:source.index('\n}\n', start)]
+
+
+def test_the_pass_and_its_log_share_one_dither_decision():
+    """Bug class: a second copy of the present pass's dither decision that drifts from what the frame does (the
+    first layer-format line said "on" for a CRT frame and "not needed" for a dithered one, Nov 25 review). The
+    comparison of the picture's levels with the drawable's lives only in present_dither_state; the pass picks its
+    pipeline from it and present_state_log names its result."""
     source = METAL.read_text()
-    start = source.index('static void layer_format_follow(')
-    body = source[start:source.index('\n}\n', start)]
-    statement = body.index('platform_log("Metal: layer format %s for a %s picture (%s); present dither %s"')
-    assert statement < body.index('if (wanted == layer_format_asked || !target)')
-    assert '!stated && target' in body[:statement]
-    for state in ('"off"', '"on"', '"not needed'):
-        assert state in body[statement:]
+    helper = function_body(source, 'static enum present_dither_state present_dither_state(')
+    outside = source.replace(helper, '')
+    assert re.search(r'format_levels\(picture\) > format_levels\(drawable\)', helper)
+    assert not re.search(r'format_levels\([^)]*\)\s*>\s*format_levels\(', outside)
+    frame = function_body(source, 'static uint32_t present_frame(')
+    assert 'present_dither_state(picture.pixelFormat, target.pixelFormat' in frame
+    assert 'present_state_log(' in frame
+    assert 'dither_state == PRESENT_DITHER_CRT' in frame
+    assert 'dither_state == PRESENT_DITHER_ON || dither_state == PRESENT_DITHER_RAMP' in frame
+
+
+def test_the_state_line_follows_every_change_of_the_tuple():
+    """Bug class: judged state logged only on change from a starting value, or only once, so its value in force is
+    silent (the grain rehearsal could not show an 8-bit layer). present_state_log compares the whole tuple
+    with the last one stated, with no one-shot flag, and names each dither state."""
+    source = METAL.read_text()
+    log = function_body(source, 'static void present_state_log(')
+    for name in ('output_layer', 'perf_output', 'drawable', 'picture', 'dither'):
+        assert re.search(rf'{name} == last_\w+', log), name
+    assert 'stated' not in log
+    names = function_body(source, 'static const char *present_dither_state_name(')
+    for word in ('"on"', '"not needed"', '"off"', '"replaced by the precision ramp"', '"replaced by the CRT effect"'):
+        assert word in names
