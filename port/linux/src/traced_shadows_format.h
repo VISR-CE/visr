@@ -45,7 +45,7 @@ enum
 	TRACED_SHADOWS_PART_VERTICES = 65535,
 	TRACED_SHADOWS_NODE_FLOATS = 13,
 	TRACED_SHADOWS_BASIS_FLOATS = 24,
-	TRACED_SHADOWS_LIGHT_FLOATS = 12,
+	TRACED_SHADOWS_LIGHT_FLOATS = 16,
 };
 
 /* a model part at rest: vertex_count traced_shadows_vertex, then triangle_count * 3 16-bit indices (padded to a

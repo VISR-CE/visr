@@ -1,6 +1,8 @@
 """Traced object shadows without Metal: the game's records, skinning and the caster cache
 (port/ios/host/traced_shadows.h), compiled and run from port/ios/tests/traced_shadows_probe.c."""
+import ast
 import pathlib
+import re
 import shutil
 import subprocess
 import tempfile
@@ -189,3 +191,52 @@ def test_the_light_instances_rebuild_when_the_caster_set_changes():
     assert "casters = traced_light_casters();" in host
     assert "casters != traced_lights.made_with" in host
     assert "casters += traced.shadow_slot" not in host
+
+
+def test_every_traced_light_pass_runs_the_one_visibility_function():
+    """The class: light passes that disagree (a highlight left behind a wall the diffuse light stops at) or a ray
+    that blocks what should stay lit: a pixel the light leaves black, a surface facing away (its ray starts inside
+    it), a light resting on what it touches. Every pass's rays are light_visibility_emit's."""
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    emitter = shader[shader.index("static void light_visibility_emit"):]
+    emitter = emitter[:emitter.index("\n}\n")]
+    assert shader.count("traced_blockers, 2u)") == 1 and "traced_blockers, 2u)" in emitter
+    assert shader.count("light_visibility_emit(&text,") >= 1
+    for rule in ("bool black = max(max(result.r, result.g), result.b) < 1.0 / 512.0;",
+                 "bool facing = dot(n, to_light) > 0.0;",
+                 "n = dot(n, traced_light[3].xyz - p) < 0.0 ? -n : n;",
+                 "!black && facing"):
+        assert rule in emitter
+    # (the normal comes from derivatives taken before any branch: every pixel of the quad still runs there)
+    assert shader.index("cross(dfdx(traced_point), dfdy(traced_point))") < shader.index("light_visibility_emit(&text,")
+    game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
+    assert "light[7] = (float)(0.02f * radius > 0.05f ? 0.02f * radius : 0.05f);" in game
+    assert "light[7] = carried > light[7] ? carried : light[7];" in game
+
+
+def test_the_visibility_function_compiles_for_metal(tmp_path):
+    """The class: shader text that only fails when a device first draws a traced light."""
+    if not shutil.which("xcrun") or subprocess.run(["xcrun", "--sdk", "macosx", "--find", "metal"], capture_output=True).returncode:
+        pytest.skip("no Metal compiler")
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+
+    def literals(chunk):
+        return "".join(ast.literal_eval(m) for m in re.findall(r'"(?:[^"\\]|\\.)*"', chunk))
+
+    emitter = shader[shader.index("static void light_visibility_emit"):]
+    emitter = emitter[:emitter.index("point, normal);")]
+    body = literals(emitter[emitter.index("xgpu_text_append(text,"):]) % ("traced_point", "traced_normal")
+    at = shader.index("float3 traced_point = ")
+    before = shader[shader.rindex("xgpu_text_append(&text,", 0, at):]
+    before = literals(before[:before.index('");') + 1])
+    source = tmp_path / "light.metal"
+    source.write_text(
+        "#include <metal_stdlib>\nusing namespace metal;\n#include <metal_raytracing>\ntypedef float4 vec4;\n"
+        "struct FragmentIn { float4 xT2 [[user(xT2)]]; };\n"
+        "fragment float4 fragment_main(FragmentIn in [[stage_in]],\n"
+        " metal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],\n"
+        " metal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],\n"
+        " constant float4 *traced_light [[buffer(8)]])\n{\n\tfloat4 xT2 = in.xT2;\n"
+        + before + "\tfloat4 result = xT2;\n" + body + "\tresult.rgb *= traced_lit;\n\treturn result;\n}\n")
+    subprocess.run(["xcrun", "--sdk", "macosx", "metal", "-c", str(source), "-o", str(tmp_path / "light.air")],
+                   check=True)

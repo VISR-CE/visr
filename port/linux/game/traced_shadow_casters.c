@@ -820,6 +820,13 @@ boolean traced_light_begin(
 	light[9] = (float)config_integer("debug.traced_light_repeat");
 	light[10] = (float)strength;
 	light[11] = (float)family;
+	/* (the camera, which turns each pixel's geometric normal toward the side it is seen from: nv2a_psh.c) */
+	light[12] = render.camera.position.x;
+	light[13] = render.camera.position.y;
+	light[14] = render.camera.position.z;
+	/* every ray ends this short of the light, so that a light resting on a surface (a stuck plasma grenade) or inside
+	a projectile's model is not blocked by what it touches */
+	light[7] = (float)(0.02f * radius > 0.05f ? 0.02f * radius : 0.05f);
 	/* A light the viewer carries (within debug.traced_light_viewer of the eye): the flashlight sits a little ahead
 	of the eye, past the corner of a wall the player stands against, and would lose its whole beam on that wall. Its
 	rays stop short of it by its distance from the eye plus a margin, so what stands within that of the light does
@@ -829,7 +836,11 @@ boolean traced_light_begin(
 		real from_eye = distance3d(position, &render.camera.position);
 
 		if (from_eye < (real)config_real("debug.traced_light_viewer") && config_boolean("debug.traced_light_carried"))
-			light[7] = (float)(from_eye + config_real("debug.traced_light_stop_margin"));
+		{
+			float carried = (float)(from_eye + config_real("debug.traced_light_stop_margin"));
+
+			light[7] = carried > light[7] ? carried : light[7];
+		}
 	}
 	/* (where the light sits against the eye: a light inside a wall the player hugs blocks itself) */
 	if ((calls++ % 600) == 0)

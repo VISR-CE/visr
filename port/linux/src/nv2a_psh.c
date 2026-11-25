@@ -297,6 +297,63 @@ static unsigned long stage_mode(const struct nv2a_pixel_shader_key *key, int sta
 /* Early depth tests make the ES visibility counter count only passing samples.
 Keep that test's existing flat-card depth: publishing a DOT_ZW depth there
 would be incompatible with early_fragment_tests and count failed samples. */
+/* Whether a pixel a traced light reaches is lit (light_visibility.h path traced): the one visibility function every
+pass of a traced light runs, so that the diffuse, specular and per-pixel object passes cannot disagree. point and
+normal name the pass's lit point in world units and its geometric normal (any length, either sign); it sets
+traced_lit, 1 lit, down to 1 - strength blocked. In order:
+- a pixel the light already leaves black (gel, cone, distance) traces nothing;
+- a surface facing away from the light (its geometric normal turned toward the camera, traced_light[3].xyz) traces
+  nothing, and keeps what the game draws there: its own ray would start inside it;
+- one ray toward the light against the opaque level (instance mask 2), starting traced_light[1].x off the surface and
+  ending traced_light[1].w short of the light (max(0.05, 0.02 radius), or more for a light the viewer carries);
+- when traced_light[1].y is set and the level did not block it, one against the frame's casters: every mask bit but
+  the level's and the light's owner family's (traced_light[2].w), ending traced_light[1].z short of a light with no
+  family (the owner keep-clear distance).
+traced_light[2].x skips the rays (cost runs), .y repeats them (cost runs), .z is the strength.
+traced_light: traced_shadows_format.h */
+static void light_visibility_emit(struct xgpu_text *text, const char *point, const char *normal)
+{
+	xgpu_text_append(text,
+		"\tfloat traced_lit = 1.0;\n"
+		"\t{\n"
+		"\t\tfloat3 p = %s;\n"
+		"\t\tfloat3 n = %s;\n"
+		"\t\tfloat3 to_light = traced_light[0].xyz - p;\n"
+		"\t\tfloat span = length(to_light);\n"
+		"\t\tn = dot(n, traced_light[3].xyz - p) < 0.0 ? -n : n;\n"
+		"\t\tbool black = max(max(result.r, result.g), result.b) < 1.0 / 512.0;\n"
+		"\t\tbool facing = dot(n, to_light) > 0.0;\n"
+		"\t\tif (traced_light[2].x < 0.5 && !black && facing && span > 2.0 * traced_light[1].x + traced_light[1].w)\n"
+		"\t\t{\n"
+		"\t\t\tfloat3 direction = to_light / span;\n"
+		"\t\t\tmetal::raytracing::intersector<metal::raytracing::triangle_data, metal::raytracing::instancing> tracer;\n"
+		"\t\t\ttracer.assume_geometry_type(metal::raytracing::geometry_type::triangle);\n"
+		"\t\t\ttracer.force_opacity(metal::raytracing::forced_opacity::opaque);\n"
+		"\t\t\ttracer.accept_any_intersection(true);\n"
+		"\t\t\tint repeats = clamp(int(traced_light[2].y), 1, 64);\n"
+		"\t\t\tfloat blocked = 0.0;\n"
+		"\t\t\tuint family = uint(traced_light[2].w);\n"
+		"\t\t\tuint caster_mask = 0xFFFFFFFDu & ~(family >= 2u && family <= 31u ? (1u << family) : 0u);\n"
+		"\t\t\tfor (int repeat = 0; repeat < 64; repeat++)\n"
+		"\t\t\t{\n"
+		"\t\t\t\tif (repeat >= repeats)\n"
+		"\t\t\t\t\tbreak;\n"
+		"\t\t\t\tfloat nudge = 1.0e-4 * float(repeat);\n"
+		"\t\t\t\tmetal::raytracing::ray world_ray(p, direction, traced_light[1].x + nudge, span - max(traced_light[1].x, traced_light[1].w));\n"
+		"\t\t\t\tbool hit = tracer.intersect(world_ray, traced_blockers, 2u).type != metal::raytracing::intersection_type::none;\n"
+		"\t\t\t\tfloat keep_clear = max(traced_light[1].z, traced_light[1].w);\n"
+		"\t\t\t\tif (!hit && traced_light[1].y > 0.5 && span > traced_light[1].x + keep_clear)\n"
+		"\t\t\t\t{\n"
+		"\t\t\t\t\tmetal::raytracing::ray caster_ray(p, direction, traced_light[1].x + nudge, span - keep_clear);\n"
+		"\t\t\t\t\thit = tracer.intersect(caster_ray, traced_blockers, caster_mask).type != metal::raytracing::intersection_type::none;\n"
+		"\t\t\t\t}\n"
+		"\t\t\t\tblocked = hit ? 1.0 : blocked;\n"
+		"\t\t\t}\n"
+		"\t\t\ttraced_lit = 1.0 - blocked * traced_light[2].z;\n"
+		"\t\t}\n"
+		"\t}\n", point, normal);
+}
+
 static BOOL writes_replaced_depth(const struct nv2a_dialect *dialect,
 	const struct nv2a_pixel_shader_key *key)
 {
@@ -751,53 +808,15 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t\tt0 = vec4(covered);\n"
 			"\t}\n");
 
-	/* A dynamic light that walls and characters block (nv2a_pixel_shader_key light_visibility traced; Metal): the level's diffuse
-	light pass (rasterizer_xbox_environment.c) draws each light's surfaces once more, additively. The lit point is
-	rebuilt from the distance attenuation coordinates, which the game's vertex shader makes as
-	0.5 - (light - point) / (2 radius); a ray from it to the light against the level (instance mask 2), and when
-	traced_light[1].y is set, a second against the frame's shadow casters (every mask bit but the level's), which
-	passes through the light's owner family (its bit traced_light[2].w, light_visibility.h) and otherwise stops
-	traced_light[1].z short of the light so that the carrier of a flashlight does not block its own beam. A blocked point gets none
-	of the light, scaled by its strength traced_light[2].z (light_visibility.h: 1, or between while the cap eases
-	it in or out). A light the viewer carries ends every ray traced_light[1].w short of itself.
-	traced_light: traced_shadows_format.h */
+	/* A dynamic light that walls and characters block (nv2a_pixel_shader_key light_visibility traced; Metal): the level's
+	diffuse light pass (rasterizer_xbox_environment.c) draws each light's surfaces once more, additively. Its lit point
+	is rebuilt from the distance attenuation coordinates, which the game's vertex shader makes as
+	0.5 - (light - point) / (2 radius), exactly and the same for either eye; its geometric normal comes from the
+	point's screen derivatives, here, while every pixel of the quad still runs. light_visibility_emit traces it */
 	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(&text,
-			"\tfloat traced_lit = 1.0;\n"
-			"\tif (traced_light[2].x < 0.5)\n"
-			"\t{\n"
-			"\t\tfloat3 p = traced_light[0].xyz + (xT2.xyz - 0.5) * (2.0 * traced_light[0].w);\n"
-			"\t\tfloat3 to_light = traced_light[0].xyz - p;\n"
-			"\t\tfloat span = length(to_light);\n"
-			"\t\tif (span > 2.0 * traced_light[1].x + traced_light[1].w)\n"
-			"\t\t{\n"
-			"\t\t\tfloat3 direction = to_light / span;\n"
-			"\t\t\tmetal::raytracing::intersector<metal::raytracing::triangle_data, metal::raytracing::instancing> tracer;\n"
-			"\t\t\ttracer.assume_geometry_type(metal::raytracing::geometry_type::triangle);\n"
-			"\t\t\ttracer.force_opacity(metal::raytracing::forced_opacity::opaque);\n"
-			"\t\t\ttracer.accept_any_intersection(true);\n"
-			"\t\t\tint repeats = clamp(int(traced_light[2].y), 1, 64);\n"
-			"\t\t\tfloat blocked = 0.0;\n"
-			"\t\t\tuint family = uint(traced_light[2].w);\n"
-			"\t\t\tuint caster_mask = 0xFFFFFFFDu & ~(family >= 2u && family <= 31u ? (1u << family) : 0u);\n"
-			"\t\t\tfor (int repeat = 0; repeat < 64; repeat++)\n"
-			"\t\t\t{\n"
-			"\t\t\t\tif (repeat >= repeats)\n"
-			"\t\t\t\t\tbreak;\n"
-			"\t\t\t\tfloat nudge = 1.0e-4 * float(repeat);\n"
-			"\t\t\t\tmetal::raytracing::ray world_ray(p, direction, traced_light[1].x + nudge, span - max(traced_light[1].x, traced_light[1].w));\n"
-			"\t\t\t\tbool hit = tracer.intersect(world_ray, traced_blockers, 2u).type != metal::raytracing::intersection_type::none;\n"
-			"\t\t\t\tfloat keep_clear = max(traced_light[1].z, traced_light[1].w);\n"
-			"\t\t\t\tif (!hit && traced_light[1].y > 0.5 && span > traced_light[1].x + keep_clear)\n"
-			"\t\t\t\t{\n"
-			"\t\t\t\t\tmetal::raytracing::ray caster_ray(p, direction, traced_light[1].x + nudge, span - keep_clear);\n"
-			"\t\t\t\t\thit = tracer.intersect(caster_ray, traced_blockers, caster_mask).type != metal::raytracing::intersection_type::none;\n"
-			"\t\t\t\t}\n"
-			"\t\t\t\tblocked = hit ? 1.0 : blocked;\n"
-			"\t\t\t}\n"
-			"\t\t\ttraced_lit = 1.0 - blocked * traced_light[2].z;\n"
-			"\t\t}\n"
-			"\t}\n");
+			"	float3 traced_point = traced_light[0].xyz + (xT2.xyz - 0.5) * (2.0 * traced_light[0].w);\n"
+			"	float3 traced_normal = cross(dfdx(traced_point), dfdy(traced_point));\n");
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */
 	if (key->fog_enable)
@@ -932,7 +951,10 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		xgpu_text_append(&text, "\tgl_FragDepth = replaced_depth;\n");
 	/* (a traced light reaches only the points its ray did) */
 	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
+	{
+		light_visibility_emit(&text, "traced_point", "traced_normal");
 		xgpu_text_append(&text, "\tresult.rgb *= traced_lit;\n");
+	}
 	xgpu_text_append(&text, "\tfragment_color = clamp(result, 0.0, 1.0);\n");
 	if (dialect->msl)
 	{
