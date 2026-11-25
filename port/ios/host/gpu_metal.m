@@ -5390,6 +5390,9 @@ static struct
 } traced;
 /* set from the encoder's thread when an allocation fails, read by traced_shadows_ready on the game's */
 static atomic_int traced_failed;
+/* (HALO_RT_GPU_LOG's blocks: resolves since the last frame start, and the pixels they covered) */
+static _Atomic uint32_t traced_resolves_logged;
+static _Atomic uint64_t traced_resolve_pixels_logged;
 static __strong id<MTLBuffer> traced_part_indices[TRACED_SHADOWS_PARTS];
 static __strong id<MTLAccelerationStructure> traced_structures[TRACED_CASTER_SLOTS];
 static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_pending_descriptors[TRACED_PENDING];
@@ -5960,6 +5963,9 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 				return;
 			covered = (MTLScissorRect){ (NSUInteger)left, (NSUInteger)top, (NSUInteger)(right - left), (NSUInteger)(bottom - top) };
 		}
+		atomic_fetch_add_explicit(&traced_resolves_logged, 1, memory_order_relaxed);
+		atomic_fetch_add_explicit(&traced_resolve_pixels_logged, (uint64_t)covered.width * covered.height,
+			memory_order_relaxed);
 		/* the term's pass ends (its color is read below), and the scene's begins again, loaded */
 		pass_end();
 		if (pass_log)
@@ -7915,21 +7921,48 @@ static void gpu_metal_frame_start(void)
 		static double times[300];
 		static int timed;
 		static unsigned long blocks;
+		/* (traced shadows: whether the frame before encoded a resolve, since a frame's command buffers complete
+		about a frame after it is encoded; the split below is that approximation) */
+		static unsigned char resolved[300], resolved_before;
+		static uint64_t resolve_pixels;
+		static unsigned long resolve_count;
 
 		if (rt_gpu_log < 0)
 			rt_gpu_log = getenv("HALO_RT_GPU_LOG") != NULL;
 		if (rt_gpu_log && counted)
 		{
+			uint32_t resolves = atomic_exchange_explicit(&traced_resolves_logged, 0, memory_order_relaxed);
+
+			resolve_count += resolves;
+			resolve_pixels += atomic_exchange_explicit(&traced_resolve_pixels_logged, 0, memory_order_relaxed);
+			resolved[timed] = resolved_before;
+			resolved_before = resolves != 0;
 			times[timed++] = (double)(total - counted) / 1e6;
 			if (timed == 300)
 			{
-				double sorted[300], sum = 0.0;
-				int index;
+				double sorted[300], with[300], without[300], sum = 0.0;
+				int index, with_count = 0, without_count = 0;
 
 				memcpy(sorted, times, sizeof(sorted));
 				qsort(sorted, 300, sizeof(double), compare_times);
 				for (index = 0; index < 300; index++)
+				{
 					sum += times[index];
+					if (resolved[index])
+						with[with_count++] = times[index];
+					else
+						without[without_count++] = times[index];
+				}
+				qsort(with, (size_t)with_count, sizeof(double), compare_times);
+				qsort(without, (size_t)without_count, sizeof(double), compare_times);
+				platform_log("rt-gpu: block %lu traced resolves: %lu, %d frames after one (GPU median %.3f ms, p90 %.3f ms), "
+					"%d without (median %.3f ms, p90 %.3f ms); %.0f thousand pixels a resolve", blocks, resolve_count,
+					with_count, with_count ? with[with_count / 2] : 0.0, with_count ? with[with_count * 9 / 10] : 0.0,
+					without_count, without_count ? without[without_count / 2] : 0.0,
+					without_count ? without[without_count * 9 / 10] : 0.0,
+					resolve_count ? (double)resolve_pixels / (double)resolve_count / 1000.0 : 0.0);
+				resolve_pixels = 0;
+				resolve_count = 0;
 				/* and the process's CPU time (every thread, user and system) and the wall time a frame, over the block */
 				{
 					static double cpu_before, wall_before;
