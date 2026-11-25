@@ -1659,9 +1659,13 @@ static void glyph_polled_activity(struct platform_input_state const *input)
 {
 	static unsigned char keys_held[SDL_SCANCODE_COUNT];
 	static struct halo_glyph_edge buttons[PLATFORM_MOUSE_BUTTON_COUNT];
+	unsigned int modifiers;
 	int index;
 
 	if (!input->focused) return;
+	/* (the one modifier the rule reads: a key pressed with Command or the Windows key held is the system's) */
+	modifiers = input->keys[HALO_GLYPH_SCANCODE_LEFT_GUI] || input->keys[HALO_GLYPH_SCANCODE_RIGHT_GUI] ?
+		HALO_GLYPH_KEY_MODIFIER_GUI : 0;
 	if (!input->mouse_released)
 		glyph_input_note(HALO_GLYPH_INPUT_MOUSE, 0,
 			halo_glyph_motion_note(&glyph_mouse_motion, input->mouse_dx, input->mouse_dy) ||
@@ -1674,7 +1678,7 @@ static void glyph_polled_activity(struct platform_input_state const *input)
 		struct halo_glyph_edge key = { keys_held[index] };
 
 		glyph_input_note(HALO_GLYPH_INPUT_KEYBOARD, 0,
-			halo_glyph_edge(&key, input->keys[index] != 0) && halo_glyph_key_active(index, 0, 0, 1));
+			halo_glyph_edge(&key, input->keys[index] != 0) && halo_glyph_key_active(index, modifiers, 0, 1));
 		keys_held[index] = (unsigned char)key.held;
 	}
 }

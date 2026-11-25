@@ -264,10 +264,19 @@ int main(void)
 	input.keys[81] = 0; glyph_polled_activity(&input); expect(MOUSE);
 	input.keys[82] = 1; glyph_polled_activity(&input); expect(KEYS);          /* Up */
 	input.keys[82] = 0;
-	input.keys[227] = 1; input.keys[225] = 1; glyph_polled_activity(&input); expect(KEYS);
+	/* with the mouse in use: modifiers alone and a chord with Command or the Windows key are not the keyboard */
 	input.mouse_dx = 6; glyph_polled_activity(&input); expect(MOUSE);
-	input.keys[227] = input.keys[225] = 0; input.keys[226] = 1;               /* a modifier alone */
-	input.mouse_dx = 0; glyph_polled_activity(&input); expect(MOUSE);
+	input.mouse_dx = 0;
+	input.keys[227] = 1; input.keys[226] = 1; glyph_polled_activity(&input); expect(MOUSE);
+	input.keys[43] = 1; glyph_polled_activity(&input); expect(MOUSE);         /* Command-Tab */
+	input.keys[43] = 0; input.keys[227] = input.keys[226] = 0; glyph_polled_activity(&input); expect(MOUSE);
+	input.keys[231] = 1; input.keys[44] = 1; glyph_polled_activity(&input); expect(MOUSE);   /* both on one frame */
+	input.keys[231] = input.keys[44] = 0; glyph_polled_activity(&input); expect(MOUSE);
+	input.keys[225] = 1; glyph_polled_activity(&input); expect(MOUSE);
+	input.keys[43] = 1; glyph_polled_activity(&input); expect(KEYS);          /* Shift-Tab is the keyboard */
+	input.keys[225] = input.keys[43] = 0;
+	input.mouse_dx = 6; glyph_polled_activity(&input); expect(MOUSE);
+	input.mouse_dx = 0; input.keys[226] = 1; glyph_polled_activity(&input); expect(MOUSE);
 	input.keys[226] = 0; input.keys[82] = 1; glyph_polled_activity(&input); expect(KEYS);
 	input.keys[82] = 0;
 	/* a slow mouse sums its movement; a wobble sums to nothing */
