@@ -3822,9 +3822,9 @@
           ]
         },
         "traced_light_carried": {
-          "type": "integer",
-          "default": 1,
-          "description": "With debug.traced_light_blocking: how a light the viewer carries is traced, so it is not lost on a wall the player stands against. 1 its rays stop short of it by its distance from the eye plus debug.traced_light_stop_margin; 2 its rays are aimed at the eye (comparison only: no shadow survives); 0 as any other light.",
+          "type": "boolean",
+          "default": true,
+          "description": "With debug.traced_light_blocking: a light the viewer carries ends its rays short of itself by its distance from the eye plus debug.traced_light_stop_margin, so it is not lost on a wall the player stands against. False traces it as any other light.",
           "x-environment": "HALO_TRACED_LIGHT_CARRIED",
           "x-environment-style": "value",
           "x-platforms": [

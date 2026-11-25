@@ -2029,11 +2029,10 @@ static const struct config_setting config_settings[] =
 	{ "debug.traced_light_viewer", _config_real, "1.0", "HALO_TRACED_LIGHT_VIEWER", _environment_value, _platform_ios,
 		"With debug.traced_light_blocking: a light within this many world units of the eye counts as carried by\n"
 		"the viewer (the flashlight), for debug.traced_light_carried." },
-	{ "debug.traced_light_carried", _config_integer, "1", "HALO_TRACED_LIGHT_CARRIED", _environment_value, _platform_ios,
-		"With debug.traced_light_blocking: how a light the viewer carries is traced, so it is not lost on a wall\n"
-		"the player stands against. 1 its rays stop short of it by its distance from the eye plus\n"
-		"debug.traced_light_stop_margin; 2 its rays are aimed at the eye (comparison only: no shadow survives);\n"
-		"0 as any other light." },
+	{ "debug.traced_light_carried", _config_boolean, "true", "HALO_TRACED_LIGHT_CARRIED", _environment_value, _platform_ios,
+		"With debug.traced_light_blocking: a light the viewer carries ends its rays short of itself by its\n"
+		"distance from the eye plus debug.traced_light_stop_margin, so it is not lost on a wall the player\n"
+		"stands against. False traces it as any other light." },
 	{ "debug.traced_light_stop_margin", _config_real, "0.1", "HALO_TRACED_LIGHT_STOP_MARGIN", _environment_value, _platform_ios,
 		"With debug.traced_light_carried 1: world units added to the light's distance from the eye." },
 	{ "debug.traced_light_repeat", _config_integer, "1", "HALO_TRACED_LIGHT_REPEAT", _environment_value, _platform_ios,

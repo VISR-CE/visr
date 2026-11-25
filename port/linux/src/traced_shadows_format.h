@@ -45,7 +45,7 @@ enum
 	TRACED_SHADOWS_PART_VERTICES = 65535,
 	TRACED_SHADOWS_NODE_FLOATS = 13,
 	TRACED_SHADOWS_BASIS_FLOATS = 24,
-	TRACED_SHADOWS_LIGHT_FLOATS = 16,
+	TRACED_SHADOWS_LIGHT_FLOATS = 12,
 };
 
 /* a model part at rest: vertex_count traced_shadows_vertex, then triangle_count * 3 16-bit indices (padded to a
@@ -98,9 +98,7 @@ the view's height), z one over the largest penumbra radius in pixels, w unused; 
 y whether the frame's shadow casters block it too, z how near the light a caster may be and still not block it
 (the unit that carries a flashlight stands at it), w how far short of the light every ray stops when the viewer
 carries it (0 otherwise); 2 x 1 to skip the rays this draw (the cost runs'
-in-run comparison), y how many times the rays are traced (cost runs), z w unused; 3 where the ray is aimed: the
-light itself, or the eye for a light the viewer carries (a flashlight sits a little ahead of the eye, past the corner
-of a wall the player stands against, and would lose its whole beam on that wall) */
+in-run comparison), y how many times the rays are traced (cost runs), z w unused */
 
 /* traced_shadows_resolve's values (gpu_backend.h): the window's rectangle in the target's texels (x, y, width,
 height), the padded rectangle the shadows cover (x, y, width, height), the largest penumbra radius in pixels,

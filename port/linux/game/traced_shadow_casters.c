@@ -742,20 +742,15 @@ boolean traced_light_begin(
 		light[6] = light[4];
 	light[9] = (float)config_integer("debug.traced_light_repeat");
 	/* A light the viewer carries (within debug.traced_light_viewer of the eye): the flashlight sits a little ahead
-	of the eye, past the corner of a wall the player stands against. debug.traced_light_carried: 1 its rays stop
-	short of it by its distance from the eye plus a margin, so what stands within that of the light does not block
-	it; 2 its rays are aimed at the eye (for comparison only: from a visible point that ray is never blocked, so the
-	flashlight loses every shadow); 0 neither */
+	of the eye, past the corner of a wall the player stands against, and would lose its whole beam on that wall. Its
+	rays stop short of it by its distance from the eye plus a margin, so what stands within that of the light does
+	not block it. (Aiming the rays at the eye instead is not an option: from a visible point that ray is never
+	blocked, so the flashlight would lose every shadow.) debug.traced_light_carried false turns the rule off */
 	{
 		real from_eye = distance3d(position, &render.camera.position);
-		boolean carried = from_eye < (real)config_real("debug.traced_light_viewer");
-		long rule = carried ? config_integer("debug.traced_light_carried") : 0;
-		real_point3d const *aim = rule == 2 ? &render.camera.position : position;
 
-		light[7] = rule == 1 ? (float)(from_eye + config_real("debug.traced_light_stop_margin")) : 0.f;
-		light[12] = aim->x;
-		light[13] = aim->y;
-		light[14] = aim->z;
+		if (from_eye < (real)config_real("debug.traced_light_viewer") && config_boolean("debug.traced_light_carried"))
+			light[7] = (float)(from_eye + config_real("debug.traced_light_stop_margin"));
 	}
 	/* (where the light sits against the eye: a light inside a wall the player hugs blocks itself) */
 	if ((calls++ % 600) == 0)
