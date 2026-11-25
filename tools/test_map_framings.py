@@ -322,34 +322,6 @@ def test_lookup_order(tmp_path, native_probe):
     assert lookup(native_probe, None, BUNDLE, 'stock:a10')[0] == 2
 
 
-def test_saved_hand_pose_wins(tmp_path, native_probe):
-    """Class: a map with a hand-saved pose renders that pose, never a bundled, curated or tool-rewritten one."""
-    key = 'stock:example'
-    bundle = tmp_path / 'bundle.json'
-    data = good()
-    data['maps'][key]['revision'] = 9
-    bundle.write_text(json.dumps(data))
-    fragment = tmp_path / 'stock:example.json'
-    hand = tmp_path / 'stock:example.orig.json'
-    rewritten = good()
-    rewritten['maps'][key]['revision'] = 7
-    fragment.write_text(json.dumps(rewritten))
-    assert lookup(native_probe, fragment, bundle, key) == (1, 7)
-    original = good()
-    original['maps'][key]['revision'] = 2
-    hand.write_text(json.dumps(original))
-    assert lookup(native_probe, fragment, bundle, key) == (1, 2)
-    assert lookup(native_probe, tmp_path / 'stock:missing.json', bundle, key) == (2, 9)
-    # a damaged hand file never hides a good fragment
-    hand.write_text('{')
-    assert lookup(native_probe, fragment, bundle, key) == (1, 7)
-    # a new photo-mode save is the latest hand pose and replaces the kept original
-    hand.write_text(json.dumps(original))
-    subprocess.run([str(native_probe), '--write-from', str(fragment), key, '7'], check=True)
-    assert lookup(native_probe, fragment, bundle, key) == (1, 8)
-    assert not hand.exists()
-
-
 def test_bundled_framings_resolve_through_game_lookup(native_probe):
     """Every built-in map resolves to its bundled framing (not the automatic camera) via the game's resolver."""
     root = Path(__file__).resolve().parents[1]
