@@ -9683,12 +9683,21 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 the drawable's (quad_pipeline), so no frame mismatches. A format the layer refuses (an exception, or another format
 read back) is logged once and never asked for again; that layer stays BGRA8, so no platform ships 8-bit silently. */
 
-static void layer_format_follow(MTLPixelFormat wanted)
+static void layer_format_follow(MTLPixelFormat wanted, MTLPixelFormat picture)
 {
 	CAMetalLayer *target = layer;
+	static BOOL stated;
 
 	if (atomic_load(&layer_formats_refused) & layer_format_bit(wanted))
 		wanted = MTLPixelFormatBGRA8Unorm;
+	/* the first frame states the format in force even when it is the layer's initial BGRA8, which no change below
+	logs: a session checking for an 8-bit layer (debug.output_format bgra8) or a 10-bit one reads it here */
+	if (!stated && target)
+	{
+		stated = YES;
+		platform_log("Metal: layer format %s for a %s picture (%s)", pixel_format_name(wanted), pixel_format_name(picture),
+			output_format_override != MTLPixelFormatInvalid ? "debug.output_format" : "display.scene_precision");
+	}
 	if (wanted == layer_format_asked || !target)
 		return;
 	layer_format_asked = wanted;
@@ -9838,7 +9847,7 @@ static uint32_t present_frame(gpu_texture back_buffer)
 		}
 		/* display.scene_precision: the built-in display's layer follows the picture's precision */
 		if (record && record->texture && perf_output == 1)
-			layer_format_follow(output_format_for(record->texture.pixelFormat));
+			layer_format_follow(output_format_for(record->texture.pixelFormat), record->texture.pixelFormat);
 		unsynced = frame_rate_sync();
 		gpu_metal_presentation_configure(layer);
 #if !TARGET_OS_VISION
