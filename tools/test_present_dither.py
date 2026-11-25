@@ -60,3 +60,18 @@ def test_dither_keeps_the_mean_and_the_ends():
             color = index * 0.37 * step + 0.002
             mean = sum(dithered(color, r, g, step) for r, g in zip(reds, greens)) / len(reds)
             assert abs(mean - color) < 0.1 * step, (levels, color, mean)
+
+
+def test_the_first_frame_states_the_layer_format_and_the_dither():
+    """Bug class: image-precision state that a session judges (the layer's format, whether the dither is on) logged only
+    when it changes, so its starting value is silent and a session cannot tell an 8-bit layer or a dithered frame from
+    a missing log (the grain rehearsal, Nov 25). The first call of layer_format_follow logs both before the
+    early return that skips an unchanged format."""
+    source = METAL.read_text()
+    start = source.index('static void layer_format_follow(')
+    body = source[start:source.index('\n}\n', start)]
+    statement = body.index('platform_log("Metal: layer format %s for a %s picture (%s); present dither %s"')
+    assert statement < body.index('if (wanted == layer_format_asked || !target)')
+    assert '!stated && target' in body[:statement]
+    for state in ('"off"', '"on"', '"not needed'):
+        assert state in body[statement:]
