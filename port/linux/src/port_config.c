@@ -2034,8 +2034,9 @@ static const struct config_setting config_settings[] =
 		"With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and\n"
 		"devices, which display.traced_lights leaves as the game draws them), for stills and measurements." },
 	{ "debug.traced_light_family_log", _config_boolean, "false", "HALO_TRACED_LIGHT_FAMILY_LOG", _environment_value, _platform_ios,
-		"With display.traced_lights: log each traced light near the eye with its owner, the owner's family root\n"
-		"and mask bit, and each caster sent with a family bit (at most a line a frame of each)." },
+		"With display.traced_lights: log each traced light (frame, position, radius, strength, distance from the eye)\n"
+		"with its owner, the owner's family root and mask bit, and the first caster sent each frame with its family\n"
+		"bit." },
 	{ "debug.traced_light_depth_point", _config_integer, "0", "HALO_TRACED_LIGHT_DEPTH_POINT", _environment_value, _platform_ios,
 		"With display.traced_lights: 1 every traced light pass rebuilds its lit points from depth, as the specular\n"
 		"spot pass must, instead of from its attenuation coordinate, so that stills with and without it prove the two\n"

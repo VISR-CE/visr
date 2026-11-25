@@ -1919,12 +1919,14 @@ void lights_choose_visibility(
 				struct light_datum *light = light_get(lights_globals.scene_point_lights[slots[i]]);
 				real from_eye = distance3d(&light->position, &render.camera.position);
 
-				if (from_eye < 1.5f)
-					platform_log("traced light family: window %d light %lx %.2f from the eye: owner %lx (type %d), "
-						"root %lx, bit %d", (int)window, (unsigned long)lights_globals.scene_point_lights[slots[i]],
-						(double)from_eye, (unsigned long)light->object_index, candidates[i].owner_type,
-						(unsigned long)light_visibility_family_root(light->object_index),
-						(int)light_visibility_windows[window].family[slots[i]]);
+				platform_log("traced light family: frame %llu window %d light %lx at %.2f %.2f %.2f radius %.2f "
+					"strength %.2f, %.2f from the eye: owner %lx (type %d), root %lx, bit %d",
+					(unsigned long long)rasterizer_globals.fps_accumulation_frame_index, (int)window,
+					(unsigned long)lights_globals.scene_point_lights[slots[i]], (double)light->position.x,
+					(double)light->position.y, (double)light->position.z, (double)light->radius, (double)traced[i],
+					(double)from_eye, (unsigned long)light->object_index, candidates[i].owner_type,
+					(unsigned long)light_visibility_family_root(light->object_index),
+					(int)light_visibility_windows[window].family[slots[i]]);
 			}
 		}
 	}
