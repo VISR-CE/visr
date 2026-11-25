@@ -117,6 +117,7 @@ One definition of a record serves the recorder's tools, the app's admission, the
 | 255 | `lighting_point_lights` | display.point_light_limit's extra lights | extended keys only; the app takes base keys, tools reduce them |
 | 256-263 | `lighting_program[2]` | the lit vertex program's hash, low word first; 0 unlit | extended keys only; the app takes base keys, tools reduce them |
 | 264-267 | `traced_shadow` | a traced object shadow's apply draw; never recorded | extended keys only; the app takes base keys, tools reduce them |
+| 268-271 | `traced_light` | a dynamic light's traced draw; never recorded | extended keys only; the app takes base keys, tools reduce them |
 
 A pipeline line's fields after its two shader names:
 
