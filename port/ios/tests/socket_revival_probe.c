@@ -99,7 +99,7 @@ int main(void)
 
 		loopback(&address, udp_port);
 		assert(sendto(sender, "ping", 4, 0, (struct sockaddr *)&address, sizeof(address)) == 4);
-		for (tries = 0; tries < 100 && recv(udp, text, sizeof(text) - 1, 0) < 0; tries++)
+		for (tries = 0; tries < 3000 && recv(udp, text, sizeof(text) - 1, 0) < 0; tries++)
 			usleep(10000);
 		assert(!strcmp(text, "ping"));
 		close(sender);

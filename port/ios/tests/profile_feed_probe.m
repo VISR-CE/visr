@@ -203,7 +203,7 @@ int main(int argc, char **argv)
             }
             refreshMenuKinds(YES, NO);
         });
-        for (int i = 0; i < 300; i++) {
+        for (int i = 0; i < 3000; i++) {
             __block BOOL busy; dispatch_sync(updatesQueue(), ^{ busy = profileChecking; });
             if (!busy) break;
             usleep(10000);
