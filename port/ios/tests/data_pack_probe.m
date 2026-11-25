@@ -396,7 +396,7 @@ int main(int argc, const char **argv) { @autoreleasepool {
         [purged checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"] completion:^(BOOL success) { refetched = success; dispatch_semaphore_signal(done); }];
         CHECK(dispatch_semaphore_wait(done, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0 && refetched, "purged 304: the check downloads the pack again");
         CHECK(notModified == notModifiedBefore, "purged 304: no conditional request is sent for a snapshot that is gone");
-        [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause for the activation that follows the completion callback */
+        WaitForPending(purgedRoot);   /* the staged pack is recorded as pending in state.json */
         purged = Store(purgedRoot);
         CHECK(![[purged beginLaunch] isEqual:@"/bundled"], "purged 304: the re-downloaded pack activates");
         [NSFileManager.defaultManager removeItemAtPath:purgedRoot error:NULL];
