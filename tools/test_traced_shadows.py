@@ -232,11 +232,27 @@ def test_the_visibility_function_compiles_for_metal(tmp_path):
     source = tmp_path / "light.metal"
     source.write_text(
         "#include <metal_stdlib>\nusing namespace metal;\n#include <metal_raytracing>\ntypedef float4 vec4;\n"
-        "struct FragmentIn { float4 xT2 [[user(xT2)]]; };\n"
+        "struct FragmentIn { float4 xT1 [[user(xT1)]]; float4 xT2 [[user(xT2)]]; };\n"
         "fragment float4 fragment_main(FragmentIn in [[stage_in]],\n"
         " metal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],\n"
         " metal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],\n"
-        " constant float4 *traced_light [[buffer(8)]])\n{\n\tfloat4 xT2 = in.xT2;\n"
+        " constant float4 *traced_light [[buffer(8)]])\n{\n\tfloat4 xT1 = in.xT1, xT2 = in.xT2;\n"
         + before + "\tfloat4 result = xT2;\n" + body + "\tresult.rgb *= traced_lit;\n\treturn result;\n}\n")
     subprocess.run(["xcrun", "--sdk", "macosx", "metal", "-c", str(source), "-o", str(tmp_path / "light.air")],
                    check=True)
+
+
+def test_highlights_are_blocked_where_the_diffuse_light_is():
+    """The class: a highlight left on a shiny floor behind the wall that stops the light. The specular point pass
+    takes the light's visibility like the diffuse pass, with its own attenuation stage and radius; the spot pass,
+    which has no attenuation coordinate, is drawn as the game draws it until its depth path lands."""
+    environment = (ROOT / "source/rasterizer/xbox/rasterizer_xbox_environment.c").read_text()
+    assert "light_visibility_begin(&light->position, light->radius, 2, light->radius);" in environment
+    assert ("light_visibility_begin(&light->position, light->radius, 1,\n"
+            "\t\t\t\tlight->definition->geometry.specular_radius_multiplier * light->radius);") in environment
+    end = environment[environment.index("void _rasterizer_environment_specular_light_end("):]
+    assert "light_visibility_end();" in end[:end.index("\n}\n")]
+    lights = (ROOT / "source/objects/object_lights.c").read_text()
+    assert lights.count("light_visibility_for_slot(light_index, &path, &strength);") == 2
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    assert "(traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz)" in shader

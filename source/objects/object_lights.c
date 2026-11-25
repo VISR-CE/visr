@@ -1974,7 +1974,9 @@ void light_visibility_next(
 
 boolean light_visibility_begin(
 	real_point3d const *position,
-	real radius)
+	real radius,
+	short attenuation_stage,
+	real attenuation_radius)
 {
 	unsigned char path = light_visibility_pending.path, family = light_visibility_pending.family;
 	float strength = light_visibility_pending.strength;
@@ -1985,7 +1987,9 @@ boolean light_visibility_begin(
 	switch (path)
 	{
 	case LIGHT_VISIBILITY_TRACED:
-		return traced_light_begin(position, radius, strength, family);
+		return attenuation_stage == 1 || attenuation_stage == 2
+			? traced_light_begin(position, radius, strength, family, attenuation_stage, attenuation_radius)
+			: FALSE;
 	default:
 		return FALSE;
 	}
@@ -2178,6 +2182,13 @@ void lights_render_specular(
 					FALSE,
 					&center,
 					&radius);
+				{
+					unsigned char path;
+					float strength;
+
+					light_visibility_for_slot(light_index, &path, &strength);
+					light_visibility_next(path, strength);
+				}
 				structure_render_specular_light(
 					light->rasterizer_light_index,
 					&center,

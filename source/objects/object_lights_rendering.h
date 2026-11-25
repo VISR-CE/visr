@@ -28,10 +28,14 @@ lights_preprocess_scene and before its scene pass */
 void lights_choose_visibility(
 	void);
 /* port: the next draws are a dynamic light's over the level, blocked by its source (light_visibility_next); FALSE
-when they are drawn as the game draws them. light_visibility_end after them */
+when they are drawn as the game draws them. light_visibility_end after them. The pass's distance attenuation
+coordinate is texture stage attenuation_stage, made as 0.5 - (light - point) / (2 attenuation_radius); a stage
+of NONE is a pass without one (the specular spot light's), which is drawn as the game draws it for now */
 boolean light_visibility_begin(
 	union real_point3d const *position,
-	real radius);
+	real radius,
+	short attenuation_stage,
+	real attenuation_radius);
 void light_visibility_end(
 	void);
 /* port: whether an object stands in reach of one of the window's traced lights and is of a kind that blocks them

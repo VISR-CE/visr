@@ -1301,7 +1301,7 @@ void _rasterizer_environment_diffuse_light_begin(
 			D3DRS_PSCONSTANT0_0,
 			real_rgb_color_to_pixel32(&light->color));
 		/* port: the light reaches only what its visibility source says (light_visibility.h) */
-		light_visibility_begin(&light->position, light->radius);
+		light_visibility_begin(&light->position, light->radius, 2, light->radius);
 	}
 	return;
 }
@@ -1818,6 +1818,8 @@ void _rasterizer_environment_diffuse_texture_draw(
 void _rasterizer_environment_specular_light_end(
 	void)
 {
+	/* port: light_visibility.h */
+	light_visibility_end();
 	return;
 }
 
@@ -1976,6 +1978,10 @@ void _rasterizer_environment_specular_light_begin(
 			pixel_shader.final_combiner_inputs_abcd = 0x0C0F0000;
 			pixel_shader.final_combiner_inputs_efg = 0x1D200D00;
 			rasterizer_set_pixel_shader(&pixel_shader);
+			/* port: the highlight reaches only what its visibility source says (light_visibility.h); its
+			attenuation coordinate is stage 1's, over the specular radius */
+			light_visibility_begin(&light->position, light->radius, 1,
+				light->definition->geometry.specular_radius_multiplier * light->radius);
 		}
 	}
 	return;

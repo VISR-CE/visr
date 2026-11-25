@@ -809,14 +809,15 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t}\n");
 
 	/* A dynamic light that walls and characters block (nv2a_pixel_shader_key light_visibility traced; Metal): the level's
-	diffuse light pass (rasterizer_xbox_environment.c) draws each light's surfaces once more, additively. Its lit point
-	is rebuilt from the distance attenuation coordinates, which the game's vertex shader makes as
+	diffuse and specular point light passes (rasterizer_xbox_environment.c) draw each light's surfaces once more,
+	additively. The lit point is rebuilt from the pass's distance attenuation coordinates (stage traced_light[3].w: 2
+	diffuse, 1 specular, whose radius is the specular one), which the game's vertex shader makes as
 	0.5 - (light - point) / (2 radius), exactly and the same for either eye; its geometric normal comes from the
 	point's screen derivatives, here, while every pixel of the quad still runs. light_visibility_emit traces it */
 	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(&text,
-			"	float3 traced_point = traced_light[0].xyz + (xT2.xyz - 0.5) * (2.0 * traced_light[0].w);\n"
-			"	float3 traced_normal = cross(dfdx(traced_point), dfdy(traced_point));\n");
+			"\tfloat3 traced_point = traced_light[0].xyz + ((traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz) - 0.5) * (2.0 * traced_light[0].w);\n"
+			"\tfloat3 traced_normal = cross(dfdx(traced_point), dfdy(traced_point));\n");
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */
 	if (key->fog_enable)

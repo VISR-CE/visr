@@ -796,7 +796,9 @@ boolean traced_light_begin(
 	real_point3d const *position,
 	real radius,
 	real strength,
-	long family)
+	long family,
+	short attenuation_stage,
+	real attenuation_radius)
 {
 	static unsigned long calls;
 	long mode = traced_light_mode();
@@ -809,7 +811,9 @@ boolean traced_light_begin(
 	light[0] = position->x;
 	light[1] = position->y;
 	light[2] = position->z;
-	light[3] = radius;
+	/* (the lit point is rebuilt from the pass's attenuation coordinate: stage light[15], over light[3]) */
+	light[3] = attenuation_radius;
+	light[15] = (float)attenuation_stage;
 	light[4] = 0.01f; /* the ray's start past the lit point and its end short of the light, world units (3 cm) */
 	light[5] = mode > 1 ? 1.f : 0.f;
 	/* (what stands within this of the light does not block it: the owner's family, masked out by its bit when it has
@@ -873,8 +877,10 @@ void traced_shadow_apply_end(void) { }
 boolean traced_light_walks_casters(void) { return FALSE; }
 void traced_lights_choose(struct light_visibility_candidate const *lights, short count, boolean versus, float *strength)
 	{ short i; (void)lights; (void)versus; for (i = 0; i < count; i++) strength[i] = 0.f; }
-boolean traced_light_begin(real_point3d const *position, real radius, real strength, long family)
-	{ (void)position; (void)radius; (void)strength; (void)family; return FALSE; }
+boolean traced_light_begin(real_point3d const *position, real radius, real strength, long family,
+	short attenuation_stage, real attenuation_radius)
+	{ (void)position; (void)radius; (void)strength; (void)family; (void)attenuation_stage; (void)attenuation_radius;
+	return FALSE; }
 void traced_light_end(void) { }
 
 #endif
