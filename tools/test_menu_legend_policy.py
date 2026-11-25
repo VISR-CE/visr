@@ -25,7 +25,7 @@ def test_menu_input_uses_events_instead_of_held_state():
     platform = (ROOT / 'port/linux/src/sdl_platform.c').read_text()
     assert 'halo_controller_glyph_input_event(&event)' in platform
     assert 'halo_glyph_input_note(' in source
-    assert 'glyph_menu_input.gamepad' in source
+    assert 'SDL_GetGamepadFromID(shown.gamepad)' in source
 
 
 def test_keyboard_symbols_cover_menu_keys_and_special_composition():

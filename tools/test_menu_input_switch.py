@@ -11,7 +11,8 @@ Bug classes held here:
 
 Each probe compiles the game's own functions out of xinput_sdl.c (the Apple builds' event writers behind the host's
 pointer gate, and the desktop builds' polled writers) and plays sequences of events through them, checking after
-every step which input is in use and that the help wording and the rows' controls are the ones for it.
+every step which input is in use and that the help wording, the legend's family and the rows' controls are the ones
+for it.
 """
 from pathlib import Path
 import re
@@ -34,6 +35,7 @@ static char const *family = "";
 static int host_development_hooks(void) { return dev; }
 static char const *config_string(char const *key) { (void)key; return family; }
 static int platform_menu_keyboard(void) { return keyboard; }
+static struct halo_glyph_input glyph_input_shown(int *overridden);
 
 /* after every step: the input in use is the expected one, and the wording and the controls are that input's */
 static int step;
@@ -41,13 +43,15 @@ static void expect(int source)
 {
 	static const int kinds[] = { HALO_INPUT_TOUCH, 0, HALO_INPUT_CONTROLLER, HALO_INPUT_KEYBOARD, HALO_INPUT_KEYBOARD };
 	static const int controls[] = { 2, 0, 0, 0, 1 };
+	static char const *const families[] = { "touch", "", "", "keyboard", "keyboard" };
+	char const *legend = halo_glyph_input_family(glyph_input_shown(NULL));
 	step++;
 	/* (the desktop builds draw the game's own controller legend, so their wording is always the controller's) */
 	if (glyph_menu_input.source != source || halo_menu_input_kind() != (DESKTOP ? HALO_INPUT_CONTROLLER : kinds[source + 2]) ||
-		halo_menu_pointer_controls() != controls[source + 2])
+		halo_menu_pointer_controls() != controls[source + 2] || strcmp(legend, families[source + 2]))
 	{
-		printf("step %d: input %d (expected %d), wording %d, controls %d\n", step, glyph_menu_input.source, source,
-			halo_menu_input_kind(), halo_menu_pointer_controls());
+		printf("step %d: input %d (expected %d), wording %d, controls %d, legend '%s'\n", step, glyph_menu_input.source,
+			source, halo_menu_input_kind(), halo_menu_pointer_controls(), legend);
 		exit(1);
 	}
 }
@@ -222,8 +226,11 @@ int main(void)
 	/* a capture's override stands in for the record for every reader at once, in development builds only */
 	family = "keyboard"; expect(PAD);
 	dev = 1; assert(halo_menu_input_kind() == HALO_INPUT_KEYBOARD && halo_menu_pointer_controls() == 0);
+	assert(!strcmp(halo_glyph_input_family(glyph_input_shown(NULL)), "keyboard"));
 	family = "touch"; assert(halo_menu_input_kind() == HALO_INPUT_TOUCH && halo_menu_pointer_controls() == 2);
+	assert(!strcmp(halo_glyph_input_family(glyph_input_shown(NULL)), "touch"));
 	family = "xbox"; assert(halo_menu_input_kind() == HALO_INPUT_CONTROLLER && halo_menu_pointer_controls() == 0);
+	assert(!*halo_glyph_input_family(glyph_input_shown(NULL)));
 	family = ",keyboard"; assert(halo_menu_input_kind() == HALO_INPUT_CONTROLLER);   /* (controller 2's part) */
 	printf("%d steps\n", step);
 	return 0;

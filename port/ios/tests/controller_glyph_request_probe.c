@@ -98,6 +98,19 @@ int main(void) {
  assert(halo_controller_glyph_request(1,18,2,label,sizeof(label))==3);
  assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
  assert(halo_controller_glyph_request(0,2,2,label,sizeof(label))==3 && !strcmp(label,"Mouse Right"));
+ /* the legend draws the input as it is shown: a capture pinned to the keyboard or to touch draws no mouse art
+    though the record says the mouse, and a second controller's legend follows the pin as the wording does */
+ override="keyboard";
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Enter"));
+ assert(halo_controller_glyph_request(0,2,2,label,sizeof(label))==3 && strcmp(label,"Mouse Right"));
+ assert(halo_controller_glyph_request(1,28,5,label,sizeof(label))==3 && !strcmp(label,"Enter"));
+ override="touch";
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==1);
+ assert(halo_controller_glyph_request(1,28,5,label,sizeof(label))==1);
+ override="xbox";
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==2 && !strncmp(label,"pad.",4));
+ override="";
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
  halo_controller_glyph_pointer_activity(0,NULL);
  assert(halo_controller_glyph_request(0,13,13,label,sizeof(label))==3 && !strcmp(label,"T"));
  assert(halo_controller_glyph_request(0,12,12,label,sizeof(label))==3 && !strcmp(label,"P"));

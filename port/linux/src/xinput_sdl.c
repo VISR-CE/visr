@@ -1730,8 +1730,8 @@ static struct halo_glyph_input glyph_input_shown(int *overridden)
 	return shown;
 }
 
-/* The same record halo_controller_glyph_request reads for player 0, so help text names the input the legend's
-buttons are drawn for. */
+/* The shown record halo_controller_glyph_request reads, so help text names the input the legend's buttons are
+drawn for. */
 int halo_menu_input_kind(void)
 {
 	int overridden = 0;
@@ -1770,6 +1770,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 #ifdef HALO_IOS
 	SDL_Gamepad *gamepads[PORT_COUNT];
 	SDL_Gamepad *pad;
+	struct halo_glyph_input shown;
 	char family[24] = {0};
 	int count, kind, action;
 	int host_development_hooks(void);
@@ -1794,18 +1795,16 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 			memcpy(family, part, length);
 		}
 	}
+	/* The input as it is shown (glyph_input_shown), the one the help wording and the rows' controls read. A family
+	named above is this controller's part of the capture override, which may name a controller's art. */
+	shown = glyph_input_shown(NULL);
 	if (!family[0] && (player == 0 || glyph_menus_active))
-	{
-		int source = glyph_menu_input.source;
-		/* The mouse uses the keyboard family; its main and secondary labels draw as lit mouse art. */
-		if (source == HALO_GLYPH_INPUT_KEYBOARD || source == HALO_GLYPH_INPUT_MOUSE) strcpy(family, "keyboard");
-		else if (source == HALO_GLYPH_INPUT_TOUCH) strcpy(family, "touch");
-	}
+		snprintf(family, sizeof(family), "%s", halo_glyph_input_family(shown));
 	count = sdl_gamepads(gamepads);
 	pad = port_gamepad(gamepads, count, player);
-	if (glyph_menus_active && !family[0] && glyph_menu_input.gamepad)
+	if (glyph_menus_active && !family[0] && shown.gamepad)
 	{
-		SDL_Gamepad *last = SDL_GetGamepadFromID(glyph_menu_input.gamepad);
+		SDL_Gamepad *last = SDL_GetGamepadFromID(shown.gamepad);
 		if (last) pad = last;
 	}
 	kind = host_sdl_gamepad_glyph((unsigned int)(uintptr_t)pad, physical, family, label, size, player, glyph_menus_active);
@@ -1813,7 +1812,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	if (kind != HALO_GLYPH_KEYCAP || (player != 0 && !glyph_menus_active && strcmp(family, "keyboard")))
 		return kind == HALO_GLYPH_KEYCAP ? HALO_GLYPH_ORIGINAL : kind;
 	/* The mouse legend lights the button that acts: left for the main action, right for the secondary. */
-	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && (semantic == 28 || physical == 2))
+	if (glyph_menus_active && shown.source == HALO_GLYPH_INPUT_MOUSE && (semantic == 28 || physical == 2))
 	{
 		snprintf(label, size, semantic == 28 ? "Mouse Left" : "Mouse Right");
 		return HALO_GLYPH_KEYCAP;
@@ -1835,7 +1834,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 		}
 		return HALO_GLYPH_ORIGINAL;
 	}
-	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
+	if (glyph_menus_active && shown.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
 		snprintf(label, size, "Delete");
 	else if (semantic == 28 || semantic == 29)
 		snprintf(label, size, "%s", semantic == 28 ? "Enter" : "Escape");

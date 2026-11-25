@@ -154,7 +154,8 @@ def test_controller_glyph_requests(tmp_path):
         import pytest
         pytest.skip('Apple compiler and frameworks are required')
     source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
-    function = block(source, 'int halo_controller_glyph_request(')
+    function = block(source, 'static struct halo_glyph_input glyph_input_shown(') + '\n' + \
+        block(source, 'int halo_controller_glyph_request(')
     program = (ROOT / 'port/ios/tests/controller_glyph_request_probe.c').read_text().replace('/* REQUEST */', function)
     first = source.index('static const char *const binding_environment[')
     settings = source[first:source.index('};', first)+2]

@@ -120,6 +120,14 @@ static inline int halo_glyph_input_pointer_controls(struct halo_glyph_input inpu
 	return input.source == HALO_GLYPH_INPUT_MOUSE ? 1 : input.source == HALO_GLYPH_INPUT_TOUCH ? 2 : 0;
 }
 
+/* the legend's art: a controller's own (""), the keyboard's keycaps, which the mouse shares (its main and secondary
+labels draw as mouse art), or touch's */
+static inline char const *halo_glyph_input_family(struct halo_glyph_input input)
+{
+	return input.source == HALO_GLYPH_INPUT_KEYBOARD || input.source == HALO_GLYPH_INPUT_MOUSE ? "keyboard" :
+		input.source == HALO_GLYPH_INPUT_TOUCH ? "touch" : "";
+}
+
 /* SDL's numbers for the modifier keys, which this header cannot include SDL for (xinput_sdl.c, which does, asserts
 them): the scancodes of the left and right Control, Shift, Alt and GUI keys are one run, and the GUI key (Command, or
 the Windows key) has a modifier bit for each side. */
