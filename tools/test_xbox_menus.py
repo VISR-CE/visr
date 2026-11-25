@@ -2380,3 +2380,26 @@ def test_browser_map_picture_sits_inside_the_panel_outline_in_every_joint():
             assert not is_border(x, round(top * px)) and not is_border(x, round(bottom * px) - 1), (name, x)
         for y in range(round(top * px), round(bottom * px)):
             assert not is_border(round(left * px), y) and not is_border(round(right * px) - 1, y), (name, y)
+
+
+def test_every_detail_panel_element_stays_inside_the_panel():
+    """Bug class: a layout shift (the title rule moving the content down) pushed a bottom element out of its panel,
+    unseen because nothing measured it. Every widget the detail panel's content places lies wholly inside the
+    panel's rectangle, the info pills below the notice included, and the two pills do not overlap each other."""
+    import menu_geometry as g
+    _, widgets = browser_c_widgets()
+    content = widgets['browser_detail_content']
+    left, top = g.BROWSER_PANEL_LEFT, g.BROWSER_PANEL_TOP
+    right, bottom = left + 312, top + g.BROWSER_DETAIL_HEIGHT
+    placed = {}
+    for child in content.findall('child'):
+        name = child.get('widget').rsplit('/', 1)[-1]
+        widget = widgets[name]
+        x0, y0 = int(child.get('x', 0)), int(child.get('y', 0))
+        x1, y1 = x0 + int(widget.get('width')), y0 + int(widget.get('height'))
+        assert left <= x0 and x1 <= right and top <= y0 and y1 <= bottom, (name, (x0, y0, x1, y1), (left, top, right, bottom))
+        placed[name] = (x0, y0, x1, y1)
+    for pill in ('browser_detail_net', 'browser_detail_net_blocked', 'browser_detail_password'):
+        assert pill in placed, pill
+    assert placed['browser_detail_net'][2] <= placed['browser_detail_password'][0], 'the two pills side by side'
+    assert placed['browser_detail_net'] == placed['browser_detail_net_blocked'][:0] + placed['browser_detail_net_blocked'], 'the gray text sits on the pill'

@@ -1805,7 +1805,7 @@ def browser_layout(root, widgets, bitmaps):
              [f'gametype_large__{i}' for i in range(7)]),
             ('scrim', menu_geometry.BROWSER_PREVIEW_WIDTH, menu_geometry.BROWSER_SCRIM_HEIGHT, ['scrim']),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
-            ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge__0']), ('lock', 12, 14, ['lock']),
+            ('big', 294, 20, ['big']), ('badge', menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT, ['badge__0', 'badge__1']), ('lock', 12, 14, ['lock']),
             ('option', 532, 54, ['option__0', 'option__1'])):
         browser_bitmap(root, name, width, height, frames)
     for name, width in (('chip_all', 78), ('chip_multiplayer', 144), ('chip_coop', 100), ('toggle', 174)):
@@ -1941,8 +1941,10 @@ def browser_layout(root, widgets, bitmaps):
             ('browser_connection_status', 313, g.BROWSER_STATUS_Y, 294, 26, 'small', '#7fc4ff', ''),
             ('browser_detail_big', 313, g.BROWSER_NOTICE_Y, 294, 20, 'small', '#0a2245', ''),
             ('browser_join_reason', 313, g.BROWSER_NOTICE_Y, 294, g.BROWSER_NOTICE_HEIGHT, 'small', '#7fc4ff', ''),
-            ('browser_detail_password', 313, g.BROWSER_PILL_Y, 120, 18, 'small', '#cfe8ff', ''),
-            ('browser_detail_lock', 320, g.BROWSER_PILL_Y - 2, 12, 14, None, None, ''),
+            ('browser_detail_net', g.BROWSER_NET_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#cfe8ff', ''),
+            ('browser_detail_net_blocked', g.BROWSER_NET_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#7b8794', ''),
+            ('browser_detail_password', g.BROWSER_PASSWORD_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#cfe8ff', ''),
+            ('browser_detail_lock', g.BROWSER_PASSWORD_PILL_X + 7, g.BROWSER_PILL_Y - 2, 12, 14, None, None, ''),
             ('browser_detail_status', 317, 213, 286, 160, 'small', '#7fc4ff', '')):
         child(detail if leaf == 'browser_detail_status' else content, base + '/' + leaf, x=x, y=y)
         if leaf == 'browser_detail_lock':
@@ -1954,9 +1956,13 @@ def browser_layout(root, widgets, bitmaps):
             item.set('text', text)
         if leaf == 'browser_detail_big':
             item.attrib.update(bitmap='xbox/browser/big', text_x='5', text_y='2')
-        elif leaf == 'browser_detail_password':
-            # (the pill; its text leaves room for the lock)
-            item.attrib.update(bitmap='xbox/browser/badge', align='center', text_y='1', text_x='8')
+        elif leaf in ('browser_detail_net', 'browser_detail_password'):
+            # (the pill: one style, its frames normal and blocked; the password pill's text leaves room for the lock)
+            item.attrib.update(bitmap='xbox/browser/badge', align='center', text_y='1')
+            if leaf == 'browser_detail_password':
+                item.set('text_x', '8')
+        elif leaf == 'browser_detail_net_blocked':
+            item.attrib.update(align='center', text_y='1')
     # the content never takes focus
     detail.insert(0, ET.Element('child', widget=base + '/browser_detail_content'))
     # IP ADDRESS and CREATE are screen-wide actions, BACK the way back (the engine places the bar)

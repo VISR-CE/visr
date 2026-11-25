@@ -672,7 +672,7 @@ int main(void)
 	char const *const leaves[] = { "browser_detail_content", "browser_detail_name", "browser_detail_type",
 		"browser_rules_label", "browser_detail_rules", "browser_equipment_label", "browser_detail_equipment",
 		"browser_host_label", "browser_detail_host", "browser_connection_status", "browser_detail_big",
-		"browser_join_reason", "browser_detail_password",
+		"browser_join_reason", "browser_detail_password", "browser_detail_net", "browser_detail_net_blocked",
 		"browser_detail_lock", "lobby_map_pic", "browser_detail_gametype", "browser_detail_scrim" };
 	struct widget_instance *list = add(&screen, "join_game_items_list");
 
@@ -703,6 +703,17 @@ int main(void)
 	assert(!named(&screen, "browser_joint_0", 0)->visible && !named(&screen, "browser_joint_5", 0)->visible);
 	lobby_browser.chosen = 0;
 	ellipsized[0] = 0;
+	browser_c_detail_update(list, L"");
+	/* the network version's pill shows for every game, a compatible one without a password too (blue), and grays for a
+	   game this build cannot join (the third: a newer network version) */
+	assert(pill("browser_detail_net")->visible && !pill("browser_detail_net_blocked")->visible);
+	assert(wcsstr(pill("browser_detail_net")->text, L"NET v") && pill("browser_detail_net")->animation.current_frame_index == 0);
+	assert(!pill("browser_detail_password")->visible);
+	lobby_browser.chosen = 2;
+	browser_c_detail_update(list, L"");
+	assert(pill("browser_detail_net_blocked")->visible && pill("browser_detail_net")->animation.current_frame_index == 1);
+	assert(wcsstr(pill("browser_detail_net_blocked")->text, L"NET v"));
+	lobby_browser.chosen = 0;
 	browser_c_detail_update(list, L"");
 	/* the chosen game's tab and the panel are one outline: exactly the chosen visible row's joint shows, also when the list is scrolled */
 	{

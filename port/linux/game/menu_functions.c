@@ -5041,9 +5041,10 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	{
 		char const *const blank[] = { "browser_detail_name", "browser_detail_type", "browser_detail_rules",
 			"browser_detail_host", "browser_detail_equipment", "browser_detail_big", "browser_join_reason",
-			"browser_detail_password" };
+			"browser_detail_net", "browser_detail_net_blocked", "browser_detail_password" };
 		char const *const hidden[] = { "browser_equipment_label", "browser_detail_big", "browser_join_reason",
-			"browser_detail_password", "browser_detail_lock", "browser_detail_scrim" };
+			"browser_detail_net", "browser_detail_net_blocked", "browser_detail_password", "browser_detail_lock",
+			"browser_detail_scrim" };
 		short index;
 
 		lobby_map_show(detail, "");
@@ -5095,11 +5096,26 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	visible_set(named(detail, "browser_detail_big", 0),
 		player_capacity_marked(game->player_count, game->maximum_player_count) &&
 		browser_join_block(game) == _browser_join_ok);
-	/* The password pill (one style, with a lock). Set on every update, shown or not, so it does not depend on
-	what an earlier game or screen left (the panel's blanking above hides it). */
-	text_set(named(detail, "browser_detail_password", 0), L"PASSWORD");
-	visible_set(named(detail, "browser_detail_password", 0), game->locked);
-	visible_set(named(detail, "browser_detail_lock", 0), game->locked);
+	/* The info pills (one style, in states: normal, blue; blocked by the network version or the kind of game, gray as
+	the disabled rows are, never red; a password's carries a lock). Every pill is set on every update, shown or not,
+	so none depends on what an earlier game or screen left (the panel's blanking above hides them all). */
+	{
+		struct widget_instance *net = named(detail, "browser_detail_net", 0);
+		short join_block = browser_join_block(game);
+		boolean blocked = join_block == _browser_join_kind || join_block == _browser_join_version;
+
+		usnprintf(text, NUMBEROF(text) - 1, L"NET v%d", game->network_version);
+		/* (the pill widget carries the frame and the normal text; a blocked pill's text is the gray overlay's) */
+		text_set(net, blocked ? L"" : text);
+		text_set(named(detail, "browser_detail_net_blocked", 0), text);
+		if (net)
+			net->animation.current_frame_index = blocked ? 1 : 0;
+		visible_set(net, TRUE);
+		visible_set(named(detail, "browser_detail_net_blocked", 0), blocked);
+		text_set(named(detail, "browser_detail_password", 0), L"PASSWORD");
+		visible_set(named(detail, "browser_detail_password", 0), game->locked);
+		visible_set(named(detail, "browser_detail_lock", 0), game->locked);
+	}
 	{
 		short block = browser_join_block(game);
 		boolean usable = block == _browser_join_ok && !browser_join_under_way();

@@ -135,7 +135,10 @@ def generate(output, icons):
              menu_geometry.BROWSER_DETAIL_HEIGHT, joint_svg(chosen))
     draw("big", 294, 20, rounded(294, 20, "#e8b520", radius=3))
     # The detail panel's password pill (HUD blue)
-    draw("badge__0", 120, 18, rounded(120, 18, "none", "#1f5fae", radius=3))
+    # The detail panel's info pills: normal (HUD blue) and blocked (grayed as the disabled rows are, never red).
+    for index, border in enumerate(("#1f5fae", "#4a5563")):
+        draw(f"badge__{index}", menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT,
+             rounded(menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT, "none", border, radius=3))
     # The lock inside the password pill.
     draw("lock", 12, 14, svg(12, 14,
          '<path d="M3 6V4.5a3 3 0 0 1 6 0V6" fill="none" stroke="#cfe8ff" stroke-width="1.4"/>'

@@ -564,6 +564,7 @@
 	</bitmap>
 	<bitmap name="xbox/browser/badge">
 		<frame png="xbox/art/browser/badge__0.png" width="120" height="18" />
+		<frame png="xbox/art/browser/badge__1.png" width="120" height="18" />
 	</bitmap>
 	<bitmap name="xbox/browser/lock">
 		<frame png="xbox/art/browser/lock.png" width="12" height="14" />
@@ -804,8 +805,10 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_connection_status" x="313" y="308" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_big" x="313" y="328" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_join_reason" x="313" y="328" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_password" x="313" y="368" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_lock" x="320" y="366" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net" x="313" y="368" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net_blocked" x="313" y="368" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_password" x="441" y="368" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_lock" x="448" y="366" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/lobby_map_pic" width="294" height="147" bitmap="xbox/browser/preview_mp" />
 	<bitmap name="xbox/browser/preview_mp">
@@ -856,6 +859,8 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_connection_status" type="text" width="294" height="26" font="ui\small_ui" color="#7fc4ff" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_big" type="text" width="294" height="20" font="ui\small_ui" color="#0a2245" bitmap="xbox/browser/big" text_x="5" text_y="2" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_join_reason" type="text" width="294" height="38" font="ui\small_ui" color="#7fc4ff" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net" type="text" width="120" height="18" font="ui\small_ui" color="#cfe8ff" bitmap="xbox/browser/badge" align="center" text_y="1" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net_blocked" type="text" width="120" height="18" font="ui\small_ui" color="#7b8794" align="center" text_y="1" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_password" type="text" width="120" height="18" font="ui\small_ui" color="#cfe8ff" bitmap="xbox/browser/badge" align="center" text_y="1" text_x="8" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_lock" width="12" height="14" bitmap="xbox/browser/lock" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_status" type="text" width="286" height="160" font="ui\small_ui" color="#7fc4ff" />
