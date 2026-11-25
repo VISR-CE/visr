@@ -43,8 +43,9 @@ says the light does not reach); object_lights.c */
 void light_visibility_next(int path, float strength);
 /* An owner family is an object, its parents and its children (a unit, the weapon it holds, the vehicle it rides and
 that vehicle's other riders): its casters never block its own lights (a partner's flashlight is inside his body).
-Each family with a traced light this frame takes one bit of the traced lights' instance mask, from
-LIGHT_VISIBILITY_FAMILY_FIRST; past the last, its lights fall back to the owner distance (debug.traced_light_owner).
+Each family with a light this frame takes one bit of the traced lights' instance mask, from
+LIGHT_VISIBILITY_FAMILY_FIRST, when the frame's table is made (light_visibility_families_prepare); past the last,
+its lights fall back to the owner distance (debug.traced_light_owner).
 The family bit of the object's family this frame, 0 none (object_lights.c) */
 int light_visibility_family(long object_index);
 
@@ -111,6 +112,23 @@ static inline int light_visibility_family_bit(
 		return 0;
 	roots[*count] = root;
 	return LIGHT_VISIBILITY_FAMILY_FIRST + (*count)++;
+}
+
+/* the frame's family table, made before anything asks for a bit: every owner root of a light this frame (owners[] of
+count, -1 for none) in the lights' order takes the next free bit. A caster record can be sent before its owner's light
+is chosen (split screen reuses window 0's shadow records in window 1), so it looks its bit up here and finds the one
+the light will take; families past the last bit get 0 on both sides and fall back to the owner distance */
+static inline void light_visibility_families_prepare(
+	long *roots,
+	int *count,
+	long const *owners,
+	int owner_count)
+{
+	int i;
+
+	*count = 0;
+	for (i = 0; i < owner_count; i++)
+		light_visibility_family_bit(roots, count, owners[i], 1);
 }
 
 /* TRUE when two spheres (center, radius) overlap */

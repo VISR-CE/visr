@@ -1823,8 +1823,9 @@ static struct
 	unsigned char path, family;
 	float strength;
 } light_visibility_pending;
-/* this frame's owner families with a traced light (light_visibility.h): one table for every window, so a caster
-record one window makes and another reuses keeps its bit */
+/* this frame's owner families of lights (light_visibility.h), made at the frame's first lookup and only read after:
+one table for every window and for casters and lights alike, so a caster record sent before its owner's light is
+chosen, or one window's record another reuses, has the bit the light takes */
 static struct
 {
 	unsigned __int64 frame;
@@ -1847,22 +1848,39 @@ static long light_visibility_family_root(
 }
 
 static int light_visibility_family_of(
-	long object_index,
-	int assign)
+	long object_index)
 {
 	if (light_visibility_families.frame != rasterizer_globals.fps_accumulation_frame_index)
 	{
+		long owners[256], light_index;
+		int owner_count = 0, pass;
+
+		/* (every light with an owner, before any window chooses or any caster record is sent: light_visibility.h;
+		the players' own first-person lights first, so that they keep a bit when there are more families than bits) */
+		for (pass = 0; pass < 2; pass++)
+		{
+			for (light_index = data_next_index(light_data, NONE); light_index != NONE && owner_count < 256;
+				light_index = data_next_index(light_data, light_index))
+			{
+				struct light_datum *light = light_get(light_index);
+				boolean own = TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit) != 0;
+
+				if (light->object_index != NONE && own == (pass == 0))
+					owners[owner_count++] = light_visibility_family_root(light->object_index);
+			}
+		}
 		light_visibility_families.frame = rasterizer_globals.fps_accumulation_frame_index;
-		light_visibility_families.count = 0;
+		light_visibility_families_prepare(light_visibility_families.roots, &light_visibility_families.count, owners,
+			owner_count);
 	}
 	return light_visibility_family_bit(light_visibility_families.roots, &light_visibility_families.count,
-		light_visibility_family_root(object_index), assign);
+		light_visibility_family_root(object_index), FALSE);
 }
 
 int light_visibility_family(
 	long object_index)
 {
-	return light_visibility_family_of(object_index, FALSE);
+	return light_visibility_family_of(object_index);
 }
 
 void lights_choose_visibility(
@@ -1913,7 +1931,7 @@ void lights_choose_visibility(
 			light_visibility_windows[window].path[slots[i]] = LIGHT_VISIBILITY_TRACED;
 			light_visibility_windows[window].strength[slots[i]] = traced[i];
 			light_visibility_windows[window].family[slots[i]] = (unsigned char)light_visibility_family_of(
-				light_get(lights_globals.scene_point_lights[slots[i]])->object_index, TRUE);
+				light_get(lights_globals.scene_point_lights[slots[i]])->object_index);
 			if (config_boolean("debug.traced_light_family_log"))
 			{
 				struct light_datum *light = light_get(lights_globals.scene_point_lights[slots[i]]);

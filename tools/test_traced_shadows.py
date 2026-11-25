@@ -205,6 +205,38 @@ def test_a_handle_with_the_high_salt_bit_still_gets_a_family(tmp_path):
             assert f"if ({name} < 0)" not in text, path
 
 
+def test_a_caster_sent_before_its_owners_light_gets_the_lights_bit(tmp_path):
+    """The class: a family bit that depends on which side asks first. Split screen reuses window 0's caster records
+    in window 1, so a caster's record can go out before its owner's light is chosen; had the light assigned the bit,
+    the record kept 0 while the light's keep-clear shrank to a centimeter, and the owner blocked his own light. The
+    frame's table is made from every light's owner before anything asks, and both sides only look it up."""
+    _run_rule_program(tmp_path, r'''
+    long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    long owners[40];
+    int count = 0, i, caster, light;
+    long player = (long)(int)0xe4a9023au;
+    owners[0] = player;
+    for (i = 1; i < 40; i++)
+        owners[i] = 1000 + i;
+    owners[5] = -1;
+    light_visibility_families_prepare(roots, &count, owners, 40);
+    assert(count == LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    caster = light_visibility_family_bit(roots, &count, player, 0);
+    light = light_visibility_family_bit(roots, &count, player, 0);
+    assert(caster == LIGHT_VISIBILITY_FAMILY_FIRST && light == caster);
+    /* past the last bit: 0 on both sides, so the owner distance applies to the light */
+    assert(light_visibility_family_bit(roots, &count, 1039, 0) == 0);
+    assert(light_visibility_family_bit(roots, &count, 1039, 0) == 0);
+    /* a new frame starts the table again */
+    light_visibility_families_prepare(roots, &count, owners + 10, 3);
+    assert(count == 3 && light_visibility_family_bit(roots, &count, player, 0) == 0);
+    ''')
+    lights = (ROOT / "source/objects/object_lights.c").read_text()
+    assert lights.count("light_visibility_family_bit(") == 1
+    assert "light_visibility_family_root(object_index), FALSE);" in lights
+    assert "light_visibility_families_prepare(light_visibility_families.roots" in lights
+
+
 def test_the_light_instances_rebuild_when_the_caster_set_changes():
     """The class: a window reusing another window's blockers because it holds as many casters (stale families or
     shadows). The rebuild is keyed on each caster's shadow, structure and family, not on their count."""
