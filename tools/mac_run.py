@@ -155,6 +155,7 @@ DEFAULTS = {
     "display.shadow_minimum_size": "0",
     "display.effect_resolution": '"xbox"',
     "display.effect_limits": '"raised"',
+    "display.scene_precision": "8",
     "display.compressed_textures": "false",
     "debug.texture_astc": '"off"',
     "debug.texture_astc_sync": "false",
