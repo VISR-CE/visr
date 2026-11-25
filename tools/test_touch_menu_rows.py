@@ -910,6 +910,33 @@ def test_option_row_arrows_follow_the_input(tmp_path):
     assert 'halo_menu_row_arrows_shown(' not in draw
 
 
+def test_state_word_sits_in_the_value_column_for_every_input(tmp_path):
+    """Bug class: a value drawn at a different place on one input (the MAPS state word drew right of the values on
+    touch after it was fixed on a controller and keyboard). The slot a pointer input's control takes at a value's right
+    end is one function (halo_menu_value_trailing_slot); a state word, which has no control, leaves the switch's slot
+    on a mouse and a finger so it centers where the switch rows' values do, and nothing on a controller or keyboard,
+    which draw every value centered in the same bounds."""
+    source = tmp_path / 'slot.c'
+    source.write_text('#include "halo_menu_row.h"\n'
+                      'int value_slot(int kind, int dropdown, int input) {\n'
+                      ' return halo_menu_value_trailing_slot(halo_menu_row_look((enum halo_menu_row_kind)kind, dropdown, input)); }\n'
+                      'int word_slot(int input) { return halo_menu_state_word_trailing_slot(input); }\n')
+    library = tmp_path / 'slot.dylib'
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-shared', '-fPIC',
+                    '-iquote', str(ROOT / 'port/linux/include'), str(source), '-o', str(library)], check=True)
+    lib = ctypes.CDLL(str(library))
+    toggle, enum = 1, 2
+    for pointer in (1, 2):
+        assert lib.word_slot(pointer) == lib.value_slot(toggle, 0, pointer) == 38, pointer
+        assert lib.value_slot(enum, 1, pointer) == 24, pointer
+    assert lib.word_slot(0) == 0 and lib.value_slot(toggle, 0, 0) == 0 and lib.value_slot(enum, 1, 0) == 0
+    # the renderer takes both from those functions, and nothing else trims a value's bounds
+    draw = (ROOT / 'source/interface/ui_widget.c').read_text()
+    assert 'halo_menu_value_trailing_slot(look)' in draw
+    assert 'halo_menu_state_word_trailing_slot(halo_menu_pointer_controls())' in draw
+    assert 'bounds.x1 -= 38' not in draw and 'bounds.x1 -= 24' not in draw
+
+
 def test_every_option_row_steps_with_left_and_right():
     """Bug class: spinner rows not stepped by keyboard arrows. Every spinner of the menu set carries the flag that
     makes left and right (dpad, arrow keys, A and D) step its list, and sits in a row that passes events on."""
