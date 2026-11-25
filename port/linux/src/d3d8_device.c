@@ -3226,7 +3226,7 @@ static BOOL traced_shadows_frame_on(void)
 	if (traced_shadows.frame != device.frame + 1)
 	{
 		const struct halo_stereo_frame *stereo = halo_stereo_frame();
-		BOOL on = device.gl_ready && shader_dialect.msl && config_boolean("display.traced_shadows") &&
+		BOOL on = device.gl_ready && shader_dialect.msl && config_scene_boolean("display.traced_shadows", CONFIG_SCENE_GAMEPLAY) &&
 			stereo->mode == HALO_STEREO_OFF && !stereo->eye_count;
 
 #ifdef HALO_ILP32
