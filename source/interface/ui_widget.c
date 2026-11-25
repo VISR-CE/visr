@@ -3005,32 +3005,57 @@ spinner, are the row's own and survive the focus moving away */
 	((node)->type == _ui_widget_type_spinner_list || (node)->type == _ui_widget_type_column_list)
 HALO_MENU_FOCUS_DEFINE(ui_focus, struct widget_instance, UI_WIDGET_IS_LIST)
 
+/* port: the widgets one of the reports below has named, so a report names a widget once. A full table reports nothing
+more: a report is never worth a log line a frame. */
+struct ui_focus_reports
+{
+	long widgets[64];
+	int count;
+};
+
+/* whether to report a widget now: not one already reported, and the table has room to remember it */
+static boolean ui_focus_report_once(
+	struct ui_focus_reports *reports,
+	long definition_tag_index)
+{
+	int index;
+
+	for (index = 0; index < reports->count; index++)
+		if (reports->widgets[index] == definition_tag_index)
+			return FALSE;
+	if (reports->count >= (int)NUMBEROF(reports->widgets))
+		return FALSE;
+	reports->widgets[reports->count++] = definition_tag_index;
+	return TRUE;
+}
+
+/* the widget ui_focus_report_once just let through turned out to have nothing to report (its definition may yet,
+in another list) */
+static void ui_focus_report_withdraw(
+	struct ui_focus_reports *reports)
+{
+	reports->count--;
+}
+
 /* port: the rule checked where it shows: a drawn list item that sends its events to its focused child and has none,
-with a child that could take them. Logged once for a widget, as "menus: focus invariant broken <name>", which the
-capture tools fail a run on, so every sweep tests every screen it opens
-on every input */
+with a child that could take them (ui_focus_item_lost_focus). Logged once for a widget, as "menus: focus invariant
+broken <name>", which the capture tools fail a run on, so every sweep tests every screen it opens on every input */
 static void ui_focus_check_item(
 	struct widget_instance *item)
 {
 	extern void platform_log(char const *, ...);
-	static long reported[16];
-	static int reported_count;
+	static struct ui_focus_reports reports;
 	struct widget_instance *child;
-	int index, has_event_child = 0;
+	int has_event_child = 0;
 
-	if (!ui_focus_is_list_item(item) || item->focused_child || !item->visible || item->disabled)
+	if (item->focused_child || !item->visible || item->disabled)
 		return;
 	for (child = item->child; child && !has_event_child; child = child->next)
 		has_event_child = child->visible && widget_instance_can_handle_events(child);
-	if (!ui_focus_item_lost_focus(item, TEST_FLAG(ui_widget_definition_get(item->definition_tag_index)->flags,
-			_widget_pass_unhandled_events_to_children_bit), has_event_child))
-		return;
-	for (index = 0; index < reported_count; index++)
-		if (reported[index] == item->definition_tag_index)
-			return;
-	if (reported_count < (int)NUMBEROF(reported))
-		reported[reported_count++] = item->definition_tag_index;
-	platform_log("menus: focus invariant broken %s", item->name ? item->name : "?");
+	if (ui_focus_item_lost_focus(item, TEST_FLAG(ui_widget_definition_get(item->definition_tag_index)->flags,
+			_widget_pass_unhandled_events_to_children_bit), has_event_child) &&
+		ui_focus_report_once(&reports, item->definition_tag_index))
+		platform_log("menus: focus invariant broken %s", item->name ? item->name : "?");
 }
 
 /* port: whether choosing a widget does anything: it or something in it is a list (a spinner) or has a handler for
@@ -3065,26 +3090,22 @@ static void ui_focus_check_draw(
 	struct widget_instance *item)
 {
 	extern void platform_log(char const *, ...);
-	static long reported[16];
-	static int reported_count;
+	static struct ui_focus_reports reports;
 	struct widget_instance *other;
-	int index;
 
 	if (list->type != _ui_widget_type_column_list || item->type == _ui_widget_type_column_list ||
-		ui_focus_widget_acts(item))
+		!ui_focus_report_once(&reports, item->definition_tag_index))
 		return;
-	for (other = list->child; other; other = other->next)
-		if (other != item && other->visible && other->type != _ui_widget_type_column_list &&
-			ui_focus_widget_acts(other))
-			break;
-	if (!other)
-		return;
-	for (index = 0; index < reported_count; index++)
-		if (reported[index] == item->definition_tag_index)
-			return;
-	if (reported_count < (int)NUMBEROF(reported))
-		reported[reported_count++] = item->definition_tag_index;
-	platform_log("menus: focus on a read-only row %s", item->name ? item->name : "?");
+	other = NULL;
+	if (!ui_focus_widget_acts(item))
+		for (other = list->child; other; other = other->next)
+			if (other != item && other->visible && other->type != _ui_widget_type_column_list &&
+				ui_focus_widget_acts(other))
+				break;
+	if (other)
+		platform_log("menus: focus on a read-only row %s", item->name ? item->name : "?");
+	else
+		ui_focus_report_withdraw(&reports);
 }
 
 static void widget_instance_give_focus_directly(

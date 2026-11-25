@@ -160,3 +160,51 @@ def test_the_game_changes_focus_through_the_shared_rule():
     assert 'focused_child = NULL' not in body
     assert not re.search(r'->focused_child\s*=\s*(NULL|0)\s*;', source), \
         'a focus link cleared outside halo_menu_focus.h'
+
+
+REPORTS = r'''
+#include <assert.h>
+#include <stdio.h>
+#define NUMBEROF(array) (sizeof(array) / sizeof((array)[0]))
+#define TRUE 1
+#define FALSE 0
+typedef int boolean;
+/* FUNCTIONS */
+
+int main(void)
+{
+	static struct ui_focus_reports reports;
+	static int times[200];
+	int frame, widget, total = 0, room = (int)NUMBEROF(reports.widgets);
+
+	/* more widgets than the table holds, each checked on every frame it is drawn */
+	for (frame = 0; frame < 50; frame++)
+		for (widget = 0; widget < 200; widget++)
+			if (ui_focus_report_once(&reports, 1000 + widget)) { times[widget]++; total++; }
+	for (widget = 0; widget < 200; widget++)
+		assert(times[widget] == (widget < room));
+	assert(total == room);
+	/* a widget let through and then found to have nothing to report leaves room and can be reported later */
+	reports.count = 0;
+	assert(ui_focus_report_once(&reports, 7)); ui_focus_report_withdraw(&reports);
+	assert(reports.count == 0 && ui_focus_report_once(&reports, 7) && !ui_focus_report_once(&reports, 7));
+	printf("%d reports\n", total);
+	return 0;
+}
+'''
+
+
+def test_a_focus_report_names_a_widget_once_and_a_full_table_reports_nothing(tmp_path):
+    """Bug class: a once-per-widget report that logs every frame once its table is full. The probe runs the game's
+    own table (ui_widget.c's `ui_focus_report_once`) with more widgets than it holds, each checked every frame."""
+    from tools.test_controller_glyphs import block
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    functions = '\n'.join(block(source, marker) for marker in (
+        'struct ui_focus_reports\n', 'static boolean ui_focus_report_once(', 'static void ui_focus_report_withdraw('))
+    probe, binary = tmp_path / 'reports.c', tmp_path / 'reports'
+    probe.write_text(REPORTS.replace('/* FUNCTIONS */', functions.replace('int count;\n}', 'int count;\n};', 1)))
+    subprocess.run([shutil.which('cc'), '-std=c11', '-Wall', '-Werror', str(probe), '-o', str(binary)], check=True)
+    output = subprocess.run([str(binary)], check=True, capture_output=True, text=True).stdout
+    assert re.search(r'^\d+ reports$', output, re.M), output
+    # both reports go through it, and neither keeps a table of its own
+    assert source.count('ui_focus_report_once(&reports') == 2 and 'reported[' not in source
