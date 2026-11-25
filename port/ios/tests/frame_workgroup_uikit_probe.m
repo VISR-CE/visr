@@ -9,7 +9,6 @@
    argv[1] "unfixed": the thread stays joined, as before the fix; UIKit's exception ends the app (the control). The
    exception's reason is logged before abort(); the control then leaves from its SIGABRT handler with _exit(3), so
    the expected crash writes no crash report on the machine running the tests. */
-#include "test_wait.h"
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
 #include <mach/mach_time.h>
@@ -19,6 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "frame_deadline.h"
+#include "test_wait.h"
 
 static int fixed, failures;
 static os_workgroup_interval_t interval;
@@ -33,7 +33,7 @@ static void check(int condition, const char *message) {
    once, and frames counted without the clock gave UIKit's animations no time to run (400 frames in under a second
    on one host, so the dialog's dismissal never finished) */
 static void pump_frame(void) {
-    CFAbsoluteTime until = CFAbsoluteTimeGetCurrent() + 0.016;
+    CFAbsoluteTime until = CFAbsoluteTimeGetCurrent() + 0.016;   /* TEST_WAIT_SHORT_ON_PURPOSE: the length of one frame, not a wait */
     for (CFAbsoluteTime now = CFAbsoluteTimeGetCurrent(); now < until; now = CFAbsoluteTimeGetCurrent())
         if (CFRunLoopRunInMode(kCFRunLoopDefaultMode, until - now, true) == kCFRunLoopRunFinished)
             usleep(1000);
@@ -95,8 +95,8 @@ static void hold(int on) {
         UIAlertController *alert = nil;
         __block BOOL dismissed = NO, gone = NO;
         int n, gone_at = -1;
-        /* (on until a few frames after the dialog has gone, so they join again; at most 10 s) */
-        CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 10;
+        /* (on until a few frames after the dialog has gone, so they join again; at most the wait cap) */
+        CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + TEST_WAIT_CAP_SECONDS;
         for (n = 0; CFAbsoluteTimeGetCurrent() < deadline && !(gone_at >= 0 && n > gone_at + 10); n++) {
             @autoreleasepool {
                 frame();

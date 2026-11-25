@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+from probe_timeouts import PROBE_RUN_SECONDS
 import sys
 from pathlib import Path
 
@@ -419,7 +420,7 @@ def test_p2p_signatures_and_listings(tmp_path):
                             "port/third_party/monocypher/monocypher-ed25519.c"],
                            capture_output=True, text=True)
     assert built.returncode == 0, built.stderr[-4000:]
-    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=60)
+    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0, result.stdout
     assert "PASS" in result.stdout
 
@@ -683,7 +684,7 @@ def test_delta_peer_codec_and_sessions(tmp_path, probe):
                              f"port/ios/tests/{probe}_probe.c", "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c", "-o", str(program)],
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=30)
+    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and ("delta peer game probe ok" if probe == "delta_peer_game" else "delta peer probe ok") in result.stdout, result.stderr
 
 

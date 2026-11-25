@@ -361,15 +361,14 @@ int main(int argc, const char **argv) { @autoreleasepool {
     CHECK(dispatch_semaphore_wait(checked, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0 && checkSucceeded,
         "a valid cached 304 completes successfully despite response cancellation");
     CHECK([[store beginLaunch] isEqual:[Store(root) beginLaunch]], "a 304 leaves the snapshot in use");
-    [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause for the activation that follows the completion callback */
     [[NSFileManager defaultManager] removeItemAtPath:[root stringByAppendingPathComponent:@"feed-validator.txt"] error:NULL];
     networkStatus = 500;
-    [store checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"]];
-    TEST_WAIT_UNTIL(requests >= 3);
+    /* the store keeps its session until after the completion callback, and a check asked for while it holds one is
+       ignored: ask again until one is taken (a request arrives), which is the store telling us it is ready */
+    TEST_WAIT_UNTIL(({ if (requests < 3) [store checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"]]; requests >= 3; }));
     [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause to show that no further request is made */
     networkFails = YES;
-    [store checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"]];
-    TEST_WAIT_UNTIL(requests >= 4);
+    TEST_WAIT_UNTIL(({ if (requests < 4) [store checkForUpdateAtURL:[NSURL URLWithString:@"https://packs.invalid/profiles.json"]]; requests >= 4; }));
     [NSThread sleepForTimeInterval:0.3];   /* TEST_WAIT_SHORT_ON_PURPOSE: a fixed pause to show that no further request is made */
     if (requests != 4) fprintf(stderr, "requests = %ld\n", (long)requests);
     CHECK(requests == 4, "an HTTP error and a network failure each end one check without retrying");

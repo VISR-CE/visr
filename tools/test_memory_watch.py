@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from probe_timeouts import PROBE_RUN_SECONDS
 
 pytestmark = pytest.mark.skipif(sys.platform != "linux", reason="Linux signal and ucontext behavior")
 
@@ -376,7 +377,7 @@ def program(tmp_path_factory):
 
 
 def run(program, mode):
-    return subprocess.run([str(program), mode], capture_output=True, text=True, timeout=20)
+    return subprocess.run([str(program), mode], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
 
 
 def test_initialize_puts_the_handler_back_over_a_library(program):

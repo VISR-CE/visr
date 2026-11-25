@@ -3,56 +3,107 @@
 A loaded job host starves a worker thread for longer than any number picked on an idle machine: save_writer_probe
 failed "save_writer_wait(10)" under a long build line, and the same short caps sat in a dozen other probes. Probes
 wait with port/ios/tests/test_wait.h (a wall-clock wait on a monotonic clock, one generous cap, a semaphore timeout
-constant and a watchdog constant). This test refuses, in every probe, a counted sleep-poll loop, a dispatch wait with a
-short literal timeout, a whole-program alarm with a literal count, and a probe that waits on the clock without the
-header. A line that is a deliberate promptness or absence check carries TEST_WAIT_SHORT_ON_PURPOSE and says why.
+constant and a watchdog constant). This test refuses, in every probe, a counted sleep-poll loop (whatever its body
+holds), a dispatch wait with a short literal timeout in seconds or milliseconds (cast or not), a short
+CFAbsoluteTimeGetCurrent() deadline, a TEST_WAIT_UNTIL_FOR with a short literal, and a whole-program alarm with a
+literal count. A line that is a promptness check, an absence check or an event nothing reports carries
+TEST_WAIT_SHORT_ON_PURPOSE and says why. A probe that uses the helper's macros must include the header.
+A timeout that sits in a variable, and a loop bounded below ten, are not seen.
 """
 
 import re
 from pathlib import Path
 
 import pytest
+from probe_timeouts import PROBE_RUN_SECONDS
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBES = sorted([*(ROOT / "port/ios/tests").glob("*.[cm]"), *(ROOT / "port/ios/tests").glob("*.cpp")])
 MARK = "TEST_WAIT_SHORT_ON_PURPOSE"
-SLEEP = r"(?:usleep|sleepForTimeInterval|nanosleep)"
+SLEEP = re.compile(r"\b(?:usleep|sleepForTimeInterval|nanosleep)\b")
+LONG_CAP_SECONDS = 100   # a network cap such as feeds_host_probe's 300 s is not a wait for another thread
 
-# (name, pattern) for one source line
-LINE_RULES = (
-    ("a counted poll loop that sleeps (use TEST_WAIT_UNTIL)",
-     re.compile(r"\bfor\s*\([^;]*;[^;]*<\s*\d+[^;]*;[^)]*\)[^\n]*" + SLEEP)),
-    ("a counted poll loop whose body sleeps on the next line (use TEST_WAIT_UNTIL)", None),
-    ("a dispatch wait with a short literal timeout (use TEST_WAIT_SEMAPHORE_TIMEOUT)",
-     re.compile(r"dispatch_(?:semaphore|group)_wait\([^\n]*dispatch_time\(\s*DISPATCH_TIME_NOW\s*,\s*(?:(\d+)\s*\*\s*)?NSEC_PER_SEC\s*\)")),
-    ("a whole-program alarm with a literal count (use TEST_WAIT_WATCHDOG_SECONDS)",
-     re.compile(r"(?<![\w.])alarm\(\s*[1-9]\d*\s*\)")),
-    ("a try counter that gives up after hundreds of polls (use TEST_WAIT_UNTIL)",
-     re.compile(r"\b(?:tries|attempt)\s*(?:\+\+)?\s*<\s*\d{3,}")),
-)
-LOOP_HEAD = re.compile(r"\b(?:for|while)\s*\([^\n]*<\s*\d{3,}[^\n]*\)\s*\{?\s*$")
+NUMBER = r"(\d+(?:\.\d+)?)"
+DISPATCH_WAIT = re.compile(r"dispatch_(?:semaphore|group)_wait\(")
+DISPATCH_TIME = re.compile(r"dispatch_time\(\s*DISPATCH_TIME_NOW\s*,")
+DEADLINE = re.compile(r"CFAbsoluteTimeGetCurrent\(\)\s*\+\s*" + NUMBER)
+UNTIL_FOR = re.compile(r"TEST_WAIT_UNTIL_FOR\([^\n]*,\s*" + NUMBER + r"\s*\)")
+ALARM = re.compile(r"(?<![\w.])alarm\(\s*[1-9]\d*\s*\)")
+LOOP_HEAD = re.compile(r"\b(?:for|while)\s*\(")
+BOUND = re.compile(r"<\s*(\d+)\b")
+
+
+def matching(text, start, opener, closer):
+    """Index just past the bracket that closes the one at text[start]."""
+    depth = 0
+    for index in range(start, len(text)):
+        depth += (text[index] == opener) - (text[index] == closer)
+        if depth == 0:
+            return index + 1
+    return len(text)
+
+
+def dispatch_seconds(argument):
+    """Seconds a dispatch_time offset spells with a literal, or None when it is not a literal."""
+    unit = 1.0 if "NSEC_PER_SEC" in argument else 1e-3 if "NSEC_PER_MSEC" in argument else None
+    if unit is None:
+        return None
+    factor = re.search(NUMBER, argument)
+    return float(factor.group(1)) * unit if factor else unit
+
+
+def loop_body(text, head_end):
+    """The text a for or while loop repeats: its block, or the one statement after it."""
+    rest = text[head_end:]
+    stripped = rest.lstrip()
+    skipped = len(rest) - len(stripped)
+    if stripped.startswith("{"):
+        return rest[skipped:matching(rest, skipped, "{", "}")]
+    end = stripped.find(";")
+    return stripped[:end + 1] if end >= 0 else stripped[:200]
 
 
 def violations(text):
     """(line number, rule) for every wait in `text` that caps itself with a count or a short literal time."""
-    lines = text.split("\n")
     found = []
-    for number, line in enumerate(lines, 1):
-        if MARK in line:
-            continue
-        for name, pattern in LINE_RULES:
-            if pattern is None:
-                continue
-            match = pattern.search(line)
-            if not match:
-                continue
-            if name.startswith("a dispatch wait") and match.group(1) and int(match.group(1)) >= 100:
-                continue   # a long network cap (feeds_host_probe), not a short thread wait
-            found.append((number, name))
-        if LOOP_HEAD.search(line) and re.search(SLEEP, "\n".join(lines[number:number + 6]).split("}")[0]):
-            if MARK not in "\n".join(lines[number - 1:number + 6]):
-                found.append((number, LINE_RULES[1][0]))
-    return found
+    lines = text.split("\n")
+    marked = {number for number, line in enumerate(lines, 1) if MARK in line}
+
+    def line_of(offset):
+        return text.count("\n", 0, offset) + 1
+
+    def report(offset, rule):
+        number = line_of(offset)
+        if number not in marked:
+            found.append((number, rule))
+
+    for match in LOOP_HEAD.finditer(text):
+        head_end = matching(text, match.end() - 1, "(", ")")
+        head = text[match.end():head_end]
+        bound = BOUND.search(head)
+        if bound and int(bound.group(1)) >= 10 and SLEEP.search(loop_body(text, head_end)):
+            report(match.start(), "a counted poll loop that sleeps (use TEST_WAIT_UNTIL)")
+        if re.search(r"\b(?:tries|attempt)\s*(?:\+\+)?\s*<\s*\d{3,}", head):
+            report(match.start(), "a try counter that gives up after hundreds of polls (use TEST_WAIT_UNTIL)")
+    for match in re.finditer(r"\b(?:tries|attempt)\s*(?:\+\+)?\s*<\s*\d{3,}", text):
+        report(match.start(), "a try counter that gives up after hundreds of polls (use TEST_WAIT_UNTIL)")
+    for wait in DISPATCH_WAIT.finditer(text):
+        call_end = matching(text, wait.end() - 1, "(", ")")
+        timed = DISPATCH_TIME.search(text, wait.end(), call_end)
+        if timed:
+            argument = text[timed.end():matching(text, timed.start() + len("dispatch_time"), "(", ")") - 1]
+            seconds = dispatch_seconds(argument)
+            if seconds is not None and seconds < LONG_CAP_SECONDS:
+                report(wait.start(), "a dispatch wait with a short literal timeout (use TEST_WAIT_SEMAPHORE_TIMEOUT)")
+    for match in DEADLINE.finditer(text):
+        if float(match.group(1)) < LONG_CAP_SECONDS:
+            report(match.start(), "a short CFAbsoluteTimeGetCurrent deadline (use TEST_WAIT_UNTIL or TEST_WAIT_PUMPING_UNTIL)")
+    for match in UNTIL_FOR.finditer(text):
+        if float(match.group(1)) < LONG_CAP_SECONDS:
+            report(match.start(), "a TEST_WAIT_UNTIL_FOR with a short literal cap (use TEST_WAIT_UNTIL)")
+    for match in ALARM.finditer(text):
+        report(match.start(), "a whole-program alarm with a literal count (use TEST_WAIT_WATCHDOG_SECONDS)")
+    return sorted(set(found))
 
 
 @pytest.mark.parametrize("path", PROBES, ids=lambda path: str(path.relative_to(ROOT)))
@@ -62,28 +113,78 @@ def test_probe_waits_on_the_clock_not_on_a_count(path):
     assert not found, f"{path.name}: " + "; ".join(f"line {n}: {rule}" for n, rule in found) + " (port/ios/tests/test_wait.h)"
 
 
-def test_negative_control_the_detector_sees_the_short_forms():
-    assert violations("for (int i = 0; i < 3000 && !ready; i++) usleep(10000);")
-    assert violations("for(int i=0; i<30000 && !ended; i++) { ended=take(); if(!ended) usleep(1000); }")
-    assert violations("for (int attempt = 0; attempt < 200; attempt++) {\n    check();\n    [NSThread sleepForTimeInterval:0.01];\n}")
-    assert violations("assert(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) == 0);")
-    assert violations("assert(dispatch_group_wait(g, dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC)) == 0);")
-    assert violations("    alarm(10);")
-    assert violations("while (!gate && tries++ < 5000)\n\tusleep(1000);")
+# the shapes this class took before the helper: each is a line or block that was in a probe
+OLD_SHAPES = {
+    "a flat counted loop": "for (int i = 0; i < 3000 && !ready; i++) usleep(10000);",
+    "a counted loop on one line": "for(int i=0; i<30000 && !ended; i++) { ended=take(); if(!ended) usleep(1000); }",
+    "a sleep after a statement": "for (int attempt = 0; attempt < 200; attempt++) {\n    check();\n    [NSThread sleepForTimeInterval:0.01];\n}",
+    "a block before the sleep (data_updates_probe waitForMenuChecks)": (
+        "    for (int i = 0; i < 3000; i++) {\n        __block BOOL busy;\n"
+        "        dispatch_sync(updatesQueue(), ^{ busy = profileChecking || recordingChecking; });\n"
+        "        if (!busy) return;\n        usleep(10000);\n    }"),
+    "a block before the sleep (profile_feed_probe)": (
+        "        for (int i = 0; i < 3000; i++) {\n            __block BOOL busy; dispatch_sync(updatesQueue(), ^{ busy = profileChecking; });\n"
+        "            if (!busy) break;\n            usleep(10000);\n        }"),
+    "a while loop on a try counter": "while (!gate && tries++ < 5000)\n\tusleep(1000);",
+    "a semaphore timeout in seconds": "assert(dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) == 0);",
+    "a group timeout": "assert(dispatch_group_wait(g, dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC)) == 0);",
+    "a cast timeout": "assert(!dispatch_semaphore_wait(s, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC))));",
+    "a bare second": "assert(dispatch_semaphore_wait(s, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)) == 0);",
+    "a millisecond timeout": "dispatch_semaphore_wait(s, dispatch_time(DISPATCH_TIME_NOW, 500 * NSEC_PER_MSEC));",
+    "a run-loop deadline (main_thread_probe)": (
+        "    CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 5;\n"
+        "    while (!atomic_load(&done) && CFAbsoluteTimeGetCurrent() < deadline)\n        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, false);"),
+    "a deadline passed to a wait (benchmark_summary_probe)": "assert(wait_for(done, CFAbsoluteTimeGetCurrent() + 1));",
+    "a short cap on the helper": "TEST_WAIT_UNTIL_FOR(ready, 2);",
+    "a whole-program alarm": "    alarm(10);",
+}
 
 
-def test_negative_control_the_detector_passes_the_helper_and_the_marked_checks():
-    assert not violations("TEST_WAIT_UNTIL(requests >= 2);")
-    assert not violations("assert(!dispatch_semaphore_wait(done, TEST_WAIT_SEMAPHORE_TIMEOUT));")
-    assert not violations("alarm(TEST_WAIT_WATCHDOG_SECONDS);")
-    assert not violations("alarm(0);")
-    assert not violations("if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_SEC))) return nil;")
-    assert not violations("for (int a = 0; a < 200 && child.isRunning; a++) sleep_();   /* TEST_WAIT_SHORT_ON_PURPOSE: prompt */")
-    assert not violations("usleep(60000);")
+@pytest.mark.parametrize("name", sorted(OLD_SHAPES))
+def test_negative_control_the_detector_sees_the_old_shape(name):
+    assert violations(OLD_SHAPES[name]), name
+
+
+NEW_SHAPES = {
+    "the helper": "TEST_WAIT_UNTIL(requests >= 2);",
+    "the pumping helper": "assert(TEST_WAIT_PUMPING_UNTIL(atomic_load(&done)));",
+    "the semaphore constant": "assert(!dispatch_semaphore_wait(done, TEST_WAIT_SEMAPHORE_TIMEOUT));",
+    "the watchdog": "alarm(TEST_WAIT_WATCHDOG_SECONDS);",
+    "alarm off": "alarm(0);",
+    "a long network cap": "if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_SEC))) return nil;",
+    "a delayed signal, not a wait": "dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), queue, ^{ signal(); });",
+    "the cap as a deadline": "assert(wait_for(done, CFAbsoluteTimeGetCurrent() + TEST_WAIT_CAP_SECONDS));",
+    "a marked loop": "for (int a = 0; a < 200 && child.isRunning; a++) sleep_();   /* TEST_WAIT_SHORT_ON_PURPOSE: prompt */",
+    "a marked deadline": "CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 2.1;   /* TEST_WAIT_SHORT_ON_PURPOSE: the product's timeout */",
+    "a one-off pause": "usleep(60000);",
+    "a short loop that is not a poll": "for (frame = 0; frame < 5; frame++) {\n    work();\n    usleep(2000);\n}",
+}
+
+
+@pytest.mark.parametrize("name", sorted(NEW_SHAPES))
+def test_negative_control_the_detector_passes_the_helper_and_the_marked_checks(name):
+    assert not violations(NEW_SHAPES[name]), name
 
 
 def test_a_probe_that_uses_the_helper_includes_it():
     for path in PROBES:
         text = path.read_text(encoding="utf-8", errors="replace")
-        if re.search(r"TEST_WAIT_(?:UNTIL|SEMAPHORE_TIMEOUT|WATCHDOG_SECONDS|CAP_SECONDS)", text) and path.name != "test_wait.h":
+        if re.search(r"TEST_WAIT_(?:UNTIL|UNTIL_FOR|PUMPING_UNTIL|SEMAPHORE_TIMEOUT|WATCHDOG_SECONDS|CAP_SECONDS)", text):
             assert '"test_wait.h"' in text, f"{path.name} uses test_wait.h macros without including it"
+
+
+def test_a_probe_that_includes_the_helper_uses_it():
+    for path in PROBES:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if '"test_wait.h"' in text:
+            assert re.search(r"TEST_WAIT_[A-Z_]+", text.replace('"test_wait.h"', "")), f"{path.name} includes test_wait.h and uses nothing from it"
+
+
+def test_the_python_wrappers_share_one_probe_timeout():
+    for path in sorted((ROOT / "tools").glob("test_*.py")):
+        if path.name == Path(__file__).name:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for match in re.finditer(r"subprocess\.run\(\[str\((?:program|executable|binary|transport|worker)\)[^\n]*timeout=(\d+)", text):
+            assert int(match.group(1)) >= PROBE_RUN_SECONDS, (
+                f"{path.name}: a probe runs with timeout={match.group(1)}, under probe_timeouts.PROBE_RUN_SECONDS")

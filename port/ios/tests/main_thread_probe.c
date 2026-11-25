@@ -110,10 +110,7 @@ int main(void) {
     assert(dispatch_semaphore_wait(submitted, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0);
     /* The worker's async call cannot run until main services its queue. */
     assert(atomic_load(&step) == 0);
-    CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 5;
-    while (!atomic_load(&done) && CFAbsoluteTimeGetCurrent() < deadline)
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, false);
-    assert(atomic_load(&done));
+    assert(TEST_WAIT_PUMPING_UNTIL(atomic_load(&done)));
     assert(pthread_join(thread, NULL) == 0);
     /* the worker's waits were counted on the worker: main's own totals stay empty */
     host_main_sync_take(&main_waits);

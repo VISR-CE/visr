@@ -3,8 +3,14 @@ for something on another thread: a loaded job host starves that thread for longe
 machine (save_writer_probe failed "save_writer_wait(10)" under a long build line). Every wait is a wall-clock wait
 on a monotonic clock with one generous cap: it returns the moment the condition holds, and the cap only bounds a
 real hang. A passing run does not get slower. tools/test_probe_waits.py refuses the counted sleep-poll loops, short
-dispatch timeouts and short alarms that this header replaces. A wait that is meant to be short (a promptness check,
-or "nothing more arrives") marks its line with TEST_WAIT_SHORT_ON_PURPOSE and says why. */
+dispatch timeouts, short CFAbsoluteTime deadlines and short alarms that this header replaces.
+
+A line that must be short marks itself with TEST_WAIT_SHORT_ON_PURPOSE and says which of three cases it is:
+  - a promptness check: the product is required to answer quickly, and a slow answer is the failure;
+  - an absence check: nothing more is meant to happen, so a pause is the only way to show it;
+  - nothing reports it: the event has no signal a test can observe (a kernel registration, say), so a pause is all
+    there is. Before using this one, look for something observable: a file, a counter, a retry that succeeds once
+    the other side is ready. */
 #ifndef TEST_WAIT_H
 #define TEST_WAIT_H
 
@@ -40,5 +46,18 @@ static inline double test_wait_now(void)
 	test_wait_held_; })
 
 #define TEST_WAIT_UNTIL(condition) TEST_WAIT_UNTIL_FOR(condition, TEST_WAIT_CAP_SECONDS)
+
+/* The same wait for a probe that must keep the main run loop turning while it waits (UIKit animations, timers and
+the callbacks being waited for run on it); needs <CoreFoundation/CoreFoundation.h>. Each turn lasts at most 10 ms. */
+#define TEST_WAIT_PUMPING_UNTIL(condition) ({ \
+	double test_wait_end_ = test_wait_now() + TEST_WAIT_CAP_SECONDS; \
+	int test_wait_held_ = 0; \
+	for (;;) \
+	{ \
+		if (condition) { test_wait_held_ = 1; break; } \
+		if (test_wait_now() >= test_wait_end_) break; \
+		CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, true); \
+	} \
+	test_wait_held_; })
 
 #endif

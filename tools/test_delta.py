@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+from probe_timeouts import PROBE_RUN_SECONDS
 
 ROOT = Path(__file__).resolve().parents[1]
 MBEDTLS = ROOT / "port/third_party/mbedtls"
@@ -196,7 +197,7 @@ def server():
 
 def request(transport, server, path, *arguments):
     result = subprocess.run([str(transport), f"http://127.0.0.1:{server.server_address[1]}{path}", *arguments],
-                            capture_output=True, text=True, timeout=30, env=TEST_ENV)
+                            capture_output=True, text=True, timeout=PROBE_RUN_SECONDS, env=TEST_ENV)
     assert result.returncode == 0, result.stderr
     fields = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
     return int(fields["status"]), fields.get("error", ""), fields.get("body", "")
@@ -247,18 +248,18 @@ def test_a_slow_server_times_out(transport, server):
 def test_only_this_machine_may_be_plain(transport, server):
     port = server.server_address[1]
     for url in (f"http://192.0.2.1:{port}/v1/games", "http://halo.example/v1/games", "ftp://127.0.0.1/x", "nonsense"):
-        result = subprocess.run([str(transport), url], capture_output=True, text=True, timeout=30, env=TEST_ENV)
+        result = subprocess.run([str(transport), url], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS, env=TEST_ENV)
         assert result.stdout.startswith("status=0\n"), (url, result.stdout)
     # TLS to a server that does not speak it is a failure
     status, error, body = request(transport, server, "/v1/games")
     result = subprocess.run([str(transport), f"https://127.0.0.1:{port}/v1/games", "-", "1024", "1000"],
-                            capture_output=True, text=True, timeout=30, env=TEST_ENV)
+                            capture_output=True, text=True, timeout=PROBE_RUN_SECONDS, env=TEST_ENV)
     assert result.stdout.startswith("status=0\n")
     assert [item["path"] for item in server.requests].count("/v1/games") == 1
 
 
 def test_the_thread_browses_announces_and_withdraws(worker, server):
-    result = subprocess.run([str(worker)], capture_output=True, text=True, timeout=60,
+    result = subprocess.run([str(worker)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS,
                             env={**TEST_ENV, "HALO_DELTA_URL": f"http://127.0.0.1:{server.server_address[1]}/"})
     assert result.returncode == 0, result.stdout + result.stderr
     assert "GAMES 1 Test bloodgulch 29" in result.stdout
@@ -288,7 +289,7 @@ def test_the_thread_browses_announces_and_withdraws(worker, server):
 
 def test_plain_http_needs_the_test_hook(transport, server):
     url = f"http://127.0.0.1:{server.server_address[1]}/v1/games"
-    result = subprocess.run([str(transport), url], capture_output=True, text=True, timeout=30, env={})
+    result = subprocess.run([str(transport), url], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS, env={})
     assert result.stdout.startswith("status=0\n") and not server.requests
 
 
@@ -299,13 +300,13 @@ def test_the_probe_of_the_list_and_announcing(tmp_path, defines):
                     "-fsanitize=address,undefined", "-Iport/linux/src", "-iquote", "port/linux/include",
                     "port/ios/tests/delta_probe.c", "port/linux/src/delta_list.c", "port/linux/src/delta_platform.c",
                     "port/linux/src/delta_legacy_runtime.c", "-pthread", *defines], program)
-    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=60)
+    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and "delta probe ok" in result.stdout, result.stderr
 
 
 def signed_request(transport, server, path, *arguments):
     result = subprocess.run([str(transport), f"http://127.0.0.1:{server.server_address[1]}{path}", *arguments],
-                            capture_output=True, text=True, timeout=30, env=TEST_ENV)
+                            capture_output=True, text=True, timeout=PROBE_RUN_SECONDS, env=TEST_ENV)
     assert result.returncode == 0, result.stderr
     return dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
 
@@ -346,7 +347,7 @@ def test_delta_peer_handshake(tmp_path, probe):
     compile_native(["-std=gnu89", "-O1", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
                     "-Iport/linux/src", "-iquote", "port/linux/include", f"port/ios/tests/{probe}_probe.c",
                     "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c"], program)
-    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=30)
+    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and ("delta peer game probe ok" if probe == "delta_peer_game" else "delta peer probe ok") in result.stdout, result.stderr
 
 
@@ -359,5 +360,5 @@ def test_signed_legacy_table(tmp_path, defines):
                     "port/linux/src/delta_legacy.c", "port/linux/src/delta_legacy_runtime.c",
                     "port/third_party/monocypher/monocypher.c",
                     "port/third_party/monocypher/monocypher-ed25519.c", *defines], program)
-    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=60)
+    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and "delta legacy probe ok" in result.stdout, result.stdout + result.stderr
