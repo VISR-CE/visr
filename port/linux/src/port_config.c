@@ -2041,7 +2041,8 @@ static const struct config_setting config_settings[] =
 		"spot pass must, instead of from its attenuation coordinate, so that stills with and without it prove the two\n"
 		"agree; 2 the passes with an attenuation coordinate draw how far the depth point is from it (red, 1 at a world\n"
 		"unit; green where the depth point lies behind the camera); 3 which part of the rebuild is off (red: depth more\n"
-		"than 2% off; green: screen position off; blue where it is drawn)." },
+		"than 2% off; green: screen position off; blue where it is drawn); 4 the numbers over green 1 (red: a quarter of\n"
+		"the depth ratio; blue: the true depth over 20 world units)." },
 	{ "debug.traced_light_owner", _config_real, "0.3", "HALO_TRACED_LIGHT_OWNER", _environment_value, _platform_ios,
 		"With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not\n"
 		"block it, so the character carrying a flashlight does not shadow its own beam." },

@@ -977,7 +977,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		/* (debug.traced_light_depth_point 2: a pass with an attenuation coordinate shows how far its depth point is
 		from it, red 1 at a world unit, and green where the depth point lies behind the camera. 3: which part of the
 		rebuild is off, against the attenuation point taken into the view: red where the depth is more than 2% off,
-		green where the screen position is more than 0.005 off in normalized device coordinates, blue always) */
+		green where the screen position is more than 0.005 off in normalized device coordinates, blue always. 4: the
+		numbers against green 1, as the pass's blend scales all three alike: red a quarter of the rebuilt depth over the
+		attenuation point's, blue the attenuation point's depth over 20 world units) */
 		xgpu_text_append(&text,
 			"\tif (traced_light[6].w > 1.5 && traced_light[6].w < 2.5 && traced_light[3].w > 0.5)\n"
 			"\t\tresult = float4(saturate(length(traced_depth_point - traced_attenuation_point)), light_view.z > 0.0 ? 1.0 : 0.0, 0.0, 1.0);\n"
@@ -990,8 +992,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t\tfloat light_expected_z = max(-light_expected.z, 1.0e-4);\n"
 			"\t\tfloat2 light_expected_ndc = float2(light_expected.x * traced_light[5].z / light_expected_z - traced_light[6].x,\n"
 			"\t\t\tlight_expected.y * traced_light[5].w / light_expected_z - traced_light[6].y);\n"
-			"\t\tresult = float4(abs(light_z / light_expected_z - 1.0) > 0.02 ? 1.0 : 0.0,\n"
-			"\t\t\tlength(light_ndc - light_expected_ndc) > 0.005 ? 1.0 : 0.0, 1.0, 1.0);\n"
+			"\t\tresult = traced_light[6].w < 3.5 ? float4(abs(light_z / light_expected_z - 1.0) > 0.02 ? 1.0 : 0.0,\n"
+			"\t\t\tlength(light_ndc - light_expected_ndc) > 0.005 ? 1.0 : 0.0, 1.0, 1.0) :\n"
+			"\t\t\tfloat4(saturate(0.25 * light_z / light_expected_z), 1.0, saturate(light_expected_z / 20.0), 1.0);\n"
 			"\t}\n");
 	}
 	xgpu_text_append(&text, "\tfragment_color = clamp(result, 0.0, 1.0);\n");
