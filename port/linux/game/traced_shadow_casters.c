@@ -807,8 +807,8 @@ void traced_lights_choose(
 
 /* the window's camera in a traced light's floats (traced_shadows_format.h's TRACED_SHADOWS_LIGHT): its position
 (12-14), which turns each pixel's geometric normal toward the side it is seen from, and what rebuilds a pixel's
-world point from its depth (nv2a_psh.c): the view's rectangle in the target's pixels (16-19), the depth's near and
-far (20, 21; from the projection's depth row when it has one, as ambient occlusion does), the projection's p00, p11,
+world point from its depth (nv2a_psh.c): the view's rectangle in the target's pixels (16-19), the projection's
+GL-style depth row p22 and p32 (20, 21; made from the frustum's near and far when it has none), its p00, p11,
 p20 and p21 (22-25) and view_to_world's forward, left and up with the scale in them, each beside one coordinate of
 its position (28-39). Float 26 is the host's (a foveated pass). FALSE when the view has no rectangle or projection */
 static boolean traced_light_view(
@@ -824,12 +824,12 @@ static boolean traced_light_view(
 	light[14] = global_window_parameters.camera.position.z;
 	if (!frustum->projection_valid || !halo_light_visibility_view(&light[16]))
 		return FALSE;
-	light[20] = frustum->z_near;
-	light[21] = frustum->z_far;
-	if (projection[2][2] != 1.f && projection[2][2] != -1.f && projection[3][2] != 0.f)
+	light[20] = projection[2][2];
+	light[21] = projection[3][2];
+	if (light[21] == 0.f && frustum->z_far > frustum->z_near)
 	{
-		light[20] = projection[3][2] / (projection[2][2] - 1.f);
-		light[21] = projection[3][2] / (projection[2][2] + 1.f);
+		light[20] = -(frustum->z_near + frustum->z_far) / (frustum->z_far - frustum->z_near);
+		light[21] = -2.f * frustum->z_near * frustum->z_far / (frustum->z_far - frustum->z_near);
 	}
 	light[22] = projection[0][0];
 	light[23] = projection[1][1];

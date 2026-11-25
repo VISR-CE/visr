@@ -280,6 +280,23 @@ def test_highlights_are_blocked_where_the_diffuse_light_is():
     assert "(traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz)" in shader
 
 
+def test_a_depth_point_decodes_the_depth_the_xbox_conversion_stores():
+    """The class: a depth decoded with another convention than the one that stored it. The game's projection is
+    GL-style (normalized depth -p22 + p32 / d, -1 at the near plane), the Xbox's screen conversion takes that as the
+    0-1 range without remapping, and Metal stores its reverse. Decoding it as a near-to-far range of the frustum's
+    near and far halved every distance, so the spot pass's rays started inside the floor."""
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    assert "float light_z = traced_light[5].y / (traced_light[5].x + 1.0 - light_position.z);" in shader
+    game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
+    assert "light[20] = projection[2][2];" in game and "light[21] = projection[3][2];" in game
+    near, far = 0.0078125, 1024.0
+    p22 = -(near + far) / (far - near)
+    p32 = -2.0 * near * far / (far - near)
+    for distance in (0.05, 0.5, 3.0, 40.0, 900.0):
+        stored = 1.0 - (-p22 + p32 / distance)
+        assert abs(p32 / (p22 + 1.0 - stored) / distance - 1.0) < 1e-9
+
+
 def test_a_pass_without_an_attenuation_coordinate_rebuilds_its_point_from_depth():
     """The class: a point rebuilt in the wrong space (a foveated eye's physical pixels, eye 0's camera in eye 1's
     replay, a view rectangle from another target). The spot pass's point comes from depth like ambient occlusion's,

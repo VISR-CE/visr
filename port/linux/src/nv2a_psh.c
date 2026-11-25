@@ -815,8 +815,11 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	0.5 - (light - point) / (2 radius), exactly and the same for either eye. The specular spot pass has none (stage
 	0), and debug.traced_light_depth_point asks every pass for it (traced_light[6].w): its point comes from the
 	fragment's depth, the view's rectangle, projection and view_to_world (traced_light[4]-[9],
-	traced_shadow_casters.c's traced_light_view), through the eye's rate map on a foveated pass (traced_light[6].z),
-	as ambient occlusion rebuilds its points; its geometric normal comes from the
+	traced_shadow_casters.c's traced_light_view). The depth is the reverse of the game's GL-style normalized depth
+	taken as the 0-1 range, as the Xbox's screen conversion takes it (nothing remaps -1-1), so a distance d is stored
+	as 1 - (-p22 + p32 / d) and comes back as p32 / (p22 + 1 - depth): reading it as a near-to-far range of the
+	frustum's near and far halves every distance. The pixel goes through the eye's rate map on a foveated pass
+	(traced_light[6].z), as ambient occlusion's do; its geometric normal comes from the
 	point's screen derivatives, here, while every pixel of the quad still runs. light_visibility_emit traces it */
 	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(&text,
@@ -828,8 +831,7 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t}\n"
 			"\tfloat2 light_ndc = float2((light_screen.x - traced_light[4].x) / traced_light[4].z * 2.0 - 1.0,\n"
 			"\t\t1.0 - (light_screen.y - traced_light[4].y) / traced_light[4].w * 2.0);\n"
-			"\tfloat light_far_side = 1.0 - light_position.z;\n"
-			"\tfloat light_z = traced_light[5].x * traced_light[5].y / (traced_light[5].y - light_far_side * (traced_light[5].y - traced_light[5].x));\n"
+			"\tfloat light_z = traced_light[5].y / (traced_light[5].x + 1.0 - light_position.z);\n"
 			"\tfloat3 light_view = float3((light_ndc.x + traced_light[6].x) / traced_light[5].z * light_z,\n"
 			"\t\t(light_ndc.y + traced_light[6].y) / traced_light[5].w * light_z, -light_z);\n"
 			"\tfloat3 traced_depth_point = float3(traced_light[7].w, traced_light[8].w, traced_light[9].w) + traced_light[7].xyz * light_view.x +\n"
