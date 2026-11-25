@@ -107,6 +107,9 @@ SITES = {
     ("port/linux/game/first_person_legs.c", "first_person_legs_node_matrices"): (
         "outside", "a flat view only (a stereo frame draws the first-person body instead)"),
     # eye-dependent, not routed yet
+    ("port/linux/game/traced_shadow_casters.c", "traced_shadow_cover"): (
+        "open", "traced shadows' covered rectangle from eye 0's camera; foveated eyes never trace, and traced shadows "
+        "in stereo wait on the head-tracked stereo design"),
     ("source/rasterizer/rasterizer.c", "rasterizer_models_begin"): (
         "open", "the models' fog and fade scalars from the eye: millimeter scalars (spec: the center camera)"),
     (X + "rasterizer_xbox_models.c", "_rasterizer_model_begin"): ("open", "millimeter scalars (spec: the center camera)"),
