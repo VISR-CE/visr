@@ -50,10 +50,23 @@ from xml.sax.saxutils import quoteattr
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from hud_assets import bleed, render_svg  # noqa: E402
 import menu_catalog  # noqa: E402
 import port_settings  # noqa: E402
 import xbox_menus  # noqa: E402
+
+
+
+def render_svg(*args, **kwargs):
+    """hud_assets.render_svg, imported on first use: it needs numpy, which name lookups (engine_names) do not"""
+    from hud_assets import render_svg as render
+    return render(*args, **kwargs)
+
+
+def bleed(*args, **kwargs):
+    """hud_assets.bleed, imported on first use (see render_svg)"""
+    from hud_assets import bleed as bleed_pixels
+    return bleed_pixels(*args, **kwargs)
+
 
 ROOT = Path(__file__).resolve().parent.parent
 MENUS = ROOT / "port/assets/menus"
