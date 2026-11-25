@@ -2023,7 +2023,7 @@ static const struct config_setting config_settings[] =
 	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
 		_platform_all,
 		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },
-	{ "debug.soft_particle_distance", _config_real, "0.06", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
+	{ "debug.soft_particle_distance", _config_real, "0.12", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
 		"With display.soft_particles: how far in front of a surface a particle starts to fade, in world units\n"
 		"(1 is 10 feet)." },
 	{ "debug.soft_particle_scale", _config_integer, "2", "HALO_SOFT_PARTICLE_SCALE", _environment_value, _platform_all,
@@ -2035,7 +2035,7 @@ static const struct config_setting config_settings[] =
 		"A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on,\n"
 		"2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone\n"
 		"(Metal; mono views only)." },
-	{ "debug.ssao_radius", _config_real, "0.3", "HALO_SSAO_RADIUS", _environment_value, _platform_ios,
+	{ "debug.ssao_radius", _config_real, "0.6", "HALO_SSAO_RADIUS", _environment_value, _platform_ios,
 		"With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet)." },
 	{ "debug.ssao_strength", _config_real, "1.5", "HALO_SSAO_STRENGTH", _environment_value, _platform_ios,
 		"With debug.ssao: the power the visibility is raised to; higher darkens more." },
@@ -2050,7 +2050,7 @@ static const struct config_setting config_settings[] =
 		"With debug.ssao: steps a side along each direction in place of debug.ssao_high's; 0 its own." },
 	{ "debug.ssao_max_pixels", _config_real, "0.12", "HALO_SSAO_MAX_PIXELS", _environment_value, _platform_ios,
 		"With debug.ssao: the farthest a sample goes on screen, as a fraction of the view's height." },
-	{ "debug.ssao_fade_distance", _config_real, "35", "HALO_SSAO_FADE_DISTANCE", _environment_value, _platform_ios,
+	{ "debug.ssao_fade_distance", _config_real, "70", "HALO_SSAO_FADE_DISTANCE", _environment_value, _platform_ios,
 		"With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units)." },
 	{ "debug.ssao_level_floor", _config_real, "0.35", "HALO_SSAO_LEVEL_FLOOR", _environment_value, _platform_ios,
 		"With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black)." },

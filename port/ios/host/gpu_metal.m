@@ -7904,7 +7904,7 @@ static NSString *const ssao_source =
 	"struct ssao_parameters\n"
 	"{\n"
 	"\tuint ox, oy, w, h, hw, hh;\n"
-	"\tfloat z_near, z_far, p00, p11, p20, p21;\n"
+	"\tfloat pad0, z_far, p00, p11, p20, p21;\n"
 	"\tfloat radius, strength, objects, static_weight, max_pixels, fade_distance;\n"
 	"\tuint slices, steps, mode, scale;\n"
 	"\tfloat level_floor, object_floor, depth_p22, depth_p32;\n"
@@ -8462,7 +8462,7 @@ static NSString *const ssao_source =
 struct ssao_parameters
 {
 	uint32_t ox, oy, w, h, hw, hh;
-	float z_near, z_far, p00, p11, p20, p21;
+	float pad0, z_far, p00, p11, p20, p21;
 	float radius, strength, objects, static_weight, max_pixels, fade_distance;
 	uint32_t slices, steps, mode, scale;
 	float level_floor, object_floor, depth_p22, depth_p32;
@@ -8828,16 +8828,15 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 			p.scale = count >= 27 && values[26] == 4.0f && path != 0 ? 4 : 2;
 			p.hw = (p.w + p.scale - 1) / p.scale;
 			p.hh = (p.h + p.scale - 1) / p.scale;
-			/* the projection's own depth row (GL-style), when given, else the frustum's: what the depth was made with */
+			/* the projection's own depth row, when given, else the frustum's: what the depth was made with (depth_decode.h) */
 			depth_row_from_view(values[4], values[5], count >= 22 ? values[20] : 1.0f, count >= 22 ? values[21] : 0.0f,
 				&p.depth_p22, &p.depth_p32);
-			p.z_near = p.depth_p32 / (p.depth_p22 - 1.0f);
 			p.z_far = p.depth_p32 / (p.depth_p22 + 1.0f);
 			p.p00 = values[6];
 			p.p11 = values[7];
 			p.p20 = values[8];
 			p.p21 = values[9];
-			p.radius = values[10] > 0.0f ? values[10] : 0.3f;
+			p.radius = values[10] > 0.0f ? values[10] : 0.6f;
 			p.strength = values[11] > 0.0f ? values[11] : 1.0f;
 			p.objects = values[12];
 			p.static_weight = values[13];
@@ -8848,7 +8847,7 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 			if (count >= 25 && values[24] >= 1.0f)
 				p.steps = (uint32_t)values[24];
 			p.max_pixels = values[16] > 0.0f ? values[16] : 0.12f;
-			p.fade_distance = values[17] > 0.0f ? values[17] : 35.0f;
+			p.fade_distance = values[17] > 0.0f ? values[17] : 70.0f;
 			p.level_floor = count > 18 ? values[18] : 0.35f;
 			p.object_floor = count > 19 ? values[19] : 0.6f;
 			p.mode = (uint32_t)mode;
@@ -11129,7 +11128,7 @@ static uint32_t gpu_metal_soft_depth_prepare(gpu_texture depth, const float *val
 		}
 		if (!soft.distances)
 			return 0;
-		/* the depth row the depth was made with: the projection's own (GL-style), when given */
+		/* the depth row the depth was made with: the projection's own, when given (depth_decode.h) */
 		depth_row_from_view(values[0], values[1], values[2], values[3], &depth_p22, &depth_p32);
 		soft.parameters[0] = depth_p22;
 		soft.parameters[1] = depth_p32;

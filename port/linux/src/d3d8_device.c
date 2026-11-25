@@ -3162,7 +3162,7 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 	parameters[17] = (float)config_real("debug.ssao_fade_distance");
 	parameters[18] = (float)config_real("debug.ssao_level_floor");
 	parameters[19] = (float)config_real("debug.ssao_object_floor");
-	/* the projection's depth row (GL-style: ndc z = -p22 + p32 / distance), which the host linearizes depth with */
+	/* the projection's depth row (0-to-1: z / w = -p22 - p32 / distance), which the host linearizes depth with (depth_decode.h) */
 	parameters[20] = p22;
 	parameters[21] = p32;
 	parameters[22] = (float)config_integer("debug.ssao_path");
@@ -3242,7 +3242,7 @@ unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, 
 	depth = render_target_get(device.depth_stencil);
 	parameters[0] = z_near;
 	parameters[1] = z_far;
-	/* the projection's depth row (GL-style: ndc z = -p22 + p32 / distance), the near and far the depth was made with */
+	/* the projection's depth row (depth_decode.h), what the depth was made with */
 	parameters[2] = p22;
 	parameters[3] = p32;
 	parameters[4] = (float)config_real("debug.soft_particle_distance");

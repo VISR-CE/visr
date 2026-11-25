@@ -25,6 +25,7 @@ Elsewhere host_stereo_frame leaves the frame mono. */
 #import <Foundation/Foundation.h>
 #include <TargetConditionals.h>
 #include "host_stereo.h"
+#include "depth_decode.h"
 #include "host_config.h"
 #include "host.h"
 #include "host_stereo_entry.h"
@@ -1940,6 +1941,16 @@ static float hud_depth_logged[HOST_STEREO_HUD_PIECE_COUNT];
 static const char *const hud_piece_names[HOST_STEREO_HUD_PIECE_COUNT] = { "reticle", "counters", "meters",
 	"messages", "tracker" };
 
+/* a reversed depth (1 at the near plane) of the projection between near and far (meters), as its distance: the 0-to-1
+row of depth_decode.h's fallback and its decode, the one place that rebuilds a distance from depth */
+static float hud_depth_view_distance(float depth, float near, float far)
+{
+	float p22, p32;
+
+	depth_row_from_view(near, far, 1.0f, 0.0f, &p22, &p32);
+	return depth_view_distance_c(depth, p22, p32);
+}
+
 /* the newest published result, once: each piece's nearest over the two
 views, in meters (depth 0, the sky or nothing drawn, is the far plane) */
 static void hud_depth_take(void)
@@ -1958,7 +1969,7 @@ static void hud_depth_take(void)
 		float depth = fmaxf(left->depth, right->depth);
 
 		hud_depth_nearest[piece] = !(near > 0.0f) || !(far > near) ? INFINITY : depth > 0.0f ?
-			near * far / (depth * (far - near) + near) : far;
+			hud_depth_view_distance(depth, near, far) : far;
 		hud_depth_skipped[piece] = left->skipped + right->skipped;
 	}
 }

@@ -20,6 +20,7 @@ Bindings, which the Metal backend (port/ios/host/gpu_metal.m) follows:
 */
 
 #include "xgpu.h"
+#include "depth_decode.h"
 
 #include <string.h>
 
@@ -51,7 +52,9 @@ static const char msl_prelude[] =
 	"#define inversesqrt rsqrt\n"
 	"#define lessThan(a, b) ((a) < (b))\n"
 	"#define greaterThanEqual(a, b) ((a) >= (b))\n"
-	"#define discard discard_fragment()\n";
+	"#define discard discard_fragment()\n"
+	/* the one decode of a stored depth (depth_decode.h), for the pixel shaders that rebuild a distance from it */
+	DEPTH_VIEW_DISTANCE_MSL;
 
 /* the vertex shader reads its own attributes (vertex pulling): per draw the
 backend describes each of the 16 in an AttributeTable entry, the C struct
@@ -348,8 +351,8 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 		xgpu_text_append(text, ",\n\tconstant rasterization_rate_map_data &rate_map [[buffer(1)]],"
 			"\n\tconstant float4 *foveation [[buffer(2)]]");
 	/* soft particle edges (nv2a_pixel_shader_key soft_depth): the scene's view
-	distances (texture 8) and the near, far, 1 / fade distance and the distances'
-	scale (buffer 5),
+	distances (texture 8) and the depth row p22, p32, 1 / fade distance and the
+	distances' scale (buffer 5),
 	which gpu_metal.m binds while a view's transparent geometry is drawn
 	(host_soft_depth_prepare) */
 	if (key->soft_depth)

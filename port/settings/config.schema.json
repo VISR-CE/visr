@@ -3820,7 +3820,7 @@
         },
         "soft_particle_distance": {
           "type": "number",
-          "default": 0.06,
+          "default": 0.12,
           "description": "With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet).",
           "x-environment": "HALO_SOFT_PARTICLE_DISTANCE",
           "x-environment-style": "value",
@@ -3863,7 +3863,7 @@
         },
         "ssao_radius": {
           "type": "number",
-          "default": 0.3,
+          "default": 0.6,
           "description": "With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet).",
           "x-environment": "HALO_SSAO_RADIUS",
           "x-environment-style": "value",
@@ -3933,7 +3933,7 @@
         },
         "ssao_fade_distance": {
           "type": "number",
-          "default": 35,
+          "default": 70,
           "description": "With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units).",
           "x-environment": "HALO_SSAO_FADE_DISTANCE",
           "x-environment-style": "value",
