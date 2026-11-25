@@ -25,6 +25,7 @@ only: the records go to gpu_metal.m.
 #include "rasterizer/rasterizer.h"
 #include "rasterizer/rasterizer_geometry.h"
 #include "rasterizer/rasterizer_model_types.h"
+#include "objects/objects.h"
 #include "render/render.h"
 #include "scenario/scenario.h"
 #include "shaders/shader_definitions.h"
@@ -574,15 +575,18 @@ void traced_shadow_casters_end(
 	record->shape_size = (uint32_t)shape_size;
 	record->pose_size = (uint32_t)pose_size;
 	record->family = (uint32_t)light_visibility_family(traced.object_index);
+	/* (every caster on every 30th frame, the captures' frames; the first caster on the others) */
 	if (config_boolean("debug.traced_light_family_log"))
 	{
 		static unsigned __int64 logged_frame = (unsigned __int64)-1;
+		unsigned __int64 frame = rasterizer_globals.fps_accumulation_frame_index;
 
-		if (logged_frame != rasterizer_globals.fps_accumulation_frame_index)
+		if (logged_frame != frame || frame % 30 == 0)
 		{
-			logged_frame = rasterizer_globals.fps_accumulation_frame_index;
-			platform_log("traced light family: frame %llu: caster object %lx sent with family bit %lu",
-				(unsigned long long)logged_frame, (unsigned long)traced.object_index, (unsigned long)record->family);
+			logged_frame = frame;
+			platform_log("traced light family: frame %llu: caster object %lx (root %lx) sent with family bit %lu",
+				(unsigned long long)frame, (unsigned long)traced.object_index,
+				(unsigned long)object_get_ultimate_parent(traced.object_index), (unsigned long)record->family);
 		}
 	}
 	memcpy(record + 1, traced.shape, shape_size);
