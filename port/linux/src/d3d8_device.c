@@ -3162,7 +3162,7 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 	parameters[17] = (float)config_real("debug.ssao_fade_distance");
 	parameters[18] = (float)config_real("debug.ssao_level_floor");
 	parameters[19] = (float)config_real("debug.ssao_object_floor");
-	/* the projection's depth row (0-to-1: z / w = -p22 - p32 / distance), which the host linearizes depth with (depth_decode.h) */
+	/* the projection's depth row (0-to-1: z / w = -p22 + p32 / distance), which the host linearizes depth with (depth_decode.h) */
 	parameters[20] = p22;
 	parameters[21] = p32;
 	parameters[22] = (float)config_integer("debug.ssao_path");

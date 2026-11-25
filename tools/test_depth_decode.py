@@ -41,7 +41,7 @@ def fallback_row(near, far, row22=1.0, row32=0.0):
         return row22, row32
     body = re.findall(r"\*p22 = (.*?);\s*\*p32 = (.*?);", HEADER, re.S)[-1]  # the fallback, after the early return
     names = {"far_plane": far, "near_plane": near}
-    return eval(body[0].replace("f", "") if False else body[0], names), eval(body[1], names)
+    return eval(body[0], names), eval(body[1], names)
 
 
 def test_the_row_in_this_test_is_the_one_the_game_builds():

@@ -10,7 +10,7 @@ and p32 = -f n / (f - n), so a view distance d has clip z / w = f / (f - n) - f 
 and 1 at the far one. The vertex translator (nv2a_vsh.c) stores (w - z) / w, the reverse: 1 at the near plane. The
 distance therefore comes back as p32 / (p22 + 1 - stored), exact for any row of this shape (the weapon's own frustum
 row too). Reading the stored value as a near-to-far range of the frustum's near and far, or deriving the near and far
-from the row with GL formulas (which give n / 2), halves every distance past a couple of world units.
+from the row with GL formulas (which give n / 2), halves every distance from the near plane out.
 
 DEPTH_VIEW_DISTANCE_MSL is the decode as Metal source text, depth_view_distance(stored, p22, p32): the projection's
 depth row in, the linear view distance out. Every program that rebuilds a distance from depth emits it ahead of its

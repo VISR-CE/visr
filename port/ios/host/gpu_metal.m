@@ -8152,7 +8152,7 @@ static NSString *const ssao_source =
 	"\t\treturn;\n"
 	"\t}\n"
 	"\tfloat sum = 0.0, weights = 0.0;\n"
-	"\tfloat tolerance = 0.03 * center.x + 0.02;\n"
+	"\tfloat tolerance = 0.03 * center.x + 0.04;\n"
 	"\tfor (int y = -1; y <= 2; y++)\n"
 	"\t\tfor (int x = -1; x <= 2; x++)\n"
 	"\t\t{\n"
