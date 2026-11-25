@@ -4574,10 +4574,10 @@ static void browser_join_block_text(struct p2p_listing const *game, short block,
 		usnprintf(text, size - 1, L"%hs", halo_network_kind_reason(game->kind));
 		break;
 	case _browser_join_version:
-		usnprintf(text, size - 1, L"VISR is not compatible with this network version.");
+		usnprintf(text, size - 1, L"Not compatible with this network version.");
 		break;
 	case _browser_join_offline:
-		usnprintf(text, size - 1, L"Turn on Internet play in Settings to join games.");
+		usnprintf(text, size - 1, L"Turn on Internet play in Settings.");
 		break;
 	case _browser_join_failed:
 		usnprintf(text, size - 1, L"Couldn't reach this game.");

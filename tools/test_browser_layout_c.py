@@ -150,7 +150,7 @@ int main(void)
         browser_join_block_text(&g,_browser_join_failed,words,128); assert(!wcscmp(words,L"Couldn't reach this game."));
         online=0; assert(browser_join_block(&g)==_browser_join_offline);
         g.joinable=0; assert(browser_join_block(&g)==_browser_join_version);
-        browser_join_block_text(&g,_browser_join_version,words,128); assert(!wcscmp(words,L"VISR is not compatible with this network version."));
+        browser_join_block_text(&g,_browser_join_version,words,128); assert(!wcscmp(words,L"Not compatible with this network version."));
         /* one explainer, ranked: a version this build cannot join outranks a kind it does not play (and both outrank the rest) */
         g.kind=1; assert(browser_join_block(&g)==_browser_join_version);
         g.joinable=1; assert(browser_join_block(&g)==_browser_join_kind);
@@ -744,7 +744,7 @@ int main(void)
 	   the join action dimmed, and no password pill left behind */
 	lobby_browser.games[2].kind = 1;
 	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
-	assert(pill("browser_join_reason")->visible && !wcscmp(pill("browser_join_reason")->text, L"VISR is not compatible with this network version."));
+	assert(pill("browser_join_reason")->visible && !wcscmp(pill("browser_join_reason")->text, L"Not compatible with this network version."));
 	assert(!pill("browser_detail_password")->visible && dimmed);
 	/* the same game on a version it can join: the kind's explainer instead */
 	lobby_browser.games[2].joinable = 1;

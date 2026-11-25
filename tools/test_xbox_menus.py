@@ -2321,9 +2321,29 @@ def test_browser_preview_scrim_and_text_come_from_one_set_of_numbers():
     for leaf in ('browser_join_reason', 'browser_detail_big', 'browser_detail_password'):
         assert placed[leaf][1] + size(leaf)[1] <= panel_bottom, leaf
     assert placed['browser_join_reason'][1] >= placed['browser_connection_status'][1] + g.BROWSER_DETAIL_LINE
-    # the text fits its widget: the lines the panel states itself, in two lines at most (the explainer's box)
-    line = menu_text_metrics.text_width('ui\\small_ui', 'VISR is not compatible with this network version.')
-    assert line <= 2 * size('browser_join_reason')[0]
+    # Bug class: panel text that does not fit its box is cut ("Turn on Internet play in Settings to join g..."): every
+    # notice the panel can show must draw whole in its own box, never rely on the ellipsis, which is the safety net.
+    # The box holds one line (wrapping needs two lines of height), so each string must fit the width the ellipsis
+    # path measures: the box less the 1 unit and the 3 unit margin it keeps.
+    import re
+    menu = (ROOT / 'port/linux/game/menu_functions.c').read_text()
+    block = menu[menu.index('static void browser_join_block_text('):]
+    block = block[:block.index('\n}\n')]
+    notices = [text.replace('\\', '') for text in re.findall(r'L"([^"%]*)"', block)]
+    content = (ROOT / 'port/linux/include/halo_network_content.h').read_text()
+    reason = content[content.index('halo_network_kind_reason('):]
+    notices += re.findall(r'return "([^"]+)"', reason[:reason.index('\n}\n')])
+    assert len(notices) >= 8, notices
+    reasons = [text for text in notices]
+    for text in reasons:
+        assert menu_text_metrics.box_fits('ui\\small_ui', text, size('browser_join_reason')[0] - 4,
+                                          size('browser_join_reason')[1]), text
+    # the big-game notice is drawn in its own art: the widest fps the profiles can name
+    big = widgets['browser_detail_big']
+    for fps in (30, 60, 120, 240):
+        text = f'BIG GAME \u00b7 MAY NOT HOLD {fps} FPS'
+        assert menu_text_metrics.box_fits('ui\\small_ui', text, size('browser_detail_big')[0] - 4,
+                                          size('browser_detail_big')[1], text_x=int(big.get('text_x', 0))), text
 
 
 def test_browser_picture_texture_is_the_pictures_own_shape():
