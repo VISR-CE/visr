@@ -33,15 +33,13 @@ only: the records go to gpu_metal.m.
 #include "structures/structure_bsp_definitions.h"
 #include "tag_files/tag_groups.h"
 
-int config_boolean(const char *name); /* port/linux/src/port_config.c */
-long config_integer(const char *name);
-double config_real(const char *name);
 void platform_log(const char *format, ...);
 unsigned long system_milliseconds(void); /* cseries_windows.h */
 #include "traced_shadow_casters.h"
 #include "light_visibility.h"
 #include "../src/depth_decode.h"
 #include "../src/halo_stereo.h"
+#include "../src/port_config.h"
 
 #include <xtl.h>
 #include <stdint.h>
@@ -731,7 +729,7 @@ static long traced_light_mode(
 		/* (the profile's choice, display.traced_lights, with what blocks from the debug setting: -1 follows it) */
 		mode = config_integer("debug.traced_light_blocking");
 		if (mode < 0)
-			mode = config_integer("display.traced_lights") > 0 ? 3 : 0;
+			mode = config_scene_integer("display.traced_lights", CONFIG_SCENE_GAMEPLAY) > 0 ? 3 : 0;
 	}
 	return mode;
 }
@@ -756,7 +754,7 @@ void traced_lights_choose(
 	float *strength)
 {
 	short window = render.window_index;
-	long cap = config_integer("display.traced_lights");
+	long cap = config_scene_integer("display.traced_lights", CONFIG_SCENE_GAMEPLAY);
 	unsigned char chosen[LIGHT_VISIBILITY_MAXIMUM];
 	struct light_visibility_ramp *ramp;
 	short i, j;
