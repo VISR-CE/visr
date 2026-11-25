@@ -123,7 +123,7 @@
 	<widget name="xbox/settings/send_log_confirm/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/settings/send_log_confirm/legend/b_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/settings/send_log_confirm/legend/b_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/settings/send_log_confirm/legend/b_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/settings/send_log_confirm/legend/b_butn_glyph" x="5" y="13" />
 		<child widget="xbox/settings/send_log_confirm/legend/cancel" x="30" y="15" />
 		<on event="left_mouse" run="mouse emit back event" />
@@ -132,7 +132,7 @@
 	<widget name="xbox/settings/send_log_confirm/legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/settings/send_log_confirm/legend/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/settings/send_log_confirm/legend/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/settings/send_log_confirm/legend/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/settings/send_log_confirm/legend/a_butn_glyph" x="17" y="13" />
 		<child widget="xbox/settings/send_log_confirm/legend/accept" x="42" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />

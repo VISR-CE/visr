@@ -2086,7 +2086,8 @@ def dialog_legend_targets(root, screen, base, x=None, y=None, cancel=False, acce
         touch_base = icon + '/'
         child(target, touch_base + 'touch_background', x=2, y=pill_dy)
         widget(root, touch_base + 'touch_background', width=pill_w, height=DIALOG_BUTTON[3], bitmap='xbox/dialog_touch_button')
-        child(target, touch_base + 'touch_caption', x=2, y=(DIALOG_BUTTON[3] - 24) // 2 + pill_dy)
+        # large_ui draws its capitals low in the text box (Nov 25 shots: the label's foot sat on the pill's lower outline), so the box rides 3 units high
+        child(target, touch_base + 'touch_caption', x=2, y=(DIALOG_BUTTON[3] - 24) // 2 + pill_dy - 3)
         text_widget(root, touch_base + 'touch_caption', label, width=pill_w, height=24, align='center')
         # The glyph and caption sit centered in the footer band under the rule, as one unit in the slot.
         child(target, icon + '_glyph', x=content_x, y=DIALOG_GLYPH_Y - DIALOG_HIT[1])

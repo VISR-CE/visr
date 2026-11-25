@@ -20,7 +20,7 @@
 	<widget name="xbox/error/error_modal_fullscreen/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_modal_fullscreen/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_modal_fullscreen/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_modal_fullscreen/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_modal_fullscreen/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_modal_fullscreen/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -45,7 +45,7 @@
 	<widget name="xbox/error/error_modal_halfscreen/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_modal_halfscreen/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_modal_halfscreen/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_modal_halfscreen/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_modal_halfscreen/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_modal_halfscreen/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -70,7 +70,7 @@
 	<widget name="xbox/error/error_modal_qtrscreen/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_modal_qtrscreen/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_modal_qtrscreen/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_modal_qtrscreen/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_modal_qtrscreen/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_modal_qtrscreen/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -95,7 +95,7 @@
 	<widget name="xbox/error/error_nonmodal_fullscreen/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_nonmodal_fullscreen/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_nonmodal_fullscreen/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_nonmodal_fullscreen/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_nonmodal_fullscreen/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_nonmodal_fullscreen/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -120,7 +120,7 @@
 	<widget name="xbox/error/error_nonmodal_halfscreen/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_nonmodal_halfscreen/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_nonmodal_halfscreen/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_nonmodal_halfscreen/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_nonmodal_halfscreen/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_nonmodal_halfscreen/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -145,7 +145,7 @@
 	<widget name="xbox/error/error_nonmodal_qtrscreen/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_nonmodal_qtrscreen/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_nonmodal_qtrscreen/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_nonmodal_qtrscreen/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_nonmodal_qtrscreen/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_nonmodal_qtrscreen/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -170,7 +170,7 @@
 	<widget name="xbox/error/error_modal/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_modal/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_modal/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_modal/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_modal/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_modal/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -195,7 +195,7 @@
 	<widget name="xbox/error/error_non_modal/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_non_modal/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_non_modal/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_non_modal/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_non_modal/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_non_modal/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -220,7 +220,7 @@
 	<widget name="xbox/error/error_abort_to_dashboard/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_abort_to_dashboard/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_abort_to_dashboard/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_abort_to_dashboard/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_abort_to_dashboard/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_abort_to_dashboard/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -245,7 +245,7 @@
 	<widget name="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/error/error_abort_to_dashboard_you_have_no_choice/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />

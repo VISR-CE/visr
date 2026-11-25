@@ -492,7 +492,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_background" x="2" y="14" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_caption" x="2" y="14" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn/touch_caption" x="2" y="11" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/a_butn_glyph" x="28" y="13" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/error_legend/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
