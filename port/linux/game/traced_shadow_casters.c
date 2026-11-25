@@ -582,10 +582,16 @@ void traced_shadow_casters_end(
 
 		if (logged_frame != frame || frame % 30 == 0)
 		{
+			struct object_datum *object = object_try_and_get(traced.object_index);
+
 			logged_frame = frame;
-			platform_log("traced light family: frame %llu: caster object %lx (root %lx) sent with family bit %lu",
-				(unsigned long long)frame, (unsigned long)traced.object_index,
-				(unsigned long)object_get_ultimate_parent(traced.object_index), (unsigned long)record->family);
+			platform_log("traced light family: frame %llu: caster object %lx (root %lx, type %d) at %.2f %.2f %.2f "
+				"radius %.2f sent with family bit %lu", (unsigned long long)frame, (unsigned long)traced.object_index,
+				(unsigned long)object_get_ultimate_parent(traced.object_index), object ? (int)object->object.type : -1,
+				object ? (double)object->object.bounding_sphere_center.x : 0.0,
+				object ? (double)object->object.bounding_sphere_center.y : 0.0,
+				object ? (double)object->object.bounding_sphere_center.z : 0.0,
+				object ? (double)object->object.bounding_sphere_radius : 0.0, (unsigned long)record->family);
 		}
 	}
 	memcpy(record + 1, traced.shape, shape_size);

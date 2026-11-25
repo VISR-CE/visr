@@ -1941,11 +1941,14 @@ void lights_choose_visibility(
 				real from_eye = distance3d(&light->position, &render.camera.position);
 
 				platform_log("traced light family: frame %llu window %d light %lx at %.2f %.2f %.2f radius %.2f "
-					"strength %.2f, %.2f from the eye: owner %lx (type %d), root %lx, bit %d",
+					"strength %.2f, %.2f from the eye at %.2f %.2f %.2f looking %.3f %.3f %.3f up %.3f %.3f %.3f: owner %lx (type %d), root %lx, bit %d",
 					(unsigned long long)rasterizer_globals.fps_accumulation_frame_index, (int)window,
 					(unsigned long)lights_globals.scene_point_lights[slots[i]], (double)light->position.x,
 					(double)light->position.y, (double)light->position.z, (double)light->radius, (double)traced[i],
-					(double)from_eye, (unsigned long)light->object_index, candidates[i].owner_type,
+					(double)from_eye, (double)render.camera.position.x, (double)render.camera.position.y,
+					(double)render.camera.position.z, (double)render.camera.forward.i, (double)render.camera.forward.j,
+					(double)render.camera.forward.k, (double)render.camera.up.i, (double)render.camera.up.j,
+					(double)render.camera.up.k, (unsigned long)light->object_index, candidates[i].owner_type,
 					(unsigned long)light_visibility_family_root(light->object_index),
 					(int)light_visibility_windows[window].family[slots[i]]);
 			}
