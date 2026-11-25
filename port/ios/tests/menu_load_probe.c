@@ -253,11 +253,6 @@ static long widget_add(char const *name, short type, short left, short top, shor
 	return map_add(UI_WIDGET_DEFINITION_TAG, name, widget(type, left, top, right, bottom));
 }
 
-static struct ui_widget_definition *definition_of(long tag)
-{
-	return tag_get(UI_WIDGET_DEFINITION_TAG, tag);
-}
-
 static long strings_add(char const *name, long count)
 {
 	struct string_list *list = calloc(1, sizeof(*list));
@@ -318,7 +313,6 @@ int main(int argc, char **argv)
 {
 	FILE *list;
 	char line[512];
-	long expected_failures = 0;
 
 	if (argc < 4)
 	{
@@ -372,7 +366,6 @@ int main(int argc, char **argv)
 	}
 	fclose(list);
 	menu_tags_loaded("ui");
-	(void)expected_failures;
 	if (!menu_tags.loaded)
 	{
 		printf("FAIL: the shipped menus did not load\n");

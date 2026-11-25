@@ -10,14 +10,15 @@ its widgets and the bitmaps, string lists and fonts they name, each in its own g
 from pathlib import Path
 import json
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
 
+from ce_menus import engine_names
+from menu_probe_build import build_probe
+
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / "port/assets/menus"
-EXPAT = ROOT / "port/third_party/expat"
 
 # (the HALO_HOST_* variables menu_platform.h reads: an iPhone, an iPad with a keyboard, the Apple TV, the Mac app, and
 # every capability at once)
@@ -74,9 +75,7 @@ def tag_lines() -> list:
 
 def function_names() -> list:
     """the engine's event handler functions (ce_menus.py reads them the same way)"""
-    text = (ROOT / "source/interface/ui_widget_event_handler_functions.c").read_text(encoding="latin-1")
-    text = text[text.index('\t{\n\t\t"NULL",'):]
-    return re.findall(r'"([^"\\]*)"', text[:text.index("}")])[:102]
+    return engine_names(ROOT / "source/interface/ui_widget_event_handler_functions.c", '\t{\n\t\t"NULL",', 102)
 
 
 def embedded_source(directory: Path, added: dict) -> Path:
@@ -96,24 +95,8 @@ def embedded_source(directory: Path, added: dict) -> Path:
 
 
 def build(directory: Path, added: dict = None) -> Path:
-    shutil.copytree(ROOT / "port/ios/tests/menu_patch", directory, dirs_exist_ok=True)
-    for source in ("port/linux/game/menu_tags.c", "port/linux/src/menu_files.c", "port/linux/src/menu_files.h",
-                   "port/linux/src/menu_platform.h", "port/linux/include/halo_menus.h",
-                   "port/linux/include/menu_equivalence.h", "port/linux/include/menu_geometry.h",
-                   "port/linux/include/halo_menu_meta.h", "port/ios/tests/menu_load_probe.c"):
-        shutil.copy2(ROOT / source, directory)
-    embedded = embedded_source(directory, added or {})
-    binary = directory / "menu_load_probe"
-    subprocess.run(["xcrun", "clang", "-std=gnu11", "-g", "-Wall", "-Werror", "-Wno-multichar",
-                    "-Wno-unused-function", "-Wno-unused-variable", "-Wno-unused-but-set-variable",
-                    "-fsanitize=address,undefined", "-fno-sanitize-recover=undefined",
-                    "-DHALO_ILP32=1", "-DHALO_IOS=1", "-DMENU_TAGS_PROBE=1",
-                    f"--include-directory={directory}", f"--include-directory={EXPAT}",
-                    f"--include-directory={ROOT / 'port/linux/game'}",
-                    str(directory / "menu_load_probe.c"), str(directory / "menu_files.c"), str(embedded),
-                    *(str(EXPAT / name) for name in ("xmlparse.c", "xmlrole.c", "xmltok.c")),
-                    f"--output={binary}"], check=True)
-    return binary
+    directory.mkdir(parents=True, exist_ok=True)
+    return build_probe(directory, "port/ios/tests/menu_load_probe.c", (embedded_source(directory, added or {}),))
 
 
 def run(binary: Path, directory: Path, environment: dict):
