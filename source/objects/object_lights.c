@@ -1890,6 +1890,33 @@ static void light_visibility_for_slot(
 	}
 }
 
+boolean lights_object_blocks_light(
+	long object_index)
+{
+	struct object_datum *object = object_try_and_get(object_index);
+	short window = render.window_index;
+	short slot;
+
+	if (!object || !traced_light_walks_casters() || window < 0 || window >= MAXIMUM_WINDOWS ||
+		!light_visibility_caster_type(object->object.type) ||
+		!TEST_FLAG(object->object.flags, _object_has_collision_model_bit))
+		return FALSE;
+	for (slot = 0; slot < light_visibility_windows[window].count; slot++)
+	{
+		if (light_visibility_windows[window].path[slot] == LIGHT_VISIBILITY_TRACED)
+		{
+			struct light_datum *light = light_get(light_visibility_windows[window].light_index[slot]);
+
+			if (light_visibility_spheres_touch(object->object.bounding_sphere_center.x,
+				object->object.bounding_sphere_center.y, object->object.bounding_sphere_center.z,
+				object->object.bounding_sphere_radius, light->position.x, light->position.y, light->position.z,
+				light->radius))
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 void light_visibility_next(
 	int path,
 	float strength)

@@ -128,3 +128,25 @@ def test_new_lights_block_at_once_and_only_the_cap_eases(tmp_path):
     light_visibility_ramp_step(&ramp, pair, chosen, 2, 1232, strength);
     assert(strength[0] == 1.f && strength[1] == 1.f);
     ''')
+
+
+def test_caster_rule_takes_characters_vehicles_scenery_and_devices(tmp_path):
+    """The class: a light passing through what should stop it (a closed door, a Flood form in the dark) or blocked by
+    what never should (the first-person weapon, a projectile carrying the light). Object types are object_types.h's."""
+    _run_rule_program(tmp_path, r'''
+    int type, casts[12] = {1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0};
+    for (type = 0; type < 12; type++)
+        assert(light_visibility_caster_type(type) == casts[type]);
+    assert(light_visibility_spheres_touch(0, 0, 0, 1, 2.5f, 0, 0, 2));
+    assert(!light_visibility_spheres_touch(0, 0, 0, 1, 3.5f, 0, 0, 2));
+    assert(!light_visibility_spheres_touch(0, 0, 0, 0, 0, 0, 0, 0));
+    ''')
+
+
+def test_the_walker_is_the_only_way_a_shadowless_object_casts_for_lights():
+    """The class: forcing a shadow (a map tile, a blur and an apply draw) for an object only so that it blocks a
+    light. Objects without a shadow go through render_object_light_casters, and the darkness test is the game's."""
+    text = (ROOT / "source/render/render_objects.c").read_text()
+    assert "shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS)" in text
+    assert "traced_light_every_caster" not in text
+    assert text.count("render_object_light_casters(data);") == 2

@@ -2027,9 +2027,9 @@ static const struct config_setting config_settings[] =
 		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur.", _tier_derived, "footprint|xbox" },
 	{ "debug.traced_light_blocking", _config_integer, "-1", "HALO_TRACED_LIGHT_BLOCKING", _environment_value, _platform_ios,
 		"What blocks the lights display.traced_lights traces: 1 the level's surfaces; 2 the objects that cast\n"
-		"shadows too; 3 every object, however faint its own shadow. 0 traces no light whatever the profile\n"
-		"says; -1 (the default) is 3 when display.traced_lights is above 0. A value above 0 also turns the\n"
-		"tracing on without the profile key, for measurements." },
+		"shadows too; 3 also objects with no shadow of their own (too faint, or doors and other devices). 0\n"
+		"traces no light whatever the profile says; -1 (the default) is 3 when display.traced_lights is above\n"
+		"0. A value above 0 also turns the tracing on without the profile key, for measurements." },
 	{ "debug.traced_lights_fixtures", _config_boolean, "false", "HALO_TRACED_LIGHTS_FIXTURES", _environment_value, _platform_ios,
 		"With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and\n"
 		"devices, which display.traced_lights leaves as the game draws them), for stills and measurements." },

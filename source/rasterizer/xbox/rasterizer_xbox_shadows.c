@@ -1053,6 +1053,28 @@ boolean rasterizer_environment_shadows_defer_begin(
 }
 
 /* the shadow begun last: whether it was reused, and its handle */
+/* port: blocked lights' caster walker (light_visibility.h, render_objects.c): an object without a shadow this frame
+that stands in a traced light's reach names its parts as a shadow's casters do, as its models are drawn in shadow
+mode, with no map tile and no apply draw. FALSE in a window whose shadows are not traced */
+boolean rasterizer_environment_shadow_casters_begin(
+	long object_index)
+{
+	if (!deferred_shadows_generating)
+		return FALSE;
+	deferred_shadow_current = NONE;
+	deferred_shadow_reused = FALSE;
+	traced_shadow_id = traced_shadow_casters_begin(object_index);
+	return traced_shadow_id != TRACED_SHADOW_NONE;
+}
+
+void rasterizer_environment_shadow_casters_end(
+	void)
+{
+	if (traced_shadow_id != TRACED_SHADOW_NONE)
+		traced_shadow_casters_end();
+	traced_shadow_id = TRACED_SHADOW_NONE;
+}
+
 boolean rasterizer_environment_shadow_reused(
 	void)
 {

@@ -418,6 +418,8 @@ boolean rasterizer_environment_shadows_defer_begin(void);
 void rasterizer_environment_shadows_defer_end(void);
 boolean rasterizer_environment_shadow_reused(void);
 short rasterizer_environment_shadow_handle(void);
+boolean rasterizer_environment_shadow_casters_begin(long object_index);
+void rasterizer_environment_shadow_casters_end(void);
 void rasterizer_environment_shadow_generate_end(void);
 void rasterizer_environment_shadow_apply_begin(short handle);
 void rasterizer_environment_shadows_apply_end(void);
@@ -1617,12 +1619,37 @@ static long object_get_cached_render_state(
 	return render_state_index;
 }
 
+/* port: blocked lights' caster walker (light_visibility.h): an object with no shadow this frame (too faint in the
+dark, or of a shadowless kind such as a door) that stands in a traced light's reach still blocks it. Its models are
+drawn in shadow mode and name their parts as casters, with no map and no apply (rasterizer_xbox_shadows.c) */
+static void render_object_light_casters(
+	struct object_render_data *data)
+{
+	if (!lights_object_blocks_light(data->object_index) ||
+		!rasterizer_environment_shadow_casters_begin(data->object_index))
+		return;
+	data->lighting = object_get_cached_render_lighting(
+		data->object_index,
+		object_get_level_of_detail_pixels(data->object_index));
+	render_object_list(data, NULL, data->object_index);
+	rasterizer_environment_shadow_casters_end();
+}
+
 static void render_object(
 	struct object_render_data *data)
 {
 	if (data->shadow)
 	{
 		struct object_datum *object = object_get(data->object_index);
+
+		if (!object_is_first_person_camera(data->object_index) &&
+			TEST_FLAG(object->object.flags, _object_shadowless_bit) &&
+			!shadow_prop_object_allowed(data->object_index, object) &&
+			!TEST_FLAG(object->object.flags, _object_invisible_bit))
+		{
+			render_object_light_casters(data);
+			return;
+		}
 
 		/* port: the first-person body casts its shadow (first_person_body.c),
 		except in a mirror, as in mono */
@@ -1653,10 +1680,7 @@ static void render_object(
 			level_of_detail_pixels = object_get_level_of_detail_pixels(data->object_index);
 			shadow_darkness = 1.f - real_rgb_color_brightness(&data->lighting->shadow_color);
 
-			/* port: debug.traced_light_blocking 3: an object in the dark, whose own shadow is too faint to draw,
-			still blocks a dynamic light (traced_shadow_casters.c) */
-			if (level_of_detail_pixels > minimum_pixels &&
-				(shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS || traced_light_every_caster()))
+			if (level_of_detail_pixels > minimum_pixels && shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS)
 			{
 				real size_fraction =
 					shadow_minimum_size_fraction(level_of_detail_pixels, minimum_pixels);
@@ -1701,6 +1725,8 @@ static void render_object(
 					apply->handle = NONE;
 				}
 			}
+			else
+				render_object_light_casters(data);
 		}
 	}
 	else

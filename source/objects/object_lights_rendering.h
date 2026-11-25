@@ -34,6 +34,10 @@ boolean light_visibility_begin(
 	real radius);
 void light_visibility_end(
 	void);
+/* port: whether an object stands in reach of one of the window's traced lights and is of a kind that blocks them
+(light_visibility.h's caster rule), so the caster walker names its parts (render_objects.c) */
+boolean lights_object_blocks_light(
+	long object_index);
 void lights_render_specular(
 	void);
 boolean lights_distant_lighting_at_point(

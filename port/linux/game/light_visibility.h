@@ -74,6 +74,24 @@ static inline int light_visibility_owner_blocks(
 	return owner_type < 0 || owner_type <= LIGHT_VISIBILITY_LAST_BLOCKED_OWNER_TYPE;
 }
 
+/* TRUE for an object type that blocks lights when it has a collision model: characters, vehicles, scenery and devices
+(a closed door stops plasma light). Not items (the first-person weapon among them) or projectiles */
+static inline int light_visibility_caster_type(
+	int object_type)
+{
+	return object_type == 0 || object_type == 1 || (object_type >= 6 && object_type <= 9);
+}
+
+/* TRUE when two spheres (center, radius) overlap */
+static inline int light_visibility_spheres_touch(
+	float ax, float ay, float az, float ar,
+	float bx, float by, float bz, float br)
+{
+	float dx = ax - bx, dy = ay - by, dz = az - bz, r = ar + br;
+
+	return r > 0.f && dx * dx + dy * dy + dz * dz < r * r;
+}
+
 /* chosen[i] 1 for the candidates chosen this frame: those whose owner allows it (every one when fixtures is set),
 own flashlight first, then by score, then by id, up to cap */
 static inline void light_visibility_rank(

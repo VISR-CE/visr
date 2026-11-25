@@ -3804,7 +3804,7 @@
         "traced_light_blocking": {
           "type": "integer",
           "default": -1,
-          "description": "What blocks the lights display.traced_lights traces: 1 the level's surfaces; 2 the objects that cast shadows too; 3 every object, however faint its own shadow. 0 traces no light whatever the profile says; -1 (the default) is 3 when display.traced_lights is above 0. A value above 0 also turns the tracing on without the profile key, for measurements.",
+          "description": "What blocks the lights display.traced_lights traces: 1 the level's surfaces; 2 the objects that cast shadows too; 3 also objects with no shadow of their own (too faint, or doors and other devices). 0 traces no light whatever the profile says; -1 (the default) is 3 when display.traced_lights is above 0. A value above 0 also turns the tracing on without the profile key, for measurements.",
           "x-environment": "HALO_TRACED_LIGHT_BLOCKING",
           "x-environment-style": "value",
           "x-platforms": [

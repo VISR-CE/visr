@@ -45,7 +45,8 @@ void traced_lights_choose(struct light_visibility_candidate const *lights, short
 blocking scaled by strength; FALSE when they are drawn as the game draws them. traced_light_end after them */
 boolean traced_light_begin(real_point3d const *position, real radius, real strength);
 void traced_light_end(void);
-/* whether every object casts for the traced light, however faint its own shadow */
-boolean traced_light_every_caster(void);
+/* whether objects with no shadow of their own (too faint, or a shadowless kind such as a door) block the traced
+lights too, through the caster walker (render_objects.c, object_lights.c's lights_object_blocks_light) */
+boolean traced_light_walks_casters(void);
 
 #endif

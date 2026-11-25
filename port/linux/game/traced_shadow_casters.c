@@ -700,7 +700,7 @@ void traced_shadow_apply_end(
 }
 
 /* debug.traced_light_blocking: 0 off; 1 the level's surfaces block dynamic lights; 2 the frame's shadow casters
-too; 3 as 2, and every object casts for it however faint its own shadow (render_objects.c) */
+too; 3 as 2, and objects with no shadow of their own block too, through the caster walker (render_objects.c) */
 static long traced_light_mode(
 	void)
 {
@@ -718,7 +718,7 @@ static long traced_light_mode(
 	return mode;
 }
 
-boolean traced_light_every_caster(
+boolean traced_light_walks_casters(
 	void)
 {
 	return traced_light_mode() > 2;
@@ -855,7 +855,7 @@ void traced_shadow_casters_commit(void) { }
 void traced_shadow_apply(unsigned long id, real_matrix4x3 const *shadow_matrix, real radius)
 	{ (void)id; (void)shadow_matrix; (void)radius; }
 void traced_shadow_apply_end(void) { }
-boolean traced_light_every_caster(void) { return FALSE; }
+boolean traced_light_walks_casters(void) { return FALSE; }
 void traced_lights_choose(struct light_visibility_candidate const *lights, short count, boolean versus, float *strength)
 	{ short i; (void)lights; (void)versus; for (i = 0; i < count; i++) strength[i] = 0.f; }
 boolean traced_light_begin(real_point3d const *position, real radius, real strength)
