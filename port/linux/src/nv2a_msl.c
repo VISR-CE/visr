@@ -21,6 +21,7 @@ Bindings, which the Metal backend (port/ios/host/gpu_metal.m) follows:
 
 #include "xgpu.h"
 #include "depth_decode.h"
+#include "../game/light_visibility.h" /* the key's light_visibility paths */
 
 #include <string.h>
 
@@ -342,10 +343,10 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	gpu_metal.m binds to such a draw (traced_draw_bind). The define is how the backend knows the shader */
 	if (key->traced_shadow)
 		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_SHADOW 1\n");
-	/* a dynamic light's draw that traces its light (nv2a_pixel_shader_key traced_light): the frame's casters as one
+	/* a dynamic light's draw that traces its light (nv2a_pixel_shader_key light_visibility traced): the frame's casters as one
 	instance structure (buffer 6, with the level's structure as an instance of its own), the level's (7) and the
 	light (8, traced_shadows_format.h), which gpu_metal.m binds (traced_light_bind) */
-	if (key->traced_light)
+	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_LIGHT 1\n");
 	xgpu_text_append(text, "fragment %s fragment_main(FragmentIn in [[stage_in]], constant Uniforms &u [[buffer(0)]]",
 		writes_depth ? "FragmentWithDepth" : key->alpha_test_samples ? "FragmentOut" : "float4");
@@ -372,7 +373,7 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 		xgpu_text_append(text, ",\n\tmetal::raytracing::primitive_acceleration_structure traced_caster [[buffer(6)]],"
 			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"
 			"\n\tconstant float4 *traced_basis [[buffer(8)]], float4 traced_position [[position]]");
-	if (key->traced_light)
+	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(text, ",\n\tmetal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],"
 			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"
 			"\n\tconstant float4 *traced_light [[buffer(8)]]");

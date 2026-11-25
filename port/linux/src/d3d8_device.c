@@ -26,6 +26,7 @@ Conventions carried over from the Xbox:
 */
 
 #include "xgpu.h"
+#include "../game/light_visibility.h" /* the key's light_visibility paths */
 #include "quad_ranges.h"
 #include "screenshot_schedule.h"
 #include "sdl_platform.h"
@@ -3211,7 +3212,7 @@ static struct
 	BOOL window;                /* a window's shadows are being traced */
 	BOOL break_window;          /* debug.traced_shadows_break_only: the window ends with the pass break alone */
 	BOOL key;                   /* the draws being made are a traced shadow's apply draws */
-	BOOL light;                 /* the draws being made are a dynamic light's that walls and characters block */
+	int light;                  /* the draws being made are a dynamic light's, blocked by this source (light_visibility.h) */
 	gpu_texture term;
 	unsigned long term_width, term_height;
 	gpu_texture scene_color;    /* the window's */
@@ -3409,11 +3410,12 @@ void halo_traced_shadows_cover(float x0, float y0, float x1, float y1)
 	traced_shadows.cover[3] = fmaxf(traced_shadows.cover[3], r[1] + (y1 + 1.0f) * 0.5f * r[3]);
 }
 
-/* the draws that follow are (on) or are no longer a dynamic light's draws that walls and characters block
-(debug.traced_light_blocking; traced_shadow_casters.c's traced_light_begin) */
-void halo_traced_light_key(int on)
+/* the draws that follow are a dynamic light's draws blocked by this source (light_visibility.h's paths; 0 none):
+traced_shadow_casters.c's traced_light_begin and _end */
+void halo_light_visibility_key(int path)
 {
-	traced_shadows.light = on && traced_shadows_frame_on();
+	traced_shadows.light = path == LIGHT_VISIBILITY_TRACED && traced_shadows_frame_on() ? LIGHT_VISIBILITY_TRACED :
+		LIGHT_VISIBILITY_NONE;
 }
 
 /* the draws that follow are (on) or are no longer a traced shadow's apply draws */
@@ -5549,7 +5551,7 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 
 	/* (a multisampled alpha test's shader is not listed or observed: the
 	lists and catalogs hold the shaders of draws without multisampling) */
-	if (!name || key->alpha_test_samples || key->soft_depth || key->traced_shadow || key->traced_light)
+	if (!name || key->alpha_test_samples || key->soft_depth || key->traced_shadow || key->light_visibility)
 		return;
 	name->kind = 2;
 	name->hash = hash64(key, nv2a_pixel_shader_key_size(key));
@@ -6754,9 +6756,9 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 		key->traced_shadow = 1;
 		key->soft_depth = 0;
 	}
-	/* a dynamic light's draw that walls and characters block (halo_traced_light_key) */
+	/* a dynamic light's draw that its source blocks (halo_light_visibility_key) */
 	else if (traced_shadows.light && shader_dialect.msl)
-		key->traced_light = 1;
+		key->light_visibility = (uint32_t)traced_shadows.light;
 	key->fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key->fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
 	key->count_samples = device.visibility_test_active &&

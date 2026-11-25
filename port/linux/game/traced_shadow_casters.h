@@ -35,18 +35,15 @@ void traced_shadow_casters_commit(void);
 /* the next draws apply shadow id, of this matrix and radius, until traced_shadow_apply_end */
 void traced_shadow_apply(unsigned long id, real_matrix4x3 const *shadow_matrix, real radius);
 void traced_shadow_apply_end(void);
-/* display.traced_lights: the strength of each of the window's dynamic lights (count of them, in the order
-lights_render_diffuse walks them), by traced_light_rule.h: 0 drawn as the game draws it, up to 1 lit only where a
-ray from the point reaches it. versus: a player-versus-player game, which never traces (light through a wall is
-information there). Once a window a frame: a second call in the same window and frame (a second eye) gets the
-first's strengths by light */
-struct traced_light_candidate;
-void traced_lights_choose(struct traced_light_candidate const *lights, short count, boolean versus, float *strength);
-/* the strength traced_light_begin uses for the next light: traced_lights_choose's for it */
-void traced_light_next(float strength);
-/* the next draws are a dynamic light's over the level, lit only where a ray from the point reaches the light;
-FALSE when they are drawn as the game draws them (strength 0). traced_light_end after them */
-boolean traced_light_begin(real_point3d const *position, real radius);
+/* display.traced_lights: the traced strength of each of the window's dynamic lights (count of them, by
+light_visibility.h's rule): 0 drawn as the game draws it, up to 1 lit only where a ray from the point reaches it.
+versus: a player-versus-player game, which never traces (light through a wall is information there). Once a window
+a frame: a second call in the same window and frame (a second eye) gets the first's strengths by light */
+struct light_visibility_candidate;
+void traced_lights_choose(struct light_visibility_candidate const *lights, short count, boolean versus, float *strength);
+/* the next draws are a dynamic light's over the level, lit only where a ray from the point reaches the light, its
+blocking scaled by strength; FALSE when they are drawn as the game draws them. traced_light_end after them */
+boolean traced_light_begin(real_point3d const *position, real radius, real strength);
 void traced_light_end(void);
 /* whether every object casts for the traced light, however faint its own shadow */
 boolean traced_light_every_caster(void);

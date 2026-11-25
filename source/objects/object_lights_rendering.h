@@ -23,6 +23,17 @@ void lights_preprocess_scene(
 	void);
 void lights_render_diffuse(
 	void);
+/* port: what blocks each of the window's dynamic lights (light_visibility.h), once a window after
+lights_preprocess_scene and before its scene pass */
+void lights_choose_visibility(
+	void);
+/* port: the next draws are a dynamic light's over the level, blocked by its source (light_visibility_next); FALSE
+when they are drawn as the game draws them. light_visibility_end after them */
+boolean light_visibility_begin(
+	union real_point3d const *position,
+	real radius);
+void light_visibility_end(
+	void);
 void lights_render_specular(
 	void);
 boolean lights_distant_lighting_at_point(

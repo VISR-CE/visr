@@ -1798,30 +1798,54 @@ static void light_get_bounding_sphere(
 /* port: these limits are presentation state, never part of a light datum or the scene list. */
 #include "light_render_selection.h"
 #include "traced_shadow_casters.h" /* port/linux/game */
-#include "traced_light_rule.h"
+#include "light_visibility.h"
 
-/* (traced_light_rule.h's owner types are object_types.h's) */
-typedef char traced_light_owner_types_assert[_object_type_projectile == TRACED_LIGHT_LAST_TRACED_OWNER_TYPE
-	&& _object_type_scenery == TRACED_LIGHT_LAST_TRACED_OWNER_TYPE + 1 ? 1 : -1];
+/* (light_visibility.h's owner types are object_types.h's) */
+typedef char light_visibility_owner_types_assert[_object_type_projectile == LIGHT_VISIBILITY_LAST_BLOCKED_OWNER_TYPE
+	&& _object_type_scenery == LIGHT_VISIBILITY_LAST_BLOCKED_OWNER_TYPE + 1 ? 1 : -1];
 
-/* port: display.traced_lights: how strongly each of the scene's point lights is blocked by what stands between it
-and a lit point (traced_light_rule.h), by slot in lights_globals.scene_point_lights; 0 for lights not drawn
-(drawn: lights_select_level's choice when it limits them) */
-static void lights_choose_traced(unsigned char const *drawn, float *strength)
+static boolean lights_select_level(unsigned char *diffuse, unsigned char *specular);
+
+/* port: each window's choice of what blocks each of its scene's point lights (light_visibility.h), made once a window
+before its scene pass (lights_choose_visibility) and read by its light passes, by slot in
+lights_globals.scene_point_lights */
+static struct
 {
-	struct traced_light_candidate candidates[128];
-	short slots[128], count = 0, i;
-	float chosen[128];
+	short count;
+	long light_index[128];
+	unsigned char path[128];
+	float strength[128];
+} light_visibility_windows[MAXIMUM_WINDOWS];
+static struct
+{
+	unsigned char path;
+	float strength;
+} light_visibility_pending;
 
-	csmemset(strength, 0, sizeof(float) * 128);
+void lights_choose_visibility(
+	void)
+{
+	struct light_visibility_candidate candidates[128];
+	short slots[128], count = 0, i;
+	float traced[128];
+	unsigned char diffuse[128], specular[128];
+	boolean limited = lights_select_level(diffuse, specular);
+	short window = render.window_index;
+
+	if (window < 0 || window >= MAXIMUM_WINDOWS)
+		return;
+	light_visibility_windows[window].count = lights_globals.scene_point_light_count;
 	for (i = 0; i < lights_globals.scene_point_light_count; i++)
 	{
 		struct light_datum *light = light_get(lights_globals.scene_point_lights[i]);
 
+		light_visibility_windows[window].light_index[i] = lights_globals.scene_point_lights[i];
+		light_visibility_windows[window].path[i] = LIGHT_VISIBILITY_NONE;
+		light_visibility_windows[window].strength[i] = 0.f;
 		if (TEST_FLAG(light->flags, _point_light_dynamic_bit) && light->rasterizer_light_index != NONE
-			&& (!drawn || drawn[i]))
+			&& (!limited || diffuse[i]))
 		{
-			struct traced_light_candidate *candidate = &candidates[count];
+			struct light_visibility_candidate *candidate = &candidates[count];
 			struct object_datum *owner = light->object_index != NONE ? object_try_and_get(light->object_index) : NULL;
 			boolean own = TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit) != 0;
 
@@ -1836,10 +1860,68 @@ static void lights_choose_traced(unsigned char const *drawn, float *strength)
 				light->position.z, render.camera.position.x, render.camera.position.y, render.camera.position.z);
 		}
 	}
-	traced_lights_choose(candidates, count, game_engine_running(), chosen);
+	/* (light through a wall is information in a player-versus-player game: no source blocks it there) */
+	traced_lights_choose(candidates, count, game_engine_running(), traced);
 	for (i = 0; i < count; i++)
-		strength[slots[i]] = chosen[i];
+	{
+		if (traced[i] > 0.f)
+		{
+			light_visibility_windows[window].path[slots[i]] = LIGHT_VISIBILITY_TRACED;
+			light_visibility_windows[window].strength[slots[i]] = traced[i];
+		}
+	}
 }
+
+/* the window's choice for the light in this scene slot */
+static void light_visibility_for_slot(
+	short slot,
+	unsigned char *path,
+	float *strength)
+{
+	short window = render.window_index;
+
+	*path = LIGHT_VISIBILITY_NONE;
+	*strength = 0.f;
+	if (window >= 0 && window < MAXIMUM_WINDOWS && slot < light_visibility_windows[window].count &&
+		light_visibility_windows[window].light_index[slot] == lights_globals.scene_point_lights[slot])
+	{
+		*path = light_visibility_windows[window].path[slot];
+		*strength = light_visibility_windows[window].strength[slot];
+	}
+}
+
+void light_visibility_next(
+	int path,
+	float strength)
+{
+	light_visibility_pending.path = (unsigned char)path;
+	light_visibility_pending.strength = strength;
+}
+
+boolean light_visibility_begin(
+	real_point3d const *position,
+	real radius)
+{
+	unsigned char path = light_visibility_pending.path;
+	float strength = light_visibility_pending.strength;
+
+	light_visibility_pending.path = LIGHT_VISIBILITY_NONE;
+	light_visibility_pending.strength = 0.f;
+	switch (path)
+	{
+	case LIGHT_VISIBILITY_TRACED:
+		return traced_light_begin(position, radius, strength);
+	default:
+		return FALSE;
+	}
+}
+
+void light_visibility_end(
+	void)
+{
+	traced_light_end();
+}
+
 long config_integer(const char *name);
 static long light_render_dynamic_override = -1, light_render_specular_override = -1;
 
@@ -1891,7 +1973,6 @@ void lights_render_diffuse(
 	short cluster_indices[MAXIMUM_CLUSTERS_PER_LIGHT];
 	short light_index;
 	unsigned char diffuse[128], specular[128];
-	float traced[128];
 	boolean limited = FALSE;
 	static unsigned long views, total, weapons, retained;
 	unsigned long view_total = 0, view_weapons = 0, view_retained = 0;
@@ -1900,7 +1981,6 @@ void lights_render_diffuse(
 	if (should_render_lights())
 	{
 		limited = lights_select_level(diffuse, specular);
-		lights_choose_traced(limited ? diffuse : NULL, traced);
 		for (light_index = 0;
 			light_index < lights_globals.scene_point_light_count;
 			light_index++)
@@ -1938,7 +2018,13 @@ void lights_render_diffuse(
 					FALSE,
 					&center,
 					&radius);
-				traced_light_next(traced[light_index]);
+				{
+					unsigned char path;
+					float strength;
+
+					light_visibility_for_slot(light_index, &path, &strength);
+					light_visibility_next(path, strength);
+				}
 				structure_render_diffuse_light(
 					light->rasterizer_light_index,
 					&center,

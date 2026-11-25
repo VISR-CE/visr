@@ -477,6 +477,8 @@ static void render_window(
 		render_sky();
 		first_person_weapon_render_update();
 		lights_preprocess_scene();
+		/* port: what blocks each dynamic light, before anything is lit (light_visibility.h) */
+		lights_choose_visibility();
 		render_objects();
 		structure_render_preprocess();
 		structure_render_lightmaps();

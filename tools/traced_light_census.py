@@ -4,7 +4,7 @@
     python3 tools/traced_light_census.py MAP... --output tools/traced_light_stock.tsv
 
 Blocked lights (display.traced_lights) trace a light by its owner's object type
-(port/linux/game/traced_light_rule.h): a unit, weapon, item or projectile, or no
+(port/linux/game/light_visibility.h): a unit, weapon, item or projectile, or no
 object at all, is traced; scenery and devices are not, because the level's
 designers placed those lights against a world where light passes through walls.
 This reads which tags can own each light:
@@ -134,7 +134,7 @@ class Census:
 
 
 def traced(kind: str, group: str) -> str:
-    """The rule in traced_light_rule.h, for the table: scenery and devices never trace."""
+    """The rule in light_visibility.h, for the table: scenery and devices never trace."""
     if group in ("scen", "mach", "ctrl", "lifi", "plac", "ssce"):
         return "no"
     if kind == "scripted effect":

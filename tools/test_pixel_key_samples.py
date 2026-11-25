@@ -49,7 +49,7 @@ struct nv2a_pixel_shader_key {
 	unsigned char alpha_kill[D3DTSS_MAXSTAGES], color_sign[D3DTSS_MAXSTAGES];
 	unsigned char coverage_alpha, alpha_test_function, alpha_test_samples, fog_enable, fog_table_mode, count_samples, soft_depth;
 	uint32_t traced_shadow;
-	uint32_t traced_light;
+	uint32_t light_visibility;
 };
 static DWORD D3D__RenderState[D3DRS_MAX];
 static DWORD D3D__TextureState[D3DTSS_MAXSTAGES][2];

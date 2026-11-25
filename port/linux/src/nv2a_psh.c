@@ -16,6 +16,7 @@ Register values are clamped to [-1, 1] between stages, as on the hardware.
 */
 
 #include "xgpu.h"
+#include "../game/light_visibility.h" /* the key's light_visibility paths */
 #include "gpu_uniforms.h"
 
 #include <stdio.h>
@@ -750,16 +751,16 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t\tt0 = vec4(covered);\n"
 			"\t}\n");
 
-	/* A dynamic light that walls and characters block (nv2a_pixel_shader_key traced_light; Metal): the level's diffuse
+	/* A dynamic light that walls and characters block (nv2a_pixel_shader_key light_visibility traced; Metal): the level's diffuse
 	light pass (rasterizer_xbox_environment.c) draws each light's surfaces once more, additively. The lit point is
 	rebuilt from the distance attenuation coordinates, which the game's vertex shader makes as
 	0.5 - (light - point) / (2 radius); a ray from it to the light against the level (instance mask 2), and when
 	traced_light[1].y is set, a second against the frame's shadow casters (mask 1), which stops traced_light[1].z
 	short of the light so that the carrier of a flashlight does not block its own beam. A blocked point gets none
-	of the light, scaled by its strength traced_light[2].z (traced_light_rule.h: 1, or between while the cap eases
+	of the light, scaled by its strength traced_light[2].z (light_visibility.h: 1, or between while the cap eases
 	it in or out). A light the viewer carries ends every ray traced_light[1].w short of itself.
 	traced_light: traced_shadows_format.h */
-	if (dialect->msl && key->traced_light)
+	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(&text,
 			"\tfloat traced_lit = 1.0;\n"
 			"\tif (traced_light[2].x < 0.5)\n"
@@ -927,7 +928,7 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	if (writes_depth && !dialect->msl)
 		xgpu_text_append(&text, "\tgl_FragDepth = replaced_depth;\n");
 	/* (a traced light reaches only the points its ray did) */
-	if (dialect->msl && key->traced_light)
+	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(&text, "\tresult.rgb *= traced_lit;\n");
 	xgpu_text_append(&text, "\tfragment_color = clamp(result, 0.0, 1.0);\n");
 	if (dialect->msl)
