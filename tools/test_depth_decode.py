@@ -10,6 +10,7 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCE = (ROOT / "port/ios/host/gpu_metal.m").read_text()
+HEADER = (ROOT / "port/linux/src/depth_decode.h").read_text()
 
 NEAR, FAR = 0.0078125, 1024.0
 P22 = -(FAR + NEAR) / (FAR - NEAR)
@@ -21,7 +22,7 @@ def stored(distance):
 
 
 def shared_decode():
-    macro = re.search(r"#define DEPTH_VIEW_DISTANCE_MSL(.*?)\n\n", SOURCE, re.S).group(1)
+    macro = re.search(r"#define DEPTH_VIEW_DISTANCE_MSL(.*?)\n\n", HEADER, re.S).group(1)
     expression = re.search(r"return (.*?);", macro).group(1)
     return lambda s, p22, p32: eval(expression, {"stored": s, "p22": p22, "p32": p32})
 
@@ -48,5 +49,6 @@ def test_every_program_that_reads_the_depth_uses_the_shared_decode():
 
 
 def test_the_depth_row_falls_back_to_the_frustum_row():
-    assert "-(far_plane + near_plane) / (far_plane - near_plane)" in SOURCE
-    assert "-2.0f * near_plane * far_plane / (far_plane - near_plane)" in SOURCE
+    assert "-(far_plane + near_plane) / (far_plane - near_plane)" in HEADER
+    assert "-2.0f * near_plane * far_plane / (far_plane - near_plane)" in HEADER
+    assert '#include "depth_decode.h"' in SOURCE
