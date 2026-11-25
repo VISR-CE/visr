@@ -883,6 +883,9 @@ boolean traced_light_begin(
 	light[10] = (float)strength;
 	light[11] = (float)family;
 	light[27] = (float)config_integer("debug.traced_light_depth_point");
+	/* (a point rebuilt from depth is within a small fraction of its distance of the surface: its ray starts that
+	fraction of the distance off the surface, so that the surface it lies on does not block it) */
+	light[40] = (float)config_real("debug.traced_light_depth_bias");
 	/* every ray ends this short of the light, so that a light resting on a surface (a stuck plasma grenade) or inside
 	a projectile's model is not blocked by what it touches */
 	light[7] = (float)(0.02f * radius > 0.05f ? 0.02f * radius : 0.05f);

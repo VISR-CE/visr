@@ -245,8 +245,8 @@ def test_the_visibility_function_compiles_for_metal(tmp_path):
         return "".join(ast.literal_eval(m) for m in re.findall(r'"(?:[^"\\]|\\.)*"', chunk))
 
     emitter = shader[shader.index("static void light_visibility_emit"):]
-    emitter = emitter[:emitter.index("point, normal);")]
-    body = literals(emitter[emitter.index("xgpu_text_append(text,"):]) % ("traced_point", "traced_normal")
+    emitter = emitter[:emitter.index("point, normal, bias);")]
+    body = literals(emitter[emitter.index("xgpu_text_append(text,"):]) % ("traced_point", "traced_normal", "traced_bias")
     at = shader.index("float3 traced_point = ")
     before = shader[shader.rindex("xgpu_text_append(&text,", 0, at):]
     before = literals(before[:before.index('");') + 1])
@@ -307,7 +307,15 @@ def test_a_pass_without_an_attenuation_coordinate_rebuilds_its_point_from_depth(
     assert "light_visibility_begin(&light->position, light->radius, 0, radius);" in environment
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     assert "light_decoder.map_physical_to_screen_coordinates(light_position.xy)" in shader
-    assert "traced_light[3].w > 0.5 && traced_light[6].w < 0.5 ? traced_attenuation_point : traced_depth_point" in shader
+    assert "bool traced_from_depth = !(traced_light[3].w > 0.5 && traced_light[6].w < 0.5);" in shader
+    assert "float3 traced_point = traced_from_depth ? traced_depth_point : traced_attenuation_point;" in shader
+    # (a rebuilt point lies within a fraction of its distance of its surface: its ray starts that far off it, along
+    # the normal turned toward the camera, so the surface under it never blocks it; an exact point is not moved)
+    assert "float traced_bias = traced_from_depth ? traced_light[10].x * light_z : 0.0;" in shader
+    emitter = shader[shader.index("static void light_visibility_emit"):]
+    emitter = emitter[:emitter.index("\n}\n")]
+    assert emitter.index("n = dot(n, traced_light[3].xyz - p) < 0.0 ? -n : n;") < emitter.index("p += n_length > 0.0")
+    assert emitter.index("p += n_length > 0.0") < emitter.index("float3 to_light = traced_light[0].xyz - p;")
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
     replay = game[game.index("if (rasterizer_other_eye_draws())"):]
     replay = replay[:replay.index("halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);")]

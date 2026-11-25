@@ -311,16 +311,18 @@ traced_lit, 1 lit, down to 1 - strength blocked. In order:
   family (the owner keep-clear distance).
 traced_light[2].x skips the rays (cost runs), .y repeats them (cost runs), .z is the strength.
 traced_light: traced_shadows_format.h */
-static void light_visibility_emit(struct xgpu_text *text, const char *point, const char *normal)
+static void light_visibility_emit(struct xgpu_text *text, const char *point, const char *normal, const char *bias)
 {
 	xgpu_text_append(text,
 		"\tfloat traced_lit = 1.0;\n"
 		"\t{\n"
 		"\t\tfloat3 p = %s;\n"
 		"\t\tfloat3 n = %s;\n"
+		"\t\tn = dot(n, traced_light[3].xyz - p) < 0.0 ? -n : n;\n"
+		"\t\tfloat n_length = length(n);\n"
+		"\t\tp += n_length > 0.0 ? n * (%s / n_length) : float3(0.0);\n"
 		"\t\tfloat3 to_light = traced_light[0].xyz - p;\n"
 		"\t\tfloat span = length(to_light);\n"
-		"\t\tn = dot(n, traced_light[3].xyz - p) < 0.0 ? -n : n;\n"
 		"\t\tbool black = max(max(result.r, result.g), result.b) < 1.0 / 512.0;\n"
 		"\t\tbool facing = dot(n, to_light) > 0.0;\n"
 		"\t\tif (traced_light[2].x < 0.5 && !black && facing && span > 2.0 * traced_light[1].x + traced_light[1].w)\n"
@@ -351,7 +353,7 @@ static void light_visibility_emit(struct xgpu_text *text, const char *point, con
 		"\t\t\t}\n"
 		"\t\t\ttraced_lit = 1.0 - blocked * traced_light[2].z;\n"
 		"\t\t}\n"
-		"\t}\n", point, normal);
+		"\t}\n", point, normal, bias);
 }
 
 static BOOL writes_replaced_depth(const struct nv2a_dialect *dialect,
@@ -837,7 +839,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\tfloat3 traced_depth_point = float3(traced_light[7].w, traced_light[8].w, traced_light[9].w) + traced_light[7].xyz * light_view.x +\n"
 			"\t\ttraced_light[8].xyz * light_view.y + traced_light[9].xyz * light_view.z;\n"
 			"\tfloat3 traced_attenuation_point = traced_light[0].xyz + ((traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz) - 0.5) * (2.0 * traced_light[0].w);\n"
-			"\tfloat3 traced_point = traced_light[3].w > 0.5 && traced_light[6].w < 0.5 ? traced_attenuation_point : traced_depth_point;\n"
+			"\tbool traced_from_depth = !(traced_light[3].w > 0.5 && traced_light[6].w < 0.5);\n"
+			"\tfloat3 traced_point = traced_from_depth ? traced_depth_point : traced_attenuation_point;\n"
+			"\tfloat traced_bias = traced_from_depth ? traced_light[10].x * light_z : 0.0;\n"
 			"\tfloat3 traced_normal = cross(dfdx(traced_point), dfdy(traced_point));\n");
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */
@@ -974,14 +978,15 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	/* (a traced light reaches only the points its ray did) */
 	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
 	{
-		light_visibility_emit(&text, "traced_point", "traced_normal");
+		light_visibility_emit(&text, "traced_point", "traced_normal", "traced_bias");
 		xgpu_text_append(&text, "\tresult.rgb *= traced_lit;\n");
 		/* (debug.traced_light_depth_point 2: a pass with an attenuation coordinate shows how far its depth point is
 		from it, red 1 at a world unit, and green where the depth point lies behind the camera. 3: which part of the
 		rebuild is off, against the attenuation point taken into the view: red where the depth is more than 2% off,
 		green where the screen position is more than 0.005 off in normalized device coordinates, blue always. 4: the
-		numbers against green 1, as the pass's blend scales all three alike: red a quarter of the rebuilt depth over the
-		attenuation point's, blue the attenuation point's depth over 20 world units) */
+		numbers against green 1, as the pass's blend scales all three alike: red 0.5 + 25 (rebuilt depth over the
+		attenuation point's - 1), so 0 and 1 are 2% short and long; blue ten times the distance between the two points,
+		1 at a tenth of a world unit) */
 		xgpu_text_append(&text,
 			"\tif (traced_light[6].w > 1.5 && traced_light[6].w < 2.5 && traced_light[3].w > 0.5)\n"
 			"\t\tresult = float4(saturate(length(traced_depth_point - traced_attenuation_point)), light_view.z > 0.0 ? 1.0 : 0.0, 0.0, 1.0);\n"
@@ -996,7 +1001,8 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t\t\tlight_expected.y * traced_light[5].w / light_expected_z - traced_light[6].y);\n"
 			"\t\tresult = traced_light[6].w < 3.5 ? float4(abs(light_z / light_expected_z - 1.0) > 0.02 ? 1.0 : 0.0,\n"
 			"\t\t\tlength(light_ndc - light_expected_ndc) > 0.005 ? 1.0 : 0.0, 1.0, 1.0) :\n"
-			"\t\t\tfloat4(saturate(0.25 * light_z / light_expected_z), 1.0, saturate(light_expected_z / 20.0), 1.0);\n"
+			"\t\t\tfloat4(saturate(0.5 + 25.0 * (light_z / light_expected_z - 1.0)), 1.0,\n"
+			"\t\t\t\tsaturate(10.0 * length(traced_depth_point - traced_attenuation_point)), 1.0);\n"
 			"\t}\n");
 	}
 	xgpu_text_append(&text, "\tfragment_color = clamp(result, 0.0, 1.0);\n");
