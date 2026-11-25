@@ -106,6 +106,9 @@ SITES = {
     ("source/interface/hud_draw.c", "hud_full_layout_end"): ("outside", "the HUD pass"),
     ("port/linux/game/first_person_legs.c", "first_person_legs_node_matrices"): (
         "outside", "a flat view only (a stereo frame draws the first-person body instead)"),
+    ("port/linux/game/traced_shadow_casters.c", "traced_light_view"): (
+        "per-eye", "a traced light's camera: its position and what rebuilds a pixel's point from depth",
+        ["traced_light_begin"]),
     # eye-dependent, not routed yet
     ("port/linux/game/traced_shadow_casters.c", "traced_shadow_cover"): (
         "open", "traced shadows' covered rectangle from eye 0's camera; foveated eyes never trace, and traced shadows "
