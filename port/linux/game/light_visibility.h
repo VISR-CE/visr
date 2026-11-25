@@ -41,11 +41,20 @@ enum
 /* the diffuse draws of the next light take this source and strength (0 none, up to 1 fully blocked where the source
 says the light does not reach); object_lights.c */
 void light_visibility_next(int path, float strength);
+/* An owner family is an object, its parents and its children (a unit, the weapon it holds, the vehicle it rides and
+that vehicle's other riders): its casters never block its own lights (a partner's flashlight is inside his body).
+Each family with a traced light this frame takes one bit of the traced lights' instance mask, from
+LIGHT_VISIBILITY_FAMILY_FIRST; past the last, its lights fall back to the owner distance (debug.traced_light_owner).
+The family bit of the object's family this frame, 0 none (object_lights.c) */
+int light_visibility_family(long object_index);
 
 enum
 {
 	LIGHT_VISIBILITY_MAXIMUM = 128, /* MAXIMUM_RENDERED_LIGHTS, the game's lights in a view */
 	LIGHT_VISIBILITY_EASE_MILLISECONDS = 100,
+	/* the instance mask: bit 0 casters of no family, bit 1 the level, then one bit a family */
+	LIGHT_VISIBILITY_FAMILY_FIRST = 2,
+	LIGHT_VISIBILITY_FAMILY_LAST = 31,
 	/* object_types.h: biped, vehicle, weapon, equipment, garbage, projectile come before scenery */
 	LIGHT_VISIBILITY_LAST_BLOCKED_OWNER_TYPE = 5,
 };
@@ -80,6 +89,27 @@ static inline int light_visibility_caster_type(
 	int object_type)
 {
 	return object_type == 0 || object_type == 1 || (object_type >= 6 && object_type <= 9);
+}
+
+/* the family bit for a family root, assigning the next free bit (roots[] of count, at most the bits there are); 0
+when none is left. root -1 is no family */
+static inline int light_visibility_family_bit(
+	long *roots,
+	int *count,
+	long root,
+	int assign)
+{
+	int i;
+
+	if (root < 0)
+		return 0;
+	for (i = 0; i < *count; i++)
+		if (roots[i] == root)
+			return LIGHT_VISIBILITY_FAMILY_FIRST + i;
+	if (!assign || *count > LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST)
+		return 0;
+	roots[*count] = root;
+	return LIGHT_VISIBILITY_FAMILY_FIRST + (*count)++;
 }
 
 /* TRUE when two spheres (center, radius) overlap */

@@ -5377,6 +5377,8 @@ static struct
 	uint64_t structure_size[TRACED_CASTER_SLOTS], refit_scratch[TRACED_CASTER_SLOTS];
 	/* this frame's shadows: 0 none, else its caster slot + 1 */
 	uint16_t shadow_slot[TRACED_SHADOWS_SHADOWS];
+	/* and the light family each belongs to (traced_shadows_caster.family) */
+	uint8_t shadow_family[TRACED_SHADOWS_SHADOWS];
 	/* builds and refits waiting for a commit */
 	uint32_t pending_count;
 	uint16_t pending_slot[TRACED_PENDING];
@@ -5473,6 +5475,7 @@ static void traced_frame_check(void)
 	}
 	traced.frame = frames;
 	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
+	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
 	/* (a frame's builds are committed before it ends; one that never was is dropped with its descriptors) */
 	while (traced.pending_count)
 		traced_pending_descriptors[--traced.pending_count] = nil;
@@ -5505,6 +5508,7 @@ static void traced_reset(uint32_t epoch)
 		traced_pending_descriptors[--traced.pending_count] = nil;
 	traced.pending_scratch_total = 0;
 	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
+	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
 	memset(traced.structure_size, 0, sizeof(traced.structure_size));
 	traced_cache_reset(&traced.cache);
 	traced_world = nil;
@@ -5573,6 +5577,7 @@ static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
 	if (shadow >= TRACED_SHADOWS_SHADOWS || !traced_caster_read(bytes, size, &caster, &shape, &pose) ||
 		caster->epoch != traced.epoch)
 		return;
+	traced.shadow_family[shadow] = caster->family >= 2 && caster->family <= 31 ? (uint8_t)caster->family : 0;
 	/* every part is one the map defined */
 	for (model = 0; model < caster->model_count; model++)
 	{
@@ -5844,6 +5849,7 @@ static BOOL traced_light_ready(void)
 		@autoreleasepool
 		{
 			NSMutableArray<id<MTLAccelerationStructure>> *members = [NSMutableArray arrayWithObject:traced_world];
+			static uint32_t masks[TRACED_SHADOWS_SHADOWS + 1];
 			MTLInstanceAccelerationStructureDescriptor *descriptor = [MTLInstanceAccelerationStructureDescriptor descriptor];
 			MTLAccelerationStructureInstanceDescriptor *instances;
 			MTLAccelerationStructureSizes sizes;
@@ -5853,7 +5859,11 @@ static BOOL traced_light_ready(void)
 			for (shadow = 0; shadow < TRACED_SHADOWS_SHADOWS; shadow++)
 			{
 				if (traced.shadow_slot[shadow] && traced_structures[traced.shadow_slot[shadow] - 1])
+				{
+					/* (a caster of a light family takes that family's bit: its own lights' rays leave it out) */
+					masks[members.count] = traced.shadow_family[shadow] ? 1u << traced.shadow_family[shadow] : 1u;
 					[members addObject:traced_structures[traced.shadow_slot[shadow] - 1]];
+				}
 			}
 			if (!traced_light_descriptors[frame_slot] ||
 				traced_light_descriptors[frame_slot].length < members.count * sizeof(*instances))
@@ -5872,7 +5882,7 @@ static BOOL traced_light_ready(void)
 				instances[index].transformationMatrix.columns[1] = (MTLPackedFloat3){ 0.0f, 1.0f, 0.0f };
 				instances[index].transformationMatrix.columns[2] = (MTLPackedFloat3){ 0.0f, 0.0f, 1.0f };
 				instances[index].options = MTLAccelerationStructureInstanceOptionOpaque;
-				instances[index].mask = index ? 1u : 2u;
+				instances[index].mask = index ? masks[index] : 2u;
 				instances[index].accelerationStructureIndex = index;
 			}
 			descriptor.instancedAccelerationStructures = members;

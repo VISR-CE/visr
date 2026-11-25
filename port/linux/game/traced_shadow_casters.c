@@ -571,7 +571,7 @@ void traced_shadow_casters_end(
 	record->model_count = (uint32_t)traced.model_count;
 	record->shape_size = (uint32_t)shape_size;
 	record->pose_size = (uint32_t)pose_size;
-	record->reserved = 0;
+	record->family = (uint32_t)light_visibility_family(traced.object_index);
 	memcpy(record + 1, traced.shape, shape_size);
 	memcpy((byte *)(record + 1) + shape_size, traced.pose, pose_size);
 	host_traced_shadows_data(TRACED_SHADOWS_CASTER, (uint32_t)traced.id, record,
@@ -795,7 +795,8 @@ void traced_lights_choose(
 boolean traced_light_begin(
 	real_point3d const *position,
 	real radius,
-	real strength)
+	real strength,
+	long family)
 {
 	static unsigned long calls;
 	long mode = traced_light_mode();
@@ -811,11 +812,14 @@ boolean traced_light_begin(
 	light[3] = radius;
 	light[4] = 0.01f; /* the ray's start past the lit point and its end short of the light, world units (3 cm) */
 	light[5] = mode > 1 ? 1.f : 0.f;
-	light[6] = (float)config_real("debug.traced_light_owner");
+	/* (what stands within this of the light does not block it: the owner's family, masked out by its bit when it has
+	one, else by this distance) */
+	light[6] = family ? light[4] : (float)config_real("debug.traced_light_owner");
 	if (light[6] < light[4])
 		light[6] = light[4];
 	light[9] = (float)config_integer("debug.traced_light_repeat");
 	light[10] = (float)strength;
+	light[11] = (float)family;
 	/* A light the viewer carries (within debug.traced_light_viewer of the eye): the flashlight sits a little ahead
 	of the eye, past the corner of a wall the player stands against, and would lose its whole beam on that wall. Its
 	rays stop short of it by its distance from the eye plus a margin, so what stands within that of the light does
@@ -858,8 +862,8 @@ void traced_shadow_apply_end(void) { }
 boolean traced_light_walks_casters(void) { return FALSE; }
 void traced_lights_choose(struct light_visibility_candidate const *lights, short count, boolean versus, float *strength)
 	{ short i; (void)lights; (void)versus; for (i = 0; i < count; i++) strength[i] = 0.f; }
-boolean traced_light_begin(real_point3d const *position, real radius, real strength)
-	{ (void)position; (void)radius; (void)strength; return FALSE; }
+boolean traced_light_begin(real_point3d const *position, real radius, real strength, long family)
+	{ (void)position; (void)radius; (void)strength; (void)family; return FALSE; }
 void traced_light_end(void) { }
 
 #endif

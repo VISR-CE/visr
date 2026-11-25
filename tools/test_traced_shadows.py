@@ -150,3 +150,33 @@ def test_the_walker_is_the_only_way_a_shadowless_object_casts_for_lights():
     assert "shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS)" in text
     assert "traced_light_every_caster" not in text
     assert text.count("render_object_light_casters(data);") == 2
+
+
+def test_an_owner_family_never_blocks_its_own_light(tmp_path):
+    """The class: a light blocked by what carries it (a partner's flashlight inside his body, a Warthog's riders in
+    its headlights). Each family takes its own instance mask bit, the same in every window of the frame, and a
+    family's light rays leave that bit and the level's out of the caster ray's mask."""
+    _run_rule_program(tmp_path, r'''
+    long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    int count = 0, bit;
+    long root;
+    assert(light_visibility_family_bit(roots, &count, -1, 1) == 0);
+    assert(light_visibility_family_bit(roots, &count, 70, 0) == 0);
+    assert(light_visibility_family_bit(roots, &count, 70, 1) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    assert(light_visibility_family_bit(roots, &count, 71, 1) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(light_visibility_family_bit(roots, &count, 70, 0) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    for (root = 100; root < 200; root++)
+    {
+        bit = light_visibility_family_bit(roots, &count, root, 1);
+        assert(bit == 0 || (bit >= LIGHT_VISIBILITY_FAMILY_FIRST && bit <= LIGHT_VISIBILITY_FAMILY_LAST));
+    }
+    assert(count == LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(light_visibility_family_bit(roots, &count, 71, 1) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    ''')
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    assert "0xFFFFFFFDu & ~(family >= 2u && family <= 31u ? (1u << family) : 0u)" in shader
+    assert "traced_blockers, caster_mask)" in shader
+    host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
+    assert "instances[index].mask = index ? masks[index] : 2u;" in host
+    game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
+    assert "record->family = (uint32_t)light_visibility_family(traced.object_index);" in game

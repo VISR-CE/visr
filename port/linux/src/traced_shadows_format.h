@@ -78,7 +78,10 @@ struct traced_shadows_caster
 	uint32_t model_count;
 	uint32_t shape_size; /* bytes */
 	uint32_t pose_size;  /* bytes */
-	uint32_t reserved;
+	/* the light family the caster belongs to (port/linux/game/light_visibility.h): its instance takes mask bit
+	family (2-31) in the traced lights' structure instead of bit 0, so the family's own lights pass through it;
+	0 none */
+	uint32_t family;
 };
 
 struct traced_shadows_world

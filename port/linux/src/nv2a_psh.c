@@ -755,8 +755,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	light pass (rasterizer_xbox_environment.c) draws each light's surfaces once more, additively. The lit point is
 	rebuilt from the distance attenuation coordinates, which the game's vertex shader makes as
 	0.5 - (light - point) / (2 radius); a ray from it to the light against the level (instance mask 2), and when
-	traced_light[1].y is set, a second against the frame's shadow casters (mask 1), which stops traced_light[1].z
-	short of the light so that the carrier of a flashlight does not block its own beam. A blocked point gets none
+	traced_light[1].y is set, a second against the frame's shadow casters (every mask bit but the level's), which
+	passes through the light's owner family (its bit traced_light[2].w, light_visibility.h) and otherwise stops
+	traced_light[1].z short of the light so that the carrier of a flashlight does not block its own beam. A blocked point gets none
 	of the light, scaled by its strength traced_light[2].z (light_visibility.h: 1, or between while the cap eases
 	it in or out). A light the viewer carries ends every ray traced_light[1].w short of itself.
 	traced_light: traced_shadows_format.h */
@@ -777,6 +778,8 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t\t\ttracer.accept_any_intersection(true);\n"
 			"\t\t\tint repeats = clamp(int(traced_light[2].y), 1, 64);\n"
 			"\t\t\tfloat blocked = 0.0;\n"
+			"\t\t\tuint family = uint(traced_light[2].w);\n"
+			"\t\t\tuint caster_mask = 0xFFFFFFFDu & ~(family >= 2u && family <= 31u ? (1u << family) : 0u);\n"
 			"\t\t\tfor (int repeat = 0; repeat < 64; repeat++)\n"
 			"\t\t\t{\n"
 			"\t\t\t\tif (repeat >= repeats)\n"
@@ -788,7 +791,7 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t\t\t\tif (!hit && traced_light[1].y > 0.5 && span > traced_light[1].x + keep_clear)\n"
 			"\t\t\t\t{\n"
 			"\t\t\t\t\tmetal::raytracing::ray caster_ray(p, direction, traced_light[1].x + nudge, span - keep_clear);\n"
-			"\t\t\t\t\thit = tracer.intersect(caster_ray, traced_blockers, 1u).type != metal::raytracing::intersection_type::none;\n"
+			"\t\t\t\t\thit = tracer.intersect(caster_ray, traced_blockers, caster_mask).type != metal::raytracing::intersection_type::none;\n"
 			"\t\t\t\t}\n"
 			"\t\t\t\tblocked = hit ? 1.0 : blocked;\n"
 			"\t\t\t}\n"

@@ -1814,13 +1814,55 @@ static struct
 	short count;
 	long light_index[128];
 	unsigned char path[128];
+	unsigned char family[128];
 	float strength[128];
 } light_visibility_windows[MAXIMUM_WINDOWS];
 static struct
 {
-	unsigned char path;
+	unsigned char path, family;
 	float strength;
 } light_visibility_pending;
+/* this frame's owner families with a traced light (light_visibility.h): one table for every window, so a caster
+record one window makes and another reuses keeps its bit */
+static struct
+{
+	unsigned __int64 frame;
+	int count;
+	long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+} light_visibility_families = { (unsigned __int64)-1 };
+
+/* the root of an object's owner family, NONE for none or one that blocks no light (a projectile's) */
+static long light_visibility_family_root(
+	long object_index)
+{
+	long root;
+	struct object_datum *object;
+
+	if (object_index == NONE || !object_try_and_get(object_index))
+		return NONE;
+	root = object_get_ultimate_parent(object_index);
+	object = root != NONE ? object_try_and_get(root) : NULL;
+	return object && light_visibility_caster_type(object->object.type) ? root : NONE;
+}
+
+static int light_visibility_family_of(
+	long object_index,
+	int assign)
+{
+	if (light_visibility_families.frame != rasterizer_globals.fps_accumulation_frame_index)
+	{
+		light_visibility_families.frame = rasterizer_globals.fps_accumulation_frame_index;
+		light_visibility_families.count = 0;
+	}
+	return light_visibility_family_bit(light_visibility_families.roots, &light_visibility_families.count,
+		light_visibility_family_root(object_index), assign);
+}
+
+int light_visibility_family(
+	long object_index)
+{
+	return light_visibility_family_of(object_index, FALSE);
+}
 
 void lights_choose_visibility(
 	void)
@@ -1841,6 +1883,7 @@ void lights_choose_visibility(
 
 		light_visibility_windows[window].light_index[i] = lights_globals.scene_point_lights[i];
 		light_visibility_windows[window].path[i] = LIGHT_VISIBILITY_NONE;
+		light_visibility_windows[window].family[i] = 0;
 		light_visibility_windows[window].strength[i] = 0.f;
 		if (TEST_FLAG(light->flags, _point_light_dynamic_bit) && light->rasterizer_light_index != NONE
 			&& (!limited || diffuse[i]))
@@ -1868,6 +1911,8 @@ void lights_choose_visibility(
 		{
 			light_visibility_windows[window].path[slots[i]] = LIGHT_VISIBILITY_TRACED;
 			light_visibility_windows[window].strength[slots[i]] = traced[i];
+			light_visibility_windows[window].family[slots[i]] = (unsigned char)light_visibility_family_of(
+				light_get(lights_globals.scene_point_lights[slots[i]])->object_index, TRUE);
 		}
 	}
 }
@@ -1882,11 +1927,13 @@ static void light_visibility_for_slot(
 
 	*path = LIGHT_VISIBILITY_NONE;
 	*strength = 0.f;
+	light_visibility_pending.family = 0;
 	if (window >= 0 && window < MAXIMUM_WINDOWS && slot < light_visibility_windows[window].count &&
 		light_visibility_windows[window].light_index[slot] == lights_globals.scene_point_lights[slot])
 	{
 		*path = light_visibility_windows[window].path[slot];
 		*strength = light_visibility_windows[window].strength[slot];
+		light_visibility_pending.family = light_visibility_windows[window].family[slot];
 	}
 }
 
@@ -1929,15 +1976,16 @@ boolean light_visibility_begin(
 	real_point3d const *position,
 	real radius)
 {
-	unsigned char path = light_visibility_pending.path;
+	unsigned char path = light_visibility_pending.path, family = light_visibility_pending.family;
 	float strength = light_visibility_pending.strength;
 
 	light_visibility_pending.path = LIGHT_VISIBILITY_NONE;
+	light_visibility_pending.family = 0;
 	light_visibility_pending.strength = 0.f;
 	switch (path)
 	{
 	case LIGHT_VISIBILITY_TRACED:
-		return traced_light_begin(position, radius, strength);
+		return traced_light_begin(position, radius, strength, family);
 	default:
 		return FALSE;
 	}
