@@ -3814,8 +3814,28 @@
         "traced_light_viewer": {
           "type": "number",
           "default": 1.0,
-          "description": "With debug.traced_light_blocking: a light within this many world units of the eye (the flashlight the viewer carries) is traced toward the eye, so it is not lost on a wall the player stands against; 0 traces every light toward its own position.",
+          "description": "With debug.traced_light_blocking: a light within this many world units of the eye counts as carried by the viewer (the flashlight), for debug.traced_light_carried.",
           "x-environment": "HALO_TRACED_LIGHT_VIEWER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_carried": {
+          "type": "integer",
+          "default": 1,
+          "description": "With debug.traced_light_blocking: how a light the viewer carries is traced, so it is not lost on a wall the player stands against. 1 its rays stop short of it by its distance from the eye plus debug.traced_light_stop_margin; 2 its rays are aimed at the eye (comparison only: no shadow survives); 0 as any other light.",
+          "x-environment": "HALO_TRACED_LIGHT_CARRIED",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_stop_margin": {
+          "type": "number",
+          "default": 0.1,
+          "description": "With debug.traced_light_carried 1: world units added to the light's distance from the eye.",
+          "x-environment": "HALO_TRACED_LIGHT_STOP_MARGIN",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
