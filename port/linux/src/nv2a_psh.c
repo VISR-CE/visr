@@ -975,10 +975,24 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		light_visibility_emit(&text, "traced_point", "traced_normal");
 		xgpu_text_append(&text, "\tresult.rgb *= traced_lit;\n");
 		/* (debug.traced_light_depth_point 2: a pass with an attenuation coordinate shows how far its depth point is
-		from it, red 1 at a world unit, and green where the depth point lies behind the camera) */
+		from it, red 1 at a world unit, and green where the depth point lies behind the camera. 3: which part of the
+		rebuild is off, against the attenuation point taken into the view: red where the depth is more than 2% off,
+		green where the screen position is more than 0.005 off in normalized device coordinates, blue always) */
 		xgpu_text_append(&text,
-			"\tif (traced_light[6].w > 1.5 && traced_light[3].w > 0.5)\n"
-			"\t\tresult = float4(saturate(length(traced_depth_point - traced_attenuation_point)), light_view.z > 0.0 ? 1.0 : 0.0, 0.0, 1.0);\n");
+			"\tif (traced_light[6].w > 1.5 && traced_light[6].w < 2.5 && traced_light[3].w > 0.5)\n"
+			"\t\tresult = float4(saturate(length(traced_depth_point - traced_attenuation_point)), light_view.z > 0.0 ? 1.0 : 0.0, 0.0, 1.0);\n"
+			"\tif (traced_light[6].w > 2.5 && traced_light[3].w > 0.5)\n"
+			"\t{\n"
+			"\t\tfloat3 light_expected_offset = traced_attenuation_point - float3(traced_light[7].w, traced_light[8].w, traced_light[9].w);\n"
+			"\t\tfloat3 light_expected = float3(dot(light_expected_offset, traced_light[7].xyz) / dot(traced_light[7].xyz, traced_light[7].xyz),\n"
+			"\t\t\tdot(light_expected_offset, traced_light[8].xyz) / dot(traced_light[8].xyz, traced_light[8].xyz),\n"
+			"\t\t\tdot(light_expected_offset, traced_light[9].xyz) / dot(traced_light[9].xyz, traced_light[9].xyz));\n"
+			"\t\tfloat light_expected_z = max(-light_expected.z, 1.0e-4);\n"
+			"\t\tfloat2 light_expected_ndc = float2(light_expected.x * traced_light[5].z / light_expected_z - traced_light[6].x,\n"
+			"\t\t\tlight_expected.y * traced_light[5].w / light_expected_z - traced_light[6].y);\n"
+			"\t\tresult = float4(abs(light_z / light_expected_z - 1.0) > 0.02 ? 1.0 : 0.0,\n"
+			"\t\t\tlength(light_ndc - light_expected_ndc) > 0.005 ? 1.0 : 0.0, 1.0, 1.0);\n"
+			"\t}\n");
 	}
 	xgpu_text_append(&text, "\tfragment_color = clamp(result, 0.0, 1.0);\n");
 	if (dialect->msl)
