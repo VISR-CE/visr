@@ -26,7 +26,7 @@ static inline char const *halo_network_kind_label(unsigned kind)
 
 static inline char const *halo_network_kind_reason(unsigned kind)
 {
-	if (kind & 0x7C || kind > 0xFF) return "This game's kind is unknown.";
+	if (kind & 0x7C || kind > 0xFF) return "This game has an unknown game kind.";
 	if (kind & 0x80) return "Hardcore rules are not supported by VISR.";
 	switch (kind)
 	{
@@ -34,7 +34,7 @@ static inline char const *halo_network_kind_reason(unsigned kind)
 	case 1: return "SWAT rules are not supported by VISR.";
 	case 2: return "Infection is not supported by VISR.";
 	case 3: return "Gun Game is not supported by VISR.";
-	default: return "This game's kind is unknown.";
+	default: return "This game has an unknown game kind.";
 	}
 }
 
