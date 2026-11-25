@@ -708,7 +708,10 @@ static long traced_light_mode(
 	if (frame != rasterizer_globals.fps_accumulation_frame_index)
 	{
 		frame = rasterizer_globals.fps_accumulation_frame_index;
+		/* (the profile's choice, display.traced_lights, with what blocks from the debug setting: -1 follows it) */
 		mode = config_integer("debug.traced_light_blocking");
+		if (mode < 0)
+			mode = config_integer("display.traced_lights") > 0 ? 3 : 0;
 	}
 	return mode;
 }

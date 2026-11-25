@@ -24,12 +24,12 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # new table here.
 # Generation 2 had not shipped when PROFILE_VARIABLE was added (no release read it, no shard was signed), so its table
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
-# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic), when display.encode_thread became a variable-workload setting, when display.scene_precision became a profile key, and again for display.traced_shadows. 0.6.22, cut from
+# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic), when display.encode_thread became a variable-workload setting, when display.scene_precision became a profile key, and again for display.traced_shadows and for display.traced_lights. 0.6.22, cut from
 # the 0.6 line, reads device-profiles-6 (generation 4's keys and that one; tools/profile_pr.py, GENERATIONS).
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "f89c3c9baa5bf2c82c2a07308ce2245e8ae449daac85e278a6949c296fa93492"}
+                   5: "01b52001d9a26ca607ef9ddd1cefc5bde9ebcf0080bc3280072a3ede04947214"}
 
 
 def key_table_sha256(text):
@@ -270,7 +270,7 @@ def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
         for key in refused:
             name = key.partition(".")[2]
             assert not [file for file, text in texts.items() if re.search(rf"^\s*{name}\s*=|{re.escape(key)}", text, re.M)], (domain, key)
-        # (a key no profile sets yet, display.traced_shadows until it is turned on for a device, has nothing to carry)
+        # (a key no profile sets yet, display.traced_shadows or display.traced_lights until one is turned on for a device, has nothing to carry)
         for key in (set(profile_pr.KEY_GENERATIONS) - set(refused)) & used:
             name = key.partition(".")[2]
             assert [file for file, text in texts.items() if re.search(rf"^\s*{name}\s*=", text, re.M)], (domain, key)
@@ -301,7 +301,7 @@ def test_every_profile_key_has_its_generations_recorded():
         "port_profile_keys.h changed: record the new key in profile_pr.KEY_GENERATIONS (the generations that read it)")
     # 0.6.22's generation carries every key this branch adds except the portrait one
     assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait", "display.frames_in_flight_at_30", "display.encode_thread",
-                                                             "display.scene_precision", "display.traced_shadows")
+                                                             "display.scene_precision", "display.traced_shadows", "display.traced_lights")
     assert profile_pr.GENERATIONS[profile_pr.PROFILE_DOMAIN] == ()
 
 

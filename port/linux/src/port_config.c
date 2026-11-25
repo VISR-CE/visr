@@ -267,6 +267,12 @@ static const struct config_setting config_settings[] =
 		"choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs\n"
 		"and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic\n"
 		"and Hardcore turn it off (display.graphics)." },
+	{ "display.traced_lights", _config_integer, "0", "HALO_TRACED_LIGHTS", _environment_value, _platform_ios,
+		"How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the\n"
+		"level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as\n"
+		"the game draws them. A device profile's choice, with display.traced_shadows, for GPUs with ray\n"
+		"tracing hardware (Apple GPU family 9 and later); it needs display.traced_shadows on. Enhanced\n"
+		"graphics only: Classic and Hardcore turn it off (display.graphics)." },
 	{ "display.shadow_props", _config_boolean, "true", "HALO_SHADOW_PROPS", _environment_value, _platform_all,
 		"Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and\n"
 		"light fixtures) a shadow of their own, which the original game never drew for scenery or devices.\n"
@@ -2019,10 +2025,11 @@ static const struct config_setting config_settings[] =
 		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over\n"
 		"the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they\n"
 		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur.", _tier_derived, "footprint|xbox" },
-	{ "debug.traced_light_blocking", _config_integer, "0", "HALO_TRACED_LIGHT_BLOCKING", _environment_value, _platform_ios,
-		"With display.traced_shadows: dynamic lights (the flashlight, plasma, muzzle flashes) light the level\n"
-		"only where a ray from the surface reaches the light. 1 the level's surfaces block; 2 the objects that\n"
-		"cast shadows block too; 3 every object blocks, however faint its own shadow; 0 off." },
+	{ "debug.traced_light_blocking", _config_integer, "-1", "HALO_TRACED_LIGHT_BLOCKING", _environment_value, _platform_ios,
+		"What blocks the lights display.traced_lights traces: 1 the level's surfaces; 2 the objects that cast\n"
+		"shadows too; 3 every object, however faint its own shadow. 0 traces no light whatever the profile\n"
+		"says; -1 (the default) is 3 when display.traced_lights is above 0. A value above 0 also turns the\n"
+		"tracing on without the profile key, for measurements." },
 	{ "debug.traced_light_owner", _config_real, "0.3", "HALO_TRACED_LIGHT_OWNER", _environment_value, _platform_ios,
 		"With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not\n"
 		"block it, so the character carrying a flashlight does not shadow its own beam." },

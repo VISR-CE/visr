@@ -23,6 +23,7 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.shadow_map_size", PORT_PROFILE_LEVEL}, /* atlas target recreation */
 		{"display.shadow_minimum_size", PORT_PROFILE_HOT},
 		{"display.traced_shadows", PORT_PROFILE_HOT}, /* decided again each frame (d3d8_device.c, traced_shadows_frame_on) */
+		{"display.traced_lights", PORT_PROFILE_HOT}, /* read each frame (traced_shadow_casters.c) */
 		{"display.effect_resolution", PORT_PROFILE_LEVEL},
 		{"display.effect_limits", PORT_PROFILE_LEVEL}, /* the decal set is chosen as a map loads */
 		{"display.scene_precision", PORT_PROFILE_LEVEL}, /* the scene's color targets are remade when the value in force changes */

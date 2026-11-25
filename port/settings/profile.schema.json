@@ -85,6 +85,13 @@
           "default": false,
           "description": "Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from it. The game still decides which shadows fall where, how dark and how they fade. A device profile's choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics). Profile values outside the accepted set are refused, not clamped."
         },
+        "traced_lights": {
+          "type": "integer",
+          "minimum": 0.0,
+          "maximum": 128.0,
+          "default": 0,
+          "description": "How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as the game draws them. A device profile's choice, with display.traced_shadows, for GPUs with ray tracing hardware (Apple GPU family 9 and later); it needs display.traced_shadows on. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics). Profile values outside the accepted set are refused, not clamped."
+        },
         "effect_resolution": {
           "type": "string",
           "enum": [
@@ -598,6 +605,13 @@
               "type": "boolean",
               "default": false,
               "description": "Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from it. The game still decides which shadows fall where, how dark and how they fade. A device profile's choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics). Profile values outside the accepted set are refused, not clamped."
+            },
+            "traced_lights": {
+              "type": "integer",
+              "minimum": 0.0,
+              "maximum": 128.0,
+              "default": 0,
+              "description": "How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as the game draws them. A device profile's choice, with display.traced_shadows, for GPUs with ray tracing hardware (Apple GPU family 9 and later); it needs display.traced_shadows on. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics). Profile values outside the accepted set are refused, not clamped."
             },
             "effect_limits": {
               "type": "string",
@@ -1809,6 +1823,94 @@
           ]
         },
         "variable.display.traced_shadows": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "display.traced_lights": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "enum": [
+                "measured",
+                "assumed",
+                "inherited"
+              ]
+            },
+            "why": {
+              "type": "string",
+              "minLength": 20
+            },
+            "source": {
+              "type": "string",
+              "minLength": 10
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "basis",
+            "why"
+          ],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "basis": {
+                    "const": "measured"
+                  }
+                },
+                "required": [
+                  "basis"
+                ]
+              },
+              "then": {
+                "required": [
+                  "source"
+                ]
+              }
+            }
+          ]
+        },
+        "variable.display.traced_lights": {
           "type": "object",
           "properties": {
             "basis": {
