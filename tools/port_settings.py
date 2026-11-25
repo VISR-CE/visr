@@ -160,7 +160,8 @@ SCREENS = {
         # (a row that shows its setting's state word and opens a screen of its own: MAPS, with the three settings
         # that only matter once custom maps are on. The cut rows are config.toml settings in the tuning tier,
         # port_config.c: UPnP port forwarding, the names' size, the scoreboard's layout and panel, and the maps
-        # upload limit)
+        # upload limit). DEFAULTS here resets the rows this screen shows, so the MAPS screen's own DEFAULTS resets the
+        # three map settings: NETWORK's DEFAULTS no longer does
         "opens": {"network.custom_maps": "maps"},
         "rows": [
             ("INTERNET PLAY:", "network.online", ON_OFF,
