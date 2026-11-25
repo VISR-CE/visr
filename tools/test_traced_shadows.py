@@ -184,6 +184,27 @@ def test_an_owner_family_never_blocks_its_own_light(tmp_path):
     assert "record->family = (uint32_t)light_visibility_family(traced.object_index);" in game
 
 
+def test_a_handle_with_the_high_salt_bit_still_gets_a_family(tmp_path):
+    """The class: treating a negative object handle as no object. The guest's long is 32 bits, so a handle whose salt
+    has its high bit set (the player's biped in the Library replay was e4a9023a) is negative, and only NONE (-1) means
+    none. A sign test there gave every family bit 0, so a player's own body blocked his flashlight and muzzle flash."""
+    _run_rule_program(tmp_path, r'''
+    long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    int count = 0;
+    long player = (long)(int)0xe4a9023au, rider = (long)(int)0x8001000cu;
+    assert(player < 0 && rider < 0);
+    assert(light_visibility_family_bit(roots, &count, player, 1) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    assert(light_visibility_family_bit(roots, &count, rider, 1) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(light_visibility_family_bit(roots, &count, player, 0) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    assert(light_visibility_family_bit(roots, &count, -1, 1) == 0);
+    ''')
+    for path in ("port/linux/game/light_visibility.h", "source/objects/object_lights.c",
+                 "port/linux/game/traced_shadow_casters.c"):
+        text = (ROOT / path).read_text()
+        for name in ("root", "object_index", "owner_index"):
+            assert f"if ({name} < 0)" not in text, path
+
+
 def test_the_light_instances_rebuild_when_the_caster_set_changes():
     """The class: a window reusing another window's blockers because it holds as many casters (stale families or
     shadows). The rebuild is keyed on each caster's shadow, structure and family, not on their count."""

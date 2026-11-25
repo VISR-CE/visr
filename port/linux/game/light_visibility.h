@@ -92,7 +92,8 @@ static inline int light_visibility_caster_type(
 }
 
 /* the family bit for a family root, assigning the next free bit (roots[] of count, at most the bits there are); 0
-when none is left. root -1 is no family */
+when none is left. root -1 (NONE) is no family; any other value is a handle, and the guest's 32-bit handles with the
+salt's high bit set are negative */
 static inline int light_visibility_family_bit(
 	long *roots,
 	int *count,
@@ -101,7 +102,7 @@ static inline int light_visibility_family_bit(
 {
 	int i;
 
-	if (root < 0)
+	if (root == -1)
 		return 0;
 	for (i = 0; i < *count; i++)
 		if (roots[i] == root)
