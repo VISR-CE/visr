@@ -49,3 +49,82 @@ def test_no_other_setting_traces_outside_the_class():
     import re
     config = (ROOT / "port/linux/src/port_config.c").read_text()
     assert set(re.findall(r'\{ "(display\.traced_[a-z_]+)"', config)) == set(TRACED_KEYS)
+
+
+def _run_rule_program(tmp_path, body):
+    compiler = shutil.which("cc") or shutil.which("clang") or shutil.which("gcc")
+    if not compiler:
+        pytest.skip("no C compiler")
+    source = tmp_path / "rule.c"
+    source.write_text('#include <assert.h>\n#include "traced_light_rule.h"\nint main(void) {\n' + body + "\nreturn 0;\n}\n")
+    executable = tmp_path / "rule"
+    subprocess.run([compiler, "-std=c99", "-Wall", "-Wextra", "-Werror", "-I", str(ROOT / "port/linux/game"),
+                    str(source), "--output", str(executable)], check=True)
+    subprocess.run([str(executable)], check=True)
+
+
+OWNER_TYPES = {"bipd": 0, "vehi": 1, "weap": 2, "eqip": 3, "garb": 4, "proj": 5,
+               "scen": 6, "mach": 7, "ctrl": 8, "lifi": 9, "plac": 10, "ssce": 11}
+
+
+def test_stock_lights_follow_the_owner_rule(tmp_path):
+    """The class: a designer-placed light going dark. Every dynamic light on the stock maps, by the object type that
+    can own it (tools/traced_light_stock.tsv, from tools/traced_light_census.py), goes through the C rule: scenery
+    and device lights are never traced, unit, weapon, item and projectile lights are, and so are effect lights made
+    on no object (owner groups that are not object types: damage, materials, globals, scripted effects at a point)."""
+    rows = [line.split("\t") for line in (ROOT / "tools/traced_light_stock.tsv").read_text().splitlines()[1:]]
+    assert len(rows) > 50 and any(row[3] == "no" for row in rows) and any(row[3] == "yes" for row in rows)
+    checks = []
+    for light, kind, group, traced, _maps in rows:
+        owner = OWNER_TYPES.get(group, -1)
+        expected = 0 if traced == "no" else 1
+        assert (owner >= 6) == (traced == "no"), (light, kind, group, traced)
+        checks.append("assert(traced_light_owner_traced(%d) == %d);" % (owner, expected))
+    # the flashlights, the case the feature is for, are in the table as traced
+    assert {row[0] for row in rows if row[3] == "yes"} >= {
+        "characters\\cyborg\\flashlight_cyborg", "characters\\marine_armored\\flashlight_marine"}
+    _run_rule_program(tmp_path, "\n".join(sorted(set(checks))))
+
+
+def test_rank_puts_the_own_flashlight_first_and_holds_the_cap(tmp_path):
+    """The class: the cap choosing lights by enumeration order, or a fixture taking a traced light's place."""
+    _run_rule_program(tmp_path, r'''
+    struct traced_light_candidate lights[] = {
+        {10, 5.0, 2, 0}, {11, 9.0, -1, 0}, {12, 1.0, 0, 1}, {13, 50.0, 9, 0}, {14, 9.0, 5, 0}};
+    unsigned char chosen[5];
+    traced_light_rank(lights, 5, 2, 0, chosen);
+    assert(chosen[2] && chosen[1] && !chosen[0] && !chosen[3] && !chosen[4]); /* own, then 9.0 by lower id */
+    traced_light_rank(lights, 5, 128, 0, chosen);
+    assert(chosen[0] && chosen[1] && chosen[2] && !chosen[3] && chosen[4]); /* the light fixture never */
+    traced_light_rank(lights, 5, 128, 1, chosen);
+    assert(chosen[3]); /* debug.traced_lights_fixtures */
+    traced_light_rank(lights, 5, 0, 0, chosen);
+    assert(!chosen[0] && !chosen[1] && !chosen[2] && !chosen[3] && !chosen[4]);
+    ''')
+
+
+def test_new_lights_block_at_once_and_only_the_cap_eases(tmp_path):
+    """The class: a short-lived light (a muzzle flash) easing in and never blocked, or a shadow switching on in one
+    frame because another light went out."""
+    _run_rule_program(tmp_path, r'''
+    struct traced_light_ramp ramp = {0};
+    struct traced_light_candidate a = {1, 4.0, 2, 0}, b = {2, 1.0, 2, 0}, pair[2];
+    unsigned char chosen[2];
+    float strength[2];
+    pair[0] = a; pair[1] = b;
+    /* both new: the chosen one is at full strength on its first frame, the one past the cap at none */
+    chosen[0] = 1; chosen[1] = 0;
+    traced_light_ramp_step(&ramp, pair, chosen, 2, 1000, strength);
+    assert(strength[0] == 1.f && strength[1] == 0.f);
+    /* the cap swaps them: 30 ms later each has moved 30% toward its new place */
+    chosen[0] = 0; chosen[1] = 1;
+    traced_light_ramp_step(&ramp, pair, chosen, 2, 1030, strength);
+    assert(strength[0] > 0.69f && strength[0] < 0.71f && strength[1] > 0.29f && strength[1] < 0.31f);
+    traced_light_ramp_step(&ramp, pair, chosen, 2, 1200, strength);
+    assert(strength[0] == 0.f && strength[1] == 1.f);
+    /* a light that goes away and comes back as new is blocked at once */
+    traced_light_ramp_step(&ramp, pair + 1, chosen + 1, 1, 1216, strength);
+    chosen[0] = 1;
+    traced_light_ramp_step(&ramp, pair, chosen, 2, 1232, strength);
+    assert(strength[0] == 1.f && strength[1] == 1.f);
+    ''')

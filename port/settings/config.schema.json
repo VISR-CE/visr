@@ -3811,6 +3811,16 @@
             "apple"
           ]
         },
+        "traced_lights_fixtures": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and devices, which display.traced_lights leaves as the game draws them), for stills and measurements.",
+          "x-environment": "HALO_TRACED_LIGHTS_FIXTURES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "traced_light_owner": {
           "type": "number",
           "default": 0.3,

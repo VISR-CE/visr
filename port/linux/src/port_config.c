@@ -2030,6 +2030,9 @@ static const struct config_setting config_settings[] =
 		"shadows too; 3 every object, however faint its own shadow. 0 traces no light whatever the profile\n"
 		"says; -1 (the default) is 3 when display.traced_lights is above 0. A value above 0 also turns the\n"
 		"tracing on without the profile key, for measurements." },
+	{ "debug.traced_lights_fixtures", _config_boolean, "false", "HALO_TRACED_LIGHTS_FIXTURES", _environment_value, _platform_ios,
+		"With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and\n"
+		"devices, which display.traced_lights leaves as the game draws them), for stills and measurements." },
 	{ "debug.traced_light_owner", _config_real, "0.3", "HALO_TRACED_LIGHT_OWNER", _environment_value, _platform_ios,
 		"With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not\n"
 		"block it, so the character carrying a flashlight does not shadow its own beam." },

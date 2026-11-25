@@ -36,7 +36,9 @@ int config_boolean(const char *name); /* port/linux/src/port_config.c */
 long config_integer(const char *name);
 double config_real(const char *name);
 void platform_log(const char *format, ...);
+unsigned long system_milliseconds(void); /* cseries_windows.h */
 #include "traced_shadow_casters.h"
+#include "traced_light_rule.h"
 
 #include <xtl.h>
 #include <stdint.h>
@@ -722,6 +724,81 @@ boolean traced_light_every_caster(
 	return traced_light_mode() > 2;
 }
 
+/* What traced_lights_choose decided: per window, the ramp and this frame's strengths by light */
+static struct
+{
+	struct traced_light_ramp ramp[MAXIMUM_WINDOWS];
+	unsigned __int64 frame[MAXIMUM_WINDOWS];
+	float next;
+} traced_lights = { .next = 0.f };
+
+void traced_lights_choose(
+	struct traced_light_candidate const *lights,
+	short count,
+	boolean versus,
+	float *strength)
+{
+	short window = render.window_index;
+	long cap = config_integer("display.traced_lights");
+	unsigned char chosen[TRACED_LIGHT_MAXIMUM];
+	struct traced_light_ramp *ramp;
+	short i, j;
+
+	if (count > TRACED_LIGHT_MAXIMUM)
+		count = TRACED_LIGHT_MAXIMUM;
+	for (i = 0; i < count; i++)
+		strength[i] = 0.f;
+	/* (debug.traced_light_blocking above 0 traces without the profile key, every light up to the game's limit) */
+	if (cap <= 0 && config_integer("debug.traced_light_blocking") > 0)
+		cap = TRACED_LIGHT_MAXIMUM;
+	if (versus || traced_light_mode() <= 0 || cap <= 0 || window < 0 || window >= MAXIMUM_WINDOWS)
+	{
+		if (window >= 0 && window < MAXIMUM_WINDOWS)
+			traced_lights.ramp[window].valid = 0;
+		return;
+	}
+	ramp = &traced_lights.ramp[window];
+	/* (a second eye of the same window and frame: the first's strengths, so the eyes never disagree) */
+	if (ramp->valid && traced_lights.frame[window] == rasterizer_globals.fps_accumulation_frame_index)
+	{
+		for (i = 0; i < count; i++)
+			for (j = 0; j < ramp->count; j++)
+				if (ramp->id[j] == lights[i].id)
+					strength[i] = ramp->strength[j];
+		return;
+	}
+	traced_lights.frame[window] = rasterizer_globals.fps_accumulation_frame_index;
+	traced_light_rank(lights, count, (int)(cap < TRACED_LIGHT_MAXIMUM ? cap : TRACED_LIGHT_MAXIMUM),
+		config_boolean("debug.traced_lights_fixtures"), chosen);
+	traced_light_ramp_step(ramp, lights, chosen, count, system_milliseconds(), strength);
+	/* (how many lights a view has and traces, for the cost runs: over 600 window frames) */
+	{
+		static unsigned long views, total, owned, traced, most;
+		unsigned long view_traced = 0;
+
+		for (i = 0; i < count; i++)
+		{
+			owned += !traced_light_owner_traced(lights[i].owner_type);
+			view_traced += strength[i] > 0.f;
+		}
+		total += (unsigned long)count;
+		traced += view_traced;
+		most = view_traced > most ? view_traced : most;
+		if (++views == 600)
+		{
+			platform_log("traced lights: %lu views, %.2f lights a view, %.2f traced (most %lu), %.2f placed by the level",
+				views, (double)total / views, (double)traced / views, most, (double)owned / views);
+			views = total = owned = traced = most = 0;
+		}
+	}
+}
+
+void traced_light_next(
+	float strength)
+{
+	traced_lights.next = strength;
+}
+
 boolean traced_light_begin(
 	real_point3d const *position,
 	real radius)
@@ -730,8 +807,11 @@ boolean traced_light_begin(
 	long mode = traced_light_mode();
 	float light[TRACED_SHADOWS_LIGHT_FLOATS];
 
+	float strength = traced_lights.next;
+
+	traced_lights.next = 0.f;
 	/* (the level's structure goes with a window's traced shadows, this frame's) */
-	if (mode <= 0 || !traced.world || traced.frame != rasterizer_globals.fps_accumulation_frame_index)
+	if (mode <= 0 || strength <= 0.f || !traced.world || traced.frame != rasterizer_globals.fps_accumulation_frame_index)
 		return FALSE;
 	memset(light, 0, sizeof(light));
 	light[0] = position->x;
@@ -744,6 +824,7 @@ boolean traced_light_begin(
 	if (light[6] < light[4])
 		light[6] = light[4];
 	light[9] = (float)config_integer("debug.traced_light_repeat");
+	light[10] = strength;
 	/* A light the viewer carries (within debug.traced_light_viewer of the eye): the flashlight sits a little ahead
 	of the eye, past the corner of a wall the player stands against, and would lose its whole beam on that wall. Its
 	rays stop short of it by its distance from the eye plus a margin, so what stands within that of the light does
@@ -784,6 +865,9 @@ void traced_shadow_apply(unsigned long id, real_matrix4x3 const *shadow_matrix, 
 	{ (void)id; (void)shadow_matrix; (void)radius; }
 void traced_shadow_apply_end(void) { }
 boolean traced_light_every_caster(void) { return FALSE; }
+void traced_lights_choose(struct traced_light_candidate const *lights, short count, boolean versus, float *strength)
+	{ short i; (void)lights; (void)versus; for (i = 0; i < count; i++) strength[i] = 0.f; }
+void traced_light_next(float strength) { (void)strength; }
 boolean traced_light_begin(real_point3d const *position, real radius) { (void)position; (void)radius; return FALSE; }
 void traced_light_end(void) { }
 

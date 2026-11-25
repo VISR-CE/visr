@@ -756,7 +756,8 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	0.5 - (light - point) / (2 radius); a ray from it to the light against the level (instance mask 2), and when
 	traced_light[1].y is set, a second against the frame's shadow casters (mask 1), which stops traced_light[1].z
 	short of the light so that the carrier of a flashlight does not block its own beam. A blocked point gets none
-	of the light. A light the viewer carries ends every ray traced_light[1].w short of itself.
+	of the light, scaled by its strength traced_light[2].z (traced_light_rule.h: 1, or between while the cap eases
+	it in or out). A light the viewer carries ends every ray traced_light[1].w short of itself.
 	traced_light: traced_shadows_format.h */
 	if (dialect->msl && key->traced_light)
 		xgpu_text_append(&text,
@@ -790,7 +791,7 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t\t\t\t}\n"
 			"\t\t\t\tblocked = hit ? 1.0 : blocked;\n"
 			"\t\t\t}\n"
-			"\t\t\ttraced_lit = 1.0 - blocked;\n"
+			"\t\t\ttraced_lit = 1.0 - blocked * traced_light[2].z;\n"
 			"\t\t}\n"
 			"\t}\n");
 
