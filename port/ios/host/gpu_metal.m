@@ -5807,7 +5807,7 @@ static struct
 {
 	float light[TRACED_SHADOWS_LIGHT_FLOATS];
 	unsigned long frame;      /* the frame the instances were made in */
-	uint32_t made_with;       /* the casters they hold */
+	uint64_t made_with;       /* the casters they hold and their families (traced_light_casters) */
 	uint32_t count;           /* their instances, the level's included */
 	unsigned long draws, builds, skipped; /* since the last log line */
 	int ab;                   /* HALO_RT_LIGHT_AB: every second block of 300 frames skips the rays (cost runs) */
@@ -5822,11 +5822,31 @@ static void traced_light_take(const void *bytes, uint32_t size)
 		memcpy(traced_lights.light, bytes, sizeof(traced_lights.light));
 }
 
+/* what the blockers' instance structure holds: each caster's shadow, structure and family. A window (or a second
+eye) with the same casters reuses the structure; one whose set differs, even at the same count, rebuilds it */
+static uint64_t traced_light_casters(void)
+{
+	uint64_t hash = 14695981039346656037ull;
+	uint32_t shadow;
+
+	for (shadow = 0; shadow < TRACED_SHADOWS_SHADOWS; shadow++)
+	{
+		if (traced.shadow_slot[shadow] && traced_structures[traced.shadow_slot[shadow] - 1])
+		{
+			uint64_t member = ((uint64_t)shadow << 40) ^ ((uint64_t)traced.shadow_slot[shadow] << 8) ^
+				traced.shadow_family[shadow];
+			hash = (hash ^ member) * 1099511628211ull;
+		}
+	}
+	return hash;
+}
+
 /* the blockers' instance structure, made in the frame's command buffer between passes. NO: the light is drawn as
 the game draws it */
 static BOOL traced_light_ready(void)
 {
-	uint32_t shadow, casters = 0;
+	uint32_t shadow;
+	uint64_t casters;
 
 	if (atomic_load(&traced_failed) || !traced_world)
 	{
@@ -5842,8 +5862,7 @@ static BOOL traced_light_ready(void)
 			"since the last line", frames, traced_lights.draws, traced_lights.builds, traced_lights.skipped);
 		traced_lights.draws = traced_lights.builds = traced_lights.skipped = 0;
 	}
-	for (shadow = 0; shadow < TRACED_SHADOWS_SHADOWS; shadow++)
-		casters += traced.shadow_slot[shadow] && traced_structures[traced.shadow_slot[shadow] - 1];
+	casters = traced_light_casters();
 	if (frames != traced_lights.frame || casters != traced_lights.made_with || !traced_light_instances[frame_slot])
 	{
 		@autoreleasepool

@@ -180,3 +180,12 @@ def test_an_owner_family_never_blocks_its_own_light(tmp_path):
     assert "instances[index].mask = index ? masks[index] : 2u;" in host
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
     assert "record->family = (uint32_t)light_visibility_family(traced.object_index);" in game
+
+
+def test_the_light_instances_rebuild_when_the_caster_set_changes():
+    """The class: a window reusing another window's blockers because it holds as many casters (stale families or
+    shadows). The rebuild is keyed on each caster's shadow, structure and family, not on their count."""
+    host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
+    assert "casters = traced_light_casters();" in host
+    assert "casters != traced_lights.made_with" in host
+    assert "casters += traced.shadow_slot" not in host
