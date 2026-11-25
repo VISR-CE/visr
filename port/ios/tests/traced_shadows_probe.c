@@ -182,12 +182,50 @@ static void check_idle(void)
 	traced_cache_reset(&cache);
 }
 
+/* the class: a cache that only gives a slot back when another caster hashes to it keeps every structure ever made.
+The sweep releases every idle caster within a bounded number of frames, a bounded number of slots a frame, and
+never one asked for lately */
+static void check_sweep(void)
+{
+	static struct traced_caster_cache cache;
+	uint32_t shape[3] = { 1, 1, 0 }, slot, object, looked, frame, kept_slot, released_count = 0, used = 0, index;
+	float pose[TRACED_SHADOWS_NODE_FLOATS] = { 0 };
+	int released;
+
+	traced_cache_frame(&cache, 1);
+	for (object = 0; object < 300; object++)
+		traced_cache_decide(&cache, object, shape, sizeof(shape), pose, sizeof(pose), 1, 1, &slot, &released);
+	looked = 0;
+	CHECK(!traced_cache_sweep(&cache, &looked, &slot) && looked == TRACED_SWEEP_SLOTS,
+		"the sweep leaves casters asked for this frame, and looks at its share of the slots only");
+	/* one caster stays in view; the rest are never asked for again */
+	for (frame = 2; frame <= 2 + TRACED_IDLE_FRAMES + TRACED_CASTER_SLOTS / TRACED_SWEEP_SLOTS; frame++)
+	{
+		traced_cache_frame(&cache, frame);
+		CHECK(traced_cache_decide(&cache, 7, shape, sizeof(shape), pose, sizeof(pose), 1, 1, &kept_slot, &released) ==
+			TRACED_REUSE, "a caster in view is reused through the sweeps");
+		looked = 0;
+		while (traced_cache_sweep(&cache, &looked, &slot))
+		{
+			CHECK(slot != kept_slot, "the sweep never releases a caster in view");
+			CHECK(!cache.slots[slot].used, "a swept slot is clear");
+			released_count++;
+		}
+		CHECK(looked == TRACED_SWEEP_SLOTS, "each frame's sweep is bounded");
+	}
+	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
+		used += cache.slots[index].used != 0;
+	CHECK(released_count == 299 && used == 1, "every idle caster is released within the idle time and one pass of the table");
+	traced_cache_reset(&cache);
+}
+
 int main(void)
 {
 	check_skinning();
 	check_records();
 	check_cache();
 	check_idle();
+	check_sweep();
 	if (failures)
 		fprintf(stderr, "traced shadows: %d failures\n", failures);
 	return failures != 0;

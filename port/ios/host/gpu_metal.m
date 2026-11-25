@@ -5438,6 +5438,14 @@ static void traced_fail(const char *what)
 		platform_log("traced shadows: %s; shadows are drawn from their maps from the next frame", what);
 }
 
+/* a slot's structure goes (its caster left the cache, or another takes the slot) */
+static void traced_structure_release(uint32_t slot)
+{
+	traced.structure_bytes -= MIN(traced.structure_bytes, traced.structure_size[slot]);
+	traced_structures[slot] = nil;
+	traced.structure_size[slot] = 0;
+}
+
 static void traced_frame_check(void)
 {
 	if (traced.frame == frames)
@@ -5460,6 +5468,12 @@ static void traced_frame_check(void)
 	traced.vertices_used = 0;
 	traced.apply = TRACED_SHADOWS_SHADOWS;
 	traced_cache_frame(&traced.cache, frames);
+	{
+		uint32_t looked = 0, slot;
+
+		while (traced_cache_sweep(&traced.cache, &looked, &slot))
+			traced_structure_release(slot);
+	}
 }
 
 static void traced_reset(uint32_t epoch)
@@ -5568,11 +5582,7 @@ static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
 	decision = traced_cache_decide(&traced.cache, caster->object, shape, caster->shape_size, pose, caster->pose_size,
 		triangles, traced_refit_allowed(), &slot, &released);
 	if (released)
-	{
-		traced.structure_bytes -= MIN(traced.structure_bytes, traced.structure_size[slot]);
-		traced_structures[slot] = nil;
-		traced.structure_size[slot] = 0;
-	}
+		traced_structure_release(slot);
 	if (decision == TRACED_REFUSED)
 		return;
 	if (decision == TRACED_REUSE)

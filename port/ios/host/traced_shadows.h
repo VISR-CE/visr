@@ -36,6 +36,8 @@ enum
 	TRACED_REFIT_LIMIT = 120,
 	TRACED_REBUILDS_A_FRAME = 4,
 	TRACED_IDLE_FRAMES = 60,
+	/* slots a frame's sweep looks at for idle casters to release (the whole table in about half a second) */
+	TRACED_SWEEP_SLOTS = 32,
 	/* triangles of every caster built or updated in a frame; a caster past it has no shadow that frame */
 	TRACED_FRAME_TRIANGLES = 200000,
 };
@@ -154,6 +156,7 @@ struct traced_caster_cache
 	struct traced_caster_slot slots[TRACED_CASTER_SLOTS];
 	uint64_t frame;
 	uint32_t rebuilds; /* periodic ones this frame */
+	uint32_t sweep; /* where the next frame's sweep starts */
 	uint32_t frame_triangles;
 	/* since the last log line */
 	uint32_t reuses, refits, builds, refused;
@@ -192,7 +195,29 @@ static inline void traced_cache_reset(struct traced_caster_cache *cache)
 
 	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
 		traced_slot_clear(&cache->slots[index]);
-	cache->rebuilds = cache->frame_triangles = 0;
+	cache->rebuilds = cache->frame_triangles = cache->sweep = 0;
+}
+
+/* A frame's share of the sweep that releases casters nothing has asked for in TRACED_IDLE_FRAMES frames (a player who
+left the view, a body that faded, a level of detail no longer drawn), so the structures' memory follows what is on
+screen and not everything that ever was: call until it answers 0; each 1 names a slot (*slot_index) that is now
+clear and whose structure the caller releases */
+static inline int traced_cache_sweep(struct traced_caster_cache *cache, uint32_t *looked, uint32_t *slot_index)
+{
+	while (*looked < TRACED_SWEEP_SLOTS)
+	{
+		struct traced_caster_slot *slot = &cache->slots[cache->sweep];
+
+		cache->sweep = (cache->sweep + 1) & (TRACED_CASTER_SLOTS - 1);
+		(*looked)++;
+		if (slot->used && slot->frame + TRACED_IDLE_FRAMES < cache->frame)
+		{
+			*slot_index = (uint32_t)(slot - cache->slots);
+			traced_slot_clear(slot);
+			return 1;
+		}
+	}
+	return 0;
 }
 
 static inline int traced_slot_copy(struct traced_caster_slot *slot, const uint32_t *shape, uint32_t shape_size,
