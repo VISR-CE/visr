@@ -3330,6 +3330,20 @@ every row; the column keeps its right edge, so the spinners and their
 arrows stay where the rows' ends are and the labels keep the rest. Values
 set here and nowhere else (the display's rate, its resolutions) are in the
 spinners' lists by now, so they are measured too. */
+/* a widget a setting is bound to (setting_add), asked while the menus are built, so without the display-rate
+refresh pc_menu_setting_get makes */
+static boolean definition_is_setting(long definition_index)
+{
+	long index;
+
+	for (index = 0; index < menu_tags.setting_count; index++)
+	{
+		if (menu_tags.settings[index].definition_index == definition_index)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void option_columns_fit(struct ui_widget_definition const *list, char const *name)
 {
 	struct ui_widget_child_reference const *rows = list->child_widgets.address;
@@ -3384,7 +3398,10 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 
 				labels = OPTION_MAX(labels, reach);
 			}
-			if (part->type != _widget_type_spinner_list || part->child_widgets.count)
+			/* (a spinner's values, or the state word of a row that opens a screen of its own: a text of a setting
+			takes part in the value column the same way, so the two line up) */
+			if (!((part->type == _widget_type_spinner_list && !part->child_widgets.count) ||
+				(part->type == _widget_type_text_box && definition_is_setting(pieces[piece].widget_tag.index))))
 				continue;
 			for (index = 0; index < strings->strings.count; index++)
 			{
