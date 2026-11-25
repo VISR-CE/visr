@@ -3418,6 +3418,21 @@ void halo_light_visibility_key(int path)
 		LIGHT_VISIBILITY_NONE;
 }
 
+/* the view's rectangle in the render target's pixels (x, y, width, height), which a traced light's pass rebuilds
+its pixels' world points in (traced_shadow_casters.c), as ambient occlusion does; 0 when there is none */
+int halo_light_visibility_view(float rect[4])
+{
+	struct render_target_entry *color = render_target_get(device.render_target);
+
+	if (!color)
+		return 0;
+	rect[0] = floorf((float)native_scene_bounds[0] * color->target.scale[0] + 0.5f);
+	rect[1] = floorf((float)native_scene_bounds[1] * color->target.scale[1] + 0.5f);
+	rect[2] = floorf((float)native_scene_bounds[2] * color->target.scale[0] + 0.5f) - rect[0];
+	rect[3] = floorf((float)native_scene_bounds[3] * color->target.scale[1] + 0.5f) - rect[1];
+	return rect[2] > 0.0f && rect[3] > 0.0f;
+}
+
 /* the draws that follow are (on) or are no longer a traced shadow's apply draws */
 void halo_traced_shadows_key(int on)
 {

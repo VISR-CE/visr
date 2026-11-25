@@ -29,8 +29,8 @@ void lights_choose_visibility(
 	void);
 /* port: the next draws are a dynamic light's over the level, blocked by its source (light_visibility_next); FALSE
 when they are drawn as the game draws them. light_visibility_end after them. The pass's distance attenuation
-coordinate is texture stage attenuation_stage, made as 0.5 - (light - point) / (2 attenuation_radius); a stage
-of NONE is a pass without one (the specular spot light's), which is drawn as the game draws it for now */
+coordinate is texture stage attenuation_stage, made as 0.5 - (light - point) / (2 attenuation_radius); stage 0
+is a pass without one (the specular spot light's), whose lit point is rebuilt from depth */
 boolean light_visibility_begin(
 	union real_point3d const *position,
 	real radius,

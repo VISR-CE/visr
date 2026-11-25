@@ -3412,6 +3412,9 @@ static void rasterizer_environment_specular_spot_light_begin(
 		pixel_shader.final_combiner_inputs_abcd = 0x0C0F0000;
 		pixel_shader.final_combiner_inputs_efg = 0x1D330D00;
 		rasterizer_set_pixel_shader(&pixel_shader);
+		/* port: the highlight reaches only what its visibility source says (light_visibility.h); without an
+		attenuation coordinate, its lit point comes from depth */
+		light_visibility_begin(&light->position, light->radius, 0, radius);
 	}
 	return;
 }

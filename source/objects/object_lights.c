@@ -1987,7 +1987,7 @@ boolean light_visibility_begin(
 	switch (path)
 	{
 	case LIGHT_VISIBILITY_TRACED:
-		return attenuation_stage == 1 || attenuation_stage == 2
+		return attenuation_stage >= 0 && attenuation_stage <= 2
 			? traced_light_begin(position, radius, strength, family, attenuation_stage, attenuation_radius)
 			: FALSE;
 	default:

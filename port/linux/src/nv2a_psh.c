@@ -809,14 +809,33 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t}\n");
 
 	/* A dynamic light that walls and characters block (nv2a_pixel_shader_key light_visibility traced; Metal): the level's
-	diffuse and specular point light passes (rasterizer_xbox_environment.c) draw each light's surfaces once more,
+	diffuse and specular light passes (rasterizer_xbox_environment.c) draw each light's surfaces once more,
 	additively. The lit point is rebuilt from the pass's distance attenuation coordinates (stage traced_light[3].w: 2
-	diffuse, 1 specular, whose radius is the specular one), which the game's vertex shader makes as
-	0.5 - (light - point) / (2 radius), exactly and the same for either eye; its geometric normal comes from the
+	diffuse, 1 specular point, whose radius is the specular one), which the game's vertex shader makes as
+	0.5 - (light - point) / (2 radius), exactly and the same for either eye. The specular spot pass has none (stage
+	0), and debug.traced_light_depth_point asks every pass for it (traced_light[6].w): its point comes from the
+	fragment's depth, the view's rectangle, projection and view_to_world (traced_light[4]-[9],
+	traced_shadow_casters.c's traced_light_view), through the eye's rate map on a foveated pass (traced_light[6].z),
+	as ambient occlusion rebuilds its points; its geometric normal comes from the
 	point's screen derivatives, here, while every pixel of the quad still runs. light_visibility_emit traces it */
 	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(&text,
-			"\tfloat3 traced_point = traced_light[0].xyz + ((traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz) - 0.5) * (2.0 * traced_light[0].w);\n"
+			"\tfloat2 light_screen = light_position.xy;\n"
+			"\tif (traced_light[6].z > 0.5)\n"
+			"\t{\n"
+			"\t\trasterization_rate_map_decoder light_decoder(rate_map);\n"
+			"\t\tlight_screen = light_decoder.map_physical_to_screen_coordinates(light_position.xy);\n"
+			"\t}\n"
+			"\tfloat2 light_ndc = float2((light_screen.x - traced_light[4].x) / traced_light[4].z * 2.0 - 1.0,\n"
+			"\t\t1.0 - (light_screen.y - traced_light[4].y) / traced_light[4].w * 2.0);\n"
+			"\tfloat light_far_side = 1.0 - light_position.z;\n"
+			"\tfloat light_z = traced_light[5].x * traced_light[5].y / (traced_light[5].y - light_far_side * (traced_light[5].y - traced_light[5].x));\n"
+			"\tfloat3 light_view = float3((light_ndc.x + traced_light[6].x) / traced_light[5].z * light_z,\n"
+			"\t\t(light_ndc.y + traced_light[6].y) / traced_light[5].w * light_z, -light_z);\n"
+			"\tfloat3 traced_point = float3(traced_light[7].w, traced_light[8].w, traced_light[9].w) + traced_light[7].xyz * light_view.x +\n"
+			"\t\ttraced_light[8].xyz * light_view.y + traced_light[9].xyz * light_view.z;\n"
+			"\tif (traced_light[3].w > 0.5 && traced_light[6].w < 0.5)\n"
+			"\t\ttraced_point = traced_light[0].xyz + ((traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz) - 0.5) * (2.0 * traced_light[0].w);\n"
 			"\tfloat3 traced_normal = cross(dfdx(traced_point), dfdy(traced_point));\n");
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */

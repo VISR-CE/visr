@@ -2646,6 +2646,12 @@ static NSArray *test_map(NSUInteger width, NSUInteger height)
 }
 
 /* the eye's map for a foveated target this frame, or nil */
+/* the open pass's rate map parameters (nil when it is not a foveated eye's), and whether bind_stages bound a
+sampled foveated target's map for the current draw: a traced light rebuilt from depth decodes the pass's own
+(traced_light_bind) */
+static __strong id<MTLBuffer> pass_rate_map_data;
+static BOOL stages_rate_map;
+
 static id<MTLRasterizationRateMap> foveation_map(MetalTexture *record)
 {
 	id<MTLRasterizationRateMap> map;
@@ -2909,6 +2915,7 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 	/* a foveated eye's targets render through its map; both attachments are
 	the eye's then, at the same allocated size */
 	pass.rasterizationRateMap = foveation_map(color ? color_record : depth_record);
+	pass_rate_map_data = pass.rasterizationRateMap ? foveation_parameters(color ? color_record : depth_record) : nil;
 	if (color && depth && foveation_map(color_record) != foveation_map(depth_record))
 	{
 		static int logged;
@@ -5048,6 +5055,7 @@ static void bind_stages(const struct gpu_draw *draw, unsigned exact)
 	float foveation[GPU_STAGE_COUNT][2][4];
 	id<MTLBuffer> foveation_map_data = nil;
 
+	stages_rate_map = NO;
 	memset(foveation, 0, sizeof(foveation));
 	for (stage = 0; stage < GPU_STAGE_COUNT; stage++)
 	{
@@ -5124,6 +5132,7 @@ static void bind_stages(const struct gpu_draw *draw, unsigned exact)
 	{
 		/* set on every foveated draw (the state cache doesn't track them) */
 		[encoder setFragmentBuffer:foveation_map_data offset:0 atIndex:1];
+		stages_rate_map = YES;
 		metal_state_always(&state_cache);
 		[encoder setFragmentBytes:foveation length:sizeof(foveation) atIndex:2];
 		metal_state_always(&state_cache);
@@ -5945,6 +5954,18 @@ static void traced_light_bind(void)
 	if (traced_lights.ab < 0)
 		traced_lights.ab = getenv("HALO_RT_LIGHT_AB") != NULL;
 	light[8] = traced_lights.ab && ((frames / 300) & 1) ? 1.0f : 0.0f;
+	/* (the pass's rate map, for a lit point rebuilt from depth on a foveated pass; a stand-in on any other, which
+	the shader declares but does not read) */
+	light[26] = pass_rate_map_data ? 1.0f : 0.0f;
+	if (!stages_rate_map)
+	{
+		static __strong id<MTLBuffer> stand_in;
+
+		if (!pass_rate_map_data && !stand_in)
+			stand_in = [device newBufferWithLength:256 options:MTLResourceStorageModeShared];
+		[encoder setFragmentBuffer:pass_rate_map_data ? pass_rate_map_data : stand_in offset:0 atIndex:1];
+		metal_state_always(&state_cache);
+	}
 	/* (an instance structure's members are not bound with it: each is made resident for the fragment stage) */
 	for (id<MTLAccelerationStructure> member in traced_light_members[frame_slot])
 		[encoder useResource:member usage:MTLResourceUsageRead stages:MTLRenderStageFragment];

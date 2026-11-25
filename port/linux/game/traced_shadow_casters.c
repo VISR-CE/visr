@@ -39,6 +39,7 @@ void platform_log(const char *format, ...);
 unsigned long system_milliseconds(void); /* cseries_windows.h */
 #include "traced_shadow_casters.h"
 #include "light_visibility.h"
+#include "../src/halo_stereo.h"
 
 #include <xtl.h>
 #include <stdint.h>
@@ -57,6 +58,7 @@ int halo_traced_shadows_window_begin(float p11);
 void halo_traced_shadows_window_end(void);
 void halo_traced_shadows_key(int on);
 void halo_light_visibility_key(int path);
+int halo_light_visibility_view(float rect[4]);
 void halo_traced_shadows_basis(float values[4]);
 void halo_traced_shadows_cover(float x0, float y0, float x1, float y1);
 const void *halo_vertex_buffer_bytes(const void *buffer);
@@ -792,6 +794,51 @@ void traced_lights_choose(
 	}
 }
 
+/* the window's camera in a traced light's floats (traced_shadows_format.h's TRACED_SHADOWS_LIGHT): its position
+(12-14), which turns each pixel's geometric normal toward the side it is seen from, and what rebuilds a pixel's
+world point from its depth (nv2a_psh.c): the view's rectangle in the target's pixels (16-19), the depth's near and
+far (20, 21; from the projection's depth row when it has one, as ambient occlusion does), the projection's p00, p11,
+p20 and p21 (22-25) and view_to_world's forward, left and up with the scale in them, each beside one coordinate of
+its position (28-39). Float 26 is the host's (a foveated pass). FALSE when the view has no rectangle or projection */
+static boolean traced_light_view(
+	float light[TRACED_SHADOWS_LIGHT_FLOATS])
+{
+	struct render_frustum const *frustum = &global_window_parameters.frustum;
+	real_matrix4x3 const *view = &frustum->view_to_world;
+	real const (*projection)[4] = frustum->projection_matrix;
+	real scale = view->scale;
+
+	light[12] = global_window_parameters.camera.position.x;
+	light[13] = global_window_parameters.camera.position.y;
+	light[14] = global_window_parameters.camera.position.z;
+	if (!frustum->projection_valid || !halo_light_visibility_view(&light[16]))
+		return FALSE;
+	light[20] = frustum->z_near;
+	light[21] = frustum->z_far;
+	if (projection[2][2] != 1.f && projection[2][2] != -1.f && projection[3][2] != 0.f)
+	{
+		light[20] = projection[3][2] / (projection[2][2] - 1.f);
+		light[21] = projection[3][2] / (projection[2][2] + 1.f);
+	}
+	light[22] = projection[0][0];
+	light[23] = projection[1][1];
+	light[24] = projection[2][0];
+	light[25] = projection[2][1];
+	light[28] = view->forward.i * scale;
+	light[29] = view->forward.j * scale;
+	light[30] = view->forward.k * scale;
+	light[31] = view->position.x;
+	light[32] = view->left.i * scale;
+	light[33] = view->left.j * scale;
+	light[34] = view->left.k * scale;
+	light[35] = view->position.y;
+	light[36] = view->up.i * scale;
+	light[37] = view->up.j * scale;
+	light[38] = view->up.k * scale;
+	light[39] = view->position.z;
+	return TRUE;
+}
+
 boolean traced_light_begin(
 	real_point3d const *position,
 	real radius,
@@ -824,10 +871,7 @@ boolean traced_light_begin(
 	light[9] = (float)config_integer("debug.traced_light_repeat");
 	light[10] = (float)strength;
 	light[11] = (float)family;
-	/* (the camera, which turns each pixel's geometric normal toward the side it is seen from: nv2a_psh.c) */
-	light[12] = render.camera.position.x;
-	light[13] = render.camera.position.y;
-	light[14] = render.camera.position.z;
+	light[27] = config_boolean("debug.traced_light_depth_point") ? 1.f : 0.f;
 	/* every ray ends this short of the light, so that a light resting on a surface (a stuck plasma grenade) or inside
 	a projectile's model is not blocked by what it touches */
 	light[7] = (float)(0.02f * radius > 0.05f ? 0.02f * radius : 0.05f);
@@ -850,7 +894,25 @@ boolean traced_light_begin(
 	if ((calls++ % 600) == 0)
 		platform_log("traced light: %.2f %.2f %.2f radius %.1f, %.3f from the eye", position->x, position->y,
 			position->z, radius, (float)distance3d(position, &render.camera.position));
-	host_traced_shadows_data(TRACED_SHADOWS_LIGHT, 0, light, sizeof(light));
+	/* (a pass without an attenuation coordinate rebuilds its point from depth, which needs the view's rectangle) */
+	if (!traced_light_view(light) && (attenuation_stage == 0 || light[27] > 0.f))
+		return FALSE;
+	/* (the second eye's replay draws these draws again for eye 1: its record carries eye 1's camera) */
+	if (rasterizer_other_eye_draws())
+	{
+		halo_stereo_replay_eye(HALO_STEREO_REPLAY_EYE_0);
+		host_traced_shadows_data(TRACED_SHADOWS_LIGHT, 0, light, sizeof(light));
+		if (rasterizer_other_eye_begin())
+		{
+			halo_stereo_replay_eye(HALO_STEREO_REPLAY_EYE_1);
+			traced_light_view(light);
+			host_traced_shadows_data(TRACED_SHADOWS_LIGHT, 0, light, sizeof(light));
+			rasterizer_other_eye_end();
+		}
+		halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);
+	}
+	else
+		host_traced_shadows_data(TRACED_SHADOWS_LIGHT, 0, light, sizeof(light));
 	halo_light_visibility_key(LIGHT_VISIBILITY_TRACED);
 	return TRUE;
 }

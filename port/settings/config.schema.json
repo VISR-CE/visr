@@ -3821,6 +3821,16 @@
             "apple"
           ]
         },
+        "traced_light_depth_point": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.traced_lights: every traced light pass rebuilds its lit points from depth, as the specular spot pass must, instead of from its attenuation coordinate; stills with and without it prove the two agree.",
+          "x-environment": "HALO_TRACED_LIGHT_DEPTH_POINT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "traced_light_owner": {
           "type": "number",
           "default": 0.3,

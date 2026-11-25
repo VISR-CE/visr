@@ -236,7 +236,8 @@ def test_the_visibility_function_compiles_for_metal(tmp_path):
         "fragment float4 fragment_main(FragmentIn in [[stage_in]],\n"
         " metal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],\n"
         " metal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],\n"
-        " constant float4 *traced_light [[buffer(8)]])\n{\n\tfloat4 xT1 = in.xT1, xT2 = in.xT2;\n"
+        " constant float4 *traced_light [[buffer(8)]], float4 light_position [[position]],\n"
+        " constant rasterization_rate_map_data &rate_map [[buffer(1)]])\n{\n\tfloat4 xT1 = in.xT1, xT2 = in.xT2;\n"
         + before + "\tfloat4 result = xT2;\n" + body + "\tresult.rgb *= traced_lit;\n\treturn result;\n}\n")
     subprocess.run(["xcrun", "--sdk", "macosx", "metal", "-c", str(source), "-o", str(tmp_path / "light.air")],
                    check=True)
@@ -256,3 +257,23 @@ def test_highlights_are_blocked_where_the_diffuse_light_is():
     assert lights.count("light_visibility_for_slot(light_index, &path, &strength);") == 2
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     assert "(traced_light[3].w > 1.5 ? xT2.xyz : xT1.xyz)" in shader
+
+
+def test_a_pass_without_an_attenuation_coordinate_rebuilds_its_point_from_depth():
+    """The class: a point rebuilt in the wrong space (a foveated eye's physical pixels, eye 0's camera in eye 1's
+    replay, a view rectangle from another target). The spot pass's point comes from depth like ambient occlusion's,
+    through the pass's rate map; the second eye's replay gets a light record with eye 1's camera; and
+    debug.traced_light_depth_point runs the same path in every pass, so stills prove it matches the attenuation
+    point."""
+    environment = (ROOT / "source/rasterizer/xbox/rasterizer_xbox_environment.c").read_text()
+    assert "light_visibility_begin(&light->position, light->radius, 0, radius);" in environment
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    assert "light_decoder.map_physical_to_screen_coordinates(light_position.xy)" in shader
+    assert "if (traced_light[3].w > 0.5 && traced_light[6].w < 0.5)" in shader
+    game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
+    replay = game[game.index("if (rasterizer_other_eye_draws())"):]
+    replay = replay[:replay.index("halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);")]
+    assert replay.index("HALO_STEREO_REPLAY_EYE_1") < replay.index("traced_light_view(light);")
+    assert "global_window_parameters.camera.position.x" in game
+    host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
+    assert "light[26] = pass_rate_map_data ? 1.0f : 0.0f;" in host

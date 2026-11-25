@@ -376,7 +376,11 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(text, ",\n\tmetal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],"
 			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"
-			"\n\tconstant float4 *traced_light [[buffer(8)]]");
+			"\n\tconstant float4 *traced_light [[buffer(8)]], float4 light_position [[position]]");
+	/* (a traced light rebuilt from depth on a foveated pass decodes the eye's rate map: gpu_metal.m binds the pass's
+	map at buffer 1, or a stand-in on a pass without one) */
+	if (key->light_visibility == LIGHT_VISIBILITY_TRACED && !foveated)
+		xgpu_text_append(text, ",\n\tconstant rasterization_rate_map_data &rate_map [[buffer(1)]]");
 	/* per-pixel lighting reads the vertex constants (gpu_metal.m binds them
 	to every pixel shader at buffer 4) */
 	if (lighting)
