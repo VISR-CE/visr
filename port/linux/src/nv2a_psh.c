@@ -822,10 +822,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	0.5 - (light - point) / (2 radius), exactly and the same for either eye. The specular spot pass has none
 	(LIGHT_VISIBILITY_STAGE_NONE), and debug.traced_light_depth_point asks every pass for it (depth_point_mode): its
 	point comes from the fragment's depth, the view's rectangle, projection and view_to_world (traced_shadow_casters.c's
-	traced_light_view). The depth is the reverse of the game's GL-style normalized depth
-	taken as the 0-1 range, as the Xbox's screen conversion takes it (nothing remaps -1-1), so a distance d is stored
-	as 1 - (-p22 + p32 / d) and comes back as p32 / (p22 + 1 - depth): reading it as a near-to-far range of the
-	frustum's near and far halves every distance. The pixel goes through the eye's rate map on a foveated pass
+	traced_light_view). The depth is the reverse of the projection's normalized depth -p22 + p32 / d, taken
+	as it is (0 at the near plane, 1 at the far, render_cameras.c), so a distance d comes back as
+	p32 / (p22 + 1 - depth) from the frame's own depth row, whichever near and far made it. The pixel goes through the eye's rate map on a foveated pass
 	(foveated), as ambient occlusion's do; its geometric normal comes from the
 	point's screen derivatives, here, while every pixel of the quad still runs. light_visibility_emit traces it */
 	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)

@@ -343,20 +343,24 @@ def test_highlights_are_blocked_where_the_diffuse_light_is():
 
 
 def test_a_depth_point_decodes_the_depth_the_xbox_conversion_stores():
-    """The class: a depth decoded with another convention than the one that stored it. The game's projection is
-    GL-style (normalized depth -p22 + p32 / d, -1 at the near plane), the Xbox's screen conversion takes that as the
-    0-1 range without remapping, and Metal stores its reverse. Decoding it as a near-to-far range of the frustum's
-    near and far halved every distance, so the spot pass's rays started inside the floor."""
+    """The class: a depth decoded with another convention than the one that stored it. The projection's normalized
+    depth is -p22 + p32 / d, 0 at the near plane and 1 at the far (render_cameras.c), and Metal stores its reverse.
+    Near and far derived from the depth row as if it were GL-style (-1 at the near plane) halved every distance, so
+    the spot pass's rays started inside the floor. The decode reads the frame's own row, whatever made it."""
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     assert "float light_z = traced_light.depth_p32 / (traced_light.depth_p22 + 1.0 - light_position.z);" in shader
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
     assert "light->depth_p22 = projection[2][2];" in game and "light->depth_p32 = projection[3][2];" in game
+    assert "light->depth_p22 = -frustum->z_far / (frustum->z_far - frustum->z_near);" in game
     near, far = 0.0078125, 1024.0
-    p22 = -(near + far) / (far - near)
-    p32 = -2.0 * near * far / (far - near)
+    p22 = -far / (far - near)
+    p32 = -far * near / (far - near)
+    assert abs(-p22 + p32 / near) < 1e-9 and abs(-p22 + p32 / far - 1.0) < 1e-9
     for distance in (0.05, 0.5, 3.0, 40.0, 900.0):
         stored = 1.0 - (-p22 + p32 / distance)
         assert abs(p32 / (p22 + 1.0 - stored) / distance - 1.0) < 1e-9
+        # (near derived as if GL-style, p32 / (p22 - 1), is half the true near: the old decode's halving)
+    assert abs(p32 / (p22 - 1.0) / near - 0.5) < 1e-5
 
 
 def test_a_pass_without_an_attenuation_coordinate_rebuilds_its_point_from_depth():

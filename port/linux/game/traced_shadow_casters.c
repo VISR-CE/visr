@@ -807,8 +807,8 @@ void traced_lights_choose(
 
 /* the window's camera in a traced light's record (traced_shadows_format.h's struct traced_shadows_light): its
 position, which turns each pixel's geometric normal toward the side it is seen from, and what rebuilds a pixel's
-world point from its depth (nv2a_psh.c): the view's rectangle in the target's pixels, the projection's GL-style
-depth row (made from the frustum's near and far when it has none), its x and y, and view_to_world with the scale in
+world point from its depth (nv2a_psh.c): the view's rectangle in the target's pixels, the projection's depth row
+(normalized depth -p22 + p32 / d, 0 at the near plane; made from the frustum's near and far when it has none), its x and y, and view_to_world with the scale in
 it. foveated is the host's. FALSE when the view has no rectangle or projection */
 static boolean traced_light_view(
 	struct traced_shadows_light *light)
@@ -827,8 +827,8 @@ static boolean traced_light_view(
 	light->depth_p32 = projection[3][2];
 	if (light->depth_p32 == 0.f && frustum->z_far > frustum->z_near)
 	{
-		light->depth_p22 = -(frustum->z_near + frustum->z_far) / (frustum->z_far - frustum->z_near);
-		light->depth_p32 = -2.f * frustum->z_near * frustum->z_far / (frustum->z_far - frustum->z_near);
+		light->depth_p22 = -frustum->z_far / (frustum->z_far - frustum->z_near);
+		light->depth_p32 = -frustum->z_far * frustum->z_near / (frustum->z_far - frustum->z_near);
 	}
 	light->p00 = projection[0][0];
 	light->p11 = projection[1][1];

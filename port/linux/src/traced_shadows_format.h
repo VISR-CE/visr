@@ -109,7 +109,7 @@ packed_float4 in the shader, 4-byte aligned on both sides):
 - camera: the eye's position (the side a pixel is seen from); attenuation_stage: the texture stage of the pass's
   attenuation coordinate, LIGHT_VISIBILITY_STAGE_NONE for none (light_visibility.h)
 - view_rect: the view in the target's pixels (x, y, width, height); depth_p22, depth_p32: the projection's
-  GL-style depth row; p00, p11, p20, p21: its x and y; foveated: 1 on a foveated pass (host); depth_point_mode:
+  depth row (normalized depth -p22 + p32 / d); p00, p11, p20, p21: its x and y; foveated: 1 on a foveated pass (host); depth_point_mode:
   debug.traced_light_depth_point
 - view_forward, view_left, view_up (scaled) and view_x, view_y, view_z: view_to_world, to rebuild a point from depth
 - depth_bias: the fraction of its view distance a point rebuilt from depth starts its ray off its surface */
