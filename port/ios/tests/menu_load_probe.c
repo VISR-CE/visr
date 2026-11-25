@@ -314,11 +314,6 @@ int halo_menus_art_needs_save(char const *cache_path) { (void)cache_path; return
 int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
 { (void)hardware_format; (void)cache_path; return 0; }
 
-static long map_widget_named(char const *name)
-{
-	return widget_add(name, _widget_type_container, 0, 0, 640, 480);
-}
-
 int main(int argc, char **argv)
 {
 	FILE *list;
@@ -341,22 +336,39 @@ int main(int argc, char **argv)
 		function_names[function_count++] = strdup(line);
 	}
 	fclose(list);
+	/* ui.map's tags, one to a line, each in the one group it has: "W TYPE NAME" a widget (TYPE 0 container, 1 text
+	box, 2 spinner list, 3 column list), "B" a bitmap, "S" a string list, "F" a font, "N" a sound */
 	list = fopen(argv[2], "r");
 	if (!list)
 		return 2;
 	while (fgets(line, sizeof(line), list))
 	{
-		char *name;
+		char *name = line + 2;
 
 		line[strcspn(line, "\r\n")] = 0;
 		if (!*line)
 			continue;
-		name = strdup(line);
-		map_widget_named(name);
-		bitmap_add(name, 8);
-		strings_add(name, 64);
-		map_add(FONT_TAG, name, calloc(1, 1));
-		map_add(SOUND_TAG, name, calloc(1, 1));
+		switch (line[0])
+		{
+		case 'W':
+			widget_add(strdup(name + 2), (short)(name[0] - '0'), 0, 0, 640, 480);
+			break;
+		case 'B':
+			bitmap_add(strdup(name), 8);
+			break;
+		case 'S':
+			strings_add(strdup(name), 64);
+			break;
+		case 'F':
+			map_add(FONT_TAG, strdup(name), calloc(1, 1));
+			break;
+		case 'N':
+			map_add(SOUND_TAG, strdup(name), calloc(1, 1));
+			break;
+		default:
+			fprintf(stderr, "unknown tag line: %s\n", line);
+			return 2;
+		}
 	}
 	fclose(list);
 	menu_tags_loaded("ui");

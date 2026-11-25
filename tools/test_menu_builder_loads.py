@@ -4,9 +4,11 @@ Bug class: a menu file the builder refuses ("menus: not added; using the game's 
 and a rule the builder has that Python only mirrors (a widget attribute allowed on one type, a name that must resolve) is
 not tested by the mirror. port/ios/tests/menu_load_probe.c includes port/linux/game/menu_tags.c and menu_files.c, embeds
 the shipped port/assets/menus/xbox/*.xml (patches.xml left out: tools/test_shipped_menu_patches.py resolves it against
-the disc's tags) and loads them against a ui.map of the tags those files name, once for each platform set.
+the disc's tags) and loads them against a ui.map that has the disc's tags, no others (tools/fixtures/disc_menu_layout.json:
+its widgets and the bitmaps, string lists and fonts they name, each in its own group), once for each platform set.
 """
 from pathlib import Path
+import json
 import re
 import shutil
 import subprocess
@@ -35,13 +37,39 @@ PLATFORM_SETS = {
 TAG_ATTRIBUTES = ("font", "map", "widget", "open", "child", "sound", "list", "screen", "after", "before", "model")
 
 
-def tag_names() -> list:
+LAYOUT = ROOT / "tools/fixtures/disc_menu_layout.json"
+WIDGET_TYPES = {"container": 0, "text_box": 1, "spinner_list": 2, "column_list": 3}
+# (the sounds the shipped menus name and the disc's widgets do not: handlers carry sounds, which the layout manifest
+# leaves out)
+SOUNDS = ("sound\\sfx\\ui\\back", "sound\\sfx\\ui\\forward")
+
+
+def xml_names() -> set:
     names = set()
     for path in (MENUS / "xbox").glob("*.xml"):
+        if path.name == "patches.xml":
+            continue  # (resolved against the disc's tags by tools/test_shipped_menu_patches.py)
         for attribute, value in re.findall(r'\b(\w+)="([^"]*\\[^"]*)"', path.read_text(encoding="utf-8")):
             if attribute in TAG_ATTRIBUTES and re.fullmatch(r"[\w ]+(\\[\w ]+)+", value):
                 names.add(value)
-    return sorted(names)
+    return names
+
+
+def tag_lines() -> list:
+    """ui.map's tags as the disc has them (the layout manifest's widgets, and the bitmaps, string lists and fonts they
+    name), each in its own group, so a path the menus misspell is a tag the map does not have"""
+    layout = json.loads(LAYOUT.read_text(encoding="utf-8"))
+    lines = {f"W {WIDGET_TYPES[widget['type']]} {name}" for name, widget in layout.items()}
+    for widget in layout.values():
+        for key, group in (("bitmap", "B"), ("header_bitmap", "B"), ("footer_bitmap", "B"), ("text_list", "S"),
+                           ("font", "F")):
+            if widget[key]:
+                lines.add(f"{group} {widget[key]}")
+    lines.update(f"N {name}" for name in SOUNDS)
+    known = {line.split(" ", 2)[-1] for line in lines}
+    unknown = sorted(xml_names() - known)
+    assert not unknown, ("the shipped menus name tags the disc's layout does not have", unknown[:10])
+    return sorted(lines)
 
 
 def function_names() -> list:
@@ -90,7 +118,7 @@ def build(directory: Path, added: dict = None) -> Path:
 
 def run(binary: Path, directory: Path, environment: dict):
     (directory / "empty").mkdir(exist_ok=True)
-    (directory / "tags.txt").write_text("\n".join(tag_names()) + "\n")
+    (directory / "tags.txt").write_text("\n".join(tag_lines()) + "\n")
     (directory / "functions.txt").write_text("\n".join(function_names()) + "\n")
     return subprocess.run([str(binary), str(directory / "empty"), str(directory / "tags.txt"),
                            str(directory / "functions.txt")], capture_output=True, text=True,
@@ -113,6 +141,19 @@ def check_probe_fails_on_a_refused_menu(directory: Path) -> None:
     assert result.returncode == 1 and "strings are for" in result.stdout, result.stdout[-800:]
 
 
+def check_probe_fails_on_a_misspelled_path(directory: Path) -> None:
+    """The map has only the disc's tags: a path the menus misspell (a widget, a font) is refused, as in the game."""
+    misspelled = (b'<menus><widget name="xbox/misspelled/widget" type="text" font="ui\\shell\\no_such_font">'
+                  b'<child widget="ui\\shell\\error\\no_such_widget"/></widget></menus>')
+    binary = build(directory, {"xbox/misspelled.xml": misspelled})
+    result = run(binary, directory, PLATFORM_SETS["iphone"])
+    assert result.returncode == 1 and "no_such" in result.stdout, result.stdout[-800:]
+
+
+def test_the_probe_fails_on_a_path_the_map_does_not_have(tmp_path):
+    check_probe_fails_on_a_misspelled_path(tmp_path / "misspelled")
+
+
 def test_shipped_menus_load_for_every_platform_set(tmp_path):
     for platform_set in sorted(PLATFORM_SETS):
         check_platform_set(tmp_path / platform_set, platform_set)
@@ -129,4 +170,6 @@ if __name__ == "__main__":
             print(f"menus load: {name}")
         check_probe_fails_on_a_refused_menu(Path(folder) / "refused")
         print("the probe fails on a refused menu")
+        check_probe_fails_on_a_misspelled_path(Path(folder) / "misspelled")
+        print("the probe fails on a path the map does not have")
     sys.exit(0)
