@@ -9695,8 +9695,10 @@ static void layer_format_follow(MTLPixelFormat wanted, MTLPixelFormat picture)
 	if (!stated && target)
 	{
 		stated = YES;
-		platform_log("Metal: layer format %s for a %s picture (%s)", pixel_format_name(wanted), pixel_format_name(picture),
-			output_format_override != MTLPixelFormatInvalid ? "debug.output_format" : "display.scene_precision");
+		platform_log("Metal: layer format %s for a %s picture (%s); present dither %s", pixel_format_name(wanted),
+			pixel_format_name(picture), output_format_override != MTLPixelFormatInvalid ? "debug.output_format" :
+			"display.scene_precision", !atomic_load(&present_dither_on) ? "off" :
+			format_levels(picture) > format_levels(wanted) ? "on" : "not needed (the layer has the picture's bits)");
 	}
 	if (wanted == layer_format_asked || !target)
 		return;
