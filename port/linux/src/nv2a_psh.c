@@ -822,9 +822,8 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	0.5 - (light - point) / (2 radius), exactly and the same for either eye. The specular spot pass has none
 	(LIGHT_VISIBILITY_STAGE_NONE), and debug.traced_light_depth_point asks every pass for it (depth_point_mode): its
 	point comes from the fragment's depth, the view's rectangle, projection and view_to_world (traced_shadow_casters.c's
-	traced_light_view). The depth is the reverse of the projection's normalized depth -p22 + p32 / d, taken
-	as it is (0 at the near plane, 1 at the far, render_cameras.c), so a distance d comes back as
-	p32 / (p22 + 1 - depth) from the frame's own depth row, whichever near and far made it. The pixel goes through the eye's rate map on a foveated pass
+	traced_light_view); its distance is depth_decode.h's, from the frame's own depth row. The pixel goes through the
+	eye's rate map on a foveated pass
 	(foveated), as ambient occlusion's do; its geometric normal comes from the
 	point's screen derivatives, here, while every pixel of the quad still runs. light_visibility_emit traces it */
 	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
@@ -842,7 +841,7 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			"\t}\n"
 			"\tfloat2 light_ndc = float2((light_screen.x - traced_light.view_rect.x) / traced_light.view_rect.z * 2.0 - 1.0,\n"
 			"\t\t1.0 - (light_screen.y - traced_light.view_rect.y) / traced_light.view_rect.w * 2.0);\n"
-			"\tfloat light_z = traced_light.depth_p32 / (traced_light.depth_p22 + 1.0 - light_position.z);\n"
+			"\tfloat light_z = depth_view_distance(light_position.z, traced_light.depth_p22, traced_light.depth_p32);\n"
 			"\tfloat3 light_view = float3((light_ndc.x + traced_light.p20) / traced_light.p00 * light_z,\n"
 			"\t\t(light_ndc.y + traced_light.p21) / traced_light.p11 * light_z, -light_z);\n"
 			"\tfloat3 traced_depth_point = float3(traced_light.view_x, traced_light.view_y, traced_light.view_z) + float3(traced_light.view_forward) * light_view.x +\n"

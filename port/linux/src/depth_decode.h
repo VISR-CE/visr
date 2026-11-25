@@ -2,8 +2,8 @@
 #define DEPTH_DECODE_H
 
 /* The stored depth's view distance: one decode for every pass that reads a depth target (ambient occlusion in
-gpu_metal.m, the soft particle distances in gpu_metal.m and the particle's own distance in nv2a_psh.c, the stereo HUD
-depth in host_stereo.m), checked numerically by tools/test_depth_decode.py.
+gpu_metal.m, the soft particle distances in gpu_metal.m and the particle's own distance and the traced light's depth
+point in nv2a_psh.c, the stereo HUD depth in host_stereo.m), checked numerically by tools/test_depth_decode.py.
 
 The game's projection row is 0-to-1, near to far (render_cameras.c's frustum projection matrix): p22 = -f / (f - n)
 and p32 = -f n / (f - n), so a view distance d has clip z / w = f / (f - n) - f n / ((f - n) d), 0 at the near plane

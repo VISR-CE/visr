@@ -96,6 +96,8 @@ def test_every_reader_of_a_depth_target_uses_the_shared_decode():
     assert "depth_view_distance(stored, p.x, p.y)" in metal
     assert "DEPTH_VIEW_DISTANCE_MSL;" in (ROOT / "port/linux/src/nv2a_msl.c").read_text()  # in every MSL shader
     assert "depth_view_distance(soft_position.z, soft.x, soft.y)" in (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    assert "depth_view_distance(light_position.z, traced_light.depth_p22, traced_light.depth_p32)" in (
+        ROOT / "port/linux/src/nv2a_psh.c").read_text()  # the traced light's depth point
     stereo = (ROOT / "port/ios/host/host_stereo.m").read_text()
     assert "depth_view_distance_c(depth, p22, p32)" in stereo and "near * far / (depth" not in stereo
 

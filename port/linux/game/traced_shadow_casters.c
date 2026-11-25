@@ -40,6 +40,7 @@ void platform_log(const char *format, ...);
 unsigned long system_milliseconds(void); /* cseries_windows.h */
 #include "traced_shadow_casters.h"
 #include "light_visibility.h"
+#include "../src/depth_decode.h"
 #include "../src/halo_stereo.h"
 
 #include <xtl.h>
@@ -827,13 +828,8 @@ static boolean traced_light_view(
 	light->camera[2] = global_window_parameters.camera.position.z;
 	if (!frustum->projection_valid || !halo_light_visibility_view(light->view_rect))
 		return FALSE;
-	light->depth_p22 = projection[2][2];
-	light->depth_p32 = projection[3][2];
-	if (light->depth_p32 == 0.f && frustum->z_far > frustum->z_near)
-	{
-		light->depth_p22 = -frustum->z_far / (frustum->z_far - frustum->z_near);
-		light->depth_p32 = -frustum->z_far * frustum->z_near / (frustum->z_far - frustum->z_near);
-	}
+	depth_row_from_view(frustum->z_near, frustum->z_far, projection[2][2], projection[3][2], &light->depth_p22,
+		&light->depth_p32);
 	light->p00 = projection[0][0];
 	light->p11 = projection[1][1];
 	light->p20 = projection[2][0];
