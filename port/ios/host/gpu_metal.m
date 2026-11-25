@@ -5400,7 +5400,10 @@ static __strong id<MTLBuffer> traced_vertices[FRAMES];
 static __strong id<MTLBuffer> traced_scratch[FRAMES];
 static __strong id<MTLAccelerationStructure> traced_world;
 static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_world_descriptor;
-static __strong id<MTLRenderPipelineState> traced_multiply, traced_replace;
+/* the composite's pipelines (replace for the debug views, multiply for the term), one pair for each scene color
+format they have drawn into (display.scene_precision moves the scene off BGRA8): traced_composite_pipeline */
+static __strong NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *traced_composites;
+static __strong id<MTLFunction> traced_vertex_function, traced_composite_function;
 static __strong id<MTLComputePipelineState> traced_radius_down, traced_radius_reach, traced_blur;
 /* the filter's work textures (ssao_texture's kind: kept, made again only to grow): two of the covered rectangle and
 two of half of it */
@@ -5864,28 +5867,14 @@ static BOOL traced_programs(void)
 		platform_log("traced shadows: the resolve's shaders do not compile: %s", error.localizedDescription.UTF8String);
 		return NO;
 	}
-	pipeline = [MTLRenderPipelineDescriptor new];
-	pipeline.vertexFunction = [library newFunctionWithName:@"traced_vertex"];
-	pipeline.fragmentFunction = [library newFunctionWithName:@"traced_composite"];
-	pipeline.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
-	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
-	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
-	traced_replace = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
-	pipeline.colorAttachments[0].blendingEnabled = YES;
-	pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
-	pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
-	pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
-	pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
-	pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
-	pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
-	traced_multiply = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	traced_vertex_function = [library newFunctionWithName:@"traced_vertex"];
+	traced_composite_function = [library newFunctionWithName:@"traced_composite"];
 	traced_radius_down = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_radius_down"]
 		error:&error];
 	traced_radius_reach = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_radius_reach"]
 		error:&error];
 	traced_blur = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_blur"] error:&error];
-	if (!traced_replace || !traced_multiply || !traced_radius_down || !traced_radius_reach || !traced_blur)
+	if (!traced_vertex_function || !traced_composite_function || !traced_radius_down || !traced_radius_reach || !traced_blur)
 	{
 		platform_log("traced shadows: the resolve's pipeline cannot be made: %s",
 			error ? error.localizedDescription.UTF8String : "?");
@@ -5909,6 +5898,47 @@ static BOOL traced_programs(void)
 	return YES;
 }
 
+/* the composite's pipeline for a scene color format: multiplying the term in, or replacing (view) for the debug
+views; nil if Metal refuses it */
+static id<MTLRenderPipelineState> traced_composite_pipeline(MTLPixelFormat format, BOOL view)
+{
+	NSNumber *key = @(((uint64_t)format << 1) | (view ? 1u : 0u));
+	id<MTLRenderPipelineState> made = traced_composites[key];
+	MTLRenderPipelineDescriptor *pipeline;
+	NSError *error = nil;
+
+	if (made)
+		return made;
+	pipeline = [MTLRenderPipelineDescriptor new];
+	pipeline.vertexFunction = traced_vertex_function;
+	pipeline.fragmentFunction = traced_composite_function;
+	pipeline.colorAttachments[0].pixelFormat = format;
+	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
+	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	if (!view)
+	{
+		pipeline.colorAttachments[0].blendingEnabled = YES;
+		pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
+		pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
+		pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
+		pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
+		pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
+		pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
+	}
+	made = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	if (!made)
+	{
+		platform_log("traced shadows: the resolve's pipeline for %s cannot be made: %s", pixel_format_name(format),
+			error ? error.localizedDescription.UTF8String : "?");
+		return nil;
+	}
+	if (!traced_composites)
+		traced_composites = [NSMutableDictionary dictionary];
+	traced_composites[key] = made;
+	return made;
+}
+
 /* The traced term (the front end's target, which the shadows' apply draws went to: the product of their darkening
 in its color) multiplied into the scene's color over the level's pixels, as the first draw of the scene's pass,
 loaded again. values are traced_shadows_format.h's */
@@ -5921,6 +5951,7 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 		MetalTexture *term_record = texture_record(term);
 		struct { uint32_t ox, oy, w, h, view, sx, sy, pad; } c;
 		id<MTLTexture> shown;
+		id<MTLRenderPipelineState> composite;
 		struct gpu_rect rect;
 		MTLScissorRect window, covered;
 		unsigned long width, height;
@@ -5936,13 +5967,21 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 			(void)pass_begin(color, depth, NULL);
 			return;
 		}
-		if (!term_record || !term_record->texture || color_record->description.format != GPU_FORMAT_BGRA8 ||
+		if (!term_record || !term_record->texture || (color_record->description.format != GPU_FORMAT_BGRA8 &&
+			color_record->description.format != GPU_FORMAT_SCENE_COLOR) ||
 			term_record->description.format != GPU_FORMAT_BGRA8 || term_record->samples ||
 			depth_record->description.format != GPU_FORMAT_DEPTH_STENCIL || foveation_map(color_record) ||
 			foveation_map(depth_record) || term_record->texture.width != color_record->texture.width ||
 			term_record->texture.height != color_record->texture.height || !traced_programs())
 		{
 			traced_fail("the resolve's targets or programs are not usable");
+			return;
+		}
+		composite = traced_composite_pipeline(color_record->texture.pixelFormat,
+			values[TRACED_SHADOWS_RESOLVE_VIEW] != 0.0f);
+		if (!composite)
+		{
+			traced_fail("the resolve's pipeline cannot be made for the scene's format");
 			return;
 		}
 		width = color_record->content_width ? color_record->content_width : color_record->texture.width;
@@ -6041,7 +6080,7 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 			(double)covered.height, 0.0, 1.0 }];
 		[encoder setScissorRect:covered];
 		[encoder setCullMode:MTLCullModeNone];
-		[encoder setRenderPipelineState:view ? traced_replace : traced_multiply];
+		[encoder setRenderPipelineState:composite];
 		[encoder setDepthStencilState:view ? traced_everything : traced_level];
 		[encoder setStencilReferenceValue:0x10];
 		[encoder setFragmentTexture:shown atIndex:0];
