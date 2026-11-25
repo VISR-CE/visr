@@ -361,7 +361,7 @@ def test_the_visibility_function_compiles_for_metal(tmp_path):
     emitter = shader[shader.index("static void light_visibility_emit"):]
     emitter = emitter[:emitter.index("point, normal, bias, LIGHT_VISIBILITY_BLACK")]
     body = literals(emitter[emitter.index("xgpu_text_append(text,"):]) % (
-        "traced_point", "traced_normal", "traced_bias", 1.0 / 512.0, 2, 2, 31, 2)
+        "traced_point", "traced_normal", "traced_bias", 1.0 / 512.0, 2, 2, 7, 2)
     first = shader.index('"\\tbool traced_has_coordinate')
     stages = literals(shader[first:shader.index(");", first)]) % (0, 2)
     at = shader.index("float3 traced_point = ")
@@ -444,3 +444,13 @@ def test_a_pass_without_an_attenuation_coordinate_rebuilds_its_point_from_depth(
     assert "global_window_parameters.camera.position.x" in game
     host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
     assert "light.foveated = pass_rate_map_data ? 1.0f : 0.0f;" in host
+
+
+def test_every_instance_mask_bit_is_one_the_gpu_matches():
+    """The class: a mask bit the API accepts and the GPU ignores. MTLAccelerationStructureInstanceDescriptor.mask is 32
+    bits wide, but only the low 8 are matched: casters given family bits 24-26 were never hit by any ray, so the Flood
+    lost every shadow (c20 frame 5460). Every instance mask the traced lights use stays within bits 0-7."""
+    header = (ROOT / "port/linux/src/traced_shadows_format.h").read_text()
+    values = {name: int(value) for name, value in re.findall(r"TRACED_SHADOWS_(\w+) = (\d+)u?,", header)}
+    assert values["MASK_NO_FAMILY"] < 256 and values["MASK_LEVEL"] < 256
+    assert values["FAMILY_FIRST"] >= 2 and values["FAMILY_LAST"] <= 7

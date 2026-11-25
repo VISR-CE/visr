@@ -140,13 +140,15 @@ struct traced_shadows_light
 };
 
 /* the traced lights' instance mask: casters of no family, the level, then one bit a light family (the family field
-of a caster or light record), from FIRST to LAST */
+of a caster or light record), from FIRST to LAST. An instance's mask is 32 bits wide in the API, but the GPU matches
+only its low 8: an instance whose only bits are above bit 7 is never hit, even by a ray with every bit set (measured
+on an Apple M3 Max), so families end at bit 7 and the rest fall back to the owner's sphere (light_visibility.h) */
 enum
 {
 	TRACED_SHADOWS_MASK_NO_FAMILY = 1u,
 	TRACED_SHADOWS_MASK_LEVEL = 2u,
 	TRACED_SHADOWS_FAMILY_FIRST = 2,
-	TRACED_SHADOWS_FAMILY_LAST = 31,
+	TRACED_SHADOWS_FAMILY_LAST = 7,
 };
 
 /* the same record in the shader, bound at fragment buffer 8 as `constant traced_shadows_light &traced_light` */
