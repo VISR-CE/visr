@@ -7876,6 +7876,34 @@ static void post_pass(id<MTLTexture> target, BOOL clear, id<MTLRenderPipelineSta
 	[post_encoder endEncoding];
 }
 
+/* ---------- the stored depth's view distance, one decode for every pass that reads the depth target
+
+The game's projection is GL-style (normalized depth -p22 + p32 / d: -1 at the near plane), the Xbox's screen
+conversion takes that as the 0-1 range without remapping, and Metal stores its reverse. A distance d is therefore
+stored as 1 - (-p22 + p32 / d) and comes back as p32 / (p22 + 1 - stored). Reading the reverse as a near-to-far range
+of the frustum's near and far (z_near z_far / (z_far - (1 - stored) (z_far - z_near))) halves every distance past a
+couple of world units. DEPTH_VIEW_DISTANCE_MSL is the one decode the ambient occlusion and soft particle programs
+share (tools/test_depth_decode.py checks it); depth_row_from_view gives its p22 and p32. */
+#define DEPTH_VIEW_DISTANCE_MSL \
+	"static float depth_view_distance(float stored, float p22, float p32)\n" \
+	"{\n" \
+	"\treturn p32 / (p22 + 1.0 - stored);\n" \
+	"}\n"
+
+/* the depth row (p22, p32) of the projection that made the depth: the projection's own when it has one (its p22 is not
++-1 and its p32 not 0), else the GL-style row of the frustum's near and far */
+static void depth_row_from_view(float near_plane, float far_plane, float row22, float row32, float *p22, float *p32)
+{
+	if (row22 != 1.0f && row22 != -1.0f && row32 != 0.0f)
+	{
+		*p22 = row22;
+		*p32 = row32;
+		return;
+	}
+	*p22 = -(far_plane + near_plane) / (far_plane - near_plane);
+	*p32 = -2.0f * near_plane * far_plane / (far_plane - near_plane);
+}
+
 /* ---------- debug.ssao (spike): screen-space ambient occlusion (host_ssao_apply)
 
 The front end calls host_ssao_apply right after the level's lightmap pass (d3d8_device.c,
@@ -7906,13 +7934,13 @@ static NSString *const ssao_source =
 	"\tfloat z_near, z_far, p00, p11, p20, p21;\n"
 	"\tfloat radius, strength, objects, static_weight, max_pixels, fade_distance;\n"
 	"\tuint slices, steps, mode, scale;\n"
-	"\tfloat level_floor, object_floor, pad1, pad2;\n"
+	"\tfloat level_floor, object_floor, depth_p22, depth_p32;\n"
 	"};\n"
 	"\n"
+	DEPTH_VIEW_DISTANCE_MSL
 	"static float linear_z(float stored, constant ssao_parameters &p)\n"
 	"{\n"
-	"\tfloat d = 1.0 - stored;\n"
-	"\treturn p.z_near * p.z_far / (p.z_far - d * (p.z_far - p.z_near));\n"
+	"\treturn depth_view_distance(stored, p.depth_p22, p.depth_p32);\n"
 	"}\n"
 	"\n"
 	"static int classify(float stored, uint stencil, float z, constant ssao_parameters &p)\n"
@@ -8464,7 +8492,7 @@ struct ssao_parameters
 	float z_near, z_far, p00, p11, p20, p21;
 	float radius, strength, objects, static_weight, max_pixels, fade_distance;
 	uint32_t slices, steps, mode, scale;
-	float level_floor, object_floor, pad1, pad2;
+	float level_floor, object_floor, depth_p22, depth_p32;
 };
 
 struct ssao_composite_parameters
@@ -8827,14 +8855,11 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 			p.scale = count >= 27 && values[26] == 4.0f && path != 0 ? 4 : 2;
 			p.hw = (p.w + p.scale - 1) / p.scale;
 			p.hh = (p.h + p.scale - 1) / p.scale;
-			p.z_near = values[4];
-			p.z_far = values[5];
-			/* the projection's own depth row (GL-style), when given: the near and far the depth was made with */
-			if (count >= 22 && values[20] != 1.0f && values[20] != -1.0f && values[21] != 0.0f)
-			{
-				p.z_near = values[21] / (values[20] - 1.0f);
-				p.z_far = values[21] / (values[20] + 1.0f);
-			}
+			/* the projection's own depth row (GL-style), when given, else the frustum's: what the depth was made with */
+			depth_row_from_view(values[4], values[5], count >= 22 ? values[20] : 1.0f, count >= 22 ? values[21] : 0.0f,
+				&p.depth_p22, &p.depth_p32);
+			p.z_near = p.depth_p32 / (p.depth_p22 - 1.0f);
+			p.z_far = p.depth_p32 / (p.depth_p22 + 1.0f);
 			p.p00 = values[6];
 			p.p11 = values[7];
 			p.p20 = values[8];
@@ -11009,7 +11034,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 
 Before a view's transparent geometry the front end hands over its depth target: the pass ends, a compute pass turns
 every pixel's reversed depth into its view distance (R32Float, the target's size), and until host_soft_depth_finish
-every draw binds it as fragment texture 8, with the near, far, 1 / fade distance and the texture's scale (1, or 2 at
+every draw binds it as fragment texture 8, with the depth row p22, p32, 1 / fade distance and the texture's scale (1, or 2 at
 half resolution: debug.soft_particle_scale) as fragment buffer 5. A pixel the
 level did not draw (no stencil 0x10: an object, the sky) is stored as far away, so particles fade against the level
 alone. The next
@@ -11017,6 +11042,7 @@ draw reopens the pass, its depth loaded, as after any pass break. */
 static NSString *const soft_depth_source =
 	@"#include <metal_stdlib>\n"
 	"using namespace metal;\n"
+	DEPTH_VIEW_DISTANCE_MSL
 	"kernel void soft_depth_linearize(depth2d<float, access::read> depth [[texture(0)]],\n"
 	"\ttexture2d<float, access::write> distances [[texture(1)]], texture2d<uint, access::read> stencil [[texture(2)]],\n"
 	"\tconstant float4 &p [[buffer(0)]], constant uint2 &size [[buffer(1)]], uint2 gid [[thread_position_in_grid]])\n"
@@ -11036,7 +11062,7 @@ static NSString *const soft_depth_source =
 	"\t\t\t\treturn;\n"
 	"\t\t\t}\n"
 	"\t\t\tfloat stored = depth.read(c);\n"
-	"\t\t\tnearest = min(nearest, p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x)));\n"
+	"\t\t\tnearest = min(nearest, depth_view_distance(stored, p.x, p.y));\n"
 	"\t\t}\n"
 	"\tdistances.write(float4(nearest), gid);\n"
 	"}\n";
@@ -11102,7 +11128,7 @@ static uint32_t gpu_metal_soft_depth_prepare(gpu_texture depth, const float *val
 		MetalTexture *record = texture_record(depth);
 		id<MTLComputeCommandEncoder> compute;
 		MTLTextureDescriptor *descriptor;
-		float near_plane, far_plane;
+		float depth_p22, depth_p32;
 		unsigned long width, height, soft_scale;
 		NSUInteger content_width, content_height;
 
@@ -11130,16 +11156,10 @@ static uint32_t gpu_metal_soft_depth_prepare(gpu_texture depth, const float *val
 		}
 		if (!soft.distances)
 			return 0;
-		/* the near and far the depth was made with: the projection's own depth row (GL-style), when given */
-		near_plane = values[0];
-		far_plane = values[1];
-		if (values[2] != 1.0f && values[2] != -1.0f && values[3] != 0.0f)
-		{
-			near_plane = values[3] / (values[2] - 1.0f);
-			far_plane = values[3] / (values[2] + 1.0f);
-		}
-		soft.parameters[0] = near_plane;
-		soft.parameters[1] = far_plane;
+		/* the depth row the depth was made with: the projection's own (GL-style), when given */
+		depth_row_from_view(values[0], values[1], values[2], values[3], &depth_p22, &depth_p32);
+		soft.parameters[0] = depth_p22;
+		soft.parameters[1] = depth_p32;
 		soft.parameters[2] = values[4] > 0.0f ? 1.0f / values[4] : 1.0e6f;
 		soft.parameters[3] = (float)soft_scale;
 		/* a pooled depth target: the texture keeps the allocation's size, and only the scene inside it is computed */
