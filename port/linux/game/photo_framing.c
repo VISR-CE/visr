@@ -460,12 +460,26 @@ unsigned int photo_shot_hash(const struct photo_shot *s)
 	}
 	return h ? h : 1u;
 }
+/* "<name>.json" -> "<name>.orig.json": the hand-saved framing a tool kept beside the one it rewrote. */
+static int hand_path(const char *fragment_path, char *out, size_t size)
+{
+	size_t length = strlen(fragment_path);
+	if (length < 6 || strcmp(fragment_path + length - 5,".json")) return 0;
+	return snprintf(out,size,"%.*s.orig.json",(int)(length - 5),fragment_path) < (int)size;
+}
 int photo_framing_lookup(const char *fragment_path, const char *bundle_path, const char *key,
 	struct photo_shot *shot, int *revision)
 {
 	FILE *file;
+	char hand[1024];
 	*revision = 0;
 	if (!key_valid(key)) return PHOTO_FRAMING_NONE;
+	/* The author's own hand-saved pose outranks every other source, including a tool-rewritten fragment. */
+	if (fragment_path && hand_path(fragment_path,hand,sizeof(hand)) && (file = fopen(hand,"r")))
+	{
+		fclose(file);
+		if (photo_fragment_read(hand,key,shot,revision)) return PHOTO_FRAMING_FRAGMENT;
+	}
 	file = fragment_path ? fopen(fragment_path,"r") : NULL;
 	if (file)
 	{
@@ -533,7 +547,13 @@ int photo_fragment_write_from(const char *path, const char *key, const struct ph
 	}
 	fputs("}\n      }]\n    }\n  }\n}\n",f);
 	ok = !ferror(f); if (fclose(f)) ok = 0;
-	if (ok && !rename(temp,path)) return 1;
+	if (ok && !rename(temp,path))
+	{
+		/* a new save is the author's latest hand pose: it replaces the kept original */
+		char hand[1024], kept[1040];
+		if (hand_path(path,hand,sizeof(hand)) && snprintf(kept,sizeof(kept),"%s.replaced",hand) < (int)sizeof(kept)) rename(hand,kept);
+		return 1;
+	}
 	remove(temp); return 0;
 }
 int photo_camera_read(const char *path, struct photo_shot *s)
