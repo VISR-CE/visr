@@ -45,9 +45,11 @@ says the light does not reach); object_lights.c */
 void light_visibility_next(int path, float strength);
 /* An owner family is an object, its parents and its children (a unit, the weapon it holds, the vehicle it rides and
 that vehicle's other riders): its casters never block its own lights (a partner's flashlight is inside his body).
-Each family with a light takes one bit of the traced lights' instance mask, from LIGHT_VISIBILITY_FAMILY_FIRST,
-and keeps it while its root object lives (light_visibility_families_update); past the last, its lights fall back to
-the owner distance (debug.traced_light_owner).
+Each frame the families of the most important lights take one bit each of the traced lights' instance mask, from
+LIGHT_VISIBILITY_FAMILY_FIRST (light_visibility_families_rank: the players' own lights first, then by each light's best
+render score from any local player's camera). A family past the last bit has no bit, and its lights are kept clear by
+its root's bounding sphere instead: no caster blocks them inside it (traced_light_begin's owner_sphere), so a shooter
+never blocks his own muzzle flash however many families a fight has.
 The family bit of the object's family, 0 none (object_lights.c) */
 int light_visibility_family(long object_index);
 
@@ -130,27 +132,50 @@ static inline int light_visibility_family_bit(
 	return LIGHT_VISIBILITY_FAMILY_FIRST + (*count)++;
 }
 
-/* the family table, brought up to date before anything asks for a bit in a frame. A family keeps its bit while its
-root lives (alive[i] for roots[i]; a dead root's slot is freed): a caster's record outlives the frame it was sent in
-(the game reuses an unchanged shadow, and split screen reuses window 0's records in window 1), so a bit that moved
-between frames would leave an old record masked out of another family's light. Then every owner root of a light
-this frame (owners[] of owner_count, -1 for none) in order takes a bit if it has none, so a caster record sent before
-its owner's light is chosen finds the bit the light takes. Families past the last bit get 0 on both sides and fall
-back to the owner distance */
-static inline void light_visibility_families_update(
+/* the frame's family table, made before anything asks for a bit (a caster record can be sent before its owner's light
+is chosen: split screen reuses window 0's records in window 1). Every light's owner root (owners[] of owner_count, -1
+none) with its importance (higher first); each root takes its best importance, and the first bits roots in that order
+(ties: the lower root) take bits from LIGHT_VISIBILITY_FAMILY_FIRST. The rest have none. A record lives one frame on
+the host (gpu_metal.m clears its casters each frame), so a bit may move between frames */
+static inline void light_visibility_families_rank(
 	long *roots,
 	int *count,
-	unsigned char const *alive,
 	long const *owners,
-	int owner_count)
+	double const *importance,
+	int owner_count,
+	int bits)
 {
-	int i;
+	long unique[LIGHT_VISIBILITY_MAXIMUM * 2];
+	double best[LIGHT_VISIBILITY_MAXIMUM * 2];
+	int unique_count = 0, i, j;
 
-	for (i = 0; i < *count; i++)
-		if (!alive[i])
-			roots[i] = -1;
 	for (i = 0; i < owner_count; i++)
-		light_visibility_family_bit(roots, count, owners[i], 1);
+	{
+		if (owners[i] == -1)
+			continue;
+		for (j = 0; j < unique_count && unique[j] != owners[i]; j++)
+			;
+		if (j == unique_count)
+		{
+			if (unique_count == (int)(sizeof(unique) / sizeof(unique[0])))
+				continue;
+			unique[unique_count] = owners[i];
+			best[unique_count++] = importance[i];
+		}
+		else if (importance[i] > best[j])
+			best[j] = importance[i];
+	}
+	*count = 0;
+	while (*count < bits && *count < unique_count)
+	{
+		int top = -1;
+
+		for (i = 0; i < unique_count; i++)
+			if (unique[i] != -1 && (top < 0 || best[i] > best[top] || (best[i] == best[top] && unique[i] < unique[top])))
+				top = i;
+		roots[(*count)++] = unique[top];
+		unique[top] = -1;
+	}
 }
 
 /* TRUE when two spheres (center, radius) overlap */

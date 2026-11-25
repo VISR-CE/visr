@@ -45,7 +45,7 @@ enum
 	TRACED_SHADOWS_PART_VERTICES = 65535,
 	TRACED_SHADOWS_NODE_FLOATS = 13,
 	TRACED_SHADOWS_BASIS_FLOATS = 24,
-	TRACED_SHADOWS_LIGHT_FLOATS = 44,
+	TRACED_SHADOWS_LIGHT_FLOATS = 48,
 };
 
 /* a model part at rest: vertex_count traced_shadows_vertex, then triangle_count * 3 16-bit indices (padded to a
@@ -123,7 +123,7 @@ packed_float4 in the shader, 4-byte aligned on both sides):
 	F(1, p20) F(1, p21) F(1, foveated) F(1, depth_point_mode) \
 	F(3, view_forward) F(1, view_x) F(3, view_left) F(1, view_y) \
 	F(3, view_up) F(1, view_z) \
-	F(1, depth_bias) F(3, reserved)
+	F(1, depth_bias) F(3, owner_center) F(1, owner_radius) F(3, reserved)
 
 #define TRACED_SHADOWS_LIGHT_C_1(name) float name;
 #define TRACED_SHADOWS_LIGHT_C_3(name) float name[3];

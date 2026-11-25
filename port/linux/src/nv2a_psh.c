@@ -308,7 +308,8 @@ traced_lit, 1 lit, down to 1 - strength blocked. In order:
 - one ray toward the light against the opaque level (TRACED_SHADOWS_MASK_LEVEL), starting ray_start off the surface
   and ending stop_short short of the light (max(0.05, 0.02 radius), or more for a light the viewer carries);
 - when casters is set and the level did not block it, one against the frame's casters: every mask bit but the
-  level's and the light's owner family's, ending keep_clear short of a light with no family (the owner distance).
+  level's and the light's owner family's, ending keep_clear short of a light with no family and no owner (the owner
+  distance), and where it enters owner_center/owner_radius, the root sphere of an owner family without a bit.
 skip skips the rays and repeats repeats them (cost runs); strength is how fully a block darkens.
 traced_light: traced_shadows_format.h's struct traced_shadows_light */
 /* a pass result below this draws nothing on the 8-bit color targets the light passes draw into (half a step), so its
@@ -348,9 +349,18 @@ static void light_visibility_emit(struct xgpu_text *text, const char *point, con
 		"\t\t\t\tmetal::raytracing::ray world_ray(p, direction, traced_light.ray_start + nudge, span - max(traced_light.ray_start, traced_light.stop_short));\n"
 		"\t\t\t\tbool hit = tracer.intersect(world_ray, traced_blockers, %uu).type != metal::raytracing::intersection_type::none;\n"
 		"\t\t\t\tfloat keep_clear = max(traced_light.keep_clear, traced_light.stop_short);\n"
-		"\t\t\t\tif (!hit && traced_light.casters > 0.5 && span > traced_light.ray_start + keep_clear)\n"
+		"\t\t\t\tfloat caster_end = span - keep_clear;\n"
+		"\t\t\t\tif (traced_light.owner_radius > 0.0)\n"
 		"\t\t\t\t{\n"
-		"\t\t\t\t\tmetal::raytracing::ray caster_ray(p, direction, traced_light.ray_start + nudge, span - keep_clear);\n"
+		"\t\t\t\t\tfloat3 from_owner = p - float3(traced_light.owner_center);\n"
+		"\t\t\t\t\tfloat half_b = dot(from_owner, direction);\n"
+		"\t\t\t\t\tfloat inside = half_b * half_b - (dot(from_owner, from_owner) - traced_light.owner_radius * traced_light.owner_radius);\n"
+		"\t\t\t\t\tif (inside > 0.0)\n"
+		"\t\t\t\t\t\tcaster_end = min(caster_end, max(-half_b - sqrt(inside), 0.0));\n"
+		"\t\t\t\t}\n"
+		"\t\t\t\tif (!hit && traced_light.casters > 0.5 && caster_end > traced_light.ray_start)\n"
+		"\t\t\t\t{\n"
+		"\t\t\t\t\tmetal::raytracing::ray caster_ray(p, direction, traced_light.ray_start + nudge, caster_end);\n"
 		"\t\t\t\t\thit = tracer.intersect(caster_ray, traced_blockers, caster_mask).type != metal::raytracing::intersection_type::none;\n"
 		"\t\t\t\t}\n"
 		"\t\t\t\tblocked = hit ? 1.0 : blocked;\n"

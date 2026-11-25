@@ -183,6 +183,8 @@ symbols in this file:
 #include "structures/structure_visibility.h"
 #include "tag_files/tag_groups.h"
 #include "units/units.h"
+#include "camera/observer.h"
+#include "game/players.h"
 
 /* port: port/linux/src (halo.log) */
 void platform_log(const char *format, ...);
@@ -1821,11 +1823,12 @@ static struct
 static struct
 {
 	unsigned char path, family;
+	boolean has_owner;
 	float strength;
+	real owner_sphere[4];
 } light_visibility_pending;
-/* the owner families of lights (light_visibility.h): one table for every window and every frame, brought up to date at
-a frame's first lookup and only read after, so a caster record sent before its owner's light is chosen, or reused in
-a later frame or another window, has the bit the light takes */
+/* the frame's owner families of lights (light_visibility.h): made at the frame's first lookup, before any window chooses
+or sends a caster, and only read after */
 static struct
 {
 	unsigned __int64 frame;
@@ -1852,29 +1855,40 @@ static int light_visibility_family_of(
 	if (light_visibility_families.frame != rasterizer_globals.fps_accumulation_frame_index)
 	{
 		long owners[256], light_index;
-		int owner_count = 0, pass, i;
-		unsigned char alive[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+		double importance[256];
+		int owner_count = 0;
+		short local;
 
-		/* (every light with an owner, before any window chooses or any caster record is sent: light_visibility.h;
-		the players' own first-person lights first, so that they keep a bit when there are more families than bits) */
-		for (pass = 0; pass < 2; pass++)
+		/* (every light with an owner, ranked by its best render score from any local player's camera, the players'
+		own first-person lights ahead of all: light_visibility.h) */
+		for (light_index = data_next_index(light_data, NONE); light_index != NONE && owner_count < 256;
+			light_index = data_next_index(light_data, light_index))
 		{
-			for (light_index = data_next_index(light_data, NONE); light_index != NONE && owner_count < 256;
-				light_index = data_next_index(light_data, light_index))
-			{
-				struct light_datum *light = light_get(light_index);
-				boolean own = TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit) != 0;
+			struct light_datum *light = light_get(light_index);
+			double best = light_render_score(light->radius, light->position.x, light->position.y, light->position.z,
+				render.camera.position.x, render.camera.position.y, render.camera.position.z);
 
-				if (light->object_index != NONE && own == (pass == 0))
-					owners[owner_count++] = light_visibility_family_root(light->object_index);
+			if (light->object_index == NONE)
+				continue;
+			for (local = 0; local < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local++)
+			{
+				if (local_player_get_player_index(local) != NONE)
+				{
+					real_point3d const *eye = &observer_get_camera(local)->position;
+					double score = light_render_score(light->radius, light->position.x, light->position.y,
+						light->position.z, eye->x, eye->y, eye->z);
+
+					best = score > best ? score : best;
+				}
 			}
+			if (TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit))
+				best += 1.0e30;
+			owners[owner_count] = light_visibility_family_root(light->object_index);
+			importance[owner_count++] = best;
 		}
-		for (i = 0; i < light_visibility_families.count; i++)
-			alive[i] = light_visibility_families.roots[i] != NONE
-				&& object_try_and_get(light_visibility_families.roots[i]) != NULL;
 		light_visibility_families.frame = rasterizer_globals.fps_accumulation_frame_index;
-		light_visibility_families_update(light_visibility_families.roots, &light_visibility_families.count, alive,
-			owners, owner_count);
+		light_visibility_families_rank(light_visibility_families.roots, &light_visibility_families.count, owners,
+			importance, owner_count, LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
 	}
 	return light_visibility_family_bit(light_visibility_families.roots, &light_visibility_families.count,
 		light_visibility_family_root(object_index), FALSE);
@@ -1967,12 +1981,25 @@ static void light_visibility_for_slot(
 	*path = LIGHT_VISIBILITY_NONE;
 	*strength = 0.f;
 	light_visibility_pending.family = 0;
+	light_visibility_pending.has_owner = FALSE;
 	if (window >= 0 && window < MAXIMUM_WINDOWS && slot < light_visibility_windows[window].count &&
 		light_visibility_windows[window].light_index[slot] == lights_globals.scene_point_lights[slot])
 	{
+		long root = light_visibility_family_root(light_get(lights_globals.scene_point_lights[slot])->object_index);
+		struct object_datum *owner = root != NONE ? object_try_and_get(root) : NULL;
+
 		*path = light_visibility_windows[window].path[slot];
 		*strength = light_visibility_windows[window].strength[slot];
 		light_visibility_pending.family = light_visibility_windows[window].family[slot];
+		/* (an owner family without a bit is kept clear by its root's bounding sphere: light_visibility.h) */
+		if (owner)
+		{
+			light_visibility_pending.has_owner = TRUE;
+			light_visibility_pending.owner_sphere[0] = owner->object.bounding_sphere_center.x;
+			light_visibility_pending.owner_sphere[1] = owner->object.bounding_sphere_center.y;
+			light_visibility_pending.owner_sphere[2] = owner->object.bounding_sphere_center.z;
+			light_visibility_pending.owner_sphere[3] = owner->object.bounding_sphere_radius;
+		}
 	}
 }
 
@@ -2019,15 +2046,18 @@ boolean light_visibility_begin(
 {
 	unsigned char path = light_visibility_pending.path, family = light_visibility_pending.family;
 	float strength = light_visibility_pending.strength;
+	real const *owner_sphere = light_visibility_pending.has_owner ? light_visibility_pending.owner_sphere : NULL;
 
 	light_visibility_pending.path = LIGHT_VISIBILITY_NONE;
 	light_visibility_pending.family = 0;
+	light_visibility_pending.has_owner = FALSE;
 	light_visibility_pending.strength = 0.f;
 	switch (path)
 	{
 	case LIGHT_VISIBILITY_TRACED:
 		return attenuation_stage >= LIGHT_VISIBILITY_STAGE_NONE && attenuation_stage <= LIGHT_VISIBILITY_STAGE_DIFFUSE
-			? traced_light_begin(position, radius, strength, family, attenuation_stage, attenuation_radius)
+			? traced_light_begin(position, radius, strength, family, owner_sphere, attenuation_stage,
+				attenuation_radius)
 			: FALSE;
 	default:
 		return FALSE;

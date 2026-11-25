@@ -858,6 +858,7 @@ boolean traced_light_begin(
 	real radius,
 	real strength,
 	long family,
+	real const *owner_sphere,
 	short attenuation_stage,
 	real attenuation_radius)
 {
@@ -878,8 +879,16 @@ boolean traced_light_begin(
 	light.ray_start = 0.01f; /* the ray's start past the lit point and its end short of the light, world units (3 cm) */
 	light.casters = mode > 1 ? 1.f : 0.f;
 	/* (what stands within this of the light does not block it: the owner's family, masked out by its bit when it has
-	one, else by this distance) */
-	light.keep_clear = family ? light.ray_start : (float)config_real("debug.traced_light_owner");
+	one, else by its root's bounding sphere, which no caster blocks the light within (a shooter's body stands past
+	his own muzzle flash); a light with neither keeps the owner distance) */
+	light.keep_clear = family || owner_sphere ? light.ray_start : (float)config_real("debug.traced_light_owner");
+	if (!family && owner_sphere)
+	{
+		light.owner_center[0] = (float)owner_sphere[0];
+		light.owner_center[1] = (float)owner_sphere[1];
+		light.owner_center[2] = (float)owner_sphere[2];
+		light.owner_radius = (float)owner_sphere[3];
+	}
 	if (light.keep_clear < light.ray_start)
 		light.keep_clear = light.ray_start;
 	light.repeats = (float)config_integer("debug.traced_light_repeat");
@@ -957,8 +966,9 @@ boolean traced_light_walks_casters(void) { return FALSE; }
 void traced_lights_choose(struct light_visibility_candidate const *lights, short count, boolean versus, float *strength)
 	{ short i; (void)lights; (void)versus; for (i = 0; i < count; i++) strength[i] = 0.f; }
 boolean traced_light_begin(real_point3d const *position, real radius, real strength, long family,
-	short attenuation_stage, real attenuation_radius)
-	{ (void)position; (void)radius; (void)strength; (void)family; (void)attenuation_stage; (void)attenuation_radius;
+	real const *owner_sphere, short attenuation_stage, real attenuation_radius)
+	{ (void)position; (void)radius; (void)strength; (void)family; (void)owner_sphere; (void)attenuation_stage;
+	(void)attenuation_radius;
 	return FALSE; }
 void traced_light_end(void) { }
 

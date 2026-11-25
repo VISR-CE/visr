@@ -209,111 +209,96 @@ def test_a_caster_sent_before_its_owners_light_gets_the_lights_bit(tmp_path):
     """The class: a family bit that depends on which side asks first. Split screen reuses window 0's caster records
     in window 1, so a caster's record can go out before its owner's light is chosen; had the light assigned the bit,
     the record kept 0 while the light's keep-clear shrank to a centimeter, and the owner blocked his own light. The
-    table is brought up to date from every light's owner before anything asks, and both sides only look it up."""
+    frame's table is made from every light's owner before anything asks, and both sides only look it up."""
     _run_rule_program(tmp_path, r'''
     long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
-    unsigned char alive[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1] = { 0 };
-    long owners[40];
-    int count = 0, i, caster, light;
-    long player = (long)(int)0xe4a9023au;
-    owners[0] = player;
-    for (i = 1; i < 40; i++)
-        owners[i] = 1000 + i;
-    owners[5] = -1;
-    light_visibility_families_update(roots, &count, alive, owners, 40);
-    assert(count == LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
-    caster = light_visibility_family_bit(roots, &count, player, 0);
-    light = light_visibility_family_bit(roots, &count, player, 0);
+    long owners[3] = { (long)(int)0xe4a9023au, -1, 1001 };
+    double importance[3] = { 2.0, 9.0, 1.0 };
+    int count = 0, caster, light;
+    light_visibility_families_rank(roots, &count, owners, importance, 3, LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(count == 2);
+    caster = light_visibility_family_bit(roots, &count, owners[0], 0);
+    light = light_visibility_family_bit(roots, &count, owners[0], 0);
     assert(caster == LIGHT_VISIBILITY_FAMILY_FIRST && light == caster);
-    /* past the last bit: 0 on both sides, so the owner distance applies to the light */
-    assert(light_visibility_family_bit(roots, &count, 1039, 0) == 0);
-    assert(light_visibility_family_bit(roots, &count, 1039, 0) == 0);
+    assert(light_visibility_family_bit(roots, &count, 1001, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    /* (a lookup never assigns) */
+    assert(light_visibility_family_bit(roots, &count, 1039, 0) == 0 && count == 2);
     ''')
     lights = (ROOT / "source/objects/object_lights.c").read_text()
     assert lights.count("light_visibility_family_bit(") == 1
     assert "light_visibility_family_root(object_index), FALSE);" in lights
-    assert "light_visibility_families_update(light_visibility_families.roots" in lights
+    assert "light_visibility_families_rank(light_visibility_families.roots" in lights
 
 
-def test_a_family_keeps_its_bit_across_frames_while_its_root_lives(tmp_path):
-    """The class: a family bit that moves between frames. The game reuses a caster's record while its shadow is
-    unchanged, so the record keeps the bit of the frame it was sent in; when the table was made again each frame in
-    light order, bits shifted, an old record carried another family's bit, and that family's light masked the
-    caster out (the Flood's shadow on the a10 pillar went from 93,863 darkened pixels to 64). A root keeps its bit
-    until it dies, a freed bit goes to the next new family, and a live family never takes another's bit."""
+def test_more_light_families_than_bits_never_let_an_owner_block_his_own_light(tmp_path):
+    """The class: an owner blocking his own light once a fight has more families than bits. A table held for each
+    root's life filled up during one campaign fight; the Flood shooter's muzzle flash got no bit and fell back to a
+    0.3-unit owner distance, so his own body, 0.54 units from the flash, shadowed the wall behind him while a Flood
+    0.30 away was skipped (c20 frame 5460). Bits go to the most important families each frame, never two to one bit;
+    a family past the last has none, and its light is kept clear by its root's bounding sphere instead, which no
+    caster blocks it inside, while other families' casters still do."""
     _run_rule_program(tmp_path, r'''
-    long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
-    unsigned char alive[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
-    long first[3] = { 50, 51, 52 }, reordered[3] = { 52, -1, 50 }, later[2] = { 53, 52 };
-    int count = 0, i;
-    for (i = 0; i < LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1; i++)
-        alive[i] = 1;
-    light_visibility_families_update(roots, &count, alive, first, 3);
-    assert(light_visibility_family_bit(roots, &count, 51, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
-    /* a later frame lists the lights in another order and 51 has no light: every bit stays */
-    light_visibility_families_update(roots, &count, alive, reordered, 3);
-    assert(light_visibility_family_bit(roots, &count, 50, 0) == LIGHT_VISIBILITY_FAMILY_FIRST);
-    assert(light_visibility_family_bit(roots, &count, 51, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
-    assert(light_visibility_family_bit(roots, &count, 52, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 2);
-    /* 51 dies: its bit is freed and goes to the next new family; the others keep theirs */
-    alive[1] = 0;
-    light_visibility_families_update(roots, &count, alive, later, 2);
-    assert(count == 3);
-    assert(light_visibility_family_bit(roots, &count, 51, 0) == 0);
-    assert(light_visibility_family_bit(roots, &count, 53, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
-    assert(light_visibility_family_bit(roots, &count, 50, 0) == LIGHT_VISIBILITY_FAMILY_FIRST);
-    assert(light_visibility_family_bit(roots, &count, 52, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 2);
-    ''')
-    lights = (ROOT / "source/objects/object_lights.c").read_text()
-    assert "object_try_and_get(light_visibility_families.roots[i])" in lights
-
-
-def test_more_live_families_than_bits_get_no_family_never_a_shared_bit(tmp_path):
-    """The class: a family bit two live families share. A big match has more live families with lights than there
-    are bits; one past the last gets 0 on both sides (it casts on every light, and its own lights fall back to the
-    owner distance), never a bit another live family holds, and it takes a bit only once a family holding one dies."""
-    _run_rule_program(tmp_path, r'''
-    enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1 };
-    long roots[BITS], owners[BITS + 8];
-    unsigned char alive[BITS];
-    int count = 0, i, j, bit, seen[64] = { 0 };
-    for (i = 0; i < BITS; i++)
-        alive[i] = 1;
-    for (i = 0; i < BITS + 8; i++)
-        owners[i] = 2000 + i;
-    light_visibility_families_update(roots, &count, alive, owners, BITS + 8);
-    assert(count == BITS);
-    for (i = 0; i < BITS + 8; i++)
+    enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1, FAMILIES = BITS + 40 };
+    long roots[BITS], owners[FAMILIES * 2];
+    double importance[FAMILIES * 2];
+    int count = 0, i, bit, seen[64] = { 0 };
+    for (i = 0; i < FAMILIES; i++)
     {
-        bit = light_visibility_family_bit(roots, &count, owners[i], 0);
+        /* every family twice (a unit and its weapon's light), the second time less important */
+        owners[i] = 3000 + i;
+        importance[i] = 1000.0 - i;
+        owners[FAMILIES + i] = 3000 + i;
+        importance[FAMILIES + i] = 1.0;
+    }
+    light_visibility_families_rank(roots, &count, owners, importance, FAMILIES * 2, BITS);
+    assert(count == BITS);
+    for (i = 0; i < FAMILIES; i++)
+    {
+        bit = light_visibility_family_bit(roots, &count, 3000 + i, 0);
         if (i < BITS)
         {
-            assert(bit >= LIGHT_VISIBILITY_FAMILY_FIRST && bit <= LIGHT_VISIBILITY_FAMILY_LAST && !seen[bit]);
+            assert(bit == LIGHT_VISIBILITY_FAMILY_FIRST + i && !seen[bit]);
             seen[bit] = 1;
         }
         else
             assert(bit == 0);
     }
-    /* the next frame lists the overflowed families first: they still get 0, the holders keep their bits */
-    for (j = 0; j < 2; j++)
+    /* a family's best light decides its place, in any order */
     {
-        long reversed[BITS + 8];
-        for (i = 0; i < BITS + 8; i++)
-            reversed[i] = owners[BITS + 7 - i];
-        light_visibility_families_update(roots, &count, alive, reversed, BITS + 8);
-        for (i = 0; i < BITS + 8; i++)
-            assert(light_visibility_family_bit(roots, &count, owners[i], 0) ==
-                (i < BITS ? LIGHT_VISIBILITY_FAMILY_FIRST + i : 0));
+        long few[3] = { 7, 8, 7 };
+        double weight[3] = { 1.0, 2.0, 3.0 };
+        light_visibility_families_rank(roots, &count, few, weight, 3, 1);
+        assert(count == 1 && roots[0] == 7);
     }
-    /* a holder dies: one overflowed family takes its bit, the rest stay at 0 */
-    alive[3] = 0;
-    light_visibility_families_update(roots, &count, alive, owners + BITS, 8);
-    alive[3] = 1;
-    assert(light_visibility_family_bit(roots, &count, owners[3], 0) == 0);
-    assert(light_visibility_family_bit(roots, &count, owners[BITS], 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 3);
-    for (i = BITS + 1; i < BITS + 8; i++)
-        assert(light_visibility_family_bit(roots, &count, owners[i], 0) == 0);
     ''')
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    assert "caster_end = min(caster_end, max(-half_b - sqrt(inside), 0.0));" in shader
+    assert "metal::raytracing::ray caster_ray(p, direction, traced_light.ray_start + nudge, caster_end);" in shader
+    game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
+    assert "light.keep_clear = family || owner_sphere ? light.ray_start" in game
+    assert "if (!family && owner_sphere)" in game
+    lights = (ROOT / "source/objects/object_lights.c").read_text()
+    assert "light_visibility_pending.owner_sphere[3] = owner->object.bounding_sphere_radius;" in lights
+    # the c20 frame 5460 case: the flash 0.54 from the shooter's center (radius 0.44), the other Flood at 0.30 and
+    # 0.64: a ray from the wall behind the shooter stops where it enters his sphere, so he does not block it; a ray
+    # past the other Flood is untouched
+    flash = (16.95, 20.06, -4.41)
+    shooter, other = ((17.32, 19.71, -4.59), 0.44), ((17.53, 20.26, -4.60), 0.40)
+
+    def caster_end(point, sphere):
+        span = sum((a - b) ** 2 for a, b in zip(flash, point)) ** 0.5
+        direction = [(a - b) / span for a, b in zip(flash, point)]
+        from_owner = [a - b for a, b in zip(point, sphere[0])]
+        half_b = sum(a * b for a, b in zip(from_owner, direction))
+        inside = half_b * half_b - (sum(a * a for a in from_owner) - sphere[1] ** 2)
+        return span, (min(span, max(-half_b - inside ** 0.5, 0.0)) if inside > 0 else span)
+
+    wall = tuple(f + 3.0 * (s - f) for f, s in zip(flash, shooter[0]))  # behind the shooter, from the flash
+    span, end = caster_end(wall, shooter)
+    assert end < span - 2.0 * 0.44 + 1e-6  # the ray stops before it reaches the shooter's body
+    floor = tuple(f + 3.0 * (o - f) for f, o in zip(flash, other[0]))  # behind the other Flood
+    span, end = caster_end(floor, shooter)
+    assert end == span  # the shooter's sphere does not shorten it: the other Flood still blocks
 
 
 def test_the_light_instances_rebuild_when_the_caster_set_changes():

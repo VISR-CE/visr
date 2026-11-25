@@ -43,9 +43,10 @@ struct light_visibility_candidate;
 void traced_lights_choose(struct light_visibility_candidate const *lights, short count, boolean versus, float *strength);
 /* the next draws are a dynamic light's over the level, lit only where a ray from the point reaches the light, its
 blocking scaled by strength; family: its owner family's mask bit (light_visibility.h), whose casters the rays pass
-through, 0 none. FALSE when they are drawn as the game draws them. traced_light_end after them */
+through, 0 none; owner_sphere: the owner family's root (center x, y, z, radius) when it has no bit, which no caster
+blocks the light within, NULL none. FALSE when they are drawn as the game draws them. traced_light_end after them */
 boolean traced_light_begin(real_point3d const *position, real radius, real strength, long family,
-	short attenuation_stage, real attenuation_radius);
+	real const *owner_sphere, short attenuation_stage, real attenuation_radius);
 void traced_light_end(void);
 /* whether objects with no shadow of their own (too faint, or a shadowless kind such as a door) block the traced
 lights too, through the caster walker (render_objects.c, object_lights.c's lights_object_blocks_light) */
