@@ -17,6 +17,11 @@ record is compared with what its structure was last made from:
 - TRACED_REFIT_LIMIT refits since its build: build again, at most TRACED_REBUILDS_A_FRAME such a frame, so an animation
   that has moved far from the pose a structure was built in does not trace slowly forever.
 A slot not used for TRACED_IDLE_FRAMES frames is free for another caster, and its structure is released.
+Refits are spread over frames when there are too many: when the last frame's moved casters (those with a structure)
+came to more than TRACED_FRAME_UPDATE_TRIANGLES, each is refitted every period-th frame (period = that total over the
+budget, rounded up, at most TRACED_STALE_FRAMES + 1), in a phase set by its slot, and keeps its last structure (a
+shadow a frame or two behind its pose) in between; new casters are always built. A 64-player match moved about
+140,000 triangles of casters a frame, all refitted every frame before this.
 */
 
 #ifndef __HALO_TRACED_SHADOWS_H
@@ -40,6 +45,10 @@ enum
 	TRACED_SWEEP_SLOTS = 32,
 	/* triangles of every caster built or updated in a frame; a caster past it has no shadow that frame */
 	TRACED_FRAME_TRIANGLES = 200000,
+	/* the refit budget a frame: moved casters past it are refitted every few frames instead of every frame */
+	TRACED_FRAME_UPDATE_TRIANGLES = 48000,
+	/* frames in a row a moved caster may keep a structure of an older pose */
+	TRACED_STALE_FRAMES = 3,
 };
 
 enum traced_decision
@@ -159,7 +168,9 @@ struct traced_caster_cache
 	uint32_t sweep; /* where the next frame's sweep starts */
 	uint32_t frame_triangles;
 	/* since the last log line */
-	uint32_t reuses, refits, builds, refused;
+	uint32_t reuses, refits, builds, refused, deferred;
+	/* triangles of the moved casters with a structure, this frame and the last, and the refit period they set */
+	uint32_t moved_triangles, last_moved_triangles, period;
 };
 
 static inline uint32_t traced_shape_hash(uint32_t object, const uint32_t *shape, uint32_t shape_size)
@@ -179,6 +190,10 @@ static inline void traced_cache_frame(struct traced_caster_cache *cache, uint64_
 	cache->frame = frame;
 	cache->rebuilds = 0;
 	cache->frame_triangles = 0;
+	cache->last_moved_triangles = cache->moved_triangles;
+	cache->moved_triangles = 0;
+	cache->period = (cache->last_moved_triangles + TRACED_FRAME_UPDATE_TRIANGLES - 1) / TRACED_FRAME_UPDATE_TRIANGLES;
+	cache->period = cache->period < 1 ? 1 : cache->period > TRACED_STALE_FRAMES + 1 ? TRACED_STALE_FRAMES + 1 : cache->period;
 }
 
 /* a slot's copies and counts are dropped; the caller releases its structure */
@@ -291,6 +306,22 @@ static inline enum traced_decision traced_cache_decide(struct traced_caster_cach
 	{
 		cache->refused++;
 		return TRACED_REFUSED;
+	}
+	/* too many moved casters last frame: this one is refitted in its phase of the period, and keeps its structure
+	otherwise (never one older than the period) */
+	if (found && found->updated && found->updated != cache->frame)
+	{
+		uint32_t index = (uint32_t)(found - cache->slots);
+
+		cache->moved_triangles += triangles;
+		if (cache->period > 1 && (cache->frame + index) % cache->period != 0 &&
+			cache->frame - found->updated < cache->period)
+		{
+			found->frame = cache->frame;
+			cache->deferred++;
+			*slot_index = index;
+			return TRACED_REUSE;
+		}
 	}
 	if (found)
 	{

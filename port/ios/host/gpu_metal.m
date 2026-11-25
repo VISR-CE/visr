@@ -5459,11 +5459,13 @@ static void traced_frame_check(void)
 	if (traced.log_casters && (frames % 600) == 0)
 	{
 		platform_log("traced shadows: frame %lu: %lu casters and %lu triangles updated in 600 frames (%u built, %u "
-			"refitted, %u reused, %u refused), %lu draws dropped, %.1f MB of structures", frames, traced.log_casters,
-			traced.log_triangles, traced.cache.builds, traced.cache.refits, traced.cache.reuses, traced.cache.refused,
+			"refitted, %u reused, %u refused, %u kept an older pose over the frame's budget), %lu draws dropped, %.1f MB of "
+			"structures", frames, traced.log_casters, traced.log_triangles, traced.cache.builds, traced.cache.refits,
+			traced.cache.reuses, traced.cache.refused, traced.cache.deferred,
 			traced.log_dropped, (double)traced.structure_bytes / 1048576.0);
 		traced.log_casters = traced.log_triangles = traced.log_dropped = 0;
 		traced.cache.builds = traced.cache.refits = traced.cache.reuses = traced.cache.refused = 0;
+		traced.cache.deferred = 0;
 	}
 	traced.frame = frames;
 	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));

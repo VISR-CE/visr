@@ -219,6 +219,47 @@ static void check_sweep(void)
 	traced_cache_reset(&cache);
 }
 
+/* the class: refit work a frame grew with the casters in view (about 140,000 triangles a frame at 64 players). Past
+the budget each moved caster is refitted every few frames in its own phase, so a frame's refits stay near the budget,
+no caster keeps an older pose's structure longer than the stale limit, and a new caster is always built */
+static void check_update_budget(void)
+{
+	static struct traced_caster_cache cache;
+	enum { CASTERS = 20, TRIANGLES = 7000, FRAMES = 60 }; /* 140,000 triangles: under TRACED_FRAME_TRIANGLES */
+	uint32_t shape[3] = { 1, 1, 0 }, slot, object, frame, kept[CASTERS] = { 0 }, worst_kept = 0, worst_frame = 0;
+	float pose[TRACED_SHADOWS_NODE_FLOATS] = { 0 };
+	int released;
+
+	for (frame = 1; frame <= FRAMES; frame++)
+	{
+		uint32_t updated = 0;
+
+		traced_cache_frame(&cache, frame);
+		pose[0] = (float)frame; /* every caster moves every frame */
+		for (object = 0; object < CASTERS; object++)
+		{
+			enum traced_decision decision = traced_cache_decide(&cache, object, shape, sizeof(shape), pose, sizeof(pose),
+				TRIANGLES, 1, &slot, &released);
+
+			CHECK(decision != TRACED_REFUSED, "every caster keeps a shadow");
+			if (frame == 1)
+				CHECK(decision == TRACED_BUILD, "a new caster is always built");
+			if (decision == TRACED_REUSE)
+				worst_kept = ++kept[object] > worst_kept ? kept[object] : worst_kept;
+			else
+			{
+				kept[object] = 0;
+				updated += TRIANGLES;
+			}
+		}
+		if (frame > 2 && updated > worst_frame)
+			worst_frame = updated;
+	}
+	CHECK(worst_kept <= TRACED_STALE_FRAMES, "no caster keeps an older pose's structure past the stale limit");
+	CHECK(worst_frame <= CASTERS * TRIANGLES / 2, "past the budget a frame refits a share of the moved casters, not all");
+	traced_cache_reset(&cache);
+}
+
 int main(void)
 {
 	check_skinning();
@@ -226,6 +267,7 @@ int main(void)
 	check_cache();
 	check_idle();
 	check_sweep();
+	check_update_budget();
 	if (failures)
 		fprintf(stderr, "traced shadows: %d failures\n", failures);
 	return failures != 0;
