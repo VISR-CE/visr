@@ -77,3 +77,15 @@ def test_mouse_legend_lights_the_acting_button_and_touch_hides_select_and_back()
     assert 'ui_touch_legend_caption_suppressed' in widget
     glyphs = (ROOT / 'port/ios/host/host_controller_glyphs.m').read_text()
     assert 'glyph_draw_mouse' in glyphs
+
+
+def test_the_keyboard_secondary_legend_names_backspace_whatever_chose_the_family():
+    """Bug class (Nov 25): the DELETE legend showed E on keyboard captures, because the Backspace label was keyed on the last input
+    event while the capture tools force the family. The label reads the shown input (`glyph_input_shown`, which honors the
+    capture override) and names the one label the header defines."""
+    source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
+    header = (ROOT / 'port/linux/include/halo_controller_glyphs.h').read_text()
+    assert '#define HALO_GLYPH_MENU_SECONDARY_LABEL "Backspace"' in header
+    assert 'glyph_menus_active && shown.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive' in source
+    assert 'snprintf(label, size, "%s", HALO_GLYPH_MENU_SECONDARY_LABEL)' in source
+    assert 'glyph_menu_input.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2' not in source
