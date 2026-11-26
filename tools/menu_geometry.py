@@ -44,6 +44,14 @@ CHEVRON_INSET = 8
 CHEVRON_WIDTH = 12
 VALUE_MARGIN = CHEVRON_INSET + CHEVRON_WIDTH + 4
 VALUE_MINIMUM_WIDTH = 80
+# The touch switch: its art, and the gap between a row's value text and the switch.
+SWITCH_WIDTH = 32
+SWITCH_HEIGHT = 17
+SWITCH_TEXT_GAP = 6
+# What a pointer input's control takes at a value's right end, out of the value's bounds (the value is centered in
+# the rest): the switch with its gap, or the dropdown's chevron with its inset and margin (VALUE_MARGIN).
+TOGGLE_SLOT = SWITCH_WIDTH + SWITCH_TEXT_GAP
+DROPDOWN_SLOT = VALUE_MARGIN
 # Pointer dropdown option rows (at least 44 pt on the iPhone 17 Pro in landscape at the minimum menu scale).
 DROPDOWN_PITCH = 52
 
@@ -205,6 +213,10 @@ HEADER_VALUES = (
     ('MENU_VALUE_MARGIN', VALUE_MARGIN, 'beside the widest value in a value column'),
     ('MENU_VALUE_MINIMUM_WIDTH', VALUE_MINIMUM_WIDTH, 'a value column at its narrowest'),
     ('MENU_DROPDOWN_PITCH', DROPDOWN_PITCH, 'a pointer dropdown option row'),
+    ('MENU_SWITCH_WIDTH', SWITCH_WIDTH, "a touch row's switch"),
+    ('MENU_SWITCH_HEIGHT', SWITCH_HEIGHT, "a touch row's switch"),
+    ('MENU_TOGGLE_SLOT', TOGGLE_SLOT, "a switch row's value is centered clear of the switch: its width and the gap"),
+    ('MENU_DROPDOWN_SLOT', DROPDOWN_SLOT, "a dropdown row's value is centered clear of the chevron"),
     *((f'MENU_BAR_SLOT_{slot.upper()}_X{edge}', BAR_SLOT_BOUNDS[slot][edge], f"the bar's {slot.upper()} slot: its "
        + ('left' if edge == 0 else 'right') + ' edge') for slot in BAR_SLOTS for edge in (0, 1)),
     ('MENU_BAR_GAP', BAR_GAP, 'between two slots of the bar'),

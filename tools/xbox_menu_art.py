@@ -12,6 +12,8 @@ import argparse
 from pathlib import Path
 import subprocess
 
+import menu_geometry
+
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
 
@@ -81,15 +83,17 @@ def title_icon(output, source=ICON_SOURCE):
 
 
 def toggle_art(output):
-    """A 32 by 17 menu-unit pill, rasterized at 4x for larger displays."""
+    """A pill of menu_geometry's switch size, rasterized at 4x for larger displays."""
+    width, height = menu_geometry.SWITCH_WIDTH, menu_geometry.SWITCH_HEIGHT
     for on in (0, 1):
         svg = output / f'toggle_switch__{on}.svg'
         color = '#4ea0ff' if on else '#424b57'
-        center = 23.5 if on else 8.5
-        svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="17" '
-                       'viewBox="0 0 32 17">'
-                       f'<rect width="32" height="17" rx="8.5" fill="{color}"/>'
-                       f'<circle cx="{center}" cy="8.5" r="6.5" fill="#fff"/></svg>\n')
+        radius = height / 2
+        center = width - radius if on else radius
+        svg.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+                       f'viewBox="0 0 {width} {height}">'
+                       f'<rect width="{width}" height="{height}" rx="{radius}" fill="{color}"/>'
+                       f'<circle cx="{center}" cy="{radius}" r="{radius - 2}" fill="#fff"/></svg>\n')
         subprocess.run(['rsvg-convert', '--zoom', '4', '--output',
                         str(output / f'toggle_switch__{on}.png'), str(svg)], check=True)
 

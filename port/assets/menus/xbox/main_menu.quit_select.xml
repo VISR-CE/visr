@@ -22,22 +22,22 @@
 	</widget>
 	<widget name="xbox/main_menu/quit_select/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/main_menu/quit_select/legend/b_butn/touch_background" y="14" />
-		<child widget="xbox/main_menu/quit_select/legend/b_butn/touch_caption" y="14" />
-		<child widget="xbox/main_menu/quit_select/legend/b_butn_glyph" y="6" />
-		<child widget="xbox/main_menu/quit_select/legend/cancel" x="22" y="8" />
+		<child widget="xbox/main_menu/quit_select/legend/b_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/main_menu/quit_select/legend/b_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/main_menu/quit_select/legend/b_butn_glyph" x="5" y="13" />
+		<child widget="xbox/main_menu/quit_select/legend/cancel" x="30" y="15" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/main_menu/quit_select/legend/cancel" type="text" text="CANCEL" text_id="xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/main_menu/quit_select/legend/cancel" type="text" text="CANCEL" text_id="xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="77" height="22" />
 	<widget name="xbox/main_menu/quit_select/legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/main_menu/quit_select/legend/a_butn/touch_background" y="14" />
-		<child widget="xbox/main_menu/quit_select/legend/a_butn/touch_caption" y="14" />
-		<child widget="xbox/main_menu/quit_select/legend/a_butn_glyph" y="6" />
-		<child widget="xbox/main_menu/quit_select/legend/accept" x="22" y="8" />
+		<child widget="xbox/main_menu/quit_select/legend/a_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/main_menu/quit_select/legend/a_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/main_menu/quit_select/legend/a_butn_glyph" x="28" y="13" />
+		<child widget="xbox/main_menu/quit_select/legend/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/main_menu/quit_select/legend/accept" type="text" text="OK" text_id="xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/main_menu/quit_select/legend/accept" type="text" text="OK" text_id="xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="30" height="22" />
 	<widget name="xbox/main_menu/quit_select/legend/a_butn/touch_background" width="108" height="25" bitmap="xbox/dialog_touch_button" />
 	<widget name="xbox/main_menu/quit_select/legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="108" height="24" align="center" />
 	<widget name="xbox/main_menu/quit_select/legend/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />

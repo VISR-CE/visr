@@ -52,7 +52,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hud_assets import bleed, render_svg  # noqa: E402
 import menu_catalog  # noqa: E402
-from menu_probe_build import engine_names  # noqa: E402
+from menu_engine_names import engine_names  # noqa: E402
 import port_settings  # noqa: E402
 import xbox_menus  # noqa: E402
 

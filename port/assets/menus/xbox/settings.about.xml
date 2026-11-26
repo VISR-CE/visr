@@ -122,22 +122,22 @@
 	<widget name="xbox/settings/send_log_confirm/title" type="text" width="170" height="20" text="SEND LOG?" text_id="xbox.settings_about.xbox_settings_send_log_confirm_title.text" font="ui\large_ui" color="#FF2896FF" />
 	<widget name="xbox/settings/send_log_confirm/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/settings/send_log_confirm/legend/b_butn/touch_background" y="14" />
-		<child widget="xbox/settings/send_log_confirm/legend/b_butn/touch_caption" y="14" />
-		<child widget="xbox/settings/send_log_confirm/legend/b_butn_glyph" y="6" />
-		<child widget="xbox/settings/send_log_confirm/legend/cancel" x="22" y="8" />
+		<child widget="xbox/settings/send_log_confirm/legend/b_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/settings/send_log_confirm/legend/b_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/settings/send_log_confirm/legend/b_butn_glyph" x="5" y="13" />
+		<child widget="xbox/settings/send_log_confirm/legend/cancel" x="30" y="15" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/settings/send_log_confirm/legend/cancel" type="text" text="CANCEL" text_id="xbox.settings_about.xbox_settings_send_log_confirm_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/settings/send_log_confirm/legend/cancel" type="text" text="CANCEL" text_id="xbox.settings_about.xbox_settings_send_log_confirm_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="77" height="22" />
 	<widget name="xbox/settings/send_log_confirm/legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/settings/send_log_confirm/legend/a_butn/touch_background" y="14" />
-		<child widget="xbox/settings/send_log_confirm/legend/a_butn/touch_caption" y="14" />
-		<child widget="xbox/settings/send_log_confirm/legend/a_butn_glyph" y="6" />
-		<child widget="xbox/settings/send_log_confirm/legend/accept" x="22" y="8" />
+		<child widget="xbox/settings/send_log_confirm/legend/a_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/settings/send_log_confirm/legend/a_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/settings/send_log_confirm/legend/a_butn_glyph" x="17" y="13" />
+		<child widget="xbox/settings/send_log_confirm/legend/accept" x="42" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/settings/send_log_confirm/legend/accept" type="text" text="SEND" text_id="xbox.settings_about.xbox_settings_send_log_confirm_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/settings/send_log_confirm/legend/accept" type="text" text="SEND" text_id="xbox.settings_about.xbox_settings_send_log_confirm_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="52" height="22" />
 	<widget name="xbox/settings/send_log_confirm/legend/a_butn/touch_background" width="108" height="25" bitmap="xbox/dialog_touch_button" />
 	<widget name="xbox/settings/send_log_confirm/legend/a_butn/touch_caption" type="text" text="SEND" text_id="xbox.settings_about.xbox_settings_send_log_confirm_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="108" height="24" align="center" />
 	<widget name="xbox/settings/send_log_confirm/legend/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />

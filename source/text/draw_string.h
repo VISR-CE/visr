@@ -97,6 +97,11 @@ void draw_unicode_string_compute_bounds(
 	wchar_t const *string,
 	rectangle2d *text_bounds,
 	rectangle2d *cursor_bounds);
+void draw_unicode_string_compute_bounds_from_cursor(
+	rectangle2d const *bounds,
+	wchar_t const *string,
+	rectangle2d *draw_bounds,
+	rectangle2d *cursor_bounds);
 short draw_string_pick(
 	rectangle2d const *bounds,
 	char const *string,

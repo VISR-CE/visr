@@ -28,8 +28,15 @@ meta.json. Then the menu comes back and the map menus show the pictures
 /* port/runtime/guest/runtime/guest_host.h */
 int host_photo_mode_available(void);
 void host_map_pictures_keep_awake(int on);
-/* port/linux/src/dsound_sdl.c: silences every voice until switched off */
+/* port/linux/src/dsound_sdl.c: silences all output until switched off */
 void dsound_set_capture_mute(int on);
+
+/* what a render run holds while it loads maps: the screen awake and the sound off (every start and end of a run) */
+static void run_hold(int on)
+{
+	host_map_pictures_keep_awake(on);
+	dsound_set_capture_mute(on);
+}
 int host_map_pictures_import_stage(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
@@ -89,6 +96,8 @@ with a warning in the log. */
 #define CINEMATIC_TIMEOUT_MILLISECONDS 120000.0
 /* a wait for the menu longer than this is logged with what holds it, and again each time it doubles */
 #define MENU_WAIT_LOG_MILLISECONDS 10000.0
+/* how long a finished run waits for the main menu before letting go of the sound and the screen anyway */
+#define LEAVE_TIMEOUT_MILLISECONDS 30000.0
 
 enum render_state
 {
@@ -101,6 +110,8 @@ enum render_state
 static struct
 {
 	enum render_state state;
+	/* when the run finished and began waiting for the menu (STATE_LEAVING) */
+	double left;
 	/* the current map's cached meta.json, parsed once by build_request for the freshness check */
 	struct map_pictures_metadata cached_meta;
 	int have_cached_meta;
@@ -315,6 +326,7 @@ static void finish(void)
 	halo_benchmark_overrides(0, 0, 0);
 	photo_mode_clear_variant();
 	benchmark_scenario_load("", "");
+	render.left = now();
 	render.state = STATE_LEAVING;
 }
 
@@ -479,9 +491,7 @@ static void start_run(double time)
 		return;
 	}
 	render.run_start = time;
-	host_map_pictures_keep_awake(1);
-	if (render.import_mode)
-		dsound_set_capture_mute(1);
+	run_hold(1);
 	if (render.import_mode)
 		host_map_pictures_import_progress(0, map_pictures_scenario_count(), "");
 	wait_menu();
@@ -718,12 +728,15 @@ void map_pictures_render_update(void)
 			skip_map("no rendered frame was read back");
 		return;
 	case STATE_LEAVING:
-		if (benchmark_scenario_at_menu())
+		/* a run that never gets back to the menu must not leave the game silent and the screen held awake */
+		if (benchmark_scenario_at_menu() || time - render.left > LEAVE_TIMEOUT_MILLISECONDS)
 		{
+			if (!benchmark_scenario_at_menu())
+				platform_log("map pictures: the menu did not come back within %.0f s; letting go of the sound and the screen",
+					LEAVE_TIMEOUT_MILLISECONDS / 1000.0);
 			platform_log("map pictures: done in %.1f s: %d rendered, %d cached, %d failed",
 				(time - render.run_start) / 1000.0, render.rendered, render.cached, render.failed);
-			host_map_pictures_keep_awake(0);
-			dsound_set_capture_mute(0);
+			run_hold(0);
 			if (render.import_mode)
 			{
 				host_map_pictures_import_progress(map_pictures_scenario_count(), map_pictures_scenario_count(), "");

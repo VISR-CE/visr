@@ -229,8 +229,10 @@ def test_browser_map_picture_lookup(tmp_path):
     harness = r'''
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <strings.h>
+static void platform_log(char const *format, ...) { (void)format; }
 #define NONE -1
 #define NUMBER_OF_SINGLE_PLAYER_LEVELS 2
 #define _stricmp strcasecmp

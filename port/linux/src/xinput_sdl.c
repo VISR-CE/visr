@@ -51,6 +51,7 @@ extern unsigned short player_input_profile_binding(short local_player_index, sho
 #ifdef HALO_IOS
 #include "halo_host_pointer.h"
 #endif
+#include "../include/halo_development_hooks.h"
 #include "mp_benchmark_probe.h"
 #include "benchmark_mp_arena.h"
 #include "halo_spatial.h"
@@ -77,10 +78,9 @@ pinches, scripted clicks), the desktop builds' polled keys and mouse (glyph_poll
 (halo_menu_pointer_activity), and the polled pads (glyph_pad_activity). The legend, the help wording
 (halo_menu_input_kind) and the option rows' controls (halo_menu_pointer_controls) all read glyph_input_shown. */
 static struct halo_glyph_input glyph_menu_input;
+static int glyph_x_destructive;   /* the screen's X deletes: Backspace and forward delete press it (keyboard_gamepad) */
 #ifdef HALO_IOS
 static int glyph_menus_active;
-static int glyph_x_destructive;
-static int glyph_x_global;
 #endif
 
 /* the mouse's movement since another input was used (halo_glyph_motion_note) */
@@ -732,7 +732,7 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 	if (k[SDL_SCANCODE_F1]) pad->wButtons |= XINPUT_GAMEPAD_BACK;
 	if (k[HALO_GLYPH_MENU_WILDCARD_SCANCODE]) pad->wButtons |= XINPUT_GAMEPAD_LEFT_THUMB;
 
-	/* (escape backs out, as backspace does: the pause menu's B resumes the
+	/* (escape backs out: the pause menu's B resumes the
 	game, the main menu's asks to quit; Start would choose, as A does) */
 #define MENU_SCANCODE(button, scancode, label) {button, scancode},
 	static const struct { int button, scancode; } menu_scancodes[] = {HALO_GLYPH_MENU_BINDINGS(MENU_SCANCODE)};
@@ -743,13 +743,19 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 		pad->bAnalogButtons[menu_scancodes[button].button] |= analog(k[menu_scancodes[button].scancode]);
 	}
 	pad->bAnalogButtons[XINPUT_GAMEPAD_A] |= analog(k[SDL_SCANCODE_SPACE] || k[SDL_SCANCODE_KP_ENTER]);
-	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_BACKSPACE] ||
-		(mouse && m[SDL_BUTTON_X1]));
+	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(mouse && m[SDL_BUTTON_X1]);
 #ifdef HALO_ILP32
 	/* the system back key (gesture or button) backs out of menus */
 	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_AC_BACK]);
 #endif
-	pad->bAnalogButtons[XINPUT_GAMEPAD_X] |= analog(k[SDL_SCANCODE_DELETE]);
+	/* the one place Backspace and forward delete become the secondary action, and only where that action is
+	destructive (the screen's X deletes a profile or a gametype): elsewhere X is a plain action such as DEFAULTS, a
+	key the legend names E, so a stray Backspace changes nothing. typing_gamepad (text entry) returned above, so
+	Backspace edits text there. */
+#define SECONDARY_DOWN(scancode) || k[scancode]
+	if (glyph_x_destructive)
+		pad->bAnalogButtons[XINPUT_GAMEPAD_X] |= analog(0 HALO_GLYPH_MENU_SECONDARY_KEYS(SECONDARY_DOWN));
+#undef SECONDARY_DOWN
 }
 
 /* the keys held when the game and the menus switch count as up until let go
@@ -1037,7 +1043,8 @@ next press */
 input (ka, kb, kdown); an unprefixed button is controller input. "none"
 changes only the input class. "focus:LABEL@POLL[:DEADLINE]" (spaces in LABEL written as _) holds Down from POLL until the focused
 menu row's text is LABEL, instead of counting rows; it fails the run ("WALK FAIL" in the log, exit status
-TEST_FOCUS_EXIT_STATUS) when the list has no such row or the next scripted press comes first. Each BUTTON (start, back, a, b, x, y, up, down,
+TEST_FOCUS_EXIT_STATUS) when the list has no such row. A press after a walk waits until the walk has landed (and the presses
+after it keep their spacing), however slow the host. Each BUTTON (start, back, a, b, x, y, up, down,
 left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
 else is pressed (a menu walked by script). Presses at the same POLL are held
 together: "back@100 down@100" is debug.knob_cycle's chord */
@@ -1053,13 +1060,17 @@ static int test_press_count;
 #define TEST_FOCUS_MAX 8
 static struct test_focus_walk test_focus_walks[TEST_FOCUS_MAX];
 static int test_focus_count;
+/* the script's presses and walks in order, released as one chain (test_focus_walk.h's test_chain_update) */
+static struct test_chain_step test_chain[TEST_PRESS_MAX + TEST_FOCUS_MAX];
+static int test_chain_count;
 
 static void test_input_presses_parse(const char *text)
 {
 	char button[8];
-	unsigned long poll;
+	unsigned long poll, last_poll = 0;
 	int used;
 
+	test_chain_count = 0;
 	while (test_press_count < TEST_PRESS_MAX)
 	{
 		char label[TEST_FOCUS_LABEL_MAX];
@@ -1071,6 +1082,7 @@ static void test_input_presses_parse(const char *text)
 				if (*c == '_')
 					*c = ' ';
 			test_focus_walk_begin(&test_focus_walks[test_focus_count++], label, poll);
+			test_chain[test_chain_count++] = (struct test_chain_step){ .is_walk = 1, .index = test_focus_count - 1, .poll = poll };
 			if (test_focus_count == 1)   /* the capture tools fail a screen that walks by label when a build does not say this */
 				platform_log("test_input: focus walk supported");
 			text += used;
@@ -1085,6 +1097,7 @@ static void test_input_presses_parse(const char *text)
 		else if (sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
 		{
 			strcpy(test_presses[test_press_count].button, button);
+			test_chain[test_chain_count++] = (struct test_chain_step){ .index = test_press_count, .poll = poll };
 			test_presses[test_press_count++].poll = poll;
 			text += used;
 		}
@@ -1096,23 +1109,56 @@ static void test_input_presses_parse(const char *text)
 		platform_log("WALK FAIL: debug.test_input has text it cannot use: \"%s\"", text);
 		exit(TEST_FOCUS_EXIT_STATUS);
 	}
-	/* a walk must land before the next scripted press */
-	for (int walk = 0; walk < test_focus_count; walk++)
-		for (int press = 0; press < test_press_count; press++)
-			if (test_presses[press].poll > test_focus_walks[walk].start &&
-				(!test_focus_walks[walk].deadline || test_presses[press].poll < test_focus_walks[walk].deadline))
-				test_focus_walks[walk].deadline = test_presses[press].poll;
+	/* a walk checks that the focus is still on its row just before the next scripted step */
+	for (int step = 0; step < test_chain_count; step++)
+	{
+		if (test_chain[step].poll < last_poll)
+		{
+			platform_log("WALK FAIL: debug.test_input steps are not in order (a poll before the one before it)");
+			exit(TEST_FOCUS_EXIT_STATUS);
+		}
+		last_poll = test_chain[step].poll;
+		if (test_chain[step].is_walk && step + 1 < test_chain_count && test_chain[step + 1].poll > test_chain[step].poll + 2)
+			test_focus_walks[test_chain[step].index].check_at = test_chain[step + 1].poll - 2;
+	}
+}
+
+/* releases the chain's steps that are due (each shift is logged once, for the capture tools); a walk's own poll runs `shift` polls
+behind the real one */
+static void test_input_chain(unsigned long poll)
+{
+	if (!test_chain_update(test_chain, test_chain_count, poll))
+		return;
+	for (int step = 0; step < test_chain_count; step++)
+	{
+		struct test_chain_step *item = &test_chain[step];
+
+		if (!item->released || item->reported)
+			continue;
+		item->reported = 1;
+		if (item->shift)
+			platform_log("test input: %s %s shifted by %lu polls", item->is_walk ? "focus" : "press",
+				item->is_walk ? test_focus_walks[item->index].label : test_presses[item->index].button, item->shift);
+	}
 }
 
 /* the focus walks' Down presses; a failed walk ends the run */
-static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
+static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long real_poll)
 {
-	for (int index = 0; index < test_focus_count; index++)
+	test_input_chain(real_poll);
+	for (int step = 0; step < test_chain_count; step++)
 	{
-		struct test_focus_walk *walk = &test_focus_walks[index];
+		struct test_chain_step *item = &test_chain[step];
+		struct test_focus_walk *walk;
 		char seen[TEST_FOCUS_LABEL_MAX];
-		int have = 0, was_finished = walk->finished, action;
+		unsigned long poll;
+		int have = 0, was_finished, action;
 
+		if (!item->is_walk || !item->released)
+			continue;
+		walk = &test_focus_walks[item->index];
+		poll = real_poll - item->shift;   /* (the walk's own time) */
+		was_finished = walk->finished;
 		if (test_focus_walk_wants_look(walk, poll))
 			have = menu_test_focus_text(seen, sizeof(seen));
 		if (have)   /* every row the walk looks at, so a failed or a new walk can be read off the log */
@@ -1121,12 +1167,16 @@ static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
 		if (action == TEST_FOCUS_DOWN)
 			pad->wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
 		else if (action == TEST_FOCUS_DONE && !was_finished)
-			platform_log("walk: focus %s landed at poll %lu", walk->label, poll);
+		{
+			item->landed = 1;
+			item->landed_at = real_poll;
+			platform_log("walk: focus %s landed at poll %lu", walk->label, real_poll);
+		}
 		else if (action >= TEST_FOCUS_FAIL_STUCK && (!was_finished || action == TEST_FOCUS_FAIL_LOST))
 		{
 			platform_log("WALK FAIL: focus %s (%s); the focus was on \"%s\", it began on \"%s\"", walk->label,
 				action == TEST_FOCUS_FAIL_STUCK ? "Down no longer moves it" : action == TEST_FOCUS_FAIL_WRAP ? "the list wrapped" :
-				action == TEST_FOCUS_FAIL_LATE ? "the next press came first" :
+				action == TEST_FOCUS_FAIL_LATE ? "the walk missed its deadline" :
 				action == TEST_FOCUS_FAIL_LOST ? "the focus left the row before the deadline" : "no screen with a focused row", walk->last, walk->first);
 			exit(TEST_FOCUS_EXIT_STATUS);
 		}
@@ -1135,14 +1185,19 @@ static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
 
 static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
 {
-	int index;
-
-	for (index = 0; index < test_press_count; index++)
+	test_input_chain(poll);
+	for (int step = 0; step < test_chain_count; step++)
 	{
-		const char *button = test_presses[index].button;
+		const struct test_chain_step *item = &test_chain[step];
+		const char *button;
 
-		if (poll < test_presses[index].poll || poll >= test_presses[index].poll + TEST_PRESS_POLLS)
+		if (item->is_walk)
 			continue;
+		if (!item->released)
+			break;   /* nothing after a waiting step can fire yet */
+		if (poll < item->poll + item->shift || poll >= item->poll + item->shift + TEST_PRESS_POLLS)
+			continue;
+		button = test_presses[item->index].button;
 		if (button[0] == 'k') button++;
 		if (!strcmp(button, "start"))
 			pad->wButtons |= XINPUT_GAMEPAD_START;
@@ -1244,8 +1299,8 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 	}
 	if (pressing)
 	{
-		test_input_presses(pad, press_polls);
-		test_input_focus_walks(pad, press_polls++);
+		test_input_focus_walks(pad, press_polls);   /* (walks first: a press after a walk that lands this poll is held its full length) */
+		test_input_presses(pad, press_polls++);
 		return;
 	}
 	if (unarmed_start >= 0)
@@ -1637,11 +1692,7 @@ void halo_controller_glyph_x_global(int global)
 
 void halo_controller_glyph_x_destructive(int destructive)
 {
-#ifdef HALO_IOS
 	glyph_x_destructive = destructive;
-#else
-	(void)destructive;
-#endif
 }
 
 void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer)
@@ -1722,7 +1773,6 @@ part) stands in for it, in this one place, for the help wording and the rows' co
 whether it did. */
 static struct halo_glyph_input glyph_input_shown(int *overridden)
 {
-	int host_development_hooks(void);
 	struct halo_glyph_input shown = glyph_menu_input;
 
 	if (host_development_hooks())
@@ -1783,7 +1833,6 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	struct halo_glyph_input shown;
 	char family[24] = {0};
 	int count, kind, action;
-	int host_development_hooks(void);
 	int host_sdl_gamepad_glyph(unsigned int gamepad, int physical, const char *family, char *label, unsigned int size, int player, int menus);
 
 	if (!label || size < 2 || size > 128 || player < 0 || player >= PORT_COUNT ||
@@ -1845,7 +1894,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 		return HALO_GLYPH_ORIGINAL;
 	}
 	if (glyph_menus_active && shown.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
-		snprintf(label, size, "Delete");
+		snprintf(label, size, "%s", HALO_GLYPH_MENU_SECONDARY_LABEL);
 	else if (semantic == 28 || semantic == 29)
 		snprintf(label, size, "%s", semantic == 28 ? "Enter" : "Escape");
 	else if (semantic == 30 || semantic == 31)

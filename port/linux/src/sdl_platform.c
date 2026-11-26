@@ -55,10 +55,7 @@ int platform_menu_keyboard(void)
 #endif
 }
 
-#ifdef HALO_ILP32
-/* port/runtime/guest/runtime/guest_host.h: whether the host is a development build */
-extern int host_development_hooks(void);
-#endif
+#include "../include/halo_development_hooks.h"
 
 static SDL_Window *platform_window;
 static SDL_GLContext platform_gl_context;

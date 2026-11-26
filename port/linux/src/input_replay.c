@@ -76,16 +76,7 @@ to the recording, a summary to the log, and the game quits.
 #include <math.h>
 #include <time.h>
 
-#ifdef HALO_ILP32
-/* port/runtime/guest/runtime/guest_host.h */
-extern int host_development_hooks(void);
-#else
-static int host_development_hooks(void)
-{
-	const char *value = getenv("HALO_DEVELOPMENT_HOOKS");
-	return value && !strcmp(value, "1");
-}
-#endif
+#include "../include/halo_development_hooks.h"
 
 /* source/game/game_time.c */
 extern unsigned char game_time_initialized(void);

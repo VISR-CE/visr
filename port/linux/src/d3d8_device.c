@@ -30,7 +30,6 @@ Conventions carried over from the Xbox:
 #include "quad_ranges.h"
 #include "screenshot_schedule.h"
 #include "sdl_platform.h"
-#include "halo_ui_drag.h"
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
 #include "menu_scale.h"
@@ -4025,6 +4024,7 @@ static int ui_pointer_geometry(struct halo_ui_pointer_geometry *g, int window_wi
 
 #ifdef HALO_ILP32
 #include "halo_host_pointer.h"
+#include "halo_ui_drag.h" /* halo_ui_wheel_steps_from_host; in port/runtime/include, which only the Apple builds search */
 /* the host's fingers and pointer devices (halo_host_pointer.h, guest_sdl.c) */
 void halo_host_pointer_read(struct host_ui_pointer *pointer);
 void halo_host_pointer_feedback(int kind);
@@ -9254,11 +9254,16 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 			{
 				uint32_t entry;
 
-				/* ambient occlusion as drawn: off where the GPU cannot run it, whatever the setting says */
+				/* what was drawn, not the setting: off where the GPU cannot run a pass, outside its mode, in stereo */
 				for (entry = 0; entry < perf_graphics.count; entry++)
-					if (perf_graphics.entries[entry].type == GAME_PERF_GRAPHICS_BOOLEAN &&
-						!strcmp(perf_graphics.entries[entry].name, "display.ambient_occlusion"))
-						perf_graphics.entries[entry].value.boolean = halo_ambient_occlusion_effective();
+					if (perf_graphics.entries[entry].type == GAME_PERF_GRAPHICS_BOOLEAN)
+					{
+#define GRAPHICS_DRAWN_FLAG(key,getter) \
+						if (!strcmp(perf_graphics.entries[entry].name, "display." key)) \
+							perf_graphics.entries[entry].value.boolean = getter();
+						GRAPHICS_CAPTURE_DRAWN_FLAGS(GRAPHICS_DRAWN_FLAG)
+#undef GRAPHICS_DRAWN_FLAG
+					}
 				host_perf_reports_graphics_snapshot(&perf_graphics);
 				perf_revision = revision; perf_scene = scene; perf_external = external;
 			}

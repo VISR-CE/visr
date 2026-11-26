@@ -43,16 +43,7 @@ declined: " and why. Scripted captures wait for "in progress 0"; the reply's
 
 int config_set_live(const char *name, const char *value, char *note, size_t note_size);
 
-#ifdef HALO_ILP32
-/* port/runtime/guest/runtime/guest_host.h */
-extern int host_development_hooks(void);
-#else
-static int host_development_hooks(void)
-{
-	const char *value = getenv("HALO_DEVELOPMENT_HOOKS");
-	return value && !strcmp(value, "1");
-}
-#endif
+#include "../include/halo_development_hooks.h"
 
 #define CONSOLE_CONFIG_COMMAND "visr_set"
 #define CONSOLE_CINEMATIC_COMMAND "visr_cinematic"

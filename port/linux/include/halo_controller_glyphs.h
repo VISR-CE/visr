@@ -11,6 +11,11 @@ enum { HALO_GLYPH_ORIGINAL, HALO_GLYPH_HIDDEN, HALO_GLYPH_SYMBOL, HALO_GLYPH_KEY
 	X(2, SDL_SCANCODE_E, "E") \
 	X(3, SDL_SCANCODE_TAB, "Tab")
 
+/* The secondary action (X: delete a profile or a gametype) is the key Mac keyboards label "delete", which is
+Backspace; forward delete stays an alias. The legend names the first. */
+#define HALO_GLYPH_MENU_SECONDARY_KEYS(X) X(SDL_SCANCODE_BACKSPACE) X(SDL_SCANCODE_DELETE)
+#define HALO_GLYPH_MENU_SECONDARY_LABEL "Backspace"
+
 /* The left stick click is the wildcard fifth action; its menu key is R. */
 #define HALO_GLYPH_MENU_WILDCARD_SCANCODE SDL_SCANCODE_R
 
@@ -181,7 +186,8 @@ struct halo_ui_pointer;
 void halo_menu_pointer_activity(struct halo_ui_pointer const *pointer);
 int halo_controller_glyph_request(short player, short semantic, short physical, char *label, unsigned int size);
 struct host_ui_pointer;
-/* the screen's secondary action (X) is destructive: the keyboard legend reads Delete */
+/* the screen's secondary action (X) is destructive (it deletes): the keyboard legend names Backspace, and only then do
+Backspace and forward delete press X; on any other screen X is a plain action (E) and Backspace does nothing */
 void halo_controller_glyph_x_destructive(int destructive);
 /* the X legend being drawn is a screen-wide action, not the focused item's secondary: the mouse legend reads
 the keyboard key, never the right button (right-click is the secondary action only) */

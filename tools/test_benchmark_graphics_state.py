@@ -1,7 +1,12 @@
 """The in-game graphics report separates applied overrides from observed rendering."""
 from pathlib import Path
 import json
+import re
+import shutil
 import subprocess
+import sys
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -12,7 +17,8 @@ def function(source, signature):
     return source[start:end + 2]
 
 
-def test_renderer_observations_do_not_infer_assets_or_shadow_targets(tmp_path):
+def emitted_snapshots(tmp_path):
+    """The first and last snapshot lines the real `benchmark_graphics_snapshot_json` writes."""
     suite = (ROOT / "port/linux/src/benchmark_suite.c").read_text()
     actual = function(suite, "static int benchmark_graphics_snapshot_json(")
     source = tmp_path / "graphics_state.c"
@@ -58,7 +64,11 @@ int main(void) {
 ''')
     binary = tmp_path / "graphics_state"
     subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", str(source), "-o", str(binary)], check=True)
-    first, last = map(json.loads, subprocess.run([str(binary)], capture_output=True, text=True, check=True).stdout.splitlines())
+    return subprocess.run([str(binary)], capture_output=True, text=True, check=True).stdout.splitlines()
+
+
+def test_renderer_observations_do_not_infer_assets_or_shadow_targets(tmp_path):
+    first, last = map(json.loads, emitted_snapshots(tmp_path))
     assert first["schema"] == last["schema"] == 2
     assert first["values"]["display.shadow_map_size"] == 256
     assert first["applied_overrides"] == {"render_lines": 540, "shadow_map_size": 512,
@@ -94,8 +104,72 @@ def test_reports_record_ambient_occlusion_as_drawn():
     assert mode.index("!device_capabilities.ambient_occlusion") < mode.index("config_integer(\"debug.ssao\")"), mode
     snapshot = device[device.index("config_graphics_settings_snapshot(scene, &perf_graphics)"):]
     snapshot = snapshot[:snapshot.index("host_perf_reports_graphics_snapshot(&perf_graphics)")]
-    assert '"display.ambient_occlusion"' in snapshot and "halo_ambient_occlusion_effective()" in snapshot
+    assert "GRAPHICS_CAPTURE_DRAWN_FLAGS(GRAPHICS_DRAWN_FLAG)" in snapshot
     reports = (ROOT / "port/ios/host/host_perf_reports.m").read_text()
     assert '@"display.ambient_occlusion"' in reports
     metal = (ROOT / "port/ios/host/gpu_metal.m").read_text()
     assert "capabilities->ambient_occlusion = ssao_supported() ? 1 : 0;" in metal
+
+
+def test_report_validator_accepts_exactly_what_the_suite_emits(tmp_path):
+    # Bug class: the suite (C) and the report validator (host_benchmark.m) each spelled out the renderer_state key
+    # set. Once the suite gained ambient_occlusion, soft_particles and traced_shadows the validator rejected every
+    # snapshot, so device reports carried no drawn state at all. The key list now lives once in graphics_capture.h;
+    # this runs the validator on the real emitter output and fails when the two disagree again.
+    header = (ROOT / "port/runtime/graphics_capture.h").read_text()
+    keys = set(re.findall(r'X\("(\w+)"', header[header.index("GRAPHICS_CAPTURE_RENDERER_STATE_KEYS(X)"):]))
+    emitted = emitted_snapshots(tmp_path)
+    for line in emitted:
+        assert set(json.loads(line)["renderer_state"]) == keys
+    if sys.platform != "darwin" or not shutil.which("xcrun"):
+        pytest.skip("The report validator requires Foundation")
+    report = (ROOT / "port/ios/host/host_benchmark.m").read_text()
+    start = report.index("static BOOL graphics_key_allowed(")
+    end = report.index("void host_benchmark_graphics(")
+    source = tmp_path / "validate.m"
+    source.write_text(r'''
+#import <Foundation/Foundation.h>
+#include <assert.h>
+#include <math.h>
+#include "../../runtime/graphics_capture.h"
+''' + report[start:end] + r'''
+int main(int argc, char **argv) { @autoreleasepool {
+    for (int i = 1; i < argc; i++) {
+        NSData *data = [NSData dataWithBytes:argv[i] length:strlen(argv[i])];
+        NSDictionary *snapshot = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
+        assert(graphics_snapshot_valid(snapshot));
+        NSMutableDictionary *broken = [snapshot mutableCopy];
+        NSMutableDictionary *renderer = [snapshot[@"renderer_state"] mutableCopy];
+        renderer[@"ambient_occlusion"] = @"yes";
+        broken[@"renderer_state"] = renderer;
+        assert(!graphics_snapshot_valid(broken));
+        [renderer removeObjectForKey:@"traced_shadows"]; renderer[@"ambient_occlusion"] = @NO;
+        broken[@"renderer_state"] = renderer;
+        assert(!graphics_snapshot_valid(broken));
+    }
+} return 0; }
+''')
+    binary = tmp_path / "validate"
+    subprocess.run(["xcrun", "clang", "-O1", "-Wall", "-Wextra", "-Werror", "-fobjc-arc", "-framework", "Foundation",
+        "-I", str(ROOT / "port/ios/host"), str(source), "-o", str(binary)], check=True)
+    subprocess.run([str(binary), *emitted], check=True)
+
+
+def test_performance_reports_record_every_drawn_flag_as_drawn():
+    # Same class as above, other path: a report must carry what was drawn for each flag in the header list, never
+    # the configured setting. The substitution is generated from the list, and each flag's display.* setting must
+    # reach the performance report (its allowed keys).
+    header = (ROOT / "port/runtime/graphics_capture.h").read_text()
+    flags = re.findall(r'X\("(\w+)", (\w+)\)', header[header.index("GRAPHICS_CAPTURE_DRAWN_FLAGS(X)"):])
+    assert [name for name, _ in flags] == ["ambient_occlusion", "soft_particles", "traced_shadows"]
+    device = (ROOT / "port/linux/src/d3d8_device.c").read_text()
+    snapshot = device[device.index("config_graphics_settings_snapshot(scene, &perf_graphics)"):]
+    snapshot = snapshot[:snapshot.index("host_perf_reports_graphics_snapshot(&perf_graphics)")]
+    assert "GRAPHICS_CAPTURE_DRAWN_FLAGS(GRAPHICS_DRAWN_FLAG)" in snapshot and '"display." key' in snapshot
+    reports = (ROOT / "port/ios/host/host_perf_reports.m").read_text()
+    suite = (ROOT / "port/linux/src/benchmark_suite.c").read_text()
+    for name, getter in flags:
+        assert f'@"display.{name}"' in reports, name
+        assert f"int {getter}(void);" in suite, getter
+        assert f'{getter}() ? "true" : "false"' in suite.replace("\n\t\t", " "), getter
+        assert re.search(rf"^int {getter}\(void\)", device, re.M), getter

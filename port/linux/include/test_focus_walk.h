@@ -31,7 +31,8 @@ struct test_focus_walk
 	char label[TEST_FOCUS_LABEL_MAX];
 	unsigned long start;       /* the poll the walk begins at */
 	int hold_to_end;           /* the deadline was given ("focus:LABEL@POLL:DEADLINE"): no press follows, so the focus must stay on the row past it */
-	unsigned long deadline;    /* the poll of the next scripted press, 0 for none: the walk must have landed by then */
+	unsigned long deadline;    /* "focus:LABEL@POLL:DEADLINE": the poll the walk must have landed by, 0 for none */
+	unsigned long check_at;    /* the poll just before the next scripted press, 0 for none: the focus must still be on the row */
 	unsigned long next_look;   /* the poll of the next look at the focus */
 	unsigned long hold_until;  /* Down is held until this poll */
 	int moved;                 /* Down has been pressed at least once */
@@ -63,6 +64,52 @@ static inline int test_focus_label_equal(char const *a, char const *b)
 	return 1;
 }
 
+/* The script's steps (presses and walks) in order, released as one chain: a step is released at its own poll plus the delay
+every step before it has cost, and not before the walk before it has landed (a loaded host takes a walk longer than the script's
+frame numbers allow, and everything after a slow walk moves with it). `shift` is a released step's delay in polls; a walk runs on
+the virtual poll `poll - shift`, so its own checks keep the script's timing. */
+struct test_chain_step
+{
+	int is_walk;
+	int index;                 /* into the caller's presses or walks */
+	unsigned long poll;        /* the script's poll for the step */
+	int released;
+	unsigned long shift;
+	int reported;              /* the caller has logged the shift */
+	int landed;                /* a walk: it has landed, at `landed_at` (the real poll) */
+	unsigned long landed_at;
+};
+
+/* releases the steps that are due at `poll`; the caller marks a walk landed as soon as it lands. Returns how many were released. */
+static inline int test_chain_update(struct test_chain_step *steps, int count, unsigned long poll)
+{
+	unsigned long shift = 0;
+	int walk = -1, released = 0;
+
+	for (int i = 0; i < count; i++)
+	{
+		if (!steps[i].released)
+		{
+			unsigned long release;
+
+			if (poll < steps[i].poll + shift)
+				break;   /* nothing after it can be due before it */
+			if (walk >= 0 && !steps[walk].landed)
+				break;   /* it waits for the walk before it */
+			release = steps[i].poll + shift;
+			if (walk >= 0 && steps[walk].landed_at > release)
+				release = steps[walk].landed_at;
+			steps[i].shift = release - steps[i].poll;
+			steps[i].released = 1;
+			released++;
+		}
+		shift = steps[i].shift;
+		if (steps[i].is_walk)
+			walk = i;
+	}
+	return released;
+}
+
 static inline void test_focus_walk_begin(struct test_focus_walk *walk, char const *label, unsigned long start)
 {
 	memset(walk, 0, sizeof(*walk));
@@ -74,8 +121,9 @@ static inline void test_focus_walk_begin(struct test_focus_walk *walk, char cons
 static inline int test_focus_walk_checks_at(struct test_focus_walk const *walk, unsigned long poll)
 {
 	/* (a press after the walk moves the focus on purpose: only a walk that ends the script is checked past its deadline) */
-	return walk->deadline > TEST_FOCUS_CHECK_POLLS &&
-		(poll == walk->deadline - 2 || (walk->hold_to_end && poll == walk->deadline + TEST_FOCUS_AFTER_POLLS));
+	return (walk->check_at && poll == walk->check_at) ||
+		(walk->hold_to_end && walk->deadline > TEST_FOCUS_CHECK_POLLS &&
+		(poll == walk->deadline - 2 || poll == walk->deadline + TEST_FOCUS_AFTER_POLLS));
 }
 
 /* whether the caller should read the focused row's text this poll: a walk that is looking, or a landed one making its last

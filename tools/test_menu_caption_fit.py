@@ -51,7 +51,9 @@ def placed_captions():
         texts = [(w, x, y) for w, x, y in parts if w.get('type') == 'text']
         for glyph, x, y in parts:
             leaf = glyph.get('name').rsplit('/', 1)[-1]
-            if not leaf.endswith('_butn') or glyph.get('name') in seen:
+            # a dialog legend places its glyph bitmap (`<button>_butn_glyph`) inside the pill container, so the
+            # glyph is the bitmap there and the `_butn` widget itself elsewhere
+            if not leaf.endswith(('_butn', '_butn_glyph')) or glyph.get('name') in seen:
                 continue
             seen.add(glyph.get('name'))
             near = [(abs(tx - (x + menu_geometry.BAR_CAPTION_OFFSET)) + abs(ty - y), t) for t, tx, ty in texts]
@@ -60,7 +62,7 @@ def placed_captions():
                 continue
             text = min(near, key=lambda item: item[0])[1]
             for caption in captions(text, lists):
-                found.append((glyph.get('name'), leaf.removesuffix('_butn'), text.get('font'), caption))
+                found.append((glyph.get('name'), leaf.removesuffix('_glyph').removesuffix('_butn'), text.get('font'), caption))
     return found
 
 

@@ -1290,22 +1290,22 @@
 	</strings>
 	<widget name="xbox/error/confirm_delete_profile/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/error/confirm_delete_profile/legend/b_butn/touch_background" y="14" />
-		<child widget="xbox/error/confirm_delete_profile/legend/b_butn/touch_caption" y="14" />
-		<child widget="xbox/error/confirm_delete_profile/legend/b_butn_glyph" y="6" />
-		<child widget="xbox/error/confirm_delete_profile/legend/cancel" x="22" y="8" />
+		<child widget="xbox/error/confirm_delete_profile/legend/b_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/error/confirm_delete_profile/legend/b_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/error/confirm_delete_profile/legend/b_butn_glyph" x="5" y="13" />
+		<child widget="xbox/error/confirm_delete_profile/legend/cancel" x="30" y="15" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_profile/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_delete_profile/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="77" height="22" />
 	<widget name="xbox/error/confirm_delete_profile/legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/error/confirm_delete_profile/legend/a_butn/touch_background" y="14" />
-		<child widget="xbox/error/confirm_delete_profile/legend/a_butn/touch_caption" y="14" />
-		<child widget="xbox/error/confirm_delete_profile/legend/a_butn_glyph" y="6" />
-		<child widget="xbox/error/confirm_delete_profile/legend/accept" x="22" y="8" />
+		<child widget="xbox/error/confirm_delete_profile/legend/a_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/error/confirm_delete_profile/legend/a_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/error/confirm_delete_profile/legend/a_butn_glyph" x="28" y="13" />
+		<child widget="xbox/error/confirm_delete_profile/legend/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_profile/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_delete_profile/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="30" height="22" />
 	<widget name="xbox/error/confirm_delete_profile/legend/a_butn/touch_background" width="108" height="25" bitmap="xbox/dialog_touch_button" />
 	<widget name="xbox/error/confirm_delete_profile/legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="108" height="24" align="center" />
 	<widget name="xbox/error/confirm_delete_profile/legend/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
@@ -1314,22 +1314,22 @@
 	<widget name="xbox/error/confirm_delete_profile/legend/b_butn_glyph" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn/touch_background" y="14" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn/touch_caption" y="14" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn_glyph" y="6" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/cancel" x="22" y="8" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn_glyph" x="5" y="13" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/cancel" x="30" y="15" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_gametype/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_delete_gametype/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="77" height="22" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/a_butn/touch_background" y="14" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/a_butn/touch_caption" y="14" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/a_butn_glyph" y="6" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/accept" x="22" y="8" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/a_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/a_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/a_butn_glyph" x="28" y="13" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_gametype/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_delete_gametype/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="30" height="22" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn/touch_background" width="108" height="25" bitmap="xbox/dialog_touch_button" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="108" height="24" align="center" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
@@ -1338,22 +1338,22 @@
 	<widget name="xbox/error/confirm_delete_gametype/legend/b_butn_glyph" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/error/confirm_join_big/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/error/confirm_join_big/legend/b_butn/touch_background" y="14" />
-		<child widget="xbox/error/confirm_join_big/legend/b_butn/touch_caption" y="14" />
-		<child widget="xbox/error/confirm_join_big/legend/b_butn_glyph" y="6" />
-		<child widget="xbox/error/confirm_join_big/legend/cancel" x="22" y="8" />
+		<child widget="xbox/error/confirm_join_big/legend/b_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/error/confirm_join_big/legend/b_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/error/confirm_join_big/legend/b_butn_glyph" x="5" y="13" />
+		<child widget="xbox/error/confirm_join_big/legend/cancel" x="30" y="15" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/error/confirm_join_big/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_join_big/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="77" height="22" />
 	<widget name="xbox/error/confirm_join_big/legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
-		<child widget="xbox/error/confirm_join_big/legend/a_butn/touch_background" y="14" />
-		<child widget="xbox/error/confirm_join_big/legend/a_butn/touch_caption" y="14" />
-		<child widget="xbox/error/confirm_join_big/legend/a_butn_glyph" y="6" />
-		<child widget="xbox/error/confirm_join_big/legend/accept" x="22" y="8" />
+		<child widget="xbox/error/confirm_join_big/legend/a_butn/touch_background" x="2" y="14" />
+		<child widget="xbox/error/confirm_join_big/legend/a_butn/touch_caption" x="2" y="11" />
+		<child widget="xbox/error/confirm_join_big/legend/a_butn_glyph" x="28" y="13" />
+		<child widget="xbox/error/confirm_join_big/legend/accept" x="53" y="15" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/confirm_join_big/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_join_big/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="30" height="22" />
 	<widget name="xbox/error/confirm_join_big/legend/a_butn/touch_background" width="108" height="25" bitmap="xbox/dialog_touch_button" />
 	<widget name="xbox/error/confirm_join_big/legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="108" height="24" align="center" />
 	<widget name="xbox/error/confirm_join_big/legend/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />

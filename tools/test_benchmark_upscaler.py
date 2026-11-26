@@ -114,7 +114,7 @@ int main(void) { @autoreleasepool {
     result = graphics_metadata();
     assert([result[@"changed"] boolValue] && [result[@"snapshots"] unsignedIntegerValue] == 4);
     assert([result[@"last"][@"values"][@"display.render_scale"] doubleValue] == 0.5);
-    NSString *observed = @"{\"schema\":2,\"scene\":\"gameplay\",\"configuration_revision\":0,\"external_output\":false,\"values\":{\"display.render_scale\":0.5,\"display.native_hud\":true,\"display.shadow_map_size\":256},\"applied_overrides\":{\"render_lines\":540,\"shadow_map_size\":512,\"anisotropic_filtering\":8,\"model_lod\":\"max\"},\"renderer_state\":{\"shadow_target_size\":512,\"anisotropic_sampler_max\":8,\"model_lod\":\"max\",\"texture_replacement_selections\":2,\"texture_replacement_source\":\"debug_directory\",\"upscaled_texture_assets\":\"unavailable\"}}";
+    NSString *observed = @"{\"schema\":2,\"scene\":\"gameplay\",\"configuration_revision\":0,\"external_output\":false,\"values\":{\"display.render_scale\":0.5,\"display.native_hud\":true,\"display.shadow_map_size\":256},\"applied_overrides\":{\"render_lines\":540,\"shadow_map_size\":512,\"anisotropic_filtering\":8,\"model_lod\":\"max\"},\"renderer_state\":{\"shadow_target_size\":512,\"anisotropic_sampler_max\":8,\"model_lod\":\"max\",\"texture_replacement_selections\":2,\"texture_replacement_source\":\"debug_directory\",\"upscaled_texture_assets\":\"unavailable\",\"ambient_occlusion\":true,\"soft_particles\":true,\"traced_shadows\":false}}";
     host_benchmark_graphics(observed.UTF8String);
     result = graphics_metadata();
     assert([result[@"snapshots"] unsignedIntegerValue] == 5);

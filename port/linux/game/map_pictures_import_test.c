@@ -13,7 +13,7 @@ void platform_log(const char *format, ...);
 #include "../src/map_pictures_render.c"
 
 static int refresh_ok, refresh_calls, stub_revision = 7, stub_hash = 4242;
-static int pending, development, available, menu = 1, game, awake, done_calls, identity_fails;
+static int pending, development, available, menu = 1, game, awake, muted, done_calls, identity_fails;
 static int progress_calls, progress_done, identities, loaded_scenario, completed;
 static double clock_ms;
 static char test_root[1024];
@@ -50,7 +50,7 @@ void host_map_pictures_import_progress(int done, int total, const char *name)
 }
 void host_map_pictures_import_done(int rendered, int cached, int failed)
 {
-	assert(menu && !awake);
+	assert(menu && !awake && !muted);
 	assert(rendered + cached + failed == 23);
 	completed = rendered + cached;
 	done_calls++;
@@ -69,7 +69,8 @@ void benchmark_scenario_load(const char *map, const char *difficulty)
 	/* The new map finishes loading at once here; the import goes map to map without the menu. */
 	render.stages[STAGE_COUNT - 1] = clock_ms;
 }
-unsigned char benchmark_scenario_at_menu(void) { return (unsigned char)menu; }
+static int stuck_menu;
+unsigned char benchmark_scenario_at_menu(void) { return (unsigned char)(menu && !(stuck_menu && render.state == STATE_LEAVING)); }
 unsigned char filesystem_check_thread_is_active(void) { return 0; }
 unsigned char bink_playback_in_progress(void) { return 0; }
 unsigned char cache_files_precache_in_progress(void) { return 0; }
@@ -112,7 +113,7 @@ int map_pictures_scenario_fast_forwarding(void) { return 0; }
 void photo_mode_end(void) { }
 void photo_mode_prepare_variant(const char *key) { (void)key; }
 void photo_mode_clear_variant(void) { }
-void dsound_set_capture_mute(int on) { (void)on; }
+void dsound_set_capture_mute(int on) { muted = on; }
 void photo_mode_capture_begin(void) { }
 static int refuse_framing;
 int photo_mode_capture_state(int *framed, int *revision) { *framed = !refuse_framing; *revision = stub_revision; return 1; }
@@ -137,6 +138,8 @@ static void run_maps(void)
 		if (render.state == STATE_LOADING)
 			assert(loaded_scenario == (render.import_mode ?
 				map_pictures_scenario_import_index(render.index) : render.index));
+		/* the render hold is one switch: the screen is kept awake exactly while the sound is off */
+		assert(muted == awake);
 		/* GPU readback is unavailable in this asset-free harness. */
 		if (render.state == STATE_FRAME_PENDING)
 		{
@@ -144,7 +147,7 @@ static void run_maps(void)
 			render.frame_done = render.frame_ok = 1;
 		}
 	}
-	assert(render.state == STATE_DONE && !awake);
+	assert(render.state == STATE_DONE && !awake && !muted);
 }
 
 static void ordering(void)
@@ -303,6 +306,9 @@ int main(int argc, char **argv)
 	assert(render.failed == 23 && completed == 0 && done_calls == 1);
 	reset(0, 1, 1); run_maps();
 	assert(render.rendered == 23 && !progress_calls && !done_calls);
+	/* the menu never comes back after the last map: the run still ends, and lets go of the sound and the screen */
+	reset(1, 0, 0); stuck_menu = 1; run_maps(); stuck_menu = 0;
+	assert(render.rendered == 23 && done_calls == 1 && !muted && !awake);
 	/* A fresh launch reads the menu cache with no development flag or render state. */
 	reset(0, 0, 0);
 	assert(map_pictures_cache_path(directory, sizeof(directory), test_root, "stock:a10"));

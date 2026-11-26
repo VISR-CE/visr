@@ -1,4 +1,5 @@
 """Xbox settings generation preserves wiring and needs no extracted assets."""
+import math
 import importlib.util
 import json
 import atexit
@@ -427,11 +428,12 @@ def test_multiplayer_list_viewports_stop_before_help_and_footer():
 def test_quit_uses_confirm_button_positions():
     root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
     modal = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_screen'))
-    for button, x in (('b', 196), ('a', 314)):
+    slots = generator().dialog_slots()
+    for button, (x, width) in slots.items():
         placed = modal.find(f"child[@widget='xbox/main_menu/quit_select/legend/{button}_butn']")
-        assert (int(placed.get('x')), int(placed.get('y'))) == (x, 176 + generator().DIALOG_HIT[1])
+        assert (int(placed.get('x')), int(placed.get('y'))) == (192 + x, 176 + generator().DIALOG_HIT[1])
         target = root.find(f"widget[@name='{placed.get('widget')}']")
-        assert (target.get('width'), target.get('height')) == ('112', '53')
+        assert (target.get('width'), target.get('height')) == (str(width), '53')
     assert modal.find('on[@event="a"]').get('run') == 'main menu quit game'
     assert modal.find('on[@event="b"]').get('back') == 'true'
 
@@ -792,9 +794,10 @@ def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
                for s in ET.parse(path).iter('strings')}
     assert strings[text.get('string_list')][int(text.get('string_index'))].get('text').replace(r'\n', ' ') == (
         'This game allows more players than this device runs smoothly. Join anyway?')
+    slots = generator().dialog_slots()
     for icon, caption, emitted in (('b', 'CANCEL', 'back'), ('a', 'OK', 'accept')):
         target = widgets[f'{base}/legend/{icon}_butn']
-        assert (target.get('width'), target.get('height')) == ('112', '53')
+        assert (target.get('width'), target.get('height')) == (str(slots[icon][1]), '53')
         assert widgets[f'{base}/legend/{icon}_butn_glyph'].get('bitmap') == f'xbox/browser/{icon}_butn'
         label = widgets[f'{base}/legend/' + ('accept' if icon == 'a' else 'cancel')]
         assert label.get('text') == caption
@@ -1562,11 +1565,12 @@ def test_dialog_ok_has_a_rounded_touch_button_and_adaptive_legend():
 def test_delete_confirmation_has_adaptive_a_and_b_touch_targets():
     widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox/multiplayer.shared.xml').iter('widget')}
     base = 'xbox/error/confirm_delete_profile/legend'
+    slots = generator().dialog_slots()
     for button, label in (('a', 'OK'), ('b', 'CANCEL')):
         target = widgets[f'{base}/{button}_butn']
         assert target.find('data[@input="port dialog legend update"]') is not None
         assert widgets[f'{base}/{button}_butn/touch_caption'].get('text') == label
-        assert (target.get('width'), target.get('height')) == ('112', '53')
+        assert (target.get('width'), target.get('height')) == (str(slots[button][1]), '53')
 
 
 @pytest.mark.parametrize('platform', [None, 'apple', 'mac_app'])
@@ -1828,12 +1832,14 @@ def test_k8_panels_headers_and_adaptive_targets(density):
         targets = [(w, x, y) for w, x, y in parts
                    if w.find('data[@input="port dialog legend update"]') is not None]
         assert bool(targets) != spec.get('buttonless', False), f'{name}: buttonless wait'
+        slots = []
         for target, x, y in targets:
-            button = target.get('name').rsplit('/', 1)[-1][0]
-            assert (x, y) == (left + (122 if button == 'a' else 4), top + generator().DIALOG_HIT[1]), name
-            assert (target.get('width'), target.get('height')) == ('112', '53'), name
+            tw, th = int(target.get('width')), int(target.get('height'))
+            assert (y, th) == (top + generator().DIALOG_HIT[1], 53), name
+            assert tw >= generator().DIALOG_SLOT_MIN, f'{name}: tap area under 44 pt'
             # Targets sit within the panel's width; glyphs and captions must fit too.
-            assert left <= x and x + 112 <= left + 239, f'{name}: target outside panel width'
+            assert left <= x and x + tw <= left + 239, f'{name}: target outside panel width'
+            slots.append((x, x + tw))
             for c in target.findall('child'):
                 w = widgets[c.get('widget')]
                 if w.get('bitmap') == 'xbox/dialog_touch_button':
@@ -1841,6 +1847,116 @@ def test_k8_panels_headers_and_adaptive_targets(density):
                 drawn_left = x + int(c.get('x', 0))
                 assert left <= drawn_left and drawn_left + int(w.get('width')) <= left + 239, (
                     f'{name}: glyph or caption outside panel: {w.get("name")}')
+        slots.sort()
+        for (_, right), (next_left, _) in zip(slots, slots[1:]):
+            assert right <= next_left, f'{name}: B and A tap areas overlap'
+        if slots:
+            # Each button sits in its own fixed slot (B left, A right), the pair centered on the panel.
+            fixed = sorted((left + x, left + x + w) for x, w in generator().dialog_slots().values())
+            assert all(slot in fixed for slot in slots), f'{name}: legend slot is not one of the fixed slots'
+
+
+def modal_legend_inks(widgets, screen):
+    """(button, ink_left, ink_right, glyph_top, glyph_bottom) per legend target, from the drawn glyph and caption."""
+    gen = generator()
+    result = []
+    for target, x, y in screen_parts(screen, widgets):
+        if target.find('data[@input="port dialog legend update"]') is None:
+            continue
+        ink = []
+        for c in target.findall('child'):
+            w = widgets[c.get('widget')]
+            if w.get('bitmap') == 'xbox/dialog_touch_button' or c.get('widget').endswith('touch_caption'):
+                continue
+            left = x + int(c.get('x', 0))
+            top = y + int(c.get('y', 0))
+            width = int(w.get('width'))
+            if w.get('type') == 'text':  # the caption box is exactly as wide as the text the font draws
+                label = next(widgets[t.get('widget')].get('text') for t in target.findall('child')
+                             if t.get('widget').endswith('touch_caption'))
+                import menu_text_metrics
+                assert width == menu_text_metrics.text_width('large', label), label
+            ink.append((left, left + width, top, top + int(w.get('height'))))
+        result.append((min(i[0] for i in ink), max(i[1] for i in ink), min(i[2] for i in ink), max(i[3] for i in ink)))
+    return result
+
+
+def test_every_modal_legend_slot_centers_its_glyph_and_caption():
+    """Bug class: a short caption in a standard-size slot sat off its slot's center, so a CANCEL and OK pair read as
+    off the panel's center. Each slot's content (glyph plus caption, as one group) is centered in the slot, for every
+    dialog and every caption, within 1 unit."""
+    widgets = layout_widgets('comfortable')
+    import xbox_menus
+    checked = 0
+    for name, spec in xbox_menus.SCREEN_LAYOUTS.items():
+        if spec['kind'] != 'K8' or spec.get('buttonless', False):
+            continue
+        screen = widgets[name]
+        for target, x, y in screen_parts(screen, widgets):
+            if target.find('data[@input="port dialog legend update"]') is None:
+                continue
+            slot_left, slot_right = x, x + int(target.get('width'))
+            ink = []
+            for c in target.findall('child'):
+                w = widgets[c.get('widget')]
+                if w.get('bitmap') == 'xbox/dialog_touch_button' or c.get('widget').endswith('touch_caption'):
+                    continue
+                left = x + int(c.get('x', 0))
+                ink.append((left, left + int(w.get('width'))))
+            ink_center = (min(a for a, b in ink) + max(b for a, b in ink)) / 2
+            assert abs(ink_center - (slot_left + slot_right) / 2) <= 1, (name, target.get('name'), ink_center,
+                                                                          slot_left, slot_right)
+            checked += 1
+    assert checked >= 20
+
+
+def test_every_modal_legend_row_is_centered_in_the_footer_band():
+    """Bug class (Nov 22): a dialog's glyph and caption row straddled the footer rule and sat left of center.
+
+    Every K8 dialog (error, confirm, quit, send-log, join) centers its legend glyphs vertically in the band
+    under the rule and as a group on the panel, whatever the number of buttons or the label lengths."""
+    gen = generator()
+    widgets = layout_widgets('comfortable')
+    checked = 0
+    for name, spec in gen.SCREEN_LAYOUTS.items():
+        if spec['kind'] != 'K8' or spec.get('buttonless', False):
+            continue
+        screen = widgets[name]
+        parts = list(screen_parts(screen, widgets))
+        left, top = next((x, y) for w, x, y in parts if w.get('bitmap') == 'xbox/bitmaps/alert_bkd')
+        inks = modal_legend_inks(widgets, screen)
+        assert inks, name
+        for ink_left, ink_right, ink_top, ink_bottom in inks:
+            assert ink_top - top >= gen.DIALOG_RULE and ink_bottom - top <= gen.DIALOG_BOTTOM, (
+                f'{name}: legend glyph crosses the footer rule or leaves the panel')
+            band_center = (gen.DIALOG_RULE + gen.DIALOG_BOTTOM) / 2
+            assert abs((ink_top + ink_bottom) / 2 - top - band_center) <= 2, f'{name}: legend off the band center'
+        # the standard slots (the tap targets) are the two fixed slots; a caption's ink is centered in its own slot
+        slots = [(x, x + int(w.get('width'))) for w, x, y in parts
+                 if w.find('data[@input="port dialog legend update"]') is not None]
+        fixed = sorted((left + x, left + x + w) for x, w in gen.dialog_slots().values())
+        assert all(slot in fixed for slot in slots), f'{name}: legend slot is not one of the fixed slots'
+        assert len({b - a for a, b in slots}) == 1, f'{name}: slots are not one standard size'
+        checked += 1
+    assert checked >= 8
+
+
+def test_modal_message_lines_fit_above_the_footer_rule():
+    """A long message must wrap within the body, never reach the legend row: the text starts 36 units down,
+    lines are 21 units apart, and the body ends at the rule (the wrap width is the panel less 9 each side)."""
+    gen = generator()
+    strings = ET.parse(ROOT / 'tools/menu_sources/strings.xml').getroot()
+    group = next(g for g in strings.iter('strings') if g.get('name') == 'strings/displayed_error_messages')
+    import menu_text_metrics as metrics
+    items = list(group.iter('string'))
+    used = {int(w.get('string_index')) for path in (MENUS / 'xbox').glob('*.xml') for w in ET.parse(path).iter('widget')
+            if w.get('string_list', '').endswith('strings/displayed_error_messages') and w.get('string_index')}
+    assert {24, 25, 60} <= used  # the delete and join confirmations
+    for index in sorted(used):
+        text = (items[index].get('text') or '').replace('%controller', '1')
+        lines, complete = metrics.layout('large', text.replace('\\n', '\n'), 239 - 9, True)
+        bottom = 36 + len(lines) * metrics.line_height('large')
+        assert complete and bottom <= gen.DIALOG_RULE, f'{text!r} runs into the legend row ({len(lines)} lines)'
 
 
 def legend_items(screen, widgets):
@@ -2029,15 +2145,13 @@ def test_dialog_touch_buttons_sit_inside_their_dialog_box():
     assert hh >= 53  # tap area is at least 44 pt
     assert hx + hw <= pw
     assert hy <= by and by + bh <= hy + hh and hx <= bx and bx + bw <= hx + hw
-    assert hx - gen.DIALOG_BUTTON_STEP >= 0
-    assert hw <= gen.DIALOG_BUTTON_STEP  # B and A tap areas do not overlap
     bw, bh = hw, hh
     shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml').getroot()
     for name in ('confirm_delete_profile_modal_fullscreen', 'confirm_delete_gametype_modal_fullscreen'):
         modal = shared.find(f"widget[@name='xbox/error/{name}']")
         for c in modal.findall('child'):
             if c.get('widget').endswith(('/a_butn', '/b_butn')):
-                assert px <= int(c.get('x')) and int(c.get('x')) + bw <= px + pw
+                assert px <= int(c.get('x')) and int(c.get('x')) + gen.DIALOG_SLOT_MIN <= px + pw
     widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml') for w in ET.parse(path).iter('widget')}
     screen = widgets['xbox/' + gen.MP + '/join_game_legacy/gamespy_error_fullscreen']
     assert screen.get('bitmap') != 'xbox/bitmaps/black'
@@ -2474,3 +2588,106 @@ def test_browser_palette_is_the_discs_own_and_the_padlock_is_centered():
     detail = widgets['browser_detail_content']
     placed = {c.get('widget').rsplit('/', 1)[-1]: (int(c.get('x')), int(c.get('y'))) for c in detail.findall('child') if c.get('y')}
     assert placed['browser_detail_lock'][1] == g.BROWSER_LOCK_Y
+
+
+def test_a_lone_ok_sits_in_the_slot_where_ok_sits_beside_cancel():
+    """Standard slots: A (OK) is always the right slot and B (CANCEL) the left, so a single-button dialog's OK has the
+    pair's OK rect, never the panel's center. Checked on every K8 dialog."""
+    gen = generator()
+    slots = gen.dialog_slots()
+    (ok_x, width), (cancel_x, _) = slots['a'], slots['b']
+    assert ok_x - (cancel_x + width) == gen.DIALOG_SLOT_GAP and ok_x > cancel_x
+    widgets = layout_widgets('comfortable')
+    seen = {'lone': 0, 'pair': 0}
+    for name, spec in gen.SCREEN_LAYOUTS.items():
+        if spec['kind'] != 'K8' or spec.get('buttonless', False):
+            continue
+        parts = list(screen_parts(widgets[name], widgets))
+        left = [x for w, x, y in parts if w.get('bitmap') == 'xbox/bitmaps/alert_bkd'][0]
+        buttons = {w.get('name').rsplit('/', 1)[-1]: (x - left, int(w.get('width'))) for w, x, y in parts
+                   if w.find('data[@input="port dialog legend update"]') is not None}
+        assert buttons['a_butn'] == (ok_x, width), f'{name}: OK is not in the A slot: {buttons}'
+        if 'b_butn' in buttons:
+            assert buttons['b_butn'] == (cancel_x, width), f'{name}: CANCEL is not in the B slot'
+        seen['pair' if 'b_butn' in buttons else 'lone'] += 1
+    assert seen['lone'] >= 3 and seen['pair'] >= 3, seen
+
+
+def test_no_dialog_legend_part_leaves_its_button_rect():
+    """A dialog button's tap rect is the clip for what it draws: the touch pill, its caption, the glyph and the
+    caption beside it must each lie inside it, so no pill is cut off. Every K8 dialog, every button."""
+    gen = generator()
+    widgets = layout_widgets('comfortable')
+    checked = 0
+    for name, spec in gen.SCREEN_LAYOUTS.items():
+        if spec['kind'] != 'K8' or spec.get('buttonless', False):
+            continue
+        for part, px, py in screen_parts(widgets[name], widgets):
+            if part.find('data[@input="port dialog legend update"]') is None:
+                continue
+            width, height = int(part.get('width')), int(part.get('height'))
+            for c in part.findall('child'):
+                child = widgets[c.get('widget')]
+                x, y = int(c.get('x', 0)), int(c.get('y', 0))
+                assert x >= 0 and y >= 0, f'{name}: {child.get("name")} starts outside its button'
+                assert x + int(child.get('width')) <= width, f'{name}: {child.get("name")} runs past its button rect'
+                assert y + int(child.get('height')) <= height, f'{name}: {child.get("name")} drops below its button rect'
+                checked += 1
+    assert checked >= 40, checked
+
+
+def test_a_touch_pill_widget_is_as_large_as_its_bitmap_frame():
+    """Bug class (Nov 24: every dialog touch pill lost its right end): the engine samples a bitmap widget's width and
+    height of the bitmap's frame, so a frame larger than the widget crops the picture and a smaller one stretches it."""
+    base = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
+    pill = ET.parse(base / 'dialogs.xml').getroot().find("bitmap[@name='xbox/dialog_touch_button']").find('frame')
+    pills = []
+    for path in base.glob('*.xml'):   # every generated file, not only the one that defines the bitmap
+        pills += [w for w in ET.parse(path).getroot().iter('widget') if w.get('bitmap') == 'xbox/dialog_touch_button']
+    assert len(pills) >= 10
+    for w in pills:
+        assert (w.get('width'), w.get('height')) == (pill.get('width'), pill.get('height')), w.get('name')
+
+
+def test_every_touch_pill_caption_rides_the_shared_cap_raise():
+    """Bug class (Nov 25): the pill labels sat on the pill's lower outline because `large_ui` draws capitals low in the text box.
+    Every pill caption in every generated screen is centered in its pill and raised by `menu_geometry.BAR_GLYPH_RAISE`, the one
+    place that font fact is recorded (no literal in the generator)."""
+    import menu_geometry
+    base = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
+    seen = 0
+    for path in base.glob('*.xml'):
+        root = ET.parse(path).getroot()
+        pills = {w.get('name'): w for w in root.iter('widget') if w.get('name', '').endswith('/touch_background')}
+        for child in root.iter('child'):
+            name = child.get('widget', '')
+            if name.endswith('/touch_caption'):
+                background = child.get('widget').replace('touch_caption', 'touch_background')
+                sibling = next(c for c in root.iter('child') if c.get('widget') == background)
+                pill_height = int(pills[background].get('height'))
+                caption = next(w for w in root.iter('widget') if w.get('name') == name)
+                centered = (pill_height - int(caption.get('height'))) // 2
+                assert int(child.get('y')) - int(sibling.get('y')) == centered - menu_geometry.BAR_GLYPH_RAISE, name
+                seen += 1
+    assert seen >= 10
+
+
+def test_every_dialog_legend_label_fits_its_standard_slot_in_every_input_family():
+    """Item 7 (Nov 25 review): glyph + gap + caption must fit the slot for every dialog's OK and CANCEL label. A keyboard keycap
+    is a symbol the width of a controller glyph (Enter, Escape and Backspace all map to symbols in halo_keyboard_symbols.h,
+    so the key's name never enters the width), so one measurement covers keyboard, controller and touch."""
+    xbox_menus = generator()
+    import menu_geometry
+    import menu_text_metrics
+    base = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
+    slot = xbox_menus.dialog_slots()['a'][1]
+    labels = set()
+    for path in base.glob('*.xml'):
+        for w in ET.parse(path).getroot().iter('widget'):
+            name = w.get('name', '')
+            if name.endswith(('/accept', '/cancel')) and w.get('text'):
+                labels.add(w.get('text'))
+    assert {'CANCEL', 'OK'} <= labels
+    for label in labels:
+        used = xbox_menus.DIALOG_GLYPH + xbox_menus.DIALOG_GLYPH_GAP + menu_text_metrics.text_width(menu_geometry.BAR_FONT, label)
+        assert used <= slot, (label, used, slot)

@@ -13,7 +13,7 @@ TOOLS = Path(__file__).resolve().parent
 
 def test_menu_builder_probe_imports_without_numpy_or_pillow():
     code = ("import sys; sys.modules['numpy'] = None; sys.modules['PIL'] = None; sys.path.insert(0, %r); "
-            "import test_menu_builder_loads, menu_probe_build; assert callable(menu_probe_build.engine_names)"
+            "import test_menu_builder_loads, menu_engine_names; assert callable(menu_engine_names.engine_names)"
             ) % str(TOOLS)
     result = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

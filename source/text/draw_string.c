@@ -1489,6 +1489,33 @@ void draw_unicode_string_compute_bounds(
 	return;
 }
 
+/* port: a piece of a string that goes on from a cursor (the text after an
+icon, from draw_string_and_hack_in_icons and the HUD's messages): its first
+line indented to the cursor, measured in `bounds`, and the box to draw it in.
+That box is `bounds` as wide (the lines wrap and justify where they were
+measured) and as tall as the text. The game drew in the measured ink's own
+width: the widest line then reached the box's right edge, wrapped at its
+last letter, and the line after it dropped a line, below the box, so the
+last line before an icon was not drawn ("Press" of SELECT PROFILE's "Press
+A to select"). tools/harness/tests/test_text_from_cursor.py. On return,
+`cursor_bounds` is where the text ends, less the game's 3 units. */
+void draw_unicode_string_compute_bounds_from_cursor(
+	rectangle2d const *bounds,
+	wchar_t const *string,
+	rectangle2d *draw_bounds,
+	rectangle2d *cursor_bounds)
+{
+	short initial_indent = (short)(cursor_bounds->x0 - bounds->x0);
+
+	draw_string_set_indents(initial_indent > 0 ? initial_indent : 0, 0);
+	draw_unicode_string_compute_bounds(bounds, string, draw_bounds, cursor_bounds);
+	cursor_bounds->x0 -= 3;
+	draw_bounds->x0 = bounds->x0;
+	draw_bounds->x1 = bounds->x1;
+
+	return;
+}
+
 short draw_string_pick(
 	rectangle2d const *bounds,
 	char const *string,

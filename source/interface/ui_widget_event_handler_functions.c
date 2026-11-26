@@ -3542,6 +3542,20 @@ char const *ui_widget_event_handler_function_name(
 		event_handler_function_list.names[function_index] : NULL;
 }
 
+/* port: the functions a screen's secondary (X) action runs to DELETE something, declared here by name, not guessed from the
+function's wording: only on such a screen do Backspace and forward delete press X (xinput_sdl.c), and a touch hold offers DELETE */
+boolean ui_widget_event_handler_function_is_destructive(
+	char const *function_name)
+{
+	static char const *const destructive[] = { "request del player profile", "request del playlist profile" };
+	long index;
+
+	for (index = 0; function_name && index < NUMBEROF(destructive); index++)
+		if (!strcmp(function_name, destructive[index]))
+			return TRUE;
+	return FALSE;
+}
+
 /* port: the PC version's campaign menus (port/linux/game/menu_functions.c):
 reads player 1's saved game, as the Xbox's level list does (which the
 difficulty menu and its warning then use), and gives its map, its level and

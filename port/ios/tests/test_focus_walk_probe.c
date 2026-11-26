@@ -98,7 +98,7 @@ int main(void)
 		int action = TEST_FOCUS_WAIT;
 
 		test_focus_walk_begin(&w, "INTERNET", 10);
-		w.deadline = 100;
+		w.check_at = 98;   /* (just before the next scripted press) */
 		for (unsigned long poll = 0; poll < 200 && action != TEST_FOCUS_FAIL_LOST; poll++)
 		{
 			char const *seen = poll < 20 ? NULL : poll < 40 ? "INTERNET" : "COOPERATIVE PLAY";
@@ -109,7 +109,7 @@ int main(void)
 		assert(action == TEST_FOCUS_FAIL_LOST);
 		/* and one that keeps the row to the deadline does not */
 		test_focus_walk_begin(&w, "INTERNET", 10);
-		w.deadline = 100;
+		w.check_at = 98;   /* (just before the next scripted press) */
 		for (unsigned long poll = 0; poll < 200 && poll < 99; poll++)
 			action = test_focus_walk_poll(&w, poll, test_focus_walk_wants_look(&w, poll) ? (poll < 20 ? NULL : "INTERNET") : NULL);
 		assert(action == TEST_FOCUS_DONE);
@@ -140,6 +140,47 @@ int main(void)
 			assert(action != TEST_FOCUS_FAIL_LOST);
 		}
 	}
+	/* the script's steps are one chain: a slow first walk delays the press after it AND the second walk and its press
+	("focus:A@90 a@150 focus:B@210 a@240", the settings hub flow) */
+	{
+		struct test_chain_step steps[4] = {
+			{ .is_walk = 1, .index = 0, .poll = 90 }, { .index = 0, .poll = 150 },
+			{ .is_walk = 1, .index = 1, .poll = 210 }, { .index = 1, .poll = 240 } };
+
+		for (unsigned long poll = 0; poll < 400; poll++)
+			test_chain_update(steps, 4, poll);
+		assert(steps[0].released && steps[0].shift == 0);   /* the first walk starts on time and has not landed */
+		assert(!steps[1].released && !steps[2].released && !steps[3].released);
+		steps[0].landed = 1;
+		steps[0].landed_at = 400;   /* it landed at poll 400, 250 polls after the press that follows it was due */
+		test_chain_update(steps, 4, 400);
+		assert(steps[1].released && steps[1].shift == 250);
+		assert(!steps[2].released);   /* the second walk is due at its own poll plus the delay: 210 + 250 */
+		for (unsigned long poll = 401; poll < 600; poll++)
+		{
+			test_chain_update(steps, 4, poll);
+			if (poll == 470 && steps[2].released)   /* the second walk runs 250 polls behind and lands 10 polls after its start */
+			{
+				steps[2].landed = 1;
+				steps[2].landed_at = poll;
+			}
+		}
+		assert(steps[2].released && steps[2].shift == 250 && steps[3].released && steps[3].shift == 250);
+		/* a walk that lands in time delays nothing, and a chord stays together */
+		struct test_chain_step quick[3] = { { .is_walk = 1, .poll = 10 }, { .index = 0, .poll = 100 }, { .index = 1, .poll = 100 } };
+		test_chain_update(quick, 3, 10);
+		quick[0].landed = 1;
+		quick[0].landed_at = 40;
+		for (unsigned long poll = 11; poll <= 100; poll++)
+			test_chain_update(quick, 3, poll);
+		assert(quick[1].released && quick[1].shift == 0 && quick[2].released && quick[2].shift == 0);
+		/* with no walk in the script nothing moves */
+		struct test_chain_step plain[2] = { { .poll = 8 }, { .poll = 16 } };
+		for (unsigned long poll = 0; poll <= 16; poll++)
+			test_chain_update(plain, 2, poll);
+		assert(plain[0].shift == 0 && plain[1].shift == 0);
+	}
+
 	puts("test_focus_walk_probe: ok");
 	return 0;
 }

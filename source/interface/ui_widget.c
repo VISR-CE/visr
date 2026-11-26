@@ -4686,15 +4686,10 @@ static void render_state_text(
 	wchar_t const *text)
 {
 	rectangle2d text_bounds;
-	short initial_indent = cursor_bounds->x0 - bounds->x0;
 
-	if (initial_indent < 0)
+	if (cursor_bounds->x0 < bounds->x0)
 		error(_error_silent, "initial_indent<0 in render_state_text() and was about to explode");
-	initial_indent = MAX(0, initial_indent);
-	draw_string_set_indents(initial_indent, 0);
-	draw_unicode_string_compute_bounds(bounds, text, &text_bounds, cursor_bounds);
-	cursor_bounds->x0 -= 3;
-	text_bounds.x0 = bounds->x0;
+	draw_unicode_string_compute_bounds_from_cursor(bounds, text, &text_bounds, cursor_bounds);
 	rasterizer_draw_unicode_string(&text_bounds, NULL, NULL, 0, text);
 	bounds->y0 = cursor_bounds->y0;
 
@@ -6273,8 +6268,12 @@ static void widget_instance_render_text_box(
 	bounds.x0 += definition->horizontal_offset;
 	bounds.y0 += definition->vertical_offset;
 	/* port: the state word of a row that opens a screen is centered where the values of the rows around it are */
-	if (pc_menu_definition_is_setting(widget->definition_tag_index))
-		bounds.x1 -= halo_menu_state_word_trailing_slot(halo_menu_pointer_controls());
+	{
+		int pointer_controls = halo_menu_pointer_controls();
+
+		if (pointer_controls && pc_menu_definition_is_setting(widget->definition_tag_index))
+			bounds.x1 -= halo_menu_state_word_trailing_slot(pointer_controls);
+	}
 #ifdef HALO_IOS
 	/* port: the version label keeps its whole text, including a development build's commit; it is
 	right-aligned to the menu's right edge, which the safe-area zoom keeps inside the camera cutout */
@@ -6480,11 +6479,11 @@ static void ui_widget_row_draw_toggle(struct widget_instance *widget,
 	bitmap = bitmap_group_get_bitmap_from_sequence(tag, 0, on);
 	if (!bitmap) return;
 	bounds.x1 = definition->bounds.x1 + offset.x;
-	bounds.x0 = bounds.x1 - 32;
-	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 17) / 2;
-	bounds.y1 = bounds.y0 + 17;
+	bounds.x0 = bounds.x1 - MENU_SWITCH_WIDTH;
+	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - MENU_SWITCH_HEIGHT) / 2;
+	bounds.y1 = bounds.y0 + MENU_SWITCH_HEIGHT;
 	source.x0 = source.y0 = 0;
-	source.x1 = 32; source.y1 = 17;
+	source.x1 = MENU_SWITCH_WIDTH; source.y1 = MENU_SWITCH_HEIGHT;
 	csmemset(&parameters, 0, sizeof(parameters));
 	draw_bitmap_in_rect(bitmap, &bounds, &source, clip,
 		(fast_ftol(widget_instance_get_cumulative_alpha_modifier(widget) * 255.0f) << 24) | 0x00FFFFFF,
@@ -7727,6 +7726,7 @@ static boolean ui_touch_screen_back_acts(
 whether press-and-hold has a popup to open; a handler whose function name says delete is the destructive kind */
 extern char const *ui_widget_event_handler_function_name(long function_index);
 extern char const *pc_menu_function_name(long function_index);
+extern boolean ui_widget_event_handler_function_is_destructive(char const *function_name);
 
 static boolean ui_touch_widget_x_scan(
 	struct widget_instance *widget)
@@ -7751,12 +7751,10 @@ static boolean ui_touch_widget_x_scan(
 			pc_menu_function_name(function_index - PC_MENU_FUNCTION_BASE) :
 			ui_widget_event_handler_function_name(function_index);
 		ui_touch_x_seen = TRUE;
-		ui_touch_x_destructive = function_name &&
-			(strstr(function_name, "delete") != NULL || strstr(function_name, " del ") != NULL);
+		ui_touch_x_destructive = ui_widget_event_handler_function_is_destructive(function_name);
 		ui_touch_x_playlist_widget = function_name && strstr(function_name, "del playlist profile") ?
 			widget : NULL;
 		strcpy(ui_touch_x_caption, ui_touch_x_destructive ? "DELETE" : "OPTIONS");
-		halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 		return TRUE;
 	}
 	return FALSE;
@@ -9995,9 +9993,6 @@ static void widget_instance_render_recursive(
 				for (length = 0; length < 23 && caption->parameters.text_box.text[length]; length++)
 					ui_touch_x_caption[length] = (char)caption->parameters.text_box.text[length];
 				ui_touch_x_caption[length] = 0;
-				ui_touch_x_destructive = strstr(ui_touch_x_caption, "DELETE") != NULL ||
-					strstr(ui_touch_x_caption, "Delete") != NULL;
-				halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 			}
 		}
 		return;
@@ -10040,9 +10035,6 @@ static void widget_instance_render_recursive(
 				for (length = 0; length < 23 && caption->parameters.text_box.text[length]; length++)
 					ui_touch_x_caption[length] = (char)caption->parameters.text_box.text[length];
 				ui_touch_x_caption[length] = 0;
-				ui_touch_x_destructive = strstr(ui_touch_x_caption, "DELETE") != NULL ||
-					strstr(ui_touch_x_caption, "Delete") != NULL;
-				halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 			}
 		}
 		if (ui_mouse_key_button(widget) != NONE &&
@@ -10541,8 +10533,11 @@ void render_ui_widgets(
 					ui_touch_title_seen = FALSE;
 					ui_touch_x_seen = FALSE;
 					ui_touch_x_playlist_widget = NULL;
+					ui_touch_x_destructive = FALSE;   /* a screen with no destructive X must not keep the last screen's */
 					ui_touch_back_generic = ui_touch_screen_back_acts(widget);
 					ui_touch_screen_x_scan(widget);
+					/* the one place the screen's destructive X is published, before it draws (its legend and Backspace read it) */
+					halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 				}
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
@@ -10553,6 +10548,7 @@ void render_ui_widgets(
 					FALSE);
 				if (ui_mouse_noting_targets) ui_dropdown_draw();
 				ui_redraw_end_screen();
+
 				/* the popup draws in the menu window's space, like the rows it lifts and their
 				tap targets, so its glow sits on the drawn row where the safe-area zoom applies */
 				if (ui_mouse_noting_targets)

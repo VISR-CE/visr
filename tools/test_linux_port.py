@@ -291,7 +291,9 @@ def test_menus_are_well_formed():
                         # their drawing height is separate from the tap band.
                         assert logical[1] in (28, 36, 52, 53, 56, 59) and width % logical[0] == 0, where
                     else:
-                        assert width % logical[0] == 0 and width // logical[0] == height // logical[1], where
+                        # a whole-number scale of the picture, or (art resampled to a drawn size) the same shape within 10 percent
+                        assert (width % logical[0] == 0 and width // logical[0] == height // logical[1]) or \
+                            abs(width * logical[1] - height * logical[0]) <= 0.1 * width * logical[1], where
             elif element.tag == "strings":
                 strings[element.get("name")] = element
             elif element.tag == "widget":
