@@ -1204,8 +1204,7 @@ def filters_layout(root, widgets):
     base = 'xbox/' + MP + '/join_game/filters'
     screen = widgets[base + '/filters_screen']
     screen.set('type', 'column_list')
-    screen.set('bitmap', 'xbox/browser/filters_backdrop')
-    browser_bitmap(root, 'filters_backdrop', 4, 480, ['backdrop'])
+    screen.set('bitmap', 'xbox/bitmaps/gradient')  # the disc's own backdrop, as every other screen
     for c in list(screen.findall('child')):
         if '/legend/' in c.get('widget', ''):
             screen.remove(c)
@@ -1223,26 +1222,15 @@ def filters_layout(root, widgets):
         pass  # the standard title position
     child(screen, base + '/browser_filter_status', x=310, y=48 + menu_geometry.BROWSER_CONTENT_SHIFT)
     widget(root, base + '/browser_filter_status', type='text', width=276, height=22,
-           font=r'ui\small_ui', color='#7fc4ff', align='right')
+           font=r'ui\small_ui', color=BLUE, align='right')
     menu = widgets[base + '/options_menu']
     for c in list(menu.findall('child')):
         if c.get('widget') in (base + '/button_bar', base + '/op_games'):
             menu.remove(c)
-    for index, key in enumerate(('sort', 'full', 'locked', 'unjoinable')):
-        menu.find(f"child[@widget='{base}/op_{key}']").attrib.update(x='54', y=str(73 + menu_geometry.BROWSER_CONTENT_SHIFT + index * 58))
-        row = widgets[base + '/op_' + key]
-        row.attrib.update(width='532', height='54', bitmap='xbox/browser/option')
-        row.find(f"child[@widget='{base}/{key}_spinner']").attrib.update(x='302', y='0')
-        label = widgets[base + '/' + key + '_label']
-        label.attrib.update(height='54', text_y='16', font=r'ui\large_ui')
-        spinner = widgets[base + '/' + key + '_spinner']
-        # Spinner drawing ignores text_y; its bounds place the text baseline.
-        spinner.attrib.update(width='198', height='24', top='16', text_y='0', font=r'ui\large_ui',
-                              header_bounds='20 -28 34 -16', footer_bounds='20 214 34 226')
-        if key == 'sort':
-            spinner.set('strings', 'MOST PLAYERS|NAME|MAP|GAME')
-    menu.set('height', '305')
-    widgets[base + '/help'].attrib.update(top='317', height='80', font=r'ui\small_ui', color='#7fc4ff')
+    # The rows are the standard option rows of every settings list (hosting_layout, then the density pass makes them
+    # tall): no row art, pitch or text placement of the browser's own.
+    hosting_layout(root, widgets, 'join_game/filters')
+    widgets[base + '/sort_spinner'].set('strings', 'MOST PLAYERS|NAME|MAP|GAME')
     # The title is generated without map data by browser_title_assets().
     widgets[base + '/header_filters'].attrib.update(bitmap='xbox/browser/header_sort_filter', width='512', height='64')
 
@@ -1806,14 +1794,13 @@ def browser_layout(root, widgets, bitmaps):
             ('scrim', menu_geometry.BROWSER_PREVIEW_WIDTH, menu_geometry.BROWSER_SCRIM_HEIGHT, ['scrim']),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
             ('big', menu_geometry.BROWSER_PREVIEW_WIDTH, 20, ['big']), ('badge', menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT, ['badge__0', 'badge__1']), ('lock', 12, 14, ['lock']),
-            ('option', 532, 54, ['option__0', 'option__1'])):
+            ):
         browser_bitmap(root, name, width, height, frames)
     for name, width in (('chip_all', 78), ('chip_multiplayer', 144), ('chip_coop', 100), ('toggle', 174)):
         browser_bitmap(root, name, width, 54, [f'{name}__{i}' for i in range(4)])
     bitmaps.add('browser/header_sort_filter')
-    browser_bitmap(root, 'backdrop', 4, 480, ['backdrop'])
     screen = widget(root, base + '/join_game_screen', type='column_list', width=640, height=480,
-                    flags='pass_unhandled_to_focused_child', bitmap='xbox/browser/backdrop')
+                    flags='pass_unhandled_to_focused_child', bitmap='xbox/bitmaps/gradient')
     for event, run in (('created', 'gamespy screen init'), ('deleted', 'gamespy screen dispose'),
                        ('back', 'gamespy back handler')):
         ET.SubElement(screen, 'on', event=event, run=run)
@@ -1835,9 +1822,9 @@ def browser_layout(root, widgets, bitmaps):
     # With no games the list area says why, as the Xbox's own empty list does.
     # Row-sized text, inset 36 units from both edges of the 294-wide list column, wrapping to a few lines.
     child(screen, base + '/browser_list_status', x=36, y=menu_geometry.BROWSER_PANEL_TOP + 2)
-    widget(root, base + '/browser_list_status', type='text', width=222, height=66, font=r'ui\large_ui', color='#7fc4ff', text_flags='wrap')
+    widget(root, base + '/browser_list_status', type='text', width=222, height=66, font=r'ui\large_ui', color=BLUE, text_flags='wrap')
     child(screen, base + '/browser_list_hint', x=36, y=menu_geometry.BROWSER_PANEL_TOP + 76)
-    widget(root, base + '/browser_list_hint', type='text', width=222, height=66, font=r'ui\large_ui', color='#2f73c4', text_flags='wrap')
+    widget(root, base + '/browser_list_hint', type='text', width=222, height=66, font=r'ui\large_ui', color=BLUE, text_flags='wrap')
     rows = widget(root, base + '/join_game_items_list', type='column_list', width=294, height=421,
                   visible_rows=6, flags='pass_unhandled_to_focused_child')
     ET.SubElement(rows, 'data', input='gamespy screen update')
@@ -1857,7 +1844,7 @@ def browser_layout(root, widgets, bitmaps):
             ('type', 36, 36, None, None, 'gametype'),
             ('gauge', 42, 42, None, None, 'gauge'),
             ('server_name', 168, 24, 'large', '#ffffff', None),
-            ('map', 168, 18, 'small', '#7fc4ff', None),
+            ('map', 168, 18, 'small', BLUE, None),
             ('players', 42, 18, 'small', '#ffffff', None)):
         attributes = dict(width=width, height=height)
         if font:
@@ -1881,7 +1868,7 @@ def browser_layout(root, widgets, bitmaps):
         ET.SubElement(chip, 'on', event='a', run='port browser filters open' if leaf == 'browser_filter' else 'port browser chip select')
         child(chip, base + '/' + leaf + '_label', y=29)
         widget(root, base + '/' + leaf + '_label', type='text',
-               width=width, height=23, font=r'ui\small_ui', color='#7fc4ff', align='center')
+               width=width, height=23, font=r'ui\small_ui', color=BLUE, align='center')
         child(chip, base + '/' + leaf + '_white', y=29)
         widget(root, base + '/' + leaf + '_white', type='text',
                width=width, height=23, font=r'ui\small_ui', color='#ffffff', align='center')
@@ -1931,21 +1918,21 @@ def browser_layout(root, widgets, bitmaps):
     g = menu_geometry
     for leaf, x, y, width, height, font, color, text in (
             ('browser_detail_name', g.BROWSER_PREVIEW_X, g.BROWSER_NAME_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_NAME_HEIGHT, 'large', '#ffffff', ''),
-            ('browser_detail_type', g.BROWSER_PREVIEW_X, g.BROWSER_TYPE_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_TYPE_HEIGHT, 'small', '#7fc4ff', ''),
-            ('browser_rules_label', g.BROWSER_PREVIEW_X, g.BROWSER_RULES_Y, 76, g.BROWSER_DETAIL_LINE, 'small', '#2f73c4', 'RULES'),
-            ('browser_detail_rules', g.BROWSER_PREVIEW_X + 76, g.BROWSER_RULES_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#cfe8ff', ''),
-            ('browser_equipment_label', g.BROWSER_PREVIEW_X, g.BROWSER_HOST_Y, 76, g.BROWSER_DETAIL_LINE, 'small', '#2f73c4', 'EQUIPMENT'),
-            ('browser_detail_equipment', g.BROWSER_PREVIEW_X + 76, g.BROWSER_HOST_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#cfe8ff', ''),
-            ('browser_host_label', g.BROWSER_PREVIEW_X, g.BROWSER_HOST_Y, 76, g.BROWSER_DETAIL_LINE, 'small', '#2f73c4', 'HOST'),
-            ('browser_detail_host', g.BROWSER_PREVIEW_X + 76, g.BROWSER_HOST_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#cfe8ff', ''),
-            ('browser_connection_status', g.BROWSER_PREVIEW_X, g.BROWSER_STATUS_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_DETAIL_LINE, 'small', '#7fc4ff', ''),
+            ('browser_detail_type', g.BROWSER_PREVIEW_X, g.BROWSER_TYPE_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_TYPE_HEIGHT, 'small', BLUE, ''),
+            ('browser_rules_label', g.BROWSER_PREVIEW_X, g.BROWSER_RULES_Y, 76, g.BROWSER_DETAIL_LINE, 'small', BLUE, 'RULES'),
+            ('browser_detail_rules', g.BROWSER_PREVIEW_X + 76, g.BROWSER_RULES_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#FFFFFFFF', ''),
+            ('browser_equipment_label', g.BROWSER_PREVIEW_X, g.BROWSER_HOST_Y, 76, g.BROWSER_DETAIL_LINE, 'small', BLUE, 'EQUIPMENT'),
+            ('browser_detail_equipment', g.BROWSER_PREVIEW_X + 76, g.BROWSER_HOST_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#FFFFFFFF', ''),
+            ('browser_host_label', g.BROWSER_PREVIEW_X, g.BROWSER_HOST_Y, 76, g.BROWSER_DETAIL_LINE, 'small', BLUE, 'HOST'),
+            ('browser_detail_host', g.BROWSER_PREVIEW_X + 76, g.BROWSER_HOST_Y, g.BROWSER_PREVIEW_WIDTH - 76, g.BROWSER_DETAIL_LINE, 'small', '#FFFFFFFF', ''),
+            ('browser_connection_status', g.BROWSER_PREVIEW_X, g.BROWSER_STATUS_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_DETAIL_LINE, 'small', BLUE, ''),
             ('browser_detail_big', g.BROWSER_PREVIEW_X, g.BROWSER_NOTICE_Y, g.BROWSER_PREVIEW_WIDTH, 20, 'small', '#0a2245', ''),
-            ('browser_join_reason', g.BROWSER_PREVIEW_X, g.BROWSER_NOTICE_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_NOTICE_HEIGHT, 'small', '#7fc4ff', ''),
-            ('browser_detail_net', g.BROWSER_NET_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#cfe8ff', ''),
+            ('browser_join_reason', g.BROWSER_PREVIEW_X, g.BROWSER_NOTICE_Y, g.BROWSER_PREVIEW_WIDTH, g.BROWSER_NOTICE_HEIGHT, 'small', '#FFFFFFFF', ''),
+            ('browser_detail_net', g.BROWSER_NET_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#FFFFFFFF', ''),
             ('browser_detail_net_blocked', g.BROWSER_NET_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#7b8794', ''),
-            ('browser_detail_password', g.BROWSER_PASSWORD_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#cfe8ff', ''),
-            ('browser_detail_lock', g.BROWSER_PASSWORD_PILL_X + 7, g.BROWSER_PILL_Y - 2, 12, 14, None, None, ''),
-            ('browser_detail_status', g.BROWSER_PREVIEW_X + 4, g.BROWSER_PANEL_TOP + 103, g.BROWSER_PREVIEW_WIDTH - 8, 160, 'small', '#7fc4ff', '')):
+            ('browser_detail_password', g.BROWSER_PASSWORD_PILL_X, g.BROWSER_PILL_Y, g.BROWSER_PILL_WIDTH, g.BROWSER_PILL_HEIGHT, 'small', '#FFFFFFFF', ''),
+            ('browser_detail_lock', g.BROWSER_PASSWORD_PILL_X + 7, g.BROWSER_LOCK_Y, g.BROWSER_LOCK_WIDTH, g.BROWSER_LOCK_HEIGHT, None, None, ''),
+            ('browser_detail_status', g.BROWSER_PREVIEW_X + 4, g.BROWSER_PANEL_TOP + 103, g.BROWSER_PREVIEW_WIDTH - 8, 160, 'small', '#FFFFFFFF', '')):
         child(detail if leaf == 'browser_detail_status' else content, base + '/' + leaf, x=x, y=y)
         if leaf == 'browser_detail_lock':
             widget(root, base + '/' + leaf, width=width, height=height, bitmap='xbox/browser/lock')
@@ -2760,7 +2747,6 @@ OPTION_LIST_EXEMPTIONS = {
     # the entry forms: their help sits right under the field rows; tall rows need the help moved first
     f'xbox/{MP}/join_game/password/options_menu': 'entry form; help box at 156 needs moving',
     f'xbox/{MP}/join_game/code/options_menu': 'entry form; help box at 156 needs moving',
-    f'xbox/{MP}/direct_ip/direct_ip_menu': 'entry form; help box needs moving',
 }
 
 
@@ -2785,8 +2771,8 @@ def is_option_list(options, widgets):
 
 def density_rows(options, widgets):
     option_list = is_option_list(options, widgets)
-    # The server browser (list + detail), its legacy table and its filters have their own fixed geometry.
-    if '/multiplayer_type_select/join_game' in options.get('name', ''):
+    # The server browser (list + detail) and its legacy table have their own fixed geometry; its filters are a standard list.
+    if '/multiplayer_type_select/join_game' in options.get('name', '') and '/join_game/filters/' not in options.get('name', ''):
         return []
     return [c for c in options.findall('child')
             if c.get('y') is not None and c.get('widget') in widgets

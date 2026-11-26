@@ -569,10 +569,6 @@
 	<bitmap name="xbox/browser/lock">
 		<frame png="xbox/art/browser/lock.png" width="12" height="14" />
 	</bitmap>
-	<bitmap name="xbox/browser/option">
-		<frame png="xbox/art/browser/option__0.png" width="532" height="54" />
-		<frame png="xbox/art/browser/option__1.png" width="532" height="54" />
-	</bitmap>
 	<bitmap name="xbox/browser/chip_all">
 		<frame png="xbox/art/browser/chip_all__0.png" width="78" height="54" />
 		<frame png="xbox/art/browser/chip_all__1.png" width="78" height="54" />
@@ -597,17 +593,14 @@
 		<frame png="xbox/art/browser/toggle__2.png" width="174" height="54" />
 		<frame png="xbox/art/browser/toggle__3.png" width="174" height="54" />
 	</bitmap>
-	<bitmap name="xbox/browser/backdrop">
-		<frame png="xbox/art/browser/backdrop.png" width="4" height="480" />
-	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_screen" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/browser/backdrop">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_screen" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
 		<on event="created" run="gamespy screen init" />
 		<on event="deleted" run="gamespy screen dispose" />
 		<on event="back" run="gamespy back handler" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_join_game" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" x="36" y="117" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" x="36" y="191" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" x="36" y="116" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" x="36" y="190" />
 		<bar>
 			<action slot="x" scope="global" text="IP ADDRESS" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_x.text" run="port browser ip open" />
 			<action slot="y" scope="global" text="CREATE" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_y.text" run="port browser create" />
@@ -645,20 +638,20 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chips" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" type="text" width="222" height="66" font="ui\large_ui" color="#7fc4ff" text_flags="wrap" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" type="text" width="222" height="66" font="ui\large_ui" color="#2f73c4" text_flags="wrap" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" type="text" width="222" height="66" font="ui\large_ui" color="#FF2896FF" text_flags="wrap" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" type="text" width="222" height="66" font="ui\large_ui" color="#FF2896FF" text_flags="wrap" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" type="column_list" width="294" height="421" visible_rows="6" flags="pass_unhandled_to_focused_child">
 		<data input="gamespy screen update" />
 		<on event="up" run="port browser rows up" />
 		<on event="stick_up" run="port browser rows up" />
 		<on event="down" run="port browser rows down" />
 		<on event="stick_down" run="port browser rows down" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_1" x="24" y="115" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_2" x="24" y="161" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_3" x="24" y="207" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_4" x="24" y="253" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_5" x="24" y="299" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_6" x="24" y="345" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_1" x="24" y="114" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_2" x="24" y="160" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_3" x="24" y="206" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_4" x="24" y="252" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_5" x="24" y="298" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_6" x="24" y="344" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_1" width="282" height="43" bitmap="xbox/browser/c_row" color="#FFFFFF">
 		<on event="a" run="gamespy select item" />
@@ -717,98 +710,98 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_type" width="36" height="36" bitmap="xbox/browser/gametype" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_gauge" width="42" height="42" bitmap="xbox/browser/gauge" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_server_name" width="168" height="24" type="text" font="ui\large_ui" color="#ffffff" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_map" width="168" height="18" type="text" font="ui\small_ui" color="#7fc4ff" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_map" width="168" height="18" type="text" font="ui\small_ui" color="#FF2896FF" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/server_item_players" width="42" height="18" type="text" font="ui\small_ui" color="#ffffff" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chips" type="column_list" width="640" height="104" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<on event="down" run="port browser chips navigation" />
 		<on event="stick_down" run="port browser chips navigation" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_all" x="24" y="55" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_multiplayer" x="107" y="55" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_coop" x="256" y="55" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_filter" x="442" y="55" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_all" x="24" y="54" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_multiplayer" x="107" y="54" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_coop" x="256" y="54" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_filter" x="442" y="54" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_all" width="78" height="54" bitmap="xbox/browser/chip_all">
 		<on event="a" run="port browser chip select" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_all_label" y="29" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_all_white" y="29" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_all_label" type="text" width="78" height="23" font="ui\small_ui" color="#7fc4ff" align="center" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_all_label" type="text" width="78" height="23" font="ui\small_ui" color="#FF2896FF" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_all_white" type="text" width="78" height="23" font="ui\small_ui" color="#ffffff" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_multiplayer" width="144" height="54" bitmap="xbox/browser/chip_multiplayer">
 		<on event="a" run="port browser chip select" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_multiplayer_label" y="29" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_multiplayer_white" y="29" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_multiplayer_label" type="text" width="144" height="23" font="ui\small_ui" color="#7fc4ff" align="center" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_multiplayer_label" type="text" width="144" height="23" font="ui\small_ui" color="#FF2896FF" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_multiplayer_white" type="text" width="144" height="23" font="ui\small_ui" color="#ffffff" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_coop" width="100" height="54" bitmap="xbox/browser/chip_coop">
 		<on event="a" run="port browser chip select" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_coop_label" y="29" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_coop_white" y="29" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_coop_label" type="text" width="100" height="23" font="ui\small_ui" color="#7fc4ff" align="center" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_coop_label" type="text" width="100" height="23" font="ui\small_ui" color="#FF2896FF" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_chip_coop_white" type="text" width="100" height="23" font="ui\small_ui" color="#ffffff" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_filter" width="174" height="54" bitmap="xbox/browser/toggle">
 		<on event="a" run="port browser filters open" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_filter_label" y="29" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_filter_white" y="29" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_filter_label" type="text" width="174" height="23" font="ui\small_ui" color="#7fc4ff" align="center" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_filter_label" type="text" width="174" height="23" font="ui\small_ui" color="#FF2896FF" align="center" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_filter_white" type="text" width="174" height="23" font="ui\small_ui" color="#ffffff" align="center" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_0" left="24" top="115" width="592" height="273" bitmap="xbox/browser/joint_0" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_0" left="24" top="114" width="592" height="273" bitmap="xbox/browser/joint_0" />
 	<bitmap name="xbox/browser/joint_0">
 		<frame png="xbox/art/browser/joint__0.png" width="592" height="273" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_1" left="24" top="115" width="592" height="273" bitmap="xbox/browser/joint_1" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_1" left="24" top="114" width="592" height="273" bitmap="xbox/browser/joint_1" />
 	<bitmap name="xbox/browser/joint_1">
 		<frame png="xbox/art/browser/joint__1.png" width="592" height="273" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_2" left="24" top="115" width="592" height="273" bitmap="xbox/browser/joint_2" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_2" left="24" top="114" width="592" height="273" bitmap="xbox/browser/joint_2" />
 	<bitmap name="xbox/browser/joint_2">
 		<frame png="xbox/art/browser/joint__2.png" width="592" height="273" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_3" left="24" top="115" width="592" height="273" bitmap="xbox/browser/joint_3" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_3" left="24" top="114" width="592" height="273" bitmap="xbox/browser/joint_3" />
 	<bitmap name="xbox/browser/joint_3">
 		<frame png="xbox/art/browser/joint__3.png" width="592" height="273" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_4" left="24" top="115" width="592" height="273" bitmap="xbox/browser/joint_4" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_4" left="24" top="114" width="592" height="273" bitmap="xbox/browser/joint_4" />
 	<bitmap name="xbox/browser/joint_4">
 		<frame png="xbox/art/browser/joint__4.png" width="592" height="273" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_5" left="24" top="115" width="592" height="273" bitmap="xbox/browser/joint_5" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_5" left="24" top="114" width="592" height="273" bitmap="xbox/browser/joint_5" />
 	<bitmap name="xbox/browser/joint_5">
 		<frame png="xbox/art/browser/joint__5.png" width="592" height="273" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_none" left="24" top="115" width="592" height="273" bitmap="xbox/browser/joint_none" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_joint_none" left="24" top="114" width="592" height="273" bitmap="xbox/browser/joint_none" />
 	<bitmap name="xbox/browser/joint_none">
 		<frame png="xbox/art/browser/joint__none.png" width="592" height="273" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail" type="column_list" left="304" top="115" width="312" height="273" flags="pass_unhandled_to_focused_child">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail" type="column_list" left="304" top="114" width="312" height="273" flags="pass_unhandled_to_focused_child">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_content" />
 		<on event="left" run="port browser chips navigation" />
 		<on event="stick_left" run="port browser chips navigation" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_status" x="316" y="218" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_status" x="316" y="217" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_content" left="304" top="115" width="312" height="273" flags="no_focused_child">
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/lobby_map_pic" x="312" y="123" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/replay_level_right_pic" x="312" y="123" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_scrim" x="312" y="227" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_gametype" x="540" y="129" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_name" x="312" y="227" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_type" x="312" y="251" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_rules_label" x="312" y="272" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_rules" x="388" y="272" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_equipment_label" x="312" y="290" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_equipment" x="388" y="290" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_host_label" x="312" y="290" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_host" x="388" y="290" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_connection_status" x="312" y="308" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_big" x="312" y="326" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_join_reason" x="312" y="326" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net" x="312" y="362" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net_blocked" x="312" y="362" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_password" x="440" y="362" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_lock" x="447" y="360" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_content" left="304" top="114" width="312" height="273" flags="no_focused_child">
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/lobby_map_pic" x="312" y="122" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/replay_level_right_pic" x="312" y="122" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_scrim" x="312" y="226" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_gametype" x="540" y="128" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_name" x="312" y="226" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_type" x="312" y="250" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_rules_label" x="312" y="271" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_rules" x="388" y="271" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_equipment_label" x="312" y="289" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_equipment" x="388" y="289" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_host_label" x="312" y="289" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_host" x="388" y="289" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_connection_status" x="312" y="307" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_big" x="312" y="325" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_join_reason" x="312" y="325" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net" x="312" y="361" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net_blocked" x="312" y="361" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_password" x="440" y="361" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_lock" x="447" y="363" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/lobby_map_pic" width="296" height="148" bitmap="xbox/browser/preview_mp" />
 	<bitmap name="xbox/browser/preview_mp">
@@ -849,21 +842,21 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_scrim" width="296" height="44" bitmap="xbox/browser/scrim" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_gametype" width="62" height="50" bitmap="xbox/browser/gametype_large" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_name" type="text" width="296" height="25" font="ui\large_ui" color="#ffffff" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_type" type="text" width="296" height="20" font="ui\small_ui" color="#7fc4ff" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_rules_label" type="text" width="76" height="18" font="ui\small_ui" color="#2f73c4" text="RULES" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_rules_label.text" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_rules" type="text" width="220" height="18" font="ui\small_ui" color="#cfe8ff" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_equipment_label" type="text" width="76" height="18" font="ui\small_ui" color="#2f73c4" text="EQUIPMENT" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_equipment_label.text" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_equipment" type="text" width="220" height="18" font="ui\small_ui" color="#cfe8ff" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_host_label" type="text" width="76" height="18" font="ui\small_ui" color="#2f73c4" text="HOST" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_host_label.text" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_host" type="text" width="220" height="18" font="ui\small_ui" color="#cfe8ff" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_connection_status" type="text" width="296" height="18" font="ui\small_ui" color="#7fc4ff" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_type" type="text" width="296" height="20" font="ui\small_ui" color="#FF2896FF" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_rules_label" type="text" width="76" height="18" font="ui\small_ui" color="#FF2896FF" text="RULES" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_rules_label.text" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_rules" type="text" width="220" height="18" font="ui\small_ui" color="#FFFFFFFF" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_equipment_label" type="text" width="76" height="18" font="ui\small_ui" color="#FF2896FF" text="EQUIPMENT" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_equipment_label.text" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_equipment" type="text" width="220" height="18" font="ui\small_ui" color="#FFFFFFFF" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_host_label" type="text" width="76" height="18" font="ui\small_ui" color="#FF2896FF" text="HOST" text_id="xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_host_label.text" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_host" type="text" width="220" height="18" font="ui\small_ui" color="#FFFFFFFF" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_connection_status" type="text" width="296" height="18" font="ui\small_ui" color="#FF2896FF" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_big" type="text" width="296" height="20" font="ui\small_ui" color="#0a2245" bitmap="xbox/browser/big" text_x="5" text_y="2" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_join_reason" type="text" width="296" height="36" font="ui\small_ui" color="#7fc4ff" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net" type="text" width="120" height="18" font="ui\small_ui" color="#cfe8ff" bitmap="xbox/browser/badge" align="center" text_y="1" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_join_reason" type="text" width="296" height="36" font="ui\small_ui" color="#FFFFFFFF" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net" type="text" width="120" height="18" font="ui\small_ui" color="#FFFFFFFF" bitmap="xbox/browser/badge" align="center" text_y="1" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net_blocked" type="text" width="120" height="18" font="ui\small_ui" color="#7b8794" align="center" text_y="1" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_password" type="text" width="120" height="18" font="ui\small_ui" color="#cfe8ff" bitmap="xbox/browser/badge" align="center" text_y="1" text_x="8" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_password" type="text" width="120" height="18" font="ui\small_ui" color="#FFFFFFFF" bitmap="xbox/browser/badge" align="center" text_y="1" text_x="8" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_lock" width="12" height="14" bitmap="xbox/browser/lock" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_status" type="text" width="288" height="160" font="ui\small_ui" color="#7fc4ff" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_status" type="text" width="288" height="160" font="ui\small_ui" color="#FFFFFFFF" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/error_legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/error_legend/a_butn/touch_background" y="14" />

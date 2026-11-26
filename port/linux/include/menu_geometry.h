@@ -30,7 +30,7 @@
 #define MENU_BAR_CAPTION_OFFSET     22 /* a bar action's caption, right of its glyph's left edge */
 #define MENU_BAR_CAPTION_HEIGHT     22 /* a bar action's caption */
 #define MENU_BAR_GLYPH_RAISE        3 /* a bar action's glyph, up from the center of its box onto its caption's capitals */
-#define MENU_TITLE_RULE_Y           71 /* the rule under a screen's title */
+#define MENU_TITLE_RULE_Y           70 /* the rule under a screen's title */
 #define MENU_BAR_RULE_Y             409 /* the bar's top rule */
 #define MENU_BROWSER_ROWS           6 /* the server browser's visible rows, one joined panel outline for each */
 #define MENU_BROWSER_PICTURE_WIDTH  512 /* the server browser's map picture, whole (2:1) */

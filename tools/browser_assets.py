@@ -32,12 +32,12 @@ def svg(width, height, content):
             f'viewBox="0 0 {width} {height}">{content}</svg>')
 
 
-def rounded(width, height, fill, stroke="none", radius=7, top=0, stroke_width=1.5):
+def rounded(width, height, fill, stroke="none", radius=7, top=0, stroke_width=1.5, opacity=1):
     # Inset the outline so it is not clipped by the widget or its PNG frame.
     return svg(width, height,
                f'<rect x="{stroke_width / 2}" y="{top + stroke_width / 2}" width="{width - stroke_width}" '
                f'height="{height - top - stroke_width}" rx="{radius}" '
-               f'fill="{fill}" stroke="{stroke}" stroke-width="{stroke_width}"/>')
+               f'fill="{fill}" fill-opacity="{opacity}" stroke="{stroke}" stroke-width="{stroke_width}"/>')
 
 
 def render(output, name, width, height, document, scale=SCALE):
@@ -91,42 +91,27 @@ def generate(output, icons):
     def draw(name, width, height, document, scale=SCALE):
         render(output, name, width, height, document, scale)
 
-    # Backdrop band: transparent under the title, a bright rule, then the dark
-    # blue fill to the bottom of the screen, behind the legend. The menu widens
-    # it to the display and it stretches over the 480 design lines.
-    rule = menu_geometry.TITLE_RULE_Y
-    draw("backdrop", 4, 480, svg(4, 480,
-         '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
-         '<stop offset="0" stop-color="#072751" stop-opacity="0.69"/>'
-         '<stop offset="1" stop-color="#062348" stop-opacity="0.69"/></linearGradient></defs>'
-         f'<rect x="0" y="{rule}" width="4" height="{409 - rule}" fill="url(#g)"/>'
-         f'<rect x="0" y="{rule}" width="4" height="1" fill="#36afff"/>'
-         '<rect x="0" y="409" width="4" height="1" fill="#2896ff"/>'
-         '<rect x="0" y="410" width="4" height="34" fill="#000000" fill-opacity="0.696"/>'), scale=2)
-
-    for index, (fill, border) in enumerate((("#0a2245", "none"),
-                                           ("#12396e", "#7fc4ff"))):
-        draw(f"option__{index}", 532, 54, rounded(532, 54, fill, border))
-
     # The game rows are tabs, as the gametype editor's: outlined all around, and the selected one open on its right
     # edge and filled as the detail panel is, reaching into the panel (drawn over its left border) so tab and panel
     # are one shape. The art is ROW_ART_WIDTH wide, the tab itself ROW_TAB_WIDTH of it.
+    g = menu_geometry
     height, radius, stroke = ROW_HEIGHT, 7, menu_geometry.BROWSER_BORDER
     half = stroke / 2
     draw("row__0", ROW_ART_WIDTH, height, svg(ROW_ART_WIDTH, height,
          f'<rect x="{half}" y="{half}" width="{ROW_TAB_WIDTH - stroke}" height="{height - stroke}" rx="{radius}" '
-         f'fill="#0a2245" stroke="#1f5fae" stroke-width="{stroke}"/>'))
+         f'fill="{g.STANDARD_BAR_FILL}" fill-opacity="{g.STANDARD_BAR_OPACITY}"/>'))
     # (the chosen game's tab is drawn by its joint, with the panel: this frame draws nothing)
     draw("row__1", ROW_ART_WIDTH, ROW_HEIGHT, svg(ROW_ART_WIDTH, ROW_HEIGHT, ""))
 
-    # Four states let code distinguish focus from the selected type chip.
-    states = (("none", "#1f5fae"), ("#12396e", "#7fc4ff"),
-              ("#0d2c57", "#7fc4ff"), ("#174b89", "#cfe8ff"))
+    # Four states let code distinguish focus from the selected type chip: the disc's bar (unselected), its outlined
+    # focus bar, and the selected chip's filled bar, with or without focus.
+    states = ((g.STANDARD_BAR_FILL, g.STANDARD_BAR_OPACITY, "none"), (g.STANDARD_FOCUS_FILL, 1, g.STANDARD_FOCUS_OUTLINE),
+              (g.STANDARD_FOCUS_FILL, 1, "none"), (g.STANDARD_FOCUS_FILL, 1, g.STANDARD_FOCUS_OUTLINE))
     for name, width in (("chip_all", 78), ("chip_multiplayer", 144),
                         ("chip_coop", 100), ("toggle", 174)):
-        for index, (fill, border) in enumerate(states):
+        for index, (fill, opacity, border) in enumerate(states):
             draw(f"{name}__{index}", width, 54,
-                 rounded(width, 54, fill, border, top=22, stroke_width=3 if index >= 2 else 1.5))
+                 rounded(width, 54, fill, border, top=22, stroke_width=2, opacity=opacity))
 
     # (transparent, so 1x: thirty preview frames fall back to it, and at 4x they cost the Apple TV HD about 90 MB)
     draw("preview_none", 310, 155, svg(310, 155, ""), scale=1)
@@ -136,7 +121,7 @@ def generate(output, icons):
     draw("big", menu_geometry.BROWSER_PREVIEW_WIDTH, 20, rounded(menu_geometry.BROWSER_PREVIEW_WIDTH, 20, "#e8b520", radius=3))
     # The detail panel's password pill (HUD blue)
     # The detail panel's info pills: normal (HUD blue) and blocked (grayed as the disabled rows are, never red).
-    for index, border in enumerate(("#1f5fae", "#4a5563")):
+    for index, border in enumerate((menu_geometry.STANDARD_OUTLINE, "#4a5563")):
         draw(f"badge__{index}", menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT,
              rounded(menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT, "none", border, radius=3))
     # The lock inside the password pill.
@@ -179,7 +164,7 @@ def generate(output, icons):
             dash = (f' stroke-dasharray="{arc:.6f} {circumference:.6f}"'
                     if index < 32 else "")
             fill = (f'<circle cx="21" cy="21" r="17.5" fill="none" '
-                    f'stroke="#4aa8ff" stroke-width="3.5" stroke-linecap="round"'
+                    f'stroke="#2995ff" stroke-width="3.5" stroke-linecap="round"'
                     f'{dash} transform="rotate(-90 21 21)"/>')
         draw(f"gauge__{index:02d}", 42, 42, svg(42, 42, track + fill))
 

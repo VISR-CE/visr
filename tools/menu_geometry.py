@@ -98,12 +98,12 @@ BAR_SLOT_BOUNDS = bar_slots()
 _MP = 'xbox/main_menu/multiplayer_type_select'
 # The title's rule. The title picture is 64 units high at TITLE_TOP; its capitals stand 22 units tall from 33 units
 # down (ui_widget.c menu_title_icon), so they end at TITLE_CAPS_BOTTOM. The disc's screens (measured on the Direct IP
-# screen) leave TITLE_RULE_GAP units between the capitals and the rule under them. Every generated backdrop draws its
-# rule at TITLE_RULE_Y, and a screen's content starts TITLE_RULE_Y - TITLE_RULE_LEGACY below where it did when the
+# screen) leave TITLE_RULE_GAP units between the capitals and the rule under them. Every screen's backdrop is the disc's own
+# gradient, whose rule is at TITLE_RULE_Y, and a screen's content starts TITLE_RULE_Y - TITLE_RULE_LEGACY below where it did when the
 # rule sat on the capitals (the server browser's and its filters'), BROWSER_CONTENT_SHIFT.
 TITLE_TOP = 11
 TITLE_CAPS_BOTTOM = TITLE_TOP + 33 + 22
-TITLE_RULE_GAP = 5
+TITLE_RULE_GAP = 4  # the disc's own: its backdrop (xbox/bitmaps/gradient) draws the rule at y 70
 TITLE_RULE_Y = TITLE_CAPS_BOTTOM + TITLE_RULE_GAP
 TITLE_RULE_LEGACY = 66  # where the rule was drawn before, touching the capitals
 BROWSER_CONTENT_SHIFT = TITLE_RULE_Y - TITLE_RULE_LEGACY
@@ -112,7 +112,7 @@ BROWSER_ROW_PITCH, BROWSER_ROW_HEIGHT = 46, 43
 # and the chosen game's reaches BROWSER_TAB_REACH, over the detail panel's left border, in the panel's own fill, so
 # tab and panel are one shape. The panel is drawn first so the tab lies over it.
 BROWSER_LIST_X, BROWSER_PANEL_LEFT = 24, 304
-BROWSER_BORDER = 1.5  # the joined outline's stroke
+BROWSER_BORDER = 2  # the joined outline's stroke: the disc's own panel outline (sel_list_desc_bkd)
 # The tab and the panel are ONE shape: browser_assets.joined_outline_path draws the panel with the chosen game's tab
 # merged into its left side, as a single outlined, singly filled path (the "joint" art, one per visible row, plus one
 # for no chosen game). The tab's own widget draws nothing while chosen, so no outline or fill is drawn twice and the
@@ -122,11 +122,15 @@ BROWSER_TAB_WIDTH, BROWSER_TAB_REACH = 270, 282
 BROWSER_PANEL_WIDTH, BROWSER_PANEL_RADIUS, BROWSER_TAB_RADIUS = 312, 9, 7
 BROWSER_PANEL_TOP = 110 + BROWSER_CONTENT_SHIFT
 BROWSER_JOINT_WIDTH = BROWSER_PANEL_LEFT - BROWSER_LIST_X + BROWSER_PANEL_WIDTH  # from the tab's left to the panel's right
-# The panel's fill is the menu's own translucent blue (the backdrop's opacity), so the animated scene shows through
-# the tab and the panel alike.
-BROWSER_PANEL_FILL = '#0d2c57'
-BROWSER_PANEL_FILL_OPACITY = 0.69
-BROWSER_PANEL_BORDER = '#4aa8ff'  # the panel's outline and the chosen tab's rules: one line where they meet
+# The browser draws with the disc's own colors, never its own: the panel and the chosen game's tab are the disc's panel
+# (sel_list_desc_bkd: an opaque fill, a 2 unit outline), an unselected row is the disc's translucent bar and a focused
+# one its outlined bar (option_bkds). tools/test_xbox_menus.py reads these back from the disc's art.
+STANDARD_PANEL_FILL, STANDARD_OUTLINE = '#000e23', '#2995ff'
+STANDARD_BAR_FILL, STANDARD_BAR_OPACITY = '#001122', 0.6
+STANDARD_FOCUS_FILL, STANDARD_FOCUS_OUTLINE = '#002244', '#2299ff'
+BROWSER_PANEL_FILL = STANDARD_PANEL_FILL
+BROWSER_PANEL_FILL_OPACITY = 1
+BROWSER_PANEL_BORDER = STANDARD_OUTLINE  # the panel's outline and the chosen tab's rules: one line where they meet
 assert BROWSER_PANEL_TOP + (BROWSER_ROWS - 1) * BROWSER_ROW_PITCH + BROWSER_ROW_HEIGHT == BROWSER_PANEL_TOP + 273, \
     'the first and last rows reach the panel top and bottom: the joint merges their edges'
 assert BROWSER_LIST_X + BROWSER_TAB_WIDTH < BROWSER_PANEL_LEFT < BROWSER_LIST_X + BROWSER_TAB_REACH
@@ -158,6 +162,8 @@ BROWSER_PILL_Y = BROWSER_NOTICE_Y + BROWSER_NOTICE_HEIGHT
 BROWSER_PILL_WIDTH, BROWSER_PILL_HEIGHT, BROWSER_PILL_GAP = 120, 18, 8
 BROWSER_NET_PILL_X = BROWSER_PREVIEW_X  # the network version's pill, then the password's beside it
 BROWSER_PASSWORD_PILL_X = BROWSER_NET_PILL_X + BROWSER_PILL_WIDTH + BROWSER_PILL_GAP
+BROWSER_LOCK_WIDTH, BROWSER_LOCK_HEIGHT = 12, 14  # the padlock in the password pill, centered in it like any row's icon
+BROWSER_LOCK_Y = BROWSER_PILL_Y + (BROWSER_PILL_HEIGHT - BROWSER_LOCK_HEIGHT) // 2
 assert BROWSER_PASSWORD_PILL_X + BROWSER_PILL_WIDTH <= BROWSER_PREVIEW_X + BROWSER_PREVIEW_WIDTH, 'both pills fit the panel'
 BROWSER_DETAIL_HEIGHT = 273
 assert BROWSER_PREVIEW_WIDTH * BROWSER_PICTURE_TEXTURE[1] == BROWSER_PREVIEW_HEIGHT * BROWSER_PICTURE_TEXTURE[0], \

@@ -589,28 +589,46 @@ def test_browser_highlight_has_one_shape_for_every_row():
         assert (frame.get('width'), frame.get('height')) == (str(__import__('menu_geometry').BROWSER_TAB_REACH), '43')
 
 
-def test_sort_filter_has_four_large_rows_reset_and_done():
+def _row_style(path, list_leaf):
+    """What makes a list's rows the standard ones: each row's art, height, tall mark, and where its label and value sit
+    in it, from a generated page."""
+    root = ET.parse(MENUS / path)
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    menu = next(w for n, w in widgets.items() if n.endswith('/' + list_leaf))
+    rows = []
+    for c in menu.findall('child'):
+        row = widgets[c.get('widget')]
+        if not row.get('bitmap', '').endswith('option_bkds'):
+            continue
+        parts = [(i.get('widget').rsplit('/', 1)[-1].rsplit('_', 1)[-1], i.get('x'), i.get('y')) for i in row.findall('child')]
+        rows.append((row.get('bitmap'), row.get('height'), row.get('row'), row.get('top'), parts))
+    return menu, rows
+
+
+def test_every_option_list_is_made_of_the_standard_rows():
+    """Bug class: a screen drew its own rows (its own art, height and pitch), so it did not look like the other pages
+    with rows. The server browser's filters and Direct IP take the standard tall option row of a settings list: the
+    art, the height, the tall mark and the places of the label and the value are the hosted pages' own."""
+    reference_menu, reference = _row_style('xbox/main_menu.multiplayer_type_select.server_settings.xml', 'options_menu')
+    assert reference and reference[0][2] == 'tall' and reference[0][0].endswith('row_36/option_bkds')
+    for path, leaf in (('xbox/main_menu.multiplayer_type_select.join_game.filters.xml', 'options_menu'),
+                       ('xbox/main_menu.multiplayer_type_select.direct_ip.xml', 'direct_ip_menu')):
+        menu, rows = _row_style(path, leaf)
+        assert rows, path
+        for bitmap, height, tall, top, parts in rows:
+            assert (bitmap, height, tall, top) == reference[0][:4], (path, bitmap, height, tall)
+        # the rows stand at the standard pitch from the first row
+        ys = [int(c.get('y')) for c in menu.findall('child') if c.get('y')]
+        assert ys[:len(rows)] == [ys[0] + i * 39 for i in range(len(rows))], (path, ys)
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.filters.xml')
     widgets = {w.get('name').rsplit('/', 1)[-1]: w for w in root.iter('widget')}
     children = widgets['options_menu'].findall('child')
     assert [c.get('widget').rsplit('/', 1)[-1] for c in children] == [
         'op_sort', 'op_full', 'op_locked', 'op_unjoinable']
-    assert [int(c.get('y')) for c in children] == [73 + (shift := __import__('menu_geometry').BROWSER_CONTENT_SHIFT) + 58 * i for i in range(4)]
-    for c in children:
-        assert widgets[c.get('widget').rsplit('/', 1)[-1]].get('height') == '54'
     for key in ('sort', 'full', 'locked', 'unjoinable'):
-        label, spinner = widgets[key + '_label'], widgets[key + '_spinner']
-        assert label.get('font') == spinner.get('font') == r'ui\large_ui'
-        assert label.get('text_y') == '16'
-        # Spinner text uses its bounds, not the text-box offset.
-        assert (spinner.get('top'), spinner.get('height'), spinner.get('text_y')) == ('16', '24', '0')
-        assert spinner.get('align') == 'center'
-        assert spinner.get('width') == '198'
-        # Arrow centers are -22 and 220, whose midpoint is 99.
-        assert int(spinner.get('width')) / 2 == (-22 + 220) / 2
-        assert spinner.get('header_bounds') == '20 -28 34 -16'
-        assert spinner.get('footer_bounds') == '20 214 34 226'
+        assert widgets[key + '_label'].get('font') == widgets[key + '_spinner'].get('font') == r'ui\large_ui'
     assert widgets['filters_screen'].get('type') == 'column_list'
+    assert widgets['filters_screen'].get('bitmap') == 'xbox/bitmaps/gradient'
     assert widgets['sort_spinner'].get('strings') == 'MOST PLAYERS|NAME|MAP|GAME'
     assert widgets['filters_screen'].find('data[@input="port browser filters update"]') is not None
     bar = {a.get('slot'): a for a in widgets['filters_screen'].find('bar').findall('action')}
@@ -2248,10 +2266,10 @@ def test_browser_tab_and_panel_are_one_joined_outline_with_one_fill():
         for row in range(g.BROWSER_ROWS):
             # the panel's left line is open along the chosen tab and drawn along every other row
             assert border(at(image, left, mid(row))) == (row != chosen), (chosen, row)
-        # one fill under the tab and the panel, translucent
+        # one fill under the tab and the panel: the disc's panel fill, opaque as the disc draws it
         tab, panel = at(image, 100, mid(chosen)), at(image, right_side, mid(chosen))
-        assert tab == panel and 0 < tab[3] < 255, (chosen, tab, panel)
-        assert abs(tab[3] / 255 - g.BROWSER_PANEL_FILL_OPACITY) < 0.03
+        assert tab == panel and tab[3] == 255, (chosen, tab, panel)
+        assert tab[:3] == tuple(int(g.STANDARD_PANEL_FILL[i:i + 2], 16) for i in (1, 3, 5)), (chosen, tab)
         # the tab's rules and the panel's edges meet: the top rule of a tab above the panel's top reaches the panel
         # border without a gap, and the same for the bottom
         top, bottom = chosen * g.BROWSER_ROW_PITCH + 0.75, chosen * g.BROWSER_ROW_PITCH + g.BROWSER_ROW_HEIGHT - 0.75
@@ -2356,21 +2374,21 @@ def test_browser_picture_texture_is_the_pictures_own_shape():
     assert f'MENU_BROWSER_PICTURE_WIDTH' in header and str(w) in header
 
 
-def test_title_rule_leaves_the_discs_gap_under_the_capitals_on_every_generated_backdrop():
-    """Bug class: a generated backdrop drew its rule where the title's capitals end, so the descenders touched it (the
-    server browser, its filters). One constant places the rule: the capitals' bottom plus the disc's measured gap; every
-    generated backdrop art starts its rule on that row, and the content below starts a clear gap under it."""
+def test_title_rule_leaves_the_discs_gap_under_the_capitals_on_every_backdrop():
+    """Bug class: a screen drew its own backdrop with its rule where the title's capitals end, so the descenders
+    touched it (the server browser, its filters), then another set of colors. Every screen takes the disc's own
+    backdrop (xbox/bitmaps/gradient), and the one constant that places the content is that backdrop's rule row: the
+    capitals' bottom plus the disc's gap."""
+    import re
     import menu_geometry as g
-    import mac_run
-    assert g.TITLE_RULE_Y - g.TITLE_CAPS_BOTTOM == g.TITLE_RULE_GAP >= 5
-    for name in ('backdrop',):
-        data = (ROOT / 'port/assets/menus/xbox/art/browser' / f'{name}.png').read_bytes()
-        width, height, bgra = mac_run.read_png(data)
-        scale = height // 480
-        alpha = [bgra[(y * width) * 4 + 3] for y in range(height)]
-        first = next(y for y, a in enumerate(alpha) if a > 150)
-        assert first == g.TITLE_RULE_Y * scale, (name, first / scale, g.TITLE_RULE_Y)
-        assert not any(alpha[:first]), 'nothing is drawn above the rule'
+    assert g.TITLE_RULE_Y - g.TITLE_CAPS_BOTTOM == g.TITLE_RULE_GAP >= 4
+    svg = (ROOT / 'port/assets/menus/svg/shell/bitmaps/gradient.svg').read_text()
+    rule = re.search(r'<rect x="0" y="(\d+)" width="4" height="1" fill="#36afff"/>', svg)
+    assert rule and int(rule.group(1)) == g.TITLE_RULE_Y, 'the constant is the disc backdrop\'s own rule row'
+    for name in ('main_menu.multiplayer_type_select.join_game.xml', 'main_menu.multiplayer_type_select.join_game.filters.xml'):
+        text = (MENUS / 'xbox' / name).read_text()
+        assert 'bitmap="xbox/bitmaps/gradient"' in text and 'browser/backdrop' not in text and 'filters_backdrop' not in text, name
+    assert not list((ROOT / 'port/assets/menus/xbox/art/browser').glob('backdrop*')), 'no backdrop art of its own'
     _, widgets = browser_c_widgets()
     chip_tops = {int(c.get('y')) for c in widgets['browser_chips'].findall('child')}
     assert min(chip_tops) - 50 == g.BROWSER_CONTENT_SHIFT, 'the chips moved down with the rule'
@@ -2428,3 +2446,29 @@ def test_every_detail_panel_element_stays_inside_the_panel():
         assert pill in placed, pill
     assert placed['browser_detail_net'][2] <= placed['browser_detail_password'][0], 'the two pills side by side'
     assert placed['browser_detail_net'] == placed['browser_detail_net_blocked'][:0] + placed['browser_detail_net_blocked'], 'the gray text sits on the pill'
+
+
+def test_browser_palette_is_the_discs_own_and_the_padlock_is_centered():
+    """Bug class: a screen drew with colors of its own (a lighter backdrop, a brighter panel and tabs than every other
+    screen), and an icon sat off the middle of the row it belongs to. The browser's fills and outlines are read back
+    from the disc's own art, and an icon in a row sits centered in it vertically, the rule every row icon follows."""
+    import re
+    import menu_geometry as g
+    art = ROOT / 'port/assets/menus/svg/shell/bitmaps'
+    panel = (art / 'sel_list_desc_bkd.svg').read_text()
+    assert re.search(r'fill="%s"' % g.STANDARD_PANEL_FILL, panel) and re.search(r'stroke="%s" stroke-width="%d"' % (
+        g.STANDARD_OUTLINE, g.BROWSER_BORDER), panel)
+    bar = (art / 'option_bkds__0.svg').read_text()
+    assert g.STANDARD_BAR_FILL in bar and re.search(r'fill-opacity="%s"' % g.STANDARD_BAR_OPACITY, bar)
+    focus = (art / 'option_bkds__1.svg').read_text()
+    assert g.STANDARD_FOCUS_FILL in focus and g.STANDARD_FOCUS_OUTLINE in focus
+    assert g.BROWSER_PANEL_FILL == g.STANDARD_PANEL_FILL and g.BROWSER_PANEL_BORDER == g.STANDARD_OUTLINE
+    assert g.BROWSER_PANEL_FILL_OPACITY == 1
+    # the padlock is centered in its pill (the art's box, as a row's icon is centered in its row)
+    top = g.BROWSER_LOCK_Y - g.BROWSER_PILL_Y
+    bottom = g.BROWSER_PILL_Y + g.BROWSER_PILL_HEIGHT - (g.BROWSER_LOCK_Y + g.BROWSER_LOCK_HEIGHT)
+    assert abs(top - bottom) <= 1, (top, bottom)
+    _, widgets = browser_c_widgets()
+    detail = widgets['browser_detail_content']
+    placed = {c.get('widget').rsplit('/', 1)[-1]: (int(c.get('x')), int(c.get('y'))) for c in detail.findall('child') if c.get('y')}
+    assert placed['browser_detail_lock'][1] == g.BROWSER_LOCK_Y
