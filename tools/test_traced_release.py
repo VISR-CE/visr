@@ -233,3 +233,45 @@ def test_every_resource_tracing_makes_is_given_back_by_the_one_release_path():
     # the release is carried out even after a failure, before the backend asks whether tracing is ready
     data = extract_function(text, "static void gpu_metal_traced_shadows_data(")
     assert data.index("traced_release(id)") < data.index("gpu_metal_traced_shadows_ready(")
+
+
+def enclosing_block(text, at):
+    """The innermost brace block around offset `at`."""
+    depth = 0
+    start = at
+    while start > 0:
+        start -= 1
+        if text[start] == "}":
+            depth += 1
+        elif text[start] == "{":
+            if depth == 0:
+                break
+            depth -= 1
+    depth = 0
+    end = at
+    while end < len(text):
+        if text[end] == "{":
+            depth += 1
+        elif text[end] == "}":
+            if depth == 0:
+                break
+            depth -= 1
+        end += 1
+    return text[start:end + 1]
+
+
+def test_every_pending_build_that_is_dropped_forgets_its_slot():
+    # a build or refit queued for the frame either reaches the encoder or is dropped; a dropped one must forget its
+    # slot (traced_forget), or the cache keeps believing the structure holds a pose it never got
+    text = METAL.read_text()
+    release = extract_function(text, "static void traced_release(uint32_t epoch)")
+    sections = traced_sections(text).replace(release, "")
+    drops = list(re.finditer(r"traced_pending_descriptors\[([^\]]+)\]\s*=\s*nil;", sections))
+    assert len(drops) >= 3, "the frame check, the scratch failure and the commit each drop pending descriptors"
+    for drop in drops:
+        index = re.escape(drop.group(1))
+        block = enclosing_block(sections, drop.start())
+        encoded = re.search(rf"(build|refit)AccelerationStructure:\w+ descriptor:traced_pending_descriptors\[{index}\]",
+            block)
+        forgotten = re.search(rf"traced_forget\(traced\.pending_slot\[{index}\]\)", block)
+        assert encoded or forgotten, f"a pending build dropped here is neither encoded nor forgotten:\n{block}"
