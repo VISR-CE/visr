@@ -173,6 +173,15 @@ def test_a_probe_that_uses_the_helper_includes_it():
             assert '"test_wait.h"' in text, f"{path.name} uses test_wait.h macros without including it"
 
 
+def test_a_probe_that_uses_the_helper_includes_it_first():
+    """_POSIX_C_SOURCE (what hides nanosleep from glibc under -std=c11) only counts before the first system header."""
+    for path in PROBES:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if '"test_wait.h"' in text:
+            first = re.search(r"^#(?:include|import) .*$", text, re.M).group(0)
+            assert first == '#include "test_wait.h"', f"{path.name}: test_wait.h must be the first include, not {first}"
+
+
 def test_a_probe_that_includes_the_helper_uses_it():
     for path in PROBES:
         text = path.read_text(encoding="utf-8", errors="replace")

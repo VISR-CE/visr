@@ -4,6 +4,7 @@ back, so with force: a UDP socket keeps its descriptor, its port, its
 options and its non-blocking mode and takes datagrams again; a listening TCP
 socket keeps its port and takes connections; a TCP connection is left alone;
 a socket closed is forgotten. Run by tools/ios_test.py. */
+#include "test_wait.h"
 #include "host_socket_revival.h"
 
 #include <arpa/inet.h>
@@ -14,7 +15,6 @@ a socket closed is forgotten. Run by tools/ios_test.py. */
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include "test_wait.h"
 
 static int logged;
 

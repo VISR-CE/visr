@@ -1,3 +1,4 @@
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <QuartzCore/CAMetalLayer.h>
 #if defined(PRESENTATION_TEST_SIMULATOR)
@@ -9,7 +10,6 @@
 #endif
 #include "gpu_metal_presentation.h"
 #include "host_benchmark_presentation.h"
-#include "test_wait.h"
 #include <math.h>
 #include <unistd.h>
 static int checks, failures;

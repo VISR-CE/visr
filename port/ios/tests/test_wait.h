@@ -14,8 +14,15 @@ A line that must be short marks itself with TEST_WAIT_SHORT_ON_PURPOSE and says 
 #ifndef TEST_WAIT_H
 #define TEST_WAIT_H
 
+/* nanosleep and clock_gettime are POSIX, and glibc hides them under -std=c11 (the strict build Tooling's Linux job
+uses; a Mac's libc does not hide them, so only that job finds out). _POSIX_C_SOURCE 200809L asks for exactly the POSIX
+names this header uses and nothing more. A feature macro only counts before the first system header, so a probe
+includes this header first (tools/test_probe_waits.py checks it). */
+#if !defined(_POSIX_C_SOURCE) && !defined(_GNU_SOURCE) && !defined(_DEFAULT_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <time.h>
-#include <unistd.h>
 
 #define TEST_WAIT_CAP_SECONDS 120.0        /* the default cap on any wait for another thread */
 #define TEST_WAIT_WATCHDOG_SECONDS 300     /* a whole-program alarm: a hang guard, not a measurement */
@@ -41,7 +48,7 @@ static inline double test_wait_now(void)
 	{ \
 		if (condition) { test_wait_held_ = 1; break; } \
 		if (test_wait_now() >= test_wait_end_) break; \
-		usleep(1000); \
+		nanosleep(&(struct timespec){ 0, 1000000 }, NULL);   /* 1 ms between two looks */ \
 	} \
 	test_wait_held_; })
 

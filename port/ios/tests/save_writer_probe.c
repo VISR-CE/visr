@@ -8,6 +8,7 @@
    - a writer leaving files where another reader looks: the slot's folder holds the same names at every call;
    - a copy of a file that changed under it: a checkpoint overtaken by the next one, a deleted profile and
      Save and Quit each stop the worker's write. */
+#include "test_wait.h"
 #include "save_writer.h"
 #include "saved_game_image.h"
 
@@ -22,7 +23,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "test_tmpdir.h"
-#include "test_wait.h"
 
 #define CHECK(condition) do { if (!(condition)) { \
 	fprintf(stderr, "%s:%d: %s failed in %s\n", __FILE__, __LINE__, #condition, test_name); exit(1); } } while (0)

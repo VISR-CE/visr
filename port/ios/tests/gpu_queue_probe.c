@@ -9,8 +9,8 @@ match the direct run's whole hash. Then, behind the queue, a backend that reads 
 (following the store's change log) must see the game's values and serials on every draw. Built and run by tools/test_gpu_queue.py with
 gpu_call_hash.c and gpu_queue.c. */
 
-#include "gpu_call_hash.h"
 #include "test_wait.h"
+#include "gpu_call_hash.h"
 #include "gpu_queue.h"
 #include "gpu_owner_check.h"
 #include <pthread.h>
