@@ -24,6 +24,8 @@ void traced_shadow_casters_new_map(void);
 below follow, and traced_shadow_casters_window_end after the last apply draw */
 boolean traced_shadow_casters_window_begin(real p11);
 void traced_shadow_casters_window_end(void);
+/* whether the window between those two traces its shadows */
+boolean traced_shadow_casters_window_traces(void);
 /* a new shadow's casters follow, part by part, until traced_shadow_casters_end; its id this frame, or
 TRACED_SHADOW_NONE in a window that does not trace */
 unsigned long traced_shadow_casters_begin(long object_index);

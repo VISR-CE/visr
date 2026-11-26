@@ -289,6 +289,12 @@ boolean traced_shadow_casters_window_begin(
 	return TRUE;
 }
 
+boolean traced_shadow_casters_window_traces(
+	void)
+{
+	return traced.window;
+}
+
 void traced_shadow_casters_window_end(
 	void)
 {
@@ -965,6 +971,7 @@ void traced_light_end(
 
 void traced_shadow_casters_new_map(void) { }
 boolean traced_shadow_casters_window_begin(real p11) { (void)p11; return FALSE; }
+boolean traced_shadow_casters_window_traces(void) { return FALSE; }
 void traced_shadow_casters_window_end(void) { }
 unsigned long traced_shadow_casters_begin(long object_index) { (void)object_index; return TRACED_SHADOW_NONE; }
 void traced_shadow_casters_part(struct triangle_buffer const *triangle_buffer, struct vertex_buffer const *vertex_buffer,
