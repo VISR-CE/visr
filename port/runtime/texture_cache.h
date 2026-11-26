@@ -20,6 +20,9 @@ struct texture_recipe_globals
 	global key carries these and the bpf parameters above: a change to any of them redoes every such entry. */
 	float damage_share, damage_structure_loss, damage_bpf_structure_loss;
 	uint32_t damage_measure_version;
+	/* texture_repair.h's TEXTURE_REPAIR_VERSION: the upscaler's sources are the texture repair's output wherever it
+	changes them, so a repair change redoes every upscaled entry; 0 (no repair first) keeps the keys made before it */
+	uint32_t repair_version;
 };
 struct texture_recipe
 {
@@ -87,6 +90,11 @@ static inline uint64_t texture_cache_projected_entry(const struct texture_policy
 /* the manifest: <directory>/manifest.tsv, one record per line; load returns 0 with *records malloc'd and *count set (a missing manifest: 0 records), or -1 if it exists but cannot be read (no records) */
 int texture_cache_manifest_load(const char *directory, struct texture_cache_record **records, size_t *count);
 int texture_cache_manifest_save(const char *directory, const struct texture_cache_record *records, size_t count);
+/* the same for another manifest file of the folder (the host's texture repair keeps manifest-repair.tsv); name NULL is manifest.tsv */
+int texture_cache_manifest_load_named(const char *directory, const char *name, struct texture_cache_record **records,
+	size_t *count);
+int texture_cache_manifest_save_named(const char *directory, const char *name, const struct texture_cache_record *records,
+	size_t count);
 /* the whole-game decisions the generator classified (<directory>/decisions.tsv), so readiness can be judged while the
    generator is off: load returns 0 with *decisions malloc'd and sorted by hash, width and height, or -1 if the file is
    missing or cannot be read. The optional sixth column saves scale; old rows load scale 0 (unknown). */
@@ -138,7 +146,10 @@ static inline uint64_t texture_cache_storage_base(int important_read, uint64_t i
 }
 uint64_t texture_cache_storage_usable(int opportunistic_read, uint64_t opportunistic, int important_read, uint64_t important,
 	int volume_read, uint64_t volume_free);
-/* <directory>/<hash>-<w>x<h>.bin through a .tmp and a rename; on any failure nothing is left behind; 0 on success */
+/* <directory>/<hash>-<w>x<h>.bin through a .tmp and a rename; on any failure nothing is left behind; 0 on success.
+texture_cache_write_entry_kind writes the texture repair's own file (TEXTURE_RECORD_REPAIRED, texture_record.h) instead. */
+int texture_cache_write_entry_kind(const char *directory, const struct texture_cache_record *record, int kind,
+	const void *bytes, size_t size);
 int texture_cache_write_entry(const char *directory, const struct texture_cache_record *record, const void *bytes,
 	size_t size);
 void texture_cache_set_write_fault(long fail_after_bytes);   /* tests only: -1 off */

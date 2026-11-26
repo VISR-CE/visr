@@ -48,10 +48,15 @@ int host_invite_card_up(void);
 void *host_sdl_metal_layer(void);
 /* the drawable the game's picture is fit into on its view, in pixels (0x0: none yet; gpu_metal.m) */
 void host_picture_drawable(float *width, float *height);
+/* the present pass's dither on or off as the game runs (debug.present_dither, the knob chord; gpu_metal.m) */
+void host_present_dither_set(int on);
 void host_ios_touch_initialize(void);
 void host_ios_prepare_assets(const char *documents);
 /* The import window stays up while the guest prepares pictures in flat offscreen frames. */
 int host_map_pictures_import_stage(void);
+/* A launch with a stale or missing picture starts the same stage from the main menu: 1 once it is up, 0 where the
+   host has none (tvOS, visionOS). */
+int host_map_pictures_begin_refresh(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
 int host_map_framings_feed_path(const char *key, char *path, unsigned int size);
@@ -129,16 +134,34 @@ void host_gpu_output_cap_commit(void);
 int host_gpu_output_cap_settled(void);
 /* Game-thread query after GPU initialization, including validation wrappers. */
 int host_gpu_metal_active(void);
-/* 1 when debug.encode_thread put the encode queue in front of the Metal backend (decided before the backend's
-initialize, which sizes its stream ring by it) */
+/* 1 when the encode queue is in front of the Metal backend now (it is chosen before the backend's initialize and may
+change at a frame start after a map load: host_encode_thread_scene) */
 int host_gpu_encode_queue_on(void);
+/* debug.stereo_replay: the guest's imports for d3d8_device.c's halo_stereo_replay_* (guest_host.h), on the encode
+queue's spans (gpu_queue.h) */
+uint32_t host_stereo_replay_begin(void);
+void host_stereo_replay_eye(uint32_t eye);
+void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *values);
+void host_stereo_replay_constants_end(uint32_t first, uint32_t count);
+uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to);
+void host_stereo_replay_live_end(void);
+int host_gpu_encode_queue_possible(void);
+/* the encode thread was switched on or off: a development build's one-thread check starts again */
+void gpu_metal_encode_owner_reset(void);
+/* the frame deadline workgroup around a switch of the encode thread (gpu_metal.m): before it, on the game thread, and as
+the encode thread ends, on that thread */
+void gpu_metal_frame_deadline_before_switch(void);
+void gpu_metal_frame_deadline_encode_thread_ending(void);
 /* with debug.encode_thread = "thread", when the game thread last called its present (CACurrentMediaTime's clock): the
 encode thread's frame-slot wait after it is a wait at the present barrier (frame_waits.h). -1 without the encode
 thread, where the game thread encodes the frame itself. */
 double host_gpu_present_called(void);
-/* 1 with debug.encode_thread = "thread" (decided before the backend's initialize): the frame pacer's default frames
-in flight */
+/* 1 with the encode thread in force now (debug.encode_thread, else display.encode_thread for the workload context): the
+frame pacer's default frames in flight */
 int host_gpu_encode_thread_on(void);
+/* a guest import: display.encode_thread as the game resolved it for the workload context (1 thread, 0 off); the mode
+changes at the next frame start (host_gpu_dispatch.c) */
+void host_encode_thread_scene(int thread);
 void host_gpu_set_upscaler(int metalfx);
 void host_gpu_set_crt(int enabled);
 int host_gpu_upscaler(void);

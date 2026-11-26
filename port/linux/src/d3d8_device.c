@@ -26,6 +26,7 @@ Conventions carried over from the Xbox:
 */
 
 #include "xgpu.h"
+#include "../game/light_visibility.h" /* the key's light_visibility paths */
 #include "quad_ranges.h"
 #include "screenshot_schedule.h"
 #include "sdl_platform.h"
@@ -263,12 +264,10 @@ size and the anisotropy; 0 leaves the setting in force */
 /* port: the largest shadow map; larger values (settings, profiles, benchmark and knob overrides) clamp to it */
 #define SHADOW_MAP_SIZE_MAX 512
 static long benchmark_render_lines, benchmark_shadow_size, benchmark_anisotropy;
-/* debug.knob_cycle (halo_knob_apply): the same settings changed while the game runs, in place of the settings; the
-benchmark's values come first. 0 leaves the setting in force, and for the effect target -1 */
-static long knob_render_lines, knob_shadow_size, knob_anisotropy;
 /* the frame the offscreen targets of an older size are freed on (knob_targets_release); 0 for none */
 static unsigned long knob_release_frame;
-static int knob_effect_level = -1;
+/* a cost run's effect resolution (halo_benchmark_knobs) in place of the setting, -1 for none */
+static int benchmark_effect_level = -1;
 /* Values observed in renderer operations since the current benchmark run began.
    Zero means this run has not established an actual shadow target or sampler. */
 static long benchmark_shadow_target_observed, benchmark_sampler_max_observed;
@@ -420,7 +419,7 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 		takes the scale's place */
 		double render_scale = render_scale_now();
 
-		if (benchmark_render_lines > 0 || knob_render_lines > 0)
+		if (benchmark_render_lines > 0)
 			render_scale = 1.0;
 		if (render_scale >= 0.25 && render_scale < 1.0 && !(head_eyes_frame() && halo_stereo_frame()->foveated))
 		{
@@ -429,7 +428,7 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 		}
 	}
 	pixels = halo_display_render_size(drawable_width, drawable_height, *width,
-		requested_width, benchmark_render_lines > 0 ? benchmark_render_lines : knob_render_lines > 0 ? knob_render_lines :
+		requested_width, benchmark_render_lines > 0 ? benchmark_render_lines :
 		config_scene_integer("display.render_height", halo_scene_class()), screen_maximum_texture_size, allow_portrait);
 	{
 		/* head-tracked stereo: the screen's targets are the eyes' pictures,
@@ -1079,6 +1078,9 @@ struct render_target_entry
 	pixel it is drawn with (gpu_texture_multisample), 0 for none */
 	BOOL screen_buffer;
 	uint32_t samples;
+	/* made with the scene-color role (scene_color_role): GPU_FORMAT_SCENE_COLOR, freed when display.scene_precision
+	changes (scene_precision_frame) */
+	BOOL scene_color;
 };
 
 /* every draw looks up its targets and whether its textures are render
@@ -1555,16 +1557,16 @@ static float offscreen_target_scale(unsigned long width, unsigned long height, D
 	}
 	if (width == 128 && height == 128 && (format == D3DFMT_R5G6B5 || format == D3DFMT_LIN_R5G6B5))
 	{
-		long size = benchmark_shadow_size > 0 ? benchmark_shadow_size : knob_shadow_size > 0 ? knob_shadow_size : shadow_size;
+		long size = benchmark_shadow_size > 0 ? benchmark_shadow_size : shadow_size;
 
 		scale[0] = scale[1] = (float)(size > SHADOW_MAP_SIZE_MAX ? SHADOW_MAP_SIZE_MAX : size) / 128.0f;
 	}
-	else if (width == 320 && height == 240 && (knob_effect_level >= 0 ? knob_effect_level : effect_level) > 0)
+	else if (width == 320 && height == 240 && (benchmark_effect_level >= 0 ? benchmark_effect_level : effect_level) > 0)
 	{
 		float dense[2];
 		/* "half": the screen's resolution halved each way, as the Xbox had it; "full": the screen's resolution,
 		twice that */
-		float factor = (knob_effect_level >= 0 ? knob_effect_level : effect_level) == 2 ? 2.0f : 1.0f;
+		float factor = (benchmark_effect_level >= 0 ? benchmark_effect_level : effect_level) == 2 ? 2.0f : 1.0f;
 
 		/* (foveated eye passes: at the eyes' density without foveation, not
 		the rate maps' screen size, which the full-rate center reaches only
@@ -1678,6 +1680,43 @@ void halo_shadow_atlas_forget(D3DSurface *surface)
 eye, the HUD and the zoomed picture have their own textures (the one layer
 key: a new layer is a change to halo_stereo.h), else the one the game
 always had */
+/* display.scene_precision: 16 gives the targets that hold the scene's color the scene-color role
+(GPU_FORMAT_SCENE_COLOR, a higher-precision format the backend picks), so the dozen blends that make up a frame stop
+rounding each other to 8 bits. debug.scene_format names a measurement format in its place (any but "bgra8" takes the
+role). Read when targets are made; scene_precision_frame frees the role's targets when the answer changes (a graphics
+mode switch: Hardcore keeps 8; a map load into the other workload context: a profile's [variable.display] value). */
+/* debug.knob_cycle's scene precision, -1 until the chord sets it */
+static int scene_precision_live = -1;
+
+static BOOL scene_precision_wanted(void)
+{
+	const char *format = config_string("debug.scene_format");
+
+	if (scene_precision_live >= 0)
+		return scene_precision_live >= 16;
+	if (*format)
+		return strcmp(format, "bgra8") != 0;
+	/* (the value in force for gameplay: a profile's [variable.display] may give multiplayer another one) */
+	return config_scene_integer("display.scene_precision", CONFIG_SCENE_GAMEPLAY) >= 16;
+}
+
+static BOOL scene_precision_current, scene_precision_known;
+
+/* the targets that take the role: the back buffer's color in mono (the scene at any scale, and the display-sized
+one the HUD draws into). Not yet the stereo layers or a foveated eye, whose resolve and Compositor paths are BGRA8 */
+static BOOL scene_color_role(const D3DSurface *surface, int layer, unsigned char foveated_eye)
+{
+	if (!scene_precision_known)
+	{
+		scene_precision_current = scene_precision_wanted();
+		scene_precision_known = TRUE;
+		platform_log("scene precision: %s", scene_precision_current ? "the scene's color targets are high precision (16-bit)" :
+			"the scene's color targets are 8-bit");
+	}
+	return scene_precision_current && !foveated_eye && surface->Data == device.back_buffer.Data &&
+		(layer == HALO_STEREO_LAYER_MONO || layer == HALO_STEREO_LAYER_NATIVE);
+}
+
 static int render_target_layer(void)
 {
 	return halo_stereo_frame()->eye_count == 2 ? halo_stereo_current_layer() : HALO_STEREO_LAYER_MONO;
@@ -1905,7 +1944,8 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 		struct gpu_texture_description texture = { 0 };
 
 		texture.type = GPU_TEXTURE_2D;
-		texture.format = depth ? GPU_FORMAT_DEPTH_STENCIL : GPU_FORMAT_BGRA8;
+		entry->scene_color = !depth && scene_color_role(surface, layer, foveated_eye);
+		texture.format = depth ? GPU_FORMAT_DEPTH_STENCIL : entry->scene_color ? GPU_FORMAT_SCENE_COLOR : GPU_FORMAT_BGRA8;
 		texture.usage = GPU_USAGE_RENDER_TARGET;
 		texture.foveated_eye = foveated_eye;
 		texture.width = (uint32_t)entry->target.allocated_width;
@@ -2705,7 +2745,7 @@ static void knob_ab_changed(void)
 		char method[32];
 		config_scene_string("display.anti_aliasing", halo_scene_class(), method, sizeof(method));
 		host_stereo_ab_change(anti_aliasing_live_text[0] ? anti_aliasing_live_text : method,
-			host_stereo_render_quality(-1.0f), knob_shadow_size > 0 ? knob_shadow_size : config_integer("display.shadow_map_size"));
+			host_stereo_render_quality(-1.0f), config_scene_integer("display.shadow_map_size", CONFIG_SCENE_GAMEPLAY));
 	}
 #endif
 }
@@ -2720,24 +2760,52 @@ float halo_knob_render_quality(void)
 #endif
 }
 
-/* One setting of debug.knob_cycle's chord (xinput_sdl.c), by its config name and value text.
+/* The renderer's side of a live set (config_set_live's hook: debug.knob_cycle's chord in xinput_sdl.c and the script
+console's visr_set), by config name and value text, called once the value is in force. The setting itself is what
+draws: this clears an override that would hide it (the FXAA chord's method, a model detail override) and starts the
+stereo A/B window, and holds no value of its own, so the graphics mode still replaces what it replaces.
 The targets that depend on it are allocated again on the next frame; changes last until the app quits.
 Render height does not affect foveated eyes, whose size comes from the Compositor's rate maps. */
-/* debug.knob_cycle's "ambient occlusion" (debug.ssao spike, halo_ssao_after_lightmaps), -1: the setting */
-static int ssao_live = -1;
 
-int halo_knob_apply(const char *name, const char *value)
+int benchmark_suite_running(void);
+
+/* 0 and why when the renderer would draw another value than name's new one: a cost run's override, or a size above
+the largest it draws */
+static int knob_live_allowed(const char *name, const char *value, char *why, size_t why_size)
 {
-	if (!strcmp(name, "display.render_height"))
-		knob_render_lines = atol(value);
-	else if (!strcmp(name, "display.shadow_map_size"))
-		knob_shadow_size = atol(value);
-	else if (!strcmp(name, "display.anisotropic_filtering"))
-		knob_anisotropy = atol(value);
+	if ((!strcmp(name, "display.render_height") && benchmark_render_lines > 0) ||
+		(!strcmp(name, "display.shadow_map_size") && benchmark_shadow_size > 0) ||
+		(!strcmp(name, "display.anisotropic_filtering") && benchmark_anisotropy > 0) ||
+		(!strcmp(name, "display.effect_resolution") && benchmark_effect_level >= 0) ||
+		((!strcmp(name, "display.anti_aliasing") || !strcmp(name, "display.model_lod") ||
+			!strcmp(name, "display.graphics")) && benchmark_suite_running()))
+	{
+		snprintf(why, why_size, "a benchmark sets it");
+		return 0;
+	}
+	if (!strcmp(name, "display.shadow_map_size") && atol(value) > SHADOW_MAP_SIZE_MAX)
+	{
+		snprintf(why, why_size, "above %d, the largest shadow map this build draws", SHADOW_MAP_SIZE_MAX);
+		return 0;
+	}
+	return 1;
+}
+
+static int knob_live_apply(const char *name, const char *value, int apply, char *why, size_t why_size)
+{
+	if (!apply)
+		return knob_live_allowed(name, value, why, why_size);
+	if (!strcmp(name, "display.render_height") || !strcmp(name, "display.shadow_map_size") ||
+		!strcmp(name, "display.anisotropic_filtering") || !strcmp(name, "display.effect_resolution"))
+		;   /* (read again from the setting on the next frame: config_changes) */
 	else if (!strcmp(name, "display.model_lod"))
-		halo_model_lod_set(strcmp(value, "auto") != 0);
+		halo_model_lod_set(-1);
 	else if (!strcmp(name, "display.anti_aliasing"))
-		anti_aliasing_live_set(value);
+	{
+		anti_aliasing_live_text[0] = 0;
+		if (device.gl_ready)
+			anti_aliasing_read();
+	}
 	else if (!strcmp(name, "display.render_quality"))
 	{
 #ifdef HALO_ILP32
@@ -2751,12 +2819,27 @@ int halo_knob_apply(const char *name, const char *value)
 		}
 #endif
 	}
-	else if (!strcmp(name, "display.effect_resolution"))
-		knob_effect_level = effect_resolution_level(value);
 	else if (!strcmp(name, "debug.ssao"))
-		ssao_live = atoi(value);
+		;   /* (ssao_mode reads it each frame) */
+	else if (!strcmp(name, "display.scene_precision"))
+		scene_precision_live = atoi(value);
+	else if (!strcmp(name, "debug.present_dither"))
+	{
+#ifdef HALO_ILP32
+		host_present_dither_set(strcmp(value, "off") != 0);
+#else
+		platform_log("Metal: the present dither changes only with the Metal backend");
+#endif
+		return 1;
+	}
 	else if (!strcmp(name, "display.graphics"))
-		return config_graphics_try(value);
+	{
+		/* (the mode's own anti-aliasing and model detail draw, not an earlier chord's or knob's) */
+		anti_aliasing_live_text[0] = 0;
+		if (device.gl_ready)
+			anti_aliasing_read();
+		halo_model_lod_set(-1);
+	}
 	else if (!strcmp(name, "display.frame_repeat"))
 	{
 		/* (the Compositor's, between frames; nothing to allocate again) */
@@ -2768,7 +2851,7 @@ int halo_knob_apply(const char *name, const char *value)
 		return 1;
 	}
 	else
-		return 0;
+		return 1;
 	knob_ab_changed();
 	/* the new targets are allocated by the next frames; the old ones go two seconds on */
 	knob_release_frame = device.frame + 120;
@@ -2790,7 +2873,7 @@ void halo_benchmark_knobs(int anti_aliasing, int effect_level, double render_sca
 		if (device.gl_ready)
 			anti_aliasing_read();
 	}
-	knob_effect_level = effect_level >= 0 && effect_level <= 2 ? effect_level : -1;
+	benchmark_effect_level = effect_level >= 0 && effect_level <= 2 ? effect_level : -1;
 	render_scale_live = render_scale >= 0.25 && render_scale <= 1.0 ? render_scale : -1.0;
 	knob_release_frame = device.frame + 120;
 }
@@ -2988,8 +3071,6 @@ static int ssao_mode(void)
 	/* a GPU that cannot run it (gpu_capabilities.ambient_occlusion) has none, whatever the settings say */
 	if (!device_capabilities.ambient_occlusion)
 		return 0;
-	if (ssao_live >= 0)
-		return ssao_live;
 	/* debug.ssao (the spike's modes) wins; otherwise the player's setting, which the graphics mode turns off
 	outside Enhanced */
 	debug = config_integer("debug.ssao");
@@ -3082,7 +3163,7 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 	parameters[17] = (float)config_real("debug.ssao_fade_distance");
 	parameters[18] = (float)config_real("debug.ssao_level_floor");
 	parameters[19] = (float)config_real("debug.ssao_object_floor");
-	/* the projection's depth row (GL-style: ndc z = -p22 + p32 / distance), which the host linearizes depth with */
+	/* the projection's depth row (0-to-1: z / w = -p22 + p32 / distance), which the host linearizes depth with (depth_decode.h) */
 	parameters[20] = p22;
 	parameters[21] = p32;
 	parameters[22] = (float)config_integer("debug.ssao_path");
@@ -3104,6 +3185,268 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 #ifdef HALO_ILP32
 	host_ssao_apply(color->target.texture, depth->target.texture, parameters, 27);
 #endif
+}
+
+/* ---------- traced object shadows (display.traced_shadows)
+
+On a GPU with ray tracing hardware, characters' and vehicles' shadows are traced against their models instead of
+read from shadow maps (port/linux/game/traced_shadow_casters.c names the casters; gpu_metal.m keeps their
+acceleration structures). The game's apply draws are kept: each takes the traced pixel shader key
+(halo_traced_shadows_key; nv2a_pixel_shader_key traced_shadow), whose stage 0 is a ray, and goes to the traced term
+instead of the scene: a target of the scene's size, white before a window's shadows, in which the game's own blend
+leaves the product of the shadows' darkening and the smallest penumbra radius. After the window's last shadow
+(halo_traced_shadows_window_end) the backend softens the term by that radius and multiplies it into the scene over
+the level's pixels, which the lightmap pass marked in stencil (0x10) as it does for ambient occlusion.
+
+Whether a frame traces is decided once, here, before anything of it is drawn that way: the setting (which the
+graphics mode turns off outside Enhanced), Metal, the backend's answer (the Metal gate's TRACED_SHADOWS pass, and no
+failure so far), and no stereo. A window then traces when its targets allow it (not multisampled) and the term is
+ready; otherwise its shadows are drawn from their maps, whole. Off: nothing changes. */
+#include "traced_shadows_format.h"
+
+static struct
+{
+	unsigned long frame;        /* device.frame + 1 of the decision */
+	BOOL frame_on;
+	BOOL marked;                /* the view's lightmap pass marked the level */
+	BOOL window;                /* a window's shadows are being traced */
+	BOOL break_window;          /* debug.traced_shadows_break_only: the window ends with the pass break alone */
+	BOOL key;                   /* the draws being made are a traced shadow's apply draws */
+	int light;                  /* the draws being made are a dynamic light's, blocked by this source (light_visibility.h) */
+	gpu_texture term;
+	unsigned long term_width, term_height;
+	gpu_texture scene_color;    /* the window's */
+	float rect[4];              /* the window in the target's texels */
+	float pixels_per_unit;      /* at distance 1 */
+	float radius;               /* the largest penumbra radius, pixels */
+	float cover[4];             /* what the window's shadows can darken, in its texels: left, top, right, bottom */
+	unsigned long windows;      /* since the last log line */
+} traced_shadows;
+
+static BOOL traced_shadows_frame_on(void)
+{
+	if (traced_shadows.frame != device.frame + 1)
+	{
+		const struct halo_stereo_frame *stereo = halo_stereo_frame();
+		BOOL on = device.gl_ready && shader_dialect.msl && config_scene_boolean("display.traced_shadows", CONFIG_SCENE_GAMEPLAY) &&
+			stereo->mode == HALO_STEREO_OFF && !stereo->eye_count;
+
+#ifdef HALO_ILP32
+		on = on && host_traced_shadows_ready(config_boolean("debug.traced_shadows_any_gpu") ? 1 : 0) != 0;
+#else
+		on = FALSE;
+#endif
+		traced_shadows.frame = device.frame + 1;
+		traced_shadows.frame_on = on;
+	}
+	return traced_shadows.frame_on;
+}
+
+/* whether object shadows are being traced, as reports record it (benchmark_suite.c's renderer_state) */
+int halo_traced_shadows_effective(void)
+{
+	return traced_shadows_frame_on() && !config_boolean("debug.traced_shadows_break_only");
+}
+
+/* whether the view being drawn can trace: the same answer at the mark and at the window */
+static BOOL traced_shadows_view_wanted(void)
+{
+	struct render_target_entry *color, *depth;
+
+	if (!native_scene || !traced_shadows_frame_on())
+		return FALSE;
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	if (!color || !depth || !depth->target.depth || color->samples || depth->samples || color->target.foveated_eye)
+		return FALSE;
+	return TRUE;
+}
+
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark its pixels in stencil (0x10) */
+int halo_traced_shadows_lightmaps_mark(int begin)
+{
+	if (begin)
+		traced_shadows.marked = traced_shadows_view_wanted();
+	return traced_shadows.marked;
+}
+
+/* a window's shadows begin (render_object_shadows): 1 when they are traced; halo_traced_shadows_window_end follows
+either way. p11 is the projection's y scale */
+int halo_traced_shadows_window_begin(float p11)
+{
+	struct render_target_entry *color;
+	struct gpu_clear clear;
+	struct gpu_rect rect;
+
+	traced_shadows.window = traced_shadows.break_window = FALSE;
+	traced_shadows.key = FALSE;
+	if (!traced_shadows.marked || !traced_shadows_view_wanted())
+		return 0;
+	IMMEDIATE_FLUSH();
+	color = render_target_get(device.render_target);
+	traced_shadows.scene_color = color->target.texture;
+	traced_shadows.rect[0] = floorf((float)native_scene_bounds[0] * color->target.scale[0] + 0.5f);
+	traced_shadows.rect[1] = floorf((float)native_scene_bounds[1] * color->target.scale[1] + 0.5f);
+	traced_shadows.rect[2] = floorf((float)native_scene_bounds[2] * color->target.scale[0] + 0.5f) - traced_shadows.rect[0];
+	traced_shadows.rect[3] = floorf((float)native_scene_bounds[3] * color->target.scale[1] + 0.5f) - traced_shadows.rect[1];
+	if (traced_shadows.rect[2] <= 0.0f || traced_shadows.rect[3] <= 0.0f)
+		return 0;
+	if (config_boolean("debug.traced_shadows_break_only"))
+	{
+		traced_shadows.break_window = TRUE;
+		return 0;
+	}
+	/* the term, the size the scene's target is allocated at */
+	if (!traced_shadows.term || traced_shadows.term_width != color->target.allocated_width ||
+		traced_shadows.term_height != color->target.allocated_height)
+	{
+		struct gpu_texture_description texture = { 0 };
+
+		if (traced_shadows.term)
+			gpu_texture_destroy(traced_shadows.term);
+		texture.type = GPU_TEXTURE_2D;
+		texture.format = GPU_FORMAT_BGRA8;
+		texture.usage = GPU_USAGE_RENDER_TARGET;
+		texture.width = (uint32_t)color->target.allocated_width;
+		texture.height = (uint32_t)color->target.allocated_height;
+		texture.depth = 1;
+		texture.levels = 1;
+		traced_shadows.term = gpu_texture_create(&texture);
+		traced_shadows.term_width = color->target.allocated_width;
+		traced_shadows.term_height = color->target.allocated_height;
+		if (!traced_shadows.term)
+		{
+			traced_shadows.term_width = traced_shadows.term_height = 0;
+			return 0;
+		}
+	}
+	/* no shadow yet: white, and the largest radius */
+	memset(&clear, 0, sizeof(clear));
+	clear.color_target = traced_shadows.term;
+	clear.flags = GPU_CLEAR_COLOR;
+	clear.channel_mask = GPU_CHANNEL_RED | GPU_CHANNEL_GREEN | GPU_CHANNEL_BLUE | GPU_CHANNEL_ALPHA;
+	clear.color = 0xffffffffu;
+	rect.x = (int32_t)traced_shadows.rect[0];
+	rect.y = (int32_t)traced_shadows.rect[1];
+	rect.width = (int32_t)traced_shadows.rect[2];
+	rect.height = (int32_t)traced_shadows.rect[3];
+	gpu_clear(&clear, &rect, 1);
+	traced_shadows.pixels_per_unit = p11 * 0.5f * traced_shadows.rect[3];
+	traced_shadows.radius = fmaxf(1.0f, 0.03f * traced_shadows.rect[3]);
+	/* (nothing covered yet: left and top past the right and bottom) */
+	traced_shadows.cover[0] = traced_shadows.cover[1] = 1e30f;
+	traced_shadows.cover[2] = traced_shadows.cover[3] = -1e30f;
+	traced_shadows.window = TRUE;
+	if (!traced_shadows.windows++ || !(traced_shadows.windows % 7200))
+		platform_log("traced shadows: window %lu, %gx%g at %g,%g, largest penumbra %g pixels", traced_shadows.windows,
+			(double)traced_shadows.rect[2], (double)traced_shadows.rect[3], (double)traced_shadows.rect[0],
+			(double)traced_shadows.rect[1], (double)traced_shadows.radius);
+	return 1;
+}
+
+/* the window's last shadow is applied: the term goes into the scene */
+void halo_traced_shadows_window_end(void)
+{
+	struct render_target_entry *color, *depth;
+	float values[TRACED_SHADOWS_RESOLVE_FLOATS];
+	BOOL traced = traced_shadows.window, break_only = traced_shadows.break_window;
+
+	traced_shadows.window = traced_shadows.break_window = FALSE;
+	traced_shadows.key = FALSE;
+	if (!traced && !break_only)
+		return;
+	IMMEDIATE_FLUSH();
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	if (!color || !depth || color->target.texture != traced_shadows.scene_color)
+		return;
+	memset(values, 0, sizeof(values));
+	memcpy(&values[TRACED_SHADOWS_RESOLVE_WINDOW], traced_shadows.rect, sizeof(traced_shadows.rect));
+	/* what the shadows cover, widened by twice the largest radius: a pixel within one radius of a shadow blurs taps
+	up to another radius away, and every pixel past that keeps its white term (the resolve clips it to the window) */
+	if (!break_only)
+	{
+		float pad = 2.0f * traced_shadows.radius;
+		float left = floorf(traced_shadows.cover[0] - pad), top = floorf(traced_shadows.cover[1] - pad);
+		float right = ceilf(traced_shadows.cover[2] + pad), bottom = ceilf(traced_shadows.cover[3] + pad);
+
+		/* (no apply draw: nothing to resolve) */
+		if (right <= left || bottom <= top)
+			return;
+		values[TRACED_SHADOWS_RESOLVE_COVERED] = left;
+		values[TRACED_SHADOWS_RESOLVE_COVERED + 1] = top;
+		values[TRACED_SHADOWS_RESOLVE_COVERED + 2] = right - left;
+		values[TRACED_SHADOWS_RESOLVE_COVERED + 3] = bottom - top;
+	}
+	else
+		memcpy(&values[TRACED_SHADOWS_RESOLVE_COVERED], traced_shadows.rect, sizeof(traced_shadows.rect));
+	values[TRACED_SHADOWS_RESOLVE_RADIUS] = traced_shadows.radius;
+	values[TRACED_SHADOWS_RESOLVE_FILTER] = config_boolean("debug.traced_shadows_filter") ? 1.0f : 0.0f;
+	values[TRACED_SHADOWS_RESOLVE_BREAK_ONLY] = break_only ? 1.0f : 0.0f;
+	values[TRACED_SHADOWS_RESOLVE_VIEW] = (float)config_integer("debug.traced_shadows_view");
+#ifdef HALO_ILP32
+	host_traced_shadows_resolve(color->target.texture, depth->target.texture, break_only ? 0 : traced_shadows.term, values,
+		TRACED_SHADOWS_RESOLVE_FLOATS);
+#endif
+}
+
+/* a shadow's screen bounds (traced_shadow_casters.c's traced_shadow_cover), in normalized device coordinates with y
+down: added to what the window's shadows cover */
+void halo_traced_shadows_cover(float x0, float y0, float x1, float y1)
+{
+	const float *r = traced_shadows.rect;
+
+	if (!traced_shadows.window)
+		return;
+	x0 = fmaxf(x0, -1.0f);
+	y0 = fmaxf(y0, -1.0f);
+	x1 = fminf(x1, 1.0f);
+	y1 = fminf(y1, 1.0f);
+	if (x1 < x0 || y1 < y0)
+		return;
+	traced_shadows.cover[0] = fminf(traced_shadows.cover[0], r[0] + (x0 + 1.0f) * 0.5f * r[2]);
+	traced_shadows.cover[1] = fminf(traced_shadows.cover[1], r[1] + (y0 + 1.0f) * 0.5f * r[3]);
+	traced_shadows.cover[2] = fmaxf(traced_shadows.cover[2], r[0] + (x1 + 1.0f) * 0.5f * r[2]);
+	traced_shadows.cover[3] = fmaxf(traced_shadows.cover[3], r[1] + (y1 + 1.0f) * 0.5f * r[3]);
+}
+
+/* the draws that follow are a dynamic light's draws blocked by this source (light_visibility.h's paths; 0 none):
+traced_shadow_casters.c's traced_light_begin and _end */
+void halo_light_visibility_key(int path)
+{
+	traced_shadows.light = path == LIGHT_VISIBILITY_TRACED && traced_shadows_frame_on() ? LIGHT_VISIBILITY_TRACED :
+		LIGHT_VISIBILITY_NONE;
+}
+
+/* the view's rectangle in the render target's pixels (x, y, width, height), which a traced light's pass rebuilds
+its pixels' world points in (traced_shadow_casters.c), as ambient occlusion does; 0 when there is none */
+int halo_light_visibility_view(float rect[4])
+{
+	struct render_target_entry *color = render_target_get(device.render_target);
+
+	if (!color)
+		return 0;
+	rect[0] = floorf((float)native_scene_bounds[0] * color->target.scale[0] + 0.5f);
+	rect[1] = floorf((float)native_scene_bounds[1] * color->target.scale[1] + 0.5f);
+	rect[2] = floorf((float)native_scene_bounds[2] * color->target.scale[0] + 0.5f) - rect[0];
+	rect[3] = floorf((float)native_scene_bounds[3] * color->target.scale[1] + 0.5f) - rect[1];
+	return rect[2] > 0.0f && rect[3] > 0.0f;
+}
+
+/* the draws that follow are (on) or are no longer a traced shadow's apply draws */
+void halo_traced_shadows_key(int on)
+{
+	traced_shadows.key = on && traced_shadows.window;
+}
+
+/* traced_shadows_format.h's basis row 4: the tangent of the light's half-angle, pixels a world unit at distance 1,
+one over the largest penumbra radius */
+void halo_traced_shadows_basis(float values[4])
+{
+	values[0] = tanf((float)config_real("debug.traced_shadows_light_angle") * 3.14159265f / 180.0f);
+	values[1] = traced_shadows.pixels_per_unit;
+	values[2] = 1.0f / traced_shadows.radius;
+	values[3] = 0.0f;
 }
 
 /* ---------- soft particle edges (display.soft_particles)
@@ -3162,7 +3505,7 @@ unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, 
 	depth = render_target_get(device.depth_stencil);
 	parameters[0] = z_near;
 	parameters[1] = z_far;
-	/* the projection's depth row (GL-style: ndc z = -p22 + p32 / distance), the near and far the depth was made with */
+	/* the projection's depth row (depth_decode.h), what the depth was made with */
 	parameters[2] = p22;
 	parameters[3] = p32;
 	parameters[4] = (float)config_real("debug.soft_particle_distance");
@@ -3265,10 +3608,8 @@ static int dynamic_resolution_refused(void)
 		said = why;
 		return 2;
 	}
-	if (knob_render_lines > 0)
-		why = "debug.knob_cycle sets the lines";
 	/* (debug.dynamic_resolution_validate: a benchmark case's lines are the ceiling) */
-	else if ((benchmark_render_lines > 0 || benchmark_suite_running()) && !config_boolean("debug.dynamic_resolution_validate"))
+	if ((benchmark_render_lines > 0 || benchmark_suite_running()) && !config_boolean("debug.dynamic_resolution_validate"))
 		why = "a benchmark sets the lines";
 	else if (render_scale_live >= 0.0)
 		why = "the render scale was changed by hand";
@@ -3426,7 +3767,7 @@ static void shader_replay(const char *directory)
 				(size - 2 * sizeof(DWORD)) / (4 * sizeof(DWORD)) == header[0])
 				source = nv2a_vertex_shader_translate(&dialect, header + 2, header[0], header[1]);
 		}
-		else if (pixel && data && (size == sizeof(struct nv2a_pixel_shader_key) ||
+		else if (pixel && data && (size == NV2A_PIXEL_SHADER_KEY_LIT_SIZE ||
 			size == NV2A_PIXEL_SHADER_KEY_BASE_SIZE))
 		{
 			/* (a key as recorded before its later fields: those are 0) */
@@ -3597,6 +3938,7 @@ HRESULT WINAPI Direct3D_CreateDevice(UINT adapter, D3DDEVTYPE device_type, void 
 	if (!device.created)
 	{
 		memset(&device, 0, sizeof(device));
+		config_set_live_hook(knob_live_apply);
 		if (presentation_parameters)
 			device.presentation = *presentation_parameters;
 		width = device.presentation.BackBufferWidth ? device.presentation.BackBufferWidth : 640;
@@ -4606,6 +4948,177 @@ void WINAPI D3DDevice_GetVertexShaderSize(DWORD handle, UINT *size)
 	*size = object ? object->instruction_count : 0;
 }
 
+/* ---------- port: debug.stereo_replay (halo_stereo.h; the second-eye replay design). Eye 0's pass draws inside a
+span of the iOS host's encode queue, which makes its calls again into eye 1's targets. This side keeps the span's
+markers in order with the calls (a held immediate draw is made first), sends eye 1's camera constants, ends each
+of them where the game next stores that register itself, and maps eye 0's screen targets to eye 1's */
+
+#ifdef HALO_ILP32
+static int replay_open;
+/* the mode the open span was begun in (HALO_STEREO_REPLAY_ON or _VERIFY) */
+static int replay_open_mode;
+/* the registers whose eye 1 value the replay holds (gpu_queue.h's overrides) */
+static uint64_t replay_overridden[(XGPU_VERTEX_CONSTANT_COUNT + 63) / 64];
+static int replay_any_overridden;
+#endif
+
+/* debug.stereo_replay is on or verify (the host still decides whether a span opens) */
+int halo_stereo_replay_wanted(void)
+{
+#ifdef HALO_ILP32
+	static int wanted = -1;
+
+	if (wanted < 0)
+	{
+		const char *value = config_string("debug.stereo_replay");
+
+		wanted = value && (!strcmp(value, "on") || !strcmp(value, "verify"));
+	}
+	return wanted;
+#else
+	return 0;
+#endif
+}
+
+int halo_stereo_replay_begin(void)
+{
+#ifdef HALO_ILP32
+	uint32_t mode;
+
+	if (replay_open)
+		return HALO_STEREO_REPLAY_OFF;
+	IMMEDIATE_FLUSH();
+	mode = host_stereo_replay_begin();
+	replay_open = mode != HALO_STEREO_REPLAY_OFF;
+	replay_open_mode = (int)mode;
+	memset(replay_overridden, 0, sizeof(replay_overridden));
+	replay_any_overridden = 0;
+	return (int)mode;
+#else
+	return HALO_STEREO_REPLAY_OFF;
+#endif
+}
+
+int halo_stereo_replay_replays(void)
+{
+#ifdef HALO_ILP32
+	return replay_open && replay_open_mode == HALO_STEREO_REPLAY_ON;
+#else
+	return 0;
+#endif
+}
+
+void halo_stereo_replay_eye(int eye)
+{
+#ifdef HALO_ILP32
+	if (!replay_open)
+		return;
+	IMMEDIATE_FLUSH();
+	host_stereo_replay_eye((uint32_t)eye);
+#else
+	(void)eye;
+#endif
+}
+
+void halo_stereo_replay_constants(int reg, const void *values, unsigned long count)
+{
+#ifdef HALO_ILP32
+	long first = reg + XGPU_VERTEX_CONSTANT_BIAS;
+	unsigned long index;
+
+	if (!replay_open || first < 0 || first + (long)count > XGPU_VERTEX_CONSTANT_COUNT)
+		return;
+	IMMEDIATE_FLUSH();
+	host_stereo_replay_constants((uint32_t)first, (uint32_t)count, values);
+	for (index = (unsigned long)first; index < (unsigned long)first + count; index++)
+		replay_overridden[index / 64] |= 1ull << (index % 64);
+	replay_any_overridden = 1;
+#else
+	(void)reg, (void)values, (void)count;
+#endif
+}
+
+/* the game stores registers first..first+count-1 itself: the replay's eye 1 values there end */
+static void replay_constants_stored(unsigned long first, unsigned long count)
+{
+#ifdef HALO_ILP32
+	unsigned long index, run = 0, run_first = 0;
+
+	if (!replay_any_overridden)
+		return;
+	for (index = first; index <= first + count; index++)
+	{
+		int overridden = index < first + count && (replay_overridden[index / 64] & 1ull << (index % 64));
+
+		if (overridden)
+		{
+			if (!run)
+				run_first = index;
+			run++;
+			replay_overridden[index / 64] &= ~(1ull << (index % 64));
+		}
+		else if (run)
+		{
+			IMMEDIATE_FLUSH();
+			host_stereo_replay_constants_end((uint32_t)run_first, (uint32_t)run);
+			run = 0;
+		}
+	}
+#else
+	(void)first, (void)count;
+#endif
+}
+
+int halo_stereo_replay_end(void)
+{
+#ifdef HALO_ILP32
+	struct render_target_entry *targets[4];
+	uint32_t from[2], to[2], count = 0, index;
+	int replayed;
+
+	if (!replay_open)
+		return 0;
+	IMMEDIATE_FLUSH();
+	replay_open = 0;
+	/* eye 0's color and depth, and eye 1's (made now if eye 1 has not drawn yet) */
+	targets[0] = render_target_get_layer(&device.back_buffer, 0);
+	targets[1] = render_target_get_layer(&device.back_buffer, 1);
+	targets[2] = render_target_get_layer(&device.depth_buffer, 0);
+	targets[3] = render_target_get_layer(&device.depth_buffer, 1);
+	for (index = 0; index < 4; index += 2)
+		if (targets[index] && targets[index + 1])
+		{
+			from[count] = targets[index]->target.texture;
+			to[count] = targets[index + 1]->target.texture;
+			count++;
+		}
+	replayed = host_stereo_replay_end(count, from, to) != 0;
+	/* (eye 1's targets are drawn this frame, as if its pass had drawn them: superseded_targets_release and the
+	render target lookup read these) */
+	if (replayed)
+	{
+		if (targets[1])
+		{
+			targets[1]->last_rendered = device.frame + 1;
+			targets[1]->target.written = ++render_target_write_serial;
+		}
+		if (targets[3])
+			targets[3]->last_rendered = device.frame + 1;
+	}
+	return replayed;
+#else
+	return 0;
+#endif
+}
+
+void halo_stereo_replay_live_end(void)
+{
+#ifdef HALO_ILP32
+	IMMEDIATE_FLUSH();
+	host_stereo_replay_live_end();
+#endif
+}
+
 void WINAPI D3DDevice_SetVertexShaderConstant(INT reg, CONST void *constant_data, DWORD constant_count)
 {
 	TRANSLATION_TIMED(set_vertex_shader_constant); /* port */
@@ -4615,6 +5128,7 @@ void WINAPI D3DDevice_SetVertexShaderConstant(INT reg, CONST void *constant_data
 		return;
 	if (first + (long)constant_count > XGPU_VERTEX_CONSTANT_COUNT)
 		constant_count = XGPU_VERTEX_CONSTANT_COUNT - first;
+	replay_constants_stored((unsigned long)first, constant_count);
 	constants_store((unsigned long)first, constant_data, constant_count);
 }
 
@@ -5052,7 +5566,7 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 
 	/* (a multisampled alpha test's shader is not listed or observed: the
 	lists and catalogs hold the shaders of draws without multisampling) */
-	if (!name || key->alpha_test_samples || key->soft_depth)
+	if (!name || key->alpha_test_samples || key->soft_depth || key->traced_shadow || key->light_visibility)
 		return;
 	name->kind = 2;
 	name->hash = hash64(key, nv2a_pixel_shader_key_size(key));
@@ -5116,10 +5630,12 @@ static void shader_list_take_pipelines(void)
 #endif
 		for (index = 0; index < GPU_ATTRIBUTE_COUNT; index++)
 			snprintf(kinds + 2 * index, 3, "%02x", built.attribute_kinds[index]);
-		snprintf(line, sizeof(line), "pipeline %016llx.%u.%lx %016llx %u %u %u %u %u %u %u %s %u %u",
+		/* (the color role only when it is not the scene's: older lines read as the scene's) */
+		snprintf(line, sizeof(line), built.color_role ? "pipeline %016llx.%u.%lx %016llx %u %u %u %u %u %u %u %s %u %u %u" :
+			"pipeline %016llx.%u.%lx %016llx %u %u %u %u %u %u %u %s %u %u",
 			(unsigned long long)vertex->hash, vertex->variant, vertex->packed_mask, (unsigned long long)pixel->hash,
 			built.blend, built.source, built.destination, built.operation, built.write_mask, built.exact_borders,
-			built.depth, kinds, built.alpha_source, built.alpha_destination);
+			built.depth, kinds, built.alpha_source, built.alpha_destination, built.color_role);
 		shader_list_made(line);
 	}
 }
@@ -5460,7 +5976,7 @@ void halo_shader_list_warm(char const *map_name)
 		for (line = text; line && *line; line = next)
 		{
 			char kind[16], first[600], second[64];
-			unsigned int values[9];
+			unsigned int values[10];
 
 			next = strchr(line, '\n');
 			if (next)
@@ -5500,7 +6016,7 @@ void halo_shader_list_warm(char const *map_name)
 
 				memset(&key, 0, sizeof(key));
 				if (sscanf(line, "ps %63s %599s", second, first) != 2 ||
-					(strlen(first) != 2 * sizeof(key) && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE &&
+					(strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_LIT_SIZE && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE &&
 						strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_BASE_SIZE) ||
 					!hex_bytes(first, bytes, strlen(first) / 2))
 				{
@@ -5534,9 +6050,10 @@ void halo_shader_list_warm(char const *map_name)
 				int fields, attribute;
 
 				memset(&description, 0, sizeof(description));
-				fields = sscanf(line, "pipeline %llx.%u.%lx %llx %u %u %u %u %u %u %u %63s %u %u", &vertex_hash, &variant,
+				values[9] = 0;
+				fields = sscanf(line, "pipeline %llx.%u.%lx %llx %u %u %u %u %u %u %u %63s %u %u %u", &vertex_hash, &variant,
 					&mask, &pixel_hash, &values[0], &values[1], &values[2], &values[3], &values[4], &values[5], &values[6],
-					kinds, &values[7], &values[8]);
+					kinds, &values[7], &values[8], &values[9]);
 				/* (a line from before the alpha factors were listed blends
 				alpha as color) */
 				if (fields == 12)
@@ -5544,7 +6061,7 @@ void halo_shader_list_warm(char const *map_name)
 					values[7] = values[1];
 					values[8] = values[2];
 				}
-				if ((fields != 12 && fields != 14) || variant > 3 ||
+				if ((fields != 12 && fields != 14 && fields != 15) || values[9] > 1 || variant > 3 ||
 					(variant >= 2 && !shader_dialect.msl) || strlen(kinds) != 2 * GPU_ATTRIBUTE_COUNT ||
 					!hex_bytes(kinds, description.attribute_kinds, GPU_ATTRIBUTE_COUNT) ||
 					!(description.pixel_shader = shader_list_pixel((uint64_t)pixel_hash)))
@@ -5570,6 +6087,7 @@ void halo_shader_list_warm(char const *map_name)
 				description.depth = (uint8_t)values[6];
 				description.alpha_source = (uint8_t)values[7];
 				description.alpha_destination = (uint8_t)values[8];
+				description.color_role = (uint8_t)values[9];
 				/* (one for each object compiled with the line's variant and mask) */
 				while ((program = shader_list_program(program, (uint64_t)vertex_hash, (int)variant, mask, TRUE)))
 				{
@@ -5729,7 +6247,7 @@ static long anisotropy_in_force(void)
 		setting = setting < 1 ? 1 : setting > 16 ? 16 : setting;
 		read_at = revision;
 	}
-	return benchmark_anisotropy > 0 ? benchmark_anisotropy : knob_anisotropy > 0 ? knob_anisotropy : setting;
+	return benchmark_anisotropy > 0 ? benchmark_anisotropy : setting;
 }
 
 /* the sampler state of a stage; without mipmaps the mip filter is none */
@@ -6247,6 +6765,15 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 		key->alpha_test_samples = (unsigned char)target_samples;
 	/* soft particle edges (halo_soft_particles_mode): Metal's translation only */
 	key->soft_depth = shader_dialect.msl ? (unsigned char)soft_draw_mode : 0;
+	/* a traced object shadow's apply draw (halo_traced_shadows_key) */
+	if (traced_shadows.key && shader_dialect.msl)
+	{
+		key->traced_shadow = 1;
+		key->soft_depth = 0;
+	}
+	/* a dynamic light's draw that its source blocks (halo_light_visibility_key) */
+	else if (traced_shadows.light && shader_dialect.msl)
+		key->light_visibility = (uint32_t)traced_shadows.light;
 	key->fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key->fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
 	key->count_samples = device.visibility_test_active &&
@@ -6330,6 +6857,9 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		VALIDATION_NOTE(FRONT_NO_TARGET, 0, 0);
 		return FALSE;
 	}
+	/* a traced object shadow's apply draw goes to the traced term, with the scene's depth and stencil */
+	if (traced_shadows.key && draw->color_target == traced_shadows.scene_color)
+		draw->color_target = traced_shadows.term;
 	has_depth = draw->depth_target != 0;
 	if (target_native && ((D3D__RenderState[D3DRS_ZENABLE] && D3D__RenderState[D3DRS_ZFUNC] != D3DCMP_ALWAYS) ||
 		D3D__RenderState[D3DRS_STENCILENABLE]))
@@ -8413,6 +8943,40 @@ static void screen_targets_release(int pooled)
 		platform_log("dynamic resolution: freed %lu %s screen and effect targets", freed, pooled ? "pooled" : "plain");
 }
 
+/* display.scene_precision changed (a graphics mode switch, a map load into the other workload context, or the first frame): every target with or without the
+scene-color role that no longer matches goes, and is made again in the other format when next drawn into (the
+backend holds a texture until the frames using it are done) */
+static void scene_precision_frame(void)
+{
+	BOOL wanted = scene_precision_wanted();
+	struct render_target_entry **link = &render_targets;
+	unsigned long freed = 0;
+
+	if (!scene_precision_known || wanted == scene_precision_current)
+		return;
+	scene_precision_current = wanted;
+	platform_log("scene precision: now %s; the scene's targets are made again", wanted ? "16-bit" : "8-bit");
+	recent_render_targets_forget();
+	while (*link)
+	{
+		struct render_target_entry *entry = *link;
+		/* (the role's test on the entry's own surface and layer: a target that has the role and should not, or
+		should and does not) */
+		BOOL role = !entry->target.depth && entry->target.data == device.back_buffer.Data &&
+			!entry->target.foveated_eye && (entry->layer == HALO_STEREO_LAYER_MONO || entry->layer == HALO_STEREO_LAYER_NATIVE);
+
+		if (!role || entry->scene_color == wanted)
+		{
+			link = &entry->next;
+			continue;
+		}
+		*link = entry->next;
+		render_target_entry_free(entry);
+		freed++;
+	}
+	platform_log("scene precision: %s bits a channel for the scene's color; freed %lu targets", wanted ? "16" : "8", freed);
+}
+
 /* debug.knob_cycle: the shadow, effect and mirror targets (128x128 and 320x240) whose size is not the one in force
 now are freed, once, two seconds after a change (the new ones have been allocated by then; the backend holds a
 texture until the frames using it are done) */
@@ -9037,6 +9601,7 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 	render_scale_sweep_frame();
 	if (knob_release_frame && device.frame >= knob_release_frame)
 		knob_targets_release();
+	scene_precision_frame();
 	device.frame++;
 	input_replay_frame(lroundf(screen_width * screen_scale[0]), lroundf(SCREEN_HEIGHT * screen_scale[1]));
 	/* (dynamic resolution: the run's size is its ceiling; the lines per frame are

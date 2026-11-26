@@ -1035,6 +1035,27 @@ void render_model(
 					&node->runtime_default_inverse_matrix,
 					&relative_node_matrices[node_index]);
 			}
+			/* port: the second eye's replay: node matrices built from the eye's
+			position (rasterizer_eye_matrices) give eye 1's relative matrices too */
+			{
+				real_matrix4x3 const *other_eye = rasterizer_eye_matrices_other(node_matrices, (short)node_count);
+
+				if (other_eye)
+				{
+					real_matrix4x3 other_relative[MAXIMUM_NODES_PER_MODEL];
+
+					for (node_index = 0; node_index<node_count; node_index++)
+					{
+						struct model_node *node = TAG_BLOCK_GET_ELEMENT(&model->nodes, node_index, struct model_node);
+
+						matrix4x3_multiply(
+							&other_eye[node_index],
+							&node->runtime_default_inverse_matrix,
+							&other_relative[node_index]);
+					}
+					rasterizer_eye_matrices_derived(relative_node_matrices, other_relative, (short)node_count);
+				}
+			}
 		}
 		else
 		{

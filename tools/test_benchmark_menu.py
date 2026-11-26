@@ -3,6 +3,7 @@
 import os
 import plistlib
 import subprocess
+from probe_timeouts import PROBE_RUN_SECONDS
 import sys
 from pathlib import Path
 
@@ -33,7 +34,7 @@ def main():
                                UISceneConfigurations={'UIWindowSceneSessionRoleApplication': [dict(
                                    UISceneConfigurationName='Default', UISceneDelegateClassName='ProbeDelegate')]})), output)
     subprocess.run(['codesign', '--force', '--sign', '-', str(APP)], check=True)
-    result = subprocess.run([str(MACOS / 'BenchmarkMenuProbe')], cwd=ROOT, timeout=30, capture_output=True, text=True,
+    result = subprocess.run([str(MACOS / 'BenchmarkMenuProbe')], cwd=ROOT, timeout=PROBE_RUN_SECONDS, capture_output=True, text=True,
                             env={**os.environ, 'DYLD_FRAMEWORK_PATH': '/System/iOSSupport/System/Library/Frameworks'})
     print(result.stdout, end='')
     uikit_probe_app.require_start(result, 'benchmark menu probe')

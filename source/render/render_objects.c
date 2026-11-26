@@ -418,6 +418,8 @@ boolean rasterizer_environment_shadows_defer_begin(void);
 void rasterizer_environment_shadows_defer_end(void);
 boolean rasterizer_environment_shadow_reused(void);
 short rasterizer_environment_shadow_handle(void);
+boolean rasterizer_environment_shadow_casters_begin(long object_index);
+void rasterizer_environment_shadow_casters_end(void);
 void rasterizer_environment_shadow_generate_end(void);
 void rasterizer_environment_shadow_apply_begin(short handle);
 void rasterizer_environment_shadows_apply_end(void);
@@ -638,7 +640,29 @@ void render_objects(
 /* port: port/linux/game/first_person_legs.c */
 boolean first_person_legs_wanted(long object_index);
 real_matrix4x3 const *first_person_legs_node_matrices(long object_index, real_matrix4x3 const *nodes);
+
+/* port: a far scenery object (port/linux/game/stereo_far.c) for
+rasterizer_eye_matrices: its matrices built for the eye pass the builder
+runs in */
+struct render_far_scenery
+{
+	char const *tag_name;
+	real_matrix4x3 const *node_matrices;
+};
+
+static void render_far_scenery_eye_matrices(
+	void *context,
+	real_matrix4x3 *matrices,
+	short count)
+{
+	struct render_far_scenery const *far = (struct render_far_scenery const *)context;
+
+	csmemcpy(matrices, halo_stereo_far_matrices(far->tag_name, far->node_matrices, count, &render.camera.position),
+		count * sizeof(*matrices));
+	return;
+}
 real_matrix4x3 const *first_person_legs_shadow_node_matrices(long object_index, real_matrix4x3 const *nodes);
+#include "traced_shadow_casters.h"
 
 void render_object_shadows(
 	void)
@@ -659,12 +683,21 @@ void render_object_shadows(
 		if (shadow_batching_enabled() && rasterizer_environment_shadows_defer_begin())
 		{
 			short index;
+			/* port: display.traced_shadows (port/linux/game/traced_shadow_casters.c): this window's shadows are
+			traced, not drawn into maps */
+			boolean traced = traced_shadow_casters_window_begin(render.frustum.projection_matrix[1][1]);
 
 			deferred_shadow_apply_count = 0;
+			/* port: the second eye's replay: the frame's shadows are generated in eye 0's pass alone (eye 1's
+			reuses them: rasterizer_environment_shadow_begin), so the replay does not generate them again */
+			halo_stereo_replay_eye(HALO_STEREO_REPLAY_EYE_0);
 			render_shadows_deferring = TRUE;
 			process_rendered_objects(&data);
 			render_shadows_deferring = FALSE;
 			rasterizer_environment_shadows_defer_end();
+			halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);
+			if (traced)
+				traced_shadow_casters_commit();
 			for (index = 0; index < deferred_shadow_apply_count; index++)
 			{
 				struct deferred_shadow_apply *apply = &deferred_shadow_applies[index];
@@ -687,6 +720,8 @@ void render_object_shadows(
 				}
 			}
 			rasterizer_environment_shadows_apply_end();
+			if (traced)
+				traced_shadow_casters_window_end();
 		}
 		else
 		{
@@ -942,11 +977,20 @@ static void render_object_list(
 				with the eye, so it has no disparity and reads as far away (port/linux/game/stereo_far.c) */
 				if (!data->shadow && halo_stereo_eye_position())
 				{
-					node_matrices = halo_stereo_far_matrices(
-						tag_get_name(object->definition_index),
-						node_matrices,
+					struct render_far_scenery far;
+
+					far.tag_name = tag_get_name(object->definition_index);
+					far.node_matrices = node_matrices;
+					node_matrices = halo_stereo_far_matrices(far.tag_name, node_matrices,
 						(short)(object->object.node_matrices.size / (short)sizeof(real_matrix4x3)),
 						&render.camera.position);
+					/* port: the second eye's replay: eye 1's copy moves with eye 1 */
+					if (node_matrices != far.node_matrices)
+					{
+						rasterizer_eye_matrices(node_matrices,
+							(short)(object->object.node_matrices.size / (short)sizeof(real_matrix4x3)),
+							render_far_scenery_eye_matrices, &far);
+					}
 				}
 				/* port: controller aim: the local player's own projectile, while young, draws a
 				render-only copy moved toward the drawn gun's muzzle, and its bounding sphere with it
@@ -1575,12 +1619,37 @@ static long object_get_cached_render_state(
 	return render_state_index;
 }
 
+/* port: blocked lights' caster walker (light_visibility.h): an object with no shadow this frame (too faint in the
+dark, or of a shadowless kind such as a door) that stands in a traced light's reach still blocks it. Its models are
+drawn in shadow mode and name their parts as casters, with no map and no apply (rasterizer_xbox_shadows.c) */
+static void render_object_light_casters(
+	struct object_render_data *data)
+{
+	if (!lights_object_blocks_light(data->object_index) ||
+		!rasterizer_environment_shadow_casters_begin(data->object_index))
+		return;
+	data->lighting = object_get_cached_render_lighting(
+		data->object_index,
+		object_get_level_of_detail_pixels(data->object_index));
+	render_object_list(data, NULL, data->object_index);
+	rasterizer_environment_shadow_casters_end();
+}
+
 static void render_object(
 	struct object_render_data *data)
 {
 	if (data->shadow)
 	{
 		struct object_datum *object = object_get(data->object_index);
+
+		if (!object_is_first_person_camera(data->object_index) &&
+			TEST_FLAG(object->object.flags, _object_shadowless_bit) &&
+			!shadow_prop_object_allowed(data->object_index, object) &&
+			!TEST_FLAG(object->object.flags, _object_invisible_bit))
+		{
+			render_object_light_casters(data);
+			return;
+		}
 
 		/* port: the first-person body casts its shadow (first_person_body.c),
 		except in a mirror, as in mono */
@@ -1611,8 +1680,7 @@ static void render_object(
 			level_of_detail_pixels = object_get_level_of_detail_pixels(data->object_index);
 			shadow_darkness = 1.f - real_rgb_color_brightness(&data->lighting->shadow_color);
 
-			if (level_of_detail_pixels > minimum_pixels &&
-				shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS)
+			if (level_of_detail_pixels > minimum_pixels && shadow_darkness > OBJECT_SHADOW_MINIMUM_DARKNESS)
 			{
 				real size_fraction =
 					shadow_minimum_size_fraction(level_of_detail_pixels, minimum_pixels);
@@ -1657,6 +1725,8 @@ static void render_object(
 					apply->handle = NONE;
 				}
 			}
+			else
+				render_object_light_casters(data);
 		}
 	}
 	else

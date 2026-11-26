@@ -353,6 +353,14 @@ HRESULT WINAPI D3DDevice_CreateVertexBuffer(UINT length, DWORD usage, DWORD fvf,
 	return S_OK;
 }
 
+/* a vertex buffer's bytes to read, without Lock's preparation for a write (which makes the mirror stream the
+pages from then on): traced object shadows read static model and structure vertices once
+(port/linux/game/traced_shadow_casters.c) */
+const void *halo_vertex_buffer_bytes(const D3DVertexBuffer *buffer)
+{
+	return buffer && buffer->Data ? resource_data(buffer->Data) : NULL;
+}
+
 void WINAPI D3DVertexBuffer_Lock(D3DVertexBuffer *buffer, UINT offset, UINT size, BYTE **data, DWORD flags)
 {
 	(void)flags;

@@ -40,6 +40,42 @@ static inline int frame_deadline_interval_member(int on_joined_thread, int produ
 	return on_joined_thread || producer_joined == 1;
 }
 
+/* A second thread joins the workgroup beside the one that joined first, and a switch of the encode thread changes who that
+   is: the encode thread joined first when it started with the app, so the game thread is the second member; the game
+   thread joined first when the encode thread started mid-session, so the encode thread (which presents) is. The second
+   joins on its own thread, at its first frame: this says whether it has anything to do. */
+static inline int frame_deadline_second_join_wanted(int state, int on_joined_thread, int second_joined)
+{
+	return state == FRAME_DEADLINE_JOINED && !on_joined_thread && second_joined == 0;
+}
+
+/* What the encode thread does as it ends (a switch back to the game thread encoding), on the encode thread: a workgroup is
+   left on the thread that joined it, and a thread that ends as a member brings the process down. */
+enum { FRAME_DEADLINE_ENDING_NONE, FRAME_DEADLINE_ENDING_LEAVE_FIRST, FRAME_DEADLINE_ENDING_LEAVE_SECOND };
+
+static inline int frame_deadline_encode_thread_ending(int state, int on_joined_thread, int second_joined)
+{
+	if (state == FRAME_DEADLINE_JOINED && on_joined_thread)
+		return FRAME_DEADLINE_ENDING_LEAVE_FIRST;
+	/* (a second member leaves whatever became of the first: its join is its own) */
+	return !on_joined_thread && second_joined == 1 ? FRAME_DEADLINE_ENDING_LEAVE_SECOND : FRAME_DEADLINE_ENDING_NONE;
+}
+
+/* Before that switch, on the game thread: when the encode thread is the first member, the game thread (the second) leaves
+   first, so the workgroup is not left with a member that cannot leave the interval it started. */
+static inline int frame_deadline_game_thread_leaves_before_switch(int state, int on_joined_thread, int second_joined)
+{
+	return state == FRAME_DEADLINE_JOINED && !on_joined_thread && second_joined == 1;
+}
+
+/* The second member's record after the game thread's step before a switch: the game thread's own leave clears it; a refused
+   try (-1) is tried again after the switch; a join by the encode thread (1) stays for the encode thread's end hook to see,
+   which leaves it. */
+static inline int frame_deadline_second_after_before_switch(int game_thread_left, int second_joined)
+{
+	return game_thread_left || second_joined < 0 ? 0 : second_joined;
+}
+
 /* a frame that is shown joins again after a leave; an offscreen benchmark frame has no deadline and stays out, and so
    does every frame while a UIKit dialog is up over the game (held: gpu_metal_frame_deadline_hold), whose animations
    run in the event pump between the game's frames */

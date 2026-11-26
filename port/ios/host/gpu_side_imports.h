@@ -34,4 +34,20 @@ void host_soft_depth_finish(void)
 	host_gpu_soft_depth_finish();
 }
 
+uint32_t host_traced_shadows_ready(uint32_t any_gpu)
+{
+	return host_gpu_traced_shadows_ready(any_gpu);
+}
+
+void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
+{
+	host_gpu_traced_shadows_data(kind, id, bytes, size);
+}
+
+void host_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count)
+{
+	host_gpu_traced_shadows_resolve(color, depth, term, values, count);
+}
+
 #endif

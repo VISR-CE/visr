@@ -40,10 +40,6 @@ FILE_ONLY_PLAYER = {
     'display.stereo_vehicle_screen', 'display.screen_framing',
     # input
     'input.ui_touch_target', 'input.controller_rumble', 'input.blast_rumble', 'input.stick_dead_zone',
-    'controls.move_forward', 'controls.move_backward', 'controls.strafe_left', 'controls.strafe_right',
-    'controls.jump', 'controls.crouch', 'controls.fire', 'controls.throw_grenade', 'controls.melee',
-    'controls.reload', 'controls.zoom', 'controls.switch_weapon', 'controls.switch_grenade', 'controls.action',
-    'controls.flashlight', 'controls.scoreboard', 'controls.pause',
     # streamer mode's filters, audio, the game
     'streamer.slurs', 'streamer.swearing', 'streamer.insults', 'audio.fast_filter', 'audio.rate_bus',
     'audio.loose_sounds', 'game.console_log', 'game.language', 'game.loading_screen',
@@ -129,8 +125,11 @@ TUNING_OFF_HEADSET = {
     'display.interpolation',
     # a safety switch, on by default; off only to compare with the Xbox's Save and Quit-only writes
     'saves.checkpoint_persist',
-    # the Metal encode thread, chosen per device from measured pairs; a device profile will carry it
-    'display.encode_thread',
+    # the import-time texture repair, on until device profiles can turn it off (that step adds the profile key and its
+    # feed generation)
+    'display.repaired_textures',
+    # the 16-bit scene, 8 until device profiles set it (that step adds the profile key and its feed generation)
+    'display.scene_precision',
 }
 VISIONOS_PLAYER = {'display.immersive', 'display.stereo', 'display.theater_distance', 'display.theater_environment',
                    'display.theater_width', 'input.aim', 'input.aim_hand',

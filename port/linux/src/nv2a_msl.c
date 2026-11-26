@@ -20,6 +20,8 @@ Bindings, which the Metal backend (port/ios/host/gpu_metal.m) follows:
 */
 
 #include "xgpu.h"
+#include "depth_decode.h"
+#include "../game/light_visibility.h" /* the key's light_visibility paths */
 
 #include <string.h>
 
@@ -51,7 +53,9 @@ static const char msl_prelude[] =
 	"#define inversesqrt rsqrt\n"
 	"#define lessThan(a, b) ((a) < (b))\n"
 	"#define greaterThanEqual(a, b) ((a) >= (b))\n"
-	"#define discard discard_fragment()\n";
+	"#define discard discard_fragment()\n"
+	/* the one decode of a stored depth (depth_decode.h), for the pixel shaders that rebuild a distance from it */
+	DEPTH_VIEW_DISTANCE_MSL;
 
 /* the vertex shader reads its own attributes (vertex pulling): per draw the
 backend describes each of the 16 in an AttributeTable entry, the C struct
@@ -334,6 +338,16 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 			"struct FragmentWithDepth { float4 color [[color(0)]]; float depth [[depth(any)]]; };\n");
 	else if (key->alpha_test_samples)
 		xgpu_text_append(text, "struct FragmentOut { float4 color [[color(0)]]; uint sample_mask [[sample_mask]]; };\n");
+	/* an object shadow's apply draw that traces its caster (nv2a_pixel_shader_key traced_shadow): the caster's
+	acceleration structure (buffer 6), the level's (7) and the shadow's basis (8, traced_shadows_format.h), which
+	gpu_metal.m binds to such a draw (traced_draw_bind). The define is how the backend knows the shader */
+	if (key->traced_shadow)
+		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_SHADOW 1\n");
+	/* a dynamic light's draw that traces its light (nv2a_pixel_shader_key light_visibility traced): the frame's casters as one
+	instance structure (buffer 6, with the level's structure as an instance of its own), the level's (7) and the
+	light (8, traced_shadows_format.h), which gpu_metal.m binds (traced_light_bind) */
+	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
+		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_LIGHT 1\n" TRACED_SHADOWS_LIGHT_MSL);
 	xgpu_text_append(text, "fragment %s fragment_main(FragmentIn in [[stage_in]], constant Uniforms &u [[buffer(0)]]",
 		writes_depth ? "FragmentWithDepth" : key->alpha_test_samples ? "FragmentOut" : "float4");
 	for (stage = 0; stage < 4; stage++)
@@ -348,13 +362,25 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 		xgpu_text_append(text, ",\n\tconstant rasterization_rate_map_data &rate_map [[buffer(1)]],"
 			"\n\tconstant float4 *foveation [[buffer(2)]]");
 	/* soft particle edges (nv2a_pixel_shader_key soft_depth): the scene's view
-	distances (texture 8) and the near, far, 1 / fade distance and the distances'
-	scale (buffer 5),
+	distances (texture 8) and the depth row p22, p32, 1 / fade distance and the
+	distances' scale (buffer 5),
 	which gpu_metal.m binds while a view's transparent geometry is drawn
 	(host_soft_depth_prepare) */
 	if (key->soft_depth)
 		xgpu_text_append(text, ",\n\ttexture2d<float, access::read> soft_depth [[texture(8)]],"
 			"\n\tconstant float4 &soft [[buffer(5)]], float4 soft_position [[position]]");
+	if (key->traced_shadow)
+		xgpu_text_append(text, ",\n\tmetal::raytracing::primitive_acceleration_structure traced_caster [[buffer(6)]],"
+			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"
+			"\n\tconstant float4 *traced_basis [[buffer(8)]], float4 traced_position [[position]]");
+	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
+		xgpu_text_append(text, ",\n\tmetal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],"
+			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"
+			"\n\tconstant traced_shadows_light &traced_light [[buffer(8)]], float4 light_position [[position]]");
+	/* (a traced light rebuilt from depth on a foveated pass decodes the eye's rate map: gpu_metal.m binds the pass's
+	map at buffer 1, or a stand-in on a pass without one) */
+	if (key->light_visibility == LIGHT_VISIBILITY_TRACED && !foveated)
+		xgpu_text_append(text, ",\n\tconstant rasterization_rate_map_data &rate_map [[buffer(1)]]");
 	/* per-pixel lighting reads the vertex constants (gpu_metal.m binds them
 	to every pixel shader at buffer 4) */
 	if (lighting)

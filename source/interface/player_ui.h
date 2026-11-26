@@ -43,6 +43,9 @@ long player_ui_get_active_player_profile_index(
 	short local_player_index);
 struct player_profile *player_ui_get_edit_player_profile(
 	void);
+/* port: the input settings (player_input_profile.h) of the profile being edited, or NULL */
+struct player_input_profile *player_ui_get_edit_player_input(
+	void);
 struct game_variant *player_ui_get_edit_playlist_profile(
 	void);
 /* port: the saved game file index of the profile or gametype being edited, or NONE */
@@ -112,6 +115,23 @@ void player_ui_remember_player1_profile(
 	boolean save);
 void player_ui_begin_editing_profile(
 	long profile_index);
+/* port: only the record, for the profile already active (a level saved) */
+void player_ui_update_active_player_profile_record(
+	short local_player_index,
+	long profile_index,
+	struct player_profile *profile);
+/* port: a saved game file was deleted and the later entries' indices moved down. Post it from any thread; the game
+thread applies posts at its tick (main.c) and before it reads or sets a profile */
+void player_ui_post_saved_game_file_deleted(
+	long deleted_index);
+/* port: the entries may have moved in a way nobody can describe (a compaction that failed partway), or the saved
+games were listed again and may be in another order */
+void player_ui_post_saved_game_files_unknown_change(
+	void);
+void player_ui_post_saved_game_files_relisted(
+	void);
+void player_ui_apply_pending_saved_game_file_deletions(
+	void);
 void player_ui_set_active_player_profile(
 	short local_player_index,
 	long profile_index,

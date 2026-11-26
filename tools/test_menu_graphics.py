@@ -522,6 +522,10 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
     ui = (ROOT / 'source/interface/ui_widget.c').read_text()
     # (the lists draw their focus only for a controller or a mouse: 0, no pointer)
     functions += '\nstatic int halo_menu_pointer_controls(void) { return 0; }\n'
+    # (the engine's focus change is the shared rule's, made for its widgets as ui_widget.c makes it)
+    rule = ui[ui.index('#define UI_WIDGET_IS_LIST(node)'):]
+    rule = rule[:rule.index('UI_WIDGET_IS_LIST)\n') + len('UI_WIDGET_IS_LIST)\n')]
+    functions += '\n#include "' + str(ROOT / 'port/linux/include/halo_menu_focus.h') + '"\n' + rule
     functions += '\n' + '\n'.join(block(ui[ui.rindex(marker):], marker) for marker in (
         'static __inline boolean widget_instance_can_handle_events(',
         'static boolean widget_instance_port_is_label(',

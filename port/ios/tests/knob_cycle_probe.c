@@ -29,7 +29,7 @@ int main(void)
 	int shadow = find("display.shadow_map_size");
 
 	knob_state_reset(&state);
-	assert(KNOB_COUNT == 13 && shadow >= 0);
+	assert(KNOB_COUNT == 15 && shadow >= 0);
 	/* choosing a knob shows it at the setting's value and changes nothing */
 	assert(!knob_cycle_press(&state, shadow, 0, current, label, sizeof(label), &name, &value));
 	assert(!strcmp(label, "shadow map 512") && state.selected == shadow);
@@ -54,9 +54,8 @@ int main(void)
 	assert(!knob_cycle_press(&state, 0, 0, current, label, sizeof(label), &name, &value));
 	assert(!strcmp(label, "shadow map 512"));
 	int aa = find("display.anti_aliasing"), quality = find("display.render_quality");
-	assert(aa >= 0 && knob_table[aa].count == 4 && quality >= 0);
-	assert(!strcmp(knob_table[aa].values[3], "msaa2x"));
-	assert(!strcmp(knob_table[aa].shown[3], "MSAA 2x"));
+	assert(aa >= 0 && knob_table[aa].count == 3 && quality >= 0);
+	assert(!strcmp(knob_table[aa].values[2], "smaa") && !strcmp(knob_table[aa].shown[2], "SMAA"));
 	assert(knob_value_find(&knob_table[quality], "0.60") == 1);
 	assert(knob_value_find(&knob_table[quality], "0.68") == 2);
 	/* the graphics mode, lowest first */

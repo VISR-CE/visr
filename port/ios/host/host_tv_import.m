@@ -732,5 +732,6 @@ void host_ios_prepare_assets(const char *root) {
 
 /* Apple TV keeps its existing network importer; map preparation is currently offered on flat iOS and Mac hosts. */
 int host_map_pictures_import_stage(void) { return 0; }
+int host_map_pictures_begin_refresh(void) { return 0; }
 void host_map_pictures_import_progress(int done,int total,const char *name) { (void)done;(void)total;(void)name; }
 void host_map_pictures_import_done(int rendered,int cached,int failed) { (void)rendered;(void)cached;(void)failed; }

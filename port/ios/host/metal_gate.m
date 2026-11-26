@@ -38,6 +38,8 @@ static void gather(id<MTLDevice> device, struct metal_gate_facts *facts)
 #endif
 	METAL_GATE_ANSWER(COUNTERS_STAGE, [device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary]);
 	METAL_GATE_ANSWER(COUNTERS_DRAW, [device supportsCounterSampling:MTLCounterSamplingPointAtDrawBoundary]);
+	if (@available(iOS 15.0, tvOS 16.0, visionOS 1.0, macOS 12.0, *))
+		METAL_GATE_ANSWER(RAYTRACING_RENDER, device.supportsRaytracing && device.supportsRaytracingFromRender);
 #undef METAL_GATE_ANSWER
 }
 

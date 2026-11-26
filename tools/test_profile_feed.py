@@ -24,12 +24,12 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # new table here.
 # Generation 2 had not shipped when PROFILE_VARIABLE was added (no release read it, no shard was signed), so its table
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
-# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic). 0.6.22, cut from
+# Generation 5 likewise: no release reads it, so its table was re-recorded for display.effect_limits, and again when display.interpolation went (smooth motion is automatic), when display.encode_thread became a variable-workload setting, when display.scene_precision became a profile key, and again for display.traced_shadows and for display.traced_lights. 0.6.22, cut from
 # the 0.6 line, reads device-profiles-6 (generation 4's keys and that one; tools/profile_pr.py, GENERATIONS).
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "94be3acdf827e8d20aab56c41f4d6299734b7fe6ed3c7d2b18ef991e96c74185"}
+                   5: "01b52001d9a26ca607ef9ddd1cefc5bde9ebcf0080bc3280072a3ede04947214"}
 
 
 def key_table_sha256(text):
@@ -260,13 +260,18 @@ def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
     in the profile's own tables, in [variable.display] or in the evidence, and must still pass the profile checker."""
     assert any("effect_limits" in path.read_text() for path in (ROOT / "profiles").glob("*.toml"))
     assert set(profile_pr.GENERATIONS) == {"device-profiles-3", "device-profiles-4", "device-profiles-5", "device-profiles-6"}
+    originals = [path.read_text() for path in (ROOT / "profiles").glob("*.toml")]
+    used = {key for key in profile_pr.KEY_GENERATIONS
+            if any(re.search(rf"^\s*{key.partition('.')[2]}\s*=", text, re.M) for text in originals)}
+    assert "display.effect_limits" in used
     for domain, refused in profile_pr.GENERATIONS.items():
         sources = profile_pr.generation_profiles(ROOT / "profiles", domain, tmp_path / domain)
         texts = {path.name: path.read_text() for path in sources.glob("*.toml")}
         for key in refused:
             name = key.partition(".")[2]
             assert not [file for file, text in texts.items() if re.search(rf"^\s*{name}\s*=|{re.escape(key)}", text, re.M)], (domain, key)
-        for key in set(profile_pr.KEY_GENERATIONS) - set(refused):
+        # (a key no profile sets yet, display.traced_shadows or display.traced_lights until one is turned on for a device, has nothing to carry)
+        for key in (set(profile_pr.KEY_GENERATIONS) - set(refused)) & used:
             name = key.partition(".")[2]
             assert [file for file, text in texts.items() if re.search(rf"^\s*{name}\s*=", text, re.M)], (domain, key)
         for file, text in texts.items():
@@ -274,7 +279,8 @@ def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
     # 0.6.22's generation: the variable decal limit without the portrait key
     six = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-6", tmp_path / "six")
     assert 'effect_limits = "xbox"' in (six / "ipad-pro-12-9-2nd.toml").read_text()
-    assert 'frames_in_flight_at_30 = "1"' in (six / "ipad-pro-12-9-2nd.toml").read_text()    # (0.6.22 carries the key)
+    for stripped in ("frames_in_flight_at_30", "encode_thread"):    # (0.6.22 carries neither: the pacer change and the encode thread first ship in 0.7.0)
+        assert stripped not in (six / "ipad-pro-12-9-2nd.toml").read_text()
     four = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-4", tmp_path / "four")
     assert "effect_limits" not in (four / "ipad-pro-12-9-2nd.toml").read_text()
     assert profile_revision.read(four)[0] == profile_revision.read(ROOT / "profiles")[0]
@@ -294,7 +300,8 @@ def test_every_profile_key_has_its_generations_recorded():
     assert known == KNOWN_TO_EVERY_GENERATION, (
         "port_profile_keys.h changed: record the new key in profile_pr.KEY_GENERATIONS (the generations that read it)")
     # 0.6.22's generation carries every key this branch adds except the portrait one
-    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait",)
+    assert profile_pr.GENERATIONS["device-profiles-6"] == ("display.allow_portrait", "display.frames_in_flight_at_30", "display.encode_thread",
+                                                             "display.scene_precision", "display.traced_shadows", "display.traced_lights")
     assert profile_pr.GENERATIONS[profile_pr.PROFILE_DOMAIN] == ()
 
 

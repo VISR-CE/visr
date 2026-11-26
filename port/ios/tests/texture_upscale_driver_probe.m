@@ -12,6 +12,17 @@ void host_config_string(const char *name,const char *fallback,char *out,size_t s
     snprintf(out,size,"%s",!strcmp(name,"debug.texture_upscale_generate")?"true":fallback);
 }
 static int retry_logs;
+/* the texture repair shares the cache folder (host_texture_repair.m, its own probe); here only its calls are counted */
+static int repair_cache_deletes;
+void host_texture_repair_init(const char *root) {(void)root;}
+void host_texture_repair_scan(void) {}
+void host_texture_repair_map_will_load(const char *name) {(void)name;}
+void host_texture_repair_game_started(int is_game) {(void)is_game;}
+void host_texture_repair_paused(int paused) {(void)paused;}
+int host_texture_repair_enabled(void) {return 0;}
+void host_texture_repair_cache_deleted(void) {repair_cache_deletes++;}
+static int repair_measured_calls;
+void host_texture_repair_measured_run_began(void) {repair_measured_calls++;}
 void host_logf(int level,const char *format,...) {
     (void)level;if(strstr(format,"Upscale import: Try Again:"))retry_logs++;
 }
@@ -215,8 +226,21 @@ int main(void) {@autoreleasepool {
     assert(continued_begins==2&&continued_ends==2&&atomic_load(&import_shown)==-1);
     assert(atomic_load(&retry_scheduled)); /* manual retry never replaces or cancels the timer */
     assert(storage_available(cache,&found)>0&&found==(9000ull<<20));
+    /* Settings' delete empties the folder the texture repair keeps its records in too, so the repair is told on both
+       paths (bug class: a delete that leaves another owner's in-memory copy of the folder's contents) */
+    upscale_enabled=YES;assert(!host_texture_upscale_delete_cache(cache_directory().fileSystemRepresentation));
+    dispatch_sync(upscale_worker,^{});assert(repair_cache_deletes==1);
+    upscale_enabled=NO;assert(!host_texture_upscale_delete_cache(cache_directory().fileSystemRepresentation));
+    assert(repair_cache_deletes==2);
     unsetenv("HALO_TEXTURE_UPSCALE_CAPACITY_FILE");unsetenv("HALO_TEXTURE_UPSCALE_THERMAL_STATE");upscale_enabled=NO;
     free(decisions);free(manifest);decisions=NULL;manifest=NULL;
     assert([NSFileManager.defaultManager removeItemAtPath:upscale_root error:nil]);
-    puts("texture upscale driver: publication rollback, original reconciliation, failure JSON, unavailable model, menu wake, gameplay stop, pause, level wait, readiness, the no-mix rule, storage estimates and import retry PASS");
+    /* a benchmark suite chosen on a tester build's launch screen, after init: "auto" turns off, the generator stops,
+       and the repair is told (bug class: background work running behind a benchmark's numbers) */
+    upscale_mode=TEXTURE_UPSCALE_MODE_AUTO;upscale_enabled=YES;
+    assert(!host_texture_measured_run());
+    host_texture_measured_run_began();host_texture_measured_run_began();
+    assert(upscale_mode==TEXTURE_UPSCALE_MODE_OFF&&!upscale_enabled&&stop_flag&&host_texture_measured_run()&&repair_measured_calls==1);
+    upscale_enabled=NO;
+    puts("texture upscale driver: publication rollback, original reconciliation, failure JSON, unavailable model, menu wake, gameplay stop, pause, level wait, readiness, the no-mix rule, storage estimates, import retry, the repair told of a delete and a suite chosen after init PASS");
 }}

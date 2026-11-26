@@ -42,12 +42,14 @@ static int ambient_occlusion = 0;
 static int halo_ambient_occlusion_effective(void) { return ambient_occlusion; }
 static int soft_particles = 1;
 static int halo_soft_particles_effective(void) { return soft_particles; }
+static int traced_shadows = 0;
+static int halo_traced_shadows_effective(void) { return traced_shadows; }
 ''' + actual + r'''
 int main(void) {
     char json[CONFIG_GRAPHICS_MAXIMUM_BYTES];
     assert(benchmark_graphics_snapshot_json(0,json,sizeof(json)));
     puts(json);
-    shadow_target=512; sampler_max=8; texture_replacement_selections=3; ambient_occlusion=1; soft_particles=0;
+    shadow_target=512; sampler_max=8; texture_replacement_selections=3; ambient_occlusion=1; soft_particles=0; traced_shadows=1;
     assert(benchmark_graphics_snapshot_json(0,json,sizeof(json)));
     puts(json);
     char tiny[32]="unsafe";
@@ -77,6 +79,9 @@ int main(void) {
     # soft particle edges as drawn: off where the GPU cannot run the pass (gpu_capabilities.soft_particles)
     assert first["renderer_state"]["soft_particles"] is True
     assert last["renderer_state"]["soft_particles"] is False
+    # object shadows as drawn: traced only where the frame decided to (halo_traced_shadows_effective)
+    assert first["renderer_state"]["traced_shadows"] is False
+    assert last["renderer_state"]["traced_shadows"] is True
 
 
 def test_reports_record_ambient_occlusion_as_drawn():
@@ -86,7 +91,7 @@ def test_reports_record_ambient_occlusion_as_drawn():
     device = (ROOT / "port/linux/src/d3d8_device.c").read_text()
     mode = device[device.index("static int ssao_mode(void)"):]
     mode = mode[:mode.index("\n}\n")]
-    assert mode.index("!device_capabilities.ambient_occlusion") < mode.index("ssao_live"), mode
+    assert mode.index("!device_capabilities.ambient_occlusion") < mode.index("config_integer(\"debug.ssao\")"), mode
     snapshot = device[device.index("config_graphics_settings_snapshot(scene, &perf_graphics)"):]
     snapshot = snapshot[:snapshot.index("host_perf_reports_graphics_snapshot(&perf_graphics)")]
     assert '"display.ambient_occlusion"' in snapshot and "halo_ambient_occlusion_effective()" in snapshot

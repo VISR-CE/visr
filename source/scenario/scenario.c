@@ -388,6 +388,13 @@ struct scenario *global_scenario_try_and_get(
 	return global_scenario;
 }
 
+/* port: a scenario is loaded and it is a level (solo or multiplayer), not the main menu's */
+boolean global_scenario_is_level(
+	void)
+{
+	return global_scenario && global_scenario->type != _scenario_type_main_menu;
+}
+
 struct scenario *global_scenario_get(
 	void)
 {

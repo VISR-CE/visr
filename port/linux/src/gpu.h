@@ -108,7 +108,19 @@ enum
 	GPU_FORMAT_DEPTH_STENCIL,
 	GPU_FORMAT_ASTC4X4,
 	GPU_FORMAT_BC7,
+	/* a role, not a layout: a color render target that holds the scene's color (the back buffer's color
+	layers, display.scene_precision 16), in the higher-precision format the backend picks for the role
+	(Metal: RGBA16Unorm). Everything that takes a BGRA8 render target takes it: it is drawn into, sampled,
+	copied (between unlike formats as a draw) and read back as BGRA8 (gpu_texture_read). The GL backend
+	makes it BGRA8. Never an upload texture. */
+	GPU_FORMAT_SCENE_COLOR,
 };
+
+/* a format a color render target can have */
+static inline int gpu_format_color_target(uint8_t format)
+{
+	return format == GPU_FORMAT_BGRA8 || format == GPU_FORMAT_SCENE_COLOR;
+}
 
 /* gpu_texture_description.usage */
 enum
@@ -416,14 +428,17 @@ only while it is on; alpha's are color's unless the draw blends alpha on its
 own, gpu_blend_state.alpha_separate), the color write mask (0 without a
 color target), the stages that rebuild their border colors, whether it has a
 depth-stencil target, and each attribute's kind (0 for a constant, else its
-GPU_ATTRIBUTE_* format). Fixed-width fields only: it crosses from the guest
-to the host as it is. */
+GPU_ATTRIBUTE_* format). color_role: 0 for a draw into the scene's color (in
+the format display.scene_precision gives it, BGRA8 at 8 bits), 1 for a draw
+into another color target that stays BGRA8 while the scene is in a
+higher-precision format (shadows, effects); a list line without it reads 0.
+Fixed-width fields only: it crosses from the guest to the host as it is. */
 struct gpu_pipeline_description
 {
 	gpu_shader vertex_shader, pixel_shader;
 	uint8_t blend, source, destination, operation;
 	uint8_t write_mask, exact_borders, depth, alpha_source;
-	uint8_t alpha_destination, pad[3];
+	uint8_t alpha_destination, color_role, pad[2];
 	uint8_t attribute_kinds[GPU_ATTRIBUTE_COUNT];
 };
 

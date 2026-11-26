@@ -477,6 +477,8 @@ static void render_window(
 		render_sky();
 		first_person_weapon_render_update();
 		lights_preprocess_scene();
+		/* port: what blocks each dynamic light, before anything is lit (light_visibility.h) */
+		lights_choose_visibility();
 		render_objects();
 		structure_render_preprocess();
 		structure_render_lightmaps();
@@ -612,6 +614,33 @@ static void render_window(
 /* port: one window of a stereo frame (render_player_frame). Frustum bounds
 are tangents divided by the center camera's: x by the aspect times the
 vertical field of view's half tangent, y by that tangent alone. */
+/* port: an eye's camera and bounds: the center rasterizer camera moved by
+the eye's offset (right, up and back in the camera's frame), with the eye's
+tangents over the center camera's */
+static void render_stereo_eye_view(
+	struct render_camera const *center,
+	struct halo_stereo_eye const *stereo_eye,
+	real_vector3d const *right,
+	real_vector3d const *up,
+	real aspect,
+	real field_of_view_tangent,
+	struct render_camera *eye_camera,
+	real_rectangle2d *eye_bounds)
+{
+	*eye_camera = *center;
+	eye_camera->position.x += right->i * stereo_eye->offset[0] + up->i * stereo_eye->offset[1] -
+		eye_camera->forward.i * stereo_eye->offset[2];
+	eye_camera->position.y += right->j * stereo_eye->offset[0] + up->j * stereo_eye->offset[1] -
+		eye_camera->forward.j * stereo_eye->offset[2];
+	eye_camera->position.z += right->k * stereo_eye->offset[0] + up->k * stereo_eye->offset[1] -
+		eye_camera->forward.k * stereo_eye->offset[2];
+	eye_bounds->x0 = -stereo_eye->left / (aspect * field_of_view_tangent);
+	eye_bounds->x1 = stereo_eye->right / (aspect * field_of_view_tangent);
+	eye_bounds->y0 = -stereo_eye->down / field_of_view_tangent;
+	eye_bounds->y1 = stereo_eye->up / field_of_view_tangent;
+	return;
+}
+
 static void render_player_frame_stereo(
 	struct render_window *window,
 	struct render_camera *camera)
@@ -642,6 +671,10 @@ static void render_player_frame_stereo(
 	struct render_camera zoom_rasterizer_camera;
 	real_rectangle2d zoom_bounds;
 	struct render_frustum zoom_frustum;
+	/* port: debug.stereo_replay (halo_stereo.h): this frame's mode, and
+	whether eye 1 is drawn by replaying eye 0's pass */
+	int replay = HALO_STEREO_REPLAY_OFF;
+	boolean replayed = FALSE;
 
 	stereo = halo_stereo_frame();
 	/* the zoom (halo_stereo.h): while zoomed in HEAD mode's full view, one
@@ -797,22 +830,13 @@ static void render_player_frame_stereo(
 		struct render_mirror mirror;
 		boolean has_mirror = FALSE;
 
+		/* port: eye 1 was drawn by replaying eye 0's pass */
+		if (eye == 1 && replayed)
+			break;
 		if (eye < 2)
 		{
-			const struct halo_stereo_eye *stereo_eye = &stereo->eyes[eye];
-
-			eye_camera = window->rasterizer_camera;
-			/* the offset is right, up and back in the camera's frame */
-			eye_camera.position.x += right.i * stereo_eye->offset[0] + up.i * stereo_eye->offset[1] -
-				eye_camera.forward.i * stereo_eye->offset[2];
-			eye_camera.position.y += right.j * stereo_eye->offset[0] + up.j * stereo_eye->offset[1] -
-				eye_camera.forward.j * stereo_eye->offset[2];
-			eye_camera.position.z += right.k * stereo_eye->offset[0] + up.k * stereo_eye->offset[1] -
-				eye_camera.forward.k * stereo_eye->offset[2];
-			eye_bounds.x0 = -stereo_eye->left / (aspect * field_of_view_tangent);
-			eye_bounds.x1 = stereo_eye->right / (aspect * field_of_view_tangent);
-			eye_bounds.y0 = -stereo_eye->down / field_of_view_tangent;
-			eye_bounds.y1 = stereo_eye->up / field_of_view_tangent;
+			render_stereo_eye_view(&window->rasterizer_camera, &stereo->eyes[eye], &right, &up, aspect,
+				field_of_view_tangent, &eye_camera, &eye_bounds);
 		}
 		else
 		{
@@ -909,6 +933,26 @@ static void render_player_frame_stereo(
 		(the sky, render_sky); not the zoomed mono pass, and set only now,
 		so the mirror's window above keeps its own camera */
 		halo_stereo_set_eye_position(eye < 2 ? &eye_camera.position : NULL);
+		/* port: debug.stereo_replay: eye 0's pass draws for both eyes when
+		neither eye sees a mirror (a mirror's window is drawn per eye and
+		looked up by screen position; such a frame draws eye 1 itself) */
+		if (eye == 0 && pass_end == 2 && !zoomed && !has_mirror && halo_stereo_replay_wanted())
+		{
+			struct render_camera other_camera;
+			real_rectangle2d other_bounds;
+			struct render_frustum other_frustum;
+			struct render_mirror other_mirror;
+
+			render_stereo_eye_view(&window->rasterizer_camera, &stereo->eyes[1], &right, &up, aspect,
+				field_of_view_tangent, &other_camera, &other_bounds);
+			render_camera_build_frustum(&other_camera, &other_bounds, &other_frustum, TRUE);
+			if (!structure_visibility_find_mirror(&other_camera, &other_frustum, &other_mirror))
+			{
+				replay = halo_stereo_replay_begin();
+				if (replay != HALO_STEREO_REPLAY_OFF)
+					rasterizer_stereo_replay_eye(&other_camera, &other_frustum);
+			}
+		}
 		render_window(
 			window->local_player_index,
 			eye < 2 ? camera : &zoom_camera,
@@ -918,6 +962,21 @@ static void render_player_frame_stereo(
 			_render_target_primary,
 			has_mirror);
 		halo_stereo_set_eye_position(NULL);
+		if (eye == 0 && replay != HALO_STEREO_REPLAY_OFF)
+		{
+			rasterizer_stereo_replay_eye(NULL, NULL);
+			/* (a span that cannot be replayed: eye 1 draws itself) */
+			if (!halo_stereo_replay_end())
+			{
+				/* (and the flares queued for eye 1 in eye 0's pass are not wanted: eye 1's own pass queues its own) */
+				if (replay == HALO_STEREO_REPLAY_ON)
+					rasterizer_lens_flares_replay_failed();
+				replay = HALO_STEREO_REPLAY_OFF;
+			}
+			replayed = replay == HALO_STEREO_REPLAY_ON;
+		}
+		else if (eye == 1 && replay == HALO_STEREO_REPLAY_VERIFY)
+			halo_stereo_replay_live_end();
 		render_stereo_screen_flash = NULL;
 		render_stereo_visibility_camera = NULL;
 	}

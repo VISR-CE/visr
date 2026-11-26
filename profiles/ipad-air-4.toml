@@ -12,6 +12,7 @@ platform = "ios"
 models = ["iPad13,1"]
 
 [display]
+scene_precision = 16
 upscaled_textures = true
 frame_rate = "60"
 render_height = 1080
@@ -21,6 +22,7 @@ model_lod = "max"
 dynamic_resolution = true
 
 [variable.display]
+scene_precision = 8
 frames_in_flight_at_30 = "1"
 
 [network]
@@ -75,3 +77,13 @@ source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Bloo
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."
+
+[evidence."display.scene_precision"]
+basis = "measured"
+why = "At this profile's 60 frames a second and 1080 lines, the 16-bit scene held 99.90 to 99.93% of frames on time against 99.87 to 99.90% at 8 bits, with lines unchanged at 1080. The GPU time rose 2.2 ms at the median (7.9 to 8.0 ms against 10.1 to 10.2 ms) and 0.3 ms at the 95th percentile (16.3 to 16.6 ms against 16.7 to 16.9 ms), and the peak footprint 18 MB. Thermal state was fair in every round, 8 and 16 bits alike."
+source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"
+
+[evidence."variable.display.scene_precision"]
+basis = "assumed"
+why = "Multiplayer and the other variable workloads were not measured at 16 bits (larger games, wider dynamic resolution), so they keep the 8-bit scene until a pair there shows the cost."
+source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"

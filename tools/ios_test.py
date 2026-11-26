@@ -150,6 +150,9 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-I
     '-o', BUILD / 'controller-aim-probe')
 run(BUILD / 'controller-aim-probe')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined',
+    'port/ios/tests/player_input_profile_probe.c', '-o', BUILD / 'player-input-profile-probe')
+run(BUILD / 'player-input-profile-probe')
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined',
     'port/ios/tests/first_person_arms_probe.c', '-o', BUILD / 'first-person-arms-probe')
 run(BUILD / 'first-person-arms-probe')
 
@@ -385,6 +388,11 @@ for name, defines in (('config-probe-ios', ['-DHALO_ILP32=1']), ('config-probe-d
 run('xcrun', 'clang', '-O2', '-fsanitize=address', '-DHALO_ILP32=1', '-Iport/linux/src', '-Iport/third_party/tomlc17',
     'port/ios/tests/config_origins_probe.c', *sdl_flags, '-o', BUILD / 'config-origins-probe')
 run(BUILD / 'config-origins-probe')
+# config_set_live (visr_set, debug.knob_cycle): a set that reports success has changed the value in force, and a
+# refusal changes nothing
+run('xcrun', 'clang', '-O2', '-fsanitize=address', '-DHALO_ILP32=1', '-Iport/linux/src', '-Iport/third_party/tomlc17',
+    'port/ios/tests/config_live_probe.c', *sdl_flags, '-o', BUILD / 'config-live-probe')
+run(BUILD / 'config-live-probe')
 # the device profile's workload context: which games are predictable and which variable (workload_context.h)
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-Iport/linux/game', 'port/ios/tests/workload_context_probe.c',
     '-o', BUILD / 'workload-context-probe')
@@ -737,6 +745,10 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined',
     '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/frame_pacer_default_probe.c',
     'port/ios/host/host_frame_pacer.c', '-o', BUILD/'frame-pacer-default-probe')
 run(BUILD/'frame-pacer-default-probe')
+# when a change of workload context switches the encode thread (encode_switch.h)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    'port/ios/tests/encode_switch_probe.c', '-o', BUILD/'encode-switch-probe')
+run(BUILD/'encode-switch-probe')
 # adaptive frames in flight (frame_pacer_adapt.h): where the rule settles for each kind of stream
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/frame_pacer_adapt_probe.c', '-o', BUILD/'frame-pacer-adapt-probe')
@@ -1292,6 +1304,17 @@ if eye_set < 0 or render_source.rfind('structure_visibility_find_mirror', 0, eye
                      "around the eye's render_window, and clear it after")
 if 'halo_stereo_eye_position()' not in (ROOT / 'source/render/render_sky.c').read_text():
     raise SystemExit("render_sky.c: render_sky must center the sky on the eye's position in an eye pass")
+# the second eye's replay queues, tests and draws each lens flare for eye 1 too (its occlusion slot, its camera), and
+# drops eye 1's copies when the span is not replayed, so eye 1's own pass does not draw them twice
+flare_source = (ROOT / 'source/rasterizer/rasterizer_lights.c').read_text()
+for needle in ('rasterizer_for_each_eye(lens_flares_draw_for_window)',
+               'rasterizer_for_each_eye(lens_flares_submit_occlusion_tests_for_window)',
+               'rasterizer_other_eye_draws() && local_lens_flare_count > first_count'):
+    if needle not in flare_source:
+        raise SystemExit(f'rasterizer_lights.c: the second eye replay needs {needle}')
+if 'rasterizer_lens_flares_replay_failed();' not in render_source:
+    raise SystemExit('render.c: a span that is not replayed must drop the flares queued for eye 1 '
+                     '(rasterizer_lens_flares_replay_failed)')
 # far scenery (a10's ring) moves with the eye, so it too sits at infinity (the probe includes
 # port/linux/game/stereo_far.c), and render_objects.c hands it every object's node matrices
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
@@ -1419,10 +1442,16 @@ run(BUILD/'texture-upscale-tiles-probe')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', '-Iport/runtime',
     '-Iport/runtime/include', '-Iport/linux/src', 'port/ios/tests/texture_upscale_driver_probe.m',
     'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c',
-    'port/runtime/texture_cache.c', 'port/ios/host/metal_gate.m', '-DMETAL_GATE_NO_METALFX',
+    'port/runtime/texture_cache.c', 'port/runtime/texture_repair.c', 'port/ios/host/metal_gate.m', '-DMETAL_GATE_NO_METALFX',
     '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'AppKit',
     '-o', BUILD/'texture-upscale-driver-probe')
 run(BUILD/'texture-upscale-driver-probe')
+# The texture repair's host side: what it keeps in memory follows a delete of the cache folder.
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/runtime',
+    '-Iport/runtime/include', '-Iport/linux/src', 'port/ios/tests/texture_repair_host_probe.m',
+    'port/runtime/texture_cache.c', 'port/runtime/texture_repair.c', '-framework', 'Foundation',
+    '-o', BUILD/'texture-repair-host-probe')
+run(BUILD/'texture-repair-host-probe')
 
 # Stereo A/B reuses pacing samples after a settling window.
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',

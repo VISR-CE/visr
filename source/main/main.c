@@ -1345,6 +1345,13 @@ boolean main_menu_fade_active(
 	return main_globals.map_change_load_timer != 0;
 }
 
+/* port: a map change is waiting to run at the top of the next main loop pass (console.c) */
+boolean main_port_map_change_pending(
+	void)
+{
+	return main_globals.defer_map_change;
+}
+
 /* port: whether the main menu's scenario is loaded (menu_functions.c) */
 boolean main_port_main_menu_loaded(
 	void)
@@ -1630,6 +1637,8 @@ static void main_new_map(
 #endif
 	/* port: compile the map's shaders and pipelines before its first frame */
 	halo_shader_list_warm(options->map_name);
+	/* port: display.traced_shadows: the last map's model parts are forgotten */
+	traced_shadow_casters_new_map();
 #ifdef HALO_IOS
 	map_pictures_render_stage(3);
 #endif
@@ -3963,6 +3972,8 @@ void main_loop(
 			network_away_update(main_globals.main_menu_scenario_loaded);
 			/* port: apply and replicate the host's mouse aim-assist policy. */
 			network_aim_assist_update();
+			/* port: local players follow a deleted profile's index (player_ui.c) */
+			player_ui_apply_pending_saved_game_file_deletions();
 			profile_scope_exit(main_port_network_section)
 			profile_scope_enter(main_network_start_frame_section)
 			connection = main_globals.connection;

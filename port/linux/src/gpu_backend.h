@@ -44,6 +44,15 @@ answer 0.
 - soft_depth_prepare, soft_depth_finish, ssao_apply: the guest's
   host_soft_depth_prepare, host_soft_depth_finish and host_ssao_apply with a
   nonzero count (d3d8_device.c), mid-frame.
+- traced_shadows_ready: whether object shadows can be traced (the Metal
+  gate's pass for the GPU, or any GPU Metal can trace on when any_gpu is set,
+  and no allocation of the feature's has failed), from state safe on any
+  thread. traced_shadows_data: one record of
+  port/linux/src/traced_shadows_format.h by kind (a map's reset, a part, a
+  shadow's caster, the level's structure, a commit, the shadow the next
+  traced draws apply). traced_shadows_resolve: the traced term (a target the
+  front end drew the shadows' apply draws into) filtered and multiplied into
+  the scene's color, mid-frame, its values traced_shadows_format.h's.
 - set_upscaler, upscaler: the MetalFX upscaler on or off, and the last one
   asked for. set_crt: the present pass's CRT effect. benchmark_realtime: a
   fixed-timestep benchmark's frames shown in real time or not.
@@ -64,6 +73,11 @@ answer 0.
 	P(ssao_warm, (void), ()) \
 	P(ssao_apply, (gpu_texture color, gpu_texture depth, const float *values, uint32_t count), \
 		(color, depth, values, count)) \
+	F(uint32_t, traced_shadows_ready, (uint32_t any_gpu), (any_gpu)) \
+	P(traced_shadows_data, (uint32_t kind, uint32_t id, const void *bytes, uint32_t size), (kind, id, bytes, size)) \
+	P(traced_shadows_resolve, \
+		(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values, uint32_t count), \
+		(color, depth, term, values, count)) \
 	P(set_upscaler, (int metalfx), (metalfx)) \
 	F(int, upscaler, (void), ()) \
 	P(set_crt, (int enabled), (enabled)) \

@@ -2023,6 +2023,199 @@ static void menu_script_run(void)
 	menu_script_next();
 }
 
+/* HALO_MENU_EVENT_SCRIPT: real SDL events pushed into SDL's queue, so they take every path a user's do (the pointer
+gate, the legend's classifier, the guest's key and mouse state, the menu pointer), where HALO_MENU_POINTER_SCRIPT
+calls the menu pointer directly. Ops separated by ';', each "FRAME KIND ARGS", FRAME counting the frames a menu has
+been up: "60 move 0.5 0.4" (the mouse moves there in six steps from where it was), "90 key down" (pressed, released
+on the next frame; up, down, left, right, return, escape, space, backspace), "120 focus" (the window loses focus and
+gets it back on the next frame, then the system reports the cursor where it already is: what Cmd-Tab away and back
+does), "130 leave" and "140 enter" (the pointer leaves or enters the window, then a position report). Each op is
+logged. */
+static struct
+{
+	int loaded;
+	const char *cursor;
+	unsigned long frame, start;
+	int kind, step;
+	float x0, y0, x1, y1;
+	int known;
+	float x, y;
+	SDL_Scancode scancode;
+} event_script;
+
+static void event_script_next(void)
+{
+	char kind[16], name[16];
+	unsigned long frame;
+	int used = 0;
+
+	event_script.kind = 0;
+	while (event_script.cursor && (*event_script.cursor == ';' || *event_script.cursor == ' '))
+		event_script.cursor++;
+	if (!event_script.cursor || !*event_script.cursor)
+		return;
+	/* (a word ends at the ';' that ends its op as well as at a space: "90 key down;120 focus;130 leave") */
+	if (sscanf(event_script.cursor, "%lu %15[^; \t]%n", &frame, kind, &used) < 2)
+	{
+		host_logf(HOST_LOG_INFO, "menu event script: no frame number and op at \"%.24s\"; the script stops",
+			event_script.cursor);
+		event_script.cursor = NULL;
+		return;
+	}
+	event_script.cursor += used;
+	used = 0;
+	event_script.start = frame;
+	event_script.step = 0;
+	event_script.x1 = event_script.y1 = 0.0f;
+	if (!strcmp(kind, "move"))
+	{
+		if (sscanf(event_script.cursor, "%f %f%n", &event_script.x1, &event_script.y1, &used) < 2)
+		{
+			host_logf(HOST_LOG_INFO, "menu event script: frame %lu move needs x and y; the script stops", frame);
+			event_script.cursor = NULL;
+			return;
+		}
+		event_script.kind = 1;
+	}
+	else if (!strcmp(kind, "key"))
+	{
+		static const struct { const char *name; SDL_Scancode scancode; } keys[] = {
+			{"up", SDL_SCANCODE_UP}, {"down", SDL_SCANCODE_DOWN}, {"left", SDL_SCANCODE_LEFT},
+			{"right", SDL_SCANCODE_RIGHT}, {"return", SDL_SCANCODE_RETURN}, {"escape", SDL_SCANCODE_ESCAPE},
+			{"space", SDL_SCANCODE_SPACE}, {"backspace", SDL_SCANCODE_BACKSPACE}};
+
+		event_script.kind = 2;
+		event_script.scancode = SDL_SCANCODE_UNKNOWN;
+		name[0] = 0;
+		sscanf(event_script.cursor, " %15[^; \t]%n", name, &used);
+		for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); i++)
+			if (!strcmp(name, keys[i].name))
+				event_script.scancode = keys[i].scancode;
+		if (event_script.scancode == SDL_SCANCODE_UNKNOWN)
+		{
+			host_logf(HOST_LOG_INFO, "menu event script: unknown key %s; the script stops", name);
+			event_script.kind = 0;
+			event_script.cursor = NULL;
+			return;
+		}
+	}
+	else if (!strcmp(kind, "focus"))
+		event_script.kind = 3;
+	else if (!strcmp(kind, "leave"))
+		event_script.kind = 4;
+	else if (!strcmp(kind, "enter"))
+		event_script.kind = 5;
+	else
+	{
+		host_logf(HOST_LOG_INFO, "menu event script: unknown op %s; the script stops", kind);
+		event_script.cursor = NULL;
+		return;
+	}
+	event_script.cursor += used;
+	host_logf(HOST_LOG_INFO, "menu event script: frame %lu %s %.3f %.3f", frame, kind, event_script.x1,
+		event_script.y1);
+}
+
+static void event_script_push_motion(SDL_Window *window, float x, float y)
+{
+	SDL_Event event;
+
+	memset(&event, 0, sizeof(event));
+	event.type = SDL_EVENT_MOUSE_MOTION;
+	event.motion.windowID = SDL_GetWindowID(window);
+	event.motion.which = 0; /* (SDL's global mouse ID, which every pointer event outside relative mode carries) */
+	event.motion.x = x;
+	event.motion.y = y;
+	event.motion.xrel = event_script.known ? x - event_script.x : 0.0f;
+	event.motion.yrel = event_script.known ? y - event_script.y : 0.0f;
+	event_script.known = 1;
+	event_script.x = x;
+	event_script.y = y;
+	SDL_PushEvent(&event);
+}
+
+static void event_script_push_window(SDL_Window *window, SDL_EventType type)
+{
+	SDL_Event event;
+
+	memset(&event, 0, sizeof(event));
+	event.type = type;
+	event.window.windowID = SDL_GetWindowID(window);
+	SDL_PushEvent(&event);
+}
+
+static void event_script_run(void)
+{
+	SDL_Window *window = host_sdl_window();
+	int width = 0, height = 0;
+
+	if (!event_script.loaded)
+	{
+		event_script.loaded = 1;
+		event_script.cursor = getenv("HALO_MENU_EVENT_SCRIPT");
+		event_script_next();
+	}
+	event_script.frame++;
+	if (!event_script.kind || !window || !window_size(window, &width, &height) ||
+		event_script.frame < event_script.start + (unsigned long)event_script.step)
+		return;
+	switch (event_script.kind)
+	{
+	case 1:
+	{
+		/* six steps from where the mouse was (from the target itself the first time) */
+		float t = (float)(event_script.step + 1) / 6.0f;
+
+		if (event_script.step == 0)
+		{
+			event_script.x0 = event_script.known ? event_script.x / (float)width : event_script.x1;
+			event_script.y0 = event_script.known ? event_script.y / (float)height : event_script.y1;
+		}
+		event_script_push_motion(window, (event_script.x0 + (event_script.x1 - event_script.x0) * t) * (float)width,
+			(event_script.y0 + (event_script.y1 - event_script.y0) * t) * (float)height);
+		if (++event_script.step < 6)
+			return;
+		break;
+	}
+	case 2:
+	{
+		SDL_Event event;
+
+		memset(&event, 0, sizeof(event));
+		event.type = event_script.step == 0 ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+		event.key.windowID = SDL_GetWindowID(window);
+		event.key.which = 0;
+		event.key.scancode = event_script.scancode;
+		event.key.key = SDL_GetKeyFromScancode(event_script.scancode, SDL_KMOD_NONE, false);
+		event.key.down = event_script.step == 0;
+		SDL_PushEvent(&event);
+		if (++event_script.step < 2)
+			return;
+		break;
+	}
+	default:
+		/* focus: lost, then gained on the next frame; leave and enter: one event. Each ends with the system's
+		position report where the cursor already is (a motion with no delta) */
+		if (event_script.kind == 3 && event_script.step == 0)
+		{
+			event_script_push_window(window, SDL_EVENT_WINDOW_FOCUS_LOST);
+			event_script.step++;
+			return;
+		}
+		event_script_push_window(window, event_script.kind == 3 ? SDL_EVENT_WINDOW_FOCUS_GAINED :
+			event_script.kind == 4 ? SDL_EVENT_WINDOW_MOUSE_LEAVE : SDL_EVENT_WINDOW_MOUSE_ENTER);
+		if (event_script.known)
+		{
+			float x = event_script.x, y = event_script.y;
+
+			event_script.known = 0; /* (the report carries no delta) */
+			event_script_push_motion(window, x, y);
+		}
+		break;
+	}
+	event_script_next();
+}
+
 int host_menu_touch(void)
 {
 #if !TARGET_OS_TV && !TARGET_OS_VISION && !HALO_NATIVE_MAC
@@ -2039,6 +2232,7 @@ void host_ui_pointer_read(struct host_ui_pointer *pointer)
 	menu_pointer_sync();
 #if !TARGET_OS_TV
 	menu_script_run();
+	event_script_run();
 	host_menu_pointer_read(&menu_pointer, pointer);
 #endif
 }

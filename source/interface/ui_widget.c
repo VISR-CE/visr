@@ -694,6 +694,7 @@ long ui_redraw_touch_target_units(void);
 #include "halo_menu_row.h" /* port: runtime settings control policy */
 #include "halo_menu_dropdown.h"
 #include "halo_menu_slider.h"
+#include "halo_menu_focus.h" /* port: the links a focus change must keep */
 #include "halo_controller_glyphs.h"
 #include "menu_geometry.h"
 #include "halo_menu_meta.h"
@@ -3000,13 +3001,119 @@ static struct widget_instance *widget_instance_find_by_tag_index_recursive(
 	return result;
 }
 
+/* port: the focus rule shared with its probe (halo_menu_focus.h): the links inside a list item, an option row's to its
+spinner, are the row's own and survive the focus moving away */
+#define UI_WIDGET_IS_LIST(node) \
+	((node)->type == _ui_widget_type_spinner_list || (node)->type == _ui_widget_type_column_list)
+HALO_MENU_FOCUS_DEFINE(ui_focus, struct widget_instance, UI_WIDGET_IS_LIST)
+
+/* port: the widgets one of the reports below has named, so a report names a widget once. A full table reports nothing
+more: a report is never worth a log line a frame. */
+struct ui_focus_reports
+{
+	long widgets[64];
+	int count;
+};
+
+/* whether to report a widget now: not one already reported, and the table has room to remember it */
+static boolean ui_focus_report_once(
+	struct ui_focus_reports *reports,
+	long definition_tag_index)
+{
+	int index;
+
+	for (index = 0; index < reports->count; index++)
+		if (reports->widgets[index] == definition_tag_index)
+			return FALSE;
+	if (reports->count >= (int)NUMBEROF(reports->widgets))
+		return FALSE;
+	reports->widgets[reports->count++] = definition_tag_index;
+	return TRUE;
+}
+
+/* the widget ui_focus_report_once just let through turned out to have nothing to report (its definition may yet,
+in another list) */
+static void ui_focus_report_withdraw(
+	struct ui_focus_reports *reports)
+{
+	reports->count--;
+}
+
+/* port: the rule checked where it shows: a drawn list item that sends its events to its focused child and has none,
+with a child that could take them (ui_focus_item_lost_focus). Logged once for a widget, as "menus: focus invariant
+broken <name>", which the capture tools fail a run on, so every sweep tests every screen it opens on every input */
+static void ui_focus_check_item(
+	struct widget_instance *item)
+{
+	extern void platform_log(char const *, ...);
+	static struct ui_focus_reports reports;
+	struct widget_instance *child;
+	int has_event_child = 0;
+
+	if (item->focused_child || !item->visible || item->disabled)
+		return;
+	for (child = item->child; child && !has_event_child; child = child->next)
+		has_event_child = child->visible && widget_instance_can_handle_events(child);
+	if (ui_focus_item_lost_focus(item, TEST_FLAG(ui_widget_definition_get(item->definition_tag_index)->flags,
+			_widget_pass_unhandled_events_to_children_bit), has_event_child) &&
+		ui_focus_report_once(&reports, item->definition_tag_index))
+		platform_log("menus: focus invariant broken %s", item->name ? item->name : "?");
+}
+
+/* port: whether choosing a widget does anything: it or something in it is a list (a spinner) or has a handler for
+a controller event (the first 24 event types: buttons, the pad and the sticks) that does something. A row with only
+empty handlers and text, as a row that shows a value, does not. */
+static boolean ui_focus_widget_acts(
+	struct widget_instance *widget)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+	struct ui_widget_event_handler_reference *handlers = definition->event_handlers.address;
+	struct widget_instance *child;
+	long index;
+
+	if (widget->type == _ui_widget_type_spinner_list || widget->type == _ui_widget_type_column_list)
+		return TRUE;
+	for (index = 0; index < definition->event_handlers.count; index++)
+		if (handlers[index].event_type < 24 && handlers[index].flags)
+			return TRUE;
+	for (child = widget->child; child; child = child->next)
+		if (ui_focus_widget_acts(child))
+			return TRUE;
+	return FALSE;
+}
+
+/* port: a list draws its focus on a row that does nothing when chosen, though the list has a row that does: a
+read-only row took the focus. Logged once for a widget, as "menus: focus on a read-only row <name>" (a list whose
+rows all do nothing, which the focus only scrolls, is not this). Only a report for now: nothing in the menus says
+which rows act, so the focus cannot yet pass over them (the lists' windows, their descriptions and the pointer
+count rows the same way). */
+static void ui_focus_check_draw(
+	struct widget_instance *list,
+	struct widget_instance *item)
+{
+	extern void platform_log(char const *, ...);
+	static struct ui_focus_reports reports;
+	struct widget_instance *other;
+
+	if (list->type != _ui_widget_type_column_list || item->type == _ui_widget_type_column_list ||
+		!ui_focus_report_once(&reports, item->definition_tag_index))
+		return;
+	other = NULL;
+	if (!ui_focus_widget_acts(item))
+		for (other = list->child; other; other = other->next)
+			if (other != item && other->visible && other->type != _ui_widget_type_column_list &&
+				ui_focus_widget_acts(other))
+				break;
+	if (other)
+		platform_log("menus: focus on a read-only row %s", item->name ? item->name : "?");
+	else
+		ui_focus_report_withdraw(&reports);
+}
+
 static void widget_instance_give_focus_directly(
 	struct widget_instance *widget,
 	struct widget_instance *new_focus)
 {
-	struct widget_instance *focused_child =
-		widget_instance_get_topmost_parent(widget)->focused_child;
-
 	if (new_focus->disabled == TRUE)
 	{
 		struct widget_instance *substitute;
@@ -3035,27 +3142,11 @@ static void widget_instance_give_focus_directly(
 		if (substitute)
 			new_focus = substitute;
 	}
-	if (focused_child)
-	{
-		if (new_focus &&
-			focused_child->parent == new_focus->parent &&
-			focused_child->parent)
-		{
-			new_focus->parent->focused_child = new_focus;
-
-			return;
-		}
-		while (focused_child)
-		{
-			focused_child->parent->focused_child = NULL;
-			focused_child = focused_child->focused_child;
-		}
-	}
-	while (new_focus->parent)
-	{
-		new_focus->parent->focused_child = new_focus;
-		new_focus = new_focus->parent;
-	}
+	/* port: the game's focus change, from halo_menu_focus.h, where its probe runs it: the old chain's links are
+	cleared as the game cleared them, except those inside a list item. Every input's focus change comes through
+	here (the pointer, a list's item steps, a handler's focus), and the game's own loop left each option row the
+	focus moved off without its spinner */
+	ui_focus_give(widget_instance_get_topmost_parent(widget), new_focus);
 
 	return;
 }
@@ -6372,9 +6463,8 @@ static void ui_widget_row_draw_chevron(struct widget_instance *widget,
 	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\dropdown_chevron", 0, &bounds, clip);
 }
 
-#define UI_TOGGLE_ARROW_GAP 6
 static void ui_widget_row_draw_toggle(struct widget_instance *widget,
-	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip, int on, int inset)
+	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip, int on)
 {
 	long tag = tag_loaded('bitm', "pc\\xbox\\bitmaps\\toggle_switch");
 	struct bitmap_data *bitmap;
@@ -6383,7 +6473,7 @@ static void ui_widget_row_draw_toggle(struct widget_instance *widget,
 	if (tag == NONE) return;
 	bitmap = bitmap_group_get_bitmap_from_sequence(tag, 0, on);
 	if (!bitmap) return;
-	bounds.x1 = definition->bounds.x1 + offset.x - inset;
+	bounds.x1 = definition->bounds.x1 + offset.x;
 	bounds.x0 = bounds.x1 - 32;
 	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 17) / 2;
 	bounds.y1 = bounds.y0 + 17;
@@ -6438,9 +6528,11 @@ static void widget_instance_render_spinner_list(
 {
 	struct halo_menu_row row = ui_widget_row_control(widget);
 	int pointer_controls = halo_menu_pointer_controls();
-	boolean toggle = pointer_controls && row.kind == HALO_ROW_TOGGLE;
-	boolean dropdown = pointer_controls && ui_widget_row_has_dropdown(widget);
-	boolean slider = pointer_controls && row.kind == HALO_ROW_RANGE;
+	struct halo_menu_row_look look = halo_menu_row_look(row.kind, ui_widget_row_has_dropdown(widget), pointer_controls);
+	boolean toggle = look.toggle;
+	/* port: a mouse or a finger sees no left and right arrows on any option row: each kind is acted on directly */
+	boolean dropdown = look.dropdown;
+	boolean slider = look.slider;
 	long header_frame_index = 0;
 	long footer_frame_index = 0;
 	real alpha_modifier = widget_instance_get_cumulative_alpha_modifier(widget);
@@ -6472,7 +6564,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_header_bitmap.index,
 		0,
 		header_frame_index);
-	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown || slider) && pointer_controls == 2))
+	if (bitmap && look.arrows)
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6511,7 +6603,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_footer_bitmap.index,
 		0,
 		footer_frame_index);
-	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown || slider) && pointer_controls == 2))
+	if (bitmap && look.arrows)
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6539,10 +6631,8 @@ static void widget_instance_render_spinner_list(
 	if (dropdown)
 		ui_widget_row_draw_chevron(widget, definition, offset, clip_rect);
 	if (toggle)
-		/* port: with the mouse the arrows stay, so the switch keeps the slider value's gap from the right arrow */
 		ui_widget_row_draw_toggle(widget, definition, offset, clip_rect,
-			widget->parameters.list.selected_index == row.on_index,
-			pointer_controls == 1 ? UI_TOGGLE_ARROW_GAP : 0);
+			widget->parameters.list.selected_index == row.on_index);
 	if (definition->child_widgets.count == 0)
 	{
 		wchar_t *item_text;
@@ -6719,8 +6809,6 @@ struct ui_mouse_target
 	rectangle2d bounds;
 	short kind;
 	short button_index;
-	short back_arrow_end;
-	short forward_arrow_start;
 	rectangle2d value_bounds;
 };
 
@@ -8353,8 +8441,6 @@ static void ui_mouse_note_target(
 	target->bounds = bounds;
 	target->kind = kind;
 	target->button_index = button_index;
-	target->back_arrow_end = definition->list_header_bounds.x1 + offset.x;
-	target->forward_arrow_start = definition->list_footer_bounds.x0 + offset.x;
 	target->value_bounds = definition->bounds;
 	target->value_bounds.x0 += offset.x;
 	target->value_bounds.x1 += offset.x;
@@ -8363,7 +8449,6 @@ static void ui_mouse_note_target(
 	if (spinner_string_list_extra_count(definition->text_label_string_list.index))
 	{
 		target->value_bounds.x0 -= SPINNER_EXTRA_WIDTH;
-		target->back_arrow_end -= SPINNER_EXTRA_WIDTH;
 	}
 
 	/* port: the pointer slider's wider value area and left arrow move together. */
@@ -8371,7 +8456,6 @@ static void ui_mouse_note_target(
 	{
 		int padding = MAX(0, HALO_MENU_SLIDER_WIDTH - (target->value_bounds.x1 - target->value_bounds.x0));
 		target->bounds.x0 = MIN(target->bounds.x0, target->value_bounds.x0 - padding - 10);
-		target->back_arrow_end -= padding;
 	}
 
 	return;
@@ -8872,11 +8956,7 @@ static void ui_mouse_row_step(struct ui_mouse_target *target, short x,
 {
 	if (halo_menu_pointer_controls() && ui_widget_row_has_dropdown(target->widget))
 	{
-		if (halo_menu_pointer_controls() == 1 && x >= target->back_arrow_end - 6 && x < target->back_arrow_end)
-			ui_mouse_press(back);
-		else if (halo_menu_pointer_controls() == 1 && x >= target->forward_arrow_start && x < target->forward_arrow_start + 6)
-			ui_mouse_press(forward);
-		else ui_dropdown_open(target);
+		ui_dropdown_open(target);
 		return;
 	}
 	/* port: one dispatch for each runtime row control. A row flip
@@ -8886,15 +8966,7 @@ static void ui_mouse_row_step(struct ui_mouse_target *target, short x,
 		{
 		case HALO_ROW_STATIC: break;
 		case HALO_ROW_TOGGLE:
-			if (halo_menu_pointer_controls() == 1 &&
-				x >= target->back_arrow_end - 6 &&
-				x < target->back_arrow_end)
-				ui_mouse_press(back);
-			else if (halo_menu_pointer_controls() == 1 &&
-				x >= target->forward_arrow_start &&
-				x < target->forward_arrow_start + 6)
-				ui_mouse_press(forward);
-			else ui_mouse_press(target->widget->parameters.list.selected_index ? back : forward);
+			ui_mouse_press(target->widget->parameters.list.selected_index ? back : forward);
 			break;
 		default: ui_mouse_press(first_half ? back : forward); break;
 		}
@@ -10294,6 +10366,9 @@ static void widget_instance_render_recursive(
 			use_nifty_plasma_fx = focus &&
 				(widget->type == _ui_widget_type_spinner_list ||
 				widget->type == _ui_widget_type_column_list);
+			ui_focus_check_item(child);
+			if (focus && use_nifty_plasma_fx)
+				ui_focus_check_draw(widget, child);
 			widget_instance_render_recursive(
 				child,
 				clip_rect,

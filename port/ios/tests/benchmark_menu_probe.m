@@ -1,4 +1,5 @@
 /* Exercise the real UIKit controller with a feed that completes after presentation. */
+#include "test_wait.h"
 #import <UIKit/UIKit.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +31,7 @@ int host_benchmark_send(const char *report_path, const char *summary, char *mess
         check(visible_menu() != nil, "Launch menu is visible before pending delivery begins");
     });
     atomic_store(&sender_started, true);
-    check(dispatch_semaphore_wait(sender_gate, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) == 0,
+    check(dispatch_semaphore_wait(sender_gate, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0,
         "Play returns while pending iCloud delivery is still waiting");
     snprintf(message, size, "Pending upload retried");
     return 1;
@@ -168,11 +169,7 @@ static void refresh(HaloBenchmarkMenuController *controller) {
             check(pressedWhileSending && mode == NULL, "Play finishes before pending iCloud delivery");
             check(workgroup_leaves == 1, "The drawing thread leaves the frame workgroup before the menu runs UIKit's loop");
             dispatch_semaphore_signal(sender_gate);
-            CFAbsoluteTime until = CFAbsoluteTimeGetCurrent() + 2;
-            do {
-                CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, true);
-                refresh(controller);
-            } while (![controller.detailLabel.text containsString:@"Pending upload retried"] && CFAbsoluteTimeGetCurrent() < until);
+            TEST_WAIT_PUMPING_UNTIL(({ refresh(controller); [controller.detailLabel.text containsString:@"Pending upload retried"]; }));
             check([controller.detailLabel.text containsString:@"Pending upload retried"], "Delivery status repaints after background completion");
             check([controller.detailLabel.accessibilityLabel isEqual:controller.detailLabel.text], "VoiceOver includes updated delivery status");
             feed_state = @{ @"ready": @NO, @"loading": @YES, @"reason": @"" };
@@ -193,7 +190,7 @@ static void refresh(HaloBenchmarkMenuController *controller) {
             feed_state = @{ @"ready": @YES, @"loading": @NO, @"profileFinished": @NO, @"reason": @"" };
             HaloBenchmarkMenuController *timeout = fresh();
             check(timeout.splashVisible, "Valid cached data still waits for a fresh profile");
-            CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 2.1;
+            CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 2.1;   /* TEST_WAIT_SHORT_ON_PURPOSE: the product's own two-second timeout is under test */
             while (CFAbsoluteTimeGetCurrent() < deadline) CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, true);
             check(!timeout.splashVisible && timeout.chosen == -1, "Two-second timeout shows the menu without starting Play");
             puts("benchmark menu probe: passed");

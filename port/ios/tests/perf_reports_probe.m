@@ -3,6 +3,9 @@
 #include <assert.h>
 #include "../host/host_perf_reports.m"
 static uint64_t probe_frame_id=1;
+static int probe_queue_on,probe_thread_on;
+int host_gpu_encode_queue_on(void) {return probe_queue_on;}
+int host_gpu_encode_thread_on(void) {return probe_thread_on;}
 uint64_t host_perf_hooks_frame_id(void) {return probe_frame_id;}
 int host_perf_hooks_dynamic_enabled(void) {return 1;}
 void host_perf_hooks_gpu_join(game_perf_frame *frame) {frame->gpu_us=1234;frame->flags &= ~GAME_PERF_GPU_UNAVAILABLE;}
@@ -22,6 +25,14 @@ int main(void) {@autoreleasepool {
     NSString *empty_graphics_hash=[graphics_hash copy];
     host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\"}}");dispatch_sync(worker,^{});
     assert([graphics[@"display.renderer"] isEqual:@"metal"] && [graphics[@"display.frame_rate"] isEqual:@"60"]);assert(![graphics_hash isEqual:empty_graphics_hash]);
+    /* the encode mode is the one in force, whatever the snapshot says the setting is */
+    host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\",\"display.encode_thread\":\"thread\"}}");dispatch_sync(worker,^{});
+    assert([graphics[@"display.encode_thread"] isEqual:@"off"]);
+    probe_queue_on=1;host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\"}}");dispatch_sync(worker,^{});
+    assert([graphics[@"display.encode_thread"] isEqual:@"inline"]);
+    probe_thread_on=1;host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\",\"display.encode_thread\":\"off\"}}");dispatch_sync(worker,^{});
+    assert([graphics[@"display.encode_thread"] isEqual:@"thread"]);
+    probe_queue_on=probe_thread_on=0;host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\"}}");dispatch_sync(worker,^{});
     NSString *safe_graphics_hash=[graphics_hash copy];
     host_perf_reports_graphics("{\"values\":{\"display.renderer\":\"metal\",\"display.frame_rate\":\"60\",\"display.render_height\":\"/private/perf-secret\"}}");dispatch_sync(worker,^{});
     assert([graphics_hash isEqual:safe_graphics_hash]);assert(!graphics_string_allowed(@"display.frame_rate",@"29") && !graphics_string_allowed(@"display.frame_rate",@"1001"));

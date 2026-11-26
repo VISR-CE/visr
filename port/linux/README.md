@@ -109,7 +109,7 @@ backtrace to the standard error. To find the function at the address, enter
 
 The keyboard and the mouse are a control scheme of their own for the player
 of controller 1: each action has up to two keys or mouse buttons, which
-Settings > Controls Setup (or `[controls]` in `config.toml`) changes. The
+Settings > Controls Setup changes, and the player's profile keeps (`HALO_KEY_<ACTION>` overrides them for one run). The
 game adds the input of the first gamepad to controller 1. The other
 gamepads operate controllers 2 to 4. With two or more players on this
 computer (co-op, or split screen in a network game) and only one gamepad,
@@ -257,9 +257,12 @@ Apple Vision Pro's file.
 | `display.dynamic_light_limit` | integer | `0` | apple, desktop | `HALO_DYNAMIC_LIGHT_LIMIT` | Device-profile cap on dynamic lights illuminating level surfaces, 0 to 128. |
 | `display.specular_light_limit` | integer | `0` | apple, desktop | `HALO_SPECULAR_LIGHT_LIMIT` | Device-profile cap on specular lights among the level's selected dynamic lights, 0 to 128. |
 | `display.soft_particles` | boolean | `true` | apple, desktop | `HALO_SOFT_PARTICLES` | Smoke, dust and plasma fade where they meet the ground and walls instead of cutting a hard line (camera-facing particles; Metal, not in stereo or with multisampling). |
+| `display.scene_precision` | integer | `8` | apple, desktop | `HALO_SCENE_PRECISION` | Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. |
 | `display.effect_limits` | string | `"raised"` | apple, desktop | `HALO_EFFECT_LIMITS` | How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: "raised" (default) four times the Xbox's decals and every player the effect's whole count; "xbox" the Xbox's 2048 decals and its split-screen share. |
 | `display.shadow_map_size` | integer | `128` | apple, desktop | `HALO_SHADOW_MAP_SIZE` | The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. |
 | `display.ambient_occlusion` | boolean | `false` | apple | `HALO_AMBIENT_OCCLUSION` | Soft darkening where characters, vehicles and props meet the ground and the walls (screen-space ambient occlusion over the level's light and, weaker, the objects), which the original game never drew. |
+| `display.traced_shadows` | boolean | `false` | apple | `HALO_TRACED_SHADOWS` | Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from it. |
+| `display.traced_lights` | integer | `0` | apple | `HALO_TRACED_LIGHTS` | How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as the game draws them, and none unless display.traced_shadows is on too. |
 | `display.shadow_props` | boolean | `true` | apple, desktop | `HALO_SHADOW_PROPS` | Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and light fixtures) a shadow of their own, which the original game never drew for scenery or devices. |
 | `display.effect_resolution` | string | `"half"` | apple, desktop | `HALO_EFFECT_RESOLUTION` | The resolution of the 320x240 target the reflections in mirror floors and the active camouflage are drawn into: "xbox" keeps the Xbox's 320x240, "half" is half the screen's resolution each way, and "full" the screen's resolution (sharper; up to a whole second render of the scene's pixels where a mirror shows). |
 | `display.model_lod` | string | `"max"` | apple, desktop | `HALO_MODEL_LOD` | Which geometry detail level models draw: "max" (default) always the highest they have, so they never pop between levels or drop out with distance; "auto" picks by on-screen size, as the Xbox did. |
@@ -302,6 +305,7 @@ Apple Vision Pro's file.
 | --- | --- | --- | --- | --- | --- |
 | `debug.photo_mode` | boolean | `false` | apple, desktop | `HALO_PHOTO_MODE` | Enable developer map framing controls in the development AppKit Mac host. |
 | `debug.map_pictures_render` | boolean | `false` | apple, desktop | `HALO_MAP_PICTURES_RENDER` | At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. |
+| `debug.map_pictures_scan` | boolean | `false` | apple, desktop | `HALO_MAP_PICTURES_SCAN` | Run the launch check of the map pictures even in a runner's run (it is skipped there otherwise), so a stale or missing picture brings up the preparing maps stage from the main menu. |
 | `debug.orientation` | string | `""` | apple | `HALO_ORIENTATION` | Request "portrait" or "landscape" once the first window scene is active; empty leaves the device's orientation alone. |
 | `debug.test_controller` | string | `""` | apple | `HALO_TEST_CONTROLLER` | A synthetic right Sense controller in place of the real ones, to check controller aim on the Mac and in the simulator: "fixed:<yaw>,<pitch>" holds it still in the room at those degrees from the room's forward (yaw right, pitch up positive; "fixed:30,0"), "sweep" turns it 30 degrees each way over 4 s, and "loss:<seconds>" holds it at fixed:0,0 but untracked for that long every 10 s, then orientation-only as long (up to 5). |
 | `debug.controller_record` | string | `""` | apple | `HALO_CONTROLLER_RECORD` | Write every pose sample the host hands the game (both hands, the buttons, the head's yaw) to NAME.poses in the data folder (a headset's Documents folder), flushed once a second. |
@@ -336,6 +340,7 @@ Apple Vision Pro's file.
 | `display.late_look` | boolean | `false` | apple, desktop | `HALO_LATE_LOOK` | Read the controller's look stick again just before a frame's camera is built and turn the first-person view by what it has done since the game read it, a few milliseconds on the frames that run a game tick. |
 | `display.late_start` | string | `""` | apple | `HALO_LATE_START` | Start each frame's work as late as it can be and still be done for the next refresh of the display, so the controller is read later and what you do reaches the screen sooner (the Metal renderer's frame pacer). |
 | `display.frame_source` | string | `""` | apple | `HALO_FRAME_SOURCE` | Where the Metal renderer's frames get their place on the display: "clock" asks for one when a frame is ready and applies display.frames_in_flight and display.frame_spacing itself; "system" takes one from the system for each refresh (iOS 17, tvOS 17, macOS 14 and later, and only with display.frame_rate = "display"; elsewhere "clock" is used). |
+| `display.encode_thread` | string | `"off"` | apple | `HALO_DISPLAY_ENCODE_THREAD` | Whether the Metal renderer's commands go through an encode thread. "off" (default): the game thread calls the renderer. "thread": an encode thread calls the renderer while the game thread goes on; each frame's present waits for it. |
 | `display.frames_in_flight` | string | `""` | apple | `HALO_FRAMES_IN_FLIGHT` | How many frames the Metal renderer may have on their way to the display at once, "1" to "3": a frame isn't started on its way until fewer than that many are waiting to be shown. "1" gives the least delay between the game and the screen, and costs frames when a frame's CPU and GPU work together take longer than a refresh; "system" leaves the queue to the system (up to 3). "auto": "1" while a frame's GPU work and present fit the period or the device is under its rate anyway, else "2". |
 | `display.frames_in_flight_at_30` | string | `""` | apple | `HALO_FRAMES_IN_FLIGHT_AT_30` | How many frames the Metal renderer may have on their way to the display at once, "1" or "2", while the frame rate in force is 30 or lower (a 30 cap, a big multiplayer game held to 30, a scene class's 30). |
 | `display.frame_spacing` | boolean | `true` | apple | `HALO_FRAME_SPACING` | Keep each frame on screen for its share of the display's time before the next may replace it (the Metal renderer), so frames show evenly spaced: one refresh, or with a display.frame_rate cap under the display's rate, the cap's. |
@@ -381,40 +386,11 @@ Apple Vision Pro's file.
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
 | `input.stick_dead_zone` | number | `0.27` | apple, desktop | `HALO_STICK_DEAD_ZONE` | How far a controller stick moves before it counts, from 0 to 1. |
-| `input.mouse_sensitivity` | number | `1.0` | desktop | `HALO_MOUSE_SENSITIVITY` | How far the view turns for the mouse's movement. |
-| `input.invert_mouse` | boolean | `false` | desktop | `HALO_MOUSE_INVERT` | Moving the mouse forward looks down. |
 ### network
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
 | `network.block_mouse_aim_assist` | boolean | `false` | apple, desktop | `HALO_NET_BLOCK_MOUSE_AIM_ASSIST` | Host: disable optional mouse magnetism for mouse/keyboard players. |
-### input
-
-| Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
-| --- | --- | --- | --- | --- | --- |
-| `input.mouse_aim_assist` | boolean | `false` | desktop | `HALO_MOUSE_AIM_ASSIST` | Magnetism while aiming with the mouse, as with a controller: the view slowed and dragged along by a target. |
-| `input.mouse_vertical_sensitivity` | number | `0.0` | desktop | `HALO_MOUSE_VERTICAL_SENSITIVITY` | How far the view turns up and down for the mouse's movement; 0 for the same as input.mouse_sensitivity. |
-### controls
-
-| Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
-| --- | --- | --- | --- | --- | --- |
-| `controls.move_forward` | string | `"W"` | apple, desktop | `HALO_KEY_MOVE_FORWARD` | The keyboard and mouse's controls, which Settings > Controls Setup changes: up to two keys or buttons each, separated by a comma. |
-| `controls.move_backward` | string | `"S"` | apple, desktop | `HALO_KEY_MOVE_BACKWARD` | Moving backward. |
-| `controls.strafe_left` | string | `"A"` | apple, desktop | `HALO_KEY_STRAFE_LEFT` | Moving left. |
-| `controls.strafe_right` | string | `"D"` | apple, desktop | `HALO_KEY_STRAFE_RIGHT` | Moving right. |
-| `controls.jump` | string | `"Space"` | apple, desktop | `HALO_KEY_JUMP` | Jumping (and skipping cutscenes). |
-| `controls.crouch` | string | `"Left Ctrl, C"` | apple, desktop | `HALO_KEY_CROUCH` | Crouching. |
-| `controls.fire` | string | `"Mouse Left"` | apple, desktop | `HALO_KEY_FIRE` | Firing. |
-| `controls.throw_grenade` | string | `"Mouse Right, G"` | apple, desktop | `HALO_KEY_THROW_GRENADE` | Throwing a grenade. |
-| `controls.melee` | string | `"F, Mouse 4"` | apple, desktop | `HALO_KEY_MELEE` | Melee attack. |
-| `controls.reload` | string | `"R"` | apple, desktop | `HALO_KEY_RELOAD` | Reloading. |
-| `controls.zoom` | string | `"Z, Mouse Middle"` | apple, desktop | `HALO_KEY_ZOOM` | Zooming the scope. |
-| `controls.switch_weapon` | string | `"Wheel, Tab"` | apple, desktop | `HALO_KEY_SWITCH_WEAPON` | Switching weapons. |
-| `controls.switch_grenade` | string | `"X"` | apple, desktop | `HALO_KEY_SWITCH_GRENADE` | Switching grenades. |
-| `controls.action` | string | `"E"` | apple, desktop | `HALO_KEY_ACTION` | The action: picking up (held: swapping weapons), entering and leaving vehicles, pressing switches; never reloading (the controller's X does when there is nothing to act on). |
-| `controls.flashlight` | string | `"Q"` | apple, desktop | `HALO_KEY_FLASHLIGHT` | The flashlight. |
-| `controls.scoreboard` | string | `"1"` | apple, desktop | `HALO_KEY_SCOREBOARD` | Showing the scores (the controller's Back). |
-| `controls.pause` | string | `"Escape"` | apple, desktop | `HALO_KEY_PAUSE` | The pause menu (the controller's Start). |
 ### game
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
@@ -592,6 +568,7 @@ Apple Vision Pro's file.
 | `debug.gpu_call_hash` | boolean | `false` | apple | `HALO_GPU_CALL_HASH` | Logs, for every frame, a hash of every command the Metal or OpenGL ES renderer received: each call, its arguments and the bytes they point to, and one hash for each kind of call. |
 | `debug.encode_thread` | string | `""` | apple | `HALO_ENCODE_THREAD` | Overrides display.encode_thread, for measurement. |
 | `debug.encode_thread_timing` | boolean | `false` | apple | `HALO_ENCODE_THREAD_TIMING` | With the encode queue on: also time the renderer's share of the queue's work, in the log line it writes every 300 frames. |
+| `debug.stereo_replay` | string | `"off"` | apple | `HALO_STEREO_REPLAY` | Stereo with Metal: "on" draws the second eye by making the first eye's renderer commands again into its targets with its own camera, instead of drawing the scene a second time; a frame with a mirror in view draws it as with "off". "verify" draws the second eye as with "off", compares the replay's commands with it and logs the first differences. |
 | `debug.latency_log` | boolean | `false` | apple | `HALO_LATENCY_LOG` | Logs a latency line every 300 frames: how old the controller state was when the game read it, and the time from that read to the frame's submission and to when the display showed it (median and 95th percentile), the frame's display wait, and frames never shown. |
 | `debug.thread_cpu_log` | boolean | `false` | apple | `HALO_THREAD_CPU_LOG` | Logs, every 300 frames, the CPU time a frame of the whole app, the main thread, the drawing thread and each other busy thread, and the app's context switches, to see how busy each core is. |
 | `debug.main_sync_log` | boolean | `false` | apple | `HALO_MAIN_SYNC_LOG` | Logs, every 300 frames, how long the game thread waited on the main thread a frame and how many times it asked, to size those waits. |
@@ -650,24 +627,46 @@ Apple Vision Pro's file.
 | `debug.benchmark_window_shot` | string | `""` | apple, desktop | `HALO_BENCHMARK_WINDOW_SHOT` | A folder for one picture of each benchmark window, saved from the first frame after its timer stops (never inside the measured span); empty none. |
 | `debug.benchmark_shot_pass` | boolean | `false` | apple, desktop | `HALO_BENCHMARK_SHOT_PASS` | One benchmark window replays only up to its shot tick (default its end) as fast as the game runs without drawing, saves one picture to benchmark_window_shot, and exits; nothing is timed. |
 | `debug.benchmark_shot_tick` | integer | `0` | apple, desktop | `HALO_BENCHMARK_SHOT_TICK` | With benchmark_shot_pass, the tick after the window opens to take the picture at; 0 is the window's end. |
+| `debug.scene_format` | string | `""` | apple, desktop | `HALO_SCENE_FORMAT` | Measurement: the pixel format of the targets that hold the scene's color (Metal, mono), in place of display.scene_precision's: bgra8, rgba16, rgba16f, rgb10a2 (timing only: two bits of alpha) or bgra10_xr; empty follows display.scene_precision. |
+| `debug.output_format` | string | `""` | apple, desktop | `HALO_OUTPUT_FORMAT` | Measurement: the Metal layer's pixel format in place of the one display.scene_precision picks: bgra8, bgr10a2, bgr10_xr, bgra10_xr or rgba16f; empty follows display.scene_precision. |
+| `debug.present_dither` | string | `"auto"` | apple, desktop | `HALO_PRESENT_DITHER` | The fixed blue-noise dither where the present pass writes a 16-bit frame to a layer with fewer bits: auto (on whenever that is so) or off. debug.knob_cycle's chord changes it as the game runs (the Apple TV grain check). |
+| `debug.precision_ramp` | boolean | `false` | apple, desktop | `HALO_PRECISION_RAMP` | The present pass draws the display-depth test ramp in place of the picture: the darkest sixteen 8-bit levels left to right, the top third rounded to 8 bits, the middle third at the layer's depth, the bottom third dithered (Metal; with display.scene_precision 16 the layer is 10-bit where it can be). |
+| `debug.screenshot_raw` | boolean | `false` | apple, desktop | `HALO_SCREENSHOT_RAW` | With screenshot_directory: a read of a scene target that is not BGRA8 also saves the target's own values as rawNNNNN.<format> (for banding analysis). |
 | `debug.screenshot_directory` | string | `""` | apple, desktop | `HALO_SCREENSHOT_DIR` | A folder to save frames to (with screenshot_every); empty none. |
 | `debug.shadow_scenery` | integer | `0` | apple, desktop | `HALO_SHADOW_SCENERY` | For experiments: classes of object that cast a shadow whatever display.shadow_props says (bit 1 all scenery, bit 2 all devices, bit 4 equipment and garbage). |
 | `debug.shadow_blur` | string | `"footprint"` | apple, desktop | `HALO_SHADOW_BLUR` | How object shadows larger than 128 texels (display.shadow_map_size) are blurred: "footprint" over the area the game's blur covers at 128, "xbox" the game's taps at their fixed offsets (at 512 they fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur. |
+| `debug.traced_light_blocking` | integer | `-1` | apple | `HALO_TRACED_LIGHT_BLOCKING` | What blocks the lights display.traced_lights traces: 1 the level's surfaces; 2 the objects that cast shadows too; 3 also objects with no shadow of their own (too faint, or doors and other devices). 0 traces no light whatever the profile says; -1 (the default) is 3 when display.traced_lights is above 0. |
+| `debug.traced_lights_fixtures` | boolean | `false` | apple | `HALO_TRACED_LIGHTS_FIXTURES` | With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and devices, which display.traced_lights leaves as the game draws them), for stills and measurements. |
+| `debug.traced_light_family_log` | boolean | `false` | apple | `HALO_TRACED_LIGHT_FAMILY_LOG` | With display.traced_lights: log each traced light (frame, position, radius, strength, distance from the eye) with its owner, the owner's family root and mask bit, and the first caster sent each frame with its family bit. |
+| `debug.traced_light_depth_point` | integer | `0` | apple | `HALO_TRACED_LIGHT_DEPTH_POINT` | With display.traced_lights: 1 every traced light pass rebuilds its lit points from depth, as the specular spot pass must, instead of from its attenuation coordinate, so that stills with and without it prove the two agree; 2 the passes with an attenuation coordinate draw how far the depth point is from it (red, 1 at a world unit; green where the depth point lies behind the camera); 3 which part of the rebuild is off (red: depth more than 2% off; green: screen position off; blue where it is drawn); 4 the numbers over green 1 (red: 0.5 + 25 x (depth ratio - 1); blue: ten times the distance between the two points). |
+| `debug.traced_light_depth_bias` | number | `0.002` | apple | `HALO_TRACED_LIGHT_DEPTH_BIAS` | With display.traced_lights: a point rebuilt from depth starts its ray this fraction of its view distance off its surface, so that the surface it lies on does not block it. |
+| `debug.traced_light_owner` | number | `0.3` | apple | `HALO_TRACED_LIGHT_OWNER` | With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not block it, so the character carrying a flashlight does not shadow its own beam. |
+| `debug.traced_light_viewer` | number | `1.0` | apple | `HALO_TRACED_LIGHT_VIEWER` | With debug.traced_light_blocking: a light within this many world units of the eye counts as carried by the viewer (the flashlight), for debug.traced_light_carried. |
+| `debug.traced_light_carried` | boolean | `true` | apple | `HALO_TRACED_LIGHT_CARRIED` | With debug.traced_light_blocking: a light the viewer carries ends its rays short of itself by its distance from the eye plus debug.traced_light_stop_margin, so it is not lost on a wall the player stands against. |
+| `debug.traced_light_stop_margin` | number | `0.1` | apple | `HALO_TRACED_LIGHT_STOP_MARGIN` | With debug.traced_light_carried 1: world units added to the light's distance from the eye. |
+| `debug.traced_light_repeat` | integer | `1` | apple | `HALO_TRACED_LIGHT_REPEAT` | For cost measurements: trace debug.traced_light_blocking's rays this many times over (1 to 64); the picture is the same. |
+| `debug.traced_shadows_any_gpu` | boolean | `false` | apple | `HALO_TRACED_SHADOWS_ANY_GPU` | With display.traced_shadows: trace on any GPU Metal can trace on, also those without ray tracing hardware (Apple GPU families 6 to 8, in software), to measure them. |
+| `debug.traced_shadows_break_only` | boolean | `false` | apple | `HALO_TRACED_SHADOWS_BREAK_ONLY` | With display.traced_shadows: leave and reenter the scene's render pass as traced shadows do, and draw the shadows from their maps as usual, to measure the cost of the pass break alone. |
+| `debug.traced_shadows_filter` | boolean | `true` | apple | `HALO_TRACED_SHADOWS_FILTER` | With display.traced_shadows: soften each traced shadow by its distance from its caster. |
+| `debug.traced_shadows_light_angle` | number | `3.0` | apple | `HALO_TRACED_SHADOWS_LIGHT_ANGLE` | With display.traced_shadows: the light's half-angle in degrees, which sets how fast a shadow's edge widens with distance from its caster. |
+| `debug.traced_shadows_refit` | boolean | `true` | apple | `HALO_TRACED_SHADOWS_REFIT` | With display.traced_shadows: update a moving caster's acceleration structure in place. |
+| `debug.traced_shadows_view` | integer | `0` | apple | `HALO_TRACED_SHADOWS_VIEW` | With display.traced_shadows: 1 shows the traced term's color in place of the scene, 2 its penumbra radius, for looking at what the filter is given. |
+| `debug.traced_shadows_world` | boolean | `true` | apple | `HALO_TRACED_SHADOWS_WORLD` | With display.traced_shadows: a shadow's ray also stops at the level's own surfaces, so a shadow does not reach through a floor or a wall to a surface beyond it. |
 | `debug.screenshot_frames` | string | `""` | apple, desktop | `HALO_SCREENSHOT_FRAMES` | With screenshot_every: save only frames in these ranges, "900-1200;1800-2100" ("," also separates them); empty saves every one. |
 | `debug.screenshot_clock` | string | `"frames"` | apple, desktop | `HALO_SCREENSHOT_CLOCK` | What debug.screenshot_every counts. "frames" (default): presented frames from launch, named frameNNNNN. "ticks": game ticks, named tickNNNNN, only in a game, so two launches of one replay with debug.fixed_timestep save the same moments under the same names however long their menus and loading took; debug.screenshot_frames then names ticks. |
 | `debug.screenshot_scene_only` | boolean | `false` | apple, desktop | `HALO_SCREENSHOT_SCENE_ONLY` | With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame. |
-| `debug.soft_particle_distance` | number | `0.06` | apple, desktop | `HALO_SOFT_PARTICLE_DISTANCE` | With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet). |
+| `debug.soft_particle_distance` | number | `0.12` | apple, desktop | `HALO_SOFT_PARTICLE_DISTANCE` | With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet). |
 | `debug.soft_particle_scale` | integer | `2` | apple, desktop | `HALO_SOFT_PARTICLE_SCALE` | With display.soft_particles: the scene distances the particles fade against, at full resolution (1) or half (2, the nearest level surface of each 2x2 block). |
 | `debug.screenshot_every` | integer | `0` | apple, desktop | `HALO_SCREENSHOT_EVERY` | Save every this many frames to screenshot_directory; 0 none. |
 | `debug.ssao` | integer | `0` | apple | `HALO_SSAO` | A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on, 2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone (Metal; mono views only). |
-| `debug.ssao_radius` | number | `0.3` | apple | `HALO_SSAO_RADIUS` | With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet). |
+| `debug.ssao_radius` | number | `0.6` | apple | `HALO_SSAO_RADIUS` | With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet). |
 | `debug.ssao_strength` | number | `1.5` | apple | `HALO_SSAO_STRENGTH` | With debug.ssao: the power the visibility is raised to; higher darkens more. |
 | `debug.ssao_objects` | number | `0.3` | apple | `HALO_SSAO_OBJECTS` | With debug.ssao: how much of the occlusion the objects' pixels take (their whole color, specular included). |
 | `debug.ssao_static_weight` | number | `0` | apple | `HALO_SSAO_STATIC_WEIGHT` | With debug.ssao: how much the level's own surfaces occlude the level (its lightmaps already hold that); objects always occlude fully. |
 | `debug.ssao_high` | boolean | `true` | apple | `HALO_SSAO_HIGH` | With debug.ssao: two directions and four steps a side per pixel; false, one direction and three steps. |
 | `debug.ssao_steps` | integer | `0` | apple | `HALO_SSAO_STEPS` | With debug.ssao: steps a side along each direction in place of debug.ssao_high's; 0 its own. |
 | `debug.ssao_max_pixels` | number | `0.12` | apple | `HALO_SSAO_MAX_PIXELS` | With debug.ssao: the farthest a sample goes on screen, as a fraction of the view's height. |
-| `debug.ssao_fade_distance` | number | `35` | apple | `HALO_SSAO_FADE_DISTANCE` | With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units). |
+| `debug.ssao_fade_distance` | number | `70` | apple | `HALO_SSAO_FADE_DISTANCE` | With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units). |
 | `debug.ssao_level_floor` | number | `0.35` | apple | `HALO_SSAO_LEVEL_FLOOR` | With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black). |
 | `debug.ssao_object_floor` | number | `0.6` | apple | `HALO_SSAO_OBJECT_FLOOR` | With debug.ssao: the least of an object's color occlusion leaves (before debug.ssao_objects scales it). |
 | `debug.ssao_path` | integer | `1` | apple | `HALO_SSAO_PATH` | With debug.ssao 1: 0 a depth-aware upsample to full resolution, 1 the blurred half-resolution occlusion sampled bilinearly as it is applied, 2 the same without the blur. |

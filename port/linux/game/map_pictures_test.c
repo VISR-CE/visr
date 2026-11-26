@@ -125,6 +125,22 @@ static void test_metadata(void)
 	assert(!map_pictures_meta_parse("{}", 2, NULL));
 }
 
+static void test_hash_known(void)
+{
+	const char *hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+	struct map_pictures_metadata m = fixture(), out;
+	char json[MAP_PICTURES_META_SIZE];
+	assert(map_pictures_hash_known("10:20", "10:20", hash));
+	assert(!map_pictures_hash_known("10:21", "10:20", hash));
+	assert(!map_pictures_hash_known("10:20", "", hash) && !map_pictures_hash_known("", "", hash));
+	assert(!map_pictures_hash_known("10:20", "10:20", "short") && !map_pictures_hash_known(NULL, "a", hash));
+	assert(!map_pictures_hash_known("10:20", "10:20", "ZZZZ456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+	/* the stamp round-trips and never makes a picture stale by itself */
+	strcpy(m.map_stamp, "10:20");
+	assert(map_pictures_meta_write(json, sizeof(json), &m) && strstr(json, "\"map_stamp\":\"10:20\""));
+	assert(map_pictures_meta_parse(json, strlen(json), &out) && !strcmp(out.map_stamp, "10:20"));
+}
+
 static void test_staleness(void)
 {
 	struct map_pictures_metadata cached = fixture();
@@ -134,6 +150,7 @@ static void test_staleness(void)
 #define STALE_CHANGE(change) do { wanted.metadata = cached; change; assert(map_pictures_is_stale(&cached, &wanted)); } while (0)
 	STALE_CHANGE(wanted.metadata.framing_revision++);
 	STALE_CHANGE(wanted.metadata.renderer_version++);
+	STALE_CHANGE(wanted.metadata.framing_hash++); /* the same revision, an edited framing */
 	STALE_CHANGE(wanted.metadata.map_hash[0] = 'b');
 	STALE_CHANGE(wanted.metadata.map_key[6] = 'x');
 	STALE_CHANGE(wanted.metadata.width++);
@@ -270,7 +287,7 @@ static void test_blocked_views(void)
 
 int main(void)
 {
-	test_metadata(); test_staleness(); test_paths(); test_lookup(); test_scheduler(); test_names(); test_blocked_views();
+	test_metadata(); test_hash_known(); test_staleness(); test_paths(); test_lookup(); test_scheduler(); test_names(); test_blocked_views();
 	puts("map_pictures_test: metadata, staleness, paths, 128 lookup combinations, scheduler, UTF-8 names, blocked views passed");
 	return 0;
 }

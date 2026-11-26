@@ -7,6 +7,7 @@ import shutil
 import subprocess
 
 import pytest
+from probe_timeouts import PROBE_RUN_SECONDS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -188,4 +189,4 @@ def test_overlay_window_lifecycle(tmp_path):
                     "-framework", "Foundation", "-I" + str(ROOT / "port/ios/host"),
                     str(source),
                     str(ROOT / "port/ios/host/host_main_thread.c"), "-o", str(program)], check=True)
-    subprocess.run([str(program)], check=True, timeout=10)
+    subprocess.run([str(program)], check=True, timeout=PROBE_RUN_SECONDS)

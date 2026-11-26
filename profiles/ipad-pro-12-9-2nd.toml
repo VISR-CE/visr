@@ -14,6 +14,7 @@ platform = "ios"
 models = ["iPad7,2"]
 
 [display]
+scene_precision = 16
 upscaled_textures = true
 frame_rate = "30"
 render_height = 900
@@ -23,8 +24,10 @@ model_lod = "max"
 dynamic_resolution = true
 
 [variable.display]
+scene_precision = 8
 effect_limits = "xbox"
 frames_in_flight_at_30 = "1"
+encode_thread = "thread"
 
 [network]
 player_capacity = 64
@@ -39,6 +42,11 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 basis = "measured"
 why = "At 64 players under the 30 cap (soft particles off, late start off, four runs: three repeats and the matching arm of the first rerun, no failed GPU buffers in any), one frame in flight cut the time from the controller read to the screen from 99 ms to 66 ms at p50 and from 105 to 107 ms to 70 to 74 ms at p95. Report frame rate was 26.5 to 28.1 (mean 27.3) with one in flight against 26.4 to 27.3 (mean 26.9) with two, and on-time frames 0.908 to 0.972 (mean 0.942) against 0.940 to 0.965 (mean 0.951): the 0.009 gap in the means is inside the run-to-run spread. The device holds neither setting at 64 players. At 16 players one frame in flight cut 99.4 to 66.0 ms (p95 103.5 to 69.9 ms) at 30.1 frames a second shown either way. Only the variable workload (multiplayer, co-op, split screen, more enemies) takes it: campaign was not in this matrix, its 99.9% on time at 30 is unverified with one in flight, and a GPU-bound case can lose frames with one in flight (the iPhone Duo did), so the predictable workload keeps two. A campaign pair can widen it."
 source = "VISR input latency matrix, build 20261121.214648 (main 049a67d6c with debug logging added), presented, simulated Blood Gulch game, 45 s windows after a 15 s lead, 2026-11-21 to 2026-11-22"
+
+[evidence."variable.display.encode_thread"]
+basis = "measured"
+why = "Variable workload only. Same build, thread against off, interleaved in one session (six campaign rounds, four 16-player rounds, 30 frames a second): in multiplayer the thread showed input sooner, controller to shown 57.3 ms at the median against 64.9 ms off (32 windows each), on time 99.55% and 99.93% with it, 99.85% and 99.93% off; at 128 players (debug logging, soft particles off, dynamic resolution off) 20.0 and 21.0 frames a second with shown 65.9 and 99.1 ms, against 17.7 and 18.0 with shown 99.2 ms off. A second session on 19747c3f1 (signed build, two off and two on rounds interleaved, 16 players, 30 frames a second) did not repeat that gain: controller to shown 57.4 and 57.6 ms off against 65.8 and 57.5 ms with the thread, so equal in one pair and about one display step longer in the other; frames a second were 29.7 to 29.8 in all four rounds. The 16-player latency is therefore equal or within one display step either way, and the case for the thread rests on the 128-player rates above. In the single-player campaign the thread did not show input sooner (57.0 ms at the median against 48.9 ms off, 72 windows each, a display refresh step later in about half the windows), so the profile does not set it there and campaign keeps off. An earlier campaign pair read 65.7 ms with the thread against 99.2 ms off; the same device read 48.9 ms off later with the same code, so only comparisons inside one session count. Unmeasured: dynamic resolution on in the thread arm, and the A12X and A12Z iPad Pros and the A10X siblings (iPad7,1, iPad7,3, iPad7,4; the 10.5-inch iPad Pro), which take this profile as their fallback and so get the thread for multiplayer without a measurement of their own (accepted for the first release that carries it; a profile of their own replaces this once they are measured)."
+source = "VISR perf/a10x-encode-thread, signed builds of 13ef6962a and 19747c3f1, iPad Pro 12.9 (2nd generation), bench/latency-matrix.py and device-mp-ab.py, presented, debug.latency_log, 2026-11-23; 128-player pairs from perf/metal-encode-thread builds de74777c6 and 807307f1a (landed as main 18798b2dd)"
 
 [evidence."display.render_height"]
 basis = "measured"
@@ -102,3 +110,13 @@ why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPa
 basis = "measured"
 why = "In a 128-player Blood Gulch fight the Xbox's decal set held 19.4 frames a second where the raised set held 17.2 (three interleaved rounds each): 7.0 ms less CPU a frame, 3.9 of it in the simulation's decal allocation and 3.2 in drawing, and 3.0 ms less GPU. The raised set keeps about four times the marks; a small game fills neither. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
 source = "VISR main 1a41b6f59 with debug.verify_once_a_tick on, iPad Pro 12.9 (2nd generation), cost:mp128-bloodgulch-1029-p60 presented, 2026-11-20"
+
+[evidence."display.scene_precision"]
+basis = "measured"
+why = "At this profile's 30 frames a second and 900 lines, the 16-bit scene held 99.87% of frames on time in both rounds, the same as 8 bits, with lines unchanged at 900. The GPU time rose 1.5 ms at the median (12.7 to 13.3 ms against 14.1 to 14.8 ms) and 2.1 ms at the 95th percentile (16.6 to 17.5 ms against 19.1 to 19.2 ms) of a 33.3 ms frame, and the peak footprint 27 MB (795 to 822 MB). Thermal state stayed nominal."
+source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"
+
+[evidence."variable.display.scene_precision"]
+basis = "assumed"
+why = "Multiplayer and the other variable workloads were not measured at 16 bits (larger games, wider dynamic resolution), so they keep the 8-bit scene until a pair there shows the cost."
+source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"

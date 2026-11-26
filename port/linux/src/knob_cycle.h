@@ -29,16 +29,18 @@ the shadow map and effect targets are allocated again at their new size on first
 allocated until the app quits. Not here because they cannot change while the game runs: display.upscaled_textures,
 display.compressed_textures, display.renderer and display.foveation. */
 static const struct knob knob_table[] = {
-	{ "render lines", "display.render_height", KNOB_INTEGER, 5, { "0", "540", "720", "900", "1080" },
-		{ "profile", "540", "720", "900", "1080" } },
+	/* (no "profile" step: a live set is the player's own choice for this run, which a profile's value never
+	replaces again until the app quits) */
+	{ "render lines", "display.render_height", KNOB_INTEGER, 4, { "540", "720", "900", "1080" },
+		{ "540", "720", "900", "1080" } },
 	{ "shadow map", "display.shadow_map_size", KNOB_INTEGER, 3, { "128", "256", "512" },
 		{ "128", "256", "512" } },
 	{ "anisotropy", "display.anisotropic_filtering", KNOB_INTEGER, 5, { "1", "2", "4", "8", "16" },
 		{ "1x", "2x", "4x", "8x", "16x" } },
 	{ "model detail", "display.model_lod", KNOB_STRING, 2, { "auto", "max" }, { "auto", "max" } },
-	/* (MSAA 4x is left out: it misses the Vision Pro's 90 Hz at every render quality measured; display.anti_aliasing
-	still takes "msaa4x") */
-	{ "anti-aliasing", "display.anti_aliasing", KNOB_STRING, 4, { "off", "fxaa", "smaa", "msaa2x" }, { "off", "FXAA", "SMAA", "MSAA 2x" } },
+	/* (only the choices profiles and --set accept, port_profile_keys.h: the chord's set goes through config_set_live,
+	which refuses multisampling there) */
+	{ "anti-aliasing", "display.anti_aliasing", KNOB_STRING, 3, { "off", "fxaa", "smaa" }, { "off", "FXAA", "SMAA" } },
 	{ "render quality", "display.render_quality", KNOB_REAL, 3, { "0.5", "0.6", "0.7" }, { "0.5", "0.6", "0.7" } },
 	{ "effect resolution", "display.effect_resolution", KNOB_STRING, 3, { "xbox", "half", "full" }, { "xbox", "half", "full" } },
 	{ "per-pixel lighting", "display.per_pixel_lighting", KNOB_BOOLEAN, 2, { "false", "true" }, { "off", "on" } },
@@ -46,7 +48,12 @@ static const struct knob knob_table[] = {
 		{ "off", "1 dim", "2", "3", "4 bright" } },
 	{ "point lights", "display.point_light_limit", KNOB_INTEGER, 4, { "2", "4", "6", "8" }, { "2", "4", "6", "8" } },
 	/* debug.ssao (spike): off, on, the AO term alone (d3d8_device.c) */
-	{ "ambient occlusion", "debug.ssao", KNOB_INTEGER, 3, { "0", "1", "2" }, { "off", "on", "AO only" } },
+	{ "ambient occlusion", "debug.ssao", KNOB_INTEGER, 3, { "0", "1", "2" }, { "setting", "on", "AO only" } },
+	/* display.scene_precision: the scene's targets are made again in the other format from the next frame
+	(scene_precision_frame); debug.present_dither: the present pass's dither where the frame has more bits than the
+	layer, on or off from the next frame (the Apple TV grain check) */
+	{ "scene precision", "display.scene_precision", KNOB_INTEGER, 2, { "8", "16" }, { "8 bits", "16 bits" } },
+	{ "present dither", "debug.present_dither", KNOB_STRING, 2, { "off", "auto" }, { "off", "on" } },
 	/* (display.graphics: per-frame settings change on the next frame; Hardcore's picture size and rate at the next
 	level) */
 	{ "graphics", "display.graphics", KNOB_STRING, 3, { "hardcore", "classic", "enhanced" },

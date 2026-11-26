@@ -64,6 +64,8 @@ static uint32_t documented_queries(int family, int mac, int bc, uint32_t counter
 		queries |= Q(RATE_MAP);
 	if (family >= 3 || mac)
 		queries |= Q(METALFX_SPATIAL);
+	if (family >= 6 || mac)
+		queries |= Q(RAYTRACING_RENDER);
 	return queries;
 }
 
@@ -102,6 +104,10 @@ static void compare(const char *label, struct metal_gate_facts facts)
 		metal_feature(METAL_FEATURE_COUNTER_SAMPLING_DRAW));
 	/* gpu_metal.m's soft_particles_supported() reads this row: Apple4 or a Mac */
 	EXPECT("soft particles", apple[4] || mac, (metal_gate()->passes >> METAL_PASS_SOFT_PARTICLES) & 1);
+	/* gpu_metal.m's traced_shadows_supported(): hardware ray tracing, Apple9 and later, and an Apple silicon Mac only
+	by its Apple family (an M1 or M2 Mac traces in software, as an A14 does) */
+	EXPECT("traced shadows", (facts.queries & Q(RAYTRACING_RENDER)) && (apple[9] || (mac && !highest)),
+		metal_pass(METAL_PASS_TRACED_SHADOWS));
 	/* host_stereo.m */
 	EXPECT("stereo HUD depth", apple[7] || mac, metal_pass(METAL_PASS_STEREO_HUD_DEPTH));
 	/* host_device.m and host_benchmark.m */
@@ -127,6 +133,7 @@ static void check_every_answer(void)
 		{ METAL_QUERY_METALFX_SPATIAL, 3, 1, METAL_FEATURE_METALFX_SPATIAL },
 		{ METAL_QUERY_COUNTERS_STAGE, 2, 1, METAL_FEATURE_COUNTER_SAMPLING_STAGE },
 		{ METAL_QUERY_COUNTERS_DRAW, 2, 1, METAL_FEATURE_COUNTER_SAMPLING_DRAW },
+		{ METAL_QUERY_RAYTRACING_RENDER, 6, 1, METAL_FEATURE_RAYTRACING_RENDER },
 		{ METAL_QUERY_BC, 9, 1, METAL_FEATURE_BC_TEXTURES },
 		{ METAL_QUERY_FLOAT32_FILTER, 9, 1, METAL_FEATURE_FLOAT32_FILTERING },
 	};

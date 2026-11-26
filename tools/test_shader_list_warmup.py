@@ -72,9 +72,12 @@ struct nv2a_pixel_shader_key {
     unsigned char byte, alpha_test_samples, soft_depth, lighting_highlight;
     unsigned char lighting_point_lights, pad[3];
     unsigned int lighting_program[2];
+    unsigned int traced_shadow;
+    unsigned int light_visibility;
 };
 #define NV2A_PIXEL_SHADER_KEY_BASE_SIZE offsetof(struct nv2a_pixel_shader_key, alpha_test_samples)
 #define NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE offsetof(struct nv2a_pixel_shader_key, lighting_program)
+#define NV2A_PIXEL_SHADER_KEY_LIT_SIZE offsetof(struct nv2a_pixel_shader_key, traced_shadow)
 struct fragment_entry {
     struct fragment_entry *next;
     struct nv2a_pixel_shader_key key;
@@ -220,7 +223,7 @@ void gpu_pipeline_warm(const struct gpu_pipeline_description *description) {
     if (entry->key.lighting_program[0]) {
         assert(!entry->key.soft_depth);
         assert(entry->key.lighting_highlight == 2 && entry->key.lighting_point_lights == 3);
-        assert(nv2a_pixel_shader_key_size(&entry->key) == sizeof(entry->key));
+        assert(nv2a_pixel_shader_key_size(&entry->key) == NV2A_PIXEL_SHADER_KEY_LIT_SIZE);
     }
     if (entry->key.soft_depth) assert(nv2a_pixel_shader_key_size(&entry->key) == 8);
     pipeline_count++;

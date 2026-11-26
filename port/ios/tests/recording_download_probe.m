@@ -1,5 +1,6 @@
 /* Exercise signed benchmark-catalog-2 acquisition through the real store: one xz archive, verified by hash, expanded once.
  * argv[1] is an archive made by tools/data_pack.py (Python's lzma); archives built here use Apple's own encoder. */
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <CommonCrypto/CommonDigest.h>
 #import <objc/runtime.h>
@@ -77,7 +78,7 @@ static HostDataPackStore *Store(NSString *root, NSString *compatibility) {
 static void Update(HostDataPackStore *store,NSData *index) {
     responses[@"/packs/recordings-x.json"]=index;
     [store checkForUpdateAtURL:[NSURL URLWithString:@"https://feed.invalid/packs/recordings-x.json"]];
-    for (int i=0;i<1000 && [store valueForKey:@"session"];i++) [NSThread sleepForTimeInterval:0.01];
+    TEST_WAIT_UNTIL(![store valueForKey:@"session"]);
     CHECK(![store valueForKey:@"session"],"bounded acquisition finishes");
 }
 static NSInteger BlobRequests(void) {

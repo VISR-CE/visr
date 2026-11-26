@@ -23,6 +23,12 @@ enum
 	_saved_game_file_index_valid_bit
 };
 
+/* the fields of a saved game file index (the position in the mapfile across all types, the memory unit, the type) */
+#define SAVED_GAME_FILE_INDEX_TYPE(profile_index) ((profile_index)&0xF)
+#define SAVED_GAME_FILE_INDEX_MEMORY_UNIT(profile_index) (((profile_index)>>8)&0xFF)
+#define SAVED_GAME_FILE_INDEX_FILE_INDEX(profile_index) (((profile_index)>>16)&0xFFF)
+#define SAVED_GAME_FILE_INDEX_FILE_INDEX_SHIFT 16
+
 enum
 {
 	_saved_game_file_type_player_profile = 0,

@@ -20,9 +20,8 @@ typedef struct {unsigned short wButtons;unsigned char bAnalogButtons[8];short sT
 
 static int dev, kind = 2, lookup_player = -1, split, keyboard_active, last_menus;
 static int platform_menu_keyboard(void) { return keyboard_active; }
-static int glyph_keyboard_active;
-static int glyph_mouse_active;
 static int glyph_menus_active;
+static struct halo_glyph_motion glyph_mouse_motion;
 static int glyph_x_destructive;
 static int glyph_x_global;
 static struct halo_glyph_input glyph_menu_input;
@@ -32,8 +31,16 @@ static const char *configured="Q";
 /* BINDING SETTINGS */
 static const char *override;
 static int host_development_hooks(void) { return dev; }
-static const char *config_string(const char *name) { return !strcmp(name,"debug.controller_glyph_family") ? (override?override:"") : !strcmp(name,"controls.scoreboard") ? "T" : !strcmp(name,"controls.pause") ? "P" : configured; }
-static unsigned long config_changes(void) {return generation;}
+static const char *config_string(const char *name) { return !strcmp(name,"debug.controller_glyph_family") ? (override?override:""):""; }
+/* the profile of the player on gamepad 0: its bindings are the names in `configured` (Q or "Unbound,Q": a name of one
+letter is a key, any other is none), the scoreboard's T and the pause's P */
+unsigned short player_input_profile_binding(short player, short action, short slot) {
+ const char *text=action==15?"T":action==16?"P":configured;
+ char name[32]="", token[32]; size_t length; int index; (void)player;
+ for(index=0;index<=slot;index++){ while(*text==' '||*text==',')text++; length=strcspn(text,","); snprintf(token,sizeof(token),"%.*s",(int)length,text); text+=length; if(index==slot)snprintf(name,sizeof(name),"%s",token); }
+ return strlen(name)==1?(unsigned short)name[0]:0;
+}
+static int input_from_stable_code(unsigned short code) { return code?(int)code:-1; }
 int halo_input_from_name(const char *name) {return strlen(name)==1?name[0]:-1;}
 #define platform_log(...) ((void)0)
 static int sdl_gamepads(SDL_Gamepad **pads) { pads[0]=(void *)(uintptr_t)21;pads[1]=(void *)(uintptr_t)22;return 2; }
@@ -76,12 +83,12 @@ int main(void) {
  assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==2); /* shipping ignores override */
  dev=1;assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==1);
  assert(halo_controller_glyph_request(1,18,2,label,sizeof(label))==3 && !strcmp(label,"Q"));
- override="";glyph_keyboard_active=1;keyboard_active=1;
+ override="";glyph_menu_input.source=HALO_GLYPH_INPUT_KEYBOARD;keyboard_active=1;
  assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==3 && !strcmp(label,"Q"));
  assert(halo_controller_glyph_request(1,18,2,label,sizeof(label))==2);
- glyph_keyboard_active=0;assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==2);
+ glyph_menu_input.source=HALO_GLYPH_INPUT_CONTROLLER;assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==2);
  pointer.active=1;pointer.radius=22;
- halo_controller_glyph_pointer_activity(1,&pointer);assert(glyph_keyboard_active==0);
+ halo_controller_glyph_pointer_activity(1,&pointer);assert(glyph_menu_input.source==HALO_GLYPH_INPUT_CONTROLLER); /* an idle pointer */
  pointer.moved=1;halo_controller_glyph_pointer_activity(1,&pointer);
  assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==1);
  pointer.radius=0;pointer.picture=1;
@@ -99,19 +106,51 @@ int main(void) {
  assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
  glyph_x_global=0;
  assert(halo_controller_glyph_request(0,2,2,label,sizeof(label))==3 && !strcmp(label,"Mouse Right"));
+ /* the legend draws the input as it is shown: a capture pinned to the keyboard or to touch draws no mouse art
+    though the record says the mouse, and a second controller's legend follows the pin as the wording does */
+ override="keyboard";
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Enter"));
+ assert(halo_controller_glyph_request(0,2,2,label,sizeof(label))==3 && strcmp(label,"Mouse Right"));
+ assert(halo_controller_glyph_request(1,28,5,label,sizeof(label))==3 && !strcmp(label,"Enter"));
+ override="touch";
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==1);
+ assert(halo_controller_glyph_request(1,28,5,label,sizeof(label))==1);
+ override="xbox";
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==2 && !strncmp(label,"pad.",4));
+ override="";
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
  halo_controller_glyph_pointer_activity(0,NULL);
  assert(halo_controller_glyph_request(0,13,13,label,sizeof(label))==3 && !strcmp(label,"T"));
  assert(halo_controller_glyph_request(0,12,12,label,sizeof(label))==3 && !strcmp(label,"P"));
  halo_controller_glyph_pointer_activity(1,NULL);
  assert(halo_controller_glyph_request(0,13,13,label,sizeof(label))==3 && !strcmp(label,"F1"));
  assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
- glyph_keyboard_active=0;input.focused=1;input.keys[1]=1;keyboard_active=0;
- glyph_keyboard_activity(&input);assert(glyph_keyboard_active==0); /* software keyboard */
- keyboard_active=1;glyph_keyboard_activity(&input);assert(glyph_keyboard_active==1);
- memset(&input,0,sizeof(input));input.focused=1;input.mouse_dx=4;
- glyph_keyboard_active=0;glyph_keyboard_activity(&input);assert(glyph_keyboard_active==1);
- assert(!glyph_gamepad_active(&pad));pad.sThumbRX=10000;assert(glyph_gamepad_active(&pad));
- glyph_keyboard_active=glyph_gamepad_active(&pad)?0:1;
+ /* a software keyboard's keys stay touch input; a hardware key is the keyboard; a modifier alone and a Command
+    chord are the system's (the Command of Command-Tab) */
+ glyph_menu_input.source=HALO_GLYPH_INPUT_TOUCH;keyboard_active=0;
+ memset(&event,0,sizeof(event));event.type=SDL_EVENT_KEY_DOWN;event.key.scancode=SDL_SCANCODE_DOWN;
+ halo_controller_glyph_input_event(&event);assert(glyph_menu_input.source==HALO_GLYPH_INPUT_TOUCH);
+ keyboard_active=1;event.key.scancode=SDL_SCANCODE_LGUI;
+ halo_controller_glyph_input_event(&event);assert(glyph_menu_input.source==HALO_GLYPH_INPUT_TOUCH);
+ event.key.scancode=SDL_SCANCODE_TAB;event.key.mod=SDL_KMOD_LGUI;
+ halo_controller_glyph_input_event(&event);assert(glyph_menu_input.source==HALO_GLYPH_INPUT_TOUCH);
+ event.key.scancode=SDL_SCANCODE_DOWN;event.key.mod=0;
+ halo_controller_glyph_input_event(&event);assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+ /* a pad read once a frame counts when its use starts, not while a stick stays held */
+ {
+  struct halo_glyph_held use={0};
+  assert(!glyph_gamepad_controls(&pad));glyph_pad_activity(&use,&pad);
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+  pad.sThumbRX=10000;assert(glyph_gamepad_controls(&pad));glyph_pad_activity(&use,&pad);
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_CONTROLLER);
+  halo_controller_glyph_input_event(&event);glyph_pad_activity(&use,&pad);
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_KEYBOARD);
+  /* a button pressed with the stick still held is the pad again */
+  pad.wButtons=0x1000;glyph_pad_activity(&use,&pad);
+  assert(glyph_menu_input.source==HALO_GLYPH_INPUT_CONTROLLER);
+  pad.wButtons=0;
+ }
+ memset(&event,0,sizeof(event));
  event.type=SDL_EVENT_GAMEPAD_BUTTON_DOWN;event.gbutton.which=22;
  halo_controller_glyph_input_event(&event);
  assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==2);
@@ -143,7 +182,7 @@ int main(void) {
  event.type=SDL_EVENT_GAMEPAD_BUTTON_DOWN;event.gbutton.which=22;
  halo_controller_glyph_input_event(&event);
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==2 && !strcmp(label,"pad.22"));
- event.type=SDL_EVENT_KEY_DOWN;event.key.repeat=0;
+ memset(&event,0,sizeof(event));event.type=SDL_EVENT_KEY_DOWN;
  halo_controller_glyph_input_event(&event);
  for(int face=0;face<4;face++) {
   assert(halo_controller_glyph_request(0,-1,face,label,sizeof(label))==3);
@@ -151,7 +190,7 @@ int main(void) {
  }
  event.type=SDL_EVENT_FINGER_DOWN;halo_controller_glyph_input_event(&event);
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==1);
- event.type=SDL_EVENT_KEY_DOWN;event.key.repeat=1;
+ memset(&event,0,sizeof(event));event.type=SDL_EVENT_KEY_DOWN;event.key.repeat=1;
  halo_controller_glyph_input_event(&event);
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==1);
  event.key.repeat=0;halo_controller_glyph_input_event(&event);

@@ -101,6 +101,10 @@ off, so input is read no earlier and no later) */
 #define GPU_OPERATION_CLASS_soft_depth_finish RECORDED
 #define GPU_OPERATION_CLASS_ssao_warm AT_ONCE
 #define GPU_OPERATION_CLASS_ssao_apply RECORDED
+/* (the gate's answer and one atomic flag) */
+#define GPU_OPERATION_CLASS_traced_shadows_ready THREAD_SAFE
+#define GPU_OPERATION_CLASS_traced_shadows_data RECORDED
+#define GPU_OPERATION_CLASS_traced_shadows_resolve RECORDED
 #define GPU_OPERATION_CLASS_set_upscaler RECORDED
 #define GPU_OPERATION_CLASS_upscaler QUERY
 #define GPU_OPERATION_CLASS_set_crt RECORDED
@@ -115,21 +119,30 @@ there is static: the backend's operations are reached through its table, gpu_bac
 others). tools/gpu_metal_entry_points.py checks the built gpu_metal.o's functions against this list after every
 iOS, tvOS and macOS build (tools/ios_build.py, tools/macos_build.py): a new one needs a row, or a place in the table.
 - THREAD_SAFE: reads or counts through atomics, or reads a switch set for the run, from any thread
-  (gpu_metal_count_gpu_time: a command buffer that host_stereo.m or host_theater.m committed itself).
+  (gpu_metal_count_gpu_time: a command buffer that host_stereo.m or host_theater.m committed itself), or sets
+  such a switch with an atomic store the presenter reads at its next present (host_present_dither_set: the guest's
+  knob chord).
 - WORKGROUP: acts on the frame-deadline workgroup the presenting thread joined (the dispatch, the benchmark pages,
   share sheets, cloud saves, host_tv.m). They stay direct calls with the encode thread, which joins the workgroup and
   starts the interval at its present's return, before the barrier lets the game thread go: the game thread's end comes
   before its present is recorded and the encode thread's present ends it again, a non-member's end does nothing, and
   _leave and _hold return early with a game thread.
+- SWITCH: the dispatch's rewrap calls it on the game thread at a frame boundary, with the queue drained and the encode
+  thread idle, as the encode thread starts or ends (host_gpu_dispatch.c, encode_queue_rewrap). The encode thread's end
+  hook (gpu_metal_frame_deadline_encode_thread_ending) is WORKGROUP: it leaves, on the encode thread, what that thread joined.
 - SURFACE: reads the game layer's drawable size where the presenter reads it (host_picture_drawable: every pointer
   source maps through it). */
 #define GPU_METAL_DIRECT_ENTRY_POINTS(E) \
 	E(gpu_metal_async_compiles, THREAD_SAFE) \
 	E(gpu_metal_count_gpu_time, THREAD_SAFE) \
 	E(gpu_metal_gpu_spans_summary, THREAD_SAFE) \
+	E(host_present_dither_set, THREAD_SAFE) \
 	E(gpu_metal_frame_deadline_end, WORKGROUP) \
 	E(gpu_metal_frame_deadline_leave, WORKGROUP) \
 	E(gpu_metal_frame_deadline_hold, WORKGROUP) \
+	E(gpu_metal_frame_deadline_before_switch, SWITCH) \
+	E(gpu_metal_frame_deadline_encode_thread_ending, WORKGROUP) \
+	E(gpu_metal_encode_owner_reset, SWITCH) \
 	E(host_picture_drawable, SURFACE)
 
 #define GPU_OPERATION_PASTE_(a, b) a##b

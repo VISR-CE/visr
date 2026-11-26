@@ -240,6 +240,10 @@ static const struct config_setting config_settings[] =
 		"Smoke, dust and plasma fade where they meet the ground and walls instead of\n"
 		"cutting a hard line (camera-facing particles; Metal, not in stereo or with\n"
 		"multisampling). Hardcore turns it off (display.graphics).", _tier_player },
+	{ "display.scene_precision", _config_integer, "8", "HALO_SCENE_PRECISION", _environment_value, _platform_all,
+		"Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal),\n"
+		"with a 10-bit layer where the display takes one. Changes at a graphics mode switch, and at a map\n"
+		"load into the other workload context. Hardcore keeps 8 (display.graphics).", _tier_derived },
 	{ "display.effect_limits", _config_string, "\"raised\"", "HALO_EFFECT_LIMITS", _environment_value, _platform_all,
 		"How many bullet holes, scorch marks and blood stains a level keeps, and how\n"
 		"many particles each split-screen player sees of an effect: \"raised\" (default)\n"
@@ -256,6 +260,19 @@ static const struct config_setting config_settings[] =
 		"ambient occlusion over the level's light and, weaker, the objects), which the original game never\n"
 		"drew. Metal, one view, not multisampled and not in stereo. Enhanced graphics only: Classic and\n"
 		"Hardcore turn it off (display.graphics). debug.ssao, when set, wins over it.", _tier_player },
+	{ "display.traced_shadows", _config_boolean, "false", "HALO_TRACED_SHADOWS", _environment_value, _platform_ios,
+		"Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of\n"
+		"reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from\n"
+		"it. The game still decides which shadows fall where, how dark and how they fade. A device profile's\n"
+		"choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs\n"
+		"and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic\n"
+		"and Hardcore turn it off (display.graphics)." },
+	{ "display.traced_lights", _config_integer, "0", "HALO_TRACED_LIGHTS", _environment_value, _platform_ios,
+		"How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the\n"
+		"level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as\n"
+		"the game draws them, and none unless display.traced_shadows is on too. A device profile's choice,\n"
+		"with display.traced_shadows, for GPUs with ray tracing hardware (Apple GPU family 9 and later).\n"
+		"Enhanced graphics only: Classic and Hardcore turn it off (display.graphics)." },
 	{ "display.shadow_props", _config_boolean, "true", "HALO_SHADOW_PROPS", _environment_value, _platform_all,
 		"Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and\n"
 		"light fixtures) a shadow of their own, which the original game never drew for scenery or devices.\n"
@@ -678,6 +695,9 @@ static const struct config_setting config_settings[] =
 		"Enable developer map framing controls in the development AppKit Mac host." },
 	{ "debug.map_pictures_render", _config_boolean, "false", "HALO_MAP_PICTURES_RENDER", _environment_value, _platform_all,
 		"At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. Development AppKit Mac host only." },
+	{ "debug.map_pictures_scan", _config_boolean, "false", "HALO_MAP_PICTURES_SCAN", _environment_value, _platform_all,
+		"Run the launch check of the map pictures even in a runner's run (it is skipped there otherwise), so a stale or missing\n"
+		"picture brings up the preparing maps stage from the main menu. For testing the refresh." },
 	{ "debug.orientation", _config_string, "\"\"", "HALO_ORIENTATION", _environment_value, _platform_ios,
 		"Request \"portrait\" or \"landscape\" once the first window scene is active;\n"
 		"empty leaves the device's orientation alone. A comma list with seconds\n"
@@ -859,9 +879,11 @@ static const struct config_setting config_settings[] =
 		"Whether the Metal renderer's commands go through an encode thread.\n"
 		"\"off\" (default): the game thread calls the renderer. \"thread\": an encode\n"
 		"thread calls the renderer while the game thread goes on; each frame's\n"
-		"present waits for it. A device profile turns it on where it measures\n"
-		"better. debug.encode_thread overrides it. Needs the game thread; not on\n"
-		"visionOS or Mac Catalyst.", _tier_tuning, "|off|thread" },
+		"present waits for it. A device profile turns it on for multiplayer and\n"
+		"the other variable workloads where it measures better; single-player\n"
+		"campaign keeps this setting, and a map's start switches the thread.\n"
+		"debug.encode_thread overrides it. Needs the game thread; not on\n"
+		"visionOS or Mac Catalyst." },
 	{ "display.frames_in_flight", _config_string, "\"\"", "HALO_FRAMES_IN_FLIGHT", _environment_value, _platform_ios,
 		"How many frames the Metal renderer may have on their way to the display\n"
 		"at once, \"1\" to \"3\": a frame isn't started on its way until fewer than\n"
@@ -950,6 +972,13 @@ static const struct config_setting config_settings[] =
 		"where they exist; false draws the maps' own. A device profile that sets\n"
 		"false turns them off whatever this says. Takes effect at the next\n"
 		"level load." },
+	{ "display.repaired_textures", _config_boolean, "true", "HALO_REPAIRED_TEXTURES", _environment_value, _platform_all,
+		"Repair the banding stored in the maps' textures when they are imported on this\n"
+		"device: the lightmaps and the smooth gradients (skies, fog, glow) were stored with\n"
+		"5 or 6 bits a channel, so they show steps, and the repair rebuilds the gradient\n"
+		"they were rounded from without moving a texel farther than the rounding could have.\n"
+		"Runs on every device, with or without upscaled textures; Hardcore draws the maps'\n"
+		"own textures (display.graphics). Takes effect at the next level load.", _tier_tuning },
 	{ "display.upscaled_textures_memory", _config_integer, "0", "HALO_UPSCALED_TEXTURES_MEMORY", _environment_value,
 		_platform_all,
 		"The most memory the upscaled textures may take, in MB; 0 (default) picks\n"
@@ -1038,65 +1067,10 @@ static const struct config_setting config_settings[] =
 		"How far a controller stick moves before it counts, from 0 to 1. At 0.27\n"
 		"(the Xbox's) the game's own square dead zone applies; lower values make a\n"
 		"round one of that size (0.1 suits most modern controllers).", _tier_player },
-	{ "input.mouse_sensitivity", _config_real, "1.0", "HALO_MOUSE_SENSITIVITY", _environment_value, _platform_desktop,
-		"How far the view turns for the mouse's movement.", _tier_player },
-	{ "input.invert_mouse", _config_boolean, "false", "HALO_MOUSE_INVERT", _environment_set_is_true, _platform_desktop,
-		"Moving the mouse forward looks down.", _tier_player },
 	{ "network.block_mouse_aim_assist", _config_boolean, "false", "HALO_NET_BLOCK_MOUSE_AIM_ASSIST", _environment_value,
 		_platform_all, "Host: disable optional mouse magnetism for mouse/keyboard players. Controllers and touch keep their own assist.", _tier_player },
-	{ "input.mouse_aim_assist", _config_boolean, "false", "HALO_MOUSE_AIM_ASSIST", _environment_value, _platform_desktop,
-		"Magnetism while aiming with the mouse, as with a controller: the view\n"
-		"slowed and dragged along by a target. The last of the mouse and the\n"
-		"right stick to move decides. The bullets' autoaim (bent toward the\n"
-		"target) stays either way.", _tier_player },
-	{ "input.mouse_vertical_sensitivity", _config_real, "0.0", "HALO_MOUSE_VERTICAL_SENSITIVITY", _environment_value,
-		_platform_desktop,
-		"How far the view turns up and down for the mouse's movement; 0 for the\n"
-		"same as input.mouse_sensitivity.", _tier_player },
 
-	/* the keyboard and mouse's own controls (port/linux/src/xinput_sdl.c) */
-	{ "controls.move_forward", _config_string, "\"W\"", "HALO_KEY_MOVE_FORWARD", _environment_value, _platform_all,
-		"The keyboard and mouse's controls, which Settings > Controls Setup\n"
-		"changes: up to two keys or buttons each, separated by a comma. Keys by\n"
-		"their names (\"W\", \"Space\", \"Left Ctrl\", \"F1\"), and \"Mouse Left\",\n"
-		"\"Mouse Right\", \"Mouse Middle\", \"Mouse 4\", \"Mouse 5\", \"Wheel\" (either\n"
-		"way), \"Wheel Up\" and \"Wheel Down\"; empty for none. Moving forward:", _tier_player },
-	{ "controls.move_backward", _config_string, "\"S\"", "HALO_KEY_MOVE_BACKWARD", _environment_value, _platform_all,
-		"Moving backward.", _tier_player },
-	{ "controls.strafe_left", _config_string, "\"A\"", "HALO_KEY_STRAFE_LEFT", _environment_value, _platform_all,
-		"Moving left.", _tier_player },
-	{ "controls.strafe_right", _config_string, "\"D\"", "HALO_KEY_STRAFE_RIGHT", _environment_value, _platform_all,
-		"Moving right.", _tier_player },
-	{ "controls.jump", _config_string, "\"Space\"", "HALO_KEY_JUMP", _environment_value, _platform_all,
-		"Jumping (and skipping cutscenes).", _tier_player },
-	{ "controls.crouch", _config_string, "\"Left Ctrl, C\"", "HALO_KEY_CROUCH", _environment_value, _platform_all,
-		"Crouching.", _tier_player },
-	{ "controls.fire", _config_string, "\"Mouse Left\"", "HALO_KEY_FIRE", _environment_value, _platform_all,
-		"Firing.", _tier_player },
-	{ "controls.throw_grenade", _config_string, "\"Mouse Right, G\"", "HALO_KEY_THROW_GRENADE", _environment_value,
-		_platform_all,
-		"Throwing a grenade.", _tier_player },
-	{ "controls.melee", _config_string, "\"F, Mouse 4\"", "HALO_KEY_MELEE", _environment_value, _platform_all,
-		"Melee attack.", _tier_player },
-	{ "controls.reload", _config_string, "\"R\"", "HALO_KEY_RELOAD", _environment_value, _platform_all,
-		"Reloading.", _tier_player },
-	{ "controls.zoom", _config_string, "\"Z, Mouse Middle\"", "HALO_KEY_ZOOM", _environment_value, _platform_all,
-		"Zooming the scope.", _tier_player },
-	{ "controls.switch_weapon", _config_string, "\"Wheel, Tab\"", "HALO_KEY_SWITCH_WEAPON", _environment_value,
-		_platform_all,
-		"Switching weapons.", _tier_player },
-	{ "controls.switch_grenade", _config_string, "\"X\"", "HALO_KEY_SWITCH_GRENADE", _environment_value, _platform_all,
-		"Switching grenades.", _tier_player },
-	{ "controls.action", _config_string, "\"E\"", "HALO_KEY_ACTION", _environment_value, _platform_all,
-		"The action: picking up (held: swapping weapons), entering and leaving\n"
-		"vehicles, pressing switches; never reloading (the controller's X does\n"
-		"when there is nothing to act on).", _tier_player },
-	{ "controls.flashlight", _config_string, "\"Q\"", "HALO_KEY_FLASHLIGHT", _environment_value, _platform_all,
-		"The flashlight.", _tier_player },
-	{ "controls.scoreboard", _config_string, "\"1\"", "HALO_KEY_SCOREBOARD", _environment_value, _platform_all,
-		"Showing the scores (the controller's Back).", _tier_player },
-	{ "controls.pause", _config_string, "\"Escape\"", "HALO_KEY_PAUSE", _environment_value, _platform_all,
-		"The pause menu (the controller's Start).", _tier_player },
+	/* (the mouse's and the keyboard's settings are the player profile's: port/linux/game/player_input_profile.c) */
 
 	{ "game.console_log", _config_string, "\"important\"", "HALO_CONSOLE_LOG", _environment_value, _platform_all,
 		"What the game's console shows on screen of what it logs: \"important\"\n"
@@ -1632,7 +1606,10 @@ static const struct config_setting config_settings[] =
 	{ "debug.telnet_console", _config_boolean, "false", "HALO_TELNET_CONSOLE", _environment_set_is_true, _platform_all,
 		"Listen on 127.0.0.1 (port telnet_console_port) for a script console that\n"
 		"runs what it is sent as the game's console does, with no password; false\n"
-		"none." },
+		"none. Development builds also take \"visr_set SECTION.KEY VALUE\" there,\n"
+		"which sets a setting for this run only (nothing is written), and\n"
+		"\"visr_cinematic [skip]\", which says whether a cinematic runs and can be\n"
+		"skipped, and asks to skip it as the skip button does." },
 	{ "debug.telnet_console_port", _config_integer, "2323", "HALO_TELNET_CONSOLE_PORT", _environment_value,
 		_platform_all,
 		"The port of the script console (telnet_console); the Xbox's was 23, which\n"
@@ -1823,6 +1800,13 @@ static const struct config_setting config_settings[] =
 	{ "debug.encode_thread_timing", _config_boolean, "false", "HALO_ENCODE_THREAD_TIMING", _environment_set_is_true, _platform_ios,
 		"With the encode queue on: also time the renderer's share of the\n"
 		"queue's work, in the log line it writes every 300 frames." },
+	{ "debug.stereo_replay", _config_string, "\"off\"", "HALO_STEREO_REPLAY", _environment_value, _platform_ios,
+		"Stereo with Metal: \"on\" draws the second eye by making the first eye's\n"
+		"renderer commands again into its targets with its own camera, instead\n"
+		"of drawing the scene a second time; a frame with a mirror in view draws\n"
+		"it as with \"off\". \"verify\" draws the second eye as with \"off\",\n"
+		"compares the replay's commands with it and logs the first differences.\n"
+		"Needs debug.encode_thread \"inline\" or \"thread\".", _tier_derived, "off|on|verify" },
 	{ "debug.latency_log", _config_boolean, "false", "HALO_LATENCY_LOG", _environment_set_is_true, _platform_ios,
 		"Logs a latency line every 300 frames: how old the controller state was\n"
 		"when the game read it, and the time from that read to the frame's\n"
@@ -2041,6 +2025,25 @@ static const struct config_setting config_settings[] =
 		"drawing, saves one picture to benchmark_window_shot, and exits; nothing is timed." },
 	{ "debug.benchmark_shot_tick", _config_integer, "0", "HALO_BENCHMARK_SHOT_TICK", _environment_value, _platform_all,
 		"With benchmark_shot_pass, the tick after the window opens to take the picture at; 0 is the window's end." },
+	{ "debug.scene_format", _config_string, "\"\"", "HALO_SCENE_FORMAT", _environment_value, _platform_all,
+		"Measurement: the pixel format of the targets that hold the scene's color (Metal, mono), in place of\n"
+		"display.scene_precision's: bgra8, rgba16, rgba16f, rgb10a2 (timing only: two bits of alpha) or bgra10_xr;\n"
+		"empty follows display.scene_precision.", _tier_derived, "|bgra8|rgba16|rgba16f|rgb10a2|bgra10_xr" },
+	{ "debug.output_format", _config_string, "\"\"", "HALO_OUTPUT_FORMAT", _environment_value, _platform_all,
+		"Measurement: the Metal layer's pixel format in place of the one display.scene_precision picks: bgra8,\n"
+		"bgr10a2, bgr10_xr, bgra10_xr or rgba16f; empty follows display.scene_precision.", _tier_derived,
+		"|bgra8|bgr10a2|bgr10_xr|bgra10_xr|rgba16f" },
+	{ "debug.present_dither", _config_string, "\"auto\"", "HALO_PRESENT_DITHER", _environment_value, _platform_all,
+		"The fixed blue-noise dither where the present pass writes a 16-bit frame to a layer with fewer bits: auto\n"
+		"(on whenever that is so) or off. debug.knob_cycle's chord changes it as the game runs (the Apple TV grain\n"
+		"check).", _tier_derived, "auto|off" },
+	{ "debug.precision_ramp", _config_boolean, "false", "HALO_PRECISION_RAMP", _environment_value, _platform_all,
+		"The present pass draws the display-depth test ramp in place of the picture: the darkest sixteen 8-bit\n"
+		"levels left to right, the top third rounded to 8 bits, the middle third at the layer's depth, the bottom\n"
+		"third dithered (Metal; with display.scene_precision 16 the layer is 10-bit where it can be)." },
+	{ "debug.screenshot_raw", _config_boolean, "false", "HALO_SCREENSHOT_RAW", _environment_value, _platform_all,
+		"With screenshot_directory: a read of a scene target that is not BGRA8 also saves the target's own values\n"
+		"as rawNNNNN.<format> (for banding analysis)." },
 	{ "debug.screenshot_directory", _config_string, "\"\"", "HALO_SCREENSHOT_DIR", _environment_value, _platform_all,
 		"A folder to save frames to (with screenshot_every); empty none." },
 	{ "debug.shadow_scenery", _config_integer, "0", "HALO_SHADOW_SCENERY", _environment_value, _platform_all,
@@ -2050,6 +2053,67 @@ static const struct config_setting config_settings[] =
 		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over\n"
 		"the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they\n"
 		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur.", _tier_derived, "footprint|xbox" },
+	{ "debug.traced_light_blocking", _config_integer, "-1", "HALO_TRACED_LIGHT_BLOCKING", _environment_value, _platform_ios,
+		"What blocks the lights display.traced_lights traces: 1 the level's surfaces; 2 the objects that cast\n"
+		"shadows too; 3 also objects with no shadow of their own (too faint, or doors and other devices). 0\n"
+		"traces no light whatever the profile says; -1 (the default) is 3 when display.traced_lights is above\n"
+		"0. A value above 0 also turns the tracing on without the profile key, for measurements." },
+	{ "debug.traced_lights_fixtures", _config_boolean, "false", "HALO_TRACED_LIGHTS_FIXTURES", _environment_value, _platform_ios,
+		"With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and\n"
+		"devices, which display.traced_lights leaves as the game draws them), for stills and measurements." },
+	{ "debug.traced_light_family_log", _config_boolean, "false", "HALO_TRACED_LIGHT_FAMILY_LOG", _environment_value, _platform_ios,
+		"With display.traced_lights: log each traced light (frame, position, radius, strength, distance from the eye)\n"
+		"with its owner, the owner's family root and mask bit, and the first caster sent each frame with its family\n"
+		"bit." },
+	{ "debug.traced_light_depth_point", _config_integer, "0", "HALO_TRACED_LIGHT_DEPTH_POINT", _environment_value, _platform_ios,
+		"With display.traced_lights: 1 every traced light pass rebuilds its lit points from depth, as the specular\n"
+		"spot pass must, instead of from its attenuation coordinate, so that stills with and without it prove the two\n"
+		"agree; 2 the passes with an attenuation coordinate draw how far the depth point is from it (red, 1 at a world\n"
+		"unit; green where the depth point lies behind the camera); 3 which part of the rebuild is off (red: depth more\n"
+		"than 2% off; green: screen position off; blue where it is drawn); 4 the numbers over green 1 (red: 0.5 + 25 x\n"
+		"(depth ratio - 1); blue: ten times the distance between the two points)." },
+	{ "debug.traced_light_depth_bias", _config_real, "0.002", "HALO_TRACED_LIGHT_DEPTH_BIAS", _environment_value, _platform_ios,
+		"With display.traced_lights: a point rebuilt from depth starts its ray this fraction of its view distance off\n"
+		"its surface, so that the surface it lies on does not block it." },
+	{ "debug.traced_light_owner", _config_real, "0.3", "HALO_TRACED_LIGHT_OWNER", _environment_value, _platform_ios,
+		"With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not\n"
+		"block it, so the character carrying a flashlight does not shadow its own beam." },
+	{ "debug.traced_light_viewer", _config_real, "1.0", "HALO_TRACED_LIGHT_VIEWER", _environment_value, _platform_ios,
+		"With debug.traced_light_blocking: a light within this many world units of the eye counts as carried by\n"
+		"the viewer (the flashlight), for debug.traced_light_carried." },
+	{ "debug.traced_light_carried", _config_boolean, "true", "HALO_TRACED_LIGHT_CARRIED", _environment_value, _platform_ios,
+		"With debug.traced_light_blocking: a light the viewer carries ends its rays short of itself by its\n"
+		"distance from the eye plus debug.traced_light_stop_margin, so it is not lost on a wall the player\n"
+		"stands against. False traces it as any other light." },
+	{ "debug.traced_light_stop_margin", _config_real, "0.1", "HALO_TRACED_LIGHT_STOP_MARGIN", _environment_value, _platform_ios,
+		"With debug.traced_light_carried 1: world units added to the light's distance from the eye." },
+	{ "debug.traced_light_repeat", _config_integer, "1", "HALO_TRACED_LIGHT_REPEAT", _environment_value, _platform_ios,
+		"For cost measurements: trace debug.traced_light_blocking's rays this many times over (1 to 64); the\n"
+		"picture is the same." },
+	{ "debug.traced_shadows_any_gpu", _config_boolean, "false", "HALO_TRACED_SHADOWS_ANY_GPU", _environment_set_is_true,
+		_platform_ios,
+		"With display.traced_shadows: trace on any GPU Metal can trace on, also those without ray tracing\n"
+		"hardware (Apple GPU families 6 to 8, in software), to measure them." },
+	{ "debug.traced_shadows_break_only", _config_boolean, "false", "HALO_TRACED_SHADOWS_BREAK_ONLY", _environment_set_is_true,
+		_platform_ios,
+		"With display.traced_shadows: leave and reenter the scene's render pass as traced shadows do, and draw\n"
+		"the shadows from their maps as usual, to measure the cost of the pass break alone." },
+	{ "debug.traced_shadows_filter", _config_boolean, "true", "HALO_TRACED_SHADOWS_FILTER", _environment_value, _platform_ios,
+		"With display.traced_shadows: soften each traced shadow by its distance from its caster. False leaves\n"
+		"the one ray's hard edge, to compare and to measure the filter's cost." },
+	{ "debug.traced_shadows_light_angle", _config_real, "3.0", "HALO_TRACED_SHADOWS_LIGHT_ANGLE", _environment_value,
+		_platform_ios,
+		"With display.traced_shadows: the light's half-angle in degrees, which sets how fast a shadow's edge\n"
+		"widens with distance from its caster." },
+	{ "debug.traced_shadows_refit", _config_boolean, "true", "HALO_TRACED_SHADOWS_REFIT", _environment_value, _platform_ios,
+		"With display.traced_shadows: update a moving caster's acceleration structure in place. False builds\n"
+		"it again every frame, to measure which costs less." },
+	{ "debug.traced_shadows_view", _config_integer, "0", "HALO_TRACED_SHADOWS_VIEW", _environment_value, _platform_ios,
+		"With display.traced_shadows: 1 shows the traced term's color in place of the scene, 2 its penumbra\n"
+		"radius, for looking at what the filter is given." },
+	{ "debug.traced_shadows_world", _config_boolean, "true", "HALO_TRACED_SHADOWS_WORLD", _environment_value, _platform_ios,
+		"With display.traced_shadows: a shadow's ray also stops at the level's own surfaces, so a shadow does\n"
+		"not reach through a floor or a wall to a surface beyond it." },
 	{ "debug.screenshot_frames", _config_string, "\"\"", "HALO_SCREENSHOT_FRAMES", _environment_value, _platform_all,
 		"With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them);\n"
 		"empty saves every one." },
@@ -2063,7 +2127,7 @@ static const struct config_setting config_settings[] =
 	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
 		_platform_all,
 		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },
-	{ "debug.soft_particle_distance", _config_real, "0.06", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
+	{ "debug.soft_particle_distance", _config_real, "0.12", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
 		"With display.soft_particles: how far in front of a surface a particle starts to fade, in world units\n"
 		"(1 is 10 feet)." },
 	{ "debug.soft_particle_scale", _config_integer, "2", "HALO_SOFT_PARTICLE_SCALE", _environment_value, _platform_all,
@@ -2075,7 +2139,7 @@ static const struct config_setting config_settings[] =
 		"A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on,\n"
 		"2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone\n"
 		"(Metal; mono views only)." },
-	{ "debug.ssao_radius", _config_real, "0.3", "HALO_SSAO_RADIUS", _environment_value, _platform_ios,
+	{ "debug.ssao_radius", _config_real, "0.6", "HALO_SSAO_RADIUS", _environment_value, _platform_ios,
 		"With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet)." },
 	{ "debug.ssao_strength", _config_real, "1.5", "HALO_SSAO_STRENGTH", _environment_value, _platform_ios,
 		"With debug.ssao: the power the visibility is raised to; higher darkens more." },
@@ -2090,7 +2154,7 @@ static const struct config_setting config_settings[] =
 		"With debug.ssao: steps a side along each direction in place of debug.ssao_high's; 0 its own." },
 	{ "debug.ssao_max_pixels", _config_real, "0.12", "HALO_SSAO_MAX_PIXELS", _environment_value, _platform_ios,
 		"With debug.ssao: the farthest a sample goes on screen, as a fraction of the view's height." },
-	{ "debug.ssao_fade_distance", _config_real, "35", "HALO_SSAO_FADE_DISTANCE", _environment_value, _platform_ios,
+	{ "debug.ssao_fade_distance", _config_real, "70", "HALO_SSAO_FADE_DISTANCE", _environment_value, _platform_ios,
 		"With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units)." },
 	{ "debug.ssao_level_floor", _config_real, "0.35", "HALO_SSAO_LEVEL_FLOOR", _environment_value, _platform_ios,
 		"With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black)." },
@@ -2185,6 +2249,48 @@ static const struct config_setting config_settings[] =
 
 #define NUMBER_OF_CONFIG_SETTINGS (sizeof(config_settings) / sizeof(config_settings[0]))
 
+/* the settings a running game does not read again: config_set_live refuses them (relaunch to change one), and
+tools/settings_schema.py exports them as "x-live": false. Every setting whose comment says "Read at start." is
+here (tools/test_settings_schema.py checks it), and these others: the script console's own two, and the texture
+override folder, applied as each texture uploads. Any other setting is taken to be read while the game runs. */
+static const char *const config_launch_only[] =
+{
+	"display.lod_scale",
+	"display.first_person_body_offset",
+	"display.weapon_offset_down",
+	"display.weapon_offset_back",
+	"display.eye_height_offset",
+	"display.seat_look_fade",
+	"display.seat_look_fade_start",
+	"display.seat_look_fade_black",
+	"display.pod_look_fade_start",
+	"display.pod_look_fade_end",
+	"display.pod_look_fade_dim",
+	"display.seat_look_fade_blur",
+	"display.film_depth_share",
+	"display.film_convergence",
+	"display.screen_depth_share",
+	"display.screen_convergence",
+	"display.screen_framing",
+	"display.stereo_vehicle_screen",
+	"display.hud_corner_across",
+	"display.hud_corner_up",
+	"display.hud_tracker_down",
+	"display.hud_messages_up",
+	"display.hud_scale",
+	"display.hud_distance",
+	"display.hud_depth",
+	"display.hud_depth_share",
+	"display.hud_depth_floor",
+	"display.hud_depth_pull_in",
+	"display.hud_depth_relax",
+	"display.hud_depth_relax_delay",
+	"display.hud_resolution",
+	"debug.telnet_console",
+	"debug.telnet_console_port",
+	"debug.texture_override_directory",
+};
+
 /* the settings this build reads: on Apple builds, Apple Vision Pro's too
 (config_written says which a device writes) */
 #ifdef HALO_ILP32
@@ -2233,6 +2339,47 @@ static const char *const config_profile_keys[] =
 #define PROFILE_INTEGER(name, minimum, maximum) name,
 #define PROFILE_REAL(name, minimum, maximum) name,
 #define PROFILE_STRING(name, choices) name,
+#define PROFILE_SCENE(name)
+#define PROFILE_VARIABLE(name)
+#define PROFILE_EXTERNAL(name)
+#include "port_profile_keys.h"
+#undef PROFILE_BOOLEAN
+#undef PROFILE_INTEGER
+#undef PROFILE_REAL
+#undef PROFILE_STRING
+#undef PROFILE_SCENE
+#undef PROFILE_VARIABLE
+#undef PROFILE_EXTERNAL
+};
+
+/* the names a profile's string setting accepts ("a|b", port_profile_keys.h), for config_set_live's check of a string
+setting whose own table entry has no choices */
+static const struct { const char *name; const char *choices; } config_profile_choices[] =
+{
+#define PROFILE_BOOLEAN(name)
+#define PROFILE_INTEGER(name, minimum, maximum)
+#define PROFILE_REAL(name, minimum, maximum)
+#define PROFILE_STRING(name, choices) { name, choices },
+#define PROFILE_SCENE(name)
+#define PROFILE_VARIABLE(name)
+#define PROFILE_EXTERNAL(name)
+#include "port_profile_keys.h"
+#undef PROFILE_BOOLEAN
+#undef PROFILE_INTEGER
+#undef PROFILE_REAL
+#undef PROFILE_STRING
+#undef PROFILE_SCENE
+#undef PROFILE_VARIABLE
+#undef PROFILE_EXTERNAL
+};
+
+/* the range a profile's number setting accepts (port_profile_keys.h), which config_set_live holds a live value to */
+static const struct { const char *name; double minimum, maximum; } config_profile_ranges[] =
+{
+#define PROFILE_BOOLEAN(name)
+#define PROFILE_INTEGER(name, minimum, maximum) { name, minimum, maximum },
+#define PROFILE_REAL(name, minimum, maximum) { name, minimum, maximum },
+#define PROFILE_STRING(name, choices)
 #define PROFILE_SCENE(name)
 #define PROFILE_VARIABLE(name)
 #define PROFILE_EXTERNAL(name)
@@ -4261,6 +4408,252 @@ int config_set_unsaved(const char *name, const char *value)
 	config_set_from_text(&config_values[index], config_settings[index].type, value);
 	config_change_count++;
 	pthread_mutex_unlock(&config_lock);
+	return 1;
+}
+
+/* ---------- the one live set by name (visr_set, debug.knob_cycle) */
+
+static const struct config_value *config_scene_value_cached(size_t index, int scene, int external);
+
+static config_live_hook_function *config_live_hook;
+
+void config_set_live_hook(config_live_hook_function *hook)
+{
+	config_live_hook = hook;
+}
+
+/* whether text is one of choices ("a|b|#": an empty name accepts empty text, # a whole number 30 to 1000) */
+static int config_choice_accepted(const char *choices, const char *text)
+{
+	const char *start = choices;
+
+	for (;;)
+	{
+		const char *end = strchr(start, '|');
+		size_t length = end ? (size_t)(end - start) : strlen(start);
+
+		if (length == 1 && *start == '#')
+		{
+			char *rest;
+			long number = strtol(text, &rest, 10);
+
+			if (*text && !*rest && number >= 30 && number <= 1000)
+				return 1;
+		}
+		else if (strlen(text) == length && !strncmp(start, text, length))
+			return 1;
+		if (!end)
+			return 0;
+		start = end + 1;
+	}
+}
+
+static const char *config_string_choices(size_t index)
+{
+	size_t entry;
+
+	if (config_settings[index].choices)
+		return config_settings[index].choices;
+	for (entry = 0; entry < sizeof(config_profile_choices) / sizeof(config_profile_choices[0]); entry++)
+		if (!strcmp(config_profile_choices[entry].name, config_settings[index].name))
+			return config_profile_choices[entry].choices;
+	return NULL;
+}
+
+int config_setting_is_live(const char *name)
+{
+	size_t entry;
+
+	for (entry = 0; entry < sizeof(config_launch_only) / sizeof(config_launch_only[0]); entry++)
+		if (!strcmp(config_launch_only[entry], name))
+			return 0;
+	return config_setting_index(name) >= 0;
+}
+
+/* text as the setting's type, or why not (an empty why: it parsed) */
+static int config_parse_live(size_t index, const char *text, struct config_value *value, char *why, size_t why_size)
+{
+	char *rest = NULL;
+	const char *choices;
+	size_t entry;
+
+	why[0] = 0;
+	memset(value, 0, sizeof(*value));
+	switch (config_settings[index].type)
+	{
+	case _config_boolean:
+		if (config_text_is_false(text))
+			value->boolean = 0;
+		else if (!strcmp(text, "true") || !strcmp(text, "1") || !strcmp(text, "yes") || !strcmp(text, "on"))
+			value->boolean = 1;
+		else
+			snprintf(why, why_size, "%s is not true or false", text);
+		break;
+	case _config_integer:
+		value->integer = strtol(text, &rest, 10);
+		if (!*text || *rest)
+			snprintf(why, why_size, "%s is not a whole number", text);
+		break;
+	case _config_real:
+		value->real = strtod(text, &rest);
+		if (!*text || *rest || !isfinite(value->real))
+			snprintf(why, why_size, "%s is not a number", text);
+		break;
+	case _config_string:
+		choices = config_string_choices(index);
+		if (choices && !config_choice_accepted(choices, text))
+			snprintf(why, why_size, "%s is not one of %s", text, choices);
+		value->string = (char *)text;
+		break;
+	}
+	/* (a number a profile may set is held to the profile's range) */
+	if (!why[0] && (config_settings[index].type == _config_integer || config_settings[index].type == _config_real))
+	{
+		double number = config_settings[index].type == _config_integer ? (double)value->integer : value->real;
+
+		for (entry = 0; entry < sizeof(config_profile_ranges) / sizeof(config_profile_ranges[0]); entry++)
+			if (!strcmp(config_profile_ranges[entry].name, config_settings[index].name) &&
+				(number < config_profile_ranges[entry].minimum || number > config_profile_ranges[entry].maximum))
+				snprintf(why, why_size, "%s is outside %g to %g", text, config_profile_ranges[entry].minimum,
+					config_profile_ranges[entry].maximum);
+	}
+	return !why[0];
+}
+
+static int config_values_equal(enum config_type type, const struct config_value *a, const struct config_value *b)
+{
+	switch (type)
+	{
+	case _config_boolean:
+		return !a->boolean == !b->boolean;
+	case _config_integer:
+		return a->integer == b->integer;
+	case _config_real:
+		return a->real == b->real;
+	case _config_string:
+		return !strcmp(a->string ? a->string : "", b->string ? b->string : "");
+	}
+	return 0;
+}
+
+static void config_value_text(enum config_type type, const struct config_value *value, char *text, size_t size)
+{
+	switch (type)
+	{
+	case _config_boolean:
+		snprintf(text, size, "%s", value->boolean ? "true" : "false");
+		break;
+	case _config_integer:
+		snprintf(text, size, "%ld", value->integer);
+		break;
+	case _config_real:
+		snprintf(text, size, "%.15g", value->real);
+		break;
+	case _config_string:
+		snprintf(text, size, "%s", value->string ? value->string : "");
+		break;
+	}
+}
+
+int config_set_live(const char *name, const char *value, char *note, size_t note_size)
+{
+	long index = config_setting_index(name);
+	struct config_value wanted, saved;
+	enum config_source saved_source;
+	const struct config_value *in_force;
+	const char *mode;
+	char why[200], text[300];
+	int external = 0;
+
+	if (index < 0)
+	{
+		snprintf(note, note_size, "no setting %s", name);
+		return 0;
+	}
+	if (!config_setting_is_live(name))
+	{
+		snprintf(note, note_size, "%s is read at start: relaunch to change it", name);
+		return 0;
+	}
+	if (!config_parse_live((size_t)index, value, &wanted, why, sizeof(why)))
+	{
+		snprintf(note, note_size, "%s: %s", name, why);
+		return 0;
+	}
+	(void)config_value(name, config_settings[index].type);   /* the first load */
+	if (!strcmp(name, "display.graphics"))
+	{
+		/* (the mode in force is its own layer, read back as the mode's name; one head-tracked stereo would draw as
+		another is refused before anything changes) */
+		int requested = graphics_mode_parse(value);
+
+		if (requested < 0 || graphics_mode_effective(requested, config_graphics_head) != requested)
+		{
+			snprintf(note, note_size, "display.graphics stays %s: %s draws as %s here", config_graphics_mode_name(),
+				value, requested < 0 ? "nothing" : graphics_mode_names[graphics_mode_effective(requested, config_graphics_head)]);
+			return 0;
+		}
+		why[0] = 0;
+		if (config_live_hook && !config_live_hook(name, value, 0, why, sizeof(why)))
+		{
+			snprintf(note, note_size, "%s: %s", name, why[0] ? why : "the renderer refuses it");
+			return 0;
+		}
+		if (!config_graphics_try(value) || strcmp(config_graphics_mode_name(), value))
+		{
+			snprintf(note, note_size, "display.graphics stays %s", config_graphics_mode_name());
+			return 0;
+		}
+		if (config_live_hook)
+			config_live_hook(name, value, 1, why, sizeof(why));
+		snprintf(note, note_size, "display.graphics = %s", config_graphics_mode_name());
+		return 1;
+	}
+	/* refusals that change nothing: the graphics mode replaces the setting, or the renderer would draw another value */
+	mode = config_graphics_replaces(name);
+	if (mode)
+	{
+		config_text(name, text, sizeof(text));
+		snprintf(note, note_size, "%s stays %s: %s graphics replaces it", name, text, mode);
+		return 0;
+	}
+	why[0] = 0;
+	if (config_live_hook && !config_live_hook(name, value, 0, why, sizeof(why)))
+	{
+		snprintf(note, note_size, "%s: %s", name, why[0] ? why : "the renderer refuses it");
+		return 0;
+	}
+	pthread_mutex_lock(&config_lock);
+	saved = config_values[index];
+	saved_source = config_states[index].source;
+	config_set_from_text(&config_values[index], config_settings[index].type, value);
+	/* (a session's choice wins over the profile's scene, external and variable values, as a player's does) */
+	if (config_states[index].source != _source_environment)
+		config_states[index].source = _source_file;
+	config_change_count++;
+	pthread_mutex_unlock(&config_lock);
+	/* the value in force: the graphics mode's, else a scene's (gameplay; with this source no scene, external or
+	variable value applies) */
+#ifdef HALO_ILP32
+	external = host_external_active();
+#endif
+	in_force = config_scene_value_cached((size_t)index, CONFIG_SCENE_GAMEPLAY, external);
+	config_value_text(config_settings[index].type, in_force, text, sizeof(text));
+	if (!config_values_equal(config_settings[index].type, in_force, &wanted))
+	{
+		/* (put back as it was: a refusal changes nothing) */
+		pthread_mutex_lock(&config_lock);
+		config_values[index] = saved;
+		config_states[index].source = saved_source;
+		config_change_count++;
+		pthread_mutex_unlock(&config_lock);
+		snprintf(note, note_size, "%s stays %s", name, text);
+		return 0;
+	}
+	/* (the renderer's own state for the setting follows the value in force) */
+	if (config_live_hook)
+		config_live_hook(name, value, 1, why, sizeof(why));
+	snprintf(note, note_size, "%s = %s", name, text);
 	return 1;
 }
 

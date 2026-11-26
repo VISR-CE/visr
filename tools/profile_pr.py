@@ -43,12 +43,15 @@ PROFILE_DOMAIN = "device-profiles-5"
 # validator refuses a whole shard that names a key it does not know. Record a new key here when it is added to
 # port_profile_keys.h (tools/test_profile_feed.py fails until it is), with the generations that will read it.
 # 0.6.4 to 0.6.7 read generation 3 and know none of these; 0.6.8 to 0.6.21 read generation 4 and know network.full_rate_players;
-# 0.6.22 reads generation 6: generation 4's keys, display.effect_limits and display.frames_in_flight_at_30 (cut from the
-# 0.6 line with this key's pacer change), but not display.allow_portrait; builds of main read generation 5 and know all.
+# 0.6.22 reads generation 6: generation 4's keys, and display.effect_limits, but not display.allow_portrait, display.frames_in_flight_at_30, display.encode_thread (the pacer change and the encode thread first ship in 0.7.0, from main), display.traced_shadows or display.traced_lights; builds of main read generation 5 and know all.
 KEY_GENERATIONS = {"network.full_rate_players": (4, 5, 6),
                    "display.allow_portrait": (5,),
                    "display.effect_limits": (5, 6),
-                   "display.frames_in_flight_at_30": (5, 6)}
+                   "display.frames_in_flight_at_30": (5,),
+                   "display.encode_thread": (5,),
+                   "display.scene_precision": (5,),
+                   "display.traced_shadows": (5,),
+                   "display.traced_lights": (5,)}
 # Every generation published from these sources, newest first, with the keys that generation's released validators
 # refuse, derived from KEY_GENERATIONS.
 GENERATIONS = {domain: tuple(key for key, accepted in KEY_GENERATIONS.items() if int(domain.rpartition("-")[2]) not in accepted)

@@ -211,6 +211,7 @@ symbols in this file:
 #include "real_math.h"
 #include "../../port/linux/src/input_replay.h" /* port: shared recorded camera/control pose */
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
+#include "cinematic_skip.h" /* port: port/linux/game/cinematic_skip.c */
 
 /* ---------- constants */
 
@@ -1944,15 +1945,9 @@ static void player_control_action_test_check_reset_input_blob(
 {
 	struct player_control_globals_data *globals;
 
-	/* port: a replay skips a cinematic at its take's tick instead (input_replay_skips_cinematics) */
-	extern unsigned char input_replay_skips_cinematics(void);
-
-	if (input->accept && (cinematic_can_be_skipped() || network_coop_skip_offered()) && !input_replay_skips_cinematics())
-	{
-		/* port: in network co-op the players vote to skip (network_coop.c) */
-		if (!network_coop_vote_skip())
-			main_skip_cinematic();
-	}
+	/* port: the one skip request (cinematic_skip.c): the co-op vote, a replay's ownership of skips, photo mode */
+	if (input->accept)
+		(void)cinematic_skip_request(CINEMATIC_SKIP_PLAYER);
 
 	globals = player_control_globals;
 	{

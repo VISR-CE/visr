@@ -18,8 +18,10 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_config.h"
 #include "gpu_call_hash.h"
 #include "host_frame_timeline.h"
+#include "host_frame_pacer.h"
 #include <pthread.h>
 #include "gpu_queue.h"
+#include "encode_switch.h"
 #include "gpu_owner_check.h"
 #include "host_thread_cpu.h"
 #include "host_main_sync_log.h"
@@ -85,6 +87,13 @@ The interval is from one Present's return to the next's; the CPU time is the gam
 static int metal_backend;
 /* debug.encode_thread is not off (hash_and_queue_wrap) */
 static int encode_queue_on;
+/* the backend before the encode queue wrapped it (gpu_initialize): a map load's switch of the encode thread wraps it
+again (encode_queue_rewrap) */
+static const struct gpu_backend *queue_unwrapped;
+/* display.encode_thread as the game resolved it for the workload context in force (host_encode_thread_scene): -1 not
+told yet, 0 off, 1 thread; encode_queue_mode takes it over the base configuration's value unless debug.encode_thread is
+set. rewrap_pending: the next frame start applies it */
+static int scene_thread = -1, rewrap_pending, debug_encode_set;
 
 int host_gpu_metal_active(void)
 {
@@ -186,8 +195,16 @@ static uint32_t present_wrapped(gpu_texture back_buffer)
 
 /* the game reads the controllers next (halo_frame_start has returned, late start included): the frame timeline's
 controller read */
+static void encode_queue_rewrap(void);
+
 static void frame_start_wrapped(void)
 {
+	/* (between frames, on the game thread: a map load's change of workload context switches the encode thread here) */
+	if (rewrap_pending)
+	{
+		rewrap_pending = 0;
+		encode_queue_rewrap();
+	}
 	wrapped_backend->frame_start();
 	host_frame_timeline_controller_read();
 }
@@ -754,6 +771,11 @@ static int encode_queue_mode(int *timing)
 
 	host_config_string("debug.encode_thread", "", debug, sizeof(debug));
 	host_config_string("display.encode_thread", "off", display, sizeof(display));
+	debug_encode_set = debug[0] != 0;
+	/* (the workload context's value, once the game has told the host: a profile sets it for the variable workload alone,
+	which the base configuration read above does not see) */
+	if (!debug[0] && scene_thread >= 0)
+		snprintf(display, sizeof(display), "%s", scene_thread ? "thread" : "off");
 	mode = gpu_queue_mode_choose(debug, display, &from);
 	if (mode < 0)
 	{
@@ -782,12 +804,105 @@ int host_gpu_encode_queue_on(void)
 	return encode_queue_on;
 }
 
+/* whether the encode queue can run in this session: the Metal backend's stream ring is made with the extra set the queue
+needs when it is on at launch or the device profile asks for it in the variable workload (a map load starts it after the
+ring was made); gpu_initialize decides it once. Not on visionOS or Mac Catalyst, which have no game thread. */
+static int encode_queue_possible;
+
+int host_gpu_encode_queue_possible(void)
+{
+	return encode_queue_possible;
+}
+
+static int encode_queue_for_variable_workload(void)
+{
+#if TARGET_OS_VISION || TARGET_OS_MACCATALYST
+	return 0;
+#else
+	char value[32];
+
+	/* (the installed device profile's value for the variable workload: the base configuration does not see it) */
+	host_config_string("variable.display.encode_thread", "", value, sizeof(value));
+	return metal_backend && !strcmp(value, "thread");
+#endif
+}
+
 /* a development build stops at the first call from the wrong thread */
 #ifdef HALO_DEVELOPMENT_HOOKS
 #define OWNER_CHECK_STOPS 1
 #else
 #define OWNER_CHECK_STOPS 0
 #endif
+
+/* debug.stereo_replay (halo_stereo.h; gpu_queue.h): the second eye by replay, through the encode queue */
+static int stereo_replay_mode;
+
+static void stereo_replay_setting(void)
+{
+	char value[16];
+
+	host_config_string("debug.stereo_replay", "off", value, sizeof(value));
+	stereo_replay_mode = !strcmp(value, "on") ? HALO_STEREO_REPLAY_ON :
+		!strcmp(value, "verify") ? HALO_STEREO_REPLAY_VERIFY : HALO_STEREO_REPLAY_OFF;
+	if (stereo_replay_mode == HALO_STEREO_REPLAY_OFF)
+	{
+		if (strcmp(value, "off") && strcmp(value, "false") && value[0])
+			platform_log("debug.stereo_replay: \"%s\" is not one of off, on and verify; it is off", value);
+		return;
+	}
+	if (!encode_queue_on)
+	{
+		platform_log("debug.stereo_replay needs debug.encode_thread \"inline\" or \"thread\"; it is off");
+		stereo_replay_mode = HALO_STEREO_REPLAY_OFF;
+		return;
+	}
+	platform_log("debug.stereo_replay: %s%s", value, call_hash_on ? " (the call hash's check across the queue counts "
+		"the replay's calls as differences)" : "");
+}
+
+uint32_t host_stereo_replay_begin(void)
+{
+	if (stereo_replay_mode == HALO_STEREO_REPLAY_OFF)
+		return HALO_STEREO_REPLAY_OFF;
+	return gpu_queue_eye_span_begin(stereo_replay_mode == HALO_STEREO_REPLAY_VERIFY) ? (uint32_t)stereo_replay_mode :
+		HALO_STEREO_REPLAY_OFF;
+}
+
+void host_stereo_replay_eye(uint32_t eye)
+{
+	gpu_queue_eye_only(eye == HALO_STEREO_REPLAY_EYE_0 ? GPU_QUEUE_EYE_0 :
+		eye == HALO_STEREO_REPLAY_EYE_1 ? GPU_QUEUE_EYE_1 : GPU_QUEUE_EYE_BOTH);
+}
+
+void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *values)
+{
+	gpu_queue_eye_constants(first, count, values);
+}
+
+void host_stereo_replay_constants_end(uint32_t first, uint32_t count)
+{
+	gpu_queue_eye_constants_end(first, count);
+}
+
+uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to)
+{
+	struct gpu_queue_eye_map map;
+	uint32_t index;
+
+	memset(&map, 0, sizeof(map));
+	map.count = count < GPU_QUEUE_EYE_MAP_SIZE ? count : GPU_QUEUE_EYE_MAP_SIZE;
+	for (index = 0; index < map.count; index++)
+	{
+		map.from[index] = from[index];
+		map.to[index] = to[index];
+	}
+	return (uint32_t)gpu_queue_eye_span_end(&map);
+}
+
+void host_stereo_replay_live_end(void)
+{
+	gpu_queue_eye_live_end();
+}
 
 /* chosen with the call hash (debug.gpu_call_hash) and, on Metal, the encode queue in front of it: the hash wraps
 what the game calls; with the queue, a second hash behind the queue sees only the recorded commands */
@@ -803,6 +918,7 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 	mode = metal ? encode_queue_mode(&timing) : GPU_QUEUE_OFF;
 	encode_queue_on = mode != GPU_QUEUE_OFF;
 	encode_thread_on = mode == GPU_QUEUE_THREAD;
+	stereo_replay_setting();
 	if (mode == GPU_QUEUE_OFF)
 		return call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_log) : chosen;
 	/* each call from the thread its class says (gpu_owner_check.h); a development build stops at the first that is
@@ -811,6 +927,52 @@ static const struct gpu_backend *hash_and_queue_wrap(const struct gpu_backend *c
 	behind = call_hash_on ? gpu_call_hash_wrap(0, chosen, call_hash_back) : chosen;
 	behind = gpu_queue_wrap(behind, chosen, mode, timing, encode_queue_log, gpu_owner_check_bind_consumer);
 	return call_hash_on ? gpu_call_hash_wrap(1, behind, call_hash_front) : behind;
+}
+
+/* the table the game's calls reach: the chosen backend (the encode queue's, when it is on) with the host's own steps
+around the present, the frame start and the frame context. In place, so a rewrap changes what the calls reach. */
+static void wrapped_install(const struct gpu_backend *chosen)
+{
+	wrapped_backend = chosen;
+	wrapped = *chosen;
+	wrapped.present = present_wrapped;
+	wrapped.present_stereo = present_stereo_wrapped;
+	wrapped.frame_start = frame_start_wrapped;
+	if (chosen->frame_context)
+		wrapped.frame_context = frame_context_wrapped;
+}
+
+/* A map load changed the workload context (host_encode_thread_scene) and the encode thread's mode in force is not the
+one it asks for: wrap the backend again (gpu_queue_wrap drains the queue, ends the old thread and starts the new one),
+with the pacer's frames in flight rule started again for the new mode. Frame boundary, game thread. debug.encode_thread,
+when set, decided the mode and a context does not change it. */
+static void encode_queue_rewrap(void)
+{
+	int was = encode_thread_on;
+
+	/* (a thread the host cannot deliver is no change: the stream ring has no set for the queue, or the renderer is on the
+	main thread, where the present barrier would hold the main thread; visionOS and Mac Catalyst never) */
+	if (!encode_switch_wanted(metal_backend, queue_unwrapped != NULL, debug_encode_set, scene_thread, encode_queue_possible,
+			pthread_main_np() != 0, was))
+		return;
+	/* (the frame deadline's workgroup follows: the game thread leaves first when the encode thread is the first member, and
+	the encode thread, as it ends, leaves what it joined) */
+	gpu_metal_frame_deadline_before_switch();
+	wrapped_install(hash_and_queue_wrap(queue_unwrapped, 1));
+	gpu_metal_encode_owner_reset();
+	platform_log("display.encode_thread: %s (the workload context or a setting changed it)", encode_thread_on ? "thread" : "off");
+	frame_pacer_encode_mode_changed();
+}
+
+/* a guest import (guest_host.h), when the workload context, the scene class or the settings change: display.encode_thread as
+the game resolves it (1 thread, 0 off). The mode changes at the next frame start. */
+void host_encode_thread_scene(int thread)
+{
+	thread = thread ? 1 : 0;
+	if (scene_thread == thread)
+		return;
+	scene_thread = thread;
+	rewrap_pending = 1;
 }
 
 void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
@@ -835,14 +997,10 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 	backend = capture_wrap(backend, flags);
 #endif
 	metal_backend = TARGET_OS_VISION || (flags & GPU_INITIALIZE_METAL) ? 1 : 0;
-	backend = hash_and_queue_wrap(backend, metal_backend);
-	wrapped_backend = backend;
-	wrapped = *backend;
-	wrapped.present = present_wrapped;
-	wrapped.present_stereo = present_stereo_wrapped;
-	wrapped.frame_start = frame_start_wrapped;
-	if (backend->frame_context)
-		wrapped.frame_context = frame_context_wrapped;
+	queue_unwrapped = backend;
+	gpu_queue_set_consumer_ending(gpu_metal_frame_deadline_encode_thread_ending);
+	wrapped_install(hash_and_queue_wrap(backend, metal_backend));
+	encode_queue_possible = encode_queue_on || encode_queue_for_variable_workload();
 	backend = &wrapped;
 	host_frame_counter_stop();
 	presented = 0;

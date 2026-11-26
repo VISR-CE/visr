@@ -878,10 +878,14 @@ void _rasterizer_window_get_fog(
 	return;
 }
 
-void _rasterizer_window_set_fog(
-	struct render_fog const *fog)
+/* port: the fog block (registers -88 to -85) from fog and the window's
+camera, the game's _rasterizer_window_set_fog; it keeps the window's fog
+(plane included) as the game did. For one eye at a time: the second eye's
+replay computes eye 1's in eye 0's pass (rasterizer_other_eye_begin) */
+static void rasterizer_window_fog_constants(
+	struct render_fog const *fog,
+	real fog_constants[4][4])
 {
-	real fog_constants[4][4];
 	real inverse_atmospheric_range;
 	real inverse_planar_distance;
 	real inverse_planar_depth;
@@ -992,6 +996,23 @@ void _rasterizer_window_set_fog(
 	fog_constants[3][2] = PIN(global_window_parameters.fog.planar_maximum_density,
 		0.0f, 1.0f);
 	fog_constants[3][3] = 0.0f;
+	return;
+}
+
+static void rasterizer_window_fog_eye_constants(
+	void const *context,
+	real (*constants)[4])
+{
+	rasterizer_window_fog_constants((struct render_fog const *)context, constants);
+	return;
+}
+
+void _rasterizer_window_set_fog(
+	struct render_fog const *fog)
+{
+	real fog_constants[4][4];
+
+	rasterizer_window_fog_constants(fog, fog_constants);
 	D3DDevice_SetVertexShaderConstant(
 		-88,
 		fog_constants,
@@ -1000,6 +1021,9 @@ void _rasterizer_window_set_fog(
 		global_d3d_device,
 		D3DRS_FOGCOLOR,
 		real_rgb_color_to_pixel32(&global_window_parameters.fog.atmospheric_color));
+	/* port: the second eye's replay: eye 1's fog block (its fog color is
+	eye 0's: the color does not depend on the camera) */
+	rasterizer_eye_constants(-88, 4, fog_constants, rasterizer_window_fog_eye_constants, fog);
 	return;
 }
 
@@ -1323,6 +1347,9 @@ static void node_matrix_constants(
 	return;
 }
 
+static void skinning_other_eye(real_matrix4x3 const *matrices, short matrix_count, byte const *nodes,
+	short node_count);
+
 /* port: the matrices of the model being drawn, when it has more nodes than
 the vertex shader's constants hold (RASTERIZER_MAXIMUM_NODES_PER_MODEL - 1):
 each of its parts is then given its own nodes' matrices alone as it is
@@ -1363,6 +1390,7 @@ void rasterizer_set_model_skinning(
 		-36,
 		vsh_constants__nodematrices,
 		skinning->node_matrix_count * 3);
+	skinning_other_eye(skinning->node_matrices, skinning->node_matrix_count, NULL, skinning->node_matrix_count);
 	if (rasterizer_debug_options.statistics_mode)
 		rasterizer_frame_statistics.vertex_shader_skinning_constant_bytes +=
 			skinning->node_matrix_count * sizeof(vsh_constants__nodematrices[0]);
@@ -1388,7 +1416,10 @@ void rasterizer_model_part_skinning(
 			&many_node_matrices[MIN(nodes[node_index], many_node_matrix_count - 1)]);
 	}
 	if (node_index)
+	{
 		D3DDevice_SetVertexShaderConstant(-36, vsh_constants__nodematrices, node_index * 3);
+		skinning_other_eye(many_node_matrices, many_node_matrix_count, nodes, node_index);
+	}
 	return;
 }
 
@@ -1810,6 +1841,9 @@ D3DSurface *rasterizer_get_target(
 	return d3d_surface;
 }
 
+static void rasterizer_other_eye_window_begin(
+	struct rasterizer_window_begin_parameters const *parameters);
+
 void _rasterizer_window_begin(
 	struct rasterizer_window_begin_parameters const *parameters)
 {
@@ -1824,6 +1858,7 @@ void _rasterizer_window_begin(
 		1352,
 		global_d3d_device);
 	global_window_parameters = *parameters;
+	rasterizer_other_eye_window_begin(parameters); /* port: debug.stereo_replay */
 	suppress_window_begin_end = (previous_window_index != NONE &&
 		parameters->window_index == NONE);
 	previous_window_index = parameters->window_index;
@@ -2904,6 +2939,317 @@ static real_matrix4x3 first_person_saved_world_to_view;
 static real first_person_saved_projection_columns[4][2];
 static boolean first_person_eye_applied;
 
+/* port: debug.stereo_replay (the second-eye replay design, revision 1 item
+6): eye 1's window state while eye 0's pass draws for both eyes. What the
+rasterizer derives from the eye's camera is the window's camera, frustum and
+fog (its plane included) and the first-person weapon's saved view; a site
+that stores values computed from them computes eye 1's between
+rasterizer_other_eye_begin, which swaps eye 1's state in (and the stereo
+layer to eye 1's), and rasterizer_other_eye_end, which swaps eye 0's back.
+Eye 1's state starts at each of eye 0's windows from the camera and frustum
+render_player_frame_stereo gave (rasterizer_stereo_replay_eye) */
+struct rasterizer_eye_window
+{
+	struct render_camera camera;
+	struct render_frustum frustum;
+	struct render_fog fog;
+	real_matrix4x3 first_person_saved_world_to_view;
+	real first_person_saved_projection_columns[4][2];
+	boolean first_person_eye_applied;
+};
+
+static struct render_camera replay_eye_camera;
+static struct render_frustum replay_eye_frustum;
+static boolean replay_eye_given;
+static struct rasterizer_eye_window other_eye;
+/* eye 0's window is drawing for both eyes; and eye 1's state is swapped in */
+static boolean other_eye_ready;
+static boolean other_eye_swapped;
+static int other_eye_saved_layer;
+static union real_point3d const *other_eye_saved_position;
+static void eye_matrices_reset(void);
+
+void rasterizer_stereo_replay_eye(
+	struct render_camera const *camera,
+	struct render_frustum const *frustum)
+{
+	replay_eye_given = camera && frustum;
+	if (replay_eye_given)
+	{
+		replay_eye_camera = *camera;
+		replay_eye_frustum = *frustum;
+	}
+	else
+		other_eye_ready = FALSE;
+	return;
+}
+
+static void rasterizer_other_eye_window_begin(
+	struct rasterizer_window_begin_parameters const *parameters)
+{
+	other_eye_ready = replay_eye_given && halo_stereo_current_layer() == 0 &&
+		parameters->rasterizer_target == _rasterizer_target_render_primary;
+	eye_matrices_reset();
+	if (!other_eye_ready)
+		return;
+	memset(&other_eye, 0, sizeof(other_eye));
+	other_eye.camera = replay_eye_camera;
+	other_eye.frustum = replay_eye_frustum;
+	other_eye.fog = parameters->fog;
+	return;
+}
+
+static void rasterizer_other_eye_swap(
+	void)
+{
+	struct rasterizer_eye_window eye;
+	short row;
+
+	eye.camera = global_window_parameters.camera;
+	eye.frustum = global_window_parameters.frustum;
+	eye.fog = global_window_parameters.fog;
+	eye.first_person_saved_world_to_view = first_person_saved_world_to_view;
+	memcpy(eye.first_person_saved_projection_columns, first_person_saved_projection_columns,
+		sizeof(eye.first_person_saved_projection_columns));
+	eye.first_person_eye_applied = first_person_eye_applied;
+	global_window_parameters.camera = other_eye.camera;
+	global_window_parameters.frustum = other_eye.frustum;
+	global_window_parameters.fog = other_eye.fog;
+	first_person_saved_world_to_view = other_eye.first_person_saved_world_to_view;
+	for (row = 0; row < 4; row++)
+	{
+		first_person_saved_projection_columns[row][0] = other_eye.first_person_saved_projection_columns[row][0];
+		first_person_saved_projection_columns[row][1] = other_eye.first_person_saved_projection_columns[row][1];
+	}
+	first_person_eye_applied = other_eye.first_person_eye_applied;
+	other_eye = eye;
+	return;
+}
+
+boolean rasterizer_other_eye_begin(
+	void)
+{
+	if (!other_eye_ready || other_eye_swapped)
+		return FALSE;
+	rasterizer_other_eye_swap();
+	other_eye_swapped = TRUE;
+	other_eye_saved_layer = halo_stereo_current_layer();
+	halo_stereo_layer(1);
+	/* (halo_stereo_eye_position answers eye 1's position meanwhile, as in eye 1's pass) */
+	other_eye_saved_position = halo_stereo_eye_position();
+	halo_stereo_set_eye_position(&global_window_parameters.camera.position);
+	return TRUE;
+}
+
+void rasterizer_other_eye_end(
+	void)
+{
+	if (!other_eye_swapped)
+		return;
+	rasterizer_other_eye_swap();
+	other_eye_swapped = FALSE;
+	halo_stereo_layer(other_eye_saved_layer);
+	halo_stereo_set_eye_position(other_eye_saved_position);
+	return;
+}
+
+void rasterizer_eye_constants(
+	short first,
+	short count,
+	real (*constants)[4],
+	rasterizer_eye_constants_builder build,
+	void const *context)
+{
+	if (rasterizer_other_eye_begin())
+	{
+		build(context, constants);
+		halo_stereo_replay_constants(first, constants, count);
+		rasterizer_other_eye_end();
+	}
+	return;
+}
+
+void rasterizer_eye_constants_send(
+	short first,
+	short count,
+	real const (*constants)[4])
+{
+	if (rasterizer_other_eye_begin())
+	{
+		halo_stereo_replay_constants(first, constants, count);
+		rasterizer_other_eye_end();
+	}
+	return;
+}
+
+boolean rasterizer_other_eye_draws(
+	void)
+{
+	return other_eye_ready && !other_eye_swapped && halo_stereo_replay_replays();
+}
+
+void rasterizer_for_each_eye(
+	void (*draw)(void))
+{
+	boolean both = rasterizer_other_eye_draws();
+
+	if (both)
+		halo_stereo_replay_eye(HALO_STEREO_REPLAY_EYE_0);
+	draw();
+	if (both && rasterizer_other_eye_begin())
+	{
+		halo_stereo_replay_eye(HALO_STEREO_REPLAY_EYE_1);
+		draw();
+		rasterizer_other_eye_end();
+	}
+	if (both)
+		halo_stereo_replay_eye(HALO_STEREO_REPLAY_BOTH);
+	return;
+}
+
+/* port: the second eye's replay: node matrices built from the eye's own
+position (rasterizer_eye_matrices), eye 0's beside eye 1's, for this window.
+A skinning whose matrices equal a pair's eye 0 matrices, whatever array they
+were copied into on the way (a transparent group's copy), sends eye 1's */
+enum
+{
+	EYE_MATRIX_PAIRS = 32,
+	EYE_MATRIX_POOL = 1024
+};
+
+struct eye_matrix_pair
+{
+	real_matrix4x3 const *eye_0;
+	real_matrix4x3 const *eye_1;
+	short count;
+};
+
+static struct eye_matrix_pair eye_matrix_pairs[EYE_MATRIX_PAIRS];
+static short eye_matrix_pair_count;
+static real_matrix4x3 eye_matrix_pool[EYE_MATRIX_POOL];
+static short eye_matrix_pool_used;
+
+static void eye_matrices_reset(
+	void)
+{
+	eye_matrix_pair_count = 0;
+	eye_matrix_pool_used = 0;
+	return;
+}
+
+void rasterizer_eye_matrices(
+	real_matrix4x3 const *eye_0,
+	short count,
+	rasterizer_eye_matrices_builder build,
+	void *context)
+{
+	static boolean reported = FALSE;
+	struct eye_matrix_pair *pair;
+	real_matrix4x3 *copy;
+
+	if (!other_eye_ready || other_eye_swapped || !eye_0 || count <= 0)
+		return;
+	if (eye_matrix_pair_count >= EYE_MATRIX_PAIRS || eye_matrix_pool_used + 2 * count > EYE_MATRIX_POOL)
+	{
+		/* (eye 1 keeps eye 0's matrices for these draws; verify shows them) */
+		if (!reported)
+			error(_error_silent, "### WARNING the second eye's replay has no room for more eye matrices");
+		reported = TRUE;
+		return;
+	}
+	copy = &eye_matrix_pool[eye_matrix_pool_used];
+	csmemcpy(copy, eye_0, count * sizeof(*copy));
+	if (!rasterizer_other_eye_begin())
+		return;
+	build(context, copy + count, count);
+	rasterizer_other_eye_end();
+	eye_matrix_pool_used += 2 * count;
+	pair = &eye_matrix_pairs[eye_matrix_pair_count++];
+	pair->eye_0 = copy;
+	pair->eye_1 = copy + count;
+	pair->count = count;
+	return;
+}
+
+static struct eye_matrix_pair const *eye_matrices_find(
+	real_matrix4x3 const *matrices,
+	short count)
+{
+	short index;
+
+	for (index = 0; index < eye_matrix_pair_count; index++)
+	{
+		if (eye_matrix_pairs[index].count == count &&
+			!csmemcmp(eye_matrix_pairs[index].eye_0, matrices, count * sizeof(*matrices)))
+		{
+			return &eye_matrix_pairs[index];
+		}
+	}
+	return NULL;
+}
+
+real_matrix4x3 const *rasterizer_eye_matrices_other(
+	real_matrix4x3 const *eye_0,
+	short count)
+{
+	struct eye_matrix_pair const *pair;
+
+	if (!eye_matrix_pair_count || !other_eye_ready || other_eye_swapped || !eye_0 || count <= 0)
+		return NULL;
+	pair = eye_matrices_find(eye_0, count);
+	return pair ? pair->eye_1 : NULL;
+}
+
+void rasterizer_eye_matrices_derived(
+	real_matrix4x3 const *eye_0,
+	real_matrix4x3 const *eye_1,
+	short count)
+{
+	struct eye_matrix_pair *pair;
+	real_matrix4x3 *copy;
+
+	if (!other_eye_ready || other_eye_swapped || count <= 0 || eye_matrix_pair_count >= EYE_MATRIX_PAIRS ||
+		eye_matrix_pool_used + 2 * count > EYE_MATRIX_POOL || eye_matrices_find(eye_0, count))
+	{
+		return;
+	}
+	copy = &eye_matrix_pool[eye_matrix_pool_used];
+	csmemcpy(copy, eye_0, count * sizeof(*copy));
+	csmemcpy(copy + count, eye_1, count * sizeof(*copy));
+	eye_matrix_pool_used += 2 * count;
+	pair = &eye_matrix_pairs[eye_matrix_pair_count++];
+	pair->eye_0 = copy;
+	pair->eye_1 = copy + count;
+	pair->count = count;
+	return;
+}
+
+/* port: eye 1's node matrix rows for a skinning just stored from matrices
+(through nodes, a part's palette, when not NULL), if they are a pair's */
+static void skinning_other_eye(
+	real_matrix4x3 const *matrices,
+	short matrix_count,
+	byte const *nodes,
+	short node_count)
+{
+	real rows[RASTERIZER_MAXIMUM_NODES_PER_MODEL][3][4];
+	struct eye_matrix_pair const *pair = NULL;
+	short index;
+
+	if (!eye_matrix_pair_count || !other_eye_ready || other_eye_swapped || node_count <= 0 ||
+		node_count > RASTERIZER_MAXIMUM_NODES_PER_MODEL)
+	{
+		return;
+	}
+	pair = eye_matrices_find(matrices, matrix_count);
+	if (!pair)
+		return;
+	for (index = 0; index < node_count; index++)
+		node_matrix_constants(rows[index], &pair->eye_1[nodes ? MIN(nodes[index], matrix_count - 1) : index]);
+	rasterizer_eye_constants_send(-36, node_count * 3, (real const (*)[4])rows);
+	return;
+}
+
 /* port: the weapon's eye in place of the window's for the weapon's draws:
 the window's camera (this eye's) moved by the difference between the
 weapon's eye and this one, with the weapon eye's bounds (tangents over the
@@ -3027,18 +3373,18 @@ static boolean rasterizer_first_person_split_screen(
 	return TRUE;
 }
 
-void rasterizer_set_frustum_z(
+/* port: the window's frustum with this depth range, and the camera block
+(registers -96 to -89) from it: the game's rasterizer_set_frustum_z for one
+eye at a time. The second eye's replay computes eye 1's in eye 0's pass
+(rasterizer_other_eye_begin), each eye from its own window state */
+static void rasterizer_frustum_constants(
 	real z_near,
-	real z_far)
+	real z_far,
+	real vertex_constants[8][4])
 {
-	real vertex_constants[8][4];
 	short column;
 	short row;
 
-	match_assert(
-		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox.c",
-		2967,
-		global_d3d_device);
 	/* port: in a SCREEN mode eye (gameplay or the film) the first-person
 	weapon has its own eye, nearly flat with its nearest point on the
 	screen's surface (stereo.c); in HEAD mode's full view its draws may move
@@ -3117,11 +3463,42 @@ screen they take the Xbox top view's lower placement
 	vertex_constants[7][1] = global_window_parameters.frustum.view_to_world.left.j;
 	vertex_constants[7][2] = global_window_parameters.frustum.view_to_world.left.k;
 	vertex_constants[7][3] = 255.9375f;
+	return;
+}
+
+static void rasterizer_frustum_eye_constants(
+	void const *context,
+	real (*constants)[4])
+{
+	real const *range = (real const *)context;
+
+	rasterizer_frustum_constants(range[0], range[1], constants);
+	return;
+}
+
+void rasterizer_set_frustum_z(
+	real z_near,
+	real z_far)
+{
+	real vertex_constants[8][4];
+
+	match_assert(
+		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox.c",
+		2967,
+		global_d3d_device);
+	rasterizer_frustum_constants(z_near, z_far, vertex_constants);
 	IDirect3DDevice8_SetVertexShaderConstant(
 		global_d3d_device,
 		-96,
 		vertex_constants,
 		8);
+	/* port: the second eye's replay: eye 1's block, from eye 1's window
+	state (its first-person weapon's eye included) */
+	{
+		real const range[2] = { z_near, z_far };
+
+		rasterizer_eye_constants(-96, 8, vertex_constants, rasterizer_frustum_eye_constants, range);
+	}
 	return;
 }
 

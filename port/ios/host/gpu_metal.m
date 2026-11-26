@@ -53,7 +53,9 @@ build with render validation; nothing otherwise */
 #include "host_benchmark_offscreen.h"
 #import "host_data_updates.h"
 #include "gpu_metal_presentation.h"
+#include "blue_noise.h"
 #include "halo_display.h"
+#include "depth_decode.h"
 #include "host_output_cap.h"
 #include "host_output_sync.h"
 #include "host_window_stats.h"
@@ -166,6 +168,13 @@ Handles index tables of these; 0 is none. */
 	/* a pixel shader lit per pixel (nv2a_lighting_pixel_block): it reads the
 	vertex constants at fragment buffer 4 (bind_constants) */
 	BOOL reads_constants;
+	/* a pixel shader that traces an object shadow (nv2a_psh.c's traced block): its draws bind the shadow's
+	acceleration structure and basis (traced_draw_bind), and its pipelines keep the smallest penumbra radius in
+	alpha (pipeline_descriptor) */
+	BOOL traced_shadow;
+	/* a pixel shader that traces a dynamic light (nv2a_psh.c's traced light block): its draws bind the blockers
+	and the light (traced_light_bind) */
+	BOOL traced_light;
 	/* a vertex shader's library, and its function specialized for each set
 	of attribute kinds it is drawn with (vertex_function) */
 	id<MTLLibrary> library;
@@ -719,8 +728,17 @@ static void encode_thread_check(const char *where)
 		platform_log("Metal: %s ran on a thread other than the one encoding frames (reported once)", where);
 	}
 }
+
+/* the encode thread was switched (host_gpu_dispatch.c): the next frame's thread is the owner from here */
+void gpu_metal_encode_owner_reset(void)
+{
+	encode_owner_known = encode_owner_reported = NO;
+}
 #else
 #define encode_thread_check(where) ((void)0)
+void gpu_metal_encode_owner_reset(void)
+{
+}
 #endif
 
 /* waits for the frame slot about to be reused, once per frame, before
@@ -1170,9 +1188,182 @@ static unsigned long level_dimension(uint32_t size, unsigned long level)
 	return size >> level ? size >> level : 1;
 }
 
+/* display.scene_precision: the pixel format of the targets with the scene-color role (GPU_FORMAT_SCENE_COLOR, which
+the front end gives the back buffer's color when the setting is 16), and the layer's format that goes with them.
+RGBA16Unorm, not float: it clamps at 1.0 after every blend as BGRA8 does, so the picture is today's with finer steps,
+and it has the real alpha that the game's destination-alpha blends need. debug.scene_format and debug.output_format
+name measurement formats in their place. */
+static MTLPixelFormat scene_format = MTLPixelFormatRGBA16Unorm, output_format_override = MTLPixelFormatInvalid;
+/* (MTLPixelFormatBGRA10_XR and BGR10_XR by value: the simulator's and Catalyst's headers mark them unavailable) */
+#define FORMAT_BGRA10_XR ((MTLPixelFormat)552)
+#define FORMAT_BGR10_XR ((MTLPixelFormat)554)
+
+/* the scene-color targets alive now (texture_format and texture destruction count them): while any is, the scene's
+draws are in scene_format, otherwise BGRA8 (display.scene_precision 8) */
+static _Atomic(int) scene_color_targets;
+
+static MTLPixelFormat scene_color_format(void)
+{
+	return atomic_load(&scene_color_targets) > 0 ? scene_format : MTLPixelFormatBGRA8Unorm;
+}
+
+/* debug.present_dither (auto: on where the frame has more bits than the layer; off), changed live by the knob chord
+(host_present_dither_set); debug.precision_ramp draws the display-depth test ramp in place of the picture */
+static _Atomic(int) present_dither_on = 1;
+static BOOL precision_ramp;
+/* debug.screenshot_raw: a read of a scene target in another format also saves its own values */
+static BOOL screenshot_raw;
+
+/* (a guest import: guest_host.h, declared in ios_host.h) */
+void host_present_dither_set(int on)
+{
+	atomic_store(&present_dither_on, on != 0);
+	platform_log("Metal: the present dither is %s", on ? "on where the frame has more bits than the layer" : "off");
+}
+
+static void scene_formats_read(void)
+{
+	char value[32];
+
+	host_config_string("debug.present_dither", "auto", value, sizeof(value));
+	atomic_store(&present_dither_on, strcmp(value, "off") != 0);
+	host_config_string("debug.precision_ramp", "false", value, sizeof(value));
+	precision_ramp = !strcmp(value, "true");
+	host_config_string("debug.screenshot_raw", "false", value, sizeof(value));
+	screenshot_raw = !strcmp(value, "true");
+
+	host_config_string("debug.scene_format", "", value, sizeof(value));
+	if (value[0] && strcmp(value, "bgra8") && strcmp(value, "rgba16") && strcmp(value, "rgba16f") && strcmp(value, "rgb10a2") &&
+		strcmp(value, "bgra10_xr"))
+		platform_log("Metal: debug.scene_format \"%s\" is not a scene format (bgra8, rgba16, rgba16f, rgb10a2, bgra10_xr): "
+			"ignored", value);
+	scene_format = !strcmp(value, "rgba16f") ? MTLPixelFormatRGBA16Float : !strcmp(value, "rgb10a2") ?
+		MTLPixelFormatRGB10A2Unorm : !strcmp(value, "bgra10_xr") ? FORMAT_BGRA10_XR : MTLPixelFormatRGBA16Unorm;
+	host_config_string("debug.output_format", "", value, sizeof(value));
+	output_format_override = !strcmp(value, "bgra8") ? MTLPixelFormatBGRA8Unorm : !strcmp(value, "bgr10a2") ?
+		MTLPixelFormatBGR10A2Unorm : !strcmp(value, "bgr10_xr") ? FORMAT_BGR10_XR : !strcmp(value, "bgra10_xr") ?
+		FORMAT_BGRA10_XR : !strcmp(value, "rgba16f") ? MTLPixelFormatRGBA16Float : MTLPixelFormatInvalid;
+	if (value[0] && output_format_override == MTLPixelFormatInvalid)
+		platform_log("Metal: debug.output_format \"%s\" is not a layer format (bgra8, bgr10a2, bgr10_xr, bgra10_xr, "
+			"rgba16f): ignored, the layer follows display.scene_precision", value);
+	else if (output_format_override != MTLPixelFormatInvalid)
+		platform_log("Metal: debug.output_format %s: the built-in layer asks for it in place of display.scene_precision's",
+			value);
+}
+
+/* the built-in display's layer format for a frame whose back buffer is in format: 10 bits where the picture has
+more than 8 and the platform's layer takes them (the Mac BGR10A2Unorm; iPhone and iPad BGR10_XR, which spends its
+bits on an extended range: about 510 levels from black to white), else BGRA8Unorm. Apple TV, the Vision Pro and
+external displays stay 8-bit in this version. */
+static MTLPixelFormat output_format_for(MTLPixelFormat picture)
+{
+	if (output_format_override != MTLPixelFormatInvalid)
+		return output_format_override;
+	if (picture == MTLPixelFormatBGRA8Unorm)
+		return MTLPixelFormatBGRA8Unorm;
+#if HALO_NATIVE_MAC || TARGET_OS_MACCATALYST
+	return MTLPixelFormatBGR10A2Unorm;
+#elif TARGET_OS_IOS && !TARGET_OS_SIMULATOR
+	return FORMAT_BGR10_XR;
+#else
+	return MTLPixelFormatBGRA8Unorm;
+#endif
+}
+
+/* the built-in layer's format as last asked (layer_format_follow), and the formats it refused */
+static MTLPixelFormat layer_format_asked = MTLPixelFormatBGRA8Unorm;
+static _Atomic(uint32_t) layer_formats_refused;
+
+static uint32_t layer_format_bit(MTLPixelFormat format)
+{
+	switch (format)
+	{
+	case MTLPixelFormatBGR10A2Unorm: return 1;
+	case FORMAT_BGR10_XR: return 2;
+	case FORMAT_BGRA10_XR: return 4;
+	case MTLPixelFormatRGBA16Float: return 8;
+	default: return 0;
+	}
+}
+
+/* the levels from black to white a color channel of format holds (the present dither's step) */
+static float format_levels(MTLPixelFormat format)
+{
+	switch (format)
+	{
+	case MTLPixelFormatBGR10A2Unorm: case MTLPixelFormatRGB10A2Unorm: return 1023.0f;
+	case FORMAT_BGR10_XR: case FORMAT_BGRA10_XR: return 510.0f;
+	case MTLPixelFormatRGBA16Unorm: return 65535.0f;
+	case MTLPixelFormatRGBA16Float: return 2048.0f;
+	default: return 255.0f;
+	}
+}
+
+/* What the present pass does with the picture's bits (debug.present_dither, display.scene_precision): the one
+decision the pass's pipeline choice and its log line both take, from the pass's real inputs (the picture after the
+upscale, the drawable's format, whether the CRT effect draws this frame). */
+enum present_dither_state
+{
+	PRESENT_DITHER_ON,			/* the picture has more bits than the drawable: dithered */
+	PRESENT_DITHER_NOT_NEEDED,	/* the drawable holds the picture's bits */
+	PRESENT_DITHER_OFF,			/* debug.present_dither off (the knob chord) */
+	PRESENT_DITHER_RAMP,		/* debug.precision_ramp's test ramp in place of the picture */
+	PRESENT_DITHER_CRT,			/* Hardcore's CRT effect draws the frame: no dither pass */
+};
+
+static enum present_dither_state present_dither_state(MTLPixelFormat picture, MTLPixelFormat drawable, BOOL crt)
+{
+	if (crt)
+		return PRESENT_DITHER_CRT;
+	if (precision_ramp)
+		return PRESENT_DITHER_RAMP;
+	if (!atomic_load(&present_dither_on))
+		return PRESENT_DITHER_OFF;
+	return format_levels(picture) > format_levels(drawable) ? PRESENT_DITHER_ON : PRESENT_DITHER_NOT_NEEDED;
+}
+
+static const char *present_dither_state_name(enum present_dither_state state)
+{
+	switch (state)
+	{
+	case PRESENT_DITHER_ON: return "on";
+	case PRESENT_DITHER_NOT_NEEDED: return "not needed";
+	case PRESENT_DITHER_OFF: return "off";
+	case PRESENT_DITHER_RAMP: return "replaced by the precision ramp";
+	case PRESENT_DITHER_CRT: return "replaced by the CRT effect";
+	}
+	return "unknown";
+}
+
+/* what a format test means, asked of the format: ClampToZero's border is transparent only with alpha
+(zero_border_eligible). The color target formats only: BGRA8, and the scene-color role's */
+static BOOL format_has_alpha(MTLPixelFormat format)
+{
+	return format == MTLPixelFormatBGRA8Unorm || format == MTLPixelFormatRGBA16Unorm ||
+		format == MTLPixelFormatRGBA16Float || format == MTLPixelFormatRGB10A2Unorm ||
+		format == (MTLPixelFormat)552 /* BGRA10_XR */;
+}
+
+static const char *pixel_format_name(MTLPixelFormat format)
+{
+	switch (format)
+	{
+	case MTLPixelFormatBGRA8Unorm: return "bgra8";
+	case MTLPixelFormatRGBA16Unorm: return "rgba16";
+	case MTLPixelFormatRGBA16Float: return "rgba16f";
+	case MTLPixelFormatRGB10A2Unorm: return "rgb10a2";
+	case MTLPixelFormatBGR10A2Unorm: return "bgr10a2";
+	case FORMAT_BGRA10_XR: return "bgra10_xr";
+	case FORMAT_BGR10_XR: return "bgr10_xr";
+	default: return "other";
+	}
+}
+
 /* Creation and upload must agree: an accepted format needs storage on its first upload. */
 static BOOL format_supported(const struct gpu_texture_description *description)
 {
+	if (description->format == GPU_FORMAT_SCENE_COLOR)
+		return description->usage == GPU_USAGE_RENDER_TARGET;
 	if (description->format == GPU_FORMAT_BGRA8 || description->format == GPU_FORMAT_DEPTH_STENCIL)
 		return YES;
 	if (description->usage != GPU_USAGE_UPLOAD)
@@ -1190,6 +1381,8 @@ static MTLPixelFormat texture_format(const struct gpu_texture_description *descr
 {
 	if (description->format == GPU_FORMAT_DEPTH_STENCIL)
 		return MTLPixelFormatDepth32Float_Stencil8;
+	if (description->format == GPU_FORMAT_SCENE_COLOR)
+		return scene_format;
 	if (description->format == GPU_FORMAT_ASTC4X4)
 		return MTLPixelFormatASTC_4x4_LDR;
 	/* compressed_textures and upscaled_format's BC7 are set only where these exist */
@@ -1347,6 +1540,8 @@ static gpu_texture gpu_metal_texture_create(const struct gpu_texture_description
 		{
 			record->texture = texture_storage(record);
 			target_zero(record->texture);
+			if (description->format == GPU_FORMAT_SCENE_COLOR)
+				atomic_fetch_add(&scene_color_targets, 1);
 		}
 		return [textures add:record];
 	}
@@ -1430,6 +1625,12 @@ static void gpu_metal_texture_destroy(gpu_texture texture)
 		if (texture && (texture == pass_color || texture == pass_depth || texture == native_pass.color ||
 			texture == native_pass.depth))
 			pass_end();
+		{
+			MetalTexture *record = texture_record(texture);
+
+			if (record && record->texture && record->description.format == GPU_FORMAT_SCENE_COLOR)
+				atomic_fetch_sub(&scene_color_targets, 1);
+		}
 		[textures remove:texture];
 	}
 }
@@ -1456,6 +1657,106 @@ static void texture_content(const MetalTexture *record, id<MTLTexture> texture, 
 	*height = record && record->content_height ? record->content_height : texture.height;
 }
 
+/* reads a scene target that is not BGRA8 (RGBA16Unorm, RGBA16Float, RGB10A2Unorm, BGRA10_XR) into BGRA8
+bytes, rounding to nearest, and with debug.screenshot_raw writes its own values to debug.screenshot_directory as
+rawNNNNN.<format>: a 16-byte
+header (the characters VSRF, width, height, 1 for rgba16f or 2 for rgba16 or 3 for rgb10a2 or 4 for bgra10_xr, each a
+little-endian uint32) and then the texture's bytes, rows from the top. NNNNN counts these reads from 0. */
+static uint32_t scene_read_converted(MetalTexture *record, void *pixels, unsigned long width, unsigned long height)
+{
+	MTLPixelFormat format = record->texture.pixelFormat;
+	unsigned long bytes = format == MTLPixelFormatRGB10A2Unorm ? 4 : 8, index;
+	id<MTLBuffer> staging = [device newBufferWithLength:width * height * bytes options:MTLResourceStorageModeShared];
+	id<MTLBlitCommandEncoder> blit;
+	unsigned char *out = pixels;
+	uint32_t code = format == MTLPixelFormatRGBA16Float ? 1 : format == MTLPixelFormatRGBA16Unorm ? 2 :
+		format == MTLPixelFormatRGB10A2Unorm ? 3 : 4;
+	static unsigned sequence;
+	char directory[1024];
+
+	pass_end();
+	blit = [command_buffer() blitCommandEncoder];
+	[blit copyFromTexture:record->texture sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+		sourceSize:MTLSizeMake(width, height, 1) toBuffer:staging destinationOffset:0
+		destinationBytesPerRow:width * bytes destinationBytesPerImage:width * height * bytes];
+	[blit endEncoding];
+	use_texture(record);
+	{
+		id<MTLCommandBuffer> waited = commands;
+
+		commit(NO);
+		[waited waitUntilCompleted];
+	}
+	for (index = 0; index < width * height; index++)
+	{
+		float rgba[4];
+		int channel;
+
+		if (code == 1)
+		{
+			const _Float16 *half = (const _Float16 *)staging.contents + index * 4;
+
+			for (channel = 0; channel < 4; channel++)
+				rgba[channel] = (float)half[channel];
+		}
+		else if (code == 2)
+		{
+			const uint16_t *word = (const uint16_t *)staging.contents + index * 4;
+
+			for (channel = 0; channel < 4; channel++)
+				rgba[channel] = (float)word[channel] / 65535.0f;
+		}
+		else if (code == 3)
+		{
+			uint32_t word = ((const uint32_t *)staging.contents)[index];
+
+			rgba[0] = (float)(word & 0x3ff) / 1023.0f;
+			rgba[1] = (float)((word >> 10) & 0x3ff) / 1023.0f;
+			rgba[2] = (float)((word >> 20) & 0x3ff) / 1023.0f;
+			rgba[3] = (float)(word >> 30) / 3.0f;
+		}
+		else
+		{
+			/* BGRA10_XR: each 16-bit word holds 10 bits in its top bits, (value - 384) / 510 */
+			const uint16_t *word = (const uint16_t *)staging.contents + index * 4;
+
+			rgba[2] = ((float)(word[0] >> 6) - 384.0f) / 510.0f;
+			rgba[1] = ((float)(word[1] >> 6) - 384.0f) / 510.0f;
+			rgba[0] = ((float)(word[2] >> 6) - 384.0f) / 510.0f;
+			rgba[3] = ((float)(word[3] >> 6) - 384.0f) / 510.0f;
+		}
+		for (channel = 0; channel < 4; channel++)
+		{
+			float value = rgba[channel];
+
+			value = value != value || value < 0.0f ? 0.0f : value > 1.0f ? 1.0f : value;
+			/* BGRA order out */
+			out[index * 4 + (channel == 0 ? 2 : channel == 2 ? 0 : channel)] = (unsigned char)(value * 255.0f + 0.5f);
+		}
+	}
+	if (screenshot_raw)
+		host_config_string("debug.screenshot_directory", "", directory, sizeof(directory));
+	if (screenshot_raw && *directory)
+	{
+		char path[1200];
+		FILE *file;
+		uint32_t header[4] = { 0x46525356u, (uint32_t)width, (uint32_t)height, code };
+
+		snprintf(path, sizeof(path), "%s/raw%05u.%s", directory, sequence, pixel_format_name(format));
+		file = fopen(path, "wb");
+		if (file)
+		{
+			fwrite(header, sizeof(header), 1, file);
+			fwrite(staging.contents, bytes, width * height, file);
+			fclose(file);
+		}
+		platform_log("Metal: raw read %u (%s %lux%lu) %s %s", sequence, pixel_format_name(format), width, height,
+			file ? "saved to" : "could not be saved to", path);
+	}
+	sequence++;
+	return 1;
+}
+
 static uint32_t gpu_metal_texture_read(gpu_texture texture, void *pixels, uint32_t size)
 {
 	@autoreleasepool
@@ -1467,7 +1768,7 @@ static uint32_t gpu_metal_texture_read(gpu_texture texture, void *pixels, uint32
 		id<MTLBlitCommandEncoder> blit;
 
 		if (!record || !record->texture || description->type != GPU_TEXTURE_2D ||
-			(description->format != GPU_FORMAT_BGRA8 && description->format != GPU_FORMAT_DEPTH_STENCIL) ||
+			(!gpu_format_color_target(description->format) && description->format != GPU_FORMAT_DEPTH_STENCIL) ||
 			(description->format == GPU_FORMAT_DEPTH_STENCIL && description->usage != GPU_USAGE_RENDER_TARGET))
 		{
 			GPU_VALIDATION_REPORT(GPU_VALIDATION_READ_UNSUPPORTED, 0, "Metal: texture %u cannot be read back", texture);
@@ -1548,6 +1849,10 @@ static uint32_t gpu_metal_texture_read(gpu_texture texture, void *pixels, uint32
 				depth[index] = reversed_depth(depth[index]);
 			return 1;
 		}
+		/* a scene target in another format is converted to BGRA8 for the caller (debug.screenshot_raw: its own
+		values are saved beside the screenshots) */
+		if (record->texture.pixelFormat != MTLPixelFormatBGRA8Unorm)
+			return scene_read_converted(record, pixels, width, height);
 		/* BGRA8Unorm is already the BGRA byte order gpu.h reads back, and row
 		0 is the top */
 		if (description->usage != GPU_USAGE_RENDER_TARGET)
@@ -1631,6 +1936,46 @@ static BOOL texture_make_linear(MetalTexture *record)
 	return YES;
 }
 
+static id<MTLRenderPipelineState> quad_pipeline(id<MTLFunction> fragment, MTLPixelFormat format);
+static id<MTLFunction> copy_function;
+
+/* a copy between textures of unlike formats (a scene-color target and a BGRA8 one: Metal's blits need equal formats)
+as a draw of the source's texels into the destination's rectangle, so a target the scene-color role missed still
+copies rightly, only at the destination's precision */
+static void copy_as_draw(MetalTexture *from, uint32_t x, uint32_t y, uint32_t width, uint32_t height, MetalTexture *to,
+	uint32_t level, uint32_t to_x, uint32_t to_y)
+{
+	MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+	id<MTLRenderCommandEncoder> encoder;
+	int32_t offset[4] = { (int32_t)x - (int32_t)to_x, (int32_t)y - (int32_t)to_y, 0, 0 };
+	static BOOL logged;
+
+	if (!logged)
+	{
+		logged = YES;
+		platform_log("Metal: a copy from %s into %s is drawn", pixel_format_name(from->texture.pixelFormat),
+			pixel_format_name(to->texture.pixelFormat));
+	}
+	pass_end();
+	pass.colorAttachments[0].texture = to->texture;
+	pass.colorAttachments[0].level = level;
+	pass.colorAttachments[0].loadAction = MTLLoadActionLoad;
+	pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+	encoder = [command_buffer() renderCommandEncoderWithDescriptor:pass];
+	if (metal_debug)
+		encoder.label = @"copy as a draw";
+	[encoder setRenderPipelineState:quad_pipeline(copy_function, to->texture.pixelFormat)];
+	[encoder setViewport:(MTLViewport){ (double)to_x, (double)to_y, (double)width, (double)height, 0.0, 1.0 }];
+	[encoder setScissorRect:(MTLScissorRect){ to_x, to_y, width, height }];
+	[encoder setFragmentTexture:from->texture atIndex:0];
+	[encoder setFragmentBytes:offset length:sizeof(offset) atIndex:0];
+	[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+	[encoder endEncoding];
+	use_texture(from);
+	use_texture(to);
+	texture_written(to);
+}
+
 static void gpu_metal_texture_copy_rects(gpu_texture source, const struct gpu_texture_copy *copies, uint32_t count)
 {
 	@autoreleasepool
@@ -1699,6 +2044,16 @@ static void gpu_metal_texture_copy_rects(gpu_texture source, const struct gpu_te
 					continue;
 				}
 			}
+			if (from->texture.pixelFormat != to->texture.pixelFormat)
+			{
+				if (blit)
+				{
+					[blit endEncoding];
+					blit = nil;
+				}
+				copy_as_draw(from, copy->x, copy->y, copy->width, copy->height, to, 0, 0, 0);
+				continue;
+			}
 			if (!blit)
 			{
 				pass_end();
@@ -1740,6 +2095,11 @@ static void gpu_metal_texture_copy_level(gpu_texture source, gpu_texture destina
 		{
 			GPU_VALIDATION_REPORT(GPU_VALIDATION_COPY_IGNORED, 2, "Metal: texture %u is smaller than level %u of texture %u",
 				source, level, destination);
+			return;
+		}
+		if (from->texture.pixelFormat != to->texture.pixelFormat)
+		{
+			copy_as_draw(from, 0, 0, (uint32_t)width, (uint32_t)height, to, level, 0, 0);
 			return;
 		}
 		pass_end();
@@ -1914,7 +2274,7 @@ static void producer_streams_initialize(void)
 		.grow = producer_grow, .completed = producer_completed, .wait = producer_wait, .log = producer_log,
 		.unstamped = producer_unstamped, .lead = PRODUCER_LEAD,
 	};
-	unsigned set, index, sets = gpu_stream_ring_set_count(FRAMES, PRODUCER_LEAD, host_gpu_encode_queue_on());
+	unsigned set, index, sets = gpu_stream_ring_set_count(FRAMES, PRODUCER_LEAD, host_gpu_encode_queue_possible());
 
 	for (set = 0; set < sets; set++)
 		for (index = 0; index < GPU_STREAM_RING_CHUNKS; index++)
@@ -2110,6 +2470,8 @@ static gpu_shader gpu_metal_shader_create(uint32_t stage, const char *source)
 
 		record->compiled = dispatch_group_create();
 		record->reads_constants = stage != GPU_SHADER_VERTEX && strstr(source, "constant float4 *c [[buffer(4)]]") != NULL;
+		record->traced_shadow = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_SHADOW 1") != NULL;
+		record->traced_light = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_LIGHT 1") != NULL;
 		/* (each on a worker thread, compiled synchronously there: not with
 		newLibraryWithSource's completion handler, which runs on Metal's
 		compiler queue, where shader_finish's newFunctionWithName waits on
@@ -2284,6 +2646,12 @@ static NSArray *test_map(NSUInteger width, NSUInteger height)
 }
 
 /* the eye's map for a foveated target this frame, or nil */
+/* the open pass's rate map parameters (nil when it is not a foveated eye's), and whether bind_stages bound a
+sampled foveated target's map for the current draw: a traced light rebuilt from depth decodes the pass's own
+(traced_light_bind) */
+static __strong id<MTLBuffer> pass_rate_map_data;
+static BOOL stages_rate_map;
+
 static id<MTLRasterizationRateMap> foveation_map(MetalTexture *record)
 {
 	id<MTLRasterizationRateMap> map;
@@ -2547,6 +2915,7 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 	/* a foveated eye's targets render through its map; both attachments are
 	the eye's then, at the same allocated size */
 	pass.rasterizationRateMap = foveation_map(color ? color_record : depth_record);
+	pass_rate_map_data = pass.rasterizationRateMap ? foveation_parameters(color ? color_record : depth_record) : nil;
 	if (color && depth && foveation_map(color_record) != foveation_map(depth_record))
 	{
 		static int logged;
@@ -2728,11 +3097,15 @@ static id<MTLTexture> upscaled;
 static id<MTLFunction> clear_vertex, clear_fragment, present_vertex, present_fragment, fill_fragment;
 /* multisample_fill's pipelines, by samples and depth-stencil format */
 static NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *fill_pipelines;
-static id<MTLRenderPipelineState> present_pipeline, companion_pipeline;
-/* gpu_upscale's: the present quad into a BGRA8 render target with no depth */
-static id<MTLRenderPipelineState> upscale_pipeline;
-/* display.crt_effect: the present pass's CRT television in Hardcore graphics (crt_shader.h) */
-static id<MTLRenderPipelineState> crt_pipeline;
+/* the phone's companion picture while an external display shows the game (companion_present): its pipeline follows the
+phone layer's format, which layer_format_follow may have moved off BGRA8 before the display connected */
+static id<MTLFunction> companion_function;
+/* quad_pipeline's fragment functions: gpu_upscale's (the present quad into the display-sized back buffer, no depth);
+display.crt_effect's CRT television in Hardcore graphics (crt_shader.h; nil if it does not compile); the present
+dither (display.scene_precision); a copy between unlike formats (copy_as_draw) */
+static id<MTLFunction> upscale_function, crt_function, present_dither_function;
+/* the present dither's noise (blue_noise.h) */
+static id<MTLTexture> dither_noise;
 
 /* The guest commits the effective mode and switch before rendering, including unsaved previews. */
 static BOOL crt_enabled;
@@ -2770,6 +3143,39 @@ static NSString *const utility_source =
 	"{\n"
 	"\treturn float4(picture.sample(linear, in.coordinates).rgb, 1.0);\n"
 	"}\n"
+	/* display.scene_precision: the present pass from a picture with more bits than the drawable. Two blue-noise masks
+	(blue_noise.h, fixed: a changing pattern is moving grain on a TV and noise a video encoder never stops coding)
+	make triangular noise one level of the drawable wide on each side (dither.x, 1 / its levels), faded to nothing
+	within a level of black and white so neither is lifted or dimmed. debug.precision_ramp draws the test ramp
+	(dither.y 1): the darkest sixteen 8-bit levels left to right, the top third rounded to 8 bits, the middle third as
+	the frame holds it, the bottom third dithered */
+	"fragment float4 present_dither_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n"
+	"\tsampler linear [[sampler(0)]], texture2d<float> noise [[texture(1)]], constant float4 &dither [[buffer(0)]])\n"
+	"{\n"
+	"\tfloat3 color = picture.sample(linear, in.coordinates).rgb;\n"
+	"\tbool dithered = true;\n"
+	"\tif (dither.y > 0.5)\n"
+	"\t{\n"
+	"\t\tcolor = float3(in.coordinates.x * 16.0 / 255.0);\n"
+	"\t\tif (in.coordinates.y < 1.0 / 3.0)\n"
+	"\t\t\tcolor = floor(color * 255.0 + 0.5) / 255.0;\n"
+	"\t\tdithered = in.coordinates.y >= 2.0 / 3.0;\n"
+	"\t}\n"
+	"\tif (dithered && dither.x > 0.0)\n"
+	"\t{\n"
+	"\t\tuint2 size = uint2(noise.get_width(), noise.get_height());\n"
+	"\t\tfloat2 masks = (noise.read(uint2(in.position.xy) % size).rg * 255.0 + 0.5) / 256.0;\n"
+	"\t\tfloat3 room = clamp(min(color, 1.0 - color) / dither.x, 0.0, 1.0);\n"
+	"\t\tcolor += (masks.x + masks.y - 1.0) * dither.x * room;\n"
+	"\t}\n"
+	"\treturn float4(color, 1.0);\n"
+	"}\n"
+	/* a copy between unlike formats (copy_as_draw): the source's texel at the destination pixel's offset */
+	"fragment float4 copy_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n"
+	"\tconstant int4 &offset [[buffer(0)]])\n"
+	"{\n"
+	"\treturn picture.read(uint2(int2(in.position.xy) + offset.xy));\n"
+	"}\n"
 	"fragment float4 companion_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n"
 	"\tsampler linear [[sampler(0)]], constant float &brightness [[buffer(0)]])\n"
 	"{ return float4(picture.sample(linear, in.coordinates).rgb * brightness, 1.0); }\n"
@@ -2790,6 +3196,35 @@ static NSString *const utility_source =
 	"}\n"
 	/* display.crt_effect (crt_shader.h) */
 	CRT_SHADER_SOURCE;
+
+/* the backend's full-screen passes (the present quad with one of utility_source's fragment functions), one pipeline
+per function and color format: no pass names a format, each asks its target's (a scene-color target is RGBA16Unorm
+with display.scene_precision 16, and the layer follows it) */
+static NSMutableDictionary<NSString *, id<MTLRenderPipelineState>> *quad_pipelines;
+
+static id<MTLRenderPipelineState> quad_pipeline(id<MTLFunction> fragment, MTLPixelFormat format)
+{
+	NSString *key = [NSString stringWithFormat:@"%@/%lu", fragment.name, (unsigned long)format];
+	id<MTLRenderPipelineState> pipeline = quad_pipelines[key];
+
+	if (!pipeline && fragment)
+	{
+		MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
+		NSError *error = nil;
+
+		descriptor.vertexFunction = present_vertex;
+		descriptor.fragmentFunction = fragment;
+		descriptor.colorAttachments[0].pixelFormat = format;
+		pipeline = [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+		if (!pipeline)
+			host_crash("Metal: cannot create the %s pipeline for %s: %s", fragment.name.UTF8String,
+				pixel_format_name(format), error.description.UTF8String);
+		if (!quad_pipelines)
+			quad_pipelines = [NSMutableDictionary dictionary];
+		quad_pipelines[key] = pipeline;
+	}
+	return pipeline;
+}
 
 static id<MTLRenderPipelineState> clear_pipeline(MTLPixelFormat color, MTLPixelFormat depth, uint32_t mask,
 	uint32_t samples)
@@ -3015,7 +3450,11 @@ static void multisample_fill(MetalTexture *record, uint32_t samples, MTLPixelFor
 {
 	BOOL color = sources->color != nil, stencil = fill_stencil && sources->stencil != nil;
 	int kind = fill_depth || stencil ? (stencil ? 2 : 1) : 0;
-	NSNumber *key = @(((uint64_t)samples << 32) | ((uint64_t)depth << 4) | (uint64_t)(kind << 1) | (color ? 1 : 0));
+	/* (the color attachment's format is the target's: a scene-color target may be RGBA16Unorm) */
+	MTLPixelFormat color_format = record->texture && !record->description.foveated_eye &&
+		record->description.format != GPU_FORMAT_DEPTH_STENCIL ? record->texture.pixelFormat : MTLPixelFormatBGRA8Unorm;
+	NSNumber *key = @(((uint64_t)color_format << 44) | ((uint64_t)samples << 32) | ((uint64_t)depth << 4) |
+		(uint64_t)(kind << 1) | (color ? 1 : 0));
 	id<MTLRenderPipelineState> pipeline = fill_pipelines[key];
 
 	if (fill_stencil && !stencil)
@@ -3044,7 +3483,7 @@ static void multisample_fill(MetalTexture *record, uint32_t samples, MTLPixelFor
 
 		descriptor.vertexFunction = present_vertex;
 		descriptor.fragmentFunction = kind == 2 ? fill_stencil_fragment : kind == 1 ? fill_depth_fragment : fill_fragment;
-		descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+		descriptor.colorAttachments[0].pixelFormat = color_format;
 		descriptor.colorAttachments[0].writeMask = color ? MTLColorWriteMaskAll : MTLColorWriteMaskNone;
 		descriptor.depthAttachmentPixelFormat = depth;
 		descriptor.stencilAttachmentPixelFormat = depth;
@@ -3194,7 +3633,7 @@ static void gpu_metal_clear(const struct gpu_clear *clear, const struct gpu_rect
 		color_value[3] = (float)(clear->color >> 24) / 255.0f;
 		/* every pass has a BGRA8 color attachment: a depth-only pass a scratch
 		one (pass_begin), which a clear leaves alone */
-		[encoder setRenderPipelineState:clear_pipeline(MTLPixelFormatBGRA8Unorm,
+		[encoder setRenderPipelineState:clear_pipeline(color && color->texture ? color->texture.pixelFormat : MTLPixelFormatBGRA8Unorm,
 			depth && depth->texture ? depth->texture.pixelFormat : MTLPixelFormatInvalid, color ? mask : 0, pass_samples)];
 		[encoder setDepthStencilState:clear_depth_state((flags & GPU_CLEAR_DEPTH) != 0, (flags & GPU_CLEAR_STENCIL) != 0)];
 		[encoder setStencilReferenceValue:clear->stencil & 0xff];
@@ -3567,6 +4006,13 @@ static MTLRenderPipelineDescriptor *pipeline_descriptor(const struct pipeline_ke
 		attachment.destinationRGBBlendFactor = blend_factor(key->destination);
 		attachment.destinationAlphaBlendFactor = blend_factor(key->alpha_destination);
 		attachment.rgbBlendOperation = attachment.alphaBlendOperation = blend_operation(key->operation);
+		/* a traced shadow's draw writes its penumbra radius to alpha: where shadows overlap, the smallest stays, so
+		a shadow close to its caster keeps its hard edge inside a wide one */
+		if (pixel->traced_shadow)
+		{
+			attachment.alphaBlendOperation = MTLBlendOperationMin;
+			attachment.sourceAlphaBlendFactor = attachment.destinationAlphaBlendFactor = MTLBlendFactorOne;
+		}
 	}
 	descriptor.depthAttachmentPixelFormat = (MTLPixelFormat)key->depth_format;
 	descriptor.stencilAttachmentPixelFormat = (MTLPixelFormat)key->depth_format;
@@ -3776,6 +4222,8 @@ static void pipeline_describe(const struct pipeline_key *key, struct gpu_pipelin
 	description->write_mask = key->write_mask;
 	description->exact_borders = key->exact_borders;
 	description->depth = key->depth_format != MTLPixelFormatInvalid;
+	/* (a BGRA8 draw while the scene is in another format is one into a target that stays BGRA8) */
+	description->color_role = key->color_format == MTLPixelFormatBGRA8Unorm && scene_color_format() != MTLPixelFormatBGRA8Unorm;
 	memcpy(description->attribute_kinds, key->attribute_kinds, sizeof(description->attribute_kinds));
 }
 
@@ -3798,9 +4246,10 @@ static void pipeline_key_from_description(const struct gpu_pipeline_description 
 	}
 	key->write_mask = description->write_mask & 0xf;
 	key->exact_borders = description->exact_borders & 0xf;
-	/* every pass draws to BGRA8 (pass_begin's scratch color in a depth-only
-	one) and depth-stencil targets are Depth32Float_Stencil8 */
-	key->color_format = (uint32_t)MTLPixelFormatBGRA8Unorm;
+	/* a draw into the scene's color is in the scene's format in force (display.scene_precision); every other
+	draw is BGRA8 (pass_begin's scratch color in a depth-only one), and depth-stencil targets are
+	Depth32Float_Stencil8 */
+	key->color_format = (uint32_t)(description->color_role ? MTLPixelFormatBGRA8Unorm : scene_color_format());
 	key->depth_format = (uint32_t)(description->depth ? MTLPixelFormatDepth32Float_Stencil8 : MTLPixelFormatInvalid);
 	memcpy(key->attribute_kinds, description->attribute_kinds, sizeof(key->attribute_kinds));
 }
@@ -4420,7 +4869,7 @@ static BOOL zero_border_eligible(const struct gpu_stage *packet, MetalTexture *r
 {
 	return !border_colors && packet->type == GPU_TEXTURE_2D && record && record->texture &&
 		!record->description.foveated_eye && record->texture.textureType == MTLTextureType2D &&
-		record->texture.pixelFormat == MTLPixelFormatBGRA8Unorm && packet->sampler.border_color == 0 &&
+		format_has_alpha(record->texture.pixelFormat) && packet->sampler.border_color == 0 &&
 		(packet->sampler.address_u == GPU_ADDRESS_BORDER || packet->sampler.address_v == GPU_ADDRESS_BORDER);
 }
 
@@ -4606,6 +5055,7 @@ static void bind_stages(const struct gpu_draw *draw, unsigned exact)
 	float foveation[GPU_STAGE_COUNT][2][4];
 	id<MTLBuffer> foveation_map_data = nil;
 
+	stages_rate_map = NO;
 	memset(foveation, 0, sizeof(foveation));
 	for (stage = 0; stage < GPU_STAGE_COUNT; stage++)
 	{
@@ -4682,6 +5132,7 @@ static void bind_stages(const struct gpu_draw *draw, unsigned exact)
 	{
 		/* set on every foveated draw (the state cache doesn't track them) */
 		[encoder setFragmentBuffer:foveation_map_data offset:0 atIndex:1];
+		stages_rate_map = YES;
 		metal_state_always(&state_cache);
 		[encoder setFragmentBytes:foveation length:sizeof(foveation) atIndex:2];
 		metal_state_always(&state_cache);
@@ -4751,6 +5202,1093 @@ static uint32_t convert_primitive(const struct gpu_draw *draw, MTLPrimitiveType 
 	return converted;
 }
 
+/* ---------- traced object shadows (display.traced_shadows; port/linux/game/traced_shadow_casters.c, d3d8_device.c)
+
+Characters' and vehicles' shadows traced against their models instead of read from shadow maps, on GPUs with ray
+tracing hardware (the Metal gate's TRACED_SHADOWS pass). The game sends records (traced_shadows_format.h) through
+traced_shadows_data, in order with its draws:
+- a model part once a map (rest vertices kept here, its triangles in a Metal buffer);
+- a shadow's caster each frame: the parts under their node matrices. traced_shadows.h's cache says whether its
+  acceleration structure is reused, updated in place or built; one that needs work is skinned here, straight into
+  the frame's vertex buffer, and its build or refit waits for the next commit;
+- a commit: every waiting build and refit, encoded in one encoder between render passes;
+- the shadow the next traced draws apply, with its basis.
+A draw whose pixel shader traces (MetalShader traced_shadow; nv2a_psh.c) binds its shadow's structure at fragment
+buffer 6, the level's at 7 and the basis at 8, and is dropped when its shadow has no structure. Those draws go to
+the traced term, a target of the front end's, which traced_shadows_resolve then multiplies into the scene.
+Everything is encoded in the frame's own command buffer and nothing waits for the GPU. */
+#include "traced_shadows.h"
+
+enum
+{
+	TRACED_VERTEX_BYTES = 1 << 22, /* a frame's skinned positions, to start with */
+	TRACED_PENDING = TRACED_SHADOWS_SHADOWS,
+};
+
+static NSString *const traced_source =
+	@"#include <metal_stdlib>\n"
+	"using namespace metal;\n"
+	"\n"
+	"struct traced_vertex_out\n"
+	"{\n"
+	"\tfloat4 position [[position]];\n"
+	"};\n"
+	"\n"
+	"vertex traced_vertex_out traced_vertex(uint id [[vertex_id]])\n"
+	"{\n"
+	"\ttraced_vertex_out out;\n"
+	"\tfloat2 uv = float2((id << 1) & 2, id & 2);\n"
+	"\tout.position = float4(uv * 2.0 - 1.0, 0.0, 1.0);\n"
+	"\treturn out;\n"
+	"}\n"
+	"\n"
+	"/* the window's rectangle, and what to show: 0 the term's color (the product of the shadows' darkening), 1 the\n"
+	"term's color alone, 2 the penumbra radius alone (both for looking at the term) */\n"
+	"struct traced_composite_parameters\n"
+	"{\n"
+	"\tuint ox, oy, w, h;\n"
+	"\tuint view;\n"
+	"\tuint sx, sy; /* where the term texture's first texel is (the filter's output holds the covered rectangle alone) */\n"
+	"\tuint pad;\n"
+	"};\n"
+	"\n"
+	"fragment float4 traced_composite(traced_vertex_out in [[stage_in]], texture2d<float, access::read> term [[texture(0)]],\n"
+	"\tconstant traced_composite_parameters &c [[buffer(0)]])\n"
+	"{\n"
+	"\tuint2 q = clamp(uint2(in.position.xy), uint2(c.ox, c.oy), uint2(c.ox + c.w - 1, c.oy + c.h - 1));\n"
+	"\tfloat4 t = term.read(q - uint2(c.sx, c.sy));\n"
+	"\tif (c.view == 2)\n"
+	"\t\treturn float4(t.a, t.a, t.a, 1.0);\n"
+	"\treturn float4(t.rgb, 1.0);\n"
+	"}\n"
+	"\n"
+	"/* The filter (debug.traced_shadows_filter): the term's hard edges become penumbrae as wide as the radius in its\n"
+	"alpha. c is the covered rectangle (inside the window w), which the work textures hold alone; h is its half\n"
+	"resolution; radius the largest penumbra in pixels (alpha 1); axis the direction of a separable step; s where the\n"
+	"blur's source has its first texel */\n"
+	"struct traced_filter_parameters\n"
+	"{\n"
+	"\tuint cx, cy, cw, ch;\n"
+	"\tuint hw, hh;\n"
+	"\tint ax, ay;\n"
+	"\tuint sx, sy;\n"
+	"\tfloat radius;\n"
+	"\tuint pad;\n"
+	"};\n"
+	"\n"
+	"/* a shadow's apply draw darkened this pixel (the term is cleared to white) */\n"
+	"static bool traced_hit(float4 t)\n"
+	"{\n"
+	"\treturn min(t.r, min(t.g, t.b)) < 0.998;\n"
+	"}\n"
+	"\n"
+	"/* half resolution: the smallest radius, in pixels, among each 2x2 block's shadowed pixels; 0 with none */\n"
+	"kernel void traced_radius_down(texture2d<float, access::read> term [[texture(0)]],\n"
+	"\ttexture2d<float, access::write> half_out [[texture(1)]],\n"
+	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
+	"\t\treturn;\n"
+	"\tfloat r = 0.0;\n"
+	"\tfor (uint i = 0; i < 4; ++i)\n"
+	"\t{\n"
+	"\t\tuint2 q = min(gid * 2 + uint2(i & 1, i >> 1), uint2(p.cw - 1, p.ch - 1)) + uint2(p.cx, p.cy);\n"
+	"\t\tfloat4 t = term.read(q);\n"
+	"\t\tif (traced_hit(t))\n"
+	"\t\t{\n"
+	"\t\t\tfloat e = max(t.a * p.radius, 1.0);\n"
+	"\t\t\tr = r > 0.0 ? min(r, e) : e;\n"
+	"\t\t}\n"
+	"\t}\n"
+	"\thalf_out.write(float4(r), gid);\n"
+	"}\n"
+	"\n"
+	"/* one direction of the blocker search: the widest radius among the texels along the axis whose penumbra reaches\n"
+	"this one (a shadowed texel reaches as far as its own radius), so a pixel next to a shadow knows how wide to blur */\n"
+	"kernel void traced_radius_reach(texture2d<float, access::read> half_in [[texture(0)]],\n"
+	"\ttexture2d<float, access::write> half_out [[texture(1)]],\n"
+	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
+	"\t\treturn;\n"
+	"\tint n = int(ceil(p.radius * 0.5));\n"
+	"\tfloat best = 0.0;\n"
+	"\tfor (int k = -n; k <= n; ++k)\n"
+	"\t{\n"
+	"\t\tint2 c = int2(gid) + int2(p.ax, p.ay) * k;\n"
+	"\t\tif (c.x < 0 || c.y < 0 || c.x >= int(p.hw) || c.y >= int(p.hh))\n"
+	"\t\t\tcontinue;\n"
+	"\t\tfloat r = half_in.read(uint2(c)).r;\n"
+	"\t\tif (r > 0.0 && float(abs(k)) * 2.0 <= r)\n"
+	"\t\t\tbest = max(best, r);\n"
+	"\t}\n"
+	"\thalf_out.write(float4(best), gid);\n"
+	"}\n"
+	"\n"
+	"/* one direction of the blur: a tent as wide as the pixel's radius (its own where it is shadowed, the searched one\n"
+	"beside a shadow), every texel up to 16 a side and every second one past that. A tap counts only where the depth is\n"
+	"what the center's depth and its slope along the axis predict (stored depth is linear across the screen on a flat\n"
+	"surface), so an object in front of the ground neither lightens the shadow behind it nor takes its penumbra. The\n"
+	"alpha written is the radius used, as the term's is */\n"
+	"kernel void traced_blur(texture2d<float, access::read> term [[texture(0)]],\n"
+	"\ttexture2d<float, access::read> source [[texture(1)]],\n"
+	"\ttexture2d<float, access::read> reach [[texture(2)]],\n"
+	"\tdepth2d<float, access::read> depth [[texture(3)]],\n"
+	"\ttexture2d<float, access::write> out [[texture(4)]],\n"
+	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= p.cw || gid.y >= p.ch)\n"
+	"\t\treturn;\n"
+	"\tint2 g = int2(gid) + int2(p.cx, p.cy);\n"
+	"\tint2 low = int2(p.cx, p.cy), high = int2(p.cx + p.cw - 1, p.cy + p.ch - 1);\n"
+	"\tint2 s = int2(p.sx, p.sy), a = int2(p.ax, p.ay);\n"
+	"\tfloat4 t = term.read(uint2(g));\n"
+	"\tfloat r = traced_hit(t) ? max(t.a * p.radius, 1.0) : reach.read(min(gid / 2, uint2(p.hw - 1, p.hh - 1))).r;\n"
+	"\tfloat3 sum = source.read(uint2(g - s)).rgb;\n"
+	"\tif (r < 0.5)\n"
+	"\t{\n"
+	"\t\tout.write(float4(sum, 0.0), gid);\n"
+	"\t\treturn;\n"
+	"\t}\n"
+	"\tfloat d0 = depth.read(uint2(g));\n"
+	"\tfloat forward = depth.read(uint2(clamp(g + a, low, high))) - d0;\n"
+	"\tfloat backward = d0 - depth.read(uint2(clamp(g - a, low, high)));\n"
+	"\tfloat slope = abs(forward) < abs(backward) ? forward : backward;\n"
+	"\tint stride = r > 16.0 ? 2 : 1;\n"
+	"\tint n = int(ceil(r / float(stride)));\n"
+	"\tfloat total = 1.0;\n"
+	"\tfor (int k = -n; k <= n; ++k)\n"
+	"\t{\n"
+	"\t\tint offset = k * stride;\n"
+	"\t\tint2 q = g + a * offset;\n"
+	"\t\tfloat w = 1.0 - float(abs(offset)) / (r + 1.0);\n"
+	"\t\tif (k == 0 || w <= 0.0 || q.x < low.x || q.y < low.y || q.x > high.x || q.y > high.y)\n"
+	"\t\t\tcontinue;\n"
+	"\t\tfloat expected = d0 + slope * float(offset);\n"
+	"\t\tif (abs(depth.read(uint2(q)) - expected) > abs(slope) * float(abs(offset)) * 0.5 + 1e-6)\n"
+	"\t\t\tcontinue;\n"
+	"\t\tsum += source.read(uint2(q - s)).rgb * w;\n"
+	"\t\ttotal += w;\n"
+	"\t}\n"
+	"\tout.write(float4(sum / total, r / p.radius), gid);\n"
+	"}\n";
+
+static struct
+{
+	BOOL tried, programs_failed;
+	uint32_t epoch;
+	unsigned long frame;
+	struct traced_caster_cache cache;
+	/* parts, by the game's id */
+	struct traced_shadows_vertex *part_vertices[TRACED_SHADOWS_PARTS];
+	uint32_t part_vertex_count[TRACED_SHADOWS_PARTS], part_triangle_count[TRACED_SHADOWS_PARTS];
+	/* each caster slot's structure: the size it was made with and the scratch a refit of it needs */
+	uint64_t structure_size[TRACED_CASTER_SLOTS], refit_scratch[TRACED_CASTER_SLOTS];
+	/* this frame's shadows: 0 none, else its caster slot + 1 */
+	uint16_t shadow_slot[TRACED_SHADOWS_SHADOWS];
+	/* and the light family each belongs to (traced_shadows_caster.family) */
+	uint8_t shadow_family[TRACED_SHADOWS_SHADOWS];
+	/* builds and refits waiting for a commit */
+	uint32_t pending_count;
+	uint16_t pending_slot[TRACED_PENDING];
+	uint8_t pending_refit[TRACED_PENDING];
+	uint64_t pending_scratch[TRACED_PENDING], pending_scratch_total;
+	size_t vertices_used;
+	BOOL world_pending;
+	uint32_t world_triangles;
+	/* the shadow being applied */
+	uint32_t apply;
+	float basis[TRACED_SHADOWS_BASIS_FLOATS];
+	/* since the last log line */
+	unsigned long log_casters, log_triangles, log_dropped;
+	uint64_t structure_bytes;
+} traced;
+/* set from the encoder's thread when an allocation fails, read by traced_shadows_ready on the game's */
+static atomic_int traced_failed;
+/* (HALO_RT_GPU_LOG's blocks: resolves since the last frame start, and the pixels they covered) */
+static _Atomic uint32_t traced_resolves_logged;
+static _Atomic uint64_t traced_resolve_pixels_logged;
+static __strong id<MTLBuffer> traced_part_indices[TRACED_SHADOWS_PARTS];
+static __strong id<MTLAccelerationStructure> traced_structures[TRACED_CASTER_SLOTS];
+static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_pending_descriptors[TRACED_PENDING];
+static __strong id<MTLBuffer> traced_vertices[FRAMES];
+static __strong id<MTLBuffer> traced_scratch[FRAMES];
+static __strong id<MTLAccelerationStructure> traced_world;
+static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_world_descriptor;
+/* the composite's pipelines (replace for the debug views, multiply for the term), one pair for each scene color
+format they have drawn into (display.scene_precision moves the scene off BGRA8): traced_composite_pipeline */
+static __strong NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *traced_composites;
+static __strong id<MTLFunction> traced_vertex_function, traced_composite_function;
+static __strong id<MTLComputePipelineState> traced_radius_down, traced_radius_reach, traced_blur;
+/* the filter's work textures (ssao_texture's kind: kept, made again only to grow): two of the covered rectangle and
+two of half of it */
+static __strong id<MTLTexture> traced_work[2], traced_half[2];
+static id<MTLTexture> ssao_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height);
+static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
+	unsigned long width, unsigned long height);
+static __strong id<MTLDepthStencilState> traced_level, traced_everything;
+
+/* (the Metal gate's row holds the floor and the reason; any_gpu is debug.traced_shadows_any_gpu, for measuring GPUs
+that trace in software) */
+static uint32_t gpu_metal_traced_shadows_ready(uint32_t any_gpu)
+{
+	if (atomic_load_explicit(&traced_failed, memory_order_relaxed))
+		return 0;
+	return metal_pass(METAL_PASS_TRACED_SHADOWS) || (any_gpu && metal_feature(METAL_FEATURE_RAYTRACING_RENDER)) ? 1 : 0;
+}
+
+/* debug.traced_shadows_refit: a moved caster's structure is updated in place; off, it is built again every frame
+(for measuring what refitting saves) */
+static int traced_refit_allowed(void)
+{
+	static int flag = -1;
+
+	if (flag < 0)
+	{
+		char value[32];
+
+		host_config_string("debug.traced_shadows_refit", "true", value, sizeof(value));
+		flag = strcmp(value, "false") != 0;
+	}
+	return flag;
+}
+
+static void traced_fail(const char *what)
+{
+	if (!atomic_exchange_explicit(&traced_failed, 1, memory_order_relaxed))
+		platform_log("traced shadows: %s; shadows are drawn from their maps from the next frame", what);
+}
+
+/* a slot's structure goes (its caster left the cache, or another takes the slot) */
+static void traced_structure_release(uint32_t slot)
+{
+	traced.structure_bytes -= MIN(traced.structure_bytes, traced.structure_size[slot]);
+	traced_structures[slot] = nil;
+	traced.structure_size[slot] = 0;
+}
+
+static void traced_frame_check(void)
+{
+	if (traced.frame == frames)
+		return;
+	if (traced.log_casters && (frames % 600) == 0)
+	{
+		platform_log("traced shadows: frame %lu: %lu casters and %lu triangles updated in 600 frames (%u built, %u "
+			"refitted, %u reused, %u refused, %u kept an older pose over the frame's budget), %lu draws dropped, %.1f MB of "
+			"structures", frames, traced.log_casters, traced.log_triangles, traced.cache.builds, traced.cache.refits,
+			traced.cache.reuses, traced.cache.refused, traced.cache.deferred,
+			traced.log_dropped, (double)traced.structure_bytes / 1048576.0);
+		traced.log_casters = traced.log_triangles = traced.log_dropped = 0;
+		traced.cache.builds = traced.cache.refits = traced.cache.reuses = traced.cache.refused = 0;
+		traced.cache.deferred = 0;
+	}
+	traced.frame = frames;
+	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
+	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
+	/* (a frame's builds are committed before it ends; one that never was is dropped with its descriptors) */
+	while (traced.pending_count)
+		traced_pending_descriptors[--traced.pending_count] = nil;
+	traced.pending_scratch_total = 0;
+	traced.vertices_used = 0;
+	traced.apply = TRACED_SHADOWS_SHADOWS;
+	traced_cache_frame(&traced.cache, frames);
+	{
+		uint32_t looked = 0, slot;
+
+		while (traced_cache_sweep(&traced.cache, &looked, &slot))
+			traced_structure_release(slot);
+	}
+}
+
+static void traced_reset(uint32_t epoch)
+{
+	uint32_t index;
+
+	for (index = 0; index < TRACED_SHADOWS_PARTS; index++)
+	{
+		free(traced.part_vertices[index]);
+		traced.part_vertices[index] = NULL;
+		traced.part_vertex_count[index] = traced.part_triangle_count[index] = 0;
+		traced_part_indices[index] = nil;
+	}
+	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
+		traced_structures[index] = nil;
+	while (traced.pending_count)
+		traced_pending_descriptors[--traced.pending_count] = nil;
+	traced.pending_scratch_total = 0;
+	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
+	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
+	memset(traced.structure_size, 0, sizeof(traced.structure_size));
+	traced_cache_reset(&traced.cache);
+	traced_world = nil;
+	traced_world_descriptor = nil;
+	traced.world_pending = NO;
+	traced.structure_bytes = 0;
+	traced.epoch = epoch;
+}
+
+static void traced_part(uint32_t id, const void *bytes, uint32_t size)
+{
+	const struct traced_shadows_part *part;
+	const struct traced_shadows_vertex *vertices;
+	const uint16_t *triangles;
+	struct traced_shadows_vertex *kept;
+
+	if (id >= TRACED_SHADOWS_PARTS || !traced_part_read(bytes, size, &part, &vertices, &triangles) ||
+		part->epoch != traced.epoch)
+		return;
+	kept = malloc((size_t)part->vertex_count * sizeof(*kept));
+	if (!kept)
+		return;
+	memcpy(kept, vertices, (size_t)part->vertex_count * sizeof(*kept));
+	free(traced.part_vertices[id]);
+	traced.part_vertices[id] = kept;
+	traced.part_vertex_count[id] = part->vertex_count;
+	traced.part_triangle_count[id] = part->triangle_count;
+	traced_part_indices[id] = [device newBufferWithBytes:triangles length:(NSUInteger)part->triangle_count * 3 * sizeof(uint16_t)
+		options:MTLResourceStorageModeShared];
+	if (!traced_part_indices[id])
+		traced.part_triangle_count[id] = 0;
+}
+
+/* room for size more bytes of skinned positions in the frame's vertex buffer; a buffer outgrown mid-frame stays with
+the descriptors that already name it */
+static float *traced_vertex_room(size_t size, size_t *offset)
+{
+	id<MTLBuffer> buffer = traced_vertices[frame_slot];
+
+	if (!buffer || traced.vertices_used + size > buffer.length)
+	{
+		size_t length = MAX((size_t)TRACED_VERTEX_BYTES, (buffer ? (size_t)buffer.length : 0) * 2);
+
+		while (length < size)
+			length *= 2;
+		buffer = [device newBufferWithLength:length options:MTLResourceStorageModeShared];
+		if (!buffer)
+			return NULL;
+		traced_vertices[frame_slot] = buffer;
+		traced.vertices_used = 0;
+	}
+	*offset = traced.vertices_used;
+	traced.vertices_used += (size + 15) & ~(size_t)15;
+	return (float *)((uint8_t *)buffer.contents + *offset);
+}
+
+static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
+{
+	const struct traced_shadows_caster *caster;
+	const uint32_t *shape;
+	const float *pose;
+	uint32_t model, at = 0, triangles = 0, vertices = 0, slot = 0;
+	int released = 0;
+	enum traced_decision decision;
+
+	if (shadow >= TRACED_SHADOWS_SHADOWS || !traced_caster_read(bytes, size, &caster, &shape, &pose) ||
+		caster->epoch != traced.epoch)
+		return;
+	traced.shadow_family[shadow] = caster->family >= TRACED_SHADOWS_FAMILY_FIRST && caster->family <= TRACED_SHADOWS_FAMILY_LAST
+		? (uint8_t)caster->family : 0;
+	/* every part is one the map defined */
+	for (model = 0; model < caster->model_count; model++)
+	{
+		uint32_t part_count = shape[at + 1], part;
+
+		for (part = 0; part < part_count; part++)
+		{
+			uint32_t id = shape[at + 2 + part];
+
+			if (id >= TRACED_SHADOWS_PARTS || !traced.part_triangle_count[id])
+				return;
+			triangles += traced.part_triangle_count[id];
+			vertices += traced.part_vertex_count[id];
+		}
+		at += 2 + part_count;
+	}
+	if (!triangles)
+		return;
+	decision = traced_cache_decide(&traced.cache, caster->object, shape, caster->shape_size, pose, caster->pose_size,
+		triangles, traced_refit_allowed(), &slot, &released);
+	if (released)
+		traced_structure_release(slot);
+	if (decision == TRACED_REFUSED)
+		return;
+	if (decision == TRACED_REUSE)
+	{
+		/* (its structure, or the build of it that waits for this frame's commit) */
+		if (traced.structure_size[slot])
+			traced.shadow_slot[shadow] = (uint16_t)(slot + 1);
+		return;
+	}
+	@autoreleasepool
+	{
+		NSMutableArray<MTLAccelerationStructureGeometryDescriptor *> *geometries = [NSMutableArray array];
+		MTLPrimitiveAccelerationStructureDescriptor *descriptor = [MTLPrimitiveAccelerationStructureDescriptor descriptor];
+		size_t offset = 0;
+		float *positions = traced_vertex_room((size_t)vertices * 3 * sizeof(float), &offset);
+		id<MTLBuffer> buffer = traced_vertices[frame_slot];
+		const float *matrices = pose;
+		BOOL refit = decision == TRACED_REFIT && traced_structures[slot] && traced.structure_size[slot];
+
+		if (!positions || traced.pending_count >= TRACED_PENDING)
+		{
+			traced.cache.slots[slot].updated = 0;
+			traced.cache.slots[slot].pose_size = 0;
+			return;
+		}
+		for (model = 0, at = 0; model < caster->model_count; model++)
+		{
+			uint32_t node_count = shape[at], part_count = shape[at + 1], part;
+
+			for (part = 0; part < part_count; part++)
+			{
+				uint32_t id = shape[at + 2 + part];
+				MTLAccelerationStructureTriangleGeometryDescriptor *geometry =
+					[MTLAccelerationStructureTriangleGeometryDescriptor descriptor];
+
+				traced_skin(traced.part_vertices[id], traced.part_vertex_count[id], matrices, node_count, positions);
+				geometry.vertexBuffer = buffer;
+				geometry.vertexBufferOffset = offset;
+				geometry.vertexStride = 3 * sizeof(float);
+				geometry.vertexFormat = MTLAttributeFormatFloat3;
+				geometry.indexBuffer = traced_part_indices[id];
+				geometry.indexType = MTLIndexTypeUInt16;
+				geometry.triangleCount = traced.part_triangle_count[id];
+				geometry.opaque = YES;
+				[geometries addObject:geometry];
+				positions += (size_t)traced.part_vertex_count[id] * 3;
+				offset += (size_t)traced.part_vertex_count[id] * 3 * sizeof(float);
+			}
+			matrices += (size_t)node_count * TRACED_SHADOWS_NODE_FLOATS;
+			at += 2 + part_count;
+		}
+		descriptor.geometryDescriptors = geometries;
+		descriptor.usage = MTLAccelerationStructureUsageRefit | MTLAccelerationStructureUsagePreferFastBuild;
+		if (!refit)
+		{
+			MTLAccelerationStructureSizes sizes = [device accelerationStructureSizesWithDescriptor:descriptor];
+
+			if (!traced_structures[slot] || traced.structure_size[slot] < sizes.accelerationStructureSize)
+			{
+				traced.structure_bytes -= MIN(traced.structure_bytes, traced.structure_size[slot]);
+				traced_structures[slot] = [device newAccelerationStructureWithSize:sizes.accelerationStructureSize];
+				traced.structure_size[slot] = traced_structures[slot] ? sizes.accelerationStructureSize : 0;
+				traced.structure_bytes += traced.structure_size[slot];
+			}
+			if (!traced_structures[slot])
+			{
+				traced.cache.slots[slot].updated = 0;
+				traced.cache.slots[slot].pose_size = 0;
+				traced_fail("an acceleration structure could not be allocated");
+				return;
+			}
+			traced.refit_scratch[slot] = sizes.refitScratchBufferSize;
+			traced.pending_scratch[traced.pending_count] = sizes.buildScratchBufferSize;
+		}
+		else
+			traced.pending_scratch[traced.pending_count] = traced.refit_scratch[slot];
+		traced.pending_scratch[traced.pending_count] = (traced.pending_scratch[traced.pending_count] + 255) & ~(uint64_t)255;
+		traced.pending_scratch_total += traced.pending_scratch[traced.pending_count];
+		traced.pending_slot[traced.pending_count] = (uint16_t)slot;
+		traced.pending_refit[traced.pending_count] = refit;
+		traced_pending_descriptors[traced.pending_count++] = descriptor;
+		traced.shadow_slot[shadow] = (uint16_t)(slot + 1);
+		traced.log_casters++;
+		traced.log_triangles += triangles;
+	}
+}
+
+static void traced_world_take(const void *bytes, uint32_t size)
+{
+	const struct traced_shadows_world *world = bytes;
+
+	if (!bytes || size < sizeof(*world) || world->epoch != traced.epoch || !world->triangle_count ||
+		(uint64_t)sizeof(*world) + (uint64_t)world->triangle_count * 9 * sizeof(float) != size)
+		return;
+	@autoreleasepool
+	{
+		MTLAccelerationStructureTriangleGeometryDescriptor *geometry =
+			[MTLAccelerationStructureTriangleGeometryDescriptor descriptor];
+		MTLAccelerationStructureSizes sizes;
+
+		geometry.vertexBuffer = [device newBufferWithBytes:world + 1 length:(NSUInteger)world->triangle_count * 9 * sizeof(float)
+			options:MTLResourceStorageModeShared];
+		geometry.vertexStride = 3 * sizeof(float);
+		geometry.vertexFormat = MTLAttributeFormatFloat3;
+		geometry.triangleCount = world->triangle_count;
+		geometry.opaque = YES;
+		traced_world_descriptor = [MTLPrimitiveAccelerationStructureDescriptor descriptor];
+		traced_world_descriptor.geometryDescriptors = @[ geometry ];
+		sizes = [device accelerationStructureSizesWithDescriptor:traced_world_descriptor];
+		traced_world = geometry.vertexBuffer ? [device newAccelerationStructureWithSize:sizes.accelerationStructureSize] : nil;
+		traced.world_pending = traced_world != nil;
+		traced.world_triangles = world->triangle_count;
+		if (!traced_world)
+			traced_world_descriptor = nil;
+		platform_log("traced shadows: the level's structure, %u triangles, %.1f MB", world->triangle_count,
+			(double)sizes.accelerationStructureSize / 1048576.0);
+	}
+}
+
+/* every build and refit that waits, in one encoder between passes, each with its own range of the scratch buffer
+(they may run at the same time). The level's structure is built once, with scratch of its own */
+static void traced_commit(void)
+{
+	if (!traced.pending_count && !traced.world_pending)
+		return;
+	@autoreleasepool
+	{
+		id<MTLAccelerationStructureCommandEncoder> build;
+		id<MTLBuffer> scratch = traced_scratch[frame_slot], world_scratch = nil;
+		uint64_t offset = 0;
+		uint32_t index;
+
+		/* (a refit may need no scratch at all: then the total is 0 and there is nothing to allocate) */
+		if (!traced.pending_scratch_total)
+			scratch = nil;
+		else if (!scratch || scratch.length < traced.pending_scratch_total)
+		{
+			scratch = [device newBufferWithLength:(NSUInteger)traced.pending_scratch_total * 2
+				options:MTLResourceStorageModePrivate];
+			traced_scratch[frame_slot] = scratch;
+		}
+		if (traced.world_pending)
+			world_scratch = [device newBufferWithLength:
+				[device accelerationStructureSizesWithDescriptor:traced_world_descriptor].buildScratchBufferSize
+				options:MTLResourceStorageModePrivate];
+		if ((traced.pending_scratch_total && !scratch) || (traced.world_pending && !world_scratch))
+		{
+			traced_fail("a scratch buffer could not be allocated");
+			for (index = 0; index < traced.pending_count; index++)
+			{
+				/* (not built: no shadow from it, and its slot is made again next time) */
+				traced.cache.slots[traced.pending_slot[index]].updated = 0;
+				traced.cache.slots[traced.pending_slot[index]].pose_size = 0;
+				traced.structure_size[traced.pending_slot[index]] = 0;
+				traced_structures[traced.pending_slot[index]] = nil;
+				traced_pending_descriptors[index] = nil;
+			}
+			traced.pending_count = 0;
+			traced.pending_scratch_total = 0;
+			traced.world_pending = NO;
+			traced_world = nil;
+			return;
+		}
+		pass_end();
+		build = [command_buffer() accelerationStructureCommandEncoder];
+		for (index = 0; index < traced.pending_count; index++)
+		{
+			id<MTLAccelerationStructure> structure = traced_structures[traced.pending_slot[index]];
+
+			if (traced.pending_refit[index])
+				[build refitAccelerationStructure:structure descriptor:traced_pending_descriptors[index] destination:nil
+					scratchBuffer:traced.pending_scratch[index] ? scratch : nil scratchBufferOffset:(NSUInteger)offset];
+			else
+				[build buildAccelerationStructure:structure descriptor:traced_pending_descriptors[index]
+					scratchBuffer:scratch scratchBufferOffset:(NSUInteger)offset];
+			offset += traced.pending_scratch[index];
+			traced_pending_descriptors[index] = nil;
+		}
+		if (traced.world_pending)
+		{
+			[build buildAccelerationStructure:traced_world descriptor:traced_world_descriptor scratchBuffer:world_scratch
+				scratchBufferOffset:0];
+			/* (the structure holds its triangles: the descriptor and its vertex buffer go) */
+			traced_world_descriptor = nil;
+			traced.world_pending = NO;
+		}
+		[build endEncoding];
+		if (pass_log)
+			[pass_log appendFormat:@"\n  traced shadows: %u structures built or refitted", traced.pending_count];
+		traced.pending_count = 0;
+		traced.pending_scratch_total = 0;
+	}
+}
+
+/* ---------- dynamic lights that walls and characters block (debug.traced_light_blocking; traced_shadow_casters.c's
+traced_light_begin, nv2a_psh.c's traced light block)
+
+The level's diffuse light pass draws each dynamic light's surfaces once more; with this on, those draws trace a ray
+from each lit point to the light. What blocks it is one instance structure a frame: the level's structure (mask 2)
+and every caster structure this frame's shadows built (mask 1, identity transforms: their triangles are skinned
+into world space). It is made at the frame's first traced light draw, after every waiting build and refit is
+encoded, and made again when more casters were committed since. A caster's structure is taken afresh each time
+(a slot's structure is replaced when its caster grows). */
+static struct
+{
+	struct traced_shadows_light light;
+	unsigned long frame;      /* the frame the instances were made in */
+	uint64_t made_with;       /* the casters they hold and their families (traced_light_casters) */
+	uint32_t count;           /* their instances, the level's included */
+	unsigned long draws, builds, skipped; /* since the last log line */
+	int ab;                   /* HALO_RT_LIGHT_AB: every second block of 300 frames skips the rays (cost runs) */
+} traced_lights = { .frame = (unsigned long)-1, .ab = -1 };
+static __strong id<MTLAccelerationStructure> traced_light_instances[FRAMES];
+static __strong id<MTLBuffer> traced_light_descriptors[FRAMES], traced_light_scratch[FRAMES];
+static __strong NSMutableArray<id<MTLAccelerationStructure>> *traced_light_members[FRAMES];
+
+static void traced_light_take(const void *bytes, uint32_t size)
+{
+	if (bytes && size == sizeof(traced_lights.light))
+		memcpy(&traced_lights.light, bytes, sizeof(traced_lights.light));
+}
+
+/* what the blockers' instance structure holds: each caster's shadow, structure and family. A window (or a second
+eye) with the same casters reuses the structure; one whose set differs, even at the same count, rebuilds it */
+static uint64_t traced_light_casters(void)
+{
+	uint64_t hash = 14695981039346656037ull;
+	uint32_t shadow;
+
+	for (shadow = 0; shadow < TRACED_SHADOWS_SHADOWS; shadow++)
+	{
+		if (traced.shadow_slot[shadow] && traced_structures[traced.shadow_slot[shadow] - 1])
+		{
+			uint64_t member = ((uint64_t)shadow << 40) ^ ((uint64_t)traced.shadow_slot[shadow] << 8) ^
+				traced.shadow_family[shadow];
+			hash = (hash ^ member) * 1099511628211ull;
+		}
+	}
+	return hash;
+}
+
+/* the blockers' instance structure, made in the frame's command buffer between passes. NO: the light is drawn as
+the game draws it */
+static BOOL traced_light_ready(void)
+{
+	uint32_t shadow;
+	uint64_t casters;
+
+	if (atomic_load(&traced_failed) || !traced_world)
+	{
+		traced_lights.skipped++;
+		return NO;
+	}
+	traced_frame_check();
+	/* (every waiting build and refit first, in this command buffer) */
+	traced_commit();
+	if (frames != traced_lights.frame && (frames % 600) == 0 && traced_lights.frame != (unsigned long)-1)
+	{
+		platform_log("traced lights: frame %lu: %lu traced light draws, %lu instance builds, %lu draws left untraced "
+			"since the last line", frames, traced_lights.draws, traced_lights.builds, traced_lights.skipped);
+		traced_lights.draws = traced_lights.builds = traced_lights.skipped = 0;
+	}
+	casters = traced_light_casters();
+	if (frames != traced_lights.frame || casters != traced_lights.made_with || !traced_light_instances[frame_slot])
+	{
+		@autoreleasepool
+		{
+			NSMutableArray<id<MTLAccelerationStructure>> *members = [NSMutableArray arrayWithObject:traced_world];
+			static uint32_t masks[TRACED_SHADOWS_SHADOWS + 1];
+			MTLInstanceAccelerationStructureDescriptor *descriptor = [MTLInstanceAccelerationStructureDescriptor descriptor];
+			MTLAccelerationStructureInstanceDescriptor *instances;
+			MTLAccelerationStructureSizes sizes;
+			id<MTLAccelerationStructureCommandEncoder> build;
+			uint32_t index;
+
+			for (shadow = 0; shadow < TRACED_SHADOWS_SHADOWS; shadow++)
+			{
+				if (traced.shadow_slot[shadow] && traced_structures[traced.shadow_slot[shadow] - 1])
+				{
+					/* (a caster of a light family takes that family's bit: its own lights' rays leave it out) */
+					masks[members.count] = traced.shadow_family[shadow] ? 1u << traced.shadow_family[shadow]
+						: (uint32_t)TRACED_SHADOWS_MASK_NO_FAMILY;
+					[members addObject:traced_structures[traced.shadow_slot[shadow] - 1]];
+				}
+			}
+			if (!traced_light_descriptors[frame_slot] ||
+				traced_light_descriptors[frame_slot].length < members.count * sizeof(*instances))
+				traced_light_descriptors[frame_slot] = [device newBufferWithLength:
+					(members.count + 64) * sizeof(*instances) options:MTLResourceStorageModeShared];
+			if (!traced_light_descriptors[frame_slot])
+			{
+				traced_fail("the traced lights' instance list could not be allocated");
+				return NO;
+			}
+			instances = (MTLAccelerationStructureInstanceDescriptor *)traced_light_descriptors[frame_slot].contents;
+			for (index = 0; index < members.count; index++)
+			{
+				memset(&instances[index], 0, sizeof(instances[index]));
+				instances[index].transformationMatrix.columns[0] = (MTLPackedFloat3){ 1.0f, 0.0f, 0.0f };
+				instances[index].transformationMatrix.columns[1] = (MTLPackedFloat3){ 0.0f, 1.0f, 0.0f };
+				instances[index].transformationMatrix.columns[2] = (MTLPackedFloat3){ 0.0f, 0.0f, 1.0f };
+				instances[index].options = MTLAccelerationStructureInstanceOptionOpaque;
+				instances[index].mask = index ? masks[index] : (uint32_t)TRACED_SHADOWS_MASK_LEVEL;
+				instances[index].accelerationStructureIndex = index;
+			}
+			descriptor.instancedAccelerationStructures = members;
+			descriptor.instanceCount = members.count;
+			descriptor.instanceDescriptorBuffer = traced_light_descriptors[frame_slot];
+			descriptor.usage = MTLAccelerationStructureUsagePreferFastBuild;
+			sizes = [device accelerationStructureSizesWithDescriptor:descriptor];
+			if (!traced_light_instances[frame_slot] ||
+				traced_light_instances[frame_slot].size < sizes.accelerationStructureSize)
+				traced_light_instances[frame_slot] =
+					[device newAccelerationStructureWithSize:sizes.accelerationStructureSize * 2];
+			if (!traced_light_scratch[frame_slot] || traced_light_scratch[frame_slot].length < sizes.buildScratchBufferSize)
+				traced_light_scratch[frame_slot] = [device newBufferWithLength:sizes.buildScratchBufferSize * 2 + 256
+					options:MTLResourceStorageModePrivate];
+			if (!traced_light_instances[frame_slot] || !traced_light_scratch[frame_slot])
+			{
+				traced_fail("the traced lights' instance structure could not be allocated");
+				return NO;
+			}
+			pass_end();
+			build = [command_buffer() accelerationStructureCommandEncoder];
+			[build buildAccelerationStructure:traced_light_instances[frame_slot] descriptor:descriptor
+				scratchBuffer:traced_light_scratch[frame_slot] scratchBufferOffset:0];
+			[build endEncoding];
+			traced_light_members[frame_slot] = members;
+			traced_lights.frame = frames;
+			traced_lights.made_with = casters;
+			traced_lights.count = (uint32_t)members.count;
+			traced_lights.builds++;
+		}
+	}
+	traced_lights.draws++;
+	return YES;
+}
+
+static void traced_light_bind(void)
+{
+	struct traced_shadows_light light = traced_lights.light;
+
+	if (traced_lights.ab < 0)
+		traced_lights.ab = getenv("HALO_RT_LIGHT_AB") != NULL;
+	light.skip = traced_lights.ab && ((frames / 300) & 1) ? 1.0f : 0.0f;
+	/* (the pass's rate map, for a lit point rebuilt from depth on a foveated pass; a stand-in on any other, which
+	the shader declares but does not read) */
+	light.foveated = pass_rate_map_data ? 1.0f : 0.0f;
+	if (!stages_rate_map)
+	{
+		static __strong id<MTLBuffer> stand_in;
+
+		if (!pass_rate_map_data && !stand_in)
+			stand_in = [device newBufferWithLength:256 options:MTLResourceStorageModeShared];
+		[encoder setFragmentBuffer:pass_rate_map_data ? pass_rate_map_data : stand_in offset:0 atIndex:1];
+		metal_state_always(&state_cache);
+	}
+	/* (an instance structure's members are not bound with it: each is made resident for the fragment stage) */
+	for (id<MTLAccelerationStructure> member in traced_light_members[frame_slot])
+		[encoder useResource:member usage:MTLResourceUsageRead stages:MTLRenderStageFragment];
+	[encoder setFragmentAccelerationStructure:traced_light_instances[frame_slot] atBufferIndex:6];
+	metal_state_always(&state_cache);
+	[encoder setFragmentAccelerationStructure:traced_world atBufferIndex:7];
+	metal_state_always(&state_cache);
+	[encoder setFragmentBytes:&light length:sizeof(light) atIndex:8];
+	metal_state_always(&state_cache);
+}
+
+static void gpu_metal_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
+{
+	if (!gpu_metal_traced_shadows_ready(1))
+		return;
+	traced_frame_check();
+	switch (kind)
+	{
+	case TRACED_SHADOWS_RESET:
+		traced_reset(id);
+		break;
+	case TRACED_SHADOWS_PART:
+		traced_part(id, bytes, size);
+		break;
+	case TRACED_SHADOWS_CASTER:
+		traced_caster(id, bytes, size);
+		break;
+	case TRACED_SHADOWS_WORLD:
+		traced_world_take(bytes, size);
+		break;
+	case TRACED_SHADOWS_COMMIT:
+		traced_commit();
+		break;
+	case TRACED_SHADOWS_APPLY:
+		if (bytes && size == sizeof(traced.basis))
+		{
+			traced.apply = id;
+			memcpy(traced.basis, bytes, sizeof(traced.basis));
+		}
+		break;
+	case TRACED_SHADOWS_LIGHT:
+		traced_light_take(bytes, size);
+		break;
+	default:
+		break;
+	}
+}
+
+/* a traced draw's shadow has a structure to trace; its builds are encoded first, between passes (call before the
+draw's pass begins). NO: the draw is dropped */
+static BOOL traced_draw_ready(void)
+{
+	traced_frame_check();
+	if (traced.apply >= TRACED_SHADOWS_SHADOWS || !traced.shadow_slot[traced.apply] ||
+		!traced_structures[traced.shadow_slot[traced.apply] - 1])
+	{
+		traced.log_dropped++;
+		return NO;
+	}
+	traced_commit();
+	return YES;
+}
+
+static void traced_draw_bind(void)
+{
+	id<MTLAccelerationStructure> caster = traced_structures[traced.shadow_slot[traced.apply] - 1];
+	float basis[TRACED_SHADOWS_BASIS_FLOATS];
+
+	memcpy(basis, traced.basis, sizeof(basis));
+	/* (without the level's structure the shader never traces buffer 7: the caster stands in) */
+	if (!traced_world)
+		basis[15] = 0.0f;
+	[encoder setFragmentAccelerationStructure:caster atBufferIndex:6];
+	metal_state_always(&state_cache);
+	[encoder setFragmentAccelerationStructure:traced_world ? traced_world : caster atBufferIndex:7];
+	metal_state_always(&state_cache);
+	[encoder setFragmentBytes:basis length:sizeof(basis) atIndex:8];
+	metal_state_always(&state_cache);
+}
+
+static BOOL traced_programs(void)
+{
+	NSError *error = nil;
+	id<MTLLibrary> library;
+	MTLRenderPipelineDescriptor *pipeline;
+	MTLDepthStencilDescriptor *state;
+	MTLStencilDescriptor *stencil;
+
+	if (traced.tried)
+		return !traced.programs_failed;
+	traced.tried = YES;
+	traced.programs_failed = YES;
+	library = [device newLibraryWithSource:traced_source options:nil error:&error];
+	if (!library)
+	{
+		platform_log("traced shadows: the resolve's shaders do not compile: %s", error.localizedDescription.UTF8String);
+		return NO;
+	}
+	traced_vertex_function = [library newFunctionWithName:@"traced_vertex"];
+	traced_composite_function = [library newFunctionWithName:@"traced_composite"];
+	traced_radius_down = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_radius_down"]
+		error:&error];
+	traced_radius_reach = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_radius_reach"]
+		error:&error];
+	traced_blur = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_blur"] error:&error];
+	if (!traced_vertex_function || !traced_composite_function || !traced_radius_down || !traced_radius_reach || !traced_blur)
+	{
+		platform_log("traced shadows: the resolve's pipeline cannot be made: %s",
+			error ? error.localizedDescription.UTF8String : "?");
+		return NO;
+	}
+	state = [MTLDepthStencilDescriptor new];
+	state.depthCompareFunction = MTLCompareFunctionAlways;
+	state.depthWriteEnabled = NO;
+	traced_everything = [device newDepthStencilStateWithDescriptor:state];
+	/* the level's pixels: the lightmap pass's mark (0x10, halo_traced_shadows_lightmaps_mark), and not the game's
+	own mark (1), as the ambient occlusion pass tests them */
+	stencil = [MTLStencilDescriptor new];
+	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
+	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
+		MTLStencilOperationKeep;
+	stencil.writeMask = 0;
+	stencil.readMask = 0x11;
+	state.frontFaceStencil = state.backFaceStencil = stencil;
+	traced_level = [device newDepthStencilStateWithDescriptor:state];
+	traced.programs_failed = NO;
+	return YES;
+}
+
+/* the composite's pipeline for a scene color format: multiplying the term in, or replacing (view) for the debug
+views; nil if Metal refuses it */
+static id<MTLRenderPipelineState> traced_composite_pipeline(MTLPixelFormat format, BOOL view)
+{
+	NSNumber *key = @(((uint64_t)format << 1) | (view ? 1u : 0u));
+	id<MTLRenderPipelineState> made = traced_composites[key];
+	MTLRenderPipelineDescriptor *pipeline;
+	NSError *error = nil;
+
+	if (made)
+		return made;
+	pipeline = [MTLRenderPipelineDescriptor new];
+	pipeline.vertexFunction = traced_vertex_function;
+	pipeline.fragmentFunction = traced_composite_function;
+	pipeline.colorAttachments[0].pixelFormat = format;
+	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
+	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	if (!view)
+	{
+		pipeline.colorAttachments[0].blendingEnabled = YES;
+		pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
+		pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
+		pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
+		pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
+		pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
+		pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
+	}
+	made = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	if (!made)
+	{
+		platform_log("traced shadows: the resolve's pipeline for %s cannot be made: %s", pixel_format_name(format),
+			error ? error.localizedDescription.UTF8String : "?");
+		return nil;
+	}
+	if (!traced_composites)
+		traced_composites = [NSMutableDictionary dictionary];
+	traced_composites[key] = made;
+	return made;
+}
+
+/* The traced term (the front end's target, which the shadows' apply draws went to: the product of their darkening
+in its color) multiplied into the scene's color over the level's pixels, as the first draw of the scene's pass,
+loaded again. values are traced_shadows_format.h's */
+static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count)
+{
+	@autoreleasepool
+	{
+		MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
+		MetalTexture *term_record = texture_record(term);
+		struct { uint32_t ox, oy, w, h, view, sx, sy, pad; } c;
+		id<MTLTexture> shown;
+		id<MTLRenderPipelineState> composite;
+		struct gpu_rect rect;
+		MTLScissorRect window, covered;
+		unsigned long width, height;
+		int view;
+
+		if (count < TRACED_SHADOWS_RESOLVE_FLOATS || !values || !color_record || !color_record->texture || !depth_record ||
+			!depth_record->texture || color_record->samples || depth_record->samples)
+			return;
+		/* the pass break alone (debug.traced_shadows_break_only): the scene's pass ends and begins again */
+		if (values[TRACED_SHADOWS_RESOLVE_BREAK_ONLY] != 0.0f)
+		{
+			pass_end();
+			(void)pass_begin(color, depth, NULL);
+			return;
+		}
+		if (!term_record || !term_record->texture || (color_record->description.format != GPU_FORMAT_BGRA8 &&
+			color_record->description.format != GPU_FORMAT_SCENE_COLOR) ||
+			term_record->description.format != GPU_FORMAT_BGRA8 || term_record->samples ||
+			depth_record->description.format != GPU_FORMAT_DEPTH_STENCIL || foveation_map(color_record) ||
+			foveation_map(depth_record) || term_record->texture.width != color_record->texture.width ||
+			term_record->texture.height != color_record->texture.height || !traced_programs())
+		{
+			traced_fail("the resolve's targets or programs are not usable");
+			return;
+		}
+		composite = traced_composite_pipeline(color_record->texture.pixelFormat,
+			values[TRACED_SHADOWS_RESOLVE_VIEW] != 0.0f);
+		if (!composite)
+		{
+			traced_fail("the resolve's pipeline cannot be made for the scene's format");
+			return;
+		}
+		width = color_record->content_width ? color_record->content_width : color_record->texture.width;
+		height = color_record->content_height ? color_record->content_height : color_record->texture.height;
+		rect = (struct gpu_rect){ (int32_t)values[TRACED_SHADOWS_RESOLVE_WINDOW], (int32_t)values[TRACED_SHADOWS_RESOLVE_WINDOW + 1],
+			(int32_t)values[TRACED_SHADOWS_RESOLVE_WINDOW + 2], (int32_t)values[TRACED_SHADOWS_RESOLVE_WINDOW + 3] };
+		if (!clamp_rect(&rect, width, height, &window))
+			return;
+		rect = (struct gpu_rect){ (int32_t)values[TRACED_SHADOWS_RESOLVE_COVERED], (int32_t)values[TRACED_SHADOWS_RESOLVE_COVERED + 1],
+			(int32_t)values[TRACED_SHADOWS_RESOLVE_COVERED + 2], (int32_t)values[TRACED_SHADOWS_RESOLVE_COVERED + 3] };
+		{
+			/* (what the shadows cover, within the window) */
+			long left = MAX((long)rect.x, (long)window.x), top = MAX((long)rect.y, (long)window.y);
+			long right = MIN((long)rect.x + rect.width, (long)(window.x + window.width));
+			long bottom = MIN((long)rect.y + rect.height, (long)(window.y + window.height));
+
+			if (right <= left || bottom <= top)
+				return;
+			covered = (MTLScissorRect){ (NSUInteger)left, (NSUInteger)top, (NSUInteger)(right - left), (NSUInteger)(bottom - top) };
+		}
+		atomic_fetch_add_explicit(&traced_resolves_logged, 1, memory_order_relaxed);
+		atomic_fetch_add_explicit(&traced_resolve_pixels_logged, (uint64_t)covered.width * covered.height,
+			memory_order_relaxed);
+		/* the term's pass ends (its color is read below), and the scene's begins again, loaded */
+		pass_end();
+		if (pass_log)
+			[pass_log appendFormat:@"\n  traced shadows resolve: %lux%lu at %lu,%lu", (unsigned long)covered.width,
+				(unsigned long)covered.height, (unsigned long)covered.x, (unsigned long)covered.y];
+		shown = term_record->texture;
+		c.sx = c.sy = 0;
+		if (values[TRACED_SHADOWS_RESOLVE_FILTER] != 0.0f && values[TRACED_SHADOWS_RESOLVE_RADIUS] >= 1.0f)
+		{
+			struct { uint32_t cx, cy, cw, ch, hw, hh; int32_t ax, ay; uint32_t sx, sy; float radius; uint32_t pad; } p;
+			id<MTLComputeCommandEncoder> compute = [command_buffer() computeCommandEncoder];
+			int i;
+
+			memset(&p, 0, sizeof(p));
+			p.cx = (uint32_t)covered.x;
+			p.cy = (uint32_t)covered.y;
+			p.cw = (uint32_t)covered.width;
+			p.ch = (uint32_t)covered.height;
+			p.hw = (p.cw + 1) / 2;
+			p.hh = (p.ch + 1) / 2;
+			p.radius = values[TRACED_SHADOWS_RESOLVE_RADIUS];
+			for (i = 0; i < 2; ++i)
+			{
+				traced_work[i] = ssao_texture(traced_work[i], MTLPixelFormatRGBA8Unorm, p.cw, p.ch);
+				traced_half[i] = ssao_texture(traced_half[i], MTLPixelFormatR16Float, p.hw, p.hh);
+			}
+			if (metal_debug)
+				compute.label = @"traced shadows filter";
+			/* the radius beside each shadow: half[0], reached along x into half[1], along y back into half[0] */
+			[compute setBytes:&p length:sizeof(p) atIndex:0];
+			[compute setTexture:term_record->texture atIndex:0];
+			[compute setTexture:traced_half[0] atIndex:1];
+			ssao_dispatch(compute, traced_radius_down, p.hw, p.hh);
+			for (i = 0; i < 2; ++i)
+			{
+				p.ax = i == 0;
+				p.ay = i == 1;
+				[compute setBytes:&p length:sizeof(p) atIndex:0];
+				[compute setTexture:traced_half[i] atIndex:0];
+				[compute setTexture:traced_half[1 - i] atIndex:1];
+				ssao_dispatch(compute, traced_radius_reach, p.hw, p.hh);
+			}
+			/* the blur: the term along x into work[0], that along y into work[1] */
+			[compute setTexture:term_record->texture atIndex:0];
+			[compute setTexture:traced_half[0] atIndex:2];
+			[compute setTexture:depth_record->texture atIndex:3];
+			for (i = 0; i < 2; ++i)
+			{
+				p.ax = i == 0;
+				p.ay = i == 1;
+				p.sx = i ? p.cx : 0;
+				p.sy = i ? p.cy : 0;
+				[compute setBytes:&p length:sizeof(p) atIndex:0];
+				[compute setTexture:i ? traced_work[0] : term_record->texture atIndex:1];
+				[compute setTexture:traced_work[i] atIndex:4];
+				ssao_dispatch(compute, traced_blur, p.cw, p.ch);
+			}
+			[compute endEncoding];
+			shown = traced_work[1];
+			c.sx = p.cx;
+			c.sy = p.cy;
+		}
+		if (!pass_begin(color, depth, NULL) || !encoder)
+			return;
+		view = (int)values[TRACED_SHADOWS_RESOLVE_VIEW];
+		c.ox = (uint32_t)window.x;
+		c.oy = (uint32_t)window.y;
+		c.w = (uint32_t)window.width;
+		c.h = (uint32_t)window.height;
+		c.view = (uint32_t)view;
+		c.pad = 0;
+		[encoder setViewport:(MTLViewport){ (double)covered.x, (double)covered.y, (double)covered.width,
+			(double)covered.height, 0.0, 1.0 }];
+		[encoder setScissorRect:covered];
+		[encoder setCullMode:MTLCullModeNone];
+		[encoder setRenderPipelineState:composite];
+		[encoder setDepthStencilState:view ? traced_everything : traced_level];
+		[encoder setStencilReferenceValue:0x10];
+		[encoder setFragmentTexture:shown atIndex:0];
+		[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+		/* the game's next draw sets everything again */
+		metal_state_reset(&state_cache);
+	}
+}
+
 static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_constant_store *constants,
 	const struct gpu_uniforms *uniforms)
 {
@@ -4793,12 +6331,15 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 		}
 #endif
 		draw_attributes_decide(draw, &attributes);
+		MTLPixelFormat draw_color_format = MTLPixelFormatBGRA8Unorm;
 		{
 			__unsafe_unretained MetalTexture *color = texture_record(draw->color_target);
 
 			samples = color ? color->samples : depth ? depth->samples : 0;
+			if (color && color->texture)
+				draw_color_format = color->texture.pixelFormat;
 		}
-		pipeline = (__bridge id<MTLRenderPipelineState>)draw_pipeline(draw, &attributes, vertex, pixel, exact, MTLPixelFormatBGRA8Unorm,
+		pipeline = (__bridge id<MTLRenderPipelineState>)draw_pipeline(draw, &attributes, vertex, pixel, exact, draw_color_format,
 			depth && depth->texture ? depth->texture.pixelFormat : MTLPixelFormatInvalid, samples, &pending);
 		/* display.async_shaders: a draw whose pipeline is still building is
 		skipped this frame, as one that can't be made is; the runs of draws
@@ -4825,6 +6366,14 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 					draw->vertex_shader, draw->pixel_shader);
 			return 0;
 		}
+		/* a traced shadow's draw: its shadow's structure built first, between passes; one without a structure draws
+		nothing */
+		if (pixel->traced_shadow && !traced_draw_ready())
+			return 1;
+		/* a traced light's draw: its blockers' instance structure first, between passes; without the level's
+		structure the shader cannot run, and the light is not drawn this frame */
+		if (pixel->traced_light && !traced_light_ready())
+			return 1;
 		/* display.native_hud and debug.metal_scene_park (native_pass): a
 		draw outside the display-sized or scene pass that samples its targets,
 		or anything written earlier in its command buffer (parked: that
@@ -4988,6 +6537,10 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 			[encoder setFragmentBytes:soft.parameters length:sizeof(soft.parameters) atIndex:5];
 			metal_state_always(&state_cache);
 		}
+		if (pixel->traced_shadow)
+			traced_draw_bind();
+		if (pixel->traced_light)
+			traced_light_bind();
 		bind_constants(constants, uniforms, pixel && pixel->reads_constants);
 		bind_attributes(draw, &attributes);
 		pass_commands++;
@@ -6050,6 +7603,8 @@ static struct
 	mach_timebase_info_data_t timebase;
 } frame_deadline;
 
+static void frame_deadline_join(void);
+
 /* the frame's work begins now (Present has returned) */
 static void frame_deadline_begin(BOOL offscreen)
 {
@@ -6096,6 +7651,8 @@ static void frame_deadline_begin(BOOL offscreen)
 			}
 		}
 	}
+	/* (the encode thread, presenting, joins beside the game thread that joined first when it started mid-session) */
+	frame_deadline_join();
 	if (frame_deadline.state != FRAME_DEADLINE_JOINED || offscreen)
 		return;
 	os_unfair_lock_lock(&pacing_lock);
@@ -6131,8 +7688,8 @@ frame start. The two never touch the interval at once: the game thread does (fra
 the present barrier, while the encode thread waits for the next frame's records. */
 static void frame_deadline_join(void)
 {
-	if (frame_deadline.state != FRAME_DEADLINE_JOINED || frame_deadline.producer_joined ||
-		pthread_equal(frame_deadline.thread, pthread_self()))
+	if (!frame_deadline_second_join_wanted(frame_deadline.state, pthread_equal(frame_deadline.thread, pthread_self()),
+			frame_deadline.producer_joined))
 		return;
 	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
 		frame_deadline.producer_joined = os_workgroup_join(frame_deadline.interval, &frame_deadline.producer_token) ? -1 :
@@ -6191,6 +7748,47 @@ void gpu_metal_frame_deadline_leave(void)
 	frame_deadline.state = FRAME_DEADLINE_LEFT;
 }
 
+/* The encode thread is about to end or start again (a change of workload context: host_gpu_dispatch.c's rewrap), on the game
+thread. When the encode thread is the first member, the game thread, the second, leaves first. The second's try starts
+again after a switch (a refused join is not final). */
+void gpu_metal_frame_deadline_before_switch(void)
+{
+	int leaves = frame_deadline_game_thread_leaves_before_switch(frame_deadline.state,
+		pthread_equal(frame_deadline.thread, pthread_self()), frame_deadline.producer_joined);
+
+	if (leaves)
+	{
+		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+			os_workgroup_leave(frame_deadline.interval, &frame_deadline.producer_token);
+	}
+	/* (the encode thread's own join, when it is the second member, stays recorded: its end hook leaves it) */
+	frame_deadline.producer_joined = frame_deadline_second_after_before_switch(leaves, frame_deadline.producer_joined);
+}
+
+/* The encode thread ends (gpu_queue_set_consumer_ending), on the encode thread: it leaves what it joined, since a thread
+that ends in a workgroup brings the process down. As the first member it ends the interval it started, and the game thread
+joins as the first at its next frame (state "left"). */
+void gpu_metal_frame_deadline_encode_thread_ending(void)
+{
+	int action = frame_deadline_encode_thread_ending(frame_deadline.state,
+		pthread_equal(frame_deadline.thread, pthread_self()), frame_deadline.producer_joined);
+
+	if (action == FRAME_DEADLINE_ENDING_NONE)
+		return;
+	if (frame_deadline.open)
+	{
+		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+			os_workgroup_interval_finish(frame_deadline.interval, NULL);
+		frame_deadline.open = 0;
+	}
+	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+		os_workgroup_leave(frame_deadline.interval, action == FRAME_DEADLINE_ENDING_LEAVE_FIRST ? &frame_deadline.token :
+			&frame_deadline.producer_token);
+	if (action == FRAME_DEADLINE_ENDING_LEAVE_FIRST)
+		frame_deadline.state = FRAME_DEADLINE_LEFT;
+	frame_deadline.producer_joined = 0;
+}
+
 /* A UIKit dialog goes up over the game, which keeps presenting frames while it is up (host_tv.m's text dialog): the
    game's event pump runs the dialog's animations between frames, and UIKit raises from its own interval there as in
    gpu_metal_frame_deadline_leave (an Apple TV crashed as the text dialog came up). Held, the thread leaves the
@@ -6207,6 +7805,14 @@ void gpu_metal_frame_deadline_hold(int held)
 }
 #else
 void gpu_metal_frame_deadline_end(void)
+{
+}
+
+void gpu_metal_frame_deadline_before_switch(void)
+{
+}
+
+void gpu_metal_frame_deadline_encode_thread_ending(void)
 {
 }
 
@@ -6470,7 +8076,7 @@ static void companion_present(BOOL main_shown)
 		float brightness = (float)host_external_companion_dim();
 		id<MTLRenderCommandEncoder> present = [buffer renderCommandEncoderWithDescriptor:pass];
 		present.label = @"companion present";
-		[present setRenderPipelineState:companion_pipeline];
+		[present setRenderPipelineState:quad_pipeline(companion_function, drawable.texture.pixelFormat)];
 		[present setViewport:(MTLViewport){(double)((drawable.texture.width-fit.width)/2),
 			(double)((drawable.texture.height-fit.height)/2), (double)fit.width, (double)fit.height, 0, 1}];
 		[present setFragmentTexture:record->texture atIndex:0];
@@ -6558,21 +8164,48 @@ static void gpu_metal_frame_start(void)
 		static double times[300];
 		static int timed;
 		static unsigned long blocks;
+		/* (traced shadows: whether the frame before encoded a resolve, since a frame's command buffers complete
+		about a frame after it is encoded; the split below is that approximation) */
+		static unsigned char resolved[300], resolved_before;
+		static uint64_t resolve_pixels;
+		static unsigned long resolve_count;
 
 		if (rt_gpu_log < 0)
 			rt_gpu_log = getenv("HALO_RT_GPU_LOG") != NULL;
 		if (rt_gpu_log && counted)
 		{
+			uint32_t resolves = atomic_exchange_explicit(&traced_resolves_logged, 0, memory_order_relaxed);
+
+			resolve_count += resolves;
+			resolve_pixels += atomic_exchange_explicit(&traced_resolve_pixels_logged, 0, memory_order_relaxed);
+			resolved[timed] = resolved_before;
+			resolved_before = resolves != 0;
 			times[timed++] = (double)(total - counted) / 1e6;
 			if (timed == 300)
 			{
-				double sorted[300], sum = 0.0;
-				int index;
+				double sorted[300], with[300], without[300], sum = 0.0;
+				int index, with_count = 0, without_count = 0;
 
 				memcpy(sorted, times, sizeof(sorted));
 				qsort(sorted, 300, sizeof(double), compare_times);
 				for (index = 0; index < 300; index++)
+				{
 					sum += times[index];
+					if (resolved[index])
+						with[with_count++] = times[index];
+					else
+						without[without_count++] = times[index];
+				}
+				qsort(with, (size_t)with_count, sizeof(double), compare_times);
+				qsort(without, (size_t)without_count, sizeof(double), compare_times);
+				platform_log("rt-gpu: block %lu traced resolves: %lu, %d frames after one (GPU median %.3f ms, p90 %.3f ms), "
+					"%d without (median %.3f ms, p90 %.3f ms); %.0f thousand pixels a resolve", blocks, resolve_count,
+					with_count, with_count ? with[with_count / 2] : 0.0, with_count ? with[with_count * 9 / 10] : 0.0,
+					without_count, without_count ? without[without_count / 2] : 0.0,
+					without_count ? without[without_count * 9 / 10] : 0.0,
+					resolve_count ? (double)resolve_pixels / (double)resolve_count / 1000.0 : 0.0);
+				resolve_pixels = 0;
+				resolve_count = 0;
 				/* and the process's CPU time (every thread, user and system) and the wall time a frame, over the block */
 				{
 					static double cpu_before, wall_before;
@@ -6781,7 +8414,8 @@ static int output_change(void *new_layer, void *screen, int width, int height, i
         host_main_sync(^{
             /* Both scale and drawable size change after the old frames complete. */
             if(change_scale && !output_cap_layer(layer,width,height)){applied=NO;return;}
-            layer.device=device;layer.pixelFormat=MTLPixelFormatBGRA8Unorm;layer.framebufferOnly=YES;
+            /* (BGRA8 until layer_format_follow asks again: an external display's layer stays BGRA8 in this version) */
+            layer.device=device;layer.pixelFormat=MTLPixelFormatBGRA8Unorm;layer.framebufferOnly=YES;layer_format_asked=MTLPixelFormatBGRA8Unorm;
 #if !HALO_NATIVE_MAC && !TARGET_OS_VISION
             if(host_game_thread_enabled())host_external_output_resize(new_layer,width,height);
 #endif
@@ -6950,7 +8584,7 @@ static void frame_load_draw(id<MTLTexture> picture)
 		uint32_t perf_token = host_perf_metal_prepare(commands, pass, 1, HOST_PERF_HUD);
 		load = [commands renderCommandEncoderWithDescriptor:pass];
 		host_perf_metal_begin(perf_token, load);
-		[load setRenderPipelineState:present_pipeline];
+		[load setRenderPipelineState:quad_pipeline(present_fragment, frame_load_target.pixelFormat)];
 		[load setFragmentTexture:picture atIndex:0];
 		[load setFragmentSamplerState:present_sampler atIndex:0];
 		[load drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
@@ -7209,11 +8843,12 @@ static struct
 	each size of target */
 	id<MTLFunction> fxaa, upscale_fxaa;
 	id<MTLLibrary> smaa;
-	/* FXAA's pipeline, and SMAA's for each size ("WxH" and the pass) */
+	/* FXAA's pipeline, and SMAA's for each size ("WxH", the pass and the target's format), as made for BGRA8
+	targets (the programs' readiness); post_format_pipeline makes them for the target's own format */
 	id<MTLRenderPipelineState> fxaa_pipeline;
 	/* gpu_upscale's with FXAA folded in: all four channels written */
 	id<MTLRenderPipelineState> upscale_fxaa_pipeline;
-	NSMutableDictionary<NSString *, id<MTLRenderPipelineState>> *smaa_pipelines;
+	NSMutableDictionary<NSString *, id<MTLRenderPipelineState>> *smaa_pipelines, *format_pipelines;
 	/* FXAA's, and SMAA's, programs or textures could not be made */
 	BOOL failed[2];
 	/* the target's pixels before the pass, and SMAA's edges and blending
@@ -7243,12 +8878,27 @@ static id<MTLRenderPipelineState> post_pipeline(id<MTLFunction> fragment, MTLPix
 	return pipeline;
 }
 
-/* SMAA's pipeline for a pass and a size of target, made the first time */
-static id<MTLRenderPipelineState> smaa_pipeline(int which, unsigned long width, unsigned long height)
+/* a post pipeline (FXAA's, or gpu_upscale's with FXAA) for a target's format, made the first time */
+static id<MTLRenderPipelineState> post_format_pipeline(id<MTLFunction> fragment, MTLPixelFormat format, BOOL color_only)
+{
+	NSString *key = [NSString stringWithFormat:@"%@/%lu/%d", fragment.name, (unsigned long)format, color_only ? 1 : 0];
+	id<MTLRenderPipelineState> pipeline = post.format_pipelines[key];
+
+	if (!pipeline && fragment && (pipeline = post_pipeline(fragment, format, color_only)))
+	{
+		if (!post.format_pipelines)
+			post.format_pipelines = [NSMutableDictionary dictionary];
+		post.format_pipelines[key] = pipeline;
+	}
+	return pipeline;
+}
+
+/* SMAA's pipeline for a pass, a size of target and its format, made the first time */
+static id<MTLRenderPipelineState> smaa_pipeline(int which, unsigned long width, unsigned long height, MTLPixelFormat format)
 {
 	static NSString *const names[POST_PROGRAMS] =
 		{ nil, @"smaa_edges_fragment", @"smaa_weights_fragment", @"smaa_blend_fragment" };
-	NSString *key = [NSString stringWithFormat:@"%lux%lu/%d", width, height, which];
+	NSString *key = [NSString stringWithFormat:@"%lux%lu/%d/%lu", width, height, which, (unsigned long)format];
 	id<MTLRenderPipelineState> pipeline = post.smaa_pipelines[key];
 
 	if (!pipeline)
@@ -7266,7 +8916,7 @@ static id<MTLRenderPipelineState> smaa_pipeline(int which, unsigned long width, 
 			return nil;
 		}
 		pipeline = post_pipeline(fragment, which == POST_SMAA_EDGES ? MTLPixelFormatRG8Unorm :
-			which == POST_SMAA_WEIGHTS ? MTLPixelFormatRGBA8Unorm : MTLPixelFormatBGRA8Unorm, which == POST_SMAA_BLEND);
+			which == POST_SMAA_WEIGHTS ? MTLPixelFormatRGBA8Unorm : format, which == POST_SMAA_BLEND);
 		if (!pipeline)
 			return nil;
 		post.smaa_pipelines[key] = pipeline;
@@ -7313,10 +8963,10 @@ static uint32_t gpu_metal_anti_alias_prepare(uint32_t method, const char *smaa_s
 		}
 		if (!smaa)
 		{
-			if (!post.fxaa_pipeline && !(post.fxaa_pipeline = post_pipeline(post.fxaa, MTLPixelFormatBGRA8Unorm, YES)))
+			if (!post.fxaa_pipeline && !(post.fxaa_pipeline = post_format_pipeline(post.fxaa, MTLPixelFormatBGRA8Unorm, YES)))
 				post.failed[0] = YES;
 			if (!post.failed[0] && !post.upscale_fxaa_pipeline)
-				post.upscale_fxaa_pipeline = post_pipeline(post.upscale_fxaa, MTLPixelFormatBGRA8Unorm, NO);
+				post.upscale_fxaa_pipeline = post_format_pipeline(post.upscale_fxaa, MTLPixelFormatBGRA8Unorm, NO);
 			return post.failed[0] ? 0 : 1;
 		}
 		if (!post.smaa)
@@ -7405,16 +9055,16 @@ static NSString *const ssao_source =
 	"struct ssao_parameters\n"
 	"{\n"
 	"\tuint ox, oy, w, h, hw, hh;\n"
-	"\tfloat z_near, z_far, p00, p11, p20, p21;\n"
+	"\tfloat pad0, z_far, p00, p11, p20, p21;\n"
 	"\tfloat radius, strength, objects, static_weight, max_pixels, fade_distance;\n"
 	"\tuint slices, steps, mode, scale;\n"
-	"\tfloat level_floor, object_floor, pad1, pad2;\n"
+	"\tfloat level_floor, object_floor, depth_p22, depth_p32;\n"
 	"};\n"
 	"\n"
+	DEPTH_VIEW_DISTANCE_MSL
 	"static float linear_z(float stored, constant ssao_parameters &p)\n"
 	"{\n"
-	"\tfloat d = 1.0 - stored;\n"
-	"\treturn p.z_near * p.z_far / (p.z_far - d * (p.z_far - p.z_near));\n"
+	"\treturn depth_view_distance(stored, p.depth_p22, p.depth_p32);\n"
 	"}\n"
 	"\n"
 	"static int classify(float stored, uint stencil, float z, constant ssao_parameters &p)\n"
@@ -7653,7 +9303,7 @@ static NSString *const ssao_source =
 	"\t\treturn;\n"
 	"\t}\n"
 	"\tfloat sum = 0.0, weights = 0.0;\n"
-	"\tfloat tolerance = 0.03 * center.x + 0.02;\n"
+	"\tfloat tolerance = 0.03 * center.x + 0.04;\n"
 	"\tfor (int y = -1; y <= 2; y++)\n"
 	"\t\tfor (int x = -1; x <= 2; x++)\n"
 	"\t\t{\n"
@@ -7963,10 +9613,10 @@ static NSString *const ssao_source =
 struct ssao_parameters
 {
 	uint32_t ox, oy, w, h, hw, hh;
-	float z_near, z_far, p00, p11, p20, p21;
+	float pad0, z_far, p00, p11, p20, p21;
 	float radius, strength, objects, static_weight, max_pixels, fade_distance;
 	uint32_t slices, steps, mode, scale;
-	float level_floor, object_floor, pad1, pad2;
+	float level_floor, object_floor, depth_p22, depth_p32;
 };
 
 struct ssao_composite_parameters
@@ -7983,6 +9633,9 @@ static struct
 	BOOL tried, failed;
 	id<MTLComputePipelineState> prepare, gather, blur, upsample, prepare_v1, gather_v1;
 	id<MTLRenderPipelineState> multiply, replace, debug, multiply_half;
+	/* the composites' library and the color format they were made for (ssao_composites) */
+	id<MTLLibrary> library;
+	MTLPixelFormat color_format;
 	id<MTLSamplerState> linear_clamp;
 	id<MTLDepthStencilState> level, objects, everything;
 	/* half resolution: depth with the class in its sign (R32Float), raw and blurred AO (R16Float); full: AO (R8), the
@@ -8007,11 +9660,52 @@ static BOOL soft_particles_supported(void)
 	return metal_pass(METAL_PASS_SOFT_PARTICLES);
 }
 
+/* the composite pipelines for a scene target's format (BGRA8, or RGBA16Unorm with display.scene_precision 16), made
+again when the format changes (a graphics mode switch); NO if one cannot be made */
+static BOOL ssao_composites(MTLPixelFormat format)
+{
+	NSError *error = nil;
+	id<MTLLibrary> library = ssao.library;
+	MTLRenderPipelineDescriptor *pipeline;
+
+	if (ssao.color_format == format && ssao.replace)
+		return YES;
+	ssao.color_format = format;
+	pipeline = [MTLRenderPipelineDescriptor new];
+	pipeline.vertexFunction = [library newFunctionWithName:@"ssao_vertex"];
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite"];
+	pipeline.colorAttachments[0].pixelFormat = format;
+	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
+	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	ssao.replace = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.colorAttachments[0].blendingEnabled = YES;
+	pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
+	pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
+	pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
+	pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
+	pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
+	pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
+	ssao.multiply = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite_half"];
+	ssao.multiply_half = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.colorAttachments[0].blendingEnabled = NO;
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_debug"];
+	ssao.debug = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	if (!ssao.replace || !ssao.multiply || !ssao.debug || !ssao.multiply_half)
+	{
+		platform_log("ssao: a composite pipeline cannot be made for %s: %s", pixel_format_name(format),
+			error ? error.localizedDescription.UTF8String : "?");
+		ssao.replace = nil;
+		return NO;
+	}
+	return YES;
+}
+
 static BOOL ssao_programs(void)
 {
 	NSError *error = nil;
 	id<MTLLibrary> library;
-	MTLRenderPipelineDescriptor *pipeline;
 	MTLDepthStencilDescriptor *state;
 	MTLStencilDescriptor *stencil;
 
@@ -8039,27 +9733,8 @@ static BOOL ssao_programs(void)
 		error:&error];
 	ssao.gather_v1 = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"ssao_gather_v1"]
 		error:&error];
-	pipeline = [MTLRenderPipelineDescriptor new];
-	pipeline.vertexFunction = [library newFunctionWithName:@"ssao_vertex"];
-	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite"];
-	pipeline.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
-	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
-	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
-	ssao.replace = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
-	pipeline.colorAttachments[0].blendingEnabled = YES;
-	pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
-	pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
-	pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
-	pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
-	pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
-	pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
-	ssao.multiply = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
-	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite_half"];
-	ssao.multiply_half = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
-	pipeline.colorAttachments[0].blendingEnabled = NO;
-	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_debug"];
-	ssao.debug = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	ssao.library = library;
+	ssao_composites(MTLPixelFormatBGRA8Unorm);
 	{
 		MTLSamplerDescriptor *sampler = [MTLSamplerDescriptor new];
 
@@ -8257,10 +9932,11 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 		static BOOL refused_logged;
 
 		if (count < 18 || !color_record || !color_record->texture || !depth_record || !depth_record->texture ||
-			color_record->description.format != GPU_FORMAT_BGRA8 ||
+			!gpu_format_color_target(color_record->description.format) ||
 			depth_record->description.format != GPU_FORMAT_DEPTH_STENCIL || color_record->samples ||
 			depth_record->samples || foveation_map(color_record) || foveation_map(depth_record) ||
-			!(depth_record->texture.usage & MTLTextureUsagePixelFormatView) || !ssao_programs())
+			!(depth_record->texture.usage & MTLTextureUsagePixelFormatView) || !ssao_programs() ||
+			!ssao_composites(color_record->texture.pixelFormat))
 		{
 			if (!refused_logged)
 				platform_log("ssao: skipped (targets %s, stencil view %s)", color_record && depth_record ? "ok" : "missing",
@@ -8303,19 +9979,15 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 			p.scale = count >= 27 && values[26] == 4.0f && path != 0 ? 4 : 2;
 			p.hw = (p.w + p.scale - 1) / p.scale;
 			p.hh = (p.h + p.scale - 1) / p.scale;
-			p.z_near = values[4];
-			p.z_far = values[5];
-			/* the projection's own depth row (GL-style), when given: the near and far the depth was made with */
-			if (count >= 22 && values[20] != 1.0f && values[20] != -1.0f && values[21] != 0.0f)
-			{
-				p.z_near = values[21] / (values[20] - 1.0f);
-				p.z_far = values[21] / (values[20] + 1.0f);
-			}
+			/* the projection's own depth row, when given, else the frustum's: what the depth was made with (depth_decode.h) */
+			depth_row_from_view(values[4], values[5], count >= 22 ? values[20] : 1.0f, count >= 22 ? values[21] : 0.0f,
+				&p.depth_p22, &p.depth_p32);
+			p.z_far = p.depth_p32 / (p.depth_p22 + 1.0f);
 			p.p00 = values[6];
 			p.p11 = values[7];
 			p.p20 = values[8];
 			p.p21 = values[9];
-			p.radius = values[10] > 0.0f ? values[10] : 0.3f;
+			p.radius = values[10] > 0.0f ? values[10] : 0.6f;
 			p.strength = values[11] > 0.0f ? values[11] : 1.0f;
 			p.objects = values[12];
 			p.static_weight = values[13];
@@ -8326,7 +9998,7 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 			if (count >= 25 && values[24] >= 1.0f)
 				p.steps = (uint32_t)values[24];
 			p.max_pixels = values[16] > 0.0f ? values[16] : 0.12f;
-			p.fade_distance = values[17] > 0.0f ? values[17] : 35.0f;
+			p.fade_distance = values[17] > 0.0f ? values[17] : 70.0f;
 			p.level_floor = count > 18 ? values[18] : 0.35f;
 			p.object_floor = count > 19 ? values[19] : 0.6f;
 			p.mode = (uint32_t)mode;
@@ -8471,8 +10143,8 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 		struct gpu_rect physical_rect;
 		id<MTLBlitCommandEncoder> blit;
 
-		if (!record || !record->texture || record->description.format != GPU_FORMAT_BGRA8 ||
-			(smaa ? !post.smaa : !post.fxaa_pipeline))
+		if (!record || !record->texture || !gpu_format_color_target(record->description.format) ||
+			(smaa ? !post.smaa : !post.fxaa_pipeline || !post_format_pipeline(post.fxaa, record->texture.pixelFormat, YES)))
 		{
 			static BOOL skipped_logged;
 
@@ -8522,7 +10194,8 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 		width = record->texture.width;
 		height = record->texture.height;
 		pass_end();
-		if (!post.color || post.color.width != width || post.color.height != height)
+		if (!post.color || post.color.width != width || post.color.height != height ||
+			post.color.pixelFormat != record->texture.pixelFormat)
 		{
 			id<MTLTexture> color = post.color, edges = post.edges, weights = post.weights;
 
@@ -8532,7 +10205,8 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 			post.other_color = color;
 			post.other_edges = edges;
 			post.other_weights = weights;
-			if (!post.color || post.color.width != width || post.color.height != height)
+			if (!post.color || post.color.width != width || post.color.height != height ||
+				post.color.pixelFormat != record->texture.pixelFormat)
 			{
 				if (post.color)
 				{
@@ -8545,7 +10219,7 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 						if ([key hasPrefix:prefix])
 							[post.smaa_pipelines removeObjectForKey:key];
 				}
-				post.color = post_texture(MTLPixelFormatBGRA8Unorm, width, height, YES);
+				post.color = post_texture(record->texture.pixelFormat, width, height, YES);
 				post.edges = post.weights = nil;
 			}
 		}
@@ -8591,14 +10265,14 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 					((float)(area.x + area.width) - 0.5f) / (float)width, ((float)(area.y + area.height) - 0.5f) / (float)height },
 			};
 
-			post_pass(record->texture, NO, post.fxaa_pipeline, area, @[ post.color ], &parameters, sizeof(parameters),
-				@"FXAA");
+			post_pass(record->texture, NO, post_format_pipeline(post.fxaa, record->texture.pixelFormat, YES), area,
+				@[ post.color ], &parameters, sizeof(parameters), @"FXAA");
 			return;
 		}
 		{
-			id<MTLRenderPipelineState> edges = smaa_pipeline(POST_SMAA_EDGES, width, height);
-			id<MTLRenderPipelineState> weights = smaa_pipeline(POST_SMAA_WEIGHTS, width, height);
-			id<MTLRenderPipelineState> blend = smaa_pipeline(POST_SMAA_BLEND, width, height);
+			id<MTLRenderPipelineState> edges = smaa_pipeline(POST_SMAA_EDGES, width, height, record->texture.pixelFormat);
+			id<MTLRenderPipelineState> weights = smaa_pipeline(POST_SMAA_WEIGHTS, width, height, record->texture.pixelFormat);
+			id<MTLRenderPipelineState> blend = smaa_pipeline(POST_SMAA_BLEND, width, height, record->texture.pixelFormat);
 
 			if (!edges || !weights || !blend)
 			{
@@ -8711,6 +10385,41 @@ static void scene_scaler_encode(id<MTLTexture> color, NSUInteger content_width, 
 }
 #endif
 
+#ifdef HAVE_METALFX
+/* a scene format MetalFX's spatial scaler refused, and scaler_input's RGBA16Float copy of the picture for it */
+static MTLPixelFormat metalfx_refused_format = MTLPixelFormatInvalid;
+static id<MTLTexture> scaler_float;
+
+static id<MTLTexture> scaler_input(id<MTLTexture> picture)
+{
+	MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+	id<MTLRenderCommandEncoder> encoder;
+	int32_t offset[4] = { 0, 0, 0, 0 };
+
+	if (!scaler_float || scaler_float.width != picture.width || scaler_float.height != picture.height)
+	{
+		MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float
+			width:picture.width height:picture.height mipmapped:NO];
+
+		descriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+		descriptor.storageMode = MTLStorageModePrivate;
+		scaler_float = [device newTextureWithDescriptor:descriptor];
+	}
+	pass.colorAttachments[0].texture = scaler_float;
+	pass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+	pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+	encoder = [command_buffer() renderCommandEncoderWithDescriptor:pass];
+	if (metal_debug)
+		encoder.label = @"MetalFX input";
+	[encoder setRenderPipelineState:quad_pipeline(copy_function, MTLPixelFormatRGBA16Float)];
+	[encoder setFragmentTexture:picture atIndex:0];
+	[encoder setFragmentBytes:offset length:sizeof(offset) atIndex:0];
+	[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+	[encoder endEncoding];
+	return scaler_float;
+}
+#endif
+
 /* (output: a texture of that size to scale into in place of the scaler's
 own, if its usage allows; the result says which was written. The picture is
 content_width x content_height at the back buffer's top left: the whole of
@@ -8723,8 +10432,13 @@ static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, NSUInteger conten
 	{
 		if (!metalfx_wanted || (long)content_width >= width || (long)content_height >= height)
 			return back_buffer;
+		/* a scene format the scaler refused (display.scene_precision's RGBA16Unorm: MetalFX does not document it)
+		is converted to RGBA16Float first, which it takes */
+		if (metalfx_refused_format != MTLPixelFormatInvalid && back_buffer.pixelFormat == metalfx_refused_format)
+			back_buffer = scaler_input(back_buffer);
 		if (!upscaler || upscaler.inputWidth != back_buffer.width || upscaler.inputHeight != back_buffer.height ||
-			upscaler.outputWidth != (NSUInteger)width || upscaler.outputHeight != (NSUInteger)height)
+			upscaler.outputWidth != (NSUInteger)width || upscaler.outputHeight != (NSUInteger)height ||
+			upscaler.colorTextureFormat != back_buffer.pixelFormat)
 		{
 			MTLFXSpatialScalerDescriptor *descriptor = [MTLFXSpatialScalerDescriptor new];
 			MTLTextureDescriptor *output;
@@ -8737,8 +10451,19 @@ static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, NSUInteger conten
 			descriptor.outputTextureFormat = back_buffer.pixelFormat;
 			/* the game's colors are display-encoded, not linear */
 			descriptor.colorProcessingMode = MTLFXSpatialScalerColorProcessingModePerceptual;
-			if (!metal_pass(METAL_PASS_METALFX_SPATIAL) ||
-				!(upscaler = [descriptor newSpatialScalerWithDevice:device]))
+			upscaler = metal_pass(METAL_PASS_METALFX_SPATIAL) ? [descriptor newSpatialScalerWithDevice:device] : nil;
+			if (!upscaler && metal_pass(METAL_PASS_METALFX_SPATIAL) && back_buffer.pixelFormat != MTLPixelFormatBGRA8Unorm &&
+				back_buffer.pixelFormat != MTLPixelFormatRGBA16Float)
+			{
+				platform_log("Metal: MetalFX's spatial scaler refuses %s; the picture is converted to rgba16f for it",
+					pixel_format_name(back_buffer.pixelFormat));
+				metalfx_refused_format = back_buffer.pixelFormat;
+				back_buffer = scaler_input(back_buffer);
+				descriptor.colorTextureFormat = back_buffer.pixelFormat;
+				descriptor.outputTextureFormat = back_buffer.pixelFormat;
+				upscaler = [descriptor newSpatialScalerWithDevice:device];
+			}
+			if (!upscaler)
 			{
 				platform_log("Metal: MetalFX's spatial scaler is unavailable; the picture is scaled bilinearly");
 				GPU_VALIDATION_REPORT(GPU_VALIDATION_UPSCALER_UNAVAILABLE, 0, "Metal: MetalFX's spatial scaler is unavailable; "
@@ -9020,6 +10745,7 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		scene.width = (int32_t)((unsigned long)(scissor.x + scissor.width) * content_width / target.width) - scene.x;
 		scene.height = (int32_t)((unsigned long)(scissor.y + scissor.height) * content_height / target.height) - scene.y;
 		fxaa = anti_alias == GPU_ANTI_ALIAS_FXAA && post.upscale_fxaa_pipeline &&
+			post_format_pipeline(post.upscale_fxaa, target.pixelFormat, NO) &&
 			!(whole && metalfx_wanted && (content_width < target.width || content_height < target.height));
 		if (anti_alias == GPU_ANTI_ALIAS_FXAA && !fxaa)
 			gpu_metal_anti_alias(GPU_ANTI_ALIAS_FXAA, source, &scene);
@@ -9086,7 +10812,8 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 			[pass_log appendFormat:@"; upscale: texture %u %lux%lu into %lux%lu at %lu,%lu", source,
 				(unsigned long)picture.width, (unsigned long)picture.height, (unsigned long)scissor.width,
 				(unsigned long)scissor.height, (unsigned long)scissor.x, (unsigned long)scissor.y];
-		[encoder setRenderPipelineState:fxaa ? post.upscale_fxaa_pipeline : upscale_pipeline];
+		[encoder setRenderPipelineState:fxaa ? post_format_pipeline(post.upscale_fxaa, target.pixelFormat, NO) :
+			quad_pipeline(upscale_function, target.pixelFormat)];
 		[encoder setCullMode:MTLCullModeNone];
 		[encoder setDepthBias:0.0f slopeScale:0.0f clamp:0.0f];
 		[encoder setViewport:(MTLViewport){ 0.0, 0.0, (double)target.width, (double)target.height, 0.0, 1.0 }];
@@ -9143,6 +10870,69 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		/* the next draw sets everything again */
 		metal_state_reset(&state_cache);
 	}
+}
+
+/* the built-in layer's format, changed on the main thread when a frame's picture asks for another
+(output_format_for): drawables taken after the change carry the new format, and the present pass's pipeline follows
+the drawable's (quad_pipeline), so no frame mismatches. A format the layer refuses (an exception, or another format
+read back) is logged once and never asked for again; that layer stays BGRA8, so no platform ships 8-bit silently. */
+
+static void layer_format_follow(MTLPixelFormat wanted)
+{
+	CAMetalLayer *target = layer;
+
+	if (atomic_load(&layer_formats_refused) & layer_format_bit(wanted))
+		wanted = MTLPixelFormatBGRA8Unorm;
+	if (wanted == layer_format_asked || !target)
+		return;
+	layer_format_asked = wanted;
+	host_main_async(^{
+		MTLPixelFormat reported = MTLPixelFormatInvalid;
+
+		@try
+		{
+			target.pixelFormat = wanted;
+			reported = target.pixelFormat;
+		}
+		@catch (NSException *exception)
+		{
+			platform_log("Metal: the layer refused %s: %s", pixel_format_name(wanted), exception.reason.UTF8String);
+		}
+		if (reported != wanted)
+		{
+			atomic_fetch_or(&layer_formats_refused, layer_format_bit(wanted));
+			target.pixelFormat = MTLPixelFormatBGRA8Unorm;
+			platform_log("Metal: the layer reports %s (%lu) for %s; the output stays bgra8", pixel_format_name(reported),
+				(unsigned long)reported, pixel_format_name(wanted));
+		}
+		else
+			platform_log("Metal: the layer is %s (%lu)", pixel_format_name(wanted), (unsigned long)wanted);
+	});
+}
+
+/* The present pass's state as a session judges it (the drawable's format, the picture's, the dither), logged from
+the pass itself whenever the tuple (output, layer, drawable format, picture format, dither state) differs from the
+last one stated, so the first frame, the precision and dither knobs, a recreated layer, an external display and a
+refused format all show the state in force. Render thread. */
+static void present_state_log(void *output_layer, MTLPixelFormat drawable, MTLPixelFormat picture,
+	enum present_dither_state dither)
+{
+	static void *last_layer;
+	static int last_output = -1;
+	static MTLPixelFormat last_drawable, last_picture;
+	static enum present_dither_state last_dither;
+
+	if (output_layer == last_layer && perf_output == last_output && drawable == last_drawable &&
+		picture == last_picture && dither == last_dither)
+		return;
+	last_layer = output_layer;
+	last_output = perf_output;
+	last_drawable = drawable;
+	last_picture = picture;
+	last_dither = dither;
+	platform_log("Metal: present: drawable %s, picture %s, present dither %s (output %d, layer %p)",
+		pixel_format_name(drawable), pixel_format_name(picture), present_dither_state_name(dither), perf_output,
+		output_layer);
 }
 
 static uint32_t present_frame(gpu_texture back_buffer)
@@ -9265,6 +11055,9 @@ static uint32_t present_frame(gpu_texture back_buffer)
 				platform_log("Metal: the level's first %.1f s (%u frames): %u held for pipelines still compiling, %u shown with "
 					"draws skipped", start_hold.elapsed, start_hold.frames, start_hold.held, start_hold.shown);
 		}
+		/* display.scene_precision: the built-in display's layer follows the picture's precision */
+		if (record && record->texture && perf_output == 1)
+			layer_format_follow(output_format_for(record->texture.pixelFormat));
 		unsynced = frame_rate_sync();
 		gpu_metal_presentation_configure(layer);
 #if !TARGET_OS_VISION
@@ -9363,15 +11156,32 @@ static uint32_t present_frame(gpu_texture back_buffer)
 					load_name(pass.colorAttachments[0].loadAction), store_name(pass.colorAttachments[0].storeAction)];
 			/* (the CRT only over Hardcore's 480-line picture: until the next level a mode change can leave the
 			picture at the device's size) */
-			if (crt_pipeline && picture.height <= 540 && crt_enabled)
+			/* (each pipeline for the drawable's format, which follows the picture's: layer_format_follow) */
+			enum present_dither_state dither_state = present_dither_state(picture.pixelFormat, target.pixelFormat,
+				crt_function && picture.height <= 540 && crt_enabled);
+
+			present_state_log(drawable ? (__bridge void *)drawable.layer : NULL, target.pixelFormat, picture.pixelFormat,
+				dither_state);
+			if (dither_state == PRESENT_DITHER_CRT)
 			{
 				float sizes[4] = { (float)picture.width, (float)picture.height, (float)width, (float)height };
 
-				[present setRenderPipelineState:crt_pipeline];
+				[present setRenderPipelineState:quad_pipeline(crt_function, target.pixelFormat)];
 				[present setFragmentBytes:sizes length:sizeof(sizes) atIndex:0];
 			}
+			/* display.scene_precision: the dither where the picture has more bits than the drawable (never from an
+			8-bit frame: nothing is left to dither), and debug.precision_ramp's test ramp */
+			else if (dither_state == PRESENT_DITHER_ON || dither_state == PRESENT_DITHER_RAMP)
+			{
+				float dither[4] = { atomic_load(&present_dither_on) ? 1.0f / format_levels(target.pixelFormat) : 0.0f,
+					precision_ramp ? 1.0f : 0.0f, 0.0f, 0.0f };
+
+				[present setRenderPipelineState:quad_pipeline(present_dither_function, target.pixelFormat)];
+				[present setFragmentBytes:dither length:sizeof(dither) atIndex:0];
+				[present setFragmentTexture:dither_noise atIndex:1];
+			}
 			else
-				[present setRenderPipelineState:present_pipeline];
+				[present setRenderPipelineState:quad_pipeline(present_fragment, target.pixelFormat)];
 			[present setViewport:(MTLViewport){ (double)((window_width - width) / 2), (double)((window_height - height) / 2),
 				(double)width, (double)height, 0.0, 1.0 }];
 			[present setFragmentTexture:picture atIndex:0];
@@ -10007,6 +11817,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		MTLSamplerDescriptor *linear = [MTLSamplerDescriptor new];
 
 		memset(capabilities, 0, sizeof(*capabilities));
+		scene_formats_read();
 		metal_debug = (flags & GPU_INITIALIZE_DEBUG) != 0;
 		visibility_wait = fixed_timestep_launch = (flags & GPU_INITIALIZE_FIXED_TIMESTEP) != 0;
 		metalfx_requested = metalfx_wanted = (flags & GPU_INITIALIZE_METALFX) != 0;
@@ -10093,30 +11904,33 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		present_fragment = [utilities newFunctionWithName:@"present_fragment"];
 		fill_fragment = [utilities newFunctionWithName:@"fill_fragment"];
 		fill_pipelines = [NSMutableDictionary dictionary];
+		companion_function = [utilities newFunctionWithName:@"companion_fragment"];
+		upscale_function = [utilities newFunctionWithName:@"upscale_fragment"];
+		present_dither_function = [utilities newFunctionWithName:@"present_dither_fragment"];
+		copy_function = [utilities newFunctionWithName:@"copy_fragment"];
+		/* (the present and upscale pipelines for today's formats now, so a broken one stops the game at launch) */
+		quad_pipeline(present_fragment, layer_format);
+		quad_pipeline(upscale_function, MTLPixelFormatBGRA8Unorm);
+		quad_pipeline(companion_function, MTLPixelFormatBGRA8Unorm);
+		crt_function = [utilities newFunctionWithName:@"crt_fragment"];
 		present_descriptor.vertexFunction = present_vertex;
-		present_descriptor.fragmentFunction = present_fragment;
+		present_descriptor.fragmentFunction = crt_function;
 		present_descriptor.colorAttachments[0].pixelFormat = layer_format;
-		present_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
-		if (!present_pipeline)
-			host_fatal("Metal: cannot create the present pipeline: %s", error.description.UTF8String);
-		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"companion_fragment"];
-		/* SDL's built-in iOS layer uses BGRA8Unorm. The external layer may
-		choose another format without changing this phone pipeline. */
-		present_descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-		companion_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
-		if (!companion_pipeline)
-			host_fatal("Metal: cannot create the companion pipeline: %s", error.description.UTF8String);
-		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"upscale_fragment"];
-		present_descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
-		upscale_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
-		if (!upscale_pipeline)
-			host_fatal("Metal: cannot create the upscale pipeline: %s", error.description.UTF8String);
-		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"crt_fragment"];
-		present_descriptor.colorAttachments[0].pixelFormat = layer.pixelFormat;
-		crt_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
 		/* (no CRT is no reason to stop the game) */
-		if (!crt_pipeline)
+		if (![device newRenderPipelineStateWithDescriptor:present_descriptor error:&error])
+		{
 			platform_log("Metal: cannot create the CRT pipeline: %s", error.description.UTF8String);
+			crt_function = nil;
+		}
+		{
+			MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRG8Unorm
+				width:BLUE_NOISE_SIZE height:BLUE_NOISE_SIZE mipmapped:NO];
+
+			descriptor.usage = MTLTextureUsageShaderRead;
+			dither_noise = [device newTextureWithDescriptor:descriptor];
+			[dither_noise replaceRegion:MTLRegionMake2D(0, 0, BLUE_NOISE_SIZE, BLUE_NOISE_SIZE) mipmapLevel:0
+				withBytes:blue_noise_rg bytesPerRow:BLUE_NOISE_SIZE * 2];
+		}
 		linear.minFilter = MTLSamplerMinMagFilterLinear;
 		linear.magFilter = MTLSamplerMinMagFilterLinear;
 		present_sampler = [device newSamplerStateWithDescriptor:linear];
@@ -10343,7 +12157,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 
 Before a view's transparent geometry the front end hands over its depth target: the pass ends, a compute pass turns
 every pixel's reversed depth into its view distance (R32Float, the target's size), and until host_soft_depth_finish
-every draw binds it as fragment texture 8, with the near, far, 1 / fade distance and the texture's scale (1, or 2 at
+every draw binds it as fragment texture 8, with the depth row p22, p32, 1 / fade distance and the texture's scale (1, or 2 at
 half resolution: debug.soft_particle_scale) as fragment buffer 5. A pixel the
 level did not draw (no stencil 0x10: an object, the sky) is stored as far away, so particles fade against the level
 alone. The next
@@ -10351,6 +12165,7 @@ draw reopens the pass, its depth loaded, as after any pass break. */
 static NSString *const soft_depth_source =
 	@"#include <metal_stdlib>\n"
 	"using namespace metal;\n"
+	DEPTH_VIEW_DISTANCE_MSL
 	"kernel void soft_depth_linearize(depth2d<float, access::read> depth [[texture(0)]],\n"
 	"\ttexture2d<float, access::write> distances [[texture(1)]], texture2d<uint, access::read> stencil [[texture(2)]],\n"
 	"\tconstant float4 &p [[buffer(0)]], constant uint2 &size [[buffer(1)]], uint2 gid [[thread_position_in_grid]])\n"
@@ -10370,7 +12185,7 @@ static NSString *const soft_depth_source =
 	"\t\t\t\treturn;\n"
 	"\t\t\t}\n"
 	"\t\t\tfloat stored = depth.read(c);\n"
-	"\t\t\tnearest = min(nearest, p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x)));\n"
+	"\t\t\tnearest = min(nearest, depth_view_distance(stored, p.x, p.y));\n"
 	"\t\t}\n"
 	"\tdistances.write(float4(nearest), gid);\n"
 	"}\n";
@@ -10436,7 +12251,7 @@ static uint32_t gpu_metal_soft_depth_prepare(gpu_texture depth, const float *val
 		MetalTexture *record = texture_record(depth);
 		id<MTLComputeCommandEncoder> compute;
 		MTLTextureDescriptor *descriptor;
-		float near_plane, far_plane;
+		float depth_p22, depth_p32;
 		unsigned long width, height, soft_scale;
 		NSUInteger content_width, content_height;
 
@@ -10464,16 +12279,10 @@ static uint32_t gpu_metal_soft_depth_prepare(gpu_texture depth, const float *val
 		}
 		if (!soft.distances)
 			return 0;
-		/* the near and far the depth was made with: the projection's own depth row (GL-style), when given */
-		near_plane = values[0];
-		far_plane = values[1];
-		if (values[2] != 1.0f && values[2] != -1.0f && values[3] != 0.0f)
-		{
-			near_plane = values[3] / (values[2] - 1.0f);
-			far_plane = values[3] / (values[2] + 1.0f);
-		}
-		soft.parameters[0] = near_plane;
-		soft.parameters[1] = far_plane;
+		/* the depth row the depth was made with: the projection's own, when given (depth_decode.h) */
+		depth_row_from_view(values[0], values[1], values[2], values[3], &depth_p22, &depth_p32);
+		soft.parameters[0] = depth_p22;
+		soft.parameters[1] = depth_p32;
 		soft.parameters[2] = values[4] > 0.0f ? 1.0f / values[4] : 1.0e6f;
 		soft.parameters[3] = (float)soft_scale;
 		/* a pooled depth target: the texture keeps the allocation's size, and only the scene inside it is computed */

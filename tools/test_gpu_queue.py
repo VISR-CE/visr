@@ -18,6 +18,10 @@ class GpuQueueTests(unittest.TestCase):
                          "port/ios/host/gpu_queue.c", "port/ios/host/gpu_owner_check.c"], extra=["-fsanitize=thread"],
                   launcher=sanitizer_launcher())
 
+    def test_second_eye_replay_makes_the_span_again(self):
+        run_probe(self, ["port/ios/tests/gpu_queue_replay_probe.c", "port/ios/host/gpu_call_hash.c",
+                         "port/ios/host/gpu_queue.c", "port/ios/host/gpu_owner_check.c"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,6 +6,7 @@ setting off the assertions fall exactly where they fall without `tick_verify.c`.
 import re
 import shutil
 import subprocess
+from probe_timeouts import PROBE_RUN_SECONDS
 from pathlib import Path
 
 import pytest
@@ -185,7 +186,7 @@ def probe(tmp_path_factory):
 
     def run(subject, wrong, then, setting):
         return subprocess.run([str(binary), subject, wrong, then, '1' if setting else '0'], check=True,
-                              capture_output=True, text=True, timeout=20).stdout.strip()
+                              capture_output=True, text=True, timeout=PROBE_RUN_SECONDS).stdout.strip()
     return run
 
 

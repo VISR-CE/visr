@@ -1,4 +1,5 @@
 /* Exercise the production searchable summary and full gzip asset without CloudKit requests. */
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #include <assert.h>
@@ -39,10 +40,10 @@ static void verify_background_wait(void) {
             [NSRunLoop.currentRunLoop addTimer:timer forMode:NSDefaultRunLoopMode];
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 30 * NSEC_PER_MSEC),
                 dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ dispatch_semaphore_signal(done); });
-            assert(wait_for(done, CFAbsoluteTimeGetCurrent() + 1));
+            assert(wait_for(done, CFAbsoluteTimeGetCurrent() + TEST_WAIT_CAP_SECONDS));
             assert(!timer_fired && "Background upload waits must not pump the worker run loop");
             [timer invalidate];
-            assert(!wait_for(done, CFAbsoluteTimeGetCurrent() + 0.001));
+            assert(!wait_for(done, CFAbsoluteTimeGetCurrent() + 0.001));   /* TEST_WAIT_SHORT_ON_PURPOSE: the semaphore is drained, so nothing may arrive */
             dispatch_semaphore_signal(done);
             assert(wait_for(done, CFAbsoluteTimeGetCurrent() - 1));
         }

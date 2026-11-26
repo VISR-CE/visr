@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from probe_timeouts import PROBE_RUN_SECONDS
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -143,7 +144,7 @@ void _start(void) {
                 command += [str(work / name) for name in ('owner.c', 'caller.c', 'fallback.c')]
                 command += ['-o', str(executable)]
                 subprocess.run(command, check=True, timeout=60)
-                result = subprocess.run([str(executable)], timeout=10)
+                result = subprocess.run([str(executable)], timeout=PROBE_RUN_SECONDS)
                 expected = 71 if legacy else 0
                 assert result.returncode == expected, (command, result.returncode, expected)
                 print(f'PASS: {"COFF" if windows else "ELF"} {"full LTO" if lto else "ordinary"}: '

@@ -1,3 +1,4 @@
+#include "test_wait.h"
 #include "host_startup.h"
 #include "host_main_thread.h"
 #include <CoreFoundation/CoreFoundation.h>
@@ -37,7 +38,7 @@ static void *after_capture(void *unused) {
 }
 static void timed_out(int number) { (void)number; _exit(1); }
 int main(void) {
-    signal(SIGALRM, timed_out); alarm(10);
+    signal(SIGALRM, timed_out); alarm(TEST_WAIT_WATCHDOG_SECONDS);
     pthread_t thread;
     assert(pthread_create(&thread, NULL, before_capture, NULL) == 0);
     while (!atomic_load(&done)) CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.001, false);

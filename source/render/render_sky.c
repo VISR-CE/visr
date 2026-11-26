@@ -78,6 +78,10 @@ typedef char verify_sky_render_lighting_size[sizeof(struct render_lighting) == 0
 
 static void render_sky_data_error(
 	char const *problem);
+static void render_sky_eye_matrices(
+	void *context,
+	real_matrix4x3 *matrices,
+	short count);
 
 /* ---------- globals */
 
@@ -92,7 +96,6 @@ void render_sky(
 	struct real_orientation node_orientations[MAXIMUM_NODES_PER_ANIMATION];
 	struct render_lighting render_model_lighting;
 	real region_scales[MAXIMUM_SKIES_PER_SCENARIO];
-	real_matrix4x3 view_matrix;
 	struct object_marker light_marker;
 	struct sky *sky;
 	struct model *model;
@@ -246,29 +249,16 @@ void render_sky(
 				;
 			}
 
-			view_matrix = *global_identity4x3;
-			{
-				/* port: in an eye pass the sky sits about that eye, so it has no disparity (at infinity) */
-				const real_point3d *sky_center = halo_stereo_eye_position();
-
-				if (!sky_center)
-					sky_center = &render.camera.position;
-				view_matrix.position.x = sky_center->x * 0.9990234375f;
-				view_matrix.position.y = sky_center->y * 0.9990234375f;
-				view_matrix.position.z = sky_center->z * 0.9990234375f;
-			}
 			{
 				/* port: no more nodes than node_matrices holds (a map's count) */
-				long node_count = MIN(model->nodes.count, MAXIMUM_NODES_PER_ANIMATION);
+				short node_count = (short)MIN(model->nodes.count, MAXIMUM_NODES_PER_ANIMATION);
+				/* (the animated nodes, kept: each eye's sky is built from them) */
+				static real_matrix4x3 animated_node_matrices[MAXIMUM_NODES_PER_ANIMATION];
 
-				view_matrix.scale = 1.f / 1024.f;
-				for (i = 0; i < node_count; i++)
-				{
-					matrix4x3_multiply(
-						&view_matrix,
-						&node_matrices[i],
-						&node_matrices[i]);
-				}
+				csmemcpy(animated_node_matrices, node_matrices, node_count * sizeof(node_matrices[0]));
+				render_sky_eye_matrices(animated_node_matrices, node_matrices, node_count);
+				/* port: the second eye's replay: eye 1's sky sits about eye 1 */
+				rasterizer_eye_matrices(node_matrices, node_count, render_sky_eye_matrices, animated_node_matrices);
 			}
 
 			rasterizer_models_begin(TRUE);
@@ -296,6 +286,36 @@ void render_sky(
 }
 
 /* ---------- private code */
+
+/* port: the sky's node matrices for this eye pass from its animated nodes
+(context): in an eye pass the sky sits about that eye, so it has no
+disparity (at infinity); otherwise about the camera */
+static void render_sky_eye_matrices(
+	void *context,
+	real_matrix4x3 *matrices,
+	short count)
+{
+	real_matrix4x3 const *animated = (real_matrix4x3 const *)context;
+	const real_point3d *sky_center = halo_stereo_eye_position();
+	real_matrix4x3 view_matrix = *global_identity4x3;
+	short i;
+
+	if (!sky_center)
+		sky_center = &render.camera.position;
+	view_matrix.position.x = sky_center->x * 0.9990234375f;
+	view_matrix.position.y = sky_center->y * 0.9990234375f;
+	view_matrix.position.z = sky_center->z * 0.9990234375f;
+	view_matrix.scale = 1.f / 1024.f;
+	for (i = 0; i < count; i++)
+	{
+		matrix4x3_multiply(
+			&view_matrix,
+			&animated[i],
+			&matrices[i]);
+	}
+
+	return;
+}
 
 /* port: a map's sky past what render_sky has room for; said once */
 static void render_sky_data_error(

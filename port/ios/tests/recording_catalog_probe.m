@@ -1,6 +1,7 @@
 /* A published benchmark-catalog-2 feed and its archive, read through the real store and the real catalog validator:
  * argv: FEED.json BLOB.xz ORIGINAL_FILES_DIR PUBLIC_KEY_HEX GUEST_SHA256 EXPECTED_CASES.
  * The expanded folder must hold exactly the catalog-1 files, byte for byte, and load as the expected number of cases. */
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #include "../host/host_benchmark_catalog.h"
@@ -47,7 +48,7 @@ int main(int argc, char **argv) { @autoreleasepool {
     };
     HostDataPackStore *store = open(); [store beginLaunch];
     [store checkForUpdateAtURL:[NSURL URLWithString:@"https://feed.invalid/packs/tester/recordings-2-x.json"]];
-    for (int i = 0; i < 3000 && [store valueForKey:@"session"]; i++) [NSThread sleepForTimeInterval:0.01];
+    TEST_WAIT_UNTIL(![store valueForKey:@"session"]);
     store = open(); NSString *folder = [store beginLaunch];
     if ([[store metadata][@"bundled"] boolValue]) { fprintf(stderr, "FAIL: the published feed did not activate\n"); return 1; }
     struct host_benchmark_catalog catalog; NSError *error = nil;

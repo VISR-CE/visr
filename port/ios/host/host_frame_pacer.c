@@ -91,24 +91,59 @@ static void deadline_after(struct timespec *deadline, long nanoseconds)
 	}
 }
 
+/* the frames in flight rule for the encode thread mode in force: display.frames_in_flight's value, whether the adaptive
+rule runs, the limit it starts from. system_wanted: the system's pacer keeps its own queue, so the limit stays fixed. */
+struct in_flight_plan
+{
+	int fixed, limit, adaptive, start;
+};
+
+static struct in_flight_plan in_flight_plan(const char *value, int system_wanted)
+{
+	struct in_flight_plan plan;
+
+	plan.fixed = frame_pacer_in_flight_setting(value, frame_pacer_in_flight_default(host_gpu_encode_thread_on()));
+	plan.adaptive = frame_pacer_in_flight_adaptive(value, host_gpu_encode_thread_on());
+	plan.limit = plan.adaptive ? 1 : plan.fixed;
+#if TARGET_OS_SIMULATOR
+	/* a simulator's drawables never say when they were shown */
+	plan.limit = 0;
+	plan.adaptive = 0;
+#endif
+	/* (adaptive: start at two, which measures what one would need, and go to one when it fits) */
+	plan.start = plan.adaptive ? 2 : plan.limit;
+	/* (the system's pacer keeps its own queue: the limit it is given stays fixed, as before "auto") */
+	if (system_wanted && plan.adaptive)
+	{
+		plan.adaptive = 0;
+		plan.limit = plan.start = plan.fixed;
+	}
+	return plan;
+}
+
+/* (the system's pacer shows one frame a refresh: no cap, no "unlimited") */
+static int system_pacer_wanted(void)
+{
+	char value[16];
+
+	host_config_string("display.frame_source", "", value, sizeof(value));
+	return !strcmp(value, "system") && !host_frame_rate_unlimited() && host_frame_rate_cap() == 0.0;
+}
+
 void frame_pacer_start(int fixed_timestep)
 {
 	char value[16];
-	int limit, fixed, adaptive, start_limit;
+	struct in_flight_plan plan;
+	int limit, adaptive, start_limit, system;
 
 	if (fixed_timestep)
 		return;
 	host_config_string("display.frames_in_flight", "", value, sizeof(value));
-	fixed = frame_pacer_in_flight_setting(value, frame_pacer_in_flight_default(host_gpu_encode_thread_on()));
-	adaptive = frame_pacer_in_flight_adaptive(value, host_gpu_encode_thread_on());
-	limit = adaptive ? 1 : fixed;
-#if TARGET_OS_SIMULATOR
-	/* a simulator's drawables never say when they were shown */
-	limit = 0;
-	adaptive = 0;
-#endif
-	/* (adaptive: start at two, which measures what one would need, and go to one when it fits) */
-	start_limit = adaptive ? 2 : limit;
+	system = system_pacer_wanted();
+	plan = in_flight_plan(value, system);
+	limit = plan.limit;
+	adaptive = plan.adaptive;
+	start_limit = plan.start;
 	host_config_string("display.frame_spacing", "true", value, sizeof(value));
 	pthread_mutex_lock(&pacer.lock);
 	/* (started again after frame_pacer_stop: frames from before hold no slot) */
@@ -119,16 +154,7 @@ void frame_pacer_start(int fixed_timestep)
 	frame_pacer_adapt_reset(&pacer.adapt, limit, adaptive ? 2 : limit);
 	pacer.last_granted = pacer.drain_through = 0;
 	pacer.spacing = strcmp(value, "false") != 0;
-	host_config_string("display.frame_source", "", value, sizeof(value));
-	/* (the system's pacer shows one frame a refresh: no cap, no "unlimited") */
-	pacer.system_wanted = !strcmp(value, "system") && !host_frame_rate_unlimited() && host_frame_rate_cap() == 0.0;
-	/* (the system's pacer keeps its own queue: the limit it is given stays fixed, as before "auto") */
-	if (pacer.system_wanted && adaptive)
-	{
-		adaptive = pacer.adaptive = 0;
-		pacer.in_flight = pacer.flight.limit = start_limit = fixed;
-		frame_pacer_adapt_reset(&pacer.adapt, fixed, fixed);
-	}
+	pacer.system_wanted = system;
 	host_config_string("debug.present_times", "false", value, sizeof(value));
 	pacer.times = !strcmp(value, "true");
 	pacer.load = host_config_real("debug.frame_load_cpu", 0.0) / 1e3;
@@ -187,6 +213,34 @@ void frame_pacer_in_flight_at_30_set(int at_30)
 	pthread_mutex_lock(&pacer.lock);
 	pacer.in_flight_at_30 = at_30 == 1 || at_30 == 2 ? at_30 : 0;
 	pthread_mutex_unlock(&pacer.lock);
+}
+
+/* The encode thread was switched on or off between frames (a change of workload context): the frames in flight rule starts
+again for the mode now in force. Unlike a restart, the frames in flight keep their slots: frames presented just before
+the switch are still waiting to be shown, and their shown notices give the slots back. */
+void frame_pacer_encode_mode_changed(void)
+{
+	char value[16];
+	struct in_flight_plan plan;
+
+	host_config_string("display.frames_in_flight", "", value, sizeof(value));
+	pthread_mutex_lock(&pacer.lock);
+	if (!pacer.started)
+	{
+		pthread_mutex_unlock(&pacer.lock);
+		return;
+	}
+	plan = in_flight_plan(value, pacer.system_wanted);
+	pacer.in_flight = plan.limit;
+	pacer.flight.limit = plan.start;
+	pacer.adaptive = plan.adaptive;
+	frame_pacer_adapt_reset(&pacer.adapt, plan.limit, plan.adaptive ? 2 : plan.limit);
+	/* (what the rule judges starts here: the frames handed so far ran under the old mode) */
+	pacer.handed_before = pacer.shown_highest = pacer.handed;
+	pacer.shown_latest = 0.0;
+	pthread_mutex_unlock(&pacer.lock);
+	platform_log("frame pacer: %d frame%s in flight%s after the encode thread changed", plan.start, plan.start == 1 ? "" : "s",
+		plan.adaptive ? ", one while it fits" : plan.limit ? "" : " (no limit: the renderer's own queue)");
 }
 
 void frame_pacer_stop(void)

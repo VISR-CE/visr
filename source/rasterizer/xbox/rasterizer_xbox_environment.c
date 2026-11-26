@@ -154,6 +154,8 @@ symbols in this file:
 #include "rasterizer/rasterizer_environment.h"
 #include "rasterizer/common/rasterizer_common.h"
 #include "rasterizer/rasterizer_geometry.h"
+#include "traced_shadow_casters.h" /* port/linux/game */
+#include "objects/object_lights_rendering.h"
 #include "rasterizer/rasterizer_lights.h"
 #include "rasterizer/rasterizer_memory_pool.h"
 #include "rasterizer/rasterizer_transparent_geometry.h"
@@ -167,6 +169,7 @@ symbols in this file:
 #include "rasterizer/xbox/rasterizer_xbox_pixel_shader.h"
 #include "rasterizer_xbox_draw_primitives.h"
 #include "rasterizer_xbox_internal.h"
+#include "light_visibility.h" /* port: the attenuation stages */
 
 /* ---------- constants */
 
@@ -1053,7 +1056,8 @@ static void level_stencil_mark_begin(
 
 	level_stencil_saved_mode = -1;
 	/* (both are asked, each remembering its own answer for the view) */
-	if (!(halo_ssao_lightmaps_mark(TRUE) | halo_soft_particles_lightmaps_mark(TRUE)))
+	if (!(halo_ssao_lightmaps_mark(TRUE) | halo_soft_particles_lightmaps_mark(TRUE) |
+		halo_traced_shadows_lightmaps_mark(TRUE)))
 		return;
 	mode = rasterizer_get_stencil_mode();
 	/* (0 none, 2 REJECT: rasterizer_xbox.c's modes) */
@@ -1196,6 +1200,8 @@ void _rasterizer_environment_lightmap_begin(
 void _rasterizer_environment_diffuse_light_end(
 	void)
 {
+	/* port: light_visibility.h */
+	light_visibility_end();
 	return;
 }
 
@@ -1295,6 +1301,8 @@ void _rasterizer_environment_diffuse_light_begin(
 		D3DDevice_SetRenderState(
 			D3DRS_PSCONSTANT0_0,
 			real_rgb_color_to_pixel32(&light->color));
+		/* port: the light reaches only what its visibility source says (light_visibility.h) */
+		light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_DIFFUSE, light->radius);
 	}
 	return;
 }
@@ -1811,6 +1819,8 @@ void _rasterizer_environment_diffuse_texture_draw(
 void _rasterizer_environment_specular_light_end(
 	void)
 {
+	/* port: light_visibility.h */
+	light_visibility_end();
 	return;
 }
 
@@ -1969,6 +1979,10 @@ void _rasterizer_environment_specular_light_begin(
 			pixel_shader.final_combiner_inputs_abcd = 0x0C0F0000;
 			pixel_shader.final_combiner_inputs_efg = 0x1D200D00;
 			rasterizer_set_pixel_shader(&pixel_shader);
+			/* port: the highlight reaches only what its visibility source says (light_visibility.h); its
+			attenuation coordinate is stage 1's, over the specular radius */
+			light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_SPECULAR,
+				light->definition->geometry.specular_radius_multiplier * light->radius);
 		}
 	}
 	return;
@@ -3399,6 +3413,9 @@ static void rasterizer_environment_specular_spot_light_begin(
 		pixel_shader.final_combiner_inputs_abcd = 0x0C0F0000;
 		pixel_shader.final_combiner_inputs_efg = 0x1D330D00;
 		rasterizer_set_pixel_shader(&pixel_shader);
+		/* port: the highlight reaches only what its visibility source says (light_visibility.h); without an
+		attenuation coordinate, its lit point comes from depth */
+		light_visibility_begin(&light->position, light->radius, LIGHT_VISIBILITY_STAGE_NONE, radius);
 	}
 	return;
 }

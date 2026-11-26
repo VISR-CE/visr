@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
     assert(config_graphics_settings_json(CONFIG_SCENE_MENU,text,sizeof(text)));
     puts(text);
     capturing=1; assert(config_graphics_settings_snapshot(CONFIG_SCENE_MENU,&snapshot)); capturing=0;
-    assert(!capture_calls && snapshot.valid && snapshot.count && snapshot.count<=128);
+    assert(!capture_calls && snapshot.valid && snapshot.count && snapshot.count<=GAME_PERF_GRAPHICS_MAX_KEYS);
     assert(sizeof(snapshot)<32*1024 && snapshot.scene==CONFIG_SCENE_MENU);
     assert(snapshot.external_output==(unsigned)external);
     unsigned kinds=0;
@@ -193,6 +193,20 @@ def test_performance_graphics_context_has_identical_guest_and_host_layout(tmp_pa
               "--include-directory=" + str(ROOT / "port/runtime"), str(source)]
     subprocess.run(common, check=True)
     subprocess.run([*common, "--target=i386-unknown-none"], check=True)
+
+
+def test_graphics_key_limits_agree_and_leave_headroom():
+    """The class: a new display.* key silently pushing the capture past its fixed key limit, which shows up only as an
+    assert in a probe. Count the schema's capture keys here and fail with the numbers instead."""
+    graphics = (ROOT / "port/runtime/graphics_capture.h").read_text()
+    perf = (ROOT / "port/runtime/game_perf_graphics.h").read_text()
+    limit = int(re.search(r"CONFIG_GRAPHICS_MAXIMUM_KEYS (\d+)", graphics).group(1))
+    assert limit == int(re.search(r"GAME_PERF_GRAPHICS_MAX_KEYS (\d+)", perf).group(1)), "key limits differ"
+    names = set(re.findall(r'\{\s*"(display\.[a-z0-9_]+)"', (ROOT / "port/linux/src/port_config.c").read_text()))
+    names |= set(re.findall(r'X\("([^"]+)"\)', graphics))
+    assert len(names) + 16 <= limit, (
+        f"{len(names)} graphics capture keys against a limit of {limit}: raise CONFIG_GRAPHICS_MAXIMUM_KEYS and "
+        "GAME_PERF_GRAPHICS_MAX_KEYS together, keeping 16 keys of headroom")
 
 
 def test_reports_carry_every_display_setting_a_profile_can_set():

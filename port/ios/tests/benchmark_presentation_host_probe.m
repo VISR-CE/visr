@@ -1,3 +1,4 @@
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #include "host_benchmark_presentation.h"
 #include "benchmark_metrics.h"
@@ -114,7 +115,7 @@ int main(void) { @autoreleasepool {
     usleep(20000); /* callback delivery delay is not presentation time */
     host_benchmark_presentation_complete(first,10);
     NSDictionary *async=nil;
-    for (int i=0; i<1000 && !async; i++) { async=host_benchmark_presentation_take_report(); if (!async) usleep(1000); }
+    TEST_WAIT_UNTIL((async=host_benchmark_presentation_take_report()));
     CHECK([async[@"received"] intValue]==2 && [async[@"interval_count"] intValue]==1);
     CHECK(fabs([async[@"interval_ms"][@"mean"] doubleValue]-25)<1e-9);
     CHECK([async[@"drain_status"] isEqual:@"complete"]);

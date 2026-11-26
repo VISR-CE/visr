@@ -13,6 +13,7 @@ platform = "ios"
 models = ["iPhone13,3"]
 
 [display]
+scene_precision = 16
 upscaled_textures = true
 frame_rate = "60"
 render_height = 900
@@ -22,6 +23,7 @@ model_lod = "max"
 dynamic_resolution = true
 
 [variable.display]
+scene_precision = 8
 frames_in_flight_at_30 = "1"
 frame_rate = "30"
 effect_limits = "xbox"
@@ -95,3 +97,13 @@ why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPa
 basis = "measured"
 why = "In a 128-player Blood Gulch fight at 30 frames a second the Xbox's decal set took 27.4 ms of CPU a frame where the raised set took 29.1 (two and three interleaved rounds; paired rounds 1.7 and 2.2 ms less), and put 99.8% and 99.6% of frames on time where the raised set put 99.3%, 99.4% and 97.7%. GPU time was the same. The raised set keeps about four times the marks; a small game fills neither. Split screen gets the Xbox's share of an effect's particles as well, as on the Xbox."
 source = "VISR main 1a41b6f59 with debug.verify_once_a_tick on, iPhone 12 Pro, cost:mp128-bloodgulch-1029-p60 presented, 2026-11-20"
+
+[evidence."display.scene_precision"]
+basis = "measured"
+why = "At this profile's 60 frames a second and 900 lines, the 16-bit round held 99.93% of frames on time against 99.90 and 99.93% in the two 8-bit rounds, with lines unchanged at 900. The GPU time rose 0.4 ms at the median (13.4 against 13.8 ms) and 0.8 ms at the 95th percentile (21.6 against 22.4 ms), and the peak footprint 16 MB. One 16-bit round finished (the fourth was stopped when the device was needed); the two 8-bit rounds agree within 0.1 ms. Thermal state stayed nominal."
+source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"
+
+[evidence."variable.display.scene_precision"]
+basis = "assumed"
+why = "Multiplayer and the other variable workloads were not measured at 16 bits (larger games, wider dynamic resolution), so they keep the 8-bit scene until a pair there shows the cost."
+source = "VISR scene precision pairs, main 3220916d5 (build 20261124.085457), a10-heroic campaign window, the profile as shipped with display.scene_precision 8 and 16 interleaved (8, 16, 8, 16), bench/latency-matrix.py, presented, debug.gpu_stats, 2026-11-24"

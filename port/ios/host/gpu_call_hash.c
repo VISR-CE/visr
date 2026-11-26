@@ -410,6 +410,27 @@ static void hashed_ssao_apply(gpu_texture color, gpu_texture depth, const float 
 	h->next->ssao_apply(color, depth, values, count);
 }
 
+static void hashed_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_traced_shadows_data);
+	mix64(h, ((uint64_t)kind << 32) | id);
+	mix64(h, size);
+	mix_bytes(h, bytes, bytes ? size : 0);
+	h->next->traced_shadows_data(kind, id, bytes, size);
+}
+
+static void hashed_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count)
+{
+	struct hasher *h = current;
+	command(h, GPU_OPERATION_traced_shadows_resolve);
+	mix64(h, ((uint64_t)color << 32) | depth);
+	mix64(h, ((uint64_t)term << 32) | count);
+	mix_bytes(h, values, values ? (uint64_t)count * sizeof(*values) : 0);
+	h->next->traced_shadows_resolve(color, depth, term, values, count);
+}
+
 /* the switches (gpu_backend.h's GPU_HOST_SWITCH_OPERATIONS) */
 #define HASHED_SWITCH(name) \
 	static void hashed_##name(int value) \

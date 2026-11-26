@@ -61,6 +61,8 @@ void platform_log(const char *format, ...);
 void host_dynamic_resolution_scene(int enabled, int floor_lines);
 /* port/ios/host/host_frame_pacer.c, a guest import */
 void host_frames_in_flight_scene(int at_30);
+/* port/ios/host/host_gpu_dispatch.c, a guest import */
+void host_encode_thread_scene(int thread);
 /* port/ios/host/host_benchmark.m: the decision the map actually uses, even when its context did not change. */
 void host_benchmark_workload(int variable);
 #endif
@@ -132,7 +134,7 @@ void halo_workload_decide(void)
 	char reasons[160];
 
 	memset(&inputs, 0, sizeof(inputs));
-	inputs.main_menu = !global_scenario || global_scenario->type == _scenario_type_main_menu;
+	inputs.main_menu = !global_scenario_is_level();
 	inputs.multiplayer_map = global_scenario && global_scenario->type == _scenario_type_multiplayer;
 	inputs.networked = connection == _game_connection_network_server || connection == _game_connection_network_client;
 	inputs.online = workload_online(connection);
@@ -278,6 +280,14 @@ int halo_scene_class(void)
 
 				config_scene_string("display.frames_in_flight_at_30", scene_class, limit, sizeof(limit));
 				host_frames_in_flight_scene(!strcmp(limit, "1") ? 1 : !strcmp(limit, "2") ? 2 : 0);
+			}
+			/* (display.encode_thread likewise: a profile sets it for the variable workload alone; the host switches the
+			thread at the next frame start) */
+			{
+				char thread[8];
+
+				config_scene_string("display.encode_thread", scene_class, thread, sizeof(thread));
+				host_encode_thread_scene(!strcmp(thread, "thread"));
 			}
 		}
 	}

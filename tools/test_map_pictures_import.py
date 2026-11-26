@@ -20,7 +20,8 @@ def test_native_map_pictures_import(tmp_path):
 
 def test_host_import_contract():
     names = ("host_map_pictures_import_stage", "host_map_pictures_import_progress",
-             "host_map_pictures_import_done", "host_map_framings_feed_path")
+             "host_map_pictures_import_done", "host_map_pictures_begin_refresh",
+             "host_map_framings_feed_path")
     imports = (ROOT / "port/runtime/host_imports.list").read_text().splitlines()
     header = (ROOT / "port/runtime/guest/runtime/guest_host.h").read_text()
     for name in names:

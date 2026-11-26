@@ -118,12 +118,15 @@ typedef struct { WORD wButtons; BYTE bAnalogButtons[8]; short sThumbRY; } XINPUT
 static char applied[64], message[96], logged[64];
 static int applications;
 static int config_boolean(const char *name){ (void)name; return @ENABLED@; }
-static long config_integer(const char *name){ return !strcmp(name, "display.shadow_map_size") ? 512 : 0; }
 static const char *config_string(const char *name){ (void)name; return "max"; }
+enum { CONFIG_SCENE_GAMEPLAY };
+static long config_scene_integer(const char *name, int scene){ (void)scene; return !strcmp(name, "display.shadow_map_size") ? 512 : 0; }
+static int config_scene_boolean(const char *name, int scene){ (void)name; (void)scene; return 0; }
+static int config_scene_string(const char *name, int scene, char *text, unsigned long size){ (void)name; (void)scene; snprintf(text, size, "max"); return 0; }
 static float halo_knob_render_quality(void){ return 0.6f; }
-static int halo_knob_apply(const char *name, const char *value){ snprintf(applied, sizeof(applied), "%s=%s", name, value); applications++; return 1; }
+static int config_set_live(const char *name, const char *value, char *note, size_t size){ snprintf(applied, sizeof(applied), "%s=%s", name, value); snprintf(note, size, "%s = %s", name, value); applications++; return 1; }
 static void halo_knob_message(const char *text){ snprintf(message, sizeof(message), "%s", text); }
-static void platform_log(const char *format, const char *name, const char *value){ (void)format; snprintf(logged, sizeof(logged), "knob: %s=%s", name, value); }
+static void platform_log(const char *format, const char *note){ (void)format; snprintf(logged, sizeof(logged), "knob: %s", note); }
 '''
 
 
@@ -171,7 +174,7 @@ int main(void){
  pad.wButtons=XINPUT_GAMEPAD_BACK|XINPUT_GAMEPAD_DPAD_LEFT;
  knob_cycle_chord(&pad);
  knob_cycle_chord(&pad);
- assert(applications==1 && !strcmp(applied, "display.shadow_map_size=256") && !strcmp(logged, "knob: display.shadow_map_size=256"));
+ assert(applications==1 && !strcmp(applied, "display.shadow_map_size=256") && !strcmp(logged, "knob: display.shadow_map_size = 256"));
  assert(!strcmp(message, "shadow map 256") && pad.wButtons==XINPUT_GAMEPAD_BACK);
  return 0;
 }
@@ -206,7 +209,7 @@ def test_anisotropy_returns_to_the_setting_when_the_benchmark_clears_its_value(t
     source = (ROOT / "port/linux/src/d3d8_device.c").read_text()
     fixture = r'''
 #include <assert.h>
-static long benchmark_anisotropy, knob_anisotropy;
+static long benchmark_anisotropy;
 static long config_integer(const char *name){ (void)name; return 8; }
 static unsigned long config_changes(void) { return 0; }
 ''' + function(source, "static long anisotropy_in_force(") + r'''
@@ -216,8 +219,6 @@ int main(void){
  assert(anisotropy_in_force()==2);
  benchmark_anisotropy=0;
  assert(anisotropy_in_force()==8);
- knob_anisotropy=4;
- assert(anisotropy_in_force()==4);
  benchmark_anisotropy=1;
  assert(anisotropy_in_force()==1);
  return 0;

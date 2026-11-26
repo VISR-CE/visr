@@ -87,6 +87,28 @@ int main(void)
         CHECK(frame_pacer_frame_begin(&first, 3, 0.0, 0) == 1 && !first.slot && first.granted == 0.0);
         frame_pacer_stop();
     }
+    /* the encode thread switched on between frames (a map load's change of workload context): the rule starts again for the
+       adaptive default, and the two frames presented just before still hold their slots, so a third waits for one */
+    {
+        struct frame_pacer_frame first, second, third;
+
+        encode_thread = 0;
+        frames_in_flight = "";
+        frame_pacer_start(0);
+        frame_pacer_frame_begin(&first, 7, 0.0, 1);
+        frame_pacer_frame_begin(&second, 8, 0.0, 1);
+        CHECK(first.slot && second.slot);
+        encode_thread = 1;
+        frame_pacer_encode_mode_changed();
+        frame_pacer_frame_begin(&third, 9, 0.0, 1);
+        CHECK(third.slot_waited && !third.slot);
+        frame_pacer_presented(&first, 0.0);
+        frame_pacer_presented(&second, 0.0);
+        frame_pacer_frame_dropped(&third);
+        frame_pacer_stop();
+        /* (not started: nothing to change) */
+        frame_pacer_encode_mode_changed();
+    }
     /* adaptive (the thread's default, or "auto"): it starts at two, and a fitting stream of presented frames takes it
        to one; an explicit "1" is fixed at one from the start */
     {

@@ -14,12 +14,14 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #endif
 #import "host_texture_upscale.h"
 #import "host_astc_store.h"
+#import "host_texture_repair.h"
 #include "host_config.h"
 #include "../../linux/src/port_graphics_modes.h"
 #include <pthread/qos.h>
 #include "texture_upscale_priority.h"
 #include "ios_host.h"
 #include "texture_cache.h"
+#include "texture_repair.h"
 #include "texture_record.h"
 #include "texture_upscale_generate.h"
 #include "texture_upscale_schedule.h"
@@ -68,6 +70,8 @@ static enum texture_upscale_mode upscale_mode;
 static int profile_upscales=-1, player_upscales=1;
 /* pumps that ended without another queued: the import phase ends at one that began after it did */
 static atomic_uint pumps_ended;
+/* textures this launch upscaled from the texture repair's output (texture_repair.h) rather than the map's decode */
+static atomic_uint repaired_sources;
 /* how the last pump ended (enum texture_upscale_end): the import phase and the log say so; some retry later */
 static atomic_int last_end=TEXTURE_UPSCALE_END_QUEUE_EMPTY;
 /* one retry timer at a time (texture_upscale_end_retries_on_timer) */
@@ -306,7 +310,7 @@ static struct texture_recipe_globals recipe_globals(void) {
     return (struct texture_recipe_globals){.model_id="S4g: PBRify SPAN V4 per channel",
         .model_sha256="d1f1fa1af7a5ab23fcf143e75aac4951e6c52d56bf77d9ccd4d004a4831d0461",.pipeline_version={1,1,1,1,1,1},
         .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=9,
-        .encoder=texture_upscale_encoder_name(record_format),.damage_share=policy->damage_share,.damage_structure_loss=policy->damage_structure_loss,
+        .repair_version=TEXTURE_REPAIR_VERSION,.encoder=texture_upscale_encoder_name(record_format),.damage_share=policy->damage_share,.damage_structure_loss=policy->damage_structure_loss,
         .damage_bpf_structure_loss=policy->damage_bpf_structure_loss,.damage_measure_version=(uint32_t)policy->damage_measure_version};
 }
 /* One map's texture keys, from its own classification: what a level needs ready to play upscaled. Cached per map
@@ -544,6 +548,19 @@ static int generate_source(void *opaque,const struct host_texture_source *source
         menu_picture_trace_source(owned,d->width,d->height)>=11))||
         (d->result==TEXTURE_POLICY_S4G&&large);
     if(input.synthetic)host_logf(HOST_LOG_INFO,"Upscale %016llx: redrawn from the source, no model prediction",(unsigned long long)d->hash);
+    /* The model works from the repaired texture wherever the repair changes it (the same rule as the repair's own
+       records), so an upscaled lightmap or sky does not carry the 5:6:5 steps four times larger. Part of the global recipe
+       (recipe_globals' repair_version). A redrawn picture keeps the map's own pixels. */
+    if(!input.synthetic&&texture_repair_applies(source->format,source->width,source->height)){
+        if(texture_repair_texture(source->format,source->width,source->height,source->level_count,source->rgba,source->level_offsets,
+            source->stored,source->level_stored_offsets,owned,NULL)==1){
+            if(!atomic_fetch_add(&repaired_sources,1))
+                host_logf(HOST_LOG_INFO,"Upscale %016llx: made from the repaired texture (the first this launch; repair version %u)",
+                    (unsigned long long)d->hash,TEXTURE_REPAIR_VERSION);}
+        else{uint32_t w=d->width,h=d->height;size_t offset=0;
+            for(unsigned i=0;i<source->level_count;i++){memcpy(owned+offset,source->rgba+source->level_offsets[i],(size_t)w*h*4);
+                offset+=(size_t)w*h*4;w=MAX(1u,w/2);h=MAX(1u,h/2);}}
+    }
     char error[512]={0};double start=now();
     dispatch_group_enter(work_group);
     atomic_store(&work_hash,d->hash);atomic_store(&work_stage,"predictions");
@@ -967,6 +984,8 @@ static void stop_for_gameplay(const char *why) {
 }
 /* Re-reads whether the work may run now (activity), and resumes it if so. */
 static void resume_if_allowed(void) {
+    /* (a resume already pending when the generator turned off mid-launch, host_texture_measured_run_began: nothing to resume) */
+    if(!upscale_enabled)return;
     BOOL may;double wait;
     @synchronized(activity_token){may=texture_upscale_activity_may_run(&activity,now());wait=texture_upscale_activity_wait(&activity,now());}
     if(may){set_stop(NO);schedule_pump();return;}
@@ -974,15 +993,45 @@ static void resume_if_allowed(void) {
 }
 static void resume_if_allowed(void);
 int host_texture_upscale_delete_cache(const char *directory) {
-    if(!upscale_enabled)return texture_cache_delete_all(directory);
+    if(!upscale_enabled){int status=texture_cache_delete_all(directory);host_texture_repair_cache_deleted();return status;}
     /* stop the texture in hand; the next pump deletes before anything else */
     atomic_store(&delete_requested,true);set_stop(YES);
-    dispatch_async(upscale_worker,^{if(atomic_exchange(&delete_requested,false))delete_cache();
+    dispatch_async(upscale_worker,^{if(atomic_exchange(&delete_requested,false)){delete_cache();host_texture_repair_cache_deleted();}
         dispatch_async(dispatch_get_main_queue(),^{resume_if_allowed();});});
     return 0;
 }
-void host_texture_upscale_scan(void) {if(upscale_enabled){atomic_store(&scan_pending,true);schedule_pump();}}
+void host_texture_upscale_scan(void) {host_texture_repair_scan();if(upscale_enabled){atomic_store(&scan_pending,true);schedule_pump();}}
 static BOOL text_true(const char *text) { return !strcmp(text,"true")||!strcmp(text,"1"); }
+/* Whether this launch is a measured run, and why: a benchmark suite, a benchmark, any input replay, or a run that must
+   draw the same frames every time (a fixed timestep, screenshots). Background texture work (the upscaler's generator,
+   the texture repair) does none of its work in one, so it cannot run behind the numbers. NULL when not measured. */
+static atomic_bool suite_chosen_at_launch;
+const char *host_texture_measured_run(void) {
+    if(atomic_load(&suite_chosen_at_launch))return "benchmark suite chosen at launch";
+    char suite[32]="",replay[256]="",bench[16]="",fixed[16]="",shots[16]="";const char *e=getenv("HALO_BENCHMARK_SUITE");
+    if(e)snprintf(suite,sizeof(suite),"%s",e);else host_config_string("debug.benchmark_suite","",suite,sizeof(suite));
+    e=getenv("HALO_INPUT_REPLAY");if(e)snprintf(replay,sizeof(replay),"%s",e);else host_config_string("debug.input_replay","",replay,sizeof(replay));
+    e=getenv("HALO_BENCHMARK");if(e)snprintf(bench,sizeof(bench),"%s",e);else host_config_string("debug.benchmark","false",bench,sizeof(bench));
+    e=getenv("HALO_FIXED_TIMESTEP");if(e)snprintf(fixed,sizeof(fixed),"%s",e);else host_config_string("debug.fixed_timestep","false",fixed,sizeof(fixed));
+    e=getenv("HALO_SCREENSHOT_EVERY");if(e)snprintf(shots,sizeof(shots),"%s",e);else host_config_string("debug.screenshot_every","0",shots,sizeof(shots));
+    if(suite[0])return "benchmark suite";
+    if(replay[0])return "input replay";
+    if(text_true(bench))return "benchmark";
+    if(text_true(fixed)||atoi(shots)>0)return "fixed timestep or screenshots";
+    return NULL;
+}
+/* A tester build's launch screen chose a benchmark suite after the upscaler and the repair had started (host_main.m):
+   that choice reaches only the guest's environment, so the host is told here. The generator in "auto" stops and stays
+   off as it would had the suite been set at launch; the repair stops its pass and does no more work. */
+void host_texture_measured_run_began(void) {
+    if(atomic_exchange(&suite_chosen_at_launch,true))return;
+    if(upscale_mode==TEXTURE_UPSCALE_MODE_AUTO){
+        upscale_mode=TEXTURE_UPSCALE_MODE_OFF;
+        if(upscale_enabled){set_stop(YES);upscale_enabled=NO;}
+        host_logf(HOST_LOG_INFO,"Upscale: off for this measured run (%s)",host_texture_measured_run());
+    }
+    host_texture_repair_measured_run_began();
+}
 void host_texture_upscale_resolve_profile(const char *root) {
     if(profile_upscales>=0||!root)return;
     char text[32]="";
@@ -990,6 +1039,7 @@ void host_texture_upscale_resolve_profile(const char *root) {
     profile_upscales=host_device_profile_peek(root,"display.upscaled_textures",text,sizeof(text))?text_true(text):1;
 }
 void host_texture_upscale_init(const char *root) {
+    host_texture_repair_init(root);
     static dispatch_once_t once;dispatch_once(&once,^{
         /* Development only: HALO_TEXTURE_UPSCALE_CLEAN removes what the generator and its export left in the data
            root, since a device's app container cannot be emptied from the Mac. */
@@ -1029,23 +1079,12 @@ void host_texture_upscale_init(const char *root) {
         const char *environment=getenv("HALO_TEXTURE_UPSCALE_GENERATE");
         if(environment)snprintf(mode,sizeof(mode),"%s",environment);else host_config_string("debug.texture_upscale_generate","auto",mode,sizeof(mode));
         upscale_mode=texture_upscale_mode_parse(mode);
-        /* "auto" stays out of measured runs (a benchmark suite, a benchmark replay, any input replay, a fixed timestep,
-           screenshots): their menus
-           would otherwise heat the device and draw on the Neural Engine between takes. "force" still runs. */
-        if(upscale_mode==TEXTURE_UPSCALE_MODE_AUTO){
-            char suite[32]="",replay[256]="",bench[16]="";const char *e=getenv("HALO_BENCHMARK_SUITE");
-            if(e)snprintf(suite,sizeof(suite),"%s",e);else host_config_string("debug.benchmark_suite","",suite,sizeof(suite));
-            e=getenv("HALO_INPUT_REPLAY");if(e)snprintf(replay,sizeof(replay),"%s",e);else host_config_string("debug.input_replay","",replay,sizeof(replay));
-            e=getenv("HALO_BENCHMARK");if(e)snprintf(bench,sizeof(bench),"%s",e);else host_config_string("debug.benchmark","false",bench,sizeof(bench));
-            /* (and the runs that must draw the same frames every time: a fixed timestep or screenshots) */
-            char fixed[16]="",shots[16]="";
-            e=getenv("HALO_FIXED_TIMESTEP");if(e)snprintf(fixed,sizeof(fixed),"%s",e);else host_config_string("debug.fixed_timestep","false",fixed,sizeof(fixed));
-            e=getenv("HALO_SCREENSHOT_EVERY");if(e)snprintf(shots,sizeof(shots),"%s",e);else host_config_string("debug.screenshot_every","0",shots,sizeof(shots));
-            BOOL deterministic=text_true(fixed)||atoi(shots)>0;
-            if(suite[0]||replay[0]||text_true(bench)||deterministic){
-                host_logf(HOST_LOG_INFO,"Upscale: off for this measured run (%s)",suite[0]?"benchmark suite":replay[0]?"input replay":text_true(bench)?"benchmark":"fixed timestep or screenshots");
-                upscale_mode=TEXTURE_UPSCALE_MODE_OFF;
-            }
+        /* "auto" stays out of measured runs (host_texture_measured_run): their menus would otherwise heat the device and
+           draw on the Neural Engine between takes. "force" still runs. */
+        const char *measured=upscale_mode==TEXTURE_UPSCALE_MODE_AUTO?host_texture_measured_run():NULL;
+        if(measured){
+            host_logf(HOST_LOG_INFO,"Upscale: off for this measured run (%s)",measured);
+            upscale_mode=TEXTURE_UPSCALE_MODE_OFF;
         }
         host_texture_upscale_resolve_profile(root);
         environment=getenv("HALO_UPSCALED_TEXTURES");
@@ -1100,6 +1139,7 @@ static void set_priority(const char *name) {
     atomic_fetch_add(&priority_serial,1);
 }
 void host_texture_upscale_map_will_load(const char *name) {
+    host_texture_repair_map_will_load(name);
     if(name){NSString *n=map_base([@(name) stringByReplacingOccurrencesOfString:@"\\" withString:@"/"]);snprintf(loading_name,sizeof(loading_name),"%s",n.UTF8String);}
     atomic_store(&stage_map_loaded,false);
     if(!upscale_enabled)return;
@@ -1133,6 +1173,7 @@ void host_texture_upscale_stage_end(void) {
     resume_if_allowed();
 }
 void host_texture_upscale_game_started(int is_game) {
+    host_texture_repair_game_started(is_game);
     if(!upscale_enabled)return;
     /* A map pictures stage map is not gameplay: the work goes on unless memory is short. */
     if(is_game&&atomic_load(&stage_active)) {
@@ -1164,6 +1205,7 @@ void host_texture_upscale_game_started(int is_game) {
 }
 /* rule 6: a pause is not gameplay (game_time_set_paused) */
 void host_texture_upscale_paused(int paused) {
+    host_texture_repair_paused(paused);
     if(!upscale_enabled)return;
     BOOL in_game,was;
     @synchronized(activity_token){in_game=activity.in_game;was=activity.paused;texture_upscale_activity_paused(&activity,paused,now());}
@@ -1324,8 +1366,9 @@ resume_import:
     atomic_store(&import_shown,-1);
     struct texture_cache_progress p=progress_of(nil);
     BOOL finished=!skipped&&end==TEXTURE_UPSCALE_END_QUEUE_EMPTY;
-    host_logf(HOST_LOG_INFO,"Upscale import: %s after %.1f s, %zu of %zu textures ready%s%s",skipped?"skipped":finished?"finished":"stopped",
-        now()-start,p.ready,p.textures,skipped||finished?"":": ",skipped||finished?"":texture_upscale_end_name(end));
+    host_logf(HOST_LOG_INFO,"Upscale import: %s after %.1f s, %zu of %zu textures ready, %u made from repaired sources this launch%s%s",
+        skipped?"skipped":finished?"finished":"stopped",now()-start,p.ready,p.textures,atomic_load(&repaired_sources),
+        skipped||finished?"":": ",skipped||finished?"":texture_upscale_end_name(end));
     atomic_fetch_sub(&urgent,1);
     return 1;
 }

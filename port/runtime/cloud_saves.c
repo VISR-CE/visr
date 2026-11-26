@@ -795,6 +795,25 @@ static void local_free(struct local_slot *local)
 	files_free(&local->profile);
 }
 
+/* what identifies one version of the saved game file. A modification time alone is not enough: a volume that keeps
+   whole seconds (HFS+) gives a rewrite of the same size within the same second the old signature, so a cache keyed on it
+   returned the old bytes' hash after the engine had replaced them. The inode number changes with each replace
+   (the write is a rename of a new file), and the engine also forgets its cache for a file it writes (cache_forget). */
+static void file_signature(const struct stat *st, char *signature, size_t size)
+{
+	snprintf(signature, size, "%lld:%lld:%ld:%llu", (long long)st->st_size, (long long)st->st_mtimespec.tv_sec,
+		(long)st->st_mtimespec.tv_nsec, (unsigned long long)st->st_ino);
+}
+
+static void cache_forget(struct cloud_engine *engine, const char *slot)
+{
+	int i;
+
+	for (i = 0; i < engine->cache_count; i++)
+		if (!strcmp(engine->cache[i].slot, slot))
+			engine->cache[i].signature[0] = 0;
+}
+
 static struct saved_game_cache *cache_for(struct cloud_engine *engine, const char *slot)
 {
 	int i;
@@ -896,8 +915,7 @@ static void local_read(struct cloud_engine *engine, const char *id, int settle, 
 			struct saved_game_cache *cache = cache_for(engine, id);
 			char signature[64];
 
-			snprintf(signature, sizeof(signature), "%lld:%lld:%ld", (long long)st.st_size, (long long)st.st_mtimespec.tv_sec,
-				(long)st.st_mtimespec.tv_nsec);
+			file_signature(&st, signature, sizeof(signature));
 			if (strcmp(cache->signature, signature) && local->status != LOCAL_BUSY)
 			{
 				struct stat read_at;
@@ -922,8 +940,7 @@ static void local_read(struct cloud_engine *engine, const char *id, int settle, 
 					cache->summary.modified = (long long)read_at.st_mtimespec.tv_sec;
 				}
 				free(data);
-				snprintf(cache->signature, sizeof(cache->signature), "%lld:%lld:%ld", (long long)read_at.st_size,
-					(long long)read_at.st_mtimespec.tv_sec, (long)read_at.st_mtimespec.tv_nsec);
+				file_signature(&read_at, cache->signature, sizeof(cache->signature));
 			}
 			if (!strcmp(cache->signature, signature))
 			{
@@ -1083,8 +1100,9 @@ void cloud_local_signatures(const char *save_root, const char *state_path, struc
 			if (entry->d_name[0] == '.' || stat(path, &st) != 0)
 				continue;
 			/* (the directory's order is not sorted, and need not be: it is the same until something changes) */
-			snprintf(line, sizeof(line), "%s/%s %lld %lld.%ld\n", ids[i], entry->d_name, (long long)st.st_size,
-				(long long)st.st_mtimespec.tv_sec, (long)st.st_mtimespec.tv_nsec);
+			/* (the file's number too: a replaced file of the same size and whole-second time is still another file) */
+			snprintf(line, sizeof(line), "%s/%s %lld %lld.%ld %llu\n", ids[i], entry->d_name, (long long)st.st_size,
+				(long long)st.st_mtimespec.tv_sec, (long)st.st_mtimespec.tv_nsec, (unsigned long long)st.st_ino);
 			sha256_add(&all, line, strlen(line));
 			if (!strcmp(entry->d_name, CHECKPOINT_FILE))
 				snprintf(line, sizeof(line), "%s/%s\n", ids[i], entry->d_name);
@@ -1196,6 +1214,41 @@ static int make_slot_directory(const char *save_root, const char *id, char *dire
 	return mkdir(directory, 0755) == 0 || errno == EEXIST;
 }
 
+/* The profile file's input extension (port/linux/game/player_input_profile.h, from offset 0x44) is padding to a build
+   from before it, which writes zeros there. A profile arriving without one therefore means "no opinion", not
+   "defaults": when the file on this device has the extension, it is kept in the copy that is written. */
+#define PROFILE_BLOCK_SIZE 512
+#define PROFILE_EXTENSION_OFFSET 0x44
+
+static int has_extension(const uint8_t *block)
+{
+	return block[PROFILE_EXTENSION_OFFSET] == 'V' && block[PROFILE_EXTENSION_OFFSET + 1] == 'I' &&
+		block[PROFILE_EXTENSION_OFFSET + 2] == 'N' && block[PROFILE_EXTENSION_OFFSET + 3] == 'P';
+}
+
+/* fills grafted (a profile block) with the incoming one and this device's extension; 1 when it did */
+static int graft_local_extension(const char *directory, const struct unit_file *incoming, uint8_t *grafted)
+{
+	char path[1300];
+	uint8_t local[PROFILE_BLOCK_SIZE];
+	FILE *file;
+	size_t count;
+
+	if (strcmp(incoming->name, PROFILE_FILE) || incoming->size != PROFILE_BLOCK_SIZE || has_extension(incoming->data))
+		return 0;
+	snprintf(path, sizeof(path), "%s/%s", directory, PROFILE_FILE);
+	file = fopen(path, "rb");
+	if (!file)
+		return 0;
+	count = fread(local, 1, sizeof(local), file);
+	fclose(file);
+	if (count != PROFILE_BLOCK_SIZE || !has_extension(local))
+		return 0;
+	memcpy(grafted, incoming->data, PROFILE_BLOCK_SIZE);
+	memcpy(grafted + PROFILE_EXTENSION_OFFSET, local + PROFILE_EXTENSION_OFFSET, PROFILE_BLOCK_SIZE - PROFILE_EXTENSION_OFFSET);
+	return 1;
+}
+
 /* Makes the slot's profile files those given: each written whole, SaveMeta.xbx (which makes the
    directory a save the game lists) last, and the profile files that are not among them removed. */
 static int local_write_profile(struct cloud_engine *engine, const char *id, const struct unit_files *files)
@@ -1209,9 +1262,15 @@ static int local_write_profile(struct cloud_engine *engine, const char *id, cons
 		return 0;
 	for (pass = 0; pass < 2; pass++)
 		for (i = 0; i < files->count; i++)
-			if ((strcmp(files->files[i].name, META_FILE) == 0) == pass &&
-				!write_file(directory, files->files[i].name, files->files[i].data, files->files[i].size))
-				return 0;
+			if ((strcmp(files->files[i].name, META_FILE) == 0) == pass)
+			{
+				uint8_t grafted[PROFILE_BLOCK_SIZE];
+				int graft = graft_local_extension(directory, &files->files[i], grafted);
+
+				if (!write_file(directory, files->files[i].name, graft ? grafted : files->files[i].data,
+					files->files[i].size))
+					return 0;
+			}
 	dir = opendir(directory);
 	while (dir && (entry = readdir(dir)) != NULL)
 	{
@@ -1252,6 +1311,7 @@ static int local_remove_slot(struct cloud_engine *engine, const char *id)
 		unlink(path);
 	}
 	closedir(dir);
+	cache_forget(engine, id);
 	return rmdir(directory) == 0;
 }
 
@@ -1945,6 +2005,7 @@ static enum cloud_status unit_download(struct cloud_engine *engine, const char *
 	{
 		slot_directory(engine->save_root, slot, directory, sizeof(directory));
 		written = write_file(directory, CHECKPOINT_FILE, files.files[0].data, files.files[0].size);
+		cache_forget(engine, slot);
 	}
 	else
 		written = local_write_profile(engine, slot, &files);
@@ -2069,6 +2130,7 @@ static void unit_sync(struct cloud_engine *engine, struct unit *unit, int remova
 
 					slot_directory(engine->save_root, slot, directory, sizeof(directory));
 					snprintf(path, sizeof(path), "%s/%s", directory, CHECKPOINT_FILE);
+					cache_forget(engine, slot);
 					if (unlink(path) == 0)
 						engine_log(engine, "removed %s's saved game from this device: its profile was deleted on another", slot);
 				}

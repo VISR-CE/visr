@@ -41,6 +41,7 @@ first, each level padded with zeros to a multiple of 8 bytes
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 /* under the data root; port/runtime/texture_cache.h's TEXTURE_CACHE_DIRECTORY */
 #define TEXTURE_RECORD_DIRECTORY "texture-cache"
@@ -68,6 +69,18 @@ struct texture_record_layout
 	uint64_t level_size[TEXTURE_RECORD_MAXIMUM_LEVELS];
 	uint64_t payload_size; /* the bytes after the header: the levels */
 };
+
+/* A cache entry's file in the cache folder: <hash>-<w>x<h>.bin for an upscaled texture, <hash>-<w>x<h>.repair.bin for
+the texture repair's record of the same texture, which may sit beside it (each manifest names its own; neither may
+overwrite the other). Returns snprintf's length. */
+#define TEXTURE_RECORD_UPSCALED 0
+#define TEXTURE_RECORD_REPAIRED 1
+static inline int texture_record_file_path(char *path, size_t size, const char *directory, uint64_t hash, uint32_t width,
+	uint32_t height, int kind)
+{
+	return snprintf(path, size, "%s/%016llx-%lux%lu%s.bin", directory, (unsigned long long)hash, (unsigned long)width,
+		(unsigned long)height, kind == TEXTURE_RECORD_REPAIRED ? ".repair" : "");
+}
 
 static inline uint32_t texture_record_u32(const unsigned char *bytes)
 {

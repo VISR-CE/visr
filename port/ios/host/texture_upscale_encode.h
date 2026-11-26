@@ -54,6 +54,11 @@ enum texture_upscale_encode_result texture_upscale_encode_record(
     uint32_t source_width, uint32_t source_height, uint64_t hash, uint64_t recipe_key,
     uint32_t format, unsigned alpha_mode, unsigned threads, void **record, size_t *size,
     struct texture_upscale_encode_metrics *metrics);
+/* A record of uncompressed BGRA8 levels (TEXTURE_RECORD_BGRA8), as a quality miss makes one: levels as texture_upscale_encode_record
+   takes them (level 0 is the source's size times 1, 2, 4 or 8). *record is malloc'd and *size includes its header. */
+enum texture_upscale_encode_result texture_upscale_encode_raw(
+    const struct texture_upscale_rgba_level *levels, unsigned count,
+    uint32_t source_width, uint32_t source_height, uint64_t hash, uint64_t recipe_key, void **record, size_t *size);
 /* The calling thread's later encodes end with TEXTURE_UPSCALE_ENCODE_ERROR between block rows (BC7) or tiles (ASTC)
    once *flag reads nonzero: the scheduler's stop for gameplay. NULL (the default) never stops them. */
 void texture_upscale_encode_set_cancel(const volatile int *flag);

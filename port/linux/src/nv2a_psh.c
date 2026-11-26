@@ -16,6 +16,7 @@ Register values are clamped to [-1, 1] between stages, as on the hardware.
 */
 
 #include "xgpu.h"
+#include "../game/light_visibility.h" /* the key's light_visibility paths */
 #include "gpu_uniforms.h"
 
 #include <stdio.h>
@@ -296,6 +297,82 @@ static unsigned long stage_mode(const struct nv2a_pixel_shader_key *key, int sta
 /* Early depth tests make the ES visibility counter count only passing samples.
 Keep that test's existing flat-card depth: publishing a DOT_ZW depth there
 would be incompatible with early_fragment_tests and count failed samples. */
+/* Whether a pixel a traced light reaches is lit (light_visibility.h path traced): the one visibility function every
+pass of a traced light runs, so that the diffuse, specular and per-pixel object passes cannot disagree. point and
+normal name the pass's lit point in world units and its geometric normal (any length, either sign); it sets
+traced_lit, 1 lit, down to 1 - strength blocked. In order:
+- a pixel the light already leaves black (gel, cone, distance) traces nothing;
+- a surface facing away from the light (its geometric normal turned toward the camera) traces nothing, and keeps
+  what the game draws there: its own ray would start inside it;
+- a point rebuilt from depth starts bias world units off its surface, along that normal;
+- one ray toward the light against the opaque level (TRACED_SHADOWS_MASK_LEVEL), starting ray_start off the surface
+  and ending stop_short short of the light (max(0.05, 0.02 radius), or more for a light the viewer carries);
+- when casters is set and the level did not block it, one against the frame's casters: every mask bit but the
+  level's and the light's owner family's, ending keep_clear short of a light with no family and no owner (the owner
+  distance), and where it enters owner_center/owner_radius, the root sphere of an owner family without a bit (a
+  sphere wholly behind the ray's start, between the point and a light outside it, does not shorten it).
+skip skips the rays and repeats repeats them (cost runs); strength is how fully a block darkens.
+traced_light: traced_shadows_format.h's struct traced_shadows_light */
+/* a pass result below this draws nothing on the 8-bit color targets the light passes draw into (half a step), so its
+rays are skipped; a deeper target needs a smaller one */
+#define LIGHT_VISIBILITY_BLACK (1.0 / 512.0)
+
+static void light_visibility_emit(struct xgpu_text *text, const char *point, const char *normal, const char *bias)
+{
+	xgpu_text_append(text,
+		"\tfloat traced_lit = 1.0;\n"
+		"\t{\n"
+		"\t\tfloat3 p = %s;\n"
+		"\t\tfloat3 n = %s;\n"
+		"\t\tn = dot(n, float3(traced_light.camera) - p) < 0.0 ? -n : n;\n"
+		"\t\tfloat n_length = length(n);\n"
+		"\t\tp += n_length > 0.0 ? n * (%s / n_length) : float3(0.0);\n"
+		"\t\tfloat3 to_light = float3(traced_light.position) - p;\n"
+		"\t\tfloat span = length(to_light);\n"
+		"\t\tbool black = max(max(result.r, result.g), result.b) < %.9g;\n"
+		"\t\tbool facing = dot(n, to_light) > 0.0;\n"
+		"\t\tif (traced_light.skip < 0.5 && !black && facing && span > 2.0 * traced_light.ray_start + traced_light.stop_short)\n"
+		"\t\t{\n"
+		"\t\t\tfloat3 direction = to_light / span;\n"
+		"\t\t\tmetal::raytracing::intersector<metal::raytracing::triangle_data, metal::raytracing::instancing> tracer;\n"
+		"\t\t\ttracer.assume_geometry_type(metal::raytracing::geometry_type::triangle);\n"
+		"\t\t\ttracer.force_opacity(metal::raytracing::forced_opacity::opaque);\n"
+		"\t\t\ttracer.accept_any_intersection(true);\n"
+		"\t\t\tint repeats = clamp(int(traced_light.repeats), 1, 64);\n"
+		"\t\t\tfloat blocked = 0.0;\n"
+		"\t\t\tuint family = uint(traced_light.family);\n"
+		"\t\t\tuint caster_mask = ~%uu & ~(family >= %uu && family <= %uu ? (1u << family) : 0u);\n"
+		"\t\t\tfor (int repeat = 0; repeat < 64; repeat++)\n"
+		"\t\t\t{\n"
+		"\t\t\t\tif (repeat >= repeats)\n"
+		"\t\t\t\t\tbreak;\n"
+		"\t\t\t\tfloat nudge = 1.0e-4 * float(repeat);\n"
+		"\t\t\t\tmetal::raytracing::ray world_ray(p, direction, traced_light.ray_start + nudge, span - max(traced_light.ray_start, traced_light.stop_short));\n"
+		"\t\t\t\tbool hit = tracer.intersect(world_ray, traced_blockers, %uu).type != metal::raytracing::intersection_type::none;\n"
+		"\t\t\t\tfloat keep_clear = max(traced_light.keep_clear, traced_light.stop_short);\n"
+		"\t\t\t\tfloat caster_end = span - keep_clear;\n"
+		"\t\t\t\tif (traced_light.owner_radius > 0.0)\n"
+		"\t\t\t\t{\n"
+		"\t\t\t\t\tfloat3 from_owner = p - float3(traced_light.owner_center);\n"
+		"\t\t\t\t\tfloat half_b = dot(from_owner, direction);\n"
+		"\t\t\t\t\tfloat inside = half_b * half_b - (dot(from_owner, from_owner) - traced_light.owner_radius * traced_light.owner_radius);\n"
+		"\t\t\t\t\tfloat through = inside > 0.0 ? sqrt(inside) : 0.0;\n"
+		"\t\t\t\t\tif (inside > 0.0 && -half_b + through > traced_light.ray_start)\n"
+		"\t\t\t\t\t\tcaster_end = min(caster_end, max(-half_b - through, 0.0));\n"
+		"\t\t\t\t}\n"
+		"\t\t\t\tif (!hit && traced_light.casters > 0.5 && caster_end > traced_light.ray_start)\n"
+		"\t\t\t\t{\n"
+		"\t\t\t\t\tmetal::raytracing::ray caster_ray(p, direction, traced_light.ray_start + nudge, caster_end);\n"
+		"\t\t\t\t\thit = tracer.intersect(caster_ray, traced_blockers, caster_mask).type != metal::raytracing::intersection_type::none;\n"
+		"\t\t\t\t}\n"
+		"\t\t\t\tblocked = hit ? 1.0 : blocked;\n"
+		"\t\t\t}\n"
+		"\t\t\ttraced_lit = 1.0 - blocked * traced_light.strength;\n"
+		"\t\t}\n"
+		"\t}\n", point, normal, bias, LIGHT_VISIBILITY_BLACK, (unsigned)TRACED_SHADOWS_MASK_LEVEL,
+		(unsigned)TRACED_SHADOWS_FAMILY_FIRST, (unsigned)TRACED_SHADOWS_FAMILY_LAST, (unsigned)TRACED_SHADOWS_MASK_LEVEL);
+}
+
 static BOOL writes_replaced_depth(const struct nv2a_dialect *dialect,
 	const struct nv2a_pixel_shader_key *key)
 {
@@ -707,6 +784,86 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	{
 		xgpu_text_append(&text, "\tt3.rgb += ppl_highlight;\n");
 	}
+	/* A traced object shadow (nv2a_pixel_shader_key traced_shadow; Metal). Stage 0 is the shadow map, white where
+	the caster covers this point of the receiver. In its place, one ray from the point toward the light, against
+	the shadow's up axis (the game's shadow vector points from the caster to its receivers, render_objects.c),
+	against the caster's triangles alone: white where it hits. The point is rebuilt from the apply vertex shader's
+	outputs (the game's shadow vertex shader, rasterizer_xbox_shadows.c's constants -81 to -78): xT0.xy are
+	0.5 (1 + forward.d / r) and 0.5 (1 - left.d / r), xT1.x is up.d / (4 r), for d the point less the shadow's
+	position. With the level's structure (traced_basis[3].w) a hit counts only if no surface of the level stops
+	the ray first, so a shadow does not pass through a floor.
+	traced_radius is the penumbra's radius at this pixel, as a fraction of the largest: the blocker's distance times
+	the tangent of the light's half-angle, in pixels at this depth (traced_position.w is 1 / the view distance).
+	It leaves in alpha (below), where the shadows' blend keeps the smallest; 1 where nothing was hit.
+	traced_basis: traced_shadows_format.h */
+	if (dialect->msl && key->traced_shadow)
+		xgpu_text_append(&text,
+			"\tfloat traced_radius = 1.0;\n"
+			"\t{\n"
+			"\t\tfloat r = traced_basis[0].w;\n"
+			"\t\tfloat3 p = traced_basis[3].xyz + traced_basis[0].xyz * (r * (2.0 * xT0.x - 1.0)) +\n"
+			"\t\t\ttraced_basis[1].xyz * (r * (1.0 - 2.0 * xT0.y)) + traced_basis[2].xyz * (4.0 * r * xT1.x);\n"
+			"\t\tfloat3 direction = normalize(-traced_basis[2].xyz);\n"
+			"\t\tmetal::raytracing::intersector<metal::raytracing::triangle_data> tracer;\n"
+			"\t\ttracer.assume_geometry_type(metal::raytracing::geometry_type::triangle);\n"
+			"\t\ttracer.force_opacity(metal::raytracing::forced_opacity::opaque);\n"
+			"\t\tmetal::raytracing::ray caster_ray(p, direction, traced_basis[1].w, traced_basis[2].w);\n"
+			"\t\tauto hit = tracer.intersect(caster_ray, traced_caster);\n"
+			"\t\tfloat covered = 0.0;\n"
+			"\t\tif (hit.type != metal::raytracing::intersection_type::none)\n"
+			"\t\t{\n"
+			"\t\t\tcovered = 1.0;\n"
+			"\t\t\tif (traced_basis[3].w > 0.5)\n"
+			"\t\t\t{\n"
+			"\t\t\t\tmetal::raytracing::ray world_ray(p, direction, traced_basis[1].w, hit.distance);\n"
+			"\t\t\t\ttracer.accept_any_intersection(true);\n"
+			"\t\t\t\tif (tracer.intersect(world_ray, traced_world).type != metal::raytracing::intersection_type::none)\n"
+			"\t\t\t\t\tcovered = 0.0;\n"
+			"\t\t\t}\n"
+			"\t\t\tif (covered > 0.0)\n"
+			"\t\t\t\ttraced_radius = clamp(hit.distance * traced_basis[4].x * traced_basis[4].y * traced_position.w *\n"
+			"\t\t\t\t\ttraced_basis[4].z, 0.0, 1.0);\n"
+			"\t\t}\n"
+			"\t\tt0 = vec4(covered);\n"
+			"\t}\n");
+
+	/* A dynamic light that walls and characters block (nv2a_pixel_shader_key light_visibility traced; Metal): the level's
+	diffuse and specular light passes (rasterizer_xbox_environment.c) draw each light's surfaces once more,
+	additively. The lit point is rebuilt from the pass's distance attenuation coordinates (attenuation_stage:
+	LIGHT_VISIBILITY_STAGE_DIFFUSE, or _SPECULAR for the specular point pass, whose radius is the specular one), which the game's vertex shader makes as
+	0.5 - (light - point) / (2 radius), exactly and the same for either eye. The specular spot pass has none
+	(LIGHT_VISIBILITY_STAGE_NONE), and debug.traced_light_depth_point asks every pass for it (depth_point_mode): its
+	point comes from the fragment's depth, the view's rectangle, projection and view_to_world (traced_shadow_casters.c's
+	traced_light_view); its distance is depth_decode.h's, from the frame's own depth row. The pixel goes through the
+	eye's rate map on a foveated pass
+	(foveated), as ambient occlusion's do; its geometric normal comes from the
+	point's screen derivatives, here, while every pixel of the quad still runs. light_visibility_emit traces it */
+	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
+	{
+		xgpu_text_append(&text,
+			"\tbool traced_has_coordinate = int(traced_light.attenuation_stage) != %d;\n"
+			"\tbool traced_diffuse = int(traced_light.attenuation_stage) == %d;\n",
+			LIGHT_VISIBILITY_STAGE_NONE, LIGHT_VISIBILITY_STAGE_DIFFUSE);
+		xgpu_text_append(&text,
+			"\tfloat2 light_screen = light_position.xy;\n"
+			"\tif (traced_light.foveated > 0.5)\n"
+			"\t{\n"
+			"\t\trasterization_rate_map_decoder light_decoder(rate_map);\n"
+			"\t\tlight_screen = light_decoder.map_physical_to_screen_coordinates(light_position.xy);\n"
+			"\t}\n"
+			"\tfloat2 light_ndc = float2((light_screen.x - traced_light.view_rect.x) / traced_light.view_rect.z * 2.0 - 1.0,\n"
+			"\t\t1.0 - (light_screen.y - traced_light.view_rect.y) / traced_light.view_rect.w * 2.0);\n"
+			"\tfloat light_z = depth_view_distance(light_position.z, traced_light.depth_p22, traced_light.depth_p32);\n"
+			"\tfloat3 light_view = float3((light_ndc.x + traced_light.p20) / traced_light.p00 * light_z,\n"
+			"\t\t(light_ndc.y + traced_light.p21) / traced_light.p11 * light_z, -light_z);\n"
+			"\tfloat3 traced_depth_point = float3(traced_light.view_x, traced_light.view_y, traced_light.view_z) + float3(traced_light.view_forward) * light_view.x +\n"
+			"\t\tfloat3(traced_light.view_left) * light_view.y + float3(traced_light.view_up) * light_view.z;\n"
+			"\tfloat3 traced_attenuation_point = float3(traced_light.position) + ((traced_diffuse ? xT2.xyz : xT1.xyz) - 0.5) * (2.0 * traced_light.attenuation_radius);\n"
+			"\tbool traced_from_depth = !(traced_has_coordinate && traced_light.depth_point_mode < 0.5);\n"
+			"\tfloat3 traced_point = traced_from_depth ? traced_depth_point : traced_attenuation_point;\n"
+			"\tfloat traced_bias = traced_from_depth ? traced_light.depth_bias * light_z : 0.0;\n"
+			"\tfloat3 traced_normal = cross(dfdx(traced_point), dfdy(traced_point));\n");
+	}
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */
 	if (key->fog_enable)
@@ -777,7 +934,7 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	/* soft particle edges (nv2a_pixel_shader_key soft_depth, Metal only): the
 	sprite fades over the last debug.soft_particle_distance in front of the
 	surface behind it, toward what its blend leaves unchanged. Depth is
-	reversed (1 at the near plane), as the backend draws it */
+	reversed (1 at the near plane), as the backend draws it; its distance is depth_decode.h's */
 	if (key->soft_depth && dialect->msl)
 	{
 		static const char *const fades[] =
@@ -793,7 +950,7 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		xgpu_text_append(&text,
 			"\tuint2 soft_texel = min(uint2(soft_position.xy / max(soft.w, 1.0)), uint2(soft_depth.get_width() - 1, soft_depth.get_height() - 1));\n"
 			"\tfloat soft_scene = soft_depth.read(soft_texel).r;\n"
-			"\tfloat soft_view = soft.x * soft.y / (soft.y - (1.0 - soft_position.z) * (soft.y - soft.x));\n"
+			"\tfloat soft_view = depth_view_distance(soft_position.z, soft.x, soft.y);\n"
 			"\tfloat soft_fade = clamp((soft_scene - soft_view) * soft.z, 0.0, 1.0);\n"
 			"\tsoft_fade = soft_fade * soft_fade * (3.0 - 2.0 * soft_fade);\n");
 		if (key->soft_depth < sizeof(fades) / sizeof(fades[0]))
@@ -826,6 +983,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			xgpu_text_append(&text, "\tif (!(floor(clamp(result.a, 0.0, 1.0) * 255.0 + 0.5) %s alpha_reference)) discard;\n", comparison);
 		}
 	}
+	/* (a traced shadow's alpha, after the game's alpha test read the shader's own) */
+	if (dialect->msl && key->traced_shadow)
+		xgpu_text_append(&text, "\tresult.a = traced_radius;\n");
 	if (dialect->debug_expression && *dialect->debug_expression)
 		xgpu_text_append(&text, "\tresult = vec4(vec3(%s), 1.0);\n", dialect->debug_expression);
 	if (dialect->debug_texture0)
@@ -836,6 +996,36 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		xgpu_text_append(&text, "\tatomicCounterIncrement(visible_samples);\n");
 	if (writes_depth && !dialect->msl)
 		xgpu_text_append(&text, "\tgl_FragDepth = replaced_depth;\n");
+	/* (a traced light reaches only the points its ray did) */
+	if (dialect->msl && key->light_visibility == LIGHT_VISIBILITY_TRACED)
+	{
+		light_visibility_emit(&text, "traced_point", "traced_normal", "traced_bias");
+		xgpu_text_append(&text, "\tresult.rgb *= traced_lit;\n");
+		/* (debug.traced_light_depth_point 2: a pass with an attenuation coordinate shows how far its depth point is
+		from it, red 1 at a world unit, and green where the depth point lies behind the camera. 3: which part of the
+		rebuild is off, against the attenuation point taken into the view: red where the depth is more than 2% off,
+		green where the screen position is more than 0.005 off in normalized device coordinates, blue always. 4: the
+		numbers against green 1, as the pass's blend scales all three alike: red 0.5 + 25 (rebuilt depth over the
+		attenuation point's - 1), so 0 and 1 are 2% short and long; blue ten times the distance between the two points,
+		1 at a tenth of a world unit) */
+		xgpu_text_append(&text,
+			"\tif (traced_light.depth_point_mode > 1.5 && traced_light.depth_point_mode < 2.5 && traced_has_coordinate)\n"
+			"\t\tresult = float4(saturate(length(traced_depth_point - traced_attenuation_point)), light_view.z > 0.0 ? 1.0 : 0.0, 0.0, 1.0);\n"
+			"\tif (traced_light.depth_point_mode > 2.5 && traced_has_coordinate)\n"
+			"\t{\n"
+			"\t\tfloat3 light_expected_offset = traced_attenuation_point - float3(traced_light.view_x, traced_light.view_y, traced_light.view_z);\n"
+			"\t\tfloat3 light_expected = float3(dot(light_expected_offset, float3(traced_light.view_forward)) / dot(float3(traced_light.view_forward), float3(traced_light.view_forward)),\n"
+			"\t\t\tdot(light_expected_offset, float3(traced_light.view_left)) / dot(float3(traced_light.view_left), float3(traced_light.view_left)),\n"
+			"\t\t\tdot(light_expected_offset, float3(traced_light.view_up)) / dot(float3(traced_light.view_up), float3(traced_light.view_up)));\n"
+			"\t\tfloat light_expected_z = max(-light_expected.z, 1.0e-4);\n"
+			"\t\tfloat2 light_expected_ndc = float2(light_expected.x * traced_light.p00 / light_expected_z - traced_light.p20,\n"
+			"\t\t\tlight_expected.y * traced_light.p11 / light_expected_z - traced_light.p21);\n"
+			"\t\tresult = traced_light.depth_point_mode < 3.5 ? float4(abs(light_z / light_expected_z - 1.0) > 0.02 ? 1.0 : 0.0,\n"
+			"\t\t\tlength(light_ndc - light_expected_ndc) > 0.005 ? 1.0 : 0.0, 1.0, 1.0) :\n"
+			"\t\t\tfloat4(saturate(0.5 + 25.0 * (light_z / light_expected_z - 1.0)), 1.0,\n"
+			"\t\t\t\tsaturate(10.0 * length(traced_depth_point - traced_attenuation_point)), 1.0);\n"
+			"\t}\n");
+	}
 	xgpu_text_append(&text, "\tfragment_color = clamp(result, 0.0, 1.0);\n");
 	if (dialect->msl)
 	{

@@ -1,3 +1,4 @@
+#include "test_wait.h"
 #include "host_modal_wait.h"
 #include <assert.h>
 #include <pthread.h>
@@ -24,7 +25,7 @@ static void *worker(void *context) {
     return NULL;
 }
 int main(void) {
-    signal(SIGALRM, timeout_handler); alarm(10);
+    signal(SIGALRM, timeout_handler); alarm(TEST_WAIT_WATCHDOG_SECONDS);
     pthread_t thread;
     assert(pthread_create(&thread, NULL, worker, NULL) == 0);
     while (!atomic_load(&finished)) CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, true);

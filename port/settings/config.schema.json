@@ -271,6 +271,17 @@
           ],
           "x-tier": "player"
         },
+        "scene_precision": {
+          "type": "integer",
+          "default": 8,
+          "description": "Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. Changes at a graphics mode switch, and at a map load into the other workload context. Hardcore keeps 8 (display.graphics).",
+          "x-environment": "HALO_SCENE_PRECISION",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "effect_limits": {
           "type": "string",
           "default": "raised",
@@ -307,6 +318,26 @@
             "apple"
           ],
           "x-tier": "player"
+        },
+        "traced_shadows": {
+          "type": "boolean",
+          "default": false,
+          "description": "Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from it. The game still decides which shadows fall where, how dark and how they fade. A device profile's choice, for GPUs with ray tracing hardware (Apple GPU family 9 and later: A17 Pro, M3); other GPUs and multisampled or head-tracked stereo views keep the shadow maps. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
+          "x-environment": "HALO_TRACED_SHADOWS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_lights": {
+          "type": "integer",
+          "default": 0,
+          "description": "How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as the game draws them, and none unless display.traced_shadows is on too. A device profile's choice, with display.traced_shadows, for GPUs with ray tracing hardware (Apple GPU family 9 and later). Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
+          "x-environment": "HALO_TRACED_LIGHTS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
         },
         "shadow_props": {
           "type": "boolean",
@@ -359,7 +390,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "visionos"
-          ]
+          ],
+          "x-live": false
         },
         "compressed_textures": {
           "type": "boolean",
@@ -530,7 +562,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "first_person_body_seats": {
           "type": "boolean",
@@ -563,7 +596,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "weapon_offset_back": {
           "type": "number",
@@ -574,7 +608,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "eye_height_offset": {
           "type": "number",
@@ -585,7 +620,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "seat_look_fade": {
           "type": "boolean",
@@ -596,7 +632,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "seat_look_fade_start": {
           "type": "number",
@@ -607,7 +644,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "seat_look_fade_black": {
           "type": "number",
@@ -618,7 +656,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "pod_look_fade_start": {
           "type": "number",
@@ -629,7 +668,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "pod_look_fade_end": {
           "type": "number",
@@ -640,7 +680,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "pod_look_fade_dim": {
           "type": "number",
@@ -651,7 +692,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "seat_look_fade_blur": {
           "type": "boolean",
@@ -662,7 +704,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "film_depth_share": {
           "type": "number",
@@ -673,7 +716,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "film_convergence": {
           "type": "number",
@@ -684,7 +728,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "screen_depth_share": {
           "type": "number",
@@ -695,7 +740,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "screen_convergence": {
           "type": "number",
@@ -706,7 +752,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "screen_framing": {
           "type": "string",
@@ -718,6 +765,7 @@
             "visionos"
           ],
           "x-tier": "player",
+          "x-live": false,
           "enum": [
             "band",
             "wide"
@@ -732,7 +780,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "player"
+          "x-tier": "player",
+          "x-live": false
         },
         "hud_corner_across": {
           "type": "number",
@@ -743,7 +792,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_corner_up": {
           "type": "number",
@@ -754,7 +804,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_tracker_down": {
           "type": "number",
@@ -765,7 +816,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_messages_up": {
           "type": "number",
@@ -776,7 +828,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_scale": {
           "type": "number",
@@ -787,7 +840,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_distance": {
           "type": "number",
@@ -798,7 +852,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth": {
           "type": "boolean",
@@ -809,7 +864,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_share": {
           "type": "number",
@@ -820,7 +876,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_floor": {
           "type": "number",
@@ -831,7 +888,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_pull_in": {
           "type": "number",
@@ -842,7 +900,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_relax": {
           "type": "number",
@@ -853,7 +912,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_depth_relax_delay": {
           "type": "number",
@@ -864,7 +924,8 @@
           "x-platforms": [
             "visionos"
           ],
-          "x-tier": "tuning"
+          "x-tier": "tuning",
+          "x-live": false
         },
         "hud_resolution": {
           "type": "number",
@@ -874,7 +935,8 @@
           "x-environment-style": "value",
           "x-platforms": [
             "visionos"
-          ]
+          ],
+          "x-live": false
         },
         "texture_idle_seconds": {
           "type": "number",
@@ -1047,15 +1109,13 @@
         "encode_thread": {
           "type": "string",
           "default": "off",
-          "description": "Whether the Metal renderer's commands go through an encode thread. \"off\" (default): the game thread calls the renderer. \"thread\": an encode thread calls the renderer while the game thread goes on; each frame's present waits for it. A device profile turns it on where it measures better. debug.encode_thread overrides it. Needs the game thread; not on visionOS or Mac Catalyst.",
+          "description": "Whether the Metal renderer's commands go through an encode thread. \"off\" (default): the game thread calls the renderer. \"thread\": an encode thread calls the renderer while the game thread goes on; each frame's present waits for it. A device profile turns it on for multiplayer and the other variable workloads where it measures better; single-player campaign keeps this setting, and a map's start switches the thread. debug.encode_thread overrides it. Needs the game thread; not on visionOS or Mac Catalyst.",
           "x-environment": "HALO_DISPLAY_ENCODE_THREAD",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
           ],
-          "x-tier": "tuning",
           "enum": [
-            "",
             "off",
             "thread"
           ]
@@ -1264,6 +1324,18 @@
             "apple",
             "desktop"
           ]
+        },
+        "repaired_textures": {
+          "type": "boolean",
+          "default": true,
+          "description": "Repair the banding stored in the maps' textures when they are imported on this device: the lightmaps and the smooth gradients (skies, fog, glow) were stored with 5 or 6 bits a channel, so they show steps, and the repair rebuilds the gradient they were rounded from without moving a texel farther than the rounding could have. Runs on every device, with or without upscaled textures; Hardcore draws the maps' own textures (display.graphics). Takes effect at the next level load.",
+          "x-environment": "HALO_REPAIRED_TEXTURES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "x-tier": "tuning"
         },
         "upscaled_textures_memory": {
           "type": "integer",
@@ -1742,50 +1814,6 @@
             "desktop"
           ],
           "x-tier": "player"
-        },
-        "mouse_sensitivity": {
-          "type": "number",
-          "default": 1.0,
-          "description": "How far the view turns for the mouse's movement.",
-          "x-environment": "HALO_MOUSE_SENSITIVITY",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "invert_mouse": {
-          "type": "boolean",
-          "default": false,
-          "description": "Moving the mouse forward looks down.",
-          "x-environment": "HALO_MOUSE_INVERT",
-          "x-environment-style": "set_is_true",
-          "x-platforms": [
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "mouse_aim_assist": {
-          "type": "boolean",
-          "default": false,
-          "description": "Magnetism while aiming with the mouse, as with a controller: the view slowed and dragged along by a target. The last of the mouse and the right stick to move decides. The bullets' autoaim (bent toward the target) stays either way.",
-          "x-environment": "HALO_MOUSE_AIM_ASSIST",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "mouse_vertical_sensitivity": {
-          "type": "number",
-          "default": 0.0,
-          "description": "How far the view turns up and down for the mouse's movement; 0 for the same as input.mouse_sensitivity.",
-          "x-environment": "HALO_MOUSE_VERTICAL_SENSITIVITY",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "desktop"
-          ],
-          "x-tier": "player"
         }
       },
       "additionalProperties": false
@@ -1809,6 +1837,17 @@
           "default": false,
           "description": "At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. Development AppKit Mac host only.",
           "x-environment": "HALO_MAP_PICTURES_RENDER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "map_pictures_scan": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run the launch check of the map pictures even in a runner's run (it is skipped there otherwise), so a stale or missing picture brings up the preparing maps stage from the main menu. For testing the refresh.",
+          "x-environment": "HALO_MAP_PICTURES_SCAN",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
@@ -2565,13 +2604,14 @@
         "telnet_console": {
           "type": "boolean",
           "default": false,
-          "description": "Listen on 127.0.0.1 (port telnet_console_port) for a script console that runs what it is sent as the game's console does, with no password; false none.",
+          "description": "Listen on 127.0.0.1 (port telnet_console_port) for a script console that runs what it is sent as the game's console does, with no password; false none. Development builds also take \"visr_set SECTION.KEY VALUE\" there, which sets a setting for this run only (nothing is written), and \"visr_cinematic [skip]\", which says whether a cinematic runs and can be skipped, and asks to skip it as the skip button does.",
           "x-environment": "HALO_TELNET_CONSOLE",
           "x-environment-style": "set_is_true",
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-live": false
         },
         "telnet_console_port": {
           "type": "integer",
@@ -2582,7 +2622,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-live": false
         },
         "coop_census": {
           "type": "number",
@@ -3024,6 +3065,21 @@
           "x-environment-style": "set_is_true",
           "x-platforms": [
             "apple"
+          ]
+        },
+        "stereo_replay": {
+          "type": "string",
+          "default": "off",
+          "description": "Stereo with Metal: \"on\" draws the second eye by making the first eye's renderer commands again into its targets with its own camera, instead of drawing the scene a second time; a frame with a mirror in view draws it as with \"off\". \"verify\" draws the second eye as with \"off\", compares the replay's commands with it and logs the first differences. Needs debug.encode_thread \"inline\" or \"thread\".",
+          "x-environment": "HALO_STEREO_REPLAY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ],
+          "enum": [
+            "off",
+            "on",
+            "verify"
           ]
         },
         "latency_log": {
@@ -3644,6 +3700,81 @@
             "desktop"
           ]
         },
+        "scene_format": {
+          "type": "string",
+          "default": "",
+          "description": "Measurement: the pixel format of the targets that hold the scene's color (Metal, mono), in place of display.scene_precision's: bgra8, rgba16, rgba16f, rgb10a2 (timing only: two bits of alpha) or bgra10_xr; empty follows display.scene_precision.",
+          "x-environment": "HALO_SCENE_FORMAT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "enum": [
+            "",
+            "bgra8",
+            "rgba16",
+            "rgba16f",
+            "rgb10a2",
+            "bgra10_xr"
+          ]
+        },
+        "output_format": {
+          "type": "string",
+          "default": "",
+          "description": "Measurement: the Metal layer's pixel format in place of the one display.scene_precision picks: bgra8, bgr10a2, bgr10_xr, bgra10_xr or rgba16f; empty follows display.scene_precision.",
+          "x-environment": "HALO_OUTPUT_FORMAT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "enum": [
+            "",
+            "bgra8",
+            "bgr10a2",
+            "bgr10_xr",
+            "bgra10_xr",
+            "rgba16f"
+          ]
+        },
+        "present_dither": {
+          "type": "string",
+          "default": "auto",
+          "description": "The fixed blue-noise dither where the present pass writes a 16-bit frame to a layer with fewer bits: auto (on whenever that is so) or off. debug.knob_cycle's chord changes it as the game runs (the Apple TV grain check).",
+          "x-environment": "HALO_PRESENT_DITHER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ],
+          "enum": [
+            "auto",
+            "off"
+          ]
+        },
+        "precision_ramp": {
+          "type": "boolean",
+          "default": false,
+          "description": "The present pass draws the display-depth test ramp in place of the picture: the darkest sixteen 8-bit levels left to right, the top third rounded to 8 bits, the middle third at the layer's depth, the bottom third dithered (Metal; with display.scene_precision 16 the layer is 10-bit where it can be).",
+          "x-environment": "HALO_PRECISION_RAMP",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "screenshot_raw": {
+          "type": "boolean",
+          "default": false,
+          "description": "With screenshot_directory: a read of a scene target that is not BGRA8 also saves the target's own values as rawNNNNN.<format> (for banding analysis).",
+          "x-environment": "HALO_SCREENSHOT_RAW",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "screenshot_directory": {
           "type": "string",
           "default": "",
@@ -3679,6 +3810,176 @@
           "enum": [
             "footprint",
             "xbox"
+          ]
+        },
+        "traced_light_blocking": {
+          "type": "integer",
+          "default": -1,
+          "description": "What blocks the lights display.traced_lights traces: 1 the level's surfaces; 2 the objects that cast shadows too; 3 also objects with no shadow of their own (too faint, or doors and other devices). 0 traces no light whatever the profile says; -1 (the default) is 3 when display.traced_lights is above 0. A value above 0 also turns the tracing on without the profile key, for measurements.",
+          "x-environment": "HALO_TRACED_LIGHT_BLOCKING",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_lights_fixtures": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and devices, which display.traced_lights leaves as the game draws them), for stills and measurements.",
+          "x-environment": "HALO_TRACED_LIGHTS_FIXTURES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_family_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.traced_lights: log each traced light (frame, position, radius, strength, distance from the eye) with its owner, the owner's family root and mask bit, and the first caster sent each frame with its family bit.",
+          "x-environment": "HALO_TRACED_LIGHT_FAMILY_LOG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_depth_point": {
+          "type": "integer",
+          "default": 0,
+          "description": "With display.traced_lights: 1 every traced light pass rebuilds its lit points from depth, as the specular spot pass must, instead of from its attenuation coordinate, so that stills with and without it prove the two agree; 2 the passes with an attenuation coordinate draw how far the depth point is from it (red, 1 at a world unit; green where the depth point lies behind the camera); 3 which part of the rebuild is off (red: depth more than 2% off; green: screen position off; blue where it is drawn); 4 the numbers over green 1 (red: 0.5 + 25 x (depth ratio - 1); blue: ten times the distance between the two points).",
+          "x-environment": "HALO_TRACED_LIGHT_DEPTH_POINT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_depth_bias": {
+          "type": "number",
+          "default": 0.002,
+          "description": "With display.traced_lights: a point rebuilt from depth starts its ray this fraction of its view distance off its surface, so that the surface it lies on does not block it.",
+          "x-environment": "HALO_TRACED_LIGHT_DEPTH_BIAS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_owner": {
+          "type": "number",
+          "default": 0.3,
+          "description": "With debug.traced_light_blocking 2 or 3: objects nearer a light than this many world units do not block it, so the character carrying a flashlight does not shadow its own beam.",
+          "x-environment": "HALO_TRACED_LIGHT_OWNER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_viewer": {
+          "type": "number",
+          "default": 1.0,
+          "description": "With debug.traced_light_blocking: a light within this many world units of the eye counts as carried by the viewer (the flashlight), for debug.traced_light_carried.",
+          "x-environment": "HALO_TRACED_LIGHT_VIEWER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_carried": {
+          "type": "boolean",
+          "default": true,
+          "description": "With debug.traced_light_blocking: a light the viewer carries ends its rays short of itself by its distance from the eye plus debug.traced_light_stop_margin, so it is not lost on a wall the player stands against. False traces it as any other light.",
+          "x-environment": "HALO_TRACED_LIGHT_CARRIED",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_stop_margin": {
+          "type": "number",
+          "default": 0.1,
+          "description": "With debug.traced_light_carried 1: world units added to the light's distance from the eye.",
+          "x-environment": "HALO_TRACED_LIGHT_STOP_MARGIN",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_light_repeat": {
+          "type": "integer",
+          "default": 1,
+          "description": "For cost measurements: trace debug.traced_light_blocking's rays this many times over (1 to 64); the picture is the same.",
+          "x-environment": "HALO_TRACED_LIGHT_REPEAT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_any_gpu": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.traced_shadows: trace on any GPU Metal can trace on, also those without ray tracing hardware (Apple GPU families 6 to 8, in software), to measure them.",
+          "x-environment": "HALO_TRACED_SHADOWS_ANY_GPU",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_break_only": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.traced_shadows: leave and reenter the scene's render pass as traced shadows do, and draw the shadows from their maps as usual, to measure the cost of the pass break alone.",
+          "x-environment": "HALO_TRACED_SHADOWS_BREAK_ONLY",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_filter": {
+          "type": "boolean",
+          "default": true,
+          "description": "With display.traced_shadows: soften each traced shadow by its distance from its caster. False leaves the one ray's hard edge, to compare and to measure the filter's cost.",
+          "x-environment": "HALO_TRACED_SHADOWS_FILTER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_light_angle": {
+          "type": "number",
+          "default": 3.0,
+          "description": "With display.traced_shadows: the light's half-angle in degrees, which sets how fast a shadow's edge widens with distance from its caster.",
+          "x-environment": "HALO_TRACED_SHADOWS_LIGHT_ANGLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_refit": {
+          "type": "boolean",
+          "default": true,
+          "description": "With display.traced_shadows: update a moving caster's acceleration structure in place. False builds it again every frame, to measure which costs less.",
+          "x-environment": "HALO_TRACED_SHADOWS_REFIT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_view": {
+          "type": "integer",
+          "default": 0,
+          "description": "With display.traced_shadows: 1 shows the traced term's color in place of the scene, 2 its penumbra radius, for looking at what the filter is given.",
+          "x-environment": "HALO_TRACED_SHADOWS_VIEW",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "traced_shadows_world": {
+          "type": "boolean",
+          "default": true,
+          "description": "With display.traced_shadows: a shadow's ray also stops at the level's own surfaces, so a shadow does not reach through a floor or a wall to a surface beyond it.",
+          "x-environment": "HALO_TRACED_SHADOWS_WORLD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
           ]
         },
         "screenshot_frames": {
@@ -3720,7 +4021,7 @@
         },
         "soft_particle_distance": {
           "type": "number",
-          "default": 0.06,
+          "default": 0.12,
           "description": "With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet).",
           "x-environment": "HALO_SOFT_PARTICLE_DISTANCE",
           "x-environment-style": "value",
@@ -3763,7 +4064,7 @@
         },
         "ssao_radius": {
           "type": "number",
-          "default": 0.3,
+          "default": 0.6,
           "description": "With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet).",
           "x-environment": "HALO_SSAO_RADIUS",
           "x-environment-style": "value",
@@ -3833,7 +4134,7 @@
         },
         "ssao_fade_distance": {
           "type": "number",
-          "default": 35,
+          "default": 70,
           "description": "With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units).",
           "x-environment": "HALO_SSAO_FADE_DISTANCE",
           "x-environment-style": "value",
@@ -3981,7 +4282,8 @@
           "x-platforms": [
             "apple",
             "desktop"
-          ]
+          ],
+          "x-live": false
         },
         "texture_compare_directory": {
           "type": "string",
@@ -4869,216 +5171,6 @@
           "default": "stun.l.google.com:19302,stun.cloudflare.com:3478",
           "description": "Public STUN servers that tell this machine its internet address; comma-separated host:port.",
           "x-environment": "HALO_NET_STUN",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        }
-      },
-      "additionalProperties": false
-    },
-    "controls": {
-      "type": "object",
-      "properties": {
-        "move_forward": {
-          "type": "string",
-          "default": "W",
-          "description": "The keyboard and mouse's controls, which Settings > Controls Setup changes: up to two keys or buttons each, separated by a comma. Keys by their names (\"W\", \"Space\", \"Left Ctrl\", \"F1\"), and \"Mouse Left\", \"Mouse Right\", \"Mouse Middle\", \"Mouse 4\", \"Mouse 5\", \"Wheel\" (either way), \"Wheel Up\" and \"Wheel Down\"; empty for none. Moving forward:",
-          "x-environment": "HALO_KEY_MOVE_FORWARD",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "move_backward": {
-          "type": "string",
-          "default": "S",
-          "description": "Moving backward.",
-          "x-environment": "HALO_KEY_MOVE_BACKWARD",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "strafe_left": {
-          "type": "string",
-          "default": "A",
-          "description": "Moving left.",
-          "x-environment": "HALO_KEY_STRAFE_LEFT",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "strafe_right": {
-          "type": "string",
-          "default": "D",
-          "description": "Moving right.",
-          "x-environment": "HALO_KEY_STRAFE_RIGHT",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "jump": {
-          "type": "string",
-          "default": "Space",
-          "description": "Jumping (and skipping cutscenes).",
-          "x-environment": "HALO_KEY_JUMP",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "crouch": {
-          "type": "string",
-          "default": "Left Ctrl, C",
-          "description": "Crouching.",
-          "x-environment": "HALO_KEY_CROUCH",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "fire": {
-          "type": "string",
-          "default": "Mouse Left",
-          "description": "Firing.",
-          "x-environment": "HALO_KEY_FIRE",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "throw_grenade": {
-          "type": "string",
-          "default": "Mouse Right, G",
-          "description": "Throwing a grenade.",
-          "x-environment": "HALO_KEY_THROW_GRENADE",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "melee": {
-          "type": "string",
-          "default": "F, Mouse 4",
-          "description": "Melee attack.",
-          "x-environment": "HALO_KEY_MELEE",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "reload": {
-          "type": "string",
-          "default": "R",
-          "description": "Reloading.",
-          "x-environment": "HALO_KEY_RELOAD",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "zoom": {
-          "type": "string",
-          "default": "Z, Mouse Middle",
-          "description": "Zooming the scope.",
-          "x-environment": "HALO_KEY_ZOOM",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "switch_weapon": {
-          "type": "string",
-          "default": "Wheel, Tab",
-          "description": "Switching weapons.",
-          "x-environment": "HALO_KEY_SWITCH_WEAPON",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "switch_grenade": {
-          "type": "string",
-          "default": "X",
-          "description": "Switching grenades.",
-          "x-environment": "HALO_KEY_SWITCH_GRENADE",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "action": {
-          "type": "string",
-          "default": "E",
-          "description": "The action: picking up (held: swapping weapons), entering and leaving vehicles, pressing switches; never reloading (the controller's X does when there is nothing to act on).",
-          "x-environment": "HALO_KEY_ACTION",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "flashlight": {
-          "type": "string",
-          "default": "Q",
-          "description": "The flashlight.",
-          "x-environment": "HALO_KEY_FLASHLIGHT",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "scoreboard": {
-          "type": "string",
-          "default": "1",
-          "description": "Showing the scores (the controller's Back).",
-          "x-environment": "HALO_KEY_SCOREBOARD",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ],
-          "x-tier": "player"
-        },
-        "pause": {
-          "type": "string",
-          "default": "Escape",
-          "description": "The pause menu (the controller's Start).",
-          "x-environment": "HALO_KEY_PAUSE",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

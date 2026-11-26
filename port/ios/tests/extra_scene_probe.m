@@ -1,4 +1,5 @@
 /* Exercise scene recovery with real dispatch and filesystem operations, without UIKit. */
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
 #include <assert.h>
@@ -113,7 +114,7 @@ static void *worker(void *unused) {
     return NULL;
 }
 int main(void) {
-    alarm(10);
+    alarm(TEST_WAIT_WATCHDOG_SECONDS);
     assert(!host_game_thread_enabled());
     char original[1024];
     assert(getcwd(original, sizeof(original)));

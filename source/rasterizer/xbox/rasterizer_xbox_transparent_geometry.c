@@ -1009,6 +1009,100 @@ real_vector4d *offset_vector4d(
 	return result;
 }
 
+/* a z-sprite's depth terms from the window's camera (the game's, inline in
+rasterizer_transparent_geometry_group_draw); the second eye's replay
+computes eye 1's too */
+static void transparent_geometry_zsprite_constants(
+	struct shader_effect_definition const *shader_effect,
+	real vsh_constants__zsprite[2][4])
+{
+	struct render_camera const *camera = &global_window_parameters.camera;
+	real radius_scale =
+		shader_effect->secondary_map_zsprite_radius_scale != 0.0f ?
+			shader_effect->secondary_map_zsprite_radius_scale : 1.0f;
+	real depth_range =
+		RASTERIZER_GLOBALS_FLOATING_POINT_ZBUFFER(rasterizer_globals) ?
+		1.0e30f : 16777215.0f;
+	real z_near = camera->z_near;
+	real z_far = camera->z_far;
+
+	vsh_constants__zsprite[0][0] = z_far*depth_range/(z_far - z_near);
+	vsh_constants__zsprite[0][1] = -(vsh_constants__zsprite[0][0]*z_near);
+	vsh_constants__zsprite[0][2] =
+		radius_scale*shader_effect->secondary_map_radius;
+	vsh_constants__zsprite[0][3] =
+		camera->z_near + 0.01f;
+	vsh_constants__zsprite[1][0] =
+		camera->forward.i;
+	vsh_constants__zsprite[1][1] =
+		camera->forward.j;
+	vsh_constants__zsprite[1][2] =
+		camera->forward.k;
+	vsh_constants__zsprite[1][3] = -dot_product3d(
+		&camera->forward,
+		(real_vector3d *)&camera->position);
+	return;
+}
+
+static void transparent_geometry_zsprite_eye_constants(
+	void const *context,
+	real (*constants)[4])
+{
+	transparent_geometry_zsprite_constants((struct shader_effect_definition const *)context, constants);
+	return;
+}
+
+/* the camera transform a group's vertices are placed by (the game's, inline
+in rasterizer_transparent_geometry_group_draw): view-space geometry's from the
+window's camera, else none. The second eye's replay computes eye 1's too */
+static void transparent_geometry_camera_transform(
+	struct transparent_geometry_group const *group,
+	real camera_transform[3][4])
+{
+	csmemset(camera_transform, 0, 3 * sizeof(camera_transform[0]));
+	camera_transform[0][0] = 1.0f;
+	camera_transform[1][1] = 1.0f;
+	camera_transform[2][2] = 1.0f;
+	if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_viewspace_bit))
+	{
+		camera_transform[0][0] =
+			global_window_parameters.frustum.view_to_world.forward.i;
+		camera_transform[0][1] =
+			global_window_parameters.frustum.view_to_world.left.i;
+		camera_transform[0][2] =
+			global_window_parameters.frustum.view_to_world.up.i;
+		camera_transform[0][3] =
+			global_window_parameters.camera.position.x;
+		camera_transform[1][0] =
+			global_window_parameters.frustum.view_to_world.forward.j;
+		camera_transform[1][1] =
+			global_window_parameters.frustum.view_to_world.left.j;
+		camera_transform[1][2] =
+			global_window_parameters.frustum.view_to_world.up.j;
+		camera_transform[1][3] =
+			global_window_parameters.camera.position.y;
+		camera_transform[2][0] =
+			global_window_parameters.frustum.view_to_world.forward.k;
+		camera_transform[2][1] =
+			global_window_parameters.frustum.view_to_world.left.k;
+		camera_transform[2][2] =
+			global_window_parameters.frustum.view_to_world.up.k;
+		camera_transform[2][3] =
+			global_window_parameters.camera.position.z;
+	}
+	return;
+}
+
+/* the builders rasterizer_eye_constants calls (the second eye's replay) */
+static void transparent_geometry_camera_eye_constants(
+	void const *context,
+	real (*constants)[4])
+{
+	transparent_geometry_camera_transform((struct transparent_geometry_group const *)context, constants);
+	return;
+}
+
+
 void rasterizer_transparent_geometry_group_draw(
 	struct transparent_geometry_group *group,
 	boolean dirty)
@@ -1193,46 +1287,21 @@ void rasterizer_transparent_geometry_group_draw(
 				rasterizer_set_model_skinning(&skinning);
 
 				{
-					real camera_transform[3][4] =
-					{
-						{ 1.0f, 0.0f, 0.0f, 0.0f },
-						{ 0.0f, 1.0f, 0.0f, 0.0f },
-						{ 0.0f, 0.0f, 1.0f, 0.0f }
-					};
+					real camera_transform[3][4];
 
+					transparent_geometry_camera_transform(group, camera_transform);
+					IDirect3DDevice8_SetVertexShaderConstant(
+						global_d3d_device,
+						RASTERIZER_TRANSPARENT_GEOMETRY_CAMERA_CONSTANT_INDEX,
+						camera_transform,
+						3);
+					/* port: the second eye's replay: view-space geometry's
+					transform from eye 1's camera */
 					if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_viewspace_bit))
 					{
-						camera_transform[0][0] =
-							global_window_parameters.frustum.view_to_world.forward.i;
-						camera_transform[0][1] =
-							global_window_parameters.frustum.view_to_world.left.i;
-						camera_transform[0][2] =
-							global_window_parameters.frustum.view_to_world.up.i;
-						camera_transform[0][3] =
-							global_window_parameters.camera.position.x;
-						camera_transform[1][0] =
-							global_window_parameters.frustum.view_to_world.forward.j;
-						camera_transform[1][1] =
-							global_window_parameters.frustum.view_to_world.left.j;
-						camera_transform[1][2] =
-							global_window_parameters.frustum.view_to_world.up.j;
-						camera_transform[1][3] =
-							global_window_parameters.camera.position.y;
-						camera_transform[2][0] =
-							global_window_parameters.frustum.view_to_world.forward.k;
-						camera_transform[2][1] =
-							global_window_parameters.frustum.view_to_world.left.k;
-						camera_transform[2][2] =
-							global_window_parameters.frustum.view_to_world.up.k;
-						camera_transform[2][3] =
-							global_window_parameters.camera.position.z;
-				}
-
-				IDirect3DDevice8_SetVertexShaderConstant(
-					global_d3d_device,
-					RASTERIZER_TRANSPARENT_GEOMETRY_CAMERA_CONSTANT_INDEX,
-					camera_transform,
-					3);
+						rasterizer_eye_constants(RASTERIZER_TRANSPARENT_GEOMETRY_CAMERA_CONSTANT_INDEX, 3,
+							camera_transform, transparent_geometry_camera_eye_constants, group);
+					}
 				}
 
 				success = TRUE;
@@ -1646,6 +1715,15 @@ void rasterizer_transparent_geometry_group_draw(
 										result,
 										"IDirect3DDevice8_SetVertexShaderConstant(global_d3d_device, VSH_CONSTANTS__INVERSE_OFFSET, vsh_constants__inverse, VSH_CONSTANTS__INVERSE_COUNT)");
 								}
+								/* port: the second eye's replay: view-space
+								geometry's placement from eye 1's camera */
+								if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_viewspace_bit))
+								{
+									real eye_inverse[VSH_CONSTANTS__INVERSE_COUNT][4];
+
+									rasterizer_eye_constants(VSH_CONSTANTS__INVERSE_OFFSET, VSH_CONSTANTS__INVERSE_COUNT,
+										eye_inverse, transparent_geometry_camera_eye_constants, group);
+								}
 
 								result = IDirect3DDevice8_SetVertexShaderConstant(
 									global_d3d_device,
@@ -1670,38 +1748,18 @@ void rasterizer_transparent_geometry_group_draw(
 									shader_effect->secondary_map.index != NONE &&
 									!TEST_FLAG(group->geometry_flags, _rasterizer_geometry_first_person_bit))
 								{
-									struct render_camera const *camera = &global_window_parameters.camera;
 									real vsh_constants__zsprite[2][4];
-									real radius_scale =
-										shader_effect->secondary_map_zsprite_radius_scale != 0.0f ?
-											shader_effect->secondary_map_zsprite_radius_scale : 1.0f;
-									real depth_range =
-										RASTERIZER_GLOBALS_FLOATING_POINT_ZBUFFER(rasterizer_globals) ?
-										1.0e30f : 16777215.0f;
-									real z_near = camera->z_near;
-									real z_far = camera->z_far;
 
-									vsh_constants__zsprite[0][0] = z_far*depth_range/(z_far - z_near);
-									vsh_constants__zsprite[0][1] = -(vsh_constants__zsprite[0][0]*z_near);
-									vsh_constants__zsprite[0][2] =
-										radius_scale*shader_effect->secondary_map_radius;
-									vsh_constants__zsprite[0][3] =
-										camera->z_near + 0.01f;
-									vsh_constants__zsprite[1][0] =
-										camera->forward.i;
-									vsh_constants__zsprite[1][1] =
-										camera->forward.j;
-									vsh_constants__zsprite[1][2] =
-										camera->forward.k;
-									vsh_constants__zsprite[1][3] = -dot_product3d(
-										&camera->forward,
-										(real_vector3d *)&camera->position);
-
+									transparent_geometry_zsprite_constants(shader_effect, vsh_constants__zsprite);
 									result = IDirect3DDevice8_SetVertexShaderConstant(
 										global_d3d_device,
 										VSH_CONSTANTS__ZSPRITE_OFFSET,
 										vsh_constants__zsprite,
 										VSH_CONSTANTS__ZSPRITE_COUNT);
+									/* port: the second eye's replay: eye 1's
+									depth terms */
+									rasterizer_eye_constants(VSH_CONSTANTS__ZSPRITE_OFFSET, VSH_CONSTANTS__ZSPRITE_COUNT,
+										vsh_constants__zsprite, transparent_geometry_zsprite_eye_constants, shader_effect);
 									if (success && result >= 0)
 									{
 										success = TRUE;

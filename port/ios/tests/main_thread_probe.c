@@ -1,3 +1,4 @@
+#include "test_wait.h"
 #include "host_main_thread.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <assert.h>
@@ -79,7 +80,7 @@ static void *worker(void *context) {
 int main(void) {
     /* Also bounds dispatch_sync and pthread_join if either deadlocks. */
     signal(SIGALRM, timed_out);
-    alarm(10);
+    alarm(TEST_WAIT_WATCHDOG_SECONDS);
     assert(host_on_main_thread());
     host_main_sync(^{ int expected = 0; advance(&expected); });
     assert(atomic_load(&step) == 1);
@@ -106,13 +107,10 @@ int main(void) {
     submitted = dispatch_semaphore_create(0);
     pthread_t thread;
     assert(pthread_create(&thread, NULL, worker, NULL) == 0);
-    assert(dispatch_semaphore_wait(submitted, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)) == 0);
+    assert(dispatch_semaphore_wait(submitted, TEST_WAIT_SEMAPHORE_TIMEOUT) == 0);
     /* The worker's async call cannot run until main services its queue. */
     assert(atomic_load(&step) == 0);
-    CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 5;
-    while (!atomic_load(&done) && CFAbsoluteTimeGetCurrent() < deadline)
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, false);
-    assert(atomic_load(&done));
+    assert(TEST_WAIT_PUMPING_UNTIL(atomic_load(&done)));
     assert(pthread_join(thread, NULL) == 0);
     /* the worker's waits were counted on the worker: main's own totals stay empty */
     host_main_sync_take(&main_waits);

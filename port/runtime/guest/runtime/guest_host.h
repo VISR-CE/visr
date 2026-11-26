@@ -41,6 +41,8 @@ int host_dynamic_resolution_lines(int ceiling_lines);
 void host_dynamic_resolution_scene(int enabled, int floor_lines);
 /* the frames in flight in force while the frame rate is 30 or lower (port/ios/host/host_frame_pacer.c): 1 or 2, 0 for display.frames_in_flight's */
 void host_frames_in_flight_scene(int at_30);
+/* display.encode_thread in force for the workload context: 1 thread, 0 off; the host switches at the next frame start (port/ios/host/host_gpu_dispatch.c) */
+void host_encode_thread_scene(int thread);
 
 /* Only gameplay touch controls are suppressed; native dialogs remain interactive. */
 void host_touch_replay_active(int active);
@@ -55,6 +57,7 @@ void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, fl
 void host_map_pictures_keep_awake(int on);
 /* Persisted disc-import stage; progress and completion are posted from the game thread. */
 int host_map_pictures_import_stage(void);
+int host_map_pictures_begin_refresh(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
 /* The framings feed's verified map-framings.json for a custom map's "blake2b:" key: 1 with its path, else 0. */
@@ -291,6 +294,24 @@ as view distances for the transparent geometry drawn next (count floats: near, f
 fade distance, the distances' scale); 1 when it was. Finish ends it */
 uint32_t host_soft_depth_prepare(gpu_texture depth, const float *parameters, uint32_t count);
 void host_soft_depth_finish(void);
+/* debug.stereo_replay (port/linux/src/d3d8_device.c's halo_stereo_replay_*, the iOS host's gpu_queue.h): begin
+opens a span for eye 0's pass and answers its mode (HALO_STEREO_REPLAY_*; OFF opens none); eye marks the calls
+after it for one eye (HALO_STEREO_REPLAY_EYE_*) or both; constants holds eye 1's values for count registers from
+first (c[0] first) in the replay, and constants_end ends that; end closes the span with the textures eye 1's
+calls use for eye 0's, answering 1 when it is replayed; live_end ends verify's live eye 1 */
+uint32_t host_stereo_replay_begin(void);
+void host_stereo_replay_eye(uint32_t eye);
+void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *values);
+void host_stereo_replay_constants_end(uint32_t first, uint32_t count);
+uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to);
+void host_stereo_replay_live_end(void);
+/* traced object shadows (display.traced_shadows; port/linux/game/traced_shadow_casters.c, d3d8_device.c, gpu_metal.m):
+whether the GPU can trace them (any_gpu: also without ray tracing hardware); one record of
+port/linux/src/traced_shadows_format.h; and the traced term filtered and multiplied into the scene's color */
+uint32_t host_traced_shadows_ready(uint32_t any_gpu);
+void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size);
+void host_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count);
 
 /* ---------- stereo (port/linux/game/stereo.c; the host's port/ios/host/host_stereo.m)
 
@@ -305,6 +326,8 @@ HEAD mode (halo_stereo_mode_entered); 0 on every other platform */
 int host_stereo_entered(void);
 /* Negative quality queries the runtime target; nonnegative quality sets it. */
 float host_stereo_render_quality(float quality);
+/* debug.knob_cycle's present dither (debug.present_dither): 0 off, 1 where the frame has more bits than the layer */
+void host_present_dither_set(int on);
 /* debug.knob_cycle's cadence: the Compositor's frame repeat count (0 to 3), from the next frame; logged when it lands */
 void host_stereo_frame_repeat_set(int repeat);
 void host_stereo_ab_change(const char *method, float quality, int shadows);

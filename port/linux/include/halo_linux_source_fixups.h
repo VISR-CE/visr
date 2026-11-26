@@ -95,6 +95,11 @@ occlusion runs (render_window), with the window's depth range and its projection
 int halo_ssao_lightmaps_mark(int begin);
 void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_far, float p00, float p11, float p20,
 	float p21, float p22, float p32);
+/* display.traced_shadows (port/linux/src/d3d8_device.c, port/linux/game/traced_shadow_casters.c): the lightmap pass
+marks the level's pixels as it does for ambient occlusion when halo_traced_shadows_lightmaps_mark(TRUE) says so,
+and a map's load forgets the last map's model parts */
+int halo_traced_shadows_lightmaps_mark(int begin);
+void traced_shadow_casters_new_map(void);
 /* a map has loaded and its first frame is next (main_new_map): the shaders
 and pipelines its list names are compiled now, under the loading screen
 (port/linux/src/d3d8_device.c) */

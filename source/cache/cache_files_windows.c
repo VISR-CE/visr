@@ -185,6 +185,7 @@ symbols in this file:
 #include "cache/cache_files.h"
 #include "cache/cache_files_decompress_windows.h"
 #include "cache/texture_cache.h"
+#include "bink/bink_playback.h" /* port: bink_playback_stop_for_map_change */
 #include "interface/ui_widget.h"
 #include "tag_files/files.h"
 #include "tag_files/tag_files.h"
@@ -687,6 +688,11 @@ boolean cache_files_precache_map_begin(
 
 				return FALSE;
 			}
+			/* port: a movie still playing holds the texture cache's stolen
+			memory (bink_playback.c); a precache begun under it, the lobby's
+			(cache_files_give_time_to_precache) as well as a map load's, ends
+			it first */
+			bink_playback_stop_for_map_change();
 			buffer = texture_cache_steal_memory(buffer_size);
 			map_file = cached_map_file_get(map_file_index);
 

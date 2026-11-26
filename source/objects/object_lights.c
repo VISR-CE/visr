@@ -183,9 +183,12 @@ symbols in this file:
 #include "structures/structure_visibility.h"
 #include "tag_files/tag_groups.h"
 #include "units/units.h"
+#include "camera/observer.h"
+#include "game/players.h"
 
 /* port: port/linux/src (halo.log) */
 void platform_log(const char *format, ...);
+int config_boolean(const char *name); /* port/linux/src/port_config.c */
 
 /* ---------- constants */
 
@@ -1797,6 +1800,279 @@ static void light_get_bounding_sphere(
 
 /* port: these limits are presentation state, never part of a light datum or the scene list. */
 #include "light_render_selection.h"
+#include "traced_shadow_casters.h" /* port/linux/game */
+#include "light_visibility.h"
+
+/* (light_visibility.h's owner types are object_types.h's) */
+typedef char light_visibility_owner_types_assert[_object_type_projectile == LIGHT_VISIBILITY_LAST_BLOCKED_OWNER_TYPE
+	&& _object_type_scenery == LIGHT_VISIBILITY_LAST_BLOCKED_OWNER_TYPE + 1 ? 1 : -1];
+
+static boolean lights_select_level(unsigned char *diffuse, unsigned char *specular);
+
+/* port: each window's choice of what blocks each of its scene's point lights (light_visibility.h), made once a window
+before its scene pass (lights_choose_visibility) and read by its light passes, by slot in
+lights_globals.scene_point_lights */
+static struct
+{
+	short count;
+	long light_index[LIGHT_VISIBILITY_MAXIMUM];
+	unsigned char path[LIGHT_VISIBILITY_MAXIMUM];
+	unsigned char family[LIGHT_VISIBILITY_MAXIMUM];
+	float strength[LIGHT_VISIBILITY_MAXIMUM];
+} light_visibility_windows[MAXIMUM_WINDOWS];
+static struct
+{
+	unsigned char path, family;
+	boolean has_owner;
+	float strength;
+	real owner_sphere[4];
+} light_visibility_pending;
+/* the frame's owner families of lights (light_visibility.h): made at the frame's first lookup, before any window chooses
+or sends a caster, and only read after */
+static struct
+{
+	unsigned __int64 frame;
+	int count;
+	long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+	double importance[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+} light_visibility_families = { (unsigned __int64)-1 };
+
+static long light_visibility_family_root(
+	long object_index)
+{
+	long root;
+	struct object_datum *object;
+
+	if (object_index == NONE || !object_try_and_get(object_index))
+		return NONE;
+	root = object_get_ultimate_parent(object_index);
+	object = root != NONE ? object_try_and_get(root) : NULL;
+	return object && light_visibility_caster_type(object->object.type) ? root : NONE;
+}
+
+static int light_visibility_family_of(
+	long object_index)
+{
+	if (light_visibility_families.frame != rasterizer_globals.fps_accumulation_frame_index)
+	{
+		long light_index;
+		short local, players = 0;
+		real_point3d eyes[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
+
+		/* (the local players' cameras; the current one only when there is no local player) */
+		for (local = 0; local < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local++)
+			if (local_player_get_player_index(local) != NONE)
+				eyes[players++] = observer_get_camera(local)->position;
+		if (!players)
+			eyes[players++] = render.camera.position;
+		/* (every light with an owner, ranked by its best render score from any local player's camera, the players'
+		own first-person lights ahead of all: light_visibility.h) */
+		light_visibility_families.count = 0;
+		for (light_index = data_next_index(light_data, NONE); light_index != NONE;
+			light_index = data_next_index(light_data, light_index))
+		{
+			struct light_datum *light = light_get(light_index);
+			long root = light->object_index != NONE ? light_visibility_family_root(light->object_index) : NONE;
+			double best = 0.0;
+
+			if (root == NONE)
+				continue;
+			for (local = 0; local < players; local++)
+			{
+				double score = light_render_score(light->radius, light->position.x, light->position.y,
+					light->position.z, eyes[local].x, eyes[local].y, eyes[local].z);
+
+				best = score > best ? score : best;
+			}
+			if (TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit))
+				best += 1.0e30;
+			light_visibility_families_offer(light_visibility_families.roots, light_visibility_families.importance,
+				&light_visibility_families.count, LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1,
+				root, best);
+		}
+		light_visibility_families.frame = rasterizer_globals.fps_accumulation_frame_index;
+	}
+	return light_visibility_family_bit(light_visibility_families.roots, light_visibility_families.count,
+		light_visibility_family_root(object_index));
+}
+
+int light_visibility_family(
+	long object_index)
+{
+	return light_visibility_family_of(object_index);
+}
+
+void lights_choose_visibility(
+	void)
+{
+	struct light_visibility_candidate candidates[LIGHT_VISIBILITY_MAXIMUM];
+	short slots[LIGHT_VISIBILITY_MAXIMUM], count = 0, i;
+	float traced[LIGHT_VISIBILITY_MAXIMUM];
+	unsigned char diffuse[LIGHT_VISIBILITY_MAXIMUM], specular[LIGHT_VISIBILITY_MAXIMUM];
+	boolean limited = lights_select_level(diffuse, specular);
+	short window = render.window_index;
+
+	if (window < 0 || window >= MAXIMUM_WINDOWS)
+		return;
+	light_visibility_windows[window].count = lights_globals.scene_point_light_count;
+	for (i = 0; i < lights_globals.scene_point_light_count; i++)
+	{
+		struct light_datum *light = light_get(lights_globals.scene_point_lights[i]);
+
+		light_visibility_windows[window].light_index[i] = lights_globals.scene_point_lights[i];
+		light_visibility_windows[window].path[i] = LIGHT_VISIBILITY_NONE;
+		light_visibility_windows[window].family[i] = 0;
+		light_visibility_windows[window].strength[i] = 0.f;
+		if (TEST_FLAG(light->flags, _point_light_dynamic_bit) && light->rasterizer_light_index != NONE
+			&& (!limited || diffuse[i]))
+		{
+			struct light_visibility_candidate *candidate = &candidates[count];
+			struct object_datum *owner = light->object_index != NONE ? object_try_and_get(light->object_index) : NULL;
+			boolean own = TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit) != 0;
+
+			/* (the window's own flashlight at the camera, with hand aiming: its shadows would be exactly hidden) */
+			if (own && distance3d(&light->position, &render.camera.position) < 0.01f)
+				continue;
+			slots[count++] = i;
+			candidate->id = (unsigned long)lights_globals.scene_point_lights[i];
+			candidate->own = own;
+			candidate->owner_type = owner ? owner->object.type : -1;
+			candidate->score = light_render_score(light->radius, light->position.x, light->position.y,
+				light->position.z, render.camera.position.x, render.camera.position.y, render.camera.position.z);
+		}
+	}
+	/* (light through a wall is information in a player-versus-player game: no source blocks it there) */
+	traced_lights_choose(candidates, count, game_engine_running(), traced);
+	for (i = 0; i < count; i++)
+	{
+		if (traced[i] > 0.f)
+		{
+			light_visibility_windows[window].path[slots[i]] = LIGHT_VISIBILITY_TRACED;
+			light_visibility_windows[window].strength[slots[i]] = traced[i];
+			light_visibility_windows[window].family[slots[i]] = (unsigned char)light_visibility_family_of(
+				light_get(lights_globals.scene_point_lights[slots[i]])->object_index);
+			if (config_boolean("debug.traced_light_family_log"))
+			{
+				struct light_datum *light = light_get(lights_globals.scene_point_lights[slots[i]]);
+				real from_eye = distance3d(&light->position, &render.camera.position);
+
+				platform_log("traced light family: frame %llu window %d light %lx at %.2f %.2f %.2f radius %.2f "
+					"strength %.2f, %.2f from the eye at %.2f %.2f %.2f looking %.3f %.3f %.3f up %.3f %.3f %.3f vertical fov %.4f: owner %lx (type %d), root %lx, bit %d",
+					(unsigned long long)rasterizer_globals.fps_accumulation_frame_index, (int)window,
+					(unsigned long)lights_globals.scene_point_lights[slots[i]], (double)light->position.x,
+					(double)light->position.y, (double)light->position.z, (double)light->radius, (double)traced[i],
+					(double)from_eye, (double)render.camera.position.x, (double)render.camera.position.y,
+					(double)render.camera.position.z, (double)render.camera.forward.i, (double)render.camera.forward.j,
+					(double)render.camera.forward.k, (double)render.camera.up.i, (double)render.camera.up.j,
+					(double)render.camera.up.k, (double)render.camera.vertical_field_of_view,
+					(unsigned long)light->object_index, candidates[i].owner_type,
+					(unsigned long)light_visibility_family_root(light->object_index),
+					(int)light_visibility_windows[window].family[slots[i]]);
+			}
+		}
+	}
+}
+
+/* the window's choice for the light in this scene slot */
+static void light_visibility_for_slot(
+	short slot,
+	unsigned char *path,
+	float *strength)
+{
+	short window = render.window_index;
+
+	*path = LIGHT_VISIBILITY_NONE;
+	*strength = 0.f;
+	light_visibility_pending.family = 0;
+	light_visibility_pending.has_owner = FALSE;
+	if (window >= 0 && window < MAXIMUM_WINDOWS && slot < light_visibility_windows[window].count &&
+		light_visibility_windows[window].light_index[slot] == lights_globals.scene_point_lights[slot])
+	{
+		long root = light_visibility_family_root(light_get(lights_globals.scene_point_lights[slot])->object_index);
+		struct object_datum *owner = root != NONE ? object_try_and_get(root) : NULL;
+
+		*path = light_visibility_windows[window].path[slot];
+		*strength = light_visibility_windows[window].strength[slot];
+		light_visibility_pending.family = light_visibility_windows[window].family[slot];
+		/* (an owner family without a bit is kept clear by its root's bounding sphere: light_visibility.h) */
+		if (owner && owner->object.bounding_sphere_radius > 0.f)
+		{
+			light_visibility_pending.has_owner = TRUE;
+			light_visibility_pending.owner_sphere[0] = owner->object.bounding_sphere_center.x;
+			light_visibility_pending.owner_sphere[1] = owner->object.bounding_sphere_center.y;
+			light_visibility_pending.owner_sphere[2] = owner->object.bounding_sphere_center.z;
+			light_visibility_pending.owner_sphere[3] = owner->object.bounding_sphere_radius;
+		}
+	}
+}
+
+boolean lights_object_blocks_light(
+	long object_index)
+{
+	struct object_datum *object = object_try_and_get(object_index);
+	short window = render.window_index;
+	short slot;
+
+	if (!object || !traced_light_walks_casters() || window < 0 || window >= MAXIMUM_WINDOWS ||
+		!light_visibility_caster_type(object->object.type) ||
+		!TEST_FLAG(object->object.flags, _object_has_collision_model_bit))
+		return FALSE;
+	for (slot = 0; slot < light_visibility_windows[window].count; slot++)
+	{
+		if (light_visibility_windows[window].path[slot] == LIGHT_VISIBILITY_TRACED)
+		{
+			struct light_datum *light = light_get(light_visibility_windows[window].light_index[slot]);
+
+			if (light_visibility_spheres_touch(object->object.bounding_sphere_center.x,
+				object->object.bounding_sphere_center.y, object->object.bounding_sphere_center.z,
+				object->object.bounding_sphere_radius, light->position.x, light->position.y, light->position.z,
+				light->radius))
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+void light_visibility_next(
+	int path,
+	float strength)
+{
+	light_visibility_pending.path = (unsigned char)path;
+	light_visibility_pending.strength = strength;
+}
+
+boolean light_visibility_begin(
+	real_point3d const *position,
+	real radius,
+	short attenuation_stage,
+	real attenuation_radius)
+{
+	unsigned char path = light_visibility_pending.path, family = light_visibility_pending.family;
+	float strength = light_visibility_pending.strength;
+	real const *owner_sphere = light_visibility_pending.has_owner ? light_visibility_pending.owner_sphere : NULL;
+
+	light_visibility_pending.path = LIGHT_VISIBILITY_NONE;
+	light_visibility_pending.family = 0;
+	light_visibility_pending.has_owner = FALSE;
+	light_visibility_pending.strength = 0.f;
+	switch (path)
+	{
+	case LIGHT_VISIBILITY_TRACED:
+		return attenuation_stage >= LIGHT_VISIBILITY_STAGE_NONE && attenuation_stage <= LIGHT_VISIBILITY_STAGE_DIFFUSE
+			? traced_light_begin(position, radius, strength, family, owner_sphere, attenuation_stage,
+				attenuation_radius)
+			: FALSE;
+	default:
+		return FALSE;
+	}
+}
+
+void light_visibility_end(
+	void)
+{
+	traced_light_end();
+}
+
 long config_integer(const char *name);
 static long light_render_dynamic_override = -1, light_render_specular_override = -1;
 
@@ -1893,6 +2169,13 @@ void lights_render_diffuse(
 					FALSE,
 					&center,
 					&radius);
+				{
+					unsigned char path;
+					float strength;
+
+					light_visibility_for_slot(light_index, &path, &strength);
+					light_visibility_next(path, strength);
+				}
 				structure_render_diffuse_light(
 					light->rasterizer_light_index,
 					&center,
@@ -1971,6 +2254,13 @@ void lights_render_specular(
 					FALSE,
 					&center,
 					&radius);
+				{
+					unsigned char path;
+					float strength;
+
+					light_visibility_for_slot(light_index, &path, &strength);
+					light_visibility_next(path, strength);
+				}
 				structure_render_specular_light(
 					light->rasterizer_light_index,
 					&center,

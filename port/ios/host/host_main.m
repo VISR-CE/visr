@@ -35,6 +35,7 @@
 #include "host_orientation.h"
 #endif
 #include "host_astc_store.h"
+#include "host_texture_upscale.h"
 #include "host_data_updates.h"
 #include "host_quit_signals.h"
 /* The Mac Catalyst build is a test host (tools/mac_run.py, check-metal's GL records), never a
@@ -626,6 +627,9 @@ int main(int argc,char **argv) {
         }
         else if(!benchmark_suite&&!getenv("HALO_RUNNER"))benchmark_suite=host_benchmark_menu();
 #endif
+        /* the texture work started above and reads the host's settings only, so a suite chosen on the launch screen
+           is passed to it here (host_texture_measured_run) */
+        if(benchmark_suite&&*benchmark_suite)host_texture_measured_run_began();
 #if !TARGET_OS_TV && !HALO_NATIVE_MAC
         /* the Settings app's texture pane: acted on now and at every return to the foreground */
         host_texture_settings_observe(data_root);

@@ -317,6 +317,7 @@ symbols in this file:
 #include "text/unicode.h"
 #include "interface/ui_widget.h"
 #include "interface/ui_widget_event_handler_functions.h"
+#include "interface/player_ui.h"
 #include "saved games/game_state.h"
 #include "saved games/player_profile.h"
 #include "saved games/playlist_profile.h"
@@ -393,9 +394,6 @@ enum
 /* an enumerated saved game file is identified by a packed profile index:
    [31] and [30] are flags, [27..16] the file index within the memory unit,
    [15..8] the memory unit and [3..0] the saved game file type. */
-#define SAVED_GAME_FILE_INDEX_TYPE(profile_index) ((profile_index)&0xF)
-#define SAVED_GAME_FILE_INDEX_MEMORY_UNIT(profile_index) (((profile_index)>>8)&0xFF)
-#define SAVED_GAME_FILE_INDEX_FILE_INDEX(profile_index) (((profile_index)>>16)&0xFFF)
 #define SAVED_GAME_FILE_INDEX_BUILD(n, memory_unit_index, type) \
 	(((((n)&0xFFF)<<8)|((memory_unit_index)&0xFF))<<8|((type)&0xF))
 
@@ -469,7 +467,8 @@ static boolean set_nth_entry_in_mapfile(
 	struct enumerated_saved_game_file *file);
 static boolean remove_nth_entry_in_mapfile(
 	word memory_unit_index,
-	word n);
+	word n,
+	long deleted_index);
 static boolean append_entry_to_mapfile(
 	word memory_unit_index,
 	struct enumerated_saved_game_file *file,
@@ -1541,7 +1540,7 @@ boolean delete_enumerated_saved_game_file(
 						}
 					}
 
-					if (!remove_nth_entry_in_mapfile(memory_unit, n))
+					if (!remove_nth_entry_in_mapfile(memory_unit, n, profile_index))
 					{
 						error(_error_silent, "remove_nth_entry_in_mapfile() failed");
 						success = FALSE;
@@ -1972,6 +1971,8 @@ static void enumerate_memory_units(
 	}
 
 	saved_game_files_globals.memory_units_dirty = FALSE;
+	/* port: the order of the entries may have changed: the UI finds its cached profiles again by their paths */
+	player_ui_post_saved_game_files_relisted();
 	return;
 }
 
@@ -2448,13 +2449,15 @@ static boolean append_entry_to_mapfile(
 
 static boolean remove_nth_entry_in_mapfile(
 	word memory_unit_index,
-	word n)
+	word n,
+	long deleted_index)
 {
 	struct enumerated_saved_game_file file;
 	unsigned long mapfile_size;
 	unsigned long entry_offset = n*sizeof(struct enumerated_saved_game_file);
 	unsigned long next_entry_offset;
 	boolean success = FALSE;
+	boolean entries_may_have_moved = FALSE;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\saved games\\saved_game_files.c",
@@ -2484,6 +2487,7 @@ static boolean remove_nth_entry_in_mapfile(
 
 			if (success == TRUE)
 			{
+				entries_may_have_moved = TRUE;
 				while (next_entry_offset < mapfile_size)
 				{
 					if (!file_read_from_position(&saved_game_files_globals.memory_unit_mapfile,
@@ -2505,6 +2509,18 @@ static boolean remove_nth_entry_in_mapfile(
 			{
 				success = file_set_eof(&saved_game_files_globals.memory_unit_mapfile,
 					mapfile_size-sizeof(struct enumerated_saved_game_file));
+			}
+
+			if (success)
+			{
+				/* port: the entries after it moved down: the game thread's local players follow. Posted under the
+				mapfile mutex, so posts are single-producer and in the order the mapfile changed */
+				player_ui_post_saved_game_file_deleted(deleted_index);
+			}
+			else if (entries_may_have_moved)
+			{
+				/* port: some entries moved down and the file did not shrink: no cached index can be trusted */
+				player_ui_post_saved_game_files_unknown_change();
 			}
 
 			if (!file_close(&saved_game_files_globals.memory_unit_mapfile))

@@ -1,4 +1,5 @@
 /* Exercise signed per-map acquisition through the real store and NSURLSession delegate. */
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <CommonCrypto/CommonDigest.h>
 #import <objc/runtime.h>
@@ -84,7 +85,7 @@ static HostDataPackStore *Store(NSString *root) {
 static void Update(HostDataPackStore *store,NSData *index) {
     responses[@"/packs/shaders.json"]=index;
     [store checkForUpdateAtURL:[NSURL URLWithString:@"https://feed.invalid/packs/shaders.json"]];
-    for (int i=0;i<600 && [store valueForKey:@"session"];i++) [NSThread sleepForTimeInterval:0.01];
+    TEST_WAIT_UNTIL(![store valueForKey:@"session"]);
     CHECK(![store valueForKey:@"session"],"bounded acquisition finishes");
 }
 static NSInteger AssetRequests(void) {

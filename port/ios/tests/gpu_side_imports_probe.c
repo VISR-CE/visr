@@ -53,6 +53,45 @@ void host_gpu_soft_depth_finish(void)
 	soft_finishes++;
 }
 
+static unsigned traced_readies, traced_datas, traced_resolves;
+static uint32_t seen_kind, seen_id, seen_term;
+static const void *seen_bytes;
+
+uint32_t host_gpu_traced_shadows_ready(uint32_t any_gpu);
+void host_gpu_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size);
+void host_gpu_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count);
+
+uint32_t host_gpu_traced_shadows_ready(uint32_t any_gpu)
+{
+	traced_readies++;
+	return any_gpu + 1;
+}
+
+void host_gpu_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
+{
+	traced_datas++;
+	seen_kind = kind;
+	seen_id = id;
+	seen_bytes = bytes;
+	seen_count = size;
+}
+
+void host_gpu_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count)
+{
+	traced_resolves++;
+	seen_color = color;
+	seen_depth = depth;
+	seen_term = term;
+	seen_values = values;
+	seen_count = count;
+}
+
+uint32_t host_traced_shadows_ready(uint32_t any_gpu);
+void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size);
+void host_traced_shadows_resolve(gpu_texture color, gpu_texture depth, gpu_texture term, const float *values,
+	uint32_t count);
 void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count);
 uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count);
 void host_soft_depth_finish(void);
@@ -93,6 +132,14 @@ int main(void)
 		seen_count == 6, "soft depth with values did not reach soft_depth_prepare unchanged, or lost its answer");
 	host_soft_depth_finish();
 	CHECK(soft_finishes == 1, "host_soft_depth_finish did not reach soft_depth_finish");
+	/* traced object shadows: each import is its operation, arguments and answer unchanged */
+	CHECK(host_traced_shadows_ready(1) == 2 && traced_readies == 1, "traced_shadows_ready lost its argument or answer");
+	host_traced_shadows_data(3, 9, values, 12);
+	CHECK(traced_datas == 1 && seen_kind == 3 && seen_id == 9 && seen_bytes == values && seen_count == 12,
+		"a traced shadows record did not reach traced_shadows_data unchanged");
+	host_traced_shadows_resolve(3, 4, 5, values, 11);
+	CHECK(traced_resolves == 1 && seen_color == 3 && seen_depth == 4 && seen_term == 5 && seen_values == values &&
+		seen_count == 11, "the traced shadows resolve did not reach traced_shadows_resolve unchanged");
 	puts("gpu_side_imports_probe: ok");
 	return 0;
 }

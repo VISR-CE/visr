@@ -79,6 +79,7 @@
 #include "host_stereo_head.h"
 #include "host_stereo_hud.h"
 #include "host_stereo_posture.h"
+#include "host_texture_repair.h"
 #include "host_texture_settings.h"
 #include "host_texture_upscale.h"
 #include "host_theater.h"
@@ -101,6 +102,10 @@ __attribute__((weak)) void astc_store_map_arrived(const char *path)
 { }
 __attribute__((weak)) void astc_store_map_will_load(const char *name)
 { }
+#if (HALO_FRAME_PACING)
+__attribute__((weak)) void frame_pacer_encode_mode_changed(void)
+{ }
+#endif
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) int frame_pacer_frame_begin(struct frame_pacer_frame *frame, unsigned long number, double began, int waits_for_display)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_frame_begin without defining it\n"); abort(); }
@@ -201,6 +206,12 @@ __attribute__((weak)) int gpu_metal_async_compiles(void)
 __attribute__((weak)) void gpu_metal_count_gpu_time(id<MTLCommandBuffer> commands)
 { }
 #endif
+__attribute__((weak)) void gpu_metal_encode_owner_reset(void)
+{ }
+__attribute__((weak)) void gpu_metal_frame_deadline_before_switch(void)
+{ }
+__attribute__((weak)) void gpu_metal_frame_deadline_encode_thread_ending(void)
+{ }
 __attribute__((weak)) void gpu_metal_frame_deadline_end(void)
 { }
 __attribute__((weak)) void gpu_metal_frame_deadline_hold(int held)
@@ -229,6 +240,20 @@ __attribute__((weak)) void gpu_queue_drain(void)
 { }
 __attribute__((weak)) unsigned long gpu_queue_drains(void)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_drains without defining it\n"); abort(); }
+__attribute__((weak)) void gpu_queue_eye_constants(uint32_t first, uint32_t count, const float *values)
+{ }
+__attribute__((weak)) void gpu_queue_eye_constants_end(uint32_t first, uint32_t count)
+{ }
+__attribute__((weak)) void gpu_queue_eye_live_end(void)
+{ }
+__attribute__((weak)) void gpu_queue_eye_only(int eye)
+{ }
+__attribute__((weak)) int gpu_queue_eye_span_begin(int verify)
+{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) int gpu_queue_eye_span_end(const struct gpu_queue_eye_map *map)
+{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void gpu_queue_eye_statistics(struct gpu_queue_eye_statistics *statistics)
+{ }
 __attribute__((weak)) unsigned long gpu_queue_keyframes_checked(unsigned long *differ)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_keyframes_checked without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_queue_mode_choose(const char *debug, const char *display, const char **from)
@@ -237,6 +262,8 @@ __attribute__((weak)) int gpu_queue_mode_on_main_thread(int mode, const char *de
 { fprintf(stderr, "host_stubs: probe called gpu_queue_mode_on_main_thread without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_queue_mode_parse(const char *value)
 { fprintf(stderr, "host_stubs: probe called gpu_queue_mode_parse without defining it\n"); abort(); }
+__attribute__((weak)) void gpu_queue_set_consumer_ending(void (*ending)(void))
+{ }
 __attribute__((weak)) const struct gpu_backend * gpu_queue_wrap(const struct gpu_backend *chosen, const struct gpu_backend *beneath, int mode, int timing, void (*log)(const char *line), void (*consumer_started)(void))
 { fprintf(stderr, "host_stubs: probe called gpu_queue_wrap without defining it\n"); abort(); }
 __attribute__((weak)) int gpu_replay_header(const char *path, struct gpu_capture_header *header, char *error, size_t size)
@@ -543,6 +570,8 @@ __attribute__((weak)) int host_dynamic_resolution_lines(int ceiling_lines)
 { fprintf(stderr, "host_stubs: probe called host_dynamic_resolution_lines without defining it\n"); abort(); }
 __attribute__((weak)) void host_dynamic_resolution_scene(int enabled, int floor_lines)
 { }
+__attribute__((weak)) void host_encode_thread_scene(int thread)
+{ }
 __attribute__((weak)) int host_errno(void)
 { fprintf(stderr, "host_stubs: probe called host_errno without defining it\n"); abort(); }
 __attribute__((weak)) void host_event_pump(void)
@@ -679,6 +708,8 @@ __attribute__((weak)) void host_gpu_benchmark_realtime(int on)
 { }
 __attribute__((weak)) int host_gpu_encode_queue_on(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) int host_gpu_encode_queue_possible(void)
+{ fprintf(stderr, "host_stubs: probe called host_gpu_encode_queue_possible without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_encode_thread_on(void)
 { fprintf(stderr, "host_stubs: probe called host_gpu_encode_thread_on without defining it\n"); abort(); }
 __attribute__((weak)) int host_gpu_metal_active(void)
@@ -871,6 +902,8 @@ __attribute__((weak)) void host_map_identity_wait(void)
 { }
 __attribute__((weak)) void host_map_load_failed(const char *map_name, const char *messages)
 { abort(); }
+__attribute__((weak)) int host_map_pictures_begin_refresh(void)
+{ fprintf(stderr, "host_stubs: probe called host_map_pictures_begin_refresh without defining it\n"); abort(); }
 __attribute__((weak)) void host_map_pictures_import_done(int rendered, int cached, int failed)
 { }
 __attribute__((weak)) void host_map_pictures_import_progress(int done, int total, const char *name)
@@ -1022,6 +1055,8 @@ __attribute__((weak)) void host_posture_layout_snapshot(struct host_posture_layo
 __attribute__((weak)) void host_posture_poll(void)
 { }
 __attribute__((weak)) void host_posture_snapshot(struct host_posture_snapshot *out)
+{ }
+__attribute__((weak)) void host_present_dither_set(int on)
 { }
 #if (defined(__OBJC__) && !HALO_NATIVE_MAC)
 __attribute__((weak)) void host_present_input_update(void)
@@ -1395,6 +1430,18 @@ __attribute__((weak)) int host_stereo_ready(void)
 #endif
 __attribute__((weak)) float host_stereo_render_quality(float quality)
 { fprintf(stderr, "host_stubs: probe called host_stereo_render_quality without defining it\n"); abort(); }
+__attribute__((weak)) uint32_t host_stereo_replay_begin(void)
+{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void host_stereo_replay_constants(uint32_t first, uint32_t count, const void *values)
+{ }
+__attribute__((weak)) void host_stereo_replay_constants_end(uint32_t first, uint32_t count)
+{ }
+__attribute__((weak)) uint32_t host_stereo_replay_end(uint32_t count, const uint32_t *from, const uint32_t *to)
+{ uint32_t _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) void host_stereo_replay_eye(uint32_t eye)
+{ }
+__attribute__((weak)) void host_stereo_replay_live_end(void)
+{ }
 __attribute__((weak)) int host_stereo_room_recenter_pending(void)
 { fprintf(stderr, "host_stubs: probe called host_stereo_room_recenter_pending without defining it\n"); abort(); }
 __attribute__((weak)) void host_stereo_room_vector(float vector[3])
@@ -1414,6 +1461,26 @@ __attribute__((weak)) void host_stereo_world_recenter(int active)
 __attribute__((weak)) void host_texture_cache_directory(char *text, unsigned long size)
 { }
 __attribute__((weak)) void host_texture_cache_path(const char *root, char *text, size_t size)
+{ }
+__attribute__((weak)) const char * host_texture_measured_run(void)
+{ fprintf(stderr, "host_stubs: probe called host_texture_measured_run without defining it\n"); abort(); }
+__attribute__((weak)) void host_texture_measured_run_began(void)
+{ }
+__attribute__((weak)) void host_texture_repair_cache_deleted(void)
+{ }
+__attribute__((weak)) int host_texture_repair_enabled(void)
+{ fprintf(stderr, "host_stubs: probe called host_texture_repair_enabled without defining it\n"); abort(); }
+__attribute__((weak)) void host_texture_repair_game_started(int is_game)
+{ }
+__attribute__((weak)) void host_texture_repair_init(const char *root)
+{ }
+__attribute__((weak)) void host_texture_repair_map_will_load(const char *name)
+{ }
+__attribute__((weak)) void host_texture_repair_measured_run_began(void)
+{ }
+__attribute__((weak)) void host_texture_repair_paused(int paused)
+{ }
+__attribute__((weak)) void host_texture_repair_scan(void)
 { }
 __attribute__((weak)) void host_texture_settings_apply(const char *data_root)
 { }
@@ -1723,6 +1790,8 @@ __attribute__((weak)) int texture_upscale_encode_gate(const uint8_t *source, con
 { fprintf(stderr, "host_stubs: probe called texture_upscale_encode_gate without defining it\n"); abort(); }
 __attribute__((weak)) int texture_upscale_encode_gate_alpha(const uint8_t *source, const uint8_t *decoded, size_t texels, unsigned alpha_mode, struct texture_upscale_encode_metrics *metrics)
 { fprintf(stderr, "host_stubs: probe called texture_upscale_encode_gate_alpha without defining it\n"); abort(); }
+__attribute__((weak)) enum texture_upscale_encode_result texture_upscale_encode_raw(const struct texture_upscale_rgba_level *levels, unsigned count, uint32_t source_width, uint32_t source_height, uint64_t hash, uint64_t recipe_key, void **record, size_t *size)
+{ fprintf(stderr, "host_stubs: probe called texture_upscale_encode_raw without defining it\n"); abort(); }
 __attribute__((weak)) enum texture_upscale_encode_result texture_upscale_encode_record(const struct texture_upscale_rgba_level *levels, unsigned count, uint32_t source_width, uint32_t source_height, uint64_t hash, uint64_t recipe_key, uint32_t format, unsigned alpha_mode, unsigned threads, void **record, size_t *size, struct texture_upscale_encode_metrics *metrics)
 { fprintf(stderr, "host_stubs: probe called texture_upscale_encode_record without defining it\n"); abort(); }
 __attribute__((weak)) void texture_upscale_encode_set_cancel(const volatile int *flag)

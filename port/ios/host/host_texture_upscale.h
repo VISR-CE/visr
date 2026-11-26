@@ -62,4 +62,9 @@ void host_texture_upscale_continued_phase(int began);
 int host_texture_upscale_delete_cache(const char *directory);
 /* the texture cache's folder for this data root (Library/Caches/texture-cache on iPhone, iPad and Vision Pro) */
 void host_texture_cache_path(const char *root, char *text, size_t size);
+/* NULL, or why this launch is a measured run (benchmark suite, benchmark, input replay, fixed timestep, screenshots):
+   background texture work does none of its work in one */
+const char *host_texture_measured_run(void);
+/* a benchmark suite chosen after the texture work started (a tester build's launch screen): it stops for this run */
+void host_texture_measured_run_began(void);
 void host_texture_cache_directory(char *text, unsigned long size);

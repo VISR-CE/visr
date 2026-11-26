@@ -1224,34 +1224,47 @@ void texture_upscale_map_loaded(void)
 	static int source = -1;
 	int now;
 
-	char profile[16] = "true";
-	int switch_on;
+	char profile[16] = "true", repair_profile[16] = "true";
+	int switch_on, repair_on, upscaled_part;
 
 	/* the player's switch turns them off, never on where the device's profile has them off (rule 1 of the
 	on-device design: the resolved value is the profile's AND the player's) */
 	config_default("display.upscaled_textures", profile, sizeof(profile));
 	switch_on = config_reload_boolean("display.upscaled_textures") && !strcmp(profile, "true");
+	/* the repaired textures (the host's texture repair) are a separate switch with the same rule; Hardcore's
+	graphics-mode row turns it off */
+	config_default("display.repaired_textures", repair_profile, sizeof(repair_profile));
+	repair_on = config_reload_boolean("display.repaired_textures") && !strcmp(repair_profile, "true");
+	upscaled_part = switch_on;
 #ifdef HALO_IOS
 	/* debug.map_pictures_render: a map loaded for its picture is drawn with the original textures, whatever
 	the switch, the cache or an override folder would give it */
 	if (map_pictures_render_active())
 	{
-		switch_on = 0;
+		switch_on = upscaled_part = repair_on = 0;
 		override = "";
 		compare = "";
 	}
-	/* a level plays upscaled only if every texture its policy upscales is made: never some of each */
-	if (switch_on && !*override && !host_texture_upscale_level_ready())
-		texture_upscale_state_request_original(&texture_upscale);
+	/* a level plays upscaled only if every texture its policy upscales is made: never some of each. The repaired
+	textures stand on their own, so a level that is not ready keeps those. */
+	if (upscaled_part && !*override && !host_texture_upscale_level_ready())
+	{
+		upscaled_part = 0;
+		if (!repair_on)
+			texture_upscale_state_request_original(&texture_upscale);
+	}
 #endif
-	texture_upscale_state_map_loaded(&texture_upscale, switch_on);
+	texture_upscale_state_map_loaded(&texture_upscale, upscaled_part || repair_on);
 	texture_upscale_read_at = config_changes();
-	/* debug.texture_override_directory wins over the cache, whose manifest is read again at each level load */
+	/* debug.texture_override_directory wins over the cache, whose manifests are read again at each level load */
 	texture_records_listed = 0;
 	if (*override || !texture_upscale_state_enabled(&texture_upscale) || !format)
 		texture_override_cache_directories(override, compare);
 	else
+	{
+		texture_override_cache_record_sets(upscaled_part, repair_on);
 		texture_records_listed = texture_override_cache_records(texture_record_directory(), format, compare);
+	}
 	texture_upscale_state_compare(&texture_upscale, (*override || texture_records_listed) && *compare);
 	texture_replacements_log("at the level's end");
 	/* (a new source of the first set: none of the old one's replacements stay) */

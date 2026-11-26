@@ -7,7 +7,7 @@ Port 0 is always connected: it is the keyboard and mouse, merged with the
 first SDL gamepad when one is present. Further SDL gamepads take ports 1-3.
 
 In the game the keyboard and mouse are a control scheme of their own
-(port/linux/include/halo_keyboard.h): config.toml's [controls] bind each of
+(port/linux/include/halo_keyboard.h): the player's profile binds each of
 the player's actions to up to two keys, mouse buttons or wheel turns
 (Settings > Controls Setup changes them), and the game takes the actions
 held (halo_keyboard_actions) with the controller's. They press none of its
@@ -41,6 +41,10 @@ drive the controller.
 #include "port_config.h"
 /* port/linux/game/network_aim_assist.c */
 extern unsigned char network_aim_assist_block_mouse(void);
+/* port/linux/game/player_input_profile.c: the input settings of a local player's profile */
+extern void player_input_profile_mouse(short local_player_index, unsigned short *sensitivity,
+	unsigned short *vertical_sensitivity, int *invert, int *aim_assist);
+extern unsigned short player_input_profile_binding(short local_player_index, short action, short slot);
 #include "halo_keyboard.h"
 #include "halo_controller_glyphs.h"
 #include "halo_ui_pointer.h"
@@ -61,14 +65,33 @@ extern unsigned char network_aim_assist_block_mouse(void);
 #include <stdint.h>
 
 #define PORT_COUNT 4
-static int glyph_keyboard_active;
-static int glyph_mouse_active;
+/* halo_controller_glyphs.h's modifier keys are SDL's */
+_Static_assert(HALO_GLYPH_SCANCODE_MODIFIER_FIRST == SDL_SCANCODE_LCTRL &&
+	HALO_GLYPH_SCANCODE_MODIFIER_LAST == SDL_SCANCODE_RGUI && HALO_GLYPH_SCANCODE_LEFT_GUI == SDL_SCANCODE_LGUI &&
+	HALO_GLYPH_SCANCODE_RIGHT_GUI == SDL_SCANCODE_RGUI && SDL_SCANCODE_RGUI - SDL_SCANCODE_LCTRL == 7 &&
+	HALO_GLYPH_KEY_MODIFIER_GUI == SDL_KMOD_GUI, "the modifier keys' numbers are SDL's");
+/* The input the menus and the prompts follow: the one record of it (halo_controller_glyphs.h), on every platform.
+It changes only through glyph_input_note, called by: the SDL event classifier (halo_controller_glyph_input_event,
+Apple builds), the host's pointer for what makes no SDL event (halo_controller_glyph_pointer_activity: fingers,
+pinches, scripted clicks), the desktop builds' polled keys and mouse (glyph_polled_activity) and menu pointer
+(halo_menu_pointer_activity), and the polled pads (glyph_pad_activity). The legend, the help wording
+(halo_menu_input_kind) and the option rows' controls (halo_menu_pointer_controls) all read glyph_input_shown. */
+static struct halo_glyph_input glyph_menu_input;
 #ifdef HALO_IOS
 static int glyph_menus_active;
-static struct halo_glyph_input glyph_menu_input;
 static int glyph_x_destructive;
 static int glyph_x_global;
 #endif
+
+/* the mouse's movement since another input was used (halo_glyph_motion_note) */
+static struct halo_glyph_motion glyph_mouse_motion;
+
+static void glyph_input_note(int source, unsigned int gamepad, int active)
+{
+	if (active && source != HALO_GLYPH_INPUT_MOUSE)
+		glyph_mouse_motion.x = glyph_mouse_motion.y = 0.0f;
+	glyph_menu_input = halo_glyph_input_note(glyph_menu_input, source, gamepad, active);
+}
 #define VK_OEM_3_BACKQUOTE 0xc0
 
 /* ---------- game hooks */
@@ -208,7 +231,6 @@ static void back_dpad(XINPUT_GAMEPAD *pad)
 		XINPUT_GAMEPAD_DPAD_RIGHT);
 }
 /* d3d8_device.c */
-int halo_knob_apply(const char *name, const char *value);
 void halo_knob_message(const char *text);
 
 float halo_knob_render_quality(void);
@@ -217,12 +239,13 @@ static void knob_current(const struct knob *knob, char *text, unsigned long size
 {
 	if (knob->kind == KNOB_REAL)
 		snprintf(text, size, "%.2f", halo_knob_render_quality());
+	/* (the value that draws in gameplay: a profile's scene or variable value until the knob sets one) */
 	else if (knob->kind == KNOB_INTEGER)
-		snprintf(text, size, "%ld", config_integer(knob->name));
+		snprintf(text, size, "%ld", config_scene_integer(knob->name, CONFIG_SCENE_GAMEPLAY));
 	else if (knob->kind == KNOB_BOOLEAN)
-		snprintf(text, size, "%s", config_boolean(knob->name) ? "true" : "false");
+		snprintf(text, size, "%s", config_scene_boolean(knob->name, CONFIG_SCENE_GAMEPLAY) ? "true" : "false");
 	else
-		snprintf(text, size, "%s", config_string(knob->name));
+		config_scene_string(knob->name, CONFIG_SCENE_GAMEPLAY, text, size);
 }
 
 /* debug.knob_cycle: while Back is held, the D-pad's up and down choose a quality setting (render lines, shadow map
@@ -260,8 +283,15 @@ static void knob_cycle_chord(XINPUT_GAMEPAD *pad)
 	{
 		if (knob_cycle_press(&state, select_delta, value_delta, knob_current, label, sizeof(label), &name, &value))
 		{
-			halo_knob_apply(name, value);
-			platform_log("knob: %s=%s", name, value);
+			char note[160];
+
+			if (!config_set_live(name, value, note, sizeof(note)))
+			{
+				/* (refused: the knob reads the setting in force again at its next press) */
+				snprintf(label, sizeof(label), "%s", note);
+				state.value[state.selected] = -1;
+			}
+			platform_log("knob: %s", note);
 		}
 		halo_knob_message(label);
 	}
@@ -448,25 +478,48 @@ static Uint64 stick_aimed_ms = 0;
 worn stick's drift */
 #define STICK_AIMING_DEFLECTION 8000
 
-/* (input.mouse_vertical_sensitivity, read with it) */
-static float vertical_sensitivity = 1.0f;
-
-static float mouse_sensitivity(void)
+/* The mouse's settings are those of the profile of the player on gamepad 0 (the keyboard and mouse belong to
+the first local player). An environment variable (HALO_MOUSE_SENSITIVITY, HALO_MOUSE_VERTICAL_SENSITIVITY,
+HALO_MOUSE_INVERT, HALO_MOUSE_AIM_ASSIST) overrides the profile for a run: the tools and tests pass settings that way */
+struct mouse_values
 {
-	static float sensitivity;
-	static unsigned long read_at = (unsigned long)-1;
+	float sensitivity;
+	float vertical_sensitivity;
+	int invert;
+	int aim_assist;
+};
 
-	if (read_at != config_changes())
+static void mouse_values_read(struct mouse_values *values)
+{
+	static int environment_read;
+	static double environment_sensitivity = -1.0, environment_vertical = -1.0;
+	static int environment_invert = -1, environment_aim_assist = -1;
+	unsigned short sensitivity, vertical;
+	int invert, aim_assist;
+
+	if (!environment_read)
 	{
-		read_at = config_changes();
-		sensitivity = (float)config_real("input.mouse_sensitivity");
-		if (sensitivity <= 0.0f)
-			sensitivity = 1.0f;
-		vertical_sensitivity = (float)config_real("input.mouse_vertical_sensitivity");
-		if (vertical_sensitivity <= 0.0f)
-			vertical_sensitivity = sensitivity;
+		const char *text;
+
+		environment_read = 1;
+		if ((text = getenv("HALO_MOUSE_SENSITIVITY")) && *text)
+			environment_sensitivity = atof(text);
+		if ((text = getenv("HALO_MOUSE_VERTICAL_SENSITIVITY")) && *text)
+			environment_vertical = atof(text);
+		if ((text = getenv("HALO_MOUSE_INVERT")) && *text)
+			environment_invert = !strcmp(text, "1") || !strcmp(text, "true");
+		if ((text = getenv("HALO_MOUSE_AIM_ASSIST")) && *text)
+			environment_aim_assist = !strcmp(text, "1") || !strcmp(text, "true");
 	}
-	return sensitivity;
+	player_input_profile_mouse(0, &sensitivity, &vertical, &invert, &aim_assist);
+	values->sensitivity = environment_sensitivity > 0.0 ? (float)environment_sensitivity : sensitivity / 100.0f;
+	if (values->sensitivity <= 0.0f)
+		values->sensitivity = 1.0f;
+	values->vertical_sensitivity = environment_vertical >= 0.0 ? (float)environment_vertical : vertical / 100.0f;
+	if (values->vertical_sensitivity <= 0.0f)
+		values->vertical_sensitivity = values->sensitivity;
+	values->invert = environment_invert >= 0 ? environment_invert : invert;
+	values->aim_assist = environment_aim_assist >= 0 ? environment_aim_assist : aim_assist;
 }
 
 /* radians of yaw and pitch for the mouse motion since the last call; the
@@ -475,19 +528,14 @@ int halo_linux_mouse_look(short gamepad_index, float *yaw, float *pitch)
 {
 	/* radians per pixel of relative motion at sensitivity 1 */
 	const float scale = 0.0022f;
-	static int invert;
-	static unsigned long read_at = (unsigned long)-1;
+	struct mouse_values mouse;
 	float x, y;
 
 	*yaw = 0.0f;
 	*pitch = 0.0f;
 	if (gamepad_index != 0)
 		return FALSE;
-	if (read_at != config_changes())
-	{
-		read_at = config_changes();
-		invert = config_boolean("input.invert_mouse");
-	}
+	mouse_values_read(&mouse);
 	pthread_mutex_lock(&mouse_lock);
 	x = mouse_pending_x;
 	y = mouse_pending_y;
@@ -497,29 +545,24 @@ int halo_linux_mouse_look(short gamepad_index, float *yaw, float *pitch)
 	pthread_mutex_unlock(&mouse_lock);
 	if (x == 0.0f && y == 0.0f)
 		return FALSE;
-	*yaw = -x * scale * mouse_sensitivity();
-	*pitch = (invert ? y : -y) * scale * vertical_sensitivity;
+	*yaw = -x * scale * mouse.sensitivity;
+	*pitch = (mouse.invert ? y : -y) * scale * mouse.vertical_sensitivity;
 	return TRUE;
 }
 
 /* whether the player on the gamepad aims with the mouse (it moved after the
-right stick last did) and input.mouse_aim_assist is off: then the view's
+right stick last did) and the profile's mouse aim assist is off: then the view's
 magnetism leaves them be (player_control.c); the bullets' autoaim stays */
 int halo_linux_mouse_aiming(short gamepad_index)
 {
-	static int aim_assist;
-	static unsigned long read_at = (unsigned long)-1;
+	struct mouse_values mouse;
 	int aiming;
 
 	if (gamepad_index != 0)
 		return FALSE;
-	if (read_at != config_changes())
-	{
-		read_at = config_changes();
-		aim_assist = config_boolean("input.mouse_aim_assist");
-	}
+	mouse_values_read(&mouse);
 	/* port: the host's policy blocks the mouse's magnetism whatever the setting */
-	if (aim_assist && !network_aim_assist_block_mouse())
+	if (mouse.aim_assist && !network_aim_assist_block_mouse())
 		return FALSE;
 	pthread_mutex_lock(&mouse_lock);
 	aiming = mouse_aimed_ms != 0 && mouse_aimed_ms >= stick_aimed_ms;
@@ -736,12 +779,13 @@ static void keys_held_over_switch(struct platform_input_state *input)
 
 #define MAXIMUM_BINDINGS 2
 
-static const char *const binding_settings[NUMBER_OF_HALO_KEYBOARD_ACTIONS] =
+/* (the environment's override of an action's bindings, HALO_KEY_<ACTION>, as the names the profile's menus show) */
+static const char *const binding_environment[NUMBER_OF_HALO_KEYBOARD_ACTIONS] =
 {
-	"controls.move_forward", "controls.move_backward", "controls.strafe_left", "controls.strafe_right",
-	"controls.jump", "controls.crouch", "controls.fire", "controls.throw_grenade", "controls.melee",
-	"controls.reload", "controls.zoom", "controls.switch_weapon", "controls.switch_grenade", "controls.action",
-	"controls.flashlight", "controls.scoreboard", "controls.pause",
+	"HALO_KEY_MOVE_FORWARD", "HALO_KEY_MOVE_BACKWARD", "HALO_KEY_STRAFE_LEFT", "HALO_KEY_STRAFE_RIGHT",
+	"HALO_KEY_JUMP", "HALO_KEY_CROUCH", "HALO_KEY_FIRE", "HALO_KEY_THROW_GRENADE", "HALO_KEY_MELEE",
+	"HALO_KEY_RELOAD", "HALO_KEY_ZOOM", "HALO_KEY_SWITCH_WEAPON", "HALO_KEY_SWITCH_GRENADE", "HALO_KEY_ACTION",
+	"HALO_KEY_FLASHLIGHT", "HALO_KEY_SCOREBOARD", "HALO_KEY_PAUSE",
 };
 
 static const struct
@@ -764,9 +808,8 @@ static const struct
 	{ "Wheel Down", INPUT_WHEEL_DOWN },
 };
 
-/* the bindings, read again when config.toml changes; -1 for none */
+/* the bindings, from the profile of the player on gamepad 0, read again at every poll; -1 for none */
 static int bindings[NUMBER_OF_HALO_KEYBOARD_ACTIONS][MAXIMUM_BINDINGS];
-static unsigned long bindings_read_at = (unsigned long)-1;
 static unsigned long keyboard_actions_held;
 
 /* (the C library's case: SDL's string functions are not the Android
@@ -821,18 +864,60 @@ void halo_input_name(int input, char *name, size_t size)
 		snprintf(name, size, "%s", "");
 }
 
+/* a profile's stable binding code (player_input_profile.h) as the runtime's input number, -1 for none */
+static int input_from_stable_code(unsigned short code)
+{
+	if (code == 0)
+		return -1;
+	if (code >= 0x200 && code < 0x200 + PLATFORM_MOUSE_BUTTON_COUNT)
+		return INPUT_MOUSE + (code - 0x200);
+	if (code == 0x300)
+		return INPUT_WHEEL;
+	if (code == 0x301)
+		return INPUT_WHEEL_UP;
+	if (code == 0x302)
+		return INPUT_WHEEL_DOWN;
+	return code < SDL_SCANCODE_COUNT ? (int)code : -1;
+}
+
+/* the runtime's input number as a stable code (0 for none) */
+unsigned short halo_input_stable_code(int input)
+{
+	if (input < 0)
+		return 0;
+	if (input < SDL_SCANCODE_COUNT)
+		return (unsigned short)input;
+	if (input >= INPUT_MOUSE && input < INPUT_WHEEL)
+		return (unsigned short)(0x200 + (input - INPUT_MOUSE));
+	if (input == INPUT_WHEEL)
+		return 0x300;
+	if (input == INPUT_WHEEL_UP)
+		return 0x301;
+	if (input == INPUT_WHEEL_DOWN)
+		return 0x302;
+	return 0;
+}
+
+int halo_input_from_stable(unsigned short code)
+{
+	return input_from_stable_code(code);
+}
+
 static void bindings_read(void)
 {
 	int action;
 
-	if (bindings_read_at == config_changes())
-		return;
-	bindings_read_at = config_changes();
 	for (action = 0; action < NUMBER_OF_HALO_KEYBOARD_ACTIONS; action++)
 	{
-		const char *text = config_string(binding_settings[action]);
+		const char *text = getenv(binding_environment[action]);
 		int slot;
 
+		if (!text)
+		{
+			for (slot = 0; slot < MAXIMUM_BINDINGS; slot++)
+				bindings[action][slot] = input_from_stable_code(player_input_profile_binding(0, (short)action, (short)slot));
+			continue;
+		}
 		for (slot = 0; slot < MAXIMUM_BINDINGS; slot++)
 		{
 			char name[64];
@@ -849,7 +934,7 @@ static void bindings_read(void)
 				name[strlen(name) - 1] = 0;
 			bindings[action][slot] = halo_input_from_name(name);
 			if (bindings[action][slot] < 0)
-				platform_log("controls: %s has no key or button named \"%s\"", binding_settings[action], name);
+				platform_log("controls: %s has no key or button named \"%s\"", binding_environment[action], name);
 			text += length;
 		}
 	}
@@ -1463,6 +1548,31 @@ int xinput_sdl_has_physical_gamepad(void)
 	return 0;
 }
 
+#ifdef HALO_IOS
+/* SDL sends an axis event for each change of a stick's value, so a stick held over keeps sending them as its value
+wavers. An axis counts when it crosses the dead zone, the rule a polled pad's controls follow
+(halo_glyph_held_started), kept for each of the pads last heard from. */
+static int glyph_axis_event_started(unsigned int gamepad, int axis, int value)
+{
+	static struct { unsigned int gamepad; struct halo_glyph_held held; } pads[PORT_COUNT];
+	static unsigned int next;
+	unsigned int controls;
+	int index;
+
+	if (axis < 0 || axis >= 32) return 0;
+	for (index = 0; index < PORT_COUNT && pads[index].gamepad != gamepad; index++);
+	if (index == PORT_COUNT)
+	{
+		index = (int)(next++ % PORT_COUNT);
+		pads[index].gamepad = gamepad;
+		pads[index].held.controls = 0;
+	}
+	controls = pads[index].held.controls & ~(1u << axis);
+	if (halo_glyph_axis_active(value, axis >= SDL_GAMEPAD_AXIS_LEFT_TRIGGER)) controls |= 1u << axis;
+	return halo_glyph_held_started(&pads[index].held, controls);
+}
+#endif
+
 /* Menu hints follow the last actual device event, including a second pad.
 The game's port assignment remains unchanged. */
 void halo_controller_glyph_input_event(union SDL_Event const *event)
@@ -1475,13 +1585,14 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 	{
 	case SDL_EVENT_KEY_DOWN:
 		source = HALO_GLYPH_INPUT_KEYBOARD;
-		active = !event->key.repeat && platform_menu_keyboard();
+		active = halo_glyph_key_active((int)event->key.scancode, event->key.mod, event->key.repeat,
+			platform_menu_keyboard());
 		break;
 	case SDL_EVENT_MOUSE_MOTION:
 		source = HALO_GLYPH_INPUT_MOUSE;
 		/* the host classified this event once (halo_pointer_gate_classify): a position report arrives with zero deltas */
 		active = event->motion.which != SDL_TOUCH_MOUSEID && event->motion.which != SDL_PEN_MOUSEID &&
-			halo_glyph_mouse_motion_active(event->motion.xrel, event->motion.yrel);
+			halo_glyph_motion_note(&glyph_mouse_motion, event->motion.xrel, event->motion.yrel);
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		source = HALO_GLYPH_INPUT_MOUSE;
@@ -1502,13 +1613,12 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 		break;
 	case SDL_EVENT_GAMEPAD_AXIS_MOTION:
 		gamepad = event->gaxis.which;
-		active = event->gaxis.axis >= SDL_GAMEPAD_AXIS_LEFT_TRIGGER ?
-			event->gaxis.value > 9000 : abs(event->gaxis.value) > 9000;
+		active = glyph_axis_event_started(event->gaxis.which, event->gaxis.axis, event->gaxis.value);
 		break;
 	default:
 		break;
 	}
-	glyph_menu_input = halo_glyph_input_note(glyph_menu_input, source, gamepad, active);
+	glyph_input_note(source, gamepad, active);
 #else
 	(void)event;
 #endif
@@ -1540,99 +1650,127 @@ void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer co
 	glyph_menus_active = menus != 0;
 	if (!menus || !pointer || !pointer->active ||
 		!(pointer->moved || pointer->left_clicks || pointer->right_clicks || pointer->wheel_steps)) return;
-	glyph_keyboard_active = pointer->radius > 0.0f ? -2 : 1;
-	if (pointer->radius <= 0.0f && (pointer->left_clicks || pointer->right_clicks))
-	{
-		/* a scripted or host-injected click emits no SDL event: count it as the mouse */
-		SDL_Event note;
-
-		memset(&note, 0, sizeof(note));
-		note.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
-		note.button.which = 1;
-		halo_controller_glyph_input_event(&note);
-	}
-	/* SDL already orders mouse events. This hook supplies UIKit finger and
-	Vision Pro gaze/pinch activity, which do not necessarily emit SDL events. */
+	/* SDL's events already note the mouse (halo_controller_glyph_input_event), its movement by one threshold.
+	This hook notes what makes no SDL event: a UIKit finger or a Vision Pro gaze and pinch (a positive radius),
+	and a scripted or host-injected click or wheel step. Mouse movement alone is left to the event. */
 	if (pointer->radius > 0.0f)
-		glyph_menu_input = halo_glyph_input_note(glyph_menu_input, HALO_GLYPH_INPUT_TOUCH, 0, 1);
-	glyph_mouse_active = pointer->radius <= 0.0f;
+		glyph_input_note(HALO_GLYPH_INPUT_TOUCH, 0, 1);
+	else
+		glyph_input_note(HALO_GLYPH_INPUT_MOUSE, 0, pointer->left_clicks || pointer->right_clicks || pointer->wheel_steps);
 #else
 	(void)menus; (void)pointer;
 #endif
 }
 
-static void glyph_keyboard_activity(struct platform_input_state const *input)
+#ifndef HALO_IOS
+/* The desktop builds read their keys and mouse once a frame, not as events: each counts when it starts
+(halo_glyph_edge), the mouse's movement by the same threshold as an event's. */
+static void glyph_polled_activity(struct platform_input_state const *input)
 {
-#ifdef HALO_IOS
-	int platform_menu_keyboard(void);
-#endif
+	static unsigned char keys_held[SDL_SCANCODE_COUNT];
+	static struct halo_glyph_edge buttons[PLATFORM_MOUSE_BUTTON_COUNT];
+	unsigned int modifiers;
 	int index;
+
 	if (!input->focused) return;
-	if (!input->mouse_released && (input->mouse_dx * input->mouse_dx + input->mouse_dy * input->mouse_dy >= 16.0f ||
-		input->mouse_wheel != 0.0f)) glyph_keyboard_active = glyph_mouse_active = 1;
-	for (index = 0; !input->mouse_released && index < PLATFORM_MOUSE_BUTTON_COUNT; index++)
-		if (input->mouse_buttons[index]) glyph_keyboard_active = glyph_mouse_active = 1;
-	/* UIKit's software keyboard also emits keys; it remains touch input. */
-#ifdef HALO_IOS
-	if (platform_menu_keyboard())
+	/* (the one modifier the rule reads: a key pressed with Command or the Windows key held is the system's) */
+	modifiers = input->keys[HALO_GLYPH_SCANCODE_LEFT_GUI] || input->keys[HALO_GLYPH_SCANCODE_RIGHT_GUI] ?
+		HALO_GLYPH_KEY_MODIFIER_GUI : 0;
+	if (!input->mouse_released)
+		glyph_input_note(HALO_GLYPH_INPUT_MOUSE, 0,
+			halo_glyph_motion_note(&glyph_mouse_motion, input->mouse_dx, input->mouse_dy) ||
+			input->mouse_wheel != 0.0f);
+	for (index = 0; index < PLATFORM_MOUSE_BUTTON_COUNT; index++)
+		glyph_input_note(HALO_GLYPH_INPUT_MOUSE, 0,
+			halo_glyph_edge(&buttons[index], !input->mouse_released && input->mouse_buttons[index]));
+	for (index = 0; index < SDL_SCANCODE_COUNT; index++)
+	{
+		struct halo_glyph_edge key = { keys_held[index] };
+
+		glyph_input_note(HALO_GLYPH_INPUT_KEYBOARD, 0,
+			halo_glyph_edge(&key, input->keys[index] != 0) && halo_glyph_key_active(index, modifiers, 0, 1));
+		keys_held[index] = (unsigned char)key.held;
+	}
+}
 #endif
-		for (index = 0; index < SDL_SCANCODE_COUNT; index++)
-			if (input->keys[index]) { glyph_keyboard_active = 1; glyph_mouse_active = 0; }
-}
 
-static int glyph_gamepad_active(XINPUT_GAMEPAD const *pad)
+/* a bit for each of a pad's controls in use: its sixteen buttons, eight analog buttons and four stick axes */
+static unsigned int glyph_gamepad_controls(XINPUT_GAMEPAD const *pad)
 {
+	short const sticks[] = { pad->sThumbLX, pad->sThumbLY, pad->sThumbRX, pad->sThumbRY };
+	unsigned int controls = pad->wButtons;
 	int index;
-	if (pad->wButtons || abs(pad->sThumbLX) > 9000 || abs(pad->sThumbLY) > 9000 ||
-		abs(pad->sThumbRX) > 9000 || abs(pad->sThumbRY) > 9000) return 1;
+
 	for (index = 0; index < 8; index++)
-		if (pad->bAnalogButtons[index] > 64) return 1;
-	return 0;
+		if (pad->bAnalogButtons[index] > 64) controls |= 1u << (16 + index);
+	for (index = 0; index < 4; index++)
+		if (halo_glyph_axis_active(sticks[index], 0)) controls |= 1u << (24 + index);
+	return controls;
 }
 
-/* The same state halo_controller_glyph_request reads for player 0, so help
-text names the input the legend's buttons are drawn for. */
+/* A pad read once a frame (controller 1's, the Sense controllers) counts when the use of any of its controls starts
+(halo_glyph_held_started). An event may already have named the pad in use (a second pad's): the record keeps it. */
+static void glyph_pad_activity(struct halo_glyph_held *held, XINPUT_GAMEPAD const *pad)
+{
+	if (halo_glyph_held_started(held, glyph_gamepad_controls(pad)) &&
+		glyph_menu_input.source != HALO_GLYPH_INPUT_CONTROLLER)
+		glyph_input_note(HALO_GLYPH_INPUT_CONTROLLER, 0, 1);
+}
+
+/* The record as it is shown: a development build's capture override (debug.controller_glyph_family, controller 1's
+part) stands in for it, in this one place, for the help wording and the rows' controls alike; overridden says
+whether it did. */
+static struct halo_glyph_input glyph_input_shown(int *overridden)
+{
+	int host_development_hooks(void);
+	struct halo_glyph_input shown = glyph_menu_input;
+
+	if (host_development_hooks())
+	{
+		const char *part = config_string("debug.controller_glyph_family");
+
+		if (*part && *part != ',')
+		{
+			if (overridden) *overridden = 1;
+			shown.gamepad = 0;
+			shown.source = !strncmp(part, "keyboard", 8) ? HALO_GLYPH_INPUT_KEYBOARD :
+				!strncmp(part, "touch", 5) ? HALO_GLYPH_INPUT_TOUCH : HALO_GLYPH_INPUT_CONTROLLER;
+		}
+	}
+	return shown;
+}
+
+/* The shown record halo_controller_glyph_request reads, so help text names the input the legend's buttons are
+drawn for. */
 int halo_menu_input_kind(void)
 {
-	int host_development_hooks(void);
-	/* Development builds follow the same family override the legend does (debug.controller_glyph_family). */
-	if (host_development_hooks())
-	{
-		const char *part = config_string("debug.controller_glyph_family");
-		if (!strncmp(part, "keyboard", 8)) return HALO_INPUT_KEYBOARD;
-		if (!strncmp(part, "touch", 5)) return HALO_INPUT_TOUCH;
-		if (*part && *part != ',') return HALO_INPUT_CONTROLLER;
-	}
-#ifdef HALO_IOS
-	/* Mouse help text uses the keyboard family; only the legend glyphs differ. */
-	if (glyph_menu_input.source == HALO_GLYPH_INPUT_KEYBOARD ||
-		glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE) return HALO_INPUT_KEYBOARD;
-	if (glyph_menu_input.source == HALO_GLYPH_INPUT_TOUCH) return HALO_INPUT_TOUCH;
+	int overridden = 0;
+	struct halo_glyph_input shown = glyph_input_shown(&overridden);
+
+#ifndef HALO_IOS
+	/* (the desktop builds draw the game's own controller legend, so their wording stays the controller's) */
+	if (!overridden) return HALO_INPUT_CONTROLLER;
 #endif
-	return HALO_INPUT_CONTROLLER;
+	return halo_glyph_input_kind(shown);
 }
 
-/* Desktop menu motion bypasses platform_input_state while its pointer is active. */
+/* The menus' own pointer (ui_widget.c). On the desktop builds it is the only report of the menus' mouse, whose
+motion bypasses platform_input_state while the pointer is active; the Apple builds' pointer is the host's, noted by
+halo_controller_glyph_pointer_activity and SDL's events. */
 void halo_menu_pointer_activity(struct halo_ui_pointer const *pointer)
 {
+#ifndef HALO_IOS
 	if (!(pointer->moved || pointer->left_clicks || pointer->right_clicks || pointer->wheel_steps)) return;
-	glyph_keyboard_active = pointer->radius > 0 ? -2 : 1;
-	glyph_mouse_active = pointer->radius == 0;
+	glyph_input_note(pointer->radius > 0 ? HALO_GLYPH_INPUT_TOUCH : HALO_GLYPH_INPUT_MOUSE, 0, 1);
+#else
+	(void)pointer;
+#endif
 }
 
-/* Pointer controls distinguish a hardware key from the mouse without changing legends. */
+/* An option row's controls for the input in use: 0 arrows, 1 mouse, 2 finger or pinch. */
 int halo_menu_pointer_controls(void)
 {
-	int host_development_hooks(void);
-	if (host_development_hooks())
-	{
-		const char *part = config_string("debug.controller_glyph_family");
-		if (!strncmp(part, "touch", 5)) return 2;
-		if (*part && *part != ',') return 0;
-	}
-	if (glyph_keyboard_active == -2) return 2;
-	if (glyph_keyboard_active == 1 && glyph_mouse_active) return 1;
-	return 0;
+	return halo_glyph_input_pointer_controls(glyph_input_shown(NULL));
 }
 
 /* Controller prompts share input's port assignment; keyboard actions retain
@@ -1642,6 +1780,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 #ifdef HALO_IOS
 	SDL_Gamepad *gamepads[PORT_COUNT];
 	SDL_Gamepad *pad;
+	struct halo_glyph_input shown;
 	char family[24] = {0};
 	int count, kind, action;
 	int host_development_hooks(void);
@@ -1666,18 +1805,16 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 			memcpy(family, part, length);
 		}
 	}
+	/* The input as it is shown (glyph_input_shown), the one the help wording and the rows' controls read. A family
+	named above is this controller's part of the capture override, which may name a controller's art. */
+	shown = glyph_input_shown(NULL);
 	if (!family[0] && (player == 0 || glyph_menus_active))
-	{
-		int source = glyph_menus_active ? glyph_menu_input.source : glyph_keyboard_active;
-		/* The mouse uses the keyboard family; its main and secondary labels draw as lit mouse art. */
-		if (source == HALO_GLYPH_INPUT_KEYBOARD || source == HALO_GLYPH_INPUT_MOUSE) strcpy(family, "keyboard");
-		else if (source == HALO_GLYPH_INPUT_TOUCH) strcpy(family, "touch");
-	}
+		snprintf(family, sizeof(family), "%s", halo_glyph_input_family(shown));
 	count = sdl_gamepads(gamepads);
 	pad = port_gamepad(gamepads, count, player);
-	if (glyph_menus_active && !family[0] && glyph_menu_input.gamepad)
+	if (glyph_menus_active && !family[0] && shown.gamepad)
 	{
-		SDL_Gamepad *last = SDL_GetGamepadFromID(glyph_menu_input.gamepad);
+		SDL_Gamepad *last = SDL_GetGamepadFromID(shown.gamepad);
 		if (last) pad = last;
 	}
 	kind = host_sdl_gamepad_glyph((unsigned int)(uintptr_t)pad, physical, family, label, size, player, glyph_menus_active);
@@ -1685,7 +1822,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	if (kind != HALO_GLYPH_KEYCAP || (player != 0 && !glyph_menus_active && strcmp(family, "keyboard")))
 		return kind == HALO_GLYPH_KEYCAP ? HALO_GLYPH_ORIGINAL : kind;
 	/* The mouse legend lights the button that acts: left for the main action, right for the secondary. */
-	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && (semantic == 28 || (physical == 2 && !glyph_x_global)))
+	if (glyph_menus_active && shown.source == HALO_GLYPH_INPUT_MOUSE && (semantic == 28 || (physical == 2 && !glyph_x_global)))
 	{
 		snprintf(label, size, semantic == 28 ? "Mouse Left" : "Mouse Right");
 		return HALO_GLYPH_KEYCAP;
@@ -1707,7 +1844,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 		}
 		return HALO_GLYPH_ORIGINAL;
 	}
-	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
+	if (glyph_menus_active && shown.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
 		snprintf(label, size, "Delete");
 	else if (semantic == 28 || semantic == 29)
 		snprintf(label, size, "%s", semantic == 28 ? "Enter" : "Escape");
@@ -2037,8 +2174,9 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		platform_input_read(&input, TRUE);
 #ifdef HALO_IOS
 		glyph_menus_active = input.menus != FALSE;
+#else
+		glyph_polled_activity(&input);
 #endif
-		glyph_keyboard_activity(&input);
 		mouse_poll(&input);
 		wheel_update();
 		keyboard_actions_held = 0;
@@ -2052,9 +2190,10 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		}
 		if (port_gamepad(gamepads, count, 0))
 		{
+			static struct halo_glyph_held pad_use;
 			XINPUT_GAMEPAD activity = {0};
 			sdl_gamepad_state(gamepads[0], &activity);
-			if (glyph_gamepad_active(&activity)) glyph_keyboard_active = 0;
+			glyph_pad_activity(&pad_use, &activity);
 			sdl_gamepad_state(gamepads[0], &state->Gamepad);
 		}
 		/* the Sense controllers, before the test input and the replay
@@ -2063,9 +2202,10 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		sense_gamepad_state(input.menus != FALSE, &state->Gamepad);
 #ifdef HALO_IOS
 		{
+			static struct halo_glyph_held sense_use;
 			XINPUT_GAMEPAD activity = {0};
 			sense_gamepad_state(input.menus != FALSE, &activity);
-			if (glyph_gamepad_active(&activity)) glyph_keyboard_active = 0;
+			glyph_pad_activity(&sense_use, &activity);
 		}
 #endif
 		probe_policy = mp_benchmark_probe_or_test_gamepad(&state->Gamepad, port);

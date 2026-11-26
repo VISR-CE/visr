@@ -26,7 +26,7 @@ static float screen_scale[2] = { 2, 2 }, screen_scale_ceiling[2] = { 2, 2 };
 static float screen_scale_mono[2], screen_scale_native[2];
 static int screen_dynamic = 1, released, release_pooled;
 static double render_scale_live = -1;
-static long benchmark_render_lines, knob_render_lines;
+static long benchmark_render_lines;
 static struct probe_stereo { int foveated; } probe_stereo;
 static const struct probe_stereo *halo_stereo_frame(void) { return &probe_stereo; }
 static int head_eyes_frame(void) { return 0; }

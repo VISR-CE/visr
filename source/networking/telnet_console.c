@@ -48,6 +48,7 @@ symbols in this file:
 #include "bungie_net/network/transport_endpoint.h"
 #include "hs/hs.h"
 #include "networking/telnet_console.h"
+#include "console_config.h" /* port: the console's visr_* commands, development builds only */
 
 /* ---------- constants */
 
@@ -367,6 +368,18 @@ static boolean process_telnet_client_buffer(
 					expression[TELNET_CLIENT_BUFFER_SIZE-1] = 0;
 					client->buffer[0] = 0;
 
+					/* port: a visr_* command (console_config.c: visr_set, visr_cinematic; development builds only) instead of a script */
+					{
+						char reply[TELNET_CLIENT_BUFFER_SIZE*3];
+
+						if (console_config_command(expression, reply, sizeof(reply)))
+						{
+							telnet_client_write(client, "\r\n", 2);
+							telnet_client_write(client, reply, csstrlen(reply));
+							telnet_client_write(client, "\r\n", 2);
+							continue;
+						}
+					}
 					if (hs_compile_and_evaluate(expression))
 					{
 						telnet_client_write(client, "\r\n", 2);

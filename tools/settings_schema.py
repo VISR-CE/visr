@@ -62,6 +62,7 @@ def config_settings(text=None):
     if remainder.strip(' \t\n{},') or not entries:
         raise ValueError('unrecognized config_settings syntax; update the generator')
     result = {}
+    launch_only = launch_only_settings(text)
     for entry in entries:
         name, kind, default, environment, style, platform, comment, tier, choices = entry.groups()
         name = c_string(name)
@@ -94,8 +95,26 @@ def config_settings(text=None):
             if kind != 'string':
                 raise ValueError(f'{name}: choices on a {kind} setting')
             item['x-choices'] = c_string(choices)
+        if name in launch_only:
+            item['x-live'] = False
         result[name] = item
+    unknown = launch_only - set(result)
+    if unknown:
+        raise ValueError(f'config_launch_only names no setting: {sorted(unknown)}')
     return result
+
+
+def launch_only_settings(text):
+    """the names in port_config.c's config_launch_only: settings a running game does not read again (x-live false;
+    config_set_live refuses them)"""
+    match = re.search(r'static const char \*const config_launch_only\[\] =\s*\{(.*?)\n\};', text, re.S)
+    if not match:
+        raise ValueError('port_config.c has no config_launch_only list; update the generator')
+    body = re.sub(r'/\*.*?\*/', '', match.group(1), flags=re.S)
+    names = [c_string(literal) for literal in re.findall(C_STRING, body)]
+    if body.replace(',', ' ').split() != [f'"{name}"' for name in names]:
+        raise ValueError('unrecognized config_launch_only syntax; update the generator')
+    return set(names)
 
 
 def setting_tier(name, item, profile_keys=None):

@@ -11,6 +11,7 @@ host_photo_mode_available
 host_photo_mode_overlay
 host_map_pictures_keep_awake
 host_map_pictures_import_stage
+host_map_pictures_begin_refresh
 host_map_pictures_import_progress
 host_map_pictures_import_done
 host_map_framings_feed_path
@@ -124,6 +125,18 @@ host_ssao_apply
 # soft particle edges (d3d8_device.c, gpu_metal.m)
 host_soft_depth_prepare
 host_soft_depth_finish
+# the present pass (gpu_metal.m): debug.knob_cycle's present dither
+host_present_dither_set
+host_stereo_replay_begin
+host_stereo_replay_eye
+host_stereo_replay_constants
+host_stereo_replay_constants_end
+host_stereo_replay_end
+host_stereo_replay_live_end
+# traced object shadows (display.traced_shadows; port/linux/game/traced_shadow_casters.c, d3d8_device.c, gpu_metal.m)
+host_traced_shadows_ready
+host_traced_shadows_data
+host_traced_shadows_resolve
 # stereo (halo_stereo.h)
 host_stereo_frame
 host_stereo_entered
@@ -163,6 +176,7 @@ host_external_mode_label
 host_dynamic_resolution_lines
 host_dynamic_resolution_scene
 host_frames_in_flight_scene
+host_encode_thread_scene
 
 host_touch_replay_active
 host_memory_pressure_poll

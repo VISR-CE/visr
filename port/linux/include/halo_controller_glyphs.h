@@ -60,6 +60,19 @@ static inline int halo_glyph_mouse_motion_active(float dx, float dy)
 	return dx * dx + dy * dy >= HALO_GLYPH_MOUSE_MOTION_THRESHOLD * HALO_GLYPH_MOUSE_MOTION_THRESHOLD;
 }
 
+/* The distance is summed over the motion reports since another input was last used: a mouse reporting a point at a
+time has moved as far after a few reports as one report of a fast one, while a desk's wobble sums to nothing. */
+struct halo_glyph_motion { float x, y; };
+
+static inline int halo_glyph_motion_note(struct halo_glyph_motion *motion, float dx, float dy)
+{
+	motion->x += dx;
+	motion->y += dy;
+	if (!halo_glyph_mouse_motion_active(motion->x, motion->y)) return 0;
+	motion->x = motion->y = 0.0f;
+	return 1;
+}
+
 union SDL_Event;
 void halo_controller_glyph_input_event(union SDL_Event const *event);
 
@@ -88,6 +101,82 @@ enum { HALO_INPUT_KEYBOARD, HALO_INPUT_CONTROLLER, HALO_INPUT_TOUCH };
 int halo_menu_input_kind(void);
 /* 0 keyboard/controller, 1 mouse, 2 finger or pinch. */
 int halo_menu_pointer_controls(void);
+
+/* One record says which input the menus and the prompts follow (xinput_sdl.c's glyph_menu_input), and
+halo_glyph_input_note is the only way it changes. Everything drawn for an input is read off that record by the two
+functions below and by the legend's family, so the legend, the help wording and an option row's arrows or controls
+cannot disagree. */
+
+/* the help wording's input: the mouse reads as the keyboard, only its legend art differs */
+static inline int halo_glyph_input_kind(struct halo_glyph_input input)
+{
+	return input.source == HALO_GLYPH_INPUT_KEYBOARD || input.source == HALO_GLYPH_INPUT_MOUSE ? HALO_INPUT_KEYBOARD :
+		input.source == HALO_GLYPH_INPUT_TOUCH ? HALO_INPUT_TOUCH : HALO_INPUT_CONTROLLER;
+}
+
+/* an option row's controls (halo_menu_row.h): 0 arrows for a keyboard or a controller, 1 mouse, 2 finger or pinch */
+static inline int halo_glyph_input_pointer_controls(struct halo_glyph_input input)
+{
+	return input.source == HALO_GLYPH_INPUT_MOUSE ? 1 : input.source == HALO_GLYPH_INPUT_TOUCH ? 2 : 0;
+}
+
+/* the legend's art: a controller's own (""), the keyboard's keycaps, which the mouse shares (its main and secondary
+labels draw as mouse art), or touch's */
+static inline char const *halo_glyph_input_family(struct halo_glyph_input input)
+{
+	return input.source == HALO_GLYPH_INPUT_KEYBOARD || input.source == HALO_GLYPH_INPUT_MOUSE ? "keyboard" :
+		input.source == HALO_GLYPH_INPUT_TOUCH ? "touch" : "";
+}
+
+/* SDL's numbers for the modifier keys, which this header cannot include SDL for (xinput_sdl.c, which does, asserts
+them): the scancodes of the left and right Control, Shift, Alt and GUI keys are one run, and the GUI key (Command, or
+the Windows key) has a modifier bit for each side. */
+#define HALO_GLYPH_SCANCODE_MODIFIER_FIRST 224
+#define HALO_GLYPH_SCANCODE_LEFT_GUI 227
+#define HALO_GLYPH_SCANCODE_RIGHT_GUI 231
+#define HALO_GLYPH_SCANCODE_MODIFIER_LAST 231
+#define HALO_GLYPH_KEY_MODIFIER_GUI 0x0C00u
+
+/* Whether a key going down is the player using the keyboard: not a repeat, a hardware keyboard (a software one's
+keys stay touch input), and not a modifier alone or a chord with Command or the Windows key, which belong to the
+system (the Command of Command-Tab is not the player choosing the keyboard). */
+static inline int halo_glyph_key_active(int scancode, unsigned int modifiers, int repeat, int hardware_keyboard)
+{
+	return !repeat && hardware_keyboard &&
+		!(scancode >= HALO_GLYPH_SCANCODE_MODIFIER_FIRST && scancode <= HALO_GLYPH_SCANCODE_MODIFIER_LAST) &&
+		!(modifiers & HALO_GLYPH_KEY_MODIFIER_GUI);
+}
+
+/* Held state read once a frame (a pad's sticks and buttons, a desktop build's keys) counts when it starts, never
+while it lasts: a key or a stick held through a mouse movement must not take the prompts back every frame. */
+struct halo_glyph_edge { int held; };
+
+static inline int halo_glyph_edge(struct halo_glyph_edge *edge, int held)
+{
+	int started = held && !edge->held;
+
+	edge->held = held;
+	return started;
+}
+
+/* A pad read once a frame has a bit for each control in use (a button, a trigger, a stick's axis), and one counts
+when it starts though others are held: a button pressed with a stick still pushed over is the player using the pad. */
+#define HALO_GLYPH_STICK_DEAD_ZONE 9000
+
+/* a stick's axis reads both ways, a trigger's one */
+static inline int halo_glyph_axis_active(int value, int trigger)
+{
+	return value > HALO_GLYPH_STICK_DEAD_ZONE || (!trigger && value < -HALO_GLYPH_STICK_DEAD_ZONE);
+}
+struct halo_glyph_held { unsigned int controls; };
+
+static inline int halo_glyph_held_started(struct halo_glyph_held *held, unsigned int controls)
+{
+	int started = (controls & ~held->controls) != 0;
+
+	held->controls = controls;
+	return started;
+}
 struct halo_ui_pointer;
 void halo_menu_pointer_activity(struct halo_ui_pointer const *pointer);
 int halo_controller_glyph_request(short player, short semantic, short physical, char *label, unsigned int size);

@@ -412,6 +412,67 @@ void rasterizer_window_begin(
 	struct rasterizer_window_begin_parameters const *parameters);
 void rasterizer_window_end(
 	void);
+/* port: debug.stereo_replay (the second-eye replay design): eye 1's camera
+and frustum while eye 0's pass draws for both eyes (NULL: none), and the
+swap a site that stores values from the eye's camera makes to compute eye
+1's (rasterizer_xbox.c); begin answers FALSE outside such a pass */
+void rasterizer_stereo_replay_eye(
+	struct render_camera const *camera,
+	struct render_frustum const *frustum);
+boolean rasterizer_other_eye_begin(
+	void);
+void rasterizer_other_eye_end(
+	void);
+/* port: eye 0's pass draws eye 1's own draws too, and not through constants
+(the replay is on, not verify): a site that queues and draws for each eye (lens
+flares) does so only then */
+boolean rasterizer_other_eye_draws(
+	void);
+/* port: eye 1's value of a vertex constant block the game just stored from eye
+0's window state, for the second eye's replay. build(context, constants) fills
+constants (count rows of four, held in the register numbering from first)
+between rasterizer_other_eye_begin and _end, so it reads eye 1's window state;
+the helper then holds them for eye 1. A site calls it after its own store of
+eye 0's block, and does nothing outside a replay. constants_send holds rows a
+site already computed for eye 1 (tools/stereo_eye_sites.py names every site) */
+typedef void (*rasterizer_eye_constants_builder)(void const *context, real (*constants)[4]);
+void rasterizer_eye_constants(
+	short first,
+	short count,
+	real (*constants)[4],
+	rasterizer_eye_constants_builder build,
+	void const *context);
+void rasterizer_eye_constants_send(
+	short first,
+	short count,
+	real const (*constants)[4]);
+/* port: run draw once for eye 0 and, when the replay draws for both eyes
+(rasterizer_other_eye_draws), once more for eye 1 inside
+rasterizer_other_eye_begin and _end, each pass's records marked for its eye */
+void rasterizer_for_each_eye(
+	void (*draw)(void));
+/* port: node matrices a site builds from the eye's own position (the sky,
+far scenery): in eye 0's pass of a replay, build is called again between
+rasterizer_other_eye_begin and _end (halo_stereo_eye_position then answers
+eye 1's), and the skinnings of eye_0's matrices send eye 1's too. Every such
+site goes through this (tools/stereo_eye_sites.py checks) */
+typedef void (*rasterizer_eye_matrices_builder)(void *context, real_matrix4x3 *matrices, short count);
+void rasterizer_eye_matrices(
+	real_matrix4x3 const *eye_0,
+	short count,
+	rasterizer_eye_matrices_builder build,
+	void *context);
+/* port: matrices computed from a pair's eye 0 matrices (render_model's
+relative matrices): eye 1's of a pair, or NULL; and a derived pair, eye 1's
+computed the same way from eye 1's */
+real_matrix4x3 const *rasterizer_eye_matrices_other(
+	real_matrix4x3 const *eye_0,
+	short count);
+void rasterizer_eye_matrices_derived(
+	real_matrix4x3 const *eye_0,
+	real_matrix4x3 const *eye_1,
+	short count);
+
 /* port: the render target's viewport while split screen's full HUD draws in a
 one-player layout (hud_full_layout_begin); NULL goes back to the camera's */
 void rasterizer_hud_layout_viewport(

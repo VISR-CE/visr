@@ -48,6 +48,60 @@ void texture_upscale_reader_probe(const char *directory, uint32_t format, const 
     assert(uploaded_bytes == expected_layout.payload_size && texture_override_cache()->bytes == uploaded_bytes);
     texture_override_cache_map_loaded(0);
     assert(!live_textures);
+    /* The texture repair's record of the same texture has a file of its own, chosen by the manifest that lists it
+    (bug class: two stores writing one file, so the one listed reads the other's bytes). With the upscaled file moved
+    away, the repaired file and manifest must serve when only the repaired set is listed, and nothing when only the
+    upscaled set is. */
+    {
+        char plain[512], moved[512], repaired[512], manifest[512], repaired_manifest[512], line[512];
+        FILE *in, *out;
+
+        texture_record_file_path(plain, sizeof(plain), directory, 0x71, 4, 4, TEXTURE_RECORD_UPSCALED);
+        snprintf(moved, sizeof(moved), "%s.away", plain);
+        assert(!rename(plain, moved));
+        texture_record_file_path(repaired, sizeof(repaired), directory, 0x71, 4, 4, TEXTURE_RECORD_REPAIRED);
+        out = fopen(repaired, "wb"); assert(out);
+        assert(fwrite(record, 1, size, out) == size); assert(!fclose(out));
+        snprintf(manifest, sizeof(manifest), "%s/manifest.tsv", directory);
+        snprintf(repaired_manifest, sizeof(repaired_manifest), "%s/manifest-repair.tsv", directory);
+        in = fopen(manifest, "r"); out = fopen(repaired_manifest, "w"); assert(in && out);
+        while (fgets(line, sizeof(line), in))
+            fputs(line, out);
+        fclose(in); assert(!fclose(out));
+        texture_override_cache_record_sets(0, 1);
+        assert(texture_override_cache_records(directory, format, "") == 1);
+        texture_override_cache_map_loaded(1);
+        memset(&reference, 0, sizeof(reference)); levels = 0; uploaded_levels = 0; uploaded_bytes = 0;
+        assert(texture_override_cache_find(&reference, 0x71, 4, 4, &levels, &fallback));
+        assert(levels == expected_layout.levels && uploaded_levels == levels && live_textures == 1);
+        texture_override_cache_map_loaded(0);
+        texture_override_cache_record_sets(1, 0);
+        assert(texture_override_cache_records(directory, format, "") == 1);
+        texture_override_cache_map_loaded(1);
+        memset(&reference, 0, sizeof(reference)); levels = 0; uploaded_levels = 0;
+        assert(!texture_override_cache_find(&reference, 0x71, 4, 4, &levels, &fallback));
+        texture_override_cache_map_loaded(0);
+        assert(!live_textures);
+        /* both files present, the repaired one unusable: each set reads only its own file */
+        assert(!rename(moved, plain));
+        out = fopen(repaired, "wb"); assert(out);
+        assert(fwrite("bad", 1, 3, out) == 3); assert(!fclose(out));
+        texture_override_cache_record_sets(1, 0);
+        assert(texture_override_cache_records(directory, format, "") == 1);
+        texture_override_cache_map_loaded(1);
+        memset(&reference, 0, sizeof(reference)); levels = 0; uploaded_levels = 0; uploaded_bytes = 0;
+        assert(texture_override_cache_find(&reference, 0x71, 4, 4, &levels, &fallback));
+        texture_override_cache_map_loaded(0);
+        texture_override_cache_record_sets(0, 1);
+        assert(texture_override_cache_records(directory, format, "") == 1);
+        texture_override_cache_map_loaded(1);
+        memset(&reference, 0, sizeof(reference)); levels = 0; uploaded_levels = 0;
+        assert(!texture_override_cache_find(&reference, 0x71, 4, 4, &levels, &fallback));
+        texture_override_cache_map_loaded(0);
+        assert(!live_textures);
+        remove(repaired); remove(repaired_manifest);
+        texture_override_cache_record_sets(1, 0);
+    }
     /* Corruption must be refused before any GPU allocation or block upload. */
     char path[512];
     snprintf(path, sizeof(path), "%s/0000000000000071-4x4.bin", directory);

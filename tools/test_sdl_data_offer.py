@@ -7,6 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from harness import function, mutated  # noqa: E402
+from probe_timeouts import PROBE_RUN_SECONDS  # noqa: E402
 
 SOURCE = (ROOT / "port/linux/src/sdl_platform.c").read_text()
 PRELUDE = r'''
@@ -105,7 +106,7 @@ def compile_probe(tmp_path, *, missing_failure_signal=False):
 
 
 def run_case(binary, mode):
-    return subprocess.run([str(binary), str(mode)], capture_output=True, text=True, timeout=2)
+    return subprocess.run([str(binary), str(mode)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
 
 
 def test_dialog_failure_cancel_and_extraction_retry(tmp_path):

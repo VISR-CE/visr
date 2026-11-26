@@ -4,6 +4,7 @@ back, so with force: a UDP socket keeps its descriptor, its port, its
 options and its non-blocking mode and takes datagrams again; a listening TCP
 socket keeps its port and takes connections; a TCP connection is left alone;
 a socket closed is forgotten. Run by tools/ios_test.py. */
+#include "test_wait.h"
 #include "host_socket_revival.h"
 
 #include <arpa/inet.h>
@@ -95,12 +96,10 @@ int main(void)
 	assert(fcntl(udp, F_GETFL) & O_NONBLOCK);
 	{
 		int sender = socket(AF_INET, SOCK_DGRAM, 0);
-		int tries;
 
 		loopback(&address, udp_port);
 		assert(sendto(sender, "ping", 4, 0, (struct sockaddr *)&address, sizeof(address)) == 4);
-		for (tries = 0; tries < 100 && recv(udp, text, sizeof(text) - 1, 0) < 0; tries++)
-			usleep(10000);
+		TEST_WAIT_UNTIL(recv(udp, text, sizeof(text) - 1, 0) >= 0);
 		assert(!strcmp(text, "ping"));
 		close(sender);
 	}

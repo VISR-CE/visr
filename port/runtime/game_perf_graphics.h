@@ -2,7 +2,7 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
-#define GAME_PERF_GRAPHICS_MAX_KEYS 128
+#define GAME_PERF_GRAPHICS_MAX_KEYS 192
 #define GAME_PERF_GRAPHICS_NAME_BYTES 48
 #define GAME_PERF_GRAPHICS_STRING_BYTES 80
 enum game_perf_graphics_type {
@@ -45,5 +45,5 @@ int config_graphics_settings_snapshot(int scene, struct game_perf_graphics_snaps
 GAME_PERF_GRAPHICS_ASSERT(offsetof(struct game_perf_graphics_value, value) == 56, "graphics value ABI offset");
 GAME_PERF_GRAPHICS_ASSERT(sizeof(struct game_perf_graphics_value) == 136, "graphics value ABI size");
 GAME_PERF_GRAPHICS_ASSERT(offsetof(struct game_perf_graphics_snapshot, entries) == 32, "graphics snapshot ABI offset");
-GAME_PERF_GRAPHICS_ASSERT(sizeof(struct game_perf_graphics_snapshot) == 17440, "graphics snapshot ABI size");
+GAME_PERF_GRAPHICS_ASSERT(sizeof(struct game_perf_graphics_snapshot) == 26144, "graphics snapshot ABI size");
 #undef GAME_PERF_GRAPHICS_ASSERT

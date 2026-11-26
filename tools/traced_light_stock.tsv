@@ -1,0 +1,89 @@
+light	owner_kind	owner_group	traced	maps
+characters\cyborg\flashlight_cyborg	attached	bipd	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+characters\marine_armored\flashlight_marine	attached	weap	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+characters\monitor\monitor dynamic	attached	bipd	yes	c10,c20,c40,d40
+characters\monitor\monitor dynamic small	attached	bipd	yes	d40
+cinematics\effects\cortana powerup fx\cortana powerup	attached	mach	no	c40
+cinematics\effects\teleportation\teleportation	effect	mach	no	c10,c20,c40,d20
+effects\lights\coop teleport	effect	matg	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+effects\lights\coop teleport circular	effect	matg	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+effects\lights\large explosion	effect	coll	yes	a30,a50,b30,b40,c40,d20,d40
+effects\lights\large explosion	effect	mach	no	c10,c40
+effects\lights\large explosion	effect	vehi	yes	a50,b40,c40
+effects\lights\large explosion	scripted effect	scnr	scripted	a10,c10,c40,d40
+effects\lights\large explosion small flare	scripted effect	scnr	scripted	d40
+levels\a10\devices\alert_light\alert_light	attached	mach	no	a10,d40,wizard
+levels\a10\devices\command display\command display	attached	mach	no	a10
+levels\a10\devices\lifepod device\effects\lifepod explosion	scripted effect	scnr	scripted	a10
+levels\a10\devices\shield charge\shield charge	attached	mach	no	a10
+levels\a10\devices\shield charge\shield charge ring	attached	mach	no	a10
+levels\a10\devices\space_battle\explosion_space	effect	mach	no	a10
+levels\a30\devices\beam emitter\beam	attached	mach	no	a30
+levels\a30\devices\beam emitter\beam	attached	proj	yes	a10
+levels\a30\devices\torpedo_bridge\light emitter	attached	mach	no	a30
+levels\a30\scenery\holo control indicator\holo indicator	attached	scen	no	a30
+levels\a50\devices\small door\small door light	attached	mach	no	a50,d20
+levels\b30\devices\doors\door small\locklight	effect	weap	yes	a10,b40,beavercreek,bloodgulch,boardingaction,carousel,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+levels\b30\devices\interior tech objects\holo beam tube\holo beam	attached	mach	no	b30
+levels\b30\devices\interior tech objects\holo control ring\holo control ring	attached	mach	no	b30
+levels\b30\devices\interior tech objects\holo control room display\light	attached	mach	no	b30,d20
+levels\b30\devices\interior tech objects\holo control room display\sentinel light	attached	mach	no	b30,d20
+levels\b30\devices\interior tech objects\holo warning light	attached	ctrl	no	b30,c20
+levels\b40\devices\b40_generator_fx\generator	attached	mach	no	c40
+levels\b40\devices\b40_generator_fx\generator overload	attached	mach	no	c40
+levels\b40\scenery\b40_doorblinker\doorblinker	attached	scen	no	b40,bloodgulch,c40
+levels\c10\scenery\cyan point light\blink cyan dynamic	attached	scen	no	c10
+levels\c10\scenery\cyan point light\cyan dynamic	attached	scen	no	c10
+levels\c10\scenery\cyan point light\jitter cyan dynamic	attached	scen	no	c10
+levels\c10\scenery\green point light\blink green dynamic	attached	scen	no	c10
+levels\c10\scenery\green point light\green dynamic	attached	scen	no	c10
+levels\c10\scenery\green point light\jitter green dynamic	attached	scen	no	c10
+levels\c10\scenery\orange point light\blink orange dynamic	attached	scen	no	a30,c10
+levels\c10\scenery\orange point light\jitter orange dynamic	attached	scen	no	c10
+levels\c10\scenery\orange point light\orange dynamic	attached	scen	no	c10
+levels\c10\scenery\red point light\blink red dynamic	attached	scen	no	c10
+levels\c10\scenery\red point light\blink red dynamic large	attached	scen	no	c10
+levels\c10\scenery\red point light\jitter red dynamic	attached	scen	no	c10
+levels\c10\scenery\red point light\red dynamic	attached	scen	no	c10
+levels\d40\devices\poa_explosion\effects\poa animorphic	effect	mach	no	d40
+levels\d40\devices\poa_explosion\effects\poa explosion_core	effect	mach	no	d40
+levels\d40\devices\poa_explosion\effects\poa explosion_fade to white	effect	mach	no	d40
+levels\d40\devices\poa_explosion\effects\poa quickflash	effect	mach	no	d40
+levels\test\wizard\devices\wiz_alert_light\wiz_alert_light	attached	mach	no	wizard
+scenery\baton\baton light	attached	scen	no	a10
+scenery\baton\baton light dynamic	attached	scen	no	c10
+scenery\emitters\burning_flame\flame	attached	scen	no	a10,c10,d20,d40
+scenery\emitters\plasma_flame\flame	attached	scen	no	d20
+scenery\halo_destroyed\effects\animorphic	effect	mach	no	d40
+scenery\halo_destroyed\effects\explosion_core	effect	mach	no	d40
+scenery\halo_destroyed\effects\quickflash	effect	mach	no	d40
+scenery\white dynamic light\white dynamic	attached	scen	no	d20
+vehicles\lifepod\light_dash	attached	vehi	yes	a10,a30,b30
+vehicles\lifepod\light_overhead	attached	vehi	yes	a10,a30,b30
+vehicles\pelican\effects\pelican explosion_core	effect	coll	yes	a10,a30,a50,b30,b40,c10
+vehicles\scorpion\headlight scorpion	attached	vehi	yes	a10,b40,beavercreek,bloodgulch,boardingaction,carousel,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+vehicles\scorpion\shell explosion	effect	proj	yes	a10,b40,beavercreek,bloodgulch,boardingaction,carousel,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+vehicles\warthog\headlights light	attached	vehi	yes	a10,a30,b30,b40,beavercreek,bloodgulch,boardingaction,c40,carousel,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\assault rifle\muzzle flash	attached	weap	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\energy sword\energy sword dynamic	attached	weap	yes	a50,b30,b40,c40
+weapons\frag grenade\effects\grenade quickflash	effect	eqip	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\frag grenade\effects\grenade quickflash	effect	proj	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\frag grenade\effects\grenade quickflash	scripted effect	scnr	scripted	c10,d40
+weapons\frag grenade\explosion	effect	eqip	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\frag grenade\explosion	effect	proj	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\frag grenade\explosion	effect	vehi	yes	a50,b40,c40
+weapons\frag grenade\explosion	scripted effect	scnr	scripted	a10,c10,d40
+weapons\frag grenade\frag grenade	attached	proj	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\fuel rod gun\fuel rod exhaust	attached	proj	yes	a30,a50,b30,b40,c40,d20,d40
+weapons\fuel rod gun\illumination	attached	bipd	yes	a50,b30,b40,c40,d20,d40
+weapons\needler\explosion	effect	proj	yes	a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\needler\muzzle flash	attached	weap	yes	a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\plasma grenade\explosion	effect	eqip	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\plasma grenade\explosion	effect	proj	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\plasma grenade\explosion	effect	weap	yes	a50,b30,b40,c40
+weapons\plasma grenade\explosion	scripted effect	scnr	scripted	a10
+weapons\plasma grenade\plasma grenade	attached	proj	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\plasma pistol\muzzle flash	attached	weap	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\plasma rifle\charged bolt	attached	proj	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\plasma rifle\muzzle flash	attached	weap	yes	a10,a30,a50,b30,b40,beavercreek,bloodgulch,boardingaction,c10,c20,c40,carousel,d20,d40,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard
+weapons\sniper rifle\muzzle flash	attached	weap	yes	a30,a50,b40,beavercreek,bloodgulch,boardingaction,c40,carousel,d20,damnation,hangemhigh,longest,prisoner,putput,ratrace,sidewinder,wizard

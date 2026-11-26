@@ -8,6 +8,7 @@ static inline int port_profile_apply_class(const char *name)
 {
 	static const struct { const char *name; int policy; } settings[] = {
 		{"debug.dynamic_resolution_shadow", PORT_PROFILE_SESSION}, /* read once when the first frame is observed */
+		{"display.encode_thread", PORT_PROFILE_HOT}, /* the game hands the value in force to the host when the context or scene changes; the host rewraps the GPU backend at the next frame boundary */
 		{"display.allow_portrait", PORT_PROFILE_SESSION}, /* host orientation policy is read at launch */
 		{"display.dynamic_resolution", PORT_PROFILE_SESSION}, /* read once with the shadow switch */
 		{"display.dynamic_resolution_floor", PORT_PROFILE_SESSION},
@@ -21,8 +22,11 @@ static inline int port_profile_apply_class(const char *name)
 		{"display.specular_light_limit", PORT_PROFILE_HOT},
 		{"display.shadow_map_size", PORT_PROFILE_LEVEL}, /* atlas target recreation */
 		{"display.shadow_minimum_size", PORT_PROFILE_HOT},
+		{"display.traced_shadows", PORT_PROFILE_HOT}, /* decided again each frame (d3d8_device.c, traced_shadows_frame_on) */
+		{"display.traced_lights", PORT_PROFILE_HOT}, /* read each frame (traced_shadow_casters.c) */
 		{"display.effect_resolution", PORT_PROFILE_LEVEL},
 		{"display.effect_limits", PORT_PROFILE_LEVEL}, /* the decal set is chosen as a map loads */
+		{"display.scene_precision", PORT_PROFILE_LEVEL}, /* the scene's color targets are remade when the value in force changes */
 		{"display.model_lod", PORT_PROFILE_HOT},
 		{"display.lod_scale", PORT_PROFILE_HOT},
 		{"display.compressed_textures", PORT_PROFILE_SESSION}, /* GPU initialization capability */

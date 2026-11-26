@@ -1,3 +1,4 @@
+#include "test_wait.h"
 #import <Foundation/Foundation.h>
 #import <QuartzCore/CAMetalLayer.h>
 #if defined(PRESENTATION_TEST_SIMULATOR)
@@ -31,7 +32,7 @@ static void observe(TestDrawable *d, double submitted, int cutscene, int transit
 static NSDictionary *finish(void) {
     host_benchmark_presentation_end_async();
     NSDictionary *report=nil;
-    for(int i=0; i<1000 && !report; i++) { report=host_benchmark_presentation_take_report(); if(!report) usleep(1000); }
+    TEST_WAIT_UNTIL((report=host_benchmark_presentation_take_report()));
     CHECK(report!=nil); return report;
 }
 int main(void) { @autoreleasepool {
@@ -105,7 +106,7 @@ int main(void) { @autoreleasepool {
     host_benchmark_presentation_end_async(); CHECK(host_benchmark_presentation_take_report()==nil);
     [missing deliver:99]; [last deliver:50];
     NSDictionary *ended=nil;
-    for(int i=0; i<1000 && !ended; i++) { ended=host_benchmark_presentation_take_report(); if(!ended) usleep(1000); }
+    TEST_WAIT_UNTIL((ended=host_benchmark_presentation_take_report()));
     CHECK([ended[@"received"] intValue]==1 && [ended[@"missing_at_finalize"] intValue]==0);
     CHECK(host_benchmark_presentation_take_report()==nil);
     [last deliver:51]; CHECK([ended[@"received"] intValue]==1);

@@ -52,6 +52,7 @@ enum graphics_mode
 	X("display.model_lod", "auto", NULL) \
 	/* art: the maps' own textures, HUD bitmaps, fonts and menus, and the original animations */ \
 	X("display.upscaled_textures", "false", NULL) \
+	X("display.repaired_textures", "false", NULL) \
 	X("display.high_res_hud", "false", NULL) \
 	X("display.high_res_text", "false", NULL) \
 	X("display.ui_redraw", "false", NULL) \
@@ -63,11 +64,15 @@ enum graphics_mode
 	X("display.effect_limits", "xbox", NULL) \
 	X("game.garbage_limit", "xbox", NULL) \
 	X("display.soft_particles", "false", NULL) \
+	/* the Xbox's 8-bit frame and its banding: no 16-bit scene, no 10-bit layer, no present dither */ \
+	X("display.scene_precision", "8", NULL) \
 	/* additions the Xbox never drew: off in Classic too */ \
 	X("display.first_person_legs", "false", "false") \
 	X("display.shadow_props", "false", "false") \
 	X("display.ambient_occlusion", "false", "false") \
 	X("display.per_pixel_lighting", "false", "false") \
+	X("display.traced_shadows", "false", "false") \
+	X("display.traced_lights", "0", "0") \
 	/* a profile's cost caps remove original content: none in Hardcore */ \
 	X("display.dynamic_light_limit", "0", NULL) \
 	X("display.specular_light_limit", "0", NULL) \

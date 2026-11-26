@@ -9,6 +9,7 @@ match the direct run's whole hash. Then, behind the queue, a backend that reads 
 (following the store's change log) must see the game's values and serials on every draw. Built and run by tools/test_gpu_queue.py with
 gpu_call_hash.c and gpu_queue.c. */
 
+#include "test_wait.h"
 #include "gpu_call_hash.h"
 #include "gpu_queue.h"
 #include "gpu_owner_check.h"
@@ -293,6 +294,10 @@ static void play(const struct gpu_backend *backend)
 			{
 				side_values[2] = (float)random32();
 				backend->ssao_apply(texture, texture + 1, side_values, 18 + frame % 10);
+				/* traced object shadows' records (with bytes and with none) and their resolve */
+				backend->traced_shadows_data(1 + frame % 6, (uint32_t)index, (frame & 4) ? NULL : side_values,
+					(frame & 4) ? 0 : 6 * (uint32_t)sizeof(float));
+				backend->traced_shadows_resolve(texture, texture + 1, texture + 2, side_values, 11);
 				/* an output change between draws: the frame's commands so far reach the backend first */
 				if (index % 6 == 0)
 					(void)backend->output(NULL, NULL, 800, 600 + (int)index);
@@ -588,6 +593,24 @@ int main(void)
 			gpu_owner_check_violations());
 	}
 
+	/* the encode thread to off and back to the thread, as a change of workload context at a map load wraps it: off ends the
+	thread and gives the backend itself, the game's calls reach it directly, and the thread started again hashes the same
+	commands as the first run's */
+	{
+		const struct gpu_backend *queue = gpu_queue_wrap(&counted, &counted, GPU_QUEUE_OFF, 0, quiet, NULL);
+		unsigned long frame_index;
+
+		CHECK(queue == &counted, "wrapped to off, the queue did not hand back the backend itself");
+		play(queue);
+		frames_seen = 0;
+		play(gpu_queue_wrap(gpu_call_hash_wrap(0, &counted, record), &counted, GPU_QUEUE_THREAD, 0, quiet, NULL));
+		CHECK(frames_seen == FRAMES, "thread, off, thread: %lu frames presented after the restart", frames_seen);
+		for (frame_index = 0; frame_index < FRAMES && frame_index < frames_seen; frame_index++)
+			CHECK(frames[frame_index].hash == direct[frame_index].recorded &&
+				frames[frame_index].calls == direct[frame_index].recorded_calls,
+				"thread, off, thread: frame %lu hashes differently after the restart", frame_index);
+	}
+
 	/* with the encode thread behind: the late start (frame_start) and a query each come after every record the game
 	wrote before them is made, and a present returns only once it is made, with the backend's answer, the game thread
 	having waited for it at the barrier */
@@ -628,7 +651,7 @@ int main(void)
 		unsigned long sleeps = gpu_queue_consumer_sleeps(), before;
 		struct gpu_backend slow_backend = fake;
 		struct gpu_draw draw;
-		int paused, tries;
+		int paused;
 		uint32_t index;
 
 		memset(&draw, 0, sizeof(draw));
@@ -654,10 +677,9 @@ int main(void)
 		queue = gpu_queue_wrap(&slow_backend, NULL, GPU_QUEUE_THREAD, 0, quiet, NULL);
 		spin_seconds(pause * 4);
 		queue->draw(&draw, &stores[0], &uniforms);
-		for (tries = 0; atomic_load(&slow_draws_made) == before && tries < 1000; tries++)
-			spin_seconds(0.001);
+		TEST_WAIT_UNTIL(atomic_load(&slow_draws_made) != before);
 		CHECK(atomic_load(&slow_draws_made) == before + 1, "a record written to a sleeping encode thread was not made "
-			"within a second without a drain");
+			"without a drain");
 	}
 	puts("gpu_queue_probe: ok");
 	return 0;

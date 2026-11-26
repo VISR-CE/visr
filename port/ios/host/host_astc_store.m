@@ -254,11 +254,12 @@ static BOOL source_bitmap(FILE *pixels,uint64_t size,const uint8_t *b,BOOL pc,st
         size_t at=0;
         for(unsigned level=0;level<source.level_count;level++) {
             unsigned w=MAX(1u,source.width>>level),h=MAX(1u,source.height>>level);
+            source.level_stored_offsets[level]=at;
             if(source.format>=14&&source.format<=16)source_decode_dxt(encoded+at,source.format,w,h,rgba+source.level_offsets[level]);
             else source_decode_texels(encoded+at,source.format,w,h,!pc&&(source.flags&1),rgba+source.level_offsets[level]);
             at+=source_level_bytes(source.format,w,h);
         }
-        source.rgba=rgba;
+        source.rgba=rgba;source.stored=encoded;source.stored_size=encoded_size;
         if(!walk->callback(walk->context,&source)){walk->canceled=YES;ok=NO;}
     }
     free(encoded);free(rgba);return ok;

@@ -63,7 +63,10 @@ PROFILE_VARIABLE for those names. display.effect_limits is one: a profile may
 give multiplayer and the other variable workloads the Xbox's decal set and
 split-screen particle share, and single-player campaign always keeps the
 setting's own value. It is read as a map loads (decals.c), after the map's
-context is decided.
+context is decided. display.encode_thread is the other: a profile may start the
+encode thread for the variable workloads, and single-player campaign keeps the
+setting's own value (the host switches the thread at the frame boundary after
+the map loads).
 
 choices is the accepted values separated by '|'; "#" among them accepts a
 whole number from 30 to 1000 (a frame rate: a profile cannot hold the game
@@ -84,8 +87,15 @@ PROFILE_INTEGER("display.dynamic_light_limit", 0, 128)
 PROFILE_INTEGER("display.specular_light_limit", 0, 128)
 PROFILE_INTEGER("display.shadow_map_size", 128, 1024)
 PROFILE_INTEGER("display.shadow_minimum_size", 0, 240)
+PROFILE_BOOLEAN("display.traced_shadows")
+PROFILE_INTEGER("display.traced_lights", 0, 128)
 PROFILE_STRING("display.effect_resolution", "xbox|half|full")
 PROFILE_STRING("display.effect_limits", "raised|xbox")
+/* the scene's color targets at 8 or 16 bits a channel: 16 on a device where a measured pair showed the tier held, the
+lines unchanged and the GPU margin kept. Its own value is the campaign's; [variable.display] may keep 8 for multiplayer
+and the other variable workloads until they are measured. The renderer remakes the targets when the value in force
+changes (scene_precision_frame), so a map load may switch it. Values between 8 and 16 act as 8. */
+PROFILE_INTEGER("display.scene_precision", 8, 16)
 PROFILE_STRING("display.model_lod", "max|auto")
 PROFILE_REAL("display.lod_scale", 0.5, 4.0)
 PROFILE_BOOLEAN("display.compressed_textures")
@@ -100,6 +110,11 @@ PROFILE_REAL("display.hud_resolution", 0.5, 1.0)
 PROFILE_STRING("display.frame_pacing", "off|tick|refresh")
 PROFILE_STRING("display.frame_rate", "display|unlimited|#")
 PROFILE_STRING("display.frames_in_flight_at_30", "1|2")
+/* the Metal encode thread: a profile may turn it on for the variable workload alone (PROFILE_VARIABLE_ONLY below), on a
+device where a measured thread-against-off pair showed input shown no later and no frames lost there; the predictable
+workload keeps the setting's own value. The game hands the value in force to the host at each map load. The adaptive
+frames in flight rule then decides how many frames wait for the display (frame_pacer_adapt.h). */
+PROFILE_STRING("display.encode_thread", "off|thread")
 PROFILE_STRING("display.async_shaders", "auto|on|off")
 PROFILE_BOOLEAN("display.allow_portrait")
 PROFILE_BOOLEAN("display.dynamic_resolution")
@@ -119,7 +134,10 @@ PROFILE_VARIABLE("display.frames_in_flight_at_30")
 PROFILE_VARIABLE("display.render_height")
 PROFILE_VARIABLE("display.render_scale")
 PROFILE_VARIABLE("display.anti_aliasing")
+PROFILE_VARIABLE("display.scene_precision")
 PROFILE_VARIABLE("display.shadow_map_size")
+PROFILE_VARIABLE("display.traced_shadows")
+PROFILE_VARIABLE("display.traced_lights")
 PROFILE_VARIABLE("display.dynamic_resolution")
 PROFILE_VARIABLE("display.dynamic_resolution_floor")
 #ifndef PROFILE_VARIABLE_ONLY
@@ -127,6 +145,7 @@ PROFILE_VARIABLE("display.dynamic_resolution_floor")
 #define PROFILE_VARIABLE_ONLY_IS_VARIABLE
 #endif
 PROFILE_VARIABLE_ONLY("display.effect_limits")
+PROFILE_VARIABLE_ONLY("display.encode_thread")
 #ifdef PROFILE_VARIABLE_ONLY_IS_VARIABLE
 #undef PROFILE_VARIABLE_ONLY
 #undef PROFILE_VARIABLE_ONLY_IS_VARIABLE

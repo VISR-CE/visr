@@ -8,6 +8,7 @@
    - a writer leaving files where another reader looks: the slot's folder holds the same names at every call;
    - a copy of a file that changed under it: a checkpoint overtaken by the next one, a deleted profile and
      Save and Quit each stop the worker's write. */
+#include "test_wait.h"
 #include "save_writer.h"
 #include "saved_game_image.h"
 
@@ -467,12 +468,12 @@ static void *open_gate_soon(void *unused)
 
 static void wait_for_gate(void)
 {
-	int tries = 0;
-
-	while (!atomic_load(&gate_reached) && tries++ < 5000)
-		usleep(1000);
-	CHECK(atomic_load(&gate_reached));
+	CHECK(TEST_WAIT_UNTIL(atomic_load(&gate_reached)));
 }
+
+/* the worker's own signal that it is idle (nothing queued, nothing being written); the cap is wall time and
+   only catches a hung worker, so a slow disk or a busy host cannot fail the probe */
+static int wait_idle(void) { return save_writer_wait(TEST_WAIT_CAP_SECONDS); }
 
 static void close_gate(void) { atomic_store(&gate_reached, 0); atomic_store(&gate_closed, 1); }
 
@@ -516,7 +517,7 @@ static void test_worker(void)
 	begin("a checkpoint becomes the saved game", old);
 	checkpoint(first, 1);
 	CHECK(checkpoint_is(first));
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(file_is_image(target_path, first) && !exists(temporary_path));
 	CHECK(checkpoint_is(first) && !exists(checkpoint_path));
 	/* a checkpoint of another size is no checkpoint to a revert that asks for this one */
@@ -531,7 +532,7 @@ static void test_worker(void)
 
 	begin("a checkpoint that is not to be saved", old);
 	checkpoint(second, 0);
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE) && call_count == 0);
 	CHECK(checkpoint_is(second));
 
@@ -545,7 +546,7 @@ static void test_worker(void)
 	checkpoint(second, 0);
 	CHECK(checkpoint_is(second));
 	atomic_store(&gate_closed, 0);
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE) && !exists(temporary_path));
 	CHECK(save_writer_replaced_count() == count);
 
@@ -565,7 +566,7 @@ static void test_worker(void)
 	CHECK(atomic_load(&gate_closed) && !save_writer_wait(0));
 	atomic_store(&gate_closed, 0);
 	gate_at = "write";
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(file_is_image(target_path, third) && !exists(temporary_path) && checkpoint_is(third));
 	CHECK(save_writer_replaced_count() == count + 1);
 
@@ -580,7 +581,7 @@ static void test_worker(void)
 	CHECK(checkpoint_is(second));
 	atomic_store(&gate_closed, 0);
 	gate_at = "write";
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(file_is_image(target_path, second) && !exists(temporary_path));
 	CHECK(save_writer_replaced_count() == count + 3);
 
@@ -592,7 +593,7 @@ static void test_worker(void)
 	checkpoint(second, 1);
 	checkpoint(third, 1);
 	atomic_store(&gate_closed, 0);
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(file_is_image(target_path, third));
 	CHECK(save_writer_replaced_count() == count + 4);
 
@@ -606,7 +607,7 @@ static void test_worker(void)
 	CHECK(pthread_create(&opener, NULL, open_gate_soon, NULL) == 0);
 	CHECK(save_writer_write_now(checkpoint_path, target_path, second, IMAGE_SIZE));
 	pthread_join(opener, NULL);
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(file_is_image(target_path, second) && !exists(temporary_path));
 	CHECK(save_writer_replaced_count() == count);
 	/* (the session's checkpoint is still the one before: Save and Quit writes the game's buffer) */
@@ -621,7 +622,7 @@ static void test_worker(void)
 	save_writer_withdraw(target_path);
 	pthread_join(opener, NULL);
 	CHECK(unlink(target_path) == 0);
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(!exists(target_path) && !exists(temporary_path));
 	/* (the checkpoint itself stays, for a revert; it is never written to the deleted profile later) */
 	CHECK(checkpoint_is(first));
@@ -637,7 +638,7 @@ static void test_worker(void)
 	CHECK(pthread_create(&opener, NULL, open_gate_soon, NULL) == 0);
 	save_writer_withdraw(target_path);
 	pthread_join(opener, NULL);
-	CHECK(save_writer_wait(10));
+	CHECK(wait_idle());
 	CHECK(!memcmp(old, get(target_path, &(size_t){ 0 }), IMAGE_SIZE));
 
 	/* a profile about to be deleted, before the game lists its folder: a checkpoint still being written
@@ -675,7 +676,7 @@ static void test_worker(void)
 		CHECK(pthread_create(&opener, NULL, open_gate_soon, NULL) == 0);
 		save_writer_withdraw_folder(slot);
 		pthread_join(opener, NULL);
-		CHECK(save_writer_wait(10) && !exists(target_path) && !exists(temporary_path));
+		CHECK(wait_idle() && !exists(target_path) && !exists(temporary_path));
 
 		test_name = "another profile's folder";
 		close_gate();
@@ -684,7 +685,7 @@ static void test_worker(void)
 		CHECK(pthread_create(&opener, NULL, open_gate_soon, NULL) == 0);
 		save_writer_withdraw_folder("elsewhere/u/UDATA/FFFFFFFFFFFF");
 		pthread_join(opener, NULL);
-		CHECK(save_writer_wait(10) && file_is_image(target_path, first));
+		CHECK(wait_idle() && file_is_image(target_path, first));
 	}
 
 	/* Save and Quit fails loudly, and keeps the old saved game, when the disk does */

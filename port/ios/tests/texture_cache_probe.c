@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "texture_cache.h"
 #include "test_tmpdir.h"
+#include "texture_record.h"
 
 static struct texture_recipe_globals globals(void)
 {
@@ -65,6 +66,20 @@ static void invalidation_table(void)
 	/* the model or the encoder: every upscaled entry */
 	assert(after(&g, TEXTURE_POLICY_S4G, &model, TEXTURE_POLICY_S4G, TEXTURE_POLICY_COLOR) == TEXTURE_CACHE_REDO_BLOCKING);
 	assert(after(&g, TEXTURE_POLICY_BPF, &encoder, TEXTURE_POLICY_BPF, TEXTURE_POLICY_MULTIPURPOSE) == TEXTURE_CACHE_REDO_BLOCKING);
+	/* the texture repair (the upscaler's sources are repaired first): every upscaled entry, whatever its treatment */
+	{
+		struct texture_recipe_globals repaired = g, repaired_again = g;
+		enum texture_policy_treatment t;
+
+		repaired.repair_version = 1;
+		repaired_again.repair_version = 2;
+		for (t = TEXTURE_POLICY_COLOR; t <= TEXTURE_POLICY_BUMP_MAP; t++)
+		{
+			assert(after(&g, TEXTURE_POLICY_S4G, &repaired, TEXTURE_POLICY_S4G, t) == TEXTURE_CACHE_REDO_BLOCKING);
+			assert(after(&g, TEXTURE_POLICY_BPF, &repaired, TEXTURE_POLICY_BPF, t) == TEXTURE_CACHE_REDO_BLOCKING);
+			assert(after(&repaired, TEXTURE_POLICY_BPF, &repaired_again, TEXTURE_POLICY_BPF, t) == TEXTURE_CACHE_REDO_BLOCKING);
+		}
+	}
 	/* a stale global recipe and a result change at once: never mix recipes */
 	assert(after(&g, TEXTURE_POLICY_S4G, &model, TEXTURE_POLICY_BPF, TEXTURE_POLICY_COLOR) == TEXTURE_CACHE_REDO_BLOCKING);
 }
@@ -260,6 +275,18 @@ static void size_and_delete(void)
 	assert(texture_cache_write_entry(directory, &r, bytes, sizeof(bytes)) == 0);
 	assert(texture_cache_manifest_save(directory, &r, 1) == 0);
 	assert(texture_cache_size(directory) > 100);
+	/* the texture repair's record of the same texture is a second file, never the upscaled one written over (bug class:
+	two stores sharing one file), and the delete takes it with the rest */
+	{
+		unsigned char repaired[30] = { 2 };
+		struct stat st;
+
+		assert(texture_cache_write_entry_kind(directory, &r, TEXTURE_RECORD_REPAIRED, repaired, sizeof(repaired)) == 0);
+		snprintf(path, sizeof(path), "%s/0000000000000abc-4x4.repair.bin", directory);
+		assert(stat(path, &st) == 0 && st.st_size == sizeof(repaired));
+		snprintf(path, sizeof(path), "%s/0000000000000abc-4x4.bin", directory);
+		assert(stat(path, &st) == 0 && st.st_size == sizeof(bytes));
+	}
 	snprintf(path, sizeof(path), "%s/notes.txt", directory);          /* not ours: left alone */
 	other = fopen(path, "w"); fputs("x", other); fclose(other);
 	assert(texture_cache_delete_all(directory) == 0);

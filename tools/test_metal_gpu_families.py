@@ -147,7 +147,10 @@ def test_scan_finds_the_known_simd_shaders():
         shaders = "".join(body for _, _, body in kernels(shader_text(source)))
         needed = max(f for f, pattern in SIMD_FAMILIES if re.search(pattern, shaders))
         assert needed == family, (name, needed)
-        assert gated_family(source, floors) == family, name
+        # (the gate that covers them is among the file's gates; a file may also ask for a higher one, as gpu_metal.m's
+        # traced shadows ask for TRACED_SHADOWS)
+        gates = {floors[gate] for gate in re.findall(r"\bmetal_pass\(\s*METAL_PASS_(\w+)\s*\)", source)}
+        assert family in gates, (name, sorted(gates))
 
 
 if __name__ == "__main__":

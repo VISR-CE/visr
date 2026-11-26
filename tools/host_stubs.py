@@ -47,6 +47,7 @@ NEUTRAL = {
 # aborts when a probe executes it, so a seam that should have been faked fails loudly instead of letting
 # the probe pass on a made-up zero. Add a name here only when zero is a sound answer for every probe.
 ZERO_OK = {
+    'gpu_queue_eye_span_begin', 'gpu_queue_eye_span_end', 'host_stereo_replay_begin', 'host_stereo_replay_end',
     'host_benchmark_running', 'host_device_profile_pending', 'host_external_active', 'host_perf_metal_dropped',
     'host_stereo_entered', 'host_window_up', 'host_external_size', 'host_display_supports_portrait',
     'host_benchmark_presented', 'host_texture_upscale_first_run_phase', 'host_texture_upscale_enabled',
