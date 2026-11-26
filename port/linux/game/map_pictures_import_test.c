@@ -69,7 +69,8 @@ void benchmark_scenario_load(const char *map, const char *difficulty)
 	/* The new map finishes loading at once here; the import goes map to map without the menu. */
 	render.stages[STAGE_COUNT - 1] = clock_ms;
 }
-unsigned char benchmark_scenario_at_menu(void) { return (unsigned char)menu; }
+static int stuck_menu;
+unsigned char benchmark_scenario_at_menu(void) { return (unsigned char)(menu && !(stuck_menu && render.state == STATE_LEAVING)); }
 unsigned char filesystem_check_thread_is_active(void) { return 0; }
 unsigned char bink_playback_in_progress(void) { return 0; }
 unsigned char cache_files_precache_in_progress(void) { return 0; }
@@ -305,6 +306,9 @@ int main(int argc, char **argv)
 	assert(render.failed == 23 && completed == 0 && done_calls == 1);
 	reset(0, 1, 1); run_maps();
 	assert(render.rendered == 23 && !progress_calls && !done_calls);
+	/* the menu never comes back after the last map: the run still ends, and lets go of the sound and the screen */
+	reset(1, 0, 0); stuck_menu = 1; run_maps(); stuck_menu = 0;
+	assert(render.rendered == 23 && done_calls == 1 && !muted && !awake);
 	/* A fresh launch reads the menu cache with no development flag or render state. */
 	reset(0, 0, 0);
 	assert(map_pictures_cache_path(directory, sizeof(directory), test_root, "stock:a10"));
