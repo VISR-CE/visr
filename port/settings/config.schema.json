@@ -332,7 +332,7 @@
         "traced_lights": {
           "type": "integer",
           "default": 0,
-          "description": "How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as the game draws them. A device profile's choice, with display.traced_shadows, for GPUs with ray tracing hardware (Apple GPU family 9 and later); it needs display.traced_shadows on. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
+          "description": "How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as the game draws them, and none unless display.traced_shadows is on too. A device profile's choice, with display.traced_shadows, for GPUs with ray tracing hardware (Apple GPU family 9 and later). Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
           "x-environment": "HALO_TRACED_LIGHTS",
           "x-environment-style": "value",
           "x-platforms": [

@@ -270,9 +270,9 @@ static const struct config_setting config_settings[] =
 	{ "display.traced_lights", _config_integer, "0", "HALO_TRACED_LIGHTS", _environment_value, _platform_ios,
 		"How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the\n"
 		"level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as\n"
-		"the game draws them. A device profile's choice, with display.traced_shadows, for GPUs with ray\n"
-		"tracing hardware (Apple GPU family 9 and later); it needs display.traced_shadows on. Enhanced\n"
-		"graphics only: Classic and Hardcore turn it off (display.graphics)." },
+		"the game draws them, and none unless display.traced_shadows is on too. A device profile's choice,\n"
+		"with display.traced_shadows, for GPUs with ray tracing hardware (Apple GPU family 9 and later).\n"
+		"Enhanced graphics only: Classic and Hardcore turn it off (display.graphics)." },
 	{ "display.shadow_props", _config_boolean, "true", "HALO_SHADOW_PROPS", _environment_value, _platform_all,
 		"Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and\n"
 		"light fixtures) a shadow of their own, which the original game never drew for scenery or devices.\n"

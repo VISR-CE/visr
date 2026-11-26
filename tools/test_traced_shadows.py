@@ -480,3 +480,24 @@ def test_every_instance_mask_bit_is_one_the_gpu_matches():
     assert ("traced.shadow_family[shadow] = caster->family >= TRACED_SHADOWS_FAMILY_FIRST && "
             "caster->family <= TRACED_SHADOWS_FAMILY_LAST") in host
     assert "masks[members.count] = traced.shadow_family[shadow] ? 1u << traced.shadow_family[shadow]" in host
+
+
+def test_traced_lights_are_off_without_traced_shadows():
+    """The class: a setting that silently needs another one. Traced lights run inside traced shadows' pass and trace
+    against its casters, so a profile setting display.traced_lights without display.traced_shadows got nothing, with
+    no sign why. The key is read in one place, which gives 0 unless traced shadows are on, and its description (and
+    so the profiles README) says so."""
+    game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
+    assert game.count('"display.traced_lights"') == 1
+    reader = game[game.index("static long traced_lights_cap("):]
+    reader = reader[:reader.index("\n}\n")]
+    assert 'config_scene_boolean("display.traced_shadows", CONFIG_SCENE_GAMEPLAY)' in reader
+    assert 'config_scene_integer("display.traced_lights", CONFIG_SCENE_GAMEPLAY) : 0;' in reader
+    assert game.count("traced_lights_cap()") == 2  # the blocking mode and the per-window cap
+    for path in ("source", "port"):
+        for source in (ROOT / path).rglob("*.c"):
+            if source.name != "traced_shadow_casters.c":
+                assert 'config_integer("display.traced_lights")' not in source.read_text(errors="ignore"), source
+    readme = (ROOT / "profiles/README.md").read_text()
+    row = next(line for line in readme.splitlines() if line.startswith("| `display.traced_lights`"))
+    assert "none unless display.traced_shadows is on too" in row

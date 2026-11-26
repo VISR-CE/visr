@@ -721,6 +721,16 @@ void traced_shadow_apply_end(
 	halo_traced_shadows_key(0);
 }
 
+/* display.traced_lights, the profile's cap on traced lights: 0 unless display.traced_shadows is on as well, since
+traced lights run inside traced shadows' pass and trace against its casters (d3d8_device.c's traced_shadows_view_wanted).
+The one place the key is read */
+static long traced_lights_cap(
+	void)
+{
+	return config_scene_boolean("display.traced_shadows", CONFIG_SCENE_GAMEPLAY)
+		? config_scene_integer("display.traced_lights", CONFIG_SCENE_GAMEPLAY) : 0;
+}
+
 /* debug.traced_light_blocking: 0 off; 1 the level's surfaces block dynamic lights; 2 the frame's shadow casters
 too; 3 as 2, and objects with no shadow of their own block too, through the caster walker (render_objects.c) */
 static long traced_light_mode(
@@ -735,7 +745,7 @@ static long traced_light_mode(
 		/* (the profile's choice, display.traced_lights, with what blocks from the debug setting: -1 follows it) */
 		mode = config_integer("debug.traced_light_blocking");
 		if (mode < 0)
-			mode = config_scene_integer("display.traced_lights", CONFIG_SCENE_GAMEPLAY) > 0 ? 3 : 0;
+			mode = traced_lights_cap() > 0 ? 3 : 0;
 	}
 	return mode;
 }
@@ -760,7 +770,7 @@ void traced_lights_choose(
 	float *strength)
 {
 	short window = render.window_index;
-	long cap = config_scene_integer("display.traced_lights", CONFIG_SCENE_GAMEPLAY);
+	long cap = traced_lights_cap();
 	unsigned char chosen[LIGHT_VISIBILITY_MAXIMUM];
 	struct light_visibility_ramp *ramp;
 	short i, j;
