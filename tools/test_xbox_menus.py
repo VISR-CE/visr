@@ -158,7 +158,8 @@ def test_settings_apply_without_save_and_offer_defaults_on_x():
         # (the bar's X runs on the key, a click and a tap alike: no second handler on the screen)
         assert screen.find('on[@event="x"]') is None
         for spinner in root.iter('widget'):
-            if not spinner.get('setting'):
+            # (a state word of a row that opens a screen has a setting and no arrows: it is no spinner)
+            if spinner.get('type') != 'spinner' or not spinner.get('setting'):
                 continue
             for event in ('left', 'right', 'stick_left', 'stick_right'):
                 assert spinner.find(f'on[@event="{event}"][@run="port setting changed"]') is not None
@@ -518,8 +519,9 @@ def test_scrolling_lists_fit_above_their_help():
     assert any(name.endswith('network_setup/options_menu') for name in seen)
 
 
-def test_server_settings_and_network_rows_scroll_above_the_shared_help():
-    # Server Setup and Network use the same help top and scroll the remaining rows.
+def test_server_settings_scrolls_and_network_fits_above_the_shared_help():
+    # Server Setup and Network use the same help top; Server Setup scrolls the remaining rows, and Network's (six
+    # rows since its cut rows went to the tuning tier and MAPS) all show.
     widgets = {w.get('name'): w for w in ET.parse(
         MENUS / 'xbox/main_menu.multiplayer_type_select.server_settings.xml').getroot().iter('widget')}
     options = next(w for w in widgets.values() if w.get('name').endswith('server_settings/options_menu'))
@@ -531,7 +533,7 @@ def test_server_settings_and_network_rows_scroll_above_the_shared_help():
     slots, window, bottom = window_rows(options, widgets)
     assert 'visible_rows' in options.attrib
     assert bottom <= int(widgets[options.get('description')].get('top'))
-    assert len(slots) > window
+    assert len(slots) <= window
 
 
 def test_only_column_lists_scroll():

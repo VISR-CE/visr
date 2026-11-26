@@ -337,6 +337,9 @@
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics">
 		<frame png="pictures/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png" width="512" height="64"/>
 	</bitmap>
+	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/maps/header_maps">
+		<frame png="pictures/port/main_menu/settings_select/player_setup/player_profile_edit/maps/header_maps.png" width="512" height="64"/>
+	</bitmap>
 	<bitmap name="pause/pausebox_left">
 		<frame png="pictures/port/pause/pausebox_left__0.png" width="16" height="256"/>
 		<frame png="pictures/port/pause/pausebox_left__1.png" width="16" height="256"/>

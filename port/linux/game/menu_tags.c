@@ -478,7 +478,7 @@ static char const *const port_game_data_input_names[] =
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
 	"mp map list update", "gt select list update", "gt edit list update", "load game list update",
 	"direct ip connect update", "network settings update",
-	"port respawn state", "port teams hud state", "port cloud saves status", "port graphics state", "port hub status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
+	"port respawn state", "port setting state", "port teams hud state", "port cloud saves status", "port graphics state", "port hub status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
 	"port lobby preview update",
 	/* (the gametype editor's: the Xbox's stops the game on the buttons'
 	row; the Xbox's read only player_ui's gametype, not Server Setup's) */
@@ -1442,7 +1442,9 @@ static void *widget_build(long widget_index)
 	else if (build.spinner_tags[widget_index] != NONE)
 	{
 		reference_set(&definition->text_label_string_list, UNICODE_STRING_LIST_TAG, build.spinner_tags[widget_index]);
-		definition->list_flags |= FLAG(_list_items_generated_from_string_list_tag_bit);
+		/* (a spinner's items; a text of a setting shows the one string its index names) */
+		if (definition->type == _widget_type_spinner_list)
+			definition->list_flags |= FLAG(_list_items_generated_from_string_list_tag_bit);
 	}
 	else if (source->string_list)
 	{
@@ -1478,8 +1480,11 @@ static void *widget_build(long widget_index)
 	/* the list */
 	definition->list_flags |= flags_parse(source->list_flags, list_flag_names, NUMBEROF(list_flag_names),
 		source->file, source->line);
-	if (source->strings && (definition->type != _widget_type_spinner_list || source->first_child != HALO_MENU_NONE))
-		problem(source->file, source->line, "strings are for a spinner with no children:", source->name);
+	/* (strings are a spinner's, or the state word of a row that opens a screen: a text of a setting) */
+	if (source->strings && (!(definition->type == _widget_type_spinner_list ||
+		(definition->type == _widget_type_text_box && source->setting)) || source->first_child != HALO_MENU_NONE))
+		problem(source->file, source->line, "strings are for a spinner, or a text of a setting, with no children:",
+			source->name);
 	if (TEST_FLAG(definition->list_flags, _list_items_generated_from_string_list_tag_bit) &&
 		(definition->type != _widget_type_spinner_list || source->first_child != HALO_MENU_NONE ||
 			definition->text_label_string_list.index == NONE))
@@ -3327,6 +3332,20 @@ every row; the column keeps its right edge, so the spinners and their
 arrows stay where the rows' ends are and the labels keep the rest. Values
 set here and nowhere else (the display's rate, its resolutions) are in the
 spinners' lists by now, so they are measured too. */
+/* a widget a setting is bound to (setting_add), asked while the menus are built, so without the display-rate
+refresh pc_menu_setting_get makes */
+boolean pc_menu_definition_is_setting(long definition_index)
+{
+	long index;
+
+	for (index = 0; index < menu_tags.setting_count; index++)
+	{
+		if (menu_tags.settings[index].definition_index == definition_index)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 static void option_columns_fit(struct ui_widget_definition const *list, char const *name)
 {
 	struct ui_widget_child_reference const *rows = list->child_widgets.address;
@@ -3381,7 +3400,10 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 
 				labels = OPTION_MAX(labels, reach);
 			}
-			if (part->type != _widget_type_spinner_list || part->child_widgets.count)
+			/* (a spinner's values, or the state word of a row that opens a screen of its own: a text of a setting
+			takes part in the value column the same way, so the two line up) */
+			if (!((part->type == _widget_type_spinner_list && !part->child_widgets.count) ||
+				(part->type == _widget_type_text_box && pc_menu_definition_is_setting(pieces[piece].widget_tag.index))))
 				continue;
 			for (index = 0; index < strings->strings.count; index++)
 			{

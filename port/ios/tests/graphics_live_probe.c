@@ -136,6 +136,10 @@ static void check_boolean_modes(void)
 	fresh();
 	launch("");
 	assert(config_boolean_in_graphics_mode("display.per_pixel_lighting", GRAPHICS_MODE_ENHANCED));
+	assert(config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED));
+	assert(!config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_CLASSIC));
+	/* a player's stored false still wins in Enhanced */
+	assert(config_write_boolean("display.ambient_occlusion", 0));
 	assert(!config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED));
 	launch("display.upscaled_textures\tfalse\tprofile\n");
 	assert(!config_boolean_in_graphics_mode("display.upscaled_textures", GRAPHICS_MODE_ENHANCED));

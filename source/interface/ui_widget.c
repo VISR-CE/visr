@@ -1391,6 +1391,9 @@ static boolean ui_widget_load_children_recursive(
 /* port: a standard tall row, as the menus' files or a patch said (menu_tags.c) */
 boolean pc_menu_row_tall(
 	long tag_index);
+/* port: whether a setting is bound to the widget (port/linux/game/menu_tags.c) */
+boolean pc_menu_definition_is_setting(
+	long definition_index);
 /* port: whether the tag is one of the menus' (port/linux/game/menu_tags.c) */
 boolean pc_menu_tag(
 	long tag_index);
@@ -6269,6 +6272,9 @@ static void widget_instance_render_text_box(
 	bounds.y0 += offset.y;
 	bounds.x0 += definition->horizontal_offset;
 	bounds.y0 += definition->vertical_offset;
+	/* port: the state word of a row that opens a screen is centered where the values of the rows around it are */
+	if (pc_menu_definition_is_setting(widget->definition_tag_index))
+		bounds.x1 -= halo_menu_state_word_trailing_slot(halo_menu_pointer_controls());
 #ifdef HALO_IOS
 	/* port: the version label keeps its whole text, including a development build's commit; it is
 	right-aligned to the menu's right edge, which the safe-area zoom keeps inside the camera cutout */
@@ -6754,8 +6760,7 @@ static void widget_instance_render_spinner_list(
 							SECONDS_PER_MILLISECOND * 3.0f) + 1.0f) * 0.5f) *
 						color.alpha;
 				}
-				if (toggle) bounds.x1 -= 38;
-				if (dropdown) bounds.x1 -= 24;
+				bounds.x1 -= halo_menu_value_trailing_slot(look);
 				draw_string_set_draw_mode(
 					definition->text_font.index,
 					NONE,

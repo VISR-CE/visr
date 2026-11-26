@@ -260,7 +260,7 @@ Apple Vision Pro's file.
 | `display.scene_precision` | integer | `8` | apple, desktop | `HALO_SCENE_PRECISION` | Bits a channel of the targets that hold the scene's color: 8, or 16 (smooth dark gradients; Metal), with a 10-bit layer where the display takes one. |
 | `display.effect_limits` | string | `"raised"` | apple, desktop | `HALO_EFFECT_LIMITS` | How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: "raised" (default) four times the Xbox's decals and every player the effect's whole count; "xbox" the Xbox's 2048 decals and its split-screen share. |
 | `display.shadow_map_size` | integer | `128` | apple, desktop | `HALO_SHADOW_MAP_SIZE` | The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. |
-| `display.ambient_occlusion` | boolean | `false` | apple | `HALO_AMBIENT_OCCLUSION` | Soft darkening where characters, vehicles and props meet the ground and the walls (screen-space ambient occlusion over the level's light and, weaker, the objects), which the original game never drew. |
+| `display.ambient_occlusion` | boolean | `true` | apple | `HALO_AMBIENT_OCCLUSION` | Soft darkening where characters, vehicles and props meet the ground and the walls (screen-space ambient occlusion over the level's light and, weaker, the objects), which the original game never drew. |
 | `display.traced_shadows` | boolean | `false` | apple | `HALO_TRACED_SHADOWS` | Trace characters' and vehicles' shadows against their models with the GPU's ray tracing instead of reading them from 128-texel shadow maps: sharp where a shadow meets its caster and softer away from it. |
 | `display.traced_lights` | integer | `0` | apple | `HALO_TRACED_LIGHTS` | How many of a view's dynamic lights (the flashlight, plasma, explosions, muzzle flashes) light the level only where a ray from the surface reaches them, so walls and characters block them: 0 none, as the game draws them, and none unless display.traced_shadows is on too. |
 | `display.shadow_props` | boolean | `true` | apple, desktop | `HALO_SHADOW_PROPS` | Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and light fixtures) a shadow of their own, which the original game never drew for scenery or devices. |
@@ -357,9 +357,6 @@ Apple Vision Pro's file.
 | `display.upscaled_textures` | boolean | `true` | apple, desktop | `HALO_UPSCALED_TEXTURES` | Draw upscaled textures (made on this device from your copy of the game) where they exist; false draws the maps' own. |
 | `display.upscaled_textures_memory` | integer | `0` | apple, desktop | `HALO_UPSCALED_TEXTURES_MEMORY` | The most memory the upscaled textures may take, in MB; 0 (default) picks it from the device's memory. |
 | `display.player_names` | string | `"none"` | apple, desktop | `HALO_PLAYER_NAMES` | In multiplayer, whose names are drawn above their heads: "none" (the Xbox's: the name of the player under the reticle shows, and teammates have the game's marker), "all", "allies" or "enemies". |
-| `display.player_name_scale` | number | `1.0` | apple, desktop | `HALO_PLAYER_NAME_SCALE` | How large the players' names are drawn: 1.0 three quarters of the size of the HUD's text, 0.25 to 4. |
-| `display.scoreboard_team_layout` | string | `"teams"` | apple, desktop | `HALO_SCOREBOARD_TEAM_LAYOUT` | How the scoreboard lists a team game's players: "teams" in a column for each team (red on the left, blue on the right), "score" all in order of score. |
-| `display.scoreboard_background` | boolean | `true` | apple, desktop | `HALO_SCOREBOARD_BACKGROUND` | Draw a panel behind the multiplayer scoreboard, for clearer text. |
 | `display.scoreboard_background_color` | string | `"16, 16, 16, 150"` | apple, desktop | `HALO_SCOREBOARD_BACKGROUND_COLOR` | The scoreboard panel's colour: "red, green, blue, alpha", each 0 to 255 (alpha 0 is see-through, 255 solid). |
 ### streamer
 
@@ -432,7 +429,6 @@ Apple Vision Pro's file.
 | `network.online_ask` | boolean | `false` | apple | `HALO_NET_ONLINE_ASK` | While network.online is false: ask whether to turn Internet Play on the first time Create Game > Internet, Join Game > Server Browser or Direct Link is opened, saying which servers it reaches and what they see. |
 | `network.join_from_clipboard` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_JOIN_FROM_CLIPBOARD` | Join the game of an invite link found on the clipboard when the game comes to the front. |
 | `network.tunnel_port` | integer | `0` | apple, desktop | `HALO_NET_TUNNEL_PORT` | The UDP port internet play uses; 0 picks one. |
-| `network.allow_upnp` | boolean | `true` | apple, desktop | `HALO_NET_ALLOW_UPNP` | Let internet play ask the router (UPnP; on Apple devices NAT-PMP or PCP) to forward its port, for networks whose NAT stops connections: when a player joins this machine's game, and when joining a game takes too long. |
 | `network.background_grace` | integer | `60` | apple, desktop | `HALO_NET_BACKGROUND_GRACE` | Seconds the other players of an internet game wait for this machine when its app goes to the background (an Apple device suspends it, its game held) before they drop it. |
 | `network.public_lobby` | boolean | `true` | apple, desktop | `HALO_NET_PUBLIC_LOBBY` | The server browser: public games are listed through the signalling brokers, and Join Game > Server Browser shows them. |
 | `network.browser_sort` | string | `"players"` | apple, desktop | `HALO_NET_BROWSER_SORT` | The server browser's order: "players" (most first), "name", "map" or "game" (A to Z). |
@@ -452,7 +448,6 @@ Apple Vision Pro's file.
 | `network.map_share` | boolean | `true` | apple, desktop | `HALO_NET_MAP_SHARE` | Hosting: send a player who joins without the game's Custom Edition map the map (from custom_maps), if it is a community map. |
 | `network.map_share_upload` | integer | `1024` | apple, desktop | `HALO_NET_MAP_SHARE_UPLOAD` | Hosting: the most kilobytes a second the host sends of maps (16 to 65536), so that the game's own traffic keeps the rest of the upload. |
 | `network.map_seed` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_MAP_SEED` | Playing in another's game: help send its map to players who join without it, as a torrent's peers do (the pieces this machine has, at most network.map_seed_upload). |
-| `network.map_seed_upload` | integer | `256` | apple, desktop | `HALO_NET_MAP_SEED_UPLOAD` | Playing in another's game: the most kilobytes a second this machine sends of maps to other players (16 to 65536). |
 | `network.custom_maps` | boolean | `false` | apple, desktop | `HALO_NET_CUSTOM_MAPS` | Experimental: the server browser also shows games on Custom Edition maps, those of a map in custom_maps or, with network.map_download on, any. |
 | `network.map_download` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_MAP_DOWNLOAD` | Joining a game on a Custom Edition map this machine does not have: download it (and the resource maps it needs, up to about 2.3 GB) from the game's players into custom_maps, if its host shares it (network.map_share); false leaves the game, saying which map is missing and that downloads are off. |
 | `network.coop_public` | boolean | `false` | apple, desktop | `HALO_NET_COOP_PUBLIC` | Whether an online co-op game (Create Game > Internet, a SINGLEPLAYER map) starts public or, false, private: Server Setup's PUBLIC GAME in co-op, which writes its choice here. |
@@ -658,7 +653,7 @@ Apple Vision Pro's file.
 | `debug.soft_particle_distance` | number | `0.12` | apple, desktop | `HALO_SOFT_PARTICLE_DISTANCE` | With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet). |
 | `debug.soft_particle_scale` | integer | `2` | apple, desktop | `HALO_SOFT_PARTICLE_SCALE` | With display.soft_particles: the scene distances the particles fade against, at full resolution (1) or half (2, the nearest level surface of each 2x2 block). |
 | `debug.screenshot_every` | integer | `0` | apple, desktop | `HALO_SCREENSHOT_EVERY` | Save every this many frames to screenshot_directory; 0 none. |
-| `debug.ssao` | integer | `0` | apple | `HALO_SSAO` | A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on, 2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone (Metal; mono views only). |
+| `debug.ssao` | integer | `0` | apple | `HALO_SSAO` | Debug override of display.ambient_occlusion: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on, 2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone (Metal; mono views only). |
 | `debug.ssao_radius` | number | `0.6` | apple | `HALO_SSAO_RADIUS` | With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet). |
 | `debug.ssao_strength` | number | `1.5` | apple | `HALO_SSAO_STRENGTH` | With debug.ssao: the power the visibility is raised to; higher darkens more. |
 | `debug.ssao_objects` | number | `0.3` | apple | `HALO_SSAO_OBJECTS` | With debug.ssao: how much of the occlusion the objects' pixels take (their whole color, specular included). |
@@ -948,9 +943,9 @@ listings again.
 The Server Browser shows the games on the game's own maps (its multiplayer
 maps, and the campaign levels of a co-op game). A game on any other map is
 a game on a Custom Edition map, and is shown only with CUSTOM MAPS
-(experimental) on in Network Setup (`network.custom_maps`, off
+(experimental) on (MAPS > CUSTOM MAPS in Settings > Network Setup, `network.custom_maps`, off
 by default), and then if `custom_maps` has a map of that name or map
-downloads are on (`network.map_download`, DOWNLOAD MAPS). A game on the map
+downloads are on (`network.map_download`, MAPS > DOWNLOAD MAPS). A game on the map
 of a map pack (Delta's
 list says that the family of the map is `pack`, such as CE+'s
 `wizard@cex`) is never shown. On joining, a client takes only a Custom
@@ -1070,16 +1065,16 @@ you leave the game, and the main menu tells you why. If the downloaded map
 cannot be played, the game deletes the files that it downloaded, and you
 leave the game.
 
-All the players help (HELP SEND MAPS in Settings > Network Setup,
+All the players help (MAPS > HELP SEND MAPS in Settings > Network Setup,
 `network.map_seed`), as the peers of a torrent do:
 the downloaded map comes in pieces from the host and from each player who
 has it or has a part of it. The game checks each piece against its hash, so
 a player cannot send a different map. A player who sends a bad piece is not
 asked again. To keep the upload free for the game, the host sends at most
 `network.map_share_upload` (1024 KB/s, in `config.toml`) and each other
-player at most `network.map_seed_upload` (256 KB/s: MAP UPLOAD LIMIT in
-Settings > Network Setup). Set these lower on
-a slow connection. DOWNLOAD MAPS there (`network.map_download`) turns
+player at most `network.map_seed_upload` (256 KB/s; not a menu row, set it in
+`config.toml`). Set these lower on
+a slow connection. MAPS > DOWNLOAD MAPS in Settings > Network Setup (`network.map_download`) turns
 downloading off: you then leave a game whose map you do not have.
 
 Maps keep their names. A game is on a map by its name (`hugeass`), and says
@@ -1209,7 +1204,7 @@ one that the router gives, and the game asks again after half of it. It
 asks again too when it comes back from the background.
 
 To stop all UPnP, NAT-PMP and PCP requests, set `network.allow_upnp` to
-`false`.
+`false` in `config.toml` (it is not a menu row).
 
 In the game, each machine has an address in 100.64.0.0/10:
 

@@ -13,6 +13,8 @@ import shutil
 import subprocess
 import sys
 
+from menu_probe_build import build_probe
+
 # the probes build with the Apple toolchain (xcrun clang), as tools/ios_test.py runs them; tools/ios_test.py runs
 # this file as a script, where pytest may not be installed
 try:
@@ -24,30 +26,10 @@ else:
                                     reason="needs the Apple toolchain (xcrun)")
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPAT = ROOT / "port/third_party/expat"
 
 
 def build(directory: Path) -> Path:
-    """The probe, built in directory (the sources copied beside the stand-in headers, which their own
-    directories' headers would otherwise win over)."""
-    shutil.copytree(ROOT / "port/ios/tests/menu_patch", directory, dirs_exist_ok=True)
-    for source in ("port/linux/game/menu_tags.c", "port/linux/src/menu_files.c", "port/linux/src/menu_files.h",
-                   "port/linux/src/menu_platform.h", "port/linux/include/halo_menus.h",
-                   "port/linux/include/menu_equivalence.h", "port/linux/include/menu_geometry.h",
-                   "port/linux/include/halo_menu_meta.h",
-                   "port/ios/tests/menu_patch_probe.c"):
-        shutil.copy2(ROOT / source, directory)
-    binary = directory / "menu_patch_probe"
-    subprocess.run(["xcrun", "clang", "-std=gnu11", "-g", "-Wall", "-Werror", "-Wno-multichar",
-                    "-Wno-unused-function", "-Wno-unused-variable", "-Wno-unused-but-set-variable",
-                    "-fsanitize=address,undefined", "-fno-sanitize-recover=undefined",
-                    "-DHALO_ILP32=1", "-DHALO_IOS=1", "-DMENU_TAGS_PROBE=1",
-                    f"--include-directory={directory}", f"--include-directory={EXPAT}",
-                    f"--include-directory={ROOT / 'port/linux/game'}",
-                    str(directory / "menu_patch_probe.c"), str(directory / "menu_files.c"),
-                    *(str(EXPAT / name) for name in ("xmlparse.c", "xmlrole.c", "xmltok.c")),
-                    f"--output={binary}"], check=True)
-    return binary
+    return build_probe(directory, "port/ios/tests/menu_patch_probe.c")
 
 
 def check_saved_picture(path: Path) -> None:

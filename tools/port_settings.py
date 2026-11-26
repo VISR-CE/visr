@@ -151,22 +151,21 @@ SCREENS = {
         "screen": "network_settings_screen",
         "header": ("header_profile_network_settings", f"{PE}/network_setup/header_profile_network_settings"),
         # Updates and iCloud saves occupy the same row on different platforms.
-        # (thirteen rows, the iCloud status line and two lines of help fit
-        # above the buttons at 414 only this close)
-        "spacing": 20,
+        "spacing": 30,
         "same_place": ["host.cloud_saves"],
-        # (its rows keep the places the file gives them: the status line below them is placed by hand)
-        "pack": False,
-        "row_top": 71,
         "cloud_status_top": 339,
         "help_top": 360,
         "help_height": 50,
         "cloud_status": True,
+        # (a row that shows its setting's state word and opens a screen of its own: MAPS, with the three settings
+        # that only matter once custom maps are on. The cut rows are config.toml settings in the tuning tier,
+        # port_config.c: UPnP port forwarding, the names' size, the scoreboard's layout and panel, and the maps
+        # upload limit). DEFAULTS here resets the rows this screen shows, so the MAPS screen's own DEFAULTS resets the
+        # three map settings: NETWORK's DEFAULTS no longer does
+        "opens": {"network.custom_maps": "maps"},
         "rows": [
             ("INTERNET PLAY:", "network.online", ON_OFF,
              "Host and join games over the internet by invite\nlinks; off keeps to the local network.", None),
-            ("UPNP PORT FORWARDING:", "network.allow_upnp", ON_OFF,
-             "Let internet play ask the router to forward its\nport, for networks that stop connections.", None),
             ("JOIN FROM CLIPBOARD:", "network.join_from_clipboard", ON_OFF,
              "Join the game of an invite link copied before\nswitching to the game.", None),
             ("CHECK FOR UPDATES:", "update.auto", ON_OFF,
@@ -176,15 +175,19 @@ SCREENS = {
             ("PLAYER NAMES:", "display.player_names",
              [("ALL", "all"), ("ALLIES", "allies"), ("ENEMIES", "enemies"), ("NONE", "none")],
              "In multiplayer, whose names are drawn above their\nheads.", None),
-            ("PLAYER NAME SIZE:", "display.player_name_scale",
-             [(f"{value:g}x", f"{value:g}") for value in (0.5, 0.75, 1, 1.25, 1.5, 2)],
-             "How large the players' names are drawn.", None),
-            ("GROUP BY TEAM:", "display.scoreboard_team_layout", [("ON", "teams"), ("OFF", "score")],
-             "A team game's scoreboard: on, a column for each\nteam; off, every player in order of score.", None),
-            ("SCOREBOARD PANEL:", "display.scoreboard_background", ON_OFF,
-             "Draw a panel behind the scoreboard, for clearer\ntext.", None),
-            # (map sharing, port/linux/game/map_share.c: this machine's part in
-            # another's game)
+            ("MAPS:", "network.custom_maps", ON_OFF,
+             "Experimental: games on Custom Edition maps, and\nsharing those maps. Select to change it.", None),
+            ("STREAMER MODE:", "streamer.enabled", ON_OFF,
+             "Hide offensive words in names and text from\nother players, maps, and mods as stars.", None),
+        ],
+    },
+    # the MAPS screen NETWORK's MAPS row opens (map sharing, port/linux/game/map_share.c: this machine's part in
+    # another's game)
+    "maps": {
+        "screen": "maps_screen",
+        "header": ("header_maps", f"{PE}/maps/header_maps"),
+        "spacing": 30,
+        "rows": [
             ("CUSTOM MAPS:", "network.custom_maps", ON_OFF,
              "Experimental: show games on Custom Edition maps.\nThese are not fully supported yet.", None),
             ("DOWNLOAD MAPS:", "network.map_download", ON_OFF,
@@ -192,11 +195,6 @@ SCREENS = {
              None),
             ("HELP SEND MAPS:", "network.map_seed", ON_OFF,
              "In another's game, send its map to players who\njoin without it, as a torrent's peers do.", None),
-            ("MAP UPLOAD LIMIT:", "network.map_seed_upload",
-             [(f"{kb} KB/S" if kb < 1024 else f"{kb // 1024} MB/S", str(kb)) for kb in (64, 128, 256, 512, 1024, 2048)],
-             "The most you send of maps to other players, so\nthat the game keeps the rest of your upload.", None),
-            ("STREAMER MODE:", "streamer.enabled", ON_OFF,
-             "Hide offensive words in names and text from\nother players, maps, and mods as stars.", None),
         ],
     },
     "gamepad_setup": {
@@ -281,6 +279,24 @@ def _widget(name: str, pairs: list, inner: list) -> list:
 def _strings(name: str, texts: list) -> list:
     return [f"\t<strings{attributes([('name', name)])}>",
             *[f"\t\t<string{attributes([('text', text)])}/>" for text in texts], "\t</strings>"]
+
+
+def _opener_row(row: str, screen: str, label: str, label_width: int, label_strings: str, label_index: int,
+                state: str, state_pairs: list, state_input: str, platform=None) -> list:
+    """a row that opens a screen of its own and shows a state word where a spinner shows its value: A, Start and a
+    click open the screen, the label is a text of the row's, and the state word is a text the game fills
+    (menu_functions.c, state_input). RESPAWN, TEAMS & HUD and NETWORK's MAPS are such rows"""
+    lines = _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
+                          ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF"), ("platform", platform)],
+                    [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                     '<on event="left_mouse" run="mouse emit accept event"/>',
+                     f'<child{attributes([("widget", label)])}/>',
+                     f'<child{attributes([("widget", state), ("x", 320), ("y", 1)])}/>'])
+    lines += _widget(label, [("type", "text"), ("controller", 1), ("width", label_width), ("height", 22),
+                             ("string_list", label_strings), ("string_index", label_index), ("font", "ui\\large_ui"),
+                             ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    lines += _widget(state, state_pairs, [f'<data input="{state_input}"/>'])
+    return lines
 
 
 # a state shown where a row's spinner shows its value: the spinner's place, font and alignment, without its arrows
@@ -381,29 +397,41 @@ def _setting_screen(folder: str, spec: dict) -> list:
         # (a setting the graphics mode replaces: HARDCORE where the spinner is while the mode shown replaces it,
         # menu_functions.c's graphics_rows_show)
         replaced = setting in graphics_replaced()
-        extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
-                               ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF"), ("platform", platform)],
-                         [f'<child{attributes([("widget", f"{base}/{key}_label")])}/>',
-                          f'<child{attributes([("widget", f"{base}/{key}_spinner"), ("x", 320), ("y", 1)])}/>'] +
-                         ([f'<child{attributes([("widget", f"{base}/{key}_replaced"), ("x", 320), ("y", 1)])}/>']
-                          if replaced else []))
+        opens = spec.get("opens", {}).get(setting)
+        if opens:
+            # (a stateful row: its setting's state word, which menu_functions.c's "port setting state" shows; no
+            # arrows, so a click or tap acts as A)
+            extra += _opener_row(row, f"xbox/settings/{opens}/{SCREENS[opens]['screen']}", f"{base}/{key}_label",
+                                 300, f"{base}/labels", index, f"{base}/{key}_state",
+                                 STATE_VALUE + [("strings", "|".join(shown for shown, _ in choices)),
+                                                ("setting", setting),
+                                                ("values", "|".join(value for _, value in choices))],
+                                 "port setting state", platform)
+        else:
+            extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
+                                   ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF"), ("platform", platform)],
+                             [f'<child{attributes([("widget", f"{base}/{key}_label")])}/>',
+                              f'<child{attributes([("widget", f"{base}/{key}_spinner"), ("x", 320), ("y", 1)])}/>'] +
+                             ([f'<child{attributes([("widget", f"{base}/{key}_replaced"), ("x", 320), ("y", 1)])}/>']
+                              if replaced else []))
         if replaced:
             extra += _widget(f"{base}/{key}_replaced",
                              REPLACED_VALUE + [("string_list", f"{base}/{key}_shown")], [])
             extra += _strings(f"{base}/{key}_shown", [shown for shown, _ in choices])
-        extra += _widget(f"{base}/{key}_label",
-                         [("type", "text"), ("controller", 1), ("width", 300), ("height", 22),
-                          ("string_list", f"{base}/labels"), ("string_index", index), ("font", "ui\\large_ui"),
-                          ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-        extra += _widget(f"{base}/{key}_spinner",
-                         [("type", "spinner"), ("left", 3), ("top", 2), ("width", 147), ("height", 20),
-                          ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
-                          ("strings", "|".join(shown for shown, _ in choices)), ("setting", setting),
-                          ("values", "|".join(value for _, value in choices)), ("font", "ui\\large_ui"),
-                          ("color", "#FF2896FF"), ("align", "center"), ("text_y", 1),
-                          ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
-                          ("header_bounds", "7 -6 19 0"), ("footer_bounds", "7 150 19 156")],
-                         ['<on event="created" run="port setting load"/>'])
+        if not opens:
+            extra += _widget(f"{base}/{key}_label",
+                             [("type", "text"), ("controller", 1), ("width", 300), ("height", 22),
+                              ("string_list", f"{base}/labels"), ("string_index", index), ("font", "ui\\large_ui"),
+                              ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+            extra += _widget(f"{base}/{key}_spinner",
+                             [("type", "spinner"), ("left", 3), ("top", 2), ("width", 147), ("height", 20),
+                              ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
+                              ("strings", "|".join(shown for shown, _ in choices)), ("setting", setting),
+                              ("values", "|".join(value for _, value in choices)), ("font", "ui\\large_ui"),
+                              ("color", "#FF2896FF"), ("align", "center"), ("text_y", 1),
+                              ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
+                              ("header_bounds", "7 -6 19 0"), ("footer_bounds", "7 150 19 156")],
+                             ['<on event="created" run="port setting load"/>'])
     if spec.get("cloud_status"):
         extra += _widget(f"{base}/cloud_saves_status",
                          [("type", "text"), ("controller", 1), ("left", 68), ("top", spec.get("cloud_status_top", 332)),
@@ -880,6 +908,7 @@ TITLES = {
     f"{PE}/about/header_about": "ABOUT",
     f"{PE}/about/header_open_source_notices": "OPEN SOURCE NOTICES",
     f"{PE}/graphics/header_graphics": "GRAPHICS",
+    f"{PE}/maps/header_maps": "MAPS",
     f"{MT}/join_game/header_server_browser": "SERVER BROWSER",
     f"{MT}/join_game/filters/header_sort_filter": "SORT & FILTER",
     f"{MT}/join_game/header_direct_link": "DIRECT LINK",
@@ -1189,21 +1218,11 @@ def _game_options() -> list:
         rows.append((f"{base}/op_{key}", None, 2))
     # the teams and HUD: its own screen, the friendly-fire state on the row
     screen = f"{MT}/teams_hud_edit/teams_hud_screen"
-    extra += _widget(f"{base}/op_teams_hud", [("width", 512), ("height", 28),
-                                              ("flags", "pass_unhandled_to_focused_child"),
-                                              ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                     [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
-                      '<on event="left_mouse" run="mouse emit accept event"/>',
-                      f'<child widget="{base}/teams_hud_label"/>',
-                      f'<child widget="{base}/teams_hud_state" x="320" y="1"/>'])
-    extra += _widget(f"{base}/teams_hud_label", [("type", "text"), ("controller", 1), ("width", 320),
-                                                 ("height", 22), ("string_list", f"{base}/labels"),
-                                                 ("string_index", 3), ("font", "ui\\large_ui"),
-                                                 ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    extra += _widget(f"{base}/teams_hud_state", [("type", "text"), ("controller", 1), ("width", 148),
-                                                 ("height", 22), ("font", "ui\\large_ui"),
-                                                 ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4)],
-                     ['<data input="port teams hud state"/>'])
+    extra += _opener_row(f"{base}/op_teams_hud", screen, f"{base}/teams_hud_label", 320, f"{base}/labels", 3,
+                         f"{base}/teams_hud_state",
+                         [("type", "text"), ("controller", 1), ("width", 148), ("height", 22),
+                          ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4)],
+                         "port teams hud state")
     rows.append((f"{base}/op_teams_hud", None, 3))
     # the type's own options: one row per type, the current type's shown
     for key, folder in (("ctf", "ctf_edit"), ("slayer", "slayer_edit"), ("oddball", "oddball_edit"),
@@ -1845,19 +1864,11 @@ def _player_options_extras() -> list:
     """Player Options' RESPAWN row of the port's: it opens RESPAWN OPTIONS, and shows the respawn time"""
     base = "main_menu/settings_select/multiplayer_setup/player_options_edit"
     screen = f"{MT}/respawn_options_edit/respawn_options_screen"
-    lines = _widget(f"{base}/op_respawn", [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
-                                           ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                    [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
-                     '<on event="left_mouse" run="mouse emit accept event"/>',
-                     f'<child widget="{base}/respawn_label"/>', f'<child widget="{base}/respawn_state" x="320" y="1"/>'])
-    lines += _widget(f"{base}/respawn_label", [("type", "text"), ("controller", 1), ("width", 320), ("height", 22),
-                                                 ("string_list", f"{base}/player_options_labels"),
-                                                 ("string_index", 8), ("font", "ui\\large_ui"),
-                                                 ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    lines += _widget(f"{base}/respawn_state", [("type", "text"), ("controller", 1), ("width", 148), ("height", 22),
-                                                 ("font", "ui\\large_ui"), ("color", "#FF2896FF"),
-                                                 ("align", "center"), ("text_y", 4)],
-                     ['<data input="port respawn state"/>'])
+    lines = _opener_row(f"{base}/op_respawn", screen, f"{base}/respawn_label", 320, f"{base}/player_options_labels", 8,
+                        f"{base}/respawn_state",
+                        [("type", "text"), ("controller", 1), ("width", 148), ("height", 22),
+                         ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4)],
+                        "port respawn state")
     return lines
 
 

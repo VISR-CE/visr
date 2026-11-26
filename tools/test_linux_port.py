@@ -304,7 +304,9 @@ def test_menus_are_well_formed():
                 if element.get("type") == "spinner":
                     assert len(children) in (0, 1, 3), where
                 if element.get("strings") or "items_from_strings" in element.get("list_flags", ""):
-                    assert element.get("type") == "spinner" and not children, where
+                    # (a spinner, or the state word of a row that opens a screen: a text of a setting)
+                    assert (element.get("type") == "spinner" or
+                            (element.get("type") == "text" and element.get("setting"))) and not children, where
                 if element.get("setting"):
                     assert len(element.get("strings").split("|")) == len(element.get("values").split("|")), where
                 for attribute in ("bitmap", "header_bitmap", "footer_bitmap"):
@@ -381,7 +383,7 @@ def test_network_settings_hide_update_toggle_on_mobile():
     assert options is not None
     rows = {child.get("widget").rsplit("/", 1)[-1]: child for child in options.findall("child")}
     assert rows["op_auto"].get("platform") == "desktop"
-    assert rows["op_allow_upnp"].get("platform") is None
+    assert rows["op_online"].get("platform") is None and "op_allow_upnp" not in rows
 
 
 def test_p2p_signatures_and_listings(tmp_path):

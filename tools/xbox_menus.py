@@ -62,7 +62,7 @@ ROW_PITCH = COMFORTABLE_PITCH
 # the scroll arrows sit to the right of the 512-wide rows
 ARROW_X = 574
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
-         'mouse_settings', 'gamepad_setup', 'about', 'graphics')
+         'mouse_settings', 'gamepad_setup', 'about', 'graphics', 'maps')
 BLUE = '#FF2896FF'
 # the PC solo list's widgets the Xbox lobby shows beside its map
 LOBBY_MAP_WIDGETS = ('main_menu/solo_level_select/replay_level_right_pic',
@@ -350,6 +350,12 @@ SPINNER_RUNTIME_VALUES = {'frame_rate_spinner': ('DISPLAY (240 HZ)',)}
 SPINNER_WIDTH_FLOOR = {'group_spinner': 206}
 
 
+def is_value_control(widget):
+    """A spinner, or the state word of a row that opens a screen of its own (a text of a setting, shown in the
+    place and width a spinner's value has, so the values of a screen's rows line up)"""
+    return widget.get('type') == 'spinner' or (widget.get('type') == 'text' and widget.get('setting') is not None)
+
+
 def spinner_width_class(longest):
     for name, width, limit in SPINNER_WIDTHS:
         if longest <= limit:
@@ -366,7 +372,7 @@ def spinner_longest_values(documents):
     result = []
     for root in documents.values():
         for spinner in root.iter('widget'):
-            if spinner.get('type') != 'spinner':
+            if not is_value_control(spinner):
                 continue
             if spinner.get('strings') is not None:
                 values = spinner.get('strings').split('|')
@@ -390,8 +396,9 @@ def standardize_spinners(documents):
         spinner.set('width', str(width))
         # The arrows bracket the value box: bounds are relative to the widget's origin, not to the box's left edge
         left = int(spinner.get('left', '0'))
-        spinner.set('header_bounds', f'7 {left - 9} 19 {left - 3}')
-        spinner.set('footer_bounds', f'7 {left + width + 3} 19 {left + width + 9}')
+        if spinner.get('type') == 'spinner':
+            spinner.set('header_bounds', f'7 {left - 9} 19 {left - 3}')
+            spinner.set('footer_bounds', f'7 {left + width + 3} 19 {left + width + 9}')
     # Every control on a screen keeps one common center line. When the widest control would run past its row, the
     # whole screen's controls move left together (by whatever the worst row needs), so nothing clips and the centers
     # stay aligned.
@@ -401,7 +408,7 @@ def standardize_spinners(documents):
         for row in root.iter('widget'):
             for part in row.findall('child'):
                 spinner = widgets.get(part.get('widget'))
-                if spinner is None or spinner.get('type') != 'spinner' or not row.get('width'):
+                if spinner is None or not is_value_control(spinner) or not row.get('width'):
                     continue
                 reach = int(spinner.get('left', '0')) + int(spinner.get('width')) + 9
                 limit = int(row.get('width')) - SPINNER_ROW_MARGIN
@@ -2172,7 +2179,7 @@ SCREEN_LAYOUTS = {
     **{f'xbox/settings/{page}/{screen}': {'kind': 'K1', 'options': f'xbox/settings/{page}/options_menu'}
        for page, screen in zip(PAGES, ('video_settings_screen', 'audio_settings_screen', 'network_settings_screen',
                                       'controls_settings_screen', 'mouse_settings_screen', 'gamepad_setup_screen',
-                                      'about_screen', 'graphics_screen'))},
+                                      'about_screen', 'graphics_screen', 'maps_screen'))},
     'xbox/settings/settings_screen': {'kind': 'K2-A', 'options': 'xbox/settings/settings_list'},
     GAMETYPE_EDIT_SCREEN: {'kind': 'K2-A', 'options': f'{GAMETYPE_EDIT}/gametype_list'},
     # ABOUT keeps its version line and taller legal help below the scrolling actions.

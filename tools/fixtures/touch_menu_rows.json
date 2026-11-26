@@ -733,6 +733,36 @@
     "reference_kind": "enum(3)"
   },
   {
+    "file": "settings.maps.xml",
+    "name": "custom_maps_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0
+  },
+  {
+    "file": "settings.maps.xml",
+    "name": "map_download_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0
+  },
+  {
+    "file": "settings.maps.xml",
+    "name": "map_seed_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0
+  },
+  {
     "file": "settings.mouse_settings.xml",
     "name": "invert_mouse_spinner",
     "strings": [
@@ -797,17 +827,6 @@
   },
   {
     "file": "settings.network_setup.xml",
-    "name": "allow_upnp_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
     "name": "auto_spinner",
     "strings": [
       "ON",
@@ -820,17 +839,6 @@
   {
     "file": "settings.network_setup.xml",
     "name": "cloud_saves_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "custom_maps_spinner",
     "strings": [
       "ON",
       "OFF"
@@ -863,43 +871,6 @@
   },
   {
     "file": "settings.network_setup.xml",
-    "name": "map_download_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "map_seed_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "map_seed_upload_spinner",
-    "strings": [
-      "64 KB/S",
-      "128 KB/S",
-      "256 KB/S",
-      "512 KB/S",
-      "1 MB/S",
-      "2 MB/S"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(6)"
-  },
-  {
-    "file": "settings.network_setup.xml",
     "name": "online_spinner",
     "strings": [
       "ON",
@@ -908,21 +879,6 @@
     "kind": 1,
     "on_index": 0,
     "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "player_name_scale_spinner",
-    "strings": [
-      "0.5x",
-      "0.75x",
-      "1x",
-      "1.25x",
-      "1.5x",
-      "2x"
-    ],
-    "kind": 3,
-    "on_index": -1,
-    "reference_kind": "enum(6)"
   },
   {
     "file": "settings.network_setup.xml",
@@ -936,28 +892,6 @@
     "kind": 2,
     "on_index": -1,
     "reference_kind": "enum(4)"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "scoreboard_background_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "scoreboard_team_layout_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
   },
   {
     "file": "settings.video_settings.xml",
