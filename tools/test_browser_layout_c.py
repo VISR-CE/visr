@@ -40,6 +40,8 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
 #include "p2p.h"
 #include "halo_network_content.h"
 #include "halo_network_version.h"
+#include "halo_network_join.h"
+int delta_legacy_joinable(unsigned version) { (void)version; return 0; }
 typedef int boolean;
 #define FALSE 0
 #define TRUE 1
@@ -134,9 +136,9 @@ int main(void)
     g.open=0; assert(!browser_listing_other_filters(&g));
     show_full=1; assert(browser_listing_other_filters(&g));
     g=listing(2,4);
-    g.joinable=0; assert(!browser_listing_can_join(&g) && !browser_listing_shown(&g));
+    g.network_version=HALO_PORT_NETWORK_VERSION + 20; assert(!browser_listing_can_join(&g) && !browser_listing_shown(&g));
     show_unjoinable=1; assert(browser_listing_shown(&g));
-    show_unjoinable=0; g.joinable=1; g.failed=1;
+    show_unjoinable=0; g.network_version=0; g.failed=1;
     assert(!browser_listing_can_join(&g) && !browser_listing_shown(&g));
     g.failed=0;
     /* one reason for every consumer: its order, and its words (the panel leaves a version to the network pill) */
@@ -149,12 +151,12 @@ int main(void)
         g.open=1; g.failed=1; assert(browser_join_block(&g)==_browser_join_failed);
         browser_join_block_text(&g,_browser_join_failed,words,128); assert(!wcscmp(words,L"Couldn't reach this game."));
         online=0; assert(browser_join_block(&g)==_browser_join_offline);
-        g.joinable=0; assert(browser_join_block(&g)==_browser_join_version);
+        g.network_version=HALO_PORT_NETWORK_VERSION + 20; assert(browser_join_block(&g)==_browser_join_version);
         browser_join_block_text(&g,_browser_join_version,words,128); assert(!wcscmp(words,L"Not compatible with this network version."));
-        /* one explainer, from the game's real reason: a kind this build does not play leaves the listing
-           unjoinable too (joinable is false for it), but is never reported as a network version, and a
-           supported version never yields the version text */
-        g=listing(2,4); g.network_version=44; g.joinable=0; g.kind=3;
+        /* one explainer, from the game's real reason, tested from its own facts (its version, its kind), never
+           from the `joinable` flag: a kind this build does not play is not a network version problem, and a
+           version this build joins never yields the version text, whatever else clears the flag */
+        g=listing(2,4); g.network_version=HALO_PORT_NETWORK_VERSION; g.joinable=0; g.kind=3;
         assert(browser_join_block(&g)==_browser_join_kind);
         browser_join_block_text(&g,_browser_join_kind,words,128); assert(!wcscmp(words,L"Gun Game is not supported by VISR."));
         for (unsigned k=1;k<=3;k++) {
@@ -163,8 +165,11 @@ int main(void)
             assert(wcscmp(words,L"Not compatible with this network version."));
         }
         g.kind=0x80; assert(browser_join_block(&g)==_browser_join_kind);
-        g.kind=0; g.joinable=0; assert(browser_join_block(&g)==_browser_join_version);
-        g.kind=3; g.joinable=1; assert(browser_join_block(&g)==_browser_join_kind);
+        /* a flag cleared for some other cause, on a joinable version: not the version's words */
+        g.kind=0; g.joinable=0; assert(browser_join_block(&g)!=_browser_join_version);
+        /* both at once: the version outranks the kind (nothing about a game on another contract can be trusted) */
+        g.network_version=HALO_PORT_NETWORK_VERSION + 20; g.kind=3; assert(browser_join_block(&g)==_browser_join_version);
+        g.network_version=HALO_PORT_NETWORK_VERSION; g.kind=3; g.joinable=1; assert(browser_join_block(&g)==_browser_join_kind);
         g.kind=0;
         online=1; g=listing(2,4); g.joinable=1;
     }
@@ -585,6 +590,8 @@ def test_detail_panel_pills_and_connect_line_follow_the_chosen_game(tmp_path):
 #include "p2p.h"
 #include "halo_network_content.h"
 #include "halo_network_version.h"
+#include "halo_network_join.h"
+int delta_legacy_joinable(unsigned version) { (void)version; return 0; }
 typedef int boolean;
 #define FALSE 0
 #define TRUE 1
@@ -691,7 +698,7 @@ int main(void)
 	lobby_browser.count = 4;
 	lobby_browser.games[0].engine_type = 2;
 	lobby_browser.games[1].locked = 1; lobby_browser.games[1].engine_type = 2;
-	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION + 5;
+	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION + 20;
 	lobby_browser.games[3].engine_type = 2;
 	for (int i = 0; i < 4; i++) lobby_browser.games[i].identifier[0] = (unsigned char)(i + 1);
 
@@ -763,11 +770,11 @@ int main(void)
 	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
 	assert(pill("browser_join_reason")->visible && !wcscmp(pill("browser_join_reason")->text, L"Not compatible with this network version."));
 	assert(!pill("browser_detail_password")->visible && dimmed);
-	/* an unsupported kind: the kind's explainer, whether or not the listing also reads unjoinable */
-	lobby_browser.games[2].kind = 1;
+	/* an unsupported kind on a version it joins: the kind's explainer, whether or not the listing also reads unjoinable */
+	lobby_browser.games[2].kind = 1; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION;
 	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
 	assert(!wcscmp(pill("browser_join_reason")->text, L"SWAT rules are not supported by VISR."));
-	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].kind = 0;
+	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].kind = 0; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION + 20;
 	/* and back to a joinable one: nothing is left behind */
 	lobby_browser.chosen = 3; browser_c_detail_update(list, L"");
 	assert(!pill("browser_join_reason")->visible && !dimmed);

@@ -69,6 +69,7 @@ static void draw_unicode_string_compute_bounds(rectangle2d const *bounds, wchar_
 #include <stdio.h>
 static int halo_network_kind_reason(int kind) { (void)kind; return 0; }
 static int config_boolean(char const *name) { (void)name; return 1; }
+static int halo_network_joinable(int version) { return version <= 0 || version == 38; }
 enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *l) { return l->kind == 9 ? P2P_SERVER_LAN : P2P_SERVER_UNKNOWN; }
 static void usnprintf(wchar_t *t, int size, wchar_t const *format, ...) { va_list a; va_start(a, format); vswprintf(t, size + 1, format, a); va_end(a); }
 static void text_to_wide(char const *s, wchar_t *w, short size) { int i = 0; for (; s[i] && i < size - 1; i++) w[i] = s[i]; w[i] = 0; }
@@ -108,8 +109,8 @@ int main(void) {
     listing.maximum_player_count = 16;
     listing.open = 0; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"CLOSED"));
     listing.failed = 1; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"FAILED"));
-    listing.failed = 0; listing.joinable = 0; listing.network_version = 38;
-    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"V38"));
+    listing.failed = 0; listing.network_version = 99;
+    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"V99"));
     wcscpy(text, L"WWWW"); current_font=1;
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(!wcscmp(text, L"WW...")); assert(current_font == 1);

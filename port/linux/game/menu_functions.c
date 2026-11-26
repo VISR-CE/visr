@@ -79,6 +79,7 @@ their handlers open opens.
 #include "halo_menus.h"
 #include "halo_menu_meta.h"
 #include "halo_network_version.h"
+#include "halo_network_join.h"
 #include "halo_network_content.h"
 #include "custom_edition_cache.h"
 #include "custom_edition_maps.h"
@@ -4556,7 +4557,9 @@ static boolean browser_join_under_way(void)
 refused join opens and the list's order all take), or none. The enum is the ranking, most incompatible first, and
 a listing shows only the first reason that holds: a network version this build cannot join (nothing about the game
 can be trusted), a kind of game it does not play, internet play off, a join that failed this run, a game full or
-starting */
+starting. Each reason is tested from the listing's own facts (its version, its kind), never inferred from the
+`joinable` flag, which the sources set for different reasons (a native listing's means the kind is supported, a
+Delta listing's the version) */
 enum
 {
 	_browser_join_ok,
@@ -4569,12 +4572,10 @@ enum
 
 static short browser_join_block(struct p2p_listing const *game)
 {
-	/* (the reason is the game's own: a kind this build cannot play is not a network version problem, though
-	   both leave the listing unjoinable) */
+	if (game->network_version > 0 && !halo_network_joinable(game->network_version))
+		return _browser_join_version;
 	if (halo_network_kind_reason(game->kind))
 		return _browser_join_kind;
-	if (!game->joinable)
-		return _browser_join_version;
 	if (!config_boolean("network.online"))
 		return _browser_join_offline;
 	if (game->failed)

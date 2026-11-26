@@ -46,6 +46,7 @@ def test_join_warning(tmp_path):
 #define ROW_TEXT_LENGTH 128
 #define usnprintf(...) swprintf(__VA_ARGS__)
 static char const *halo_network_kind_reason(unsigned kind) { (void)kind; return NULL; }
+static int halo_network_joinable(int version) { return version <= 0 || version == 38; }
 static wchar_t last_error[256];
 static void display_error_text_deferred(wchar_t const *text, short player) { (void)player; wcsncpy(last_error, text, 255); }
 typedef int boolean;
