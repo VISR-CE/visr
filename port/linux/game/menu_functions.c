@@ -5739,6 +5739,20 @@ static void lobby_map_show(struct widget_instance *description, char const *map_
 	visible_set(named(description, "lobby_map_name", 0), level == NONE);
 	visible_set(named(description, "replay_level_right_pic", 0), level != NONE);
 	visible_set(named(description, "replay_level_right_name", 0), level != NONE);
+	{
+		/* (once per change: the map string a game advertised and what it resolved to, for a lobby whose picture
+		does not match its name) */
+		static char logged_name[64];
+		static short logged_map = -2;
+
+		if (logged_map != map || strncmp(logged_name, map_name ? map_name : "", sizeof(logged_name) - 1))
+		{
+			logged_map = map;
+			snprintf(logged_name, sizeof(logged_name), "%s", map_name ? map_name : "");
+			platform_log("menus: lobby map '%s' -> picture and name index %d (campaign level %d, %d listed maps)",
+				logged_name, map, level, count);
+		}
+	}
 	if ((widget = named(description, "lobby_map_pic", 0)) != NULL)
 		widget->animation.current_frame_index = map;
 	if ((widget = named(description, "lobby_map_name", 0)) != NULL)

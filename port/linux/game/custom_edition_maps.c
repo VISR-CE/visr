@@ -898,6 +898,7 @@ wchar_t *custom_edition_maps_description(
 }
 
 #ifdef HALO_IOS
+void platform_log(char const *format, ...);
 /* map_pictures_render.c: the stock map's persistent rendered picture, a BMP file */
 extern int map_pictures_render_picture_read(const char *base_name, uint8_t **data, uint32_t *size);
 extern void map_pictures_render_picture_free(uint8_t *data);
@@ -972,7 +973,19 @@ static struct bitmap_data *rendered_picture_for_frame(
 	}
 	if (map_pictures && stock_map_with_picture(frame_index))
 	{
-		return rendered_picture_get(stock_map_with_picture(frame_index)->file);
+		struct bitmap_data *picture = rendered_picture_get(stock_map_with_picture(frame_index)->file);
+		static short logged_frame = -2;
+		static boolean logged_found;
+
+		/* (once per change: whether a stock frame's rendered picture was found) */
+		if (logged_frame != frame_index || logged_found != (picture != NULL))
+		{
+			logged_frame = frame_index;
+			logged_found = picture != NULL;
+			platform_log("menus: level picture frame %d (%s): %s", frame_index, stock_map_with_picture(frame_index)->file,
+				picture ? "rendered picture" : "the stock frame");
+		}
+		return picture;
 	}
 	if (level_pictures && frame_index >= 0 && frame_index < NUMBER_OF_SINGLE_PLAYER_LEVELS)
 	{
