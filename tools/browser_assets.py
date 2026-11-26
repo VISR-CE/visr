@@ -3,7 +3,7 @@
 
 Run ``python3 tools/browser_assets.py``. Requires rsvg-convert; the supplied
 CC0 icon redraws live beside the generated art so regeneration is self-contained.
-Widget dimensions in tools/xbox_menus.py must match the menu-unit sizes here.
+Every size and color here is read from tools/menu_geometry.py, as tools/xbox_menus.py reads it for the widgets.
 """
 
 import argparse
@@ -32,7 +32,7 @@ def svg(width, height, content):
             f'viewBox="0 0 {width} {height}">{content}</svg>')
 
 
-def rounded(width, height, fill, stroke="none", radius=7, top=0, stroke_width=1.5, opacity=1):
+def rounded(width, height, fill, stroke="none", radius=menu_geometry.BROWSER_TAB_RADIUS, top=0, stroke_width=1.5, opacity=1):
     # Inset the outline so it is not clipped by the widget or its PNG frame.
     return svg(width, height,
                f'<rect x="{stroke_width / 2}" y="{top + stroke_width / 2}" width="{width - stroke_width}" '
@@ -95,7 +95,7 @@ def generate(output, icons):
     # edge and filled as the detail panel is, reaching into the panel (drawn over its left border) so tab and panel
     # are one shape. The art is ROW_ART_WIDTH wide, the tab itself ROW_TAB_WIDTH of it.
     g = menu_geometry
-    height, radius, stroke = ROW_HEIGHT, 7, menu_geometry.BROWSER_BORDER
+    height, radius, stroke = ROW_HEIGHT, menu_geometry.BROWSER_TAB_RADIUS, menu_geometry.BROWSER_BORDER
     half = stroke / 2
     draw("row__0", ROW_ART_WIDTH, height, svg(ROW_ART_WIDTH, height,
          f'<rect x="{half}" y="{half}" width="{ROW_TAB_WIDTH - stroke}" height="{height - stroke}" rx="{radius}" '
@@ -107,33 +107,33 @@ def generate(output, icons):
     # focus bar, and the selected chip's filled bar, with or without focus.
     states = ((g.STANDARD_BAR_FILL, g.STANDARD_BAR_OPACITY, "none"), (g.STANDARD_FOCUS_FILL, 1, g.STANDARD_FOCUS_OUTLINE),
               (g.STANDARD_FOCUS_FILL, 1, "none"), (g.STANDARD_FOCUS_FILL, 1, g.STANDARD_FOCUS_OUTLINE))
-    for name, width in (("chip_all", 78), ("chip_multiplayer", 144),
-                        ("chip_coop", 100), ("toggle", 174)):
+    for _, name, _, width in g.BROWSER_CHIPS:
         for index, (fill, opacity, border) in enumerate(states):
-            draw(f"{name}__{index}", width, 54,
-                 rounded(width, 54, fill, border, top=22, stroke_width=2, opacity=opacity))
+            draw(f"{name}__{index}", width, g.BROWSER_CHIP_HEIGHT,
+                 rounded(width, g.BROWSER_CHIP_HEIGHT, fill, border, top=g.BROWSER_CHIP_ART_TOP, stroke_width=2,
+                         opacity=opacity))
 
     # (transparent, so 1x: thirty preview frames fall back to it, and at 4x they cost the Apple TV HD about 90 MB)
     draw("preview_none", 310, 155, svg(310, 155, ""), scale=1)
     for chosen in (*range(menu_geometry.BROWSER_ROWS), None):
         draw(f"joint__{'none' if chosen is None else chosen}", menu_geometry.BROWSER_JOINT_WIDTH,
              menu_geometry.BROWSER_DETAIL_HEIGHT, joint_svg(chosen))
-    draw("big", menu_geometry.BROWSER_PREVIEW_WIDTH, 20, rounded(menu_geometry.BROWSER_PREVIEW_WIDTH, 20, "#e8b520", radius=3))
-    # The detail panel's password pill (HUD blue)
+    draw("big", g.BROWSER_PREVIEW_WIDTH, g.BROWSER_BIG_HEIGHT,
+         rounded(g.BROWSER_PREVIEW_WIDTH, g.BROWSER_BIG_HEIGHT, g.NOTICE_FILL, radius=3))
     # The detail panel's info pills: normal (HUD blue) and blocked (grayed as the disabled rows are, never red).
-    for index, border in enumerate((menu_geometry.STANDARD_OUTLINE, "#4a5563")):
+    for index, border in enumerate((menu_geometry.STANDARD_OUTLINE, menu_geometry.DISABLED_OUTLINE)):
         draw(f"badge__{index}", menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT,
              rounded(menu_geometry.BROWSER_PILL_WIDTH, menu_geometry.BROWSER_PILL_HEIGHT, "none", border, radius=3))
     # The lock inside the password pill.
-    draw("lock", 12, 14, svg(12, 14,
-         '<path d="M3 6V4.5a3 3 0 0 1 6 0V6" fill="none" stroke="#cfe8ff" stroke-width="1.4"/>'
-         '<rect x="1" y="6" width="10" height="7.2" rx="1.4" fill="#cfe8ff"/>'))
+    draw("lock", g.BROWSER_LOCK_WIDTH, g.BROWSER_LOCK_HEIGHT, svg(g.BROWSER_LOCK_WIDTH, g.BROWSER_LOCK_HEIGHT,
+         f'<path d="M3 6V4.5a3 3 0 0 1 6 0V6" fill="none" stroke="{g.LOCK_COLOR}" stroke-width="1.4"/>'
+         f'<rect x="1" y="6" width="10" height="7.2" rx="1.4" fill="{g.LOCK_COLOR}"/>'))
 
     for index, name in enumerate(GAMETYPES):
         icon = ET.parse(icons / f"{name}-nobg.svg").getroot()
-        icon.set("width", "36")
-        icon.set("height", "36")
-        draw(f"gametype__{index}", 36, 36, ET.tostring(icon, encoding="unicode"))
+        icon.set("width", str(g.BROWSER_ICON_SIZE))
+        icon.set("height", str(g.BROWSER_ICON_SIZE))
+        draw(f"gametype__{index}", g.BROWSER_ICON_SIZE, g.BROWSER_ICON_SIZE, ET.tostring(icon, encoding="unicode"))
 
     # The detail panel's gametype picture, over the map picture's top right: the same redraws at the badge's size
     # (menu_geometry), then the original "?" frame of game_type_grafix for when no game is chosen.
@@ -149,24 +149,28 @@ def generate(output, icons):
     scrim_width, scrim_height = menu_geometry.BROWSER_PREVIEW_WIDTH, menu_geometry.BROWSER_SCRIM_HEIGHT
     draw("scrim", scrim_width, scrim_height, svg(scrim_width, scrim_height,
          '<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1">'
-         '<stop offset="0" stop-color="#030c1c" stop-opacity="0.45"/>'
-         '<stop offset="0.35" stop-color="#030c1c" stop-opacity="0.78"/>'
-         '<stop offset="1" stop-color="#030c1c" stop-opacity="0.86"/></linearGradient></defs>'
+         f'<stop offset="0" stop-color="{g.SCRIM_COLOR}" stop-opacity="0.45"/>'
+         f'<stop offset="0.35" stop-color="{g.SCRIM_COLOR}" stop-opacity="0.78"/>'
+         f'<stop offset="1" stop-color="{g.SCRIM_COLOR}" stop-opacity="0.86"/></linearGradient></defs>'
          f'<rect width="{scrim_width}" height="{scrim_height}" fill="url(#s)"/>'))
 
-    circumference = 2 * math.pi * 17.5
+    size = g.BROWSER_GAUGE_SIZE
+    centre, ring_width = size / 2, 3.5
+    radius = centre - ring_width
+    circumference = 2 * math.pi * radius
     for index in range(33):
-        track = '<circle cx="21" cy="21" r="17.5" fill="none" stroke="#133e75" stroke-width="3.5"/>'
+        track = (f'<circle cx="{centre:g}" cy="{centre:g}" r="{radius:g}" fill="none" stroke="{g.GAUGE_TRACK}" '
+                 f'stroke-width="{ring_width}"/>')
         fill = ""
         if index:
             arc = circumference * index / 32
             # A whole circle avoids a round-cap seam on the fully occupied ring.
             dash = (f' stroke-dasharray="{arc:.6f} {circumference:.6f}"'
                     if index < 32 else "")
-            fill = (f'<circle cx="21" cy="21" r="17.5" fill="none" '
-                    f'stroke="#2995ff" stroke-width="3.5" stroke-linecap="round"'
-                    f'{dash} transform="rotate(-90 21 21)"/>')
-        draw(f"gauge__{index:02d}", 42, 42, svg(42, 42, track + fill))
+            fill = (f'<circle cx="{centre:g}" cy="{centre:g}" r="{radius:g}" fill="none" '
+                    f'stroke="{g.GAUGE_FILL}" stroke-width="{ring_width}" stroke-linecap="round"'
+                    f'{dash} transform="rotate(-90 {centre:g} {centre:g})"/>')
+        draw(f"gauge__{index:02d}", size, size, svg(size, size, track + fill))
 
 
 def main():

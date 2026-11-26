@@ -129,6 +129,20 @@ BROWSER_ROWS = 6
 BROWSER_TAB_WIDTH, BROWSER_TAB_REACH = 270, 282
 BROWSER_PANEL_WIDTH, BROWSER_PANEL_RADIUS, BROWSER_TAB_RADIUS = 312, 9, 7
 BROWSER_PANEL_TOP = 110 + BROWSER_CONTENT_SHIFT
+BROWSER_DETAIL_HEIGHT = 273  # the panel's height: the six rows end at its bottom (the assert below)
+# The chips above the list (a tab each) and the FILTER toggle: name, art, x, width; one height and one y. Each draws
+# its outline from BROWSER_CHIP_ART_TOP down (a shorter bar than its box, so a tap lands above it) and its caption
+# sits at BROWSER_CHIP_LABEL_Y.
+BROWSER_CHIPS = (('browser_chip_all', 'chip_all', 24, 78), ('browser_chip_multiplayer', 'chip_multiplayer', 107, 144),
+                 ('browser_chip_coop', 'chip_coop', 256, 100), ('browser_filter', 'toggle', 442, 174))
+BROWSER_CHIP_HEIGHT, BROWSER_CHIP_ART_TOP = 54, 22
+BROWSER_CHIP_Y = 50 + BROWSER_CONTENT_SHIFT
+BROWSER_CHIP_LABEL_Y, BROWSER_CHIP_LABEL_HEIGHT = 29, 23
+assert BROWSER_CHIP_ART_TOP < BROWSER_CHIP_LABEL_Y < BROWSER_CHIP_HEIGHT, 'the caption sits inside the chip art'
+# A row's parts: the gametype icon, the player gauge, and the lock and big-game notice in the detail panel.
+BROWSER_ICON_SIZE, BROWSER_GAUGE_SIZE = 36, 42
+BROWSER_BIG_HEIGHT = 20
+BROWSER_LABEL_COLUMN = 76  # the detail rows' label column (RULES, HOST), the value starts this far right
 BROWSER_JOINT_WIDTH = BROWSER_PANEL_LEFT - BROWSER_LIST_X + BROWSER_PANEL_WIDTH  # from the tab's left to the panel's right
 # The browser draws with the disc's own colors, never its own: the panel and the chosen game's tab are the disc's panel
 # (sel_list_desc_bkd: an opaque fill, a 2 unit outline), an unselected row is the disc's translucent bar and a focused
@@ -139,7 +153,15 @@ STANDARD_FOCUS_FILL, STANDARD_FOCUS_OUTLINE = '#002244', '#2299ff'
 BROWSER_PANEL_FILL = STANDARD_PANEL_FILL
 BROWSER_PANEL_FILL_OPACITY = 1
 BROWSER_PANEL_BORDER = STANDARD_OUTLINE  # the panel's outline and the chosen tab's rules: one line where they meet
-assert BROWSER_PANEL_TOP + (BROWSER_ROWS - 1) * BROWSER_ROW_PITCH + BROWSER_ROW_HEIGHT == BROWSER_PANEL_TOP + 273, \
+# The rest of the browser's colors, named once (the widgets in tools/xbox_menus.py and the art in tools/browser_assets.py
+# read these; tools/test_xbox_menus.py fails on a color literal in either). A blocked item is the disabled rows' gray.
+DISABLED_TEXT, DISABLED_OUTLINE = '#7b8794', '#4a5563'
+NOTICE_FILL, NOTICE_TEXT = '#e8b520', '#0a2245'  # the big-game notice: yellow, with the HUD's dark blue on it
+LOCK_COLOR = '#cfe8ff'
+GAUGE_TRACK, GAUGE_FILL = '#133e75', STANDARD_OUTLINE
+SCRIM_COLOR = '#030c1c'
+TEXT_WHITE = '#ffffff'
+assert BROWSER_PANEL_TOP + (BROWSER_ROWS - 1) * BROWSER_ROW_PITCH + BROWSER_ROW_HEIGHT == BROWSER_PANEL_TOP + BROWSER_DETAIL_HEIGHT, \
     'the first and last rows reach the panel top and bottom: the joint merges their edges'
 assert BROWSER_LIST_X + BROWSER_TAB_WIDTH < BROWSER_PANEL_LEFT < BROWSER_LIST_X + BROWSER_TAB_REACH
 # The detail panel's preview, one set of numbers for the art, the widgets, the text and the pictures the engine loads.
@@ -151,8 +173,7 @@ assert BROWSER_LIST_X + BROWSER_TAB_WIDTH < BROWSER_PANEL_LEFT < BROWSER_LIST_X 
 BROWSER_PANEL_INSET = 8
 BROWSER_PREVIEW_X = BROWSER_PANEL_LEFT + BROWSER_PANEL_INSET
 BROWSER_PREVIEW_Y = BROWSER_PANEL_TOP + BROWSER_PANEL_INSET
-BROWSER_PANEL_WIDTH_UNITS = 312
-BROWSER_PREVIEW_WIDTH = BROWSER_PANEL_WIDTH_UNITS - 2 * BROWSER_PANEL_INSET
+BROWSER_PREVIEW_WIDTH = BROWSER_PANEL_WIDTH - 2 * BROWSER_PANEL_INSET
 BROWSER_PREVIEW_HEIGHT = BROWSER_PREVIEW_WIDTH // 2  # the picture is 2:1
 assert BROWSER_PANEL_INSET > BROWSER_BORDER, 'the content clears the panel outline'
 BROWSER_PICTURE_TEXTURE = (512, 256)  # the picture's menu copy (map_pictures_render.c writes a 512x256 BMP)
@@ -173,7 +194,6 @@ BROWSER_PASSWORD_PILL_X = BROWSER_NET_PILL_X + BROWSER_PILL_WIDTH + BROWSER_PILL
 BROWSER_LOCK_WIDTH, BROWSER_LOCK_HEIGHT = 12, 14  # the padlock in the password pill, centered in it like any row's icon
 BROWSER_LOCK_Y = BROWSER_PILL_Y + (BROWSER_PILL_HEIGHT - BROWSER_LOCK_HEIGHT) // 2
 assert BROWSER_PASSWORD_PILL_X + BROWSER_PILL_WIDTH <= BROWSER_PREVIEW_X + BROWSER_PREVIEW_WIDTH, 'both pills fit the panel'
-BROWSER_DETAIL_HEIGHT = 273
 assert BROWSER_PREVIEW_WIDTH * BROWSER_PICTURE_TEXTURE[1] == BROWSER_PREVIEW_HEIGHT * BROWSER_PICTURE_TEXTURE[0], \
     'the preview shows the picture whole, at its own shape'
 assert BROWSER_NAME_Y + BROWSER_NAME_HEIGHT <= BROWSER_TYPE_Y + 1 and BROWSER_TYPE_Y + BROWSER_TYPE_HEIGHT \

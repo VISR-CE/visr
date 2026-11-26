@@ -89,7 +89,7 @@ static void visible_set(struct widget_instance *w, boolean v) { (void)w; (void)v
 static boolean browser_item_usable(struct widget_instance *w) { (void)w; return 1; }
 static boolean browser_filters_returning;
 static int filter_opens, filter_focuses;
-static void browser_headers_usable(struct widget_instance *w) { (void)w; }
+static struct widget_instance *browser_chips(struct widget_instance *w) { (void)w; return NULL; }
 static void browser_filters_focus(struct widget_instance *w) { (void)w; filter_focuses++; }
 static void browser_focus(struct widget_instance *w) { (void)w; }
 static void browser_c_focus(struct widget_instance *w) { (void)w; }

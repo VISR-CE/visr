@@ -301,6 +301,7 @@ def _compile_probe(tmp_path, name, program):
 def test_browser_controller_navigation(tmp_path):
     source = (ROOT / "port/linux/game/menu_functions.c").read_text()
     signatures = (
+        "static struct widget_instance *browser_chips(",
         "static short browser_row_index(",
         "static void lobby_browser_focus_row(",
         "static short lobby_browser_rows(",
@@ -374,7 +375,6 @@ static void ui_widget_port_post_button(short controller, short button)
 }
 static char const *const browser_chip_values[] = { "all", "multiplayer", "coop" };
 static char const *const browser_chip_names[] = { "browser_chip_all", "browser_chip_multiplayer", "browser_chip_coop" };
-static wchar_t const *const browser_filter_label = L"FILTER";
 static char const *config_string(char const *key) { (void)key; return "all"; }
 static void text_set(struct widget_instance *widget, wchar_t const *text) { (void)widget; (void)text; }
 static void visible_set(struct widget_instance *widget, boolean visible) { if (widget) widget->visible=visible; }

@@ -185,11 +185,20 @@ s4 = "25 MINUTES"
 s5 = "30 MINUTES"
 s6 = "45 MINUTES"
 
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_detail_password]
+text = "PASSWORD"
+
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_equipment_label]
 text = "EQUIPMENT"
 
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_filter_label]
+text = "FILTER"
+
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_host_label]
 text = "HOST"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_list_hint]
+text = "Select CREATE to start your own game."
 
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_rules_label]
 text = "RULES"
@@ -212,9 +221,6 @@ text = "IP ADDRESS"
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_screen_bar_y]
 text = "CREATE"
 
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_browser_filters_label]
-text = "FILTERS"
-
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_create]
 text = "CREATE GAME"
 
@@ -229,9 +235,6 @@ internet_lobby = "INTERNET LOBBY"
 
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_header_lan_title]
 lan_lobby = "LAN LOBBY"
-
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_join_game_button_refresh]
-text = "REFRESH"
 
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_legend_accept]
 text = "SELECT"

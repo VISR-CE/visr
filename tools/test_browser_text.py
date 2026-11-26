@@ -1,4 +1,4 @@
-"""Exercise browser region text and measured single-line name truncation."""
+"""Exercise measured single-line name truncation."""
 from pathlib import Path
 import subprocess
 import xml.etree.ElementTree as ET
@@ -8,17 +8,11 @@ from test_network_discovery import function
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_browser_text_fit_and_regions(tmp_path):
+def test_browser_text_fit(tmp_path):
     ui = (ROOT / 'source/interface/ui_widget.c').read_text()
-    menu = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     production = function(ui, 'static short ui_widget_port_text_width(')
     production += '\n' + function(ui, 'void ui_widget_port_text_ellipsize(')
     production += '\n' + function(ui, 'short ui_widget_port_font_text_width(')
-    join_enum = menu[menu.index('enum\n{\n\t_browser_join_ok'):]
-    production += '\n' + join_enum[:join_enum.index('};') + 3]
-    for signature in ('static short browser_join_block(', 'static long player_capacity(void)', 'static boolean player_capacity_exceeded(',
-                      'static boolean player_capacity_marked(', 'static void browser_listing_region('):
-        production += '\n' + function(menu, signature)
     fixture = r'''
 #include <assert.h>
 #include <stddef.h>
@@ -27,8 +21,6 @@ def test_browser_text_fit_and_regions(tmp_path):
 #include "p2p.h"
 #define NONE -1
 typedef int boolean;
-static long capacity = 8, full_rate;
-static long config_integer(char const *name) { return !strcmp(name,"network.full_rate_players") ? full_rate : capacity; }
 #define SHORT_MAX 32767
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -64,53 +56,10 @@ static void draw_unicode_string_compute_bounds(rectangle2d const *bounds, wchar_
     }
     *cursor = *ink = *bounds; cursor->x0 = width; ink->x1 = width + overhang;
 }
-/* stand-ins for the region column's helpers (menu_functions.c) */
-#include <stdarg.h>
-#include <stdio.h>
-static int halo_network_kind_reason(int kind) { (void)kind; return 0; }
-static int config_boolean(char const *name) { (void)name; return 1; }
-static int halo_network_joinable(int version) { return version <= 0 || version == 38; }
-enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *l) { return l->kind == 9 ? P2P_SERVER_LAN : P2P_SERVER_UNKNOWN; }
-static void usnprintf(wchar_t *t, int size, wchar_t const *format, ...) { va_list a; va_start(a, format); vswprintf(t, size + 1, format, a); va_end(a); }
-static void text_to_wide(char const *s, wchar_t *w, short size) { int i = 0; for (; s[i] && i < size - 1; i++) w[i] = s[i]; w[i] = 0; }
 /* PRODUCTION */
 int main(void) {
     struct widget_instance box = {0};
-    struct p2p_listing listing = {0};
     wchar_t text[32];
-    listing.joinable = 1; listing.open = 1; listing.maximum_player_count = 16;
-    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"-"));
-    strcpy(listing.region, "na-west");
-    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
-    listing.kind = 9; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"LAN"));
-    listing.kind = 0; listing.player_count = 4; listing.maximum_player_count = 16;
-    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"BIG"));
-    /* Master provenance and region must never hide the same BIG mark that gates joining. */
-    for (int master = 0; master <= 1; master++) {
-        listing.from_master = master;
-        for (int dedicated = 0; dedicated <= 1; dedicated++) {
-            listing.dedicated = dedicated;
-            browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"BIG"));
-            listing.player_count = 3;
-            browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
-            listing.player_count = 4; capacity = 0;
-            browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
-            capacity = 16;
-            browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
-            capacity = 8;
-        }
-    }
-    capacity = 128; full_rate = 8;
-    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"BIG"));
-    listing.player_count = 3;
-    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
-    listing.player_count = 4; listing.maximum_player_count = 8;
-    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
-    listing.maximum_player_count = 16;
-    listing.open = 0; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"CLOSED"));
-    listing.failed = 1; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"FAILED"));
-    listing.failed = 0; listing.network_version = 99;
-    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"V99"));
     wcscpy(text, L"WWWW"); current_font=1;
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(!wcscmp(text, L"WW...")); assert(current_font == 1);
