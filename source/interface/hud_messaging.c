@@ -523,10 +523,7 @@ static void render_state_text(
 {
 	rectangle2d text_bounds;
 
-	draw_string_set_indents(cursor_bounds->x0 - bounds->x0, 0);
-	draw_unicode_string_compute_bounds(bounds, text, &text_bounds, cursor_bounds);
-	cursor_bounds->x0 -= 3;
-	text_bounds.x0 = bounds->x0;
+	draw_unicode_string_compute_bounds_from_cursor(bounds, text, &text_bounds, cursor_bounds);
 	if (custom && game_engine_running())
 		draw_string_and_hack_in_icons(&text_bounds, NULL, NULL, 0, text, TRUE);
 	else
@@ -1715,14 +1712,11 @@ void hud_messaging_update(
 									line_ended = TRUE;
 								}
 							}
-							draw_string_set_indents(line_cursor.x0 - line_bounds.x0, 0);
-							draw_unicode_string_compute_bounds(
+							draw_unicode_string_compute_bounds_from_cursor(
 								&line_bounds,
 								text,
 								&text_bounds,
 								&line_cursor);
-							line_cursor.x0 -= 3;
-							text_bounds.x0 = line_bounds.x0;
 							rasterizer_draw_unicode_string(
 								&text_bounds,
 								NULL,
@@ -1882,14 +1876,11 @@ void hud_messaging_update(
 									icon_text = unicode_string_list_get_string(
 										hud_globals->messaging.alternate_icon_text.index,
 										icon->text_index);
-									draw_string_set_indents(line_cursor.x0 - line_bounds.x0, 0);
-									draw_unicode_string_compute_bounds(
+									draw_unicode_string_compute_bounds_from_cursor(
 										&line_bounds,
 										icon_text,
 										&text_bounds,
 										&line_cursor);
-									line_cursor.x0 -= 3;
-									text_bounds.x0 = line_bounds.x0;
 									rasterizer_draw_unicode_string(
 										&text_bounds,
 										NULL,
@@ -1917,14 +1908,11 @@ void hud_messaging_update(
 							{
 								rectangle2d text_bounds;
 
-								draw_string_set_indents(line_cursor.x0 - line_bounds.x0, 0);
-								draw_unicode_string_compute_bounds(
+								draw_unicode_string_compute_bounds_from_cursor(
 									&line_bounds,
 									L"<no button icon>",
 									&text_bounds,
 									&line_cursor);
-								line_cursor.x0 -= 3;
-								text_bounds.x0 = line_bounds.x0;
 								rasterizer_draw_unicode_string(
 									&text_bounds,
 									NULL,

@@ -4684,15 +4684,10 @@ static void render_state_text(
 	wchar_t const *text)
 {
 	rectangle2d text_bounds;
-	short initial_indent = cursor_bounds->x0 - bounds->x0;
 
-	if (initial_indent < 0)
+	if (cursor_bounds->x0 < bounds->x0)
 		error(_error_silent, "initial_indent<0 in render_state_text() and was about to explode");
-	initial_indent = MAX(0, initial_indent);
-	draw_string_set_indents(initial_indent, 0);
-	draw_unicode_string_compute_bounds(bounds, text, &text_bounds, cursor_bounds);
-	cursor_bounds->x0 -= 3;
-	text_bounds.x0 = bounds->x0;
+	draw_unicode_string_compute_bounds_from_cursor(bounds, text, &text_bounds, cursor_bounds);
 	rasterizer_draw_unicode_string(&text_bounds, NULL, NULL, 0, text);
 	bounds->y0 = cursor_bounds->y0;
 
