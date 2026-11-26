@@ -974,14 +974,16 @@ static struct bitmap_data *rendered_picture_for_frame(
 	if (map_pictures && stock_map_with_picture(frame_index))
 	{
 		struct bitmap_data *picture = rendered_picture_get(stock_map_with_picture(frame_index)->file);
-		static short logged_frame = -2;
-		static boolean logged_found;
+		static unsigned short logged_found, logged_missing;
+		unsigned short bit = (unsigned short)(1u << (frame_index & 15));
 
-		/* (once per change: whether a stock frame's rendered picture was found) */
-		if (logged_frame != frame_index || logged_found != (picture != NULL))
+		/* (once per frame and outcome: whether a stock frame's rendered picture was found) */
+		if (frame_index < 16 && !((picture ? logged_found : logged_missing) & bit))
 		{
-			logged_frame = frame_index;
-			logged_found = picture != NULL;
+			if (picture)
+				logged_found |= bit;
+			else
+				logged_missing |= bit;
 			platform_log("menus: level picture frame %d (%s): %s", frame_index, stock_map_with_picture(frame_index)->file,
 				picture ? "rendered picture" : "the stock frame");
 		}
@@ -1043,24 +1045,18 @@ struct bitmap_data *custom_edition_maps_picture(
 		*frame_index = UNKNOWN_LEVEL_FRAME;
 		return pictures != NONE ? bitmap_group_get_bitmap_from_sequence(pictures, 0, level) : NULL;
 	}
-	/* a level pictures frame that is none of the stock pictures (the 13 maps' frames 0..12), a co-op level's or a custom
-	map's is the unknown level's: bitmap_group_get_bitmap_from_sequence wraps a frame past the group's end back to
-	its start, which is Battle Creek's picture beside any other map's name (a name index such as 14..19 is not a
-	picture frame) */
-	if (bitmap_tag_index != NONE &&
-		!csstrcasecmp(tag_get_name(bitmap_tag_index), LEVEL_PICTURES_TAG_NAME) &&
-		(*frame_index < 0 || (*frame_index > UNKNOWN_LEVEL_FRAME && *frame_index < FIRST_CAMPAIGN_DISPLAY_INDEX)))
-	{
-		*frame_index = UNKNOWN_LEVEL_FRAME;
-		return NULL;
-	}
-	if (*frame_index < FIRST_DISPLAY_INDEX ||
-		bitmap_tag_index == NONE ||
-		csstrcasecmp(tag_get_name(bitmap_tag_index), LEVEL_PICTURES_TAG_NAME))
+	if (bitmap_tag_index == NONE || csstrcasecmp(tag_get_name(bitmap_tag_index), LEVEL_PICTURES_TAG_NAME))
 	{
 		return NULL;
 	}
-
+	/* a stock map's frame (0 through the unknown level's) keeps its picture; any other frame of the level pictures is a
+	custom map's display index or none, and shows the unknown level's when no picture of ours is found:
+	bitmap_group_get_bitmap_from_sequence wraps a frame past the group's end back to its start, which is Battle
+	Creek's picture beside any other map's name */
+	if (*frame_index >= 0 && *frame_index <= UNKNOWN_LEVEL_FRAME)
+	{
+		return NULL;
+	}
 	map = custom_edition_map_get(*frame_index);
 	*frame_index = UNKNOWN_LEVEL_FRAME;
 	if (!map)
