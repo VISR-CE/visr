@@ -41,7 +41,8 @@ enum
 /* The line a pixel shader's MSL starts its traced part with (nv2a_msl.c), and by which gpu_metal.m's shader_create
 knows a traced shadow's or a traced light's apply shader, to bind its structures. A flag passed beside the source
 would not survive what carries only the text: captures, replays and the shader lists compiled from dumped
-sources; one constant on both sides keeps the generator and the reader from drifting apart. */
+sources; one constant on both sides keeps the generator and the reader from drifting apart. The values are frozen:
+old captures and shader lists carry them, so a changed mark would stop binding the structures when they replay. */
 #define TRACED_SHADOWS_SHADER_MARK "#define TRACED_SHADOW 1\n"
 #define TRACED_LIGHT_SHADER_MARK "#define TRACED_LIGHT 1\n"
 
