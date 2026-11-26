@@ -228,6 +228,9 @@ extern boolean debug_sound_environment;
 
 long global_scenario_index = NONE;
 short global_structure_bsp_index = NONE;
+/* port: every bsp load counted (scenario_switch_structure_bsp), so what keeps a copy of a bsp's data can tell one
+load from the next: the game loads each bsp at the same address (traced_shadow_casters.c's level structure) */
+unsigned long global_structure_bsp_loads = 0;
 
 static scenario_structure_bsp_connection_proc scenario_structure_bsp_reconnect_proc_table[] =
 {
@@ -1161,6 +1164,7 @@ boolean scenario_switch_structure_bsp(
 				struct collision_bsp);
 			scenario_globals->structure_bsp_index = structure_bsp_index;
 			global_structure_bsp_index = structure_bsp_index;
+			global_structure_bsp_loads++;
 			/* port: cache buckets while the newly current bsp's tags are loaded */
 			structure_culling_structure_bsp_loaded();
 

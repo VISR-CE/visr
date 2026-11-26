@@ -101,8 +101,7 @@ static struct
 	boolean window, world;
 	unsigned long long frame;
 	unsigned long next_id;
-	void *world_bsp;
-	void const *world_first_vertices;
+	boolean world_sent;
 } traced;
 static struct { unsigned long long fps_accumulation_frame_index; } rasterizer_globals;
 static unsigned long releases;

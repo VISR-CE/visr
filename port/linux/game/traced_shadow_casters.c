@@ -132,8 +132,9 @@ static struct
 	real_matrix4x3 const *model_matrices;
 	short model_matrix_count;
 	/* the level's surfaces, as last sent */
-	struct structure_bsp *world_bsp;
-	void const *world_first_vertices;
+	boolean world_sent;
+	short world_bsp_index;
+	unsigned long world_bsp_loads;
 	/* what was left out since the last log line, by reason (traced_left_out) */
 	unsigned long left_out[TRACED_LEFT_OUT_REASONS], frames;
 	/* shadows whose volume projects to part of the window, and to all of it (traced_shadow_cover) */
@@ -183,8 +184,17 @@ void traced_shadow_casters_new_map(
 	traced.part_count = 0;
 	traced.epoch++;
 	traced.reset_sent = FALSE;
-	traced.world_bsp = NULL;
-	traced.world_first_vertices = NULL;
+	traced.world_sent = FALSE;
+}
+
+/* whether the level's structure the backend holds is the loaded bsp's: keyed on the bsp's index and its load
+(scenario.c's global_structure_bsp_loads), never on addresses, which repeat because the game loads each bsp at the
+same place */
+static boolean world_current(
+	void)
+{
+	return traced.world_sent && traced.world_bsp_index == global_structure_bsp_index &&
+		traced.world_bsp_loads == global_structure_bsp_loads;
 }
 
 /* the level's opaque render triangles, once for each structure the map switches to */
@@ -192,23 +202,15 @@ static void world_send(
 	void)
 {
 	struct structure_bsp *bsp = global_structure_bsp_get();
-	void const *first_vertices = NULL;
 	long lightmap_index, material_index, total = 0, written = 0;
 	struct traced_shadows_world *record;
 	float *positions;
 
-	if (!bsp || !bsp->lightmaps.address || bsp->lightmaps.count <= 0)
+	if (!bsp || !bsp->lightmaps.address || bsp->lightmaps.count <= 0 || world_current())
 		return;
-	{
-		struct structure_lightmap *lightmap = TAG_BLOCK_GET_ELEMENT(&bsp->lightmaps, 0, struct structure_lightmap);
-
-		if (lightmap->materials.count > 0)
-			first_vertices = TAG_BLOCK_GET_ELEMENT(&lightmap->materials, 0, struct structure_material)->vertices.hardware_format;
-	}
-	if (bsp == traced.world_bsp && first_vertices == traced.world_first_vertices)
-		return;
-	traced.world_bsp = bsp;
-	traced.world_first_vertices = first_vertices;
+	traced.world_sent = TRUE;
+	traced.world_bsp_index = global_structure_bsp_index;
+	traced.world_bsp_loads = global_structure_bsp_loads;
 	for (lightmap_index = 0; lightmap_index < bsp->lightmaps.count; lightmap_index++)
 	{
 		struct structure_lightmap *lightmap = TAG_BLOCK_GET_ELEMENT(&bsp->lightmaps, lightmap_index, struct structure_lightmap);
@@ -291,7 +293,7 @@ boolean traced_shadow_casters_window_begin(
 	if (config_boolean("debug.traced_shadows_world"))
 	{
 		world_send();
-		traced.world = traced.world_bsp != NULL;
+		traced.world = traced.world_sent;
 	}
 	return TRUE;
 }
