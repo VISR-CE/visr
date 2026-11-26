@@ -24,6 +24,22 @@ static inline char const *halo_network_kind_label(unsigned kind)
 	}
 }
 
+/* a kind's name in the case the menus show a game's type in (halo_network_kind_label is the capitals the sort key and
+the HC text use) */
+static inline char const *halo_network_kind_title(unsigned kind)
+{
+	if (kind & 0x7C || kind > 0xFF) return "Unsupported";
+	if (kind & 0x80) return "Hardcore";
+	switch (kind)
+	{
+	case 0: return "";
+	case 1: return "SWAT";
+	case 2: return "Infection";
+	case 3: return "Gun Game";
+	default: return "Unsupported";
+	}
+}
+
 static inline char const *halo_network_kind_reason(unsigned kind)
 {
 	if (kind & 0x7C || kind > 0xFF) return "This game has an unknown game kind.";

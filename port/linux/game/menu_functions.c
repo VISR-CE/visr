@@ -4415,6 +4415,8 @@ static boolean browser_row_chosen(short row_index)
 	return row_index + lobby_browser.first == lobby_browser.chosen;
 }
 
+static boolean browser_listing_blocked(struct p2p_listing const *game);
+
 /* Called by ui_widget.c for a row's text. Keep unavailable rows focusable
 so their version or unsupported-mode reason remains visible in the ticker. */
 boolean ui_widget_port_browser_row_unavailable(struct widget_instance *widget)
@@ -4433,7 +4435,7 @@ boolean ui_widget_port_browser_row_unavailable(struct widget_instance *widget)
 		if (multiplayer.mode == _multiplayer_mode_server_browser)
 		{
 			index = (short)(index + lobby_browser.first);
-			return index >= 0 && index < lobby_browser.count && !lobby_browser.games[index].joinable;
+			return index >= 0 && index < lobby_browser.count && browser_listing_blocked(&lobby_browser.games[index]);
 		}
 		return index >= 0 && index < multiplayer.game_count &&
 			!network_game_client_advertised_game_compatible(global_network_game_client_get(),
@@ -4530,6 +4532,17 @@ static short browser_sort(void)
 	return _browser_sort_players;
 }
 
+/* a listing's type as its row and its detail panel name it, and its sort key: a kind this build does not play is
+named by the kind, whatever its host called the variant ("Team Slayer" on a Gun Game still reads Gun Game); any other
+game by the host's own gametype name ("Ranked TS") */
+static void browser_listing_type_text(struct p2p_listing const *game, wchar_t *text, short size)
+{
+	if (game->kind)
+		usnprintf(text, size - 1, L"%hs", halo_network_kind_title(game->kind));
+	else
+		text_to_wide(game->gametype, text, size);
+}
+
 /* whether a listing is co-op (a campaign level's game, whose engine is none) */
 static boolean browser_listing_cooperative(struct p2p_listing const *game)
 {
@@ -4581,6 +4594,14 @@ static short browser_join_block(struct p2p_listing const *game)
 	if (game->failed)
 		return _browser_join_failed;
 	return game->open ? _browser_join_ok : _browser_join_full;
+}
+
+/* a listing this build cannot play at all (its version or its kind), which the list shows gray */
+static boolean browser_listing_blocked(struct p2p_listing const *game)
+{
+	short block = browser_join_block(game);
+
+	return block == _browser_join_version || block == _browser_join_kind;
 }
 
 /* the reason in words */
@@ -4654,7 +4675,6 @@ static short browser_filters_changed(void)
 }
 
 static void map_display_name(char const *map_name, wchar_t *text);
-static void game_kind_type_text(unsigned kind, long engine_type, wchar_t *text, short size);
 
 #define BROWSER_SORT_KEY_LENGTH 48
 static struct
@@ -4734,7 +4754,7 @@ static short browser_filter_and_sort(struct p2p_listing *games, short count, sho
 			key[BROWSER_SORT_KEY_LENGTH - 1] = 0;
 		}
 		else if (browser_sorting.sort == _browser_sort_game)
-			game_kind_type_text(games[read].kind, games[read].engine_type, key, BROWSER_SORT_KEY_LENGTH);
+			browser_listing_type_text(&games[read], key, BROWSER_SORT_KEY_LENGTH);
 	}
 	qsort(browser_sorting.order, (size_t)written, sizeof(browser_sorting.order[0]), browser_order_compare);
 	for (read = 0; read < written; read++)
@@ -4782,7 +4802,7 @@ static short browser_fake_games(struct p2p_listing *games)
 		{ "Pillar of Autumn", "Co-op", "", 4, 4, 0, 1, 0, 0, 0, 1, 0 },
 		{ "Race Day", "Race", "eu", 0, 16, 5, 1, 0, 1, 1, 1, 0 },
 		/* (last, so the others keep their stock maps: a kind this build does not play, on a version it joins) */
-		{ "!! [AU] GUN GAM", "Gun Game", "au", 6, 16, 2, 1, 0, 0, 0, 0, 0, 3 },
+		{ "!! [AU] GUN GAM", "Team Slayer", "au", 6, 16, 2, 1, 0, 0, 0, 0, 0, 3 },
 	};
 	int stock_count;
 	struct stock_map const *stock = stock_maps(&stock_count);
@@ -5022,15 +5042,14 @@ static void browser_joint_show(struct widget_instance *screen, short row)
 	}
 }
 
-/* a listing's second line, in its row and in its detail panel alike: the game's own gametype name (what its
-host called it: "Gun Game", "Ranked TS"), then its map */
+/* a listing's second line, in its row and in its detail panel alike: its type, then its map */
 static void browser_listing_subtitle(struct p2p_listing const *game, wchar_t *text, short size)
 {
-	wchar_t map[ROW_TEXT_LENGTH], gametype[P2P_LISTING_GAMETYPE_SIZE + 1];
+	wchar_t map[ROW_TEXT_LENGTH], type[P2P_LISTING_GAMETYPE_SIZE + 1];
 
 	map_display_name(game->map, map);
-	text_to_wide(game->gametype, gametype, NUMBEROF(gametype));
-	usnprintf(text, size - 1, L"%s%s%s", gametype, gametype[0] ? L" · " : L"", map);
+	browser_listing_type_text(game, type, NUMBEROF(type));
+	usnprintf(text, size - 1, L"%s%s%s", type, type[0] ? L" · " : L"", map);
 }
 
 static void browser_c_detail_update(struct widget_instance *list, wchar_t const *status)
@@ -6370,7 +6389,7 @@ static boolean browser_join_big_finish(struct widget_instance *widget, boolean *
 				sizeof(browser_join_big.game.identifier)))
 				break;
 		}
-		if (index == lobby_browser.count || !lobby_browser.games[index].open || !lobby_browser.games[index].joinable)
+		if (index == lobby_browser.count || browser_join_block(&lobby_browser.games[index]) != _browser_join_ok)
 			return campaign_fail();
 		lobby_browser.chosen = index;
 	}

@@ -21,6 +21,7 @@ def test_join_warning(tmp_path):
         'static boolean browser_join_under_way(void)',
         'static short browser_join_block(',
         'static void browser_join_block_text(',
+        'static boolean browser_listing_blocked(struct p2p_listing const *game)\n{',
         'static long player_capacity(void)',
         'static boolean player_capacity_exceeded(long players)',
         'static boolean player_capacity_marked(long players, long maximum_players)',
@@ -35,6 +36,7 @@ def test_join_warning(tmp_path):
         'static boolean browser_join_big_finish(',
     )
     production = join_enum + '\n'.join(function(source, signature) for signature in signatures)
+    production += '\n__attribute__((unused)) static void use_row_gray(void) { (void)browser_listing_blocked; }\n'
     harness = r'''
 #include <assert.h>
 #include <string.h>

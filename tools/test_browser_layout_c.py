@@ -15,6 +15,7 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
     sorting_start = source.index("static struct\n", source.index("#define BROWSER_SORT_KEY_LENGTH"))
     sorting = function(source[sorting_start:], "static struct\n") + " browser_sorting;"
     signatures = (
+        "static void browser_listing_type_text(",
         "static boolean browser_listing_cooperative(",
         "static short browser_join_block(",
         "static void browser_join_block_text(",
@@ -76,15 +77,13 @@ static char const *config_string(char const *key)
 static short browser_sort(void) { return _browser_sort_players; }
 static void text_to_wide(char const *text, wchar_t *out, short size)
 {
-    (void)text; (void)out; (void)size; assert(0);
+    short i = 0;
+    for (; text[i] && i < size - 1; i++) out[i] = (unsigned char)text[i];
+    out[i] = 0;
 }
 static void map_display_name(char const *name, wchar_t *out)
 {
     (void)name; (void)out; assert(0);
-}
-static void game_kind_type_text(unsigned kind, long engine, wchar_t *out, short size)
-{
-    (void)kind; (void)engine; (void)out; (void)size; assert(0);
 }
 /* SORTING */
 /* PRODUCTION */
@@ -165,6 +164,17 @@ int main(void)
             assert(wcscmp(words,L"Not compatible with this network version."));
         }
         g.kind=0x80; assert(browser_join_block(&g)==_browser_join_kind);
+        /* the type text (row, panel header and sort key read it): the kind's name over the host's variant name, the host's name otherwise */
+        {
+            wchar_t type[64];
+            snprintf(g.gametype,sizeof(g.gametype),"Team Slayer");
+            for (unsigned k=1;k<=3;k++) {
+                g.kind=k; browser_listing_type_text(&g,type,64);
+                assert(!wcscmp(type,k==1?L"SWAT":k==2?L"Infection":L"Gun Game"));
+            }
+            g.kind=0x80; browser_listing_type_text(&g,type,64); assert(!wcscmp(type,L"Hardcore"));
+            g.kind=0; browser_listing_type_text(&g,type,64); assert(!wcscmp(type,L"Team Slayer"));
+        }
         /* a flag cleared for some other cause, on a joinable version: not the version's words */
         g.kind=0; g.joinable=0; assert(browser_join_block(&g)!=_browser_join_version);
         /* both at once: the version outranks the kind (nothing about a game on another contract can be trusted) */
@@ -575,6 +585,7 @@ def test_detail_panel_pills_and_connect_line_follow_the_chosen_game(tmp_path):
         "static boolean browser_join_under_way(void)",
         "static short browser_join_block(",
         "static void browser_join_block_text(",
+        "static void browser_listing_type_text(",
         "static boolean browser_listing_cooperative(",
         "static void browser_listing_subtitle(",
         "static void browser_detail_gametype_set(",
@@ -725,10 +736,10 @@ int main(void)
 	assert(wcsstr(pill("browser_detail_net_blocked")->text, L"NET v"));
 	/* class: the panel's reason and header come from the listing's own facts, as its row does. A Gun Game on a
 	   network version this build joins reads as a Gun Game that VISR does not play (never "Slayer", never a
-	   version problem); and the header is read from the same field as the row (the host's gametype name,
-	   mixed case as the host wrote it), whatever the engine under it is. */
+	   version problem); and its type reads as the kind in the panel header, whatever the host called the variant
+	   ("Team Slayer") and whatever engine is under it. */
 	lobby_browser.games[3].kind = 3; lobby_browser.games[3].joinable = 0;
-	snprintf(lobby_browser.games[3].gametype, sizeof(lobby_browser.games[3].gametype), "Gun Game");
+	snprintf(lobby_browser.games[3].gametype, sizeof(lobby_browser.games[3].gametype), "Team Slayer");
 	lobby_browser.chosen = 3;
 	browser_c_detail_update(list, L"");
 	assert(!wcscmp(pill("browser_detail_type")->text, L"Gun Game \u00b7 "));
