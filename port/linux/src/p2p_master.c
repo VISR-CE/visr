@@ -228,13 +228,6 @@ void p2p_master_browse(int on)
 	pthread_mutex_unlock(&master.lock);
 }
 
-void p2p_master_refresh(void)
-{
-	pthread_mutex_lock(&master.lock);
-	if (master.browse) master.refresh = 1;
-	pthread_mutex_unlock(&master.lock);
-}
-
 void p2p_master_update(void)
 {
 	pthread_t thread;

@@ -60,6 +60,8 @@ void p2p_lobby_master_games(const struct p2p_listing *games, int count) {
     if (!count) { clears++; return; }
     handoffs++; assert(count == 1); assert(!strcmp(games[0].region, "eu"));
 }
+/* the open browser asks again by setting the same flag p2p_master_browse(1) sets */
+#define master_ask() do { pthread_mutex_lock(&master.lock); if (master.browse) master.refresh = 1; pthread_mutex_unlock(&master.lock); } while (0)
 int main(void) {
     assert(master_retry_delay("172800") == 172800000ULL);
     assert(master_retry_delay("M, 27 Oct 2026 12:00:00 GMT") == 60000);
@@ -75,29 +77,29 @@ int main(void) {
     p2p_master_browse(1); master_pass();
     assert(requests == 1 && handoffs == 1 && !sent_etag[0]);
     master_pass(); assert(requests == 1); /* no polling inside the minute */
-    p2p_master_refresh(); master_pass(); assert(requests == 1);
+    master_ask(); master_pass(); assert(requests == 1);
     clock_now += 4999; master_pass(); assert(requests == 1);
     clock_now++; status = 304; master_pass();
     assert(requests == 2 && handoffs == 2 && !strcmp(sent_etag, "\"capture\""));
     p2p_master_browse(0); p2p_master_browse(1); master_pass(); assert(requests == 2);
     clock_now += 5000; parsed = -1; master_pass();
     assert(requests == 3 && handoffs == 2 && clears == 1); /* stale 304 is rejected */
-    clock_now += 5000; parsed = 1; status = 429; p2p_master_refresh(); master_pass();
+    clock_now += 5000; parsed = 1; status = 429; master_ask(); master_pass();
     assert(requests == 4 && !sent_etag[0]);
-    clock_now += 5000; p2p_master_refresh(); master_pass(); assert(requests == 4);
+    clock_now += 5000; master_ask(); master_pass(); assert(requests == 4);
     p2p_master_browse(0); p2p_master_browse(1); master_pass(); assert(requests == 4);
     clock_now += 14999; master_pass(); assert(requests == 4);
     clock_now++; status = 200; master_pass(); assert(requests == 5 && handoffs == 3);
-    clock_now += 5000; online = 0; p2p_master_refresh(); master_pass(); assert(requests == 5);
+    clock_now += 5000; online = 0; master_ask(); master_pass(); assert(requests == 5);
     online = 1; enabled = 0; master_pass(); assert(requests == 5);
     enabled = 1; master_pass(); assert(requests == 6);
     /* Closing and reopening during a request discards its handoff. */
-    clock_now += 5000; close_during_request = 1; p2p_master_refresh();
+    clock_now += 5000; close_during_request = 1; master_ask();
     int before = handoffs;
     master_pass(); assert(requests == 7 && handoffs == before);
     master_pass(); assert(requests == 7);
     clock_now += 5000; master_pass(); assert(requests == 8 && handoffs == before + 1);
-    p2p_master_browse(0); clock_now += 5000; p2p_master_refresh(); master_pass(); assert(requests == 8);
+    p2p_master_browse(0); clock_now += 5000; master_ask(); master_pass(); assert(requests == 8);
     /* An open browser asks again once a minute, and never while closed. */
     clock_now += 60000; master_pass(); assert(requests == 8);
     p2p_master_browse(1); master_pass(); assert(requests == 9);

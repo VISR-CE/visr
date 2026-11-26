@@ -42,7 +42,6 @@ enum
 	minute), at least this long after the last, and after a failure this
 	long */
 	BROWSE_INTERVAL = 15000,
-	BROWSE_MINIMUM = 5000,
 	BROWSE_RETRY = 60000,
 	REQUEST_TIMEOUT = 15000,
 	/* an announcement or a withdrawal waits this long for each step, so that quitting, which waits for one under
@@ -61,7 +60,7 @@ static struct
 {
 	pthread_mutex_t lock;
 	int started;
-	int browse, refresh, quitting;
+	int browse, quitting;
 	/* a request is under way (its answer not yet taken), so quitting waits */
 	int busy;
 
@@ -298,7 +297,7 @@ static void *delta_thread(void *unused)
 	(void)unused;
 	for (;;)
 	{
-		int browse, refresh;
+		int browse;
 
 		Sleep(POLL_INTERVAL);
 		pthread_mutex_lock(&delta.lock);
@@ -308,15 +307,12 @@ static void *delta_thread(void *unused)
 			return NULL;
 		}
 		browse = delta.browse;
-		refresh = delta.refresh;
-		delta.refresh = 0;
 		delta.busy = 1;
 		pthread_mutex_unlock(&delta.lock);
 
 		if (browse && browsing_allowed())
 		{
-			if (!delta.browse_asked || (long)(p2p_now() - delta.browse_next) >= 0 ||
-				(refresh && elapsed(delta.browse_time, BROWSE_MINIMUM)))
+			if (!delta.browse_asked || (long)(p2p_now() - delta.browse_next) >= 0)
 			{
 				browse_once();
 			}
@@ -340,14 +336,6 @@ void p2p_delta_browse(int on)
 {
 	pthread_mutex_lock(&delta.lock);
 	delta.browse = on ? 1 : 0;
-	delta.refresh = 0;
-	pthread_mutex_unlock(&delta.lock);
-}
-
-void p2p_delta_refresh(void)
-{
-	pthread_mutex_lock(&delta.lock);
-	delta.refresh = 1;
 	pthread_mutex_unlock(&delta.lock);
 }
 

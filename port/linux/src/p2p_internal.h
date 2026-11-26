@@ -374,7 +374,6 @@ unsigned short p2p_tunnel_local_port(void);
 /* the server browser opened or closed, or asked again; the p2p thread's, under
 p2p_lock */
 void p2p_delta_browse(int on);
-void p2p_delta_refresh(void);
 /* Startup loads the signed cache before any network threads. */
 void p2p_delta_initialize(void);
 /* The p2p thread's pass, under p2p_lock: starts the HTTP worker for the
@@ -388,7 +387,6 @@ void p2p_delta_quit(void);
 
 /* Browser requests and each p2p pass, under p2p_lock. Quit is outside it. */
 void p2p_master_browse(int on);
-void p2p_master_refresh(void);
 void p2p_master_update(void);
 void p2p_master_quit(void);
 
