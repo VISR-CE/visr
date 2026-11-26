@@ -47,6 +47,30 @@ def game_defines_and_includes(config: Dict[str, Any]) -> str:
     )
 
 
+def game_include_dirs(config: Dict[str, Any]) -> List[Path]:
+    """the directories the game's units (the game root and port/linux/game) search for any include: the port's
+    own (port/linux/include) and port.json's"""
+    return [PORT_DIR / "include", *(Path(directory) for directory in config["game"].get("include_dirs", []))]
+
+
+def game_quote_dirs(config: Dict[str, Any]) -> List[Path]:
+    """the directories the game's units search for a quoted include only: the port's own game units' headers"""
+    return [Path(config["game_sources"])]
+
+
+def platform_include_dirs(config: Dict[str, Any]) -> List[Path]:
+    """the directories the platform layer's units (port/linux/src, but the posix_* ones) search"""
+    return [Path(config["platform_sources"]), PORT_DIR / "include", TOML_DIR, EXPAT_DIR, KCP_DIR, MONOCYPHER_DIR,
+            ZLIB_DIR, Path("source"), Path("source/cseries")]
+
+
+def posix_include_dirs(config: Dict[str, Any], name: str) -> List[Path]:
+    """the directories a posix_* unit searches: the platform layer's own, and its library's"""
+    extra = {"posix_update.c": [MBEDTLS_DIR / "include"], "posix_dtls.c": [MBEDTLS_DIR / "include"],
+             "posix_upnp.c": [MINIUPNPC_DIR / "include"]}
+    return [Path(config["platform_sources"]), *extra.get(name, [])]
+
+
 def compile_launcher(sln: Any) -> str:
     """what the native ports' compile commands start with: the
     --compiler-launcher (ccache, say) and a space, or nothing"""
@@ -422,7 +446,6 @@ def generate_linux_build(n: Writer, sln: Any) -> None:
     # does not, so that an overrun nobody has met cannot end a game)
     abi = " ".join(LINUX_ABI_FLAGS + [march_flag(sln)] + configuration_defines(sln)
                    + ([] if getattr(sln, "port_release", False) else ["-fstack-protector-strong"]))
-    port_include = PORT_DIR / "include"
     sdk_flags = f"-idirafter {XDK_INCLUDE}"
     libs = " ".join(f"-l{lib}" for lib in config.get("libraries", []))
 
@@ -457,10 +480,10 @@ def generate_linux_build(n: Writer, sln: Any) -> None:
             *auto_init_flags(sln),
             f"-include {prefix_header}",
             f"-include {semantics_header}",
-            f"-I{port_include}",
+            f"-I{game_include_dirs(config)[0]}",
             # the headers of the port's own game units (port/linux/game), for
             # the game sources that call them
-            f"-iquote {Path(config['game_sources'])}",
+            *(f"-iquote {directory}" for directory in game_quote_dirs(config)),
             game_defines_and_includes(config),
             sdk_flags,
         ])
@@ -482,19 +505,12 @@ def generate_linux_build(n: Writer, sln: Any) -> None:
             " ".join(PLATFORM_FLAGS),
             f"-include {prefix_header}",
             f"-include {platform_semantics_header}",
-            f"-I{platform_dir}",
-            f"-I{port_include}",
-            f"-I{TOML_DIR}",
-            f"-I{EXPAT_DIR}",
-            f"-I{KCP_DIR}",
-            f"-I{MONOCYPHER_DIR}",
-            f"-I{ZLIB_DIR}",
-            "-Isource -Isource/cseries",
+            *(f"-I{directory}" for directory in platform_include_dirs(config)),
             sdk_flags,
             *auto_init_flags(sln),
         ])
         posix_cflags = " ".join(POSIX_FLAGS + [march_flag(sln), f"-I{platform_dir}"])
-        mbedtls_include = f"-I{MBEDTLS_DIR / 'include'}"
+        mbedtls_include = f"-I{MBEDTLS_DIR / 'include'}"  # (posix_include_dirs names the same ones for the tests)
         for source in sorted(platform_dir.glob("*.c")):
             if source.name in ("posix_update.c", "posix_dtls.c"):
                 add_object(source, f"{posix_cflags} {mbedtls_include}", posix=True)

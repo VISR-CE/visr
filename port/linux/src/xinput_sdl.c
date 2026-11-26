@@ -51,6 +51,7 @@ extern unsigned short player_input_profile_binding(short local_player_index, sho
 #ifdef HALO_IOS
 #include "halo_host_pointer.h"
 #endif
+#include "../include/halo_development_hooks.h"
 #include "mp_benchmark_probe.h"
 #include "benchmark_mp_arena.h"
 #include "halo_spatial.h"
@@ -1712,7 +1713,6 @@ part) stands in for it, in this one place, for the help wording and the rows' co
 whether it did. */
 static struct halo_glyph_input glyph_input_shown(int *overridden)
 {
-	int host_development_hooks(void);
 	struct halo_glyph_input shown = glyph_menu_input;
 
 	if (host_development_hooks())
@@ -1773,7 +1773,6 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	struct halo_glyph_input shown;
 	char family[24] = {0};
 	int count, kind, action;
-	int host_development_hooks(void);
 	int host_sdl_gamepad_glyph(unsigned int gamepad, int physical, const char *family, char *label, unsigned int size, int player, int menus);
 
 	if (!label || size < 2 || size > 128 || player < 0 || player >= PORT_COUNT ||

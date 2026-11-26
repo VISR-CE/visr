@@ -45,7 +45,7 @@ no screen pauses the game (a network game's clock runs on).
 #include <stdlib.h>
 #include <string.h>
 
-extern int host_development_hooks(void);
+#include "../include/halo_development_hooks.h"
 
 /* the platform layer's (port/linux/src) */
 void platform_log(char const *format, ...);
