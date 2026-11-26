@@ -4764,6 +4764,7 @@ static short browser_fake_games(struct p2p_listing *games)
 		char const *name, *gametype, *region;
 		unsigned char players, maximum, engine, open, locked, dedicated, master, joinable;
 		short version;
+		unsigned char kind;
 	} const fakes[] = {
 		{ "Spartan Wars", "Ranked TS", "na-east", 13, 128, 2, 1, 0, 1, 1, 1, 0 },
 		{ "24/7 Campaign", "Co-op", "", 16, 16, 0, 1, 1, 0, 0, 1, 0 },
@@ -4779,6 +4780,8 @@ static short browser_fake_games(struct p2p_listing *games)
 		{ "Halo Night (v42)", "Slayer", "", 5, 16, 2, 1, 0, 0, 0, 0, 42 },
 		{ "Pillar of Autumn", "Co-op", "", 4, 4, 0, 1, 0, 0, 0, 1, 0 },
 		{ "Race Day", "Race", "eu", 0, 16, 5, 1, 0, 1, 1, 1, 0 },
+		/* (last, so the others keep their stock maps: a kind this build does not play, on a version it joins) */
+		{ "!! [AU] GUN GAM", "Gun Game", "au", 6, 16, 2, 1, 0, 0, 0, 0, 0, 3 },
 	};
 	int stock_count;
 	struct stock_map const *stock = stock_maps(&stock_count);
@@ -4805,6 +4808,7 @@ static short browser_fake_games(struct p2p_listing *games)
 		fake->from_master = fakes[index].master;
 		fake->joinable = fakes[index].joinable;
 		fake->network_version = fakes[index].version ? fakes[index].version : HALO_PORT_NETWORK_VERSION;
+		fake->kind = fakes[index].kind;
 		fake->ping = -1;
 	}
 	return index;
