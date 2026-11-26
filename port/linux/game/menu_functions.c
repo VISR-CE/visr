@@ -4569,10 +4569,12 @@ enum
 
 static short browser_join_block(struct p2p_listing const *game)
 {
-	if (!game->joinable)
-		return _browser_join_version;
+	/* (the reason is the game's own: a kind this build cannot play is not a network version problem, though
+	   both leave the listing unjoinable) */
 	if (halo_network_kind_reason(game->kind))
 		return _browser_join_kind;
+	if (!game->joinable)
+		return _browser_join_version;
 	if (!config_boolean("network.online"))
 		return _browser_join_offline;
 	if (game->failed)
@@ -4894,7 +4896,7 @@ runs smoothly: the join warning's mark), else where the game is: the LAN, or
 the operator's region; "-" only when nothing says */
 static void browser_listing_region(struct p2p_listing const *game, wchar_t *text, int size)
 {
-	if (!game->joinable && !game->failed && !halo_network_kind_reason(game->kind))
+	if (browser_join_block(game) == _browser_join_version && !game->failed)
 		usnprintf(text, size - 1, L"V%d", game->network_version);
 	else if (game->failed)
 		usnprintf(text, size - 1, L"FAILED");
@@ -5021,7 +5023,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	struct widget_instance *detail = named(screen, "browser_detail", 0), *child;
 	struct p2p_listing const *game;
 	wchar_t text[ROW_TEXT_LENGTH * 2], map[ROW_TEXT_LENGTH], region[32];
-	wchar_t const *const types[] = { L"Co-op", L"CTF", L"Slayer", L"Oddball", L"King", L"Race" };
+	wchar_t type[ROW_TEXT_LENGTH];
 	wchar_t const *host = L"";
 	boolean present = lobby_browser.chosen >= 0 && lobby_browser.chosen < lobby_browser.count;
 
@@ -5084,7 +5086,9 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	text_to_wide(game->name, text, ROW_TEXT_LENGTH);
 	browser_name_set(named(detail, "browser_detail_name", 0), text);
 	map_display_name(game->map, map);
-	usnprintf(text, NUMBEROF(text) - 1, L"%s · %s", types[PIN(game->engine_type, 0, 5)], map);
+	/* (the row's own text for the type, from the same fields: a Gun Game is not a Slayer in one and not the other) */
+	game_kind_type_text(game->kind, game->engine_type, type, NUMBEROF(type));
+	usnprintf(text, NUMBEROF(text) - 1, L"%s · %s", type, map);
 	browser_name_set(named(detail, "browser_detail_type", 0), text);
 	usnprintf(text, NUMBEROF(text) - 1, L"%s", browser_listing_cooperative(game) ? L"Co-op campaign" :
 		game->has_teams ? L"Teams" : L"Free for all");

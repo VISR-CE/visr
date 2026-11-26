@@ -14,7 +14,9 @@ def test_browser_text_fit_and_regions(tmp_path):
     production = function(ui, 'static short ui_widget_port_text_width(')
     production += '\n' + function(ui, 'void ui_widget_port_text_ellipsize(')
     production += '\n' + function(ui, 'short ui_widget_port_font_text_width(')
-    for signature in ('static long player_capacity(void)', 'static boolean player_capacity_exceeded(',
+    join_enum = menu[menu.index('enum\n{\n\t_browser_join_ok'):]
+    production += '\n' + join_enum[:join_enum.index('};') + 3]
+    for signature in ('static short browser_join_block(', 'static long player_capacity(void)', 'static boolean player_capacity_exceeded(',
                       'static boolean player_capacity_marked(', 'static void browser_listing_region('):
         production += '\n' + function(menu, signature)
     fixture = r'''
@@ -66,6 +68,7 @@ static void draw_unicode_string_compute_bounds(rectangle2d const *bounds, wchar_
 #include <stdarg.h>
 #include <stdio.h>
 static int halo_network_kind_reason(int kind) { (void)kind; return 0; }
+static int config_boolean(char const *name) { (void)name; return 1; }
 enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *l) { return l->kind == 9 ? P2P_SERVER_LAN : P2P_SERVER_UNKNOWN; }
 static void usnprintf(wchar_t *t, int size, wchar_t const *format, ...) { va_list a; va_start(a, format); vswprintf(t, size + 1, format, a); va_end(a); }
 static void text_to_wide(char const *s, wchar_t *w, short size) { int i = 0; for (; s[i] && i < size - 1; i++) w[i] = s[i]; w[i] = 0; }

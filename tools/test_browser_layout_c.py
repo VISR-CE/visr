@@ -151,9 +151,20 @@ int main(void)
         online=0; assert(browser_join_block(&g)==_browser_join_offline);
         g.joinable=0; assert(browser_join_block(&g)==_browser_join_version);
         browser_join_block_text(&g,_browser_join_version,words,128); assert(!wcscmp(words,L"Not compatible with this network version."));
-        /* one explainer, ranked: a version this build cannot join outranks a kind it does not play (and both outrank the rest) */
-        g.kind=1; assert(browser_join_block(&g)==_browser_join_version);
-        g.joinable=1; assert(browser_join_block(&g)==_browser_join_kind);
+        /* one explainer, from the game's real reason: a kind this build does not play leaves the listing
+           unjoinable too (joinable is false for it), but is never reported as a network version, and a
+           supported version never yields the version text */
+        g=listing(2,4); g.network_version=44; g.joinable=0; g.kind=3;
+        assert(browser_join_block(&g)==_browser_join_kind);
+        browser_join_block_text(&g,_browser_join_kind,words,128); assert(!wcscmp(words,L"Gun Game is not supported by VISR."));
+        for (unsigned k=1;k<=3;k++) {
+            g.kind=k; assert(browser_join_block(&g)==_browser_join_kind);
+            browser_join_block_text(&g,_browser_join_kind,words,128); assert(wcsstr(words,L"not supported by VISR"));
+            assert(wcscmp(words,L"Not compatible with this network version."));
+        }
+        g.kind=0x80; assert(browser_join_block(&g)==_browser_join_kind);
+        g.kind=0; g.joinable=0; assert(browser_join_block(&g)==_browser_join_version);
+        g.kind=3; g.joinable=1; assert(browser_join_block(&g)==_browser_join_kind);
         g.kind=0;
         online=1; g=listing(2,4); g.joinable=1;
     }
@@ -558,6 +569,8 @@ def test_detail_panel_pills_and_connect_line_follow_the_chosen_game(tmp_path):
         "static short browser_join_block(",
         "static void browser_join_block_text(",
         "static boolean browser_listing_cooperative(",
+        "static wchar_t const *game_type_name(",
+        "static void game_kind_type_text(",
         "static void browser_detail_gametype_set(",
         "static void browser_joint_show(",
         "static void browser_c_detail_update(",
@@ -654,6 +667,7 @@ static int config_boolean(char const *k) { return !strcmp(k, "network.online") ?
 static long browser_target_fps(void) { return 60; }
 enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *g) { (void)g; return P2P_SERVER_PLAYER; }
 static boolean player_capacity_marked(long p, long m) { (void)p; (void)m; return FALSE; }
+static wchar_t const *const engine_names[] = { L"", L"CTF", L"SLAYER", L"ODDBALL", L"KING OF THE HILL", L"RACE" };
 ''' + "\n" + production + r'''
 static struct widget_instance *pill(char const *name) { return named(&detail, name, 0); }
 int main(void)
@@ -702,6 +716,20 @@ int main(void)
 	browser_c_detail_update(list, L"");
 	assert(pill("browser_detail_net_blocked")->visible && pill("browser_detail_net")->animation.current_frame_index == 1);
 	assert(wcsstr(pill("browser_detail_net_blocked")->text, L"NET v"));
+	/* class: the panel's reason and header come from the listing's own facts, as its row does. A Gun Game on a
+	   network version this build joins reads as a Gun Game that VISR does not play (never "Slayer", never a
+	   version problem); a plain Slayer reads as a Slayer; and the header is the row's own text. */
+	lobby_browser.games[3].kind = 3; lobby_browser.games[3].joinable = 0;
+	lobby_browser.chosen = 3;
+	browser_c_detail_update(list, L"");
+	assert(!wcscmp(pill("browser_detail_type")->text, L"GUN GAME \u00b7 "));
+	assert(pill("browser_join_reason")->visible && !wcscmp(pill("browser_join_reason")->text, L"Gun Game is not supported by VISR."));
+	lobby_browser.games[3].kind = 0; lobby_browser.games[3].joinable = 1;
+	browser_c_detail_update(list, L"");
+	assert(!wcscmp(pill("browser_detail_type")->text, L"SLAYER \u00b7 ") && !pill("browser_join_reason")->visible);
+	lobby_browser.chosen = 2;
+	browser_c_detail_update(list, L"");
+	assert(!wcscmp(pill("browser_join_reason")->text, L"Not compatible with this network version."));
 	lobby_browser.chosen = 0;
 	browser_c_detail_update(list, L"");
 	/* the chosen game's tab and the panel are one outline: exactly the chosen visible row's joint shows, also when the list is scrolled */
@@ -729,14 +757,13 @@ int main(void)
 	/* a password game: the pill and its lock */
 	lobby_browser.chosen = 1; browser_c_detail_update(list, L"");
 	assert(pill("browser_detail_password")->visible && pill("browser_detail_lock")->visible);
-	/* a game on a version this build cannot join: ONE explainer (the version's, though its kind is unsupported too),
-	   the join action dimmed, and no password pill left behind */
-	lobby_browser.games[2].kind = 1;
+	/* a game on a version this build cannot join: ONE explainer (the version's), the join action dimmed, and no
+	   password pill left behind */
 	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
 	assert(pill("browser_join_reason")->visible && !wcscmp(pill("browser_join_reason")->text, L"Not compatible with this network version."));
 	assert(!pill("browser_detail_password")->visible && dimmed);
-	/* the same game on a version it can join: the kind's explainer instead */
-	lobby_browser.games[2].joinable = 1;
+	/* an unsupported kind: the kind's explainer, whether or not the listing also reads unjoinable */
+	lobby_browser.games[2].kind = 1;
 	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
 	assert(!wcscmp(pill("browser_join_reason")->text, L"SWAT rules are not supported by VISR."));
 	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].kind = 0;
