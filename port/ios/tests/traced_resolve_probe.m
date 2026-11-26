@@ -170,6 +170,102 @@ static void check_case(const char *name, const uint8_t *texels, MTLScissorRect c
 	free(bounded);
 }
 
+/* The recording half: the apply draws' TRACED_SHADOWS_BOUNDS_RECORD_MSL, drawn over thin triangles (whose edges give
+SIMD groups many helper lanes, the quad neighbors run for a sampled texture's derivatives), must hold every pixel it
+darkened, which each pixel also records on its own. */
+static void check_recording(void)
+{
+	static const char *source =
+		"#include <metal_stdlib>\n"
+		"using namespace metal;\n"
+		"struct v_out { float4 traced_position [[position]]; float2 uv; };\n"
+		"vertex v_out record_vertex(uint id [[vertex_id]], device const float2 *points [[buffer(0)]])\n"
+		"{ v_out o; o.traced_position = float4(points[id], 0.0, 1.0); o.uv = points[id]; return o; }\n"
+		"fragment float4 record_fragment(v_out in [[stage_in]], texture2d<float> t [[texture(0)]],\n"
+		"\tsampler s [[sampler(0)]], device atomic_uint *traced_bounds [[buffer(9)]], device atomic_uint *truth [[buffer(1)]])\n"
+		"{\n"
+		"\tfloat4 traced_position = in.traced_position;\n"
+		"\tfloat4 result = float4(0.5, 0.5, 0.5, 1.0) + t.sample(s, in.uv * 7.0) * 0.0;\n"
+		"\tif (!simd_is_helper_thread())\n"
+		"\t{\n"
+		"\t\tuint2 p = uint2(traced_position.xy);\n"
+		"\t\tatomic_fetch_min_explicit(&truth[0], p.x, memory_order_relaxed);\n"
+		"\t\tatomic_fetch_min_explicit(&truth[1], p.y, memory_order_relaxed);\n"
+		"\t\tatomic_fetch_max_explicit(&truth[2], p.x + 1u, memory_order_relaxed);\n"
+		"\t\tatomic_fetch_max_explicit(&truth[3], p.y + 1u, memory_order_relaxed);\n"
+		"\t}\n"
+		TRACED_SHADOWS_BOUNDS_RECORD_MSL
+		"\treturn result;\n"
+		"}\n";
+	NSError *error = nil;
+	id<MTLLibrary> library = [device newLibraryWithSource:@(source) options:nil error:&error];
+	MTLRenderPipelineDescriptor *description = [MTLRenderPipelineDescriptor new];
+	MTLTextureDescriptor *texture_description;
+	id<MTLRenderPipelineState> state;
+	id<MTLTexture> target, sampled;
+	id<MTLSamplerState> sampler;
+	int trial, missed = 0, drawn = 0;
+
+	if (!library)
+	{
+		fprintf(stderr, "traced resolve: the recording does not compile: %s\n", error.localizedDescription.UTF8String);
+		failures++;
+		return;
+	}
+	description.vertexFunction = [library newFunctionWithName:@"record_vertex"];
+	description.fragmentFunction = [library newFunctionWithName:@"record_fragment"];
+	description.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm;
+	state = [device newRenderPipelineStateWithDescriptor:description error:&error];
+	texture_description = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:256
+		height:256 mipmapped:YES];
+	texture_description.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+	texture_description.storageMode = MTLStorageModePrivate;
+	target = [device newTextureWithDescriptor:texture_description];
+	sampled = [device newTextureWithDescriptor:texture_description];
+	sampler = [device newSamplerStateWithDescriptor:[MTLSamplerDescriptor new]];
+	srand48(1123);
+	for (trial = 0; trial < 200; trial++)
+	{
+		float points[6];
+		id<MTLBuffer> bounds = [device newBufferWithLength:16 options:MTLResourceStorageModeShared];
+		id<MTLBuffer> truth = [device newBufferWithLength:16 options:MTLResourceStorageModeShared];
+		uint32_t *b = bounds.contents, *t = truth.contents;
+		id<MTLCommandBuffer> commands = [queue commandBuffer];
+		MTLRenderPassDescriptor *pass = [MTLRenderPassDescriptor renderPassDescriptor];
+		id<MTLRenderCommandEncoder> encoder;
+		int i;
+
+		for (i = 0; i < 4; i++)
+			points[i] = (float)(drand48() * 2.0 - 1.0);
+		/* (a sliver: the third point beside the first) */
+		points[4] = points[0] + 0.02f;
+		points[5] = points[1] - 0.015f;
+		b[0] = b[1] = t[0] = t[1] = 0xffffffffu;
+		b[2] = b[3] = t[2] = t[3] = 0;
+		pass.colorAttachments[0].texture = target;
+		pass.colorAttachments[0].loadAction = MTLLoadActionClear;
+		pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+		encoder = [commands renderCommandEncoderWithDescriptor:pass];
+		[encoder setRenderPipelineState:state];
+		[encoder setVertexBytes:points length:sizeof(points) atIndex:0];
+		[encoder setFragmentBuffer:bounds offset:0 atIndex:9];
+		[encoder setFragmentBuffer:truth offset:0 atIndex:1];
+		[encoder setFragmentTexture:sampled atIndex:0];
+		[encoder setFragmentSamplerState:sampler atIndex:0];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+		[encoder endEncoding];
+		[commands commit];
+		[commands waitUntilCompleted];
+		if (t[2] <= t[0])
+			continue;
+		drawn++;
+		if (b[0] > t[0] || b[1] > t[1] || b[2] < t[2] || b[3] < t[3])
+			missed++;
+	}
+	CHECK(drawn > 100, "the recording's triangles drew pixels (%d of 200)", drawn);
+	CHECK(!missed, "the recorded bounds missed darkened pixels in %d of %d triangles", missed, drawn);
+}
+
 int main(void)
 {
 	@autoreleasepool
@@ -219,6 +315,7 @@ int main(void)
 		disc(texels, 10, 10, 3, 90);
 		disc(texels, 85, 55, 4, 255);
 		check_case("apart", texels, window, 5.0f, 0);
+		check_recording();
 		/* no darkened pixel: nothing is filtered or drawn, and the term stays white */
 		{
 			id<MTLTexture> term = texture(MTLPixelFormatRGBA8Unorm, WIDTH, HEIGHT);

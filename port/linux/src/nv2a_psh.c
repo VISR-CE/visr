@@ -984,25 +984,9 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		}
 	}
 	/* (a traced shadow's alpha, after the game's alpha test read the shader's own.) The pixels the draw darkens widen
-	the window's bounds (traced_bounds: left, top, right, bottom, the last two past the edge), which the resolve's
-	filter and composite are dispatched over (gpu_metal.m's traced_bounds kernel): one atomic a SIMD group, not one a
-	pixel */
+	the window's bounds (TRACED_SHADOWS_BOUNDS_RECORD_MSL) */
 	if (dialect->msl && key->traced_shadow)
-		xgpu_text_append(&text,
-			"\tresult.a = traced_radius;\n"
-			"\t{\n"
-			"\t\tbool darkened = min(result.r, min(result.g, result.b)) < " TRACED_SHADOWS_DARKENED_BELOW_MSL ";\n"
-			"\t\tuint2 q = uint2(traced_position.xy);\n"
-			"\t\tuint left = simd_min(darkened ? q.x : 0xffffffffu), top = simd_min(darkened ? q.y : 0xffffffffu);\n"
-			"\t\tuint right = simd_max(darkened ? q.x + 1u : 0u), bottom = simd_max(darkened ? q.y + 1u : 0u);\n"
-			"\t\tif (simd_is_first() && right > left)\n"
-			"\t\t{\n"
-			"\t\t\tatomic_fetch_min_explicit(&traced_bounds[0], left, memory_order_relaxed);\n"
-			"\t\t\tatomic_fetch_min_explicit(&traced_bounds[1], top, memory_order_relaxed);\n"
-			"\t\t\tatomic_fetch_max_explicit(&traced_bounds[2], right, memory_order_relaxed);\n"
-			"\t\t\tatomic_fetch_max_explicit(&traced_bounds[3], bottom, memory_order_relaxed);\n"
-			"\t\t}\n"
-			"\t}\n");
+		xgpu_text_append(&text, "\tresult.a = traced_radius;\n" TRACED_SHADOWS_BOUNDS_RECORD_MSL);
 	if (dialect->debug_expression && *dialect->debug_expression)
 		xgpu_text_append(&text, "\tresult = vec4(vec3(%s), 1.0);\n", dialect->debug_expression);
 	if (dialect->debug_texture0)

@@ -155,15 +155,17 @@ def test_scan_finds_the_known_simd_shaders():
 SIMD_USES = {
     ("port/ios/host/gpu_metal.m", "ssao_gather"): "AMBIENT_OCCLUSION",
     ("port/ios/host/host_stereo.m", "hud_depth_reduce"): "STEREO_HUD_DEPTH",
-    # (the apply draws' darkened bounds; the traced_shadow key is set only for a frame traced_shadows_supported allows)
-    ("port/linux/src/nv2a_psh.c", "nv2a_pixel_shader_translate()"): "TRACED_SHADOWS",
+    # (the apply draws' darkened bounds, which nv2a_psh.c writes only for a traced_shadow key; the key is set only for
+    # a frame traced_shadows_supported allows)
+    ("port/linux/src/traced_shadows_format.h", "TRACED_SHADOWS_BOUNDS_RECORD_MSL"): "TRACED_SHADOWS",
 }
 SIMD_SOURCES = SOURCES + sorted((ROOT / "port/linux/src").glob("*.[ch]"))
 
 
 def simd_uses():
     """{(file, shader function): highest family needed} for every SIMD-group call in a shader string: the function is
-    the nearest `kernel`/`fragment`/`vertex` declaration above it in the strings, else the C function writing it."""
+    the nearest `kernel`/`fragment`/`vertex` declaration above it in the strings, else the macro or C function writing
+    it."""
     pattern = "|".join(p for _, p in SIMD_FAMILIES)
     uses = {}
     for path in SIMD_SOURCES:
@@ -177,6 +179,10 @@ def simd_uses():
                 shader = re.search(r"\b(?:kernel|fragment|vertex)\s+[\w<>:]+\s+(\w+)\s*\(", above)
                 if shader and '"' in above:
                     name = shader.group(1)
+                    break
+                macro = re.match(r"^#define\s+(\w+)", above)
+                if macro:
+                    name = macro.group(1)
                     break
                 function = re.match(r"^(?:static\s+)?[\w\s\*]+?\b(\w+)\s*\(", above)
                 if function and not above.startswith((" ", "\t", "#", '"')):

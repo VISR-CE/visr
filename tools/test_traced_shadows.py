@@ -45,8 +45,13 @@ def test_the_resolve_filters_what_the_darkened_bounds_hold(tmp_path):
 def test_the_apply_draws_and_the_filter_agree_on_what_is_darkened():
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     resolve = (ROOT / "port/ios/host/traced_resolve.h").read_text()
-    for text in (shader, resolve):
+    header = (ROOT / "port/linux/src/traced_shadows_format.h").read_text()
+    record = header[header.index("#define TRACED_SHADOWS_BOUNDS_RECORD_MSL"):]
+    record = record[: record.index("\n\n")]
+    assert "TRACED_SHADOWS_BOUNDS_RECORD_MSL" in shader
+    for text in (record, resolve):
         assert '< " TRACED_SHADOWS_DARKENED_BELOW_MSL "' in text
+    for text in (shader, resolve, record):
         assert "0.998" not in text
     # the bounds the apply draws widen are the buffer the backend binds for them
     signature = (ROOT / "port/linux/src/nv2a_msl.c").read_text()

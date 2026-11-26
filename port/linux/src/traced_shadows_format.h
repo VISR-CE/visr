@@ -50,6 +50,29 @@ white and one step below it, 1 - 0.5 / 255. The apply draws' bounds (nv2a_psh.c)
 traced_hit) both test it, so what the bounds hold is what the filter treats as shadowed. */
 #define TRACED_SHADOWS_DARKENED_BELOW_MSL "0.998"
 
+/* What a traced shadow's apply draw adds to the window's darkened bounds (traced_bounds: left, top, right, bottom,
+the last two past the edge), which the resolve's filter and composite are dispatched over (gpu_metal.m's
+traced_bounds kernel): one atomic a SIMD group, not one a pixel. It reads result (the term the draw writes),
+traced_position (the fragment's position) and traced_bounds (buffer 9). Helper lanes (the quad's neighbors run only
+for derivatives) are left out before the reduction and the election: Metal discards a helper lane's atomics, and
+simd_is_first() may elect one, which dropped whole SIMD groups' pixels from the bounds. nv2a_psh.c writes it into
+the apply shader; traced_resolve_probe.m draws through it and compares with every pixel's own position. */
+#define TRACED_SHADOWS_BOUNDS_RECORD_MSL \
+	"\tif (!simd_is_helper_thread())\n" \
+	"\t{\n" \
+	"\t\tbool darkened = min(result.r, min(result.g, result.b)) < " TRACED_SHADOWS_DARKENED_BELOW_MSL ";\n" \
+	"\t\tuint2 q = uint2(traced_position.xy);\n" \
+	"\t\tuint left = simd_min(darkened ? q.x : 0xffffffffu), top = simd_min(darkened ? q.y : 0xffffffffu);\n" \
+	"\t\tuint right = simd_max(darkened ? q.x + 1u : 0u), bottom = simd_max(darkened ? q.y + 1u : 0u);\n" \
+	"\t\tif (simd_is_first() && right > left)\n" \
+	"\t\t{\n" \
+	"\t\t\tatomic_fetch_min_explicit(&traced_bounds[0], left, memory_order_relaxed);\n" \
+	"\t\t\tatomic_fetch_min_explicit(&traced_bounds[1], top, memory_order_relaxed);\n" \
+	"\t\t\tatomic_fetch_max_explicit(&traced_bounds[2], right, memory_order_relaxed);\n" \
+	"\t\t\tatomic_fetch_max_explicit(&traced_bounds[3], bottom, memory_order_relaxed);\n" \
+	"\t\t}\n" \
+	"\t}\n"
+
 /* the epoch no game record has (the game's count from 1): what the backend holds between tracing stopping and the
 game's next reset */
 #define TRACED_SHADOWS_NO_EPOCH 0xffffffffu
