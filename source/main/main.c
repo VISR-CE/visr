@@ -4034,6 +4034,9 @@ void main_loop(
 
 			if (game_in_progress())
 			{
+				/* port: the seconds the scenario's world advances (none while debug.menu_backdrop_freeze holds the menu's backdrop), read once */
+				real world_seconds = halo_menu_backdrop_seconds(main_globals.main_menu_scenario_loaded, (real)main_globals.halt_time_scale*main_globals.seconds_elapsed);
+
 				terminal_update();
 
 				if (!console_update() || main_globals.connection!=_game_connection_local)
@@ -4059,7 +4062,7 @@ void main_loop(
 
 						MAIN_CPU_PHASE(0, 0);
 						profile_scope(main_game_time_update_section,
-							game_time_update((real)main_globals.halt_time_scale*main_globals.seconds_elapsed);)
+							game_time_update(world_seconds);)
 						MAIN_CPU_PHASE(1, (int)(game_time_get() - ticks_before));
 					}
 
@@ -4076,10 +4079,10 @@ void main_loop(
 
 					profile_scope_enter(main_non_deterministic_update_section)
 					collision_log_continue_period(1);
-					director_update((real)main_globals.halt_time_scale*main_globals.seconds_elapsed);
-					observer_update((real)main_globals.halt_time_scale*main_globals.seconds_elapsed);
+					director_update(world_seconds);
+					observer_update(world_seconds);
 					collision_log_end_period();
-					game_engine_update_non_deterministic((real)main_globals.halt_time_scale*main_globals.seconds_elapsed);
+					game_engine_update_non_deterministic(world_seconds);
 					profile_scope_exit(main_non_deterministic_update_section)
 				}
 

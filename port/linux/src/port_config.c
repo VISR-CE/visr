@@ -1950,6 +1950,12 @@ static const struct config_setting config_settings[] =
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
+	{ "debug.menu_backdrop_freeze", _config_boolean, "false", "HALO_MENU_BACKDROP_FREEZE", _environment_value, _platform_all,
+		"Hold the menu scenario's world (the camera, objects and effects behind the\n"
+		"main menu) as loaded: no tick runs while this is on, so two captures of one\n"
+		"screen differ only where the screen does. Flashing or fading menu widgets\n"
+		"run on the wall clock and still move. For capture comparisons, not live\n"
+		"lobbies; false lets the backdrop play." },
 	{ "debug.pointer_log", _config_boolean, "false", "HALO_POINTER_LOG", _environment_value, _platform_ios,
 		"Log one line per menu tap or click: the surface's size in points, the\n"
 		"drawable's in pixels, the tap there and where it landed in menu units, then\n"

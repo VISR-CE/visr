@@ -515,6 +515,12 @@ BOOL platform_offer_game_data(const char *destination)
 
 int halo_scene_class(void);
 
+/* the seconds the menu scenario's world advances this frame: none while debug.menu_backdrop_freeze holds it (a capture setting) */
+float halo_menu_backdrop_seconds(int menu_scenario_loaded, float seconds)
+{
+	return menu_scenario_loaded && config_boolean("debug.menu_backdrop_freeze") ? 0.0f : seconds;
+}
+
 /* Smooth motion: automatic (smooth_motion.h: on above a 30 frame cap, off at 30 or lower, so in Hardcore mode,
 whose table fixes the cap at 30, and during a big game's runtime drop to 30), unless display.interpolation is
 set to "on" or "off" by hand, by --set or in the environment: the testing override, which wins over the rule (the

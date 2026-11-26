@@ -3428,6 +3428,17 @@
             "desktop"
           ]
         },
+        "menu_backdrop_freeze": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hold the menu scenario's world (the camera, objects and effects behind the main menu) as loaded: no tick runs while this is on, so two captures of one screen differ only where the screen does. Flashing or fading menu widgets run on the wall clock and still move. For capture comparisons, not live lobbies; false lets the backdrop play.",
+          "x-environment": "HALO_MENU_BACKDROP_FREEZE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "pointer_log": {
           "type": "boolean",
           "default": false,

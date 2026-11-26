@@ -23,6 +23,8 @@ struct observer_result;
 struct render_camera;
 struct real_matrix4x3;
 int halo_interpolation_enabled(void);
+/* the seconds the menu scenario's world advances this frame: 0 while debug.menu_backdrop_freeze holds its backdrop, else `seconds` */
+float halo_menu_backdrop_seconds(int menu_scenario_loaded, float seconds);
 float game_time_get_tick_fraction(void);
 void render_interpolation_tick(void);
 void render_interpolation_reset(void);
