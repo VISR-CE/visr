@@ -78,9 +78,9 @@ pinches, scripted clicks), the desktop builds' polled keys and mouse (glyph_poll
 (halo_menu_pointer_activity), and the polled pads (glyph_pad_activity). The legend, the help wording
 (halo_menu_input_kind) and the option rows' controls (halo_menu_pointer_controls) all read glyph_input_shown. */
 static struct halo_glyph_input glyph_menu_input;
+static int glyph_x_destructive;   /* the screen's X deletes: Backspace and forward delete press it (keyboard_gamepad) */
 #ifdef HALO_IOS
 static int glyph_menus_active;
-static int glyph_x_destructive;
 #endif
 
 /* the mouse's movement since another input was used (halo_glyph_motion_note) */
@@ -1057,18 +1057,20 @@ static struct
 	unsigned long poll;
 } test_presses[TEST_PRESS_MAX];
 static int test_press_count;
-static int test_press_fixed[TEST_PRESS_MAX];   /* the press's shift is known */
-static unsigned long test_press_shift[TEST_PRESS_MAX];   /* polls the press waited for walks before it */
 #define TEST_FOCUS_MAX 8
 static struct test_focus_walk test_focus_walks[TEST_FOCUS_MAX];
 static int test_focus_count;
+/* the script's presses and walks in order, released as one chain (test_focus_walk.h's test_chain_update) */
+static struct test_chain_step test_chain[TEST_PRESS_MAX + TEST_FOCUS_MAX];
+static int test_chain_count;
 
 static void test_input_presses_parse(const char *text)
 {
 	char button[8];
-	unsigned long poll;
+	unsigned long poll, last_poll = 0;
 	int used;
 
+	test_chain_count = 0;
 	while (test_press_count < TEST_PRESS_MAX)
 	{
 		char label[TEST_FOCUS_LABEL_MAX];
@@ -1080,6 +1082,7 @@ static void test_input_presses_parse(const char *text)
 				if (*c == '_')
 					*c = ' ';
 			test_focus_walk_begin(&test_focus_walks[test_focus_count++], label, poll);
+			test_chain[test_chain_count++] = (struct test_chain_step){ .is_walk = 1, .index = test_focus_count - 1, .poll = poll };
 			if (test_focus_count == 1)   /* the capture tools fail a screen that walks by label when a build does not say this */
 				platform_log("test_input: focus walk supported");
 			text += used;
@@ -1094,8 +1097,7 @@ static void test_input_presses_parse(const char *text)
 		else if (sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
 		{
 			strcpy(test_presses[test_press_count].button, button);
-			test_press_fixed[test_press_count] = 0;
-			test_press_shift[test_press_count] = 0;
+			test_chain[test_chain_count++] = (struct test_chain_step){ .index = test_press_count, .poll = poll };
 			test_presses[test_press_count++].poll = poll;
 			text += used;
 		}
@@ -1107,18 +1109,56 @@ static void test_input_presses_parse(const char *text)
 		platform_log("WALK FAIL: debug.test_input has text it cannot use: \"%s\"", text);
 		exit(TEST_FOCUS_EXIT_STATUS);
 	}
-	/* (a press after a walk waits for it: test_input_presses) */
+	/* a walk checks that the focus is still on its row just before the next scripted step */
+	for (int step = 0; step < test_chain_count; step++)
+	{
+		if (test_chain[step].poll < last_poll)
+		{
+			platform_log("WALK FAIL: debug.test_input steps are not in order (a poll before the one before it)");
+			exit(TEST_FOCUS_EXIT_STATUS);
+		}
+		last_poll = test_chain[step].poll;
+		if (test_chain[step].is_walk && step + 1 < test_chain_count && test_chain[step + 1].poll > test_chain[step].poll + 2)
+			test_focus_walks[test_chain[step].index].check_at = test_chain[step + 1].poll - 2;
+	}
+}
+
+/* releases the chain's steps that are due (each shift is logged once, for the capture tools); a walk's own poll runs `shift` polls
+behind the real one */
+static void test_input_chain(unsigned long poll)
+{
+	if (!test_chain_update(test_chain, test_chain_count, poll))
+		return;
+	for (int step = 0; step < test_chain_count; step++)
+	{
+		struct test_chain_step *item = &test_chain[step];
+
+		if (!item->released || item->reported)
+			continue;
+		item->reported = 1;
+		if (item->shift)
+			platform_log("test input: %s %s shifted by %lu polls", item->is_walk ? "focus" : "press",
+				item->is_walk ? test_focus_walks[item->index].label : test_presses[item->index].button, item->shift);
+	}
 }
 
 /* the focus walks' Down presses; a failed walk ends the run */
-static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
+static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long real_poll)
 {
-	for (int index = 0; index < test_focus_count; index++)
+	test_input_chain(real_poll);
+	for (int step = 0; step < test_chain_count; step++)
 	{
-		struct test_focus_walk *walk = &test_focus_walks[index];
+		struct test_chain_step *item = &test_chain[step];
+		struct test_focus_walk *walk;
 		char seen[TEST_FOCUS_LABEL_MAX];
-		int have = 0, was_finished = walk->finished, action;
+		unsigned long poll;
+		int have = 0, was_finished, action;
 
+		if (!item->is_walk || !item->released)
+			continue;
+		walk = &test_focus_walks[item->index];
+		poll = real_poll - item->shift;   /* (the walk's own time) */
+		was_finished = walk->finished;
 		if (test_focus_walk_wants_look(walk, poll))
 			have = menu_test_focus_text(seen, sizeof(seen));
 		if (have)   /* every row the walk looks at, so a failed or a new walk can be read off the log */
@@ -1127,12 +1167,16 @@ static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
 		if (action == TEST_FOCUS_DOWN)
 			pad->wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
 		else if (action == TEST_FOCUS_DONE && !was_finished)
-			platform_log("walk: focus %s landed at poll %lu", walk->label, poll);
+		{
+			item->landed = 1;
+			item->landed_at = real_poll;
+			platform_log("walk: focus %s landed at poll %lu", walk->label, real_poll);
+		}
 		else if (action >= TEST_FOCUS_FAIL_STUCK && (!was_finished || action == TEST_FOCUS_FAIL_LOST))
 		{
 			platform_log("WALK FAIL: focus %s (%s); the focus was on \"%s\", it began on \"%s\"", walk->label,
 				action == TEST_FOCUS_FAIL_STUCK ? "Down no longer moves it" : action == TEST_FOCUS_FAIL_WRAP ? "the list wrapped" :
-				action == TEST_FOCUS_FAIL_LATE ? "the next press came first" :
+				action == TEST_FOCUS_FAIL_LATE ? "the walk missed its deadline" :
 				action == TEST_FOCUS_FAIL_LOST ? "the focus left the row before the deadline" : "no screen with a focused row", walk->last, walk->first);
 			exit(TEST_FOCUS_EXIT_STATUS);
 		}
@@ -1141,24 +1185,19 @@ static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
 
 static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
 {
-	int index;
-	unsigned long prev_shift = 0;
-
-	for (index = 0; index < test_press_count; index++)
+	test_input_chain(poll);
+	for (int step = 0; step < test_chain_count; step++)
 	{
-		const char *button = test_presses[index].button;
-		int pending = 0;
+		const struct test_chain_step *item = &test_chain[step];
+		const char *button;
 
-		for (int walk = 0; walk < test_focus_count; walk++)
-			if (test_focus_walks[walk].start < test_presses[index].poll && !test_focus_walks[walk].deadline &&
-				!(test_focus_walks[walk].finished && test_focus_walks[walk].result == TEST_FOCUS_DONE))
-				pending = 1;
-		if (!test_press_shift_settle(test_presses[index].poll, prev_shift, poll, pending, &test_press_fixed[index],
-			&test_press_shift[index]))
-			break;   /* nothing after a waiting press can fire yet */
-		prev_shift = test_press_shift[index];
-		if (poll < test_presses[index].poll + prev_shift || poll >= test_presses[index].poll + prev_shift + TEST_PRESS_POLLS)
+		if (item->is_walk)
 			continue;
+		if (!item->released)
+			break;   /* nothing after a waiting step can fire yet */
+		if (poll < item->poll + item->shift || poll >= item->poll + item->shift + TEST_PRESS_POLLS)
+			continue;
+		button = test_presses[item->index].button;
 		if (button[0] == 'k') button++;
 		if (!strcmp(button, "start"))
 			pad->wButtons |= XINPUT_GAMEPAD_START;

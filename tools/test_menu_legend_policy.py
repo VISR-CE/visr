@@ -89,3 +89,19 @@ def test_the_keyboard_secondary_legend_names_backspace_whatever_chose_the_family
     assert 'glyph_menus_active && shown.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive' in source
     assert 'snprintf(label, size, "%s", HALO_GLYPH_MENU_SECONDARY_LABEL)' in source
     assert 'glyph_menu_input.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2' not in source
+
+
+def test_the_destructive_x_flag_is_declared_outside_the_ios_guard():
+    """Bug class (Nov 25): `glyph_x_destructive` was declared inside `#ifdef HALO_IOS` while `keyboard_gamepad` (every build) reads it,
+    and nothing but a Linux build saw it. A variable a function outside a guard uses must be declared outside it."""
+    lines = (ROOT / 'port/linux/src/xinput_sdl.c').read_text().splitlines()
+    depth, declared_at = 0, None
+    for number, line in enumerate(lines, 1):
+        text = line.strip()
+        if text.startswith(('#if', '#ifdef', '#ifndef')):
+            depth += 1
+        elif text.startswith('#endif'):
+            depth -= 1
+        elif text.startswith('static int glyph_x_destructive'):
+            declared_at = (number, depth)
+    assert declared_at and declared_at[1] == 0, declared_at

@@ -74,10 +74,10 @@ int main(void) {
     test_press_count = 0;
     test_input_presses_parse("focus:ABC_DEF@8:40 focus:GHI@8 a@30");
     CHECK(test_focus_count == 2 && !strcmp(test_focus_walks[0].label, "ABC DEF") && test_focus_walks[0].start == 8);
-    CHECK(test_focus_walks[0].deadline == 40 && test_focus_walks[1].deadline == 0 && test_press_count == 1);
+    CHECK(test_focus_walks[0].deadline == 40 && test_focus_walks[1].deadline == 0 && test_focus_walks[1].check_at == 28 && test_press_count == 1);
     test_focus_count = 0;
     test_input_presses_parse("focus:ABC@8:20 a@30");
-    CHECK(test_focus_walks[0].deadline == 20 && test_press_count == 2);
+    CHECK(test_focus_walks[0].deadline == 20 && test_press_count == 2 && test_chain_count == 2);
     test_focus_count = 0;
     test_press_count = 0;
     test_input_presses_parse("x@0 y@0");
