@@ -30,7 +30,6 @@ Conventions carried over from the Xbox:
 #include "quad_ranges.h"
 #include "screenshot_schedule.h"
 #include "sdl_platform.h"
-#include "halo_ui_drag.h"
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
 #include "menu_scale.h"
@@ -4025,6 +4024,7 @@ static int ui_pointer_geometry(struct halo_ui_pointer_geometry *g, int window_wi
 
 #ifdef HALO_ILP32
 #include "halo_host_pointer.h"
+#include "halo_ui_drag.h" /* halo_ui_wheel_steps_from_host; in port/runtime/include, which only the Apple builds search */
 /* the host's fingers and pointer devices (halo_host_pointer.h, guest_sdl.c) */
 void halo_host_pointer_read(struct host_ui_pointer *pointer);
 void halo_host_pointer_feedback(int kind);
