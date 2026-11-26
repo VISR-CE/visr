@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from xml.etree import ElementTree
 
+import default_settings_check
 import host_stubs
 import host_toolchain
 import uikit_probe_app
@@ -626,16 +627,7 @@ run('python3', 'tools/test_route_check.py')
 run('python3', 'tools/test_tag_loaded_null.py')
 # a runner's settings are the run's, never a device profile's: mac_run.py writes every setting a profile may set
 # (and marks what it writes chosen in config.origins), so no profile can move a check-metal run
-profile_keys = re.findall(r'^PROFILE_(?:BOOLEAN|INTEGER|REAL|STRING)\("([^"]+)"',
-                          (ROOT / 'port/linux/src/port_profile_keys.h').read_text(), re.M)
-mac_run_defaults = (ROOT / 'tools/mac_run.py').read_text()
-mac_run_defaults = mac_run_defaults[mac_run_defaults.index('DEFAULTS = {'):mac_run_defaults.index('\n}\n', mac_run_defaults.index('DEFAULTS = {'))]
-# output_height is external profile policy, never a config.toml setting.
-unpinned = [key for key in profile_keys if key != "display.output_height" and f'"{key}"' not in mac_run_defaults]
-if not profile_keys or unpinned:
-    raise SystemExit(f"mac_run.py: DEFAULTS must set every setting a device profile may set; missing {unpinned}")
-if 'chosen_origins(' not in (ROOT / 'tools/mac_run.py').read_text().split('def prepare(')[1]:
-    raise SystemExit('mac_run.py: prepare must mark the settings it writes chosen in config.origins')
+default_settings_check.check_mac_run_defaults()   # (also run by ci_test: tools/test_default_settings_check.py)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/virtual_clock_probe.c', '-o', BUILD/'virtual-clock-probe')
 run(BUILD/'virtual-clock-probe')
@@ -1010,17 +1002,9 @@ if p2p_source.count('p2p_signal_start();') != 6 or p2p_source.count('p2p.stun_st
                      'map sharing inside a joined game may begin signalling, and only the first three STUN')
 if 'if (!p2p.stun_started)\n\t\treturn;' not in body_of(p2p_source, 'stun_update'):
     raise SystemExit('p2p.c: stun_update must do nothing, its lookups included, until STUN is begun')
-# an Apple build turns network.online on only from a question that says what internet play reaches: a join
-# link's, or the one the Settings switch and the first internet screen ask for
-config_source = (ROOT / 'port/linux/src/port_config.c').read_text()
-if not re.search(r'#ifdef HALO_IOS\n#define DEFAULT_INTERNET_PLAY "false"\n', config_source):
-    raise SystemExit('port_config.c: network.online stays off by default on Apple builds; internet play on by '
-                     'default is DEFAULT_ONLINE_ASK "true", which asks before any server is reached')
-# ... and does not download a Custom Edition map from a game's players unless the player turned that on
-if not re.search(r'#ifdef HALO_IOS\n(?:.*\n)*?#define DEFAULT_MAP_DOWNLOAD "false"\n(?:.*\n)*?#else', config_source) or \
-        '{ "network.map_download", _config_boolean, DEFAULT_MAP_DOWNLOAD,' not in config_source:
-    raise SystemExit('port_config.c: network.map_download stays off by default on Apple builds until a download '
-                     'asks first')
+# an Apple build turns network.online on only from a question that says what internet play reaches, and does not download a
+# Custom Edition map from a game's players unless the player turned that on (also run by ci_test)
+default_settings_check.check_config_defaults()
 platform_source = (ROOT / 'port/linux/src/sdl_platform.c').read_text()
 for name, question in (('platform_link_consent', 'platform_ask(HALO_INTERNET_LINK_TITLE, HALO_INTERNET_LINK_MESSAGE,'),
                        ('platform_internet_play_ask', 'platform_ask(HALO_INTERNET_ASK_TITLE, HALO_INTERNET_DISCLOSURE,')):
@@ -1348,17 +1332,7 @@ literals = re.match(r'shader_source =\s*((?:@?"(?:[^"\\]|\\.)*"\s*)+);',
 (BUILD / 'host_stereo.metal').write_text(''.join(
     re.findall(r'"((?:[^"\\]|\\.)*)"', literals.group(1))).encode().decode('unicode_escape'))
 run('xcrun', '--sdk', 'xros', 'metal', '-c', BUILD / 'host_stereo.metal', '-o', BUILD / 'host_stereo.air')
-# HEAD mode turns in snaps unless the player asks otherwise
-if '{ "input.turn", _config_string, "\\"snap\\""' not in (ROOT / 'port/linux/src/port_config.c').read_text():
-    raise SystemExit('port_config.c: input.turn must default to "snap"')
-# HEAD mode renders through foveation unless the player turns it off: the host's fallback
-# (host_theater.m, before the game has written config.toml) and mac_run.py's defaults agree
-if '{ "display.foveation", _config_boolean, "true"' not in (ROOT / 'port/linux/src/port_config.c').read_text() or \
-        'host_config_string("display.foveation", "true"' not in (ROOT / 'port/ios/host/host_theater.m').read_text():
-    raise SystemExit('port_config.c and host_theater.m: display.foveation must default to true')
-mac_run_text = (ROOT / 'tools/mac_run.py').read_text()
-if '"display.foveation": "true",' not in mac_run_text or '"debug.foveation_eye_passes": "true",' not in mac_run_text:
-    raise SystemExit("mac_run.py: DEFAULTS must follow port_config.c's foveation defaults")
+default_settings_check.check_foveation_defaults()   # (HEAD mode's foveation defaults agree; also run by ci_test)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
     'port/ios/tests/host_lan_probe.c', 'port/ios/host/host_lan.c', 'port/linux/src/delta_legacy_runtime.c', f'--output={BUILD / "host-lan-probe"}')
 run(BUILD/'host-lan-probe')
