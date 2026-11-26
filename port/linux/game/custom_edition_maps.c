@@ -1030,6 +1030,17 @@ struct bitmap_data *custom_edition_maps_picture(
 		*frame_index = UNKNOWN_LEVEL_FRAME;
 		return pictures != NONE ? bitmap_group_get_bitmap_from_sequence(pictures, 0, level) : NULL;
 	}
+	/* a level pictures frame that is none of the stock pictures (the 13 maps' frames 0..12), a co-op level's or a custom
+	map's is the unknown level's: bitmap_group_get_bitmap_from_sequence wraps a frame past the group's end back to
+	its start, which is Battle Creek's picture beside any other map's name (a name index such as 14..19 is not a
+	picture frame) */
+	if (bitmap_tag_index != NONE &&
+		!csstrcasecmp(tag_get_name(bitmap_tag_index), LEVEL_PICTURES_TAG_NAME) &&
+		(*frame_index < 0 || (*frame_index > UNKNOWN_LEVEL_FRAME && *frame_index < FIRST_CAMPAIGN_DISPLAY_INDEX)))
+	{
+		*frame_index = UNKNOWN_LEVEL_FRAME;
+		return NULL;
+	}
 	if (*frame_index < FIRST_DISPLAY_INDEX ||
 		bitmap_tag_index == NONE ||
 		csstrcasecmp(tag_get_name(bitmap_tag_index), LEVEL_PICTURES_TAG_NAME))
