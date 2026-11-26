@@ -2241,10 +2241,34 @@ def test_no_dialog_legend_part_leaves_its_button_rect():
 def test_a_touch_pill_widget_is_as_large_as_its_bitmap_frame():
     """Bug class (Nov 24: every dialog touch pill lost its right end): the engine samples a bitmap widget's width and
     height of the bitmap's frame, so a frame larger than the widget crops the picture and a smaller one stretches it."""
-    root = ET.parse(Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox/dialogs.xml').getroot()
-    frames = {b.get('name'): b.find('frame') for b in root.findall('bitmap')}
-    pill = frames['xbox/dialog_touch_button']
-    pills = [w for w in root.iter('widget') if w.get('bitmap') == 'xbox/dialog_touch_button']
+    base = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
+    pill = ET.parse(base / 'dialogs.xml').getroot().find("bitmap[@name='xbox/dialog_touch_button']").find('frame')
+    pills = []
+    for path in base.glob('*.xml'):   # every generated file, not only the one that defines the bitmap
+        pills += [w for w in ET.parse(path).getroot().iter('widget') if w.get('bitmap') == 'xbox/dialog_touch_button']
     assert len(pills) >= 10
     for w in pills:
         assert (w.get('width'), w.get('height')) == (pill.get('width'), pill.get('height')), w.get('name')
+
+
+def test_every_touch_pill_caption_rides_the_shared_cap_raise():
+    """Bug class (Nov 25): the pill labels sat on the pill's lower outline because `large_ui` draws capitals low in the text box.
+    Every pill caption in every generated screen is centered in its pill and raised by `menu_geometry.BAR_GLYPH_RAISE`, the one
+    place that font fact is recorded (no literal in the generator)."""
+    import menu_geometry
+    base = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
+    seen = 0
+    for path in base.glob('*.xml'):
+        root = ET.parse(path).getroot()
+        pills = {w.get('name'): w for w in root.iter('widget') if w.get('name', '').endswith('/touch_background')}
+        for child in root.iter('child'):
+            name = child.get('widget', '')
+            if name.endswith('/touch_caption'):
+                background = child.get('widget').replace('touch_caption', 'touch_background')
+                sibling = next(c for c in root.iter('child') if c.get('widget') == background)
+                pill_height = int(pills[background].get('height'))
+                caption = next(w for w in root.iter('widget') if w.get('name') == name)
+                centered = (pill_height - int(caption.get('height'))) // 2
+                assert int(child.get('y')) - int(sibling.get('y')) == centered - menu_geometry.BAR_GLYPH_RAISE, name
+                seen += 1
+    assert seen >= 10

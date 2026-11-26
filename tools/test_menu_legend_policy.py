@@ -105,3 +105,35 @@ def test_the_destructive_x_flag_is_declared_outside_the_ios_guard():
         elif text.startswith('static int glyph_x_destructive'):
             declared_at = (number, depth)
     assert declared_at and declared_at[1] == 0, declared_at
+
+
+def test_destructive_x_is_declared_by_function_name_and_published_once_per_screen():
+    """Bug class (Nov 25): Backspace acted on whatever `strstr(name, "delete")` and a caption containing DELETE said, so a renamed
+    function or a translated caption made it dead with no test failing. The functions are declared in one table; every generated
+    screen's X action that deletes is in it, each declared name is a real function, and the flag is published once per screen,
+    after the scan and before the screen draws."""
+    import glob
+    functions = (ROOT / 'source/interface/ui_widget_event_handler_functions.c').read_text()
+    table = re.search(r'destructive\[\] = \{([^}]*)\}', functions).group(1)
+    declared = set(re.findall(r'"([^"]+)"', table))
+    assert declared and all(f'"{name}",' in functions for name in declared)
+    for path in glob.glob(str(ROOT / 'port/assets/menus/xbox/*.xml')):
+        for run in re.findall(r'<on event="x"[^>]*run="([^"]*)"', Path(path).read_text()):
+            if 'del' in run.split() or 'delete' in run:
+                assert run in declared, (path, run)
+    widget = (ROOT / 'source/interface/ui_widget.c').read_text()
+    assert widget.count('halo_controller_glyph_x_destructive(') == 1
+    assert widget.index('ui_touch_screen_x_scan(widget);') < widget.index('halo_controller_glyph_x_destructive(') < \
+        widget.index('widget_instance_render_recursive(\n\t\t\t\t\twidget_globals.active_widgets[widget_index]')
+    assert 'strstr(function_name, "delete")' not in widget and 'strstr(ui_touch_x_caption, "DELETE")' not in widget
+
+
+def test_every_key_a_dialog_legend_names_draws_as_a_symbol_the_width_of_a_glyph():
+    """Dialog slots center a 21-unit glyph (`dialog_slot_content_x`). In keyboard mode the keycap is that glyph only while the
+    key has a symbol; a key drawn as text ("Escape", 6 letters) would grow past it and out of the slot. The dialog legends name
+    Enter (OK, the A key) and Escape (CANCEL, the B key) in the keyboard family, and the secondary key (Backspace) appears in the
+    footer bars, so each needs a symbol."""
+    header = (ROOT / 'port/linux/include/halo_keyboard_symbols.h').read_text()
+    glyphs = (ROOT / 'port/linux/include/halo_controller_glyphs.h').read_text()
+    for key in ('Enter', 'Escape', re.search(r'SECONDARY_LABEL "([^"]+)"', glyphs).group(1)):
+        assert re.search(r'\{"%s", "[a-z.]+"\}' % key, header), key

@@ -7669,6 +7669,7 @@ static boolean ui_touch_screen_back_acts(
 whether press-and-hold has a popup to open; a handler whose function name says delete is the destructive kind */
 extern char const *ui_widget_event_handler_function_name(long function_index);
 extern char const *pc_menu_function_name(long function_index);
+extern boolean ui_widget_event_handler_function_is_destructive(char const *function_name);
 
 static boolean ui_touch_widget_x_scan(
 	struct widget_instance *widget)
@@ -7693,12 +7694,10 @@ static boolean ui_touch_widget_x_scan(
 			pc_menu_function_name(function_index - PC_MENU_FUNCTION_BASE) :
 			ui_widget_event_handler_function_name(function_index);
 		ui_touch_x_seen = TRUE;
-		ui_touch_x_destructive = function_name &&
-			(strstr(function_name, "delete") != NULL || strstr(function_name, " del ") != NULL);
+		ui_touch_x_destructive = ui_widget_event_handler_function_is_destructive(function_name);
 		ui_touch_x_playlist_widget = function_name && strstr(function_name, "del playlist profile") ?
 			widget : NULL;
 		strcpy(ui_touch_x_caption, ui_touch_x_destructive ? "DELETE" : "OPTIONS");
-		halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 		return TRUE;
 	}
 	return FALSE;
@@ -9935,9 +9934,6 @@ static void widget_instance_render_recursive(
 				for (length = 0; length < 23 && caption->parameters.text_box.text[length]; length++)
 					ui_touch_x_caption[length] = (char)caption->parameters.text_box.text[length];
 				ui_touch_x_caption[length] = 0;
-				ui_touch_x_destructive = strstr(ui_touch_x_caption, "DELETE") != NULL ||
-					strstr(ui_touch_x_caption, "Delete") != NULL;
-				halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 			}
 		}
 		return;
@@ -9979,9 +9975,6 @@ static void widget_instance_render_recursive(
 				for (length = 0; length < 23 && caption->parameters.text_box.text[length]; length++)
 					ui_touch_x_caption[length] = (char)caption->parameters.text_box.text[length];
 				ui_touch_x_caption[length] = 0;
-				ui_touch_x_destructive = strstr(ui_touch_x_caption, "DELETE") != NULL ||
-					strstr(ui_touch_x_caption, "Delete") != NULL;
-				halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 			}
 		}
 		if (ui_mouse_key_button(widget) != NONE &&
@@ -10474,10 +10467,11 @@ void render_ui_widgets(
 					ui_touch_title_seen = FALSE;
 					ui_touch_x_seen = FALSE;
 					ui_touch_x_playlist_widget = NULL;
-					/* a screen with no destructive X must not keep the last screen's (Backspace deletes only there) */
-					halo_controller_glyph_x_destructive(FALSE);
+					ui_touch_x_destructive = FALSE;   /* a screen with no destructive X must not keep the last screen's */
 					ui_touch_back_generic = ui_touch_screen_back_acts(widget);
 					ui_touch_screen_x_scan(widget);
+					/* the one place the screen's destructive X is published, before it draws (its legend and Backspace read it) */
+					halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 				}
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
@@ -10488,6 +10482,7 @@ void render_ui_widgets(
 					FALSE);
 				if (ui_mouse_noting_targets) ui_dropdown_draw();
 				ui_redraw_end_screen();
+
 				/* the popup draws in the menu window's space, like the rows it lifts and their
 				tap targets, so its glow sits on the drawn row where the safe-area zoom applies */
 				if (ui_mouse_noting_targets)
