@@ -71,6 +71,7 @@ def test_browser_names_the_advertised_mode_before_join(tmp_path):
     declarations += "\n" + function(source, "static void server_kind_icon_set(")
     declarations += "\n" + function(source, "static short browser_row_index(struct widget_instance *row)")
     declarations += "\nstatic int config_boolean(char const *name) { (void)name; return 1; }\n"
+    declarations += "#define browser_listing_blocked(game) (!(game)->joinable)\n"
     declarations += "static boolean menu_split_screen_needs_controller(void) { return FALSE; }\n"
     declarations += function(source, "static boolean internet_item_off(")
     declarations += "\n" + function(source, "static boolean split_item_off(")
