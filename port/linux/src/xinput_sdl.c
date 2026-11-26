@@ -1299,8 +1299,8 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 	}
 	if (pressing)
 	{
-		test_input_presses(pad, press_polls);
-		test_input_focus_walks(pad, press_polls++);
+		test_input_focus_walks(pad, press_polls);   /* (walks first: a press after a walk that lands this poll is held its full length) */
+		test_input_presses(pad, press_polls++);
 		return;
 	}
 	if (unarmed_start >= 0)

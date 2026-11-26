@@ -92,7 +92,8 @@ MAP_BITMAPS = {'gradient', 'list_field', 'list_item_bkd_top', 'list_item_bkd',
 # units tall inside a comfortable 39-unit tap band.
 TITLE = (35, 11, 512, 64)
 LEGEND_A_X, LEGEND_B_X = 471, 326
-GLYPH_WIDTH, GLYPH_HEIGHT, CAPTION_OFFSET = 21, 26, 22
+GLYPH_WIDTH, GLYPH_HEIGHT, CAPTION_OFFSET = (menu_geometry.BAR_GLYPH_WIDTH, menu_geometry.BAR_GLYPH_HEIGHT,
+                                              menu_geometry.BAR_CAPTION_OFFSET)
 HELP_TOP = 335
 # Both right panels end at the bottom rule (y 409, drawn by the gradient art), as the disc's panels do.
 PANEL_A = {'list': (51, 78, 33), 'panel': (275, 78, 320, RULE_Y - 78)}

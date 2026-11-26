@@ -2272,3 +2272,24 @@ def test_every_touch_pill_caption_rides_the_shared_cap_raise():
                 assert int(child.get('y')) - int(sibling.get('y')) == centered - menu_geometry.BAR_GLYPH_RAISE, name
                 seen += 1
     assert seen >= 10
+
+
+def test_every_dialog_legend_label_fits_its_standard_slot_in_every_input_family():
+    """Item 7 (Nov 25 review): glyph + gap + caption must fit the slot for every dialog's OK and CANCEL label. A keyboard keycap
+    is a symbol the width of a controller glyph (Enter, Escape and Backspace all map to symbols in halo_keyboard_symbols.h,
+    so the key's name never enters the width), so one measurement covers keyboard, controller and touch."""
+    xbox_menus = generator()
+    import menu_geometry
+    import menu_text_metrics
+    base = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
+    slot = xbox_menus.dialog_slots()['a'][1]
+    labels = set()
+    for path in base.glob('*.xml'):
+        for w in ET.parse(path).getroot().iter('widget'):
+            name = w.get('name', '')
+            if name.endswith(('/accept', '/cancel')) and w.get('text'):
+                labels.add(w.get('text'))
+    assert {'CANCEL', 'OK'} <= labels
+    for label in labels:
+        used = xbox_menus.DIALOG_GLYPH + xbox_menus.DIALOG_GLYPH_GAP + menu_text_metrics.text_width(menu_geometry.BAR_FONT, label)
+        assert used <= slot, (label, used, slot)
