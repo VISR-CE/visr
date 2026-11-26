@@ -255,7 +255,7 @@ static const struct config_setting config_settings[] =
 	{ "display.shadow_map_size", _config_integer, "128", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
 		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },
-	{ "display.ambient_occlusion", _config_boolean, "false", "HALO_AMBIENT_OCCLUSION", _environment_value, _platform_ios,
+	{ "display.ambient_occlusion", _config_boolean, "true", "HALO_AMBIENT_OCCLUSION", _environment_value, _platform_ios,
 		"Soft darkening where characters, vehicles and props meet the ground and the walls (screen-space\n"
 		"ambient occlusion over the level's light and, weaker, the objects), which the original game never\n"
 		"drew. Metal, one view, not multisampled and not in stereo. Enhanced graphics only: Classic and\n"
