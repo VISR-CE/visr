@@ -22,6 +22,9 @@ came to more than TRACED_FRAME_UPDATE_TRIANGLES, each is refitted every period-t
 budget, rounded up, at most TRACED_STALE_FRAMES + 1), in a phase set by its slot, and keeps its last structure (a
 shadow a frame or two behind its pose) in between; new casters are always built. A 64-player match moved about
 140,000 triangles of casters a frame, all refitted every frame before this.
+Past TRACED_FRAME_TRIANGLES of work in a frame, casters are taken in the order the game sends them (not by distance):
+a later one with a structure of an older pose keeps it, for up to TRACED_STALE_FRAMES frames, as a deferred refit
+does; one without a structure has no shadow that frame.
 */
 
 #ifndef __HALO_TRACED_SHADOWS_H
@@ -47,7 +50,8 @@ enum
 	TRACED_IDLE_FRAMES = 60,
 	/* slots a frame's sweep looks at for idle casters to release (the whole table in about half a second) */
 	TRACED_SWEEP_SLOTS = 32,
-	/* triangles of every caster built or updated in a frame; a caster past it has no shadow that frame */
+	/* triangles of every caster built or updated in a frame; a caster past it keeps a structure of an older pose
+	(TRACED_STALE_FRAMES at most) or has no shadow that frame */
 	TRACED_FRAME_TRIANGLES = 200000,
 	/* the refit budget a frame: moved casters past it are refitted every few frames instead of every frame. A
 	64-player match moved about 140,000 triangles of casters a frame; at 48,000 that is a period of 3, inside
@@ -319,6 +323,15 @@ static inline enum traced_decision traced_cache_decide(struct traced_caster_cach
 	}
 	if (cache->frame_triangles + triangles > TRACED_FRAME_TRIANGLES)
 	{
+		/* (past the frame's work: a caster with a structure of an older pose keeps it, as a deferred refit does) */
+		if (found && found->updated && found->updated != cache->frame &&
+			cache->frame - found->updated <= TRACED_STALE_FRAMES)
+		{
+			found->frame = cache->frame;
+			cache->deferred++;
+			*slot_index = (uint32_t)(found - cache->slots);
+			return TRACED_REUSE;
+		}
 		cache->refused++;
 		return TRACED_REFUSED;
 	}

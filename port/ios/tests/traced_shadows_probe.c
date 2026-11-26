@@ -150,6 +150,29 @@ static void check_cache(void)
 		&released) == TRACED_REFUSED, "a caster past the frame's triangles is refused");
 	CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), pose, sizeof(pose), TRACED_FRAME_TRIANGLES + 1, 1, &slot,
 		&released) == TRACED_REUSE, "but one that needs no work is still reused");
+	/* past the frame's work, a moved caster keeps the structure of its older pose for TRACED_STALE_FRAMES frames */
+	{
+		uint32_t kept_slot;
+		unsigned long built = frame + 2, f;
+
+		traced_cache_frame(&cache, built);
+		moved[2] = 1000.0f;
+		CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), moved, sizeof(moved), 50, 1, &kept_slot,
+			&released) == TRACED_REFIT, "(a caster updated within the frame's triangles)");
+		for (f = built + 1; f <= built + TRACED_STALE_FRAMES; f++)
+		{
+			traced_cache_frame(&cache, f);
+			moved[2] = (float)f + 1000.0f;
+			CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), moved, sizeof(moved), TRACED_FRAME_TRIANGLES + 1,
+				1, &slot, &released) == TRACED_REUSE && slot == kept_slot,
+				"a moved caster past the frame's triangles keeps its older structure, up to TRACED_STALE_FRAMES frames");
+		}
+		traced_cache_frame(&cache, f);
+		moved[2] = (float)f + 1000.0f;
+		CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), moved, sizeof(moved), TRACED_FRAME_TRIANGLES + 1, 1,
+			&slot, &released) == TRACED_REFUSED, "then has no shadow until the frame has room");
+		frame = f;
+	}
 	/* a new map: nothing of the last one is found */
 	traced_cache_reset(&cache);
 	traced_cache_frame(&cache, frame + 2);
