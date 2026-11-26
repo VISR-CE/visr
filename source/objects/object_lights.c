@@ -1995,7 +1995,7 @@ static void light_visibility_for_slot(
 		*strength = light_visibility_windows[window].strength[slot];
 		light_visibility_pending.family = light_visibility_windows[window].family[slot];
 		/* (an owner family without a bit is kept clear by its root's bounding sphere: light_visibility.h) */
-		if (owner)
+		if (owner && owner->object.bounding_sphere_radius > 0.f)
 		{
 			light_visibility_pending.has_owner = TRUE;
 			light_visibility_pending.owner_sphere[0] = owner->object.bounding_sphere_center.x;

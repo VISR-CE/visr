@@ -881,6 +881,8 @@ boolean traced_light_begin(
 	/* (what stands within this of the light does not block it: the owner's family, masked out by its bit when it has
 	one, else by its root's bounding sphere, which no caster blocks the light within (a shooter's body stands past
 	his own muzzle flash); a light with neither keeps the owner distance) */
+	if (owner_sphere && !(owner_sphere[3] > 0.f))
+		owner_sphere = NULL;
 	light.keep_clear = family || owner_sphere ? light.ray_start : (float)config_real("debug.traced_light_owner");
 	if (!family && owner_sphere)
 	{
