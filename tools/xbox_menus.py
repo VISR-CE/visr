@@ -945,7 +945,8 @@ def bitmap_document(assets, names):
                           height=str((frame + 1) * DROPDOWN_PITCH + 3 if count > 1 else height))
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/bitmaps/toggle_switch')
     for on in (0, 1):
-        ET.SubElement(bitmap, 'frame', png=f'xbox/art/toggle_switch__{on}.png', width=str(menu_geometry.SWITCH_WIDTH), height=str(menu_geometry.SWITCH_HEIGHT))
+        ET.SubElement(bitmap, 'frame', png=f'xbox/art/toggle_switch__{on}.png',
+                      width=str(menu_geometry.SWITCH_WIDTH), height=str(menu_geometry.SWITCH_HEIGHT))
     return root
 
 

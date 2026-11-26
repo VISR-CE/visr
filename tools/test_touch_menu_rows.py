@@ -178,7 +178,7 @@ void draw_bitmap_in_rect(struct bitmap_data *bitmap, rectangle2d *bounds, rectan
  rectangle2d *clip, unsigned long color, void *parameters, int no_plasma) {
  (void)parameters; (void)clip;
  assert(no_plasma && color == 0x7fffffff);
- assert(source->x0 == 0 && source->y0 == 0 && source->x1 == 32 && source->y1 == 17);
+ assert(source->x0 == 0 && source->y0 == 0 && source->x1 == MENU_SWITCH_WIDTH && source->y1 == MENU_SWITCH_HEIGHT);
  drawn = *bounds; last_frame = bitmap->frame; draws++;
 }
 ''' + block(source, 'static void ui_widget_row_draw_toggle(') + '\n' + block(source, 'static void ui_mouse_row_step(') + r'''
@@ -935,8 +935,9 @@ def test_state_word_sits_in_the_value_column_for_every_input(tmp_path):
     # the header is generated from the geometry, and the trims are the controls' own sizes
     assert [lib.constants(n) for n in range(4)] == [geometry.SWITCH_WIDTH, geometry.SWITCH_HEIGHT,
                                                      geometry.TOGGLE_SLOT, geometry.DROPDOWN_SLOT]
-    assert geometry.TOGGLE_SLOT == geometry.SWITCH_WIDTH + geometry.SWITCH_TEXT_GAP
-    assert geometry.DROPDOWN_SLOT == geometry.CHEVRON_INSET + geometry.CHEVRON_WIDTH + 4
+    # a value is centered clear of its control: each slot is at least the control's own width
+    assert geometry.TOGGLE_SLOT >= geometry.SWITCH_WIDTH
+    assert geometry.DROPDOWN_SLOT >= geometry.CHEVRON_INSET + geometry.CHEVRON_WIDTH
     # the switch art is drawn at the geometry's size (the art is rasterized at 4x)
     for frame in (0, 1):
         png = (ROOT / f'port/assets/menus/xbox/art/toggle_switch__{frame}.png').read_bytes()
@@ -957,6 +958,12 @@ def test_state_word_sits_in_the_value_column_for_every_input(tmp_path):
             assert state_word == switch_value, pointer
             assert center(geometry.TOGGLE_SLOT) == switch_value
             assert center(geometry.DROPDOWN_SLOT) == dropdown_value
+    # the renderer takes both trims from those functions and nothing else trims a value's bounds
+    draw = (ROOT / 'source/interface/ui_widget.c').read_text()
+    assert 'halo_menu_value_trailing_slot(look)' in draw
+    assert 'halo_menu_state_word_trailing_slot(pointer_controls)' in draw
+    assert 'bounds.x1 -= 38' not in draw and 'bounds.x1 -= 24' not in draw
+    assert 'bounds.x0 = bounds.x1 - 32' not in draw and 'MENU_SWITCH_WIDTH' in draw
 
 
 def test_every_option_row_steps_with_left_and_right():

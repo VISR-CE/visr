@@ -101,7 +101,7 @@ static inline struct halo_menu_row_look halo_menu_row_look(enum halo_menu_row_ki
 /* the width a pointer input's control takes at a value's right end (a switch, a dropdown's chevron), from
 tools/menu_geometry.py: the value is centered in what is left. A state word (the text of a setting on a row that
 opens its own screen, no control) leaves the switch's width on a mouse and a finger, so it sits where the values of
-the switch rows around it do (a dropdown row's values sit 7 units right of it, centered in a slot 14 narrower); a
+the switch rows around it do (a dropdown row's values sit half the difference of the two slots to the right of it); a
 controller and a keyboard have arrows beside every value and nothing is left out. One rule for every input. */
 static inline int halo_menu_value_trailing_slot(struct halo_menu_row_look look)
 {
