@@ -2043,6 +2043,8 @@ static void event_script_next(void)
 	/* (a word ends at the ';' that ends its op as well as at a space: "90 key down;120 focus;130 leave") */
 	if (sscanf(event_script.cursor, "%lu %15[^; \t]%n", &frame, kind, &used) < 2)
 	{
+		host_logf(HOST_LOG_INFO, "menu event script: no frame number and op at \"%.24s\"; the script stops",
+			event_script.cursor);
 		event_script.cursor = NULL;
 		return;
 	}
@@ -2053,8 +2055,13 @@ static void event_script_next(void)
 	event_script.x1 = event_script.y1 = 0.0f;
 	if (!strcmp(kind, "move"))
 	{
+		if (sscanf(event_script.cursor, "%f %f%n", &event_script.x1, &event_script.y1, &used) < 2)
+		{
+			host_logf(HOST_LOG_INFO, "menu event script: frame %lu move needs x and y; the script stops", frame);
+			event_script.cursor = NULL;
+			return;
+		}
 		event_script.kind = 1;
-		sscanf(event_script.cursor, "%f %f%n", &event_script.x1, &event_script.y1, &used);
 	}
 	else if (!strcmp(kind, "key"))
 	{

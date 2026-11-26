@@ -372,7 +372,7 @@ SCRIPT = r'''
 #include <string.h>
 #include <SDL3/SDL.h> /* apple-only */
 #define HOST_LOG_INFO 0
-#define host_logf(level, ...) ((void)0)
+#define host_logf(level, ...) (fprintf(stderr, __VA_ARGS__), fputc('\n', stderr))
 /* FUNCTIONS */
 
 int main(int argc, char **argv)
@@ -419,3 +419,30 @@ def test_the_event_script_reads_ops_that_end_at_a_semicolon(tmp_path):
     assert [op[:2] for op in read('10 leave;20 enter ; 30 focus;40 key return;;50 move 0.1 0.2;')] == [
         (10, 4), (20, 5), (30, 3), (40, 2), (50, 1)]
     assert read('10 key sideways;20 focus') == [] and read('10 hover;20 focus') == []
+
+
+def test_the_event_script_says_why_it_stopped(tmp_path):
+    """Bug class: a script that stops early with nothing in the log, so a run that played no events looks like one
+    that did. Every way the reader gives up before the end of the script writes a "the script stops" line, and a
+    script read to its end writes none."""
+    if not shutil.which('pkg-config') or subprocess.run(['pkg-config', '--exists', 'sdl3']).returncode:
+        pytest.skip('SDL3 headers are required')
+    flags = subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True).split()
+    source = (ROOT / 'port/ios/host/host_sdl.c').read_text()
+    start = source.index('static struct\n{\n\tint loaded;\n\tconst char *cursor;\n\tunsigned long frame, start;\n\tint kind, step;')
+    state = source[start:source.index('} event_script;', start) + len('} event_script;')]
+    probe, binary = tmp_path / 'script.c', tmp_path / 'script'
+    probe.write_text(SCRIPT.replace('/* FUNCTIONS */', state + '\n' + block(source, 'static void event_script_next(void)')))
+    subprocess.run([shutil.which('cc'), '-std=gnu11', '-Wall', '-Werror', *flags, str(probe), '-o', str(binary)],
+                   check=True)
+
+    def play(script):
+        result = subprocess.run([str(binary), script], check=True, capture_output=True, text=True)
+        return len(result.stdout.splitlines()), result.stderr
+
+    for script in ('10 focus;focus 3;30 leave', '10 focus;20;30 leave', '10 focus;20 move 0.5;30 leave',
+                   '10 focus;20 move;30 leave', '10 focus;20 key sideways;30 leave', '10 focus;20 hover;30 leave'):
+        ops, log = play(script)
+        assert ops == 1 and log.count('the script stops') == 1, (script, log)
+    ops, log = play('10 focus;20 move 0.5 0.25;30 key down;40 leave;')
+    assert ops == 4 and 'the script stops' not in log and log.count('menu event script: frame') == 4, log
