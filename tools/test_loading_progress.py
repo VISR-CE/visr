@@ -100,7 +100,6 @@ static const char *config_string(const char *name) {
 }
 static void platform_log(const char *format, ...) { (void)format; }
 static short main_get_solo_level_from_name(const char *name) { (void)name; return 0; }
-static int map_pictures_render_active(void) { return 0; }
 static void progress_bar_begin(int loaded) { (void)loaded; bar_active = 1; }
 static void progress_bar_end(void) { bar_active = 0; }
 static int progress_bar_is_active(void) { return bar_active; }
