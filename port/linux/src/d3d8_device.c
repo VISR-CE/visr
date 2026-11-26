@@ -3055,7 +3055,7 @@ static struct nv2a_dialect shader_dialect;
 
 Right after the level's lightmap pass (render_window, source/render/render.c) the frame holds the level's lightmap
 light (multiplied by the diffuse textures later) and the objects' finished pixels, and its depth buffer has every
-opaque surface. The lightmap pass marks the pixels it wrote with stencil 0x10 (halo_ssao_lightmaps_mark), and
+opaque surface. The lightmap pass marks the pixels it wrote with stencil HALO_STENCIL_LEVEL (ssao_lightmaps_mark), and
 halo_ssao_after_lightmaps hands the scene's color and depth targets to the backend, which computes AO from the depth
 and multiplies it into the level's light and, weaker, into the objects' pixels (gpu_metal.m, host_ssao_apply).
 Metal only, a player's or the menu's own view only, not multisampled and not stereo; off: nothing changes. */
@@ -3118,8 +3118,8 @@ static BOOL ssao_view_wanted(void)
 	return TRUE;
 }
 
-/* the lightmap pass begins (begin) or ends: TRUE when it should mark its pixels in stencil (0x10) */
-int halo_ssao_lightmaps_mark(int begin)
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark its pixels in stencil (HALO_STENCIL_LEVEL) */
+static int ssao_lightmaps_mark(int begin)
 {
 	if (begin)
 		ssao_view_marked = ssao_view_wanted();
@@ -3195,7 +3195,7 @@ acceleration structures). The game's apply draws are kept: each takes the traced
 instead of the scene: a target of the scene's size, white before a window's shadows, in which the game's own blend
 leaves the product of the shadows' darkening and the smallest penumbra radius. After the window's last shadow
 (halo_traced_shadows_window_end) the backend softens the term by that radius and multiplies it into the scene over
-the level's pixels, which the lightmap pass marked in stencil (0x10) as it does for ambient occlusion.
+the level's pixels, which the lightmap pass marked in stencil (HALO_STENCIL_LEVEL) as it does for ambient occlusion.
 
 Whether a frame traces is decided once, here, before anything of it is drawn that way: the setting (which the
 graphics mode turns off outside Enhanced), Metal, the backend's answer (the Metal gate's TRACED_SHADOWS pass, and no
@@ -3285,8 +3285,8 @@ static BOOL traced_shadows_view_wanted(void)
 	return TRUE;
 }
 
-/* the lightmap pass begins (begin) or ends: TRUE when it should mark its pixels in stencil (0x10) */
-int halo_traced_shadows_lightmaps_mark(int begin)
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark its pixels in stencil (HALO_STENCIL_LEVEL) */
+static int traced_shadows_lightmaps_mark(int begin)
 {
 	if (begin)
 		traced_shadows.marked = traced_shadows_view_wanted();
@@ -3480,7 +3480,7 @@ void halo_traced_shadows_basis(float values[4])
 Before a view's transparent geometry (render_window, source/render/render.c), every opaque surface is in the depth
 buffer. halo_soft_particles_prepare hands it to the backend, which keeps a copy as view distances (gpu_metal.m,
 host_soft_depth_prepare), with every pixel the level did not draw (its lightmap pass marks its pixels with stencil
-0x10, halo_soft_particles_lightmaps_mark) as far away, so objects never fade a particle; a camera-facing particle
+HALO_STENCIL_LEVEL, soft_particles_lightmaps_mark) as far away, so objects never fade a particle; a camera-facing particle
 sprite's draw then names its blend's fade
 (halo_soft_particles_mode, rasterizer_xbox_transparent_geometry.c), which goes into its pixel shader's key
 (nv2a_pixel_shader_key soft_depth): the shader fades the sprite where it is closer to the surface behind it than
@@ -3504,14 +3504,25 @@ static BOOL soft_view_wanted(void)
 	return TRUE;
 }
 
-/* the view whose lightmap pass marked the level in stencil (0x10), so its particles may fade against it */
+/* the view whose lightmap pass marked the level in stencil (HALO_STENCIL_LEVEL), so its particles may fade against it */
 static BOOL soft_view_marked;
 
-int halo_soft_particles_lightmaps_mark(int begin)
+static int soft_particles_lightmaps_mark(int begin)
 {
 	if (begin)
 		soft_view_marked = soft_view_wanted();
 	return soft_view_marked;
+}
+
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark the level's pixels (HALO_STENCIL_LEVEL) for any
+feature that reads them this view. Every reader is asked (no short circuit), since each remembers its own answer */
+int halo_level_pixels_mark(int begin)
+{
+	int ssao = ssao_lightmaps_mark(begin);
+	int soft = soft_particles_lightmaps_mark(begin);
+	int traced = traced_shadows_lightmaps_mark(begin);
+
+	return ssao || soft || traced;
 }
 
 unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32)

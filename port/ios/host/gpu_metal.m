@@ -268,6 +268,7 @@ static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, 
 #include "host_config.h"
 #include "crt_shader.h"
 #include "../../linux/src/port_graphics_modes.h"
+#include "../../linux/include/halo_level_stencil.h"
 #include <sys/stat.h>
 #include "host_frame_pacer.h"
 /* the pacer's rules and helpers are plain C, usable on every platform (host_frame_pacer.h turns the pacer itself off
@@ -1439,7 +1440,23 @@ static BOOL stencil_view_flag(void)
 	return flag != 0;
 }
 
-/* the level's stencil mark (halo_ssao_lightmaps_mark, halo_soft_particles_lightmaps_mark) as one X32_Stencil8 view of
+/* a depth-stencil state from state (its depth settings) that passes where the stencil, read through read_mask, equals
+HALO_STENCIL_LEVEL (halo_level_stencil.h); draw with that as the reference. Writes no stencil */
+static id<MTLDepthStencilState> level_stencil_state(id<MTLDevice> device, MTLDepthStencilDescriptor *state,
+	uint32_t read_mask)
+{
+	MTLStencilDescriptor *stencil = [MTLStencilDescriptor new];
+
+	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
+	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
+		MTLStencilOperationKeep;
+	stencil.writeMask = 0;
+	stencil.readMask = read_mask;
+	state.frontFaceStencil = state.backFaceStencil = stencil;
+	return [device newDepthStencilStateWithDescriptor:state];
+}
+
+/* the level's stencil mark (HALO_STENCIL_LEVEL, halo_level_pixels_mark) as one X32_Stencil8 view of
 the depth target, which SSAO and soft particle edges share, kept until the target changes; nil when the target cannot
 give one */
 static id<MTLTexture> level_stencil_view(id<MTLTexture> depth)
@@ -5976,7 +5993,6 @@ static BOOL traced_programs(void)
 	id<MTLLibrary> library;
 	MTLRenderPipelineDescriptor *pipeline;
 	MTLDepthStencilDescriptor *state;
-	MTLStencilDescriptor *stencil;
 
 	if (traced.tried)
 		return !traced.programs_failed;
@@ -6008,16 +6024,8 @@ static BOOL traced_programs(void)
 	state.depthCompareFunction = MTLCompareFunctionAlways;
 	state.depthWriteEnabled = NO;
 	traced_everything = [device newDepthStencilStateWithDescriptor:state];
-	/* the level's pixels: the lightmap pass's mark (0x10, halo_traced_shadows_lightmaps_mark), and not the game's
-	own mark (1), as the ambient occlusion pass tests them */
-	stencil = [MTLStencilDescriptor new];
-	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
-	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
-		MTLStencilOperationKeep;
-	stencil.writeMask = 0;
-	stencil.readMask = 0x11;
-	state.frontFaceStencil = state.backFaceStencil = stencil;
-	traced_level = [device newDepthStencilStateWithDescriptor:state];
+	/* the level's pixels, as the ambient occlusion pass tests them */
+	traced_level = level_stencil_state(device, state, HALO_STENCIL_LEVEL_ONLY_READ);
 	traced.programs_failed = NO;
 	return YES;
 }
@@ -6179,7 +6187,7 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 		[encoder setCullMode:MTLCullModeNone];
 		[encoder setRenderPipelineState:composite];
 		[encoder setDepthStencilState:view ? traced_everything : traced_level];
-		[encoder setStencilReferenceValue:0x10];
+		[encoder setStencilReferenceValue:HALO_STENCIL_LEVEL];
 		[encoder setVertexBuffer:traced_rect_buffer offset:0 atIndex:0];
 		[encoder setVertexBytes:size length:sizeof(size) atIndex:1];
 		[encoder setFragmentTexture:shown atIndex:0];
@@ -8975,7 +8983,7 @@ static NSString *const ssao_source =
 	"\t\treturn 3;\n"
 	"\tif (stored <= 1.0e-7 || z >= 0.98 * p.z_far)\n"
 	"\t\treturn 0;\n"
-	"\treturn (stencil & 0x10u) ? 1 : 2;\n"
+	"\treturn (stencil & " HALO_STENCIL_LEVEL_MSL ") ? 1 : 2;\n"
 	"}\n"
 	"\n"
 	"/* the half-resolution depth texel: view depth with the class in its sign, positive for the level, negative for\n"
@@ -9609,7 +9617,6 @@ static BOOL ssao_programs(void)
 	NSError *error = nil;
 	id<MTLLibrary> library;
 	MTLDepthStencilDescriptor *state;
-	MTLStencilDescriptor *stencil;
 
 	if (ssao.tried)
 		return !ssao.failed;
@@ -9654,17 +9661,9 @@ static BOOL ssao_programs(void)
 	state.depthCompareFunction = MTLCompareFunctionAlways;
 	state.depthWriteEnabled = NO;
 	ssao.everything = [device newDepthStencilStateWithDescriptor:state];
-	stencil = [MTLStencilDescriptor new];
-	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
-	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
-		MTLStencilOperationKeep;
-	stencil.writeMask = 0;
-	stencil.readMask = 0x11;
-	state.frontFaceStencil = state.backFaceStencil = stencil;
-	ssao.level = [device newDepthStencilStateWithDescriptor:state];
-	stencil.readMask = 0x15;
-	state.frontFaceStencil = state.backFaceStencil = stencil;
-	ssao.objects = [device newDepthStencilStateWithDescriptor:state];
+	ssao.level = level_stencil_state(device, state, HALO_STENCIL_LEVEL_ONLY_READ);
+	/* (the level's mark, neither the game's nor an object's: objects that sit on the level) */
+	ssao.objects = level_stencil_state(device, state, HALO_STENCIL_LEVEL_ONLY_READ | HALO_STENCIL_OBJECT);
 	ssao.failed = NO;
 	platform_log("ssao: programs ready");
 	return YES;
@@ -10015,7 +10014,7 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 				c.floor = p.level_floor;
 				c.amount = 1.0f;
 				[encoder setDepthStencilState:ssao.level];
-				[encoder setStencilReferenceValue:0x10];
+				[encoder setStencilReferenceValue:HALO_STENCIL_LEVEL];
 				[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
 				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 				c.amount = values[12];
@@ -12081,7 +12080,7 @@ static NSString *const soft_depth_source =
 	"\t\tfor (uint x = 0; x < scale; x++)\n"
 	"\t\t{\n"
 	"\t\t\tuint2 c = min(gid * scale + uint2(x, y), last);\n"
-	"\t\t\tif (!(stencil.read(c).r & 0x10u))\n"
+	"\t\t\tif (!(stencil.read(c).r & " HALO_STENCIL_LEVEL_MSL "))\n"
 	"\t\t\t{\n"
 	"\t\t\t\tdistances.write(float4(1.0e30), gid);\n"
 	"\t\t\t\treturn;\n"
