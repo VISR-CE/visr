@@ -30,3 +30,19 @@
     X("debug.gpu_flush_draws") \
     X("debug.gpu_stats") \
     X("debug.texture_no_cache")
+
+/* The renderer_state object of a schema 2 snapshot: what was drawn, as the suite writes it (benchmark_suite.c's
+   benchmark_graphics_snapshot_json) and the report validator reads it (host_benchmark.m). Keep one list here;
+   a test runs the validator on the suite's real output. The *_BOOLEAN keys are true/false as drawn. */
+#define GRAPHICS_CAPTURE_RENDERER_STATE_BOOLEAN_KEYS(X) \
+    X("ambient_occlusion") \
+    X("soft_particles") \
+    X("traced_shadows")
+#define GRAPHICS_CAPTURE_RENDERER_STATE_KEYS(X) \
+    X("shadow_target_size") \
+    X("anisotropic_sampler_max") \
+    X("model_lod") \
+    X("texture_replacement_selections") \
+    X("texture_replacement_source") \
+    X("upscaled_texture_assets") \
+    GRAPHICS_CAPTURE_RENDERER_STATE_BOOLEAN_KEYS(X)
