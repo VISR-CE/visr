@@ -126,3 +126,23 @@ def test_live_consumers(tmp_path):
     result = subprocess.run([str(probe)], cwd=ROOT, check=True, capture_output=True, text=True)
     assert 'graphics_boolean_modes: ok' in result.stdout
     assert 'graphics_live_probe: ok' in result.stdout
+
+
+# Additions the Xbox never drew that Enhanced deliberately leaves default-off, each with its reason.
+ENHANCED_DEFAULT_OFF = {
+    'display.first_person_legs': 'file-only choice, not part of the Enhanced feature list',
+    'display.traced_shadows': 'needs hardware ray tracing; chosen per device profile, not a global default',
+}
+
+
+def test_enhanced_features_default_on():
+    """Bug class: an Enhanced-only addition sat default-off, so the mode that is meant to draw it never did.
+
+    Enhanced is the mode the table leaves alone, so a boolean the table forces off in Classic is an addition
+    Enhanced draws exactly when its shipped default is true."""
+    settings = settings_schema.config_settings()
+    additions = [name for name, _, classic in rows()
+                 if classic == 'false' and settings[name]['type'] == 'boolean']
+    assert 'display.ambient_occlusion' in additions, 'the table no longer forces SSAO off in Classic'
+    off = [name for name in additions if settings[name]['default'] is not True and name not in ENHANCED_DEFAULT_OFF]
+    assert not off, f'Enhanced additions that ship default-off (fix the default or name an exception): {off}'
