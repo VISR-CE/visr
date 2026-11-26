@@ -33,16 +33,19 @@
 
 /* The renderer_state object of a schema 2 snapshot: what was drawn, as the suite writes it (benchmark_suite.c's
    benchmark_graphics_snapshot_json) and the report validator reads it (host_benchmark.m). Keep one list here;
-   a test compares the suite's real output with it and runs the validator on that output. The *_BOOLEAN keys are true/false as drawn, and each is named after the display.* setting it reports (the benchmark tools rely on that). */
-#define GRAPHICS_CAPTURE_RENDERER_STATE_BOOLEAN_KEYS(X) \
-    X("ambient_occlusion") \
-    X("soft_particles") \
-    X("traced_shadows")
+   a test compares the suite's real output with it and runs the validator on that output. */
 #define GRAPHICS_CAPTURE_RENDERER_STATE_KEYS(X) \
     X("shadow_target_size") \
     X("anisotropic_sampler_max") \
     X("model_lod") \
     X("texture_replacement_selections") \
     X("texture_replacement_source") \
-    X("upscaled_texture_assets") \
-    GRAPHICS_CAPTURE_RENDERER_STATE_BOOLEAN_KEYS(X)
+    X("upscaled_texture_assets")
+/* Settings whose drawn answer can differ from the configured one (a GPU that cannot run the pass, a mode, stereo).
+   Each is a true/false renderer_state key, named after the display.* setting it reports (the benchmark tools rely on
+   that), with the front end's getter for what was drawn. Performance reports replace the configured value of
+   display.<key> with the getter's answer (d3d8_device.c), so no report records a setting that was not drawn. */
+#define GRAPHICS_CAPTURE_DRAWN_FLAGS(X) \
+    X("ambient_occlusion", halo_ambient_occlusion_effective) \
+    X("soft_particles", halo_soft_particles_effective) \
+    X("traced_shadows", halo_traced_shadows_effective)

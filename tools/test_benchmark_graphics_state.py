@@ -104,7 +104,7 @@ def test_reports_record_ambient_occlusion_as_drawn():
     assert mode.index("!device_capabilities.ambient_occlusion") < mode.index("config_integer(\"debug.ssao\")"), mode
     snapshot = device[device.index("config_graphics_settings_snapshot(scene, &perf_graphics)"):]
     snapshot = snapshot[:snapshot.index("host_perf_reports_graphics_snapshot(&perf_graphics)")]
-    assert '"display.ambient_occlusion"' in snapshot and "halo_ambient_occlusion_effective()" in snapshot
+    assert "GRAPHICS_CAPTURE_DRAWN_FLAGS(GRAPHICS_DRAWN_FLAG)" in snapshot
     reports = (ROOT / "port/ios/host/host_perf_reports.m").read_text()
     assert '@"display.ambient_occlusion"' in reports
     metal = (ROOT / "port/ios/host/gpu_metal.m").read_text()
@@ -117,7 +117,7 @@ def test_report_validator_accepts_exactly_what_the_suite_emits(tmp_path):
     # snapshot, so device reports carried no drawn state at all. The key list now lives once in graphics_capture.h;
     # this runs the validator on the real emitter output and fails when the two disagree again.
     header = (ROOT / "port/runtime/graphics_capture.h").read_text()
-    keys = set(re.findall(r'X\("(\w+)"\)', header[header.index("GRAPHICS_CAPTURE_RENDERER_STATE_BOOLEAN_KEYS(X)"):]))
+    keys = set(re.findall(r'X\("(\w+)"', header[header.index("GRAPHICS_CAPTURE_RENDERER_STATE_KEYS(X)"):]))
     emitted = emitted_snapshots(tmp_path)
     for line in emitted:
         assert set(json.loads(line)["renderer_state"]) == keys
@@ -153,3 +153,23 @@ int main(int argc, char **argv) { @autoreleasepool {
     subprocess.run(["xcrun", "clang", "-O1", "-Wall", "-Wextra", "-Werror", "-fobjc-arc", "-framework", "Foundation",
         "-I", str(ROOT / "port/ios/host"), str(source), "-o", str(binary)], check=True)
     subprocess.run([str(binary), *emitted], check=True)
+
+
+def test_performance_reports_record_every_drawn_flag_as_drawn():
+    # Same class as above, other path: a report must carry what was drawn for each flag in the header list, never
+    # the configured setting. The substitution is generated from the list, and each flag's display.* setting must
+    # reach the performance report (its allowed keys).
+    header = (ROOT / "port/runtime/graphics_capture.h").read_text()
+    flags = re.findall(r'X\("(\w+)", (\w+)\)', header[header.index("GRAPHICS_CAPTURE_DRAWN_FLAGS(X)"):])
+    assert [name for name, _ in flags] == ["ambient_occlusion", "soft_particles", "traced_shadows"]
+    device = (ROOT / "port/linux/src/d3d8_device.c").read_text()
+    snapshot = device[device.index("config_graphics_settings_snapshot(scene, &perf_graphics)"):]
+    snapshot = snapshot[:snapshot.index("host_perf_reports_graphics_snapshot(&perf_graphics)")]
+    assert "GRAPHICS_CAPTURE_DRAWN_FLAGS(GRAPHICS_DRAWN_FLAG)" in snapshot and '"display." key' in snapshot
+    reports = (ROOT / "port/ios/host/host_perf_reports.m").read_text()
+    suite = (ROOT / "port/linux/src/benchmark_suite.c").read_text()
+    for name, getter in flags:
+        assert f'@"display.{name}"' in reports, name
+        assert f"int {getter}(void);" in suite, getter
+        assert f'{getter}() ? "true" : "false"' in suite.replace("\n\t\t", " "), getter
+        assert re.search(rf"^int {getter}\(void\)", device, re.M), getter

@@ -447,12 +447,15 @@ static BOOL graphics_snapshot_valid(NSDictionary *snapshot)
             ![[NSSet setWithArray:renderer.allKeys] isEqual:[NSSet setWithArray:
                 @[
 #define GRAPHICS_RENDERER_KEY(key) @key,
+#define GRAPHICS_RENDERER_FLAG(key,getter) @key,
                     GRAPHICS_CAPTURE_RENDERER_STATE_KEYS(GRAPHICS_RENDERER_KEY)
+                    GRAPHICS_CAPTURE_DRAWN_FLAGS(GRAPHICS_RENDERER_FLAG)
+#undef GRAPHICS_RENDERER_FLAG
 #undef GRAPHICS_RENDERER_KEY
                 ]]]) return NO;
-#define GRAPHICS_RENDERER_BOOLEAN(key) \
+#define GRAPHICS_RENDERER_BOOLEAN(key,getter) \
         if (![renderer[@key] isKindOfClass:NSNumber.class] || CFGetTypeID((__bridge CFTypeRef)renderer[@key]) != CFBooleanGetTypeID()) return NO;
-        GRAPHICS_CAPTURE_RENDERER_STATE_BOOLEAN_KEYS(GRAPHICS_RENDERER_BOOLEAN)
+        GRAPHICS_CAPTURE_DRAWN_FLAGS(GRAPHICS_RENDERER_BOOLEAN)
 #undef GRAPHICS_RENDERER_BOOLEAN
         for (NSString *key in @[@"render_lines",@"shadow_map_size",@"anisotropic_filtering"]) {
             id value = overrides[key];

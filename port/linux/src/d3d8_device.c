@@ -9254,11 +9254,16 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 			{
 				uint32_t entry;
 
-				/* ambient occlusion as drawn: off where the GPU cannot run it, whatever the setting says */
+				/* what was drawn, not the setting: off where the GPU cannot run a pass, outside its mode, in stereo */
 				for (entry = 0; entry < perf_graphics.count; entry++)
-					if (perf_graphics.entries[entry].type == GAME_PERF_GRAPHICS_BOOLEAN &&
-						!strcmp(perf_graphics.entries[entry].name, "display.ambient_occlusion"))
-						perf_graphics.entries[entry].value.boolean = halo_ambient_occlusion_effective();
+					if (perf_graphics.entries[entry].type == GAME_PERF_GRAPHICS_BOOLEAN)
+					{
+#define GRAPHICS_DRAWN_FLAG(key,getter) \
+						if (!strcmp(perf_graphics.entries[entry].name, "display." key)) \
+							perf_graphics.entries[entry].value.boolean = getter();
+						GRAPHICS_CAPTURE_DRAWN_FLAGS(GRAPHICS_DRAWN_FLAG)
+#undef GRAPHICS_DRAWN_FLAG
+					}
 				host_perf_reports_graphics_snapshot(&perf_graphics);
 				perf_revision = revision; perf_scene = scene; perf_external = external;
 			}
