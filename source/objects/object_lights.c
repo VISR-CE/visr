@@ -1834,6 +1834,7 @@ static struct
 	unsigned __int64 frame;
 	int count;
 	long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+	double importance[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
 } light_visibility_families = { (unsigned __int64)-1 };
 
 static long light_visibility_family_root(
@@ -1854,44 +1855,45 @@ static int light_visibility_family_of(
 {
 	if (light_visibility_families.frame != rasterizer_globals.fps_accumulation_frame_index)
 	{
-		long owners[256], light_index;
-		double importance[256];
-		int owner_count = 0;
-		short local;
+		long light_index;
+		short local, players = 0;
+		real_point3d eyes[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
 
+		/* (the local players' cameras; the current one only when there is no local player) */
+		for (local = 0; local < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local++)
+			if (local_player_get_player_index(local) != NONE)
+				eyes[players++] = observer_get_camera(local)->position;
+		if (!players)
+			eyes[players++] = render.camera.position;
 		/* (every light with an owner, ranked by its best render score from any local player's camera, the players'
 		own first-person lights ahead of all: light_visibility.h) */
-		for (light_index = data_next_index(light_data, NONE); light_index != NONE && owner_count < 256;
+		light_visibility_families.count = 0;
+		for (light_index = data_next_index(light_data, NONE); light_index != NONE;
 			light_index = data_next_index(light_data, light_index))
 		{
 			struct light_datum *light = light_get(light_index);
-			double best = light_render_score(light->radius, light->position.x, light->position.y, light->position.z,
-				render.camera.position.x, render.camera.position.y, render.camera.position.z);
+			long root = light->object_index != NONE ? light_visibility_family_root(light->object_index) : NONE;
+			double best = 0.0;
 
-			if (light->object_index == NONE)
+			if (root == NONE)
 				continue;
-			for (local = 0; local < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local++)
+			for (local = 0; local < players; local++)
 			{
-				if (local_player_get_player_index(local) != NONE)
-				{
-					real_point3d const *eye = &observer_get_camera(local)->position;
-					double score = light_render_score(light->radius, light->position.x, light->position.y,
-						light->position.z, eye->x, eye->y, eye->z);
+				double score = light_render_score(light->radius, light->position.x, light->position.y,
+					light->position.z, eyes[local].x, eyes[local].y, eyes[local].z);
 
-					best = score > best ? score : best;
-				}
+				best = score > best ? score : best;
 			}
 			if (TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit))
 				best += 1.0e30;
-			owners[owner_count] = light_visibility_family_root(light->object_index);
-			importance[owner_count++] = best;
+			light_visibility_families_offer(light_visibility_families.roots, light_visibility_families.importance,
+				&light_visibility_families.count, LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1,
+				root, best);
 		}
 		light_visibility_families.frame = rasterizer_globals.fps_accumulation_frame_index;
-		light_visibility_families_rank(light_visibility_families.roots, &light_visibility_families.count, owners,
-			importance, owner_count, LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
 	}
-	return light_visibility_family_bit(light_visibility_families.roots, &light_visibility_families.count,
-		light_visibility_family_root(object_index), FALSE);
+	return light_visibility_family_bit(light_visibility_families.roots, light_visibility_families.count,
+		light_visibility_family_root(object_index));
 }
 
 int light_visibility_family(

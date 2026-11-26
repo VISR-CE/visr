@@ -46,7 +46,7 @@ void light_visibility_next(int path, float strength);
 /* An owner family is an object, its parents and its children (a unit, the weapon it holds, the vehicle it rides and
 that vehicle's other riders): its casters never block its own lights (a partner's flashlight is inside his body).
 Each frame the families of the most important lights take one bit each of the traced lights' instance mask, from
-LIGHT_VISIBILITY_FAMILY_FIRST (light_visibility_families_rank: the players' own lights first, then by each light's best
+LIGHT_VISIBILITY_FAMILY_FIRST (light_visibility_families_offer: the players' own lights first, then by each light's best
 render score from any local player's camera). A family past the last bit has no bit, and its lights are kept clear by
 its root's bounding sphere instead: no caster blocks them inside it (traced_light_begin's owner_sphere), so a shooter
 never blocks his own muzzle flash however many families a fight has.
@@ -102,80 +102,75 @@ static inline int light_visibility_caster_type(
 	return object_type == 0 || object_type == 1 || (object_type >= 6 && object_type <= 9);
 }
 
-/* the family bit for a family root, assigning a free bit (roots[] of count, at most the bits there are; a slot holding
--1 is free); 0 when none is left. root -1 (NONE) is no family; any other value is a handle, and the guest's 32-bit
-handles with the salt's high bit set are negative */
+/* the family bit for a family root in the frame's table (roots[] of count, light_visibility_families_offer), 0 when it
+has none. root -1 (NONE) is no family; any other value is a handle, and the guest's 32-bit handles with the salt's
+high bit set are negative */
 static inline int light_visibility_family_bit(
-	long *roots,
-	int *count,
-	long root,
-	int assign)
+	long const *roots,
+	int count,
+	long root)
 {
 	int i;
 
 	if (root == -1)
 		return 0;
-	for (i = 0; i < *count; i++)
+	for (i = 0; i < count; i++)
 		if (roots[i] == root)
 			return LIGHT_VISIBILITY_FAMILY_FIRST + i;
-	if (!assign)
-		return 0;
-	for (i = 0; i < *count; i++)
-		if (roots[i] == -1)
-		{
-			roots[i] = root;
-			return LIGHT_VISIBILITY_FAMILY_FIRST + i;
-		}
-	if (*count > LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST)
-		return 0;
-	roots[*count] = root;
-	return LIGHT_VISIBILITY_FAMILY_FIRST + (*count)++;
+	return 0;
+}
+
+/* TRUE when family a (importance, root) goes ahead of family b: higher importance first, then the lower root */
+static inline int light_visibility_family_ahead(
+	double a_importance,
+	long a_root,
+	double b_importance,
+	long b_root)
+{
+	return a_importance > b_importance || (a_importance == b_importance && a_root < b_root);
 }
 
 /* the frame's family table, made before anything asks for a bit (a caster record can be sent before its owner's light
-is chosen: split screen reuses window 0's records in window 1). Every light's owner root (owners[] of owner_count, -1
-none) with its importance (higher first); each root takes its best importance, and the first bits roots in that order
-(ties: the lower root) take bits from LIGHT_VISIBILITY_FAMILY_FIRST. The rest have none. A record lives one frame on
-the host (gpu_metal.m clears its casters each frame), so a bit may move between frames */
-static inline void light_visibility_families_rank(
+is chosen: split screen reuses window 0's records in window 1), by offering every owned light's root with that
+light's importance, in any order and with no limit on how many. The table keeps the bits most important roots
+(roots[] and importance[] of count, most important first, ties to the lower root), each at its best light's
+importance, and root i takes bit LIGHT_VISIBILITY_FAMILY_FIRST + i; the rest have none. (A root dropped for a better
+one never comes back with less than it had: its best so far was already below the table's least.) root -1 (NONE)
+takes nothing. A record lives one frame on the host (gpu_metal.m clears its casters each frame), so a bit may move
+between frames */
+static inline void light_visibility_families_offer(
 	long *roots,
+	double *importance,
 	int *count,
-	long const *owners,
-	double const *importance,
-	int owner_count,
-	int bits)
+	int bits,
+	long root,
+	double value)
 {
-	long unique[LIGHT_VISIBILITY_MAXIMUM * 2];
-	double best[LIGHT_VISIBILITY_MAXIMUM * 2];
-	int unique_count = 0, i, j;
+	int i;
 
-	for (i = 0; i < owner_count; i++)
+	if (root == -1 || bits <= 0)
+		return;
+	for (i = 0; i < *count && roots[i] != root; i++)
+		;
+	if (i < *count)
 	{
-		if (owners[i] == -1)
-			continue;
-		for (j = 0; j < unique_count && unique[j] != owners[i]; j++)
-			;
-		if (j == unique_count)
-		{
-			if (unique_count == (int)(sizeof(unique) / sizeof(unique[0])))
-				continue;
-			unique[unique_count] = owners[i];
-			best[unique_count++] = importance[i];
-		}
-		else if (importance[i] > best[j])
-			best[j] = importance[i];
+		if (value <= importance[i])
+			return;
 	}
-	*count = 0;
-	while (*count < bits && *count < unique_count)
+	else if (*count < bits)
+		i = (*count)++;
+	else if (light_visibility_family_ahead(value, root, importance[*count - 1], roots[*count - 1]))
+		i = *count - 1;
+	else
+		return;
+	/* (moved up to its place) */
+	for (; i > 0 && light_visibility_family_ahead(value, root, importance[i - 1], roots[i - 1]); i--)
 	{
-		int top = -1;
-
-		for (i = 0; i < unique_count; i++)
-			if (unique[i] != -1 && (top < 0 || best[i] > best[top] || (best[i] == best[top] && unique[i] < unique[top])))
-				top = i;
-		roots[(*count)++] = unique[top];
-		unique[top] = -1;
+		roots[i] = roots[i - 1];
+		importance[i] = importance[i - 1];
 	}
+	roots[i] = root;
+	importance[i] = value;
 }
 
 /* TRUE when two spheres (center, radius) overlap */

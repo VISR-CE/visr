@@ -159,21 +159,26 @@ def test_an_owner_family_never_blocks_its_own_light(tmp_path):
     its headlights). Each family takes its own instance mask bit, the same in every window of the frame, and a
     family's light rays leave that bit and the level's out of the caster ray's mask."""
     _run_rule_program(tmp_path, r'''
-    long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1 };
+    long roots[BITS], root;
+    double importance[BITS];
     int count = 0, bit;
-    long root;
-    assert(light_visibility_family_bit(roots, &count, -1, 1) == 0);
-    assert(light_visibility_family_bit(roots, &count, 70, 0) == 0);
-    assert(light_visibility_family_bit(roots, &count, 70, 1) == LIGHT_VISIBILITY_FAMILY_FIRST);
-    assert(light_visibility_family_bit(roots, &count, 71, 1) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
-    assert(light_visibility_family_bit(roots, &count, 70, 0) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    assert(light_visibility_family_bit(roots, count, -1) == 0);
+    assert(light_visibility_family_bit(roots, count, 70) == 0);
+    light_visibility_families_offer(roots, importance, &count, BITS, 70, 2.0);
+    light_visibility_families_offer(roots, importance, &count, BITS, 71, 1.0);
+    light_visibility_families_offer(roots, importance, &count, BITS, -1, 9.0);
+    assert(light_visibility_family_bit(roots, count, 70) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    assert(light_visibility_family_bit(roots, count, 71) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    for (root = 100; root < 200; root++)
+        light_visibility_families_offer(roots, importance, &count, BITS, root, 0.5);
+    assert(count == BITS);
     for (root = 100; root < 200; root++)
     {
-        bit = light_visibility_family_bit(roots, &count, root, 1);
+        bit = light_visibility_family_bit(roots, count, root);
         assert(bit == 0 || (bit >= LIGHT_VISIBILITY_FAMILY_FIRST && bit <= LIGHT_VISIBILITY_FAMILY_LAST));
     }
-    assert(count == LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
-    assert(light_visibility_family_bit(roots, &count, 71, 1) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(light_visibility_family_bit(roots, count, 71) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
     ''')
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     assert "uint caster_mask = ~%uu & ~(family >= %uu && family <= %uu ? (1u << family) : 0u);" in shader
@@ -189,14 +194,17 @@ def test_a_handle_with_the_high_salt_bit_still_gets_a_family(tmp_path):
     has its high bit set (the player's biped in the Library replay was e4a9023a) is negative, and only NONE (-1) means
     none. A sign test there gave every family bit 0, so a player's own body blocked his flashlight and muzzle flash."""
     _run_rule_program(tmp_path, r'''
-    long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1 };
+    long roots[BITS];
+    double importance[BITS];
     int count = 0;
     long player = (long)(int)0xe4a9023au, rider = (long)(int)0x8001000cu;
     assert(player < 0 && rider < 0);
-    assert(light_visibility_family_bit(roots, &count, player, 1) == LIGHT_VISIBILITY_FAMILY_FIRST);
-    assert(light_visibility_family_bit(roots, &count, rider, 1) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
-    assert(light_visibility_family_bit(roots, &count, player, 0) == LIGHT_VISIBILITY_FAMILY_FIRST);
-    assert(light_visibility_family_bit(roots, &count, -1, 1) == 0);
+    light_visibility_families_offer(roots, importance, &count, BITS, player, 2.0);
+    light_visibility_families_offer(roots, importance, &count, BITS, rider, 1.0);
+    assert(light_visibility_family_bit(roots, count, player) == LIGHT_VISIBILITY_FAMILY_FIRST);
+    assert(light_visibility_family_bit(roots, count, rider) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(light_visibility_family_bit(roots, count, -1) == 0);
     ''')
     for path in ("port/linux/game/light_visibility.h", "source/objects/object_lights.c",
                  "port/linux/game/traced_shadow_casters.c"):
@@ -211,23 +219,25 @@ def test_a_caster_sent_before_its_owners_light_gets_the_lights_bit(tmp_path):
     the record kept 0 while the light's keep-clear shrank to a centimeter, and the owner blocked his own light. The
     frame's table is made from every light's owner before anything asks, and both sides only look it up."""
     _run_rule_program(tmp_path, r'''
-    long roots[LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1];
+    enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1 };
+    long roots[BITS];
+    double importance[BITS];
     long owners[3] = { (long)(int)0xe4a9023au, -1, 1001 };
-    double importance[3] = { 2.0, 9.0, 1.0 };
-    int count = 0, caster, light;
-    light_visibility_families_rank(roots, &count, owners, importance, 3, LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    double weights[3] = { 2.0, 9.0, 1.0 };
+    int count = 0, i, caster, light;
+    for (i = 0; i < 3; i++)
+        light_visibility_families_offer(roots, importance, &count, BITS, owners[i], weights[i]);
     assert(count == 2);
-    caster = light_visibility_family_bit(roots, &count, owners[0], 0);
-    light = light_visibility_family_bit(roots, &count, owners[0], 0);
+    caster = light_visibility_family_bit(roots, count, owners[0]);
+    light = light_visibility_family_bit(roots, count, owners[0]);
     assert(caster == LIGHT_VISIBILITY_FAMILY_FIRST && light == caster);
-    assert(light_visibility_family_bit(roots, &count, 1001, 0) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
-    /* (a lookup never assigns) */
-    assert(light_visibility_family_bit(roots, &count, 1039, 0) == 0 && count == 2);
+    assert(light_visibility_family_bit(roots, count, 1001) == LIGHT_VISIBILITY_FAMILY_FIRST + 1);
+    assert(light_visibility_family_bit(roots, count, 1039) == 0 && count == 2);
     ''')
     lights = (ROOT / "source/objects/object_lights.c").read_text()
     assert lights.count("light_visibility_family_bit(") == 1
-    assert "light_visibility_family_root(object_index), FALSE);" in lights
-    assert "light_visibility_families_rank(light_visibility_families.roots" in lights
+    assert "light_visibility_family_root(object_index));" in lights
+    assert "light_visibility_families_offer(light_visibility_families.roots" in lights
 
 
 def test_more_light_families_than_bits_never_let_an_owner_block_his_own_light(tmp_path):
@@ -238,38 +248,38 @@ def test_more_light_families_than_bits_never_let_an_owner_block_his_own_light(tm
     a family past the last has none, and its light is kept clear by its root's bounding sphere instead, which no
     caster blocks it inside, while other families' casters still do."""
     _run_rule_program(tmp_path, r'''
-    enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1, FAMILIES = BITS + 40 };
-    long roots[BITS], owners[FAMILIES * 2];
-    double importance[FAMILIES * 2];
+    enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1, FAMILIES = 300 };
+    long roots[BITS];
+    double importance[BITS];
     int count = 0, i, bit, seen[64] = { 0 };
+    /* more families than the old table's cap of 256 lights, each twice (a unit and its weapon's light, the second
+    less important), the most important offered last */
     for (i = 0; i < FAMILIES; i++)
     {
-        /* every family twice (a unit and its weapon's light), the second time less important */
-        owners[i] = 3000 + i;
-        importance[i] = 1000.0 - i;
-        owners[FAMILIES + i] = 3000 + i;
-        importance[FAMILIES + i] = 1.0;
+        light_visibility_families_offer(roots, importance, &count, BITS, 3000 + i, 1.0 + i);
+        light_visibility_families_offer(roots, importance, &count, BITS, 3000 + i, 0.5);
     }
-    light_visibility_families_rank(roots, &count, owners, importance, FAMILIES * 2, BITS);
     assert(count == BITS);
     for (i = 0; i < FAMILIES; i++)
     {
-        bit = light_visibility_family_bit(roots, &count, 3000 + i, 0);
-        if (i < BITS)
+        bit = light_visibility_family_bit(roots, count, 3000 + i);
+        if (i >= FAMILIES - BITS)
         {
-            assert(bit == LIGHT_VISIBILITY_FAMILY_FIRST + i && !seen[bit]);
+            assert(bit == LIGHT_VISIBILITY_FAMILY_FIRST + (FAMILIES - 1 - i) && !seen[bit]);
             seen[bit] = 1;
         }
         else
             assert(bit == 0);
     }
-    /* a family's best light decides its place, in any order */
-    {
-        long few[3] = { 7, 8, 7 };
-        double weight[3] = { 1.0, 2.0, 3.0 };
-        light_visibility_families_rank(roots, &count, few, weight, 3, 1);
-        assert(count == 1 && roots[0] == 7);
-    }
+    /* a family's best light decides its place, in any order; one dropped for better ones comes back only with a
+    better light */
+    count = 0;
+    light_visibility_families_offer(roots, importance, &count, 1, 7, 1.0);
+    light_visibility_families_offer(roots, importance, &count, 1, 8, 2.0);
+    light_visibility_families_offer(roots, importance, &count, 1, 7, 1.5);
+    assert(count == 1 && roots[0] == 8);
+    light_visibility_families_offer(roots, importance, &count, 1, 7, 3.0);
+    assert(count == 1 && roots[0] == 7);
     ''')
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
     assert "caster_end = min(caster_end, max(-half_b - sqrt(inside), 0.0));" in shader
