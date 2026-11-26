@@ -78,3 +78,6 @@ def test_a_global_x_action_is_never_the_items_secondary_action():
     assert 'ui_screen_has_global_x_action(' in scan
     assert source.count('!ui_widget_is_global_x_action(widget)') == 2, 'both draw-time X notes skip a global X'
     assert 'halo_controller_glyph_x_global(ui_widget_is_global_x_action(widget))' in source
+    # and a new screen starts without it, next to the destructive X's publication, so it cannot outlive Direct IP
+    start = source.index('halo_controller_glyph_x_destructive(ui_touch_x_destructive);')
+    assert 'halo_controller_glyph_x_global(FALSE);' in source[start:start + 400]

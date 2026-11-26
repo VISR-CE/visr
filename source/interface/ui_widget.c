@@ -10538,6 +10538,7 @@ void render_ui_widgets(
 					ui_touch_screen_x_scan(widget);
 					/* the one place the screen's destructive X is published, before it draws (its legend and Backspace read it) */
 					halo_controller_glyph_x_destructive(ui_touch_x_destructive);
+					halo_controller_glyph_x_global(FALSE);   /* (set again by each X legend drawn: a screen without one must not keep the last screen's) */
 				}
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
