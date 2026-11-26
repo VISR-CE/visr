@@ -4044,7 +4044,7 @@
         "ssao": {
           "type": "integer",
           "default": 0,
-          "description": "A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on, 2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone (Metal; mono views only).",
+          "description": "Debug override of display.ambient_occlusion: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on, 2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone (Metal; mono views only).",
           "x-environment": "HALO_SSAO",
           "x-environment-style": "value",
           "x-platforms": [

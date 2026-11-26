@@ -9028,7 +9028,7 @@ static void post_pass(id<MTLTexture> target, BOOL clear, id<MTLRenderPipelineSta
 	[post_encoder endEncoding];
 }
 
-/* ---------- debug.ssao (spike): screen-space ambient occlusion (host_ssao_apply)
+/* ---------- display.ambient_occlusion (debug.ssao overrides): screen-space ambient occlusion (host_ssao_apply)
 
 The front end calls host_ssao_apply right after the level's lightmap pass (d3d8_device.c,
 halo_ssao_after_lightmaps), with the scene's color and depth targets, the view's rectangle and its camera. The

@@ -3052,7 +3052,7 @@ void halo_render_scene_end(void)
 /* what the shader translators emit for this context */
 static struct nv2a_dialect shader_dialect;
 
-/* ---------- debug.ssao (spike): screen-space ambient occlusion
+/* ---------- display.ambient_occlusion (debug.ssao overrides): screen-space ambient occlusion
 
 Right after the level's lightmap pass (render_window, source/render/render.c) the frame holds the level's lightmap
 light (multiplied by the diffuse textures later) and the objects' finished pixels, and its depth buffer has every

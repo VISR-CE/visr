@@ -2108,7 +2108,7 @@ static const struct config_setting config_settings[] =
 	{ "debug.screenshot_every", _config_integer, "0", "HALO_SCREENSHOT_EVERY", _environment_value, _platform_all,
 		"Save every this many frames to screenshot_directory; 0 none." },
 	{ "debug.ssao", _config_integer, "0", "HALO_SSAO", _environment_value, _platform_ios,
-		"A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on,\n"
+		"Debug override of display.ambient_occlusion: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on,\n"
 		"2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone\n"
 		"(Metal; mono views only)." },
 	{ "debug.ssao_radius", _config_real, "0.6", "HALO_SSAO_RADIUS", _environment_value, _platform_ios,
