@@ -38,16 +38,23 @@ enum
 {
 	TRACED_CASTER_SLOTS = 1024, /* a power of two */
 	TRACED_CASTER_PROBES = 32,
+	/* refits of one structure before it is built again: each refit keeps the build's boxes and only widens them, so
+	a structure refitted every frame gets slower to trace; 120 is two seconds of refits at 60 Hz */
 	TRACED_REFIT_LIMIT = 120,
+	/* such rebuilds a frame, so casters that reach the limit together (a squad placed at once) do not all build in
+	the same frame */
 	TRACED_REBUILDS_A_FRAME = 4,
 	TRACED_IDLE_FRAMES = 60,
 	/* slots a frame's sweep looks at for idle casters to release (the whole table in about half a second) */
 	TRACED_SWEEP_SLOTS = 32,
 	/* triangles of every caster built or updated in a frame; a caster past it has no shadow that frame */
 	TRACED_FRAME_TRIANGLES = 200000,
-	/* the refit budget a frame: moved casters past it are refitted every few frames instead of every frame */
+	/* the refit budget a frame: moved casters past it are refitted every few frames instead of every frame. A
+	64-player match moved about 140,000 triangles of casters a frame; at 48,000 that is a period of 3, inside
+	TRACED_STALE_FRAMES + 1, and that match then updated about 45,000 a frame */
 	TRACED_FRAME_UPDATE_TRIANGLES = 48000,
-	/* frames in a row a moved caster may keep a structure of an older pose */
+	/* frames in a row a moved caster may keep a structure of an older pose: a shadow at most 50 ms behind its
+	caster at 60 Hz */
 	TRACED_STALE_FRAMES = 3,
 };
 

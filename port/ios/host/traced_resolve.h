@@ -154,6 +154,8 @@ static NSString *const traced_resolve_source =
 	"\tfloat forward = depth.read(uint2(clamp(g + a, low, high))) - d0;\n"
 	"\tfloat backward = d0 - depth.read(uint2(clamp(g - a, low, high)));\n"
 	"\tfloat slope = abs(forward) < abs(backward) ? forward : backward;\n"
+	/* (past 16 pixels of radius every other texel: the taps stay at 33 or fewer up to a 32-pixel radius and at
+	63 for the largest, 61 pixels at 2048 lines, where every texel would take 125) */
 	"\tint stride = r > 16.0 ? 2 : 1;\n"
 	"\tint n = int(ceil(r / float(stride)));\n"
 	"\tfloat total = 1.0;\n"
@@ -165,6 +167,9 @@ static NSString *const traced_resolve_source =
 	"\t\tif (k == 0 || w <= 0.0 || q.x < low.x || q.y < low.y || q.x > high.x || q.y > high.y)\n"
 	"\t\t\tcontinue;\n"
 	"\t\tfloat expected = d0 + slope * float(offset);\n"
+	/* (a tap is on the same surface when its depth is within half of the change the center's slope predicts for
+	that offset, so a step to another surface at any distance is left out; 1e-6 lets a surface facing the
+	camera, with no slope, keep its taps) */
 	"\t\tif (abs(depth.read(uint2(q)) - expected) > abs(slope) * float(abs(offset)) * 0.5 + 1e-6)\n"
 	"\t\t\tcontinue;\n"
 	"\t\tsum += source.read(uint2(q - s)).rgb * w;\n"

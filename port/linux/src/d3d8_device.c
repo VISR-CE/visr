@@ -3355,6 +3355,9 @@ int halo_traced_shadows_window_begin(float p11)
 	rect.height = (int32_t)traced_shadows.rect[3];
 	gpu_clear(&clear, &rect, 1);
 	traced_shadows.pixels_per_unit = p11 * 0.5f * traced_shadows.rect[3];
+	/* the largest penumbra, 3% of the window's height (61 pixels at 2048 lines): a wider one is drawn at this
+	width. It bounds the filter's taps (traced_resolve.h) and the bounds' pad, so the filter's cost is set by
+	the window's size, not by how far a shadow falls from its caster */
 	traced_shadows.radius = fmaxf(1.0f, 0.03f * traced_shadows.rect[3]);
 	/* (nothing covered yet: left and top past the right and bottom) */
 	traced_shadows.cover[0] = traced_shadows.cover[1] = 1e30f;
