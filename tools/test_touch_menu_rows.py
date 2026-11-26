@@ -912,29 +912,51 @@ def test_option_row_arrows_follow_the_input(tmp_path):
 
 def test_state_word_sits_in_the_value_column_for_every_input(tmp_path):
     """Bug class: a value drawn at a different place on one input (the MAPS state word drew right of the values on
-    touch after it was fixed on a controller and keyboard). The slot a pointer input's control takes at a value's right
-    end is one function (halo_menu_value_trailing_slot); a state word, which has no control, leaves the switch's slot
-    on a mouse and a finger so it centers where the switch rows' values do, and nothing on a controller or keyboard,
-    which draw every value centered in the same bounds."""
+    touch after it was fixed on a controller and keyboard), and a trim that drifts from the control it clears. Compiles
+    the generated menu_geometry.h and halo_menu_row.h, and for every input computes where a switch row's value, a
+    dropdown row's value and a state word are centered in the same row bounds: a state word centers with the switch
+    rows' values on a mouse and a finger and with every value on a controller and keyboard; each trim is exactly the
+    control it clears (the switch's width and gap, the chevron's inset and margin), and the switch art on disk is the
+    size the geometry says."""
+    import sys
+    sys.path.insert(0, str(ROOT / 'tools'))
+    import menu_geometry as geometry
     source = tmp_path / 'slot.c'
     source.write_text('#include "halo_menu_row.h"\n'
                       'int value_slot(int kind, int dropdown, int input) {\n'
                       ' return halo_menu_value_trailing_slot(halo_menu_row_look((enum halo_menu_row_kind)kind, dropdown, input)); }\n'
-                      'int word_slot(int input) { return halo_menu_state_word_trailing_slot(input); }\n')
+                      'int word_slot(int input) { return halo_menu_state_word_trailing_slot(input); }\n'
+                      'int constants(int which) { int v[] = {MENU_SWITCH_WIDTH, MENU_SWITCH_HEIGHT, MENU_TOGGLE_SLOT,'
+                      ' MENU_DROPDOWN_SLOT}; return v[which]; }\n')
     library = tmp_path / 'slot.dylib'
     subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-shared', '-fPIC',
                     '-iquote', str(ROOT / 'port/linux/include'), str(source), '-o', str(library)], check=True)
     lib = ctypes.CDLL(str(library))
+    # the header is generated from the geometry, and the trims are the controls' own sizes
+    assert [lib.constants(n) for n in range(4)] == [geometry.SWITCH_WIDTH, geometry.SWITCH_HEIGHT,
+                                                     geometry.TOGGLE_SLOT, geometry.DROPDOWN_SLOT]
+    assert geometry.TOGGLE_SLOT == geometry.SWITCH_WIDTH + geometry.SWITCH_TEXT_GAP
+    assert geometry.DROPDOWN_SLOT == geometry.CHEVRON_INSET + geometry.CHEVRON_WIDTH + 4
+    # the switch art is drawn at the geometry's size (the art is rasterized at 4x)
+    for frame in (0, 1):
+        png = (ROOT / f'port/assets/menus/xbox/art/toggle_switch__{frame}.png').read_bytes()
+        width, height = struct.unpack('>II', png[16:24])
+        assert (width, height) == (4 * geometry.SWITCH_WIDTH, 4 * geometry.SWITCH_HEIGHT), frame
     toggle, enum = 1, 2
-    for pointer in (1, 2):
-        assert lib.word_slot(pointer) == lib.value_slot(toggle, 0, pointer) == 38, pointer
-        assert lib.value_slot(enum, 1, pointer) == 24, pointer
-    assert lib.word_slot(0) == 0 and lib.value_slot(toggle, 0, 0) == 0 and lib.value_slot(enum, 1, 0) == 0
-    # the renderer takes both from those functions, and nothing else trims a value's bounds
-    draw = (ROOT / 'source/interface/ui_widget.c').read_text()
-    assert 'halo_menu_value_trailing_slot(look)' in draw
-    assert 'halo_menu_state_word_trailing_slot(halo_menu_pointer_controls())' in draw
-    assert 'bounds.x1 -= 38' not in draw and 'bounds.x1 -= 24' not in draw
+    x0, x1 = 100, 300
+    for pointer in (0, 1, 2):
+        def center(slot):
+            return (x0 + x1 - slot) / 2
+        switch_value = center(lib.value_slot(toggle, 0, pointer))
+        dropdown_value = center(lib.value_slot(enum, 1, pointer))
+        arrows_value = center(lib.value_slot(enum, 0, pointer))
+        state_word = center(lib.word_slot(pointer))
+        if pointer == 0:
+            assert switch_value == dropdown_value == arrows_value == state_word == (x0 + x1) / 2
+        else:
+            assert state_word == switch_value, pointer
+            assert center(geometry.TOGGLE_SLOT) == switch_value
+            assert center(geometry.DROPDOWN_SLOT) == dropdown_value
 
 
 def test_every_option_row_steps_with_left_and_right():

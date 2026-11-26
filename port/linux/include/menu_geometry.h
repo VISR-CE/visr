@@ -15,6 +15,10 @@
 #define MENU_VALUE_MARGIN          24 /* beside the widest value in a value column */
 #define MENU_VALUE_MINIMUM_WIDTH   80 /* a value column at its narrowest */
 #define MENU_DROPDOWN_PITCH        52 /* a pointer dropdown option row */
+#define MENU_SWITCH_WIDTH          32 /* a touch row's switch */
+#define MENU_SWITCH_HEIGHT         17 /* a touch row's switch */
+#define MENU_TOGGLE_SLOT           38 /* a switch row's value is centered clear of the switch: its width and the gap */
+#define MENU_DROPDOWN_SLOT         24 /* a dropdown row's value is centered clear of the chevron */
 #define MENU_BAR_SLOT_X_X0         17 /* the bar's X slot: its left edge */
 #define MENU_BAR_SLOT_X_X1         151 /* the bar's X slot: its right edge */
 #define MENU_BAR_SLOT_Y_X0         163 /* the bar's Y slot: its left edge */

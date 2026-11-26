@@ -2,6 +2,7 @@
 #ifndef HALO_MENU_ROW_H
 #define HALO_MENU_ROW_H
 #include <wchar.h>
+#include "menu_geometry.h"
 #include <stdlib.h>
 #include <math.h>
 
@@ -97,21 +98,19 @@ static inline struct halo_menu_row_look halo_menu_row_look(enum halo_menu_row_ki
 	return look;
 }
 
-/* the width a pointer input's control takes at a value's right end (a switch, a dropdown's chevron): the value is
-centered in what is left. A state word (the text of a setting on a row that opens its own screen, no control) leaves
-the switch's width, so it sits where the values of the switch rows around it do. One rule for a mouse and a finger;
-a controller and a keyboard have arrows beside every value and nothing is left out. */
-#define HALO_MENU_TOGGLE_SLOT 38
-#define HALO_MENU_DROPDOWN_SLOT 24
-
+/* the width a pointer input's control takes at a value's right end (a switch, a dropdown's chevron), from
+tools/menu_geometry.py: the value is centered in what is left. A state word (the text of a setting on a row that
+opens its own screen, no control) leaves the switch's width on a mouse and a finger, so it sits where the values of
+the switch rows around it do (a dropdown row's values sit 7 units right of it, centered in a slot 14 narrower); a
+controller and a keyboard have arrows beside every value and nothing is left out. One rule for every input. */
 static inline int halo_menu_value_trailing_slot(struct halo_menu_row_look look)
 {
-	return look.toggle ? HALO_MENU_TOGGLE_SLOT : look.dropdown ? HALO_MENU_DROPDOWN_SLOT : 0;
+	return look.toggle ? MENU_TOGGLE_SLOT : look.dropdown ? MENU_DROPDOWN_SLOT : 0;
 }
 
 static inline int halo_menu_state_word_trailing_slot(int pointer_controls)
 {
-	return pointer_controls ? HALO_MENU_TOGGLE_SLOT : 0;
+	return pointer_controls ? MENU_TOGGLE_SLOT : 0;
 }
 
 #endif

@@ -6265,7 +6265,7 @@ static void widget_instance_render_text_box(
 	bounds.x0 += definition->horizontal_offset;
 	bounds.y0 += definition->vertical_offset;
 	/* port: the state word of a row that opens a screen is centered where the values of the rows around it are */
-	if (pc_menu_definition_is_setting(widget->definition_tag_index))
+	if (halo_menu_pointer_controls() && pc_menu_definition_is_setting(widget->definition_tag_index))
 		bounds.x1 -= halo_menu_state_word_trailing_slot(halo_menu_pointer_controls());
 #ifdef HALO_IOS
 	/* port: the version label keeps its whole text, including a development build's commit; it is
@@ -6470,11 +6470,11 @@ static void ui_widget_row_draw_toggle(struct widget_instance *widget,
 	bitmap = bitmap_group_get_bitmap_from_sequence(tag, 0, on);
 	if (!bitmap) return;
 	bounds.x1 = definition->bounds.x1 + offset.x;
-	bounds.x0 = bounds.x1 - 32;
-	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 17) / 2;
-	bounds.y1 = bounds.y0 + 17;
+	bounds.x0 = bounds.x1 - MENU_SWITCH_WIDTH;
+	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - MENU_SWITCH_HEIGHT) / 2;
+	bounds.y1 = bounds.y0 + MENU_SWITCH_HEIGHT;
 	source.x0 = source.y0 = 0;
-	source.x1 = 32; source.y1 = 17;
+	source.x1 = MENU_SWITCH_WIDTH; source.y1 = MENU_SWITCH_HEIGHT;
 	csmemset(&parameters, 0, sizeof(parameters));
 	draw_bitmap_in_rect(bitmap, &bounds, &source, clip,
 		(fast_ftol(widget_instance_get_cumulative_alpha_modifier(widget) * 255.0f) << 24) | 0x00FFFFFF,
