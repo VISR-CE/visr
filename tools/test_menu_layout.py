@@ -22,7 +22,6 @@ MP = 'xbox/main_menu/multiplayer_type_select'
 SHORT_ROW_LISTS = {
     f'{MP}/join_game/password/options_menu': 'entry form: its help box sits right under the rows and must move first',
     f'{MP}/join_game/code/options_menu': 'entry form: its help box sits right under the rows and must move first',
-    f'{MP}/direct_ip/direct_ip_menu': 'entry form: its help box sits right under the rows and must move first',
 }
 BROWSER_LISTS = menu_geometry.OWN_GEOMETRY_ROW_LISTS  # (exempt from the standard pitch; asserted below)
 # Screens still laid out by their own code and skipped by `layout_geometry`.
