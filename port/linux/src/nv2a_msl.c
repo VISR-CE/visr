@@ -339,8 +339,9 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	else if (key->alpha_test_samples)
 		xgpu_text_append(text, "struct FragmentOut { float4 color [[color(0)]]; uint sample_mask [[sample_mask]]; };\n");
 	/* an object shadow's apply draw that traces its caster (nv2a_pixel_shader_key traced_shadow): the caster's
-	acceleration structure (buffer 6), the level's (7) and the shadow's basis (8, traced_shadows_format.h), which
-	gpu_metal.m binds to such a draw (traced_draw_bind). The define is how the backend knows the shader */
+	acceleration structure (buffer 6), the level's (7), the shadow's basis (8, traced_shadows_format.h) and the
+	window's darkened bounds (9), which gpu_metal.m binds to such a draw (traced_draw_bind). The define is how the
+	backend knows the shader */
 	if (key->traced_shadow)
 		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_SHADOW 1\n");
 	/* a dynamic light's draw that traces its light (nv2a_pixel_shader_key light_visibility traced): the frame's casters as one
@@ -372,7 +373,8 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	if (key->traced_shadow)
 		xgpu_text_append(text, ",\n\tmetal::raytracing::primitive_acceleration_structure traced_caster [[buffer(6)]],"
 			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"
-			"\n\tconstant float4 *traced_basis [[buffer(8)]], float4 traced_position [[position]]");
+			"\n\tconstant float4 *traced_basis [[buffer(8)]], device atomic_uint *traced_bounds [[buffer(9)]],"
+			"\n\tfloat4 traced_position [[position]]");
 	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
 		xgpu_text_append(text, ",\n\tmetal::raytracing::instance_acceleration_structure traced_blockers [[buffer(6)]],"
 			"\n\tmetal::raytracing::primitive_acceleration_structure traced_world [[buffer(7)]],"

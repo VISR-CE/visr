@@ -38,6 +38,11 @@ enum
 	TRACED_SHADOWS_LIGHT,
 };
 
+/* A term texel a shadow darkened is below this (the term is cleared to white, 8 bits a channel): halfway between
+white and one step below it, 1 - 0.5 / 255. The apply draws' bounds (nv2a_psh.c) and the filter (gpu_metal.m's
+traced_hit) both test it, so what the bounds hold is what the filter treats as shadowed. */
+#define TRACED_SHADOWS_DARKENED_BELOW_MSL "0.998"
+
 /* the epoch no game record has (the game's count from 1): what the backend holds between tracing stopping and the
 game's next reset */
 #define TRACED_SHADOWS_NO_EPOCH 0xffffffffu

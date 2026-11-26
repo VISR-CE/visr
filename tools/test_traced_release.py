@@ -145,8 +145,8 @@ int main(int argc, char **argv)
 """
 
 # what the traced sections of gpu_metal.m make once and keep: programs, pipeline states and depth-stencil states
-KEPT = {"traced_composites", "traced_vertex_function", "traced_composite_function", "traced_radius_down",
-        "traced_radius_reach", "traced_blur", "traced_level", "traced_everything"}
+KEPT = {"traced_composites", "traced_vertex_function", "traced_composite_function", "traced_bounds_kernel",
+        "traced_radius_down", "traced_radius_reach", "traced_blur", "traced_level", "traced_everything"}
 
 
 def compile_harness(tmp_path, name, harness, functions):

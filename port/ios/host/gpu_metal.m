@@ -5218,6 +5218,7 @@ buffer 6, the level's at 7 and the basis at 8, and is dropped when its shadow ha
 the traced term, a target of the front end's, which traced_shadows_resolve then multiplies into the scene.
 Everything is encoded in the frame's own command buffer and nothing waits for the GPU. */
 #include "traced_shadows.h"
+#include "traced_resolve.h"
 
 enum
 {
@@ -5225,153 +5226,6 @@ enum
 	TRACED_PENDING = TRACED_SHADOWS_SHADOWS,
 };
 
-static NSString *const traced_source =
-	@"#include <metal_stdlib>\n"
-	"using namespace metal;\n"
-	"\n"
-	"struct traced_vertex_out\n"
-	"{\n"
-	"\tfloat4 position [[position]];\n"
-	"};\n"
-	"\n"
-	"vertex traced_vertex_out traced_vertex(uint id [[vertex_id]])\n"
-	"{\n"
-	"\ttraced_vertex_out out;\n"
-	"\tfloat2 uv = float2((id << 1) & 2, id & 2);\n"
-	"\tout.position = float4(uv * 2.0 - 1.0, 0.0, 1.0);\n"
-	"\treturn out;\n"
-	"}\n"
-	"\n"
-	"/* the window's rectangle, and what to show: 0 the term's color (the product of the shadows' darkening), 1 the\n"
-	"term's color alone, 2 the penumbra radius alone (both for looking at the term) */\n"
-	"struct traced_composite_parameters\n"
-	"{\n"
-	"\tuint ox, oy, w, h;\n"
-	"\tuint view;\n"
-	"\tuint sx, sy; /* where the term texture's first texel is (the filter's output holds the covered rectangle alone) */\n"
-	"\tuint pad;\n"
-	"};\n"
-	"\n"
-	"fragment float4 traced_composite(traced_vertex_out in [[stage_in]], texture2d<float, access::read> term [[texture(0)]],\n"
-	"\tconstant traced_composite_parameters &c [[buffer(0)]])\n"
-	"{\n"
-	"\tuint2 q = clamp(uint2(in.position.xy), uint2(c.ox, c.oy), uint2(c.ox + c.w - 1, c.oy + c.h - 1));\n"
-	"\tfloat4 t = term.read(q - uint2(c.sx, c.sy));\n"
-	"\tif (c.view == 2)\n"
-	"\t\treturn float4(t.a, t.a, t.a, 1.0);\n"
-	"\treturn float4(t.rgb, 1.0);\n"
-	"}\n"
-	"\n"
-	"/* The filter (debug.traced_shadows_filter): the term's hard edges become penumbrae as wide as the radius in its\n"
-	"alpha. c is the covered rectangle (inside the window w), which the work textures hold alone; h is its half\n"
-	"resolution; radius the largest penumbra in pixels (alpha 1); axis the direction of a separable step; s where the\n"
-	"blur's source has its first texel */\n"
-	"struct traced_filter_parameters\n"
-	"{\n"
-	"\tuint cx, cy, cw, ch;\n"
-	"\tuint hw, hh;\n"
-	"\tint ax, ay;\n"
-	"\tuint sx, sy;\n"
-	"\tfloat radius;\n"
-	"\tuint pad;\n"
-	"};\n"
-	"\n"
-	"/* a shadow's apply draw darkened this pixel (the term is cleared to white) */\n"
-	"static bool traced_hit(float4 t)\n"
-	"{\n"
-	"\treturn min(t.r, min(t.g, t.b)) < 0.998;\n"
-	"}\n"
-	"\n"
-	"/* half resolution: the smallest radius, in pixels, among each 2x2 block's shadowed pixels; 0 with none */\n"
-	"kernel void traced_radius_down(texture2d<float, access::read> term [[texture(0)]],\n"
-	"\ttexture2d<float, access::write> half_out [[texture(1)]],\n"
-	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
-	"{\n"
-	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
-	"\t\treturn;\n"
-	"\tfloat r = 0.0;\n"
-	"\tfor (uint i = 0; i < 4; ++i)\n"
-	"\t{\n"
-	"\t\tuint2 q = min(gid * 2 + uint2(i & 1, i >> 1), uint2(p.cw - 1, p.ch - 1)) + uint2(p.cx, p.cy);\n"
-	"\t\tfloat4 t = term.read(q);\n"
-	"\t\tif (traced_hit(t))\n"
-	"\t\t{\n"
-	"\t\t\tfloat e = max(t.a * p.radius, 1.0);\n"
-	"\t\t\tr = r > 0.0 ? min(r, e) : e;\n"
-	"\t\t}\n"
-	"\t}\n"
-	"\thalf_out.write(float4(r), gid);\n"
-	"}\n"
-	"\n"
-	"/* one direction of the blocker search: the widest radius among the texels along the axis whose penumbra reaches\n"
-	"this one (a shadowed texel reaches as far as its own radius), so a pixel next to a shadow knows how wide to blur */\n"
-	"kernel void traced_radius_reach(texture2d<float, access::read> half_in [[texture(0)]],\n"
-	"\ttexture2d<float, access::write> half_out [[texture(1)]],\n"
-	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
-	"{\n"
-	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
-	"\t\treturn;\n"
-	"\tint n = int(ceil(p.radius * 0.5));\n"
-	"\tfloat best = 0.0;\n"
-	"\tfor (int k = -n; k <= n; ++k)\n"
-	"\t{\n"
-	"\t\tint2 c = int2(gid) + int2(p.ax, p.ay) * k;\n"
-	"\t\tif (c.x < 0 || c.y < 0 || c.x >= int(p.hw) || c.y >= int(p.hh))\n"
-	"\t\t\tcontinue;\n"
-	"\t\tfloat r = half_in.read(uint2(c)).r;\n"
-	"\t\tif (r > 0.0 && float(abs(k)) * 2.0 <= r)\n"
-	"\t\t\tbest = max(best, r);\n"
-	"\t}\n"
-	"\thalf_out.write(float4(best), gid);\n"
-	"}\n"
-	"\n"
-	"/* one direction of the blur: a tent as wide as the pixel's radius (its own where it is shadowed, the searched one\n"
-	"beside a shadow), every texel up to 16 a side and every second one past that. A tap counts only where the depth is\n"
-	"what the center's depth and its slope along the axis predict (stored depth is linear across the screen on a flat\n"
-	"surface), so an object in front of the ground neither lightens the shadow behind it nor takes its penumbra. The\n"
-	"alpha written is the radius used, as the term's is */\n"
-	"kernel void traced_blur(texture2d<float, access::read> term [[texture(0)]],\n"
-	"\ttexture2d<float, access::read> source [[texture(1)]],\n"
-	"\ttexture2d<float, access::read> reach [[texture(2)]],\n"
-	"\tdepth2d<float, access::read> depth [[texture(3)]],\n"
-	"\ttexture2d<float, access::write> out [[texture(4)]],\n"
-	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
-	"{\n"
-	"\tif (gid.x >= p.cw || gid.y >= p.ch)\n"
-	"\t\treturn;\n"
-	"\tint2 g = int2(gid) + int2(p.cx, p.cy);\n"
-	"\tint2 low = int2(p.cx, p.cy), high = int2(p.cx + p.cw - 1, p.cy + p.ch - 1);\n"
-	"\tint2 s = int2(p.sx, p.sy), a = int2(p.ax, p.ay);\n"
-	"\tfloat4 t = term.read(uint2(g));\n"
-	"\tfloat r = traced_hit(t) ? max(t.a * p.radius, 1.0) : reach.read(min(gid / 2, uint2(p.hw - 1, p.hh - 1))).r;\n"
-	"\tfloat3 sum = source.read(uint2(g - s)).rgb;\n"
-	"\tif (r < 0.5)\n"
-	"\t{\n"
-	"\t\tout.write(float4(sum, 0.0), gid);\n"
-	"\t\treturn;\n"
-	"\t}\n"
-	"\tfloat d0 = depth.read(uint2(g));\n"
-	"\tfloat forward = depth.read(uint2(clamp(g + a, low, high))) - d0;\n"
-	"\tfloat backward = d0 - depth.read(uint2(clamp(g - a, low, high)));\n"
-	"\tfloat slope = abs(forward) < abs(backward) ? forward : backward;\n"
-	"\tint stride = r > 16.0 ? 2 : 1;\n"
-	"\tint n = int(ceil(r / float(stride)));\n"
-	"\tfloat total = 1.0;\n"
-	"\tfor (int k = -n; k <= n; ++k)\n"
-	"\t{\n"
-	"\t\tint offset = k * stride;\n"
-	"\t\tint2 q = g + a * offset;\n"
-	"\t\tfloat w = 1.0 - float(abs(offset)) / (r + 1.0);\n"
-	"\t\tif (k == 0 || w <= 0.0 || q.x < low.x || q.y < low.y || q.x > high.x || q.y > high.y)\n"
-	"\t\t\tcontinue;\n"
-	"\t\tfloat expected = d0 + slope * float(offset);\n"
-	"\t\tif (abs(depth.read(uint2(q)) - expected) > abs(slope) * float(abs(offset)) * 0.5 + 1e-6)\n"
-	"\t\t\tcontinue;\n"
-	"\t\tsum += source.read(uint2(q - s)).rgb * w;\n"
-	"\t\ttotal += w;\n"
-	"\t}\n"
-	"\tout.write(float4(sum / total, r / p.radius), gid);\n"
-	"}\n";
 
 static struct
 {
@@ -5419,10 +5273,12 @@ static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_world_descri
 format they have drawn into (display.scene_precision moves the scene off BGRA8): traced_composite_pipeline */
 static __strong NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *traced_composites;
 static __strong id<MTLFunction> traced_vertex_function, traced_composite_function;
-static __strong id<MTLComputePipelineState> traced_radius_down, traced_radius_reach, traced_blur;
+static __strong id<MTLComputePipelineState> traced_bounds_kernel, traced_radius_down, traced_radius_reach, traced_blur;
 /* the filter's work textures (ssao_texture's kind: kept, made again only to grow): two of the covered rectangle and
 two of half of it */
 static __strong id<MTLTexture> traced_work[2], traced_half[2];
+/* the darkened pixels' bounds the apply draws widen, and the rectangle traced_bounds makes of them (traced_resolve.h) */
+static __strong id<MTLBuffer> traced_bounds_buffer, traced_rect_buffer;
 static id<MTLTexture> ssao_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height);
 static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
 	unsigned long width, unsigned long height);
@@ -5450,6 +5306,17 @@ static int traced_refit_allowed(void)
 		host_config_string("debug.traced_shadows_refit", "true", value, sizeof(value));
 		flag = strcmp(value, "false") != 0;
 	}
+	return flag;
+}
+
+/* HALO_RT_CPU_BOUNDS in the app's environment: the filter and the composite cover everything the game's covers give,
+not the darkened pixels' bounds (for measuring what the bounds save) */
+static int traced_cpu_bounds(void)
+{
+	static int flag = -1;
+
+	if (flag < 0)
+		flag = getenv("HALO_RT_CPU_BOUNDS") != NULL;
 	return flag;
 }
 
@@ -5842,6 +5709,8 @@ static void traced_release(uint32_t epoch)
 		traced_work[index] = nil;
 		traced_half[index] = nil;
 	}
+	traced_bounds_buffer = nil;
+	traced_rect_buffer = nil;
 	traced_world = nil;
 	traced_world_descriptor = nil;
 	traced.pending_count = 0;
@@ -6065,6 +5934,19 @@ static BOOL traced_draw_ready(void)
 		traced.log_dropped++;
 		return NO;
 	}
+	if (!traced_bounds_buffer)
+	{
+		traced_bounds_buffer = [device newBufferWithLength:TRACED_BOUNDS_BYTES options:MTLResourceStorageModeShared];
+		traced_rect_buffer = [device newBufferWithLength:TRACED_RECT_BYTES options:MTLResourceStorageModePrivate];
+		if (!traced_bounds_buffer || !traced_rect_buffer)
+		{
+			traced_bounds_buffer = traced_rect_buffer = nil;
+			traced_fail("the darkened bounds' buffers could not be allocated");
+			traced.log_dropped++;
+			return NO;
+		}
+		traced_bounds_clear(traced_bounds_buffer);
+	}
 	traced_commit();
 	return YES;
 }
@@ -6084,6 +5966,8 @@ static void traced_draw_bind(void)
 	metal_state_always(&state_cache);
 	[encoder setFragmentBytes:basis length:sizeof(basis) atIndex:8];
 	metal_state_always(&state_cache);
+	[encoder setFragmentBuffer:traced_bounds_buffer offset:0 atIndex:9];
+	metal_state_always(&state_cache);
 }
 
 static BOOL traced_programs(void)
@@ -6098,7 +5982,7 @@ static BOOL traced_programs(void)
 		return !traced.programs_failed;
 	traced.tried = YES;
 	traced.programs_failed = YES;
-	library = [device newLibraryWithSource:traced_source options:nil error:&error];
+	library = [device newLibraryWithSource:traced_resolve_source options:nil error:&error];
 	if (!library)
 	{
 		platform_log("traced shadows: the resolve's shaders do not compile: %s", error.localizedDescription.UTF8String);
@@ -6111,7 +5995,10 @@ static BOOL traced_programs(void)
 	traced_radius_reach = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_radius_reach"]
 		error:&error];
 	traced_blur = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_blur"] error:&error];
-	if (!traced_vertex_function || !traced_composite_function || !traced_radius_down || !traced_radius_reach || !traced_blur)
+	traced_bounds_kernel = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_bounds"]
+		error:&error];
+	if (!traced_vertex_function || !traced_composite_function || !traced_radius_down || !traced_radius_reach ||
+		!traced_blur || !traced_bounds_kernel)
 	{
 		platform_log("traced shadows: the resolve's pipeline cannot be made: %s",
 			error ? error.localizedDescription.UTF8String : "?");
@@ -6186,7 +6073,9 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 	{
 		MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
 		MetalTexture *term_record = texture_record(term);
-		struct { uint32_t ox, oy, w, h, view, sx, sy, pad; } c;
+		struct { uint32_t ox, oy, w, h, view, shifted, pad0, pad1; } c;
+		float size[2];
+		BOOL filter;
 		id<MTLTexture> shown;
 		id<MTLRenderPipelineState> composite;
 		struct gpu_rect rect;
@@ -6248,81 +6137,55 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 			[pass_log appendFormat:@"\n  traced shadows resolve: %lux%lu at %lu,%lu", (unsigned long)covered.width,
 				(unsigned long)covered.height, (unsigned long)covered.x, (unsigned long)covered.y];
 		shown = term_record->texture;
-		c.sx = c.sy = 0;
-		if (values[TRACED_SHADOWS_RESOLVE_FILTER] != 0.0f && values[TRACED_SHADOWS_RESOLVE_RADIUS] >= 1.0f)
+		filter = values[TRACED_SHADOWS_RESOLVE_FILTER] != 0.0f && values[TRACED_SHADOWS_RESOLVE_RADIUS] >= 1.0f;
+		view = (int)values[TRACED_SHADOWS_RESOLVE_VIEW];
 		{
-			struct { uint32_t cx, cy, cw, ch, hw, hh; int32_t ax, ay; uint32_t sx, sy; float radius; uint32_t pad; } p;
-			id<MTLComputeCommandEncoder> compute = [command_buffer() computeCommandEncoder];
+			id<MTLComputeCommandEncoder> compute;
+			unsigned long half_width = (covered.width + 1) / 2, half_height = (covered.height + 1) / 2;
 			int i;
 
-			memset(&p, 0, sizeof(p));
-			p.cx = (uint32_t)covered.x;
-			p.cy = (uint32_t)covered.y;
-			p.cw = (uint32_t)covered.width;
-			p.ch = (uint32_t)covered.height;
-			p.hw = (p.cw + 1) / 2;
-			p.hh = (p.ch + 1) / 2;
-			p.radius = values[TRACED_SHADOWS_RESOLVE_RADIUS];
-			for (i = 0; i < 2; ++i)
-			{
-				traced_work[i] = ssao_texture(traced_work[i], MTLPixelFormatRGBA8Unorm, p.cw, p.ch);
-				traced_half[i] = ssao_texture(traced_half[i], MTLPixelFormatR16Float, p.hw, p.hh);
-			}
+			if (filter)
+				for (i = 0; i < 2; ++i)
+				{
+					traced_work[i] = ssao_texture(traced_work[i], MTLPixelFormatRGBA8Unorm, covered.width, covered.height);
+					traced_half[i] = ssao_texture(traced_half[i], MTLPixelFormatR16Float, half_width, half_height);
+				}
+			compute = [command_buffer() computeCommandEncoder];
 			if (metal_debug)
 				compute.label = @"traced shadows filter";
-			/* the radius beside each shadow: half[0], reached along x into half[1], along y back into half[0] */
-			[compute setBytes:&p length:sizeof(p) atIndex:0];
-			[compute setTexture:term_record->texture atIndex:0];
-			[compute setTexture:traced_half[0] atIndex:1];
-			ssao_dispatch(compute, traced_radius_down, p.hw, p.hh);
-			for (i = 0; i < 2; ++i)
-			{
-				p.ax = i == 0;
-				p.ay = i == 1;
-				[compute setBytes:&p length:sizeof(p) atIndex:0];
-				[compute setTexture:traced_half[i] atIndex:0];
-				[compute setTexture:traced_half[1 - i] atIndex:1];
-				ssao_dispatch(compute, traced_radius_reach, p.hw, p.hh);
-			}
-			/* the blur: the term along x into work[0], that along y into work[1] */
-			[compute setTexture:term_record->texture atIndex:0];
-			[compute setTexture:traced_half[0] atIndex:2];
-			[compute setTexture:depth_record->texture atIndex:3];
-			for (i = 0; i < 2; ++i)
-			{
-				p.ax = i == 0;
-				p.ay = i == 1;
-				p.sx = i ? p.cx : 0;
-				p.sy = i ? p.cy : 0;
-				[compute setBytes:&p length:sizeof(p) atIndex:0];
-				[compute setTexture:i ? traced_work[0] : term_record->texture atIndex:1];
-				[compute setTexture:traced_work[i] atIndex:4];
-				ssao_dispatch(compute, traced_blur, p.cw, p.ch);
-			}
+			/* (the debug views show the term over everything the game's covers give) */
+			traced_filter_encode(compute, traced_bounds_kernel, traced_radius_down, traced_radius_reach, traced_blur,
+				traced_bounds_buffer, traced_rect_buffer, covered, values[TRACED_SHADOWS_RESOLVE_RADIUS],
+				!view && !traced_cpu_bounds(), filter, term_record->texture, depth_record->texture, traced_work[0],
+				traced_work[1], traced_half[0], traced_half[1]);
 			[compute endEncoding];
-			shown = traced_work[1];
-			c.sx = p.cx;
-			c.sy = p.cy;
+			if (filter)
+				shown = traced_work[1];
 		}
 		if (!pass_begin(color, depth, NULL) || !encoder)
 			return;
-		view = (int)values[TRACED_SHADOWS_RESOLVE_VIEW];
 		c.ox = (uint32_t)window.x;
 		c.oy = (uint32_t)window.y;
 		c.w = (uint32_t)window.width;
 		c.h = (uint32_t)window.height;
 		c.view = (uint32_t)view;
-		c.pad = 0;
-		[encoder setViewport:(MTLViewport){ (double)covered.x, (double)covered.y, (double)covered.width,
-			(double)covered.height, 0.0, 1.0 }];
+		c.shifted = filter ? 1 : 0;
+		c.pad0 = c.pad1 = 0;
+		size[0] = (float)color_record->texture.width;
+		size[1] = (float)color_record->texture.height;
+		/* (the quad is traced_bounds' rectangle, inside covered: traced_resolve.h) */
+		[encoder setViewport:(MTLViewport){ 0.0, 0.0, (double)size[0], (double)size[1], 0.0, 1.0 }];
 		[encoder setScissorRect:covered];
 		[encoder setCullMode:MTLCullModeNone];
 		[encoder setRenderPipelineState:composite];
 		[encoder setDepthStencilState:view ? traced_everything : traced_level];
 		[encoder setStencilReferenceValue:0x10];
+		[encoder setVertexBuffer:traced_rect_buffer offset:0 atIndex:0];
+		[encoder setVertexBytes:size length:sizeof(size) atIndex:1];
 		[encoder setFragmentTexture:shown atIndex:0];
 		[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
-		[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+		[encoder setFragmentBuffer:traced_rect_buffer offset:0 atIndex:1];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
 		/* the game's next draw sets everything again */
 		metal_state_reset(&state_cache);
 	}
