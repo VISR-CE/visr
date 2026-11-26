@@ -58,6 +58,14 @@ int platform_menu_keyboard(void)
 #ifdef HALO_ILP32
 /* port/runtime/guest/runtime/guest_host.h: whether the host is a development build */
 extern int host_development_hooks(void);
+#else
+/* The Linux host's answer for the game's own calls (menu_tags.c, xinput_sdl.c): a development build is one started
+with HALO_DEVELOPMENT_HOOKS=1; the Apple hosts define it themselves (host_benchmark.m). */
+int host_development_hooks(void)
+{
+	const char *value = getenv("HALO_DEVELOPMENT_HOOKS");
+	return value && !strcmp(value, "1");
+}
 #endif
 
 static SDL_Window *platform_window;

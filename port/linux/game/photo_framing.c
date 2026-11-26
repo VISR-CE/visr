@@ -116,7 +116,7 @@ static int key_valid(const char *key)
 static int vector_valid(const float *v, int n, int bounded)
 {
 	int i;
-	for (i = 0; i < n; i++) if (!isfinite(v[i]) || (bounded && (v[i] < 0 || v[i] > 1))) return 0;
+	for (i = 0; i < n; i++) if (!__builtin_isfinite(v[i]) || (bounded && (v[i] < 0 || v[i] > 1))) return 0;
 	return 1;
 }
 
@@ -163,7 +163,7 @@ int photo_shot_valid(const struct photo_shot *s)
 	if (!vector_valid(s->position, 3, 0) || !vector_valid(s->forward, 3, 0) ||
 		!vector_valid(s->up, 3, 0) || !vector_valid(s->focus, 2, 1) || !vector_valid(s->safe, 4, 1)) return 0;
 	return axes_valid(s->forward,s->up) &&
-		isfinite(s->fov) && s->fov >= 0.2f && s->fov <= 2.6f && s->bsp >= 0 &&
+		__builtin_isfinite(s->fov) && s->fov >= 0.2f && s->fov <= 2.6f && s->bsp >= 0 &&
 		s->settle_ticks >= 0 && s->settle_ticks <= 600 && s->safe[0] < s->safe[2] && s->safe[1] < s->safe[3] &&
 		(s->erase_ai == 0 || s->erase_ai == 1) && memchr(s->variant, 0, sizeof(s->variant));
 }
@@ -227,7 +227,7 @@ static int value(struct json *j)
 		else j->bad = 1;
 		if (*j->p == '.') { j->p++; if (!isdigit((unsigned char)*j->p)) j->bad = 1; while (isdigit((unsigned char)*j->p)) j->p++; }
 		if (*j->p == 'e' || *j->p == 'E') { j->p++; if (*j->p == '+' || *j->p == '-') j->p++; if (!isdigit((unsigned char)*j->p)) j->bad = 1; while (isdigit((unsigned char)*j->p)) j->p++; }
-		if (!isfinite(strtod(begin, &end)) || end != j->p) j->bad = 1;
+		if (!__builtin_isfinite(strtod(begin, &end)) || end != j->p) j->bad = 1;
 		t->type = 'n';
 	}
 	t->length = (int)(j->p - t->start); t->next = j->count + 1; j->depth--;

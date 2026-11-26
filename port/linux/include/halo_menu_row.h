@@ -67,7 +67,7 @@ static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_r
 		if (end != number && (*end == 'x' || *end == 'X') && !end[1]) unit = 1;
 		else if (end != number && *end == '%' && !end[1]) unit = 2;
 		else if (end == number || *end) return row;
-		if (!isfinite(value) || (suffix >= 0 && value <= previous) || (suffix >= 0 && unit != suffix)) return row;
+		if (!__builtin_isfinite(value) || (suffix >= 0 && value <= previous) || (suffix >= 0 && unit != suffix)) return row;
 		/* (the numbers after a leading word for nothing are above it) */
 		if (suffix < 0 && index && value <= 0) return row;
 		suffix = unit;

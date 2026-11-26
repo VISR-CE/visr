@@ -112,8 +112,10 @@ unsigned int gpu_compiles_outstanding(void);
 extern real last_t;
 void halo_main_time_restart(void);
 short main_get_solo_level_from_name(char const *name);
-/* port/linux/src/map_pictures_render.c */
+#ifdef HALO_IOS
+/* port/linux/src/map_pictures_render.c (an Apple-build unit: the import stage's map pictures) */
 int map_pictures_render_active(void);
+#endif
 unsigned long system_milliseconds(void);
 void __stdcall Sleep(unsigned long milliseconds);
 
@@ -190,8 +192,10 @@ static boolean loading_screen_wanted(void)
 
 	/* the import stage's map pictures load behind the import screen: no loading screen, no minimum, no
 	upscale wait (the upscaler keeps running beside the renders) */
+#ifdef HALO_IOS
 	if (map_pictures_render_active())
 		return FALSE;
+#endif
 	if (!strcmp(mode, "on"))
 		return TRUE;
 	if (!strcmp(mode, "off"))
