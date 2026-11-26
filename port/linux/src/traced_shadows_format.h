@@ -21,7 +21,8 @@ map can never name the last map's part.
 
 enum
 {
-	/* id: the new epoch. No bytes. Every part and structure is dropped */
+	/* id: the new epoch, or TRACED_SHADOWS_NO_EPOCH when tracing stops. No bytes. Everything the backend made for
+	tracing is given back, even after a failure */
 	TRACED_SHADOWS_RESET = 1,
 	/* id: the part's. Bytes: traced_shadows_part, its vertices, its triangles */
 	TRACED_SHADOWS_PART,
@@ -36,6 +37,10 @@ enum
 	/* id: unused. Bytes: struct traced_shadows_light, the light the next traced light draws come from */
 	TRACED_SHADOWS_LIGHT,
 };
+
+/* the epoch no game record has (the game's count from 1): what the backend holds between tracing stopping and the
+game's next reset */
+#define TRACED_SHADOWS_NO_EPOCH 0xffffffffu
 
 enum
 {

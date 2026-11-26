@@ -5513,33 +5513,6 @@ static void traced_frame_check(void)
 	}
 }
 
-static void traced_reset(uint32_t epoch)
-{
-	uint32_t index;
-
-	for (index = 0; index < TRACED_SHADOWS_PARTS; index++)
-	{
-		free(traced.part_vertices[index]);
-		traced.part_vertices[index] = NULL;
-		traced.part_vertex_count[index] = traced.part_triangle_count[index] = 0;
-		traced_part_indices[index] = nil;
-	}
-	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
-		traced_structures[index] = nil;
-	while (traced.pending_count)
-		traced_pending_descriptors[--traced.pending_count] = nil;
-	traced.pending_scratch_total = 0;
-	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
-	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
-	memset(traced.structure_size, 0, sizeof(traced.structure_size));
-	traced_cache_reset(&traced.cache);
-	traced_world = nil;
-	traced_world_descriptor = nil;
-	traced.world_pending = NO;
-	traced.structure_bytes = 0;
-	traced.epoch = epoch;
-}
-
 static void traced_part(uint32_t id, const void *bytes, uint32_t size)
 {
 	const struct traced_shadows_part *part;
@@ -5834,6 +5807,61 @@ static __strong id<MTLAccelerationStructure> traced_light_instances[FRAMES];
 static __strong id<MTLBuffer> traced_light_descriptors[FRAMES], traced_light_scratch[FRAMES];
 static __strong NSMutableArray<id<MTLAccelerationStructure>> *traced_light_members[FRAMES];
 
+/* Everything tracing made goes, and records of other epochs are refused until the game starts a new one: at a map's
+unload (the game's TRACED_SHADOWS_RESET, epoch its new one) and when the frame decision turns tracing off
+(d3d8_device.c's traced_shadows_release, epoch TRACED_SHADOWS_NO_EPOCH), after a failure as well. The class this is
+the one path for: memory tracing made that stays for the session once tracing stops. The programs and pipeline
+states stay (made once, not per map). tools/test_traced_shadows.py checks every resource of this section is
+released here. */
+static void traced_release(uint32_t epoch)
+{
+	uint32_t index;
+
+	for (index = 0; index < TRACED_SHADOWS_PARTS; index++)
+	{
+		free(traced.part_vertices[index]);
+		traced.part_vertices[index] = NULL;
+		traced.part_vertex_count[index] = traced.part_triangle_count[index] = 0;
+		traced_part_indices[index] = nil;
+	}
+	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
+		traced_structures[index] = nil;
+	for (index = 0; index < TRACED_PENDING; index++)
+		traced_pending_descriptors[index] = nil;
+	for (index = 0; index < FRAMES; index++)
+	{
+		traced_vertices[index] = nil;
+		traced_scratch[index] = nil;
+		traced_light_instances[index] = nil;
+		traced_light_descriptors[index] = nil;
+		traced_light_scratch[index] = nil;
+		traced_light_members[index] = nil;
+	}
+	for (index = 0; index < 2; index++)
+	{
+		traced_work[index] = nil;
+		traced_half[index] = nil;
+	}
+	traced_world = nil;
+	traced_world_descriptor = nil;
+	traced.pending_count = 0;
+	traced.pending_scratch_total = 0;
+	traced.vertices_used = 0;
+	traced.world_pending = NO;
+	traced.world_triangles = 0;
+	traced.apply = TRACED_SHADOWS_SHADOWS;
+	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
+	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
+	memset(traced.structure_size, 0, sizeof(traced.structure_size));
+	memset(traced.refit_scratch, 0, sizeof(traced.refit_scratch));
+	traced_cache_reset(&traced.cache);
+	traced.structure_bytes = 0;
+	traced_lights.frame = (unsigned long)-1;
+	traced_lights.made_with = 0;
+	traced_lights.count = 0;
+	traced.epoch = epoch;
+}
+
 static void traced_light_take(const void *bytes, uint32_t size)
 {
 	if (bytes && size == sizeof(traced_lights.light))
@@ -5988,14 +6016,17 @@ static void traced_light_bind(void)
 
 static void gpu_metal_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
 {
+	/* (a release is carried out after a failure too: it is what gives the failed feature's memory back) */
+	if (kind == TRACED_SHADOWS_RESET)
+	{
+		traced_release(id);
+		return;
+	}
 	if (!gpu_metal_traced_shadows_ready(1))
 		return;
 	traced_frame_check();
 	switch (kind)
 	{
-	case TRACED_SHADOWS_RESET:
-		traced_reset(id);
-		break;
 	case TRACED_SHADOWS_PART:
 		traced_part(id, bytes, size);
 		break;

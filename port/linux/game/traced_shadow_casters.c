@@ -57,6 +57,7 @@ void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uin
 /* d3d8_device.c, d3d8_resources.c */
 int halo_traced_shadows_window_begin(float p11);
 void halo_traced_shadows_window_end(void);
+unsigned long halo_traced_shadows_releases(void);
 void halo_traced_shadows_key(int on);
 void halo_light_visibility_key(int path);
 int halo_light_visibility_view(float rect[4]);
@@ -114,6 +115,7 @@ static struct
 	unsigned long part_count; /* numbers given out this map */
 	unsigned long epoch;
 	boolean reset_sent;
+	unsigned long releases; /* halo_traced_shadows_releases at the last reset */
 	boolean window;
 	boolean world; /* debug.traced_shadows_world, and the level's surfaces sent */
 	unsigned __int64 frame;
@@ -276,8 +278,12 @@ boolean traced_shadow_casters_window_begin(
 		traced.next_id = 0;
 		traced_left_out_log();
 	}
+	/* (tracing stopped since the last reset and the backend gave back everything: a new epoch sends it all again) */
+	if (traced.releases != halo_traced_shadows_releases())
+		traced_shadow_casters_new_map();
 	if (!traced.reset_sent)
 	{
+		traced.releases = halo_traced_shadows_releases();
 		host_traced_shadows_data(TRACED_SHADOWS_RESET, (uint32_t)traced.epoch, NULL, 0);
 		traced.reset_sent = TRUE;
 	}

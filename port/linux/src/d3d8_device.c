@@ -3220,7 +3220,29 @@ static struct
 	float radius;               /* the largest penumbra radius, pixels */
 	float cover[4];             /* what the window's shadows can darken, in its texels: left, top, right, bottom */
 	unsigned long windows;      /* since the last log line */
+	unsigned long releases;     /* times tracing stopped (traced_shadows_release) */
 } traced_shadows;
+
+/* Tracing stopped (the setting, the graphics mode, stereo, or a failure in the backend): the term goes and the
+backend gives back everything it made for tracing (gpu_metal.m's traced_release); the game starts a new epoch when
+tracing comes back (halo_traced_shadows_releases). */
+static void traced_shadows_release(void)
+{
+	if (traced_shadows.term)
+		gpu_texture_destroy(traced_shadows.term);
+	traced_shadows.term = 0;
+	traced_shadows.term_width = traced_shadows.term_height = 0;
+#ifdef HALO_ILP32
+	host_traced_shadows_data(TRACED_SHADOWS_RESET, TRACED_SHADOWS_NO_EPOCH, NULL, 0);
+#endif
+	traced_shadows.releases++;
+}
+
+/* how many times tracing has stopped: traced_shadow_casters.c sends everything again after one */
+unsigned long halo_traced_shadows_releases(void)
+{
+	return traced_shadows.releases;
+}
 
 static BOOL traced_shadows_frame_on(void)
 {
@@ -3236,6 +3258,8 @@ static BOOL traced_shadows_frame_on(void)
 		on = FALSE;
 #endif
 		traced_shadows.frame = device.frame + 1;
+		if (traced_shadows.frame_on && !on)
+			traced_shadows_release();
 		traced_shadows.frame_on = on;
 	}
 	return traced_shadows.frame_on;
