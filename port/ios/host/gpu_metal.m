@@ -5286,19 +5286,42 @@ static __strong id<MTLBuffer> traced_vertices[FRAMES];
 static __strong id<MTLBuffer> traced_scratch[FRAMES];
 static __strong id<MTLAccelerationStructure> traced_world;
 static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_world_descriptor;
+/* a work texture at least width x height, kept between frames (made again only to grow) */
+static id<MTLTexture> work_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height)
+{
+	MTLTextureDescriptor *descriptor;
+
+	if (kept && kept.width >= width && kept.height >= height && kept.pixelFormat == format)
+		return kept;
+	if (kept)
+	{
+		width = MAX(width, kept.width);
+		height = MAX(height, kept.height);
+	}
+	descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format width:width height:height mipmapped:NO];
+	descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+	descriptor.storageMode = MTLStorageModePrivate;
+	return [device newTextureWithDescriptor:descriptor];
+}
+
+/* a compute pass over width x height in 8 x 8 threadgroups */
+static void compute_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
+	unsigned long width, unsigned long height)
+{
+	[compute setComputePipelineState:pipeline];
+	metal_dispatch_grid(compute, MTLSizeMake(width, height, 1), MTLSizeMake(8, 8, 1));
+}
+
 /* the composite's pipelines (replace for the debug views, multiply for the term), one pair for each scene color
 format they have drawn into (display.scene_precision moves the scene off BGRA8): traced_composite_pipeline */
 static __strong NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *traced_composites;
 static __strong id<MTLFunction> traced_vertex_function, traced_composite_function;
 static __strong id<MTLComputePipelineState> traced_bounds_kernel, traced_radius_down, traced_radius_reach, traced_blur;
-/* the filter's work textures (ssao_texture's kind: kept, made again only to grow): two of the covered rectangle and
+/* the filter's work textures (work_texture's kind: kept, made again only to grow): two of the covered rectangle and
 two of half of it */
 static __strong id<MTLTexture> traced_work[2], traced_half[2];
 /* the darkened pixels' bounds the apply draws widen, and the rectangle traced_bounds makes of them (traced_resolve.h) */
 static __strong id<MTLBuffer> traced_bounds_buffer, traced_rect_buffer;
-static id<MTLTexture> ssao_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height);
-static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
-	unsigned long width, unsigned long height);
 static __strong id<MTLDepthStencilState> traced_level, traced_everything;
 
 /* (the Metal gate's row holds the floor and the reason; any_gpu is debug.traced_shadows_any_gpu, for measuring GPUs
@@ -6155,8 +6178,8 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 			if (filter)
 				for (i = 0; i < 2; ++i)
 				{
-					traced_work[i] = ssao_texture(traced_work[i], MTLPixelFormatRGBA8Unorm, covered.width, covered.height);
-					traced_half[i] = ssao_texture(traced_half[i], MTLPixelFormatR16Float, half_width, half_height);
+					traced_work[i] = work_texture(traced_work[i], MTLPixelFormatRGBA8Unorm, covered.width, covered.height);
+					traced_half[i] = work_texture(traced_half[i], MTLPixelFormatR16Float, half_width, half_height);
 				}
 			compute = [command_buffer() computeCommandEncoder];
 			if (metal_debug)
@@ -9669,31 +9692,6 @@ static BOOL ssao_programs(void)
 	return YES;
 }
 
-/* a work texture at least width x height, kept between frames (made again only to grow) */
-static id<MTLTexture> ssao_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height)
-{
-	MTLTextureDescriptor *descriptor;
-
-	if (kept && kept.width >= width && kept.height >= height && kept.pixelFormat == format)
-		return kept;
-	if (kept)
-	{
-		width = MAX(width, kept.width);
-		height = MAX(height, kept.height);
-	}
-	descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format width:width height:height mipmapped:NO];
-	descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
-	descriptor.storageMode = MTLStorageModePrivate;
-	return [device newTextureWithDescriptor:descriptor];
-}
-
-static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
-	unsigned long width, unsigned long height)
-{
-	[compute setComputePipelineState:pipeline];
-	metal_dispatch_grid(compute, MTLSizeMake(width, height, 1), MTLSizeMake(8, 8, 1));
-}
-
 
 /* HALO_SSAO_TIMING in the app's environment (cost runs): each dispatch in an encoder of its own with GPU timestamps
 at its start and end (MTLCounterSamplingPointAtStageBoundary); every 300 passes the medians are logged */
@@ -9903,16 +9901,16 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 			p.level_floor = count > 18 ? values[18] : 0.35f;
 			p.object_floor = count > 19 ? values[19] : 0.6f;
 			p.mode = (uint32_t)mode;
-			ssao.half_depth = ssao_texture(ssao.half_depth, MTLPixelFormatR32Float, p.hw, p.hh);
-			ssao.raw = ssao_texture(ssao.raw, MTLPixelFormatR16Float, p.hw, p.hh);
+			ssao.half_depth = work_texture(ssao.half_depth, MTLPixelFormatR32Float, p.hw, p.hh);
+			ssao.raw = work_texture(ssao.raw, MTLPixelFormatR16Float, p.hw, p.hh);
 			if (gather_v1)
-				ssao.half_v1 = ssao_texture(ssao.half_v1, MTLPixelFormatRG32Float, p.hw, p.hh);
-			ssao.blurred = ssao_texture(ssao.blurred, MTLPixelFormatR16Float, p.hw, p.hh);
-			ssao.full = ssao_texture(ssao.full, MTLPixelFormatR8Unorm, p.w, p.h);
+				ssao.half_v1 = work_texture(ssao.half_v1, MTLPixelFormatRG32Float, p.hw, p.hh);
+			ssao.blurred = work_texture(ssao.blurred, MTLPixelFormatR16Float, p.hw, p.hh);
+			ssao.full = work_texture(ssao.full, MTLPixelFormatR8Unorm, p.w, p.h);
 			if (mode == 3 || mode == 4)
-				ssao.debug_image = ssao_texture(ssao.debug_image, MTLPixelFormatRGBA8Unorm, p.w, p.h);
+				ssao.debug_image = work_texture(ssao.debug_image, MTLPixelFormatRGBA8Unorm, p.w, p.h);
 			else if (!ssao.debug_image)
-				ssao.debug_image = ssao_texture(nil, MTLPixelFormatRGBA8Unorm, 1, 1);
+				ssao.debug_image = work_texture(nil, MTLPixelFormatRGBA8Unorm, 1, 1);
 			ssao.stencil_view = level_stencil_view(depth_record->texture);
 			{
 				id<MTLCounterSampleBuffer> timing = nil;
@@ -9931,24 +9929,24 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 					[e setTexture:depth_record->texture atIndex:0];
 					[e setTexture:ssao.stencil_view atIndex:1];
 					[e setTexture:ssao.half_depth atIndex:2];
-					ssao_dispatch(e, ssao.prepare, p.hw, p.hh);
+					compute_dispatch(e, ssao.prepare, p.hw, p.hh);
 					if (gather_v1)
 					{
 						[e setTexture:ssao.half_v1 atIndex:2];
-						ssao_dispatch(e, ssao.prepare_v1, p.hw, p.hh);
+						compute_dispatch(e, ssao.prepare_v1, p.hw, p.hh);
 					} });
 				if (stop != 1)
 				{
 					SSAO_STAGE(1, {
 						[e setTexture:gather_v1 ? ssao.half_v1 : ssao.half_depth atIndex:0];
 						[e setTexture:ssao.raw atIndex:1];
-						ssao_dispatch(e, gather_v1 ? ssao.gather_v1 : ssao.gather, p.hw, p.hh); });
+						compute_dispatch(e, gather_v1 ? ssao.gather_v1 : ssao.gather, p.hw, p.hh); });
 					if (path != 2 && stop != 2)
 						SSAO_STAGE(2, {
 							[e setTexture:ssao.half_depth atIndex:0];
 							[e setTexture:ssao.raw atIndex:1];
 							[e setTexture:ssao.blurred atIndex:2];
-							ssao_dispatch(e, ssao.blur, p.hw, p.hh); });
+							compute_dispatch(e, ssao.blur, p.hw, p.hh); });
 					if (path == 0 && stop != 2)
 						SSAO_STAGE(3, {
 							[e setTexture:depth_record->texture atIndex:0];
@@ -9957,7 +9955,7 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 							[e setTexture:ssao.blurred atIndex:3];
 							[e setTexture:ssao.full atIndex:4];
 							[e setTexture:ssao.debug_image atIndex:5];
-							ssao_dispatch(e, ssao.upsample, p.w, p.h); });
+							compute_dispatch(e, ssao.upsample, p.w, p.h); });
 				}
 #undef SSAO_STAGE
 				if (!timing)
