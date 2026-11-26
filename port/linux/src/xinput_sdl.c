@@ -81,6 +81,7 @@ static struct halo_glyph_input glyph_menu_input;
 static int glyph_x_destructive;   /* the screen's X deletes: Backspace and forward delete press it (keyboard_gamepad) */
 #ifdef HALO_IOS
 static int glyph_menus_active;
+static int glyph_x_global;
 #endif
 
 /* the mouse's movement since another input was used (halo_glyph_motion_note) */
