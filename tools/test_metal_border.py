@@ -37,6 +37,9 @@ def test_zero_border_resource_transitions_select_and_bind_the_correct_sampler():
         if signature in source:
             actual += function(source, signature) + "\n"
     actual += source[stages_start:stages_end] + "\n"
+    # bind_stages records whether it bound the stages' rate map, for the traced light bound after it
+    if "static BOOL stages_rate_map;" in source:
+        actual += "static BOOL stages_rate_map;\n"
     actual += function(source, "static void bind_stages(")
     fixture = (ROOT / "port/ios/tests/metal_border_probe.m").read_text()
     with tempfile.TemporaryDirectory(prefix="metal-border-") as directory:
