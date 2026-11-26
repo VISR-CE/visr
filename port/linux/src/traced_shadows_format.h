@@ -150,6 +150,8 @@ enum
 	TRACED_SHADOWS_FAMILY_FIRST = 2,
 	TRACED_SHADOWS_FAMILY_LAST = 7,
 };
+typedef char traced_shadows_mask_check[(1u << TRACED_SHADOWS_FAMILY_LAST) < 256u && TRACED_SHADOWS_MASK_NO_FAMILY < 256u
+	&& TRACED_SHADOWS_MASK_LEVEL < 256u && TRACED_SHADOWS_FAMILY_FIRST >= 2 ? 1 : -1];
 
 /* the same record in the shader, bound at fragment buffer 8 as `constant traced_shadows_light &traced_light` */
 #define TRACED_SHADOWS_LIGHT_MSL \

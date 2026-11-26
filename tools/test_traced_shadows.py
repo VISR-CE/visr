@@ -474,3 +474,9 @@ def test_every_instance_mask_bit_is_one_the_gpu_matches():
     values = {name: int(value) for name, value in re.findall(r"TRACED_SHADOWS_(\w+) = (\d+)u?,", header)}
     assert values["MASK_NO_FAMILY"] < 256 and values["MASK_LEVEL"] < 256
     assert values["FAMILY_FIRST"] >= 2 and values["FAMILY_LAST"] <= 7
+    assert "typedef char traced_shadows_mask_check[(1u << TRACED_SHADOWS_FAMILY_LAST) < 256u" in header
+    # the host takes a caster's family only within the same constants, so no record can make a wider mask
+    host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
+    assert ("traced.shadow_family[shadow] = caster->family >= TRACED_SHADOWS_FAMILY_FIRST && "
+            "caster->family <= TRACED_SHADOWS_FAMILY_LAST") in host
+    assert "masks[members.count] = traced.shadow_family[shadow] ? 1u << traced.shadow_family[shadow]" in host
