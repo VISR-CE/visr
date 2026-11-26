@@ -213,6 +213,14 @@ static inline void traced_cache_reset(struct traced_caster_cache *cache)
 	cache->rebuilds = cache->frame_triangles = cache->sweep = 0;
 }
 
+/* A decision that was not carried out (a build or refit dropped before its commit, an allocation that failed): the
+slot is forgotten as the sweep forgets one, so the caster's next decision builds its structure from nothing instead of
+reusing or refitting one that was never built. The caller releases the slot's structure. */
+static inline void traced_cache_forget(struct traced_caster_cache *cache, uint32_t slot_index)
+{
+	traced_slot_clear(&cache->slots[slot_index & (TRACED_CASTER_SLOTS - 1)]);
+}
+
 /* A frame's share of the sweep that releases casters nothing has asked for in TRACED_IDLE_FRAMES frames (a player who
 left the view, a body that faded, a level of detail no longer drawn), so the structures' memory follows what is on
 screen and not everything that ever was: call until it answers 0; each 1 names a slot (*slot_index) that is now

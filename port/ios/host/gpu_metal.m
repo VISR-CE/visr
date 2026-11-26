@@ -5467,6 +5467,14 @@ static void traced_structure_release(uint32_t slot)
 	traced.structure_size[slot] = 0;
 }
 
+/* a build or refit that was not carried out: its slot is forgotten and its structure goes, so the caster is built
+from nothing next time (traced_cache_forget) */
+static void traced_forget(uint32_t slot)
+{
+	traced_cache_forget(&traced.cache, slot);
+	traced_structure_release(slot);
+}
+
 static void traced_frame_check(void)
 {
 	if (traced.frame == frames)
@@ -5485,9 +5493,14 @@ static void traced_frame_check(void)
 	traced.frame = frames;
 	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
 	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
-	/* (a frame's builds are committed before it ends; one that never was is dropped with its descriptors) */
+	/* (a frame's builds are committed before it ends; one that never was is dropped with its descriptors, and its slot
+	is forgotten) */
 	while (traced.pending_count)
-		traced_pending_descriptors[--traced.pending_count] = nil;
+	{
+		traced.pending_count--;
+		traced_pending_descriptors[traced.pending_count] = nil;
+		traced_forget(traced.pending_slot[traced.pending_count]);
+	}
 	traced.pending_scratch_total = 0;
 	traced.vertices_used = 0;
 	traced.apply = TRACED_SHADOWS_SHADOWS;
@@ -5631,8 +5644,7 @@ static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
 
 		if (!positions || traced.pending_count >= TRACED_PENDING)
 		{
-			traced.cache.slots[slot].updated = 0;
-			traced.cache.slots[slot].pose_size = 0;
+			traced_forget(slot);
 			return;
 		}
 		for (model = 0, at = 0; model < caster->model_count; model++)
@@ -5676,8 +5688,7 @@ static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
 			}
 			if (!traced_structures[slot])
 			{
-				traced.cache.slots[slot].updated = 0;
-				traced.cache.slots[slot].pose_size = 0;
+				traced_forget(slot);
 				traced_fail("an acceleration structure could not be allocated");
 				return;
 			}
@@ -5761,10 +5772,7 @@ static void traced_commit(void)
 			for (index = 0; index < traced.pending_count; index++)
 			{
 				/* (not built: no shadow from it, and its slot is made again next time) */
-				traced.cache.slots[traced.pending_slot[index]].updated = 0;
-				traced.cache.slots[traced.pending_slot[index]].pose_size = 0;
-				traced.structure_size[traced.pending_slot[index]] = 0;
-				traced_structures[traced.pending_slot[index]] = nil;
+				traced_forget(traced.pending_slot[index]);
 				traced_pending_descriptors[index] = nil;
 			}
 			traced.pending_count = 0;

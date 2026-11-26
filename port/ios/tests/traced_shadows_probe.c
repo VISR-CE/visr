@@ -157,6 +157,32 @@ static void check_cache(void)
 	traced_cache_reset(&cache);
 }
 
+/* the class: a decision that was not carried out is forgotten (a build dropped before its commit once left the slot
+looking built, and the next frame reused a structure that had never been built) */
+static void check_forget(void)
+{
+	static struct traced_caster_cache cache;
+	uint32_t shape[3] = { 1, 1, 0 }, slot, again;
+	float pose[TRACED_SHADOWS_NODE_FLOATS] = { 0 }, moved[TRACED_SHADOWS_NODE_FLOATS] = { 1.0f };
+	int released;
+
+	traced_cache_frame(&cache, 1);
+	CHECK(traced_cache_decide(&cache, 3, shape, sizeof(shape), pose, sizeof(pose), 10, 1, &slot, &released) ==
+		TRACED_BUILD, "a new caster is built");
+	traced_cache_forget(&cache, slot);
+	traced_cache_frame(&cache, 2);
+	CHECK(traced_cache_decide(&cache, 3, shape, sizeof(shape), pose, sizeof(pose), 10, 1, &again, &released) ==
+		TRACED_BUILD, "a forgotten build is built again, not reused");
+	traced_cache_frame(&cache, 3);
+	CHECK(traced_cache_decide(&cache, 3, shape, sizeof(shape), moved, sizeof(moved), 10, 1, &slot, &released) ==
+		TRACED_REFIT, "a built caster that moved is refitted");
+	traced_cache_forget(&cache, slot);
+	traced_cache_frame(&cache, 4);
+	CHECK(traced_cache_decide(&cache, 3, shape, sizeof(shape), moved, sizeof(moved), 10, 1, &slot, &released) ==
+		TRACED_BUILD, "a forgotten refit is built from nothing, not refitted or reused");
+	traced_cache_reset(&cache);
+}
+
 /* an idle slot goes to a new caster, which is told to release what was there */
 static void check_idle(void)
 {
@@ -265,6 +291,7 @@ int main(void)
 	check_skinning();
 	check_records();
 	check_cache();
+	check_forget();
 	check_idle();
 	check_sweep();
 	check_update_budget();
