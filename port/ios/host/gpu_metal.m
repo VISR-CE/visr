@@ -5714,6 +5714,8 @@ static struct
 static __strong id<MTLAccelerationStructure> traced_light_instances[FRAMES];
 static __strong id<MTLBuffer> traced_light_descriptors[FRAMES], traced_light_scratch[FRAMES];
 static __strong NSMutableArray<id<MTLAccelerationStructure>> *traced_light_members[FRAMES];
+/* the rate map a lit pass binds when it has none of its own (the shader declares it but does not read it there) */
+static __strong id<MTLBuffer> traced_light_rate_stand_in;
 
 /* Everything tracing made goes, and records of other epochs are refused until the game starts a new one: at a map's
 unload (the game's TRACED_SHADOWS_RESET, epoch its new one) and when the frame decision turns tracing off
@@ -5752,6 +5754,7 @@ static void traced_release(uint32_t epoch)
 	}
 	traced_bounds_buffer = nil;
 	traced_rect_buffer = nil;
+	traced_light_rate_stand_in = nil;
 	traced_world = nil;
 	traced_world_descriptor = nil;
 	traced.pending_count = 0;
@@ -5906,11 +5909,10 @@ static void traced_light_bind(void)
 	light.foveated = pass_rate_map_data ? 1.0f : 0.0f;
 	if (!stages_rate_map)
 	{
-		static __strong id<MTLBuffer> stand_in;
-
-		if (!pass_rate_map_data && !stand_in)
-			stand_in = [device newBufferWithLength:256 options:MTLResourceStorageModeShared];
-		[encoder setFragmentBuffer:pass_rate_map_data ? pass_rate_map_data : stand_in offset:0 atIndex:1];
+		if (!pass_rate_map_data && !traced_light_rate_stand_in)
+			traced_light_rate_stand_in = [device newBufferWithLength:256 options:MTLResourceStorageModeShared];
+		[encoder setFragmentBuffer:pass_rate_map_data ? pass_rate_map_data : traced_light_rate_stand_in offset:0
+			atIndex:1];
 		metal_state_always(&state_cache);
 	}
 	/* (an instance structure's members are not bound with it: each is made resident for the fragment stage) */

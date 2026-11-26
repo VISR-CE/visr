@@ -218,8 +218,10 @@ def test_every_resource_tracing_makes_is_given_back_by_the_one_release_path():
     text = METAL.read_text()
     sections = traced_sections(text)
     declared = set()
-    for declaration in re.findall(r"^static __strong [^;(]*;", sections, re.MULTILINE):
-        names = re.sub(r"<[^<>]*(<[^<>]*>[^<>]*)*>", "", declaration[len("static __strong "):-1])
+    # (a strong static inside a function is declared here too: traced_release cannot name it, so it fails, which is
+    # the point, since it would outlive every release)
+    for declaration in re.findall(r"^\s*static __strong [^;(]*;", sections, re.MULTILINE):
+        names = re.sub(r"<[^<>]*(<[^<>]*>[^<>]*)*>", "", declaration.strip()[len("static __strong "):-1])
         for part in names.split(","):
             name = re.findall(r"\*?\s*(\w+)\s*(?:\[[^\]]*\])?\s*$", part.strip())
             assert name, part
