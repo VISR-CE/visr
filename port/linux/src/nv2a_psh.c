@@ -309,7 +309,8 @@ traced_lit, 1 lit, down to 1 - strength blocked. In order:
   and ending stop_short short of the light (max(0.05, 0.02 radius), or more for a light the viewer carries);
 - when casters is set and the level did not block it, one against the frame's casters: every mask bit but the
   level's and the light's owner family's, ending keep_clear short of a light with no family and no owner (the owner
-  distance), and where it enters owner_center/owner_radius, the root sphere of an owner family without a bit.
+  distance), and where it enters owner_center/owner_radius, the root sphere of an owner family without a bit (a
+  sphere wholly behind the ray's start, between the point and a light outside it, does not shorten it).
 skip skips the rays and repeats repeats them (cost runs); strength is how fully a block darkens.
 traced_light: traced_shadows_format.h's struct traced_shadows_light */
 /* a pass result below this draws nothing on the 8-bit color targets the light passes draw into (half a step), so its
@@ -355,8 +356,9 @@ static void light_visibility_emit(struct xgpu_text *text, const char *point, con
 		"\t\t\t\t\tfloat3 from_owner = p - float3(traced_light.owner_center);\n"
 		"\t\t\t\t\tfloat half_b = dot(from_owner, direction);\n"
 		"\t\t\t\t\tfloat inside = half_b * half_b - (dot(from_owner, from_owner) - traced_light.owner_radius * traced_light.owner_radius);\n"
-		"\t\t\t\t\tif (inside > 0.0)\n"
-		"\t\t\t\t\t\tcaster_end = min(caster_end, max(-half_b - sqrt(inside), 0.0));\n"
+		"\t\t\t\t\tfloat through = inside > 0.0 ? sqrt(inside) : 0.0;\n"
+		"\t\t\t\t\tif (inside > 0.0 && -half_b + through > traced_light.ray_start)\n"
+		"\t\t\t\t\t\tcaster_end = min(caster_end, max(-half_b - through, 0.0));\n"
 		"\t\t\t\t}\n"
 		"\t\t\t\tif (!hit && traced_light.casters > 0.5 && caster_end > traced_light.ray_start)\n"
 		"\t\t\t\t{\n"

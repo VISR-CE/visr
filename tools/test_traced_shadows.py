@@ -282,7 +282,7 @@ def test_more_light_families_than_bits_never_let_an_owner_block_his_own_light(tm
     assert(count == 1 && roots[0] == 7);
     ''')
     shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
-    assert "caster_end = min(caster_end, max(-half_b - sqrt(inside), 0.0));" in shader
+    assert "caster_end = min(caster_end, max(-half_b - through, 0.0));" in shader
     assert "metal::raytracing::ray caster_ray(p, direction, traced_light.ray_start + nudge, caster_end);" in shader
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
     assert "light.keep_clear = family || owner_sphere ? light.ray_start" in game
@@ -301,7 +301,8 @@ def test_more_light_families_than_bits_never_let_an_owner_block_his_own_light(tm
         from_owner = [a - b for a, b in zip(point, sphere[0])]
         half_b = sum(a * b for a, b in zip(from_owner, direction))
         inside = half_b * half_b - (sum(a * a for a in from_owner) - sphere[1] ** 2)
-        return span, (min(span, max(-half_b - inside ** 0.5, 0.0)) if inside > 0 else span)
+        through = inside ** 0.5 if inside > 0 else 0.0
+        return span, (min(span, max(-half_b - through, 0.0)) if inside > 0 and -half_b + through > 0.01 else span)
 
     wall = tuple(f + 3.0 * (s - f) for f, s in zip(flash, shooter[0]))  # behind the shooter, from the flash
     span, end = caster_end(wall, shooter)
@@ -309,6 +310,15 @@ def test_more_light_families_than_bits_never_let_an_owner_block_his_own_light(tm
     floor = tuple(f + 3.0 * (o - f) for f, o in zip(flash, other[0]))  # behind the other Flood
     span, end = caster_end(floor, shooter)
     assert end == span  # the shooter's sphere does not shorten it: the other Flood still blocks
+    # a point between the shooter's sphere and his flash (the flash is outside his sphere): the sphere is behind the
+    # ray's start, so it does not shorten the ray, and other bodies still block there
+    between = tuple(f + 0.05 / 0.54 * (s - f) for f, s in zip(flash, shooter[0]))  # 0.05 from the flash, 0.05 off the sphere
+    from_center = sum((a - b) ** 2 for a, b in zip(between, shooter[0])) ** 0.5
+    assert from_center > shooter[1]  # outside the sphere, on the flash's side
+    span, end = caster_end(between, shooter)
+    assert end == span
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    assert "if (inside > 0.0 && -half_b + through > traced_light.ray_start)" in shader
 
 
 def test_the_light_instances_rebuild_when_the_caster_set_changes():
