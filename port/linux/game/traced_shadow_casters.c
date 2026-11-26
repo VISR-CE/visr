@@ -50,6 +50,7 @@ unsigned long system_milliseconds(void); /* cseries_windows.h */
 #ifdef HALO_IOS
 
 #include "../src/traced_shadows_format.h"
+#include "../src/traced_cover.h"
 
 /* port/runtime/guest/runtime/guest_host.h */
 void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size);
@@ -614,75 +615,42 @@ void traced_shadow_casters_commit(
 		host_traced_shadows_data(TRACED_SHADOWS_COMMIT, 0, NULL, 0);
 }
 
-/* What the shadow can darken on screen, for the resolve's rectangle: its volume (r along forward and left, 4 r along
-up, as the apply draw's texture coordinates span it) clipped by the near plane and projected by the window's camera, in
-normalized device coordinates with y down. Corners behind the near plane are replaced by the points where the box's
-edges cross it, so a volume the camera stands in still covers only what its front part projects to (the whole window
-once was the answer for any volume reaching the near plane, and a player's own shadow reaches it most frames). A
-mirrored camera or no projection covers the window; a volume wholly behind the camera covers nothing. */
-static void traced_cover_point(
-	struct render_frustum const *frustum,
-	real_point3d const *view,
-	real bounds[4])
-{
-	real inverse_depth = -1.f / view->z;
-	/* (render_camera_view_to_screen's projection, without its clip) */
-	real x = (frustum->projection_matrix[0][0] * view->x + frustum->projection_matrix[2][0] * view->z) * inverse_depth;
-	real y = -(frustum->projection_matrix[1][1] * view->y + frustum->projection_matrix[2][1] * view->z) * inverse_depth;
-
-	bounds[0] = x < bounds[0] ? x : bounds[0];
-	bounds[1] = y < bounds[1] ? y : bounds[1];
-	bounds[2] = x > bounds[2] ? x : bounds[2];
-	bounds[3] = y > bounds[3] ? y : bounds[3];
-}
-
+/* a shadow's screen bounds, from its volume (TRACED_SHADOWS_BASIS: radius r across, 4 r along the light each way)
+in the window's camera (traced_cover.h's traced_cover_box), to halo_traced_shadows_cover. A mirrored camera or no
+projection covers the window; a volume wholly behind the camera covers nothing. */
 static void traced_shadow_cover(
 	real_matrix4x3 const *shadow_matrix,
 	real radius)
 {
 	struct render_frustum const *frustum = &global_window_parameters.frustum;
-	real bounds[4] = { 1e30f, 1e30f, -1e30f, -1e30f };
-	real_point3d views[8];
-	real plane;
-	long corner, axis;
+	struct traced_cover_projection projection;
+	float views[8][3], bounds[4];
+	long corner;
 
 	if (!frustum->projection_valid || global_window_parameters.camera.mirrored)
 	{
 		halo_traced_shadows_cover(-1.f, -1.f, 1.f, 1.f);
 		return;
 	}
-	plane = -frustum->z_near;
+	projection.p00 = frustum->projection_matrix[0][0];
+	projection.p20 = frustum->projection_matrix[2][0];
+	projection.p11 = frustum->projection_matrix[1][1];
+	projection.p21 = frustum->projection_matrix[2][1];
+	projection.z_near = frustum->z_near;
 	for (corner = 0; corner < 8; corner++)
 	{
 		real a = corner & 1 ? radius : -radius, b = corner & 2 ? radius : -radius, c = corner & 4 ? 4.f * radius : -4.f * radius;
-		real_point3d world;
+		real_point3d world, view;
 
 		world.x = shadow_matrix->position.x + shadow_matrix->forward.i * a + shadow_matrix->left.i * b + shadow_matrix->up.i * c;
 		world.y = shadow_matrix->position.y + shadow_matrix->forward.j * a + shadow_matrix->left.j * b + shadow_matrix->up.j * c;
 		world.z = shadow_matrix->position.z + shadow_matrix->forward.k * a + shadow_matrix->left.k * b + shadow_matrix->up.k * c;
-		matrix4x3_transform_point(&frustum->world_to_view, &world, &views[corner]);
-		if (views[corner].z <= plane)
-			traced_cover_point(frustum, &views[corner], bounds);
+		matrix4x3_transform_point(&frustum->world_to_view, &world, &view);
+		views[corner][0] = view.x;
+		views[corner][1] = view.y;
+		views[corner][2] = view.z;
 	}
-	/* the box's twelve edges (corners one bit apart): where one crosses the near plane */
-	for (corner = 0; corner < 8; corner++)
-	{
-		for (axis = 1; axis < 8; axis <<= 1)
-		{
-			real_point3d const *from = &views[corner], *to = &views[corner | axis];
-			real_point3d crossing;
-			real t;
-
-			if ((corner & axis) || (from->z <= plane) == (to->z <= plane))
-				continue;
-			t = (plane - from->z) / (to->z - from->z);
-			crossing.x = from->x + (to->x - from->x) * t;
-			crossing.y = from->y + (to->y - from->y) * t;
-			crossing.z = plane;
-			traced_cover_point(frustum, &crossing, bounds);
-		}
-	}
-	if (bounds[2] < bounds[0] || bounds[3] < bounds[1])
+	if (!traced_cover_box(&projection, (const float (*)[3])views, bounds))
 		return;
 	traced.cover_cases[bounds[0] <= -1.f && bounds[1] <= -1.f && bounds[2] >= 1.f && bounds[3] >= 1.f]++;
 	halo_traced_shadows_cover(bounds[0], bounds[1], bounds[2], bounds[3]);

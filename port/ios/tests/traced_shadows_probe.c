@@ -3,6 +3,7 @@ reference blend, and the caster cache's decisions. Run by tools/test_traced_shad
 #include <math.h>
 #include <stdio.h>
 
+#include "traced_cover.h"
 #include "traced_shadows.h"
 
 static int failures;
@@ -286,12 +287,48 @@ static void check_update_budget(void)
 	traced_cache_reset(&cache);
 }
 
+/* a box's eight view-space corners, x in [x0, x1], y in [y0, y1], z in [z0, z1] (corner bits 0, 1, 2 pick the far
+side) */
+static void cover_box(float views[8][3], float x0, float x1, float y0, float y1, float z0, float z1)
+{
+	int corner;
+
+	for (corner = 0; corner < 8; corner++)
+	{
+		views[corner][0] = corner & 1 ? x1 : x0;
+		views[corner][1] = corner & 2 ? y1 : y0;
+		views[corner][2] = corner & 4 ? z1 : z0;
+	}
+}
+
+/* what a shadow's volume covers on screen (traced_cover.h). The class: a volume reaching behind the near plane,
+whose behind corners either project mirrored or stand in for the whole window. */
+static void check_cover(void)
+{
+	const struct traced_cover_projection projection = { 1.0f, 0.0f, 1.0f, 0.0f, 0.1f };
+	float views[8][3], bounds[4];
+
+	cover_box(views, -1.0f, 1.0f, -1.0f, 1.0f, -12.0f, -8.0f);
+	CHECK(traced_cover_box(&projection, (const float (*)[3])views, bounds), "a volume in front covers something");
+	CHECK(fabsf(bounds[0] + 0.125f) < 1e-6f && fabsf(bounds[1] + 0.125f) < 1e-6f &&
+		fabsf(bounds[2] - 0.125f) < 1e-6f && fabsf(bounds[3] - 0.125f) < 1e-6f,
+		"a volume in front covers its corners' projection");
+	cover_box(views, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 3.0f);
+	CHECK(!traced_cover_box(&projection, (const float (*)[3])views, bounds), "a volume wholly behind covers nothing");
+	/* beside the camera and reaching behind it: only the right of the window, out past its edge */
+	cover_box(views, 2.0f, 4.0f, -1.0f, 1.0f, -5.0f, 5.0f);
+	CHECK(traced_cover_box(&projection, (const float (*)[3])views, bounds), "a volume reaching behind covers something");
+	CHECK(bounds[0] > 0.0f, "a volume beside the camera covers only its side, not the whole window");
+	CHECK(bounds[2] >= 1.0f, "a volume reaching behind the camera covers out to the window's edge");
+}
+
 int main(void)
 {
 	check_skinning();
 	check_records();
 	check_cache();
 	check_forget();
+	check_cover();
 	check_idle();
 	check_sweep();
 	check_update_budget();
