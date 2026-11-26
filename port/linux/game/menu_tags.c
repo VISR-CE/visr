@@ -3324,26 +3324,31 @@ clear of the touch dropdown's chevron (menu_geometry.h) */
 #define OPTION_VALUE_MINIMUM_WIDTH MENU_VALUE_MINIMUM_WIDTH
 #define OPTION_MAX(a, b) ((a) > (b) ? (a) : (b))
 
-/* a settings list's value column (each row's spinner) as wide as the
-widest value of any of its rows, measured in its font, and the same for
-every row; the column keeps its right edge, so the spinners and their
-arrows stay where the rows' ends are and the labels keep the rest. Values
-set here and nowhere else (the display's rate, its resolutions) are in the
-spinners' lists by now, so they are measured too. */
-/* a widget a setting is bound to (setting_add), asked while the menus are built, so without the display-rate
-refresh pc_menu_setting_get makes */
-boolean pc_menu_definition_is_setting(long definition_index)
+/* the setting a widget is bound to (setting_add), or NULL: a plain search, so it can be asked while the menus are built
+and every frame, without the display-rate refresh pc_menu_setting_get makes */
+static struct pc_menu_setting *setting_for_definition(long definition_index)
 {
 	long index;
 
 	for (index = 0; index < menu_tags.setting_count; index++)
 	{
 		if (menu_tags.settings[index].definition_index == definition_index)
-			return TRUE;
+			return &menu_tags.settings[index];
 	}
-	return FALSE;
+	return NULL;
 }
 
+boolean pc_menu_definition_is_setting(long definition_index)
+{
+	return setting_for_definition(definition_index) != NULL;
+}
+
+/* a settings list's value column (each row's spinner) as wide as the
+widest value of any of its rows, measured in its font, and the same for
+every row; the column keeps its right edge, so the spinners and their
+arrows stay where the rows' ends are and the labels keep the rest. Values
+set here and nowhere else (the display's rate, its resolutions) are in the
+spinners' lists by now, so they are measured too. */
 static void option_columns_fit(struct ui_widget_definition const *list, char const *name)
 {
 	struct ui_widget_child_reference const *rows = list->child_widgets.address;
@@ -4060,13 +4065,6 @@ char const *pc_menu_game_data_input_name(
 struct pc_menu_setting *pc_menu_setting_get(
 	long definition_index)
 {
-	long index;
-
 	pc_menu_display_rate_refresh();
-	for (index = 0; index < menu_tags.setting_count; index++)
-	{
-		if (menu_tags.settings[index].definition_index == definition_index)
-			return &menu_tags.settings[index];
-	}
-	return NULL;
+	return setting_for_definition(definition_index);
 }
