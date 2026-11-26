@@ -160,8 +160,8 @@ def test_an_owner_family_never_blocks_its_own_light(tmp_path):
     family's light rays leave that bit and the level's out of the caster ray's mask."""
     _run_rule_program(tmp_path, r'''
     enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1 };
-    long roots[BITS], root;
-    double importance[BITS];
+    long roots[BITS] = { 0 }, root;
+    double importance[BITS] = { 0 };
     int count = 0, bit;
     assert(light_visibility_family_bit(roots, count, -1) == 0);
     assert(light_visibility_family_bit(roots, count, 70) == 0);
@@ -195,8 +195,8 @@ def test_a_handle_with_the_high_salt_bit_still_gets_a_family(tmp_path):
     none. A sign test there gave every family bit 0, so a player's own body blocked his flashlight and muzzle flash."""
     _run_rule_program(tmp_path, r'''
     enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1 };
-    long roots[BITS];
-    double importance[BITS];
+    long roots[BITS] = { 0 };
+    double importance[BITS] = { 0 };
     int count = 0;
     long player = (long)(int)0xe4a9023au, rider = (long)(int)0x8001000cu;
     assert(player < 0 && rider < 0);
@@ -220,8 +220,8 @@ def test_a_caster_sent_before_its_owners_light_gets_the_lights_bit(tmp_path):
     frame's table is made from every light's owner before anything asks, and both sides only look it up."""
     _run_rule_program(tmp_path, r'''
     enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1 };
-    long roots[BITS];
-    double importance[BITS];
+    long roots[BITS] = { 0 };
+    double importance[BITS] = { 0 };
     long owners[3] = { (long)(int)0xe4a9023au, -1, 1001 };
     double weights[3] = { 2.0, 9.0, 1.0 };
     int count = 0, i, caster, light;
@@ -249,8 +249,8 @@ def test_more_light_families_than_bits_never_let_an_owner_block_his_own_light(tm
     caster blocks it inside, while other families' casters still do."""
     _run_rule_program(tmp_path, r'''
     enum { BITS = LIGHT_VISIBILITY_FAMILY_LAST - LIGHT_VISIBILITY_FAMILY_FIRST + 1, FAMILIES = 300 };
-    long roots[BITS];
-    double importance[BITS];
+    long roots[BITS] = { 0 };
+    double importance[BITS] = { 0 };
     int count = 0, i, bit, seen[64] = { 0 };
     /* more families than the old table's cap of 256 lights, each twice (a unit and its weapon's light, the second
     less important), the most important offered last */
