@@ -7,26 +7,27 @@ MIXER = (ROOT / "port/linux/src/dsound_sdl.c").read_text()
 RENDER = (ROOT / "port/linux/src/map_pictures_render.c").read_text()
 
 
-def test_mixer_paths_use_the_muted_output_volume():
-    # master_volume may be read in its setters and in output_volume() only: a path that reads it
-    # directly (the loading screen's tone buffers once did) is not silenced by the hold.
-    body = MIXER[MIXER.index("static float output_volume(void)"):]
-    body = body[:body.index("}")]
-    assert "capture_mute" in body and "master_volume" in body
-    outside = re.sub(r"/\*.*?\*/", "", MIXER.replace(body, ""), flags=re.S)
-    for match in re.finditer(r"master_volume", outside):
+def test_the_hold_is_applied_to_the_finished_output():
+    # mix() scales the finished output by the hold, after every source (voices, buses, tone buffers) and before the limiter:
+    # a source that never reads the hold cannot bypass it. No source reads capture_mute itself.
+    mix = MIXER[MIXER.index("static void mix(float *output"):]
+    mix = mix[:mix.index("\n}\n")]
+    assert mix.index("mix_buffers(output, frames)") < mix.index("capture_mute") < mix.index("limit(output, frames)")
+    outside = re.sub(r"/\*.*?\*/", "", MIXER.replace(mix, ""), flags=re.S)
+    for match in re.finditer(r"\bcapture_mute\b", outside):
         line = outside[outside.rfind("\n", 0, match.start()) + 1:outside.index("\n", match.end())]
-        assert re.search(r"master_volume\s*=|static float master_volume|capture_mute\s*\?", line), line
+        assert re.search(r"static volatile int capture_mute|capture_mute = on", line), line
 
 
 def test_every_render_run_holds_the_mixer_silent():
-    start = RENDER[RENDER.index("host_map_pictures_keep_awake(1);"):]
+    start = RENDER[RENDER.index("run_hold(1);"):]
     start = start[:start.index("wait_menu();")]
-    assert "dsound_set_capture_mute(1);" in start
-    assert "if (render.import_mode)\n\t\tdsound_set_capture_mute" not in RENDER
+    assert "run_hold(1);" in start
+    hold = RENDER[RENDER.index("static void run_hold(int on)"):]
+    assert "dsound_set_capture_mute(on);" in hold[:hold.index("}")]
     # released when the run ends
     leaving = RENDER[RENDER.index("case STATE_LEAVING:"):]
-    assert "dsound_set_capture_mute(0);" in leaving[:leaving.index("case STATE_DONE:")]
+    assert "run_hold(0);" in leaving[:leaving.index("case STATE_DONE:")]
 
 
 def test_renderer_version_is_a_plain_constant():

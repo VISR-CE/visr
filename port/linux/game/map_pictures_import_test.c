@@ -13,7 +13,7 @@ void platform_log(const char *format, ...);
 #include "../src/map_pictures_render.c"
 
 static int refresh_ok, refresh_calls, stub_revision = 7, stub_hash = 4242;
-static int pending, development, available, menu = 1, game, awake, done_calls, identity_fails;
+static int pending, development, available, menu = 1, game, awake, muted, done_calls, identity_fails;
 static int progress_calls, progress_done, identities, loaded_scenario, completed;
 static double clock_ms;
 static char test_root[1024];
@@ -50,7 +50,7 @@ void host_map_pictures_import_progress(int done, int total, const char *name)
 }
 void host_map_pictures_import_done(int rendered, int cached, int failed)
 {
-	assert(menu && !awake);
+	assert(menu && !awake && !muted);
 	assert(rendered + cached + failed == 23);
 	completed = rendered + cached;
 	done_calls++;
@@ -112,7 +112,7 @@ int map_pictures_scenario_fast_forwarding(void) { return 0; }
 void photo_mode_end(void) { }
 void photo_mode_prepare_variant(const char *key) { (void)key; }
 void photo_mode_clear_variant(void) { }
-void dsound_set_capture_mute(int on) { (void)on; }
+void dsound_set_capture_mute(int on) { muted = on; }
 void photo_mode_capture_begin(void) { }
 static int refuse_framing;
 int photo_mode_capture_state(int *framed, int *revision) { *framed = !refuse_framing; *revision = stub_revision; return 1; }
@@ -137,6 +137,8 @@ static void run_maps(void)
 		if (render.state == STATE_LOADING)
 			assert(loaded_scenario == (render.import_mode ?
 				map_pictures_scenario_import_index(render.index) : render.index));
+		/* the render hold is one switch: the screen is kept awake exactly while the sound is off */
+		assert(muted == awake);
 		/* GPU readback is unavailable in this asset-free harness. */
 		if (render.state == STATE_FRAME_PENDING)
 		{
@@ -144,7 +146,7 @@ static void run_maps(void)
 			render.frame_done = render.frame_ok = 1;
 		}
 	}
-	assert(render.state == STATE_DONE && !awake);
+	assert(render.state == STATE_DONE && !awake && !muted);
 }
 
 static void ordering(void)

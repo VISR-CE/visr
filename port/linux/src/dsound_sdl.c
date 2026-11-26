@@ -152,20 +152,15 @@ static struct sound_listener_state mixed_listener = { { 0, 0, 0 }, { 0, 0, 1 }, 
 
 static float master_volume = 1.0f;
 
-/* the map pictures import stage holds all output silent while it loads maps; master_volume itself is reread from
-config, so the hold is a separate switch */
+/* a map picture render (launch refresh, disc import, debug.map_pictures_render) holds all output silent while it loads
+maps: mix() applies it to the finished output, so no voice, buffer or future source can bypass it. master_volume itself is
+reread from config, so the hold is a separate switch */
 static volatile int capture_mute = 0;
+static float capture_gain = 1.0f;
 
 void dsound_set_capture_mute(int on)
 {
 	capture_mute = on;
-}
-
-/* the one output volume every mixing path uses (3D and 2D voices, the loading screen's tone buffers): a path that
-reads master_volume itself is not silenced by the hold */
-static float output_volume(void)
-{
-	return capture_mute ? 0.0f : master_volume;
 }
 
 static float gain_from_millibels(LONG millibels)
@@ -361,7 +356,7 @@ static void voice_gains(const struct sdl_stream *stream, float *left, float *rig
 		*right = stream->mix_right;
 	}
 	{
-		float volume = output_volume();
+		float volume = master_volume;
 
 		*left *= stream->volume * volume;
 		*right *= stream->volume * volume;
@@ -795,6 +790,22 @@ static void mix(float *output, unsigned long frames)
 	bus_clock += frames;
 	mix_buffers(output, frames);
 	pthread_mutex_unlock(&mixer_lock);
+	/* the render hold, last: a ramp, not a step, so it does not click */
+	{
+		float target = capture_mute ? 0.0f : 1.0f, step = frames ? (target - capture_gain) / (float)frames : 0.0f;
+		unsigned long frame, channel;
+
+		if (capture_gain != 1.0f || target != 1.0f)
+		{
+			for (frame = 0; frame < frames; frame++)
+			{
+				capture_gain += step;
+				for (channel = 0; channel < OUTPUT_CHANNELS; channel++)
+					output[frame * OUTPUT_CHANNELS + channel] *= capture_gain;
+			}
+			capture_gain = target;
+		}
+	}
 	limit(output, frames);
 }
 
@@ -1632,7 +1643,7 @@ static void mix_buffers(float *output, unsigned long frames)
 
 	for (buffer = buffers; buffer; buffer = buffer->next)
 	{
-		float target = buffer->playing ? buffer->volume * output_volume() : 0.0f;
+		float target = buffer->playing ? buffer->volume * master_volume : 0.0f;
 		float gain = buffer->current_volume;
 		float ramp = frames ? (target - gain) / (float)frames : 0.0f;
 		unsigned long frame;

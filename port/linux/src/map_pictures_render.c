@@ -28,8 +28,15 @@ meta.json. Then the menu comes back and the map menus show the pictures
 /* port/runtime/guest/runtime/guest_host.h */
 int host_photo_mode_available(void);
 void host_map_pictures_keep_awake(int on);
-/* port/linux/src/dsound_sdl.c: silences every voice until switched off */
+/* port/linux/src/dsound_sdl.c: silences all output until switched off */
 void dsound_set_capture_mute(int on);
+
+/* what a render run holds while it loads maps: the screen awake and the sound off (every start and end of a run) */
+static void run_hold(int on)
+{
+	host_map_pictures_keep_awake(on);
+	dsound_set_capture_mute(on);
+}
 int host_map_pictures_import_stage(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
@@ -479,10 +486,7 @@ static void start_run(double time)
 		return;
 	}
 	render.run_start = time;
-	host_map_pictures_keep_awake(1);
-	/* every picture render is silent (launch refresh, disc import, debug.map_pictures_render): the load starts the
-	loading tone, ambience and music, none of which belongs to a render */
-	dsound_set_capture_mute(1);
+	run_hold(1);
 	if (render.import_mode)
 		host_map_pictures_import_progress(0, map_pictures_scenario_count(), "");
 	wait_menu();
@@ -723,8 +727,7 @@ void map_pictures_render_update(void)
 		{
 			platform_log("map pictures: done in %.1f s: %d rendered, %d cached, %d failed",
 				(time - render.run_start) / 1000.0, render.rendered, render.cached, render.failed);
-			host_map_pictures_keep_awake(0);
-			dsound_set_capture_mute(0);
+			run_hold(0);
 			if (render.import_mode)
 			{
 				host_map_pictures_import_progress(map_pictures_scenario_count(), map_pictures_scenario_count(), "");
