@@ -17,8 +17,11 @@ A line that must be short marks itself with TEST_WAIT_SHORT_ON_PURPOSE and says 
 /* nanosleep and clock_gettime are POSIX, and glibc hides them under -std=c11 (the strict build Tooling's Linux job
 uses; a Mac's libc does not hide them, so only that job finds out). _POSIX_C_SOURCE 200809L asks for exactly the POSIX
 names this header uses and nothing more. A feature macro only counts before the first system header, so a probe
-includes this header first (tools/test_probe_waits.py checks it). */
-#if !defined(_POSIX_C_SOURCE) && !defined(_GNU_SOURCE) && !defined(_DEFAULT_SOURCE)
+includes this header first (tools/test_probe_waits.py checks it). It is defined on Linux only: on Apple the same macro
+HIDES the Darwin extensions (mkdtemp, pthread_setname_np, pthread_set_qos_class_self_np) that other headers and probes
+use, and Apple's libc shows nanosleep and clock_gettime without it. tools/test_probe_waits.py refuses an unguarded
+feature-test macro in a shared test header. */
+#if defined(__linux__) && !defined(_POSIX_C_SOURCE) && !defined(_GNU_SOURCE) && !defined(_DEFAULT_SOURCE)
 #define _POSIX_C_SOURCE 200809L
 #endif
 

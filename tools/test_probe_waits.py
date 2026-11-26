@@ -182,6 +182,46 @@ def test_a_probe_that_uses_the_helper_includes_it_first():
             assert first == '#include "test_wait.h"', f"{path.name}: test_wait.h must be the first include, not {first}"
 
 
+FEATURE_MACRO = re.compile(r"^\s*#\s*define\s+(?:_POSIX_C_SOURCE|_XOPEN_SOURCE|_GNU_SOURCE|_DEFAULT_SOURCE|_BSD_SOURCE|_ISOC\d+_SOURCE)\b")
+
+
+def unguarded_feature_macros(text):
+    """Lines that define a feature-test macro outside an #if that names __linux__ (or __GLIBC__)."""
+    found, stack = [], []
+    for number, line in enumerate(text.split("\n"), 1):
+        directive = re.match(r"\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)", line)
+        if directive:
+            word, rest = directive.groups()
+            if word in ("if", "ifdef", "ifndef"):
+                stack.append(("__linux__" in rest or "__GLIBC__" in rest) and word != "ifndef" or ("__linux__" in rest and "!defined(__linux__)" not in rest))
+            elif word == "elif":
+                stack[-1:] = [("__linux__" in rest or "__GLIBC__" in rest)] if stack else []
+            elif word == "else":
+                stack[-1:] = [False] if stack else []
+            elif stack:
+                stack.pop()
+        elif FEATURE_MACRO.match(line) and not any(stack):
+            found.append(number)
+    return found
+
+
+@pytest.mark.parametrize("path", sorted((ROOT / "port/ios/tests").glob("*.h")), ids=lambda path: path.name)
+def test_a_shared_test_header_guards_its_feature_test_macro_per_platform(path):
+    """A feature-test macro changes what a libc declares: _POSIX_C_SOURCE fixes a strict -std=c11 build on Linux and hides
+    mkdtemp, pthread_setname_np and pthread_set_qos_class_self_np on Apple (the iOS workflow failed on it)."""
+    found = unguarded_feature_macros(path.read_text(encoding="utf-8", errors="replace"))
+    assert not found, f"{path.name}: line {found[0]} defines a feature-test macro for every platform (guard it with #if defined(__linux__))"
+
+
+def test_negative_control_the_feature_macro_detector():
+    assert unguarded_feature_macros("#define _POSIX_C_SOURCE 200809L")
+    assert unguarded_feature_macros("#if !defined(_POSIX_C_SOURCE)\n#define _POSIX_C_SOURCE 200809L\n#endif")
+    assert unguarded_feature_macros("#ifdef __APPLE__\n#define _GNU_SOURCE\n#endif")
+    assert not unguarded_feature_macros("#if defined(__linux__) && !defined(_POSIX_C_SOURCE)\n#define _POSIX_C_SOURCE 200809L\n#endif")
+    assert not unguarded_feature_macros("#ifdef __linux__\n#define _GNU_SOURCE\n#endif")
+    assert not unguarded_feature_macros("#include <stdio.h>")
+
+
 def test_a_probe_that_includes_the_helper_uses_it():
     for path in PROBES:
         text = path.read_text(encoding="utf-8", errors="replace")
