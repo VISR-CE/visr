@@ -161,6 +161,13 @@ void dsound_set_capture_mute(int on)
 	capture_mute = on;
 }
 
+/* the one output volume every mixing path uses (3D and 2D voices, the loading screen's tone buffers): a path that
+reads master_volume itself is not silenced by the hold */
+static float output_volume(void)
+{
+	return capture_mute ? 0.0f : master_volume;
+}
+
 static float gain_from_millibels(LONG millibels)
 {
 	if (millibels <= DSBVOLUME_MIN)
@@ -354,7 +361,7 @@ static void voice_gains(const struct sdl_stream *stream, float *left, float *rig
 		*right = stream->mix_right;
 	}
 	{
-		float volume = capture_mute ? 0.0f : master_volume;
+		float volume = output_volume();
 
 		*left *= stream->volume * volume;
 		*right *= stream->volume * volume;
@@ -1625,7 +1632,7 @@ static void mix_buffers(float *output, unsigned long frames)
 
 	for (buffer = buffers; buffer; buffer = buffer->next)
 	{
-		float target = buffer->playing ? buffer->volume * master_volume : 0.0f;
+		float target = buffer->playing ? buffer->volume * output_volume() : 0.0f;
 		float gain = buffer->current_volume;
 		float ramp = frames ? (target - gain) / (float)frames : 0.0f;
 		unsigned long frame;

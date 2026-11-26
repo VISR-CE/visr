@@ -480,8 +480,9 @@ static void start_run(double time)
 	}
 	render.run_start = time;
 	host_map_pictures_keep_awake(1);
-	if (render.import_mode)
-		dsound_set_capture_mute(1);
+	/* every picture render is silent (launch refresh, disc import, debug.map_pictures_render): the load starts the
+	loading tone, ambience and music, none of which belongs to a render */
+	dsound_set_capture_mute(1);
 	if (render.import_mode)
 		host_map_pictures_import_progress(0, map_pictures_scenario_count(), "");
 	wait_menu();
