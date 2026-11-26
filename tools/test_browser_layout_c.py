@@ -569,8 +569,7 @@ def test_detail_panel_pills_and_connect_line_follow_the_chosen_game(tmp_path):
         "static short browser_join_block(",
         "static void browser_join_block_text(",
         "static boolean browser_listing_cooperative(",
-        "static wchar_t const *game_type_name(",
-        "static void game_kind_type_text(",
+        "static void browser_listing_subtitle(",
         "static void browser_detail_gametype_set(",
         "static void browser_joint_show(",
         "static void browser_c_detail_update(",
@@ -667,7 +666,6 @@ static int config_boolean(char const *k) { return !strcmp(k, "network.online") ?
 static long browser_target_fps(void) { return 60; }
 enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *g) { (void)g; return P2P_SERVER_PLAYER; }
 static boolean player_capacity_marked(long p, long m) { (void)p; (void)m; return FALSE; }
-static wchar_t const *const engine_names[] = { L"", L"CTF", L"SLAYER", L"ODDBALL", L"KING OF THE HILL", L"RACE" };
 ''' + "\n" + production + r'''
 static struct widget_instance *pill(char const *name) { return named(&detail, name, 0); }
 int main(void)
@@ -718,15 +716,18 @@ int main(void)
 	assert(wcsstr(pill("browser_detail_net_blocked")->text, L"NET v"));
 	/* class: the panel's reason and header come from the listing's own facts, as its row does. A Gun Game on a
 	   network version this build joins reads as a Gun Game that VISR does not play (never "Slayer", never a
-	   version problem); a plain Slayer reads as a Slayer; and the header is the row's own text. */
+	   version problem); and the header is read from the same field as the row (the host's gametype name,
+	   mixed case as the host wrote it), whatever the engine under it is. */
 	lobby_browser.games[3].kind = 3; lobby_browser.games[3].joinable = 0;
+	snprintf(lobby_browser.games[3].gametype, sizeof(lobby_browser.games[3].gametype), "Gun Game");
 	lobby_browser.chosen = 3;
 	browser_c_detail_update(list, L"");
-	assert(!wcscmp(pill("browser_detail_type")->text, L"GUN GAME \u00b7 "));
+	assert(!wcscmp(pill("browser_detail_type")->text, L"Gun Game \u00b7 "));
 	assert(pill("browser_join_reason")->visible && !wcscmp(pill("browser_join_reason")->text, L"Gun Game is not supported by VISR."));
 	lobby_browser.games[3].kind = 0; lobby_browser.games[3].joinable = 1;
+	snprintf(lobby_browser.games[3].gametype, sizeof(lobby_browser.games[3].gametype), "Slayer");
 	browser_c_detail_update(list, L"");
-	assert(!wcscmp(pill("browser_detail_type")->text, L"SLAYER \u00b7 ") && !pill("browser_join_reason")->visible);
+	assert(!wcscmp(pill("browser_detail_type")->text, L"Slayer \u00b7 ") && !pill("browser_join_reason")->visible);
 	lobby_browser.chosen = 2;
 	browser_c_detail_update(list, L"");
 	assert(!wcscmp(pill("browser_join_reason")->text, L"Not compatible with this network version."));

@@ -5021,13 +5021,23 @@ static void browser_joint_show(struct widget_instance *screen, short row)
 	}
 }
 
+/* a listing's second line, in its row and in its detail panel alike: the game's own gametype name (what its
+host called it: "Gun Game", "Ranked TS"), then its map */
+static void browser_listing_subtitle(struct p2p_listing const *game, wchar_t *text, short size)
+{
+	wchar_t map[ROW_TEXT_LENGTH], gametype[P2P_LISTING_GAMETYPE_SIZE + 1];
+
+	map_display_name(game->map, map);
+	text_to_wide(game->gametype, gametype, NUMBEROF(gametype));
+	usnprintf(text, size - 1, L"%s%s%s", gametype, gametype[0] ? L" · " : L"", map);
+}
+
 static void browser_c_detail_update(struct widget_instance *list, wchar_t const *status)
 {
 	struct widget_instance *screen = screen_of(list);
 	struct widget_instance *detail = named(screen, "browser_detail", 0), *child;
 	struct p2p_listing const *game;
-	wchar_t text[ROW_TEXT_LENGTH * 2], map[ROW_TEXT_LENGTH], region[32];
-	wchar_t type[ROW_TEXT_LENGTH];
+	wchar_t text[ROW_TEXT_LENGTH * 2], region[32];
 	wchar_t const *host = L"";
 	boolean present = lobby_browser.chosen >= 0 && lobby_browser.chosen < lobby_browser.count;
 
@@ -5089,10 +5099,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	browser_detail_gametype_set(detail, PIN(game->engine_type, 0, 5));
 	text_to_wide(game->name, text, ROW_TEXT_LENGTH);
 	browser_name_set(named(detail, "browser_detail_name", 0), text);
-	map_display_name(game->map, map);
-	/* (the row's own text for the type, from the same fields: a Gun Game is not a Slayer in one and not the other) */
-	game_kind_type_text(game->kind, game->engine_type, type, NUMBEROF(type));
-	usnprintf(text, NUMBEROF(text) - 1, L"%s · %s", type, map);
+	browser_listing_subtitle(game, text, NUMBEROF(text));
 	browser_name_set(named(detail, "browser_detail_type", 0), text);
 	usnprintf(text, NUMBEROF(text) - 1, L"%s", browser_listing_cooperative(game) ? L"Co-op campaign" :
 		game->has_teams ? L"Teams" : L"Free for all");
@@ -5417,13 +5424,10 @@ static void lobby_browser_update(struct widget_instance *list)
 		browser_name_set(named(row, "server_item_server_name", 0), text);
 		if (named(row, "server_item_gauge", 0))
 		{
-			wchar_t map[ROW_TEXT_LENGTH], save[P2P_LISTING_GAMETYPE_SIZE + 1];
 			struct widget_instance *icon = named(row, "server_item_type", 0);
 			struct widget_instance *gauge = named(row, "server_item_gauge", 0);
 
-			map_display_name(game->map, map);
-			text_to_wide(game->gametype, save, NUMBEROF(save));
-			usnprintf(text, NUMBEROF(text) - 1, L"%s%s%s", save, save[0] ? L" · " : L"", map);
+			browser_listing_subtitle(game, text, NUMBEROF(text));
 			/* (the game being joined says so on its own row) */
 			if (lobby_browser.joining && !memcmp(game->identifier, lobby_browser.identifier, sizeof(game->identifier)))
 				usnprintf(text, NUMBEROF(text) - 1, L"Connecting...");
