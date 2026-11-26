@@ -2,7 +2,6 @@
 port/ios/tests/menu_patch (the sources are copied there, because their own directories' headers would win over the
 stand-ins). tools/test_menu_patches.py and tools/test_menu_builder_loads.py build their probes with it."""
 from pathlib import Path
-import re
 import shutil
 import subprocess
 
@@ -33,10 +32,3 @@ def build_probe(directory: Path, probe: str, extra_sources: tuple = ()) -> Path:
                     *(str(EXPAT / part) for part in ("xmlparse.c", "xmlrole.c", "xmltok.c")),
                     f"--output={binary}"], check=True)
     return binary
-
-
-def engine_names(source: Path, start: str, count: int) -> list:
-    """the names a table of the game's functions gives them, in order"""
-    text = source.read_text(encoding="latin-1")
-    text = text[text.index(start):]
-    return re.findall(r'"([^"\\]*)"', text[:text.index("}")])[:count]
