@@ -27,3 +27,10 @@ def test_every_render_run_holds_the_mixer_silent():
     # released when the run ends
     leaving = RENDER[RENDER.index("case STATE_LEAVING:"):]
     assert "dsound_set_capture_mute(0);" in leaving[:leaving.index("case STATE_DONE:")]
+
+
+def test_renderer_version_is_a_plain_constant():
+    # meta.json's renderer_version decides whether every cached picture is re-rendered: it is bumped by hand when the
+    # renderer's output changes, never derived from the build number, commit, date or version string.
+    lines = [l for l in RENDER.splitlines() if l.startswith("#define RENDERER_VERSION")]
+    assert len(lines) == 1 and re.fullmatch(r"#define RENDERER_VERSION \d+", lines[0].strip()), lines
