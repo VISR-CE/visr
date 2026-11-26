@@ -269,6 +269,7 @@ static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, 
 #include "crt_shader.h"
 #include "../../linux/src/port_graphics_modes.h"
 #include "../../linux/include/halo_level_stencil.h"
+#include "../../linux/src/traced_shadows_format.h"
 #include <sys/stat.h>
 #include "host_frame_pacer.h"
 /* the pacer's rules and helpers are plain C, usable on every platform (host_frame_pacer.h turns the pacer itself off
@@ -2487,8 +2488,8 @@ static gpu_shader gpu_metal_shader_create(uint32_t stage, const char *source)
 
 		record->compiled = dispatch_group_create();
 		record->reads_constants = stage != GPU_SHADER_VERTEX && strstr(source, "constant float4 *c [[buffer(4)]]") != NULL;
-		record->traced_shadow = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_SHADOW 1") != NULL;
-		record->traced_light = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_LIGHT 1") != NULL;
+		record->traced_shadow = stage == GPU_SHADER_PIXEL && strstr(source, TRACED_SHADOWS_SHADER_MARK) != NULL;
+		record->traced_light = stage == GPU_SHADER_PIXEL && strstr(source, TRACED_LIGHT_SHADER_MARK) != NULL;
 		/* (each on a worker thread, compiled synchronously there: not with
 		newLibraryWithSource's completion handler, which runs on Metal's
 		compiler queue, where shader_finish's newFunctionWithName waits on

@@ -38,6 +38,13 @@ enum
 	TRACED_SHADOWS_LIGHT,
 };
 
+/* The line a pixel shader's MSL starts its traced part with (nv2a_msl.c), and by which gpu_metal.m's shader_create
+knows a traced shadow's or a traced light's apply shader, to bind its structures. A flag passed beside the source
+would not survive what carries only the text: captures, replays and the shader lists compiled from dumped
+sources; one constant on both sides keeps the generator and the reader from drifting apart. */
+#define TRACED_SHADOWS_SHADER_MARK "#define TRACED_SHADOW 1\n"
+#define TRACED_LIGHT_SHADER_MARK "#define TRACED_LIGHT 1\n"
+
 /* A term texel a shadow darkened is below this (the term is cleared to white, 8 bits a channel): halfway between
 white and one step below it, 1 - 0.5 / 255. The apply draws' bounds (nv2a_psh.c) and the filter (gpu_metal.m's
 traced_hit) both test it, so what the bounds hold is what the filter treats as shadowed. */

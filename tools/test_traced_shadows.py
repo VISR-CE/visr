@@ -530,3 +530,17 @@ def test_traced_lights_are_off_without_traced_shadows():
     readme = (ROOT / "profiles/README.md").read_text()
     row = next(line for line in readme.splitlines() if line.startswith("| `display.traced_lights`"))
     assert "none unless display.traced_shadows is on too" in row
+
+
+def test_traced_shader_marks_are_one_constant():
+    """bug class: the backend recognized a traced shader by a string it repeated from the generator's output, so a
+    change to the generated line would silently stop binding the structures. Both sides use the format header's
+    marks, and neither spells the line itself."""
+    header = (ROOT / "port/linux/src/traced_shadows_format.h").read_text()
+    for mark in ("TRACED_SHADOWS_SHADER_MARK", "TRACED_LIGHT_SHADER_MARK"):
+        assert re.search(rf"#define {mark} \"#define TRACED_\w+ 1\\n\"", header), mark
+        for path in ("port/linux/src/nv2a_msl.c", "port/ios/host/gpu_metal.m"):
+            assert mark in (ROOT / path).read_text(), (mark, path)
+    for path in ("port/linux/src/nv2a_msl.c", "port/ios/host/gpu_metal.m"):
+        text = (ROOT / path).read_text()
+        assert not re.search(r"\"[^\"\n]*#define TRACED_(SHADOW|LIGHT) 1", text), path

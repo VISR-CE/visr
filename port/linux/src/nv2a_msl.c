@@ -340,15 +340,15 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 		xgpu_text_append(text, "struct FragmentOut { float4 color [[color(0)]]; uint sample_mask [[sample_mask]]; };\n");
 	/* an object shadow's apply draw that traces its caster (nv2a_pixel_shader_key traced_shadow): the caster's
 	acceleration structure (buffer 6), the level's (7), the shadow's basis (8, traced_shadows_format.h) and the
-	window's darkened bounds (9), which gpu_metal.m binds to such a draw (traced_draw_bind). The define is how the
-	backend knows the shader */
+	window's darkened bounds (9), which gpu_metal.m binds to such a draw (traced_draw_bind). The mark
+	(TRACED_SHADOWS_SHADER_MARK) is how the backend knows the shader */
 	if (key->traced_shadow)
-		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_SHADOW 1\n");
+		xgpu_text_append(text, "#include <metal_raytracing>\n" TRACED_SHADOWS_SHADER_MARK);
 	/* a dynamic light's draw that traces its light (nv2a_pixel_shader_key light_visibility traced): the frame's casters as one
 	instance structure (buffer 6, with the level's structure as an instance of its own), the level's (7) and the
 	light (8, traced_shadows_format.h), which gpu_metal.m binds (traced_light_bind) */
 	if (key->light_visibility == LIGHT_VISIBILITY_TRACED)
-		xgpu_text_append(text, "#include <metal_raytracing>\n#define TRACED_LIGHT 1\n" TRACED_SHADOWS_LIGHT_MSL);
+		xgpu_text_append(text, "#include <metal_raytracing>\n" TRACED_LIGHT_SHADER_MARK TRACED_SHADOWS_LIGHT_MSL);
 	xgpu_text_append(text, "fragment %s fragment_main(FragmentIn in [[stage_in]], constant Uniforms &u [[buffer(0)]]",
 		writes_depth ? "FragmentWithDepth" : key->alpha_test_samples ? "FragmentOut" : "float4");
 	for (stage = 0; stage < 4; stage++)
