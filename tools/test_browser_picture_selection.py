@@ -32,6 +32,7 @@ typedef int boolean;
 #define _bitmap_format_a8r8g8b8 0
 #define _error_silent 0
 #include <strings.h>
+static void platform_log(char const *format, ...) { (void)format; }
 struct bitmap_data { int width, height; int hardware_format; void *base_address; };
 struct bmp_file_picture { int unused; };
 enum bmp_file_status { _bmp_file_status_ok };

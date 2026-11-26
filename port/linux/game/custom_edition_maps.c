@@ -1077,7 +1077,7 @@ struct bitmap_data *custom_edition_maps_picture(
 	custom map's display index or none, and shows the unknown level's when no picture of ours is found:
 	bitmap_group_get_bitmap_from_sequence wraps a frame past the group's end back to its start, which is Battle
 	Creek's picture beside any other map's name */
-	if (*frame_index <= UNKNOWN_LEVEL_FRAME)
+	if (*frame_index >= 0 && *frame_index <= UNKNOWN_LEVEL_FRAME)
 	{
 		return NULL;
 	}

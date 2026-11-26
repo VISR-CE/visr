@@ -22,7 +22,9 @@ def test_only_stock_frames_keep_the_stock_picture():
     assert body[keep:lookup].count("return NULL;") == 1
     assert "*frame_index = UNKNOWN_LEVEL_FRAME;" in body[lookup:lookup + 80]
     # the tag check precedes it, so other bitmaps' frames are left alone
-    assert body.index("csstrcasecmp(tag_get_name(bitmap_tag_index), LEVEL_PICTURES_TAG_NAME))", body.index("CAMPAIGN_LEVEL_PICTURES_TAG_NAME")) < keep
+    # (`level_pictures` is the level pictures tag or the browser's wide copy of it, nothing else)
+    assert "level_pictures = name && (!csstrcasecmp(name, LEVEL_PICTURES_TAG_NAME) || wide);" in body
+    assert body.index("if (!level_pictures)", body.index("CAMPAIGN_LEVEL_PICTURES_TAG_NAME")) < keep
 
 
 def test_unknown_frame_follows_the_last_stock_picture():
