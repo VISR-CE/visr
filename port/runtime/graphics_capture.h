@@ -33,7 +33,7 @@
 
 /* The renderer_state object of a schema 2 snapshot: what was drawn, as the suite writes it (benchmark_suite.c's
    benchmark_graphics_snapshot_json) and the report validator reads it (host_benchmark.m). Keep one list here;
-   a test runs the validator on the suite's real output. The *_BOOLEAN keys are true/false as drawn. */
+   a test compares the suite's real output with it and runs the validator on that output. The *_BOOLEAN keys are true/false as drawn, and each is named after the display.* setting it reports (the benchmark tools rely on that). */
 #define GRAPHICS_CAPTURE_RENDERER_STATE_BOOLEAN_KEYS(X) \
     X("ambient_occlusion") \
     X("soft_particles") \

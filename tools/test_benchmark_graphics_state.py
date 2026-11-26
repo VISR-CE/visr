@@ -116,13 +116,13 @@ def test_report_validator_accepts_exactly_what_the_suite_emits(tmp_path):
     # set. Once the suite gained ambient_occlusion, soft_particles and traced_shadows the validator rejected every
     # snapshot, so device reports carried no drawn state at all. The key list now lives once in graphics_capture.h;
     # this runs the validator on the real emitter output and fails when the two disagree again.
-    if sys.platform != "darwin" or not shutil.which("xcrun"):
-        pytest.skip("The report validator requires Foundation")
     header = (ROOT / "port/runtime/graphics_capture.h").read_text()
     keys = set(re.findall(r'X\("(\w+)"\)', header[header.index("GRAPHICS_CAPTURE_RENDERER_STATE_BOOLEAN_KEYS(X)"):]))
     emitted = emitted_snapshots(tmp_path)
     for line in emitted:
         assert set(json.loads(line)["renderer_state"]) == keys
+    if sys.platform != "darwin" or not shutil.which("xcrun"):
+        pytest.skip("The report validator requires Foundation")
     report = (ROOT / "port/ios/host/host_benchmark.m").read_text()
     start = report.index("static BOOL graphics_key_allowed(")
     end = report.index("void host_benchmark_graphics(")
