@@ -95,7 +95,7 @@ static void browser_focus(struct widget_instance *w) { (void)w; }
 static void browser_c_focus(struct widget_instance *w) { (void)w; }
 static boolean ui_widget_port_browse(struct widget_instance *w, struct event_record *e, boolean *d) { (void)w; (void)e; (void)d; return 1; }
 
-static void platform_log(char const *format, ...) { (void)format; }
+__attribute__((unused)) static void platform_log(char const *format, ...) { (void)format; }
 static long config_integer(char const *key) { return !strcmp(key,"network.full_rate_players") ? full_rate : capacity; }
 static int config_boolean(char const *key) { (void)key; return 1; }
 static int campaign_fail(void) { failures++; return 0; }
@@ -119,10 +119,9 @@ int p2p_lobby_games(struct p2p_listing *out, int max) { assert(available_count<=
 static short lobby_browser_games_read(struct p2p_listing *games) { return (short)p2p_lobby_games(games, LOBBY_BROWSER_GAMES); }
 static struct advertised_game *lobby_browser_joined_game(void) { return NULL; }
 static int lobby_browser_join(struct p2p_listing const *g, short c) { joined=*g; controller_seen=c; joins++; return 1; }
-void p2p_lobby_refresh(void) { }
-static unsigned long system_milliseconds(void) { return 0; }
+__attribute__((unused)) static unsigned long system_milliseconds(void) { return 0; }
 #define SOUND_FORWARD 0
-static void ui_play_audio_feedback_sound(int s) { (void)s; }
+__attribute__((unused)) static void ui_play_audio_feedback_sound(int s) { (void)s; }
 /* PRODUCTION */
 static void reset(int mode)
 {
@@ -160,6 +159,8 @@ int main(void)
     assert(maximum_players_start(128)==10);
     for (int mode=0; mode<=1; mode++) for (int button=0; button<=1; button++)
     {
+        /* the server browser has no JOIN button widget (layout C: A joins the focused row) */
+        if (button && mode==_multiplayer_mode_server_browser) continue;
         reset(mode); multiplayer.game_count=1; multiplayer.games[0]=&lan;
         struct widget_instance *pick=button ? &join_button : &row;
         assert(browser_select(pick,NULL,2,&deleted));
@@ -230,7 +231,8 @@ int main(void)
     {
         struct widget_instance filters={.name="browser_filters", .row=NONE};
         deleted=0;
-        assert(browser_select(&filters,NULL,0,&deleted) && filter_opens==1 && stops==0 && browser_filters_returning);
+        browser_filters_returning=1; /* the chip's own event sets this, then opens the screen */
+        assert(ui_widget_port_open(&filters,FILTERS_NAME,&deleted) && filter_opens==1 && stops==0 && browser_filters_returning);
         ui_widget_port_go_back(&filters);
         assert(begins==0 && filter_focuses==1 && !browser_filters_returning && joins==0);
         lobby_browser_end();

@@ -1094,18 +1094,6 @@ void p2p_lobby_browse(int on)
 	pthread_mutex_unlock(&p2p_lock);
 }
 
-void p2p_lobby_refresh(void)
-{
-	pthread_mutex_lock(&p2p_lock);
-	if (lobby.browsing)
-	{
-		lobby.query_wanted = 1;
-		p2p_delta_refresh();
-		p2p_master_refresh();
-	}
-	pthread_mutex_unlock(&p2p_lock);
-}
-
 int p2p_lobby_browsing(void)
 {
 	return lobby.browsing;

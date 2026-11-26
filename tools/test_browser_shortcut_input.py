@@ -105,8 +105,8 @@ int main(void) {
 ''')
 
 
-def test_browser_action_widget_routes_refresh_and_internet_create_after_name_truncation() -> None:
-    """The action table must keep both name-based callbacks valid in 31 characters."""
+def test_browser_action_widget_routes_internet_create_after_name_truncation() -> None:
+    """The legacy table's action widget keeps its name-based create callback valid in 31 characters."""
     root = ET.parse(ROOT / "port/assets/menus/xbox/main_menu.multiplayer_type_select.join_game.xml")
     widgets = {widget.get("name"): widget for widget in root.iter("widget")}
     screen = next(widget for name, widget in widgets.items() if name.endswith("/join_game_screen"))
@@ -121,10 +121,6 @@ def test_browser_action_widget_routes_refresh_and_internet_create_after_name_tru
     source = (ROOT / "port/linux/game/menu_functions.c").read_text()
     mode = "".join(function(source, name) for name in ("static short multiplayer_mode_named(",
         "static void multiplayer_mode_apply(", "static void multiplayer_mode_set("))
-    select = function(source, "static boolean lobby_browser_select(")
-    start = select.index('\tif (strstr(widget->name, "button_refresh"))')
-    end = select.index('\n\tif (row == NONE', start)
-    refresh = select[start:end]
     leaf = action.get("name").rsplit("/", 1)[-1]
     compile_and_run(r'''
 #include <stdio.h>
@@ -138,22 +134,26 @@ struct widget_instance { char name[32]; };
 enum { _multiplayer_mode_host_internet = 1, _multiplayer_mode_host_lan,
        _multiplayer_mode_lan, _multiplayer_mode_direct_link, _multiplayer_mode_server_browser };
 static struct { int mode, invite_pending; } multiplayer;
-static struct { int begin_time; } lobby_browser;
-static int refreshes, sound;
-static void p2p_lobby_refresh(void) { refreshes++; }
-static void platform_log(const char *format, ...) { (void)format; }
-static int system_milliseconds(void) { return 1234; }
-static void ui_play_audio_feedback_sound(int value) { sound = value; }
 #define CHECK(condition) do { if (!(condition)) { fprintf(stderr, "browser action line %d: %s\n", __LINE__, #condition); exit(1); } } while (0)
-''' + mode + '\nstatic int refresh_action(struct widget_instance *widget) {\n' + refresh + '\nreturn FALSE;\n}\n' + r'''
+''' + mode + r'''
 int main(void) {
     struct widget_instance widget;
     snprintf(widget.name, sizeof(widget.name), "%.31s", __NAME__);
-    CHECK(refresh_action(&widget));
-    CHECK(refreshes == 1 && lobby_browser.begin_time == 1234 && sound == SOUND_FORWARD);
     multiplayer.invite_pending = TRUE;
     multiplayer_mode_set(&widget);
     CHECK(multiplayer.mode == _multiplayer_mode_host_internet && !multiplayer.invite_pending);
     return 0;
 }
 '''.replace("__NAME__", json.dumps(leaf)))
+
+
+def test_the_server_browsers_handlers_match_no_widget_names_and_have_no_refresh() -> None:
+    """Bug class: an action fired by a substring of a widget's name (the layout-C action container was named
+    `button_refresh_create_inter`, which `strstr(widget->name, "button_refresh")` also matched). The server browser's
+    row handler takes events, never names, and the browser has no REFRESH action (its lists refresh themselves), so
+    the refresh path is gone. Each bar button's own event is asserted in test_xbox_menus."""
+    source = (ROOT / "port/linux/game/menu_functions.c").read_text()
+    select = function(source, "static boolean lobby_browser_select(")
+    assert "widget->name" not in select
+    assert "p2p_lobby_refresh" not in source
+    assert "p2p_lobby_refresh" not in (ROOT / "port/linux/src/p2p.h").read_text()

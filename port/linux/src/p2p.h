@@ -207,9 +207,9 @@ the same again costs little) */
 void p2p_set_game_listing(const char *name, const char *map, const char *gametype, int engine_type, int open,
 	int in_progress, int has_teams);
 /* the server browser: while on, the public games are gathered (asked for
-when turned on, and by p2p_lobby_refresh) */
+when turned on; the lists then refresh themselves: the master's and the Delta list on their own periods, LAN games as
+they are heard) */
 void p2p_lobby_browse(int on);
-void p2p_lobby_refresh(void);
 
 enum
 {

@@ -5664,8 +5664,7 @@ static boolean lobby_browser_join(struct p2p_listing const *game, short controll
 	return TRUE;
 }
 
-/* the server browser's rows and buttons: Refresh asks the hosts again; a
-row (or Join) joins its game's invite, a game with a password once its
+/* the server browser's rows: a row (or the confirm of the big-game dialog) joins its game's invite, a game with a password once its
 screen has it; the A press posted once its host is reached joins its game
 (or shows its lobby, if under way) */
 static boolean lobby_browser_select(struct widget_instance *widget, short controller, short row,
@@ -5700,23 +5699,10 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 			return FALSE;
 		return ui_widget_port_join(widget, found, LOBBY_NAME, widget_deleted);
 	}
-	if (strstr(widget->name, "filters"))
-	{
-		browser_filters_returning = TRUE;
-		if (ui_widget_port_open(widget, FILTERS_NAME, widget_deleted))
-			return TRUE;
-		browser_filters_returning = FALSE;
-		return campaign_fail();
-	}
-	if (strstr(widget->name, "button_refresh"))
-	{
-		platform_log("menus: server browser refresh requested");
-		p2p_lobby_refresh();
-		lobby_browser.begin_time = system_milliseconds();
-		ui_play_audio_feedback_sound(SOUND_FORWARD);
-		return TRUE;
-	}
-	if (row == NONE && !confirmed && !strstr(widget->name, "button_join"))
+	/* (what is left is a row's A or Start, or the big-game dialog's confirm: the browser's buttons have their own
+	events, "port browser filters open", "port browser ip open" and "port browser create", and its lists refresh
+	themselves, so no widget name is matched here) */
+	if (row == NONE && !confirmed)
 		return TRUE;
 	if (browser_join_under_way())
 		return TRUE;
