@@ -3,6 +3,7 @@ reference blend, and the caster cache's decisions. Run by tools/test_traced_shad
 #include <math.h>
 #include <stdio.h>
 
+#include "traced_cover.h"
 #include "traced_shadows.h"
 
 static int failures;
@@ -149,11 +150,60 @@ static void check_cache(void)
 		&released) == TRACED_REFUSED, "a caster past the frame's triangles is refused");
 	CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), pose, sizeof(pose), TRACED_FRAME_TRIANGLES + 1, 1, &slot,
 		&released) == TRACED_REUSE, "but one that needs no work is still reused");
+	/* past the frame's work, a moved caster keeps the structure of its older pose for TRACED_STALE_FRAMES frames */
+	{
+		uint32_t kept_slot;
+		unsigned long built = frame + 2, f;
+
+		traced_cache_frame(&cache, built);
+		moved[2] = 1000.0f;
+		CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), moved, sizeof(moved), 50, 1, &kept_slot,
+			&released) == TRACED_REFIT, "(a caster updated within the frame's triangles)");
+		for (f = built + 1; f <= built + TRACED_STALE_FRAMES; f++)
+		{
+			traced_cache_frame(&cache, f);
+			moved[2] = (float)f + 1000.0f;
+			CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), moved, sizeof(moved), TRACED_FRAME_TRIANGLES + 1,
+				1, &slot, &released) == TRACED_REUSE && slot == kept_slot,
+				"a moved caster past the frame's triangles keeps its older structure, up to TRACED_STALE_FRAMES frames");
+		}
+		traced_cache_frame(&cache, f);
+		moved[2] = (float)f + 1000.0f;
+		CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), moved, sizeof(moved), TRACED_FRAME_TRIANGLES + 1, 1,
+			&slot, &released) == TRACED_REFUSED, "then has no shadow until the frame has room");
+		frame = f;
+	}
 	/* a new map: nothing of the last one is found */
 	traced_cache_reset(&cache);
 	traced_cache_frame(&cache, frame + 2);
 	CHECK(traced_cache_decide(&cache, 7, shape_a, sizeof(shape_a), pose, sizeof(pose), 100, 1, &slot, &released) ==
 		TRACED_BUILD && !released, "after a reset every caster is built");
+	traced_cache_reset(&cache);
+}
+
+/* the class: a decision that was not carried out is forgotten (a build dropped before its commit once left the slot
+looking built, and the next frame reused a structure that had never been built) */
+static void check_forget(void)
+{
+	static struct traced_caster_cache cache;
+	uint32_t shape[3] = { 1, 1, 0 }, slot, again;
+	float pose[TRACED_SHADOWS_NODE_FLOATS] = { 0 }, moved[TRACED_SHADOWS_NODE_FLOATS] = { 1.0f };
+	int released;
+
+	traced_cache_frame(&cache, 1);
+	CHECK(traced_cache_decide(&cache, 3, shape, sizeof(shape), pose, sizeof(pose), 10, 1, &slot, &released) ==
+		TRACED_BUILD, "a new caster is built");
+	traced_cache_forget(&cache, slot);
+	traced_cache_frame(&cache, 2);
+	CHECK(traced_cache_decide(&cache, 3, shape, sizeof(shape), pose, sizeof(pose), 10, 1, &again, &released) ==
+		TRACED_BUILD, "a forgotten build is built again, not reused");
+	traced_cache_frame(&cache, 3);
+	CHECK(traced_cache_decide(&cache, 3, shape, sizeof(shape), moved, sizeof(moved), 10, 1, &slot, &released) ==
+		TRACED_REFIT, "a built caster that moved is refitted");
+	traced_cache_forget(&cache, slot);
+	traced_cache_frame(&cache, 4);
+	CHECK(traced_cache_decide(&cache, 3, shape, sizeof(shape), moved, sizeof(moved), 10, 1, &slot, &released) ==
+		TRACED_BUILD, "a forgotten refit is built from nothing, not refitted or reused");
 	traced_cache_reset(&cache);
 }
 
@@ -260,11 +310,48 @@ static void check_update_budget(void)
 	traced_cache_reset(&cache);
 }
 
+/* a box's eight view-space corners, x in [x0, x1], y in [y0, y1], z in [z0, z1] (corner bits 0, 1, 2 pick the far
+side) */
+static void cover_box(float views[8][3], float x0, float x1, float y0, float y1, float z0, float z1)
+{
+	int corner;
+
+	for (corner = 0; corner < 8; corner++)
+	{
+		views[corner][0] = corner & 1 ? x1 : x0;
+		views[corner][1] = corner & 2 ? y1 : y0;
+		views[corner][2] = corner & 4 ? z1 : z0;
+	}
+}
+
+/* what a shadow's volume covers on screen (traced_cover.h). The class: a volume reaching behind the near plane,
+whose behind corners either project mirrored or stand in for the whole window. */
+static void check_cover(void)
+{
+	const struct traced_cover_projection projection = { 1.0f, 0.0f, 1.0f, 0.0f, 0.1f };
+	float views[8][3], bounds[4];
+
+	cover_box(views, -1.0f, 1.0f, -1.0f, 1.0f, -12.0f, -8.0f);
+	CHECK(traced_cover_box(&projection, (const float (*)[3])views, bounds), "a volume in front covers something");
+	CHECK(fabsf(bounds[0] + 0.125f) < 1e-6f && fabsf(bounds[1] + 0.125f) < 1e-6f &&
+		fabsf(bounds[2] - 0.125f) < 1e-6f && fabsf(bounds[3] - 0.125f) < 1e-6f,
+		"a volume in front covers its corners' projection");
+	cover_box(views, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 3.0f);
+	CHECK(!traced_cover_box(&projection, (const float (*)[3])views, bounds), "a volume wholly behind covers nothing");
+	/* beside the camera and reaching behind it: only the right of the window, out past its edge */
+	cover_box(views, 2.0f, 4.0f, -1.0f, 1.0f, -5.0f, 5.0f);
+	CHECK(traced_cover_box(&projection, (const float (*)[3])views, bounds), "a volume reaching behind covers something");
+	CHECK(bounds[0] > 0.0f, "a volume beside the camera covers only its side, not the whole window");
+	CHECK(bounds[2] >= 1.0f, "a volume reaching behind the camera covers out to the window's edge");
+}
+
 int main(void)
 {
 	check_skinning();
 	check_records();
 	check_cache();
+	check_forget();
+	check_cover();
 	check_idle();
 	check_sweep();
 	check_update_budget();

@@ -89,16 +89,17 @@ these spans (the HUD, the flash, menus, bars, loading screens, movies) is
 drawn at the display's size when the scene's is smaller */
 void halo_render_scene_begin(short rasterizer_target, long x0, long y0, long x1, long y1);
 void halo_render_scene_end(void);
-/* debug.ssao (spike, port/linux/src/d3d8_device.c): the level's lightmap pass marks its pixels in stencil (0x10)
-when halo_ssao_lightmaps_mark(TRUE) says so (rasterizer_xbox_environment.c), and after it the view's ambient
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark the level's pixels in stencil
+(HALO_STENCIL_LEVEL, halo_level_stencil.h) for a feature that reads them this view: ambient occlusion, soft
+particle edges, traced shadows (port/linux/src/d3d8_device.c asks each, and each remembers its answer) */
+#include "halo_level_stencil.h"
+int halo_level_pixels_mark(int begin);
+/* debug.ssao (spike, port/linux/src/d3d8_device.c): after the level's marked lightmap pass the view's ambient
 occlusion runs (render_window), with the window's depth range and its projection's scale and offset */
-int halo_ssao_lightmaps_mark(int begin);
 void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_far, float p00, float p11, float p20,
 	float p21, float p22, float p32);
-/* display.traced_shadows (port/linux/src/d3d8_device.c, port/linux/game/traced_shadow_casters.c): the lightmap pass
-marks the level's pixels as it does for ambient occlusion when halo_traced_shadows_lightmaps_mark(TRUE) says so,
-and a map's load forgets the last map's model parts */
-int halo_traced_shadows_lightmaps_mark(int begin);
+/* display.traced_shadows (port/linux/src/d3d8_device.c, port/linux/game/traced_shadow_casters.c): a map's load
+forgets the last map's model parts */
 void traced_shadow_casters_new_map(void);
 /* a map has loaded and its first frame is next (main_new_map): the shaders
 and pipelines its list names are compiled now, under the loading screen
@@ -140,9 +141,6 @@ becomes their transparent group's HALO_GEOMETRY_SOFT_BIT; sprites lying in
 a plane (a splash on the ground) are not faded, which would erase them */
 #define HALO_BUILD_SPRITES_SOFT_BIT 15
 #define HALO_GEOMETRY_SOFT_BIT 24
-/* the lightmap pass begins (begin) or ends: TRUE when it should mark the
-level's pixels in stencil (0x10), which the particles fade against */
-int halo_soft_particles_lightmaps_mark(int begin);
 unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32);
 void halo_soft_particles_mode(int mode);
 void halo_soft_particles_finish(void);

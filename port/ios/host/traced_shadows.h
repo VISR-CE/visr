@@ -22,6 +22,9 @@ came to more than TRACED_FRAME_UPDATE_TRIANGLES, each is refitted every period-t
 budget, rounded up, at most TRACED_STALE_FRAMES + 1), in a phase set by its slot, and keeps its last structure (a
 shadow a frame or two behind its pose) in between; new casters are always built. A 64-player match moved about
 140,000 triangles of casters a frame, all refitted every frame before this.
+Past TRACED_FRAME_TRIANGLES of work in a frame, casters are taken in the order the game sends them (not by distance):
+a later one with a structure of an older pose keeps it, for up to TRACED_STALE_FRAMES frames, as a deferred refit
+does; one without a structure has no shadow that frame.
 */
 
 #ifndef __HALO_TRACED_SHADOWS_H
@@ -38,16 +41,24 @@ enum
 {
 	TRACED_CASTER_SLOTS = 1024, /* a power of two */
 	TRACED_CASTER_PROBES = 32,
+	/* refits of one structure before it is built again: each refit keeps the build's boxes and only widens them, so
+	a structure refitted every frame gets slower to trace; 120 is two seconds of refits at 60 Hz */
 	TRACED_REFIT_LIMIT = 120,
+	/* such rebuilds a frame, so casters that reach the limit together (a squad placed at once) do not all build in
+	the same frame */
 	TRACED_REBUILDS_A_FRAME = 4,
 	TRACED_IDLE_FRAMES = 60,
 	/* slots a frame's sweep looks at for idle casters to release (the whole table in about half a second) */
 	TRACED_SWEEP_SLOTS = 32,
-	/* triangles of every caster built or updated in a frame; a caster past it has no shadow that frame */
+	/* triangles of every caster built or updated in a frame; a caster past it keeps a structure of an older pose
+	(TRACED_STALE_FRAMES at most) or has no shadow that frame */
 	TRACED_FRAME_TRIANGLES = 200000,
-	/* the refit budget a frame: moved casters past it are refitted every few frames instead of every frame */
+	/* the refit budget a frame: moved casters past it are refitted every few frames instead of every frame. A
+	64-player match moved about 140,000 triangles of casters a frame; at 48,000 that is a period of 3, inside
+	TRACED_STALE_FRAMES + 1, and that match then updated about 45,000 a frame */
 	TRACED_FRAME_UPDATE_TRIANGLES = 48000,
-	/* frames in a row a moved caster may keep a structure of an older pose */
+	/* frames in a row a moved caster may keep a structure of an older pose: a shadow at most 50 ms behind its
+	caster at 60 Hz */
 	TRACED_STALE_FRAMES = 3,
 };
 
@@ -213,6 +224,14 @@ static inline void traced_cache_reset(struct traced_caster_cache *cache)
 	cache->rebuilds = cache->frame_triangles = cache->sweep = 0;
 }
 
+/* A decision that was not carried out (a build or refit dropped before its commit, an allocation that failed): the
+slot is forgotten as the sweep forgets one, so the caster's next decision builds its structure from nothing instead of
+reusing or refitting one that was never built. The caller releases the slot's structure. */
+static inline void traced_cache_forget(struct traced_caster_cache *cache, uint32_t slot_index)
+{
+	traced_slot_clear(&cache->slots[slot_index & (TRACED_CASTER_SLOTS - 1)]);
+}
+
 /* A frame's share of the sweep that releases casters nothing has asked for in TRACED_IDLE_FRAMES frames (a player who
 left the view, a body that faded, a level of detail no longer drawn), so the structures' memory follows what is on
 screen and not everything that ever was: call until it answers 0; each 1 names a slot (*slot_index) that is now
@@ -263,6 +282,24 @@ static inline int traced_slot_copy(struct traced_caster_slot *slot, const uint32
 	return 1;
 }
 
+/* a caster whose slot holds a structure built in an earlier frame (not this one: a structure is never updated twice
+before its draws) */
+static inline int traced_cache_has_older(const struct traced_caster_cache *cache, const struct traced_caster_slot *found)
+{
+	return found && found->updated && found->updated != cache->frame;
+}
+
+/* the caster keeps that older structure this frame instead of being updated, counted as deferred; the caller has
+checked that the structure is not too old for the reason it defers */
+static inline enum traced_decision traced_cache_keep_older(struct traced_caster_cache *cache,
+	struct traced_caster_slot *found, uint32_t *slot_index)
+{
+	found->frame = cache->frame;
+	cache->deferred++;
+	*slot_index = (uint32_t)(found - cache->slots);
+	return TRACED_REUSE;
+}
+
 /* What to do with a caster this frame, and the slot whose structure it is (*slot_index; *released is 1 when the
 slot held another caster's structure, which the caller releases before building). triangles is the caster's own
 count, refit_allowed the debug switch. A caster already updated this frame in another pose (which the game does not
@@ -304,24 +341,22 @@ static inline enum traced_decision traced_cache_decide(struct traced_caster_cach
 	}
 	if (cache->frame_triangles + triangles > TRACED_FRAME_TRIANGLES)
 	{
+		/* (past the frame's work: a caster with a structure of an older pose keeps it, as a deferred refit does) */
+		if (traced_cache_has_older(cache, found) && cache->frame - found->updated <= TRACED_STALE_FRAMES)
+			return traced_cache_keep_older(cache, found, slot_index);
 		cache->refused++;
 		return TRACED_REFUSED;
 	}
 	/* too many moved casters last frame: this one is refitted in its phase of the period, and keeps its structure
 	otherwise (never one older than the period) */
-	if (found && found->updated && found->updated != cache->frame)
+	if (traced_cache_has_older(cache, found))
 	{
 		uint32_t index = (uint32_t)(found - cache->slots);
 
 		cache->moved_triangles += triangles;
 		if (cache->period > 1 && (cache->frame + index) % cache->period != 0 &&
 			cache->frame - found->updated < cache->period)
-		{
-			found->frame = cache->frame;
-			cache->deferred++;
-			*slot_index = index;
-			return TRACED_REUSE;
-		}
+			return traced_cache_keep_older(cache, found, slot_index);
 	}
 	if (found)
 	{

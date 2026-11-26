@@ -139,3 +139,19 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
+
+def test_literal_text_is_not_code():
+    """The class: a header that embeds source text in string literals (traced_resolve.h's shader) has its
+    semicolons and parentheses read as code, and words inside the literal reported as host functions."""
+    header = textwrap.dedent('''\
+        static const char *const shader =
+            "struct rect { uint x; };\\n"
+            "/* what the filter covers, in the target's texels (the kernel writes it); h is half */\\n"
+            "kernel void blur(uint2 gid) { if (gid.x > 2) return; }\\n";
+        static const char quote = ';';
+        void host_real_function(int value);
+        ''')
+    names = [found[0] for _, statement in host_stubs.statements(header)
+             if (found := host_stubs.declaration(statement))]
+    assert names == ['host_real_function']

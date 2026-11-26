@@ -246,6 +246,15 @@ draws trace them. traced_shadow_id is the shadow being generated or applied, TRA
 #include "traced_shadow_casters.h"
 static unsigned long traced_shadow_id = TRACED_SHADOW_NONE;
 
+/* port: display.traced_shadows: a shadow generated traced has no map tile, so only a window that traces may apply
+it again; one drawn into its map may be applied by any window. A window that cannot apply a shadow generated this
+frame generates its own (two windows of one frame can be on different paths: one traces, the next has no term) */
+static boolean deferred_shadow_usable_here(
+	struct deferred_shadow const *entry)
+{
+	return entry->traced_id == TRACED_SHADOW_NONE || traced_shadow_casters_window_traces();
+}
+
 /* port: the footprint blur, for shadow maps larger than the game's 128 texels (display.shadow_map_size;
 halo_shadow_blur_footprint, d3d8_device.c). The game's blur takes four taps half a 128-texel map's texel apart
 diagonally, in texture coordinates, so at 512 texels they fall 4 texels apart on a sharper silhouette and each
@@ -344,7 +353,8 @@ boolean _rasterizer_environment_shadow_begin(
 			struct deferred_shadow *entry = &deferred_shadows[index];
 
 			if (entry->object_index == object_index && entry->radius == object_bounding_radius &&
-				!csmemcmp(&entry->matrix, shadow_matrix, sizeof(entry->matrix)))
+				!csmemcmp(&entry->matrix, shadow_matrix, sizeof(entry->matrix)) &&
+				deferred_shadow_usable_here(entry)) /* port */
 			{
 				break;
 			}
@@ -1113,12 +1123,21 @@ void rasterizer_environment_shadow_generate_end(
 }
 
 /* the window's shadows are generated: back to the picture, once */
-/* port: whether the window's new shadows were traced (all or none: a window traces or it does not) */
+/* port: whether every one of the window's new shadows was traced, so none of them needs its map blurred (a window
+that traces still draws a shadow into its map when it is past the traced shadows' limit) */
 static boolean deferred_shadows_traced(
 	void)
 {
-	return deferred_shadow_count > deferred_shadow_window_first &&
-		deferred_shadows[deferred_shadow_window_first].traced_id != TRACED_SHADOW_NONE;
+	short index;
+
+	if (deferred_shadow_count <= deferred_shadow_window_first)
+		return FALSE;
+	for (index = deferred_shadow_window_first; index < deferred_shadow_count; index++)
+	{
+		if (deferred_shadows[index].traced_id == TRACED_SHADOW_NONE)
+			return FALSE;
+	}
+	return TRUE;
 }
 
 void rasterizer_environment_shadows_defer_end(

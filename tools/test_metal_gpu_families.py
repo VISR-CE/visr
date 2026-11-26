@@ -147,10 +147,71 @@ def test_scan_finds_the_known_simd_shaders():
         shaders = "".join(body for _, _, body in kernels(shader_text(source)))
         needed = max(f for f, pattern in SIMD_FAMILIES if re.search(pattern, shaders))
         assert needed == family, (name, needed)
-        # (the gate that covers them is among the file's gates; a file may also ask for a higher one, as gpu_metal.m's
-        # traced shadows ask for TRACED_SHADOWS)
-        gates = {floors[gate] for gate in re.findall(r"\bmetal_pass\(\s*METAL_PASS_(\w+)\s*\)", source)}
-        assert family in gates, (name, sorted(gates))
+
+
+# Every shader that calls a SIMD-group function, by file and function (a generated shader by the C function that writes
+# it), and the gate pass whose floor covers it: the pipeline is made only when metal_pass() of that gate passes. A new
+# use fails until it is listed here with its gate.
+SIMD_USES = {
+    ("port/ios/host/gpu_metal.m", "ssao_gather"): "AMBIENT_OCCLUSION",
+    ("port/ios/host/host_stereo.m", "hud_depth_reduce"): "STEREO_HUD_DEPTH",
+    # (the apply draws' darkened bounds, which nv2a_psh.c writes only for a traced_shadow key; the key is set only for
+    # a frame traced_shadows_supported allows)
+    ("port/linux/src/traced_shadows_format.h", "TRACED_SHADOWS_BOUNDS_RECORD_MSL"): "TRACED_SHADOWS",
+}
+SIMD_SOURCES = SOURCES + sorted((ROOT / "port/linux/src").glob("*.[ch]"))
+
+
+def simd_uses():
+    """{(file, shader function): highest family needed} for every SIMD-group call in a shader string: the function is
+    the nearest `kernel`/`fragment`/`vertex` declaration above it in the strings, else the macro or C function writing
+    it."""
+    pattern = "|".join(p for _, p in SIMD_FAMILIES)
+    uses = {}
+    for path in SIMD_SOURCES:
+        lines = without_comments(path.read_text(errors="replace")).splitlines()
+        for index, line in enumerate(lines):
+            if '"' not in line or not re.search(pattern, line.split('"', 1)[1]):
+                continue
+            name = None
+            for back in range(index, -1, -1):
+                above = lines[back]
+                shader = re.search(r"\b(?:kernel|fragment|vertex)\s+[\w<>:]+\s+(\w+)\s*\(", above)
+                if shader and '"' in above:
+                    name = shader.group(1)
+                    break
+                macro = re.match(r"^#define\s+(\w+)", above)
+                if macro:
+                    name = macro.group(1)
+                    break
+                function = re.match(r"^(?:static\s+)?[\w\s\*]+?\b(\w+)\s*\(", above)
+                if function and not above.startswith((" ", "\t", "#", '"')):
+                    name = function.group(1) + "()"
+                    break
+            family = max(f for f, p in SIMD_FAMILIES if re.search(p, line))
+            key = (str(path.relative_to(ROOT)), name)
+            uses[key] = max(uses.get(key, 0), family)
+    return uses
+
+
+def test_each_simd_shader_is_under_a_gate_that_covers_it():
+    """bug class: the check only asked that some gate in a SIMD file covered the family, so a SIMD shader made
+    outside its gate (or a new one in a file with another high gate) passed. Each use names its gate here."""
+    floors = gate_pass_floors()
+    asked = "".join(path.read_text(errors="replace") for path in SOURCES)
+    uses = simd_uses()
+    assert ("port/ios/host/gpu_metal.m", "ssao_gather") in uses, "the scan no longer finds the known uses"
+    problems = []
+    for key, family in sorted(uses.items()):
+        gate = SIMD_USES.get(key)
+        if gate is None:
+            problems.append(f"{key}: a SIMD-group function (Apple{family}) with no gate listed in SIMD_USES")
+        elif floors[gate] < family:
+            problems.append(f"{key}: needs Apple{family}, its gate {gate} starts at Apple{floors[gate]}")
+        elif not re.search(rf"\bmetal_pass\(\s*METAL_PASS_{gate}\s*\)", asked):
+            problems.append(f"{key}: its gate {gate} is never asked (metal_pass)")
+    stale = sorted(set(SIMD_USES) - set(uses))
+    assert not problems and not stale, "\n".join(problems + [f"{key}: listed but no longer found" for key in stale])
 
 
 if __name__ == "__main__":
@@ -159,4 +220,5 @@ if __name__ == "__main__":
     test_grid_kernels_return_outside_their_size()
     test_simd_group_functions_check_the_gpu_family()
     test_scan_finds_the_known_simd_shaders()
+    test_each_simd_shader_is_under_a_gate_that_covers_it()
     print("metal gpu families: ok")

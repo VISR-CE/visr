@@ -21,7 +21,8 @@ map can never name the last map's part.
 
 enum
 {
-	/* id: the new epoch. No bytes. Every part and structure is dropped */
+	/* id: the new epoch, or TRACED_SHADOWS_NO_EPOCH when tracing stops. No bytes. Everything the backend made for
+	tracing is given back, even after a failure */
 	TRACED_SHADOWS_RESET = 1,
 	/* id: the part's. Bytes: traced_shadows_part, its vertices, its triangles */
 	TRACED_SHADOWS_PART,
@@ -36,6 +37,46 @@ enum
 	/* id: unused. Bytes: struct traced_shadows_light, the light the next traced light draws come from */
 	TRACED_SHADOWS_LIGHT,
 };
+
+/* The line a pixel shader's MSL starts its traced part with (nv2a_msl.c), and by which gpu_metal.m's shader_create
+knows a traced shadow's or a traced light's apply shader, to bind its structures. A flag passed beside the source
+would not survive what carries only the text: captures, replays and the shader lists compiled from dumped
+sources; one constant on both sides keeps the generator and the reader from drifting apart. The values are frozen:
+old captures and shader lists carry them, so a changed mark would stop binding the structures when they replay. */
+#define TRACED_SHADOWS_SHADER_MARK "#define TRACED_SHADOW 1\n"
+#define TRACED_LIGHT_SHADER_MARK "#define TRACED_LIGHT 1\n"
+
+/* A term texel a shadow darkened is below this (the term is cleared to white, 8 bits a channel): halfway between
+white and one step below it, 1 - 0.5 / 255. The apply draws' bounds (nv2a_psh.c) and the filter (gpu_metal.m's
+traced_hit) both test it, so what the bounds hold is what the filter treats as shadowed. */
+#define TRACED_SHADOWS_DARKENED_BELOW_MSL "0.998"
+
+/* What a traced shadow's apply draw adds to the window's darkened bounds (traced_bounds: left, top, right, bottom,
+the last two past the edge), which the resolve's filter and composite are dispatched over (gpu_metal.m's
+traced_bounds kernel): one atomic a SIMD group, not one a pixel. It reads result (the term the draw writes),
+traced_position (the fragment's position) and traced_bounds (buffer 9). Helper lanes (the quad's neighbors run only
+for derivatives) are left out before the reduction and the election: Metal discards a helper lane's atomics, and
+simd_is_first() may elect one, which dropped whole SIMD groups' pixels from the bounds. nv2a_psh.c writes it into
+the apply shader; traced_resolve_probe.m draws through it and compares with every pixel's own position. */
+#define TRACED_SHADOWS_BOUNDS_RECORD_MSL \
+	"\tif (!simd_is_helper_thread())\n" \
+	"\t{\n" \
+	"\t\tbool darkened = min(result.r, min(result.g, result.b)) < " TRACED_SHADOWS_DARKENED_BELOW_MSL ";\n" \
+	"\t\tuint2 q = uint2(traced_position.xy);\n" \
+	"\t\tuint left = simd_min(darkened ? q.x : 0xffffffffu), top = simd_min(darkened ? q.y : 0xffffffffu);\n" \
+	"\t\tuint right = simd_max(darkened ? q.x + 1u : 0u), bottom = simd_max(darkened ? q.y + 1u : 0u);\n" \
+	"\t\tif (simd_is_first() && right > left)\n" \
+	"\t\t{\n" \
+	"\t\t\tatomic_fetch_min_explicit(&traced_bounds[0], left, memory_order_relaxed);\n" \
+	"\t\t\tatomic_fetch_min_explicit(&traced_bounds[1], top, memory_order_relaxed);\n" \
+	"\t\t\tatomic_fetch_max_explicit(&traced_bounds[2], right, memory_order_relaxed);\n" \
+	"\t\t\tatomic_fetch_max_explicit(&traced_bounds[3], bottom, memory_order_relaxed);\n" \
+	"\t\t}\n" \
+	"\t}\n"
+
+/* the epoch no game record has (the game's count from 1): what the backend holds between tracing stopping and the
+game's next reset */
+#define TRACED_SHADOWS_NO_EPOCH 0xffffffffu
 
 enum
 {

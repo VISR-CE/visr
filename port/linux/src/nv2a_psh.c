@@ -983,9 +983,10 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			xgpu_text_append(&text, "\tif (!(floor(clamp(result.a, 0.0, 1.0) * 255.0 + 0.5) %s alpha_reference)) discard;\n", comparison);
 		}
 	}
-	/* (a traced shadow's alpha, after the game's alpha test read the shader's own) */
+	/* (a traced shadow's alpha, after the game's alpha test read the shader's own.) The pixels the draw darkens widen
+	the window's bounds (TRACED_SHADOWS_BOUNDS_RECORD_MSL) */
 	if (dialect->msl && key->traced_shadow)
-		xgpu_text_append(&text, "\tresult.a = traced_radius;\n");
+		xgpu_text_append(&text, "\tresult.a = traced_radius;\n" TRACED_SHADOWS_BOUNDS_RECORD_MSL);
 	if (dialect->debug_expression && *dialect->debug_expression)
 		xgpu_text_append(&text, "\tresult = vec4(vec3(%s), 1.0);\n", dialect->debug_expression);
 	if (dialect->debug_texture0)

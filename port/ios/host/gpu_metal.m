@@ -268,6 +268,8 @@ static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, 
 #include "host_config.h"
 #include "crt_shader.h"
 #include "../../linux/src/port_graphics_modes.h"
+#include "../../linux/include/halo_level_stencil.h"
+#include "../../linux/src/traced_shadows_format.h"
 #include <sys/stat.h>
 #include "host_frame_pacer.h"
 /* the pacer's rules and helpers are plain C, usable on every platform (host_frame_pacer.h turns the pacer itself off
@@ -1439,7 +1441,23 @@ static BOOL stencil_view_flag(void)
 	return flag != 0;
 }
 
-/* the level's stencil mark (halo_ssao_lightmaps_mark, halo_soft_particles_lightmaps_mark) as one X32_Stencil8 view of
+/* a depth-stencil state from state (its depth settings) that passes where the stencil, read through read_mask, equals
+HALO_STENCIL_LEVEL (halo_level_stencil.h); draw with that as the reference. Writes no stencil */
+static id<MTLDepthStencilState> level_stencil_state(id<MTLDevice> device, MTLDepthStencilDescriptor *state,
+	uint32_t read_mask)
+{
+	MTLStencilDescriptor *stencil = [MTLStencilDescriptor new];
+
+	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
+	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
+		MTLStencilOperationKeep;
+	stencil.writeMask = 0;
+	stencil.readMask = read_mask;
+	state.frontFaceStencil = state.backFaceStencil = stencil;
+	return [device newDepthStencilStateWithDescriptor:state];
+}
+
+/* the level's stencil mark (HALO_STENCIL_LEVEL, halo_level_pixels_mark) as one X32_Stencil8 view of
 the depth target, which SSAO and soft particle edges share, kept until the target changes; nil when the target cannot
 give one */
 static id<MTLTexture> level_stencil_view(id<MTLTexture> depth)
@@ -2470,8 +2488,8 @@ static gpu_shader gpu_metal_shader_create(uint32_t stage, const char *source)
 
 		record->compiled = dispatch_group_create();
 		record->reads_constants = stage != GPU_SHADER_VERTEX && strstr(source, "constant float4 *c [[buffer(4)]]") != NULL;
-		record->traced_shadow = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_SHADOW 1") != NULL;
-		record->traced_light = stage == GPU_SHADER_PIXEL && strstr(source, "#define TRACED_LIGHT 1") != NULL;
+		record->traced_shadow = stage == GPU_SHADER_PIXEL && strstr(source, TRACED_SHADOWS_SHADER_MARK) != NULL;
+		record->traced_light = stage == GPU_SHADER_PIXEL && strstr(source, TRACED_LIGHT_SHADER_MARK) != NULL;
 		/* (each on a worker thread, compiled synchronously there: not with
 		newLibraryWithSource's completion handler, which runs on Metal's
 		compiler queue, where shader_finish's newFunctionWithName waits on
@@ -5218,6 +5236,7 @@ buffer 6, the level's at 7 and the basis at 8, and is dropped when its shadow ha
 the traced term, a target of the front end's, which traced_shadows_resolve then multiplies into the scene.
 Everything is encoded in the frame's own command buffer and nothing waits for the GPU. */
 #include "traced_shadows.h"
+#include "traced_resolve.h"
 
 enum
 {
@@ -5225,153 +5244,6 @@ enum
 	TRACED_PENDING = TRACED_SHADOWS_SHADOWS,
 };
 
-static NSString *const traced_source =
-	@"#include <metal_stdlib>\n"
-	"using namespace metal;\n"
-	"\n"
-	"struct traced_vertex_out\n"
-	"{\n"
-	"\tfloat4 position [[position]];\n"
-	"};\n"
-	"\n"
-	"vertex traced_vertex_out traced_vertex(uint id [[vertex_id]])\n"
-	"{\n"
-	"\ttraced_vertex_out out;\n"
-	"\tfloat2 uv = float2((id << 1) & 2, id & 2);\n"
-	"\tout.position = float4(uv * 2.0 - 1.0, 0.0, 1.0);\n"
-	"\treturn out;\n"
-	"}\n"
-	"\n"
-	"/* the window's rectangle, and what to show: 0 the term's color (the product of the shadows' darkening), 1 the\n"
-	"term's color alone, 2 the penumbra radius alone (both for looking at the term) */\n"
-	"struct traced_composite_parameters\n"
-	"{\n"
-	"\tuint ox, oy, w, h;\n"
-	"\tuint view;\n"
-	"\tuint sx, sy; /* where the term texture's first texel is (the filter's output holds the covered rectangle alone) */\n"
-	"\tuint pad;\n"
-	"};\n"
-	"\n"
-	"fragment float4 traced_composite(traced_vertex_out in [[stage_in]], texture2d<float, access::read> term [[texture(0)]],\n"
-	"\tconstant traced_composite_parameters &c [[buffer(0)]])\n"
-	"{\n"
-	"\tuint2 q = clamp(uint2(in.position.xy), uint2(c.ox, c.oy), uint2(c.ox + c.w - 1, c.oy + c.h - 1));\n"
-	"\tfloat4 t = term.read(q - uint2(c.sx, c.sy));\n"
-	"\tif (c.view == 2)\n"
-	"\t\treturn float4(t.a, t.a, t.a, 1.0);\n"
-	"\treturn float4(t.rgb, 1.0);\n"
-	"}\n"
-	"\n"
-	"/* The filter (debug.traced_shadows_filter): the term's hard edges become penumbrae as wide as the radius in its\n"
-	"alpha. c is the covered rectangle (inside the window w), which the work textures hold alone; h is its half\n"
-	"resolution; radius the largest penumbra in pixels (alpha 1); axis the direction of a separable step; s where the\n"
-	"blur's source has its first texel */\n"
-	"struct traced_filter_parameters\n"
-	"{\n"
-	"\tuint cx, cy, cw, ch;\n"
-	"\tuint hw, hh;\n"
-	"\tint ax, ay;\n"
-	"\tuint sx, sy;\n"
-	"\tfloat radius;\n"
-	"\tuint pad;\n"
-	"};\n"
-	"\n"
-	"/* a shadow's apply draw darkened this pixel (the term is cleared to white) */\n"
-	"static bool traced_hit(float4 t)\n"
-	"{\n"
-	"\treturn min(t.r, min(t.g, t.b)) < 0.998;\n"
-	"}\n"
-	"\n"
-	"/* half resolution: the smallest radius, in pixels, among each 2x2 block's shadowed pixels; 0 with none */\n"
-	"kernel void traced_radius_down(texture2d<float, access::read> term [[texture(0)]],\n"
-	"\ttexture2d<float, access::write> half_out [[texture(1)]],\n"
-	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
-	"{\n"
-	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
-	"\t\treturn;\n"
-	"\tfloat r = 0.0;\n"
-	"\tfor (uint i = 0; i < 4; ++i)\n"
-	"\t{\n"
-	"\t\tuint2 q = min(gid * 2 + uint2(i & 1, i >> 1), uint2(p.cw - 1, p.ch - 1)) + uint2(p.cx, p.cy);\n"
-	"\t\tfloat4 t = term.read(q);\n"
-	"\t\tif (traced_hit(t))\n"
-	"\t\t{\n"
-	"\t\t\tfloat e = max(t.a * p.radius, 1.0);\n"
-	"\t\t\tr = r > 0.0 ? min(r, e) : e;\n"
-	"\t\t}\n"
-	"\t}\n"
-	"\thalf_out.write(float4(r), gid);\n"
-	"}\n"
-	"\n"
-	"/* one direction of the blocker search: the widest radius among the texels along the axis whose penumbra reaches\n"
-	"this one (a shadowed texel reaches as far as its own radius), so a pixel next to a shadow knows how wide to blur */\n"
-	"kernel void traced_radius_reach(texture2d<float, access::read> half_in [[texture(0)]],\n"
-	"\ttexture2d<float, access::write> half_out [[texture(1)]],\n"
-	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
-	"{\n"
-	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
-	"\t\treturn;\n"
-	"\tint n = int(ceil(p.radius * 0.5));\n"
-	"\tfloat best = 0.0;\n"
-	"\tfor (int k = -n; k <= n; ++k)\n"
-	"\t{\n"
-	"\t\tint2 c = int2(gid) + int2(p.ax, p.ay) * k;\n"
-	"\t\tif (c.x < 0 || c.y < 0 || c.x >= int(p.hw) || c.y >= int(p.hh))\n"
-	"\t\t\tcontinue;\n"
-	"\t\tfloat r = half_in.read(uint2(c)).r;\n"
-	"\t\tif (r > 0.0 && float(abs(k)) * 2.0 <= r)\n"
-	"\t\t\tbest = max(best, r);\n"
-	"\t}\n"
-	"\thalf_out.write(float4(best), gid);\n"
-	"}\n"
-	"\n"
-	"/* one direction of the blur: a tent as wide as the pixel's radius (its own where it is shadowed, the searched one\n"
-	"beside a shadow), every texel up to 16 a side and every second one past that. A tap counts only where the depth is\n"
-	"what the center's depth and its slope along the axis predict (stored depth is linear across the screen on a flat\n"
-	"surface), so an object in front of the ground neither lightens the shadow behind it nor takes its penumbra. The\n"
-	"alpha written is the radius used, as the term's is */\n"
-	"kernel void traced_blur(texture2d<float, access::read> term [[texture(0)]],\n"
-	"\ttexture2d<float, access::read> source [[texture(1)]],\n"
-	"\ttexture2d<float, access::read> reach [[texture(2)]],\n"
-	"\tdepth2d<float, access::read> depth [[texture(3)]],\n"
-	"\ttexture2d<float, access::write> out [[texture(4)]],\n"
-	"\tconstant traced_filter_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
-	"{\n"
-	"\tif (gid.x >= p.cw || gid.y >= p.ch)\n"
-	"\t\treturn;\n"
-	"\tint2 g = int2(gid) + int2(p.cx, p.cy);\n"
-	"\tint2 low = int2(p.cx, p.cy), high = int2(p.cx + p.cw - 1, p.cy + p.ch - 1);\n"
-	"\tint2 s = int2(p.sx, p.sy), a = int2(p.ax, p.ay);\n"
-	"\tfloat4 t = term.read(uint2(g));\n"
-	"\tfloat r = traced_hit(t) ? max(t.a * p.radius, 1.0) : reach.read(min(gid / 2, uint2(p.hw - 1, p.hh - 1))).r;\n"
-	"\tfloat3 sum = source.read(uint2(g - s)).rgb;\n"
-	"\tif (r < 0.5)\n"
-	"\t{\n"
-	"\t\tout.write(float4(sum, 0.0), gid);\n"
-	"\t\treturn;\n"
-	"\t}\n"
-	"\tfloat d0 = depth.read(uint2(g));\n"
-	"\tfloat forward = depth.read(uint2(clamp(g + a, low, high))) - d0;\n"
-	"\tfloat backward = d0 - depth.read(uint2(clamp(g - a, low, high)));\n"
-	"\tfloat slope = abs(forward) < abs(backward) ? forward : backward;\n"
-	"\tint stride = r > 16.0 ? 2 : 1;\n"
-	"\tint n = int(ceil(r / float(stride)));\n"
-	"\tfloat total = 1.0;\n"
-	"\tfor (int k = -n; k <= n; ++k)\n"
-	"\t{\n"
-	"\t\tint offset = k * stride;\n"
-	"\t\tint2 q = g + a * offset;\n"
-	"\t\tfloat w = 1.0 - float(abs(offset)) / (r + 1.0);\n"
-	"\t\tif (k == 0 || w <= 0.0 || q.x < low.x || q.y < low.y || q.x > high.x || q.y > high.y)\n"
-	"\t\t\tcontinue;\n"
-	"\t\tfloat expected = d0 + slope * float(offset);\n"
-	"\t\tif (abs(depth.read(uint2(q)) - expected) > abs(slope) * float(abs(offset)) * 0.5 + 1e-6)\n"
-	"\t\t\tcontinue;\n"
-	"\t\tsum += source.read(uint2(q - s)).rgb * w;\n"
-	"\t\ttotal += w;\n"
-	"\t}\n"
-	"\tout.write(float4(sum / total, r / p.radius), gid);\n"
-	"}\n";
 
 static struct
 {
@@ -5415,17 +5287,42 @@ static __strong id<MTLBuffer> traced_vertices[FRAMES];
 static __strong id<MTLBuffer> traced_scratch[FRAMES];
 static __strong id<MTLAccelerationStructure> traced_world;
 static __strong MTLPrimitiveAccelerationStructureDescriptor *traced_world_descriptor;
+/* a work texture at least width x height, kept between frames (made again only to grow) */
+static id<MTLTexture> work_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height)
+{
+	MTLTextureDescriptor *descriptor;
+
+	if (kept && kept.width >= width && kept.height >= height && kept.pixelFormat == format)
+		return kept;
+	if (kept)
+	{
+		width = MAX(width, kept.width);
+		height = MAX(height, kept.height);
+	}
+	descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format width:width height:height mipmapped:NO];
+	descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+	descriptor.storageMode = MTLStorageModePrivate;
+	return [device newTextureWithDescriptor:descriptor];
+}
+
+/* a compute pass over width x height in 8 x 8 threadgroups */
+static void compute_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
+	unsigned long width, unsigned long height)
+{
+	[compute setComputePipelineState:pipeline];
+	metal_dispatch_grid(compute, MTLSizeMake(width, height, 1), MTLSizeMake(8, 8, 1));
+}
+
 /* the composite's pipelines (replace for the debug views, multiply for the term), one pair for each scene color
 format they have drawn into (display.scene_precision moves the scene off BGRA8): traced_composite_pipeline */
 static __strong NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *traced_composites;
 static __strong id<MTLFunction> traced_vertex_function, traced_composite_function;
-static __strong id<MTLComputePipelineState> traced_radius_down, traced_radius_reach, traced_blur;
-/* the filter's work textures (ssao_texture's kind: kept, made again only to grow): two of the covered rectangle and
+static __strong id<MTLComputePipelineState> traced_bounds_kernel, traced_radius_down, traced_radius_reach, traced_blur;
+/* the filter's work textures (work_texture's kind: kept, made again only to grow): two of the covered rectangle and
 two of half of it */
 static __strong id<MTLTexture> traced_work[2], traced_half[2];
-static id<MTLTexture> ssao_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height);
-static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
-	unsigned long width, unsigned long height);
+/* the darkened pixels' bounds the apply draws widen, and the rectangle traced_bounds makes of them (traced_resolve.h) */
+static __strong id<MTLBuffer> traced_bounds_buffer, traced_rect_buffer;
 static __strong id<MTLDepthStencilState> traced_level, traced_everything;
 
 /* (the Metal gate's row holds the floor and the reason; any_gpu is debug.traced_shadows_any_gpu, for measuring GPUs
@@ -5453,6 +5350,17 @@ static int traced_refit_allowed(void)
 	return flag;
 }
 
+/* HALO_RT_CPU_BOUNDS in the app's environment: the filter and the composite cover everything the game's covers give,
+not the darkened pixels' bounds (for measuring what the bounds save) */
+static int traced_cpu_bounds(void)
+{
+	static int flag = -1;
+
+	if (flag < 0)
+		flag = getenv("HALO_RT_CPU_BOUNDS") != NULL;
+	return flag;
+}
+
 static void traced_fail(const char *what)
 {
 	if (!atomic_exchange_explicit(&traced_failed, 1, memory_order_relaxed))
@@ -5465,6 +5373,14 @@ static void traced_structure_release(uint32_t slot)
 	traced.structure_bytes -= MIN(traced.structure_bytes, traced.structure_size[slot]);
 	traced_structures[slot] = nil;
 	traced.structure_size[slot] = 0;
+}
+
+/* a build or refit that was not carried out: its slot is forgotten and its structure goes, so the caster is built
+from nothing next time (traced_cache_forget) */
+static void traced_forget(uint32_t slot)
+{
+	traced_cache_forget(&traced.cache, slot);
+	traced_structure_release(slot);
 }
 
 static void traced_frame_check(void)
@@ -5485,9 +5401,14 @@ static void traced_frame_check(void)
 	traced.frame = frames;
 	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
 	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
-	/* (a frame's builds are committed before it ends; one that never was is dropped with its descriptors) */
+	/* (a frame's builds are committed before it ends; one that never was is dropped with its descriptors, and its slot
+	is forgotten) */
 	while (traced.pending_count)
-		traced_pending_descriptors[--traced.pending_count] = nil;
+	{
+		traced.pending_count--;
+		traced_pending_descriptors[traced.pending_count] = nil;
+		traced_forget(traced.pending_slot[traced.pending_count]);
+	}
 	traced.pending_scratch_total = 0;
 	traced.vertices_used = 0;
 	traced.apply = TRACED_SHADOWS_SHADOWS;
@@ -5498,33 +5419,6 @@ static void traced_frame_check(void)
 		while (traced_cache_sweep(&traced.cache, &looked, &slot))
 			traced_structure_release(slot);
 	}
-}
-
-static void traced_reset(uint32_t epoch)
-{
-	uint32_t index;
-
-	for (index = 0; index < TRACED_SHADOWS_PARTS; index++)
-	{
-		free(traced.part_vertices[index]);
-		traced.part_vertices[index] = NULL;
-		traced.part_vertex_count[index] = traced.part_triangle_count[index] = 0;
-		traced_part_indices[index] = nil;
-	}
-	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
-		traced_structures[index] = nil;
-	while (traced.pending_count)
-		traced_pending_descriptors[--traced.pending_count] = nil;
-	traced.pending_scratch_total = 0;
-	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
-	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
-	memset(traced.structure_size, 0, sizeof(traced.structure_size));
-	traced_cache_reset(&traced.cache);
-	traced_world = nil;
-	traced_world_descriptor = nil;
-	traced.world_pending = NO;
-	traced.structure_bytes = 0;
-	traced.epoch = epoch;
 }
 
 static void traced_part(uint32_t id, const void *bytes, uint32_t size)
@@ -5631,8 +5525,7 @@ static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
 
 		if (!positions || traced.pending_count >= TRACED_PENDING)
 		{
-			traced.cache.slots[slot].updated = 0;
-			traced.cache.slots[slot].pose_size = 0;
+			traced_forget(slot);
 			return;
 		}
 		for (model = 0, at = 0; model < caster->model_count; model++)
@@ -5676,8 +5569,7 @@ static void traced_caster(uint32_t shadow, const void *bytes, uint32_t size)
 			}
 			if (!traced_structures[slot])
 			{
-				traced.cache.slots[slot].updated = 0;
-				traced.cache.slots[slot].pose_size = 0;
+				traced_forget(slot);
 				traced_fail("an acceleration structure could not be allocated");
 				return;
 			}
@@ -5761,10 +5653,7 @@ static void traced_commit(void)
 			for (index = 0; index < traced.pending_count; index++)
 			{
 				/* (not built: no shadow from it, and its slot is made again next time) */
-				traced.cache.slots[traced.pending_slot[index]].updated = 0;
-				traced.cache.slots[traced.pending_slot[index]].pose_size = 0;
-				traced.structure_size[traced.pending_slot[index]] = 0;
-				traced_structures[traced.pending_slot[index]] = nil;
+				traced_forget(traced.pending_slot[index]);
 				traced_pending_descriptors[index] = nil;
 			}
 			traced.pending_count = 0;
@@ -5825,6 +5714,66 @@ static struct
 static __strong id<MTLAccelerationStructure> traced_light_instances[FRAMES];
 static __strong id<MTLBuffer> traced_light_descriptors[FRAMES], traced_light_scratch[FRAMES];
 static __strong NSMutableArray<id<MTLAccelerationStructure>> *traced_light_members[FRAMES];
+/* the rate map a lit pass binds when it has none of its own (the shader declares it but does not read it there) */
+static __strong id<MTLBuffer> traced_light_rate_stand_in;
+
+/* Everything tracing made goes, and records of other epochs are refused until the game starts a new one: at a map's
+unload (the game's TRACED_SHADOWS_RESET, epoch its new one) and when the frame decision turns tracing off
+(d3d8_device.c's traced_shadows_release, epoch TRACED_SHADOWS_NO_EPOCH), after a failure as well. The class this is
+the one path for: memory tracing made that stays for the session once tracing stops. The programs and pipeline
+states stay (made once, not per map). tools/test_traced_shadows.py checks every resource of this section is
+released here. */
+static void traced_release(uint32_t epoch)
+{
+	uint32_t index;
+
+	for (index = 0; index < TRACED_SHADOWS_PARTS; index++)
+	{
+		free(traced.part_vertices[index]);
+		traced.part_vertices[index] = NULL;
+		traced.part_vertex_count[index] = traced.part_triangle_count[index] = 0;
+		traced_part_indices[index] = nil;
+	}
+	for (index = 0; index < TRACED_CASTER_SLOTS; index++)
+		traced_structures[index] = nil;
+	for (index = 0; index < TRACED_PENDING; index++)
+		traced_pending_descriptors[index] = nil;
+	for (index = 0; index < FRAMES; index++)
+	{
+		traced_vertices[index] = nil;
+		traced_scratch[index] = nil;
+		traced_light_instances[index] = nil;
+		traced_light_descriptors[index] = nil;
+		traced_light_scratch[index] = nil;
+		traced_light_members[index] = nil;
+	}
+	for (index = 0; index < 2; index++)
+	{
+		traced_work[index] = nil;
+		traced_half[index] = nil;
+	}
+	traced_bounds_buffer = nil;
+	traced_rect_buffer = nil;
+	traced_light_rate_stand_in = nil;
+	traced_world = nil;
+	traced_world_descriptor = nil;
+	traced.pending_count = 0;
+	traced.pending_scratch_total = 0;
+	traced.vertices_used = 0;
+	traced.world_pending = NO;
+	traced.world_triangles = 0;
+	traced.apply = TRACED_SHADOWS_SHADOWS;
+	memset(traced.shadow_slot, 0, sizeof(traced.shadow_slot));
+	memset(traced.shadow_family, 0, sizeof(traced.shadow_family));
+	memset(traced.structure_size, 0, sizeof(traced.structure_size));
+	memset(traced.refit_scratch, 0, sizeof(traced.refit_scratch));
+	traced_cache_reset(&traced.cache);
+	traced.structure_bytes = 0;
+	traced_lights.frame = (unsigned long)-1;
+	traced_lights.made_with = 0;
+	traced_lights.count = 0;
+	traced.epoch = epoch;
+}
 
 static void traced_light_take(const void *bytes, uint32_t size)
 {
@@ -5960,11 +5909,10 @@ static void traced_light_bind(void)
 	light.foveated = pass_rate_map_data ? 1.0f : 0.0f;
 	if (!stages_rate_map)
 	{
-		static __strong id<MTLBuffer> stand_in;
-
-		if (!pass_rate_map_data && !stand_in)
-			stand_in = [device newBufferWithLength:256 options:MTLResourceStorageModeShared];
-		[encoder setFragmentBuffer:pass_rate_map_data ? pass_rate_map_data : stand_in offset:0 atIndex:1];
+		if (!pass_rate_map_data && !traced_light_rate_stand_in)
+			traced_light_rate_stand_in = [device newBufferWithLength:256 options:MTLResourceStorageModeShared];
+		[encoder setFragmentBuffer:pass_rate_map_data ? pass_rate_map_data : traced_light_rate_stand_in offset:0
+			atIndex:1];
 		metal_state_always(&state_cache);
 	}
 	/* (an instance structure's members are not bound with it: each is made resident for the fragment stage) */
@@ -5980,14 +5928,17 @@ static void traced_light_bind(void)
 
 static void gpu_metal_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
 {
+	/* (a release is carried out after a failure too: it is what gives the failed feature's memory back) */
+	if (kind == TRACED_SHADOWS_RESET)
+	{
+		traced_release(id);
+		return;
+	}
 	if (!gpu_metal_traced_shadows_ready(1))
 		return;
 	traced_frame_check();
 	switch (kind)
 	{
-	case TRACED_SHADOWS_RESET:
-		traced_reset(id);
-		break;
 	case TRACED_SHADOWS_PART:
 		traced_part(id, bytes, size);
 		break;
@@ -6026,6 +5977,19 @@ static BOOL traced_draw_ready(void)
 		traced.log_dropped++;
 		return NO;
 	}
+	if (!traced_bounds_buffer)
+	{
+		traced_bounds_buffer = [device newBufferWithLength:TRACED_BOUNDS_BYTES options:MTLResourceStorageModeShared];
+		traced_rect_buffer = [device newBufferWithLength:TRACED_RECT_BYTES options:MTLResourceStorageModePrivate];
+		if (!traced_bounds_buffer || !traced_rect_buffer)
+		{
+			traced_bounds_buffer = traced_rect_buffer = nil;
+			traced_fail("the darkened bounds' buffers could not be allocated");
+			traced.log_dropped++;
+			return NO;
+		}
+		traced_bounds_clear(traced_bounds_buffer);
+	}
 	traced_commit();
 	return YES;
 }
@@ -6045,6 +6009,8 @@ static void traced_draw_bind(void)
 	metal_state_always(&state_cache);
 	[encoder setFragmentBytes:basis length:sizeof(basis) atIndex:8];
 	metal_state_always(&state_cache);
+	[encoder setFragmentBuffer:traced_bounds_buffer offset:0 atIndex:9];
+	metal_state_always(&state_cache);
 }
 
 static BOOL traced_programs(void)
@@ -6053,13 +6019,12 @@ static BOOL traced_programs(void)
 	id<MTLLibrary> library;
 	MTLRenderPipelineDescriptor *pipeline;
 	MTLDepthStencilDescriptor *state;
-	MTLStencilDescriptor *stencil;
 
 	if (traced.tried)
 		return !traced.programs_failed;
 	traced.tried = YES;
 	traced.programs_failed = YES;
-	library = [device newLibraryWithSource:traced_source options:nil error:&error];
+	library = [device newLibraryWithSource:traced_resolve_source options:nil error:&error];
 	if (!library)
 	{
 		platform_log("traced shadows: the resolve's shaders do not compile: %s", error.localizedDescription.UTF8String);
@@ -6072,7 +6037,10 @@ static BOOL traced_programs(void)
 	traced_radius_reach = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_radius_reach"]
 		error:&error];
 	traced_blur = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_blur"] error:&error];
-	if (!traced_vertex_function || !traced_composite_function || !traced_radius_down || !traced_radius_reach || !traced_blur)
+	traced_bounds_kernel = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"traced_bounds"]
+		error:&error];
+	if (!traced_vertex_function || !traced_composite_function || !traced_radius_down || !traced_radius_reach ||
+		!traced_blur || !traced_bounds_kernel)
 	{
 		platform_log("traced shadows: the resolve's pipeline cannot be made: %s",
 			error ? error.localizedDescription.UTF8String : "?");
@@ -6082,16 +6050,8 @@ static BOOL traced_programs(void)
 	state.depthCompareFunction = MTLCompareFunctionAlways;
 	state.depthWriteEnabled = NO;
 	traced_everything = [device newDepthStencilStateWithDescriptor:state];
-	/* the level's pixels: the lightmap pass's mark (0x10, halo_traced_shadows_lightmaps_mark), and not the game's
-	own mark (1), as the ambient occlusion pass tests them */
-	stencil = [MTLStencilDescriptor new];
-	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
-	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
-		MTLStencilOperationKeep;
-	stencil.writeMask = 0;
-	stencil.readMask = 0x11;
-	state.frontFaceStencil = state.backFaceStencil = stencil;
-	traced_level = [device newDepthStencilStateWithDescriptor:state];
+	/* the level's pixels, as the ambient occlusion pass tests them */
+	traced_level = level_stencil_state(device, state, HALO_STENCIL_LEVEL_ONLY_READ);
 	traced.programs_failed = NO;
 	return YES;
 }
@@ -6147,7 +6107,9 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 	{
 		MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
 		MetalTexture *term_record = texture_record(term);
-		struct { uint32_t ox, oy, w, h, view, sx, sy, pad; } c;
+		struct { uint32_t ox, oy, w, h, view, shifted, pad0, pad1; } c;
+		float size[2];
+		BOOL filter;
 		id<MTLTexture> shown;
 		id<MTLRenderPipelineState> composite;
 		struct gpu_rect rect;
@@ -6209,81 +6171,55 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 			[pass_log appendFormat:@"\n  traced shadows resolve: %lux%lu at %lu,%lu", (unsigned long)covered.width,
 				(unsigned long)covered.height, (unsigned long)covered.x, (unsigned long)covered.y];
 		shown = term_record->texture;
-		c.sx = c.sy = 0;
-		if (values[TRACED_SHADOWS_RESOLVE_FILTER] != 0.0f && values[TRACED_SHADOWS_RESOLVE_RADIUS] >= 1.0f)
+		filter = values[TRACED_SHADOWS_RESOLVE_FILTER] != 0.0f && values[TRACED_SHADOWS_RESOLVE_RADIUS] >= 1.0f;
+		view = (int)values[TRACED_SHADOWS_RESOLVE_VIEW];
 		{
-			struct { uint32_t cx, cy, cw, ch, hw, hh; int32_t ax, ay; uint32_t sx, sy; float radius; uint32_t pad; } p;
-			id<MTLComputeCommandEncoder> compute = [command_buffer() computeCommandEncoder];
+			id<MTLComputeCommandEncoder> compute;
+			unsigned long half_width = (covered.width + 1) / 2, half_height = (covered.height + 1) / 2;
 			int i;
 
-			memset(&p, 0, sizeof(p));
-			p.cx = (uint32_t)covered.x;
-			p.cy = (uint32_t)covered.y;
-			p.cw = (uint32_t)covered.width;
-			p.ch = (uint32_t)covered.height;
-			p.hw = (p.cw + 1) / 2;
-			p.hh = (p.ch + 1) / 2;
-			p.radius = values[TRACED_SHADOWS_RESOLVE_RADIUS];
-			for (i = 0; i < 2; ++i)
-			{
-				traced_work[i] = ssao_texture(traced_work[i], MTLPixelFormatRGBA8Unorm, p.cw, p.ch);
-				traced_half[i] = ssao_texture(traced_half[i], MTLPixelFormatR16Float, p.hw, p.hh);
-			}
+			if (filter)
+				for (i = 0; i < 2; ++i)
+				{
+					traced_work[i] = work_texture(traced_work[i], MTLPixelFormatRGBA8Unorm, covered.width, covered.height);
+					traced_half[i] = work_texture(traced_half[i], MTLPixelFormatR16Float, half_width, half_height);
+				}
+			compute = [command_buffer() computeCommandEncoder];
 			if (metal_debug)
 				compute.label = @"traced shadows filter";
-			/* the radius beside each shadow: half[0], reached along x into half[1], along y back into half[0] */
-			[compute setBytes:&p length:sizeof(p) atIndex:0];
-			[compute setTexture:term_record->texture atIndex:0];
-			[compute setTexture:traced_half[0] atIndex:1];
-			ssao_dispatch(compute, traced_radius_down, p.hw, p.hh);
-			for (i = 0; i < 2; ++i)
-			{
-				p.ax = i == 0;
-				p.ay = i == 1;
-				[compute setBytes:&p length:sizeof(p) atIndex:0];
-				[compute setTexture:traced_half[i] atIndex:0];
-				[compute setTexture:traced_half[1 - i] atIndex:1];
-				ssao_dispatch(compute, traced_radius_reach, p.hw, p.hh);
-			}
-			/* the blur: the term along x into work[0], that along y into work[1] */
-			[compute setTexture:term_record->texture atIndex:0];
-			[compute setTexture:traced_half[0] atIndex:2];
-			[compute setTexture:depth_record->texture atIndex:3];
-			for (i = 0; i < 2; ++i)
-			{
-				p.ax = i == 0;
-				p.ay = i == 1;
-				p.sx = i ? p.cx : 0;
-				p.sy = i ? p.cy : 0;
-				[compute setBytes:&p length:sizeof(p) atIndex:0];
-				[compute setTexture:i ? traced_work[0] : term_record->texture atIndex:1];
-				[compute setTexture:traced_work[i] atIndex:4];
-				ssao_dispatch(compute, traced_blur, p.cw, p.ch);
-			}
+			/* (the debug views show the term over everything the game's covers give) */
+			traced_filter_encode(compute, traced_bounds_kernel, traced_radius_down, traced_radius_reach, traced_blur,
+				traced_bounds_buffer, traced_rect_buffer, covered, values[TRACED_SHADOWS_RESOLVE_RADIUS],
+				!view && !traced_cpu_bounds(), filter, term_record->texture, depth_record->texture, traced_work[0],
+				traced_work[1], traced_half[0], traced_half[1]);
 			[compute endEncoding];
-			shown = traced_work[1];
-			c.sx = p.cx;
-			c.sy = p.cy;
+			if (filter)
+				shown = traced_work[1];
 		}
 		if (!pass_begin(color, depth, NULL) || !encoder)
 			return;
-		view = (int)values[TRACED_SHADOWS_RESOLVE_VIEW];
 		c.ox = (uint32_t)window.x;
 		c.oy = (uint32_t)window.y;
 		c.w = (uint32_t)window.width;
 		c.h = (uint32_t)window.height;
 		c.view = (uint32_t)view;
-		c.pad = 0;
-		[encoder setViewport:(MTLViewport){ (double)covered.x, (double)covered.y, (double)covered.width,
-			(double)covered.height, 0.0, 1.0 }];
+		c.shifted = filter ? 1 : 0;
+		c.pad0 = c.pad1 = 0;
+		size[0] = (float)color_record->texture.width;
+		size[1] = (float)color_record->texture.height;
+		/* (the quad is traced_bounds' rectangle, inside covered: traced_resolve.h) */
+		[encoder setViewport:(MTLViewport){ 0.0, 0.0, (double)size[0], (double)size[1], 0.0, 1.0 }];
 		[encoder setScissorRect:covered];
 		[encoder setCullMode:MTLCullModeNone];
 		[encoder setRenderPipelineState:composite];
 		[encoder setDepthStencilState:view ? traced_everything : traced_level];
-		[encoder setStencilReferenceValue:0x10];
+		[encoder setStencilReferenceValue:HALO_STENCIL_LEVEL];
+		[encoder setVertexBuffer:traced_rect_buffer offset:0 atIndex:0];
+		[encoder setVertexBytes:size length:sizeof(size) atIndex:1];
 		[encoder setFragmentTexture:shown atIndex:0];
 		[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
-		[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+		[encoder setFragmentBuffer:traced_rect_buffer offset:0 atIndex:1];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
 		/* the game's next draw sets everything again */
 		metal_state_reset(&state_cache);
 	}
@@ -9073,7 +9009,7 @@ static NSString *const ssao_source =
 	"\t\treturn 3;\n"
 	"\tif (stored <= 1.0e-7 || z >= 0.98 * p.z_far)\n"
 	"\t\treturn 0;\n"
-	"\treturn (stencil & 0x10u) ? 1 : 2;\n"
+	"\treturn (stencil & " HALO_STENCIL_LEVEL_MSL ") ? 1 : 2;\n"
 	"}\n"
 	"\n"
 	"/* the half-resolution depth texel: view depth with the class in its sign, positive for the level, negative for\n"
@@ -9707,7 +9643,6 @@ static BOOL ssao_programs(void)
 	NSError *error = nil;
 	id<MTLLibrary> library;
 	MTLDepthStencilDescriptor *state;
-	MTLStencilDescriptor *stencil;
 
 	if (ssao.tried)
 		return !ssao.failed;
@@ -9752,45 +9687,12 @@ static BOOL ssao_programs(void)
 	state.depthCompareFunction = MTLCompareFunctionAlways;
 	state.depthWriteEnabled = NO;
 	ssao.everything = [device newDepthStencilStateWithDescriptor:state];
-	stencil = [MTLStencilDescriptor new];
-	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
-	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
-		MTLStencilOperationKeep;
-	stencil.writeMask = 0;
-	stencil.readMask = 0x11;
-	state.frontFaceStencil = state.backFaceStencil = stencil;
-	ssao.level = [device newDepthStencilStateWithDescriptor:state];
-	stencil.readMask = 0x15;
-	state.frontFaceStencil = state.backFaceStencil = stencil;
-	ssao.objects = [device newDepthStencilStateWithDescriptor:state];
+	ssao.level = level_stencil_state(device, state, HALO_STENCIL_LEVEL_ONLY_READ);
+	/* (the level's mark, neither the game's nor an object's: objects that sit on the level) */
+	ssao.objects = level_stencil_state(device, state, HALO_STENCIL_LEVEL_ONLY_READ | HALO_STENCIL_OBJECT);
 	ssao.failed = NO;
 	platform_log("ssao: programs ready");
 	return YES;
-}
-
-/* a work texture at least width x height, kept between frames (made again only to grow) */
-static id<MTLTexture> ssao_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height)
-{
-	MTLTextureDescriptor *descriptor;
-
-	if (kept && kept.width >= width && kept.height >= height && kept.pixelFormat == format)
-		return kept;
-	if (kept)
-	{
-		width = MAX(width, kept.width);
-		height = MAX(height, kept.height);
-	}
-	descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format width:width height:height mipmapped:NO];
-	descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
-	descriptor.storageMode = MTLStorageModePrivate;
-	return [device newTextureWithDescriptor:descriptor];
-}
-
-static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
-	unsigned long width, unsigned long height)
-{
-	[compute setComputePipelineState:pipeline];
-	metal_dispatch_grid(compute, MTLSizeMake(width, height, 1), MTLSizeMake(8, 8, 1));
 }
 
 
@@ -10002,16 +9904,16 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 			p.level_floor = count > 18 ? values[18] : 0.35f;
 			p.object_floor = count > 19 ? values[19] : 0.6f;
 			p.mode = (uint32_t)mode;
-			ssao.half_depth = ssao_texture(ssao.half_depth, MTLPixelFormatR32Float, p.hw, p.hh);
-			ssao.raw = ssao_texture(ssao.raw, MTLPixelFormatR16Float, p.hw, p.hh);
+			ssao.half_depth = work_texture(ssao.half_depth, MTLPixelFormatR32Float, p.hw, p.hh);
+			ssao.raw = work_texture(ssao.raw, MTLPixelFormatR16Float, p.hw, p.hh);
 			if (gather_v1)
-				ssao.half_v1 = ssao_texture(ssao.half_v1, MTLPixelFormatRG32Float, p.hw, p.hh);
-			ssao.blurred = ssao_texture(ssao.blurred, MTLPixelFormatR16Float, p.hw, p.hh);
-			ssao.full = ssao_texture(ssao.full, MTLPixelFormatR8Unorm, p.w, p.h);
+				ssao.half_v1 = work_texture(ssao.half_v1, MTLPixelFormatRG32Float, p.hw, p.hh);
+			ssao.blurred = work_texture(ssao.blurred, MTLPixelFormatR16Float, p.hw, p.hh);
+			ssao.full = work_texture(ssao.full, MTLPixelFormatR8Unorm, p.w, p.h);
 			if (mode == 3 || mode == 4)
-				ssao.debug_image = ssao_texture(ssao.debug_image, MTLPixelFormatRGBA8Unorm, p.w, p.h);
+				ssao.debug_image = work_texture(ssao.debug_image, MTLPixelFormatRGBA8Unorm, p.w, p.h);
 			else if (!ssao.debug_image)
-				ssao.debug_image = ssao_texture(nil, MTLPixelFormatRGBA8Unorm, 1, 1);
+				ssao.debug_image = work_texture(nil, MTLPixelFormatRGBA8Unorm, 1, 1);
 			ssao.stencil_view = level_stencil_view(depth_record->texture);
 			{
 				id<MTLCounterSampleBuffer> timing = nil;
@@ -10030,24 +9932,24 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 					[e setTexture:depth_record->texture atIndex:0];
 					[e setTexture:ssao.stencil_view atIndex:1];
 					[e setTexture:ssao.half_depth atIndex:2];
-					ssao_dispatch(e, ssao.prepare, p.hw, p.hh);
+					compute_dispatch(e, ssao.prepare, p.hw, p.hh);
 					if (gather_v1)
 					{
 						[e setTexture:ssao.half_v1 atIndex:2];
-						ssao_dispatch(e, ssao.prepare_v1, p.hw, p.hh);
+						compute_dispatch(e, ssao.prepare_v1, p.hw, p.hh);
 					} });
 				if (stop != 1)
 				{
 					SSAO_STAGE(1, {
 						[e setTexture:gather_v1 ? ssao.half_v1 : ssao.half_depth atIndex:0];
 						[e setTexture:ssao.raw atIndex:1];
-						ssao_dispatch(e, gather_v1 ? ssao.gather_v1 : ssao.gather, p.hw, p.hh); });
+						compute_dispatch(e, gather_v1 ? ssao.gather_v1 : ssao.gather, p.hw, p.hh); });
 					if (path != 2 && stop != 2)
 						SSAO_STAGE(2, {
 							[e setTexture:ssao.half_depth atIndex:0];
 							[e setTexture:ssao.raw atIndex:1];
 							[e setTexture:ssao.blurred atIndex:2];
-							ssao_dispatch(e, ssao.blur, p.hw, p.hh); });
+							compute_dispatch(e, ssao.blur, p.hw, p.hh); });
 					if (path == 0 && stop != 2)
 						SSAO_STAGE(3, {
 							[e setTexture:depth_record->texture atIndex:0];
@@ -10056,7 +9958,7 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 							[e setTexture:ssao.blurred atIndex:3];
 							[e setTexture:ssao.full atIndex:4];
 							[e setTexture:ssao.debug_image atIndex:5];
-							ssao_dispatch(e, ssao.upsample, p.w, p.h); });
+							compute_dispatch(e, ssao.upsample, p.w, p.h); });
 				}
 #undef SSAO_STAGE
 				if (!timing)
@@ -10113,7 +10015,7 @@ static void gpu_metal_ssao_apply(gpu_texture color, gpu_texture depth, const flo
 				c.floor = p.level_floor;
 				c.amount = 1.0f;
 				[encoder setDepthStencilState:ssao.level];
-				[encoder setStencilReferenceValue:0x10];
+				[encoder setStencilReferenceValue:HALO_STENCIL_LEVEL];
 				[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
 				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 				c.amount = values[12];
@@ -12179,7 +12081,7 @@ static NSString *const soft_depth_source =
 	"\t\tfor (uint x = 0; x < scale; x++)\n"
 	"\t\t{\n"
 	"\t\t\tuint2 c = min(gid * scale + uint2(x, y), last);\n"
-	"\t\t\tif (!(stencil.read(c).r & 0x10u))\n"
+	"\t\t\tif (!(stencil.read(c).r & " HALO_STENCIL_LEVEL_MSL "))\n"
 	"\t\t\t{\n"
 	"\t\t\t\tdistances.write(float4(1.0e30), gid);\n"
 	"\t\t\t\treturn;\n"

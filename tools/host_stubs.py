@@ -149,11 +149,24 @@ def statements(text: str):
                     i += 1
             continue
         skip_guard = False if line.strip() else skip_guard
+        # (a string or character literal's text is not code: an embedded shader's semicolons, parentheses and
+        # braces never end or open a statement)
+        quote, escaped = None, False
         for ch in line:
             buffer.append(ch)
             if not snapshot:
                 snapshot = [e['cur'] for e in stack if not e['guard']]
-            if ch == '(':
+            if quote:
+                if escaped:
+                    escaped = False
+                elif ch == '\\':
+                    escaped = True
+                elif ch == quote:
+                    quote = None
+                continue
+            if ch in '"\'':
+                quote = ch
+            elif ch == '(':
                 paren += 1
             elif ch == ')':
                 paren -= 1

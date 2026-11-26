@@ -26,6 +26,40 @@ def test_records_skinning_and_caster_cache():
         subprocess.run([str(executable)], check=True)
 
 
+def test_the_resolve_filters_what_the_darkened_bounds_hold(tmp_path):
+    """port/ios/tests/traced_resolve_probe.m: the resolve's kernels on the Mac's GPU, over the darkened pixels' bounds
+    and over the whole covered rectangle, agree on every pixel (class: a filter rectangle that misses pixels the
+    filter changes)."""
+    if not shutil.which("xcrun") or subprocess.run(["xcrun", "--find", "clang"], capture_output=True).returncode:
+        pytest.skip("no Apple toolchain")
+    executable = tmp_path / "traced-resolve-probe"
+    subprocess.run([
+        "xcrun", "clang", "-O2", "-fobjc-arc", "-Wall", "-Wextra", "-Werror",
+        "-I", str(ROOT / "port/ios/host"), "-I", str(ROOT / "port/linux/src"),
+        str(ROOT / "port/ios/tests/traced_resolve_probe.m"), "-framework", "Foundation", "-framework", "Metal",
+        "--output", str(executable),
+    ], check=True)
+    subprocess.run([str(executable)], check=True)
+
+
+def test_the_apply_draws_and_the_filter_agree_on_what_is_darkened():
+    shader = (ROOT / "port/linux/src/nv2a_psh.c").read_text()
+    resolve = (ROOT / "port/ios/host/traced_resolve.h").read_text()
+    header = (ROOT / "port/linux/src/traced_shadows_format.h").read_text()
+    record = header[header.index("#define TRACED_SHADOWS_BOUNDS_RECORD_MSL"):]
+    record = record[: record.index("\n\n")]
+    assert "TRACED_SHADOWS_BOUNDS_RECORD_MSL" in shader
+    for text in (record, resolve):
+        assert '< " TRACED_SHADOWS_DARKENED_BELOW_MSL "' in text
+    for text in (shader, resolve, record):
+        assert "0.998" not in text
+    # the bounds the apply draws widen are the buffer the backend binds for them
+    signature = (ROOT / "port/linux/src/nv2a_msl.c").read_text()
+    host = (ROOT / "port/ios/host/gpu_metal.m").read_text()
+    index = re.search(r"device atomic_uint \*traced_bounds \[\[buffer\((\d+)\)\]\]", signature).group(1)
+    assert f"setFragmentBuffer:traced_bounds_buffer offset:0 atIndex:{index}]" in host
+
+
 TRACED_KEYS = ("display.traced_shadows", "display.traced_lights")
 
 
@@ -501,3 +535,17 @@ def test_traced_lights_are_off_without_traced_shadows():
     readme = (ROOT / "profiles/README.md").read_text()
     row = next(line for line in readme.splitlines() if line.startswith("| `display.traced_lights`"))
     assert "none unless display.traced_shadows is on too" in row
+
+
+def test_traced_shader_marks_are_one_constant():
+    """bug class: the backend recognized a traced shader by a string it repeated from the generator's output, so a
+    change to the generated line would silently stop binding the structures. Both sides use the format header's
+    marks, and neither spells the line itself."""
+    header = (ROOT / "port/linux/src/traced_shadows_format.h").read_text()
+    for mark in ("TRACED_SHADOWS_SHADER_MARK", "TRACED_LIGHT_SHADER_MARK"):
+        assert re.search(rf"#define {mark} \"#define TRACED_\w+ 1\\n\"", header), mark
+        for path in ("port/linux/src/nv2a_msl.c", "port/ios/host/gpu_metal.m"):
+            assert mark in (ROOT / path).read_text(), (mark, path)
+    for path in ("port/linux/src/nv2a_msl.c", "port/ios/host/gpu_metal.m"):
+        text = (ROOT / path).read_text()
+        assert not re.search(r"\"[^\"\n]*#define TRACED_(SHADOW|LIGHT) 1", text), path
