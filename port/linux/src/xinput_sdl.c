@@ -1043,7 +1043,8 @@ next press */
 input (ka, kb, kdown); an unprefixed button is controller input. "none"
 changes only the input class. "focus:LABEL@POLL[:DEADLINE]" (spaces in LABEL written as _) holds Down from POLL until the focused
 menu row's text is LABEL, instead of counting rows; it fails the run ("WALK FAIL" in the log, exit status
-TEST_FOCUS_EXIT_STATUS) when the list has no such row or the next scripted press comes first. Each BUTTON (start, back, a, b, x, y, up, down,
+TEST_FOCUS_EXIT_STATUS) when the list has no such row. A press after a walk waits until the walk has landed (and the presses
+after it keep their spacing), however slow the host. Each BUTTON (start, back, a, b, x, y, up, down,
 left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
 else is pressed (a menu walked by script). Presses at the same POLL are held
 together: "back@100 down@100" is debug.knob_cycle's chord */
@@ -1056,6 +1057,8 @@ static struct
 	unsigned long poll;
 } test_presses[TEST_PRESS_MAX];
 static int test_press_count;
+static int test_press_fixed[TEST_PRESS_MAX];   /* the press's shift is known */
+static unsigned long test_press_shift[TEST_PRESS_MAX];   /* polls the press waited for walks before it */
 #define TEST_FOCUS_MAX 8
 static struct test_focus_walk test_focus_walks[TEST_FOCUS_MAX];
 static int test_focus_count;
@@ -1091,6 +1094,8 @@ static void test_input_presses_parse(const char *text)
 		else if (sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
 		{
 			strcpy(test_presses[test_press_count].button, button);
+			test_press_fixed[test_press_count] = 0;
+			test_press_shift[test_press_count] = 0;
 			test_presses[test_press_count++].poll = poll;
 			text += used;
 		}
@@ -1102,12 +1107,7 @@ static void test_input_presses_parse(const char *text)
 		platform_log("WALK FAIL: debug.test_input has text it cannot use: \"%s\"", text);
 		exit(TEST_FOCUS_EXIT_STATUS);
 	}
-	/* a walk must land before the next scripted press */
-	for (int walk = 0; walk < test_focus_count; walk++)
-		for (int press = 0; press < test_press_count; press++)
-			if (test_presses[press].poll > test_focus_walks[walk].start &&
-				(!test_focus_walks[walk].deadline || test_presses[press].poll < test_focus_walks[walk].deadline))
-				test_focus_walks[walk].deadline = test_presses[press].poll;
+	/* (a press after a walk waits for it: test_input_presses) */
 }
 
 /* the focus walks' Down presses; a failed walk ends the run */
@@ -1142,12 +1142,22 @@ static void test_input_focus_walks(XINPUT_GAMEPAD *pad, unsigned long poll)
 static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
 {
 	int index;
+	unsigned long prev_shift = 0;
 
 	for (index = 0; index < test_press_count; index++)
 	{
 		const char *button = test_presses[index].button;
+		int pending = 0;
 
-		if (poll < test_presses[index].poll || poll >= test_presses[index].poll + TEST_PRESS_POLLS)
+		for (int walk = 0; walk < test_focus_count; walk++)
+			if (test_focus_walks[walk].start < test_presses[index].poll && !test_focus_walks[walk].deadline &&
+				!(test_focus_walks[walk].finished && test_focus_walks[walk].result == TEST_FOCUS_DONE))
+				pending = 1;
+		if (!test_press_shift_settle(test_presses[index].poll, prev_shift, poll, pending, &test_press_fixed[index],
+			&test_press_shift[index]))
+			break;   /* nothing after a waiting press can fire yet */
+		prev_shift = test_press_shift[index];
+		if (poll < test_presses[index].poll + prev_shift || poll >= test_presses[index].poll + prev_shift + TEST_PRESS_POLLS)
 			continue;
 		if (button[0] == 'k') button++;
 		if (!strcmp(button, "start"))

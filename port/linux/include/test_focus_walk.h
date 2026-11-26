@@ -63,6 +63,29 @@ static inline int test_focus_label_equal(char const *a, char const *b)
 	return 1;
 }
 
+/* A scripted press that follows a walk waits for the walk to land (a loaded host takes the walk longer than the script's
+frame numbers allow): the press fires at its own poll plus the delay the walks before it cost, and keeps the spacing of the
+presses before it. `fixed` is the press's own state (0 not yet due, -1 due but a walk that began before it has not landed,
+1 its shift is known), `shift` its delay, `prev_shift` the shift of the press before it, `walks_pending` whether a walk that
+began before this press has not landed. Returns 1 once the shift is known; the press fires when poll is in
+[press_poll + shift, press_poll + shift + hold). A press never waited for is not moved by polls the caller skipped. */
+static inline int test_press_shift_settle(unsigned long press_poll, unsigned long prev_shift, unsigned long poll,
+	int walks_pending, int *fixed, unsigned long *shift)
+{
+	if (*fixed == 1)
+		return 1;
+	if (poll < press_poll + prev_shift)
+		return 0;
+	if (walks_pending)
+	{
+		*fixed = -1;
+		return 0;
+	}
+	*shift = *fixed == -1 ? poll - press_poll : prev_shift;
+	*fixed = 1;
+	return 1;
+}
+
 static inline void test_focus_walk_begin(struct test_focus_walk *walk, char const *label, unsigned long start)
 {
 	memset(walk, 0, sizeof(*walk));

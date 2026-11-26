@@ -141,5 +141,23 @@ int main(void)
 		}
 	}
 	puts("test_focus_walk_probe: ok");
+	/* a press after a walk waits until the walk has landed, and the next press keeps its spacing after it */
+	{
+		int fixed_a = 0, fixed_b = 0;
+		unsigned long shift_a = 0, shift_b = 0;
+
+		/* press A at 240, press B at 300; the walk lands at 700 */
+		for (unsigned long poll = 0; poll < 700; poll++)
+		{
+			assert(!test_press_shift_settle(240, 0, poll, 1, &fixed_a, &shift_a));
+			assert(!test_press_shift_settle(300, 0, poll, 1, &fixed_b, &shift_b));
+		}
+		assert(test_press_shift_settle(240, 0, 700, 0, &fixed_a, &shift_a) && shift_a == 460);
+		assert(test_press_shift_settle(300, shift_a, 760, 0, &fixed_b, &shift_b) && shift_b == 460);
+		/* a walk that landed in time delays nothing */
+		fixed_a = 0;
+		assert(test_press_shift_settle(240, 0, 240, 0, &fixed_a, &shift_a) && shift_a == 0);
+	}
+
 	return 0;
 }
