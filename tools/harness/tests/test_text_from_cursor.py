@@ -63,9 +63,12 @@ def test_pieces_at_a_cursor_use_the_function():
     """Every piece of text measured from a cursor (an indent set from it) is measured and boxed by the one function:
     no caller widens or narrows the measured box itself."""
     offenders = []
-    for path in ("source/interface/ui_widget.c", "source/interface/hud_messaging.c"):
+    paths = sorted(str(path.relative_to(ROOT)) for folder in ("source", "port") for path in (ROOT / folder).rglob("*.c"))
+    for path in paths:
+        if path == "source/text/draw_string.c":
+            continue
         source = read(path)
-        for match in re.finditer(r"draw_string_set_indents\((?!0, 0\))[^;]*;", source):
+        for match in re.finditer(r"(?<!void )draw_string_set_indents\((?!0, 0\))[^;]*;", source):
             offenders.append(f"{path}:{source.count(chr(10), 0, match.start()) + 1}: {match.group(0)}")
         for match in re.finditer(r"draw_unicode_string_compute_bounds\([^;]*;\s*\w+\.x0 -= 3;", source):
             offenders.append(f"{path}:{source.count(chr(10), 0, match.start()) + 1}: cursor moved by hand")
