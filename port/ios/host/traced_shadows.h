@@ -282,6 +282,24 @@ static inline int traced_slot_copy(struct traced_caster_slot *slot, const uint32
 	return 1;
 }
 
+/* a caster whose slot holds a structure built in an earlier frame (not this one: a structure is never updated twice
+before its draws) */
+static inline int traced_cache_has_older(const struct traced_caster_cache *cache, const struct traced_caster_slot *found)
+{
+	return found && found->updated && found->updated != cache->frame;
+}
+
+/* the caster keeps that older structure this frame instead of being updated, counted as deferred; the caller has
+checked that the structure is not too old for the reason it defers */
+static inline enum traced_decision traced_cache_keep_older(struct traced_caster_cache *cache,
+	struct traced_caster_slot *found, uint32_t *slot_index)
+{
+	found->frame = cache->frame;
+	cache->deferred++;
+	*slot_index = (uint32_t)(found - cache->slots);
+	return TRACED_REUSE;
+}
+
 /* What to do with a caster this frame, and the slot whose structure it is (*slot_index; *released is 1 when the
 slot held another caster's structure, which the caller releases before building). triangles is the caster's own
 count, refit_allowed the debug switch. A caster already updated this frame in another pose (which the game does not
@@ -324,32 +342,21 @@ static inline enum traced_decision traced_cache_decide(struct traced_caster_cach
 	if (cache->frame_triangles + triangles > TRACED_FRAME_TRIANGLES)
 	{
 		/* (past the frame's work: a caster with a structure of an older pose keeps it, as a deferred refit does) */
-		if (found && found->updated && found->updated != cache->frame &&
-			cache->frame - found->updated <= TRACED_STALE_FRAMES)
-		{
-			found->frame = cache->frame;
-			cache->deferred++;
-			*slot_index = (uint32_t)(found - cache->slots);
-			return TRACED_REUSE;
-		}
+		if (traced_cache_has_older(cache, found) && cache->frame - found->updated <= TRACED_STALE_FRAMES)
+			return traced_cache_keep_older(cache, found, slot_index);
 		cache->refused++;
 		return TRACED_REFUSED;
 	}
 	/* too many moved casters last frame: this one is refitted in its phase of the period, and keeps its structure
 	otherwise (never one older than the period) */
-	if (found && found->updated && found->updated != cache->frame)
+	if (traced_cache_has_older(cache, found))
 	{
 		uint32_t index = (uint32_t)(found - cache->slots);
 
 		cache->moved_triangles += triangles;
 		if (cache->period > 1 && (cache->frame + index) % cache->period != 0 &&
 			cache->frame - found->updated < cache->period)
-		{
-			found->frame = cache->frame;
-			cache->deferred++;
-			*slot_index = index;
-			return TRACED_REUSE;
-		}
+			return traced_cache_keep_older(cache, found, slot_index);
 	}
 	if (found)
 	{
