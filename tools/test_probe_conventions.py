@@ -10,6 +10,7 @@ The class: about 170 test files each built their probes with their own compiler 
   files on
   `tools/probekit/legacy/compile.txt` (not migrated yet) or `exempt.txt` (tests of the build tools themselves, each
   with its reason) may have one. Both lists are shrink-only.
+  Each listed file's count of commands is recorded too, and may only fall.
 - Rule H: every `tools/harness/tests/test_*.py` is named in `.github/workflows/ci.yml` or `cinematic-harness.yml`, or
   is on `tools/probekit/legacy/harness_not_run.txt`.
 
@@ -50,15 +51,23 @@ def listed(name):
 
 
 def baseline(name):
-    return set(json.loads((LEGACY / 'BASELINE.json').read_text())[name])
+    """A legacy list's record: file -> number of commands for rule 1's lists, a list of names for rule H's."""
+    return json.loads((LEGACY / 'BASELINE.json').read_text())[name]
 
 
 def check_shrink_only(name, violating):
+    """`violating` holds what breaks the rule now: file -> count of commands, or a set of names."""
     entries = set(listed(name))
-    grown = sorted(entries - baseline(name))
+    recorded = baseline(name)
+    grown = sorted(entries - set(recorded))
     assert not grown, f'{name} is shrink-only; these are not in BASELINE.json: {grown}'
-    fixed = sorted(entries - violating)
+    fixed = sorted(entries - set(violating))
     assert not fixed, f'these no longer break the rule; take them off {name}: {fixed}'
+    if isinstance(recorded, dict):
+        more = {entry: f'{recorded[entry]} -> {violating[entry]}' for entry in sorted(entries)
+                if violating[entry] > recorded[entry]}
+        assert not more, (f'these files on {name} write more compiler commands than BASELINE.json records; build the '
+                          f'new probe with probekit.cc.build: {more}')
 
 
 def compile_violations():
@@ -70,8 +79,9 @@ def test_rule_1_new_tests_build_probes_with_probekit_cc():
     exempt = listed('exempt.txt')
     unexplained = sorted(name for name, reason in exempt.items() if not reason)
     assert not unexplained, f'exempt.txt needs a reason after # for: {unexplained}'
-    check_shrink_only('exempt.txt', set(violations))
-    check_shrink_only('compile.txt', set(violations))
+    counts = {name: len(lines) for name, lines in violations.items()}
+    check_shrink_only('exempt.txt', counts)
+    check_shrink_only('compile.txt', counts)
     allowed = set(listed('compile.txt')) | set(exempt)
     new = {name: lines for name, lines in violations.items() if name not in allowed}
     assert not new, ('these write their own compiler command; build the probe with probekit.cc.build instead '
