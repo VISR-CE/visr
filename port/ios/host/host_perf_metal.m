@@ -38,6 +38,8 @@ static _Atomic uint64_t sums[FRAME_COUNT][CATEGORY_COUNT], dropped;
 static os_unfair_lock group_lock = OS_UNFAIR_LOCK_INIT;
 /* a stretch of the GPU's work for one part of the frame, in seconds on the CPU timebase */
 typedef struct { double start, end; unsigned group; } gpu_interval;
+/* mach_absolute_time's ticks in seconds (CACurrentMediaTime's clock); filled once, before play */
+static mach_timebase_info_data_t timebase;
 static struct {
     uint64_t frame, presented, interval, budget;
     unsigned count, invalid, late;
@@ -81,6 +83,7 @@ static void add(uint64_t frame, unsigned category, uint64_t duration, int valid)
 static int metal_seen;
 void host_perf_metal_initialize(id<MTLDevice> device) {
     /* Called once before play; never replace buffers while callbacks can run. */
+    if (!timebase.denom) mach_timebase_info(&timebase);
     candidate_device = device;
     if (device) metal_seen = 1;
     if (counter_device || !device || !(host_perf_reports_enabled() || host_perf_hooks_dynamic_enabled())) return;
@@ -217,27 +220,36 @@ void host_perf_metal_command_span(uint64_t frame, unsigned group, double start, 
     }
     os_unfair_lock_unlock(&group_lock);
 }
-/* Each part's share of the union of the frame's GPU intervals, in microseconds: sorted by start, a second that
- * overlaps an earlier interval is charged to that one. Intervals overlap whenever passes run concurrently or one
- * waits on another's output: MetalFX's command buffer starts while the scene drains, and the HUD's vertex stage
- * starts while MetalFX still writes the picture the HUD's fragments wait for. A sum of the spans counts those
- * seconds twice (an M1 iPad Pro at 120 Hz read S+U+H 9.97 ms against a 5.57 ms frame); the shares add up to
- * the union, never more. Sorts the intervals in place. */
+/* the length of the union of the intervals of groups up to last, microseconds (intervals sorted by start) */
+static double union_through(const gpu_interval *intervals, unsigned n, unsigned last) {
+    double reach = -INFINITY, total = 0.0;
+    for (unsigned i = 0; i < n; ++i) {
+        if (intervals[i].group > last) continue;
+        double from = intervals[i].start > reach ? intervals[i].start : reach;
+        if (intervals[i].end > from) total += (intervals[i].end - from) * 1e6;
+        if (intervals[i].end > reach) reach = intervals[i].end;
+    }
+    return total;
+}
+/* Each part's share of the union of the frame's GPU intervals, in microseconds, charged in the frame's dependency
+ * order: S is the union of the scene's intervals, U what the upscale adds to it, H what the HUD adds to both.
+ * Intervals overlap whenever passes run concurrently or one waits on another's output: MetalFX's command buffer
+ * starts while the scene drains, and the HUD's vertex stage starts while MetalFX still writes the picture the HUD's
+ * fragments wait for. A sum of the spans counts those seconds twice (an M1 iPad Pro at 120 Hz read S+U+H 9.97 ms
+ * against a 5.57 ms frame). Charging by start time instead would give a scene encoder that starts after MetalFX's
+ * buffer to the upscale, moving scalable scene work into the planner's fixed term. The shares add up to the
+ * union, never more. Sorts the intervals in place. */
 static void charge_union(gpu_interval *intervals, unsigned n, double totals[3]) {
-    double reach = -INFINITY;
-    totals[0] = totals[1] = totals[2] = 0.0;
     for (unsigned i = 1; i < n; ++i) {
         gpu_interval interval = intervals[i];
         unsigned j = i;
         while (j && intervals[j - 1].start > interval.start) { intervals[j] = intervals[j - 1]; --j; }
         intervals[j] = interval;
     }
-    for (unsigned i = 0; i < n; ++i) {
-        double from = intervals[i].start > reach ? intervals[i].start : reach;
-        if (intervals[i].end > from && intervals[i].group <= HOST_PERF_HUD)
-            totals[intervals[i].group] += (intervals[i].end - from) * 1e6;
-        if (intervals[i].end > reach) reach = intervals[i].end;
-    }
+    double scene = union_through(intervals, n, HOST_PERF_SCENE), upscaled = union_through(intervals, n, HOST_PERF_UPSCALE);
+    totals[HOST_PERF_SCENE] = scene;
+    totals[HOST_PERF_UPSCALE] = upscaled - scene;
+    totals[HOST_PERF_HUD] = union_through(intervals, n, HOST_PERF_HUD) - upscaled;
 }
 /* the command-buffer spans' charged union: scene, and the rest (upscale plus HUD) */
 static void span_charge(const typeof(grouped[0]) *entry, double *scene, double *rest) {
@@ -252,11 +264,16 @@ static void span_charge(const typeof(grouped[0]) *entry, double *scene, double *
 static double gpu_seconds(uint64_t tick, MTLTimestamp gpu_now, double host_now, double microseconds_per_tick) {
     return host_now - (double)(int64_t)(gpu_now - tick) * microseconds_per_tick * 1e-6;
 }
-static double host_seconds_now(void) {
-    static mach_timebase_info_data_t timebase;
-    if (!timebase.denom) mach_timebase_info(&timebase);
-    return (double)mach_absolute_time() * timebase.numer / timebase.denom * 1e-9;
-}
+/* (timebase: see host_perf_metal_initialize) */
+static double mach_seconds(uint64_t ticks) { return (double)ticks * timebase.numer / timebase.denom * 1e-9; }
+/* a correlated pair bracketed by host reads further apart than this is dropped: a preemption between them would
+ * shift every stage range of the buffer against MetalFX's span */
+#define PAIR_BRACKET_SECONDS 20e-6
+/* Containment, the clocks' cross-check: each converted stage range must lie inside its own command buffer's GPU
+ * span, which Metal reports on the CPU timebase. Ranges more than CONTAINMENT_SLACK outside are counted; the
+ * counts are logged with the timing check. */
+#define CONTAINMENT_SLACK 50e-6
+static struct { unsigned long checked, outside, dropped_pairs; double worst; } containment;
 static int compare_doubles(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
 /* every 600 frames with both: how far the command-buffer union is from stage timing, all frames and late ones */
 static void timing_check(double stage_scene, double stage_rest, double buffer_scene, double buffer_rest, int late) {
@@ -271,12 +288,16 @@ static void timing_check(double stage_scene, double stage_rest, double buffer_sc
     if (++count < N) return;
     qsort(scene_error, N, sizeof(double), compare_doubles); qsort(rest_error, N, sizeof(double), compare_doubles);
     if (late_count) qsort(late_error, late_count, sizeof(double), compare_doubles);
+    /* (called with group_lock held, which guards containment too) */
     fprintf(stderr, "DRS timing check %lu: scene buffers vs stage S: median %+.1f%% p5 %+.1f%% p95 %+.1f%%; "
-        "rest buffers minus U+H: median %+.0f us p95 %+.0f us; late frames %u, their scene median %+.1f%% p95 %+.1f%%\n",
+        "rest buffers minus U+H: median %+.0f us p95 %+.0f us; late frames %u, their scene median %+.1f%% p95 %+.1f%%; "
+        "stage ranges outside their buffer by over %.0f us: %lu of %lu, worst %.0f us; dropped clock pairs %lu\n",
         ++logged, scene_error[N / 2] * 100, scene_error[N / 20] * 100, scene_error[N * 19 / 20] * 100,
         rest_error[N / 2], rest_error[N * 19 / 20], late_count,
-        late_count ? late_error[late_count / 2] * 100 : 0.0, late_count ? late_error[late_count * 19 / 20] * 100 : 0.0);
+        late_count ? late_error[late_count / 2] * 100 : 0.0, late_count ? late_error[late_count * 19 / 20] * 100 : 0.0,
+        CONTAINMENT_SLACK * 1e6, containment.outside, containment.checked, containment.worst * 1e6, containment.dropped_pairs);
     count = late_count = 0;
+    memset(&containment, 0, sizeof(containment));
 }
 void host_perf_metal_presented(uint64_t frame, uint64_t time_us, uint64_t budget_us) {
     if (!frame) return;
@@ -330,9 +351,15 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
             NSData *data = commands.status == MTLCommandBufferStatusCompleted ?
                 [buffers[slot].buffer resolveCounterRange:NSMakeRange(0, buffers[slot].count * 4)] : nil;
             MTLTimestamp cpu = 0, gpu = 0;
+            /* the pair's host time on the command-buffer spans' timebase (CACurrentMediaTime's): bracketed, since
+             * the pair's own CPU value has no documented relation to mach_absolute_time */
+            uint64_t before = mach_absolute_time();
             [counter_device sampleTimestamps:&cpu gpuTimestamp:&gpu];
-            /* (the command-buffer spans' timebase, CACurrentMediaTime's) */
-            double host_now = host_seconds_now();
+            uint64_t after = mach_absolute_time();
+            double host_now = mach_seconds(before + (after - before) / 2);
+            int aligned = mach_seconds(after - before) <= PAIR_BRACKET_SECONDS;
+            double buffer_start = commands.GPUStartTime, buffer_end = commands.GPUEndTime;
+            int bounded = commands.status == MTLCommandBufferStatusCompleted && buffer_start > 0.0 && buffer_end >= buffer_start;
             /* Apple documents the correlated CPU reference in nanoseconds. */
             double scale = cpu > reference_cpu && gpu > reference_gpu ?
                 (double)(cpu - reference_cpu) / (double)(gpu - reference_gpu) / 1000.0 : 0.0;
@@ -355,13 +382,20 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
                 os_unfair_lock_lock(&group_lock);
                 typeof(grouped[0]) *frame = &grouped[buffers[slot].frame % FRAME_COUNT];
                 if (frame->frame == buffers[slot].frame) {
-                    if (!valid || frame->count == GROUP_INTERVALS) frame->invalid |= 1u << buffers[slot].groups[i];
+                    if (valid && !aligned) containment.dropped_pairs++;
+                    if (!valid || !aligned || frame->count == GROUP_INTERVALS) frame->invalid |= 1u << buffers[slot].groups[i];
                     else {
                         /* GPU ticks move to the CPU timebase, where MetalFX's command-buffer span lives. */
                         unsigned n = frame->count++;
                         frame->ranges[n].start = gpu_seconds(start, gpu, host_now, scale);
                         frame->ranges[n].end = gpu_seconds(end, gpu, host_now, scale);
                         frame->ranges[n].group = buffers[slot].groups[i];
+                        if (bounded) {
+                            double outside = fmax(buffer_start - frame->ranges[n].start, frame->ranges[n].end - buffer_end);
+                            containment.checked++;
+                            if (outside > CONTAINMENT_SLACK) containment.outside++;
+                            if (outside > containment.worst) containment.worst = outside;
+                        }
                     }
                 }
                 os_unfair_lock_unlock(&group_lock);
