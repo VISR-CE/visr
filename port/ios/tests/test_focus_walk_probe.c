@@ -258,6 +258,33 @@ int main(void)
 		assert(plain[0].shift == 0 && plain[1].shift == 0);
 	}
 
+	/* The script's clock begins when a screen is up, the same for every input (pgi-sim-retake: the keyboard and touch runs showed
+	their screen at frames 153 and 152, a controller's at 2, a mouse's at 68; a press scripted for poll 90 fired at frame 90 in each,
+	before the keyboard's screen existed). Whatever frame the screen comes up at, the press fires 90 polls after it and the polls it
+	waited are reported once. */
+	{
+		struct { char const *input; unsigned long screen_frame; } inputs[] = {
+			{ "controller", 2 }, { "mouse", 68 }, { "touch", 152 }, { "keyboard", 153 } };
+
+		for (int i = 0; i < 4; i++)
+		{
+			struct test_script_clock clock = { 0 };
+			unsigned long script_poll = 0, fired = 0;
+			int pressed_early = 0;
+
+			for (unsigned long frame = 0; frame < 500; frame++)
+			{
+				if (!test_script_clock_tick(&clock, frame >= inputs[i].screen_frame, &script_poll))
+					continue;
+				if (frame < inputs[i].screen_frame)
+					pressed_early = 1;
+				if (script_poll == 90 && !fired)
+					fired = frame;
+			}
+			assert(!pressed_early && fired == inputs[i].screen_frame + 90 && clock.waited == inputs[i].screen_frame);
+		}
+	}
+
 	puts("test_focus_walk_probe: ok");
 	return 0;
 }

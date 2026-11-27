@@ -86,6 +86,34 @@ struct test_chain_step
 	unsigned long landed_at;
 };
 
+/* The script's clock (debug.test_input, every input's scripted presses and walks): its polls count from the first one at which a
+screen is up or a game runs, never from launch. The time a build takes to get there differs by input (a keyboard run showed its
+screen at frame 153, a controller run at 2), and a press scripted for poll 90 that fires before the screen exists opens nothing.
+The polls spent waiting are reported once (`waited`), so the capture tools can add them to the marks they wait for. The
+pointer script (HALO_MENU_POINTER_SCRIPT) is the same rule: its frames are counted only while the menus are up. */
+struct test_script_clock
+{
+	unsigned long polls;    /* the script's own poll, counted from the start */
+	unsigned long waited;   /* real polls that passed before the start */
+	int started;
+};
+
+/* one real poll: returns 0 while no screen is up and the script has not begun; else 1 with the script's poll in `*poll` */
+static inline int test_script_clock_tick(struct test_script_clock *clock, int screen_ready, unsigned long *poll)
+{
+	if (!clock->started)
+	{
+		if (!screen_ready)
+		{
+			clock->waited++;
+			return 0;
+		}
+		clock->started = 1;
+	}
+	*poll = clock->polls++;
+	return 1;
+}
+
 /* releases the steps that are due at `poll`; the caller marks a walk landed as soon as it lands. Returns how many were released. */
 static inline int test_chain_update(struct test_chain_step *steps, int count, unsigned long poll)
 {

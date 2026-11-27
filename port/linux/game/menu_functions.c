@@ -727,6 +727,14 @@ static struct widget_instance *first_text_box(struct widget_instance *widget)
 	return NULL;
 }
 
+/* (game thread only) */
+boolean game_engine_running(void);
+
+int menu_test_screen_ready(void)
+{
+	return ui_widget_port_active_screen(0) != NULL || game_engine_running();
+}
+
 /* (game thread only: it reads the text boxes the thread that renders them resizes) */
 int menu_test_focus_text(char *text, int size)
 {

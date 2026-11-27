@@ -208,6 +208,10 @@ int platform_ready_screenshot_taken(void);
 /* debug.test_input "focus:LABEL": the text of the focused menu row as its widget draws it (ASCII), 1 when there is one
 (menu_functions.c) */
 int menu_test_focus_text(char *text, int size);
+/* a screen is up for local player 0 or a game runs (the scripted input's clock begins then: test_focus_walk.h) */
+int menu_test_screen_ready(void);
+/* debug.exit_after counts from the scripted input's start: pushes its frame out by the polls the script waited */
+void platform_exit_after_extend(unsigned long frames);
 /* debug.benchmark_window_shot: one capture of the first frame after a benchmark window's timer stops */
 void platform_benchmark_window_shot_request(void);
 void platform_clock_frame(void);

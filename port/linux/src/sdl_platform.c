@@ -1700,6 +1700,15 @@ millisecond later, and on Apple platforms each poll runs the main run loop
 once (on the Mac runner about 0.2 ms, a tenth of the game thread) */
 #define PUMP_INTERVAL_MS 2
 
+/* frames the scripted input waited for its first screen (test_focus_walk.h): debug.exit_after counts past them (set by the game
+thread, read by the event thread: a word, and a late read only exits a frame later) */
+static volatile unsigned long exit_frame_delay;
+
+void platform_exit_after_extend(unsigned long frames)
+{
+	exit_frame_delay = frames;
+}
+
 void platform_pump_events(void)
 {
 	/* debug.exit_after (seconds) ends the game that long after the window
@@ -1727,7 +1736,7 @@ void platform_pump_events(void)
 		if (exit_frame)
 			exit_frame += platform_clock_frames();
 	}
-	if (platform_fixed_timestep() ? exit_frame && platform_clock_frames() >= exit_frame :
+	if (platform_fixed_timestep() ? exit_frame && platform_clock_frames() >= exit_frame + exit_frame_delay :
 		exit_ticks && SDL_GetTicks() >= exit_ticks)
 	{
 		platform_log("exiting after debug.exit_after");
