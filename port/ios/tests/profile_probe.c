@@ -510,15 +510,15 @@ static void check_shipped(const char *shipped)
 	assert(!strcmp(profile.model_file, "vision-pro-m2.toml") && profile.count == 9 && has(&profile, "display.anti_aliasing", "smaa") &&
 		has(&profile, "display.renderer", "metal") && has(&profile, "network.full_rate_players", "48"));
 	/* iPhone 17 Pro, iPad Pro (M1) and the Macs: values equal to the built-in defaults, and the iPhone and iPad
-	class profile's Metal; the M1 iPad Pro targets 120 frames a second in a predictable workload and the 17 Pro takes the
-	ladder's 60 (120 at 1080 lines missed on the Maw) */
+	class profile's Metal; the M1 iPad Pro and the 17 Pro take the ladder's 60 (120 at 1080 lines missed on the Maw on the
+	17 Pro; on the M1, 120 read 75% to 97% on time on builds before and after Game Mode, below the 99.5% hold) */
 	profile = resolve(shipped, device("ios", "iPhone18,1", "", 10), NULL, "");
 	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.frame_rate", "60") &&
 		has(&profile, "display.anisotropic_filtering", "16") &&
 		has(&profile, "display.shadow_map_size", "128") && has(&profile, "display.renderer", "metal") &&
 		has(&profile, "display.anti_aliasing", "fxaa"));
 	profile = resolve(shipped, device("ios", "iPad13,9", "", 7), NULL, "");
-	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.frame_rate", "120") &&
+	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.frame_rate", "60") &&
 		has(&profile, "display.effect_resolution", "half") && has(&profile, "display.renderer", "metal"));
 	/* iPad Air 4 and iPhone 12 Pro: their own measured profiles */
 	profile = resolve(shipped, device("ios", "iPad13,1", "", 7), NULL, "");
