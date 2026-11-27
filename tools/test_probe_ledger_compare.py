@@ -15,11 +15,11 @@ def test_the_record_leaves_out_the_checkout_path(tmp_path, monkeypatch):
     probes = ProbeLedger(root=tmp_path)
     probes.note_built(tmp_path / 'build/a-probe', ('xcrun', 'clang', f'-I{tmp_path}/build', 'port/ios/tests/a.c',
                                                     '-o', tmp_path / 'build/a-probe'))
-    probes.note_ran(tmp_path / 'build/a-probe', ('true',))
+    probes.note_ran(tmp_path / 'build/a-probe', ('true', tmp_path))
     probes.check()
     assert json.loads(record.read_text()) == [
         ['built', 'build/a-probe', ['xcrun', 'clang', '-Ibuild', 'port/ios/tests/a.c', '-o', 'build/a-probe']],
-        ['ran', 'build/a-probe', ['true']]]
+        ['ran', 'build/a-probe', ['true', '.']]]
 
 
 def test_inputs_may_move_among_the_options_but_not_change_order():

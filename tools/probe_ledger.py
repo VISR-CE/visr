@@ -75,11 +75,13 @@ class ProbeLedger:
 
     def portable_events(self):
         """The events with the checkout's own path left out of every string, so two checkouts' records compare."""
-        prefix = f'{Path(self.root).resolve()}/' if self.root is not None else None
+        root = str(Path(self.root).resolve()) if self.root is not None else None
         def portable(value):
             if isinstance(value, list):
                 return [portable(item) for item in value]
-            return value.replace(prefix, '') if prefix and isinstance(value, str) else value
+            if root is None or not isinstance(value, str):
+                return value
+            return '.' if value == root else value.replace(f'{root}/', '')
         return portable(self.events)
 
     def never_ran(self):
