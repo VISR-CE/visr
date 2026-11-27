@@ -1023,6 +1023,41 @@ boolean cache_files_map_plays_multiplayer(
 	return result;
 }
 
+/* port: a map's identity, "<build> <file size>", for what is kept about a map file that is to be tried again when the
+file changes (menu_tags.c's warm note); FALSE when the file is absent or its header cannot be read or verified */
+boolean cache_files_map_identity(
+	char const *map_name,
+	char identity[64])
+{
+	struct cache_file_header header;
+	char path[256];
+	HANDLE file;
+	boolean result = FALSE;
+
+	identity[0] = 0;
+	snprintf(path, sizeof(path), "%s%s.map", cache_files_map_directory(), tag_name_strip_path(map_name));
+	file = CreateFileA(path, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
+	if (file != INVALID_HANDLE_VALUE)
+	{
+		unsigned long bytes_read, size = GetFileSize(file, NULL);
+
+		if (ReadFile(file, &header, sizeof(header), &bytes_read, NULL) &&
+			bytes_read == sizeof(header) &&
+			cache_file_header_verify(&header, path, FALSE))
+		{
+			char build[0x21];
+
+			csstrncpy(build, header.build, 0x20);
+			build[0x20] = 0;
+			snprintf(identity, 64, "%s %lu", build, size);
+			result = TRUE;
+		}
+		CloseHandle(file);
+	}
+
+	return result;
+}
+
 /* tells the player that maps of a build (a cache file header's) do not play
 multiplayer: map_name the map's, or NULL for the player's maps */
 void cache_files_show_multiplayer_unavailable(

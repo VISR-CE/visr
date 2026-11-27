@@ -1363,9 +1363,11 @@ saved from the original, which the probe says of upgrade.png) */
 void halo_menus_picture_register(void const *hardware_format) { (void)hardware_format; picture_registrations++; }
 void halo_menus_pictures_forget(void) {}
 
+static int upgrade_stale = 1;
+
 int halo_menus_art_needs_save(char const *cache_path)
 {
-	return !halo_menus_cache_exists(cache_path) || !strcmp(cache_path, "cache/xbox/v1/upgrade.png");
+	return !halo_menus_cache_exists(cache_path) || (upgrade_stale && !strcmp(cache_path, "cache/xbox/v1/upgrade.png"));
 }
 
 int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
@@ -1386,10 +1388,47 @@ int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
 	return hardware_format == extracted_resource && halo_menus_cache_write_png(cache_path, extracted_pixels, 300, 300);
 }
 
+boolean menu_art_warm_wanted(char const *identity);
+void menu_art_warm_finished(char const *identity);
+
+/* a launch that skips the main menu warms the cache by loading ui.map once (main_menu_art_warm, main.c): asked only where a
+picture frame's cache is missing or stale, never where every one is saved, and not again for a picture a warm could not
+save from the same ui.map (the note names the picture and the ui.map's identity, so another picture or another ui.map
+asks again). It runs at the end of check_extraction, after the pictures exist, and relies on upgrade.png's stale stub */
+static void check_warm(void)
+{
+	char note[400];
+	FILE *file;
+
+	snprintf(note, sizeof(note), "%smenus/cache/xbox/v1/ui-warm-failed.key", folder);
+	remove(note);
+	check(menu_art_warm_wanted("b1 100"), "a stale cached picture asks for the ui.map warm");
+	menu_art_warm_finished("b1 100");
+	check(halo_menus_cache_exists("cache/xbox/v1/ui-warm-failed.key"), "a picture the warm could not save is recorded");
+	check(!menu_art_warm_wanted("b1 100"), "a recorded failure is not retried at the next launch");
+	check(menu_art_warm_wanted("b1 200"), "a ui.map that changed since the failure is tried again");
+	/* (a different picture that is missing still warms: the note names only upgrade.png) */
+	file = fopen(note, "wb");
+	check(file != NULL, "the note is rewritten");
+	if (file)
+	{
+		fputs("ui warm failed in ui.map b1 100\ncache/xbox/v1/other.png\n", file);
+		fclose(file);
+	}
+	check(menu_art_warm_wanted("b1 100"), "a failure recorded for another picture does not stop this one's warm");
+	remove(note);
+	upgrade_stale = 0;
+	check(!menu_art_warm_wanted("b1 100"), "no warm where every picture frame's cache is saved");
+	menu_art_warm_finished("b1 100");
+	check(!halo_menus_cache_exists("cache/xbox/v1/ui-warm-failed.key"), "a warm that saved everything records no failure");
+	upgrade_stale = 1;
+}
+
 static void check_extraction(void)
 {
 	unsigned long levels = 0;
 
+	check(menu_art_warm_wanted("b1 100"), "a missing cached picture asks for the ui.map warm before a game map loads");
 	menu_art_texture(0, &levels);
 	check(hardware_requests == 0 && art_extractions == 0, "texture resolution does not extract pictures");
 	check(!halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is not saved before the menu update");
@@ -1408,6 +1447,7 @@ static void check_extraction(void)
 	check(art_extractions == 2, "a picture is saved once");
 	check(!halo_menus_cache_exists("../escape.png") && !halo_menus_cache_write_png("../escape.png",
 		extracted_pixels, 1, 1), "nothing is written outside the menus folder");
+	check_warm();
 }
 
 /* a frame's picture is its cache where the player's file is there and can be drawn, else its png, else nothing */

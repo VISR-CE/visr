@@ -3139,11 +3139,65 @@ void main_rasterizer_throttle(
 	return;
 }
 
+/* port: menu_tags.c's: whether a picture ui.map has is not saved in the player's cache, and the record of a warm that
+could not save one (keyed by the ui.map tried), then the main-menu pass's own extraction */
+boolean menu_art_warm_wanted(char const *identity);
+void menu_art_warm_finished(char const *identity);
+void pc_menu_art_extract(void);
+void platform_log(const char *format, ...);
+
+/* port: a game map's menus (the pause hub's controller art) draw ui.map's pictures from the player's cache, which only
+a main-menu pass fills (menu_tags.c), and that pass runs after the first frames, so a launch that goes on to a map at
+once (init.txt's map_name, a join link, an invite, a recording, a benchmark) can reach its map first. So at startup,
+before any of those, the pictures are saved here: ui.map is loaded, its pictures saved, and it is unloaded again (the
+main menu then loads it as usual). It runs only where a picture is not saved (once an install, or after a clear). It
+fails soft: a ui.map that is absent or will not load only costs the pictures (errors the failed load queued are dropped,
+others are left), and a picture that cannot be saved is recorded so the next launch does not retry it. The precache's
+progress bar shows while ui.map is copied; the load, saving and unload that follow show the last frame. */
+static void main_menu_art_warm(
+	void)
+{
+	struct game_options options;
+	struct error_global_data saved_errors;
+	char identity[64];
+	unsigned long began;
+
+	if (!cache_files_map_identity("levels\\ui\\ui", identity))
+	{
+		platform_log("menus: ui.map cannot be read; not saving the menu pictures");
+		return;
+	}
+	if (!menu_art_warm_wanted(identity))
+		return;
+	began = system_milliseconds();
+	saved_errors = error_globals;
+	game_options_new(&options);
+	csstrncpy(options.map_name, "levels\\ui\\ui", NUMBEROF(options.map_name) - 1);
+	options.map_name[NUMBEROF(options.map_name) - 1] = 0;
+	game_precache_new_map(options.map_name, TRUE);
+	if (game_load(&options))
+		pc_menu_art_extract();
+	else
+	{
+		/* (a scenario that loaded its tags and then failed is not unloaded by game_unload) */
+		platform_log("menus: ui.map did not load; not saving the menu pictures");
+		if (global_scenario_index != NONE)
+			scenario_unload();
+		error_globals = saved_errors;
+	}
+	game_unload();
+	menu_art_warm_finished(identity);
+	platform_log("menus: the menu pictures were handled in %lu ms", system_milliseconds() - began);
+}
+
 static void main_setup_connection(
 	void)
 {
 	struct game_options options;
 
+	/* (before any path below: a launch to the main menu that a benchmark, a recording or an invite sends on to a map
+	before a menu pass has run would otherwise leave that map's menus without their pictures) */
+	main_menu_art_warm();
 	if (main_globals.playback_last_recording)
 		main_globals.want_to_be_at_main_menu = FALSE;
 

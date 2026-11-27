@@ -92,6 +92,16 @@ static struct
 static long extraction_count;
 static boolean menu_pictures_pending;
 
+/* Whether a picture frame of ui.map's wants saving into the player's cache: it is not saved, or was saved from the
+original and the upscaler has made a larger one since (halo_menus_art_needs_save). Frames without a map or a cache are
+not pictures to save. The main-menu extraction and the launch warm below ask the same question. */
+static boolean frame_wants_save(
+	struct halo_menu_frame const *frame)
+{
+	return frame->map && frame->cache && halo_menus_art_needs_save(frame->cache);
+}
+
+
 /* The native Mac's DISPLAY choice follows the window between displays.
 Keep its UTF-16 backing stable so an open spinner sees the new label. */
 static char display_rate_label[32];
@@ -1073,8 +1083,7 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 			if (data->width > 0 && data->height > 0 && data->width <= 2048 && data->height <= 2048)
 				frame_placement_add(bitmap, data);
 			/* (ui.map has the picture, which a game map's menus draw from the player's copy of it) */
-			if (data->cache && !build.game_map && extraction_count < MAXIMUM_EXTRACTIONS &&
-				halo_menus_art_needs_save(data->cache))
+			if (!build.game_map && extraction_count < MAXIMUM_EXTRACTIONS && frame_wants_save(data))
 			{
 				extractions[extraction_count].bitmap = bitmap;
 				extractions[extraction_count].path = data->cache;
@@ -1092,6 +1101,10 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 		/* (a frame's cache, where it has one, is tried before its png: "cache|png") */
 		if (data->cache && png)
 		{
+			/* a game map's frame whose picture is not saved at all (not merely stale) draws its png, the blank one
+			for a picture: logged so a capture can fail on it (the capture tool: "the picture is not saved") */
+			if (build.game_map && data->map && !halo_menus_cache_exists(data->cache))
+				platform_log("menus: the picture %s is not saved, drawing %s", data->cache, png);
 			snprintf(art, sizeof(art), "%s|%s", data->cache, png);
 			png = art;
 		}
@@ -3617,6 +3630,73 @@ void menu_tags_unloaded(
 {
 	if (menu_tags.loaded || menu_tags.block_count)
 		menu_tags_release();
+}
+
+/* A launch that never reaches the main menu (an init.txt map, a join link's map) would leave a game map's menus without
+the pictures only a main-menu pass saves (pc_menu_art_extract). main_menu_art_warm (main.c) loads ui.map once at
+startup for it; this says whether to. A warm that could not save a picture leaves a note naming it and the ui.map it
+tried (IDENTITY: its build and size), so that picture is not retried at every launch, a different missing picture
+still warms, and a re-imported ui.map tries again. */
+#define WARM_FAILED_NOTE "cache/xbox/v1/ui-warm-failed.key"
+#define WARM_FAILED_HEADING "ui warm failed in ui.map "
+
+static boolean warm_failure_recorded(
+	char const *identity,
+	char const *cache)
+{
+	char note[1024], heading[128], line[300];
+	size_t count = halo_menus_cache_read(WARM_FAILED_NOTE, note, sizeof(note) - 1);
+
+	note[count] = 0;
+	snprintf(heading, sizeof(heading), WARM_FAILED_HEADING "%s\n", identity);
+	snprintf(line, sizeof(line), "\n%s\n", cache);
+	return !strncmp(note, heading, strlen(heading)) && strstr(note + strlen(heading) - 1, line);
+}
+
+boolean menu_art_warm_wanted(
+	char const *identity)
+{
+	struct halo_menus const *menus = halo_menus_load();
+	long index;
+
+	for (index = 0; menus && index < menus->frame_count; index++)
+	{
+		if (frame_wants_save(&menus->frames[index]) && !warm_failure_recorded(identity, menus->frames[index].cache))
+		{
+			platform_log("menus: %s is not saved; loading ui.map once to save the pictures", menus->frames[index].cache);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/* after the warm's extraction: each picture still wanting saving is logged and recorded, with the ui.map it was tried
+against, so the next launch does not repeat the warm for it (a stale picture the warm could not refresh is recorded the
+same way; the main-menu pass still saves that one) */
+void menu_art_warm_finished(
+	char const *identity)
+{
+	struct halo_menus const *menus = halo_menus_load();
+	char note[1024];
+	long index;
+	int any = 0;
+
+	snprintf(note, sizeof(note), WARM_FAILED_HEADING "%s\n", identity);
+	for (index = 0; menus && index < menus->frame_count; index++)
+		if (frame_wants_save(&menus->frames[index]))
+		{
+			size_t used = strlen(note);
+
+			platform_log("menus: the warm could not save %s", menus->frames[index].cache);
+			if (used + strlen(menus->frames[index].cache) + 2 < sizeof(note))
+				snprintf(note + used, sizeof(note) - used, "%s\n", menus->frames[index].cache);
+			any = 1;
+		}
+	if (any)
+	{
+		/* (each path is on a line of its own, after the heading's: a leading newline is the heading's own) */
+		halo_menus_cache_write_note(WARM_FAILED_NOTE, note);
+	}
 }
 
 /* Saves queued ui.map pictures from process_ui_widgets, once per main-menu update, before texture resolution.

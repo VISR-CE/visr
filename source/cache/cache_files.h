@@ -70,6 +70,9 @@ char const *cache_files_multiplayer_region(
 boolean cache_files_map_plays_multiplayer(
 	char const *map_name,
 	char build[0x20]);
+boolean cache_files_map_identity(
+	char const *map_name,
+	char identity[64]);
 void cache_files_show_multiplayer_unavailable(
 	char const *map_name,
 	char const *build);
