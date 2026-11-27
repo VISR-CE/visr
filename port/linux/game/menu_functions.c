@@ -741,7 +741,7 @@ int menu_test_network_ready(void)
 	int up = transport_initialized && transport_network_available();
 	int ready = test_network_ready(up, platform_clock_frames());
 
-	if (ready && !up && !gave_up_logged)   /* a capture with no link says so instead of showing a networking error unexplained */
+	if (ready && !up && !gave_up_logged && *config_string("debug.test_input"))   /* a capture with no link says so instead of showing a networking error unexplained */
 	{
 		gave_up_logged = 1;
 		platform_log("test input: networking is not up after %d frames (no link); opening screens anyway", TEST_NETWORK_WAIT_FRAMES);

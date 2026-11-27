@@ -283,16 +283,23 @@ int main(void)
 			unsigned long script_poll = 0, fired = 0;
 			int pressed_early = 0;
 
+			/* polled at a cadence unlike the frames (the pad is polled only once menus or a game need it): one poll at frame 0 and
+			then one every 3 frames, so a count of polls is not the frame the screen came up at */
 			for (unsigned long frame = 0; frame < 500; frame++)
 			{
-				if (!test_script_clock_tick(&clock, frame >= inputs[i].screen_frame, &script_poll))
+				if (frame % 3 && frame != 0)
+					continue;
+				if (!test_script_clock_tick(&clock, frame >= inputs[i].screen_frame, frame, &script_poll))
 					continue;
 				if (frame < inputs[i].screen_frame)
 					pressed_early = 1;
 				if (script_poll == 90 && !fired)
 					fired = frame;
 			}
-			assert(!pressed_early && fired == inputs[i].screen_frame + 90 && clock.waited == inputs[i].screen_frame);
+			/* the first poll at or after the screen is where it begins; the press fires 90 polls (270 frames) later */
+			unsigned long began = (inputs[i].screen_frame + 2) / 3 * 3;
+
+			assert(!pressed_early && clock.began_frame == began && fired == began + 90 * 3);
 		}
 	}
 

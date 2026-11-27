@@ -1131,7 +1131,7 @@ def simulator_pattern(udid):
     """a pgrep -f pattern matching the game's executable in simulator udid"""
     # (a simulator in a custom device set, `simctl --set`, runs from that set's folder: .../<set>/<udid>/data/..., not CoreSimulator/Devices;
     # the capture sweeps' scratch sets did, so the 60 second start check never saw their game and ended every run at 60 s)
-    return f"/{udid}/.*/VISR.app/VISR"
+    return f"/{udid}/data/Containers/Bundle/Application/.*/VISR.app/VISR"
 
 
 def simulator_running(udid):

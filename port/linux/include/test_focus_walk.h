@@ -89,33 +89,34 @@ struct test_chain_step
 /* The script's clock (debug.test_input, every input's scripted presses and walks): its polls count from the first one at which a
 screen is up or a game runs, never from launch. The time a build takes to get there differs by input (a keyboard run showed its
 screen at frame 153, a controller run at 2), and a press scripted for poll 90 that fires before the screen exists opens nothing.
-The frame the script began at is logged once by the caller (the pad is polled only once menus or a game need it, so the polls counted
-in `waited` understate the wait), and the capture tools add it to the marks they wait for. The
-pointer script (HALO_MENU_POINTER_SCRIPT) is the same rule: its frames are counted only while the menus are up. */
+The frame the script began at (`began_frame`) is logged once by the caller (the pad is polled only once menus or a game need it, so
+a count of polls would understate the wait), and the capture tools add it to the marks they wait for. The clock starts once and never
+stops: a flow that starts a game and presses again afterward still has the map load inside its marks. The scripts' other modes
+(`unarmed:`, `aachord:`, `zoom:`, `walklook:`) count pad polls from the first poll, which is only right because the pad is polled
+once menus or a game need it. The pointer script (HALO_MENU_POINTER_SCRIPT) and the event script (host_sdl.c) are NOT on this
+clock: they count their own frames while a menu is up, with no network gate (known-bugs.md, "script clocks"). */
 struct test_script_clock
 {
-	unsigned long polls;    /* the script's own poll, counted from the start */
-	unsigned long waited;   /* real polls that passed before the start */
+	unsigned long polls;        /* the script's own poll, counted from the start */
+	unsigned long began_frame;  /* the frame the script began at */
 	int started;
 };
 
-/* one real poll: returns 0 while no screen is up and the script has not begun; else 1 with the script's poll in `*poll` */
-static inline int test_script_clock_tick(struct test_script_clock *clock, int screen_ready, unsigned long *poll)
+/* one real poll at `frame`: returns 0 while no screen is up and the script has not begun; else 1 with the script's poll in `*poll` */
+static inline int test_script_clock_tick(struct test_script_clock *clock, int screen_ready, unsigned long frame, unsigned long *poll)
 {
 	if (!clock->started)
 	{
 		if (!screen_ready)
-		{
-			clock->waited++;
 			return 0;
-		}
 		clock->started = 1;
+		clock->began_frame = frame;
 	}
 	*poll = clock->polls++;
 	return 1;
 }
 
-/* Networking must be up before a scripted capture opens a screen: a network pregame screen opened as the first screen (frame 2)
+/* Networking must be up before a scripted press or sequence opens a screen (debug.menu_open is not gated: the root screen is loaded once, at shell load, and cannot wait): a network pregame screen opened as the first screen (frame 2)
 showed "A networking error has occurred", opened after the main menu it showed ENLISTED PLAYERS. One condition for every screen
 and every row, not a delay per screen: the transport is initialized and its link is up, or `TEST_NETWORK_WAIT_FRAMES` have passed
 (a device with no link at all must not wait forever). 900 frames is 15 s at 60 fps: the link was up by the main menu in the runs that

@@ -31,6 +31,12 @@ int main(void) {
     assert(halo_virtual_clock_exit_frame(0.0) == 0UL);
     assert(halo_virtual_clock_exit_frame(-5.0) == 0UL);
     assert(halo_virtual_clock_exit_frame(0.01) == 1UL);
+    /* debug.exit_after is pushed out by the script's wait on both clocks (the capture runs use the wall clock) */
+    assert(!halo_exit_reached(1, 1199, 1200, 0, 0, 0, 0) && halo_exit_reached(1, 1200, 1200, 0, 0, 0, 0));
+    assert(!halo_exit_reached(1, 1200, 1200, 150, 0, 0, 0) && halo_exit_reached(1, 1350, 1200, 150, 0, 0, 0));
+    assert(!halo_exit_reached(0, 0, 0, 0, 59999, 60000, 0) && halo_exit_reached(0, 0, 0, 0, 60000, 60000, 0));
+    assert(!halo_exit_reached(0, 0, 0, 0, 60000, 60000, 5000) && halo_exit_reached(0, 0, 0, 0, 65000, 60000, 5000));
+    assert(!halo_exit_reached(0, 0, 0, 0, 1000000, 0, 5000) && !halo_exit_reached(1, 1000000, 0, 5, 0, 0, 0));
     puts("PASS: virtual clock rate, remainders, starting values, long runs and exit frames");
     return 0;
 }

@@ -53,4 +53,15 @@ static inline unsigned long halo_virtual_clock_exit_frame(double seconds)
 	return frame ? frame : 1;
 }
 
+/* whether debug.exit_after has passed: on the fixed-timestep clock (frames) or the wall clock (milliseconds). Each clock's deadline is
+pushed out by what the scripted input waited for its first screen (`frame_delay` frames, `tick_delay` milliseconds); a deadline of 0
+is never. Both clocks are extended: the capture runs use the wall clock. */
+static inline int halo_exit_reached(int fixed_timestep, unsigned long frames, unsigned long exit_frame, unsigned long frame_delay,
+	unsigned long long ticks, unsigned long long exit_ticks, unsigned long long tick_delay)
+{
+	if (fixed_timestep)
+		return exit_frame && frames >= exit_frame + frame_delay;
+	return exit_ticks && ticks >= exit_ticks + tick_delay;
+}
+
 #endif

@@ -1703,10 +1703,14 @@ once (on the Mac runner about 0.2 ms, a tenth of the game thread) */
 /* frames the scripted input waited for its first screen (test_focus_walk.h): debug.exit_after counts past them (set by the game
 thread, read by the event thread: a word, and a late read only exits a frame later) */
 static volatile unsigned long exit_frame_delay;
+static volatile Uint64 exit_tick_delay;
+static Uint64 pump_start_ticks;
 
 void platform_exit_after_extend(unsigned long frames)
 {
 	exit_frame_delay = frames;
+	/* the wall clock waited as long: since the first pump, which started debug.exit_after */
+	exit_tick_delay = pump_start_ticks ? SDL_GetTicks() - pump_start_ticks : 0;
 }
 
 void platform_pump_events(void)
@@ -1731,13 +1735,14 @@ void platform_pump_events(void)
 	{
 		double seconds = config_real("debug.exit_after");
 
+		pump_start_ticks = SDL_GetTicks() ? SDL_GetTicks() : 1;
 		exit_ticks = seconds > 0.0 ? SDL_GetTicks() + (Uint64)(seconds * 1000.0) : 0;
 		exit_frame = halo_virtual_clock_exit_frame(seconds);
 		if (exit_frame)
 			exit_frame += platform_clock_frames();
 	}
-	if (platform_fixed_timestep() ? exit_frame && platform_clock_frames() >= exit_frame + exit_frame_delay :
-		exit_ticks && SDL_GetTicks() >= exit_ticks)
+	if (halo_exit_reached(platform_fixed_timestep(), platform_clock_frames(), exit_frame, exit_frame_delay,
+		SDL_GetTicks(), exit_ticks, exit_tick_delay))
 	{
 		platform_log("exiting after debug.exit_after");
 		exit(EXIT_SUCCESS);
