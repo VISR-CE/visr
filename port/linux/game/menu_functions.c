@@ -749,10 +749,18 @@ int menu_test_network_ready(void)
 	return ready;
 }
 
-/* a screen is up (or a game runs) and networking is ready: the scripted input's clock begins, and a sequence opens its next screen */
+static int menu_test_screen_up(void) { return ui_widget_port_active_screen(0) != NULL; }
+static int menu_test_game_time_exists(void) { return game_time_initialized(); }
+static int menu_test_game_in_progress(void) { return game_in_progress(); }
+
+/* a screen is up (or a game runs) and networking is ready: the scripted input's clock begins, and a sequence opens its next screen
+(game thread only; test_focus_walk.h's test_script_ready) */
 int menu_test_screen_ready(void)
 {
-	return (ui_widget_port_active_screen(0) != NULL || (game_time_initialized() && game_in_progress())) && menu_test_network_ready();
+	static struct test_ready_engine const engine = { menu_test_screen_up, menu_test_game_time_exists, menu_test_game_in_progress,
+		menu_test_network_ready };
+
+	return test_script_ready(&engine);
 }
 
 /* (game thread only: it reads the text boxes the thread that renders them resizes) */

@@ -127,6 +127,22 @@ static inline int test_network_ready(int transport_up, unsigned long frame)
 	return transport_up || frame >= TEST_NETWORK_WAIT_FRAMES;
 }
 
+/* Whether the script's clock may begin: a screen is up, or a game is in progress, and networking is ready. The pad is polled from
+input_initialize, before game time exists, and game_in_progress asserts then (a scripted run crashed at launch on it): the game is only
+asked about once game time exists. The caller supplies the engine's answers so a probe can stand in for the engine at any moment. */
+struct test_ready_engine
+{
+	int (*screen_up)(void);
+	int (*game_time_exists)(void);
+	int (*game_in_progress)(void);   /* (asserts when game time does not exist) */
+	int (*network_ready)(void);
+};
+
+static inline int test_script_ready(struct test_ready_engine const *engine)
+{
+	return (engine->screen_up() || (engine->game_time_exists() && engine->game_in_progress())) && engine->network_ready();
+}
+
 /* releases the steps that are due at `poll`; the caller marks a walk landed as soon as it lands. Returns how many were released. */
 static inline int test_chain_update(struct test_chain_step *steps, int count, unsigned long poll)
 {

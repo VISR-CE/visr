@@ -76,6 +76,17 @@ static int sweep_walk(int count, int wraps, int start, char const *label, int lo
 	return -1;
 }
 
+/* start-up stages for the clock's predicate: 0 nothing exists, 1 game time exists with no game, 2 a game runs, 3 a screen is up */
+static int probe_stage;
+static int probe_screen_up(void) { return probe_stage == 3; }
+static int probe_game_time_exists(void) { return probe_stage >= 1; }
+static int probe_game_in_progress(void)   /* (asserts as the engine's does when game time does not exist) */
+{
+	assert(probe_stage >= 1 && "game_in_progress asked before game time exists");
+	return probe_stage == 2;
+}
+static int probe_network_ready(void) { return 1; }
+
 int main(void)
 {
 	char const *const rows[] = { "CHANGE NAME", "GAME OPTIONS", "PLAYER OPTIONS", "ITEM OPTIONS", "VEHICLES", "SAVE CHANGES" };
@@ -288,6 +299,21 @@ int main(void)
 	/* Networking gate: no screen opens before the transport is up, for any screen; with no link at all it gives up after the wait. */
 	assert(!test_network_ready(0, 2) && !test_network_ready(0, TEST_NETWORK_WAIT_FRAMES - 1));
 	assert(test_network_ready(1, 2) && test_network_ready(0, TEST_NETWORK_WAIT_FRAMES));
+
+	/* Launch: the pad is polled from input_initialize, before game time exists. The clock's predicate must not ask the game anything
+	then (game_in_progress asserts; a scripted run crashed at launch on it), at any stage of start-up. */
+	{
+		struct test_ready_engine engine = { probe_screen_up, probe_game_time_exists, probe_game_in_progress, probe_network_ready };
+
+		probe_stage = 0;
+		assert(!test_script_ready(&engine));
+		probe_stage = 1;
+		assert(!test_script_ready(&engine));
+		probe_stage = 2;
+		assert(test_script_ready(&engine));
+		probe_stage = 3;
+		assert(test_script_ready(&engine));
+	}
 
 	puts("test_focus_walk_probe: ok");
 	return 0;
