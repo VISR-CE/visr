@@ -48,8 +48,9 @@ PROFILE_FEED_DOMAIN = f"device-profiles-{PROFILE_FEED_GENERATION}"
 DEVICE_PROFILE_DOMAINS = ("device-profiles-1", "device-profiles-2", "device-profiles-3", "device-profiles-4", "device-profiles-5",
                           "device-profiles-6")
 # The device-profile generations this publisher signs shards for: an explicit set, not every generation up to
-# PROFILE_FEED_GENERATION, so a release line's own generation (6 for 0.6.22) opens here while this source reads 5.
-SIGNABLE_PROFILE_GENERATIONS = (1, 2, 3, 4, 5)
+# PROFILE_FEED_GENERATION, so a release line's own generation (6 for 0.6.22) opens here while this source reads 5. A
+# retired generation (tools/pages_asset_overlay.py, RETIRED_PROFILE_DIRECTORIES: 1, 2 and 3) is never signed again.
+SIGNABLE_PROFILE_GENERATIONS = (4, 5)
 SIGNABLE_PROFILE_DOMAINS = tuple(f"device-profiles-{generation}" for generation in SIGNABLE_PROFILE_GENERATIONS)
 REVISION = profile_revision.NAME
 SHADER_INDEX_LIMIT = 65536

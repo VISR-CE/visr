@@ -342,8 +342,18 @@ class Wrangler:
 def refuse_retired(items: list[Item]) -> None:
     """A retired feed (tools/pages_asset_overlay.py, RETIRED_FEEDS and RETIRED_PROFILE_DIRECTORIES) is read by no
     launchable build: a tree that names one again was written by a stale writer, and is refused before anything is
-    uploaded. The bucket keeps the copies it already serves, since nothing here deletes."""
-    stale = sorted(entry.key for entry in items if entry.key.startswith("tester/") and overlay.retired(PACKS + entry.key))
+    uploaded, with any recording archive that only retired catalog-2 feeds name. The bucket keeps the copies it already
+    serves, since nothing here deletes."""
+    tester = [entry for entry in items if entry.key.startswith("tester/")]
+    retired = {entry.key for entry in tester if overlay.retired(PACKS + entry.key)}
+    naming: dict[str, set[str]] = {}
+    for entry in tester:
+        if overlay.FEED2.fullmatch(PACKS + entry.key):
+            archive = overlay.recording_archive(PACKS + entry.key, entry.data)
+            if archive is not None:
+                naming.setdefault(key_for(archive), set()).add(entry.key)
+    present = {entry.key for entry in tester}
+    stale = sorted(retired | {archive for archive, feeds in naming.items() if feeds <= retired and archive in present})
     if stale:
         raise ValueError(f"The tree carries {len(stale)} retired feed files, first {stale[0]}: remove them and their receipt entries")
 

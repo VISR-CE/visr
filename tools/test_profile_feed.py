@@ -111,15 +111,15 @@ def signing_key(tmp_path):
     return seed
 
 
-def test_generation_two_shards_carry_the_revision_and_every_bundled_key(tmp_path):
+def test_generation_four_shards_carry_the_revision_and_every_bundled_key(tmp_path):
     output = tmp_path / "shard.json"
-    # 0.6.0 refuses `network.full_rate_players`, so the shard is signed from the sources generation 3 uses
-    sources = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-3", tmp_path / "generation-profiles")
+    # 0.6.8 to 0.6.21 refuse the keys generation 4 strips, so the shard is signed from the sources generation 4 uses
+    sources = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-4", tmp_path / "generation-profiles")
     assert data_pack.main(["--kind", "profiles", "--channel", "tester", "--sequence", "1",
-        "--compatibility", "device-profiles-2:ios/iPhone18,1/_", "--input", str(sources),
+        "--compatibility", "device-profiles-4:ios/iPhone18,1/_", "--input", str(sources),
         "--signing-key", str(signing_key(tmp_path)), "--output", str(output)]) == 0
     envelope = output.read_bytes()
-    assert manifest(envelope)["compatibility"] == "device-profiles-2:ios/iPhone18,1/_"
+    assert manifest(envelope)["compatibility"] == "device-profiles-4:ios/iPhone18,1/_"
     files = payload_files(envelope)
     assert files["hardware/revision.toml"] == (sources / "hardware/revision.toml").read_bytes()
     assert b"player_capacity = 128" in files["iphone-17-pro.toml"]
@@ -129,12 +129,17 @@ def test_generation_two_shards_carry_the_revision_and_every_bundled_key(tmp_path
     assert b"upscaled_textures = true" in tv["apple-tv-4k-3rd.toml"]
     live = payload_files((visr_feeds_tree.feeds_tree() / "tester/profiles/tvos/AppleTV14,1/_.json").read_bytes())
     assert b"upscaled_textures = true" not in live["apple-tv-4k-3rd.toml"]
-    # the same bytes pass the release and Pages verification of a generation-2 feed
+    # the same bytes pass the release and Pages verification of a generation-4 feed
     folder = tmp_path / "decoded"
     for name, content in files.items():
         (folder / name).parent.mkdir(parents=True, exist_ok=True)
         (folder / name).write_bytes(content)
-    assert data_pack.snapshot(folder, "profiles", "device-profiles-2:ios/iPhone18,1/_") == files
+    assert data_pack.snapshot(folder, "profiles", "device-profiles-4:ios/iPhone18,1/_") == files
+    # a retired generation is not signed at all
+    with pytest.raises(ValueError, match="compatibility must be one of"):
+        data_pack.main(["--kind", "profiles", "--channel", "tester", "--sequence", "1",
+            "--compatibility", "device-profiles-2:ios/iPhone18,1/_", "--input", str(sources),
+            "--signing-key", str(signing_key(tmp_path)), "--output", str(output)])
 
 
 def test_generation_one_shards_stay_as_they_were(tmp_path):
@@ -370,7 +375,9 @@ def test_a_profile_with_the_key_reaches_current_and_older_generations(tmp_path):
     assert b"full_rate_players = 64" in payload_files(output.read_bytes())["iphone-17-pro.toml"]
 
 
-def test_sign_all_writes_every_generation_and_the_receipt(tmp_path):
+def test_sign_all_writes_every_generation_and_the_receipt(tmp_path, monkeypatch):
+    # (generation 6 stays closed here, whether or not data_pack has opened it)
+    monkeypatch.setattr(data_pack, "SIGNABLE_PROFILE_DOMAINS", tuple(d for d in data_pack.SIGNABLE_PROFILE_DOMAINS if d != "device-profiles-6"))
     repo = tmp_path / "repo"
     profiles_with_full_rate(repo / "profiles")
     feeds = tmp_path / "feeds"
@@ -399,7 +406,7 @@ def test_sign_all_writes_every_generation_and_the_receipt(tmp_path):
     assert sources["device-profiles-4:ios/iPhone18,1/_"] != str(repo / "profiles")
     assert sources["device-profiles-5:ios/iPhone18,1/_"] == str(repo / "profiles")
     assets = json.loads((tester / "publication.json").read_text())["assets"]
-    assert not any("device-profiles-6" in domain for domain, _ in calls)    # (recorded, not yet opened: skipped)
+    assert not any("device-profiles-6" in domain for domain, _ in calls)    # (recorded, closed: skipped)
     # the class: the signed domains are exactly the published generations
     assert {domain.partition(":")[0] for domain, _ in calls} == set(profile_pr.published_generations())
     for domain in profile_pr.published_generations():

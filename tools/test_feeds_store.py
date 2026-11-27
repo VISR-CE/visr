@@ -352,6 +352,25 @@ def test_publish_refuses_a_tree_that_carries_a_retired_feed(monkeypatch, path):
     store.refuse_retired([kept, store.item(overlay.SHADER, b"{}"), store.item(overlay.LATEST, b"{}")])
 
 
+def test_publish_refuses_an_archive_only_retired_catalogs_name(monkeypatch):
+    """The class: a recording archive no kept catalog-2 feed names goes with the retired feeds that named it."""
+    prefix = "docs/site/packs/tester/"
+    retired = sorted(path for path in overlay.RETIRED_FEEDS if "/recordings-2-" in path)[0]
+    kept = prefix + "recordings-2-" + "e" * 64 + ".json"
+    orphan, shared, own = (prefix + "recording-blobs/" + digit * 64 + ".xz" for digit in "abc")
+    names = {retired: orphan, kept: own}
+    monkeypatch.setattr(overlay, "recording_archive", lambda path, data: names.get(path))
+    # (shared is named by no feed: verify_recording_bundle refuses that, not this check)
+    archives = [store.item(path, b"x") for path in (orphan, shared, own)]
+    with pytest.raises(ValueError, match="2 retired feed files"):
+        store.refuse_retired([store.item(retired, b"{}"), store.item(kept, b"{}"), *archives])
+    # an archive a kept feed names too stays
+    names[kept] = orphan
+    with pytest.raises(ValueError, match="1 retired feed files"):
+        store.refuse_retired([store.item(retired, b"{}"), store.item(kept, b"{}"), *archives])
+    store.refuse_retired([store.item(kept, b"{}"), *archives])
+
+
 def test_builds_and_the_host_check_name_only_feeds_visr_gg(checked_in, tmp_path):
     from tools import feeds_host_check as check
 

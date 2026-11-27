@@ -183,14 +183,34 @@ def test_data_pack_accepts_each_published_compatibility_and_refuses_each_unopene
     def reached(compatibility):
         raise Passed(compatibility)
 
+    def main(domain):
+        data_pack.main(["--kind", "profiles", "--channel", "tester", "--sequence", "1", "--input", str(tmp_path),
+                        "--signing-key", str(tmp_path / "seed"), "--output", str(tmp_path / "shard.json"),
+                        "--compatibility", f"{domain}:ios/iPhone18,1/_"])
+
     # (past the compatibility check, main parses the device domain: stop there instead of signing)
     monkeypatch.setattr(data_pack, "device_domain", reached)
-    arguments = ["--kind", "profiles", "--channel", "tester", "--sequence", "1", "--input", str(tmp_path),
-                 "--signing-key", str(tmp_path / "seed"), "--output", str(tmp_path / "shard.json")]
     for domain in pr.published_generations():
         with pytest.raises(Passed):
-            data_pack.main([*arguments, "--compatibility", f"{domain}:ios/iPhone18,1/_"])
-    assert pr.unopened_generations()
+            main(domain)
+    # with one recorded, non-retired generation left closed, whichever generations are open today
+    closed = max(set(pr.GENERATIONS) - set(pr.retired_generations()))
+    monkeypatch.setattr(data_pack, "SIGNABLE_PROFILE_DOMAINS", tuple(d for d in data_pack.SIGNABLE_PROFILE_DOMAINS if d != closed))
+    assert closed in pr.unopened_generations() and closed not in pr.published_generations()
     for domain in pr.unopened_generations():
         with pytest.raises(ValueError, match="compatibility must be one of"):
-            data_pack.main([*arguments, "--compatibility", f"{domain}:ios/iPhone18,1/_"])
+            main(domain)
+    for domain in pr.published_generations():
+        with pytest.raises(Passed):
+            main(domain)
+
+
+def test_no_retired_generation_is_signable():
+    """The class: data_pack never signs a generation whose directory the site retires."""
+    import data_pack
+    import pages_asset_overlay as overlay
+    for domain in data_pack.DEVICE_PROFILE_DOMAINS:
+        directory = next(name for name, generation in overlay.PROFILE_DIRECTORIES.items() if generation == domain)
+        if overlay.retired(f"{overlay.PREFIX}{directory}/ios/iPhone18,1/_.json"):
+            assert domain not in data_pack.SIGNABLE_PROFILE_DOMAINS, domain
+    assert data_pack.PROFILE_FEED_DOMAIN in data_pack.SIGNABLE_PROFILE_DOMAINS

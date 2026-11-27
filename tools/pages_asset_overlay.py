@@ -213,18 +213,23 @@ def verify_shader_bundle(assets: dict[str, bytes]) -> None:
         shader_assets={Path(path).name: raw for path, raw in maps.items()})
 
 
+def recording_archive(path: str, raw: bytes) -> str | None:
+    """The recording-blobs/ path a benchmark-catalog-2 feed names; None for any other asset."""
+    if allowed_asset(path)[0] != "recording" or not verify_asset(path, raw)["compatibility"].startswith("benchmark-catalog-2:"):
+        return None
+    payload = validation.packs.decode_base64(validation.packs.decode_json(raw)["payload"], validation.packs.data_pack.SHADER_INDEX_LIMIT)
+    return PREFIX + "recording-blobs/" + validation.packs.recording_index(payload)[2] + ".xz"
+
+
 def verify_recording_bundle(assets: dict[str, bytes]) -> None:
     """Only an authenticated benchmark-catalog-2 feed may admit a recording archive into publication, and every such
     feed must find its archive, which must decode to a catalog the native validator accepts."""
     blobs = {path: raw for path, raw in assets.items() if path.startswith(PREFIX + "recording-blobs/")}
     expected = set()
     for path, raw in assets.items():
-        if allowed_asset(path)[0] != "recording" or not verify_asset(path, raw)["compatibility"].startswith("benchmark-catalog-2:"):
+        blob = recording_archive(path, raw)
+        if blob is None:
             continue
-        envelope = validation.packs.decode_json(raw)
-        payload = validation.packs.decode_base64(envelope["payload"], validation.packs.data_pack.SHADER_INDEX_LIMIT)
-        descriptor = validation.packs.recording_index(payload)
-        blob = PREFIX + "recording-blobs/" + descriptor[2] + ".xz"
         if blob not in blobs:
             raise ValueError("Signed recording archive is missing: " + blob)
         expected.add(blob)
@@ -563,11 +568,7 @@ def stage_site(
         keep = {PREFIX + "shader-maps/" + item[2] + ".zlib" for item in index.values()}
         selected = {path: raw for path, raw in selected.items() if not path.startswith(PREFIX + "shader-maps/") or path in keep}
     # Likewise for recording archives: keep only those a selected benchmark-catalog-2 feed names.
-    referenced = set()
-    for path, raw in selected.items():
-        if allowed_asset(path)[0] == "recording" and verify_asset(path, raw)["compatibility"].startswith("benchmark-catalog-2:"):
-            payload = validation.packs.decode_base64(validation.packs.decode_json(raw)["payload"], validation.packs.data_pack.SHADER_INDEX_LIMIT)
-            referenced.add(PREFIX + "recording-blobs/" + validation.packs.recording_index(payload)[2] + ".xz")
+    referenced = {recording_archive(path, raw) for path, raw in selected.items()} - {None}
     selected = {path: raw for path, raw in selected.items() if not path.startswith(PREFIX + "recording-blobs/") or path in referenced}
     check_budget(selected)
     verify_shader_bundle(selected)
