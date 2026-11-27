@@ -16,7 +16,9 @@ GAME = ROOT / "port/linux/game"
 
 PREAMBLE = r"""
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 typedef float real;
 #define TRUE 1
@@ -27,7 +29,22 @@ static double now_ms;
 double halo_frame_trace_milliseconds(void) { return now_ms; }
 int platform_fixed_timestep(void) { return 0; }
 real game_time_get_speed(void) { return 1.0f; }
-void platform_log(const char *format, ...) { (void)format; }
+/* the last "stereo lead" line's pinned counts, and how many such lines */
+static unsigned long logged_pinned[2], lead_lines;
+void platform_log(const char *format, ...)
+{
+	char line[512];
+	const char *pinned;
+	va_list arguments;
+
+	va_start(arguments, format);
+	vsnprintf(line, sizeof(line), format, arguments);
+	va_end(arguments);
+	if (strncmp(line, "interpolation: stereo lead", 26) || !(pinned = strstr(line, "pinned ")))
+		return;
+	if (sscanf(pinned, "pinned %lu with a tick, %lu without", &logged_pinned[1], &logged_pinned[0]) == 2)
+		lead_lines++;
+}
 static int lead_setting = 1;
 int config_boolean(const char *name) { (void)name; return lead_setting; }
 static int loop_frame_ticked;
@@ -37,6 +54,7 @@ static int loop_frame_ticked;
 DRIVER = r"""
 #define TICK_MS (1000.0 / 30.0)
 static int failures;
+static int harness_repeat; /* the Compositor's repeat count the stereo frames open with */
 
 static void check(int ok, const char *what, double value)
 {
@@ -67,7 +85,7 @@ static double stereo_frame(double read, double tick_ms, double opened, double pr
 	now_ms = read + tick_ms;
 	early = fraction_for_display(fraction);
 	now_ms = opened;
-	render_interpolation_presentation_due((unsigned long)((presented - opened) * 1000.0));
+	render_interpolation_presentation_due((unsigned long)((presented - opened) * 1000.0), harness_repeat);
 	drawn = fraction_for_display(fraction);
 	render_interpolation_next_frame_due(0);
 	if (early_shown)
@@ -108,7 +126,7 @@ static void steady_stereo(double period)
 	int n;
 	double worst = 0.0;
 
-	render_interpolation_presentation_due(0);
+	render_interpolation_presentation_due(0, 0);
 	for (n = 0; n < 300; n++) {
 		double read = 3.0 + n * period;
 		double tick_start = floor(read / TICK_MS) * TICK_MS;
@@ -128,13 +146,13 @@ static void flat_slow_ticks(int eyes_fell_through)
 	int n;
 	double worst = 0.0;
 
-	render_interpolation_presentation_due(0);
+	render_interpolation_presentation_due(0, 0);
 	render_interpolation_next_frame_due(0);
 	for (n = 0; n < 400; n++) {
 		/* a two-eye frame without the Compositor (side by side, or the headset not ready) reports no
 		presentation when it begins and is shown, and scheduled, by the window's present */
 		if (eyes_fell_through)
-			render_interpolation_presentation_due(0);
+			render_interpolation_presentation_due(0, 0);
 		double read = 1.0 + n * (1000.0 / 60.0);
 		double tick_start = floor(read / TICK_MS) * TICK_MS;
 		int ticked = floor((read - 1000.0 / 60.0) / TICK_MS) != floor(read / TICK_MS);
@@ -172,7 +190,7 @@ static void space_closes(void)
 	now_ms = read;
 	render_interpolation_clock_read();
 	loop_frame_ticked = 0;
-	render_interpolation_presentation_due(0);
+	render_interpolation_presentation_due(0, 0);
 	fraction = fraction_for_display(0.4f);
 	check(fraction == 0.4f, "space closed: a stereo correction outlived the space", fraction);
 }
@@ -184,7 +202,7 @@ static void stereo_stops_silently(void)
 	real fraction;
 	int n;
 
-	render_interpolation_presentation_due(0);
+	render_interpolation_presentation_due(0, 0);
 	for (n = 0; n < 40; n++)
 		stereo_frame(read + n * 22.2, n % 2 ? 0.0 : 10.0, read + n * 22.2 + 16.0, read + n * 22.2 + (n % 2 ? 35.0 : 46.0), NULL);
 	for (n = 0; n < 3; n++) {
@@ -203,7 +221,7 @@ static void setting_off(void)
 	int n;
 
 	halo_presentation_lead_toggle();
-	render_interpolation_presentation_due(0);
+	render_interpolation_presentation_due(0, 0);
 	for (n = 0; n < 200; n++) {
 		double base = 70000.0 + n * TICK_MS;
 		double read = base + (n % 2 ? 28.0 : 6.0);
@@ -217,6 +235,46 @@ static void setting_off(void)
 	halo_presentation_lead_toggle();
 }
 
+/* a repeat-count change (the knob's 0 to 1) moves every lead by about 25 ms at once: the average starts again
+from the new count's first frame, so no frame is corrected by the jump or pinned at 1 while the average catches
+up. With the count unchanged (the control) the same jump does pin frames, which the stereo lead line counts */
+static unsigned long repeat_change(int reseeded)
+{
+	double worst = 0.0, base = 120000.0 + (reseeded ? 0.0 : 80000.0);
+	unsigned long most_pinned = 0, lines;
+	int n;
+
+	render_interpolation_presentation_due(0, 0);
+	harness_repeat = 0;
+	/* (600 frames: a stereo lead line ends inside them, so the lines after the change count no earlier test's) */
+	for (n = 0; n < 600; n++) {
+		double read = base + 3.0 + n * (1000.0 / 90.0);
+		stereo_frame(read, n % 3 == 0 ? 9.0 : 0.0, read + 12.0, read + 36.0, NULL);
+	}
+	harness_repeat = reseeded ? 1 : 0;
+	base += 600 * (1000.0 / 90.0);
+	lines = lead_lines;
+	for (n = 0; n < 1300; n++) {
+		double read = base + 3.0 + n * (1000.0 / 45.0);
+		double tick_start = floor(read / TICK_MS) * TICK_MS;
+		real fraction = (real)((read - tick_start) / TICK_MS);
+		double drawn = stereo_frame(read, n % 3 == 0 ? 9.0 : 0.0, read + 30.0, read + 61.0, NULL);
+
+		worst = fmax(worst, fabs(drawn - shown(read, fraction)));
+		if (lead_lines != lines) {
+			lines = lead_lines;
+			most_pinned = fmax(most_pinned, logged_pinned[0] + logged_pinned[1]);
+		}
+	}
+	harness_repeat = 0;
+	check(lead_lines > 0, "repeat change: no stereo lead line with a pinned count", 0.0);
+	if (reseeded) {
+		check(worst < 0.05, "repeat change: the old count's average corrected the new count's frames", worst);
+		check(most_pinned == 0, "repeat change: frames pinned after the re-seed", (double)most_pinned);
+	}
+	return most_pinned;
+}
+
 int main(void)
 {
 	uneven_stereo();
@@ -228,6 +286,8 @@ int main(void)
 	space_closes();
 	stereo_stops_silently();
 	setting_off();
+	repeat_change(1);
+	check(repeat_change(0) > 0, "repeat change control: a 25 ms jump in the lead pinned no frames", 0.0);
 	return failures ? 1 : 0;
 }
 """

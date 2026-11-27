@@ -86,8 +86,8 @@ int platform_fixed_timestep(void);
 unsigned long platform_clock_frames(void);
 double halo_frame_trace_milliseconds(void);
 /* render_interpolation.c: when this frame's Compositor frame shows, in
-microseconds from now; 0: none this frame */
-void render_interpolation_presentation_due(unsigned long microseconds);
+microseconds from now (0: none this frame), and the repeat count it opened with */
+void render_interpolation_presentation_due(unsigned long microseconds, int repeat);
 /* port/linux/src/d3d8_device.c */
 void halo_screen_commit_stereo_scale(void);
 /* source/main/main.c: the player windows, more than one in split screen */
@@ -1039,8 +1039,8 @@ void halo_stereo_seat_look_fade(float *dim, float *blur)
 }
 
 /* the frame's state; *presentation_lead: microseconds to the Compositor frame's presentation when this frame draws
-its eyes into one (render_interpolation_presentation_due), else left 0 */
-static void stereo_frame_begin(unsigned long *presentation_lead)
+its eyes into one (render_interpolation_presentation_due), else left 0; *repeat: that frame's repeat count */
+static void stereo_frame_begin(unsigned long *presentation_lead, int *repeat)
 {
 	int film, screen, on_screen, head_look_frame = 0, cutscene, live_reason, settle_frame = 0;
 	/* split screen keeps the mono path: render.c's eye loop runs only with
@@ -1378,8 +1378,10 @@ static void stereo_frame_begin(unsigned long *presentation_lead)
 		host_stereo_frame(&stereo_frame);
 #endif
 		/* the frame's presentation, for the blend between ticks */
-		if (stereo_frame.eye_count == 2 && one_window && stereo_frame.presentation_lead_microseconds > 0)
+		if (stereo_frame.eye_count == 2 && one_window && stereo_frame.presentation_lead_microseconds > 0) {
 			*presentation_lead = (unsigned long)stereo_frame.presentation_lead_microseconds;
+			*repeat = stereo_frame.frame_repeat;
+		}
 		/* no Compositor frame (the space isn't open): mono, in the window.
 		Split screen: mono too, though the frame is still opened (its picture
 		goes on the UI's quad, as for any frame without eyes) */
@@ -1499,9 +1501,10 @@ hands the blend back to the flat present's schedule */
 void halo_stereo_frame_begin(void)
 {
 	unsigned long presentation_lead = 0;
+	int repeat = 0;
 
-	stereo_frame_begin(&presentation_lead);
-	render_interpolation_presentation_due(presentation_lead);
+	stereo_frame_begin(&presentation_lead, &repeat);
+	render_interpolation_presentation_due(presentation_lead, repeat);
 }
 
 int halo_stereo_film(void)

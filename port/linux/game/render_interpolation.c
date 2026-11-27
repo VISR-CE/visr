@@ -544,6 +544,7 @@ static double next_frame_due_milliseconds; /* when the next flat frame shows, on
 static double stereo_presentation_milliseconds; /* when this loop frame's Compositor frame shows */
 static unsigned long stereo_presentation_frame;
 static int stereo_leading; /* the last frame opened a Compositor frame: stereo's lead is in charge */
+static int stereo_repeat; /* the repeat count stereo_lead's average was taken at */
 static unsigned long loop_frame; /* the loop clock's reads */
 static double loop_clock_read_milliseconds;
 static double frame_lead_milliseconds;
@@ -572,7 +573,10 @@ void render_interpolation_next_frame_due(unsigned long microseconds)
 	next_frame_due_milliseconds = halo_frame_trace_milliseconds() + (double)microseconds / 1000.0;
 }
 
-void render_interpolation_presentation_due(unsigned long microseconds)
+/* REPEAT: the Compositor's frame repeat count the frame opened with. A change moves every lead at once (about 36
+to about 61 ms from 0 to 1), so the average starts again from the new count's first frame: one step in the blend
+instead of half a second of fractions pinned at 1 while the average caught up */
+void render_interpolation_presentation_due(unsigned long microseconds, int repeat)
 {
 	if (microseconds == 0 || platform_fixed_timestep())
 	{
@@ -592,6 +596,12 @@ void render_interpolation_presentation_due(unsigned long microseconds)
 		next_frame_due_milliseconds = 0.0;
 		interpolation_lead_reset(&display_lead);
 		stereo_leading = TRUE;
+		stereo_repeat = repeat;
+	}
+	else if (repeat != stereo_repeat)
+	{
+		interpolation_lead_reset(&stereo_lead);
+		stereo_repeat = repeat;
 	}
 	stereo_presentation_milliseconds = halo_frame_trace_milliseconds() + (double)microseconds / 1000.0;
 	stereo_presentation_frame = loop_frame;
@@ -599,11 +609,12 @@ void render_interpolation_presentation_due(unsigned long microseconds)
 
 /* "interpolation: stereo lead" every 600 stereo frames (the headset cadence
 measurements): the lead from the loop clock's read to the presentation, which
-is also the controller's age at the presentation, by kind of frame, and the
-largest correction. Once a loop frame */
-static void stereo_lead_summary(double lead, double correction)
+is also the controller's age at the presentation, by kind of frame, the
+largest correction, and the frames whose corrected fraction was clamped to 0
+or 1 (PINNED), by kind. Once a loop frame */
+static void stereo_lead_summary(double lead, double correction, int pinned)
 {
-	static unsigned long counted_frame, frames, kind_frames[2];
+	static unsigned long counted_frame, frames, kind_frames[2], kind_pinned[2];
 	static double kind_sum[2], shortest, longest, largest;
 	int kind = loop_frame_ticked ? 1 : 0;
 
@@ -618,13 +629,17 @@ static void stereo_lead_summary(double lead, double correction)
 		largest = fabs(correction);
 	kind_sum[kind] += lead;
 	kind_frames[kind]++;
+	if (pinned)
+		kind_pinned[kind]++;
 	if (++frames < 600)
 		return;
 	platform_log("interpolation: stereo lead from the loop clock's read to the presentation: %.1f ms with a tick "
-		"(%lu frames), %.1f ms without (%lu), %.1f to %.1f ms; correction up to %.1f ms",
+		"(%lu frames), %.1f ms without (%lu), %.1f to %.1f ms; correction up to %.1f ms; pinned %lu with a tick, "
+		"%lu without",
 		kind_frames[1] ? kind_sum[1] / (double)kind_frames[1] : 0.0, kind_frames[1],
-		kind_frames[0] ? kind_sum[0] / (double)kind_frames[0] : 0.0, kind_frames[0], shortest, longest, largest);
-	frames = kind_frames[0] = kind_frames[1] = 0;
+		kind_frames[0] ? kind_sum[0] / (double)kind_frames[0] : 0.0, kind_frames[0], shortest, longest, largest,
+		kind_pinned[1], kind_pinned[0]);
+	frames = kind_frames[0] = kind_frames[1] = kind_pinned[0] = kind_pinned[1] = 0;
 	kind_sum[0] = kind_sum[1] = largest = 0.0;
 }
 
@@ -634,6 +649,10 @@ cadence session's knob, halo_presentation_lead_toggle): stereo frames get no
 correction, and flat frames measure their lead from the moment the fraction is
 asked for, averaging each time. The stereo lead is still measured and logged */
 static int presentation_lead_setting = -1;
+
+/* a fraction clamped by more than this (a hundredth of a tick, 0.33 ms) counts as pinned in the stereo lead line;
+less is a microsecond's rounding in the lead */
+#define PINNED_MARGIN 0.01f
 
 static int presentation_lead_enabled(void)
 {
@@ -658,6 +677,7 @@ static real fraction_for_display(real fraction)
 {
 	struct interpolation_lead *state;
 	double presentation, clock_read, correction;
+	real corrected;
 	static unsigned long legacy_calls;
 	int enabled = presentation_lead_enabled();
 	unsigned long frame = loop_frame;
@@ -665,7 +685,7 @@ static real fraction_for_display(real fraction)
 	frame_lead_milliseconds = 0.0;
 	/* (a stereo schedule no frame has reported for since the last one: its frames stopped without saying so) */
 	if (stereo_leading && loop_frame - stereo_presentation_frame > 1)
-		render_interpolation_presentation_due(0);
+		render_interpolation_presentation_due(0, 0);
 	/* 1 while the game is paused */
 	if (fraction >= 1.0f)
 		return fraction;
@@ -690,17 +710,17 @@ static real fraction_for_display(real fraction)
 		frame = ~0ul - legacy_calls++;
 	}
 	correction = interpolation_lead_correction(state, frame, loop_frame_ticked, clock_read, presentation);
+	corrected = fraction;
+	if (enabled || !stereo_leading)
+		corrected += (real)(correction / 1000.0 * TICKS_PER_SECOND * game_time_get_speed());
 	if (presentation != 0.0)
 	{
 		frame_lead_milliseconds = state->lead;
 		if (stereo_leading)
-			stereo_lead_summary(state->lead, correction);
+			stereo_lead_summary(state->lead, correction, corrected < -PINNED_MARGIN || corrected > 1.0f + PINNED_MARGIN);
 	}
 	frame_lead_average_milliseconds = state->average;
-	if (!enabled && stereo_leading)
-		return fraction;
-	fraction += (real)(correction / 1000.0 * TICKS_PER_SECOND * game_time_get_speed());
-	return PIN(fraction, 0.0f, 1.0f);
+	return PIN(corrected, 0.0f, 1.0f);
 }
 
 /* d3d8_device.c: debug.render_scale_dpad's readout */

@@ -142,6 +142,9 @@ struct halo_stereo_frame
 	/* microseconds from when the Compositor's frame opened to its predicted
 	presentation; 0 without one (the interpolation's lead, render_interpolation.c) */
 	int32_t presentation_lead_microseconds;
+	/* the Compositor's frame repeat count the frame opened with (0: every refresh); 0 without one. A change
+	re-seeds the interpolation's lead average */
+	int32_t frame_repeat;
 };
 
 /* The stereo mode in effect, from display.stereo's (configured) and whether

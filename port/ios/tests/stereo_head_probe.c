@@ -161,10 +161,12 @@ unsigned long platform_clock_frames(void) { return ++probe_clock; }
 double halo_frame_trace_milliseconds(void) { return 0.0; }
 /* render_interpolation.c's import: each report, and the last one */
 static unsigned long presentation_reports, presentation_reported;
-void render_interpolation_presentation_due(unsigned long microseconds)
+static int presentation_repeat, host_repeat;
+void render_interpolation_presentation_due(unsigned long microseconds, int repeat)
 {
 	presentation_reports++;
 	presentation_reported = microseconds;
+	presentation_repeat = repeat;
 }
 int halo_third_person_camera(void) { return game_third_person; }
 /* The focused dead-camera probe can replace this with the production
@@ -234,6 +236,7 @@ void host_stereo_frame(struct halo_stereo_frame *frame)
 	}
 	frame->eye_count = 2;
 	frame->presentation_lead_microseconds = 30000;
+	frame->frame_repeat = host_repeat;
 	if (host_unanchored)
 		host_stereo_head_hold(&head, frame);
 	else
@@ -2585,9 +2588,18 @@ static void presentation_reported_once(void)
 	before = presentation_reports;
 	halo_stereo_frame_begin();
 	check(presentation_reports == before + 1 && presentation_reported == 30000, "HEAD with eyes: the lead, once");
+	check(presentation_repeat == 0, "HEAD with eyes: repeat count 0 passed on");
+	/* the repeat count goes beside the lead, so a change re-seeds the blend's average */
+	host_repeat = 1;
+	halo_stereo_frame_begin();
+	check(presentation_repeat == 1, "HEAD with eyes: the frame's repeat count passed on");
+	host_repeat = 0;
+	/* (the checks below count from the first report) */
+	before = presentation_reports - 1;
 	host_closed = 1;
 	halo_stereo_frame_begin();
-	check(presentation_reports == before + 2 && presentation_reported == 0, "the space closed: 0, once");
+	check(presentation_reports == before + 2 && presentation_reported == 0 && presentation_repeat == 0,
+		"the space closed: 0, once");
 	host_closed = 0;
 	probe_windows = 2;
 	halo_stereo_frame_begin();

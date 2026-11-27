@@ -53,7 +53,7 @@ void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[
 int platform_fixed_timestep(void) { return 1; }
 unsigned long platform_clock_frames(void) { return clock_frames; }
 double halo_frame_trace_milliseconds(void) { return 0.0; }
-void render_interpolation_presentation_due(unsigned long microseconds) { (void)microseconds; }
+void render_interpolation_presentation_due(unsigned long microseconds, int repeat) { (void)microseconds; (void)repeat; }
 void platform_log(const char *format, ...)
 {
 	va_list arguments;
