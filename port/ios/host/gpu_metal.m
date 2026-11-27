@@ -11385,9 +11385,8 @@ static void stereo_cadence_report(CFTimeInterval period, int repeat)
 		long up = stereo_cadence_refreshes(stereo_pacing.intervals[index], period, 3);
 
 		shown[stereo_pacing.ticked[index] ? 1 : 0][up]++;
-		if (stereo_cadence_late(up, repeat) && index > 0 &&
-			!stereo_cadence_own_work(stereo_pacing.tick_times[index], stereo_pacing.render_times[index - 1],
-				stereo_pacing.gpu_times[index - 1], stereo_cadence_slot(period, repeat)))
+		if (index > 0 && stereo_cadence_classify(up, repeat, period, stereo_pacing.tick_times[index],
+			stereo_pacing.render_times[index - 1], stereo_pacing.gpu_times[index - 1]) == STEREO_CADENCE_LATE_SYSTEM)
 			paced++;
 	}
 	stereo_cadence_percentiles(stereo_pacing.tick_times, 1, &tick_median, &tick_high);
@@ -11462,14 +11461,15 @@ static void stereo_pacing_count(int view, id<MTLTexture> picture)
 	/* (the log's reports below stay the eyes' frames, as the scripts that read them expect) */
 	if (view != HOST_COMPOSITOR_VIEW_FULL && view != HOST_COMPOSITOR_VIEW_STEREO_SCREEN)
 		return;
-	/* the steady-cadence trigger, log only: every frame of the eyes, loads included (a load is a hitch to it) */
-	if (view == HOST_COMPOSITOR_VIEW_FULL && interval > 0.0 && cpu > 0.0)
-	{
-		double tick = ticks > 0 && reading.simulation > 0.0 ? reading.simulation : 0.0;
+	/* the frame's tick, and its render (its CPU time less the tick), for the trigger and the cadence line */
+	double tick = ticks > 0 && reading.simulation > 0.0 ? reading.simulation : 0.0;
+	double render = cpu > tick ? cpu - tick : 0.0;
 
-		host_stereo_cadence_frame(ticks > 0, interval, tick, cpu > tick ? cpu - tick : 0.0, gpu,
+	/* the steady-cadence trigger, log only: every frame of the eyes, loads included (a load is a hitch to it). Its
+	previous frame is the previous one it was fed; the cadence line's is the previous record, which skips loads */
+	if (view == HOST_COMPOSITOR_VIEW_FULL && interval > 0.0 && cpu > 0.0)
+		host_stereo_cadence_frame(ticks > 0, interval, tick, render, gpu,
 			stereo_pacing.period_measured ? stereo_pacing.period : 0.0);
-	}
 	/* a quarter second or more is a load or the background, not a frame */
 	if (interval > 0.0 && interval < 0.25 && cpu > 0.0 && stereo_pacing.timed < PACING_TIMED_FRAMES)
 	{
@@ -11479,12 +11479,11 @@ static void stereo_pacing_count(int view, id<MTLTexture> picture)
 		stereo_pacing.cpu_times[stereo_pacing.timed] = cpu;
 		stereo_pacing.gpu_times[stereo_pacing.timed] = gpu;
 		{
-			double tick = ticks > 0 && reading.simulation > 0.0 ? reading.simulation : 0.0;
 			CFTimeInterval input = host_theater_opened_time();
 
 			stereo_pacing.ticked[stereo_pacing.timed] = ticks > 0;
 			stereo_pacing.tick_times[stereo_pacing.timed] = tick;
-			stereo_pacing.render_times[stereo_pacing.timed] = cpu > tick ? cpu - tick : 0.0;
+			stereo_pacing.render_times[stereo_pacing.timed] = render;
 			stereo_pacing.pose_leads[stereo_pacing.timed] = input > 0.0 && presentation > input ? presentation - input : 0.0;
 		}
 		{

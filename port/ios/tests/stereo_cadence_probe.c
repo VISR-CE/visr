@@ -88,8 +88,8 @@ static void lateness_matches_the_old_line(void)
 			shown[up]++;
 			if (before >= 2 && index > 0 && ticks[index] + renders[index - 1] <= period && gpus[index - 1] <= period)
 				paced_before++;
-			if (stereo_cadence_late(up, 0) && index > 0 &&
-				!stereo_cadence_own_work(ticks[index], renders[index - 1], gpus[index - 1], stereo_cadence_slot(period, 0)))
+			if (index > 0 && stereo_cadence_classify(up, 0, period, ticks[index], renders[index - 1], gpus[index - 1]) ==
+				STEREO_CADENCE_LATE_SYSTEM)
 				paced++;
 		}
 		check(shown[1] == shown_before[1] && shown[2] == shown_before[2] && shown[3] == shown_before[3],
@@ -116,6 +116,9 @@ static void lateness_at_the_asked_count(void)
 	check(stereo_cadence_own_work(0.006, 0.009, 0.005, stereo_cadence_slot(period, 0)), "repeat 0: 15 ms is own work");
 	check(!stereo_cadence_own_work(0.006, 0.009, 0.005, stereo_cadence_slot(period, 1)), "repeat 1: 15 ms fits");
 	check(stereo_cadence_own_work(0.0, 0.0, 0.023, stereo_cadence_slot(period, 1)), "repeat 1: 23 ms of GPU is own work");
+	check(stereo_cadence_classify(2, 1, period, 0.006, 0.009, 0.005) == STEREO_CADENCE_ON_TIME, "classify: on time at 1");
+	check(stereo_cadence_classify(3, 1, period, 0.006, 0.009, 0.005) == STEREO_CADENCE_LATE_SYSTEM, "classify: system at 1");
+	check(stereo_cadence_classify(2, 0, period, 0.006, 0.009, 0.005) == STEREO_CADENCE_LATE_OWN_WORK, "classify: own at 0");
 }
 
 /* ---------- the trigger */

@@ -56,6 +56,24 @@ static inline int stereo_cadence_own_work(double tick, double previous_render, d
 	return tick + previous_render > slot || previous_gpu > slot;
 }
 
+enum stereo_cadence_lateness
+{
+	STEREO_CADENCE_ON_TIME,
+	STEREO_CADENCE_LATE_OWN_WORK, /* late, and its own work explains it */
+	STEREO_CADENCE_LATE_SYSTEM    /* late, but its own work fit its slot: the system paced it */
+};
+
+/* a frame REFRESHES after the previous presentation at repeat count REPEAT and refresh PERIOD, with its TICK and the
+previous frame's render and GPU times (PERIOD's unit): the one composition of the rules above */
+static inline enum stereo_cadence_lateness stereo_cadence_classify(long refreshes, int repeat, double period,
+	double tick, double previous_render, double previous_gpu)
+{
+	if (!stereo_cadence_late(refreshes, repeat))
+		return STEREO_CADENCE_ON_TIME;
+	return stereo_cadence_own_work(tick, previous_render, previous_gpu, stereo_cadence_slot(period, repeat)) ?
+		STEREO_CADENCE_LATE_OWN_WORK : STEREO_CADENCE_LATE_SYSTEM;
+}
+
 /* ---------- the trigger (log only)
 
 Whether a big game has stopped holding the headset's full rate by its own work, for a lock to steady 45 Hz that is
@@ -158,14 +176,19 @@ static inline int stereo_cadence_window_add(struct stereo_cadence_trigger *trigg
 		window->other_frames++;
 	if (refreshes >= STEREO_CADENCE_HITCH_REFRESHES)
 		window->hitch = 1;
-	if (stereo_cadence_late(refreshes, trigger->repeat))
+	switch (stereo_cadence_classify(refreshes, trigger->repeat, period, tick, previous_render, previous_gpu))
 	{
-		if (!stereo_cadence_own_work(tick, previous_render, previous_gpu, stereo_cadence_slot(period, trigger->repeat)))
-			window->system_late++;
-		else if (ticked)
+	case STEREO_CADENCE_LATE_SYSTEM:
+		window->system_late++;
+		break;
+	case STEREO_CADENCE_LATE_OWN_WORK:
+		if (ticked)
 			window->tick_late++;
 		else
 			window->other_late++;
+		break;
+	case STEREO_CADENCE_ON_TIME:
+		break;
 	}
 	return window->refreshes >= STEREO_CADENCE_WINDOW_REFRESHES;
 }
