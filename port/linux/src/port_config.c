@@ -1278,19 +1278,20 @@ static const struct config_setting config_settings[] =
 		"never refused. A device profile sets it for the device's speed; it is\n"
 		"not a player choice." },
 	{ "network.full_rate_players", _config_integer, "0", "HALO_NET_FULL_RATE_PLAYERS", _environment_value, _platform_ios,
-		"The most multiplayer slots this device holds at 60 fps and variable\n"
-		"quality, or at 30 when the first rung cannot hold 60, 2 to 128;\n"
-		"0 (default) leaves it unlimited.\n"
-		"Above this threshold, gameplay is held to at most 30 frames a second\n"
-		"for the whole map, using the game's maximum players at map load.\n"
-		"Campaign, co-op, split screen and the main menu are unaffected.\n"
-		"A player's explicit display.frame_rate choice still wins. Vision Pro\n"
-		"paces its own frames, so there the value sets only what follows. A\n"
-		"positive value also sets the hosted-game default\n"
+		"The player count where this device stops holding its full frame rate\n"
+		"(60 fps at variable quality, or 30 when the first rung cannot hold 60;\n"
+		"90 Hz on Vision Pro), 2 to 128; 0 (default) leaves it unlimited.\n"
+		"It drives the warnings: a positive value sets the hosted-game default\n"
 		"and the warning threshold in Server Setup and the browsers, taking\n"
 		"precedence over network.player_capacity. The browser marks a larger\n"
 		"game BIG once it is at least half this threshold full; joining then\n"
-		"asks for confirmation. A profile sets this at or below player_capacity." },
+		"asks for confirmation.\n"
+		"Except on Vision Pro, which paces its own frames, gameplay above it is\n"
+		"also held to at most 30 frames a second for the whole map, using the\n"
+		"game's maximum players at map load. Campaign, co-op, split screen and\n"
+		"the main menu are unaffected, and a player's explicit\n"
+		"display.frame_rate choice still wins.\n"
+		"A profile sets this at or below player_capacity." },
 	{ "network.map_share", _config_boolean, "true", "HALO_NET_MAP_SHARE", _environment_value, _platform_all,
 		"Hosting: send a player who joins without the game's Custom Edition map\n"
 		"the map (from custom_maps), if it is a community map. Custom Edition's\n"
