@@ -1020,7 +1020,7 @@ __attribute__((weak)) void host_perf_metal_unavailable(unsigned group)
 { }
 __attribute__((weak)) void host_perf_metal_upscale_expected(void)
 { }
-__attribute__((weak)) void host_perf_metal_upscale_time(uint64_t frame, uint64_t duration_us, int valid)
+__attribute__((weak)) void host_perf_metal_upscale_time(uint64_t frame, double start, double end, int valid)
 { }
 __attribute__((weak)) void host_perf_reports_activate(const char *map_name, int suppressed)
 { }
