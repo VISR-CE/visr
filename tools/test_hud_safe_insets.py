@@ -14,14 +14,15 @@ ROOT = Path(__file__).resolve().parents[1]
 @pytest.mark.parametrize("apple_guest", [True, False], ids=["apple-guest", "desktop"])
 def test_host_safe_area_reaches_hud_anchors(tmp_path, apple_guest):
     sources = [
-        ("port/ios/host/host_external.m", "host_external_safe_insets"),
-        ("port/linux/src/sdl_platform.c", "platform_video_safe_insets"),
-        ("port/linux/src/d3d8_device.c", "halo_screen_hud_frame"),
-        ("source/main/main.c", "compute_subframe_counts"),
-        ("source/main/main.c", "compute_window_bounds"),
-        ("source/interface/hud_draw.c", "hud_calculate_point"),
+        # (its second definition is the build without external output, which reports no insets)
+        ("port/ios/host/host_external.m", "host_external_safe_insets", "safe_insets_lock"),
+        ("port/linux/src/sdl_platform.c", "platform_video_safe_insets", None),
+        ("port/linux/src/d3d8_device.c", "halo_screen_hud_frame", None),
+        ("source/main/main.c", "compute_subframe_counts", None),
+        ("source/main/main.c", "compute_window_bounds", None),
+        ("source/interface/hud_draw.c", "hud_calculate_point", None),
     ]
-    functions = "\n".join(function((ROOT / path).read_text(), name) for path, name in sources)
+    functions = "\n".join(function((ROOT / path).read_text(), name, which) for path, name, which in sources)
     program = r'''
 #include <math.h>
 #include <pthread.h>
@@ -144,7 +145,7 @@ def test_safe_insets_host_import_resolves(tmp_path):
         if name and name != "host_external_safe_insets":
             symbol = "posix_" + name[len("hostposix_"):] if name.startswith("hostposix_") else name
             stubs.append(f"void {symbol}(void) {{}}")
-    getter = function((ROOT / "port/ios/host/host_external.m").read_text(), "host_external_safe_insets")
+    getter = function((ROOT / "port/ios/host/host_external.m").read_text(), "host_external_safe_insets", "safe_insets_lock")
     source = tmp_path / "probe.c"
     source.write_text(r'''
 #include <pthread.h>
