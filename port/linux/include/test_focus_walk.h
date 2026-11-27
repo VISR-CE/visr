@@ -7,7 +7,13 @@ caller reads the focused row's text from the same string the widget renders (men
 #include <string.h>
 
 #define TEST_FOCUS_LABEL_MAX 48
-#define TEST_FOCUS_HOLD_POLLS 4    /* polls Down is held for a step */
+/* A scripted d-pad press is ONE poll. The engine repeats a held d-pad: a button held for a second poll has hold value 2 or more, and
+a d-pad event with value above 1 counts as a fresh press once 250 ms of wall clock have passed since the last value-1 event
+(source/interface/ui_widget.c, DPAD_EVENT_REPEAT_MILLISECONDS). A press of N polls double-steps whenever its N - 1 frame intervals add
+up to 250 ms, and a simulator frame can take that long (a 4-poll hold stepped PROFILES past SETTINGS to LOAD CAMPAIGN). One poll only ever
+has value 1, so it cannot repeat at any frame time. The walk confirms each step by looking at the focus, and a lost press is retried. */
+#define TEST_DPAD_PRESS_POLLS 1
+#define TEST_FOCUS_HOLD_POLLS TEST_DPAD_PRESS_POLLS /* polls Down is held for a step */
 #define TEST_FOCUS_CHECK_POLLS 12  /* polls between looks at the focus: the move has drawn by then */
 #define TEST_FOCUS_BLIND_LOOKS 4   /* looks that find no focused row before one Down is pressed to give a page its focus */
 #define TEST_FOCUS_AFTER_POLLS 40  /* polls past the deadline of the last check: a capture's frame is taken about then */

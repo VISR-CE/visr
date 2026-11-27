@@ -64,10 +64,10 @@ int main(void) {
         CHECK(pad.bAnalogButtons[XINPUT_GAMEPAD_A] == (poll >= 24 && poll < 28 ? 255 : 0));
         CHECK(pad.bAnalogButtons[XINPUT_GAMEPAD_B] == (poll >= 32 && poll < 36 ? 255 : 0));
         unsigned short expected = poll >= 40 && poll < 44 ? XINPUT_GAMEPAD_START :
-            poll >= 48 && poll < 52 ? XINPUT_GAMEPAD_DPAD_UP :
-            poll >= 56 && poll < 60 ? XINPUT_GAMEPAD_DPAD_DOWN :
-            poll >= 64 && poll < 68 ? XINPUT_GAMEPAD_DPAD_LEFT :
-            poll >= 72 && poll < 76 ? XINPUT_GAMEPAD_DPAD_RIGHT : 0;
+            poll == 48 ? XINPUT_GAMEPAD_DPAD_UP :
+            poll == 56 ? XINPUT_GAMEPAD_DPAD_DOWN :
+            poll == 64 ? XINPUT_GAMEPAD_DPAD_LEFT :
+            poll == 72 ? XINPUT_GAMEPAD_DPAD_RIGHT : 0;
         CHECK(pad.wButtons == expected);
     }
     /* focus:LABEL@POLL[:DEADLINE] reads its label (underscore is a space) and deadline, and a press after it waits for the walk rather than setting its deadline */
@@ -87,8 +87,11 @@ int main(void) {
     test_press_count = 0;
     test_input_presses_parse("back@0 down@0");
     pad = (XINPUT_GAMEPAD){0};
+    test_input_presses(&pad, 0);
+    CHECK(pad.wButtons == (XINPUT_GAMEPAD_BACK | XINPUT_GAMEPAD_DPAD_DOWN));   /* the chord's first poll holds both */
+    pad = (XINPUT_GAMEPAD){0};
     test_input_presses(&pad, 3);
-    CHECK(pad.wButtons == (XINPUT_GAMEPAD_BACK | XINPUT_GAMEPAD_DPAD_DOWN));
+    CHECK(pad.wButtons == XINPUT_GAMEPAD_BACK);   /* the d-pad is one poll (no engine repeat), the back button keeps its four */
     pad = (XINPUT_GAMEPAD){0};
     test_input_presses(&pad, 4);
     CHECK(!pad.wButtons);

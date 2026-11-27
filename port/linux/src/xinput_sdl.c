@@ -1046,7 +1046,8 @@ changes only the input class. "focus:LABEL@POLL[:DEADLINE]" (spaces in LABEL wri
 menu row's text is LABEL, instead of counting rows; it fails the run ("WALK FAIL" in the log, exit status
 TEST_FOCUS_EXIT_STATUS) when the list has no such row. A press after a walk waits until the walk has landed (and the presses
 after it keep their spacing), however slow the host. Each BUTTON (start, back, a, b, x, y, up, down,
-left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
+left, right) is held for TEST_PRESS_POLLS polls from its POLL (a d-pad direction for TEST_DPAD_PRESS_POLLS, one poll, so the engine's
+d-pad repeat cannot fire inside it; see test_focus_walk.h), and nothing
 else is pressed (a menu walked by script). Presses at the same POLL are held
 together: "back@100 down@100" is debug.knob_cycle's chord */
 #define TEST_PRESS_POLLS 4
@@ -1191,15 +1192,18 @@ static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
 	{
 		const struct test_chain_step *item = &test_chain[step];
 		const char *button;
+		unsigned long hold;
 
 		if (item->is_walk)
 			continue;
 		if (!item->released)
 			break;   /* nothing after a waiting step can fire yet */
-		if (poll < item->poll + item->shift || poll >= item->poll + item->shift + TEST_PRESS_POLLS)
-			continue;
 		button = test_presses[item->index].button;
 		if (button[0] == 'k') button++;
+		hold = (!strcmp(button, "up") || !strcmp(button, "down") || !strcmp(button, "left") || !strcmp(button, "right")) ?
+			TEST_DPAD_PRESS_POLLS : TEST_PRESS_POLLS;
+		if (poll < item->poll + item->shift || poll >= item->poll + item->shift + hold)
+			continue;
 		if (!strcmp(button, "start"))
 			pad->wButtons |= XINPUT_GAMEPAD_START;
 		else if (!strcmp(button, "back"))

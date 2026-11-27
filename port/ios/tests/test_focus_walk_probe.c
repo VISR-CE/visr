@@ -28,6 +28,54 @@ static int walk(char const *const *rows, int count, int wraps, char const *label
 	return -1;
 }
 
+/* One step of a list: Down (+1) or Up (-1), wrapping or stopping at the ends. */
+static int step_row(int focus, int direction, int count, int wraps)
+{
+	int next = focus + direction;
+
+	if (next < 0)
+		return wraps ? count - 1 : focus;
+	if (next >= count)
+		return wraps ? 0 : focus;
+	return next;
+}
+
+/* The engine repeats a held d-pad: a second poll of the same press, on a frame slow enough, steps again (source/interface/ui_widget.c,
+250 ms). The model makes every second consecutive Down poll step again (the slowest case), loses the press with index `lost` (a loading
+screen consumes it unseen) and doubles none of the presses otherwise. Returns the walk's result and the row it ended on; `*max_run` is the
+longest run of consecutive polls the walk held Down. */
+static int sweep_walk(int count, int wraps, int start, char const *label, int lost, int *final_row, int *max_run)
+{
+	static char const *const names[] = { "R0", "R1", "R2", "R3", "R4", "R5", "R6" };
+	struct test_focus_walk w;
+	int focus = start, run = 0, press = 0;
+
+	*max_run = 0;
+	test_focus_walk_begin(&w, label, 10);
+	for (unsigned long poll = 0; poll < 4000; poll++)
+	{
+		int action = test_focus_walk_poll(&w, poll, poll < 50 ? NULL : names[focus]);
+
+		run = action == TEST_FOCUS_DOWN ? run + 1 : 0;
+		if (run > *max_run)
+			*max_run = run;
+		if (action == TEST_FOCUS_DOWN && poll >= 50)
+		{
+			if (run == 1 && press++ != lost)
+				focus = step_row(focus, 1, count, wraps);
+			else if (run > 1)
+				focus = step_row(focus, 1, count, wraps);   /* the repeat fired inside the hold */
+		}
+		if (action != TEST_FOCUS_DOWN && action != TEST_FOCUS_WAIT)
+		{
+			*final_row = focus;
+			return action;
+		}
+	}
+	*final_row = focus;
+	return -1;
+}
+
 int main(void)
 {
 	char const *const rows[] = { "CHANGE NAME", "GAME OPTIONS", "PLAYER OPTIONS", "ITEM OPTIONS", "VEHICLES", "SAVE CHANGES" };
@@ -44,6 +92,35 @@ int main(void)
 	/* a label the list does not have fails: at the list's end, and by wrapping round */
 	assert(walk(rows, 6, 0, "DELETE GAMETYPE", &row) == TEST_FOCUS_FAIL_STUCK && row == 5);
 	assert(walk(rows, 6, 1, "DELETE GAMETYPE", &row) == TEST_FOCUS_FAIL_WRAP);
+	/* A press is one poll, so the engine's repeat cannot step it twice: for every list length, wrapping or not, every start row and
+	every target row, the walk lands on its target, the press never lasts two polls, and one lost press does not end the walk. */
+	for (int count = 2; count <= 7; count++)
+		for (int wraps = 0; wraps <= 1; wraps++)
+			for (int start = 0; start < count; start++)
+				for (int target = start; target < count; target++)
+					for (int lost = -1; lost < 3; lost++)
+					{
+						char label[4];
+						int final_row, max_run;
+
+						snprintf(label, sizeof(label), "R%d", target);
+						assert(sweep_walk(count, wraps, start, label, lost, &final_row, &max_run) == TEST_FOCUS_DONE);
+						assert(final_row == target && max_run <= TEST_DPAD_PRESS_POLLS && TEST_DPAD_PRESS_POLLS == 1);
+					}
+	/* and the walk never holds Down on two consecutive polls while it keeps pressing (a label the list does not have) */
+	{
+		struct test_focus_walk w;
+		int run = 0, longest = 0;
+
+		test_focus_walk_begin(&w, "NOWHERE", 10);
+		for (unsigned long poll = 0; poll < 400; poll++)
+		{
+			run = test_focus_walk_poll(&w, poll, poll < 50 ? NULL : "R0") == TEST_FOCUS_DOWN ? run + 1 : 0;
+			if (run > longest)
+				longest = run;
+		}
+		assert(longest == 1);   /* one poll per press, whatever the walk does */
+	}
 	/* two rows with the same text, or a Down lost once, do not end the walk */
 	{
 		char const *const twins[] = { "A", "B", "B", "C", "VEHICLES" };
