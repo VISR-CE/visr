@@ -10238,10 +10238,10 @@ static void scaler_timing_end(void)
 		return;
 	[commands addCompletedHandler:^(id<MTLCommandBuffer> completed)
 	{
-		double seconds = completed.GPUEndTime - completed.GPUStartTime;
-		int valid = completed.status == MTLCommandBufferStatusCompleted && completed.GPUStartTime > 0.0 && seconds > 0.0;
+		int valid = completed.status == MTLCommandBufferStatusCompleted && completed.GPUStartTime > 0.0 &&
+			completed.GPUEndTime > completed.GPUStartTime;
 
-		host_perf_metal_upscale_time(frame, valid ? (uint64_t)(seconds * 1e6) : 0, valid);
+		host_perf_metal_upscale_time(frame, completed.GPUStartTime, completed.GPUEndTime, valid);
 	}];
 }
 
