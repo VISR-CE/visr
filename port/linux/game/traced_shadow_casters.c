@@ -753,7 +753,7 @@ void traced_lights_choose(
 {
 	short window = render.window_index;
 	long cap = traced_lights_cap();
-	unsigned char chosen[LIGHT_VISIBILITY_MAXIMUM];
+	unsigned char chosen[LIGHT_VISIBILITY_MAXIMUM], held[LIGHT_VISIBILITY_MAXIMUM];
 	struct light_visibility_ramp *ramp;
 	short i, j;
 
@@ -781,8 +781,10 @@ void traced_lights_choose(
 		return;
 	}
 	traced_lights.frame[window] = rasterizer_globals.fps_accumulation_frame_index;
+	/* (a light holding a slot keeps it until a challenger outranks it by debug.traced_light_hold) */
+	light_visibility_held(ramp, lights, count, held);
 	light_visibility_rank(lights, count, (int)(cap < LIGHT_VISIBILITY_MAXIMUM ? cap : LIGHT_VISIBILITY_MAXIMUM),
-		config_boolean("debug.traced_lights_fixtures"), chosen);
+		config_boolean("debug.traced_lights_fixtures"), held, config_real("debug.traced_light_hold"), chosen);
 	light_visibility_ramp_step(ramp, lights, chosen, count, system_milliseconds(), strength);
 	/* (how many lights a view has and traces, for the cost runs: over 600 window frames) */
 	{

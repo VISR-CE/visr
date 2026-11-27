@@ -2064,6 +2064,11 @@ static const struct config_setting config_settings[] =
 		"shadows too; 3 also objects with no shadow of their own (too faint, or doors and other devices). 0\n"
 		"traces no light whatever the profile says; -1 (the default) is 3 when display.traced_lights is above\n"
 		"0. A value above 0 also turns the tracing on without the profile key, for measurements." },
+	{ "debug.traced_light_hold", _config_real, "0.2", "HALO_TRACED_LIGHT_HOLD", _environment_value, _platform_ios,
+		"With display.traced_lights: how much a light holding a traced slot is favored when more lights compete\n"
+		"than display.traced_lights allows. A challenger takes the slot only when its score beats the holder's by\n"
+		"this fraction (0.2: 20%), so two lights of about the same score don't trade the slot, and their shadows,\n"
+		"every frame. 0 ranks by score alone." },
 	{ "debug.traced_lights_fixtures", _config_boolean, "false", "HALO_TRACED_LIGHTS_FIXTURES", _environment_value, _platform_ios,
 		"With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and\n"
 		"devices, which display.traced_lights leaves as the game draws them), for stills and measurements." },

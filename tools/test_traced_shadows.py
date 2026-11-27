@@ -128,15 +128,77 @@ def test_rank_puts_the_own_flashlight_first_and_holds_the_cap(tmp_path):
     struct light_visibility_candidate lights[] = {
         {10, 5.0, 2, 0}, {11, 9.0, -1, 0}, {12, 1.0, 0, 1}, {13, 50.0, 9, 0}, {14, 9.0, 5, 0}};
     unsigned char chosen[5];
-    light_visibility_rank(lights, 5, 2, 0, chosen);
+    light_visibility_rank(lights, 5, 2, 0, 0, 0.0, chosen);
     assert(chosen[2] && chosen[1] && !chosen[0] && !chosen[3] && !chosen[4]); /* own, then 9.0 by lower id */
-    light_visibility_rank(lights, 5, 128, 0, chosen);
+    light_visibility_rank(lights, 5, 128, 0, 0, 0.0, chosen);
     assert(chosen[0] && chosen[1] && chosen[2] && !chosen[3] && chosen[4]); /* the light fixture never */
-    light_visibility_rank(lights, 5, 128, 1, chosen);
+    light_visibility_rank(lights, 5, 128, 1, 0, 0.0, chosen);
     assert(chosen[3]); /* debug.traced_lights_fixtures */
-    light_visibility_rank(lights, 5, 0, 0, chosen);
+    light_visibility_rank(lights, 5, 0, 0, 0, 0.0, chosen);
     assert(!chosen[0] && !chosen[1] && !chosen[2] && !chosen[3] && !chosen[4]);
     ''')
+
+
+def test_a_light_holding_a_slot_keeps_it_until_a_challenger_clearly_beats_it(tmp_path):
+    """The class: shadow flicker from the cap. With more lights than traced slots, two lights of about the same
+    score (two marines' flashlights across a room) traded the slot whenever their scores crossed, so each one's shadow
+    switched on and off every few frames. A light that holds a slot ranks with its score raised by
+    debug.traced_light_hold; a challenger must beat that, and a clearly brighter one still takes the slot at once."""
+    _run_rule_program(tmp_path, r'''
+    struct light_visibility_ramp ramp = {0};
+    struct light_visibility_candidate pair[2] = {{1, 1.0, 2, 0}, {2, 1.0, 2, 0}};
+    unsigned char chosen[2], held[2];
+    float strength[2];
+    int frame, swaps = 0, holder = -1;
+    for (frame = 0; frame < 60; frame++)
+    {
+        /* near-equal scores that cross every frame */
+        pair[0].score = frame & 1 ? 1.05 : 0.95;
+        pair[1].score = frame & 1 ? 0.95 : 1.05;
+        light_visibility_held(&ramp, pair, 2, held);
+        light_visibility_rank(pair, 2, 1, 0, held, 0.2, chosen);
+        assert(chosen[0] + chosen[1] == 1);
+        swaps += holder >= 0 && !chosen[holder];
+        holder = chosen[0] ? 0 : 1;
+        light_visibility_ramp_step(&ramp, pair, chosen, 2, 1000u + 16u * (unsigned)frame, strength);
+    }
+    assert(swaps == 0);
+    /* without the hold they trade the slot every frame */
+    swaps = 0;
+    holder = -1;
+    for (frame = 0; frame < 60; frame++)
+    {
+        pair[0].score = frame & 1 ? 1.05 : 0.95;
+        pair[1].score = frame & 1 ? 0.95 : 1.05;
+        light_visibility_held(&ramp, pair, 2, held);
+        light_visibility_rank(pair, 2, 1, 0, held, 0.0, chosen);
+        swaps += holder >= 0 && !chosen[holder];
+        holder = chosen[0] ? 0 : 1;
+        light_visibility_ramp_step(&ramp, pair, chosen, 2, 2000u + 16u * (unsigned)frame, strength);
+    }
+    assert(swaps == 59);
+    /* a clearly brighter newcomer takes the slot on its first frame; one only a little brighter does not */
+    {
+        struct light_visibility_candidate three[3] = {{1, 1.0, 2, 0}, {2, 0.5, 2, 0}, {3, 1.1, 2, 0}};
+        {
+            unsigned char held3[3] = {1, 0, 0}, chosen3[3];
+            light_visibility_rank(three, 3, 1, 0, held3, 0.2, chosen3);
+            assert(chosen3[0] && !chosen3[2]);
+            three[2].score = 1.5;
+            light_visibility_rank(three, 3, 1, 0, held3, 0.2, chosen3);
+            assert(!chosen3[0] && chosen3[2]);
+            /* the own flashlight still comes first whatever holds */
+            three[1].own = 1;
+            light_visibility_rank(three, 3, 1, 0, held3, 0.2, chosen3);
+            assert(chosen3[1] && !chosen3[0] && !chosen3[2]);
+        }
+    }
+    ''')
+    game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
+    assert game.count("light_visibility_rank(") == 1
+    assert 'held, config_real("debug.traced_light_hold"), chosen);' in game
+    config = (ROOT / "port/linux/src/port_config.c").read_text()
+    assert '{ "debug.traced_light_hold", _config_real, "0.2",' in config
 
 
 def test_new_lights_block_at_once_and_only_the_cap_eases(tmp_path):

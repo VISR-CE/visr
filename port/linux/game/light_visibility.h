@@ -82,6 +82,7 @@ struct light_visibility_ramp
 {
 	unsigned long id[LIGHT_VISIBILITY_MAXIMUM];
 	float strength[LIGHT_VISIBILITY_MAXIMUM];
+	unsigned char chosen[LIGHT_VISIBILITY_MAXIMUM]; /* the step's choice by light: who holds a slot */
 	int count;
 	unsigned long milliseconds; /* wall time of the last step */
 	int valid;
@@ -183,30 +184,60 @@ static inline int light_visibility_spheres_touch(
 	return r > 0.f && dx * dx + dy * dy + dz * dz < r * r;
 }
 
+/* held[i] 1 for the candidates the ramp's last step chose (none when it has no step) */
+static inline void light_visibility_held(
+	const struct light_visibility_ramp *ramp,
+	const struct light_visibility_candidate *lights,
+	int count,
+	unsigned char *held)
+{
+	int i, j;
+
+	if (count > LIGHT_VISIBILITY_MAXIMUM)
+		count = LIGHT_VISIBILITY_MAXIMUM;
+	for (i = 0; i < count; i++)
+	{
+		held[i] = 0;
+		for (j = 0; ramp->valid && j < ramp->count; j++)
+			if (ramp->id[j] == lights[i].id)
+			{
+				held[i] = ramp->chosen[j];
+				break;
+			}
+	}
+}
+
 /* chosen[i] 1 for the candidates chosen this frame: those whose owner allows it (every one when fixtures is set),
-own flashlight first, then by score, then by id, up to cap */
+own flashlight first, then by score, then by id, up to cap. A light that holds a slot (held[i], may be NULL) ranks
+with its score raised by the fraction hold, so a challenger takes its slot only by beating it by that margin: two
+lights of about the same score don't trade the slot, and its shadow, from frame to frame */
 static inline void light_visibility_rank(
 	const struct light_visibility_candidate *lights,
 	int count,
 	int cap,
 	int fixtures,
+	const unsigned char *held,
+	double hold,
 	unsigned char *chosen)
 {
 	int order[LIGHT_VISIBILITY_MAXIMUM], ordered = 0, i, j;
+	double rank[LIGHT_VISIBILITY_MAXIMUM];
 
 	if (count > LIGHT_VISIBILITY_MAXIMUM)
 		count = LIGHT_VISIBILITY_MAXIMUM;
 	for (i = 0; i < count; i++)
 	{
 		chosen[i] = 0;
+		rank[i] = lights[i].score * (held && held[i] && hold > 0.0 ? 1.0 + hold : 1.0);
 		if (!fixtures && !light_visibility_owner_blocks(lights[i].owner_type))
 			continue;
 		for (j = ordered; j > 0; j--)
 		{
 			const struct light_visibility_candidate *a = &lights[i], *b = &lights[order[j - 1]];
+			double ra = rank[i], rb = rank[order[j - 1]];
 
 			if (!(a->own > b->own || (a->own == b->own &&
-				(a->score > b->score || (a->score == b->score && a->id < b->id)))))
+				(ra > rb || (ra == rb && a->id < b->id)))))
 				break;
 			order[j] = order[j - 1];
 		}
@@ -259,6 +290,7 @@ static inline void light_visibility_ramp_step(
 	{
 		ramp->id[i] = lights[i].id;
 		ramp->strength[i] = strength[i];
+		ramp->chosen[i] = chosen[i];
 	}
 	ramp->count = count;
 	ramp->milliseconds = milliseconds;
