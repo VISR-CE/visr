@@ -500,80 +500,72 @@ probe('recording-catalog-probe', ['port/ios/tests/recording_catalog_probe.m', 'p
     args=[published_feed, published_blob, published_originals, re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1], 'c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89', 20])
 # the feeds a release reads from feeds.visr.gg, served from the bucket's staged tree on this machine: each downloads,
 # verifies with the build's key and activates, and no request leaves the host (docs/data-packs.md, "Feed hosts")
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
-    '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation', '-lz', '-lcompression',
-    'port/ios/tests/feeds_host_probe.m', 'port/ios/host/host_data_pack.m', 'port/ios/host/host_profile.c',
-    'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c', 'port/ios/host/host_recording_pack.c',
-    'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
-    'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
-    'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'feeds-host-probe')
+probe('feeds-host-probe', ['port/ios/tests/feeds_host_probe.m', 'port/ios/host/host_data_pack.m',
+    'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
+    'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c',
+    'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c', 'port/third_party/tomlc17/tomlc17.c',
+    'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
+    '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation', '-lz',
+    '-lcompression'], run=False)
 run('python3', 'tools/feeds_host_check.py', BUILD / 'feeds-host-probe', probe=BUILD / 'feeds-host-probe')
 # a benchmark session keeps the recordings it started with, byte for byte, across an update and a relaunch
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Iport/ios/host',
-    '-framework', 'Foundation', 'port/ios/tests/benchmark_snapshot_probe.m', 'port/ios/host/host_benchmark_snapshot.m',
-    '-o', BUILD / 'benchmark-snapshot-probe')
-run(BUILD / 'benchmark-snapshot-probe')
+probe('benchmark-snapshot-probe', ['port/ios/tests/benchmark_snapshot_probe.m',
+    'port/ios/host/host_benchmark_snapshot.m'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Iport/ios/host', '-framework',
+    'Foundation'])
 # the profiles' own rules: only the settings a profile may set, inside their ranges, each with its evidence,
 # one profile a model, each platform's classes covering every GPU family once; and the checker's refusals
 run('python3', 'tools/settings_schema.py', '--check')
 run('python3', 'tools/profile_check.py')
 run('python3', 'tools/profile_revision.py')
 run('python3', 'tools/test_profile_check.py')
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host',
-    'port/ios/tests/touch_replay_probe.c', '-o', BUILD / 'touch-replay-probe')
-run(BUILD / 'touch-replay-probe')
+probe('touch-replay-probe', ['port/ios/tests/touch_replay_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host'])
 # the touch overlay goes away again when a hardware controller is used, not for the touch gamepad or a resting stick
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host',
-    'port/ios/tests/touch_controller_probe.c', '-o', BUILD / 'touch-controller-probe')
-run(BUILD / 'touch-controller-probe')
+probe('touch-controller-probe', ['port/ios/tests/touch_controller_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host'])
 # fingers and pointer devices on the menus: the state machine, the mapping to the menus' coordinates, and the
 # struct that crosses to the guest (its layout must hold under the guest's arm64_32 flags too)
 # portrait only on a screen at least 640 points wide in portrait (host_portrait_rule.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host', 'port/ios/tests/portrait_rule_probe.c',
-    '-o', BUILD / 'portrait-rule-probe')
-run(BUILD / 'portrait-rule-probe')
+probe('portrait-rule-probe', ['port/ios/tests/portrait_rule_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host'])
 run('python3', 'tools/test_menu_tap_targets.py')
 run('python3', 'tools/test_menu_carousel.py')
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/menu_pointer_probe.c', '-o', BUILD / 'menu-pointer-probe')
-run(BUILD / 'menu-pointer-probe')
+probe('menu-pointer-probe', ['port/ios/tests/menu_pointer_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/linux/src',
+    '-Iport/runtime/include'])
 # a finger dragging a strip of menu items (the map grid, the carousels): tap or drag, momentum, the snap to an item
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    '-Iport/runtime/include', 'port/ios/tests/menu_drag_probe.c', '-o', BUILD / 'menu-drag-probe')
-run(BUILD / 'menu-drag-probe')
+probe('menu-drag-probe', ['port/ios/tests/menu_drag_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    '-Iport/runtime/include'])
 # the three-card carousel's nonwrapping window, centered peeks, controller glide, and tap behavior
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-Iport/runtime/include', 'port/ios/tests/menu_carousel_probe.c', '-o', BUILD / 'menu-carousel-probe')
-run(BUILD / 'menu-carousel-probe')
+probe('menu-carousel-probe', ['port/ios/tests/menu_carousel_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime/include'])
 # a look and pinch on the Vision Pro's menus: the ray to the menus' surface, the hand's travel, the picture fractions
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/menu_gaze_probe.c', '-o', BUILD / 'menu-gaze-probe')
-run(BUILD / 'menu-gaze-probe')
+probe('menu-gaze-probe', ['port/ios/tests/menu_gaze_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/linux/src',
+    '-Iport/runtime/include'])
 run(clang, '--target=arm64_32-apple-watchos', '-mcpu=cortex-a53', '-ffixed-x15', '-ffixed-x27', '-fno-omit-frame-pointer',
     '-fno-stack-protector', '-ffreestanding', '-Iport/runtime/include', '-fsyntax-only', '-x', 'c',
     'port/runtime/include/halo_host_pointer.h')
 # a recorded route replays: tools/route_check.py's verdicts, and the suite's difficulty for the next map
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/input_replay_probe.c', '-o', BUILD / 'input-replay-probe')
-run(BUILD / 'input-replay-probe')
+probe('input-replay-probe', ['port/ios/tests/input_replay_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 run(BUILD / 'input-replay-probe', '--auto-record-suite-camera')
 run(BUILD / 'input-replay-probe', '--replay-environment')
 # The omitted-suspension mutant must reproduce the camera/control ownership failure.
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    '-DREPLAY_PROBE_OMIT_SUITE_SUSPEND=1', 'port/ios/tests/input_replay_probe.c',
-    '-o', BUILD / 'input-replay-probe-without-suspension')
-run(BUILD / 'input-replay-probe-without-suspension', '--auto-record-suite-camera-baseline')
+probe('input-replay-probe-without-suspension', ['port/ios/tests/input_replay_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-DREPLAY_PROBE_OMIT_SUITE_SUSPEND=1'],
+    args=['--auto-record-suite-camera-baseline'])
 # the private multiplayer workload probe keeps one player-0 view and distinct
 # tick-keyed controller actions without changing normal split-screen play
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-iquote', 'port/linux/include', 'port/ios/tests/mp_benchmark_probe.c',
-    'port/linux/src/mp_benchmark_probe.c', '-o', BUILD / 'mp-benchmark-probe')
-run(BUILD / 'mp-benchmark-probe')
+probe('mp-benchmark-probe', ['port/ios/tests/mp_benchmark_probe.c', 'port/linux/src/mp_benchmark_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-iquote', 'port/linux/include'])
 run('python3', 'tools/test_mp_benchmark_device_mask.py')
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-iquote', 'port/linux/include', 'port/ios/tests/mp_benchmark_context_probe.c',
-    'port/linux/src/mp_benchmark_probe.c', '-o', BUILD / 'mp-benchmark-context-probe')
-run(BUILD / 'mp-benchmark-context-probe')
+probe('mp-benchmark-context-probe', ['port/ios/tests/mp_benchmark_context_probe.c',
+    'port/linux/src/mp_benchmark_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-iquote', 'port/linux/include'])
 run('python3', 'tools/test_replay_control.py')
 run('python3', 'tools/test_checkpoint_timing.py')
 run('python3', 'tools/test_portal_clip_nan.py')
@@ -582,66 +574,58 @@ run('python3', 'tools/test_tag_loaded_null.py')
 # a runner's settings are the run's, never a device profile's: mac_run.py writes every setting a profile may set
 # (and marks what it writes chosen in config.origins), so no profile can move a check-metal run
 default_settings_check.check_mac_run_defaults()   # (also run by ci_test: tools/test_default_settings_check.py)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/virtual_clock_probe.c', '-o', BUILD/'virtual-clock-probe')
-run(BUILD/'virtual-clock-probe')
+probe('virtual-clock-probe', ['port/ios/tests/virtual_clock_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # internet play's join codes (p2p_code.c): the alphabet, reading them back, refusals, and a host's record found
 # from the code typed with or without its dash (p2p_code_lookup, what p2p_join_code reads a code with)
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
-    '-Iport/third_party/monocypher', 'port/ios/tests/join_code_probe.c', 'port/linux/src/p2p_code.c',
+probe('join-code-probe', ['port/ios/tests/join_code_probe.c', 'port/linux/src/p2p_code.c',
     'port/linux/src/p2p_crypto.c', 'port/third_party/monocypher/monocypher.c',
-    'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD/'join-code-probe')
-run(BUILD/'join-code-probe')
+    'port/third_party/monocypher/monocypher-ed25519.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
+    '-Iport/third_party/monocypher'])
 # the game's sockets made again after a suspension (host_socket_revival.c), with force on a Mac
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/socket_revival_probe.c', 'port/ios/host/host_socket_revival.c', '-o', BUILD/'socket-revival-probe')
-run(BUILD/'socket-revival-probe')
+probe('socket-revival-probe', ['port/ios/tests/socket_revival_probe.c', 'port/ios/host/host_socket_revival.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # a router's forwarding on Apple devices (host_natpmp_packets.c): NAT-PMP's and PCP's requests and answers
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/natpmp_probe.c', 'port/ios/host/host_natpmp_packets.c', '-o', BUILD/'natpmp-probe')
-run(BUILD/'natpmp-probe')
+probe('natpmp-probe', ['port/ios/tests/natpmp_probe.c', 'port/ios/host/host_natpmp_packets.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # internet play's away notice (p2p_away.h): the packet an app in the background sends its peers and when a wait is up
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/away_probe.c', '-o', BUILD/'away-probe')
-run(BUILD/'away-probe')
+probe('away-probe', ['port/ios/tests/away_probe.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # the alpha pin of the Xbox renderer's constants (alpha_pin.h): no value leaves 0 to 1
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/game',
-    'port/ios/tests/alpha_pin_probe.c', '-o', BUILD/'alpha-pin-probe')
-run(BUILD/'alpha-pin-probe')
+probe('alpha-pin-probe', ['port/ios/tests/alpha_pin_probe.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/game'])
 # no Xbox rasterizer file calls the asserting real_alpha_to_pixel32 (tag values can leave 0 to 1): use the _pinned one
 import re as _re
 _unpinned = [str(f) for f in Path('source/rasterizer/xbox').glob('*.c')
              if _re.search(r'(?<![_\w])real_alpha_to_pixel32\(', f.read_text(errors='replace').split('*/', 1)[-1])]
 assert not _unpinned, f'unpinned real_alpha_to_pixel32 in {_unpinned}'
 # The master response is verified over exact capture bytes; malformed entries stay isolated.
-run('xcrun', 'clang', '-std=gnu11', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined',
-    '-Iport/linux/src', '-Iport/third_party/monocypher', 'port/ios/tests/master_list_probe.c',
-    'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
-    '-o', BUILD/'master-list-probe')
-run(BUILD/'master-list-probe', 'port/ios/tests/fixtures/master-list')
+probe('master-list-probe', ['port/ios/tests/master_list_probe.c', 'port/third_party/monocypher/monocypher.c',
+    'port/third_party/monocypher/monocypher-ed25519.c'],
+    flags=['-std=gnu11', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
+    '-Iport/third_party/monocypher'], args=['port/ios/tests/fixtures/master-list'])
 # the Delta game list (delta_list.c): an answer read as /v1/games gives it, hostile and cut-off ones refused, the
 # announcement's form and when announcing goes on; and the network versions this build joins (halo_network_join.h)
 for platform_defines in ([], ['-DHALO_IOS=1']):
-    run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
-        '-iquote', 'port/linux/include', 'port/ios/tests/delta_probe.c', 'port/linux/src/delta_list.c',
-        'port/linux/src/delta_platform.c', 'port/linux/src/delta_legacy_runtime.c', *platform_defines, '-o', BUILD/'delta-probe')
-    run(BUILD/'delta-probe')
+    probe('delta-probe', ['port/ios/tests/delta_probe.c', 'port/linux/src/delta_list.c',
+        'port/linux/src/delta_platform.c', 'port/linux/src/delta_legacy_runtime.c'],
+        flags=['-std=gnu89', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src', '-iquote',
+        'port/linux/include', *platform_defines])
 # Signed table probes use a disposable key and never reach a network service.
-run('xcrun', 'clang', '-std=gnu11', '-O1', '-Wall', '-Wextra', '-Werror',
-    '-fsanitize=address,undefined', '-pthread', '-iquote', 'port/linux/include', '--include-directory=port/third_party/monocypher',
-    'port/ios/tests/delta_legacy_probe.c', 'port/linux/src/delta_legacy.c',
+probe('delta-legacy-probe', ['port/ios/tests/delta_legacy_probe.c', 'port/linux/src/delta_legacy.c',
     'port/linux/src/delta_legacy_runtime.c', 'port/third_party/monocypher/monocypher.c',
-    'port/third_party/monocypher/monocypher-ed25519.c', '--output=' + str(BUILD/'delta-legacy-probe'))
-run(BUILD/'delta-legacy-probe')
+    'port/third_party/monocypher/monocypher-ed25519.c'],
+    flags=['-std=gnu11', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-pthread', '-iquote',
+    'port/linux/include', '--include-directory=port/third_party/monocypher'])
 # Delta Peer uses the same pure codec and fake-clock sessions on every target.
-run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-Iport/linux/src', '-iquote', 'port/linux/include', 'port/ios/tests/delta_peer_probe.c',
-    'port/linux/src/delta_peer.c', '-o', BUILD/'delta-peer-probe')
-run(BUILD/'delta-peer-probe')
-run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-Iport/linux/src', '-iquote', 'port/linux/include', 'port/ios/tests/delta_peer_game_probe.c',
-    'port/linux/src/delta_peer.c', 'port/linux/src/delta_platform.c', '-o', BUILD/'delta-peer-game-probe')
-run(BUILD/'delta-peer-game-probe')
+probe('delta-peer-probe', ['port/ios/tests/delta_peer_probe.c', 'port/linux/src/delta_peer.c'],
+    flags=['-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
+    '-iquote', 'port/linux/include'])
+probe('delta-peer-game-probe', ['port/ios/tests/delta_peer_game_probe.c', 'port/linux/src/delta_peer.c',
+    'port/linux/src/delta_platform.c'],
+    flags=['-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
+    '-iquote', 'port/linux/include'])
 # and the call sites the probe can't see: the tunnel waits for a peer that said it is away instead of timing it out,
 # the game's server and connections wait for it too, the app asks the system for its background time, and the
 # game's loop shows the notices and joins a lost game again
@@ -670,204 +654,165 @@ required('port/ios/host/host_benchmark.m', 'return completion_screen_requested ?
 required('port/linux/src/benchmark_suite.c', 'if (more == 2)', 'benchmark_scenario_load("", "");',
          'halo_benchmark_overrides(0, 0, 0);', 'halo_model_lod_set(-1);')
 # halo://join links the app is opened with (host_join_link.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/join_link_probe.c', '-o', BUILD/'join-link-probe')
-run(BUILD/'join-link-probe')
+probe('join-link-probe', ['port/ios/tests/join_link_probe.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # CoreImage runs on macOS without UIKit or an app launch.
-run('xcrun', 'clang', '-fobjc-arc', '-Wall', '-Werror', '-framework', 'Foundation',
-    '-framework', 'CoreImage', '-framework', 'CoreGraphics', '-Iport/ios/host',
-    'port/ios/tests/qr_probe.m', 'port/ios/host/host_qr.m', '-o', BUILD/'qr-probe')
-run(BUILD/'qr-probe')
+probe('qr-probe', ['port/ios/tests/qr_probe.m', 'port/ios/host/host_qr.m'],
+    flags=['-fobjc-arc', '-Wall', '-Werror', '-framework', 'Foundation', '-framework', 'CoreImage', '-framework',
+    'CoreGraphics', '-Iport/ios/host'])
 # the frame pacer's rules (frame_pacer.h), with made-up refreshes and presented times
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/frame_pacer_probe.c', '-o', BUILD/'frame-pacer-probe')
-run(BUILD/'frame-pacer-probe')
+probe('frame-pacer-probe', ['port/ios/tests/frame_pacer_probe.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # the extended late start in a model of the whole paced loop (frame_pacer_sim.h), with dynamic resolution's planner
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/frame_pacer_sim_probe.c', '-o', BUILD/'frame-pacer-sim-probe')
-run(BUILD/'frame-pacer-sim-probe')
+probe('frame-pacer-sim-probe', ['port/ios/tests/frame_pacer_sim_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # the pacer's default frames in flight as host_frame_pacer.c reads it: one with the encode thread
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-DHALO_FRAME_PACING=1',
-    '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/frame_pacer_default_probe.c',
-    'port/ios/host/host_frame_pacer.c', '-o', BUILD/'frame-pacer-default-probe')
-run(BUILD/'frame-pacer-default-probe')
+probe('frame-pacer-default-probe', ['port/ios/tests/frame_pacer_default_probe.c', 'port/ios/host/host_frame_pacer.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-DHALO_FRAME_PACING=1', '-Iport/ios/host',
+    '-Iport/linux/src', '-Iport/runtime/include'])
 # when a change of workload context switches the encode thread (encode_switch.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/encode_switch_probe.c', '-o', BUILD/'encode-switch-probe')
-run(BUILD/'encode-switch-probe')
+probe('encode-switch-probe', ['port/ios/tests/encode_switch_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # adaptive frames in flight (frame_pacer_adapt.h): where the rule settles for each kind of stream
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/frame_pacer_adapt_probe.c', '-o', BUILD/'frame-pacer-adapt-probe')
-run(BUILD/'frame-pacer-adapt-probe')
+probe('frame-pacer-adapt-probe', ['port/ios/tests/frame_pacer_adapt_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # dynamic resolution's planner, with synthetic per-frame costs and presentation feedback
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/dynamic_resolution_probe.c', '-o', BUILD/'dynamic-resolution-probe')
-run(BUILD/'dynamic-resolution-probe')
+probe('dynamic-resolution-probe', ['port/ios/tests/dynamic_resolution_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # display.frame_deadline: each frame's deadline, and the workgroup calls the drawing thread makes
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    '-framework', 'AudioToolbox', 'port/ios/tests/frame_deadline_probe.c', '-o', BUILD/'frame-deadline-probe')
-run(BUILD/'frame-deadline-probe')
+probe('frame-deadline-probe', ['port/ios/tests/frame_deadline_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host', '-framework',
+    'AudioToolbox'])
 # UIKit's animations with the frame workgroup: tvOS's text dialog holds the drawing thread out (host_tv.m)
 run_uikit_app('python3', 'tools/test_frame_workgroup_uikit.py')
 # the tester benchmark menu in real UIKit, as a small Mac Catalyst app
 run_uikit_app('python3', 'tools/test_benchmark_menu.py')
 # visibility answers by fixed latency (visibility_history.h): from the expected frames, whatever the GPU's timing
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/visibility_history_probe.c', '-o', BUILD/'visibility-history-probe')
-run(BUILD/'visibility-history-probe')
+probe('visibility-history-probe', ['port/ios/tests/visibility_history_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # Low Power Mode's frame rate: the power-state notice posted as the system posts it, and the rate across transitions
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-fsanitize=address,undefined',
-    '-DHALO_LOW_POWER_TESTING=1', '-Iport/ios/host', '-framework', 'Foundation',
-    'port/ios/tests/low_power_probe.m', 'port/ios/host/host_low_power.m', '-o', BUILD/'low-power-probe')
-run(BUILD/'low-power-probe')
+probe('low-power-probe', ['port/ios/tests/low_power_probe.m', 'port/ios/host/host_low_power.m'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-fsanitize=address,undefined',
+    '-DHALO_LOW_POWER_TESTING=1', '-Iport/ios/host', '-framework', 'Foundation'])
 # the device benchmark's metrics, plan and journal (port/runtime/benchmark_*.c): percentiles of made-up frames,
 # the sweep walked with made-up devices, and the journal cut at every byte and after every write
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
-    'port/ios/tests/benchmark_probe.c', 'port/runtime/benchmark_metrics.c', 'port/runtime/benchmark_plan.c',
-    'port/runtime/benchmark_journal.c', '-o', BUILD/'benchmark-probe')
-run(BUILD/'benchmark-probe')
+probe('benchmark-probe', ['port/ios/tests/benchmark_probe.c', 'port/runtime/benchmark_metrics.c',
+    'port/runtime/benchmark_plan.c', 'port/runtime/benchmark_journal.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime'])
 # Shadow measurements retain physical level tags after virtual decisions.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-Iport/ios/host', '-Iport/runtime', 'port/ios/tests/dynamic_resolution_shadow_probe.c',
-    '-o', BUILD/'dynamic-resolution-shadow-probe')
-run(BUILD/'dynamic-resolution-shadow-probe')
+probe('dynamic-resolution-shadow-probe', ['port/ios/tests/dynamic_resolution_shadow_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/runtime'])
 # Scalar game-loop hooks preserve timing and event attribution without host frameworks.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-DHALO_PERF_REPORTS=1', '-Iport/ios/host', '-Iport/runtime',
-    'port/ios/tests/perf_hooks_probe.c', 'port/ios/host/host_perf_hooks.c',
-    '-o', BUILD/'perf-hooks-probe')
-run(BUILD/'perf-hooks-probe')
+probe('perf-hooks-probe', ['port/ios/tests/perf_hooks_probe.c', 'port/ios/host/host_perf_hooks.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-DHALO_PERF_REPORTS=1',
+    '-Iport/ios/host', '-Iport/runtime'])
 # Shadow-only builds keep frame IDs alive and flush delayed rows at suspension.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-DHALO_PERF_REPORTS=0', '-Iport/ios/host', '-Iport/runtime',
-    'port/ios/tests/dynamic_resolution_hooks_probe.c', 'port/ios/host/host_perf_hooks.c',
-    '-o', BUILD/'dynamic-resolution-hooks-probe')
-run(BUILD/'dynamic-resolution-hooks-probe')
+probe('dynamic-resolution-hooks-probe', ['port/ios/tests/dynamic_resolution_hooks_probe.c',
+    'port/ios/host/host_perf_hooks.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-DHALO_PERF_REPORTS=0',
+    '-Iport/ios/host', '-Iport/runtime'])
 # Actuation: lines handed to the guest between frames follow the planner, a refusal returns to the ceiling, and the
 # debug pin and sweep hold or step them.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-DHALO_PERF_REPORTS=0', '-Iport/ios/host', '-Iport/runtime',
-    'port/ios/tests/dynamic_resolution_actuation_probe.c', 'port/ios/host/host_perf_hooks.c',
-    '-o', BUILD/'dynamic-resolution-actuation-probe')
+probe('dynamic-resolution-actuation-probe', ['port/ios/tests/dynamic_resolution_actuation_probe.c',
+    'port/ios/host/host_perf_hooks.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-DHALO_PERF_REPORTS=0',
+    '-Iport/ios/host', '-Iport/runtime'], run=False)
 for mode in ('graphics', 'plan', 'pin', 'sweep', 'profile', 'notiming', 'variable', 'variable-floor-environment', 'external'):
     run(BUILD/'dynamic-resolution-actuation-probe', mode)
 # Counter metadata remains bounded and refuses stale/partial completion; no GPU submission.
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-fobjc-arc', '-fblocks', '-Iport/runtime', '-Iport/ios/host',
-    '-framework', 'Foundation', '-framework', 'Metal', '-DMETAL_GATE_NO_METALFX',
-    'port/ios/tests/perf_metal_probe.m', 'port/ios/host/metal_gate.m', '-o', BUILD/'perf-metal-probe')
-run(BUILD/'perf-metal-probe')
+probe('perf-metal-probe', ['port/ios/tests/perf_metal_probe.m', 'port/ios/host/metal_gate.m'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-fblocks',
+    '-Iport/runtime', '-Iport/ios/host', '-framework', 'Foundation', '-framework', 'Metal', '-DMETAL_GATE_NO_METALFX'])
 # Recorder bounds, spike windows, and checksummed journal recovery.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-Iport/runtime', 'port/ios/tests/game_perf_probe.c', 'port/runtime/game_perf.c',
-    '-o', BUILD/'game-perf-probe')
-run(BUILD/'game-perf-probe')
+probe('game-perf-probe', ['port/ios/tests/game_perf_probe.c', 'port/runtime/game_perf.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime'])
 # Worker persistence uses temporary files and never submits a CloudKit operation.
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-fobjc-arc', '-fblocks', '-DHALO_PERF_REPORTS=1', '-DHALO_NATIVE_MAC=1',
-    '-DHALO_PERF_CLOUD="iCloud.org.steverice.visr"', '-Iport/ios/host', '-Iport/runtime',
-    '-Iport/runtime/include', '-framework', 'Foundation', '-framework', 'AppKit', '-framework', 'CloudKit',
-    'port/ios/tests/perf_reports_probe.m', 'port/ios/host/host_benchmark_outbox.m',
-    'port/ios/host/host_report_delivery.m', 'port/ios/host/host_perf_validation.m',
-    'port/runtime/game_perf.c', '-lz',
-    '-o', BUILD/'perf-reports-probe')
-run(BUILD/'perf-reports-probe')
+probe('perf-reports-probe', ['port/ios/tests/perf_reports_probe.m', 'port/ios/host/host_benchmark_outbox.m',
+    'port/ios/host/host_report_delivery.m', 'port/ios/host/host_perf_validation.m', 'port/runtime/game_perf.c'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-fblocks',
+    '-DHALO_PERF_REPORTS=1', '-DHALO_NATIVE_MAC=1', '-DHALO_PERF_CLOUD="iCloud.org.steverice.visr"', '-Iport/ios/host',
+    '-Iport/runtime', '-Iport/runtime/include', '-framework', 'Foundation', '-framework', 'AppKit', '-framework',
+    'CloudKit', '-lz'])
 # the host's log file: the previous session is kept, and a log past its limit rotates
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-fobjc-arc', '-fblocks', '-Iport/ios/host', '-framework', 'Foundation', 'port/ios/tests/log_file_probe.m',
-    '-o', BUILD/'log-file-probe')
-run(BUILD/'log-file-probe')
+probe('log-file-probe', ['port/ios/tests/log_file_probe.m'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-fblocks',
+    '-Iport/ios/host', '-framework', 'Foundation'])
 # SEND LOG's file order and look-alike-free codes, without an iCloud entitlement
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-fobjc-arc', '-fblocks', '-DHALO_PERF_REPORTS=1', '-DHALO_NATIVE_MAC=1',
-    '-DHALO_PERF_CLOUD="iCloud.org.steverice.visr"', '-Iport/ios/host', '-Iport/runtime/include', '-framework', 'Foundation',
-    '-framework', 'AppKit', '-framework', 'CloudKit', 'port/ios/tests/log_send_probe.m', '-lz',
-    '-o', BUILD/'log-send-probe')
-run(BUILD/'log-send-probe')
+probe('log-send-probe', ['port/ios/tests/log_send_probe.m'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-fblocks',
+    '-DHALO_PERF_REPORTS=1', '-DHALO_NATIVE_MAC=1', '-DHALO_PERF_CLOUD="iCloud.org.steverice.visr"', '-Iport/ios/host',
+    '-Iport/runtime/include', '-framework', 'Foundation', '-framework', 'AppKit', '-framework', 'CloudKit', '-lz'])
 # Explicit identity initialization serves ASTC even without report collectors; lazy lookup stays inert.
 for perf_reports in (1, 0):
     binary = BUILD/f'map-identity-probe-{perf_reports}'
-    run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-        '-fobjc-arc', '-fblocks', '-DHALO_NATIVE_MAC=1', f'-DHALO_PERF_REPORTS={perf_reports}',
-        '-DHALO_SHADER_UPLOAD=0', '-Iport/ios/host', '-framework', 'Foundation', '-framework', 'AppKit',
-        'port/ios/tests/map_identity_probe.m', 'port/ios/host/host_map_identity.m',
-        'port/ios/host/host_shader_upload.m', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c', '-lz', '-o', binary)
-    run(binary)
+    probe(binary, ['port/ios/tests/map_identity_probe.m', 'port/ios/host/host_map_identity.m',
+        'port/ios/host/host_shader_upload.m', 'port/ios/host/host_shader_pack.c', 'port/runtime/shader_record.c'],
+        flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-fblocks',
+        '-DHALO_NATIVE_MAC=1', f'-DHALO_PERF_REPORTS={perf_reports}', '-DHALO_SHADER_UPLOAD=0', '-Iport/ios/host',
+        '-framework', 'Foundation', '-framework', 'AppKit', '-lz'])
 # debug.benchmark_offscreen's rules: honored only in a suite named at launch, never on the stereo path
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/benchmark_offscreen_probe.c', '-o', BUILD/'benchmark-offscreen-probe')
-run(BUILD/'benchmark-offscreen-probe')
+probe('benchmark-offscreen-probe', ['port/ios/tests/benchmark_offscreen_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # A frame visionOS's Compositor paces is a benchmark frame whichever present path showed it: the paths' shared
 # arithmetic into the benchmark's metrics (tools/test_stereo_benchmark_frames.py holds each path to the call).
-run('xcrun', 'clang', '-std=c99', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    '-Iport/runtime', 'port/ios/tests/stereo_benchmark_frames_probe.c', 'port/runtime/benchmark_metrics.c', '-o',
-    BUILD/'stereo-benchmark-frames-probe')
-run(BUILD/'stereo-benchmark-frames-probe')
+probe('stereo-benchmark-frames-probe', ['port/ios/tests/stereo_benchmark_frames_probe.c',
+    'port/runtime/benchmark_metrics.c'],
+    flags=['-std=c99', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    '-Iport/runtime'])
 # Disc-import picture progress uses the same clamped fraction on UIKit and AppKit.
-run('xcrun', 'clang', '-std=c99', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host',
-    'port/ios/tests/map_pictures_progress_probe.c', '-o', BUILD/'map-pictures-progress-probe')
-run(BUILD/'map-pictures-progress-probe')
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc',
-    '-framework', 'Foundation', '-Iport/ios/host', 'port/ios/tests/benchmark_outbox_probe.m',
-    'port/ios/host/host_benchmark_outbox.m', '-o', BUILD/'benchmark-outbox-probe')
-run(BUILD/'benchmark-outbox-probe')
+probe('map-pictures-progress-probe', ['port/ios/tests/map_pictures_progress_probe.c'],
+    flags=['-std=c99', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host'])
+probe('benchmark-outbox-probe', ['port/ios/tests/benchmark_outbox_probe.m', 'port/ios/host/host_benchmark_outbox.m'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-framework',
+    'Foundation', '-Iport/ios/host'])
 # Searchable CloudKit fields stay bounded while the asset retains every raw byte.
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc',
-    '-fblocks', '-framework', 'Foundation', '-framework', 'CloudKit', '-Iport/ios/host', '-Iport/runtime/include',
-    'port/ios/tests/benchmark_summary_probe.m', 'port/ios/host/host_benchmark_outbox.m',
-    'port/ios/host/host_benchmark_snapshot.m', '-lz', '-o', BUILD/'benchmark-summary-probe')
-run(BUILD/'benchmark-summary-probe')
+probe('benchmark-summary-probe', ['port/ios/tests/benchmark_summary_probe.m', 'port/ios/host/host_benchmark_outbox.m',
+    'port/ios/host/host_benchmark_snapshot.m'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-fblocks', '-framework',
+    'Foundation', '-framework', 'CloudKit', '-Iport/ios/host', '-Iport/runtime/include', '-lz'])
 # Bounded live telemetry preserves spikes and unknown async GPU values.
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '--include-directory=port/ios/host', 'port/ios/tests/benchmark_live_probe.c', '-o', BUILD/'benchmark-live-probe')
-run(BUILD/'benchmark-live-probe')
+probe('benchmark-live-probe', ['port/ios/tests/benchmark_live_probe.c'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '--include-directory=port/ios/host'])
 # Actual drawable timestamps stay separate from submission timing.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '--include-directory=port/runtime', 'port/ios/tests/benchmark_presentation_probe.c',
-    'port/runtime/benchmark_presentation.c', '-o', BUILD/'benchmark-presentation-probe')
-run(BUILD/'benchmark-presentation-probe')
+probe('benchmark-presentation-probe', ['port/ios/tests/benchmark_presentation_probe.c',
+    'port/runtime/benchmark_presentation.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '--include-directory=port/runtime'])
 # The real presentation owner: callback lifetime, async drain and JSON semantics.
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc',
-    '-framework', 'Foundation', '-Iport/ios/host', '-Iport/runtime',
-    'port/ios/tests/benchmark_presentation_host_probe.m', 'port/ios/host/host_benchmark_presentation.m',
-    'port/runtime/benchmark_presentation.c', 'port/runtime/benchmark_metrics.c', '-lz', '-o', BUILD/'benchmark-presentation-host-probe')
-run(BUILD/'benchmark-presentation-host-probe')
+probe('benchmark-presentation-host-probe', ['port/ios/tests/benchmark_presentation_host_probe.m',
+    'port/ios/host/host_benchmark_presentation.m', 'port/runtime/benchmark_presentation.c',
+    'port/runtime/benchmark_metrics.c'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-framework',
+    'Foundation', '-Iport/ios/host', '-Iport/runtime', '-lz'])
 # The real drawable adapter with deterministic callback delivery; the owner is not mocked.
 for definition in ('HALO_FRAME_PACING=0', 'HALO_FRAME_PACING=1',
                    'PRESENTATION_TEST_SIMULATOR=1', 'PRESENTATION_TEST_VISIONOS=1'):
-    run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-        '-fobjc-arc', '-D'+definition, '-framework', 'Foundation', '-framework', 'QuartzCore',
-        '-framework', 'Metal', '--include-directory=port/ios/host', '--include-directory=port/runtime',
-        'port/ios/tests/benchmark_presentation_drawable_probe.m', 'port/ios/host/host_benchmark_presentation.m',
-        'port/runtime/benchmark_presentation.c', '-lz', '-o', BUILD/'benchmark-presentation-drawable-probe')
-    run(BUILD/'benchmark-presentation-drawable-probe')
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-iquote', 'port/linux/include',
-    'port/ios/tests/benchmark_startup_probe.c', '-o', BUILD/'benchmark-startup-probe')
-run(BUILD/'benchmark-startup-probe')
+    probe('benchmark-presentation-drawable-probe', ['port/ios/tests/benchmark_presentation_drawable_probe.m',
+        'port/ios/host/host_benchmark_presentation.m', 'port/runtime/benchmark_presentation.c'],
+        flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc', '-D'+definition,
+        '-framework', 'Foundation', '-framework', 'QuartzCore', '-framework', 'Metal',
+        '--include-directory=port/ios/host', '--include-directory=port/runtime', '-lz'])
+probe('benchmark-startup-probe', ['port/ios/tests/benchmark_startup_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-iquote', 'port/linux/include'])
 # The optional host overlay's bounded timing window, including unavailable GPU samples.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/frame_counter_probe.c', 'port/ios/host/host_frame_counter_stats.c', '-o', BUILD/'frame-counter-probe')
-run(BUILD/'frame-counter-probe')
+probe('frame-counter-probe', ['port/ios/tests/frame_counter_probe.c', 'port/ios/host/host_frame_counter_stats.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # the Metal backend's redundant-state filter (metal_state_cache.h)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/metal_state_probe.c', '-o', BUILD/'metal-state-probe')
-run(BUILD/'metal-state-probe')
+probe('metal-state-probe', ['port/ios/tests/metal_state_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # the scene's pass is set aside by the size it draws (metal_scene_park.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/metal_scene_park_probe.c', '-o', BUILD/'metal-scene-park-probe')
-run(BUILD/'metal-scene-park-probe')
+probe('metal-scene-park-probe', ['port/ios/tests/metal_scene_park_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # debug.immediate_merge's triangles and its vertex limit (immediate_batch.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/immediate_batch_probe.c', '-o', BUILD/'immediate-batch-probe')
-run(BUILD/'immediate-batch-probe')
+probe('immediate-batch-probe', ['port/ios/tests/immediate_batch_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src'])
 run('python3', 'tools/renderer_build_probe.py')
 run('python3', 'tools/test_metal_border.py')
 run('python3', 'tools/test_mac_unsynced_present.py')
 # render validation (port/ios/host/gpu_validate.c): deliberately bad draws through a backend that draws
 # nothing, each checked for its named reason; then that a build without the option has none of it
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-DHALO_RENDER_VALIDATION=1',
-    '-Iport/linux/src', 'port/ios/tests/gpu_validate_probe.c', 'port/ios/host/gpu_validate.c', '-o', BUILD/'gpu-validate-probe')
-run(BUILD/'gpu-validate-probe')
+probe('gpu-validate-probe', ['port/ios/tests/gpu_validate_probe.c', 'port/ios/host/gpu_validate.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-DHALO_RENDER_VALIDATION=1',
+    '-Iport/linux/src'])
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-Iport/linux/src', '-c', 'port/ios/host/gpu_validate.c',
     '-o', BUILD/'gpu-validate-off.o')
 symbols = subprocess.check_output(['xcrun', 'nm', '-g', str(BUILD/'gpu-validate-off.o')], text=True, cwd=ROOT)
@@ -875,10 +820,10 @@ if symbols.strip():
     raise SystemExit(f'gpu_validate.c defines symbols without HALO_RENDER_VALIDATION:\n{symbols}')
 # render capture and replay (port/ios/host/gpu_capture.c, gpu_replay.c): a scripted frame captured to a file and
 # replayed into a backend that only notes its calls; damaged files; the fuzzer's wrong calls, each refused
-run('xcrun', 'clang', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-DHALO_RENDER_VALIDATION=1',
-    '-Iport/linux/src', '-Iport/ios/host', 'port/ios/tests/gpu_replay_probe.c', 'port/ios/host/gpu_capture.c',
-    'port/ios/host/gpu_replay.c', 'port/ios/host/gpu_validate.c', '-lz', '-o', BUILD/'gpu-replay-probe')
-run(BUILD/'gpu-replay-probe')
+probe('gpu-replay-probe', ['port/ios/tests/gpu_replay_probe.c', 'port/ios/host/gpu_capture.c',
+    'port/ios/host/gpu_replay.c', 'port/ios/host/gpu_validate.c'],
+    flags=['-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-DHALO_RENDER_VALIDATION=1',
+    '-Iport/linux/src', '-Iport/ios/host', '-lz'])
 for source in ('gpu_capture.c', 'gpu_replay.c'):
     run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-Iport/linux/src', '-Iport/ios/host', '-c', f'port/ios/host/{source}',
         '-o', BUILD/'gpu-capture-off.o')
@@ -888,12 +833,10 @@ for source in ('gpu_capture.c', 'gpu_replay.c'):
 run('python3', 'tools/test_render_replay.py')
 # the Metal backend's pipelines compiled off the game thread (metal_compile_async.h): its table
 # under the thread sanitizer, then everything under the address and undefined-behavior ones
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=thread', '-Iport/ios/host',
-    'port/ios/tests/metal_compile_probe.c', '-o', BUILD/'metal-compile-probe-thread')
-run(BUILD/'metal-compile-probe-thread')
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/metal_compile_probe.c', '-o', BUILD/'metal-compile-probe')
-run(BUILD/'metal-compile-probe')
+probe('metal-compile-probe-thread', ['port/ios/tests/metal_compile_probe.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=thread', '-Iport/ios/host'])
+probe('metal-compile-probe', ['port/ios/tests/metal_compile_probe.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # per-load compilation progress: early completion, cache hits, stale workers and
 # the existing loading animation's measured bounds, without a Metal device
 for sanitizer in ('thread', 'address,undefined'):
