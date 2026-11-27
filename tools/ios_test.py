@@ -33,7 +33,7 @@ def host_stub_object(args):
     return host_stubs.stub_object(BUILD, flags)
 
 # Every probe this file links must also run: tools/probe_ledger.py fails the run at the end otherwise.
-probes = ProbeLedger()
+probes = ProbeLedger(root=ROOT)
 
 def execute(args, builds=False, probe=None, skippable=False, **kwargs):
     """subprocess.run with check=True. Unless the command builds, it notes the probe it runs: the program, or
@@ -42,7 +42,7 @@ def execute(args, builds=False, probe=None, skippable=False, **kwargs):
     instead of raised."""
     args = [str(a) for a in args]
     if not builds:
-        probes.note_ran(Path(ROOT, probe if probe is not None else args[0]))
+        probes.note_ran(Path(ROOT, probe if probe is not None else args[0]), args[1:] if probe is None else args)
     try:
         return subprocess.run(args, cwd=ROOT, check=True, **kwargs)
     except subprocess.CalledProcessError as error:
