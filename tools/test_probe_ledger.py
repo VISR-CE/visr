@@ -158,12 +158,14 @@ def inline_links(source):
 def test_every_probe_ios_test_links_is_run_after_each_link():
     """Static twin of the ledger's run-time check, so ci_test catches it on any OS before an ios_test run does."""
     calls = ios_test_calls()
-    links = [(line, output_of(tokens)) for line, tokens, _ in calls if links_probe(tokens)]
-    unreadable = [line for line, tokens, _ in calls if compiles_probe(tokens) and not links_probe(tokens)]
+    # every link probe() makes is ledgered, whatever its sources (tools/crt_stills.m too)
+    linking = lambda tokens: compiler_link(tokens) and output_of(tokens) is not None
+    links = [(line, output_of(tokens)) for line, tokens, _ in calls if linking(tokens)]
+    unreadable = [line for line, tokens, _ in calls if compiler_link(tokens) and output_of(tokens) is None]
     assert not unreadable, f'probe links at these lines have no -o, --output or --output= output: {unreadable}'
     assert len(links) >= 150, f'only {len(links)} probe links found: did the compile calls move behind a helper?'
     runs = [(line, probe if probe is not None else tokens[0]) for line, tokens, probe in calls
-            if not links_probe(tokens) and tokens]
+            if not linking(tokens) and tokens]
     unrun = []
     for index, (line, output) in enumerate(links):
         next_link = next((later for later, other in links[index + 1:] if other == output), float('inf'))
