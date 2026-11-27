@@ -29,6 +29,7 @@ Elsewhere host_stereo_frame leaves the frame mono. */
 #include "host_config.h"
 #include "host.h"
 #include "host_stereo_entry.h"
+#include "host_stereo_cadence.h"
 #include <math.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -1349,15 +1350,25 @@ static void stereo_frame(struct halo_stereo_frame *frame) API_AVAILABLE(visionos
 #endif
 
 #if TARGET_OS_VISION
-/* display.frame_repeat, clamped to 0..3, in stereo mode; 0 in any other */
+/* display.frame_repeat as debug.knob_cycle's cadence last set it; -1: the configuration's */
+static atomic_int frame_repeat_live = -1;
+
+/* the repeat count's owner: stereo_repeat_wanted (host_stereo_cadence.h) over the mode, display.frame_repeat
+and the lock. The lock to steady 45 Hz is not built (the headset cadence design's section 8), so it is never
+latched */
 static int frame_repeat_in(int mode)
 {
-	int repeat;
+	int live = atomic_load(&frame_repeat_live);
+	int forced = live >= 0 ? live : (int)host_config_real("display.frame_repeat", 0.0);
 
-	if (mode != HALO_STEREO_HEAD && mode != HALO_STEREO_SCREEN)
-		return 0;
-	repeat = (int)host_config_real("display.frame_repeat", 0.0);
-	return repeat < 0 ? 0 : repeat > 3 ? 3 : repeat;
+	return stereo_repeat_wanted(mode, forced, 0);
+}
+
+/* every writer of the Compositor's repeat count calls this: it decides the count for the mode the player asked
+for (the game may not have latched it yet) and hands it to the layer renderer before the next frame opens */
+static void host_stereo_repeat_refresh(void)
+{
+	host_theater_set_frame_repeat(frame_repeat_in(host_stereo_mode_requested()));
 }
 #endif
 
@@ -1377,17 +1388,9 @@ void host_stereo_space_opened(void *layer_renderer)
 {
 #if TARGET_OS_VISION
 	/* the frame rate: the layer renderer's repeat count, set for each
-	opening (a new layer renderer starts at 0) */
+	opening (a new layer renderer starts at 0) before its first frame */
 	if (layer_renderer)
-	{
-		cp_layer_renderer_t renderer = (__bridge cp_layer_renderer_t)layer_renderer;
-		/* (the mode the player asked for: the game may not have latched it yet) */
-		int repeat = frame_repeat_in(host_stereo_mode_requested());
-
-		cp_layer_renderer_set_minimum_frame_repeat_count(renderer, repeat);
-		host_logf(HOST_LOG_INFO, "stereo: the frame repeat count is %d (asked %d): a frame every %d refresh%s",
-			cp_layer_renderer_get_minimum_frame_repeat_count(renderer), repeat, repeat + 1, repeat ? "es" : "");
-	}
+		host_stereo_repeat_refresh();
 	stereo_frames = 0;
 	screen_frames = 0;
 	stereo_presents = 0;
@@ -2868,7 +2871,8 @@ float host_stereo_render_quality(float quality)
 void host_stereo_frame_repeat_set(int repeat)
 {
 #if TARGET_OS_VISION
-	host_theater_set_frame_repeat(repeat);
+	atomic_store(&frame_repeat_live, repeat < 0 ? 0 : repeat);
+	host_stereo_repeat_refresh();
 #else
 	(void)repeat;
 	host_logf(HOST_LOG_INFO, "stereo: the frame repeat count changes only on Vision Pro");

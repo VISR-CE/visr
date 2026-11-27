@@ -77,6 +77,8 @@ static CFTimeInterval open_presentation;
 static CFTimeInterval open_deadline;
 /* host_theater_set_frame_repeat's count until the next frame opens; -1 for none */
 static _Atomic int repeat_pending = -1;
+/* the next count applied is the space opening's (its log line says so by leaving out "live") */
+static _Atomic int repeat_opening;
 static void frame_repeat_apply(void);
 /* when the open frame's wait ended and it opened, which is when its poses are read (the same clock): measured,
 not the predicted optimal input time, so a frame opened late shows in the lead */
@@ -555,6 +557,7 @@ void host_theater_attach(void *renderer)
 	/* the once-only logs, theater's and stereo's, repeat for each opening */
 	theater_frames = 0;
 	screen_presents = 0;
+	atomic_store(&repeat_opening, 1);
 	host_stereo_space_opened(renderer);
 	host_logf(HOST_LOG_INFO, "theater: the immersive space is open");
 	/* the render quality, after the configuration's maximum: the runtime
@@ -962,12 +965,15 @@ void host_theater_set_frame_repeat(int repeat)
 static void frame_repeat_apply(void)
 {
 	int repeat = atomic_exchange(&repeat_pending, -1);
+	int live;
 
 	if (repeat < 0 || !layer_renderer)
 		return;
+	live = !atomic_exchange(&repeat_opening, 0);
 	cp_layer_renderer_set_minimum_frame_repeat_count(layer_renderer, repeat);
-	host_logf(HOST_LOG_INFO, "stereo: the frame repeat count is %d (asked %d, live): a frame every %d refresh%s",
-		cp_layer_renderer_get_minimum_frame_repeat_count(layer_renderer), repeat, repeat + 1, repeat ? "es" : "");
+	host_logf(HOST_LOG_INFO, "stereo: the frame repeat count is %d (asked %d%s): a frame every %d refresh%s",
+		cp_layer_renderer_get_minimum_frame_repeat_count(layer_renderer), repeat, live ? ", live" : "", repeat + 1,
+		repeat ? "es" : "");
 }
 
 int host_theater_frame_repeat(void)

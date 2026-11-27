@@ -1444,7 +1444,8 @@ run(BUILD/'stereo-ab-host-probe', 'disabled')
 # Probes nothing else built: header-only logic each probe checks on its own.
 for name, includes in (('audio_route_probe', ['-Iport/ios/host']), ('external_session_probe', ['-Iport/ios/host']),
                        ('external_splash_probe', ['-Iport/ios/host']), ('bink_edge_gradient_probe', []),
-                       ('bink_movie_fit_probe', []), ('menu_gametype_probe', []), ('portrait_fov_probe', [])):
+                       ('bink_movie_fit_probe', []), ('menu_gametype_probe', []), ('portrait_fov_probe', []),
+                       ('stereo_cadence_probe', ['-Iport/ios/host', '-Iport/linux/src'])):
     run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', *includes,
         f'port/ios/tests/{name}.c', '-o', BUILD / name.replace('_', '-'))
     run(BUILD / name.replace('_', '-'))
