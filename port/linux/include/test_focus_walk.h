@@ -89,7 +89,8 @@ struct test_chain_step
 /* The script's clock (debug.test_input, every input's scripted presses and walks): its polls count from the first one at which a
 screen is up or a game runs, never from launch. The time a build takes to get there differs by input (a keyboard run showed its
 screen at frame 153, a controller run at 2), and a press scripted for poll 90 that fires before the screen exists opens nothing.
-The polls spent waiting are reported once (`waited`), so the capture tools can add them to the marks they wait for. The
+The frame the script began at is logged once by the caller (the pad is polled only once menus or a game need it, so the polls counted
+in `waited` understate the wait), and the capture tools add it to the marks they wait for. The
 pointer script (HALO_MENU_POINTER_SCRIPT) is the same rule: its frames are counted only while the menus are up. */
 struct test_script_clock
 {
