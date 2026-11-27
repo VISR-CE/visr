@@ -4,29 +4,25 @@ import functools
 import os
 import re
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from probekit import source as probe_source  # noqa: E402  (the one implementation of the extractors)
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 HARNESS = Path(__file__).resolve().parent
 
 
 def read(relative):
-    """A source file of the repository, as the compiler reads it."""
-    return (ROOT / relative).read_text(encoding="latin-1")
+    """A source file of the repository, as the compiler reads it (latin-1; tools/probekit/source.py)."""
+    return probe_source.read(relative)
 
 
-def function(source, name):
-    """A function's definition (static, inline or not), taken by matching braces; LookupError if not found."""
-    match = re.search(r"^(?:static |__inline )?[\w *]+?\b" + re.escape(name) + r"\(\s*[^;{]*\)\s*\{", source, re.M)
-    if not match:
-        raise LookupError(f"function not found in the sources: {name}")
-    end = source.index("{", match.start()) + 1
-    depth = 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
+def function(text, name):
+    """A function's definition (static, inline or not), found by name; LookupError if not found."""
+    return probe_source.function_in(text, name)
 
 
 def inline(source, name):
@@ -41,17 +37,9 @@ def enum_with(source, member):
     return source[start:source.index("};", at) + 2]
 
 
-def structure(source, name):
+def structure(text, name):
     """An actual named structure's definition, including nested unions/structures."""
-    match = re.search(r"^struct\s+" + re.escape(name) + r"\s*\{", source, re.M)
-    if not match:
-        raise LookupError(f"structure not found in the sources: {name}")
-    end = source.index("{", match.start()) + 1
-    depth = 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():source.index(";", end) + 1]
+    return probe_source.structure_in(text, name)
 
 
 def constant(source, name):
@@ -66,11 +54,7 @@ def constant(source, name):
     return constant(source + read("port/linux/include/halo_port_capacity.h"), value)
 
 
-def mutated(text, before, after):
-    """The code with one deliberate fault (a negative control); LookupError once the code no longer has it."""
-    if text.count(before) != 1:
-        raise LookupError(f"negative control no longer applies (found {text.count(before)} times): {before!r}")
-    return text.replace(before, after, 1)
+mutated = probe_source.mutated
 
 
 _directory = tempfile.TemporaryDirectory(prefix="halo-harness-")
