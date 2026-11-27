@@ -5,8 +5,9 @@ The class: about 170 test files each built their probes with their own compiler 
 (`-lm`, a feature-test macro, a header Linux lacks) reached one file, and the same failure came back from the next.
 `probekit.cc.build` is the one command. These lints keep the number of files with their own command from growing:
 
-- Rule 1: a list or tuple whose first element is a compiler (`cc`, `clang`, `gcc`, `xcrun` + one of those, or a name
-  assigned from `shutil.which`, `$CC` or a toolchain lookup of one) is a compiler command. Only files on
+- Rule 1: a compiler command, in any of the forms `tools/probekit/commands.py` describes (a list whose first element
+  is a compiler however it is spelled or looked up, `shlex.split` of one, a `shell=True` string), may appear only in
+  files on
   `tools/probekit/legacy/compile.txt` (not migrated yet) or `exempt.txt` (tests of the build tools themselves, each
   with its reason) may have one.
 - Rule H: every `tools/harness/tests/test_*.py` is named in `.github/workflows/ci.yml` or `cinematic-harness.yml`, or
@@ -17,48 +18,21 @@ still break its rule, and every file that breaks a rule must be on its list. A m
 file cannot go on one without editing the baseline, which the architecture review treats as a finding. These are text
 checks for honest authors, not a security boundary: a compiler name hidden behind a function defeats them.
 """
-import ast
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from probekit.commands import written_commands_in
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
 LEGACY = TOOLS / 'probekit/legacy'
-COMPILERS = {'cc', 'clang', 'gcc'}
-LOOKUPS = ('which', 'environ', 'getenv', 'llvm_tool')
-
-
-def constant(node):
-    return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
-
-
-def compiler_variables(tree):
-    """Names assigned from a lookup of a compiler: `shutil.which('clang')`, `os.environ.get('CC', 'cc')`, ..."""
-    names = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
-            continue
-        strings = {constant(item) for item in ast.walk(node.value)}
-        text = ast.unparse(node.value)
-        if strings & (COMPILERS | {'CC'}) and any(lookup in text for lookup in LOOKUPS):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            names |= {target.id for target in targets if isinstance(target, ast.Name)}
-    return names
 
 
 def compiler_commands(path):
-    """Line numbers of the compiler commands written in a Python file."""
-    tree = ast.parse(path.read_text(errors='replace'))
-    variables = compiler_variables(tree)
-    lines = []
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.List, ast.Tuple)) or not node.elts:
-            continue
-        first, second = node.elts[0], node.elts[1] if len(node.elts) > 1 else None
-        if (constant(first) in COMPILERS or (constant(first) == 'xcrun' and constant(second) in COMPILERS)
-                or (isinstance(first, ast.Name) and first.id in variables)):
-            lines.append(node.lineno)
-    return sorted(set(lines))
+    """Line numbers of the compiler commands written in a Python file (tools/probekit/commands.py)."""
+    return written_commands_in(path)
 
 
 def linted_files():
@@ -119,13 +93,31 @@ def test_rule_h_every_harness_test_is_run_by_a_workflow():
 
 def test_the_lint_sees_each_form_of_compiler_command(tmp_path):
     probe = tmp_path / 'test_example.py'
-    probe.write_text('import os, shutil, subprocess\n'
-                     'subprocess.run(["clang", "a.c"])\n'
-                     'subprocess.run(("xcrun", "clang", "a.c"))\n'
+    probe.write_text('import os, shlex, shutil, subprocess\n'
+                     'subprocess.run(["clang", "a.c"])\n'                                # 2
+                     'subprocess.run(("xcrun", "clang", "a.c"))\n'                       # 3
                      'compiler = shutil.which("cc") or shutil.which("clang")\n'
-                     'subprocess.run([compiler, "a.c"])\n'
+                     'subprocess.run([compiler, "a.c"])\n'                               # 5
                      'CC = os.environ.get("CC", "cc")\n'
-                     'command = [CC, "-o", "x", "a.c"]\n'
+                     'command = [CC, "-o", "x", "a.c"]\n'                                # 7
                      'subprocess.run(["python3", "clang"])\n'
-                     'subprocess.run(["xcrun", "nm", "x"])\n')
-    assert compiler_commands(probe) == [2, 3, 5, 7]
+                     'subprocess.run(["xcrun", "nm", "x"])\n'
+                     'subprocess.run([shutil.which("clang") or "cc", "a.c"])\n'          # 10
+                     'def find_clang():\n'
+                     '    return shutil.which("clang")\n'
+                     'tool = find_clang()\n'
+                     'subprocess.run([tool, "a.c"])\n'                                   # 14
+                     'subprocess.run(["/usr/bin/clang", "a.c"])\n'                       # 15
+                     'subprocess.run(["xcrun", "--sdk", "macosx", "clang", "a.c"])\n'    # 16
+                     'subprocess.run([str(tool), "a.c"])\n'                              # 17
+                     'class Builder:\n'
+                     '    def go(self):\n'
+                     '        subprocess.run([self.cc, "a.c"])\n'                        # 20
+                     'def build(compiler):\n'
+                     '    subprocess.run([compiler, "a.c"])\n'                           # 22
+                     'subprocess.run(shlex.split("clang -O2 a.c"))\n'                    # 23
+                     'subprocess.run("clang++ a.cc -o a", shell=True)\n'                 # 24
+                     'for candidate in (shutil.which("clang"), "cc"):\n'
+                     '    pass\n'
+                     'clang, ninja = shutil.which("clang"), shutil.which("ninja")\n')
+    assert compiler_commands(probe) == [2, 3, 5, 7, 10, 14, 15, 16, 17, 20, 22, 23, 24]
