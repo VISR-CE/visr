@@ -1595,7 +1595,7 @@ def test_collect_drops_an_earlier_suites_benchmark_files(tmp_path):
 def test_simulator_pattern_matches_a_game_in_a_custom_device_set():
     import re
     udid = "40BC1A69-E8AB-48BE-848C-87614AFECF99"
-    path = (f"/Volumes/scratch/halovision/all-menus-simset/{udid}/data/Containers/Bundle/Application/"
+    path = (f"/srv/sims/device-set/{udid}/data/Containers/Bundle/Application/"
             "47C658A7-DADC-45F2-969B-7E6A4FB5CB5C/VISR.app/VISR")
     assert re.search(mac_run.simulator_pattern(udid), path)
     assert not re.search(mac_run.simulator_pattern("00000000-0000-0000-0000-000000000000"), path)
