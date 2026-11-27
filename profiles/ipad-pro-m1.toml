@@ -10,7 +10,7 @@ and_newer = true
 
 [display]
 upscaled_textures = true
-frame_rate = "120"
+frame_rate = "60"
 render_height = 1080
 anisotropic_filtering = 16
 shadow_map_size = 128
@@ -47,8 +47,8 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 
 [evidence."display.frame_rate"]
 basis = "measured"
-why = "120 now, to be confirmed by the tier-ladder check at 1.5x. With MetalFX spatial scaling from 1080 lines to the 3180x2384 panel, presented runs at 120 frames a second were 99.90% on time on a10 and 99.75% on d40 (the device at thermal state 2). Earlier offscreen rounds without the scaler path held only 79.3% (a10) and 75.7% (d40) within 8.3 ms at 1080 lines, so 120 at 1.5x enemies is not yet shown."
-source = "iPad Pro (M1) a10-heroic and d40-maw-fight presented runs, build d290f06fe (20261026.002743), 2026-10-26"
+why = "60 frames a second at 1080 lines holds tier 4 (1.5x enemies): a10-heroic-x1-5 99.8% and d40-x1-5 100% of frames within one frame period, thermal state 0, Game Mode build. 120 is not held: a10-heroic at 1x and 120 / 1080 read 96.97% on time, and four cold alternating rounds on builds before and after Game Mode read 75.3%, 76.0%, 90.1% and 75.6% (GPU median 8.4 to 8.8 ms against the 8.33 ms budget), so Game Mode is not the cause. The October 26 presented runs at 120 (99.90% a10, 99.75% d40, build d290f06fe) are not reproduced. The ladder's hold is at least 99.5% on time."
+source = "VISR Game Mode tier check, builds 20261123.014559 (main a9e7b3c07) and 20261123.095240 (main before f464bff11), presented, jobs gmt-ipad-c, gmt-ipad-c2, gmt-ab-pre, gmt-ab2, 2026-11-23; October runs from build d290f06fe (20261026.002743)"
 
 [evidence."network.player_capacity"]
 basis = "measured"
