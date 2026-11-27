@@ -7,7 +7,8 @@ what happened when the name is gone:
 - `function(path, name)`: a definition by name (C function or Objective-C method), from the start of its line to its
   closing brace, with comment- and string-aware brace matching. A missing name raises `LookupError` saying it may
   have been renamed, wrapped or split, with the closest names defined in the file.
-- `body(path, name)`: the text inside that definition's braces.
+- `body(path, name)`: the text inside that definition's braces; `inline(path, name)`: the definition with its first
+  `__inline` made `static`.
 - `reach(path, name, depth=3)` and `reach_contains(path, name, needle)`: the named function and the same-file
   functions it calls by name, transitively, so a wiring test survives a wrap or a split inside the file. It follows
   direct calls only (not function pointers, macros, message sends or other files), and it over-approximates: it can
@@ -188,6 +189,15 @@ def function_in(text: str, name: str, where: str = "the text") -> str:
 
 def function(path, name: str) -> str:
     return function_in(read(path), name, str(path))
+
+
+def inline_in(text: str, name: str, where: str = "the text") -> str:
+    """A definition with its first `__inline` made `static`, so a probe can compile a header function itself."""
+    return function_in(text, name, where).replace("__inline", "static", 1)
+
+
+def inline(path, name: str) -> str:
+    return inline_in(read(path), name, str(path))
 
 
 def body_in(text: str, name: str, where: str = "the text") -> str:

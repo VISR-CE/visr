@@ -25,9 +25,9 @@ def function(text, name):
     return probe_source.function_in(text, name)
 
 
-def inline(source, name):
+def inline(text, name):
     """An __inline header function, as a static one."""
-    return function(source, name).replace("__inline", "static", 1)
+    return probe_source.inline_in(text, name)
 
 
 def enum_with(source, member):
