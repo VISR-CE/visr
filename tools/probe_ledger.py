@@ -9,9 +9,10 @@ import json
 import os
 from pathlib import Path
 
+from probekit.commands import compiler_link
+
 PROBE_SOURCES = 'port/ios/tests/'
 SOURCE_SUFFIXES = ('.c', '.m', '.cpp')
-NOT_LINKING = ('-c', '-S', '-E', '-fsyntax-only')
 
 
 def output_of(args):
@@ -29,17 +30,18 @@ def probe_sources(args):
     return [str(arg) for arg in args if str(arg).startswith(PROBE_SOURCES) and str(arg).endswith(SOURCE_SUFFIXES)]
 
 
-def xcrun_clang_link(args):
-    """An `xcrun clang` command that links an executable (not -c, -S, -E or -fsyntax-only). tools/ios_test.py builds
-    every one through its probe() function, and its run() refuses them."""
-    args = tuple(str(arg) for arg in args)
-    return args[:2] == ('xcrun', 'clang') and not any(arg in NOT_LINKING for arg in args)
+def refuse_inline_link(args, runner='ios_test.py'):
+    """tools/ios_test.py's run() refuses a compiler link, however the compiler is spelled
+    (tools/probekit/commands.py): every probe link goes through probe(), which builds, records and runs it."""
+    if compiler_link(args):
+        raise SystemExit(f'{runner}: link probes with probe(name, sources, flags=...), not run(): '
+                         + ' '.join(str(arg) for arg in args))
 
 
 def compiles_probe(args):
-    """An `xcrun clang` command that compiles a source in port/ios/tests to an executable (not -c, -S, -E or
-    -fsyntax-only), whether or not its output could be read."""
-    return xcrun_clang_link(args) and bool(probe_sources(args))
+    """A compiler command (tools/probekit/commands.py) that compiles a source in port/ios/tests to an executable (not
+    -c, -S, -E or -fsyntax-only), whether or not its output could be read."""
+    return compiler_link(args) and bool(probe_sources(args))
 
 
 def links_probe(args):
@@ -134,7 +136,7 @@ def comparable(events):
     """Events with each link as its parts. A run of `xcrun` with a link command is left out: before probe() built every
     link, ios_test.py's run() noted a link of a source outside port/ios/tests as a run of `xcrun`."""
     return [[kind, rest[0], link_parts(rest[1])] if kind == 'built' else [kind, *rest] for kind, *rest in events
-            if not (kind == 'ran' and Path(rest[0]).name == 'xcrun' and xcrun_clang_link(['xcrun', *rest[1]]))]
+            if not (kind == 'ran' and Path(rest[0]).name == 'xcrun' and compiler_link(['xcrun', *rest[1]]))]
 
 
 def compare(before, after):

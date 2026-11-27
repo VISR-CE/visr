@@ -14,7 +14,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ci_test
-from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of, xcrun_clang_link
+from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of
+from probekit.commands import compiler_link
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
@@ -159,9 +160,9 @@ def test_every_probe_ios_test_links_is_run_after_each_link():
 
 
 def test_ios_test_links_every_probe_with_probe():
-    """ios_test.py's run() refuses an `xcrun clang` link at run time; this finds one before an ios_test run does."""
-    inline = [line for line, tokens, _ in ios_test_calls() if tokens[:2] == ['xcrun', 'clang']
-              and xcrun_clang_link(tokens) and line not in probe_lines()]
+    """ios_test.py's run() refuses a compiler link at run time, however the compiler is spelled; this finds one
+    before an ios_test run does."""
+    inline = [line for line, tokens, _ in ios_test_calls() if compiler_link(tokens) and line not in probe_lines()]
     assert not inline, f'link these probes with probe(name, sources, flags=...), not run(): lines {inline}'
 
 

@@ -12,7 +12,7 @@ from xml.etree import ElementTree
 import default_settings_check
 import host_toolchain
 import uikit_probe_app
-from probe_ledger import ProbeLedger, links_probe, xcrun_clang_link
+from probe_ledger import ProbeLedger, links_probe, refuse_inline_link
 from probekit import cc
 
 _problem = host_toolchain.check_run_host('tools/ios_test.py (the guest probe runner)')
@@ -53,9 +53,7 @@ def run_uikit_app(*args):
 
 def run(*args, probe=None):
     args = tuple(str(a) for a in args)
-    if xcrun_clang_link(args):
-        raise SystemExit('ios_test.py: link probes with probe(name, sources, flags=...), not run(): '
-                         + shlex.join(args))
+    refuse_inline_link(args)
     execute(args, probe=probe)
 
 # Every probe executable is built here, by tools/probekit/cc.py with this file's own flags, in order: the command is
