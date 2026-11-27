@@ -285,6 +285,10 @@ int main(void)
 		}
 	}
 
+	/* Networking gate: no screen opens before the transport is up, for any screen; with no link at all it gives up after the wait. */
+	assert(!test_network_ready(0, 2) && !test_network_ready(0, TEST_NETWORK_WAIT_FRAMES - 1));
+	assert(test_network_ready(1, 2) && test_network_ready(0, TEST_NETWORK_WAIT_FRAMES));
+
 	puts("test_focus_walk_probe: ok");
 	return 0;
 }

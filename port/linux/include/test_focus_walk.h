@@ -114,6 +114,17 @@ static inline int test_script_clock_tick(struct test_script_clock *clock, int sc
 	return 1;
 }
 
+/* Networking must be up before a scripted capture opens a screen: a network pregame screen opened as the first screen (frame 2)
+showed "A networking error has occurred", opened after the main menu it showed ENLISTED PLAYERS. One condition for every screen
+and every row, not a delay per screen: the transport is initialized and its link is up, or `TEST_NETWORK_WAIT_FRAMES` have passed
+(a device with no link at all must not wait forever). */
+#define TEST_NETWORK_WAIT_FRAMES 900
+
+static inline int test_network_ready(int transport_up, unsigned long frame)
+{
+	return transport_up || frame >= TEST_NETWORK_WAIT_FRAMES;
+}
+
 /* releases the steps that are due at `poll`; the caller marks a walk landed as soon as it lands. Returns how many were released. */
 static inline int test_chain_update(struct test_chain_step *steps, int count, unsigned long poll)
 {

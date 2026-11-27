@@ -67,6 +67,7 @@ their handlers open opens.
 #include "interface/ui_widget_event_handler_functions.h"
 #include "interface/virtual_keyboard.h"
 #include "main/main.h"
+#include "test_focus_walk.h"
 #include "networking/network_game_manager.h"
 #include "saved games/player_profile.h"
 #include "saved games/saved_game_files.h"
@@ -729,10 +730,19 @@ static struct widget_instance *first_text_box(struct widget_instance *widget)
 
 /* (game thread only) */
 boolean game_engine_running(void);
+extern boolean transport_initialized;
+boolean transport_network_available(void);
 
+/* the networking a scripted capture's screens need is up (test_focus_walk.h's test_network_ready) */
+int menu_test_network_ready(void)
+{
+	return test_network_ready(transport_initialized && transport_network_available(), platform_clock_frames());
+}
+
+/* a screen is up (or a game runs) and networking is ready: the scripted input's clock begins, and a sequence opens its next screen */
 int menu_test_screen_ready(void)
 {
-	return ui_widget_port_active_screen(0) != NULL || game_engine_running();
+	return (ui_widget_port_active_screen(0) != NULL || game_engine_running()) && menu_test_network_ready();
 }
 
 /* (game thread only: it reads the text boxes the thread that renders them resizes) */
@@ -8336,6 +8346,8 @@ static boolean menu_sequence_poll(void)
 			state = 4;
 			exit(EXIT_SUCCESS);
 		}
+		else if (!menu_test_network_ready())
+			return TRUE;   /* (a network screen opened before networking is up shows an error instead of its list) */
 		else
 		{
 			char const *name = pc_menu_debug_screen_name(screens[index]);
