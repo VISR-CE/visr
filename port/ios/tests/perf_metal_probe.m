@@ -8,12 +8,17 @@ int host_perf_reports_collecting(void) { return test_eligible && test_collecting
 #include <assert.h>
 static uint64_t test_frame = 1;
 uint64_t host_perf_hooks_frame_id(void) { return test_frame; }
+#include <unistd.h>
 static MTLTimestamp test_cpu, test_gpu;
+static int test_slow_pair; /* the pair's call takes 100 us, as when the completion thread is preempted */
 @interface TestCounterDevice : NSObject
 @end
 @implementation TestCounterDevice
 - (BOOL)supportsCounterSampling:(MTLCounterSamplingPoint)point { (void)point; return YES; }
-- (void)sampleTimestamps:(MTLTimestamp *)cpu gpuTimestamp:(MTLTimestamp *)gpu { *cpu = test_cpu; *gpu = test_gpu; }
+- (void)sampleTimestamps:(MTLTimestamp *)cpu gpuTimestamp:(MTLTimestamp *)gpu {
+    if (test_slow_pair) usleep(100);
+    *cpu = test_cpu; *gpu = test_gpu;
+}
 @end
 @interface TestSampleBuffer : NSObject
 @property NSData *data;
@@ -28,7 +33,7 @@ static MTLTimestamp test_cpu, test_gpu;
 - (MTLCommandBufferStatus)status { return MTLCommandBufferStatusCompleted; }
 @end
 /* One draw-boundary interval through host_perf_metal_complete: its start and end ticks, and its command buffer's span
- * relative to the host time just before the call. NULL when the bracketed clock pair was dropped (a preemption). */
+ * relative to the host time just before the call. */
 static typeof(grouped[0]) *complete_one(TestSampleBuffer *samples, uint64_t start_tick, uint64_t end_tick,
     double buffer_from, double buffer_to, double *before, double *after) {
     test_frame++;
@@ -40,10 +45,9 @@ static typeof(grouped[0]) *complete_one(TestSampleBuffer *samples, uint64_t star
     samples.data = [NSData dataWithBytes:ticks length:sizeof(ticks)];
     *before = mach_seconds(mach_absolute_time());
     commands.GPUStartTime = *before + buffer_from; commands.GPUEndTime = *before + buffer_to;
-    unsigned long dropped_pairs = containment.dropped_pairs;
     host_perf_metal_complete((id)commands);
     *after = mach_seconds(mach_absolute_time());
-    return containment.dropped_pairs != dropped_pairs ? NULL : &grouped[test_frame % FRAME_COUNT];
+    return &grouped[test_frame % FRAME_COUNT];
 }
 int main(void) {
     @autoreleasepool {
@@ -135,7 +139,7 @@ int main(void) {
         host_perf_metal_join(&frame);
         assert(!(frame.drs.available & 1));
         /* A GPU tick moves to the CPU timebase from the pair sampled after it. */
-        assert(fabs(gpu_seconds(900, 1000, 5.0, 0.001) - (5.0 - 1e-7)) < 1e-12);
+        assert(fabs(gpu_seconds(900, 1000, 5.0, 125.0 / 3.0 / 1000.0) - (5.0 - 100 * 125.0 / 3.0 * 1e-9)) < 1e-12);
         /* Bug class: the planner's S+U+H counted overlapping GPU intervals twice, so under MetalFX it read more GPU
          * time than the frame took (M1 iPad Pro, 120 Hz: 9.97 ms against 5.57) and held DRS at its floor. MetalFX's
          * command buffer starts while the scene drains; the HUD's vertex stage starts while MetalFX runs. */
@@ -210,37 +214,60 @@ int main(void) {
             }
             frame = (game_perf_frame){.frame_id = test_frame};
             host_perf_metal_join(&frame);
-            assert(frame.drs.available & 1);
+            unsigned scenes = 0;
+            for (unsigned i = 0; i < n; ++i) scenes += groups[i] == HOST_PERF_SCENE;
+            /* (no scene interval: no reading, rather than S = 0) */
+            assert(!(frame.drs.available & 1) == !scenes);
+            if (!scenes) continue;
             double scene = (double)frame.drs.scene_us, upscaled = scene + (double)frame.drs.upscale_us;
             double input = upscaled + (double)frame.drs.hud_us;
             assert(fabs(scene - merged[0]) <= 1.0 && fabs(upscaled - merged[1]) <= 2.0 && fabs(input - merged[2]) <= 3.0);
         }
-        /* The conversion through host_perf_metal_complete: a fake clock pair 2,000,000 ticks after the reference at
-         * 1 ns a tick, so a tick 1,500,000 before the pair lands 1.5 ms before the pair's bracketed host time. */
+        /* The conversion through host_perf_metal_complete, at Apple silicon's 125/3 ns a tick (an inverted rate would
+         * put the ranges seconds away): the pair is 3,000,000 ticks and 125 ms after the reference, so a tick 36,000
+         * before the pair lands 1.5 ms before the pair's bracketed host time. */
         for (unsigned slot = 0; slot < BUFFER_COUNT; ++slot) atomic_store(&buffers[slot].commands, 0);
         TestSampleBuffer *samples = [TestSampleBuffer new];
         reference_cpu = reference_gpu = 1000;
-        test_cpu = test_gpu = 1000 + 2000000;
+        test_gpu = 1000 + 3000000; test_cpu = 1000 + 125000000;
         memset(&containment, 0, sizeof(containment));
         double before, after;
-        typeof(grouped[0]) *converted = NULL;
-        for (unsigned attempt = 0; attempt < 8 && !converted; ++attempt)
-            converted = complete_one(samples, test_gpu - 1500000, test_gpu - 500000, -0.002, 0.001, &before, &after);
-        assert(converted && converted->count == 1 && !converted->invalid && converted->ranges[0].group == HOST_PERF_SCENE);
+        clock_pair.kept = 0;
+        typeof(grouped[0]) *converted = complete_one(samples, test_gpu - 36000, test_gpu - 12000, -0.002, 0.001, &before, &after);
+        assert(converted->count == 1 && !converted->invalid && converted->ranges[0].group == HOST_PERF_SCENE);
         assert(converted->ranges[0].start >= before - 1.5e-3 - 1e-9 && converted->ranges[0].start <= after - 1.5e-3 + 1e-9);
         assert(converted->ranges[0].end >= before - 0.5e-3 - 1e-9 && converted->ranges[0].end <= after - 0.5e-3 + 1e-9);
         assert(containment.checked == 1 && containment.outside == 0);
         /* a tick after the pair lands after its host time; a range past its buffer's span counts as outside */
-        converted = NULL;
-        for (unsigned attempt = 0; attempt < 8 && !converted; ++attempt)
-            converted = complete_one(samples, test_gpu - 500000, test_gpu + 100000, -0.002, -0.001, &before, &after);
-        assert(converted && converted->count == 1);
+        clock_pair.kept = 0;
+        converted = complete_one(samples, test_gpu - 12000, test_gpu + 2400, -0.002, -0.001, &before, &after);
+        assert(converted->count == 1);
         assert(converted->ranges[0].end >= before + 1e-4 - 1e-9 && converted->ranges[0].end <= after + 1e-4 + 1e-9);
         assert(containment.checked == 2 && containment.outside == 1 && containment.worst >= 1.1e-3 - 1e-6);
+        /* A preempted pair (a 100 us bracket) is not adopted while a tighter one is kept, and the frame keeps its
+         * reading: its ranges convert through the kept pair, 1 ms of ticks (24,000) earlier. */
+        clock_pair.width = 0.0;
+        double kept_from = before, kept_to = after, kept_host = clock_pair.host;
+        unsigned long wide = clock_stats.wide;
+        test_gpu += 24000; test_cpu += 1000000;
+        test_slow_pair = 1;
+        converted = complete_one(samples, test_gpu - 36000, test_gpu - 12000, -0.1, 0.1, &before, &after);
+        test_slow_pair = 0;
+        assert(converted->count == 1 && !converted->invalid);
+        assert(clock_pair.host == kept_host && clock_stats.wide == wide + 1 && clock_stats.widest >= 100e-6);
+        assert(converted->ranges[0].start >= kept_from - 0.5e-3 - 1e-9 && converted->ranges[0].start <= kept_to - 0.5e-3 + 1e-9);
         /* no rate yet (the pair is the reference): no range, and the frame has no reading */
+        clock_pair.kept = 0;
         test_cpu = reference_cpu; test_gpu = reference_gpu;
         converted = complete_one(samples, 500, 900, -0.002, 0.001, &before, &after);
-        assert(converted && converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)));
+        assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)));
+        /* a frame with only MetalFX's span (no scene range) has no reading, rather than S = 0 */
+        test_frame++; frame_prepare(test_frame);
+        host_perf_metal_upscale_expected();
+        host_perf_metal_upscale_time(test_frame, 30.0, 30.001, 1);
+        frame = (game_perf_frame){.frame_id = test_frame};
+        host_perf_metal_join(&frame);
+        assert(!(frame.drs.available & 1));
         test_collecting = 0; test_shadow = 1;
         test_frame++; frame_prepare(test_frame);
         atomic_store(&buffers[1].commands, 0);
