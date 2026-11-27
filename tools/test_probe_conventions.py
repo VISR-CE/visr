@@ -16,8 +16,8 @@ The class: about 170 test files each built their probes with their own compiler 
 - Rule H: every `tools/harness/tests/test_*.py` is named in `.github/workflows/ci.yml` or `cinematic-harness.yml`, or
   is on `tools/probekit/legacy/harness_not_run.txt`.
 
-The legacy lists only shrink: each must be a subset of its record in `legacy/BASELINE.json`, every file on one must
-still break its rule, and every file that breaks a rule must be on its list. A migrated file comes off its list; a new
+The legacy lists only shrink: each must equal its record in `legacy/BASELINE.json`, every file on one must still
+break its rule, and every file that breaks a rule must be on its list. A migrated file comes off its list; a new
 file cannot go on one without editing the baseline, which the architecture review treats as a finding. These are text
 checks for honest authors, not a security boundary: a compiler name hidden behind a function defeats them.
 """
@@ -66,6 +66,9 @@ def check_shrink_only(name, violating):
     assert not grown, f'{name} is shrink-only; these are not in BASELINE.json: {grown}'
     fixed = sorted(entries - set(violating))
     assert not fixed, f'these no longer break the rule; take them off {name}: {fixed}'
+    removed = sorted(set(recorded) - entries)
+    assert not removed, (f'these came off {name}; take them out of BASELINE.json too, so that putting one back shows as '
+                         f'a baseline addition: {removed}')
     if isinstance(recorded, dict):
         more = {entry: f'{recorded[entry]} -> {violating[entry]}' for entry in sorted(entries)
                 if violating[entry] > recorded[entry]}
