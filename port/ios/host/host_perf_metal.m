@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <os/lock.h>
+#include <mach/mach_time.h>
 #define BUFFER_COUNT 32
 #define INTERVAL_COUNT 64
 #define FRAME_COUNT 128
@@ -35,17 +36,18 @@ static struct {
 static _Atomic uint64_t sums[FRAME_COUNT][CATEGORY_COUNT], dropped;
 #define GROUP_INTERVALS 256
 static os_unfair_lock group_lock = OS_UNFAIR_LOCK_INIT;
+/* a stretch of the GPU's work for one part of the frame, in seconds on the CPU timebase */
+typedef struct { double start, end; unsigned group; } gpu_interval;
 static struct {
     uint64_t frame, presented, interval, budget;
     unsigned count, invalid, late;
     /* MetalFX owns its encoders, so counters cannot bracket it; with timing
-     * it runs alone in a command buffer whose GPU span is the upscale. */
+     * it runs alone in a command buffer whose GPU span joins the ranges as upscale. */
     unsigned upscale_expected, upscale_seen;
-    uint64_t upscale_us;
     unsigned span_count;
-    struct { double start, end; unsigned group; } spans[16];
-    double scale;
-    struct { uint64_t start, end; unsigned group; } ranges[GROUP_INTERVALS];
+    gpu_interval spans[16];
+    /* stage envelopes and MetalFX's span, converted to one clock so one union covers them all */
+    gpu_interval ranges[GROUP_INTERVALS];
 } grouped[FRAME_COUNT];
 static uint64_t last_frame;
 static uint64_t generation(uint64_t frame);
@@ -192,12 +194,15 @@ void host_perf_metal_upscale_expected(void) {
     grouped[frame % FRAME_COUNT].upscale_expected++;
     os_unfair_lock_unlock(&group_lock);
 }
-void host_perf_metal_upscale_time(uint64_t frame, uint64_t duration_us, int valid) {
+void host_perf_metal_upscale_time(uint64_t frame, double start, double end, int valid) {
     if (!frame) return;
     os_unfair_lock_lock(&group_lock);
     typeof(grouped[0]) *entry = &grouped[frame % FRAME_COUNT];
     if (entry->frame == frame) {
-        if (valid) { entry->upscale_seen++; entry->upscale_us += duration_us; }
+        if (valid && end >= start && entry->count < GROUP_INTERVALS) {
+            entry->upscale_seen++;
+            entry->ranges[entry->count++] = (gpu_interval){ start, end, HOST_PERF_UPSCALE };
+        }
         else entry->invalid |= 1u << HOST_PERF_UPSCALE;
     }
     os_unfair_lock_unlock(&group_lock);
@@ -212,22 +217,45 @@ void host_perf_metal_command_span(uint64_t frame, unsigned group, double start, 
     }
     os_unfair_lock_unlock(&group_lock);
 }
-/* the union of the frame's command-buffer spans in a part (scene, or the rest), microseconds */
-static double span_union(const typeof(grouped[0]) *entry, int scene) {
-    double starts[16], ends[16], total = 0.0, reach = -1.0;
-    unsigned n = 0;
-    for (unsigned i = 0; i < entry->span_count; i++)
-        if ((entry->spans[i].group == HOST_PERF_SCENE) == scene) {
-            unsigned j = n++;
-            while (j && starts[j - 1] > entry->spans[i].start) { starts[j] = starts[j - 1]; ends[j] = ends[j - 1]; j--; }
-            starts[j] = entry->spans[i].start; ends[j] = entry->spans[i].end;
-        }
-    for (unsigned i = 0; i < n; i++) {
-        double from = starts[i] > reach ? starts[i] : reach;
-        if (ends[i] > from) total += ends[i] - from;
-        if (ends[i] > reach) reach = ends[i];
+/* Each part's share of the union of the frame's GPU intervals, in microseconds: sorted by start, a second that
+ * overlaps an earlier interval is charged to that one. Intervals overlap whenever passes run concurrently or one
+ * waits on another's output: MetalFX's command buffer starts while the scene drains, and the HUD's vertex stage
+ * starts while MetalFX still writes the picture the HUD's fragments wait for. A sum of the spans counts those
+ * seconds twice (an M1 iPad Pro at 120 Hz read S+U+H 9.97 ms against a 5.57 ms frame); the shares add up to
+ * the union, never more. Sorts the intervals in place. */
+static void charge_union(gpu_interval *intervals, unsigned n, double totals[3]) {
+    double reach = -INFINITY;
+    totals[0] = totals[1] = totals[2] = 0.0;
+    for (unsigned i = 1; i < n; ++i) {
+        gpu_interval interval = intervals[i];
+        unsigned j = i;
+        while (j && intervals[j - 1].start > interval.start) { intervals[j] = intervals[j - 1]; --j; }
+        intervals[j] = interval;
     }
-    return total * 1e6;
+    for (unsigned i = 0; i < n; ++i) {
+        double from = intervals[i].start > reach ? intervals[i].start : reach;
+        if (intervals[i].end > from && intervals[i].group <= HOST_PERF_HUD)
+            totals[intervals[i].group] += (intervals[i].end - from) * 1e6;
+        if (intervals[i].end > reach) reach = intervals[i].end;
+    }
+}
+/* the command-buffer spans' charged union: scene, and the rest (upscale plus HUD) */
+static void span_charge(const typeof(grouped[0]) *entry, double *scene, double *rest) {
+    gpu_interval spans[16];
+    double totals[3];
+    memcpy(spans, entry->spans, entry->span_count * sizeof(spans[0]));
+    charge_union(spans, entry->span_count, totals);
+    *scene = totals[HOST_PERF_SCENE];
+    *rest = totals[HOST_PERF_UPSCALE] + totals[HOST_PERF_HUD];
+}
+/* a GPU timestamp on the CPU timebase in seconds, from a correlated pair taken just after it */
+static double gpu_seconds(uint64_t tick, MTLTimestamp gpu_now, double host_now, double microseconds_per_tick) {
+    return host_now - (double)(int64_t)(gpu_now - tick) * microseconds_per_tick * 1e-6;
+}
+static double host_seconds_now(void) {
+    static mach_timebase_info_data_t timebase;
+    if (!timebase.denom) mach_timebase_info(&timebase);
+    return (double)mach_absolute_time() * timebase.numer / timebase.denom * 1e-9;
 }
 static int compare_doubles(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
 /* every 600 frames with both: how far the command-buffer union is from stage timing, all frames and late ones */
@@ -303,6 +331,8 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
                 [buffers[slot].buffer resolveCounterRange:NSMakeRange(0, buffers[slot].count * 4)] : nil;
             MTLTimestamp cpu = 0, gpu = 0;
             [counter_device sampleTimestamps:&cpu gpuTimestamp:&gpu];
+            /* (the command-buffer spans' timebase, CACurrentMediaTime's) */
+            double host_now = host_seconds_now();
             /* Apple documents the correlated CPU reference in nanoseconds. */
             double scale = cpu > reference_cpu && gpu > reference_gpu ?
                 (double)(cpu - reference_cpu) / (double)(gpu - reference_gpu) / 1000.0 : 0.0;
@@ -327,11 +357,10 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
                 if (frame->frame == buffers[slot].frame) {
                     if (!valid || frame->count == GROUP_INTERVALS) frame->invalid |= 1u << buffers[slot].groups[i];
                     else {
-                        /* Absolute GPU ticks share one device clock across command buffers. */
-                        frame->scale = scale;
+                        /* GPU ticks move to the CPU timebase, where MetalFX's command-buffer span lives. */
                         unsigned n = frame->count++;
-                        frame->ranges[n].start = start;
-                        frame->ranges[n].end = end;
+                        frame->ranges[n].start = gpu_seconds(start, gpu, host_now, scale);
+                        frame->ranges[n].end = gpu_seconds(end, gpu, host_now, scale);
                         frame->ranges[n].group = buffers[slot].groups[i];
                     }
                 }
@@ -364,38 +393,28 @@ static void dynamic_join(game_perf_frame *frame) {
         frame->drs.presentation_us = entry->interval;
         frame->drs.late = entry->late;
         if (entry->interval) frame->drs.available |= 2;
-        /* Sort stage envelopes, then charge overlapping ticks once to the
-         * earliest-starting pass. This is a union, never a sum of envelopes. */
-        for (unsigned i = 1; i < entry->count; ++i) {
-            typeof(entry->ranges[0]) range = entry->ranges[i];
-            unsigned j = i;
-            while (j && entry->ranges[j - 1].start > range.start) {
-                entry->ranges[j] = entry->ranges[j - 1]; --j;
-            }
-            entry->ranges[j] = range;
-        }
-        uint64_t end = 0, totals[3] = {0};
-        for (unsigned i = 0; i < entry->count; ++i) {
-            uint64_t start = entry->ranges[i].start > end ? entry->ranges[i].start : end;
-            if (entry->ranges[i].end > start)
-                totals[entry->ranges[i].group] += entry->ranges[i].end - start;
-            if (entry->ranges[i].end > end) end = entry->ranges[i].end;
-        }
+        /* Stage envelopes and MetalFX's span, charged once each: a union, never a sum of envelopes. */
+        double totals[3];
+        charge_union(entry->ranges, entry->count, totals);
         if (!entry->invalid && entry->count && host_perf_metal_stage_supported() && !(frame->flags & GAME_PERF_GPU_UNAVAILABLE) &&
             entry->upscale_seen == entry->upscale_expected) {
-            frame->drs.scene_us = (uint64_t)(totals[0] * entry->scale);
-            frame->drs.upscale_us = (uint64_t)(totals[1] * entry->scale) + entry->upscale_us;
-            frame->drs.hud_us = (uint64_t)(totals[2] * entry->scale);
+            frame->drs.scene_us = (uint64_t)llround(totals[HOST_PERF_SCENE]);
+            frame->drs.upscale_us = (uint64_t)llround(totals[HOST_PERF_UPSCALE]);
+            frame->drs.hud_us = (uint64_t)llround(totals[HOST_PERF_HUD]);
             frame->drs.available |= 1;
-            if (entry->span_count)
+            if (entry->span_count) {
+                double scene, rest;
+                span_charge(entry, &scene, &rest);
                 timing_check((double)frame->drs.scene_us, (double)(frame->drs.upscale_us + frame->drs.hud_us),
-                    span_union(entry, 1), span_union(entry, 0), (int)entry->late);
+                    scene, rest, (int)entry->late);
+            }
         }
         /* No stage-boundary sampling: the scene's command buffers' GPU spans are S (on a device with both they
          * matched stage timing in every window), and the rest's least recent span is U+H; marked coarse (16) */
         else if (!host_perf_metal_stage_supported() && entry->span_count && !(entry->invalid & (1u << HOST_PERF_SCENE)) &&
             !(frame->flags & GAME_PERF_GPU_UNAVAILABLE)) {
-            double scene = span_union(entry, 1), rest = span_union(entry, 0);
+            double scene, rest;
+            span_charge(entry, &scene, &rest);
             if (scene > 0.0) {
                 frame->drs.scene_us = (uint64_t)scene;
                 frame->drs.upscale_us = 0;

@@ -90,10 +90,10 @@ int main(void) {
         /* Stage-envelope union charges overlapping ticks exactly once. */
         counter_device = (id)[TestCounterDevice new];
         typeof(grouped[0]) *entry = &grouped[test_frame % FRAME_COUNT];
-        entry->scale = 1.0; entry->count = 3;
-        entry->ranges[0] = (typeof(entry->ranges[0])){ 200, 400, HOST_PERF_HUD };
-        entry->ranges[1] = (typeof(entry->ranges[0])){ 100, 250, HOST_PERF_SCENE };
-        entry->ranges[2] = (typeof(entry->ranges[0])){ 150, 300, HOST_PERF_UPSCALE };
+        entry->count = 3;
+        entry->ranges[0] = (gpu_interval){ 200e-6, 400e-6, HOST_PERF_HUD };
+        entry->ranges[1] = (gpu_interval){ 100e-6, 250e-6, HOST_PERF_SCENE };
+        entry->ranges[2] = (gpu_interval){ 150e-6, 300e-6, HOST_PERF_UPSCALE };
         frame = (game_perf_frame){.frame_id = test_frame};
         host_perf_metal_join(&frame);
         assert(frame.drs.available & 1);
@@ -102,6 +102,66 @@ int main(void) {
         frame = (game_perf_frame){.frame_id = test_frame};
         host_perf_metal_join(&frame);
         assert(!(frame.drs.available & 1));
+        /* A GPU tick moves to the CPU timebase from the pair sampled after it. */
+        assert(fabs(gpu_seconds(900, 1000, 5.0, 0.001) - (5.0 - 1e-7)) < 1e-12);
+        /* Bug class: the planner's S+U+H counted overlapping GPU intervals twice, so under MetalFX it read more GPU
+         * time than the frame took (M1 iPad Pro, 120 Hz: 9.97 ms against 5.57) and held DRS at its floor. MetalFX's
+         * command buffer starts while the scene drains; the HUD's vertex stage starts while MetalFX runs. */
+        test_frame++; frame_prepare(test_frame);
+        entry = &grouped[test_frame % FRAME_COUNT];
+        host_perf_metal_upscale_expected();
+        entry->ranges[entry->count++] = (gpu_interval){ 10.0, 10.0022, HOST_PERF_SCENE };
+        host_perf_metal_upscale_time(test_frame, 10.0011, 10.0054, 1);
+        entry->ranges[entry->count++] = (gpu_interval){ 10.0012, 10.0055, HOST_PERF_HUD };
+        frame = (game_perf_frame){.frame_id = test_frame};
+        host_perf_metal_join(&frame);
+        assert(frame.drs.available & 1);
+        assert(frame.drs.scene_us == 2200 && frame.drs.upscale_us == 3200 && frame.drs.hud_us == 100);
+        /* a MetalFX span still on its way leaves the frame without a reading */
+        test_frame++; frame_prepare(test_frame);
+        entry = &grouped[test_frame % FRAME_COUNT];
+        host_perf_metal_upscale_expected();
+        entry->ranges[entry->count++] = (gpu_interval){ 11.0, 11.002, HOST_PERF_SCENE };
+        frame = (game_perf_frame){.frame_id = test_frame};
+        host_perf_metal_join(&frame);
+        assert(!(frame.drs.available & 1));
+        /* The class, over random overlapping intervals of every part: the planner's input equals the union of the
+         * frame's GPU intervals, so it never exceeds the frame's measured GPU time (which covers that union). */
+        uint32_t seed = 12345;
+        for (unsigned trial = 0; trial < 4000; ++trial) {
+            test_frame++; frame_prepare(test_frame);
+            entry = &grouped[test_frame % FRAME_COUNT];
+            unsigned n = 1 + (seed = seed * 1664525u + 1013904223u) % 12;
+            double base = 100.0 + trial, starts[12], ends[12], separate = 0.0;
+            for (unsigned i = 0; i < n; ++i) {
+                unsigned group = (seed = seed * 1664525u + 1013904223u) % 3;
+                double start = base + ((seed = seed * 1664525u + 1013904223u) % 8000) * 1e-6;
+                double end = start + ((seed = seed * 1664525u + 1013904223u) % 4000) * 1e-6;
+                starts[i] = start; ends[i] = end; separate += (end - start) * 1e6;
+                if (group == HOST_PERF_UPSCALE && (seed >> 16) % 2) {
+                    host_perf_metal_upscale_expected();
+                    host_perf_metal_upscale_time(test_frame, start, end, 1);
+                }
+                else entry->ranges[entry->count++] = (gpu_interval){ start, end, group };
+            }
+            /* the union, by merging the intervals */
+            for (unsigned i = 1; i < n; ++i)
+                for (unsigned j = i; j && starts[j - 1] > starts[j]; --j) {
+                    double t = starts[j]; starts[j] = starts[j - 1]; starts[j - 1] = t;
+                    t = ends[j]; ends[j] = ends[j - 1]; ends[j - 1] = t;
+                }
+            double merged = 0.0, from = starts[0], to = ends[0];
+            for (unsigned i = 1; i < n; ++i) {
+                if (starts[i] > to) { merged += to - from; from = starts[i]; to = ends[i]; }
+                else if (ends[i] > to) to = ends[i];
+            }
+            merged = (merged + to - from) * 1e6;
+            frame = (game_perf_frame){.frame_id = test_frame};
+            host_perf_metal_join(&frame);
+            assert(frame.drs.available & 1);
+            double input = (double)(frame.drs.scene_us + frame.drs.upscale_us + frame.drs.hud_us);
+            assert(input <= merged + 2.0 && input >= merged - 2.0 && input <= separate + 2.0);
+        }
         test_collecting = 0; test_shadow = 1;
         test_frame++; frame_prepare(test_frame);
         atomic_store(&buffers[1].commands, 0);
@@ -122,6 +182,16 @@ int main(void) {
             assert(frame.drs.scene_us >= 5999 && frame.drs.scene_us <= 6001);
             /* (the third frame's 4 ms present span is a drawable wait; the estimate stays near 1 ms) */
             assert(frame.drs.upscale_us == 0 && frame.drs.hud_us >= 999 && frame.drs.hud_us <= 1001);
+        }
+        /* The fallback's rest overlapping the scene's last buffer is charged to the scene, not counted twice. */
+        test_frame++; host_perf_metal_frame_touch(test_frame);
+        host_perf_metal_command_span(test_frame, HOST_PERF_SCENE, 3.000, 3.004);
+        host_perf_metal_command_span(test_frame, HOST_PERF_UPSCALE, 3.003, 3.005);
+        host_perf_metal_command_span(test_frame, HOST_PERF_HUD, 3.0045, 3.006);
+        {
+            double scene, rest;
+            span_charge(&grouped[test_frame % FRAME_COUNT], &scene, &rest);
+            assert(fabs(scene - 4000.0) < 1.0 && fabs(rest - 2000.0) < 1.0);
         }
         /* a refused scene (several views) gives no reading */
         test_frame++; host_perf_metal_frame_touch(test_frame);

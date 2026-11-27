@@ -14,10 +14,11 @@ int host_perf_metal_needs_split(void);
 void host_perf_metal_presented(uint64_t frame, uint64_t time_us, uint64_t budget_us);
 void host_perf_metal_unavailable(unsigned group);
 /* MetalFX's upscale, timed as a command buffer of its own: expected while
- * encoding the current frame, then its GPU duration from the completion
- * handler. A frame whose expected durations have not all arrived has no U. */
+ * encoding the current frame, then its GPU span (seconds, CPU timebase) from
+ * the completion handler, which joins the frame's union of GPU intervals.
+ * A frame whose expected spans have not all arrived has no U. */
 void host_perf_metal_upscale_expected(void);
-void host_perf_metal_upscale_time(uint64_t frame, uint64_t duration_us, int valid);
+void host_perf_metal_upscale_time(uint64_t frame, double start, double end, int valid);
 /* a completed command buffer's GPU span (seconds, CPU timebase) for the frame and part it held: the timing
  * fallback's check against stage timing, logged as "DRS timing check" */
 void host_perf_metal_command_span(uint64_t frame, unsigned group, double start, double end);
