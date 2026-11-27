@@ -2927,9 +2927,10 @@ static void cadence_summary(const struct stereo_cadence_trigger *trigger)
 
 	host_logf(HOST_LOG_INFO, "stereo: steady cadence (log only, scored at repeat count %d): %lu windows counted; "
 		"skipped %lu settling, %lu before a measured period, %lu warm or Low Power Mode, %lu with a hitch, %lu to the "
-		"system's pacing; longest streak %d; would drop %s", trigger->repeat, trigger->counted,
-		skipped[STEREO_CADENCE_SKIP_SETTLING], skipped[STEREO_CADENCE_SKIP_PERIOD], skipped[STEREO_CADENCE_SKIP_THERMAL],
-		skipped[STEREO_CADENCE_SKIP_HITCH], skipped[STEREO_CADENCE_SKIP_SYSTEM], trigger->longest,
+		"system's pacing; %lu streaks began, the longest %d windows; would drop (once a map) %s", trigger->repeat,
+		trigger->counted, skipped[STEREO_CADENCE_SKIP_SETTLING], skipped[STEREO_CADENCE_SKIP_PERIOD],
+		skipped[STEREO_CADENCE_SKIP_THERMAL], skipped[STEREO_CADENCE_SKIP_HITCH], skipped[STEREO_CADENCE_SKIP_SYSTEM],
+		trigger->streaks, trigger->longest,
 		trigger->fired_in_report ? "fired" : trigger->fired ? "fired earlier in this map" : "not fired");
 }
 

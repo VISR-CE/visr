@@ -94,6 +94,9 @@ when Lt >= T/2 in STEREO_CADENCE_STREAK consecutive counted windows, or Lo >= O/
 #define STEREO_CADENCE_SETTLE_SECONDS 5.0
 #define STEREO_CADENCE_HITCH_REFRESHES 5
 #define STEREO_CADENCE_STREAK 3
+/* streak starts reported a pacing report at most (a game at the threshold can start one every other second); the
+summary counts them all */
+#define STEREO_CADENCE_STREAK_LOGS 3
 
 enum stereo_cadence_skip
 {
@@ -134,10 +137,12 @@ struct stereo_cadence_trigger
 	unsigned long counted, skipped[STEREO_CADENCE_SKIP_REASONS];
 	int longest;
 	int fired_in_report;
+	unsigned long streaks;           /* streaks begun */
 };
 
-/* a map loaded or the space opened at NOW (seconds), or the asked count changed: frames are scored at REPEAT */
-static inline void stereo_cadence_trigger_reset(struct stereo_cadence_trigger *trigger, int repeat, double now)
+/* the asked count changed at NOW (seconds): frames are scored at REPEAT from a fresh window and streak, after the
+settling time. Would drop stays fired for the map: a knob press does not re-arm it */
+static inline void stereo_cadence_trigger_rescore(struct stereo_cadence_trigger *trigger, int repeat, double now)
 {
 	struct stereo_cadence_window empty = { 0 };
 
@@ -145,6 +150,12 @@ static inline void stereo_cadence_trigger_reset(struct stereo_cadence_trigger *t
 	trigger->settled = now + STEREO_CADENCE_SETTLE_SECONDS;
 	trigger->window = empty;
 	trigger->tick_streak = trigger->other_streak = 0;
+}
+
+/* a map loaded or the space opened at NOW: as a rescore, and would drop may fire again */
+static inline void stereo_cadence_trigger_reset(struct stereo_cadence_trigger *trigger, int repeat, double now)
+{
+	stereo_cadence_trigger_rescore(trigger, repeat, now);
 	trigger->fired = 0;
 }
 
@@ -158,6 +169,7 @@ static inline void stereo_cadence_report_reset(struct stereo_cadence_trigger *tr
 		trigger->skipped[reason] = 0;
 	trigger->longest = trigger->tick_streak > trigger->other_streak ? trigger->tick_streak : trigger->other_streak;
 	trigger->fired_in_report = 0;
+	trigger->streaks = 0;
 }
 
 /* one frame at NOW (seconds), REFRESHES after the previous presentation (stereo_cadence_refreshes, at most
@@ -196,7 +208,7 @@ static inline int stereo_cadence_window_add(struct stereo_cadence_trigger *trigg
 
 /* the full window's verdict. PERIOD_MEASURED: the pacing report has measured the refresh period; WARM: the thermal
 state is above nominal or Low Power Mode is on. Returns STEREO_CADENCE_STREAK_STARTED and STEREO_CADENCE_WOULD_DROP
-bits; *SKIPPED and *SEEN (each optional) get the window's skip reason (or STEREO_CADENCE_COUNTED) and its counts.
+bits (a streak's start at most STEREO_CADENCE_STREAK_LOGS times between report resets); *SKIPPED and *SEEN (each optional) get the window's skip reason (or STEREO_CADENCE_COUNTED) and its counts.
 The window starts again */
 static inline int stereo_cadence_decide(struct stereo_cadence_trigger *trigger, int period_measured, int warm,
 	enum stereo_cadence_skip *skipped, struct stereo_cadence_window *seen)
@@ -232,7 +244,7 @@ static inline int stereo_cadence_decide(struct stereo_cadence_trigger *trigger, 
 	was_streaking = trigger->tick_streak > 0 || trigger->other_streak > 0;
 	trigger->tick_streak = tick_hit ? trigger->tick_streak + 1 : 0;
 	trigger->other_streak = other_hit ? trigger->other_streak + 1 : 0;
-	if (!was_streaking && (tick_hit || other_hit))
+	if (!was_streaking && (tick_hit || other_hit) && trigger->streaks++ < STEREO_CADENCE_STREAK_LOGS)
 		events |= STEREO_CADENCE_STREAK_STARTED;
 	if (trigger->tick_streak > trigger->longest)
 		trigger->longest = trigger->tick_streak;
@@ -254,7 +266,7 @@ Once a stereo frame of the eyes. Only HEAD mode in a variable (multiplayer) work
 the menu and the theater screen never are. Two evaluations: at the asked repeat count (what a trigger that acted
 would see), and, while that count is above 0, as if it were 0 (the stand-in for the Compositor choosing 45 Hz by
 itself, which the acceptance runs check). A new GENERATION (a map's workload decision, the space opening) starts
-both again; so does a change in the asked count. The previous frame's render and GPU times are carried from the
+both again; a change in the asked count scores from a fresh window, but would drop fires at most once a map. The previous frame's render and GPU times are carried from the
 last frame fed, and forgotten outside the scope and at every start. */
 
 /* the refresh period frames are counted in before the pacing report has measured one (every window is then
@@ -304,12 +316,18 @@ static inline int stereo_cadence_step(struct stereo_cadence_state *state, const 
 		state->previous_render = state->previous_gpu = 0.0;
 		return 0;
 	}
-	if (!state->started || in->generation != state->generation || in->repeat != state->asked.repeat)
+	if (!state->started || in->generation != state->generation)
 	{
 		state->started = 1;
 		state->generation = in->generation;
 		stereo_cadence_trigger_reset(&state->asked, in->repeat, in->now);
 		stereo_cadence_trigger_reset(&state->as_zero, 0, in->now);
+		state->previous_render = state->previous_gpu = 0.0;
+	}
+	else if (in->repeat != state->asked.repeat)
+	{
+		stereo_cadence_trigger_rescore(&state->asked, in->repeat, in->now);
+		stereo_cadence_trigger_rescore(&state->as_zero, 0, in->now);
 		state->previous_render = state->previous_gpu = 0.0;
 	}
 	refreshes = stereo_cadence_refreshes(in->interval, period, STEREO_CADENCE_HITCH_REFRESHES);

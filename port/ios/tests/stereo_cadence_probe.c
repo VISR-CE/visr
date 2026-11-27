@@ -365,6 +365,40 @@ static void step_carries_the_previous_frame(void)
 	check(!(seen.asked & STEREO_CADENCE_WOULD_DROP), "late frames whose own work fit fired");
 }
 
+/* a knob press (count 0, 1, 0) does not re-arm would drop within a map; a new map does. A game flapping at the
+threshold starts a streak every other window, reported at most STEREO_CADENCE_STREAK_LOGS times a report */
+static void step_once_a_map_and_capped_starts(void)
+{
+	static struct fed_frame flapping[150];
+	struct stereo_cadence_state state = { 0 };
+	double now = 9000.0;
+	struct step_seen seen;
+	int index, starts = 0;
+
+	seen = feed(&state, &now, 30.0, fed_lock, 2, HALO_STEREO_HEAD, 1, 1, 0);
+	check(seen.asked & STEREO_CADENCE_WOULD_DROP, "lock: no would drop");
+	feed(&state, &now, 5.0, fed_forced_45, 2, HALO_STEREO_HEAD, 1, 1, 1);
+	seen = feed(&state, &now, 30.0, fed_lock, 2, HALO_STEREO_HEAD, 1, 1, 0);
+	check(!(seen.asked & STEREO_CADENCE_WOULD_DROP) && state.asked.counted > 0, "a count change re-armed would drop");
+	seen = feed(&state, &now, 30.0, fed_lock, 2, HALO_STEREO_HEAD, 1, 2, 0);
+	check(seen.asked & STEREO_CADENCE_WOULD_DROP, "a new map after a count change: no would drop");
+	/* one window of the lock (30 pairs, 90 refreshes), one clean (90 frames) */
+	for (index = 0; index < 60; index++)
+		flapping[index] = fed_lock[index % 2];
+	for (; index < 150; index++)
+		flapping[index] = (struct fed_frame){ 1, index % 3 == 0, 2.0, 5.0, 7.0 };
+	stereo_cadence_trigger_reset(&state.asked, 0, now - 10.0);
+	stereo_cadence_report_reset(&state.asked);
+	/* (two seconds a call: the pattern once, each call starting it at a window's start) */
+	for (index = 0; index < 20; index++) {
+		seen = feed(&state, &now, 2.0, flapping, 150, HALO_STEREO_HEAD, 1, 2, 0);
+		starts += (seen.asked & STEREO_CADENCE_STREAK_STARTED) != 0;
+	}
+	check(state.asked.streaks > STEREO_CADENCE_STREAK_LOGS, "flapping: too few streaks to test the cap");
+	check(starts <= STEREO_CADENCE_STREAK_LOGS, "flapping: streak starts reported past the cap");
+	check(!state.asked.fired, "flapping: would drop fired without three windows in a row");
+}
+
 int main(void)
 {
 	repeat_wanted();
@@ -374,6 +408,7 @@ int main(void)
 	trigger_skips_and_streaks();
 	step_scope_and_evaluations();
 	step_carries_the_previous_frame();
+	step_once_a_map_and_capped_starts();
 	if (!failures)
 		printf("stereo cadence probe: ok\n");
 	return failures ? 1 : 0;
