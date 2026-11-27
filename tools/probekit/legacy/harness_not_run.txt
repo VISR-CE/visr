@@ -1,0 +1,27 @@
+# tools/harness/tests modules no workflow runs (rule H of tools/test_probe_conventions.py); none can run on a Mac.
+# Shrink-only (legacy/BASELINE.json).
+tools/harness/tests/test_audio_driver.py
+tools/harness/tests/test_coop_revert.py
+tools/harness/tests/test_coop_scaling_menu.py
+tools/harness/tests/test_coop_wipe.py
+tools/harness/tests/test_elevator_prediction.py
+tools/harness/tests/test_geometry_bytes.py
+tools/harness/tests/test_init_scenes_level.py
+tools/harness/tests/test_limp_body_moves.py
+tools/harness/tests/test_loose_sound_paths.py
+tools/harness/tests/test_map_share_names.py
+tools/harness/tests/test_map_share_restart.py
+tools/harness/tests/test_map_share_trust.py
+tools/harness/tests/test_menu_backdrop_freeze.py
+tools/harness/tests/test_movie_map_change.py
+tools/harness/tests/test_object_bounds_cache.py
+tools/harness/tests/test_particle_draw_gate.py
+tools/harness/tests/test_screen_effect_passes.py
+tools/harness/tests/test_sound_lifecycle.py
+tools/harness/tests/test_sound_stream_flush.py
+tools/harness/tests/test_sound_transition.py
+tools/harness/tests/test_stale_player_damage.py
+tools/harness/tests/test_structure_culling.py
+tools/harness/tests/test_text_from_cursor.py
+tools/harness/tests/test_texture_idle.py
+tools/harness/tests/test_widget_pool.py
