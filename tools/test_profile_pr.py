@@ -158,3 +158,18 @@ def test_screenshots_need_the_job_launcher(tmp_path, monkeypatch):
     monkeypatch.setattr(pr, "RUN_JOB", "")
     with pytest.raises(pr.Failure, match="VISR_RUN_JOB"):
         pr.build(options, Runner())
+
+
+def test_published_generations_are_those_the_publisher_has_opened():
+    """--sign-all signs only generations up to data_pack's PROFILE_FEED_GENERATION; a recorded generation above it (its keys
+    are in KEY_GENERATIONS for the app that will read it) is skipped, not signed into a compatibility data_pack refuses"""
+    import data_pack
+    opened = data_pack.PROFILE_FEED_GENERATION
+    assert set(pr.PUBLISHED_GENERATIONS) == {d for d in pr.GENERATIONS if int(d.rpartition("-")[2]) <= opened}
+    assert all(int(d.rpartition("-")[2]) <= opened for d in pr.PUBLISHED_GENERATIONS)
+    assert pr.PUBLISHED_GENERATIONS[data_pack.PROFILE_FEED_DOMAIN] == pr.GENERATIONS[data_pack.PROFILE_FEED_DOMAIN]
+    assert set(pr.UNOPENED_GENERATIONS) == {d for d in pr.GENERATIONS if int(d.rpartition("-")[2]) > opened}
+    assert not set(pr.PUBLISHED_GENERATIONS) & set(pr.UNOPENED_GENERATIONS)
+    # every published generation is one data_pack accepts a compatibility for
+    for domain in pr.PUBLISHED_GENERATIONS:
+        assert domain in data_pack.DEVICE_PROFILE_DOMAINS and int(domain.rpartition("-")[2]) <= opened

@@ -19,12 +19,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 if __package__:
+    from . import data_pack
     from . import profile_check as check
     from . import profile_revision as revision
     from . import profile_cost_model as cost
     from . import profile_predict as predict
     from . import profile_propose as propose
 else:
+    import data_pack
     import profile_check as check
     import profile_revision as revision
     import profile_cost_model as cost
@@ -56,6 +58,12 @@ KEY_GENERATIONS = {"network.full_rate_players": (4, 5, 6),
 # refuse, derived from KEY_GENERATIONS.
 GENERATIONS = {domain: tuple(key for key, accepted in KEY_GENERATIONS.items() if int(domain.rpartition("-")[2]) not in accepted)
                for domain in (PROFILE_DOMAIN, "device-profiles-6", "device-profiles-4", "device-profiles-3")}
+# The generations this source publishes: the recorded ones an app can read yet, that is up to data_pack's
+# PROFILE_FEED_GENERATION. A newer recorded generation (its keys are in KEY_GENERATIONS for the app that will read it) is
+# signed once data_pack and the app open it, not before.
+PUBLISHED_GENERATIONS = {domain: keys for domain, keys in GENERATIONS.items()
+                         if int(domain.rpartition("-")[2]) <= data_pack.PROFILE_FEED_GENERATION}
+UNOPENED_GENERATIONS = tuple(sorted(set(GENERATIONS) - set(PUBLISHED_GENERATIONS)))
 RECEIPT = FEED / "publication.json"
 RUN_JOB = os.environ.get("VISR_RUN_JOB", "")
 REPOSITORY = "VISR-CE/visr"
@@ -303,7 +311,7 @@ def build_feed(targets, profiles, out, signing_key, run, tree, repo=ROOT, sequen
     """Sign a tester shard for each target in every published generation; returns {feed path: (shard path, sequence)}.
     Each shard takes the given sequence, else the next after its own."""
     shards = {}
-    for domain in GENERATIONS:
+    for domain in PUBLISHED_GENERATIONS:
         source = generation_profiles(profiles, domain, out / "generation-profiles" / domain)
         for target in targets:
             destination = FEED / domain / f"{target}.json"
@@ -345,7 +353,7 @@ def published_targets(repo, tree):
         match = tomllib.loads(path.read_text()).get("match", {}) if path.name != "TEMPLATE.toml" else {}
         if match.get("platform") != "mac":
             found.update(f"{match['platform']}/{model}/_" for model in match.get("models", []))
-    for domain in GENERATIONS:
+    for domain in PUBLISHED_GENERATIONS:
         folder = feed_file(tree, FEED / domain)
         found.update(str(path.relative_to(folder).with_suffix("")) for path in folder.rglob("*.json"))
     return sorted(found)
@@ -365,7 +373,9 @@ def sign_all(options, run=None):
     out = Path(options.out) if options.out else repo / "build/profile-feed"
     shards = build_feed(targets, repo / "profiles", out, options.signing_key, run, tree, repo=repo, sequence=options.sign_all)
     install_shards(tree, shards)
-    print(f"signed {len(targets)} targets in {len(GENERATIONS)} generations at sequence {options.sign_all}; nothing committed")
+    if UNOPENED_GENERATIONS:
+        print(f"skipped {', '.join(UNOPENED_GENERATIONS)}: not yet opened (data_pack publishes up to {data_pack.PROFILE_FEED_DOMAIN})")
+    print(f"signed {len(targets)} targets in {len(PUBLISHED_GENERATIONS)} generations at sequence {options.sign_all}; nothing committed")
     return 0
 
 
