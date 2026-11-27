@@ -1,2 +1,5 @@
-# Rules 3a and 3b: files exempt, each with its reason. Shrink-only: must equal BASELINE.json.
+# Rules 3a and 3b (tools/test_probe_conventions.py): files exempt, each with its reason.
+# Shrink-only: must equal BASELINE.json's "source_exempt.txt" record.
+probekit/source_lint.py  # rules 3a and 3b's detector, whose patterns describe declarations
 test_probekit_source.py  # fixture tests of probekit.source itself, which assert on the text it returns
+build_site.py  # the site generator's template braces, not C source

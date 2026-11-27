@@ -32,13 +32,16 @@ file cannot go on one without editing the baseline, which the architecture revie
 checks for honest authors, not a security boundary: a compiler name hidden behind a function defeats them.
 """
 import ast
+import functools
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from probekit.commands import written_commands_in
-from probekit.source_lint import extractor_findings, literal_assert_findings
+from probekit.source_lint import (extractor_definitions, extractor_findings, imported_extractor_findings,
+                                  literal_assert_findings)
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
@@ -154,55 +157,178 @@ def test_rule_h_every_harness_test_is_run_by_a_workflow():
     assert not new, f'no workflow runs these harness tests; name them in ci.yml or cinematic-harness.yml: {new}'
 
 
+# the one implementation rules 3a and 3b point everyone at
+SOURCE_LINT_SKIPPED = {'probekit/source.py'}
+
+
 def source_linted_files():
-    """Rules 3a and 3b's files, by their path under tools/."""
-    files = [*linted_files(), *sorted((TOOLS / 'harness').rglob('*.py'))]
-    return {str(path.relative_to(TOOLS)): path for path in files}
+    """Rules 3a and 3b's files: every Python file under tools/, by its path there."""
+    files = {}
+    for path in sorted(TOOLS.rglob('*.py')):
+        name = path.relative_to(TOOLS).as_posix()
+        if '__pycache__' not in path.parts and name not in SOURCE_LINT_SKIPPED:
+            files[name] = path
+    return files
+
+
+def module_name(name):
+    """The module a file under tools/ is imported as: `harness/__init__.py` is `harness`, `a/b.py` is `a.b`."""
+    return name.removesuffix('.py').removesuffix('/__init__').replace('/', '.')
+
+
+@functools.lru_cache(maxsize=None)
+def source_findings():
+    """(rule 3a, rule 3b) findings, file -> lines, once per session. Rule 3a includes each import, by name, of a
+    function another file's own extractor or declaration search lives in (unless that file is exempt)."""
+    files, exempt = source_linted_files(), source_exempt()
+    extractors = {module_name(name): found for name, path in files.items()
+                  if name not in exempt and (found := extractor_definitions(path))}
+    extractor = {name: lines for name, path in files.items()
+                 if (lines := sorted(extractor_findings(path) + imported_extractor_findings(path, extractors)))}
+    literal = {name: lines for name, path in files.items() if (lines := literal_assert_findings(path))}
+    return extractor, literal
+
+
+def exempt_problems(entries, recorded, violating):
+    """What is wrong with source_exempt.txt: `entries` its file -> reason, `recorded` its BASELINE.json list,
+    `violating` the files that break rule 3a or 3b now."""
+    problems = shrink_only_problems('source_exempt.txt', entries, recorded, violating)
+    unexplained = sorted(name for name, reason in entries.items() if not reason)
+    if unexplained:
+        problems.append(f'source_exempt.txt needs a reason after # for: {unexplained}')
+    return problems
+
+
+def count_cap_problems(name, recorded, counts, hint):
+    """What is wrong with a per-file count cap (`recorded`, a BASELINE.json record) given today's `counts`: a file
+    not in it, a count above it, or a count below it, which is lowered so the cap leaves no room to grow back."""
+    problems = []
+    new = {entry: count for entry, count in sorted(counts.items()) if entry not in recorded}
+    if new:
+        problems.append(f'these are not in BASELINE.json\'s "{name}"; {hint} (file: count): {new}')
+    more = {entry: f'{recorded[entry]} -> {count}' for entry, count in sorted(counts.items())
+            if entry in recorded and count > recorded[entry]}
+    if more:
+        problems.append(f'these have more than BASELINE.json\'s "{name}" records; {hint}: {more}')
+    lower = {entry: f'{count} -> {counts.get(entry, 0)}' for entry, count in sorted(recorded.items())
+             if counts.get(entry, 0) < count}
+    if lower:
+        problems.append(f'lower these in BASELINE.json\'s "{name}" (0 means take the file out): {lower}')
+    return problems
 
 
 def source_exempt():
-    exempt = listed('source_exempt.txt')
-    unexplained = sorted(name for name, reason in exempt.items() if not reason)
-    assert not unexplained, f'source_exempt.txt needs a reason after # for: {unexplained}'
-    return exempt
+    return listed('source_exempt.txt')
 
 
-def test_rule_3a_tests_find_source_through_probekit_source():
-    exempt = source_exempt()
-    found = {name: len(lines) for name, path in source_linted_files().items() if (lines := extractor_findings(path))}
-    check_shrink_only('source.txt', {name: count for name, count in found.items() if name not in exempt},
-                      more_hint='find source by declaration text more often than BASELINE.json records; use '
-                      'probekit.source.function, body, structure, region or reach instead')
-    allowed = set(listed('source.txt')) | set(exempt)
-    new = {name: extractor_findings(path) for name, path in source_linted_files().items()
-           if name not in allowed and name in found}
-    assert not new, ('these find production source by its declaration text; use probekit.source (function, body, '
-                     f'structure, region, reach_contains) instead (file: lines): {new}')
-
-
-def test_rule_3b_literal_statement_asserts_only_fall():
-    exempt = source_exempt()
-    counts = {name: len(lines) for name, path in source_linted_files().items()
-              if name not in exempt and (lines := literal_assert_findings(path))}
-    table = json.loads((LEGACY / 'literal_asserts.json').read_text())
-    problems = shrink_only_problems('literal_asserts.json', table, table, counts,
-                                    more_hint='assert more literal statements than the table records; check the '
-                                    'behavior with a probe, or the call with probekit.source.reach_contains')
-    new = {name: count for name, count in counts.items() if name not in table}
-    if new:
-        problems.append(f'these assert literal statements in C text; check the behavior with a probe, or the call '
-                        f'with probekit.source.reach_contains (file: count): {new}')
+def test_rule_3a_3b_exempt_list_equals_the_baseline():
+    extractor, literal = source_findings()
+    problems = exempt_problems(source_exempt(), baseline('source_exempt.txt'), set(extractor) | set(literal))
     assert not problems, '\n'.join(problems)
 
 
-def test_rule_3b_table_matches_todays_counts_exactly():
-    """A count that fell is lowered in the table, so the cap does not leave room to grow back."""
+def test_rule_3a_tests_find_source_through_probekit_source():
+    extractor, _ = source_findings()
     exempt = source_exempt()
-    counts = {name: len(lines) for name, path in source_linted_files().items()
-              if name not in exempt and (lines := literal_assert_findings(path))}
-    table = json.loads((LEGACY / 'literal_asserts.json').read_text())
-    lower = {name: f'{table[name]} -> {counts[name]}' for name in table if name in counts and counts[name] < table[name]}
-    assert not lower, f'lower these counts in literal_asserts.json: {lower}'
+    found = {name: len(lines) for name, lines in extractor.items() if name not in exempt}
+    check_shrink_only('source.txt', found,
+                      more_hint='find source by declaration text more often than BASELINE.json records; use '
+                      'probekit.source.function, body, structure, region or reach instead')
+    new = {name: extractor[name] for name in found if name not in listed('source.txt')}
+    assert not new, ('these find production source by its declaration text, or import a function that does; use '
+                     f'probekit.source (function, body, structure, region, reach_contains) instead (file: lines): {new}')
+
+
+def test_rule_3b_literal_statement_checks_only_fall():
+    _, literal = source_findings()
+    exempt = source_exempt()
+    counts = {name: len(lines) for name, lines in literal.items() if name not in exempt}
+    problems = count_cap_problems('literal_asserts', baseline('literal_asserts'), counts,
+                                  'check the behavior with a probe, or the call with probekit.source.reach_contains')
+    assert not problems, '\n'.join(problems)
+
+
+def region_markers():
+    """name -> files under port/ with a `probe-region:` marker of that name."""
+    markers = {}
+    for path in (ROOT / 'port').rglob('*'):
+        if path.suffix in ('.c', '.h', '.m', '.mm', '.metal', '.inc') and path.is_file():
+            text = path.read_text(encoding='latin-1')
+            if 'probe-region:' in text:
+                for name in re.findall(r'/\* probe-region: ([\w-]+) \*/', text):
+                    markers.setdefault(name, []).append(str(path.relative_to(ROOT)))
+    return markers
+
+
+def test_every_probe_region_has_a_reader():
+    """A marker whose last reader is gone comes out of the production file."""
+    readers = set()
+    for path in source_linted_files().values():
+        text = path.read_text(errors='replace')
+        if 'region(' in text:
+            readers |= set(re.findall(r'region\([^()]*?[\'"]([\w-]+)[\'"]\s*\)', text))
+    unread = {name: files for name, files in region_markers().items() if name not in readers}
+    assert not unread, f'nothing in tools/ reads these probe regions; remove their markers: {unread}'
+
+
+REMOVED_EXTRACTORS = r"""import re
+from pathlib import Path
+ROOT = Path('.')
+
+def extracted_definition(path, name, kind='function'):
+    source = (ROOT / path).read_text(encoding='latin-1')
+    pattern = r'^struct ' + name + r'\s*\{' if kind == 'struct' else \
+        r'^(?:static |__inline )?[\w *]+?\b' + name + r'\(\s*[^;{]*\)\s*\{'
+    match = re.search(pattern, source, re.M)
+    if not match:
+        raise SystemExit(f'{path}: no {kind} {name}')
+    end = source.index('{', match.start()) + 1
+    depth = 1
+    while depth:
+        depth += (source[end] == '{') - (source[end] == '}')
+        end += 1
+    if kind == 'struct':
+        end = source.index(';', end) + 1
+    return source[match.start():end]
+
+def body_of(source, name):
+    match = re.search(r'\n(?:static )?\w[\w \*]*\b' + name + r'\([^)]*\)\n\{\n(.*?)\n\}\n', source, re.S)
+    if not match:
+        raise SystemExit(f'no function {name}')
+    return match.group(1)
+
+def function_body(path, name):
+    text = (ROOT / path).read_text()
+    match = re.search(r'\n(?:static )?void ' + name + r'\(\s*\w[^)]*\)\n\{\n(.*?)\n\}\n', text, re.S)
+    if not match:
+        raise SystemExit(f'{path}: no function {name}')
+    return match.group(1)
+
+def enum_body(text):
+    return re.search(r'enum\s*\{[^}]*\};', text).group()
+"""
+
+
+def test_the_source_lint_sees_the_regex_extractors_ios_test_used_to_have(tmp_path):
+    probe = tmp_path / 'test_removed.py'
+    probe.write_text(REMOVED_EXTRACTORS)
+    found = extractor_findings(probe)
+    lines = REMOVED_EXTRACTORS.splitlines()
+    searches = [number for number, line in enumerate(lines, 1) if 're.search(' in line]
+    assert len(searches) == 4 and set(searches) <= set(found), (searches, found)
+    assert extractor_definitions(probe) == {'extracted_definition', 'body_of', 'function_body', 'enum_body'}
+
+
+def test_the_source_lint_counts_imports_of_another_files_extractor(tmp_path):
+    (tmp_path / 'test_owner.py').write_text(REMOVED_EXTRACTORS)
+    importer = tmp_path / 'test_importer.py'
+    importer.write_text('from test_owner import body_of\n'
+                        'from tools.test_owner import function_body as body\n'
+                        'from test_owner import ROOT\n'
+                        'from harness import function\n')
+    extractors = {'test_owner': extractor_definitions(tmp_path / 'test_owner.py')}
+    assert imported_extractor_findings(importer, extractors) == [1, 2]
+    assert module_name('harness/__init__.py') == 'harness' and module_name('perf_compare/sheet.py') == 'perf_compare.sheet'
 
 
 def test_the_source_lint_sees_each_form_of_declaration_search(tmp_path):
@@ -225,46 +351,97 @@ def test_the_source_lint_sees_each_form_of_declaration_search(tmp_path):
                      're.search(r"^static\\s+int\\s+f\\(", text)\n'                       # 16
                      'regex.findall(r"enum\\s*\\{[^}]*\\};", text)\n'                       # 17
                      'every(r"struct\\s+(\\w+)", text)\n'                                  # 18
-                     'text.index("int host_frame_present(int on)" + "")\n'                  # 19
+                     'text.index("int host_frame_present(int on)" + "")\n'              # 19
                      'name = "f"\n'
                      'text.index(f"static int {name}(")\n'                              # 21
+                     're.search(r"(?:static )?void f\\(", text)\n'                      # 22
+                     're.search(r"\\n(?:static |__inline )?[\\w *]+?\\b" + name, text)\n'  # 23
+                     're.search(r"(?P<kind>struct|union) pair", text)\n'                # 24
                      'text.index("\\treturn value;")\n'
                      'text.index("if (ready)")\n'
                      'text.index("x = f(y);")\n'
                      'text.split()\n'
                      'text.split("\\n")\n'
                      're.findall(r\'"([^"]*)"\', text)\n'
-                     're.search(r"case (P2P_[A-Z_]+):", text)\n')
-    assert extractor_findings(probe) == [4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21]
+                     're.search(r"case (P2P_[A-Z_]+):", text)\n'
+                     're.search(r"(?:if|while) \\(", text)\n'
+                     're.search(r"(\\w+)\\s*=", text)\n')
+    assert extractor_findings(probe) == [4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24]
 
 
-def test_the_source_lint_sees_literal_statement_asserts_on_c_text_only(tmp_path):
+def test_the_source_lint_sees_literal_statement_checks_on_c_text_only(tmp_path):
     probe = tmp_path / 'test_example.py'
     probe.write_text('import subprocess\n'
+                     'import pytest\n'
                      'from pathlib import Path\n'
                      'from probekit import source\n'
+                     'from test_other import function\n'
                      'ROOT = Path(".")\n'
                      'HEADER = ROOT / "port/x.h"\n'
                      'MODULE_TEXT = HEADER.read_text()\n'
                      'def kernel(name):\n'
                      '    return source.function("port/k.c", name)\n'
-                     'def test_a():\n'
+                     'def read(relative):\n'
+                     '    return (ROOT / relative).read_text()\n'
+                     '@pytest.fixture\n'
+                     'def menu():\n'
+                     '    return (ROOT / "port/menu.c").read_text()\n'
+                     'def check(text):\n'
+                     '    assert "p(1);" in text\n'                                     # 17
+                     'def test_a(menu):\n'
                      '    text = (ROOT / "port/a.m").read_text()\n'
-                     '    assert "f(x);" in text\n'                                     # 11
-                     '    assert "g()" not in text[10:]\n'                              # 12
+                     '    assert "f(x);" in text\n'                                     # 20
+                     '    assert "g()" not in text[10:]\n'                              # 21
                      '    assert "plain words" in text\n'
-                     '    assert "a == b" in MODULE_TEXT\n'                             # 14
-                     '    assert "h(1)" in kernel("k")\n'                               # 15
-                     '    assert "i(2);" in source.body("port/b.c", "b")\n'             # 16
+                     '    assert "a == b" in MODULE_TEXT\n'                             # 23
+                     '    assert "h(1)" in kernel("k")\n'                               # 24
+                     '    assert "i(2);" in source.body("port/b.c", "b")\n'             # 25
                      '    joined = "\\n".join(source.function("port/c.c", n) for n in ("c",))\n'
-                     '    assert "j();" in joined.replace("a", "b")\n'                   # 18
+                     '    assert "j();" in joined.replace("a", "b")\n'                   # 27
+                     '    check(text)\n'
+                     '    assert "k();" in menu\n'                                      # 29
+                     '    assert "l();" in read("port/l.c")\n'                          # 30
+                     '    assert text.count("m();") == 1\n'                             # 31
+                     '    assert text.find("n();") >= 0 and text.index("o(") < text.index("q(")\n'  # 32 x3
+                     '    if "r();" not in text:\n'                                     # 33
+                     '        raise SystemExit("no r")\n'
+                     '    assert all(needle in text for needle in ("s();", "t(", "plain"))\n'  # 35 x2
+                     '    needle = "u();"\n'
+                     '    assert needle in text\n'                                      # 37
+                     '    assert "v(" in function(text, "f")\n'                         # 38
+                     '    assert source.reach_contains("port/a.c", "f", "w = 1;")\n'    # 39
+                     '    assert source.reach_contains("port/a.c", "f", "named(")\n'
+                     '    source.assert_reaches("port/a.c", "f", needle="x();")\n'      # 41
                      'def test_b():\n'
                      '    result = subprocess.run(["tool", "port/a.c"], capture_output=True, text=True)\n'
                      '    assert "error: f(" in result.stderr\n'
                      '    text = "made here"\n'
                      '    assert "f(x);" in text\n'
-                     '    assert "-flag" in " ".join(["-flag"])\n')
-    assert literal_assert_findings(probe) == [11, 12, 14, 15, 16, 18]
+                     '    assert "-flag" in " ".join(["-flag"])\n'
+                     '    if "f(x);" not in text:\n'
+                     '        print("no raise, no check")\n')
+    assert literal_assert_findings(probe) == [17, 20, 21, 23, 24, 25, 27, 29, 30, 31, 32, 32, 32, 33, 35, 35, 37,
+                                              38, 39, 41]
+
+
+def test_the_exempt_list_and_the_count_cap_refuse_each_kind_of_drift():
+    assert exempt_problems({'test_a.py': 'why'}, ['test_a.py'], {'test_a.py'}) == []
+    unbaselined = exempt_problems({'test_a.py': 'why', 'test_b.py': 'why'}, ['test_a.py'], {'test_a.py', 'test_b.py'})
+    assert len(unbaselined) == 1 and 'not in BASELINE.json' in unbaselined[0] and 'test_b.py' in unbaselined[0]
+    unexplained = exempt_problems({'test_a.py': ''}, ['test_a.py'], {'test_a.py'})
+    assert len(unexplained) == 1 and 'needs a reason' in unexplained[0]
+    stale = exempt_problems({'test_a.py': 'why'}, ['test_a.py'], set())
+    assert len(stale) == 1 and 'no longer break the rule' in stale[0]
+    recorded = {'test_a.py': 2}
+    assert count_cap_problems('literal_asserts', recorded, {'test_a.py': 2}, 'fix it') == []
+    new = count_cap_problems('literal_asserts', recorded, {'test_a.py': 2, 'test_b.py': 1}, 'fix it')
+    assert len(new) == 1 and 'not in BASELINE.json' in new[0] and 'test_b.py' in new[0]
+    more = count_cap_problems('literal_asserts', recorded, {'test_a.py': 3}, 'fix it')
+    assert len(more) == 1 and '2 -> 3' in more[0]
+    lower = count_cap_problems('literal_asserts', recorded, {'test_a.py': 1}, 'fix it')
+    assert len(lower) == 1 and 'lower these' in lower[0] and '2 -> 1' in lower[0]
+    gone = count_cap_problems('literal_asserts', recorded, {}, 'fix it')
+    assert len(gone) == 1 and '2 -> 0' in gone[0]
 
 
 def test_the_lint_sees_each_form_of_compiler_command(tmp_path):
