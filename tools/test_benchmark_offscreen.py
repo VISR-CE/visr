@@ -147,7 +147,7 @@ def test_progress_for_all_offscreen_suites():
     host = (ROOT / "port/ios/host/host_benchmark.m").read_text()
     assert "plan.mode==BENCHMARK_UNIFIED || host_benchmark_offscreen_requested()" in host
     # The UI hides before the renderer can submit a presented frame, without a timer delay.
-    switch = host[host.index("int host_benchmark_presented(int on)"):]
+    switch = source.function("port/ios/host/host_benchmark.m", "host_benchmark_presented")
     assert switch.index("host_benchmark_overlay_presented(on)") < switch.index("host_gpu_benchmark_realtime(on)")
     ui = (ROOT / "port/ios/host/host_benchmark_page.m").read_text()
     assert "self.view.hidden=progress.presented!=0;" in ui

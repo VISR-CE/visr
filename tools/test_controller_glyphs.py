@@ -86,7 +86,6 @@ def test_hud_glyph_layout_color_and_fallback(tmp_path):
         import pytest
         pytest.skip('Apple compiler and frameworks are required')
     source = (ROOT / 'source/interface/hud_messaging.c').read_text()
-    source = source[source.rindex('static void render_state_bitmap('):]
     function = probe_source.function_in(source, 'render_state_bitmap')
     program = (ROOT / 'port/ios/tests/controller_glyph_hud_probe.c').read_text().replace('/* HUD */', function).replace('/* GLYPH BLENDS */', glyph_blends()).replace('/* RENDERER BLENDS */', blend_enums())
     probe, binary = tmp_path / 'hud.c', tmp_path / 'hud'
