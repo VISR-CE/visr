@@ -729,7 +729,7 @@ static struct widget_instance *first_text_box(struct widget_instance *widget)
 }
 
 /* (game thread only) */
-boolean game_engine_running(void);
+boolean game_in_progress(void);   /* (the multiplayer engine alone, game_engine_running, is false in a campaign) */
 extern boolean transport_initialized;
 boolean transport_network_available(void);
 
@@ -751,7 +751,7 @@ int menu_test_network_ready(void)
 /* a screen is up (or a game runs) and networking is ready: the scripted input's clock begins, and a sequence opens its next screen */
 int menu_test_screen_ready(void)
 {
-	return (ui_widget_port_active_screen(0) != NULL || game_engine_running()) && menu_test_network_ready();
+	return (ui_widget_port_active_screen(0) != NULL || game_in_progress()) && menu_test_network_ready();
 }
 
 /* (game thread only: it reads the text boxes the thread that renders them resizes) */
