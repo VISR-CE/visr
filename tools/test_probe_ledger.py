@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ci_test
-from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of
+from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of, refuse_inline_link
 from probekit.commands import compiler_link
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,18 +128,31 @@ def probe_call(node, source):
     return calls
 
 
-def ios_test_calls():
-    source = IOS_TEST.read_text()
+def run_call(node, source):
+    arguments = node.args[0].elts if node.func.id == 'execute' and isinstance(node.args[0], ast.List) else node.args
+    probe = next((keyword.value for keyword in node.keywords if keyword.arg == 'probe'), None)
+    return node.lineno, [token(argument, source) for argument in arguments], token(probe, source) if probe is not None else None
+
+
+def is_call(node, *names):
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names
+
+
+def ios_test_calls(source=None):
+    source = IOS_TEST.read_text() if source is None else source
     calls = []
     for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'probe':
+        if is_call(node, 'probe'):
             calls += probe_call(node, source)
-        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in ('run', 'execute'):
-            arguments = node.args[0].elts if node.func.id == 'execute' and isinstance(node.args[0], ast.List) else node.args
-            probe = next((keyword.value for keyword in node.keywords if keyword.arg == 'probe'), None)
-            calls.append((node.lineno, [token(argument, source) for argument in arguments],
-                          token(probe, source) if probe is not None else None))
+        elif is_call(node, 'run', 'execute'):
+            calls.append(run_call(node, source))
     return sorted(calls, key=lambda call: call[0])
+
+
+def inline_links(source):
+    """Lines of run() and execute() calls that link with a compiler, however it is spelled."""
+    return sorted(line for node in ast.walk(ast.parse(source)) if is_call(node, 'run', 'execute')
+                  for line, tokens, _ in [run_call(node, source)] if compiler_link(tokens))
 
 
 def test_every_probe_ios_test_links_is_run_after_each_link():
@@ -162,13 +175,35 @@ def test_every_probe_ios_test_links_is_run_after_each_link():
 def test_ios_test_links_every_probe_with_probe():
     """ios_test.py's run() refuses a compiler link at run time, however the compiler is spelled; this finds one
     before an ios_test run does."""
-    inline = [line for line, tokens, _ in ios_test_calls() if compiler_link(tokens) and line not in probe_lines()]
+    inline = inline_links(IOS_TEST.read_text())
     assert not inline, f'link these probes with probe(name, sources, flags=...), not run(): lines {inline}'
 
 
-def probe_lines():
-    return {node.lineno for node in ast.walk(ast.parse(IOS_TEST.read_text())) if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name) and node.func.id == 'probe'}
+def test_the_static_check_finds_a_sample_inline_link():
+    sample = ("run('xcrun', 'clang', '-O2', 'port/ios/tests/a_probe.c', '-o', BUILD / 'a-probe')\n"
+              "run(clang, 'port/ios/tests/b_probe.c', '-o', BUILD / 'b-probe')\n"
+              "run('xcrun', '--sdk', 'macosx', 'clang', 'tools/c.m', '-o', BUILD / 'c')\n"
+              "execute(['/usr/bin/cc', 'd.c', '-o', 'd'])\n"
+              "run(clang, '-c', 'port/ios/host/e.c', '-o', BUILD / 'e.o')\n"
+              "run('python3', 'tools/test_clang.py')\n"
+              "probe('f-probe', ['port/ios/tests/f_probe.c'], flags=['-O2'])\n")
+    assert inline_links(sample) == [1, 2, 3, 4]
+
+
+@pytest.mark.parametrize('command', [
+    ('xcrun', 'clang', 'port/ios/tests/a_probe.c', '-o', 'a'), ('clang', 'a.c', '-o', 'a'),
+    ('/opt/homebrew/opt/llvm/bin/clang', 'a.c'), ('xcrun', '--sdk', 'xros', 'clang', 'a.c'), ('cc', 'a.c'),
+    ('clang++', 'a.cc')])
+def test_run_refuses_a_compiler_link(command):
+    with pytest.raises(SystemExit, match='link probes with probe'):
+        refuse_inline_link(command)
+
+
+@pytest.mark.parametrize('command', [
+    ('xcrun', 'clang', '-c', 'a.c', '-o', 'a.o'), ('clang', '-fsyntax-only', 'a.h'), ('xcrun', 'nm', 'a'),
+    ('python3', 'tools/test_clang.py'), ('xcrun', '--sdk', 'xros', 'clang', '-E', 'a.m')])
+def test_run_allows_what_does_not_link(command):
+    refuse_inline_link(command)
 
 
 def test_ios_test_checks_its_ledger_and_cannot_ignore_a_failure():

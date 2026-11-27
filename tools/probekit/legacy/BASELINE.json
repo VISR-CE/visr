@@ -186,7 +186,7 @@
  },
  "exempt.txt": {
   "test_linux_strict.py": 2,
-  "test_probe_ledger.py": 9,
+  "test_probe_ledger.py": 14,
   "test_probe_ledger_compare.py": 10,
   "test_probekit_cc.py": 5
  },

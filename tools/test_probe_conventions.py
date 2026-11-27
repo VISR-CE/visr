@@ -58,22 +58,33 @@ def baseline(name):
     return json.loads((LEGACY / 'BASELINE.json').read_text())[name]
 
 
-def check_shrink_only(name, violating):
-    """`violating` holds what breaks the rule now: file -> count of commands, or a set of names."""
-    entries = set(listed(name))
-    recorded = baseline(name)
+def shrink_only_problems(name, entries, recorded, violating):
+    """What is wrong with a legacy list: `entries` are its files, `recorded` its BASELINE.json record (file -> count,
+    or a list of names) and `violating` what breaks the rule now (file -> count, or a set of names)."""
+    entries = set(entries)
+    problems = []
     grown = sorted(entries - set(recorded))
-    assert not grown, f'{name} is shrink-only; these are not in BASELINE.json: {grown}'
+    if grown:
+        problems.append(f'{name} is shrink-only; these are not in BASELINE.json: {grown}')
     fixed = sorted(entries - set(violating))
-    assert not fixed, f'these no longer break the rule; take them off {name}: {fixed}'
+    if fixed:
+        problems.append(f'these no longer break the rule; take them off {name}: {fixed}')
     removed = sorted(set(recorded) - entries)
-    assert not removed, (f'these came off {name}; take them out of BASELINE.json too, so that putting one back shows as '
-                         f'a baseline addition: {removed}')
+    if removed:
+        problems.append(f'these came off {name}; take them out of BASELINE.json too, so that putting one back shows '
+                        f'as a baseline addition: {removed}')
     if isinstance(recorded, dict):
-        more = {entry: f'{recorded[entry]} -> {violating[entry]}' for entry in sorted(entries)
-                if violating[entry] > recorded[entry]}
-        assert not more, (f'these files on {name} write more compiler commands than BASELINE.json records; build the '
-                          f'new probe with probekit.cc.build: {more}')
+        more = {entry: f'{recorded[entry]} -> {violating[entry]}' for entry in sorted(entries & set(recorded))
+                if entry in violating and violating[entry] > recorded[entry]}
+        if more:
+            problems.append(f'these files on {name} write more compiler commands than BASELINE.json records; build '
+                            f'the new probe with probekit.cc.build: {more}')
+    return problems
+
+
+def check_shrink_only(name, violating):
+    problems = shrink_only_problems(name, listed(name), baseline(name), violating)
+    assert not problems, '\n'.join(problems)
 
 
 def compile_violations():
@@ -162,3 +173,21 @@ def test_the_lint_sees_each_form_of_compiler_command(tmp_path):
                      '    pass\n'
                      'clang, ninja = shutil.which("clang"), shutil.which("ninja")\n')
     assert compiler_commands(probe) == [2, 3, 5, 7, 10, 14, 15, 16, 17, 20, 22, 23, 24]
+
+
+def test_a_shrink_only_list_refuses_growth_stale_entries_and_more_commands():
+    recorded = {'test_a.py': 2, 'test_b.py': 1}
+    assert shrink_only_problems('compile.txt', {'test_a.py', 'test_b.py'}, recorded, {'test_a.py': 2, 'test_b.py': 1}) == []
+    assert shrink_only_problems('compile.txt', {'test_a.py', 'test_b.py'}, recorded, {'test_a.py': 1, 'test_b.py': 1}) == []
+    grown = shrink_only_problems('compile.txt', {'test_a.py', 'test_b.py', 'test_c.py'}, recorded,
+                                 {'test_a.py': 2, 'test_b.py': 1, 'test_c.py': 1})
+    assert len(grown) == 1 and 'not in BASELINE.json' in grown[0] and 'test_c.py' in grown[0]
+    stale = shrink_only_problems('compile.txt', {'test_a.py', 'test_b.py'}, recorded, {'test_a.py': 2})
+    assert len(stale) == 1 and 'no longer break the rule' in stale[0] and 'test_b.py' in stale[0]
+    removed = shrink_only_problems('compile.txt', {'test_a.py'}, recorded, {'test_a.py': 2})
+    assert len(removed) == 1 and 'take them out of BASELINE.json' in removed[0]
+    more = shrink_only_problems('compile.txt', {'test_a.py', 'test_b.py'}, recorded, {'test_a.py': 3, 'test_b.py': 1})
+    assert len(more) == 1 and '2 -> 3' in more[0]
+    harness = shrink_only_problems('harness_not_run.txt', {'tools/harness/tests/test_x.py'},
+                                   ['tools/harness/tests/test_x.py'], {'tools/harness/tests/test_x.py'})
+    assert harness == []
