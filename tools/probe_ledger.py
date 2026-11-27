@@ -29,12 +29,17 @@ def probe_sources(args):
     return [str(arg) for arg in args if str(arg).startswith(PROBE_SOURCES) and str(arg).endswith(SOURCE_SUFFIXES)]
 
 
+def xcrun_clang_link(args):
+    """An `xcrun clang` command that links an executable (not -c, -S, -E or -fsyntax-only). tools/ios_test.py builds
+    every one through its probe() function, and its run() refuses them."""
+    args = tuple(str(arg) for arg in args)
+    return args[:2] == ('xcrun', 'clang') and not any(arg in NOT_LINKING for arg in args)
+
+
 def compiles_probe(args):
     """An `xcrun clang` command that compiles a source in port/ios/tests to an executable (not -c, -S, -E or
     -fsyntax-only), whether or not its output could be read."""
-    args = tuple(str(arg) for arg in args)
-    return (args[:2] == ('xcrun', 'clang') and not any(arg in NOT_LINKING for arg in args)
-            and bool(probe_sources(args)))
+    return xcrun_clang_link(args) and bool(probe_sources(args))
 
 
 def links_probe(args):

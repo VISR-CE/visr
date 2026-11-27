@@ -109,11 +109,29 @@ def token(node, source):
     return re.sub(r'\s', '', ast.get_source_segment(source, node))
 
 
+def probe_call(node, source):
+    """A probe(name, sources, flags=..., args=..., run=...) call as the link command it runs, and its run unless
+    run=False: `xcrun clang`, the flags, the sources and `-o BUILD/name` (a name that is a variable is its own path)."""
+    keywords = {keyword.arg: keyword.value for keyword in node.keywords}
+    name, sources = node.args[0], node.args[1]
+    flags = keywords.get('flags', node.args[2] if len(node.args) > 2 else ast.List(elts=[]))
+    output = token(name, source) if isinstance(name, ast.Name) else 'BUILD/' + token(name, source)
+    elements = lambda value: [token(item, source) for item in value.elts] if isinstance(value, (ast.List, ast.Tuple)) \
+        else [token(value, source)]
+    link = ['xcrun', 'clang', *elements(flags), *elements(sources), '-o', output]
+    calls = [(node.lineno, link, None)]
+    if getattr(keywords.get('run'), 'value', True) is not False:
+        calls.append((node.lineno, [output, *(elements(keywords['args']) if 'args' in keywords else [])], None))
+    return calls
+
+
 def ios_test_calls():
     source = IOS_TEST.read_text()
     calls = []
     for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in ('run', 'execute'):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'probe':
+            calls += probe_call(node, source)
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in ('run', 'execute'):
             arguments = node.args[0].elts if node.func.id == 'execute' and isinstance(node.args[0], ast.List) else node.args
             probe = next((keyword.value for keyword in node.keywords if keyword.arg == 'probe'), None)
             calls.append((node.lineno, [token(argument, source) for argument in arguments],
@@ -133,7 +151,7 @@ def test_every_probe_ios_test_links_is_run_after_each_link():
     unrun = []
     for index, (line, output) in enumerate(links):
         next_link = next((later for later, other in links[index + 1:] if other == output), float('inf'))
-        if not any(line < run_line < next_link and program == output for run_line, program in runs):
+        if not any(line <= run_line < next_link and program == output for run_line, program in runs):
             unrun.append(f'line {line}: {output}')
     assert not unrun, f'probes ios_test.py links and does not run before relinking or the end: {unrun}'
 
