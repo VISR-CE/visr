@@ -347,7 +347,9 @@ static const struct config_setting config_settings[] =
 		"Apple Vision Pro, display.stereo = \"head\" or \"screen\": how many extra\n"
 		"display refreshes each frame stays up, 0 to 3: 0 draws a frame every\n"
 		"refresh (90 a second), 1 every other (45 a second) for when 90 costs too\n"
-		"much. Set when the immersive space opens." },
+		"much. Applied when the immersive space opens; debug.knob_cycle's\n"
+		"cadence changes it live, and its count then holds for the rest of the\n"
+		"session, across openings." },
 	{ "display.steady_cadence", _config_string, "\"log\"", "HALO_STEADY_CADENCE", _environment_value, _platform_visionos,
 		"Apple Vision Pro, display.stereo = \"head\", multiplayer: whether the\n"
 		"headset watches for a big game that no longer holds 90 Hz by its own\n"

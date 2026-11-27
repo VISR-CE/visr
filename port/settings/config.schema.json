@@ -515,7 +515,7 @@
         "frame_repeat": {
           "type": "integer",
           "default": 0,
-          "description": "Apple Vision Pro, display.stereo = \"head\" or \"screen\": how many extra display refreshes each frame stays up, 0 to 3: 0 draws a frame every refresh (90 a second), 1 every other (45 a second) for when 90 costs too much. Set when the immersive space opens.",
+          "description": "Apple Vision Pro, display.stereo = \"head\" or \"screen\": how many extra display refreshes each frame stays up, 0 to 3: 0 draws a frame every refresh (90 a second), 1 every other (45 a second) for when 90 costs too much. Applied when the immersive space opens; debug.knob_cycle's cadence changes it live, and its count then holds for the rest of the session, across openings.",
           "x-environment": "HALO_FRAME_REPEAT",
           "x-environment-style": "value",
           "x-platforms": [

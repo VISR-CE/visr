@@ -557,7 +557,10 @@ void host_theater_attach(void *renderer)
 	/* the once-only logs, theater's and stereo's, repeat for each opening */
 	theater_frames = 0;
 	screen_presents = 0;
-	atomic_store(&repeat_opening, 1);
+	/* (only with a layer renderer, which the opening's count is applied to; otherwise the next knob press would log
+	as the opening's) */
+	if (renderer)
+		atomic_store(&repeat_opening, 1);
 	host_stereo_space_opened(renderer);
 	host_logf(HOST_LOG_INFO, "theater: the immersive space is open");
 	/* the render quality, after the configuration's maximum: the runtime

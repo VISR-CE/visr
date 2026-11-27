@@ -1350,7 +1350,8 @@ static void stereo_frame(struct halo_stereo_frame *frame) API_AVAILABLE(visionos
 #endif
 
 #if TARGET_OS_VISION
-/* display.frame_repeat as debug.knob_cycle's cadence last set it; -1: the configuration's */
+/* display.frame_repeat as debug.knob_cycle's cadence last set it; -1: the configuration's. Once the knob is pressed
+its count holds for the rest of the process, across space openings; it never returns to -1 (a debug knob) */
 static atomic_int frame_repeat_live = -1;
 /* the steady-cadence trigger's starts (host_stereo_cadence_workload): a map's workload decision, or the space
 opening, bumps the generation and the frame thread starts the trigger again */
