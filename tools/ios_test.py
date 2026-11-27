@@ -10,10 +10,9 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 import default_settings_check
-import host_stubs
 import host_toolchain
 import uikit_probe_app
-from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of
+from probe_ledger import ProbeLedger, links_probe, xcrun_clang_link
 from probekit import cc
 
 _problem = host_toolchain.check_run_host('tools/ios_test.py (the guest probe runner)')
@@ -27,14 +26,12 @@ BUILD.mkdir(parents=True, exist_ok=True)
 # Every probe this file links must also run: tools/probe_ledger.py fails the run at the end otherwise.
 probes = ProbeLedger(root=ROOT)
 
-def execute(args, builds=False, probe=None, skippable=False, **kwargs):
-    """subprocess.run with check=True. Unless the command builds, it notes the probe it runs: the program, or
-    `probe` when the program is a driver script handed the probe. A failure prints the exact command, with any
-    shared stub object `run` added. With `skippable`, a runner's skip (tools/uikit_probe_app.py) is returned
-    instead of raised."""
+def execute(args, probe=None, skippable=False, **kwargs):
+    """subprocess.run with check=True. It notes the probe it runs: the program, or `probe` when the program is a
+    driver script handed the probe. A failure prints the exact command. With `skippable`, a runner's skip
+    (tools/uikit_probe_app.py) is returned instead of raised."""
     args = [str(a) for a in args]
-    if not builds:
-        probes.note_ran(Path(ROOT, probe if probe is not None else args[0]), args[1:] if probe is None else args)
+    probes.note_ran(Path(ROOT, probe if probe is not None else args[0]), args[1:] if probe is None else args)
     try:
         return subprocess.run(args, cwd=ROOT, check=True, **kwargs)
     except subprocess.CalledProcessError as error:
@@ -56,14 +53,10 @@ def run_uikit_app(*args):
 
 def run(*args, probe=None):
     args = tuple(str(a) for a in args)
-    builds = links_probe(args)
-    if compiles_probe(args) and not builds:
-        raise SystemExit('ios_test.py: a probe link whose output it cannot read (-o, --output or --output=): '
+    if xcrun_clang_link(args):
+        raise SystemExit('ios_test.py: link probes with probe(name, sources, flags=...), not run(): '
                          + shlex.join(args))
-    if builds:
-        probes.note_built(Path(ROOT, output_of(args)), args)
-        args = args + ('-x', 'none', str(host_stubs.stub_object(BUILD, cc.stub_flags(args))))
-    execute(args, builds=builds, probe=probe)
+    execute(args, probe=probe)
 
 # Every probe executable is built here, by tools/probekit/cc.py with this file's own flags, in order: the command is
 # `xcrun clang`, the flags, the sources and `-o BUILD/name`. A probe with a source in port/ios/tests links the
@@ -74,7 +67,7 @@ def run(*args, probe=None):
 def probe(name, sources, flags=(), args=(), run=True):
     output = BUILD / name
     sources, flags = [str(source) for source in sources], [str(flag) for flag in flags]
-    command = ('xcrun', 'clang', *flags, *sources, '-o', str(output))
+    command = cc.command(sources, output=output, flags=flags, apple=True)
     recorded = links_probe(command)
     try:
         cc.build(sources, output=output, flags=flags, apple=True, host_stubs=recorded, stub_directory=BUILD, cwd=ROOT)
@@ -348,7 +341,7 @@ probe('benchmark-variant-probe', ['port/ios/tests/benchmark_variant_probe.c'],
 # ... and once as an Apple build (HALO_IOS), whose defaults keep map downloads and map seeding off
 for name, defines in (('config-probe-ios', ['-DHALO_ILP32=1']), ('config-probe-desktop', []),
                       ('config-probe-apple', ['-DHALO_ILP32=1', '-DHALO_IOS=1'])):
-    probe(name, ['port/ios/tests/config_probe.c'],
+    probe(BUILD / name, ['port/ios/tests/config_probe.c'],
         flags=['-O2', '-fsanitize=address', *defines, '-Iport/linux/src', '-Iport/third_party/tomlc17', *sdl_flags])
 # the settings' layers: the default, the device's profile, a chosen value, the environment; config.origins,
 # which tells a chosen value from a default the game wrote; scene classes (port/linux/src/port_config.c).
@@ -840,36 +833,29 @@ probe('metal-compile-probe', ['port/ios/tests/metal_compile_probe.c'],
 # per-load compilation progress: early completion, cache hits, stale workers and
 # the existing loading animation's measured bounds, without a Metal device
 for sanitizer in ('thread', 'address,undefined'):
-    run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', f'-fsanitize={sanitizer}',
-        '--include-directory=port/linux/src', '--include-directory=port/ios/host', 'port/ios/tests/compile_progress_probe.c',
-        f'--output={BUILD / "compile-progress-probe"}')
-    run(BUILD/'compile-progress-probe')
+    probe("compile-progress-probe", ['port/ios/tests/compile_progress_probe.c'],
+        flags=['-O2', '-Wall', '-Wextra', '-Werror', f'-fsanitize={sanitizer}', '--include-directory=port/linux/src',
+        '--include-directory=port/ios/host'])
 run('python3', 'tools/test_loading_progress.py')
 run('python3', 'tools/test_loading_cadence.py')
 run('python3', 'tools/scene_class_test.py')
 # the Apple host's socket adapter: every address it returns is laid out as the game reads it (a datagram's
 # source read with recvmsg was not, so a host took an internet play joiner's datagrams for its own machine's)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Dst_mtim=st_mtimespec',
-    '-Dst_atim=st_atimespec', '-Dst_ctim=st_ctimespec', '--include-directory=port/linux/src',
-    '--include-directory=port/ios/host', '--include-directory=port/runtime/include',
-    '--include-directory=port/runtime/guest/runtime', 'port/ios/tests/posix_net_probe.c',
-    'port/ios/host/posix_net.c', 'port/ios/host/host_socket_revival.c', '-Wl,-dead_strip',
-    f'--output={BUILD / "posix-net-probe"}')
-run(BUILD/'posix-net-probe')
+probe("posix-net-probe", ['port/ios/tests/posix_net_probe.c', 'port/ios/host/posix_net.c',
+    'port/ios/host/host_socket_revival.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Dst_mtim=st_mtimespec', '-Dst_atim=st_atimespec',
+    '-Dst_ctim=st_ctimespec', '--include-directory=port/linux/src', '--include-directory=port/ios/host',
+    '--include-directory=port/runtime/include', '--include-directory=port/runtime/guest/runtime', '-Wl,-dead_strip'])
 # where a system link broadcast goes, and the listening sockets that hold discovery up (halo_lan_targets.h)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/linux/src',
-    'port/ios/tests/lan_targets_probe.c', f'--output={BUILD / "lan-targets-probe"}')
-run(BUILD/'lan-targets-probe')
+probe("lan-targets-probe", ['port/ios/tests/lan_targets_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '--include-directory=port/linux/src'])
 # Direct IP's typed address and port, without a network host or game data.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '--include-directory=port/linux/src', 'port/ios/tests/direct_ip_probe.c',
-    f'--output={BUILD / "direct-ip-probe"}')
-run(BUILD/'direct-ip-probe')
+probe("direct-ip-probe", ['port/ios/tests/direct_ip_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '--include-directory=port/linux/src'])
 # internet play: whether its brokers can be reached, the server browser's empty list and the question
 # an Apple build asks before turning it on (halo_internet.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '--include-directory=port/linux/src',
-    'port/ios/tests/internet_probe.c', f'--output={BUILD / "internet-probe"}')
-run(BUILD/'internet-probe')
+probe("internet-probe", ['port/ios/tests/internet_probe.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '--include-directory=port/linux/src'])
 # and what the probe can't see. Nothing reaches a server before the player hosts for the internet, joins an
 # invite, looks up a join code or opens the server browser: p2p.c begins signalling in those four places and
 # STUN in the first three
@@ -921,141 +907,114 @@ if 'menu_internet_screen_opened();' not in body_of(menu_source, 'multiplayer_mod
                      "which asks for the question where network.online_ask owes it")
 
 # debug.texture_override_directory's hash and file checks (port/linux/src/texture_override.h)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/texture_override_probe.c', '-o', BUILD/'texture-override-probe')
-run(BUILD/'texture-override-probe')
+probe('texture-override-probe', ['port/ios/tests/texture_override_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # the replacement textures' byte budget: what makes room, the reload of a dropped one, the purge after a map load,
 # the two sets and the memory warning (port/linux/src/texture_replacement_cache.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/texture_replacement_probe.c', '-o', BUILD/'texture-replacement-probe')
-run(BUILD/'texture-replacement-probe')
+probe('texture-replacement-probe', ['port/ios/tests/texture_replacement_probe.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # the two sets' files read under the budget, with tiny real files and GPU boundary stubs
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/texture_compare_probe.c', 'port/linux/src/texture_override_cache.c',
-    '-o', BUILD/'texture-compare-probe')
-run(BUILD/'texture-compare-probe')
+probe('texture-compare-probe', ['port/ios/tests/texture_compare_probe.c', 'port/linux/src/texture_override_cache.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # the upscaled textures' cache records, BC7 and ASTC 4x4, read under the same budget (port/linux/src/texture_record.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/texture_record_probe.c', 'port/linux/src/texture_override_cache.c',
-    '-o', BUILD/'texture-record-probe')
-run(BUILD/'texture-record-probe')
+probe('texture-record-probe', ['port/ios/tests/texture_record_probe.c', 'port/linux/src/texture_override_cache.c'],
+    flags=['-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # the texture upscale policy's device classifier (port/runtime/texture_policy.c)
 run('python3', 'tools/embed_texture_policy.py', 'port/assets/texture-policy.json', BUILD/'texture_policy_table.c')
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/runtime', '-Iport/linux/src',
-    'port/ios/tests/texture_policy_probe.c', 'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c',
-    '-lz', '-o', BUILD/'texture-policy-probe')
-run(BUILD/'texture-policy-probe')
+probe('texture-policy-probe', ['port/ios/tests/texture_policy_probe.c', 'port/runtime/texture_policy.c',
+    BUILD/'texture_policy_table.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/runtime', '-Iport/linux/src', '-lz'])
 # Menu photographs keep 4x bpf; logos, marines and difficulty frames start with S4g.
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/runtime',
-    '--include-directory=port/linux/src', 'port/ios/tests/menu_picture_upscaled_probe.c',
-    'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c', '-lz', '--output', BUILD/'menu-picture-upscaled-probe')
-run(BUILD/'menu-picture-upscaled-probe')
+probe('menu-picture-upscaled-probe', ['port/ios/tests/menu_picture_upscaled_probe.c', 'port/runtime/texture_policy.c',
+    BUILD/'texture_policy_table.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '--include-directory=port/runtime',
+    '--include-directory=port/linux/src', '-lz'])
 # Optional source-fixture arguments exercise the trace; the default probe ships no game pixels.
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
-    'port/ios/tests/menu_picture_trace_probe.c', 'port/ios/host/menu_picture_trace.c',
-    'port/ios/host/menu_picture_shapes.c', '--output', BUILD/'menu-picture-trace-probe')
-run(BUILD/'menu-picture-trace-probe')
+probe('menu-picture-trace-probe', ['port/ios/tests/menu_picture_trace_probe.c', 'port/ios/host/menu_picture_trace.c',
+    'port/ios/host/menu_picture_shapes.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host'])
 # The source-fitted menu band preserves the plain upscale for unknown sources.
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
-    'port/ios/tests/menu_background_redraw_probe.c', 'port/ios/host/menu_background_redraw.c',
-    '--output', BUILD/'menu-background-redraw-probe')
-run(BUILD/'menu-background-redraw-probe')
+probe('menu-background-redraw-probe', ['port/ios/tests/menu_background_redraw_probe.c',
+    'port/ios/host/menu_background_redraw.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host'])
 # Large difficulty frames replace small icons only when both decoded sources match.
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '--include-directory=port/ios/host', 'port/ios/tests/menu_difficulty_probe.c',
-    'port/ios/host/menu_difficulty.c', '-lm', '--output', BUILD/'menu-difficulty-probe')
-run(BUILD/'menu-difficulty-probe')
+probe('menu-difficulty-probe', ['port/ios/tests/menu_difficulty_probe.c', 'port/ios/host/menu_difficulty.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
+    '-lm'])
 # Authored art never replaces an unknown player's source; missing resources preserve bpf.
-run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fsanitize=address,undefined',
-    '--include-directory=port/ios/host', 'port/ios/tests/menu_picture_redraw_probe.m',
-    'port/ios/host/menu_picture_redraw.m', 'port/ios/host/menu_picture_trace.c',
-    'port/ios/host/menu_picture_shapes.c', '-framework', 'Foundation', '-framework', 'CoreText',
-    '-framework', 'CoreGraphics', '-framework', 'ImageIO', '--output', BUILD/'menu-picture-redraw-probe')
-run(BUILD/'menu-picture-redraw-probe')
+probe('menu-picture-redraw-probe', ['port/ios/tests/menu_picture_redraw_probe.m', 'port/ios/host/menu_picture_redraw.m',
+    'port/ios/host/menu_picture_trace.c', 'port/ios/host/menu_picture_shapes.c'],
+    flags=['-O2', '-fobjc-arc', '-fsanitize=address,undefined', '--include-directory=port/ios/host', '-framework',
+    'Foundation', '-framework', 'CoreText', '-framework', 'CoreGraphics', '-framework', 'ImageIO'])
 
 
 # its scale rule against the shipping set's 2x, 4x and 8x textures (port/assets/texture-selection-lock.tsv)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/runtime', '-Iport/linux/src',
-    'port/ios/tests/texture_selection_probe.c', 'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c',
-    '-lz', '-o', BUILD/'texture-selection-probe')
-run(BUILD/'texture-selection-probe', 'port/assets/texture-selection-lock.tsv')
+probe('texture-selection-probe', ['port/ios/tests/texture_selection_probe.c', 'port/runtime/texture_policy.c',
+    BUILD/'texture_policy_table.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/runtime', '-Iport/linux/src', '-lz'],
+    args=['port/assets/texture-selection-lock.tsv'])
 # the texture upscale cache's recipe key, invalidation, writes and storage rules (port/runtime/texture_cache.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/runtime', '-Iport/linux/src',
-    'port/ios/tests/texture_cache_probe.c', 'port/runtime/texture_cache.c', '-o', BUILD/'texture-cache-probe')
-run(BUILD/'texture-cache-probe')
+probe('texture-cache-probe', ['port/ios/tests/texture_cache_probe.c', 'port/runtime/texture_cache.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/runtime', '-Iport/linux/src'])
 # the per-level upscaled-texture gate (port/linux/src/texture_upscale_state.h)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/texture_upscale_state_probe.c', '-o', BUILD/'texture-upscale-state-probe')
-run(BUILD/'texture-upscale-state-probe')
+probe('texture-upscale-state-probe', ['port/ios/tests/texture_upscale_state_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # the loading screen's larger picture: its file, checks and TGA read (port/runtime/loading_picture_upscaled.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
-    'port/ios/tests/loading_picture_upscaled_probe.c', '-o', BUILD/'loading-picture-upscaled-probe')
-run(BUILD/'loading-picture-upscaled-probe')
+probe('loading-picture-upscaled-probe', ['port/ios/tests/loading_picture_upscaled_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime'])
 # when the on-device upscaler may run: the profile gate, gameplay and pauses (port/runtime/texture_upscale_schedule.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-fsanitize=address,undefined', '-Iport/runtime',
-    'port/ios/tests/texture_upscale_schedule_probe.c', '-o', BUILD/'texture-upscale-schedule-probe')
-run(BUILD/'texture-upscale-schedule-probe')
+probe('texture-upscale-schedule-probe', ['port/ios/tests/texture_upscale_schedule_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-fsanitize=address,undefined', '-Iport/runtime'])
 # the Mac apps quit on SIGTERM, SIGINT and SIGHUP (port/ios/host/host_quit_signals.c)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host', 'port/ios/tests/quit_signals_probe.c',
-    'port/ios/host/host_quit_signals.c', '-o', BUILD/'quit-signals-probe')
-run(BUILD/'quit-signals-probe')
+probe('quit-signals-probe', ['port/ios/tests/quit_signals_probe.c', 'port/ios/host/host_quit_signals.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host'])
 # the import phase's bar and its "ready to start" mark (port/runtime/texture_upscale_import_bar.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
-    'port/ios/tests/texture_upscale_import_bar_probe.c', '-o', BUILD/'texture-upscale-import-bar-probe')
-run(BUILD/'texture-upscale-import-bar-probe')
+probe('texture-upscale-import-bar-probe', ['port/ios/tests/texture_upscale_import_bar_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime'])
 # the import phase's continued processing (port/runtime/texture_upscale_continued.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
-    'port/ios/tests/texture_upscale_continued_probe.c', '-o', BUILD/'texture-upscale-continued-probe')
-run(BUILD/'texture-upscale-continued-probe')
+probe('texture-upscale-continued-probe', ['port/ios/tests/texture_upscale_continued_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime'])
 # how hard the on-device upscaler works while no one waits for it (port/runtime/texture_upscale_priority.h)
-run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
-    'port/ios/tests/texture_upscale_priority_probe.c', '-o', BUILD/'texture-upscale-priority-probe')
-run(BUILD/'texture-upscale-priority-probe')
+probe('texture-upscale-priority-probe', ['port/ios/tests/texture_upscale_priority_probe.c'],
+    flags=['-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime'])
 # which HALO_ variables of a launch the game gets (port/ios/host/host_guest_environment.c)
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
-    '-Iport/ios/host', 'port/ios/tests/guest_environment_probe.c', 'port/ios/host/host_guest_environment.c',
-    '-o', BUILD/'guest-environment-probe')
-run(BUILD/'guest-environment-probe')
+probe('guest-environment-probe', ['port/ios/tests/guest_environment_probe.c', 'port/ios/host/host_guest_environment.c'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
+    '-Iport/ios/host'])
 # the host's write of one setting into config.toml, for the Settings app's switch (port/ios/host/host_config.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host', 'port/ios/tests/host_config_write_probe.c',
-    'port/ios/host/host_config.c', '-o', BUILD/'host-config-write-probe')
-run(BUILD/'host-config-write-probe')
+probe('host-config-write-probe', ['port/ios/tests/host_config_write_probe.c', 'port/ios/host/host_config.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # cloud saves: the sync rules against a fake cloud shared by several simulated devices (port/runtime/cloud_saves.c)
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
-    '-Iport/runtime', 'port/ios/tests/cloud_saves_probe.c', 'port/runtime/cloud_saves.c', 'port/runtime/save_writer.c', '-lz', '-o', BUILD/'cloud-saves-probe')
-run(BUILD/'cloud-saves-probe')
+probe('cloud-saves-probe', ['port/ios/tests/cloud_saves_probe.c', 'port/runtime/cloud_saves.c',
+    'port/runtime/save_writer.c'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
+    '-Iport/runtime', '-lz'])
 # the saved game's one writer: the order of its calls, a failure and a death at every call, the worker (port/runtime/save_writer.c)
-run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
-    '-Iport/runtime', 'port/ios/tests/save_writer_probe.c', 'port/runtime/save_writer.c', '-o', BUILD/'save-writer-probe')
-run(BUILD/'save-writer-probe')
+probe('save-writer-probe', ['port/ios/tests/save_writer_probe.c', 'port/runtime/save_writer.c'],
+    flags=['-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fno-sanitize-recover=undefined',
+    '-Iport/runtime'])
 # the same again for data races between the game's thread and the worker
-run('xcrun', 'clang', '-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fsanitize=thread',
-    '-Iport/runtime', 'port/ios/tests/save_writer_probe.c', 'port/runtime/save_writer.c', '-o', BUILD/'save-writer-probe-thread')
-run(BUILD/'save-writer-probe-thread')
+probe('save-writer-probe-thread', ['port/ios/tests/save_writer_probe.c', 'port/runtime/save_writer.c'],
+    flags=['-O1', '-g', '-Wall', '-Wextra', '-Werror', '-fsanitize=thread', '-Iport/runtime'])
 # the game's reread of one setting at a level load, the environment still winning (port/linux/src/port_config.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_ILP32', '-Iport/linux/src',
-    '-Iport/third_party/tomlc17', *shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True)),
-    'port/ios/tests/config_reload_probe.c', 'port/third_party/tomlc17/tomlc17.c', '-o', BUILD/'config-reload-probe')
-run(BUILD/'config-reload-probe')
+probe('config-reload-probe', ['port/ios/tests/config_reload_probe.c', 'port/third_party/tomlc17/tomlc17.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-DHALO_ILP32', '-Iport/linux/src', '-Iport/third_party/tomlc17',
+    *shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True))])
 # a benchmark suite's launch leaves config.toml and config.origins alone (port/linux/src/port_config.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_ILP32', '-Iport/linux/src',
-    '-Iport/third_party/tomlc17', *shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True)),
-    'port/ios/tests/benchmark_isolation_probe.c', 'port/third_party/tomlc17/tomlc17.c', '-o', BUILD/'benchmark-isolation-probe')
-run(BUILD/'benchmark-isolation-probe')
+probe('benchmark-isolation-probe', ['port/ios/tests/benchmark_isolation_probe.c', 'port/third_party/tomlc17/tomlc17.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-DHALO_ILP32', '-Iport/linux/src', '-Iport/third_party/tomlc17',
+    *shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True))])
 # bp and bpf on the GPU (port/ios/host/texture_refine.m); skips itself where there is no Metal device
-run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', 'port/ios/tests/texture_refine_probe.m',
-    'port/ios/host/texture_refine.m', '-framework', 'Foundation', '-framework', 'Metal', '-o', BUILD/'texture-refine-probe')
-run(BUILD/'texture-refine-probe')
+probe('texture-refine-probe', ['port/ios/tests/texture_refine_probe.m', 'port/ios/host/texture_refine.m'],
+    flags=['-O2', '-fobjc-arc', '-Iport/ios/host', '-framework', 'Foundation', '-framework', 'Metal'])
 # compute grids in whole threadgroups (port/ios/host/metal_compute_grid.h) write only their own cells, as
 # dispatchThreads: would; skips itself where there is no Metal device
-run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', 'port/ios/tests/metal_compute_grid_probe.m',
-    '-framework', 'Foundation', '-framework', 'Metal', '-o', BUILD/'metal-compute-grid-probe')
-run(BUILD/'metal-compute-grid-probe')
+probe('metal-compute-grid-probe', ['port/ios/tests/metal_compute_grid_probe.m'],
+    flags=['-O2', '-fobjc-arc', '-Iport/ios/host', '-framework', 'Foundation', '-framework', 'Metal'])
 # the render's own local random sequence: frames drawn between ticks leave the game's local
 # numbers alone (the probe includes port/linux/game/render_random.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/render_random_probe.c', '-o', BUILD/'render-random-probe')
-run(BUILD/'render-random-probe')
+probe('render-random-probe', ['port/ios/tests/render_random_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # and the call sites the probe can't see: each in-game and pregame frame brackets its work, and
 # the stereo frame's passes take their seeds from render_random.c
 def function_body(path, name):
@@ -1074,34 +1033,27 @@ for path, name, calls in (
     if -1 in positions or positions != sorted(positions):
         raise SystemExit(f'{path}: {name} must call {" then ".join(calls)}')
 # display.render_scale on the foveated stereo views: the render quality it maps to
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/foveation_scale_probe.c', '-o', BUILD/'foveation-scale-probe')
-run(BUILD/'foveation-scale-probe')
+probe('foveation-scale-probe', ['port/ios/tests/foveation_scale_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/ios/host'])
 # Enter VR on Apple Vision Pro: the stereo mode it gives, and the controller's chord
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-Iport/ios/host',
-    'port/ios/tests/stereo_entry_probe.c', '-o', BUILD/'stereo-entry-probe')
-run(BUILD/'stereo-entry-probe')
+probe('stereo-entry-probe', ['port/ios/tests/stereo_entry_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-Iport/ios/host'])
 # head-tracked stereo's look: the world holds still in the room while the head pans, and
 # the right stick's turn (the probe includes port/linux/game/stereo.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Iport/linux/src', '-Iport/ios/host',
-    'port/ios/tests/stereo_head_probe.c', 'port/ios/host/host_stereo_head.c',
-    '-o', BUILD/'stereo-head-probe')
-run(BUILD/'stereo-head-probe')
+probe('stereo-head-probe', ['port/ios/tests/stereo_head_probe.c', 'port/ios/host/host_stereo_head.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Iport/linux/src', '-Iport/ios/host'])
 for distance in ('1.5', '1.75', '2.0'):
     run(BUILD/'stereo-head-probe', '--shared-scope-view', distance)
 # the posture the headset logs from the head's height (comfort and aim design, phase 0)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/stereo_posture_probe.c', 'port/ios/host/host_stereo_posture.c',
-    '-o', BUILD/'stereo-posture-probe')
-run(BUILD/'stereo-posture-probe')
+probe('stereo-posture-probe', ['port/ios/tests/stereo_posture_probe.c', 'port/ios/host/host_stereo_posture.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/ios/host'])
 run('python3', 'tools/test_dead_spectator_head.py')
 run('python3', 'tools/test_stereo_passenger.py')
 run('python3', 'tools/test_stereo_scope_guest.py')
 run('python3', 'tools/test_stereo_camera_wiring.py')
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Iport/linux/src', '-Iport/ios/host',
-    '-Iport/ios/tests', 'port/ios/tests/replay_stereo_entry_probe.c', 'port/ios/host/host_stereo_head.c',
-    '-o', BUILD/'replay-stereo-entry-probe')
-run(BUILD/'replay-stereo-entry-probe')
+probe('replay-stereo-entry-probe', ['port/ios/tests/replay_stereo_entry_probe.c', 'port/ios/host/host_stereo_head.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Iport/linux/src', '-Iport/ios/host',
+    '-Iport/ios/tests'])
 # and the call site the probe can't see: stereo latches its frame once a drawn frame, at the render,
 # not in render_interpolation_frame_begin, which game_time_update calls around game_frame as well
 latch_calls = [path for path in sorted((ROOT / 'source').rglob('*.c')) + sorted((ROOT / 'port/linux').rglob('*.c'))
@@ -1116,23 +1068,18 @@ if latch_calls != [ROOT / 'source/main/main.c'] or not re.search(
 # HEAD mode's HUD and UI layout: each group's outer corner at its CE corner's angles in the
 # periphery, the UI inside foveation's sharp region, the reticle centered or along a seat's aim,
 # the level frame's yaw
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/linux/src',
-    'port/ios/tests/stereo_hud_probe.c', 'port/ios/host/host_stereo_hud.c', '-o', BUILD/'stereo-hud-probe')
-run(BUILD/'stereo-hud-probe')
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/tracked_hud_probe.c', 'port/ios/host/host_stereo_hud.c', '-o', BUILD/'tracked-hud-probe')
-run(BUILD/'tracked-hud-probe')
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/first_person_arms_probe.c', '-lm', '-o', BUILD/'first-person-arms-probe')
-run(BUILD/'first-person-arms-probe')
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/projectile_offset_probe.c', '-lm', '-o', BUILD/'projectile-offset-probe')
-run(BUILD/'projectile-offset-probe')
+probe('stereo-hud-probe', ['port/ios/tests/stereo_hud_probe.c', 'port/ios/host/host_stereo_hud.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/linux/src'])
+probe('tracked-hud-probe', ['port/ios/tests/tracked_hud_probe.c', 'port/ios/host/host_stereo_hud.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
+probe('first-person-arms-probe', ['port/ios/tests/first_person_arms_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-lm'])
+probe('projectile-offset-probe', ['port/ios/tests/projectile_offset_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-lm'])
 # the HUD split by the function that draws each element: nested spans, the catch-all, the corner
 # fallback and each frame's reset (the probe includes port/linux/game/hud_group.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/hud_group_probe.c', '-o', BUILD/'hud-group-probe')
-run(BUILD/'hud-group-probe')
+probe('hud-group-probe', ['port/ios/tests/hud_group_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # and the call sites the probe can't see: every crosshair draw goes through the reticle's
 # redirect, and each group's drawing function opens its span
 weapon_source = (ROOT / 'source/interface/hud_weapon.c').read_text()
@@ -1154,21 +1101,17 @@ if 'halo_hud_group_forget_corner();' not in function_body('source/interface/inte
 # head-tracked stereo's first-person body: the render-only node matrices with the head and the
 # third-person arms collapsed, and when the body draws (the probe includes
 # port/linux/game/first_person_body.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/first_person_body_probe.c', '-o', BUILD/'first-person-body-probe')
-run(BUILD/'first-person-body-probe')
+probe('first-person-body-probe', ['port/ios/tests/first_person_body_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # SCREEN mode's 3D TV and the film: the one mapping, its ease, the reasons and the framing, and
 # the first-person weapon's own eye (the probe includes port/linux/game/stereo.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Iport/linux/src', '-Iport/ios/host',
-    'port/ios/tests/stereo_screen_probe.c', 'port/ios/host/host_stereo_head.c',
-    '-o', BUILD/'stereo-screen-probe')
-run(BUILD/'stereo-screen-probe')
+probe('stereo-screen-probe', ['port/ios/tests/stereo_screen_probe.c', 'port/ios/host/host_stereo_head.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Iport/linux/src', '-Iport/ios/host'])
 # the stereo culling frustum's pixel scale: model detail, particles and sprites at mono's, times
 # display.lod_scale, and the planes untouched (the probe includes port/linux/game/stereo_lod.c
 # and port/linux/game/stereo.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/stereo_lod_probe.c', '-o', BUILD/'stereo-lod-probe')
-run(BUILD/'stereo-lod-probe')
+probe('stereo-lod-probe', ['port/ios/tests/stereo_lod_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # and render.c still hands the culling frustum to it, after building it
 render_source = (ROOT / 'source/render/render.c').read_text()
 cull_build = render_source.find('render_camera_build_frustum(&cull_camera')
@@ -1198,16 +1141,14 @@ if 'rasterizer_lens_flares_replay_failed();' not in render_source:
                      '(rasterizer_lens_flares_replay_failed)')
 # far scenery (a10's ring) moves with the eye, so it too sits at infinity (the probe includes
 # port/linux/game/stereo_far.c), and render_objects.c hands it every object's node matrices
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/stereo_far_probe.c', '-o', BUILD/'stereo-far-probe')
-run(BUILD/'stereo-far-probe')
+probe('stereo-far-probe', ['port/ios/tests/stereo_far_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 if 'halo_stereo_far_matrices(' not in (ROOT / 'source/render/render_objects.c').read_text():
     raise SystemExit('render_objects.c: objects must pass their node matrices through halo_stereo_far_matrices')
 # HEAD mode's help text: a10's look-only prompts hidden, tutorial_moving_1's look line dropped, and
 # every message whole with stereo off (the probe includes port/linux/game/stereo_help_text.c)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
-    'port/ios/tests/stereo_help_text_probe.c', '-o', BUILD/'stereo-help-text-probe')
-run(BUILD/'stereo-help-text-probe')
+probe('stereo-help-text-probe', ['port/ios/tests/stereo_help_text_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/linux/src'])
 # and the call site the probe can't see: the help text's draw asks which part to show
 messaging_source = (ROOT / 'source/interface/hud_messaging.c').read_text()
 if 'halo_stereo_help_text_part(hud_messaging_globals->help_message->name)' not in messaging_source or \
@@ -1230,18 +1171,18 @@ literals = re.match(r'shader_source =\s*((?:@?"(?:[^"\\]|\\.)*"\s*)+);',
     re.findall(r'"((?:[^"\\]|\\.)*)"', literals.group(1))).encode().decode('unicode_escape'))
 run('xcrun', '--sdk', 'xros', 'metal', '-c', BUILD / 'host_stereo.metal', '-o', BUILD / 'host_stereo.air')
 default_settings_check.check_foveation_defaults()   # (HEAD mode's foveation defaults agree; also run by ci_test)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
-    'port/ios/tests/host_lan_probe.c', 'port/ios/host/host_lan.c', 'port/linux/src/delta_legacy_runtime.c', f'--output={BUILD / "host-lan-probe"}')
-run(BUILD/'host-lan-probe')
+probe("host-lan-probe", ['port/ios/tests/host_lan_probe.c', 'port/ios/host/host_lan.c',
+    'port/linux/src/delta_legacy_runtime.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host'])
 # which interface supplies the system link address (halo_interface_rank.h)
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/linux/src',
-    'port/ios/tests/interface_rank_probe.c', f'--output={BUILD / "interface-rank-probe"}')
-run(BUILD/'interface-rank-probe')
+probe("interface-rank-probe", ['port/ios/tests/interface_rank_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '--include-directory=port/linux/src'])
 
 # Host-specific menu capabilities; the retired quit platform is rejected.
 for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform-apple', ['-DHALO_ILP32=1', '-DHALO_IOS=1'], False),
                            ('menu-platform-mac', ['-DHALO_ILP32=1', '-DHALO_IOS=1'], True), ('menu-platform-android', ['-DHALO_ANDROID=1'], False)):
-    run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', *defines, 'port/ios/tests/menu_platform_probe.c', '-o', BUILD / name)
+    probe(BUILD / name, ['port/ios/tests/menu_platform_probe.c'],
+        flags=['-O2', '-fsanitize=address,undefined', *defines], run=False)
     kind = name.split('-', 2)[2]
     for cloud in ('0', '1'):
         execute([BUILD / name, kind],
@@ -1266,10 +1207,9 @@ run('python3', 'tools/test_menu_builder_loads.py')
 run('python3', 'tools/test_menu_art_decode.py')
 
 # Imported images are removed only from private Documents after final map verification.
-run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
-    '-Iport/ios/host', '-Iport/runtime', 'port/ios/tests/import_source_probe.m', 'port/runtime/xiso.c',
-    '-framework', 'Foundation', '-o', BUILD/'import-source-probe')
-run(BUILD/'import-source-probe')
+probe('import-source-probe', ['port/ios/tests/import_source_probe.m', 'port/runtime/xiso.c'],
+    flags=['-O2', '-fobjc-arc', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    '-Iport/runtime', '-framework', 'Foundation'])
 
 # Parse untrusted XISO metadata and exercise extraction/cancellation under sanitizers.
 run('python3', 'tools/ios_xiso_test.py')
@@ -1288,54 +1228,44 @@ run('python3', 'tools/bink_test.py', '--if-present')
 run("python3", "tools/shader_worker_probe.py")
 
 # Bounded model tile packing, numerical pixel parity, and gated cache records.
-run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host',
-    'port/ios/tests/texture_upscale_model_probe.m', 'port/ios/host/host_startup.c',
-    'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c', '-framework', 'Foundation', '-framework', 'CoreML',
-    '-o', BUILD/'texture-upscale-model-probe')
-run(BUILD/'texture-upscale-model-probe')
-run('xcrun', 'clang', '-O2', '-Iport/ios/host', 'port/ios/tests/texture_upscale_pixels_probe.c',
-    'port/ios/host/texture_upscale_pixels.c', '-framework', 'Accelerate', '-o', BUILD/'texture-upscale-pixels-probe')
-run(BUILD/'texture-upscale-pixels-probe')
+probe('texture-upscale-model-probe', ['port/ios/tests/texture_upscale_model_probe.m', 'port/ios/host/host_startup.c',
+    'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c'],
+    flags=['-O2', '-fobjc-arc', '-Iport/ios/host', '-framework', 'Foundation', '-framework', 'CoreML'])
+probe('texture-upscale-pixels-probe', ['port/ios/tests/texture_upscale_pixels_probe.c',
+    'port/ios/host/texture_upscale_pixels.c'],
+    flags=['-O2', '-Iport/ios/host', '-framework', 'Accelerate'])
 run('python3', 'tools/test_texture_upscale_encode.py')
 
-run('xcrun', 'clang', '-O2', '-Iport/ios/host', 'port/ios/tests/texture_refine_bounded_probe.c',
-    'port/ios/host/texture_refine_bounded.c', 'port/ios/host/texture_upscale_pixels.c',
-    '-framework', 'Accelerate', '-o', BUILD/'texture-refine-bounded-probe')
-run(BUILD/'texture-refine-bounded-probe')
-run('xcrun', 'clang', '-O2', '-std=c11', '-Iport/ios/host', '-Iport/runtime',
-    'port/ios/tests/texture_upscale_generate_probe.c', '-x', 'c', 'port/ios/host/texture_upscale_generate.m',
-    '-o', BUILD/'texture-upscale-generate-probe')
-run(BUILD/'texture-upscale-generate-probe')
-run('xcrun', 'clang', '-O2', '-std=c11', '-Iport/ios/host', '-Iport/runtime',
-    'port/ios/tests/texture_upscale_tiles_probe.c', '-x', 'c', 'port/ios/host/texture_upscale_generate.m',
-    '-x', 'c', 'port/ios/host/texture_upscale_pixels.c', 'port/ios/host/texture_refine_bounded.c',
-    '-framework', 'Accelerate', '-o', BUILD/'texture-upscale-tiles-probe')
-run(BUILD/'texture-upscale-tiles-probe')
+probe('texture-refine-bounded-probe', ['port/ios/tests/texture_refine_bounded_probe.c',
+    'port/ios/host/texture_refine_bounded.c', 'port/ios/host/texture_upscale_pixels.c'],
+    flags=['-O2', '-Iport/ios/host', '-framework', 'Accelerate'])
+probe('texture-upscale-generate-probe', ['port/ios/tests/texture_upscale_generate_probe.c',
+    'port/ios/host/texture_upscale_generate.m'],
+    flags=['-O2', '-std=c11', '-Iport/ios/host', '-Iport/runtime', '-x', 'c'])
+probe('texture-upscale-tiles-probe', ['port/ios/tests/texture_upscale_tiles_probe.c',
+    'port/ios/host/texture_upscale_generate.m', 'port/ios/host/texture_upscale_pixels.c',
+    'port/ios/host/texture_refine_bounded.c'],
+    flags=['-O2', '-std=c11', '-Iport/ios/host', '-Iport/runtime', '-x', 'c', '-x', 'c', '-framework', 'Accelerate'])
 
-run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', '-Iport/runtime',
-    '-Iport/runtime/include', '-Iport/linux/src', 'port/ios/tests/texture_upscale_driver_probe.m',
-    'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c',
-    'port/runtime/texture_cache.c', 'port/runtime/texture_repair.c', 'port/ios/host/metal_gate.m', '-DMETAL_GATE_NO_METALFX',
-    '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'AppKit',
-    '-o', BUILD/'texture-upscale-driver-probe')
-run(BUILD/'texture-upscale-driver-probe')
+probe('texture-upscale-driver-probe', ['port/ios/tests/texture_upscale_driver_probe.m', 'port/ios/host/host_startup.c',
+    'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c', 'port/runtime/texture_cache.c',
+    'port/runtime/texture_repair.c', 'port/ios/host/metal_gate.m'],
+    flags=['-O2', '-fobjc-arc', '-Iport/ios/host', '-Iport/runtime', '-Iport/runtime/include', '-Iport/linux/src',
+    '-DMETAL_GATE_NO_METALFX', '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'AppKit'])
 # The texture repair's host side: what it keeps in memory follows a delete of the cache folder.
-run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/runtime',
-    '-Iport/runtime/include', '-Iport/linux/src', 'port/ios/tests/texture_repair_host_probe.m',
-    'port/runtime/texture_cache.c', 'port/runtime/texture_repair.c', '-framework', 'Foundation',
-    '-o', BUILD/'texture-repair-host-probe')
-run(BUILD/'texture-repair-host-probe')
+probe('texture-repair-host-probe', ['port/ios/tests/texture_repair_host_probe.m', 'port/runtime/texture_cache.c',
+    'port/runtime/texture_repair.c'],
+    flags=['-O2', '-fobjc-arc', '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/runtime',
+    '-Iport/runtime/include', '-Iport/linux/src', '-framework', 'Foundation'])
 
 # Stereo A/B reuses pacing samples after a settling window.
-run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
-    'port/ios/tests/stereo_ab_probe.c', '-o', BUILD/'stereo-ab-probe')
-run(BUILD/'stereo-ab-probe')
+probe('stereo-ab-probe', ['port/ios/tests/stereo_ab_probe.c'],
+    flags=['-O2', '-fsanitize=address,undefined', '-Iport/ios/host'])
 
 # Exercise the host logger too, including the default path's one-time settings read.
-run('xcrun', 'clang', '-O2', '-fobjc-arc', '-DHOST_STEREO_AB_PROBE',
-    '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', '-Wl,-dead_strip', '-framework', 'Foundation',
-    'port/ios/tests/stereo_ab_probe.c', 'port/ios/host/host_stereo.m', '-o', BUILD/'stereo-ab-host-probe')
-run(BUILD/'stereo-ab-host-probe', 'enabled')
+probe('stereo-ab-host-probe', ['port/ios/tests/stereo_ab_probe.c', 'port/ios/host/host_stereo.m'],
+    flags=['-O2', '-fobjc-arc', '-DHOST_STEREO_AB_PROBE', '-Iport/ios/host', '-Iport/linux/src',
+    '-Iport/runtime/include', '-Wl,-dead_strip', '-framework', 'Foundation'], args=['enabled'])
 run(BUILD/'stereo-ab-host-probe', 'disabled')
 
 # Probes nothing else built: header-only logic each probe checks on its own.
@@ -1343,8 +1273,7 @@ for name, includes in (('audio_route_probe', ['-Iport/ios/host']), ('external_se
                        ('external_splash_probe', ['-Iport/ios/host']), ('bink_edge_gradient_probe', []),
                        ('bink_movie_fit_probe', []), ('menu_gametype_probe', []), ('portrait_fov_probe', []),
                        ('stereo_cadence_probe', ['-Iport/ios/host', '-Iport/linux/src'])):
-    run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', *includes,
-        f'port/ios/tests/{name}.c', '-o', BUILD / name.replace('_', '-'))
-    run(BUILD / name.replace('_', '-'))
+    probe(name.replace('_', '-'), [f'port/ios/tests/{name}.c'],
+        flags=['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', *includes])
 
 probes.check()

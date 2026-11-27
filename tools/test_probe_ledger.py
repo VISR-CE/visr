@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ci_test
-from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of
+from probe_ledger import ProbeLedger, compiles_probe, links_probe, output_of, xcrun_clang_link
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
@@ -111,11 +111,13 @@ def token(node, source):
 
 def probe_call(node, source):
     """A probe(name, sources, flags=..., args=..., run=...) call as the link command it runs, and its run unless
-    run=False: `xcrun clang`, the flags, the sources and `-o BUILD/name` (a name that is a variable is its own path)."""
+    run=False: `xcrun clang`, the flags, the sources and `-o BUILD/name` (a name that is a variable holds a path, as does BUILD / ...)."""
     keywords = {keyword.arg: keyword.value for keyword in node.keywords}
     name, sources = node.args[0], node.args[1]
     flags = keywords.get('flags', node.args[2] if len(node.args) > 2 else ast.List(elts=[]))
-    output = token(name, source) if isinstance(name, ast.Name) else 'BUILD/' + token(name, source)
+    output = token(name, source)
+    if not isinstance(name, ast.Name) and not output.startswith('BUILD/'):
+        output = 'BUILD/' + output
     elements = lambda value: [token(item, source) for item in value.elts] if isinstance(value, (ast.List, ast.Tuple)) \
         else [token(value, source)]
     link = ['xcrun', 'clang', *elements(flags), *elements(sources), '-o', output]
@@ -154,6 +156,18 @@ def test_every_probe_ios_test_links_is_run_after_each_link():
         if not any(line <= run_line < next_link and program == output for run_line, program in runs):
             unrun.append(f'line {line}: {output}')
     assert not unrun, f'probes ios_test.py links and does not run before relinking or the end: {unrun}'
+
+
+def test_ios_test_links_every_probe_with_probe():
+    """ios_test.py's run() refuses an `xcrun clang` link at run time; this finds one before an ios_test run does."""
+    inline = [line for line, tokens, _ in ios_test_calls() if tokens[:2] == ['xcrun', 'clang']
+              and xcrun_clang_link(tokens) and line not in probe_lines()]
+    assert not inline, f'link these probes with probe(name, sources, flags=...), not run(): lines {inline}'
+
+
+def probe_lines():
+    return {node.lineno for node in ast.walk(ast.parse(IOS_TEST.read_text())) if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name) and node.func.id == 'probe'}
 
 
 def test_ios_test_checks_its_ledger_and_cannot_ignore_a_failure():

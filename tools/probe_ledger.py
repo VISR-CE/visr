@@ -129,7 +129,10 @@ def link_parts(command):
 
 
 def comparable(events):
-    return [[kind, rest[0], link_parts(rest[1])] if kind == 'built' else [kind, *rest] for kind, *rest in events]
+    """Events with each link as its parts. A run of `xcrun` with a link command is left out: before probe() built every
+    link, ios_test.py's run() noted a link of a source outside port/ios/tests as a run of `xcrun`."""
+    return [[kind, rest[0], link_parts(rest[1])] if kind == 'built' else [kind, *rest] for kind, *rest in events
+            if not (kind == 'ran' and Path(rest[0]).name == 'xcrun' and xcrun_clang_link(['xcrun', *rest[1]]))]
 
 
 def compare(before, after):

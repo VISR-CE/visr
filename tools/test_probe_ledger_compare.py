@@ -47,3 +47,10 @@ def test_a_changed_flag_or_a_missing_run_is_a_difference(tmp_path, capsys):
     assert main(['--compare', str(first), str(first)]) == 0
     assert main(['--compare', str(first), str(second)]) == 1
     assert 'probe ledgers differ' in capsys.readouterr().out
+
+
+def test_a_link_noted_as_a_run_of_xcrun_is_not_a_run():
+    link = ['ran', 'xcrun', ['clang', '-O2', 'tools/crt_stills.m', '-o', 'build/crt-stills']]
+    compile_only = ['ran', 'xcrun', ['clang', '-c', 'port/ios/host/a.c', '-o', 'build/a.o']]
+    assert compare([link, compile_only], [compile_only]) == []
+    assert compare([compile_only], [])
