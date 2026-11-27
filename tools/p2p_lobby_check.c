@@ -192,6 +192,20 @@ static void crypto_checks(void)
 	check(!p2p_ed25519_verify(small, "anything", 8, forged), "a small-order key's signature");
 }
 
+/* a game of p2p_lobby_games by its name: the browser's order is not the lobby's to promise, so no check reads
+shown[N] by position when it lists more than one game */
+static struct p2p_listing const *listing_named(struct p2p_listing const *shown, int count, const char *name)
+{
+	int index;
+
+	for (index = 0; index < count; index++)
+	{
+		if (!strcmp(shown[index].name, name))
+			return &shown[index];
+	}
+	return NULL;
+}
+
 static int games(struct p2p_listing *listing)
 {
 	struct p2p_listing all[4];
@@ -298,15 +312,9 @@ static void delta_checks(const char *own_invite)
 	/* (the order is the browser's: what it cannot join goes last there, from the listing's own version and kind, so
 	this list is read by name) */
 	{
-		struct p2p_listing const *same = NULL, *newer = NULL;
+		struct p2p_listing const *same = listing_named(shown, count, "Same version");
+		struct p2p_listing const *newer = listing_named(shown, count, "Newer");
 
-		for (index = 0; index < count; index++)
-		{
-			if (!strcmp(shown[index].name, "Same version"))
-				same = &shown[index];
-			else if (!strcmp(shown[index].name, "Newer"))
-				newer = &shown[index];
-		}
 		check(count == 2, "the browser shows two of Delta's games, and not the one hosted here");
 		check(same && same->from_delta && same->network_version == HALO_PORT_NETWORK_VERSION && same->open,
 			"Delta's game of this version");
@@ -322,7 +330,8 @@ static void delta_checks(const char *own_invite)
 		hash[index] = (unsigned char)byte;
 	}
 	p2p_identifier_from_hash(hash, identifier);
-	check(count == 2 && !memcmp(shown[0].identifier, identifier, P2P_IDENTIFIER_SIZE),
+	check(listing_named(shown, count, "Same version") &&
+		!memcmp(listing_named(shown, count, "Same version")->identifier, identifier, P2P_IDENTIFIER_SIZE),
 		"Delta's game has the identifier its host's broker listing would");
 	/* forgotten when not given again, and when the browser closes */
 	clock_now += 59000;
