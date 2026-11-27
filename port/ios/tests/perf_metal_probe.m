@@ -8,10 +8,42 @@ int host_perf_reports_collecting(void) { return test_eligible && test_collecting
 #include <assert.h>
 static uint64_t test_frame = 1;
 uint64_t host_perf_hooks_frame_id(void) { return test_frame; }
+static MTLTimestamp test_cpu, test_gpu;
 @interface TestCounterDevice : NSObject
 @end
 @implementation TestCounterDevice
+- (void)sampleTimestamps:(MTLTimestamp *)cpu gpuTimestamp:(MTLTimestamp *)gpu { *cpu = test_cpu; *gpu = test_gpu; }
 @end
+@interface TestSampleBuffer : NSObject
+@property NSData *data;
+@end
+@implementation TestSampleBuffer
+- (NSData *)resolveCounterRange:(NSRange)range { (void)range; return self.data; }
+@end
+@interface TestCommands : NSObject
+@property CFTimeInterval GPUStartTime, GPUEndTime;
+@end
+@implementation TestCommands
+- (MTLCommandBufferStatus)status { return MTLCommandBufferStatusCompleted; }
+@end
+/* One draw-boundary interval through host_perf_metal_complete: its start and end ticks, and its command buffer's span
+ * relative to the host time just before the call. NULL when the bracketed clock pair was dropped (a preemption). */
+static typeof(grouped[0]) *complete_one(TestSampleBuffer *samples, uint64_t start_tick, uint64_t end_tick,
+    double buffer_from, double buffer_to, double *before, double *after) {
+    test_frame++;
+    TestCommands *commands = [TestCommands new];
+    uint32_t token = host_perf_metal_prepare((id)commands, nil, 0, HOST_PERF_SCENE);
+    assert(token);
+    buffers[(token - 1) / INTERVAL_COUNT].buffer = (id)samples;
+    MTLCounterResultTimestamp ticks[4] = { { start_tick }, { end_tick }, { 0 }, { 0 } };
+    samples.data = [NSData dataWithBytes:ticks length:sizeof(ticks)];
+    *before = mach_seconds(mach_absolute_time());
+    commands.GPUStartTime = *before + buffer_from; commands.GPUEndTime = *before + buffer_to;
+    unsigned long dropped_pairs = containment.dropped_pairs;
+    host_perf_metal_complete((id)commands);
+    *after = mach_seconds(mach_absolute_time());
+    return containment.dropped_pairs != dropped_pairs ? NULL : &grouped[test_frame % FRAME_COUNT];
+}
 int main(void) {
     @autoreleasepool {
         /* a GPU that samples counters at both boundaries, whatever this Mac's does (metal_gate.h) */
@@ -124,6 +156,19 @@ int main(void) {
         host_perf_metal_join(&frame);
         assert(frame.drs.available & 1);
         assert(frame.drs.scene_us == 2200 && frame.drs.upscale_us == 3200 && frame.drs.hud_us == 100);
+        /* Dependency order, not start order: a scene encoder that starts after MetalFX's buffer began (which waits
+         * on it) is still scene work, so it stays in S, the planner's scalable term. */
+        test_frame++; frame_prepare(test_frame);
+        entry = &grouped[test_frame % FRAME_COUNT];
+        host_perf_metal_upscale_expected();
+        entry->ranges[entry->count++] = (gpu_interval){ 20.0, 20.0010, HOST_PERF_SCENE };
+        host_perf_metal_upscale_time(test_frame, 20.0011, 20.0054, 1);
+        entry->ranges[entry->count++] = (gpu_interval){ 20.0012, 20.0022, HOST_PERF_SCENE };
+        entry->ranges[entry->count++] = (gpu_interval){ 20.0012, 20.0055, HOST_PERF_HUD };
+        frame = (game_perf_frame){.frame_id = test_frame};
+        host_perf_metal_join(&frame);
+        assert(frame.drs.available & 1);
+        assert(frame.drs.scene_us == 2000 && frame.drs.upscale_us == 3300 && frame.drs.hud_us == 100);
         /* a MetalFX span still on its way leaves the frame without a reading */
         test_frame++; frame_prepare(test_frame);
         entry = &grouped[test_frame % FRAME_COUNT];
@@ -139,36 +184,70 @@ int main(void) {
             test_frame++; frame_prepare(test_frame);
             entry = &grouped[test_frame % FRAME_COUNT];
             unsigned n = 1 + (seed = seed * 1664525u + 1013904223u) % 12;
-            double base = 100.0 + trial, starts[12], ends[12], separate = 0.0;
+            double base = 100.0 + trial, starts[12], ends[12];
+            unsigned groups[12];
             for (unsigned i = 0; i < n; ++i) {
                 unsigned group = (seed = seed * 1664525u + 1013904223u) % 3;
                 double start = base + ((seed = seed * 1664525u + 1013904223u) % 8000) * 1e-6;
                 double end = start + ((seed = seed * 1664525u + 1013904223u) % 4000) * 1e-6;
-                starts[i] = start; ends[i] = end; separate += (end - start) * 1e6;
+                starts[i] = start; ends[i] = end; groups[i] = group;
                 if (group == HOST_PERF_UPSCALE && (seed >> 16) % 2) {
                     host_perf_metal_upscale_expected();
                     host_perf_metal_upscale_time(test_frame, start, end, 1);
                 }
                 else entry->ranges[entry->count++] = (gpu_interval){ start, end, group };
             }
-            /* the union, by merging the intervals */
-            for (unsigned i = 1; i < n; ++i)
-                for (unsigned j = i; j && starts[j - 1] > starts[j]; --j) {
-                    double t = starts[j]; starts[j] = starts[j - 1]; starts[j - 1] = t;
-                    t = ends[j]; ends[j] = ends[j - 1]; ends[j - 1] = t;
+            /* oracles: the union of the scene's intervals, of scene and upscale, and of all, by merging */
+            double merged[3];
+            for (unsigned last = 0; last < 3; ++last) {
+                double from = 0.0, to = -1.0, total = 0.0;
+                unsigned order[12], m = 0;
+                for (unsigned i = 0; i < n; ++i) if (groups[i] <= last) {
+                    unsigned j = m++;
+                    while (j && starts[order[j - 1]] > starts[i]) { order[j] = order[j - 1]; --j; }
+                    order[j] = i;
                 }
-            double merged = 0.0, from = starts[0], to = ends[0];
-            for (unsigned i = 1; i < n; ++i) {
-                if (starts[i] > to) { merged += to - from; from = starts[i]; to = ends[i]; }
-                else if (ends[i] > to) to = ends[i];
+                for (unsigned k = 0; k < m; ++k) {
+                    unsigned i = order[k];
+                    if (to < from || starts[i] > to) { if (to >= from) total += to - from; from = starts[i]; to = ends[i]; }
+                    else if (ends[i] > to) to = ends[i];
+                }
+                if (m && to >= from) total += to - from;
+                merged[last] = total * 1e6;
             }
-            merged = (merged + to - from) * 1e6;
             frame = (game_perf_frame){.frame_id = test_frame};
             host_perf_metal_join(&frame);
             assert(frame.drs.available & 1);
-            double input = (double)(frame.drs.scene_us + frame.drs.upscale_us + frame.drs.hud_us);
-            assert(input <= merged + 2.0 && input >= merged - 2.0 && input <= separate + 2.0);
+            double scene = (double)frame.drs.scene_us, upscaled = scene + (double)frame.drs.upscale_us;
+            double input = upscaled + (double)frame.drs.hud_us;
+            assert(fabs(scene - merged[0]) <= 1.0 && fabs(upscaled - merged[1]) <= 2.0 && fabs(input - merged[2]) <= 3.0);
         }
+        /* The conversion through host_perf_metal_complete: a fake clock pair 2,000,000 ticks after the reference at
+         * 1 ns a tick, so a tick 1,500,000 before the pair lands 1.5 ms before the pair's bracketed host time. */
+        for (unsigned slot = 0; slot < BUFFER_COUNT; ++slot) atomic_store(&buffers[slot].commands, 0);
+        TestSampleBuffer *samples = [TestSampleBuffer new];
+        reference_cpu = reference_gpu = 1000;
+        test_cpu = test_gpu = 1000 + 2000000;
+        memset(&containment, 0, sizeof(containment));
+        double before, after;
+        typeof(grouped[0]) *converted = NULL;
+        for (unsigned attempt = 0; attempt < 8 && !converted; ++attempt)
+            converted = complete_one(samples, test_gpu - 1500000, test_gpu - 500000, -0.002, 0.001, &before, &after);
+        assert(converted && converted->count == 1 && !converted->invalid && converted->ranges[0].group == HOST_PERF_SCENE);
+        assert(converted->ranges[0].start >= before - 1.5e-3 - 1e-9 && converted->ranges[0].start <= after - 1.5e-3 + 1e-9);
+        assert(converted->ranges[0].end >= before - 0.5e-3 - 1e-9 && converted->ranges[0].end <= after - 0.5e-3 + 1e-9);
+        assert(containment.checked == 1 && containment.outside == 0);
+        /* a tick after the pair lands after its host time; a range past its buffer's span counts as outside */
+        converted = NULL;
+        for (unsigned attempt = 0; attempt < 8 && !converted; ++attempt)
+            converted = complete_one(samples, test_gpu - 500000, test_gpu + 100000, -0.002, -0.001, &before, &after);
+        assert(converted && converted->count == 1);
+        assert(converted->ranges[0].end >= before + 1e-4 - 1e-9 && converted->ranges[0].end <= after + 1e-4 + 1e-9);
+        assert(containment.checked == 2 && containment.outside == 1 && containment.worst >= 1.1e-3 - 1e-6);
+        /* no rate yet (the pair is the reference): no range, and the frame has no reading */
+        test_cpu = reference_cpu; test_gpu = reference_gpu;
+        converted = complete_one(samples, 500, 900, -0.002, 0.001, &before, &after);
+        assert(converted && converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)));
         test_collecting = 0; test_shadow = 1;
         test_frame++; frame_prepare(test_frame);
         atomic_store(&buffers[1].commands, 0);
