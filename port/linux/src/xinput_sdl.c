@@ -786,8 +786,8 @@ static void keys_held_over_switch(struct platform_input_state *input)
 
 #define MAXIMUM_BINDINGS 2
 
-/* (the environment's override of an action's bindings, HALO_KEY_<ACTION>, as the names the profile's menus show) */
 /* probe-region: binding-environment */
+/* (the environment's override of an action's bindings, HALO_KEY_<ACTION>, as the names the profile's menus show) */
 static const char *const binding_environment[NUMBER_OF_HALO_KEYBOARD_ACTIONS] =
 {
 	"HALO_KEY_MOVE_FORWARD", "HALO_KEY_MOVE_BACKWARD", "HALO_KEY_STRAFE_LEFT", "HALO_KEY_STRAFE_RIGHT",

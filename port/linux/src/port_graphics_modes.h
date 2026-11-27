@@ -33,8 +33,9 @@ enum graphics_mode
 	NUMBER_OF_GRAPHICS_MODES
 };
 
-/* (name, Hardcore's value, Classic's value) */
+/* (tools/port_settings.py reads this region to mark the menu rows Hardcore replaces; tests read it too) */
 /* probe-region: graphics-mode-settings */
+/* (name, Hardcore's value, Classic's value) */
 #define GRAPHICS_MODE_SETTINGS(X) \
 	/* picture size and timing: the Xbox's 640x480, 4:3 with bars at the sides, at 30 frames a second */ \
 	X("display.screen_width", "640", NULL) \
