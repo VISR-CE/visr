@@ -80,6 +80,7 @@ def test_annotations_between_signature_and_body_are_skipped():
 def test_prototypes_comments_and_macros_are_not_definitions():
     names = [name for name, *_ in source.definitions(C)]
     assert names == ['helper', 'present_frame', 'present_inner', 'deep', 'annotated']
+    assert source.defined_in(C, 'helper') and not source.defined_in(C, 'commented_out')
 
 
 def test_a_missing_name_says_renamed_wrapped_or_split_with_the_closest_names():

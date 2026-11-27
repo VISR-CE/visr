@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import profile_check
 import settings_schema
+from probekit import source
 
 ROOT = Path(__file__).resolve().parent.parent
 HEADER = ROOT / 'port/linux/src/port_graphics_modes.h'
@@ -13,8 +14,7 @@ VALUE = r'(?:"([^"]*)"|NULL)'
 
 
 def rows():
-    text = HEADER.read_text()
-    body = text.split('#define GRAPHICS_MODE_SETTINGS(X)', 1)[1].split('\nstruct graphics_mode_setting', 1)[0]
+    body = source.region(HEADER, 'graphics-mode-settings')
     found = re.findall(rf'X\("([a-z_.0-9]+)", {VALUE}, {VALUE}\)', body)
     assert len(found) == body.count('X('), 'a row the test cannot read'
     return [(name, hardcore or None, classic or None) for name, hardcore, classic in found]
@@ -91,17 +91,6 @@ def test_live_consumers(tmp_path):
     if shutil.which('pkg-config') is None or subprocess.run(['pkg-config', '--exists', 'sdl3']).returncode != 0:
         pytest.skip('Apple config probe needs SDL3 from pkg-config')
 
-    def function(path, name):
-        text = (ROOT / path).read_text()
-        signature = re.search(rf'^(?:static )?(?:void|int|long|double|uint32_t|boolean) {name}\s*\([^)]*\)\s*\{{', text, re.M)
-        assert signature, name
-        end = signature.end()
-        depth = 1
-        while depth:
-            depth += (text[end] == '{') - (text[end] == '}')
-            end += 1
-        return text[signature.start():end]
-
     consumers = [
         ('port/linux/src/d3d8_device.c', 'frame_rate_flags'),
         ('port/linux/src/d3d8_device.c', 'graphics_settings_read'),
@@ -117,7 +106,7 @@ def test_live_consumers(tmp_path):
         ('port/linux/src/text_hires.c', 'text_hires_enabled'),
         ('port/linux/src/ui_redraw.c', 'ui_redraw_enabled'),
     ]
-    (tmp_path / 'graphics_live_consumers.h').write_text('\n'.join(function(*entry) for entry in consumers))
+    (tmp_path / 'graphics_live_consumers.h').write_text('\n'.join(source.function(*entry) for entry in consumers))
     sdl = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', 'sdl3'], text=True))
     probe = tmp_path / 'graphics-live-probe'
     subprocess.run(['xcrun', 'clang', '-O1', '-fsanitize=address', '-DHALO_ILP32=1',

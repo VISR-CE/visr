@@ -12,6 +12,9 @@ import pytest
 
 from tools import embed_assets, linux_build, linux_link_check, linux_msvc_semantics, menu_catalog, port_settings
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from probekit import source as probe_source  # noqa: E402
+
 
 # ---------- MSVC semantics header
 
@@ -493,9 +496,7 @@ def test_direct_link_join_lines_fit():
     the page already shows ("Copy an invite link and PASTE LINK, ..."), and
     there is one for each of p2p.h's stages"""
     root = MENUS.parent.parent.parent
-    functions = (root / "port/linux/game/menu_functions.c").read_text()
-    body = functions[functions.index("static void direct_link_status("):]
-    body = body[:body.index("\n}\n")]
+    body = probe_source.body("port/linux/game/menu_functions.c", "direct_link_status")
     lines = re.findall(r'L"([^"]*)"', body)
     longest = len("Copy an invite link and PASTE LINK, or accept a Discord invite")
     assert len(lines) >= 12
@@ -670,10 +671,9 @@ def test_settings_lists_pack_rows_and_keep_a_window():
 
 def test_menu_platform_negation():
     """menu_platform.h: "!value" is every build the value is not for; an unknown value stays unknown."""
-    header = (Path(__file__).resolve().parent.parent / "port/linux/src/menu_platform.h").read_text()
-    start = header.index("static int menu_platform_matches")
-    assert "platform[0] == '!'" in header[start:]
-    assert "return matches < 0 ? -1 : !matches;" in header[start:]
+    matches = probe_source.function("port/linux/src/menu_platform.h", "menu_platform_matches")
+    assert "platform[0] == '!'" in matches
+    assert "return matches < 0 ? -1 : !matches;" in matches
 
 
 @pytest.mark.parametrize("probe", ["delta_peer", "delta_peer_game"])

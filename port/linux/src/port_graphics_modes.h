@@ -34,6 +34,7 @@ enum graphics_mode
 };
 
 /* (name, Hardcore's value, Classic's value) */
+/* probe-region: graphics-mode-settings */
 #define GRAPHICS_MODE_SETTINGS(X) \
 	/* picture size and timing: the Xbox's 640x480, 4:3 with bars at the sides, at 30 frames a second */ \
 	X("display.screen_width", "640", NULL) \
@@ -78,6 +79,7 @@ enum graphics_mode
 	X("display.specular_light_limit", "0", NULL) \
 	X("display.shadow_minimum_size", "0", NULL) \
 	X("display.clutter_distance", "0.0", NULL)
+/* probe-region-end: graphics-mode-settings */
 
 struct graphics_mode_setting
 {

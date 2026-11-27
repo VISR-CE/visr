@@ -4,18 +4,11 @@ import subprocess
 import tempfile
 import shutil
 import re
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def block(source, marker):
-    start = source.index(marker)
-    opening = source.index('{', start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == '{') - (source[end] == '}')
-        end += 1
-    return source[start:end]
+sys.path.insert(0, str(ROOT / 'tools'))
+from probekit import source as probe_source  # noqa: E402
 
 
 def blend_enums():
@@ -31,8 +24,7 @@ def glyph_blends():
 
 def test_keyboard_backdrop_stretch_uses_the_picture_size_not_the_texture_size():
     source = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
-    start = source.index('static void virtual_keyboard_side_strips(')
-    body = source[start:source.index('\n}\n', start)]
+    body = probe_source.body_in(source, 'virtual_keyboard_side_strips')
     assert 'left_source = {0, 0, 480, 1}' in body
     assert 'right_source = {0, 639, 480, 640}' in body
 
@@ -44,8 +36,8 @@ def test_initial_keyboard_owner(tmp_path):
     keyboard = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
     cases = {
         'owner': ('controller_glyph_owner_probe.c', {
-            '/* OWNER */': block(keyboard, 'void virtual_keyboard_set_controller_context('),
-            '/* LAUNCH */': block(keyboard, 'boolean virtual_keyboard_launch(')}),
+            '/* OWNER */': probe_source.function_in(keyboard, 'virtual_keyboard_set_controller_context'),
+            '/* LAUNCH */': probe_source.function_in(keyboard, 'virtual_keyboard_launch')}),
     }
     for name, (fixture, replacements) in cases.items():
         program = (ROOT / 'port/ios/tests' / fixture).read_text()
@@ -63,7 +55,7 @@ def test_virtual_keyboard_fallback_and_legend_patches(tmp_path):
         import pytest
         pytest.skip('Apple compiler and frameworks are required')
     source = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
-    function = block(source, 'static void virtual_keyboard_draw_background(')
+    function = probe_source.function_in(source, 'virtual_keyboard_draw_background')
     program = (ROOT / 'port/ios/tests/controller_glyph_keyboard_probe.c').read_text().replace('/* BACKGROUND */', function).replace('/* GLYPH BLENDS */', glyph_blends())
     probe, binary = tmp_path / 'keyboard.c', tmp_path / 'keyboard'
     probe.write_text(program)
@@ -77,7 +69,7 @@ def test_native_controller_bridge_mapping(tmp_path):
         import pytest
         pytest.skip('Apple compiler and frameworks are required')
     source = (ROOT / 'port/ios/host/host_sdl.c').read_text()
-    function = block(source, 'int host_sdl_gamepad_glyph(')
+    function = probe_source.function_in(source, 'host_sdl_gamepad_glyph')
     program = (ROOT / 'port/ios/tests/controller_glyph_bridge_probe.c').read_text().replace('/* BRIDGE */', function)
     probe, binary = tmp_path / 'bridge.c', tmp_path / 'bridge'
     probe.write_text(program)
@@ -95,7 +87,7 @@ def test_hud_glyph_layout_color_and_fallback(tmp_path):
         pytest.skip('Apple compiler and frameworks are required')
     source = (ROOT / 'source/interface/hud_messaging.c').read_text()
     source = source[source.rindex('static void render_state_bitmap('):]
-    function = block(source, 'static void render_state_bitmap(')
+    function = probe_source.function_in(source, 'render_state_bitmap')
     program = (ROOT / 'port/ios/tests/controller_glyph_hud_probe.c').read_text().replace('/* HUD */', function).replace('/* GLYPH BLENDS */', glyph_blends()).replace('/* RENDERER BLENDS */', blend_enums())
     probe, binary = tmp_path / 'hud.c', tmp_path / 'hud'
     probe.write_text(program)
@@ -126,7 +118,7 @@ def test_controller_glyph_draw_cache_and_clipping(tmp_path):
     end = source.index('/* port: three reusable widgets bind a nonwrapping strip.', start)
     program = (ROOT / 'port/ios/tests/controller_glyph_draw_probe.c').read_text().replace('/* DRAW */', source[start:end])
     hud = (ROOT / 'source/interface/hud_draw.c').read_text()
-    stock = block(hud[hud.rindex('static void hud_draw_bitmap_internal('):], 'static void hud_draw_bitmap_internal(')
+    stock = probe_source.function_in(hud, 'hud_draw_bitmap_internal')
     expression = re.search(r'parameters\.framebuffer_blend_function\s*=\s*(\w+);', stock).group(1)
     program = program.replace('/* RENDERER BLENDS */', blend_enums()).replace('/* STOCK BLEND */',
         f'static int stock_hud_blend(void) {{ return {expression}; }}')
@@ -154,13 +146,12 @@ def test_controller_glyph_requests(tmp_path):
         import pytest
         pytest.skip('Apple compiler and frameworks are required')
     source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
-    function = block(source, 'static struct halo_glyph_input glyph_input_shown(') + '\n' + \
-        block(source, 'int halo_controller_glyph_request(')
+    function = probe_source.function_in(source, 'glyph_input_shown') + '\n' + \
+        probe_source.function_in(source, 'halo_controller_glyph_request')
     program = (ROOT / 'port/ios/tests/controller_glyph_request_probe.c').read_text().replace('/* REQUEST */', function)
-    first = source.index('static const char *const binding_environment[')
-    settings = source[first:source.index('};', first)+2]
-    program = program.replace('/* BINDING SETTINGS */', settings).replace('/* BINDINGS READ */', block(source, 'static void bindings_read(void)'))
-    activity = '\n'.join(block(source, marker) for marker in ('static void glyph_input_note(', 'void halo_controller_glyph_pointer_activity(', 'static unsigned int glyph_gamepad_controls(', 'static void glyph_pad_activity(', 'static int glyph_axis_event_started(', 'void halo_controller_glyph_input_event('))
+    settings = probe_source.region('port/linux/src/xinput_sdl.c', 'binding-environment')
+    program = program.replace('/* BINDING SETTINGS */', settings).replace('/* BINDINGS READ */', probe_source.function_in(source, 'bindings_read'))
+    activity = '\n'.join(probe_source.function_in(source, name) for name in ('glyph_input_note', 'halo_controller_glyph_pointer_activity', 'glyph_gamepad_controls', 'glyph_pad_activity', 'glyph_axis_event_started', 'halo_controller_glyph_input_event'))
     program = program.replace('/* ACTIVITY */', activity)
     probe, binary = tmp_path / 'request.c', tmp_path / 'request'
     probe.write_text(program)
@@ -230,9 +221,9 @@ def test_backspace_is_the_secondary_menu_key_and_still_edits_text(tmp_path):
         pytest.skip('Apple compiler and frameworks are required')
     source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
     program = (ROOT / 'port/ios/tests/keyboard_menu_keys_probe.c').read_text()
-    for marker, function in (('/* ANALOG */', 'static BYTE analog('), ('/* TYPING */', 'static void typing_gamepad('),
-                             ('/* KEYBOARD */', 'static void keyboard_gamepad(')):
-        program = program.replace(marker, block(source, function))
+    for marker, name in (('/* ANALOG */', 'analog'), ('/* TYPING */', 'typing_gamepad'),
+                         ('/* KEYBOARD */', 'keyboard_gamepad')):
+        program = program.replace(marker, probe_source.function_in(source, name))
     probe, binary = tmp_path / 'keys.c', tmp_path / 'keys'
     probe.write_text(program)
     subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-Wno-unused-variable', '-Wno-unused-function',

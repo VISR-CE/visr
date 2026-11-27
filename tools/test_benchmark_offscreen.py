@@ -8,6 +8,7 @@ import subprocess
 
 import pytest
 from probe_timeouts import PROBE_RUN_SECONDS
+from probekit import source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,10 +42,8 @@ def test_offscreen_ignored_on_stereo(probe):
 
 
 def present_function():
-    source = (ROOT / "port/ios/host/gpu_metal.m").read_text()
-    # (gpu_metal_present stamps the producer's streams around present_frame, which does the frame's work)
-    start = source.index("static uint32_t present_frame(gpu_texture back_buffer)")
-    return source[start:source.index("\n}\n", start)]
+    # gpu_metal_present stamps the producer's streams around present_frame, which does the frame's work
+    return source.function("port/ios/host/gpu_metal.m", "present_frame")
 
 
 def test_offscreen_frame_skips_the_display():
@@ -60,15 +59,13 @@ def test_offscreen_frame_skips_the_display():
 
 
 def kernel_function(name):
-    kernel = (ROOT / "port/linux/src/xbox_kernel.c").read_text()
-    start = kernel.index(name)
-    return kernel[start:kernel.index("\n}\n", start)]
+    return source.function("port/linux/src/xbox_kernel.c", name)
 
 
 def test_offscreen_forces_fixed_timestep():
-    assert "host_benchmark_offscreen_request(" in kernel_function("int platform_fixed_timestep_launch(void)")
+    assert "host_benchmark_offscreen_request(" in kernel_function("platform_fixed_timestep_launch")
     # a presented run takes the launch onto real time for a while
-    assert "clock_realtime" in kernel_function("int platform_fixed_timestep(void)")
+    assert "clock_realtime" in kernel_function("platform_fixed_timestep")
 
 
 def test_clock_switch_keeps_worker_accounting():
@@ -79,15 +76,13 @@ def test_clock_switch_keeps_worker_accounting():
             continue
         if "platform_fixed_timestep()" in line and ("suspended" in line or "thread_is_worker" in line):
             raise AssertionError(line)
-    switch = kernel_function("void platform_clock_realtime(int on)")
+    switch = kernel_function("platform_clock_realtime")
     assert "halo_main_time_restart();" in switch
     assert "clock_realtime_offset =" in switch and "clock_frames_offset" in switch
 
 
 def test_unpresented_pass_moves_the_clock():
-    main = (ROOT / "source/main/main.c").read_text()
-    start = main.index("void main_loop(")
-    body = main[start:main.index("\n}\n", start)]
+    body = source.function("source/main/main.c", "main_loop")
     # (a profiling build's scope may wrap the present: profile_scope(section, main_present_frame();))
     assert re.search(r"main_present_frame\(\);\)?\s*\}\s*else\s*\{[^}]*platform_clock_unpresented_frame\(\);", body)
 
@@ -179,14 +174,13 @@ def test_overlay_window_lifecycle(tmp_path):
     compiler = shutil.which("clang")
     if not compiler:
         pytest.skip("no Objective-C compiler")
-    ui = (ROOT / "port/ios/host/host_benchmark_page.m").read_text()
-    production = ui[ui.index("static HaloBenchmarkOverlayWindow *benchmark_overlay;"):]
+    production = source.region("port/ios/host/host_benchmark_page.m", "benchmark-overlay")
     template = (ROOT / "port/ios/tests/benchmark_overlay_probe.m").read_text()
-    source = tmp_path / "overlay.m"
-    source.write_text(template.replace("// PRODUCTION_OVERLAY", production))
+    probe_file = tmp_path / "overlay.m"
+    probe_file.write_text(template.replace("// PRODUCTION_OVERLAY", production))
     program = tmp_path / "overlay"
     subprocess.run([compiler, "-fobjc-arc", "-fblocks", "-Wall", "-Werror",
                     "-framework", "Foundation", "-I" + str(ROOT / "port/ios/host"),
-                    str(source),
+                    str(probe_file),
                     str(ROOT / "port/ios/host/host_main_thread.c"), "-o", str(program)], check=True)
     subprocess.run([str(program)], check=True, timeout=PROBE_RUN_SECONDS)

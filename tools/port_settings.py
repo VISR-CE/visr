@@ -21,6 +21,7 @@ from xml.sax.saxutils import quoteattr
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import about_data  # noqa: E402
+from probekit import source as probe_source  # noqa: E402
 
 # The dispatcher steps a spinner before its direction handlers run. Xbox pages
 # add these handlers to save that value; PC pages keep their explicit OK flow.
@@ -57,8 +58,7 @@ def graphics_rows(mode_label: str) -> list:
 def graphics_replaced() -> set:
     """the settings Hardcore replaces (the table in port_graphics_modes.h): their rows show HARDCORE, unchanged,
     while the mode shown replaces them"""
-    header = Path(__file__).resolve().parent.parent / "port/linux/src/port_graphics_modes.h"
-    table = header.read_text().split("#define GRAPHICS_MODE_SETTINGS(X)", 1)[1].split("\nstruct graphics_mode_setting", 1)[0]
+    table = probe_source.region("port/linux/src/port_graphics_modes.h", "graphics-mode-settings")
     return set(re.findall(r'X\("([a-z_.0-9]+)", "', table))
 
 

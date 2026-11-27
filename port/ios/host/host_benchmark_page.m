@@ -732,6 +732,7 @@ void host_benchmark_page(const char *report_path, const char *summary, const cha
 }
 #endif
 @end
+/* probe-region: benchmark-overlay */
 static HaloBenchmarkOverlayWindow *benchmark_overlay;
 static id benchmark_overlay_activation;
 void host_benchmark_overlay_show(int visible) {
@@ -771,3 +772,4 @@ void host_benchmark_overlay_presented(int presented) {
     };
     host_main_sync(update);
 }
+/* probe-region-end: benchmark-overlay */

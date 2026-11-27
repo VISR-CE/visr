@@ -7,6 +7,7 @@ what happened when the name is gone:
 - `function(path, name)`: a definition by name (C function or Objective-C method), from the start of its line to its
   closing brace, with comment- and string-aware brace matching. A missing name raises `LookupError` saying it may
   have been renamed, wrapped or split, with the closest names defined in the file.
+- `defined(path, name)`: whether the file defines it.
 - `body(path, name)`: the text inside that definition's braces; `inline(path, name)`: the definition with its first
   `__inline` made `static`.
 - `reach(path, name, depth=3)` and `reach_contains(path, name, needle)`: the named function and the same-file
@@ -189,6 +190,15 @@ def function_in(text: str, name: str, where: str = "the text") -> str:
 
 def function(path, name: str) -> str:
     return function_in(read(path), name, str(path))
+
+
+def defined_in(text: str, name: str) -> bool:
+    return any(item[0] == name for item in definitions(text))
+
+
+def defined(path, name: str) -> bool:
+    """Whether the file defines a function or method of that name."""
+    return defined_in(read(path), name)
 
 
 def inline_in(text: str, name: str, where: str = "the text") -> str:

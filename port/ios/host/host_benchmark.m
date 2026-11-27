@@ -405,6 +405,7 @@ static NSDictionary *upscaler_metadata(void)
 static NSDictionary *graphics_first, *graphics_last;
 static BOOL graphics_changed;
 static NSUInteger graphics_snapshots, graphics_invalid;
+/* probe-region: graphics-validator */
 static BOOL graphics_key_allowed(NSString *name)
 {
     if (![name isKindOfClass:NSString.class] || name.length > 64) return NO;
@@ -480,6 +481,7 @@ static BOOL graphics_snapshot_valid(NSDictionary *snapshot)
     }
     return YES;
 }
+/* probe-region-end: graphics-validator */
 void host_benchmark_graphics(const char *json)
 {
     if (!atomic_load(&running)) return;

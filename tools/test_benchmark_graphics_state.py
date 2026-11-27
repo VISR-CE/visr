@@ -7,22 +7,16 @@ import subprocess
 import sys
 
 import pytest
+from probekit import source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def function(source, signature):
-    start = source.index(signature)
-    end = source.index("\n}\n\nstatic void benchmark_graphics_window", start)
-    return source[start:end + 2]
-
-
 def emitted_snapshots(tmp_path):
     """The first and last snapshot lines the real `benchmark_graphics_snapshot_json` writes."""
-    suite = (ROOT / "port/linux/src/benchmark_suite.c").read_text()
-    actual = function(suite, "static int benchmark_graphics_snapshot_json(")
-    source = tmp_path / "graphics_state.c"
-    source.write_text(r'''
+    actual = source.function("port/linux/src/benchmark_suite.c", "benchmark_graphics_snapshot_json")
+    probe_file = tmp_path / "graphics_state.c"
+    probe_file.write_text(r'''
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -63,7 +57,7 @@ int main(void) {
 }
 ''')
     binary = tmp_path / "graphics_state"
-    subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", str(source), "-o", str(binary)], check=True)
+    subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", str(probe_file), "-o", str(binary)], check=True)
     return subprocess.run([str(binary)], capture_output=True, text=True, check=True).stdout.splitlines()
 
 
@@ -99,8 +93,7 @@ def test_reports_record_ambient_occlusion_as_drawn():
     # front end's answer is off whatever the setting says, and the performance report takes that answer in place of
     # the configured value.
     device = (ROOT / "port/linux/src/d3d8_device.c").read_text()
-    mode = device[device.index("static int ssao_mode(void)"):]
-    mode = mode[:mode.index("\n}\n")]
+    mode = source.function("port/linux/src/d3d8_device.c", "ssao_mode")
     assert mode.index("!device_capabilities.ambient_occlusion") < mode.index("config_integer(\"debug.ssao\")"), mode
     snapshot = device[device.index("config_graphics_settings_snapshot(scene, &perf_graphics)"):]
     snapshot = snapshot[:snapshot.index("host_perf_reports_graphics_snapshot(&perf_graphics)")]
@@ -123,16 +116,14 @@ def test_report_validator_accepts_exactly_what_the_suite_emits(tmp_path):
         assert set(json.loads(line)["renderer_state"]) == keys
     if sys.platform != "darwin" or not shutil.which("xcrun"):
         pytest.skip("The report validator requires Foundation")
-    report = (ROOT / "port/ios/host/host_benchmark.m").read_text()
-    start = report.index("static BOOL graphics_key_allowed(")
-    end = report.index("void host_benchmark_graphics(")
-    source = tmp_path / "validate.m"
-    source.write_text(r'''
+    validator = source.region("port/ios/host/host_benchmark.m", "graphics-validator")
+    probe_file = tmp_path / "validate.m"
+    probe_file.write_text(r'''
 #import <Foundation/Foundation.h>
 #include <assert.h>
 #include <math.h>
 #include "../../runtime/graphics_capture.h"
-''' + report[start:end] + r'''
+''' + validator + r'''
 int main(int argc, char **argv) { @autoreleasepool {
     for (int i = 1; i < argc; i++) {
         NSData *data = [NSData dataWithBytes:argv[i] length:strlen(argv[i])];
@@ -151,7 +142,7 @@ int main(int argc, char **argv) { @autoreleasepool {
 ''')
     binary = tmp_path / "validate"
     subprocess.run(["xcrun", "clang", "-O1", "-Wall", "-Wextra", "-Werror", "-fobjc-arc", "-framework", "Foundation",
-        "-I", str(ROOT / "port/ios/host"), str(source), "-o", str(binary)], check=True)
+        "-I", str(ROOT / "port/ios/host"), str(probe_file), "-o", str(binary)], check=True)
     subprocess.run([str(binary), *emitted], check=True)
 
 
@@ -172,4 +163,4 @@ def test_performance_reports_record_every_drawn_flag_as_drawn():
         assert f'@"display.{name}"' in reports, name
         assert f"int {getter}(void);" in suite, getter
         assert f'{getter}() ? "true" : "false"' in suite.replace("\n\t\t", " "), getter
-        assert re.search(rf"^int {getter}\(void\)", device, re.M), getter
+        assert source.defined("port/linux/src/d3d8_device.c", getter), getter
