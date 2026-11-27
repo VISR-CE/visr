@@ -223,8 +223,10 @@ probe('game-thread-lifecycle-probe', ['port/ios/tests/game_thread_lifecycle_prob
     f'-I{BUILD}'])
 # Exercise output request generations and real external-state readers without Metal.
 (BUILD / 'game_thread_output.inc').write_text('\n'.join(
-    probe_source.inline('port/ios/host/host_external.m', name)
-    for name in ('publish_size', 'host_external_active', 'host_external_size')))
+    # (each reader's second definition is the build without external output, which returns 0)
+    probe_source.inline('port/ios/host/host_external.m', name, which=which)
+    for name, which in (('publish_size', None), ('host_external_active', 'snapshot_lock'),
+                        ('host_external_size', 'published_size'))))
 probe('game-thread-output-probe', ['port/ios/tests/game_thread_output_probe.c'],
     flags=['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     f'-I{BUILD}'])

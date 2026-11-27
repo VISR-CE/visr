@@ -20,14 +20,14 @@ def read(relative):
     return probe_source.read(relative)
 
 
-def function(text, name):
+def function(text, name, which=None):
     """A function's definition (static, inline or not), found by name; LookupError if not found."""
-    return probe_source.function_in(text, name)
+    return probe_source.function_in(text, name, which=which)
 
 
-def inline(text, name):
+def inline(text, name, which=None):
     """An __inline header function, as a static one."""
-    return probe_source.inline_in(text, name)
+    return probe_source.inline_in(text, name, which=which)
 
 
 def enum_with(source, member):

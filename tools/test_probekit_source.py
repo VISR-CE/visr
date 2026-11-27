@@ -43,6 +43,34 @@ void annotated(void) API_AVAILABLE(ios(16.0), visionos(1.0))
 	second();
 }
 
+__attribute__((unused)) static int attributed(void)
+{
+	return 1;
+}
+
+API_AVAILABLE(ios(26.0)) static void finish(void)
+{
+	attributed();
+}
+
+#if PLATFORM_A
+static int variant(void)
+{
+	return 1; /* a */
+}
+#else
+static int variant(void)
+{
+	return 2; /* b */
+}
+#endif
+
+static int uses_variant(void)
+{
+	/* was: retired(); */
+	return variant() + attributed();
+}
+
 struct pair {
 	struct { int a; } inner;
 	int b;
@@ -59,6 +87,9 @@ int commented_out(void)
 OBJC = '''@implementation Thing
 - (void)drawFrame:(int)frame withScale:(float)scale {
     [self other];
+}
+- (void)drawFrame:(int)frame {
+    [self single];
 }
 + (instancetype)shared {
     return nil;
@@ -79,7 +110,8 @@ def test_annotations_between_signature_and_body_are_skipped():
 
 def test_prototypes_comments_and_macros_are_not_definitions():
     names = [name for name, *_ in source.definitions(C)]
-    assert names == ['helper', 'present_frame', 'present_inner', 'deep', 'annotated']
+    assert names == ['helper', 'present_frame', 'present_inner', 'deep', 'annotated', 'attributed', 'finish',
+                     'variant', 'variant', 'uses_variant']
     assert source.defined_in(C, 'helper') and not source.defined_in(C, 'commented_out')
 
 
@@ -90,7 +122,10 @@ def test_a_missing_name_says_renamed_wrapped_or_split_with_the_closest_names():
 
 
 def test_objective_c_methods_are_found_by_their_first_selector_part():
-    assert source.function_in(OBJC, 'drawFrame').startswith('- (void)drawFrame:(int)frame')
+    assert source.function_in(OBJC, 'drawFrame:withScale:').startswith('- (void)drawFrame:(int)frame withScale')
+    assert '[self single]' in source.function_in(OBJC, 'drawFrame:')
+    with pytest.raises(LookupError, match='defined 2 times'):
+        source.function_in(OBJC, 'drawFrame')
     assert source.body_in(OBJC, 'shared').strip() == 'return nil;'
 
 
@@ -127,13 +162,51 @@ def test_region_markers_and_files_outside_port_are_refused(tmp_path):
         source.region('source/main/main.c', 'setup')
 
 
-def test_mutating_applies_one_substitution_to_every_helper_and_restores_it():
-    path = 'port/linux/src/delta_legacy_runtime.c'
+def test_mutating_applies_one_substitution_to_every_helper_and_restores_it(tmp_path):
+    path = tmp_path / 'fixture.c'
+    path.write_text(C, encoding='latin-1')
     original = source.read(path)
-    name = source.definitions(original)[0][0]
+    name = 'helper'
     before = source.function(path, name)
     with source.mutating(path, before, before + '\n/* mutated */') as text:
         assert '/* mutated */' in text and '/* mutated */' in source.read(path)
     assert source.read(path) == original
     with pytest.raises(LookupError, match='no longer applies'):
         source.mutated(original, 'text that is not there', 'x')
+
+
+def test_a_leading_attribute_on_the_same_line_does_not_hide_a_definition():
+    assert source.body_in(C, 'attributed').strip() == 'return 1;'
+    assert source.body_in(C, 'finish').strip() == 'attributed();'
+
+
+def test_a_name_defined_twice_needs_which_and_reach_takes_every_variant():
+    with pytest.raises(LookupError, match=r'defined 2 times in the text \(lines \d+, \d+'):
+        source.function_in(C, 'variant')
+    assert '/* b */' in source.function_in(C, 'variant', which='return 2;')
+    assert '/* a */' in source.function_in(C, 'variant', which=0)
+    with pytest.raises(LookupError, match='contain'):
+        source.function_in(C, 'variant', which='return')
+    reached = source.reach_in(C, 'uses_variant')
+    assert 'return 1;' in reached['variant'] and 'return 2;' in reached['variant']
+    assert list(reached) == ['uses_variant', 'variant', 'attributed']
+
+
+def test_reach_and_call_order_ignore_comments_but_keep_strings():
+    assert not any('retired();' in text for text in source.reach_in(C, 'uses_variant').values())
+    assert any('{ not a brace }' in text for text in source.reach_in(C, 'helper').values())
+    assert not source.calls_in_order('/* second(); */ first(); second_();', 'second();')
+    assert source.calls_in_order('first("x;"); second();', 'first("x;");', 'second();')
+
+
+def test_assert_reaches_names_the_functions_it_searched(tmp_path, monkeypatch):
+    path = tmp_path / 'x.c'
+    path.write_text(C)
+    source.assert_reaches(path, 'uses_variant', 'return 2;')
+    with pytest.raises(AssertionError, match='searched: uses_variant, variant, attributed'):
+        source.assert_reaches(path, 'uses_variant', 'retired();')
+
+
+def test_unbalanced_braces_name_the_file():
+    with pytest.raises(LookupError, match='port/odd.c has unbalanced braces'):
+        source.function_in('int f(void)\n{\n#if A\n{\n#endif\n', 'f', 'port/odd.c')

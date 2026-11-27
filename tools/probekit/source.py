@@ -4,17 +4,21 @@ A test that finds code by its text breaks when the code is refactored: a functio
 into a helper, a signature gains a parameter. These helpers find code by name, not by declaration text, and say
 what happened when the name is gone:
 
-- `function(path, name)`: a definition by name (C function or Objective-C method), from the start of its line to its
-  closing brace, with comment- and string-aware brace matching. A missing name raises `LookupError` saying it may
-  have been renamed, wrapped or split, with the closest names defined in the file.
+- `function(path, name, which=None)`: a definition by name (C function, or Objective-C method by its first selector
+  part or its full selector, `drawFrame:withScale:`), from the start of its line to its closing brace, with comment-
+  and string-aware brace matching. A return type on the line before is not included. A missing name raises
+  `LookupError` saying it may have been renamed, wrapped or split, with the closest names defined in the file. A name
+  defined more than once (`#if` variants, methods in several `@implementation` blocks) raises `LookupError` too,
+  unless `which` picks one: a string that only the chosen definition contains, or an index.
 - `defined(path, name)`: whether the file defines it.
 - `body(path, name)`: the text inside that definition's braces; `inline(path, name)`: the definition with its first
   `__inline` made `static`.
-- `reach(path, name, depth=3)` and `reach_contains(path, name, needle)`: the named function and the same-file
-  functions it calls by name, transitively, so a wiring test survives a wrap or a split inside the file. It follows
-  direct calls only (not function pointers, macros, message sends or other files), and it over-approximates: it can
-  show that a path contains something, never that it does not.
-- `calls_in_order(body, *calls)`: whether one body contains the calls in that order.
+- `reach(path, name, depth=3)`, `reach_contains(path, name, needle)` and `assert_reaches(path, name, needle)`: the
+  named function and the same-file functions it calls by name, transitively, every definition of each name, so a
+  wiring test survives a wrap or a split inside the file. It follows direct calls only (not function pointers,
+  macros, message sends or other files), and it over-approximates: it can show that a path contains something, never
+  that it does not. Comments do not count; strings do (`config_integer("debug.ssao")`).
+- `calls_in_order(body, *calls)`: whether one body contains the calls in that order, outside comments.
 - `region(path, name)`: the text between `/* probe-region: name */` and `/* probe-region-end: name */` (markers go
   only in files under `port/`).
 - `mutating(path, before, after)`: within the block, every helper reads `path` with one substitution applied (a
@@ -52,9 +56,9 @@ def read(path) -> str:
     return resolved.read_text(encoding="latin-1")
 
 
-def mask(text: str) -> str:
-    """The text with every comment and string or character literal blanked (same length, newlines kept), so
-    braces and names inside them do not count."""
+def mask(text: str, strings: bool = True) -> str:
+    """The text with every comment, and unless `strings` is false every string or character literal, blanked (same
+    length, newlines kept), so braces and names inside them do not count."""
     out = list(text)
     index, length = 0, len(text)
     def blank(start, end):
@@ -78,11 +82,16 @@ def mask(text: str) -> str:
             while end < length and text[end] != character and text[end] != "\n":
                 end += 2 if text[end] == "\\" else 1
             end = min(end + 1, length)
-            blank(index + 1, end - 1)
+            if strings:
+                blank(index + 1, end - 1)
             index = end
         else:
             index += 1
     return "".join(out)
+
+
+class UnbalancedBraces(LookupError):
+    pass
 
 
 def _closing(masked: str, opening: int) -> int:
@@ -96,7 +105,7 @@ def _closing(masked: str, opening: int) -> int:
             depth -= 1
             if depth == 0:
                 return index + 1
-    raise LookupError("unbalanced braces")
+    raise UnbalancedBraces("unbalanced braces")
 
 
 def _depths(masked: str) -> list[int]:
@@ -127,9 +136,14 @@ def _after_annotations(masked: str, index: int) -> int:
     return index
 
 
-def definitions(text: str) -> list[tuple[str, int, int, int]]:
-    """Every top-level definition in a text: (name, start of its line, index of its opening brace, end)."""
-    return list(_definitions(text))
+def definitions(text: str, where: str = "the text") -> list[tuple[str, int, int, int]]:
+    """Every top-level definition in a text: (name, start of its line, index of its opening brace, end). An Objective-C
+    method is named by its first selector part; `selector()` gives the full one."""
+    try:
+        return list(_definitions(text))
+    except UnbalancedBraces:
+        raise UnbalancedBraces(f"{where} has unbalanced braces (an #if branch that opens a brace it does not close?)") \
+            from None
 
 
 @functools.lru_cache(maxsize=64)
@@ -142,9 +156,15 @@ def _definitions(text: str) -> tuple[tuple[str, int, int, int], ...]:
         if name in KEYWORDS or depths[match.start()] != 0:
             continue
         line_start = masked.rfind("\n", 0, match.start()) + 1
-        prefix = masked[line_start:match.start()]
-        # a preprocessor line, or an annotation after a signature (`f(void) API_AVAILABLE(ios(16.0))`)
-        if prefix.lstrip().startswith("#") or ")" in prefix:
+        if masked[line_start:match.start()].lstrip().startswith("#"):
+            continue
+        # past a leading annotation on the line (`__attribute__((unused)) static void f(`); a `)` still before the
+        # name is a call or an annotation after a signature (`f(void) API_AVAILABLE(ios(16.0))`), not a definition
+        try:
+            after = min(_after_annotations(masked, line_start), match.start())
+        except LookupError:
+            after = line_start
+        if ")" in masked[after:match.start()]:
             continue
         try:
             after_parameters = _closing(masked, match.end() - 1)
@@ -169,31 +189,63 @@ def _definitions(text: str) -> tuple[tuple[str, int, int, int], ...]:
     return tuple(sorted(found, key=lambda item: item[1]))
 
 
+def selector(text: str, item) -> str:
+    """An Objective-C method's full selector (`drawFrame:withScale:`), or its name when it takes no arguments; a C
+    function's name."""
+    name, start, brace, _ = item
+    header = mask(text)[start:brace]
+    if not re.match(r"[ \t]*[-+]", header):
+        return name
+    without_types = re.sub(r"\([^()]*(?:\([^()]*\)[^()]*)*\)", " ", header)
+    parts = re.findall(r"([A-Za-z_]\w*)\s*:", without_types)
+    return "".join(f"{part}:" for part in parts) or name
+
+
 def _missing(where: str, name: str, names) -> LookupError:
     closest = difflib.get_close_matches(name, sorted(set(names)), n=5, cutoff=0.5)
     hint = f" Closest names: {', '.join(f'`{item}`' for item in closest)}." if closest else ""
     return LookupError(f"`{name}` is not defined in {where}: it may have been renamed, wrapped or split.{hint}")
 
 
-def _find(text: str, name: str, where: str):
-    found = definitions(text)
-    for item in found:
-        if item[0] == name:
-            return item
-    raise _missing(where, name, (item[0] for item in found))
+def _named(text: str, name: str, where: str) -> list:
+    found = definitions(text, where)
+    if ":" in name:
+        return [item for item in found if item[0] == name.split(":", 1)[0] and selector(text, item) == name]
+    return [item for item in found if item[0] == name]
 
 
-def function_in(text: str, name: str, where: str = "the text") -> str:
-    _, start, _, end = _find(text, name, where)
+def _find(text: str, name: str, where: str, which=None):
+    matches = _named(text, name, where)
+    if not matches:
+        raise _missing(where, name, (item[0] for item in definitions(text, where)))
+    if isinstance(which, int):
+        if not -len(matches) <= which < len(matches):
+            raise LookupError(f"`{name}` has {len(matches)} definitions in {where}, so which={which} is out of range")
+        return matches[which]
+    if isinstance(which, str):
+        chosen = [item for item in matches if which in text[item[1]:item[3]]]
+        if len(chosen) != 1:
+            raise LookupError(f"{len(chosen)} of the {len(matches)} definitions of `{name}` in {where} contain "
+                              f"{which!r}; pass a string only the one you want contains")
+        return chosen[0]
+    if len(matches) > 1:
+        lines = ", ".join(str(text.count("\n", 0, item[1]) + 1) for item in matches)
+        raise LookupError(f"`{name}` is defined {len(matches)} times in {where} (lines {lines}: #if variants or "
+                          f"several @implementation blocks); pass which= a string only the one you want contains")
+    return matches[0]
+
+
+def function_in(text: str, name: str, where: str = "the text", which=None) -> str:
+    _, start, _, end = _find(text, name, where, which)
     return text[start:end]
 
 
-def function(path, name: str) -> str:
-    return function_in(read(path), name, str(path))
+def function(path, name: str, which=None) -> str:
+    return function_in(read(path), name, str(path), which)
 
 
 def defined_in(text: str, name: str) -> bool:
-    return any(item[0] == name for item in definitions(text))
+    return bool(_named(text, name, "the text"))
 
 
 def defined(path, name: str) -> bool:
@@ -201,25 +253,25 @@ def defined(path, name: str) -> bool:
     return defined_in(read(path), name)
 
 
-def inline_in(text: str, name: str, where: str = "the text") -> str:
+def inline_in(text: str, name: str, where: str = "the text", which=None) -> str:
     """A definition with its first `__inline` made `static`, so a probe can compile a header function itself."""
-    return function_in(text, name, where).replace("__inline", "static", 1)
+    return function_in(text, name, where, which).replace("__inline", "static", 1)
 
 
-def inline(path, name: str) -> str:
-    return inline_in(read(path), name, str(path))
+def inline(path, name: str, which=None) -> str:
+    return inline_in(read(path), name, str(path), which)
 
 
-def body_in(text: str, name: str, where: str = "the text") -> str:
+def body_in(text: str, name: str, where: str = "the text", which=None) -> str:
     """The text inside the definition's braces, without the newline after `{` and the one before `}`."""
-    _, _, brace, end = _find(text, name, where)
+    _, _, brace, end = _find(text, name, where, which)
     inner = text[brace + 1:end - 1]
     inner = inner[1:] if inner.startswith("\n") else inner
     return inner[:-1] if inner.endswith("\n") else inner
 
 
-def body(path, name: str) -> str:
-    return body_in(read(path), name, str(path))
+def body(path, name: str, which=None) -> str:
+    return body_in(read(path), name, str(path), which)
 
 
 def called_names(text: str) -> list[str]:
@@ -230,18 +282,22 @@ def called_names(text: str) -> list[str]:
 
 
 def reach_in(text: str, name: str, depth: int = 3, where: str = "the text") -> dict[str, str]:
-    found = {item[0]: item for item in reversed(definitions(text))}
+    """name -> the text of every definition of it (joined by a blank line), comments blanked, strings kept."""
+    found: dict[str, list] = {}
+    for item in definitions(text, where):
+        found.setdefault(item[0], []).append(item)
     if name not in found:
         raise _missing(where, name, found)
+    uncommented = mask(text, strings=False)
     reached, frontier = {}, [name]
     for _ in range(depth + 1):
         following = []
         for current in frontier:
             if current in reached:
                 continue
-            _, start, _, end = found[current]
-            reached[current] = text[start:end]
-            following += [called for called in called_names(text[found[current][2]:end]) if called in found]
+            reached[current] = "\n\n".join(uncommented[start:end] for _, start, _, end in found[current])
+            for _, _, brace, end in found[current]:
+                following += [called for called in called_names(text[brace:end]) if called in found]
         frontier = following
     return reached
 
@@ -254,7 +310,16 @@ def reach_contains(path, name: str, needle: str, depth: int = 3) -> bool:
     return any(needle in text for text in reach(path, name, depth).values())
 
 
+def assert_reaches(path, name: str, needle: str, depth: int = 3) -> None:
+    """`reach_contains` as an assertion that names the functions it searched when the needle is missing."""
+    reached = reach(path, name, depth)
+    if not any(needle in text for text in reached.values()):
+        raise AssertionError(f"{needle!r} is not in `{name}` or the same-file functions it reaches in {path} "
+                             f"(searched: {', '.join(reached)})")
+
+
 def calls_in_order(body_text: str, *calls: str) -> bool:
+    body_text = mask(body_text, strings=False)
     position = 0
     for call in calls:
         found = body_text.find(call, position)
