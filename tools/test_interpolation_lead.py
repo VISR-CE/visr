@@ -235,12 +235,13 @@ static void setting_off(void)
 	halo_presentation_lead_toggle();
 }
 
-/* a repeat-count change (the knob's 0 to 1) moves every lead by about 25 ms at once: the average starts again
-from the new count's first frame, so no frame is corrected by the jump or pinned at 1 while the average catches
-up. With the count unchanged (the control) the same jump does pin frames, which the stereo lead line counts */
-static unsigned long repeat_change(int reseeded)
+/* a repeat-count change (the knob's 0 to 1) moves every lead by about 25 ms: the average starts again from the
+new count's leads, so no frame is corrected by the jump or pinned at 1 while the average catches up, also when the
+Compositor's predicted presentation follows the count LAG frames late (the count reads back first). With the count
+unchanged (the control) the same jump does pin frames, which the stereo lead line counts */
+static unsigned long repeat_change(int reseeded, int lag)
 {
-	double worst = 0.0, base = 120000.0 + (reseeded ? 0.0 : 80000.0);
+	double worst = 0.0, base = 120000.0 + (reseeded ? 0.0 : 80000.0) + lag * 200000.0;
 	unsigned long most_pinned = 0, lines;
 	int n;
 
@@ -258,7 +259,8 @@ static unsigned long repeat_change(int reseeded)
 		double read = base + 3.0 + n * (1000.0 / 45.0);
 		double tick_start = floor(read / TICK_MS) * TICK_MS;
 		real fraction = (real)((read - tick_start) / TICK_MS);
-		double drawn = stereo_frame(read, n % 3 == 0 ? 9.0 : 0.0, read + 30.0, read + 61.0, NULL);
+		double lead = n < lag ? 36.0 : 61.0;
+		double drawn = stereo_frame(read, n % 3 == 0 ? 9.0 : 0.0, read + 12.0, read + lead, NULL);
 
 		worst = fmax(worst, fabs(drawn - shown(read, fraction)));
 		if (lead_lines != lines) {
@@ -286,8 +288,10 @@ int main(void)
 	space_closes();
 	stereo_stops_silently();
 	setting_off();
-	repeat_change(1);
-	check(repeat_change(0) > 0, "repeat change control: a 25 ms jump in the lead pinned no frames", 0.0);
+	repeat_change(1, 0);
+	repeat_change(1, 1);
+	repeat_change(1, 2);
+	check(repeat_change(0, 0) > 0, "repeat change control: a 25 ms jump in the lead pinned no frames", 0.0);
 	return failures ? 1 : 0;
 }
 """

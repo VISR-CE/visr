@@ -545,6 +545,11 @@ static double stereo_presentation_milliseconds; /* when this loop frame's Compos
 static unsigned long stereo_presentation_frame;
 static int stereo_leading; /* the last frame opened a Compositor frame: stereo's lead is in charge */
 static int stereo_repeat; /* the repeat count stereo_lead's average was taken at */
+/* frames left whose lead re-seeds the average after a repeat-count change (render_interpolation_presentation_due) */
+static int stereo_reseeding;
+/* the Compositor reads a new count back on the frame after it is set, but its predicted presentation may follow a
+frame or two later: re-seeding for this many frames covers that lag, at the cost of as many uncorrected frames */
+#define STEREO_RESEED_FRAMES 3
 static unsigned long loop_frame; /* the loop clock's reads */
 static double loop_clock_read_milliseconds;
 static double frame_lead_milliseconds;
@@ -573,9 +578,11 @@ void render_interpolation_next_frame_due(unsigned long microseconds)
 	next_frame_due_milliseconds = halo_frame_trace_milliseconds() + (double)microseconds / 1000.0;
 }
 
-/* REPEAT: the Compositor's frame repeat count the frame opened with. A change moves every lead at once (about 36
-to about 61 ms from 0 to 1), so the average starts again from the new count's first frame: one step in the blend
-instead of half a second of fractions pinned at 1 while the average caught up */
+/* REPEAT: the Compositor's frame repeat count the frame opened with. A change moves every lead (about 36 to about
+61 ms from 0 to 1), so the average starts again from the new count's leads: STEREO_RESEED_FRAMES frames each seed
+it afresh, so the last one, which carries the new count even when the predicted presentation follows the count a
+frame or two late, is what the average starts from. A few uncorrected frames instead of half a second of fractions
+pinned at 1 while the average caught up */
 void render_interpolation_presentation_due(unsigned long microseconds, int repeat)
 {
 	if (microseconds == 0 || platform_fixed_timestep())
@@ -597,11 +604,17 @@ void render_interpolation_presentation_due(unsigned long microseconds, int repea
 		interpolation_lead_reset(&display_lead);
 		stereo_leading = TRUE;
 		stereo_repeat = repeat;
+		stereo_reseeding = 0;
 	}
 	else if (repeat != stereo_repeat)
 	{
-		interpolation_lead_reset(&stereo_lead);
+		stereo_reseeding = STEREO_RESEED_FRAMES;
 		stereo_repeat = repeat;
+	}
+	if (stereo_reseeding > 0)
+	{
+		interpolation_lead_reset(&stereo_lead);
+		stereo_reseeding--;
 	}
 	stereo_presentation_milliseconds = halo_frame_trace_milliseconds() + (double)microseconds / 1000.0;
 	stereo_presentation_frame = loop_frame;
