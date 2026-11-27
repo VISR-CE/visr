@@ -11,6 +11,8 @@ The class: about 170 test files each built their probes with their own compiler 
   `tools/probekit/legacy/compile.txt` (not migrated yet) or `exempt.txt` (tests of the build tools themselves, each
   with its reason) may have one. Both lists are shrink-only.
   Each listed file's count of commands is recorded too, and may only fall.
+- Rule 2: calls that pass `flags=` (a caller's own options in place of build()'s defaults) are counted per file in
+  `BASELINE.json`, and a count may only fall; new code uses build()'s structured parameters.
 - Rule H: every `tools/harness/tests/test_*.py` is named in `.github/workflows/ci.yml` or `cinematic-harness.yml`, or
   is on `tools/probekit/legacy/harness_not_run.txt`.
 
@@ -19,6 +21,7 @@ still break its rule, and every file that breaks a rule must be on its list. A m
 file cannot go on one without editing the baseline, which the architecture review treats as a finding. These are text
 checks for honest authors, not a security boundary: a compiler name hidden behind a function defeats them.
 """
+import ast
 import json
 import sys
 from pathlib import Path
@@ -86,6 +89,32 @@ def test_rule_1_new_tests_build_probes_with_probekit_cc():
     new = {name: lines for name, lines in violations.items() if name not in allowed}
     assert not new, ('these write their own compiler command; build the probe with probekit.cc.build instead '
                      f'(file: lines): {new}')
+
+
+def flags_calls(path):
+    """probe(..., flags=...) and probekit.cc build(..., flags=...) / command(..., flags=...) calls in a file."""
+    tree = ast.parse(path.read_text(errors='replace'))
+    imported = {alias.asname or alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+                and node.module in ('probekit.cc', 'cc') for alias in node.names}
+    def raw(call):
+        function = call.func
+        return (isinstance(function, ast.Name) and (function.id == 'probe' or function.id in imported)) or \
+            (isinstance(function, ast.Attribute) and function.attr in ('build', 'command')
+             and isinstance(function.value, ast.Name) and function.value.id == 'cc')
+    return sum(1 for node in ast.walk(tree) if isinstance(node, ast.Call) and raw(node)
+               and any(keyword.arg == 'flags' for keyword in node.keywords))
+
+
+def test_rule_2_raw_flags_only_shrink():
+    """`flags=` keeps a caller's own options in place of build()'s defaults, which only moves the duplication; the
+    runners that predate build() use it, and a new caller uses the structured parameters instead."""
+    counts = {str(path.relative_to(ROOT)): count for path in sorted(TOOLS.rglob('*.py'))
+              if (count := flags_calls(path))}
+    recorded = baseline('flags')
+    more = {path: f'{recorded.get(path, 0)} -> {count}' for path, count in counts.items()
+            if count > recorded.get(path, 0)}
+    assert not more, ('these build probes with flags= more often than BASELINE.json records; use build()\'s '
+                      f'structured parameters (std, includes, defines, sanitize, ...): {more}')
 
 
 def harness_tests():

@@ -216,5 +216,10 @@
   "tools/harness/tests/test_text_from_cursor.py",
   "tools/harness/tests/test_texture_idle.py",
   "tools/harness/tests/test_widget_pool.py"
- ]
+ ],
+ "flags": {
+  "tools/ios_test.py": 192,
+  "tools/menu_probe_build.py": 1,
+  "tools/test_probekit_cc.py": 2
+ }
 }
