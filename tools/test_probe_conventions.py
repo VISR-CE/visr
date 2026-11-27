@@ -9,7 +9,7 @@ The class: about 170 test files each built their probes with their own compiler 
   is a compiler however it is spelled or looked up, `shlex.split` of one, a `shell=True` string), may appear only in
   files on
   `tools/probekit/legacy/compile.txt` (not migrated yet) or `exempt.txt` (tests of the build tools themselves, each
-  with its reason) may have one.
+  with its reason) may have one. Both lists are shrink-only.
 - Rule H: every `tools/harness/tests/test_*.py` is named in `.github/workflows/ci.yml` or `cinematic-harness.yml`, or
   is on `tools/probekit/legacy/harness_not_run.txt`.
 
@@ -70,8 +70,7 @@ def test_rule_1_new_tests_build_probes_with_probekit_cc():
     exempt = listed('exempt.txt')
     unexplained = sorted(name for name, reason in exempt.items() if not reason)
     assert not unexplained, f'exempt.txt needs a reason after # for: {unexplained}'
-    stale = sorted(set(exempt) - set(violations))
-    assert not stale, f'these no longer write a compiler command; take them off exempt.txt: {stale}'
+    check_shrink_only('exempt.txt', set(violations))
     check_shrink_only('compile.txt', set(violations))
     allowed = set(listed('compile.txt')) | set(exempt)
     new = {name: lines for name, lines in violations.items() if name not in allowed}

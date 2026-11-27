@@ -1,4 +1,4 @@
-# Tests of the build tools themselves, which may write compiler commands (rule 1), each with its reason.
+# Tests of the build tools themselves, which may write compiler commands (rule 1), each with its reason. Shrink-only (legacy/BASELINE.json).
 test_linux_strict.py  # tests the Phase 1 strict compiler wrapper, which takes the compiler command itself
 test_probe_ledger.py  # tests the probe ledger rules with sample link commands; builds nothing
 test_probe_ledger_compare.py  # tests the ledger comparison with sample link commands; builds nothing

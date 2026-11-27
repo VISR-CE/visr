@@ -184,6 +184,12 @@
   "test_traced_world_key.py",
   "test_uploaded_constants_initialized.py"
  ],
+ "exempt.txt": [
+  "test_linux_strict.py",
+  "test_probe_ledger.py",
+  "test_probe_ledger_compare.py",
+  "test_probekit_cc.py"
+ ],
  "harness_not_run.txt": [
   "tools/harness/tests/test_audio_driver.py",
   "tools/harness/tests/test_coop_revert.py",
