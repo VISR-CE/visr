@@ -117,7 +117,8 @@ static inline int test_script_clock_tick(struct test_script_clock *clock, int sc
 /* Networking must be up before a scripted capture opens a screen: a network pregame screen opened as the first screen (frame 2)
 showed "A networking error has occurred", opened after the main menu it showed ENLISTED PLAYERS. One condition for every screen
 and every row, not a delay per screen: the transport is initialized and its link is up, or `TEST_NETWORK_WAIT_FRAMES` have passed
-(a device with no link at all must not wait forever). */
+(a device with no link at all must not wait forever). 900 frames is 15 s at 60 fps: the link was up by the main menu in the runs that
+opened a network screen second (a few dozen frames in), so this is a ceiling many times that, not a measured time. */
 #define TEST_NETWORK_WAIT_FRAMES 900
 
 static inline int test_network_ready(int transport_up, unsigned long frame)

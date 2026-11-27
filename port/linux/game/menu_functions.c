@@ -736,7 +736,16 @@ boolean transport_network_available(void);
 /* the networking a scripted capture's screens need is up (test_focus_walk.h's test_network_ready) */
 int menu_test_network_ready(void)
 {
-	return test_network_ready(transport_initialized && transport_network_available(), platform_clock_frames());
+	static int gave_up_logged;
+	int up = transport_initialized && transport_network_available();
+	int ready = test_network_ready(up, platform_clock_frames());
+
+	if (ready && !up && !gave_up_logged)   /* a capture with no link says so instead of showing a networking error unexplained */
+	{
+		gave_up_logged = 1;
+		platform_log("test input: networking is not up after %d frames (no link); opening screens anyway", TEST_NETWORK_WAIT_FRAMES);
+	}
+	return ready;
 }
 
 /* a screen is up (or a game runs) and networking is ready: the scripted input's clock begins, and a sequence opens its next screen */
