@@ -58,14 +58,17 @@ def test_offscreen_frame_skips_the_display():
     assert "commit(YES);" in body[acquire:]
 
 
+KERNEL = "port/linux/src/xbox_kernel.c"
+
+
 def kernel_function(name):
-    return source.function("port/linux/src/xbox_kernel.c", name)
+    return source.function(KERNEL, name)
 
 
 def test_offscreen_forces_fixed_timestep():
-    assert "host_benchmark_offscreen_request(" in kernel_function("platform_fixed_timestep_launch")
+    assert source.reach_contains(KERNEL, "platform_fixed_timestep_launch", "host_benchmark_offscreen_request(")
     # a presented run takes the launch onto real time for a while
-    assert "clock_realtime" in kernel_function("platform_fixed_timestep")
+    assert source.reach_contains(KERNEL, "platform_fixed_timestep", "clock_realtime")
 
 
 def test_clock_switch_keeps_worker_accounting():
@@ -76,8 +79,8 @@ def test_clock_switch_keeps_worker_accounting():
             continue
         if "platform_fixed_timestep()" in line and ("suspended" in line or "thread_is_worker" in line):
             raise AssertionError(line)
+    assert source.reach_contains(KERNEL, "platform_clock_realtime", "halo_main_time_restart();")
     switch = kernel_function("platform_clock_realtime")
-    assert "halo_main_time_restart();" in switch
     assert "clock_realtime_offset =" in switch and "clock_frames_offset" in switch
 
 
