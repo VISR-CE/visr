@@ -44,7 +44,8 @@ def test_profile_keys_match_the_feed_generation():
 
 def test_every_published_generation_can_be_signed_validated_and_served():
     probe = (ROOT / "port/ios/tests/profile_delivery_probe.c").read_text()
-    for domain in profile_pr.GENERATIONS:
+    assert profile_pr.published_generations()
+    for domain in profile_pr.published_generations():
         generation = int(domain.rsplit("-", 1)[1])
         assert domain in data_pack.DEVICE_PROFILE_DOMAINS and pages_asset_overlay.PROFILE_DIRECTORIES[domain] == domain
         assert f'"validate-{generation}"' in probe, domain
@@ -55,9 +56,9 @@ def test_generation_constants_agree():
     generation = int(re.search(r"HOST_PROFILE_FEED_GENERATION = (\d+)", header)[1])
     domain = re.search(r'#define HOST_PROFILE_FEED_DOMAIN "([^"]+)"', header)[1]
     assert generation == data_pack.PROFILE_FEED_GENERATION == 5
-    profile_pr = re.search(r'^PROFILE_DOMAIN = "([^"]+)"', (ROOT / "tools/profile_pr.py").read_text(), re.M)[1]
     pages = (ROOT / "tools/pages_asset_overlay.py").read_text()
-    assert domain == data_pack.PROFILE_FEED_DOMAIN == ios_build.PROFILE_FEED_DIRECTORY == profile_pr
+    assert domain == data_pack.PROFILE_FEED_DOMAIN == ios_build.PROFILE_FEED_DIRECTORY == profile_pr.PROFILE_DOMAIN
+    assert domain in data_pack.SIGNABLE_PROFILE_DOMAINS
     assert f'"{domain}": "{domain}"' in pages
     assert domain in data_pack.DEVICE_PROFILE_DOMAINS
 
@@ -286,6 +287,19 @@ def test_each_generation_carries_only_the_keys_its_builds_accept(tmp_path):
     assert profile_revision.read(four)[0] == profile_revision.read(ROOT / "profiles")[0]
 
 
+def test_the_signer_and_the_site_agree_on_which_generations_are_retired():
+    """The class: a generation no launchable build reads is neither signed nor published. profile_pr leaves out exactly
+    the recorded generations whose directory the overlay retires."""
+    for domain in profile_pr.GENERATIONS:
+        directory = f"{profile_pr.FEED.as_posix()}/{domain}/"
+        assert pages_asset_overlay.retired(directory + "ios/iPhone18,1/_.json") == (domain in profile_pr.retired_generations()), domain
+    assert profile_pr.retired_generations() == ("device-profiles-3",)
+    assert not set(profile_pr.published_generations()) & set(profile_pr.retired_generations())
+    # device-profiles-4 (0.6.8 to 0.6.21) and main's generation stay published
+    assert {"device-profiles-4", profile_pr.PROFILE_DOMAIN} <= set(profile_pr.published_generations())
+    assert pages_asset_overlay.retired("docs/site/packs/tester/profiles/ios/iPad13,4/_.json")
+
+
 PROFILE_KEY_NAME = re.compile(r'^PROFILE_[A-Z_]+\("([^"]+)"', re.M)
 # The sha256 of the sorted profile key names that every released validator knows (the table less KEY_GENERATIONS).
 KNOWN_TO_EVERY_GENERATION = "5a06850edd9ee065d189fe0e01dcbff3b3c821bec7598d022dff522f585ebc86"
@@ -361,7 +375,7 @@ def test_sign_all_writes_every_generation_and_the_receipt(tmp_path):
     profiles_with_full_rate(repo / "profiles")
     feeds = tmp_path / "feeds"
     tester = feeds / "tester"
-    existing = tester / "device-profiles-3/ios/iPhone18,1/_.json"
+    existing = tester / "device-profiles-4/ios/iPhone18,1/_.json"
     existing.parent.mkdir(parents=True)
     existing_bytes = json.dumps({"manifest": base64.b64encode(json.dumps({"sequence": 5}).encode()).decode()}).encode()
     existing.write_bytes(existing_bytes)
@@ -377,15 +391,18 @@ def test_sign_all_writes_every_generation_and_the_receipt(tmp_path):
     options = profile_pr.SimpleNamespace(worktree=str(repo), feeds_tree=str(feeds), signing_key="seed", out=str(tmp_path / "out"), sign_all=2**40)
     assert profile_pr.sign_all(options, run) == 0
     # (the published target, plus every other model a profile matches: a model with no shard yet gets one)
-    assert {"device-profiles-3:ios/iPhone18,1/_", "device-profiles-4:ios/iPhone18,1/_", "device-profiles-5:ios/iPhone18,1/_"} <= {domain for domain, _ in calls}
-    assert {"device-profiles-3:ios/iPad13,1/_", "device-profiles-4:ios/iPad13,1/_", "device-profiles-5:ios/iPad13,1/_"} <= {domain for domain, _ in calls}
+    assert {"device-profiles-4:ios/iPhone18,1/_", "device-profiles-5:ios/iPhone18,1/_"} <= {domain for domain, _ in calls}
+    assert {"device-profiles-4:ios/iPad13,1/_", "device-profiles-5:ios/iPad13,1/_"} <= {domain for domain, _ in calls}
+    # (a retired generation is never signed: no launchable build reads it)
+    assert not [domain for domain, _ in calls if domain.startswith("device-profiles-3:")]
     sources = dict(calls)
     assert sources["device-profiles-4:ios/iPhone18,1/_"] != str(repo / "profiles")
     assert sources["device-profiles-5:ios/iPhone18,1/_"] == str(repo / "profiles")
-    assert sources["device-profiles-3:ios/iPhone18,1/_"] != str(repo / "profiles")
     assets = json.loads((tester / "publication.json").read_text())["assets"]
     assert not any("device-profiles-6" in domain for domain, _ in calls)    # (recorded, not yet opened: skipped)
-    for domain in profile_pr.PUBLISHED_GENERATIONS:
+    # the class: the signed domains are exactly the published generations
+    assert {domain.partition(":")[0] for domain, _ in calls} == set(profile_pr.published_generations())
+    for domain in profile_pr.published_generations():
         name = f"docs/site/packs/tester/{domain}/ios/iPhone18,1/_.json"
         assert assets[name] == hashlib.sha256(profile_pr.feed_file(feeds, name).read_bytes()).hexdigest()
     # a sequence the feed has already passed is refused before anything is signed for that shard

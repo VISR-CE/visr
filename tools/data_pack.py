@@ -38,12 +38,19 @@ ROOT = Path(__file__).resolve().parents[1]
 # its shards are signed as PROFILE_FEED_DOMAIN:<target> and served from a directory of the same name.
 # device-profiles-1 is what 0.4.2 to 0.5.1 read; its path is frozen. device-profiles-2 is what 0.6.0 to 0.6.3 read; it is
 # retired: a new shard there would reach 0.6.3, whose duplicate stores quarantine it.
-# device-profiles-6 is what the 0.6 line reads from 0.6.22: generation 4's keys and display.effect_limits. This source
-# signs it (tools/profile_pr.py, GENERATIONS) and reads generation 5, which holds every key.
+# device-profiles-3 is what 0.6.4 to 0.6.7 read; those builds expired before 0.6.12, so tools/profile_pr.py no longer
+# publishes it (tools/pages_asset_overlay.py, RETIRED_PROFILE_DIRECTORIES). device-profiles-4 is what 0.6.8 to 0.6.21 read.
+# device-profiles-6 is what the 0.6 line will read from 0.6.22: generation 4's keys and display.effect_limits.
+# tools/profile_pr.py records its keys (GENERATIONS), and it is signed once SIGNABLE_PROFILE_GENERATIONS opens it. This
+# source reads generation 5, which holds every key.
 PROFILE_FEED_GENERATION = 5
 PROFILE_FEED_DOMAIN = f"device-profiles-{PROFILE_FEED_GENERATION}"
 DEVICE_PROFILE_DOMAINS = ("device-profiles-1", "device-profiles-2", "device-profiles-3", "device-profiles-4", "device-profiles-5",
                           "device-profiles-6")
+# The device-profile generations this publisher signs shards for: an explicit set, not every generation up to
+# PROFILE_FEED_GENERATION, so a release line's own generation (6 for 0.6.22) opens here while this source reads 5.
+SIGNABLE_PROFILE_GENERATIONS = (1, 2, 3, 4, 5)
+SIGNABLE_PROFILE_DOMAINS = tuple(f"device-profiles-{generation}" for generation in SIGNABLE_PROFILE_GENERATIONS)
 REVISION = profile_revision.NAME
 SHADER_INDEX_LIMIT = 65536
 SHADER_COMPRESSED_FILE_LIMIT = 4 * 1024 * 1024
@@ -695,10 +702,11 @@ def main(arguments=None):
         raise ValueError("sequence must be a positive integer at most 2^53 - 1")
     if args.minimum_engine != 1 or args.maximum_engine != 1:
         raise ValueError("this publisher supports only minimum_engine = maximum_engine = 1")
-    expected = (r"device-profiles-[12345]:.+|profiles-[12]" if args.kind == "profiles" else
+    signable = ", ".join(f"{domain}:" for domain in SIGNABLE_PROFILE_DOMAINS)
+    expected = ("(?:" + "|".join(map(re.escape, SIGNABLE_PROFILE_DOMAINS)) + r"):.+|profiles-[12]" if args.kind == "profiles" else
                 "shader-lists-[12]" if args.kind == "shaders" else "latest-release-1" if args.kind == "latest" else FRAMINGS_COMPATIBILITY if args.kind == "framings" else r"benchmark-(?:replay-1|catalog-[12]):[0-9a-f]{64}")
     if not re.fullmatch(expected, args.compatibility):
-        raise ValueError("compatibility must be device-profiles-1:, -2:, -3:, -4: or -5: plus a target, profiles-1 or profiles-2, "
+        raise ValueError(f"compatibility must be one of {signable} plus a target, profiles-1 or profiles-2, "
                          "benchmark-replay-1:/benchmark-catalog-1:/benchmark-catalog-2: plus the exact lowercase guest SHA-256, latest-release-1, or map-framings-2")
     if len(args.notes.encode("utf-8")) > 4096:
         raise ValueError("notes must be at most 4096 UTF-8 bytes")
@@ -712,7 +720,7 @@ def main(arguments=None):
         print(f"Released apps that admit this shard: {', '.join(checked) or f'none yet read device-profiles-{device[0]}'}")
     else:
         if args.device_platform or args.device_model or args.device_chip:
-            raise ValueError("device arguments require device-profiles-1, -2, -3, -4 or -5 compatibility")
+            raise ValueError(f"device arguments require a {signable} compatibility")
         files = snapshot(args.input, args.kind, args.compatibility)
         if args.kind == "shaders":
             with tempfile.TemporaryDirectory(prefix="visr-released-shader-snapshot-") as temporary:

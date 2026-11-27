@@ -11,6 +11,8 @@ from tools import pages_asset_overlay as overlay
 
 PROFILE = "docs/site/packs/tester/profiles/ios/iPhone18,1/_.json"
 PROFILE_2 = "docs/site/packs/tester/device-profiles-2/ios/iPhone18,1/_.json"
+# (a generation launchable builds read: profiles/ and device-profiles-3/ are retired)
+PROFILE_4 = "docs/site/packs/tester/device-profiles-4/ios/iPhone18,1/_.json"
 SHADER = "docs/site/packs/tester/shaders.json"
 RECORDING = "docs/site/packs/tester/recordings.json"
 
@@ -323,14 +325,14 @@ def test_first_profile_only_update_emits_valid_metadata_and_survives_redeploy(
     monkeypatch.setattr(overlay, "source_assets", lambda: {})
     monkeypatch.setattr(overlay, "verify_asset", lambda path, data: json.loads(data))
     recording = envelope("benchmark-catalog-1:" + "a" * 64, 1, "recording")
-    profile = envelope("device-profiles-1:ios/iPhone18,1/_", 1, "profile")
+    profile = envelope("device-profiles-4:ios/iPhone18,1/_", 1, "profile")
     monkeypatch.setattr(overlay, "live_assets", lambda: {RECORDING: recording})
-    monkeypatch.setattr(overlay, "candidate_assets", lambda commit: {PROFILE: profile})
+    monkeypatch.setattr(overlay, "candidate_assets", lambda commit: {PROFILE_4: profile})
     first = overlay.stage_site(asset_commit="b" * 40, destination=tmp_path / "first")
     receipt = (first / "packs/tester/publication.json").read_bytes()
     assert overlay.parse_receipt(receipt) == {
         RECORDING: hashlib.sha256(recording).hexdigest(),
-        PROFILE: hashlib.sha256(profile).hexdigest(),
+        PROFILE_4: hashlib.sha256(profile).hexdigest(),
     }
     assert (
         first / "packs/tester/publication-format.txt"
@@ -339,7 +341,7 @@ def test_first_profile_only_update_emits_valid_metadata_and_survives_redeploy(
         overlay.RECEIPT: receipt,
         overlay.MARKER: overlay.MARKER_DATA,
         RECORDING: recording,
-        PROFILE: profile,
+        PROFILE_4: profile,
     }
 
     def fetch(path, maximum, **kwargs):
@@ -349,7 +351,7 @@ def test_first_profile_only_update_emits_valid_metadata_and_survives_redeploy(
     # Exercise actual receipt/marker/hash validation on the next source deployment.
     monkeypatch.setattr(overlay, "live_assets", real_live_assets)
     second = overlay.stage_site(destination=tmp_path / "normal")
-    assert (second / PROFILE.removeprefix("docs/site/")).read_bytes() == profile
+    assert (second / PROFILE_4.removeprefix("docs/site/")).read_bytes() == profile
     assert (second / RECORDING.removeprefix("docs/site/")).read_bytes() == recording
     responses[overlay.MARKER] = None
     with pytest.raises(ValueError, match="marker is missing"):
@@ -410,14 +412,18 @@ def test_a_retired_recording_feed_leaves_the_site_but_other_live_feeds_stay(tmp_
     receipt = json.loads((result / "packs/tester/publication.json").read_bytes())
     assert retired not in receipt["assets"] and other in receipt["assets"]
 
-def test_generation_two_profile_shards_leave_the_site_and_generation_one_stays(tmp_path, monkeypatch):
+def test_retired_profile_generations_leave_the_site_and_generation_four_stays(tmp_path, monkeypatch):
     (tmp_path / "docs/site").mkdir(parents=True)
     shard = "docs/site/packs/tester/device-profiles-2/ios/iPad16,3/_.json"
-    frozen = "docs/site/packs/tester/profiles/ios/iPad13,4/_.json"
+    # generations 1 and 3 served only builds that expired before 0.6.12
+    expired = ("docs/site/packs/tester/profiles/ios/iPad13,4/_.json", "docs/site/packs/tester/device-profiles-3/ios/iPad13,4/_.json")
+    frozen = "docs/site/packs/tester/device-profiles-4/ios/iPad13,4/_.json"
     live = {
         RECORDING: envelope("benchmark-catalog-1:" + "a" * 64, 1, "r"),
         shard: envelope("device-profiles-2:ios/iPad16,3/_", 1793231748, "quarantined by 0.6.3"),
-        frozen: envelope("device-profiles-1:ios/iPad13,4/_", 1, "kept"),
+        expired[0]: envelope("device-profiles-1:ios/iPad13,4/_", 1, "expired"),
+        expired[1]: envelope("device-profiles-3:ios/iPad13,4/_", 1, "expired"),
+        frozen: envelope("device-profiles-4:ios/iPad13,4/_", 1, "kept"),
     }
     monkeypatch.setattr(overlay, "ROOT", tmp_path)
     monkeypatch.setattr(overlay, "trusted_source", lambda: "a" * 40)
@@ -425,11 +431,12 @@ def test_generation_two_profile_shards_leave_the_site_and_generation_one_stays(t
     monkeypatch.setattr(overlay, "source_assets", lambda: {RECORDING: live[RECORDING]})
     monkeypatch.setattr(overlay, "live_assets", lambda: dict(live))
     result = overlay.stage_site(destination=tmp_path / "stage")
-    assert not (result / shard.removeprefix("docs/site/")).exists()
+    for path in (shard, *expired):
+        assert not (result / path.removeprefix("docs/site/")).exists(), path
     assert (result / frozen.removeprefix("docs/site/")).read_bytes() == live[frozen]
     assert (result / RECORDING.removeprefix("docs/site/")).read_bytes() == live[RECORDING]
     receipt = json.loads((result / "packs/tester/publication.json").read_bytes())
-    assert shard not in receipt["assets"] and frozen in receipt["assets"]
+    assert not {shard, *expired} & set(receipt["assets"]) and frozen in receipt["assets"]
 
 def test_a_catalog_two_feed_publishes_with_exactly_the_archive_it_names(tmp_path, monkeypatch):
     import data_pack

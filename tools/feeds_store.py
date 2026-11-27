@@ -339,6 +339,15 @@ class Wrangler:
             file.unlink()
 
 
+def refuse_retired(items: list[Item]) -> None:
+    """A retired feed (tools/pages_asset_overlay.py, RETIRED_FEEDS and RETIRED_PROFILE_DIRECTORIES) is read by no
+    launchable build: a tree that names one again was written by a stale writer, and is refused before anything is
+    uploaded. The bucket keeps the copies it already serves, since nothing here deletes."""
+    stale = sorted(entry.key for entry in items if entry.key.startswith("tester/") and overlay.retired(PACKS + entry.key))
+    if stale:
+        raise ValueError(f"The tree carries {len(stale)} retired feed files, first {stale[0]}: remove them and their receipt entries")
+
+
 def publish(backend, base: str, items: list[Item]) -> list[Item]:
     live = live_receipts(base)
     changes = plan(items, live)
@@ -413,6 +422,7 @@ def main(arguments=None) -> int:
             print(f"differs or missing: {url_for(args.base_url, key)}", file=sys.stderr)
         print(f"{len(items) - len(missing)} of {len(items)} files served byte for byte at {args.base_url}")
         return 1 if missing else 0
+    refuse_retired(items)
     if args.dry_run:
         backend = DryRun()
     elif args.backend == "s3":

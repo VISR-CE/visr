@@ -52,8 +52,11 @@ LEGACY_PROFILE_INDEX = PREFIX + "profiles-2.json"
 PROFILE_DIRECTORIES = {"profiles": "device-profiles-1", "device-profiles-2": "device-profiles-2", "device-profiles-3": "device-profiles-3",
                        "device-profiles-4": "device-profiles-4", "device-profiles-5": "device-profiles-5",
                        "device-profiles-6": "device-profiles-6"}
-# Live feeds that source deletion alone would not remove: stage_site keeps every live asset the source lacks,
-# so a retired recording feed is named here. They served only releases before 0.6.0.
+# Feeds no launchable build reads. stage_site keeps every live asset the source lacks, so a retired feed is named
+# here, and tools/feeds_store.py refuses to publish a visr-feeds tree that still carries one. The first five served
+# only releases before 0.6.0. Every TestFlight build before 0.6.12 was expired on 2026-11-06, and each later release
+# reads only the catalog-1 feed for its own guest (HaloRecordingFeedURL), so the catalogs of the guests of 0.6.0 to
+# 0.6.11 follow, with the benchmark-catalog-2 feed of the 0.6.3 and 0.6.4 guest, which no release reads.
 RETIRED_FEEDS = frozenset(
     PREFIX + "recordings-" + guest + ".json"
     for guest in (
@@ -62,12 +65,24 @@ RETIRED_FEEDS = frozenset(
         "a949cfcc94abf93df5bd091bd9d27a6933dbc688b81f52c3ea863fa720ff99eb",
         "6c831c00ef902ff90589f77cd834291dfde17dcec189cd3bdff22fd168f3334e",
         "4d6924ec86afba868b1fd994bcc323d441b18991ef5367cebca18a6b5cb97d2d",
+        "28b14010a886a159afff1bec13ec7f516b5235f270934906f15ff59ff10b0fd1",  # 0.6.0
+        "c7fe63a3433bb5ef215fbd498679caf5688f56663b65879d496d39981f482b91",  # 0.6.1
+        "36970174a94fd63fb36d43dadf6011911db23fb49f68291beca46b4d71963c0f",  # 0.6.2
+        "c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89",  # 0.6.3 and 0.6.4
+        "cd6918f423702083087fddf32473d31340014fb565fd96c90b995dddf43cd350",  # 0.6.5
+        "af40aee1ede971d28a67d3532084184f8192ea9bb887978807e17a63d3ebe5b1",  # 0.6.6
+        "3b35b4be4f2faa36c7e10fb4e340a5f5d8f599d0290cee5a9b251e7ff8a6c107",  # 0.6.7
+        "884e797b336ee160a71955d02fff76cedf57a42826f369b4636920ca311832b5",  # 0.6.8
+        "ef68cbd68ddaf5e4bb038488a8521ee381ae44f7653e020e0b0325ceb81da5df",  # 0.6.9
+        "73c231e484545195f01d5b86454e8ff6b933b2da5f455adc0d16b8a8ede53edd",  # 0.6.10
+        "67c55749538c7f6d52151bd9d5025dea4959ba0374108828f7917cf6fd0c0437",  # 0.6.11
     )
-)
+) | {PREFIX + "recordings-2-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json"}
 # 0.6.3's launch menu quarantines every new device-profiles-2 shard sequence (two data-pack stores share one
 # cache root) and then reports the profile server unreachable; a 404 makes it use its bundled profiles. The
-# generation stays off the site: 0.6.4 and later read device-profiles-3.
-RETIRED_PROFILE_DIRECTORIES = (PREFIX + "device-profiles-2/",)
+# generation stays off the site: 0.6.4 and later read device-profiles-3. profiles/ (device-profiles-1, 0.4.2 to
+# 0.5.1) and device-profiles-3/ (0.6.4 to 0.6.7) served only expired builds; 0.6.8 to 0.6.21 read device-profiles-4.
+RETIRED_PROFILE_DIRECTORIES = (PREFIX + "device-profiles-2/", PREFIX + "profiles/", PREFIX + "device-profiles-3/")
 
 
 def retired(path: str) -> bool:

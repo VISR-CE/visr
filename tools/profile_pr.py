@@ -20,6 +20,7 @@ from types import SimpleNamespace
 
 if __package__:
     from . import data_pack
+    from . import pages_asset_overlay as overlay
     from . import profile_check as check
     from . import profile_revision as revision
     from . import profile_cost_model as cost
@@ -27,6 +28,7 @@ if __package__:
     from . import profile_propose as propose
 else:
     import data_pack
+    import pages_asset_overlay as overlay
     import profile_check as check
     import profile_revision as revision
     import profile_cost_model as cost
@@ -39,8 +41,8 @@ PROFILES = ROOT / "profiles"
 # VISR-CE/visr-feeds checkout
 FEED = Path("docs/site/packs/tester")
 PACKS = Path("docs/site/packs")
-# this source's device-profile feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
-PROFILE_DOMAIN = "device-profiles-5"
+# this source's device-profile feed generation
+PROFILE_DOMAIN = data_pack.PROFILE_FEED_DOMAIN
 # The profile keys a released validator does not know, and the feed generations whose validators accept each: a
 # validator refuses a whole shard that names a key it does not know. Record a new key here when it is added to
 # port_profile_keys.h (tools/test_profile_feed.py fails until it is), with the generations that will read it.
@@ -54,16 +56,30 @@ KEY_GENERATIONS = {"network.full_rate_players": (4, 5, 6),
                    "display.scene_precision": (5,),
                    "display.traced_shadows": (5,),
                    "display.traced_lights": (5,)}
-# Every generation published from these sources, newest first, with the keys that generation's released validators
-# refuse, derived from KEY_GENERATIONS.
+# Every generation recorded here, newest first, with the keys that generation's released validators refuse, derived
+# from KEY_GENERATIONS. Only those published_generations() names are signed.
 GENERATIONS = {domain: tuple(key for key, accepted in KEY_GENERATIONS.items() if int(domain.rpartition("-")[2]) not in accepted)
                for domain in (PROFILE_DOMAIN, "device-profiles-6", "device-profiles-4", "device-profiles-3")}
-# The generations this source publishes: the recorded ones an app can read yet, that is up to data_pack's
-# PROFILE_FEED_GENERATION. A newer recorded generation (its keys are in KEY_GENERATIONS for the app that will read it) is
-# signed once data_pack and the app open it, not before.
-PUBLISHED_GENERATIONS = {domain: keys for domain, keys in GENERATIONS.items()
-                         if int(domain.rpartition("-")[2]) <= data_pack.PROFILE_FEED_GENERATION}
-UNOPENED_GENERATIONS = tuple(sorted(set(GENERATIONS) - set(PUBLISHED_GENERATIONS)))
+
+
+def unopened_generations():
+    """Recorded generations data_pack does not sign yet (data_pack.SIGNABLE_PROFILE_DOMAINS): device-profiles-6 until the
+    0.6.22 app that reads it is opened."""
+    return tuple(sorted(domain for domain in GENERATIONS if domain not in data_pack.SIGNABLE_PROFILE_DOMAINS))
+
+
+def retired_generations():
+    """Recorded generations no launchable build reads (pages_asset_overlay.RETIRED_PROFILE_DIRECTORIES): device-profiles-3,
+    since 0.6.4 to 0.6.7 expired with every TestFlight build before 0.6.12."""
+    return tuple(sorted(domain for domain in GENERATIONS if overlay.retired(f"{FEED.as_posix()}/{domain}/")))
+
+
+def published_generations():
+    """The generations this source signs and publishes, with their refused keys: recorded, signable and not retired."""
+    skipped = set(unopened_generations()) | set(retired_generations())
+    return {domain: keys for domain, keys in GENERATIONS.items() if domain not in skipped}
+
+
 RECEIPT = FEED / "publication.json"
 RUN_JOB = os.environ.get("VISR_RUN_JOB", "")
 REPOSITORY = "VISR-CE/visr"
@@ -311,7 +327,7 @@ def build_feed(targets, profiles, out, signing_key, run, tree, repo=ROOT, sequen
     """Sign a tester shard for each target in every published generation; returns {feed path: (shard path, sequence)}.
     Each shard takes the given sequence, else the next after its own."""
     shards = {}
-    for domain in PUBLISHED_GENERATIONS:
+    for domain in published_generations():
         source = generation_profiles(profiles, domain, out / "generation-profiles" / domain)
         for target in targets:
             destination = FEED / domain / f"{target}.json"
@@ -353,7 +369,7 @@ def published_targets(repo, tree):
         match = tomllib.loads(path.read_text()).get("match", {}) if path.name != "TEMPLATE.toml" else {}
         if match.get("platform") != "mac":
             found.update(f"{match['platform']}/{model}/_" for model in match.get("models", []))
-    for domain in PUBLISHED_GENERATIONS:
+    for domain in published_generations():
         folder = feed_file(tree, FEED / domain)
         found.update(str(path.relative_to(folder).with_suffix("")) for path in folder.rglob("*.json"))
     return sorted(found)
@@ -373,9 +389,11 @@ def sign_all(options, run=None):
     out = Path(options.out) if options.out else repo / "build/profile-feed"
     shards = build_feed(targets, repo / "profiles", out, options.signing_key, run, tree, repo=repo, sequence=options.sign_all)
     install_shards(tree, shards)
-    if UNOPENED_GENERATIONS:
-        print(f"skipped {', '.join(UNOPENED_GENERATIONS)}: not yet opened (data_pack publishes up to {data_pack.PROFILE_FEED_DOMAIN})")
-    print(f"signed {len(targets)} targets in {len(PUBLISHED_GENERATIONS)} generations at sequence {options.sign_all}; nothing committed")
+    if unopened_generations():
+        print(f"skipped {', '.join(unopened_generations())}: not yet opened (data_pack signs {', '.join(data_pack.SIGNABLE_PROFILE_DOMAINS)})")
+    if retired_generations():
+        print(f"skipped {', '.join(retired_generations())}: retired (no launchable build reads it)")
+    print(f"signed {len(targets)} targets in {len(published_generations())} generations at sequence {options.sign_all}; nothing committed")
     return 0
 
 

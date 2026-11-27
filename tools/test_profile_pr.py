@@ -161,15 +161,36 @@ def test_screenshots_need_the_job_launcher(tmp_path, monkeypatch):
 
 
 def test_published_generations_are_those_the_publisher_has_opened():
-    """--sign-all signs only generations up to data_pack's PROFILE_FEED_GENERATION; a recorded generation above it (its keys
-    are in KEY_GENERATIONS for the app that will read it) is skipped, not signed into a compatibility data_pack refuses"""
+    """The class: --sign-all signs the recorded generations data_pack opens (SIGNABLE_PROFILE_DOMAINS, an explicit set) that
+    no retirement names; an unopened one (its keys are in KEY_GENERATIONS for the app that will read it) is skipped, not
+    signed into a compatibility data_pack refuses."""
     import data_pack
-    opened = data_pack.PROFILE_FEED_GENERATION
-    assert set(pr.PUBLISHED_GENERATIONS) == {d for d in pr.GENERATIONS if int(d.rpartition("-")[2]) <= opened}
-    assert all(int(d.rpartition("-")[2]) <= opened for d in pr.PUBLISHED_GENERATIONS)
-    assert pr.PUBLISHED_GENERATIONS[data_pack.PROFILE_FEED_DOMAIN] == pr.GENERATIONS[data_pack.PROFILE_FEED_DOMAIN]
-    assert set(pr.UNOPENED_GENERATIONS) == {d for d in pr.GENERATIONS if int(d.rpartition("-")[2]) > opened}
-    assert not set(pr.PUBLISHED_GENERATIONS) & set(pr.UNOPENED_GENERATIONS)
-    # every published generation is one data_pack accepts a compatibility for
-    for domain in pr.PUBLISHED_GENERATIONS:
-        assert domain in data_pack.DEVICE_PROFILE_DOMAINS and int(domain.rpartition("-")[2]) <= opened
+    published, unopened, retired = set(pr.published_generations()), set(pr.unopened_generations()), set(pr.retired_generations())
+    assert published == set(pr.GENERATIONS) - unopened - retired
+    assert not published & unopened and not published & retired
+    assert unopened == {d for d in pr.GENERATIONS if d not in data_pack.SIGNABLE_PROFILE_DOMAINS}
+    assert pr.published_generations()[data_pack.PROFILE_FEED_DOMAIN] == pr.GENERATIONS[data_pack.PROFILE_FEED_DOMAIN] == ()
+    for domain in pr.published_generations():
+        assert domain in data_pack.DEVICE_PROFILE_DOMAINS and domain in data_pack.SIGNABLE_PROFILE_DOMAINS
+
+
+def test_data_pack_accepts_each_published_compatibility_and_refuses_each_unopened_one(monkeypatch, tmp_path):
+    import data_pack
+
+    class Passed(Exception):
+        pass
+
+    def reached(compatibility):
+        raise Passed(compatibility)
+
+    # (past the compatibility check, main parses the device domain: stop there instead of signing)
+    monkeypatch.setattr(data_pack, "device_domain", reached)
+    arguments = ["--kind", "profiles", "--channel", "tester", "--sequence", "1", "--input", str(tmp_path),
+                 "--signing-key", str(tmp_path / "seed"), "--output", str(tmp_path / "shard.json")]
+    for domain in pr.published_generations():
+        with pytest.raises(Passed):
+            data_pack.main([*arguments, "--compatibility", f"{domain}:ios/iPhone18,1/_"])
+    assert pr.unopened_generations()
+    for domain in pr.unopened_generations():
+        with pytest.raises(ValueError, match="compatibility must be one of"):
+            data_pack.main([*arguments, "--compatibility", f"{domain}:ios/iPhone18,1/_"])

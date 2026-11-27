@@ -337,6 +337,21 @@ def test_publish_without_credentials_stops_before_any_upload(monkeypatch, capsys
         store.main(["publish", "--tree", "unused", "--backend", "s3"])
 
 
+@pytest.mark.parametrize("path", [
+    "docs/site/packs/tester/profiles/ios/iPad13,4/_.json",
+    "docs/site/packs/tester/device-profiles-3/ios/iPad13,4/_.json",
+    "docs/site/packs/tester/recordings-67c55749538c7f6d52151bd9d5025dea4959ba0374108828f7917cf6fd0c0437.json",
+])
+def test_publish_refuses_a_tree_that_carries_a_retired_feed(monkeypatch, path):
+    """The class: a feed no launchable build reads never goes back into the bucket's receipt."""
+    kept = store.item("docs/site/packs/tester/device-profiles-4/ios/iPad13,4/_.json", b"{}")
+    monkeypatch.setattr(store, "items_from", lambda tree: [kept, store.item(path, b"{}")])
+    monkeypatch.setattr(store, "publish", lambda *arguments: pytest.fail("published a retired feed"))
+    with pytest.raises(ValueError, match="retired feed files, first " + re.escape(store.key_for(path))):
+        store.main(["publish", "--tree", "unused", "--dry-run"])
+    store.refuse_retired([kept, store.item(overlay.SHADER, b"{}"), store.item(overlay.LATEST, b"{}")])
+
+
 def test_builds_and_the_host_check_name_only_feeds_visr_gg(checked_in, tmp_path):
     from tools import feeds_host_check as check
 
