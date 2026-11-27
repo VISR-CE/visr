@@ -81,10 +81,27 @@ def release_urls(staged: Path) -> tuple[str, str, str, str]:
     else:
         feeds = sorted((staged / "tester").glob("recordings-2-*.json"))
         if not feeds:
-            raise ValueError("No benchmark-catalog-2 feed is staged")
+            # (the 0.6.3 catalog-2 feed is retired; the first catalog-2 feed a release reads is published with it)
+            raise Stale("The bucket's tree holds no benchmark-catalog-2 feed yet")
         guest = feeds[-1].stem.removeprefix("recordings-2-")
         recording = feeds_store.FEEDS_URL + "/tester/" + feeds[-1].name
     return profile, policy["shader_feed_url"], recording, f"benchmark-catalog-{catalog[1]}:{guest}"
+
+
+def stand_in_catalog_two(staged: Path) -> None:
+    """A source whose app reads benchmark-catalog-2 needs a catalog-2 feed in the bucket. Until a release publishes one,
+    the retired 0.6.3 feed and its archive (tools/visr-feeds-retired.pin) stand in, so the probe still downloads a
+    catalog-2 feed and its archive from the stand-in host."""
+    if list((staged / "tester").glob("recordings-2-*.json")):
+        return
+    if '@"benchmark-catalog-2:" HALO_GUEST_SHA256' not in (ROOT / "port/ios/host/host_data_updates.m").read_text():
+        return
+    retired = visr_feeds_tree.feeds_tree(retired=True) / "tester"
+    for path in [*retired.glob("recordings-2-*.json"), *(retired / "recording-blobs").glob("*.xz")]:
+        target = staged / "tester" / path.relative_to(retired)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(path.read_bytes())
+        print(f"NOTE: no release has published a benchmark-catalog-2 feed yet; staged the retired {path.relative_to(retired)}")
 
 
 def development_defaults() -> None:
@@ -130,6 +147,8 @@ def main(arguments=None) -> int:
         # The files as they are: the probe checks each signature with the app's own code, and the Tooling suite checks
         # that feeds_store.py uploads exactly these keys (ios_test's Python has no cryptography package).
         copy_packs(args.packs or visr_feeds_tree.feeds_tree(), staged)
+        if not args.packs:
+            stand_in_catalog_two(staged)
         try:
             profile, shaders, recording, compatibility = release_urls(staged)
         except Stale as error:

@@ -3,7 +3,8 @@
    device-profiles-5 shard, and after an update makes a cached shard older than its bundled profiles; an Apple TV 4K
    (3rd generation) likewise keeps display.upscaled_textures on, which its live device-profiles-1 shard turns off.
    Usage: profile-feed-probe REPOSITORY LIVE_PROFILES V1_PUBLIC_KEY V2_PUBLIC_KEY V2_IPHONE_SHARD V2_APPLE_TV_SHARD
-   (LIVE_PROFILES is tester/profiles of a VISR-CE/visr-feeds checkout: the live device-profiles-1 shards) */
+   (LIVE_PROFILES is tester/profiles of the VISR-CE/visr-feeds commit tools/visr-feeds-retired.pin names: the device-profiles-1
+   shards 0.4.2 to 0.5.1 read, which caches on upgraded devices may still hold) */
 #include "test_wait.h"
 #import "../host/host_data_updates.m"
 #include <stdarg.h>

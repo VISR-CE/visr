@@ -23,54 +23,18 @@ ROOT = Path(__file__).resolve().parents[1]
 overlay = store.overlay
 SHADER = "docs/site/packs/tester/shaders.json"
 RECORDING = "docs/site/packs/tester/recordings.json"
-RECORDING_060 = (
-    "docs/site/packs/tester/recordings-"
-    "28b14010a886a159afff1bec13ec7f516b5235f270934906f15ff59ff10b0fd1.json"
-)
-RECORDING_061 = (
-    "docs/site/packs/tester/recordings-"
-    "c7fe63a3433bb5ef215fbd498679caf5688f56663b65879d496d39981f482b91.json"
-)
-RECORDING_062 = (
-    "docs/site/packs/tester/recordings-"
-    "36970174a94fd63fb36d43dadf6011911db23fb49f68291beca46b4d71963c0f.json"
-)
-RECORDING_063 = (
-    "docs/site/packs/tester/recordings-"
-    "c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json"
-)
-RECORDING_065 = (
-    "docs/site/packs/tester/recordings-"
-    "cd6918f423702083087fddf32473d31340014fb565fd96c90b995dddf43cd350.json"
-)
-RECORDING_066 = (
-    "docs/site/packs/tester/recordings-"
-    "af40aee1ede971d28a67d3532084184f8192ea9bb887978807e17a63d3ebe5b1.json"
-)
-RECORDING_068 = (
-    "docs/site/packs/tester/recordings-"
-    "884e797b336ee160a71955d02fff76cedf57a42826f369b4636920ca311832b5.json"
-)
-RECORDING_0611 = (
-    "docs/site/packs/tester/recordings-"
-    "67c55749538c7f6d52151bd9d5025dea4959ba0374108828f7917cf6fd0c0437.json"
-)
-RECORDING_0612 = (
-    "docs/site/packs/tester/recordings-"
-    "814ba59a492ffc4b5aaa1a7d03429f5017ba18aad19b6427e1c1b86b77d33e37.json"
-)
-RECORDING_0610 = (
-    "docs/site/packs/tester/recordings-"
-    "73c231e484545195f01d5b86454e8ff6b933b2da5f455adc0d16b8a8ede53edd.json"
-)
-RECORDING_069 = (
-    "docs/site/packs/tester/recordings-"
-    "ef68cbd68ddaf5e4bb038488a8521ee381ae44f7653e020e0b0325ceb81da5df.json"
-)
-RECORDING_067 = (
-    "docs/site/packs/tester/recordings-"
-    "3b35b4be4f2faa36c7e10fb4e340a5f5d8f599d0290cee5a9b251e7ff8a6c107.json"
-)
+# The catalog-1 feed each release from 0.6.12 reads (its HaloRecordingFeedURL), by guest, and the feed's SHA-256.
+RELEASE_CATALOGS = {
+    "814ba59a492ffc4b5aaa1a7d03429f5017ba18aad19b6427e1c1b86b77d33e37": "b2ff82f8443e45e2b97e7c2be945885cd9a14e508ebaecf6e59ad2ce7df1363f",  # 0.6.12, 0.6.13
+    "688edff6b052d189cf60386dceff73d950d87340170896b5dae3b1d0621dc9e3": "b65c236b87895ccb7c0247dd127a90f7995bc7c6b23eb474c434b16d71b0e9b0",  # 0.6.14
+    "ced9494dd20b24efb82470636688ac0a08fecc0bb3073ab6c776e2e87ace536b": "7e87fab69cda97bad28d3b5bf4e97d3b5f5fb8ff02da01592e65ca72c5dfd08a",  # 0.6.15
+    "db934018cf21750a21782d4b64721f74f48f5953446b79d698a4e46591c45079": "31e7d4f3131dd0bb3a982dffcb1aa44e584a05c8297b34cd55e507424510e9df",  # 0.6.16
+    "003795821f2b183c81593d5a87c67f1f8bd395c22a8f2d15ecbed94d008ab363": "6f1bc24cf46e308c0be302796a879ce775916ce0c2e937b8e5931bcb516d6b64",  # 0.6.17, 0.6.18
+    "39949357a545f6657b3ebcd92bcfee4c00a2a03fb93d3955a6b5c27ce39f23dd": "b4ddb9ae2d552e5d900223ef63a0cc5c693cf1444435695c6b7e46b7ae2a9b40",  # 0.6.19
+    "7face974210293f010aa39aca0b190d242f64961a7fa181da62844ae5583a42d": "ddbf5c6e9e84247b95b79afe88a4821ac36cbca964c9e5745ddd6924f1eafbaa",  # 0.6.20
+    "48a1573aabf2752e20ea5c3474f661ab901049d1e96ed0b0c6b7f55d1abb5f7e": "17a4faeedf847dd131f31d62d5ad283079e2d460d5f629f4f6eaa857ca2fa4ed",  # 0.6.20 (clang 23.1.6 guest)
+    "f332a0497e646c6fd8bda8f56dff549df6dc58670458e32c4075f77a29b0cb31": "dbf8aacabe4713eef7be0459dd96e3467022f268f0270de4b49cbc29cb9a697e",  # 0.6.21
+}
 
 
 class Host:
@@ -457,52 +421,17 @@ def test_the_pinned_feeds_hold_every_release_exactly(feeds_tree):
     with store.tree_root(feeds_tree):
         assets = overlay.checked_in_assets()
         receipt = overlay.parse_receipt((feeds_tree / "tester/publication.json").read_bytes())
-    profiles = [path for path in assets if "/profiles/" in path]
-    recordings = [path for path in assets if "recordings" in Path(path).name]
-    assert len(profiles) == 20
-    assert not [path for path in assets if "/device-profiles-2/" in path]
-    assert len([path for path in assets if "/device-profiles-3/" in path]) == 56
-    assert len([path for path in assets if "/device-profiles-4/" in path]) == 56
-    assert len(recordings) == 14
-    assert set(assets) == set(receipt)
+    assert set(assets) == set(receipt) and len(assets) == 99
+    # nothing only expired builds read: no device-profiles-1, -2 or -3 shard, no catalog of a guest before 0.6.12
+    assert not [path for path in assets if overlay.retired(path)]
+    assert len([path for path in assets if "/device-profiles-4/" in path]) == 63
+    recordings = {path for path in assets if Path(path).name.startswith("recordings")}
+    assert recordings == {RECORDING} | {f"docs/site/packs/tester/recordings-{guest}.json" for guest in RELEASE_CATALOGS}
+    assert not [path for path in assets if "/recording-blobs/" in path]
+    for guest, digest in RELEASE_CATALOGS.items():
+        assert hashlib.sha256(assets[f"docs/site/packs/tester/recordings-{guest}.json"]).hexdigest() == digest, guest
     assert hashlib.sha256(assets[RECORDING]).hexdigest() == (
         "8977e0e49588399d1c0f867d98f955b8a815b0c05e7463df2d1e92ae3ba64d89"
-    )
-    assert hashlib.sha256(assets[RECORDING_060]).hexdigest() == (
-        "4ef803888532401d66d132d2963ac9ff8ef9cef017fd0769f576452b38b7f5b4"
-    )
-    assert hashlib.sha256(assets[RECORDING_061]).hexdigest() == (
-        "b0f48ea1d1eeb77f8872d9fd0149e2e40e1d93913727a3dce4e000aa8b4d363d"
-    )
-    assert hashlib.sha256(assets[RECORDING_062]).hexdigest() == (
-        "be6dddab12c382837eb40090e1cbaa3d614736cffef5de68ccf0981b526e516f"
-    )
-    assert hashlib.sha256(assets[RECORDING_063]).hexdigest() == (
-        "e12d281950aa9d212e61fc8e934ddf8c32fdedfd0e1913918b3ecf8fc39cfc03"
-    )
-    assert hashlib.sha256(assets[RECORDING_065]).hexdigest() == (
-        "549bd0661c3f370a89fa48e9e81b9b462c1692fffbe8ae29b38f98d5bf1cad79"
-    )
-    assert hashlib.sha256(assets[RECORDING_066]).hexdigest() == (
-        "09d805fb76aed3d5c03e40e61bb5e186f28604aea8b5db9620c04e3ddb7ed027"
-    )
-    assert hashlib.sha256(assets[RECORDING_068]).hexdigest() == (
-        "e56ffa8cb6758eb9ead55e8ec6bbee5bc74be21dc0947462d2c5d6c3f2dcd99d"
-    )
-    assert hashlib.sha256(assets[RECORDING_0610]).hexdigest() == (
-        "e833453029389f5e4dd768dcb388f42f63a140a69b542793dd8846e8a76ebaeb"
-    )
-    assert hashlib.sha256(assets[RECORDING_0611]).hexdigest() == (
-        "92274608883049fccd316c54367ad0e883688eb3bf141950c0e1246482d83a7b"
-    )
-    assert hashlib.sha256(assets[RECORDING_0612]).hexdigest() == (
-        "b2ff82f8443e45e2b97e7c2be945885cd9a14e508ebaecf6e59ad2ce7df1363f"
-    )
-    assert hashlib.sha256(assets[RECORDING_069]).hexdigest() == (
-        "fae46709054e8da3e6a9bc68ed0259ae0760236d5c21f47729cbc965faead291"
-    )
-    assert hashlib.sha256(assets[RECORDING_067]).hexdigest() == (
-        "f9ada51d7285787a4615635274999a50647f635256a727f578eaf86274278ced"
     )
     envelope = json.loads(assets[SHADER])
     manifest = overlay.validation.packs.decode_json(

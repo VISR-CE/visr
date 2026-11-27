@@ -445,10 +445,11 @@ probe('profile-feed-probe', ['port/ios/tests/profile_feed_probe.m', 'port/ios/ho
     flags=['-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"', '-Iport/ios/host',
     '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation', '-framework', 'Network', '-lz',
     '-lcompression'], run=False)
-# (the published feeds are the VISR-CE/visr-feeds commit tools/visr-feeds.pin names, fetched by tools/visr_feeds_tree.py)
-feeds_tree = Path(subprocess.run(
-    ['python3', 'tools/visr_feeds_tree.py', '--extra', 'tester/recordings-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json'], check=True, capture_output=True, text=True, cwd=ROOT).stdout.strip())
-run(BUILD / 'profile-feed-probe', ROOT, feeds_tree / 'tester/profiles',
+# (the device-profiles-1 shards 0.5.1 left in caches and the 0.6.3 catalogs are retired from the published feeds: they
+# come from the VISR-CE/visr-feeds commit tools/visr-feeds-retired.pin names, fetched by tools/visr_feeds_tree.py)
+retired_tree = Path(subprocess.run(
+    ['python3', 'tools/visr_feeds_tree.py', '--retired', '--extra', 'tester/recordings-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json'], check=True, capture_output=True, text=True, cwd=ROOT).stdout.strip())
+run(BUILD / 'profile-feed-probe', ROOT, retired_tree / 'tester/profiles',
     re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1],
     probe_key, BUILD / 'profile-feed-probe-iphone.json', BUILD / 'profile-feed-probe-apple-tv.json',
     BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
@@ -468,8 +469,9 @@ probe('recording-download-probe', ['port/ios/tests/recording_download_probe.m', 
     'port/third_party/monocypher/monocypher-ed25519.c'],
     flags=['-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
     '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression'], args=[recording_archive])
-# the published catalog-2 feed expands, through the real store and catalog loader, to the catalog-1 files byte for byte
-published = feeds_tree / 'tester'
+# the last published catalog-2 feed (0.6.3's, now retired) expands, through the real store and catalog loader, to the
+# catalog-1 files byte for byte
+published = retired_tree / 'tester'
 published_feed = published / 'recordings-2-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json'
 published_originals = BUILD / 'recording-catalog-originals'
 shutil.rmtree(published_originals, ignore_errors=True)

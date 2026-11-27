@@ -127,7 +127,7 @@ def test_generation_four_shards_carry_the_revision_and_every_bundled_key(tmp_pat
     # the Apple TV 4K (3rd generation) shard keeps upscaled textures on, which its device-profiles-1 shard does not
     tv = data_pack.device_profile_snapshot(ROOT / "profiles", "tvos", "AppleTV14,1", generation=2)
     assert b"upscaled_textures = true" in tv["apple-tv-4k-3rd.toml"]
-    live = payload_files((visr_feeds_tree.feeds_tree() / "tester/profiles/tvos/AppleTV14,1/_.json").read_bytes())
+    live = payload_files((visr_feeds_tree.feeds_tree(retired=True) / "tester/profiles/tvos/AppleTV14,1/_.json").read_bytes())
     assert b"upscaled_textures = true" not in live["apple-tv-4k-3rd.toml"]
     # the same bytes pass the release and Pages verification of a generation-4 feed
     folder = tmp_path / "decoded"
@@ -194,7 +194,7 @@ def test_released_generations():
 @pytest.mark.skipif("visr-v0.5.1" not in tags(), reason="needs the release tags")
 def test_released_apps_check_every_device_shard():
     target = "ios/iPhone18,1/_"
-    live = visr_feeds_tree.feeds_tree() / "tester/profiles" / f"{target}.json"
+    live = visr_feeds_tree.feeds_tree(retired=True) / "tester/profiles" / f"{target}.json"
     # the shard 0.4.2 to 0.5.1 already have passes every one of their validators
     assert "visr-v0.4.2" in data_pack.validate_with_released_apps(payload_files(live.read_bytes()), target, 1)
     # a device-profiles-1 shard from today's sources would not: 0.5.0 and earlier refuse network.player_capacity

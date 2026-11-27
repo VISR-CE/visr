@@ -7,7 +7,12 @@ runs. The default tree leaves out the legacy catalog-1 recordings-*.json envelop
 receipt's full validation reads; `full=True` fetches everything. `extra` adds paths (relative to the tree, for example
 one legacy envelope a probe reads).
 
-Usage: visr_feeds_tree.py [--full] [--extra PATH ...]   print the tree's path
+`retired=True` fetches instead the commit pinned in tools/visr-feeds-retired.pin: the last published tree that still
+holds the feeds only expired builds read (tools/pages_asset_overlay.py, RETIRED_FEEDS and RETIRED_PROFILE_DIRECTORIES),
+for probes of what those files hold, such as a device-profiles-1 shard 0.5.1 left in a cache. `VISR_FEEDS_TREE` does not
+replace it.
+
+Usage: visr_feeds_tree.py [--full] [--retired] [--extra PATH ...]   print the tree's path
 """
 from __future__ import annotations
 
@@ -20,6 +25,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = ROOT / "tools/visr-feeds.pin"
+RETIRED_PIN = ROOT / "tools/visr-feeds-retired.pin"
 REMOTE = "https://github.com/VISR-CE/visr-feeds.git"
 # what the tests and probes read without the legacy envelopes
 SPARSE = [
@@ -29,10 +35,10 @@ SPARSE = [
 ]
 
 
-def pinned() -> str:
-    sha = PIN.read_text().strip()
+def pinned(pin: Path = PIN) -> str:
+    sha = pin.read_text().strip()
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
-        raise ValueError(f"{PIN} must hold one full commit SHA")
+        raise ValueError(f"{pin} must hold one full commit SHA")
     return sha
 
 
@@ -42,14 +48,14 @@ def git(folder: Path, *arguments: str, stdin: str | None = None) -> None:
         raise RuntimeError(f"git {' '.join(arguments)} failed ({result.returncode}): {result.stderr.strip()}")
 
 
-def feeds_tree(full: bool = False, extra: tuple[str, ...] = ()) -> Path:
-    override = os.environ.get("VISR_FEEDS_TREE")
+def feeds_tree(full: bool = False, extra: tuple[str, ...] = (), retired: bool = False) -> Path:
+    override = None if retired else os.environ.get("VISR_FEEDS_TREE")
     if override:
         tree = Path(override).resolve()
         if not (tree / "tester").is_dir():
             raise ValueError(f"VISR_FEEDS_TREE {tree} has no tester/ folder")
         return tree
-    sha = pinned()
+    sha = pinned(RETIRED_PIN if retired else PIN)
     patterns = [] if full else SPARSE + ["/" + path.lstrip("/") for path in extra]
     folder = ROOT / "build/visr-feeds" / (sha + ("-full" if full else ""))
     marker = folder / ".fetched"
@@ -71,10 +77,11 @@ def feeds_tree(full: bool = False, extra: tuple[str, ...] = ()) -> Path:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--full", action="store_true")
+    parser.add_argument("--retired", action="store_true", help="the tree pinned in tools/visr-feeds-retired.pin")
     parser.add_argument("--extra", action="append", default=[], help="a path in the tree to include besides the default set")
     arguments = parser.parse_args()
     try:
-        print(feeds_tree(arguments.full, tuple(arguments.extra)))
+        print(feeds_tree(arguments.full, tuple(arguments.extra), arguments.retired))
     except (ValueError, RuntimeError, subprocess.CalledProcessError, OSError) as error:
         print(f"visr_feeds_tree: {error}", file=sys.stderr)
         sys.exit(1)
