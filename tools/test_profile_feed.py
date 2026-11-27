@@ -384,7 +384,8 @@ def test_sign_all_writes_every_generation_and_the_receipt(tmp_path):
     assert sources["device-profiles-5:ios/iPhone18,1/_"] == str(repo / "profiles")
     assert sources["device-profiles-3:ios/iPhone18,1/_"] != str(repo / "profiles")
     assets = json.loads((tester / "publication.json").read_text())["assets"]
-    for domain in profile_pr.GENERATIONS:
+    assert not any("device-profiles-6" in domain for domain, _ in calls)    # (recorded, not yet opened: skipped)
+    for domain in profile_pr.PUBLISHED_GENERATIONS:
         name = f"docs/site/packs/tester/{domain}/ios/iPhone18,1/_.json"
         assert assets[name] == hashlib.sha256(profile_pr.feed_file(feeds, name).read_bytes()).hexdigest()
     # a sequence the feed has already passed is refused before anything is signed for that shard
