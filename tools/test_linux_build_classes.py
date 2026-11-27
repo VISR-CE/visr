@@ -14,9 +14,13 @@ The real check is the Linux build itself; these fail early and name the line.
 
 import json
 import re
+import sys
 from pathlib import Path
 
 from tools import linux_build
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from probekit import source as probe_source  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = json.loads((ROOT / "port/linux/port.json").read_text())
@@ -26,14 +30,13 @@ CONFIG = json.loads((ROOT / "port/linux/port.json").read_text())
 APPLE_ONLY = re.compile(r"\b(HALO_ILP32|HALO_IOS|HALO_APPLE|__APPLE__|GPU_GL_HOST|MAP_PICTURES_TEST|"
                         r"MAP_PICTURES_IMPORT_TEST|MAP_PICTURES_IMAGE_TEST)\b|\bTARGET_OS_")
 DIRECTIVE = re.compile(r"^\s*#\s*(ifdef|ifndef|if|elif|else|endif)\b(.*)$")
-COMMENT = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
 LITERAL = re.compile(r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'')
 KEYWORDS = {"return", "else", "sizeof", "case", "goto", "if", "while", "for", "switch", "do"}
 
 
 def blank_comments(text):
-    """the text with its comments emptied, lines kept"""
-    return COMMENT.sub(lambda match: re.sub(r"[^\n]", "", match.group(0)), text)
+    """the text with its comments blanked, lines and strings kept (probekit.source's one comment splitter)"""
+    return probe_source.mask(text, strings=False)
 
 
 def apple_branch(word, rest):

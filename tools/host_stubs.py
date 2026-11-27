@@ -27,6 +27,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from probekit import source as probe_source  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 HOST = ROOT / 'port/ios/host'
 OUTPUT = ROOT / 'port/ios/tests/host_stubs.c'
@@ -71,30 +74,8 @@ MARK = '__attribute__((weak)) '
 
 
 def strip_comments(text: str) -> str:
-    out = []
-    i, n = 0, len(text)
-    while i < n:
-        c = text[i]
-        if text.startswith('/*', i):
-            j = text.find('*/', i + 2)
-            j = n if j < 0 else j + 2
-            out.append(re.sub(r'[^\n]', ' ', text[i:j]))
-            i = j
-        elif text.startswith('//', i):
-            j = text.find('\n', i)
-            j = n if j < 0 else j
-            out.append(' ' * (j - i))
-            i = j
-        elif c in '"\'':
-            j = i + 1
-            while j < n and text[j] != c:
-                j += 2 if text[j] == '\\' else 1
-            out.append(text[i:j + 1])
-            i = j + 1
-        else:
-            out.append(c)
-            i += 1
-    return ''.join(out)
+    """The text with its comments blanked and its strings kept (probekit.source's one comment splitter)."""
+    return probe_source.mask(text, strings=False)
 
 
 def directive_condition(directive: str, rest: str) -> str:
