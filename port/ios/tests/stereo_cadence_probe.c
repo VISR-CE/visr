@@ -277,6 +277,94 @@ static void trigger_skips_and_streaks(void)
 	check(events & STEREO_CADENCE_WOULD_DROP, "a new map did not fire again");
 }
 
+/* ---------- the step: scope, the two evaluations, the resets */
+
+/* a frame as the host feeds it (milliseconds): its refreshes, tick, its own render and GPU time */
+struct fed_frame { long refreshes; int ticked; double tick, render, gpu; };
+
+static int probe_warm(void) { return 0; }
+
+struct step_seen { int asked, as_zero; unsigned long closed; };
+
+static struct step_seen feed(struct stereo_cadence_state *state, double *now, double seconds,
+	const struct fed_frame *pattern, int kinds, int mode, int variable, unsigned generation, int repeat)
+{
+	struct step_seen seen = { 0, 0, 0 };
+	double end = *now + seconds;
+	int index = 0;
+
+	while (*now < end) {
+		const struct fed_frame *frame = &pattern[index++ % kinds];
+		struct stereo_cadence_input in = { mode, variable, generation, repeat, 0.0, frame->ticked,
+			(double)frame->refreshes * PERIOD, frame->tick / 1000.0, frame->render / 1000.0, frame->gpu / 1000.0,
+			PERIOD, probe_warm };
+		struct stereo_cadence_verdict verdicts[2];
+		int closed, verdict;
+
+		*now += in.interval;
+		in.now = *now;
+		closed = stereo_cadence_step(state, &in, verdicts);
+		seen.closed += (unsigned long)closed;
+		for (verdict = 0; verdict < closed; verdict++) {
+			if (verdicts[verdict].trigger == &state->asked)
+				seen.asked |= verdicts[verdict].events;
+			else if (verdicts[verdict].trigger == &state->as_zero)
+				seen.as_zero |= verdicts[verdict].events;
+			else
+				check(0, "step: a verdict from neither evaluation");
+		}
+	}
+	return seen;
+}
+
+/* the 96-player lock as frames: the frame before a tick frame renders 10.5 ms, so the tick frame (4.7 ms of tick)
+is late by its own work only with the previous frame's render carried */
+static const struct fed_frame fed_lock[] = { { 1, 0, 0.0, 10.5, 7.4 }, { 2, 1, 4.7, 6.0, 7.4 } };
+static const struct fed_frame fed_forced_45[] = { { 2, 1, 2.9, 7.5, 9.3 }, { 2, 0, 0.0, 8.0, 9.3 } };
+
+static void step_scope_and_evaluations(void)
+{
+	struct stereo_cadence_state state = { 0 };
+	double now = 1000.0;
+	struct step_seen seen;
+
+	/* campaign (not variable), the theater screen and the window are never evaluated */
+	seen = feed(&state, &now, 30.0, fed_lock, 2, HALO_STEREO_HEAD, 0, 1, 0);
+	check(seen.closed == 0 && !state.started, "campaign evaluated");
+	seen = feed(&state, &now, 30.0, fed_lock, 2, HALO_STEREO_SCREEN, 1, 1, 0);
+	check(seen.closed == 0 && !state.started, "the theater screen evaluated");
+	seen = feed(&state, &now, 30.0, fed_lock, 2, HALO_STEREO_OFF, 1, 1, 0);
+	check(seen.closed == 0 && !state.started, "the window evaluated");
+	/* multiplayer in HEAD mode at count 0: one evaluation, which fires (the previous render carried) */
+	seen = feed(&state, &now, 30.0, fed_lock, 2, HALO_STEREO_HEAD, 1, 1, 0);
+	check((seen.asked & STEREO_CADENCE_WOULD_DROP) && !seen.as_zero, "lock at count 0: no would drop");
+	check(state.as_zero.counted == 0 && state.as_zero.window.refreshes == 0, "count 0: the as-if-0 evaluation ran");
+	/* a new map: fires again */
+	seen = feed(&state, &now, 30.0, fed_lock, 2, HALO_STEREO_HEAD, 1, 2, 0);
+	check(seen.asked & STEREO_CADENCE_WOULD_DROP, "a new map's generation did not start the trigger again");
+	/* a forced 45: scored at 1 nothing is late; as if 0 the system share skips every window */
+	seen = feed(&state, &now, 60.0, fed_forced_45, 2, HALO_STEREO_HEAD, 1, 2, 1);
+	check(state.asked.repeat == 1 && state.as_zero.repeat == 0, "forced 45: the evaluations' counts");
+	check(!(seen.asked & STEREO_CADENCE_WOULD_DROP) && !(seen.as_zero & STEREO_CADENCE_WOULD_DROP), "forced 45: would drop");
+	check(state.as_zero.skipped[STEREO_CADENCE_SKIP_SYSTEM] > 30, "forced 45 as if 0: the system share skipped nothing");
+	check(state.asked.counted > 30, "forced 45 at 1: nothing counted");
+	/* leaving the scope forgets the previous frame's times */
+	feed(&state, &now, 1.0, fed_lock, 2, HALO_STEREO_HEAD, 1, 2, 1);
+	feed(&state, &now, 1.0, fed_lock, 2, HALO_STEREO_HEAD, 0, 2, 1);
+	check(state.previous_render == 0.0 && state.previous_gpu == 0.0, "out of scope: the previous times kept");
+}
+
+/* without the previous frame's render the lock's tick frames fit one refresh: the step must carry it */
+static void step_carries_the_previous_frame(void)
+{
+	static const struct fed_frame tick_only[] = { { 2, 1, 4.7, 0.0, 7.4 }, { 1, 0, 0.0, 0.0, 7.4 } };
+	struct stereo_cadence_state state = { 0 };
+	double now = 5000.0;
+	struct step_seen seen = feed(&state, &now, 30.0, tick_only, 2, HALO_STEREO_HEAD, 1, 1, 0);
+
+	check(!(seen.asked & STEREO_CADENCE_WOULD_DROP), "late frames whose own work fit fired");
+}
+
 int main(void)
 {
 	repeat_wanted();
@@ -284,6 +372,8 @@ int main(void)
 	lateness_at_the_asked_count();
 	trigger_cadences();
 	trigger_skips_and_streaks();
+	step_scope_and_evaluations();
+	step_carries_the_previous_frame();
 	if (!failures)
 		printf("stereo cadence probe: ok\n");
 	return failures ? 1 : 0;

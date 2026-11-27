@@ -7,6 +7,7 @@ Hz). One function decides it, and every writer (the space opening, debug.knob_cy
 decided here too, for the cadence line in gpu_metal.m. */
 #pragma once
 #include <math.h>
+#include <stddef.h>
 #include "halo_stereo.h"
 
 /* The repeat count for stereo MODE: 0 outside HEAD and SCREEN modes; FORCED (display.frame_repeat, clamped to 0..3)
@@ -245,4 +246,89 @@ static inline int stereo_cadence_decide(struct stereo_cadence_trigger *trigger, 
 	}
 	*window = empty;
 	return events;
+}
+
+/* ---------- the trigger's step: scope, the two evaluations and the resets
+
+Once a stereo frame of the eyes. Only HEAD mode in a variable (multiplayer) workload context is evaluated: campaign,
+the menu and the theater screen never are. Two evaluations: at the asked repeat count (what a trigger that acted
+would see), and, while that count is above 0, as if it were 0 (the stand-in for the Compositor choosing 45 Hz by
+itself, which the acceptance runs check). A new GENERATION (a map's workload decision, the space opening) starts
+both again; so does a change in the asked count. The previous frame's render and GPU times are carried from the
+last frame fed, and forgotten outside the scope and at every start. */
+
+/* the refresh period frames are counted in before the pacing report has measured one (every window is then
+skipped, STEREO_CADENCE_SKIP_PERIOD) */
+#define STEREO_CADENCE_UNMEASURED_PERIOD (1.0 / 90.0)
+
+struct stereo_cadence_input
+{
+	int mode;                        /* enum halo_stereo_mode in effect */
+	int variable;                    /* the map's workload context is variable */
+	unsigned generation;
+	int repeat;                      /* the asked repeat count */
+	double now;                      /* seconds */
+	int ticked;
+	double interval, tick, render, gpu; /* seconds: since the previous presentation; this frame's times */
+	double period;                   /* the measured refresh period; 0 before one */
+	int (*warm)(void);               /* thermal state above nominal or Low Power Mode; asked once a step at most */
+};
+
+struct stereo_cadence_state
+{
+	struct stereo_cadence_trigger asked, as_zero;
+	unsigned generation;
+	int started;
+	double previous_render, previous_gpu;
+};
+
+/* a window that closed: which evaluation, what stereo_cadence_decide returned, and its counts */
+struct stereo_cadence_verdict
+{
+	const struct stereo_cadence_trigger *trigger;
+	int events;
+	struct stereo_cadence_window window;
+};
+
+/* feeds one frame; returns how many windows closed (0 to 2), described in VERDICTS */
+static inline int stereo_cadence_step(struct stereo_cadence_state *state, const struct stereo_cadence_input *in,
+	struct stereo_cadence_verdict verdicts[2])
+{
+	int measured = in->period > 0.0, closed = 0, warm = -1, index;
+	double period = measured ? in->period : STEREO_CADENCE_UNMEASURED_PERIOD;
+	struct stereo_cadence_trigger *triggers[2];
+	long refreshes;
+
+	if (in->mode != HALO_STEREO_HEAD || !in->variable)
+	{
+		state->previous_render = state->previous_gpu = 0.0;
+		return 0;
+	}
+	if (!state->started || in->generation != state->generation || in->repeat != state->asked.repeat)
+	{
+		state->started = 1;
+		state->generation = in->generation;
+		stereo_cadence_trigger_reset(&state->asked, in->repeat, in->now);
+		stereo_cadence_trigger_reset(&state->as_zero, 0, in->now);
+		state->previous_render = state->previous_gpu = 0.0;
+	}
+	refreshes = stereo_cadence_refreshes(in->interval, period, STEREO_CADENCE_HITCH_REFRESHES);
+	triggers[0] = &state->asked;
+	triggers[1] = in->repeat > 0 ? &state->as_zero : NULL;
+	for (index = 0; index < 2; index++)
+	{
+		struct stereo_cadence_trigger *trigger = triggers[index];
+
+		if (!trigger || !stereo_cadence_window_add(trigger, in->now, in->ticked, refreshes, in->tick,
+			state->previous_render, state->previous_gpu, period))
+			continue;
+		if (warm < 0)
+			warm = in->warm ? in->warm() != 0 : 0;
+		verdicts[closed].trigger = trigger;
+		verdicts[closed].events = stereo_cadence_decide(trigger, measured, warm, NULL, &verdicts[closed].window);
+		closed++;
+	}
+	state->previous_render = in->render;
+	state->previous_gpu = in->gpu;
+	return closed;
 }
