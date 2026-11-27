@@ -244,18 +244,24 @@ int main(void) {
         assert(converted->count == 1);
         assert(converted->ranges[0].end >= before + 1e-4 - 1e-9 && converted->ranges[0].end <= after + 1e-4 + 1e-9);
         assert(containment.checked == 2 && containment.outside == 1 && containment.worst >= 1.1e-3 - 1e-6);
-        /* A preempted pair (a 100 us bracket) is not adopted while a tighter one is kept, and the frame keeps its
-         * reading: its ranges convert through the kept pair, 1 ms of ticks (24,000) earlier. */
-        clock_pair.width = 0.0;
-        double kept_from = before, kept_to = after, kept_host = clock_pair.host;
-        unsigned long wide = clock_stats.wide;
-        test_gpu += 24000; test_cpu += 1000000;
+        /* A preempted pair (a 100 us bracket) is not adopted while a tighter one that agrees with it is kept, and the
+         * frame keeps its reading: its ranges convert through the kept pair. */
+        clock_pair = (typeof(clock_pair)){ 1, test_gpu, mach_seconds(mach_absolute_time()), 0.0 };
+        double kept_host = clock_pair.host;
+        unsigned long wide = clock_stats.wide, steps = clock_stats.steps;
         test_slow_pair = 1;
         converted = complete_one(samples, test_gpu - 36000, test_gpu - 12000, -0.1, 0.1, &before, &after);
         test_slow_pair = 0;
         assert(converted->count == 1 && !converted->invalid);
         assert(clock_pair.host == kept_host && clock_stats.wide == wide + 1 && clock_stats.widest >= 100e-6);
-        assert(converted->ranges[0].start >= kept_from - 0.5e-3 - 1e-9 && converted->ranges[0].start <= kept_to - 0.5e-3 + 1e-9);
+        assert(clock_stats.steps == steps);
+        assert(fabs(converted->ranges[0].start - (kept_host - 1.5e-3)) < 1e-9);
+        /* The GPU's clock steps 10 ms (240,000 ticks) while the host's barely moves: the kept pair mispredicts the new
+         * one, so the new one is adopted at once and the ranges land against this call's host time. */
+        test_gpu += 240000; test_cpu += 10000000;
+        converted = complete_one(samples, test_gpu - 36000, test_gpu - 12000, -0.1, 0.1, &before, &after);
+        assert(clock_stats.steps == steps + 1 && clock_pair.gpu == test_gpu && converted->count == 1);
+        assert(converted->ranges[0].start >= before - 1.5e-3 - 1e-9 && converted->ranges[0].start <= after - 1.5e-3 + 1e-9);
         /* no rate yet (the pair is the reference): no range, and the frame has no reading */
         clock_pair.kept = 0;
         test_cpu = reference_cpu; test_gpu = reference_gpu;
