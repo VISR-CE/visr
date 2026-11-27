@@ -348,6 +348,12 @@ static const struct config_setting config_settings[] =
 		"display refreshes each frame stays up, 0 to 3: 0 draws a frame every\n"
 		"refresh (90 a second), 1 every other (45 a second) for when 90 costs too\n"
 		"much. Set when the immersive space opens." },
+	{ "display.steady_cadence", _config_string, "\"log\"", "HALO_STEADY_CADENCE", _environment_value, _platform_visionos,
+		"Apple Vision Pro, display.stereo = \"head\", multiplayer: whether the\n"
+		"headset watches for a big game that no longer holds 90 Hz by its own\n"
+		"work and logs when it would lock to a steady 45 a second. \"log\"\n"
+		"(default) evaluates and logs and never changes the frame rate; \"off\"\n"
+		"does not evaluate.", _tier_tuning, "log|off" },
 	{ "display.foveation", _config_boolean, "true", "HALO_FOVEATION", _environment_value, _platform_visionos,
 		"Apple Vision Pro, display.stereo = \"head\": render through the\n"
 		"Compositor's foveation, sharper at the middle of each view than at its\n"

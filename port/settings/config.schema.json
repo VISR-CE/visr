@@ -522,6 +522,21 @@
             "visionos"
           ]
         },
+        "steady_cadence": {
+          "type": "string",
+          "default": "log",
+          "description": "Apple Vision Pro, display.stereo = \"head\", multiplayer: whether the headset watches for a big game that no longer holds 90 Hz by its own work and logs when it would lock to a steady 45 a second. \"log\" (default) evaluates and logs and never changes the frame rate; \"off\" does not evaluate.",
+          "x-environment": "HALO_STEADY_CADENCE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "visionos"
+          ],
+          "x-tier": "tuning",
+          "enum": [
+            "log",
+            "off"
+          ]
+        },
         "foveation": {
           "type": "boolean",
           "default": true,

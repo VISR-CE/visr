@@ -142,6 +142,7 @@ host_stereo_frame
 host_stereo_entered
 host_stereo_render_quality
 host_stereo_frame_repeat_set
+host_stereo_cadence_workload
 host_stereo_ab_change
 # spatial (halo_spatial.h)
 host_spatial_sample

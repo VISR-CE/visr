@@ -117,5 +117,13 @@ void host_stereo_present_ui(id<MTLCommandQueue> queue, id<MTLTexture> picture, i
 float host_stereo_render_quality(float quality);
 /* the Compositor's frame repeat count, live (debug.knob_cycle's cadence): host_theater_set_frame_repeat on visionOS */
 void host_stereo_frame_repeat_set(int repeat);
+/* the steady-cadence trigger, log only (display.steady_cadence, host_stereo_cadence.h): the guest's workload
+decision at each map load and at the menu (VARIABLE: a multiplayer context), each Compositor frame of the eyes
+(seconds: its interval since the previous presentation, its tick, its render (CPU less the tick) and GPU time, and
+the refresh period the pacing report measured, 0 before the first), and each pacing report's summary. It never
+changes the repeat count */
+void host_stereo_cadence_workload(int variable);
+void host_stereo_cadence_frame(int ticked, double interval, double tick, double render, double gpu, double period);
+void host_stereo_cadence_report(void);
 void host_stereo_ab_change(const char *method, float quality, int shadows);
 void host_stereo_ab_sample(double gpu_seconds);

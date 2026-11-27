@@ -65,6 +65,8 @@ void host_frames_in_flight_scene(int at_30);
 void host_encode_thread_scene(int thread);
 /* port/ios/host/host_benchmark.m: the decision the map actually uses, even when its context did not change. */
 void host_benchmark_workload(int variable);
+/* port/ios/host/host_stereo.m: the steady-cadence trigger (log only) evaluates a variable context, from each map */
+void host_stereo_cadence_workload(int variable);
 #endif
 
 /* half a second of game time */
@@ -158,6 +160,7 @@ void halo_workload_decide(void)
 	config_workload_set_limited(variable, hold_30, reasons);
 #ifdef HALO_ILP32
 	host_benchmark_workload(config_workload_variable());
+	host_stereo_cadence_workload(config_workload_variable());
 #endif
 }
 
@@ -201,6 +204,7 @@ int halo_scene_class(void)
 			config_workload_set(0, "main menu");
 #ifdef HALO_ILP32
 			host_benchmark_workload(config_workload_variable());
+			host_stereo_cadence_workload(config_workload_variable());
 #endif
 		}
 	}

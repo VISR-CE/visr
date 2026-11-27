@@ -43,3 +43,16 @@ def test_every_writer_and_reader_decides_through_stereo_repeat_wanted():
     for writer in ("host_stereo_space_opened", "host_stereo_frame_repeat_set"):
         assert "host_stereo_repeat_refresh()" in bodies[writer], writer
     assert "frame_repeat_in(" in bodies["host_stereo_frame_repeat"]
+
+
+def test_the_steady_cadence_trigger_never_changes_the_repeat_count():
+    """`display.steady_cadence` is log only: the trigger's code hands nothing to the owner, and the owner passes the
+    lock as never latched."""
+    source = (HOST / "host_stereo.m").read_text()
+    bodies = dict(functions(source))
+    assert re.search(r"stereo_repeat_wanted\(mode, forced, 0\)", bodies["frame_repeat_in"])
+    trigger = [name for name in bodies if "cadence" in name]
+    assert "host_stereo_cadence_frame" in trigger and "host_stereo_cadence_report" in trigger
+    for name in trigger:
+        assert "host_stereo_repeat_refresh(" not in bodies[name], name
+        assert "frame_repeat_live" not in bodies[name], name

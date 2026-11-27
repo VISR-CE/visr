@@ -1352,6 +1352,10 @@ static void stereo_frame(struct halo_stereo_frame *frame) API_AVAILABLE(visionos
 #if TARGET_OS_VISION
 /* display.frame_repeat as debug.knob_cycle's cadence last set it; -1: the configuration's */
 static atomic_int frame_repeat_live = -1;
+/* the steady-cadence trigger's starts (host_stereo_cadence_workload): a map's workload decision, or the space
+opening, bumps the generation and the frame thread starts the trigger again */
+static atomic_int cadence_variable;
+static atomic_uint cadence_generation;
 
 /* the repeat count's owner: stereo_repeat_wanted (host_stereo_cadence.h) over the mode, display.frame_repeat
 and the lock. The lock to steady 45 Hz is not built (the headset cadence design's section 8), so it is never
@@ -1391,6 +1395,7 @@ void host_stereo_space_opened(void *layer_renderer)
 	opening (a new layer renderer starts at 0) before its first frame */
 	if (layer_renderer)
 		host_stereo_repeat_refresh();
+	atomic_fetch_add(&cadence_generation, 1);
 	stereo_frames = 0;
 	screen_frames = 0;
 	stereo_presents = 0;
@@ -2876,6 +2881,139 @@ void host_stereo_frame_repeat_set(int repeat)
 #else
 	(void)repeat;
 	host_logf(HOST_LOG_INFO, "stereo: the frame repeat count changes only on Vision Pro");
+#endif
+}
+
+/* ---------- the steady-cadence trigger, log only (host_stereo_cadence.h)
+
+Two evaluations: at the asked repeat count (what a trigger that acted would see), and, while that count is above 0,
+as if it were 0 (the stand-in for the Compositor choosing 45 Hz by itself, which the acceptance runs check). Nothing
+here changes the repeat count: frame_repeat_in passes the lock as never latched. */
+
+#if TARGET_OS_VISION
+static struct stereo_cadence_trigger cadence_asked, cadence_as_zero;
+static unsigned cadence_seen_generation = ~0u;
+static double cadence_previous_render, cadence_previous_gpu;
+/* display.steady_cadence: 1 "log", 0 "off"; -1 not read yet */
+static int cadence_setting = -1;
+
+static int cadence_enabled(void)
+{
+	if (cadence_setting < 0)
+	{
+		char value[16];
+
+		host_config_string("display.steady_cadence", "log", value, sizeof(value));
+		cadence_setting = strcmp(value, "off") != 0;
+		host_logf(HOST_LOG_INFO, "stereo: steady cadence %s%s", cadence_setting ? "log" : "off",
+			cadence_setting ? " (evaluates in HEAD mode in multiplayer; never changes the frame rate)" : "");
+	}
+	return cadence_setting;
+}
+
+static void cadence_window_log(const char *what, const struct stereo_cadence_trigger *trigger,
+	const struct stereo_cadence_window *window)
+{
+	host_logf(HOST_LOG_INFO, "stereo: steady cadence (log only, scored at repeat count %d): %s; tick frames %lu of %lu "
+		"late by their own work, other frames %lu of %lu, %lu late frames the system's", trigger->repeat, what,
+		window->tick_late, window->tick_frames, window->other_late, window->other_frames, window->system_late);
+}
+
+static void cadence_decided(struct stereo_cadence_trigger *trigger, int period_measured)
+{
+	NSProcessInfo *info = NSProcessInfo.processInfo;
+	int warm = info.thermalState > NSProcessInfoThermalStateNominal || info.lowPowerModeEnabled;
+	struct stereo_cadence_window window;
+	int events = stereo_cadence_decide(trigger, period_measured, warm, NULL, &window);
+
+	if (events & STEREO_CADENCE_STREAK_STARTED)
+		cadence_window_log("a streak began", trigger, &window);
+	if (events & STEREO_CADENCE_WOULD_DROP)
+		cadence_window_log("would drop to a steady 45 Hz in this map", trigger, &window);
+}
+
+static void cadence_summary(const struct stereo_cadence_trigger *trigger)
+{
+	const unsigned long *skipped = trigger->skipped;
+
+	host_logf(HOST_LOG_INFO, "stereo: steady cadence (log only, scored at repeat count %d): %lu windows counted; "
+		"skipped %lu settling, %lu before a measured period, %lu warm or Low Power Mode, %lu with a hitch, %lu to the "
+		"system's pacing; longest streak %d; would drop %s", trigger->repeat, trigger->counted,
+		skipped[STEREO_CADENCE_SKIP_SETTLING], skipped[STEREO_CADENCE_SKIP_PERIOD], skipped[STEREO_CADENCE_SKIP_THERMAL],
+		skipped[STEREO_CADENCE_SKIP_HITCH], skipped[STEREO_CADENCE_SKIP_SYSTEM], trigger->longest,
+		trigger->fired_in_report ? "fired" : trigger->fired ? "fired earlier in this map" : "not fired");
+}
+
+static unsigned long cadence_windows(const struct stereo_cadence_trigger *trigger)
+{
+	unsigned long windows = trigger->counted;
+	int reason;
+
+	for (reason = 0; reason < STEREO_CADENCE_SKIP_REASONS; reason++)
+		windows += trigger->skipped[reason];
+	return windows;
+}
+#endif
+
+void host_stereo_cadence_workload(int variable)
+{
+#if TARGET_OS_VISION
+	atomic_store(&cadence_variable, variable != 0);
+	atomic_fetch_add(&cadence_generation, 1);
+#else
+	(void)variable;
+#endif
+}
+
+void host_stereo_cadence_frame(int ticked, double interval, double tick, double render, double gpu, double period)
+{
+#if TARGET_OS_VISION
+	unsigned generation = atomic_load(&cadence_generation);
+	int repeat = host_theater_frame_repeat(), measured = period > 0.0;
+	double now = CACurrentMediaTime();
+	long refreshes;
+
+	if (!cadence_enabled())
+		return;
+	/* (HEAD mode in a multiplayer context only: campaign is never evaluated) */
+	if (host_stereo_mode() != HALO_STEREO_HEAD || !atomic_load(&cadence_variable))
+	{
+		cadence_previous_render = cadence_previous_gpu = 0.0;
+		return;
+	}
+	if (generation != cadence_seen_generation || repeat != cadence_asked.repeat)
+	{
+		cadence_seen_generation = generation;
+		stereo_cadence_trigger_reset(&cadence_asked, repeat, now);
+		stereo_cadence_trigger_reset(&cadence_as_zero, 0, now);
+		cadence_previous_render = cadence_previous_gpu = 0.0;
+	}
+	refreshes = stereo_cadence_refreshes(interval, measured ? period : 1.0 / 90.0, STEREO_CADENCE_HITCH_REFRESHES);
+	if (stereo_cadence_window_add(&cadence_asked, now, ticked, refreshes, tick, cadence_previous_render,
+		cadence_previous_gpu, measured ? period : 1.0 / 90.0))
+		cadence_decided(&cadence_asked, measured);
+	if (repeat > 0 && stereo_cadence_window_add(&cadence_as_zero, now, ticked, refreshes, tick,
+		cadence_previous_render, cadence_previous_gpu, measured ? period : 1.0 / 90.0))
+		cadence_decided(&cadence_as_zero, measured);
+	cadence_previous_render = render;
+	cadence_previous_gpu = gpu;
+#else
+	(void)ticked, (void)interval, (void)tick, (void)render, (void)gpu, (void)period;
+#endif
+}
+
+void host_stereo_cadence_report(void)
+{
+#if TARGET_OS_VISION
+	if (cadence_setting <= 0)
+		return;
+	/* (nothing evaluated since the last report: no line) */
+	if (cadence_windows(&cadence_asked))
+		cadence_summary(&cadence_asked);
+	if (cadence_windows(&cadence_as_zero))
+		cadence_summary(&cadence_as_zero);
+	stereo_cadence_report_reset(&cadence_asked);
+	stereo_cadence_report_reset(&cadence_as_zero);
 #endif
 }
 

@@ -1338,6 +1338,12 @@ __attribute__((weak)) void host_stereo_ab_change(const char *method, float quali
 { }
 __attribute__((weak)) void host_stereo_ab_sample(double gpu_seconds)
 { }
+__attribute__((weak)) void host_stereo_cadence_frame(int ticked, double interval, double tick, double render, double gpu, double period)
+{ }
+__attribute__((weak)) void host_stereo_cadence_report(void)
+{ }
+__attribute__((weak)) void host_stereo_cadence_workload(int variable)
+{ }
 __attribute__((weak)) float host_stereo_cut_brightness(struct host_stereo_cut *cut, int shown, int covered, int requested, float frame_seconds, int *switched)
 { fprintf(stderr, "host_stubs: probe called host_stereo_cut_brightness without defining it\n"); abort(); }
 __attribute__((weak)) int host_stereo_entered(void)

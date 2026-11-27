@@ -330,6 +330,9 @@ float host_stereo_render_quality(float quality);
 void host_present_dither_set(int on);
 /* debug.knob_cycle's cadence: the Compositor's frame repeat count (0 to 3), from the next frame; logged when it lands */
 void host_stereo_frame_repeat_set(int repeat);
+/* the map's workload decision (halo_workload_decide) and the return to the menu: the steady-cadence trigger
+(log only) evaluates only a variable (multiplayer) context, and starts again with each map */
+void host_stereo_cadence_workload(int variable);
 void host_stereo_ab_change(const char *method, float quality, int shadows);
 
 

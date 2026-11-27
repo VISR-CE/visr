@@ -55,3 +55,171 @@ static inline int stereo_cadence_own_work(double tick, double previous_render, d
 {
 	return tick + previous_render > slot || previous_gpu > slot;
 }
+
+/* ---------- the trigger (log only)
+
+Whether a big game has stopped holding the headset's full rate by its own work, for a lock to steady 45 Hz that is
+not built (display.steady_cadence = "log": this evaluates and logs and never changes the repeat count). Fed once a
+stereo frame in HEAD mode, in a multiplayer (variable) workload context, by host_stereo_cadence_frame (host_stereo.m).
+
+A window is the frames whose refreshes add up to STEREO_CADENCE_WINDOW_REFRESHES (a second at 90 Hz). In it, T tick
+frames and O other frames, Lt and Lo the late ones of each whose own work explains them, and S the late frames the
+rules give the system. A window is skipped (neither extending nor breaking a streak) in the first
+STEREO_CADENCE_SETTLE_SECONDS after a map loads or the space opens, before the pacing report has measured a period,
+while the thermal state is above nominal or Low Power Mode is on, when a frame took STEREO_CADENCE_HITCH_REFRESHES
+or more (a load or a shader hitch), and when S is a quarter or more of its late frames: at 45 Hz times rise and the
+own-work rule gives the system most of them, so such a window is the system's pacing, not the game's. It would drop
+when Lt >= T/2 in STEREO_CADENCE_STREAK consecutive counted windows, or Lo >= O/2 in as many. */
+
+#define STEREO_CADENCE_WINDOW_REFRESHES 90
+#define STEREO_CADENCE_SETTLE_SECONDS 5.0
+#define STEREO_CADENCE_HITCH_REFRESHES 5
+#define STEREO_CADENCE_STREAK 3
+
+enum stereo_cadence_skip
+{
+	STEREO_CADENCE_COUNTED,
+	STEREO_CADENCE_SKIP_PERIOD,   /* no measured refresh period yet */
+	STEREO_CADENCE_SKIP_SETTLING, /* a map loaded or the space opened less than five seconds before */
+	STEREO_CADENCE_SKIP_THERMAL,  /* thermal state above nominal, or Low Power Mode */
+	STEREO_CADENCE_SKIP_HITCH,    /* a frame of five or more refreshes */
+	STEREO_CADENCE_SKIP_SYSTEM,   /* a quarter or more of the late frames were the system's */
+	STEREO_CADENCE_SKIP_REASONS
+};
+
+/* what stereo_cadence_decide saw in a window */
+enum
+{
+	STEREO_CADENCE_STREAK_STARTED = 1,
+	STEREO_CADENCE_WOULD_DROP = 2 /* the first time in this map */
+};
+
+struct stereo_cadence_window
+{
+	double started;                  /* seconds, the window's first frame */
+	long refreshes;                  /* the window's frames' refreshes so far */
+	unsigned long tick_frames, other_frames;
+	unsigned long tick_late, other_late; /* late by their own work */
+	unsigned long system_late;           /* late, but their own work fit */
+	int hitch;
+};
+
+struct stereo_cadence_trigger
+{
+	int repeat;                      /* the count frames are scored at */
+	double settled;                  /* seconds: windows starting before this are skipped (settling) */
+	struct stereo_cadence_window window;
+	int tick_streak, other_streak;
+	int fired;                       /* would drop fired since the map loaded */
+	/* since the last pacing report */
+	unsigned long counted, skipped[STEREO_CADENCE_SKIP_REASONS];
+	int longest;
+	int fired_in_report;
+};
+
+/* a map loaded or the space opened at NOW (seconds), or the asked count changed: frames are scored at REPEAT */
+static inline void stereo_cadence_trigger_reset(struct stereo_cadence_trigger *trigger, int repeat, double now)
+{
+	struct stereo_cadence_window empty = { 0 };
+
+	trigger->repeat = repeat;
+	trigger->settled = now + STEREO_CADENCE_SETTLE_SECONDS;
+	trigger->window = empty;
+	trigger->tick_streak = trigger->other_streak = 0;
+	trigger->fired = 0;
+}
+
+/* the per-report counts start again (after the summary line) */
+static inline void stereo_cadence_report_reset(struct stereo_cadence_trigger *trigger)
+{
+	int reason;
+
+	trigger->counted = 0;
+	for (reason = 0; reason < STEREO_CADENCE_SKIP_REASONS; reason++)
+		trigger->skipped[reason] = 0;
+	trigger->longest = trigger->tick_streak > trigger->other_streak ? trigger->tick_streak : trigger->other_streak;
+	trigger->fired_in_report = 0;
+}
+
+/* one frame at NOW (seconds), REFRESHES after the previous presentation (stereo_cadence_refreshes, at most
+STEREO_CADENCE_HITCH_REFRESHES), with its TICK time (0 without one) and the previous frame's render and GPU times
+(PERIOD's unit). Returns 1 when the window is full and stereo_cadence_decide should run */
+static inline int stereo_cadence_window_add(struct stereo_cadence_trigger *trigger, double now, int ticked,
+	long refreshes, double tick, double previous_render, double previous_gpu, double period)
+{
+	struct stereo_cadence_window *window = &trigger->window;
+
+	if (window->refreshes == 0)
+		window->started = now;
+	window->refreshes += refreshes;
+	if (ticked)
+		window->tick_frames++;
+	else
+		window->other_frames++;
+	if (refreshes >= STEREO_CADENCE_HITCH_REFRESHES)
+		window->hitch = 1;
+	if (stereo_cadence_late(refreshes, trigger->repeat))
+	{
+		if (!stereo_cadence_own_work(tick, previous_render, previous_gpu, stereo_cadence_slot(period, trigger->repeat)))
+			window->system_late++;
+		else if (ticked)
+			window->tick_late++;
+		else
+			window->other_late++;
+	}
+	return window->refreshes >= STEREO_CADENCE_WINDOW_REFRESHES;
+}
+
+/* the full window's verdict. PERIOD_MEASURED: the pacing report has measured the refresh period; WARM: the thermal
+state is above nominal or Low Power Mode is on. Returns STEREO_CADENCE_STREAK_STARTED and STEREO_CADENCE_WOULD_DROP
+bits; *SKIPPED and *SEEN (each optional) get the window's skip reason (or STEREO_CADENCE_COUNTED) and its counts.
+The window starts again */
+static inline int stereo_cadence_decide(struct stereo_cadence_trigger *trigger, int period_measured, int warm,
+	enum stereo_cadence_skip *skipped, struct stereo_cadence_window *seen)
+{
+	struct stereo_cadence_window *window = &trigger->window, empty = { 0 };
+	unsigned long late = window->tick_late + window->other_late + window->system_late;
+	enum stereo_cadence_skip skip = STEREO_CADENCE_COUNTED;
+	int events = 0, tick_hit, other_hit, was_streaking;
+
+	if (!period_measured)
+		skip = STEREO_CADENCE_SKIP_PERIOD;
+	else if (window->started < trigger->settled)
+		skip = STEREO_CADENCE_SKIP_SETTLING;
+	else if (warm)
+		skip = STEREO_CADENCE_SKIP_THERMAL;
+	else if (window->hitch)
+		skip = STEREO_CADENCE_SKIP_HITCH;
+	else if (late > 0 && 4 * window->system_late >= late)
+		skip = STEREO_CADENCE_SKIP_SYSTEM;
+	if (skipped)
+		*skipped = skip;
+	if (seen)
+		*seen = *window;
+	if (skip != STEREO_CADENCE_COUNTED)
+	{
+		trigger->skipped[skip]++;
+		*window = empty;
+		return 0;
+	}
+	trigger->counted++;
+	tick_hit = window->tick_frames > 0 && 2 * window->tick_late >= window->tick_frames;
+	other_hit = window->other_frames > 0 && 2 * window->other_late >= window->other_frames;
+	was_streaking = trigger->tick_streak > 0 || trigger->other_streak > 0;
+	trigger->tick_streak = tick_hit ? trigger->tick_streak + 1 : 0;
+	trigger->other_streak = other_hit ? trigger->other_streak + 1 : 0;
+	if (!was_streaking && (tick_hit || other_hit))
+		events |= STEREO_CADENCE_STREAK_STARTED;
+	if (trigger->tick_streak > trigger->longest)
+		trigger->longest = trigger->tick_streak;
+	if (trigger->other_streak > trigger->longest)
+		trigger->longest = trigger->other_streak;
+	if (!trigger->fired && (trigger->tick_streak >= STEREO_CADENCE_STREAK || trigger->other_streak >= STEREO_CADENCE_STREAK))
+	{
+		trigger->fired = 1;
+		trigger->fired_in_report = 1;
+		events |= STEREO_CADENCE_WOULD_DROP;
+	}
+	*window = empty;
+	return events;
+}
