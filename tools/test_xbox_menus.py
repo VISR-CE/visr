@@ -2474,8 +2474,8 @@ def test_browser_preview_scrim_and_text_come_from_one_set_of_numbers():
     block = block[:block.index('\n}\n')]
     notices = [text.replace('\\', '') for text in re.findall(r'L"([^"%]*)"', block)]
     content = (ROOT / 'port/linux/include/halo_network_content.h').read_text()
-    reason = content[content.index('halo_network_kind_reason('):]
-    notices += re.findall(r'return "([^"]+)"', reason[:reason.index('\n}\n')])
+    table = content[content.index('halo_network_kind_row_get('):]
+    notices += re.findall(r'\{ "[^"]*", "[^"]*", "([^"]+)" \}', table[:table.index('\n}\n')])
     assert len(notices) >= 8, notices
     reasons = [text for text in notices]
     for text in reasons:

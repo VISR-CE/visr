@@ -73,6 +73,7 @@ Called from the main loop every frame (main.c).
 #include "benchmark_mp_arena.h"
 
 #include "../src/p2p.h" /* port: port/linux/src/p2p.c, p2p_lobby.c */
+#include "halo_network_content.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -1659,7 +1660,7 @@ void network_test_update(
 			if (!game->invite[0] || game->failed)
 				continue;
 			if (network_test.browse_empty ? game->from_master && !game->player_count && game->open &&
-				game->joinable && p2p_listing_map_kind(game) == P2P_MAP_STOCK : !game->from_master)
+				!halo_network_kind_reason(game->kind) && p2p_listing_map_kind(game) == P2P_MAP_STOCK : !game->from_master)
 			{
 				break;
 			}

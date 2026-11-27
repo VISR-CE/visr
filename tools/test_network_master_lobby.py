@@ -108,6 +108,7 @@ def test_browse_only_logs_rows_without_joining(tmp_path):
 #include <stdio.h>
 #include <string.h>
 #include "p2p.h"
+#include "halo_network_content.h"
 #define TRUE 1
 #define FALSE 0
 #define NUMBEROF(a) (sizeof(a)/sizeof((a)[0]))
@@ -144,7 +145,7 @@ int main(void) {
         'static int p2p_lobby_games(', 'int p2p_lobby_games(')
     probe, binary = tmp_path / 'browse_only.c', tmp_path / 'browse_only'
     probe.write_text(program.replace('/* HELPER */', helper).replace('/* BRANCH */', branch))
-    subprocess.run(['clang', '-pthread', str(ROOT / 'port/linux/src/delta_legacy_runtime.c'), '-std=c11', '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/src'),
+    subprocess.run(['clang', '-pthread', str(ROOT / 'port/linux/src/delta_legacy_runtime.c'), '-std=c11', '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'), '-iquote', str(ROOT / 'port/linux/src'),
                     str(probe), '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
