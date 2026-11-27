@@ -224,6 +224,8 @@ void host_perf_metal_command_span(uint64_t frame, unsigned group, double start, 
     }
     os_unfair_lock_unlock(&group_lock);
 }
+_Static_assert(HOST_PERF_SCENE < HOST_PERF_UPSCALE && HOST_PERF_UPSCALE < HOST_PERF_HUD,
+    "union_through charges the groups in enum order, which must be the frame's dependency order");
 /* the length of the union of the intervals of groups up to last, microseconds (intervals sorted by start) */
 static double union_through(const gpu_interval *intervals, unsigned n, unsigned last) {
     double reach = -INFINITY, total = 0.0;
@@ -270,14 +272,20 @@ static double gpu_seconds(uint64_t tick, MTLTimestamp gpu_now, double host_now, 
 }
 /* (timebase: see host_perf_metal_initialize) */
 static double mach_seconds(uint64_t ticks) { return (double)ticks * timebase.numer / timebase.denom * 1e-9; }
-/* a correlated pair bracketed by host reads further apart than this is dropped: a preemption between them would
- * shift every stage range of the buffer against MetalFX's span */
-#define PAIR_BRACKET_SECONDS 20e-6
+/* The tick-to-host mapping is one line (the long-run rate is scale's), so ranges convert through the tightest
+ * recently bracketed pair, not each completion's own: a preemption between the host reads around sampleTimestamps
+ * would shift a buffer's stage ranges against MetalFX's span. A pair replaces the kept one when its bracket is no
+ * wider, or when the kept one is older than PAIR_KEEP_SECONDS. Brackets wider than PAIR_WIDE_SECONDS are counted. */
+#define PAIR_KEEP_SECONDS 1.0
+#define PAIR_WIDE_SECONDS 20e-6
+static struct { int kept; MTLTimestamp gpu; double host, width; } clock_pair;
+/* once a minute, whether or not frames have readings: the planner's reading share and the pairs' brackets */
+static struct { double since, widest; unsigned long frames, readings, pairs, wide; } clock_stats;
 /* Containment, the clocks' cross-check: each converted stage range must lie inside its own command buffer's GPU
  * span, which Metal reports on the CPU timebase. Ranges more than CONTAINMENT_SLACK outside are counted; the
  * counts are logged with the timing check. */
 #define CONTAINMENT_SLACK 50e-6
-static struct { unsigned long checked, outside, dropped_pairs; double worst; } containment;
+static struct { unsigned long checked, outside; double worst; } containment;
 static int compare_doubles(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
 /* every 600 frames with both: how far the command-buffer union is from stage timing, all frames and late ones */
 static void timing_check(double stage_scene, double stage_rest, double buffer_scene, double buffer_rest, int late) {
@@ -295,11 +303,11 @@ static void timing_check(double stage_scene, double stage_rest, double buffer_sc
     /* (called with group_lock held, which guards containment too) */
     fprintf(stderr, "DRS timing check %lu: scene buffers vs stage S: median %+.1f%% p5 %+.1f%% p95 %+.1f%%; "
         "rest buffers minus U+H: median %+.0f us p95 %+.0f us; late frames %u, their scene median %+.1f%% p95 %+.1f%%; "
-        "stage ranges outside their buffer by over %.0f us: %lu of %lu, worst %.0f us; dropped clock pairs %lu\n",
+        "stage ranges outside their buffer by over %.0f us: %lu of %lu, worst %.0f us\n",
         ++logged, scene_error[N / 2] * 100, scene_error[N / 20] * 100, scene_error[N * 19 / 20] * 100,
         rest_error[N / 2], rest_error[N * 19 / 20], late_count,
         late_count ? late_error[late_count / 2] * 100 : 0.0, late_count ? late_error[late_count * 19 / 20] * 100 : 0.0,
-        CONTAINMENT_SLACK * 1e6, containment.outside, containment.checked, containment.worst * 1e6, containment.dropped_pairs);
+        CONTAINMENT_SLACK * 1e6, containment.outside, containment.checked, containment.worst * 1e6);
     count = late_count = 0;
     memset(&containment, 0, sizeof(containment));
 }
@@ -360,8 +368,16 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
             uint64_t before = mach_absolute_time();
             [counter_device sampleTimestamps:&cpu gpuTimestamp:&gpu];
             uint64_t after = mach_absolute_time();
-            double host_now = mach_seconds(before + (after - before) / 2);
-            int aligned = mach_seconds(after - before) <= PAIR_BRACKET_SECONDS;
+            double host_now = mach_seconds(before + (after - before) / 2), width = mach_seconds(after - before);
+            os_unfair_lock_lock(&group_lock);
+            clock_stats.pairs++;
+            if (width > PAIR_WIDE_SECONDS) clock_stats.wide++;
+            if (width > clock_stats.widest) clock_stats.widest = width;
+            if (!clock_pair.kept || width <= clock_pair.width || host_now - clock_pair.host > PAIR_KEEP_SECONDS)
+                clock_pair = (typeof(clock_pair)){ 1, gpu, host_now, width };
+            MTLTimestamp pair_gpu = clock_pair.gpu;
+            double pair_host = clock_pair.host;
+            os_unfair_lock_unlock(&group_lock);
             double buffer_start = commands.GPUStartTime, buffer_end = commands.GPUEndTime;
             int bounded = commands.status == MTLCommandBufferStatusCompleted && buffer_start > 0.0 && buffer_end >= buffer_start;
             /* Apple documents the correlated CPU reference in nanoseconds. */
@@ -386,13 +402,12 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
                 os_unfair_lock_lock(&group_lock);
                 typeof(grouped[0]) *frame = &grouped[buffers[slot].frame % FRAME_COUNT];
                 if (frame->frame == buffers[slot].frame) {
-                    if (valid && !aligned) containment.dropped_pairs++;
-                    if (!valid || !aligned || frame->count == GROUP_INTERVALS) frame->invalid |= 1u << buffers[slot].groups[i];
+                    if (!valid || frame->count == GROUP_INTERVALS) frame->invalid |= 1u << buffers[slot].groups[i];
                     else {
                         /* GPU ticks move to the CPU timebase, where MetalFX's command-buffer span lives. */
                         unsigned n = frame->count++;
-                        frame->ranges[n].start = gpu_seconds(start, gpu, host_now, scale);
-                        frame->ranges[n].end = gpu_seconds(end, gpu, host_now, scale);
+                        frame->ranges[n].start = gpu_seconds(start, pair_gpu, pair_host, scale);
+                        frame->ranges[n].end = gpu_seconds(end, pair_gpu, pair_host, scale);
                         frame->ranges[n].group = buffers[slot].groups[i];
                         if (bounded) {
                             double outside = fmax(buffer_start - frame->ranges[n].start, frame->ranges[n].end - buffer_end);
@@ -434,7 +449,10 @@ static void dynamic_join(game_perf_frame *frame) {
         /* Stage envelopes and MetalFX's span, charged once each: a union, never a sum of envelopes. */
         double totals[3];
         charge_union(entry->ranges, entry->count, totals);
-        if (!entry->invalid && entry->count && host_perf_metal_stage_supported() && !(frame->flags & GAME_PERF_GPU_UNAVAILABLE) &&
+        unsigned scene_ranges = 0;
+        for (unsigned i = 0; i < entry->count; ++i) scene_ranges += entry->ranges[i].group == HOST_PERF_SCENE;
+        /* (a frame needs the scene's own ranges: MetalFX's span alone would read S = 0) */
+        if (!entry->invalid && scene_ranges && host_perf_metal_stage_supported() && !(frame->flags & GAME_PERF_GPU_UNAVAILABLE) &&
             entry->upscale_seen == entry->upscale_expected) {
             frame->drs.scene_us = (uint64_t)llround(totals[HOST_PERF_SCENE]);
             frame->drs.upscale_us = (uint64_t)llround(totals[HOST_PERF_UPSCALE]);
@@ -460,6 +478,17 @@ static void dynamic_join(game_perf_frame *frame) {
                 frame->drs.available |= 1 | 16;
             }
         }
+    }
+    clock_stats.frames++;
+    if (frame->drs.available & 1) clock_stats.readings++;
+    double now = mach_seconds(mach_absolute_time());
+    if (!clock_stats.since) clock_stats.since = now;
+    else if (now - clock_stats.since >= 60.0) {
+        fprintf(stderr, "DRS readings: %lu of %lu frames in the last minute; clock pairs %lu, widest bracket %.1f us, "
+            "%lu over %.0f us, kept pair's %.1f us\n", clock_stats.readings, clock_stats.frames, clock_stats.pairs,
+            clock_stats.widest * 1e6, clock_stats.wide, PAIR_WIDE_SECONDS * 1e6, clock_pair.width * 1e6);
+        memset(&clock_stats, 0, sizeof(clock_stats));
+        clock_stats.since = now;
     }
     os_unfair_lock_unlock(&group_lock);
 }
