@@ -11,6 +11,18 @@ sys.path.insert(0, str(ROOT / 'tools'))
 from probekit import source as probe_source  # noqa: E402
 
 
+def block(source, signature):
+    """The text from `signature` through its closing brace. Kept only for the tests that import it
+    (rule 3a's legacy list); new code uses probekit.source."""
+    start = source.index(signature)
+    opening = source.index('{', start)
+    depth, end = 1, opening + 1
+    while depth:
+        depth += (source[end] == '{') - (source[end] == '}')
+        end += 1
+    return source[start:end]
+
+
 def blend_enums():
     source = (ROOT / 'source/rasterizer/xbox/rasterizer_xbox.c').read_text()
     return next(item.group() for item in re.finditer(r'enum\s*\{[^}]*\};', source)

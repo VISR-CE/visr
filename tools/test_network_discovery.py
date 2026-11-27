@@ -12,6 +12,18 @@ sys.path.insert(0, str(ROOT / "tools"))
 from probekit import source as probe_source  # noqa: E402
 
 
+def function(source, signature):
+    """The text from `signature` through its closing brace. Kept only for the tests that import it
+    (rule 3a's legacy list); new code uses probekit.source."""
+    start = source.index(signature)
+    opening = source.index("{", start)
+    depth, end = 1, opening + 1
+    while depth:
+        depth += (source[end] == "{") - (source[end] == "}")
+        end += 1
+    return source[start:end]
+
+
 def test_advertised_unsupported_kind_is_refused_before_join(tmp_path):
     source = (ROOT / "source/networking/network_client_manager.c").read_text()
     production = probe_source.function("source/networking/network_client_manager.c", "network_game_client_advertised_game_compatible")
