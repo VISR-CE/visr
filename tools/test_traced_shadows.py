@@ -155,7 +155,7 @@ def test_a_light_holding_a_slot_keeps_it_until_a_challenger_clearly_beats_it(tmp
         /* near-equal scores that cross every frame */
         pair[0].score = frame & 1 ? 1.05 : 0.95;
         pair[1].score = frame & 1 ? 0.95 : 1.05;
-        light_visibility_held(&ramp, pair, 2, held);
+        light_visibility_held(&ramp, pair, 2, 1, held);
         light_visibility_rank(pair, 2, 1, 0, held, 0.2, chosen);
         assert(chosen[0] + chosen[1] == 1);
         swaps += holder >= 0 && !chosen[holder];
@@ -170,7 +170,7 @@ def test_a_light_holding_a_slot_keeps_it_until_a_challenger_clearly_beats_it(tmp
     {
         pair[0].score = frame & 1 ? 1.05 : 0.95;
         pair[1].score = frame & 1 ? 0.95 : 1.05;
-        light_visibility_held(&ramp, pair, 2, held);
+        light_visibility_held(&ramp, pair, 2, 1, held);
         light_visibility_rank(pair, 2, 1, 0, held, 0.0, chosen);
         swaps += holder >= 0 && !chosen[holder];
         holder = chosen[0] ? 0 : 1;
@@ -196,9 +196,80 @@ def test_a_light_holding_a_slot_keeps_it_until_a_challenger_clearly_beats_it(tmp
     ''')
     game = (ROOT / "port/linux/game/traced_shadow_casters.c").read_text()
     assert game.count("light_visibility_rank(") == 1
-    assert 'held, config_real("debug.traced_light_hold"), chosen);' in game
+    assert 'config_real("debug.traced_light_hold")' in game
+    # a light holds a slot only when the ramp's step was the window's previous frame
+    assert re.search(r"light_visibility_held\([^;]*traced_lights\.frame\[window\] \+ 1 ==", game)
     config = (ROOT / "port/linux/src/port_config.c").read_text()
     assert '{ "debug.traced_light_hold", _config_real, "0.2",' in config
+
+
+def test_the_slot_hold_across_caps_holders_gaps_and_odd_values(tmp_path):
+    """The class: a slot hold that keeps a light for the wrong reason. A ramp from before a level load or a window
+    that stopped drawing must hold nothing (what was drawn before the gap never decides what is traced after it); a
+    light easing out, or one no longer offered, holds nothing; several holders under a larger cap each keep their slot;
+    a cap that changes between frames is honored at once; a hold of 0 or below, or scores of 0, rank as without it."""
+    _run_rule_program(tmp_path, r'''
+    struct light_visibility_ramp ramp = {0};
+    struct light_visibility_candidate four[4] = {{1, 1.00, 2, 0}, {2, 0.98, 2, 0}, {3, 1.05, 2, 0}, {4, 1.10, 2, 0}};
+    unsigned char chosen[4], held[4];
+    float strength[4];
+    /* frame 1, cap 2: the two best by score, 4 and 3 */
+    light_visibility_held(&ramp, four, 4, 1, held);
+    assert(!held[0] && !held[1] && !held[2] && !held[3]); /* no step yet */
+    light_visibility_rank(four, 4, 2, 0, held, 0.2, chosen);
+    assert(!chosen[0] && !chosen[1] && chosen[2] && chosen[3]);
+    light_visibility_ramp_step(&ramp, four, chosen, 4, 1000, strength);
+    /* frame 2: 1 and 2 overtake the holders by less than 20%: both holders keep their slots */
+    four[0].score = 1.15; four[1].score = 1.12; four[2].score = 1.00; four[3].score = 1.00;
+    light_visibility_held(&ramp, four, 4, 1, held);
+    assert(!held[0] && !held[1] && held[2] && held[3]);
+    light_visibility_rank(four, 4, 2, 0, held, 0.2, chosen);
+    assert(!chosen[0] && !chosen[1] && chosen[2] && chosen[3]);
+    /* the same ramp after a gap (not the window's previous frame) holds nothing: score alone decides */
+    light_visibility_held(&ramp, four, 4, 0, held);
+    assert(!held[0] && !held[1] && !held[2] && !held[3]);
+    light_visibility_rank(four, 4, 2, 0, held, 0.2, chosen);
+    assert(chosen[0] && chosen[1] && !chosen[2] && !chosen[3]);
+    /* the cap drops to 1 between frames: one slot, kept by the better holder */
+    light_visibility_held(&ramp, four, 4, 1, held);
+    four[2].score = 1.01;
+    light_visibility_rank(four, 4, 1, 0, held, 0.2, chosen);
+    assert(chosen[0] + chosen[1] + chosen[2] + chosen[3] == 1 && chosen[2]);
+    light_visibility_ramp_step(&ramp, four, chosen, 4, 1016, strength);
+    /* light 4 was dropped by the cap and is easing out (strength above 0, not chosen): it holds nothing */
+    assert(strength[3] > 0.f && !chosen[3]);
+    light_visibility_held(&ramp, four, 4, 1, held);
+    assert(held[2] && !held[3]);
+    /* a holder no longer offered: the others are ranked without it, and it comes back holding nothing */
+    {
+        struct light_visibility_candidate two[2] = {{1, 1.15, 2, 0}, {2, 1.12, 2, 0}};
+        unsigned char held2[2], chosen2[2];
+        float strength2[2];
+        light_visibility_held(&ramp, two, 2, 1, held2);
+        assert(!held2[0] && !held2[1]);
+        light_visibility_rank(two, 2, 1, 0, held2, 0.2, chosen2);
+        assert(chosen2[0] && !chosen2[1]);
+        light_visibility_ramp_step(&ramp, two, chosen2, 2, 1032, strength2);
+        light_visibility_held(&ramp, four, 4, 1, held);
+        assert(held[0] && !held[2]);
+    }
+    /* a hold of 0 or below ranks by score alone */
+    {
+        unsigned char held1[2] = {1, 0}, chosen1[2];
+        struct light_visibility_candidate pair[2] = {{1, 1.00, 2, 0}, {2, 1.01, 2, 0}};
+        light_visibility_rank(pair, 2, 1, 0, held1, 0.0, chosen1);
+        assert(!chosen1[0] && chosen1[1]);
+        light_visibility_rank(pair, 2, 1, 0, held1, -0.5, chosen1);
+        assert(!chosen1[0] && chosen1[1]);
+        light_visibility_rank(pair, 2, 1, 0, held1, 0.2, chosen1);
+        assert(chosen1[0] && !chosen1[1]);
+        /* scores of 0: the hold raises nothing, so the lower id wins as without it */
+        pair[0].score = pair[1].score = 0.0;
+        held1[0] = 0; held1[1] = 1;
+        light_visibility_rank(pair, 2, 1, 0, held1, 0.2, chosen1);
+        assert(chosen1[0] && !chosen1[1]);
+    }
+    ''')
 
 
 def test_new_lights_block_at_once_and_only_the_cap_eases(tmp_path):

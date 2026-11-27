@@ -184,11 +184,27 @@ static inline int light_visibility_spheres_touch(
 	return r > 0.f && dx * dx + dy * dy + dz * dz < r * r;
 }
 
-/* held[i] 1 for the candidates the ramp's last step chose (none when it has no step) */
+/* the ramp's entry for the light id, -1 none (or no step yet) */
+static inline int light_visibility_ramp_find(
+	const struct light_visibility_ramp *ramp,
+	unsigned long id)
+{
+	int j;
+
+	for (j = 0; ramp->valid && j < ramp->count; j++)
+		if (ramp->id[j] == id)
+			return j;
+	return -1;
+}
+
+/* held[i] 1 for the candidates the ramp's last step chose, only when that step was the window's previous frame
+(fresh): after a level load, or a window that stopped drawing and came back, no light holds a slot, so what was
+drawn before the gap never decides what is traced after it. A light easing out was not chosen and holds nothing */
 static inline void light_visibility_held(
 	const struct light_visibility_ramp *ramp,
 	const struct light_visibility_candidate *lights,
 	int count,
+	int fresh,
 	unsigned char *held)
 {
 	int i, j;
@@ -197,13 +213,8 @@ static inline void light_visibility_held(
 		count = LIGHT_VISIBILITY_MAXIMUM;
 	for (i = 0; i < count; i++)
 	{
-		held[i] = 0;
-		for (j = 0; ramp->valid && j < ramp->count; j++)
-			if (ramp->id[j] == lights[i].id)
-			{
-				held[i] = ramp->chosen[j];
-				break;
-			}
+		j = fresh ? light_visibility_ramp_find(ramp, lights[i].id) : -1;
+		held[i] = j >= 0 && ramp->chosen[j];
 	}
 }
 
@@ -274,16 +285,13 @@ static inline void light_visibility_ramp_step(
 		float target = chosen[i] ? 1.f : 0.f;
 
 		strength[i] = target;
-		for (j = 0; ramp->valid && j < ramp->count; j++)
+		j = light_visibility_ramp_find(ramp, lights[i].id);
+		if (j >= 0)
 		{
-			if (ramp->id[j] == lights[i].id)
-			{
-				float from = ramp->strength[j];
+			float from = ramp->strength[j];
 
-				strength[i] = target > from ? (from + step < target ? from + step : target) :
-					(from - step > target ? from - step : target);
-				break;
-			}
+			strength[i] = target > from ? (from + step < target ? from + step : target) :
+				(from - step > target ? from - step : target);
 		}
 	}
 	for (i = 0; i < count; i++)

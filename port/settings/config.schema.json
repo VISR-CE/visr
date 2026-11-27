@@ -3836,7 +3836,7 @@
         "traced_light_hold": {
           "type": "number",
           "default": 0.2,
-          "description": "With display.traced_lights: how much a light holding a traced slot is favored when more lights compete than display.traced_lights allows. A challenger takes the slot only when its score beats the holder's by this fraction (0.2: 20%), so two lights of about the same score don't trade the slot, and their shadows, every frame. 0 ranks by score alone.",
+          "description": "With display.traced_lights: how much a light holding a traced slot is favored when more lights compete than display.traced_lights allows. A challenger takes the slot only when its score beats the holder's by this fraction (0.2: 20%), so two lights of about the same score don't trade the slot, and their shadows, every frame. 0 ranks by score alone; a capture that compares scenes with more lights than display.traced_lights should set 0, since the hold makes the choice depend on earlier frames.",
           "x-environment": "HALO_TRACED_LIGHT_HOLD",
           "x-environment-style": "value",
           "x-platforms": [

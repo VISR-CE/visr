@@ -775,14 +775,18 @@ void traced_lights_choose(
 	if (ramp->valid && traced_lights.frame[window] == rasterizer_globals.fps_accumulation_frame_index)
 	{
 		for (i = 0; i < count; i++)
-			for (j = 0; j < ramp->count; j++)
-				if (ramp->id[j] == lights[i].id)
-					strength[i] = ramp->strength[j];
+		{
+			j = light_visibility_ramp_find(ramp, lights[i].id);
+			if (j >= 0)
+				strength[i] = ramp->strength[j];
+		}
 		return;
 	}
+	/* (a light holding a slot keeps it until a challenger outranks it by debug.traced_light_hold, only if the ramp's
+	step was this window's previous frame) */
+	light_visibility_held(ramp, lights, count,
+		ramp->valid && traced_lights.frame[window] + 1 == rasterizer_globals.fps_accumulation_frame_index, held);
 	traced_lights.frame[window] = rasterizer_globals.fps_accumulation_frame_index;
-	/* (a light holding a slot keeps it until a challenger outranks it by debug.traced_light_hold) */
-	light_visibility_held(ramp, lights, count, held);
 	light_visibility_rank(lights, count, (int)(cap < LIGHT_VISIBILITY_MAXIMUM ? cap : LIGHT_VISIBILITY_MAXIMUM),
 		config_boolean("debug.traced_lights_fixtures"), held, config_real("debug.traced_light_hold"), chosen);
 	light_visibility_ramp_step(ramp, lights, chosen, count, system_milliseconds(), strength);

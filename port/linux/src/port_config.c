@@ -2068,7 +2068,8 @@ static const struct config_setting config_settings[] =
 		"With display.traced_lights: how much a light holding a traced slot is favored when more lights compete\n"
 		"than display.traced_lights allows. A challenger takes the slot only when its score beats the holder's by\n"
 		"this fraction (0.2: 20%), so two lights of about the same score don't trade the slot, and their shadows,\n"
-		"every frame. 0 ranks by score alone." },
+		"every frame. 0 ranks by score alone; a capture that compares scenes with more lights than\n"
+		"display.traced_lights should set 0, since the hold makes the choice depend on earlier frames." },
 	{ "debug.traced_lights_fixtures", _config_boolean, "false", "HALO_TRACED_LIGHTS_FIXTURES", _environment_value, _platform_ios,
 		"With display.traced_lights: trace the lights the level's designers placed too (those owned by scenery and\n"
 		"devices, which display.traced_lights leaves as the game draws them), for stills and measurements." },
