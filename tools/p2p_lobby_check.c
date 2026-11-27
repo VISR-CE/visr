@@ -20,6 +20,7 @@ the server browser shows. Prints PASS or the failures.
 
 #include "p2p_internal.h"
 #include "halo_port_limits.h"
+#include "halo_network_join.h"
 #include "delta_list.h"
 
 #include <stdio.h>
@@ -294,14 +295,25 @@ static void delta_checks(const char *own_invite)
 	p2p_lobby_delta_games(list, 4);
 	pthread_mutex_unlock(&p2p_lock);
 	count = p2p_lobby_games(shown, 8);
-	/* (the one that can be joined, then the one that cannot be, though it has more players) */
-	check(count == 2, "the browser shows two of Delta's games, and not the one hosted here");
-	check(count == 2 && !strcmp(shown[0].name, "Same version") && shown[0].from_delta &&
-		shown[0].network_version == HALO_PORT_NETWORK_VERSION && shown[0].open, "Delta's game of this version");
-	check(count == 2 && !strcmp(shown[0].invite + 12, other), "Delta's game is joined by its invite");
-	check(count == 2 && !strcmp(shown[1].name, "Newer") && shown[1].from_delta &&
-		shown[1].network_version == 42 && shown[1].player_count == 20,
-		"a game of another version is shown, not joinable");
+	/* (the order is the browser's: what it cannot join goes last there, from the listing's own version and kind, so
+	this list is read by name) */
+	{
+		struct p2p_listing const *same = NULL, *newer = NULL;
+
+		for (index = 0; index < count; index++)
+		{
+			if (!strcmp(shown[index].name, "Same version"))
+				same = &shown[index];
+			else if (!strcmp(shown[index].name, "Newer"))
+				newer = &shown[index];
+		}
+		check(count == 2, "the browser shows two of Delta's games, and not the one hosted here");
+		check(same && same->from_delta && same->network_version == HALO_PORT_NETWORK_VERSION && same->open,
+			"Delta's game of this version");
+		check(same && !strcmp(same->invite + 12, other), "Delta's game is joined by its invite");
+		check(newer && newer->from_delta && newer->network_version == 42 && newer->player_count == 20 &&
+			!halo_network_joinable(newer->network_version), "a game of another version is shown, not joinable");
+	}
 	for (index = 0; index < P2P_KEY_HASH_SIZE; index++)
 	{
 		unsigned int byte;
