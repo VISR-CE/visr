@@ -66,7 +66,6 @@ int main(void)
 		listing_take(&queued, &parsed);
 		assert(lobby.games[0].used);
 		assert(lobby.games[0].listing.kind == kinds[k]);
-		assert(lobby.games[0].listing.joinable == (kinds[k] == 0));
 		assert(lobby.games[0].listing.locked == locked);
 		for (int truncated = 0; truncated < size; truncated++)
 			assert(!listing_read(bytes, truncated, &parsed));

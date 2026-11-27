@@ -244,12 +244,10 @@ struct p2p_listing
 	short ping;
 	/* it has a password: its invite is sealed with it (p2p_listing_unlock) */
 	unsigned char locked;
-	/* the host's network version, and whether this build can join it
-	(halo_network_join.h): a game of another version is listed, with its
-	version, and not joined. from_delta: Delta's list gave it, not the
-	signalling brokers */
+	/* the host's network version (halo_network_join.h says whether this build can join it: a game of another version
+	is listed, with its version, and not joined). from_delta: Delta's list gave it, not the signalling brokers */
 	short network_version;
-	unsigned char joinable, from_delta;
+	unsigned char from_delta;
 	/* Master provenance and operator region; ping is unknown before joining. */
 	unsigned char from_master;
 	char region[32];

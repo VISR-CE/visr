@@ -2062,18 +2062,18 @@ def legacy_browser_layout(root, widgets, bitmaps):
         header = widgets[c.get('widget')]
         header.set('width', str(width))
         header.attrib.pop('bitmap', None)
-        # (the text titles start where their column's values do; the sort
-        # arrow sits at the column's right edge, clear of the longest title,
-        # and menu_functions.c shows it on the sorted column only)
-        for arrows in header.findall('child'):
-            if arrows.get('widget').endswith('/header_sort_arrows'):
-                arrows.attrib.update(x=str(width - 12), y='2')
+        # (the text titles start where their column's values do)
         get('sort_header_' + field).set('width', str(width))
         if field not in ('locked', 'dedicated', 'classic'):
             get('sort_header_' + field).attrib.update(align='left', text_x='0')
-    # (the arrows at their art's 16-unit size: a bitmap fills its widget)
+    # The table is Direct Link's and LAN's, which sort nothing: its column titles are text only, with no sort arrows
+    # and no click or key action (the port answered "gamespy select header" with nothing).
     for leaf in ('header_sort_arrows', 'header_sort_up_arrow', 'header_sort_down_arrow'):
-        get(leaf).attrib.update(width='16', height='16')
+        drop_widget(root, base + '/' + leaf)
+    for element in root.findall('widget'):
+        for action in element.findall('on'):
+            if action.get('run') == 'gamespy select header':
+                element.remove(action)
     for leaf in ('item_ticker_player_info', 'item_ticker_rules_info'):
         item = get(leaf)
         item.attrib.update(width='518', height='24')
@@ -2098,7 +2098,7 @@ def legacy_browser_layout(root, widgets, bitmaps):
         c.attrib.update(x=str(x), y=str(68 + FIELD_GAP))
         widgets[c.get('widget')].attrib.update(width=str(width), height='22')
     # The PC actions inspect the invoking widget's leaf name. This adapter
-    # gives X the refresh action and Y the Internet hosting action while
+    # gives X the select-button action and Y the Internet hosting action while
     # sending A and navigation only to the focused server row.
     actions = widget(root, base + '/button_refresh_create_inter', width=640, height=402,
                      flags='pass_unhandled_to_focused_child')

@@ -766,7 +766,6 @@ static void listing_show(const struct listing *listing, const unsigned char *key
 	shown->has_teams = (listing->flags & _listing_has_teams) != 0;
 	shown->ping = -1;
 	shown->network_version = (short)listing->version;
-	shown->joinable = halo_network_kind_reason(shown->kind) == NULL;
 	shown->from_delta = 0;
 	shown->map_family = P2P_MAP_FAMILY_XBOX;
 }
@@ -1114,15 +1113,13 @@ enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *listing)
 	return P2P_SERVER_PLAYER;
 }
 
-/* Dedicated games first, then the existing joinability, player and name order. */
+/* Dedicated games first, then the player and name order (the browser puts what it cannot join last). */
 static int listing_order(const void *first, const void *second)
 {
 	const struct p2p_listing *a = first, *b = second;
 
 	if (a->dedicated != b->dedicated)
 		return b->dedicated - a->dedicated;
-	if (a->joinable != b->joinable)
-		return b->joinable - a->joinable;
 	if (a->player_count != b->player_count)
 		return b->player_count - a->player_count;
 	if (a->failed != b->failed)
@@ -1260,7 +1257,6 @@ void p2p_lobby_delta_games(const struct delta_game *games, int count)
 		shown->has_teams = (unsigned char)game->teams;
 		shown->ping = -1;
 		shown->network_version = (short)game->version;
-		shown->joinable = (unsigned char)halo_network_joinable(game->version);
 		shown->from_delta = 1;
 		shown->map_family = (unsigned char)(!game->family[0] || !strcmp(game->family, "xbox") ?
 			P2P_MAP_FAMILY_XBOX : !strcmp(game->family, "ce") ? P2P_MAP_FAMILY_CE : P2P_MAP_FAMILY_OTHER);

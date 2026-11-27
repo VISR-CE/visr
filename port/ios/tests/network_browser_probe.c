@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <wchar.h>
 #include "halo_network_content.h"
+#include "halo_network_join.h"
+#include "p2p.h"
 #define ROW_TEXT_LENGTH 96
 #define FALSE 0
 #define TRUE 1
@@ -17,10 +19,11 @@ typedef int boolean;
 #define NUMBEROF(a) (sizeof(a) / sizeof((a)[0]))
 #define ustrncpy wcsncpy
 struct advertised_game { wchar_t game_name[16]; int engine_type, player_count, maximum_player_count; };
-enum p2p_server_kind { P2P_SERVER_UNKNOWN, P2P_SERVER_DEDICATED, P2P_SERVER_PLAYER, P2P_SERVER_DELTA, P2P_SERVER_LAN };
 struct widget_instance { wchar_t text[96]; char const *name; struct widget_instance *parent; struct { short current_frame_index; } animation; };
 static struct { struct advertised_game *games[1]; int mode, game_count; } multiplayer;
-static struct { int count, first; struct { int joinable; } games[3]; } lobby_browser;
+static struct { int count, first; struct p2p_listing games[3]; } lobby_browser;
+static int online = 1;
+static int config_boolean(char const *name) { (void)name; return online; }
 static struct widget_instance type, ping, dedicated_icon, other;
 static int dedicated, dedicated_visible;
 static unsigned kind, version = 38;
@@ -116,10 +119,34 @@ int main(void)
 	multiplayer.mode = _multiplayer_mode_server_browser;
 	lobby_browser.count = 2;
 	lobby_browser.first = 1;
-	lobby_browser.games[1].joinable = 0;
-	assert(ui_widget_port_browser_row_unavailable(&cell));
-	lobby_browser.games[1].joinable = 1;
-	assert(!ui_widget_port_browser_row_unavailable(&cell));
+	{
+		/* the internet row's gray comes from the real browser_listing_blocked: a version this build cannot join, or a
+		kind it does not play; offline, a failed join and a full game stay readable (not gray), and a Delta listing is
+		judged by its kind like any other */
+		struct p2p_listing *listing = &lobby_browser.games[1];
+
+		memset(listing, 0, sizeof(*listing));
+		listing->open = 1; listing->network_version = HALO_PORT_NETWORK_VERSION;
+		assert(!ui_widget_port_browser_row_unavailable(&cell));
+		listing->network_version = HALO_PORT_NETWORK_VERSION + 20;
+		assert(ui_widget_port_browser_row_unavailable(&cell));
+		listing->network_version = 0;
+		assert(!ui_widget_port_browser_row_unavailable(&cell));
+		listing->network_version = HALO_PORT_NETWORK_VERSION;
+		for (unsigned k = 0; k <= 255; k++)
+		{
+			listing->kind = (unsigned char)k;
+			assert(ui_widget_port_browser_row_unavailable(&cell) == (halo_network_kind_reason(k) != NULL));
+		}
+		listing->kind = 0;
+		online = 0; assert(!ui_widget_port_browser_row_unavailable(&cell)); online = 1;
+		listing->failed = 1; assert(!ui_widget_port_browser_row_unavailable(&cell)); listing->failed = 0;
+		listing->open = 0; assert(!ui_widget_port_browser_row_unavailable(&cell)); listing->open = 1;
+		listing->from_delta = 1; listing->kind = 3;
+		assert(ui_widget_port_browser_row_unavailable(&cell));
+		listing->kind = 0;
+		assert(!ui_widget_port_browser_row_unavailable(&cell));
+	}
 	puts("PASS: browser mode names, region labels, gray unavailable rows");
 	return 0;
 }

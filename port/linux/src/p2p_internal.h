@@ -371,8 +371,7 @@ unsigned short p2p_tunnel_local_port(void);
 
 /* ---------- p2p_delta.c: Delta's public game list (delta_list.h) */
 
-/* the server browser opened or closed, or asked again; the p2p thread's, under
-p2p_lock */
+/* the server browser opened or closed; the p2p thread's, under p2p_lock */
 void p2p_delta_browse(int on);
 /* Startup loads the signed cache before any network threads. */
 void p2p_delta_initialize(void);

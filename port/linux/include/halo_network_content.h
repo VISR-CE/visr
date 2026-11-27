@@ -10,49 +10,32 @@
 #define HALO_NETWORK_OPTIONS_SIZE 44
 #define HALO_NETWORK_LEGACY_SETTINGS_SIZE (HALO_PORT_NETWORK_GAME_SIZE - HALO_NETWORK_MODE_OPTIONS_SIZE)
 
-static inline char const *halo_network_kind_label(unsigned kind)
+/* Each advertised kind's names in one row: the capitals the sort key and the HC text use, the case the menus show a
+game's type in, and why this build cannot play it (NULL when it can). */
+struct halo_network_kind_row
 {
-	if (kind & 0x7C || kind > 0xFF) return "UNSUPPORTED";
-	if (kind & 0x80) return "HARDCORE";
-	switch (kind)
-	{
-	case 0: return "";
-	case 1: return "SWAT";
-	case 2: return "INFECTION";
-	case 3: return "GUN GAME";
-	default: return "UNSUPPORTED";
-	}
+	char const *label, *title, *reason;
+};
+
+static inline struct halo_network_kind_row const *halo_network_kind_row_get(unsigned kind)
+{
+	static struct halo_network_kind_row const unsupported = { "UNSUPPORTED", "Unsupported", "This game has an unknown game kind." };
+	static struct halo_network_kind_row const hardcore = { "HARDCORE", "Hardcore", "Hardcore rules are not supported by VISR." };
+	static struct halo_network_kind_row const kinds[] = {
+		{ "", "", 0 },
+		{ "SWAT", "SWAT", "SWAT rules are not supported by VISR." },
+		{ "INFECTION", "Infection", "Infection is not supported by VISR." },
+		{ "GUN GAME", "Gun Game", "Gun Game is not supported by VISR." },
+	};
+
+	if (kind & 0x7C || kind > 0xFF) return &unsupported;
+	if (kind & 0x80) return &hardcore;
+	return kind < sizeof(kinds) / sizeof(kinds[0]) ? &kinds[kind] : &unsupported;
 }
 
-/* a kind's name in the case the menus show a game's type in (halo_network_kind_label is the capitals the sort key and
-the HC text use) */
-static inline char const *halo_network_kind_title(unsigned kind)
-{
-	if (kind & 0x7C || kind > 0xFF) return "Unsupported";
-	if (kind & 0x80) return "Hardcore";
-	switch (kind)
-	{
-	case 0: return "";
-	case 1: return "SWAT";
-	case 2: return "Infection";
-	case 3: return "Gun Game";
-	default: return "Unsupported";
-	}
-}
-
-static inline char const *halo_network_kind_reason(unsigned kind)
-{
-	if (kind & 0x7C || kind > 0xFF) return "This game has an unknown game kind.";
-	if (kind & 0x80) return "Hardcore rules are not supported by VISR.";
-	switch (kind)
-	{
-	case 0: return 0;
-	case 1: return "SWAT rules are not supported by VISR.";
-	case 2: return "Infection is not supported by VISR.";
-	case 3: return "Gun Game is not supported by VISR.";
-	default: return "This game has an unknown game kind.";
-	}
-}
+static inline char const *halo_network_kind_label(unsigned kind) { return halo_network_kind_row_get(kind)->label; }
+static inline char const *halo_network_kind_title(unsigned kind) { return halo_network_kind_row_get(kind)->title; }
+static inline char const *halo_network_kind_reason(unsigned kind) { return halo_network_kind_row_get(kind)->reason; }
 
 static inline void halo_network_options_defaults(unsigned char *extension)
 {

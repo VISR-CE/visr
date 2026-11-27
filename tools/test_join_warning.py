@@ -34,6 +34,7 @@ def test_join_warning(tmp_path):
         'static boolean browser_pick(',
         'static boolean browser_select(struct widget_instance *widget, struct event_record *event, short controller,\n\tboolean *widget_deleted)\n{',
         'static boolean browser_join_big_finish(',
+        'static boolean browser_filters_open(',
     )
     production = join_enum + '\n'.join(function(source, signature) for signature in signatures)
     production += '\n__attribute__((unused)) static void use_row_gray(void) { (void)browser_listing_blocked; }\n'
@@ -45,9 +46,9 @@ def test_join_warning(tmp_path):
 #include "p2p.h"
 #include "halo_network_version.h"
 #include "halo_port_limits.h"
+#include "halo_network_content.h"
 #define ROW_TEXT_LENGTH 128
 #define usnprintf(...) swprintf(__VA_ARGS__)
-static char const *halo_network_kind_reason(unsigned kind) { (void)kind; return NULL; }
 static int halo_network_joinable(int version) { return version <= 0 || version == 38; }
 static wchar_t last_error[256];
 static void display_error_text_deferred(wchar_t const *text, short player) { (void)player; wcsncpy(last_error, text, 255); }
@@ -97,7 +98,8 @@ static boolean ui_widget_port_browse(struct widget_instance *w, struct event_rec
 
 __attribute__((unused)) static void platform_log(char const *format, ...) { (void)format; }
 static long config_integer(char const *key) { return !strcmp(key,"network.full_rate_players") ? full_rate : capacity; }
-static int config_boolean(char const *key) { (void)key; return 1; }
+static int online = 1;
+static int config_boolean(char const *key) { (void)key; return online; }
 static int campaign_fail(void) { failures++; return 0; }
 static void *global_network_game_client_get(void) { return &multiplayer; }
 enum { _client_state_searching };
@@ -133,7 +135,7 @@ static void reset(int mode)
     available_count=lobby_browser.count=1;
     memset(available, 0, sizeof(available));
     available[0].identifier[0]=42; strcpy(available[0].invite, "original invite");
-    available[0].open=available[0].joinable=1;
+    available[0].open=1;
     available[0].player_count=4; available[0].maximum_player_count=16;
     lobby_browser.games[0]=available[0];
 }
@@ -188,6 +190,21 @@ int main(void)
         assert(!browser_join_big_finish(&join_button,&deleted,TRUE)); assert(!joins && failures==1 && !browser_join_big.active);
         lan.key_id[0]=9;
     }
+    /* A game that stopped being joinable while the warning was up is refused: one case per block reason (the
+       confirmed join re-reads the listing, so the answer is the browser's own, not the warning's) */
+    for (int reason=0; reason<5; reason++)
+    {
+        reset(1); multiplayer.game_count=1; multiplayer.games[0]=&lan;
+        browser_select(&row,NULL,2,&deleted); assert(warnings==1 && browser_join_big.active);
+        if (reason==0) available[0].kind=3;
+        if (reason==1) available[0].failed=1;
+        if (reason==2) available[0].open=0;
+        if (reason==3) online=0;
+        if (reason==4) available[0].network_version=HALO_PORT_NETWORK_VERSION+20;
+        assert(!browser_join_big_finish(&join_button,&deleted,TRUE));
+        assert(!joins && failures==1 && !browser_join_big.active);
+        online=1;
+    }
     /* The Xbox look's browser has no JOIN button: OK still joins the game the warning asked about. */
     for (int mode=0; mode<=1; mode++)
     {
@@ -231,8 +248,8 @@ int main(void)
     {
         struct widget_instance filters={.name="browser_filters", .row=NONE};
         deleted=0;
-        browser_filters_returning=1; /* the chip's own event sets this, then opens the screen */
-        assert(ui_widget_port_open(&filters,FILTERS_NAME,&deleted) && filter_opens==1 && stops==0 && browser_filters_returning);
+        assert(!browser_filters_returning);
+        assert(browser_filters_open(&filters,&deleted) && filter_opens==1 && stops==0 && browser_filters_returning);
         ui_widget_port_go_back(&filters);
         assert(begins==0 && filter_focuses==1 && !browser_filters_returning && joins==0);
         lobby_browser_end();

@@ -236,14 +236,18 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
             if filename.endswith('direct_ip') and (name.endswith('_button_bar') or 'server_password' in name):
                 continue
             # The Direct Link and LAN table has no REFRESH or FILTERS action (test_legacy_table_has_no_widgets_...).
-            if filename.endswith('.join_game') and name.endswith(('/join_game_button_refresh', '/join_game_button_filters')):
+            if filename.endswith('.join_game') and name.endswith((
+                    '/join_game_button_refresh', '/join_game_button_filters', '/header_sort_arrows',
+                    '/header_sort_up_arrow', '/header_sort_down_arrow')):
                 continue
             copied = widgets[name]
             for tag, key in (('on', 'run'), ('data', 'input')):
                 if original.get('setting') and filename.endswith(('server_settings', 'coop_options')) and tag == 'on':
                     assert copied.find('on[@event="created"][@run="port setting load"]') is not None
                     continue
-                expected = [(e.get('event'), e.get(key)) for e in original.findall(tag)]
+                # (the legacy table's column titles sort nothing, so their click and key actions are gone)
+                expected = [(e.get('event'), e.get(key)) for e in original.findall(tag)
+                            if e.get(key) != 'gamespy select header']
                 actual = [(e.get('event'), e.get(key)) for e in copied.findall(tag)]
                 if '/lobby/lobby_button_' in name or name.endswith('/lobby/lobby_screen'):
                     # The distinct shortcuts are checked by the lobby action test.

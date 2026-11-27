@@ -36,10 +36,10 @@ static int advertised_dedicated(struct advertised_game *game) { return game->ded
 /* PRODUCTION */
 int main(void) {
     struct p2p_listing games[4] = {
-        {.name="popular", .joinable=1, .player_count=12},
-        {.name="dedicated", .dedicated=1, .joinable=1},
+        {.name="popular", .player_count=12},
+        {.name="dedicated", .dedicated=1},
         {.name="unavailable", .dedicated=1},
-        {.name="other", .joinable=1, .player_count=1}};
+        {.name="other", .player_count=1}};
     wchar_t text[96];
     struct advertised_game a={0}, b={1}, c={0}, d={1};
     qsort(games, 4, sizeof(*games), listing_order);

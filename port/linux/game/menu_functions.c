@@ -4129,7 +4129,7 @@ enum
 	NUMBER_OF_BROWSER_SORTS
 };
 
-/* (the column title each sort is shown on, and its setting's value) */
+/* (each sort's setting value) */
 static char const *const browser_sort_values[NUMBER_OF_BROWSER_SORTS] = { "players", "name", "map", "game" };
 
 /* FILTERS was opened from the server browser, which keeps browsing until it comes back (its list is not
@@ -4190,9 +4190,6 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 	}
 	visible_set(named(screen, "scroll_up_button", 0), FALSE);
 	visible_set(named(screen, "scroll_down_button", 0), FALSE);
-	/* (the columns' sort arrows, both of each over its title: the legacy table sorts by nothing) */
-	for (index = 0; named(screen, "header_sort_arrows", index); index++)
-		visible_set(named(screen, "header_sort_arrows", index), FALSE);
 	if (named(screen, "button_refresh_create_inter", 0))
 		browser_c_focus(named(screen, "button_refresh_create_inter", 0));
 	/* (back from FILTERS: the same browsing session, its list kept, and the focus on FILTERS again) */
@@ -4475,7 +4472,7 @@ static short lobby_browser_valid_games(struct p2p_listing *games, short count)
 	return written;
 }
 
-/* ---- the server browser's sort and filters (network.browser_*: FILTERS, and the column titles' clicks) */
+/* ---- the server browser's sort and filters (network.browser_*: the FILTERS screen) */
 
 static short browser_sort(void)
 {
@@ -4528,9 +4525,7 @@ static boolean browser_join_under_way(void)
 refused join opens and the list's order all take), or none. The enum is the ranking, most incompatible first, and
 a listing shows only the first reason that holds: a network version this build cannot join (nothing about the game
 can be trusted), a kind of game it does not play, internet play off, a join that failed this run, a game full or
-starting. Each reason is tested from the listing's own facts (its version, its kind), never inferred from the
-`joinable` flag, which the sources set for different reasons (a native listing's means the kind is supported, a
-Delta listing's the version) */
+starting. Each reason is tested from the listing's own facts (its version, its kind). */
 enum
 {
 	_browser_join_ok,
@@ -4703,7 +4698,7 @@ static short browser_filter_and_sort(struct p2p_listing *games, short count, sho
 			key[BROWSER_SORT_KEY_LENGTH - 1] = 0;
 		}
 		else if (browser_sorting.sort == _browser_sort_game)
-			browser_listing_type_text(&games[read], key, BROWSER_SORT_KEY_LENGTH);
+			game_kind_type_text(games[read].kind, games[read].engine_type, key, BROWSER_SORT_KEY_LENGTH);
 	}
 	qsort(browser_sorting.order, (size_t)written, sizeof(browser_sorting.order[0]), browser_order_compare);
 	for (read = 0; read < written; read++)
@@ -4732,26 +4727,26 @@ static short browser_fake_games(struct p2p_listing *games)
 	static struct
 	{
 		char const *name, *gametype, *region;
-		unsigned char players, maximum, engine, open, locked, dedicated, master, joinable;
+		unsigned char players, maximum, engine, open, locked, dedicated, master;
 		short version;
 		unsigned char kind;
 	} const fakes[] = {
-		{ "Spartan Wars", "Ranked TS", "na-east", 13, 128, 2, 1, 0, 1, 1, 1, 0 },
-		{ "24/7 Campaign", "Co-op", "", 16, 16, 0, 1, 1, 0, 0, 1, 0 },
-		{ "Dungeon Soup", "Co-op", "", 4, 16, 0, 1, 1, 0, 0, 1, 0 },
-		{ "MLG TS 2v2 US4", "MLG 2v2", "na-east", 4, 4, 2, 0, 0, 1, 1, 1, 0 },
-		{ "MLG TS 2v2 US1", "MLG 2v2", "na-east", 0, 4, 2, 1, 0, 1, 1, 1, 0 },
-		{ "OpenCE CTF", "CTF", "eu", 6, 127, 1, 1, 0, 1, 1, 1, 0 },
-		{ "OpenCE Mix", "Oddball", "eu", 2, 127, 3, 1, 0, 1, 1, 1, 0 },
-		{ "Friday Night Halo", "Slayer", "", 7, 16, 2, 1, 1, 0, 0, 1, 0 },
-		{ "Toasted's Curse", "Slayer", "na-west", 9, 12, 2, 1, 0, 0, 0, 1, 0 },
-		{ "Urdatorn Hejlaa", "Slayer", "", 1, 16, 2, 1, 1, 0, 0, 1, 0 },
-		{ "Beaver Creek Kings", "King", "", 3, 8, 4, 1, 0, 0, 0, 1, 0 },
-		{ "Halo Night (v42)", "Slayer", "", 5, 16, 2, 1, 0, 0, 0, 0, 42 },
-		{ "Pillar of Autumn", "Co-op", "", 4, 4, 0, 1, 0, 0, 0, 1, 0 },
-		{ "Race Day", "Race", "eu", 0, 16, 5, 1, 0, 1, 1, 1, 0 },
+		{ "Spartan Wars", "Ranked TS", "na-east", 13, 128, 2, 1, 0, 1, 1, 0 },
+		{ "24/7 Campaign", "Co-op", "", 16, 16, 0, 1, 1, 0, 0, 0 },
+		{ "Dungeon Soup", "Co-op", "", 4, 16, 0, 1, 1, 0, 0, 0 },
+		{ "MLG TS 2v2 US4", "MLG 2v2", "na-east", 4, 4, 2, 0, 0, 1, 1, 0 },
+		{ "MLG TS 2v2 US1", "MLG 2v2", "na-east", 0, 4, 2, 1, 0, 1, 1, 0 },
+		{ "OpenCE CTF", "CTF", "eu", 6, 127, 1, 1, 0, 1, 1, 0 },
+		{ "OpenCE Mix", "Oddball", "eu", 2, 127, 3, 1, 0, 1, 1, 0 },
+		{ "Friday Night Halo", "Slayer", "", 7, 16, 2, 1, 1, 0, 0, 0 },
+		{ "Toasted's Curse", "Slayer", "na-west", 9, 12, 2, 1, 0, 0, 0, 0 },
+		{ "Urdatorn Hejlaa", "Slayer", "", 1, 16, 2, 1, 1, 0, 0, 0 },
+		{ "Beaver Creek Kings", "King", "", 3, 8, 4, 1, 0, 0, 0, 0 },
+		{ "Halo Night (v42)", "Slayer", "", 5, 16, 2, 1, 0, 0, 0, 42 },
+		{ "Pillar of Autumn", "Co-op", "", 4, 4, 0, 1, 0, 0, 0, 0 },
+		{ "Race Day", "Race", "eu", 0, 16, 5, 1, 0, 1, 1, 0 },
 		/* (last, so the others keep their stock maps: a kind this build does not play, on a version it joins) */
-		{ "!! [AU] GUN GAM", "Team Slayer", "au", 6, 16, 2, 1, 0, 0, 0, 0, 0, 3 },
+		{ "!! [AU] GUN GAM", "Team Slayer", "au", 6, 16, 2, 1, 0, 0, 0, 0, 3 },
 	};
 	int stock_count;
 	struct stock_map const *stock = stock_maps(&stock_count);
@@ -4776,7 +4771,6 @@ static short browser_fake_games(struct p2p_listing *games)
 		fake->locked = fakes[index].locked;
 		fake->dedicated = fakes[index].dedicated;
 		fake->from_master = fakes[index].master;
-		fake->joinable = fakes[index].joinable;
 		fake->network_version = fakes[index].version ? fakes[index].version : HALO_PORT_NETWORK_VERSION;
 		fake->kind = fakes[index].kind;
 		fake->ping = -1;
@@ -4808,7 +4802,7 @@ static short lobby_browser_games_read(struct p2p_listing *games)
 		fake->engine_type = 2;    /* (SLAYER, matching the gametype; 0 would read CO-OP) */
 		fake->player_count = 12;
 		fake->maximum_player_count = 16;
-		fake->open = fake->joinable = TRUE;
+		fake->open = TRUE;
 		fake->ping = 40;
 	}
 	return browser_filter_and_sort(games, count, &lobby_browser.hidden);
@@ -5209,6 +5203,17 @@ static void browser_filters_update(struct widget_instance *widget)
 	text_set(named(screen_of(widget), "browser_filter_status", 0), text);
 }
 
+/* The chips' FILTER toggle: opens the filters screen, and keeps the browsing session while it is open (the list is
+not cleared when the browser's screen is replaced: lobby_browser_end), then the focus returns to the chips. */
+static boolean browser_filters_open(struct widget_instance *widget, boolean *widget_deleted)
+{
+	browser_filters_returning = TRUE;
+	if (ui_widget_port_open(widget, FILTERS_NAME, widget_deleted))
+		return TRUE;
+	browser_filters_returning = FALSE;
+	return campaign_fail();
+}
+
 static boolean browser_filters_reset(struct widget_instance *widget)
 {
 	settings_each(screen_of(widget), setting_default_show);
@@ -5216,8 +5221,8 @@ static boolean browser_filters_reset(struct widget_instance *widget)
 	return TRUE;
 }
 
-/* "gamespy screen update" for the server browser: the rows (scrolled on
-at their ends), the line below them, the counts over the titles */
+/* "gamespy screen update" for the server browser: the rows, the line shown in their place when there are none,
+and the detail panel and controls. Only layout C has this list; no other screen's list reaches it. */
 static void lobby_browser_update(struct widget_instance *list)
 {
 	struct widget_instance *row;
@@ -5227,6 +5232,8 @@ static void lobby_browser_update(struct widget_instance *list)
 	short chosen;
 	short rows = lobby_browser_rows(list);
 
+	if (!browser_chips(list))
+		return;
 	lobby_browser.count = lobby_browser_games_read(lobby_browser.games);
 	lobby_browser.first = (short)PIN(lobby_browser.first, 0, MAX(0, lobby_browser.count - rows));
 	/* (the first game found takes the focus from the buttons, which had it
@@ -7732,21 +7739,10 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port browser filters reset"))
 			return browser_filters_reset(widget);
 		else if (!strcmp(name, "port browser filters open"))
-		{
-			browser_filters_returning = TRUE;
-			if (ui_widget_port_open(widget, FILTERS_NAME, widget_deleted))
-				return TRUE;
-			browser_filters_returning = FALSE;
-			return campaign_fail();
-		}
+			return browser_filters_open(widget, widget_deleted);
 		else if (!strcmp(name, "port browser ip open"))
 		{
 			return ui_widget_port_open(widget, DIRECT_IP_NAME, widget_deleted) || campaign_fail();
-		}
-		else if (!strcmp(name, "gamespy select header"))
-		{
-			/* (the legacy table's column titles sort nothing) */
-			return TRUE;
 		}
 		else if (!strcmp(name, "gamespy select item") || !strcmp(name, "gamespy select button"))
 		{

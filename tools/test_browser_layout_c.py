@@ -15,6 +15,8 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
     sorting_start = source.index("static struct\n", source.index("#define BROWSER_SORT_KEY_LENGTH"))
     sorting = function(source[sorting_start:], "static struct\n") + " browser_sorting;"
     signatures = (
+        "static wchar_t const *game_type_name(",
+        "static void game_kind_type_text(",
         "static void browser_listing_type_text(",
         "static boolean browser_listing_cooperative(",
         "static short browser_join_block(",
@@ -34,6 +36,7 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
     harness = r'''
 #define HALO_IOS 1
 #include <assert.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,7 +53,21 @@ typedef int boolean;
 #define BROWSER_SORT_KEY_LENGTH 48
 #define ROW_TEXT_LENGTH 128
 #define ustrncpy wcsncpy
-#define usnprintf swprintf
+#define PIN(v, lo, hi) ((v) < (lo) ? (lo) : (v) > (hi) ? (hi) : (v))
+/* the engine's formatter: %s is a wide string (the host's swprintf takes %ls for that) */
+static int usnprintf(wchar_t *out, size_t size, wchar_t const *format, ...)
+{
+    wchar_t fixed[256]; size_t n = 0; va_list arguments; int result;
+    for (wchar_t const *scan = format; *scan && n < 250; scan++)
+    {
+        fixed[n++] = *scan;
+        if (*scan == L'%' && scan[1] == L's') fixed[n++] = L'l';
+    }
+    fixed[n] = 0;
+    va_start(arguments, format); result = vswprintf(out, size, fixed, arguments); va_end(arguments);
+    return result;
+}
+static wchar_t const *const engine_names[] = { L"", L"CTF", L"SLAYER", L"ODDBALL", L"KING OF THE HILL", L"RACE" };
 enum { _browser_sort_players, _browser_sort_name, _browser_sort_map, _browser_sort_game };
 static struct { short chip_counts[3]; } lobby_browser;
 static int show_full=1, show_locked=1, show_unjoinable=0, online=1;
@@ -74,7 +91,8 @@ static char const *config_string(char const *key)
     if (!strcmp(key,"display.frame_rate")) return base_rate;
     assert(!strcmp(key,"network.browser_games")); return game_type;
 }
-static short browser_sort(void) { return _browser_sort_players; }
+static short sort_mode = _browser_sort_players;
+static short browser_sort(void) { return sort_mode; }
 static void text_to_wide(char const *text, wchar_t *out, short size)
 {
     short i = 0;
@@ -91,7 +109,7 @@ static struct p2p_listing listing(unsigned engine, unsigned players)
 {
     struct p2p_listing g={0};
     g.engine_type=engine; g.player_count=players; g.maximum_player_count=16;
-    g.joinable=g.open=1;
+    g.open=1;
     return g;
 }
 static void counts(char const *type, short shown, short all, short multiplayer, short coop)
@@ -143,7 +161,7 @@ int main(void)
     /* one reason for every consumer: its order, and its words (the panel leaves a version to the network pill) */
     {
         wchar_t words[128];
-        g=listing(2,4); g.open=1; g.joinable=1; g.failed=0; online=1;
+        g=listing(2,4); g.open=1; g.failed=0; online=1;
         assert(browser_join_block(&g)==_browser_join_ok);
         g.open=0; assert(browser_join_block(&g)==_browser_join_full);
         browser_join_block_text(&g,_browser_join_full,words,128); assert(!wcscmp(words,L"This game is full or starting."));
@@ -153,9 +171,9 @@ int main(void)
         g.network_version=HALO_PORT_NETWORK_VERSION + 20; assert(browser_join_block(&g)==_browser_join_version);
         browser_join_block_text(&g,_browser_join_version,words,128); assert(!wcscmp(words,L"Not compatible with this network version."));
         /* one explainer, from the game's real reason, tested from its own facts (its version, its kind), never
-           from the `joinable` flag: a kind this build does not play is not a network version problem, and a
-           version this build joins never yields the version text, whatever else clears the flag */
-        g=listing(2,4); g.network_version=HALO_PORT_NETWORK_VERSION; g.joinable=0; g.kind=3;
+           from a flag: a kind this build does not play is not a network version problem, and a version this
+           build joins never yields the version text */
+        g=listing(2,4); g.network_version=HALO_PORT_NETWORK_VERSION; g.kind=3;
         assert(browser_join_block(&g)==_browser_join_kind);
         browser_join_block_text(&g,_browser_join_kind,words,128); assert(!wcscmp(words,L"Gun Game is not supported by VISR."));
         for (unsigned k=1;k<=3;k++) {
@@ -175,13 +193,13 @@ int main(void)
             g.kind=0x80; browser_listing_type_text(&g,type,64); assert(!wcscmp(type,L"Hardcore"));
             g.kind=0; browser_listing_type_text(&g,type,64); assert(!wcscmp(type,L"Team Slayer"));
         }
-        /* a flag cleared for some other cause, on a joinable version: not the version's words */
-        g.kind=0; g.joinable=0; assert(browser_join_block(&g)!=_browser_join_version);
+        /* a kind this build plays, on a version it joins: not the version's words */
+        g.kind=0; assert(browser_join_block(&g)!=_browser_join_version);
         /* both at once: the version outranks the kind (nothing about a game on another contract can be trusted) */
         g.network_version=HALO_PORT_NETWORK_VERSION + 20; g.kind=3; assert(browser_join_block(&g)==_browser_join_version);
-        g.network_version=HALO_PORT_NETWORK_VERSION; g.kind=3; g.joinable=1; assert(browser_join_block(&g)==_browser_join_kind);
+        g.network_version=HALO_PORT_NETWORK_VERSION; g.kind=3; assert(browser_join_block(&g)==_browser_join_kind);
         g.kind=0;
-        online=1; g=listing(2,4); g.joinable=1;
+        online=1; g=listing(2,4); 
     }
     unsigned const unsupported[]={1,2,3,4,0x80,0xff};
     for (unsigned i=0;i<sizeof(unsupported)/sizeof(unsupported[0]);i++)
@@ -196,6 +214,25 @@ int main(void)
     counts("all",3,3,2,1); counts("coop",1,3,2,1); counts("multiplayer",2,3,2,1);
     show_unjoinable=1;
     counts("all",5,5,3,2); counts("coop",2,5,3,2); counts("multiplayer",3,5,3,2);
+    /* Sorting by GAME orders by the engine's type name (the sort key is the engine's, never the host's own gametype
+       text: a host naming its CTF variant "ZZZ" still sorts under CTF), and a listed kind by its capitals */
+    {
+        struct p2p_listing by[4]; short seen=-1;
+        by[0]=listing(3,1); by[1]=listing(1,1); by[2]=listing(2,1); by[3]=listing(2,1);
+        snprintf(by[1].gametype,sizeof(by[1].gametype),"ZZZ");
+        snprintf(by[0].gametype,sizeof(by[0].gametype),"AAA");
+        by[3].kind=1;
+        show_unjoinable=1; sort_mode=_browser_sort_game;
+        assert(browser_filter_and_sort(by,4,&seen)==4);
+        assert(by[0].engine_type==1 && by[1].engine_type==3 && by[2].engine_type==2 && by[2].kind==0 && by[3].kind==1);
+        sort_mode=_browser_sort_players; show_unjoinable=0;
+    }
+    /* the kind table: a title exactly when a reason exists, for every kind byte */
+    for (unsigned k=0;k<=255;k++)
+    {
+        assert((halo_network_kind_reason(k)!=NULL) == (halo_network_kind_title(k)[0]!=0));
+        assert((halo_network_kind_reason(k)!=NULL) == (halo_network_kind_label(k)[0]!=0));
+    }
     struct p2p_listing empty[1]; short hidden=-1;
     assert(browser_filter_and_sort(empty,0,&hidden)==0 && hidden==0);
     assert(!lobby_browser.chip_counts[0] && !lobby_browser.chip_counts[1] && !lobby_browser.chip_counts[2]);
@@ -585,6 +622,8 @@ def test_detail_panel_pills_and_connect_line_follow_the_chosen_game(tmp_path):
         "static boolean browser_join_under_way(void)",
         "static short browser_join_block(",
         "static void browser_join_block_text(",
+        "static wchar_t const *game_type_name(",
+        "static void game_kind_type_text(",
         "static void browser_listing_type_text(",
         "static boolean browser_listing_cooperative(",
         "static void browser_listing_subtitle(",
@@ -613,6 +652,7 @@ typedef int boolean;
 #define MENU_BROWSER_ROWS 6
 #define NUMBEROF(a) ((short)(sizeof(a) / sizeof((a)[0])))
 #define PIN(v, lo, hi) ((v) < (lo) ? (lo) : (v) > (hi) ? (hi) : (v))
+static wchar_t const *const engine_names[] = { L"", L"CTF", L"SLAYER", L"ODDBALL", L"KING OF THE HILL", L"RACE" };
 #include <stdarg.h>
 #define _gamepad_analog_button_a 0
 struct widget_instance
@@ -707,11 +747,11 @@ int main(void)
 	content.parent = &detail; detail.child = &content;
 	for (unsigned i = 1; i < NUMBEROF(leaves); i++) add(&content, leaves[i]);
 
-	for (int i = 0; i < 4; i++) { lobby_browser.games[i].network_version = HALO_PORT_NETWORK_VERSION; lobby_browser.games[i].joinable = 1; lobby_browser.games[i].open = 1; }
+	for (int i = 0; i < 4; i++) { lobby_browser.games[i].network_version = HALO_PORT_NETWORK_VERSION; lobby_browser.games[i].open = 1; }
 	lobby_browser.count = 4;
 	lobby_browser.games[0].engine_type = 2;
 	lobby_browser.games[1].locked = 1; lobby_browser.games[1].engine_type = 2;
-	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION + 20;
+	lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION + 20;
 	lobby_browser.games[3].engine_type = 2;
 	for (int i = 0; i < 4; i++) lobby_browser.games[i].identifier[0] = (unsigned char)(i + 1);
 
@@ -738,13 +778,13 @@ int main(void)
 	   network version this build joins reads as a Gun Game that VISR does not play (never "Slayer", never a
 	   version problem); and its type reads as the kind in the panel header, whatever the host called the variant
 	   ("Team Slayer") and whatever engine is under it. */
-	lobby_browser.games[3].kind = 3; lobby_browser.games[3].joinable = 0;
+	lobby_browser.games[3].kind = 3; 
 	snprintf(lobby_browser.games[3].gametype, sizeof(lobby_browser.games[3].gametype), "Team Slayer");
 	lobby_browser.chosen = 3;
 	browser_c_detail_update(list, L"");
 	assert(!wcscmp(pill("browser_detail_type")->text, L"Gun Game \u00b7 "));
 	assert(pill("browser_join_reason")->visible && !wcscmp(pill("browser_join_reason")->text, L"Gun Game is not supported by VISR."));
-	lobby_browser.games[3].kind = 0; lobby_browser.games[3].joinable = 1;
+	lobby_browser.games[3].kind = 0; 
 	snprintf(lobby_browser.games[3].gametype, sizeof(lobby_browser.games[3].gametype), "Slayer");
 	browser_c_detail_update(list, L"");
 	assert(!wcscmp(pill("browser_detail_type")->text, L"Slayer \u00b7 ") && !pill("browser_join_reason")->visible);
@@ -787,7 +827,7 @@ int main(void)
 	lobby_browser.games[2].kind = 1; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION;
 	lobby_browser.chosen = 2; browser_c_detail_update(list, L"");
 	assert(!wcscmp(pill("browser_join_reason")->text, L"SWAT rules are not supported by VISR."));
-	lobby_browser.games[2].joinable = 0; lobby_browser.games[2].kind = 0; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION + 20;
+	lobby_browser.games[2].kind = 0; lobby_browser.games[2].network_version = HALO_PORT_NETWORK_VERSION + 20;
 	/* and back to a joinable one: nothing is left behind */
 	lobby_browser.chosen = 3; browser_c_detail_update(list, L"");
 	assert(!pill("browser_join_reason")->visible && !dimmed);

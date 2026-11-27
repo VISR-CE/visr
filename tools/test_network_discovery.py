@@ -70,8 +70,10 @@ def test_browser_names_the_advertised_mode_before_join(tmp_path):
     declarations += "\n" + function(source, "static int server_kind_frame(")
     declarations += "\n" + function(source, "static void server_kind_icon_set(")
     declarations += "\n" + function(source, "static short browser_row_index(struct widget_instance *row)")
-    declarations += "\nstatic int config_boolean(char const *name) { (void)name; return 1; }\n"
-    declarations += "#define browser_listing_blocked(game) (!(game)->joinable)\n"
+    join_enum = source[source.index("enum\n{\n\t_browser_join_ok"):]
+    declarations += "\n" + join_enum[:join_enum.index("};") + 3]
+    declarations += "\n" + function(source, "static short browser_join_block(")
+    declarations += "\n" + function(source, "static boolean browser_listing_blocked(struct p2p_listing const *game)\n{")
     declarations += "static boolean menu_split_screen_needs_controller(void) { return FALSE; }\n"
     declarations += function(source, "static boolean internet_item_off(")
     declarations += "\n" + function(source, "static boolean split_item_off(")
@@ -87,6 +89,7 @@ def test_browser_names_the_advertised_mode_before_join(tmp_path):
     probe, binary = tmp_path / "browser.c", tmp_path / "browser"
     probe.write_text(program)
     subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
+                    "-iquote", str(ROOT / "port/linux/src"), "-iquote", str(ROOT / "port/linux/include"),
                     str(probe), "--output=" + str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr

@@ -131,7 +131,7 @@ int main(void) {
     int first=logs; update(); assert(joins==0 && logs==first);
     strcpy(row.region,"EU"); update(); assert(joins==0 && logs>first);
     /* "browse" never joins a master-listed stranger's server; "browse-empty" joins only an empty one */
-    network_test.browse_only=0; row.open=1; row.joinable=1;
+    network_test.browse_only=0; row.open=1; 
     update(); assert(joins==0);
     network_test.browse_empty=1; update(); assert(joins==0);
     row.player_count=0; update(); assert(joins==1 && network_test.mode==_network_test_join);
