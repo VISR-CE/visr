@@ -15,6 +15,16 @@ The class: about 170 test files each built their probes with their own compiler 
   `BASELINE.json`, and a count may only fall; new code uses build()'s structured parameters.
 - Rule H: every `tools/harness/tests/test_*.py` is named in `.github/workflows/ci.yml` or `cinematic-harness.yml`, or
   is on `tools/probekit/legacy/harness_not_run.txt`.
+- Rule 3a: tests find production C and Objective-C source through `tools/probekit/source.py`: a private extractor
+  (a function that matches braces itself) or a search whose literal pattern starts with a C declaration
+  (`text.index("static void f(")`, `re.search(r"^enum kind")`), as `tools/probekit/source_lint.py` describes, may
+  appear only in files on `tools/probekit/legacy/source.txt`, each with its count of them in `BASELINE.json`.
+- Rule 3b: an assert that a literal statement is somewhere in C text (`assert "f(x);" in text`) is counted per file
+  in `tools/probekit/legacy/literal_asserts.json`; a count may only fall and a file not in it may have none. These
+  break on a refactor that keeps the behavior, and are replaced by behavior probes as they break.
+
+Rules 3a and 3b lint `tools/test_*.py`, `tools/ios_test.py` and `tools/harness/`; `legacy/source_exempt.txt` names
+the tests of the detector and of `probekit.source` themselves, with reasons.
 
 The legacy lists only shrink: each must equal its record in `legacy/BASELINE.json`, every file on one must still
 break its rule, and every file that breaks a rule must be on its list. A migrated file comes off its list; a new
@@ -28,6 +38,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from probekit.commands import written_commands_in
+from probekit.source_lint import extractor_findings, literal_assert_findings
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / 'tools'
@@ -58,7 +69,8 @@ def baseline(name):
     return json.loads((LEGACY / 'BASELINE.json').read_text())[name]
 
 
-def shrink_only_problems(name, entries, recorded, violating):
+def shrink_only_problems(name, entries, recorded, violating, more_hint='write more compiler commands than '
+                         'BASELINE.json records; build the new probe with probekit.cc.build'):
     """What is wrong with a legacy list: `entries` are its files, `recorded` its BASELINE.json record (file -> count,
     or a list of names) and `violating` what breaks the rule now (file -> count, or a set of names)."""
     entries = set(entries)
@@ -77,13 +89,12 @@ def shrink_only_problems(name, entries, recorded, violating):
         more = {entry: f'{recorded[entry]} -> {violating[entry]}' for entry in sorted(entries & set(recorded))
                 if entry in violating and violating[entry] > recorded[entry]}
         if more:
-            problems.append(f'these files on {name} write more compiler commands than BASELINE.json records; build '
-                            f'the new probe with probekit.cc.build: {more}')
+            problems.append(f'these files on {name} {more_hint}: {more}')
     return problems
 
 
-def check_shrink_only(name, violating):
-    problems = shrink_only_problems(name, listed(name), baseline(name), violating)
+def check_shrink_only(name, violating, **hint):
+    problems = shrink_only_problems(name, listed(name), baseline(name), violating, **hint)
     assert not problems, '\n'.join(problems)
 
 
@@ -141,6 +152,119 @@ def test_rule_h_every_harness_test_is_run_by_a_workflow():
     check_shrink_only('harness_not_run.txt', unrun)
     new = sorted(unrun - set(listed('harness_not_run.txt')))
     assert not new, f'no workflow runs these harness tests; name them in ci.yml or cinematic-harness.yml: {new}'
+
+
+def source_linted_files():
+    """Rules 3a and 3b's files, by their path under tools/."""
+    files = [*linted_files(), *sorted((TOOLS / 'harness').rglob('*.py'))]
+    return {str(path.relative_to(TOOLS)): path for path in files}
+
+
+def source_exempt():
+    exempt = listed('source_exempt.txt')
+    unexplained = sorted(name for name, reason in exempt.items() if not reason)
+    assert not unexplained, f'source_exempt.txt needs a reason after # for: {unexplained}'
+    return exempt
+
+
+def test_rule_3a_tests_find_source_through_probekit_source():
+    exempt = source_exempt()
+    found = {name: len(lines) for name, path in source_linted_files().items() if (lines := extractor_findings(path))}
+    check_shrink_only('source.txt', {name: count for name, count in found.items() if name not in exempt},
+                      more_hint='find source by declaration text more often than BASELINE.json records; use '
+                      'probekit.source.function, body, structure, region or reach instead')
+    allowed = set(listed('source.txt')) | set(exempt)
+    new = {name: extractor_findings(path) for name, path in source_linted_files().items()
+           if name not in allowed and name in found}
+    assert not new, ('these find production source by its declaration text; use probekit.source (function, body, '
+                     f'structure, region, reach_contains) instead (file: lines): {new}')
+
+
+def test_rule_3b_literal_statement_asserts_only_fall():
+    exempt = source_exempt()
+    counts = {name: len(lines) for name, path in source_linted_files().items()
+              if name not in exempt and (lines := literal_assert_findings(path))}
+    table = json.loads((LEGACY / 'literal_asserts.json').read_text())
+    problems = shrink_only_problems('literal_asserts.json', table, table, counts,
+                                    more_hint='assert more literal statements than the table records; check the '
+                                    'behavior with a probe, or the call with probekit.source.reach_contains')
+    new = {name: count for name, count in counts.items() if name not in table}
+    if new:
+        problems.append(f'these assert literal statements in C text; check the behavior with a probe, or the call '
+                        f'with probekit.source.reach_contains (file: count): {new}')
+    assert not problems, '\n'.join(problems)
+
+
+def test_rule_3b_table_matches_todays_counts_exactly():
+    """A count that fell is lowered in the table, so the cap does not leave room to grow back."""
+    exempt = source_exempt()
+    counts = {name: len(lines) for name, path in source_linted_files().items()
+              if name not in exempt and (lines := literal_assert_findings(path))}
+    table = json.loads((LEGACY / 'literal_asserts.json').read_text())
+    lower = {name: f'{table[name]} -> {counts[name]}' for name in table if name in counts and counts[name] < table[name]}
+    assert not lower, f'lower these counts in literal_asserts.json: {lower}'
+
+
+def test_the_source_lint_sees_each_form_of_declaration_search(tmp_path):
+    probe = tmp_path / 'test_example.py'
+    probe.write_text('import re\n'
+                     'import re as regex\n'
+                     'from re import findall as every\n'
+                     'def block(text, marker):\n'                                       # 4
+                     '    return text.count("{") - text.count("}")\n'
+                     'text = open("x.c").read()\n'
+                     'text.index("static void present(")\n'                             # 7
+                     'text.rindex("struct pair\\n")\n'                                  # 8
+                     'text.find("boolean ok(void)")\n'                                  # 9
+                     'text.rfind("#define LIMIT")\n'                                    # 10
+                     'text.split("enum kind")\n'                                        # 11
+                     'text.rsplit("const char *name")\n'                                # 12
+                     'text.partition("- (void)drawFrame")\n'                            # 13
+                     'text.rpartition("unsigned long table[")\n'                        # 14
+                     'str.index(text, "void f(")\n'                                     # 15
+                     're.search(r"^static\\s+int\\s+f\\(", text)\n'                       # 16
+                     'regex.findall(r"enum\\s*\\{[^}]*\\};", text)\n'                       # 17
+                     'every(r"struct\\s+(\\w+)", text)\n'                                  # 18
+                     'text.index("int host_frame_present(int on)" + "")\n'                  # 19
+                     'name = "f"\n'
+                     'text.index(f"static int {name}(")\n'                              # 21
+                     'text.index("\\treturn value;")\n'
+                     'text.index("if (ready)")\n'
+                     'text.index("x = f(y);")\n'
+                     'text.split()\n'
+                     'text.split("\\n")\n'
+                     're.findall(r\'"([^"]*)"\', text)\n'
+                     're.search(r"case (P2P_[A-Z_]+):", text)\n')
+    assert extractor_findings(probe) == [4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21]
+
+
+def test_the_source_lint_sees_literal_statement_asserts_on_c_text_only(tmp_path):
+    probe = tmp_path / 'test_example.py'
+    probe.write_text('import subprocess\n'
+                     'from pathlib import Path\n'
+                     'from probekit import source\n'
+                     'ROOT = Path(".")\n'
+                     'HEADER = ROOT / "port/x.h"\n'
+                     'MODULE_TEXT = HEADER.read_text()\n'
+                     'def kernel(name):\n'
+                     '    return source.function("port/k.c", name)\n'
+                     'def test_a():\n'
+                     '    text = (ROOT / "port/a.m").read_text()\n'
+                     '    assert "f(x);" in text\n'                                     # 11
+                     '    assert "g()" not in text[10:]\n'                              # 12
+                     '    assert "plain words" in text\n'
+                     '    assert "a == b" in MODULE_TEXT\n'                             # 14
+                     '    assert "h(1)" in kernel("k")\n'                               # 15
+                     '    assert "i(2);" in source.body("port/b.c", "b")\n'             # 16
+                     '    joined = "\\n".join(source.function("port/c.c", n) for n in ("c",))\n'
+                     '    assert "j();" in joined.replace("a", "b")\n'                   # 18
+                     'def test_b():\n'
+                     '    result = subprocess.run(["tool", "port/a.c"], capture_output=True, text=True)\n'
+                     '    assert "error: f(" in result.stderr\n'
+                     '    text = "made here"\n'
+                     '    assert "f(x);" in text\n'
+                     '    assert "-flag" in " ".join(["-flag"])\n')
+    assert literal_assert_findings(probe) == [11, 12, 14, 15, 16, 18]
 
 
 def test_the_lint_sees_each_form_of_compiler_command(tmp_path):

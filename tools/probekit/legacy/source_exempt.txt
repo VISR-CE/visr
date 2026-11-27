@@ -1,0 +1,2 @@
+# Rules 3a and 3b: files exempt, each with its reason. Shrink-only: must equal BASELINE.json.
+test_probekit_source.py  # fixture tests of probekit.source itself, which assert on the text it returns
