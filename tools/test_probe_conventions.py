@@ -333,6 +333,42 @@ def test_the_source_lint_sees_the_regex_extractors_ios_test_used_to_have(tmp_pat
                                             'unescaped_body', 'host_function'}
 
 
+LINE_BRACE_SEARCHES = r"""import re
+END = "\n}\n"
+TEXT = open("port/x.c").read()
+TOP = TEXT[:TEXT.index("\n}\n")]                                   # module level
+def by_name(name):
+    return re.search(name + r"\(.*?\n\}", TEXT, re.S).group()      # a regex holding only the closing brace
+def shaders():
+    return re.findall(r"\bvertex\s+\w[\s\S]*?\n\}", TEXT)
+def named(start):
+    return TEXT[start:TEXT.index(END, start)]                       # a needle in a name
+def as_str(start):
+    return TEXT[start:str.index(TEXT, "\n}\n", start)]
+def indented(start):
+    return TEXT[start:TEXT.index("\n\t}", start)]
+def tables():
+    return TEXT.split("\n};")
+def formatted(start, tail):
+    return TEXT[start:TEXT.index(f"\n}}{tail}", start)]
+def not_a_brace(start):
+    return TEXT[start:TEXT.index("\n", start)]                     # negative control
+def a_json_brace(text):
+    return text.count("}")                                          # negative control: one brace, counted
+"""
+
+
+def test_the_source_lint_sees_every_spelling_of_a_search_for_a_line_start_closing_brace(tmp_path):
+    probe = tmp_path / 'test_line_brace.py'
+    probe.write_text(LINE_BRACE_SEARCHES)
+    lines = LINE_BRACE_SEARCHES.splitlines()
+    expected = {number for number, line in enumerate(lines, 1)
+                if ('index(' in line or 're.' in line or '.split(' in line) and 'negative control' not in line
+                and 'open(' not in line}
+    assert set(extractor_findings(probe)) == expected, (sorted(expected), extractor_findings(probe))
+    assert extractor_definitions(probe) == {'by_name', 'shaders', 'named', 'as_str', 'indented', 'tables', 'formatted'}
+
+
 def test_the_source_lint_counts_imports_of_another_files_extractor(tmp_path):
     (tmp_path / 'test_owner.py').write_text(REMOVED_EXTRACTORS)
     importer = tmp_path / 'test_importer.py'

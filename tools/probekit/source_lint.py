@@ -4,13 +4,15 @@ rules 3a and 3b.
 - `extractor_findings(path)`: rule 3a. Line numbers of the places a Python file finds C or Objective-C source by
   its declaration text instead of through `probekit.source`:
   - a private extractor: a function that matches braces itself, by comparing against or counting both `"{"` and `"}"`,
-    or with a regular expression that holds both braces (`r"enum\\s*\\{[^}]*\\};"`), or that ends a function at the first closing brace
-    at the start of a line (`text.index("\\n}\\n", start)`);
+    or with a regular expression that holds both braces (`r"enum\\s*\\{[^}]*\\};"`);
   - a search whose literal pattern starts with a C declaration: `.index`, `.rindex`, `.find`, `.rfind`, `.split`,
     `.rsplit`, `.partition` or `.rpartition` (also called as `str.index(text, ...)`), or any `re` function
     (`re.search(...)`, `import re as x`, `from re import search`). The pattern is the literal at the start of the
     argument: a string, the first part of an f-string, or the left of a `+`, or, for a name, any value assigned to
     it in the module (both branches of a conditional expression).
+  - a search, by the same calls, whose pattern holds a closing brace at the start of a line anywhere in its literal
+    parts (`text.index("\\n}\\n", start)`, `.split("\\n};")`, `re.search(name + r"\\(.*?\\n\\}")`, a name assigned
+    one): the end of a C function, struct or table as its author formats it, from a start the caller names.
   A declaration starts with a storage class, qualifier or type keyword (`static`, `struct`, `enum`, `void`,
   `boolean`, ...), `#define`, `typedef`, an Objective-C method (`- (`, `+ (`) or `@implementation`, or has the
   shape `type name(`. In a regular expression, escapes (`\\s*`, `\\(`, `\\*`, `\\n`, a leading `^`) are read as
@@ -224,19 +226,8 @@ def _brace_tests(function) -> set[str]:
     return found
 
 
-def _ends_at_a_line_brace(function) -> bool:
-    """Whether a function searches for a closing brace at the start of a line (`"\\n}\\n"`, `"\\n}"`), the end of
-    a C function as its author formats it: a body found from a start the caller names."""
-    for node in ast.walk(function):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and \
-                node.func.attr in SEARCH_METHODS and node.args and isinstance(node.args[0], ast.Constant) and \
-                isinstance(node.args[0].value, str) and "\n}" in node.args[0].value:
-            return True
-    return False
-
-
 def _matches_braces(function, re_modules, re_functions) -> bool:
-    if _brace_tests(function) == {"{", "}"} or _ends_at_a_line_brace(function):
+    if _brace_tests(function) == {"{", "}"}:
         return True
     for node in ast.walk(function):
         if isinstance(node, ast.Call):
@@ -282,12 +273,43 @@ def _declaration_searches(tree, re_modules, re_functions, assigned=None):
                     yield node
 
 
+def _all_literal(node) -> str:
+    """Every literal piece of a pattern argument joined: a string, an f-string's text parts, each side of a `+`."""
+    return "".join(item.value for item in ast.walk(node) if isinstance(item, ast.Constant) and isinstance(item.value, str))
+
+
+# a closing brace at the start of a line, after a regular expression's escapes and blank-space runs are read
+_REGEX_SPACE = re.compile(r"\\s[*+?]?|\[ \\t\]\*|\\t")
+_LINE_BRACE = re.compile(r"\n[ \t]*\}")
+
+
+def _ends_at_a_line_brace(literal: str, regex: bool) -> bool:
+    if regex:
+        literal = _REGEX_SPACE.sub("", literal.replace("\\n", "\n").replace("\\}", "}"))
+    return bool(_LINE_BRACE.search(literal))
+
+
+def _line_brace_searches(tree, re_modules, re_functions, assigned=None):
+    """Search calls whose pattern holds a closing brace at the start of a line (`"\\n}\\n"`, `r"\\n\\}"`, a
+    name assigned one): the end of a C function, struct or table as its author formats it, found from a start the
+    caller names. Module-level code counts too."""
+    assigned = _assigned_patterns(tree) if assigned is None else assigned
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            found = _pattern(node, re_modules, re_functions)
+            if found and found[0] is not None:
+                candidates = assigned.get(found[0].id, []) if isinstance(found[0], ast.Name) else [found[0]]
+                if any(_ends_at_a_line_brace(_all_literal(candidate), found[1]) for candidate in candidates):
+                    yield node
+
+
 def extractor_findings(path) -> list[int]:
     tree = _parse(path)
     re_modules, re_functions = _re_names(tree)
     lines = {node.lineno for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef,
              ast.Lambda)) and _matches_braces(node, re_modules, re_functions)}
     lines |= {node.lineno for node in _declaration_searches(tree, re_modules, re_functions)}
+    lines |= {node.lineno for node in _line_brace_searches(tree, re_modules, re_functions)}
     return sorted(lines)
 
 
@@ -298,7 +320,8 @@ def extractor_definitions(path) -> set[str]:
     assigned = _assigned_patterns(tree)
     return {node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
             and (_matches_braces(node, re_modules, re_functions)
-                 or any(True for _ in _declaration_searches(node, re_modules, re_functions, assigned)))}
+                 or any(True for _ in _declaration_searches(node, re_modules, re_functions, assigned))
+                 or any(True for _ in _line_brace_searches(node, re_modules, re_functions, assigned)))}
 
 
 def imported_extractor_findings(path, extractors: dict[str, set[str]]) -> list[int]:
