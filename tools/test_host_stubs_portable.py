@@ -1,5 +1,7 @@
 """The port's seam stubs (port/ios/tests/port_stubs.c, from tools/host_stubs.py SEAM_HEADERS) follow their headers
-and compile as plain C with the compiler Linux-run probes use, so this runs in the Linux job as well as on Macs."""
+and compile as plain C with the compiler Linux-run probes use, and so does the portable part of the host stubs
+(port/ios/tests/host_stubs.c outside its __OBJC__ and __APPLE__ parts). Runs in the Linux job as well as on Macs."""
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,6 +18,24 @@ def test_port_stubs_are_current():
 
 def test_port_stubs_compile_as_plain_c(tmp_path):
     host_stubs.port_stub_object(tmp_path, cc.compiler(False), ['-std=gnu11'])
+
+
+def test_host_stubs_portable_part_compiles_as_plain_c(tmp_path):
+    """HOST_STUBS_PORTABLE_ONLY leaves the unguarded part on every host, as Linux does (on a Mac the strict wrapper
+    refuses headers Ubuntu lacks)."""
+    subprocess.run([*cc.compiler(False), '-c', '-x', 'c', '-std=gnu11', '-Wall', '-Wextra', '-Werror',
+                    '-DHOST_STUBS_PORTABLE_ONLY',
+                    *host_stubs.INCLUDES, str(host_stubs.OUTPUT), '-o', str(tmp_path / 'host-stubs.o')],
+                   cwd=host_stubs.ROOT, check=True)
+
+
+def test_every_host_header_is_in_one_part():
+    found = host_stubs.collect()
+    assert not host_stubs.unlisted_headers(found)
+    parts = (host_stubs.OBJC_HEADERS, host_stubs.APPLE_C_HEADERS, host_stubs.PORTABLE_HEADERS)
+    assert sum(map(len, parts)) == len(set().union(*parts)), 'a header is in two parts'
+    stale = set().union(*parts) - {entry[0] for entry in found.values()}
+    assert not stale, f'listed headers that declare no host function (or are gone): {sorted(stale)}'
 
 
 def test_seam_stubs_follow_their_headers(tmp_path):

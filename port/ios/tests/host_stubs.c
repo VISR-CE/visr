@@ -16,92 +16,110 @@
 #pragma clang diagnostic ignored "-Wmissing-prototypes"
 #endif
 
-#include "frame_waits.h"
-#include "gpu_call_hash.h"
-#include "gpu_capture.h"
-#include "gpu_owner_check.h"
-#include "gpu_queue.h"
-#include "gpu_stream_ring.h"
-#include "host.h"
-#include "host_astc_store.h"
-#include "host_audio_output.h"
-#include "host_audio_session.h"
-#include "host_benchmark.h"
+#if defined(__OBJC__) && !defined(HOST_STUBS_PORTABLE_ONLY)  /* objc headers */
 #include "host_benchmark_catalog.h"
 #include "host_benchmark_outbox.h"
 #include "host_benchmark_presentation.h"
 #include "host_benchmark_snapshot.h"
-#include "host_cloud_saves.h"
-#include "host_config.h"
-#include "host_controller_age.h"
-#include "host_crash.h"
-#include "host_data_updates.h"
-#include "host_external.h"
-#include "host_external_mode.h"
-#include "host_frame_counter_stats.h"
-#include "host_frame_pacer.h"
-#include "host_frame_timeline.h"
-#include "host_game_thread.h"
-#include "host_geometry.h"
-#include "host_guest_environment.h"
-#include "host_hinge.h"
-#include "host_join_link.h"
-#include "host_lan.h"
-#include "host_log_file.h"
-#include "host_log_send.h"
-#include "host_low_power.h"
-#include "host_main_sync_log.h"
-#include "host_main_thread.h"
 #include "host_map_identity.h"
-#include "host_natpmp.h"
-#include "host_open_website.h"
-#include "host_perf_hooks.h"
-#include "host_perf_metal.h"
-#include "host_perf_reports.h"
 #include "host_perf_validation.h"
-#include "host_posture.h"
-#include "host_posture_layout.h"
-#include "host_profile.h"
 #include "host_qr.h"
-#include "host_quit_signals.h"
-#include "host_recording_pack.h"
 #include "host_report_delivery.h"
-#include "host_save_writer.h"
-#include "host_shader_pack.h"
-#include "host_shader_upload.h"
-#include "host_socket_revival.h"
-#include "host_spatial_gamepad.h"
-#include "host_spatial_input.h"
-#include "host_spatial_pose.h"
-#include "host_spatial_record.h"
-#include "host_startup.h"
-#include "host_stereo.h"
-#include "host_stereo_head.h"
-#include "host_stereo_hud.h"
-#include "host_stereo_posture.h"
-#include "host_texture_repair.h"
-#include "host_texture_settings.h"
-#include "host_texture_upscale.h"
-#include "host_theater.h"
-#include "host_thread_cpu.h"
-#include "host_window_stats.h"
-#include "ios_host.h"
-#include "menu_background_redraw.h"
-#include "menu_difficulty.h"
-#include "menu_picture_redraw.h"
-#include "menu_picture_shapes.h"
-#include "menu_picture_trace.h"
-#include "metal_gate.h"
-#include "texture_refine.h"
-#include "texture_upscale_encode.h"
-#include "texture_upscale_generate.h"
-#include "texture_upscale_model.h"
-#include "texture_upscale_pixels.h"
 
-__attribute__((weak)) void astc_store_map_arrived(const char *path)
+__attribute__((weak)) BOOL host_benchmark_archive_interrupted(NSString *folder, NSError **error)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_archive_interrupted without defining it\n"); abort(); }
+__attribute__((weak)) NSString * host_benchmark_catalog_file_sha256(NSString *folder)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_file_sha256 without defining it\n"); abort(); }
+__attribute__((weak)) BOOL host_benchmark_catalog_load(NSString *folder, struct host_benchmark_catalog *catalog, NSError **error)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_load without defining it\n"); abort(); }
+__attribute__((weak)) BOOL host_benchmark_catalog_validate_folder(NSString *folder, NSError **error)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_validate_folder without defining it\n"); abort(); }
+__attribute__((weak)) int host_benchmark_catalog_variants_for(const struct host_benchmark_catalog *catalog, const char *model, int indexes[HOST_BENCHMARK_VARIANTS_MAXIMUM])
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_variants_for without defining it\n"); abort(); }
+__attribute__((weak)) NSDictionary * host_benchmark_measurement_record(NSDictionary *record, NSDictionary *presentation, int pacing)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_measurement_record without defining it\n"); abort(); }
+__attribute__((weak)) NSUInteger host_benchmark_menu_choice_count(NSString *selected_folder)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_menu_choice_count without defining it\n"); abort(); }
+__attribute__((weak)) BOOL host_benchmark_outbox_acknowledge(NSString *path, NSError **error)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_acknowledge without defining it\n"); abort(); }
+__attribute__((weak)) NSArray<NSString *> * host_benchmark_outbox_pending(NSString *folder)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_pending without defining it\n"); abort(); }
+__attribute__((weak)) NSString * host_benchmark_outbox_store(NSString *folder, NSData *report, NSError **error)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_store without defining it\n"); abort(); }
+__attribute__((weak)) void host_benchmark_presentation_begin(enum benchmark_scene_kind kind, size_t capacity)
 { }
-__attribute__((weak)) void astc_store_map_will_load(const char *name)
+__attribute__((weak)) NSDictionary * host_benchmark_presentation_diagnostics(void)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_diagnostics without defining it\n"); abort(); }
+__attribute__((weak)) void host_benchmark_presentation_end_async(void)
 { }
+__attribute__((weak)) NSDictionary * host_benchmark_presentation_finish(double timeout)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_finish without defining it\n"); abort(); }
+__attribute__((weak)) NSDictionary * host_benchmark_presentation_take_report(void)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_take_report without defining it\n"); abort(); }
+__attribute__((weak)) void host_benchmark_presentation_window(void)
+{ }
+__attribute__((weak)) NSDictionary * host_benchmark_shader_delta(NSDictionary *before, NSDictionary *after)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_delta without defining it\n"); abort(); }
+__attribute__((weak)) NSDictionary * host_benchmark_shader_evidence(NSArray<NSDictionary *> *runs, NSArray<NSDictionary *> *previous, NSString *folder)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_evidence without defining it\n"); abort(); }
+__attribute__((weak)) NSDictionary * host_benchmark_shader_snapshot(NSString *folder, NSString *map)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_snapshot without defining it\n"); abort(); }
+__attribute__((weak)) void host_benchmark_shader_summarize(NSMutableDictionary *report)
+{ }
+__attribute__((weak)) NSDictionary * host_benchmark_snapshot_create(NSString *folder, NSArray<NSString *> *sources, NSDictionary *identity, NSDictionary *updates, NSError **error)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_create without defining it\n"); abort(); }
+__attribute__((weak)) NSString * host_benchmark_snapshot_digest(id value)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_digest without defining it\n"); abort(); }
+__attribute__((weak)) NSDictionary * host_benchmark_snapshot_load(NSString *folder, NSDictionary *identity)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_load without defining it\n"); abort(); }
+__attribute__((weak)) NSDictionary * host_benchmark_snapshot_replay_environment(NSString *folder, NSDictionary *snapshot, NSString *recording)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_replay_environment without defining it\n"); abort(); }
+__attribute__((weak)) NSString * host_benchmark_submission_summary(NSDictionary *record)
+{ fprintf(stderr, "host_stubs: probe called host_benchmark_submission_summary without defining it\n"); abort(); }
+__attribute__((weak)) void host_map_identity_init(void)
+{ }
+__attribute__((weak)) NSDictionary * host_map_identity_lookup(const char *map_name)
+{ fprintf(stderr, "host_stubs: probe called host_map_identity_lookup without defining it\n"); abort(); }
+__attribute__((weak)) void host_map_identity_prepare_ui(void)
+{ }
+__attribute__((weak)) NSDictionary * host_map_identity_resolve(const char *map_name)
+{ fprintf(stderr, "host_stubs: probe called host_map_identity_resolve without defining it\n"); abort(); }
+__attribute__((weak)) void host_map_identity_wait(void)
+{ }
+__attribute__((weak)) BOOL host_perf_validate_asset(NSString *path, NSDictionary *metadata, NSString *hash)
+{ fprintf(stderr, "host_stubs: probe called host_perf_validate_asset without defining it\n"); abort(); }
+__attribute__((weak)) CIImage * host_qr_code(NSString *text, NSUInteger quiet_zone)
+{ fprintf(stderr, "host_stubs: probe called host_qr_code without defining it\n"); abort(); }
+#if (!TARGET_OS_OSX)
+__attribute__((weak)) UIImage * host_qr_image(NSString *text, NSUInteger scale, NSUInteger quiet_zone)
+{ fprintf(stderr, "host_stubs: probe called host_qr_image without defining it\n"); abort(); }
+#endif
+__attribute__((weak)) BOOL host_report_delivery_acquire(void)
+{ fprintf(stderr, "host_stubs: probe called host_report_delivery_acquire without defining it\n"); abort(); }
+__attribute__((weak)) void host_report_delivery_cancel_performance(void)
+{ }
+__attribute__((weak)) void host_report_delivery_cancel_shader(void)
+{ }
+__attribute__((weak)) void host_report_delivery_release(void)
+{ }
+__attribute__((weak)) void host_report_delivery_submit(NSString *path, NSString *asset, NSDictionary *metadata, NSString *hash, dispatch_queue_t callback_queue, void (^completion)(BOOL, NSError *))
+{ }
+__attribute__((weak)) void host_report_delivery_submit_shader(NSString *path, NSString *asset, NSDictionary *metadata, NSString *hash, dispatch_queue_t callback_queue, void (^completion)(BOOL, NSError *))
+{ }
+__attribute__((weak)) NSArray<NSString *> * host_typed_outbox_pending(NSString *folder, NSString *prefix)
+{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_pending without defining it\n"); abort(); }
+__attribute__((weak)) NSString * host_typed_outbox_store(NSString *folder, NSData *payload, NSString *prefix, HostOutboxValidator validate, NSError **error)
+{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_store without defining it\n"); abort(); }
+__attribute__((weak)) NSString * host_typed_outbox_store_asset(NSString *folder, NSString *asset, NSDictionary *metadata, NSString *prefix, NSString *payload_hash, HostOutboxAssetValidator validate, NSError **error)
+{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_store_asset without defining it\n"); abort(); }
+#endif  /* __OBJC__ */
+
+#if defined(__APPLE__) && !defined(HOST_STUBS_PORTABLE_ONLY)  /* apple headers */
+#include "host_frame_pacer.h"
+#include "host_main_thread.h"
+#include "host_quit_signals.h"
+#include "host_spatial_input.h"
+
 #if (HALO_FRAME_PACING)
 __attribute__((weak)) void frame_pacer_encode_mode_changed(void)
 { }
@@ -182,6 +200,137 @@ __attribute__((weak)) uint32_t frame_pacer_vertical_blank_wait(void)
 __attribute__((weak)) int frame_pacer_wants_system_source(void)
 { fprintf(stderr, "host_stubs: probe called frame_pacer_wants_system_source without defining it\n"); abort(); }
 #endif
+__attribute__((weak)) void host_frames_in_flight_scene(int at_30)
+{ }
+#if defined(__BLOCKS__)
+__attribute__((weak)) void host_main_async(dispatch_block_t block)
+{ }
+#endif
+__attribute__((weak)) void host_main_async_f(void *context, void (*fn)(void *))
+{ }
+__attribute__((weak)) unsigned long host_main_forbidden_waits(void)
+{ fprintf(stderr, "host_stubs: probe called host_main_forbidden_waits without defining it\n"); abort(); }
+#if defined(__BLOCKS__)
+__attribute__((weak)) void host_main_sync(dispatch_block_t block)
+{ }
+#endif
+__attribute__((weak)) void host_main_sync_f(void *context, void (*fn)(void *))
+{ }
+__attribute__((weak)) void host_main_sync_take(struct host_main_sync_waits *waits)
+{ }
+__attribute__((weak)) void host_main_wait_allow(void)
+{ }
+__attribute__((weak)) void host_main_wait_forbid(void)
+{ }
+__attribute__((weak)) int host_on_main_thread(void)
+{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
+__attribute__((weak)) int host_quit_signals_install(dispatch_queue_t queue, host_quit_signal_handler handler)
+{ fprintf(stderr, "host_stubs: probe called host_quit_signals_install without defining it\n"); abort(); }
+#if (TARGET_OS_VISION)
+__attribute__((weak)) void host_spatial_controls_log_names(GCController *controller, const char *hand)
+{ }
+#endif
+#if (TARGET_OS_VISION)
+__attribute__((weak)) void host_spatial_controls_read(id<GCDevicePhysicalInputState> state, struct host_spatial_controls *controls)
+{ }
+#endif
+#if (TARGET_OS_VISION)
+__attribute__((weak)) void host_spatial_haptics_buzz(CHHapticEngine *engine, const char *hand)
+{ }
+#endif
+#if (TARGET_OS_VISION)
+__attribute__((weak)) CHHapticEngine * host_spatial_haptics_start(GCController *controller, const char *hand)
+{ fprintf(stderr, "host_stubs: probe called host_spatial_haptics_start without defining it\n"); abort(); }
+#endif
+#if (TARGET_OS_VISION)
+__attribute__((weak)) void host_spatial_rumble_attach(int hand, CHHapticEngine *engine)
+{ }
+#endif
+#if (TARGET_OS_VISION)
+__attribute__((weak)) void host_spatial_rumble_play(const struct host_spatial_rumble *rumble)
+{ }
+#endif
+#if (TARGET_OS_VISION)
+__attribute__((weak)) void host_spatial_rumble_quiet(int quiet)
+{ }
+#endif
+#endif  /* __APPLE__ */
+
+/* portable headers */
+#include "frame_waits.h"
+#include "gpu_call_hash.h"
+#include "gpu_capture.h"
+#include "gpu_owner_check.h"
+#include "gpu_queue.h"
+#include "gpu_stream_ring.h"
+#include "host.h"
+#include "host_astc_store.h"
+#include "host_audio_output.h"
+#include "host_audio_session.h"
+#include "host_benchmark.h"
+#include "host_cloud_saves.h"
+#include "host_config.h"
+#include "host_controller_age.h"
+#include "host_crash.h"
+#include "host_data_updates.h"
+#include "host_external.h"
+#include "host_external_mode.h"
+#include "host_frame_counter_stats.h"
+#include "host_frame_timeline.h"
+#include "host_game_thread.h"
+#include "host_geometry.h"
+#include "host_guest_environment.h"
+#include "host_hinge.h"
+#include "host_join_link.h"
+#include "host_lan.h"
+#include "host_log_file.h"
+#include "host_log_send.h"
+#include "host_low_power.h"
+#include "host_main_sync_log.h"
+#include "host_natpmp.h"
+#include "host_open_website.h"
+#include "host_perf_hooks.h"
+#include "host_perf_metal.h"
+#include "host_perf_reports.h"
+#include "host_posture.h"
+#include "host_posture_layout.h"
+#include "host_profile.h"
+#include "host_recording_pack.h"
+#include "host_save_writer.h"
+#include "host_shader_pack.h"
+#include "host_shader_upload.h"
+#include "host_socket_revival.h"
+#include "host_spatial_gamepad.h"
+#include "host_spatial_pose.h"
+#include "host_spatial_record.h"
+#include "host_startup.h"
+#include "host_stereo.h"
+#include "host_stereo_head.h"
+#include "host_stereo_hud.h"
+#include "host_stereo_posture.h"
+#include "host_texture_repair.h"
+#include "host_texture_settings.h"
+#include "host_texture_upscale.h"
+#include "host_theater.h"
+#include "host_thread_cpu.h"
+#include "host_window_stats.h"
+#include "ios_host.h"
+#include "menu_background_redraw.h"
+#include "menu_difficulty.h"
+#include "menu_picture_redraw.h"
+#include "menu_picture_shapes.h"
+#include "menu_picture_trace.h"
+#include "metal_gate.h"
+#include "texture_refine.h"
+#include "texture_upscale_encode.h"
+#include "texture_upscale_generate.h"
+#include "texture_upscale_model.h"
+#include "texture_upscale_pixels.h"
+
+__attribute__((weak)) void astc_store_map_arrived(const char *path)
+{ }
+__attribute__((weak)) void astc_store_map_will_load(const char *name)
+{ }
 __attribute__((weak)) void frame_waits_add_display(double seconds)
 { }
 __attribute__((weak)) void frame_waits_add_game(double seconds)
@@ -310,16 +459,6 @@ __attribute__((weak)) void host_audio_session_release(void)
 { }
 __attribute__((weak)) void host_audio_session_set_mix_only(int enabled)
 { }
-__attribute__((weak)) BOOL host_benchmark_archive_interrupted(NSString *folder, NSError **error)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_archive_interrupted without defining it\n"); abort(); }
-__attribute__((weak)) NSString * host_benchmark_catalog_file_sha256(NSString *folder)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_file_sha256 without defining it\n"); abort(); }
-__attribute__((weak)) BOOL host_benchmark_catalog_load(NSString *folder, struct host_benchmark_catalog *catalog, NSError **error)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_load without defining it\n"); abort(); }
-__attribute__((weak)) BOOL host_benchmark_catalog_validate_folder(NSString *folder, NSError **error)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_validate_folder without defining it\n"); abort(); }
-__attribute__((weak)) int host_benchmark_catalog_variants_for(const struct host_benchmark_catalog *catalog, const char *model, int indexes[HOST_BENCHMARK_VARIANTS_MAXIMUM])
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_catalog_variants_for without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_compile(double seconds)
 { }
 __attribute__((weak)) void host_benchmark_compositor_frame(int view, int width, int height)
@@ -342,12 +481,8 @@ __attribute__((weak)) void host_benchmark_live(struct benchmark_live_snapshot *s
 { }
 __attribute__((weak)) void host_benchmark_live_reset(void)
 { }
-__attribute__((weak)) NSDictionary * host_benchmark_measurement_record(NSDictionary *record, NSDictionary *presentation, int pacing)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_measurement_record without defining it\n"); abort(); }
 __attribute__((weak)) const char * host_benchmark_menu(void)
 { fprintf(stderr, "host_stubs: probe called host_benchmark_menu without defining it\n"); abort(); }
-__attribute__((weak)) NSUInteger host_benchmark_menu_choice_count(NSString *selected_folder)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_menu_choice_count without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_menu_status(const char *message)
 { }
 __attribute__((weak)) int host_benchmark_notice(const char *heading, const char *detail, double seconds, int (*until)(void))
@@ -360,12 +495,6 @@ __attribute__((weak)) int host_benchmark_offscreen_request(int setting, int suit
 { fprintf(stderr, "host_stubs: probe called host_benchmark_offscreen_request without defining it\n"); abort(); }
 __attribute__((weak)) int host_benchmark_offscreen_requested(void)
 { fprintf(stderr, "host_stubs: probe called host_benchmark_offscreen_requested without defining it\n"); abort(); }
-__attribute__((weak)) BOOL host_benchmark_outbox_acknowledge(NSString *path, NSError **error)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_acknowledge without defining it\n"); abort(); }
-__attribute__((weak)) NSArray<NSString *> * host_benchmark_outbox_pending(NSString *folder)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_pending without defining it\n"); abort(); }
-__attribute__((weak)) NSString * host_benchmark_outbox_store(NSString *folder, NSData *report, NSError **error)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_outbox_store without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_overlay_presented(int presented)
 { }
 __attribute__((weak)) void host_benchmark_overlay_show(int visible)
@@ -374,27 +503,15 @@ __attribute__((weak)) void host_benchmark_page(const char *report_path, const ch
 { }
 __attribute__((weak)) void host_benchmark_phase(int phase)
 { }
-__attribute__((weak)) void host_benchmark_presentation_begin(enum benchmark_scene_kind kind, size_t capacity)
-{ }
 __attribute__((weak)) void host_benchmark_presentation_complete(struct host_benchmark_presentation_token token, double presented)
 { }
 __attribute__((weak)) void host_benchmark_presentation_configure(enum host_presentation_capability capability, int display_synchronized, int allows_tearing)
 { }
-__attribute__((weak)) NSDictionary * host_benchmark_presentation_diagnostics(void)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_diagnostics without defining it\n"); abort(); }
-__attribute__((weak)) void host_benchmark_presentation_end_async(void)
-{ }
 __attribute__((weak)) void host_benchmark_presentation_exclude(void)
 { }
-__attribute__((weak)) NSDictionary * host_benchmark_presentation_finish(double timeout)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_finish without defining it\n"); abort(); }
 __attribute__((weak)) struct host_benchmark_presentation_token host_benchmark_presentation_reserve(double submitted, int scene_is_cutscene)
 { fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_reserve without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_presentation_scene(int scene_is_cutscene)
-{ }
-__attribute__((weak)) NSDictionary * host_benchmark_presentation_take_report(void)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_presentation_take_report without defining it\n"); abort(); }
-__attribute__((weak)) void host_benchmark_presentation_window(void)
 { }
 __attribute__((weak)) int host_benchmark_presented(int on)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
@@ -406,24 +523,6 @@ __attribute__((weak)) int host_benchmark_running(void)
 { int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int host_benchmark_send(const char *report_path, const char *summary, char *message, unsigned long size)
 { fprintf(stderr, "host_stubs: probe called host_benchmark_send without defining it\n"); abort(); }
-__attribute__((weak)) NSDictionary * host_benchmark_shader_delta(NSDictionary *before, NSDictionary *after)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_delta without defining it\n"); abort(); }
-__attribute__((weak)) NSDictionary * host_benchmark_shader_evidence(NSArray<NSDictionary *> *runs, NSArray<NSDictionary *> *previous, NSString *folder)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_evidence without defining it\n"); abort(); }
-__attribute__((weak)) NSDictionary * host_benchmark_shader_snapshot(NSString *folder, NSString *map)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_shader_snapshot without defining it\n"); abort(); }
-__attribute__((weak)) void host_benchmark_shader_summarize(NSMutableDictionary *report)
-{ }
-__attribute__((weak)) NSDictionary * host_benchmark_snapshot_create(NSString *folder, NSArray<NSString *> *sources, NSDictionary *identity, NSDictionary *updates, NSError **error)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_create without defining it\n"); abort(); }
-__attribute__((weak)) NSString * host_benchmark_snapshot_digest(id value)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_digest without defining it\n"); abort(); }
-__attribute__((weak)) NSDictionary * host_benchmark_snapshot_load(NSString *folder, NSDictionary *identity)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_load without defining it\n"); abort(); }
-__attribute__((weak)) NSDictionary * host_benchmark_snapshot_replay_environment(NSString *folder, NSDictionary *snapshot, NSString *recording)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_snapshot_replay_environment without defining it\n"); abort(); }
-__attribute__((weak)) NSString * host_benchmark_submission_summary(NSDictionary *record)
-{ fprintf(stderr, "host_stubs: probe called host_benchmark_submission_summary without defining it\n"); abort(); }
 __attribute__((weak)) void host_benchmark_upscaler(const char *requested, unsigned effective_paths)
 { }
 __attribute__((weak)) int host_benchmark_virtual_display(void)
@@ -690,8 +789,6 @@ __attribute__((weak)) void host_frame_timeline_shown(uint64_t frame_id, double s
 { }
 __attribute__((weak)) void host_frame_timeline_waits(double display_wait, double encoder_tail)
 { }
-__attribute__((weak)) void host_frames_in_flight_scene(int at_30)
-{ }
 #if defined(__OBJC__)
 __attribute__((weak)) BOOL host_framings_validate_file(NSString *path)
 { fprintf(stderr, "host_stubs: probe called host_framings_validate_file without defining it\n"); abort(); }
@@ -864,42 +961,12 @@ __attribute__((weak)) void host_low_power_test_reader(int (*reader)(void))
 #endif
 __attribute__((weak)) void host_low_unmap(void *address, size_t size)
 { }
-#if defined(__BLOCKS__)
-__attribute__((weak)) void host_main_async(dispatch_block_t block)
-{ }
-#endif
-__attribute__((weak)) void host_main_async_f(void *context, void (*fn)(void *))
-{ }
-__attribute__((weak)) unsigned long host_main_forbidden_waits(void)
-{ fprintf(stderr, "host_stubs: probe called host_main_forbidden_waits without defining it\n"); abort(); }
-#if defined(__BLOCKS__)
-__attribute__((weak)) void host_main_sync(dispatch_block_t block)
-{ }
-#endif
-__attribute__((weak)) void host_main_sync_f(void *context, void (*fn)(void *))
-{ }
 __attribute__((weak)) void host_main_sync_log_frame(void)
 { }
 __attribute__((weak)) void host_main_sync_log_install(void)
 { }
-__attribute__((weak)) void host_main_sync_take(struct host_main_sync_waits *waits)
-{ }
-__attribute__((weak)) void host_main_wait_allow(void)
-{ }
-__attribute__((weak)) void host_main_wait_forbid(void)
-{ }
 __attribute__((weak)) int host_map_framings_feed_path(const char *key, char *path, unsigned int size)
 { fprintf(stderr, "host_stubs: probe called host_map_framings_feed_path without defining it\n"); abort(); }
-__attribute__((weak)) void host_map_identity_init(void)
-{ }
-__attribute__((weak)) NSDictionary * host_map_identity_lookup(const char *map_name)
-{ fprintf(stderr, "host_stubs: probe called host_map_identity_lookup without defining it\n"); abort(); }
-__attribute__((weak)) void host_map_identity_prepare_ui(void)
-{ }
-__attribute__((weak)) NSDictionary * host_map_identity_resolve(const char *map_name)
-{ fprintf(stderr, "host_stubs: probe called host_map_identity_resolve without defining it\n"); abort(); }
-__attribute__((weak)) void host_map_identity_wait(void)
-{ }
 __attribute__((weak)) void host_map_load_failed(const char *map_name, const char *messages)
 { abort(); }
 __attribute__((weak)) int host_map_pictures_begin_refresh(void)
@@ -926,8 +993,6 @@ __attribute__((weak)) struct host_menu_pointer * host_menu_pointer_shared(void)
 { fprintf(stderr, "host_stubs: probe called host_menu_pointer_shared without defining it\n"); abort(); }
 __attribute__((weak)) int host_native_thread_create(void *(*function)(void *), void *argument, size_t stack_size)
 { fprintf(stderr, "host_stubs: probe called host_native_thread_create without defining it\n"); abort(); }
-__attribute__((weak)) int host_on_main_thread(void)
-{ int _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) void host_open_website(int page)
 { }
 __attribute__((weak)) void host_perf_hooks_budget(uint64_t budget_us)
@@ -1044,8 +1109,6 @@ __attribute__((weak)) void host_perf_reports_start(const char *guest_sha256)
 { }
 __attribute__((weak)) void host_perf_reports_suspend(void)
 { }
-__attribute__((weak)) BOOL host_perf_validate_asset(NSString *path, NSDictionary *metadata, NSString *hash)
-{ fprintf(stderr, "host_stubs: probe called host_perf_validate_asset without defining it\n"); abort(); }
 __attribute__((weak)) void host_picture_drawable(float *width, float *height)
 { }
 __attribute__((weak)) void host_posture_attach(void *root_view)
@@ -1110,14 +1173,6 @@ __attribute__((weak)) int host_profile_validate_folder(const char *folder, void 
 { fprintf(stderr, "host_stubs: probe called host_profile_validate_folder without defining it\n"); abort(); }
 __attribute__((weak)) int host_profile_value(const struct host_profile *profile, const char *name, char *text, size_t size)
 { fprintf(stderr, "host_stubs: probe called host_profile_value without defining it\n"); abort(); }
-__attribute__((weak)) CIImage * host_qr_code(NSString *text, NSUInteger quiet_zone)
-{ fprintf(stderr, "host_stubs: probe called host_qr_code without defining it\n"); abort(); }
-#if (!TARGET_OS_OSX)
-__attribute__((weak)) UIImage * host_qr_image(NSString *text, NSUInteger scale, NSUInteger quiet_zone)
-{ fprintf(stderr, "host_stubs: probe called host_qr_image without defining it\n"); abort(); }
-#endif
-__attribute__((weak)) int host_quit_signals_install(dispatch_queue_t queue, host_quit_signal_handler handler)
-{ fprintf(stderr, "host_stubs: probe called host_quit_signals_install without defining it\n"); abort(); }
 __attribute__((weak)) int host_ranked_interface(uint32_t *address, uint32_t *netmask)
 { fprintf(stderr, "host_stubs: probe called host_ranked_interface without defining it\n"); abort(); }
 __attribute__((weak)) int host_recording_pack_validate(const char *folder, void (*log)(const char *))
@@ -1126,18 +1181,6 @@ __attribute__((weak)) int host_recording_pack_validate(const char *folder, void 
 __attribute__((weak)) NSString * host_recording_update_folder(NSString *bundled)
 { fprintf(stderr, "host_stubs: probe called host_recording_update_folder without defining it\n"); abort(); }
 #endif
-__attribute__((weak)) BOOL host_report_delivery_acquire(void)
-{ fprintf(stderr, "host_stubs: probe called host_report_delivery_acquire without defining it\n"); abort(); }
-__attribute__((weak)) void host_report_delivery_cancel_performance(void)
-{ }
-__attribute__((weak)) void host_report_delivery_cancel_shader(void)
-{ }
-__attribute__((weak)) void host_report_delivery_release(void)
-{ }
-__attribute__((weak)) void host_report_delivery_submit(NSString *path, NSString *asset, NSDictionary *metadata, NSString *hash, dispatch_queue_t callback_queue, void (^completion)(BOOL, NSError *))
-{ }
-__attribute__((weak)) void host_report_delivery_submit_shader(NSString *path, NSString *asset, NSDictionary *metadata, NSString *hash, dispatch_queue_t callback_queue, void (^completion)(BOOL, NSError *))
-{ }
 __attribute__((weak)) void * host_resolve_import(const char *name)
 { fprintf(stderr, "host_stubs: probe called host_resolve_import without defining it\n"); abort(); }
 __attribute__((weak)) void host_run_guest_main(uint32_t boot)
@@ -1262,28 +1305,12 @@ __attribute__((weak)) int host_spatial_button_clock_choose(struct host_spatial_b
 { fprintf(stderr, "host_stubs: probe called host_spatial_button_clock_choose without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_button_clock_failed(struct host_spatial_button_clock *clock, double now)
 { }
-#if (TARGET_OS_VISION)
-__attribute__((weak)) void host_spatial_controls_log_names(GCController *controller, const char *hand)
-{ }
-#endif
-#if (TARGET_OS_VISION)
-__attribute__((weak)) void host_spatial_controls_read(id<GCDevicePhysicalInputState> state, struct host_spatial_controls *controls)
-{ }
-#endif
 #if (defined(__OBJC__) && !defined(__swift__))
 __attribute__((weak)) void host_spatial_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from_device)
 { }
 #endif
 __attribute__((weak)) void host_spatial_gamepad_map(const struct host_spatial_controls *left, const struct host_spatial_controls *right, int aiming_hand, struct halo_spatial_gamepad *gamepad)
 { }
-#if (TARGET_OS_VISION)
-__attribute__((weak)) void host_spatial_haptics_buzz(CHHapticEngine *engine, const char *hand)
-{ }
-#endif
-#if (TARGET_OS_VISION)
-__attribute__((weak)) CHHapticEngine * host_spatial_haptics_start(GCController *controller, const char *hand)
-{ fprintf(stderr, "host_stubs: probe called host_spatial_haptics_start without defining it\n"); abort(); }
-#endif
 __attribute__((weak)) float host_spatial_head_yaw(const float back[3], int *level)
 { fprintf(stderr, "host_stubs: probe called host_spatial_head_yaw without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_hold_poses(struct halo_spatial_sample *sample, const struct halo_spatial_sample *reference)
@@ -1304,24 +1331,12 @@ __attribute__((weak)) int host_spatial_replay_start(const char *name)
 { fprintf(stderr, "host_stubs: probe called host_spatial_replay_start without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_room_to_game(const float room[3], float game[3])
 { }
-#if (TARGET_OS_VISION)
-__attribute__((weak)) void host_spatial_rumble_attach(int hand, CHHapticEngine *engine)
-{ }
-#endif
 __attribute__((weak)) int host_spatial_rumble_fresh(double sent, double now)
 { fprintf(stderr, "host_stubs: probe called host_spatial_rumble_fresh without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_rumble_hold(int hold)
 { }
 __attribute__((weak)) void host_spatial_rumble_map(float left_motor, float right_motor, int aiming_hand, float strength, struct host_spatial_rumble *rumble)
 { }
-#if (TARGET_OS_VISION)
-__attribute__((weak)) void host_spatial_rumble_play(const struct host_spatial_rumble *rumble)
-{ }
-#endif
-#if (TARGET_OS_VISION)
-__attribute__((weak)) void host_spatial_rumble_quiet(int quiet)
-{ }
-#endif
 __attribute__((weak)) int host_spatial_sense_menus_held(void)
 { fprintf(stderr, "host_stubs: probe called host_spatial_sense_menus_held without defining it\n"); abort(); }
 __attribute__((weak)) void host_spatial_synthetic_hand(const struct host_spatial_synthetic *synthetic, double seconds, struct halo_spatial_hand *hand)
@@ -1696,12 +1711,6 @@ __attribute__((weak)) void host_tv_text_prompt_tick(void)
 { }
 __attribute__((weak)) int host_tv_text_result(char *buffer, uint32_t size)
 { fprintf(stderr, "host_stubs: probe called host_tv_text_result without defining it\n"); abort(); }
-__attribute__((weak)) NSArray<NSString *> * host_typed_outbox_pending(NSString *folder, NSString *prefix)
-{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_pending without defining it\n"); abort(); }
-__attribute__((weak)) NSString * host_typed_outbox_store(NSString *folder, NSData *payload, NSString *prefix, HostOutboxValidator validate, NSError **error)
-{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_store without defining it\n"); abort(); }
-__attribute__((weak)) NSString * host_typed_outbox_store_asset(NSString *folder, NSString *asset, NSDictionary *metadata, NSString *prefix, NSString *payload_hash, HostOutboxAssetValidator validate, NSError **error)
-{ fprintf(stderr, "host_stubs: probe called host_typed_outbox_store_asset without defining it\n"); abort(); }
 __attribute__((weak)) void host_ui_pointer_install(void (*feedback)(int), void (*menus_changed)(int))
 { }
 __attribute__((weak)) struct host_window_stats host_window_stats(double *values, unsigned long count)

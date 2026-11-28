@@ -40,6 +40,53 @@ OUTPUT = ROOT / 'port/ios/tests/host_stubs.c'
 # host_gamepad_merge.h, which declares no host function (only static inline helpers over SDL's gamepads).
 SKIP_HEADERS = {'host_orientation.h', 'host_upscale_tick.h', 'gpu_side_imports.h', 'host_gamepad_merge.h'}
 
+# host_stubs.c in three parts, by what the header needs (measured by compiling each alone): Objective-C headers
+# inside #ifdef __OBJC__, Apple C headers inside #ifdef __APPLE__, portable headers unguarded, so the file compiled
+# as plain C on Linux holds the portable part, as does any build with -DHOST_STUBS_PORTABLE_ONLY
+# (tools/test_host_stubs_portable.py). A header in none of the lists fails
+# --check; a portable header that stops compiling as plain C fails that test.
+OBJC_HEADERS = {
+    'host_benchmark_catalog.h', 'host_benchmark_outbox.h', 'host_benchmark_presentation.h',
+    'host_benchmark_snapshot.h', 'host_map_identity.h', 'host_perf_validation.h', 'host_qr.h',
+    'host_report_delivery.h',
+}
+APPLE_C_HEADERS = {
+    'host_frame_pacer.h', 'host_main_thread.h', 'host_quit_signals.h', 'host_spatial_input.h',
+}
+PORTABLE_HEADERS = {
+    'frame_waits.h', 'gpu_call_hash.h', 'gpu_capture.h', 'gpu_owner_check.h', 'gpu_queue.h', 'gpu_stream_ring.h',
+    'host.h', 'host_astc_store.h', 'host_audio_output.h', 'host_audio_session.h', 'host_benchmark.h',
+    'host_cloud_saves.h', 'host_config.h', 'host_controller_age.h', 'host_crash.h', 'host_data_updates.h',
+    'host_external.h', 'host_external_mode.h', 'host_frame_counter_stats.h', 'host_frame_timeline.h',
+    'host_game_thread.h', 'host_geometry.h', 'host_guest_environment.h', 'host_hinge.h', 'host_join_link.h',
+    'host_lan.h', 'host_log_file.h', 'host_log_send.h', 'host_low_power.h', 'host_main_sync_log.h', 'host_natpmp.h',
+    'host_open_website.h', 'host_perf_hooks.h', 'host_perf_metal.h', 'host_perf_reports.h', 'host_posture.h',
+    'host_posture_layout.h', 'host_profile.h', 'host_recording_pack.h', 'host_save_writer.h', 'host_shader_pack.h',
+    'host_shader_upload.h', 'host_socket_revival.h', 'host_spatial_gamepad.h', 'host_spatial_pose.h',
+    'host_spatial_record.h', 'host_startup.h', 'host_stereo.h', 'host_stereo_head.h', 'host_stereo_hud.h',
+    'host_stereo_posture.h', 'host_texture_repair.h', 'host_texture_settings.h', 'host_texture_upscale.h',
+    'host_theater.h', 'host_thread_cpu.h', 'host_window_stats.h', 'ios_host.h', 'menu_background_redraw.h',
+    'menu_difficulty.h', 'menu_picture_redraw.h', 'menu_picture_shapes.h', 'menu_picture_trace.h', 'metal_gate.h',
+    'texture_refine.h', 'texture_upscale_encode.h', 'texture_upscale_generate.h', 'texture_upscale_model.h',
+    'texture_upscale_pixels.h',
+}
+PART_GUARDS = {'objc': '__OBJC__', 'apple': '__APPLE__', 'portable': None}
+
+
+def part_of(header: str):
+    """'objc', 'apple' or 'portable' for a listed header (a fixture's unlisted header renders as portable)."""
+    if header in OBJC_HEADERS:
+        return 'objc'
+    if header in APPLE_C_HEADERS:
+        return 'apple'
+    return 'portable'
+
+
+def unlisted_headers(found) -> list[str]:
+    listed = OBJC_HEADERS | APPLE_C_HEADERS | PORTABLE_HEADERS
+    return sorted({entry[0] for entry in found.values()} - listed)
+
+
 # Defaults that must do more than return zero. Keyed by function name; the body
 # may use the declared parameter names.
 NEUTRAL = {
@@ -264,23 +311,30 @@ def collect(host: Path = HOST):
 
 
 def render(found) -> str:
-    headers = sorted({entry[0] for entry in found.values()})
     out = [HEADER_NOTE, '#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n',
            '#if defined(__clang__)\n#pragma clang diagnostic ignored "-Wunused-parameter"\n'
            '#pragma clang diagnostic ignored "-Wmissing-prototypes"\n#endif\n']
-    for header in headers:
-        out.append(f'#include "{header}"')
-    out.append('')
-    for name in sorted(found):
-        header, conditions, is_void, noreturn, head = found[name]
-        body = default_body(name, head, is_void, noreturn, NEUTRAL, ZERO_OK, 'host_stubs')
-        for condition in conditions:
-            out.append(f'#if {condition}')
-        out.append(f'{MARK}{head}')
-        out.append('{' + (f' {body} ' if body else ' ') + '}')
-        for _ in conditions:
-            out.append('#endif')
-    return '\n'.join(out) + '\n'
+    for part, guard in PART_GUARDS.items():
+        names = [name for name in sorted(found) if part_of(found[name][0]) == part]
+        if not names:
+            continue
+        out.append(f'/* {part} headers */' if guard is None else
+                   f'#if defined({guard}) && !defined(HOST_STUBS_PORTABLE_ONLY)  /* {part} headers */')
+        out += [f'#include "{header}"' for header in sorted({found[name][0] for name in names})]
+        out.append('')
+        for name in names:
+            header, conditions, is_void, noreturn, head = found[name]
+            body = default_body(name, head, is_void, noreturn, NEUTRAL, ZERO_OK, 'host_stubs')
+            for condition in conditions:
+                out.append(f'#if {condition}')
+            out.append(f'{MARK}{head}')
+            out.append('{' + (f' {body} ' if body else ' ') + '}')
+            for _ in conditions:
+                out.append('#endif')
+        if guard is not None:
+            out.append(f'#endif  /* {guard} */')
+        out.append('')
+    return '\n'.join(out).rstrip('\n') + '\n'
 
 
 def missing_defaults(found, stub_text: str) -> list[str]:
@@ -442,6 +496,13 @@ def main() -> int:
     args = parser.parse_args()
     found = collect()
     expected = render(found)
+    unlisted = unlisted_headers(found)
+    if unlisted:
+        print('host headers in none of OBJC_HEADERS, APPLE_C_HEADERS and PORTABLE_HEADERS (tools/host_stubs.py); '
+              'add each to the list of what it needs to compile:')
+        for header in unlisted:
+            print(f'  {header}')
+        return 1
     seams, gone = collect_seams()
     port_expected = render_seams(seams)
     if gone:
