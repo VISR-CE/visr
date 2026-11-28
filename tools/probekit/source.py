@@ -437,6 +437,28 @@ def enumeration(path, member: str) -> str:
     return enumeration_in(read(path), member, str(path))
 
 
+_VALUE = r"(0x[0-9A-Fa-f]+|\d+(?:\.\d*)?|[A-Za-z_]\w*)"
+
+
+def constant_in(text: str, name: str, where: str = "the text") -> str:
+    """The value token an enumerator (`name = value`) or a `#define name value` sets, outside comments and strings:
+    an integer or decimal literal, or another name. LookupError unless exactly one such setting exists."""
+    masked = mask(text)
+    found = [m for m in re.finditer(r"(?:^|[{,\s])" + re.escape(name) + r"\s*=\s*" + _VALUE + r"\s*[,}]", masked)]
+    found += [m for m in re.finditer(r"^[ \t]*#[ \t]*define[ \t]+" + re.escape(name) + r"[ \t]+" + _VALUE
+                                     + r"[ \t]*$", masked, re.MULTILINE)]
+    values = {m.group(1) for m in found}
+    if len(values) != 1:
+        detail = f"is set to {len(values)} different values ({', '.join(sorted(values))})" if values else \
+            "is not set by an enumerator or #define: it may have been renamed"
+        raise LookupError(f"`{name}` {detail} in {where}")
+    return values.pop()
+
+
+def constant(path, name: str) -> str:
+    return constant_in(read(path), name, str(path))
+
+
 def block_in(text: str, marker: str, where: str = "the text") -> str:
     masked = mask(text, strings=False)
     count = masked.count(marker)

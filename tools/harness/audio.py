@@ -10,7 +10,7 @@ def manager_types():
     definitions = read("source/sound/sound_definitions.h")
     classes = read("source/sound/sound_classes.h")
     text = "typedef unsigned short word;\nstruct sound_preferences;\n"
-    for source, member in [(manager, "_sound_impulse ="), (manager, "_sound_waiting_for_cache_bit"),
+    for source, member in [(manager, "_sound_impulse"), (manager, "_sound_waiting_for_cache_bit"),
                            (manager, "_sound_channel_idle"), (manager, "_sound_fade_mode_linear"),
                            (manager, "_fade_in_at_start_bit"), (manager, "_sound_spatialization_mode_none"),
                            (definitions, "_sound_definition_linked_permutations_bit"),

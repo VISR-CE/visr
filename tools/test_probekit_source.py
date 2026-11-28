@@ -293,3 +293,26 @@ def test_block_takes_the_one_brace_block_after_a_marker():
         source.block_in(ENUMS, 'if (misfired)')
     assert source.block_in(ENUMS, '{\n\t\tconst char').startswith('{\n\t\tconst char') and \
         source.block_in(ENUMS, '{\n\t\tconst char').endswith('g();\n\t}')
+
+
+CONSTANTS = '''
+#define CAPACITY 64
+#define SECONDS 60.0  /* a comment */
+#define ALIAS CAPACITY
+// #define COMMENTED 3
+enum { _first = 0x10, _second = ALIAS, _third };
+const char *text = "_quoted = 9,";
+'''
+
+
+def test_constant_reads_the_value_an_enumerator_or_define_sets():
+    assert source.constant_in(CONSTANTS, 'CAPACITY') == '64'
+    assert source.constant_in(CONSTANTS, 'ALIAS') == 'CAPACITY'
+    assert source.constant_in(CONSTANTS, 'SECONDS') == '60.0'
+    assert source.constant_in(CONSTANTS, '_first') == '0x10'
+    assert source.constant_in(CONSTANTS, '_second') == 'ALIAS'
+    for hidden in ('COMMENTED', '_quoted', '_third'):
+        with pytest.raises(LookupError, match=f'`{hidden}` is not set'):
+            source.constant_in(CONSTANTS, hidden)
+    with pytest.raises(LookupError, match='2 different values'):
+        source.constant_in(CONSTANTS + '#define CAPACITY 65\n', 'CAPACITY')

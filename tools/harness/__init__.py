@@ -32,10 +32,8 @@ def inline(text, name, which=None):
 
 
 def enum_with(source, member):
-    """The whole enum that declares a member."""
-    at = source.index(member)
-    start = source.rindex("enum", 0, at)
-    return source[start:source.index("};", at) + 2]
+    """The whole enum that declares a member, through its semicolon."""
+    return probe_source.enumeration_in(source, member)
 
 
 def structure(text, name):
@@ -44,14 +42,13 @@ def structure(text, name):
 
 
 def constant(source, name):
-    """An enum constant's or #define's integer value, following a name it is set to (as the port's capacities are)."""
-    match = re.search(r"\b" + re.escape(name) + r"\s*=\s*(\w+)", source) or \
-        re.search(r"#define\s+" + re.escape(name) + r"\s+(\w+)", source)
-    if not match:
-        raise LookupError(f"constant not found in the sources: {name}")
-    value = match.group(1)
+    """An enum constant's or #define's numeric value (int, or float for a decimal literal), following a name it is set
+    to (as the port's capacities are)."""
+    value = probe_source.constant_in(source, name)
     if re.fullmatch(r"0x[0-9A-Fa-f]+|\d+", value):
         return int(value, 0)
+    if re.fullmatch(r"\d+\.\d*", value):
+        return float(value)
     return constant(source + read("port/linux/include/halo_port_capacity.h"), value)
 
 
