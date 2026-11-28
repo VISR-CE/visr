@@ -409,8 +409,8 @@ def structure_in(text: str, name: str, where: str = "the text", kind: str = "str
     return text[match.start():masked.index(";", end) + 1]
 
 
-def structure(path, name: str) -> str:
-    return structure_in(read(path), name, str(path))
+def structure(path, name: str, kind: str = "struct") -> str:
+    return structure_in(read(path), name, str(path), kind=kind)
 
 
 _ENUM = re.compile(r"\benum\b(?:\s+\w+)?\s*\{")

@@ -38,7 +38,7 @@ __attribute__((weak)) int config_explicit(const char *name)
 __attribute__((weak)) char * config_file_read(const char *path, size_t *size)
 { fprintf(stderr, "port_stubs: probe called config_file_read without defining it\n"); abort(); }
 __attribute__((weak)) void config_folder(char *path, size_t size)
-{ }
+{ if (path && size) { path[0] = 0; } }
 __attribute__((weak)) void config_graphics_head_stereo(int head)
 { }
 __attribute__((weak)) int config_graphics_mode(void)
@@ -62,7 +62,7 @@ __attribute__((weak)) void config_profile_safe_point(int point, int context)
 __attribute__((weak)) int config_profile_sets(const char *name)
 { fprintf(stderr, "port_stubs: probe called config_profile_sets without defining it\n"); abort(); }
 __attribute__((weak)) void config_profile_settings_text(char *text, size_t size)
-{ }
+{ if (text && size) { text[0] = 0; } }
 __attribute__((weak)) double config_real(const char *name)
 { double _stub_v; memset(&_stub_v, 0, sizeof _stub_v); return _stub_v; }
 __attribute__((weak)) int config_reload_boolean(const char *name)

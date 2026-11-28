@@ -358,9 +358,12 @@ PORT_OUTPUT = ROOT / 'port/ios/tests/port_stubs.c'
 PORT_INCLUDES = ['-Iport/linux/src']
 
 # As NEUTRAL and ZERO_OK, for the port seams: an unset setting reads as off, zero or empty, as most probes that
-# defined their own did; any other non-void default aborts with its name.
+# defined their own did, and a void seam that fills a caller's buffer writes an empty string; any other non-void
+# default aborts with its name.
 PORT_NEUTRAL = {
     'config_string': 'return "";',
+    'config_folder': 'if (path && size) { path[0] = 0; }',
+    'config_profile_settings_text': 'if (text && size) { text[0] = 0; }',
 }
 PORT_ZERO_OK = {'config_boolean', 'config_integer', 'config_real', 'config_reload_boolean'}
 
@@ -437,13 +440,15 @@ def render_seams(found) -> str:
 
 
 def port_stub_flags(options) -> list[str]:
-    """The options the port stub object has to match: -D, -std=, -m32 and the target, in the probe's order."""
+    """The options the port stub object has to match: -D, -std=, -m32, the target and the minimum OS, in the probe's
+    order."""
     options, kept, index = [str(option) for option in options], [], 0
     while index < len(options):
         option = options[index]
-        if option.startswith(('-D', '-std=', '--target=', '-target=')) or option == '-m32':
+        if option.startswith(('-std=', '--target=', '-target=', '-mmacosx-version-min=', '-mios-version-min=')) or \
+                (option.startswith('-D') and option != '-D') or option == '-m32':
             kept.append(option)
-        elif option in ('-target', '-arch', '-isysroot') and index + 1 < len(options):
+        elif option in ('-D', '-target', '-arch', '-isysroot') and index + 1 < len(options):
             kept += [option, options[index + 1]]
             index += 1
         index += 1
@@ -454,16 +459,17 @@ _port_objects: dict = {}
 
 
 def port_stub_object(build_dir: Path, compiler, compile_flags=()) -> Path:
-    """Compile port_stubs.c as plain C with the probe's own compiler, once per compiler and flag set."""
+    """Compile port_stubs.c as plain C with the probe's own compiler, once per folder, compiler and flag set (again
+    when the object is gone, as a temporary folder's is)."""
     import hashlib
     import subprocess
-    key = (tuple(compiler), tuple(compile_flags))
-    if key not in _port_objects:
-        output = Path(build_dir) / f'port-stubs-{hashlib.sha1(repr(key).encode()).hexdigest()[:10]}.o'
+    key = (str(Path(build_dir).resolve()), tuple(compiler), tuple(compile_flags))
+    output = Path(build_dir) / f'port-stubs-{hashlib.sha1(repr(key[1:]).encode()).hexdigest()[:10]}.o'
+    if key not in _port_objects or not output.exists():
         subprocess.run([*compiler, '-c', '-x', 'c', '-std=gnu11', '-Wall', '-Wextra', '-Werror', *PORT_INCLUDES,
                         *compile_flags, str(PORT_OUTPUT), '-o', str(output)], cwd=ROOT, check=True)
         _port_objects[key] = output
-    return _port_objects[key]
+    return output
 
 
 # The menu probes' stand-in headers (port/ios/tests/menu_patch, tools/menu_probe_build.py): each production header the
@@ -476,8 +482,9 @@ INTEGER_MATH = 'source/math/integer_math.h'
 REAL_MATH = 'source/math/real_math.h'
 TAG_GROUPS = 'source/tag_files/tag_groups.h'
 STAND_IN_DIRECTORY = ROOT / 'port/ios/tests/menu_patch'
+STAND_IN_USERS = 'menu_tags.c and menu_files.c'   # (the sources tools/menu_probe_build.py compiles beside them)
 STAND_INS = {
-    'cseries.h': {'of': CSERIES, 'guard': 'CSERIES_H', 'includes': ('stddef.h', 'stdio.h', 'stdlib.h', 'string.h'),
+    'cseries.h': {'of': CSERIES, 'guard': 'CSERIES_H', 'includes': ('<stddef.h>', '<stdio.h>', '<stdlib.h>', '<string.h>'),
                   'items': [
         ('typedef', CSERIES, 'byte'), ('typedef', CSERIES, 'word'), ('typedef', CSERIES, 'real'),
         ('typedef', CSERIES, 'boolean'),
@@ -499,7 +506,7 @@ STAND_INS = {
         ('function', TAG_GROUPS, 'tag_loaded'), ('function', TAG_GROUPS, 'tag_get'),
     ]},
     'bitmaps/bitmap_group.h': {'of': 'source/bitmaps/bitmap_group.h', 'guard': 'BITMAP_GROUP_H',
-                               'includes': ('tag_files/tag_groups.h',), 'items': [
+                               'includes': ('"tag_files/tag_groups.h"',), 'items': [
         ('enum', 'source/bitmaps/bitmap_group.h', 'BITMAP_GROUP_TAG'),
         ('struct', 'source/bitmaps/bitmap_group.h', 'bitmap_data'),
         ('struct', 'source/bitmaps/bitmap_group.h', 'bitmap_group_sequence'),
@@ -514,13 +521,13 @@ STAND_INS = {
             ('function', 'source/rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h', 'rasterizer_bitmap_new'),
             ('function', 'source/rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h', 'rasterizer_bitmap_delete'),
         ]},
-    'port_config.h': {'of': 'port/linux/src/port_config.h', 'includes': ('stddef.h',), 'items': [
+    'port_config.h': {'of': 'port/linux/src/port_config.h', 'includes': ('<stddef.h>',), 'items': [
         ('function', 'port/linux/src/port_config.h', 'config_string'),
         ('function', 'port/linux/src/port_config.h', 'config_integer'),
         ('function', 'port/linux/src/port_config.h', 'config_folder'),
     ]},
     'platform.h': {'of': 'port/linux/src/platform.h', 'items': [('function', 'port/linux/src/platform.h', 'platform_log')]},
-    'gpu.h': {'of': 'port/linux/src/gpu.h', 'includes': ('stdint.h',), 'items': [
+    'gpu.h': {'of': 'port/linux/src/gpu.h', 'includes': ('<stdint.h>',), 'items': [
         ('typedef', 'port/linux/src/gpu.h', 'gpu_texture'), ('function', 'port/linux/src/gpu.h', 'gpu_texture_destroy'),
     ]},
     'xgpu.h': {'of': 'port/linux/src/xgpu.h', 'items': []},
@@ -561,12 +568,11 @@ def stand_in_item(item, root: Path = ROOT) -> str:
 
 
 def render_stand_in(name: str, spec, root: Path = ROOT) -> str:
-    users = 'menu_tags.c and menu_files.c'
-    out = [f"/* GENERATED by tools/host_stubs.py --write from {spec['of']}: the parts {users} use (STAND_INS). */"]
+    out = [f"/* GENERATED by tools/host_stubs.py --write from {spec['of']}: the parts {STAND_IN_USERS} use "
+           f"(STAND_INS). */"]
     if spec.get('guard'):
         out += [f"#ifndef {spec['guard']}", f"#define {spec['guard']}"]
-    out += [''] + [f'#include <{header}>' if header.endswith('.h') and '/' not in header else f'#include "{header}"'
-                   for header in spec.get('includes', ())]
+    out += [''] + [f'#include {header}' for header in spec.get('includes', ())]
     for item in spec['items']:
         out += ['', stand_in_item(item, root)]
     if spec.get('guard'):
@@ -578,7 +584,7 @@ def stand_in_problems(root: Path = ROOT, write: bool = False) -> list[str]:
     """The stand-ins that differ from what the generator writes (rewritten instead with write=True)."""
     problems = []
     for name, spec in STAND_INS.items():
-        path = root / 'port/ios/tests/menu_patch' / name
+        path = root / STAND_IN_DIRECTORY.relative_to(ROOT) / name
         try:
             expected = render_stand_in(name, spec, root)
         except LookupError as error:
@@ -587,7 +593,8 @@ def stand_in_problems(root: Path = ROOT, write: bool = False) -> list[str]:
         if write:
             path.write_text(expected)
         elif not path.exists() or path.read_text() != expected:
-            problems.append(f'port/ios/tests/menu_patch/{name} is stale (production changed a declaration it copies)')
+            problems.append(f'{STAND_IN_DIRECTORY.relative_to(ROOT) / name} is stale (production changed a declaration '
+                            'it copies)')
     return problems
 
 
@@ -606,12 +613,13 @@ def stub_object(build_dir: Path, compile_flags=()) -> Path:
     flags = tuple(compile_flags)
     key = hashlib.sha1(repr(flags).encode()).hexdigest()[:10]
     output = build_dir / f'host-stubs-{key}.o'
-    if flags not in _objects:
+    cached = (str(Path(build_dir).resolve()), flags)
+    if cached not in _objects or not output.exists():
         subprocess.run(['xcrun', 'clang', '-c', '-x', 'objective-c', '-fno-objc-arc', '-fblocks', '-Wall',
                         '-Wextra', '-Werror', *INCLUDES, *flags, str(OUTPUT), '-o', str(output)],
                        cwd=ROOT, check=True)
-        _objects[flags] = output
-    return _objects[flags]
+        _objects[cached] = output
+    return output
 
 
 def main() -> int:
