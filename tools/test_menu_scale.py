@@ -65,7 +65,7 @@ def test_widget_viewport_and_pointer_round_trip(tmp_path, apple):
 #include "halo_host_flags.h"
 #define CONFIG_SCENE_MENU 1
 static int enabled = 1, scene = 1, height = 402, width = 1044;
-int config_boolean(const char *name) { (void)name; return enabled; }
+int config_boolean(const char *name) { (void)name; return enabled; } /* fake: the probe switches the scale setting */
 int halo_scene_class(void) { return scene; }
 int halo_screen_ui_portrait(void) { return 0; }
 long halo_screen_width(void) { return width; }

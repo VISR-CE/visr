@@ -43,7 +43,7 @@ static struct unit_datum *unit_try_and_get(long index){return index==player.unit
 static struct weapon_datum *weapon_try_and_get(long index){return index==11||index==12||index==13?&weapons[index]:NULL;}
 static struct object_datum *object_try_and_get(long index){return index==31||index==32?&projectiles[index]:NULL;}
 static long *machine_get_player_list(int actor){return actor==1?players:NULL;}
-static void platform_log(const char *fmt,...){va_list a;va_start(a,fmt);vsnprintf(last_log,sizeof(last_log),fmt,a);va_end(a);logs++;}
+static void platform_log(const char *fmt,...){va_list a;va_start(a,fmt);vsnprintf(last_log,sizeof(last_log),fmt,a);va_end(a);logs++;} /* fake: keeps the last log line and counts logs */
 __OBSERVE__
 __PRODUCER__
 int main(void){

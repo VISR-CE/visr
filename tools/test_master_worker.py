@@ -25,6 +25,7 @@ static int close_during_request;
 unsigned long p2p_now(void) { return clock_now; }
 void Sleep(unsigned long time) { (void)time; }
 void platform_log(const char *format, ...) { (void)format; }
+/* fake: the probe switches debug.master_list and network.online per case */
 int config_boolean(const char *name) {
     if (!strcmp(name, "debug.master_list")) return enabled;
     if (!strcmp(name, "network.online")) return online;

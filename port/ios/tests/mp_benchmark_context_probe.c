@@ -17,11 +17,13 @@ static const char *network_test, *suite, *record, *replay, *map, *requested_map;
 static struct scenario scenario;
 static struct game_variant variant;
 
+/* fake: the probe switches the benchmark probe and own-input flags per case */
 int config_boolean(const char *name)
 {
 	if (!strcmp(name, "debug.benchmark_own_input")) return own_input;
 	return !strcmp(name, "debug.multiplayer_benchmark_probe") ? requested : 0;
 }
+/* fake: the probe sets the network test, suite, record and replay strings per case */
 const char *config_string(const char *name)
 {
 	if (!strcmp(name, "debug.network_test")) return network_test;

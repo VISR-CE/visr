@@ -97,8 +97,8 @@ static void D3DDevice_SetVertexShaderConstant(int reg, const void *data, unsigne
 		}
 }
 static long point_light_object_count;
-static long config_integer(const char *name) { (void)name; return 8; }
-static boolean config_boolean(const char *name) { (void)name; return TRUE; }
+static long config_integer(const char *name) { (void)name; return 8; } /* fake: the probe wants an integer setting of 8 */
+static boolean config_boolean(const char *name) { (void)name; return TRUE; } /* fake: every boolean setting reads on */
 static short lights_port_point_lights_for_object(long object, long *indices, short limit)
 {
 	(void)object;

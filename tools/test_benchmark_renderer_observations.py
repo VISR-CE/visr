@@ -37,7 +37,7 @@ static long benchmark_anisotropy, benchmark_sampler_max_observed;
 static int gpu_filter(DWORD value) { return (int)value; }
 static int gpu_address(DWORD value) { return (int)value; }
 static float dword_to_float(DWORD value) { (void)value; return 0; }
-static long config_integer(const char *name) { (void)name; return 1; }
+static long config_integer(const char *name) { (void)name; return 1; } /* fake: the probe wants a nonzero anisotropy setting */
 static unsigned long config_changes(void) { return 0; }
 ''' + actual + r'''
 int main(void) {

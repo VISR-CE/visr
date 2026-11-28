@@ -83,6 +83,7 @@ static struct { struct { long score_to_win; } universal_variant; } variant;
 static void *game_engine_get_variant(void);
 #define game_engine_get_variant() (&variant)
 static struct { long (*get_player_score)(long,int); } *game_engine;
+/* fake: parses the network test log lines the test counts */
 static void platform_log(const char *format,...) {
     char line[8192]; va_list args; va_start(args,format);vsnprintf(line,sizeof(line),format,args);va_end(args);
     if (!strncmp(line,"network test: tick 90 actor player ",35)) {

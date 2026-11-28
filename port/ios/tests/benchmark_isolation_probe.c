@@ -4,6 +4,7 @@ and config_write (the menus' path) changes the value in memory only */
 #include <stdarg.h>
 #include <stdio.h>
 
+/* fake: prints each log line to stderr for the test to show */
 void platform_log(const char *format, ...)
 {
 	va_list arguments;

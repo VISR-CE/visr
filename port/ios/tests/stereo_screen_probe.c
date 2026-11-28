@@ -54,6 +54,7 @@ int platform_fixed_timestep(void) { return 1; }
 unsigned long platform_clock_frames(void) { return clock_frames; }
 double halo_frame_trace_milliseconds(void) { return 0.0; }
 void render_interpolation_presentation_due(unsigned long microseconds, int repeat) { (void)microseconds; (void)repeat; }
+/* fake: keeps the film, gameplay, zoom and easing log lines the test reads */
 void platform_log(const char *format, ...)
 {
 	va_list arguments;
@@ -75,6 +76,7 @@ void halo_controller_sample_draw(void) {}
 #include "../../linux/game/stereo.c"
 
 /* stereo.c's settings, at their defaults */
+/* fake: the probe sets display.stereo and the screen framing per case */
 const char *config_string(const char *name)
 {
 	if (!strcmp(name, "display.stereo"))
@@ -85,6 +87,7 @@ const char *config_string(const char *name)
 		return "snap";
 	return "";
 }
+/* fake: serves the stereo defaults the mapping math reads */
 double config_real(const char *name)
 {
 	if (!strcmp(name, "display.lod_scale"))
@@ -107,7 +110,6 @@ double config_real(const char *name)
 		return 120.0;
 	return 0.0;
 }
-int config_boolean(const char *name) { (void)name; return 0; }
 void config_graphics_head_stereo(int head) { (void)head; }
 
 /* host_stereo.m's SCREEN eyes: 64 mm apart about the head's offset, 4 m in

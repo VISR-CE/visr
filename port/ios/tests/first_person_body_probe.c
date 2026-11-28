@@ -64,6 +64,7 @@ static struct model *probe_models[8];
 #define PROBE_OFFSET 0.08f
 static int logs, setting_on = 1, gpu_stats = 1;
 static char last_log[512];
+/* fake: the probe flips display.first_person_body and debug.gpu_stats */
 int config_boolean(const char *name)
 {
 	if (!strcmp(name, "display.first_person_body"))
@@ -73,12 +74,14 @@ int config_boolean(const char *name)
 	return 0;
 }
 #define PROBE_SEAT_OFFSET 0.05f
+/* fake: serves the body and seat offsets under test */
 double config_real(const char *name)
 {
 	if (!strcmp(name, "display.first_person_body_seat_offset"))
 		return PROBE_SEAT_OFFSET;
 	return !strcmp(name, "display.first_person_body_offset") ? PROBE_OFFSET : 0.0;
 }
+/* fake: records the last log line and the count */
 void platform_log(const char *format, ...)
 {
 	va_list arguments;

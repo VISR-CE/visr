@@ -117,7 +117,7 @@ def test_browse_only_logs_rows_without_joining(tmp_path):
 static struct { int browsing, browse_only, browse_empty, mode; } network_test;
 static int logs, joins, opens;
 static struct p2p_listing row;
-static void platform_log(const char *format, ...) { (void)format; logs++; }
+static void platform_log(const char *format, ...) { (void)format; logs++; } /* fake: counts log calls the test reads */
 static int p2p_join_invite(const char *invite) { (void)invite; joins++; return 1; }
 static void p2p_lobby_browse(int on) { opens+=on; }
 int p2p_listing_map_kind(const struct p2p_listing *listing) { (void)listing; return P2P_MAP_STOCK; }

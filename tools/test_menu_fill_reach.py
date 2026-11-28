@@ -50,7 +50,7 @@ enum { _controller_glyph_blend_menu = 1 };
 static int height = 402, width = 1044;
 static float insets_now[4];
 static int zoom_on = 1;
-int config_boolean(const char *name) { (void)name; return zoom_on; }
+int config_boolean(const char *name) { (void)name; return zoom_on; } /* fake: the probe switches the zoom setting */
 int halo_scene_class(void) { return CONFIG_SCENE_MENU; }
 long halo_screen_width(void) { return width; }
 int halo_screen_ui_portrait(void) { return width < 640; }

@@ -73,6 +73,7 @@ static long tick;
 static unsigned configured;
 static unsigned merge = 1;
 long game_time_get(void) { return tick; }
+/* fake: serves the experiment bits the probe sets */
 int config_boolean(const char *name) {
     for (unsigned i = 0; i < SIM_EXPERIMENT_COUNT; i++)
         if (!strcmp(name, sim_experiment_names[i])) return (configured >> i) & 1;

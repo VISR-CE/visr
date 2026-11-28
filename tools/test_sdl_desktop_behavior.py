@@ -48,7 +48,7 @@ static void platform_fullscreen_kind_apply(void) {}
 static void platform_window_set_fullscreen(BOOL value) { fullscreen_calls++; actual_fullscreen = value; }
 static void platform_window_size_setting(long *width, long *height) { *width = 800; *height = 600; }
 static void SDL_SetWindowSize(SDL_Window *w, int width, int height) { (void)w; (void)width; (void)height; }
-static int config_boolean(const char *name) { (void)name; return 1; }
+static int config_boolean(const char *name) { (void)name; return 1; } /* fake: every setting reads on */
 static void SDL_GL_SetSwapInterval(int value) { (void)value; }
 '''
 MAIN = r'''

@@ -23,6 +23,7 @@ static char line[512];
 static struct { long corrections; } distributed_statistics;
 static long game_time_get(void) { return tick; }
 ''' + actual + r'''
+/* fake: captures the log line and counts lines the test reads */
 void platform_log(char const *format, ...) {
     va_list args;
     va_start(args, format);

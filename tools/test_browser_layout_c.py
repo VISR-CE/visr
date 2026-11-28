@@ -79,6 +79,7 @@ static int config_variable_string(char const *key, char *text, size_t size)
 {
     assert(!strcmp(key,"display.frame_rate")); snprintf(text,size,"%s",frame_rate); return 1;
 }
+/* fake: serves the browser filters the probe sets per case */
 static int config_boolean(char const *key)
 {
     if (!strcmp(key,"network.online")) return online;
@@ -86,6 +87,7 @@ static int config_boolean(char const *key)
     if (!strcmp(key,"network.browser_show_locked")) return show_locked;
     assert(!strcmp(key,"network.browser_show_unjoinable")); return show_unjoinable;
 }
+/* fake: serves the frame rate and game type the probe sets per case */
 static char const *config_string(char const *key)
 {
     if (!strcmp(key,"display.frame_rate")) return base_rate;
@@ -415,7 +417,7 @@ static void ui_widget_port_post_button(short controller, short button)
 }
 static char const *const browser_chip_values[] = { "all", "multiplayer", "coop" };
 static char const *const browser_chip_names[] = { "browser_chip_all", "browser_chip_multiplayer", "browser_chip_coop" };
-static char const *config_string(char const *key) { (void)key; return "all"; }
+static char const *config_string(char const *key) { (void)key; return "all"; } /* fake: the probe wants every chip value to read all */
 static void text_set(struct widget_instance *widget, wchar_t const *text) { (void)widget; (void)text; }
 static void visible_set(struct widget_instance *widget, boolean visible) { if (widget) widget->visible=visible; }
 static void usnprintf(wchar_t *text, int size, wchar_t const *format, ...) {
@@ -741,7 +743,7 @@ static void text_to_wide(char const *t, wchar_t *o, short n) { swprintf(o, n, L"
 static void map_display_name(char const *m, wchar_t *o) { swprintf(o, 64, L"%s", m); }
 static void lobby_map_show(struct widget_instance *d, char const *m) { (void)d; (void)m; }
 static void ui_widget_port_bar_dim(struct widget_instance *s, int slot, boolean d) { (void)s; (void)slot; dimmed = d; }
-static int config_boolean(char const *k) { return !strcmp(k, "network.online") ? online : 1; }
+static int config_boolean(char const *k) { return !strcmp(k, "network.online") ? online : 1; } /* fake: online follows the probe, everything else reads on */
 static long browser_target_fps(void) { return 60; }
 enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *g) { (void)g; return P2P_SERVER_PLAYER; }
 static boolean player_capacity_marked(long p, long m) { (void)p; (void)m; return FALSE; }

@@ -97,9 +97,9 @@ static void focus_chain(struct widget_instance *w) { (void)w; }
 static boolean ui_widget_port_browse(struct widget_instance *w, struct event_record *e, boolean *d) { (void)w; (void)e; (void)d; return 1; }
 
 __attribute__((unused)) static void platform_log(char const *format, ...) { (void)format; }
-static long config_integer(char const *key) { return !strcmp(key,"network.full_rate_players") ? full_rate : capacity; }
+static long config_integer(char const *key) { return !strcmp(key,"network.full_rate_players") ? full_rate : capacity; } /* fake: the probe sets the full-rate and capacity values */
 static int online = 1;
-static int config_boolean(char const *key) { (void)key; return online; }
+static int config_boolean(char const *key) { (void)key; return online; } /* fake: the probe sets the online flag */
 static int campaign_fail(void) { failures++; return 0; }
 static void *global_network_game_client_get(void) { return &multiplayer; }
 enum { _client_state_searching };

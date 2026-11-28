@@ -14,7 +14,7 @@
 @end
 static HostDataPackStore *launchStore;
 static int healthSignals;
-void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 const struct gpu_backend gpu_backend_metal = {0}, gpu_backend_gl = {0};
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     (void)name; snprintf(out, size, "%s", fallback);

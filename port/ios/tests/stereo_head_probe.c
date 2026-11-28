@@ -77,6 +77,7 @@ from last_log, which debug.head_yaw_log's line overwrites in the same frame */
 static char eyes_keep_log[256], look_asks_log[256];
 
 /* stereo.c's imports */
+/* fake: the probe sets display.stereo and input.turn per case */
 const char *config_string(const char *name)
 {
 	if (!strcmp(name, "display.stereo"))
@@ -87,6 +88,7 @@ const char *config_string(const char *name)
 		return "band";
 	return "";
 }
+/* fake: the probe sets the turn, film and HUD distance values per case */
 double config_real(const char *name)
 {
 	if (!strcmp(name, "display.lod_scale"))
@@ -119,10 +121,12 @@ double config_real(const char *name)
 		return setting_hud_distance;
 	return setting_snap_angle;
 }
+/* fake: the probe switches input.comfort_vignette */
 int config_boolean(const char *name) { return !strcmp(name, "input.comfort_vignette") && setting_comfort_vignette; }
 void config_graphics_head_stereo(int head) { (void)head; }
 void platform_video_drawable_size(int *width, int *height) { *width = probe_drawable[0]; *height = probe_drawable[1]; }
 void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
+/* fake: counts and keeps the stereo log lines the test reads */
 void platform_log(const char *format, ...)
 {
 	va_list arguments;

@@ -17,6 +17,7 @@ void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)))
 
 static char logged[1 << 16];
 
+/* fake: captures log lines the test reads back */
 void platform_log(const char *format, ...)
 {
 	size_t length = strlen(logged);

@@ -31,10 +31,10 @@ enum { _game_connection_local, _game_connection_network_client,
        _game_connection_network_server, _game_connection_film_playback };
 static const char *flag = "";
 static int split, connection, playing, isolated, benchmark_isolated, seen_point, seen_context;
-int config_boolean(const char *name) { return !strcmp(name, flag); }
-long config_integer(const char *name) { return !strcmp(name, flag); }
-double config_real(const char *name) { return !strcmp(name, flag); }
-const char *config_string(const char *name) { return !strcmp(name, flag) ? "active" : ""; }
+int config_boolean(const char *name) { return !strcmp(name, flag); } /* fake: reads on only for the flag the probe names */
+long config_integer(const char *name) { return !strcmp(name, flag); } /* fake: reads 1 only for the flag the probe names */
+double config_real(const char *name) { return !strcmp(name, flag); } /* fake: reads 1 only for the flag the probe names */
+const char *config_string(const char *name) { return !strcmp(name, flag) ? "active" : ""; } /* fake: reads active only for the flag the probe names */
 int config_benchmark_isolated(void) { return benchmark_isolated; }
 unsigned char input_replay_playing(void) { return playing; }
 unsigned char input_replay_sim_isolated(void) { return isolated; }
@@ -94,7 +94,7 @@ typedef int boolean;
 static const char *setting = "max";
 static unsigned long revision;
 static int reads;
-static const char *config_string(const char *name) { (void)name; reads++; return setting; }
+static const char *config_string(const char *name) { (void)name; reads++; return setting; } /* fake: returns the setting the probe sets and counts reads */
 static unsigned long config_changes(void) { return revision; }
 ''' + text[start:end] + r'''
 int main(void) {
@@ -128,18 +128,18 @@ static long shadow=256, anisotropy=2, benchmark_shadow_size;
 static long benchmark_anisotropy;
 static int effect=1, benchmark_effect_level=-1;
 static unsigned long config_changes(void) { return revision; }
-static long config_integer(const char *name) { return !strcmp(name,"display.shadow_map_size") ? shadow : anisotropy; }
+static long config_integer(const char *name) { return !strcmp(name,"display.shadow_map_size") ? shadow : anisotropy; } /* fake: serves the shadow and anisotropy values the probe sets */
 enum { CONFIG_SCENE_GAMEPLAY };
 /* (the workload context's value, when a map is variable: [variable.display]) */
 static long config_scene_integer(const char *name, int scene) { (void)scene; return config_integer(name); }
 static unsigned long knob_release_frame;
 static struct { unsigned long frame; } device = { 1000 };
-static const char *config_string(const char *name) { (void)name; return effect==1 ? "half" : "full"; }
+static const char *config_string(const char *name) { (void)name; return effect==1 ? "half" : "full"; } /* fake: serves the effect value the probe sets */
 static int effect_resolution_level(const char *value) { return !strcmp(value,"half") ? 1 : 2; }
 static void screen_scale_dense(float scale[2]) { scale[0]=scale[1]=2; }
 #define SHADOW_MAP_SIZE_MAX 512
 static int clamp_logs;
-static void platform_log(const char *format, ...) { (void)format; clamp_logs++; }
+static void platform_log(const char *format, ...) { (void)format; clamp_logs++; } /* fake: counts clamp log lines the test reads */
 ''' + actual + r'''
 int main(void) {
     float scale[2]={1,1};
@@ -185,7 +185,7 @@ enum { HALO_STEREO_HEAD=1, HALO_STEREO_SIDE_BY_SIDE=2 };
 #define HUD_RESOLUTION_MAX 1.0f
 static int stereo_mode;
 static double lod=1, hud=1;
-static double config_real(const char *name) { return !strcmp(name,"display.lod_scale") ? lod : hud; }
+static double config_real(const char *name) { return !strcmp(name,"display.lod_scale") ? lod : hud; } /* fake: serves the lod and HUD values the probe sets */
 ''' + actual + r'''
 int main(void) {
     assert(halo_stereo_lod_scale()==1 && halo_stereo_hud_resolution()==1);

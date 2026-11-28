@@ -36,7 +36,7 @@ static void halo_controller_pitch_offset_step(int direction){ pitch+=direction; 
 static void halo_aim_steady_cycle(void){ steady++; }
 static void halo_controller_weapon_smoothing_toggle(void){}
 static void halo_controller_arms_cycle(int direction){ (void)direction; }
-static int config_boolean(const char *name){ (void)name; return @ENABLED@; }
+static int config_boolean(const char *name){ (void)name; return @ENABLED@; } /* fake: the probe sets whether the chord is enabled */
 '''
 
 
@@ -117,8 +117,8 @@ typedef struct { WORD wButtons; BYTE bAnalogButtons[8]; short sThumbRY; } XINPUT
 #include "knob_cycle.h"
 static char applied[64], message[96], logged[64];
 static int applications;
-static int config_boolean(const char *name){ (void)name; return @ENABLED@; }
-static const char *config_string(const char *name){ (void)name; return "max"; }
+static int config_boolean(const char *name){ (void)name; return @ENABLED@; } /* fake: the probe sets whether the chord is enabled */
+static const char *config_string(const char *name){ (void)name; return "max"; } /* fake: the probe wants the max quality string */
 enum { CONFIG_SCENE_GAMEPLAY };
 static long config_scene_integer(const char *name, int scene){ (void)scene; return !strcmp(name, "display.shadow_map_size") ? 512 : 0; }
 static int config_scene_boolean(const char *name, int scene){ (void)name; (void)scene; return 0; }
@@ -126,7 +126,7 @@ static int config_scene_string(const char *name, int scene, char *text, unsigned
 static float halo_knob_render_quality(void){ return 0.6f; }
 static int config_set_live(const char *name, const char *value, char *note, size_t size){ snprintf(applied, sizeof(applied), "%s=%s", name, value); snprintf(note, size, "%s = %s", name, value); applications++; return 1; }
 static void halo_knob_message(const char *text){ snprintf(message, sizeof(message), "%s", text); }
-static void platform_log(const char *format, const char *note){ (void)format; snprintf(logged, sizeof(logged), "knob: %s", note); }
+static void platform_log(const char *format, const char *note){ (void)format; snprintf(logged, sizeof(logged), "knob: %s", note); } /* fake: keeps the knob note the test reads back */
 '''
 
 
@@ -210,7 +210,7 @@ def test_anisotropy_returns_to_the_setting_when_the_benchmark_clears_its_value(t
     fixture = r'''
 #include <assert.h>
 static long benchmark_anisotropy;
-static long config_integer(const char *name){ (void)name; return 8; }
+static long config_integer(const char *name){ (void)name; return 8; } /* fake: the probe wants an anisotropy setting of 8 */
 static unsigned long config_changes(void) { return 0; }
 ''' + probe_source.function_in(source, "anisotropy_in_force") + r'''
 int main(void){
