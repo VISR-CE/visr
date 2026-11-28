@@ -2,6 +2,7 @@
 # text, with their own brace matcher, or by importing one. Shrink-only: must equal BASELINE.json's "source.txt".
 astc_alpha_audit.py
 astc_upload_test.py
+build_site.py
 data_pack_validation.py
 disc_contract.py
 harness/__init__.py
@@ -54,6 +55,7 @@ test_browser_picture_selection.py
 test_browser_shortcut_input.py
 test_browser_text.py
 test_browser_touch_legends.py
+test_build_site.py
 test_camera_missed_tick.py
 test_checkpoint_timing.py
 test_cinematic_video_borders.py
@@ -210,6 +212,7 @@ test_uploaded_constants_initialized.py
 test_vehicle_options_keep.py
 test_xbox_menu_patches.py
 test_xbox_menus.py
+test_zero_init_structs.py
 text_filter_terms.py
 windows_build.py
 xdk_headers.py

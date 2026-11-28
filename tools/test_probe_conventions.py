@@ -20,11 +20,12 @@ The class: about 170 test files each built their probes with their own compiler 
   (`text.index("static void f(")`, `re.search(r"^enum kind")`), as `tools/probekit/source_lint.py` describes, may
   appear only in files on `tools/probekit/legacy/source.txt`, each with its count of them in `BASELINE.json`.
 - Rule 3b: an assert that a literal statement is somewhere in C text (`assert "f(x);" in text`) is counted per file
-  in `tools/probekit/legacy/literal_asserts.json`; a count may only fall and a file not in it may have none. These
+  in `BASELINE.json`'s `"literal_asserts"` record; a count may only fall, is lowered when it does, and a file not in
+  it may have none. These
   break on a refactor that keeps the behavior, and are replaced by behavior probes as they break.
 
-Rules 3a and 3b lint `tools/test_*.py`, `tools/ios_test.py` and `tools/harness/`; `legacy/source_exempt.txt` names
-the tests of the detector and of `probekit.source` themselves, with reasons.
+Rules 3a and 3b lint every Python file under `tools/` except `probekit/source.py`; `legacy/source_exempt.txt` names
+the detector and the tests of `probekit.source` themselves, with reasons.
 
 The legacy lists only shrink: each must equal its record in `legacy/BASELINE.json`, every file on one must still
 break its rule, and every file that breaks a rule must be on its list. A migrated file comes off its list; a new
@@ -306,6 +307,9 @@ def function_body(path, name):
 
 def enum_body(text):
     return re.search(r'enum\s*\{[^}]*\};', text).group()
+
+def unescaped_body(text):
+    return re.search(r"f\(\)\s*{(.*?)}", text, re.S).group(1)
 """
 
 
@@ -315,8 +319,9 @@ def test_the_source_lint_sees_the_regex_extractors_ios_test_used_to_have(tmp_pat
     found = extractor_findings(probe)
     lines = REMOVED_EXTRACTORS.splitlines()
     searches = [number for number, line in enumerate(lines, 1) if 're.search(' in line]
-    assert len(searches) == 4 and set(searches) <= set(found), (searches, found)
-    assert extractor_definitions(probe) == {'extracted_definition', 'body_of', 'function_body', 'enum_body'}
+    assert len(searches) == 5 and set(searches[:4]) <= set(found), (searches, found)
+    assert extractor_definitions(probe) == {'extracted_definition', 'body_of', 'function_body', 'enum_body',
+                                            'unescaped_body'}
 
 
 def test_the_source_lint_counts_imports_of_another_files_extractor(tmp_path):
@@ -357,6 +362,7 @@ def test_the_source_lint_sees_each_form_of_declaration_search(tmp_path):
                      're.search(r"(?:static )?void f\\(", text)\n'                      # 22
                      're.search(r"\\n(?:static |__inline )?[\\w *]+?\\b" + name, text)\n'  # 23
                      're.search(r"(?P<kind>struct|union) pair", text)\n'                # 24
+                     're.search(r"[\\w ]*\\bvoid f\\(", text)\n'                       # 25
                      'text.index("\\treturn value;")\n'
                      'text.index("if (ready)")\n'
                      'text.index("x = f(y);")\n'
@@ -366,7 +372,7 @@ def test_the_source_lint_sees_each_form_of_declaration_search(tmp_path):
                      're.search(r"case (P2P_[A-Z_]+):", text)\n'
                      're.search(r"(?:if|while) \\(", text)\n'
                      're.search(r"(\\w+)\\s*=", text)\n')
-    assert extractor_findings(probe) == [4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24]
+    assert extractor_findings(probe) == [4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25]
 
 
 def test_the_source_lint_sees_literal_statement_checks_on_c_text_only(tmp_path):

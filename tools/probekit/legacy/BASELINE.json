@@ -225,6 +225,7 @@
  "source.txt": {
   "astc_alpha_audit.py": 2,
   "astc_upload_test.py": 4,
+  "build_site.py": 2,
   "data_pack_validation.py": 1,
   "disc_contract.py": 2,
   "harness/__init__.py": 2,
@@ -277,6 +278,7 @@
   "test_browser_shortcut_input.py": 2,
   "test_browser_text.py": 1,
   "test_browser_touch_legends.py": 3,
+  "test_build_site.py": 5,
   "test_camera_missed_tick.py": 1,
   "test_checkpoint_timing.py": 2,
   "test_cinematic_video_borders.py": 3,
@@ -433,12 +435,12 @@
   "test_vehicle_options_keep.py": 1,
   "test_xbox_menu_patches.py": 3,
   "test_xbox_menus.py": 7,
+  "test_zero_init_structs.py": 1,
   "text_filter_terms.py": 1,
   "windows_build.py": 1,
   "xdk_headers.py": 1
  },
  "source_exempt.txt": [
-  "build_site.py",
   "probekit/source_lint.py",
   "test_probekit_source.py"
  ],

@@ -108,6 +108,10 @@ def _readings(pattern: str, depth: int = 0) -> list[str]:
     """The ways a regular expression can start, as text: a leading group gives each of its alternatives, and
     nothing when it is optional."""
     text = _LEADING_SPACE.sub("", pattern)
+    leading_class = re.match(r"\[(?:\\.|[^\]\\])*\][*?]\??", text)
+    if depth <= 4 and leading_class:
+        # an optional leading class (`[\\w ]*`): the pattern can start after it
+        return [text] + _readings(text[leading_class.end():], depth + 1)
     if depth > 4 or not text.startswith("("):
         return [text]
     end = _group_end(text)
@@ -200,8 +204,9 @@ def _pattern(call, re_modules, re_functions):
     return None
 
 
-_REGEX_OPEN = re.compile(r"\\\{|\[[^\]]*\{[^\]]*\]")
-_REGEX_CLOSE = re.compile(r"\\\}|\[[^\]]*\}[^\]]*\]")
+# an escaped brace, a brace in a class, or a bare brace that is not a `{m,n}` repeat
+_REGEX_OPEN = re.compile(r"\\\{|\[[^\]]*\{[^\]]*\]|(?<!\\)\{(?!\d*,?\d*\})")
+_REGEX_CLOSE = re.compile(r"\\\}|\[[^\]]*\}[^\]]*\]|(?<![\\\d,])\}")
 
 
 def _brace_tests(function) -> set[str]:
