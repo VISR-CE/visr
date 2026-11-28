@@ -240,11 +240,15 @@ def test_span_runs_from_a_macro_or_function_through_a_function_with_what_lies_be
 
 
 def test_span_names_what_is_gone_or_out_of_order():
-    with pytest.raises(LookupError, match='renamed, wrapped or split.*`last_slot`'):
+    with pytest.raises(LookupError, match=r'no function `last_slots` to bound a span: it may have been renamed, '
+                                          r'wrapped or split\. Closest names: `last_slot`'):
         source.span_in(SPAN, 'SLOTS', 'last_slots')
-    with pytest.raises(LookupError, match='renamed, wrapped or split'):
+    with pytest.raises(LookupError, match=r'no `#define SLOT` and no function `SLOT`.*Closest names: `SLOTS`'):
         source.span_in(SPAN, 'SLOT', 'last_slot')
     with pytest.raises(LookupError, match='comes before'):
         source.span_in(SPAN, 'last_slot', 'first_slot')
-    with pytest.raises(LookupError, match='#defined 2 times'):
+    with pytest.raises(LookupError, match=r'#defined 2 times in the text \(lines 1, 16\)'):
         source.span_in(SPAN + '#define SLOTS 5\n', 'SLOTS', 'last_slot')
+    twice = SPAN + '#if A\nstatic short last_slot(void)\n{\n\treturn 0;\n}\n#endif\n'
+    with pytest.raises(LookupError, match=r'defined 2 times in the text \(lines 10, 17: #if variants\?\).*defined once'):
+        source.span_in(twice, 'SLOTS', 'last_slot')

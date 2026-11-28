@@ -346,20 +346,37 @@ def region(path, name: str) -> str:
     return region_in(read(path), name, str(path))
 
 
-def _define_start(text: str, name: str, where: str):
-    """The start of the line of `#define name`, or None when the text does not define that macro."""
-    found = [match.start() for match in re.finditer(r"^[ \t]*#[ \t]*define[ \t]+" + re.escape(name) + r"\b",
-                                                     mask(text), re.M)]
-    if len(found) > 1:
-        raise LookupError(f"`{name}` is #defined {len(found)} times in {where}")
-    return found[0] if found else None
+_DEFINE = re.compile(r"^[ \t]*#[ \t]*define[ \t]+(\w+)", re.M)
+
+
+def _span_end(text: str, name: str, where: str, macro: bool):
+    """(start, end) of the definition bounding a span: `#define name` (when `macro`) or the function `name`."""
+    masked = mask(text)
+    defines = [match for match in _DEFINE.finditer(masked) if match.group(1) == name] if macro else []
+    if len(defines) > 1:
+        lines = ", ".join(str(text.count("\n", 0, match.start()) + 1) for match in defines)
+        raise LookupError(f"`{name}` is #defined {len(defines)} times in {where} (lines {lines}), so it does not "
+                          f"bound one span")
+    if defines:
+        return defines[0].start(), defines[0].end()
+    matches = _named(text, name, where)
+    if len(matches) > 1:
+        lines = ", ".join(str(text.count("\n", 0, item[1]) + 1) for item in matches)
+        raise LookupError(f"`{name}` is defined {len(matches)} times in {where} (lines {lines}: #if variants?), so "
+                          f"it does not bound one span; bound it by a name defined once")
+    if not matches:
+        names = [item[0] for item in definitions(text, where)] + \
+            ([match.group(1) for match in _DEFINE.finditer(masked)] if macro else [])
+        closest = difflib.get_close_matches(name, sorted(set(names)), n=5, cutoff=0.5)
+        hint = f" Closest names: {', '.join(f'`{item}`' for item in closest)}." if closest else ""
+        kind = f"no `#define {name}` and no function `{name}`" if macro else f"no function `{name}`"
+        raise LookupError(f"{where} has {kind} to bound a span: it may have been renamed, wrapped or split.{hint}")
+    return matches[0][1], matches[0][3]
 
 
 def span_in(text: str, first: str, last: str, where: str = "the text") -> str:
-    start = _define_start(text, first, where)
-    if start is None:
-        start = _find(text, first, where)[1]
-    _, last_start, _, end = _find(text, last, where)
+    start, _ = _span_end(text, first, where, macro=True)
+    last_start, end = _span_end(text, last, where, macro=False)
     if last_start < start:
         raise LookupError(f"`{last}` comes before `{first}` in {where}, so they do not bound a span")
     return text[start:end]
