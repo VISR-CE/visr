@@ -19,6 +19,10 @@ The class: about 170 test files each built their probes with their own compiler 
   (a function that matches braces itself) or a search whose literal pattern starts with a C declaration
   (`text.index("static void f(")`, `re.search(r"^enum kind")`), as `tools/probekit/source_lint.py` describes, may
   appear only in files on `tools/probekit/legacy/source.txt`, each with its count of them in `BASELINE.json`.
+- Rule S (the stub design's lint rule 2): a test or probe that defines a name the shared stub files cover
+  (`port/ios/tests/host_stubs.c`, `port_stubs.c`) marks it `/* fake: <why> */` (it returns state the probe sets up)
+  or drops it for the default; unmarked definitions appear only in files on `tools/probekit/legacy/stubs.txt`, each
+  with its count in `BASELINE.json` (`tools/probekit/stub_lint.py`).
 - Rule 3b: an assert that a literal statement is somewhere in C text (`assert "f(x);" in text`) is counted per file
   in `BASELINE.json`'s `"literal_asserts"` record; a count may only fall, is lowered when it does, and a file not in
   it may have none. These
@@ -42,6 +46,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from probekit.commands import written_commands_in
+from probekit import stub_lint
 from probekit.source_lint import (extractor_definitions, extractor_findings, imported_extractor_findings,
                                   literal_assert_findings)
 
@@ -587,3 +592,25 @@ def test_a_shrink_only_list_refuses_growth_stale_entries_and_more_commands():
     harness = shrink_only_problems('harness_not_run.txt', {'tools/harness/tests/test_x.py'},
                                    ['tools/harness/tests/test_x.py'], {'tools/harness/tests/test_x.py'})
     assert harness == []
+
+
+def test_rule_s_probes_take_the_shared_stubs_or_mark_their_fakes():
+    found = {name: len(lines) for name, lines in stub_lint.findings().items()}
+    check_shrink_only('stubs.txt', found,
+                      more_hint='define more covered names without /* fake: <why> */ than BASELINE.json records; '
+                      'drop the copy of the shared default or mark the fake')
+    new = {name: stub_lint.findings()[name] for name in found if name not in listed('stubs.txt')}
+    assert not new, ('these define names the shared stubs cover (tools/host_stubs.py); drop the copy and link the '
+                     'stubs (build(port_stubs=True) or host_stubs=True), or mark a definition that returns the '
+                     f'probe\'s own state /* fake: <why> */ (file: [(name, line)]): {new}')
+
+
+def test_negative_control_rule_s_sees_an_unmarked_copy_and_accepts_a_marked_fake(tmp_path):
+    probe = tmp_path / 'seam_probe.c'
+    probe.write_text('static int enabled;\n'
+                     'void platform_log(const char *format, ...) { (void)format; }\n'
+                     '/* fake: the probe switches the setting */\n'
+                     'int config_boolean(const char *name)\n{\n\treturn enabled;\n}\n'
+                     'long config_integer(const char *name) { return 3; }  /* fake: a fixed size */\n'
+                     'static void caller(void) { platform_log("x"); if (config_boolean("a")) { } }\n')
+    assert stub_lint.findings([probe]) == {str(probe): [('platform_log', 2)]}

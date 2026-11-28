@@ -2,3 +2,4 @@
 # Shrink-only: must equal BASELINE.json's "source_exempt.txt" record.
 probekit/source_lint.py  # rules 3a and 3b's detector, whose patterns describe declarations
 test_probekit_source.py  # fixture tests of probekit.source itself, which assert on the text it returns
+probekit/stub_lint.py  # the stub lint (rule S) finds definitions of stubbed names in probe text by pattern; it reads no production source
