@@ -36,6 +36,7 @@ import ast
 import functools
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -251,13 +252,14 @@ def test_rule_3b_literal_statement_checks_only_fall():
 
 def region_markers():
     """name -> files under port/ with a `probe-region:` marker of that name."""
+    found = subprocess.run(['git', 'grep', '--files-with-matches', '--fixed-strings', 'probe-region:', '--', 'port'],
+                           cwd=ROOT, capture_output=True, text=True)
+    assert found.returncode in (0, 1), found.stderr
     markers = {}
-    for path in (ROOT / 'port').rglob('*'):
-        if path.suffix in ('.c', '.h', '.m', '.mm', '.metal', '.inc') and path.is_file():
-            text = path.read_text(encoding='latin-1')
-            if 'probe-region:' in text:
-                for name in re.findall(r'/\* probe-region: ([\w-]+) \*/', text):
-                    markers.setdefault(name, []).append(str(path.relative_to(ROOT)))
+    for name in found.stdout.split():
+        text = (ROOT / name).read_text(encoding='latin-1')
+        for region in re.findall(r'/\* probe-region: ([\w-]+) \*/', text):
+            markers.setdefault(region, []).append(name)
     return markers
 
 
