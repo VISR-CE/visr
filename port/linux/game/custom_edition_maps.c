@@ -48,6 +48,7 @@ Each map can have, beside it in its folder:
 #include "custom_edition_cache.h"
 #include "custom_edition_maps.h"
 #include "map_share.h"
+#include "../../runtime/stock_maps.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -149,18 +150,6 @@ struct custom_edition_maps_globals
 
 static struct custom_edition_maps_globals custom_edition_maps_globals;
 
-/* Halo PC's own multiplayer maps (not on the Xbox), with their menu names
-from ui.map's mp_map_list. They are listed as VANILLA. */
-static struct
-{
-	char const *file;
-	wchar_t const *name;
-} const stock_maps[] =
-{
-	{ "icefields", L"Ice Fields" }, { "deathisland", L"Death Island" }, { "dangercanyon", L"Danger Canyon" },
-	{ "infinity", L"Infinity" }, { "timberland", L"Timberland" }, { "gephyrophobia", L"Gephyrophobia" },
-};
-
 /* for a map without a description file */
 static wchar_t const default_description[] = L"Halo Custom\r\nEdition map";
 
@@ -188,19 +177,15 @@ static void custom_edition_maps_forget(
 	return;
 }
 
-/* the map's index in stock_maps, or NONE (by its name without its hash) */
-static short stock_map_index(
+/* Halo PC's own multiplayer map (not on the Xbox) of this name, without its
+hash (stock_maps.h), or NULL: listed as VANILLA, by its menu name from
+ui.map's mp_map_list */
+static struct stock_map const *stock_map_find(
 	char const *name)
 {
-	short length = map_share_name_base_length(name);
-	short index;
+	struct stock_map const *map = stock_map_named(name, (size_t)map_share_name_base_length(name));
 
-	for (index = 0; index < NUMBEROF(stock_maps); index++)
-	{
-		if ((short)csstrlen(stock_maps[index].file) == length && !_strnicmp(name, stock_maps[index].file, length))
-			return index;
-	}
-	return NONE;
+	return map && (map->flags & STOCK_MAP_PC_MULTIPLAYER) ? map : NULL;
 }
 
 /* A map's menu name: Halo PC's name for its own maps, otherwise the file
@@ -211,12 +196,15 @@ static void display_name_make(
 	wchar_t *display_name)
 {
 	boolean word_start = TRUE;
-	short index = stock_map_index(name);
+	struct stock_map const *stock = stock_map_find(name);
 	short length = map_share_name_base_length(name);
+	short index;
 
-	if (index != NONE)
+	if (stock)
 	{
-		ustrcpy(display_name, stock_maps[index].name);
+		for (index = 0; stock->display_name[index]; index++)
+			display_name[index] = (wchar_t)(unsigned char)stock->display_name[index];
+		display_name[index] = 0;
 		return;
 	}
 
@@ -836,7 +824,7 @@ boolean custom_edition_maps_stock(
 {
 	struct custom_edition_map *map = custom_edition_map_get(display_index);
 
-	return map && stock_map_index(map->name) != NONE;
+	return map && stock_map_find(map->name) != NULL;
 }
 
 wchar_t *custom_edition_maps_name(

@@ -36,6 +36,7 @@
 #include "benchmark_metrics.h"
 #include "benchmark_plan.h"
 #include "../../runtime/graphics_capture.h"
+#include "../../runtime/stock_maps.h"
 #include <math.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -1599,21 +1600,9 @@ static double reality_check_seconds(const struct benchmark_scene *scene) {
 
 /* a scene by a name a player knows: the level, or the map and its players */
 static NSString *scene_title(const struct benchmark_scene *scene) {
-    static NSDictionary<NSString *, NSString *> *names;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
-        names = @{ @"a10": @"The Pillar of Autumn", @"a30": @"Halo", @"a50": @"The Truth and Reconciliation",
-            @"b30": @"The Silent Cartographer", @"b40": @"Assault on the Control Room", @"c10": @"343 Guilty Spark",
-            @"c20": @"The Library", @"c40": @"Two Betrayals", @"d20": @"Keyes", @"d40": @"The Maw",
-            @"beavercreek": @"Battle Creek", @"bloodgulch": @"Blood Gulch", @"boardingaction": @"Boarding Action",
-            @"carousel": @"Derelict", @"chillout": @"Chill Out", @"damnation": @"Damnation", @"dangercanyon": @"Danger Canyon",
-            @"deathisland": @"Death Island", @"gephyrophobia": @"Gephyrophobia", @"hangemhigh": @"Hang 'Em High",
-            @"icefields": @"Ice Fields", @"infinity": @"Infinity", @"longest": @"Longest", @"prisoner": @"Prisoner",
-            @"putput": @"Chiron TL34", @"ratrace": @"Rat Race", @"sidewinder": @"Sidewinder", @"timberland": @"Timberland",
-            @"wizard": @"Wizard" };
-    });
     NSString *map = @(scene->map).lastPathComponent.lowercaseString;
-    NSString *name = names[map];
+    const struct stock_map *stock = stock_map_named(map.UTF8String, strlen(map.UTF8String));
+    NSString *name = stock && !(stock->flags & STOCK_MAP_INTERFACE) ? @(stock->display_name) : nil;
     if (scene->kind == BENCHMARK_SCENE_MULTIPLAYER)
         return [NSString stringWithFormat:@"%@, %d players", name ?: @"Multiplayer", scene->players];
     if (scene->kind == BENCHMARK_SCENE_MENU) return @"Main menu";

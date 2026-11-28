@@ -30,7 +30,7 @@ NEGATIVE_CONTROLS = {
     "pieces-rounded-down": (("(size + MAP_SHARE_PIECE_BYTES - 1)", "(size)"), "map_share_piece_count", "pieces"),
     "shows-the-hash": (("map_share_name_base_length(name)", "(short)csstrlen(name)"), "display_name_make",
                        "display-names"),
-    "stock-by-whole-name": (("map_share_name_base_length(name)", "(short)csstrlen(name)"), "stock_map_index",
+    "stock-by-whole-name": (("(size_t)map_share_name_base_length(name)", "csstrlen(name)"), "stock_map_find",
                             "display-names"),
     "the-first-numbered-too": (("short number = 1;", "short number = 2;"), "custom_edition_maps_tell_versions_apart",
                                "versions-numbered"),
@@ -61,9 +61,8 @@ def generated(fault=None, faulty_function=None):
         text += code + "\n"
     # the menus' names (custom_edition_maps.c): Halo PC's own maps, and the rest
     maps = read("port/linux/game/custom_edition_maps.c")
-    start = maps.index("static struct\n{\n\tchar const *file;")
-    text += maps[start:maps.index("};", start) + 2] + "\n"
-    for name in ("stock_map_index", "display_name_make", "custom_edition_maps_tell_versions_apart"):
+    text += read("port/runtime/stock_maps.h").replace("#pragma once", "") + "\n"
+    for name in ("stock_map_find", "display_name_make", "custom_edition_maps_tell_versions_apart"):
         code = function(maps, name)
         if fault and name == faulty_function:
             code = mutated(code, *fault)
