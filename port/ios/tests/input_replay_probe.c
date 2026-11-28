@@ -74,10 +74,12 @@ static int timed_benchmark, review_take;
 static const char *replay_name = "";
 static const char *record_name = "";
 static int staging_ignored_logs;
+/* fake: counts the staging-ignored log lines the probe reads */
 void platform_log(const char *format, ...) {
 	if (strstr(format, "ignoring debug.benchmark_staging")) staging_ignored_logs++;
 }
 unsigned long config_changes(void) { return environment_config_changes; }
+/* fake: returns the settings the probe switches per case and counts lip sync reads */
 int config_boolean(const char *name) {
 	if (!strcmp(name, "debug.benchmark_lip_sync")) lip_sync_config_reads++;
 	return !strcmp(name, "debug.scenario_help") ||
@@ -86,6 +88,7 @@ int config_boolean(const char *name) {
 	(!strcmp(name, "debug.benchmark") && timed_benchmark) ||
 	(!strcmp(name, "game.enhanced_animations") && enhanced_animations); }
 long config_integer(const char *name) { (void)name; return 0; }
+/* fake: returns the staging, stereo, record and replay values the probe sets */
 const char *config_string(const char *name) {
 	if (!strcmp(name, "debug.benchmark_staging")) return staging_config;
 	if (!strcmp(name,"display.stereo")) return replay_probe_stereo_mode;

@@ -31,6 +31,7 @@ int platform_fixed_timestep(void) { return 0; }
 real game_time_get_speed(void) { return 1.0f; }
 /* the last "stereo lead" line's pinned counts, and how many such lines */
 static unsigned long logged_pinned[2], lead_lines;
+/* fake: captures the stereo lead log line the test reads */
 void platform_log(const char *format, ...)
 {
 	char line[512];
@@ -46,6 +47,7 @@ void platform_log(const char *format, ...)
 		lead_lines++;
 }
 static int lead_setting = 1;
+/* fake: the probe switches the lead setting per case */
 int config_boolean(const char *name) { (void)name; return lead_setting; }
 static int loop_frame_ticked;
 #include "interpolation_lead.h"

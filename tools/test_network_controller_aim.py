@@ -240,6 +240,7 @@ static struct observer_result direct_cameras[2];
 static int direct_setting, replay, inhibited;
 static unsigned long changes;
 static unsigned long config_changes(void){return changes;}
+/* fake: the probe flips the direct setting per case */
 static int config_boolean(const char *name){(void)name;return direct_setting;}
 static int input_replay_controls_facing(short local){(void)local;return replay;}
 static int director_get_perspective(short local){(void)local;return perspective;}

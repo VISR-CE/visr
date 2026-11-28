@@ -22,6 +22,7 @@ def test_window_events_and_marker(tmp_path):
 #include "benchmark_startup_probe.c"
 #undef main
 static int marker_enabled, review_enabled;
+/* fake: the probe switches the window marker and review settings per case */
 int config_boolean(const char *name) {
     if (!strcmp(name, "debug.benchmark_review_take")) return review_enabled;
     assert(!strcmp(name, "debug.benchmark_window_marker"));

@@ -382,6 +382,7 @@ typedef int boolean;
 static int requests;
 static double accepted_seconds;
 static void profile_console_install(void) {}
+/* fake: answers 32 for every key, which the trace request code under test reads */
 static long config_integer(const char *name) { (void)name; return 32; }
 static void console_printf(boolean flag, const char *format, ...) { (void)flag; (void)format; }
 int profile_trace_request_start(double seconds, int when, long memory) {

@@ -80,6 +80,7 @@ static BOOL platform_is_contiguous(const void *pointer)
 	return (const unsigned char *)pointer >= arena && (const unsigned char *)pointer < arena + sizeof(arena);
 }
 static int config_boolean(const char *key) { (void)key; return FALSE; }
+/* fake: returns the texture dump directory the probe sets */
 static const char *config_string(const char *key)
 {
 	return !strcmp(key, "debug.texture_dump_directory") ? fixture_dump : "";

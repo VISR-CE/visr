@@ -33,6 +33,7 @@ static struct halo_glyph_motion glyph_mouse_motion;
 static int dev, keyboard = 1;
 static char const *family = "";
 static int host_development_hooks(void) { return dev; }
+/* fake: returns the glyph family the probe sets per case */
 static char const *config_string(char const *key) { (void)key; return family; }
 static int platform_menu_keyboard(void) { return keyboard; }
 static struct halo_glyph_input glyph_input_shown(int *overridden);

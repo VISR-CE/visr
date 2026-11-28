@@ -44,6 +44,7 @@ def test_scripted_import_capture_gate(tmp_path):
 static int available, importing, scripted, debug;
 static int host_photo_mode_available(void) { return available; }
 static int host_map_pictures_import_stage(void) { return importing; }
+/* fake: the probe switches the debug setting per case */
 static int config_boolean(const char *key) { (void)key; return debug; }
 static int refused(void) { return CONDITION; }
 int main(void)

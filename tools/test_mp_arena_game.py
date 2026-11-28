@@ -66,6 +66,7 @@ static real_vector3d *player_control_get_facing_direction(short i,real_vector3d 
 static void input_abstraction_get_local_player_preferences(short i,struct game_input_preferences*p) {
     (void)i;p->joystick_controls=0;p->invert_look=profile_inverted; }
 static char last_log[512];
+/* fake: captures the last log line the test reads */
 static void platform_log(const char *format,...) { va_list args;va_start(args,format);vsnprintf(last_log,sizeof(last_log),format,args);va_end(args); }
 #include "__SOURCE__"
 int main(void) {

@@ -19,6 +19,7 @@ typedef int BOOL;
 #define TRUE 1
 #define FALSE 0
 static const char *mode, *key, *value;
+/* fake: returns the value the probe is run with for the one key it names */
 static const char *config_string(const char *name)
 {
     if (!strcmp(name, "display.movies") || !strcmp(name, "display.async_shaders"))
@@ -26,16 +27,19 @@ static const char *config_string(const char *name)
     assert(!strcmp(name, "debug.input_replay") || !strcmp(name, "debug.benchmark_suite"));
     return !strcmp(name, key) ? value : "";
 }
+/* fake: returns the value the probe is run with for the one key it names */
 static int config_boolean(const char *name)
 {
     assert(!strcmp(name, "debug.benchmark"));
     return !strcmp(name, key) ? atoi(value) : 0;
 }
+/* fake: returns the value the probe is run with for the one key it names */
 static double config_real(const char *name)
 {
     assert(!strcmp(name, "debug.exit_after"));
     return !strcmp(name, key) ? atof(value) : 0.0;
 }
+/* fake: returns the value the probe is run with for the one key it names */
 static int config_integer(const char *name)
 {
     assert(!strcmp(name, "debug.screenshot_every"));

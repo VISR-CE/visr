@@ -154,6 +154,7 @@ static const char *setting_stereo = "head";
 static double setting_lod_scale = 1.0, setting_hud_resolution = 1.0;
 static int lod_logs, clamp_logs, hud_resolution_logs;
 static char last_log[256];
+/* fake: returns the stereo mode the probe sets and fixed framing and turn answers */
 const char *config_string(const char *name)
 {
 	if (!strcmp(name, "display.stereo"))
@@ -164,6 +165,7 @@ const char *config_string(const char *name)
 		return "band";
 	return "";
 }
+/* fake: returns the lod scale and hud resolution the probe sets and fixed film and turn values */
 double config_real(const char *name)
 {
 	if (!strcmp(name, "display.lod_scale"))
@@ -184,10 +186,10 @@ double config_real(const char *name)
 		return 120.0;
 	return 0.0;
 }
-int config_boolean(const char *name) { (void)name; return 0; }
 void config_graphics_head_stereo(int head) { (void)head; }
 void platform_video_drawable_size(int *width, int *height) { *width = *height = 0; }
 void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
+/* fake: captures log lines the probe counts */
 void platform_log(const char *format, ...)
 {
 	va_list arguments;

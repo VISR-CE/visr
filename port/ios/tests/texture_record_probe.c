@@ -16,7 +16,7 @@ second set of debug.texture_compare_directory beside the cache. */
 struct gpu_capabilities device_capabilities = { .max_texture_size = 8192 };
 static unsigned created, live, uploads, last_format, last_levels, last_width;
 static uint64_t uploaded_bytes;
-void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 gpu_texture gpu_texture_create(const struct gpu_texture_description *d)
 {
 	last_format = d->format; last_levels = d->levels; last_width = d->width;

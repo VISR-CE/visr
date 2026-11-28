@@ -35,6 +35,7 @@ static void menu_profile_description(int unused) {}
 static char const *tag_get_name(long tag) { return tag_name; }
 static long tag_loaded(int group, char const *name) { return 2; }
 static void platform_log(char const *format, ...) {}
+/* fake: returns the setting the probe switches per case */
 static char const *config_string(char const *name) { return setting; }
 #define PC_MENU_TAG_PREFIX "pc\\"
 static struct { void *menus; } build = {0};

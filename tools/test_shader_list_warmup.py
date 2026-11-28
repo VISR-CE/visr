@@ -101,6 +101,7 @@ static uint64_t hash64(const void *bytes, unsigned long size) { (void)bytes; (vo
 static int warm_enabled = 1, mode_flags;
 static long point_light_highlight, point_light_limit;
 static long requested_highlight = 2, requested_limit = 5, alternate;
+/* fake: returns the highlight and limit requests the probe sets */
 static long config_integer(const char *key) {
     if (!strcmp(key, "display.point_light_highlight")) return requested_highlight;
     if (!strcmp(key, "display.point_light_limit")) return requested_limit;
@@ -167,10 +168,12 @@ uint32_t gpu_warm_list_read(const char *map, char *destination, uint32_t size) {
     memcpy(destination, bundled_text, size);
     return size;
 }
+/* fake: returns the record directory the probe sets */
 static const char *config_string(const char *key) {
     if (!strcmp(key, "debug.shader_list_record")) return record_directory;
     return "";
 }
+/* fake: returns the warm and per-pixel settings the probe sets */
 static int config_boolean(const char *key) {
     if (!strcmp(key, "display.per_pixel_lighting")) return mode_flags & 1;
     return !strcmp(key, "debug.shader_list_warm") && warm_enabled;

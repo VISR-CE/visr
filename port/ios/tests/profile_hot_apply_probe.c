@@ -6,7 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #define __HALO_LINUX_PLATFORM_H
-void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 static const char *pending;
 static int pending_reads, last_cap, applies;
 int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long size)

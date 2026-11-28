@@ -31,6 +31,7 @@ static const char *configured="Q";
 /* BINDING SETTINGS */
 static const char *override;
 static int host_development_hooks(void) { return dev; }
+/* fake: returns the glyph family override the probe sets */
 static const char *config_string(const char *name) { return !strcmp(name,"debug.controller_glyph_family") ? (override?override:""):""; }
 /* the profile of the player on gamepad 0: its bindings are the names in `configured` (Q or "Unbound,Q": a name of one
 letter is a key, any other is none), the scoreboard's T and the pause's P */
