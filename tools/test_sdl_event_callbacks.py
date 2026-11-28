@@ -9,6 +9,8 @@ defined in port/ios/host. Limits: macros, function-pointer calls and names outsi
 import re
 from pathlib import Path
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parent.parent
 HOST = ROOT / "port/ios/host"
 FORBIDDEN = re.compile(r"\bSDL_\w*(?:Gamepad|Joystick)\w*|\bhost_main_sync\w*|\bdispatch_sync\w*")
@@ -17,8 +19,8 @@ DEFINITION = re.compile(r"^\w[^\n;{}]*\b(\w+)\([^;{}]*\)\s*\{", re.MULTILINE)
 
 
 def strip_comments(text: str) -> str:
-    text = re.sub(r"/\*.*?\*/", " ", text, flags=re.DOTALL)
-    return re.sub(r"//[^\n]*", " ", text)
+    """The text with its comments blanked and its strings kept (probekit.source's one comment splitter)."""
+    return probe_source.mask(text, strings=False)
 
 
 def functions(text: str) -> dict[str, str]:
