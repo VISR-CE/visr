@@ -4,10 +4,9 @@ so a stage that still zeroes or replaces the player's pad fails here (the bug cl
 and the next undid it)."""
 from pathlib import Path
 import re
-import shutil
 import subprocess
 
-from probekit import source as probe_source
+from probekit import cc, source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -39,7 +38,7 @@ static void record_end(const char *why) { (void)why; }
 static int game_time_get_paused(void) { return paused; }
 static void record(XINPUT_GAMEPAD *pad, double ticks) { (void)pad; (void)ticks; }
 static void play(XINPUT_GAMEPAD *pad, double ticks) { (void)pad; (void)ticks; }
-static int config_boolean(const char *name) { (void)name; return 0; }
+int config_boolean(const char *name);
 '''
 
 MAIN = r'''
@@ -85,8 +84,6 @@ int main(void)
 
 
 def test_own_input_reaches_the_game(tmp_path):
-    compiler = shutil.which("clang") or shutil.which("cc")
-    assert compiler, "a C compiler is required"
     xinput = (ROOT / "port/linux/src/xinput_sdl.c").read_text()
     replay = (ROOT / "port/linux/src/input_replay.c").read_text()
     source = (FIXTURE + probe_source.function_in(xinput, "mp_benchmark_probe_or_test_gamepad") +
@@ -94,9 +91,7 @@ def test_own_input_reaches_the_game(tmp_path):
     source_file = tmp_path / "benchmark_own_input.c"
     binary = tmp_path / "benchmark_own_input"
     source_file.write_text(source)
-    built = subprocess.run([compiler, "-std=gnu11", "-O1", "-fsanitize=address,undefined", str(source_file), "-o", str(binary)],
-                           capture_output=True, text=True)
-    assert built.returncode == 0, built.stderr
+    cc.build([source_file], output=binary, options=["-O1"], sanitize=True, port_stubs=True)
     ran = subprocess.run([str(binary)], capture_output=True, text=True)
     assert ran.returncode == 0, ran.stderr
 

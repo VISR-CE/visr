@@ -1,18 +1,13 @@
 """Exercise production action dequeue and network egress with independent metadata."""
 from pathlib import Path
 import subprocess
-import shutil
-from unittest import SkipTest
 
-from probekit import source as probe_source
+from probekit import cc, source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_local_tutorial_metadata_is_consumed_before_simulation_and_never_sent(tmp_path):
-    compiler = shutil.which('clang') or shutil.which('cc')
-    if not compiler:
-        raise SkipTest('A C compiler is required for the action metadata probe')
     queues = (ROOT / 'source/game/player_queues_new.c').read_text()
     network = (ROOT / 'port/linux/game/network_distributed.c').read_text()
     source = r'''
@@ -194,5 +189,5 @@ int main(void){
     path = tmp_path / 'metadata.c'
     path.write_text(source)
     binary = tmp_path / 'metadata'
-    subprocess.run([compiler,'-O2','-fsanitize=address,undefined',str(path),'-lm','-o',str(binary)],check=True)
+    cc.build([path], output=binary, options=['-O2'], sanitize=True, port_stubs=True)
     subprocess.run([str(binary)],check=True)

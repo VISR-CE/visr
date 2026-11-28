@@ -4,11 +4,10 @@ A weapon that never touched the map, dropped by a unit that died outside it, is 
 cluster and then activated by `object_detach`. The game asserted on it (objects.c #369) the next time
 the players' view changed. This runs `objects_update`, taken from the source, over such objects.
 """
-import shutil
 import subprocess
 
 from test_network_controller_aim import ROOT, run_probe
-from probekit import source as probe_source
+from probekit import cc, source as probe_source
 
 PROLOGUE = r'''
 #include <assert.h>
@@ -134,13 +133,10 @@ def test_negative_control_the_original_assertion_fires(tmp_path):
         "match_assert(\"c:\\\\halo\\\\SOURCE\\\\objects\\\\objects.c\", 369, object_header->cluster_index!=NONE);\n"
         "\t\t\t\t\tif (!BIT_VECTOR_TEST_FLAG(")
     assert original != objects, "the fixed condition was not found"
-    compiler = shutil.which("clang") or shutil.which("cc")
     source = tmp_path / "objects_cluster_none_original.c"
     source.write_text(program(original))
     binary = tmp_path / "objects_cluster_none_original"
-    compiled = subprocess.run([compiler, "-std=gnu11", "-O1", "-g", str(source), "-o", str(binary)],
-                              capture_output=True, text=True)
-    assert compiled.returncode == 0, compiled.stderr
+    cc.build([source], output=binary, options=["-O1", "-g"], relaxed=["logical-op-parentheses"], port_stubs=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
     # (stopped by the game's assertion itself, before the out-of-range bit is read)
     assert result.returncode == 3 and "halt: objects.c #369" in result.stderr, result.stderr

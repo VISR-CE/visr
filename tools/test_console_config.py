@@ -12,6 +12,8 @@ import subprocess
 
 import pytest
 
+from probekit import cc
+
 ROOT = Path(__file__).resolve().parents[1]
 
 HARNESS = r"""
@@ -83,8 +85,8 @@ def build(tmp_path):
     include.mkdir()
     for header in ("console_config.h", "cinematic_skip.h"):
         (include / header).write_text((ROOT / "port/linux/include" / header).read_text())
-    subprocess.run(["cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-I", str(include),
-                    str(harness), str(ROOT / "port/linux/src/console_config.c"), "-o", str(executable)], check=True)
+    cc.build([harness, ROOT / "port/linux/src/console_config.c"], output=executable, std="c99", includes=[include],
+             extra_warnings=True, port_stubs=True)
     return executable
 
 
@@ -239,9 +241,8 @@ def test_live_set_changes_the_value_in_force(tmp_path):
         pytest.skip("the probe needs xcrun clang and SDL3's pkg-config")
     sdl = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "--libs", "sdl3"], text=True))
     probe = tmp_path / "config-live-probe"
-    subprocess.run(["xcrun", "clang", "-O1", "-fsanitize=address", "-DHALO_ILP32=1", "-Iport/linux/src",
-                    "-Iport/third_party/tomlc17", "port/ios/tests/config_live_probe.c", *sdl, "-o", str(probe)],
-                   cwd=ROOT, check=True)
+    cc.build(["port/ios/tests/config_live_probe.c"], output=probe, apple=True, defines=["HALO_ILP32=1"],
+             includes=["port/linux/src", "port/third_party/tomlc17"], options=["-O1", "-fsanitize=address", *sdl], port_stubs=True)
     result = subprocess.run([str(probe)], cwd=ROOT, check=True, capture_output=True, text=True)
     assert "config_live_probe: ok" in result.stdout
 

@@ -8,6 +8,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 import ios_bridges
+from probekit import cc
 
 
 def test_compile_progress_bridge_writes_the_guest_snapshot():
@@ -41,12 +42,9 @@ int main(void) {
         probe = Path(directory) / "probe.c"
         binary = Path(directory) / "probe"
         probe.write_text(boundaries + bridge + checks)
-        subprocess.run([
-            "xcrun", "clang", "-O2", "-Wall", "-Wextra", "-Werror",
-            "-fsanitize=address,undefined", f"--include-directory={ROOT / 'port/linux/src'}",
-            f"--include-directory={ROOT / 'port/ios/host'}", f"--include-directory={ROOT / 'port/runtime/include'}",
-            str(probe), f"--output={binary}",
-        ], check=True)
+        cc.build([probe], output=binary, apple=True, extra_warnings=True, sanitize=True, options=["-O2"],
+                 includes=[ROOT / "port/linux/src", ROOT / "port/ios/host", ROOT / "port/runtime/include"],
+                 host_stubs=True)
         subprocess.run([str(binary)], check=True)
     print("PASS: generated compile-progress bridge writes the guest snapshot")
 
@@ -90,8 +88,8 @@ static int game_time_get(void) { return ticks; }
 const struct halo_stereo_frame *halo_stereo_frame(void) { return &stereo; }
 static unsigned long system_milliseconds(void) { return now; }
 static int platform_fixed_timestep(void) { return 0; }
-static int config_boolean(const char *name) { (void)name; return 0; }
-static long config_integer(const char *name) { (void)name; return 0; }
+int config_boolean(const char *name);
+long config_integer(const char *name);
 /* fake: answers game.loading_screen_seconds as the probe sets it */
 static double config_real(const char *name) {
     return !strcmp(name, "game.loading_screen_seconds") ? minimum : 0;
@@ -100,7 +98,7 @@ static double config_real(const char *name) {
 static const char *config_string(const char *name) {
     return !strcmp(name, "game.loading_screen") ? "on" : "";
 }
-static void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 static short main_get_solo_level_from_name(const char *name) { (void)name; return 0; }
 static void progress_bar_begin(int loaded) { (void)loaded; bar_active = 1; }
 static void progress_bar_end(void) { bar_active = 0; }
@@ -245,11 +243,8 @@ int main(void) {
         probe = Path(directory) / "probe.c"
         binary = Path(directory) / "probe"
         probe.write_text(boundaries + actual + checks)
-        subprocess.run([
-            "xcrun", "clang", "-O2", "-Wall", "-Wextra", "-Werror",
-            "-fsanitize=address,undefined", f"--include-directory={ROOT / 'port/linux/src'}",
-            f"--include-directory={ROOT / 'port/ios/host'}", str(probe), f"--output={binary}",
-        ], check=True)
+        cc.build([probe], output=binary, apple=True, extra_warnings=True, sanitize=True, options=["-O2"],
+                 includes=[ROOT / "port/linux/src", ROOT / "port/ios/host"], host_stubs=True)
         subprocess.run([str(binary)], check=True)
 
 
@@ -262,11 +257,9 @@ def test_synchronous_warmup_counts_actual_backend_jobs():
         probe = Path(directory) / "probe.m"
         binary = Path(directory) / "probe"
         probe.write_text(template.replace("/* PRODUCTION_WARMUP */", source[start:end]))
-        subprocess.run([
-            "xcrun", "clang", "-O2", "-fobjc-arc", "-fblocks", "-fsanitize=address,undefined",
-            "-framework", "Foundation", f"--include-directory={ROOT / 'port/linux/src'}",
-            f"--include-directory={ROOT / 'port/ios/host'}", str(probe), f"--output={binary}",
-        ], check=True)
+        cc.build([probe], output=binary, apple=True, sanitize=True,
+                 options=["-O2", "-fobjc-arc", "-fblocks", "-framework", "Foundation"],
+                 includes=[ROOT / "port/linux/src", ROOT / "port/ios/host"], host_stubs=True)
         subprocess.run([str(binary)], check=True)
 
 

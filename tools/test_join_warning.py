@@ -6,6 +6,7 @@ fail this probe before a password screen or network join can be reached.
 from pathlib import Path
 import subprocess
 import tempfile
+from probekit import cc
 from test_network_discovery import function
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,7 +97,7 @@ static void browser_focus(struct widget_instance *w) { (void)w; }
 static void focus_chain(struct widget_instance *w) { (void)w; }
 static boolean ui_widget_port_browse(struct widget_instance *w, struct event_record *e, boolean *d) { (void)w; (void)e; (void)d; return 1; }
 
-__attribute__((unused)) static void platform_log(char const *format, ...) { (void)format; }
+void platform_log(char const *format, ...);
 static long config_integer(char const *key) { return !strcmp(key,"network.full_rate_players") ? full_rate : capacity; } /* fake: the probe sets the full-rate and capacity values */
 static int online = 1;
 static int config_boolean(char const *key) { (void)key; return online; } /* fake: the probe sets the online flag */
@@ -261,9 +262,8 @@ int main(void)
     program = harness.replace('/* STATE */', state).replace('/* PRODUCTION */', production)
     probe, binary = tmp_path / 'join_warning.c', tmp_path / 'join_warning'
     probe.write_text(program)
-    subprocess.run(['clang', '-std=c11', '-Wall', '-Wextra', '-Werror',
-                    '-iquote', str(ROOT / 'port/linux/src'), '-iquote', str(ROOT / 'port/linux/include'), str(probe),
-                    '--output=' + str(binary)], check=True)
+    cc.build([probe], output=binary, std='c11', extra_warnings=True, options=['-iquote', ROOT / 'port/linux/src',
+             '-iquote', ROOT / 'port/linux/include'], port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 

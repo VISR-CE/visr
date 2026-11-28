@@ -6,6 +6,7 @@ stretched into a widget of another shape is distorted."""
 import subprocess
 from pathlib import Path
 
+from probekit import cc
 from test_network_discovery import function
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,7 +33,7 @@ typedef int boolean;
 #define _bitmap_format_a8r8g8b8 0
 #define _error_silent 0
 #include <strings.h>
-static void platform_log(char const *format, ...) { (void)format; }
+void platform_log(char const *format, ...);
 struct bitmap_data { int width, height; int hardware_format; void *base_address; };
 struct bmp_file_picture { int unused; };
 enum bmp_file_status { _bmp_file_status_ok };
@@ -166,6 +167,5 @@ def test_the_browsers_picture_is_whole_and_2_to_1_and_the_other_menus_keep_their
     program = HARNESS.replace('/* PRODUCTION */', pieces[0] + '\n' + cache + '\n' + '\n'.join(pieces[1:]))
     probe, binary = tmp_path / 'picture.c', tmp_path / 'picture'
     probe.write_text(program)
-    subprocess.run(['clang', '-std=gnu11', '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-unused-parameter',
-                    '-o', str(binary), str(probe)], check=True)
+    cc.build([probe], output=binary, extra_warnings=True, relaxed=['unused-function', 'unused-parameter'], port_stubs=True)
     assert 'passed' in subprocess.run([str(binary)], check=True, capture_output=True, text=True).stdout

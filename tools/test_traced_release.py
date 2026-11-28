@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from probekit import source as probe_source  # noqa: E402
+from probekit import cc, source as probe_source  # noqa: E402
 
 DEVICE = ROOT / "port/linux/src/d3d8_device.c"
 CASTERS = ROOT / "port/linux/game/traced_shadow_casters.c"
@@ -36,7 +36,7 @@ struct halo_stereo_frame { int mode, eye_count; };
 static const struct halo_stereo_frame *halo_stereo_frame(void) { static struct halo_stereo_frame off; return &off; }
 static int setting = 1, ready = 1, destroyed, resets, reset_epoch_wrong;
 static int config_scene_boolean(const char *key, int scene) { (void)key; (void)scene; return setting; }
-static int config_boolean(const char *key) { (void)key; return 0; }
+int config_boolean(const char *key);
 static uint32_t host_traced_shadows_ready(uint32_t any_gpu) { (void)any_gpu; return (uint32_t)ready; }
 static void gpu_texture_destroy(gpu_texture texture) { (void)texture; destroyed++; }
 static void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *bytes, uint32_t size)
@@ -116,7 +116,7 @@ static void host_traced_shadows_data(uint32_t kind, uint32_t id, const void *byt
 	(void)bytes; (void)size;
 	if (kind == TRACED_SHADOWS_RESET) { resets_sent++; last_epoch = id; }
 }
-static int config_boolean(const char *key) { (void)key; return 0; }
+int config_boolean(const char *key);
 static void traced_left_out_log(void) {}
 static void world_send(void) {}
 
@@ -157,8 +157,7 @@ def compile_harness(tmp_path, name, harness, functions):
     source = tmp_path / f"{name}.c"
     source.write_text(harness)
     executable = tmp_path / name
-    subprocess.run(["cc", "-std=c99", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", str(source), "-o",
-                    str(executable)], check=True)
+    cc.build([source], output=executable, std="c99", extra_warnings=True, relaxed=["unused-function"], port_stubs=True)
     return executable
 
 

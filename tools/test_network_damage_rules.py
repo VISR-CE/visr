@@ -6,7 +6,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from probekit import source as probe_source  # noqa: E402
+from probekit import cc, source as probe_source  # noqa: E402
 
 
 def test_damage_rules():
@@ -46,7 +46,7 @@ def test_damage_rules():
             source = Path(directory) / "probe.c"
             source.write_text(template.replace("/* PRODUCTION_FUNCTIONS */", variant))
             executable = Path(directory) / "probe"
-            subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function", "-o", str(executable), str(source)], check=True)
+            cc.build([source], output=executable, std="c11", relaxed=["unused-function"], port_stubs=True)
             result = subprocess.run([str(executable)], capture_output=True, text=True)
             if label == "production":
                 assert result.returncode == 0, result.stdout + result.stderr

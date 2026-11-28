@@ -2,16 +2,14 @@
 """Run the host's real distributed-input queue and tick snapshot with suite actions."""
 
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
-from unittest import SkipTest
 
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from probekit import source as probe_source  # noqa: E402
+from probekit import cc, source as probe_source  # noqa: E402
 QUEUES_PATH = "source/game/player_queues_new.c"
 NETWORK_TEST_PATH = "port/linux/game/network_test.c"
 NETWORK_TEST = probe_source.read(NETWORK_TEST_PATH)
@@ -414,9 +412,6 @@ int main(void) {
 
 
 def test_suite_input_reaches_host_tick_snapshot() -> None:
-    compiler = shutil.which("clang") or shutil.which("cc")
-    if compiler is None:
-        raise SkipTest("A C compiler is required for the synthetic input probe")
     synthetic = ""
     if probe_source.defined(NETWORK_TEST_PATH, "network_test_suite_synthetic_input_tick"):
         synthetic = probe_source.function(NETWORK_TEST_PATH, "network_test_suite_synthetic_input_tick")
@@ -448,7 +443,7 @@ def test_suite_input_reaches_host_tick_snapshot() -> None:
         path = Path(temporary) / "input.c"
         binary = Path(temporary) / "input"
         path.write_text(source)
-        subprocess.run([compiler, "-O2", "-std=gnu89", "-fms-extensions", "-Wno-c99-extensions", "-Wall", str(path), "-o", str(binary)], check=True)
+        cc.build([path], output=binary, std="gnu89", relaxed=["c99-extensions", "gcc-compat"], options=["-O2", "-fms-extensions"], port_stubs=True)
         subprocess.run([str(binary)], check=True)
 
 

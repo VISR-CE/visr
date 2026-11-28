@@ -4,6 +4,8 @@ import struct
 import subprocess
 import zlib
 
+from probekit import cc
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -51,7 +53,7 @@ static pthread_t render_thread;
 /* fake: the probe switches the HUD setting per case */
 static int config_boolean(const char *key) { (void)key; return enabled; }
 static unsigned long config_changes(void) { return revision; }
-static void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 long hud_hires_asset_at(unsigned long a, long w, long h) { (void)a;(void)w;(void)h;return 0; }
 static void host_thread_background(void) {}
 static int host_memory_available_megabytes(void) { return available; }
@@ -74,9 +76,9 @@ def compile_run(tmp_path, source):
     path = tmp_path / 'hud.c'
     path.write_text(source)
     binary = tmp_path / 'hud'
-    subprocess.run(['cc', '-std=c11', '-D_POSIX_C_SOURCE=200809L', '-DHALO_IOS=1', '-Wall', '-Wextra', '-Wno-unused-function', '-Wno-unused-const-variable',
-                    '-fsanitize=address,undefined', '-pthread', '--include-directory=' + str(ROOT / 'port/linux/src'),
-                    str(path), '-lz', '--output=' + str(binary)], check=True)
+    cc.build([path], output=binary, std='c11', defines=['_POSIX_C_SOURCE=200809L', 'HALO_IOS=1'], includes=[ROOT / 'port/linux/src'],
+             libs=['z'], extra_warnings=True, relaxed=['unused-function', 'unused-const-variable'], sanitize=True,
+             options=['-pthread'], port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -262,5 +264,5 @@ def test_mac_catalyst_reports_unknown_memory_limit(tmp_path):
 static size_t os_proc_available_memory(void) {{ return (size_t){available} << 20; }}
 """ + function + f'\nint main(void) {{ assert(host_memory_available_megabytes()=={expected}); }}\n')
         binary = tmp_path / 'headroom'
-        subprocess.run(['cc', str(path), '--output=' + str(binary)], check=True)
+        cc.build([path], output=binary, relaxed=['unused-function'])
         subprocess.run([str(binary)], check=True)

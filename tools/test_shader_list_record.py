@@ -12,7 +12,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from probekit import source as probe_source  # noqa: E402
+from probekit import cc, source as probe_source  # noqa: E402
 SOURCE = ROOT / "port/linux/src/d3d8_device.c"
 
 
@@ -80,7 +80,7 @@ static uint64_t hash64(const void *data, size_t size) {
     while (size--) hash = (hash ^ *bytes++) * 1099511628211ULL;
     return hash;
 }
-static void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 /* fake: answers the record setting the probe sets per case */
 static const char *config_string(const char *name) { (void)name; return record_setting; }
 static void posix_make_directory(const char *path) { (void)path; }
@@ -114,8 +114,8 @@ int main(int argc, char **argv) {
         temp = Path(directory)
         c_file, binary = temp / "probe.c", temp / "probe"
         c_file.write_text(probe)
-        subprocess.run(["xcrun", "clang", "-Wall", "-Werror", "-Wno-unused-function", "-O1",
-                        "-fsanitize=address,undefined", str(c_file), "-o", str(binary)], check=True)
+        cc.build([c_file], output=binary, apple=True, relaxed=["unused-function"], sanitize=True, options=["-O1"],
+                 host_stubs=True)
         # (capture, generation, explicit record) -> (record lines, observations appended)
         cases = (
             ("no-observation-build", (0, 0, 0), (1, 0)),

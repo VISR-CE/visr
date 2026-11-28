@@ -1,18 +1,15 @@
 """Run the menu dialog routing and debug launch hooks without game data."""
 from pathlib import Path
-import shutil
 import os
+import shutil
 import subprocess
 
-import pytest
+from probekit import cc
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_dialog_hooks_in_development_and_shipping_builds(tmp_path):
-    compiler = shutil.which('cc')
-    if not compiler:
-        pytest.skip('C compiler unavailable')
     source = (ROOT / 'port/linux/game/menu_tags.c').read_text()
     hooks = source[source.index('static boolean menu_delete_from_select;'):
                    source.index('char const *pc_menus_root_name(\n')]
@@ -34,7 +31,7 @@ static int platform_menu_keyboard(void) { return 0; }
 static void menu_profile_description(int unused) {}
 static char const *tag_get_name(long tag) { return tag_name; }
 static long tag_loaded(int group, char const *name) { return 2; }
-static void platform_log(char const *format, ...) {}
+void platform_log(char const *format, ...);
 /* fake: returns the setting the probe switches per case */
 static char const *config_string(char const *name) { return setting; }
 #define PC_MENU_TAG_PREFIX "pc\\"
@@ -101,16 +98,12 @@ int main(void) {
     path.write_text(harness + hooks + checks)
     for defines in ([],):
         binary = tmp_path / 'hooks'
-        subprocess.run([compiler, '-std=c99', '-I', str(tmp_path),
-                        *defines, str(path), '-o', str(binary)], check=True, capture_output=True)
+        cc.build([path], output=binary, std='c99', includes=[tmp_path], defines=defines, port_stubs=True)
         subprocess.run([str(binary)], check=True, capture_output=True,
                        env={**os.environ, 'HALO_HOST_TVOS': '1'})
 
 
 def test_dialog_legend_tracks_input_changes_without_reopening(tmp_path):
-    compiler = shutil.which('cc')
-    if not compiler:
-        pytest.skip('C compiler unavailable')
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     body = source[source.index('static void dialog_legend_update('):
                   source.index('/* "3wide player profile list update":')]
@@ -146,6 +139,5 @@ int main(void) {
 '''.replace('/* BODY */', body)
     path, binary = tmp_path / 'legend.c', tmp_path / 'legend'
     path.write_text(program)
-    subprocess.run([compiler, '-std=c99', str(path), '-o', str(binary)],
-                   check=True, capture_output=True)
+    cc.build([path], output=binary, std='c99')
     subprocess.run([str(binary)], check=True, capture_output=True)

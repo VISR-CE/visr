@@ -8,7 +8,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
-from probekit import source as probe_source  # noqa: E402
+from probekit import cc, source as probe_source  # noqa: E402
 
 
 # test_benchmark_staging imports this name; it takes the same (path, name) as the shared helper
@@ -41,8 +41,8 @@ def main(argv=None):
             path = Path(folder) / "probe.c"
             path.write_text(template.replace("/* PRODUCTION_FUNCTIONS */", variant))
             output = Path(folder) / "probe"
-            subprocess.run(["xcrun", "clang", "-O2", "-fsanitize=address,undefined", "-I" + str(ROOT / "port/linux/src"),
-                            "-I" + str(ROOT / "port/ios/tests"), str(path), "-o", str(output)], check=True)
+            cc.build([path], output=output, apple=True, sanitize=True, relaxed=["unused-function"], options=["-O2"],
+                     includes=[ROOT / "port/linux/src", ROOT / "port/ios/tests"], host_stubs=True)
             result = subprocess.run([str(output)], capture_output=True, text=True)
             if expected_failure:
                 assert result.returncode != 0 and expected_failure in result.stderr, (label, result.stderr)
@@ -59,10 +59,9 @@ def test_replay_control_consumers():
 
 def test_auto_record_suite_camera_ownership(tmp_path):
     source = ROOT / "port/ios/tests/input_replay_probe.c"
-    def build(output, *extra_flags):
-        subprocess.run(["xcrun", "clang", "-O2", "-fsanitize=address,undefined",
-                        "-I" + str(ROOT / "port/linux/src"), *extra_flags,
-                        str(source), "-o", str(output)], cwd=ROOT, check=True)
+    def build(output, extra_defines=()):
+        cc.build([source], output=output, apple=True, sanitize=True, options=["-O2"],
+                 includes=[ROOT / "port/linux/src"], defines=extra_defines, host_stubs=True)
 
     fixed = tmp_path / "input-replay-probe"
     build(fixed)
@@ -73,7 +72,7 @@ def test_auto_record_suite_camera_ownership(tmp_path):
     assert "auto-record suite camera ownership: PASS" in result.stdout
 
     omitted = tmp_path / "input-replay-probe-without-suspension"
-    build(omitted, "-DREPLAY_PROBE_OMIT_SUITE_SUSPEND=1")
+    build(omitted, ["REPLAY_PROBE_OMIT_SUITE_SUSPEND=1"])
     result = subprocess.run([str(omitted), "--auto-record-suite-camera-baseline"], cwd=ROOT,
                             capture_output=True, text=True)
     if result.returncode:
@@ -88,10 +87,9 @@ def test_auto_record_suite_camera_ownership(tmp_path):
 
 def test_benchmark_suite_suspends_before_recorded_scene(tmp_path):
     output = tmp_path / "benchmark-startup-probe"
-    subprocess.run(["xcrun", "clang", "-O2", "-fsanitize=address,undefined",
-                    "-I" + str(ROOT / "port/linux/src"), "-iquote", str(ROOT / "port/linux/include"),
-                    str(ROOT / "port/ios/tests/benchmark_startup_probe.c"), "-o", str(output)],
-                   cwd=ROOT, check=True)
+    cc.build([ROOT / "port/ios/tests/benchmark_startup_probe.c"], output=output, apple=True, sanitize=True,
+             options=["-O2", "-iquote", ROOT / "port/linux/include"], includes=[ROOT / "port/linux/src"],
+             host_stubs=True)
     result = subprocess.run([str(output)], cwd=ROOT, capture_output=True, text=True)
     if result.returncode:
         raise AssertionError(result.stderr)
@@ -117,9 +115,8 @@ def test_replay_environment(tmp_path):
     source = tmp_path / "replay-environment.c"
     source.write_text((ROOT / "port/ios/tests/input_replay_probe.c").read_text().replace(
         "/* PRODUCTION_ENHANCED_CONSUMER */", consumer))
-    subprocess.run(["xcrun", "clang", "-O2", "-fsanitize=address,undefined",
-                    "-DREPLAY_ENVIRONMENT_CONSUMER=1", "-I" + str(ROOT / "port/linux/src"),
-                    str(source), "-o", str(output)], cwd=ROOT, check=True)
+    cc.build([source], output=output, apple=True, sanitize=True, options=["-O2"],
+             defines=["REPLAY_ENVIRONMENT_CONSUMER=1"], includes=[ROOT / "port/linux/src", ROOT / "port/ios/tests"], host_stubs=True)
     result = subprocess.run([str(output), "--replay-environment"], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "replay environment: PASS" in result.stdout
@@ -144,9 +141,8 @@ def test_replay_environment(tmp_path):
         source.write_text((ROOT / "port/ios/tests/input_replay_probe.c").read_text().replace(
             "/* PRODUCTION_ENHANCED_CONSUMER */", mutated_consumer).replace(
             '"input_replay.c"', '"' + str(variant) + '"'))
-        subprocess.run(["xcrun", "clang", "-O2", "-fsanitize=address,undefined",
-                        "-DREPLAY_ENVIRONMENT_CONSUMER=1", "-I" + str(ROOT / "port/linux/src"),
-                        str(source), "-o", str(output)], cwd=ROOT, check=True)
+        cc.build([source], output=output, apple=True, sanitize=True, options=["-O2"],
+                 defines=["REPLAY_ENVIRONMENT_CONSUMER=1"], includes=[ROOT / "port/linux/src", ROOT / "port/ios/tests"], host_stubs=True)
         result = subprocess.run([str(output), "--replay-environment"], capture_output=True, text=True)
         assert result.returncode != 0 and "expected" in result.stderr, (name, result.stdout, result.stderr)
 
@@ -171,9 +167,9 @@ int main(int argc, const char **argv) {
 }
 ''')
     output = tmp_path / "report"
-    subprocess.run(["xcrun", "clang", "-O2", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter",
-                    "-fobjc-arc", "-framework", "Foundation", "-I" + str(ROOT / "port/ios/host"),
-                    str(source), str(ROOT / "port/ios/host/host_benchmark_snapshot.m"), "-o", str(output)], check=True)
+    cc.build([source, ROOT / "port/ios/host/host_benchmark_snapshot.m"], output=output, apple=True, extra_warnings=True,
+             relaxed=["unused-parameter"], options=["-O2", "-fobjc-arc", "-framework", "Foundation"],
+             includes=[ROOT / "port/ios/host"], host_stubs=True)
     import hashlib
     import json
     def reported(name="take", digest=None):
