@@ -238,12 +238,26 @@ int main(void) {
         assert(converted->ranges[0].start >= before - 1.5e-3 - 1e-9 && converted->ranges[0].start <= after - 1.5e-3 + 1e-9);
         assert(converted->ranges[0].end >= before - 0.5e-3 - 1e-9 && converted->ranges[0].end <= after - 0.5e-3 + 1e-9);
         assert(containment.checked == 1 && containment.outside == 0);
-        /* a tick after the pair lands after its host time; a range past its buffer's span counts as outside */
+        /* a tick after the pair lands after its host time, so 0.1 ms past the pair; past its buffer's span (which ends
+         * 1 ms before the call) it counts as outside and is clipped to the buffer */
         clock_pair.kept = 0;
         converted = complete_one(samples, test_gpu - 12000, test_gpu + 2400, -0.002, -0.001, &before, &after);
         assert(converted->count == 1);
-        assert(converted->ranges[0].end >= before + 1e-4 - 1e-9 && converted->ranges[0].end <= after + 1e-4 + 1e-9);
         assert(containment.checked == 2 && containment.outside == 1 && containment.worst >= 1.1e-3 - 1e-6);
+        assert(fabs(converted->ranges[0].end - (before - 0.001)) < 1e-9);
+        assert(converted->ranges[0].start >= before - 0.5e-3 - 1e-9 - 0.001 && converted->ranges[0].start <= converted->ranges[0].end);
+        /* A stale start sample, 2 s before the buffer (2 s = 48,000,000 ticks): the range is clipped to the buffer's
+         * 3 ms span, so the frame's S is at most that, never seconds. */
+        clock_pair.kept = 0;
+        test_gpu = 1000 + 300000000; test_cpu = 1000 + 12500000000; /* (the same rate, far enough from the reference) */
+        converted = complete_one(samples, test_gpu - 48000000, test_gpu - 12000, -0.003, 0.001, &before, &after);
+        assert(converted->count == 1 && containment.outside == 2 && containment.worst >= 1.99);
+        assert(fabs(converted->ranges[0].start - (before - 0.003)) < 1e-9);
+        {
+            game_perf_frame clipped = {.frame_id = test_frame};
+            host_perf_metal_join(&clipped);
+            assert((clipped.drs.available & 1) && clipped.drs.scene_us <= 3001);
+        }
         /* A preempted pair (a 100 us bracket) is not adopted while a tighter one that agrees with it is kept, and the
          * frame keeps its reading: its ranges convert through the kept pair. */
         clock_pair = (typeof(clock_pair)){ 1, test_gpu, mach_seconds(mach_absolute_time()), 0.0 };

@@ -281,9 +281,12 @@ static double mach_seconds(uint64_t ticks) { return (double)ticks * timebase.num
 static struct { int kept; MTLTimestamp gpu; double host, width; } clock_pair;
 /* once a minute, whether or not frames have readings: the planner's reading share and the pairs' brackets */
 static struct { double since, widest; unsigned long frames, readings, pairs, wide, steps; } clock_stats;
-/* Containment, the clocks' cross-check: each converted stage range must lie inside its own command buffer's GPU
- * span, which Metal reports on the CPU timebase. Ranges more than CONTAINMENT_SLACK outside are counted; the
- * counts are logged with the timing check. */
+/* Containment: each converted stage range must lie inside its own command buffer's GPU span, which Metal reports on
+ * the CPU timebase. Ranges more than CONTAINMENT_SLACK outside are counted, and the counts are logged with the
+ * timing check. Every range is clipped to its buffer's span: on an M1 iPad Pro and an iPhone 12 Pro about 0.3% of
+ * ranges reached 0.1-6.5 s outside, some of them seconds long (a sample left from an earlier use of the counter
+ * buffer's slot, the likeliest source), and one such range read S = 1.8 s. Clipped, no range can charge the planner
+ * GPU time its own command buffer did not take. */
 #define CONTAINMENT_SLACK 50e-6
 static struct { unsigned long checked, outside; double worst; } containment;
 static int compare_doubles(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
@@ -417,6 +420,8 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
                             containment.checked++;
                             if (outside > CONTAINMENT_SLACK) containment.outside++;
                             if (outside > containment.worst) containment.worst = outside;
+                            frame->ranges[n].start = fmin(fmax(frame->ranges[n].start, buffer_start), buffer_end);
+                            frame->ranges[n].end = fmin(fmax(frame->ranges[n].end, frame->ranges[n].start), buffer_end);
                         }
                     }
                 }
