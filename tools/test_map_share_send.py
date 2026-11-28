@@ -16,6 +16,7 @@ test_real_maps_* also check every stock map and resource map there against the p
 
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import sys
