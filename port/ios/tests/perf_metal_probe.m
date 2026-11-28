@@ -314,20 +314,38 @@ int main(void) {
         converted = complete_one(samples, test_gpu - 36000, test_gpu - 12000, -0.1, 0.1, &before, &after);
         assert(clock_stats.steps == steps + 1 && clock_pair.gpu == test_gpu && converted->count == 1);
         assert(converted->ranges[0].start >= before - 1.5e-3 - 1e-9 && converted->ranges[0].start <= after - 1.5e-3 + 1e-9);
-        /* Stage boundary, every slot last completed at G1 (10 ms before this pair): a pass that wrote only its fragment
-         * samples leaves the vertex pair from the slot's last use, which is dropped; the interval keeps the fragment
-         * pair, so its range starts 239,000 ticks (9.958 ms) before the pair. */
+        /* Stage boundary, every slot last completed at G1 (10 ms before this pair). */
         mode = 2;
         MTLTimestamp g1 = test_gpu;
         test_gpu += 240000; test_cpu += 10000000;
-        clock_pair.kept = 0;
-        for (unsigned slot = 0; slot < BUFFER_COUNT; ++slot) buffers[slot].fresh_after = g1;
-        stale = stale_samples;
-        converted = complete_ticks(samples, (const uint64_t[4]){ g1 - 1000, g1 - 500, g1 + 1000, test_gpu - 12000 }, 0,
-            -0.02, 0.001, &before, &after, NULL);
-        assert(converted->count == 1 && !converted->invalid && stale_samples == stale + 1);
-        assert(converted->ranges[0].start >= before - 239000 * 125e-9 / 3 - 1e-9);
-        assert(converted->ranges[0].start <= after - 239000 * 125e-9 / 3 + 1e-9);
+#define FROM_G1(...) do { \
+            clock_pair.kept = 0; \
+            for (unsigned slot = 0; slot < BUFFER_COUNT; ++slot) buffers[slot].fresh_after = g1; \
+            stale = stale_samples; \
+            converted = complete_ticks(samples, (const uint64_t[4]){ __VA_ARGS__ }, 0, -0.02, 0.001, &before, &after, NULL); \
+        } while (0)
+        /* both pairs fresh, the vertex one starting at G1 + 1 (just after the bound): one range from the vertex start
+         * (239,999 ticks, 9.99996 ms before the pair) to the fragment end */
+        FROM_G1(g1 + 1, g1 + 2000, g1 + 1000, test_gpu - 12000);
+        assert(converted->count == 1 && !converted->invalid && stale_samples == stale);
+        assert(converted->ranges[0].start >= before - 239999 * 125e-9 / 3 - 1e-9);
+        assert(converted->ranges[0].start <= after - 239999 * 125e-9 / 3 + 1e-9);
+        assert(converted->ranges[0].end >= before - 12000 * 125e-9 / 3 - 1e-9);
+        assert(converted->ranges[0].end <= after - 12000 * 125e-9 / 3 + 1e-9);
+        /* a pass that wrote only its fragment samples leaves the vertex pair from the slot's last use: the interval
+         * has no reading rather than the fragment stage's time alone (which would read low) */
+        FROM_G1(g1 - 1000, g1 - 500, g1 + 1000, test_gpu - 12000);
+        assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale + 1);
+        /* likewise a stale fragment pair beside a fresh vertex pair (what device runs showed), a sample exactly at
+         * the bound, a pair with a fresh start and a stale end, and an unwritten pair */
+        FROM_G1(g1 + 1000, g1 + 2000, g1 - 2000, g1 - 1000);
+        assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale + 1);
+        FROM_G1(g1, g1 + 2000, g1 + 1000, test_gpu - 12000);
+        assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale + 1);
+        FROM_G1(g1 + 1000, g1 - 500, g1 + 1000, test_gpu - 12000);
+        assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale + 1);
+        FROM_G1(g1 + 1000, g1 + 2000, 0, 0);
+        assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale);
         /* all four samples from the slot's last use: no range, with or without the buffer's span to clip against */
         for (int spanned = 1; spanned >= 0; --spanned) {
             clock_pair.kept = 0;
@@ -337,13 +355,23 @@ int main(void) {
                 spanned ? -0.02 : 0.0, spanned ? 0.001 : 0.0, &before, &after, NULL);
             assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale + 2);
         }
-        /* an errored buffer still marks its slot: samples from before its completion are stale at the next use */
+#undef FROM_G1
+        /* an errored buffer still marks its slot: at the slot's next use, samples from before that completion are
+         * stale and the interval has no reading */
         {
-            unsigned slot;
-            test_gpu += 24000; test_cpu += 1000000;
+            unsigned slot, again;
+            for (unsigned i = 0; i < BUFFER_COUNT; ++i) buffers[i].fresh_after = 0;
+            MTLTimestamp g2 = test_gpu += 24000; test_cpu += 1000000;
             clock_pair.kept = 0;
             complete_ticks(samples, (const uint64_t[4]){ 0, 0, 0, 0 }, 1, -0.002, 0.001, &before, &after, &slot);
-            assert(buffers[slot].fresh_after == test_gpu);
+            assert(buffers[slot].fresh_after == g2);
+            test_gpu += 24000; test_cpu += 1000000;
+            clock_pair.kept = 0;
+            stale = stale_samples;
+            converted = complete_ticks(samples, (const uint64_t[4]){ g2 - 2000, g2 - 1000, g2 - 1500, g2 }, 0,
+                -0.02, 0.001, &before, &after, &again);
+            assert(again == slot); /* (the first free slot) */
+            assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale + 2);
         }
         mode = 1;
         /* no rate yet (the pair is the reference): no range, and the frame has no reading */

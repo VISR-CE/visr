@@ -292,17 +292,21 @@ static double mach_seconds(uint64_t ticks) { return (double)ticks * timebase.num
 #define PAIR_WIDE_SECONDS 20e-6
 static struct { int kept; MTLTimestamp gpu; double host, width; } clock_pair;
 /* once a minute, whether or not frames have readings: the planner's reading share and the pairs' brackets */
+/* (clipped: the ranges containment counts as outside, again per readings minute, since containment's counts follow
+ * the timing check's windows) */
 static struct { double since, widest; unsigned long frames, readings, pairs, wide, steps, clipped; } clock_stats;
 /* Containment: each converted stage range must lie inside its own command buffer's GPU span, which Metal reports on
  * the CPU timebase. Ranges more than CONTAINMENT_SLACK outside are counted, and the counts are logged with the
- * timing check. Every range is clipped to its buffer's span: on an M1 iPad Pro and an iPhone 12 Pro about 0.3% of
- * ranges reached 0.1-6.5 s outside, some of them seconds long (a sample left from an earlier use of the counter
- * buffer's slot, the likeliest source), and one such range read S = 1.8 s. Clipped, no range can charge the planner
- * GPU time its own command buffer did not take. */
+ * timing check. Before fresh_after, about 0.3% of ranges on an M1 iPad Pro and an iPhone 12 Pro reached 0.1-6.5 s
+ * outside (samples left from an earlier use of the counter buffer's slot; one read S = 1.8 s); with it, an iPhone 12
+ * Pro run had none past 2 us. Every range is still clipped to its buffer's span as a guard, so no range can charge
+ * the planner GPU time its own command buffer did not take. */
 #define CONTAINMENT_SLACK 50e-6
 static struct { unsigned long checked, outside; double worst; } containment;
-/* stage-sample pairs left from an earlier use of their slot, dropped (logged with the readings) */
+/* stage-sample pairs left from an earlier use of their slot, whose intervals have no reading (counted on the readings
+ * line; the first STALE_LOG_LIMIT are logged with slot, interval and group) */
 static _Atomic unsigned long stale_samples;
+#define STALE_LOG_LIMIT 8
 static int compare_doubles(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
 /* every 600 frames with both: how far the command-buffer union is from stage timing, all frames and late ones */
 static void timing_check(double stage_scene, double stage_rest, double buffer_scene, double buffer_rest, int late) {
@@ -407,10 +411,11 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
             MTLTimestamp fresh_after = buffers[slot].fresh_after;
             for (unsigned i = 0; i < buffers[slot].count; ++i) {
                 uint64_t start = UINT64_MAX, end = 0;
-                int valid = scale > 0.0 && data.length >= (i + 1) * 4 * sizeof(*samples), kept = 0;
-                /* each start-end pair (draw boundary: one; stage boundary: vertex, then fragment) counts only when
-                 * both samples were written for this command buffer: after the last completion's pair, not after
-                 * this one's */
+                int valid = scale > 0.0 && data.length >= (i + 1) * 4 * sizeof(*samples), fresh_pairs = valid;
+                /* every start-end pair (draw boundary: one; stage boundary: vertex, then fragment) must have both
+                 * samples written for this command buffer: after the last completion's pair, not after this one's.
+                 * One missing or stale pair leaves the interval without a reading rather than with one stage's
+                 * time, which would read low and let the planner raise the resolution. */
                 for (unsigned j = 0; valid && j < (mode == 2 ? 4u : 2u); j += 2) {
                     uint64_t first = samples[i * 4 + j].timestamp, last = samples[i * 4 + j + 1].timestamp;
                     int written = first && last && first != MTLCounterErrorValue && last != MTLCounterErrorValue;
@@ -418,17 +423,16 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
                     if (written && !fresh) {
                         static _Atomic unsigned stale_logged;
                         atomic_fetch_add(&stale_samples, 1);
-                        if (atomic_fetch_add(&stale_logged, 1) < 8)
+                        if (atomic_fetch_add(&stale_logged, 1) < STALE_LOG_LIMIT)
                             fprintf(stderr, "DRS stale counter samples: slot %u interval %u group %u category %u %s pair\n",
                                 slot, i, buffers[slot].groups[i], buffers[slot].categories[i],
                                 mode == 2 ? (j ? "fragment" : "vertex") : "draw");
                     }
-                    if (!fresh || last < first) continue;
-                    kept = 1;
+                    if (!fresh || last < first) { fresh_pairs = 0; continue; }
                     if (first < start) start = first;
                     if (last > end) end = last;
                 }
-                valid = valid && kept;
+                valid = fresh_pairs;
                 double duration = valid && end >= start ? (double)(end - start) * scale : -1.0;
                 valid = isfinite(duration) && duration >= 0 && duration <= VALUE_MASK;
                 add(buffers[slot].frame, buffers[slot].categories[i], valid ? (uint64_t)duration : 0, valid);
