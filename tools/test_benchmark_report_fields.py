@@ -92,8 +92,6 @@ def test_p90_uses_nearest_rank_for_every_timing(tmp_path):
         assert record[name]["p99"] == 30.0
 
 
-
-
 @pytest.mark.parametrize("scenario", ["context", "bounds", "begin_failure", "record_failure", "end_failure"])
 def test_capacity_skip_record_journal_resume_and_summary(tmp_path, scenario):
     """Catch lost skip receipts, repeated skipped runs, and missing report context."""

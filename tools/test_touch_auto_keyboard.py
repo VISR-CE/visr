@@ -7,8 +7,6 @@ from probekit import source as probe_source
 ROOT = Path(__file__).resolve().parents[1]
 
 
-
-
 def run_probe(tmp_path, source):
     program = tmp_path / "keyboard.c"
     binary = tmp_path / "keyboard"

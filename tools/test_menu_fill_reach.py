@@ -20,7 +20,7 @@ import shutil
 import subprocess
 
 import pytest
-from probekit import source as probe_source  # noqa: E402
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 

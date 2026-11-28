@@ -628,7 +628,7 @@ void halo_screen_ui_backdrop(unsigned char cover)
 		halo_screen_ui_offset(TRUE);
 }
 
-/* probe-region: menu-window */   /* tools/test_menu_scale.py and tools/test_menu_fill_reach.py compile this region */
+/* probe-region: menu-window */
 /* Only widget draws opt in; the world, HUD, console and loading screens
 keep their original viewport. ui_widget.c supplies each screen's content. */
 static int menu_window_drawing;
@@ -836,6 +836,7 @@ static void menu_window_pointer(struct halo_ui_pointer *pointer)
 }
 
 /* probe-region-end: menu-window */
+
 /* render_window calls this once for each view it draws (each player's, and
 the mirror's, whose rasterizer_target says which), after the world, its fog
 and lens flares, and before interface_draw_screen draws the HUD: a
@@ -7003,7 +7004,7 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 			draw_uniforms.serial++;
 			memcpy(converted->viewport_scale[0], device.viewport_scale, sizeof(converted->viewport_scale));
 			memcpy(converted->viewport_offset[0], device.viewport_offset, sizeof(converted->viewport_offset));
-			/* probe-region: menu-zoom-coefficients */   /* tools/test_menu_scale.py runs these against the pointer inverse */
+			/* probe-region: menu-zoom-coefficients */
 			converted->viewport_scale[0][0] /= menu_zoom;
 			converted->viewport_scale[0][1] /= menu_zoom;
 			converted->viewport_offset[0][0] = halo_screen_width() * 0.5f +
