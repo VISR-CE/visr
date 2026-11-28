@@ -24,6 +24,10 @@ what happened when the name is gone:
 - `mutating(path, before, after)`: within the block, every helper reads `path` with one substitution applied (a
   negative control); `mutated(text, before, after)` does the same to a text.
 - `structure(path, name)`: a named struct's definition through its semicolon.
+- `span(path, first, last)`: the text from the line that defines `first` (a function, or a `#define`) through the end
+  of the function `last`, for a probe that needs a run of definitions with the macros and file-scope variables
+  between them (a file under `source/`, where `region()` markers do not go). Each name is found as `function()`
+  finds it, with the same message when it is gone, and `last` must come after `first`.
 
 Paths are relative to the repository root; files are read as latin-1, as the compiler reads them. Each helper has a
 `*_in(text, ...)` form for text a test already holds.
@@ -340,6 +344,29 @@ def region(path, name: str) -> str:
     if not str(_resolve(path)).startswith(str(ROOT / "port") + "/"):
         raise ValueError(f"probe-region markers go only in files under port/, not {path}")
     return region_in(read(path), name, str(path))
+
+
+def _define_start(text: str, name: str, where: str):
+    """The start of the line of `#define name`, or None when the text does not define that macro."""
+    found = [match.start() for match in re.finditer(r"^[ \t]*#[ \t]*define[ \t]+" + re.escape(name) + r"\b",
+                                                     mask(text), re.M)]
+    if len(found) > 1:
+        raise LookupError(f"`{name}` is #defined {len(found)} times in {where}")
+    return found[0] if found else None
+
+
+def span_in(text: str, first: str, last: str, where: str = "the text") -> str:
+    start = _define_start(text, first, where)
+    if start is None:
+        start = _find(text, first, where)[1]
+    _, last_start, _, end = _find(text, last, where)
+    if last_start < start:
+        raise LookupError(f"`{last}` comes before `{first}` in {where}, so they do not bound a span")
+    return text[start:end]
+
+
+def span(path, first: str, last: str) -> str:
+    return span_in(read(path), first, last, str(path))
 
 
 def structure_in(text: str, name: str, where: str = "the text") -> str:

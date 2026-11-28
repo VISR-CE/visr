@@ -212,3 +212,39 @@ def test_unbalanced_braces_name_the_file():
         source.function_in('int f(void)\n{\n#if A\n{\n#endif\n', 'f', 'port/odd.c')
     with pytest.raises(LookupError, match='port/odd.h has unbalanced braces'):
         source.structure_in('struct pair {\n#if A\n{\n#endif\n', 'pair', 'port/odd.h')
+
+
+SPAN = r'''#define SLOTS 4
+/* a #define SLOTS in a comment is not the macro */
+static short shifts[SLOTS];
+
+static short first_slot(void)
+{
+	return shifts[0];
+}
+
+static short last_slot(void)
+{
+	return shifts[SLOTS - 1];
+}
+
+static void after(void) { }
+'''
+
+
+def test_span_runs_from_a_macro_or_function_through_a_function_with_what_lies_between():
+    text = source.span_in(SPAN, 'SLOTS', 'last_slot')
+    assert text.startswith('#define SLOTS 4\n') and 'static short shifts[SLOTS];' in text
+    assert text.endswith('return shifts[SLOTS - 1];\n}') and 'after' not in text
+    assert source.span_in(SPAN, 'first_slot', 'last_slot').startswith('static short first_slot(void)')
+
+
+def test_span_names_what_is_gone_or_out_of_order():
+    with pytest.raises(LookupError, match='renamed, wrapped or split.*`last_slot`'):
+        source.span_in(SPAN, 'SLOTS', 'last_slots')
+    with pytest.raises(LookupError, match='renamed, wrapped or split'):
+        source.span_in(SPAN, 'SLOT', 'last_slot')
+    with pytest.raises(LookupError, match='comes before'):
+        source.span_in(SPAN, 'last_slot', 'first_slot')
+    with pytest.raises(LookupError, match='#defined 2 times'):
+        source.span_in(SPAN + '#define SLOTS 5\n', 'SLOTS', 'last_slot')
