@@ -5257,6 +5257,16 @@ static boolean browser_filters_reset(struct widget_instance *widget)
 	return TRUE;
 }
 
+/* The first game found takes the focus. The row takes it through its parents too, unless the player already moved to the chips:
+setting only the list's child leaves the panel the screen starts on (the detail) the real focus, which no Down leaves, and
+browser_focus clears the row again. */
+static void browser_first_game_focus(struct widget_instance *list)
+{
+	lobby_browser_focus_row(list, 0);
+	if (list->parent->focused_child != browser_chips(list))
+		browser_c_focus(list->focused_child);
+}
+
 /* "gamespy screen update" for the server browser: the rows, the line shown in their place when there are none,
 and the detail panel and controls. Only layout C has this list; no other screen's list reaches it. */
 static void lobby_browser_update(struct widget_instance *list)
@@ -5282,7 +5292,7 @@ static void lobby_browser_update(struct widget_instance *list)
 		if (first_row)
 		{
 			first_row->visible = TRUE;
-			lobby_browser_focus_row(list, 0);
+			browser_first_game_focus(list);
 			focused = 0;
 		}
 	}

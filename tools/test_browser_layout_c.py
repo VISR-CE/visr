@@ -348,6 +348,7 @@ def test_browser_controller_navigation(tmp_path):
         "static void browser_c_focus(struct widget_instance *widget)\n{",
         "static void browser_ready_post(",
         "static boolean browser_chips_navigation(",
+        "static void browser_first_game_focus(",
         "static boolean browser_rows_navigation(",
     )
     production = "\n".join(function(source, signature) for signature in signatures)
@@ -496,6 +497,21 @@ int main(void)
     list->focused_child=NULL; lobby_browser.chosen=0; expected_post_row=&rows[0];
     browser_c_focus(&chips[2]); browser_ready_post(list);
     assert(posts==3 && list->focused_child==&rows[0]);
+    /* The first game found takes the real focus (the whole chain a routed event follows, which starts on the detail panel), so
+       a Down press reaches the list's handler; before it, only the list's own child was set and browser_focus cleared it. */
+    list->focused_child=NULL; browser_c_focus(&sections[2]);
+    browser_first_game_focus(list);
+    {
+        struct widget_instance *leaf=&screen;
+        while (leaf->focused_child) leaf=leaf->focused_child;
+        assert(leaf==&rows[0] && screen.focused_child==list);
+        browser_focus(list);
+        assert(list->focused_child==&rows[0]);
+    }
+    /* (a player who already moved to the chips keeps them) */
+    list->focused_child=NULL; browser_c_focus(&chips[1]);
+    browser_first_game_focus(list);
+    assert(screen.focused_child==&sections[0] && list->focused_child==&rows[0]);
     /* With no games the chips' down stays on the chips (the actions are the engine's bar, not focus targets). */
     lobby_browser.count=0;
     browser_chips_navigation(&chips[0]);
