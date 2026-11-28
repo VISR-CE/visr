@@ -1,3 +1,65 @@
+## visr-v0.6.22 (2026-11-28)
+
+### Summary
+
+- Joining a game during the startup intro movie should no longer halt the game. This also covers join links, invites at launch, and direct-IP joins.
+- Changing maps while the intro video is still playing should now load cleanly.
+- If you host with a network host version of 43, it should now stay at 43 when you join your own game. Players on 43 should no longer be dropped from your lobby.
+- Map sharing now sends joiners community maps only. Stock maps and the publisher's own maps are no longer sent.
+- Community maps that reuse a stock map's name can now be shared.
+- Multiplayer maps built on campaign geometry can now be sent. Singleplayer conversions of campaign levels are refused.
+- Map downloads from older hosts should keep working. Replaced map files should be re-checked.
+- On Apple platforms, the app is now categorized as a game and opts into Game Mode.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **apple**: opt every app target into the games category and Game Mode
+
+### fix
+
+- **test**: import `re` in `tools/test_map_share_send.py` — the cherry-pick of the stock-table test took main's body without the module's `import re`, so `stock_table_rows` and the fixture build raised `NameError` and 41 map-share tests failed (#150)
+- **cache**: end a playing movie before any precache takes the texture cache memory — a joined lobby's background precache (`cache_files_give_time_to_precache`) calls `cache_files_precache_map_begin` without passing `game_precache_new_map`, so a join during the intro could still halt in `xbox_texture_cache.c`
+- **bink**: end a playing movie before any map load — a map change during the startup intro (a join link or invite at launch, a direct-IP join, an `init.txt` `map_name`) halted in `scenario_unload` on `!bink_playback_active()`, and a join's precache could halt in `xbox_texture_cache.c` taking the texture cache memory the movie still held
+- **drs**: give a stage interval no reading when either of its sample pairs is stale
+- **drs**: drop stage samples left from a slot's earlier use
+- **drs**: clip each stage range to its own command buffer's GPU span
+- **drs**: re-take the clock pair when the GPU's clock steps
+- **drs**: convert through the tightest recent clock pair instead of dropping frames
+- **drs**: charge GPU overlap by dependency and check the converted clocks
+- **drs**: charge overlapping GPU intervals once in the planner's S+U+H
+- **map-share**: read only a singleplayer map's tags, log a refusal for unreadable ones, and test the tag pieces a relay waits for
+- **map-share**: refuse only singleplayer conversions of a campaign level, and send multiplayer maps built on campaign geometry
+- **map-share**: test the relay's campaign check and the refusal of unreadable tags, and say what tag paths cannot catch
+- **map-share**: never send a conversion of a campaign level whose scenario or structure BSP tag lies in a campaign level's folder, under any file name
+- **map-share**: judge a seeded download's content in the test, and hash again a file that changed while it was read
+- **map-share**: know a stock map by the hash of its content, not the checksum written in its header
+- **map-share**: judge stock maps by checksum only, so community maps that reuse a stock name are shared
+- **map-share**: keep downloads from older hosts alive and re-judge replaced catalog files
+- **map-share**: send joiners community maps only — never Custom Edition's resource maps or the publisher's own maps
+- **netcode**: a host on `network.host_version = 43` keeps 43 when it joins its own game — the local join reset it to 38, so the host sent settings in the 38 layout and every 43 joiner left
+
+### refactor
+
+- **maps**: read every list of the game's own maps from one table, `port/runtime/stock_maps.h`
+
+### docs
+
+- **drs**: say the clock-step re-take is a guard no device run has needed
+
+### test
+
+- **metal**: skip the pixel-key sample probe off macOS — it builds with `xcrun clang`, which the Linux tooling job doesn't have, so collecting `tools/test_pixel_key_samples.py` failed the job
+- **drs**: give the clock-pair probe an injected host clock and count clipped ranges
+- **netcode**: only the server sets the host version — `test_only_the_server_sets_the_host_version` lists every `network_game_set_host_version` caller, the other way a second owner of the game's version would appear; the Delta check in `network_game_client_initiate_join_game` reuses `advertised`
+
 ## visr-v0.6.21 (2026-11-21)
 
 ### Summary
