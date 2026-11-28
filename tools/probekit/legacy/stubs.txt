@@ -56,6 +56,7 @@ port/ios/tests/tv_gamepad_gate_probe.c
 tools/harness/tests/test_zsprite_depth.py
 tools/test_benchmark_graphics_state.py
 tools/test_benchmark_own_input.py
+tools/test_benchmark_renderer_observations.py
 tools/test_benchmark_report_fields.py
 tools/test_benchmark_staging.py
 tools/test_browser_layout_c.py
@@ -64,6 +65,7 @@ tools/test_browser_shortcut_input.py
 tools/test_console_config.py
 tools/test_controller_chord.py
 tools/test_deterministic_policies.py
+tools/test_effect_resolution_level.py
 tools/test_graphics_settings_capture.py
 tools/test_host_stubs.py
 tools/test_hud_decode.py

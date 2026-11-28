@@ -95,7 +95,7 @@ static const char *setting = "max";
 static unsigned long revision;
 static int reads;
 static const char *config_string(const char *name) { (void)name; reads++; return setting; } /* fake: returns the setting the probe sets and counts reads */
-static unsigned long config_changes(void) { return revision; }
+static unsigned long config_changes(void) { return revision; } /* fake: the revision the probe bumps when a setting changes */
 ''' + text[start:end] + r'''
 int main(void) {
     assert(halo_model_lod_override_state() == -1);
@@ -127,7 +127,7 @@ static unsigned long revision;
 static long shadow=256, anisotropy=2, benchmark_shadow_size;
 static long benchmark_anisotropy;
 static int effect=1, benchmark_effect_level=-1;
-static unsigned long config_changes(void) { return revision; }
+static unsigned long config_changes(void) { return revision; } /* fake: the revision the probe bumps when a setting changes */
 static long config_integer(const char *name) { return !strcmp(name,"display.shadow_map_size") ? shadow : anisotropy; } /* fake: serves the shadow and anisotropy values the probe sets */
 enum { CONFIG_SCENE_GAMEPLAY };
 /* (the workload context's value, when a map is variable: [variable.display]) */

@@ -78,7 +78,7 @@ def cc_stubs():
 def test_port_stubs_give_a_plain_c_probe_the_seams_and_its_own_definition_wins(tmp_path):
     source = tmp_path / 'seam_probe.c'
     source.write_text('#include <stdio.h>\n#include "port_config.h"\nvoid platform_log(const char *format, ...);\n'
-                      'long config_integer(const char *name) { (void)name; return 7; }\n'
+                      'long config_integer(const char *name) { (void)name; return 7; }  /* fake: wins over the default */\n'
                       'int main(void) {\n    platform_log("quiet %d", 1);\n'
                       '    printf("%d %ld [%s]\\n", config_boolean("a"), config_integer("b"), config_string("c"));\n'
                       '    return 0;\n}\n')

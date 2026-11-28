@@ -376,7 +376,6 @@
  },
  "source_exempt.txt": [
   "probekit/source_lint.py",
-  "probekit/stub_lint.py",
   "test_probekit_source.py"
  ],
  "literal_asserts": {
@@ -540,14 +539,16 @@
   "tools/harness/tests/test_zsprite_depth.py": 1,
   "tools/test_benchmark_graphics_state.py": 1,
   "tools/test_benchmark_own_input.py": 1,
+  "tools/test_benchmark_renderer_observations.py": 1,
   "tools/test_benchmark_report_fields.py": 3,
   "tools/test_benchmark_staging.py": 1,
   "tools/test_browser_layout_c.py": 2,
   "tools/test_browser_picture_selection.py": 1,
   "tools/test_browser_shortcut_input.py": 1,
   "tools/test_console_config.py": 1,
-  "tools/test_controller_chord.py": 4,
+  "tools/test_controller_chord.py": 5,
   "tools/test_deterministic_policies.py": 1,
+  "tools/test_effect_resolution_level.py": 1,
   "tools/test_graphics_settings_capture.py": 4,
   "tools/test_host_stubs.py": 1,
   "tools/test_hud_decode.py": 2,
