@@ -210,3 +210,5 @@ def test_assert_reaches_names_the_functions_it_searched(tmp_path, monkeypatch):
 def test_unbalanced_braces_name_the_file():
     with pytest.raises(LookupError, match='port/odd.c has unbalanced braces'):
         source.function_in('int f(void)\n{\n#if A\n{\n#endif\n', 'f', 'port/odd.c')
+    with pytest.raises(LookupError, match='port/odd.h has unbalanced braces'):
+        source.structure_in('struct pair {\n#if A\n{\n#endif\n', 'pair', 'port/odd.h')

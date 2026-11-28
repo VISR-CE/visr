@@ -348,7 +348,11 @@ def structure_in(text: str, name: str, where: str = "the text") -> str:
     if not match:
         names = re.findall(r"^struct\s+(\w+)\s*\{", masked, re.M)
         raise _missing(where, f"struct {name}", [f"struct {item}" for item in names])
-    end = _closing(masked, masked.index("{", match.start()))
+    try:
+        end = _closing(masked, masked.index("{", match.start()))
+    except UnbalancedBraces:
+        raise UnbalancedBraces(f"{where} has unbalanced braces (an #if branch that opens a brace it does not close?)") \
+            from None
     return text[match.start():masked.index(";", end) + 1]
 
 
