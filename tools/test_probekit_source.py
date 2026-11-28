@@ -316,3 +316,30 @@ def test_constant_reads_the_value_an_enumerator_or_define_sets():
             source.constant_in(CONSTANTS, hidden)
     with pytest.raises(LookupError, match='2 different values'):
         source.constant_in(CONSTANTS + '#define CAPACITY 65\n', 'CAPACITY')
+
+
+DECLARATIONS = '''
+typedef float real;
+typedef unsigned int texture_id, buffer_id;
+// typedef int commented;
+#define FLAG(b) (1 << (b))
+#define LONG_MACRO(a) \\
+	((a) + 1)
+union point2d
+{
+	short n[2];
+	struct { short x, y; };
+};
+'''
+
+
+def test_macro_typedef_and_union_by_name():
+    assert source.macro_in(DECLARATIONS, 'FLAG') == '#define FLAG(b) (1 << (b))'
+    assert source.macro_in(DECLARATIONS, 'LONG_MACRO').endswith('((a) + 1)')
+    assert source.typedef_in(DECLARATIONS, 'real') == 'typedef float real;'
+    assert source.typedef_in(DECLARATIONS, 'buffer_id') == 'typedef unsigned int texture_id, buffer_id;'
+    assert source.structure_in(DECLARATIONS, 'point2d', kind='union').endswith('};')
+    with pytest.raises(LookupError, match='no one-line typedef declares `commented`'):
+        source.typedef_in(DECLARATIONS, 'commented')
+    with pytest.raises(LookupError, match='defined 2 times'):
+        source.macro_in(DECLARATIONS + '#define FLAG(b) 0\n', 'FLAG')

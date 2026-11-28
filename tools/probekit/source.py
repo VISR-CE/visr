@@ -392,12 +392,15 @@ def span(path, first: str, last: str) -> str:
     return span_in(read(path), first, last, str(path))
 
 
-def structure_in(text: str, name: str, where: str = "the text") -> str:
+def structure_in(text: str, name: str, where: str = "the text", kind: str = "struct") -> str:
+    """A named struct's (or, with kind="union", union's) definition through its semicolon."""
+    if kind not in ("struct", "union"):
+        raise ValueError(f"kind is struct or union, not {kind!r}")
     masked = mask(text)
-    match = re.search(r"^struct\s+" + re.escape(name) + r"\s*\{", masked, re.M)
+    match = re.search(r"^" + kind + r"\s+" + re.escape(name) + r"\s*\{", masked, re.M)
     if not match:
-        names = re.findall(r"^struct\s+(\w+)\s*\{", masked, re.M)
-        raise _missing(where, f"struct {name}", [f"struct {item}" for item in names])
+        names = re.findall(r"^" + kind + r"\s+(\w+)\s*\{", masked, re.M)
+        raise _missing(where, f"{kind} {name}", [f"{kind} {item}" for item in names])
     try:
         end = _closing(masked, masked.index("{", match.start()))
     except UnbalancedBraces:
@@ -457,6 +460,35 @@ def constant_in(text: str, name: str, where: str = "the text") -> str:
 
 def constant(path, name: str) -> str:
     return constant_in(read(path), name, str(path))
+
+
+def macro_in(text: str, name: str, where: str = "the text") -> str:
+    """The `#define name ...` line (with its continuation lines), outside comments; LookupError unless exactly one."""
+    masked = mask(text, strings=False)
+    found = list(re.finditer(r"^[ \t]*#[ \t]*define[ \t]+" + re.escape(name) + r"\b(?:\\\n|[^\n])*", masked, re.M))
+    if len(found) != 1:
+        raise LookupError(f"`{name}` is defined {len(found)} times as a macro in {where}" if found else
+                          f"`{name}` is not defined as a macro in {where}: it may have been renamed")
+    return text[found[0].start():found[0].end()].strip()
+
+
+def macro(path, name: str) -> str:
+    return macro_in(read(path), name, str(path))
+
+
+def typedef_in(text: str, name: str, where: str = "the text") -> str:
+    """The one-statement `typedef ... name;` (or `typedef T a, name, b;`; not a typedef with a body), outside
+    comments."""
+    masked = mask(text)
+    found = list(re.finditer(r"^[ \t]*typedef\b[^;{}]*\b" + re.escape(name) + r"[ \t]*(?:;|,[^;{}]*;)", masked, re.M))
+    if len(found) != 1:
+        raise LookupError(f"`{name}` is declared by {len(found)} typedefs in {where}" if found else
+                          f"no one-line typedef declares `{name}` in {where}: it may have been renamed")
+    return text[found[0].start():found[0].end()].strip()
+
+
+def typedef(path, name: str) -> str:
+    return typedef_in(read(path), name, str(path))
 
 
 def block_in(text: str, marker: str, where: str = "the text") -> str:
