@@ -252,3 +252,44 @@ def test_span_names_what_is_gone_or_out_of_order():
     twice = SPAN + '#if A\nstatic short last_slot(void)\n{\n\treturn 0;\n}\n#endif\n'
     with pytest.raises(LookupError, match=r'defined 2 times in the text \(lines 10, 17: #if variants\?\).*defined once'):
         source.span_in(twice, 'SLOTS', 'last_slot')
+
+
+ENUMS = r'''/* enum { _in_a_comment }; */
+enum kind
+{
+	_kind_first = 0,
+	_kind_second,
+	NUMBER_OF_KINDS
+};
+typedef enum { _flag_a = 1 << 0, _flag_b = 1 << 1 } flags;
+static void f(int misfired)
+{
+	if (!misfired)
+	{
+		const char *text = "{";
+		g();
+	}
+	// if (!misfired) in a comment does not count
+}
+'''
+
+
+def test_enumeration_finds_the_enum_holding_a_member_through_its_semicolon():
+    assert source.enumeration_in(ENUMS, '_kind_second').startswith('enum kind\n{')
+    assert source.enumeration_in(ENUMS, 'NUMBER_OF_KINDS').endswith('NUMBER_OF_KINDS\n};')
+    assert source.enumeration_in(ENUMS, '_flag_b') == 'enum { _flag_a = 1 << 0, _flag_b = 1 << 1 } flags;'
+    with pytest.raises(LookupError, match='`_in_a_comment` is in no enum'):
+        source.enumeration_in(ENUMS, '_in_a_comment')
+    with pytest.raises(LookupError, match=r'is in 2 enums \(lines 2, 18\)'):
+        source.enumeration_in(ENUMS + 'enum other { _kind_second };\n', '_kind_second')
+
+
+def test_block_takes_the_one_brace_block_after_a_marker():
+    text = source.block_in(ENUMS, 'if (!misfired)')
+    assert text.startswith('if (!misfired)\n\t{') and text.endswith('g();\n\t}')
+    with pytest.raises(LookupError, match='2 copies'):
+        source.block_in(ENUMS + 'if (!misfired) { }\n', 'if (!misfired)')
+    with pytest.raises(LookupError, match='0 copies'):
+        source.block_in(ENUMS, 'if (misfired)')
+    assert source.block_in(ENUMS, '{\n\t\tconst char').startswith('{\n\t\tconst char') and \
+        source.block_in(ENUMS, '{\n\t\tconst char').endswith('g();\n\t}')

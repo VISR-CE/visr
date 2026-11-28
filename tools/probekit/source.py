@@ -24,6 +24,12 @@ what happened when the name is gone:
 - `mutating(path, before, after)`: within the block, every helper reads `path` with one substitution applied (a
   negative control); `mutated(text, before, after)` does the same to a text.
 - `structure(path, name)`: a named struct's definition through its semicolon.
+- `enumeration(path, member)`: the `enum` whose list holds the enumerator `member`, from `enum` through its
+  semicolon (named or anonymous, `typedef` or not), for a probe that needs the real values.
+- `block(path, marker)`: the brace block that opens first at or after the start of `marker`, a piece of code that
+  occurs exactly once outside comments (`"if (!misfired)"`, `"{\\n\\t\\treal scale;\\n\\n\\t\\tright_angle"`), through its
+  closing brace: for an unnamed block in a file under `source/`.
+  A function, struct or enum has its own helper; in `port/`, prefer a `region()` marker.
 - `span(path, first, last)`: the text from the line that defines `first` (a function, or a `#define`) through the end
   of the function `last`, for a probe that needs a run of definitions with the macros and file-scope variables
   between them (a file under `source/`, where `region()` markers do not go). Each name is found as `function()`
@@ -402,6 +408,55 @@ def structure_in(text: str, name: str, where: str = "the text") -> str:
 
 def structure(path, name: str) -> str:
     return structure_in(read(path), name, str(path))
+
+
+_ENUM = re.compile(r"\benum\b(?:\s+\w+)?\s*\{")
+
+
+def enumeration_in(text: str, member: str, where: str = "the text") -> str:
+    masked = mask(text)
+    found = []
+    for match in _ENUM.finditer(masked):
+        opening = masked.index("{", match.start())
+        try:
+            end = _closing(masked, opening)
+        except UnbalancedBraces:
+            raise UnbalancedBraces(f"{where} has unbalanced braces (an #if branch that opens a brace it does not "
+                                   f"close?)") from None
+        if re.search(r"(?:^|[{,\s])" + re.escape(member) + r"\b\s*(?:=|,|})", masked[opening:end]):
+            found.append((match.start(), masked.index(";", end) + 1))
+    if len(found) != 1:
+        lines = ", ".join(str(text.count("\n", 0, start) + 1) for start, _ in found)
+        detail = f"is in {len(found)} enums (lines {lines})" if found else "is in no enum: it may have been renamed"
+        raise LookupError(f"`{member}` {detail} in {where}")
+    start, end = found[0]
+    return text[start:end]
+
+
+def enumeration(path, member: str) -> str:
+    return enumeration_in(read(path), member, str(path))
+
+
+def block_in(text: str, marker: str, where: str = "the text") -> str:
+    masked = mask(text, strings=False)
+    count = masked.count(marker)
+    if count != 1:
+        raise LookupError(f"{where} has {count} copies of {marker!r} outside comments; a block() marker must occur "
+                          f"exactly once")
+    start = masked.index(marker)
+    masked_all = mask(text)
+    opening = masked_all.find("{", start)   # a marker may start with its own brace
+    if opening < 0:
+        raise LookupError(f"no brace opens after {marker!r} in {where}")
+    try:
+        end = _closing(masked_all, opening)
+    except UnbalancedBraces:
+        raise UnbalancedBraces(f"{where} has unbalanced braces after {marker!r}") from None
+    return text[start:end]
+
+
+def block(path, marker: str) -> str:
+    return block_in(read(path), marker, str(path))
 
 
 def mutated(text: str, before: str, after: str) -> str:
