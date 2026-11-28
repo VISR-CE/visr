@@ -13,8 +13,12 @@ the decompiled engine; it sets focus where it loads and dispatches widgets, so i
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+
+from probekit import source as probe_source  # noqa: E402
 
 # (file, function or None for a macro) -> why that code may assign `focused_child` itself
 ASSIGNERS = {
@@ -40,7 +44,6 @@ LOCAL_FOCUS = {
 MENU = "port/linux/game/menu_functions.c"
 ASSIGN = re.compile(r"(?:->|\.|\))\s*focused_child\s*=(?!=)\s*([^;]*);", re.S)
 ADDRESS = re.compile(r"(?<!&)&\s*\(?[\w>.\-\[\]]*focused_child")
-FUNCTION = re.compile(r"^(?:static\s+)?[A-Za-z_][\w \*]*?\b(\w+)\([^;]*$")
 CLEAR = re.compile(r"^\(?\s*(?:[\w>.\-\[\]]+\s*=\s*)*(?:NULL|0)\s*\)?$")
 
 
@@ -51,14 +54,16 @@ def sources():
 
 
 def functions_by_line(text):
-    """The name of the top-level function each line is in (None outside one: a macro)."""
-    name, result = None, []
-    for line in text.splitlines():
-        match = FUNCTION.match(line)
-        if match and not line.startswith(("\t", " ", "#", "/")):
-            name = match.group(1)
-        result.append(name)
-    return result
+    """The name of the top-level function each line is in (None outside one: a macro's body)."""
+    names = [None] * (text.count("\n") + 2)
+    try:
+        definitions = probe_source.definitions(text)
+    except probe_source.UnbalancedBraces:
+        return names   # (a header of macros: its braces are inside #defines)
+    for name, start, _, end in definitions:
+        for line in range(text.count("\n", 0, start), text.count("\n", 0, end) + 1):
+            names[line] = name
+    return names
 
 
 def assignments(path):
