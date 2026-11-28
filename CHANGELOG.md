@@ -1,3 +1,53 @@
+## visr-v0.6.23 (2026-11-28)
+
+### Summary
+
+- Play with a controller and check that stick and button input feels responsive, especially during fast looking and aiming.
+- On Apple TV, use the Siri Remote and gamepad together, including text prompts, and watch for freezes or stuck input.
+- On Apple TV, open and dismiss text prompts while using a gamepad to confirm input still works normally.
+- Play large multiplayer matches on iPad and check for late or laggy look and aim response.
+- Listen to game audio during busy scenes and report crackling, stutter, or dropouts.
+- Try the new audio worker priority setting in the audio settings (default, realtime) and note any change in sound smoothness.
+- Play for a while on iOS, tvOS, and macOS and tell us about any hangs or input stalls.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **host**: `debug.controller_age_log` — log how old the controller state is at each game read (reads, mean, p50, p99, max every 5 s), measured against the last time SDL updated the controllers, with `host_controller_age` tracking the main pump's updates
+
+### fix
+
+- **host**: keep SDL joystick calls out of the tvOS remote event filter — `remote_event` called `text_input_blocked`, whose `hardware_held` takes the joystick lock, while the game thread holds that lock and pushes an event through the watch lock; the filter now reads `text_input_blocked_flag`, kept by `text_input_blocked` and each poll's `host_tv_text_prompt_tick`, and `test_sdl_event_callbacks` fails when any registered event watcher or filter reaches an SDL joystick function
+- **host**: refresh the controllers when the game thread lists the pads — on a 64-player iPad Air 4 run the poll's 2 ms gate and the long frame left late reads (the late look's stick read) up to a frame old, p99 14 ms; `host_sdl_get_gamepads` now calls `host_controller_refresh` off the main thread
+- **host**: keep the tvOS text-prompt event watcher off dialog state for gamepad events, and note controller updates after the legacy poll — the game thread now pushes gamepad events, so `text_prompt_watch` tests the event type before `text_prompt_up`; `debug.controller_age_log` also reports with `debug.game_thread` off
+- **host**: the game thread updates the controllers at its own poll — `next_event` only peeked SDL's queue, so with `debug.game_thread` on the controller state a read saw was as old as the main timer's last `SDL_PumpEvents`; now `host_controller_refresh` runs `SDL_UpdateJoysticks` at each game-thread poll
+
+### perf
+
+- **audio**: `audio.worker_priority` — the thread that runs the guest's sound mixing ran at default priority while SDL's time-critical audio thread waited on it each callback; it now takes the game thread's user-interactive class ("realtime" gives it a time-constraint policy of one callback's period, "default" the old behavior)
+
+### refactor
+
+- **host**: bound the poll's controller update and sample ages in every mode — `next_event` refreshes through `host_controller_refresh_bounded` (a pump delivering N events is one update), `host_sdl_update_joysticks` samples with the game thread off or on main so Vision Pro and the thread-off builds report an age, `controller_age_probe` again asserts the sample precedes the refresh, `test_controller_reads` pins the closed set of gamepad-state readers, and `test_sdl_event_callbacks` follows calls across the host files and forbids `host_main_sync`
+- **host**: refresh the controllers only at the game's real controller reads — `XInputGetState` and `halo_look_stick_latest` call `SDL_UpdateJoysticks` through the new `host_sdl_update_joysticks` import (skipped when under 0.25 ms old), `host_sdl_get_gamepads` stops refreshing for rumble, glyphs and menus, and `debug.controller_age_log` samples before the refresh; adds `test_controller_reads` and a read-bound probe
+
+### test
+
+- **audio**: `audio_probe` checks that `audio.worker_priority` applied — the mixing worker must log the default `interactive` class after its callbacks ran
+- **host**: count the legacy poll's controller update notes in `game_thread_flag_probe`
+
+### chore
+
+- **settings**: regenerate `port/linux/README.md` — the picked `debug.controller_age_log` row sat after `debug.knob_cycle`, and `tools/settings_schema.py --check` found the table stale
+- **audio**: the host thread that runs the game's sound mixing callback is named "audio mix" — it was an unnamed thread in per-thread CPU lists, and at 128 players it uses as much CPU as the game thread or more (12 to 17 ms a frame on the Mac runner)
+
 ## visr-v0.6.22 (2026-11-28)
 
 ### Summary
