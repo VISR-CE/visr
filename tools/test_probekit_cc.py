@@ -91,6 +91,8 @@ def test_options_add_to_the_defaults_and_refuse_what_replaces_them():
     command = cc.command(['a.c'], output='out', std='c11', options=['-O2', '-iquote', 'port/linux/src', '-pthread'])
     assert command[1:4] == ['-std=c11', '-Wall', '-Werror']
     assert command[4:8] == ['-O2', '-iquote', 'port/linux/src', '-pthread'] and command[-1] == '-lm'
-    for wrong in (['-std=c99'], ['-c'], ['-Wno-error']):
+    assert cc.command(['a.c'], output='out', options=['-framework', 'Foundation', '-fobjc-arc', '-g3', '-Lsdl/lib'])
+    for wrong in (['-std=c99'], ['--std=c99'], ['-c'], ['-Wno-error'], ['-Wno-everything'], ['-w'], ['-DX=1'],
+                  ['-Iport'], ['-lm'], ['-m32'], ['-x', 'c'], ['--output=x'], ['-fsyntax-only'], ['extra.c']):
         with pytest.raises(ValueError, match='belong elsewhere'):
             cc.command(['a.c'], output='out', options=wrong)

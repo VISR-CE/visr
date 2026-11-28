@@ -11,8 +11,8 @@ the same everywhere (tools/test_probe_conventions.py keeps new tests on it). The
   links here and not on Linux (glibc's strict ISO macros, headers Ubuntu lacks, libm without `-lm`).
 
 `options` adds the caller's other compiler options (`-O2`, `-g`, `-iquote DIR`, `-framework Foundation`, `-fobjc-arc`,
-`-pthread`) after the defaults and the structured ones, so the defaults still apply; it never takes `-o`, `-std=`,
-`-c`, `-fsyntax-only` or a source. `flags` replaces every default with the caller's own options, in the caller's order: the command is the compiler,
+`-pthread`, `-L DIR`) after the defaults and the structured ones, so the defaults still apply; it takes only the
+shapes `OPTION_SHAPES` and `OPTIONS_WITH_VALUES` name. `available()` says whether there is a compiler to skip on. `flags` replaces every default with the caller's own options, in the caller's order: the command is the compiler,
 `flags`, the sources and `-o OUTPUT`. tools/ios_test.py's probes use it, so moving them onto `build` changed no
 option; they can move to the structured parameters one at a time.
 
@@ -27,6 +27,8 @@ from __future__ import annotations
 
 import os
 import platform
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -55,14 +57,43 @@ def compiler(apple: bool) -> list[str]:
     return ["clang"]
 
 
+# What `options` may hold: optimization, debug information, code generation and feature switches (`-f...`), threads,
+# and the search paths, rpaths and frameworks no structured parameter covers, each with its value. Everything else either has a
+# parameter (`-std=`, `-D`, `-I`, `-l`, `-x`, `-m32`, `-Wno-` as `relaxed`) or would undo a default or not link a probe.
+OPTION_SHAPES = re.compile(r"-O[0-3sz]?|-g\w*|-pthread|-L\S+|-Wl,-rpath,\S+|-f(?!syntax-only$)[a-z][\w=,+.-]*")
+OPTIONS_WITH_VALUES = {"-iquote", "-idirafter", "-include", "-framework", "-iframework"}
+
+
+def refused_options(options) -> list[str]:
+    """The entries of `options` that `build` does not take there."""
+    options, refused, index = [str(option) for option in options], [], 0
+    while index < len(options):
+        option = options[index]
+        if option in OPTIONS_WITH_VALUES and index + 1 < len(options):
+            index += 2
+            continue
+        if not OPTION_SHAPES.fullmatch(option):
+            refused.append(option)
+        index += 1
+    return refused
+
+
+def available(apple: bool = False) -> bool:
+    """Whether `build` has a compiler here: `$CC`, else clang (xcrun's for apple=True)."""
+    if apple:
+        return platform.system() == "Darwin" and shutil.which("xcrun") is not None
+    if os.environ.get("CC"):
+        return shutil.which(os.environ["CC"].split()[0]) is not None
+    return shutil.which("clang") is not None
+
+
 def command(sources, *, output, std="gnu11", includes=(), defines=(), libs=(), language=None, extra_warnings=False,
             relaxed=(), sanitize=False, bits=64, apple=False, options=(), flags=None) -> list[str]:
     """The compiler command `build` runs, without the host stub object."""
     sources = [str(source) for source in sources]
     if not sources:
         raise ValueError("build() needs at least one source")
-    refused = [option for option in map(str, options) if option in ("-o", "-c", "-S", "-E", "-fsyntax-only", "-shared")
-               or option.startswith(("-std=", "-Wno-error"))]
+    refused = refused_options(options)
     if refused:
         raise ValueError(f"build(options=...) adds options to the defaults; these belong elsewhere: {refused}")
     if flags is not None:
