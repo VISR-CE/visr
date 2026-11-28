@@ -8,6 +8,7 @@ import shutil
 import subprocess
 
 import pytest
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 DRIVER = r"""
@@ -91,9 +92,6 @@ def test_p90_uses_nearest_rank_for_every_timing(tmp_path):
         assert record[name]["p99"] == 30.0
 
 
-def host_function(source, signature):
-    start = source.index(signature)
-    return source[start:source.index("\n}\n", start) + 3]
 
 
 @pytest.mark.parametrize("scenario", ["context", "bounds", "begin_failure", "record_failure", "end_failure"])
@@ -103,12 +101,12 @@ def test_capacity_skip_record_journal_resume_and_summary(tmp_path, scenario):
     if sys.platform != "darwin":
         pytest.skip("The host report probe requires Foundation")
     host = (ROOT / "port/ios/host/host_benchmark.m").read_text()
-    functions = "\n".join(host_function(host, signature) for signature in (
-        "void host_benchmark_workload(", "static void reset_run_record(", "static void record_run_context(", "static BOOL skip_capacity_run(", "static NSString *report_summary("))
-    next_run = host_function(host, "int host_benchmark_next(")
+    functions = "\n".join(probe_source.function_in(host, name) for name in (
+        "host_benchmark_workload", "reset_run_record", "record_run_context", "skip_capacity_run", "report_summary"))
+    next_run = probe_source.function_in(host, "host_benchmark_next")
     skip_branch = next_run[next_run.index("    scene = &plan.scenes[run.scene];"):next_run.index("    host_benchmark_phase(HOST_BENCHMARK_LOADING);")]
     profile = (ROOT / "port/ios/host/host_profile.c").read_text()
-    functions = host_function(profile, "int host_profile_value(") + "\n" + host_function(host, "static int profile_player_capacity(") + "\n" + functions
+    functions = probe_source.function_in(profile, "host_profile_value") + "\n" + probe_source.function_in(host, "profile_player_capacity") + "\n" + functions
     source = tmp_path / "capacity.m"
     source.write_text(r'''
 #import <Foundation/Foundation.h>
@@ -304,12 +302,12 @@ int main(int argc, char **argv) { @autoreleasepool {
 def test_workload_bridge_uses_game_decision_and_host_gates_before_loading():
     host = (ROOT / "port/ios/host/host_benchmark.m").read_text()
     game = (ROOT / "port/linux/game/scene_class.c").read_text()
-    decision = host_function(game, "void halo_workload_decide(")
+    decision = probe_source.function_in(game, "halo_workload_decide")
     assert decision.index("config_workload_set_limited(") < decision.index("host_benchmark_workload(config_workload_variable())")
     assert "host_benchmark_workload" in (ROOT / "port/runtime/host_imports.list").read_text()
     assert "void host_benchmark_workload(int variable);" in (ROOT / "port/runtime/guest/runtime/guest_host.h").read_text()
-    next_run = host_function(host, "int host_benchmark_next(")
+    next_run = probe_source.function_in(host, "host_benchmark_next")
     assert next_run.index("skip_capacity_run()") < next_run.index("host_benchmark_phase(HOST_BENCHMARK_LOADING)")
     assert next_run.index("reset_run_record()") < next_run.index("skip_capacity_run()")
-    write_run = host_function(host, "static BOOL write_run(")
+    write_run = probe_source.function_in(host, "write_run")
     assert "record_run_context(record, scene, status)" in write_run

@@ -2,25 +2,14 @@
 """The lobby matches a game's map by scenario name, and says "1 machine" in the singular."""
 from pathlib import Path
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
 MENU = (ROOT / 'port/linux/game/menu_functions.c').read_text()
 
 
-def function_body(signature):
-    # Skip forward declarations: the definition's signature line ends with a brace on the next line.
-    start = 0
-    while True:
-        start = MENU.index(signature, start)
-        line_end = MENU.index('\n', start)
-        if MENU[line_end - 1] != ';':
-            break
-        start = line_end
-    body = MENU[start:]
-    return body[:body.index('\n}\n')]
-
-
 def test_lobby_map_show_matches_bare_names():
-    body = function_body('static void lobby_map_show(')
+    body = probe_source.body('port/linux/game/menu_functions.c', 'lobby_map_show')
     assert '_stricmp(scenario_name(names[index]), scenario_name(map_name))' in body, \
         'the map list holds scenario paths; a game advertising a bare map name must still match'
 

@@ -1,16 +1,13 @@
 """The split-screen row on an iPhone with no game controller connected."""
 from pathlib import Path
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
 MENU_FUNCTIONS = (ROOT / "port/linux/game/menu_functions.c").read_text()
 HANDLER = (ROOT / "source/interface/ui_widget_event_handler_functions.c").read_text()
 DESCRIPTION = (ROOT / "source/interface/ui_widget_game_data_input_functions.c").read_text()
 PATCHES = (ROOT / "port/assets/menus/xbox/patches.xml").read_text()
-
-
-def body(source, signature):
-    start = source.rindex(signature)
-    return source[start:source.index("\n}\n", start)]
 
 
 def test_phone_import_is_wired_through_host_and_guest():
@@ -20,27 +17,27 @@ def test_phone_import_is_wired_through_host_and_guest():
 
 
 def test_needs_controller_only_on_a_phone_without_pads():
-    helper = body(MENU_FUNCTIONS, "boolean menu_split_screen_needs_controller(void)")
+    helper = probe_source.body_in(MENU_FUNCTIONS, "menu_split_screen_needs_controller")
     assert "host_sdl_is_phone()" in helper and "host_gamepad_physical_count()" in helper
 
 
 def test_row_is_grayed_but_focusable_and_cannot_start():
-    assert "split_item_off(widget)" in body(MENU_FUNCTIONS, "ui_widget_port_browser_row_unavailable")
-    assert "menu_split_screen_needs_controller()" in body(HANDLER, "split_screen_game_initialize")
+    assert "split_item_off(widget)" in probe_source.body_in(MENU_FUNCTIONS, "ui_widget_port_browser_row_unavailable")
+    assert "menu_split_screen_needs_controller()" in probe_source.body_in(HANDLER, "split_screen_game_initialize")
 
 
 def test_panel_explains_and_follows_controller_state_live():
     assert "Split screen on iPhone needs" in PATCHES and "controllers for extra players." in PATCHES
-    update = body(DESCRIPTION, "static void multiplayer_type_menu_update_extended_description(")
+    update = probe_source.body_in(DESCRIPTION, "multiplayer_type_menu_update_extended_description")
     assert "multiplayer_type_split" in update and "menu_split_screen_needs_controller()" in update
 
 
 def test_grayed_split_row_ignores_activation_on_every_input():
-    gate = body(MENU_FUNCTIONS, "boolean ui_widget_port_disabled_row_activation(")
+    gate = probe_source.body_in(MENU_FUNCTIONS, "ui_widget_port_disabled_row_activation")
     assert "BUTTON_A" in gate and "EVENT_CUSTOM_ACTIVATION" in gate
     assert "focused_child" in gate and "split_item_off(widget)" in gate
     ui_widget = (ROOT / "source/interface/ui_widget.c").read_text()
-    dispatch = body(ui_widget, "static void event_handler_dispatch(\n\tstruct widget_instance *widget,\n\tstruct ui_widget_definition *definition,\n\tstruct event_record *event,\n\tstruct ui_widget_event_handler_reference *handler,\n\tboolean *calling_widget_deleted)\n{")
+    dispatch = probe_source.body_in(ui_widget, "event_handler_dispatch")
     assert dispatch.index("ui_widget_port_disabled_row_activation(widget, handler->event_type)") < dispatch.index("_event_handler_run_function_bit")
 
 
@@ -53,15 +50,15 @@ def test_every_disabled_row_refuses_every_input_with_the_disc_failure_sound():
     """Controller and keyboard A, a mouse click and a touch tap all reach the row as A (or the custom activation);
     the refusal plays the disc's flag_failure sound, the one a locked graphics row plays, from ui_widget.c."""
     ui_widget = (ROOT / "source/interface/ui_widget.c").read_text()
-    gate = body(MENU_FUNCTIONS, "boolean ui_widget_port_disabled_row_activation(")
+    gate = probe_source.body_in(MENU_FUNCTIONS, "ui_widget_port_disabled_row_activation")
     assert "internet_item_off(widget)" in gate and "split_item_off(widget)" in gate
-    refuse = body(ui_widget, "static boolean widget_instance_port_refuse_graphics_edit(")
+    refuse = probe_source.body_in(ui_widget, "widget_instance_port_refuse_graphics_edit")
     assert "ui_widget_port_disabled_row_activation(widget, _gamepad_analog_button_a)" in refuse
     assert "_ui_audio_feedback_flag_failure" in refuse
-    port_dispatch = body(ui_widget, "boolean ui_widget_port_dispatch_event(")
+    port_dispatch = probe_source.body_in(ui_widget, "ui_widget_port_dispatch_event")
     assert "ui_widget_port_disabled_row_activation(widget, event_type)" in port_dispatch
     assert "_ui_audio_feedback_flag_failure" in port_dispatch
-    assert "ui_play_audio_feedback_sound(SOUND_ERROR)" in body(MENU_FUNCTIONS, "static boolean campaign_fail(void)")
+    assert "ui_play_audio_feedback_sound(SOUND_ERROR)" in probe_source.body_in(MENU_FUNCTIONS, "campaign_fail")
     assert "#define SOUND_ERROR 4" in MENU_FUNCTIONS and "_ui_audio_feedback_flag_failure," in ui_widget
 
 
@@ -84,9 +81,8 @@ def test_disabled_row_predicate_behavior(tmp_path):
     """The real predicate, with the setting and the controller count stubbed: the screen as the start widget with the
     grayed row down the focus chain, the row itself, the rows that stay enabled, and the inputs that are not presses."""
     import subprocess
-    functions = "\n".join(body(MENU_FUNCTIONS, signature) + "\n}\n" for signature in (
-        "static boolean internet_item_off(", "static boolean split_item_off(",
-        "boolean ui_widget_port_disabled_row_activation("))
+    functions = "\n".join(probe_source.function_in(MENU_FUNCTIONS, name) for name in (
+        "internet_item_off", "split_item_off", "ui_widget_port_disabled_row_activation"))
     program = r"""
 #include <assert.h>
 #include <string.h>

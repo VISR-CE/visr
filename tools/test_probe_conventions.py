@@ -312,6 +312,13 @@ def enum_body(text):
 
 def unescaped_body(text):
     return re.search(r"f\(\)\s*{(.*?)}", text, re.S).group(1)
+
+def host_function(source, signature):
+    start = source.index(signature)
+    return source[start:source.index("\n}\n", start) + 3]
+
+def lines_of(source, start):
+    return source[start:source.index("\n", start)]
 """
 
 
@@ -323,7 +330,7 @@ def test_the_source_lint_sees_the_regex_extractors_ios_test_used_to_have(tmp_pat
     searches = [number for number, line in enumerate(lines, 1) if 're.search(' in line]
     assert len(searches) == 5 and set(searches[:4]) <= set(found), (searches, found)
     assert extractor_definitions(probe) == {'extracted_definition', 'body_of', 'function_body', 'enum_body',
-                                            'unescaped_body'}
+                                            'unescaped_body', 'host_function'}
 
 
 def test_the_source_lint_counts_imports_of_another_files_extractor(tmp_path):

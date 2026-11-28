@@ -4,7 +4,8 @@ rules 3a and 3b.
 - `extractor_findings(path)`: rule 3a. Line numbers of the places a Python file finds C or Objective-C source by
   its declaration text instead of through `probekit.source`:
   - a private extractor: a function that matches braces itself, by comparing against or counting both `"{"` and `"}"`,
-    or with a regular expression that holds both braces (`r"enum\\s*\\{[^}]*\\};"`);
+    or with a regular expression that holds both braces (`r"enum\\s*\\{[^}]*\\};"`), or that ends a function at the first closing brace
+    at the start of a line (`text.index("\\n}\\n", start)`);
   - a search whose literal pattern starts with a C declaration: `.index`, `.rindex`, `.find`, `.rfind`, `.split`,
     `.rsplit`, `.partition` or `.rpartition` (also called as `str.index(text, ...)`), or any `re` function
     (`re.search(...)`, `import re as x`, `from re import search`). The pattern is the literal at the start of the
@@ -223,8 +224,19 @@ def _brace_tests(function) -> set[str]:
     return found
 
 
+def _ends_at_a_line_brace(function) -> bool:
+    """Whether a function searches for a closing brace at the start of a line (`"\\n}\\n"`, `"\\n}"`), the end of
+    a C function as its author formats it: a body found from a start the caller names."""
+    for node in ast.walk(function):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and \
+                node.func.attr in SEARCH_METHODS and node.args and isinstance(node.args[0], ast.Constant) and \
+                isinstance(node.args[0].value, str) and "\n}" in node.args[0].value:
+            return True
+    return False
+
+
 def _matches_braces(function, re_modules, re_functions) -> bool:
-    if _brace_tests(function) == {"{", "}"}:
+    if _brace_tests(function) == {"{", "}"} or _ends_at_a_line_brace(function):
         return True
     for node in ast.walk(function):
         if isinstance(node, ast.Call):
