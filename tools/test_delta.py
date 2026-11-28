@@ -96,9 +96,8 @@ def worker(native):
               "port/linux/src/posix_update.c", "port/linux/src/delta_legacy.c", "port/linux/src/delta_legacy_runtime.c",
               "port/third_party/monocypher/monocypher.c", "port/third_party/monocypher/monocypher-ed25519.c",
               *objects], output=program, extra_warnings=True, relaxed=["unused-parameter", "missing-field-initializers"],
-             includes=["port/linux/src", MBEDTLS / "include"],
-             options=["-O1", "-iquote", "port/linux/include", "--include-directory=port/third_party/monocypher",
-                      "-pthread"], port_stubs=True)
+             includes=["port/linux/src", MBEDTLS / "include", "port/third_party/monocypher"],
+             options=["-O1", "-iquote", "port/linux/include", "-pthread"], port_stubs=True)
     return program
 
 
@@ -354,7 +353,7 @@ def test_signed_legacy_table(tmp_path, defines):
     cc.build(["port/ios/tests/delta_legacy_probe.c", "port/linux/src/delta_legacy.c",
               "port/linux/src/delta_legacy_runtime.c", "port/third_party/monocypher/monocypher.c",
               "port/third_party/monocypher/monocypher-ed25519.c"], output=program, extra_warnings=True, sanitize=True,
-             defines=defines, options=["-O1", "-pthread", "-iquote", "port/linux/include",
-                                       "--include-directory=port/third_party/monocypher"], port_stubs=True)
+             defines=defines, includes=["port/third_party/monocypher"],
+             options=["-O1", "-pthread", "-iquote", "port/linux/include"], port_stubs=True)
     result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and "delta legacy probe ok" in result.stdout, result.stdout + result.stderr

@@ -2,7 +2,6 @@
 """Run the real lobby map-set branch and player-table functions with one synthetic machine."""
 
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -332,7 +331,7 @@ int main(void) {
 
 
 def test_synthetic_player_reaches_local_client_settings() -> None:
-    if shutil.which("clang") is None:
+    if not cc.available():
         raise SkipTest("A C compiler is required for the synthetic roster probe")
     state_start = NETWORK_TEST.index("struct network_test_weapon_trace\n{")
     state_end = NETWORK_TEST.index("} network_test;", state_start) + len("} network_test;")
@@ -363,7 +362,7 @@ def test_synthetic_player_reaches_local_client_settings() -> None:
         binary = Path(temporary) / "roster"
         path.write_text(source)
         cc.build([path], output=binary, std="gnu89", options=["-O2", "-fms-extensions"], port_stubs=True,
-                 relaxed=["c99-extensions", "char-subscripts", "tautological-constant-out-of-range-compare",
+                 relaxed=["char-subscripts", "tautological-constant-out-of-range-compare",
                           "gcc-compat", "unused-function"])
         subprocess.run([str(binary)], check=True)
 

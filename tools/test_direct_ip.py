@@ -1,7 +1,6 @@
 """Run Direct IP's production parser without game data or a network host."""
 
 from pathlib import Path
-import shutil
 import subprocess
 
 import pytest
@@ -13,8 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_direct_ip_target(tmp_path):
-    compiler = shutil.which("clang") or shutil.which("cc")
-    if compiler is None:
+    if not cc.available():
         pytest.skip("Direct IP probe requires a C compiler")
     binary = tmp_path / "direct-ip-probe"
     cc.build([ROOT / "port/ios/tests/direct_ip_probe.c"], output=binary, std="c11", extra_warnings=True,

@@ -1,5 +1,4 @@
 """Execute the production movie and shader policies with controlled config values."""
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -56,7 +55,7 @@ void platform_log(const char *format, ...);
 
 @pytest.fixture(scope="session")
 def policy_probe(tmp_path_factory):
-    if not shutil.which("clang"):
+    if not cc.available():
         pytest.skip("clang is needed for the native policy probe")
     build = tmp_path_factory.mktemp("deterministic-policies")
     source = build / "probe.c"

@@ -1,7 +1,6 @@
 """Exercise menu persistence with the production handlers and storage boundaries."""
 from pathlib import Path
 import subprocess
-import shutil
 
 import pytest
 
@@ -25,7 +24,7 @@ def test_settings_and_bindings_persist_without_save(tmp_path):
     program = fixture.replace('/* SETTINGS */', functions).replace('/* CONTROLS */', controls)
     probe, binary = tmp_path / 'probe.c', tmp_path / 'probe'
     probe.write_text(program)
-    if not shutil.which('clang'):
+    if not cc.available():
         pytest.skip('A C compiler is required for the menu persistence probe')
     cc.build([probe], output=binary, std='c99', relaxed=['unused-function'], sanitize=True, port_stubs=True)
     subprocess.run([str(binary)], check=True)
@@ -77,7 +76,7 @@ int main(void) {
     return 0;
 }
 '''
-    if not shutil.which('clang'):
+    if not cc.available():
         pytest.skip('A C compiler is required for the native controller probe')
     probe, binary = tmp_path / 'native.c', tmp_path / 'native'
     probe.write_text(program.replace('/* HELPER */', helper))

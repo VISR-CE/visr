@@ -2,7 +2,6 @@
 
 from pathlib import Path
 import json
-import shutil
 import subprocess
 import tempfile
 from unittest import SkipTest
@@ -16,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def compile_and_run(source: str) -> None:
-    if shutil.which("clang") is None:
+    if not cc.available():
         raise SkipTest("A C compiler is required for the browser shortcut probe")
     with tempfile.TemporaryDirectory(prefix="browser-shortcuts-") as temporary:
         path = Path(temporary) / "shortcuts.c"

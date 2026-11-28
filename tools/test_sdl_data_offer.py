@@ -1,6 +1,5 @@
 """Exercise the real SDL disc-image offer through dialog failure, cancel, and retry."""
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 
@@ -89,8 +88,7 @@ int main(int argc, char **argv) {
 
 
 def compile_probe(tmp_path, *, missing_failure_signal=False):
-    compiler = shutil.which("clang") or shutil.which("cc")
-    assert compiler, "A C compiler is required for the disc-image offer probe"
+    assert cc.available(), "A C compiler is required for the disc-image offer probe"
     tmp_path.mkdir(parents=True, exist_ok=True)
     callback = function(SOURCE, "data_image_chosen")
     if missing_failure_signal:

@@ -241,8 +241,11 @@ def test_live_set_changes_the_value_in_force(tmp_path):
         pytest.skip("the probe needs xcrun clang and SDL3's pkg-config")
     sdl = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "--libs", "sdl3"], text=True))
     probe = tmp_path / "config-live-probe"
-    cc.build(["port/ios/tests/config_live_probe.c"], output=probe, apple=True, defines=["HALO_ILP32=1"],
-             includes=["port/linux/src", "port/third_party/tomlc17"], options=["-O1", "-fsanitize=address", *sdl], port_stubs=True)
+    cc.build(["port/ios/tests/config_live_probe.c"], output=probe, apple=True,
+             includes=["port/linux/src", "port/third_party/tomlc17", *(t[2:] for t in sdl if t.startswith("-I"))],
+             defines=["HALO_ILP32=1", *(t[2:] for t in sdl if t.startswith("-D"))], libs=[t[2:] for t in sdl if t.startswith("-l")],
+             options=["-O1", "-fsanitize=address", *(t for t in sdl if not t.startswith(("-I", "-D", "-l")))],
+             port_stubs=True)
     result = subprocess.run([str(probe)], cwd=ROOT, check=True, capture_output=True, text=True)
     assert "config_live_probe: ok" in result.stdout
 

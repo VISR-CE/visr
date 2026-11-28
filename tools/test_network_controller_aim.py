@@ -1,6 +1,5 @@
 """Exercise production controller gates, action encoding and camera ownership."""
 from pathlib import Path
-import shutil
 import subprocess
 from unittest import SkipTest
 
@@ -10,12 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def run_probe(tmp_path, name, source):
-    if not (shutil.which("clang") or shutil.which("cc")):
+    if not cc.available():
         raise SkipTest("A C compiler is required for the controller aim probe")
     path = tmp_path / (name + ".c")
     path.write_text(source)
     output = tmp_path / name
-    cc.build([path], output=output, sanitize=True, relaxed=["unused-function", "unused-variable", "logical-op-parentheses"],
+    cc.build([path], output=output, sanitize=True, relaxed=["unused-function", "unused-variable", "logical-op-parentheses", "unused-but-set-variable"],
              options=["-O1", "-g"], port_stubs=True)
     result = subprocess.run([str(output)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

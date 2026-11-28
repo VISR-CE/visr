@@ -443,7 +443,7 @@ def test_suite_input_reaches_host_tick_snapshot() -> None:
         path = Path(temporary) / "input.c"
         binary = Path(temporary) / "input"
         path.write_text(source)
-        cc.build([path], output=binary, std="gnu89", relaxed=["c99-extensions", "gcc-compat"], options=["-O2", "-fms-extensions"], port_stubs=True)
+        cc.build([path], output=binary, std="gnu89", relaxed=["gcc-compat"], options=["-O2", "-fms-extensions"], port_stubs=True)
         subprocess.run([str(binary)], check=True)
 
 

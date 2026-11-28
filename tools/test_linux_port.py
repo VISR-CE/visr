@@ -638,14 +638,14 @@ def test_icloud_setting_and_status_share_network_screen():
 
 @pytest.mark.skipif(shutil.which("clang") is None, reason="clang is required")
 @pytest.mark.parametrize("kind,defines", [
-    ("desktop", []), ("android", ["-DHALO_ANDROID=1"]),
-    ("apple", ["-DHALO_ILP32=1", "-DHALO_IOS=1"]),
-    ("mac", ["-DHALO_ILP32=1", "-DHALO_IOS=1"]),
+    ("desktop", []), ("android", ["HALO_ANDROID=1"]),
+    ("apple", ["HALO_ILP32=1", "HALO_IOS=1"]),
+    ("mac", ["HALO_ILP32=1", "HALO_IOS=1"]),
 ])
 def test_cloud_menu_capability_is_host_specific(tmp_path, kind, defines):
     root = Path(__file__).resolve().parents[1]
     probe = tmp_path / "menu-platform"
-    cc.build([root / "port/ios/tests/menu_platform_probe.c"], output=probe, defines=[d[2:] for d in defines],
+    cc.build([root / "port/ios/tests/menu_platform_probe.c"], output=probe, defines=defines,
              port_stubs=True)
     environment = {key: value for key, value in os.environ.items()
                    if key not in {"HALO_HOST_CLOUD_SAVES"}}
