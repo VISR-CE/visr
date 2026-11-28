@@ -87,7 +87,7 @@ int config_boolean(const char *name) {
 	(!strcmp(name, "debug.benchmark_lip_sync") && lip_sync) ||
 	(!strcmp(name, "debug.benchmark") && timed_benchmark) ||
 	(!strcmp(name, "game.enhanced_animations") && enhanced_animations); }
-long config_integer(const char *name) { (void)name; return 0; }
+long config_integer(const char *name);
 /* fake: returns the staging, stereo, record and replay values the probe sets */
 const char *config_string(const char *name) {
 	if (!strcmp(name, "debug.benchmark_staging")) return staging_config;

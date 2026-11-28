@@ -15,7 +15,7 @@ def run_probe(tmp_path, name, source):
     path = tmp_path / (name + ".c")
     path.write_text(source)
     output = tmp_path / name
-    cc.build([path], output=output, sanitize=True, relaxed=["unused-function", "unused-variable"],
+    cc.build([path], output=output, sanitize=True, relaxed=["unused-function", "unused-variable", "logical-op-parentheses"],
              options=["-O1", "-g"], port_stubs=True)
     result = subprocess.run([str(output)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

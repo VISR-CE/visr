@@ -64,9 +64,9 @@ const char *config_string(const char *name) {
     return !strcmp(name, "debug.benchmark_suite") ? mode : "auto";
 }
 #ifndef WINDOW_MARKER_PROBE
-int config_boolean(const char *name) { (void)name; return 0; }
+int config_boolean(const char *name);
 #endif
-long config_integer(const char *name) { (void)name; return 0; }
+long config_integer(const char *name);
 double config_scene_real(const char *name, int scene) { (void)name; (void)scene; return 1; }
 long config_scene_integer(const char *name, int scene) { (void)name; (void)scene; return 0; }
 void platform_video_drawable_size(int *width, int *height) { *width = 1280; *height = 720; }

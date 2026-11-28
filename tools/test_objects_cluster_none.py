@@ -73,7 +73,7 @@ static struct unit_datum *unit_get(long i) { (void)i; static struct unit_datum u
 static void object_update(long i) { updated[i & 0xffff]++; }
 static void object_delete_recursive(long i, boolean f) { (void)i; (void)f; }
 static void objects_garbage_collection(void) {}
-void platform_log(char const *format, ...) { (void)format; }
+void platform_log(char const *format, ...);
 '''
 
 EPILOGUE = r'''
