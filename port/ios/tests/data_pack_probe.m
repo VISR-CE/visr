@@ -103,7 +103,7 @@ static BOOL FailsClosedPromptly(NSString *root) {
     child.executableURL = [NSURL fileURLWithPath:NSProcessInfo.processInfo.arguments[0]];
     child.arguments = @[@"--read-fifo", root];
     if (![child launchAndReturnError:NULL]) return NO;
-    for (int attempt = 0; attempt < 200 && child.isRunning; attempt++) [NSThread sleepForTimeInterval:0.01];   /* TEST_WAIT_SHORT_ON_PURPOSE: a read of a fifo nobody writes must fail promptly */
+    TEST_WAIT_UNTIL_FOR(!child.isRunning, TEST_WAIT_CHILD_CAP_SECONDS);   /* a read of a fifo nobody writes blocks forever, so the cap is the failure */
     BOOL finished = !child.isRunning;
     if (!finished) [child terminate];
     [child waitUntilExit];

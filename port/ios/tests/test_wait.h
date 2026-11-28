@@ -10,7 +10,9 @@ A line that must be short marks itself with TEST_WAIT_SHORT_ON_PURPOSE and says 
   - an absence check: nothing more is meant to happen, so a pause is the only way to show it;
   - nothing reports it: the event has no signal a test can observe (a kernel registration, say), so a pause is all
     there is. Before using this one, look for something observable: a file, a counter, a retry that succeeds once
-    the other side is ready. */
+    the other side is ready.
+No fixed pause, marked or not, lasts half a second or more (TEST_WAIT_PAUSE_LIMIT_SECONDS in tools/test_probe_waits.py).
+A longer one is a wait for the product's own timer with a fixed margin, and uses TEST_WAIT_PUMPING_FOR_TIMER below. */
 #ifndef TEST_WAIT_H
 #define TEST_WAIT_H
 
@@ -59,8 +61,8 @@ static inline double test_wait_now(void)
 
 /* The same wait for a probe that must keep the main run loop turning while it waits (UIKit animations, timers and
 the callbacks being waited for run on it); needs <CoreFoundation/CoreFoundation.h>. Each turn lasts at most 10 ms. */
-#define TEST_WAIT_PUMPING_UNTIL(condition) ({ \
-	double test_wait_end_ = test_wait_now() + TEST_WAIT_CAP_SECONDS; \
+#define TEST_WAIT_PUMPING_UNTIL_FOR(condition, seconds) ({ \
+	double test_wait_end_ = test_wait_now() + (seconds); \
 	int test_wait_held_ = 0; \
 	for (;;) \
 	{ \
@@ -69,5 +71,25 @@ the callbacks being waited for run on it); needs <CoreFoundation/CoreFoundation.
 		CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, true); \
 	} \
 	test_wait_held_; })
+
+#define TEST_WAIT_PUMPING_UNTIL(condition) TEST_WAIT_PUMPING_UNTIL_FOR(condition, TEST_WAIT_CAP_SECONDS)
+
+/* A wait for the product's own wall-clock timer (a timeout, a delay, a debounce) that keeps the main run loop
+turning. Never wait the timer's length plus a small margin and then check: a loaded host runs the timer late by more
+than any margin (benchmark_menu_probe waited 2.1 s for a 2 s timeout and failed). This polls until `condition` holds,
+with the default cap, and returns the seconds since `started` (a test_wait_now() taken before the code under test
+armed the timer), or -1 on the cap. The caller checks the result is at least the timer's length, less a few
+milliseconds for the two clocks, so a timer that fires early still fails. */
+#define TEST_WAIT_PUMPING_FOR_TIMER(condition, started) ({ \
+	double test_wait_started_ = (started); \
+	TEST_WAIT_PUMPING_UNTIL(condition) ? test_wait_now() - test_wait_started_ : -1.0; })
+
+/* The cap on a wait for a child process. It stays under the default cap, which tools/probe_timeouts.py's
+PROBE_RUN_SECONDS equals, so on a hang the probe reaches it first and terminates the child, instead of the wrapper
+killing the probe and leaving the child running. */
+#define TEST_WAIT_CHILD_CAP_SECONDS 60.0
+#ifndef __cplusplus
+_Static_assert((int)TEST_WAIT_CHILD_CAP_SECONDS < (int)TEST_WAIT_CAP_SECONDS, "a child's cap stays under the wrapper's");
+#endif
 
 #endif

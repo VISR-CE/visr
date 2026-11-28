@@ -188,10 +188,12 @@ static void refresh(HaloBenchmarkMenuController *controller) {
             check(CGAffineTransformIsIdentity(early.brand.transform), "Reduce Motion uses a crossfade without translated branding");
             probe_reduce_motion = NO;
             feed_state = @{ @"ready": @YES, @"loading": @NO, @"profileFinished": @NO, @"reason": @"" };
+            double armed = test_wait_now();
             HaloBenchmarkMenuController *timeout = fresh();
             check(timeout.splashVisible, "Valid cached data still waits for a fresh profile");
-            CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 2.1;   /* TEST_WAIT_SHORT_ON_PURPOSE: the product's own two-second timeout is under test */
-            while (CFAbsoluteTimeGetCurrent() < deadline) CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, true);
+            double ended = TEST_WAIT_PUMPING_FOR_TIMER(!timeout.splashVisible, armed);
+            check(ended >= 0, "The two-second timeout ends the splash");
+            check(ended >= 2.0 - 0.005, "The splash timeout does not fire before two seconds");
             check(!timeout.splashVisible && timeout.chosen == -1, "Two-second timeout shows the menu without starting Play");
             puts("benchmark menu probe: passed");
             exit(0);
