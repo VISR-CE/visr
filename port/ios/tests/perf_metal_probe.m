@@ -11,12 +11,20 @@ uint64_t host_perf_hooks_frame_id(void) { return test_frame; }
 #include <unistd.h>
 static MTLTimestamp test_cpu, test_gpu;
 static int test_slow_pair; /* the pair's call takes 100 us, as when the completion thread is preempted */
+/* the host clock: 1 us a read, plus 100 us inside a slow pair's call, whatever the calls really take */
+static uint64_t test_now;
+static uint64_t test_ticks(double seconds) {
+    mach_timebase_info_data_t base;
+    mach_timebase_info(&base);
+    return (uint64_t)(seconds * 1e9 * base.denom / base.numer);
+}
+static uint64_t test_clock(void) { return test_now += test_ticks(1e-6); }
 @interface TestCounterDevice : NSObject
 @end
 @implementation TestCounterDevice
 - (BOOL)supportsCounterSampling:(MTLCounterSamplingPoint)point { (void)point; return YES; }
 - (void)sampleTimestamps:(MTLTimestamp *)cpu gpuTimestamp:(MTLTimestamp *)gpu {
-    if (test_slow_pair) usleep(100);
+    if (test_slow_pair) test_now += test_ticks(100e-6);
     *cpu = test_cpu; *gpu = test_gpu;
 }
 @end
@@ -47,10 +55,10 @@ static typeof(grouped[0]) *complete_ticks(TestSampleBuffer *samples, const uint6
     if (slot) *slot = (token - 1) / INTERVAL_COUNT;
     MTLCounterResultTimestamp ticks[4] = { { tick[0] }, { tick[1] }, { tick[2] }, { tick[3] } };
     samples.data = [NSData dataWithBytes:ticks length:sizeof(ticks)];
-    *before = mach_seconds(mach_absolute_time());
+    *before = mach_seconds(host_clock());
     if (buffer_from || buffer_to) { commands.GPUStartTime = *before + buffer_from; commands.GPUEndTime = *before + buffer_to; }
     host_perf_metal_complete((id)commands);
-    *after = mach_seconds(mach_absolute_time());
+    *after = mach_seconds(host_clock());
     return &grouped[test_frame % FRAME_COUNT];
 }
 static typeof(grouped[0]) *complete_one(TestSampleBuffer *samples, uint64_t start_tick, uint64_t end_tick,
@@ -240,10 +248,12 @@ int main(void) {
          * put the ranges seconds away): the pair is 3,000,000 ticks and 125 ms after the reference, so a tick 36,000
          * before the pair lands 1.5 ms before the pair's bracketed host time. */
         for (unsigned slot = 0; slot < BUFFER_COUNT; ++slot) atomic_store(&buffers[slot].commands, 0);
+        test_now = mach_absolute_time(); host_clock = test_clock;
         TestSampleBuffer *samples = [TestSampleBuffer new];
         reference_cpu = reference_gpu = 1000;
         test_gpu = 1000 + 3000000; test_cpu = 1000 + 125000000;
         memset(&containment, 0, sizeof(containment));
+        clock_stats.clipped = 0;
         double before, after;
         clock_pair.kept = 0;
         typeof(grouped[0]) *converted = complete_one(samples, test_gpu - 36000, test_gpu - 12000, -0.002, 0.001, &before, &after);
@@ -257,6 +267,7 @@ int main(void) {
         converted = complete_one(samples, test_gpu - 12000, test_gpu - 2400, -0.002, -0.001, &before, &after);
         assert(converted->count == 1);
         assert(containment.checked == 2 && containment.outside == 1 && containment.worst >= 0.9e-3 - 1e-6);
+        assert(clock_stats.clipped == 1);
         assert(fabs(converted->ranges[0].end - (before - 0.001)) < 1e-9);
         assert(converted->ranges[0].start >= before - 0.5e-3 - 1e-9 - 0.001 && converted->ranges[0].start <= converted->ranges[0].end);
         /* a tick after the pair cannot belong to this buffer (its work finished before the pair was taken): no range */
@@ -279,7 +290,7 @@ int main(void) {
         }
         /* A preempted pair (a 100 us bracket) is not adopted while a tighter one that agrees with it is kept, and the
          * frame keeps its reading: its ranges convert through the kept pair. */
-        clock_pair = (typeof(clock_pair)){ 1, test_gpu, mach_seconds(mach_absolute_time()), 0.0 };
+        clock_pair = (typeof(clock_pair)){ 1, test_gpu, mach_seconds(host_clock()), 0.0 };
         forget_completions();
         double kept_host = clock_pair.host;
         unsigned long wide = clock_stats.wide, steps = clock_stats.steps;

@@ -44,6 +44,9 @@ static os_unfair_lock group_lock = OS_UNFAIR_LOCK_INIT;
 typedef struct { double start, end; unsigned group; } gpu_interval;
 /* mach_absolute_time's ticks in seconds (CACurrentMediaTime's clock); filled once, before play */
 static mach_timebase_info_data_t timebase;
+/* the host clock the pair is bracketed with (replaced by the probe, so its cases do not depend on how long a call
+ * really takes) */
+static uint64_t (*host_clock)(void) = mach_absolute_time;
 static struct {
     uint64_t frame, presented, interval, budget;
     unsigned count, invalid, late;
@@ -284,7 +287,7 @@ static double mach_seconds(uint64_t ticks) { return (double)ticks * timebase.num
 #define PAIR_WIDE_SECONDS 20e-6
 static struct { int kept; MTLTimestamp gpu; double host, width; } clock_pair;
 /* once a minute, whether or not frames have readings: the planner's reading share and the pairs' brackets */
-static struct { double since, widest; unsigned long frames, readings, pairs, wide, steps; } clock_stats;
+static struct { double since, widest; unsigned long frames, readings, pairs, wide, steps, clipped; } clock_stats;
 /* Containment: each converted stage range must lie inside its own command buffer's GPU span, which Metal reports on
  * the CPU timebase. Ranges more than CONTAINMENT_SLACK outside are counted, and the counts are logged with the
  * timing check. Every range is clipped to its buffer's span: on an M1 iPad Pro and an iPhone 12 Pro about 0.3% of
@@ -374,9 +377,9 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
             MTLTimestamp cpu = 0, gpu = 0;
             /* the pair's host time on the command-buffer spans' timebase (CACurrentMediaTime's): bracketed, since
              * the pair's own CPU value has no documented relation to mach_absolute_time */
-            uint64_t before = mach_absolute_time();
+            uint64_t before = host_clock();
             [counter_device sampleTimestamps:&cpu gpuTimestamp:&gpu];
-            uint64_t after = mach_absolute_time();
+            uint64_t after = host_clock();
             double host_now = mach_seconds(before + (after - before) / 2), width = mach_seconds(after - before);
             /* Apple documents the correlated CPU reference in nanoseconds. */
             double scale = cpu > reference_cpu && gpu > reference_gpu ?
@@ -438,7 +441,7 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
                         if (bounded) {
                             double outside = fmax(buffer_start - frame->ranges[n].start, frame->ranges[n].end - buffer_end);
                             containment.checked++;
-                            if (outside > CONTAINMENT_SLACK) containment.outside++;
+                            if (outside > CONTAINMENT_SLACK) { containment.outside++; clock_stats.clipped++; }
                             if (outside > containment.worst) containment.worst = outside;
                             frame->ranges[n].start = fmin(fmax(frame->ranges[n].start, buffer_start), buffer_end);
                             frame->ranges[n].end = fmin(fmax(frame->ranges[n].end, frame->ranges[n].start), buffer_end);
@@ -511,13 +514,14 @@ static void dynamic_join(game_perf_frame *frame) {
     }
     clock_stats.frames++;
     if (frame->drs.available & 1) clock_stats.readings++;
-    double now = mach_seconds(mach_absolute_time());
+    double now = mach_seconds(host_clock());
     if (!clock_stats.since) clock_stats.since = now;
     else if (now - clock_stats.since >= 60.0) {
         fprintf(stderr, "DRS readings: %lu of %lu frames in the last minute; clock pairs %lu, widest bracket %.1f us, "
-            "%lu over %.0f us, kept pair's %.1f us, clock steps %lu, stale sample pairs %lu\n", clock_stats.readings,
-            clock_stats.frames, clock_stats.pairs, clock_stats.widest * 1e6, clock_stats.wide, PAIR_WIDE_SECONDS * 1e6,
-            clock_pair.width * 1e6, clock_stats.steps, atomic_exchange(&stale_samples, 0));
+            "%lu over %.0f us, kept pair's %.1f us, clock steps %lu, stale sample pairs %lu, clipped ranges %lu\n",
+            clock_stats.readings, clock_stats.frames, clock_stats.pairs, clock_stats.widest * 1e6, clock_stats.wide,
+            PAIR_WIDE_SECONDS * 1e6, clock_pair.width * 1e6, clock_stats.steps, atomic_exchange(&stale_samples, 0),
+            clock_stats.clipped);
         memset(&clock_stats, 0, sizeof(clock_stats));
         clock_stats.since = now;
     }
