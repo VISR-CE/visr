@@ -7,6 +7,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+from probekit import cc  # noqa: E402
 from probekit import source as probe_source  # noqa: E402
 SOURCE = ROOT / "port/linux/src/d3d8_device.c"
 
@@ -133,7 +134,7 @@ static unsigned long host_shader_observation_activate(const char *path, int supp
     (void)path; (void)suppressed; snprintf(key, size, "testmap"); return 1;
 }
 static int platform_fixed_timestep(void) { return 0; }
-static double config_real(const char *key) { (void)key; return 0; }
+double config_real(const char *key);
 #endif
 void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count) {
     assert(!color && !depth && !values && !count); ssao_prepared++;
@@ -179,7 +180,7 @@ static int config_boolean(const char *key) {
     return !strcmp(key, "debug.shader_list_warm") && warm_enabled;
 }
 static double halo_frame_trace_milliseconds(void) { return 0.0; }
-static void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 void gpu_warm_begin(void) {}
 void gpu_warm_end(void) {}
 static gpu_shader vertex_shader_compile(struct vertex_shader_object *program, int variant, unsigned long mask) {
@@ -386,9 +387,9 @@ int main(int argc, char **argv) {
             ("duplicate-derived", entries('1111111111111111', '00'),
              entries('1111111111111111', '00'), (2, 2, 3), 1),
         )
-        for defines in ([], ["-DHALO_ILP32=1"]):
-            subprocess.run(["xcrun", "clang", "-Wall", "-Werror", "-O1",
-                            "-fsanitize=address,undefined", "-Iport/linux/src", *defines, str(c_file), "-o", str(binary)], check=True)
+        for defines in ([], ["HALO_ILP32=1"]):
+            cc.build([c_file], output=binary, apple=True, sanitize=True, defines=defines,
+                     includes=["port/linux/src"], options=["-O1"], host_stubs=True)
             for name, bundled, local, expected, *flags in cases:
                 case = temp / name
                 records = case / "records"

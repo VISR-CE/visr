@@ -9,6 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+from probekit import cc  # noqa: E402
 from probekit import source as probe_source  # noqa: E402
 
 
@@ -45,7 +46,7 @@ static struct { char map[256]; unsigned long alias_count; } shader_list;
 static struct { int gl_ready; } device;
 static struct { int msl; } shader_dialect;
 static int connection, load_ok, spawn_ok, initialized, spawned;
-static int config_boolean(const char *key) { (void)key; return 0; }
+int config_boolean(const char *key);
 static void game_options_new(struct game_options *o) { memset(o, 0, sizeof(*o)); }
 static int game_connection(void) { return connection; }
 static int network_game_get_random_seed(void) { return 7; }
@@ -108,8 +109,7 @@ int main(void) {
 '''
     source, binary = tmp_path / "probe.c", tmp_path / "probe"
     source.write_text(program)
-    subprocess.run(["xcrun", "clang", "-Wall", "-Werror", "-Wno-unused-variable", "-fsanitize=address,undefined",
-                    str(source), "-o", str(binary)], check=True)
+    cc.build([source], output=binary, apple=True, relaxed=["unused-variable"], sanitize=True, host_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 

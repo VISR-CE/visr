@@ -7,6 +7,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+from probekit import cc  # noqa: E402
 from probekit import source as probe_source  # noqa: E402
 
 
@@ -14,7 +15,7 @@ def compile_probe(tmp_path, text):
     source = tmp_path / "probe.c"
     source.write_text(text)
     binary = tmp_path / "probe"
-    subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", str(source), "-o", str(binary), "-lm"], check=True)
+    cc.build([source], output=binary, extra_warnings=True, port_stubs=True)
     return binary
 
 

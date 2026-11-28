@@ -2,6 +2,8 @@
 from pathlib import Path
 import subprocess
 
+from probekit import cc
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -32,9 +34,7 @@ int main(void)
 }
 ''')
     binary = tmp_path / "benchmark-import"
-    subprocess.run([
-        "cc", "-std=c99", "-D_DEFAULT_SOURCE", "-Werror=implicit-function-declaration",
-        "-I", str(ROOT / "port/ios/tests"), "-I", str(ROOT / "port/linux/src"),
-        "-iquote", str(ROOT / "port/linux/include"), str(source), "-lm", "-o", str(binary),
-    ], check=True)
+    cc.build([source], output=binary, std="c99", defines=["_DEFAULT_SOURCE"],
+             includes=[ROOT / "port/ios/tests", ROOT / "port/linux/src"],
+             options=["-iquote", ROOT / "port/linux/include"], port_stubs=True)
     subprocess.run([str(binary)], check=True)

@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from probekit import cc
 from test_network_discovery import function
 
 
@@ -261,10 +262,8 @@ int main(void)
     program = harness.replace("/* SORTING */", sorting).replace("/* PRODUCTION */", production)
     probe, binary = tmp_path / "browser_layout_c.c", tmp_path / "browser_layout_c"
     probe.write_text(program)
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror",
-                    "-iquote", str(ROOT / "port/linux/src"),
-                    "-iquote", str(ROOT / "port/linux/include"), str(probe),
-                    "--output=" + str(binary)], check=True)
+    cc.build([probe], output=binary, std="c11", extra_warnings=True,
+             options=["-iquote", ROOT / "port/linux/src", "-iquote", ROOT / "port/linux/include"], port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -281,7 +280,7 @@ def test_browser_map_picture_lookup(tmp_path):
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
-static void platform_log(char const *format, ...) { (void)format; }
+void platform_log(char const *format, ...);
 #define NONE -1
 #define NUMBER_OF_SINGLE_PLAYER_LEVELS 2
 #define _stricmp strcasecmp
@@ -332,8 +331,7 @@ int main(void) {
 def _compile_probe(tmp_path, name, program):
     probe, binary = tmp_path / (name + ".c"), tmp_path / name
     probe.write_text(program)
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror",
-                    str(probe), "--output=" + str(binary)], check=True)
+    cc.build([probe], output=binary, std="c11", extra_warnings=True, port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -626,8 +624,8 @@ int main(void)
     with tempfile.TemporaryDirectory(prefix="deferred-error-") as temporary:
         path = Path(temporary) / "probe.c"
         path.write_text(program)
-        subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", str(path),
-                        "--output", str(Path(temporary) / "probe")], check=True)
+        cc.build([path], output=Path(temporary) / "probe", std="c11", extra_warnings=True,
+                 relaxed=["unused-function"], port_stubs=True)
         subprocess.run([str(Path(temporary) / "probe")], check=True)
 
 
@@ -874,9 +872,8 @@ int main(void)
 '''
     probe, binary = tmp_path / "detail.c", tmp_path / "detail"
     probe.write_text(harness)
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-iquote",
-                    str(ROOT / "port/linux/src"), "-iquote", str(ROOT / "port/linux/include"), str(probe),
-                    "--output=" + str(binary)], check=True)
+    cc.build([probe], output=binary, std="c11", extra_warnings=True, relaxed=["unused-function"],
+             options=["-iquote", ROOT / "port/linux/src", "-iquote", ROOT / "port/linux/include"], port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 

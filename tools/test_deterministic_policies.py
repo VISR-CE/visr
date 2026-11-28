@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from probekit import cc
 from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,14 +50,13 @@ static int platform_fixed_timestep(void)
 {
     return !strcmp(key, "debug.fixed_timestep") ? atoi(value) : 0;
 }
-static void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 '''
 
 
 @pytest.fixture(scope="session")
 def policy_probe(tmp_path_factory):
-    compiler = shutil.which("clang")
-    if not compiler:
+    if not shutil.which("clang"):
         pytest.skip("clang is needed for the native policy probe")
     build = tmp_path_factory.mktemp("deterministic-policies")
     source = build / "probe.c"
@@ -73,8 +73,8 @@ int main(int argc, char **argv)
 }
 ''')
     binary = build / "probe"
-    subprocess.run([compiler, "-std=c99", "-Wall", "-Wextra", "-Werror",
-                    "-I", str(ROOT / "port/linux/src"), str(source), "-o", str(binary)], check=True)
+    cc.build([source], output=binary, std="c99", extra_warnings=True, includes=[ROOT / "port/linux/src"],
+             port_stubs=True)
     return binary
 
 

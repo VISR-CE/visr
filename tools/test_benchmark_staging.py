@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from test_benchmark_catalog import STAGING, INVALID_STAGINGS
+from probekit import cc
 from probekit.source import function
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,10 +50,8 @@ int main(int argc, char **argv) {
 }
 '''.replace('/* ENCOUNTER_LOOKUP */', function('source/ai/ai_scenario_definitions.c', 'scenario_get_encounter_by_name')).replace('/* PRODUCTION_LOOKUP */', function('port/linux/game/input_replay_scenario.c', 'staging_lookup')))
     binary = folder / "probe"
-    result = subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
-                             "-I", str(ROOT / "port/runtime"), str(source), "-o", str(binary)],
-                            capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
+    cc.build([source], output=binary, extra_warnings=True, sanitize=True, includes=[ROOT / "port/runtime"],
+             port_stubs=True)
     return binary
 
 
@@ -89,10 +88,9 @@ def test_staging_parser_refuses_broken_json(staging_probe, text):
 @pytest.mark.parametrize("imported", [False, True])
 def test_recording_and_replay_staging_tick_and_runtime_gate(tmp_path, imported):
     binary = tmp_path / "input-replay-probe"
-    command = ["cc", "-O2", "-fsanitize=address,undefined", "-I", str(ROOT / "port/linux/src")]
-    if imported:
-        command.append("-DHALO_ILP32=1")
-    subprocess.run([*command, str(ROOT / "port/ios/tests/input_replay_probe.c"), "-o", str(binary)], check=True)
+    cc.build([ROOT / "port/ios/tests/input_replay_probe.c"], output=binary, sanitize=True,
+             includes=[ROOT / "port/linux/src"], defines=["HALO_ILP32=1"] if imported else [], options=["-O2"],
+             port_stubs=True)
     # The same executable must accept both host answers without recompilation.
     for value in (None, "0", "1", "true", "01"):
         environment = dict(os.environ)
@@ -137,16 +135,16 @@ int main(void) {
 }
 ''')
     binary = tmp_path / "plan"
-    subprocess.run(["cc", "-fsanitize=address,undefined", "-I", str(ROOT / "port/runtime"), str(source),
-                    str(ROOT / "port/runtime/benchmark_plan.c"), "-o", str(binary)], check=True)
+    cc.build([source, ROOT / "port/runtime/benchmark_plan.c"], output=binary, sanitize=True,
+             includes=[ROOT / "port/runtime"], port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
 @pytest.mark.parametrize("reason", ["malformed-staging", "missing-staging-name", "missing-auto-staging-name"])
 def test_recording_rejects_staging_failure_immediately(tmp_path, reason):
     binary = tmp_path / "recording-probe"
-    subprocess.run(["cc", "-O2", "-I", str(ROOT / "port/linux/src"),
-                    str(ROOT / "port/ios/tests/input_replay_probe.c"), "-o", str(binary)], check=True)
+    cc.build([ROOT / "port/ios/tests/input_replay_probe.c"], output=binary, includes=[ROOT / "port/linux/src"],
+             options=["-O2"], port_stubs=True)
     result = subprocess.run([str(binary), "--" + reason], cwd=tmp_path, capture_output=True, text=True,
                             env={**os.environ, "HALO_DEVELOPMENT_HOOKS": "1"})
     assert result.returncode == 1, result.stderr
@@ -173,7 +171,7 @@ static void hs_object_teleport(int i, short j) { (void)i; (void)j; }
 static void ai_scripting_place(int i) { (void)i; }
 static void ai_scripting_magically_see_encounter(int i, int j) { (void)i; (void)j; }
 static void ai_scripting_magically_see_players(int i) { (void)i; }
-static void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 /* IMPLEMENTATION */
 int main(void) {
     for (int previous = 0; previous <= 1; previous++) {
@@ -189,8 +187,8 @@ int main(void) {
 }
 '''.replace("/* IMPLEMENTATION */", implementation))
     binary = tmp_path / "deathless"
-    subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
-                    "-I", str(ROOT / "port/runtime"), str(source), "-o", str(binary)], check=True)
+    cc.build([source], output=binary, extra_warnings=True, sanitize=True, includes=[ROOT / "port/runtime"],
+             port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -200,8 +198,6 @@ def test_apple_host_development_hooks_match_target_policy(tmp_path, development)
     source.write_text(function("port/ios/host/host_benchmark.m", "host_development_hooks") +
                       "\nint main(void) { return host_development_hooks(); }\n")
     binary = tmp_path / "host-hooks"
-    command = ["cc", "-Wall", "-Wextra", "-Werror"]
-    if development:
-        command.append("-DHALO_DEVELOPMENT_HOOKS=1")
-    subprocess.run([*command, str(source), "-o", str(binary)], check=True)
+    cc.build([source], output=binary, extra_warnings=True, defines=["HALO_DEVELOPMENT_HOOKS=1"] if development else [],
+             port_stubs=True)
     assert subprocess.run([str(binary)]).returncode == int(development)

@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+from probekit import cc
 from probe_timeouts import PROBE_RUN_SECONDS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,11 +21,6 @@ pytestmark = pytest.mark.skipif(not CLANG, reason="needs clang")
 
 TEST_ENV = {"HALO_TEST_ALLOW_LOCAL_HTTP": "1"}
 LIST = {"games": [{"invite": "a" * 64, "name": "Test", "map": "bloodgulch", "version": 29}]}
-
-
-def compile_native(arguments, output):
-    result = subprocess.run([CLANG, *arguments, "-o", str(output)], capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr[-4000:]
 
 
 @pytest.fixture(scope="module")
@@ -51,9 +47,9 @@ def transport(native):
     """tools/delta_transport_check.c with posix_update.c and Mbed TLS"""
     work, objects = native
     program = work / "delta_transport_check"
-    compile_native(["-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Iport/linux/src",
-                    f"-I{MBEDTLS / 'include'}", "tools/delta_transport_check.c", "port/linux/src/posix_update.c",
-                    *objects], program)
+    cc.build(["tools/delta_transport_check.c", "port/linux/src/posix_update.c", *objects], output=program,
+             extra_warnings=True, relaxed=["unused-parameter"], includes=["port/linux/src", MBEDTLS / "include"],
+             options=["-O1"], port_stubs=True)
     return program
 
 
@@ -79,8 +75,9 @@ int main(int argc, char **argv) {
 }
 ''')
     program = work / "signed_transport_check"
-    compile_native(["-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Iport/linux/src",
-                    f"-I{MBEDTLS / 'include'}", str(source), "port/linux/src/posix_update.c", *objects], program)
+    cc.build([source, "port/linux/src/posix_update.c", *objects], output=program, extra_warnings=True,
+             relaxed=["unused-parameter"], includes=["port/linux/src", MBEDTLS / "include"], options=["-O1"],
+             port_stubs=True)
     return program
 
 
@@ -95,13 +92,13 @@ def worker(native):
                                      "void Sleep(unsigned long milliseconds);\nconst char *platform_save_root(void);\n")
     (shim / "p2p_delta.c").write_text((ROOT / "port/linux/src/p2p_delta.c").read_text())
     program = work / "delta_worker_check"
-    compile_native(["-std=gnu11", "-O1", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Iport/linux/src",
-                    f"-I{MBEDTLS / 'include'}", "tools/delta_worker_check.c", str(shim / "p2p_delta.c"),
-                    "port/linux/src/delta_list.c", "port/linux/src/posix_update.c",
-                    "-iquote", "port/linux/include", "--include-directory=port/third_party/monocypher", "-pthread",
-                    "port/linux/src/delta_legacy.c", "port/linux/src/delta_legacy_runtime.c",
-                    "port/third_party/monocypher/monocypher.c",
-                    "port/third_party/monocypher/monocypher-ed25519.c", *objects], program)
+    cc.build(["tools/delta_worker_check.c", shim / "p2p_delta.c", "port/linux/src/delta_list.c",
+              "port/linux/src/posix_update.c", "port/linux/src/delta_legacy.c", "port/linux/src/delta_legacy_runtime.c",
+              "port/third_party/monocypher/monocypher.c", "port/third_party/monocypher/monocypher-ed25519.c",
+              *objects], output=program, extra_warnings=True, relaxed=["unused-parameter", "missing-field-initializers"],
+             includes=["port/linux/src", MBEDTLS / "include"],
+             options=["-O1", "-iquote", "port/linux/include", "--include-directory=port/third_party/monocypher",
+                      "-pthread"], port_stubs=True)
     return program
 
 
@@ -293,13 +290,13 @@ def test_plain_http_needs_the_test_hook(transport, server):
     assert result.stdout.startswith("status=0\n") and not server.requests
 
 
-@pytest.mark.parametrize("defines", [[], ["-DHALO_IOS=1"]])
+@pytest.mark.parametrize("defines", [[], ["HALO_IOS=1"]])
 def test_the_probe_of_the_list_and_announcing(tmp_path, defines):
     program = tmp_path / "delta_probe"
-    compile_native(["-std=gnu89", "-O1", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter",
-                    "-fsanitize=address,undefined", "-Iport/linux/src", "-iquote", "port/linux/include",
-                    "port/ios/tests/delta_probe.c", "port/linux/src/delta_list.c", "port/linux/src/delta_platform.c",
-                    "port/linux/src/delta_legacy_runtime.c", "-pthread", *defines], program)
+    cc.build(["port/ios/tests/delta_probe.c", "port/linux/src/delta_list.c", "port/linux/src/delta_platform.c",
+              "port/linux/src/delta_legacy_runtime.c"], output=program, std="gnu89", extra_warnings=True,
+             relaxed=["unused-parameter"], sanitize=True, defines=defines, includes=["port/linux/src"],
+             options=["-O1", "-iquote", "port/linux/include", "-pthread"], port_stubs=True)
     result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and "delta probe ok" in result.stdout, result.stderr
 
@@ -344,21 +341,20 @@ def test_signed_get_rejects_header_injection_and_large_body(signed_transport, se
 @pytest.mark.parametrize("probe", ["delta_peer", "delta_peer_game"])
 def test_delta_peer_handshake(tmp_path, probe):
     program = tmp_path / "delta-peer-probe"
-    compile_native(["-std=gnu89", "-O1", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
-                    "-Iport/linux/src", "-iquote", "port/linux/include", f"port/ios/tests/{probe}_probe.c",
-                    "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c"], program)
+    cc.build([f"port/ios/tests/{probe}_probe.c", "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c"],
+             output=program, std="gnu89", extra_warnings=True, sanitize=True, includes=["port/linux/src"],
+             options=["-O1", "-iquote", "port/linux/include"], port_stubs=True)
     result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and ("delta peer game probe ok" if probe == "delta_peer_game" else "delta peer probe ok") in result.stdout, result.stderr
 
 
-@pytest.mark.parametrize("defines", [[], ["-DHALO_IOS=1"]])
+@pytest.mark.parametrize("defines", [[], ["HALO_IOS=1"]])
 def test_signed_legacy_table(tmp_path, defines):
     program = tmp_path / "delta_legacy_probe"
-    compile_native(["-std=gnu11", "-O1", "-Wall", "-Wextra", "-Werror",
-                    "-fsanitize=address,undefined", "-pthread", "-iquote", "port/linux/include",
-                    "--include-directory=port/third_party/monocypher", "port/ios/tests/delta_legacy_probe.c",
-                    "port/linux/src/delta_legacy.c", "port/linux/src/delta_legacy_runtime.c",
-                    "port/third_party/monocypher/monocypher.c",
-                    "port/third_party/monocypher/monocypher-ed25519.c", *defines], program)
+    cc.build(["port/ios/tests/delta_legacy_probe.c", "port/linux/src/delta_legacy.c",
+              "port/linux/src/delta_legacy_runtime.c", "port/third_party/monocypher/monocypher.c",
+              "port/third_party/monocypher/monocypher-ed25519.c"], output=program, extra_warnings=True, sanitize=True,
+             defines=defines, options=["-O1", "-pthread", "-iquote", "port/linux/include",
+                                       "--include-directory=port/third_party/monocypher"], port_stubs=True)
     result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and "delta legacy probe ok" in result.stdout, result.stdout + result.stderr

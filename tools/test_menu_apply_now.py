@@ -5,6 +5,7 @@ import shutil
 
 import pytest
 
+from probekit import cc
 from test_menu_cancel import block
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,11 +25,9 @@ def test_settings_and_bindings_persist_without_save(tmp_path):
     program = fixture.replace('/* SETTINGS */', functions).replace('/* CONTROLS */', controls)
     probe, binary = tmp_path / 'probe.c', tmp_path / 'probe'
     probe.write_text(program)
-    compiler = shutil.which('clang') or shutil.which('cc')
-    if not compiler:
+    if not shutil.which('clang'):
         pytest.skip('A C compiler is required for the menu persistence probe')
-    subprocess.run([compiler, '-std=c99', '-Wall', '-Werror', '-Wno-unused-function',
-                    '-fsanitize=address,undefined', str(probe), '--output=' + str(binary)], check=True)
+    cc.build([probe], output=binary, std='c99', relaxed=['unused-function'], sanitize=True, port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -78,11 +77,9 @@ int main(void) {
     return 0;
 }
 '''
-    compiler = shutil.which('clang') or shutil.which('cc')
-    if not compiler:
+    if not shutil.which('clang'):
         pytest.skip('A C compiler is required for the native controller probe')
     probe, binary = tmp_path / 'native.c', tmp_path / 'native'
     probe.write_text(program.replace('/* HELPER */', helper))
-    subprocess.run([compiler, '-std=c99', '-Wall', '-Werror', '-fsanitize=address,undefined',
-                    str(probe), '--output=' + str(binary)], check=True)
+    cc.build([probe], output=binary, std='c99', sanitize=True, port_stubs=True)
     subprocess.run([str(binary)], check=True)

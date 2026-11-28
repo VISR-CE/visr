@@ -8,6 +8,7 @@ import tempfile
 from unittest import SkipTest
 from xml.etree import ElementTree as ET
 
+from probekit import cc
 from probekit import source as probe_source
 
 
@@ -15,14 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def compile_and_run(source: str) -> None:
-    compiler = shutil.which("clang") or shutil.which("cc")
-    if compiler is None:
+    if shutil.which("clang") is None:
         raise SkipTest("A C compiler is required for the browser shortcut probe")
     with tempfile.TemporaryDirectory(prefix="browser-shortcuts-") as temporary:
         path = Path(temporary) / "shortcuts.c"
         executable = Path(temporary) / "shortcuts"
         path.write_text(source)
-        subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", str(path), "--output", str(executable)], check=True)
+        cc.build([path], output=executable, std="c11", extra_warnings=True, port_stubs=True)
         subprocess.run([str(executable)], check=True)
 
 
@@ -38,7 +38,7 @@ def test_scripted_x_and_y_emit_analog_buttons_for_exact_press_window() -> None:
 #include <stdlib.h>
 #include <stdarg.h>
 #include "FOCUS_HEADER"
-void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 int menu_test_focus_text(char *text, int size) { (void)text; (void)size; return 0; }
 enum { XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y };
 enum { XINPUT_GAMEPAD_START = 1, XINPUT_GAMEPAD_DPAD_UP = 2, XINPUT_GAMEPAD_DPAD_DOWN = 4,

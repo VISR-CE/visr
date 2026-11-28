@@ -36,7 +36,7 @@ struct player_input_profile { unsigned short bindings[17][2]; };
 #define PLAYER_INPUT_CODE_NONE 0
 static struct player_input_profile disk_input, edit_input;
 static struct widget_instance *screen_of(struct widget_instance *w) { while (w->parent) w = w->parent; return w; }
-static void platform_log(char const *format, ...) { (void)format; }
+void platform_log(char const *format, ...);
 static void platform_show_message(char const *title, char const *text) { messages++; }
 static void platform_display_apply(void) { applies++; }
 static int p2p_running(void) { return running; }

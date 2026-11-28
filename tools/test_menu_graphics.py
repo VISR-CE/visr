@@ -4,6 +4,7 @@ their rows selectable, and the help of the mode shown."""
 from pathlib import Path
 import subprocess
 
+from probekit import cc
 from test_menu_cancel import block
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,7 +78,7 @@ int config_write(char const *name, char const *value)
     writes++; snprintf(written_name, sizeof(written_name), "%s", name);
     snprintf(written_value, sizeof(written_value), "%s", value); return 1;
 }
-void platform_log(char const *format, ...) { (void)format; }
+void platform_log(char const *format, ...);
 /* the Xbox controller pages' profile auto-save after each step (tested in test_menu_apply_now.py) */
 static void widget_profile_spinner_save(struct widget_instance *spinner) { (void)spinner; }
 int config_text(char const *name, char *text, unsigned int size) { (void)name; snprintf(text, size, "stereo"); return 1; }
@@ -556,8 +557,8 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         '/* PRODUCTION */', functions)
     probe, binary = tmp_path / 'graphics.c', tmp_path / 'graphics'
     probe.write_text(program)
-    subprocess.run(['cc', '-Wall', '-Werror', '-Wno-unused-function', '-Wno-unused-const-variable',
-                    '-fsanitize=address,undefined', str(probe), '--output=' + str(binary)], check=True)
+    cc.build([probe], output=binary, relaxed=['unused-function', 'unused-const-variable'], sanitize=True,
+             port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -608,7 +609,6 @@ int main(void)
         'HALO_HOST_FLAGS', str(ROOT / 'port/linux/src/halo_host_flags.h'))
     probe, binary = tmp_path / "help.c", tmp_path / "help"
     probe.write_text(program)
-    subprocess.run(['cc', '-Wall', '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
-                    '-Wno-unused-const-variable', '-fsanitize=address,undefined', str(probe),
-                    '--output=' + str(binary)], check=True)
+    cc.build([probe], output=binary, relaxed=['unused-function', 'unused-variable', 'unused-const-variable'],
+             sanitize=True, port_stubs=True)
     subprocess.run([str(binary)], check=True)

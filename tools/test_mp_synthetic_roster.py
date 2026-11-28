@@ -11,6 +11,7 @@ from unittest import SkipTest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
+from probekit import cc  # noqa: E402
 from probekit import source as probe_source  # noqa: E402
 NETWORK_TEST_PATH = "port/linux/game/network_test.c"
 NETWORK_TEST = probe_source.read(NETWORK_TEST_PATH)
@@ -112,7 +113,7 @@ __REMOVE_PLAYER__
 __REMOVE_MACHINE__
 __CLIENT_JOINED__
 __ENOUGH_MACHINES__
-static const char *config_string(const char *key) { (void)key; return ""; }
+const char *config_string(const char *key);
 static int game_connection(void) { return _game_connection_local; }
 static void network_game_abort(void) { }
 static struct network_game_server *global_network_game_server_get(void) { return &server; }
@@ -141,7 +142,7 @@ static void player_ui_set_game_variant(struct game_variant *variant) { (void)var
 static void network_game_server_change_game_variant(struct network_game_server *host, struct game_variant *variant) {
     (void)variant; network_game_server_send_game_data_pregame(host);
 }
-static void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 static void *global_network_game_client_get(void) { return &server; }
 static int network_game_client_add_player(void *client, int controller) {
     (void)client; (void)controller; local_requests++; return TRUE;
@@ -331,8 +332,7 @@ int main(void) {
 
 
 def test_synthetic_player_reaches_local_client_settings() -> None:
-    compiler = shutil.which("clang") or shutil.which("cc")
-    if compiler is None:
+    if shutil.which("clang") is None:
         raise SkipTest("A C compiler is required for the synthetic roster probe")
     state_start = NETWORK_TEST.index("struct network_test_weapon_trace\n{")
     state_end = NETWORK_TEST.index("} network_test;", state_start) + len("} network_test;")
@@ -362,7 +362,9 @@ def test_synthetic_player_reaches_local_client_settings() -> None:
         path = Path(temporary) / "roster.c"
         binary = Path(temporary) / "roster"
         path.write_text(source)
-        subprocess.run([compiler, "-O2", "-std=gnu89", "-fms-extensions", "-Wno-c99-extensions", "-Wall", str(path), "-o", str(binary)], check=True)
+        cc.build([path], output=binary, std="gnu89", options=["-O2", "-fms-extensions"], port_stubs=True,
+                 relaxed=["c99-extensions", "char-subscripts", "tautological-constant-out-of-range-compare",
+                          "gcc-compat", "unused-function"])
         subprocess.run([str(binary)], check=True)
 
 
