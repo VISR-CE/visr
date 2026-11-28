@@ -484,6 +484,7 @@ int main(void)
     for (int i=0;i<6;i++) assert(rows[i].animation.current_frame_index==(i+lobby_browser.first==lobby_browser.chosen && rows[i].visible));
     lobby_browser.chosen=2; browser_chips_navigation(&chips[1]);
     assert(screen.focused_child==list && list->focused_child==&rows[2]);
+    { struct widget_instance *leaf=&screen; while (leaf->focused_child) leaf=leaf->focused_child; assert(leaf==&rows[2]); }   /* (the chain an event follows ends at the row) */
     browser_c_controls_update(list);
     assert(chips[0].animation.current_frame_index==1);
     browser_focus(list); assert(rows[2].animation.current_frame_index==1);

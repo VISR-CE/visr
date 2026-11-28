@@ -17,7 +17,8 @@ typedef unsigned short word;
 struct widget_instance
 {
 	char *name;
-	struct widget_instance *child, *next, *focused_child;
+	short type;
+	struct widget_instance *parent, *child, *next, *focused_child;
 	struct { struct { short selected_index; } list; } parameters;
 };
 struct event_record { short controller_index; };
@@ -71,9 +72,10 @@ static void platform_log(const char *text) { (void)text; }
 
 int main(void)
 {
-	struct widget_instance join = { .name = "direct_ip_button_join" };
-	struct widget_instance field = { .name = "op_server_address", .next = &join };
-	struct widget_instance list = { .child = &field, .focused_child = &field };
+	struct widget_instance list = { .type = 3 };
+	struct widget_instance join = { .name = "direct_ip_button_join", .parent = &list };
+	struct widget_instance field = { .name = "op_server_address", .next = &join, .parent = &list };
+	list.child = &field; list.focused_child = &field;
 	struct event_record event = { 2 };
 	boolean deleted = FALSE;
 	assert(direct_ip_connect(&join, &event, 2, &deleted) && clipboard_joins == 1);

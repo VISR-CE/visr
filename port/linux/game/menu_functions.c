@@ -567,7 +567,7 @@ static void focus_child(struct widget_instance *parent, struct widget_instance *
 	for (item = parent->child; item && item != child; item = item->next)
 		index++;
 	parent->focused_child = child;
-	if (parent->type != 1)   /* (a text box's parameters are not a list's) */
+	if (parent->type != 1 && parent->type != 2)   /* (a text box's parameters are not a list's, and a spinner's index is its value) */
 		parent->parameters.list.selected_index = index;
 }
 
@@ -895,6 +895,7 @@ static void focus_row(struct widget_instance *list, short row)
 	if (child)
 	{
 		focus_child(list, child);
+		/* (the list's index is the logical row, not the child's place: 0 for its buttons, which are the last child) */
 		list->parameters.list.selected_index = row == NONE ? 0 : row;
 	}
 }
@@ -1953,7 +1954,7 @@ static void video_rows_show(struct widget_instance *list)
 	struct widget_instance *resolution = named(list, "op_resolution", 0);
 	struct widget_instance *window_size = named(list, "op_window_size", 0);
 	struct pc_menu_setting *setting = mode ? pc_menu_setting_get(mode->definition_tag_index) : NULL;
-	struct widget_instance *shown, *child;
+	struct widget_instance *shown;
 	short index;
 
 	if (!setting || !resolution || !window_size)

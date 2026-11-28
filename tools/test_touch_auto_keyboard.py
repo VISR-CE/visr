@@ -61,7 +61,7 @@ static struct widget_instance *named(struct widget_instance *root, const char *n
     return NULL;
 }
 static void text_field_end(boolean keep) { kept = keep; text_field.row = NULL; }
-''' + probe_source.function(source, "text_field_focus") +
+''' + probe_source.function(source, "focus_child") + probe_source.function(source, "focus_chain") +
         probe_source.function(source, "text_field_finish") + r'''
 int main(void) {
     screen.child = &list; list.parent = &screen; list.type = 3;

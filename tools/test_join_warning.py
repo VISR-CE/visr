@@ -93,7 +93,7 @@ static int filter_opens, filter_focuses;
 static struct widget_instance *browser_chips(struct widget_instance *w) { (void)w; return NULL; }
 static void browser_filters_focus(struct widget_instance *w) { (void)w; filter_focuses++; }
 static void browser_focus(struct widget_instance *w) { (void)w; }
-static void browser_c_focus(struct widget_instance *w) { (void)w; }
+static void focus_chain(struct widget_instance *w) { (void)w; }
 static boolean ui_widget_port_browse(struct widget_instance *w, struct event_record *e, boolean *d) { (void)w; (void)e; (void)d; return 1; }
 
 __attribute__((unused)) static void platform_log(char const *format, ...) { (void)format; }

@@ -509,7 +509,7 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     functions = '\n'.join(block(source, marker) for marker in (
         'static void text_set_length(', 'static struct widget_instance *descendant(', 'static struct widget_instance *named(',
-        'static boolean text_is_number(', 'static short setting_value_index(',
+        'static void focus_child(', 'static boolean text_is_number(', 'static short setting_value_index(',
         'static void graphics_state_show(', 'static void hub_status_show(', 'static boolean graphics_in_vr(',
         'static short graphics_mode_shown(', 'static boolean graphics_replaces(',
         'boolean ui_widget_port_graphics_locked(', 'static char const *graphics_device_name(',

@@ -31,7 +31,8 @@ def test_direct_ip_discovery_and_join(tmp_path):
     from test_network_discovery import function
     state = source[source.index("static char direct_address["):source.index("static void direct_address_done(")]
     production = state + "\n" + "\n".join(function(source, signature) for signature in (
-        "static void direct_ip_update(", "static boolean direct_link_from_clipboard(",
+        "static void focus_child(", "static void focus_chain(", "static void direct_ip_update(",
+        "static boolean direct_link_from_clipboard(",
         "static boolean direct_ip_connect(",
     ))
     fixture = (ROOT / "port/ios/tests/direct_ip_menu_probe.c").read_text()
