@@ -4,17 +4,11 @@ contextual action, is not drawn on touch because tapping the item does it."""
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from probekit import source as probe_source
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'port/linux/game/menu_functions.c'
 MENUS = ROOT / 'port/assets/menus/xbox'
 BROWSER_XML = 'main_menu.multiplayer_type_select.join_game.xml'
 FILTERS_XML = 'main_menu.multiplayer_type_select.join_game.filters.xml'
-
-
-def function_body(name):
-    return probe_source.body(SOURCE, name)
 
 
 def bar_actions(xml):

@@ -211,13 +211,9 @@ def test_the_game_sends_everything_again_in_a_new_epoch_after_a_release(tmp_path
     assert (resets, epoch) == ("2", "2")
 
 
-def traced_sections(path):
-    return probe_source.region(path, "traced-sections")
-
-
 def test_every_resource_tracing_makes_is_given_back_by_the_one_release_path():
     text = METAL.read_text()
-    sections = traced_sections(METAL)
+    sections = probe_source.region(METAL, "traced-sections")
     declared = set()
     # (a strong static inside a function is declared here too: traced_release cannot name it, so it fails, which is
     # the point, since it would outlive every release)
@@ -266,7 +262,7 @@ def test_every_pending_build_that_is_dropped_forgets_its_slot():
     # slot (traced_forget), or the cache keeps believing the structure holds a pose it never got
     text = METAL.read_text()
     release = probe_source.function_in(text, "traced_release")
-    sections = traced_sections(METAL).replace(release, "")
+    sections = probe_source.region(METAL, "traced-sections").replace(release, "")
     drops = list(re.finditer(r"traced_pending_descriptors\[([^\]]+)\]\s*=\s*nil;", sections))
     assert len(drops) >= 3, "the frame check, the scratch failure and the commit each drop pending descriptors"
     for drop in drops:

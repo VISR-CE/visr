@@ -17,8 +17,8 @@ clients, and the clients' hits, reported to the host).
 
 /* ---------- constants */
 
-/* the messages, all of the game's "data" kind (network_distributed.c) */
 /* probe-region: distributed-message-kinds-enum */
+/* the messages, all of the game's "data" kind (network_distributed.c) */
 enum
 {
 	/* a client's own players' units, every tick (unreliable) */
@@ -144,8 +144,8 @@ enum
 };
 /* probe-region-end: distributed-message-kinds-enum */
 
-/* where a message goes */
 /* probe-region: distributed-routing-enum */
+/* where a message goes */
 enum
 {
 	_distributed_to_clients,
