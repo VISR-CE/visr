@@ -22,7 +22,7 @@ from pathlib import Path
 
 import harness
 import pytest
-from probe_timeouts import PROBE_RUN_SECONDS
+from probe_timeouts import PROBE_RUN_SECONDS, WRAPPER_MARGIN_SECONDS
 from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -376,8 +376,12 @@ def test_a_probe_reaches_its_own_cap_before_its_wrapper_gives_up():
     """On a hang the probe must hit TEST_WAIT_CAP_SECONDS, report the wait and end its children, before the wrapper's
     PROBE_RUN_SECONDS kills it (equal numbers let the wrapper, which started first, win)."""
     header = probe_source.read("port/ios/tests/test_wait.h")
-    assert harness.constant(header, "TEST_WAIT_CHILD_CAP_SECONDS") < harness.constant(header, "TEST_WAIT_CAP_SECONDS")
-    assert harness.constant(header, "TEST_WAIT_CAP_SECONDS") + 30 <= PROBE_RUN_SECONDS
+    child, cap = harness.constant(header, "TEST_WAIT_CHILD_CAP_SECONDS"), harness.constant(header, "TEST_WAIT_CAP_SECONDS")
+    assert child < cap
+    assert cap + WRAPPER_MARGIN_SECONDS <= PROBE_RUN_SECONDS
+    # the whole-program alarm is a hang guard for a probe run with no wrapper timeout (by hand, or a wrapper that
+    # passes none), so it outlasts every wait the probe makes and fires only when nothing else ended the run
+    assert cap < harness.constant(header, "TEST_WAIT_WATCHDOG_SECONDS")
 
 
 def short_probe_timeouts(text):
@@ -393,11 +397,12 @@ def short_probe_timeouts(text):
 
 
 def test_the_python_wrappers_share_one_probe_timeout():
-    for path in sorted((ROOT / "tools").glob("test_*.py")):
-        if path.name == Path(__file__).name:
+    for path in sorted((ROOT / "tools").rglob("*.py")):
+        if path.resolve() == Path(__file__).resolve() or "__pycache__" in path.parts:
             continue
         found = short_probe_timeouts(path.read_text(encoding="utf-8", errors="replace"))
-        assert not found, f"{path.name}: a probe runs with timeout={found}, under probe_timeouts.PROBE_RUN_SECONDS"
+        assert not found, (f"{path.relative_to(ROOT)}: a probe runs with timeout={found}, "
+                           "under probe_timeouts.PROBE_RUN_SECONDS")
 
 
 def test_negative_control_a_short_probe_timeout_is_seen_whatever_the_program_is_called():

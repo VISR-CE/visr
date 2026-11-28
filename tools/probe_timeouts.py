@@ -7,4 +7,5 @@ order). A loaded job host starves a program for
 far longer than an idle machine needs, so a short number here is a flake. tools/test_probe_waits.py refuses a literal
 short timeout in a wrapper that runs a probe."""
 
-PROBE_RUN_SECONDS = 180
+WRAPPER_MARGIN_SECONDS = 60   # how much longer the wrapper waits than a probe's own cap
+PROBE_RUN_SECONDS = 120 + WRAPPER_MARGIN_SECONDS   # test_wait.h's TEST_WAIT_CAP_SECONDS plus the margin

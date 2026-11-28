@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from probekit import source as probe_source  # noqa: E402  (the one implementation of the extractors)
+from probe_timeouts import PROBE_RUN_SECONDS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 HARNESS = Path(__file__).resolve().parent
@@ -82,5 +83,5 @@ def build(test, generated):
 
 def run(executable, case):
     """Run one case: (exit status, output)."""
-    result = subprocess.run([str(executable), case], capture_output=True, text=True, timeout=60)
+    result = subprocess.run([str(executable), case], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     return result.returncode, (result.stdout + result.stderr).strip()

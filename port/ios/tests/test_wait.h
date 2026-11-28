@@ -89,7 +89,7 @@ tools/probe_timeouts.py's PROBE_RUN_SECONDS, so on a hang the probe reaches it f
 of the wrapper killing the probe and leaving the child running. */
 #define TEST_WAIT_CHILD_CAP_SECONDS 60.0
 #ifndef __cplusplus
-_Static_assert((int)TEST_WAIT_CHILD_CAP_SECONDS < (int)TEST_WAIT_CAP_SECONDS, "a child's cap stays under the wrapper's");
+_Static_assert((int)TEST_WAIT_CHILD_CAP_SECONDS < (int)TEST_WAIT_CAP_SECONDS, "a child's cap stays under the default cap");
 #endif
 
 #endif

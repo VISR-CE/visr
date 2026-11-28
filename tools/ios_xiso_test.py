@@ -9,6 +9,8 @@ import subprocess
 import tempfile
 import unittest
 
+from probe_timeouts import PROBE_RUN_SECONDS
+
 ROOT=Path(__file__).resolve().parents[1]
 BUILD=ROOT/'build/ios/xiso-tests'
 BUILD.mkdir(parents=True,exist_ok=True)
@@ -66,7 +68,7 @@ class ImportTests(unittest.TestCase):
     probe=PROBE
     def invoke(self, *args):
         result=subprocess.run([str(self.probe),*map(str,args)],text=True,capture_output=True,
-                              env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'},timeout=10)
+                              env={**os.environ,'ASAN_OPTIONS':'detect_leaks=0'},timeout=PROBE_RUN_SECONDS)
         self.assertNotIn('Sanitizer',result.stderr,result.stderr)
         self.assertNotIn('runtime error:',result.stderr,result.stderr)
         self.assertIn(result.returncode,(0,1),result.stderr)
