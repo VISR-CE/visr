@@ -2,7 +2,6 @@
    Rename only colliding environment stubs from the replay fixture. */
 #define main replay_fixture_main
 #define config_boolean replay_config_boolean
-#define config_integer replay_config_integer
 #define config_string replay_config_string
 #define config_folder replay_config_folder
 #define config_profile_settings_text replay_config_profile_settings_text
@@ -11,7 +10,6 @@
 #include "input_replay_probe.c"
 #undef main
 #undef config_boolean
-#undef config_integer
 #undef config_string
 #undef config_folder
 #undef config_profile_settings_text
