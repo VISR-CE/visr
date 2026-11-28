@@ -16,6 +16,10 @@ option; they can move to the structured parameters one at a time.
 
 `host_stubs=True` links the shared weak host stubs (tools/host_stubs.py) built for the probe's `-D` and `-std=`
 options, so a probe never keeps its own copy of a host function only because production code started calling it.
+`port_stubs=True` links the port's seams (`port/ios/tests/port_stubs.c`: `port_config.h`'s functions and
+`platform_log`), compiled as plain C with the probe's own compiler, so it works on Linux too; `host_stubs=True`
+links them as well. A probe's own definition of a seam wins; one that returns state the probe sets up carries
+`/* fake: <why> */` (tools/test_probe_conventions.py, rule 2).
 """
 from __future__ import annotations
 
@@ -77,22 +81,26 @@ def command(sources, *, output, std="gnu11", includes=(), defines=(), libs=(), l
     return [*compiler(apple), *options, *inputs, "-o", str(output), *(f"-l{lib}" for lib in libs), "-lm"]
 
 
-def build(sources, *, output, host_stubs=False, stub_directory=None, cwd=None, **options) -> Path:
+def build(sources, *, output, host_stubs=False, port_stubs=False, stub_directory=None, cwd=None, **options) -> Path:
     """Compile and link `sources` to `output` and return its path. `options` are `command`'s. A failed build raises
     BuildError. `cwd` is where relative sources and options are read from (the repository root by default);
     `stub_directory` holds the host stub objects (the output's folder by default)."""
     output = Path(output)
     arguments = command(sources, output=output, **options)
-    if host_stubs:
-        if not options.get("apple"):
-            raise ValueError("host_stubs=True needs apple=True: the stubs are Objective-C (port/ios/tests/host_stubs.c)")
+    if host_stubs and not options.get("apple"):
+        raise ValueError("host_stubs=True needs apple=True: the stubs are Objective-C (port/ios/tests/host_stubs.c)")
+    if host_stubs or port_stubs:
         if str(ROOT / "tools") not in sys.path:
             sys.path.insert(0, str(ROOT / "tools"))
         import host_stubs as stubs
         flags = options.get("flags")
-        stub = stubs.stub_object(Path(stub_directory or output.parent),
-                                 stub_flags(arguments if flags is None else flags))
-        arguments += ["-x", "none", str(stub)]
+        given = arguments if flags is None else flags
+        directory = Path(stub_directory or output.parent)
+        objects = [stubs.stub_object(directory, stub_flags(given))] if host_stubs else []
+        objects.append(stubs.port_stub_object(directory, compiler(bool(options.get("apple"))),
+                                              stubs.port_stub_flags(given)))
+        at = next(i for i in range(len(arguments) - 1) if arguments[i] == "-o" and arguments[i + 1] == str(output))
+        arguments[at:at] = ["-x", "none", *map(str, objects)]   # with the inputs: libraries (-lm) come after them
     result = subprocess.run(arguments, cwd=cwd or ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                             errors="replace")
     if result.returncode != 0:

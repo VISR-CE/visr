@@ -62,3 +62,26 @@ def test_a_probe_builds_and_runs_and_a_failure_names_the_command(tmp_path):
         cc.build([broken], output=tmp_path / 'broken-probe', cwd=tmp_path)
     message = str(failure.value)
     assert str(tmp_path / 'broken-probe') in message and '-Werror' in message and 'unused' in message
+
+
+def test_port_stubs_match_the_probes_defines_standard_and_target():
+    assert cc_stubs().port_stub_flags(['-std=c11', '-O2', '-DB=1', '-m32', '-arch', 'arm64', 'a.c']) == [
+        '-std=c11', '-DB=1', '-m32', '-arch', 'arm64']
+
+
+def cc_stubs():
+    import host_stubs
+    return host_stubs
+
+
+@pytest.mark.skipif(not shutil.which('clang'), reason='needs clang')
+def test_port_stubs_give_a_plain_c_probe_the_seams_and_its_own_definition_wins(tmp_path):
+    source = tmp_path / 'seam_probe.c'
+    source.write_text('#include <stdio.h>\n#include "port_config.h"\nvoid platform_log(const char *format, ...);\n'
+                      'long config_integer(const char *name) { (void)name; return 7; }\n'
+                      'int main(void) {\n    platform_log("quiet %d", 1);\n'
+                      '    printf("%d %ld [%s]\\n", config_boolean("a"), config_integer("b"), config_string("c"));\n'
+                      '    return 0;\n}\n')
+    probe = cc.build([source], output=tmp_path / 'seam-probe', includes=[cc.ROOT / 'port/linux/src'],
+                     port_stubs=True)
+    assert subprocess.run([str(probe)], capture_output=True, text=True, check=True).stdout == '0 7 []\n'
