@@ -4,3 +4,4 @@ jsonschema>=4.25,<5
 cryptography>=50,<51
 markdown-it-py>=4,<5
 PyYAML>=6,<7
+ruff>=0.17,<0.18

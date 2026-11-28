@@ -706,7 +706,6 @@ def test_uncapped_charts_draw_the_average_alone_and_list_gpu_frame_time_under_th
     assert "0.45 ms median GPU time per rendered frame, 1.2 ms 90th-percentile GPU time per rendered frame" in note
     other = next(e for e in built["entries"] if e["port"] == "opence-macos")
     assert "no GPU times reported" in charts.caption(built, {charts.entry_key(other)}, query["details"])
-    spec = {**QUERY_SPEC, "query": query} if "QUERY_SPEC" in globals() else None
 
 
 def test_overall_lists_the_geometric_mean_of_each_suites_gpu_time_and_never_claims_no_data_when_there_is_some():

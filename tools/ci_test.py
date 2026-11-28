@@ -75,6 +75,8 @@ def main() -> None:
     if args.junit:
         args.junit.parent.mkdir(parents=True, exist_ok=True)
         options.append(f"--junitxml={args.junit}")
+    # Undefined names fail only when the line runs, and a test does not reach every line.
+    run(sys.executable, "-m", "ruff", "check", "--quiet", "--select", "F821", "tools/")
     run(sys.executable, "-m", "pytest", *options, *tests, env=strict_environment())
     run(sys.executable, "tools/build_site.py", "--check")
     run(sys.executable, "tools/settings_schema.py", "--check")
