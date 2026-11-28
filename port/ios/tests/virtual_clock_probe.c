@@ -33,8 +33,8 @@ int main(void) {
     assert(halo_virtual_clock_exit_frame(0.01) == 1UL);
     /* debug.exit_after's own deadlines, pushed out by the script's wait on both clocks */
     {
-        struct halo_exit_state fixed = { 1, 1199, 1200, 0, 0, 0, 0, 0, 0 };
-        struct halo_exit_state wall = { 0, 0, 0, 0, 59999, 60000, 0, 0, 0 };
+        struct halo_exit_state fixed = { 1, 1199, 1200, 0, 0, 0, 0, 0, 0, 0 };
+        struct halo_exit_state wall = { 0, 0, 0, 0, 59999, 60000, 0, 0, 0, 0 };
 
         assert(!halo_exit_reached(&fixed) && (fixed.frames = 1200, halo_exit_reached(&fixed)));
         fixed.frame_delay = 150;
@@ -48,8 +48,21 @@ int main(void) {
     /* A scripted run only ever lasts longer: at least `span` frames (debug.exit_after at 30 a second) after the script began, and not
        before its clock's own deadline either. exit_after 137 s: span 4110, wall deadline 137 s. */
     {
-        /* a 7 frames a second host: the wall deadline (137 s plus the 100 s wait) passes at frame 1659; the frames decide */
-        struct halo_exit_state slow = { 0, 1659, 0, 0, 237000, 137000, 100000, 1000 + 1, 4110 };
+        /* a configured script that has not begun keeps every deadline from ending the run (a campaign still loading); once it begins, the
+       frame budget decides as before */
+    {
+        struct halo_exit_state loading = { 0, 1140, 0, 0, 131000, 120000, 0, 0, 3600, 1 };
+        struct halo_exit_state loading_fixed = { 1, 5000, 3600, 0, 0, 0, 0, 0, 3600, 1 };
+
+        assert(!halo_exit_reached(&loading) && !halo_exit_reached(&loading_fixed));
+        loading.script_began_next = 1200 + 1;
+        loading.script_pending = 0;
+        assert(!halo_exit_reached(&loading));   /* began at 1200: needs frame 4800 */
+        loading.frames = 4800;
+        assert(halo_exit_reached(&loading));
+    }
+    /* a 7 frames a second host: the wall deadline (137 s plus the 100 s wait) passes at frame 1659; the frames decide */
+        struct halo_exit_state slow = { 0, 1659, 0, 0, 237000, 137000, 100000, 1000 + 1, 4110, 0 };
 
         assert(!halo_exit_reached(&slow));
         slow.frames = 1000 + 4110 - 1;
@@ -57,24 +70,24 @@ int main(void) {
         slow.frames = 1000 + 4110;
         assert(halo_exit_reached(&slow));
         /* a 60 Hz host: the frame budget passed long before the wall deadline, which keeps the old length (exit_after seconds) */
-        struct halo_exit_state fast60 = { 0, 5200, 0, 0, 100000, 137000, 10000, 100 + 1, 4110 };
+        struct halo_exit_state fast60 = { 0, 5200, 0, 0, 100000, 137000, 10000, 100 + 1, 4110, 0 };
 
         assert(!halo_exit_reached(&fast60));
         fast60.ticks = 147000;
         assert(halo_exit_reached(&fast60));
         /* the same at 90 Hz, and a script that begins at frame 0 counts */
-        struct halo_exit_state fast90 = { 0, 7000, 0, 0, 60000, 137000, 0, 0 + 1, 4110 };
+        struct halo_exit_state fast90 = { 0, 7000, 0, 0, 60000, 137000, 0, 0 + 1, 4110, 0 };
 
         assert(!halo_exit_reached(&fast90));
         fast90.ticks = 137000;
         assert(halo_exit_reached(&fast90));
-        struct halo_exit_state zero = { 0, 4109, 0, 0, 999999, 1, 0, 0 + 1, 4110 };
+        struct halo_exit_state zero = { 0, 4109, 0, 0, 999999, 1, 0, 0 + 1, 4110, 0 };
 
         assert(!halo_exit_reached(&zero));
         zero.frames = 4110;
         assert(halo_exit_reached(&zero));
         /* no script (script_began_next 0) or no span: the clock's own deadline decides */
-        struct halo_exit_state none = { 0, 10, 0, 0, 999999, 1, 0, 0, 4110 };
+        struct halo_exit_state none = { 0, 10, 0, 0, 999999, 1, 0, 0, 4110, 0 };
 
         assert(halo_exit_reached(&none));
         none.script_began_next = 1; none.span = 0;

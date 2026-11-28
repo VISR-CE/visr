@@ -1747,9 +1747,11 @@ void platform_pump_events(void)
 			exit_frame += platform_clock_frames();
 	}
 	{
-		struct halo_exit_state state = { platform_fixed_timestep(), platform_clock_frames(), exit_frame, 0, SDL_GetTicks(), exit_ticks, 0, 0, exit_span };
+		struct halo_exit_state state = { platform_fixed_timestep(), platform_clock_frames(), exit_frame, 0, SDL_GetTicks(), exit_ticks, 0, 0, exit_span, *config_string("debug.test_input") != 0 };
 
 		state.script_began_next = __atomic_load_n(&exit_script_began_next, __ATOMIC_ACQUIRE);
+		if (state.script_began_next)
+			state.script_pending = 0;
 		if (state.script_began_next)
 		{
 			state.frame_delay = __atomic_load_n(&exit_frame_delay, __ATOMIC_RELAXED);

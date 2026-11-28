@@ -63,10 +63,13 @@ struct halo_exit_state
 	unsigned long long ticks, exit_ticks, tick_delay;   /* milliseconds */
 	unsigned long script_began_next;  /* the frame the scripted input's clock began at, plus 1 (0 before it began, so frame 0 counts) */
 	unsigned long span;               /* debug.exit_after in frames (30 a second); 0 never */
+	int script_pending;               /* a scripted input is configured (debug.test_input) and its clock has not begun */
 };
 
 /* whether debug.exit_after has passed: the clock's own deadline (as before), and, once a scripted input's clock has begun, never
-before `span` frames after that frame either. A script's presses are marked in frames, and a slow host (a simulator at 7 frames a
+before `span` frames after that frame either. While a configured script has not begun, no deadline ends the run: a campaign that loads
+longer than exit_after (a simulator at 9 frames a second) used to exit before its presses ever ran, and only the caller's own time limit
+backstops a script that never begins. A script's presses are marked in frames, and a slow host (a simulator at 7 frames a
 second) reached only part of them by the wall-clock deadline; a fast host (60 or 120 frames a second) reaches the frame budget well
 before its wall deadline and keeps its old length. The script only ever extends a run. */
 static inline int halo_exit_reached(const struct halo_exit_state *s)
@@ -74,6 +77,8 @@ static inline int halo_exit_reached(const struct halo_exit_state *s)
 	int reached = s->fixed_timestep ? s->exit_frame && s->frames >= s->exit_frame + s->frame_delay :
 		s->exit_ticks && s->ticks >= s->exit_ticks + s->tick_delay;
 
+	if (reached && s->script_pending && !s->script_began_next)
+		return 0;
 	if (reached && s->script_began_next && s->span)
 		return s->frames >= s->script_began_next - 1 + s->span;
 	return reached;
