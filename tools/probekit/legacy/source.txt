@@ -110,17 +110,14 @@ test_menu_description_focus.py
 test_menu_dialog_hooks.py
 test_menu_display_rate.py
 test_menu_event_input.py
-test_menu_fill_reach.py
 test_menu_focus.py
 test_menu_graphics.py
 test_menu_input_switch.py
 test_menu_legend_policy.py
 test_menu_placed_legends.py
-test_menu_scale.py
 test_menu_screen_log.py
 test_menu_server_setup.py
 test_menu_setting_state.py
-test_menu_tap_targets.py
 test_menu_text_box_pool.py
 test_menu_titles.py
 test_menu_visibility.py
@@ -198,7 +195,6 @@ test_text_hires_atlas_upload.py
 test_texture_repair.py
 test_tick_verify.py
 test_tick_verify_corruption.py
-test_touch_auto_keyboard.py
 test_touch_hide_movies.py
 test_touch_list_focus.py
 test_touch_mapping.py

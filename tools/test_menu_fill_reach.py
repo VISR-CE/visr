@@ -20,6 +20,7 @@ import shutil
 import subprocess
 
 import pytest
+from probekit import source as probe_source  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -274,40 +275,31 @@ int main(int argc, char **argv) {
 '''
 
 
-def function(source, signature):
-    """One C function's text, from its signature to the closing brace at the start of a line."""
-    start = source.index(signature)
-    return source[start:source.index("\n}\n", start) + 3]
-
-
 @pytest.fixture(scope="module")
 def probe(tmp_path_factory):
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         pytest.skip("A C compiler is required for the menu fill probe")
-    source = (ROOT / "port/linux/src/d3d8_device.c").read_text()
-    helpers = source[source.index("static int menu_window_drawing;"):source.index("/* render_window calls this once")]
-    widget = (ROOT / "source/interface/ui_widget.c").read_text()
-    keyboard = (ROOT / "source/interface/virtual_keyboard.c").read_text()
+    device = "port/linux/src/d3d8_device.c"
+    widget, keyboard = "source/interface/ui_widget.c", "source/interface/virtual_keyboard.c"
+    helpers = probe_source.region(device, "menu-window")
     pointer = "\n".join([
-        function(source, "static int ui_pointer_geometry("),
-        function(source, "static int ui_surface_geometry("),
-        function(source, "static void ui_point_from_surface("),
+        probe_source.function(device, "ui_pointer_geometry"),
+        probe_source.function(device, "ui_surface_geometry"),
+        probe_source.function(device, "ui_point_from_surface"),
     ]).replace("#define UI_POINTER_SCALE", "#define UI_POINTER_SCALE_UNUSED")
     call_sites = "\n".join([
-        function(widget, "static long ui_widget_safe_left("),
-        function(widget, "static void ui_touch_back_chevron_draw("),
-        function(widget, "static void ui_widget_screen_fill_kind("),
-        function(widget, "static void ui_widget_screen_fill_extend("),
-        function(keyboard, "static void virtual_keyboard_side_strips("),
+        probe_source.function(widget, "ui_widget_safe_left"),
+        probe_source.function(widget, "ui_touch_back_chevron_draw"),
+        probe_source.function(widget, "ui_widget_screen_fill_kind"),
+        probe_source.function(widget, "ui_widget_screen_fill_extend"),
+        probe_source.function(keyboard, "virtual_keyboard_side_strips"),
     ])
-    start = source.index("converted->viewport_scale[0][0] /= menu_zoom;")
-    end = source.index("\n", source.index("converted->viewport_offset[0][1] = menu_top", start))
     folder = tmp_path_factory.mktemp("menu_fill_reach")
     path, binary = folder / "reach.c", folder / "reach"
     path.write_text(HARNESS.replace("__HELPERS__", helpers).replace("__CALL_SITES__", call_sites)
                     .replace("__POINTER__", "#define UI_POINTER_SCALE 8.0f\n" + pointer)
-                    .replace("__COEFFICIENTS__", source[start:end]))
+                    .replace("__COEFFICIENTS__", probe_source.region(device, "menu-zoom-coefficients")))
     subprocess.run([compiler, "-std=c11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function",
                     "-I", str(ROOT / "port/linux/src"), "-I", str(ROOT / "port/runtime/include"), "-idirafter", str(ROOT / "port/linux/include"),
                     str(path), str(ROOT / "port/linux/src/menu_scale.c"), "-lm", "-o", str(binary)], check=True)

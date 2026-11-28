@@ -4,6 +4,7 @@ import shutil
 import subprocess
 
 import pytest
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,11 +50,8 @@ def test_widget_viewport_and_pointer_round_trip(tmp_path, apple):
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         pytest.skip("A C compiler is required for the menu transform probe")
-    source = (ROOT / "port/linux/src/d3d8_device.c").read_text()
-    helpers = source[source.index("static int menu_window_drawing;"):source.index("/* render_window calls this once")]
-    start = source.index("converted->viewport_scale[0][0] /= menu_zoom;")
-    end = source.index("\n", source.index("converted->viewport_offset[0][1] = menu_top", start))
-    coefficients = source[start:end]
+    helpers = probe_source.region("port/linux/src/d3d8_device.c", "menu-window")
+    coefficients = probe_source.region("port/linux/src/d3d8_device.c", "menu-zoom-coefficients")
     harness = r'''
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
@@ -173,9 +171,7 @@ def test_host_uses_window_points(tmp_path):
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         pytest.skip("A C compiler is required for the host point-height probe")
-    source = (ROOT / "port/ios/host/host_sdl.c").read_text()
-    start = source.index("int host_sdl_menu_height_points(void)")
-    helper = source[start:source.index("\n}\n", start) + 3]
+    helper = probe_source.function("port/ios/host/host_sdl.c", "host_sdl_menu_height_points")
     harness = r'''
 #include <assert.h>
 #include <stdio.h>
@@ -229,9 +225,7 @@ def test_pause_content_comes_from_the_active_widgets(tmp_path):
     compiler = shutil.which('clang') or shutil.which('cc')
     if not compiler:
         pytest.skip('A C compiler is required for the pause bounds probe')
-    source = (ROOT / 'source/interface/ui_widget.c').read_text()
-    start = source.index('static void ui_widget_content_bounds(')
-    helper = source[start:source.index('static void ui_widget_menu_content(', start)]
+    helper = probe_source.function('source/interface/ui_widget.c', 'ui_widget_content_bounds')
     harness = r'''
 #include <assert.h>
 #include <string.h>

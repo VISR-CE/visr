@@ -6,14 +6,14 @@ import subprocess
 import tempfile
 from unittest import SkipTest
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
+WIDGET = "source/interface/ui_widget.c"
 
 
 def test_target_search_reach():
-    source = (ROOT / "source/interface/ui_widget.c").read_text()
-    start = source.index("/* the squared distance from a point to a rectangle")
-    end = source.index("static boolean ui_mouse_widget_has_focus(", start)
-    search = source[start:end]
+    search = probe_source.span(WIDGET, "ui_mouse_distance_squared", "ui_mouse_target_at")
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         raise SkipTest("A C compiler is required for the menu target probe")
@@ -74,60 +74,48 @@ int main(void) {
 
 
 def test_click_waits_for_the_first_draw():
-    source = (ROOT / "source/interface/ui_widget.c").read_text()
-    process = source[source.index("static void ui_widgets_process_mouse("):]
-    process = process[:process.index("\n}\n")]
+    process = probe_source.function(WIDGET, "ui_widgets_process_mouse")
     # a click before the menu has drawn has no targets and would be the "nothing to pick" A
     assert "!ui_mouse_menu_drawn" in process
     # forgotten whenever the pointer is gone, so the next menu draws first
     assert process.index("ui_mouse_menu_drawn = FALSE") < process.index("ui_mouse_radius = pointer.radius")
     # a screen with no menu widget (the scores after a game) has nothing to draw first
     assert "if (!ui_mouse_menu())\n\t\t\tui_mouse_menu_drawn = TRUE;" in process
-    render = source[source.index("ui_mouse_noting_targets = widget->local_player_index == NONE"):]
-    assert "ui_mouse_menu_drawn = TRUE" in render[:render.index("debug_show_path")]
+    render = probe_source.function(WIDGET, "render_ui_widgets")
+    noting = render.index("ui_mouse_noting_targets = widget->local_player_index == NONE")
+    assert "ui_mouse_menu_drawn = TRUE" in render[noting:render.index("debug_show_path", noting)]
 
 
 def test_scroll_arrows_are_targets():
-    source = (ROOT / "source/interface/ui_widget.c").read_text()
-    note = source[source.index("static void ui_mouse_note_target("):]
-    note = note[:note.index("\n}\n")]
+    note = probe_source.function(WIDGET, "ui_mouse_note_target")
     # a list's scroll arrows (Xbox look: server browser, map lists) step the list when tapped
     assert 'strcmp(widget->name, "scroll_up_arrow")' in note and "_widget_event_dpad_up" in note
     assert 'strcmp(widget->name, "scroll_down_arrow")' in note and "_widget_event_dpad_down" in note
 
 
 def test_carousel_peeks_are_targets():
-    source = (ROOT / "source/interface/ui_widget.c").read_text()
-    helper = source[source.index("static void ui_mouse_note_carousel_peeks("):]
-    helper = helper[:helper.index("\n}\n")]
+    source = probe_source.read(WIDGET)
+    helper = probe_source.function(WIDGET, "ui_mouse_note_carousel_peeks")
     # Peek targets follow the drawn card geometry and scroll without activating a card.
     assert "halo_ui_carousel_item_x" in helper
     assert "_ui_mouse_target_carousel_peek" in helper
     assert "target->button_index = side ? 1 : -1;" in helper
     assert "UI_MOUSE_CAROUSEL_ARROW_WIDTH" not in source
-    note = source[source.index("static void ui_mouse_note_target("):]
-    note = note[:note.index("\n}\n")]
+    note = probe_source.function(WIDGET, "ui_mouse_note_target")
     assert "ui_mouse_note_carousel_peeks(widget, offset)" in note
     assert "_ui_mouse_target_list_slot" in note
 
 
 def test_touch_legend_labels_have_minimum_tap_bounds(tmp_path):
-    from test_controller_glyphs import block
-
-    source = (ROOT / "source/interface/ui_widget.c").read_text()
     program = (ROOT / "port/ios/tests/menu_legend_touch_probe.c").read_text()
-    slots = source[source.index("/* port: the touch legend's four fixed slots."):
-                   source.index("/* port: the touch legend's button. `drawn`")]
     program = program.replace('#include "menu_geometry.h"',
                               (ROOT / "port/linux/include/menu_geometry.h").read_text())
-    program = program.replace("/* SLOTS */", slots)
-    program = program.replace("/* GEOMETRY */", block(source, "static boolean ui_mouse_legend_bounds("))
-    program = program.replace("/* SLICE */", block(source, "static void ui_widget_draw_touch_legend_slice("))
-    program = program.replace("/* DRAW */", block(source, "static void ui_widget_draw_touch_legend("))
-    program = program.replace("/* NOTE */", block(source, "static void ui_mouse_note_target("))
-    start = source.index("/* the squared distance from a point to a rectangle")
-    end = source.index("static boolean ui_mouse_widget_has_focus(", start)
-    program = program.replace("/* SEARCH */", source[start:end])
+    program = program.replace("/* SLOTS */", probe_source.span(WIDGET, "UI_TOUCH_LEGEND_SLOTS", "ui_touch_legend_slot_bounds"))
+    program = program.replace("/* GEOMETRY */", probe_source.function(WIDGET, "ui_mouse_legend_bounds"))
+    program = program.replace("/* SLICE */", probe_source.function(WIDGET, "ui_widget_draw_touch_legend_slice"))
+    program = program.replace("/* DRAW */", probe_source.function(WIDGET, "ui_widget_draw_touch_legend"))
+    program = program.replace("/* NOTE */", probe_source.function(WIDGET, "ui_mouse_note_target"))
+    program = program.replace("/* SEARCH */", probe_source.span(WIDGET, "ui_mouse_distance_squared", "ui_mouse_target_at"))
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         raise SkipTest("A C compiler is required for the legend tap probe")

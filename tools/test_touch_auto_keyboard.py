@@ -2,13 +2,11 @@
 from pathlib import Path
 import shutil
 import subprocess
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def function(source, name):
-    start = source.index(name)
-    return source[start:source.index("\n}\n", start) + 3]
 
 
 def run_probe(tmp_path, source):
@@ -40,7 +38,7 @@ int main(void) {
 
 
 def test_finish_retains_text_and_focuses_action_or_next_field(tmp_path):
-    source = (ROOT / "port/linux/game/menu_functions.c").read_text()
+    source = "port/linux/game/menu_functions.c"
     run_probe(tmp_path, r'''
 #include <assert.h>
 #include <string.h>
@@ -65,8 +63,8 @@ static struct widget_instance *named(struct widget_instance *root, const char *n
     return NULL;
 }
 static void text_field_end(boolean keep) { kept = keep; text_field.row = NULL; }
-''' + function(source, "static void text_field_focus(") +
-        function(source, "static void text_field_finish(") + r'''
+''' + probe_source.function(source, "text_field_focus") +
+        probe_source.function(source, "text_field_finish") + r'''
 int main(void) {
     screen.child = &list; list.parent = &screen; list.type = 3;
     list.child = &field; field.parent = &list; field.next = &next;
@@ -99,7 +97,7 @@ int main(void) {
 
 
 def test_name_prompt_commits_through_existing_validation_and_cancels(tmp_path):
-    source = (ROOT / "source/interface/virtual_keyboard.c").read_text()
+    source = "source/interface/virtual_keyboard.c"
     run_probe(tmp_path, r'''
 #include <assert.h>
 #include <stddef.h>
@@ -120,7 +118,7 @@ static void virtual_keyboard_select(void) {
     selected++; virtual_keyboard_globals.active = 0;
 }
 static void virtual_keyboard_process_internal(void) { processed++; }
-''' + function(source, "void virtual_keyboard_process(\n") + r'''
+''' + probe_source.function(source, "virtual_keyboard_process") + r'''
 int main(void) {
     wchar_t buffer[4] = {0};
     virtual_keyboard_globals.text_buffer = buffer;
@@ -147,7 +145,7 @@ int main(void) {
 
 
 def test_auto_open_keeps_tv_and_hardware_entry(tmp_path):
-    source = (ROOT / "port/runtime/guest/runtime/guest_sdl.c").read_text()
+    source = "port/runtime/guest/runtime/guest_sdl.c"
     run_probe(tmp_path, r'''
 #include <assert.h>
 #include <stddef.h>
@@ -157,7 +155,7 @@ static const char *fake_env(const char *name) { (void)name; return tv ? "1" : NU
 #define getenv fake_env
 int host_menu_touch(void) { return touch; }
 int host_menu_keyboard(void) { return keyboard; }
-''' + function(source, "int platform_text_auto_open(") + r'''
+''' + probe_source.function(source, "platform_text_auto_open") + r'''
 int main(void) {
     for (tv = 0; tv <= 1; tv++)
         for (touch = 0; touch <= 1; touch++)
@@ -169,9 +167,7 @@ int main(void) {
 
 
 def test_host_retries_presentation_and_restarts_between_fields(tmp_path):
-    source = (ROOT / "port/ios/host/host_sdl.c").read_text()
-    start = source.index("static void text_input_update(void)\n{")
-    update = source[start:source.index("\n}\n", start) + 3]
+    update = probe_source.function("port/ios/host/host_sdl.c", "text_input_update")
     run_probe(tmp_path, r'''
 #include <assert.h>
 #include <stddef.h>
@@ -218,7 +214,7 @@ int main(void) {
 
 
 def test_touch_return_submits_once_after_field_closes(tmp_path):
-    source = (ROOT / "port/linux/src/xinput_sdl.c").read_text()
+    source = "port/linux/src/xinput_sdl.c"
     run_probe(tmp_path, r'''
 #include <assert.h>
 #include <stddef.h>
@@ -240,9 +236,9 @@ enum { XINPUT_GAMEPAD_START=1, XINPUT_GAMEPAD_DPAD_UP=2, XINPUT_GAMEPAD_DPAD_DOW
        XINPUT_GAMEPAD_DPAD_LEFT=8, XINPUT_GAMEPAD_DPAD_RIGHT=16, XINPUT_GAMEPAD_B=0 };
 struct platform_input_state { unsigned char keys[7]; };
 typedef struct { unsigned int wButtons; unsigned char bAnalogButtons[1]; } XINPUT_GAMEPAD;
-''' + function(source, "void platform_text_field(int") +
-        function(source, "void platform_text_field_submit(") +
-        function(source, "static void typing_gamepad(") + r'''
+''' + probe_source.function(source, "platform_text_field") +
+        probe_source.function(source, "platform_text_field_submit") +
+        probe_source.function(source, "typing_gamepad") + r'''
 int main(void) {
     struct platform_input_state input = {0};
     XINPUT_GAMEPAD pad = {0};
