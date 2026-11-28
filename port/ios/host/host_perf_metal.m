@@ -279,8 +279,9 @@ static double mach_seconds(uint64_t ticks) { return (double)ticks * timebase.num
  * recently bracketed pair, not each completion's own: a preemption between the host reads around sampleTimestamps
  * would shift a buffer's stage ranges against MetalFX's span. A pair replaces the kept one when its bracket is no
  * wider, when the kept one is older than PAIR_KEEP_SECONDS, or when the kept one mispredicts the new pair's host time
- * by more than both brackets plus PAIR_AGREE_SECONDS: the GPU's clock stepped (an iPhone 12 Pro's did around a load,
- * and a kept pair put ranges 0.5-4.9 s outside their buffers until it aged out). Brackets wider than
+ * by more than both brackets plus PAIR_AGREE_SECONDS, which would mean the GPU's clock stepped. No device run has
+ * shown a step so far (the ranges seconds outside their buffers on an iPhone 12 Pro were stale counter samples, see
+ * fresh_after); the check stays as a guard, and the readings line counts its hits. Brackets wider than
  * PAIR_WIDE_SECONDS are counted. */
 #define PAIR_KEEP_SECONDS 1.0
 #define PAIR_AGREE_SECONDS 50e-6
