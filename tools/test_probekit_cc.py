@@ -85,3 +85,12 @@ def test_port_stubs_give_a_plain_c_probe_the_seams_and_its_own_definition_wins(t
     probe = cc.build([source], output=tmp_path / 'seam-probe', includes=[cc.ROOT / 'port/linux/src'],
                      port_stubs=True)
     assert subprocess.run([str(probe)], capture_output=True, text=True, check=True).stdout == '0 7 []\n'
+
+
+def test_options_add_to_the_defaults_and_refuse_what_replaces_them():
+    command = cc.command(['a.c'], output='out', std='c11', options=['-O2', '-iquote', 'port/linux/src', '-pthread'])
+    assert command[1:4] == ['-std=c11', '-Wall', '-Werror']
+    assert command[4:8] == ['-O2', '-iquote', 'port/linux/src', '-pthread'] and command[-1] == '-lm'
+    for wrong in (['-std=c99'], ['-c'], ['-Wno-error']):
+        with pytest.raises(ValueError, match='belong elsewhere'):
+            cc.command(['a.c'], output='out', options=wrong)

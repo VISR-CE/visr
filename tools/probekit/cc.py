@@ -10,7 +10,9 @@ the same everywhere (tools/test_probe_conventions.py keeps new tests on it). The
 - on a Mac, a build that is not an Apple build runs through `tools/probekit/strict/clang`, which refuses what
   links here and not on Linux (glibc's strict ISO macros, headers Ubuntu lacks, libm without `-lm`).
 
-`flags` replaces every default with the caller's own options, in the caller's order: the command is the compiler,
+`options` adds the caller's other compiler options (`-O2`, `-g`, `-iquote DIR`, `-framework Foundation`, `-fobjc-arc`,
+`-pthread`) after the defaults and the structured ones, so the defaults still apply; it never takes `-o`, `-std=`,
+`-c`, `-fsyntax-only` or a source. `flags` replaces every default with the caller's own options, in the caller's order: the command is the compiler,
 `flags`, the sources and `-o OUTPUT`. tools/ios_test.py's probes use it, so moving them onto `build` changed no
 option; they can move to the structured parameters one at a time.
 
@@ -54,31 +56,36 @@ def compiler(apple: bool) -> list[str]:
 
 
 def command(sources, *, output, std="gnu11", includes=(), defines=(), libs=(), language=None, extra_warnings=False,
-            relaxed=(), sanitize=False, bits=64, apple=False, flags=None) -> list[str]:
+            relaxed=(), sanitize=False, bits=64, apple=False, options=(), flags=None) -> list[str]:
     """The compiler command `build` runs, without the host stub object."""
     sources = [str(source) for source in sources]
     if not sources:
         raise ValueError("build() needs at least one source")
+    refused = [option for option in map(str, options) if option in ("-o", "-c", "-S", "-E", "-fsyntax-only", "-shared")
+               or option.startswith(("-std=", "-Wno-error"))]
+    if refused:
+        raise ValueError(f"build(options=...) adds options to the defaults; these belong elsewhere: {refused}")
     if flags is not None:
         structured = (std, tuple(includes), tuple(defines), tuple(libs), language, extra_warnings, tuple(relaxed),
-                      sanitize, bits)
-        if structured != ("gnu11", (), (), (), None, False, (), False, 64):
+                      sanitize, bits, tuple(options))
+        if structured != ("gnu11", (), (), (), None, False, (), False, 64, ()):
             raise ValueError("build(flags=...) replaces every default; pass the other options inside flags")
         return [*compiler(apple), *map(str, flags), *sources, "-o", str(output)]
-    options = [f"-std={std}", "-Wall", "-Werror"]
+    arguments = [f"-std={std}", "-Wall", "-Werror"]
     if extra_warnings:
-        options.append("-Wextra")
-    options += [f"-Wno-{warning}" for warning in relaxed]
+        arguments.append("-Wextra")
+    arguments += [f"-Wno-{warning}" for warning in relaxed]
     if bits == 32:
-        options.append("-m32")
+        arguments.append("-m32")
     elif bits != 64:
         raise ValueError(f"bits must be 32 or 64, not {bits}")
     if sanitize:
-        options += ["-fsanitize=address,undefined", "-fno-sanitize-recover=undefined"]
-    options += [f"-D{define}" for define in defines]
-    options += [f"-I{include}" for include in includes]
+        arguments += ["-fsanitize=address,undefined", "-fno-sanitize-recover=undefined"]
+    arguments += [f"-D{define}" for define in defines]
+    arguments += [f"-I{include}" for include in includes]
+    arguments += [str(option) for option in options]
     inputs = ["-x", language, *sources, "-x", "none"] if language else sources
-    return [*compiler(apple), *options, *inputs, "-o", str(output), *(f"-l{lib}" for lib in libs), "-lm"]
+    return [*compiler(apple), *arguments, *inputs, "-o", str(output), *(f"-l{lib}" for lib in libs), "-lm"]
 
 
 def build(sources, *, output, host_stubs=False, port_stubs=False, stub_directory=None, cwd=None, **options) -> Path:
