@@ -84,9 +84,9 @@ milliseconds for the two clocks, so a timer that fires early still fails. */
 	double test_wait_started_ = (started); \
 	TEST_WAIT_PUMPING_UNTIL(condition) ? test_wait_now() - test_wait_started_ : -1.0; })
 
-/* The cap on a wait for a child process. It stays under the default cap, which tools/probe_timeouts.py's
-PROBE_RUN_SECONDS equals, so on a hang the probe reaches it first and terminates the child, instead of the wrapper
-killing the probe and leaving the child running. */
+/* The cap on a wait for a child process. It stays under the default cap, which in turn stays under
+tools/probe_timeouts.py's PROBE_RUN_SECONDS, so on a hang the probe reaches it first and terminates the child, instead
+of the wrapper killing the probe and leaving the child running. */
 #define TEST_WAIT_CHILD_CAP_SECONDS 60.0
 #ifndef __cplusplus
 _Static_assert((int)TEST_WAIT_CHILD_CAP_SECONDS < (int)TEST_WAIT_CAP_SECONDS, "a child's cap stays under the wrapper's");

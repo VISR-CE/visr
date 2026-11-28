@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import uikit_probe_app
+from probe_timeouts import PROBE_RUN_SECONDS  # noqa: E402
 
 REASON = 'Failed to create work interval'
 
@@ -43,7 +44,7 @@ def main():
 
     def run(mode):
         result = subprocess.run([str(macos / 'FrameWorkgroupProbe'), mode], cwd=root, capture_output=True, text=True,
-                                timeout=60, env=env)
+                                timeout=PROBE_RUN_SECONDS, env=env)
         print(result.stdout, end='')
         return result
 

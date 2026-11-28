@@ -20,8 +20,10 @@ below ten, are not seen.
 import re
 from pathlib import Path
 
+import harness
 import pytest
 from probe_timeouts import PROBE_RUN_SECONDS
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBES = sorted([*(ROOT / "port/ios/tests").glob("*.[cm]"), *(ROOT / "port/ios/tests").glob("*.cpp")])
@@ -370,11 +372,36 @@ def test_a_probe_that_includes_the_helper_uses_it():
             assert re.search(r"TEST_WAIT_[A-Z_]+", text.replace('"test_wait.h"', "")), f"{path.name} includes test_wait.h and uses nothing from it"
 
 
+def test_a_probe_reaches_its_own_cap_before_its_wrapper_gives_up():
+    """On a hang the probe must hit TEST_WAIT_CAP_SECONDS, report the wait and end its children, before the wrapper's
+    PROBE_RUN_SECONDS kills it (equal numbers let the wrapper, which started first, win)."""
+    header = probe_source.read("port/ios/tests/test_wait.h")
+    assert harness.constant(header, "TEST_WAIT_CHILD_CAP_SECONDS") < harness.constant(header, "TEST_WAIT_CAP_SECONDS")
+    assert harness.constant(header, "TEST_WAIT_CAP_SECONDS") + 30 <= PROBE_RUN_SECONDS
+
+
+def short_probe_timeouts(text):
+    """Every literal timeout under PROBE_RUN_SECONDS on a `subprocess.run([str(...), ...])` call, which runs a built
+    program, whatever the variable naming it."""
+    found = []
+    for match in re.finditer(r"subprocess\.run\(\[str\(", text):
+        call = text[match.start():matching(text, match.start() + len("subprocess.run"), "(", ")")]
+        timeout = re.search(r"\btimeout=(\d+)", call)
+        if timeout and int(timeout.group(1)) < PROBE_RUN_SECONDS:
+            found.append(int(timeout.group(1)))
+    return found
+
+
 def test_the_python_wrappers_share_one_probe_timeout():
     for path in sorted((ROOT / "tools").glob("test_*.py")):
         if path.name == Path(__file__).name:
             continue
-        text = path.read_text(encoding="utf-8", errors="replace")
-        for match in re.finditer(r"subprocess\.run\(\[str\((?:program|executable|binary|transport|worker)\)[^\n]*timeout=(\d+)", text):
-            assert int(match.group(1)) >= PROBE_RUN_SECONDS, (
-                f"{path.name}: a probe runs with timeout={match.group(1)}, under probe_timeouts.PROBE_RUN_SECONDS")
+        found = short_probe_timeouts(path.read_text(encoding="utf-8", errors="replace"))
+        assert not found, f"{path.name}: a probe runs with timeout={found}, under probe_timeouts.PROBE_RUN_SECONDS"
+
+
+def test_negative_control_a_short_probe_timeout_is_seen_whatever_the_program_is_called():
+    assert short_probe_timeouts("subprocess.run([str(program)], timeout=60)") == [60]
+    assert short_probe_timeouts("r = subprocess.run([str(macos / 'Probe'), mode], cwd=root,\n    timeout=60, env=env)") == [60]
+    assert not short_probe_timeouts("subprocess.run([str(macos / 'Probe')], timeout=PROBE_RUN_SECONDS)")
+    assert not short_probe_timeouts("subprocess.run(command, check=True, timeout=60)")

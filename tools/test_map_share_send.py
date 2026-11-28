@@ -28,6 +28,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from harness import CHECK_FAILED, constant, enum_with, function, mutated, read, structure  # noqa: E402
+from probe_timeouts import PROBE_RUN_SECONDS  # noqa: E402
 
 GAME = ROOT / "port/linux/game"
 MONOCYPHER = ROOT / "port/third_party/monocypher"
@@ -258,7 +259,7 @@ def build(work, fault=None, fault_file=None, faulty_function=None):
 
 
 def run(executable, case):
-    result = subprocess.run([str(executable), case], capture_output=True, text=True, timeout=120)
+    result = subprocess.run([str(executable), case], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     return result.returncode, (result.stdout + result.stderr).strip()
 
 
