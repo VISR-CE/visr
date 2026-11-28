@@ -13,6 +13,7 @@ port/ios/tests/controller_glyph_bridge_probe.c
 port/ios/tests/data_pack_launch_probe.m
 port/ios/tests/data_pack_probe.m
 port/ios/tests/data_updates_probe.m
+port/ios/tests/delta_peer_game_probe.c
 port/ios/tests/direct_ip_menu_probe.c
 port/ios/tests/dynamic_resolution_actuation_probe.c
 port/ios/tests/dynamic_resolution_hooks_probe.c

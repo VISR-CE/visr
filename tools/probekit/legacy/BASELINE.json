@@ -496,6 +496,7 @@
   "port/ios/tests/data_pack_launch_probe.m": 8,
   "port/ios/tests/data_pack_probe.m": 1,
   "port/ios/tests/data_updates_probe.m": 1,
+  "port/ios/tests/delta_peer_game_probe.c": 1,
   "port/ios/tests/direct_ip_menu_probe.c": 1,
   "port/ios/tests/dynamic_resolution_actuation_probe.c": 6,
   "port/ios/tests/dynamic_resolution_hooks_probe.c": 6,
