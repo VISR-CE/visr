@@ -27,6 +27,7 @@ char *tag_get_name(long t) {
 	return t == 1 ? "ui\\shell\\main_menu" : t == 2 ? "ui\\shell\\settings" : t == 3 ? "ui\\shell\\pause_game\\pause_game" :
 		t == 4 ? "ui\\shell\\pause_game\\item" : 0; }
 unsigned long platform_clock_frames(void) { return frames; }
+/* fake: prints the log lines to stdout where the test reads them */
 void platform_log(char const *f, ...) { va_list v; va_start(v, f); vprintf(f, v); putchar('\n'); va_end(v); }
 FUNCTION
 int main(void)

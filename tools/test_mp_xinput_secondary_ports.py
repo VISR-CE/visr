@@ -31,6 +31,7 @@ typedef XINPUT_STATE *PXINPUT_STATE;
 typedef int SDL_Gamepad;
 static int requested, configured_players = 1, physical_count, virtual_calls, physical_calls;
 static SDL_Gamepad pads[PORT_COUNT];
+/* fake: answers the configured player count the probe sets */
 static long config_integer(const char *key) { (void)key; return configured_players; }
 static int __attribute__((unused)) mp_benchmark_probe_requested(void) { return requested; }
 static int mp_benchmark_probe_or_test_gamepad(XINPUT_GAMEPAD *pad, short port) {

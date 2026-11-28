@@ -28,6 +28,7 @@ static long player_ui_get_active_player_profile_index(short player) { assert(pla
 static boolean network_coop_active(void) { return coop; }
 static unsigned char input_replay_playing(void) { return (unsigned char)replay; }
 static int config_scripted_run(void) { return scripted; }
+/* fake: answers the saves settings the probe switches per case */
 static int config_boolean(const char *name) {
     if (!strcmp(name, "debug.scripted_run_saves")) return lifted;
     assert(!strcmp(name, "saves.checkpoint_persist")); return setting;

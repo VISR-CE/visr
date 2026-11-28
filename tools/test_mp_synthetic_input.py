@@ -112,6 +112,7 @@ __WEAPON_CONTROL_ENUM__
 enum { _game_connection_local, _game_connection_network_server };
 enum { _network_test_off, _network_test_host };
 static char last_log[512];
+/* fake: captures the last log line the checks read */
 static void platform_log(const char *format, ...) { va_list args;va_start(args,format);vsnprintf(last_log,sizeof(last_log),format,args);va_end(args); }
 struct real_vector2d { float i, j; };
 struct real_euler_angles2d { float yaw, pitch; };

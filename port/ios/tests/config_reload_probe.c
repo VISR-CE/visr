@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+/* fake: prints the log lines to stderr for the failure report */
 void platform_log(const char *format, ...)
 {
 	va_list arguments;

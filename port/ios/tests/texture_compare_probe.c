@@ -14,7 +14,7 @@ refuse, and a device that makes no texture. */
 struct gpu_capabilities device_capabilities = { .max_texture_size = 8192 };
 static unsigned created, destroyed, live, uploads, last_width;
 static int fail_wide;
-void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 gpu_texture gpu_texture_create(const struct gpu_texture_description *d)
 {
 	last_width = d->width;

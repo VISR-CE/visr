@@ -93,6 +93,7 @@ typedef int boolean;
 #define EVENT_CUSTOM_ACTIVATION 32
 struct widget_instance { char const *name; struct widget_instance *focused_child; };
 static int online, needs_pad;
+/* fake: the probe switches the online setting per case */
 static int config_boolean(char const *key) { (void)key; return online; }
 boolean menu_split_screen_needs_controller(void) { return needs_pad; }
 """ + functions + r"""

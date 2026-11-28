@@ -388,6 +388,7 @@ def test_hosted_version_is_this_builds_own_unless_43_is_configured(tmp_path):
 #include "LIMITS_HEADER"
 #include "VERSION_HEADER"
 static long configured;
+/* fake: answers the configured value the probe sets per case */
 static long config_integer(char const *name) { (void)name; return configured; }
 ''' + configured + r'''
 int main(void) {

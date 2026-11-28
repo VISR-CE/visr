@@ -81,6 +81,7 @@ static uint64_t hash64(const void *data, size_t size) {
     return hash;
 }
 static void platform_log(const char *format, ...) { (void)format; }
+/* fake: answers the record setting the probe sets per case */
 static const char *config_string(const char *name) { (void)name; return record_setting; }
 static void posix_make_directory(const char *path) { (void)path; }
 ''' + actual + r'''

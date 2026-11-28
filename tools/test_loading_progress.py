@@ -92,9 +92,11 @@ static unsigned long system_milliseconds(void) { return now; }
 static int platform_fixed_timestep(void) { return 0; }
 static int config_boolean(const char *name) { (void)name; return 0; }
 static long config_integer(const char *name) { (void)name; return 0; }
+/* fake: answers game.loading_screen_seconds as the probe sets it */
 static double config_real(const char *name) {
     return !strcmp(name, "game.loading_screen_seconds") ? minimum : 0;
 }
+/* fake: answers game.loading_screen as "on" */
 static const char *config_string(const char *name) {
     return !strcmp(name, "game.loading_screen") ? "on" : "";
 }

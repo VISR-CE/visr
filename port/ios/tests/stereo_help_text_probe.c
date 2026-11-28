@@ -18,6 +18,7 @@ its terminator) when it has none. */
 #include "../../linux/game/stereo_help_text.c"
 
 static const char *probe_stereo;
+/* fake: answers display.stereo as the probe sets it per case */
 const char *config_string(const char *name)
 {
 	return !strcmp(name, "display.stereo") ? probe_stereo : NULL;
@@ -29,6 +30,7 @@ long game_time_get(void)
 }
 
 static int log_lines;
+/* fake: prints the log lines and counts them for the checks */
 void platform_log(const char *format, ...)
 {
 	va_list arguments;

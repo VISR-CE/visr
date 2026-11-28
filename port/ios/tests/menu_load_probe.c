@@ -32,6 +32,7 @@ int host_development_hooks(void)
 	return 0;
 }
 
+/* fake: prints the log lines to stdout where the test reads them */
 void platform_log(char const *format, ...)
 {
 	va_list arguments;
@@ -43,6 +44,7 @@ void platform_log(char const *format, ...)
 	va_end(arguments);
 }
 
+/* fake: answers the debug.language the probe sets per case */
 char const *config_string(char const *name)
 {
 	if (!strcmp(name, "debug.language"))

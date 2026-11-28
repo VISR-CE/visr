@@ -28,10 +28,7 @@ void host_config_string(const char *name, const char *fallback, char *out, size_
     snprintf(out, size, "%s", !strcmp(name, "display.frames_in_flight") ? frames_in_flight :
         !strcmp(name, "display.frame_source") ? frame_source : fallback);
 }
-void platform_log(const char *format, ...)
-{
-    (void)format;
-}
+void platform_log(const char *format, ...);
 
 static int started_in_flight(int thread, const char *setting)
 {

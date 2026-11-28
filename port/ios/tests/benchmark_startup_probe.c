@@ -50,6 +50,7 @@ static char last_log[512];
 #define CHECK(condition) do { if (!(condition)) { failures++; \
     fprintf(stderr, "benchmark startup line %d: %s\n", __LINE__, #condition); } } while (0)
 
+/* fake: records the last log line the checks read back */
 void platform_log(const char *format, ...) {
     va_list args; va_start(args, format); vsnprintf(last_log, sizeof(last_log), format, args); va_end(args);
 }
@@ -58,6 +59,7 @@ static _Noreturn void probe_exit(int status) {
     exit_status = status;
     longjmp(exit_target, 1);
 }
+/* fake: answers the benchmark suite mode the probe sets per case */
 const char *config_string(const char *name) {
     return !strcmp(name, "debug.benchmark_suite") ? mode : "auto";
 }

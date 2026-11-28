@@ -23,6 +23,7 @@ struct widget_instance { wchar_t text[96]; char const *name; struct widget_insta
 static struct { struct advertised_game *games[1]; int mode, game_count; } multiplayer;
 static struct { int count, first; struct p2p_listing games[3]; } lobby_browser;
 static int online = 1;
+/* fake: the probe switches the online setting per case */
 static int config_boolean(char const *name) { (void)name; return online; }
 static struct widget_instance type, ping, dedicated_icon, other;
 static int dedicated, dedicated_visible;

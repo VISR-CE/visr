@@ -48,6 +48,7 @@ static unsigned uploads;
 static int available = 512;
 static unsigned revision;
 static pthread_t render_thread;
+/* fake: the probe switches the HUD setting per case */
 static int config_boolean(const char *key) { (void)key; return enabled; }
 static unsigned long config_changes(void) { return revision; }
 static void platform_log(const char *format, ...) { (void)format; }

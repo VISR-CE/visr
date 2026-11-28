@@ -67,6 +67,7 @@ static int drop_in, open_game, free_slot, sent, dropped, aborted, reset;
 static int standard_error;
 static wchar_t dialog[512];
 static struct network_message packet;
+/* fake: the probe switches network.coop_late_join per case */
 static int config_boolean(char const *key) { assert(!strcmp(key,"network.coop_late_join")); return drop_in; }
 static int network_game_server_game_is_open(void *s) { return open_game; }
 static int network_game_has_free_player_slot(void *g) { return free_slot; }
