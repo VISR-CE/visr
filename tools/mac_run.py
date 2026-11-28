@@ -1127,6 +1127,20 @@ def benchmark_suite_check(args):
         sys.exit(f"{problem}; logs are in {args.out}")
 
 
+SCRIPT_FPS = 30        # debug.exit_after counts frames at this rate once a scripted input's clock has begun (halo_virtual_clock.h)
+SCRIPT_MIN_FPS = 5.0   # a host slower than this does not finish a scripted run
+
+
+def default_time_limit(args):
+    """seconds after launch before a run is killed when --time-limit is not given: --exit-after plus 120, and for a run with a
+    scripted press input (`debug.test_input` starting with `press:`), which runs --exit-after * 30 script frames however slowly the
+    host draws them, the time those frames take at SCRIPT_MIN_FPS after a 120 second load"""
+    limit = args.exit_after + 120
+    if any(str(item).replace(" ", "").startswith(("debug.test_input='press:", 'debug.test_input="press:')) for item in args.set):
+        limit = max(limit, 120 + args.exit_after * SCRIPT_FPS / SCRIPT_MIN_FPS)
+    return limit
+
+
 def simulator_pattern(udid):
     """a pgrep -f pattern matching the game's executable in simulator udid"""
     # (a simulator in a custom device set, `simctl --set`, runs from that set's folder: .../<set>/<udid>/data/..., not CoreSimulator/Devices;
@@ -1163,7 +1177,7 @@ def run_simulator(args):
     if not wait_for(lambda: simulator_running(udid), 60):
         collect(documents, args.out)
         sys.exit(f"the game did not start in simulator {udid} within 60 seconds; logs are in {args.out}")
-    limit = args.time_limit or (SUITE_LIMIT if getattr(args, "benchmark_suite", None) else args.exit_after + 120)
+    limit = args.time_limit or (SUITE_LIMIT if getattr(args, "benchmark_suite", None) else default_time_limit(args))
     finished = wait_for(lambda: not simulator_running(udid), limit)
     if not finished:
         subprocess.run(["xcrun", "simctl", "terminate", udid, bundle_id], capture_output=True)
@@ -1609,7 +1623,7 @@ def run_native(args):
         seed_native_data(args, data)
     seed_native_movies(args, data)
     prepare(args, data, rewrite=True)
-    limit = args.time_limit or (SUITE_LIMIT if getattr(args, "benchmark_suite", None) else args.exit_after + 120)
+    limit = args.time_limit or (SUITE_LIMIT if getattr(args, "benchmark_suite", None) else default_time_limit(args))
     environment = validation_environment(args.metal_validation, args.metal_shader_validation)
     for assignment in getattr(args, "app_env", None) or []:
         name, _, value = assignment.partition("=")
@@ -1675,7 +1689,7 @@ def run(args):
     documents = container_documents(args)
     prepare(args, documents, rewrite=args.fresh_config)
     launch(documents)
-    limit = args.time_limit or (SUITE_LIMIT if getattr(args, "benchmark_suite", None) else args.exit_after + 120)
+    limit = args.time_limit or (SUITE_LIMIT if getattr(args, "benchmark_suite", None) else default_time_limit(args))
     finished = wait_for(lambda: not running(), limit)
     if not finished:
         subprocess.run(["pkill", "-x", TARGET])
@@ -1715,9 +1729,11 @@ def main():
     run_parser.add_argument("--xiso", type=Path, help="the player's XISO, imported on the first run")
     run_parser.add_argument("--exit-after", type=float, default=60.0,
                             help="seconds before the game quits; of game time (30 frames each) "
-                                 "with debug.fixed_timestep")
+                                 "with debug.fixed_timestep, and once a scripted debug.test_input has begun (counted from "
+                                 "the frame its first screen came up)")
     run_parser.add_argument("--time-limit", type=float, default=0.0,
-                            help="seconds after launch before the run is killed (default --exit-after + 120); "
+                            help="seconds after launch before the run is killed (default --exit-after + 120, longer for a scripted press "
+                                 "input: its --exit-after * 30 frames take that long at 5 frames a second); "
                                  "with debug.fixed_timestep --exit-after counts seconds of game time, 30 frames each "
                                  "(600 = 18,000 frames), which validation slows")
     run_parser.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE",

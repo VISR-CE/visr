@@ -53,15 +53,30 @@ static inline unsigned long halo_virtual_clock_exit_frame(double seconds)
 	return frame ? frame : 1;
 }
 
-/* whether debug.exit_after has passed: on the fixed-timestep clock (frames) or the wall clock (milliseconds). Each clock's deadline is
-pushed out by what the scripted input waited for its first screen (`frame_delay` frames, `tick_delay` milliseconds); a deadline of 0
-is never. Both clocks are extended: the capture runs use the wall clock. */
-static inline int halo_exit_reached(int fixed_timestep, unsigned long frames, unsigned long exit_frame, unsigned long frame_delay,
-	unsigned long long ticks, unsigned long long exit_ticks, unsigned long long tick_delay)
+/* debug.exit_after's state, as the event thread's pump sees it. The deadline of each clock is pushed out by what the scripted input
+waited for its first screen (`frame_delay` frames, `tick_delay` milliseconds); a deadline of 0 is never. */
+struct halo_exit_state
 {
-	if (fixed_timestep)
-		return exit_frame && frames >= exit_frame + frame_delay;
-	return exit_ticks && ticks >= exit_ticks + tick_delay;
+	int fixed_timestep;               /* debug.fixed_timestep: the frame deadline decides, else the wall-clock one */
+	unsigned long frames;             /* presented frames so far */
+	unsigned long exit_frame, frame_delay;
+	unsigned long long ticks, exit_ticks, tick_delay;   /* milliseconds */
+	unsigned long script_began_next;  /* the frame the scripted input's clock began at, plus 1 (0 before it began, so frame 0 counts) */
+	unsigned long span;               /* debug.exit_after in frames (30 a second); 0 never */
+};
+
+/* whether debug.exit_after has passed: the clock's own deadline (as before), and, once a scripted input's clock has begun, never
+before `span` frames after that frame either. A script's presses are marked in frames, and a slow host (a simulator at 7 frames a
+second) reached only part of them by the wall-clock deadline; a fast host (60 or 120 frames a second) reaches the frame budget well
+before its wall deadline and keeps its old length. The script only ever extends a run. */
+static inline int halo_exit_reached(const struct halo_exit_state *s)
+{
+	int reached = s->fixed_timestep ? s->exit_frame && s->frames >= s->exit_frame + s->frame_delay :
+		s->exit_ticks && s->ticks >= s->exit_ticks + s->tick_delay;
+
+	if (reached && s->script_began_next && s->span)
+		return s->frames >= s->script_began_next - 1 + s->span;
+	return reached;
 }
 
 #endif

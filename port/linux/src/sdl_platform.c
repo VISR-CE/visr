@@ -1700,17 +1700,22 @@ millisecond later, and on Apple platforms each poll runs the main run loop
 once (on the Mac runner about 0.2 ms, a tenth of the game thread) */
 #define PUMP_INTERVAL_MS 2
 
-/* frames the scripted input waited for its first screen (test_focus_walk.h): debug.exit_after counts past them (set by the game
-thread, read by the event thread: a word, and a late read only exits a frame later) */
-static volatile unsigned long exit_frame_delay;
-static volatile Uint64 exit_tick_delay;
-static Uint64 pump_start_ticks;
+/* The scripted input's clock began (test_focus_walk.h): debug.exit_after counts from there (set by the game thread, read by the event
+thread). The frame it waited and the wall time it waited push both deadlines out, and the run lasts at least debug.exit_after in
+frames (30 a second) from that frame (halo_virtual_clock.h, halo_exit_reached). `exit_script_began_next` is written last: the pump
+acts on the others only once it is set. */
+static unsigned long exit_frame_delay;
+static Uint64 exit_tick_delay;
+static unsigned long exit_script_began_next;
+static Uint64 pump_start_ticks;   /* (event thread only until the script begins, then read once by the game thread) */
 
-void platform_exit_after_extend(unsigned long frames)
+void platform_exit_after_script_began(unsigned long began_frame)
 {
-	exit_frame_delay = frames;
+	__atomic_store_n(&exit_frame_delay, began_frame, __ATOMIC_RELAXED);
 	/* the wall clock waited as long: since the first pump, which started debug.exit_after */
-	exit_tick_delay = pump_start_ticks ? SDL_GetTicks() - pump_start_ticks : 0;
+	__atomic_store_n(&exit_tick_delay, __atomic_load_n(&pump_start_ticks, __ATOMIC_RELAXED) ?
+		SDL_GetTicks() - __atomic_load_n(&pump_start_ticks, __ATOMIC_RELAXED) : 0, __ATOMIC_RELAXED);
+	__atomic_store_n(&exit_script_began_next, began_frame + 1, __ATOMIC_RELEASE);
 }
 
 void platform_pump_events(void)
@@ -1719,7 +1724,7 @@ void platform_pump_events(void)
 	opens, as closing it does (tools/pgo_train.py); with debug.fixed_timestep,
 	that many seconds of frames after the first, so runs end on the same frame */
 	static Uint64 exit_ticks = (Uint64)-1;
-	static unsigned long exit_frame;
+	static unsigned long exit_frame, exit_span;
 	SDL_Event event;
 	static BOOL looked_at_clipboard;
 	BOOL look_at_clipboard = !looked_at_clipboard;
@@ -1735,17 +1740,26 @@ void platform_pump_events(void)
 	{
 		double seconds = config_real("debug.exit_after");
 
-		pump_start_ticks = SDL_GetTicks() ? SDL_GetTicks() : 1;
+		__atomic_store_n(&pump_start_ticks, SDL_GetTicks() ? SDL_GetTicks() : 1, __ATOMIC_RELAXED);
 		exit_ticks = seconds > 0.0 ? SDL_GetTicks() + (Uint64)(seconds * 1000.0) : 0;
-		exit_frame = halo_virtual_clock_exit_frame(seconds);
+		exit_span = exit_frame = halo_virtual_clock_exit_frame(seconds);
 		if (exit_frame)
 			exit_frame += platform_clock_frames();
 	}
-	if (halo_exit_reached(platform_fixed_timestep(), platform_clock_frames(), exit_frame, exit_frame_delay,
-		SDL_GetTicks(), exit_ticks, exit_tick_delay))
 	{
-		platform_log("exiting after debug.exit_after");
-		exit(EXIT_SUCCESS);
+		struct halo_exit_state state = { platform_fixed_timestep(), platform_clock_frames(), exit_frame, 0, SDL_GetTicks(), exit_ticks, 0, 0, exit_span };
+
+		state.script_began_next = __atomic_load_n(&exit_script_began_next, __ATOMIC_ACQUIRE);
+		if (state.script_began_next)
+		{
+			state.frame_delay = __atomic_load_n(&exit_frame_delay, __ATOMIC_RELAXED);
+			state.tick_delay = __atomic_load_n(&exit_tick_delay, __ATOMIC_RELAXED);
+		}
+		if (halo_exit_reached(&state))
+		{
+			platform_log("exiting after debug.exit_after");
+			exit(EXIT_SUCCESS);
+		}
 	}
 	platform_show_pending_message();
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)

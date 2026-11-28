@@ -1311,13 +1311,13 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 
 		if (!test_script_clock_tick(&script_clock, menu_test_screen_ready(), platform_clock_frames(), &script_poll))
 			return;   /* no screen is up and no game runs: the script has not begun, for any input */
-		if (script_clock.polls == 1 && script_clock.began_frame)
+		if (script_clock.polls == 1)
 		{
 			/* (frames, not the polls counted while waiting: the pad is polled only once menus or a game need it, so a run whose first
 			screen came up at frame 152 waited 1 poll, and every mark the capture tools wait for is in frames) */
 			/* (READ BY the capture tool: its SCRIPT_CLOCK_BEGAN pattern parses this wording; change both and its test) */
 			platform_log("test input: script clock began after %lu frames (the first screen is up)", script_clock.began_frame);
-			platform_exit_after_extend(script_clock.began_frame);   /* debug.exit_after counts the script's time, not the build's */
+			platform_exit_after_script_began(script_clock.began_frame);   /* debug.exit_after counts the script's time, not the build's */
 		}
 		press_polls = script_poll;
 		test_input_focus_walks(pad, press_polls);   /* (walks first: a press after a walk that lands this poll is held its full length) */

@@ -1599,3 +1599,16 @@ def test_simulator_pattern_matches_a_game_in_a_custom_device_set():
             "47C658A7-DADC-45F2-969B-7E6A4FB5CB5C/VISR.app/VISR")
     assert re.search(mac_run.simulator_pattern(udid), path)
     assert not re.search(mac_run.simulator_pattern("00000000-0000-0000-0000-000000000000"), path)
+
+
+def test_default_time_limit_covers_a_slow_host_for_scripted_input():
+    import argparse
+    plain = argparse.Namespace(exit_after=60.0, set=[])
+    assert mac_run.default_time_limit(plain) == 180.0
+    scripted = argparse.Namespace(exit_after=200.0, set=["debug.test_input='press:start@700 a@1020'"])
+    # 200 s of script frames is 6000 frames: 1200 s at 5 frames a second, after a 120 s load
+    assert mac_run.default_time_limit(scripted) == 1320.0
+    short = argparse.Namespace(exit_after=5.0, set=["debug.test_input='press:a@10'"])
+    assert mac_run.default_time_limit(short) == 150.0
+    other = argparse.Namespace(exit_after=200.0, set=["debug.test_input='bot:x'"])
+    assert mac_run.default_time_limit(other) == 320.0

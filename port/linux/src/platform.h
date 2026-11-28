@@ -211,8 +211,9 @@ int menu_test_focus_text(char *text, int size);
 /* a screen is up for local player 0 or a game runs (the scripted input's clock begins then: test_focus_walk.h) */
 int menu_test_screen_ready(void);
 int menu_test_network_ready(void);
-/* debug.exit_after counts from the scripted input's start: pushes the exit out by the frames the script waited (and the wall time) */
-void platform_exit_after_extend(unsigned long frames);
+/* the scripted input's clock began at `began_frame` (test_focus_walk.h): debug.exit_after then lasts at least 30 frames a second from there,
+whatever the host's speed, and both its deadlines move out by what the script waited */
+void platform_exit_after_script_began(unsigned long began_frame);
 /* debug.benchmark_window_shot: one capture of the first frame after a benchmark window's timer stops */
 void platform_benchmark_window_shot_request(void);
 void platform_clock_frame(void);
