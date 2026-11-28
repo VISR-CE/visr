@@ -552,6 +552,32 @@ mode) */
 static boolean lan_mode;
 
 /* hides the descendants of the widget with the name */
+/* ---------- focus
+Every move of a widget's focus goes through these two (tools/test_focus_assignments.py refuses a `focused_child =` anywhere
+else in this file, except clearing it): a focus set on a descendant alone leaves the screen's real focus (the chain an
+event follows, parent to focused child) on another panel, and no handler on the descendant's list is ever reached. */
+
+/* a parent's own focus on one of its children (and its selection, when it is a list). Does not touch the ancestors: for a
+parent that already holds the focus, or a screen at the root. */
+static void focus_child(struct widget_instance *parent, struct widget_instance *child)
+{
+	struct widget_instance *item;
+	short index = 0;
+
+	for (item = parent->child; item && item != child; item = item->next)
+		index++;
+	parent->focused_child = child;
+	if (parent->type != 1)   /* (a text box's parameters are not a list's) */
+		parent->parameters.list.selected_index = index;
+}
+
+/* the focus on a widget and on every ancestor, as a pointer click does: the chain the screen's events follow ends at it */
+static void focus_chain(struct widget_instance *widget)
+{
+	for (; widget && widget->parent; widget = widget->parent)
+		focus_child(widget->parent, widget);
+}
+
 static void hide_named(struct widget_instance *widget, char const *name)
 {
 	struct widget_instance *child;
@@ -584,7 +610,7 @@ static void server_browser_initialize(struct widget_instance *screen)
 	for (child = screen->child; child && !screen->focused_child; child = child->next)
 	{
 		if (child->visible && child->type == 3)
-			screen->focused_child = child;
+			focus_child(screen, child);
 	}
 }
 
@@ -868,7 +894,7 @@ static void focus_row(struct widget_instance *list, short row)
 	}
 	if (child)
 	{
-		list->focused_child = child;
+		focus_child(list, child);
 		list->parameters.list.selected_index = row == NONE ? 0 : row;
 	}
 }
@@ -1792,8 +1818,7 @@ static void graphics_rows_show(struct widget_instance *list)
 		if (!crt->visible && list->focused_child == crt)
 		{
 			/* (the mode's row, the list's first) */
-			list->focused_child = list->child;
-			list->parameters.list.selected_index = 0;
+			focus_child(list, list->child);
 		}
 	}
 	for (row = list->child; row; row = row->next)
@@ -1913,8 +1938,7 @@ static void audio_rows_show(struct widget_instance *list)
 	{
 		if (row == list->focused_child && !row->visible)
 		{
-			list->focused_child = list->child;
-			list->parameters.list.selected_index = 0;
+			focus_child(list, list->child);
 		}
 	}
 }
@@ -1943,10 +1967,7 @@ static void video_rows_show(struct widget_instance *list)
 	change the mode while it has it) */
 	if (list->focused_child == (shown == resolution ? window_size : resolution))
 	{
-		for (index = 0, child = list->child; child && child != shown; child = child->next)
-			index++;
-		list->focused_child = shown;
-		list->parameters.list.selected_index = index;
+		focus_child(list, shown);
 	}
 }
 
@@ -2623,21 +2644,6 @@ static char const *text_field_title(struct widget_instance const *row)
 		strstr(row->name, "name") ? "Game Name" : "";
 }
 
-static void text_field_focus(struct widget_instance *row)
-{
-	for (; row && row->parent; row = row->parent)
-	{
-		struct widget_instance *parent = row->parent;
-		struct widget_instance *child;
-		short index = 0;
-
-		for (child = parent->child; child && child != row; child = child->next)
-			index++;
-		parent->focused_child = row;
-		if (parent->type == 3)
-			parent->parameters.list.selected_index = index;
-	}
-}
 
 static void text_field_start(struct widget_instance *row, char const *text, short maximum,
 	void (*done)(char const *text), boolean masked)
@@ -2647,7 +2653,7 @@ static void text_field_start(struct widget_instance *row, char const *text, shor
 	if (text_field.row)
 		platform_text_field(FALSE, NULL, NULL, FALSE);
 	text_field.row = row;
-	text_field_focus(row);
+	focus_chain(row);
 
 	snprintf(text_field.text, sizeof(text_field.text), "%s", text);
 	snprintf(text_field.before, sizeof(text_field.before), "%s", text);
@@ -2718,7 +2724,7 @@ static void text_field_finish(boolean advance)
 		if (next && next->visible) action = next;
 	}
 	text_field_end(TRUE);
-	text_field_focus(action);
+	focus_chain(action);
 }
 
 /* Read the typed characters and show a caret while editing. */
@@ -4038,15 +4044,13 @@ static short browser_row_index(struct widget_instance *row)
 static void focus_off_hidden(struct widget_instance *bar)
 {
 	struct widget_instance *button;
-	short button_index = 0;
 
 	for (button = bar && bar->focused_child && !bar->focused_child->visible ? bar->child : NULL; button;
-		button = button->next, button_index++)
+		button = button->next)
 	{
 		if (button->visible)
 		{
-			bar->focused_child = button;
-			bar->parameters.list.selected_index = button_index;
+			focus_child(bar, button);
 			break;
 		}
 	}
@@ -4107,14 +4111,12 @@ static void browser_focus(struct widget_instance *list)
 	for (index = 0; index < NUMBEROF(choices); index++)
 	{
 		struct widget_instance *child;
-		short child_index = 0;
 
-		for (child = list->child; child; child = child->next, child_index++)
+		for (child = list->child; child; child = child->next)
 		{
 			if (!strcmp(child->name, choices[index]) && child->visible)
 			{
-				list->focused_child = child;
-				list->parameters.list.selected_index = child_index;
+				focus_child(list, child);
 				return;
 			}
 		}
@@ -4172,13 +4174,12 @@ static char const *const browser_sort_values[NUMBER_OF_BROWSER_SORTS] = { "playe
 cleared: lobby_browser_end) */
 static boolean browser_filters_returning;
 
-static void browser_c_focus(struct widget_instance *widget);
 
 /* the chips' focus (back from the filters screen) */
 static void browser_filters_focus(struct widget_instance *list)
 {
 	if (list && browser_chips(list))
-		browser_c_focus(browser_chips(list));
+		focus_chain(browser_chips(list));
 }
 
 /* (the server browser's: below) */
@@ -4227,7 +4228,7 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 	visible_set(named(screen, "scroll_up_button", 0), FALSE);
 	visible_set(named(screen, "scroll_down_button", 0), FALSE);
 	if (named(screen, "button_refresh_create_inter", 0))
-		browser_c_focus(named(screen, "button_refresh_create_inter", 0));
+		focus_chain(named(screen, "button_refresh_create_inter", 0));
 	/* (back from FILTERS: the same browsing session, its list kept, and the focus on FILTERS again) */
 	if (browser_filters_returning)
 	{
@@ -4867,16 +4868,14 @@ static struct advertised_game *lobby_browser_joined_game(void)
 static void lobby_browser_focus_row(struct widget_instance *list, short row)
 {
 	struct widget_instance *child;
-	short child_index = 0;
 	char name[16];
 
 	sprintf(name, "server_item_%d", row + 1);
-	for (child = list->child; child; child = child->next, child_index++)
+	for (child = list->child; child; child = child->next)
 	{
 		if (!strcmp(child->name, name))
 		{
-			list->focused_child = child;
-			list->parameters.list.selected_index = child_index;
+			focus_child(list, child);
 			return;
 		}
 	}
@@ -5156,20 +5155,6 @@ static boolean browser_chip_select(struct widget_instance *widget)
 	return TRUE;
 }
 
-/* Focus both the target and its ancestors, as a pointer click does. */
-static void browser_c_focus(struct widget_instance *widget)
-{
-	for (; widget && widget->parent; widget = widget->parent)
-	{
-		struct widget_instance *child;
-		short index = 0;
-
-		for (child = widget->parent->child; child && child != widget; child = child->next)
-			index++;
-		widget->parent->focused_child = widget;
-		widget->parent->parameters.list.selected_index = index;
-	}
-}
 
 /* A posted join completion must reach a row even if the player moved to chips or the legend meanwhile. */
 static void browser_ready_post(struct widget_instance *list)
@@ -5178,7 +5163,7 @@ static void browser_ready_post(struct widget_instance *list)
 	{
 		if (!list->focused_child)
 			lobby_browser_focus_row(list, (short)PIN(lobby_browser.chosen - lobby_browser.first, 0, lobby_browser_rows(list) - 1));
-		browser_c_focus(list->focused_child);
+		focus_chain(list->focused_child);
 	}
 	ui_widget_port_post_button(lobby_browser.controller, BUTTON_A);
 }
@@ -5193,10 +5178,10 @@ static boolean browser_chips_navigation(struct widget_instance *widget)
 		short row = (short)PIN(lobby_browser.chosen - lobby_browser.first, 0, lobby_browser_rows(list) - 1);
 
 		lobby_browser_focus_row(list, row);
-		browser_c_focus(list->focused_child);
+		focus_chain(list->focused_child);
 	}
 	else
-		browser_c_focus(named(screen, "browser_chip_all", 0));
+		focus_chain(named(screen, "browser_chip_all", 0));
 	return TRUE;
 }
 
@@ -5214,7 +5199,7 @@ static boolean browser_rows_navigation(struct widget_instance *widget, boolean d
 		if (lobby_browser.first > 0)
 			lobby_browser.first--;
 		else
-			browser_c_focus(named(screen, "browser_chip_all", 0));
+			focus_chain(named(screen, "browser_chip_all", 0));
 	}
 	else if (down && (row == rows - 1 || row + lobby_browser.first + 1 >= lobby_browser.count))
 	{
@@ -5264,7 +5249,7 @@ static void browser_first_game_focus(struct widget_instance *list)
 {
 	lobby_browser_focus_row(list, 0);
 	if (list->parent->focused_child != browser_chips(list))
-		browser_c_focus(list->focused_child);
+		focus_chain(list->focused_child);
 }
 
 /* "gamespy screen update" for the server browser: the rows, the line shown in their place when there are none,
@@ -6006,14 +5991,12 @@ static void direct_ip_update(struct widget_instance *list)
 		else if (direct_ip_game() && (!direct_join.ready || (uint32_t)(now - direct_join.posted_time) > 1000))
 		{
 			struct widget_instance *row;
-			short index = 0;
 			/* Joining replaces widgets only in event dispatch, as the server
 			browser does. Its posted A must select JOIN GAME, not a field. */
-			for (row = list->child; row; row = row->next, index++)
+			for (row = list->child; row; row = row->next)
 				if (!strcmp(row->name, "direct_ip_button_join"))
 				{
-					list->focused_child = row;
-					list->parameters.list.selected_index = index;
+					focus_chain(row);
 					direct_join.ready = TRUE;
 					direct_join.posted_time = now;
 					ui_widget_port_post_button(direct_join.controller, BUTTON_A);

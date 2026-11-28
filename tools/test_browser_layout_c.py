@@ -338,6 +338,8 @@ def _compile_probe(tmp_path, name, program):
 def test_browser_controller_navigation(tmp_path):
     source = (ROOT / "port/linux/game/menu_functions.c").read_text()
     signatures = (
+        "static void focus_child(struct widget_instance *parent, struct widget_instance *child)\n{",
+        "static void focus_chain(struct widget_instance *widget)\n{",
         "static struct widget_instance *browser_chips(",
         "static short browser_row_index(",
         "static void lobby_browser_focus_row(",
@@ -345,7 +347,6 @@ def test_browser_controller_navigation(tmp_path):
         "static boolean browser_row_chosen(short row_index)\n{",
         "static void browser_focus(",
         "static void browser_c_controls_update(",
-        "static void browser_c_focus(struct widget_instance *widget)\n{",
         "static void browser_ready_post(",
         "static boolean browser_chips_navigation(",
         "static void browser_first_game_focus(",
@@ -379,6 +380,7 @@ struct widget_instance {
     struct widget_instance *parent,*child,*next,*focused_child;
     struct { struct { short selected_index; } list; } parameters;
     boolean visible,disabled;
+    int type;
     struct { short current_frame_index; } animation;
 };
 static struct { short count,chosen,first,controller,chip_counts[3]; } lobby_browser;
@@ -446,13 +448,13 @@ int main(void)
     for (int i=0;i<6;i++) rows[i].visible=TRUE;
     struct widget_instance *list=&sections[1];
     assert(lobby_browser_rows(list)==6);
-    browser_c_focus(&rows[3]);
+    focus_chain(&rows[3]);
     assert(list->focused_child==&rows[3] && list->parameters.list.selected_index==3);
     assert(screen.focused_child==list && screen.parameters.list.selected_index==1);
     lobby_browser.count=9; lobby_browser.first=0; lobby_browser.chosen=3;
     browser_rows_navigation(&rows[3],TRUE);
     assert(list->focused_child==&rows[4] && lobby_browser.chosen==4);
-    browser_c_focus(&rows[5]); lobby_browser.chosen=5;
+    focus_chain(&rows[5]); lobby_browser.chosen=5;
     for (int first=1;first<=3;first++)
     {
         browser_rows_navigation(&rows[5],TRUE);
@@ -464,7 +466,7 @@ int main(void)
     assert(lobby_browser.first==3 && lobby_browser.chosen==8);
     browser_chips_navigation(&legend[0]);
     assert(screen.focused_child==list && list->focused_child==&rows[5]);
-    browser_c_focus(&rows[0]);
+    focus_chain(&rows[0]);
     for (int first=2;first>=0;first--)
     {
         browser_rows_navigation(&rows[0],FALSE);
@@ -489,17 +491,17 @@ int main(void)
     assert(screen.focused_child==list && list->focused_child==&rows[2]);
     /* Async completion and its retry must reach the selected row after focus moved away. */
     expected_post_row=&rows[2]; expected_post_controller=lobby_browser.controller=3;
-    browser_c_focus(&chips[1]); browser_ready_post(list);
+    focus_chain(&chips[1]); browser_ready_post(list);
     assert(posts==1 && screen.focused_child==list && list->focused_child==&rows[2]);
     expected_post_controller=lobby_browser.controller=1;
-    browser_c_focus(&legend[2]); browser_ready_post(list);
+    focus_chain(&legend[2]); browser_ready_post(list);
     assert(posts==2 && screen.focused_child==list && list->focused_child==&rows[2]);
     list->focused_child=NULL; lobby_browser.chosen=0; expected_post_row=&rows[0];
-    browser_c_focus(&chips[2]); browser_ready_post(list);
+    focus_chain(&chips[2]); browser_ready_post(list);
     assert(posts==3 && list->focused_child==&rows[0]);
     /* The first game found takes the real focus (the whole chain a routed event follows, which starts on the detail panel), so
        a Down press reaches the list's handler; before it, only the list's own child was set and browser_focus cleared it. */
-    list->focused_child=NULL; browser_c_focus(&sections[2]);
+    list->focused_child=NULL; focus_chain(&sections[2]);
     browser_first_game_focus(list);
     {
         struct widget_instance *leaf=&screen;
@@ -509,7 +511,7 @@ int main(void)
         assert(list->focused_child==&rows[0]);
     }
     /* (a player who already moved to the chips keeps them) */
-    list->focused_child=NULL; browser_c_focus(&chips[1]);
+    list->focused_child=NULL; focus_chain(&chips[1]);
     browser_first_game_focus(list);
     assert(screen.focused_child==&sections[0] && list->focused_child==&rows[0]);
     /* With no games the chips' down stays on the chips (the actions are the engine's bar, not focus targets). */
