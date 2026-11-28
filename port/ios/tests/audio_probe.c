@@ -25,11 +25,20 @@ int host_audio_output_up(void) { return panel_open; }
 static unsigned produced;
 static unsigned callbacks;
 
+static char worker_priority_line[96];
+
 void host_logf(int priority, const char *format, ...)
 {
     (void)priority;
     va_list args;
     va_start(args, format);
+    if (!strncmp(format, "audio mix worker priority", 25))
+    {
+        va_list copy;
+        va_copy(copy, args);
+        vsnprintf(worker_priority_line, sizeof(worker_priority_line), format, copy);
+        va_end(copy);
+    }
     vfprintf(stderr, format, args);
     fputc('\n', stderr);
     va_end(args);
@@ -108,6 +117,8 @@ int main(void)
             assert(output[i] == (float)(consumed++ % 251) / 251.0f);
     }
     assert(callbacks == 100);
+    /* audio.worker_priority applied: the mixing worker took the game thread's class (the default) and said so. */
+    assert(!strcmp(worker_priority_line, "audio mix worker priority: interactive"));
     assert(consumed == produced);
     /* Route replacement keeps the guest handle and PCM source format. (The old stream is freed before the new one
        is made, so the new one may have its address: the device it is bound to tells them apart.) */
