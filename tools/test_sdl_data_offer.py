@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from harness import function, mutated  # noqa: E402
 from probe_timeouts import PROBE_RUN_SECONDS  # noqa: E402
+from probekit import cc  # noqa: E402
 
 SOURCE = (ROOT / "port/linux/src/sdl_platform.c").read_text()
 PRELUDE = r'''
@@ -49,8 +50,8 @@ static void SDL_ShowOpenFileDialog(void (*callback)(void *, const char *const *,
     (void)window; (void)filters; (void)count; (void)default_location; (void)many;
     callback(userdata, mode == 1 ? NULL : mode == 2 ? cancel : picked, 0);
 }
-static BOOL config_boolean(const char *setting) { (void)setting; return FALSE; }
-static double config_real(const char *setting) { (void)setting; return 0.0; }
+int config_boolean(const char *setting);
+double config_real(const char *setting);
 static BOOL SDL_Init(int flags) { (void)flags; return TRUE; }
 static BOOL SDL_ShowMessageBox(const SDL_MessageBoxData *box, int *answer) {
     (void)box; questions++;
@@ -62,7 +63,7 @@ static void SDL_ShowSimpleMessageBox(int flags, const char *title, const char *m
     (void)flags; (void)title; (void)window; errors++;
     puts(strstr(message, "No file dialog") ? "NO_DIALOG" : "EXTRACT_FAIL");
 }
-static void platform_log(const char *fmt, ...) { (void)fmt; }
+void platform_log(const char *fmt, ...);
 static BOOL data_extract(const char *image, const char *destination, char *error, int size) {
     (void)image; (void)destination; extracts++;
     if (mode == 3 && extracts == 1) {
@@ -99,9 +100,7 @@ def compile_probe(tmp_path, *, missing_failure_signal=False):
     source = tmp_path / "probe.c"
     binary = tmp_path / "probe"
     source.write_text(code)
-    compiled = subprocess.run([compiler, "-std=c99", "-Wall", "-Werror", "-Wno-unused-function",
-                               str(source), "-o", str(binary)], capture_output=True, text=True)
-    assert compiled.returncode == 0, compiled.stderr
+    cc.build([source], output=binary, std="c99", relaxed=["unused-function"], port_stubs=True)
     return binary
 
 

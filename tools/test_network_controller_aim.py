@@ -4,21 +4,19 @@ import shutil
 import subprocess
 from unittest import SkipTest
 
-from probekit import source as probe_source
+from probekit import cc, source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def run_probe(tmp_path, name, source):
-    compiler = shutil.which("clang") or shutil.which("cc")
-    if not compiler:
+    if not (shutil.which("clang") or shutil.which("cc")):
         raise SkipTest("A C compiler is required for the controller aim probe")
     path = tmp_path / (name + ".c")
     path.write_text(source)
     output = tmp_path / name
-    compiled = subprocess.run([compiler, "-std=gnu11", "-O1", "-g", "-fsanitize=address,undefined",
-                               str(path), "-lm", "-o", str(output)], capture_output=True, text=True)
-    assert compiled.returncode == 0, compiled.stderr
+    cc.build([path], output=output, sanitize=True, relaxed=["unused-function", "unused-variable"],
+             options=["-O1", "-g"], port_stubs=True)
     result = subprocess.run([str(output)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
 
@@ -69,7 +67,7 @@ static void settings(void){}
 static long player_control_get_unit_index(short local){return local==0?unit_index_now:NONE;}
 static unsigned long get_random_seed(void){return 0;}
 static unsigned long *get_global_local_random_seed_address(void){static unsigned long seed;return &seed;}
-static void platform_log(const char *format,...){(void)format;}
+void platform_log(const char *format,...);
 static void feedback(void){feedback_calls++;}
 static void reset(const char *reason){(void)reason;reset_calls++;}
 static void euler_angles2d_from_vector3d(real_euler_angles2d *a,const real_vector3d *v){a->yaw=atan2f(v->j,v->i);a->pitch=asinf(v->k);}

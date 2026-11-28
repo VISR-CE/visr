@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from probekit import source as probe_source
+from probekit import cc, source as probe_source
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -166,7 +166,7 @@ def main():
         path = Path(tmp) / "test.c"
         binary = Path(tmp) / "test"
         path.write_text(code)
-        subprocess.run(["xcrun", "clang", "-std=c11", "-Wall", "-Wextra", "-Werror", str(path), "-o", str(binary)], check=True)
+        cc.build([path], output=binary, std="c11", extra_warnings=True, apple=True)
         subprocess.run([str(binary)], check=True)
 
 

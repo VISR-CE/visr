@@ -8,6 +8,8 @@ import subprocess
 
 import pytest
 
+from probekit import cc
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -58,7 +60,7 @@ static int capture_snprintf(char *out, size_t size, const char *format, ...) {
 #undef snprintf
 #define snprintf capture_snprintf
 #define __HALO_LINUX_PLATFORM_H
-void platform_log(const char *format, ...) { (void)format; }
+void platform_log(const char *format, ...);
 static int external;
 int host_external_active(void) { return external; }
 int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long size) {
@@ -131,8 +133,9 @@ int main(int argc, char **argv) {
 }
 ''')
     binary = tmp_path / "capture"
-    subprocess.run(["cc", "-O1", "-DHALO_ILP32=1", "-DHALO_IOS=1", "-I", str(ROOT / "port/linux/src"),
-        "-I", str(ROOT / "port/third_party/tomlc17"), "-I", str(tmp_path), str(source), "-lm", "-o", str(binary)], check=True)
+    cc.build([source], output=binary, defines=["HALO_ILP32=1", "HALO_IOS=1"],
+             includes=[ROOT / "port/linux/src", ROOT / "port/third_party/tomlc17", tmp_path], options=["-O1"],
+             relaxed=["unused-function"], port_stubs=True)
     cases = [("profile", None, 0.5), ("external", None, 0.4),
              ("chosen", '[display]\nrender_scale=0.8\n', 0.8),
              ("environment", '[display]\nrender_scale=0.8\n', 0.9)]

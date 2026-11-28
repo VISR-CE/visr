@@ -1,7 +1,8 @@
 """Exercise master fetch scheduling and cache handoff without network traffic."""
 from pathlib import Path
 import subprocess
-import shutil
+
+from probekit import cc
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,7 +25,6 @@ static char sent_etag[128];
 static int close_during_request;
 unsigned long p2p_now(void) { return clock_now; }
 void Sleep(unsigned long time) { (void)time; }
-void platform_log(const char *format, ...) { (void)format; }
 /* fake: the probe switches debug.master_list and network.online per case */
 int config_boolean(const char *name) {
     if (!strcmp(name, "debug.master_list")) return enabled;
@@ -111,10 +111,7 @@ int main(void) {
 }
 ''')
     binary = tmp_path / "worker"
-    built = subprocess.run([shutil.which("clang") or "clang", "-std=gnu11", "-Wall", "-Werror",
-                            "-Wno-unused-parameter", "-Iport/linux/src", "-iquote", "port/linux/include",
-                            str(probe), "-pthread", "--output=" + str(binary)], cwd=ROOT,
-                           capture_output=True, text=True)
-    assert built.returncode == 0, built.stderr
+    cc.build([probe], output=binary, relaxed=["unused-parameter"], includes=["port/linux/src"],
+             options=["-iquote", "port/linux/include", "-pthread"], port_stubs=True)
     ran = subprocess.run([str(binary)], capture_output=True, text=True)
     assert ran.returncode == 0, ran.stdout + ran.stderr

@@ -2,6 +2,7 @@
 from pathlib import Path
 import subprocess
 
+from probekit import cc
 from test_menu_cancel import block
 import shutil
 import sys
@@ -27,7 +28,7 @@ def test_delete_completion(tmp_path):
     program = r'''
 #include <assert.h>
 #include <stddef.h>
-static void platform_log(char const *format, ...) {}
+void platform_log(const char *format, ...);
 typedef int boolean;
 #define TRUE 1
 #define FALSE 0
@@ -84,8 +85,7 @@ int main(void)
     program = program.replace('/* BACK */', back).replace('/* FINISH */', finish)
     source, binary = tmp_path / 'delete.c', tmp_path / 'delete'
     source.write_text(program)
-    subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-fsanitize=address,undefined',
-                    str(source), '--output=' + str(binary)], check=True)
+    cc.build([source], output=binary, sanitize=True, apple=True, host_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -117,6 +117,5 @@ int main(void)
 '''.replace('/* REQUEST */', request)
     source, binary = tmp_path / 'request.c', tmp_path / 'request'
     source.write_text(program)
-    subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-Wno-unused-function',
-                    str(source), '--output=' + str(binary)], check=True)
+    cc.build([source], output=binary, relaxed=['unused-function'], apple=True, host_stubs=True)
     subprocess.run([str(binary)], check=True)

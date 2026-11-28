@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from probekit import source as probe_source
+from probekit import cc, source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +21,7 @@ def test_effect_resolution_levels(tmp_path):
     program.write_text(
         "#include <stdio.h>\n#include <string.h>\n#include <stdarg.h>\n"
         "static int logged;\n"
+        "/* fake: counts the warnings the level function logs */\n"
         "static void platform_log(const char *format, ...) { (void)format; logged++; }\n"
         + _function() +
         "int main(void) {\n"
@@ -32,6 +33,6 @@ def test_effect_resolution_levels(tmp_path):
         "    }\n"
         "    return 0;\n}\n")
     binary = tmp_path / "level"
-    subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", str(program), "-o", str(binary)], check=True)
+    cc.build([program], output=binary, extra_warnings=True)
     lines = subprocess.run([str(binary)], check=True, capture_output=True, text=True).stdout.split("\n")
     assert lines[:6] == ["xbox 0 0", "half 1 0", "full 2 0", "true 1 1", "false 0 1", "bogus 1 1"]

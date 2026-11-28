@@ -10,6 +10,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from probekit import cc
+
 ROOT = Path(__file__).resolve().parents[1]
 
 # Bug class: a change to what the texture repair produces (the filter, its limits, which textures it takes, the storing
@@ -57,10 +59,9 @@ def test_texture_repair_version_reaches_both_recipes():
 
 def test_texture_repair_properties(tmp_path):
     probe = tmp_path / "texture-repair-probe"
-    subprocess.run(["cc", "-std=c99", "-O1", "-g", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
-                    "-fno-sanitize-recover=undefined", "-I", str(ROOT / "port/runtime"),
-                    str(ROOT / "port/ios/tests/texture_repair_probe.c"), str(ROOT / "port/runtime/texture_repair.c"),
-                    "-lm", "-o", str(probe)], check=True)
+    cc.build([ROOT / "port/ios/tests/texture_repair_probe.c", ROOT / "port/runtime/texture_repair.c"], output=probe,
+             std="c99", extra_warnings=True, sanitize=True, includes=[ROOT / "port/runtime"], options=["-O1", "-g"],
+             port_stubs=True)
     result = subprocess.run([str(probe)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "texture repair: ok"

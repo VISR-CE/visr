@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 
 import settings_schema
+from probekit import cc
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -86,9 +87,8 @@ int main(void) {
 }
 ''')
     binary = tmp_path / 'marker'
-    subprocess.run(['cc', '-Werror=implicit-function-declaration', '-I', str(ROOT / 'port/ios/tests'),
-                    '-I', str(ROOT / 'port/linux/src'), '-iquote', str(ROOT / 'port/linux/include'),
-                    str(source), '-lm', '-o', str(binary)], check=True)
+    cc.build([source], output=binary, includes=[ROOT / 'port/ios/tests', ROOT / 'port/linux/src'],
+             options=['-iquote', ROOT / 'port/linux/include'], port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -120,6 +120,5 @@ int main(void) {
 }
 ''')
     binary = tmp_path / 'pause'
-    subprocess.run(['cc', '-I', str(ROOT / 'port/ios/tests'), '-I', str(ROOT / 'port/linux/src'),
-                    str(source), '-lm', '-o', str(binary)], check=True)
+    cc.build([source], output=binary, includes=[ROOT / 'port/ios/tests', ROOT / 'port/linux/src'], port_stubs=True)
     subprocess.run([str(binary)], check=True)

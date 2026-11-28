@@ -66,7 +66,7 @@ static void ui_widget_port_post_button(short controller, int button)
 { assert(controller == 2 && button == BUTTON_A); posts++; }
 static int platform_clipboard_get(char *text, int size) { snprintf(text, size, "  invite \n"); return 1; }
 static int p2p_join_invite(const char *text) { assert(!strcmp(text, "invite")); clipboard_joins++; return 1; }
-static void platform_log(const char *text) { (void)text; }
+void platform_log(const char *format, ...);
 
 /* PRODUCTION */
 

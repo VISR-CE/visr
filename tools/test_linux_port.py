@@ -13,7 +13,7 @@ import pytest
 from tools import embed_assets, linux_build, linux_link_check, linux_msvc_semantics, menu_catalog, port_settings
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from probekit import source as probe_source  # noqa: E402
+from probekit import cc, source as probe_source  # noqa: E402
 
 
 # ---------- MSVC semantics header
@@ -645,8 +645,8 @@ def test_icloud_setting_and_status_share_network_screen():
 def test_cloud_menu_capability_is_host_specific(tmp_path, kind, defines):
     root = Path(__file__).resolve().parents[1]
     probe = tmp_path / "menu-platform"
-    subprocess.run(["clang", *defines, str(root / "port/ios/tests/menu_platform_probe.c"),
-                    "--output", str(probe)], check=True)
+    cc.build([root / "port/ios/tests/menu_platform_probe.c"], output=probe, defines=[d[2:] for d in defines],
+             port_stubs=True)
     environment = {key: value for key, value in os.environ.items()
                    if key not in {"HALO_HOST_CLOUD_SAVES"}}
     for capability in (None, "0", "1"):
@@ -683,11 +683,9 @@ def test_delta_peer_codec_and_sessions(tmp_path, probe):
     if not clang:
         pytest.skip("needs clang")
     program = tmp_path / "delta-peer-probe"
-    result = subprocess.run([clang, "-std=gnu89", "-O1", "-Wall", "-Wextra", "-Werror",
-                             "-fsanitize=address,undefined", "-Iport/linux/src", "-iquote", "port/linux/include",
-                             f"port/ios/tests/{probe}_probe.c", "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c", "-o", str(program)],
-                            capture_output=True, text=True)
-    assert result.returncode == 0, result.stderr
+    cc.build([f"port/ios/tests/{probe}_probe.c", "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c"],
+             output=program, std="gnu89", extra_warnings=True, sanitize=True, includes=["port/linux/src"],
+             options=["-O1", "-iquote", "port/linux/include"], port_stubs=True)
     result = subprocess.run([str(program)], capture_output=True, text=True, timeout=PROBE_RUN_SECONDS)
     assert result.returncode == 0 and ("delta peer game probe ok" if probe == "delta_peer_game" else "delta peer probe ok") in result.stdout, result.stderr
 

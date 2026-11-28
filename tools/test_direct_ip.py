@@ -6,6 +6,8 @@ import subprocess
 
 import pytest
 
+from probekit import cc
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -15,11 +17,8 @@ def test_direct_ip_target(tmp_path):
     if compiler is None:
         pytest.skip("Direct IP probe requires a C compiler")
     binary = tmp_path / "direct-ip-probe"
-    subprocess.run([
-        compiler, "-std=c11", "-Wall", "-Wextra", "-Werror",
-        "--include-directory=" + str(ROOT / "port/linux/src"),
-        str(ROOT / "port/ios/tests/direct_ip_probe.c"), "--output=" + str(binary),
-    ], check=True)
+    cc.build([ROOT / "port/ios/tests/direct_ip_probe.c"], output=binary, std="c11", extra_warnings=True,
+             includes=[ROOT / "port/linux/src"], port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -39,11 +38,8 @@ def test_direct_ip_discovery_and_join(tmp_path):
     program = tmp_path / "direct-ip-menu.c"
     program.write_text(fixture.replace("/* PRODUCTION */", production))
     binary = tmp_path / "direct-ip-menu"
-    subprocess.run([
-        "clang", "-std=c11", "-Wall", "-Wextra", "-Werror",
-        "--include-directory=" + str(ROOT / "port/linux/src"), str(program),
-        "--output=" + str(binary),
-    ], check=True)
+    cc.build([program], output=binary, std="c11", extra_warnings=True, includes=[ROOT / "port/linux/src"],
+             port_stubs=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -108,9 +104,6 @@ int main(void)
 }
 ''')
     binary = tmp_path / "direct-ip-socket"
-    subprocess.run([
-        "clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-pthread",
-        "--include-directory=" + str(ROOT / "port/linux/src"), str(program),
-        "--output=" + str(binary),
-    ], check=True)
+    cc.build([program], output=binary, std="c11", extra_warnings=True, includes=[ROOT / "port/linux/src"],
+             options=["-pthread"], port_stubs=True)
     subprocess.run([str(binary)], check=True)

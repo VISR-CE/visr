@@ -6,7 +6,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from probekit import source as probe_source  # noqa: E402
+from probekit import cc, source as probe_source  # noqa: E402
 
 
 PROBE = r"""
@@ -60,7 +60,7 @@ def test_shared_sim_fix_gate():
         source = Path(directory) / "probe.c"
         source.write_text(probe)
         executable = Path(directory) / "probe"
-        subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function", "-o", str(executable), str(source)], check=True)
+        cc.build([source], output=executable, std="c11", relaxed=["unused-function"])
         result = subprocess.run([str(executable)], capture_output=True, text=True)
         assert result.returncode == 0, result.stdout
 
