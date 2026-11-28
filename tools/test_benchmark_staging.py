@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from test_benchmark_catalog import STAGING, INVALID_STAGINGS
-from test_replay_control import function
+from probekit.source import function
 
 ROOT = Path(__file__).resolve().parents[1]
 

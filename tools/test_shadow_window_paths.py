@@ -5,7 +5,7 @@ alone. The two production functions that decide are compiled out of the source w
 from pathlib import Path
 import subprocess
 
-from scene_class_test import extract_function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "source/rasterizer/xbox/rasterizer_xbox_shadows.c"
@@ -48,8 +48,8 @@ int main(int argc, char **argv)
 
 def build(tmp_path):
     source = SOURCE.read_text()
-    usable = extract_function(source, "static boolean deferred_shadow_usable_here(")
-    traced = extract_function(source, "static boolean deferred_shadows_traced(")
+    usable = probe_source.function_in(source, "deferred_shadow_usable_here")
+    traced = probe_source.function_in(source, "deferred_shadows_traced")
     harness = tmp_path / "harness.c"
     harness.write_text(HARNESS.replace("/*@usable@*/", usable).replace("/*@traced@*/", traced))
     executable = tmp_path / "shadow-window-paths"

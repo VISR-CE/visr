@@ -23,21 +23,6 @@ ITEMS_PATH = "source/items/items.c"
 OBJECTS_PATH = "source/objects/objects.c"
 
 
-def block(source: str, marker: str) -> str:
-    """the brace block that opens at `marker` (an unnamed block inside a function, which has no name to find it by)"""
-    start = source.index(marker)
-    opening = source.index("{", start)
-    depth = 0
-    for position in range(opening, len(source)):
-        if source[position] == "{":
-            depth += 1
-        elif source[position] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[start:position + 1]
-    raise ValueError(f"Unclosed source block: {marker}")
-
-
 WEAPON_FIXTURES = r'''
 
 #define TICKS_PER_SECOND 30
@@ -447,8 +432,8 @@ def test_suite_input_reaches_host_tick_snapshot() -> None:
         "__BOT_WEAPON__": probe_source.function(NETWORK_TEST_PATH, "network_test_suite_clear_bot_weapons") + probe_source.function(NETWORK_TEST_PATH, "network_test_suite_observe_weapon") + probe_source.function(NETWORK_TEST_PATH, "network_test_suite_bot_weapon") if probe_source.defined(NETWORK_TEST_PATH, "network_test_suite_bot_weapon") else "",
         "__UNIT_CONTROL_ENUM__": control_enum(UNIT_HEADER, "_unit_control_crouch_modifier_bit"),
         "__WEAPON_CONTROL_ENUM__": control_enum(WEAPON_HEADER, "_weapon_control_integrated_light_bit"),
-        "__UNIT_DESIRED_WEAPON__": block(probe_source.function(UNITS_PATH, "unit_control"), "if (control_data->weapon_index!=NONE)"),
-        "__UNIT_PRIMARY_GATE__": block(UNITS, "if (TEST_FLAG(unit->unit.control_flags, _unit_control_weapon_primary_trigger_bit))"),
+        "__UNIT_DESIRED_WEAPON__": probe_source.block_in(probe_source.function(UNITS_PATH, "unit_control"), "if (control_data->weapon_index!=NONE)"),
+        "__UNIT_PRIMARY_GATE__": probe_source.block_in(UNITS, "if (TEST_FLAG(unit->unit.control_flags, _unit_control_weapon_primary_trigger_bit))"),
         "__ACTION_VALID__": probe_source.function(QUEUES_PATH, "distributed_action_valid"),
         "__ADD_TICKS__": probe_source.function(QUEUES_PATH, "distributed_add_new_ticks"),
         "__QUEUE_READY__": probe_source.function(QUEUES_PATH, "update_server_player_queue_ready"),

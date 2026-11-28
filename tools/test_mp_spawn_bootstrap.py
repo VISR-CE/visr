@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from unittest import SkipTest
 
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 ENGINE = (ROOT / "source/game/game_engine.c").read_text()
@@ -69,13 +69,11 @@ int main(void) {
 '''
 
 
-def probe_source(starts):
-    functions = [function(ENGINE, signature) for signature in (
-        "real game_engine_get_distance_rating_for_spawn(",
-        "static real default_starting_location_rate_function(",
-        "boolean match_game_type(",
-        "real game_engine_get_starting_location_rating(")]
-    functions.append(function(PLAYERS, "long find_best_starting_location_index("))
+def probe_program(starts):
+    functions = [probe_source.function_in(ENGINE, name) for name in (
+        "game_engine_get_distance_rating_for_spawn", "default_starting_location_rate_function", "match_game_type",
+        "game_engine_get_starting_location_rating")]
+    functions.append(probe_source.function_in(PLAYERS, "find_best_starting_location_index"))
     return HARNESS.replace("__FUNCTIONS__", "\n".join(functions)).replace(
         "__STARTS__", ",\n".join("{{%.9g,%.9g,%.9g},0,{2,0,0,0}}" % tuple(p) for p in starts))
 
@@ -85,7 +83,7 @@ def test_occupied_starts_wait_until_normal_movement_releases_one(tmp_path):
     if not compiler:
         raise SkipTest("A C compiler is required for the spawn selection probe")
     source, binary = tmp_path / "spawn.c", tmp_path / "spawn"
-    source.write_text(probe_source([(i * 4, 0, 0) for i in range(16)]))
+    source.write_text(probe_program([(i * 4, 0, 0) for i in range(16)]))
     subprocess.run([compiler, "-O2", "-std=gnu89", "-fms-extensions", "-Wno-c99-extensions",
                     "-fsanitize=address,undefined", str(source), "-lm", "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

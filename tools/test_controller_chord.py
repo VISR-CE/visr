@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,7 +44,7 @@ def build_and_run(tmp_path, name, enabled, main):
     compiler = shutil.which("clang") or shutil.which("cc")
     assert compiler, "a C compiler is required"
     source = (ROOT / "port/linux/src/xinput_sdl.c").read_text()
-    chord = function(source, "static void aim_pitch_offset_chord(")
+    chord = probe_source.function_in(source, "aim_pitch_offset_chord")
     source_file = tmp_path / (name + ".c")
     binary = tmp_path / name
     source_file.write_text(FIXTURE.replace("@ENABLED@", str(enabled)) + chord + main)
@@ -134,7 +134,7 @@ def run_knob_chord(tmp_path, name, enabled, main):
     compiler = shutil.which("clang") or shutil.which("cc")
     assert compiler, "a C compiler is required"
     source = (ROOT / "port/linux/src/xinput_sdl.c").read_text()
-    chord = function(source, "static void knob_current(") + "\n" + function(source, "static void knob_cycle_chord(")
+    chord = probe_source.function_in(source, "knob_current") + "\n" + probe_source.function_in(source, "knob_cycle_chord")
     source_file = tmp_path / (name + ".c")
     source_file.write_text(KNOB_FIXTURE.replace("@ENABLED@", str(enabled)) + chord + main)
     binary = tmp_path / name
@@ -212,7 +212,7 @@ def test_anisotropy_returns_to_the_setting_when_the_benchmark_clears_its_value(t
 static long benchmark_anisotropy;
 static long config_integer(const char *name){ (void)name; return 8; }
 static unsigned long config_changes(void) { return 0; }
-''' + function(source, "static long anisotropy_in_force(") + r'''
+''' + probe_source.function_in(source, "anisotropy_in_force") + r'''
 int main(void){
  assert(anisotropy_in_force()==8);
  benchmark_anisotropy=2;

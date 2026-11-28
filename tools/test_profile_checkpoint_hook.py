@@ -2,13 +2,14 @@
 from pathlib import Path
 import subprocess
 
-from test_profile_game_hooks import compile_probe, function
+from probekit import source as probe_source
+from test_profile_game_hooks import compile_probe
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_checkpoint_revival_boundary(tmp_path):
-    actual = function((ROOT / "source/saved games/game_state.c").read_text(), "void game_state_revert(")
+    actual = probe_source.function("source/saved games/game_state.c", "game_state_revert")
     binary = compile_probe(tmp_path, r'''
 #include <assert.h>
 typedef int boolean;

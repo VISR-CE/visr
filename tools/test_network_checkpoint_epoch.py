@@ -12,19 +12,9 @@ DISTRIBUTED = "port/linux/game/network_distributed.c"
 HEADER = "port/linux/game/network_distributed.h"
 
 
-def block(source, marker):
-    start = source.index(marker)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
-
-
 def test_client_takes_only_newer_ordered_boundaries_and_holds_play_until_synchronized(tmp_path):
     header = (ROOT / "port/linux/game/network_distributed.h").read_text()
-    kinds = block(header, "enum\n{") + ";\n"
+    kinds = probe_source.enumeration_in(header, "_distributed_message_player_prediction") + "\n"
     structures = probe_source.structure(HEADER, "distributed_message_header").replace(
         "long game_time;", "int32_t game_time;") + "\n"
     valid = probe_source.function(DISTRIBUTED, "distributed_message_epoch_valid")
@@ -159,7 +149,7 @@ def test_epoch_path_is_off_below_42(tmp_path):
     """Below 42 the epoch never holds play, never gates what a client sends,
     and the revert hook sends no checkpoint; from 42 on all three engage."""
     header = (ROOT / "port/linux/game/network_distributed.h").read_text()
-    kinds = block(header, "enum\n{") + ";\n"
+    kinds = probe_source.enumeration_in(header, "_distributed_message_player_prediction") + "\n"
     structures = probe_source.structure(HEADER, "distributed_message_header").replace(
         "long game_time;", "int32_t game_time;") + "\n"
     functions = "\n".join(probe_source.function(DISTRIBUTED, name) for name in (

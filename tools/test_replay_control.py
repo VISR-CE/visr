@@ -12,9 +12,6 @@ from probekit import source as probe_source  # noqa: E402
 
 
 # test_benchmark_staging imports this name; it takes the same (path, name) as the shared helper
-function = probe_source.function
-
-
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-regression", action="store_true", help="Require the probe to reject removal of the frame-facing guard")
@@ -83,8 +80,7 @@ def test_auto_record_suite_camera_ownership(tmp_path):
         raise AssertionError(result.stderr)
     assert "RED reproduced: auto recording owns the action path; camera=0 control=0" in result.stderr
 
-    suite_frame = probe_source.function("port/linux/src/benchmark_suite.c", "benchmark_suite_frame",
-                                       which="input_replay_suite_suspend()")
+    suite_frame = probe_source.function("port/linux/src/benchmark_suite.c", "benchmark_suite_frame", which=0)   # the stub under #else is the second
     next_run = probe_source.function("port/linux/src/benchmark_suite.c", "next_run")
     assert suite_frame.index("input_replay_suite_suspend()") < suite_frame.index("next_run();")
     assert "input_replay_begin(" in next_run

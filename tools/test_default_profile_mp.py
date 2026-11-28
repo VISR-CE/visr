@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 from unittest import SkipTest
 
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 HANDLERS = (ROOT / "source/interface/ui_widget_event_handler_functions.c").read_text()
@@ -60,8 +60,8 @@ def _run(default_ok):
     compiler = shutil.which("cc") or shutil.which("clang")
     if not compiler:
         raise SkipTest("no C compiler")
-    clean = function(PLAYERS, "boolean player_name_clean(")
-    valid = function(PLAYERS, "boolean player_name_valid(")
+    clean = probe_source.function_in(PLAYERS, "player_name_clean")
+    valid = probe_source.function_in(PLAYERS, "player_name_valid")
     condition = (
         "(TEST_FLAG(profile->flags, _player_profile_default_profile_bit) || "
         "player_name_valid(profile->player_name, NUMBEROF(profile->player_name)))"

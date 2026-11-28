@@ -8,7 +8,7 @@ import shutil
 import subprocess
 
 from test_network_controller_aim import ROOT, run_probe
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 PROLOGUE = r'''
 #include <assert.h>
@@ -119,7 +119,7 @@ int main(void)
 
 
 def program(objects: str) -> str:
-    return PROLOGUE + function(objects, "void objects_update(\n") + EPILOGUE
+    return PROLOGUE + probe_source.function_in(objects, "objects_update") + EPILOGUE
 
 
 def test_objects_update_deactivates_an_active_object_outside_the_map(tmp_path):

@@ -1,6 +1,6 @@
 """Run ordinary unit aiming and its shot, grenade and melee direction consumers."""
 from test_network_controller_aim import ROOT, run_probe
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 
 MATH = r'''
@@ -52,10 +52,10 @@ def test_actual_ordinary_aim_and_weapon_direction_consumers(tmp_path):
     # Run the exact ordinary aiming branch, not a second implementation.
     start = units.index("if (unit->unit.player_index != NONE &&\n\t\t\thalo_player_hand_aim(")
     end = units.index("\n\t\t{\n\t\t\treal angle =", start)
-    grenade = function(units, "static void unit_throw_grenade_release(\n\tlong unit_index,\n\tboolean premature)\n{")
+    grenade = probe_source.function_in(units, "unit_throw_grenade_release")
     grenade_start = grenade.index("real scale = unit_definition->unit.grenade_velocity/TICKS_PER_SECOND;")
     grenade_end = grenade.index(";", grenade.index("scale_vector3d(", grenade_start)) + 1
-    melee = function(units, "void unit_cause_player_melee_damage(")
+    melee = probe_source.function_in(units, "unit_cause_player_melee_damage")
     melee_start = melee.index("ray.i = facing->i * 0.8f")
     melee_end = melee.index(";", melee.index("ray.k =", melee_start)) + 1
     run_probe(tmp_path, "consumers", MATH + r'''
@@ -70,10 +70,10 @@ static int halo_player_hand_aim(long index){assert(index==1);return 0;}
 static void unit_euler_aiming_update(const real_matrix4x3 *m,real_vector3d *a,const real_vector3d *d,real_vector3d *v,const real_rectangle2d *b,float l,float c){(void)m;(void)a;(void)d;(void)v;(void)b;(void)l;(void)c;assert(0);}
 static void unit_get_camera_position(long index,real_point3d *p){(void)index;*p=(real_point3d){0,0,2};}
 static void object_get_velocities(long index,real_vector3d *v,void *angular){(void)index;(void)angular;*v=zero;}
-''' + function(math, "real_vector3d *rotate_vector_about_axis(") +
-              function(math, "void angular_accelerate_to_position(") +
-              function(units, "boolean unit_clip_to_aiming_bounds(") +
-              function(units, "void unit_adjust_projectile_ray(") + r'''
+''' + probe_source.function_in(math, "rotate_vector_about_axis") +
+              probe_source.function_in(math, "angular_accelerate_to_position") +
+              probe_source.function_in(units, "unit_clip_to_aiming_bounds") +
+              probe_source.function_in(units, "unit_adjust_projectile_ray") + r'''
 static void consume(float aiming_velocity_limit,float aiming_angular_acceleration_limit){
  long unit_index=17;struct unit_datum *unit=&datum;
 ''' + units[start:end] + r'''
@@ -138,7 +138,7 @@ static struct player_datum *player_get(long index){assert(index==1);return &play
 static struct unit_datum *unit_get(long index){assert(index==17);return &unit;}
 static void *object_try_and_get_and_verify_type(long index,int type){assert(index==23);(void)type;return &vehicle;}
 static struct unit_definition *vehicle_definition_get(long index){(void)index;return &definition;}
-''' + function(players, "void player_aiming_vector_from_facing(") + r'''
+''' + probe_source.function_in(players, "player_aiming_vector_from_facing") + r'''
 int main(void){
  real_euler_angles2d facing={1.57079632679f,0};real_vector3d aimed;
  player_aiming_vector_from_facing(1,&aimed,&facing);

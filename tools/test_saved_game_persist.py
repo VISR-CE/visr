@@ -6,7 +6,8 @@ all pass checkpoints; none may make one the profile's saved game. Every combinat
 from pathlib import Path
 import subprocess
 
-from test_profile_game_hooks import compile_probe, function
+from probekit import source as probe_source
+from test_profile_game_hooks import compile_probe
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -109,16 +110,16 @@ int main(void) {
 
 def test_only_the_players_own_campaign_game_writes_a_saved_game(tmp_path):
     source = (ROOT / "port/linux/game/saved_game_persist.c").read_text()
-    functions = "\n".join(function(source, signature) for signature in (
-        "boolean saved_game_persist_allowed(", "static boolean persist_paths(", "boolean saved_game_persist_checkpoint_store(",
-        "boolean saved_game_persist_checkpoint_load(", "boolean saved_game_persist_write_now("))
+    functions = "\n".join(probe_source.function_in(source, name) for name in (
+        "saved_game_persist_allowed", "persist_paths", "saved_game_persist_checkpoint_store",
+        "saved_game_persist_checkpoint_load", "saved_game_persist_write_now"))
     subprocess.run([str(compile_probe(tmp_path, STUBS + functions + MAIN))], check=True)
 
 
 def test_a_checkpoint_is_valid_when_it_was_kept(tmp_path):
     """game_state_save's checkpoint is valid exactly when game_state_write_to_file says so, which on the Apple
     builds is whether the host kept the copy; co-op is told only of a valid one."""
-    actual = function((ROOT / "source/saved games/game_state.c").read_text(), "void game_state_save(")
+    actual = probe_source.function("source/saved games/game_state.c", "game_state_save")
     binary = compile_probe(tmp_path, r"""
 #include <assert.h>
 #include <string.h>
@@ -145,8 +146,8 @@ int main(void) {
     subprocess.run([str(binary)], check=True)
 
 
-CHECKPOINT_FILE_FUNCTIONS = ("void game_state_create_or_open_file(", "void game_state_close_file(",
-                             "boolean game_state_write_to_file(", "boolean game_state_read_from_file(")
+CHECKPOINT_FILE_FUNCTIONS = ("game_state_create_or_open_file", "game_state_close_file", "game_state_write_to_file",
+                             "game_state_read_from_file")
 
 CHECKPOINT_FILE_STUBS = r"""
 #include <assert.h>
@@ -181,7 +182,7 @@ def test_a_checkpoint_and_a_revert_touch_no_file_on_the_apple_builds(tmp_path):
     saved_game_persist_checkpoint_store, a revert takes it from saved_game_persist_checkpoint_load, and the flags
     the game asserts on behave as they did with the file."""
     source = (ROOT / "source/saved games/game_state_xbox.c").read_text()
-    functions = "\n".join(function(source, signature) for signature in CHECKPOINT_FILE_FUNCTIONS)
+    functions = "\n".join(probe_source.function_in(source, name) for name in CHECKPOINT_FILE_FUNCTIONS)
     binary = compile_probe(tmp_path, "#define HALO_IOS 1\n" + CHECKPOINT_FILE_STUBS + r"""
 static unsigned char kept[64]; static int host_keeps = 1, has_kept, stores, loads;
 static boolean saved_game_persist_checkpoint_store(const void *image, long size) {
@@ -230,7 +231,7 @@ def test_a_build_without_a_host_keeps_its_checkpoint_file(tmp_path):
     """The desktop builds have no host to keep the copy: the same four functions use the file z:\\savegame.bin as
     they always did, and name no saved_game_persist function (none is defined here, so one would not link)."""
     source = (ROOT / "source/saved games/game_state_xbox.c").read_text()
-    functions = "\n".join(function(source, signature) for signature in CHECKPOINT_FILE_FUNCTIONS)
+    functions = "\n".join(probe_source.function_in(source, name) for name in CHECKPOINT_FILE_FUNCTIONS)
     binary = compile_probe(tmp_path, CHECKPOINT_FILE_STUBS + r"""
 typedef void *HANDLE; typedef unsigned long DWORD;
 #define INVALID_HANDLE_VALUE ((HANDLE)-1)
@@ -279,9 +280,9 @@ def test_a_build_without_a_host_links_and_keeps_nothing(tmp_path):
     """The desktop builds compile the same unit and have no host imports: the class of bug is a guest call to a
     host function that only the Apple builds provide, which fails only at the desktop link."""
     source = (ROOT / "port/linux/game/saved_game_persist.c").read_text()
-    functions = "\n".join(function(source, signature) for signature in (
-        "boolean saved_game_persist_allowed(", "boolean saved_game_persist_checkpoint_store(",
-        "boolean saved_game_persist_checkpoint_load(", "boolean saved_game_persist_write_now("))
+    functions = "\n".join(probe_source.function_in(source, name) for name in (
+        "saved_game_persist_allowed", "saved_game_persist_checkpoint_store",
+        "saved_game_persist_checkpoint_load", "saved_game_persist_write_now"))
     stubs = STUBS.replace("#define HALO_IOS 1\n", "")
     for name in ("host_save_checkpoint_store", "host_save_checkpoint_load", "host_save_write_now"):
         assert f"static int {name}(" in stubs
@@ -335,7 +336,7 @@ def test_a_profile_being_deleted_withdraws_its_checkpoint_first(tmp_path):
     listing gets a second withdrawal and listing, and no more than that."""
     source = (ROOT / "port/linux/src/xbox_xapi.c").read_text()
     binary = compile_probe(tmp_path, "#define HALO_IOS 1\n" + DELETE_SAVE_GAME_PROBE
-                           + function(source, "DWORD WINAPI XDeleteSaveGame(") + r"""
+                           + probe_source.function_in(source, "XDeleteSaveGame") + r"""
 int main(void) {
     assert(XDeleteSaveGame("u:\\", 0) == ERROR_SUCCESS);
     assert(!strcmp(order, "wd") && !strcmp(withdrawn, "host<u:\\UDATA\\C7201D882DAE\\>"));
@@ -356,7 +357,7 @@ def test_a_build_without_a_host_deletes_a_profile_without_asking_one(tmp_path):
     there (the probe's is left out, so naming it would not link), and deletes once."""
     source = (ROOT / "port/linux/src/xbox_xapi.c").read_text()
     stubs = "\n".join(line for line in DELETE_SAVE_GAME_PROBE.split("\n") if "host_save_withdraw_folder" not in line)
-    binary = compile_probe(tmp_path, stubs + function(source, "DWORD WINAPI XDeleteSaveGame(") + r"""
+    binary = compile_probe(tmp_path, stubs + probe_source.function_in(source, "XDeleteSaveGame") + r"""
 int main(void) {
     (void)withdrawn; (void)platform_translate_path;
     again(1);

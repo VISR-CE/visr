@@ -13,22 +13,10 @@ PATH = 'port/linux/game/network_objects.c'
 source = probe_source.read(PATH)
 
 
-def block(marker):
-    """the brace block that opens at `marker` (an enum or an unnamed block inside a function, which have no name to find them by)"""
-    start = source.index(marker)
-    opening = source.index('{', start)
-    depth = 1
-    end = opening + 1
-    while depth:
-        depth += (source[end] == '{') - (source[end] == '}')
-        end += 1
-    return source[start:end]
-
-
-flags = block('enum\n{\n\t/* an item in a unit') + ';'
+flags = probe_source.enumeration(PATH, '_distributed_object_carried_bit')
 driver = probe_source.function(PATH, 'distributed_unit_driven_here')
-send = block('if (TEST_FLAG(_object_mask_unit, object->object.type))\n\t{\n\t\tSET_FLAG(state->flags, _distributed_object_light_sent_bit')
-receive = block('if (TEST_FLAG(state->flags, _distributed_object_light_sent_bit) &&')
+send = probe_source.block(PATH, 'if (TEST_FLAG(_object_mask_unit, object->object.type))\n\t{\n\t\tSET_FLAG(state->flags, _distributed_object_light_sent_bit')
+receive = probe_source.block(PATH, 'if (TEST_FLAG(state->flags, _distributed_object_light_sent_bit) &&')
 program = r'''
 #include <assert.h>
 #include <stdio.h>

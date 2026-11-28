@@ -4,7 +4,7 @@ import subprocess
 import shutil
 from unittest import SkipTest
 
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -172,23 +172,23 @@ int main(void){
     for marker, body in {
         '__CONTROL_ENUM__': unit_header[control_start:control_end],
         '__ACTION_ONLY_BIT__': action_only,
-        '__QUEUE__': function(queues, 'void update_client_queue(\n'),
-        '__LOCAL__': function(queues, 'static short update_client_local_player_index('),
-        '__DISTRIBUTED_DEQUEUE__': function(queues, 'static boolean update_client_dequeue_distributed('),
-        '__DEQUEUE__': function(queues, 'boolean update_client_dequeue(\n'),
-        '__EGRESS__': function(queues, 'boolean update_client_distributed_input('),
-        '__WIRE_INPUT__': function(network, 'struct distributed_player_input\n') + ';',
-        '__SEND__': function(network, 'static void distributed_client_send_inputs(\n'),
-        '__RELAY_STRUCT__': function(network, 'struct distributed_relayed_action\n')+';',
-        '__PUT__': function(network, 'static byte *distributed_put('),
-        '__TAKE__': function(network, 'static boolean distributed_take('),
-        '__ANGLE_PACK__': function(network, 'short distributed_angle_pack('),
-        '__RELAY_FROM__': function(network, 'static boolean distributed_relayed_action_from('),
-        '__RELAY_WRITE__': function(network, 'static word distributed_relayed_action_write('),
-        '__RELAY_READ__': function(network, 'static word distributed_relayed_action_read('),
-        '__ANGLE_UNPACK__': function(network, 'real distributed_angle_unpack('),
-        '__HOST_RECEIVE__': function(network, 'static void distributed_handle_inputs('),
-        '__PEER_RECEIVE__': function(network, 'static void distributed_handle_actions('),
+        '__QUEUE__': probe_source.function_in(queues, "update_client_queue"),
+        '__LOCAL__': probe_source.function_in(queues, "update_client_local_player_index"),
+        '__DISTRIBUTED_DEQUEUE__': probe_source.function_in(queues, "update_client_dequeue_distributed"),
+        '__DEQUEUE__': probe_source.function_in(queues, "update_client_dequeue"),
+        '__EGRESS__': probe_source.function_in(queues, "update_client_distributed_input"),
+        '__WIRE_INPUT__': probe_source.structure_in(network, 'distributed_player_input'),
+        '__SEND__': probe_source.function_in(network, "distributed_client_send_inputs"),
+        '__RELAY_STRUCT__': probe_source.structure_in(network, 'distributed_relayed_action'),
+        '__PUT__': probe_source.function_in(network, "distributed_put"),
+        '__TAKE__': probe_source.function_in(network, "distributed_take"),
+        '__ANGLE_PACK__': probe_source.function_in(network, "distributed_angle_pack"),
+        '__RELAY_FROM__': probe_source.function_in(network, "distributed_relayed_action_from"),
+        '__RELAY_WRITE__': probe_source.function_in(network, "distributed_relayed_action_write"),
+        '__RELAY_READ__': probe_source.function_in(network, "distributed_relayed_action_read"),
+        '__ANGLE_UNPACK__': probe_source.function_in(network, "distributed_angle_unpack"),
+        '__HOST_RECEIVE__': probe_source.function_in(network, "distributed_handle_inputs"),
+        '__PEER_RECEIVE__': probe_source.function_in(network, "distributed_handle_actions"),
     }.items():
         source = source.replace(marker, body)
     path = tmp_path / 'metadata.c'

@@ -5,7 +5,7 @@ index and its load (scenario.c's global_structure_bsp_loads); the decision is co
 from pathlib import Path
 import subprocess
 
-from scene_class_test import extract_function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 CASTERS = ROOT / "port/linux/game/traced_shadow_casters.c"
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
 
 def build(tmp_path):
-    current = extract_function(CASTERS.read_text(), "static boolean world_current(")
+    current = probe_source.function_in(CASTERS.read_text(), "world_current")
     source = tmp_path / "world-key.c"
     source.write_text(HARNESS.replace("/*@current@*/", current))
     executable = tmp_path / "world-key"
@@ -75,9 +75,9 @@ def test_a_bsp_loaded_again_at_the_same_place_is_another_level(tmp_path):
 
 def test_the_level_is_keyed_on_the_bsp_not_its_addresses():
     casters = CASTERS.read_text()
-    world_send = extract_function(casters, "static void world_send(")
+    world_send = probe_source.function_in(casters, "world_send")
     assert "world_current()" in world_send
-    assert "hardware_format" not in extract_function(casters, "static boolean world_current(")
-    switch = extract_function(SCENARIO.read_text(), "boolean scenario_switch_structure_bsp(")
+    assert "hardware_format" not in probe_source.function_in(casters, "world_current")
+    switch = probe_source.function_in(SCENARIO.read_text(), "scenario_switch_structure_bsp")
     loaded = switch[switch.index("if (loaded)\n"):]
     assert "global_structure_bsp_loads++;" in loaded

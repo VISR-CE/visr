@@ -8,18 +8,6 @@ sys.path.insert(0, str(ROOT / "tools"))
 from probekit import source as probe_source  # noqa: E402
 
 
-def block(source, marker):
-    """The text from `marker` through its closing brace. Kept only because test_network_client_build imports it
-    (rule 3a's legacy list); new code uses probekit.source."""
-    start = source.index(marker)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
-
-
 def test_shield_policy_requires_host_stream_and_sends_stock_on_readiness(tmp_path):
     distributed = "port/linux/game/network_distributed.c"
     header = "port/linux/game/network_distributed.h"

@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import tempfile
 
-from test_checkpoint_timing import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -132,10 +132,10 @@ int main(void) {
 }
 '''
     functions = "\n".join([
-        function(clock, "render_interpolation_game_time_sec"),
-        function(sensor, "motion_sensor_tick"),
-        function(sensor, "render_blip"),
-        function(hud, "get_flash_color"),
+        probe_source.function_in(clock, "render_interpolation_game_time_sec"),
+        probe_source.function_in(sensor, "motion_sensor_tick"),
+        probe_source.function_in(sensor, "render_blip"),
+        probe_source.function_in(hud, "get_flash_color"),
     ])
     with tempfile.TemporaryDirectory(prefix="hud-between-ticks-") as directory:
         source = Path(directory) / "probe.c"

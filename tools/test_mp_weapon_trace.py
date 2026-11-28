@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from unittest import SkipTest
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / 'port/linux/game/network_test.c').read_text()
 HARNESS = r'''
@@ -83,7 +83,7 @@ def test_actual_firing_objects_and_salted_switch_generations(tmp_path):
         raise SkipTest('A C compiler is required for the actual weapon trace probe')
     start=SOURCE.index('struct network_test_weapon_trace\n{')
     trace=SOURCE[start:SOURCE.index('};',start)+2]
-    code=HARNESS.replace('__TRACE_TYPE__',trace).replace('__OBSERVE__',function(SOURCE,'static void network_test_suite_observe_weapon(')).replace('__PRODUCER__',function(SOURCE,'void network_test_suite_weapon_projectile_created('))
+    code=HARNESS.replace('__TRACE_TYPE__',trace).replace('__OBSERVE__',probe_source.function_in(SOURCE, "network_test_suite_observe_weapon")).replace('__PRODUCER__',probe_source.function_in(SOURCE, "network_test_suite_weapon_projectile_created"))
     source,binary=tmp_path/'trace.c',tmp_path/'trace'
     source.write_text(code)
     subprocess.run([cc,'-std=gnu11','-O1','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(source),'-o',str(binary)],check=True)

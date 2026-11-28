@@ -7,7 +7,7 @@ import re
 import shutil
 import subprocess
 
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -89,8 +89,8 @@ def test_own_input_reaches_the_game(tmp_path):
     assert compiler, "a C compiler is required"
     xinput = (ROOT / "port/linux/src/xinput_sdl.c").read_text()
     replay = (ROOT / "port/linux/src/input_replay.c").read_text()
-    source = (FIXTURE + function(xinput, "static enum mp_benchmark_probe_input_policy mp_benchmark_probe_or_test_gamepad(") +
-              "\n" + function(replay, "void input_replay_filter(") + "\n" + MAIN)
+    source = (FIXTURE + probe_source.function_in(xinput, "mp_benchmark_probe_or_test_gamepad") +
+              "\n" + probe_source.function_in(replay, "input_replay_filter") + "\n" + MAIN)
     source_file = tmp_path / "benchmark_own_input.c"
     binary = tmp_path / "benchmark_own_input"
     source_file.write_text(source)

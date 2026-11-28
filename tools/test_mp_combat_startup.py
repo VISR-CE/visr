@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from unittest import SkipTest
 
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "port/linux/game/network_test.c").read_text()
@@ -24,7 +24,7 @@ def test_setup_withholds_scripted_damage_kills_and_gather(tmp_path):
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         raise SkipTest("A C compiler is required for the combat startup probe")
-    helper = (function(SOURCE, "static int network_test_suite_combat_ready(")
+    helper = (probe_source.function_in(SOURCE, "network_test_suite_combat_ready")
               if "static int network_test_suite_combat_ready(" in SOURCE
               else "static int network_test_suite_combat_ready(void) {return 1;}")
     shoot = condition_before(SOURCE.index("network_test_shoot();", SOURCE.index("void network_test_update(")))

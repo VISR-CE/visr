@@ -121,17 +121,13 @@ test_mp_weapon_trace.py
 test_mp_xinput_secondary_ports.py
 test_network_aim_consumers.py
 test_network_browser_dedicated.py
-test_network_checkpoint_epoch.py
-test_network_client_build.py
 test_network_controller_aim.py
 test_network_damage_rules.py
 test_network_discovery.py
 test_network_flag_delete.py
 test_network_internet_kind.py
 test_network_join_wire.py
-test_network_light_state.py
 test_network_master_lobby.py
-test_network_shield_policy.py
 test_network_sync_log.py
 test_network_version.py
 test_perf_compare_sheet.py
@@ -140,7 +136,6 @@ test_postgame_touch.py
 test_present_dither.py
 test_present_paths.py
 test_profile.py
-test_profile_checkpoint_hook.py
 test_profile_feed.py
 test_profile_game_hooks.py
 test_quad_ranges.py

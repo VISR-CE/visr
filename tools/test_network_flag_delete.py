@@ -1,6 +1,6 @@
 """Exercise host-directed objective deletion without game data or an app build."""
 from test_network_controller_aim import ROOT, run_probe
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 
 def test_host_delete_scope_assertions_and_objective_goals(tmp_path):
@@ -81,12 +81,12 @@ static void *object_iterator_next(struct object_iterator *i) { return i->done++ 
 static int distributed_object_index_valid(long index) { return index>=0 && index<8; }
 static void distributed_client_create(const struct distributed_object_change *change) { (void)change; }
 '''
-    program += function(units, "void unit_network_forget_weapon(\n")
-    program += function(network, "static void distributed_client_release_item(")
-    program += function(network, "boolean network_objects_deleting_host_object(")
-    program += function(engine, "void game_engine_objective_weapon_deleted(")
-    program += function(objects, "static void object_delete_initial_recursive(")
-    program += function(weapons, "void weapon_delete(")
+    program += probe_source.function_in(units, "unit_network_forget_weapon")
+    program += probe_source.function_in(network, "distributed_client_release_item")
+    program += probe_source.function_in(network, "network_objects_deleting_host_object")
+    program += probe_source.function_in(engine, "game_engine_objective_weapon_deleted")
+    program += probe_source.function_in(objects, "object_delete_initial_recursive")
+    program += probe_source.function_in(weapons, "weapon_delete")
     program += r'''
 static void object_delete_immediately(long index) {
  assert(released && player.action_object_index==NONE);
@@ -97,8 +97,8 @@ static void object_delete_immediately(long index) {
  deleted++;
 }
 '''
-    program += function(network, "static void distributed_client_delete(")
-    program += function(network, "void network_objects_handle_changes(")
+    program += probe_source.function_in(network, "distributed_client_delete")
+    program += probe_source.function_in(network, "network_objects_handle_changes")
     program += r'''
 static void reset(void) {
  failures=released=deleted=0; flag=running=client=1; game_engine=(void*)1;
@@ -152,7 +152,7 @@ def test_only_host_delete_instruction_enables_scope():
     calls = re.findall(r"distributed_client_delete\(([^;{}]+)\);", source)
     enabled = [call for call in calls if call.strip().endswith(", TRUE")]
     assert enabled == ["change->object_index, TRUE"]
-    scope = function(source, "static void distributed_client_delete(")
+    scope = probe_source.function_in(source, "distributed_client_delete")
     assignments = re.findall(r"objects_client_host_deleting\s*=\s*(\w+);", source)
     assert assignments.count("host_delete") == 1
     assert "objects_client_host_deleting = host_delete;" in scope

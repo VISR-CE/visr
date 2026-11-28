@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 import subprocess
 from unittest import SkipTest
-from test_mp_synthetic_roster import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "port/linux/game/network_test.c").read_text()
@@ -111,8 +111,8 @@ def test_complete_per_actor_records_do_not_truncate(tmp_path):
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         raise SkipTest("A C compiler is required for player telemetry")
-    source = HARNESS.replace("__APPEND__", function(SOURCE, "static void network_test_append("))
-    source = source.replace("__LOG__", function(SOURCE, "static void network_test_log_players("))
+    source = HARNESS.replace("__APPEND__", probe_source.function_in(SOURCE, "network_test_append"))
+    source = source.replace("__LOG__", probe_source.function_in(SOURCE, "network_test_log_players"))
     path, binary = tmp_path / "log.c", tmp_path / "log"
     path.write_text(source)
     subprocess.run([compiler,"-O2","-fsanitize=address,undefined",str(path),"-lm","-o",str(binary)],check=True)

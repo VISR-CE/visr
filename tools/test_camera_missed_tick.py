@@ -6,7 +6,7 @@ import tempfile
 
 import pytest
 
-from test_checkpoint_timing import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -81,7 +81,7 @@ def test_camera_previous_is_one_tick_old():
     source = (ROOT / "port/linux/game/render_interpolation.c").read_text()
     names = ["lerp", "point_lerp", "vector_length", "vector_nlerp",
              "distance_squared", "vector_turn_about_up", "camera_previous_one_tick_back"]
-    program = PROGRAM.replace("/* FUNCTIONS */", "\n".join(function(source, n) for n in names))
+    program = PROGRAM.replace("/* FUNCTIONS */", "\n".join(probe_source.function_in(source, n) for n in names))
     with tempfile.TemporaryDirectory() as directory:
         c = Path(directory) / "camera.c"
         binary = Path(directory) / "camera"

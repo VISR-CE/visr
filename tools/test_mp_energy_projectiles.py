@@ -6,7 +6,7 @@ from unittest import SkipTest
 
 import pytest
 
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "source/items/weapons.c").read_text()
@@ -69,9 +69,9 @@ def test_successful_owned_battery_projectiles_exclude_misfires_and_failed_creati
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         raise SkipTest("A C compiler is required for the energy projectile probe")
-    created = function(SOURCE, "if (projectile_object_index!=NONE)")
-    fire = function(SOURCE, "static void weapon_trigger_fire(\n\tlong weapon_index,\n\tshort trigger_index)\n{")
-    misfire = function(fire, "if (!misfired)")
+    created = probe_source.block_in(SOURCE, "if (projectile_object_index!=NONE)")
+    fire = probe_source.function_in(SOURCE, "weapon_trigger_fire")
+    misfire = probe_source.block_in(fire, "if (!misfired)")
     path, binary = tmp_path / "energy.c", tmp_path / "energy"
     path.write_text(HARNESS.replace("__CREATED__", created).replace("__MISFIRE__", misfire))
     flags = ["-D__STRICT_ANSI__"] if strict_math else []

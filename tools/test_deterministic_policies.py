@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from test_death_timing import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,11 +58,7 @@ def policy_probe(tmp_path_factory):
     source = build / "probe.c"
     # Compile the actual functions, as in test_death_timing; no policy logic
     # is copied into the test. Config and the fixed-timestep clock are inputs.
-    source.write_text(PRELUDE + "\n" + function(
-        (ROOT / "port/runtime/guest/runtime/guest_bink.c").read_text(), "movies_enabled"
-    ) + "\n" + function(
-        (ROOT / "port/linux/src/d3d8_device.c").read_text(), "async_shader_flags"
-    ) + r'''
+    source.write_text(PRELUDE + "\n" + probe_source.function_in((ROOT / "port/runtime/guest/runtime/guest_bink.c").read_text(), "movies_enabled") + "\n" + probe_source.function_in((ROOT / "port/linux/src/d3d8_device.c").read_text(), "async_shader_flags") + r'''
 int main(int argc, char **argv)
 {
     assert(argc == 4);

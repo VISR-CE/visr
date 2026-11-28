@@ -32,9 +32,9 @@ STEPS = (
 
 def static_function_bodies(source):
     """Each top-level static function's name and body."""
-    for name, start, _, _ in probe_source.definitions(source):
+    for name, start, brace, end in probe_source.definitions(source):
         if source.startswith("static ", start):
-            yield name, probe_source.body_in(source, name)
+            yield name, source[brace + 1:end - 1].strip("\n")
 
 
 class PresentPathsTests(unittest.TestCase):

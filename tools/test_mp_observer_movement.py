@@ -11,18 +11,6 @@ sys.path.insert(0, str(ROOT / "tools"))
 from probekit import source as probe_source  # noqa: E402
 
 
-def block(source, marker):
-    """the brace block that opens at `marker` (an anonymous block inside a function, which has no name to find it by)"""
-    start = source.index(marker)
-    opening = source.index("{", start)
-    depth = 0
-    for position in range(opening, len(source)):
-        depth += (source[position] == "{") - (source[position] == "}")
-        if depth == 0:
-            return source[start:position + 1]
-    raise ValueError(marker)
-
-
 def test_observer_movement_survives_actual_consumers(tmp_path):
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
@@ -31,9 +19,6 @@ def test_observer_movement_survives_actual_consumers(tmp_path):
     abstraction = (ROOT / "source/input/input_abstraction.c").read_text()
     control = (ROOT / "source/game/player_control.c").read_text()
     bipeds = (ROOT / "source/units/bipeds.c").read_text()
-    dead_range = xbox.index("GAMEPAD_STICK_DEAD_RANGE")
-    dead_enum_start = xbox.rfind("enum", 0, dead_range)
-    dead_enum_end = xbox.index("};", dead_range) + 2
     layout_start = abstraction.index("case _joystick_controls_default:", abstraction.index("void input_abstraction_update("))
     layout_end = abstraction.index("case _joystick_controls_southpaw:", layout_start)
     source = r'''
@@ -129,14 +114,14 @@ int main(void) {
 }
 '''
     replacements = {
-        "__DEAD_RANGE__": xbox[dead_enum_start:dead_enum_end],
+        "__DEAD_RANGE__": probe_source.enumeration_in(xbox, "GAMEPAD_STICK_DEAD_RANGE"),
         "__XINPUT__": probe_source.function("port/linux/src/xinput_sdl.c", "mp_benchmark_probe_gamepad"),
         "__DEAD_ZONE__": probe_source.function("source/input/input_xbox.c", "fix_dead_zone"),
         "__NORMALIZATION__": re.search(r"static real const gamepad_axis_normalization_scale = [^;]+;", abstraction)[0],
         "__MAGNITUDE__": probe_source.inline("source/math/real_math.h", "magnitude_squared3d"),
-        "__LEFT_STICK__": block(abstraction, "{\n\t\t\t\treal scale;"),
+        "__LEFT_STICK__": probe_source.block_in(abstraction, "{\n\t\t\t\treal scale;\n\n\t\t\t\tleft_angle"),
         "__LAYOUT__": abstraction[layout_start:layout_end],
-        "__RIGHT_STICK__": block(abstraction[abstraction.rfind("{", 0, abstraction.index("right_angle =")):], "{"),
+        "__RIGHT_STICK__": probe_source.block_in(abstraction, "{\n\t\t\t\treal scale;\n\n\t\t\t\tright_angle"),
         "__THROTTLE__": re.search(r"input->throttle.i = input_state->forward_movement;\s+input->throttle.j = input_state->strafe;", control)[0].replace("input_state", "state"),
         "__BIPED_GATE__": re.search(r"if \(magnitude_squared3d\(&biped->unit.throttle\)<0.1f\*0.1f\)\s+biped->unit.throttle = \*global_zero_vector3d;", bipeds)[0],
     }

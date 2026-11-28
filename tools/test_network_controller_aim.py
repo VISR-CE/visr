@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from unittest import SkipTest
 
-from test_mp_synthetic_input import function
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -92,7 +92,7 @@ static const struct halo_spatial_sample *halo_controller_game_sample(void){retur
 
 def test_production_gate_opens_network_on_foot_only(tmp_path):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
-    run_probe(tmp_path, "gate", GLUE + function(glue, "static int gate_target(") + r'''
+    run_probe(tmp_path, "gate", GLUE + probe_source.function_in(glue, "gate_target") + r'''
 int main(void){
  const char *reason;unit.object.parent_object_index=NONE;
  for(connection=0;connection<=2;connection++){
@@ -112,9 +112,9 @@ int main(void){
 
 def test_production_action_preserves_local_pad_and_zeros_network_pad(tmp_path):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
-    run_probe(tmp_path, "action", GLUE + SAMPLE + function(glue, "static int hand_tracked_this_session(") + function(glue, "static int network_controller_aim(") +
-              function(glue, "static int gate_target(") +
-              function(glue, "int halo_controller_action_aim(") + r'''
+    run_probe(tmp_path, "action", GLUE + SAMPLE + probe_source.function_in(glue, "hand_tracked_this_session") + probe_source.function_in(glue, "network_controller_aim") +
+              probe_source.function_in(glue, "gate_target") +
+              probe_source.function_in(glue, "halo_controller_action_aim") + r'''
 int main(void){
  float yaw,pitch;short pad;unit.object.parent_object_index=NONE;
  for(connection=0;connection<=2;connection++){
@@ -142,9 +142,9 @@ int main(void){
 
 def test_production_network_without_tracked_hand_aims_with_head_and_stick(tmp_path):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
-    run_probe(tmp_path, "no-hand", GLUE + SAMPLE + function(glue, "static int hand_tracked_this_session(") +
-              function(glue, "static int network_controller_aim(") + function(glue, "static int gate_target(") +
-              function(glue, "int halo_controller_action_aim(") + r'''
+    run_probe(tmp_path, "no-hand", GLUE + SAMPLE + probe_source.function_in(glue, "hand_tracked_this_session") +
+              probe_source.function_in(glue, "network_controller_aim") + probe_source.function_in(glue, "gate_target") +
+              probe_source.function_in(glue, "halo_controller_action_aim") + r'''
 int main(void){
  float yaw,pitch;short pad;unit.object.parent_object_index=NONE;
  unit.unit.aiming_vector=(real_vector3d){1,0,0};
@@ -170,10 +170,10 @@ int main(void){
 
 def test_production_network_throttle_follows_the_head_not_the_gun(tmp_path):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
-    run_probe(tmp_path, "throttle", GLUE + SAMPLE + function(glue, "static int hand_tracked_this_session(") +
-              function(glue, "static int network_controller_aim(") + function(glue, "static int gate_target(") +
-              function(glue, "int halo_controller_action_aim(") +
-              function(glue, "void halo_controller_network_throttle(") + r'''
+    run_probe(tmp_path, "throttle", GLUE + SAMPLE + probe_source.function_in(glue, "hand_tracked_this_session") +
+              probe_source.function_in(glue, "network_controller_aim") + probe_source.function_in(glue, "gate_target") +
+              probe_source.function_in(glue, "halo_controller_action_aim") +
+              probe_source.function_in(glue, "halo_controller_network_throttle") + r'''
 int main(void){
  float yaw,pitch,i,j;short pad;unit.object.parent_object_index=NONE;
  /* (the look is a quarter turn left of the hand's aim: pad's delta is +pi/2) */
@@ -207,11 +207,11 @@ def test_production_network_targeting_uses_simulated_aim(tmp_path):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
     # The local hand ray is intentionally different from the rate-limited unit.
     glue_test = (GLUE + SAMPLE).replace("float network_move_delta;int network_head_aim;} aim", "float network_move_delta,ray_direction[3];int network_head_aim;} aim")
-    eligible = function(glue, "static int network_gameplay_aim_eligible(") if \
+    eligible = probe_source.function_in(glue, "network_gameplay_aim_eligible") if \
         "static int network_gameplay_aim_eligible(" in glue else ""
-    run_probe(tmp_path, "ray", glue_test + function(glue, "static int gate_target(") +
-              function(glue, "static int hand_tracked_this_session(") + function(glue, "static int network_controller_aim(") + eligible +
-              function(glue, "int halo_controller_aim_ray(") + r'''
+    run_probe(tmp_path, "ray", glue_test + probe_source.function_in(glue, "gate_target") +
+              probe_source.function_in(glue, "hand_tracked_this_session") + probe_source.function_in(glue, "network_controller_aim") + eligible +
+              probe_source.function_in(glue, "halo_controller_aim_ray") + r'''
 int main(void){
  float origin[3],direction[3];aim.hand_aiming=1;aim.ray_direction[1]=1;
  unit.unit.aiming_vector=(real_vector3d){1,0,0};unit.object.parent_object_index=NONE;
@@ -252,7 +252,7 @@ static void late_look(struct observer_result *c){(void)c;}
 static float halo_stereo_head_yaw_taken(void){return 0;}
 static void camera_noted(float yaw,const char *source,int held){(void)yaw;(void)source;(void)held;}
 static int halo_controller_network_head_camera(short local){return local==0&&connection&&aim_controller&&head_drives;}
-''' + function(camera, "static struct observer_result const *render_interpolation_direct_camera(\n\tshort local_player_index,\n\tstruct observer_result const *observer)\n{") + r'''
+''' + probe_source.function_in(camera, "render_interpolation_direct_camera") + r'''
 int main(void){
  struct observer_result observer={{0,1,0},{0,0,1}};unit.object.parent_object_index=NONE;
  for(connection=1;connection<=2;connection++){
@@ -278,8 +278,8 @@ int main(void){
 
 def test_production_head_camera_session_outlives_tracking_and_gate(tmp_path):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
-    run_probe(tmp_path, "camera-session", GLUE + SAMPLE + function(glue, "static int hand_tracked_this_session(") + function(glue, "static int network_controller_aim(") +
-              function(glue, "int halo_controller_network_head_camera(") + r'''
+    run_probe(tmp_path, "camera-session", GLUE + SAMPLE + probe_source.function_in(glue, "hand_tracked_this_session") + probe_source.function_in(glue, "network_controller_aim") +
+              probe_source.function_in(glue, "halo_controller_network_head_camera") + r'''
 int main(void){
  for(connection=0;connection<=2;connection++){
   for(int frame_number=0;frame_number<60;frame_number++){
@@ -296,7 +296,7 @@ int main(void){
 
 def test_production_drawing_uses_own_unit_aim_and_excludes_borrowed_seats(tmp_path):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
-    eligible = function(glue, "static int network_gameplay_aim_eligible(") if \
+    eligible = probe_source.function_in(glue, "network_gameplay_aim_eligible") if \
         "static int network_gameplay_aim_eligible(" in glue else ""
     run_probe(tmp_path, "draw", GLUE + r'''
 #define HALO_SPATIAL_READY 1
@@ -331,7 +331,7 @@ static long object_get_ultimate_parent(long index){return index;}
 static int ray_hit(const float start[3],const float delta[3],long ignore,float hit[3]){
  (void)ignore;for(int i=0;i<3;i++)hit[i]=start[i]+delta[i]*.1f;return 1;
 }
-''' + function(glue, "struct hand_sightline\n") + ";\n" + r'''
+''' + probe_source.structure_in(glue, "hand_sightline") + "\n" + r'''
 static int hand_sightline(long index,const struct halo_spatial_hand *h,struct hand_memory *m,
  struct controller_near *n,struct controller_range *r,struct controller_zoom_filter *z,float body,
  const float head[3],const float eye[3],float dt,float steady,struct hand_sightline *out){
@@ -340,8 +340,8 @@ static int hand_sightline(long index,const struct halo_spatial_hand *h,struct ha
  if(!pose_known)return 0;memset(out,0,sizeof(*out));out->direction[1]=1;out->forward[1]=1;
  out->up[2]=1;out->aim_distance=out->surface_distance=100;return 1;
 }
-''' + function(glue, "static int gate_target(") + function(glue, "static int hand_tracked_this_session(") + function(glue, "static int network_controller_aim(") + eligible +
-              function(glue, "static int draw_sightline(") + r'''
+''' + probe_source.function_in(glue, "gate_target") + probe_source.function_in(glue, "hand_tracked_this_session") + probe_source.function_in(glue, "network_controller_aim") + eligible +
+              probe_source.function_in(glue, "draw_sightline") + r'''
 int main(void){
  const float camera[3]={3,4,5};aim.hand_aiming=1;drawing.body.known=1;
  unit.unit.aiming_vector=(real_vector3d){.6f,0,.8f};
@@ -372,7 +372,7 @@ int main(void){
 
 def test_network_zoom_reticle_shows_own_passenger_and_excludes_vehicle_owned_aim(tmp_path):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
-    eligible = function(glue, "static int network_gameplay_aim_eligible(")
+    eligible = probe_source.function_in(glue, "network_gameplay_aim_eligible")
     run_probe(tmp_path, "zoom-ownership", GLUE + SAMPLE + r'''
 static struct {int active;float sightline[3];} draw;
 static struct {long active_frame;} drawing;
@@ -389,9 +389,9 @@ static int controller_zoom_project_clamped(const float ray[3],const float forwar
  (void)ray;(void)forward;(void)up;(void)tangents;(void)magnification;(void)shown;
  project_calls++;return 1;
 }
-''' + function(glue, "static int gate_target(") +
-              function(glue, "static int hand_tracked_this_session(") + function(glue, "static int network_controller_aim(") + eligible +
-              function(glue, "int halo_controller_zoom_reticle(") + r'''
+''' + probe_source.function_in(glue, "gate_target") +
+              probe_source.function_in(glue, "hand_tracked_this_session") + probe_source.function_in(glue, "network_controller_aim") + eligible +
+              probe_source.function_in(glue, "halo_controller_zoom_reticle") + r'''
 int main(void){
  float shown[3];connection=1;draw.active=zoom_view.known=1;
  render.frame_index=drawing.active_frame=zoom_view.frame=7;
@@ -412,7 +412,7 @@ def network_aim_probe(tmp_path, name, main):
     glue = (ROOT / "port/linux/game/controller_aim_game.c").read_text()
     ease = (ROOT / "port/linux/game/controller_aim.c").read_text()
     header = (ROOT / "port/linux/game/controller_aim.h").read_text()
-    action = function(glue, "static int action_aim(")
+    action = probe_source.function_in(glue, "action_aim")
     start = action.index("blend = aim.body.known ?")
     end = action.index("/* the facing and the look turn back", start)
     seconds = next(line for line in header.splitlines() if line.startswith("#define CONTROLLER_LOSS_GRACE_DEFAULT"))
@@ -428,7 +428,7 @@ static int network_controller_aim(void){return network;}
 static float yaw_in_range(float yaw){return yaw;}
 static float controller_yaw_blend(float from,float to,float blend){return from+blend*(to-from);}
 static void tilted_look(float ly,float lp,float *y,float *p){*y=ly;*p=lp;}
-''' + function(ease, "static float smoothstep(") + function(ease, "float controller_gate_ease(") + r'''
+''' + probe_source.function_in(ease, "smoothstep") + probe_source.function_in(ease, "controller_gate_ease") + r'''
 static void consume(float look_yaw,float look_pitch,float tracking,float gate,float time_delta,float *yaw,float *pitch){
  struct {float blend;} track={tracking};float blend,stick_yaw=look_yaw,stick_pitch=look_pitch;
  float hand_yaw=.75f,hand_pitch=-.2f;
@@ -537,9 +537,9 @@ static float angle_between_vectors3d(const real_vector3d *a,const real_vector3d 
 static int director_inhibited_input(short local){(void)local;return inhibited;}
 static int director_inhibited_facing(short local){(void)local;return inhibited;}
 static int player_control_camera_control_is_active(void){return active;}
-''' + function(control, "static real player_control_yaw_in_seat_arc(\n\treal yaw,\n\treal marker_yaw,\n\treal seat_yaw_minimum,\n\treal seat_yaw_maximum)\n{") +
-              function(control, "real player_control_seat_yaw_clamped(\n\tshort local_player_index,\n\treal yaw)\n{") +
-              function(control, "void player_control_network_seat_facing(") + r'''
+''' + probe_source.function_in(control, "player_control_yaw_in_seat_arc") +
+              probe_source.function_in(control, "player_control_seat_yaw_clamped") +
+              probe_source.function_in(control, "player_control_network_seat_facing") + r'''
 int main(void){
  float yaw,pitch;network_seat_stick_delta[0]=(real_euler_angles2d){.1f,.05f};
  player_control_network_seat_facing(0,&yaw,&pitch);assert(fabsf(yaw-.6f)<.00001f&&pitch==.05f);
@@ -562,12 +562,12 @@ int main(void){
 
 def test_production_seat_input_is_saved_before_hmd_and_excludes_magnetism(tmp_path):
     control = (ROOT / "source/game/player_control.c").read_text()
-    reader = function(control, "static void get_local_player_input_blob(\n\tshort local_player_index,\n\treal time_delta_sec,\n\tstruct input_blob *input)\n{")
+    reader = probe_source.function_in(control, "get_local_player_input_blob")
     stick_start = reader.index("if (replay_head_look)")
     stick_end = reader.index("if (player_control_camera_control_is_active())", stick_start)
     saved_start = reader.index("network_seat_stick_delta[local_player_index] = input->facing_delta;")
     saved_end = reader.index("\n\t\t\t\t}\n\t\t\t\telse", saved_start)
-    magnetism = function(reader, "if (halo_controller_hand_aiming(local_player_index)")
+    magnetism = probe_source.block_in(reader, "if (halo_controller_hand_aiming(local_player_index)")
     run_probe(tmp_path, "seat-input", r'''
 #include <assert.h>
 #define NONE -1

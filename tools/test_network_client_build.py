@@ -4,7 +4,7 @@ import hashlib
 import re
 import subprocess
 
-from test_network_shield_policy import block
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -12,26 +12,21 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_client_build_is_ignored_without_losing_next_frame(tmp_path):
     network = (ROOT / "port/linux/game/network_distributed.c").read_text()
     header = (ROOT / "port/linux/game/network_distributed.h").read_text()
-    wrapper = block(network, "void network_distributed_handle_message(")
-    after_wrapper = network[network.index("void network_distributed_handle_message("):]
-    in_epoch = block(after_wrapper, "static void distributed_handle_message_in_epoch(")
+    wrapper = probe_source.function_in(network, "network_distributed_handle_message")
+    in_epoch = probe_source.function_in(network, "distributed_handle_message_in_epoch")
     # Execute the real validation path; reaching game handlers is a test failure.
     in_epoch = in_epoch[:in_epoch.index("\t/* (the votes to kick")] + "\nassert(!\"unknown kind reached game dispatch\");\n}\n"
     dispatch = ("static void distributed_handle_message_in_epoch(long, word const *, word, unsigned int);\n"
                 + wrapper + "\n" + in_epoch)
-    structures = block(header, "struct distributed_message_header\n{").replace(
-        "long game_time;", "int32_t game_time;") + ";\n"
-    object_sizes = block((ROOT / "port/linux/game/network_objects.c").read_text(),
-                         "word network_objects_entry_size(")
+    structures = probe_source.structure_in(header, "distributed_message_header").replace(
+        "long game_time;", "int32_t game_time;") + "\n"
+    object_sizes = probe_source.function("port/linux/game/network_objects.c", "network_objects_entry_size")
     names = set(re.findall(r"sizeof\(struct (\w+)\)", dispatch + object_sizes)) - {"distributed_message_header"}
     structures += "\n".join(f"struct {name} {{ byte unused; }};" for name in sorted(names))
     functions = set(re.findall(r"\b(network_\w+entry_size|network_damage_entry_size)\(", dispatch))
     stubs = "\n".join(f"static word {name}({'byte type' if name in {'network_damage_entry_size', 'network_objects_entry_size'} else 'void'}) {{ return 0; }}" for name in sorted(functions - {"network_objects_entry_size"}))
-    connection_source = (ROOT / "source/networking/network_connection.c").read_text()
-    reader_marker = "static boolean network_client_reliable_connection_read("
-    reader = block(connection_source[connection_source.rindex(reader_marker):], reader_marker)
-    swap = block((ROOT / "source/bungie_net/common/message_header.c").read_text(),
-                 "void byte_swap_message_header(")
+    reader = probe_source.function("source/networking/network_connection.c", "network_client_reliable_connection_read")
+    swap = probe_source.function("source/bungie_net/common/message_header.c", "byte_swap_message_header")
     # Capture SHA-256 is recorded in FORMATS-39.md. Only public build metadata
     # appears in this frame; it contains neither game data nor addresses.
     frame = bytearray(756)
@@ -91,7 +86,7 @@ enum { MAXIMUM_MESSAGE_SIZE=0xfff };
 static int network_distributed_wire_epoch_size(void) { return 0; }
 static int distributed_strip_epoch(void const *p, word n, void *out, word *out_size, unsigned *epoch) { assert(0); return 0; }
 '''
-    program += block(header, "enum\n{") + ";\n" + structures + stubs + object_sizes + swap + reader + dispatch
+    program += probe_source.enumeration_in(header, "_distributed_message_player_prediction") + "\n" + structures + stubs + object_sizes + swap + reader + dispatch
     program += r'''
 int main(void)
 {

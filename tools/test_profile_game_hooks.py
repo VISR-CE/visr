@@ -10,18 +10,6 @@ sys.path.insert(0, str(ROOT / "tools"))
 from probekit import source as probe_source  # noqa: E402
 
 
-def function(text, signature):
-    """The text from `signature` through its closing brace. Kept only because test_profile_checkpoint_hook and
-    test_saved_game_persist import it (rule 3a's legacy list); new code uses probekit.source."""
-    start = text.index(signature)
-    opening = text.index("{", start)
-    end, depth = opening + 1, 1
-    while depth:
-        depth += (text[end] == "{") - (text[end] == "}")
-        end += 1
-    return text[start:end]
-
-
 def compile_probe(tmp_path, text):
     source = tmp_path / "probe.c"
     source.write_text(text)

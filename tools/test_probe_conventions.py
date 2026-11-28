@@ -191,6 +191,50 @@ def source_findings():
     return extractor, literal
 
 
+def module_level_names(path):
+    """The names a module binds at its top level, under any `if`, `try` or `with` there too."""
+    names = set()
+    for node in ast.parse(path.read_text(encoding='utf-8', errors='replace')).body:
+        for item in ast.walk(node) if isinstance(node, (ast.If, ast.Try, ast.With)) else [node]:
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.add(item.name)
+            elif isinstance(item, (ast.Import, ast.ImportFrom)):
+                names |= {(alias.asname or alias.name).split('.')[0] for alias in item.names}
+            elif isinstance(item, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+                targets = item.targets if isinstance(item, ast.Assign) else [item.target]
+                names |= {name.id for target in targets for name in ast.walk(target) if isinstance(name, ast.Name)}
+    return names
+
+
+def dangling_imports(files):
+    """`file:line module.name` for every `from <a tools/ module> import name` the module does not bind, so rule 3a's
+    import count cannot fall because a helper was deleted while its importers still name it."""
+    modules = {module_name(name): path for name, path in files.items()}
+    found = []
+    for name, path in files.items():
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8', errors='replace'))):
+            if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+                module = node.module.removeprefix('tools.')
+                if module in modules:
+                    bound = module_level_names(modules[module])
+                    found += [f'{name}:{node.lineno} {module}.{alias.name}' for alias in node.names
+                              if alias.name != '*' and alias.name not in bound and f'{module}.{alias.name}' not in modules]
+    return found
+
+
+def test_every_import_from_a_tools_module_names_something_it_defines():
+    files = {path.relative_to(TOOLS).as_posix(): path for path in sorted(TOOLS.rglob('*.py'))
+             if '__pycache__' not in path.parts}
+    assert not dangling_imports(files)
+
+
+def test_negative_control_a_deleted_helper_is_a_dangling_import(tmp_path):
+    (tmp_path / 'owner.py').write_text('import re\nKEPT = 1\ndef kept():\n    pass\n')
+    (tmp_path / 'user.py').write_text('from owner import kept, KEPT, re, gone\nfrom pathlib import nothing\n')
+    files = {'owner.py': tmp_path / 'owner.py', 'user.py': tmp_path / 'user.py'}
+    assert dangling_imports(files) == ['user.py:1 owner.gone']
+
+
 def exempt_problems(entries, recorded, violating):
     """What is wrong with source_exempt.txt: `entries` its file -> reason, `recorded` its BASELINE.json list,
     `violating` the files that break rule 3a or 3b now."""
