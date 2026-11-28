@@ -28,26 +28,39 @@ static int test_slow_pair; /* the pair's call takes 100 us, as when the completi
 @end
 @interface TestCommands : NSObject
 @property CFTimeInterval GPUStartTime, GPUEndTime;
+@property int errored;
 @end
 @implementation TestCommands
-- (MTLCommandBufferStatus)status { return MTLCommandBufferStatusCompleted; }
+- (MTLCommandBufferStatus)status { return self.errored ? MTLCommandBufferStatusError : MTLCommandBufferStatusCompleted; }
 @end
-/* One draw-boundary interval through host_perf_metal_complete: its start and end ticks, and its command buffer's span
- * relative to the host time just before the call. */
-static typeof(grouped[0]) *complete_one(TestSampleBuffer *samples, uint64_t start_tick, uint64_t end_tick,
-    double buffer_from, double buffer_to, double *before, double *after) {
+/* One interval through host_perf_metal_complete: its four samples (draw boundary uses the first two), whether its
+ * command buffer errored, and the buffer's span relative to the host time just before the call (no span when both
+ * are 0). Returns the slot it used through *slot when asked. */
+static typeof(grouped[0]) *complete_ticks(TestSampleBuffer *samples, const uint64_t tick[4], int errored,
+    double buffer_from, double buffer_to, double *before, double *after, unsigned *slot) {
     test_frame++;
     TestCommands *commands = [TestCommands new];
+    commands.errored = errored;
     uint32_t token = host_perf_metal_prepare((id)commands, nil, 0, HOST_PERF_SCENE);
     assert(token);
     buffers[(token - 1) / INTERVAL_COUNT].buffer = (id)samples;
-    MTLCounterResultTimestamp ticks[4] = { { start_tick }, { end_tick }, { 0 }, { 0 } };
+    if (slot) *slot = (token - 1) / INTERVAL_COUNT;
+    MTLCounterResultTimestamp ticks[4] = { { tick[0] }, { tick[1] }, { tick[2] }, { tick[3] } };
     samples.data = [NSData dataWithBytes:ticks length:sizeof(ticks)];
     *before = mach_seconds(mach_absolute_time());
-    commands.GPUStartTime = *before + buffer_from; commands.GPUEndTime = *before + buffer_to;
+    if (buffer_from || buffer_to) { commands.GPUStartTime = *before + buffer_from; commands.GPUEndTime = *before + buffer_to; }
     host_perf_metal_complete((id)commands);
     *after = mach_seconds(mach_absolute_time());
     return &grouped[test_frame % FRAME_COUNT];
+}
+static typeof(grouped[0]) *complete_one(TestSampleBuffer *samples, uint64_t start_tick, uint64_t end_tick,
+    double buffer_from, double buffer_to, double *before, double *after) {
+    return complete_ticks(samples, (const uint64_t[4]){ start_tick, end_tick, 0, 0 }, 0, buffer_from, buffer_to,
+        before, after, NULL);
+}
+/* every slot's samples count as fresh again (as before any completion) */
+static void forget_completions(void) {
+    for (unsigned slot = 0; slot < BUFFER_COUNT; ++slot) buffers[slot].fresh_after = 0;
 }
 int main(void) {
     @autoreleasepool {
@@ -238,17 +251,23 @@ int main(void) {
         assert(converted->ranges[0].start >= before - 1.5e-3 - 1e-9 && converted->ranges[0].start <= after - 1.5e-3 + 1e-9);
         assert(converted->ranges[0].end >= before - 0.5e-3 - 1e-9 && converted->ranges[0].end <= after - 0.5e-3 + 1e-9);
         assert(containment.checked == 1 && containment.outside == 0);
-        /* a tick after the pair lands after its host time, so 0.1 ms past the pair; past its buffer's span (which ends
-         * 1 ms before the call) it counts as outside and is clipped to the buffer */
-        clock_pair.kept = 0;
-        converted = complete_one(samples, test_gpu - 12000, test_gpu + 2400, -0.002, -0.001, &before, &after);
+        /* a range ending 0.1 ms before the pair, past its buffer's span (which ends 1 ms before the call), counts as
+         * outside and is clipped to the buffer */
+        clock_pair.kept = 0; forget_completions();
+        converted = complete_one(samples, test_gpu - 12000, test_gpu - 2400, -0.002, -0.001, &before, &after);
         assert(converted->count == 1);
-        assert(containment.checked == 2 && containment.outside == 1 && containment.worst >= 1.1e-3 - 1e-6);
+        assert(containment.checked == 2 && containment.outside == 1 && containment.worst >= 0.9e-3 - 1e-6);
         assert(fabs(converted->ranges[0].end - (before - 0.001)) < 1e-9);
         assert(converted->ranges[0].start >= before - 0.5e-3 - 1e-9 - 0.001 && converted->ranges[0].start <= converted->ranges[0].end);
-        /* A stale start sample, 2 s before the buffer (2 s = 48,000,000 ticks): the range is clipped to the buffer's
-         * 3 ms span, so the frame's S is at most that, never seconds. */
-        clock_pair.kept = 0;
+        /* a tick after the pair cannot belong to this buffer (its work finished before the pair was taken): no range */
+        clock_pair.kept = 0; forget_completions();
+        unsigned long stale = stale_samples;
+        converted = complete_one(samples, test_gpu - 12000, test_gpu + 2400, -0.002, -0.001, &before, &after);
+        assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale + 1);
+        /* A start sample 2 s before the buffer (2 s = 48,000,000 ticks) that the freshness test cannot catch (no
+         * earlier completion of its slot): the range is clipped to the buffer's 3 ms span, so the frame's S is at
+         * most that, never seconds. */
+        clock_pair.kept = 0; forget_completions();
         test_gpu = 1000 + 300000000; test_cpu = 1000 + 12500000000; /* (the same rate, far enough from the reference) */
         converted = complete_one(samples, test_gpu - 48000000, test_gpu - 12000, -0.003, 0.001, &before, &after);
         assert(converted->count == 1 && containment.outside == 2 && containment.worst >= 1.99);
@@ -261,6 +280,7 @@ int main(void) {
         /* A preempted pair (a 100 us bracket) is not adopted while a tighter one that agrees with it is kept, and the
          * frame keeps its reading: its ranges convert through the kept pair. */
         clock_pair = (typeof(clock_pair)){ 1, test_gpu, mach_seconds(mach_absolute_time()), 0.0 };
+        forget_completions();
         double kept_host = clock_pair.host;
         unsigned long wide = clock_stats.wide, steps = clock_stats.steps;
         test_slow_pair = 1;
@@ -276,8 +296,40 @@ int main(void) {
         converted = complete_one(samples, test_gpu - 36000, test_gpu - 12000, -0.1, 0.1, &before, &after);
         assert(clock_stats.steps == steps + 1 && clock_pair.gpu == test_gpu && converted->count == 1);
         assert(converted->ranges[0].start >= before - 1.5e-3 - 1e-9 && converted->ranges[0].start <= after - 1.5e-3 + 1e-9);
-        /* no rate yet (the pair is the reference): no range, and the frame has no reading */
+        /* Stage boundary, every slot last completed at G1 (10 ms before this pair): a pass that wrote only its fragment
+         * samples leaves the vertex pair from the slot's last use, which is dropped; the interval keeps the fragment
+         * pair, so its range starts 239,000 ticks (9.958 ms) before the pair. */
+        mode = 2;
+        MTLTimestamp g1 = test_gpu;
+        test_gpu += 240000; test_cpu += 10000000;
         clock_pair.kept = 0;
+        for (unsigned slot = 0; slot < BUFFER_COUNT; ++slot) buffers[slot].fresh_after = g1;
+        stale = stale_samples;
+        converted = complete_ticks(samples, (const uint64_t[4]){ g1 - 1000, g1 - 500, g1 + 1000, test_gpu - 12000 }, 0,
+            -0.02, 0.001, &before, &after, NULL);
+        assert(converted->count == 1 && !converted->invalid && stale_samples == stale + 1);
+        assert(converted->ranges[0].start >= before - 239000 * 125e-9 / 3 - 1e-9);
+        assert(converted->ranges[0].start <= after - 239000 * 125e-9 / 3 + 1e-9);
+        /* all four samples from the slot's last use: no range, with or without the buffer's span to clip against */
+        for (int spanned = 1; spanned >= 0; --spanned) {
+            clock_pair.kept = 0;
+            for (unsigned slot = 0; slot < BUFFER_COUNT; ++slot) buffers[slot].fresh_after = g1;
+            stale = stale_samples;
+            converted = complete_ticks(samples, (const uint64_t[4]){ g1 - 4000, g1 - 3000, g1 - 2000, g1 - 1000 }, 0,
+                spanned ? -0.02 : 0.0, spanned ? 0.001 : 0.0, &before, &after, NULL);
+            assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)) && stale_samples == stale + 2);
+        }
+        /* an errored buffer still marks its slot: samples from before its completion are stale at the next use */
+        {
+            unsigned slot;
+            test_gpu += 24000; test_cpu += 1000000;
+            clock_pair.kept = 0;
+            complete_ticks(samples, (const uint64_t[4]){ 0, 0, 0, 0 }, 1, -0.002, 0.001, &before, &after, &slot);
+            assert(buffers[slot].fresh_after == test_gpu);
+        }
+        mode = 1;
+        /* no rate yet (the pair is the reference): no range, and the frame has no reading */
+        clock_pair.kept = 0; forget_completions();
         test_cpu = reference_cpu; test_gpu = reference_gpu;
         converted = complete_one(samples, 500, 900, -0.002, 0.001, &before, &after);
         assert(converted->count == 0 && (converted->invalid & (1u << HOST_PERF_SCENE)));

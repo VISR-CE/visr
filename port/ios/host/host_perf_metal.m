@@ -32,6 +32,10 @@ static struct {
     uint64_t frame;
     unsigned count;
     unsigned char categories[INTERVAL_COUNT], groups[INTERVAL_COUNT];
+    /* the clock pair's GPU tick at this buffer's last completion: a sample at or before it was written for an
+     * earlier command buffer (a pass that does not write a stage's samples leaves the last use's values, and
+     * Metal has no way to reset a counter sample buffer), so it is stale */
+    MTLTimestamp fresh_after;
 } buffers[BUFFER_COUNT];
 static _Atomic uint64_t sums[FRAME_COUNT][CATEGORY_COUNT], dropped;
 #define GROUP_INTERVALS 256
@@ -289,6 +293,8 @@ static struct { double since, widest; unsigned long frames, readings, pairs, wid
  * GPU time its own command buffer did not take. */
 #define CONTAINMENT_SLACK 50e-6
 static struct { unsigned long checked, outside; double worst; } containment;
+/* stage-sample pairs left from an earlier use of their slot, dropped (logged with the readings) */
+static _Atomic unsigned long stale_samples;
 static int compare_doubles(const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return x < y ? -1 : x > y; }
 /* every 600 frames with both: how far the command-buffer union is from stage timing, all frames and late ones */
 static void timing_check(double stage_scene, double stage_rest, double buffer_scene, double buffer_rest, int late) {
@@ -390,17 +396,31 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
             double buffer_start = commands.GPUStartTime, buffer_end = commands.GPUEndTime;
             int bounded = commands.status == MTLCommandBufferStatusCompleted && buffer_start > 0.0 && buffer_end >= buffer_start;
             const MTLCounterResultTimestamp *samples = data.bytes;
+            MTLTimestamp fresh_after = buffers[slot].fresh_after;
             for (unsigned i = 0; i < buffers[slot].count; ++i) {
                 uint64_t start = UINT64_MAX, end = 0;
-                int valid = scale > 0.0 && data.length >= (i + 1) * 4 * sizeof(*samples);
-                unsigned count = mode == 2 ? 4 : 2;
-                for (unsigned j = 0; valid && j < count; ++j) {
-                    uint64_t time = samples[i * 4 + j].timestamp;
-                    if (!time || time == MTLCounterErrorValue ||
-                        ((j & 1) && time < samples[i * 4 + j - 1].timestamp)) { valid = 0; break; }
-                    if (!(j & 1) && time < start) start = time;
-                    if ((j & 1) && time > end) end = time;
+                int valid = scale > 0.0 && data.length >= (i + 1) * 4 * sizeof(*samples), kept = 0;
+                /* each start-end pair (draw boundary: one; stage boundary: vertex, then fragment) counts only when
+                 * both samples were written for this command buffer: after the last completion's pair, not after
+                 * this one's */
+                for (unsigned j = 0; valid && j < (mode == 2 ? 4u : 2u); j += 2) {
+                    uint64_t first = samples[i * 4 + j].timestamp, last = samples[i * 4 + j + 1].timestamp;
+                    int written = first && last && first != MTLCounterErrorValue && last != MTLCounterErrorValue;
+                    int fresh = written && first > fresh_after && last > fresh_after && first <= gpu && last <= gpu;
+                    if (written && !fresh) {
+                        static _Atomic unsigned stale_logged;
+                        atomic_fetch_add(&stale_samples, 1);
+                        if (atomic_fetch_add(&stale_logged, 1) < 8)
+                            fprintf(stderr, "DRS stale counter samples: slot %u interval %u group %u category %u %s pair\n",
+                                slot, i, buffers[slot].groups[i], buffers[slot].categories[i],
+                                mode == 2 ? (j ? "fragment" : "vertex") : "draw");
+                    }
+                    if (!fresh || last < first) continue;
+                    kept = 1;
+                    if (first < start) start = first;
+                    if (last > end) end = last;
                 }
+                valid = valid && kept;
                 double duration = valid && end >= start ? (double)(end - start) * scale : -1.0;
                 valid = isfinite(duration) && duration >= 0 && duration <= VALUE_MASK;
                 add(buffers[slot].frame, buffers[slot].categories[i], valid ? (uint64_t)duration : 0, valid);
@@ -427,6 +447,8 @@ void host_perf_metal_complete(id<MTLCommandBuffer> commands) {
                 }
                 os_unfair_lock_unlock(&group_lock);
             }
+            /* every completion, errored ones too: whatever its samples are, they are no newer than this pair */
+            if (gpu) buffers[slot].fresh_after = gpu;
         }
         atomic_store(&buffers[slot].commands, 0);
         break;
@@ -493,8 +515,9 @@ static void dynamic_join(game_perf_frame *frame) {
     if (!clock_stats.since) clock_stats.since = now;
     else if (now - clock_stats.since >= 60.0) {
         fprintf(stderr, "DRS readings: %lu of %lu frames in the last minute; clock pairs %lu, widest bracket %.1f us, "
-            "%lu over %.0f us, kept pair's %.1f us, clock steps %lu\n", clock_stats.readings, clock_stats.frames, clock_stats.pairs,
-            clock_stats.widest * 1e6, clock_stats.wide, PAIR_WIDE_SECONDS * 1e6, clock_pair.width * 1e6, clock_stats.steps);
+            "%lu over %.0f us, kept pair's %.1f us, clock steps %lu, stale sample pairs %lu\n", clock_stats.readings,
+            clock_stats.frames, clock_stats.pairs, clock_stats.widest * 1e6, clock_stats.wide, PAIR_WIDE_SECONDS * 1e6,
+            clock_pair.width * 1e6, clock_stats.steps, atomic_exchange(&stale_samples, 0));
         memset(&clock_stats, 0, sizeof(clock_stats));
         clock_stats.since = now;
     }
