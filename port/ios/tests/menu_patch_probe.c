@@ -10,7 +10,6 @@ fails the files). */
 
 static int input_pad = 1, input_keyboard = 1;
 int platform_menu_pad(void) { return input_pad; }
-long config_integer(char const *name) { (void)name; return 0; }
 int platform_menu_keyboard(void) { return input_keyboard; }
 
 #include "menu_tags.c"

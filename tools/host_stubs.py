@@ -466,6 +466,131 @@ def port_stub_object(build_dir: Path, compiler, compile_flags=()) -> Path:
     return _port_objects[key]
 
 
+# The menu probes' stand-in headers (port/ios/tests/menu_patch, tools/menu_probe_build.py): each production header the
+# menu sources include, cut down to what they use. Every item is copied from the production header's text (a function's
+# declaration, a struct or union, the enum holding a member, a typedef, a macro), so --check fails once production
+# changes something a stand-in copies. A ('stand-in', why, text) item is a deliberate difference the generator keeps,
+# written out after a /* stand-in: why */ comment.
+CSERIES = 'source/cseries/cseries.h'
+INTEGER_MATH = 'source/math/integer_math.h'
+REAL_MATH = 'source/math/real_math.h'
+TAG_GROUPS = 'source/tag_files/tag_groups.h'
+STAND_IN_DIRECTORY = ROOT / 'port/ios/tests/menu_patch'
+STAND_INS = {
+    'cseries.h': {'of': CSERIES, 'guard': 'CSERIES_H', 'includes': ('stddef.h', 'stdio.h', 'stdlib.h', 'string.h'),
+                  'items': [
+        ('typedef', CSERIES, 'byte'), ('typedef', CSERIES, 'word'), ('typedef', CSERIES, 'real'),
+        ('typedef', CSERIES, 'boolean'),
+        ('stand-in', "the game's enum of limits also names LONG_MAX and CHAR_MAX, which <limits.h> defines",
+         'enum\n{\n\tUNSIGNED_SHORT_MAX = 65535,\n};'),
+        ('define', CSERIES, 'TRUE'), ('define', CSERIES, 'FALSE'), ('define', CSERIES, 'NONE'),
+        ('stand-in', "the game's halt: the probe's host_development_hooks is 0, so it is never reached",
+         '#define match_vhalt(file, line, string) abort()'),
+        ('define', CSERIES, 'CEILING'), ('define', CSERIES, 'PIN'), ('define', CSERIES, 'FLAG'),
+        ('define', CSERIES, 'TEST_FLAG'), ('define', CSERIES, 'SET_FLAG'), ('define', CSERIES, 'NUMBEROF'),
+        ('define', CSERIES, 'DATUM_INDEX_TO_ABSOLUTE_INDEX'),
+        ('union', INTEGER_MATH, 'point2d'), ('typedef', INTEGER_MATH, 'point2d'),
+        ('union', INTEGER_MATH, 'rectangle2d'), ('typedef', INTEGER_MATH, 'rectangle2d'),
+        ('union', REAL_MATH, 'real_rgb_color'), ('typedef', REAL_MATH, 'real_rgb_color'),
+        ('union', REAL_MATH, 'real_argb_color'), ('typedef', REAL_MATH, 'real_argb_color'),
+    ]},
+    'tag_files/tag_groups.h': {'of': TAG_GROUPS, 'guard': 'TAG_GROUPS_H', 'items': [
+        ('struct', TAG_GROUPS, 'tag_block'), ('struct', TAG_GROUPS, 'tag_reference'), ('struct', TAG_GROUPS, 'tag_data'),
+        ('function', TAG_GROUPS, 'tag_loaded'), ('function', TAG_GROUPS, 'tag_get'),
+    ]},
+    'bitmaps/bitmap_group.h': {'of': 'source/bitmaps/bitmap_group.h', 'guard': 'BITMAP_GROUP_H',
+                               'includes': ('tag_files/tag_groups.h',), 'items': [
+        ('enum', 'source/bitmaps/bitmap_group.h', 'BITMAP_GROUP_TAG'),
+        ('struct', 'source/bitmaps/bitmap_group.h', 'bitmap_data'),
+        ('struct', 'source/bitmaps/bitmap_group.h', 'bitmap_group_sequence'),
+        ('struct', 'source/bitmaps/bitmap_group.h', 'bitmap_group'),
+        ('define', 'source/bitmaps/bitmap_group.h', 'bitmap_group_get'),
+    ]},
+    'text/text_group.h': {'of': 'source/text/text_group.h', 'guard': 'TEXT_GROUP_H', 'items': [
+        ('struct', 'source/text/text_group.h', 'string_list'), ('struct', 'source/text/text_group.h', 'string_list_entry'),
+    ]},
+    'rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h': {
+        'of': 'source/rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h', 'items': [
+            ('function', 'source/rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h', 'rasterizer_bitmap_new'),
+            ('function', 'source/rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h', 'rasterizer_bitmap_delete'),
+        ]},
+    'port_config.h': {'of': 'port/linux/src/port_config.h', 'includes': ('stddef.h',), 'items': [
+        ('function', 'port/linux/src/port_config.h', 'config_string'),
+        ('function', 'port/linux/src/port_config.h', 'config_integer'),
+        ('function', 'port/linux/src/port_config.h', 'config_folder'),
+    ]},
+    'platform.h': {'of': 'port/linux/src/platform.h', 'items': [('function', 'port/linux/src/platform.h', 'platform_log')]},
+    'gpu.h': {'of': 'port/linux/src/gpu.h', 'includes': ('stdint.h',), 'items': [
+        ('typedef', 'port/linux/src/gpu.h', 'gpu_texture'), ('function', 'port/linux/src/gpu.h', 'gpu_texture_destroy'),
+    ]},
+    'xgpu.h': {'of': 'port/linux/src/xgpu.h', 'items': []},
+    'hud_hires.h': {'of': 'port/linux/src/hud_hires.h', 'items': [
+        ('function', 'port/linux/src/hud_hires.h', 'hud_hires_png_texture'),
+        ('function', 'port/linux/src/hud_hires.h', 'hud_hires_png_pixels'),
+    ]},
+}
+
+
+def function_declaration(path: str, name: str, root: Path = ROOT) -> str:
+    """A function's declaration in a header, as one line."""
+    text = strip_comments((root / path).read_text(encoding='latin-1'))
+    found = [' '.join(statement.split()) for _, statement in statements(text)
+             if (parsed := declaration(statement)) and parsed[0] == name]
+    if not found:
+        raise LookupError(f'`{name}` is not declared in {path}: it may have been renamed')
+    return found[0]
+
+
+def stand_in_item(item, root: Path = ROOT) -> str:
+    kind = item[0]
+    if kind == 'stand-in':
+        return f'/* stand-in: {item[1]} */\n{item[2]}'
+    _, path, name = item
+    if kind == 'function':
+        return function_declaration(path, name, root)
+    text = (root / path).read_text(encoding='latin-1')
+    if kind in ('struct', 'union'):
+        return probe_source.structure_in(text, name, path, kind=kind)
+    if kind == 'enum':
+        return probe_source.enumeration_in(text, name, path)
+    if kind == 'typedef':
+        return probe_source.typedef_in(text, name, path)
+    if kind == 'define':
+        return probe_source.macro_in(text, name, path)
+    raise ValueError(f'unknown stand-in item kind {kind!r}')
+
+
+def render_stand_in(name: str, spec, root: Path = ROOT) -> str:
+    users = 'menu_tags.c and menu_files.c'
+    out = [f"/* GENERATED by tools/host_stubs.py --write from {spec['of']}: the parts {users} use (STAND_INS). */"]
+    if spec.get('guard'):
+        out += [f"#ifndef {spec['guard']}", f"#define {spec['guard']}"]
+    out += [''] + [f'#include <{header}>' if header.endswith('.h') and '/' not in header else f'#include "{header}"'
+                   for header in spec.get('includes', ())]
+    for item in spec['items']:
+        out += ['', stand_in_item(item, root)]
+    if spec.get('guard'):
+        out += ['', '#endif']
+    return '\n'.join(out) + '\n'
+
+
+def stand_in_problems(root: Path = ROOT, write: bool = False) -> list[str]:
+    """The stand-ins that differ from what the generator writes (rewritten instead with write=True)."""
+    problems = []
+    for name, spec in STAND_INS.items():
+        path = root / 'port/ios/tests/menu_patch' / name
+        try:
+            expected = render_stand_in(name, spec, root)
+        except LookupError as error:
+            problems.append(f'{name}: {error}')
+            continue
+        if write:
+            path.write_text(expected)
+        elif not path.exists() or path.read_text() != expected:
+            problems.append(f'port/ios/tests/menu_patch/{name} is stale (production changed a declaration it copies)')
+    return problems
+
+
 INCLUDES = ['-Iport/ios/host', '-Iport/runtime', '-Iport/linux/src', '-Iport/runtime/include', '-Iport/ios']
 _objects: dict = {}
 
@@ -511,6 +636,10 @@ def main() -> int:
             print(f'  {name}')
         return 1
     if args.write:
+        problems = stand_in_problems(write=True)
+        if problems:
+            print('\n'.join(problems))
+            return 1
         OUTPUT.write_text(expected)
         PORT_OUTPUT.write_text(port_expected)
         print(f'wrote {OUTPUT.relative_to(ROOT)}: {len(found)} weak defaults; '
@@ -533,7 +662,11 @@ def main() -> int:
         detail = f" (no default for {', '.join(missing)})" if missing else ' (a seam declaration changed)'
         print(f'port/ios/tests/port_stubs.c is stale{detail}: run tools/host_stubs.py --write')
         return 1
-    print(f'host stubs ok: {len(found)} weak defaults; port stubs ok: {len(seams)}')
+    problems = stand_in_problems()
+    if problems:
+        print('\n'.join(problems) + '\nrun tools/host_stubs.py --write')
+        return 1
+    print(f'host stubs ok: {len(found)} weak defaults; port stubs ok: {len(seams)}; stand-ins ok: {len(STAND_INS)}')
     return 0
 
 

@@ -25,7 +25,7 @@ def build_probe(directory: Path, probe: str, extra_sources: tuple = ()) -> Path:
     binary = directory / name
     sources = [directory / f"{name}.c", directory / "menu_files.c", *extra_sources,
                *(EXPAT / part for part in ("xmlparse.c", "xmlrole.c", "xmltok.c"))]
-    return cc.build(sources, output=binary, apple=True, flags=[
+    return cc.build(sources, output=binary, apple=True, port_stubs=True, flags=[
         "-std=gnu11", "-g", "-Wall", "-Werror", "-Wno-multichar", "-Wno-unused-function", "-Wno-unused-variable",
         "-Wno-unused-but-set-variable", "-fsanitize=address,undefined", "-fno-sanitize-recover=undefined",
         "-DHALO_ILP32=1", "-DHALO_IOS=1", "-DMENU_TAGS_PROBE=1", f"--include-directory={directory}",

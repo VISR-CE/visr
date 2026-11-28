@@ -17,7 +17,6 @@ message, and the exit status is 1. argv[3]: the engine's event handler function 
 
 static int input_pad = 1, input_keyboard = 1;
 int platform_menu_pad(void) { return input_pad; }
-long config_integer(char const *name) { (void)name; return 0; }
 int platform_menu_keyboard(void) { return input_keyboard; }
 
 static char const *language_name = "";

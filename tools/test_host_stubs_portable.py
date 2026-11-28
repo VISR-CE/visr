@@ -55,3 +55,25 @@ def test_seam_stubs_follow_their_headers(tmp_path):
     assert host_stubs.render_seams(host_stubs.collect_seams(tmp_path, seams)[0]) != before
     (tmp_path / 'included.h').write_text('int seam_value(const char *name);\nint seam_new(void);\n')
     assert 'seam_new' in host_stubs.missing_defaults(host_stubs.collect_seams(tmp_path, seams)[0], before)
+
+
+def test_stand_ins_follow_production(tmp_path):
+    """The class: the menu probes' stand-in headers were hand copies of production declarations, so a production
+    change compiled against the old copy. Each item is copied from production text: a changed declaration makes the
+    checked-in stand-in stale, and a removed one is reported by name."""
+    assert host_stubs.stand_in_problems() == []
+    header = tmp_path / 'port/linux/src/port_config.h'
+    header.parent.mkdir(parents=True)
+    header.write_text('const char *config_string(const char *name);\nlong config_integer(const char *name);\n'
+                      'void config_folder(char *path, size_t size);\n')
+    spec = host_stubs.STAND_INS['port_config.h']
+    before = host_stubs.render_stand_in('port_config.h', spec, tmp_path)
+    header.write_text(header.read_text().replace('const char *name);\nlong', 'const wchar_t *name);\nlong'))
+    assert host_stubs.render_stand_in('port_config.h', spec, tmp_path) != before
+    header.write_text('const char *config_string(const char *name);\n')
+    try:
+        host_stubs.render_stand_in('port_config.h', spec, tmp_path)
+    except LookupError as error:
+        assert '`config_integer` is not declared' in str(error)
+    else:
+        raise AssertionError('a removed declaration was not reported')
