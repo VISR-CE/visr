@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 
 import ui_map_tags  # noqa: E402
+from probekit import source as probe_source  # noqa: E402
 
 HANDLERS = ROOT / 'source/interface/ui_widget_event_handler_functions.c'
 DATA_INPUTS = ROOT / 'source/interface/ui_widget_game_data_input_functions.c'
@@ -45,8 +46,10 @@ def function_tables():
 
 
 def function_body(source, name):
-    match = re.search(r'\nstatic (?:boolean|void) %s\(\n[^;{]*?\)\n\{\n(.*?)\n\}\n' % re.escape(name), source, re.S)
-    return match.group(1) if match else ''
+    """The text inside the named function's braces, or '' when the source does not define it (a table can name `NULL`)."""
+    if not probe_source.defined_in(source, name):
+        return ''
+    return probe_source.body_in(source, name, 'the handler source')
 
 
 def requirement(source, name):

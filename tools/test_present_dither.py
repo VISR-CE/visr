@@ -6,8 +6,11 @@ values and output depths; the expression it evaluates is the one in the shader's
 """
 from pathlib import Path
 import re
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tools'))
+from probekit import source as probe_source  # noqa: E402
 HEADER = ROOT / 'port/ios/host/blue_noise.h'
 METAL = ROOT / 'port/ios/host/gpu_metal.m'
 
@@ -62,23 +65,17 @@ def test_dither_keeps_the_mean_and_the_ends():
             assert abs(mean - color) < 0.1 * step, (levels, color, mean)
 
 
-
-def function_body(source, signature):
-    start = source.index(signature)
-    return source[start:source.index('\n}\n', start)]
-
-
 def test_the_pass_and_its_log_share_one_dither_decision():
     """Bug class: a second copy of the present pass's dither decision that drifts from what the frame does (the
     first layer-format line said "on" for a CRT frame and "not needed" for a dithered one, Nov 25 review). The
     comparison of the picture's levels with the drawable's lives only in present_dither_state; the pass picks its
     pipeline from it and present_state_log names its result."""
     source = METAL.read_text()
-    helper = function_body(source, 'static enum present_dither_state present_dither_state(')
+    helper = probe_source.function_in(source, 'present_dither_state')
     outside = source.replace(helper, '')
     assert re.search(r'format_levels\(picture\) > format_levels\(drawable\)', helper)
     assert not re.search(r'format_levels\([^)]*\)\s*>\s*format_levels\(', outside)
-    frame = function_body(source, 'static uint32_t present_frame(')
+    frame = probe_source.function_in(source, 'present_frame')
     assert 'present_dither_state(picture.pixelFormat, target.pixelFormat' in frame
     assert 'present_state_log(' in frame
     assert 'dither_state == PRESENT_DITHER_CRT' in frame
@@ -90,10 +87,10 @@ def test_the_state_line_follows_every_change_of_the_tuple():
     silent (the grain rehearsal could not show an 8-bit layer). present_state_log compares the whole tuple
     with the last one stated, with no one-shot flag, and names each dither state."""
     source = METAL.read_text()
-    log = function_body(source, 'static void present_state_log(')
+    log = probe_source.function_in(source, 'present_state_log')
     for name in ('output_layer', 'perf_output', 'drawable', 'picture', 'dither'):
         assert re.search(rf'{name} == last_\w+', log), name
     assert 'stated' not in log
-    names = function_body(source, 'static const char *present_dither_state_name(')
+    names = probe_source.function_in(source, 'present_dither_state_name')
     for word in ('"on"', '"not needed"', '"off"', '"replaced by the precision ramp"', '"replaced by the CRT effect"'):
         assert word in names

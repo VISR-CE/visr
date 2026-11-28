@@ -6,26 +6,12 @@ import re
 import subprocess
 import tempfile
 
+from probekit import source as probe_source
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCENE_SOURCE = ROOT / "port/linux/game/scene_class.c"
 SCENARIO_DEFINITIONS = ROOT / "source/scenario/scenario_definitions.h"
-
-
-def extract_function(source: str, signature: str) -> str:
-    start = source.find(signature)
-    if start < 0:
-        raise AssertionError(f"Could not find production function: {signature}")
-    opening = source.find("{", start)
-    depth = 0
-    for index in range(opening, len(source)):
-        if source[index] == "{":
-            depth += 1
-        elif source[index] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[start : index + 1]
-    raise AssertionError(f"Unterminated production function: {signature}")
 
 
 def enum_value(source: str, name: str) -> int:
@@ -44,7 +30,7 @@ def enum_value(source: str, name: str) -> int:
 def main() -> None:
     scene_source = SCENE_SOURCE.read_text()
     definitions = SCENARIO_DEFINITIONS.read_text()
-    scene_level = extract_function(scene_source, "static void scene_level(")
+    scene_level = probe_source.function_in(scene_source, "scene_level", "scene_class.c")
     scenario_solo = enum_value(definitions, "_scenario_type_solo")
     scenario_multiplayer = enum_value(definitions, "_scenario_type_multiplayer")
     scenario_menu = enum_value(definitions, "_scenario_type_main_menu")

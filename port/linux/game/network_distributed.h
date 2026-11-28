@@ -18,6 +18,7 @@ clients, and the clients' hits, reported to the host).
 /* ---------- constants */
 
 /* the messages, all of the game's "data" kind (network_distributed.c) */
+/* probe-region: distributed-message-kinds-enum */
 enum
 {
 	/* a client's own players' units, every tick (unreliable) */
@@ -141,8 +142,10 @@ enum
 
 	NUMBER_OF_DISTRIBUTED_MESSAGES
 };
+/* probe-region-end: distributed-message-kinds-enum */
 
 /* where a message goes */
+/* probe-region: distributed-routing-enum */
 enum
 {
 	_distributed_to_clients,
@@ -150,6 +153,7 @@ enum
 	_distributed_to_host,
 	_distributed_to_host_reliably,
 };
+/* probe-region-end: distributed-routing-enum */
 
 /* how far part of an error is closed rather than jumped (world units): the
 host's copy of a client's own player's unit or vehicle, and a client's copy

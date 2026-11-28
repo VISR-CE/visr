@@ -7,31 +7,22 @@ import sys
 
 import pytest
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def function(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth = 1
-    end = opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 @pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("xcrun"), reason="Foundation probe requires macOS")
 def test_host_requires_opt_in_and_reenable_waits_for_launch(tmp_path):
     host = (ROOT / "port/ios/host/host_cloud_saves.m").read_text()
-    functions = "\n".join(function(host, signature) for signature in [
-        "static void cloud_publish(", "static void cloud_stop(", "int host_cloud_saves_enabled(",
-        "int host_cloud_saves_sync_allowed(",
-        "void host_cloud_saves_set_enabled(", "const char *host_cloud_saves_status(",
+    functions = "\n".join(probe_source.function_in(host, name, "host_cloud_saves.m") for name in [
+        "cloud_publish", "cloud_stop", "host_cloud_saves_enabled",
+        "host_cloud_saves_sync_allowed",
+        "host_cloud_saves_set_enabled", "host_cloud_saves_status",
     ])
     # End at the first entitlement lookup. Reaching it represents cloud startup;
     # the rest of startup needs an account and is covered by the Apple builds.
-    start = function(host, "void host_cloud_saves_start(")
+    start = probe_source.function_in(host, "host_cloud_saves_start", "host_cloud_saves.m")
     start = start[:start.index("    int in_profile =")] + "    startup_calls++;\n}"
     source = r'''
 #import <Foundation/Foundation.h>

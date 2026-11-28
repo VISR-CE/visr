@@ -4,26 +4,15 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from unittest import SkipTest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = (ROOT / "port/linux/game/benchmark_scenario.c").read_text()
-
-
-def function(signature: str) -> str:
-    start = SOURCE.index(signature)
-    opening = SOURCE.index("{", start)
-    depth = 0
-    for position in range(opening, len(SOURCE)):
-        if SOURCE[position] == "{":
-            depth += 1
-        elif SOURCE[position] == "}":
-            depth -= 1
-            if depth == 0:
-                return SOURCE[start:position + 1]
-    raise ValueError(f"Unclosed benchmark state function: {signature}")
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+SOURCE = "port/linux/game/benchmark_scenario.c"
 
 
 HARNESS = r'''
@@ -205,10 +194,10 @@ def test_real_synthetic_datum_queue_and_projectile_observation() -> None:
     if compiler is None:
         raise SkipTest("A C compiler is required for the MP state probe")
     helper = ""
-    if "static void benchmark_mp_actor_fill(" in SOURCE:
-        helper = function("static void benchmark_mp_actor_fill(")
+    if probe_source.defined(SOURCE, "benchmark_mp_actor_fill"):
+        helper = probe_source.function(SOURCE, "benchmark_mp_actor_fill")
     source = HARNESS.replace("__ACTOR_HELPER__", helper).replace(
-        "__STATE_FUNCTION__", function("void benchmark_scenario_multiplayer_state("))
+        "__STATE_FUNCTION__", probe_source.function(SOURCE, "benchmark_scenario_multiplayer_state"))
     with tempfile.TemporaryDirectory(prefix="mp-benchmark-state-") as temporary:
         path = Path(temporary) / "state.c"
         binary = Path(temporary) / "state"

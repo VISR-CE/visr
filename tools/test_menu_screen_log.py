@@ -6,10 +6,14 @@ changes one object between polls (a reused widget address): it fails if the comp
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = (ROOT / "port/linux/game/menu_functions.c").read_text()
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+
+SOURCE = "port/linux/game/menu_functions.c"
 
 HARNESS = r'''
 #include <stdio.h>
@@ -33,16 +37,10 @@ BODY
 '''
 
 
-def function():
-    start = SOURCE.index("static void menu_screen_up_log(void)")
-    end = SOURCE.index("\n}\n", start) + 3
-    return SOURCE[start:end]
-
-
 def run(body):
     """compile the real function with `body` as main's statements; return the log lines. Poll steps are written
     `STEP(frame, expression)`: the active screen becomes `expression`, the frame counter `frame`, and the function runs."""
-    program = HARNESS.replace("FUNCTION", function()).replace("BODY", body)
+    program = HARNESS.replace("FUNCTION", probe_source.function(SOURCE, "menu_screen_up_log")).replace("BODY", body)
     program = program.replace("int main(void)", "#define STEP(f, e) do { frames = (f); active = (e); menu_screen_up_log(); } while (0)\nint main(void)")
     with tempfile.TemporaryDirectory() as tmp:
         src, exe = Path(tmp) / "t.c", Path(tmp) / "t"
@@ -83,5 +81,5 @@ def test_screens_opened_over_a_running_game_are_logged():
 
 
 def test_polled_by_the_menu_pump():
-    poll = SOURCE[SOURCE.index("void menu_invite_poll"):]
+    poll = probe_source.function(SOURCE, "menu_invite_poll")
     assert poll.index("menu_screen_up_log();") < poll.index("main_port_main_menu_loaded()")   # before the gate

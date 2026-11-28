@@ -10,17 +10,9 @@ import subprocess
 import tempfile
 from unittest import SkipTest
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def _function(source, signature):
-    start = source.index(signature + "(")
-    brace = source.index("{", start)
-    depth, end = 1, brace + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 PREAMBLE = r'''
@@ -143,14 +135,14 @@ def test_carousel_production_integration():
         source[start:end],
         STUBS,
         "enum halo_menu_focus_item { HALO_MENU_FOCUS_ROW, HALO_MENU_FOCUS_CARD };",
-        _function(source, "int ui_widget_port_draws_focus"),
-        _function(source, "static enum halo_menu_focus_item ui_list_focus_item"),
-        _function(source, "static boolean ui_list_child_draws_focus"),
-        _function(source, "static boolean ui_carousel_pointer"),
-        _function(source, "static void ui_mouse_note_carousel_peeks"),
-        _function(source, "static void ui_carousel_render"),
-        _function(source, "static void ui_carousel_activate"),
-        _function(source, "static void ui_carousel_peek"),
+        probe_source.function_in(source, "ui_widget_port_draws_focus", "ui_widget.c"),
+        probe_source.function_in(source, "ui_list_focus_item", "ui_widget.c"),
+        probe_source.function_in(source, "ui_list_child_draws_focus", "ui_widget.c"),
+        probe_source.function_in(source, "ui_carousel_pointer", "ui_widget.c"),
+        probe_source.function_in(source, "ui_mouse_note_carousel_peeks", "ui_widget.c"),
+        probe_source.function_in(source, "ui_carousel_render", "ui_widget.c"),
+        probe_source.function_in(source, "ui_carousel_activate", "ui_widget.c"),
+        probe_source.function_in(source, "ui_carousel_peek", "ui_widget.c"),
         CHECKS,
     ))
     with tempfile.TemporaryDirectory() as directory:

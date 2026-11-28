@@ -3,9 +3,12 @@ steps around the backend's present: a stereo present that had its own copy skipp
 for side-by-side or a Vision Pro), the encode thread's `present_called` and the frame-deadline end."""
 import pathlib
 import re
+import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 DISPATCH = ROOT / "port/ios/host/host_gpu_dispatch.c"
 OPERATIONS = ROOT / "port/ios/host/gpu_operation.h"
 # present_frame's steps, in order
@@ -27,16 +30,17 @@ STEPS = (
 )
 
 
-def function_bodies(source):
+def static_function_bodies(source):
     """Each top-level static function's name and body."""
-    for match in re.finditer(r"^static [^\n(]*?\b(\w+)\([^\n]*\)\n\{\n(.*?)^\}", source, re.MULTILINE | re.DOTALL):
-        yield match.group(1), match.group(2)
+    for name, start, _, _ in probe_source.definitions(source):
+        if source.startswith("static ", start):
+            yield name, probe_source.body_in(source, name)
 
 
 class PresentPathsTests(unittest.TestCase):
     def setUp(self):
         self.source = DISPATCH.read_text()
-        self.bodies = dict(function_bodies(self.source))
+        self.bodies = dict(static_function_bodies(self.source))
 
     def test_every_backend_present_has_a_wrapper_through_present_frame(self):
         operations = set(re.findall(r"#define GPU_OPERATION_CLASS_(present\w*) ", OPERATIONS.read_text()))

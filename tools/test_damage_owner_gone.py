@@ -1,22 +1,11 @@
 """A projectile whose owner object was deleted must not reach a checked lookup in the damage path."""
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def function(name):
-    source = (ROOT / "source/objects/damage.c").read_text()
-    match = re.search(r"(?m)^(?:static )?[^;\n]+\b" + re.escape(name) + r"\([^;]*?\)\s*\{", source)
-    assert match, f"Production definition missing: {name}"
-    start = source.index("{", match.start())
-    end, depth = start + 1, 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
 
 
 PROBE = r"""
@@ -49,7 +38,9 @@ int main(void)
 
 
 def test_owner_gone():
-    body = function("damage_data_validate_owner") + "\n" + function("get_player_index_from_object_or_parents")
+    damage = ROOT / "source/objects/damage.c"
+    body = probe_source.function(damage, "damage_data_validate_owner") + "\n" + \
+        probe_source.function(damage, "get_player_index_from_object_or_parents")
     code = PROBE.replace("PRODUCTION", body)
     with tempfile.TemporaryDirectory() as tmp:
         src, exe = Path(tmp) / "p.c", Path(tmp) / "p"

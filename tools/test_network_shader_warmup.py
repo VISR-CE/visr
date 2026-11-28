@@ -5,25 +5,16 @@ The game engine and GPU are replaced at their boundaries; no game data is needed
 """
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def function(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 def test_network_maps_select_shader_capture_before_the_first_frame(tmp_path):
-    loader = function((ROOT / "source/networking/network_game_manager.c").read_text(),
-                      "boolean network_game_create_game_objects(")
-    warm = function((ROOT / "port/linux/src/d3d8_device.c").read_text(),
-                    "void halo_shader_list_warm(")
+    loader = probe_source.function("source/networking/network_game_manager.c", "network_game_create_game_objects")
+    warm = probe_source.function("port/linux/src/d3d8_device.c", "halo_shader_list_warm")
     # Keep the real basename selection and disabled-GPU return. The rest compiles
     # GPU programs, which this engine-boundary probe does not have a device for.
     warm = warm[:warm.index("\t/* a run that dumps")] + "}\n"

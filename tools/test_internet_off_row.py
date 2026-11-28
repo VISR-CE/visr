@@ -2,15 +2,12 @@
 from pathlib import Path
 import re
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
 MENU_FUNCTIONS = (ROOT / "port/linux/game/menu_functions.c").read_text()
 DESCRIPTION = (ROOT / "source/interface/ui_widget_game_data_input_functions.c").read_text()
 PATCHES = (ROOT / "port/assets/menus/xbox/patches.xml").read_text()
-
-
-def body(source, signature):
-    start = source.rindex(signature) if signature.startswith('multiplayer_type') else source.index(signature)
-    return source[start:source.index("\n}\n", start)]
 
 
 def test_off_state_has_its_own_panel_and_picture():
@@ -21,12 +18,12 @@ def test_off_state_has_its_own_panel_and_picture():
 
 
 def test_row_stays_focusable_but_cannot_be_activated():
-    helper = body(MENU_FUNCTIONS, "static boolean internet_item_off")
+    helper = probe_source.function_in(MENU_FUNCTIONS, "internet_item_off", "menu_functions.c")
     assert 'config_boolean("network.online")' in helper
-    assert "internet_item_off(widget)" in body(MENU_FUNCTIONS, "static boolean multiplayer_host(")
+    assert "internet_item_off(widget)" in probe_source.function_in(MENU_FUNCTIONS, "multiplayer_host", "menu_functions.c")
     assert re.search(r'"mp type set mode".{0,400}internet_item_off', MENU_FUNCTIONS, re.S)
     # dimmed through the draw hook, never through `disabled` (which would drop focus)
-    assert "internet_item_off(widget)" in body(MENU_FUNCTIONS, "ui_widget_port_browser_row_unavailable")
+    assert "internet_item_off(widget)" in probe_source.function_in(MENU_FUNCTIONS, "ui_widget_port_browser_row_unavailable", "menu_functions.c")
 
 
 def test_description_follows_the_online_setting_live():

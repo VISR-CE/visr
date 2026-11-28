@@ -2,22 +2,16 @@
 
 from pathlib import Path
 import json
-import re
 import shutil
 import subprocess
 import tempfile
 from unittest import SkipTest
 from xml.etree import ElementTree as ET
 
+from probekit import source as probe_source
+
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def function(source: str, name: str) -> str:
-    """Copy the production function, including its own branches, into the probe."""
-    start = re.search(re.escape(name) + r"[^;]*?\n\{", source).start()
-    end = source.index("\n}\n", start) + 3
-    return source[start:end]
 
 
 def compile_and_run(source: str) -> None:
@@ -122,8 +116,8 @@ def test_browser_action_widget_routes_internet_create_after_name_truncation() ->
     target = action.find('on[@event="y"][@open]').get("open")
     assert target == r"ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper"
     source = (ROOT / "port/linux/game/menu_functions.c").read_text()
-    mode = "".join(function(source, name) for name in ("static short multiplayer_mode_named(",
-        "static void multiplayer_mode_apply(", "static void multiplayer_mode_set("))
+    mode = "".join(probe_source.function_in(source, name, "menu_functions.c") for name in (
+        "multiplayer_mode_named", "multiplayer_mode_apply", "multiplayer_mode_set"))
     leaf = action.get("name").rsplit("/", 1)[-1]
     compile_and_run(r'''
 #include <stdio.h>
@@ -156,7 +150,7 @@ def test_the_server_browsers_handlers_match_no_widget_names_and_have_no_refresh(
     row handler takes events, never names, and the browser has no REFRESH action (its lists refresh themselves), so
     the refresh path is gone. Each bar button's own event is asserted in test_xbox_menus."""
     source = (ROOT / "port/linux/game/menu_functions.c").read_text()
-    select = function(source, "static boolean lobby_browser_select(")
+    select = probe_source.function_in(source, "lobby_browser_select", "menu_functions.c")
     assert "widget->name" not in select
     assert "p2p_lobby_refresh" not in source
     assert "p2p_lobby_refresh" not in (ROOT / "port/linux/src/p2p.h").read_text()

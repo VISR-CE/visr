@@ -6,36 +6,26 @@ generation is 0), and the benchmark's per-run shader capture reads
 """
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 SOURCE = ROOT / "port/linux/src/d3d8_device.c"
-
-
-def function(source, signature):
-    """The definition of `signature`, skipping any prototype of it."""
-    start = source.index(signature)
-    while source[source.index(")", start) + 1] == ";":
-        start = source.index(signature, start + 1)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 def test_record_written_unless_an_active_generation_replaces_it():
     source = SOURCE.read_text()
-    actual = "\n".join(function(source, signature) for signature in (
-        "static void shader_observation_submit(",
-        "static int shader_observation_replaces_record(",
-        "static BOOL shader_list_recorded(",
-        "static void shader_list_recorded_add(",
-        "static void shader_list_recorded_load(",
-        "static void shader_list_made(",
-        "static void shader_list_vertex_made(",
+    actual = "\n".join(probe_source.function_in(source, name) for name in (
+        "shader_observation_submit",
+        "shader_observation_replaces_record",
+        "shader_list_recorded",
+        "shader_list_recorded_add",
+        "shader_list_recorded_load",
+        "shader_list_made",
+        "shader_list_vertex_made",
     ))
     probe = r'''
 #define HALO_ILP32 1

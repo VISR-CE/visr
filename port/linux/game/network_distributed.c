@@ -3842,11 +3842,13 @@ void network_distributed_tick(
 	{
 		short player_index;
 
+		/* probe-region: distributed-initial-shield-policy */
 		if (!distributed_shield_policy_sent)
 		{
 			distributed_send_shield_policy(NONE);
 			distributed_shield_policy_sent = TRUE;
 		}
+		/* probe-region-end: distributed-initial-shield-policy */
 
 		/* (a living player's last death is behind them: a death the game
 		does not note, one it does not score, has no killer) */
@@ -4915,6 +4917,7 @@ static void distributed_handle_message_in_epoch(
 		error(_error_log, "the host: %s", text);
 		break;
 	}
+	/* probe-region: distributed-client-ready-case */
 	case _distributed_message_client_ready:
 	{
 		boolean loaded = distributed_machine_loaded(machine_index);
@@ -4936,6 +4939,7 @@ static void distributed_handle_message_in_epoch(
 		}
 		break;
 	}
+	/* probe-region-end: distributed-client-ready-case */
 	case _distributed_message_damage_events:
 		network_damage_handle_events(entries, header.count);
 		break;

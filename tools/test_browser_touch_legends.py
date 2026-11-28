@@ -1,9 +1,10 @@
 """The server browser's touch buttons follow the global-vs-contextual rule: its actions are a declared bar (the
 engine draws global ones on touch and leaves BACK to the chevron), and JOIN GAME in the detail panel, the main
 contextual action, is not drawn on touch because tapping the item does it."""
-import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
+
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'port/linux/game/menu_functions.c'
@@ -13,18 +14,7 @@ FILTERS_XML = 'main_menu.multiplayer_type_select.join_game.filters.xml'
 
 
 def function_body(name):
-    text = SOURCE.read_text()
-    match = re.search(r'\n(?:static )?[\w ]+[ *]' + name + r'\([^)]*\)\n\{', text)
-    assert match, name
-    depth, index = 0, match.end() - 1
-    for index in range(match.end() - 1, len(text)):
-        if text[index] == '{':
-            depth += 1
-        elif text[index] == '}':
-            depth -= 1
-            if depth == 0:
-                break
-    return text[match.end():index]
+    return probe_source.body(SOURCE, name)
 
 
 def bar_actions(xml):

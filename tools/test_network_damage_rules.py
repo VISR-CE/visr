@@ -1,37 +1,27 @@
 """Exercise the production co-op ally and static-object damage rules without game assets."""
 from pathlib import Path
-import re
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def function(path, name):
-    source = (ROOT / path).read_text()
-    match = re.search(r"(?m)^(?:static )?[^;\n]+\b" + re.escape(name) + r"\([^;]*?\)\s*\{", source)
-    assert match, f"Production definition missing: {name}"
-    start = source.index("{", match.start())
-    end, depth = start + 1, 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 def test_damage_rules():
-    pieces = [function("port/linux/src/input_replay.c", "input_replay_playing"),
-              function("port/linux/game/network_coop.c", "network_coop_protects_ally"),
-              function("port/linux/game/network_damage.c", "network_damage_static_rules"),
-              function("port/linux/game/network_damage.c", "static_target"),
-              function("port/linux/game/network_damage.c", "network_damage_static_source"),
-              function("port/linux/game/network_damage.c", "network_damage_updates_shields"),
-              function("port/linux/game/network_damage.c", "network_damage_deals"),
-              function("source/objects/damage.c", "damage_effect_suspend_static_authorization"),
-              function("source/objects/damage.c", "damage_effect_new_on_object"),
-              function("source/objects/damage.c", "damage_effect_new_at_location"),
-              function("source/networking/network_server_manager.c", "network_game_server_port_set_cooperative_ally_friendly_fire"),
-              function("source/networking/network_server_manager.c", "network_game_server_port_set_cooperative_player_collisions")]
+    pieces = [probe_source.function("port/linux/src/input_replay.c", "input_replay_playing"),
+              probe_source.function("port/linux/game/network_coop.c", "network_coop_protects_ally"),
+              probe_source.function("port/linux/game/network_damage.c", "network_damage_static_rules"),
+              probe_source.function("port/linux/game/network_damage.c", "static_target"),
+              probe_source.function("port/linux/game/network_damage.c", "network_damage_static_source"),
+              probe_source.function("port/linux/game/network_damage.c", "network_damage_updates_shields"),
+              probe_source.function("port/linux/game/network_damage.c", "network_damage_deals"),
+              probe_source.function("source/objects/damage.c", "damage_effect_suspend_static_authorization"),
+              probe_source.function("source/objects/damage.c", "damage_effect_new_on_object"),
+              probe_source.function("source/objects/damage.c", "damage_effect_new_at_location"),
+              probe_source.function("source/networking/network_server_manager.c", "network_game_server_port_set_cooperative_ally_friendly_fire"),
+              probe_source.function("source/networking/network_server_manager.c", "network_game_server_port_set_cooperative_player_collisions")]
     flags = (ROOT / "source/networking/network_game_manager.h").read_text()
     start = flags.index("enum\n{", flags.index("/* port: network_game's cooperative_flags */"))
     flags = flags[start:flags.index("};", start) + 2]
@@ -65,10 +55,10 @@ def test_damage_rules():
 
 
 def test_rules_reach_damage_consumers():
-    cause = function("source/objects/damage.c", "object_cause_damage")
+    cause = probe_source.function("source/objects/damage.c", "object_cause_damage")
     assert cause.index("network_coop_protects_ally(damage, current_object_index)") < cause.index("object_damage_aftermath(")
-    assert function("source/objects/damage.c", "object_damage_update").count("network_damage_updates_shields(object_index)") == 2
-    deals = function("port/linux/game/network_damage.c", "network_damage_deals")
+    assert probe_source.function("source/objects/damage.c", "object_damage_update").count("network_damage_updates_shields(object_index)") == 2
+    deals = probe_source.function("port/linux/game/network_damage.c", "network_damage_deals")
     assert deals.index("network_damage_static_source(damage)") < deals.index("distributed_player_is_local(damage->owner_player_index)")
 
 
@@ -81,10 +71,10 @@ def test_ally_setting_and_menu_match_wire_polarity():
     menu = "\n".join(port_settings.multiplayer_files()["main_menu.multiplayer_type_select.coop_options.xml"])
     assert 'strings="OFF|PLAYERS ONLY|AI ALLIES ONLY|ON"' in menu
     assert 'ally_friendly_fire_spinner' not in menu
-    update = function("port/linux/game/menu_functions.c", "coop_options_update")
+    update = probe_source.function("port/linux/game/menu_functions.c", "coop_options_update")
     assert 'named(list, "friendly_fire_spinner", 0)' in update
-    save = function("port/linux/game/menu_functions.c", "coop_options_save")
+    save = probe_source.function("port/linux/game/menu_functions.c", "coop_options_save")
     assert 'config_write("network.coop_ally_friendly_fire", allies ? "true" : "false")' in save
-    start = function("port/linux/game/menu_functions.c", "server_start")
+    start = probe_source.function("port/linux/game/menu_functions.c", "server_start")
     assert "server_coop_rules_apply();" in start
-    assert "network_game_server_port_set_cooperative_ally_friendly_fire(" in function("port/linux/game/menu_functions.c", "server_coop_rules_apply")
+    assert "network_game_server_port_set_cooperative_ally_friendly_fire(" in probe_source.function("port/linux/game/menu_functions.c", "server_coop_rules_apply")

@@ -1,22 +1,12 @@
 """tag_loaded must answer NONE for a NULL name (an empty tag reference) instead of dereferencing it."""
-import re
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-
-
-def function(source, name):
-    match = re.search(r"^(?:static )?[\w *]+\b" + name + r"\(\s*[^;{]*\)\s*\{", source, re.M)
-    if not match:
-        raise ValueError(f"Function not found: {name}")
-    start = source.index("{", match.start())
-    depth, end = 1, start + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 PRELUDE = r'''
@@ -51,8 +41,7 @@ int main(void) {
 
 
 def main():
-    source = (ROOT / "source/cache/cache_files.c").read_text()
-    code = PRELUDE + function(source, "tag_loaded") + TESTS
+    code = PRELUDE + probe_source.function("source/cache/cache_files.c", "tag_loaded") + TESTS
     with tempfile.TemporaryDirectory(prefix="tag-loaded-null-") as tmp:
         path = Path(tmp) / "test.c"
         binary = Path(tmp) / "test"

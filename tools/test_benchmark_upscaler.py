@@ -5,17 +5,9 @@ import subprocess
 import sys
 from unittest import SkipTest
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def function(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 def test_requested_metalfx_does_not_claim_effective_metalfx_on_fallback(tmp_path):
@@ -23,10 +15,9 @@ def test_requested_metalfx_does_not_claim_effective_metalfx_on_fallback(tmp_path
         raise SkipTest("Production JSON metadata requires Foundation")
     gpu = (ROOT / "port/ios/host/gpu_metal.m").read_text()
     report = (ROOT / "port/ios/host/host_benchmark.m").read_text()
-    actual = "\n".join([function(gpu, "static unsigned scene_upscale_path("),
-        function(report, "void host_benchmark_upscaler("),
-        function(report, "static NSString *upscaler_name("),
-        function(report, "static NSDictionary *upscaler_metadata(")])
+    actual = "\n".join([probe_source.function_in(gpu, "scene_upscale_path", "gpu_metal.m"),
+        *(probe_source.function_in(report, name, "host_benchmark.m")
+          for name in ("host_benchmark_upscaler", "upscaler_name", "upscaler_metadata"))])
     source = tmp_path / "upscaler.m"
     source.write_text(r'''
 #import <Foundation/Foundation.h>
@@ -75,9 +66,8 @@ def test_resolved_graphics_first_last_change_and_json_persistence(tmp_path):
     if sys.platform != "darwin" or not shutil.which("xcrun"):
         raise SkipTest("Production report metadata requires Foundation")
     report = (ROOT / "port/ios/host/host_benchmark.m").read_text()
-    actual = "\n".join(function(report, signature) for signature in (
-        "static BOOL graphics_key_allowed(", "static BOOL graphics_snapshot_valid(",
-        "void host_benchmark_graphics(", "static NSDictionary *graphics_metadata("))
+    actual = "\n".join(probe_source.function_in(report, name, "host_benchmark.m") for name in (
+        "graphics_key_allowed", "graphics_snapshot_valid", "host_benchmark_graphics", "graphics_metadata"))
     source = tmp_path / "graphics.m"
     source.write_text(r'''
 #import <Foundation/Foundation.h>

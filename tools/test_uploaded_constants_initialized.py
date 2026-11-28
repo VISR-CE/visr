@@ -14,11 +14,15 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+
 RASTERIZER = ROOT / "source/rasterizer/xbox/rasterizer_xbox.c"
 RENDER_H = ROOT / "source/render/render.h"
 OBJECT_LIGHTS_H = ROOT / "source/objects/object_lights.h"
@@ -35,27 +39,6 @@ LIMIT_SOURCES = {
 # probe. Blocks built in local arrays and passed by name (fog, screen and the
 # environment shaders' constants) are outside this check.
 COVERED_UPLOADERS = {"rasterizer_set_model_lighting", "rasterizer_port_extra_point_lights"}
-
-
-def block(text, start):
-    open_brace = text.index("{", start)
-    end, depth = open_brace + 1, 1
-    while depth:
-        depth += (text[end] == "{") - (text[end] == "}")
-        end += 1
-    return end
-
-
-def struct(text, name):
-    match = re.search(rf"(?m)^struct {name}\s*\n\{{", text)
-    assert match, f"Production struct missing: {name}"
-    return text[match.start():block(text, match.start())] + ";\n"
-
-
-def function(text, name):
-    match = re.search(rf"(?m)^(?:static )?[^;\n]+\b{name}\(\s*\n?[^;{{]*?\)\s*\{{", text)
-    assert match, f"Production definition missing: {name}"
-    return text[match.start():block(text, match.start())] + "\n"
 
 
 def stack_struct_uploaders(text):
@@ -173,26 +156,26 @@ def limits():
     return "enum { " + ", ".join(values) + " };\n"
 
 
-def probe_source():
+def probe_program():
     rasterizer = RASTERIZER.read_text(encoding="latin-1")
     render = RENDER_H.read_text(encoding="latin-1")
     structs = "".join([
-        struct(render, "render_distant_light"),
-        struct(render, "render_lighting"),
-        struct(rasterizer, "rasterizer_point_light_constants"),
-        struct(rasterizer, "rasterizer_distant_light_constants"),
-        struct(rasterizer, "rasterizer_model_lighting_constants"),
-        struct(rasterizer, "point_light_geometry_parameters"),
+        probe_source.structure_in(render, "render_distant_light") + "\n",
+        probe_source.structure_in(render, "render_lighting") + "\n",
+        probe_source.structure_in(rasterizer, "rasterizer_point_light_constants") + "\n",
+        probe_source.structure_in(rasterizer, "rasterizer_distant_light_constants") + "\n",
+        probe_source.structure_in(rasterizer, "rasterizer_model_lighting_constants") + "\n",
+        probe_source.structure_in(rasterizer, "point_light_geometry_parameters") + "\n",
     ])
     enum = re.search(r"(?m)^enum\s*\n\{\s*\n\s*PORT_EXTRA_POINT_LIGHT_CONSTANT[^}]*\};", rasterizer)
     assert enum, "Production enum missing: PORT_EXTRA_POINT_LIGHT_CONSTANT"
     production = "".join([
         "static long rasterizer_port_point_light_object = NONE;\n",
         enum.group(0), "\n",
-        function(rasterizer, "rasterizer_set_model_lighting_point_light"),
-        function(rasterizer, "rasterizer_set_model_lighting_distant_light"),
-        function(rasterizer, "rasterizer_port_extra_point_lights"),
-        function(rasterizer, "rasterizer_set_model_lighting"),
+        probe_source.function_in(rasterizer, "rasterizer_set_model_lighting_point_light") + "\n",
+        probe_source.function_in(rasterizer, "rasterizer_set_model_lighting_distant_light") + "\n",
+        probe_source.function_in(rasterizer, "rasterizer_port_extra_point_lights") + "\n",
+        probe_source.function_in(rasterizer, "rasterizer_set_model_lighting") + "\n",
     ])
     return PROBE.replace("LIMITS", limits()).replace("STRUCTS", structs).replace("PRODUCTION", production)
 
@@ -208,7 +191,7 @@ def test_model_lighting_upload_has_no_unwritten_bytes(optimization):
         pytest.skip("A C compiler is required")
     with tempfile.TemporaryDirectory(prefix="uploaded-constants-probe-") as temp:
         source = Path(temp) / "probe.c"
-        source.write_text(probe_source())
+        source.write_text(probe_program())
         executable = Path(temp) / "probe"
         subprocess.run([compiler, "-std=c11", "-w", optimization, str(source), "-o", str(executable)],
                        check=True)

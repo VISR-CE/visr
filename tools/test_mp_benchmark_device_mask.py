@@ -4,25 +4,14 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from unittest import SkipTest
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = (ROOT / "port/linux/src/xinput_sdl.c").read_text()
-
-
-def function_source(signature: str) -> str:
-    start = SOURCE.index(signature)
-    opening = SOURCE.index("{", start)
-    depth = 0
-    for position in range(opening, len(SOURCE)):
-        if SOURCE[position] == "{":
-            depth += 1
-        elif SOURCE[position] == "}":
-            depth -= 1
-            if depth == 0:
-                return SOURCE[start:position + 1]
-    raise ValueError(f"Unclosed function: {signature}")
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+SOURCE = "port/linux/src/xinput_sdl.c"
 
 
 HARNESS = r'''
@@ -89,8 +78,8 @@ def test_virtual_device_report() -> None:
     if compiler is None:
         raise SkipTest("A C compiler is required for the device-mask probe")
     functions = "\n\n".join((
-        function_source("static DWORD connected_gamepads(void)"),
-        function_source("BOOL WINAPI XGetDeviceChanges("),
+        probe_source.function(SOURCE, "connected_gamepads"),
+        probe_source.function(SOURCE, "XGetDeviceChanges"),
     ))
     with tempfile.TemporaryDirectory(prefix="mp-device-mask-") as temporary:
         source = Path(temporary) / "device_mask.c"

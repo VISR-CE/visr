@@ -1,22 +1,12 @@
 """Clip a portal outline whose corner sits exactly on the clip line and check no corner becomes NaN."""
-import re
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-
-
-def function(source, name):
-    match = re.search(r"^(?:static )?[\w *]+\b" + name + r"\(\s*[^;{]*\)\s*\{", source, re.M)
-    if not match:
-        raise ValueError(f"Function not found: {name}")
-    start = source.index("{", match.start())
-    depth, end = 1, start + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 PRELUDE = r'''
@@ -97,9 +87,8 @@ int main(void) {
 
 
 def main():
-    source = (ROOT / "source/math/geometry.c").read_text()
     names = ["vector_intersect_plane2d", "convex_polygon2d_clip_to_plane"]
-    code = PRELUDE + "\n".join(function(source, name) for name in names) + TESTS
+    code = PRELUDE + "\n".join(probe_source.function("source/math/geometry.c", name) for name in names) + TESTS
     with tempfile.TemporaryDirectory(prefix="portal-clip-nan-") as tmp:
         path = Path(tmp) / "test.c"
         binary = Path(tmp) / "test"

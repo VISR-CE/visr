@@ -1,21 +1,14 @@
 """Run the real captured-list parser with native GPU boundary stubs."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 SOURCE = ROOT / "port/linux/src/d3d8_device.c"
-
-
-def function(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 def pipeline(vertex_hash, variant=0, blend="0 1 2 3 15 0 0"):
@@ -31,18 +24,18 @@ def entries(vertex_hash, pixel_byte):
 
 def test_captured_pipelines_warm_from_bundled_and_local_records():
     source = SOURCE.read_text()
-    actual = "\n".join(function(source, signature) for signature in (
-        "static int hex_digit(",
-        "static BOOL hex_bytes(",
-        "static struct vertex_shader_object *shader_list_program(",
-        "static void lighting_key_fill(",
-        "static int shader_list_soft_mode(",
-        "static const struct nv2a_pixel_shader_key *shader_list_pixel_key(",
-        "static BOOL shader_list_warm_remember(",
-        "static BOOL per_pixel_lighting(",
-        "void halo_shader_list_warm(",
+    actual = "\n".join(probe_source.function_in(source, name) for name in (
+        "hex_digit",
+        "hex_bytes",
+        "shader_list_program",
+        "lighting_key_fill",
+        "shader_list_soft_mode",
+        "shader_list_pixel_key",
+        "shader_list_warm_remember",
+        "per_pixel_lighting",
+        "halo_shader_list_warm",
     ))
-    host_prepare = function(source, "static void shader_list_host_prepare(")
+    host_prepare = probe_source.function_in(source, "shader_list_host_prepare")
     actual = host_prepare + "\n" + actual
     probe = r'''
 #include <assert.h>
@@ -103,7 +96,7 @@ static struct { int msl; } shader_dialect;
 static struct { int vertex_bgra; int ambient_occlusion; int soft_particles; } device_capabilities;
 static int shader_list_warming;
 static void nv2a_pixel_shader_key_canonicalize(struct nv2a_pixel_shader_key *key) { (void)key; }
-''' + function((ROOT / 'port/linux/src/xgpu.h').read_text(), 'static inline unsigned long nv2a_pixel_shader_key_size(') + r'''
+''' + probe_source.function('port/linux/src/xgpu.h', 'nv2a_pixel_shader_key_size') + r'''
 static uint64_t hash64(const void *bytes, unsigned long size) { (void)bytes; (void)size; return 0x2222222222222222ULL; }
 static int warm_enabled = 1, mode_flags;
 static long point_light_highlight, point_light_limit;

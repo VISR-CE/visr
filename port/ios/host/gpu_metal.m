@@ -5221,6 +5221,7 @@ static uint32_t convert_primitive(const struct gpu_draw *draw, MTLPrimitiveType 
 	return converted;
 }
 
+/* probe-region: traced-sections */
 /* ---------- traced object shadows (display.traced_shadows; port/linux/game/traced_shadow_casters.c, d3d8_device.c)
 
 Characters' and vehicles' shadows traced against their models instead of read from shadow maps, on GPUs with ray
@@ -6226,6 +6227,7 @@ static void gpu_metal_traced_shadows_resolve(gpu_texture color, gpu_texture dept
 	}
 }
 
+/* probe-region-end: traced-sections */
 static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_constant_store *constants,
 	const struct gpu_uniforms *uniforms)
 {

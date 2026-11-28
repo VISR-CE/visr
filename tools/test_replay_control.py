@@ -2,35 +2,27 @@
 """Execute production replay control/camera consumers with game-edge stubs."""
 import argparse
 from pathlib import Path
-import re
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
-def function(path, name):
-    source = (ROOT / path).read_text()
-    match = re.search(r"(?m)^(?:static )?[^;\n]+\b" + re.escape(name) + r"\([^;]*?\)\s*\{", source)
-    if not match:
-        raise AssertionError(f"Production definition missing: {name}")
-    start = source.index("{", match.start())
-    depth = 1
-    end = start + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
+# test_benchmark_staging imports this name; it takes the same (path, name) as the shared helper
+function = probe_source.function
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-regression", action="store_true", help="Require the probe to reject removal of the frame-facing guard")
     args = parser.parse_args(argv)
-    pieces = [function("source/game/player_queues_new.c", "update_client_local_player_index")]
+    pieces = [probe_source.function("source/game/player_queues_new.c", "update_client_local_player_index")]
     for name in ("player_control_apply_replay", "handle_one_player_input", "player_control_permanent_impulse"):
-        pieces.append(function("source/game/player_control.c", name))
-    pieces.append("#define config_boolean direct_config_boolean\n" + function("port/linux/game/render_interpolation.c", "render_interpolation_direct_camera") + "\n#undef config_boolean")
+        pieces.append(probe_source.function("source/game/player_control.c", name))
+    pieces.append("#define config_boolean direct_config_boolean\n" + probe_source.function("port/linux/game/render_interpolation.c", "render_interpolation_direct_camera") + "\n#undef config_boolean")
     body = "\n\n".join(pieces)
     variants = [("production", body, None)]
     if args.verify_regression:
@@ -91,8 +83,9 @@ def test_auto_record_suite_camera_ownership(tmp_path):
         raise AssertionError(result.stderr)
     assert "RED reproduced: auto recording owns the action path; camera=0 control=0" in result.stderr
 
-    suite_frame = function("port/linux/src/benchmark_suite.c", "benchmark_suite_frame")
-    next_run = function("port/linux/src/benchmark_suite.c", "next_run")
+    suite_frame = probe_source.function("port/linux/src/benchmark_suite.c", "benchmark_suite_frame",
+                                       which="input_replay_suite_suspend()")
+    next_run = probe_source.function("port/linux/src/benchmark_suite.c", "next_run")
     assert suite_frame.index("input_replay_suite_suspend()") < suite_frame.index("next_run();")
     assert "input_replay_begin(" in next_run
 
@@ -124,7 +117,7 @@ def test_replay_environment(tmp_path):
     static const char *tag_get_name(long index) { (void)index; return "cyborg"; }
     static const char *tag_name_strip_path(const char *name) { return name; }
     static const char *enhanced_animation_units[] = {"cyborg", "cyborg_mp"};
-    """ + function("source/units/units.c", "unit_animation_enhanced")
+    """ + probe_source.function("source/units/units.c", "unit_animation_enhanced")
     source = tmp_path / "replay-environment.c"
     source.write_text((ROOT / "port/ios/tests/input_replay_probe.c").read_text().replace(
         "/* PRODUCTION_ENHANCED_CONSUMER */", consumer))
@@ -137,7 +130,7 @@ def test_replay_environment(tmp_path):
     result = subprocess.run([str(output)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "input replay mouth mode: passed" in result.stdout
-    game_tick = function("source/game/game.c", "game_tick")
+    game_tick = probe_source.function("source/game/game.c", "game_tick")
     assert game_tick.index("input_replay_tick_begin();") < game_tick.index("units_update();")
     assert game_tick.index("input_replay_tick_begin();") < game_tick.index("ai_update();")
     assert game_tick.index("objects_update();") < game_tick.index("input_replay_tick_end();")
@@ -170,7 +163,7 @@ def test_pinned_replay_environment_report(tmp_path):
 #include "host_benchmark_snapshot.h"
 #define FOLDER "benchmark"
 static NSDictionary *pinned_snapshot;
-''' + function("port/ios/host/host_benchmark.m", "replay_environment_for_recording") + r'''
+''' + probe_source.function("port/ios/host/host_benchmark.m", "replay_environment_for_recording") + r'''
 int main(int argc, const char **argv) {
     @autoreleasepool {
         pinned_snapshot = @{ @"files": @{ [@(argv[1]) stringByAppendingPathExtension:@"actions"]: @(argv[2]) } };
@@ -212,7 +205,7 @@ int main(int argc, const char **argv) {
     assert reported(digest=pinned)["status"] == "unavailable"
     assert reported("../take", "0" * 64)["status"] == "unavailable"
     # The actual report consumer still gives the original route/error bytes to json_string.
-    write_run = function("port/ios/host/host_benchmark.m", "write_run")
+    write_run = probe_source.function("port/ios/host/host_benchmark.m", "write_run")
     assert "json_string(note)" in write_run
     assert 'record[@"replay_environment"] = replay_environment_for_recording(scene->recording)' in write_run
     from benchmark_routes import route_points

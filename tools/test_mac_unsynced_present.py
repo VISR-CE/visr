@@ -4,18 +4,10 @@ is drawn without being shown."""
 from pathlib import Path
 import re
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "port/ios/host/gpu_metal.m"
-
-
-def function(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 def test_unsynchronized_frames_wait_for_their_drawable():
@@ -29,7 +21,7 @@ def test_unsynchronized_frames_wait_for_their_drawable():
 
 
 def test_unsynchronized_frames_still_leave_the_refresh():
-    sync = function(SOURCE.read_text(), "static BOOL frame_rate_sync(void)")
+    sync = probe_source.function(SOURCE, "frame_rate_sync")
     assert "layer.displaySyncEnabled = sync;" in sync
     assert "sync = !host_frame_rate_unlimited()" in sync
 

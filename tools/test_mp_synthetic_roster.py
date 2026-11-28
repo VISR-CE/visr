@@ -4,29 +4,19 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from unittest import SkipTest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-NETWORK_TEST = (ROOT / "port/linux/game/network_test.c").read_text()
-GAME_MANAGER = (ROOT / "source/networking/network_game_manager.c").read_text()
-GAME_MESSAGES = (ROOT / "source/networking/network_server_message_handler.c").read_text()
-GAME_SERVER = (ROOT / "source/networking/network_server_manager.c").read_text()
-
-
-def function(source: str, signature: str) -> str:
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth = 0
-    for position in range(opening, len(source)):
-        if source[position] == "{":
-            depth += 1
-        elif source[position] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[start:position + 1]
-    raise ValueError(f"Unclosed source function: {signature}")
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+NETWORK_TEST_PATH = "port/linux/game/network_test.c"
+NETWORK_TEST = probe_source.read(NETWORK_TEST_PATH)
+GAME_MANAGER_PATH = "source/networking/network_game_manager.c"
+GAME_MESSAGES_PATH = "source/networking/network_server_message_handler.c"
+GAME_SERVER_PATH = "source/networking/network_server_manager.c"
 
 
 def lobby_branch() -> str:
@@ -42,14 +32,14 @@ def after_map_branch() -> str:
 
 
 def suite_functions() -> str:
-    pieces = [function(NETWORK_TEST, "int network_test_suite_begin("),
-              function(NETWORK_TEST, "void network_test_suite_end(void)")]
-    if "static int network_test_synthetic_machine_name(" in NETWORK_TEST:
-        pieces.insert(1, function(NETWORK_TEST, "static int network_test_synthetic_machine_name("))
-    if "static int network_test_suite_add_synthetic_players(" in NETWORK_TEST:
-        pieces.append(function(NETWORK_TEST, "static int network_test_suite_add_synthetic_players("))
-    if "static int network_test_suite_prepare_synthetic_players(" in NETWORK_TEST:
-        pieces.append(function(NETWORK_TEST, "static int network_test_suite_prepare_synthetic_players("))
+    pieces = [probe_source.function(NETWORK_TEST_PATH, "network_test_suite_begin"),
+              probe_source.function(NETWORK_TEST_PATH, "network_test_suite_end")]
+    if probe_source.defined(NETWORK_TEST_PATH, "network_test_synthetic_machine_name"):
+        pieces.insert(1, probe_source.function(NETWORK_TEST_PATH, "network_test_synthetic_machine_name"))
+    if probe_source.defined(NETWORK_TEST_PATH, "network_test_suite_add_synthetic_players"):
+        pieces.append(probe_source.function(NETWORK_TEST_PATH, "network_test_suite_add_synthetic_players"))
+    if probe_source.defined(NETWORK_TEST_PATH, "network_test_suite_prepare_synthetic_players"):
+        pieces.append(probe_source.function(NETWORK_TEST_PATH, "network_test_suite_prepare_synthetic_players"))
     return "\n\n".join(pieces)
 
 
@@ -348,23 +338,23 @@ def test_synthetic_player_reaches_local_client_settings() -> None:
     state_end = NETWORK_TEST.index("} network_test;", state_start) + len("} network_test;")
     source = HARNESS
     replacements = {
-        "__PLAYER_VALID__": function(GAME_MANAGER, "boolean network_player_is_valid("),
-        "__ADD_MACHINE__": function(GAME_MANAGER, "boolean network_game_add_machine("),
-        "__ADD_PLAYER__": function(GAME_MANAGER, "boolean network_game_add_player("),
-        "__INVALIDATE_PLAYER__": function(GAME_MANAGER, "void network_game_invalidate_player("),
-        "__INVALIDATE_MACHINE__": function(GAME_MANAGER, "void network_game_invalidate_machine("),
-        "__PLAYER_IS_VALID__": function(GAME_MANAGER, "boolean network_game_player_is_valid("),
-        "__REMOVE_PLAYER__": function(GAME_MANAGER, "boolean network_game_remove_player("),
-        "__REMOVE_MACHINE__": function(GAME_MANAGER, "boolean network_game_remove_machine("),
-        "__CLIENT_JOINED__": function(GAME_SERVER, "boolean network_game_server_client_machine_is_joined_to_game("),
-        "__ENOUGH_MACHINES__": function(GAME_SERVER, "boolean server_has_enough_machines("),
+        "__PLAYER_VALID__": probe_source.function(GAME_MANAGER_PATH, "network_player_is_valid"),
+        "__ADD_MACHINE__": probe_source.function(GAME_MANAGER_PATH, "network_game_add_machine"),
+        "__ADD_PLAYER__": probe_source.function(GAME_MANAGER_PATH, "network_game_add_player"),
+        "__INVALIDATE_PLAYER__": probe_source.function(GAME_MANAGER_PATH, "network_game_invalidate_player"),
+        "__INVALIDATE_MACHINE__": probe_source.function(GAME_MANAGER_PATH, "network_game_invalidate_machine"),
+        "__PLAYER_IS_VALID__": probe_source.function(GAME_MANAGER_PATH, "network_game_player_is_valid"),
+        "__REMOVE_PLAYER__": probe_source.function(GAME_MANAGER_PATH, "network_game_remove_player"),
+        "__REMOVE_MACHINE__": probe_source.function(GAME_MANAGER_PATH, "network_game_remove_machine"),
+        "__CLIENT_JOINED__": probe_source.function(GAME_SERVER_PATH, "network_game_server_client_machine_is_joined_to_game"),
+        "__ENOUGH_MACHINES__": probe_source.function(GAME_SERVER_PATH, "server_has_enough_machines"),
         "__NETWORK_TEST_STATE__": NETWORK_TEST[state_start:state_end],
         "__SUITE_FUNCTIONS__": suite_functions(),
-        "__VARIANT_FUNCTION__": function(NETWORK_TEST, "static boolean network_test_variant("),
+        "__VARIANT_FUNCTION__": probe_source.function(NETWORK_TEST_PATH, "network_test_variant"),
         "__MAP_SET_BRANCH__": lobby_branch(),
         "__AFTER_MAP_BRANCH__": after_map_branch(),
-        "__FLUSH_SETTINGS__": function(GAME_MESSAGES, "boolean network_game_server_flush_game_data_pregame("),
-        "__SEND_SETTINGS__": function(GAME_MESSAGES, "boolean network_game_server_send_game_data_pregame("),
+        "__FLUSH_SETTINGS__": probe_source.function(GAME_MESSAGES_PATH, "network_game_server_flush_game_data_pregame"),
+        "__SEND_SETTINGS__": probe_source.function(GAME_MESSAGES_PATH, "network_game_server_send_game_data_pregame"),
     }
     for key, value in replacements.items():
         source = source.replace(key, value)

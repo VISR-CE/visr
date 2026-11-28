@@ -11,6 +11,8 @@ focus-drawing site in both files and fails on one that decides without the rule.
 from pathlib import Path
 import re
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
 ENGINE = ROOT / "source/interface/ui_widget.c"
 PORT = ROOT / "port/linux/game/menu_functions.c"
@@ -24,11 +26,10 @@ NOT_FOCUS = {"ui_touch_disc_text", "ui_widget_port_postgame_legend"}
 
 def enclosing_function(source, offset):
     """the name of the top-level function whose body holds offset"""
-    head = None
-    for match in re.finditer(r"^(?:static |__inline |boolean |void |int |short |long |char |struct |wchar_t |real )"
-                             r"[^;{]*?\b(\w+)\(", source[:offset], re.MULTILINE):
-        head = match.group(1)
-    return head
+    for name, _, brace, end in probe_source.definitions(source, "the scanned source"):
+        if brace <= offset <= end:
+            return name
+    return None
 
 
 def line_offset(source, line):

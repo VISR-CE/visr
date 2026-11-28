@@ -1,26 +1,14 @@
 """Compile actual death handlers, co-op respawn and camera code against a fake world."""
 import argparse
 import os
-import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parent.parent
-
-
-def function(source, name):
-    match = re.search(r"^(?:static )?[\w *]+\b" + name + r"\(\s*[^;{]*\)\s*\{", source, re.M)
-    if not match:
-        raise ValueError(f"Function not found: {name}")
-    start = source.index('{', match.start())
-    depth, end = 1, start + 1
-    # The extracted functions have no braces inside strings/comments.
-    while depth:
-        depth += (source[end] == '{') - (source[end] == '}')
-        end += 1
-    return source[match.start():end]
 
 
 PRELUDE = r'''
@@ -453,11 +441,6 @@ int main(void) {
 '''
 
 
-def structure(source, name):
-    start = source.index('struct ' + name + '\n{')
-    return source[start:source.index('\n};', start) + 4] + '\n'
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cc', default='clang')
@@ -471,23 +454,23 @@ def main():
     coop_source = (ROOT / 'port/linux/game/coop_spectate.c').read_text()
     unit = PRELUDE
     for name in ('camera_control', 'dead_camera_command'):
-        unit += structure(camera_source, name)
-    unit += structure(camera_header, 'dead_camera')
+        unit += probe_source.structure_in(camera_source, name, 'dead_camera.c') + '\n'
+    unit += probe_source.structure_in(camera_header, 'dead_camera', 'dead_camera.h') + '\n'
     unit += '#define players_respawn_coop players_respawn_coop_real\n'
-    unit += function(players_source, 'players_respawn_coop')
+    unit += probe_source.function_in(players_source, 'players_respawn_coop', 'players.c')
     unit += '\n#undef players_respawn_coop\nstatic boolean players_respawn_coop(void) {attempts++;return players_respawn_coop_real();}\n'
     for name in ('main_lost_map', 'main_respawn', 'main_reset_map', 'main_revert_map', 'main_death_timer_expired',
                  'main_lost_map_private', 'main_respawn_private'):
-        unit += function(main_source, name)
+        unit += probe_source.function_in(main_source, name, 'main.c')
     for name in ('dead_camera_new', 'player_has_allies', 'player_get_next_player_with_a_unit', 'dead_camera_update'):
-        unit += function(camera_source, name)
+        unit += probe_source.function_in(camera_source, name, 'dead_camera.c')
     coop_globals_start = coop_source.index('static long coop_spectate_watched')
     coop_globals_end = coop_source.index('/* ---------- private code */', coop_globals_start)
     unit += coop_source[coop_globals_start:coop_globals_end]
     for name in ('next_living_player', 'next_pressed', 'unit_is_passenger', 'coop_spectate_unit'):
-        unit += function(coop_source, name)
+        unit += probe_source.function_in(coop_source, name, 'coop_spectate.c')
     if 'long coop_spectate_camera_unit(' in coop_source:
-        unit += function(coop_source, 'coop_spectate_camera_unit')
+        unit += probe_source.function_in(coop_source, 'coop_spectate_camera_unit', 'coop_spectate.c')
     else:
         unit += r'''
 static long coop_spectate_camera_unit(short local_player_index,boolean network_coop,
@@ -497,7 +480,7 @@ static long coop_spectate_camera_unit(short local_player_index,boolean network_c
 }
 '''
     for name in ('coop_spectate_watching_rider', 'coop_spectate_nothing_to_watch', 'coop_spectate_draw'):
-        unit += function(coop_source, name)
+        unit += probe_source.function_in(coop_source, name, 'coop_spectate.c')
     if args.coop_grace_only:
         unit += '\n#define COOP_GRACE_ONLY 1\n'
     unit += TESTS

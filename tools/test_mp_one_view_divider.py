@@ -4,26 +4,14 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from unittest import SkipTest
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "source/interface/interface.c"
-
-
-def divider_source() -> str:
-    source = SOURCE.read_text()
-    start = source.index("static void interface_splitscreen_render(\n\tvoid)\n{")
-    opening = source.index("{", start)
-    depth = 0
-    for position in range(opening, len(source)):
-        if source[position] == "{":
-            depth += 1
-        elif source[position] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[start:position + 1]
-    raise ValueError("Unclosed split-screen divider function")
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+SOURCE = "source/interface/interface.c"
 
 
 HARNESS = r'''
@@ -86,7 +74,7 @@ def test_dividers_follow_visible_windows() -> None:
     with tempfile.TemporaryDirectory(prefix="mp-divider-") as temporary:
         source = Path(temporary) / "divider.c"
         binary = Path(temporary) / "divider"
-        source.write_text(HARNESS.replace("__DIVIDER_SOURCE__", divider_source()))
+        source.write_text(HARNESS.replace("__DIVIDER_SOURCE__", probe_source.function(SOURCE, "interface_splitscreen_render")))
         subprocess.run([compiler, "-O2", "-Wall", "-Wextra", "-Werror", str(source), "-o", str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
 

@@ -6,21 +6,13 @@ worktree; this script and its fixture need not be copied into that tree.
 """
 import argparse
 from pathlib import Path
-import re
 import subprocess
+
+from probekit import source as probe_source
 
 
 def function(source, name):
-    match = re.search(r'^[\w *]+\b' + re.escape(name) + r'\([^;]*?\)\n\{', source, re.M)
-    if not match:
-        raise ValueError(f"Cannot find production function {name}")
-    start = source.index('{', match.start())
-    depth = 1
-    end = start + 1
-    while depth:
-        depth += (source[end] == '{') - (source[end] == '}')
-        end += 1
-    return source[match.start():end] + '\n'
+    return probe_source.function_in(source, name, "xbox_textures.c") + '\n'
 
 
 def main():

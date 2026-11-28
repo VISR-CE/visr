@@ -1,40 +1,35 @@
 """Scripted player poses on the wire: a 42/43 extension, ignored below 42."""
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
-
-def block(source, marker):
-    start = source.index(marker)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
+DISTRIBUTED = "port/linux/game/network_distributed.c"
+HEADER = "port/linux/game/network_distributed.h"
 
 
 def test_scripted_pose_round_trips_from_42_and_is_ignored_below(tmp_path):
     source = (ROOT / "port/linux/game/network_distributed.c").read_text()
-    header = (ROOT / "port/linux/game/network_distributed.h").read_text()
     start = source.index("/* struct distributed_unit_state flags */")
     enums = source[start:source.index("/* world units: how far", start)]
-    state = block(source, "struct distributed_unit_state\n{") + ";\n"
+    state = probe_source.structure(DISTRIBUTED, "distributed_unit_state") + "\n"
     pieces = [
-        block(header, "struct distributed_vector\n{") + ";\n",
+        probe_source.structure(HEADER, "distributed_vector") + "\n",
         enums,
         state,
         "enum { DISTRIBUTED_UNIT_STATE_MINIMUM_SIZE = 3 };\n",
-        block(source, "void distributed_vector_pack("),
-        block(source, "boolean distributed_unit_vector_pack("),
-        block(source, "void distributed_vector_unpack("),
-        block(source, "static byte *distributed_put("),
-        block(source, "static boolean distributed_take("),
-        block(source, "static boolean distributed_scripted_poses("),
-        block(source, "static boolean distributed_scripted_pose_valid("),
-        block(source, "static word distributed_unit_state_write("),
-        block(source, "static word distributed_unit_state_read("),
+        probe_source.function(DISTRIBUTED, "distributed_vector_pack"),
+        probe_source.function(DISTRIBUTED, "distributed_unit_vector_pack"),
+        probe_source.function(DISTRIBUTED, "distributed_vector_unpack"),
+        probe_source.function(DISTRIBUTED, "distributed_put"),
+        probe_source.function(DISTRIBUTED, "distributed_take"),
+        probe_source.function(DISTRIBUTED, "distributed_scripted_poses"),
+        probe_source.function(DISTRIBUTED, "distributed_scripted_pose_valid"),
+        probe_source.function(DISTRIBUTED, "distributed_unit_state_write"),
+        probe_source.function(DISTRIBUTED, "distributed_unit_state_read"),
     ]
     program = r'''
 #include <assert.h>
@@ -198,12 +193,12 @@ int main(void)
 
 def test_scripted_pose_apply_and_prediction_are_gated():
     source = (ROOT / "port/linux/game/network_distributed.c").read_text()
-    apply = block(source, "static void distributed_scripted_pose_apply(")
+    apply = probe_source.function(DISTRIBUTED, "distributed_scripted_pose_apply")
     assert "if (!distributed_scripted_poses())" in apply
-    assert "if (!state->scripted_pose && " in block(source, "boolean distributed_apply_state(")
-    handle = block(source, "static void distributed_handle_unit_state(")
+    assert "if (!state->scripted_pose && " in probe_source.function(DISTRIBUTED, "distributed_apply_state")
+    handle = probe_source.function(DISTRIBUTED, "distributed_handle_unit_state")
     assert "distributed_scripted_pose_apply(" in handle
-    from_unit = block(source, "static void distributed_scripted_pose_from_unit(")
+    from_unit = probe_source.function(DISTRIBUTED, "distributed_scripted_pose_from_unit")
     assert "_game_connection_network_server" in from_unit and "distributed_scripted_poses()" in from_unit
     # a host refuses a client's state that carried a pose, valid or not
     assert "state.scripted_pose_sent ||" in source

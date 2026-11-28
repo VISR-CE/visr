@@ -1,22 +1,12 @@
 """Check the version gate for network version 42's shared simulation fixes."""
 from pathlib import Path
-import re
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def function(path, name):
-    source = (ROOT / path).read_text()
-    match = re.search(r"(?m)^(?:static )?[^;\n]+\b" + re.escape(name) + r"\([^;]*?\)\s*\{", source)
-    assert match, f"Production definition missing: {name}"
-    start = source.index("{", match.start())
-    end, depth = start + 1, 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 PROBE = r"""
@@ -64,7 +54,7 @@ int main(void)
 
 
 def test_shared_sim_fix_gate():
-    gate = function("source/networking/network_client_manager.c", "network_game_shared_sim_fixes")
+    gate = probe_source.function("source/networking/network_client_manager.c", "network_game_shared_sim_fixes")
     probe = PROBE.replace("VERSION_HEADER", str(ROOT / "port/linux/include/halo_network_version.h")).replace("GATE", gate)
     with tempfile.TemporaryDirectory() as directory:
         source = Path(directory) / "probe.c"
@@ -76,7 +66,7 @@ def test_shared_sim_fix_gate():
 
 
 def test_boat_controls_start_from_zero_only_under_the_gate():
-    boat = function("source/units/vehicles.c", "update_human_boat_physics")
+    boat = probe_source.function("source/units/vehicles.c", "update_human_boat_physics")
     gated = "if (network_game_shared_sim_fixes())\n\t\t\tcsmemset(state, 0, 3 * sizeof(*state));"
     assert boat.count(gated) == 1
     assert boat.index(gated) < boat.index("speed = (real)fabs(")

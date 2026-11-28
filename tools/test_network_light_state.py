@@ -2,13 +2,19 @@
 """Exercise the actual network25 light sender/receiver code in a small world."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / 'port/linux/game/network_objects.c').read_text()
+sys.path.insert(0, str(ROOT / 'tools'))
+from probekit import source as probe_source  # noqa: E402
+
+PATH = 'port/linux/game/network_objects.c'
+source = probe_source.read(PATH)
 
 
 def block(marker):
+    """the brace block that opens at `marker` (an enum or an unnamed block inside a function, which have no name to find them by)"""
     start = source.index(marker)
     opening = source.index('{', start)
     depth = 1
@@ -20,7 +26,7 @@ def block(marker):
 
 
 flags = block('enum\n{\n\t/* an item in a unit') + ';'
-driver = block('static boolean distributed_unit_driven_here(')
+driver = probe_source.function(PATH, 'distributed_unit_driven_here')
 send = block('if (TEST_FLAG(_object_mask_unit, object->object.type))\n\t{\n\t\tSET_FLAG(state->flags, _distributed_object_light_sent_bit')
 receive = block('if (TEST_FLAG(state->flags, _distributed_object_light_sent_bit) &&')
 program = r'''

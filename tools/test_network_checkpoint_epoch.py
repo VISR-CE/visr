@@ -2,8 +2,14 @@
 boundary changes worlds, and a client plays only after its snapshot ends."""
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+
+DISTRIBUTED = "port/linux/game/network_distributed.c"
+HEADER = "port/linux/game/network_distributed.h"
 
 
 def block(source, marker):
@@ -17,12 +23,11 @@ def block(source, marker):
 
 
 def test_client_takes_only_newer_ordered_boundaries_and_holds_play_until_synchronized(tmp_path):
-    source = (ROOT / "port/linux/game/network_distributed.c").read_text()
     header = (ROOT / "port/linux/game/network_distributed.h").read_text()
     kinds = block(header, "enum\n{") + ";\n"
-    structures = block(header, "struct distributed_message_header\n{").replace(
-        "long game_time;", "int32_t game_time;") + ";\n"
-    valid = block(source, "static boolean distributed_message_epoch_valid(")
+    structures = probe_source.structure(HEADER, "distributed_message_header").replace(
+        "long game_time;", "int32_t game_time;") + "\n"
+    valid = probe_source.function(DISTRIBUTED, "distributed_message_epoch_valid")
     program = r'''
 #include <assert.h>
 #include <stdint.h>
@@ -153,17 +158,16 @@ int main(void)
 def test_epoch_path_is_off_below_42(tmp_path):
     """Below 42 the epoch never holds play, never gates what a client sends,
     and the revert hook sends no checkpoint; from 42 on all three engage."""
-    source = (ROOT / "port/linux/game/network_distributed.c").read_text()
     header = (ROOT / "port/linux/game/network_distributed.h").read_text()
     kinds = block(header, "enum\n{") + ";\n"
-    structures = block(header, "struct distributed_message_header\n{").replace(
-        "long game_time;", "int32_t game_time;") + ";\n"
-    functions = "\n".join(block(source, marker) for marker in (
-        "unsigned long network_distributed_wire_epoch_size(",
-        "static boolean distributed_fill_header(",
-        "void network_distributed_reverted(",
-        "void distributed_checkpoint_to_machine(",
-        "boolean distributed_checkpoint_ready(",
+    structures = probe_source.structure(HEADER, "distributed_message_header").replace(
+        "long game_time;", "int32_t game_time;") + "\n"
+    functions = "\n".join(probe_source.function(DISTRIBUTED, name) for name in (
+        "network_distributed_wire_epoch_size",
+        "distributed_fill_header",
+        "network_distributed_reverted",
+        "distributed_checkpoint_to_machine",
+        "distributed_checkpoint_ready",
     ))
     program = r'''
 #include <assert.h>
@@ -251,8 +255,7 @@ def test_client_tick_stops_before_predictions_only_while_the_epoch_holds_play():
     """network_objects_client_tick's early return hangs on
     distributed_checkpoint_ready, which is always true below 42 (see above),
     and comes after the ready request but before every prediction."""
-    tick = block((ROOT / "port/linux/game/network_objects.c").read_text(),
-                 "void network_objects_client_tick(")
+    tick = probe_source.function("port/linux/game/network_objects.c", "network_objects_client_tick")
     ready = tick.index("_distributed_message_client_ready")
     gate = tick.index("if (!distributed_checkpoint_ready())\n\t\treturn;")
     first_prediction = tick.index("distributed_client_ready_picked_up_weapons();")

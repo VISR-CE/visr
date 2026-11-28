@@ -7,11 +7,14 @@ hold.
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tools'))
+from probekit import source as probe_source  # noqa: E402
 MOVED_KEYS = re.compile(r'"(?:input\.(?:mouse_[a-z_]+|invert_mouse)|controls\.[a-z_]+)"')
 
 
@@ -57,24 +60,22 @@ def test_the_write_thread_builds_its_block_with_the_merge_the_probe_tests():
     """The write thread's block comes from player_input_block_merge (behavior: port/ios/tests/player_input_profile_probe.c,
     which covers a base-only write, an extension-only write, an unreadable file and a newer record)."""
     source = (ROOT / 'source/saved games/player_profile.c').read_text(encoding='latin-1')
-    thread = source[source.index('player_profile_write_thread_proc(\n\tvoid *input)\n{'):]
-    thread = thread[:thread.index('player_profile_create_default_profiles_on_disk(\n\tvoid)\n{')]
+    thread = probe_source.function_in(source, 'player_profile_write_thread_proc')
     assert 'player_input_block_merge(' in thread and 'file_write(&file, sizeof(new_block), new_block)' in thread
     assert 'player_profile_input_request.write_input ? &player_profile_input_request.input : NULL' in thread
     # the default profiles, rewritten at every launch, keep their extension as well
-    defaults = source[source.index('player_profile_create_default_profiles_on_disk(\n\tvoid)\n{'):]
-    assert 'PLAYER_INPUT_REGION_OFFSET' in defaults[:defaults.index('player_profile_write(\n\tlong')]
+    defaults = probe_source.function_in(source, 'player_profile_create_default_profiles_on_disk')
+    assert 'PLAYER_INPUT_REGION_OFFSET' in defaults
 
 
 def test_activating_a_profile_always_reads_its_input_settings():
     """A profile's index can be reused after a delete, so activation never skips the read; only the two level-save
     paths (same profile, record only) use the record-only update."""
     ui = (ROOT / 'source/interface/player_ui.c').read_text(encoding='latin-1')
-    activate = ui[ui.index('void player_ui_set_active_player_profile('):]
-    activate = activate[:activate.index('\n}')]
+    activate = probe_source.function_in(ui, 'player_ui_set_active_player_profile')
     assert 'player_profile_get_input(profile_index, &input);' in activate and 'if (' not in activate.split('csmemcpy')[1]
-    update = ui[ui.index('void player_ui_update_active_player_profile_record('):]
-    assert 'player_profile_get_input' not in update[:update.index('\n}')]
+    update = probe_source.function_in(ui, 'player_ui_update_active_player_profile_record')
+    assert 'player_profile_get_input' not in update
     saves = (ROOT / 'source/saved games/player_profile.c').read_text(encoding='latin-1')
     assert saves.count('player_ui_update_active_player_profile_record(') == 2
     assert 'player_ui_set_active_player_profile(' not in saves
@@ -413,22 +414,17 @@ int main(void)
 '''
 
 
-def _function(source, signature):
-    start = source.index(signature)
-    return source[start:source.index('\n}', start) + 2]
-
-
 def _activation_status(tmp_path, ui_source, mutate=None):
     compiler = shutil.which('clang') or shutil.which('cc')
     if not compiler:
         pytest.skip('A C compiler is required')
     ui_source = ui_source.replace('\r\n', '\n')
-    functions = _function(ui_source, 'void player_ui_set_active_player_profile(')
+    functions = probe_source.function_in(ui_source, 'player_ui_set_active_player_profile')
     # (the deletion mailbox is new in the branch: a source without it gets empty posts, which the probe must reject)
     if '/* port: saved game file deletion mailbox' in ui_source:
         start = ui_source.index('/* port: saved game file deletion mailbox')
         functions = ui_source[start:ui_source.index('/* end of the deletion mailbox */')] + '\n' + \
-            _function(ui_source, 'long player_ui_get_player1_last_used_profile_index(') + '\n' + functions
+            probe_source.function_in(ui_source, 'player_ui_get_player1_last_used_profile_index') + '\n' + functions
     else:
         functions = ('void player_ui_post_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }\n'
                      'void player_ui_apply_pending_saved_game_file_deletions(void) { }\n') + functions
@@ -467,16 +463,15 @@ def test_the_probe_catches_a_delete_that_leaves_active_indices_stale(tmp_path):
 
     def stale_indices(functions):
         # (the hook that moves the players does nothing: the stale-index bug)
-        start = functions.index('static void player_ui_saved_game_file_deleted(')
-        end = functions.index('\n}', start) + 2
-        return functions[:start] + 'static void player_ui_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }' + functions[end:]
+        return _replace_function(functions, 'player_ui_saved_game_file_deleted',
+                                 'static void player_ui_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }')
 
     assert _activation_status(tmp_path, ui, stale_indices) != 0
 
 
 def test_deletes_are_posted_under_the_mapfile_mutex_and_drained_before_index_reads():
     files = (ROOT / 'source' / 'saved games' / 'saved_game_files.c').read_text(encoding='latin-1')
-    body = files[files.index('static boolean remove_nth_entry_in_mapfile(\r\n\tword memory_unit_index,\r\n\tword n,\r\n\tlong deleted_index)\r\n{') if '\r\n' in files else files.index('static boolean remove_nth_entry_in_mapfile(\n\tword memory_unit_index,\n\tword n,\n\tlong deleted_index)\n{'):]
+    body = probe_source.function_in(files, 'remove_nth_entry_in_mapfile')
     body = body[:body.index('saved_game_files_release_mapfile_mutex();')]
     assert 'player_ui_post_saved_game_file_deleted(deleted_index)' in body
     assert 'player_ui_apply_pending_saved_game_file_deletions' in (ROOT / 'source' / 'main' / 'main.c').read_text(encoding='latin-1')
@@ -490,16 +485,15 @@ def test_deletes_are_posted_under_the_mapfile_mutex_and_drained_before_index_rea
                 assert 'player_ui_apply_pending_saved_game_file_deletions();' in chunk, chunk[:80]
 
 
-def _replace_function(functions, signature, replacement):
-    start = functions.index(signature)
-    return functions[:start] + replacement + functions[functions.index('\n}', start) + 2:]
+def _replace_function(functions, name, replacement):
+    return functions.replace(probe_source.function_in(functions, name), replacement, 1)
 
 
 def test_the_probe_catches_a_post_that_does_nothing(tmp_path):
     ui = (ROOT / 'source/interface/player_ui.c').read_text(encoding='latin-1')
 
     def no_op_post(functions):
-        return _replace_function(functions, 'void player_ui_post_saved_game_file_deleted(',
+        return _replace_function(functions, 'player_ui_post_saved_game_file_deleted',
                                  'void player_ui_post_saved_game_file_deleted(long deleted_index) { (void)deleted_index; }')
 
     assert _activation_status(tmp_path, ui, no_op_post) != 0
@@ -509,11 +503,11 @@ def test_the_probe_catches_a_relisting_that_finds_nothing_again(tmp_path):
     ui = (ROOT / 'source/interface/player_ui.c').read_text(encoding='latin-1')
 
     def no_op_relisting(functions):
-        return _replace_function(functions, 'static void player_ui_find_cached_profiles_by_path(',
+        return _replace_function(functions, 'player_ui_find_cached_profiles_by_path',
                                  'static void player_ui_find_cached_profiles_by_path(void) { }')
 
     def no_op_relisted_post(functions):
-        return _replace_function(functions, 'void player_ui_post_saved_game_files_relisted(',
+        return _replace_function(functions, 'player_ui_post_saved_game_files_relisted',
                                  'void player_ui_post_saved_game_files_relisted(void) { }')
 
     assert _activation_status(tmp_path, ui, no_op_relisting) != 0
@@ -522,9 +516,8 @@ def test_the_probe_catches_a_relisting_that_finds_nothing_again(tmp_path):
 
 def test_a_relisting_and_a_failed_compaction_are_posted_by_the_saved_game_files():
     files = (ROOT / 'source' / 'saved games' / 'saved_game_files.c').read_text(encoding='latin-1').replace('\r\n', '\n')
-    listing = files[files.rindex('static void enumerate_memory_units(\n\tvoid)\n{'):]
-    listing = listing[:listing.index('\n}')]
+    listing = probe_source.body_in(files, 'enumerate_memory_units')
     assert listing.rstrip().endswith('player_ui_post_saved_game_files_relisted();\n\treturn;')
-    remove = files[files.rindex('static boolean remove_nth_entry_in_mapfile(\n\tword memory_unit_index,\n\tword n,\n\tlong deleted_index)\n{'):]
+    remove = probe_source.function_in(files, 'remove_nth_entry_in_mapfile')
     remove = remove[:remove.index('saved_game_files_release_mapfile_mutex();')]
     assert 'player_ui_post_saved_game_files_unknown_change();' in remove

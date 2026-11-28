@@ -2,11 +2,15 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 from unittest import SkipTest
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+
 SOURCE = ROOT / "port/linux/game/benchmark_mp_arena.c"
 HARNESS = r'''
 #include <assert.h>
@@ -165,25 +169,6 @@ def test_actual_geometry_staging_respawn_and_input_adapter(tmp_path, strict_math
     subprocess.run([str(binary)],check=True)
 
 
-def _actual_function(path, name):
-    text = path.read_text()
-    start = text.index("\n" + name + "(") if "\n" + name + "(" in text else -1
-    if start < 0:
-        import re
-        match = re.search(r"^(?:static )?(?:real|long) " + name + r"\(", text, re.M)
-        assert match, name
-        start = match.start()
-    else:
-        start = text.rfind("\n", 0, start) + 1
-    opening = text.index("{", start)
-    depth = 1
-    end = opening + 1
-    while depth:
-        depth += (text[end] == "{") - (text[end] == "}")
-        end += 1
-    return text[start:end]
-
-
 def test_actual_spawn_occupancy_releases_before_full_arena_readiness(tmp_path):
     """Use stock distance rating and start selection with the actual arena adapter."""
     prefix = HARNESS.split("int main(void)")[0]
@@ -262,8 +247,8 @@ int main(void) {
     return 0;
 }
 """
-    stock = stock.replace("__RATING__", _actual_function(engine, "game_engine_get_distance_rating_for_spawn"))
-    stock = stock.replace("__SELECTION__", _actual_function(players_source, "find_best_starting_location_index"))
+    stock = stock.replace("__RATING__", probe_source.function(engine, "game_engine_get_distance_rating_for_spawn"))
+    stock = stock.replace("__SELECTION__", probe_source.function(players_source, "find_best_starting_location_index"))
     path,binary=tmp_path / "arena-stock-spawn.c",tmp_path / "arena-stock-spawn"
     path.write_text((prefix + stock).replace("__SOURCE__",str(SOURCE)))
     compiler = shutil.which("clang") or shutil.which("cc")

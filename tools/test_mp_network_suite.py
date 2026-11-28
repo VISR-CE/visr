@@ -4,25 +4,15 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from unittest import SkipTest
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = (ROOT / "port/linux/game/network_test.c").read_text()
-
-
-def function_source(signature: str) -> str:
-    start = SOURCE.index(signature)
-    opening = SOURCE.index("{", start)
-    depth = 0
-    for position in range(opening, len(SOURCE)):
-        if SOURCE[position] == "{":
-            depth += 1
-        elif SOURCE[position] == "}":
-            depth -= 1
-            if depth == 0:
-                return SOURCE[start:position + 1]
-    raise ValueError(f"Unclosed function: {signature}")
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+PATH = "port/linux/game/network_test.c"
+SOURCE = probe_source.read(PATH)
 
 
 HARNESS = r'''
@@ -160,13 +150,13 @@ def test_private_match_lifecycle() -> None:
     state_start = SOURCE.index("struct network_test_weapon_trace\n{")
     state_end = SOURCE.index("} network_test;", state_start) + len("} network_test;")
     source = HARNESS.replace("__NETWORK_STATE__", SOURCE[state_start:state_end])
-    begin = function_source("int network_test_suite_begin(")
+    begin = probe_source.function(PATH, "network_test_suite_begin")
     source = source.replace("__BEGIN_FUNCTION__", begin)
-    source = source.replace("__GETTER_FUNCTIONS__", function_source("int network_test_suite_network_players(void)") +
-                            "\n" + function_source("int network_test_suite_map_matches(") +
-                            "\n" + function_source("uint32_t network_test_suite_energy_projectiles(") +
-                            "\n" + function_source("void network_test_suite_projectile_created("))
-    source = source.replace("__END_FUNCTION__", function_source("void network_test_suite_end(void)"))
+    source = source.replace("__GETTER_FUNCTIONS__", probe_source.function(PATH, "network_test_suite_network_players") +
+                            "\n" + probe_source.function(PATH, "network_test_suite_map_matches") +
+                            "\n" + probe_source.function(PATH, "network_test_suite_energy_projectiles") +
+                            "\n" + probe_source.function(PATH, "network_test_suite_projectile_created"))
+    source = source.replace("__END_FUNCTION__", probe_source.function(PATH, "network_test_suite_end"))
     with tempfile.TemporaryDirectory(prefix="mp-network-suite-") as temporary:
         source_path = Path(temporary) / "network_suite.c"
         binary = Path(temporary) / "network_suite"

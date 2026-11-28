@@ -4,22 +4,28 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 from unittest import SkipTest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-QUEUES = (ROOT / "source/game/player_queues_new.c").read_text()
-NETWORK_TEST = (ROOT / "port/linux/game/network_test.c").read_text()
-UNITS = (ROOT / "source/units/units.c").read_text()
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+QUEUES_PATH = "source/game/player_queues_new.c"
+NETWORK_TEST_PATH = "port/linux/game/network_test.c"
+NETWORK_TEST = probe_source.read(NETWORK_TEST_PATH)
+UNITS_PATH = "source/units/units.c"
+UNITS = probe_source.read(UNITS_PATH)
 UNIT_HEADER = (ROOT / "source/units/units.h").read_text()
 WEAPON_HEADER = (ROOT / "source/items/weapons.h").read_text()
-ITEMS = (ROOT / "source/items/items.c").read_text()
-OBJECTS = (ROOT / "source/objects/objects.c").read_text()
+ITEMS_PATH = "source/items/items.c"
+OBJECTS_PATH = "source/objects/objects.c"
 
 
-def function(source: str, signature: str) -> str:
-    start = source.index(signature)
+def block(source: str, marker: str) -> str:
+    """the brace block that opens at `marker` (an unnamed block inside a function, which has no name to find it by)"""
+    start = source.index(marker)
     opening = source.index("{", start)
     depth = 0
     for position in range(opening, len(source)):
@@ -29,7 +35,7 @@ def function(source: str, signature: str) -> str:
             depth -= 1
             if depth == 0:
                 return source[start:position + 1]
-    raise ValueError(f"Unclosed source function: {signature}")
+    raise ValueError(f"Unclosed source block: {marker}")
 
 
 WEAPON_FIXTURES = r'''
@@ -426,8 +432,8 @@ def test_suite_input_reaches_host_tick_snapshot() -> None:
     if compiler is None:
         raise SkipTest("A C compiler is required for the synthetic input probe")
     synthetic = ""
-    if "void network_test_suite_synthetic_input_tick(" in NETWORK_TEST:
-        synthetic = function(NETWORK_TEST, "void network_test_suite_synthetic_input_tick(")
+    if probe_source.defined(NETWORK_TEST_PATH, "network_test_suite_synthetic_input_tick"):
+        synthetic = probe_source.function(NETWORK_TEST_PATH, "network_test_suite_synthetic_input_tick")
     source = HARNESS
     def control_enum(header, first):
         name = header.index(first)
@@ -437,19 +443,19 @@ def test_suite_input_reaches_host_tick_snapshot() -> None:
 
     for key, value in {
         "__TRACE_TYPE__": NETWORK_TEST[NETWORK_TEST.index("struct network_test_weapon_trace\n{"):NETWORK_TEST.index("};", NETWORK_TEST.index("struct network_test_weapon_trace\n{"))+2],
-        "__WEAPON_FIXTURES__": WEAPON_FIXTURES.replace("__ITEM_INVENTORY__", function(ITEMS, "void item_in_unit_inventory(")).replace("__IMMEDIATE_DELETE__", function(OBJECTS, "void object_delete_immediately(")),
-        "__BOT_WEAPON__": function(NETWORK_TEST, "static void network_test_suite_clear_bot_weapons(") + function(NETWORK_TEST, "static void network_test_suite_observe_weapon(") + function(NETWORK_TEST, "static short network_test_suite_bot_weapon(") if "static short network_test_suite_bot_weapon(" in NETWORK_TEST else "",
+        "__WEAPON_FIXTURES__": WEAPON_FIXTURES.replace("__ITEM_INVENTORY__", probe_source.function(ITEMS_PATH, "item_in_unit_inventory")).replace("__IMMEDIATE_DELETE__", probe_source.function(OBJECTS_PATH, "object_delete_immediately")),
+        "__BOT_WEAPON__": probe_source.function(NETWORK_TEST_PATH, "network_test_suite_clear_bot_weapons") + probe_source.function(NETWORK_TEST_PATH, "network_test_suite_observe_weapon") + probe_source.function(NETWORK_TEST_PATH, "network_test_suite_bot_weapon") if probe_source.defined(NETWORK_TEST_PATH, "network_test_suite_bot_weapon") else "",
         "__UNIT_CONTROL_ENUM__": control_enum(UNIT_HEADER, "_unit_control_crouch_modifier_bit"),
         "__WEAPON_CONTROL_ENUM__": control_enum(WEAPON_HEADER, "_weapon_control_integrated_light_bit"),
-        "__UNIT_DESIRED_WEAPON__": function(function(UNITS, "void unit_control("), "if (control_data->weapon_index!=NONE)"),
-        "__UNIT_PRIMARY_GATE__": function(UNITS, "if (TEST_FLAG(unit->unit.control_flags, _unit_control_weapon_primary_trigger_bit))"),
-        "__ACTION_VALID__": function(QUEUES, "static boolean distributed_action_valid("),
-        "__ADD_TICKS__": function(QUEUES, "static boolean distributed_add_new_ticks("),
-        "__QUEUE_READY__": function(QUEUES, "boolean update_server_player_queue_ready("),
-        "__HANDLE_INPUT__": function(QUEUES, "void update_server_handle_distributed_input("),
+        "__UNIT_DESIRED_WEAPON__": block(probe_source.function(UNITS_PATH, "unit_control"), "if (control_data->weapon_index!=NONE)"),
+        "__UNIT_PRIMARY_GATE__": block(UNITS, "if (TEST_FLAG(unit->unit.control_flags, _unit_control_weapon_primary_trigger_bit))"),
+        "__ACTION_VALID__": probe_source.function(QUEUES_PATH, "distributed_action_valid"),
+        "__ADD_TICKS__": probe_source.function(QUEUES_PATH, "distributed_add_new_ticks"),
+        "__QUEUE_READY__": probe_source.function(QUEUES_PATH, "update_server_player_queue_ready"),
+        "__HANDLE_INPUT__": probe_source.function(QUEUES_PATH, "update_server_handle_distributed_input"),
         "__SYNTHETIC_INPUT__": synthetic,
-        "__NEXT_UPDATE__": function(QUEUES, "void update_server_next_update("),
-        "__TAKE_LOCAL_ACTIONS__": function(QUEUES, "static void update_server_take_local_actions(\n\tvoid)\n{"),
+        "__NEXT_UPDATE__": probe_source.function(QUEUES_PATH, "update_server_next_update"),
+        "__TAKE_LOCAL_ACTIONS__": probe_source.function(QUEUES_PATH, "update_server_take_local_actions"),
     }.items():
         source = source.replace(key, value)
     with tempfile.TemporaryDirectory(prefix="mp-synthetic-input-") as temporary:

@@ -2,8 +2,11 @@
 
 from pathlib import Path
 import re
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 def _read(path):
@@ -12,8 +15,8 @@ def _read(path):
 
 def _update_function():
     source = _read("port/linux/src/d3d8_device.c")
-    start = source.index("int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)\n{\n\tstatic int pause_menu")
-    return source, source[start:source.index("\n}\n", start)]
+    update = probe_source.function_in(source, "halo_ui_pointer_update", which="static int pause_menu")
+    return source, update
 
 
 def test_overlay_covered_by_movie_or_loading_bar():
@@ -39,8 +42,7 @@ def test_host_defaults_hidden_until_guest_says_gameplay():
     assert "BOOL menu=touch_overlay_off();" in touch
     begin = touch.index("touchesBegan")
     assert "touch_overlay_off()" in touch[begin:begin + 900]
-    point = touch.index("- (BOOL)pointInside:")
-    body = touch[point:touch.index("\n}\n", point)]
+    body = probe_source.function_in(touch, "pointInside")
     # (the laptop posture swallows every touch first; the overlay check follows it)
     assert "if(self.laptop)return YES;" in body
     assert "host_touch_replay_blocked(&replay_gate) || touch_overlay_off()" in body

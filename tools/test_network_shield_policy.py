@@ -1,11 +1,16 @@
 """Exercise message 91's real validation and reliable STOCK sends without game data."""
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 def block(source, marker):
+    """The text from `marker` through its closing brace. Kept only because test_network_client_build imports it
+    (rule 3a's legacy list); new code uses probekit.source."""
     start = source.index(marker)
     opening = source.index("{", start)
     depth, end = 1, opening + 1
@@ -16,23 +21,22 @@ def block(source, marker):
 
 
 def test_shield_policy_requires_host_stream_and_sends_stock_on_readiness(tmp_path):
-    source = (ROOT / "port/linux/game/network_distributed.c").read_text()
-    header = (ROOT / "port/linux/game/network_distributed.h").read_text()
-    kinds = block(header, "enum\n{") + ";\n"
-    kinds += block(header, "enum\n{\n\t_distributed_to_clients,") + ";\n"
+    distributed = "port/linux/game/network_distributed.c"
+    header = "port/linux/game/network_distributed.h"
+    kinds = probe_source.region(header, "distributed-message-kinds-enum")
+    kinds += probe_source.region(header, "distributed-routing-enum")
     # A native probe keeps the guest's 32-bit wire stamp, even on LP64 hosts.
-    structures = block(header, "struct distributed_message_header\n{").replace(
-        "long game_time;", "int32_t game_time;") + ";\n"
-    structures += block(header, "struct distributed_shield_policy_message\n{").replace(
-        "unsigned long selector;", "uint32_t selector;") + ";\n"
-    send = block(source, "static void distributed_send_shield_policy(")
-    fill = block(source, "static boolean distributed_fill_header(")
-    reliable_send = block(source, "void distributed_send_to_machine_reliably(")
-    build = block((ROOT / "source/bungie_net/common/message_header.c").read_text(),
-                  "void build_message_header(")
-    validate = block(source, "static boolean distributed_shield_policy_valid(")
-    ready = block(source, "case _distributed_message_client_ready:\n\t{")
-    initial = block(source, "if (!distributed_shield_policy_sent)")
+    structures = probe_source.structure(header, "distributed_message_header").replace(
+        "long game_time;", "int32_t game_time;") + "\n"
+    structures += probe_source.structure(header, "distributed_shield_policy_message").replace(
+        "unsigned long selector;", "uint32_t selector;") + "\n"
+    send = probe_source.function(distributed, "distributed_send_shield_policy")
+    fill = probe_source.function(distributed, "distributed_fill_header")
+    reliable_send = probe_source.function(distributed, "distributed_send_to_machine_reliably")
+    build = probe_source.function("source/bungie_net/common/message_header.c", "build_message_header")
+    validate = probe_source.function(distributed, "distributed_shield_policy_valid")
+    ready = probe_source.region(distributed, "distributed-client-ready-case")
+    initial = probe_source.region(distributed, "distributed-initial-shield-policy")
     program = r'''
 #include <assert.h>
 #include <stdint.h>

@@ -1,25 +1,13 @@
 """Exercise the production video matte draws with a recording D3D device."""
 from pathlib import Path
-import re
 import shutil
 import subprocess
 from unittest import SkipTest
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "source/rasterizer/xbox/rasterizer_xbox_screen_effect.c"
-
-
-def production_function(source, name):
-    match = re.search(r"static boolean " + name + r"\s*\([^)]*\)\s*\{", source)
-    assert match, f"Missing production helper {name}"
-    start = match.start()
-    opening = source.index("{", match.start())
-    depth = 1
-    end = opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 PRELUDE = r"""
@@ -122,7 +110,7 @@ def test_video_matte_draws_preserve_authored_window(tmp_path):
     if not compiler:
         raise SkipTest("A C compiler is required for the cinematic video probe")
     source = SOURCE.read_text()
-    helper = production_function(source, "rasterizer_screen_effect_video_borders")
+    helper = probe_source.function_in(source, "rasterizer_screen_effect_video_borders", "rasterizer_xbox_screen_effect.c")
     path = tmp_path / "video-borders.c"
     binary = tmp_path / "video-borders"
     path.write_text(PRELUDE + helper + CHECKS)

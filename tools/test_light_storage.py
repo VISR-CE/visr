@@ -13,18 +13,9 @@ import sys
 import tempfile
 from pathlib import Path
 from probe_timeouts import PROBE_RUN_SECONDS
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parent.parent
-
-
-def function(source, name):
-    start = re.search(r"(?:static )?void " + re.escape(name) + r"\([^;{]*\)\s*\{", source).start()
-    end = source.index("{", start) + 1
-    depth = 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
 
 
 def owner_definition(source, declaration, export):
@@ -84,9 +75,9 @@ static void csmemset(void *destination, int value, unsigned long bytes) {
     while (bytes--) *out++ = (unsigned char)value;
 }
 '''
-    forget = function(partitions, 'cluster_partition_port_forget')
+    forget = probe_source.function_in(partitions, 'cluster_partition_port_forget', 'cluster_partitions.c')
     owner += forget
-    owner += function(partitions, 'cluster_partition_new')
+    owner += probe_source.function_in(partitions, 'cluster_partition_new', 'cluster_partitions.c')
     owner += '''
 void initialize_partition(void) {
     cluster_partition_new(&light_cluster_partition, "light");

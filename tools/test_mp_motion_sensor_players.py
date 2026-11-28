@@ -9,21 +9,9 @@ import tempfile
 from unittest import SkipTest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 SOURCE = ROOT / "source/interface/motion_sensor.c"
-
-
-def function_source(source: str) -> str:
-    start = source.index("static void motion_sensor_update(\n\tvoid)\n{")
-    opening = source.index("{", start)
-    depth = 0
-    for position in range(opening, len(source)):
-        if source[position] == "{":
-            depth += 1
-        elif source[position] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[start:position + 1]
-    raise ValueError("Unclosed motion_sensor_update")
 
 
 HARNESS = r'''
@@ -120,7 +108,7 @@ def run_probe(path: Path) -> None:
     compiler = shutil.which("clang") or shutil.which("cc")
     if compiler is None:
         raise SkipTest("A C compiler is required for the motion sensor probe")
-    production = function_source(path.read_text())
+    production = probe_source.function(path, "motion_sensor_update")
     with tempfile.TemporaryDirectory(prefix="mp-motion-sensor-") as temporary:
         source = Path(temporary) / "motion_sensor.c"
         binary = Path(temporary) / "motion_sensor"

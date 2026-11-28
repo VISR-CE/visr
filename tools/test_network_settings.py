@@ -1,21 +1,11 @@
 """Exercise the production options reader and fragment receiver with synthetic records."""
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def definition(path, marker):
-    source = (ROOT / path).read_text()
-    start = source.index(marker)
-    opening = source.index("{", start)
-    end, depth = opening + 1, 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    if marker.startswith("struct "):
-        end = source.index(";", end) + 1
-    return source[start:end]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 def compile_run(tmp_path, program):
@@ -28,11 +18,8 @@ def compile_run(tmp_path, program):
 
 
 def test_saved_options_preserve_legacy_and_expanded_layouts(tmp_path):
-    structure = definition("source/game/game_engine.h", "struct game_variant_options\n{")
-    # The first occurrence is the forward declaration; select the definition.
-    text = (ROOT / "source/saved games/playlist_profile.c").read_text()
-    start = text.rindex("static boolean playlist_profile_options_from_block(")
-    reader = definition_text(text[start:])
+    structure = probe_source.structure("source/game/game_engine.h", "game_variant_options")
+    reader = probe_source.function("source/saved games/playlist_profile.c", "playlist_profile_options_from_block")
     program = r'''
 #include <assert.h>
 #include <stdint.h>
@@ -100,18 +87,8 @@ int main(void) {
     compile_run(tmp_path, program.replace("CONTENT_HEADER", str(ROOT / "port/linux/include/halo_network_content.h")))
 
 
-def definition_text(source):
-    opening = source.index("{")
-    end, depth = opening + 1, 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[:end]
-
-
 def test_settings_fragments_convert_only_legacy_hosts(tmp_path):
-    text = (ROOT / "source/networking/network_client_message_handler.c").read_text()
-    receiver = definition_text(text[text.index("static boolean network_game_client_receive_game_settings_piece("):])
+    receiver = probe_source.function("source/networking/network_client_message_handler.c", "network_game_client_receive_game_settings_piece")
     program = r'''
 #include <assert.h>
 #include <stdint.h>
@@ -213,7 +190,7 @@ int main(void) {
 
 
 def test_joined_settings_refuse_unsupported_rules_before_precaching(tmp_path):
-    handler = definition("source/networking/network_client_manager.c", "boolean network_game_client_game_settings_updated(")
+    handler = probe_source.function("source/networking/network_client_manager.c", "network_game_client_game_settings_updated")
     program = r'''
 #include <assert.h>
 #include <string.h>
@@ -284,10 +261,7 @@ int main(void) {
 
 
 def test_original_menu_preserves_options_and_refuses_imported_modes(tmp_path):
-    text = (ROOT / "source/interface/ui_widget_event_handler_functions.c").read_text()
-    marker = "static boolean multiplayer_profile_set_for_game("
-    start = text.rindex(marker)
-    handler = definition_text(text[start:])
+    handler = probe_source.function("source/interface/ui_widget_event_handler_functions.c", "multiplayer_profile_set_for_game")
     program = r'''
 #include <assert.h>
 #include <stdio.h>
@@ -359,9 +333,8 @@ int main(void) {
 
 
 def test_hosted_settings_clear_the_riding_bit_for_43(tmp_path):
-    text = (ROOT / "source/networking/network_server_message_handler.c").read_text()
-    total = definition_text(text[text.index("static long network_game_server_settings_total_size("):])
-    fill = definition_text(text[text.index("static void network_game_server_fill_settings_piece("):])
+    total = probe_source.function("source/networking/network_server_message_handler.c", "network_game_server_settings_total_size")
+    fill = probe_source.function("source/networking/network_server_message_handler.c", "network_game_server_fill_settings_piece")
     program = r'''
 #include <assert.h>
 #include <stdint.h>
@@ -408,8 +381,8 @@ int main(void) {
 def test_hosted_version_is_this_builds_own_unless_43_is_configured(tmp_path):
     """A VISR host speaks 38 unless `network.host_version` is exactly 43; no other value, including a
     joinable 39-41, changes what it hosts. Creating a server applies it and disposing it resets to 38."""
-    text = (ROOT / "source/networking/network_server_manager.c").read_text()
-    configured = definition_text(text[text.index("static unsigned int network_game_server_configured_version("):])
+    manager = "source/networking/network_server_manager.c"
+    configured = probe_source.function(manager, "network_game_server_configured_version")
     program = r'''
 #include <assert.h>
 #include "LIMITS_HEADER"
@@ -430,9 +403,9 @@ int main(void) {
 '''
     compile_run(tmp_path, program.replace("LIMITS_HEADER", str(ROOT / "port/linux/include/halo_port_limits.h")).replace(
         "VERSION_HEADER", str(ROOT / "port/linux/include/halo_network_version.h")))
-    create = definition_text(text[text.index("struct network_game_server *network_game_server_create("):])
+    create = probe_source.function(manager, "network_game_server_create")
     assert "network_game_set_host_version(network_game_server_configured_version());" in create
     assert "delta_legacy_set_hosted_version(network_game_server_configured_version());" in create
-    dispose = definition_text(text[text.index("void network_game_server_dispose("):])
+    dispose = probe_source.function(manager, "network_game_server_dispose")
     assert "network_game_set_host_version(HALO_PORT_NETWORK_VERSION);" in dispose
     assert "delta_legacy_set_hosted_version(0);" in dispose

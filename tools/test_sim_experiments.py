@@ -2,11 +2,14 @@
 the names list of sim_experiments.c, and a catalog case's settings are those names in that order (the bits of a scene's
 sim_experiments), so adding an experiment cannot silently rebind another's index."""
 import re
+import sys
 from pathlib import Path
 
 import benchmark_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 def _names():
@@ -123,8 +126,7 @@ int main(void) {
 
 
 def _record_function():
-    host = (ROOT / 'port/ios/host/host_benchmark.m').read_text()
-    return host[host.index('static void record_applied_settings('):host.index('/* one finished run as a JSON object')]
+    return probe_source.function("port/ios/host/host_benchmark.m", "record_applied_settings")
 
 
 def test_the_run_record_lists_the_same_settings_with_the_configuration_defaults():

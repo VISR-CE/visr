@@ -1,22 +1,11 @@
 """Exercise the actual checkpoint handlers across render rates and tick batches."""
-import re
 import subprocess
 import tempfile
 from pathlib import Path
 
+from probekit import source as probe_source
+
 ROOT = Path(__file__).resolve().parent.parent
-
-
-def function(source, name):
-    match = re.search(r"^(?:static )?[\w *]+\b" + name + r"\(\s*[^;{]*\)\s*\{", source, re.M)
-    if not match:
-        raise ValueError(f"Function not found: {name}")
-    start = source.index("{", match.start())
-    depth, end = 1, start + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
 
 
 PRELUDE = r'''
@@ -172,7 +161,7 @@ int main(void) {
 def main():
     source = (ROOT / "source/main/main.c").read_text()
     names = ["main_save_map_nonsafe", "main_save_map_safe", "main_save_map_no_timeout", "main_save_map_private", "main_steps_each_tick", "main_tick_end"]
-    code = PRELUDE + "\n".join(function(source, name) for name in names) + TESTS
+    code = PRELUDE + "\n".join(probe_source.function_in(source, name, "main.c") for name in names) + TESTS
     with tempfile.TemporaryDirectory(prefix="checkpoint-timing-") as tmp:
         path = Path(tmp) / "test.c"
         binary = Path(tmp) / "test"

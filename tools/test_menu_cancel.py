@@ -5,10 +5,11 @@ screen. The tag loader and game boundaries are replaced, not cancel dispatch,
 history navigation, or handler dispatch. No game data or GPU is required.
 """
 from pathlib import Path
-import re
 import runpy
 import subprocess
 from xml.etree import ElementTree
+
+from probekit import source as probe_source
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,12 +46,11 @@ def test_settings_back_keeps_changes_and_video_applies_on_close():
 
 def test_native_profile_back_saves_and_confirmed_names_save():
     source = (ROOT / 'source/interface/ui_widget_event_handler_functions.c').read_text()
-    signature = 'static boolean player_profile_end_editing(\n\tstruct widget_instance *widget,\n\tstruct event_record *event,\n\tboolean *widget_deleted)\n'
-    handler = block(source, signature)
+    handler = probe_source.function_in(source, 'player_profile_end_editing', 'ui_widget_event_handler_functions.c')
     assert handler.index('pc_menu_profile_save_on_back()') < handler.index('player_ui_end_editing_profile()')
-    playlist = block(source, signature.replace('player_profile_end_editing', 'playlist_profile_end_editing'))
+    playlist = probe_source.function_in(source, 'playlist_profile_end_editing', 'ui_widget_event_handler_functions.c')
     assert 'pc_menu_profile_save_on_back' not in playlist
-    color = block(source, signature.replace('player_profile_end_editing', 'player_profile_color_picker_select_color'))
+    color = probe_source.function_in(source, 'player_profile_color_picker_select_color', 'ui_widget_event_handler_functions.c')
     assert 'return pc_menu_profile_save_on_back();' in color
     keyboard = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
     done = keyboard[keyboard.index('case _vkey_done:', keyboard.index('static boolean virtual_keyboard_select(\n\tvoid)\n{')):]

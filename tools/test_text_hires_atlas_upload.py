@@ -6,19 +6,13 @@ uploads, and checks the count over frames.
 """
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "port/linux/src/text_hires.c"
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
-
-def function(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
+SOURCE = "port/linux/src/text_hires.c"
 
 
 PROGRAM = r'''
@@ -59,11 +53,10 @@ int main(void)
 
 
 def test_atlas_uploads_at_most_once_a_frame(tmp_path):
-    source = SOURCE.read_text()
     production = "\n".join((
         "static unsigned long upload_frame = (unsigned long)-1, current_frame;",
-        function(source, "void text_hires_begin_frame(void)\n"),
-        function(source, "unsigned int text_hires_atlas_texture(unsigned long data)\n")))
+        probe_source.function(SOURCE, "text_hires_begin_frame"),
+        probe_source.function(SOURCE, "text_hires_atlas_texture")))
     program = tmp_path / "atlas.c"
     program.write_text(PROGRAM.replace("/* PRODUCTION */", production))
     binary = tmp_path / "atlas"

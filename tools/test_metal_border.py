@@ -1,21 +1,16 @@
 """Exercise production Metal sampler construction/binding without submitting GPU work."""
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "port/ios/host/gpu_metal.m"
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
-
-def function(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
+PATH = "port/ios/host/gpu_metal.m"
+SOURCE = ROOT / PATH
 
 
 def test_zero_border_resource_transitions_select_and_bind_the_correct_sampler():
@@ -25,22 +20,15 @@ def test_zero_border_resource_transitions_select_and_bind_the_correct_sampler():
     stages_end = source.index("} stage_samplers[GPU_STAGE_COUNT];") + len("} stage_samplers[GPU_STAGE_COUNT];")
     stages_start = source.rfind("static struct", 0, stages_end)
     actual = source[cache_start:cache_end] + "\n"
-    for signature in (
-        "static MTLSamplerBorderColor border_color(",
-        "static unsigned exact_borders(",
-        "static BOOL format_has_alpha(",
-        "static BOOL zero_border_eligible(",
-        "static id<MTLSamplerState> sampler_state(",
-        "static void *sampler_state(",   # (unretained since the draw path's ARC change)
-    ):
+    for name in ("border_color", "exact_borders", "format_has_alpha", "zero_border_eligible", "sampler_state"):
         # The initial red run predates the eligibility helper.
-        if signature in source:
-            actual += function(source, signature) + "\n"
+        if probe_source.defined(PATH, name):
+            actual += probe_source.function(PATH, name) + "\n"
     actual += source[stages_start:stages_end] + "\n"
     # bind_stages records whether it bound the stages' rate map, for the traced light bound after it
     if "static BOOL stages_rate_map;" in source:
         actual += "static BOOL stages_rate_map;\n"
-    actual += function(source, "static void bind_stages(")
+    actual += probe_source.function(PATH, "bind_stages")
     fixture = (ROOT / "port/ios/tests/metal_border_probe.m").read_text()
     with tempfile.TemporaryDirectory(prefix="metal-border-") as directory:
         directory = Path(directory)

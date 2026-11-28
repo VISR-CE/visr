@@ -1,13 +1,18 @@
 """Exercise production game eligibility and LOD consumers without game assets."""
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 def function(text, signature):
+    """The text from `signature` through its closing brace. Kept only because test_profile_checkpoint_hook and
+    test_saved_game_persist import it (rule 3a's legacy list); new code uses probekit.source."""
     start = text.index(signature)
     opening = text.index("{", start)
     end, depth = opening + 1, 1
@@ -28,7 +33,7 @@ def compile_probe(tmp_path, text):
 @pytest.fixture
 def eligibility_probe(tmp_path):
     game = (ROOT / "source/game/game.c").read_text()
-    actual = function(game, "int config_scripted_run(") + "\n" + function(game, "void config_profile_game_safe_point(")
+    actual = probe_source.function_in(game, "config_scripted_run") + "\n" + probe_source.function_in(game, "config_profile_game_safe_point")
     return compile_probe(tmp_path, r'''
 #include <assert.h>
 #include <stdlib.h>
@@ -124,7 +129,7 @@ int main(void) {
 
 def test_level_target_and_sampler_defaults_refresh(tmp_path):
     text = (ROOT / "port/linux/src/d3d8_device.c").read_text()
-    actual = function(text, "static float offscreen_target_scale(") + "\n" + function(text, "static long anisotropy_in_force(")
+    actual = probe_source.function_in(text, "offscreen_target_scale") + "\n" + probe_source.function_in(text, "anisotropy_in_force")
     binary = compile_probe(tmp_path, r'''
 #include <assert.h>
 #include <string.h>
@@ -180,7 +185,7 @@ int main(void) {
 
 def test_stereo_lod_and_hud_resolution_refresh_without_startup(tmp_path):
     text = (ROOT / "port/linux/game/stereo.c").read_text()
-    actual = function(text, "float halo_stereo_lod_scale(") + "\n" + function(text, "float halo_stereo_hud_resolution(")
+    actual = probe_source.function_in(text, "halo_stereo_lod_scale") + "\n" + probe_source.function_in(text, "halo_stereo_hud_resolution")
     binary = compile_probe(tmp_path, r'''
 #include <assert.h>
 #include <math.h>

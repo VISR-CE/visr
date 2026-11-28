@@ -8,26 +8,17 @@ The GPU is replaced by stubs; no game data is needed.
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def function(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 def main():
-    device = (ROOT / "port/linux/src/d3d8_device.c").read_text()
-    xgpu = (ROOT / "port/linux/src/xgpu.h").read_text()
-    finish = function(device, "static void pixel_key_finish(")
-    canonicalize = function(xgpu, "static inline void nv2a_pixel_shader_key_canonicalize(")
+    finish = probe_source.function("port/linux/src/d3d8_device.c", "pixel_key_finish")
+    canonicalize = probe_source.function("port/linux/src/xgpu.h", "nv2a_pixel_shader_key_canonicalize")
     program = r'''
 #include <assert.h>
 #include <stdint.h>

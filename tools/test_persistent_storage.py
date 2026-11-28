@@ -1,25 +1,16 @@
 """Run the real save opener and Save and Quit call chain against temporary files."""
 import os
 from pathlib import Path
-import re
 import shutil
 import subprocess
+import sys
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SIZE = 65536
-
-
-def function(source, name):
-    match = re.search(r"^(?:static )?[\w *]+\b" + name + r"\(\s*[^;{]*\)\s*\{", source, re.M)
-    assert match, name
-    start = source.index("{", match.start())
-    depth, end = 1, start + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[match.start():end]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -31,10 +22,10 @@ def probe(tmp_path_factory):
     ui = (source_root / "source/interface/ui_widget_event_handler_functions.c").read_text()
     persist = (source_root / "port/linux/game/saved_game_persist.c").read_text()
     functions = "\n".join([
-        function(storage, "game_state_open_persistent_storage"),
-        function(persist, "saved_game_persist_allowed"),
-        function(state, "game_state_save_to_persistent_storage"),
-        function(ui, "pause_game_quit_to_main_menu"),
+        probe_source.function_in(storage, "game_state_open_persistent_storage"),
+        probe_source.function_in(persist, "saved_game_persist_allowed"),
+        probe_source.function_in(state, "game_state_save_to_persistent_storage"),
+        probe_source.function_in(ui, "pause_game_quit_to_main_menu"),
     ])
     harness = (ROOT / "tools/harness/tests/persistent_storage.c").read_text()
     source = folder / "probe.c"

@@ -5,10 +5,12 @@ the backend's release path is checked against every resource its traced sections
 from pathlib import Path
 import re
 import subprocess
-
-from scene_class_test import extract_function
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
+
 DEVICE = ROOT / "port/linux/src/d3d8_device.c"
 CASTERS = ROOT / "port/linux/game/traced_shadow_casters.c"
 METAL = ROOT / "port/ios/host/gpu_metal.m"
@@ -163,9 +165,9 @@ def compile_harness(tmp_path, name, harness, functions):
 def front_end(tmp_path):
     source = DEVICE.read_text()
     return compile_harness(tmp_path, "front-end", FRONT_END, {
-        "/*@release@*/": extract_function(source, "static void traced_shadows_release(void)"),
-        "/*@releases@*/": extract_function(source, "unsigned long halo_traced_shadows_releases(void)"),
-        "/*@frame_on@*/": extract_function(source, "static BOOL traced_shadows_frame_on(void)"),
+        "/*@release@*/": probe_source.function_in(source, "traced_shadows_release"),
+        "/*@releases@*/": probe_source.function_in(source, "halo_traced_shadows_releases"),
+        "/*@frame_on@*/": probe_source.function_in(source, "traced_shadows_frame_on"),
     })
 
 
@@ -194,8 +196,9 @@ def test_only_the_step_from_on_to_off_releases(tmp_path):
 def game(tmp_path):
     source = CASTERS.read_text()
     return compile_harness(tmp_path, "game", GAME, {
-        "/*@new_map@*/": extract_function(source, "void traced_shadow_casters_new_map("),
-        "/*@window_begin@*/": extract_function(source, "boolean traced_shadow_casters_window_begin("),
+        "/*@new_map@*/": probe_source.function_in(source, "traced_shadow_casters_new_map", which="traced.epoch++;"),
+        "/*@window_begin@*/": probe_source.function_in(source, "traced_shadow_casters_window_begin",
+                                                            which="traced_shadow_casters_new_map();"),
     })
 
 
@@ -208,15 +211,13 @@ def test_the_game_sends_everything_again_in_a_new_epoch_after_a_release(tmp_path
     assert (resets, epoch) == ("2", "2")
 
 
-def traced_sections(text):
-    start = text.index("/* ---------- traced object shadows")
-    end = text.index("static uint32_t gpu_metal_draw(", start)
-    return text[start:end]
+def traced_sections(path):
+    return probe_source.region(path, "traced-sections")
 
 
 def test_every_resource_tracing_makes_is_given_back_by_the_one_release_path():
     text = METAL.read_text()
-    sections = traced_sections(text)
+    sections = traced_sections(METAL)
     declared = set()
     # (a strong static inside a function is declared here too: traced_release cannot name it, so it fails, which is
     # the point, since it would outlive every release)
@@ -226,12 +227,12 @@ def test_every_resource_tracing_makes_is_given_back_by_the_one_release_path():
             name = re.findall(r"\*?\s*(\w+)\s*(?:\[[^\]]*\])?\s*$", part.strip())
             assert name, part
             declared.add(name[0])
-    release = extract_function(text, "static void traced_release(uint32_t epoch)")
+    release = probe_source.function_in(text, "traced_release")
     for name in sorted(declared - KEPT):
         assert re.search(rf"\b{name}(\[\w+\])?\s*=\s*nil;", release), f"{name} is not given back by traced_release"
     assert "free(traced.part_vertices[index]);" in release
     # the release is carried out even after a failure, before the backend asks whether tracing is ready
-    data = extract_function(text, "static void gpu_metal_traced_shadows_data(")
+    data = probe_source.function_in(text, "gpu_metal_traced_shadows_data")
     assert data.index("traced_release(id)") < data.index("gpu_metal_traced_shadows_ready(")
 
 
@@ -264,8 +265,8 @@ def test_every_pending_build_that_is_dropped_forgets_its_slot():
     # a build or refit queued for the frame either reaches the encoder or is dropped; a dropped one must forget its
     # slot (traced_forget), or the cache keeps believing the structure holds a pose it never got
     text = METAL.read_text()
-    release = extract_function(text, "static void traced_release(uint32_t epoch)")
-    sections = traced_sections(text).replace(release, "")
+    release = probe_source.function_in(text, "traced_release")
+    sections = traced_sections(METAL).replace(release, "")
     drops = list(re.finditer(r"traced_pending_descriptors\[([^\]]+)\]\s*=\s*nil;", sections))
     assert len(drops) >= 3, "the frame check, the scratch failure and the commit each drop pending descriptors"
     for drop in drops:

@@ -1,30 +1,23 @@
 """Distributed wire framing: byte-identical below 42, an epoch after the header from 42."""
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from probekit import source as probe_source  # noqa: E402
 
-
-def block(source, marker):
-    start = source.index(marker)
-    opening = source.index("{", start)
-    depth, end = 1, opening + 1
-    while depth:
-        depth += (source[end] == "{") - (source[end] == "}")
-        end += 1
-    return source[start:end]
+DISTRIBUTED = "port/linux/game/network_distributed.c"
+HEADER = "port/linux/game/network_distributed.h"
 
 
 def test_wire_copy_is_identity_below_42_and_round_trips_the_epoch(tmp_path):
-    source = (ROOT / "port/linux/game/network_distributed.c").read_text()
-    header = (ROOT / "port/linux/game/network_distributed.h").read_text()
-    structures = block(header, "struct distributed_message_header\n{").replace(
-        "long game_time;", "int32_t game_time;") + ";\n"
-    build = block((ROOT / "source/bungie_net/common/message_header.c").read_text(),
-                  "void build_message_header(")
-    epoch_size = block(source, "unsigned long network_distributed_wire_epoch_size(")
-    wire_copy = block(source, "word network_distributed_wire_copy(")
-    strip = block(source, "static boolean distributed_strip_epoch(")
+    structures = probe_source.structure(HEADER, "distributed_message_header").replace(
+        "long game_time;", "int32_t game_time;") + "\n"
+    build = probe_source.function("source/bungie_net/common/message_header.c", "build_message_header")
+    epoch_size = probe_source.function(DISTRIBUTED, "network_distributed_wire_epoch_size")
+    wire_copy = probe_source.function(DISTRIBUTED, "network_distributed_wire_copy")
+    strip = probe_source.function(DISTRIBUTED, "distributed_strip_epoch")
     program = r'''
 #include <assert.h>
 #include <stdint.h>
